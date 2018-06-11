@@ -1,9 +1,11 @@
 # Test generation
 
 
-> Test generation is, as of Kind 2 1.0, still a rather experimental feature.
-> There is a lot of room for improvement and the Kind 2 team is eagerly
-> awaiting feedback / bug reports.
+> **Disclaimer:** Test generation is, as of Kind 2 1.0, still a rather experimental
+> feature. In particular, it works only for models whose nodes have inputs and outputs 
+> of simple type (int, real, bool, and enum), not structured type (record, tuple, or 
+> array). There is a lot of room for improvement and the Kind 2 team welcomes
+> feedback / bug reports.
 
 
 Most test generation techniques analyze the syntax of the model they run on to
@@ -122,7 +124,7 @@ Yes they are. There is no way to completely abstract the model/prototype away,
 nor is it desirable. Generating test cases solely on the specification is not
 realistic unless the specification is extremely strong and precise, which it
 very rarely is. (Also, if it was, it would arguably be easier to produce
-the object code as a refinement of the specification using B-method for
+the object code as a refinement of the specification using the B-method for
 instance.)
 
 
@@ -156,7 +158,7 @@ a *step* or *cycle* for the SUT, the workflow is
 * read the truth values for the original contract on the oracle's standard
   output
 
-**N.B.** In general the values for the contract depends on previous values
+**Note:** In general, the values for the contract depend on previous values
 of the SUT's inputs / outputs. In the workflow described above, the oracle
 *keeps running between each step* so that it can remember the information it
 needs from the previous steps to produce the next guarantee/mode truth values.
@@ -169,6 +171,8 @@ is available here:
 
 > [https://github.com/kind2-mc/teas](https://github.com/kind2-mc/teas)
 
-`Teas` is written in Python, and is able to confront a binary with Kind 2's
-test cases using the oracle described above. Like the Kind 2's test generation
-feature, `Teas` is in an experimental and unstable state.
+`Teas` is written in Python, and is able to compare a binary with Kind 2's
+test cases using the oracle described above. 
+
+> **Disclaimer:** Like Kind 2's test generation feature, `Teas` is in an 
+> experimental and unstable state.

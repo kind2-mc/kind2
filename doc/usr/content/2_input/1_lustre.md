@@ -367,7 +367,7 @@ guarantee true -> ( -- `m1`, `m2` and `m3` are exclusive.
 
 ### Merge, When, Activate and Restart
 
-> **Disclaimer**: the first few examples of this section illustrating (unsafe)
+> **Note**: the first few examples of this section illustrating (unsafe)
 > uses of `when` and `activate` are **not legal** in Kind 2. They aim at
 > introducing the semantics of lustre clocks. As discussed below, they are only
 > legal when used inside a `merge`, hence making them safe clock-wise.
@@ -390,17 +390,18 @@ let
 tel
 ```
 
-Here, `x` is only defined when `in_pos`, its clock, is `true`. That is, with
-`nil` the undefined value, a trace of execution of `example` sliced to `x`
-could be
+Here, `x` is only defined when `in_pos`, its clock, is `true`. 
+That is, a trace of execution of `example` sliced to `x` could be
 
-| step |   | `in` | `in_pos` |  `x`  |
-|:----:|---|:----:|:--------:|:-----:|
-| 0    |   | `3`  |   `true` | `3`   |
-| 1    |   | `-2` |  `false` | `nil` |
-| 0    |   | `-1` |  `false` | `nil` |
-| 1    |   | `7`  |   `true` | `7`   |
-| 0    |   | `42` |   `true` | `42`  |
+| step |   | `in` | `in_pos` | `x` |
+|:----:|---|:----:|:--------:|:---:|
+| `0` | | `3` | `true` | `3` |
+| `1` | | `-2` | `false` | // |
+| `2` | | `-1` | `false` | // |
+| `3` | | `7` | `true` | `7` |
+| `4` | | `-42` | `true` | // |
+
+where // indicates that `x` undefined.
 
 The second way to define a stream on a clock is to wrap a node call with the
 `activate` keyword. The syntax for this is
@@ -558,7 +559,7 @@ A trace of execution for the node top could be:
 | 8    |   |  `true` |   0 |
 | 9    |   | `false` |   1 |
 
-> Remark: This construction can be encoded in traditional Lustre by having a
+> **Note:** This construction can be encoded in traditional Lustre by having a
 > Boolean input for the reset stream for each node. However providing a
 > built-in  way to do it facilitates the modeling of complex control systems.
 
@@ -652,7 +653,7 @@ library.
 node imported no_body (inputs: ...) returns (outputs: ...) ;
 ```
 
-In Kind 2, this means that the node is always abstract in the contract-sense.
+In Kind 2, this means that the node is always abstract in the contract sense.
 It can never be refined, and is always abstracted by its contract. If none is
 given, then the implicit (rather weak) contract
 
