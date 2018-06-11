@@ -127,6 +127,9 @@ type interpreted_symbol =
   | `TO_REAL              (** Conversion to a floating-point decimal (unary) *)
   | `TO_INT               (** Conversion to an integer numeral (unary) *)
   | `TO_INT8              (** Conversion to an integer8 numeral (unary) *)  
+  | `TO_INT16             (** Conversion to an integer16 numeral (unary) *)  
+  | `TO_INT32             (** Conversion to an integer32 numeral (unary) *)  
+  | `TO_INT64             (** Conversion to an integer64 numeral (unary) *)  
   | `IS_INT               (** Real is an integer (unary) *)
 
   | `DIVISIBLE of Numeral.t

@@ -509,9 +509,18 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                (* Fail on conversion to integer *)
                | `TO_INT, _ -> raise Not_in_LIA
 
-               (* Fail on conversion to integer *)
+               (* Fail on conversion to integer8 *)
                | `TO_INT8, _ -> raise Not_in_LIA
-          
+
+               (* Fail on conversion to integer16 *)
+               | `TO_INT16, _ -> raise Not_in_LIA
+
+               (* Fail on conversion to integer32 *)
+               | `TO_INT32, _ -> raise Not_in_LIA
+
+               (* Fail on conversion to integer64 *)
+               | `TO_INT64, _ -> raise Not_in_LIA
+
                (* Fail on coincidence with integer predicate *)
                | `IS_INT, _ -> raise Not_in_LIA
 

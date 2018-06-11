@@ -189,6 +189,9 @@ let string_symbol_list =
    ("to_real", Symbol.mk_symbol `TO_REAL);
    ("to_int", Symbol.mk_symbol `TO_INT);
    ("to_int8", Symbol.mk_symbol `TO_INT8);
+   ("to_int16", Symbol.mk_symbol `TO_INT16);
+   ("to_int32", Symbol.mk_symbol `TO_INT32);
+   ("to_int64", Symbol.mk_symbol `TO_INT64);
    (* ("is_int", Symbol.mk_symbol `IS_INT); *)
 (*
    ("bv-concat", Symbol.mk_symbol `CONCAT);
@@ -260,6 +263,9 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
   | `TO_INT8 -> Format.pp_print_string ppf "to_int8"
+  | `TO_INT16 -> Format.pp_print_string ppf "to_int16"
+  | `TO_INT32 -> Format.pp_print_string ppf "to_int32"
+  | `TO_INT64 -> Format.pp_print_string ppf "to_int64"
   | `IS_INT -> failwith "is_int not implemented for yices"
 
   | `DIVISIBLE n ->

@@ -184,6 +184,15 @@ val mk_to_int : t -> t
 (** Create a conversion to an integer8 numeral *)
 val mk_to_int8 : t -> t
 
+(** Create a conversion to an integer16 numeral *)
+val mk_to_int16 : t -> t
+
+(** Create a conversion to an integer32 numeral *)
+val mk_to_int32 : t -> t
+
+(** Create a conversion to an integer64 numeral *)
+val mk_to_int64 : t -> t
+
 (** Create a predicate for coincidence of a real with an integer *)
 val mk_is_int : t -> t
 

@@ -348,6 +348,15 @@ val mk_to_int : t -> t
 (** Return a conversion to an integer8 numeral. *)
 val mk_to_int8 : t -> t
 
+(** Return a conversion to an integer16 numeral. *)
+val mk_to_int16 : t -> t
+
+(** Return a conversion to an integer32 numeral. *)
+val mk_to_int32 : t -> t
+
+(** Return a conversion to an integer64 numeral. *)
+val mk_to_int64 : t -> t
+
 (** Return a conversion to a floating-point decimal. *)
 val mk_to_real : t -> t
 

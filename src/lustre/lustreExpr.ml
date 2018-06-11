@@ -307,6 +307,9 @@ let string_of_symbol = function
   | `TO_REAL -> "real"
   | `TO_INT -> "int"
   | `TO_INT8 -> "int8"
+  | `TO_INT16 -> "int16"
+  | `TO_INT32 -> "int32"
+  | `TO_INT64 -> "int64"
   | _ -> failwith "string_of_symbol"
 
 
@@ -534,6 +537,9 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `TO_REAL
   | `TO_INT
   | `TO_INT8
+  | `TO_INT16
+  | `TO_INT32
+  | `TO_INT64
   | `ABS as s -> 
 
     (function [a] -> 
@@ -1490,6 +1496,105 @@ let mk_to_int8 expr = mk_unary eval_to_int8 type_of_to_int8 expr
 
 (* ********************************************************************** *)
 
+
+(* Evaluate conversion to integer16 *)
+let eval_to_int16 expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt || Type.is_int16 tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_decimal s ->
+      Term.mk_num
+        (Numeral.of_big_int
+           (Decimal.to_big_int
+              (Symbol.decimal_of_symbol s)))
+
+    | _ -> Term.mk_to_int16 expr
+    | exception Invalid_argument _ -> Term.mk_to_int16 expr
+
+
+(* Type of conversion to integer16  
+
+   int: real -> int16 
+*)
+let type_of_to_int16 = function
+  | t when Type.is_real t -> Type.t_int
+  | t when Type.is_int16 t || Type.is_int t || Type.is_int_range t -> Type.t_int16
+  | _ -> raise Type_mismatch
+
+
+(* Conversion to integer16 *)
+let mk_to_int16 expr = mk_unary eval_to_int16 type_of_to_int16 expr
+
+
+(* ********************************************************************** *)
+
+(* Evaluate conversion to integer32 *)
+let eval_to_int32 expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt || Type.is_int32 tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_decimal s ->
+      Term.mk_num
+        (Numeral.of_big_int
+           (Decimal.to_big_int
+              (Symbol.decimal_of_symbol s)))
+
+    | _ -> Term.mk_to_int32 expr
+    | exception Invalid_argument _ -> Term.mk_to_int32 expr
+
+
+(* Type of conversion to integer32  
+
+   int: real -> int32 
+*)
+let type_of_to_int32 = function
+  | t when Type.is_real t -> Type.t_int
+  | t when Type.is_int32 t || Type.is_int t || Type.is_int_range t -> Type.t_int32
+  | _ -> raise Type_mismatch
+
+
+(* Conversion to integer32 *)
+let mk_to_int32 expr = mk_unary eval_to_int32 type_of_to_int32 expr
+
+
+(* ********************************************************************** *)
+
+(* Evaluate conversion to integer64 *)
+let eval_to_int64 expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt || Type.is_int64 tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_decimal s ->
+      Term.mk_num
+        (Numeral.of_big_int
+           (Decimal.to_big_int
+              (Symbol.decimal_of_symbol s)))
+
+    | _ -> Term.mk_to_int64 expr
+    | exception Invalid_argument _ -> Term.mk_to_int64 expr
+
+
+(* Type of conversion to integer64  
+
+   int: real -> int64 
+*)
+let type_of_to_int64 = function
+  | t when Type.is_real t -> Type.t_int
+  | t when Type.is_int64 t || Type.is_int t || Type.is_int_range t -> Type.t_int64
+  | _ -> raise Type_mismatch
+
+
+(* Conversion to integer64 *)
+let mk_to_int64 expr = mk_unary eval_to_int64 type_of_to_int64 expr
+
+
+(* ********************************************************************** *)
 
 (* Evaluate conversion to real *)
 let eval_to_real expr =
