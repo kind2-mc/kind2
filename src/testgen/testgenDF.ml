@@ -45,7 +45,7 @@ let next_tc_comm = ref delta_tc_comm
 let log_prefix = "[TESTGEN] "
 
 (* Output statistics *)
-let print_stats () = Event.stat [
+let print_stats () = KEvent.stat [
   Stat.misc_stats_title, Stat.misc_stats ;
   Stat.testgen_stats_title, Stat.testgen_stats ;
   Stat.smt_stats_title, Stat.smt_stats
@@ -88,7 +88,7 @@ let rec enumerate target io solver tree modes contract_term =
     let tc_count = IO.testcase_count io in
     if tc_count >= !next_tc_comm then (
       next_tc_comm := tc_count + delta_tc_comm ;
-      Event.log_uncond "%s%d testcases generated." log_prefix tc_count
+      KEvent.log_uncond "%s%d testcases generated." log_prefix tc_count
     ) ;
 
     (* Format.printf "  tree: %a@." Tree.pp_print_tree tree ; *)
@@ -147,7 +147,7 @@ and forward target io solver tree modes contract_term =
   (* Resetting if too many fresh actlits have been created. *)
   let solver = if Actlit.fresh_actlit_count () >= 10 then (
       Stat.incr Stat.testgen_restarts ;
-      Event.log L_info "%sRestarting solver." log_prefix ;
+      KEvent.log L_info "%sRestarting solver." log_prefix ;
       Actlit.reset_fresh_actlit_count () ;
       let solver = Solver.restart solver in
       solver_ref := Some solver ;
@@ -172,7 +172,7 @@ and forward target io solver tree modes contract_term =
       | Some (map,()) ->
         (* Extracting modes activated @k by the model. *)
         let active = active_modes_of_map map in
-        (* Event.log L_info "%sGoing forward (%a): @[<hov><%a>@]."
+        (* KEvent.log L_info "%sGoing forward (%a): @[<hov><%a>@]."
           log_prefix
           Num.pp_print_numeral k
           (pp_print_list
@@ -183,7 +183,7 @@ and forward target io solver tree modes contract_term =
         loop ()
       | None ->
         (* Deadlock. *)
-        Event.log
+        KEvent.log
           L_warn "%sDeadlock found (%a)" log_prefix Tree.pp_print_tree tree ;
         let k = Num.pred k in
         ( match Solver.checksat solver k mode_path [] [] get_model with
@@ -215,7 +215,7 @@ and backward target io solver tree modes contract_term =
     Tree.pop tree ;
     (* Format.printf "  popped tree: %a@." Tree.pp_print_tree tree ; *)
     let k = Tree.depth_of tree in
-    (* Event.log L_info "%sGoing backward (%a)."
+    (* KEvent.log L_info "%sGoing backward (%a)."
       log_prefix Num.pp_print_numeral (Num.succ k) ; *)
     let modes = modes |> List.map (fun (n,t) -> n, Term.bump_state k t) in
     let contract_term = Term.bump_state k contract_term in
@@ -227,7 +227,7 @@ and backward target io solver tree modes contract_term =
     | Some (map,()) ->
         (* Extracting modes activated @k by the model. *)
         let active = active_modes_of_map map in
-        (* Event.log L_info "%sGoing up (%a): @[<hov><%a>@]."
+        (* KEvent.log L_info "%sGoing up (%a): @[<hov><%a>@]."
           log_prefix
           Num.pp_print_numeral (Num.succ k)
           (pp_print_list
@@ -256,7 +256,7 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> string list
       if value then key :: a, c else a, key :: c
     ) (Analysis.info_of_param param).Analysis.abstraction_map ([],[])
   in
-  Event.log_uncond "%s@[<v>\
+  KEvent.log_uncond "%s@[<v>\
       Launching on %a.@ \
       concrete subsystems: [ @[<hov>%a@] ]@ \
       abstract subsystems: [ @[<hov>%a@] ]\
@@ -311,11 +311,11 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> string list
   ( try forward target io solver tree modes mode_term with
     | TestgenTree.TopReached ->
       Stat.get Stat.testgen_testcases
-      |> Event.log_uncond "%sDone, %d testcases generated." log_prefix ;
+      |> KEvent.log_uncond "%sDone, %d testcases generated." log_prefix ;
       ( match Stat.get Stat.testgen_deadlocks with
         | 0 -> ()
         | n ->
-          Event.log L_warn "%s/!\\ %d deadlocks found /!\\" log_prefix n
+          KEvent.log L_warn "%s/!\\ %d deadlocks found /!\\" log_prefix n
       )
   ) ;
   Stat.testgen_stop_timers () ;

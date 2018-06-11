@@ -160,10 +160,8 @@ In addition, we also enriched the specification language of Kind 2 to support
 
 Equations in the body of nodes can now take the following forms
 
-- `A[2] = <term> ;` This equation defines the element at index `2` to the value
-  `<term>`, the other elements are undefined. This form of *single point*
-  updates can only be written when the selections on the left of the equation
-  are at constant literal integers.
+- `A = <term> ;` This equation defines the values of the array `A` to be the same
+  as the values of the array expression `<term>`.
 
 - `A[i] = <term(i)> ;` This equation defines the values of all elements in the
   array `A`. The index `i` has to be a symbol, it is bound locally to the
@@ -173,11 +171,6 @@ Equations in the body of nodes can now take the following forms
   this index. The meaning of the equation is that, for any integer `i` between
   0 and the size of `A`, the value at position `i` is defined as the term
   `<term(i)>`.
-
-- `A = B ;` This equation defines the values of the array `A` to be the same as
-  the values of `B`. This equation is equivalent to the equation `A[i] = B[i]
-  ;`.
-
 
 Semantically, a whole array equation is equivalent to a quantified
 equation. Let `A` be an array of size an integer constant `n`, then following 

@@ -581,19 +581,8 @@ let get = function None -> raise (Invalid_argument "get") | Some x -> x
    [s2] are ientical to [s2]. Return false if [s2] is longer than
    [s1]. *)
 let string_starts_with s1 s2 = 
-
-  (* First string is shorter than second? *)
-  if Bytes.length s1 < Bytes.length s2 then false else
-
-    (* Create string of length of [s2] *)
-    let s1' = Bytes.create (Bytes.length s2) in
-
-    (* Copy characters from [s1] *)
-    Bytes.blit s1 0 s1' 0 (Bytes.length s2);
-
-    (* Return true if strings are identical *)
-    s1' = s2
-
+  (String.length s1 >= String.length s2) &&
+  (String.sub s1 0 (String.length s2) = s2)
 
 
 
@@ -1006,13 +995,15 @@ let pp_print_position ppf (
 
     fprintf ppf "%s" pos_fname
 
+  else if pos_fname <> "" then
+
+    fprintf ppf "%s:%d:%d" pos_fname pos_lnum pos_cnum
+
   else
 
     fprintf 
       ppf
-      "@[<hv>%tline %d@ col. %d@]"
-      (function ppf -> 
-        if pos_fname = "" then () else fprintf ppf "%s@ " pos_fname)
+      "@[<hv>line %d@ col. %d@]"
       pos_lnum
       pos_cnum
 

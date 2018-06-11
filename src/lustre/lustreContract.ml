@@ -75,16 +75,14 @@ let mk_mode name pos path requires ensures candidate = {
 
 type t = {
   assumes: svar list ;
+  sofar_assump: StateVar.t ;
   guarantees: (svar * bool) list ;
   modes: mode list ;
 }
 
-let empty () = {
-  assumes = [] ; guarantees = [] ; modes = []
-}
 
-let mk assumes guarantees modes = {
-  assumes ; guarantees ; modes
+let mk assumes sofar_assump guarantees modes = {
+  assumes ; sofar_assump ; guarantees ; modes
 }
 
 
@@ -119,8 +117,14 @@ let svars_of_modes modes set = modes |> List.fold_left (
 ) set
 
 
-let svars_of { assumes ; guarantees ; modes } =
-  svars_of_list assumes SVarSet.empty
+let svars_of { assumes ; sofar_assump ; guarantees ; modes } =
+  let initial_set =
+    if assumes <> [] then
+      SVarSet.singleton sofar_assump
+    else
+      SVarSet.empty
+  in
+  svars_of_list assumes initial_set
   |> svars_of_plist guarantees
   |> svars_of_modes modes
 
@@ -274,6 +278,61 @@ module ModeTrace = struct
     ) ;
 
     loop [] trees
+
+  (** Formats a tree as a cex step in JSON *)
+  let fmt_as_cex_step_json fmt (top_mods, trees) =
+
+    let pp_print_list_attrib pp ppf = function
+      | [] -> Format.fprintf ppf " []"
+      | lst -> Format.fprintf ppf
+        "@,[@[<v 1>@,%a@]@,]" (pp_print_list pp ",@,") lst
+    in
+
+    let rec loop right = function
+      | (Contract (name, modes, subs)) :: tail ->
+        Format.fprintf fmt
+          "@,{@[<v 1>@,\
+            \"contract\" : \"%s\",@,\
+            \"modes\" :%a,@,\
+            \"subcontractModes\" :\
+          "
+          name (pp_print_list_attrib Format.pp_print_string) modes;
+        if subs = [] then (
+          Format.fprintf fmt " []"; loop (tail :: right) subs
+        )
+        else (
+          Format.fprintf fmt "@,[@[<v 1>@,";
+          loop (tail :: right) subs;
+          Format.fprintf fmt "@]@,]"
+        )
+      | [] -> go_up right
+    and go_up = function
+      | head :: tail -> (
+        match head with
+        | [] -> (
+          Format.fprintf fmt "@]@,}";
+          go_up tail
+        )
+        | _ -> (
+          Format.fprintf fmt "@]@,},";
+          loop tail head
+        )
+      )
+      | [] -> ()
+    in
+
+    Format.fprintf fmt
+      "\"topModes\" :%a,@,\
+       \"contractModes\" :\
+      "
+      (pp_print_list_attrib Format.pp_print_string) top_mods;
+
+    if trees = [] then Format.fprintf fmt " []"
+    else (
+      Format.fprintf fmt "@,[@[<v 1>";
+      loop [] trees;
+      Format.fprintf fmt "@]@,]"
+    )
 
 end
 

@@ -131,6 +131,9 @@ type t = {
   guard them. *)
   guard_pre : bool;
 
+  (* Indicates if we are evaluating an automaton *)
+  in_automaton : bool;
+
   free_constants : (Var.t D.t) IT.t;
   
 }
@@ -166,6 +169,7 @@ let mk_empty_context () =
       locals_info = [];
       outputs_info = [];
       guard_pre = false;
+      in_automaton = false;
       free_constants = IT.create 7;
     }
   in
@@ -178,16 +182,45 @@ let reset_guard_flag ctx = { ctx with guard_pre = false }
 
 let guard_flag ctx = ctx.guard_pre
 
-(* Raise parsing exception *)
-let fail_at_position pos msg = 
-  Log.log L_error "Parser error at %a: @[<v>%s@]"
-    Lib.pp_print_position pos msg;
-  raise A.Parser_error
-  
+let set_in_automaton ctx b = { ctx with in_automaton = b }
+
+let reset_in_automaton ctx = { ctx with in_automaton = false }
+
+let in_automaton ctx = ctx.in_automaton
+
 
 (* Raise parsing exception *)
-let warn_at_position pos msg = 
-  Log.log L_warn "Parser warning at %a: %s" Lib.pp_print_position pos msg
+let fail_at_position_pt pos msg =
+  Log.log L_error "Parser error at %a: @[<v>%s@]"
+    Lib.pp_print_position pos msg
+
+let fail_at_position pos msg =
+  (match Log.get_log_format () with
+   | Log.F_pt -> fail_at_position_pt pos msg
+   | Log.F_xml -> Log.parse_log_xml L_error pos msg
+   | Log.F_json -> Log.parse_log_json L_error pos msg
+   | Log.F_relay -> ()
+  );
+  raise A.Parser_error
+
+
+let warn_at_position_pt level pos msg =
+  Log.log level "Parser warning at %a: %s" Lib.pp_print_position pos msg
+
+let warn_at_position pos msg =
+  match Log.get_log_format () with
+  | Log.F_pt -> warn_at_position_pt L_warn pos msg
+  | Log.F_xml -> Log.parse_log_xml L_warn pos msg
+  | Log.F_json -> Log.parse_log_json L_warn pos msg
+  | Log.F_relay -> ()
+
+
+let note_at_position pos msg = 
+  match Log.get_log_format () with
+  | Log.F_pt -> warn_at_position_pt L_note pos msg
+  | Log.F_xml -> Log.parse_log_xml L_note pos msg
+  | Log.F_json -> Log.parse_log_json L_note pos msg
+  | Log.F_relay -> ()
 
 
 (* Raise parsing exception *)
@@ -619,16 +652,7 @@ let mk_state_var
      x_y.z  [2]
 
   *)
-  let flatten_scopes = 
-    List.rev_map
-      (fun i -> 
-         string_of_t (D.pp_print_one_index true) i
-         |> String.length
-         |> string_of_int
-         |> Ident.of_string)
-      index 
-    |> Scope.mk_scope
-  in
+  let flatten_scopes = D.mk_scope_for_index index in
 
   (* Create or retrieve state variable *)
   let state_var =
@@ -804,6 +828,14 @@ let node_in_context ctx ident =
   N.exists_node_of_name ident (get_nodes ctx)
     
 
+(* Return true if property name has been declared in the context *)
+let prop_name_in_context ctx ident =
+  match ctx with
+  | { node = None } -> false
+  | { node = Some ({ N.props }) } ->
+    List.exists (fun (_, name, _) -> name = ident) props
+
+
 (* Add newly created variable to locals *)
 let add_state_var_to_locals = function 
   | { node = None } -> (function _ -> assert false)
@@ -951,7 +983,7 @@ let close_expr ?(bounds=[]) ?original pos ({ E.expr_init } as expr, ctx) =
   else
 
     let rctx = ref ctx in
-    let expr_init = E.map_vars (fun var ->
+    let expr_init = E.map_vars_expr (fun var ->
         if Var.is_state_var_instance var &&
            Numeral.(Var.offset_of_state_var_instance var < E.base_offset) then
           let state_var = Var.state_var_of_state_var_instance var in
@@ -1236,7 +1268,7 @@ let mk_local_for_expr
         | None -> raise (Invalid_argument "mk_local_for_expr")
 
         (* Add to locals *)
-        | Some node ->
+        | Some _ ->
 
           (* Guard unguarded pres before adding definition *)
           let expr', ctx = close_expr ?bounds ?original pos (expr, ctx) in
@@ -1254,6 +1286,8 @@ let mk_local_for_expr
           in
 
           let ctx =
+            (* Get most updated version of node *)
+            let node = get (get_node ctx) in
             if is_ghost then (
               (* Don't change source of svar if already there. *)
               try
@@ -1634,9 +1668,12 @@ let add_node_ass ctx assumes =
     | { node = None } -> raise (Invalid_argument "add_node_global_contract")
 
     | { node = Some ({ N.contract } as node) } ->
-      let contract = match contract with
-        | None -> C.mk assumes [] []
-        | Some contract -> C.add_ass contract assumes
+      let contract, ctx = match contract with
+        | None -> (
+          let svar, ctx = mk_fresh_local ctx Type.t_bool in
+          C.mk assumes svar [] [], ctx
+        )
+        | Some contract -> C.add_ass contract assumes, ctx
       in
       (* Return node with contract added *)
       { ctx with node = Some { node with N.contract = Some contract } }
@@ -1649,9 +1686,12 @@ let add_node_gua ctx guarantees =
     | { node = None } -> raise (Invalid_argument "add_node_global_contract")
 
     | { node = Some ({ N.contract } as node) } ->
-      let contract = match contract with
-        | None -> C.mk [] guarantees []
-        | Some contract -> C.add_gua contract guarantees
+      let contract, ctx = match contract with
+        | None -> (
+          let svar, ctx = mk_fresh_local ctx Type.t_bool in
+          C.mk [] svar guarantees [], ctx
+        )
+        | Some contract -> C.add_gua contract guarantees, ctx
       in
       (* Return node with contract added *)
       { ctx with node = Some { node with N.contract = Some contract } }
@@ -1665,9 +1705,12 @@ let add_node_mode ctx mode =
     | { node = None } -> raise (Invalid_argument "add_node_mode_contract")
 
     | { node = Some ({ N.contract } as node) } ->
-      let contract = match contract with
-        | None -> C.mk [] [] [ mode ]
-        | Some contract -> C.add_modes contract [ mode ]
+      let contract, ctx = match contract with
+        | None -> (
+          let svar, ctx = mk_fresh_local ctx Type.t_bool in
+          C.mk [] svar [] [ mode ], ctx
+        )
+        | Some contract -> C.add_modes contract [ mode ], ctx
       in
       (* Return node with contract added *)
       { ctx with node = Some { node with N.contract = Some contract } }
@@ -1684,6 +1727,47 @@ let add_node_assert ctx expr =
 
       (* Return node with assertion added *)
       { ctx with node = Some { node with N.asserts = expr :: asserts } }
+
+
+(* Add node sofar(assumption) to context *)
+let add_node_sofar_assumption ctx =
+
+   match ctx with
+
+    | { node = None } -> raise (Invalid_argument "add_node_sofar_assumption")
+
+    | { node = Some ({ N.equations ; N.contract } as n) } ->
+
+      match contract with
+
+       | None -> ctx
+
+       | Some contract -> (
+
+         let sofar_svar = contract.C.sofar_assump in
+
+         let conj_of_assumes = contract.C.assumes |>
+           List.map (fun { C.svar } -> E.mk_var svar) |> E.mk_and_n
+         in
+
+         let pre_sofar, _ = (* Context should not be modified *)
+           assert (not (guard_flag ctx));
+           E.mk_pre
+             (* No abstraction should be necessary, see [mk_pre] *)
+             (fun _ _ -> assert false) (fun _ -> assert false)
+             ctx false (E.mk_var sofar_svar)
+         in
+
+         let expr =
+           E.mk_arrow conj_of_assumes (E.mk_and conj_of_assumes pre_sofar)
+         in
+
+         let equations' = ((sofar_svar, []), expr) :: equations in
+
+         (* Return node with equation added *)
+         { ctx with node = Some { n with N.equations = equations' } }
+
+       )
 
 
 (* Add node assert to context *)
@@ -1924,7 +2008,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
                    variable %s." 
                   (StateVar.string_of_state_var state_var) in
 
-              warn_at_position pos msg;
+              note_at_position pos msg;
 
               (* Expanding type of state variable to int *)
               StateVar.change_type_of_state_var state_var (Type.mk_int ());

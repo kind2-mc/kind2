@@ -150,7 +150,7 @@ let mk_ctx in_sys param sys =
   Loops until something new is received. *)
 let rec check_new_things new_stuff ({ solver ; sys ; map } as ctx) =
   let new_invariants, props =
-    Event.recv () |> Event.update_trans_sys ctx.in_sys ctx.param sys
+    KEvent.recv () |> KEvent.update_trans_sys ctx.in_sys ctx.param sys
   in
   let new_stuff_invs =
     ( new_invariants |> fst |> Term.TermSet.is_empty |> not ) ||
@@ -215,7 +215,7 @@ let split { solver ; map } =
       []
     else (
       (* Check if termination was requested. *)
-      Event.check_termination () ;
+      KEvent.check_termination () ;
 
       (* Positive actlits for unknown properties. *)
       let actlits, unknowns, map_back=
@@ -247,12 +247,11 @@ let split { solver ; map } =
 
       (* Check-sat. *)
       match
-        nactlit :: actlits
-        |> Smt.check_sat_assuming
+        Smt.check_sat_assuming_and_get_term_values
           solver
-          (fun s -> (* If sat. *)
+          (fun s term_values -> (* If sat. *)
             (* Retrieve values. *)
-            Smt.get_term_values s unknowns |> List.fold_left (
+            term_values |> List.fold_left (
               fun l (term, value) ->
                 if value == Term.t_false then
                   (List.assq term map_back) :: l
@@ -263,6 +262,7 @@ let split { solver ; map } =
           (fun _ -> (* If unsat. *)
             None
           )
+          (nactlit :: actlits) unknowns
       with
       | None -> (* Unsat, remaining properties are unfalsifiable. *)
         deactivate () ;
@@ -305,7 +305,7 @@ let broadcast_if_safe ({ solver ; sys ; map } as ctx) unfalsifiable =
       (* All properties confirmed, broadcasting as invariant. *)
       confirmed |> List.iter (
         fun (prop, cert) ->
-          Event.prop_status (Prop.PropInvariant cert)
+          KEvent.prop_status (Prop.PropInvariant cert)
             ctx.in_sys ctx.param sys prop
       ) ;
       (* Removing from map and updating solver. *)
@@ -335,13 +335,13 @@ let rec run ctx =
   (* Get unfalsifiable properties. *)
   let new_stuff = match split ctx with
     | [] ->
-      Event.log
+      KEvent.log
         L_info
         "%s@[<v>%d falsifiable properties@]"
         prefix (List.length ctx.map) ;
       false
     | unfalsifiable ->
-      Event.log
+      KEvent.log
         L_info
         "%s@[<v>Proved %d properties%t@]"
         prefix (List.length unfalsifiable)
@@ -358,7 +358,7 @@ let rec run ctx =
   match ctx.map with
   | [] ->
     (* Stopping if nothing else to do. *)
-    Event.log
+    KEvent.log
       L_info
       "%s@[<v>No more properties to analyze.@]"
       prefix ;
@@ -375,13 +375,13 @@ let main in_sys param sys =
   match ctx.map with
   | [] -> 
     (* Don't start if nothing to run on. *)
-    Event.log
+    KEvent.log
       L_info
       "%s@[<v>No properties to analyze.@]"
       prefix ;
     ()
   | _ ->
-    Event.log
+    KEvent.log
       L_info
       "%s@[<v>%d properties to check@]"
       prefix (List.length ctx.map) ;

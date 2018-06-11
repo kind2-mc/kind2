@@ -1,4 +1,4 @@
-## Post Analyses Treatments
+## Post Analysis Treatments
 
 Post-analysis treatments are flag-activated Kind 2 features that are not
 directly related to verification. The current post-analysis treatments available are
@@ -49,10 +49,10 @@ treatment are:
 | Treatment | Condition | Notes |
 |:---:|:---|:---|
 | certification | last analysis proved the system safe | |
-| compilation to Rust | none | can fail if node is partially defined |
+| compilation to Rust | none | will fail if node is partially defined |
 | test generation | system has a contract with more than one mode | |
 |                 | last analysis proved the system safe          | |
-| contract generation | none | |
+| contract generation | none | experimental |
 | invariant logging | last analysis proved the system safe | |
 
 
@@ -60,7 +60,7 @@ treatment are:
 
 Two of the treatments mentioned above end up, if successful, generating a
 contract for the current node: invariant logging and contract generation. The
-natural way to benefit from these contracts is to import them explicitely in the original system.
+natural way to benefit from these contracts is to import them explicitly in the original system.
 
 If you do not import these contracts however, *silent contract loading* will
 still try to take advantage of them. That is, contracts logged by Kind 2 in

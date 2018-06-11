@@ -142,8 +142,14 @@ let map f { expr_init; expr_step } =
   { expr_init; expr_step; expr_type }
 
 
-let map_vars = Term.map_vars 
+let map_vars_expr = Term.map_vars 
   
+let map_vars f { expr_init = i; expr_step = s; expr_type = t } = {
+  expr_init = map_vars_expr f i;
+  expr_step = map_vars_expr f s;
+  expr_type = t
+}
+
 (*
 
 let rec map_top' f term = match Term.T.node_of_t term with 
@@ -327,7 +333,7 @@ let pp_print_lustre_var_typed safe ppf state_var =
 
 
 (* Pretty-print a variable under [depth] pre operators *)
-let rec pp_print_var safe ppf var =
+let rec pp_print_var safe pvar ppf var =
 
   (* Variable is at an instant *)
   if Var.is_state_var_instance var then 
@@ -343,14 +349,14 @@ let rec pp_print_var safe ppf var =
         
         Format.fprintf ppf
           "@[<hv 2>%a@]"
-          (pp_print_lustre_var safe) 
+          pvar
           
       (* Variable at previous offset *)
       else if Numeral.equal (Var.offset_of_state_var_instance var) pre_offset then 
 
       Format.fprintf ppf
         "@[<hv 2>(pre %a)@]"
-        (pp_print_lustre_var safe) 
+        pvar
 
       (* Fail on other offsets *)
       else
@@ -370,7 +376,7 @@ let rec pp_print_var safe ppf var =
     
     Format.fprintf ppf
       "@[<hv 2>%a@]"
-      (pp_print_lustre_var safe) 
+      pvar
       state_var    
     
   (* Fail on other types of variables *)
@@ -381,9 +387,9 @@ let rec pp_print_var safe ppf var =
 
 
 (* Pretty-print a term *)
-and pp_print_term_node ?as_type safe ppf t = match Term.T.destruct t with
+and pp_print_term_node ?as_type safe pvar ppf t = match Term.T.destruct t with
     
-  | Term.T.Var var -> pp_print_var safe ppf var
+  | Term.T.Var var -> pp_print_var safe pvar ppf var
       
   | Term.T.Const s -> 
     
@@ -391,24 +397,24 @@ and pp_print_term_node ?as_type safe ppf t = match Term.T.destruct t with
       
   | Term.T.App (s, l) -> 
 
-    pp_print_app ?as_type safe ppf (Symbol.node_of_symbol s) l
+    pp_print_app ?as_type safe pvar ppf (Symbol.node_of_symbol s) l
 
   | Term.T.Attr (t, _) -> 
     
-    pp_print_term_node ?as_type safe ppf t
+    pp_print_term_node ?as_type safe pvar ppf t
       
 
 (* Pretty-print the second and following arguments of a
    left-associative function application *)
-and pp_print_app_left' safe s ppf = function 
+and pp_print_app_left' safe pvar s ppf = function
 
   | h :: tl -> 
 
     Format.fprintf ppf 
       " %a@ %a%t" 
       pp_print_symbol s 
-      (pp_print_term_node safe) h 
-      (function ppf -> pp_print_app_left' safe s ppf tl)
+      (pp_print_term_node safe pvar) h
+      (function ppf -> pp_print_app_left' safe pvar s ppf tl)
 
   | [] -> ()
 
@@ -416,7 +422,7 @@ and pp_print_app_left' safe s ppf = function
 (* Pretty-print a left-associative function application
 
    Print (+ a b c) as (a + b + c) *)
-and pp_print_app_left safe s ppf = function 
+and pp_print_app_left safe pvar s ppf = function
 
   (* Function application must have arguments, is a constant
      otherwise *)
@@ -427,12 +433,12 @@ and pp_print_app_left safe s ppf = function
 
     Format.fprintf ppf
       "@[<hv 2>(%a%t)@]" 
-      (pp_print_term_node safe) h 
-      (function ppf -> pp_print_app_left' safe s ppf tl)
+      (pp_print_term_node safe pvar) h
+      (function ppf -> pp_print_app_left' safe pvar s ppf tl)
 
 
 (* Pretty-print arguments of a right-associative function application *)
-and pp_print_app_right' safe s arity ppf = function 
+and pp_print_app_right' safe pvar s arity ppf = function
 
   (* Function application must have arguments, is a constant
      otherwise *)
@@ -453,7 +459,7 @@ and pp_print_app_right' safe s arity ppf = function
     (* Print last argument and close all parentheses *)
     Format.fprintf ppf
       "%a%t" 
-      (pp_print_term_node safe) h 
+      (pp_print_term_node safe pvar) h
       (function ppf -> aux ppf arity)
 
   (* Second last or earlier argument *)
@@ -462,22 +468,22 @@ and pp_print_app_right' safe s arity ppf = function
     (* Open parenthesis and print argument *)
     Format.fprintf ppf 
       "@[<hv 2>(%a %a@ %t" 
-      (pp_print_term_node safe) h 
+      (pp_print_term_node safe pvar) h
       pp_print_symbol s 
-      (function ppf -> pp_print_app_right' safe s arity ppf tl)
+      (function ppf -> pp_print_app_right' safe pvar s arity ppf tl)
 
 
 (* Pretty-print a right-associative function application 
 
    Print (=> a b c) as (a => (b => c)) *)
-and pp_print_app_right safe s ppf l =
-  pp_print_app_right' safe s (List.length l - 1) ppf l
+and pp_print_app_right safe pvar s ppf l =
+  pp_print_app_right' safe pvar s (List.length l - 1) ppf l
 
 
 (* Pretty-print a chaining function application 
 
    Print (= a b c) as (a = b) and (b = c) *)
-and pp_print_app_chain safe s ppf = function 
+and pp_print_app_chain safe pvar s ppf = function
 
   (* Chaining function application must have more than one argument *)
   | []
@@ -488,23 +494,23 @@ and pp_print_app_chain safe s ppf = function
 
     Format.fprintf ppf 
       "@[<hv 2>(%a %a@ %a)@]" 
-      (pp_print_term_node safe) l 
+      (pp_print_term_node safe pvar) l
       pp_print_symbol s
-      (pp_print_term_node safe) r
+      (pp_print_term_node safe pvar) r
 
   (* Print function application of first pair, conjunction and continue *)
   | l :: r :: tl -> 
 
     Format.fprintf ppf 
       "@[<hv 2>(%a %a@ %a) and %a@]" 
-      (pp_print_term_node safe) l
+      (pp_print_term_node safe pvar) l
       pp_print_symbol s
-      (pp_print_term_node safe) r
-      (pp_print_app_chain safe s) (r :: tl)
+      (pp_print_term_node safe pvar) r
+      (pp_print_app_chain safe pvar s) (r :: tl)
 
 
 (* Pretty-print a function application *)
-and pp_print_app ?as_type safe ppf = function 
+and pp_print_app ?as_type safe pvar ppf = function
 
   (* Function application must have arguments, cannot have nullary
      symbols here *)
@@ -524,7 +530,7 @@ and pp_print_app ?as_type safe ppf = function
       Format.fprintf ppf
         "@[<hv 2>(%a@ %a)@]" 
         pp_print_symbol s 
-        (pp_print_term_node safe) a
+        (pp_print_term_node safe pvar) a
 
       | _ -> assert false)
   
@@ -538,9 +544,9 @@ and pp_print_app ?as_type safe ppf = function
           Format.fprintf ppf
             "%a%a" 
             pp_print_symbol s 
-            (pp_print_term_node safe) a
+            (pp_print_term_node safe pvar) a
 
-        | _ as l -> pp_print_app_left safe s ppf l)
+        | _ as l -> pp_print_app_left safe pvar s ppf l)
         
     (* Binary left-associative symbols with two or more arguments *)
     | `AND
@@ -554,17 +560,17 @@ and pp_print_app ?as_type safe ppf = function
       (function 
         | [] 
         | [_] -> assert false
-        | _ as l -> pp_print_app_left safe s ppf l)
+        | _ as l -> pp_print_app_left safe pvar s ppf l)
             
     (* Binary right-associative symbols *)
-    | `IMPLIES as s -> pp_print_app_right safe s ppf
+    | `IMPLIES as s -> pp_print_app_right safe pvar s ppf
         
     (* Chainable binary symbols *)
     | `EQ
     | `LEQ
     | `LT
     | `GEQ
-    | `GT as s -> pp_print_app_chain safe s ppf
+    | `GT as s -> pp_print_app_chain safe pvar s ppf
               
     (* if-then-else *)
     | `ITE ->
@@ -573,9 +579,9 @@ and pp_print_app ?as_type safe ppf = function
 
         Format.fprintf ppf
           "if %a then %a else %a" 
-          (pp_print_term_node safe) p
-          (pp_print_term_node ?as_type safe) l
-          (pp_print_term_node ?as_type safe) r
+          (pp_print_term_node safe pvar) p
+          (pp_print_term_node ?as_type safe pvar) l
+          (pp_print_term_node ?as_type safe pvar) r
           
         | _ -> assert false)
         
@@ -586,9 +592,9 @@ and pp_print_app ?as_type safe ppf = function
 
         Format.fprintf ppf 
           "@[<hv 2>(%a %a@ %a)@]" 
-          (pp_print_term_node safe) l 
+          (pp_print_term_node safe pvar) l
           pp_print_symbol s
-          (pp_print_term_node safe) r
+          (pp_print_term_node safe pvar) r
         
         | _ -> assert false)
         
@@ -599,7 +605,8 @@ and pp_print_app ?as_type safe ppf = function
         
         (* a divisble n becomes a mod n = 0 *)
         pp_print_app 
-          safe 
+          safe
+          pvar
           ppf
           `EQ
           [Term.T.mk_app 
@@ -616,8 +623,8 @@ and pp_print_app ?as_type safe ppf = function
 
           Format.fprintf ppf 
             "@[<hv 2>%a[%a]@]" 
-            (pp_print_term_node safe) a 
-            (pp_print_term_node safe) i
+            (pp_print_term_node safe pvar) a
+            (pp_print_term_node safe pvar) i
             
         | _ -> assert false)
 
@@ -628,9 +635,9 @@ and pp_print_app ?as_type safe ppf = function
         
           Format.fprintf ppf 
             "@[<hv 2>(%a with [%a] = %a)@]" 
-            (pp_print_term_node safe) a 
-            (pp_print_term_node safe) i
-            (pp_print_term_node safe) v
+            (pp_print_term_node safe pvar) a
+            (pp_print_term_node safe pvar) i
+            (pp_print_term_node safe pvar) v
             
         | _ -> assert false)
         
@@ -657,12 +664,28 @@ and pp_print_app ?as_type safe ppf = function
       
 
 (* Pretty-print a hashconsed term *)
+let pp_print_expr_pvar ?as_type safe pvar ppf expr =
+  pp_print_term_node ?as_type safe pvar ppf expr
+
 let pp_print_expr ?as_type safe ppf expr =
-  pp_print_term_node ?as_type safe ppf expr
+  pp_print_expr_pvar ?as_type safe (pp_print_lustre_var safe) ppf expr
 
 (* Pretty-print a term as an expr. *)
 let pp_print_term_as_expr = pp_print_expr
 
+let pp_print_term_as_expr_pvar = pp_print_expr_pvar
+
+let pp_print_term_as_expr_mvar ?as_type safe map ppf expr =
+  pp_print_term_as_expr_pvar
+    ?as_type safe
+    (fun fmt sv ->
+     Format.fprintf fmt "%s"
+       (try
+         StateVar.StateVarMap.find sv map
+       with Not_found ->
+         StateVar.name_of_state_var sv)
+    )
+    ppf expr
 
 (* Pretty-print a hashconsed term to the standard formatter *)
 let print_expr ?as_type safe =
@@ -750,7 +773,7 @@ let is_var expr = is_var_at_offset expr (base_offset, cur_offset)
 
 (* Return true if expression is a constant state variable *)
 let is_const_var { expr_init; expr_step } = 
-  Term.is_free_var expr_init
+  Term.is_free_var expr_init && Term.is_free_var expr_step
   && Var.is_const_state_var (Term.free_var_of_term expr_init)
   && Var.is_const_state_var (Term.free_var_of_term expr_step)
 
@@ -764,8 +787,7 @@ let is_const_expr expr =
 (* Return true if the expression is constant *)
 let is_const { expr_init; expr_step } = 
   is_const_expr expr_init && is_const_expr expr_step &&
-    (* probably don't need pre? *)
-    Term.equal expr_init (Term.bump_state Numeral.(~- one) expr_step)
+    Term.equal expr_init expr_step
     
 
 (* ********************************************************************** *)
@@ -1158,20 +1180,54 @@ let type_of_real_real_real = function
   | _ -> raise Type_mismatch
 
 
+(* Best int subrange for some operator. *)
+let best_int_range is_div op t t' =
+  match Type.bounds_of_int_range t' with
+  
+  | lo', hi' when (
+    is_div &&
+    Numeral.(equal lo' zero) &&
+    Numeral.(equal hi' zero)
+  ) -> raise Division_by_zero
+  
+  | lo', _ when (
+    is_div && Numeral.(equal lo' zero)
+  ) -> Type.t_int
+  | _, hi' when (
+    is_div && Numeral.(equal hi' zero)
+  )-> Type.t_int
+
+  | lo', hi' ->
+    let lo, hi = Type.bounds_of_int_range t in
+    let b_0 = op lo lo' in
+    let bounds =
+      [ op hi lo' ;
+        op lo hi' ;
+        op hi hi' ]
+    in
+    Type.mk_int_range
+      (List.fold_left Numeral.min b_0 bounds)
+      (List.fold_left Numeral.max b_0 bounds)
+
 (* Type check for int -> int -> int, real -> real -> real *)
-let type_of_num_num_num = function 
-
-  | t when Type.is_int t || Type.is_int_range t -> 
-    (function 
+let type_of_num_num_num ?(is_div = false) op t t' =
+  try best_int_range is_div op t t' with
+  | Invalid_argument _ -> (
+    match t with
+    | t when Type.is_int t || Type.is_int_range t -> (
+      match t' with
       | t when Type.is_int t || Type.is_int_range t -> Type.t_int 
-      | _ -> raise Type_mismatch)
+      | _ -> raise Type_mismatch
+    )
 
-  | t when Type.is_real t -> 
-    (function 
+    | t when Type.is_real t -> (
+      match t' with
       | t when Type.is_real t -> Type.t_real
-      | _ -> raise Type_mismatch)
-    
-  | _ -> raise Type_mismatch
+      | _ -> raise Type_mismatch
+    )
+      
+    | _ -> raise Type_mismatch
+  )
 
 
 (* Type check for 'a -> 'a -> 'a *)
@@ -1299,15 +1355,20 @@ let mk_uminus expr = mk_unary eval_uminus type_of_uminus expr
 
 
 (* Evaluate conversion to integer *)
-let eval_to_int expr = match Term.destruct expr with 
-  | Term.T.Const s when Symbol.is_decimal s -> 
-    Term.mk_num
-      (Numeral.of_big_int
-         (Decimal.to_big_int
-            (Symbol.decimal_of_symbol s)))
+let eval_to_int expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_decimal s ->
+      Term.mk_num
+        (Numeral.of_big_int
+           (Decimal.to_big_int
+              (Symbol.decimal_of_symbol s)))
 
-  | _ -> Term.mk_to_int expr
-  | exception Invalid_argument _ -> Term.mk_to_int expr
+    | _ -> Term.mk_to_int expr
+    | exception Invalid_argument _ -> Term.mk_to_int expr
 
 
 (* Type of conversion to integer  
@@ -1316,6 +1377,7 @@ let eval_to_int expr = match Term.destruct expr with
 *)
 let type_of_to_int = function
   | t when Type.is_real t -> Type.t_int
+  | t when Type.is_int t || Type.is_int_range t -> Type.t_int
   | _ -> raise Type_mismatch
 
 
@@ -1327,15 +1389,20 @@ let mk_to_int expr = mk_unary eval_to_int type_of_to_int expr
 
 
 (* Evaluate conversion to real *)
-let eval_to_real expr = match Term.destruct expr with 
-  | Term.T.Const s when Symbol.is_numeral s -> 
-    Term.mk_dec
-      (Decimal.of_big_int
-         (Numeral.to_big_int
-            (Symbol.numeral_of_symbol s)))
+let eval_to_real expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_real tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_numeral s ->
+      Term.mk_dec
+        (Decimal.of_big_int
+           (Numeral.to_big_int
+              (Symbol.numeral_of_symbol s)))
 
-  | _ -> Term.mk_to_real expr
-  | exception Invalid_argument _ -> Term.mk_to_real expr
+    | _ -> Term.mk_to_real expr
+    | exception Invalid_argument _ -> Term.mk_to_real expr
 
 (* Type of conversion to real  
 
@@ -1343,6 +1410,7 @@ let eval_to_real expr = match Term.destruct expr with
 *)
 let type_of_to_real = function
   | t when Type.is_int t || Type.is_int_range t -> Type.t_real
+  | t when Type.is_real t -> Type.t_real
   | _ -> raise Type_mismatch
 
 
@@ -1608,8 +1676,8 @@ let type_of_minus = function
         let l1, u1 = Type.bounds_of_int_range t in
         let l2, u2 = Type.bounds_of_int_range s in
         Type.mk_int_range Numeral.(l1 - u2) Numeral.(u1 - l2)
-      | s -> type_of_num_num_num t s)
-  | t -> type_of_num_num_num t
+      | s -> type_of_num_num_num Numeral.sub t s)
+  | t -> type_of_num_num_num Numeral.sub t
 
 
 
@@ -1657,8 +1725,8 @@ let type_of_plus = function
         let l1, u1 = Type.bounds_of_int_range t in
         let l2, u2 = Type.bounds_of_int_range s in
         Type.mk_int_range Numeral.(l1 + l2) Numeral.(u1 + u2)
-      | s -> type_of_num_num_num t s)
-  | t -> type_of_num_num_num t
+      | s -> type_of_num_num_num Numeral.add t s)
+  | t -> type_of_num_num_num Numeral.add t
 
 
 (* Addition *)
@@ -1673,21 +1741,45 @@ let eval_div expr1 expr2 =
 
   match Term.destruct expr1, Term.destruct expr2 with
 
-    | Term.T.Const c1, Term.T.Const c2 when
-        Symbol.is_decimal c1 && Symbol.is_decimal c2 -> 
+  | Term.T.Const c1, Term.T.Const c2 ->
+
+    if Symbol.is_decimal c1 && Symbol.is_decimal c2 then
 
       Term.mk_dec
         Decimal.(Symbol.decimal_of_symbol c1 /
-                 Symbol.decimal_of_symbol c2) 
+                 Symbol.decimal_of_symbol c2)
 
-  | _ -> Term.mk_div [expr1; expr2]
+    else (
+
+      assert (Symbol.is_numeral c1 && Symbol.is_numeral c2);
+
+      Term.mk_num
+        Numeral.(Symbol.numeral_of_symbol c1 /
+                 Symbol.numeral_of_symbol c2)
+    )
+
+  | _ ->
+
+    let tt = Term.type_of_term expr1 in
+
+    if Type.is_real tt then (
+
+      Term.mk_div [expr1; expr2]
+
+    )
+    else (
+
+      Term.mk_intdiv [expr1; expr2]
+
+    )
+
   | exception Invalid_argument _ -> Term.mk_div [expr1; expr2]
 
 
 (* Type of real division
 
    /: real -> real -> real *)
-let type_of_div = type_of_num_num_num(* type_of_real_real_real *)
+let type_of_div = type_of_num_num_num ~is_div:true Numeral.div
 
 
 (* Real division *)
@@ -1724,7 +1816,7 @@ let eval_times expr1 expr2 =
 
    *: int -> int -> int
       real -> real -> real *)
-let type_of_times = type_of_num_num_num
+let type_of_times = type_of_num_num_num Numeral.mult
 
 
 (* Multiplication *)
@@ -1753,7 +1845,17 @@ let eval_intdiv expr1 expr2 =
 (* Type of integer division
 
    div: int -> int -> int *)
-let type_of_intdiv = type_of_int_int_int
+let type_of_intdiv t t' =
+  try best_int_range true Numeral.div t t' with
+  | Invalid_argument _ -> (
+    match t with
+    | t when Type.is_int t || Type.is_int_range t -> (
+      match t' with
+      | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+      | _ -> raise Type_mismatch
+    )
+    | _ -> raise Type_mismatch
+  )
 
 
 (* Integer division *)
@@ -2171,7 +2273,7 @@ let mk_pre mk_abs_for_expr mk_lhs_term ctx unguarded
 
   (* Stream is the same in the initial state and step (e -> e) *)
   if not unguarded &&
-     Term.equal expr_init (Term.bump_state Numeral.(~- one) expr_step) then
+     Term.equal expr_init expr_step then
     match expr_init with
     (* Expression is a constant not part of an unguarded pre expression *)
     | t when

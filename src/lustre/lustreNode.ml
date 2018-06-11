@@ -305,7 +305,7 @@ let pp_print_node_equation safe ppf ((var, bounds), expr) =
           | E.Fixed e -> Format.fprintf ppf "[%a]" (E.pp_print_expr safe) e
           | E.Unbound e -> Format.fprintf ppf "[%a]" (E.pp_print_expr safe) e)
        "") 
-    bounds
+    (List.rev bounds)
     (E.pp_print_lustre_expr safe) expr
 
 
@@ -1575,6 +1575,11 @@ let set_state_var_instance state_var pos node state_var' =
     state_var
     instances'
 
+let map_svars_in_equation f ((svar, index), expr) =
+  let f_svar = f svar in
+  let f_index = index in (* Is it necessary to do something? *)
+  let f_expr = E.map_vars (Var.map_state_var f) expr in
+  ((f_svar, f_index), f_expr)
       
 (* 
    Local Variables:

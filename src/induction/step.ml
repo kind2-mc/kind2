@@ -23,7 +23,7 @@ open Actlit
 (* Output statistics *)
 let print_stats () =
 
-  Event.stat 
+  KEvent.stat 
     [Stat.misc_stats_title, Stat.misc_stats;
      Stat.ind_stats_title, Stat.ind_stats;
      Stat.smt_stats_title, Stat.smt_stats]
@@ -326,7 +326,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
                   let holds = Term.bump_state k term |> eval in
                   if (not holds) && print_cex then
                     (* Log cex. *)
-                    Event.step_cex input_sys analysis trans name cex ;
+                    KEvent.step_cex input_sys analysis trans name cex ;
                   holds
                 ) to_split
               in
@@ -362,7 +362,7 @@ let split_closure
   let rec loop falsifiable list =
 
     (* Checking if we should terminate. *)
-    Event.check_termination () ;
+    KEvent.check_termination () ;
 
     (* Building negative term. *)
     let neg_term =
@@ -454,9 +454,9 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
   (* Getting new invariants and updating transition system. *)
   let new_invs =
     (* Receiving messages. *)
-    Event.recv ()
+    KEvent.recv ()
     (* Updating transition system. *)
-    |> Event.update_trans_sys input_sys aparam trans
+    |> KEvent.update_trans_sys input_sys aparam trans
     (* Extracting invariant module/term pairs. *)
     |> fst
   in
@@ -480,9 +480,9 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
   confirmed_cert
   |> List.iter (
     fun (s, (_, _, cert)) ->
-      Event.prop_status
+      KEvent.prop_status
         (Property.PropInvariant cert) input_sys aparam trans s ;
-      (* Event.log L_warn
+      (* KEvent.log L_warn
         "%s: @[<v>%d, %a@]" s (fst cert) Term.pp_print_term (snd cert) ; *)
   ) ;
 
@@ -495,14 +495,14 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      minisleep 0.001 ;
      next input_sys aparam trans solver k unfalsifiables unknowns'
   | _ when Flags.BmcKind.max () > 0 && k_int + 1 > Flags.BmcKind.max () ->
-     Event.log
+     KEvent.log
        L_warn
        "IND @[<v>reached maximal number of iterations.@]"
   | _ ->
 
      (* Notifying framework of our progress. *)
      Stat.set k_int Stat.ind_k ;
-     Event.progress k_int ;
+     KEvent.progress k_int ;
      Stat.update_time Stat.ind_total_time ;
 
      (* Notifying compression *)
@@ -582,7 +582,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      |> SMTSolver.assert_term solver ;
 
      (* Output current progress. *)
-     Event.log
+     KEvent.log
        L_info
        "IND @[<v>at k = %i@,\
                  %i unknowns@,\
@@ -679,7 +679,7 @@ let main input_sys aparam trans =
 
   if not (List.mem `BMC (Flags.enabled ())) then
 
-    Event.log
+    KEvent.log
       L_warn 
       "@[<v>Inductive step without BMC will not be able to prove or@ \
        disprove any properties.@,\

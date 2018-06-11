@@ -118,7 +118,7 @@ let flat_apply term work set =
       fun flat_term _ -> work flat_term !set_ref |> memorize
     ) term ;
    with Invalid_argument _ ->
-     Event.log L_warn
+     KEvent.log L_warn
        "Cannot mine invariants in quantified terms"
   );
   !set_ref
@@ -175,6 +175,24 @@ module type CandGen = sig
   val mine : bool -> bool -> sys -> (sys * set) list
 end
 
+(* TODO: Make the graph-based approach for invariant generation work when
+   terms include divisions. Currently, a Division_by_zero exception may
+   raise during graph stabilization if a model assigns zero to a divisor.
+*)
+let filter_terms_with_unsupported_symbols candidates =
+  let rec includes_unsupported_symbol term =
+    match Term.destruct term with
+    | Term.T.Attr (t, _) -> includes_unsupported_symbol t
+    | Term.T.App (s, l) -> (
+      match Symbol.node_of_symbol s with
+      | `UF _
+      | `DIV
+      | `INTDIV -> true
+      | _ -> List.exists includes_unsupported_symbol l
+    )
+    | _ -> false
+  in
+  Set.filter (fun t -> includes_unsupported_symbol t |> not) candidates
 
 (** Functor creating a candidate generation module from state var and flat
 term rules. *)
@@ -235,6 +253,7 @@ module MakeCandGen (Rules: RulesSig) : CandGen = struct
               Term.pp_print_term
               "@ "
             ) (Set.elements candidates) ; *)
+          let candidates = filter_terms_with_unsupported_symbols candidates in
           (* Adding two-state complement if needed. *)
           let candidates = state_complement_set candidates in
             (* if two_state then state_complement_set candidates

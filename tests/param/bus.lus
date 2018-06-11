@@ -1,0 +1,216 @@
+--===============================================
+-- Generic Bus Controller
+--===============================================
+
+
+-------------------------
+-- Auxiliary operators --
+-------------------------
+
+-- Sofar(X) is true at any point iff X has been true from 
+-- the beginning until that point
+node Sofar( X : bool ) returns ( Y : bool );
+let
+  Y = X and (true -> pre Y);
+tel
+
+-- First(X) is the constant stream consisting of the first value of X
+node First( X : int ) returns ( a : int );
+let
+  a = X -> pre a;
+tel
+
+-- Since(X,Y) is true precisely when X has been true at some point, 
+-- and Y has been continuously true afterwards
+node Since( X, Y : bool ) returns ( SinceXY : bool );
+let
+  SinceXY = X or (Y and (false -> pre SinceXY));
+tel
+
+node Array_Since(const n: int; X: bool^n; Y : bool ) returns ( SinceXY : bool^n );
+let
+  SinceXY[i] = X[i] or (Y and (false -> pre SinceXY[i]));
+tel
+
+
+node Array_Last(const n: int; A: bool^n; V : int^n ; d: int) returns ( L : int^n );
+let
+  L[i] = if A[i] then V[i] else (d -> pre L[i]) ;
+tel
+
+-- SinceIncl(X,Y) is true iff X has been true at some point, 
+-- and Y has been continuously true from then on.
+node SinceIncl( X, Y : bool ) returns ( SinceXY : bool );
+let
+  SinceXY = Y and (X or (false -> pre SinceXY));
+tel
+
+-- HasHappened(X) is true iff X has been true at least once so far.
+node HasHappened(X : bool) returns (Y : bool);
+let
+  Y = X or (false -> pre Y) ;
+tel
+
+-- Array_FirstTrue(n, X) returns the smallest index i such as X[i] is true,
+-- if any; otherwise, it returns -1
+node Array_FirstTrue( const n: int; X: bool^n ) returns ( index: int ) ;
+  var A : int^n ;
+let
+  A[i] = if i > 0 and A[i-1] <> -1 then A[i-1]
+         else if X[i] then i else -1 ;
+  index = A[n-1] ;
+tel
+
+node BoolToInt( B : bool ) returns ( N : int );
+let
+  N = if B then 1 else 0 ;
+tel
+
+node Array_BoolToInt( const n: int; B : bool^n ) returns ( N : int^n );
+let
+  N[i] = if B[i] then 1 else 0 ;
+tel
+
+-- Array_CountTrue(n, B) returns the number of true elements of B
+node Array_CountTrue( const n : int ; B : bool^n ) returns ( C : int ) ;
+  var A : int^n ;
+let
+  A[i] = (if i = 0 then 0 else A[i-1]) + (if B[i] then 1 else 0) ;
+  C = A[n-1] ;
+tel
+
+-- Duration(B) counts the number of times B has been 
+-- continuously true until now
+node Duration( B : bool ) returns ( D : int ) ;
+let
+   D = if B then (1 -> pre D + 1) else 0 ;
+tel
+
+
+--------------------------------------------------------------------------------
+-- Bus controller                                                             --
+--                                                                            --
+-- Inputs:                                                                    --
+-- * Request[i]: is true is component i has made a broacast request           --
+-- * Turn: the input schedule. Turn[i] is true iff it is component i's turn   --
+-- * Value[i]: is the value component i wants to broadcast                     --
+--                                                                            --
+-- Outputs:                                                                   --
+-- * BusValue: the value (currently being) broacast in the bus                --
+-- * Accepted[i]: is true iff the current request of compunent i is accepted  --
+--------------------------------------------------------------------------------
+
+-- The broacast values are from an enumerated type that includes a "none" value
+-- standing for no broacast
+type busVal = enum { none, valA, valB, valC } ;
+
+
+-- Simple scheduler
+node Scheduler ( const n : int ) returns ( turn : int ) ;
+(* @contract
+  assume n > 0 ;
+  guarantee "bounds" 0 <= turn and turn < n ; 
+  guarantee "increasing" turn = 0 -> turn = pre turn + 1 or turn = 0 ; 
+ *)
+let
+  turn = 0 -> if pre turn = n - 1 then 0 else pre turn + 1 ;   
+
+-- %MAIN ;
+tel
+
+
+contract BusSpec( const n : int ; Request: bool^n; Turn : int; Value : busVal^n )
+returns ( Accepted : bool^n; BusValue : busVal ) ;
+let  
+  -- At least 1 component is attached to the bus
+  assume n > 0 ;
+  -- upper bound on the number of components
+  assume n <= 5 ;
+
+  -- range for Turn
+  assume 0 <= Turn and Turn < n ;
+ 
+  -- the value of turn is determined by the scheduler
+  assume Turn = Scheduler(n) ;
+
+  -- NoOtherRequests[i] is true iff there were no requests from components other
+  -- than i since the last write
+  var NoOtherRequests : bool^n = Array_Since(n, Accepted, Array_CountTrue(n, Request) = 0);
+
+  -- LastWrite remembers the last value that was written by each component, if
+  -- any
+  var LastWrite : int^n = Array_Last(n, Accepted, Value, none) ;
+
+  -- at most one broadcast request is accepted at any time
+  guarantee "At most one accept"
+    forall (i,j:int) 0 <= i and i < n and 
+                    0 <= j and j < n and 
+                    i <> j =>
+       Accepted[i] => not Accepted[j] ;
+
+  -- A request is granted to a component only if that component is requesting it.
+  guarantee "accept only if requested"
+    forall (i:int) 0 <= i and i < n => Accepted[i] => Request[i] ;
+
+  -- At most one update request is accepted at any time.
+  guarantee "at most one accept" 
+    Array_CountTrue(n, Accepted) <= 1;
+  
+  -- Whenever there is only one update request, that request is accepted.
+  guarantee "Single requests accepted"
+    Array_CountTrue(n, Request) = 1 =>
+    forall (i:int) 0 <= i and i < n => Request[i] => Accepted[i] ;
+       
+  -- When an update request is accepted, the corresponding value is broadcast.
+  guarantee "Correct broadcast"
+    forall (i:int) 0 <= i and i < n => Accepted[i] => BusValue = Value[i] ;
+
+  -- A repeated request by the same component cannot be denied 
+  -- more than n times in a row.
+  -- (This property is violated without the fairness assumptions on Turn)
+(*
+  guarantee "Fair schedule" 
+    forall (:int) 0 <= j and j < n =>
+      Duration(Request[i] and not Accepted[i]) <= n ;
+
+  This guarantee currently triggers some bug in Kind 2. Excerpt of error message:
+
+  <Error> Runtime failure in bounded model checking: SMT solver failed: line 277 column 33: unknown constant __C1
+  <Error> Runtime failure in inductive step: SMT solver failed: line 327 column 33: unknown constant __C1
+  <Error> caught exception Failure("SMT solver failed: line 308 column 33: unknown constant __C1")
+  <Error> Runtime failure in property directed reachability: SMT solver failed: line 312 column 34: unknown constant __C1
+  <Error> Runtime failure in 2-induction: SMT solver failed: line 349 column 33: unknown constant __C1
+*)
+
+  -- fairness for component 0
+  guarantee "Fair schedule for 0" 
+    Duration(Request[0] and not Accepted[0]) <= n ;
+
+  -- If there have been no requests at all, the bus value has been continously "none". 
+  guarantee "Initial value"
+    Sofar(Array_CountTrue(n, Request) = 0) => Sofar(BusValue = none) ;
+
+  -- In the absence of current requests, the bus value is "none".
+  guarantee "Unchanged bus" 
+    Array_CountTrue(n, Request) = 0 => BusValue = none ;
+
+  -- If the broadcast value is different from the value a component 
+  -- wanted to write, it means that that component's request was denied.
+  guarantee "Denied"
+   forall (i:int) 0 <= i and i < n =>
+    Request[i] and BusValue <> Value[i] => not Accepted[i] ;
+tel
+
+
+node Bus( const n : int; Request: bool^n; Turn : int; Value : busVal^n )
+returns ( Accepted : bool^n; BusValue : busVal ) ;
+(*@contract import BusSpec( n, Request, Turn, Value ) returns ( Accepted, BusValue ); *)
+
+var k : int ;
+let
+  Accepted[i] = Request[i] and (Turn = i or Array_CountTrue(n, Request) = 1) ;
+
+  k = Array_FirstTrue(n, Accepted) ;
+
+  BusValue = if k >= 0 then Value[k] else none ;
+tel

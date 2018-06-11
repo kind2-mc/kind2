@@ -80,6 +80,12 @@ type automaton_info = {
 exception Found_auto_out of A.clocked_typed_decl
 exception Found_last_ty of A.lustre_type
 
+
+let fail_or_warn =
+  if Flags.lus_strict () then
+    C.fail_at_position else C.warn_at_position
+
+
 (* Create a new name for anonymous automata *)
 let fresh_automaton_name =
   let cpt = ref 0 in
@@ -1187,7 +1193,9 @@ let rec eval_node_equation inputs outputs locals ctx = function
 
    This function is shared between nodes and functions, each has a
    different way to deal with ghost variables. *)
-and eval_ghost_var ?(no_defs = false) inputs outputs locals ctx = function
+and eval_ghost_var
+  ?(no_defs = false) is_postponed inputs outputs locals ctx
+= function
 
   (* Declaration of a free variable *)
   | A.FreeConst (pos, _, _) ->
@@ -1205,7 +1213,7 @@ and eval_ghost_var ?(no_defs = false) inputs outputs locals ctx = function
     if (
       try 
         (* Identifier must not be declared *)
-        C.expr_in_context ctx ident 
+        C.expr_in_context ctx ident && not is_postponed
       with Invalid_argument e ->
        (* Fail if reserved identifier used *)
        C.fail_at_position pos e
@@ -1219,7 +1227,7 @@ and eval_ghost_var ?(no_defs = false) inputs outputs locals ctx = function
     ) ;
 
     if A.has_unguarded_pre expr then (
-      C.fail_at_position
+      fail_or_warn
         pos
         "Illegal unguarded pre in ghost variable definition."
     ) ;
@@ -1286,7 +1294,7 @@ and eval_ghost_var ?(no_defs = false) inputs outputs locals ctx = function
 and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
   (* Check for unguarded pre-s. *)
   if A.has_unguarded_pre expr then (
-    C.fail_at_position pos "Illegal unguarded pre in contract item."
+    fail_or_warn pos "Illegal unguarded pre in contract item."
   ) ;
   (* Scope is created backwards. *)
   let scope = List.rev scope in
@@ -1543,13 +1551,13 @@ and eval_node_contract_call
   (* Check for unguarded pre-s. *)
   in_params |> List.iter (
     fun expr -> if A.has_unguarded_pre expr then (
-      C.fail_at_position
+      fail_or_warn
         call_pos "Illegal unguarded pre in input parameters of contract call."
     )
   ) ;
   out_params |> List.iter (
     fun expr -> if A.has_unguarded_pre expr then (
-      C.fail_at_position
+      fail_or_warn
         call_pos "Illegal unguarded pre in output parameters of contract call."
     )
   ) ;
@@ -1768,14 +1776,16 @@ and add_ghost inputs outputs locals ctx pos ident type_expr ast_expr expr =
 
 (* Add all node contracts to contexts *)
 and eval_node_contract_item
-  known scope inputs outputs locals is_candidate (ctx, cpt_a, cpt_g)
+  known scope inputs outputs locals is_candidate is_postponed
+  (ctx, cpt_a, cpt_g)
 = function
 
   (* Add constants to context *)
   | A.GhostConst c -> eval_const_decl ~ghost:true ctx c, cpt_a, cpt_g
 
   (* Add ghost variables to context *)
-  | A.GhostVar v -> eval_ghost_var inputs outputs locals ctx v, cpt_a, cpt_g
+  | A.GhostVar v ->
+    eval_ghost_var is_postponed inputs outputs locals ctx v, cpt_a, cpt_g
 
   (* Evaluate assumption *)
   | A.Assume ( (_, _, expr) as a ) ->
@@ -1807,34 +1817,57 @@ and eval_node_contract_spec
 =
   (* Handles declarations, allows forward reference. *)
   let rec loop acc prev_postponed_size postponed = function
-    | (head, is_candidate) :: tail -> (
+    | (head, is_candidate, is_postponed) :: tail -> (
       let acc, postponed =
         try
           eval_node_contract_item
-            known scope inputs outputs locals is_candidate acc head,
+            known scope inputs outputs locals
+            is_candidate is_postponed acc head,
           postponed
         with
         | Deps.Unknown_decl _ ->
-          acc, (head, is_candidate) :: postponed
+          acc, (head, is_candidate, true) :: postponed
       in
       loop acc prev_postponed_size postponed tail
     )
     | [] -> (
       match postponed with
       | [] -> acc
-      | _ when prev_postponed_size = List.length postponed ->
-        C.fail_at_position pos (
-          postponed
-          |> List.map fst
-          |> Format.asprintf
-            "@[<v>Circular dependency in contract %a:@   @[<v>%a@]"
-            Scope.pp_print_scope (scope |> List.map snd)
-            (pp_print_list A.pp_print_contract_item "@ -> ")
-        )
+      | (head, is_candidate, is_postponed) :: _
+        when prev_postponed_size = List.length postponed ->
+      (
+        try (* eval_node_contract_item is expected to fail with Deps.Unknown_decl *)
+          eval_node_contract_item
+            known scope inputs outputs locals
+            is_candidate is_postponed acc head
+        with
+        | Deps.Unknown_decl (s_type, s_ident, s_pos) ->
+          let sc = List.map snd scope in
+          let pp_print_type = fun ppf -> function
+            (* If it's an unknown constant, it's more generally an unknown
+            identifier. *)
+            | Deps.Const -> Format.fprintf ppf "identifier"
+            | typ -> Deps.pp_print_decl ppf typ
+          in
+          let msg = if sc = [] then
+            Format.asprintf
+              "unknown %a \"%a\""
+              pp_print_type s_type (I.pp_print_ident false) s_ident
+          else
+            Format.asprintf
+              "unknown %a \"%a\" referenced in contract \"%a\""
+              pp_print_type s_type (I.pp_print_ident false) s_ident
+              Scope.pp_print_scope sc
+          in
+          C.fail_at_position s_pos msg
+      )
       | _ -> loop acc (List.length postponed) [] postponed
     )
   in
-  let ctx, _, _ = loop (ctx, 1, 1) (1 + List.length contract) [] contract
+  let ctx, _, _ =
+    contract
+    |> List.map (fun (f,s) -> (f,s,false))
+    |> loop (ctx, 1, 1) (1 + List.length contract) []
     (* List.fold_left
       (eval_node_contract_item known scope inputs outputs locals)
       (ctx, 1, 1) contract *)
@@ -1853,7 +1886,7 @@ and eval_node_contract_spec
       ( match oracles with
         | [] -> () (* No oracles introduced, we're fine. *)
         | _ -> (* PEBCAK. *)
-          C.fail_at_position
+          fail_or_warn
             pos "Illegal unguarded pre under a node call in this contract."
       ) ;
       (* Checking that no subsystem of the current node has contracts. If one
@@ -1900,7 +1933,9 @@ and eval_node_contract_spec
    and evaluating those *)
 and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
 
-  (* Create a new automaton name if anonymous *)
+    let ctx = C.set_in_automaton ctx true in
+
+    (* Create a new automaton name if anonymous *)
     let name = match aname with
       | Some name -> name
       | None -> fresh_automaton_name []
@@ -1927,7 +1962,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
           (pos, i ,
              type_of_last inputs outputs locals l,
              A.ClockTrue, false),
-          (i, fun pos -> A.Pre (pos, (A.Ident (pos, l))))
+          (i, fun pos -> A.Last (pos, l)) (* Last replaced after parsing *)
         with Not_found ->
           C.fail_at_position pos ("Last type for "^l^" could not be inferred")
       ) lasts
@@ -2148,7 +2183,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
     (*   A.pp_print_node_item (A.Body handlers_eq) *)
     (*   A.pp_print_node_item (A.Body unlesses_eq); *)
     
-    ctx
+    C.reset_in_automaton ctx
 
 
 (* Encode branching conditions for transitions as an expression *)
@@ -2324,7 +2359,12 @@ and eval_node_items inputs outputs locals ctx = function
     let ctx = C.reset_guard_flag ctx in
     
     let name = match name_opt with
-      | Some n -> n
+      | Some n -> (
+        if C.prop_name_in_context ctx n then
+          C.fail_at_position pos
+            (Format.asprintf "Name \"%s\" already used by another property" n)
+        else n
+      )
       | None -> Format.asprintf "@[<h>%a@]" A.pp_print_expr ast_expr
     in
     
@@ -2519,6 +2559,7 @@ and eval_node_decl
         eval_node_contract_spec I.Set.empty ctx pos []
           inputs outputs locals contract
       in
+      let ctx = C.add_node_sofar_assumption ctx in
       (* Remove scope for local declarations in contract *)
       C.pop_scope ctx
   in

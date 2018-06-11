@@ -35,7 +35,9 @@ conjunction with *modular reasoning*, discussed in the next section.
 
 *Modular reasoning* is activated with the option `--modular true`. In this
 mode, Kind 2 will perform whatever type of analysis is specified by the other
-flags on **every node** of the hierarchy, bottom-up.
+flags on **every node** of the hierarchy, bottom-up. The analysis is
+completed on every node even if some node is proved unsafe because of
+the falsification of one of its properties.
 
 A timeout for *each analysis* can be specified using the `--timeout_analysis`
 flag. It can be used in conjunction with the *global timeout* given with the
@@ -56,7 +58,7 @@ kind2 --modular true --compositional true ...
 If `top` calls `sub` and we analyze `top`, it means we have previously analyzed
 `sub`. We are running in compositional mode so the call to `sub` is originally
 abstracted by its contract.
-Say the analysis fails with a counterexample. The countexample might be
+Say the analysis fails with a counterexample. The counterexample might be
 spurious for the concrete version of `sub`: the failure would not happen if we
 used the concrete call to `sub` instead of the abstract one.
 

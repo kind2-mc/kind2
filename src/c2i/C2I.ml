@@ -121,7 +121,7 @@ open Actlit
 module Candidate = C2ICandidate
 
 (* Output statistics *)
-let print_stats () = Event.stat [
+let print_stats () = KEvent.stat [
   Stat.misc_stats_title, Stat.misc_stats ;
   Stat.c2i_stats_title, Stat.c2i_stats ;
   Stat.smt_stats_title, Stat.smt_stats
@@ -340,7 +340,7 @@ let get_model_option solver =
   SMTSolver.check_sat_assuming
     solver
     (fun s ->
-      (* Event.log L_info "C2I Getting model" ; *)
+      (* KEvent.log L_info "C2I Getting model" ; *)
       Some (SMTSolver.get_model s) )
     (fun _ -> None)
 
@@ -355,7 +355,7 @@ let query_solvers { sys ; prop ; solver1 ; solver2 ; solver3 } candidate =
   (* Getting its term. *)
   let actlit = term_of_actlit actlit_uf in
 
-  (* Event.log L_info "C2I Checking 1)." ; *)
+  (* KEvent.log L_info "C2I Checking 1)." ; *)
   (* Checking (1). *)
   SMTSolver.declare_fun solver1 actlit_uf ;
   (* Can the candidate be false in the initial state? *)
@@ -363,7 +363,7 @@ let query_solvers { sys ; prop ; solver1 ; solver2 ; solver3 } candidate =
   |> SMTSolver.assert_term solver1 ;
   let model_opt_1 = get_model_option solver1 [ actlit ] in
 
-  (* Event.log L_info "C2I Checking 2)." ; *)
+  (* KEvent.log L_info "C2I Checking 2)." ; *)
   (* Checking (2). Reusing same actlit as solver is different. *)
   SMTSolver.declare_fun solver2 actlit_uf ;
   (* Does the candidate imply the property after a transition? *)
@@ -376,7 +376,7 @@ let query_solvers { sys ; prop ; solver1 ; solver2 ; solver3 } candidate =
   ] |> SMTSolver.assert_term solver2 ;
   let model_opt_2 = get_model_option solver2 [ actlit ] in
 
-  (* Event.log L_info "C2I Checking 3)." ; *)
+  (* KEvent.log L_info "C2I Checking 3)." ; *)
   (* Checking (3). Reusing same actlit as solver is different. *)
   SMTSolver.declare_fun solver3 actlit_uf ;
   (* Is the candidate inductive? *)
@@ -466,14 +466,14 @@ let zero_cost_candidate {white ; grey ; black} candidate =
         Term.pp_print_term (
           Candidate.candidate_of_rated rated_candidate |> Candidate.term_of
         );
-    Event.check_termination () ;
+    KEvent.check_termination () ;
     let cost = Candidate.cost_of_rated rated_candidate in
     (* If zero we're done. *)
     if cost = 0 then
       Candidate.candidate_of_rated rated_candidate
     else (
       (* Check for termination. *)
-      Event.check_termination () ;
+      KEvent.check_termination () ;
       (* Otherwise, make a move. *)
       let candidate = Candidate.rated_move rated_candidate in
       Stat.incr Stat.c2i_moves ;
@@ -498,12 +498,12 @@ let zero_cost_candidate {white ; grey ; black} candidate =
         ) ))
           > (Random.float max_float) /. max_float )
       then (
-        (* Event.log L_info
+        (* KEvent.log L_info
           "C2I   | new cost %d" cost' ; *)
         loop rated_candidate'
       (* Otherwise keep the previous one. *)
       ) else (
-        (* Event.log L_info
+        (* KEvent.log L_info
           "C2I   | skipping cost %d@." cost' ; *)
         loop rated_candidate
       )
@@ -526,7 +526,7 @@ let rec loop in_sys param ({sys} as context) candidate =
 
   Stat.update_time Stat.c2i_total_time ;
 
-  (* Event.log L_info "C2I Getting zero cost candidate" ; *)
+  (* KEvent.log L_info "C2I Getting zero cost candidate" ; *)
   (* Getting zero cost candidate. *)
   Stat.start_timer Stat.c2i_move_time ;
   let candidate = zero_cost_candidate context candidate in
@@ -535,18 +535,18 @@ let rec loop in_sys param ({sys} as context) candidate =
   (* Extracting term. *)
   let term = Candidate.term_of candidate in
   (* Format.printf "@.  Candidate @[<hv>%a@]@." Term.pp_print_term term ; *)
-  (* Event.log L_info
+  (* KEvent.log L_info
     "C2I @[<v>Found zero-cost candidate, querying solvers context:@ \
                 @[<hv>white: %d,@ black: %d,@ grey: %d@]@]"
     (List.length context.white)
     (List.length context.black)
     (List.length context.grey) ; *)
 
-  (* Event.log L_info
+  (* KEvent.log L_info
     "C2I %d actlits so far"
     (Actlit.fresh_actlit_count ()) ; *)
 
-  (* Event.log L_info "C2I Found zero-cost candidate." ; *)
+  (* KEvent.log L_info "C2I Found zero-cost candidate." ; *)
 
   let models = query_solvers context term in
   let context = reset_solvers_of context in
@@ -564,7 +564,7 @@ let rec loop in_sys param ({sys} as context) candidate =
     ( match models with
       | None, _, None ->
         (* It is, communicating. *)
-        Event.log L_info "C2I Candidate is invariant (non-strengthening)" ;
+        KEvent.log L_info "C2I Candidate is invariant (non-strengthening)" ;
         (* k-inductive certificate from context *)
         let cert = context.k, term in
         let term =
@@ -572,7 +572,7 @@ let rec loop in_sys param ({sys} as context) candidate =
         in
         assert_invariant context (term, false) ;
         (* Broadcasting invariant. *)
-        Event.invariant (
+        KEvent.invariant (
           TransSys.scope_of_trans_sys context.sys
         ) term cert false ;
       | _ -> () ) ;
@@ -585,8 +585,8 @@ let rec loop in_sys param ({sys} as context) candidate =
 
     (* Communicating. *)
     let new_invs, is_done =
-      Event.recv ()
-      |> Event.update_trans_sys in_sys param sys
+      KEvent.recv ()
+      |> KEvent.update_trans_sys in_sys param sys
       |> fun (invs,props) ->
         invs,
         props |> List.exists (function
@@ -625,9 +625,9 @@ let rec run in_sys param context_option candidate sys =
     | _ ->
       let prop = prop.Property.prop_name in
       (* Check for termination. *)
-      Event.check_termination () ;
+      KEvent.check_termination () ;
       (* Let's do this. *)
-      Event.log L_info "C2I @[<v>Running on property %s@]" prop ;
+      KEvent.log L_info "C2I @[<v>Running on property %s@]" prop ;
       (* New context. *)
       let context = match context_option with
         | None -> mk_context sys prop
@@ -639,7 +639,7 @@ let rec run in_sys param context_option candidate sys =
       ( try
         ( match loop in_sys param context candidate with
           | Some str_inv ->
-            Event.log L_info
+            KEvent.log L_info
               "C2I @[<v>Strengthening invariant found for %s@]" prop ;
             Stat.incr Stat.c2i_str_invs ;
             let cert = context.k, str_inv in
@@ -648,14 +648,14 @@ let rec run in_sys param context_option candidate sys =
             in
             assert_invariant context (str_inv, false) ;
             (* Broadcasting strengthening invariant. *)
-            Event.invariant (
+            KEvent.invariant (
               TransSys.scope_of_trans_sys context.sys
             ) str_inv cert false ;
 
             (* Communicating. *)
             let new_invs, is_done =
-              Event.recv ()
-              |> Event.update_trans_sys in_sys param sys
+              KEvent.recv ()
+              |> KEvent.update_trans_sys in_sys param sys
               |> fun (invs,props) ->
                 invs,
                 props |> List.exists (function
@@ -682,15 +682,15 @@ let rec run in_sys param context_option candidate sys =
             (* Proved or disproved by another technique, or termination was
                requested. *)
             if TransSys.is_proved sys prop then
-              Event.log L_info
+              KEvent.log L_info
                 "C2I %s proved by another technique"
                 prop
             else if TransSys.is_disproved sys prop then
-              Event.log L_info
+              KEvent.log L_info
                 "C2I %s disproved by another technique"
                 prop ) ;
       with PropIsFalse ->
-        Event.log L_info "C2I @[<v>Falsification for %s detected@]" prop ) ;
+        KEvent.log L_info "C2I @[<v>Falsification for %s detected@]" prop ) ;
       (* Looping. *)
       run in_sys param (Some context) candidate sys
     )

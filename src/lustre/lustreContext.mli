@@ -51,6 +51,16 @@ val reset_guard_flag : t -> t
 code, and we need to guard them. *)
 val guard_flag : t -> bool
 
+(** Sets the flag indicating we are evaluating an automaton. *)
+val set_in_automaton : t -> bool -> t
+
+(** Resets the flag indicating we are evaluating an automaton. *)
+val reset_in_automaton : t -> t
+
+(** The value of the flag indicating we are evaluating an automaton. *)
+val in_automaton : t -> bool
+
+
 (** Add scope to context
 
     The scopes are added to the name of the node to create scope for
@@ -209,6 +219,8 @@ val type_in_context : t -> LustreIdent.t -> bool
 (** Return [true] if the identifier denotes a node in the context *)
 val node_in_context : t -> LustreIdent.t -> bool
 
+(** Return [true] if the identifier denotes a property in the context *)
+val prop_name_in_context : t -> string -> bool
 
 val mk_state_var :
   ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> ?shadow:bool ->
@@ -294,6 +306,9 @@ val add_node_mode : t -> LustreContract.mode -> t
 
 (** Add assertion to context *)
 val add_node_assert : t -> LustreExpr.t -> t
+
+(* Add sofar(assumptions) to context *)
+val add_node_sofar_assumption : t -> t
 
 (** Add property to context *)
 val add_node_property : t -> Property.prop_source -> string -> LustreExpr.t -> t

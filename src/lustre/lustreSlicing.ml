@@ -1062,7 +1062,7 @@ let root_and_leaves_of_impl
   
   (* Slice starting with outputs, contracts and properties *)
   let node_roots = 
-    ( match roots with 
+    ( match roots node true with
       
       (* No roots given? *)
       | None -> 
@@ -1109,34 +1109,13 @@ let root_and_leaves_of_contracts
     
   (* Slice starting with contracts *)
   let node_roots =
-    match roots with
+    match roots node false with
       | None -> roots_of_contract contract
       | Some r -> SVS.elements r
   in
 
   (* Do not consider anything below outputs *)
   let node_leaves = D.values outputs in
-
-  (node_roots, node_leaves, node_sliced, node)
-
-
-(* Slice a node to its contracts, starting from contracts, stopping at
-   outputs *)
-let custom_roots roots node = 
-
-  (* Slice everything from node *)
-  let node_sliced = 
-    slice_all_of_node 
-      ~keep_props:true
-      ~keep_contracts:true
-      node 
-  in
-    
-  (* Slice starting with given roots *)
-  let node_roots = roots in
-
-  (* Consider all streams *)
-  let node_leaves = [] in
 
   (node_roots, node_leaves, node_sliced, node)
 
@@ -1193,13 +1172,30 @@ let slice_to_abstraction'
   N.subsystem_of_nodes nodes'
 
 
+let no_slice {N.outputs ; N.locals ; N.contract } is_impl =
+  let vars =
+    if is_impl then
+      (roots_of_contract contract |> SVS.of_list)
+      |> SVS.union (D.values outputs |> SVS.of_list)
+      |> SVS.union (
+        List.concat (List.map D.values locals) |> SVS.of_list
+      )
+    else
+      (roots_of_contract contract |> SVS.of_list)
+  in
+  Some vars
+
+
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
 let slice_to_abstraction
-  ?(preserve_sig = false) analysis subsystem
+  ?(preserve_sig = false) reduce_to_coi analysis subsystem
 =
+  let roots =
+    if reduce_to_coi then (fun _ _ -> None) else no_slice
+  in
   slice_to_abstraction'
-    ~preserve_sig:preserve_sig analysis None subsystem
+    ~preserve_sig:preserve_sig analysis roots subsystem
 
   
 (* Slice nodes to abstraction or implementation as indicated in
@@ -1207,7 +1203,7 @@ let slice_to_abstraction
 let slice_to_abstraction_and_property
   ?(preserve_sig = false) analysis vars subsystem
 =
-  let roots = Some vars in
+  let roots = (fun _ _ -> Some vars) in
   slice_to_abstraction'
     ~preserve_sig:preserve_sig analysis roots subsystem
 

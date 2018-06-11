@@ -146,8 +146,14 @@ val input_format : unit -> input_format
 (** Output directory for the files Kind 2 generates. *)
 val output_dir : unit -> string
 
+type real_precision = [`Rational | `Float]
+val real_precision : unit -> real_precision
+
 (** Minimizes and logs invariants as contracts. *)
 val log_invs : unit -> bool
+
+(** Prints invariants **)
+val print_invs : unit -> bool
 
 (** Debug sections to enable *)
 val debug : unit -> string list
@@ -181,6 +187,12 @@ val disable : Lib.kind_module -> unit
 
 (** Modular analysis. *)
 val modular : unit -> bool
+
+(** Node slicing *)
+val slice_nodes : unit -> bool
+
+(** Check properties of subnodes *)
+val check_subproperties : unit -> bool
 
 (** Strict Lustre mode. *)
 val lus_strict : unit -> bool

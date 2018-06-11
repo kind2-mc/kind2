@@ -37,7 +37,7 @@ contract_dir="${test_dir}/contracts"
 shift
 k2_args="$@"
 
-basic_k2_cmd="$k2_args --color false"
+basic_k2_cmd="$k2_args --color false --check_subproperties true"
 contract_k2_cmd="$basic_k2_cmd --modular true --compositional true"
 
 success_code="20"
@@ -149,7 +149,7 @@ function run_in {
   file_count=`eval $find_cmd | wc -l | tr -d ' '`
   echo "| Running \"error\" ($file_count files)"
   for file in `eval $find_cmd`; do
-    run_one "$file" "$error_code" "$kind2_cmd"
+    run_one "$file" "$error_code" "$kind2_cmd --lus_strict true"
   done
 }
 

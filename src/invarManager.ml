@@ -21,41 +21,41 @@ open Lib
 let handle_events input_sys aparam trans_sys = 
 
   (* Receive queued events *)
-  let events = Event.recv () in
+  let events = KEvent.recv () in
 
   (* Output events *)
   List.iter 
     (function (m, e) -> 
-      Event.log
+      KEvent.log
         L_debug
         "Message received from %a: %a"
         pp_print_kind_module m
-        Event.pp_print_event e)
+        KEvent.pp_print_event e)
     events;
 
   (* Update transition system from events *)
   let _ =
-    Event.update_trans_sys input_sys aparam trans_sys events
+    KEvent.update_trans_sys input_sys aparam trans_sys events
   in
 
   ()
 
 let print_stats trans_sys =
   
-  Event.log
+  KEvent.log
     L_debug
     "@[<v>%a@,\
      Final statistics:@]"
     Pretty.print_line ();
   
   List.iter 
-    (fun (mdl, stat) -> Event.log_stat mdl L_debug stat)
-    (Event.all_stats ());
+    (fun (mdl, stat) -> KEvent.log_stat mdl L_debug stat)
+    (KEvent.all_stats ());
   
   match trans_sys with
   | None -> ()
   | Some trans_sys ->
-    Event.log_prop_status L_fatal
+    KEvent.log_prop_status L_fatal trans_sys
       (TransSys.get_prop_status_all_nocands trans_sys)
                         
 
@@ -66,7 +66,7 @@ let on_exit trans_sys =
     
   try 
     (* Send termination message to all worker processes *)
-    Event.terminate () ;
+    KEvent.terminate () ;
 
     (* if trans_sys <> None then handle_events (get trans_sys); *)
       
@@ -97,13 +97,13 @@ let pids_depend_on m child_pids =
 
 (* Terminate a module and then kill it if it did not exit. *)
 let term_kill (pid, dep) =
-  Event.log L_warn "Terminating useless %a (PID %d)"
+  KEvent.log L_warn "Terminating useless %a (PID %d)"
     pp_print_kind_module dep pid;
   (try Unix.kill pid Sys.sigterm with _ -> ());
   minisleep 0.1; 
   (try
      Unix.kill (- pid) Sys.sigkill;
-     Event.log L_warn "Killed not responding useless %a (PID %d)"
+     KEvent.log L_warn "Killed not responding useless %a (PID %d)"
        pp_print_kind_module dep pid;
    with _ -> ())
 
@@ -147,7 +147,7 @@ let rec wait_for_children child_pids =
     (* Child process exited normally *)
     | child_pid, (Unix.WEXITED 0 as status) -> (
 
-      Event.log L_info
+      KEvent.log L_info
         "Child process %d (%a) %a" 
         child_pid 
         pp_print_kind_module (List.assoc child_pid !child_pids) 
@@ -163,7 +163,7 @@ let rec wait_for_children child_pids =
 
     (* Child process dies with non-zero exit status or was killed *)
     | child_pid, status -> (
-      Event.log L_warn
+      KEvent.log L_warn
         "Child process %d (%a) %a" 
         child_pid 
         pp_print_kind_module (List.assoc child_pid !child_pids) 
@@ -196,14 +196,14 @@ let rec loop
 
       | None ->
           (* Message after is_done becomes true first time *)
-          Event.log L_info
+          KEvent.log L_info
             "<Done> @[<v>\
               All properties proved or disproved in %.3fs.@ \
               Waiting for children to terminate.\
             @]"
             (Stat.get_float Stat.total_time) ;
 
-          Event.terminate () ;
+          KEvent.terminate () ;
           Some (Unix.gettimeofday ())
 
       | Some t -> Some t
@@ -216,13 +216,13 @@ let rec loop
 
         let timeout_analysis = Flags.timeout_analysis () in
 
-        Event.log L_info
+        KEvent.log L_info
           "<Done> @[<v>\
             Reached analysis timeout (%1.f)@ \
             Waiting for children to terminate.
           @]" timeout_analysis ;
 
-        Event.terminate () ;
+        KEvent.terminate () ;
         Some (Unix.gettimeofday ())
 
       | Some t -> Some t
@@ -242,7 +242,7 @@ let rec loop
     handle_events input_sys aparam trans_sys ;
 
     (* All properties proved? *)
-    if TransSys.all_props_proved trans_sys then Event.terminate ()
+    if TransSys.all_props_proved trans_sys then KEvent.terminate ()
 
     (* Have we reached the run timeout? *)
   ) else (

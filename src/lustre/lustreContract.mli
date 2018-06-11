@@ -77,18 +77,17 @@ val mk_mode:
 type t = {
   (** Assumptions of the contract. *)
   assumes: svar list ;
+  (** State variable to model Sofar(/\ assumes) *)
+  sofar_assump: StateVar.t ;
   (** Guarantees of the contract (boolean is the [candidate] flag). *)
   guarantees: (svar * bool) list ;
   (** Modes of the contract. *)
   modes: mode list ;
 }
 
-(** Creates an empty contract. *)
-val empty: unit -> t
-
 (** Creates a new contract from a set of assumes, a set of guarantess, and a
 list of modes. *)
-val mk: svar list -> (svar * bool) list -> mode list -> t
+val mk: svar list -> StateVar.t -> (svar * bool) list -> mode list -> t
 
 (** Adds assumes to a contract. *)
 val add_ass: t -> svar list -> t
@@ -121,6 +120,8 @@ module ModeTrace: sig
   val mode_trace_to_tree: mode list list -> mode_tree list
   (** Formats a tree as a cex step in xml. *)
   val fmt_as_cex_step_xml: Format.formatter -> mode_tree -> unit
+  (** Formats a tree as a cex step in JSON *)
+  val fmt_as_cex_step_json: Format.formatter -> mode_tree -> unit
 end
       
 (* 

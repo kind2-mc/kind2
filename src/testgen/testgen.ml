@@ -145,7 +145,7 @@ let delete_solver () =
     solver_ref := None
   with
   | e ->
-    Event.log
+    KEvent.log
       L_debug
       "TestGen @[<v>Error while deleting solver:@ %s@]"
       (Printexc.to_string e)

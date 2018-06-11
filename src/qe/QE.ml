@@ -167,7 +167,7 @@ let on_exit () =
        | None -> ()
    with 
      | e -> 
-       Event.log L_error 
+       KEvent.log L_error 
          "Error deleting solver_qe: %s" 
          (Printexc.to_string e));
 
@@ -181,7 +181,7 @@ let on_exit () =
        | None -> ()
    with 
      | e -> 
-       Event.log L_error
+       KEvent.log L_error
          "Error deleting solver_check: %s" 
          (Printexc.to_string e))
 
@@ -604,7 +604,7 @@ let generalize trans_sys uf_defs model elim term =
     Model.pp_print_model model;
 
   if Term.has_quantifier term then begin
-    Event.log L_fatal "Cannot generalize quantified terms.";
+    KEvent.log L_fatal "Cannot generalize quantified terms.";
     failwith "Cannot generalize quantified terms.";
   end;
 

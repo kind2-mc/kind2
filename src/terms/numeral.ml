@@ -24,7 +24,6 @@
 (* Arbitrary precision numerals are big integers *)
 type t = Big_int.big_int
 
-
 (* The numeral zero *)
 let zero = Big_int.zero_big_int 
 
@@ -62,13 +61,14 @@ let of_int i = Big_int.big_int_of_int i
 (* Convert an big integer to a numeral *)
 let of_big_int i = i
 
-
 (* Convert a string to a numeral *)
 let of_string s = 
 
-  try 
+  try
 
-    Big_int.big_int_of_string s 
+    match Hexadecimal.to_numeral s with
+    | Some res -> res
+    | None -> Big_int.big_int_of_string s 
 
   with Failure _ -> raise (Invalid_argument "of_string")
 

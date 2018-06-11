@@ -20,6 +20,8 @@
 
 open LustreParser
 
+exception Lexer_error of string
+
 (* XML or plain text warning.
 
    Adrien: Relying on Event causes circular build. Factor in Lib, along with
@@ -101,7 +103,7 @@ let pp_print_lexbuf ppf
      lex_mem : %a;@ \
      lex_start_p : %a;@ \
      lex_curr_p : %a;@]"
-    lex_buffer
+    (Bytes.to_string lex_buffer)
     lex_buffer_len
     lex_abs_pos
     lex_start_pos
@@ -257,6 +259,9 @@ let keyword_table = mk_hashtbl [
   (* Assertion *)
   "assert", ASSERT ;
 
+  (* Check *)
+  "check", CHECK ;
+
   (* Annotations. *)
   "PROPERTY", PROPERTY ;
   "MAIN", MAIN ;
@@ -332,14 +337,22 @@ let printable = ['+' '-' '*' '/' '>' '<' '=' ]+
 (* Floating point decimal 
 
    Don't allow floats like "2." this will conflict with array slicing "2..3" *)
-let decimal = ['0'-'9']+ '.' ['0'-'9']+ ('E' ('+'|'-')? ['0'-'9']+)?
+let decimal = ['0'-'9']* '.' ['0'-'9']+ (('E'|'e') ('+'|'-')? ['0'-'9']+)?
 
 (* Floating-point decimal with exponent only *)
-let exponent_decimal = ['0'-'9']+ 'E' ('+'|'-')? ['0'-'9']+
+let exponent_decimal = ['0'-'9']+ '.'? ('E'|'e') ('+'|'-')? ['0'-'9']+
 
 (* Integer numeral *)
 let numeral = ['0'-'9']+
 
+(* Hexadecimal numerals *)
+let hexdigit = ['0'-'9' 'a'-'f' 'A'-'F']
+let hexpo = 'p' ('+'|'-')? ['0'-'9']+
+
+let hex_num  = "0x" hexdigit+ 
+let hex_dec1 = "0x" hexdigit+ ('.' hexdigit*)? hexpo?
+let hex_dec2 = "0x" '.' hexdigit+ hexpo?
+              
 (* Whitespace *)
 let whitespace = [' ' '\t']
 
@@ -395,8 +408,8 @@ rule token = parse
 
         include_channel, include_curdir
       ) with Sys_error e -> 
-        Format.sprintf "Error opening include file %s: %s" p e
-        |> failwith
+        let msg = Format.sprintf "Error opening include file %s: %s" p e in
+        raise (Lexer_error msg)
     in
 
     (* Add `p` to the list of input files. *)
@@ -460,6 +473,10 @@ rule token = parse
   | exponent_decimal as p { DECIMAL p }
   | numeral as p { NUMERAL p }
 
+  | hex_num as p { NUMERAL p }
+  | hex_dec1 as p { DECIMAL p }
+  | hex_dec2 as p { DECIMAL p }
+
   (* Keyword *)
   | id as p {
     try Hashtbl.find keyword_table p with Not_found -> (SYM p)
@@ -485,7 +502,8 @@ rule token = parse
 
   (* Unrecognized character *)
   | _ as c {
-    Format.sprintf "Unrecognized token %c (0x%X)" c (Char.code c) |> failwith
+    let msg = Format.sprintf "Unrecognized token %c (0x%X)" c (Char.code c) in
+    raise (Lexer_error msg)
   }
 
 (* Parse until end of comment, count newlines and otherwise discard
@@ -498,7 +516,7 @@ and skip_commented_slashstar = parse
   (* Count new line *)
   | newline { Lexing.new_line lexbuf ; skip_commented_slashstar lexbuf } 
 
-  | eof { Format.sprintf "Unterminated comment" |> failwith }
+  | eof { raise (Lexer_error "Unterminated comment") }
 
   (* Ignore characters in comments *)
   | _ { skip_commented_slashstar lexbuf }
@@ -514,7 +532,7 @@ and skip_commented_parenstar = parse
   (* Count new line *)
   | newline { Lexing.new_line lexbuf; skip_commented_parenstar lexbuf } 
 
-  | eof { Format.sprintf "Unterminated comment" |> failwith }
+  | eof { raise (Lexer_error "Unterminated comment") }
 
   (* Ignore characters in comments *)
   | _ { skip_commented_parenstar lexbuf }
@@ -551,7 +569,7 @@ and string = parse
   | newline
       { Lexing.new_line lexbuf; Buffer.add_char string_buf '\n'; string lexbuf }
   | eof
-      { failwith (Format.sprintf "Unterminated string") }
+      { raise (Lexer_error "Unterminated string") }
   | _ as c
       { Buffer.add_char string_buf c; string lexbuf }
 

@@ -81,7 +81,7 @@ let setup : unit -> any_input = fun () ->
 
   let in_file = Flags.input_file () in
 
-  Event.log L_info "Parsing %s."
+  KEvent.log L_info "Parsing %s."
     (match in_file with
      | "" -> "standard input"
      | _ -> "input file \"" ^ in_file ^ "\"");
@@ -92,20 +92,24 @@ let setup : unit -> any_input = fun () ->
     | `Lustre -> Input (InputSystem.read_input_lustre in_file)
     | `Native -> Input (InputSystem.read_input_native in_file)
     | `Horn   ->
-      Event.log L_fatal "Horn clauses are not supported." ;
-      Event.terminate_log () ;
+      KEvent.log L_fatal "Horn clauses are not supported." ;
+      KEvent.terminate_log () ;
       exit ExitCodes.error
   with (* Could not create input system. *)
   | LustreAst.Parser_error ->
     (* Don't do anything for parser error, they should already have printed
     some stuff. *)
-    Event.terminate_log () ;
+    KEvent.terminate_log () ;
+    exit ExitCodes.error
+  | LustreLexer.Lexer_error msg ->
+    KEvent.log L_error "%s" msg ;
+    KEvent.terminate_log () ;
     exit ExitCodes.error
   | e ->
     
     let backtrace = Printexc.get_raw_backtrace () in
 
-    Event.log
+    KEvent.log
       L_fatal "Error opening input file \"%s\":@ %s%a"
       (Flags.input_file ()) (Printexc.to_string e)
       (if Printexc.backtrace_status () then
@@ -113,7 +117,7 @@ let setup : unit -> any_input = fun () ->
        else fun _ _ -> ()) backtrace;
 
     (* Terminating log and exiting with error. *)
-    Event.terminate_log () ;
+    KEvent.terminate_log () ;
     exit ExitCodes.error  
 
 
@@ -124,32 +128,43 @@ let main () =
   let Input input_sys = setup () in
 
   (* Notify user of silent contract loading. *)
-  InputSystem.silent_contracts_of input_sys
-  |> List.iter (
-    function
-    | (_, []) -> ()
-    | (scope,contracts) ->
-      Event.log L_note "Silent contract%s loaded for system %a: @[<v>%a@]"
-        (if 1 < List.length contracts then "s" else "")
-        Scope.pp_print_scope scope
-        (pp_print_list Format.pp_print_string "@ ") contracts
-  ) ;
+  (try
+     InputSystem.silent_contracts_of input_sys
+     |> List.iter (
+       function
+       | (_, []) -> ()
+       | (scope,contracts) ->
+         KEvent.log L_note "Silent contract%s loaded for system %a: @[<v>%a@]"
+           (if 1 < List.length contracts then "s" else "")
+           Scope.pp_print_scope scope
+           (pp_print_list Format.pp_print_string "@ ") contracts
+     )
+   with (InputSystem.UnsupportedFileFormat ff) ->
+     KEvent.log L_warn
+       "Loading of silent contracts is not supported for %s files" ff
+  );
 
   (* Not launching if we're just translating contracts. *)
   match Flags.Contracts.translate_contracts () with
   | Some target -> (
     let src = Flags.input_file () in
-    Event.log_uncond "Translating contracts to file \"%s\"" target ;
+    KEvent.log_uncond "Translating contracts to file \"%s\"" target ;
     try (
       InputSystem.translate_contracts_lustre src target ;
-      Event.log_uncond "Success"
+      KEvent.log_uncond "Success"
     ) with e ->
-      Event.log L_error
+      KEvent.log L_error
         "Could not translate contracts from file \"%s\":@ %s"
         src (Printexc.to_string e)
   )
-  | None -> Kind2Flow.run input_sys
-
+  | None ->
+    try
+      Kind2Flow.run input_sys
+    with e -> (
+      KEvent.log L_fatal "Caught unexpected exception: %s" (Printexc.to_string e) ;
+      KEvent.terminate_log () ;
+      exit ExitCodes.error
+    )
 ;;
 
 main ()

@@ -114,8 +114,11 @@ val hash : t -> int
 (** Tail-recursive bottom-up right-to-left map on the expression *)
 val map : (int -> t -> t) -> t -> t
 
+(** Replace state variables in internal expression *)
+val map_vars_expr : (Var.t -> Var.t) -> expr -> expr
+
 (** Replace state variables in expression *)
-val map_vars : (Var.t -> Var.t) -> expr -> expr
+val map_vars : (Var.t -> Var.t) -> t -> t
 
 (** Return the type of the expression *)
 val type_of_lustre_expr : t -> Type.t
@@ -146,9 +149,28 @@ val pp_print_lustre_expr : bool -> Format.formatter -> t -> unit
     for encoded enumerated datatypes). *)
 val pp_print_expr : ?as_type:Type.t -> bool -> Format.formatter -> expr -> unit
 
+val pp_print_expr_pvar :
+  ?as_type:Type.t -> bool ->
+  (Format.formatter -> StateVar.t -> unit) ->
+  Format.formatter -> expr -> unit
+
 (** Pretty-print a term as an expr. *)
 val pp_print_term_as_expr :
   ?as_type:Type.t -> bool -> Format.formatter -> Term.t -> unit
+
+(** Pretty-print a term as an expr using the given printing function for state vars **)
+val pp_print_term_as_expr_pvar :
+  ?as_type:Type.t -> bool ->
+  (Format.formatter -> StateVar.t -> unit) ->
+  Format.formatter -> Term.t -> unit
+
+(** Pretty-print a term as an expr using the given map from state vars to strings
+    If a state variable is not in the map, the name of the state variable is used instead *)
+val pp_print_term_as_expr_mvar :
+  ?as_type:Type.t -> bool ->
+  (string StateVar.StateVarMap.t) ->
+  Format.formatter -> Term.t -> unit
+
 
 (** {1 Predicates} *)
 

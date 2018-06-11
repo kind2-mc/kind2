@@ -284,6 +284,12 @@ let pp_print_trans_sys
 *)
 
 
+let rec pp_print_subsystems include_top fmt sys =
+  if include_top then Format.fprintf fmt "%a@." pp_print_trans_sys sys;
+  List.iter
+    (fun (t,_) -> pp_print_subsystems true fmt t)
+    sys.subsystems
+
 
 (*
 
@@ -704,7 +710,7 @@ let iter_subsystems ?(include_top = true) f ({ subsystems } as trans_sys) =
     () 
     Scope.Set.empty 
     (if include_top then [trans_sys] else (List.map fst subsystems))
-    
+
 
 (* Fold bottom-up over subsystems, including the top level system
     without repeating subsystems already seen *)
@@ -845,11 +851,6 @@ let vars_of_bounds
     lbound
     ubound =
 
-  let state_vars =
-    List.rev_append
-      (List.rev_map Var.state_var_of_state_var_instance global_consts)
-      state_vars in
-  
   (* State variables to instantiate at bounds *)
   let state_vars = 
 
@@ -893,11 +894,6 @@ let declare_const_vars { state_vars } declare =
 
   (* Declare variables *)
   |> Var.declare_constant_vars declare
-
-
-(* Declare global constants, call first and only once *)
-let declare_global_consts { global_consts } declare =
-  Var.declare_constant_vars declare global_consts
 
 
 (* Return the init flag at the given bound *)
@@ -949,9 +945,6 @@ let define_and_declare_of_bounds
     (* Declare monomorphized select symbols *)
   if not (Flags.Arrays.smt ()) then declare_selects declare;
 
-  (* Declare constant state variables of top system *)
-  declare_global_consts trans_sys declare;
-  
   (* Declare other functions of top system *)
   declare_ufs trans_sys declare;
 
@@ -1603,6 +1596,11 @@ let mk_trans_sys
             Invalid_argument "mk_trans_sys: scope is not unique" |> raise
       ) t
   ) subsystems ;
+
+  let state_vars =
+    List.rev_append
+      (List.rev_map Var.state_var_of_state_var_instance global_consts)
+      state_vars in
   
   (* Transition system containing only the subsystems *)
   let trans_sys = 

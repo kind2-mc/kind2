@@ -179,6 +179,31 @@ let actlitify ?(imp=false) solver t =
     (* end; *)
     ta
 
+let guard_two_state_term_list t v_at_0 =
+
+  let rec is_a_two_state_term t =
+    match Term.node_of_term t with
+    | Term.T.Node (_, l) -> List.exists is_a_two_state_term l
+    | Term.T.FreeVar v ->
+      if Var.is_state_var_instance v then
+        Var.offset_of_state_var_instance v == Numeral.of_int (-1)
+      else false
+    | _ -> false
+  in
+
+  let guard_two_state_term t =
+    if is_a_two_state_term t then
+      Term.mk_implies [Term.mk_gt [v_at_0; t0]; t]
+    else t
+  in
+
+  match Term.node_of_term t with
+  | Term.T.Node (s, l) -> (
+    assert (Symbol.node_of_symbol s == `AND);
+    Term.mk_and (List.map guard_two_state_term l)
+  )
+  | _ -> guard_two_state_term t
+
 
 (* Transform unrolled state variables back to functions (that take an integer
    as argument) *)
@@ -369,7 +394,7 @@ let extract_props_certs sys =
       | { Property.prop_status = Property.PropInvariant c; prop_term = p } ->
         c :: c_acc, p :: p_acc
       | { Property.prop_name } ->
-        Event.log L_info "Skipping unproved property %s" prop_name;
+        KEvent.log L_info "Skipping unproved property %s" prop_name;
         acc
     ) ([], []) (TS.get_real_properties sys) in
 
@@ -382,7 +407,7 @@ let extract_props_certs sys =
       | { Property.prop_status = Property.PropInvariant c;
           prop_source = Property.Candidate None; prop_term = p } -> c :: certs
       | { Property.prop_name } ->
-        Event.log L_info "Skipping unproved candidate %s" prop_name;
+        KEvent.log L_info "Skipping unproved candidate %s" prop_name;
         certs
     ) certs (TS.get_candidate_properties sys) in
 
@@ -430,13 +455,12 @@ let rec find_must solver must acts q =
   try
     let not_a = Queue.pop q in
     (* eprintf "find_must %d : %a@." (Queue.length q) Term.pp_print_term not_a; *)
-    SMTSolver.check_sat_assuming solver
-      (fun _ -> (* Sat *)
+    SMTSolver.check_sat_assuming_and_get_term_values solver
+      (fun _ term_values -> (* Sat *)
          try
            let inv, ai, not_ai' = List.find (fun (_, ai, _) ->
-               let vs = SMTSolver.get_term_values solver [ai] in
-               match vs with | [_, v] -> Term.equal v (Term.mk_false ())
-                             | _ -> assert false
+               let v = List.assq ai term_values in
+               Term.equal v (Term.mk_false ())
              ) acts in
            SMTSolver.assert_term solver ai;
            Queue.push not_ai' q;
@@ -446,7 +470,7 @@ let rec find_must solver must acts q =
       (fun _ -> (* Unsat *)
          find_must solver must acts q
       )
-      [not_a]
+      [not_a] (List.map (fun (_, ai, _) -> ai) acts)
   with Queue.Empty -> must
 
 
@@ -469,6 +493,10 @@ let under_approx sys k invs prop =
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.(~- one) (Numeral.of_int (k+1));
+
+  (* Declaring path compression function if needed. *)
+  if Flags.BmcKind.compress () then
+    Compress.init (SMTSolver.declare_fun solver) sys ;
 
   (* Asserting transition relation up to k *)
   for i = 1 to k do
@@ -1130,6 +1158,10 @@ let minimize_invariants sys invs =
     (SMTSolver.declare_sort solver)
     Numeral.zero (Numeral.of_int (k+1));
 
+  (* Declaring path compression function if needed. *)
+  if Flags.BmcKind.compress () then
+    Compress.init (SMTSolver.declare_fun solver) sys ;
+  
   (* The property we want to re-verify is the conjunction of all properties *)
   let prop = Term.mk_and props in
 
@@ -1571,12 +1603,13 @@ let export_phi ~trace_lfsc_defs dirname file definitions_files names sys phi =
   let fvi = Var.mk_free_var (HString.mk_hstring "i") (ty_index ()) in
   (* Substitutions to be used later: *)
   (* [0 -> i] *)
-  let sigma_0i = TM.singleton t0 (Term.mk_var fvi) in
+  let t_fvi = Term.mk_var fvi in
+  let sigma_0i = TM.singleton t0 t_fvi in
   
   (* Declaring k-inductive invariant (PHI i) *)
   add_section fmt "k-Inductive invariant";
   let phi_s = UfSymbol.mk_uf_symbol names.phi [(ty_index ())] Type.t_bool in
-  let phi_def = roll sigma_0i phi in
+  let phi_def = roll sigma_0i (guard_two_state_term_list phi t_fvi) in
   define_fun ~trace_lfsc_defs fmt phi_s [fvi] Type.t_bool phi_def;
 
   (* dummy goal if we only want to do tracing *)
@@ -1732,7 +1765,7 @@ let mononames_implication_check sys dirname file definitions_files names =
 
 let generate_split_certificates sys dirname =
 
-  Event.set_module `Certif;
+  KEvent.set_module `Certif;
 
   (* Extract the global raw certificate of the system *)
   let prop, (k, phi) = global_certificate sys in
@@ -1824,7 +1857,7 @@ let generate_split_certificates sys dirname =
    default *)
 let generate_certificate sys dirname =
 
-  Event.set_module `Certif;
+  KEvent.set_module `Certif;
 
   (* Time statistics *)
   Stat.start_timer Stat.certif_gen_time;
@@ -1929,7 +1962,8 @@ let generate_certificate sys dirname =
 
   (* Substitutions to be used later: *)
   (* [0 -> i] *)
-  let sigma_0i = TM.singleton t0 (Term.mk_var fvi) in
+  let t_fvi = Term.mk_var fvi in
+  let sigma_0i = TM.singleton t0 t_fvi in
   (* [0 -> i; 1 -> j] *)
   let sigma_0i1j = TM.add t1 (Term.mk_var fvj) sigma_0i in
 
@@ -1967,7 +2001,7 @@ let generate_certificate sys dirname =
   add_section fmt (sprintf "%d-Inductive invariant" k);
   let phi_s =
     UfSymbol.mk_uf_symbol names_bare.phi [(ty_index ())] Type.t_bool in
-  let phi_def = roll sigma_0i phi in
+  let phi_def = roll sigma_0i (guard_two_state_term_list phi t_fvi) in
   define_fun fmt phi_s [fvi] Type.t_bool phi_def;
   let phi_t i = Term.mk_uf phi_s [index_of_int i] in
   let phi_v v = Term.mk_uf phi_s [Term.mk_var v] in
@@ -1987,7 +2021,7 @@ let generate_certificate sys dirname =
 
       let l = ref [] in
 
-      Event.log L_warn "Using potentially incorrect check for base case";
+      KEvent.log L_warn "Using potentially incorrect check for base case";
 
       for i = k - 2 downto 0 do
         l := trans_t i (i+1) :: !l;
@@ -2233,14 +2267,14 @@ let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_var
       (* Fail if variables of properties do not have a jKind equivalent *)
       if jkind_vars = [] then begin
   
-      Event.log L_info
+      KEvent.log L_info
         "Could not find a match for the%s variable %a."
         (if StateVar.is_input sv then " INPUT" else "")
         StateVar.pp_print_state_var sv;
       
         if prop (* && jkind_vars = [] *) then begin
 
-          Event.log L_fatal "Frontend certificate was not generated.";
+          KEvent.log L_fatal "Frontend certificate was not generated.";
           
           raise (CouldNotProve
             (fun fmt ->
@@ -2705,7 +2739,7 @@ let generate_frontend_certificates sys dirname =
 
   assert(is_fec sys);
 
-  Event.set_module `Certif;
+  KEvent.set_module `Certif;
 
   (* Extract the global raw certificate of the system *)
   let prop, (k, phi) = global_certificate sys in
@@ -2853,9 +2887,9 @@ let generate_smt2_certificates uid input sys =
   Hashtbl.clear solver_actlits;
 
   let dirname =
-    let dir = TransSys.scope_of_trans_sys sys |> Flags.subdir_for in
-    mk_dir dir ;
-    let dir = Filename.concat dir "certif" in
+    (* Create directories if they don't exist. *)
+    Flags.output_dir () |> mk_dir;
+    let dir = Filename.concat (Flags.output_dir ()) "certif" in
     mk_dir dir ;
     dir
   in
@@ -2864,7 +2898,7 @@ let generate_smt2_certificates uid input sys =
   (try generate_certificate sys dirname
    with e ->
      (* Send statistics *)
-     Event.stat Stat.[certif_stats_title, certif_stats];
+     KEvent.stat Stat.[certif_stats_title, certif_stats];
      raise e);
 
   (* Only generate frontend observational equivalence system for Lustre *)
@@ -2874,7 +2908,7 @@ let generate_smt2_certificates uid input sys =
         generate_frontend_obs input sys dirname |> ignore;
         true
       with Failure s ->
-        Event.log L_warn "%s@ No frontend observer." s;
+        KEvent.log L_warn "%s@ No frontend observer." s;
         false
     else begin
       printf "No certificate for frontend@.";
@@ -2895,7 +2929,7 @@ let generate_smt2_certificates uid input sys =
   close_out csoc;
 
   (* Send statistics *)
-  Event.stat Stat.[certif_stats_title, certif_stats];
+  KEvent.stat Stat.[certif_stats_title, certif_stats];
 
   (* Recursive call *)
   if not (is_fec sys) && call_frontend && gen_frontend then begin
@@ -2917,7 +2951,7 @@ let generate_smt2_certificates uid input sys =
     match Sys.command cmd with
     | 0 | 20 -> ()
     | c ->
-      Event.log L_warn
+      KEvent.log L_warn
         "Failed to generate frontend certificate (return code %d)@." c
   end  
 
@@ -2963,7 +2997,7 @@ let generate_all_proofs uid input sys =
        Proof.generate_inv_proof cert_inv;
      with e ->
        (* Send statistics *)
-       Event.stat Stat.[certif_stats_title, certif_stats];
+       KEvent.stat Stat.[certif_stats_title, certif_stats];
        raise e);
 
     let inv_lfsc = Filename.concat dirname Proof.proofname in
@@ -2992,7 +3026,7 @@ let generate_all_proofs uid input sys =
           generate_frontend_obs input sys dirname |> ignore;
           true
         with Failure s ->
-          Event.log L_warn "%s@ No frontend observer." s;
+          KEvent.log L_warn "%s@ No frontend observer." s;
           false
       else begin
         Debug.certif "No certificate for frontend";
@@ -3001,7 +3035,7 @@ let generate_all_proofs uid input sys =
     in
 
     (* Send statistics *)
-    Event.stat Stat.[certif_stats_title, certif_stats];
+    KEvent.stat Stat.[certif_stats_title, certif_stats];
 
     if call_frontend then begin
 
@@ -3026,7 +3060,7 @@ let generate_all_proofs uid input sys =
             if Sys.file_exists trust_lfsc then file_copy trust_lfsc final_trust;
 
           | c ->
-            Event.log L_warn
+            KEvent.log L_warn
               "Failed to generate frontend proof (return code %d)@." c;
             file_copy inv_lfsc final_lfsc;
             if Sys.file_exists trust_lfsc then file_copy trust_lfsc final_trust;
@@ -3054,11 +3088,11 @@ let generate_all_proofs uid input sys =
       Proof.generate_frontend_proof frontend_inv;
      with e ->
        (* Send statistics *)
-       Event.stat Stat.[certif_stats_title, certif_stats];
+       KEvent.stat Stat.[certif_stats_title, certif_stats];
        raise e);
 
     (* Send statistics *)
-    Event.stat Stat.[certif_stats_title, certif_stats];
+    KEvent.stat Stat.[certif_stats_title, certif_stats];
 
   end
   

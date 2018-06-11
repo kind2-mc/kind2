@@ -24,25 +24,36 @@ exception Type_error of Type.t * string
 let divsep = Str.regexp "/"
 
 (* Parse one value *)
-let value_of_str ty = function
-  | "true" when Type.(check_type ty t_bool) ->
-    Term.t_true
-  | "false" when Type.(check_type ty t_bool) ->
-    Term.t_false
-  | s ->
-    try
-      if Type.(check_type ty t_int) then
-        Term.mk_num (Numeral.of_string s)
-      else if Type.(check_type ty t_real) then
-        match Str.split_delim divsep s with
-        | [s] -> Term.mk_dec (Decimal.of_string s)
-        | [s1; s2] ->
-          Decimal.(div (of_string s1) (of_string s2)) |> Term.mk_dec
-        | _ -> raise (Type_error (ty, s))
-      else
-        raise (Type_error (ty, s))
-    with Invalid_argument _ ->
-      raise (Type_error (ty, s))
+let value_of_str ty s =
+  try (
+    match Type.node_of_type ty with
+    | Type.Bool -> (
+      match s with
+      | "true" -> Term.t_true
+      | "false" -> Term.t_false
+      | _ -> raise (Type_error (ty, s))
+    )
+    | Type.Int ->
+      Term.mk_num (Numeral.of_string s)
+    | Type.Real -> (
+      match Str.split_delim divsep s with
+      | [s] -> Term.mk_dec (Decimal.of_string s)
+      | [s1; s2] ->
+        Decimal.(div (of_string s1) (of_string s2)) |> Term.mk_dec
+      | _ -> raise (Type_error (ty, s))
+    )
+    | Type.IntRange (l, u, Type.Range) -> (
+      let n = Numeral.of_string s in
+      if (Numeral.leq l n && Numeral.leq n u) then Term.mk_num n
+      else raise (Type_error (ty, s))
+    )
+    | Type.IntRange (_, _, Type.Enum) ->
+      if Type.enum_of_constr s == ty then Term.mk_constr s
+      else raise (Type_error (ty, s))
+    | _ -> raise (Type_error (ty, s))
+  )
+  with Invalid_argument _ | Not_found ->
+    raise (Type_error (ty, s))
 
 
 (* Parse list of values *)
@@ -52,6 +63,17 @@ let values_of_strs ty l =
 
 let separator = Str.regexp " *, *"
 
+let parse_identifier scope name =
+  match String.split_on_char '.' name with
+  | [] -> failwith "split_on_char returned an empty list"
+  | _ :: fields -> (
+    let index =
+      fields |> List.map (fun f -> LustreIndex.RecordIndex f)
+    in
+    let index_scope = LustreIndex.mk_scope_for_index index in
+    StateVar.state_var_of_string (name, scope @ index_scope)
+  )
+
 (* Parse a line *)
 let parse_stream scope chan =
   let line = input_line chan |> String.trim in
@@ -60,14 +82,14 @@ let parse_stream scope chan =
   | [] -> raise Not_found
   | name :: stream ->
     try
-      let sv = StateVar.state_var_of_string (name, scope) in
+      let sv = parse_identifier scope name in
       if StateVar.is_input sv then 
         (* Return state variable and its input *)
         (sv, values_of_strs (StateVar.type_of_state_var sv) stream)
       else raise Not_found
     with Not_found ->
       (* Fail *)
-      Event.log L_fatal "State variable %s is not an input state variable" name;
+      KEvent.log L_fatal "State variable %s is not an input state variable" name;
       raise (Parsing.Parse_error)
 
 
@@ -85,7 +107,7 @@ let rec parse =
         "Typing error in input values file at line %d: \
          expected value of type %a, got value %s"
         !line_nb Type.pp_print_type ty s;
-      exit 2
+      raise (Parsing.Parse_error)
 
 
 (* Read in a csv file *)

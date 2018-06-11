@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015-2017 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -262,7 +262,7 @@ let add_monomial_lists add is_zero l1 l2 =
     (* Terms are equal: add coefficients *)
     | (c1, t1) :: tl1, (c2, t2) :: tl2 
       when 
-        List.length t1 = List.length t1 && 
+        List.length t1 = List.length t2 &&
         List.for_all2 Term.equal t1 t2 -> 
 
       (* Add coefficients *)
@@ -1024,7 +1024,7 @@ let atom_of_term t =
   let tt = Term.type_of_term t in 
 
   (* Term is of type integer *)
-  if Type.is_int tt || Type.is_int_range tt then
+  if Type.is_int tt || Type.is_int_range tt || Type.is_enum tt then
 
     (* Integer polynomial for a variable is (0 + 1 * x) *)
     Num (Numeral.zero, [Numeral.one, [t]])
@@ -1046,10 +1046,10 @@ let atom_of_term t =
     Array t
     
     (* Term is of some other type  *)
-  else 
+  else (
 
     (* Not implemented *)
-    assert false 
+    assert false )
 
 
 (* ********************************************************************** *)
@@ -1888,6 +1888,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                 (* New polynomial with integer value as atom *)
                 Num (Numeral.zero, [Numeral.one, [Term.mk_to_int (term_of_nf a)]])
 
+              | [Num _ as a] -> a
+
               (* Conversion is only unary *)
               | _ -> assert false 
 
@@ -1908,6 +1910,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
                 (* New polynomial with integer value as atom *)
                 Dec (Decimal.zero, [Decimal.one, [Term.mk_to_int (term_of_nf a)]])
+
+              | [Dec _ as a] -> a
 
               (* Conversion is only unary *)
               | _ -> assert false 

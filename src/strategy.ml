@@ -53,7 +53,7 @@ let get_params results subs_of_scope result =
 
   match result.A.requirements_valid with
   | Some false -> (* Requirements could not be proved, aborting. *)
-    (* Event.log L_info
+    (* KEvent.log L_info
       "Cannot refine %a, some requirements could not be proved."
       Scope.pp_print_scope sys ; *)
     None
@@ -121,7 +121,8 @@ let first_param_of ass results all_nodes scope =
       in
       (* Format.printf "%a is abstract: %b@.@." Scope.pp_print_scope sys is_abstract ; *)
       let abstraction = Scope.Map.add sys is_abstract abstraction in
-      if is_abstract then
+      loop abstraction tail
+      (*if is_abstract then
         (* Sys is abstract, don't care if it's correct. *)
         loop abstraction tail
       else ( (* Sys is not abstract, making sure it's correct and lifting
@@ -138,7 +139,7 @@ let first_param_of ass results all_nodes scope =
         ) with Not_found ->
           (* We know nothing about this sys. *)
           loop abstraction tail
-      )
+      )*)
     )
     | [] -> Some (abstraction)
   in
@@ -176,6 +177,18 @@ let first_analysis_of_contract_check ass top (
   { A.abstraction_map } as info
 ) = function
 | None -> failwith "unreachable"
+(* Next analysis is performed independently of previous result *)
+| Some _ ->
+  Some (
+    A.First {
+      info with
+        A.uid = A.get_uid () ;
+        A.abstraction_map = Scope.Map.add top false abstraction_map ;
+        A.assumptions = ass ;
+    }
+  )
+(* Next analysis is only performed if modes are complete *)
+(*
 | Some true -> (* Modes are complete. *)
   Some (
     A.First {
@@ -187,6 +200,7 @@ let first_analysis_of_contract_check ass top (
   )
 | Some false -> (* Modes are incomplete, done. *)
   None
+*)
 
 
 (* Using modules is kind of useless here, however it compartments the code and
@@ -211,11 +225,12 @@ module MonolithicStrategy : Strategy = struct
       | [ {
         A.param = A.ContractCheck info ;
         A.contract_valid ;
-        A.sys ;
       } ] when Flags.Contracts.check_implem () ->
         if can_refine then
-          first_analysis_of_contract_check
-            (A.assumptions_of_sys sys) top info contract_valid
+          (* Invariants generated during ContractCheck analysis are discarded.
+             They were generated assuming the contract! *)
+          let ass = A.assumptions_empty in
+          first_analysis_of_contract_check ass top info contract_valid
         else None
       (* Not the first analysis, done. *)
       | _ -> None
@@ -276,7 +291,9 @@ module ModularStrategy : Strategy = struct
             A.contract_valid ;
             A.sys = trans_sys ;
           } ] ->
-            last_trans_sys := Some trans_sys ;
+            (* last_trans_sys := Some trans_sys ; *)
+            (* ^^-- Invariants generated during ContractCheck analysis are discarded.
+               They were generated assuming the contract! *)
             first_analysis_of_contract_check
               (last_assumptions ()) sys info contract_valid
           | result :: _ ->

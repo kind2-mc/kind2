@@ -461,12 +461,23 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         Unix.read solver_stderr buf 0 err_p2 |> ignore;
         let err_msg = Bytes.sub_string buf err_p1 len in
         (* Show solver error message *)
-        (* Event.log L_fatal "@[<v>Solver error message:@ %s@]" err_msg; *)
+        (* KEvent.log L_fatal "@[<v>Solver error message:@ %s@]" err_msg; *)
         failwith ("Solver error: "^err_msg)
       end
 
       (* Otherwise propagate error *)
       else raise e
+      (*
+      else (
+      let buf = Bytes.create 512 in
+      let len = ref (Unix.read solver_stderr buf 0 512) in
+      while (!len > 0) do
+        Format.printf "%s" (Bytes.sub_string buf 0 !len);
+        len := (Unix.read solver_stderr buf 0 512)
+      done;
+      solver.solver_trace_coms "__EXCEPTION__";
+      raise e)
+      *)
 
 
   (* Samme as above but additionnaly trace the commands and responses *)
@@ -726,7 +737,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
           tdir
           (Format.sprintf "%s.%s.%d.%s" 
              (Filename.basename (Flags.input_file ()))
-             (short_name_of_kind_module (Event.get_module ()))
+             (short_name_of_kind_module (KEvent.get_module ()))
              id
              trace_extension
           )
@@ -737,7 +748,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         (* Open file for output, may fail *)
         let trace_oc = open_out trace_filename in
 
-        Event.log L_debug
+        KEvent.log L_debug
           "Tracing output of SMT solver instance to %s"
           trace_filename;
 
@@ -747,7 +758,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       (* Silently fail *)
       with Sys_error e -> 
 
-        Event.log L_debug
+        KEvent.log L_debug
           "Failed to open trace file for SMT solver %s"
           e;
 
@@ -1015,7 +1026,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     begin
       try ignore(execute_command_no_response solver "(exit)" 0)
       with Signal s when s = Sys.sigpipe ->
-        Event.log L_fatal
+        KEvent.log L_fatal
           "[Warning] Got broken pipe when trying to exit %s instance PID %d."
           solver.solver_config.solver_cmd.(0) solver_pid
     end;

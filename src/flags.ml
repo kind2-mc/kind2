@@ -71,11 +71,15 @@ let print_flags =
 module Make_Spec (Dummy:sig end) = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
+  let format_specs = ref []
   let add_specs specs = all_specs := List.rev_append specs !all_specs
   let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+  let add_format_spec flag parse desc =
+    add_spec flag parse desc; format_specs := (flag, parse, desc) :: !format_specs
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
+  let format_specs () = !format_specs
 end
 
 (* Signature of modules for flags. *)
@@ -1897,6 +1901,43 @@ module Global = struct
   let output_dir () = !output_dir
 
 
+  (* Real precision. *)
+  type real_precision = [
+    `Rational | `Float
+  ]
+  let real_precision_of_string = function
+    | "rational" -> `Rational
+    | "float" -> `Float
+    | _ -> raise (Arg.Bad "Bad value for --real_precision")
+  let string_of_real_precision = function
+    | `Rational -> "rational"
+    | `Float -> "float"
+  let real_precision_values = [
+    `Rational ; `Float
+  ] |> List.map string_of_real_precision |> String.concat ", "
+  let real_precision_default = `Rational
+
+  let real_precision = ref real_precision_default
+  let _ = add_spec
+    "--real_precision"
+    (Arg.String
+      (fun str -> real_precision := real_precision_of_string str)
+    )
+    (fun fmt ->
+      Format.fprintf fmt
+      "\
+        where <string> can be %s@ \
+        Adjust precision of real values in model output@ \
+        In floating-point format f<nn> means a relative error less than 2^-nn@ \
+        Default: %s\
+      "
+      real_precision_values
+      (string_of_real_precision real_precision_default)
+    )
+
+  let real_precision () = !real_precision
+
+
   (* Log invariants. *)
   let log_invs_default = false
   let log_invs = ref log_invs_default
@@ -1910,6 +1951,21 @@ module Global = struct
         log_invs_default
     )
   let log_invs () = ! log_invs
+
+
+  (* Print invariants. *)
+  let print_invs_default = false
+  let print_invs = ref print_invs_default
+  let _ = add_spec
+    "--print_invs"
+    (bool_arg print_invs)
+    (fun fmt ->
+      Format.fprintf fmt
+        "Prints list of discovered invariants.@ \
+        Default: %b"
+        print_invs_default
+    )
+  let print_invs () = ! print_invs
 
 
   (* Timeout. *)
@@ -2096,6 +2152,41 @@ module Global = struct
     )
   let modular () = !modular
 
+
+  let slice_nodes_default = true
+  let slice_nodes = ref slice_nodes_default
+  let _ = add_spec
+    "--slice_nodes"
+    (bool_arg slice_nodes)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Only equations that are relevant for checking the contract and@ \
+          properties of a node are considered during the analysis@ \
+          Default: %a\
+        "
+        fmt_bool slice_nodes_default
+    )
+  let slice_nodes () = !slice_nodes
+
+
+  let check_subproperties_default = false
+  let check_subproperties = ref check_subproperties_default
+  let _ = add_spec
+    "--check_subproperties"
+    (bool_arg check_subproperties)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Check properties of subnodes that are relevant for the analysis@ \
+          of the top node. Only available with monolithic analysis@ \
+          Default: %a\
+        "
+        fmt_bool check_subproperties_default
+    )
+  let check_subproperties () = !check_subproperties
+
+
   let lus_compile_default = false
   let lus_compile = ref lus_compile_default
   let _ = add_spec
@@ -2199,18 +2290,35 @@ module Global = struct
   ])
   let log_level () = get_log_level ()
 
+  (** ********************** Log formats ************************* **)
+
+  let log_format_default = Log.get_log_format ()
+
+  (* Use add_format_spec instead of add_spec *)
 
   (* XML log. *)
-  let log_format_xml_default = false
-  let log_format_xml = ref log_format_xml_default
-  let _ = add_spec
+  let _ = add_format_spec
     "-xml"
     (Arg.Unit (fun () ->
-         log_format_xml := true;
          Log.set_log_format_xml ()
        ))
     (fun fmt -> Format.fprintf fmt "Output in XML format")
-  let log_format_xml () = !log_format_xml
+  let log_format_xml () = Log.get_log_format () = Log.F_xml
+
+  (** ************************************************************ **)
+
+
+  (* JSON log. *)
+  let log_format_json_default = false
+  let log_format_json = ref log_format_json_default
+  let _ = add_spec
+    "-json"
+    (Arg.Unit (fun () ->
+         log_format_json := true;
+         Log.set_log_format_json ()
+       ))
+    (fun fmt -> Format.fprintf fmt "Output in JSON format")
+  let log_format_json () = !log_format_json
 
   
   (* Colored output *)
@@ -2222,7 +2330,7 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Display colors in ascii output (deactivated when using -xml)@ \
+          Display colors in ascii output (deactivated when using -xml or -json)@ \
           Default: %a\
         "
         fmt_bool color_default
@@ -2273,6 +2381,7 @@ end
 (* Re-exports. *)
 type enable = Global.enable
 type input_format = Global.input_format
+type real_precision = Global.real_precision
 
 
 (* ********************************************************************** *)
@@ -2283,17 +2392,22 @@ type input_format = Global.input_format
 
 let output_dir = Global.output_dir
 let log_invs = Global.log_invs
+let print_invs = Global.print_invs
 let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable
 let lus_strict = Global.lus_strict
 let modular = Global.modular
+let slice_nodes = Global.slice_nodes
+let check_subproperties = Global.check_subproperties
 let lus_main = Global.lus_main
 let debug = Global.debug
 let debug_log = Global.debug_log
 let log_level = Global.log_level
 let log_format_xml = Global.log_format_xml
+let log_format_json = Global.log_format_json
 let input_format = Global.input_format
+let real_precision = Global.real_precision
 let timeout_wall = Global.timeout_wall
 let timeout_analysis = Global.timeout_analysis
 let input_file = Global.input_file
@@ -2399,21 +2513,66 @@ let parse_clas specs anon_action global_usage_msg =
             cla_loop tail
     in
 
+    let check_format_flags args =
+      if Log.get_log_format () = Global.log_format_default then
+      (
+        (* Look for a non-processed format argument *)
+        let format_specs = Global.format_specs () in
+        let format_arg_specs = List.fold_left (fun acc arg ->
+          try List.find (fun (flag',_,_) -> arg = flag') format_specs :: acc
+          with Not_found -> acc
+        ) [] args
+        in
+        (* Last argument prevails over previous ones *)
+        match List.rev format_arg_specs with
+        | (_, Arg.Unit f, _) :: _ -> f () | _ -> ()
+      )
+    in
+
     (
-      try Array.to_list Sys.argv |> List.tl |> cla_loop
+      try args |> cla_loop
       with
-      | UnknownFlag flag ->
-        Global.print_help () ;
-        Format.printf "\n\x1b[31;1mError\x1b[0m: unknown flag \"%s\".@." flag;
+      | UnknownFlag flag -> (
+        check_format_flags args;
+        (
+          match Log.get_log_format () with
+          | Log.F_pt | Log.F_relay -> (
+            Global.print_help () ;
+            Format.printf "\n\x1b[31;1mError\x1b[0m: unknown flag \"%s\".@." flag
+          )
+          | Log.F_xml | Log.F_json -> (
+            Log.log L_error "Unknown flag '%s'.@." flag
+          )
+        );
         exit 2
-      | BadArg (error, flag) ->
-        Format.printf
-          "\x1b[31;1mError on flag\x1b[0m@.@[<v>%a@]@.%s@."
-          fmt_flag flag error ;
+      )
+      | BadArg (error, spec) ->
+        check_format_flags args;
+        (
+          match Log.get_log_format () with
+          | Log.F_pt | Log.F_relay -> (
+            Format.printf
+              "\x1b[31;1mError on flag\x1b[0m@.@[<v>%a@]@.%s@."
+              fmt_flag spec error
+          )
+          | Log.F_xml | Log.F_json -> (
+            let flag, _, _ = spec in
+            Log.log L_error "Error on flag '%s': %s@." flag error
+          )
+        );
         exit 2
       | Arg.Bad expl ->
-        Format.printf
-          "\x1b[31;1mBad argument\x1b[0m: @[<v>%s.@]@." expl;
+        check_format_flags args;
+        (
+          match Log.get_log_format () with
+          | Log.F_pt | Log.F_relay -> (
+            Format.printf
+              "\x1b[31;1mBad argument\x1b[0m: @[<v>%s.@]@." expl
+          )
+          | Log.F_xml | Log.F_json -> (
+            Log.log L_error "Bad argument:@ @[<v>%s.@]@." expl
+          )
+        );
         exit 2
     )
 
@@ -2422,11 +2581,13 @@ let parse_clas specs anon_action global_usage_msg =
 
 
 let solver_dependant_actions () = match Smt.solver () with
-  | (`CVC4_SMTLIB | `Yices_SMTLIB) as s ->
-    (* Disable IC3 for CVC4 and Yices 2 because of lack of support for unsat
-       cores*)
+  | (`Yices_SMTLIB) as s -> (
+    (* Disable IC3 for Yices 2 because of lack of support for unsat cores*)
     Global.disable `IC3;
-    Log.log L_warn "Disabling IC3 with solver %s" (Smt.string_of_solver s)
+    Log.log L_warn "Disabling IC3 with solver %s" (Smt.string_of_solver s);
+    (* Yices 2 SMTLIB requires the specification of a theory *)
+    match s with `Yices_SMTLIB -> Smt.detect_logic_if_none () | _ -> ()
+  )
   | _ -> ()
 
 
@@ -2450,10 +2611,30 @@ let print_xml_options () =
     (Global.modular ())
 
 
+let print_json_options () =
+    let pp_print_module_str fmt mdl =
+      Format.fprintf fmt "\"%s\"" (Lib.short_name_of_kind_module mdl)
+    in
+    Format.fprintf !log_ppf "[@.{@[<v 1>@,\
+        \"objectType\" : \"kind2Options\",@,\
+        \"enabled\" :@,[@[<v 1>@,%a@]@,],@,\
+        \"timeout\" : %f,@,\
+        \"bmcMax\" : %d,@,\
+        \"compositional\" : %b,@,\
+        \"modular\" : %b\
+        @]@.}@.\
+    "
+    (pp_print_list pp_print_module_str ",@,") (Global.enabled ())
+    (Global.timeout_wall ())
+    (BmcKind.max ())
+    (Contracts.compositional ())
+    (Global.modular ())
+
 
 let post_argv_parse_actions () =
 
   if Global.log_format_xml () then print_xml_options ();
+  if Global.log_format_json () then print_json_options ();
 
   (* Don't print banner if no output at all. *)
   if not (Global.log_level () = L_off) then (
@@ -2471,9 +2652,9 @@ let parse_argv () =
   (* CLAPing. *)
   parse_clas (Global.all_kind2_specs ()) anon_action Global.usage_msg ;
 
-  (* Colors if flag is not false and not in xml mode *)
+  (* Colors if flag is not false and not in xml or json mode *)
   let open Format in
-  if color () && not (log_format_xml ()) then begin
+  if color () && not (log_format_xml () || log_format_json ()) then begin
     pp_set_tags std_formatter true;
     pp_set_tags err_formatter true;
     pp_set_tags !Lib.log_ppf true;

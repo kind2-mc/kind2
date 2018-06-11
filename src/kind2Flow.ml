@@ -62,11 +62,11 @@ let all_results = ref ( Anal.mk_results () )
 let renice () =
   let nice =  (Flags.Invgen.renice ()) in
   if nice < 0 then
-    Event.log L_info
+    KEvent.log L_info
       "[renice] ignoring negative niceness value."
   else if nice > 0 then
     let nice' = Unix.nice nice in
-    Event.log L_info "[renice] renicing to %d" nice'
+    KEvent.log L_info "[renice] renicing to %d" nice'
 
 (** Main function of the process *)
 let main_of_process = function
@@ -149,7 +149,7 @@ let status_of_sys () = match ! latest_trans_sys with
 let status_of_results () =
   match Anal.results_is_safe !all_results with
   | None ->
-    Event.log L_fatal "result analysis: no safe result" ;
+    KEvent.log L_fatal "result analysis: no safe result" ;
     (* Format.eprintf "NO_SAFE_RES@." ; *)
     ExitCodes.unknown
   | Some true -> ExitCodes.safe
@@ -160,49 +160,49 @@ let status_of_exn process status = function
   (* Normal termination. *)
   | Exit -> status
   (* Parser error *)
-  | LustreAst.Parser_error ->
+  | LustreAst.Parser_error | Parsing.Parse_error ->
     ExitCodes.error
   (* Got unknown, issue error but normal termination. *)
   | SMTSolver.Unknown ->
-    Event.log L_warn "In %a: a check-sat resulted in \"unknown\".@ \
+    KEvent.log L_warn "In %a: a check-sat resulted in \"unknown\".@ \
       This is most likely due to non-linear expressions in the model,@ \
       usually multiplications `v_1 * v_2` or divisions `v_1 / v_2`.@ \
-      Consider running Kind 2 with `--smt_check_sat_assume off` or@ \
+      Consider running Kind 2 with `--check_sat_assume off` or@ \
       abstracting non-linear expressions using contracts.\
     " pp_print_kind_module process ;
     status
   (* Termination message. *)
-  | Event.Terminate ->
-    Event.log L_debug "Received termination message" ;
+  | KEvent.Terminate ->
+    KEvent.log L_debug "Received termination message" ;
     status
   (* Catch wallclock timeout. *)
   | TimeoutWall -> (
     InvarManager.print_stats !latest_trans_sys ;
-    Event.log_timeout true ;
+    KEvent.log_timeout true ;
     status
   )
   (* Catch CPU timeout. *)
   | TimeoutVirtual -> (
     InvarManager.print_stats !latest_trans_sys ;
-    Event.log_timeout false ;
+    KEvent.log_timeout false ;
     status
   )
   (* Signal caught. *)
   | Signal s ->
-    Event.log_interruption s ;
+    KEvent.log_interruption s ;
     (* Return exit status and signal number. *)
     ExitCodes.kid_status + s
   (* Runtime failure. *)
   | Failure msg -> (
     InvarManager.print_stats !latest_trans_sys ;
-    Event.log L_fatal "Runtime failure in %a: %s"
+    KEvent.log L_fatal "Runtime failure in %a: %s"
       pp_print_kind_module process msg ;
     ExitCodes.error
   )
   (* Other exception, return exit status for error. *)
   | e -> (
     InvarManager.print_stats !latest_trans_sys ;
-    Event.log L_fatal "Runtime error in %a: %s"
+    KEvent.log L_fatal "Runtime error in %a: %s"
       pp_print_kind_module process (Printexc.to_string e) ;
     ExitCodes.error
   )
@@ -220,16 +220,16 @@ let slaughter_kids process sys =
   Signals.ignoring_sigalrm ( fun _ ->
     (* Clean exit from invariant manager *)
     InvarManager.on_exit sys ;
-    Event.log L_info "Killing all remaining child processes";
+    KEvent.log L_info "Killing all remaining child processes";
 
     (* Kill all child processes groups *)
     List.iter (
       fun (pid, _) ->
-        Event.log L_debug "Sending SIGKILL to PID %d" pid ;
+        KEvent.log L_debug "Sending SIGKILL to PID %d" pid ;
         try Unix.kill (- pid) Sys.sigkill with _ -> ()
     ) ! child_pids ;
 
-    Event.log L_debug "Waiting for remaining child processes to terminate" ;
+    KEvent.log L_debug "Waiting for remaining child processes to terminate" ;
 
     let timeout = ref false in
 
@@ -242,18 +242,18 @@ let slaughter_kids process sys =
             (* Remove killed process from list *)
             child_pids := List.remove_assoc pid !child_pids ;
             (* Log termination status *)
-            Event.log L_debug
+            KEvent.log L_debug
               "Process %d %a" pid pp_print_process_status status
           with
           (* Remember timeout to raise it later. *)
           | TimeoutWall ->
-            Event.log_timeout true ;
+            KEvent.log_timeout true ;
             timeout := true
         done
       with
       (* No more child processes, this is the normal exit. *)
       | Unix.Unix_error (Unix.ECHILD, _, _) ->
-        Event.log L_info "All child processes terminated." ;
+        KEvent.log L_info "All child processes terminated." ;
         if !timeout then raise TimeoutWall
       (* Unix.wait was interrupted. *)
       | Unix.Unix_error (Unix.EINTR, _, _) ->
@@ -269,11 +269,11 @@ let slaughter_kids process sys =
     ) ;
 
     if ! child_pids <> [] then
-      Event.log L_fatal "Some children did not exit." ;
+      KEvent.log L_fatal "Some children did not exit." ;
     (* Cleaning kids list. *)
     child_pids := [] ;
     (* Draining mailbox. *)
-    Event.recv () |> ignore
+    KEvent.recv () |> ignore
   ) ;
 
   Signals.set_sigalrm_timeout_from_flag ()
@@ -283,7 +283,7 @@ let post_clean_exit process exn =
   (* Exit status of process depends on exception. *)
   let status = status_of_exn_results process exn in
   (* Close tags in XML output. *)
-  Event.terminate_log () ;
+  KEvent.terminate_log () ;
   (* Kill all live solvers. *)
   SMTSolver.destroy_all () ;
   (* Exit with status. *)
@@ -304,17 +304,17 @@ let on_exit_child ?(alone=false) messaging_thread process exn =
   let status = status_of_exn process 0 exn in
   (* Call cleanup of process *)
   on_exit_of_process process ;
-  Unix.getpid () |> Event.log L_debug "Process %d terminating" ;
+  Unix.getpid () |> KEvent.log L_debug "Process %d terminating" ;
 
   ( match messaging_thread with
-    | Some t -> Event.exit t
+    | Some t -> KEvent.exit t
     | None -> ()
   ) ;
 
   Debug.kind2 "Process %a terminating" pp_print_kind_module process ;
-  Event.terminate_log () ;
+  KEvent.terminate_log () ;
   (* Log stats and statuses of properties if run as a single process *)
-  (* if alone then Event.log_result sys_opt; *)
+  (* if alone then KEvent.log_result sys_opt; *)
   (* Exit process with status *)
   exit status
 
@@ -334,22 +334,22 @@ let run_process in_sys param sys messaging_setup process =
     (* Initialize messaging system for process. *)
     let messaging_thread =
       on_exit_child None process
-      |> Event.run_process process messaging_setup
+      |> KEvent.run_process process messaging_setup
     in
 
     try 
 
       (* All log messages are sent to the invariant manager now. *)
-      Event.set_relay_log ();
+      KEvent.set_relay_log ();
 
       (* Set module currently running. *)
-      Event.set_module process;
+      KEvent.set_module process;
 
       (* Record backtraces on log levels debug and higher. *)
       if output_on_level L_debug then
         Printexc.record_backtrace true ;
 
-      Event.log L_debug
+      KEvent.log L_debug
         "Starting new process %a with PID %d" 
         pp_print_kind_module process
         pid;
@@ -389,14 +389,14 @@ let run_process in_sys param sys messaging_setup process =
 
     with
     (* Termination message received. *)
-    | Event.Terminate as e ->
+    | KEvent.Terminate as e ->
       on_exit_child (Some messaging_thread) process e
     (* Catch all other exceptions. *)
     | e ->
       (* Get backtrace now, Printf changes it. *)
       let backtrace = Printexc.get_raw_backtrace () in
       if Printexc.backtrace_status () then (
-        Event.log L_fatal
+        KEvent.log L_fatal
           "Caught %s in %a.@ Backtrace:@ %a"
           (Printexc.to_string e)
           pp_print_kind_module process
@@ -417,24 +417,24 @@ let analyze ?(ignore_props = false) msg_setup modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
   ( if TSys.has_properties sys |> not && not ignore_props then
-      Event.log L_note
+      KEvent.log L_note
         "System %a has no property, skipping verification step." fmt_sys sys
     else
       let props = TSys.props_list_of_bound sys Num.zero in
       (* Issue analysis start notification. *)
-      Event.log_analysis_start sys param ;
+      KEvent.log_analysis_start sys param ;
       (* Debug output system. *)
       Debug.parse "%a" TSys.pp_print_trans_sys sys ;
       (* Issue number of properties. *)
-      List.length props |> Event.log L_info "%d properties." ;
+      List.length props |> KEvent.log L_info "%d properties." ;
 
-      Event.log L_debug "Starting child processes." ;
+      KEvent.log L_debug "Starting child processes." ;
       (* Start all child processes. *)
       modules |> List.iter (
         fun p -> run_process in_sys param sys msg_setup p
       ) ;
       (* Update background thread with new kids. *)
-      Event.update_child_processes_list !child_pids ;
+      KEvent.update_child_processes_list !child_pids ;
 
       (* Running supervisor. *)
       InvarManager.main ignore_props child_pids in_sys param sys ;
@@ -454,9 +454,24 @@ let analyze ?(ignore_props = false) msg_setup modules in_sys param sys =
   ) ;
 
   (* Issue analysis end notification. *)
-  Event.log_analysis_end result ;
+  KEvent.log_analysis_end result ;
   (* Issue analysis outcome. *)
-  Event.log L_info "Result: %a" Analysis.pp_print_result result
+  KEvent.log L_info "Result: %a" Analysis.pp_print_result result
+
+
+let check_analysis_flags () =
+  if Flags.check_subproperties () then (
+    let show_msg_and_exit arg =
+      KEvent.log L_fatal
+        "Subproperty checking is not compatible with %s analysis." arg;
+      exit ExitCodes.error
+    in
+    if Flags.modular () then
+      show_msg_and_exit "modular"
+    else if Flags.Contracts.compositional () then
+      show_msg_and_exit "compositional"
+  )
+
 
 (** Runs the analyses produced by the strategy module. *)
 let run in_sys =
@@ -466,21 +481,20 @@ let run in_sys =
 
   (* Nothing's active. *)
   | [] ->
-    Event.log L_fatal "Need at least one Kind 2 module active." ;
+    KEvent.log L_fatal "Need at least one Kind 2 module active." ;
     exit ExitCodes.error
 
   (* Only the interpreter is active. *)
   | [m] when m = `Interpreter -> (
-    match
-      Analysis.mk_results () |> ISys.next_analysis_of_strategy in_sys
-    with
-    | Some param ->
+    (* Set module currently running. *)
+    KEvent.set_module m ;
+    try (
+      let param = ISys.interpreter_param in_sys in
       (* Build trans sys and slicing info. *)
-      let sys, in_sys_sliced =
-        ISys.trans_sys_of_analysis ~preserve_sig:true in_sys param
+      let sys, _ =
+        ISys.trans_sys_of_analysis
+          ~preserve_sig:true ~slice_nodes:false in_sys param
       in
-      (* Set module currently running. *)
-      Event.set_module m ;
       (* Run interpreter. *)
       Interpreter.main (
         Flags.Interpreter.input_file ()
@@ -489,35 +503,41 @@ let run in_sys =
       Signals.ignore_sigalrm () ;
       (* Cleanup before exiting process *)
       on_exit_child None m Exit
-    | None ->
-      failwith "Could not generate first analysis parameter."
+    )
+    with e -> on_exit_child None m e
   )
 
   (* Some modules, including the interpreter. *)
   | modules when List.mem `Interpreter modules ->
-    Event.log L_fatal "Cannot run the interpreter with other processes." ;
+    KEvent.log L_fatal "Cannot run the interpreter with other processes." ;
     exit ExitCodes.error
 
   (* Some analysis modules. *)
   (* Some modules, not including the interpreter. *)
   | modules ->
-    Event.log L_info
+
+    check_analysis_flags ();
+
+    KEvent.log L_info
       "@[<hov>Running in parallel mode: @[<v>- %a@]@]"
       (pp_print_list pp_print_kind_module "@ - ")
       modules ;
     (* Setup messaging. *)
-    let msg_setup = Event.setup () in
+    let msg_setup = KEvent.setup () in
 
     (* Runs the next analysis, if any. *)
     let rec loop () =
       match ISys.next_analysis_of_strategy in_sys !all_results with
       
       | Some param ->
-        (* Format.printf "param: %a@.@." Analysis.pp_print_param param ; *)
+        (* Format.printf "param: %a@.@." (Analysis.pp_print_param true) param ; *)
         (* Build trans sys and slicing info. *)
         let sys, in_sys_sliced =
           ISys.trans_sys_of_analysis in_sys param
         in
+
+        (* Format.printf "%a" (TSys.pp_print_subsystems true) sys; *)
+
         (* Should we run post analysis treatment? *)
         ( match !latest_trans_sys with
           | Some old when TSys.equal_scope old sys |> not ->
@@ -544,11 +564,11 @@ let run in_sys =
     in
 
     (* Set module currently running *)
-    Event.set_module `Supervisor ;
+    KEvent.set_module `Supervisor ;
     (* Initialize messaging for invariant manager, obtain a background thread.
     No kids yet. *)
-    Event.run_im msg_setup [] (on_exit None `Supervisor) |> ignore ;
-    Event.log L_debug "Messaging initialized in supervisor." ;
+    KEvent.run_im msg_setup [] (on_exit None `Supervisor) |> ignore ;
+    KEvent.log L_debug "Messaging initialized in supervisor." ;
 
     try (
       (* Run everything. *)
@@ -571,23 +591,25 @@ let run in_sys =
         ) with
         | Not_found -> l
         | Failure s ->
-          Event.log L_fatal "Failure: %s" s ;
+          KEvent.log L_fatal "Failure: %s" s ;
           l
         | e ->
-          Event.log L_fatal "%s" (Printexc.to_string e) ;
+          KEvent.log L_fatal "%s" (Printexc.to_string e) ;
           l
       ) []
       (* Logging the end of the run. *)
-      |> Event.log_run_end ;
+      |> KEvent.log_run_end ;
 
       post_clean_exit `Supervisor Exit
 
-    ) with e ->
+    ) with
+    | TimeoutWall -> on_exit None `Supervisor TimeoutWall
+    | e ->
       (* Get backtrace now, Printf changes it *)
       let backtrace = Printexc.get_raw_backtrace () in
 
       if Printexc.backtrace_status () then
-        Event.log L_fatal "Caught %s in %a.@\nBacktrace:@\n%a"
+        KEvent.log L_fatal "Caught %s in %a.@\nBacktrace:@\n%a"
           (Printexc.to_string e)
           pp_print_kind_module `Supervisor
           print_backtrace backtrace;

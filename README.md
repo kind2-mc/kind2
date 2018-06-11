@@ -1,7 +1,12 @@
-# Kind 2
+
+
+<!-- DO NOT EDIT, see ./doc/usr/content/{Home.md,TravisLinks} -->
+
 
 `develop`: [![Build Status](https://travis-ci.org/kind2-mc/kind2.svg?branch=develop)](https://travis-ci.org/kind2-mc/kind2)
 `master`: [![Build Status](https://travis-ci.org/kind2-mc/kind2.svg?branch=master)](https://travis-ci.org/kind2-mc/kind2)
+
+# Kind 2
 
 A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 
@@ -44,7 +49,12 @@ The default is `Z3`, but see options of the `./build.sh` script to override at c
 ## Requirements
 
 - Linux or Mac OS X,
+- Automake,
+- GNU Libtool,
+- pkg-config,
 - OCaml 4.03 or later,
+- [Ocamlbuild](https://github.com/ocaml/ocamlbuild), Ocamlfind, [Camlp4](https://github.com/ocaml/camlp4),
+- [num](https://github.com/ocaml/num) (part of OCaml distribution until 4.06),
 - [Menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator, and
 - a supported SMT solver
     - [CVC4](http://cvc4.cs.nyu.edu),
@@ -54,7 +64,7 @@ The default is `Z3`, but see options of the `./build.sh` script to override at c
 
 ## Building and installing
 
-You need to run first
+Move to the top-level directory of the Kind 2 distribution, and make sure the path to that directory does not contain any white spaces (i.e., do not use something like /Users/Smith/Kind 2/). Then, run
 
     ./autogen.sh
 
@@ -80,7 +90,7 @@ You can run tests to see if Kind 2 has been built correctly. To do so run
 
 You can pass arguments to Kind 2 with the `ARGS="..."` syntax. For instance
 
-    make ARGS="--enable PDR" test
+    make ARGS="--enable IC3" test
 
 
 ## Documentation
@@ -92,6 +102,7 @@ To generate the documentation, you need
 
 * a GNU version of `sed` (`gsed` on OSX), and
 * [Pandoc](http://pandoc.org/).
+
 
 
 ## Docker

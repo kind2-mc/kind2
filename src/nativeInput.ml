@@ -272,8 +272,6 @@ let prop_source_of_sexpr prop_term = function
                   prop_term; prop_status = Property.PropUnknown }
       and source = Property.Instantiated (scope, prop) in
       source
-    else if c = s_guaranteeonemodeactive then
-      Property.GuaranteeOneModeActive scope
     else assert false
 
   | [HS.Atom c; HS.Atom pos; HS.Atom scopedprop] ->
@@ -284,6 +282,8 @@ let prop_source_of_sexpr prop_term = function
       Lib.extract_scope_name (HString.string_of_hstring scopedprop) in
     if c == s_assumption then Property.Assumption (ppos, scope)
     else if c == s_guarantee then Property.Guarantee (ppos, scope)
+    else if c = s_guaranteeonemodeactive then
+      Property.GuaranteeOneModeActive (ppos, scope)
     else if c == s_guaranteemodeimplication then
       Property.GuaranteeModeImplication (ppos, scope)
     else assert false

@@ -282,6 +282,17 @@ let pp_print_trie_expr safe ppf expr =
     (E.pp_print_lustre_expr safe) ppf expr
 
 
+let mk_scope_for_index index =
+  List.rev_map
+    (fun i ->
+       string_of_t (pp_print_one_index true) i
+       |> String.length
+       |> string_of_int
+       |> Ident.of_string)
+    index
+  |> Scope.mk_scope
+
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

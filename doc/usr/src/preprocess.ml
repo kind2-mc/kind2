@@ -389,6 +389,10 @@ module IO = struct
               true
               ( if is_ws_rep then label else label ^ "-" )
               (index + 1)
+          | '-'
+          | ','
+          | '.'
+          | '`' -> index + 1 |> get_label is_ws_rep label
           | c ->
             get_label
               false
@@ -433,7 +437,7 @@ module IO = struct
               |> rewrite_pics dirname
               |> fun smthng -> printf "rewrite labels@." ; smthng *)
               |> rewrite_label prefix
-              |> echo_pipe [ rewrite_pics dirname ]
+              (* |> echo_pipe [ rewrite_pics dirname ] *)
               |> output_string tgt_chan ;
               output_string tgt_chan "\n"
             done ;

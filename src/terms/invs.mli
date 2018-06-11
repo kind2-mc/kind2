@@ -56,6 +56,9 @@ val get_ts : t -> Term.TermSet.t
 (** Checks if a term is a known invariant. *)
 val mem : t -> Term.t -> bool
 
+(** Returns [Some cert] if [term] is a known invariant, or [None] otherwise. *)
+val find : t -> Term.t -> Certificate.t option
+
 (** **Temporary.** Flattens some invariants into a list. *)
 val flatten : t -> (Term.t * Certificate.t) list
 
