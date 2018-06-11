@@ -489,26 +489,20 @@ let run in_sys =
     (* Set module currently running. *)
     KEvent.set_module m ;
     try (
-      match
-        Analysis.mk_results () |> ISys.next_analysis_of_strategy in_sys
-      with
-      | Some param -> (
-        (* Build trans sys and slicing info. *)
-        let sys, _ =
-          ISys.trans_sys_of_analysis
-            ~preserve_sig:true ~slice_nodes:false in_sys param
-        in
-        (* Run interpreter. *)
-        Interpreter.main (
-          Flags.Interpreter.input_file ()
-        ) in_sys param sys ;
-        (* Ignore SIGALRM from now on *)
-        Signals.ignore_sigalrm () ;
-        (* Cleanup before exiting process *)
-        on_exit_child None m Exit
-      )
-      | None ->
-        failwith "Could not generate first analysis parameter."
+      let param = ISys.interpreter_param in_sys in
+      (* Build trans sys and slicing info. *)
+      let sys, _ =
+        ISys.trans_sys_of_analysis
+          ~preserve_sig:true ~slice_nodes:false in_sys param
+      in
+      (* Run interpreter. *)
+      Interpreter.main (
+        Flags.Interpreter.input_file ()
+      ) in_sys param sys ;
+      (* Ignore SIGALRM from now on *)
+      Signals.ignore_sigalrm () ;
+      (* Cleanup before exiting process *)
+      on_exit_child None m Exit
     )
     with e -> on_exit_child None m e
   )
