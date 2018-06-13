@@ -1176,7 +1176,14 @@ let rec eval_node_equation inputs outputs locals ctx = function
               )
             ) else ctx
           in
-          C.add_node_equation ctx pos sv b indexes e
+          try 
+            C.add_node_equation ctx pos sv b indexes e
+          with
+            | E.FixedWidthInt_overflow ->
+
+              C.fail_at_position
+                pos
+                "Trying to assign an out-of-bounds integer literal to a fixed-width integer type"
       ) ctx equations
 
   | A.Automaton (pos, aname, states, _) as e ->

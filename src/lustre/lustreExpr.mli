@@ -55,6 +55,7 @@
 
 (** Types of expressions do not match signature of operator *)
 exception Type_mismatch
+exception FixedWidthInt_overflow
 
 (** {1 Types} *)
 

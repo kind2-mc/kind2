@@ -27,6 +27,7 @@ module VS = Var.VarSet
 
 (* Exceptions *)
 exception Type_mismatch
+exception FixedWidthInt_overflow
 
 (* A Lustre expression is a term *)
 type expr = Term.t

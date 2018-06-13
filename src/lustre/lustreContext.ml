@@ -1998,7 +1998,7 @@ let rec add_node_equation ctx pos state_var bounds indexes expr =
               when Type.is_int8 t && Type.is_int_range s ->
                 let (lbound, ubound) = Type.bounds_of_int_range s in
                 if((Numeral.to_int lbound) < -128 || (Numeral.to_int ubound) > 127) then
-                  raise Division_by_zero
+                  raise E.FixedWidthInt_overflow
                 else
                   let expr1 = E.mk_to_int8 expr in
                   add_node_equation ctx pos state_var bounds indexes expr1
@@ -2007,7 +2007,7 @@ let rec add_node_equation ctx pos state_var bounds indexes expr =
               when Type.is_int16 t && Type.is_int_range s ->
                 let (lbound, ubound) = Type.bounds_of_int_range s in
                 if((Numeral.to_int lbound) < -32768 || (Numeral.to_int ubound) > 32767) then
-                  raise Division_by_zero
+                  raise E.FixedWidthInt_overflow
                 else              
                   let expr1 = E.mk_to_int16 expr in
                   add_node_equation ctx pos state_var bounds indexes expr1
@@ -2016,7 +2016,7 @@ let rec add_node_equation ctx pos state_var bounds indexes expr =
               when Type.is_int32 t && Type.is_int_range s ->
                 let (lbound, ubound) = Type.bounds_of_int_range s in
                 if((Numeral.to_int lbound) < -2147483648 || (Numeral.to_int ubound) > 2147483647) then
-                  raise Division_by_zero
+                  raise E.FixedWidthInt_overflow
                 else
                   let expr1 = E.mk_to_int32 expr in
                   add_node_equation ctx pos state_var bounds indexes expr1
@@ -2025,7 +2025,7 @@ let rec add_node_equation ctx pos state_var bounds indexes expr =
               when Type.is_int64 t && Type.is_int_range s ->
                 let (lbound, ubound) = Type.bounds_of_int_range s in
                 if((Numeral.to_int lbound) < -2147483648(*-9223372036854775808*) || (Numeral.to_int ubound) > 2147483647(*9223372036854775807*)) then
-                  raise Division_by_zero
+                  raise E.FixedWidthInt_overflow
                 else
                   let expr1 = E.mk_to_int64 expr in
                   add_node_equation ctx pos state_var bounds indexes expr1
