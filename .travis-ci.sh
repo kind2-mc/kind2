@@ -2,9 +2,9 @@
 sudo apt-get update -y -qq
 
 # Install z3.
-wget https://github.com/Z3Prover/z3/releases/download/z3-4.5.0/z3-4.5.0-x64-ubuntu-14.04.zip
-unzip z3-4.5.0-x64-ubuntu-14.04.zip
-sudo cp z3-4.5.0-x64-ubuntu-14.04/bin/z3 /usr/bin/z3
+wget https://github.com/Z3Prover/z3/releases/download/z3-4.7.1/z3-4.7.1-x64-ubuntu-14.04.zip
+unzip z3-4.7.1-x64-ubuntu-14.04.zip
+sudo cp z3-4.7.1-x64-ubuntu-14.04/bin/z3 /usr/bin/z3
 
 # Retrieve opam.
 wget -qq https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh -O - | sh -s /usr/local/bin 4.04.0

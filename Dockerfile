@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM ubuntu:16.04
 MAINTAINER Cesare Tinelli <cesare-tinelli@uiowa.edu>
 
 # Install everything we're gonna need.
@@ -12,10 +12,10 @@ RUN apt-get -y -qq install ocaml
 RUN apt-get -y -qq install default-jre default-jdk
 
 # Retrieve z3 binary.
-RUN wget -qq https://github.com/Z3Prover/z3/releases/download/z3-4.4.1/z3-4.4.1-x64-ubuntu-14.04.zip
-RUN unzip z3-4.4.1-x64-ubuntu-14.04.zip
-RUN mv z3-4.4.1-x64-ubuntu-14.04/bin/z3 bin/.
-RUN rm -rf z3-4.4.1-x64-ubuntu-14.04.zip z3-4.4.1-x64-ubuntu-14.04/
+RUN wget -qq https://github.com/Z3Prover/z3/releases/download/z3-4.7.1/z3-4.7.1-x64-ubuntu-16.04.zip
+RUN unzip z3-4.7.1-x64-ubuntu-16.04.zip
+RUN mv z3-4.7.1-x64-ubuntu-16.04/bin/z3 bin/.
+RUN rm -rf z3-4.7.1-x64-ubuntu-16.04.zip z3-4.7.1-x64-ubuntu-16.04/
 
 # Retrieve cvc4 binary
 # RUN wget -qq http://cvc4.cs.nyu.edu/cvc4-builds/x86_64-linux-opt-proofs/unstable/cvc4-2016-11-03-x86_64-linux-opt-proofs
