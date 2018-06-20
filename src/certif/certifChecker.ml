@@ -186,7 +186,7 @@ let guard_two_state_term_list t v_at_0 =
     | Term.T.Node (_, l) -> List.exists is_a_two_state_term l
     | Term.T.FreeVar v ->
       if Var.is_state_var_instance v then
-        Var.offset_of_state_var_instance v == Numeral.of_int (-1)
+        Numeral.equal (Var.offset_of_state_var_instance v) (Numeral.of_int (-1))
       else false
     | _ -> false
   in
