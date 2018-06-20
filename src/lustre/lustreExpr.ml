@@ -402,7 +402,26 @@ and pp_print_term_node ?as_type safe pvar ppf t = match Term.T.destruct t with
   | Term.T.Attr (t, _) -> 
     
     pp_print_term_node ?as_type safe pvar ppf t
-      
+
+  | exception Invalid_argument ex -> (
+
+    match Term.T.node_of_t t with
+    | Term.T.Forall l -> (
+
+      match Term.T.node_of_lambda l with
+      Term.T.L (x,t) -> (
+
+        Format.fprintf ppf "@[<hv 1>forall@ @[<hv 1>(...)@ %a@]@]"
+          (pp_print_term_node ?as_type safe pvar) t
+
+      )
+    )
+
+    | Term.T.BoundVar v -> Term.T.pp_print_term ppf t
+
+    | _ -> raise (Invalid_argument ex)
+
+  )
 
 (* Pretty-print the second and following arguments of a
    left-associative function application *)
