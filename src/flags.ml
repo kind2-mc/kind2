@@ -1961,7 +1961,7 @@ module Global = struct
     (bool_arg print_invs)
     (fun fmt ->
       Format.fprintf fmt
-        "Prints list of discovered invariants.@ \
+        "Prints list of discovered invariants after minimization.@ \
         Default: %b"
         print_invs_default
     )

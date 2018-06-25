@@ -498,15 +498,35 @@ module RunInvPrint: PostAnalysis = struct
         in
         ISys.mk_state_var_to_lustre_name_map in_sys aux_vars
       in
-      List.iter
-        (fun inv ->
-          let fmt_inv =
-            LustreExpr.pp_print_term_as_expr_mvar false var_map
-          in
-          KEvent.log_uncond "%a" fmt_inv inv
-        )
-        (TSys.invars_of_bound sys Num.zero) ;
-      Ok ()
+
+      try (
+        let k_min, invs_min =
+          Some (TSys.invars_of_bound sys Num.zero)
+          |> CertifChecker.minimize_invariants sys
+        in
+        KEvent.log_uncond
+          "Minimization result: \
+            @[<v>\
+              all properties valid by %d-induction@ \
+              using %d invariant(s)\
+            @]\
+          "
+          k_min (List.length invs_min) ;
+        List.iter
+          (fun inv ->
+            let fmt_inv =
+              LustreExpr.pp_print_term_as_expr_mvar false var_map
+            in
+            KEvent.log_uncond "%a" fmt_inv inv
+          )
+        invs_min ;
+        Ok ()
+      ) with
+      | e -> Err (
+        fun fmt -> Format.fprintf fmt
+          "Could not minimize invariants:@ %s"
+          (Printexc.to_string e)
+      )
     )
 end
 
