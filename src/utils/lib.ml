@@ -1157,14 +1157,14 @@ let files_cat_open ?(add_prefix=fun _ -> ()) files output_name =
 
 (* Captures the output and exit status of a unix command : aux func *)
 let syscall cmd =
-  let ic, oc = Unix.open_process cmd in
+  let so, si, se = Unix.open_process_full cmd [||] in
   let buf = Buffer.create 16 in
   (try
      while true do
-       Buffer.add_channel buf ic 1
+       Buffer.add_channel buf so 1
      done
    with End_of_file -> ());
-  ignore(Unix.close_process (ic, oc));
+  ignore(Unix.close_process_full (so, si, se));
   Buffer.contents buf
 
 
