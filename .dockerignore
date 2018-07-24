@@ -46,4 +46,3 @@ configure
 # Generated ocamlczmq.
 ocamlczmq/{include,lib}
 ocamlczmq/src/.libs
-ocamlczmq

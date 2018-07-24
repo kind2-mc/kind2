@@ -1,6 +1,4 @@
 
-sudo apt-get update -y -qq
-
 # Install z3.
 wget https://github.com/Z3Prover/z3/releases/download/z3-4.7.1/z3-4.7.1-x64-ubuntu-14.04.zip
 unzip z3-4.7.1-x64-ubuntu-14.04.zip
