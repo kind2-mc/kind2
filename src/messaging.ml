@@ -889,6 +889,13 @@ struct
     Hashtbl.iter resend_if_needed unconfirmed_invariants
 
 
+  let update_worker_status workers worker_status =
+    (* update timestamp of worker status *)
+    for i = 0 to ((List.length workers) - 1) do
+      Hashtbl.add (worker_status) (List.nth workers i) (Unix.time ());
+    done
+
+
   let wait_for_workers workers worker_status pub_sock pull_sock =
 
     (* wait for ready from all workers *)
@@ -971,11 +978,9 @@ struct
     in
     
     wait_iter workers;
+
+    update_worker_status workers worker_status
     
-    (* update timestamp of worker status *)
-    for i = 0 to ((List.length workers) - 1) do
-      Hashtbl.add (worker_status) (List.nth workers i) (Unix.time ());
-    done
 
   let im_check_for_new_workers () =
     retrieve_locking_list_option new_workers_option
@@ -1041,6 +1046,9 @@ struct
         (Hashtbl.create (List.length worker_pids))
       in
 
+      (* Rewrite this code or remove it.
+         Messages are discarded while waiting for workers.
+
       Debug.messaging
         "Waiting for workers (%a) to become ready."
         (pp_print_list Format.pp_print_int ",@")
@@ -1050,7 +1058,9 @@ struct
       wait_for_workers
         worker_pids worker_status pub_sock pull_sock ;
 
-      Debug.messaging "All workers are ready.";
+      Debug.messaging "All workers are ready.";*)
+
+      update_worker_status worker_pids worker_status ;
       
       (* Unique invariant identifier and invariants hash table. *)
       invariant_id := 1 ;
@@ -1111,7 +1121,7 @@ struct
 
       (
 
-        let rc = 
+        (*let rc =
           zmsg_send 
             (zmsg_of_msg 
                (ControlMessage Ready)) 
@@ -1124,7 +1134,7 @@ struct
         Debug.messaging
           "Waiting for message from invariant manager in %d" (Unix.getpid ());
 
-        ignore(zmsg_recv sub_sock);
+        ignore(zmsg_recv sub_sock);*)
 
         Debug.messaging "Worker is ready to send messages";
 
