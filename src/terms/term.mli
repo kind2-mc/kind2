@@ -138,10 +138,10 @@ val mk_dec : Decimal.t -> t
 (** Create a floating point decimal *)
 val mk_dec_of_float : float -> t
 *)
-(*
+
 (** Create a constant bitvector *)
-val mk_bv : Lib.bitvector -> t
-*)
+val mk_bv : Bitvector.t -> t
+
 (** Create an integer or real difference *)
 val mk_minus : t list -> t
 

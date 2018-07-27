@@ -50,9 +50,9 @@ type interpreted_symbol =
   | `NUMERAL of Numeral.t   (* Infinite precision integer numeral (nullary) *)
   | `DECIMAL of Decimal.t 
                        (* Infinite precision floating-point decimal (nullary) *)
-(*
-  | `BV of bitvector      (* Constant bitvector *)
-*)
+
+  | `BV of Bitvector.t      (* Constant bitvector *)
+
   | `MINUS                (* Difference or unary negation (left-associative) *)
   | `PLUS                 (* Sum (left-associative) *)
   | `TIMES                (* Product (left-associative) *)
@@ -145,8 +145,9 @@ module Symbol_node = struct
     | `DIVISIBLE n1, `DIVISIBLE n2 -> Numeral.equal n1 n2
 (*
     | `EXTRACT (i1, j1), `EXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
-    | `BV i, `BV j -> i = j
 *)
+    | `BV i, `BV j -> i = j
+
     | `UF u1, `UF u2 -> UfSymbol.equal_uf_symbols u1 u2
 
     | `NUMERAL _, _
@@ -154,8 +155,9 @@ module Symbol_node = struct
     | `DIVISIBLE _, _
 (*
     | `EXTRACT _, _
-    | `BV _, _
 *)
+    | `BV _, _
+
     | `UF _, _  -> false
 
     (* Non-parametric symbols *)

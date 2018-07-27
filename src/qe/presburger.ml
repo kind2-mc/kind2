@@ -537,9 +537,10 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                | `DIVISIBLE _, _
 (*
                | `BVNEG, _
-               | `BVADD, _
+               | `BVADD, _ 
+*)
                | `BV _, _ 
-               | `BVMUL, _
+(*             | `BVMUL, _
                | `BVSHL, _
                | `BVDIV, _
                | `CONCAT, _

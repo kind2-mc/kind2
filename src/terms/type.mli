@@ -31,13 +31,9 @@ type rangekind = Range | Enum
 type kindtype = 
   | Bool
   | Int
-  | Int8
-  | Int16
-  | Int32
-  | Int64
   | IntRange of Numeral.t * Numeral.t * rangekind
   | Real
-(*  | BV of int *)
+  | BV of int 
   | Array of t * t
   | Abstr of string
 
@@ -79,27 +75,15 @@ val mk_bool : unit -> t
 (** Return the integer type *)
 val mk_int : unit -> t 
 
-(** Return the integer8 type *)
-val mk_int8 : unit -> t 
-
-(** Return the integer16 type *)
-val mk_int16 : unit -> t 
-
-(** Return the integer32 type *)
-val mk_int32 : unit -> t 
-
-(** Return the integer64 type *)
-val mk_int64 : unit -> t 
-
 (** Return the integer range type *)
 val mk_int_range : Numeral.t -> Numeral.t -> t
 
 (** Return the real decimal type *)
 val mk_real : unit -> t
-(*
+
 (** Return the bitvector type *)
 val mk_bv : int -> t
-*)
+
 (** Return an array type of index sort and element sort *)
 val mk_array : t -> t -> t
 
@@ -118,21 +102,11 @@ val t_bool : t
 (** The integer type *)
 val t_int : t
 
-(** The integer8 type *)
-val t_int8 : t
-
-(** The integer16 type *)
-val t_int16 : t
-
-(** The integer32 type *)
-val t_int32 : t
-
-(** The integer64 type *)
-val t_int64 : t
-
 (** The real decimal type *)
 val t_real : t
 
+(** The bitvector type *)
+val t_bv : int -> t
 
 (** {1 Type checking} *)
 

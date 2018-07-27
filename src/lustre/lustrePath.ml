@@ -1229,15 +1229,16 @@ let pp_print_stream_xml get_source model clock ppf (index, state_var) =
     | Type.Bool ->
       Format.pp_print_string ppf "type=\"bool\""
     | Type.Int ->
-      Format.pp_print_string ppf "type=\"int\""
-    | Type.Int8 ->
-      Format.pp_print_string ppf "type=\"int8\""
-    | Type.Int16 ->
-      Format.pp_print_string ppf "type=\"int16\""
-    | Type.Int32 ->
-      Format.pp_print_string ppf "type=\"int32\""
-    | Type.Int64 ->
-      Format.pp_print_string ppf "type=\"int64\""                
+      Format.pp_print_string ppf "type=\"int\""              
+    | Type.BV i ->
+      begin match i with
+      | 8 -> Format.pp_print_string ppf "type=\"int8\""
+      | 16 -> Format.pp_print_string ppf "type=\"int16\""
+      | 32 -> Format.pp_print_string ppf "type=\"int32\""
+      | 64 -> Format.pp_print_string ppf "type=\"int64\""
+      | _ -> raise 
+      (Invalid_argument "pp_print_type: BV size not allowed")
+      end
     | Type.IntRange (i, j, Type.Range) ->
       Format.fprintf ppf "type=\"subrange\" min=\"%a\" max=\"%a\""
       Numeral.pp_print_numeral i Numeral.pp_print_numeral j

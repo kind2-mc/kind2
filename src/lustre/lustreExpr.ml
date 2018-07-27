@@ -241,14 +241,6 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
   | Type.Int -> Format.pp_print_string ppf "int"
 
-  | Type.Int8 -> Format.pp_print_string ppf "int8"
-
-  | Type.Int16 -> Format.pp_print_string ppf "int16"
-
-  | Type.Int32 -> Format.pp_print_string ppf "int32"
-
-  | Type.Int64 -> Format.pp_print_string ppf "int64"
-
   | Type.IntRange (i, j, Type.Range) -> 
 
      Format.fprintf
@@ -271,12 +263,15 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
           (pp_print_list Format.pp_print_string ", ") cs
      end
 
-  (*
   | Type.BV i -> 
-
-    raise 
-      (Invalid_argument "pp_print_lustre_type: BV is not a Lustre type")
-*)
+     begin match i with
+     | 8 -> Format.pp_print_string ppf "int8"
+     | 16 -> Format.pp_print_string ppf "int16"
+     | 32 -> Format.pp_print_string ppf "int32"
+     | 64 -> Format.pp_print_string ppf "int64"
+     | _ -> raise 
+      (Invalid_argument "pp_print_lustre_type: BV size not allowed")
+     end
   | Type.Array (s, t) ->
 
     Format.fprintf ppf "array of %a" (pp_print_lustre_type safe) s
@@ -531,7 +526,7 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `FALSE
   | `NUMERAL _
   | `DECIMAL _
-  (* | `BV _ *) -> (function _ -> assert false)
+  | `BV _ -> (function _ -> assert false)
 
   (* Unary symbols *) 
   | `NOT
@@ -1096,7 +1091,7 @@ let mk_int8 d =
 
   { expr_init = expr;
     expr_step = expr;
-    expr_type = Type.t_int8 }
+    expr_type = Type.t_bv 8 }
 
 (* Integer16 constant *)
 let mk_int16 d =
@@ -1105,7 +1100,7 @@ let mk_int16 d =
 
   { expr_init = expr;
     expr_step = expr;
-    expr_type = Type.t_int8 }
+    expr_type = Type.t_bv 16 }
 
 (* Integer32 constant *)
 let mk_int32 d =
@@ -1114,7 +1109,7 @@ let mk_int32 d =
 
   { expr_init = expr;
     expr_step = expr;
-    expr_type = Type.t_int8 }
+    expr_type = Type.t_bv 32 }
 
 (* Integer64 constant *)
 let mk_int64 d =
@@ -1123,7 +1118,7 @@ let mk_int64 d =
 
   { expr_init = expr;
     expr_step = expr;
-    expr_type = Type.t_int8 }
+    expr_type = Type.t_bv 64 }
 
 (* Real constant *)
 let mk_real f =  
@@ -1274,25 +1269,25 @@ let type_of_num_num_num ?(is_div = false) op t t' =
 
     | t when Type.is_int8 t -> (
       match t' with
-      | t when Type.is_int8 t -> Type.t_int8
+      | t when Type.is_int8 t -> Type.t_bv 8
       | _ -> raise Type_mismatch
     )
 
     | t when Type.is_int16 t -> (
       match t' with
-      | t when Type.is_int16 t -> Type.t_int16
+      | t when Type.is_int16 t -> Type.t_bv 16
       | _ -> raise Type_mismatch
     )
 
     | t when Type.is_int32 t -> (
       match t' with
-      | t when Type.is_int32 t -> Type.t_int32
+      | t when Type.is_int32 t -> Type.t_bv 32
       | _ -> raise Type_mismatch
     )
 
     | t when Type.is_int64 t -> (
       match t' with
-      | t when Type.is_int64 t -> Type.t_int64
+      | t when Type.is_int64 t -> Type.t_bv 64
       | _ -> raise Type_mismatch
     )
 
@@ -1490,7 +1485,7 @@ let eval_to_int8 expr =
 *)
 let type_of_to_int8 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int8 t || Type.is_int t || Type.is_int_range t -> Type.t_int8
+  | t when Type.is_int8 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 8
   | _ -> raise Type_mismatch
 
 
@@ -1524,7 +1519,7 @@ let eval_to_int16 expr =
 *)
 let type_of_to_int16 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int16 t || Type.is_int t || Type.is_int_range t -> Type.t_int16
+  | t when Type.is_int16 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 16
   | _ -> raise Type_mismatch
 
 
@@ -1557,7 +1552,7 @@ let eval_to_int32 expr =
 *)
 let type_of_to_int32 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int32 t || Type.is_int t || Type.is_int_range t -> Type.t_int32
+  | t when Type.is_int32 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 32
   | _ -> raise Type_mismatch
 
 
@@ -1590,7 +1585,7 @@ let eval_to_int64 expr =
 *)
 let type_of_to_int64 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int64 t || Type.is_int t || Type.is_int_range t -> Type.t_int64
+  | t when Type.is_int64 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 64
   | _ -> raise Type_mismatch
 
 

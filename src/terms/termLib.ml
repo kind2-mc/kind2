@@ -45,17 +45,13 @@ let default_of_type t =
     (* Integers are zero by default *)
     | Type.Int -> Term.mk_num Numeral.zero
 
-    (* 8-bit Integers are zero by default *)
-    | Type.Int8 -> Term.mk_num Numeral.zero
-
-    (* 16-bit Integers are zero by default *)
-    | Type.Int16 -> Term.mk_num Numeral.zero
-
-    (* 32-bit Integers are zero by default *)
-    | Type.Int32 -> Term.mk_num Numeral.zero
-
-    (* 64-bit Integers are zero by default *)
-    | Type.Int64 -> Term.mk_num Numeral.zero
+    (* Wixed-width integers are zero by default *)
+    | Type.BV i ->
+      begin match i with
+      | 8 | 16 | 32 | 64 -> Term.mk_num Numeral.zero
+      | _ -> raise 
+      (Invalid_argument "default_of_type: BV size not allowed")
+      end
 
     (* Integer range values are their lower bound by default *)
     | Type.IntRange (l, _, _) -> Term.mk_num l
@@ -83,6 +79,7 @@ type feature =
   | RA (* Real arithmetic *)
   | LA (* Linear arithmetic *)
   | NA (* Non-linear arithmetic *)
+  | BV (* Bit vectors*)
 
 
 (* Set of features *)
@@ -113,8 +110,11 @@ let rec logic_of_sort ty =
   match node_of_type ty with
   | Bool | Abstr _ -> empty
     
-  | Int | Int8 | Int16 | Int32 
-  | Int64 | IntRange _ -> singleton IA
+  | Int | IntRange _ -> singleton IA
+  
+  | BV 8 | BV 16 | BV 32 | BV 64 -> singleton BV
+  | BV _ -> raise 
+      (Invalid_argument "logic of sort: BV size not allowed")
                           
   | Real -> singleton RA
               

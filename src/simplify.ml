@@ -739,9 +739,9 @@ let rec negate_nnf term = match Term.destruct term with
       | `TRUE, _
       | `NUMERAL _, _
       | `DECIMAL _, _ -> assert false
-(*
+
       | `BV _, _ -> assert false
-*)
+
       (* Can only negate Boolean terms *)
       | `MINUS, _
       | `PLUS, _
@@ -1123,10 +1123,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           (* Propositional constant *)
           | `TRUE -> Bool (Term.t_true)
           | `FALSE -> Bool (Term.t_false)
-(*
+
           (* Bitvectors not implemented *)
           | `BV _ -> assert false
-*)
+
           (* Constant with a definition *)
           | `UF uf_symbol when List.mem_assq uf_symbol uf_defs -> 
             
@@ -2041,9 +2041,9 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `FALSE
           | `NUMERAL _
           | `DECIMAL _ -> assert false
-(*
+
           | `BV _ -> assert false
-*)          
+          
       )
 
     (* Skip over attributed term *)

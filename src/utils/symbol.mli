@@ -110,9 +110,9 @@ type interpreted_symbol =
 
   | `NUMERAL of Numeral.t (** Infinite precision integer numeral (nullary) *)
   | `DECIMAL of Decimal.t  (** infinite precision floating-point decimal (nullary) *)
-(*
-  | `BV of Lib.bitvector    (** Constant bitvector *)
-*)
+
+  | `BV of Bitvector.t    (** Constant bitvector *)
+
   | `MINUS                (** Difference or unary negation (left-associative) *)
   | `PLUS                 (** Sum (left-associative) *)
   | `TIMES                (** Product (left-associative) *)

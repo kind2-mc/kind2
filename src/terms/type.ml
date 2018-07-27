@@ -33,15 +33,9 @@ type rangekind = Range | Enum
 type kindtype = 
   | Bool
   | Int
-  | Int8
-  | Int16
-  | Int32
-  | Int64
   | IntRange of Numeral.t * Numeral.t * rangekind
   | Real
-(*
   | BV of int
-*)
   (* First is element type, second is index type, and third is the size *)
   | Array of t * t
   | Abstr of string
@@ -86,23 +80,13 @@ module Kindtype_node = struct
     | Bool, _ -> false
     | Int, Int -> true
     | Int, _ -> false    
-    | Int8, Int8 -> true
-    | Int8, _ -> false
-    | Int16, Int16 -> true
-    | Int16, _ -> false
-    | Int32, Int32 -> true
-    | Int32, _ -> false
-    | Int64, Int64 -> true
-    | Int64, _ -> false
     | IntRange (l1, u1, k1), IntRange (l2, u2, k2) ->
       k1 = k2 && Numeral.equal l1 l2 && Numeral.equal u1 u2 
     | IntRange _, _ -> false
     | Real, Real -> true
     | Real, _ -> false
-(*
     | BV i, BV j -> i = j
     | BV i, _ -> false
-*)
     | Array (i1, t1), Array (i2, t2) -> (i1 == i2) && (t1 == t2)
     | Array (_, _), _ -> false
     | Abstr s1, Abstr s2 -> s1 = s2
@@ -193,14 +177,6 @@ let rec pp_print_type_node ppf = function
 
   | Int -> Format.pp_print_string ppf "Int"
 
-  | Int8 -> Format.pp_print_string ppf "Int8"
-
-  | Int16 -> Format.pp_print_string ppf "Int16"
-
-  | Int32 -> Format.pp_print_string ppf "Int32"
-
-  | Int64 -> Format.pp_print_string ppf "Int64"
-
   | IntRange (i, j, Range) -> 
 
     Format.fprintf
@@ -218,14 +194,14 @@ let rec pp_print_type_node ppf = function
       Numeral.pp_print_numeral j
 
   | Real -> Format.pp_print_string ppf "Real"
-(*
+
   | BV i -> 
 
     Format.fprintf
       ppf 
       "BitVec %d" 
       i 
-*)
+
   | Array (s, t) -> 
     Format.fprintf
       ppf 
@@ -257,20 +233,12 @@ let mk_bool () = Hkindtype.hashcons ht Bool ()
 
 let mk_int () = Hkindtype.hashcons ht Int ()
 
-let mk_int8 () = Hkindtype.hashcons ht Int8 ()
-
-let mk_int16 () = Hkindtype.hashcons ht Int16 ()
-
-let mk_int32 () = Hkindtype.hashcons ht Int32 ()
-
-let mk_int64 () = Hkindtype.hashcons ht Int64 ()
-
 let mk_int_range l u = Hkindtype.hashcons ht (IntRange (l, u, Range)) ()
 
 let mk_real () = Hkindtype.hashcons ht Real ()
-(*
+
 let mk_bv w = Hkindtype.hashcons ht (BV w) ()
-*)
+
 let mk_array i t = Hkindtype.hashcons ht (Array (i, t)) ()
 
 let mk_abstr s = Hkindtype.hashcons ht (Abstr s) ()
@@ -336,12 +304,8 @@ let rec import { Hashcons.node = n } = match n with
   (* Import leaf types directly *)
   | Bool
   | Int
-  | Int8
-  | Int16
-  | Int32
-  | Int64
   | IntRange _
-(*  | BV _ *)
+  | BV _ 
   | Real as t -> mk_type t
 
 
@@ -354,10 +318,7 @@ let rec import { Hashcons.node = n } = match n with
 (* Static values *)
 let t_bool = mk_bool ()
 let t_int = mk_int ()
-let t_int8 = mk_int8 ()
-let t_int16 = mk_int16 ()
-let t_int32 = mk_int32 ()
-let t_int64 = mk_int64 ()
+let t_bv w = mk_bv w
 let t_real = mk_real ()
 
 
@@ -385,22 +346,22 @@ let rec is_int_range { Hashcons.node = t } = match t with
   |  _ -> false
 
 let rec is_int8 { Hashcons.node = t } = match t with
-  | Int8 -> true 
+  | BV 8 -> true 
   | Array (t, _) -> false (* is_int8 t *)
   | _-> false
 
 let rec is_int16 { Hashcons.node = t } = match t with
-  | Int16 -> true 
+  | BV 16 -> true 
   | Array (t, _) -> false (* is_int16 t *)
   | _-> false
 
 let rec is_int32 { Hashcons.node = t } = match t with
-  | Int32 -> true 
+  | BV 32 -> true 
   | Array (t, _) -> false (* is_int32 t *)
   | _-> false
 
 let rec is_int64 { Hashcons.node = t } = match t with
-  | Int64 -> true 
+  | BV 64 -> true 
   | Array (t, _) -> false (* is_int64 t *)
   | _-> false
 
@@ -492,12 +453,10 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
     (* Types are identical *)
     | Int, Int
     | Real, Real
-    | Bool, Bool
-    | Int8, Int8
-    | Int16, Int16
-    | Int32, Int32
-    | Int64, Int64 -> true
+    | Bool, Bool -> true
 
+    | BV i, BV j -> i = j
+    
     | Abstr s1, Abstr s2 -> s1 = s2
       
     (* IntRange is a subtype of Int *)

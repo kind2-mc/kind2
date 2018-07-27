@@ -510,8 +510,11 @@ let pp_print_logic = TermLib.pp_print_logic
 (* Convert type *)
 let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ -> Type.mk_int ()
-  | Type.Bool | Type.Int | Type.Int8 | Type.Int16 
-  | Type.Int32 | Type.Int64 | Type.Real | Type.Abstr _ -> t
+  | Type.Bool | Type.Int | Type.BV 8 | Type.BV 16 
+  | Type.BV 32 | Type.BV 64 -> t
+  | Type.BV _ -> raise 
+      (Invalid_argument "rec_interpr_type: BV size not allowed")
+  | Type.Real | Type.Abstr _ -> t
   | Type.Array (te, ti) ->
     let ti', te' = interpr_type ti, interpr_type te in
     if Type.equal_types ti ti' && Type.equal_types te te' then t
@@ -623,9 +626,9 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `NUMERAL i -> Numeral.pp_print_numeral_sexpr ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
-(*
-  | `BV b -> pp_smtlib_print_bitvector_b ppf b
-*)
+
+  | `BV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b
+
   | `MINUS -> Format.pp_print_string ppf "-"
   | `PLUS -> Format.pp_print_string ppf "+"
   | `TIMES -> Format.pp_print_string ppf "*"
@@ -769,12 +772,10 @@ let const_of_smtlib_atom b t =
                                            (HString.string_of_hstring t)))
           with
             Invalid_argument _ | Failure _ -> 
-(*
             try 
               (* Return bitvector of string *)
-              Term.mk_bv (bitvector_of_hstring t)
+              Term.mk_bv (Bitvector.bitvector_of_hstring t)
             with Invalid_argument _ -> 
-*)
               try 
                 (* Return symbol of string *)
                 Term.mk_bool (bool_of_hstring t)

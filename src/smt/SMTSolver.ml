@@ -873,10 +873,15 @@ let create_proxy_constants_for_terms s terms =
       match node_of_type t with
       | Bool -> Format.pp_print_string ppf "bool"
       | Int -> Format.pp_print_string ppf "int"
-      | Int8 -> Format.pp_print_string ppf "int8"
-      | Int16 -> Format.pp_print_string ppf "int16"
-      | Int32 -> Format.pp_print_string ppf "int32"
-      | Int64 -> Format.pp_print_string ppf "int64"
+      | BV i ->
+        begin match i with
+        | 8 -> Format.pp_print_string ppf "int8"
+        | 16 -> Format.pp_print_string ppf "int16"
+        | 32 -> Format.pp_print_string ppf "int32"
+        | 64 -> Format.pp_print_string ppf "int64"
+        | _ -> raise 
+              (Invalid_argument "pp_print_type_suffix: BV size not allowed")
+        end
       | IntRange (i, j, Range) ->
         Format.fprintf ppf
           "int_range_%a_%a"

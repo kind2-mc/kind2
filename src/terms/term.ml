@@ -496,10 +496,10 @@ let rec type_of_term t = match T.destruct t with
 
         (* Real constant *)
         | `DECIMAL _ -> Type.mk_real ()
-(*
+
         (* Bitvector constant *)
-        | `BV b -> Type.mk_bv (length_of_bitvector b)
-*)        
+        | `BV b -> Type.mk_bv (Bitvector.length_of_bitvector b)
+        
         (* Uninterpreted constant *)
         | `UF s -> UfSymbol.res_type_of_uf_symbol s
 
@@ -539,10 +539,10 @@ let rec type_of_term t = match T.destruct t with
         | `ABS
         | `INTDIV -> Type.mk_int ()
 
-        | `TO_INT8 -> Type.mk_int8 ()
-        | `TO_INT16 -> Type.mk_int16 ()
-        | `TO_INT32 -> Type.mk_int32 ()
-        | `TO_INT64 -> Type.mk_int64 ()
+        | `TO_INT8 -> Type.mk_bv 8
+        | `TO_INT16 -> Type.mk_bv 16
+        | `TO_INT32 -> Type.mk_bv 32
+        | `TO_INT64 -> Type.mk_bv 64
 
         (* Real-valued functions *)
         | `TO_REAL
@@ -637,9 +637,9 @@ let rec type_of_term t = match T.destruct t with
         | `FALSE
         | `NUMERAL _
         | `DECIMAL _ -> assert false
-(*
+
         | `BV _ -> assert false
-*)
+
     )
 
   (* Return type of term *)
@@ -1043,10 +1043,10 @@ let mk_dec_of_float = function
     mk_minus [mk_const_of_symbol_node (`DECIMAL (decimal_of_float (-. f)))]
 *)
 
-(*
+
 (* Hashcons a bitvector *)
 let mk_bv b = mk_const_of_symbol_node (`BV b)
-*)
+
 
 (* Hashcons an addition *)
 let mk_plus = function

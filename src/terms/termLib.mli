@@ -55,6 +55,7 @@ type feature =
   | RA (** Real arithmetic *)
   | LA (** Linear arithmetic *)
   | NA (** Non-linear arithmetic *)
+  | BV (** Bit vectors *)
 
 (** Set of features *)
 module FeatureSet : Set.S with type elt = feature
