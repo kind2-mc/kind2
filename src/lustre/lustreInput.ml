@@ -45,6 +45,9 @@ let ast_of_channel in_ch =
   | LustreParser.Error ->
     let lexer_pos = Lexing.lexeme_start_p lexbuf in
     C.fail_at_position (position_of_lexing lexer_pos) "Syntax error"
+  | LustreLexer.Lexer_error msg ->
+    let lexer_pos = Lexing.lexeme_start_p lexbuf in
+    C.fail_at_position (position_of_lexing lexer_pos) msg
 
 
 (* Parse from input channel *)

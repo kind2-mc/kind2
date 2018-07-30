@@ -398,38 +398,42 @@ rule token = parse
   (* |===| Include file. *)
   | "include" whitespace* '\"' ([^'\"']* as p) '\"' {
 
-    (* Open include file *)
-    let include_channel, include_curdir =
-      try (
-        let include_channel, include_curdir = 
-          open_in (Filename.concat (curdir_of_lexbuf_stack ()) p),
-          Filename.dirname p
-        in
+    let include_curdir = curdir_of_lexbuf_stack () in
 
-        include_channel, include_curdir
-      ) with Sys_error e -> 
-        let msg = Format.sprintf "Error opening include file %s: %s" p e in
-        raise (Lexer_error msg)
-    in
+    let fname = Filename.concat include_curdir p in
 
-    (* Add `p` to the list of input files. *)
-    Flags.add_input_file p ;
-    
-    (* New lexing buffer from include file *)
-    lexbuf_switch_to_channel lexbuf include_channel include_curdir ;
-    
-    Lexing.flush_input lexbuf ;
+    let already_included = List.mem fname (Flags.all_input_files ()) in
 
-    (* Starting position in new file *)
-    let zero_pos =
-      { Lexing.pos_fname = p ;
-        Lexing.pos_lnum = 1  ;
-        Lexing.pos_bol = 0   ;
-        Lexing.pos_cnum = 0  }
-    in
+    if (not already_included) then (
 
-    (* Set new position in lexing buffer *)
-    lexbuf.Lexing.lex_curr_p <- zero_pos ;
+      (* Open include file *)
+      let include_channel, include_curdir =
+        try
+          open_in fname, Filename.dirname fname
+        with Sys_error e ->
+          let msg = Format.sprintf "Error opening include file %s: %s" p e in
+          raise (Lexer_error msg)
+      in
+
+      (* Add `p` to the list of input files. *)
+      Flags.add_input_file fname ;
+
+      (* New lexing buffer from include file *)
+      lexbuf_switch_to_channel lexbuf include_channel include_curdir ;
+
+      Lexing.flush_input lexbuf ;
+
+      (* Starting position in new file *)
+      let zero_pos =
+        { Lexing.pos_fname = p ;
+          Lexing.pos_lnum = 1  ;
+          Lexing.pos_bol = 0   ;
+          Lexing.pos_cnum = 0  }
+      in
+
+      (* Set new position in lexing buffer *)
+      lexbuf.Lexing.lex_curr_p <- zero_pos
+    );
 
     (* Continue with included file *)
     token lexbuf
