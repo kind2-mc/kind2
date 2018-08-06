@@ -531,7 +531,10 @@ let rec type_of_term t = match T.destruct t with
         | `GT
         | `DIVISIBLE _ -> Type.mk_bool ()
 
-        | `BVULT -> Type.mk_bool ()
+        | `BVULT 
+        | `BVULE
+        | `BVUGT
+        | `BVUGE-> Type.mk_bool ()
 
         (* Integer-valued functions *)
         | `TO_INT

@@ -67,7 +67,10 @@
     {- [`BVUREM] binary: arithmetic remainder}
     {- [`BVSHL] unary: logical shift left}
     {- [`BVLSHR] unary: logical shift right}
-    {- [`BVULT] binary: arithmetic comparision}
+    {- [`BVULT] binary: arithmetic comparision less than}
+    {- [`BVULE] binary: arithmetic comparision less than or equal to}
+    {- [`BVUGT] binary: arithmetic comparision greater than}
+    {- [`BVUGE] binary: arithmetic comparision greater than or equal to}
     {- [`SELECT] binary: selection from array}
     {- [`STORE] ternary: update of an array}
     }
@@ -148,7 +151,10 @@ type interpreted_symbol =
   | `BVUREM               (** Arithmetic remainder (binary) *)
   | `BVSHL                (** Logical shift left (unary) *)
   | `BVLSHR               (** Logical shift right (unary) *)
-  | `BVULT                (** Arithmetic comparision (binary) *)
+  | `BVULT                (* Arithmetic comparision less than (binary) *)
+  | `BVULE                (* Arithmetic comparision less than or equal to (binary) *)
+  | `BVUGT                (* Arithmetic comparision greater than (binary) *)
+  | `BVUGE                (* Arithmetic comparision greater than or equal to (binary) *)
 
 
   (** Selection from array (binary) *)

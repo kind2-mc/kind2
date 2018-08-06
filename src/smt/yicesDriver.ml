@@ -210,6 +210,9 @@ let string_symbol_list =
    ("bv-shift-left0", Symbol.mk_symbol `BVSHL);
    ("bv-shift-right0", Symbol.mk_symbol `BVLSHR);
    ("bv-lt", Symbol.mk_symbol `BVULT);
+   ("bv-le", Symbol.mk_symbol `BVULE);
+   ("bv-gt", Symbol.mk_symbol `BVUGT);
+   ("bv-ge", Symbol.mk_symbol `BVUGE);
 
    (* ("select", Symbol.mk_symbol `SELECT); *)
 
@@ -294,7 +297,10 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVSHL -> Format.pp_print_string ppf "bv-shift-left0"
   | `BVLSHR -> Format.pp_print_string ppf "bv-shift-right0"
   | `BVULT -> Format.pp_print_string ppf "bv-lt"
-
+  | `BVULE -> Format.pp_print_string ppf "bv-le"
+  | `BVUGT -> Format.pp_print_string ppf "bv-gt"
+  | `BVUGE -> Format.pp_print_string ppf "bv-ge"
+  
   | `SELECT _ -> Format.pp_print_string ppf ""
 
   | `STORE -> Format.pp_print_string ppf "update"

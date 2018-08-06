@@ -520,6 +520,9 @@ let ensure_symbol_qf_lira s =
   | `BVSHL
   | `BVLSHR
   | `BVULT
+  | `BVULE
+  | `BVUGT
+  | `BVUGE
 
   | `SELECT _
   | `STORE ->

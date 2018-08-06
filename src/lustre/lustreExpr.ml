@@ -670,6 +670,9 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `BVSHL
     | `BVLSHR
     | `BVULT
+    | `BVULE
+    | `BVUGT
+    | `BVUGE
 
     | `IS_INT
     | `UF _ -> (function _ -> assert false)
