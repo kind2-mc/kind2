@@ -654,7 +654,7 @@ let rec pp_print_symbol_node ?arity ppf = function
     Format.pp_print_string ppf "divisible";
     Format.pp_print_space ppf ();
     Numeral.pp_print_numeral ppf n
-(*
+
   | `CONCAT -> Format.pp_print_string ppf "concat"
   | `EXTRACT (i, j) -> 
     Format.fprintf 
@@ -674,7 +674,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVSHL -> Format.pp_print_string ppf "bvshl"
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
   | `BVULT -> Format.pp_print_string ppf "bvult"
-*)
+
   | `SELECT ty_array ->
 
     if Flags.Arrays.smt () then

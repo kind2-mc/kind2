@@ -74,7 +74,7 @@ type interpreted_symbol =
 
   | `DIVISIBLE of Numeral.t 
                           (* Divisible by [n] (unary) *)
-(*
+
   | `CONCAT               (* Concatenation of bitvectors (binary) *)
   | `EXTRACT of Numeral.t * Numeral.t 
                           (* Extract subsequence from bitvector (unary) *)
@@ -89,7 +89,7 @@ type interpreted_symbol =
   | `BVSHL                (* Logical shift left (unary) *)
   | `BVLSHR               (* Logical shift right (unary) *)
   | `BVULT                (* Arithmetic comparision (binary) *)
-*)
+
   (* Selection from array (binary) *)
   | `SELECT of Type.t
   | `STORE                (* Update of an array (ternary) *)
@@ -143,9 +143,9 @@ module Symbol_node = struct
     | `NUMERAL n1, `NUMERAL n2 -> Numeral.equal n1 n2
     | `DECIMAL d1, `DECIMAL d2 -> Decimal.equal d1 d2
     | `DIVISIBLE n1, `DIVISIBLE n2 -> Numeral.equal n1 n2
-(*
+
     | `EXTRACT (i1, j1), `EXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
-*)
+
     | `BV i, `BV j -> i = j
 
     | `UF u1, `UF u2 -> UfSymbol.equal_uf_symbols u1 u2
@@ -153,9 +153,9 @@ module Symbol_node = struct
     | `NUMERAL _, _
     | `DECIMAL _, _
     | `DIVISIBLE _, _
-(*
+
     | `EXTRACT _, _
-*)
+
     | `BV _, _
 
     | `UF _, _  -> false
@@ -197,7 +197,7 @@ module Symbol_node = struct
 
     | `STORE, `STORE -> true
 
-(*
+
     | `CONCAT, `CONCAT
     | `BVNOT, `BVNOT 
     | `BVNEG, `BVNEG
@@ -210,7 +210,7 @@ module Symbol_node = struct
     | `BVSHL, `BVSHL
     | `BVLSHR, `BVLSHR
     | `BVULT, `BVULT
-*)
+
 
     | `TRUE, _
     | `FALSE, _
@@ -241,8 +241,8 @@ module Symbol_node = struct
     | `TO_INT64, _ 
     | `IS_INT, _
     | `SELECT _, _
-    | `STORE, _ -> false
-(*
+    | `STORE, _ 
+
     | `CONCAT, _
     | `BVNOT, _ 
     | `BVNEG, _
@@ -254,8 +254,7 @@ module Symbol_node = struct
     | `BVUREM, _
     | `BVSHL, _
     | `BVLSHR, _
-    | `BVULT, _
-*)
+    | `BVULT, _ -> false
 
 
   (* Return hash of a symbol *)
@@ -388,7 +387,7 @@ let rec pp_print_symbol_node ppf = function
     Format.pp_print_string ppf "divisible";
     Format.pp_print_space ppf ();
     Numeral.pp_print_numeral ppf n
-(*
+
   | `CONCAT -> Format.pp_print_string ppf "concat"
   | `EXTRACT (i, j) -> 
     Format.fprintf 
@@ -408,7 +407,7 @@ let rec pp_print_symbol_node ppf = function
   | `BVSHL -> Format.pp_print_string ppf "bvshl"
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
   | `BVULT -> Format.pp_print_string ppf "bvult"
-*)
+
 
   | `SELECT _ -> Format.pp_print_string ppf "select"
   | `STORE -> Format.pp_print_string ppf "store"

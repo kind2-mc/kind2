@@ -530,9 +530,9 @@ let rec type_of_term t = match T.destruct t with
         | `GEQ
         | `GT
         | `DIVISIBLE _ -> Type.mk_bool ()
-(*
+
         | `BVULT -> Type.mk_bool ()
-*)
+
         (* Integer-valued functions *)
         | `TO_INT
         | `MOD
@@ -547,7 +547,7 @@ let rec type_of_term t = match T.destruct t with
         (* Real-valued functions *)
         | `TO_REAL
         | `DIV -> Type.mk_real ()
-(*          
+          
         (* Bitvector-valued function *)
         | `CONCAT -> 
 
@@ -576,7 +576,7 @@ let rec type_of_term t = match T.destruct t with
           (* Compute width of resulting bitvector *)
           Type.mk_bv
             ((Numeral.to_int j) - (Numeral.to_int i) + 1)
-*)
+
             
         (* Array-valued function *)
         | `SELECT ty_array ->
@@ -597,7 +597,7 @@ let rec type_of_term t = match T.destruct t with
             | a :: _ -> type_of_term a
             | _ -> assert false)
 
-(*
+
         | `BVNOT
         | `BVNEG
         | `BVAND
@@ -608,7 +608,7 @@ let rec type_of_term t = match T.destruct t with
         | `BVUREM
         | `BVSHL
         | `BVLSHR
-*)
+
         | `STORE -> 
 
           (match l with 

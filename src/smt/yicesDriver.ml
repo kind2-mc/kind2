@@ -197,7 +197,7 @@ let string_symbol_list =
    ("to_int32", Symbol.mk_symbol `TO_INT32);
    ("to_int64", Symbol.mk_symbol `TO_INT64);
    (* ("is_int", Symbol.mk_symbol `IS_INT); *)
-(*
+
    ("bv-concat", Symbol.mk_symbol `CONCAT);
    ("bv-not", Symbol.mk_symbol `BVNOT);
    ("bv-neg", Symbol.mk_symbol `BVNEG);
@@ -210,7 +210,7 @@ let string_symbol_list =
    ("bv-shift-left0", Symbol.mk_symbol `BVSHL);
    ("bv-shift-right0", Symbol.mk_symbol `BVLSHR);
    ("bv-lt", Symbol.mk_symbol `BVULT);
-*)
+
    (* ("select", Symbol.mk_symbol `SELECT); *)
 
    ("update", Symbol.mk_symbol `STORE)
@@ -274,7 +274,7 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `DIVISIBLE n ->
     failwith "divisible not implemented for yices"
-(*
+
   | `CONCAT -> Format.pp_print_string ppf "bv-concat"
   | `EXTRACT (i, j) -> 
     Format.fprintf 
@@ -294,7 +294,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVSHL -> Format.pp_print_string ppf "bv-shift-left0"
   | `BVLSHR -> Format.pp_print_string ppf "bv-shift-right0"
   | `BVULT -> Format.pp_print_string ppf "bv-lt"
-*)
+
   | `SELECT _ -> Format.pp_print_string ppf ""
 
   | `STORE -> Format.pp_print_string ppf "update"

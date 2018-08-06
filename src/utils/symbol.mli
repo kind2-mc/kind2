@@ -134,7 +134,7 @@ type interpreted_symbol =
 
   | `DIVISIBLE of Numeral.t
                           (** Divisible by [n] (unary) *)
-(*
+
   | `CONCAT               (** Concatenation of bitvectors (binary) *)
   | `EXTRACT of Numeral.t * Numeral.t 
                           (** Extract subsequence from bitvector (unary) *)
@@ -149,7 +149,7 @@ type interpreted_symbol =
   | `BVSHL                (** Logical shift left (unary) *)
   | `BVLSHR               (** Logical shift right (unary) *)
   | `BVULT                (** Arithmetic comparision (binary) *)
-*)
+
 
   (** Selection from array (binary) *)
   | `SELECT of Type.t

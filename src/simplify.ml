@@ -755,8 +755,8 @@ let rec negate_nnf term = match Term.destruct term with
       | `TO_INT8, _
       | `TO_INT16, _
       | `TO_INT32, _
-      | `TO_INT64, _ -> assert false 
-(*
+      | `TO_INT64, _ 
+
       | `CONCAT, _
       | `EXTRACT _, _
       | `BVNOT, _
@@ -769,8 +769,8 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVUREM, _
       | `BVSHL, _
       | `BVLSHR, _
-      | `BVULT, _
-*)
+      | `BVULT, _ -> assert false 
+
 
     )    
 
@@ -2019,7 +2019,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
           (* Distinct not implemented *)
           | `DISTINCT -> assert false
-(*
+
           (* Bitvectors not implemented *)
           | `BVADD
           | `BVAND
@@ -2034,7 +2034,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVUREM
           | `CONCAT
           | `EXTRACT _ -> assert false
-*)
+
 
           (* Constant symbols *)
           | `TRUE

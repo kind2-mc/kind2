@@ -656,7 +656,7 @@ and pp_print_app ?as_type safe pvar ppf = function
         
     (* Unsupported functions symbols *)
     | `DISTINCT
-(*
+
     | `CONCAT
     | `EXTRACT _
     | `BVNOT
@@ -670,7 +670,7 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `BVSHL
     | `BVLSHR
     | `BVULT
-*)
+
     | `IS_INT
     | `UF _ -> (function _ -> assert false)
       

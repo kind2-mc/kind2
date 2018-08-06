@@ -506,7 +506,7 @@ let ensure_symbol_qf_lira s =
   | `DIVISIBLE _
   | `MOD
   | `ABS
-(*
+
   | `CONCAT
   | `EXTRACT _
   | `BVNOT
@@ -520,7 +520,7 @@ let ensure_symbol_qf_lira s =
   | `BVSHL
   | `BVLSHR
   | `BVULT
-*)
+
   | `SELECT _
   | `STORE ->
     
