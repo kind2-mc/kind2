@@ -114,7 +114,7 @@ let flat_apply term work set =
   let set_ref = ref set in
   let memorize set' = set_ref := set' in
   (try
-    Term.eval_t (
+    Term.eval_t ~fail_on_quantifiers:false (
       fun flat_term _ -> work flat_term !set_ref |> memorize
     ) term ;
    with Invalid_argument _ ->
