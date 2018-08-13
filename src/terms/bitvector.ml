@@ -4,7 +4,43 @@ open Lib
 (* Constant bitvector *)
 type t = bool list
 
+exception NonBinaryDigit
 
+(* Function that converts a single binary integer digit to Boolean *)
+let bin_to_bool (i : int) : bool =
+  match i with 
+  | 0 -> false
+  | 1 -> true
+  | _ -> raise NonBinaryDigit
+
+(* Function that returns Int8 version of an int *)
+let int_to_bv8 (i : int) : t = 
+  let j = 
+    if (i < 0) then
+      (256 + (i mod 256)) mod 256 
+    else
+      i mod 256 
+    in
+    let convert (q : int) : t =
+      let rec convert_reverse (q : int) : t = 
+        if q != 0 then
+          let q' = q / 2 in
+            let r = q mod 2 in
+              (bin_to_bool r) :: convert_reverse q'
+        else
+          []
+      in List.rev (convert_reverse q)
+    in
+      let pad_to_int8 (bl : t) : t = 
+        let diff = 8 - (List.length bl) in
+          let rec pad_help (b : t) (d : int) : t = 
+            if d = 0 then
+              b
+            else
+              pad_help (false :: b) (d - 1)
+          in pad_help bl diff
+      in pad_to_int8 (convert j)
+   
 
 (* Return the first n elements of a list *)
 let rec list_first_n' a l n =

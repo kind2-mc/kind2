@@ -92,7 +92,7 @@ and pp_print_type_node ppf = function
     | Type.Real -> Format.pp_print_string ppf "real"
     | Type.Abstr s -> Format.pp_print_string ppf s
 
-  | BV i -> 
+  | Type.BV i -> 
 
     Format.fprintf
       ppf 

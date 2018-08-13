@@ -53,6 +53,7 @@ type t =
   | Dec of Decimal.t polynomial
   | Bool of Term.t 
   | Array of Term.t 
+  (*| BV8 of Bitvector.t*)
 
 
 let pp_print_monomial pp ppf ((c, t) : 'a monomial) = 
@@ -1128,6 +1129,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `FALSE -> Bool (Term.t_false)
 
           (* Bitvectors not implemented *)
+          | `BV b when (Bitvector.length_of_bitvector b = 8) ->  assert false
           | `BV _ -> assert false
 
           (* Constant with a definition *)

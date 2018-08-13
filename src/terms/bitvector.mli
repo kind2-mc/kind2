@@ -3,6 +3,9 @@
 (** Constant bitvector *)
 type t
 
+(** Return size 8 bitvector converted from an int *)
+(*val int_to_bv8 : int -> t*)
+
 (** Return the length of a bitvector as a numeral *)
 val length_of_bitvector : t -> int
 
