@@ -1269,9 +1269,7 @@ let add_logic fmt sys =
       )
   in
   (* Specify logic to help some solvers check the certificate *)
-  match logic with
-  | `None -> ()
-  | _ -> fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic
+  fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic
 
 
   
@@ -1351,10 +1349,7 @@ let monolithic_header fmt description sys init_n prop_n trans_n phi_n k =
   fprintf fmt "@.";
 
   (* Specify logic to help some solvers check the certificate *)
-  begin match logic with
-  | `None -> ()
-  | _ -> fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic
-  end;
+  fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic;
 
   (* Add farray declaration *)
   fprintf fmt "(declare-sort FArray 2)@.";
