@@ -640,12 +640,10 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     
     (* Building the complete command. *)
     let cmd =
-      exprs
-      |> List.fold_left
-        ( fun s e -> 
-           Format.sprintf "%s %s" s (string_of_expr e) )
+      Format.asprintf "(%s (%a))"
         command
-      |> Format.sprintf "(%s)"
+        (pp_print_list Format.pp_print_string " ")
+        (List.map string_of_expr exprs)
     in
 
     (* Send command to the solver without timeout *)
@@ -680,8 +678,13 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
   let get_unsat_core solver = 
 
     (* The command to send to the solver *)
-    let cmd = 
-      Format.sprintf "@[<hv 1>(get-unsat-core)@]"
+    let cmd =
+      (* Every current use of get_unsat_core really means
+         get_unsat_assumptions. Thus, the textual command
+         have been changed here.
+         TODO: change the name of all related functions.
+      *)
+      Format.sprintf "@[<hv 1>(get-unsat-assumptions)@]"
     in
 
     (* Send command to the solver without timeout *)
@@ -954,8 +957,9 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     
     let header_logic =
       let s = string_of_logic logic in
-      if s = "" then []
-      else [Format.sprintf "(set-logic %s)" s] in
+      (* if s = "" then [] else *)
+      [Format.sprintf "(set-logic %s)" s]
+    in
 
     let header_farray =
       if not (Flags.Arrays.smt ()) && TermLib.logic_allow_arrays logic then
@@ -971,7 +975,9 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       (if produce_assignments then
          ["(set-option :produce-assignments true)"] else []) @
       (if produce_cores then
-         ["(set-option :produce-unsat-cores true)"] else []) @
+         (* Every current use of get_unsat_core really means get_unsat_assumptions.
+            TODO: replace variable name with a less misleading one *)
+         ["(set-option :produce-unsat-assumptions true)"] else []) @
       header_logic @
       header_farray
     in

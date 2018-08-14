@@ -65,13 +65,6 @@ let check_sat_limited_cmd _ =
   failwith "check-sat with timeout not implemented for CVC4"
 
 
-let check_sat_assuming_cmd () =
-  failwith "No check-sat-assuming command for CVC4"
-
-
-let check_sat_assuming_supported () = false
-
-
 let s_lambda = HString.mk_hstring "LAMBDA"
 
 let cvc4_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars = 
@@ -172,9 +165,7 @@ let string_of_logic l =
   (* Avoid theory overheads *)
   | `Inferred l when is_empty l -> "QF_SAT"
   (* CVC4 fails to give model when given a non linear arithmetic logic *)
-  | `Inferred l when mem NA l -> "ALL_SUPPORTED"
-  | _ ->
-    let s = GenericSMTLIBDriver.string_of_logic l in
-    if s = "" then "ALL" else s
+  (*| `Inferred l when mem NA l -> "ALL"*)
+  | _ -> GenericSMTLIBDriver.string_of_logic l
 
 let pp_print_logic fmt l = Format.pp_print_string fmt (string_of_logic l)

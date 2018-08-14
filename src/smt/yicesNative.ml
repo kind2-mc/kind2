@@ -461,9 +461,12 @@ let pp_print_bindings ppf vars =
 
 (* Print lambda expression *)
 let pp_print_lambda ppf (arg_vars, defn)  =
-  Format.fprintf ppf "(lambda@ @[<hv 1>%a@]@ %a)"
-                 pp_print_bindings arg_vars
-                 pp_print_expr defn
+  if arg_vars = [] then
+    Format.fprintf ppf "%a" pp_print_expr defn
+  else
+    Format.fprintf ppf "(lambda@ @[<hv 1>%a@]@ %a)"
+                   pp_print_bindings arg_vars
+                   pp_print_expr defn
 
 (* Returns true if the symbol is in the combination of SAT U equality U linear
    aritmetic *)
