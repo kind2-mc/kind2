@@ -35,8 +35,8 @@ wget -qq https://github.com/agacek/jkind/releases/download/v4.0.1/jkind.zip
 unzip jkind.zip && mv jkind/jkind jkind/*.jar bin/ && chmod a+x bin/jkind*
 rm -rf jkind.zip jkind
 
-wget -qq http://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/cvc4-1.6-x86_64-linux-opt
-mv cvc4-1.6-x86_64-linux-opt bin/cvc4 && chmod a+x bin/cvc4
+wget -qq http://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/unstable/cvc4-2018-08-15-x86_64-linux-opt
+mv cvc4-2018-08-15-x86_64-linux-opt bin/cvc4 && chmod a+x bin/cvc4
 
 # Remove packages not required anymore
 apt-get purge -y automake camlp4 libtool menhir pkg-config ocaml ocamlbuild unzip wget
