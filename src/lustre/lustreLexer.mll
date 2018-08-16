@@ -400,23 +400,24 @@ rule token = parse
 
     let include_curdir = curdir_of_lexbuf_stack () in
 
-    let fname = Filename.concat include_curdir p in
+    let fname =
+      match Lib.find_file p (include_curdir :: Flags.include_dirs ()) with
+      | Some f -> f
+      | None ->
+        let msg = Format.sprintf "Include file '%s' was not found in search path" p in
+        raise (Lexer_error msg)
+    in
 
-    let already_included = List.mem fname (Flags.all_input_files ()) in
-
-    if (not already_included) then (
+    if (Flags.add_input_file fname) then (
 
       (* Open include file *)
       let include_channel, include_curdir =
         try
           open_in fname, Filename.dirname fname
         with Sys_error e ->
-          let msg = Format.sprintf "Error opening include file %s: %s" p e in
+          let msg = Format.sprintf "Error opening include file '%s': %s" fname e in
           raise (Lexer_error msg)
       in
-
-      (* Add `p` to the list of input files. *)
-      Flags.add_input_file fname ;
 
       (* New lexing buffer from include file *)
       lexbuf_switch_to_channel lexbuf include_channel include_curdir ;

@@ -1725,17 +1725,24 @@ module Global = struct
     Format.printf "@."
 
 
+  (* All files in the cone of influence of the input file. *)
+  let all_input_files = ref []
+  let all_input_ids = ref FileId.FileIdSet.empty
+  let clear_input_files () = (all_input_files := []; all_input_ids := FileId.FileIdSet.empty)
+  let add_input_file file = (
+    let id = FileId.get_id file in
+    if not (FileId.FileIdSet.mem id !all_input_ids) then (
+      all_input_files := file :: ! all_input_files ;
+      all_input_ids := FileId.FileIdSet.add (FileId.get_id file) !all_input_ids; true
+    ) else false
+  )
+  let get_all_input_files () = ! all_input_files
+
   (* Input flag. *)
   let input_file_default = ""
   let input_file = ref input_file_default
-  let set_input_file f = input_file := f
+  let set_input_file f = (input_file := f; add_input_file f |> ignore)
   let input_file () = !input_file
-
-  (* All files in the cone of influence of the input file. *)
-  let all_input_files = ref []
-  let clear_input_files () = all_input_files := []
-  let add_input_file file = all_input_files := file :: ! all_input_files
-  let get_all_input_files () = (input_file ()) :: ! all_input_files
 
 
   (* Print help. *)
@@ -1897,6 +1904,23 @@ module Global = struct
 
   let output_dir () = !output_dir
 
+
+  let include_dirs = ref []
+  let _ = add_spec
+    "--include_dir"
+    (Arg.String
+      (fun dir -> include_dirs := dir :: !include_dirs)
+    )
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          where <string> is a directory to be included in the search path@ \
+          The directory will be searched after the current include directory,@ \
+          and any other directory added before it (left-to-right order) when@ \
+          an include directive is found\
+        "
+    )
+  let include_dirs () = List.rev (!include_dirs)
 
   (* Real precision. *)
   type real_precision = [
@@ -2388,6 +2412,7 @@ type real_precision = Global.real_precision
 (* |===| The following functions allow to access global flags directly. *)
 
 let output_dir = Global.output_dir
+let include_dirs = Global.include_dirs
 let log_invs = Global.log_invs
 let print_invs = Global.print_invs
 let enabled = Global.enabled
