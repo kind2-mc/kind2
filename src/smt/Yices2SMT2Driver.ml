@@ -44,10 +44,3 @@ let cmd_line
 let check_sat_limited_cmd _ = 
   failwith "check-sat with timeout not implemented for Yices2"
 
-
-let check_sat_assuming_cmd () =
-  failwith "No check-sat-assuming command for Yices2"
-
-
-let check_sat_assuming_supported () = false
-

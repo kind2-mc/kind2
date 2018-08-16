@@ -199,7 +199,7 @@ module Smt = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
-          Use check-sat with assumptions, or simulate with push/pop@ \
+          Use check-sat-assuming, or simulate with push/pop@ \
           when false@ \
           Default: %a\
         @]"
@@ -336,14 +336,14 @@ module Smt = struct
         set_cvc4_bin exec;
       with Not_found ->
       try
-        let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
-        set_solver `Yices_native;
-        set_yices_bin exec;
-      with Not_found ->
-      try
         let exec = find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ()) in
         set_solver `Yices_SMTLIB;
         set_yices2smt2_bin exec;
+      with Not_found ->
+      try
+        let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
+        set_solver `Yices_native;
+        set_yices_bin exec;
       with Not_found ->
         Log.log L_fatal "No SMT Solver found.";
         exit 2
@@ -2577,16 +2577,7 @@ let parse_clas specs anon_action global_usage_msg =
     failwith "expected at least one argument, got zero"
 
 
-let solver_dependant_actions () = match Smt.solver () with
-  | (`Yices_SMTLIB) as s -> (
-    (* Disable IC3 for Yices 2 because of lack of support for unsat cores*)
-    Global.disable `IC3;
-    Log.log L_warn "Disabling IC3 with solver %s" (Smt.string_of_solver s);
-    (* Yices 2 SMTLIB requires the specification of a theory *)
-    match s with `Yices_SMTLIB -> Smt.detect_logic_if_none () | _ -> ()
-  )
-  | _ -> ()
-
+let solver_dependant_actions () = ()
 
 
 (* XML starting with options *)

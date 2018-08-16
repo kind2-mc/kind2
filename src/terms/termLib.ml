@@ -213,15 +213,15 @@ let string_of_features l = asprintf "%a" pp_print_features l
 type logic = [ `None | `Inferred of features | `SMTLogic of string ]
 
 let pp_print_logic fmt = function
-  | `None -> ()
+  | `None -> pp_print_string fmt "ALL"
   | `Inferred l -> pp_print_features fmt l
-  | `SMTLogic s -> pp_print_string fmt s
+  | `SMTLogic s -> pp_print_string fmt (if s = "" then "ALL" else s)
 
 
 let string_of_logic = function
-  | `None -> ""
+  | `None -> "ALL"
   | `Inferred l -> string_of_features l
-  | `SMTLogic s -> s
+  | `SMTLogic s -> if s = "" then "ALL" else s
 
 
 let logic_allow_arrays = function
