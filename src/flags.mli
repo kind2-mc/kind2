@@ -133,8 +133,10 @@ val input_file : unit -> string
 val all_input_files : unit -> string list
 (** Clears the lustre files in the cone of influence of the input file. *)
 val clear_input_files : unit -> unit
-(** Adds a lustre file in the cone of influence of the input file. *)
-val add_input_file : string -> unit
+(** Adds a lustre file in the cone of influence of the input file.
+
+    Returns false if the cone of influence already contains the file *)
+val add_input_file : string -> bool
 
 (** Main node in Lustre file *)
 val lus_main : unit -> string option
@@ -145,6 +147,8 @@ val input_format : unit -> input_format
 
 (** Output directory for the files Kind 2 generates. *)
 val output_dir : unit -> string
+
+val include_dirs : unit -> string list
 
 type real_precision = [`Rational | `Float]
 val real_precision : unit -> real_precision
