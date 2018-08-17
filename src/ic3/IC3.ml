@@ -18,6 +18,8 @@
 
 open Lib
 
+exception UnsupportedFeature of string
+
 module C = Clause
 
 (* Frame is a trie of clauses *)
@@ -1003,10 +1005,19 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
 
                 (* Create a clause with activation literals from
                    generalized counterexample *)
-                let clause = 
-                  C.mk_clause_of_literals
-                    C.BlockFrontier
-                    (List.map Term.negate cti_gen) 
+                let clause =
+                  try
+                    C.mk_clause_of_literals
+                      C.BlockFrontier
+                      (List.map Term.negate cti_gen)
+                  with Invalid_argument _ as e -> (
+                    if List.exists (fun t -> Term.has_quantifier t) cti_gen then (
+                      raise (UnsupportedFeature
+                        "Disabling IC3: system contains quantifiers or array streams.")
+                    )
+                    else
+                      raise e
+                  )
                 in
 
                 SMTSolver.trace_comment solver

@@ -22,6 +22,8 @@
 
     @author Christoph Sticksel *)
 
+exception UnsupportedFeature of string
+
 (** Entry point *)
 val main : 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 

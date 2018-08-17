@@ -193,6 +193,10 @@ let status_of_exn process status = function
     (* Return exit status and signal number. *)
     ExitCodes.kid_status + s
   (* Runtime failure. *)
+  | IC3.UnsupportedFeature msg -> (
+    KEvent.log L_warn "%s" msg;
+    status
+  )
   | Failure msg -> (
     InvarManager.print_stats !latest_trans_sys ;
     KEvent.log L_fatal "Runtime failure in %a: %s"
