@@ -684,7 +684,10 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
          have been changed here.
          TODO: change the name of all related functions.
       *)
-      Format.sprintf "@[<hv 1>(get-unsat-assumptions)@]"
+      if Flags.Smt.check_sat_assume () then
+        Format.sprintf "@[<hv 1>(get-unsat-assumptions)@]"
+      else
+        Format.sprintf "@[<hv 1>(get-unsat-core)@]"
     in
 
     (* Send command to the solver without timeout *)
@@ -977,7 +980,12 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       (if produce_cores then
          (* Every current use of get_unsat_core really means get_unsat_assumptions.
             TODO: replace variable name with a less misleading one *)
-         ["(set-option :produce-unsat-assumptions true)"] else []) @
+         (if Flags.Smt.check_sat_assume () then
+            ["(set-option :produce-unsat-assumptions true)"]
+          else
+            ["(set-option :produce-unsat-cores true)"]
+         )
+       else []) @
       header_logic @
       header_farray
     in

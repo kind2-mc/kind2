@@ -27,15 +27,6 @@ let cmd_line
     produce_cores
     produce_interpolants = 
 
-  (* TODO: simulate assertion stack for non-linear arithmetic problems *)
-  (let open TermLib in
-   let open TermLib.FeatureSet in
-   match logic with
-   | `Inferred l when mem NA l ->
-     failwith "Yices2 nonlinear solver can't be used in incremental mode"
-   | _ -> ()
-  );
-
   (* Path and name of Yices executable *)
   let yices2smt2_bin = Flags.Smt.yices2smt2_bin () in
   [| yices2smt2_bin; "--incremental" |]

@@ -1166,7 +1166,7 @@ let files_cat_open ?(add_prefix=fun _ -> ()) files output_name =
 
 (* Captures the output and exit status of a unix command : aux func *)
 let syscall cmd =
-  let so, si, se = Unix.open_process_full cmd [||] in
+  let so, si, se = Unix.open_process_full cmd (Unix.environment ()) in
   let buf = Buffer.create 16 in
   (try
      while true do

@@ -205,6 +205,7 @@ module Smt = struct
         @]"
       fmt_bool check_sat_assume_default
     )
+  let set_check_sat_assume b = check_sat_assume := b
   let check_sat_assume () = !check_sat_assume
 
   (* Use short name for variables at SMT level. *)
@@ -2602,7 +2603,55 @@ let parse_clas specs anon_action global_usage_msg =
     failwith "expected at least one argument, got zero"
 
 
-let solver_dependant_actions () = ()
+let solver_dependant_actions () =
+
+  let get_version cmd =
+    (*let version_re = Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)\\.\\([0-9]\\)" in*)
+    let version_re = Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)" in
+    let output = syscall cmd in
+    try
+      let _ = Str.search_forward version_re output 0 in
+      let major_rev = Pervasives.int_of_string (Str.matched_group 1 output) in
+      let minor_rev = Pervasives.int_of_string (Str.matched_group 2 output) in
+      (*let bug_rev = Pervasives.int_of_string (Str.matched_group 3 output) in
+      Some (major_rev, minor_rev, bug_rev)*)
+      Some (major_rev, minor_rev)
+    with Not_found -> None
+  in
+
+  match Smt.solver () with
+  | `Z3_SMTLIB -> (
+    let cmd = Format.asprintf "%s -version" (Smt.z3_bin ()) in
+    match get_version cmd with
+    | Some (major_rev, minor_rev) ->
+      if major_rev < 4 || (major_rev = 4 && minor_rev < 6) then (
+        Log.log L_warn "Detected an old version of Z3 (< 4.6.0): disabling check_sat_assume";
+        Smt.set_check_sat_assume false
+      )
+    | None -> Log.log L_warn "Couldn't determine Z3 version"
+  )
+  | `Yices_SMTLIB -> (
+    let cmd = Format.asprintf "%s --version" (Smt.yices2smt2_bin ()) in
+    match get_version cmd with
+    | Some (major_rev, minor_rev) ->
+      if major_rev < 2 || (major_rev = 2 && minor_rev < 6) then (
+        Log.log L_error "Detected an unsupported version of Yices 2 (< 2.6.0): \
+                         please upgrade to a newer version";
+        exit 2
+      )
+    | None -> Log.log L_warn "Couldn't determine Yices 2 version"
+  )
+  | `CVC4_SMTLIB -> (
+    let cmd = Format.asprintf "%s --version" (Smt.cvc4_bin ()) in
+    match get_version cmd with
+    | Some (major_rev, minor_rev) ->
+      if major_rev < 1 || (major_rev = 1 && minor_rev < 7) then (
+        Log.log L_warn "Detected an old version of CVC4 (< 1.7): disabling check_sat_assume";
+        Smt.set_check_sat_assume false
+      )
+    | None -> Log.log L_warn "Couldn't determine CVC4 version"
+  )
+  | _ -> ()
 
 
 (* XML starting with options *)
