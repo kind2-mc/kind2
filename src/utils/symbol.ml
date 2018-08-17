@@ -448,12 +448,12 @@ let is_numeral = function
 let is_decimal = function 
   | { Hashcons.node = `DECIMAL _ } -> true 
   | _ -> false
-(*
+
 (* Return true if the symbol is a bitvector *)
 let is_bitvector = function 
   | { Hashcons.node = `BV _ } -> true 
   | _ -> false
-*)
+
 (* Return true if the symbol is [`TRUE] or [`FALSE] *)
 let is_bool = function 
   | { Hashcons.node = `TRUE } 
@@ -469,12 +469,12 @@ let numeral_of_symbol = function
 let decimal_of_symbol = function 
   | { Hashcons.node = `DECIMAL n } -> n 
   | _ -> raise (Invalid_argument "decimal_of_symbol")
-(*
+
 (* Return the bitvector in a `BV symbol  *)
 let bitvector_of_symbol = function 
   | { Hashcons.node = `BV n } -> n 
   | _ -> raise (Invalid_argument "bitvector_of_symbol")
-*)
+
 (* Return [true] for the [`TRUE] symbol and [false] for the [`FALSE]
     symbol *)
 let bool_of_symbol = function 

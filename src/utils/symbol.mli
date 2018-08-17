@@ -274,10 +274,8 @@ val is_numeral : t -> bool
 (** Return true if the symbol is a decimal *)
 val is_decimal : t -> bool
 
-(*
 (** Return true if the symbol is a bitvector *)
 val is_bitvector : t -> bool
-*)
 
 (** Return true if the symbol is select from array  *)
 val is_select : t -> bool
@@ -290,10 +288,10 @@ val numeral_of_symbol : t -> Numeral.t
 
 (** Return the decimal in a [`DECIMAL _] symbol *)
 val decimal_of_symbol : t -> Decimal.t 
-(*
+
 (** Return the bitvector in a [`BV _] symbol *)
-val bitvector_of_symbol : t -> Lib.bitvector 
-*)
+val bitvector_of_symbol : t -> Bitvector.t
+
 (** Return [true] for the [`TRUE] symbol and [false] for the [`FALSE]
     symbol *)
 val bool_of_symbol : t -> bool 

@@ -249,6 +249,15 @@ let rec numeral_of_term t = match destruct t with
   | _ -> invalid_arg "numeral_of_term"
 
 
+(* Return bitvector constant of a term *)
+let bitvector_of_term t = match destruct t with
+
+  (* Term is a bitvector constant *)
+  | T.Const s when Symbol.is_bitvector s -> Symbol.bitvector_of_symbol s
+
+  | _ -> invalid_arg "bitvector_of_term"
+
+
 (* Return decimal constant of a term *)
 let rec decimal_of_term t = 
 
@@ -602,7 +611,13 @@ let rec type_of_term t = match T.destruct t with
 
 
         | `BVNOT
-        | `BVNEG
+        | `BVNEG -> 
+          (match l with 
+
+            (* Function must be unary *)
+            | [a] -> type_of_term a
+            | _ -> assert false) 
+            
         | `BVAND
         | `BVOR
         | `BVADD
@@ -610,7 +625,13 @@ let rec type_of_term t = match T.destruct t with
         | `BVDIV
         | `BVUREM
         | `BVSHL
-        | `BVLSHR
+        | `BVLSHR ->
+
+          (match l with
+
+            (* Function must be binary *)
+            | a :: _ -> type_of_term a
+            | _ -> assert false)
 
         | `STORE -> 
 
@@ -1050,6 +1071,11 @@ let mk_dec_of_float = function
 (* Hashcons a bitvector *)
 let mk_bv b = mk_const_of_symbol_node (`BV b)
 
+(* Hascons a bitvector addition *)
+let mk_bvadd = function
+  | [] -> invalid_arg "Term.mk_bvadd"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVADD a
 
 (* Hashcons an addition *)
 let mk_plus = function

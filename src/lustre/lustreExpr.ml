@@ -1464,23 +1464,16 @@ let mk_to_int expr = mk_unary eval_to_int type_of_to_int expr
 
 (* ********************************************************************** *)
 
-
 (* Evaluate conversion to integer8 *)
 let eval_to_int8 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_int tt || Type.is_int_range tt || Type.is_int8 tt then
-    expr
-  else
-    match Term.destruct expr with
-    | Term.T.Const s when Symbol.is_decimal s ->
-      Term.mk_num
-        (Numeral.of_big_int
-           (Decimal.to_big_int
-              (Symbol.decimal_of_symbol s)))
-
-    | _ -> Term.mk_to_int8 expr
-    | exception Invalid_argument _ -> Term.mk_to_int8 expr
-
+  if Type.is_int tt then
+    let num = Term.numeral_of_term expr in 
+      let i = Numeral.to_int num in
+        let bv = Bitvector.int_to_bv8 i in
+          Term.mk_bv bv
+  else 
+    Term.mk_to_int8 expr
 
 (* Type of conversion to integer8  
 
@@ -1916,6 +1909,17 @@ let eval_plus expr1 expr2 =
       Term.mk_dec
         Decimal.(Symbol.decimal_of_symbol c1 +
                  Symbol.decimal_of_symbol c2) 
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_bitvector c1 && Symbol.is_bitvector c2 ->
+        
+      let e1 = Term.bitvector_of_term expr1 in
+        let e2 = Term.bitvector_of_term expr2 in 
+      if((Bitvector.length_of_bitvector e1 != 8) || 
+       (Bitvector.length_of_bitvector e2 != 8)) then
+        raise Type_mismatch
+      else
+        Term.mk_bvadd [expr1; expr2]
 
   | _ -> Term.mk_plus [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_plus [expr1; expr2]

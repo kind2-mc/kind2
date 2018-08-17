@@ -142,6 +142,9 @@ val mk_dec_of_float : float -> t
 (** Create a constant bitvector *)
 val mk_bv : Bitvector.t -> t
 
+(** Create a bitvector sum *)
+val mk_bvadd : t list -> t
+
 (** Create an integer or real difference *)
 val mk_minus : t list -> t
 
@@ -406,6 +409,9 @@ val is_numeral : t -> bool
 
 (** Return integer constant of a term *)
 val numeral_of_term : t -> Numeral.t
+
+(** Return bitvector constant of a term *)
+val bitvector_of_term : t -> Bitvector.t
 
 (** Return true if the term is a decimal constant *)
 val is_decimal : t -> bool

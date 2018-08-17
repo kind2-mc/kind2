@@ -13,33 +13,25 @@ let bin_to_bool (i : int) : bool =
   | 1 -> true
   | _ -> raise NonBinaryDigit
 
-(* Function that returns Int8 version of an int *)
-let int_to_bv8 (i : int) : t = 
-  let j = 
-    if (i < 0) then
-      (256 + (i mod 256)) mod 256 
-    else
-      i mod 256 
-    in
-    let convert (q : int) : t =
-      let rec convert_reverse (q : int) : t = 
-        if q != 0 then
-          let q' = q / 2 in
-            let r = q mod 2 in
-              (bin_to_bool r) :: convert_reverse q'
-        else
-          []
-      in List.rev (convert_reverse q)
-    in
-      let pad_to_int8 (bl : t) : t = 
-        let diff = 8 - (List.length bl) in
-          let rec pad_help (b : t) (d : int) : t = 
-            if d = 0 then
-              b
-            else
-              pad_help (false :: b) (d - 1)
-          in pad_help bl diff
-      in pad_to_int8 (convert j)
+(* Function that returns fixed-width int version of an int *)
+let int_to_bv (b : int) (i : int) : t =
+  let m = 1 lsl b in
+  let n =
+    if (i < 0) then (m + (i mod m)) mod m
+    else i mod m
+  in
+  let rec convert acc l n =
+    if n>0 then
+      convert (((n mod 2) = 1) :: acc) (l+1) (n / 2)
+    else (acc, l)
+  in
+  let bv, l = convert [] 0 n in
+  let rec pad bv l =
+    if l>0 then pad (false :: bv) (l-1) else bv
+  in
+  pad bv (b - l)
+
+let int_to_bv8 = int_to_bv 8 
    
 
 (* Return the first n elements of a list *)
