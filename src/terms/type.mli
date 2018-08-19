@@ -122,6 +122,12 @@ val is_bool : t -> bool
 (** Return [true] if the type is the integer type *)
 val is_int : t -> bool
 
+(** Return [true] if the type is a bitvector (integern) type *)
+val is_bitvector : t -> bool
+
+(** Return [true] if the type is a bitvector (integern) type *)
+val bitvectorsize : t -> int
+
 (** Return [true] if the type is the integer8 type *)
 val is_int8 : t -> bool
 

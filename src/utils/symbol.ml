@@ -84,7 +84,7 @@ type interpreted_symbol =
   | `BVOR                 (* Bit-wise disjunction (binary) *)
   | `BVADD                (* Arithmetic sum (binary) *)
   | `BVMUL                (* Arithmetic multiplication (binary) *)
-  | `BVDIV                (* Arithmetic integer division (binary) *)
+  | `BVUDIV                (* Arithmetic integer division (binary) *)
   | `BVUREM               (* Arithmetic remainder (binary) *)
   | `BVSHL                (* Logical shift left (unary) *)
   | `BVLSHR               (* Logical shift right (unary) *)
@@ -208,7 +208,7 @@ module Symbol_node = struct
     | `BVOR, `BVOR
     | `BVADD, `BVADD
     | `BVMUL, `BVMUL
-    | `BVDIV, `BVDIV
+    | `BVUDIV, `BVUDIV
     | `BVUREM, `BVUREM
     | `BVSHL, `BVSHL
     | `BVLSHR, `BVLSHR
@@ -256,7 +256,7 @@ module Symbol_node = struct
     | `BVOR, _
     | `BVADD, _
     | `BVMUL, _
-    | `BVDIV, _
+    | `BVUDIV, _
     | `BVUREM, _
     | `BVSHL, _
     | `BVLSHR, _
@@ -411,7 +411,7 @@ let rec pp_print_symbol_node ppf = function
   | `BVOR -> Format.pp_print_string ppf "bvor"
   | `BVADD -> Format.pp_print_string ppf "bvadd"
   | `BVMUL -> Format.pp_print_string ppf "bvmul"
-  | `BVDIV -> Format.pp_print_string ppf "bvdiv"
+  | `BVUDIV -> Format.pp_print_string ppf "bvudiv"
   | `BVUREM -> Format.pp_print_string ppf "bvurem"
   | `BVSHL -> Format.pp_print_string ppf "bvshl"
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"

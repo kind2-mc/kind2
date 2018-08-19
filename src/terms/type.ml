@@ -345,24 +345,28 @@ let rec is_int_range { Hashcons.node = t } = match t with
   | Array (t, _) -> false (* is_int_range t *)
   |  _ -> false
 
+let rec is_bitvector { Hashcons.node = t } = match t with
+  | BV _ -> true
+  | _ -> false
+
+let bitvectorsize { Hashcons.node = t } = match t with
+  | BV n -> n
+  | _ -> 0
+  
 let rec is_int8 { Hashcons.node = t } = match t with
   | BV 8 -> true 
-  | Array (t, _) -> false (* is_int8 t *)
   | _-> false
 
 let rec is_int16 { Hashcons.node = t } = match t with
   | BV 16 -> true 
-  | Array (t, _) -> false (* is_int16 t *)
   | _-> false
 
 let rec is_int32 { Hashcons.node = t } = match t with
   | BV 32 -> true 
-  | Array (t, _) -> false (* is_int32 t *)
   | _-> false
 
 let rec is_int64 { Hashcons.node = t } = match t with
   | BV 64 -> true 
-  | Array (t, _) -> false (* is_int64 t *)
   | _-> false
 
 let rec is_enum { Hashcons.node = t } = match t with

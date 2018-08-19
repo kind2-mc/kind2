@@ -9,6 +9,13 @@ val int_to_bv8 : int -> t
 (** Return the length of a bitvector as a numeral *)
 val length_of_bitvector : t -> int
 
+(** Function that inputs a list of bitvectors and returns an Some n
+   if all bitvectors have size n, where n = 8,16,32,64, and None otherwise 
+   Special case: it returns None for the input of an empty list of BVs.
+   Used to check if non-unary BV operators operate on uniformly sized and
+   validly sized inputs *)
+val check_bv_uniform : t list -> int option
+
 (** Convert a string to a bitvector
 
     Binary and hexadecimal notation is accepted as #b[01]+ and

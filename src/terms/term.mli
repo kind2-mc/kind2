@@ -145,6 +145,39 @@ val mk_bv : Bitvector.t -> t
 (** Create a bitvector sum *)
 val mk_bvadd : t list -> t
 
+(** Create a bitvector produce *)
+val mk_bvmul : t list -> t
+
+(** Create a bitvector division *)
+val mk_bvudiv : t list -> t
+
+(** Create a bitvector modulus *)
+val mk_bvurem : t list -> t
+
+(** Create a bitvector left shift *)
+val mk_bvshl : t list -> t
+
+(** Create a bitvector logical right shift *)
+val mk_bvlshr : t list -> t
+
+(** Create a bitvector conjunction *)
+val mk_bvand : t list -> t
+
+(** Create a bitvector disjunction *)
+val mk_bvor : t list -> t
+
+(** Create a bitvector less-than comparison *)
+val mk_bvult : t list -> t
+
+(** Create a bitvector less-than-or-equal-to comparison *)
+val mk_bvule : t list -> t
+
+(** Create a bitvector greater-than comparison *)
+val mk_bvugt : t list -> t
+
+(** Create a bitvector greater-than=or-eqaul-to comparison *)
+val mk_bvuge : t list -> t
+
 (** Create an integer or real difference *)
 val mk_minus : t list -> t
 

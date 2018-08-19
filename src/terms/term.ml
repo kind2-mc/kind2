@@ -617,12 +617,12 @@ let rec type_of_term t = match T.destruct t with
             (* Function must be unary *)
             | [a] -> type_of_term a
             | _ -> assert false) 
-            
+
         | `BVAND
         | `BVOR
         | `BVADD
         | `BVMUL
-        | `BVDIV
+        | `BVUDIV
         | `BVUREM
         | `BVSHL
         | `BVLSHR ->
@@ -1076,6 +1076,72 @@ let mk_bvadd = function
   | [] -> invalid_arg "Term.mk_bvadd"
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVADD a
+
+(* Hashcons a bitvector multiplication *)
+let mk_bvmul = function
+  | [] -> invalid_arg "Term.mk_bvmul"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVMUL a
+
+(* Hashcons a bitvector division *)
+let mk_bvudiv = function
+  | [] -> invalid_arg "Term.mk_bvdiv"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVUDIV a
+
+(* Hashcons a bitvector modulus *)
+let mk_bvurem = function
+  | [] -> invalid_arg "Term.mk_bvurem"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVUREM a
+
+(* Hashcons a bitvector left shift *)
+let mk_bvshl = function
+  | [] -> invalid_arg "Term.mk_bvshl"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSHL a
+
+(* Hashcons a bitvector logical right shift *)
+let mk_bvlshr = function
+  | [] -> invalid_arg "Term.mk_bvlshr"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVLSHR a
+
+(* Hashcons a bitvector conjunction *)
+let mk_bvand = function
+  | [] -> invalid_arg "Term.mk_bvand"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVAND a
+
+(* Hashcons a bitvector disjunction *)
+let mk_bvor = function
+  | [] -> invalid_arg "Term.mk_bvor"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVOR a
+
+(* Hashcons a bitvector less-than comparison *)
+let mk_bvult = function
+  | [] -> invalid_arg "Term.mk_bvult"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVULT a
+
+(* Hashcons a bitvector less-than-or-equal-to comparison *)
+let mk_bvule = function
+  | [] -> invalid_arg "Term.mk_bvule"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVULE a
+
+(* Hashcons a bitvector greater-than comparison *)
+let mk_bvugt = function
+  | [] -> invalid_arg "Term.mk_bvugt"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVUGT a
+
+(* Hashcons a bitvector greater-than=or-eqaul-to comparison *)
+let mk_bvuge = function
+  | [] -> invalid_arg "Term.mk_bvuge"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVUGE a
 
 (* Hashcons an addition *)
 let mk_plus = function

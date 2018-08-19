@@ -515,7 +515,7 @@ let ensure_symbol_qf_lira s =
   | `BVOR
   | `BVADD
   | `BVMUL
-  | `BVDIV
+  | `BVUDIV
   | `BVUREM
   | `BVSHL
   | `BVLSHR

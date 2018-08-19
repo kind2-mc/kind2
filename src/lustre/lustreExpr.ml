@@ -28,6 +28,7 @@ module VS = Var.VarSet
 (* Exceptions *)
 exception Type_mismatch
 exception FixedWidthInt_overflow
+exception BV_size_mismatch
 
 (* A Lustre expression is a term *)
 type expr = Term.t
@@ -665,7 +666,7 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `BVOR
     | `BVADD
     | `BVMUL
-    | `BVDIV
+    | `BVUDIV
     | `BVUREM
     | `BVSHL
     | `BVLSHR
@@ -1812,6 +1813,16 @@ let eval_mod expr1 expr2 =
         Numeral.(Symbol.numeral_of_symbol c1 mod 
                  Symbol.numeral_of_symbol c2) 
 
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_bitvector c1 && Symbol.is_bitvector c2 -> 
+        
+        let e1 = Term.bitvector_of_term expr1 in
+          let e2 = Term.bitvector_of_term expr2 in 
+            if Bitvector.check_bv_uniform (e1 :: e2 :: []) = None then
+              raise BV_size_mismatch
+            else
+              Term.mk_bvurem [expr1; expr2]
+
     | _ -> Term.mk_mod expr1 expr2
     | exception Invalid_argument _ -> Term.mk_mod expr1 expr2
 
@@ -1830,6 +1841,21 @@ let type_of_mod = function
       | t when Type.is_int_range t -> 
         let l, u = Type.bounds_of_int_range t in 
         Type.mk_int_range Numeral.zero Numeral.(pred (max (abs l) (abs u)))
+      | _ -> raise Type_mismatch)
+  | t1 when Type.is_bitvector t1 -> 
+    (function 
+      | t2 when Type.is_bitvector t2 -> 
+        let s1 = Type.bitvectorsize t1 in
+          let s2 = Type.bitvectorsize t2 in 
+            if s1 != s2 then
+              raise BV_size_mismatch
+            else
+              (match s1,s2 with
+              | 8, 8 -> Type.t_bv 8
+              | 16, 16 -> Type.t_bv 16
+              | 32, 32 -> Type.t_bv 32
+              | 64, 64 -> Type.t_bv 64
+              | _, _ -> raise Type_mismatch)
       | _ -> raise Type_mismatch)
   | _ -> raise Type_mismatch
 
@@ -1915,11 +1941,10 @@ let eval_plus expr1 expr2 =
         
       let e1 = Term.bitvector_of_term expr1 in
         let e2 = Term.bitvector_of_term expr2 in 
-      if((Bitvector.length_of_bitvector e1 != 8) || 
-       (Bitvector.length_of_bitvector e2 != 8)) then
-        raise Type_mismatch
-      else
-        Term.mk_bvadd [expr1; expr2]
+          if Bitvector.check_bv_uniform (e1 :: e2 :: []) = None then
+            raise BV_size_mismatch
+          else
+            Term.mk_bvadd [expr1; expr2]
 
   | _ -> Term.mk_plus [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_plus [expr1; expr2]
@@ -2021,6 +2046,16 @@ let eval_times expr1 expr2 =
       Term.mk_dec
         Decimal.(Symbol.decimal_of_symbol c1 *
                  Symbol.decimal_of_symbol c2) 
+
+    (*| Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_bitvector c1 && Symbol.is_bitvector c2 ->
+
+      let e1 = Term.bitvector_of_term expr1 in
+        let e2 = Term.bitvector_of_term expr2 in 
+          if Bitvector.check_bv_uniform (e1 :: e2 :: []) = None then
+            raise BV_size_mismatch
+          else
+            Term.mk_bvurem [expr1; expr2]                 *)
 
   | _ -> Term.mk_times [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_times [expr1; expr2]

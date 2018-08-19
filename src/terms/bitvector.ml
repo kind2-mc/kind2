@@ -13,7 +13,7 @@ let bin_to_bool (i : int) : bool =
   | 1 -> true
   | _ -> raise NonBinaryDigit
 
-(* Function that returns fixed-width int version of an int *)
+(* Function that returns fixed-width int or bitvector version of an int *)
 let int_to_bv (b : int) (i : int) : t =
   let m = 1 lsl b in
   let n =
@@ -32,7 +32,23 @@ let int_to_bv (b : int) (i : int) : t =
   pad bv (b - l)
 
 let int_to_bv8 = int_to_bv 8 
-   
+
+(* Function that inputs a list of bitvectors and returns Some n
+   if all bitvectors have size n, where n = 8,16,32,64, and None otherwise 
+   Special case: it returns None for the input of an empty list of BVs*)
+let check_bv_uniform bvl = 
+  if List.length bvl = 0 then
+    None
+  else
+    let l_lens = List.map List.length bvl in
+      let el1 = List.hd l_lens in
+        if ((el1 != 8) && (el1 != 16) && (el1 != 32) && (el1 != 64)) then
+          None
+        else
+          if List.for_all (fun (i : int) -> i = el1) l_lens then
+            Some el1
+          else
+            None
 
 (* Return the first n elements of a list *)
 let rec list_first_n' a l n =
