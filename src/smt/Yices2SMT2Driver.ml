@@ -27,6 +27,18 @@ let cmd_line
     produce_cores
     produce_interpolants = 
 
+  (let open TermLib in
+   let open TermLib.FeatureSet in
+   match logic with
+   | `Inferred l when mem NA l && Flags.Smt.check_sat_assume () ->
+     Flags.Smt.set_check_sat_assume false;
+     KEvent.log Lib.L_warn
+       "In %a: Yices 2 does not support check-sat-assuming with non-linear models.@ \
+        Disabling check_sat_assume."
+       Lib.pp_print_kind_module (KEvent.get_module ())
+   | _ -> ()
+  );
+
   (* Path and name of Yices executable *)
   let yices2smt2_bin = Flags.Smt.yices2smt2_bin () in
   [| yices2smt2_bin; "--incremental" |]

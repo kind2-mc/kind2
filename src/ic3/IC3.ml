@@ -2999,7 +2999,7 @@ let rec bmc_checks solver input_sys aparam trans_sys props =
      exceptions.
 
 *)
-let main input_sys aparam trans_sys =
+let main_ic3 input_sys aparam trans_sys =
 
   (* IC3 solving starts now *)
   Stat.start_timer Stat.ic3_total_time;
@@ -3185,6 +3185,26 @@ let main input_sys aparam trans_sys =
     trans_sys
     props'
     predicates
+
+
+let main input_sys aparam trans_sys =
+
+  match Flags.Smt.solver () with
+  | `Yices_SMTLIB -> (
+
+    (let open TermLib in
+     let open TermLib.FeatureSet in
+     match TransSys.get_logic trans_sys with
+     | `Inferred l when mem NA l ->
+
+       raise (UnsupportedFeature
+         "Disabling IC3: Yices 2 does not support unsat-cores with non-linear models.")
+
+     | _ -> main_ic3 input_sys aparam trans_sys
+    )
+
+  )
+  | _ -> main_ic3 input_sys aparam trans_sys
 
 
 (* 
