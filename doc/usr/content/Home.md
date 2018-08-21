@@ -51,10 +51,10 @@ The default is `Z3`, but see options of the `./build.sh` script to override at c
 - [num](https://github.com/ocaml/num) (part of OCaml distribution until 4.06),
 - [Menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator, and
 - a supported SMT solver
-    - [CVC4](http://cvc4.cs.stanford.edu/) 1.7pre or later,
-    - [Yices 2](http://yices.csl.sri.com/) 2.6.0 or later,
+    - [CVC4](http://cvc4.cs.stanford.edu/),
+    - [Yices 2](http://yices.csl.sri.com/),
     - [Yices 1](http://yices.csl.sri.com/old/download-yices1-full.shtml), or
-    - [Z3](https://github.com/Z3Prover/z3) 4.6.0 or later (presently recommended)
+    - [Z3](https://github.com/Z3Prover/z3) (presently recommended)
 
 ## Building and installing
 
