@@ -240,6 +240,8 @@ module Smt : sig
   (** Use check-sat with assumptions, or simulate with push/pop *)
   val check_sat_assume : unit -> bool
 
+  val set_check_sat_assume : bool -> unit
+
   (** Send short names to SMT solver *)
   val short_names : unit -> bool
 
