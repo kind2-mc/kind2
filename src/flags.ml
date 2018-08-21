@@ -184,6 +184,8 @@ module Smt = struct
           Other SMT-LIB logics will be passed to the solver\
         @]"
     )
+
+  let set_logic l = logic := l
     
   let detect_logic_if_none () =
     if !logic = `None then logic := `detect
@@ -2154,7 +2156,6 @@ module Global = struct
       "
       enable_values
     )
-  let disable mdl = disabled := mdl :: !disabled
   let disabled () = !disabled
 
 
@@ -2625,8 +2626,10 @@ let solver_dependant_actions () =
     match get_version cmd with
     | Some (major_rev, minor_rev) ->
       if major_rev < 4 || (major_rev = 4 && minor_rev < 6) then (
-        Log.log L_warn "Detected an old version of Z3 (< 4.6.0): disabling check_sat_assume";
-        Smt.set_check_sat_assume false
+        if Smt.check_sat_assume () then (
+          Log.log L_warn "Detected an old version of Z3 (< 4.6.0): disabling check_sat_assume";
+          Smt.set_check_sat_assume false
+        )
       )
     | None -> Log.log L_warn "Couldn't determine Z3 version"
   )
@@ -2635,9 +2638,30 @@ let solver_dependant_actions () =
     match get_version cmd with
     | Some (major_rev, minor_rev) ->
       if major_rev < 2 || (major_rev = 2 && minor_rev < 6) then (
-        Log.log L_error "Detected an unsupported version of Yices 2 (< 2.6.0): \
-                         please upgrade to a newer version";
-        exit 2
+        let actions = [] in
+        let actions =
+          if List.mem `IC3 (Global.enabled ()) then
+            (Global.disable `IC3; "disabling IC3" :: actions)
+          else actions
+        in
+        let actions =
+          if Smt.logic () = `None then (
+            Smt.set_logic `detect;
+            "enabling detection of SMT logic" :: actions
+          )
+          else actions
+        in
+        let actions =
+          if Smt.check_sat_assume () then (
+            Smt.set_check_sat_assume false;
+            "disabling check_sat_assume" :: actions
+          )
+          else actions
+        in
+        if actions <> [] then (
+          Log.log L_warn "Detected an old version of Yices 2 (< 2.6.0): %a"
+            (pp_print_list Format.pp_print_string ",@ ") actions
+        )
       )
     | None -> Log.log L_warn "Couldn't determine Yices 2 version"
   )
@@ -2646,8 +2670,10 @@ let solver_dependant_actions () =
     match get_version cmd with
     | Some (major_rev, minor_rev) ->
       if major_rev < 1 || (major_rev = 1 && minor_rev < 7) then (
-        Log.log L_warn "Detected an old version of CVC4 (< 1.7): disabling check_sat_assume";
-        Smt.set_check_sat_assume false
+        if Smt.check_sat_assume () then (
+          Log.log L_warn "Detected an old version of CVC4 (< 1.7): disabling check_sat_assume";
+          Smt.set_check_sat_assume false
+        )
       )
     | None -> Log.log L_warn "Couldn't determine CVC4 version"
   )
@@ -2727,11 +2753,11 @@ let parse_argv () =
 
   (* Check solver on path *)
   Smt.check_smtsolver ();
-  
-  solver_dependant_actions ();
-  
+
   (* Finalize the list of enabled module. *)
   Global.finalize_enabled ();
+
+  solver_dependant_actions ();
 
   post_argv_parse_actions ()
   
