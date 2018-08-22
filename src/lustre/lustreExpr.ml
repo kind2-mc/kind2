@@ -1359,7 +1359,19 @@ let type_of_num_num_bool = function
     (function 
       | t when Type.is_real t -> Type.t_bool
       | _ -> raise Type_mismatch)
-    
+
+  | t when Type.is_bitvector t ->
+    (function 
+      | t' when Type.is_bitvector t' -> 
+        let s1 = Type.bitvectorsize t in
+          let s2 = Type.bitvectorsize t' in
+            (match s1, s2 with
+            | 8,8 -> Type.t_bool
+            | 16,16 -> Type.t_bool
+            | 32,32 -> Type.t_bool
+            | 64,64 -> Type.t_bool
+            | _, _ -> raise BV_size_mismatch)
+      | _ -> raise Type_mismatch)  
   | _ -> raise Type_mismatch
 
 
@@ -1818,7 +1830,7 @@ let eval_mod expr1 expr2 =
         
         let e1 = Term.bitvector_of_term expr1 in
           let e2 = Term.bitvector_of_term expr2 in 
-            if Bitvector.check_bv_uniform (e1 :: e2 :: []) = None then
+            if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
               raise BV_size_mismatch
             else
               Term.mk_bvurem [expr1; expr2]
@@ -1941,7 +1953,7 @@ let eval_plus expr1 expr2 =
         
       let e1 = Term.bitvector_of_term expr1 in
         let e2 = Term.bitvector_of_term expr2 in 
-          if Bitvector.check_bv_uniform (e1 :: e2 :: []) = None then
+          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then 
             raise BV_size_mismatch
           else
             Term.mk_bvadd [expr1; expr2]
@@ -2047,15 +2059,15 @@ let eval_times expr1 expr2 =
         Decimal.(Symbol.decimal_of_symbol c1 *
                  Symbol.decimal_of_symbol c2) 
 
-    (*| Term.T.Const c1, Term.T.Const c2 when
+    | Term.T.Const c1, Term.T.Const c2 when
         Symbol.is_bitvector c1 && Symbol.is_bitvector c2 ->
 
       let e1 = Term.bitvector_of_term expr1 in
         let e2 = Term.bitvector_of_term expr2 in 
-          if Bitvector.check_bv_uniform (e1 :: e2 :: []) = None then
+          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
             raise BV_size_mismatch
           else
-            Term.mk_bvurem [expr1; expr2]                 *)
+            Term.mk_bvmul [expr1; expr2]
 
   | _ -> Term.mk_times [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_times [expr1; expr2]
@@ -2087,6 +2099,16 @@ let eval_intdiv expr1 expr2 =
         Numeral.(Symbol.numeral_of_symbol c1 /
                  Symbol.numeral_of_symbol c2) 
 
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_bitvector c1 && Symbol.is_bitvector c2 ->
+
+      let e1 = Term.bitvector_of_term expr1 in
+        let e2 = Term.bitvector_of_term expr2 in 
+          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
+            raise BV_size_mismatch
+          else
+            Term.mk_bvudiv [expr1; expr2]                 
+
   | _ -> Term.mk_intdiv [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_intdiv [expr1; expr2]
 
@@ -2103,6 +2125,21 @@ let type_of_intdiv t t' =
       | t when Type.is_int t || Type.is_int_range t -> Type.t_int
       | _ -> raise Type_mismatch
     )
+    | t when Type.is_bitvector t -> (
+      match t' with
+      | t' when Type.is_bitvector t' -> 
+        let s1 = Type.bitvectorsize t in
+          let s2 = Type.bitvectorsize t' in 
+            if s1 != s2 then
+              raise BV_size_mismatch
+            else
+              (match s1,s2 with
+              | 8, 8 -> Type.t_bv 8
+              | 16, 16 -> Type.t_bv 16
+              | 32, 32 -> Type.t_bv 32
+              | 64, 64 -> Type.t_bv 64
+              | _, _ -> raise Type_mismatch)
+      | _ -> raise Type_mismatch)
     | _ -> raise Type_mismatch
   )
 
@@ -2235,6 +2272,16 @@ let eval_lte expr1 expr2 =
 
         Term.t_false
 
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_bitvector c1 &&
+        Symbol.is_bitvector c2 ->
+
+      let e1 = Term.bitvector_of_term expr1 in
+        let e2 = Term.bitvector_of_term expr2 in 
+          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
+            raise BV_size_mismatch
+          else
+            Term.mk_bvule [expr1; expr2]
 
     | _ -> Term.mk_leq [expr1; expr2]
     | exception Invalid_argument _ -> Term.mk_leq [expr1; expr2]
@@ -2285,7 +2332,17 @@ let eval_lt expr1 expr2 =
 
         Term.t_false
 
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_bitvector c1 &&
+        Symbol.is_bitvector c2 ->
 
+      let e1 = Term.bitvector_of_term expr1 in
+        let e2 = Term.bitvector_of_term expr2 in 
+          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
+            raise BV_size_mismatch
+          else
+            Term.mk_bvult [expr1; expr2]
+            
     | _ -> Term.mk_lt [expr1; expr2]
     | exception Invalid_argument _ -> Term.mk_lt [expr1; expr2]
 
@@ -2335,6 +2392,16 @@ let eval_gte expr1 expr2 =
 
         Term.t_false
 
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_bitvector c1 &&
+        Symbol.is_bitvector c2 ->
+
+      let e1 = Term.bitvector_of_term expr1 in
+        let e2 = Term.bitvector_of_term expr2 in 
+          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
+            raise BV_size_mismatch
+          else
+            Term.mk_bvuge [expr1; expr2]
 
     | _ -> Term.mk_geq [expr1; expr2]
     | exception Invalid_argument _ -> Term.mk_geq [expr1; expr2]
@@ -2385,6 +2452,16 @@ let eval_gt expr1 expr2 =
 
         Term.t_false
 
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_bitvector c1 &&
+        Symbol.is_bitvector c2 ->
+
+      let e1 = Term.bitvector_of_term expr1 in
+        let e2 = Term.bitvector_of_term expr2 in 
+          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
+            raise BV_size_mismatch
+          else
+            Term.mk_bvugt [expr1; expr2]
 
     | _ -> Term.mk_gt [expr1; expr2]
     | exception Invalid_argument _ -> Term.mk_gt [expr1; expr2]

@@ -33,6 +33,9 @@ let int_to_bv (b : int) (i : int) : t =
 
 let int_to_bv8 = int_to_bv 8 
 
+(* Function that returns the length of the bitvector *)
+let bv_length bv = List.length bv
+
 (* Function that inputs a list of bitvectors and returns Some n
    if all bitvectors have size n, where n = 8,16,32,64, and None otherwise 
    Special case: it returns None for the input of an empty list of BVs*)
