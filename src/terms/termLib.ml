@@ -158,22 +158,28 @@ let logic_of_flat t acc =
   | App (s, l) when s == Symbol.s_times && at_most_one_non_num l ->
     add LA (sup_logics acc)
 
-  (* division is non-linear for solvers *)
-  (* | App (s, [n; d]) when Symbol.(s == s_div || s == s_intdiv) && *)
-  (*   (Term.is_numeral d || Term.is_decimal d) -> *)
-  (*   add LA (sup_logics acc) *)
+  | App (s, n :: l) when Symbol.(s == s_div || s == s_intdiv || s == s_mod) &&
+     List.for_all (fun t -> Term.is_numeral t || Term.is_decimal t) l ->
+     add LA (sup_logics acc)
 
-  | App (s, l) when Symbol.(s == s_div || s == s_times || s == s_abs
-                            || s == s_intdiv || s == s_mod) ->
+  | App (s, [n]) when Symbol.(s == s_abs) &&
+     (Term.is_numeral n || Term.is_decimal n) ->
+     add LA (sup_logics acc)
+
+  | App (s, l) when Symbol.(s == s_div || s == s_times || s == s_abs ||
+                            s == s_intdiv || s == s_mod) ->
     add NA (sup_logics acc)
 
   | App (s, l) when Symbol.(s == s_lt || s == s_gt ||
                             s == s_leq || s == s_geq) ->
     add LA (sup_logics acc)
 
-  | App (s, l) when Symbol.is_select s ->
+  | App (s, l) when Symbol.(is_select s || s == s_store) ->
     sup_logics acc |> add UF |> add A
-    
+
+  | App (s, l) when Symbol.(s == s_to_int || s == s_to_real || is_divisible s) ->
+    sup_logics acc |> add LA |> add IA |> add RA
+
   | App _ -> sup_logics acc
 
   
