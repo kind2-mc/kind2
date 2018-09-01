@@ -35,6 +35,14 @@ let cmd_line
 
   let incr_mode = "--incremental" in (* "--tear-down-incremental=1" *)
 
+  let common_flags =
+    [| incr_mode;
+       "--rewrite-divk"; (* Allows division by constant in QF_LIA problems *)
+       "--decision=internal";
+       "--ext-rew-prep";
+       "--ext-rew-prep-agg" |] in
+
+  (*
   let fmfint_flags = [||] in (*
     [| "--fmf-bound-int";
        "--fmf-inst-engine";
@@ -54,11 +62,11 @@ let cmd_line
     | `Inferred l, false when FeatureSet.mem A l -> fmfint_flags
     | `Inferred _, _ -> [||]
     | _, true -> fmfrec_flags
-    | _, false -> fmfint_flags in
+    | _, false -> fmfint_flags in*)
 
-  let default_cmd = [| cvc4_bin; "--lang"; "smt2"; "--rewrite-divk" |] in
+  let default_cmd = [| cvc4_bin; "--lang"; "smt2" |] in
 
-  Array.concat [default_cmd; [|incr_mode|]; inst_flags]
+  Array.concat [default_cmd; common_flags]
   
 
 let check_sat_limited_cmd _ = 
