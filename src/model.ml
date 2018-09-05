@@ -203,10 +203,18 @@ let pp_print_map_as_xml ppf m =
 
 (* Print a value of the model *)  
 let pp_print_value ?as_type ppf v = match v, as_type with
-  | Term t, Some ty when Term.is_numeral t && Type.is_enum ty ->
-    Term.numeral_of_term t
-    |> Type.get_constr_of_num
-    |> Format.pp_print_string ppf
+  | Term t, Some ty when Term.is_numeral t && Type.is_enum ty -> (
+    try (
+      Term.numeral_of_term t
+      |> Type.get_constr_of_num
+      |> Format.pp_print_string ppf
+    ) with Not_found ->
+      (* If value is out of range, we assume value is not on clock
+         (see sample_streams_on_clock in lustrePath). If it is not
+         the case, there is something wrong with problem encoding!
+      *)
+      Format.pp_print_string ppf "_"
+  )
   | Term t, _ -> pp_print_term ppf t
   | Lambda l, _ -> Term.pp_print_lambda ppf l
   | Map m, _ -> Format.fprintf ppf "@[<hov 0>%a@]" pp_print_map_as_array m
