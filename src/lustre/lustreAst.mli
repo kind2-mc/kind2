@@ -99,6 +99,9 @@ type expr =
   | Div of position * expr * expr
   | Times of position * expr * expr
   | IntDiv of position * expr * expr
+  | BVAnd of position * expr * expr
+  | BVOr of position * expr * expr
+  | BVNot of position * expr
   | Ite of position * expr * expr * expr
   | With of position * expr * expr * expr
   | Eq of position * expr * expr

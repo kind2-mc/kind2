@@ -33,8 +33,37 @@ let int_to_bv (b : int) (i : int) : t =
 
 let int_to_bv8 = int_to_bv 8 
 
-(* Function that returns the length of the bitvector *)
-let bv_length bv = List.length bv
+let int_to_bv16 = int_to_bv 16
+
+let int_to_bv32 = int_to_bv 32
+
+let int_to_bv64 = int_to_bv 64
+
+(* Function that converts a Boolean single binary integer digit *)
+let bool_to_bin (b : bool) : int =
+  match b with 
+  | false -> 0
+  | true -> 1
+
+(* Function that calculates the nth power of two *)
+let rec pow2 (n : int) : int =
+  match n with
+  | 0 -> 1
+  | n' -> 2 * pow2 (n' - 1)
+
+(* Function that returns the integer corresponding to a bitvector *)
+let rec bv_to_int (i : int)  (b: t) : int =
+  match b with
+  | h :: t ->  (bool_to_bin h) * (pow2 (i - 1)) + bv_to_int (i - 1) t
+  | nil -> 0
+
+let bv8_to_int = bv_to_int 8
+
+let bv16_to_int = bv_to_int 16
+
+let bv32_to_int = bv_to_int 32
+
+let bv64_to_int = bv_to_int 64
 
 (* Function that inputs a list of bitvectors and returns Some n
    if all bitvectors have size n, where n = 8,16,32,64, and None otherwise 

@@ -222,6 +222,9 @@ let rec eval_ast_expr bounds ctx =
   (* Unary minus [- expr] *)
     | A.Uminus (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_uminus expr 
 
+  (* Bitwise negation [! expr] *)
+    | A.BVNot (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_bvnot expr
+
   (* ****************************************************************** *)
   (* Binary operators                                                   *)
   (* ****************************************************************** *)
@@ -293,6 +296,16 @@ let rec eval_ast_expr bounds ctx =
   | A.IntDiv (pos, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_intdiv expr1 expr2 
+
+  (* Bitwise conjunction [expr1 & expr2] *)
+  | A.BVAnd (pos, expr1, expr2) -> 
+
+      eval_binary_ast_expr bounds ctx pos E.mk_bvand expr1 expr2
+
+  (* Bitwise disjunction [expr1 & expr2] *)
+  | A.BVOr (pos, expr1, expr2) -> 
+
+      eval_binary_ast_expr bounds ctx pos E.mk_bvor expr1 expr2
 
   (* Less than or equal [expr1 <= expr2] *)
   | A.Lte (pos, expr1, expr2) -> 

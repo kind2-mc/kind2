@@ -290,6 +290,16 @@ let string_of_symbol = function
   | `EQ -> "="
   | `NUMERAL n -> Numeral.string_of_numeral n
   | `DECIMAL d -> Decimal.string_of_decimal d
+  | `BV b -> 
+          let bi = 
+            (match Bitvector.length_of_bitvector b with
+            | 8 -> Bitvector.bv8_to_int b
+            | 16 -> Bitvector.bv16_to_int b
+            | 32 -> Bitvector.bv32_to_int b
+            | 64 -> Bitvector.bv64_to_int b
+            | _ -> raise BV_size_mismatch) 
+          in let nb = Numeral.of_int bi in
+          Numeral.string_of_numeral nb
   | `MINUS -> "-"
   | `PLUS -> "+"
   | `TIMES -> "*"
@@ -307,6 +317,7 @@ let string_of_symbol = function
   | `TO_INT16 -> "int16"
   | `TO_INT32 -> "int32"
   | `TO_INT64 -> "int64"
+  | `BVAND -> "&"
   | _ -> failwith "string_of_symbol"
 
 
@@ -565,6 +576,7 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `AND
     | `OR
     | `XOR
+    | `BVAND
     | `PLUS
     | `TIMES
     | `DIV
@@ -662,7 +674,7 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `EXTRACT _
     | `BVNOT
     | `BVNEG
-    | `BVAND
+
     | `BVOR
     | `BVADD
     | `BVMUL
@@ -1260,6 +1272,7 @@ let best_int_range is_div op t t' =
       (List.fold_left Numeral.min b_0 bounds)
       (List.fold_left Numeral.max b_0 bounds)
 
+
 (* Type check for int -> int -> int, real -> real -> real *)
 let type_of_num_num_num ?(is_div = false) op t t' =
   try best_int_range is_div op t t' with
@@ -1321,6 +1334,16 @@ let type_of_a_a_a type1 type2 =
   else raise Type_mismatch
 
 
+(* Type check for bv -> bv -> bv *)
+let type_of_bv_bv_bv t t' =
+  match t, t' with 
+  | t, t' when Type.is_int8 t && Type.is_int8 t' -> Type.t_bv 8
+  | t, t' when Type.is_int16 t && Type.is_int16 t' -> Type.t_bv 16
+  | t, t' when Type.is_int32 t && Type.is_int32 t' -> Type.t_bv 32
+  | t, t' when Type.is_int64 t && Type.is_int64 t' -> Type.t_bv 64
+  | _, _ -> raise Type_mismatch
+  
+  
 (* Type check for 'a -> 'a -> bool *)
 let type_of_a_a_bool type1 type2 = 
 
@@ -1439,6 +1462,38 @@ let type_of_uminus = function
 
 (* Unary negation of expression *)
 let mk_uminus expr = mk_unary eval_uminus type_of_uminus expr
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate bitwise negation*)
+let eval_bvnot expr = Term.mk_minus [expr]
+
+(*match Term.destruct expr with 
+
+  | Term.T.Const s when Symbol.is_bitvector s -> 
+    Term.mk_bvnot [expr]
+
+  | _ -> Term.mk_minus [expr]
+  | exception Invalid_argument _ -> Term.mk_minus [expr]*)
+
+
+(* Type of bitwise negation *)
+let type_of_bvnot = function
+  | t when Type.is_bitvector t -> 
+      let s = Type.bitvectorsize t in
+        (match s with
+        | 8 -> Type.t_bv 8
+        | 16 -> Type.t_bv 16
+        | 32 -> Type.t_bv 32
+        | 64 -> Type.t_bv 64
+        | _ -> raise BV_size_mismatch)
+  | _ -> raise Type_mismatch
+
+
+(* Unary negation of expression *)
+let mk_bvnot expr = mk_unary eval_bvnot type_of_bvnot expr
 
 
 (* ********************************************************************** *)
@@ -2146,6 +2201,66 @@ let type_of_intdiv t t' =
 
 (* Integer division *)
 let mk_intdiv expr1 expr2 = mk_binary eval_intdiv type_of_intdiv expr1 expr2 
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate bitvector conjunction *)
+let eval_bvand expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_bitvector c1 && Symbol.is_bitvector c2 ->
+
+      let e1 = Term.bitvector_of_term expr1 in
+        let e2 = Term.bitvector_of_term expr2 in 
+          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
+            raise BV_size_mismatch
+          else
+            Term.mk_bvand [expr1; expr2]                 
+
+  | _ -> Term.mk_bvand [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_bvand [expr1; expr2]
+
+
+(* Type of Boolean conjunction*)
+let type_of_bvand = type_of_bv_bv_bv
+
+
+(* Boolean conjunction *)
+let mk_bvand expr1 expr2 = mk_binary eval_bvand type_of_bvand expr1 expr2 
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate bitvector disjunction *)
+let eval_bvor expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_bitvector c1 && Symbol.is_bitvector c2 ->
+
+      let e1 = Term.bitvector_of_term expr1 in
+        let e2 = Term.bitvector_of_term expr2 in 
+          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
+            raise BV_size_mismatch
+          else
+            Term.mk_bvor [expr1; expr2]                 
+
+  | _ -> Term.mk_bvor [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_bvor [expr1; expr2]
+
+
+(* Type of Boolean disjunction *)
+let type_of_bvor = type_of_bv_bv_bv
+
+
+(* Boolean conjunction *)
+let mk_bvor expr1 expr2 = mk_binary eval_bvor type_of_bvor expr1 expr2 
 
 
 (* ********************************************************************** *)

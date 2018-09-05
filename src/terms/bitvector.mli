@@ -6,6 +6,27 @@ type t
 (** Return size 8 bitvector converted from an int *)
 val int_to_bv8 : int -> t
 
+(** Return size 16 bitvector converted from an int *)
+val int_to_bv16 : int -> t
+
+(** Return size 32 bitvector converted from an int *)
+val int_to_bv32 : int -> t
+
+(** Return size 64 bitvector converted from an int *)
+val int_to_bv64 : int -> t
+
+(** Return integer converted from a size 8 bitvector *)
+val bv8_to_int : t -> int
+
+(** Return integer converted from a size 16 bitvector *)
+val bv16_to_int : t -> int
+
+(** Return integer converted from a size 32 bitvector *)
+val bv32_to_int : t -> int
+
+(** Return integer converted from a size 64 bitvector *)
+val bv64_to_int : t -> int
+
 (** Return the length of a bitvector as a numeral *)
 val length_of_bitvector : t -> int
 

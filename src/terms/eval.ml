@@ -103,10 +103,10 @@ let rec value_of_term term = match Term.destruct term with
         | `FALSE -> ValBool false
 
         (* Term is a constructor *)
-(*
+
         (* Bitvectors not implemented *)
-        | `BV _ -> assert false
-*)
+        | `BV b -> ValTerm (Term.mk_bv b)
+
         (* Uninterpreted constant *)
         | `UF u -> ValTerm term 
 

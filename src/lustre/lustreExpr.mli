@@ -370,6 +370,9 @@ val mk_not : t -> t
 (** Return the unary minus of the expression. *)
 val mk_uminus : t -> t
 
+(** Return the bitwise negation of the expression *)
+val mk_bvnot : t -> t
+
 (** Return the Boolean conjunction of the two expressions. *)
 val mk_and : t -> t -> t 
 
@@ -411,6 +414,12 @@ val mk_times : t -> t -> t
 
 (** Return the integer quotient of the two expressions. *)
 val mk_intdiv : t -> t -> t 
+
+(** Return the bitvector conjunction of the two expressions. *)
+val mk_bvand : t -> t -> t
+
+(** Return the bitvector disjunction of the two expressions. *)
+val mk_bvor : t -> t -> t
 
 (** Return the equality relation on the two expressions. *)
 val mk_eq : t -> t -> t 

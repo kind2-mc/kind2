@@ -1119,6 +1119,13 @@ let mk_bvor = function
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVOR a
 
+
+(* Hashcons a bitwise negation *)
+let mk_bvnot = function
+  | [] -> invalid_arg "Term.mk_bvnot"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVNOT a
+  
 (* Hashcons a bitvector less-than comparison *)
 let mk_bvult = function
   | [] -> invalid_arg "Term.mk_bvult"

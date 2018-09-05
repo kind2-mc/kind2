@@ -168,6 +168,11 @@ let merge_branches transitions =
 %token INTDIV
 %token MOD
     
+(* Tokens for bitvector operators *)
+%token BVAND
+%token BVOR
+%token BVNOT
+
 (* Tokens for clocks *)
 %token WHEN
 %token CURRENT
@@ -209,9 +214,11 @@ let merge_branches transitions =
 %left LT LTE EQUALS NEQ GTE GT
 %left PLUS MINUS
 %left MULT INTDIV MOD DIV
+%left BVAND BVOR
 %nonassoc PRE 
 %nonassoc INT REAL 
-%nonassoc NOT 
+%nonassoc NOT
+%nonassoc BVNOT 
 %left CARET 
 %left LSQBRACKET DOT DOTPERCENT
 
@@ -855,6 +862,11 @@ pexpr(Q):
   | e1 = pexpr(Q); IMPL; e2 = pexpr(Q) { A.Impl (mk_pos $startpos, e1, e2) }
   | HASH; LPAREN; e = pexpr_list(Q); RPAREN { A.OneHot (mk_pos $startpos, e) }
 
+  (* A Bitvector operator *)
+  | BVNOT; e = pexpr(Q) {A.BVNot (mk_pos $startpos, e) }
+  | e1 = pexpr(Q); BVAND; e2 = pexpr(Q) { A.BVAnd (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); BVOR; e2 = pexpr(Q) { A.BVOr (mk_pos $startpos, e1, e2) }
+  
   (* A quantified expression *)
   | FORALL; q = Q;
     vars = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents); e = pexpr(Q)
