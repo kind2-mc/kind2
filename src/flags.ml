@@ -169,7 +169,7 @@ module Smt = struct
     | `None -> "none"
     | `detect -> "detect"
     | `Logic s -> s
-  let logic_default = `None
+  let logic_default = `detect
   let logic = ref logic_default
   let _ = add_spec
     "--smt_logic"
@@ -179,10 +179,12 @@ module Smt = struct
         "@[<v>\
           where <string> is none, detect, or a legal SMT-LIB logic@ \
           Select logic for SMT solvers@ \
-          \"none\" for no logic (default)@ \
+          \"none\" for no logic@ \
           \"detect\" to detect with the input system@ \
-          Other SMT-LIB logics will be passed to the solver\
+          Other SMT-LIB logics will be passed to the solver@ \
+          Default: %s\
         @]"
+        (string_of_logic logic_default)
     )
 
   let set_logic l = logic := l
@@ -329,6 +331,11 @@ module Smt = struct
     (* User did not choose SMT solver *)
     | `detect ->
       try
+        let exec = find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ()) in
+        set_solver `Yices_SMTLIB;
+        set_yices2smt2_bin exec;
+      with Not_found ->
+      try
         let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
         set_solver `Z3_SMTLIB;
         set_z3_bin exec;
@@ -337,11 +344,6 @@ module Smt = struct
         let exec = find_solver ~fail:false "CVC4" (cvc4_bin ()) in
         set_solver `CVC4_SMTLIB;
         set_cvc4_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ()) in
-        set_solver `Yices_SMTLIB;
-        set_yices2smt2_bin exec;
       with Not_found ->
       try
         let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
@@ -2676,6 +2678,16 @@ let solver_dependant_actions () =
         )
       )
     | None -> Log.log L_warn "Couldn't determine CVC4 version"
+  )
+  | `Yices_native -> (
+    let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
+    match get_version cmd with
+    | Some (major_rev, minor_rev) ->
+      if major_rev > 1 then (
+        Log.log L_error "Selected Yices 1 (native format), but found Yices 2 or later";
+        exit 2
+      )
+    | None -> Log.log L_warn "Couldn't determine Yices version"
   )
   | _ -> ()
 

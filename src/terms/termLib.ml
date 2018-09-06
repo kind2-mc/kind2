@@ -166,18 +166,22 @@ let logic_of_flat t acc =
      (Term.is_numeral n || Term.is_decimal n) ->
      add LA (sup_logics acc)
 
-  | App (s, l) when Symbol.(s == s_div || s == s_times || s == s_abs ||
+  | App (s, _) when Symbol.(s == s_div || s == s_times || s == s_abs ||
                             s == s_intdiv || s == s_mod) ->
     add NA (sup_logics acc)
 
-  | App (s, l) when Symbol.(s == s_lt || s == s_gt ||
+  | App (s, _) when Symbol.(s == s_lt || s == s_gt ||
                             s == s_leq || s == s_geq) ->
     add LA (sup_logics acc)
 
-  | App (s, l) when Symbol.(is_select s || s == s_store) ->
+  | App (s, _) when Symbol.is_uf s ->
+
+    add UF (sup_logics acc)
+
+  | App (s, _) when Symbol.(is_select s || s == s_store) ->
     sup_logics acc |> add UF |> add A
 
-  | App (s, l) when Symbol.(s == s_to_int || s == s_to_real || is_divisible s) ->
+  | App (s, _) when Symbol.(s == s_to_int || s == s_to_real || is_divisible s) ->
     sup_logics acc |> add LA |> add IA |> add RA
 
   | App _ -> sup_logics acc
