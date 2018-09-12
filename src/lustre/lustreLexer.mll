@@ -469,8 +469,8 @@ rule token = parse
   | '/' { DIV }
   | '*' { MULT }
   | "->" { ARROW }
-  | "&" { BVAND }
-  | "|" { BVOR }
+  | "&&" { BVAND }
+  | "||" { BVOR }
   | "!" { BVNOT}
 
   (* Decimal or numeral *)
