@@ -1942,30 +1942,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV8 b] -> BV8 b
               | _ -> assert false
             )
-(*
-| [Bool b] when b == Term.t_true -> Bool Term.t_false
-let rec simplify_term_node default_of_var uf_defs model fterm args = 
 
-  match fterm with
-            (match args with 
-
-              (* Evaluate to a polynomial if real argument is
-                 constant *)
-              | [Dec (d, [])] -> Num (Numeral.of_big_int (Decimal.to_big_int d), [])
-
-              (* Non-constant polynomial argument *)
-              | [Dec _ as a] -> 
-
-                (* New polynomial with integer value as atom *)
-                Num (Numeral.zero, [Numeral.one, [Term.mk_to_int8 (term_of_nf a)]])
-
-              | [Num _ as a] -> a
-
-              (* Conversion is only unary *)
-              | _ -> assert false 
-
-            )
-*)
           (* Conversion to integer16 is a monomial with polynomial
              subterms *)
           | `TO_INT16 -> 
@@ -1974,26 +1951,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV16 b] -> BV16 b
               | _ -> assert false
             )          
-(*
-            (match args with 
 
-              (* Evaluate to a polynomial if real argument is
-                 constant *)
-              | [Dec (d, [])] -> Num (Numeral.of_big_int (Decimal.to_big_int d), [])
-
-              (* Non-constant polynomial argument *)
-              | [Dec _ as a] -> 
-
-                (* New polynomial with integer value as atom *)
-                Num (Numeral.zero, [Numeral.one, [Term.mk_to_int16 (term_of_nf a)]])
-
-              | [Num _ as a] -> a
-
-              (* Conversion is only unary *)
-              | _ -> assert false 
-
-            )
-*)
           (* Conversion to integer32 is a monomial with polynomial
              subterms *)
           | `TO_INT32 -> 
@@ -2002,26 +1960,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV32 b] -> BV32 b
               | _ -> assert false
             )          
-(*
-            (match args with 
 
-              (* Evaluate to a polynomial if real argument is
-                 constant *)
-              | [Dec (d, [])] -> Num (Numeral.of_big_int (Decimal.to_big_int d), [])
-
-              (* Non-constant polynomial argument *)
-              | [Dec _ as a] -> 
-
-                (* New polynomial with integer value as atom *)
-                Num (Numeral.zero, [Numeral.one, [Term.mk_to_int32 (term_of_nf a)]])
-
-              | [Num _ as a] -> a
-
-              (* Conversion is only unary *)
-              | _ -> assert false 
-
-            )
-*)
           (* Conversion to integer64 is a monomial with polynomial
              subterms *)
           | `TO_INT64 -> 
@@ -2030,26 +1969,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV64 b] -> BV64 b
               | _ -> assert false
             )          
-(*
-            (match args with 
 
-              (* Evaluate to a polynomial if real argument is
-                 constant *)
-              | [Dec (d, [])] -> Num (Numeral.of_big_int (Decimal.to_big_int d), [])
-
-              (* Non-constant polynomial argument *)
-              | [Dec _ as a] -> 
-
-                (* New polynomial with integer value as atom *)
-                Num (Numeral.zero, [Numeral.one, [Term.mk_to_int64 (term_of_nf a)]])
-
-              | [Num _ as a] -> a
-
-              (* Conversion is only unary *)
-              | _ -> assert false 
-
-            )
-*)
           (* Conversion to real is a monomial with polynomial
              subterms *)
           | `TO_REAL -> 
@@ -2079,25 +1999,35 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           (* Distinct not implemented *)
           | `DISTINCT -> assert false
 
-          (* Bitvectors not implemented *)
-          | `BVADD
+
+
           | `BVAND ->
             (match args with
-            
               | [] -> assert false
-              
               | [a] -> a
-              
               | [BV8 a; BV8 b] -> BV8 (Term.mk_bvand [a;b])
-              
+              | [BV16 a; BV16 b] -> BV16 (Term.mk_bvand [a;b])
+              | [BV32 a; BV32 b] -> BV32 (Term.mk_bvand [a;b])
+              | [BV64 a; BV64 b] -> BV64 (Term.mk_bvand [a;b])
               | _ -> assert false)
-
+          
+          | `BVOR ->
+            (match args with
+              | [] -> assert false
+              | [a] -> a
+              | [BV8 a; BV8 b] -> BV8 (Term.mk_bvor [a;b])
+              | [BV16 a; BV16 b] -> BV16 (Term.mk_bvor [a;b])
+              | [BV32 a; BV32 b] -> BV32 (Term.mk_bvor [a;b])
+              | [BV64 a; BV64 b] -> BV64 (Term.mk_bvor [a;b])
+              | _ -> assert false)          
+            
+          (* Bitvectors not implemented *)
+          | `BVADD
           | `BVUDIV
           | `BVLSHR
           | `BVMUL
           | `BVNEG
           | `BVNOT
-          | `BVOR
           | `BVSHL
           | `BVULT
           | `BVULE
@@ -2105,23 +2035,6 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVUGE
           | `BVUREM
           | `CONCAT -> assert false
-
-
-
-(*
-          | `AND -> 
-
-            (match args with 
-
-              (* Conjunction is not nullary *)
-              | [] -> assert false 
-
-              (* Return argument of unary conjunction *)
-              | [a] -> a 
-
-              (* Binary conjunction or higher arity *)
-              | _ ->
-*)
           | `EXTRACT _ -> assert false
 
 

@@ -1563,19 +1563,13 @@ let mk_to_int8 expr = mk_unary eval_to_int8 type_of_to_int8 expr
 (* Evaluate conversion to integer16 *)
 let eval_to_int16 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_int tt || Type.is_int_range tt || Type.is_int16 tt then
-    expr
-  else
-    match Term.destruct expr with
-    | Term.T.Const s when Symbol.is_decimal s ->
-      Term.mk_num
-        (Numeral.of_big_int
-           (Decimal.to_big_int
-              (Symbol.decimal_of_symbol s)))
-
-    | _ -> Term.mk_to_int16 expr
-    | exception Invalid_argument _ -> Term.mk_to_int16 expr
-
+  if Type.is_int tt then
+    let num = Term.numeral_of_term expr in 
+      let i = Numeral.to_int num in
+        let bv = Bitvector.int_to_bv16 i in
+          Term.mk_bv bv
+  else 
+    Term.mk_to_int16 expr
 
 (* Type of conversion to integer16  
 
@@ -1596,19 +1590,13 @@ let mk_to_int16 expr = mk_unary eval_to_int16 type_of_to_int16 expr
 (* Evaluate conversion to integer32 *)
 let eval_to_int32 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_int tt || Type.is_int_range tt || Type.is_int32 tt then
-    expr
-  else
-    match Term.destruct expr with
-    | Term.T.Const s when Symbol.is_decimal s ->
-      Term.mk_num
-        (Numeral.of_big_int
-           (Decimal.to_big_int
-              (Symbol.decimal_of_symbol s)))
-
-    | _ -> Term.mk_to_int32 expr
-    | exception Invalid_argument _ -> Term.mk_to_int32 expr
-
+  if Type.is_int tt then
+    let num = Term.numeral_of_term expr in 
+      let i = Numeral.to_int num in
+        let bv = Bitvector.int_to_bv32 i in
+          Term.mk_bv bv
+  else 
+    Term.mk_to_int32 expr
 
 (* Type of conversion to integer32  
 
@@ -1629,19 +1617,13 @@ let mk_to_int32 expr = mk_unary eval_to_int32 type_of_to_int32 expr
 (* Evaluate conversion to integer64 *)
 let eval_to_int64 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_int tt || Type.is_int_range tt || Type.is_int64 tt then
-    expr
-  else
-    match Term.destruct expr with
-    | Term.T.Const s when Symbol.is_decimal s ->
-      Term.mk_num
-        (Numeral.of_big_int
-           (Decimal.to_big_int
-              (Symbol.decimal_of_symbol s)))
-
-    | _ -> Term.mk_to_int64 expr
-    | exception Invalid_argument _ -> Term.mk_to_int64 expr
-
+  if Type.is_int tt then
+    let num = Term.numeral_of_term expr in 
+      let i = Numeral.to_int num in
+        let bv = Bitvector.int_to_bv64 i in
+          Term.mk_bv bv
+  else 
+    Term.mk_to_int64 expr
 
 (* Type of conversion to integer64  
 
