@@ -29,6 +29,10 @@ module VS = Var.VarSet
 exception Type_mismatch
 exception FixedWidthInt_overflow
 exception BV_size_mismatch
+exception SomethingIsWrong1
+exception SomethingIsWrong2
+exception SomethingIsWrong3
+exception SomethingIsWrong4
 
 (* A Lustre expression is a term *)
 type expr = Term.t
@@ -1865,13 +1869,26 @@ let eval_mod expr1 expr2 =
     | Term.T.Const c1, Term.T.Const c2 when
         Symbol.is_bitvector c1 && Symbol.is_bitvector c2 -> 
         
-        let e1 = Term.bitvector_of_term expr1 in
-          let e2 = Term.bitvector_of_term expr2 in 
-            if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
-              raise BV_size_mismatch
-            else
-              Term.mk_bvurem [expr1; expr2]
+          Term.mk_bvurem [expr1; expr2]
 
+    | Term.T.Var c1, Term.T.Const c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Symbol.is_bitvector c2)->
+                
+          Term.mk_bvurem [expr1; expr2]
+
+    | Term.T.Const c1, Term.T.Var c2 when
+        (Symbol.is_bitvector c1) &&
+        (Type.is_bitvector (Var.type_of_var c2))->
+                
+          Term.mk_bvurem [expr1; expr2]
+
+    | Term.T.Var c1, Term.T.Var c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Type.is_bitvector (Var.type_of_var c2)) ->
+                
+          Term.mk_bvurem [expr1; expr2]  
+    
     | _ -> Term.mk_mod expr1 expr2
     | exception Invalid_argument _ -> Term.mk_mod expr1 expr2
 
@@ -1987,14 +2004,27 @@ let eval_plus expr1 expr2 =
 
     | Term.T.Const c1, Term.T.Const c2 when
         Symbol.is_bitvector c1 && Symbol.is_bitvector c2 ->
-        
-      let e1 = Term.bitvector_of_term expr1 in
-        let e2 = Term.bitvector_of_term expr2 in 
-          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then 
-            raise BV_size_mismatch
-          else
-            Term.mk_bvadd [expr1; expr2]
+   
+          Term.mk_bvadd [expr1; expr2]
 
+    | Term.T.Var c1, Term.T.Const c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Symbol.is_bitvector c2) ->
+
+          Term.mk_bvadd [expr1; expr2]
+
+    | Term.T.Const c1, Term.T.Var c2 when
+        (Symbol.is_bitvector c1) &&
+        (Type.is_bitvector (Var.type_of_var c2)) ->
+
+          Term.mk_bvadd [expr1; expr2]
+
+    | Term.T.Var c1, Term.T.Var c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Type.is_bitvector (Var.type_of_var c2)) ->
+          
+          Term.mk_bvadd [expr1; expr2]
+  
   | _ -> Term.mk_plus [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_plus [expr1; expr2]
 
@@ -2018,7 +2048,7 @@ let type_of_plus = function
 
 
 (* Addition *)
-let mk_plus expr1 expr2 = mk_binary eval_plus type_of_plus expr1 expr2 
+let mk_plus expr1 expr2 = mk_binary eval_plus type_of_plus expr1 expr2
 
 
 (* ********************************************************************** *)
@@ -2099,12 +2129,25 @@ let eval_times expr1 expr2 =
     | Term.T.Const c1, Term.T.Const c2 when
         Symbol.is_bitvector c1 && Symbol.is_bitvector c2 ->
 
-      let e1 = Term.bitvector_of_term expr1 in
-        let e2 = Term.bitvector_of_term expr2 in 
-          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
-            raise BV_size_mismatch
-          else
-            Term.mk_bvmul [expr1; expr2]
+          Term.mk_bvmul [expr1; expr2]
+
+    | Term.T.Var c1, Term.T.Const c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Symbol.is_bitvector c2)->
+                
+          Term.mk_bvmul [expr1; expr2]
+
+    | Term.T.Const c1, Term.T.Var c2 when
+        (Symbol.is_bitvector c1) &&
+        (Type.is_bitvector (Var.type_of_var c2))->
+                
+          Term.mk_bvmul [expr1; expr2]
+
+    | Term.T.Var c1, Term.T.Var c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Type.is_bitvector (Var.type_of_var c2)) ->
+                
+          Term.mk_bvmul [expr1; expr2]  
 
   | _ -> Term.mk_times [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_times [expr1; expr2]
@@ -2137,14 +2180,27 @@ let eval_intdiv expr1 expr2 =
                  Symbol.numeral_of_symbol c2) 
 
     | Term.T.Const c1, Term.T.Const c2 when
-        Symbol.is_bitvector c1 && Symbol.is_bitvector c2 ->
+        Symbol.is_bitvector c1 && Symbol.is_bitvector c2->
+                
+          Term.mk_bvudiv [expr1; expr2]
 
-      let e1 = Term.bitvector_of_term expr1 in
-        let e2 = Term.bitvector_of_term expr2 in 
-          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
-            raise BV_size_mismatch
-          else
-            Term.mk_bvudiv [expr1; expr2]                 
+    | Term.T.Var c1, Term.T.Const c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Symbol.is_bitvector c2)->
+                
+          Term.mk_bvudiv [expr1; expr2]
+
+    | Term.T.Const c1, Term.T.Var c2 when
+        (Symbol.is_bitvector c1) &&
+        (Type.is_bitvector (Var.type_of_var c2))->
+                
+          Term.mk_bvudiv [expr1; expr2]
+
+    | Term.T.Var c1, Term.T.Var c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Type.is_bitvector (Var.type_of_var c2)) ->
+                
+          Term.mk_bvudiv [expr1; expr2]                 
 
   | _ -> Term.mk_intdiv [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_intdiv [expr1; expr2]
@@ -2191,18 +2247,8 @@ let mk_intdiv expr1 expr2 = mk_binary eval_intdiv type_of_intdiv expr1 expr2
 (* Evaluate bitvector conjunction *)
 let eval_bvand expr1 expr2 = 
 
-  match Term.destruct expr1, Term.destruct expr2 with
-
-    | Term.T.Const c1, Term.T.Const c2 when
-        Symbol.is_bitvector c1 && Symbol.is_bitvector c2 ->
-
-      let e1 = Term.bitvector_of_term expr1 in
-        let e2 = Term.bitvector_of_term expr2 in 
-          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
-            raise BV_size_mismatch
-          else
-            Term.mk_bvand [expr1; expr2]                 
-
+  match Term.destruct expr1, Term.destruct expr2 with              
+    
   | _ -> Term.mk_bvand [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_bvand [expr1; expr2]
 
@@ -2222,17 +2268,6 @@ let mk_bvand expr1 expr2 = mk_binary eval_bvand type_of_bvand expr1 expr2
 let eval_bvor expr1 expr2 = 
 
   match Term.destruct expr1, Term.destruct expr2 with
-
-    | Term.T.Const c1, Term.T.Const c2 when
-        Symbol.is_bitvector c1 && Symbol.is_bitvector c2 ->
-
-      let e1 = Term.bitvector_of_term expr1 in
-        let e2 = Term.bitvector_of_term expr2 in 
-          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
-            raise BV_size_mismatch
-          else
-            Term.mk_bvor [expr1; expr2]                 
-
   | _ -> Term.mk_bvor [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_bvor [expr1; expr2]
 
@@ -2304,7 +2339,7 @@ let eval_eq expr1 expr2 = match expr1, expr2 with
 
           Term.t_false
 
-
+      
       | _ -> Term.mk_eq [expr1; expr2]
                
       | exception Invalid_argument _ -> Term.mk_eq [expr1; expr2]
@@ -2372,13 +2407,26 @@ let eval_lte expr1 expr2 =
     | Term.T.Const c1, Term.T.Const c2 when
         Symbol.is_bitvector c1 &&
         Symbol.is_bitvector c2 ->
+        
+          Term.mk_bvule [expr1; expr2]
 
-      let e1 = Term.bitvector_of_term expr1 in
-        let e2 = Term.bitvector_of_term expr2 in 
-          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
-            raise BV_size_mismatch
-          else
-            Term.mk_bvule [expr1; expr2]
+    | Term.T.Var c1, Term.T.Const c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Symbol.is_bitvector c2) -> 
+          
+          Term.mk_bvule [expr1; expr2]
+
+    | Term.T.Const c1, Term.T.Var c2 when
+        (Symbol.is_bitvector c1) &&
+        (Type.is_bitvector (Var.type_of_var c2)) ->
+          
+          Term.mk_bvule [expr1; expr2]
+
+    | Term.T.Var c1, Term.T.Var c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Type.is_bitvector (Var.type_of_var c2)) ->
+          
+          Term.mk_bvule [expr1; expr2]
 
     | _ -> Term.mk_leq [expr1; expr2]
     | exception Invalid_argument _ -> Term.mk_leq [expr1; expr2]
@@ -2392,7 +2440,7 @@ let type_of_lte = type_of_num_num_bool
 
 
 (* Disequality *)
-let mk_lte expr1 expr2 = mk_binary eval_lte type_of_lte expr1 expr2 
+let mk_lte expr1 expr2 = mk_binary eval_lte type_of_lte expr1 expr2
 
 
 (* ********************************************************************** *)
@@ -2433,13 +2481,26 @@ let eval_lt expr1 expr2 =
         Symbol.is_bitvector c1 &&
         Symbol.is_bitvector c2 ->
 
-      let e1 = Term.bitvector_of_term expr1 in
-        let e2 = Term.bitvector_of_term expr2 in 
-          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
-            raise BV_size_mismatch
-          else
-            Term.mk_bvult [expr1; expr2]
-            
+          Term.mk_bvult [expr1; expr2]
+
+    | Term.T.Var c1, Term.T.Const c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Symbol.is_bitvector c2) -> 
+          
+          Term.mk_bvult [expr1; expr2]
+
+    | Term.T.Const c1, Term.T.Var c2 when
+        (Symbol.is_bitvector c1) &&
+        (Type.is_bitvector (Var.type_of_var c2)) ->
+          
+          Term.mk_bvult [expr1; expr2]
+
+    | Term.T.Var c1, Term.T.Var c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Type.is_bitvector (Var.type_of_var c2)) ->
+          
+          Term.mk_bvult [expr1; expr2]
+      
     | _ -> Term.mk_lt [expr1; expr2]
     | exception Invalid_argument _ -> Term.mk_lt [expr1; expr2]
 
@@ -2492,13 +2553,26 @@ let eval_gte expr1 expr2 =
     | Term.T.Const c1, Term.T.Const c2 when
         Symbol.is_bitvector c1 &&
         Symbol.is_bitvector c2 ->
+      
+          Term.mk_bvuge [expr1; expr2]
 
-      let e1 = Term.bitvector_of_term expr1 in
-        let e2 = Term.bitvector_of_term expr2 in 
-          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
-            raise BV_size_mismatch
-          else
-            Term.mk_bvuge [expr1; expr2]
+    | Term.T.Var c1, Term.T.Const c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Symbol.is_bitvector c2) -> 
+          
+          Term.mk_bvuge [expr1; expr2]
+
+    | Term.T.Const c1, Term.T.Var c2 when
+        (Symbol.is_bitvector c1) &&
+        (Type.is_bitvector (Var.type_of_var c2)) ->
+          
+          Term.mk_bvuge [expr1; expr2]
+
+    | Term.T.Var c1, Term.T.Var c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Type.is_bitvector (Var.type_of_var c2)) ->
+          
+          Term.mk_bvuge [expr1; expr2]
 
     | _ -> Term.mk_geq [expr1; expr2]
     | exception Invalid_argument _ -> Term.mk_geq [expr1; expr2]
@@ -2552,13 +2626,26 @@ let eval_gt expr1 expr2 =
     | Term.T.Const c1, Term.T.Const c2 when
         Symbol.is_bitvector c1 &&
         Symbol.is_bitvector c2 ->
+      
+          Term.mk_bvugt [expr1; expr2]
+    
+    | Term.T.Var c1, Term.T.Const c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Symbol.is_bitvector c2) -> 
+          
+          Term.mk_bvugt [expr1; expr2]
 
-      let e1 = Term.bitvector_of_term expr1 in
-        let e2 = Term.bitvector_of_term expr2 in 
-          if Bitvector.length_of_bitvector e1 != Bitvector.length_of_bitvector e2 then
-            raise BV_size_mismatch
-          else
-            Term.mk_bvugt [expr1; expr2]
+    | Term.T.Const c1, Term.T.Var c2 when
+        (Symbol.is_bitvector c1) &&
+        (Type.is_bitvector (Var.type_of_var c2)) ->
+          
+          Term.mk_bvugt [expr1; expr2]
+
+    | Term.T.Var c1, Term.T.Var c2 when
+        (Type.is_bitvector (Var.type_of_var c1)) &&
+        (Type.is_bitvector (Var.type_of_var c2)) ->
+          
+          Term.mk_bvugt [expr1; expr2]
 
     | _ -> Term.mk_gt [expr1; expr2]
     | exception Invalid_argument _ -> Term.mk_gt [expr1; expr2]
@@ -2572,7 +2659,7 @@ let type_of_gt = type_of_num_num_bool
 
 
 (* Disequality *)
-let mk_gt expr1 expr2 = mk_binary eval_gt type_of_gt expr1 expr2 
+let mk_gt expr1 expr2 = mk_binary eval_gt type_of_gt expr1 expr2
 
 
 

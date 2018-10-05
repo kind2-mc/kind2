@@ -199,7 +199,7 @@ let rec pp_print_type_node ppf = function
 
     Format.fprintf
       ppf 
-      "BitVec %d" 
+      "(_ BitVec %d)" 
       i 
 
   | Array (s, t) -> 
