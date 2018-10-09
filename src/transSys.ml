@@ -1536,22 +1536,31 @@ let mk_trans_sys
        subsystems of the transition system *)
     | `detect ->
 
+      let fun_symbols =
+        List.fold_left
+          (fun a ({trans_uf_symbol; init_uf_symbol},_) ->
+            trans_uf_symbol :: init_uf_symbol :: a
+          )
+          []
+          subsystems
+      in
+
       `Inferred
 
         (List.fold_left
            
            (* Append logic of property term to list *)
            (fun acc { P.prop_term }  -> 
-              TermLib.logic_of_term prop_term :: acc)
+              TermLib.logic_of_term fun_symbols prop_term :: acc)
            
            (* Initial list of logics *)
            (
 
              (* Logic of initial state constraint *)
-             TermLib.logic_of_term init ::
+             TermLib.logic_of_term fun_symbols init ::
 
              (* Logic of transition relation *)
-               TermLib.logic_of_term trans ::
+               TermLib.logic_of_term fun_symbols trans ::
              
              (* Logics of subsystems *)
              List.map
