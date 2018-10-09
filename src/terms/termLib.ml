@@ -133,7 +133,7 @@ let sup_logics =
   List.fold_left union empty
 
 (* the logic of a flat term given the logics of its subterms *)
-let logic_of_flat t acc =
+let logic_of_flat fun_symbols t acc =
   let open Term.T in
   let open FeatureSet in
   match t with
@@ -174,12 +174,15 @@ let logic_of_flat t acc =
                             s == s_leq || s == s_geq) ->
     add LA (sup_logics acc)
 
+  | App (s, _) when Symbol.(is_select s || s == s_store) ->
+
+    let l = sup_logics acc |> add A in
+    if Symbol.is_uf s then add UF l else l
+
   | App (s, _) when Symbol.is_uf s ->
 
-    add UF (sup_logics acc)
-
-  | App (s, _) when Symbol.(is_select s || s == s_store) ->
-    sup_logics acc |> add UF |> add A
+    if List.mem (Symbol.uf_of_symbol s) fun_symbols then sup_logics acc
+    else add UF (sup_logics acc)
 
   | App (s, _) when Symbol.(s == s_to_int || s == s_to_real || is_divisible s) ->
     sup_logics acc |> add LA |> add IA |> add RA
@@ -194,10 +197,10 @@ let check_add_Q t l =
   else l
                                                         
 (* Returns the logic fragment used by a term *)
-let logic_of_term t =
+let logic_of_term fun_symbols t =
   t
   |> Term.map (fun _ -> remove_top_level_quantifier)
-  |> Term.eval_t ~fail_on_quantifiers:false logic_of_flat
+  |> Term.eval_t ~fail_on_quantifiers:false (logic_of_flat fun_symbols)
   |> check_add_Q t
 
 
