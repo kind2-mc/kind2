@@ -1475,11 +1475,7 @@ let mk_uminus expr = mk_unary eval_uminus type_of_uminus expr
 let eval_bvnot expr = Term.mk_minus [expr]
 
 (*match Term.destruct expr with 
-
-  | Term.T.Const s when Symbol.is_bitvector s -> 
-    Term.mk_bvnot [expr]
-
-  | _ -> Term.mk_minus [expr]
+  | _ -> Term.mk_bvnot [expr]
   | exception Invalid_argument _ -> Term.mk_minus [expr]*)
 
 

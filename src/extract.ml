@@ -708,6 +708,7 @@ let extract uf_defs env term =
         | `LEQ
         | `LT
         | `GEQ
+        | `BVUGT 
         | `GT as s ->
 
           (match l with
@@ -778,7 +779,8 @@ let extract uf_defs env term =
         | `IS_INT 
         | `TO_REAL
         | `TO_INT 
-        | `DIVISIBLE _ ->
+        | `DIVISIBLE _ 
+        | `TO_INT8 ->
 
           (match l with 
 
