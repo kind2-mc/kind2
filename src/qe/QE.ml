@@ -630,7 +630,6 @@ let generalize trans_sys uf_defs model elim term =
           | Type.IntRange _
           | Type.Int -> false
           | Type.Real -> false
-          | Type.BV _ -> false
           | _ -> 
             (invalid_arg 
               ("Can only generalize terms with integer or Boolean " ^
