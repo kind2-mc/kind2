@@ -37,12 +37,6 @@ let check_sat_limited_cmd ms =
   Format.sprintf "(check-sat-using (try-for smt %d))" ms
 
 
-let check_sat_assuming_supported () = Flags.Smt.check_sat_assume ()
-
-
-let check_sat_assuming_cmd () = "check-sat"
-
-
 let headers () = ["(set-option :interactive-mode true)"]
 
 

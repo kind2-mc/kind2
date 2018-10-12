@@ -739,11 +739,11 @@ module Make (Graph : GraphSig) : Out = struct
 
     ) with
     | KEvent.Terminate -> exit ()
-    | e -> (
+    (*| e -> (
       KEvent.log L_fatal "caught exception %s" (Printexc.to_string e) ;
       minisleep 0.5 ;
       exit ()
-    )
+    )*)
 
 end
 

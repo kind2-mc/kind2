@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2018 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -16,25 +16,18 @@
 
 *)
 
-(** Property-directed reachability (aka IC3) 
+(** Unique file identifier *)
+type t
 
-    Initial implementation by Piere-Loic Garoche
+(** Returns a unique file identifier from a filename *)
+val get_id : string -> t
 
-    @author Christoph Sticksel *)
+(** Equality of identifiers *)
+val equal : t -> t -> bool
 
-exception UnsupportedFeature of string
+(** Total order of identifiers *)
+val compare : t -> t -> int
 
-(** Entry point *)
-val main : 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+(** Set of identifiers *)
+module FileIdSet : Set.S with type elt = t
 
-(** Cleanup before exit *)
-val on_exit : TransSys.t option -> unit
-
-
-(* 
-   Local Variables:
-   compile-command: "make -C .. -k"
-   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
-   indent-tabs-mode: nil
-   End: 
-*)

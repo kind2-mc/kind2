@@ -426,7 +426,26 @@ and pp_print_term_node ?as_type safe pvar ppf t = match Term.T.destruct t with
   | Term.T.Attr (t, _) -> 
     
     pp_print_term_node ?as_type safe pvar ppf t
-      
+
+  | exception Invalid_argument ex -> (
+
+    match Term.T.node_of_t t with
+    | Term.T.Forall l -> (
+
+      match Term.T.node_of_lambda l with
+      Term.T.L (x,t) -> (
+
+        Format.fprintf ppf "@[<hv 1>forall@ @[<hv 1>(...)@ %a@]@]"
+          (pp_print_term_node ?as_type safe pvar) t
+
+      )
+    )
+
+    | Term.T.BoundVar v -> Term.T.pp_print_term ppf t
+
+    | _ -> raise (Invalid_argument ex)
+
+  )
 
 (* Pretty-print the second and following arguments of a
    left-associative function application *)
@@ -805,7 +824,7 @@ let is_var expr = is_var_at_offset expr (base_offset, cur_offset)
 
 (* Return true if expression is a constant state variable *)
 let is_const_var { expr_init; expr_step } = 
-  Term.is_free_var expr_init
+  Term.is_free_var expr_init && Term.is_free_var expr_step
   && Var.is_const_state_var (Term.free_var_of_term expr_init)
   && Var.is_const_state_var (Term.free_var_of_term expr_step)
 

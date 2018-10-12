@@ -25,7 +25,7 @@ open Lib
 (* Set width of pretty printing boxes to number of columns *)
 let vt_width =
   try
-    let stty_size = syscall "stty size < /dev/tty 2> /dev/null" in
+    let stty_size = syscall "stty size < /dev/tty" in
     let w = Scanf.sscanf stty_size "%d %d" (fun _ cols -> cols) in
     set_margin w;
     w

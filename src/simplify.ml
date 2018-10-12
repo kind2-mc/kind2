@@ -271,7 +271,7 @@ let add_monomial_lists add is_zero l1 l2 =
     (* Terms are equal: add coefficients *)
     | (c1, t1) :: tl1, (c2, t2) :: tl2 
       when 
-        List.length t1 = List.length t1 && 
+        List.length t1 = List.length t2 &&
         List.for_all2 Term.equal t1 t2 -> 
 
       (* Add coefficients *)
@@ -1069,6 +1069,104 @@ let atom_of_term t =
     assert false )
 
 
+let select simplify_term_node default_of_var uf_defs model fterm = function
+
+  (* Arguments are array and index *)
+  | [a; i] ->
+
+    (* Rebuild select operation with simplified index *)
+    let term' = Term.mk_select (term_of_nf a) (term_of_nf i) in
+
+    if
+
+      (* Result of select operation is of array type? *)
+      Type.is_array
+        (Term.type_of_term (Term.construct fterm))
+
+    then
+
+      (
+
+        (* Rebuild term with simplified index to evaluate
+           later *)
+        atom_of_term term'
+
+      )
+
+    (* Select operation evaluates to a non-array type *)
+    else
+
+      (* Get variable and indexes *)
+      let v, i' =
+        Term.indexes_and_var_of_select term'
+      in
+
+      (* Get assignment to variable *)
+      (try match Var.VarHashtbl.find model v with
+
+        (* Variable must evaluate to a lambda abstraction *)
+        | Model.Lambda l ->
+
+          (* Evaluate lambda abstraction with simplified
+             indexes *)
+          Term.eval_t
+            (simplify_term_node default_of_var uf_defs model)
+            (Term.eval_lambda l i')
+
+        (* or map *)
+        | Model.Map m ->
+
+          if Model.MIL.is_empty m then
+            List.fold_left
+              Term.mk_select (Term.mk_var v) ((* List.rev *) i')
+            |> atom_of_term
+
+          else
+
+            let args = List.map (fun x ->
+                Term.numeral_of_term x |> Numeral.to_int) i' in
+
+            let value =
+              try Model.MIL.find args m
+              with Not_found ->
+                TermLib.default_of_type
+                  (Type.last_elem_type_of_array
+                     (Var.type_of_var v))
+            in
+
+            (* Evaluate map with simplified indexes *)
+            Term.eval_t
+              (simplify_term_node default_of_var uf_defs model)
+              value
+
+        (* Variable must not evaluate to a term *)
+        | Model.Term _ -> assert false
+
+       (* Free variable without assignment in model *)
+       with Not_found ->
+
+          let t' =
+            List.fold_left
+              Term.mk_select
+              (Term.mk_var v)
+              ((* List.rev *) i')
+          in
+
+          Debug.simplify
+            "Simplified %a to %a"
+            Term.pp_print_term (Term.construct fterm)
+            Term.pp_print_term t';
+
+          (* Return term *)
+          atom_of_term t'
+
+      )
+
+  (* Select operation is binary *)
+  | _ -> assert false
+
+
+
 (* ********************************************************************** *)
 (* Simplify and evaluate functions                                        *)
 (* ********************************************************************** *)
@@ -1204,15 +1302,40 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
         
         (* Unhashcons function symbol *)
         match Symbol.node_of_symbol s with 
-          
+
+          (* Select from an array *)
+          | `SELECT _ ->
+
+            select simplify_term_node default_of_var uf_defs model fterm args
+
+          (* array store *)
+          | `STORE ->
+
+
+            (match args with
+
+              (* Arguments are array, index and value *)
+             | [a; i; v] ->
+
+               atom_of_term (
+                 Term.mk_store (term_of_nf a) (term_of_nf i) (term_of_nf v))
+
+              (* Store is ternary *)
+              | _ -> assert false
+            )
+            
+          | `UF _ when Symbol.is_select s ->
+
+            select simplify_term_node default_of_var uf_defs model fterm args
+
           (* Function with a definition *)
-          | `UF uf_symbol when List.mem_assq uf_symbol uf_defs -> 
-            
+          | `UF uf_symbol when List.mem_assq uf_symbol uf_defs ->
+
             (* Get definition of function *)
-            let (vars, uf_def) = 
-              List.assq uf_symbol uf_defs 
+            let (vars, uf_def) =
+              List.assq uf_symbol uf_defs
             in
-            
+
             Debug.simplify
               "@[<v>Definition of %a:@,variables@ %a@,term@ %a@]"
               UfSymbol.pp_print_uf_symbol uf_symbol
@@ -1220,8 +1343,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               Term.pp_print_term uf_def;
 
             (* Replace function by its definition *)
-            let term' = 
-              Term.mk_let 
+            let term' =
+              Term.mk_let
                 (List.fold_right2
                    (fun var def accum -> (var, def) :: accum)
                    vars
@@ -1234,132 +1357,14 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               "@[<v>Simplify@ %a@]" Term.pp_print_term term';
 
             (Term.eval_t
-               (simplify_term_node default_of_var uf_defs model) 
+               (simplify_term_node default_of_var uf_defs model)
                term')
 
           (* Normal form for an uninterpreted function *)
-          | `UF u -> 
+          | `UF u ->
 
             atom_of_term (Term.mk_uf u (List.map term_of_nf args))
 
-          (* Select from an array *)
-          | `SELECT _ ->
-
-            (match args with 
-
-              (* Arguments are array and index *)
-              | [a; i] -> 
-
-                (* Rebuild select operation with simplified index *)
-                let term' = Term.mk_select (term_of_nf a) (term_of_nf i) in
-
-                if 
-                  
-                  (* Result of select operation is of array type? *)
-                  Type.is_array
-                    (Term.type_of_term (Term.construct fterm))
-                    
-                then
-
-                  (
-                    
-                    (* Rebuild term with simplified index to evaluate
-                       later *)
-                    atom_of_term term'
-                    
-                  )
-
-                (* Select operation evaluates to a non-array type *)
-                else
-                  
-                  (* Get variable and indexes *)
-                  let v, i' = 
-                    Term.indexes_and_var_of_select term'
-                  in
-                  
-                  (* Get assignment to variable *)
-                  (try match Var.VarHashtbl.find model v with
-              
-                    (* Variable must evaluate to a lambda abstraction *)
-                    | Model.Lambda l -> 
-                  
-                      (* Evaluate lambda abstraction with simplified
-                         indexes *)
-                      Term.eval_t 
-                        (simplify_term_node default_of_var uf_defs model)
-                        (Term.eval_lambda l i')
-
-                    (* or map *)
-                    | Model.Map m ->
-
-                      if Model.MIL.is_empty m then
-                        List.fold_left
-                          Term.mk_select (Term.mk_var v) ((* List.rev *) i')
-                        |> atom_of_term
-
-                      else 
-
-                        let args = List.map (fun x ->
-                            Term.numeral_of_term x |> Numeral.to_int) i' in
-
-                        let value =
-                          try Model.MIL.find args m
-                          with Not_found ->
-                            TermLib.default_of_type
-                              (Type.last_elem_type_of_array
-                                 (Var.type_of_var v))
-                        in
-                        
-                        (* Evaluate map with simplified indexes *)
-                        Term.eval_t 
-                          (simplify_term_node default_of_var uf_defs model)
-                          value
-
-                    (* Variable must not evaluate to a term *)
-                    | Model.Term _ -> assert false 
-                      
-                   (* Free variable without assignment in model *)
-                   with Not_found -> 
-
-                      let t' =                   
-                        List.fold_left
-                          Term.mk_select
-                          (Term.mk_var v)
-                          ((* List.rev *) i')
-                      in
-                      
-                      Debug.simplify
-                        "Simplified %a to %a"
-                        Term.pp_print_term (Term.construct fterm) 
-                        Term.pp_print_term t';
-
-                      (* Return term *)
-                      atom_of_term t'
-
-                  ) 
-            
-              (* Select operation is binary *)
-              | _ -> assert false
-                        
-            )
-
-          (* array store *)
-          | `STORE ->
-
-
-            (match args with 
-
-              (* Arguments are array, index and value *)
-             | [a; i; v] ->
-
-               atom_of_term (
-                 Term.mk_store (term_of_nf a) (term_of_nf i) (term_of_nf v))
-
-              (* Store is ternary *)
-              | _ -> assert false
-            )
-            
-  
 
           (* Boolean negation *)
           | `NOT -> 

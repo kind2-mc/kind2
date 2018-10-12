@@ -146,7 +146,7 @@ let sup_logics =
   List.fold_left union empty
 
 (* the logic of a flat term given the logics of its subterms *)
-let logic_of_flat t acc =
+let logic_of_flat fun_symbols t acc =
   let open Term.T in
   let open FeatureSet in
   match t with
@@ -171,22 +171,35 @@ let logic_of_flat t acc =
   | App (s, l) when s == Symbol.s_times && at_most_one_non_num l ->
     add LA (sup_logics acc)
 
-  (* division is non-linear for solvers *)
-  (* | App (s, [n; d]) when Symbol.(s == s_div || s == s_intdiv) && *)
-  (*   (Term.is_numeral d || Term.is_decimal d) -> *)
-  (*   add LA (sup_logics acc) *)
+  | App (s, n :: l) when Symbol.(s == s_div || s == s_intdiv || s == s_mod) &&
+     List.for_all (fun t -> Term.is_numeral t || Term.is_decimal t) l ->
+     add LA (sup_logics acc)
 
-  | App (s, l) when Symbol.(s == s_div || s == s_times || s == s_abs
-                            || s == s_intdiv || s == s_mod) ->
+  | App (s, [n]) when Symbol.(s == s_abs) &&
+     (Term.is_numeral n || Term.is_decimal n) ->
+     add LA (sup_logics acc)
+
+  | App (s, _) when Symbol.(s == s_div || s == s_times || s == s_abs ||
+                            s == s_intdiv || s == s_mod) ->
     add NA (sup_logics acc)
 
-  | App (s, l) when Symbol.(s == s_lt || s == s_gt ||
+  | App (s, _) when Symbol.(s == s_lt || s == s_gt ||
                             s == s_leq || s == s_geq) ->
     add LA (sup_logics acc)
 
-  | App (s, l) when Symbol.is_select s ->
-    sup_logics acc |> add UF |> add A
-    
+  | App (s, _) when Symbol.(is_select s || s == s_store) ->
+
+    let l = sup_logics acc |> add A in
+    if Symbol.is_uf s then add UF l else l
+
+  | App (s, _) when Symbol.is_uf s ->
+
+    if List.mem (Symbol.uf_of_symbol s) fun_symbols then sup_logics acc
+    else add UF (sup_logics acc)
+
+  | App (s, _) when Symbol.(s == s_to_int || s == s_to_real || is_divisible s) ->
+    sup_logics acc |> add LA |> add IA |> add RA
+
   | App _ -> sup_logics acc
 
   
@@ -197,10 +210,10 @@ let check_add_Q t l =
   else l
                                                         
 (* Returns the logic fragment used by a term *)
-let logic_of_term t =
+let logic_of_term fun_symbols t =
   t
   |> Term.map (fun _ -> remove_top_level_quantifier)
-  |> Term.eval_t ~fail_on_quantifiers:false logic_of_flat
+  |> Term.eval_t ~fail_on_quantifiers:false (logic_of_flat fun_symbols)
   |> check_add_Q t
 
 
@@ -226,15 +239,15 @@ let string_of_features l = asprintf "%a" pp_print_features l
 type logic = [ `None | `Inferred of features | `SMTLogic of string ]
 
 let pp_print_logic fmt = function
-  | `None -> ()
+  | `None -> pp_print_string fmt "ALL"
   | `Inferred l -> pp_print_features fmt l
-  | `SMTLogic s -> pp_print_string fmt s
+  | `SMTLogic s -> pp_print_string fmt (if s = "" then "ALL" else s)
 
 
 let string_of_logic = function
-  | `None -> ""
+  | `None -> "ALL"
   | `Inferred l -> string_of_features l
-  | `SMTLogic s -> s
+  | `SMTLogic s -> if s = "" then "ALL" else s
 
 
 let logic_allow_arrays = function

@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2018 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -16,25 +16,24 @@
 
 *)
 
-(** Property-directed reachability (aka IC3) 
+module FileId = struct
 
-    Initial implementation by Piere-Loic Garoche
+  type t = int * int
+    
+  (* Total order on identifiers *)
+  let compare (ino1, dev1) (ino2, dev2) =
+    match compare ino1 ino2 with
+    | 0 -> compare dev1 dev2
+    | c -> c
 
-    @author Christoph Sticksel *)
+  let equal id1 id2 = compare id1 id2 = 0
 
-exception UnsupportedFeature of string
+end
 
-(** Entry point *)
-val main : 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+include FileId
 
-(** Cleanup before exit *)
-val on_exit : TransSys.t option -> unit
+let get_id filename =
+  let { Unix.st_dev; Unix.st_ino } = Unix.stat filename in (st_ino, st_dev)
 
+module FileIdSet = Set.Make (FileId)
 
-(* 
-   Local Variables:
-   compile-command: "make -C .. -k"
-   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
-   indent-tabs-mode: nil
-   End: 
-*)

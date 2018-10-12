@@ -948,6 +948,15 @@ let find_on_path exec =
     (* Return full path if file exists, fail otherwise *)
     if Sys.file_exists exec_path then exec_path else raise Not_found
 
+
+let rec find_file filename = function
+  | [] -> None
+  | dir :: include_dirs ->
+    let path = Filename.concat dir filename in
+    if Sys.file_exists path then Some path
+    else find_file filename include_dirs
+
+
 (* ********************************************************************** *)
 (* Parser and lexer functions                                             *)
 (* ********************************************************************** *)
@@ -1157,14 +1166,14 @@ let files_cat_open ?(add_prefix=fun _ -> ()) files output_name =
 
 (* Captures the output and exit status of a unix command : aux func *)
 let syscall cmd =
-  let ic, oc = Unix.open_process cmd in
+  let so, si, se = Unix.open_process_full cmd (Unix.environment ()) in
   let buf = Buffer.create 16 in
   (try
      while true do
-       Buffer.add_channel buf ic 1
+       Buffer.add_channel buf so 1
      done
    with End_of_file -> ());
-  ignore(Unix.close_process (ic, oc));
+  ignore(Unix.close_process_full (so, si, se));
   Buffer.contents buf
 
 

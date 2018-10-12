@@ -75,6 +75,8 @@
 
     @author Christoph Sticksel *)
 
+exception Lexer_error of string
+
 (** Initialize the lexing function *)
 val lexbuf_init : in_channel -> string -> unit
 

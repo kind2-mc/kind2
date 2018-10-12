@@ -30,10 +30,10 @@ let cmd_line _ _ _ _ _ = [| |]
 let check_sat_limited_cmd ms = failwith "Not implemented"
 
 (* Dummy implementation *)
-let check_sat_assuming_cmd ms = failwith "Not implemented"
+let check_sat_assuming_cmd ms = "check-sat-assuming"
 
 (* Dummy implementation *)
-let check_sat_assuming_supported () = failwith "Not implemented"
+let check_sat_assuming_supported () = Flags.Smt.check_sat_assume ()
 
 (* Headers to send after creating solver instance *)
 let headers () = []

@@ -169,7 +169,7 @@ module Smt = struct
     | `None -> "none"
     | `detect -> "detect"
     | `Logic s -> s
-  let logic_default = `None
+  let logic_default = `detect
   let logic = ref logic_default
   let _ = add_spec
     "--smt_logic"
@@ -179,11 +179,15 @@ module Smt = struct
         "@[<v>\
           where <string> is none, detect, or a legal SMT-LIB logic@ \
           Select logic for SMT solvers@ \
-          \"none\" for no logic (default)@ \
+          \"none\" for no logic@ \
           \"detect\" to detect with the input system@ \
-          Other SMT-LIB logics will be passed to the solver\
+          Other SMT-LIB logics will be passed to the solver@ \
+          Default: %s\
         @]"
+        (string_of_logic logic_default)
     )
+
+  let set_logic l = logic := l
     
   let detect_logic_if_none () =
     if !logic = `None then logic := `detect
@@ -199,12 +203,13 @@ module Smt = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
-          Use check-sat with assumptions, or simulate with push/pop@ \
+          Use check-sat-assuming, or simulate with push/pop@ \
           when false@ \
           Default: %a\
         @]"
       fmt_bool check_sat_assume_default
     )
+  let set_check_sat_assume b = check_sat_assume := b
   let check_sat_assume () = !check_sat_assume
 
   (* Use short name for variables at SMT level. *)
@@ -326,6 +331,11 @@ module Smt = struct
     (* User did not choose SMT solver *)
     | `detect ->
       try
+        let exec = find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ()) in
+        set_solver `Yices_SMTLIB;
+        set_yices2smt2_bin exec;
+      with Not_found ->
+      try
         let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
         set_solver `Z3_SMTLIB;
         set_z3_bin exec;
@@ -339,11 +349,6 @@ module Smt = struct
         let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
         set_solver `Yices_native;
         set_yices_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ()) in
-        set_solver `Yices_SMTLIB;
-        set_yices2smt2_bin exec;
       with Not_found ->
         Log.log L_fatal "No SMT Solver found.";
         exit 2
@@ -1725,20 +1730,24 @@ module Global = struct
     Format.printf "@."
 
 
+  (* All files in the cone of influence of the input file. *)
+  let all_input_files = ref []
+  let all_input_ids = ref FileId.FileIdSet.empty
+  let clear_input_files () = (all_input_files := []; all_input_ids := FileId.FileIdSet.empty)
+  let add_input_file file = (
+    let id = FileId.get_id file in
+    if not (FileId.FileIdSet.mem id !all_input_ids) then (
+      all_input_files := file :: ! all_input_files ;
+      all_input_ids := FileId.FileIdSet.add (FileId.get_id file) !all_input_ids; true
+    ) else false
+  )
+  let get_all_input_files () = ! all_input_files
+
   (* Input flag. *)
   let input_file_default = ""
   let input_file = ref input_file_default
-  let set_input_file f = input_file := f
+  let set_input_file f = (input_file := f; add_input_file f |> ignore)
   let input_file () = !input_file
-
-  (* All files in the cone of influence of the input file. *)
-  let all_input_files = ref []
-  let clear_input_files () = all_input_files := []
-  let add_input_file file =
-    (* Additional input file're relative to main input file. *)
-    let path = input_file () |> Filename.dirname in
-    all_input_files := (path ^ "/" ^ file) :: ! all_input_files
-  let get_all_input_files () = (input_file ()) :: ! all_input_files
 
 
   (* Print help. *)
@@ -1901,6 +1910,23 @@ module Global = struct
   let output_dir () = !output_dir
 
 
+  let include_dirs = ref []
+  let _ = add_spec
+    "--include_dir"
+    (Arg.String
+      (fun dir -> include_dirs := dir :: !include_dirs)
+    )
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          where <string> is a directory to be included in the search path@ \
+          The directory will be searched after the current include directory,@ \
+          and any other directory added before it (left-to-right order) when@ \
+          an include directive is found\
+        "
+    )
+  let include_dirs () = List.rev (!include_dirs)
+
   (* Real precision. *)
   type real_precision = [
     `Rational | `Float
@@ -1961,7 +1987,7 @@ module Global = struct
     (bool_arg print_invs)
     (fun fmt ->
       Format.fprintf fmt
-        "Prints list of discovered invariants.@ \
+        "Prints list of discovered invariants after minimization.@ \
         Default: %b"
         print_invs_default
     )
@@ -2132,7 +2158,6 @@ module Global = struct
       "
       enable_values
     )
-  let disable mdl = disabled := mdl :: !disabled
   let disabled () = !disabled
 
 
@@ -2391,6 +2416,7 @@ type real_precision = Global.real_precision
 (* |===| The following functions allow to access global flags directly. *)
 
 let output_dir = Global.output_dir
+let include_dirs = Global.include_dirs
 let log_invs = Global.log_invs
 let print_invs = Global.print_invs
 let enabled = Global.enabled
@@ -2580,16 +2606,90 @@ let parse_clas specs anon_action global_usage_msg =
     failwith "expected at least one argument, got zero"
 
 
-let solver_dependant_actions () = match Smt.solver () with
-  | (`Yices_SMTLIB) as s -> (
-    (* Disable IC3 for Yices 2 because of lack of support for unsat cores*)
-    Global.disable `IC3;
-    Log.log L_warn "Disabling IC3 with solver %s" (Smt.string_of_solver s);
-    (* Yices 2 SMTLIB requires the specification of a theory *)
-    match s with `Yices_SMTLIB -> Smt.detect_logic_if_none () | _ -> ()
+let solver_dependant_actions () =
+
+  let get_version cmd =
+    (*let version_re = Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)\\.\\([0-9]\\)" in*)
+    let version_re = Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)" in
+    let output = syscall cmd in
+    try
+      let _ = Str.search_forward version_re output 0 in
+      let major_rev = Pervasives.int_of_string (Str.matched_group 1 output) in
+      let minor_rev = Pervasives.int_of_string (Str.matched_group 2 output) in
+      (*let bug_rev = Pervasives.int_of_string (Str.matched_group 3 output) in
+      Some (major_rev, minor_rev, bug_rev)*)
+      Some (major_rev, minor_rev)
+    with Not_found -> None
+  in
+
+  match Smt.solver () with
+  | `Z3_SMTLIB -> (
+    let cmd = Format.asprintf "%s -version" (Smt.z3_bin ()) in
+    match get_version cmd with
+    | Some (major_rev, minor_rev) ->
+      if major_rev < 4 || (major_rev = 4 && minor_rev < 6) then (
+        if Smt.check_sat_assume () then (
+          Log.log L_warn "Detected an old version of Z3 (< 4.6.0): disabling check_sat_assume";
+          Smt.set_check_sat_assume false
+        )
+      )
+    | None -> Log.log L_warn "Couldn't determine Z3 version"
+  )
+  | `Yices_SMTLIB -> (
+    let cmd = Format.asprintf "%s --version" (Smt.yices2smt2_bin ()) in
+    match get_version cmd with
+    | Some (major_rev, minor_rev) ->
+      if major_rev < 2 || (major_rev = 2 && minor_rev < 6) then (
+        let actions = [] in
+        let actions =
+          if List.mem `IC3 (Global.enabled ()) then
+            (Global.disable `IC3; "disabling IC3" :: actions)
+          else actions
+        in
+        let actions =
+          if Smt.logic () = `None then (
+            Smt.set_logic `detect;
+            "enabling detection of SMT logic" :: actions
+          )
+          else actions
+        in
+        let actions =
+          if Smt.check_sat_assume () then (
+            Smt.set_check_sat_assume false;
+            "disabling check_sat_assume" :: actions
+          )
+          else actions
+        in
+        if actions <> [] then (
+          Log.log L_warn "Detected an old version of Yices 2 (< 2.6.0): %a"
+            (pp_print_list Format.pp_print_string ",@ ") actions
+        )
+      )
+    | None -> Log.log L_warn "Couldn't determine Yices 2 version"
+  )
+  | `CVC4_SMTLIB -> (
+    let cmd = Format.asprintf "%s --version" (Smt.cvc4_bin ()) in
+    match get_version cmd with
+    | Some (major_rev, minor_rev) ->
+      if major_rev < 1 || (major_rev = 1 && minor_rev < 7) then (
+        if Smt.check_sat_assume () then (
+          Log.log L_warn "Detected an old version of CVC4 (< 1.7): disabling check_sat_assume";
+          Smt.set_check_sat_assume false
+        )
+      )
+    | None -> Log.log L_warn "Couldn't determine CVC4 version"
+  )
+  | `Yices_native -> (
+    let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
+    match get_version cmd with
+    | Some (major_rev, minor_rev) ->
+      if major_rev > 1 then (
+        Log.log L_error "Selected Yices 1 (native format), but found Yices 2 or later";
+        exit 2
+      )
+    | None -> Log.log L_warn "Couldn't determine Yices version"
   )
   | _ -> ()
-
 
 
 (* XML starting with options *)
@@ -2665,11 +2765,11 @@ let parse_argv () =
 
   (* Check solver on path *)
   Smt.check_smtsolver ();
-  
-  solver_dependant_actions ();
-  
+
   (* Finalize the list of enabled module. *)
   Global.finalize_enabled ();
+
+  solver_dependant_actions ();
 
   post_argv_parse_actions ()
   

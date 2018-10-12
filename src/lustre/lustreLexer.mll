@@ -20,6 +20,8 @@
 
 open LustreParser
 
+exception Lexer_error of string
+
 (* XML or plain text warning.
 
    Adrien: Relying on Event causes circular build. Factor in Lib, along with
@@ -400,38 +402,43 @@ rule token = parse
   (* |===| Include file. *)
   | "include" whitespace* '\"' ([^'\"']* as p) '\"' {
 
-    (* Open include file *)
-    let include_channel, include_curdir =
-      try (
-        let include_channel, include_curdir = 
-          open_in (Filename.concat (curdir_of_lexbuf_stack ()) p),
-          Filename.dirname p
-        in
+    let include_curdir = curdir_of_lexbuf_stack () in
 
-        include_channel, include_curdir
-      ) with Sys_error e -> 
-        Format.sprintf "Error opening include file %s: %s" p e
-        |> failwith
+    let fname =
+      match Lib.find_file p (include_curdir :: Flags.include_dirs ()) with
+      | Some f -> f
+      | None ->
+        let msg = Format.sprintf "Include file '%s' was not found in search path" p in
+        raise (Lexer_error msg)
     in
 
-    (* Add `p` to the list of input files. *)
-    Flags.add_input_file p ;
-    
-    (* New lexing buffer from include file *)
-    lexbuf_switch_to_channel lexbuf include_channel include_curdir ;
-    
-    Lexing.flush_input lexbuf ;
+    if (Flags.add_input_file fname) then (
 
-    (* Starting position in new file *)
-    let zero_pos =
-      { Lexing.pos_fname = p ;
-        Lexing.pos_lnum = 1  ;
-        Lexing.pos_bol = 0   ;
-        Lexing.pos_cnum = 0  }
-    in
+      (* Open include file *)
+      let include_channel, include_curdir =
+        try
+          open_in fname, Filename.dirname fname
+        with Sys_error e ->
+          let msg = Format.sprintf "Error opening include file '%s': %s" fname e in
+          raise (Lexer_error msg)
+      in
 
-    (* Set new position in lexing buffer *)
-    lexbuf.Lexing.lex_curr_p <- zero_pos ;
+      (* New lexing buffer from include file *)
+      lexbuf_switch_to_channel lexbuf include_channel include_curdir ;
+
+      Lexing.flush_input lexbuf ;
+
+      (* Starting position in new file *)
+      let zero_pos =
+        { Lexing.pos_fname = p ;
+          Lexing.pos_lnum = 1  ;
+          Lexing.pos_bol = 0   ;
+          Lexing.pos_cnum = 0  }
+      in
+
+      (* Set new position in lexing buffer *)
+      lexbuf.Lexing.lex_curr_p <- zero_pos
+    );
 
     (* Continue with included file *)
     token lexbuf
@@ -507,7 +514,8 @@ rule token = parse
 
   (* Unrecognized character *)
   | _ as c {
-    Format.sprintf "Unrecognized token %c (0x%X)" c (Char.code c) |> failwith
+    let msg = Format.sprintf "Unrecognized token %c (0x%X)" c (Char.code c) in
+    raise (Lexer_error msg)
   }
 
 (* Parse until end of comment, count newlines and otherwise discard
@@ -520,7 +528,7 @@ and skip_commented_slashstar = parse
   (* Count new line *)
   | newline { Lexing.new_line lexbuf ; skip_commented_slashstar lexbuf } 
 
-  | eof { Format.sprintf "Unterminated comment" |> failwith }
+  | eof { raise (Lexer_error "Unterminated comment") }
 
   (* Ignore characters in comments *)
   | _ { skip_commented_slashstar lexbuf }
@@ -536,7 +544,7 @@ and skip_commented_parenstar = parse
   (* Count new line *)
   | newline { Lexing.new_line lexbuf; skip_commented_parenstar lexbuf } 
 
-  | eof { Format.sprintf "Unterminated comment" |> failwith }
+  | eof { raise (Lexer_error "Unterminated comment") }
 
   (* Ignore characters in comments *)
   | _ { skip_commented_parenstar lexbuf }
@@ -573,7 +581,7 @@ and string = parse
   | newline
       { Lexing.new_line lexbuf; Buffer.add_char string_buf '\n'; string lexbuf }
   | eof
-      { failwith (Format.sprintf "Unterminated string") }
+      { raise (Lexer_error "Unterminated string") }
   | _ as c
       { Buffer.add_char string_buf c; string lexbuf }
 

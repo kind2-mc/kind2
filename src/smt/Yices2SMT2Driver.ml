@@ -27,12 +27,15 @@ let cmd_line
     produce_cores
     produce_interpolants = 
 
-  (* TODO: simulate assertion stack for non-linear arithmetic problems *)
   (let open TermLib in
    let open TermLib.FeatureSet in
    match logic with
-   | `Inferred l when mem NA l ->
-     failwith "Yices2 nonlinear solver can't be used in incremental mode"
+   | `Inferred l when mem NA l && Flags.Smt.check_sat_assume () ->
+     Flags.Smt.set_check_sat_assume false;
+     KEvent.log Lib.L_warn
+       "In %a: Yices 2 does not support check-sat-assuming with non-linear models.@ \
+        Disabling check_sat_assume."
+       Lib.pp_print_kind_module (KEvent.get_module ())
    | _ -> ()
   );
 
@@ -43,11 +46,4 @@ let cmd_line
 
 let check_sat_limited_cmd _ = 
   failwith "check-sat with timeout not implemented for Yices2"
-
-
-let check_sat_assuming_cmd () =
-  failwith "No check-sat-assuming command for Yices2"
-
-
-let check_sat_assuming_supported () = false
 

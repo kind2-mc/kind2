@@ -561,6 +561,10 @@ let s_times = mk_symbol `TIMES
 (* Constant division operator *)
 let s_div = mk_symbol `DIV
 
+let s_to_int = mk_symbol `TO_INT
+
+let s_to_real = mk_symbol `TO_REAL
+
 (* Array read operator *)
 let s_select ta = mk_symbol (`SELECT ta)
 
@@ -572,6 +576,9 @@ let is_select = function
      with Scanf.Scan_failure _ -> false)
   | _ -> false
 
+let is_divisible = function
+  | { Hashcons.node = `DIVISIBLE _ } -> true
+  | _ -> false
 
 let s_store = mk_symbol `STORE
 

@@ -18,6 +18,8 @@
 
 open Lib
 
+exception UnsupportedFeature of string
+
 module C = Clause
 
 (* Frame is a trie of clauses *)
@@ -1003,10 +1005,19 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
 
                 (* Create a clause with activation literals from
                    generalized counterexample *)
-                let clause = 
-                  C.mk_clause_of_literals
-                    C.BlockFrontier
-                    (List.map Term.negate cti_gen) 
+                let clause =
+                  try
+                    C.mk_clause_of_literals
+                      C.BlockFrontier
+                      (List.map Term.negate cti_gen)
+                  with Invalid_argument _ as e -> (
+                    if List.exists (fun t -> Term.has_quantifier t) cti_gen then (
+                      raise (UnsupportedFeature
+                        "Disabling IC3: system contains quantifiers or array streams.")
+                    )
+                    else
+                      raise e
+                  )
                 in
 
                 SMTSolver.trace_comment solver
@@ -2988,203 +2999,212 @@ let rec bmc_checks solver input_sys aparam trans_sys props =
      exceptions.
 
 *)
-let main input_sys aparam trans_sys =
+let main_ic3 input_sys aparam trans_sys =
 
-  match Flags.Smt.solver () with 
+  (* IC3 solving starts now *)
+  Stat.start_timer Stat.ic3_total_time;
 
-    (* Yices with SMTLIB input does not work *)
-    | `Yices_SMTLIB -> 
+  (* Determine logic for the SMT solver: add LIA for some clauses of IC3 *)
+  let logic = match TransSys.get_logic trans_sys with
+    | `Inferred fs ->
+      `Inferred
+        (TermLib.FeatureSet.add TermLib.IA
+           (TermLib.FeatureSet.add TermLib.LA fs))
+    | l -> l
+  in
 
-      KEvent.log L_error "Cannot use this solver in IC3."
+  (* Create new solver instance *)
+  let solver =
+    SMTSolver.create_instance
+      ~produce_assignments:true
+      ~produce_cores:true
+      logic
+      (Flags.Smt.solver ())
+  in
 
-    (* Else is fine or will break without unsound results *)
-    | _ -> 
 
+  let bound =
+    match Flags.IC3.abstr () with
+      | `None -> 1
+      | `IA -> 3
+  in
 
-      (* IC3 solving starts now *)
-      Stat.start_timer Stat.ic3_total_time;
+  (* Declare uninterpreted function symbols *)
+  SMTSolver.trace_comment
+    solver
+    "main: Declare state variables and define predicates";
 
-      (* Determine logic for the SMT solver: add LIA for some clauses of IC3 *)
-      let logic = match TransSys.get_logic trans_sys with
-        | `Inferred fs ->
-          `Inferred
-            (TermLib.FeatureSet.add TermLib.IA
-               (TermLib.FeatureSet.add TermLib.LA fs))
-        | l -> l
+  (* Declare uninterpreted function symbols *)
+  TransSys.define_and_declare_of_bounds
+    trans_sys
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
+    (SMTSolver.declare_sort solver)
+    Numeral.zero (Numeral.of_int bound);
+
+  (* Get invariants of transition system *)
+  let invars_1 =
+    TransSys.invars_of_bound trans_sys Numeral.one
+  in
+
+  (* Get invariants for current state *)
+  let invars_0 =
+    TransSys.invars_of_bound
+      trans_sys
+      ~one_state_only:true
+      Numeral.zero
+  in
+
+  (* Assert invariants for current state if not empty *)
+  if invars_0 <> [] then
+
+    (SMTSolver.trace_comment solver "main: Assert invariants";
+     List.iter (SMTSolver.assert_term solver) invars_0;
+     List.iter (SMTSolver.assert_term solver) invars_1);
+
+  (* Create activation literal for frame R_0 *)
+  let actconst_r0, actlit_r0 =
+    C.actlit_symbol_of_frame 0, C.actlit_of_frame 0
+  in
+
+  (* Declare symbol in solver *)
+  SMTSolver.declare_fun solver actconst_r0;
+
+  Stat.incr Stat.ic3_activation_literals;
+
+  (* Assert initial state constraint guarded with activation literal
+
+     a_R0 => I[x] *)
+  SMTSolver.trace_comment solver "main: Assert guarded initial state";
+  SMTSolver.assert_term
+    solver
+    (Term.mk_implies
+       [actlit_r0;
+        (TransSys.init_of_bound (Some (SMTSolver.declare_fun solver))
+           trans_sys Numeral.zero)]);
+
+  (* Assert transition relation unguarded
+
+     T[x,x'] *)
+  SMTSolver.trace_comment solver "main: Assert unguarded transition relation";
+  SMTSolver.assert_term
+    solver
+    (TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver))
+       trans_sys (Numeral.of_int bound));
+
+  (* Print inductive assertions to file? *)
+  (match Flags.IC3.print_to_file () with
+
+    (* Keep default formatter *)
+    | None -> ()
+
+    (* Output to given file *)
+    | Some f ->
+
+      (* Output channel on file *)
+      let oc =
+        try open_out f with
+          | Sys_error _ ->
+            failwith "Could not open file for inductive assertions"
       in
 
-      (* Create new solver instance *)
-      let solver = 
-        SMTSolver.create_instance
-          ~produce_assignments:true
-          ~produce_cores:true
-          logic
-          (Flags.Smt.solver ())
-      in
+      (* Create formatter and store in reference *)
+      ppf_inductive_assertions := Format.formatter_of_out_channel oc);
+
+  (* Properties to prove from the transition system *)
+  let trans_sys_props =
+    TransSys.props_list_of_bound trans_sys Numeral.zero
+  in
+  let predicates =
+
+    match Flags.IC3.abstr () with
+
+      | `IA ->
+
+        (TransSys.init_of_bound None trans_sys Numeral.zero)
+        ::
+        List.map
+          (fun (s,t) -> t)
+          trans_sys_props
+
+      | `None ->
+
+        []
+
+  in
 
 
-      let bound =
-        match Flags.IC3.abstr () with
-          | `None -> 1
-          | `IA -> 3
-      in
+  List.iter
+    (fun p ->
+       SMTSolver.assert_term
+         solver
+         (Term.mk_eq
+            [p;
+             Term.bump_state (Numeral.of_int 2) p]);
 
-      (* Declare uninterpreted function symbols *)
-      SMTSolver.trace_comment 
-        solver
-        "main: Declare state variables and define predicates";
+       SMTSolver.assert_term
+         solver
+         (Term.mk_eq
+            [Term.bump_state Numeral.one p;
+             Term.bump_state (Numeral.of_int 3) p]);
 
-      (* Declare uninterpreted function symbols *)
-      TransSys.define_and_declare_of_bounds
-        trans_sys
-        (SMTSolver.define_fun solver)
-        (SMTSolver.declare_fun solver)
-        (SMTSolver.declare_sort solver)
-        Numeral.zero (Numeral.of_int bound);
-
-      (* Get invariants of transition system *)
-      let invars_1 = 
-        TransSys.invars_of_bound trans_sys Numeral.one 
-      in
-
-      (* Get invariants for current state *)
-      let invars_0 = 
-        TransSys.invars_of_bound
-          trans_sys
-          ~one_state_only:true 
-          Numeral.zero 
-      in
-
-      (* Assert invariants for current state if not empty *)
-      if invars_0 <> [] then 
-
-        (SMTSolver.trace_comment solver "main: Assert invariants";
-         List.iter (SMTSolver.assert_term solver) invars_0;
-         List.iter (SMTSolver.assert_term solver) invars_1);
-
-      (* Create activation literal for frame R_0 *)
-      let actconst_r0, actlit_r0 =
-        C.actlit_symbol_of_frame 0, C.actlit_of_frame 0
-      in 
-
-      (* Declare symbol in solver *)
-      SMTSolver.declare_fun solver actconst_r0;
-
-      Stat.incr Stat.ic3_activation_literals;
-
-      (* Assert initial state constraint guarded with activation literal
-
-         a_R0 => I[x] *)
-      SMTSolver.trace_comment solver "main: Assert guarded initial state";
-      SMTSolver.assert_term 
-        solver
-        (Term.mk_implies
-           [actlit_r0;
-            (TransSys.init_of_bound (Some (SMTSolver.declare_fun solver))
-               trans_sys Numeral.zero)]);
-
-      (* Assert transition relation unguarded
-
-         T[x,x'] *)
-      SMTSolver.trace_comment solver "main: Assert unguarded transition relation"; 
-      SMTSolver.assert_term 
-        solver
-        (TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver))
-           trans_sys (Numeral.of_int bound));
-
-      (* Print inductive assertions to file? *)
-      (match Flags.IC3.print_to_file () with
-
-        (* Keep default formatter *)
-        | None -> ()
-
-        (* Output to given file *)
-        | Some f -> 
-
-          (* Output channel on file *)
-          let oc = 
-            try open_out f with
-              | Sys_error _ -> 
-                failwith "Could not open file for inductive assertions"
-          in 
-
-          (* Create formatter and store in reference *)
-          ppf_inductive_assertions := Format.formatter_of_out_channel oc);
-
-      (* Properties to prove from the transition system *)
-      let trans_sys_props = 
-        TransSys.props_list_of_bound trans_sys Numeral.zero 
-      in
-      let predicates =
-
-        match Flags.IC3.abstr () with
-
-          | `IA ->
-
-            (TransSys.init_of_bound None trans_sys Numeral.zero)
-            ::
-            List.map
-              (fun (s,t) -> t)
-              trans_sys_props
-
-          | `None ->
-
-            []
-
-      in
+    )
+    predicates;
 
 
-      List.iter
-        (fun p ->
-           SMTSolver.assert_term
-             solver
-             (Term.mk_eq
-                [p;
-                 Term.bump_state (Numeral.of_int 2) p]);
+  (* Check for zero and one step counterexamples and continue with
+     remaining properties *)
+  let props' =
 
-           SMTSolver.assert_term
-             solver
-             (Term.mk_eq
-                [Term.bump_state Numeral.one p;
-                 Term.bump_state (Numeral.of_int 3) p]);
+    (* Is BMC running in parallel? *)
+    if List.mem `BMC (Flags.enabled ()) && not debug_assert then
 
-        )
-        predicates;
+      (KEvent.log L_info
+         "Delegating check for zero and one step counterexamples \
+          to BMC process.";
 
+       trans_sys_props)
 
-      (* Check for zero and one step counterexamples and continue with
-         remaining properties *)
-      let props' =
+    else
 
-        (* Is BMC running in parallel? *)
-        if List.mem `BMC (Flags.enabled ()) && not debug_assert then 
-
-          (KEvent.log L_info
-             "Delegating check for zero and one step counterexamples \
-              to BMC process.";
-
-           trans_sys_props)
-
-        else
-
-          (* BMC is not running, must check here *)
-          bmc_checks
-            solver
-            input_sys
-            aparam 
-            trans_sys
-            trans_sys_props
-
-      in
-
-      (* Run and restart on disproved properties *)
-      restart_loop  
+      (* BMC is not running, must check here *)
+      bmc_checks
         solver
         input_sys
         aparam 
         trans_sys
-        props'
-        predicates
+        trans_sys_props
+
+  in
+
+  (* Run and restart on disproved properties *)
+  restart_loop
+    solver
+    input_sys
+    aparam
+    trans_sys
+    props'
+    predicates
+
+
+let main input_sys aparam trans_sys =
+
+  match Flags.Smt.solver () with
+  | `Yices_SMTLIB -> (
+
+    (let open TermLib in
+     let open TermLib.FeatureSet in
+     match TransSys.get_logic trans_sys with
+     | `Inferred l when mem NA l ->
+
+       raise (UnsupportedFeature
+         "Disabling IC3: Yices 2 does not support unsat-cores with non-linear models.")
+
+     | _ -> main_ic3 input_sys aparam trans_sys
+    )
+
+  )
+  | _ -> main_ic3 input_sys aparam trans_sys
 
 
 (* 

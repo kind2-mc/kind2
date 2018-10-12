@@ -652,16 +652,7 @@ let mk_state_var
      x_y.z  [2]
 
   *)
-  let flatten_scopes = 
-    List.rev_map
-      (fun i -> 
-         string_of_t (D.pp_print_one_index true) i
-         |> String.length
-         |> string_of_int
-         |> Ident.of_string)
-      index 
-    |> Scope.mk_scope
-  in
+  let flatten_scopes = D.mk_scope_for_index index in
 
   (* Create or retrieve state variable *)
   let state_var =
@@ -1749,7 +1740,7 @@ let add_node_sofar_assumption ctx =
 
       match contract with
 
-       | None -> raise (Invalid_argument "add_node_sofar_assumption")
+       | None -> ctx
 
        | Some contract -> (
 
@@ -1958,22 +1949,28 @@ let rec add_node_equation ctx pos state_var bounds indexes expr =
           expr, expr_type, bounds, indexes
       in
       (* Type of state variable *)
-      let state_var_type, _ = 
-        List.fold_left
-          (fun (t, indexes) -> function
-             | E.Bound _ 
-             | E.Fixed _
-             | E.Unbound _ ->
-               if Type.is_array t then Type.elem_type_of_array t, indexes - 1
-               else
-                 fail_at_position
-                   pos
-                   (Format.asprintf 
-                      "Type mismatch in equation: %a and %a"
-                      (E.pp_print_lustre_type false) t
-                      (E.pp_print_lustre_type false) expr_type))
-          (StateVar.type_of_state_var state_var, indexes)
-          bounds
+      let state_var_type =
+        if bounds = [] then (
+          let t = StateVar.type_of_state_var state_var in
+          if Type.is_array t then (Type.last_elem_type_of_array t) else t
+        )
+        else (
+          List.fold_left
+            (fun t -> function
+               | E.Bound _
+               | E.Fixed _
+               | E.Unbound _ ->
+                 if Type.is_array t then Type.elem_type_of_array t
+                 else
+                   fail_at_position
+                     pos
+                     (Format.asprintf
+                        "Type mismatch in equation: %a and %a"
+                        (E.pp_print_lustre_type false) t
+                        (E.pp_print_lustre_type false) expr_type))
+            (StateVar.type_of_state_var state_var)
+            bounds
+         )
       in
 
       let ctx = 

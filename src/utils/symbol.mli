@@ -256,6 +256,10 @@ val s_times : t
 (** Constant division operator symbol *)
 val s_div : t
 
+val s_to_int : t
+
+val s_to_real : t
+
 (** Array read operator *)
 val s_select : Type.t -> t
 
@@ -279,6 +283,9 @@ val is_bitvector : t -> bool
 
 (** Return true if the symbol is select from array  *)
 val is_select : t -> bool
+
+(** Return true if the symbol is the divisible function *)
+val is_divisible : t -> bool
 
 (** Return true if the symbol is [`TRUE] or [`FALSE] *)
 val is_bool : t -> bool

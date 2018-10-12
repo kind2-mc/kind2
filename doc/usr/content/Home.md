@@ -23,13 +23,15 @@ By default, all three model checking engines are run in parallel. Give any combi
 
 `--timeout_virtual <int>` (default `0` = none) -- Run for the given number of seconds of CPU time
  
-`--smtsolver {CVC4|Yices|Z3} ` (default `Z3`) -- Select SMT solver
+`--smtsolver {CVC4|Yices|Yices2|Z3} ` (default `Z3`) -- Select SMT solver
 
 The default is `Z3`, but see options of the `./build.sh` script to override at compile time
   
 `--cvc4_bin <file>` -- Executable for CVC4
 
-`--yices_bin <file>` -- Executable for Yices
+`--yices_bin <file>` -- Executable for Yices 1
+
+`--yices2_bin <file>` -- Executable for Yices 2 (SMT input)
 
 `--z3_bin <file>` -- Executable for Z3
 
@@ -41,13 +43,18 @@ The default is `Z3`, but see options of the `./build.sh` script to override at c
 ## Requirements
 
 - Linux or Mac OS X,
-- OCaml 4.03 or later,
+- Automake,
+- GNU Libtool,
+- pkg-config,
+- OCaml 4.04 or later,
+- [Ocamlbuild](https://github.com/ocaml/ocamlbuild), Ocamlfind, [Camlp4](https://github.com/ocaml/camlp4),
+- [num](https://github.com/ocaml/num) (part of OCaml distribution until 4.06),
 - [Menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator, and
 - a supported SMT solver
-    - [CVC4](http://cvc4.cs.nyu.edu),
-    - [Yices 2](http://yices.csl.sri.com/), or
-    - [Yices 1](http://yices.csl.sri.com/old/download-yices1-full.shtml)
-    - [Z3](http://z3.codeplex.com) (presently recommended), 
+    - [CVC4](http://cvc4.cs.stanford.edu/),
+    - [Yices 2](http://yices.csl.sri.com/),
+    - [Yices 1](http://yices.csl.sri.com/old/download-yices1-full.shtml), or
+    - [Z3](https://github.com/Z3Prover/z3) (presently recommended)
 
 ## Building and installing
 

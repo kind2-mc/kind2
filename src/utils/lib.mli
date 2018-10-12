@@ -357,6 +357,10 @@ val minisleep : float -> unit
     and current working directory *)
 val find_on_path : string -> string 
 
+(** Return full path to file if the file is found in
+    the list of directories, or None otherwise **)
+val find_file : string -> string list -> string option
+
 (** {1 Positions in the input} *)
 
 (** A position in the input *)

@@ -284,17 +284,23 @@ let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
 (* The assumptions of a contract as properties. *)
 let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
   assumes |> List.map (
-    fun { C.pos ; C.num ; C.svar } ->
+    fun { C.pos ; C.num ; C.name ; C.svar } ->
       let prop_term =
         Var.mk_state_var_instance svar TransSys.prop_base
         |> Term.mk_var
         |> lift_term svar_map
       in
       let prop_name =
-        Format.asprintf
-          "%a%a.assume%a[%d]"
-          Scope.pp_print_scope scope pp_print_pos call_pos
-          pp_print_pos pos num
+        match name with
+        | None -> (
+          Format.asprintf "%a%a.assume%a[%d]"
+            Scope.pp_print_scope scope pp_print_pos call_pos
+            pp_print_pos pos num
+        )
+        | Some n -> (
+          Format.asprintf "%a%a.%s[%d]"
+            Scope.pp_print_scope scope pp_print_pos call_pos n num
+        )
       in
       let prop_status = P.PropUnknown in
       let prop_source = P.Assumption (pos, scope) in

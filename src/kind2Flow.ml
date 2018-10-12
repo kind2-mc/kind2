@@ -149,7 +149,7 @@ let status_of_sys () = match ! latest_trans_sys with
 let status_of_results () =
   match Anal.results_is_safe !all_results with
   | None ->
-    KEvent.log L_fatal "result analysis: no safe result" ;
+    KEvent.log L_note "Result analysis: no safe result" ;
     (* Format.eprintf "NO_SAFE_RES@." ; *)
     ExitCodes.unknown
   | Some true -> ExitCodes.safe
@@ -166,10 +166,14 @@ let status_of_exn process status = function
   | SMTSolver.Unknown ->
     KEvent.log L_warn "In %a: a check-sat resulted in \"unknown\".@ \
       This is most likely due to non-linear expressions in the model,@ \
-      usually multiplications `v_1 * v_2` or divisions `v_1 / v_2`.@ \
-      Consider running Kind 2 with `--check_sat_assume off` or@ \
-      abstracting non-linear expressions using contracts.\
-    " pp_print_kind_module process ;
+      usually multiplications `v_1 * v_2` or divisions `v_1 / v_2`.%t"
+      pp_print_kind_module process
+      (fun fmt -> if Flags.Smt.check_sat_assume () then
+         Format.fprintf fmt
+           " Consider running Kind 2 with `--check_sat_assume false` or@ \
+             abstracting non-linear expressions using contracts."
+       else ()
+      );
     status
   (* Termination message. *)
   | KEvent.Terminate ->
@@ -193,11 +197,26 @@ let status_of_exn process status = function
     (* Return exit status and signal number. *)
     ExitCodes.kid_status + s
   (* Runtime failure. *)
+  | IC3.UnsupportedFeature msg -> (
+    KEvent.log L_warn "%s" msg;
+    status
+  )
   | Failure msg -> (
-    InvarManager.print_stats !latest_trans_sys ;
-    KEvent.log L_fatal "Runtime failure in %a: %s"
-      pp_print_kind_module process msg ;
-    ExitCodes.error
+    if msg = "SMT solver failed: non-linear arithmetic is not allowed in logic ALL" then (
+      (* Yices 2 error *)
+      KEvent.log L_error "In %a: no logic has been provided, but Yices 2 requires one when@ \
+        the model contains non-linear expressions.@ \
+        Consider running Kind 2 with `--smt_logic detect`\
+      "
+      pp_print_kind_module process;
+      status
+    )
+    else (
+      InvarManager.print_stats !latest_trans_sys ;
+      KEvent.log L_fatal "Runtime failure in %a: %s"
+        pp_print_kind_module process msg ;
+      ExitCodes.error
+    )
   )
   (* Other exception, return exit status for error. *)
   | e -> (
@@ -489,26 +508,20 @@ let run in_sys =
     (* Set module currently running. *)
     KEvent.set_module m ;
     try (
-      match
-        Analysis.mk_results () |> ISys.next_analysis_of_strategy in_sys
-      with
-      | Some param -> (
-        (* Build trans sys and slicing info. *)
-        let sys, _ =
-          ISys.trans_sys_of_analysis
-            ~preserve_sig:true ~slice_nodes:false in_sys param
-        in
-        (* Run interpreter. *)
-        Interpreter.main (
-          Flags.Interpreter.input_file ()
-        ) in_sys param sys ;
-        (* Ignore SIGALRM from now on *)
-        Signals.ignore_sigalrm () ;
-        (* Cleanup before exiting process *)
-        on_exit_child None m Exit
-      )
-      | None ->
-        failwith "Could not generate first analysis parameter."
+      let param = ISys.interpreter_param in_sys in
+      (* Build trans sys and slicing info. *)
+      let sys, _ =
+        ISys.trans_sys_of_analysis
+          ~preserve_sig:true ~slice_nodes:false in_sys param
+      in
+      (* Run interpreter. *)
+      Interpreter.main (
+        Flags.Interpreter.input_file ()
+      ) in_sys param sys ;
+      (* Ignore SIGALRM from now on *)
+      Signals.ignore_sigalrm () ;
+      (* Cleanup before exiting process *)
+      on_exit_child None m Exit
     )
     with e -> on_exit_child None m e
   )
