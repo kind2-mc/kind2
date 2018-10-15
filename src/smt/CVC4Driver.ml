@@ -174,6 +174,7 @@ let string_of_logic l =
   | `Inferred l when is_empty l -> "QF_SAT"
   (* CVC4 fails to give model when given a non linear arithmetic logic *)
   (*| `Inferred l when mem NA l -> "ALL"*)
+  | `Inferred l when equal l (singleton Q) -> "LIRA" (* Only L*A supports quantifiers *)
   | _ -> GenericSMTLIBDriver.string_of_logic l
 
 let pp_print_logic fmt l = Format.pp_print_string fmt (string_of_logic l)
