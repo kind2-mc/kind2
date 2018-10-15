@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015-2018 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -29,19 +29,6 @@ let solver_qe = ref None
 (* The current solver instance in use *)
 let solver_check = ref None
 
-(* Add quantifiers to logic *)
-let add_quantifiers = function
-  | `None -> `None
-  | `Inferred l -> `Inferred (TermLib.FeatureSet.add TermLib.Q l)
-  | `SMTLogic s as l ->
-    try
-      let s =
-        if String.sub s 0 3 = "QF_" then
-          String.sub s 3 (String.length s - 3)
-        else s in
-      `SMTLogic s
-    with Invalid_argument _ -> l
-
 (* Get the current solver instance or create a new instance *)
 let get_solver_instance trans_sys = 
 
@@ -54,7 +41,7 @@ let get_solver_instance trans_sys =
       (* Create solver instance : only Z3 for the moment *)
       let solver = SMTSolver.create_instance
           ~produce_assignments:true
-          (add_quantifiers (TransSys.get_logic trans_sys))
+          (TermLib.add_quantifiers (TransSys.get_logic trans_sys))
           `Z3_SMTLIB
       in
 
@@ -121,7 +108,7 @@ let get_checking_solver_instance trans_sys =
         SMTSolver.create_instance 
           ~produce_assignments:true
           (* add quantifiers to system logic *)
-          (add_quantifiers (TransSys.get_logic trans_sys))
+          (TermLib.add_quantifiers (TransSys.get_logic trans_sys))
           (Flags.Smt.solver ())
       in
 (*
@@ -185,74 +172,6 @@ let on_exit () =
          "Error deleting solver_check: %s" 
          (Printexc.to_string e))
 
-
-(* Static hashconsed strings *)
-let s_goal = HString.mk_hstring "goal"    
-let s_goals = HString.mk_hstring "goals"    
-
-let rec conj_of_goal accum = function 
-
-  (* At the end of the goal list *)
-  | [] -> List.rev accum
-
-  (* Parameters ":precision" or ": depth" also mark end of goal list *)
-  | HStringSExpr.Atom a :: tl 
-      when HString.sub a 0 1 = ":" -> List.rev accum
-      
-  (* Take first goal and convert to term, recurse for next goal in list *)
-  | t :: tl -> 
-
-     conj_of_goal 
-       (Conv.term_of_smtexpr (GenericSMTLIBDriver.expr_of_string_sexpr t) :: accum)
-       tl
-
-
-(* Extract the goal term from a goal 
-
-   (goal {term}+ :precision precise :depth 1)
-
-*)
-let goal_to_term = function 
-
-  | HStringSExpr.List (HStringSExpr.Atom s :: c) when s == s_goal -> 
-
-    conj_of_goal [] c
-
-(*
-    (* Return [true] for empty list of goals, the goal atom for a
-       singleton list and a conjunction of goals otherwise *)
-    (match conj_of_goal [] c with 
-      | [] -> Term.mk_true ()
-      | [g] -> g
-      | l -> Term.mk_and l)
-  *)
-    
-  (* Invalid S-expression as result *)
-  | e -> 
-
-    raise 
-      (Failure 
-         ("SMT solver returned unexpected result for goal"))
-
-
-(* Extract the goal terms from a list of goals 
-
-   (goals (goal {term} :precision precise :depth 1) ) 
-
-*)
-let goals_to_terms = function 
-
-  (*   (goals (goal true :precision precise :depth 1) ) *)
-  | HStringSExpr.List 
-      [HStringSExpr.Atom s; HStringSExpr.List g] when s == s_goals -> 
-    
-    goal_to_term (HStringSExpr.List g)
-      
-  (* Invalid S-expression as result *)
-  | _ -> 
-    raise 
-      (Failure 
-         ("SMT solver returned unexpected result for goals"))
 
 (* Create a formula from the assignments in a model *)
 let formula_of_model model = 
@@ -694,52 +613,7 @@ let generalize trans_sys uf_defs model elim term =
      (goals (goal true :precision precise :depth 1) )
      
   *)
-        
-        (* Increment scope level *)
-        SMTSolver.push solver_qe;
-        
-        (* Assert expression to eliminate quantifiers from *)
-        SMTSolver.assert_expr solver_qe qe_term;
-        
-        (* Eliminate quantifiers *)
-        let res = 
-          match 
-            
-            (* Execute custom command (apply qe) *)
-            SMTSolver.execute_custom_command 
-              solver_qe 
-              "apply"
-              [SMTExpr.ArgString "qe"]
-              1
-              
-          with
-
-            (* Catch error *)
-            | `Error e -> 
-              raise 
-                (Failure ("SMT solver failed: " ^ e))
-
-            (* (* Catch unsupported command *) *)
-            (* | `Unsupported ->  *)
-            (*   raise  *)
-            (*     (Failure  *)
-            (*        ("SMT solver reported not implemented")) *)
-                
-            (* (* Catch silence *) *)
-            (* | `NoResponse -> *)
-            (*   raise  *)
-            (*     (Failure  *)
-            (*        ("SMT solver did not produce a reply")) *)
-                
-            (* Return result on success *)
-            | `Custom r -> r
-        in
-        
-        (* Take first goal as quantifier eliminated term *)
-        let term'_int = goals_to_terms (List.hd res) in
-        
-        (* Decrement scope level to remove assertion *)
-        SMTSolver.pop solver_qe;
+        let term'_int = SMTSolver.get_qe_expr solver_qe qe_term in
 (*
         (* Check generalizations *)
         check_generalize 
@@ -766,6 +640,14 @@ let generalize trans_sys uf_defs model elim term =
       )
 
     | `Cooper ->
+
+      if extract_int = Term.t_true then (
+
+        term'_bool
+
+      )
+
+      else
 
       (
 
