@@ -413,6 +413,9 @@ val is_select : t -> bool
 (** Return true if the term is an application of the store operator *)
 val is_store : t -> bool
 
+(** Return true if the term is an application of the ite operator *)
+val is_ite : t -> bool
+
 (** Return the indexes and the array variable of the select operator
 
     The array argument of a select is either another select operation
