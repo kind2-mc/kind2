@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015-2018 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -18,7 +18,7 @@
 
 (** High-level methods for an SMT solver 
 
-    @author Alain Mebsout, Christoph Sticksel *)
+    @author Alain Mebsout, Christoph Sticksel, Daniel Larraz *)
 
 
 (** Type of a solver instance *)
@@ -224,6 +224,12 @@ val kind : t -> Flags.Smt.solver
 val trace_comment : t -> string -> unit
 
 val get_interpolants : t -> SMTExpr.custom_arg list -> SMTExpr.t list
+
+(** Apply quantifier elimination to a SMTExpr *)
+val get_qe_expr : ?simpl:bool -> t -> SMTExpr.t -> Term.t list
+
+(** Apply quantifier elimination to a term *)
+val get_qe_term : ?simpl:bool -> t -> Term.t -> Term.t list
 
 (* 
    Local Variables:

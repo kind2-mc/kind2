@@ -209,7 +209,8 @@ module L = FeatureSet
 
 
 let pp_print_features fmt l =
-  if not (L.mem Q l) then fprintf fmt "QF_";
+  if not (L.mem Q l) then fprintf fmt "QF_"
+  else if L.cardinal l = 1 then fprintf fmt "UF";
   if L.is_empty l then fprintf fmt "UF";
   if L.mem A l && Flags.Arrays.smt () then fprintf fmt "A";
   if L.mem UF l then fprintf fmt "UF";
@@ -436,6 +437,21 @@ module Signals = struct
       unset_timeout ()
 
   end
+
+
+(* Add quantifiers to logic *)
+let add_quantifiers = function
+  | `None -> `None
+  | `Inferred l -> `Inferred (FeatureSet.add Q l)
+  | `SMTLogic s as l ->
+    try
+      let s =
+        if String.sub s 0 3 = "QF_" then
+          String.sub s 3 (String.length s - 3)
+        else s in
+      `SMTLogic s
+    with Invalid_argument _ -> l
+
 
 (* 
    Local Variables:

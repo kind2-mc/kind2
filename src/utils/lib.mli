@@ -108,6 +108,9 @@ val list_extract_nth : 'a list -> int -> 'a * 'a list
 (** [chain_list \[e1; e2; ...\]] is [\[\[e1; e2\]; \[e2; e3\]; ... \]] *)
 val chain_list : 'a list -> 'a list list 
 
+(** [chain_list_p \[e1; e2; ...\]] is [\[(e1, e2); (e2, e3); ... \]] *)
+val chain_list_p : 'a list -> ('a * 'a) list
+
 (** Return a list containing all values in the first list that are not
     in the second list *)
 val list_subtract : 'a list -> 'a list -> 'a list 

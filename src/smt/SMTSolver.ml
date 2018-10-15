@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015-2018 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -1010,6 +1010,119 @@ let get_interpolants solver args =
        (List.tl i)
 
   | error_response -> []
+
+
+(* Static hashconsed strings *)
+let s_goal = HString.mk_hstring "goal"
+let s_goals = HString.mk_hstring "goals"
+
+let rec conj_of_goal accum = function
+
+  (* At the end of the goal list *)
+  | [] -> List.rev accum
+
+  (* Parameters ":precision" or ": depth" also mark end of goal list *)
+  | HStringSExpr.Atom a :: tl
+      when HString.sub a 0 1 = ":" -> List.rev accum
+
+  (* Take first goal and convert to term, recurse for next goal in list *)
+  | t :: tl -> conj_of_goal (t :: accum) tl
+
+(* Extract the goal term from a goal
+
+   (goal {term}+ :precision precise :depth 1)
+
+*)
+let goal_to_term = function
+
+  | HStringSExpr.List (HStringSExpr.Atom s :: c) when s == s_goal ->
+
+    conj_of_goal [] c
+
+  (* Invalid S-expression as result *)
+  | e -> failwith "SMT solver returned unexpected result for goal"
+
+
+(* Extract the goal terms from a list of goals
+
+   (goals (goal {term} :precision precise :depth 1) )
+
+*)
+let goals_to_terms solver = function
+
+  (*   (goals (goal true :precision precise :depth 1) ) *)
+  | HStringSExpr.List
+      [HStringSExpr.Atom s; HStringSExpr.List g] when s == s_goals -> (
+
+    let module S = (val solver.solver_inst) in
+
+    goal_to_term (HStringSExpr.List g)
+    |> List.map
+         (fun t ->
+           S.Conv.term_of_smtexpr
+             (GenericSMTLIBDriver.expr_of_string_sexpr t))
+
+  )
+  (* Invalid S-expression as result *)
+  | _ -> failwith "SMT solver returned unexpected result for goals"
+
+
+(* SMTLIB commands for Z3
+
+     (declare-fun y (Int) Int)
+     (assert (exists ((x Int)) (> x (y 0))))
+     (apply qe)
+
+     Output:
+
+     (goals (goal true :precision precise :depth 1) )
+
+*)
+let get_qe_z3 simpl solver expr =
+  (* Increment scope level *)
+  push solver;
+  (* Assert expression to eliminate quantifiers from *)
+  assert_expr solver expr;
+  (* Eliminate quantifiers *)
+  let res =
+    (* Execute custom command (apply qe) *)
+    let arg = if simpl then "(and-then qe ctx-solver-simplify)" else "qe" in
+    match execute_custom_command solver "apply" [SMTExpr.ArgString arg] 1 with
+    | `Custom r ->
+       (* Take first goal as quantifier eliminated term *)
+       goals_to_terms solver (List.hd r)
+    | `Error e ->
+       failwith  ("SMT solver failed: " ^ e)
+  in
+  (* Decrement scope level to remove assertion *)
+  pop solver;
+  res
+
+
+let get_qe_cvc4 solver expr =
+  let module S = (val solver.solver_inst) in
+
+  match execute_custom_command solver "get-qe" [SMTExpr.ArgExpr expr] 1 with
+  | `Custom r -> [S.Conv.term_of_smtexpr
+      (GenericSMTLIBDriver.expr_of_string_sexpr (List.hd r))]
+  | `Error e -> failwith  ("SMT solver failed: " ^ e)
+
+
+let get_qe_expr ?(simpl = false) solver quantified_expr =
+
+  (* Quantifier elimination is not part of the SMTLIB standard.
+     Until then, we handle each particular case here... *)
+  match solver.solver_kind with
+  | `Z3_SMTLIB -> get_qe_z3 simpl solver quantified_expr
+  | `CVC4_SMTLIB -> get_qe_cvc4 solver quantified_expr
+  | _ -> failwith "Quantifier elimination is not supported by SMT solver or \
+                   implementation is not available"
+
+
+let get_qe_term ?(simpl = false) solver quantified_term =
+  let module S = (val solver.solver_inst) in
+  get_qe_expr ~simpl:simpl solver (S.Conv.smtexpr_of_term quantified_term)
+
 
 (* 
    Local Variables:
