@@ -5,6 +5,8 @@ open Lib
 type t = bool list
 
 exception NonBinaryDigit
+exception ComparingUnequalBVs
+
 
 (* Function that converts a single binary integer digit to Boolean *)
 let bin_to_bool (i : int) : bool =
@@ -400,3 +402,79 @@ let string_of_decimal s = HString.string_of_hstring s
 
 (* Convert a hashconsed string to a Boolean value *)
 let bool_of_hstring s = bool_of_string (HString.string_of_hstring s) 
+
+
+(* ********************************************************************** *)
+(* Comparison operators                                                   *)
+(* ********************************************************************** *)
+
+(* Equality *)
+let rec equal bv1 bv2 = 
+  match bv1, bv2 with
+  | [], [] -> true
+  | h1 :: t1, h2 :: t2 -> (h1 = h2) && (equal t1 t2)
+  | _ -> raise ComparingUnequalBVs
+
+(* Unsigned lesser than *)
+let rec ult bv1 bv2 = 
+  match bv1, bv2 with
+  | [], [] -> false
+  | h1 :: t1, h2 :: t2 -> 
+    (match h1, h2 with
+    | true, false -> false
+    | false, true -> true 
+    | _ -> (ult t1 t2))
+  | _ -> raise ComparingUnequalBVs
+
+(* Unsigned greater than *)
+let rec ugt bv1 bv2 =
+  match bv1, bv2 with
+  | [], [] -> false
+  | h1 :: t1, h2 :: t2 -> 
+    (match h1, h2 with
+    | false, true -> false
+    | true, false -> true
+    | _ -> (ugt t1 t2))
+  | _ -> raise ComparingUnequalBVs
+
+(* Unsigned lesser than or equal to *)
+let rec ulte bv1 bv2 =
+  match bv1, bv2 with
+  | [], [] -> true
+  | h1 :: t1, h2 :: t2 ->
+    (match h1, h2 with
+    | false, true -> true
+    | true, false -> false
+    | _ -> (ulte t1 t2))
+  | _ -> raise ComparingUnequalBVs
+
+(* Unsigned greater than or equal to *)
+let rec ugte bv1 bv2 =
+  match bv1, bv2 with
+  | [], [] -> true
+  | h1 :: t1, h2 :: t2 -> 
+    (match h1, h2 with
+    | true, false -> true
+    | false, true -> false
+    | _ -> (ugte t1 t2))
+  | _ -> raise ComparingUnequalBVs
+
+
+(* ********************************************************************** *)
+(* Infix comparison operators                                             *)
+(* ********************************************************************** *)
+
+(* Equality *)
+let ( = ) = equal
+
+(* Unsigned lesser than *)
+let ( < ) = ult
+
+(* Unsigned greater than *)
+let ( > ) = ugt
+
+(* Unsigned lesser than or equal to *)
+let ( <= ) = ulte
+
+(* Unsigned greater than or equal to *)
+let ( >= ) = ugte

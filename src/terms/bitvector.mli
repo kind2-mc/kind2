@@ -58,3 +58,39 @@ val pp_yices_print_bitvector_b : Format.formatter -> t -> unit
 
 (** Pretty-print a constant bitvector in hexadeciaml format *)
 val pp_print_bitvector_x : Format.formatter -> t -> unit
+
+
+(** Comparison operators *)
+
+(** Equality *)
+val equal : t -> t -> bool
+
+(** Unsigned lesser than *)
+val ult : t -> t -> bool
+
+(** Unsigned greater than *)
+val ugt : t -> t -> bool
+
+(** Unsigned lesser than or equal to *)
+val ulte : t -> t -> bool
+
+(** Unsigned greater than or equal to *)
+val ugte : t -> t -> bool
+
+
+(** Infix comparison operators *)
+
+(** Equality *)
+val ( = ) : t -> t -> bool
+
+(** Unsigned lesser than *)
+val ( < ) : t -> t -> bool
+
+(** Unsigned greater than *)
+val ( > ) : t -> t -> bool
+
+(** Unsigned lesser than or equal to *)
+val ( <= ) : t -> t -> bool
+
+(** Unsigned greater than or equal to *)
+val ( >= ) : t -> t -> bool

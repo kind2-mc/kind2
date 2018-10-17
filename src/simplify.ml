@@ -18,6 +18,7 @@
 
 open Lib
 
+exception BVSizeError
 let division_by_zero = ref false
 
 (** Returns true iff a division by zero happened in a simplification since
@@ -818,6 +819,21 @@ let subtract_and_normalize a b = match a, b with
   (* Cannot subtract *)
   | _ -> assert false
 
+let relation_to_nf_bv rel n = function
+  (* Relation must be binary *)
+  | [] 
+  | [_] -> assert false
+
+  (* Binary relation *)
+  | [a; b] -> 
+    (match n with 
+    | 8 -> BV8 (rel [(term_of_nf a); (term_of_nf b)])
+    | 16 -> BV16 (rel [(term_of_nf a); (term_of_nf b)])
+    | 32 -> BV32 (rel [(term_of_nf a); (term_of_nf b)])
+    | 64 -> BV64 (rel [(term_of_nf a); (term_of_nf b)])
+    | _ -> raise BVSizeError)
+  (* Arity greater than 2 *)
+  | _ -> assert false
 
 (* Normalize an n-ary relation by unchaining it into a conjunction of
    binary relations, subtracting the right-hand side from the
@@ -905,7 +921,8 @@ let relation
     rel_dec
     rel'_dec
     mk_rel 
-    mk_rel' = 
+    mk_rel'
+    mk_rel_bv = 
   
   function
 
@@ -964,8 +981,16 @@ let relation
         args
 
     (* Relation must be between integers or reals *)
-    | (Bool _ | Array _ | BV8 _ 
-       | BV16 _ | BV32 _ | BV64 _ ) :: _ -> assert false
+
+    | BV8 _ :: _ as args -> relation_to_nf_bv mk_rel_bv 8 args
+
+    | BV16 _ :: _ as args -> relation_to_nf_bv mk_rel_bv 16 args
+
+    | BV32 _ :: _ as args -> relation_to_nf_bv mk_rel_bv 32 args
+
+    | BV64 _ :: _ as args -> relation_to_nf_bv mk_rel_bv 64 args
+
+    | (Bool _ | Array _ ) :: _ -> assert false
 
 
 (* Normalize equality relation between normal forms *)
@@ -976,8 +1001,9 @@ let relation_eq simplify_term_node args =
     Numeral.(=)
     Numeral.(=) 
     Decimal.(=)
-    Decimal.(=) 
+    Decimal.(=)
     Term.mk_eq 
+    Term.mk_eq
     Term.mk_eq args
 
 
@@ -992,6 +1018,8 @@ let relation_leq simplify_term_node =
     Decimal.(>=)
     Term.mk_leq 
     Term.mk_geq 
+    Term.mk_bvule
+    
 
 
 (* Normalize less than relation between normal forms *)
@@ -1005,6 +1033,8 @@ let relation_lt simplify_term_node =
     Decimal.(>)
     Term.mk_lt 
     Term.mk_gt
+    Term.mk_bvult
+    
 
 
 (* Normalize greater than or equal relation between normal forms *)
@@ -1017,7 +1047,8 @@ let relation_geq simplify_term_node =
     Decimal.(>=)
     Decimal.(<=) 
     Term.mk_geq 
-    Term.mk_leq 
+    Term.mk_leq
+    Term.mk_bvuge
 
 
 (* Normalize greater than relation between normal forms *)
@@ -1030,7 +1061,9 @@ let relation_gt simplify_term_node =
     Decimal.(>)
     Decimal.(<)
     Term.mk_gt 
-    Term.mk_lt 
+    Term.mk_lt
+    Term.mk_bvult 
+    
 
 
 (* Create an atom of the given term (a variable or an uninterpreted
@@ -2004,8 +2037,6 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           (* Distinct not implemented *)
           | `DISTINCT -> assert false
 
-
-
           | `BVAND ->
             (match args with
               | [] -> assert false
@@ -2024,7 +2055,16 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV16 a; BV16 b] -> BV16 (Term.mk_bvor [a;b])
               | [BV32 a; BV32 b] -> BV32 (Term.mk_bvor [a;b])
               | [BV64 a; BV64 b] -> BV64 (Term.mk_bvor [a;b])
-              | _ -> assert false)          
+              | _ -> assert false)
+
+          | `BVNOT ->
+            (match args with 
+              | [] -> assert false 
+              | [BV8 a] -> BV8 (Term.mk_bvnot [a])
+              | [BV16 a] -> BV16 (Term.mk_bvnot [a])
+              | [BV32 a] -> BV32 (Term.mk_bvnot [a])
+              | [BV64 a] -> BV64 (Term.mk_bvnot [a])
+              | _ -> assert false)
             
           (* Bitvectors not implemented *)
           | `BVADD
@@ -2032,7 +2072,6 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVLSHR
           | `BVMUL
           | `BVNEG
-          | `BVNOT
           | `BVSHL
           | `BVULT
           | `BVULE

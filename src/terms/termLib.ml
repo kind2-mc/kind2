@@ -226,6 +226,7 @@ let pp_print_features fmt l =
   if L.is_empty l then fprintf fmt "UF";
   if L.mem A l && Flags.Arrays.smt () then fprintf fmt "A";
   if L.mem UF l then fprintf fmt "UF";
+  if L.mem BV l then fprintf fmt "BV";
   if L.mem NA l then fprintf fmt "N"
   else if L.mem LA l || L.mem IA l || L.mem RA l then fprintf fmt "L";
   if L.mem IA l then fprintf fmt "I";
