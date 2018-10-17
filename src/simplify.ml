@@ -54,11 +54,7 @@ type t =
   | Dec of Decimal.t polynomial
   | Bool of Term.t 
   | Array of Term.t 
-  | BV8 of Term.t
-  | BV16 of Term.t
-  | BV32 of Term.t
-  | BV64 of Term.t
-
+  | BV of Term.t
 
 let pp_print_monomial pp ppf ((c, t) : 'a monomial) = 
   Format.fprintf 
@@ -185,10 +181,7 @@ let term_of_nf = function
   | Dec p -> term_of_dec_polynomial p
   | Bool b -> b
   | Array b -> b
-  | BV8 b -> b
-  | BV16 b -> b
-  | BV32 b -> b
-  | BV64 b -> b
+  | BV b -> b
 
 
 (* ********************************************************************** *)
@@ -224,7 +217,7 @@ let is_constant = function
   | Num (_, [])
   | Dec (_, [])  -> true
   | Bool b when b == Term.t_true || b == Term.t_false -> true
-  | BV8 _ | BV16 _ | BV32 _ | BV64 _ -> true
+  | BV _ -> true
   | Num _ | Dec _ | Bool _ | Array _ -> false
 
 
@@ -651,8 +644,7 @@ let flatten_bool_subterms s l =
       flatten_bool_subterms' symbol accum' tl
 
     (* Fail on non-boolean arguments *)
-    | (Num _ | Dec _ | Array _ | BV8 _ 
-       | BV16 _ | BV32 _ | BV64 _ ) :: _ -> assert false
+    | (Num _ | Dec _ | Array _ | BV _ ) :: _ -> assert false
 
   in
 
@@ -797,8 +789,7 @@ let implies_to_or args =
     | [] -> assert false
     | [a] -> List.rev (a :: accum)
     | Bool h :: tl -> implies_to_or' (Bool (negate_nnf h) :: accum) tl
-    | (Num _ | Dec _ | Array _ | BV8 _ 
-       | BV16 _ | BV32 _ | BV64 _ ) :: _ -> assert false
+    | (Num _ | Dec _ | Array _ | BV _ ) :: _ -> assert false
   in
 
   implies_to_or' [] args 
@@ -819,19 +810,14 @@ let subtract_and_normalize a b = match a, b with
   (* Cannot subtract *)
   | _ -> assert false
 
-let relation_to_nf_bv rel n = function
+let relation_to_nf_bv rel = function
   (* Relation must be binary *)
   | [] 
   | [_] -> assert false
 
   (* Binary relation *)
-  | [a; b] -> 
-    (match n with 
-    | 8 -> BV8 (rel [(term_of_nf a); (term_of_nf b)])
-    | 16 -> BV16 (rel [(term_of_nf a); (term_of_nf b)])
-    | 32 -> BV32 (rel [(term_of_nf a); (term_of_nf b)])
-    | 64 -> BV64 (rel [(term_of_nf a); (term_of_nf b)])
-    | _ -> raise BVSizeError)
+  | [a; b] -> BV (rel [(term_of_nf a); (term_of_nf b)])
+
   (* Arity greater than 2 *)
   | _ -> assert false
 
@@ -982,13 +968,7 @@ let relation
 
     (* Relation must be between integers or reals *)
 
-    | BV8 _ :: _ as args -> relation_to_nf_bv mk_rel_bv 8 args
-
-    | BV16 _ :: _ as args -> relation_to_nf_bv mk_rel_bv 16 args
-
-    | BV32 _ :: _ as args -> relation_to_nf_bv mk_rel_bv 32 args
-
-    | BV64 _ :: _ as args -> relation_to_nf_bv mk_rel_bv 64 args
+    | BV _ :: _ as args -> relation_to_nf_bv mk_rel_bv args
 
     | (Bool _ | Array _ ) :: _ -> assert false
 
@@ -1269,27 +1249,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `FALSE -> Bool (Term.t_false)
 
           (* Bitvectors not implemented *)
-          | `BV b when (Bitvector.length_of_bitvector b = 8) -> 
+          | `BV b -> 
           
             let tbv = Term.mk_bv b in
-              BV8 tbv
-          
-          | `BV b when (Bitvector.length_of_bitvector b = 16) -> 
-          
-            let tbv = Term.mk_bv b in
-              BV16 tbv
-
-          | `BV b when (Bitvector.length_of_bitvector b = 32) -> 
-          
-            let tbv = Term.mk_bv b in
-              BV32 tbv
-
-          | `BV b when (Bitvector.length_of_bitvector b = 64) -> 
-          
-            let tbv = Term.mk_bv b in
-              BV64 tbv
-
-          | `BV _ -> assert false
+              BV tbv
 
           (* Constant with a definition *)
           | `UF uf_symbol when List.mem_assq uf_symbol uf_defs -> 
@@ -1674,10 +1637,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   (Bool term' :: tl)
 
               (* Not well-typed arguments *)
-              | Bool _ :: (Num _ | Dec _ | Array _ | BV8 _ 
-                           | BV16 _ | BV32 _ | BV64 _) :: _
-              | (Num _  | Dec _ | Array _ | BV8 _ 
-                 | BV16 _ | BV32 _ | BV64 _) :: _  -> assert false
+              | Bool _ :: (Num _ | Dec _ | Array _ | BV _) :: _
+              | (Num _  | Dec _ | Array _ | BV _) :: _  -> assert false
 
             )
 
@@ -1977,7 +1938,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `TO_INT8 -> 
           
             (match args with 
-              | [BV8 b] -> BV8 b
+              | [BV b] -> BV b
               | _ -> assert false
             )
 
@@ -1986,7 +1947,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `TO_INT16 -> 
           
             (match args with 
-              | [BV16 b] -> BV16 b
+              | [BV b] -> BV b
               | _ -> assert false
             )          
 
@@ -1995,7 +1956,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `TO_INT32 -> 
           
             (match args with 
-              | [BV32 b] -> BV32 b
+              | [BV b] -> BV b
               | _ -> assert false
             )          
 
@@ -2004,7 +1965,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `TO_INT64 -> 
           
             (match args with 
-              | [BV64 b] -> BV64 b
+              | [BV b] -> BV b
               | _ -> assert false
             )          
 
@@ -2041,29 +2002,20 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             (match args with
               | [] -> assert false
               | [a] -> a
-              | [BV8 a; BV8 b] -> BV8 (Term.mk_bvand [a;b])
-              | [BV16 a; BV16 b] -> BV16 (Term.mk_bvand [a;b])
-              | [BV32 a; BV32 b] -> BV32 (Term.mk_bvand [a;b])
-              | [BV64 a; BV64 b] -> BV64 (Term.mk_bvand [a;b])
+              | [BV a; BV b] -> BV (Term.mk_bvand [a;b])
               | _ -> assert false)
           
           | `BVOR ->
             (match args with
               | [] -> assert false
               | [a] -> a
-              | [BV8 a; BV8 b] -> BV8 (Term.mk_bvor [a;b])
-              | [BV16 a; BV16 b] -> BV16 (Term.mk_bvor [a;b])
-              | [BV32 a; BV32 b] -> BV32 (Term.mk_bvor [a;b])
-              | [BV64 a; BV64 b] -> BV64 (Term.mk_bvor [a;b])
+              | [BV a; BV b] -> BV (Term.mk_bvor [a;b])
               | _ -> assert false)
 
           | `BVNOT ->
             (match args with 
               | [] -> assert false 
-              | [BV8 a] -> BV8 (Term.mk_bvnot [a])
-              | [BV16 a] -> BV16 (Term.mk_bvnot [a])
-              | [BV32 a] -> BV32 (Term.mk_bvnot [a])
-              | [BV64 a] -> BV64 (Term.mk_bvnot [a])
+              | [BV a] -> BV (Term.mk_bvnot [a])
               | _ -> assert false)
             
           (* Bitvectors not implemented *)
