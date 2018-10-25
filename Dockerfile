@@ -30,7 +30,7 @@ RUN wget -qq http://yices.csl.sri.com/releases/2.6.0/yices-2.6.0-x86_64-pc-linux
  && tar xvf yices-2.6.0-x86_64-pc-linux-gnu-static-gmp.tar.gz
 
 # Retrieve JKind and CVC4 (required for certification)
-RUN wget -qq https://github.com/agacek/jkind/releases/download/v4.0.1/jkind.zip && unzip jkind.zip
+RUN wget -qq https://github.com/agacek/jkind/releases/download/v4.0.1/jkind.zip && unzip jkind.zip \
  && ./kind2-build/docker_scripts/latest_cvc4.sh
 
 # Build Kind 2
