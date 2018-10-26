@@ -816,7 +816,10 @@ let relation_to_nf_bv rel = function
   | [_] -> assert false
 
   (* Binary relation *)
-  | [a; b] -> Bool (rel [(term_of_nf a); (term_of_nf b)])
+  | [a; b] -> (match (rel (Term.bitvector_of_term (term_of_nf a)) (Term.bitvector_of_term (term_of_nf b))) with
+    | true -> Bool Term.t_true
+    | false -> Bool Term.t_false)
+  (*assert false (*Bool (rel [(term_of_nf a); (term_of_nf b)])*)*)
 
   (* Arity greater than 2 *)
   | _ -> assert false
@@ -906,9 +909,9 @@ let relation
     rel'_num
     rel_dec
     rel'_dec
+    rel_bv
     mk_rel 
-    mk_rel'
-    mk_rel_bv = 
+    mk_rel' = 
   
   function
 
@@ -968,7 +971,7 @@ let relation
 
     (* Relation must be between integers or reals *)
 
-    | BV _ :: _ as args -> relation_to_nf_bv mk_rel_bv args
+    | BV _ :: _ as args -> relation_to_nf_bv rel_bv args
 
     | (Bool _ | Array _ ) :: _ -> assert false
 
@@ -982,8 +985,8 @@ let relation_eq simplify_term_node args =
     Numeral.(=) 
     Decimal.(=)
     Decimal.(=)
+    Bitvector.(=)
     Term.mk_eq 
-    Term.mk_eq
     Term.mk_eq args
 
 
@@ -996,9 +999,9 @@ let relation_leq simplify_term_node =
     Numeral.(>=)
     Decimal.(<=)
     Decimal.(>=)
+    Bitvector.(<=)
     Term.mk_leq 
     Term.mk_geq 
-    Term.mk_bvule
     
 
 
@@ -1011,9 +1014,9 @@ let relation_lt simplify_term_node =
     Numeral.(>)
     Decimal.(<)
     Decimal.(>)
+    Bitvector.(<)
     Term.mk_lt 
     Term.mk_gt
-    Term.mk_bvult
     
 
 
@@ -1026,9 +1029,9 @@ let relation_geq simplify_term_node =
     Numeral.(<=) 
     Decimal.(>=)
     Decimal.(<=) 
+    Bitvector.(>=)
     Term.mk_geq 
     Term.mk_leq
-    Term.mk_bvuge
 
 
 (* Normalize greater than relation between normal forms *)
@@ -1040,9 +1043,9 @@ let relation_gt simplify_term_node =
     Numeral.(<)
     Decimal.(>)
     Decimal.(<)
+    Bitvector.(>)
     Term.mk_gt 
     Term.mk_lt
-    Term.mk_bvult 
     
 
 
