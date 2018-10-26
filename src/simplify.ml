@@ -819,7 +819,6 @@ let relation_to_nf_bv rel = function
   | [a; b] -> (match (rel (Term.bitvector_of_term (term_of_nf a)) (Term.bitvector_of_term (term_of_nf b))) with
     | true -> Bool Term.t_true
     | false -> Bool Term.t_false)
-  (*assert false (*Bool (rel [(term_of_nf a); (term_of_nf b)])*)*)
 
   (* Arity greater than 2 *)
   | _ -> assert false
