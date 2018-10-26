@@ -816,7 +816,7 @@ let relation_to_nf_bv rel = function
   | [_] -> assert false
 
   (* Binary relation *)
-  | [a; b] -> BV (rel [(term_of_nf a); (term_of_nf b)])
+  | [a; b] -> Bool (rel [(term_of_nf a); (term_of_nf b)])
 
   (* Arity greater than 2 *)
   | _ -> assert false
@@ -1377,7 +1377,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [Bool b] -> Bool (negate_nnf b)
 
               (* Negation is Boolean and unary *)
-              | _ -> assert false
+                | _ -> (List.iter (fun t -> Format.printf "ARGS: %a@." Term.pp_print_term t) (List.map term_of_nf args) ; assert false)
             )
 
           (* Boolean conjunction *)
