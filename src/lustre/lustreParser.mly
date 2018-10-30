@@ -103,20 +103,19 @@ let merge_branches transitions =
 (* Tokens for annotations *)
 
 (* Inline annotations. *)
-%token PERCENTANNOT
-%token BANGANNOT
-(* %token ATANNOT *)
+%token MAIN_P_ANNOT
+%token MAIN_B_ANNOT
+%token PROPERTY_ANNOT
 (* Parenthesis star (PS) block annotations. *)
-%token PSBLOCKSTART
-%token PSATBLOCK
+%token MAIN_PSBLOCKSTART
+%token PROPERTY_PSBLOCKSTART
+%token CONTRACT_PSATBLOCK
 %token PSBLOCKEND
 (* Slash star (PS) block annotations. *)
-%token SSBLOCKSTART
-%token SSATBLOCK
+%token MAIN_SSBLOCKSTART
+%token PROPERTY_SSBLOCKSTART
+%token CONTRACT_SSATBLOCK
 %token SSBLOCKEND
-(* Generic annotations. *)
-%token PROPERTY
-%token MAIN
 (* Contract annotations. *)
 %token CONTRACT
 %token IMPORTCONTRACT
@@ -484,12 +483,12 @@ contract_decl:
 
 contract_spec:
   (* Block contract, parenthesis star (PS). *)
-  | PSATBLOCK ; CONTRACT ;
+  | CONTRACT_PSATBLOCK ;
     eqs = contract_in_block
     PSBLOCKEND
     { eqs }
   (* Block contract, slash star (SS). *)
-  | SSATBLOCK ; CONTRACT ;
+  | CONTRACT_SSATBLOCK ;
     eqs = contract_in_block
     SSBLOCKEND
     { eqs }
@@ -548,37 +547,32 @@ boolean:
   | TRUE { true }
   | FALSE { false }
 
-percent_or_bang:
-  | PERCENTANNOT { }
-  | BANGANNOT { }
-
-
     
 main_annot:
-  | PERCENTANNOT ; MAIN ; SEMICOLON { A.AnnotMain true }
-  | PSBLOCKSTART ; MAIN ; option (SEMICOLON) ; PSBLOCKEND { A.AnnotMain true }
-  | SSBLOCKSTART ; MAIN ; option (SEMICOLON) ; SSBLOCKEND { A.AnnotMain true }
-  | BANGANNOT ; MAIN ; COLON ; b = boolean ; SEMICOLON { A.AnnotMain b }
-  | PSBLOCKSTART ; MAIN ; COLON ; b = boolean ; option (SEMICOLON) ; PSBLOCKEND {
+  | MAIN_P_ANNOT ; SEMICOLON { A.AnnotMain true }
+  | MAIN_PSBLOCKSTART ; option (SEMICOLON) ; PSBLOCKEND { A.AnnotMain true }
+  | MAIN_SSBLOCKSTART ; option (SEMICOLON) ; SSBLOCKEND { A.AnnotMain true }
+  | MAIN_B_ANNOT ; COLON ; b = boolean ; SEMICOLON { A.AnnotMain b }
+  | MAIN_PSBLOCKSTART ; COLON ; b = boolean ; option (SEMICOLON) ; PSBLOCKEND {
     A.AnnotMain b
   }
-  | SSBLOCKSTART ; MAIN ; COLON ; b = boolean ; option (SEMICOLON) ; SSBLOCKEND {
+  | MAIN_SSBLOCKSTART ; COLON ; b = boolean ; option (SEMICOLON) ; SSBLOCKEND {
     A.AnnotMain b
   }
 
 property:
-  | percent_or_bang ; PROPERTY ; name = option(STRING) ; e = qexpr ; SEMICOLON
+  | PROPERTY_ANNOT ; name = option(STRING) ; e = qexpr ; SEMICOLON
     { A.AnnotProperty (mk_pos $startpos, name, e) }
-  | PSBLOCKSTART ; PROPERTY ; name = option(STRING);
+  | PROPERTY_PSBLOCKSTART ; name = option(STRING);
     e = qexpr; SEMICOLON ; PSBLOCKEND
     { A.AnnotProperty (mk_pos $startpos, name, e) }
-  | PSBLOCKSTART ; PROPERTY ; name = option(STRING);
+  | PROPERTY_PSBLOCKSTART ; name = option(STRING);
     COLON; e = qexpr; SEMICOLON ; PSBLOCKEND
     { A.AnnotProperty (mk_pos $startpos, name, e) }
-  | SSBLOCKSTART ; PROPERTY ; name = option(STRING);
+  | PROPERTY_SSBLOCKSTART ; name = option(STRING);
     e = qexpr ; SEMICOLON; SSBLOCKEND
     { A.AnnotProperty (mk_pos $startpos, name, e) }
-  | SSBLOCKSTART ; PROPERTY ; name = option(STRING);
+  | PROPERTY_SSBLOCKSTART ; name = option(STRING);
     COLON; e = qexpr ; SEMICOLON; SSBLOCKEND
     { A.AnnotProperty (mk_pos $startpos, name, e) }
 
