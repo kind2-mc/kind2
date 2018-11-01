@@ -153,7 +153,7 @@ let leaf_of_term t = match node_of_term t with
 (* Return true if the term is a function application *)
 let is_node t = match node_of_term t with
   | T.Node _ -> true 
-  | _ -> false 
+  | _ -> false
 
 
 (* Return the symbol of a function application *)

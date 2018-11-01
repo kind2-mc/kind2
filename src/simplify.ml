@@ -2020,18 +2020,42 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV a] -> BV (Term.mk_bvnot [a])
               | _ -> assert false)
             
+          | `BVADD ->
+            (match args with
+              | [] -> assert false
+              | [a] -> a
+              | [BV a; BV b] -> BV (Term.mk_bvadd [a;b])
+              | _ -> assert false)
+
+          | `BVMUL ->
+            (match args with
+              | [] -> assert false
+              | [a] -> a
+              | [BV a; BV b] -> BV (Term.mk_bvmul [a;b])
+              | _ -> assert false)
+
+          | `BVUDIV ->
+            (match args with
+              | [] -> assert false
+              | [a] -> a
+              | [BV a; BV b] -> BV (Term.mk_bvudiv [a;b])
+              | _ -> assert false)
+
+          | `BVUREM ->
+            (match args with
+              | [] -> assert false
+              | [a] -> a
+              | [BV a; BV b] -> BV (Term.mk_bvurem [a;b])
+              | _ -> assert false)
+
           (* Bitvectors not implemented *)
-          | `BVADD
-          | `BVUDIV
           | `BVLSHR
-          | `BVMUL
           | `BVNEG
           | `BVSHL
           | `BVULT
           | `BVULE
           | `BVUGT
           | `BVUGE
-          | `BVUREM
           | `CONCAT -> assert false
           | `EXTRACT _ -> assert false
 
