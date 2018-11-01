@@ -495,10 +495,10 @@ match Term.destruct term with
   (*
   | `TO_REAL
   | `TO_INT
-  | `TO_INT8
-  | `TO_INT16
-  | `TO_INT32
-  | `TO_INT64
+  | `TO_UINT8
+  | `TO_UINT16
+  | `TO_UINT32
+  | `TO_UINT64
   | `IS_INT
   (* Illegal. *)
   | `NUMERAL of Numeral.t

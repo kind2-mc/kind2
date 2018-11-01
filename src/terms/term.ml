@@ -551,10 +551,10 @@ let rec type_of_term t = match T.destruct t with
         | `ABS
         | `INTDIV -> Type.mk_int ()
 
-        | `TO_INT8 -> Type.mk_bv 8
-        | `TO_INT16 -> Type.mk_bv 16
-        | `TO_INT32 -> Type.mk_bv 32
-        | `TO_INT64 -> Type.mk_bv 64
+        | `TO_UINT8 -> Type.mk_bv 8
+        | `TO_UINT16 -> Type.mk_bv 16
+        | `TO_UINT32 -> Type.mk_bv 32
+        | `TO_UINT64 -> Type.mk_bv 64
 
         (* Real-valued functions *)
         | `TO_REAL
@@ -707,13 +707,13 @@ let type_check_app s a =
     | `TO_INT 
         when a = [Type.Real] -> true
 
-    | `TO_INT8
+    | `TO_UINT8
         when a = [Type.Real] || a = [Type.Int]
-    | `TO_INT16
+    | `TO_UINT16
         when a = [Type.Real] || a = [Type.Int]
-    | `TO_INT32
+    | `TO_UINT32
         when a = [Type.Real] || a = [Type.Int]    
-    | `TO_INT64
+    | `TO_UINT64
         when a = [Type.Real] || a = [Type.Int]  -> true
 
     (* Variadic, but at least binary function symbols of Boolean arguments *)
@@ -1221,16 +1221,16 @@ let mk_to_real t = mk_app_of_symbol_node `TO_REAL [t]
 let mk_to_int t = mk_app_of_symbol_node `TO_INT [t]
 
 (* Hashcons a unary conversion to an integer8 numeral *)
-let mk_to_int8 t = mk_app_of_symbol_node `TO_INT8 [t]
+let mk_to_uint8 t = mk_app_of_symbol_node `TO_UINT8 [t]
 
 (* Hashcons a unary conversion to an integer16 numeral *)
-let mk_to_int16 t = mk_app_of_symbol_node `TO_INT16 [t]
+let mk_to_uint16 t = mk_app_of_symbol_node `TO_UINT16 [t]
 
 (* Hashcons a unary conversion to an integer32 numeral *)
-let mk_to_int32 t = mk_app_of_symbol_node `TO_INT32 [t]
+let mk_to_uint32 t = mk_app_of_symbol_node `TO_UINT32 [t]
 
 (* Hashcons a unary conversion to an integer64 numeral *)
-let mk_to_int64 t = mk_app_of_symbol_node `TO_INT64 [t]
+let mk_to_uint64 t = mk_app_of_symbol_node `TO_UINT64 [t]
 
 (* Hashcons a predicate for coincidence of a real with an integer *)
 let mk_is_int t = mk_app_of_symbol_node `IS_INT [t]

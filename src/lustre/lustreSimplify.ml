@@ -207,11 +207,11 @@ let rec eval_ast_expr bounds ctx =
   (* Conversion to an integer number [int expr] *)
     | A.ToInt (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int expr 
 
-  (* Conversion to fixed-width integer numbers [int8-int64 expr] *)
-    | A.ToInt8 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int8 expr
-    | A.ToInt16 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int16 expr
-    | A.ToInt32 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int32 expr
-    | A.ToInt64 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int64 expr
+  (* Conversion to unsigned fixed-width integer numbers [uint8-uint64 expr] *)
+    | A.ToUInt8 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_uint8 expr
+    | A.ToUInt16 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_uint16 expr
+    | A.ToUInt32 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_uint32 expr
+    | A.ToUInt64 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_uint64 expr
 
   (* Conversion to a real number [real expr] *)
     | A.ToReal (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_real expr
@@ -2023,13 +2023,13 @@ and eval_ast_type ctx = function
   (* Basic type integer, add to empty trie with empty index *)
   | A.Int pos -> D.singleton D.empty_index Type.t_int
 
-  | A.Int8 pos -> D.singleton D.empty_index (Type.t_bv 8)
+  | A.UInt8 pos -> D.singleton D.empty_index (Type.t_bv 8)
 
-  | A.Int16 pos -> D.singleton D.empty_index (Type.t_bv 16)
+  | A.UInt16 pos -> D.singleton D.empty_index (Type.t_bv 16)
 
-  | A.Int32 pos -> D.singleton D.empty_index (Type.t_bv 32)
+  | A.UInt32 pos -> D.singleton D.empty_index (Type.t_bv 32)
 
-  | A.Int64 pos -> D.singleton D.empty_index (Type.t_bv 64)
+  | A.UInt64 pos -> D.singleton D.empty_index (Type.t_bv 64)
 
   (* Basic type real, add to empty trie with empty index *)
   | A.Real pos -> D.singleton D.empty_index Type.t_real

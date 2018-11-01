@@ -129,16 +129,16 @@ val is_bitvector : t -> bool
 val bitvectorsize : t -> int
 
 (** Return [true] if the type is the integer8 type *)
-val is_int8 : t -> bool
+val is_uint8 : t -> bool
 
 (** Return [true] if the type is the integer16 type *)
-val is_int16 : t -> bool
+val is_uint16 : t -> bool
 
 (** Return [true] if the type is the integer32 type *)
-val is_int32 : t -> bool
+val is_uint32 : t -> bool
 
 (** Return [true] if the type is the integer64 type *)
-val is_int64 : t -> bool
+val is_uint64 : t -> bool
 
 (** Return [true] if the type is an integer range type *)
 val is_int_range : t -> bool

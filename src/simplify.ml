@@ -755,10 +755,10 @@ let rec negate_nnf term = match Term.destruct term with
       | `ABS, _
       | `TO_REAL, _
       | `TO_INT, _
-      | `TO_INT8, _
-      | `TO_INT16, _
-      | `TO_INT32, _
-      | `TO_INT64, _ 
+      | `TO_UINT8, _
+      | `TO_UINT16, _
+      | `TO_UINT32, _
+      | `TO_UINT64, _ 
 
       | `CONCAT, _
       | `EXTRACT _, _
@@ -1937,7 +1937,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
           (* Conversion to integer8 is a monomial with polynomial
              subterms *)
-          | `TO_INT8 -> 
+          | `TO_UINT8 -> 
           
             (match args with 
               | [BV b] -> BV b
@@ -1946,7 +1946,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
           (* Conversion to integer16 is a monomial with polynomial
              subterms *)
-          | `TO_INT16 -> 
+          | `TO_UINT16 -> 
           
             (match args with 
               | [BV b] -> BV b
@@ -1955,7 +1955,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
           (* Conversion to integer32 is a monomial with polynomial
              subterms *)
-          | `TO_INT32 -> 
+          | `TO_UINT32 -> 
           
             (match args with 
               | [BV b] -> BV b
@@ -1964,7 +1964,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
           (* Conversion to integer64 is a monomial with polynomial
              subterms *)
-          | `TO_INT64 -> 
+          | `TO_UINT64 -> 
           
             (match args with 
               | [BV b] -> BV b

@@ -875,10 +875,10 @@ let create_proxy_constants_for_terms s terms =
       | Int -> Format.pp_print_string ppf "int"
       | BV i ->
         begin match i with
-        | 8 -> Format.pp_print_string ppf "int8"
-        | 16 -> Format.pp_print_string ppf "int16"
-        | 32 -> Format.pp_print_string ppf "int32"
-        | 64 -> Format.pp_print_string ppf "int64"
+        | 8 -> Format.pp_print_string ppf "uint8"
+        | 16 -> Format.pp_print_string ppf "uint16"
+        | 32 -> Format.pp_print_string ppf "uint32"
+        | 64 -> Format.pp_print_string ppf "uint64"
         | _ -> raise 
               (Invalid_argument "pp_print_type_suffix: BV size not allowed")
         end

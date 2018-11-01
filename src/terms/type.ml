@@ -353,19 +353,19 @@ let bitvectorsize { Hashcons.node = t } = match t with
   | BV n -> n
   | _ -> 0
   
-let rec is_int8 { Hashcons.node = t } = match t with
+let rec is_uint8 { Hashcons.node = t } = match t with
   | BV 8 -> true 
   | _-> false
 
-let rec is_int16 { Hashcons.node = t } = match t with
+let rec is_uint16 { Hashcons.node = t } = match t with
   | BV 16 -> true 
   | _-> false
 
-let rec is_int32 { Hashcons.node = t } = match t with
+let rec is_uint32 { Hashcons.node = t } = match t with
   | BV 32 -> true 
   | _-> false
 
-let rec is_int64 { Hashcons.node = t } = match t with
+let rec is_uint64 { Hashcons.node = t } = match t with
   | BV 64 -> true 
   | _-> false
 

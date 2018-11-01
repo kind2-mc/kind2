@@ -266,10 +266,10 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
   | Type.BV i -> 
      begin match i with
-     | 8 -> Format.pp_print_string ppf "int8"
-     | 16 -> Format.pp_print_string ppf "int16"
-     | 32 -> Format.pp_print_string ppf "int32"
-     | 64 -> Format.pp_print_string ppf "int64"
+     | 8 -> Format.pp_print_string ppf "uint8"
+     | 16 -> Format.pp_print_string ppf "uint16"
+     | 32 -> Format.pp_print_string ppf "uint32"
+     | 64 -> Format.pp_print_string ppf "uint64"
      | _ -> raise 
       (Invalid_argument "pp_print_lustre_type: BV size not allowed")
      end
@@ -313,10 +313,10 @@ let string_of_symbol = function
   | `GT -> ">"
   | `TO_REAL -> "real"
   | `TO_INT -> "int"
-  | `TO_INT8 -> "int8"
-  | `TO_INT16 -> "int16"
-  | `TO_INT32 -> "int32"
-  | `TO_INT64 -> "int64"
+  | `TO_UINT8 -> "uint8"
+  | `TO_UINT16 -> "uint16"
+  | `TO_UINT32 -> "uint32"
+  | `TO_UINT64 -> "uint64"
   | `BVAND -> "&"
   | _ -> failwith "string_of_symbol"
 
@@ -563,10 +563,10 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `NOT
   | `TO_REAL
   | `TO_INT
-  | `TO_INT8
-  | `TO_INT16
-  | `TO_INT32
-  | `TO_INT64
+  | `TO_UINT8
+  | `TO_UINT16
+  | `TO_UINT32
+  | `TO_UINT64
   | `ABS as s -> 
 
     (function [a] -> 
@@ -1120,7 +1120,7 @@ let mk_int d =
     expr_type = Type.mk_int_range d d } 
 
 (* Integer8 constant *)
-let mk_int8 d =
+let mk_uint8 d =
 
   let expr = Term.mk_num d in
 
@@ -1129,7 +1129,7 @@ let mk_int8 d =
     expr_type = Type.t_bv 8 }
 
 (* Integer16 constant *)
-let mk_int16 d =
+let mk_uint16 d =
 
   let expr = Term.mk_num d in
 
@@ -1138,7 +1138,7 @@ let mk_int16 d =
     expr_type = Type.t_bv 16 }
 
 (* Integer32 constant *)
-let mk_int32 d =
+let mk_uint32 d =
 
   let expr = Term.mk_num d in
 
@@ -1147,7 +1147,7 @@ let mk_int32 d =
     expr_type = Type.t_bv 32 }
 
 (* Integer64 constant *)
-let mk_int64 d =
+let mk_uint64 d =
 
   let expr = Term.mk_num d in
 
@@ -1303,27 +1303,27 @@ let type_of_num_num_num ?(is_div = false) op t t' =
       | _ -> raise Type_mismatch
     )
 
-    | t when Type.is_int8 t -> (
+    | t when Type.is_uint8 t -> (
       match t' with
-      | t when Type.is_int8 t -> Type.t_bv 8
+      | t when Type.is_uint8 t -> Type.t_bv 8
       | _ -> raise Type_mismatch
     )
 
-    | t when Type.is_int16 t -> (
+    | t when Type.is_uint16 t -> (
       match t' with
-      | t when Type.is_int16 t -> Type.t_bv 16
+      | t when Type.is_uint16 t -> Type.t_bv 16
       | _ -> raise Type_mismatch
     )
 
-    | t when Type.is_int32 t -> (
+    | t when Type.is_uint32 t -> (
       match t' with
-      | t when Type.is_int32 t -> Type.t_bv 32
+      | t when Type.is_uint32 t -> Type.t_bv 32
       | _ -> raise Type_mismatch
     )
 
-    | t when Type.is_int64 t -> (
+    | t when Type.is_uint64 t -> (
       match t' with
-      | t when Type.is_int64 t -> Type.t_bv 64
+      | t when Type.is_uint64 t -> Type.t_bv 64
       | _ -> raise Type_mismatch
     )
 
@@ -1356,10 +1356,10 @@ let type_of_a_a_a type1 type2 =
 (* Type check for bv -> bv -> bv *)
 let type_of_bv_bv_bv t t' =
   match t, t' with 
-  | t, t' when Type.is_int8 t && Type.is_int8 t' -> Type.t_bv 8
-  | t, t' when Type.is_int16 t && Type.is_int16 t' -> Type.t_bv 16
-  | t, t' when Type.is_int32 t && Type.is_int32 t' -> Type.t_bv 32
-  | t, t' when Type.is_int64 t && Type.is_int64 t' -> Type.t_bv 64
+  | t, t' when Type.is_uint8 t && Type.is_uint8 t' -> Type.t_bv 8
+  | t, t' when Type.is_uint16 t && Type.is_uint16 t' -> Type.t_bv 16
+  | t, t' when Type.is_uint32 t && Type.is_uint32 t' -> Type.t_bv 32
+  | t, t' when Type.is_uint64 t && Type.is_uint64 t' -> Type.t_bv 64
   | _, _ -> raise Type_mismatch
   
   
@@ -1376,7 +1376,7 @@ let type_of_a_a_bool type1 type2 =
     || (Type.is_int_range type1 && Type.is_int_range type2) 
 
     (* Variables of fixed-width integer types can be assigned values of int-range types *)
-    || ((Type.is_int8 type1 || Type.is_int16 type1 || Type.is_int32 type1 || Type.is_int64 type1) && Type.is_int_range type2)
+    || ((Type.is_uint8 type1 || Type.is_uint16 type1 || Type.is_uint32 type1 || Type.is_uint64 type1) && Type.is_int_range type2)
 
   then 
 
@@ -1544,9 +1544,9 @@ let mk_to_int expr = mk_unary eval_to_int type_of_to_int expr
 (* ********************************************************************** *)
 
 (* Evaluate conversion to integer8 *)
-let eval_to_int8 expr =
+let eval_to_uint8 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_int8 tt then
+  if Type.is_uint8 tt then
     expr
   else
     match Term.destruct expr with 
@@ -1557,29 +1557,29 @@ let eval_to_int8 expr =
             Term.mk_bv bv
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
-    | _ -> Term.mk_to_int8 expr
+    | _ -> Term.mk_to_uint8 expr
 
 (* Type of conversion to integer8  
 
-   int: real -> int8 
+   int: real -> uint8 
 *)
-let type_of_to_int8 = function
+let type_of_to_uint8 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int8 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 8
+  | t when Type.is_uint8 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 8
   | _ -> raise Type_mismatch
 
 
 (* Conversion to integer8 *)
-let mk_to_int8 expr = mk_unary eval_to_int8 type_of_to_int8 expr
+let mk_to_uint8 expr = mk_unary eval_to_uint8 type_of_to_uint8 expr
 
 
 (* ********************************************************************** *)
 
 
 (* Evaluate conversion to integer16 *)
-let eval_to_int16 expr =
+let eval_to_uint16 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_int16 tt then
+  if Type.is_uint16 tt then
     expr
   else
     match Term.destruct expr with 
@@ -1590,28 +1590,28 @@ let eval_to_int16 expr =
             Term.mk_bv bv
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
-    | _ -> Term.mk_to_int16 expr
+    | _ -> Term.mk_to_uint16 expr
 
 (* Type of conversion to integer16  
 
-   int: real -> int16 
+   int: real -> uint16 
 *)
-let type_of_to_int16 = function
+let type_of_to_uint16 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int16 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 16
+  | t when Type.is_uint16 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 16
   | _ -> raise Type_mismatch
 
 
 (* Conversion to integer16 *)
-let mk_to_int16 expr = mk_unary eval_to_int16 type_of_to_int16 expr
+let mk_to_uint16 expr = mk_unary eval_to_uint16 type_of_to_uint16 expr
 
 
 (* ********************************************************************** *)
 
 (* Evaluate conversion to integer32 *)
-let eval_to_int32 expr =
+let eval_to_uint32 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_int32 tt then
+  if Type.is_uint32 tt then
     expr
   else
     match Term.destruct expr with 
@@ -1622,28 +1622,28 @@ let eval_to_int32 expr =
             Term.mk_bv bv
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
-    | _ -> Term.mk_to_int32 expr
+    | _ -> Term.mk_to_uint32 expr
 
 (* Type of conversion to integer32  
 
-   int: real -> int32 
+   int: real -> uint32 
 *)
-let type_of_to_int32 = function
+let type_of_to_uint32 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int32 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 32
+  | t when Type.is_uint32 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 32
   | _ -> raise Type_mismatch
 
 
 (* Conversion to integer32 *)
-let mk_to_int32 expr = mk_unary eval_to_int32 type_of_to_int32 expr
+let mk_to_uint32 expr = mk_unary eval_to_uint32 type_of_to_uint32 expr
 
 
 (* ********************************************************************** *)
 
 (* Evaluate conversion to integer64 *)
-let eval_to_int64 expr =
+let eval_to_uint64 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_int64 tt then
+  if Type.is_uint64 tt then
     expr
   else
     match Term.destruct expr with 
@@ -1654,20 +1654,20 @@ let eval_to_int64 expr =
             Term.mk_bv bv
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
-    | _ -> Term.mk_to_int64 expr
+    | _ -> Term.mk_to_uint64 expr
 
 (* Type of conversion to integer64  
 
    int: real -> int64 
 *)
-let type_of_to_int64 = function
+let type_of_to_uint64 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int64 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 64
+  | t when Type.is_uint64 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 64
   | _ -> raise Type_mismatch
 
 
 (* Conversion to integer64 *)
-let mk_to_int64 expr = mk_unary eval_to_int64 type_of_to_int64 expr
+let mk_to_uint64 expr = mk_unary eval_to_uint64 type_of_to_uint64 expr
 
 
 (* ********************************************************************** *)
