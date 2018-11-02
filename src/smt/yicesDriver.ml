@@ -192,10 +192,10 @@ let string_symbol_list =
    (">", Symbol.mk_symbol `GT);
    ("to_real", Symbol.mk_symbol `TO_REAL);
    ("to_int", Symbol.mk_symbol `TO_INT);
-   ("to_uint8", Symbol.mk_symbol `TO_UINT8);
-   ("to_uint16", Symbol.mk_symbol `TO_UINT16);
-   ("to_uint32", Symbol.mk_symbol `TO_UINT32);
-   ("to_uint64", Symbol.mk_symbol `TO_UINT64);
+   ("(_ int2bv 8)", Symbol.mk_symbol `TO_UINT8);
+   ("(_ int2bv 16)", Symbol.mk_symbol `TO_UINT16);
+   ("(_ int2bv 32)", Symbol.mk_symbol `TO_UINT32);
+   ("(_ int2bv 64)", Symbol.mk_symbol `TO_UINT64);
    (* ("is_int", Symbol.mk_symbol `IS_INT); *)
 
    ("bv-concat", Symbol.mk_symbol `CONCAT);
@@ -269,10 +269,10 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
-  | `TO_UINT8 -> Format.pp_print_string ppf "to_uint8"
-  | `TO_UINT16 -> Format.pp_print_string ppf "to_uint16"
-  | `TO_UINT32 -> Format.pp_print_string ppf "to_uint32"
-  | `TO_UINT64 -> Format.pp_print_string ppf "to_uint64"
+  | `TO_UINT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
+  | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
+  | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
+  | `TO_UINT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
   | `IS_INT -> failwith "is_int not implemented for yices"
 
   | `DIVISIBLE n ->

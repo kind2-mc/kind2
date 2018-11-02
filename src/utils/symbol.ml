@@ -386,10 +386,10 @@ let rec pp_print_symbol_node ppf = function
 
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
-  | `TO_UINT8 -> Format.pp_print_string ppf "to_uint8"
-  | `TO_UINT16 -> Format.pp_print_string ppf "to_uint16"
-  | `TO_UINT32 -> Format.pp_print_string ppf "to_uint32"
-  | `TO_UINT64 -> Format.pp_print_string ppf "to_uint64"
+  | `TO_UINT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
+  | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
+  | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
+  | `TO_UINT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
   | `IS_INT -> Format.pp_print_string ppf "is_int"
 
   | `DIVISIBLE n -> 
