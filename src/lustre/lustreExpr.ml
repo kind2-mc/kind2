@@ -2430,32 +2430,14 @@ let eval_lte expr1 expr2 =
       else
 
         Term.t_false
-
-    | Term.T.Const c1, Term.T.Const c2 when
-        Symbol.is_bitvector c1 &&
-        Symbol.is_bitvector c2 ->
-        
+    
+    | _ ->
+        (* Bitvector comparisons are simplified in the simplify module *) 
+        (if Type.is_bitvector (Term.type_of_term expr1) then 
           Term.mk_bvule [expr1; expr2]
+        else 
+          Term.mk_leq [expr1; expr2])
 
-    | Term.T.Var c1, Term.T.Const c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Symbol.is_bitvector c2) -> 
-          
-          Term.mk_bvule [expr1; expr2]
-
-    | Term.T.Const c1, Term.T.Var c2 when
-        (Symbol.is_bitvector c1) &&
-        (Type.is_bitvector (Var.type_of_var c2)) ->
-          
-          Term.mk_bvule [expr1; expr2]
-
-    | Term.T.Var c1, Term.T.Var c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Type.is_bitvector (Var.type_of_var c2)) ->
-          
-          Term.mk_bvule [expr1; expr2]
-
-    | _ -> Term.mk_leq [expr1; expr2]
     | exception Invalid_argument _ -> Term.mk_leq [expr1; expr2]
 
 
@@ -2504,31 +2486,13 @@ let eval_lt expr1 expr2 =
 
         Term.t_false
 
-    | Term.T.Const c1, Term.T.Const c2 when
-        Symbol.is_bitvector c1 &&
-        Symbol.is_bitvector c2 ->
-
+    | _ ->
+        (* Bitvector comparisons are simplified in the simplify module *) 
+        (if Type.is_bitvector (Term.type_of_term expr1) then 
           Term.mk_bvult [expr1; expr2]
+        else 
+          Term.mk_lt [expr1; expr2])
 
-    | Term.T.Var c1, Term.T.Const c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Symbol.is_bitvector c2) -> 
-          
-          Term.mk_bvult [expr1; expr2]
-
-    | Term.T.Const c1, Term.T.Var c2 when
-        (Symbol.is_bitvector c1) &&
-        (Type.is_bitvector (Var.type_of_var c2)) ->
-          
-          Term.mk_bvult [expr1; expr2]
-
-    | Term.T.Var c1, Term.T.Var c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Type.is_bitvector (Var.type_of_var c2)) ->
-          
-          Term.mk_bvult [expr1; expr2]
-      
-    | _ -> Term.mk_lt [expr1; expr2]
     | exception Invalid_argument _ -> Term.mk_lt [expr1; expr2]
 
 
@@ -2577,31 +2541,13 @@ let eval_gte expr1 expr2 =
 
         Term.t_false
 
-    | Term.T.Const c1, Term.T.Const c2 when
-        Symbol.is_bitvector c1 &&
-        Symbol.is_bitvector c2 ->
-      
+    | _ ->
+        (* Bitvector comparisons are simplified in the simplify module *) 
+        (if Type.is_bitvector (Term.type_of_term expr1) then 
           Term.mk_bvuge [expr1; expr2]
+        else 
+          Term.mk_geq [expr1; expr2])
 
-    | Term.T.Var c1, Term.T.Const c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Symbol.is_bitvector c2) -> 
-          
-          Term.mk_bvuge [expr1; expr2]
-
-    | Term.T.Const c1, Term.T.Var c2 when
-        (Symbol.is_bitvector c1) &&
-        (Type.is_bitvector (Var.type_of_var c2)) ->
-          
-          Term.mk_bvuge [expr1; expr2]
-
-    | Term.T.Var c1, Term.T.Var c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Type.is_bitvector (Var.type_of_var c2)) ->
-          
-          Term.mk_bvuge [expr1; expr2]
-
-    | _ -> Term.mk_geq [expr1; expr2]
     | exception Invalid_argument _ -> Term.mk_geq [expr1; expr2]
 
 
@@ -2650,31 +2596,13 @@ let eval_gt expr1 expr2 =
 
         Term.t_false
 
-    | Term.T.Const c1, Term.T.Const c2 when
-        Symbol.is_bitvector c1 &&
-        Symbol.is_bitvector c2 ->
-      
+    | _ ->
+        (* Bitvector comparisons are simplified in the simplify module *) 
+        (if Type.is_bitvector (Term.type_of_term expr1) then 
           Term.mk_bvugt [expr1; expr2]
-    
-    | Term.T.Var c1, Term.T.Const c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Symbol.is_bitvector c2) -> 
-          
-          Term.mk_bvugt [expr1; expr2]
+        else 
+          Term.mk_gt [expr1; expr2])
 
-    | Term.T.Const c1, Term.T.Var c2 when
-        (Symbol.is_bitvector c1) &&
-        (Type.is_bitvector (Var.type_of_var c2)) ->
-          
-          Term.mk_bvugt [expr1; expr2]
-
-    | Term.T.Var c1, Term.T.Var c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Type.is_bitvector (Var.type_of_var c2)) ->
-          
-          Term.mk_bvugt [expr1; expr2]
-
-    | _ -> Term.mk_gt [expr1; expr2]
     | exception Invalid_argument _ -> Term.mk_gt [expr1; expr2]
 
 
@@ -2687,8 +2615,6 @@ let type_of_gt = type_of_num_num_bool
 
 (* Disequality *)
 let mk_gt expr1 expr2 = mk_binary eval_gt type_of_gt expr1 expr2
-
-
 
 
 (* ********************************************************************** *)

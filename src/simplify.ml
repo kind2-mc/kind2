@@ -1941,6 +1941,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           
             (match args with 
               | [BV b] -> BV b
+              | [x] -> x
               | _ -> assert false
             )
 
@@ -1950,6 +1951,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           
             (match args with 
               | [BV b] -> BV b
+              | [x] -> x
               | _ -> assert false
             )          
 
@@ -1959,6 +1961,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           
             (match args with 
               | [BV b] -> BV b
+              | [x] -> x
               | _ -> assert false
             )          
 
@@ -1968,6 +1971,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           
             (match args with 
               | [BV b] -> BV b
+              | [x] -> x
               | _ -> assert false
             )          
 
