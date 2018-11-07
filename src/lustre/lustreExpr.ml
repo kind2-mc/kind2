@@ -293,10 +293,10 @@ let string_of_symbol = function
   | `BV b -> 
           let bi = 
             (match Bitvector.length_of_bitvector b with
-            | 8 -> Bitvector.bv8_to_int b
-            | 16 -> Bitvector.bv16_to_int b
-            | 32 -> Bitvector.bv32_to_int b
-            | 64 -> Bitvector.bv64_to_int b
+            | 8 -> Bitvector.ubv8_to_int b
+            | 16 -> Bitvector.ubv16_to_int b
+            | 32 -> Bitvector.ubv32_to_int b
+            | 64 -> Bitvector.ubv64_to_int b
             | _ -> raise BV_size_mismatch) 
           in let nb = Numeral.of_int bi in
           Numeral.string_of_numeral nb
@@ -1553,7 +1553,7 @@ let eval_to_uint8 expr =
     | Term.T.Const s when Symbol.is_numeral s ->
       let num = Term.numeral_of_term expr in 
         let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_bv8 i in
+          let bv = Bitvector.int_to_ubv8 i in
             Term.mk_bv bv
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
@@ -1586,7 +1586,7 @@ let eval_to_uint16 expr =
     | Term.T.Const s when Symbol.is_numeral s ->
       let num = Term.numeral_of_term expr in 
         let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_bv16 i in
+          let bv = Bitvector.int_to_ubv16 i in
             Term.mk_bv bv
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
@@ -1618,7 +1618,7 @@ let eval_to_uint32 expr =
     | Term.T.Const s when Symbol.is_numeral s ->
       let num = Term.numeral_of_term expr in 
         let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_bv32 i in
+          let bv = Bitvector.int_to_ubv32 i in
             Term.mk_bv bv
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
@@ -1650,7 +1650,7 @@ let eval_to_uint64 expr =
     | Term.T.Const s when Symbol.is_numeral s ->
       let num = Term.numeral_of_term expr in 
         let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_bv64 i in
+          let bv = Bitvector.int_to_ubv64 i in
             Term.mk_bv bv
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch

@@ -15,8 +15,8 @@ let bin_to_bool (i : int) : bool =
   | 1 -> true
   | _ -> raise NonBinaryDigit
 
-(* Function that returns fixed-width int or bitvector version of an int *)
-let int_to_bv (b : int) (i : int) : t =
+(* Function that returns unsigned fixed-width int or bitvector version of an int *)
+let int_to_ubv (b : int) (i : int) : t =
   let m = 1 lsl b in
   let n =
     if (i < 0) then (m + (i mod m)) mod m
@@ -33,13 +33,13 @@ let int_to_bv (b : int) (i : int) : t =
   in
   pad bv (b - l)
 
-let int_to_bv8 = int_to_bv 8 
+let int_to_ubv8 = int_to_ubv 8 
 
-let int_to_bv16 = int_to_bv 16
+let int_to_ubv16 = int_to_ubv 16
 
-let int_to_bv32 = int_to_bv 32
+let int_to_ubv32 = int_to_ubv 32
 
-let int_to_bv64 = int_to_bv 64
+let int_to_ubv64 = int_to_ubv 64
 
 (* Function that converts a Boolean single binary integer digit *)
 let bool_to_bin (b : bool) : int =
@@ -54,18 +54,18 @@ let rec pow2 (n : int) : int =
   | n' -> 2 * pow2 (n' - 1)
 
 (* Function that returns the integer corresponding to a bitvector *)
-let rec bv_to_int (i : int)  (b: t) : int =
+let rec ubv_to_int (i : int)  (b: t) : int =
   match b with
-  | h :: t ->  (bool_to_bin h) * (pow2 (i - 1)) + bv_to_int (i - 1) t
+  | h :: t ->  (bool_to_bin h) * (pow2 (i - 1)) + ubv_to_int (i - 1) t
   | nil -> 0
 
-let bv8_to_int = bv_to_int 8
+let ubv8_to_int = ubv_to_int 8
 
-let bv16_to_int = bv_to_int 16
+let ubv16_to_int = ubv_to_int 16
 
-let bv32_to_int = bv_to_int 32
+let ubv32_to_int = ubv_to_int 32
 
-let bv64_to_int = bv_to_int 64
+let ubv64_to_int = ubv_to_int 64
 
 (* Function that inputs a list of bitvectors and returns Some n
    if all bitvectors have size n, where n = 8,16,32,64, and None otherwise 
