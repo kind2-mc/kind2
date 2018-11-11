@@ -566,7 +566,6 @@ let smtlib_string_symbol_list =
    ("(_ int2bv 64)", Symbol.mk_symbol `TO_UINT64);         
    ("is_int", Symbol.mk_symbol `IS_INT);
 
-   ("concat", Symbol.mk_symbol `CONCAT);
    ("bvnot", Symbol.mk_symbol `BVNOT);
    ("bvneg", Symbol.mk_symbol `BVNEG);
    ("bvand", Symbol.mk_symbol `BVAND);
@@ -657,14 +656,6 @@ let rec pp_print_symbol_node ?arity ppf = function
     Format.pp_print_string ppf "divisible";
     Format.pp_print_space ppf ();
     Numeral.pp_print_numeral ppf n
-
-  | `CONCAT -> Format.pp_print_string ppf "concat"
-  | `EXTRACT (i, j) -> 
-    Format.fprintf 
-      ppf 
-      "(_ extract %a %a)" 
-      Numeral.pp_print_numeral i
-      Numeral.pp_print_numeral j
 
   | `BVNOT -> Format.pp_print_string ppf "bvnot"
   | `BVNEG -> Format.pp_print_string ppf "bvneg"

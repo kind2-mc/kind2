@@ -198,7 +198,6 @@ let string_symbol_list =
    ("(_ int2bv 64)", Symbol.mk_symbol `TO_UINT64);
    (* ("is_int", Symbol.mk_symbol `IS_INT); *)
 
-   ("bv-concat", Symbol.mk_symbol `CONCAT);
    ("bv-not", Symbol.mk_symbol `BVNOT);
    ("bv-neg", Symbol.mk_symbol `BVNEG);
    ("bv-and", Symbol.mk_symbol `BVAND);
@@ -277,14 +276,6 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `DIVISIBLE n ->
     failwith "divisible not implemented for yices"
-
-  | `CONCAT -> Format.pp_print_string ppf "bv-concat"
-  | `EXTRACT (i, j) -> 
-    Format.fprintf 
-      ppf 
-      "bv-extract %a %a" 
-      Numeral.pp_print_numeral j
-      Numeral.pp_print_numeral i
 
   | `BVNOT -> Format.pp_print_string ppf "bv-not"
   | `BVNEG -> Format.pp_print_string ppf "bv-neg"

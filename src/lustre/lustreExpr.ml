@@ -689,8 +689,6 @@ and pp_print_app ?as_type safe pvar ppf = function
     (* Unsupported functions symbols *)
     | `DISTINCT
 
-    | `CONCAT
-    | `EXTRACT _
     | `BVNOT
     | `BVNEG
 

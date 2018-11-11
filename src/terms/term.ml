@@ -559,36 +559,7 @@ let rec type_of_term t = match T.destruct t with
         (* Real-valued functions *)
         | `TO_REAL
         | `DIV -> Type.mk_real ()
-          
-        (* Bitvector-valued function *)
-        | `CONCAT -> 
-
-          (match l with 
-
-            (* Concat is binary *)
-            | [a; b] -> 
-              
-              (* Compute width of resulting bitvector *)
-              (match 
-                  (Type.node_of_type (type_of_term a), 
-                   Type.node_of_type (type_of_term b))
-               with
-                 | Type.BV i, Type.BV j -> 
-
-                   Type.mk_bv (i + j)
-
-                 | _ -> assert false)
-                
-            | _ -> assert false)
-     
-            
-        (* Bitvector-valued function *)
-        | `EXTRACT (i, j) -> 
-          
-          (* Compute width of resulting bitvector *)
-          Type.mk_bv
-            ((Numeral.to_int j) - (Numeral.to_int i) + 1)
-
+      
             
         (* Array-valued function *)
         | `SELECT ty_array ->

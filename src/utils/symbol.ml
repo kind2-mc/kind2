@@ -75,9 +75,6 @@ type interpreted_symbol =
   | `DIVISIBLE of Numeral.t 
                           (* Divisible by [n] (unary) *)
 
-  | `CONCAT               (* Concatenation of bitvectors (binary) *)
-  | `EXTRACT of Numeral.t * Numeral.t 
-                          (* Extract subsequence from bitvector (unary) *)
   | `BVNOT                (* Bit-wise negation (unary) *)
   | `BVNEG                (* Arithmetic negation (unary) *)
   | `BVAND                (* Bit-wise conjunction (binary) *)
@@ -147,8 +144,6 @@ module Symbol_node = struct
     | `DECIMAL d1, `DECIMAL d2 -> Decimal.equal d1 d2
     | `DIVISIBLE n1, `DIVISIBLE n2 -> Numeral.equal n1 n2
 
-    | `EXTRACT (i1, j1), `EXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
-
     | `BV i, `BV j -> i = j
 
     | `UF u1, `UF u2 -> UfSymbol.equal_uf_symbols u1 u2
@@ -156,8 +151,6 @@ module Symbol_node = struct
     | `NUMERAL _, _
     | `DECIMAL _, _
     | `DIVISIBLE _, _
-
-    | `EXTRACT _, _
 
     | `BV _, _
 
@@ -200,8 +193,6 @@ module Symbol_node = struct
 
     | `STORE, `STORE -> true
 
-
-    | `CONCAT, `CONCAT
     | `BVNOT, `BVNOT 
     | `BVNEG, `BVNEG
     | `BVAND, `BVAND
@@ -249,7 +240,6 @@ module Symbol_node = struct
     | `SELECT _, _
     | `STORE, _ 
 
-    | `CONCAT, _
     | `BVNOT, _ 
     | `BVNEG, _
     | `BVAND, _
@@ -396,14 +386,6 @@ let rec pp_print_symbol_node ppf = function
     Format.pp_print_string ppf "divisible";
     Format.pp_print_space ppf ();
     Numeral.pp_print_numeral ppf n
-
-  | `CONCAT -> Format.pp_print_string ppf "concat"
-  | `EXTRACT (i, j) -> 
-    Format.fprintf 
-      ppf 
-      "(_ extract %a %a)" 
-      Numeral.pp_print_numeral i
-      Numeral.pp_print_numeral j
 
   | `BVNOT -> Format.pp_print_string ppf "bvnot"
   | `BVNEG -> Format.pp_print_string ppf "bvneg"

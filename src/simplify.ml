@@ -760,8 +760,6 @@ let rec negate_nnf term = match Term.destruct term with
       | `TO_UINT32, _
       | `TO_UINT64, _ 
 
-      | `CONCAT, _
-      | `EXTRACT _, _
       | `BVNEG, _
       | `BVADD, _
       | `BVMUL, _
@@ -2103,10 +2101,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           (* Bitvectors not implemented *)
           | `BVLSHR
           | `BVNEG
-          | `BVSHL
-          | `CONCAT -> assert false
-          | `EXTRACT _ -> assert false
-
+          | `BVSHL -> assert false
 
           (* Constant symbols *)
           | `TRUE

@@ -55,8 +55,6 @@
     {- [`TO_INT] unary: conversion to an integer number }
     {- [`IS_INT] unary: real is an integer}
     {- [`DIVISIBLE n] unary: divisibilibty by n}
-    {- [`CONCAT] binary: concatenation of bitvectors }
-    {- [`EXTRACT (i, j)] unary: extract subsequence from bitvector}
     {- [`BVNOT] unary: bit-wise negation}
     {- [`BVNEG] unary: arithmetic negation (unary)}
     {- [`BVAND] binary: bit-wise conjunction}
@@ -138,9 +136,6 @@ type interpreted_symbol =
   | `DIVISIBLE of Numeral.t
                           (** Divisible by [n] (unary) *)
 
-  | `CONCAT               (** Concatenation of bitvectors (binary) *)
-  | `EXTRACT of Numeral.t * Numeral.t 
-                          (** Extract subsequence from bitvector (unary) *)
   | `BVNOT                (** Bit-wise negation (unary) *)
   | `BVNEG                (** Arithmetic negation (unary) *)
   | `BVAND                (** Bit-wise conjunction (binary) *)

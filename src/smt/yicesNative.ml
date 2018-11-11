@@ -510,8 +510,6 @@ let ensure_symbol_qf_lira s =
   | `MOD
   | `ABS
 
-  | `CONCAT
-  | `EXTRACT _
   | `BVNOT
   | `BVNEG
   | `BVAND
