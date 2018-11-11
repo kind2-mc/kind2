@@ -9,25 +9,50 @@ exception ComparingUnequalBVs
 
 
 (* Function that converts a single binary integer digit to Boolean *)
-let bin_to_bool (i : int) : bool =
+(*let bin_to_bool (i : int) : bool =
   match i with 
   | 0 -> false
   | 1 -> true
-  | _ -> raise NonBinaryDigit
+  | _ -> raise NonBinaryDigit*)
+
+(* The mod operator in OCaml implements remainder 
+with respect to integer division. Since integer division
+in OCaml rounds toward 0, we design modulo which considers 
+division that rounds toward negative infinity. 
+For example, -1 mod 8 is -1 (with quotient 0) in OCaml, 
+we want it to be 7 (with quotient -1).
+The OCaml mod operator will do if we don't consider 
+a mod b where a is negative. This function considers this 
+case, but doesn't consider the case where b could be 
+negative. But that's ok since we don't consider cases of 
+modulo-n arithmetic where n is negative. *)
+let modulo x y =
+  let result = x mod y in
+  if result >= 0 then result
+  else result + y
 
 (* Function that returns unsigned fixed-width int or bitvector version of an int *)
 let int_to_ubv (b : int) (i : int) : t =
+  (* 
+  For converting n to UBV8, n modulo 256.
+  In general, for converting n to UBVm, 
+  n modulo 2^m, or n modulo r where
+  r = 1 << m since (<< m) <=> ( * 2^m).
+  *)
   let m = 1 lsl b in
-  let n =
-    if (i < 0) then (m + (i mod m)) mod m
-    else i mod m
+  let n = modulo i m
+    (* if (i < 0) then (m + (i mod m)) mod m
+    else i mod m *)
   in
+  (* Tail-recursive function that converts n to type t,
+  which is a list of bools *)
   let rec convert acc l n =
     if n>0 then
       convert (((n mod 2) = 1) :: acc) (l+1) (n / 2)
     else (acc, l)
   in
   let bv, l = convert [] 0 n in
+  (* For n-bit BV, pad upto n bits with 0s *)
   let rec pad bv l =
     if l>0 then pad (false :: bv) (l-1) else bv
   in
