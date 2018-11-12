@@ -72,7 +72,7 @@ let int_to_ubv64 = int_to_ubv 64
 
 
 (* ********************************************************************** *)
-(* Unsigned BV -> Int                                                    *)
+(* Unsigned BV -> Int                                                     *)
 (* ********************************************************************** *)
 
 (* Function that converts a Boolean single binary integer digit *)
@@ -105,6 +105,106 @@ let ubv64_to_int = ubv_to_int 64
 (* ********************************************************************** *)
 (* Int -> Signed BV                                                       *)
 (* ********************************************************************** *)
+
+(* Input any number n, input the size of the 
+BV range, output the number fit into the range.
+For example, for 4-bit signed integers, input 
+-9, 16 (2^4), and output 7 *)
+let signed_modulo (n : int) (range_size : int) = 
+  let neg_lim = -(range_size/2) in
+    let pos_lim = (range_size/2) - 1 in
+      if (n < neg_lim) then
+        let diff = (neg_lim - n) in 
+          let diff_mod = (diff mod range_size) in
+            if (diff_mod = 0) then neg_lim else (pos_lim - (diff_mod - 1))
+      else if (n > pos_lim) then
+        let diff = (n - pos_lim) in
+	  let diff_mod = (diff mod range_size) in
+	    if (diff_mod = 0) then pos_lim else (neg_lim + (diff_mod - 1))
+      else n
+
+(*1's complement of binary number - 
+flip all bits *)
+let rec ones_comp (n : t) : t =
+  match n with 
+  | [] -> []
+  | h :: t -> match h with 
+	      | true -> false :: (ones_comp t)
+	      | false -> true :: (ones_comp t)
+
+(* Return a binary version of size-bit 1 *)
+let rec bin_one (size : int) : t =
+  if (size > 1) then
+    false :: (bin_one (size - 1))
+  else [true]
+
+(* Input : bit1, bit2, carryIn; Output : sum, carryOut *)
+let add_bits (x : bool) (y : bool) (carry : bool) : (bool * bool) = 
+  match x, y, carry with 
+  | false, false, false -> (false, false) 
+  | false, false, true  -> (true, false)
+  | false, true, false  -> (true, false) 
+  | false, true, true   -> (false, true)
+  | true, false, false  -> (true, false)
+  | true, false, true   -> (false, true)
+  | true, true, false   -> (false, true)
+  | true, true, true    -> (true, true)
+
+(* Binary additon - LSB is the left-most bit 
+because binary numbers have been reversed. 
+Ignore bit carried out of MSB (2's complement). *)
+let rec bitwise_add (l1 : t) (l2 : t) (carry : bool) : t =
+match l1, l2 with
+  | [], [] -> []
+  | h1 :: t1, h2 :: t2 -> 
+    (match (add_bits h1 h2 carry) with
+    | (sum_bit, carry_bit) -> sum_bit :: (bitwise_add t1 t2 carry_bit)) 
+  | _ -> raise ComparingUnequalBVs
+
+(* Input an n-size number and add an 
+n-size 1 to it, ignoring if the last bit 
+carry's out (for 2's complement)*)
+let plus_one (n : t) (one : t) : t =
+  let r_n = List.rev n in
+  let r_one = List.rev one in 
+  List.rev (bitwise_add r_n r_one false)
+
+let int_to_bv (size : int) (i : int) : t =
+  let m = 1 lsl size in 
+  let n = signed_modulo i m in
+  if (n >= 0) then 
+    (int_to_ubv size i)
+  else 
+    let pos = (int_to_ubv size (-(n))) in
+    let onescomp = ones_comp pos in 
+    plus_one onescomp (bin_one size)
+
+let int_to_bv8 = int_to_bv 8 
+
+let int_to_bv16 = int_to_bv 16
+
+let int_to_bv32 = int_to_bv 32
+
+let int_to_bv64 = int_to_bv 64
+
+
+(* ********************************************************************** *)
+(* Signed BV -> Int                                                       *)
+(* ********************************************************************** *)
+
+let bv_to_int (size : int) (b : t) :  int =
+  if ((List.nth b 0) = false) then
+    ubv_to_int size b
+  else (-(ubv_to_int size (plus_one (ones_comp b) (bin_one size))))
+
+let bv8_to_int = bv_to_int 8
+
+let bv16_to_int = bv_to_int 16
+
+let bv32_to_int = bv_to_int 32
+
+let bv64_to_int = bv_to_int 64
+
 
 
 
