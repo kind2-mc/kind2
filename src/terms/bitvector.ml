@@ -9,11 +9,15 @@ exception ComparingUnequalBVs
 
 
 (* Function that converts a single binary integer digit to Boolean *)
-(*let bin_to_bool (i : int) : bool =
-  match i with 
+(*let bin_to_bool (digit : int) : bool =
+  match digit with 
   | 0 -> false
   | 1 -> true
   | _ -> raise NonBinaryDigit*)
+
+(* ********************************************************************** *)
+(* Int -> Unsigned BV                                                    *)
+(* ********************************************************************** *)
 
 (* The mod operator in OCaml implements remainder 
 with respect to integer division. Since integer division
@@ -32,14 +36,14 @@ let modulo x y =
   else result + y
 
 (* Function that returns unsigned fixed-width int or bitvector version of an int *)
-let int_to_ubv (b : int) (i : int) : t =
+let int_to_ubv (size : int) (i : int) : t =
   (* 
   For converting n to UBV8, n modulo 256.
   In general, for converting n to UBVm, 
   n modulo 2^m, or n modulo r where
   r = 1 << m since (<< m) <=> ( * 2^m).
   *)
-  let m = 1 lsl b in
+  let m = 1 lsl size in
   let n = modulo i m
     (* if (i < 0) then (m + (i mod m)) mod m
     else i mod m *)
@@ -56,7 +60,7 @@ let int_to_ubv (b : int) (i : int) : t =
   let rec pad bv l =
     if l>0 then pad (false :: bv) (l-1) else bv
   in
-  pad bv (b - l)
+  pad bv (size - l)
 
 let int_to_ubv8 = int_to_ubv 8 
 
@@ -65,6 +69,11 @@ let int_to_ubv16 = int_to_ubv 16
 let int_to_ubv32 = int_to_ubv 32
 
 let int_to_ubv64 = int_to_ubv 64
+
+
+(* ********************************************************************** *)
+(* Unsigned BV -> Int                                                    *)
+(* ********************************************************************** *)
 
 (* Function that converts a Boolean single binary integer digit *)
 let bool_to_bin (b : bool) : int =
@@ -79,9 +88,9 @@ let rec pow2 (n : int) : int =
   | n' -> 2 * pow2 (n' - 1)
 
 (* Function that returns the integer corresponding to a bitvector *)
-let rec ubv_to_int (i : int)  (b: t) : int =
+let rec ubv_to_int (size : int)  (b: t) : int =
   match b with
-  | h :: t ->  (bool_to_bin h) * (pow2 (i - 1)) + ubv_to_int (i - 1) t
+  | h :: t ->  (bool_to_bin h) * (pow2 (size - 1)) + ubv_to_int (size - 1) t
   | nil -> 0
 
 let ubv8_to_int = ubv_to_int 8
@@ -91,6 +100,13 @@ let ubv16_to_int = ubv_to_int 16
 let ubv32_to_int = ubv_to_int 32
 
 let ubv64_to_int = ubv_to_int 64
+
+
+(* ********************************************************************** *)
+(* Int -> Signed BV                                                       *)
+(* ********************************************************************** *)
+
+
 
 (* Function that inputs a list of bitvectors and returns Some n
    if all bitvectors have size n, where n = 8,16,32,64, and None otherwise 
