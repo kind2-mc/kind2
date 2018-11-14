@@ -77,6 +77,9 @@ val bool_of_hstring : HString.t -> bool
 (** Pretty-print a constant bitvector in SMTLIB binary format *)
 val pp_smtlib_print_bitvector_b : Format.formatter -> t -> unit
 
+(* Pretty-print a bitvector in SMTLIB extended decimal format *)
+val pp_smtlib_print_bitvector_d : Format.formatter -> int -> int -> unit
+
 (** Pretty-print a constant bitvector in Yices' binary format *)
 val pp_yices_print_bitvector_b : Format.formatter -> t -> unit
 

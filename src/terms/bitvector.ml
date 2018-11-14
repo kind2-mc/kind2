@@ -15,8 +15,9 @@ exception ComparingUnequalBVs
   | 1 -> true
   | _ -> raise NonBinaryDigit*)
 
+
 (* ********************************************************************** *)
-(* Int -> Unsigned BV                                                    *)
+(* Int -> Unsigned BV                                                     *)
 (* ********************************************************************** *)
 
 (* The mod operator in OCaml implements remainder 
@@ -206,7 +207,9 @@ let bv32_to_int = bv_to_int 32
 let bv64_to_int = bv_to_int 64
 
 
-
+(* ********************************************************************** *)
+(* Unused - Might be Useful in the Future                                 *)
+(* ********************************************************************** *)
 
 (* Function that inputs a list of bitvectors and returns Some n
    if all bitvectors have size n, where n = 8,16,32,64, and None otherwise 
@@ -225,6 +228,11 @@ let check_bv_uniform bvl =
           else
             None
 
+
+(* ********************************************************************** *)
+(* Auxiliary Functions                                                    *)
+(* ********************************************************************** *)
+
 (* Return the first n elements of a list *)
 let rec list_first_n' a l n =
   if n = 0 then a else 
@@ -233,7 +241,6 @@ let rec list_first_n' a l n =
         | Failure _ -> invalid_arg "list_first_n") :: a) 
       l
       (pred n) 
-
 
 (* Return the first n elements of a list *)
 let list_first_n l n = list_first_n' [] l n 
@@ -246,12 +253,15 @@ let rec list_from_n l n =
       (pred n)
 
 
+(* ********************************************************************** *)
+(* Pretty-printing                                                        *)
+(* ********************************************************************** *)
+
 (* Pretty-print a bitvector in binary format without #b prefix *)
 let rec pp_print_bitvector_b' ppf = function 
   | [] -> ()
   | true :: tl -> pp_print_int ppf 1; pp_print_bitvector_b' ppf tl
   | false :: tl -> pp_print_int ppf 0; pp_print_bitvector_b' ppf tl
-
 
 (* Pretty-print a bitvector in SMTLIB binary format *)
 let pp_smtlib_print_bitvector_b ppf b = 
@@ -262,6 +272,10 @@ let pp_smtlib_print_bitvector_b ppf b =
 let pp_yices_print_bitvector_b ppf b = 
   fprintf ppf "0b%a" pp_print_bitvector_b' b
 
+
+(* Pretty-print a bitvector in SMTLIB extended decimal format *)
+let pp_smtlib_print_bitvector_d ppf n size = 
+  fprintf ppf "(_ bv%s %s)" (string_of_int n) (string_of_int size)
 
 (* Association list of bitvectors to hexadecimal digits *)
 let bv_hex_table = 
@@ -281,6 +295,37 @@ let bv_hex_table =
    ([true; true; false; true],    "D");
    ([true; true; true; false],    "E");
    ([true; true; true; true]),    "F"]
+
+(* Pretty-print a bitvector in hexadecimal format *)
+let rec pp_print_bitvector_x' ppf = function
+
+  (* Print nothing for the empty bitvector *)
+  | [] -> ()
+
+  (* Pad with a false bit if less than four bits *)
+  | d :: ([] as tl)
+  | d :: ([_] as tl) 
+  | d :: ([_; _] as tl) ->
+    pp_print_bitvector_x' ppf (false :: d :: tl)
+
+  (* Print a hexadecimal digit for the first four bits *)
+  | d1 :: d2 :: d3 :: d4 :: tl -> 
+    pp_print_string 
+      ppf 
+      (List.assoc ([d1; d2; d3; d4]) bv_hex_table);
+    pp_print_bitvector_x' ppf tl
+
+(* Pretty-print a bitvector in hexadecimal format *)
+let pp_print_bitvector_x ppf b = 
+  
+  pp_print_string ppf "#X";
+  
+  match (List.length b) mod 4 with 
+    | 0 -> pp_print_bitvector_x' ppf b
+    | i -> 
+      pp_print_bitvector_x' ppf (list_first_n b i);
+      pp_print_bitvector_x' ppf (list_from_n b i)
+
 
 (* Association list of hexadecimal digits to bitvectors *)
 let hex_bv_table = 
@@ -307,38 +352,26 @@ let hex_bv_table =
    ("e", [true; true; true; false]);
    ("f", [true; true; true; true])] 
 
+(* Convert a sequence of hexadecimal digits to a constant bitvector *)
+let rec bitvector_of_string_x a i s = 
+  
+  if i <= 1 then a else
+    
+    try 
 
-(* Pretty-print a bitvector in hexadecimal format *)
-let rec pp_print_bitvector_x' ppf = function
+      bitvector_of_string_x
+        ((List.assoc (String.sub s i 1) hex_bv_table ) @ a)
+        (pred i)
+        s
 
-  (* Print nothing for the empty bitvector *)
-  | [] -> ()
+    with Not_found -> 
 
-  (* Pad with a false bit if less than four bits *)
-  | d :: ([] as tl)
-  | d :: ([_] as tl) 
-  | d :: ([_; _] as tl) ->
-    pp_print_bitvector_x' ppf (false :: d :: tl)
-
-  (* Print a hexadecimal digit for the first four bits *)
-  | d1 :: d2 :: d3 :: d4 :: tl -> 
-    pp_print_string 
-      ppf 
-      (List.assoc ([d1; d2; d3; d4]) bv_hex_table);
-    pp_print_bitvector_x' ppf tl
+      raise (Invalid_argument "bitvector_of_string")
     
       
-(* Pretty-print a bitvector in hexadecimal format *)
-let pp_print_bitvector_x ppf b = 
-  
-  pp_print_string ppf "#X";
-  
-  match (List.length b) mod 4 with 
-    | 0 -> pp_print_bitvector_x' ppf b
-    | i -> 
-      pp_print_bitvector_x' ppf (list_first_n b i);
-      pp_print_bitvector_x' ppf (list_from_n b i)
-
+(* ********************************************************************** *)
+(* Conversions                                                            *)
+(* ********************************************************************** *)
 
 (* Convert an OCaml integer to an infinite-precision integer numeral *)
 let numeral_of_int i = HString.mk_hstring (Printf.sprintf "%i%!" i)
@@ -357,24 +390,18 @@ let decimal_of_float f =
   else
     HString.mk_hstring (Printf.sprintf "%F%!" f)
       
-
 (* Convert an infinite-precision integer numeral to an OCaml integer *)
 let int_of_numeral n = int_of_string (HString.string_of_hstring n)
 
-
 (* Convert an OCaml float to an infinite-precision real decimal *)
 let float_of_decimal d = float_of_string (HString.string_of_hstring d)
-
-
 
 (* Convert a bitvector to an integer *)
 let int_of_bitvector b = 
   List.fold_left (fun a b -> a lsl 1 + (if b then 1 else 0)) 0 b
 
-
 (* Convert a bitvector to an integer *)
 let length_of_bitvector b = List.length b
-
 
 (* A sequence of digits without leading zero *)
 let numeral_of_string s = 
@@ -428,24 +455,6 @@ let rec bitvector_of_string_b a i s =
       | "0" -> bitvector_of_string_b (false :: a) (pred i) s
       | "1" -> bitvector_of_string_b (true :: a) (pred i) s
       | _ -> raise (Invalid_argument "bitvector_of_string")
-
-
-(* Convert a sequence of hexadecimal digits to a constant bitvector *)
-let rec bitvector_of_string_x a i s = 
-  
-  if i <= 1 then a else
-    
-    try 
-
-      bitvector_of_string_x
-        ((List.assoc (String.sub s i 1) hex_bv_table ) @ a)
-        (pred i)
-        s
-
-    with Not_found -> 
-
-      raise (Invalid_argument "bitvector_of_string")
-
 
 (* Convert a string to a constant bitvector *)
 let bitvector_of_string s = 
@@ -511,7 +520,6 @@ let decimal_of_hstring s =
       (* Return decimal *)
       n
 
-
 (* Cache for conversions of strings to bitvectors *)
 let hstring_bitvector_cache = HString.HStringHashtbl.create 7
 
@@ -532,14 +540,11 @@ let bitvector_of_hstring s =
       (* Return bitvector *)
       n
 
-
 (* Convert an infinite-precision integer numeral to a string *)
 let string_of_numeral s = HString.string_of_hstring s 
 
-
 (* Convert an infinite-precision real decimal to a string *)
 let string_of_decimal s = HString.string_of_hstring s 
-
 
 (* Convert a hashconsed string to a Boolean value *)
 let bool_of_hstring s = bool_of_string (HString.string_of_hstring s) 
