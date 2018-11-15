@@ -240,6 +240,10 @@ let keyword_table = mk_hashtbl [
   "uint16", UINT16;
   "uint32", UINT32;
   "uint64", UINT64;
+  "int8", INT8;
+  "int16", INT16;
+  "int32", INT32;
+  "int64", INT64;
   "real", REAL ;
   "bool", BOOL ;
   "subrange", SUBRANGE ;

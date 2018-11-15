@@ -35,6 +35,7 @@ type kindtype =
   | Int
   | IntRange of Numeral.t * Numeral.t * rangekind
   | Real
+  | UBV of int
   | BV of int
   (* First is element type, second is index type, and third is the size *)
   | Array of t * t
@@ -85,6 +86,8 @@ module Kindtype_node = struct
     | IntRange _, _ -> false
     | Real, Real -> true
     | Real, _ -> false
+    | UBV i, UBV j -> i = j
+    | UBV i, UBV j -> false
     | BV i, BV j -> i = j
     | BV i, _ -> false
     | Array (i1, t1), Array (i2, t2) -> (i1 == i2) && (t1 == t2)
@@ -195,12 +198,19 @@ let rec pp_print_type_node ppf = function
 
   | Real -> Format.pp_print_string ppf "Real"
 
-  | BV i -> 
+  | UBV i -> 
 
     Format.fprintf
       ppf 
       "(_ BitVec %d)" 
       i 
+
+  | BV i -> 
+
+    Format.fprintf
+      ppf 
+      "(_ BitVec %d)" 
+      i
 
   | Array (s, t) -> 
     Format.fprintf
@@ -236,6 +246,8 @@ let mk_int () = Hkindtype.hashcons ht Int ()
 let mk_int_range l u = Hkindtype.hashcons ht (IntRange (l, u, Range)) ()
 
 let mk_real () = Hkindtype.hashcons ht Real ()
+
+let mk_ubv w = Hkindtype.hashcons ht (UBV w) ()
 
 let mk_bv w = Hkindtype.hashcons ht (BV w) ()
 
@@ -305,6 +317,7 @@ let rec import { Hashcons.node = n } = match n with
   | Bool
   | Int
   | IntRange _
+  | UBV _
   | BV _ 
   | Real as t -> mk_type t
 
@@ -318,6 +331,7 @@ let rec import { Hashcons.node = n } = match n with
 (* Static values *)
 let t_bool = mk_bool ()
 let t_int = mk_int ()
+let t_ubv w = mk_ubv w
 let t_bv w = mk_bv w
 let t_real = mk_real ()
 
@@ -345,27 +359,48 @@ let rec is_int_range { Hashcons.node = t } = match t with
   | Array (t, _) -> false (* is_int_range t *)
   |  _ -> false
 
+let rec is_ubitvector { Hashcons.node = t } = match t with
+  | UBV _ -> true
+  | _ -> false
+
 let rec is_bitvector { Hashcons.node = t } = match t with
   | BV _ -> true
   | _ -> false
 
 let bitvectorsize { Hashcons.node = t } = match t with
+  | UBV n -> n
   | BV n -> n
   | _ -> 0
   
 let rec is_uint8 { Hashcons.node = t } = match t with
-  | BV 8 -> true 
+  | UBV 8 -> true 
   | _-> false
 
 let rec is_uint16 { Hashcons.node = t } = match t with
-  | BV 16 -> true 
+  | UBV 16 -> true 
   | _-> false
 
 let rec is_uint32 { Hashcons.node = t } = match t with
-  | BV 32 -> true 
+  | UBV 32 -> true 
   | _-> false
 
 let rec is_uint64 { Hashcons.node = t } = match t with
+  | UBV 64 -> true 
+  | _-> false
+
+let rec is_int8 { Hashcons.node = t } = match t with
+  | BV 8 -> true 
+  | _-> false
+
+let rec is_int16 { Hashcons.node = t } = match t with
+  | BV 16 -> true 
+  | _-> false
+
+let rec is_int32 { Hashcons.node = t } = match t with
+  | BV 32 -> true 
+  | _-> false
+
+let rec is_int64 { Hashcons.node = t } = match t with
   | BV 64 -> true 
   | _-> false
 
@@ -459,6 +494,8 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
     | Real, Real
     | Bool, Bool -> true
 
+    | UBV i, UBV j -> i = j
+    
     | BV i, BV j -> i = j
     
     | Abstr s1, Abstr s2 -> s1 = s2

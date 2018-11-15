@@ -81,6 +81,9 @@ val mk_int_range : Numeral.t -> Numeral.t -> t
 (** Return the real decimal type *)
 val mk_real : unit -> t
 
+(** Return the unsigned bitvector type *)
+val mk_ubv : int -> t
+
 (** Return the bitvector type *)
 val mk_bv : int -> t
 
@@ -105,6 +108,9 @@ val t_int : t
 (** The real decimal type *)
 val t_real : t
 
+(** The unsigned bitvector type *)
+val t_ubv : int -> t
+
 (** The bitvector type *)
 val t_bv : int -> t
 
@@ -122,23 +128,38 @@ val is_bool : t -> bool
 (** Return [true] if the type is the integer type *)
 val is_int : t -> bool
 
+(** Return [true] if the type is an unsigned bitvector (integern) type *)
+val is_ubitvector : t -> bool
+
 (** Return [true] if the type is a bitvector (integern) type *)
 val is_bitvector : t -> bool
 
 (** Return [true] if the type is a bitvector (integern) type *)
 val bitvectorsize : t -> int
 
-(** Return [true] if the type is the integer8 type *)
+(** Return [true] if the type is the unsigned integer8 type *)
 val is_uint8 : t -> bool
 
-(** Return [true] if the type is the integer16 type *)
+(** Return [true] if the type is the unsigned integer16 type *)
 val is_uint16 : t -> bool
 
-(** Return [true] if the type is the integer32 type *)
+(** Return [true] if the type is the unsigned integer32 type *)
 val is_uint32 : t -> bool
 
-(** Return [true] if the type is the integer64 type *)
+(** Return [true] if the type is the unsigned integer64 type *)
 val is_uint64 : t -> bool
+
+(** Return [true] if the type is the integer8 type *)
+val is_int8 : t -> bool
+
+(** Return [true] if the type is the integer16 type *)
+val is_int16 : t -> bool
+
+(** Return [true] if the type is the integer32 type *)
+val is_int32 : t -> bool
+
+(** Return [true] if the type is the integer64 type *)
+val is_int64 : t -> bool
 
 (** Return [true] if the type is an integer range type *)
 val is_int_range : t -> bool
@@ -148,10 +169,7 @@ val is_enum : t -> bool
 
 (** Return [true] if the type is the real type *)
 val is_real : t -> bool
-(*
-(** Return [true] if the type is a bitvector type *)
-val is_bv : t -> bool
-*)
+
 (** Return [true] if the type is an array type *)
 val is_array : t -> bool
 

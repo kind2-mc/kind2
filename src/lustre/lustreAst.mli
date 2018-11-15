@@ -76,6 +76,10 @@ type expr =
   | ToUInt16 of position * expr
   | ToUInt32 of position * expr
   | ToUInt64 of position * expr
+  | ToInt8 of position * expr
+  | ToInt16 of position * expr
+  | ToInt32 of position * expr
+  | ToInt64 of position * expr
   | ToReal of position * expr
   | ExprList of position * expr list
   | TupleExpr of position * expr list
@@ -131,6 +135,10 @@ and lustre_type =
   | UInt16 of position
   | UInt32 of position
   | UInt64 of position
+  | Int8 of position
+  | Int16 of position
+  | Int32 of position
+  | Int64 of position
   | IntRange of position * expr * expr
   | Real of position
   | UserType of position * ident

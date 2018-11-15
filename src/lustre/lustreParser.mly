@@ -79,6 +79,10 @@ let merge_branches transitions =
 %token UINT16;
 %token UINT32;
 %token UINT64;
+%token INT8;
+%token INT16;
+%token INT32;
+%token INT64;
 %token REAL
 %token BOOL
 %token SUBRANGE
@@ -333,7 +337,10 @@ lustre_type:
   | UINT16 { A.UInt16 (mk_pos $startpos)}
   | UINT32 { A.UInt32 (mk_pos $startpos)}
   | UINT64 { A.UInt64 (mk_pos $startpos)}
-
+  | INT8 { A.Int8 (mk_pos $startpos)}
+  | INT16 { A.Int16 (mk_pos $startpos)}
+  | INT32 { A.Int32 (mk_pos $startpos)}
+  | INT64 { A.Int64 (mk_pos $startpos)}
   | SUBRANGE;
     LSQBRACKET;
     l = expr; 
@@ -794,6 +801,10 @@ pexpr(Q):
   | UINT16; e = expr { A.ToUInt16 (mk_pos $startpos, e) }
   | UINT32; e = expr { A.ToUInt32 (mk_pos $startpos, e) }
   | UINT64; e = expr { A.ToUInt64 (mk_pos $startpos, e) }
+  | INT8; e = expr { A.ToInt8 (mk_pos $startpos, e) }
+  | INT16; e = expr { A.ToInt16 (mk_pos $startpos, e) }
+  | INT32; e = expr { A.ToInt32 (mk_pos $startpos, e) }
+  | INT64; e = expr { A.ToInt64 (mk_pos $startpos, e) }
 
   (* A parenthesized single expression *)
   | LPAREN; e = pexpr(Q); RPAREN { e } 

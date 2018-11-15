@@ -139,6 +139,9 @@ val mk_dec : Decimal.t -> t
 val mk_dec_of_float : float -> t
 *)
 
+(** Create a constant unsigned bitvector *)
+val mk_ubv : Bitvector.t -> t
+
 (** Create a constant bitvector *)
 val mk_bv : Bitvector.t -> t
 
@@ -220,17 +223,29 @@ val mk_to_real : t -> t
 (** Create a conversion to an integer numeral *)
 val mk_to_int : t -> t
 
-(** Create a conversion to an integer8 numeral *)
+(** Create a conversion to an unsigned integer8 numeral *)
 val mk_to_uint8 : t -> t
 
-(** Create a conversion to an integer16 numeral *)
+(** Create a conversion to an unsigned integer16 numeral *)
 val mk_to_uint16 : t -> t
 
-(** Create a conversion to an integer32 numeral *)
+(** Create a conversion to an unsigned integer32 numeral *)
 val mk_to_uint32 : t -> t
 
-(** Create a conversion to an integer64 numeral *)
+(** Create a conversion to an unsigned integer64 numeral *)
 val mk_to_uint64 : t -> t
+
+(** Create a conversion to an integer8 numeral *)
+val mk_to_int8 : t -> t
+
+(** Create a conversion to an integer16 numeral *)
+val mk_to_int16 : t -> t
+
+(** Create a conversion to an integer32 numeral *)
+val mk_to_int32 : t -> t
+
+(** Create a conversion to an integer64 numeral *)
+val mk_to_int64 : t -> t
 
 (** Create a predicate for coincidence of a real with an integer *)
 val mk_is_int : t -> t

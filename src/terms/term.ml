@@ -506,6 +506,9 @@ let rec type_of_term t = match T.destruct t with
         (* Real constant *)
         | `DECIMAL _ -> Type.mk_real ()
 
+        (* Unsigned bitvector constant *)
+        | `UBV b -> Type.mk_ubv (Bitvector.length_of_bitvector b)
+
         (* Bitvector constant *)
         | `BV b -> Type.mk_bv (Bitvector.length_of_bitvector b)
         
@@ -551,10 +554,15 @@ let rec type_of_term t = match T.destruct t with
         | `ABS
         | `INTDIV -> Type.mk_int ()
 
-        | `TO_UINT8 -> Type.mk_bv 8
-        | `TO_UINT16 -> Type.mk_bv 16
-        | `TO_UINT32 -> Type.mk_bv 32
-        | `TO_UINT64 -> Type.mk_bv 64
+        | `TO_UINT8 -> Type.mk_ubv 8
+        | `TO_UINT16 -> Type.mk_ubv 16
+        | `TO_UINT32 -> Type.mk_ubv 32
+        | `TO_UINT64 -> Type.mk_ubv 64
+
+        | `TO_INT8 -> Type.mk_bv 8
+        | `TO_INT16 -> Type.mk_bv 16
+        | `TO_INT32 -> Type.mk_bv 32
+        | `TO_INT64 -> Type.mk_bv 64
 
         (* Real-valued functions *)
         | `TO_REAL
@@ -631,8 +639,8 @@ let rec type_of_term t = match T.destruct t with
         | `TRUE
         | `FALSE
         | `NUMERAL _
-        | `DECIMAL _ -> assert false
-
+        | `DECIMAL _ 
+        | `UBV _ 
         | `BV _ -> assert false
 
     )
@@ -656,6 +664,7 @@ let type_check_app s a =
     | `FALSE
     | `NUMERAL _
     | `DECIMAL _
+    | `UBV _
     | `BV _
         when List.length a = 0 -> true
 
@@ -685,6 +694,15 @@ let type_check_app s a =
     | `TO_UINT32
         when a = [Type.Real] || a = [Type.Int]    
     | `TO_UINT64
+        when a = [Type.Real] || a = [Type.Int]  -> true
+    
+    | `TO_INT8
+        when a = [Type.Real] || a = [Type.Int]
+    | `TO_INT16
+        when a = [Type.Real] || a = [Type.Int]
+    | `TO_INT32
+        when a = [Type.Real] || a = [Type.Int]    
+    | `TO_INT64
         when a = [Type.Real] || a = [Type.Int]  -> true
 
     (* Variadic, but at least binary function symbols of Boolean arguments *)
@@ -1039,6 +1057,9 @@ let mk_dec_of_float = function
 *)
 
 
+(* Hashcons an unsigned bitvector *)
+let mk_ubv b = mk_const_of_symbol_node (`UBV b)
+
 (* Hashcons a bitvector *)
 let mk_bv b = mk_const_of_symbol_node (`BV b)
 
@@ -1191,17 +1212,31 @@ let mk_to_real t = mk_app_of_symbol_node `TO_REAL [t]
 (* Hashcons a unary conversion to an integer numeral *)
 let mk_to_int t = mk_app_of_symbol_node `TO_INT [t]
 
-(* Hashcons a unary conversion to an integer8 numeral *)
+(* Hashcons a unary conversion to an unsigned integer8 numeral *)
 let mk_to_uint8 t = mk_app_of_symbol_node `TO_UINT8 [t]
 
-(* Hashcons a unary conversion to an integer16 numeral *)
+(* Hashcons a unary conversion to an unsigned integer16 numeral *)
 let mk_to_uint16 t = mk_app_of_symbol_node `TO_UINT16 [t]
 
-(* Hashcons a unary conversion to an integer32 numeral *)
+(* Hashcons a unary conversion to an unsigned integer32 numeral *)
 let mk_to_uint32 t = mk_app_of_symbol_node `TO_UINT32 [t]
 
-(* Hashcons a unary conversion to an integer64 numeral *)
+(* Hashcons a unary conversion to an unsigned integer64 numeral *)
 let mk_to_uint64 t = mk_app_of_symbol_node `TO_UINT64 [t]
+
+
+(* Hashcons a unary conversion to an integer8 numeral *)
+let mk_to_int8 t = mk_app_of_symbol_node `TO_INT8 [t]
+
+(* Hashcons a unary conversion to an integer16 numeral *)
+let mk_to_int16 t = mk_app_of_symbol_node `TO_INT16 [t]
+
+(* Hashcons a unary conversion to an integer32 numeral *)
+let mk_to_int32 t = mk_app_of_symbol_node `TO_INT32 [t]
+
+(* Hashcons a unary conversion to an integer64 numeral *)
+let mk_to_int64 t = mk_app_of_symbol_node `TO_INT64 [t]
+
 
 (* Hashcons a predicate for coincidence of a real with an integer *)
 let mk_is_int t = mk_app_of_symbol_node `IS_INT [t]

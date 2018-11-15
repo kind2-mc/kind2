@@ -39,7 +39,8 @@
     {- [`ITE] ternary: if-then-else}
     {- [`NUMERAL i] nullary: integer numeral}
     {- [`DECIMAL f] nullary: floating-point decimal}
-    {- [`BV b] nullary: onstant bitvector}
+    {- [`UBV b] nullary: constant unsigned bitvector}
+    {- [`BV b] nullary: consant bitvector}
     {- [`MINUS] variadic, left-associative: difference or a unary negation}
     {- [`PLUS] variadic, left-associative: sum}
     {- [`TIMES] variadic, left-associative: product}
@@ -112,6 +113,7 @@ type interpreted_symbol =
   | `NUMERAL of Numeral.t (** Infinite precision integer numeral (nullary) *)
   | `DECIMAL of Decimal.t  (** infinite precision floating-point decimal (nullary) *)
 
+  | `UBV of Bitvector.t   (** Constant unsigned bitvector *)
   | `BV of Bitvector.t    (** Constant bitvector *)
 
   | `MINUS                (** Difference or unary negation (left-associative) *)

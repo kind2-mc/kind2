@@ -314,17 +314,29 @@ val mk_constr : string -> Type.t -> t
 (** Return an expression of an integer numeral. *)
 val mk_int : Numeral.t -> t
 
-(** Return an expression of an integer8 numeral. *)
+(** Return an expression of an unsigned integer8 numeral. *)
 val mk_uint8 : Numeral.t -> t
 
-(** Return an expression of an integer16 numeral. *)
+(** Return an expression of an unsigned integer16 numeral. *)
 val mk_uint16 : Numeral.t -> t
 
-(** Return an expression of an integer32 numeral. *)
+(** Return an expression of an unsigned integer32 numeral. *)
 val mk_uint32 : Numeral.t -> t
 
-(** Return an expression of an integer64 numeral. *)
+(** Return an expression of an unsigned integer64 numeral. *)
 val mk_uint64 : Numeral.t -> t
+
+(** Return an expression of an integer8 numeral. *)
+val mk_int8 : Numeral.t -> t
+
+(** Return an expression of an integer16 numeral. *)
+val mk_int16 : Numeral.t -> t
+
+(** Return an expression of an integer32 numeral. *)
+val mk_int32 : Numeral.t -> t
+
+(** Return an expression of an integer64 numeral. *)
+val mk_int64 : Numeral.t -> t
 
 (** Return an expression of a floating point decimal. *)
 val mk_real : Decimal.t -> t
@@ -346,17 +358,29 @@ val has_indexes : t -> bool
 (** Return a conversion to an integer numeral. *)
 val mk_to_int : t -> t
 
-(** Return a conversion to an integer8 numeral. *)
+(** Return a conversion to an unsigned integer8 numeral. *)
 val mk_to_uint8 : t -> t
 
-(** Return a conversion to an integer16 numeral. *)
+(** Return a conversion to an unsigned integer16 numeral. *)
 val mk_to_uint16 : t -> t
 
-(** Return a conversion to an integer32 numeral. *)
+(** Return a conversion to an unsigned integer32 numeral. *)
 val mk_to_uint32 : t -> t
 
-(** Return a conversion to an integer64 numeral. *)
+(** Return a conversion to an unsigned integer64 numeral. *)
 val mk_to_uint64 : t -> t
+
+(** Return a conversion to an integer8 numeral. *)
+val mk_to_int8 : t -> t
+
+(** Return a conversion to an integer16 numeral. *)
+val mk_to_int16 : t -> t
+
+(** Return a conversion to an integer32 numeral. *)
+val mk_to_int32 : t -> t
+
+(** Return a conversion to an integer64 numeral. *)
+val mk_to_int64 : t -> t
 
 (** Return a conversion to a floating-point decimal. *)
 val mk_to_real : t -> t

@@ -51,7 +51,8 @@ type interpreted_symbol =
   | `DECIMAL of Decimal.t 
                        (* Infinite precision floating-point decimal (nullary) *)
 
-  | `BV of Bitvector.t      (* Constant bitvector *)
+  | `UBV of Bitvector.t   (* Constant unsigned bitvector *)
+  | `BV of Bitvector.t    (* Constant bitvector *)    
 
   | `MINUS                (* Difference or unary negation (left-associative) *)
   | `PLUS                 (* Sum (left-associative) *)
@@ -66,10 +67,14 @@ type interpreted_symbol =
   | `GT                   (* Greater than relation (chainable) *)
   | `TO_REAL              (* Conversion to a floating-point decimal (unary) *)
   | `TO_INT               (* Conversion to an integer numeral (unary) *)
-  | `TO_UINT8              (* Conversion to an integer8 numeral (unary) *)  
-  | `TO_UINT16             (* Conversion to an integer16 numeral (unary) *)  
-  | `TO_UINT32             (* Conversion to an integer32 numeral (unary) *)  
-  | `TO_UINT64             (* Conversion to an integer64 numeral (unary) *)  
+  | `TO_UINT8             (* Conversion to an unsigned integer8 numeral (unary) *)  
+  | `TO_UINT16            (* Conversion to an unsigned integer16 numeral (unary) *)  
+  | `TO_UINT32            (* Conversion to an unsigned integer32 numeral (unary) *)  
+  | `TO_UINT64            (* Conversion to an unsigned integer64 numeral (unary) *)
+  | `TO_INT8              (* Conversion to an integer8 numeral (unary) *)  
+  | `TO_INT16             (* Conversion to an integer16 numeral (unary) *)  
+  | `TO_INT32             (* Conversion to an integer32 numeral (unary) *)  
+  | `TO_INT64             (* Conversion to an integer64 numeral (unary) *)  
   | `IS_INT               (* Real is an integer (unary) *)
 
   | `DIVISIBLE of Numeral.t 
@@ -144,6 +149,7 @@ module Symbol_node = struct
     | `DECIMAL d1, `DECIMAL d2 -> Decimal.equal d1 d2
     | `DIVISIBLE n1, `DIVISIBLE n2 -> Numeral.equal n1 n2
 
+    | `UBV i, `UBV j -> i = j
     | `BV i, `BV j -> i = j
 
     | `UF u1, `UF u2 -> UfSymbol.equal_uf_symbols u1 u2
@@ -152,6 +158,7 @@ module Symbol_node = struct
     | `DECIMAL _, _
     | `DIVISIBLE _, _
 
+    | `UBV _, _
     | `BV _, _
 
     | `UF _, _  -> false
@@ -184,6 +191,10 @@ module Symbol_node = struct
     | `TO_UINT16, `TO_UINT16
     | `TO_UINT32, `TO_UINT32
     | `TO_UINT64, `TO_UINT64
+    | `TO_INT8, `TO_INT8
+    | `TO_INT16, `TO_INT16
+    | `TO_INT32, `TO_INT32
+    | `TO_INT64, `TO_INT64
     | `IS_INT, `IS_INT -> true
 
   
@@ -235,7 +246,11 @@ module Symbol_node = struct
     | `TO_UINT8, _    
     | `TO_UINT16, _ 
     | `TO_UINT32, _ 
-    | `TO_UINT64, _ 
+    | `TO_UINT64, _
+    | `TO_INT8, _    
+    | `TO_INT16, _ 
+    | `TO_INT32, _ 
+    | `TO_INT64, _ 
     | `IS_INT, _
     | `SELECT _, _
     | `STORE, _ 
@@ -359,6 +374,7 @@ let rec pp_print_symbol_node ppf = function
 
   | `NUMERAL i -> Numeral.pp_print_numeral ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
+  | `UBV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b
   | `BV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b
 
   | `MINUS -> Format.pp_print_string ppf "-"
@@ -380,6 +396,10 @@ let rec pp_print_symbol_node ppf = function
   | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
   | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
   | `TO_UINT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
+  | `TO_INT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
+  | `TO_INT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
+  | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
+  | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
   | `IS_INT -> Format.pp_print_string ppf "is_int"
 
   | `DIVISIBLE n -> 
@@ -433,6 +453,7 @@ let is_decimal = function
 
 (* Return true if the symbol is a bitvector *)
 let is_bitvector = function 
+  | { Hashcons.node = `UBV _ } -> true
   | { Hashcons.node = `BV _ } -> true 
   | _ -> false
 
@@ -454,6 +475,7 @@ let decimal_of_symbol = function
 
 (* Return the bitvector in a `BV symbol  *)
 let bitvector_of_symbol = function 
+  | { Hashcons.node = `UBV n } -> n 
   | { Hashcons.node = `BV n } -> n 
   | _ -> raise (Invalid_argument "bitvector_of_symbol")
 
