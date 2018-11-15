@@ -111,7 +111,7 @@ let ubv64_to_int = ubv_to_int 64
 BV range, output the number fit into the range.
 For example, for 4-bit signed integers, input 
 -9, 16 (2^4), and output 7 *)
-let signed_modulo (n : int) (range_size : int) = 
+let signed_modulo (n : int) (range_size : int) : int = 
   let neg_lim = -(range_size/2) in
     let pos_lim = (range_size/2) - 1 in
       if (n < neg_lim) then
