@@ -1383,25 +1383,25 @@ let type_of_num_num_num ?(is_div = false) op t t' =
 
     | t when Type.is_int8 t -> (
       match t' with
-      | t when Type.is_int8 t -> Type.t_ubv 8
+      | t when Type.is_int8 t -> Type.t_bv 8
       | _ -> raise Type_mismatch
     )
 
     | t when Type.is_int16 t -> (
       match t' with
-      | t when Type.is_int16 t -> Type.t_ubv 16
+      | t when Type.is_int16 t -> Type.t_bv 16
       | _ -> raise Type_mismatch
     )
 
     | t when Type.is_int32 t -> (
       match t' with
-      | t when Type.is_int32 t -> Type.t_ubv 32
+      | t when Type.is_int32 t -> Type.t_bv 32
       | _ -> raise Type_mismatch
     )
 
     | t when Type.is_int64 t -> (
       match t' with
-      | t when Type.is_int64 t -> Type.t_ubv 64
+      | t when Type.is_int64 t -> Type.t_bv 64
       | _ -> raise Type_mismatch
     )
 

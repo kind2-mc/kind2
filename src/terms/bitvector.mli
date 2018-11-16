@@ -104,6 +104,18 @@ val ulte : t -> t -> bool
 (** Unsigned greater than or equal to *)
 val ugte : t -> t -> bool
 
+(** Signed lesser than *)
+val lt : t -> t -> bool
+
+(** Signed greater than *)
+val gt : t -> t -> bool
+
+(** Signed lesser than or equal to *)
+val lte : t -> t -> bool
+
+(** Signed greater than or equal to *)
+val gte : t -> t -> bool
+
 
 (** Infix comparison operators *)
 

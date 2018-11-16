@@ -605,6 +605,29 @@ let rec ugte bv1 bv2 =
     | _ -> (ugte t1 t2))
   | _ -> raise ComparingUnequalBVs
 
+(* Signed lesser than *)
+let lt (bv1 : t) (bv2 : t) : bool = 
+  let i1 = bv_to_int (List.length bv1) bv1 in
+  let i2 = bv_to_int (List.length bv2) bv2 in
+    (i1 < i2)
+
+(* Signed greater than *)
+let gt (bv1 : t) (bv2 : t) : bool = 
+  let i1 = bv_to_int (List.length bv1) bv1 in
+  let i2 = bv_to_int (List.length bv2) bv2 in
+    (i1 > i2)
+
+(* Signed lesser than or equal to *)
+let lte (bv1 : t) (bv2 : t) : bool = 
+  let i1 = bv_to_int (List.length bv1) bv1 in
+  let i2 = bv_to_int (List.length bv2) bv2 in
+    (i1 <= i2)
+
+(* Signed greater than or equal to *)
+let gte (bv1 : t) (bv2 : t) : bool = 
+  let i1 = bv_to_int (List.length bv1) bv1 in
+  let i2 = bv_to_int (List.length bv2) bv2 in
+    (i1 >= i2)
 
 (* ********************************************************************** *)
 (* Infix comparison operators                                             *)
