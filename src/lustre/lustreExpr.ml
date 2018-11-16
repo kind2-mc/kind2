@@ -2110,31 +2110,12 @@ let eval_mod expr1 expr2 =
       Term.mk_num 
         Numeral.(Symbol.numeral_of_symbol c1 mod 
                  Symbol.numeral_of_symbol c2) 
-
-    | Term.T.Const c1, Term.T.Const c2 when
-        Symbol.is_bitvector c1 && Symbol.is_bitvector c2 -> 
-        
-          Term.mk_bvurem [expr1; expr2]
-
-    | Term.T.Var c1, Term.T.Const c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Symbol.is_bitvector c2)->
-                
-          Term.mk_bvurem [expr1; expr2]
-
-    | Term.T.Const c1, Term.T.Var c2 when
-        (Symbol.is_bitvector c1) &&
-        (Type.is_bitvector (Var.type_of_var c2))->
-                
-          Term.mk_bvurem [expr1; expr2]
-
-    | Term.T.Var c1, Term.T.Var c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Type.is_bitvector (Var.type_of_var c2)) ->
-                
-          Term.mk_bvurem [expr1; expr2]  
     
-    | _ -> Term.mk_mod expr1 expr2
+    | _ -> (if Type.is_bitvector (Term.type_of_term expr1) then 
+              Term.mk_bvurem [expr1; expr2]
+            else 
+              Term.mk_mod expr1 expr2)
+
     | exception Invalid_argument _ -> Term.mk_mod expr1 expr2
 
 
@@ -2246,31 +2227,12 @@ let eval_plus expr1 expr2 =
       Term.mk_dec
         Decimal.(Symbol.decimal_of_symbol c1 +
                  Symbol.decimal_of_symbol c2) 
-
-    | Term.T.Const c1, Term.T.Const c2 when
-        Symbol.is_bitvector c1 && Symbol.is_bitvector c2 ->
-   
-          Term.mk_bvadd [expr1; expr2]
-
-    | Term.T.Var c1, Term.T.Const c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Symbol.is_bitvector c2) ->
-
-          Term.mk_bvadd [expr1; expr2]
-
-    | Term.T.Const c1, Term.T.Var c2 when
-        (Symbol.is_bitvector c1) &&
-        (Type.is_bitvector (Var.type_of_var c2)) ->
-
-          Term.mk_bvadd [expr1; expr2]
-
-    | Term.T.Var c1, Term.T.Var c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Type.is_bitvector (Var.type_of_var c2)) ->
-          
-          Term.mk_bvadd [expr1; expr2]
   
-  | _ -> Term.mk_plus [expr1; expr2]
+    | _ -> (if Type.is_bitvector (Term.type_of_term expr1) then 
+              Term.mk_bvadd [expr1; expr2]
+            else 
+              Term.mk_plus [expr1; expr2])
+
   | exception Invalid_argument _ -> Term.mk_plus [expr1; expr2]
 
 
@@ -2371,30 +2333,11 @@ let eval_times expr1 expr2 =
         Decimal.(Symbol.decimal_of_symbol c1 *
                  Symbol.decimal_of_symbol c2) 
 
-    | Term.T.Const c1, Term.T.Const c2 when
-        Symbol.is_bitvector c1 && Symbol.is_bitvector c2 ->
+    | _ -> (if Type.is_bitvector (Term.type_of_term expr1) then 
+              Term.mk_bvmul [expr1; expr2]
+            else 
+              Term.mk_times [expr1; expr2])
 
-          Term.mk_bvmul [expr1; expr2]
-
-    | Term.T.Var c1, Term.T.Const c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Symbol.is_bitvector c2)->
-                
-          Term.mk_bvmul [expr1; expr2]
-
-    | Term.T.Const c1, Term.T.Var c2 when
-        (Symbol.is_bitvector c1) &&
-        (Type.is_bitvector (Var.type_of_var c2))->
-                
-          Term.mk_bvmul [expr1; expr2]
-
-    | Term.T.Var c1, Term.T.Var c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Type.is_bitvector (Var.type_of_var c2)) ->
-                
-          Term.mk_bvmul [expr1; expr2]  
-
-  | _ -> Term.mk_times [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_times [expr1; expr2]
 
 
@@ -2422,32 +2365,13 @@ let eval_intdiv expr1 expr2 =
 
       Term.mk_num
         Numeral.(Symbol.numeral_of_symbol c1 /
-                 Symbol.numeral_of_symbol c2) 
+                 Symbol.numeral_of_symbol c2)                 
 
-    | Term.T.Const c1, Term.T.Const c2 when
-        Symbol.is_bitvector c1 && Symbol.is_bitvector c2->
-                
-          Term.mk_bvudiv [expr1; expr2]
+    | _ -> (if Type.is_bitvector (Term.type_of_term expr1) then 
+              Term.mk_bvudiv [expr1; expr2]
+            else 
+              Term.mk_intdiv [expr1; expr2])
 
-    | Term.T.Var c1, Term.T.Const c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Symbol.is_bitvector c2)->
-                
-          Term.mk_bvudiv [expr1; expr2]
-
-    | Term.T.Const c1, Term.T.Var c2 when
-        (Symbol.is_bitvector c1) &&
-        (Type.is_bitvector (Var.type_of_var c2))->
-                
-          Term.mk_bvudiv [expr1; expr2]
-
-    | Term.T.Var c1, Term.T.Var c2 when
-        (Type.is_bitvector (Var.type_of_var c1)) &&
-        (Type.is_bitvector (Var.type_of_var c2)) ->
-                
-          Term.mk_bvudiv [expr1; expr2]                 
-
-  | _ -> Term.mk_intdiv [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_intdiv [expr1; expr2]
 
 
