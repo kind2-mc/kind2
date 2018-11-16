@@ -33,6 +33,7 @@ type kindtype =
   | Int
   | IntRange of Numeral.t * Numeral.t * rangekind
   | Real
+  | UBV of int
   | BV of int 
   | Array of t * t
   | Abstr of string

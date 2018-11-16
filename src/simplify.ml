@@ -743,6 +743,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `NUMERAL _, _
       | `DECIMAL _, _ -> assert false
 
+      | `UBV _, _
       | `BV _, _ -> assert false
 
       (* Can only negate Boolean terms *)
@@ -759,6 +760,10 @@ let rec negate_nnf term = match Term.destruct term with
       | `TO_UINT16, _
       | `TO_UINT32, _
       | `TO_UINT64, _ 
+      | `TO_INT8, _
+      | `TO_INT16, _
+      | `TO_INT32, _
+      | `TO_INT64, _ 
 
       | `BVNEG, _
       | `BVADD, _
@@ -1933,7 +1938,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
             )
 
-          (* Conversion to integer8 is a monomial with polynomial
+          (* Conversion to unsigned integer8 is a monomial with polynomial
              subterms *)
           | `TO_UINT8 -> 
           
@@ -1948,7 +1953,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | _ -> assert false
             )
 
-          (* Conversion to integer16 is a monomial with polynomial
+          (* Conversion to unsigned integer16 is a monomial with polynomial
              subterms *)
           | `TO_UINT16 -> 
           
@@ -1963,7 +1968,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | _ -> assert false
             )          
 
-          (* Conversion to integer32 is a monomial with polynomial
+          (* Conversion to unsigned integer32 is a monomial with polynomial
              subterms *)
           | `TO_UINT32 -> 
           
@@ -1978,7 +1983,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | _ -> assert false
             )          
 
-          (* Conversion to integer64 is a monomial with polynomial
+          (* Conversion to unsigned integer64 is a monomial with polynomial
              subterms *)
           | `TO_UINT64 -> 
           
@@ -1992,6 +1997,66 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                                         (term_of_nf (Num n))))))
               | _ -> assert false
             )          
+
+          (* Conversion to integer8 is a monomial with polynomial
+             subterms *)
+          | `TO_INT8 -> 
+          
+            (match args with 
+              | [BV b] -> BV b
+              | [Num n] -> BV (
+                                Term.mk_bv 
+                                  (Bitvector.int_to_bv8 
+                                    (Numeral.to_int 
+                                      (Term.numeral_of_term 
+                                        (term_of_nf (Num n))))))
+              | _ -> assert false
+            )
+
+          (* Conversion to integer16 is a monomial with polynomial
+             subterms *)
+          | `TO_INT16 -> 
+          
+            (match args with 
+              | [BV b] -> BV b
+              | [Num n] ->  BV (
+                                Term.mk_bv 
+                                  (Bitvector.int_to_bv16 
+                                    (Numeral.to_int 
+                                      (Term.numeral_of_term 
+                                        (term_of_nf (Num n))))))
+              | _ -> assert false
+            )          
+
+          (* Conversion to integer32 is a monomial with polynomial
+             subterms *)
+          | `TO_INT32 -> 
+          
+            (match args with 
+              | [BV b] -> BV b
+              | [Num n] ->  BV (
+                                Term.mk_bv 
+                                  (Bitvector.int_to_bv32 
+                                    (Numeral.to_int 
+                                      (Term.numeral_of_term 
+                                        (term_of_nf (Num n))))))
+              | _ -> assert false
+            )          
+
+          (* Conversion to integer64 is a monomial with polynomial
+             subterms *)
+          | `TO_INT64 -> 
+          
+            (match args with 
+              | [BV b] -> BV b
+              | [Num n] ->  BV (
+                                Term.mk_bv 
+                                  (Bitvector.int_to_bv64 
+                                    (Numeral.to_int 
+                                      (Term.numeral_of_term 
+                                        (term_of_nf (Num n))))))
+              | _ -> assert false
+            )
 
           (* Conversion to real is a monomial with polynomial
              subterms *)
@@ -2109,6 +2174,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `NUMERAL _
           | `DECIMAL _ -> assert false
 
+          | `UBV _
           | `BV _ -> assert false
           
       )

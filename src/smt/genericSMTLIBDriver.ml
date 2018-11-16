@@ -510,9 +510,10 @@ let pp_print_logic = TermLib.pp_print_logic
 (* Convert type *)
 let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ -> Type.mk_int ()
-  | Type.Bool | Type.Int | Type.BV 8 | Type.BV 16 
+  | Type.Bool | Type.Int | Type.UBV 8 | Type.UBV 16 
+  | Type.UBV 32 | Type.UBV 64 | Type.BV 8 | Type.BV 16 
   | Type.BV 32 | Type.BV 64 -> t
-  | Type.BV _ -> raise 
+  | Type.UBV _ | Type.BV _ -> raise 
       (Invalid_argument "rec_interpr_type: BV size not allowed")
   | Type.Real | Type.Abstr _ -> t
   | Type.Array (te, ti) ->
@@ -629,6 +630,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `NUMERAL i -> Numeral.pp_print_numeral_sexpr ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
 
+  | `UBV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b 
   | `BV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b
 
   | `MINUS -> Format.pp_print_string ppf "-"
@@ -650,6 +652,10 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
   | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
   | `TO_UINT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
+  | `TO_INT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
+  | `TO_INT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
+  | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
+  | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
   | `IS_INT -> Format.pp_print_string ppf "is_int"
 
   | `DIVISIBLE n -> 

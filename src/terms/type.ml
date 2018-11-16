@@ -87,7 +87,7 @@ module Kindtype_node = struct
     | Real, Real -> true
     | Real, _ -> false
     | UBV i, UBV j -> i = j
-    | UBV i, UBV j -> false
+    | UBV i, _ -> false
     | BV i, BV j -> i = j
     | BV i, _ -> false
     | Array (i1, t1), Array (i2, t2) -> (i1 == i2) && (t1 == t2)

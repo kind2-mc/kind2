@@ -572,6 +572,7 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `FALSE
   | `NUMERAL _
   | `DECIMAL _
+  | `UBV _
   | `BV _ -> (function _ -> assert false)
 
   (* Unary symbols *) 
@@ -2498,7 +2499,7 @@ let eval_bvand expr1 expr2 =
 
 
 (* Type of Boolean conjunction*)
-let type_of_bvand = type_of_bv_bv_bv
+let type_of_bvand = type_of_ubv_ubv_ubv
 
 
 (* Boolean conjunction *)
@@ -2517,7 +2518,7 @@ let eval_bvor expr1 expr2 =
 
 
 (* Type of Boolean disjunction *)
-let type_of_bvor = type_of_bv_bv_bv
+let type_of_bvor = type_of_ubv_ubv_ubv
 
 
 (* Boolean conjunction *)

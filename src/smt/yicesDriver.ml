@@ -74,8 +74,8 @@ and pp_print_type_node ppf = function
     | Type.Bool -> Format.pp_print_string ppf "bool"
 
     | Type.Int -> Format.pp_print_string ppf "int"
-(*
-    | Type.BV i ->
+
+    | Type.UBV i ->
       begin match i with
       | 8 -> Format.pp_print_string ppf "uint8"
       | 16 -> Format.pp_print_string ppf "uint16"
@@ -84,21 +84,31 @@ and pp_print_type_node ppf = function
       | _ -> raise 
       (Invalid_argument "pp_print_type_node: BV size not allowed")
       end
-*)
+
+    | Type.BV i ->
+      begin match i with
+      | 8 -> Format.pp_print_string ppf "int8"
+      | 16 -> Format.pp_print_string ppf "int16"
+      | 32 -> Format.pp_print_string ppf "int32"
+      | 64 -> Format.pp_print_string ppf "int64"
+      | _ -> raise 
+      (Invalid_argument "pp_print_type_node: BV size not allowed")
+      end
+
     | Type.IntRange (i, j, _) ->
       Format.fprintf ppf "(subrange %a %a)"
         Numeral.pp_print_numeral i Numeral.pp_print_numeral j
 
     | Type.Real -> Format.pp_print_string ppf "real"
     | Type.Abstr s -> Format.pp_print_string ppf s
-
+(*
   | Type.BV i -> 
 
     Format.fprintf
       ppf 
       "(bitvector %d)" 
       i 
-
+*)
     | Type.Array (te, ti) -> 
       Format.fprintf
         ppf 
@@ -115,9 +125,10 @@ let pp_print_logic ppf l =  failwith "no logic selection in yices"
 
 let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ (* -> Type.mk_int () *)
-  | Type.Bool | Type.Int | Type.BV 8 | Type.BV 16 
+  | Type.Bool | Type.Int | Type.UBV 8 | Type.UBV 16 
+  | Type.UBV 32 | Type.UBV 64 | Type.BV 8 | Type.BV 16 
   | Type.BV 32 | Type.BV 64 | Type.Real | Type.Abstr _  -> t
-  | Type.BV _ -> raise 
+  | Type.UBV _ | Type.BV _ -> raise 
       (Invalid_argument "rec_interpr_type: BV size not allowed")
   | Type.Array (te, ti) ->
     let ti', te' = interpr_type ti, interpr_type te in
@@ -248,6 +259,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `NUMERAL i -> Numeral.pp_print_numeral ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal ppf f
 
+  | `UBV b -> Bitvector.pp_yices_print_bitvector_b ppf b
   | `BV b -> Bitvector.pp_yices_print_bitvector_b ppf b
 
   (* Special case for unary minus : print -a as (- 0 a) *)
@@ -272,6 +284,10 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
   | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
   | `TO_UINT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
+  | `TO_INT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
+  | `TO_INT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
+  | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
+  | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
   | `IS_INT -> failwith "is_int not implemented for yices"
 
   | `DIVISIBLE n ->

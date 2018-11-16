@@ -498,12 +498,17 @@ let ensure_symbol_qf_lira s =
   | `TO_UINT16
   | `TO_UINT32
   | `TO_UINT64
+  | `TO_INT8
+  | `TO_INT16
+  | `TO_INT32
+  | `TO_INT64
   | `IS_INT
   | `UF _
     -> ()
 
   (* | `UF f when UfSymbol.arg_type_of_uf_symbol f = [] -> () *)
 
+  | `UBV _
   | `BV _ 
   | `INTDIV
   | `DIVISIBLE _
