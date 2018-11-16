@@ -1491,6 +1491,19 @@ let type_of_num_num_bool = function
       | t when Type.is_real t -> Type.t_bool
       | _ -> raise Type_mismatch)
 
+  | t when Type.is_ubitvector t ->
+    (function 
+      | t' when Type.is_ubitvector t' -> 
+        let s1 = Type.bitvectorsize t in
+          let s2 = Type.bitvectorsize t' in
+            (match s1, s2 with
+            | 8,8 -> Type.t_bool
+            | 16,16 -> Type.t_bool
+            | 32,32 -> Type.t_bool
+            | 64,64 -> Type.t_bool
+            | _, _ -> raise BV_size_mismatch)
+      | _ -> raise Type_mismatch)
+
   | t when Type.is_bitvector t ->
     (function 
       | t' when Type.is_bitvector t' -> 
@@ -1502,7 +1515,8 @@ let type_of_num_num_bool = function
             | 32,32 -> Type.t_bool
             | 64,64 -> Type.t_bool
             | _, _ -> raise BV_size_mismatch)
-      | _ -> raise Type_mismatch)  
+      | _ -> raise Type_mismatch)
+
   | _ -> raise Type_mismatch
 
 
@@ -1581,6 +1595,14 @@ let eval_bvnot expr = Term.mk_bvnot [expr]
 
 (* Type of bitwise negation *)
 let type_of_bvnot = function
+  | t when Type.is_ubitvector t -> 
+      let s = Type.bitvectorsize t in
+        (match s with
+        | 8 -> Type.t_ubv 8
+        | 16 -> Type.t_ubv 16
+        | 32 -> Type.t_ubv 32
+        | 64 -> Type.t_ubv 64
+        | _ -> raise BV_size_mismatch)
   | t when Type.is_bitvector t -> 
       let s = Type.bitvectorsize t in
         (match s with
@@ -2111,7 +2133,8 @@ let eval_mod expr1 expr2 =
         Numeral.(Symbol.numeral_of_symbol c1 mod 
                  Symbol.numeral_of_symbol c2) 
     
-    | _ -> (if Type.is_bitvector (Term.type_of_term expr1) then 
+    | _ -> (if (Type.is_bitvector (Term.type_of_term expr1) ||
+                Type.is_ubitvector (Term.type_of_term expr1)) then 
               Term.mk_bvurem [expr1; expr2]
             else 
               Term.mk_mod expr1 expr2)
@@ -2133,6 +2156,21 @@ let type_of_mod = function
       | t when Type.is_int_range t -> 
         let l, u = Type.bounds_of_int_range t in 
         Type.mk_int_range Numeral.zero Numeral.(pred (max (abs l) (abs u)))
+      | _ -> raise Type_mismatch)
+  | t1 when Type.is_ubitvector t1 -> 
+    (function 
+      | t2 when Type.is_ubitvector t2 -> 
+        let s1 = Type.bitvectorsize t1 in
+          let s2 = Type.bitvectorsize t2 in 
+            if s1 != s2 then
+              raise BV_size_mismatch
+            else
+              (match s1,s2 with
+              | 8, 8 -> Type.t_ubv 8
+              | 16, 16 -> Type.t_ubv 16
+              | 32, 32 -> Type.t_ubv 32
+              | 64, 64 -> Type.t_ubv 64
+              | _, _ -> raise Type_mismatch)
       | _ -> raise Type_mismatch)
   | t1 when Type.is_bitvector t1 -> 
     (function 
@@ -2228,7 +2266,8 @@ let eval_plus expr1 expr2 =
         Decimal.(Symbol.decimal_of_symbol c1 +
                  Symbol.decimal_of_symbol c2) 
   
-    | _ -> (if Type.is_bitvector (Term.type_of_term expr1) then 
+    | _ -> (if (Type.is_bitvector (Term.type_of_term expr1) ||
+               Type.is_ubitvector (Term.type_of_term expr1)) then 
               Term.mk_bvadd [expr1; expr2]
             else 
               Term.mk_plus [expr1; expr2])
@@ -2333,7 +2372,8 @@ let eval_times expr1 expr2 =
         Decimal.(Symbol.decimal_of_symbol c1 *
                  Symbol.decimal_of_symbol c2) 
 
-    | _ -> (if Type.is_bitvector (Term.type_of_term expr1) then 
+    | _ -> (if (Type.is_bitvector (Term.type_of_term expr1) ||
+                Type.is_ubitvector (Term.type_of_term expr1)) then 
               Term.mk_bvmul [expr1; expr2]
             else 
               Term.mk_times [expr1; expr2])
@@ -2387,6 +2427,21 @@ let type_of_intdiv t t' =
       | t when Type.is_int t || Type.is_int_range t -> Type.t_int
       | _ -> raise Type_mismatch
     )
+    | t when Type.is_ubitvector t -> (
+      match t' with
+      | t' when Type.is_ubitvector t' -> 
+        let s1 = Type.bitvectorsize t in
+          let s2 = Type.bitvectorsize t' in 
+            if s1 != s2 then
+              raise BV_size_mismatch
+            else
+              (match s1,s2 with
+              | 8, 8 -> Type.t_bv 8
+              | 16, 16 -> Type.t_bv 16
+              | 32, 32 -> Type.t_bv 32
+              | 64, 64 -> Type.t_bv 64
+              | _, _ -> raise Type_mismatch)
+      | _ -> raise Type_mismatch)
     | t when Type.is_bitvector t -> (
       match t' with
       | t' when Type.is_bitvector t' -> 
@@ -2575,7 +2630,8 @@ let eval_lte expr1 expr2 =
     
     | _ ->
         (* Bitvector comparisons are simplified in the simplify module *) 
-        (if Type.is_bitvector (Term.type_of_term expr1) then 
+        (if (Type.is_bitvector (Term.type_of_term expr1) ||
+             Type.is_ubitvector (Term.type_of_term expr1)) then 
           Term.mk_bvule [expr1; expr2]
         else 
           Term.mk_leq [expr1; expr2])
@@ -2630,7 +2686,8 @@ let eval_lt expr1 expr2 =
 
     | _ ->
         (* Bitvector comparisons are simplified in the simplify module *) 
-        (if Type.is_bitvector (Term.type_of_term expr1) then 
+        (if (Type.is_bitvector (Term.type_of_term expr1) ||
+             Type.is_ubitvector (Term.type_of_term expr1)) then 
           Term.mk_bvult [expr1; expr2]
         else 
           Term.mk_lt [expr1; expr2])
@@ -2685,7 +2742,8 @@ let eval_gte expr1 expr2 =
 
     | _ ->
         (* Bitvector comparisons are simplified in the simplify module *) 
-        (if Type.is_bitvector (Term.type_of_term expr1) then 
+        (if (Type.is_bitvector (Term.type_of_term expr1) ||
+             Type.is_ubitvector (Term.type_of_term expr1)) then 
           Term.mk_bvuge [expr1; expr2]
         else 
           Term.mk_geq [expr1; expr2])
@@ -2740,7 +2798,8 @@ let eval_gt expr1 expr2 =
 
     | _ ->
         (* Bitvector comparisons are simplified in the simplify module *) 
-        (if Type.is_bitvector (Term.type_of_term expr1) then 
+        (if (Type.is_bitvector (Term.type_of_term expr1) ||
+             Type.is_ubitvector (Term.type_of_term expr1)) then 
           Term.mk_bvugt [expr1; expr2]
         else 
           Term.mk_gt [expr1; expr2])
