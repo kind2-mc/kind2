@@ -172,17 +172,29 @@ val mk_bvor : t list -> t
 (** Create a bitwise negation *)
 val mk_bvnot : t list -> t
 
-(** Create a bitvector less-than comparison *)
+(** Create an unsigned bitvector less-than comparison *)
 val mk_bvult : t list -> t
 
-(** Create a bitvector less-than-or-equal-to comparison *)
+(** Create an unsigned bitvector less-than-or-equal-to comparison *)
 val mk_bvule : t list -> t
 
-(** Create a bitvector greater-than comparison *)
+(** Create an unsigned bitvector greater-than comparison *)
 val mk_bvugt : t list -> t
 
-(** Create a bitvector greater-than=or-eqaul-to comparison *)
+(** Create an unsigned bitvector greater-than-or-eqaul-to comparison *)
 val mk_bvuge : t list -> t
+
+(** Create a bitvector less-than comparison *)
+val mk_bvslt : t list -> t
+
+(** Create a bitvector less-than-or-equal-to comparison *)
+val mk_bvsle : t list -> t
+
+(** Create a bitvector greater-than comparison *)
+val mk_bvsgt : t list -> t
+
+(** Create a bitvector greater-than=or-eqaul-to comparison *)
+val mk_bvsge : t list -> t
 
 (** Create an integer or real difference *)
 val mk_minus : t list -> t

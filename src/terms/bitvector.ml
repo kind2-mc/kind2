@@ -629,6 +629,7 @@ let gte (bv1 : t) (bv2 : t) : bool =
   let i2 = bv_to_int (List.length bv2) bv2 in
     (i1 >= i2)
 
+
 (* ********************************************************************** *)
 (* Infix comparison operators                                             *)
 (* ********************************************************************** *)
@@ -636,14 +637,14 @@ let gte (bv1 : t) (bv2 : t) : bool =
 (* Equality *)
 let ( = ) = equal
 
-(* Unsigned lesser than *)
-let ( < ) = ult
+(* Signed lesser than *)
+let ( < ) = lt
 
-(* Unsigned greater than *)
-let ( > ) = ugt
+(* Signed greater than *)
+let ( > ) = gt
 
-(* Unsigned lesser than or equal to *)
-let ( <= ) = ulte
+(* Signed lesser than or equal to *)
+let ( <= ) = lte
 
-(* Unsigned greater than or equal to *)
-let ( >= ) = ugte
+(* Signed greater than or equal to *)
+let ( >= ) = gte

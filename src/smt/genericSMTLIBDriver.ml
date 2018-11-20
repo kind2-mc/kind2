@@ -581,6 +581,10 @@ let smtlib_string_symbol_list =
    ("bvule", Symbol.mk_symbol `BVULE);
    ("bvugt", Symbol.mk_symbol `BVUGT);
    ("bvuge", Symbol.mk_symbol `BVUGE);
+   ("bvslt", Symbol.mk_symbol `BVSLT);
+   ("bvsle", Symbol.mk_symbol `BVSLE);
+   ("bvsgt", Symbol.mk_symbol `BVSGT);
+   ("bvsge", Symbol.mk_symbol `BVSGE);
 
    ("select", Symbol.mk_symbol
       (`SELECT (Type.mk_array Type.t_int Type.t_int))); (* placeholder *)
@@ -677,6 +681,10 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVULE -> Format.pp_print_string ppf "bvule"
   | `BVUGT -> Format.pp_print_string ppf "bvugt"
   | `BVUGE -> Format.pp_print_string ppf "bvuge"
+  | `BVSLT -> Format.pp_print_string ppf "bvslt"
+  | `BVSLE -> Format.pp_print_string ppf "bvsle"
+  | `BVSGT -> Format.pp_print_string ppf "bvsgt"
+  | `BVSGE -> Format.pp_print_string ppf "bvsge"
 
   | `SELECT ty_array ->
 

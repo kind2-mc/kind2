@@ -546,7 +546,11 @@ let rec type_of_term t = match T.destruct t with
         | `BVULT 
         | `BVULE
         | `BVUGT
-        | `BVUGE-> Type.mk_bool ()
+        | `BVUGE
+        | `BVSLT 
+        | `BVSLE
+        | `BVSGT
+        | `BVSGE -> Type.mk_bool ()
 
         (* Integer-valued functions *)
         | `TO_INT
@@ -1117,29 +1121,53 @@ let mk_bvnot = function
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVNOT a
 
-(* Hashcons a bitvector less-than comparison *)
+(* Hashcons an unsigned bitvector less-than comparison *)
 let mk_bvult = function
   | [] -> invalid_arg "Term.mk_bvult"
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVULT a
 
-(* Hashcons a bitvector less-than-or-equal-to comparison *)
+(* Hashcons an unsigned bitvector less-than-or-equal-to comparison *)
 let mk_bvule = function
   | [] -> invalid_arg "Term.mk_bvule"
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVULE a
 
-(* Hashcons a bitvector greater-than comparison *)
+(* Hashcons an unsigned bitvector greater-than comparison *)
 let mk_bvugt = function
   | [] -> invalid_arg "Term.mk_bvugt"
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVUGT a
 
-(* Hashcons a bitvector greater-than=or-eqaul-to comparison *)
+(* Hashcons an unsigned bitvector greater-than-or-eqaul-to comparison *)
 let mk_bvuge = function
   | [] -> invalid_arg "Term.mk_bvuge"
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVUGE a
+
+(* Hashcons a bitvector less-than comparison *)
+let mk_bvslt = function
+  | [] -> invalid_arg "Term.mk_bvslt"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSLT a
+
+(* Hashcons a bitvector less-than-or-equal-to comparison *)
+let mk_bvsle = function
+  | [] -> invalid_arg "Term.mk_bvsle"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSLE a
+
+(* Hashcons a bitvector greater-than comparison *)
+let mk_bvsgt = function
+  | [] -> invalid_arg "Term.mk_bvsgt"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSGT a
+
+(* Hashcons a bitvector greater-than-or-eqaul-to comparison *)
+let mk_bvsge = function
+  | [] -> invalid_arg "Term.mk_bvsge"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSGE a
 
 (* Hashcons an addition *)
 let mk_plus = function

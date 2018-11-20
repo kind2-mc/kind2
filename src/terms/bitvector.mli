@@ -122,14 +122,14 @@ val gte : t -> t -> bool
 (** Equality *)
 val ( = ) : t -> t -> bool
 
-(** Unsigned lesser than *)
+(** Signed lesser than *)
 val ( < ) : t -> t -> bool
 
-(** Unsigned greater than *)
+(** Signed greater than *)
 val ( > ) : t -> t -> bool
 
-(** Unsigned lesser than or equal to *)
+(** Signed lesser than or equal to *)
 val ( <= ) : t -> t -> bool
 
-(** Unsigned greater than or equal to *)
+(** Signed greater than or equal to *)
 val ( >= ) : t -> t -> bool

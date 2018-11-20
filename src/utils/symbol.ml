@@ -86,14 +86,18 @@ type interpreted_symbol =
   | `BVOR                 (* Bit-wise disjunction (binary) *)
   | `BVADD                (* Arithmetic sum (binary) *)
   | `BVMUL                (* Arithmetic multiplication (binary) *)
-  | `BVUDIV                (* Arithmetic integer division (binary) *)
+  | `BVUDIV               (* Arithmetic integer division (binary) *)
   | `BVUREM               (* Arithmetic remainder (binary) *)
   | `BVSHL                (* Logical shift left (unary) *)
   | `BVLSHR               (* Logical shift right (unary) *)
-  | `BVULT                (* Arithmetic comparision less than (binary) *)
-  | `BVULE                (* Arithmetic comparision less than or equal to (binary) *)
-  | `BVUGT                (* Arithmetic comparision greater than (binary) *)
-  | `BVUGE                (* Arithmetic comparision greater than or equal to (binary) *)
+  | `BVULT                (* Arithmetic comparision less than (unsigned binary) *)
+  | `BVULE                (* Arithmetic comparision less than or equal to (unsigned binary) *)
+  | `BVUGT                (* Arithmetic comparision greater than (unsigned binary) *)
+  | `BVUGE                (* Arithmetic comparision greater than or equal to (unsigned binary) *)
+  | `BVSLT                (* Arithmetic comparision less than (signed binary) *)
+  | `BVSLE                (* Arithmetic comparision less than or equal to (signed binary) *)
+  | `BVSGT                (* Arithmetic comparision greater than (signed binary) *)
+  | `BVSGE                (* Arithmetic comparision greater than or equal to (signed binary) *)
 
   (* Selection from array (binary) *)
   | `SELECT of Type.t
@@ -218,6 +222,10 @@ module Symbol_node = struct
     | `BVULE, `BVULE
     | `BVUGT, `BVUGT
     | `BVUGE, `BVUGE
+    | `BVSLT, `BVSLT
+    | `BVSLE, `BVSLE
+    | `BVSGT, `BVSGT
+    | `BVSGE, `BVSGE
 
 
     | `TRUE, _
@@ -268,7 +276,11 @@ module Symbol_node = struct
     | `BVULT, _ 
     | `BVULE, _
     | `BVUGT, _
-    | `BVUGE, _ -> false
+    | `BVUGE, _
+    | `BVSLT, _ 
+    | `BVSLE, _
+    | `BVSGT, _
+    | `BVSGE, _ -> false
 
 
   (* Return hash of a symbol *)
@@ -421,6 +433,10 @@ let rec pp_print_symbol_node ppf = function
   | `BVULE -> Format.pp_print_string ppf "bvule"
   | `BVUGT -> Format.pp_print_string ppf "bvugt"
   | `BVUGE -> Format.pp_print_string ppf "bvuge"
+  | `BVSLT -> Format.pp_print_string ppf "bvslt"
+  | `BVSLE -> Format.pp_print_string ppf "bvsle"
+  | `BVSGT -> Format.pp_print_string ppf "bvsgt"
+  | `BVSGE -> Format.pp_print_string ppf "bvsge"
 
 
   | `SELECT _ -> Format.pp_print_string ppf "select"

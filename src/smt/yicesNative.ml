@@ -529,6 +529,10 @@ let ensure_symbol_qf_lira s =
   | `BVULE
   | `BVUGT
   | `BVUGE
+  | `BVSLT
+  | `BVSLE
+  | `BVSGT
+  | `BVSGE
 
   | `SELECT _
   | `STORE ->

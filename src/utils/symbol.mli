@@ -70,6 +70,10 @@
     {- [`BVULE] binary: arithmetic comparision less than or equal to}
     {- [`BVUGT] binary: arithmetic comparision greater than}
     {- [`BVUGE] binary: arithmetic comparision greater than or equal to}
+    {- [`BVSLT] signed binary: arithmetic comparision less than}
+    {- [`BVSLE] signed binary: arithmetic comparision less than or equal to}
+    {- [`BVSGT] signed binary: arithmetic comparision greater than}
+    {- [`BVSGE] signed binary: arithmetic comparision greater than or equal to}
     {- [`SELECT] binary: selection from array}
     {- [`STORE] ternary: update of an array}
     }
@@ -156,6 +160,10 @@ type interpreted_symbol =
   | `BVULE                (* Arithmetic comparision less than or equal to (binary) *)
   | `BVUGT                (* Arithmetic comparision greater than (binary) *)
   | `BVUGE                (* Arithmetic comparision greater than or equal to (binary) *)
+  | `BVSLT                (* Arithmetic comparision less than (signed binary) *)
+  | `BVSLE                (* Arithmetic comparision less than or equal to (signed binary) *)
+  | `BVSGT                (* Arithmetic comparision greater than (signed binary) *)
+  | `BVSGE                (* Arithmetic comparision greater than or equal to (signed binary) *)
 
 
   (** Selection from array (binary) *)

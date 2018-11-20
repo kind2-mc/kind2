@@ -2029,13 +2029,13 @@ and eval_ast_type ctx = function
   (* Basic type integer, add to empty trie with empty index *)
   | A.Int pos -> D.singleton D.empty_index Type.t_int
 
-  | A.UInt8 pos -> D.singleton D.empty_index (Type.t_bv 8)
+  | A.UInt8 pos -> D.singleton D.empty_index (Type.t_ubv 8)
 
-  | A.UInt16 pos -> D.singleton D.empty_index (Type.t_bv 16)
+  | A.UInt16 pos -> D.singleton D.empty_index (Type.t_ubv 16)
 
-  | A.UInt32 pos -> D.singleton D.empty_index (Type.t_bv 32)
+  | A.UInt32 pos -> D.singleton D.empty_index (Type.t_ubv 32)
 
-  | A.UInt64 pos -> D.singleton D.empty_index (Type.t_bv 64)
+  | A.UInt64 pos -> D.singleton D.empty_index (Type.t_ubv 64)
 
   | A.Int8 pos -> D.singleton D.empty_index (Type.t_bv 8)
 

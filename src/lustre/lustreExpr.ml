@@ -301,13 +301,23 @@ let string_of_symbol = function
   | `EQ -> "="
   | `NUMERAL n -> Numeral.string_of_numeral n
   | `DECIMAL d -> Decimal.string_of_decimal d
-  | `BV b -> 
+  | `UBV b -> 
           let bi = 
             (match Bitvector.length_of_bitvector b with
             | 8 -> Bitvector.ubv8_to_int b
             | 16 -> Bitvector.ubv16_to_int b
             | 32 -> Bitvector.ubv32_to_int b
             | 64 -> Bitvector.ubv64_to_int b
+            | _ -> raise BV_size_mismatch) 
+          in let nb = Numeral.of_int bi in
+          Numeral.string_of_numeral nb
+  | `BV b -> 
+          let bi = 
+            (match Bitvector.length_of_bitvector b with
+            | 8 -> Bitvector.bv8_to_int b
+            | 16 -> Bitvector.bv16_to_int b
+            | 32 -> Bitvector.bv32_to_int b
+            | 64 -> Bitvector.bv64_to_int b
             | _ -> raise BV_size_mismatch) 
           in let nb = Numeral.of_int bi in
           Numeral.string_of_numeral nb
@@ -332,7 +342,21 @@ let string_of_symbol = function
   | `TO_INT16 -> "(_ int2bv 16)"
   | `TO_INT32 -> "(_ int2bv 32)"
   | `TO_INT64 -> "(_ int2bv 64)"
-  | `BVAND -> "&"
+  | `BVAND -> "&&"
+  | `BVOR -> "||"
+  | `BVNOT -> "!"
+  | `BVADD -> "+"
+  | `BVMUL -> "*"
+  | `BVUDIV -> "div"
+  | `BVUREM -> "mod"
+  | `BVULT -> "<"
+  | `BVULE -> "<="
+  | `BVUGT -> ">"
+  | `BVUGE -> ">="
+  | `BVSLT -> "<"
+  | `BVSLE -> "<="
+  | `BVSGT -> ">"
+  | `BVSGE -> ">="
   | _ -> failwith "string_of_symbol"
 
 
@@ -577,6 +601,7 @@ and pp_print_app ?as_type safe pvar ppf = function
 
   (* Unary symbols *) 
   | `NOT
+  | `BVNOT
   | `TO_REAL
   | `TO_INT
   | `TO_UINT8
@@ -616,6 +641,11 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `OR
     | `XOR
     | `BVAND
+    | `BVOR
+    | `BVADD
+    | `BVMUL
+    | `BVUDIV
+    | `BVUREM
     | `PLUS
     | `TIMES
     | `DIV
@@ -631,6 +661,14 @@ and pp_print_app ?as_type safe pvar ppf = function
         
     (* Chainable binary symbols *)
     | `EQ
+    | `BVULT
+    | `BVULE
+    | `BVUGT
+    | `BVUGE
+    | `BVSLT
+    | `BVSLE
+    | `BVSGT
+    | `BVSGE
     | `LEQ
     | `LT
     | `GEQ
@@ -708,22 +746,9 @@ and pp_print_app ?as_type safe pvar ppf = function
         
     (* Unsupported functions symbols *)
     | `DISTINCT
-
-    | `BVNOT
     | `BVNEG
-
-    | `BVOR
-    | `BVADD
-    | `BVMUL
-    | `BVUDIV
-    | `BVUREM
     | `BVSHL
     | `BVLSHR
-    | `BVULT
-    | `BVULE
-    | `BVUGT
-    | `BVUGE
-
     | `IS_INT
     | `UF _ -> (function _ -> assert false)
       
@@ -1431,6 +1456,19 @@ let type_of_a_a_a type1 type2 =
   else raise Type_mismatch
 
 
+(* Type check for bv -> bv -> bv or ubv -> ubv -> ubv *)
+let type_of_abv_abv_abv t t' =
+  match t, t' with
+  | t, t' when Type.is_uint8 t && Type.is_uint8 t' -> Type.t_ubv 8
+  | t, t' when Type.is_uint16 t && Type.is_uint16 t' -> Type.t_ubv 16
+  | t, t' when Type.is_uint32 t && Type.is_uint32 t' -> Type.t_ubv 32
+  | t, t' when Type.is_uint64 t && Type.is_uint64 t' -> Type.t_ubv 64
+  | t, t' when Type.is_int8 t && Type.is_int8 t' -> Type.t_bv 8
+  | t, t' when Type.is_int16 t && Type.is_int16 t' -> Type.t_bv 16
+  | t, t' when Type.is_int32 t && Type.is_int32 t' -> Type.t_bv 32
+  | t, t' when Type.is_int64 t && Type.is_int64 t' -> Type.t_bv 64
+  | _, _ -> raise Type_mismatch
+
 (* Type check for ubv -> ubv -> ubv *)
 let type_of_ubv_ubv_ubv t t' =
   match t, t' with 
@@ -1441,7 +1479,7 @@ let type_of_ubv_ubv_ubv t t' =
   | _, _ -> raise Type_mismatch
   
 (* Type check for bv -> bv -> bv *)
-let type_of_bv_bv_ubv t t' =
+let type_of_bv_bv_bv t t' =
   match t, t' with 
   | t, t' when Type.is_int8 t && Type.is_int8 t' -> Type.t_bv 8
   | t, t' when Type.is_int16 t && Type.is_int16 t' -> Type.t_bv 16
@@ -2478,7 +2516,7 @@ let eval_bvand expr1 expr2 =
 
 
 (* Type of Boolean conjunction*)
-let type_of_bvand = type_of_ubv_ubv_ubv
+let type_of_bvand = type_of_abv_abv_abv
 
 
 (* Boolean conjunction *)
@@ -2497,7 +2535,7 @@ let eval_bvor expr1 expr2 =
 
 
 (* Type of Boolean disjunction *)
-let type_of_bvor = type_of_ubv_ubv_ubv
+let type_of_bvor = type_of_abv_abv_abv
 
 
 (* Boolean conjunction *)
@@ -2630,10 +2668,11 @@ let eval_lte expr1 expr2 =
     
     | _ ->
         (* Bitvector comparisons are simplified in the simplify module *) 
-        (if (Type.is_bitvector (Term.type_of_term expr1) ||
-             Type.is_ubitvector (Term.type_of_term expr1)) then 
+        (if (Type.is_ubitvector (Term.type_of_term expr1)) then 
           Term.mk_bvule [expr1; expr2]
-        else 
+        else if (Type.is_bitvector (Term.type_of_term expr1)) then
+          Term.mk_bvsle [expr1; expr2]
+        else
           Term.mk_leq [expr1; expr2])
 
     | exception Invalid_argument _ -> Term.mk_leq [expr1; expr2]
@@ -2686,9 +2725,10 @@ let eval_lt expr1 expr2 =
 
     | _ ->
         (* Bitvector comparisons are simplified in the simplify module *) 
-        (if (Type.is_bitvector (Term.type_of_term expr1) ||
-             Type.is_ubitvector (Term.type_of_term expr1)) then 
+        (if (Type.is_ubitvector (Term.type_of_term expr1)) then 
           Term.mk_bvult [expr1; expr2]
+        else if (Type.is_bitvector (Term.type_of_term expr1)) then
+          Term.mk_bvslt [expr1; expr2]
         else 
           Term.mk_lt [expr1; expr2])
 
@@ -2742,9 +2782,10 @@ let eval_gte expr1 expr2 =
 
     | _ ->
         (* Bitvector comparisons are simplified in the simplify module *) 
-        (if (Type.is_bitvector (Term.type_of_term expr1) ||
-             Type.is_ubitvector (Term.type_of_term expr1)) then 
-          Term.mk_bvuge [expr1; expr2]
+        (if (Type.is_ubitvector (Term.type_of_term expr1)) then 
+          Term.mk_bvsge [expr1; expr2]
+        else if (Type.is_bitvector (Term.type_of_term expr1)) then
+          Term.mk_bvsge [expr1; expr2]
         else 
           Term.mk_geq [expr1; expr2])
 
@@ -2798,9 +2839,10 @@ let eval_gt expr1 expr2 =
 
     | _ ->
         (* Bitvector comparisons are simplified in the simplify module *) 
-        (if (Type.is_bitvector (Term.type_of_term expr1) ||
-             Type.is_ubitvector (Term.type_of_term expr1)) then 
+        (if (Type.is_ubitvector (Term.type_of_term expr1)) then 
           Term.mk_bvugt [expr1; expr2]
+        else if (Type.is_bitvector (Term.type_of_term expr1)) then
+          Term.mk_bvsgt [expr1; expr2]
         else 
           Term.mk_gt [expr1; expr2])
 
