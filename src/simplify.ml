@@ -2187,7 +2187,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             (match args with
               | [] -> assert false
               | [a] -> a
-              | [UBV a; UBV b] -> Bool (Term.mk_bvsge [a;b])
+              | [UBV a; UBV b] -> Bool (Term.mk_bvuge [a;b])
               | _ -> assert false)
 
           | `BVSLT -> 

@@ -2783,7 +2783,7 @@ let eval_gte expr1 expr2 =
     | _ ->
         (* Bitvector comparisons are simplified in the simplify module *) 
         (if (Type.is_ubitvector (Term.type_of_term expr1)) then 
-          Term.mk_bvsge [expr1; expr2]
+          Term.mk_bvuge [expr1; expr2]
         else if (Type.is_bitvector (Term.type_of_term expr1)) then
           Term.mk_bvsge [expr1; expr2]
         else 
