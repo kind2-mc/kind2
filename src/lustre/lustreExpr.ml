@@ -357,6 +357,8 @@ let string_of_symbol = function
   | `BVSLE -> "<="
   | `BVSGT -> ">"
   | `BVSGE -> ">="
+  | `BVSHL -> "lshift"
+  | `BVLSHR -> "rshift"
   | _ -> failwith "string_of_symbol"
 
 
@@ -673,6 +675,21 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `LT
     | `GEQ
     | `GT as s -> pp_print_app_chain safe pvar s ppf
+
+    (* Binary non-associative symbols *)
+    | `BVSHL 
+    | `BVLSHR as s -> 
+  
+      (function 
+        | [a;b] -> 
+
+          Format.fprintf ppf
+            "@[<hv 2>(%a %a@ %a)@]" 
+            (pp_print_term_node safe pvar) a
+            pp_print_symbol s 
+            (pp_print_term_node safe pvar) b
+
+        | _ -> assert false)
               
     (* if-then-else *)
     | `ITE ->
@@ -747,8 +764,6 @@ and pp_print_app ?as_type safe pvar ppf = function
     (* Unsupported functions symbols *)
     | `DISTINCT
     | `BVNEG
-    | `BVSHL
-    | `BVLSHR
     | `IS_INT
     | `UF _ -> (function _ -> assert false)
       
@@ -2515,11 +2530,11 @@ let eval_bvand expr1 expr2 =
   | exception Invalid_argument _ -> Term.mk_bvand [expr1; expr2]
 
 
-(* Type of Boolean conjunction*)
+(* Type of bitvector conjunction*)
 let type_of_bvand = type_of_abv_abv_abv
 
 
-(* Boolean conjunction *)
+(* Bitvector conjunction *)
 let mk_bvand expr1 expr2 = mk_binary eval_bvand type_of_bvand expr1 expr2 
 
 
@@ -2534,12 +2549,68 @@ let eval_bvor expr1 expr2 =
   | exception Invalid_argument _ -> Term.mk_bvor [expr1; expr2]
 
 
-(* Type of Boolean disjunction *)
+(* Type of bitvector disjunction *)
 let type_of_bvor = type_of_abv_abv_abv
 
 
-(* Boolean conjunction *)
+(* Bitvector disjunction *)
 let mk_bvor expr1 expr2 = mk_binary eval_bvor type_of_bvor expr1 expr2 
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate bitvector left shift *)
+let eval_bvshl expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with
+  | _ -> Term.mk_bvshl [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_bvshl [expr1; expr2]
+
+
+(* Type of bitvector left shift *)
+let type_of_bvshl t t' = 
+  match t, t' with
+  | t, t' when Type.is_uint8 t && Type.is_uint8 t' -> Type.t_ubv 8
+  | t, t' when Type.is_uint16 t && Type.is_uint16 t' -> Type.t_ubv 16
+  | t, t' when Type.is_uint32 t && Type.is_uint32 t' -> Type.t_ubv 32
+  | t, t' when Type.is_uint64 t && Type.is_uint64 t' -> Type.t_ubv 64
+  | t, t' when Type.is_int8 t && Type.is_uint8 t' -> Type.t_bv 8
+  | t, t' when Type.is_int16 t && Type.is_uint16 t' -> Type.t_bv 16
+  | t, t' when Type.is_int32 t && Type.is_uint32 t' -> Type.t_bv 32
+  | t, t' when Type.is_int64 t && Type.is_uint64 t' -> Type.t_bv 64
+  | _, _ -> raise Type_mismatch
+
+(* Bitvector left shift *)
+let mk_bvshl expr1 expr2 = mk_binary eval_bvshl type_of_bvshl expr1 expr2 
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate bitvector logical right shift *)
+let eval_bvlshr expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with
+  | _ -> Term.mk_bvlshr [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_bvlshr [expr1; expr2]
+
+
+(* Type of bitvector logical right shift *)
+let type_of_bvlshr t t' = 
+  match t, t' with
+  | t, t' when Type.is_uint8 t && Type.is_uint8 t' -> Type.t_ubv 8
+  | t, t' when Type.is_uint16 t && Type.is_uint16 t' -> Type.t_ubv 16
+  | t, t' when Type.is_uint32 t && Type.is_uint32 t' -> Type.t_ubv 32
+  | t, t' when Type.is_uint64 t && Type.is_uint64 t' -> Type.t_ubv 64
+  | t, t' when Type.is_int8 t && Type.is_uint8 t' -> Type.t_bv 8
+  | t, t' when Type.is_int16 t && Type.is_uint16 t' -> Type.t_bv 16
+  | t, t' when Type.is_int32 t && Type.is_uint32 t' -> Type.t_bv 32
+  | t, t' when Type.is_int64 t && Type.is_uint64 t' -> Type.t_bv 64
+  | _, _ -> raise Type_mismatch
+
+(* Bitvector logical right shift *)
+let mk_bvlshr expr1 expr2 = mk_binary eval_bvlshr type_of_bvlshr expr1 expr2 
 
 
 (* ********************************************************************** *)

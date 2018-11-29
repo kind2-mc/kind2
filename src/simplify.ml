@@ -2130,6 +2130,22 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV a] -> BV (Term.mk_bvnot [a])
               | _ -> assert false)
             
+          | `BVSHL ->
+            (match args with
+              | [] -> assert false
+              | [a] -> a
+              | [BV a; UBV b] -> BV (Term.mk_bvshl [a;b]) 
+              | [UBV a; UBV b] -> BV (Term.mk_bvshl [a;b])
+              | _ -> assert false)
+
+          | `BVLSHR ->
+            (match args with
+              | [] -> assert false
+              | [a] -> a
+              | [BV a; UBV b] -> BV (Term.mk_bvlshr [a;b]) 
+              | [UBV a; UBV b] -> BV (Term.mk_bvlshr [a;b])
+              | _ -> assert false)
+
           | `BVADD ->
             (match args with
               | [] -> assert false
@@ -2219,9 +2235,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | _ -> assert false)
 
           (* Bitvectors not implemented *)
-          | `BVLSHR
-          | `BVNEG
-          | `BVSHL -> assert false
+          | `BVNEG -> assert false
 
           (* Constant symbols *)
           | `TRUE

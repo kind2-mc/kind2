@@ -445,6 +445,12 @@ val mk_bvand : t -> t -> t
 (** Return the bitvector disjunction of the two expressions. *)
 val mk_bvor : t -> t -> t
 
+(** Return the bitvector left shift of the two expressions. *)
+val mk_bvshl : t -> t -> t
+
+(** Return the bitvector logical right shift of the two expressions. *)
+val mk_bvlshr : t -> t -> t
+
 (** Return the equality relation on the two expressions. *)
 val mk_eq : t -> t -> t 
 

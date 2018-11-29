@@ -138,6 +138,8 @@ type expr =
   | BVAnd of position * expr * expr
   | BVOr of position * expr * expr
   | BVNot of position * expr
+  | BVShiftL of position * expr * expr
+  | BVLShiftR of position * expr * expr
 
   (* If operator *)
   | Ite of position * expr * expr * expr 
@@ -553,7 +555,9 @@ let rec pp_print_expr ppf =
     | BVAnd (p, e1, e2) -> p2 p "&" e1 e2
     | BVOr (p, e1, e2) -> p2 p "|" e1 e2
     | BVNot (p, e) -> p1 p "!" e
-     
+    | BVShiftL (p, e1, e2) -> p2 p "<<" e1 e2
+    | BVLShiftR (p, e1, e2) -> p2 p ">>" e1 e2
+
     | Ite (p, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
 
     | With (p, e1, e2, e3) -> p3 p "with" "then" "else" e1 e2 e3
@@ -1235,7 +1239,8 @@ let pos_of_expr = function
   | OneHot (pos , _ ) | Uminus (pos , _) | Mod (pos , _ , _)
   | Minus (pos , _ , _) | Plus (pos , _ , _) | Div (pos , _ , _)
   | Times (pos , _ , _) | IntDiv (pos , _ , _) 
-  | BVAnd (pos, _, _) | BVOr (pos, _, _) | BVNot (pos, _) | Ite (pos , _ , _ , _)
+  | BVAnd (pos, _, _) | BVOr (pos, _, _) | BVNot (pos, _) 
+  | BVShiftL (pos, _, _) | BVLShiftR (pos, _, _) | Ite (pos , _ , _ , _)
   | With (pos , _ , _ , _) | Eq (pos , _ , _) | Neq (pos , _ , _)
   | Lte (pos , _ , _) | Lt (pos , _ , _) | Gte (pos , _ , _) | Gt (pos , _ , _)
   | Forall (pos, _, _) | Exists (pos, _, _)
@@ -1260,7 +1265,8 @@ let rec has_unguarded_pre ung = function
   | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
   | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
   | Times (_, e1, e2) | IntDiv (_, e1, e2) | BVAnd (_, e1, e2) 
-  | BVOr (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
+  | BVOr (_, e1, e2) | BVShiftL (_, e1, e2) | BVLShiftR (_, e1, e2) 
+  | Eq (_, e1, e2) | Neq (_, e1, e2)
   | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
   | ArrayConcat (_, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
@@ -1382,7 +1388,8 @@ let rec has_pre_or_arrow = function
   | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
   | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
   | Times (_, e1, e2) | IntDiv (_, e1, e2) | BVAnd (_, e1, e2) 
-  | BVOr (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
+  | BVOr (_, e1, e2) | BVShiftL (_, e1, e2) | BVLShiftR (_, e1, e2) 
+  | Eq (_, e1, e2) | Neq (_, e1, e2)
   | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
   | ArrayConcat (_, e1, e2) -> (
     match has_pre_or_arrow e1 with
@@ -1465,7 +1472,8 @@ let rec lasts_of_expr acc = function
   | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
   | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
   | Times (_, e1, e2) | IntDiv (_, e1, e2) | BVAnd (_, e1, e2) 
-  | BVOr (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
+  | BVOr (_, e1, e2) | BVShiftL (_, e1, e2) | BVLShiftR (_, e1, e2) 
+  | Eq (_, e1, e2) | Neq (_, e1, e2)
   | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
   | ArrayConcat (_, e1, e2) ->
     lasts_of_expr (lasts_of_expr acc e1) e2
@@ -1610,8 +1618,8 @@ let rec replace_lasts allowed prefix acc ee = match ee with
   | Impl (pos, e1, e2) | ArrayConstr (pos, e1, e2) | Mod (pos, e1, e2)
   | Minus (pos, e1, e2) | Plus (pos, e1, e2) | Div (pos, e1, e2)
   | Times (pos, e1, e2) | IntDiv (pos, e1, e2) | BVAnd (pos, e1, e2)
-  | BVOr (pos, e1, e2) | Eq (pos, e1, e2)
-  | Neq (pos, e1, e2) | Lte (pos, e1, e2) | Lt (pos, e1, e2)
+  | BVOr (pos, e1, e2) | BVShiftL (pos, e1, e2) | BVLShiftR (pos, e1, e2) 
+  | Eq (pos, e1, e2) | Neq (pos, e1, e2) | Lte (pos, e1, e2) | Lt (pos, e1, e2)
   | Gte (pos, e1, e2) | Gt (pos, e1, e2) | ArrayConcat (pos, e1, e2) ->
     let e1', acc' = replace_lasts allowed prefix acc e1 in
     let e2', acc' = replace_lasts allowed prefix acc' e2 in

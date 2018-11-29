@@ -483,6 +483,8 @@ rule token = parse
   | "&&" { BVAND }
   | "||" { BVOR }
   | "!" { BVNOT}
+  | "lshift" { BVSHL }
+  | "rshift" { BVLSHR }
 
   (* Decimal or numeral *)
   | decimal as p { DECIMAL p }

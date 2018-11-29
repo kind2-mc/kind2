@@ -1091,18 +1091,6 @@ let mk_bvurem = function
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVUREM a
 
-(* Hashcons a bitvector left shift *)
-let mk_bvshl = function
-  | [] -> invalid_arg "Term.mk_bvshl"
-  | [a] -> a
-  | a -> mk_app_of_symbol_node `BVSHL a
-
-(* Hashcons a bitvector logical right shift *)
-let mk_bvlshr = function
-  | [] -> invalid_arg "Term.mk_bvlshr"
-  | [a] -> a
-  | a -> mk_app_of_symbol_node `BVLSHR a
-
 (* Hashcons a bitvector conjunction *)
 let mk_bvand = function
   | [] -> invalid_arg "Term.mk_bvand"
@@ -1120,6 +1108,18 @@ let mk_bvnot = function
   | [] -> invalid_arg "Term.mk_bvnot"
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVNOT a
+
+(* Hashcons a bitvector left shift *)
+let mk_bvshl = function
+  | [] -> invalid_arg "Term.mk_bvshl"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSHL a
+
+(* Hashcons a bitvector logical right shift *)
+let mk_bvlshr = function
+  | [] -> invalid_arg "Term.mk_bvlrshr"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVLSHR a
 
 (* Hashcons an unsigned bitvector less-than comparison *)
 let mk_bvult = function

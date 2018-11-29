@@ -106,6 +106,8 @@ type expr =
   | BVAnd of position * expr * expr
   | BVOr of position * expr * expr
   | BVNot of position * expr
+  | BVShiftL of position * expr * expr
+  | BVLShiftR of position * expr * expr
   | Ite of position * expr * expr * expr
   | With of position * expr * expr * expr
   | Eq of position * expr * expr

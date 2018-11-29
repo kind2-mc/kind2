@@ -157,12 +157,6 @@ val mk_bvudiv : t list -> t
 (** Create a bitvector modulus *)
 val mk_bvurem : t list -> t
 
-(** Create a bitvector left shift *)
-val mk_bvshl : t list -> t
-
-(** Create a bitvector logical right shift *)
-val mk_bvlshr : t list -> t
-
 (** Create a bitvector conjunction *)
 val mk_bvand : t list -> t
 
@@ -171,6 +165,12 @@ val mk_bvor : t list -> t
 
 (** Create a bitwise negation *)
 val mk_bvnot : t list -> t
+
+(** Create a bitvector left shift *)
+val mk_bvshl : t list -> t
+
+(** Create a bitvector logical right shift *)
+val mk_bvlshr : t list -> t
 
 (** Create an unsigned bitvector less-than comparison *)
 val mk_bvult : t list -> t
