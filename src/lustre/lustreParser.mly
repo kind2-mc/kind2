@@ -178,6 +178,7 @@ let merge_branches transitions =
 %token BVNOT
 %token BVSHL
 %token BVLSHR
+%token BVASHR
 
 (* Tokens for clocks *)
 %token WHEN
@@ -221,7 +222,7 @@ let merge_branches transitions =
 %left PLUS MINUS
 %left MULT INTDIV MOD DIV
 %left BVAND BVOR
-%nonassoc BVSHL BVLSHR
+%nonassoc BVSHL BVLSHR BVASHR
 %nonassoc PRE 
 %nonassoc INT REAL 
 %nonassoc NOT
@@ -882,6 +883,7 @@ pexpr(Q):
   | e1 = pexpr(Q); BVOR; e2 = pexpr(Q) { A.BVOr (mk_pos $startpos, e1, e2) }
   | e1 = pexpr(Q); BVSHL; e2 = pexpr(Q) { A.BVShiftL (mk_pos $startpos, e1, e2) }
   | e1 = pexpr(Q); BVLSHR; e2 = pexpr(Q) { A.BVLShiftR (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); BVASHR; e2 = pexpr(Q) { A.BVAShiftR (mk_pos $startpos, e1, e2) }
 
   (* A quantified expression *)
   | FORALL; q = Q;

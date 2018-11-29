@@ -219,6 +219,7 @@ let string_symbol_list =
    (* ("bvurem", Symbol.mk_symbol `BVUREM); *)
    ("bv-shift-left0", Symbol.mk_symbol `BVSHL);
    ("bv-shift-right0", Symbol.mk_symbol `BVLSHR);
+   ("bv-ashift-right", Symbol.mk_symbol `BVASHR);
    ("bv-lt", Symbol.mk_symbol `BVULT);
    ("bv-le", Symbol.mk_symbol `BVULE);
    ("bv-gt", Symbol.mk_symbol `BVUGT);
@@ -307,6 +308,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVUREM -> Format.pp_print_string ppf "bvurem"
   | `BVSHL -> Format.pp_print_string ppf "bv-shift-left0"
   | `BVLSHR -> Format.pp_print_string ppf "bv-shift-right0"
+  | `BVASHR -> Format.pp_print_string ppf "bv-ashift-right"
   | `BVULT -> Format.pp_print_string ppf "bv-lt"
   | `BVULE -> Format.pp_print_string ppf "bv-le"
   | `BVUGT -> Format.pp_print_string ppf "bv-gt"

@@ -323,6 +323,11 @@ let rec eval_ast_expr bounds ctx =
     
       eval_binary_ast_expr bounds ctx pos E.mk_bvlshr expr1 expr2
 
+  (* Bitwise arithmetic right shift *)
+  | A.BVAShiftR (pos, expr1, expr2) ->
+
+      eval_binary_ast_expr bounds ctx pos E.mk_bvashr expr1 expr2
+
   (* Less than or equal [expr1 <= expr2] *)
   | A.Lte (pos, expr1, expr2) -> 
 

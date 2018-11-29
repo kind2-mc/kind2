@@ -608,7 +608,8 @@ let rec type_of_term t = match T.destruct t with
         | `BVUDIV
         | `BVUREM
         | `BVSHL
-        | `BVLSHR ->
+        | `BVLSHR 
+        | `BVASHR ->
 
           (match l with
 
@@ -1120,6 +1121,12 @@ let mk_bvlshr = function
   | [] -> invalid_arg "Term.mk_bvlrshr"
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVLSHR a
+
+(* Hashcons a bitvector arithmetic right shift *)
+let mk_bvashr = function
+  | [] -> invalid_arg "Term.mk_bvarshr"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVASHR a
 
 (* Hashcons an unsigned bitvector less-than comparison *)
 let mk_bvult = function

@@ -359,6 +359,7 @@ let string_of_symbol = function
   | `BVSGE -> ">="
   | `BVSHL -> "lshift"
   | `BVLSHR -> "rshift"
+  | `BVASHR -> "arshift"
   | _ -> failwith "string_of_symbol"
 
 
@@ -678,7 +679,8 @@ and pp_print_app ?as_type safe pvar ppf = function
 
     (* Binary non-associative symbols *)
     | `BVSHL 
-    | `BVLSHR as s -> 
+    | `BVLSHR 
+    | `BVASHR as s -> 
   
       (function 
         | [a;b] -> 
@@ -1484,6 +1486,21 @@ let type_of_abv_abv_abv t t' =
   | t, t' when Type.is_int64 t && Type.is_int64 t' -> Type.t_bv 64
   | _, _ -> raise Type_mismatch
 
+
+(* Type check for bv -> ubv -> bv or ubv -> ubv -> ubv *)
+let type_of_abv_ubv_abv t t' =
+match t, t' with
+  | t, t' when Type.is_uint8 t && Type.is_uint8 t' -> Type.t_ubv 8
+  | t, t' when Type.is_uint16 t && Type.is_uint16 t' -> Type.t_ubv 16
+  | t, t' when Type.is_uint32 t && Type.is_uint32 t' -> Type.t_ubv 32
+  | t, t' when Type.is_uint64 t && Type.is_uint64 t' -> Type.t_ubv 64
+  | t, t' when Type.is_int8 t && Type.is_uint8 t' -> Type.t_bv 8
+  | t, t' when Type.is_int16 t && Type.is_uint16 t' -> Type.t_bv 16
+  | t, t' when Type.is_int32 t && Type.is_uint32 t' -> Type.t_bv 32
+  | t, t' when Type.is_int64 t && Type.is_uint64 t' -> Type.t_bv 64
+  | _, _ -> raise Type_mismatch
+
+
 (* Type check for ubv -> ubv -> ubv *)
 let type_of_ubv_ubv_ubv t t' =
   match t, t' with 
@@ -1492,7 +1509,8 @@ let type_of_ubv_ubv_ubv t t' =
   | t, t' when Type.is_uint32 t && Type.is_uint32 t' -> Type.t_ubv 32
   | t, t' when Type.is_uint64 t && Type.is_uint64 t' -> Type.t_ubv 64
   | _, _ -> raise Type_mismatch
-  
+
+
 (* Type check for bv -> bv -> bv *)
 let type_of_bv_bv_bv t t' =
   match t, t' with 
@@ -1501,6 +1519,7 @@ let type_of_bv_bv_bv t t' =
   | t, t' when Type.is_int32 t && Type.is_int32 t' -> Type.t_bv 32
   | t, t' when Type.is_int64 t && Type.is_int64 t' -> Type.t_bv 64
   | _, _ -> raise Type_mismatch
+
 
 (* Type check for 'a -> 'a -> bool *)
 let type_of_a_a_bool type1 type2 = 
@@ -2569,17 +2588,8 @@ let eval_bvshl expr1 expr2 =
 
 
 (* Type of bitvector left shift *)
-let type_of_bvshl t t' = 
-  match t, t' with
-  | t, t' when Type.is_uint8 t && Type.is_uint8 t' -> Type.t_ubv 8
-  | t, t' when Type.is_uint16 t && Type.is_uint16 t' -> Type.t_ubv 16
-  | t, t' when Type.is_uint32 t && Type.is_uint32 t' -> Type.t_ubv 32
-  | t, t' when Type.is_uint64 t && Type.is_uint64 t' -> Type.t_ubv 64
-  | t, t' when Type.is_int8 t && Type.is_uint8 t' -> Type.t_bv 8
-  | t, t' when Type.is_int16 t && Type.is_uint16 t' -> Type.t_bv 16
-  | t, t' when Type.is_int32 t && Type.is_uint32 t' -> Type.t_bv 32
-  | t, t' when Type.is_int64 t && Type.is_uint64 t' -> Type.t_bv 64
-  | _, _ -> raise Type_mismatch
+let type_of_bvshl = type_of_abv_ubv_abv
+
 
 (* Bitvector left shift *)
 let mk_bvshl expr1 expr2 = mk_binary eval_bvshl type_of_bvshl expr1 expr2 
@@ -2597,20 +2607,30 @@ let eval_bvlshr expr1 expr2 =
 
 
 (* Type of bitvector logical right shift *)
-let type_of_bvlshr t t' = 
-  match t, t' with
-  | t, t' when Type.is_uint8 t && Type.is_uint8 t' -> Type.t_ubv 8
-  | t, t' when Type.is_uint16 t && Type.is_uint16 t' -> Type.t_ubv 16
-  | t, t' when Type.is_uint32 t && Type.is_uint32 t' -> Type.t_ubv 32
-  | t, t' when Type.is_uint64 t && Type.is_uint64 t' -> Type.t_ubv 64
-  | t, t' when Type.is_int8 t && Type.is_uint8 t' -> Type.t_bv 8
-  | t, t' when Type.is_int16 t && Type.is_uint16 t' -> Type.t_bv 16
-  | t, t' when Type.is_int32 t && Type.is_uint32 t' -> Type.t_bv 32
-  | t, t' when Type.is_int64 t && Type.is_uint64 t' -> Type.t_bv 64
-  | _, _ -> raise Type_mismatch
+let type_of_bvlshr = type_of_abv_ubv_abv
+
 
 (* Bitvector logical right shift *)
 let mk_bvlshr expr1 expr2 = mk_binary eval_bvlshr type_of_bvlshr expr1 expr2 
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate bitvector arithmetic right shift *)
+let eval_bvashr expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with
+  | _ -> Term.mk_bvashr [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_bvashr [expr1; expr2]
+
+
+(* Type of bitvector arithmetic right shift *)
+let type_of_bvashr = type_of_abv_ubv_abv
+
+
+(* Bitvector arithmetic right shift *)
+let mk_bvashr expr1 expr2 = mk_binary eval_bvashr type_of_bvashr expr1 expr2 
 
 
 (* ********************************************************************** *)

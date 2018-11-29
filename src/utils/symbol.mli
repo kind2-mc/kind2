@@ -64,8 +64,9 @@
     {- [`BVMUL] binary: arithmetic multiplication}
     {- [`BVUDIV] binary: arithmetic integer division}
     {- [`BVUREM] binary: arithmetic remainder}
-    {- [`BVSHL] unary: logical shift left}
-    {- [`BVLSHR] unary: logical shift right}
+    {- [`BVSHL] binary: logical shift left}
+    {- [`BVLSHR] binary: logical shift right}
+    {- [`BVASHR] binary: arithmetic shift right}
     {- [`BVULT] binary: arithmetic comparision less than}
     {- [`BVULE] binary: arithmetic comparision less than or equal to}
     {- [`BVUGT] binary: arithmetic comparision greater than}
@@ -154,8 +155,9 @@ type interpreted_symbol =
   | `BVMUL                (** Arithmetic multiplication (binary) *)
   | `BVUDIV               (** Arithmetic integer division (binary) *)
   | `BVUREM               (** Arithmetic remainder (binary) *)
-  | `BVSHL                (** Logical shift left (unary) *)
-  | `BVLSHR               (** Logical shift right (unary) *)
+  | `BVSHL                (** Logical shift left (binary) *)
+  | `BVLSHR               (** Logical shift right (binary) *)
+  | `BVASHR               (** Arithmetic shift right (binary) *)
   | `BVULT                (* Arithmetic comparision less than (binary) *)
   | `BVULE                (* Arithmetic comparision less than or equal to (binary) *)
   | `BVUGT                (* Arithmetic comparision greater than (binary) *)

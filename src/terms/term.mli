@@ -172,6 +172,9 @@ val mk_bvshl : t list -> t
 (** Create a bitvector logical right shift *)
 val mk_bvlshr : t list -> t
 
+(** Create a bitvector arithmetic right shift *)
+val mk_bvashr : t list -> t
+
 (** Create an unsigned bitvector less-than comparison *)
 val mk_bvult : t list -> t
 

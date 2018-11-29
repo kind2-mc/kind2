@@ -88,8 +88,9 @@ type interpreted_symbol =
   | `BVMUL                (* Arithmetic multiplication (binary) *)
   | `BVUDIV               (* Arithmetic integer division (binary) *)
   | `BVUREM               (* Arithmetic remainder (binary) *)
-  | `BVSHL                (* Logical shift left (unary) *)
-  | `BVLSHR               (* Logical shift right (unary) *)
+  | `BVSHL                (* Logical shift left (binary) *)
+  | `BVLSHR               (* Logical shift right (binary) *)
+  | `BVASHR               (* Arithmetic right shift (binary) *)
   | `BVULT                (* Arithmetic comparision less than (unsigned binary) *)
   | `BVULE                (* Arithmetic comparision less than or equal to (unsigned binary) *)
   | `BVUGT                (* Arithmetic comparision greater than (unsigned binary) *)
@@ -218,6 +219,7 @@ module Symbol_node = struct
     | `BVUREM, `BVUREM
     | `BVSHL, `BVSHL
     | `BVLSHR, `BVLSHR
+    | `BVASHR, `BVASHR
     | `BVULT, `BVULT
     | `BVULE, `BVULE
     | `BVUGT, `BVUGT
@@ -273,6 +275,7 @@ module Symbol_node = struct
     | `BVUREM, _
     | `BVSHL, _
     | `BVLSHR, _
+    | `BVASHR, _
     | `BVULT, _ 
     | `BVULE, _
     | `BVUGT, _
@@ -429,6 +432,7 @@ let rec pp_print_symbol_node ppf = function
   | `BVUREM -> Format.pp_print_string ppf "bvurem"
   | `BVSHL -> Format.pp_print_string ppf "bvshl"
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
+  | `BVASHR -> Format.pp_print_string ppf "bvashr"
   | `BVULT -> Format.pp_print_string ppf "bvult"
   | `BVULE -> Format.pp_print_string ppf "bvule"
   | `BVUGT -> Format.pp_print_string ppf "bvugt"
