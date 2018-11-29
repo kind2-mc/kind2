@@ -1395,55 +1395,7 @@ let type_of_num_num_num ?(is_div = false) op t t' =
     match t with
     | t when Type.is_int t || Type.is_int_range t -> (
       match t' with
-      | t when Type.is_int t || Type.is_int_range t -> Type.t_int
-      | _ -> raise Type_mismatch
-    )
-
-    | t when Type.is_uint8 t -> (
-      match t' with
-      | t when Type.is_uint8 t -> Type.t_ubv 8
-      | _ -> raise Type_mismatch
-    )
-
-    | t when Type.is_uint16 t -> (
-      match t' with
-      | t when Type.is_uint16 t -> Type.t_ubv 16
-      | _ -> raise Type_mismatch
-    )
-
-    | t when Type.is_uint32 t -> (
-      match t' with
-      | t when Type.is_uint32 t -> Type.t_ubv 32
-      | _ -> raise Type_mismatch
-    )
-
-    | t when Type.is_uint64 t -> (
-      match t' with
-      | t when Type.is_uint64 t -> Type.t_ubv 64
-      | _ -> raise Type_mismatch
-    )
-
-    | t when Type.is_int8 t -> (
-      match t' with
-      | t when Type.is_int8 t -> Type.t_bv 8
-      | _ -> raise Type_mismatch
-    )
-
-    | t when Type.is_int16 t -> (
-      match t' with
-      | t when Type.is_int16 t -> Type.t_bv 16
-      | _ -> raise Type_mismatch
-    )
-
-    | t when Type.is_int32 t -> (
-      match t' with
-      | t when Type.is_int32 t -> Type.t_bv 32
-      | _ -> raise Type_mismatch
-    )
-
-    | t when Type.is_int64 t -> (
-      match t' with
-      | t when Type.is_int64 t -> Type.t_bv 64
+      | t when Type.is_int t || Type.is_int_range t -> Type.t_int 
       | _ -> raise Type_mismatch
     )
 
@@ -1455,6 +1407,93 @@ let type_of_num_num_num ?(is_div = false) op t t' =
       
     | _ -> raise Type_mismatch
   )
+
+
+(* Type check for int -> int -> int, real -> real -> real, 
+abv -> abv -> abv *)
+let type_of_numOrBV_numOrBV_numOrBV ?(is_div = false) op t t' =
+  try best_int_range is_div op t t' with
+  | Invalid_argument _ -> (
+    match t with
+    | t when Type.is_int t || Type.is_int_range t -> (
+      match t' with
+      | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+      | _ -> raise Type_mismatch
+    )
+
+    | t when Type.is_uint8 t -> (
+      match t' with
+      | t when Type.is_uint8 t -> Type.t_ubv 8
+      | _ -> raise Type_mismatch)
+    | t when Type.is_uint16 t -> (
+      match t' with
+      | t when Type.is_uint16 t -> Type.t_ubv 16
+      | _ -> raise Type_mismatch)
+    | t when Type.is_uint32 t -> (
+      match t' with
+      | t when Type.is_uint32 t -> Type.t_ubv 32
+      | _ -> raise Type_mismatch)
+    | t when Type.is_uint64 t -> (
+      match t' with
+      | t when Type.is_uint64 t -> Type.t_ubv 64
+      | _ -> raise Type_mismatch)
+
+    | t when Type.is_int8 t -> (
+      match t' with
+      | t when Type.is_int8 t -> Type.t_bv 8
+      | _ -> raise Type_mismatch)
+    | t when Type.is_int16 t -> (
+      match t' with
+      | t when Type.is_int16 t -> Type.t_bv 16
+      | _ -> raise Type_mismatch)
+    | t when Type.is_int32 t -> (
+      match t' with
+      | t when Type.is_int32 t -> Type.t_bv 32
+      | _ -> raise Type_mismatch)
+    | t when Type.is_int64 t -> (
+      match t' with
+      | t when Type.is_int64 t -> Type.t_bv 64
+      | _ -> raise Type_mismatch)
+    | t when Type.is_real t -> (
+      match t' with
+      | t when Type.is_real t -> Type.t_real
+      | _ -> raise Type_mismatch)
+    | _ -> raise Type_mismatch)
+  
+
+(* Type check for int -> int -> int, real -> real -> real, 
+bv -> bv -> bv *)
+let type_of_numOrSBV_numOrSBV_numOrSBV ?(is_div = false) op t t' =
+  try best_int_range is_div op t t' with
+  | Invalid_argument _ -> (
+    match t with
+    | t when Type.is_int t || Type.is_int_range t -> (
+      match t' with
+      | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+      | _ -> raise Type_mismatch
+    )
+
+    | t when Type.is_int8 t -> (
+      match t' with
+      | t when Type.is_int8 t -> Type.t_bv 8
+      | _ -> raise Type_mismatch)
+    | t when Type.is_int16 t -> (
+      match t' with
+      | t when Type.is_int16 t -> Type.t_bv 16
+      | _ -> raise Type_mismatch)
+    | t when Type.is_int32 t -> (
+      match t' with
+      | t when Type.is_int32 t -> Type.t_bv 32
+      | _ -> raise Type_mismatch)
+    | t when Type.is_int64 t -> (
+      match t' with
+      | t when Type.is_int64 t -> Type.t_bv 64
+      | _ -> raise Type_mismatch)
+    | t when Type.is_real t -> (
+      match t' with
+      | t when Type.is_real t -> Type.t_real
+      | _ -> raise Type_mismatch)
+    | _ -> raise Type_mismatch)
 
 
 (* Type check for 'a -> 'a -> 'a *)
@@ -2221,7 +2260,6 @@ let eval_mod expr1 expr2 =
 
    mod: int -> int -> int *)
 let type_of_mod = function 
-
   | t when Type.is_int t || Type.is_int_range t -> 
     (function 
       | t when Type.is_int t -> Type.t_int 
@@ -2286,8 +2324,13 @@ let eval_minus expr1 expr2 =
       Term.mk_dec
         Decimal.(Symbol.decimal_of_symbol c1 -
                  Symbol.decimal_of_symbol c2) 
+
+    | _ -> Term.mk_minus [expr1; expr2]             
         
-    | _ -> Term.mk_minus [expr1; expr2]
+(*    | _ -> (if (Type.is_bitvector (Term.type_of_term expr1)) then 
+              Term.mk_bvminus [expr1; expr2]
+            else 
+              Term.mk_minus [expr1; expr2]) *)
     | exception Invalid_argument _ -> Term.mk_minus [expr1; expr2]
              
 
@@ -2307,8 +2350,8 @@ let type_of_minus = function
         let l1, u1 = Type.bounds_of_int_range t in
         let l2, u2 = Type.bounds_of_int_range s in
         Type.mk_int_range Numeral.(l1 - u2) Numeral.(u1 - l2)
-      | s -> type_of_num_num_num Numeral.sub t s)
-  | t -> type_of_num_num_num Numeral.sub t
+      | s -> type_of_num_num_num Numeral.sub t s) (*type_of_numOrSBV_numOrSBV_numOrSBV Numeral.sub t s)*)
+  | t -> type_of_num_num_num Numeral.sub t (*type_of_numOrSBV_numOrSBV_numOrSBV Numeral.sub t*)
 
 
 
@@ -2361,8 +2404,8 @@ let type_of_plus = function
         let l1, u1 = Type.bounds_of_int_range t in
         let l2, u2 = Type.bounds_of_int_range s in
         Type.mk_int_range Numeral.(l1 + l2) Numeral.(u1 + u2)
-      | s -> type_of_num_num_num Numeral.add t s)
-  | t -> type_of_num_num_num Numeral.add t
+      | s -> type_of_numOrBV_numOrBV_numOrBV Numeral.add t s)
+  | t -> type_of_numOrBV_numOrBV_numOrBV Numeral.add t
 
 
 (* Addition *)
@@ -2399,14 +2442,10 @@ let eval_div expr1 expr2 =
     let tt = Term.type_of_term expr1 in
 
     if Type.is_real tt then (
-
       Term.mk_div [expr1; expr2]
-
     )
     else (
-
       Term.mk_intdiv [expr1; expr2]
-
     )
 
   | exception Invalid_argument _ -> Term.mk_div [expr1; expr2]
@@ -2457,7 +2496,7 @@ let eval_times expr1 expr2 =
 
    *: int -> int -> int
       real -> real -> real *)
-let type_of_times = type_of_num_num_num Numeral.mult
+let type_of_times = type_of_numOrBV_numOrBV_numOrBV Numeral.mult
 
 
 (* Multiplication *)
