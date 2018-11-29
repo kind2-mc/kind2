@@ -1105,10 +1105,10 @@ let mk_bvor = function
   | a -> mk_app_of_symbol_node `BVOR a
 
 (* Hashcons a bitwise negation *)
-let mk_bvnot = function
-  | [] -> invalid_arg "Term.mk_bvnot"
-  | [a] -> a
-  | a -> mk_app_of_symbol_node `BVNOT a
+let mk_bvnot t = mk_app_of_symbol_node `NOT [t]
+
+(* Hashcons a bitvector negation (2's complement) *)
+let mk_bvneg t = mk_app_of_symbol_node `BVNEG [t]
 
 (* Hashcons a bitvector left shift *)
 let mk_bvshl = function

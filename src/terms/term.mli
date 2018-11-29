@@ -164,7 +164,10 @@ val mk_bvand : t list -> t
 val mk_bvor : t list -> t
 
 (** Create a bitwise negation *)
-val mk_bvnot : t list -> t
+val mk_bvnot : t -> t
+
+(* Create a bitvector negation (2's complement) *)
+val mk_bvneg : t -> t
 
 (** Create a bitvector left shift *)
 val mk_bvshl : t list -> t

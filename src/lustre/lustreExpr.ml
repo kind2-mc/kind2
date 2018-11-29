@@ -345,6 +345,7 @@ let string_of_symbol = function
   | `BVAND -> "&&"
   | `BVOR -> "||"
   | `BVNOT -> "!"
+  | `BVNEG -> "-"
   | `BVADD -> "+"
   | `BVMUL -> "*"
   | `BVUDIV -> "div"
@@ -605,6 +606,7 @@ and pp_print_app ?as_type safe pvar ppf = function
   (* Unary symbols *) 
   | `NOT
   | `BVNOT
+  | `BVNEG
   | `TO_REAL
   | `TO_INT
   | `TO_UINT8
@@ -765,7 +767,6 @@ and pp_print_app ?as_type safe pvar ppf = function
         
     (* Unsupported functions symbols *)
     | `DISTINCT
-    | `BVNEG
     | `IS_INT
     | `UF _ -> (function _ -> assert false)
       
@@ -1701,7 +1702,7 @@ let mk_uminus expr = mk_unary eval_uminus type_of_uminus expr
 
 
 (* Evaluate bitwise negation*)
-let eval_bvnot expr = Term.mk_bvnot [expr]
+let eval_bvnot expr = Term.mk_bvnot expr
 
 
 (* Type of bitwise negation *)
@@ -2325,12 +2326,12 @@ let eval_minus expr1 expr2 =
         Decimal.(Symbol.decimal_of_symbol c1 -
                  Symbol.decimal_of_symbol c2) 
 
-    | _ -> Term.mk_minus [expr1; expr2]             
-        
-(*    | _ -> (if (Type.is_bitvector (Term.type_of_term expr1)) then 
-              Term.mk_bvminus [expr1; expr2]
+    | _ -> (if (Type.is_bitvector (Term.type_of_term expr1)) then 
+              let e2 = Term.mk_bvneg expr2 in
+                Term.mk_bvadd [expr1; e2]
             else 
-              Term.mk_minus [expr1; expr2]) *)
+              Term.mk_minus [expr1; expr2])
+        
     | exception Invalid_argument _ -> Term.mk_minus [expr1; expr2]
              
 
@@ -2350,9 +2351,8 @@ let type_of_minus = function
         let l1, u1 = Type.bounds_of_int_range t in
         let l2, u2 = Type.bounds_of_int_range s in
         Type.mk_int_range Numeral.(l1 - u2) Numeral.(u1 - l2)
-      | s -> type_of_num_num_num Numeral.sub t s) (*type_of_numOrSBV_numOrSBV_numOrSBV Numeral.sub t s)*)
-  | t -> type_of_num_num_num Numeral.sub t (*type_of_numOrSBV_numOrSBV_numOrSBV Numeral.sub t*)
-
+      | s -> type_of_numOrSBV_numOrSBV_numOrSBV Numeral.sub t s)
+  | t -> type_of_numOrSBV_numOrSBV_numOrSBV Numeral.sub t
 
 
 (* Subtraction *)
