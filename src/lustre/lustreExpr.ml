@@ -2518,7 +2518,7 @@ let eval_intdiv expr1 expr2 =
         Numeral.(Symbol.numeral_of_symbol c1 /
                  Symbol.numeral_of_symbol c2)                 
 
-    | _ -> (if Type.is_bitvector (Term.type_of_term expr1) then 
+    | _ -> (if Type.is_ubitvector (Term.type_of_term expr1) then 
               Term.mk_bvudiv [expr1; expr2]
             else 
               Term.mk_intdiv [expr1; expr2])
@@ -2547,25 +2547,10 @@ let type_of_intdiv t t' =
               raise BV_size_mismatch
             else
               (match s1,s2 with
-              | 8, 8 -> Type.t_bv 8
-              | 16, 16 -> Type.t_bv 16
-              | 32, 32 -> Type.t_bv 32
-              | 64, 64 -> Type.t_bv 64
-              | _, _ -> raise Type_mismatch)
-      | _ -> raise Type_mismatch)
-    | t when Type.is_bitvector t -> (
-      match t' with
-      | t' when Type.is_bitvector t' -> 
-        let s1 = Type.bitvectorsize t in
-          let s2 = Type.bitvectorsize t' in 
-            if s1 != s2 then
-              raise BV_size_mismatch
-            else
-              (match s1,s2 with
-              | 8, 8 -> Type.t_bv 8
-              | 16, 16 -> Type.t_bv 16
-              | 32, 32 -> Type.t_bv 32
-              | 64, 64 -> Type.t_bv 64
+              | 8, 8 -> Type.t_ubv 8
+              | 16, 16 -> Type.t_ubv 16
+              | 32, 32 -> Type.t_ubv 32
+              | 64, 64 -> Type.t_ubv 64
               | _, _ -> raise Type_mismatch)
       | _ -> raise Type_mismatch)
     | _ -> raise Type_mismatch
