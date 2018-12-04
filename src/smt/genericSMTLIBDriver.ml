@@ -600,7 +600,7 @@ let smtlib_string_symbol_list =
 let smtlib_reserved_word_list = 
   List.map 
     HString.mk_hstring 
-    ["par"; "_"; "!"; "as" ]
+    ["par"; "!"; "as" ]
 
 (* Hashtable for hashconsed strings to function symbols *)
 let hstring_symbol_table = HString.HStringHashtbl.create 50 
@@ -637,6 +637,7 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `UBV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b 
   | `BV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b
+  | `BVDEC (i, s) -> Bitvector.pp_smtlib_print_bitvector_d ppf i s 
 
   | `MINUS -> Format.pp_print_string ppf "-"
   | `PLUS -> Format.pp_print_string ppf "+"

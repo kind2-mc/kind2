@@ -601,7 +601,8 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `NUMERAL _
   | `DECIMAL _
   | `UBV _
-  | `BV _ -> (function _ -> assert false)
+  | `BV _ 
+  | `BVDEC (_, _) -> (function _ -> assert false)
 
   (* Unary symbols *) 
   | `NOT

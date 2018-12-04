@@ -78,10 +78,13 @@ val bool_of_hstring : HString.t -> bool
 val pp_smtlib_print_bitvector_b : Format.formatter -> t -> unit
 
 (* Pretty-print a bitvector in SMTLIB extended decimal format *)
-val pp_smtlib_print_bitvector_d : Format.formatter -> int -> int -> unit
+val pp_smtlib_print_bitvector_d : Format.formatter -> Numeral.t -> Numeral.t -> unit
 
 (** Pretty-print a constant bitvector in Yices' binary format *)
 val pp_yices_print_bitvector_b : Format.formatter -> t -> unit
+
+(** Pretty-print a constant bitvector in Yices' binary format given the decimal value and size *)
+val pp_yices_print_bitvector_d : Format.formatter -> Numeral.t -> Numeral.t -> unit
 
 (** Pretty-print a constant bitvector in hexadeciaml format *)
 val pp_print_bitvector_x : Format.formatter -> t -> unit

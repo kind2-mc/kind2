@@ -510,6 +510,7 @@ let ensure_symbol_qf_lira s =
 
   | `UBV _
   | `BV _ 
+  | `BVDEC (_, _)
   | `INTDIV
   | `DIVISIBLE _
   | `MOD

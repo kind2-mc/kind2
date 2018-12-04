@@ -41,6 +41,7 @@
     {- [`DECIMAL f] nullary: floating-point decimal}
     {- [`UBV b] nullary: constant unsigned bitvector}
     {- [`BV b] nullary: consant bitvector}
+    {- [`BVDEC (i, s)] nullary: constant bitvector in decimal}
     {- [`MINUS] variadic, left-associative: difference or a unary negation}
     {- [`PLUS] variadic, left-associative: sum}
     {- [`TIMES] variadic, left-associative: product}
@@ -120,6 +121,8 @@ type interpreted_symbol =
 
   | `UBV of Bitvector.t   (** Constant unsigned bitvector *)
   | `BV of Bitvector.t    (** Constant bitvector *)
+  | `BVDEC of Numeral.t * Numeral.t 
+                          (** Constant bitvector specified using decimal constant *)
 
   | `MINUS                (** Difference or unary negation (left-associative) *)
   | `PLUS                 (** Sum (left-associative) *)

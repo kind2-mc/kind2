@@ -6,15 +6,13 @@ type t = bool list
 
 exception NonBinaryDigit
 exception ComparingUnequalBVs
-
-
+exception NonStandardBVSize
 (* Function that converts a single binary integer digit to Boolean *)
 (*let bin_to_bool (digit : int) : bool =
   match digit with 
   | 0 -> false
   | 1 -> true
   | _ -> raise NonBinaryDigit*)
-
 
 (* ********************************************************************** *)
 (* Int -> Unsigned BV                                                     *)
@@ -272,10 +270,21 @@ let pp_smtlib_print_bitvector_b ppf b =
 let pp_yices_print_bitvector_b ppf b = 
   fprintf ppf "0b%a" pp_print_bitvector_b' b
 
+(* Pretty-print a bitvector in Yices' binary format given the decimal value and size *)
+let pp_yices_print_bitvector_d ppf i s = 
+  let size = (Numeral.to_int s) in
+  let b = (match size with
+    | 8 -> int_to_ubv8 (Numeral.to_int i) 
+    | 16 -> int_to_ubv8 (Numeral.to_int i) 
+    | 32 -> int_to_ubv8 (Numeral.to_int i) 
+    | 64 -> int_to_ubv8 (Numeral.to_int i)
+    | _ -> raise NonStandardBVSize) 
+  in
+    fprintf ppf "0b%a" pp_print_bitvector_b' b
 
 (* Pretty-print a bitvector in SMTLIB extended decimal format *)
 let pp_smtlib_print_bitvector_d ppf n size = 
-  fprintf ppf "(_ bv%s %s)" (string_of_int n) (string_of_int size)
+  fprintf ppf "(_ bv%s %s)" (Numeral.string_of_numeral n) (Numeral.string_of_numeral size)
 
 (* Association list of bitvectors to hexadecimal digits *)
 let bv_hex_table = 
