@@ -600,7 +600,7 @@ let smtlib_string_symbol_list =
 let smtlib_reserved_word_list = 
   List.map 
     HString.mk_hstring 
-    ["par"; "_"; "!"; "as" ]
+    ["par"; "!"; "as" ]
 
 (* Hashtable for hashconsed strings to function symbols *)
 let hstring_symbol_table = HString.HStringHashtbl.create 50 
