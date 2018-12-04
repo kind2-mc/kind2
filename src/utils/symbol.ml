@@ -481,6 +481,54 @@ let is_bitvector = function
   | { Hashcons.node = `BV _ } -> true 
   | _ -> false
 
+(* Return true if the symbol is an unsigned bitvector of size 8 *)
+let is_ubv8 = function
+  | { Hashcons.node = `UBV n } -> 
+      if (Bitvector.length_of_bitvector n = 8) then true else false
+  | _ -> false
+
+(* Return true if the symbol is an unsigned bitvector of size 16 *)
+let is_ubv16 = function
+  | { Hashcons.node = `UBV n } -> 
+      if (Bitvector.length_of_bitvector n = 16) then true else false
+  | _ -> false
+
+(* Return true if the symbol is an unsigned bitvector of size 32 *)
+let is_ubv32 = function
+  | { Hashcons.node = `UBV n } -> 
+      if (Bitvector.length_of_bitvector n = 32) then true else false
+  | _ -> false
+
+(* Return true if the symbol is an unsigned bitvector of size 64 *)
+let is_ubv64 = function
+  | { Hashcons.node = `UBV n } -> 
+      if (Bitvector.length_of_bitvector n = 64) then true else false
+  | _ -> false
+
+(* Return true if the symbol is a bitvector of size 8 *)
+let is_bv8 = function
+  | { Hashcons.node = `BV n } -> 
+      if (Bitvector.length_of_bitvector n = 8) then true else false
+  | _ -> false
+
+(* Return true if the symbol is a bitvector of size 16 *)
+let is_bv16 = function
+  | { Hashcons.node = `BV n } -> 
+      if (Bitvector.length_of_bitvector n = 16) then true else false
+  | _ -> false
+
+(* Return true if the symbol is a bitvector of size 32 *)
+let is_bv32 = function
+  | { Hashcons.node = `BV n } -> 
+      if (Bitvector.length_of_bitvector n = 32) then true else false
+  | _ -> false
+
+(* Return true if the symbol is a bitvector of size 64 *)
+let is_bv64 = function
+  | { Hashcons.node = `BV n } -> 
+      if (Bitvector.length_of_bitvector n = 64) then true else false
+  | _ -> false
+
 (* Return true if the symbol is [`TRUE] or [`FALSE] *)
 let is_bool = function 
   | { Hashcons.node = `TRUE } 

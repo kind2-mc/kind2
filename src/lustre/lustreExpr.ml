@@ -1812,6 +1812,11 @@ let eval_to_uint16 expr =
         let i = Numeral.to_int num in
           let bv = Bitvector.int_to_ubv16 i in
             Term.mk_ubv bv
+    | Term.T.Const s when Symbol.is_ubv8 s ->
+      let num = Term.numeral_of_term expr in 
+        let i = Numeral.to_int num in
+          let bv = Bitvector.int_to_ubv16 i in
+            Term.mk_ubv bv    
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
     | _ -> Term.mk_to_uint16 expr
@@ -1822,7 +1827,8 @@ let eval_to_uint16 expr =
 *)
 let type_of_to_uint16 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_uint16 t || Type.is_int t || Type.is_int_range t -> Type.t_ubv 16
+  | t when Type.is_uint16 t || Type.is_int t || Type.is_int_range t 
+      || Type.is_uint8 t -> Type.t_ubv 16
   | _ -> raise Type_mismatch
 
 
@@ -1844,6 +1850,16 @@ let eval_to_uint32 expr =
         let i = Numeral.to_int num in
           let bv = Bitvector.int_to_ubv32 i in
             Term.mk_ubv bv
+    | Term.T.Const s when Symbol.is_ubv8 s ->
+      let num = Term.numeral_of_term expr in 
+        let i = Numeral.to_int num in
+          let bv = Bitvector.int_to_ubv32 i in
+            Term.mk_ubv bv
+    | Term.T.Const s when Symbol.is_ubv16 s ->
+      let num = Term.numeral_of_term expr in 
+        let i = Numeral.to_int num in
+          let bv = Bitvector.int_to_ubv32 i in
+            Term.mk_ubv bv
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
     | _ -> Term.mk_to_uint32 expr
@@ -1854,7 +1870,8 @@ let eval_to_uint32 expr =
 *)
 let type_of_to_uint32 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_uint32 t || Type.is_int t || Type.is_int_range t -> Type.t_ubv 32
+  | t when Type.is_uint32 t || Type.is_int t || Type.is_int_range t 
+      || Type.is_uint8 t || Type.is_uint16 t -> Type.t_ubv 32
   | _ -> raise Type_mismatch
 
 
@@ -1876,6 +1893,21 @@ let eval_to_uint64 expr =
         let i = Numeral.to_int num in
           let bv = Bitvector.int_to_ubv64 i in
             Term.mk_ubv bv
+    | Term.T.Const s when Symbol.is_ubv8 s ->
+      let num = Term.numeral_of_term expr in 
+        let i = Numeral.to_int num in
+          let bv = Bitvector.int_to_ubv64 i in
+            Term.mk_ubv bv
+    | Term.T.Const s when Symbol.is_ubv16 s ->
+      let num = Term.numeral_of_term expr in 
+        let i = Numeral.to_int num in
+          let bv = Bitvector.int_to_ubv64 i in
+            Term.mk_ubv bv
+    | Term.T.Const s when Symbol.is_ubv32 s ->
+      let num = Term.numeral_of_term expr in 
+        let i = Numeral.to_int num in
+          let bv = Bitvector.int_to_ubv64 i in
+            Term.mk_ubv bv            
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
     | _ -> Term.mk_to_uint64 expr
@@ -1886,7 +1918,8 @@ let eval_to_uint64 expr =
 *)
 let type_of_to_uint64 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_uint64 t || Type.is_int t || Type.is_int_range t -> Type.t_ubv 64
+  | t when Type.is_uint64 t || Type.is_int t || Type.is_int_range t 
+      || Type.is_uint8 t || Type.is_uint16 t || Type.is_uint32 t -> Type.t_ubv 64
   | _ -> raise Type_mismatch
 
 
@@ -1941,6 +1974,11 @@ let eval_to_int16 expr =
         let i = Numeral.to_int num in
           let bv = Bitvector.int_to_bv16 i in
             Term.mk_bv bv
+    | Term.T.Const s when Symbol.is_bv8 s ->
+      let num = Term.numeral_of_term expr in 
+        let i = Numeral.to_int num in
+          let bv = Bitvector.int_to_bv16 i in
+            Term.mk_bv bv
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
     | _ -> Term.mk_to_int16 expr
@@ -1951,7 +1989,8 @@ let eval_to_int16 expr =
 *)
 let type_of_to_int16 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int16 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 16
+  | t when Type.is_int16 t || Type.is_int t || Type.is_int_range t
+      || Type.is_int8 t -> Type.t_bv 16
   | _ -> raise Type_mismatch
 
 
@@ -1973,6 +2012,16 @@ let eval_to_int32 expr =
         let i = Numeral.to_int num in
           let bv = Bitvector.int_to_bv32 i in
             Term.mk_bv bv
+    | Term.T.Const s when Symbol.is_bv8 s ->
+      let num = Term.numeral_of_term expr in 
+        let i = Numeral.to_int num in
+          let bv = Bitvector.int_to_bv32 i in
+            Term.mk_bv bv
+    | Term.T.Const s when Symbol.is_bv16 s ->
+      let num = Term.numeral_of_term expr in 
+        let i = Numeral.to_int num in
+          let bv = Bitvector.int_to_bv32 i in
+            Term.mk_bv bv            
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
     | _ -> Term.mk_to_int32 expr
@@ -1983,7 +2032,8 @@ let eval_to_int32 expr =
 *)
 let type_of_to_int32 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int32 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 32
+  | t when Type.is_int32 t || Type.is_int t || Type.is_int_range t
+      || Type.is_int8 t || Type.is_int16 t -> Type.t_bv 32
   | _ -> raise Type_mismatch
 
 
@@ -2005,6 +2055,21 @@ let eval_to_int64 expr =
         let i = Numeral.to_int num in
           let bv = Bitvector.int_to_bv64 i in
             Term.mk_bv bv
+    | Term.T.Const s when Symbol.is_bv8 s ->
+      let num = Term.numeral_of_term expr in 
+        let i = Numeral.to_int num in
+          let bv = Bitvector.int_to_bv64 i in
+            Term.mk_bv bv
+    | Term.T.Const s when Symbol.is_bv16 s ->
+      let num = Term.numeral_of_term expr in 
+        let i = Numeral.to_int num in
+          let bv = Bitvector.int_to_bv64 i in
+            Term.mk_bv bv
+    | Term.T.Const s when Symbol.is_bv32 s ->
+      let num = Term.numeral_of_term expr in 
+        let i = Numeral.to_int num in
+          let bv = Bitvector.int_to_bv64 i in
+            Term.mk_bv bv
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
     | _ -> Term.mk_to_int64 expr
@@ -2015,7 +2080,8 @@ let eval_to_int64 expr =
 *)
 let type_of_to_int64 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int64 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 64
+  | t when Type.is_int64 t || Type.is_int t || Type.is_int_range t
+      || Type.is_int8 t || Type.is_int16 t || Type.is_int32 t -> Type.t_bv 64
   | _ -> raise Type_mismatch
 
 
