@@ -1106,7 +1106,7 @@ let mk_bvor = function
   | a -> mk_app_of_symbol_node `BVOR a
 
 (* Hashcons a bitwise negation *)
-let mk_bvnot t = mk_app_of_symbol_node `NOT [t]
+let mk_bvnot t = mk_app_of_symbol_node `BVNOT [t]
 
 (* Hashcons a bitvector negation (2's complement) *)
 let mk_bvneg t = mk_app_of_symbol_node `BVNEG [t]

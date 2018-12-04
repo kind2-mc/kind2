@@ -482,7 +482,7 @@ rule token = parse
   | "->" { ARROW }
   | "&&" { BVAND }
   | "||" { BVOR }
-  | "!" { BVNOT}
+  | "!" { BVNOT }
   | "lshift" { BVSHL }
   | "rshift" { BVLSHR }
   | "arshift" { BVASHR }
