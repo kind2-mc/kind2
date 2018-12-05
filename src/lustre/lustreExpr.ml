@@ -2690,38 +2690,25 @@ let mk_bvshl expr1 expr2 = mk_binary eval_bvshl type_of_bvshl expr1 expr2
 
 
 (* Evaluate bitvector logical right shift *)
-let eval_bvlshr expr1 expr2 = 
+let eval_bvshr expr1 expr2 = 
 
   match Term.destruct expr1, Term.destruct expr2 with
-  | _ -> Term.mk_bvlshr [expr1; expr2]
-  | exception Invalid_argument _ -> Term.mk_bvlshr [expr1; expr2]
+  | _ -> if(Type.is_bitvector (Term.type_of_term expr1) 
+            && Type.is_ubitvector (Term.type_of_term expr2)) then
+              Term.mk_bvashr [expr1; expr2]
+          else if(Type.is_ubitvector (Term.type_of_term expr1) 
+            && Type.is_ubitvector (Term.type_of_term expr2)) then
+              Term.mk_bvlshr [expr1; expr2]
+          else 
+              raise Type_mismatch
 
 
 (* Type of bitvector logical right shift *)
-let type_of_bvlshr = type_of_abv_ubv_abv
+let type_of_bvshr = type_of_abv_ubv_abv
 
 
 (* Bitvector logical right shift *)
-let mk_bvlshr expr1 expr2 = mk_binary eval_bvlshr type_of_bvlshr expr1 expr2 
-
-
-(* ********************************************************************** *)
-
-
-(* Evaluate bitvector arithmetic right shift *)
-let eval_bvashr expr1 expr2 = 
-
-  match Term.destruct expr1, Term.destruct expr2 with
-  | _ -> Term.mk_bvashr [expr1; expr2]
-  | exception Invalid_argument _ -> Term.mk_bvashr [expr1; expr2]
-
-
-(* Type of bitvector arithmetic right shift *)
-let type_of_bvashr = type_of_abv_ubv_abv
-
-
-(* Bitvector arithmetic right shift *)
-let mk_bvashr expr1 expr2 = mk_binary eval_bvashr type_of_bvashr expr1 expr2 
+let mk_bvshr expr1 expr2 = mk_binary eval_bvshr type_of_bvshr expr1 expr2 
 
 
 (* ********************************************************************** *)

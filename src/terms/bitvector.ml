@@ -34,6 +34,7 @@ let modulo x y =
   if result >= 0 then result
   else result + y
 
+
 (* Function that returns unsigned fixed-width int or bitvector version of an int *)
 let int_to_ubv (size : int) (i : int) : t =
   (* 
@@ -69,6 +70,14 @@ let int_to_ubv32 = int_to_ubv 32
 
 let int_to_ubv64 = int_to_ubv 64
 
+
+let ubvM_to_ubvm (m2 : int) (m : int) (n : int) : t =
+  if (m2 <= m) then
+    (int_to_ubv m n)
+  else
+    let range = 1 lsl m2 in
+    let i = modulo n range in
+    int_to_ubv m i
 
 (* ********************************************************************** *)
 (* Unsigned BV -> Int                                                     *)
