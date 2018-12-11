@@ -294,6 +294,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `TO_INT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
   | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
   | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
+  | `BV2NAT -> Format.pp_print_string ppf "bv2nat"
   | `IS_INT -> failwith "is_int not implemented for yices"
 
   | `DIVISIBLE n ->

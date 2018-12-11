@@ -502,6 +502,7 @@ let ensure_symbol_qf_lira s =
   | `TO_INT16
   | `TO_INT32
   | `TO_INT64
+  | `BV2NAT
   | `IS_INT
   | `UF _
     -> ()

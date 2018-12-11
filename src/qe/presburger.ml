@@ -533,6 +533,9 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                (* Fail on conversion to integer64 *)
                | `TO_INT64, _ -> raise Not_in_LIA
 
+               (* Fail on bitvector to nat conversion *)
+               | `BV2NAT, _ -> raise Not_in_LIA
+
                (* Fail on coincidence with integer predicate *)
                | `IS_INT, _ -> raise Not_in_LIA
 

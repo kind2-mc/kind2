@@ -556,7 +556,8 @@ let rec type_of_term t = match T.destruct t with
         | `TO_INT
         | `MOD
         | `ABS
-        | `INTDIV -> Type.mk_int ()
+        | `INTDIV
+        | `BV2NAT -> Type.mk_int ()
 
         | `TO_UINT8 -> Type.mk_ubv 8
         | `TO_UINT16 -> Type.mk_ubv 16
@@ -566,7 +567,7 @@ let rec type_of_term t = match T.destruct t with
         | `TO_INT8 -> Type.mk_bv 8
         | `TO_INT16 -> Type.mk_bv 16
         | `TO_INT32 -> Type.mk_bv 32
-        | `TO_INT64 -> Type.mk_bv 64
+        | `TO_INT64 -> Type.mk_bv 64 
 
         (* Real-valued functions *)
         | `TO_REAL
@@ -1273,6 +1274,8 @@ let mk_to_int32 t = mk_app_of_symbol_node `TO_INT32 [t]
 (* Hashcons a unary conversion to an integer64 numeral *)
 let mk_to_int64 t = mk_app_of_symbol_node `TO_INT64 [t]
 
+(* Hashcons a unary bitvector to nat conversion *)
+let mk_bv2nat t = mk_app_of_symbol_node `BV2NAT [t]
 
 (* Hashcons a predicate for coincidence of a real with an integer *)
 let mk_is_int t = mk_app_of_symbol_node `IS_INT [t]

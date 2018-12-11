@@ -766,6 +766,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `TO_INT16, _
       | `TO_INT32, _
       | `TO_INT64, _ 
+      | `BV2NAT, _
 
       | `BVNEG, _
       | `BVADD, _
@@ -2078,6 +2079,25 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                                         (term_of_nf (Num n))))))
               | _ -> assert false
             )
+          
+          | `BV2NAT ->
+
+            (match args with
+              | [UBV b] -> let t = term_of_nf (UBV b) in
+                           let tp = Term.type_of_term t in
+                           let bv = Term.bitvector_of_term t in
+                            if (Type.is_uint8 tp) then 
+                              Num (Numeral.of_int (Bitvector.bv8_to_int bv))
+                            else if (Type.is_uint16 tp) then 
+                              Num (Term.mk_num (Numeral.of_int (Bitvector.bv16_to_int bv)))
+                            else if (Type.is_uint32 tp) then 
+                              Num (Term.mk_num (Numeral.of_int (Bitvector.bv32_to_int bv)))
+                            else if (Type.is_uint64 tp) then 
+                              Num (Term.mk_num (Numeral.of_int (Bitvector.bv64_to_int bv)))
+                            else 
+                              assert false
+              | _ -> assert false
+              )
 
           (* Conversion to real is a monomial with polynomial
              subterms *)
@@ -2243,7 +2263,6 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV a; BV b] -> Bool (Term.mk_bvsge [a;b])
               | _ -> assert false)
 
-          (* Bitvectors not implemented *)
           | `BVNEG -> 
             (match args with
               | [] -> assert false

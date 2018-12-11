@@ -602,7 +602,8 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `DECIMAL _
   | `UBV _
   | `BV _ 
-  | `BVDEC (_, _) -> (function _ -> assert false)
+  | `BVDEC (_, _) 
+  | `BV2NAT -> (function _ -> assert false)
 
   (* Unary symbols *) 
   | `NOT
@@ -1770,9 +1771,21 @@ let mk_to_int expr = mk_unary eval_to_int type_of_to_int expr
 (* Evaluate conversion to unsigned integer8 *)
 let eval_to_uint8 expr =
   let tt = Term.type_of_term expr in
+  if (Type.is_int tt) then
+    Term.mk_to_uint8 expr
+  else if (Type.is_ubitvector tt) then
+    if (Type.is_uint8 tt) then 
+      expr
+    else
+      let n = Term.mk_bv2nat expr in
+      Term.mk_to_uint8 n
+  else 
+    raise Type_mismatch
+
+  (*let tt = Term.type_of_term expr in  
   if Type.is_uint8 tt then
     expr
-  else
+  else 
     match Term.destruct expr with 
     | Term.T.Const s when Symbol.is_numeral s ->
       let num = Term.numeral_of_term expr in 
@@ -1781,8 +1794,9 @@ let eval_to_uint8 expr =
             Term.mk_ubv bv
     | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
     | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
-    | _ -> Term.mk_to_uint8 expr
+    | _ -> Term.mk_to_uint8 expr*)
 
+ 
 (* Type of conversion to unsigned integer8  
 
    int: real -> uint8 
@@ -1790,6 +1804,7 @@ let eval_to_uint8 expr =
 let type_of_to_uint8 = function
   | t when Type.is_real t -> Type.t_int
   | t when Type.is_uint8 t || Type.is_int t || Type.is_int_range t -> Type.t_ubv 8
+  | t when Type.is_uint16 t || Type.is_uint32 t || Type.is_uint64 t -> Type.t_ubv 8
   | _ -> raise Type_mismatch
 
 
