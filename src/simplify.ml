@@ -2080,9 +2080,14 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | _ -> assert false
             )
           
-          | `BV2NAT ->
-
+          | `BV2NAT -> 
+          
             (match args with
+              | [BV b] -> BV b
+              | [Num n] -> Num n
+              | _ -> assert false)
+
+           (* (match args with
               | [UBV b] -> let t = term_of_nf (UBV b) in
                            let tp = Term.type_of_term t in
                            let bv = Term.bitvector_of_term t in
@@ -2097,7 +2102,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                             else 
                               assert false
               | _ -> assert false
-              )
+              )*)
 
           (* Conversion to real is a monomial with polynomial
              subterms *)

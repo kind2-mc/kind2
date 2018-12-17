@@ -1592,7 +1592,8 @@ let type_of_a_a_bool type1 type2 =
     raise Type_mismatch
 
 
-(* Type check for int -> int -> bool, real -> real -> bool *)
+(* Type check for int -> int -> bool, real -> real -> bool,
+  bv -> bv -> bool, ubv -> ubv -> bool *)
 let type_of_num_num_bool = function
 
   | t when Type.is_int t || Type.is_int_range t -> 
@@ -1782,20 +1783,6 @@ let eval_to_uint8 expr =
   else 
     raise Type_mismatch
 
-  (*let tt = Term.type_of_term expr in  
-  if Type.is_uint8 tt then
-    expr
-  else 
-    match Term.destruct expr with 
-    | Term.T.Const s when Symbol.is_numeral s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_ubv8 i in
-            Term.mk_ubv bv
-    | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
-    | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
-    | _ -> Term.mk_to_uint8 expr*)
-
  
 (* Type of conversion to unsigned integer8  
 
@@ -1818,23 +1805,17 @@ let mk_to_uint8 expr = mk_unary eval_to_uint8 type_of_to_uint8 expr
 (* Evaluate conversion to unsigned integer16 *)
 let eval_to_uint16 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_uint16 tt then
-    expr
+  if (Type.is_int tt) then
+    Term.mk_to_uint16 expr
+  else if (Type.is_ubitvector tt) then
+    if (Type.is_uint16 tt) then
+      expr
+    else
+      let n = Term.mk_bv2nat expr in
+      Term.mk_to_uint16 n
   else
-    match Term.destruct expr with 
-    | Term.T.Const s when Symbol.is_numeral s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_ubv16 i in
-            Term.mk_ubv bv
-    | Term.T.Const s when Symbol.is_ubv8 s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_ubv16 i in
-            Term.mk_ubv bv    
-    | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
-    | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
-    | _ -> Term.mk_to_uint16 expr
+    raise Type_mismatch
+
 
 (* Type of conversion to unsigned integer16  
 
@@ -1842,8 +1823,8 @@ let eval_to_uint16 expr =
 *)
 let type_of_to_uint16 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_uint16 t || Type.is_int t || Type.is_int_range t 
-      || Type.is_uint8 t -> Type.t_ubv 16
+  | t when Type.is_uint16 t || Type.is_int t || Type.is_int_range t -> Type.t_ubv 16
+  | t when Type.is_uint8 t || Type.is_uint32 t || Type.is_uint64 t -> Type.t_ubv 16
   | _ -> raise Type_mismatch
 
 
@@ -1856,28 +1837,17 @@ let mk_to_uint16 expr = mk_unary eval_to_uint16 type_of_to_uint16 expr
 (* Evaluate conversion to unsigned integer32 *)
 let eval_to_uint32 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_uint32 tt then
-    expr
+  if (Type.is_int tt) then
+    Term.mk_to_uint32 expr
+  else if (Type.is_ubitvector tt) then
+    if (Type.is_uint32 tt) then
+      expr
+    else
+      let n = Term.mk_bv2nat expr in
+      Term.mk_to_uint32 n
   else
-    match Term.destruct expr with 
-    | Term.T.Const s when Symbol.is_numeral s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_ubv32 i in
-            Term.mk_ubv bv
-    | Term.T.Const s when Symbol.is_ubv8 s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_ubv32 i in
-            Term.mk_ubv bv
-    | Term.T.Const s when Symbol.is_ubv16 s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_ubv32 i in
-            Term.mk_ubv bv
-    | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
-    | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
-    | _ -> Term.mk_to_uint32 expr
+    raise Type_mismatch
+
 
 (* Type of conversion to unsigned integer32  
 
@@ -1885,8 +1855,8 @@ let eval_to_uint32 expr =
 *)
 let type_of_to_uint32 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_uint32 t || Type.is_int t || Type.is_int_range t 
-      || Type.is_uint8 t || Type.is_uint16 t -> Type.t_ubv 32
+  | t when Type.is_uint32 t || Type.is_int t || Type.is_int_range t -> Type.t_ubv 32 
+  | t when Type.is_uint8 t || Type.is_uint16 t || Type.is_uint64 t -> Type.t_ubv 32
   | _ -> raise Type_mismatch
 
 
@@ -1899,33 +1869,17 @@ let mk_to_uint32 expr = mk_unary eval_to_uint32 type_of_to_uint32 expr
 (* Evaluate conversion to unsigned integer64 *)
 let eval_to_uint64 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_uint64 tt then
-    expr
+  if (Type.is_int tt) then
+    Term.mk_to_uint16 expr
+  else if (Type.is_ubitvector tt) then
+    if (Type.is_uint16 tt) then
+      expr
+    else
+      let n = Term.mk_bv2nat expr in
+      Term.mk_to_uint64 n
   else
-    match Term.destruct expr with 
-    | Term.T.Const s when Symbol.is_numeral s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_ubv64 i in
-            Term.mk_ubv bv
-    | Term.T.Const s when Symbol.is_ubv8 s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_ubv64 i in
-            Term.mk_ubv bv
-    | Term.T.Const s when Symbol.is_ubv16 s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_ubv64 i in
-            Term.mk_ubv bv
-    | Term.T.Const s when Symbol.is_ubv32 s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_ubv64 i in
-            Term.mk_ubv bv            
-    | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
-    | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
-    | _ -> Term.mk_to_uint64 expr
+    raise Type_mismatch
+
 
 (* Type of conversion to unsigned integer64  
 
@@ -1933,8 +1887,8 @@ let eval_to_uint64 expr =
 *)
 let type_of_to_uint64 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_uint64 t || Type.is_int t || Type.is_int_range t 
-      || Type.is_uint8 t || Type.is_uint16 t || Type.is_uint32 t -> Type.t_ubv 64
+  | t when Type.is_uint64 t || Type.is_int t || Type.is_int_range t -> Type.t_ubv 64 
+  | t when Type.is_uint8 t || Type.is_uint16 t || Type.is_uint32 t -> Type.t_ubv 64
   | _ -> raise Type_mismatch
 
 
@@ -1947,18 +1901,17 @@ let mk_to_uint64 expr = mk_unary eval_to_uint64 type_of_to_uint64 expr
 (* Evaluate conversion to integer8 *)
 let eval_to_int8 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_int8 tt then
-    expr
-  else
-    match Term.destruct expr with 
-    | Term.T.Const s when Symbol.is_numeral s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_bv8 i in
-            Term.mk_bv bv
-    | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
-    | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
-    | _ -> Term.mk_to_int8 expr
+  if (Type.is_int tt) then
+    Term.mk_to_int8 expr
+  else if (Type.is_bitvector tt) then
+    if (Type.is_int8 tt) then 
+      expr
+    else
+      let n = Term.mk_bv2nat expr in
+      Term.mk_to_int8 n
+  else 
+    raise Type_mismatch
+
 
 (* Type of conversion to integer8  
 
@@ -1980,23 +1933,17 @@ let mk_to_int8 expr = mk_unary eval_to_int8 type_of_to_int8 expr
 (* Evaluate conversion to integer16 *)
 let eval_to_int16 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_int16 tt then
-    expr
-  else
-    match Term.destruct expr with 
-    | Term.T.Const s when Symbol.is_numeral s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_bv16 i in
-            Term.mk_bv bv
-    | Term.T.Const s when Symbol.is_bv8 s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_bv16 i in
-            Term.mk_bv bv
-    | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
-    | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
-    | _ -> Term.mk_to_int16 expr
+  if (Type.is_int tt) then
+    Term.mk_to_int16 expr
+  else if (Type.is_bitvector tt) then
+    if (Type.is_int16 tt) then 
+      expr
+    else
+      let n = Term.mk_bv2nat expr in
+      Term.mk_to_int16 n
+  else 
+    raise Type_mismatch
+
 
 (* Type of conversion to integer16  
 
@@ -2018,28 +1965,17 @@ let mk_to_int16 expr = mk_unary eval_to_int16 type_of_to_int16 expr
 (* Evaluate conversion to integer32 *)
 let eval_to_int32 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_int32 tt then
-    expr
-  else
-    match Term.destruct expr with 
-    | Term.T.Const s when Symbol.is_numeral s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_bv32 i in
-            Term.mk_bv bv
-    | Term.T.Const s when Symbol.is_bv8 s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_bv32 i in
-            Term.mk_bv bv
-    | Term.T.Const s when Symbol.is_bv16 s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_bv32 i in
-            Term.mk_bv bv            
-    | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
-    | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
-    | _ -> Term.mk_to_int32 expr
+  if (Type.is_int tt) then
+    Term.mk_to_int32 expr
+  else if (Type.is_bitvector tt) then
+    if (Type.is_int32 tt) then 
+      expr
+    else
+      let n = Term.mk_bv2nat expr in
+      Term.mk_to_int32 n
+  else 
+    raise Type_mismatch
+
 
 (* Type of conversion to integer32  
 
@@ -2061,33 +1997,17 @@ let mk_to_int32 expr = mk_unary eval_to_int32 type_of_to_int32 expr
 (* Evaluate conversion to integer64 *)
 let eval_to_int64 expr =
   let tt = Term.type_of_term expr in
-  if Type.is_int64 tt then
-    expr
-  else
-    match Term.destruct expr with 
-    | Term.T.Const s when Symbol.is_numeral s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_bv64 i in
-            Term.mk_bv bv
-    | Term.T.Const s when Symbol.is_bv8 s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_bv64 i in
-            Term.mk_bv bv
-    | Term.T.Const s when Symbol.is_bv16 s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_bv64 i in
-            Term.mk_bv bv
-    | Term.T.Const s when Symbol.is_bv32 s ->
-      let num = Term.numeral_of_term expr in 
-        let i = Numeral.to_int num in
-          let bv = Bitvector.int_to_bv64 i in
-            Term.mk_bv bv
-    | Term.T.Const s when Symbol.is_decimal s -> raise Type_mismatch
-    | Term.T.Const s when Symbol.is_bool s -> raise Type_mismatch
-    | _ -> Term.mk_to_int64 expr
+  if (Type.is_int tt) then
+    Term.mk_to_int64 expr
+  else if (Type.is_bitvector tt) then
+    if (Type.is_int64 tt) then 
+      expr
+    else
+      let n = Term.mk_bv2nat expr in
+      Term.mk_to_int64 n
+  else 
+    raise Type_mismatch
+
 
 (* Type of conversion to integer64  
 
