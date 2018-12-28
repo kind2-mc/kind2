@@ -1953,8 +1953,7 @@ let eval_to_int16 expr =
     if (Type.is_int16 tt) then 
       expr
     else if (Type.is_int8 tt) then
-      let sign = (Bitvector.first_bit (Term.bitvector_of_term expr)) in
-      Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit sign 8)) expr
+      Term.mk_bvsignext (Numeral.of_int 8) expr
     else
       Term.mk_bvextract (Numeral.of_int 15) (Numeral.of_int 0) expr
   else 
@@ -1988,12 +1987,10 @@ let eval_to_int32 expr =
       expr
     else if (Type.is_int64 tt) then
       Term.mk_bvextract (Numeral.of_int 31) (Numeral.of_int 0) expr
+    else if (Type.is_int8 tt) then
+      Term.mk_bvsignext (Numeral.of_int 24) expr
     else
-      let sign = Bitvector.first_bit (Term.bitvector_of_term expr) in
-      if (Type.is_int8 tt) then
-        Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit sign 24)) expr
-      else
-        Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit sign 16)) expr
+      Term.mk_bvsignext (Numeral.of_int 16) expr
   else 
     raise Type_mismatch
 
@@ -2023,14 +2020,12 @@ let eval_to_int64 expr =
   else if (Type.is_bitvector tt) then
     if (Type.is_int64 tt) then 
       expr
+    else if (Type.is_int8 tt) then
+      Term.mk_bvsignext (Numeral.of_int 56) expr
+    else if (Type.is_int16 tt) then
+      Term.mk_bvsignext (Numeral.of_int 48) expr
     else
-      let sign = Bitvector.first_bit (Term.bitvector_of_term expr) in
-      if (Type.is_int8 tt) then
-        Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit sign 56)) expr
-      else if (Type.is_int16 tt) then
-        Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit sign 48)) expr
-      else
-        Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit sign 32)) expr
+      Term.mk_bvsignext (Numeral.of_int 32) expr
   else 
     raise Type_mismatch
 
