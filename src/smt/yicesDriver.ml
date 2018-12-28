@@ -228,7 +228,7 @@ let string_symbol_list =
    ("bv-sle", Symbol.mk_symbol `BVSLE);
    ("bv-sgt", Symbol.mk_symbol `BVSGT);
    ("bv-sge", Symbol.mk_symbol `BVSGE);
-
+   ("bv-concat", Symbol.mk_symbol `BVCONCAT);
    (* ("select", Symbol.mk_symbol `SELECT); *)
 
    ("update", Symbol.mk_symbol `STORE)
@@ -319,7 +319,14 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVSLE -> Format.pp_print_string ppf "bv-sle"
   | `BVSGT -> Format.pp_print_string ppf "bv-sgt"
   | `BVSGE -> Format.pp_print_string ppf "bv-sge"
-  
+  | `BVCONCAT -> Format.pp_print_string ppf "bv-concat"
+  | `BVEXTRACT (i, j) -> 
+      Format.fprintf 
+        ppf 
+        "bv-extract %a %a" 
+        Numeral.pp_print_numeral j
+        Numeral.pp_print_numeral i
+        
   | `SELECT _ -> Format.pp_print_string ppf ""
 
   | `STORE -> Format.pp_print_string ppf "update"

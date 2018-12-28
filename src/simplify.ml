@@ -786,7 +786,9 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVSGE, _
       | `BVNOT, _
       | `BVOR, _ 
-      | `BVAND, _ -> assert false 
+      | `BVAND, _
+      | `BVEXTRACT _, _ 
+      | `BVCONCAT, _ -> assert false 
     )    
 
   | Term.T.Attr (t, _) -> t
@@ -2080,12 +2082,12 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | _ -> assert false
             )
           
-          | `BV2NAT -> 
+          (*| `BV2NAT -> 
           
             (match args with
               | [BV b] -> BV b
               | [Num n] -> Num n
-              | _ -> assert false)
+              | _ -> assert false)*)
 
            (* (match args with
               | [UBV b] -> let t = term_of_nf (UBV b) in
@@ -2274,6 +2276,13 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV a] -> BV (Term.mk_bvneg a)
               | _ -> assert false)
 
+          | `BVEXTRACT (i, j) ->
+            (match args with
+              | [] -> assert false
+              | [BV b] -> BV (Term.mk_bvextract i j b)
+              | [UBV b] -> BV (Term.mk_bvextract i j b)
+              | _ -> assert false)
+
           (* Constant symbols *)
           | `TRUE
           | `FALSE
@@ -2282,7 +2291,9 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
           | `UBV _
           | `BV _ 
-          | `BVDEC (_, _) -> assert false
+          | `BVDEC (_, _) 
+          | `BV2NAT
+          | `BVCONCAT -> assert false
           
       )
 

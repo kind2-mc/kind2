@@ -7,12 +7,25 @@ type t = bool list
 exception NonBinaryDigit
 exception ComparingUnequalBVs
 exception NonStandardBVSize
+
 (* Function that converts a single binary integer digit to Boolean *)
 (*let bin_to_bool (digit : int) : bool =
   match digit with 
   | 0 -> false
   | 1 -> true
   | _ -> raise NonBinaryDigit*)
+
+(* Function that inputs bit b, integer n, and repeats b n times *)
+let rec repeat_bit (b : bool) (n : int) : t =
+ match n with
+ | 0 -> []
+ | n -> b :: repeat_bit b (n - 1)
+
+(* Function that returns the first bit of bitvector b *)
+let first_bit (b : t) : bool =
+  match b with
+  | h :: t -> h
+  | _ -> raise NonStandardBVSize
 
 (* ********************************************************************** *)
 (* Int -> Unsigned BV                                                     *)
@@ -83,7 +96,7 @@ let ubvM_to_ubvm (m2 : int) (m : int) (n : int) : t =
 (* Unsigned BV -> Int                                                     *)
 (* ********************************************************************** *)
 
-(* Function that converts a Boolean single binary integer digit *)
+(* Function that converts a Boolean to a single binary integer digit *)
 let bool_to_bin (b : bool) : int =
   match b with 
   | false -> 0
@@ -109,7 +122,22 @@ let ubv32_to_int = ubv_to_int 32
 
 let ubv64_to_int = ubv_to_int 64
 
+(* ********************************************************************** *)
+(* Unsigned BV -> Numeral                                                     *)
+(* ********************************************************************** *)
 
+(* Function that converts a Boolean to a single binary numeral *)
+let bool_to_bin_num (b : bool) : Numeral.t =
+  match b with 
+  | false -> Numeral.zero
+  | true -> Numeral.one
+(*
+(* Function that calculates the nth power of two *)
+let rec pow2_num (n : Numeral.t) : Numeral.t =
+  match n with
+  | (Numeral.zero) -> Numeral.one
+  | n' -> Numeral.mult (Numeral.succ (Numeral.one)) (pow2_num (Numeral.sub n' Numeral.one))
+*)
 (* ********************************************************************** *)
 (* Int -> Signed BV                                                       *)
 (* ********************************************************************** *)

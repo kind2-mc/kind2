@@ -689,7 +689,13 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVSLE -> Format.pp_print_string ppf "bvsle"
   | `BVSGT -> Format.pp_print_string ppf "bvsgt"
   | `BVSGE -> Format.pp_print_string ppf "bvsge"
-
+  | `BVCONCAT -> Format.pp_print_string ppf "concat"
+  | `BVEXTRACT (i, j) -> 
+      Format.fprintf 
+        ppf 
+        "(_ extract %a %a)" 
+        Numeral.pp_print_numeral i
+        Numeral.pp_print_numeral j
   | `SELECT ty_array ->
 
     if Flags.Arrays.smt () then

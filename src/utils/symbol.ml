@@ -101,6 +101,9 @@ type interpreted_symbol =
   | `BVSLE                (* Arithmetic comparision less than or equal to (signed binary) *)
   | `BVSGT                (* Arithmetic comparision greater than (signed binary) *)
   | `BVSGE                (* Arithmetic comparision greater than or equal to (signed binary) *)
+  | `BVEXTRACT of Numeral.t * Numeral.t 
+                          (* Extract subsequence from bitvector (unary) *)
+  | `BVCONCAT             (* Concatenation of bitvectors (binary) *)
 
   (* Selection from array (binary) *)
   | `SELECT of Type.t
@@ -214,6 +217,8 @@ module Symbol_node = struct
 
     | `STORE, `STORE -> true
 
+    | `BVEXTRACT (i1, j1), `BVEXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
+
     | `BVNOT, `BVNOT 
     | `BVNEG, `BVNEG
     | `BVAND, `BVAND
@@ -233,6 +238,7 @@ module Symbol_node = struct
     | `BVSLE, `BVSLE
     | `BVSGT, `BVSGT
     | `BVSGE, `BVSGE
+    | `BVCONCAT, `BVCONCAT
 
 
     | `TRUE, _
@@ -270,6 +276,8 @@ module Symbol_node = struct
     | `IS_INT, _
     | `SELECT _, _
     | `STORE, _ 
+    | `BVEXTRACT _, _
+    | `BVCONCAT, _
 
     | `BVNOT, _ 
     | `BVNEG, _
@@ -449,6 +457,13 @@ let rec pp_print_symbol_node ppf = function
   | `BVSLE -> Format.pp_print_string ppf "bvsle"
   | `BVSGT -> Format.pp_print_string ppf "bvsgt"
   | `BVSGE -> Format.pp_print_string ppf "bvsge"
+  | `BVCONCAT -> Format.pp_print_string ppf "concat"
+  | `BVEXTRACT (i, j) -> 
+      Format.fprintf 
+      ppf 
+      "(_ extract %a %a)" 
+      Numeral.pp_print_numeral i
+      Numeral.pp_print_numeral j
 
 
   | `SELECT _ -> Format.pp_print_string ppf "select"

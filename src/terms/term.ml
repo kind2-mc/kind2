@@ -581,6 +581,34 @@ let rec type_of_term t = match T.destruct t with
            | a :: _ -> Type.elem_type_of_array (type_of_term a)
            | _ -> assert false)
 
+
+        (* Bitvector-valued function *)
+        | `BVEXTRACT (i, j) -> 
+
+          (* Compute width of resulting bitvector *)
+          Type.mk_bv
+            ((Numeral.to_int j) - (Numeral.to_int i) + 1)
+
+        | `BVCONCAT -> 
+
+          (match l with 
+
+            (* Concat is binary *)
+            | [a; b] -> 
+
+              (* Compute width of resulting bitvector *)
+              (match 
+                  (Type.node_of_type (type_of_term a), 
+                   Type.node_of_type (type_of_term b))
+               with
+                 | Type.BV i, Type.BV j -> 
+
+                   Type.mk_bv (i + j)
+
+                 | _ -> assert false)
+
+            | _ -> assert false)
+
       
         (* Return type of first argument *)
         | `MINUS
@@ -1276,6 +1304,12 @@ let mk_to_int64 t = mk_app_of_symbol_node `TO_INT64 [t]
 
 (* Hashcons a unary bitvector to nat conversion *)
 let mk_bv2nat t = mk_app_of_symbol_node `BV2NAT [t]
+
+(* Hashcons a BV extraction *)
+let mk_bvextract i j t = mk_app_of_symbol_node (`BVEXTRACT (i, j)) [t]
+
+(* Hashcons a BV concatenation *)
+let mk_bvconcat a b = mk_app_of_symbol_node `BVCONCAT [a;b]
 
 (* Hashcons a predicate for coincidence of a real with an integer *)
 let mk_is_int t = mk_app_of_symbol_node `IS_INT [t]

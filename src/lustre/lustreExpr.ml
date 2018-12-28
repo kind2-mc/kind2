@@ -361,6 +361,8 @@ let string_of_symbol = function
   | `BVSHL -> "lshift"
   | `BVLSHR -> "rshift"
   | `BVASHR -> "arshift"
+  | `BVEXTRACT (i,j) -> "(_ extract " ^ (Numeral.string_of_numeral i) ^ " " ^ (Numeral.string_of_numeral j) ^ ")"
+  | `BVCONCAT -> "concat"
   | _ -> failwith "string_of_symbol"
 
 
@@ -619,6 +621,7 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `TO_INT16
   | `TO_INT32
   | `TO_INT64
+  | `BVEXTRACT _
   | `ABS as s -> 
 
     (function [a] -> 
@@ -768,6 +771,7 @@ and pp_print_app ?as_type safe pvar ppf = function
         
         
     (* Unsupported functions symbols *)
+    | `BVCONCAT
     | `DISTINCT
     | `IS_INT
     | `UF _ -> (function _ -> assert false)
@@ -1778,8 +1782,7 @@ let eval_to_uint8 expr =
     if (Type.is_uint8 tt) then 
       expr
     else
-      let n = Term.mk_bv2nat expr in
-      Term.mk_to_uint8 n
+      Term.mk_bvextract (Numeral.of_int 7) (Numeral.of_int 0) expr
   else 
     raise Type_mismatch
 
@@ -1810,9 +1813,10 @@ let eval_to_uint16 expr =
   else if (Type.is_ubitvector tt) then
     if (Type.is_uint16 tt) then
       expr
+    else if (Type.is_uint8 tt) then
+      Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 8)) expr
     else
-      let n = Term.mk_bv2nat expr in
-      Term.mk_to_uint16 n
+      Term.mk_bvextract (Numeral.of_int 15) (Numeral.of_int 0) expr
   else
     raise Type_mismatch
 
@@ -1842,9 +1846,14 @@ let eval_to_uint32 expr =
   else if (Type.is_ubitvector tt) then
     if (Type.is_uint32 tt) then
       expr
+    else if (Type.is_uint8 tt) then
+      Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 24)) expr
+    else if (Type.is_uint16 tt) then
+      Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 16)) expr
     else
-      let n = Term.mk_bv2nat expr in
-      Term.mk_to_uint32 n
+      Term.mk_bvextract (Numeral.of_int 31) (Numeral.of_int 0) expr
+      (*let n = Term.mk_bv2nat expr in
+      Term.mk_to_uint32 n*)
   else
     raise Type_mismatch
 
@@ -1870,13 +1879,16 @@ let mk_to_uint32 expr = mk_unary eval_to_uint32 type_of_to_uint32 expr
 let eval_to_uint64 expr =
   let tt = Term.type_of_term expr in
   if (Type.is_int tt) then
-    Term.mk_to_uint16 expr
+    Term.mk_to_uint64 expr
   else if (Type.is_ubitvector tt) then
-    if (Type.is_uint16 tt) then
+    if (Type.is_uint64 tt) then
       expr
+    else if (Type.is_uint32 tt) then
+      Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 32)) expr
+    else if (Type.is_uint16 tt) then
+      Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 48)) expr
     else
-      let n = Term.mk_bv2nat expr in
-      Term.mk_to_uint64 n
+      Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 56)) expr
   else
     raise Type_mismatch
 
@@ -1907,8 +1919,7 @@ let eval_to_int8 expr =
     if (Type.is_int8 tt) then 
       expr
     else
-      let n = Term.mk_bv2nat expr in
-      Term.mk_to_int8 n
+      Term.mk_bvextract (Numeral.of_int 7) (Numeral.of_int 0) expr
   else 
     raise Type_mismatch
 
@@ -1920,6 +1931,7 @@ let eval_to_int8 expr =
 let type_of_to_int8 = function
   | t when Type.is_real t -> Type.t_int
   | t when Type.is_int8 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 8
+  | t when Type.is_int16 t || Type.is_int32 t || Type.is_int64 t -> Type.t_bv 8
   | _ -> raise Type_mismatch
 
 
@@ -1938,9 +1950,11 @@ let eval_to_int16 expr =
   else if (Type.is_bitvector tt) then
     if (Type.is_int16 tt) then 
       expr
+    else if (Type.is_int8 tt) then
+      let sign = (Bitvector.first_bit (Term.bitvector_of_term expr)) in
+      Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit sign 8)) expr
     else
-      let n = Term.mk_bv2nat expr in
-      Term.mk_to_int16 n
+      Term.mk_bvextract (Numeral.of_int 15) (Numeral.of_int 0) expr
   else 
     raise Type_mismatch
 
@@ -1951,8 +1965,8 @@ let eval_to_int16 expr =
 *)
 let type_of_to_int16 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int16 t || Type.is_int t || Type.is_int_range t
-      || Type.is_int8 t -> Type.t_bv 16
+  | t when Type.is_int16 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 16
+  | t when Type.is_int8 t || Type.is_int32 t || Type.is_int64 t -> Type.t_bv 16
   | _ -> raise Type_mismatch
 
 
@@ -1970,9 +1984,14 @@ let eval_to_int32 expr =
   else if (Type.is_bitvector tt) then
     if (Type.is_int32 tt) then 
       expr
+    else if (Type.is_int64 tt) then
+      Term.mk_bvextract (Numeral.of_int 31) (Numeral.of_int 0) expr
     else
-      let n = Term.mk_bv2nat expr in
-      Term.mk_to_int32 n
+      let sign = Bitvector.first_bit (Term.bitvector_of_term expr) in
+      if (Type.is_int8 tt) then
+        Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit sign 24)) expr
+      else
+        Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit sign 16)) expr
   else 
     raise Type_mismatch
 
@@ -1983,8 +2002,8 @@ let eval_to_int32 expr =
 *)
 let type_of_to_int32 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int32 t || Type.is_int t || Type.is_int_range t
-      || Type.is_int8 t || Type.is_int16 t -> Type.t_bv 32
+  | t when Type.is_int32 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 32
+  | t when Type.is_int8 t || Type.is_int16 t || Type.is_int64 t -> Type.t_bv 32
   | _ -> raise Type_mismatch
 
 
@@ -2003,8 +2022,13 @@ let eval_to_int64 expr =
     if (Type.is_int64 tt) then 
       expr
     else
-      let n = Term.mk_bv2nat expr in
-      Term.mk_to_int64 n
+      let sign = Bitvector.first_bit (Term.bitvector_of_term expr) in
+      if (Type.is_int8 tt) then
+        Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit sign 56)) expr
+      else if (Type.is_int16 tt) then
+        Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit sign 48)) expr
+      else
+        Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit sign 32)) expr
   else 
     raise Type_mismatch
 
@@ -2015,8 +2039,8 @@ let eval_to_int64 expr =
 *)
 let type_of_to_int64 = function
   | t when Type.is_real t -> Type.t_int
-  | t when Type.is_int64 t || Type.is_int t || Type.is_int_range t
-      || Type.is_int8 t || Type.is_int16 t || Type.is_int32 t -> Type.t_bv 64
+  | t when Type.is_int64 t || Type.is_int t || Type.is_int_range t -> Type.t_bv 64
+  | t when Type.is_int8 t || Type.is_int16 t || Type.is_int32 t -> Type.t_bv 64
   | _ -> raise Type_mismatch
 
 

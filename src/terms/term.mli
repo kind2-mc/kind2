@@ -265,8 +265,14 @@ val mk_to_int32 : t -> t
 (** Create a conversion to an integer64 numeral *)
 val mk_to_int64 : t -> t
 
-(* Create a bitvector to nat conversion *)
+(** Create a bitvector to nat conversion *)
 val mk_bv2nat : t -> t
+
+(** Create a BV extraction *)
+val mk_bvextract : Numeral.t -> Numeral.t -> t -> t
+
+(* Create a BV concatenation *)
+val mk_bvconcat : t -> t -> t
 
 (** Create a predicate for coincidence of a real with an integer *)
 val mk_is_int : t -> t

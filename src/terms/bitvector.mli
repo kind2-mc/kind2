@@ -3,6 +3,12 @@
 (** Constant bitvector *)
 type t
 
+(** Return bitvector resulting from repeating input bit b, (input) n times *)
+val repeat_bit : bool -> int -> t
+
+(* Return the first bit of input bitvector b *)
+val first_bit : t -> bool
+
 (** Return size 8 unsigned bitvector converted from an int *)
 val int_to_ubv8 : int -> t
 
