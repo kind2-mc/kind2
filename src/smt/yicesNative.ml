@@ -538,6 +538,7 @@ let ensure_symbol_qf_lira s =
   | `BVSGE
   | `BVEXTRACT _
   | `BVCONCAT
+  | `BVSIGNEXT _
   | `SELECT _
   | `STORE ->
     

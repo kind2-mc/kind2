@@ -78,6 +78,7 @@
     {- [`BVSGE] signed binary: arithmetic comparision greater than or equal to}
     {- [`BVEXTRACT (i, j)] unary: extract subsequence from bitvector}
     {- [`BVCONCAT] binary: concatenation of bitvectors}
+    {- [`BVSIGNEXT i] unary: sign extension of bitvectors}
     {- [`SELECT] binary: selection from array}
     {- [`STORE] ternary: update of an array}
     }
@@ -174,7 +175,9 @@ type interpreted_symbol =
   | `BVSGE                (* Arithmetic comparision greater than or equal to (signed binary) *)
   | `BVEXTRACT of Numeral.t * Numeral.t 
                           (** Extract subsequence from bitvector (unary) *)
-  | `BVCONCAT               (** Concatenation of bitvectors (binary) *)                          
+  | `BVCONCAT             (** Concatenation of bitvectors (binary) *)
+  | `BVSIGNEXT of Numeral.t
+                          (** Sign extension of bitvector (unary) *)                        
 
 
   (** Selection from array (binary) *)

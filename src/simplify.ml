@@ -788,7 +788,8 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVOR, _ 
       | `BVAND, _
       | `BVEXTRACT _, _ 
-      | `BVCONCAT, _ -> assert false 
+      | `BVCONCAT, _ 
+      | `BVSIGNEXT _ , _ -> assert false 
     )    
 
   | Term.T.Attr (t, _) -> t
@@ -2293,7 +2294,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BV _ 
           | `BVDEC (_, _) 
           | `BV2NAT
-          | `BVCONCAT -> assert false
+          | `BVCONCAT 
+          | `BVSIGNEXT _ -> assert false
           
       )
 

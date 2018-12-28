@@ -696,6 +696,11 @@ let rec pp_print_symbol_node ?arity ppf = function
         "(_ extract %a %a)" 
         Numeral.pp_print_numeral i
         Numeral.pp_print_numeral j
+  | `BVSIGNEXT i -> 
+      Format.fprintf
+        ppf
+        "(_ sign_extend %a)"
+        Numeral.pp_print_numeral i
   | `SELECT ty_array ->
 
     if Flags.Arrays.smt () then

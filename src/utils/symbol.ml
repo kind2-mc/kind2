@@ -104,6 +104,8 @@ type interpreted_symbol =
   | `BVEXTRACT of Numeral.t * Numeral.t 
                           (* Extract subsequence from bitvector (unary) *)
   | `BVCONCAT             (* Concatenation of bitvectors (binary) *)
+  | `BVSIGNEXT of Numeral.t
+                          (* Sign extension of bitvector (unary) *)
 
   (* Selection from array (binary) *)
   | `SELECT of Type.t
@@ -218,7 +220,7 @@ module Symbol_node = struct
     | `STORE, `STORE -> true
 
     | `BVEXTRACT (i1, j1), `BVEXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
-
+    | `BVSIGNEXT i1, `BVSIGNEXT i2 -> Numeral.equal i1 i2
     | `BVNOT, `BVNOT 
     | `BVNEG, `BVNEG
     | `BVAND, `BVAND
@@ -239,7 +241,6 @@ module Symbol_node = struct
     | `BVSGT, `BVSGT
     | `BVSGE, `BVSGE
     | `BVCONCAT, `BVCONCAT
-
 
     | `TRUE, _
     | `FALSE, _
@@ -278,6 +279,7 @@ module Symbol_node = struct
     | `STORE, _ 
     | `BVEXTRACT _, _
     | `BVCONCAT, _
+    | `BVSIGNEXT _, _
 
     | `BVNOT, _ 
     | `BVNEG, _
@@ -464,7 +466,11 @@ let rec pp_print_symbol_node ppf = function
       "(_ extract %a %a)" 
       Numeral.pp_print_numeral i
       Numeral.pp_print_numeral j
-
+  | `BVSIGNEXT i ->
+      Format.fprintf
+      ppf
+      "(_ sign_extend %a)"
+      Numeral.pp_print_numeral i
 
   | `SELECT _ -> Format.pp_print_string ppf "select"
   | `STORE -> Format.pp_print_string ppf "store"

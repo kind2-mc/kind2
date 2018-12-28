@@ -271,8 +271,11 @@ val mk_bv2nat : t -> t
 (** Create a BV extraction *)
 val mk_bvextract : Numeral.t -> Numeral.t -> t -> t
 
-(* Create a BV concatenation *)
+(** Create a BV concatenation *)
 val mk_bvconcat : t -> t -> t
+
+(** Create a BV sign extension *)
+val mk_bvsignext : Numeral.t -> t -> t
 
 (** Create a predicate for coincidence of a real with an integer *)
 val mk_is_int : t -> t

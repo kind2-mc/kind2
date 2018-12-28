@@ -363,6 +363,7 @@ let string_of_symbol = function
   | `BVASHR -> "arshift"
   | `BVEXTRACT (i,j) -> "(_ extract " ^ (Numeral.string_of_numeral i) ^ " " ^ (Numeral.string_of_numeral j) ^ ")"
   | `BVCONCAT -> "concat"
+  | `BVSIGNEXT i -> "(_ sign_extend " ^ (Numeral.string_of_numeral i) ^ ")" 
   | _ -> failwith "string_of_symbol"
 
 
@@ -622,6 +623,7 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `TO_INT32
   | `TO_INT64
   | `BVEXTRACT _
+  | `BVSIGNEXT _
   | `ABS as s -> 
 
     (function [a] -> 

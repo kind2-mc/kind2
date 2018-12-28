@@ -326,6 +326,11 @@ let rec pp_print_symbol_node ?arity ppf = function
         "bv-extract %a %a" 
         Numeral.pp_print_numeral j
         Numeral.pp_print_numeral i
+  | `BVSIGNEXT i ->
+      Format.fprintf
+        ppf
+        "bv-sign-extend %a"
+        Numeral.pp_print_numeral i
         
   | `SELECT _ -> Format.pp_print_string ppf ""
 

@@ -609,6 +609,17 @@ let rec type_of_term t = match T.destruct t with
 
             | _ -> assert false)
 
+        | `BVSIGNEXT i ->
+
+          (match l with
+          
+            | [a] ->
+              
+              (match Type.node_of_type (type_of_term a) with
+                | Type.BV j -> Type.mk_bv ((Numeral.to_int i) + j)
+                | _ -> assert false)
+                
+            | _ -> assert false)
       
         (* Return type of first argument *)
         | `MINUS
@@ -1310,6 +1321,9 @@ let mk_bvextract i j t = mk_app_of_symbol_node (`BVEXTRACT (i, j)) [t]
 
 (* Hashcons a BV concatenation *)
 let mk_bvconcat a b = mk_app_of_symbol_node `BVCONCAT [a;b]
+
+(* Hashcons a BV sign extension *)
+let mk_bvsignext i t = mk_app_of_symbol_node (`BVSIGNEXT i) [t]
 
 (* Hashcons a predicate for coincidence of a real with an integer *)
 let mk_is_int t = mk_app_of_symbol_node `IS_INT [t]
