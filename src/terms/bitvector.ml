@@ -122,8 +122,9 @@ let ubv32_to_int = ubv_to_int 32
 
 let ubv64_to_int = ubv_to_int 64
 
+
 (* ********************************************************************** *)
-(* Unsigned BV -> Numeral                                                     *)
+(* Unsigned BV -> Numeral                                                 *)
 (* ********************************************************************** *)
 
 (* Function that converts a Boolean to a single binary numeral *)
@@ -131,13 +132,33 @@ let bool_to_bin_num (b : bool) : Numeral.t =
   match b with 
   | false -> Numeral.zero
   | true -> Numeral.one
-(*
+
 (* Function that calculates the nth power of two *)
 let rec pow2_num (n : Numeral.t) : Numeral.t =
-  match n with
+  if (n = Numeral.zero) then
+    Numeral.one
+  else
+    Numeral.mult (Numeral.succ (Numeral.one)) (pow2_num (Numeral.sub n Numeral.one))
+  (*match n with
   | (Numeral.zero) -> Numeral.one
-  | n' -> Numeral.mult (Numeral.succ (Numeral.one)) (pow2_num (Numeral.sub n' Numeral.one))
-*)
+  | n' -> Numeral.mult (Numeral.succ (Numeral.one)) (pow2_num (Numeral.sub n' Numeral.one))*)
+
+(*Function that returns the numeral corresponding to a bitvector *)
+let rec ubv_to_num (size : Numeral.t) (b : t) : Numeral.t =
+  match b with
+  | h :: t -> let prod = Numeral.mult (bool_to_bin_num h) (pow2_num (Numeral.sub size Numeral.one)) in
+    Numeral.add prod (ubv_to_num (Numeral.sub size Numeral.one) t)
+  | nil -> Numeral.zero
+
+let ubv8_to_num = ubv_to_num (Numeral.of_int 8)
+
+let ubv16_to_num = ubv_to_num (Numeral.of_int 16)
+
+let ubv32_to_num = ubv_to_num (Numeral.of_int 32)
+
+let ubv64_to_num = ubv_to_num (Numeral.of_int 64)
+
+
 (* ********************************************************************** *)
 (* Int -> Signed BV                                                       *)
 (* ********************************************************************** *)
