@@ -135,14 +135,12 @@ let bool_to_bin_num (b : bool) : Numeral.t =
 
 (* Function that calculates the nth power of two *)
 let rec pow2_num (n : Numeral.t) : Numeral.t =
-  if (n = Numeral.zero) then
+  if (Numeral.equal n Numeral.zero) then
     Numeral.one
   else
-    Numeral.mult (Numeral.succ (Numeral.one)) (pow2_num (Numeral.sub n Numeral.one))
-  (*match n with
-  | (Numeral.zero) -> Numeral.one
-  | n' -> Numeral.mult (Numeral.succ (Numeral.one)) (pow2_num (Numeral.sub n' Numeral.one))*)
-
+    Numeral.mult (Numeral.succ (Numeral.one)) 
+                 (pow2_num (Numeral.sub n Numeral.one))
+  
 (*Function that returns the numeral corresponding to a bitvector *)
 let rec ubv_to_num (size : Numeral.t) (b : t) : Numeral.t =
   match b with
@@ -252,7 +250,10 @@ let int_to_bv64 = int_to_bv 64
 let bv_to_int (size : int) (b : t) :  int =
   if ((List.nth b 0) = false) then
     ubv_to_int size b
-  else (-(ubv_to_int size (plus_one (ones_comp b) (bin_one size))))
+  else 
+    (-(ubv_to_int size 
+                  (plus_one (ones_comp b) 
+                            (bin_one size))))
 
 let bv8_to_int = bv_to_int 8
 
@@ -261,6 +262,27 @@ let bv16_to_int = bv_to_int 16
 let bv32_to_int = bv_to_int 32
 
 let bv64_to_int = bv_to_int 64
+
+
+(* ********************************************************************** *)
+(* Signed BV -> Num                                                       *)
+(* ********************************************************************** *)
+
+let bv_to_num (size : Numeral.t) (b : t) : Numeral.t =
+  if((List.nth b 0) = false) then
+    ubv_to_num size b
+  else
+    (Numeral.neg (ubv_to_num size
+                             (plus_one (ones_comp b) 
+                                       (bin_one (Numeral.to_int size)))))
+  
+let bv8_to_num = bv_to_num (Numeral.of_int 8)
+
+let bv16_to_num = bv_to_num (Numeral.of_int 16)
+
+let bv32_to_num = bv_to_num (Numeral.of_int 32)
+
+let bv64_to_num = bv_to_num (Numeral.of_int 64)
 
 
 (* ********************************************************************** *)

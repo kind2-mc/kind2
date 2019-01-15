@@ -29,6 +29,7 @@ module VS = Var.VarSet
 exception Type_mismatch
 exception FixedWidthInt_overflow
 exception BV_size_mismatch
+exception Random
 
 (* A Lustre expression is a term *)
 type expr = Term.t
@@ -304,23 +305,21 @@ let string_of_symbol = function
   | `UBV b -> 
           let bi = 
             (match Bitvector.length_of_bitvector b with
-            | 8 -> Bitvector.ubv8_to_int b
-            | 16 -> Bitvector.ubv16_to_int b
-            | 32 -> Bitvector.ubv32_to_int b
-            | 64 -> Bitvector.ubv64_to_int b
-            | _ -> raise BV_size_mismatch) 
-          in let nb = Numeral.of_int bi in
-          Numeral.string_of_numeral nb
+            | 8 -> Bitvector.ubv8_to_num b
+            | 16 -> Bitvector.ubv16_to_num b
+            | 32 -> Bitvector.ubv32_to_num b
+            | 64 -> Bitvector.ubv64_to_num b
+            | _ -> raise BV_size_mismatch) in
+          Numeral.string_of_numeral bi
   | `BV b -> 
           let bi = 
             (match Bitvector.length_of_bitvector b with
-            | 8 -> Bitvector.bv8_to_int b
-            | 16 -> Bitvector.bv16_to_int b
-            | 32 -> Bitvector.bv32_to_int b
-            | 64 -> Bitvector.bv64_to_int b
-            | _ -> raise BV_size_mismatch) 
-          in let nb = Numeral.of_int bi in
-          Numeral.string_of_numeral nb
+            | 8 -> Bitvector.bv8_to_num b
+            | 16 -> Bitvector.bv16_to_num b
+            | 32 -> Bitvector.bv32_to_num b
+            | 64 -> Bitvector.bv64_to_num b
+            | _ -> raise BV_size_mismatch) in
+          Numeral.string_of_numeral bi
   | `MINUS -> "-"
   | `PLUS -> "+"
   | `TIMES -> "*"
@@ -367,12 +366,15 @@ let string_of_symbol = function
   | _ -> failwith "string_of_symbol"
 
 
+
 (* Pretty-print a symbol with a given type *)
 let pp_print_symbol_as_type as_type ppf s =
   match as_type, s with
   | Some ty, `NUMERAL n when Type.is_enum ty ->
      Type.get_constr_of_num n
      |> Format.pp_print_string ppf
+  | Some ty, _ when Type.is_ubitvector ty -> raise Random
+  | Some ty, _ when Type.is_bitvector ty -> raise Random
   | _ ->
      Format.pp_print_string ppf (string_of_symbol s) 
     

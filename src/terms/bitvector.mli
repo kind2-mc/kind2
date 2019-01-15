@@ -33,6 +33,18 @@ val ubv32_to_int : t -> int
 (** Return integer converted from a size 64 unsigned bitvector *)
 val ubv64_to_int : t -> int
 
+(** Return numeral converted from a size 8 unsigned bitvector *)
+val ubv8_to_num : t -> Numeral.t
+
+(** Return numeral converted from a size 16 unsigned bitvector *)
+val ubv16_to_num : t -> Numeral.t
+
+(** Return numeral converted from a size 32 unsigned bitvector *)
+val ubv32_to_num : t -> Numeral.t
+
+(** Return numeral converted from a size 64 unsigned bitvector *)
+val ubv64_to_num : t -> Numeral.t
+
 (** Return size 8 bitvector converted from an int *)
 val int_to_bv8 : int -> t
 
@@ -56,6 +68,21 @@ val bv32_to_int : t -> int
 
 (** Return integer converted from a size 64 bitvector *)
 val bv64_to_int : t -> int
+
+(** Return the length of a bitvector as a numeral *)
+val length_of_bitvector : t -> int
+
+(** Return numeral converted from a size 8 bitvector *)
+val bv8_to_num : t -> Numeral.t
+
+(** Return numeral converted from a size 16 bitvector *)
+val bv16_to_num : t -> Numeral.t
+
+(** Return numeral converted from a size 32 bitvector *)
+val bv32_to_num : t -> Numeral.t
+
+(** Return numeral converted from a size 64 bitvector *)
+val bv64_to_num : t -> Numeral.t
 
 (** Return the length of a bitvector as a numeral *)
 val length_of_bitvector : t -> int

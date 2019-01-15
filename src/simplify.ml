@@ -2281,7 +2281,14 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             (match args with
               | [] -> assert false
               | [BV b] -> BV (Term.mk_bvextract i j b)
-              | [UBV b] -> BV (Term.mk_bvextract i j b)
+              | [UBV b] -> UBV (Term.mk_bvextract i j b)
+              | _ -> assert false)
+
+          | `BVSIGNEXT i ->
+            (match args with
+              | [] -> assert false
+              | [BV b] -> BV (Term.mk_bvsignext i b)
+              | [UBV b] -> UBV (Term.mk_bvsignext i b)
               | _ -> assert false)
 
           (* Constant symbols *)
@@ -2294,8 +2301,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BV _ 
           | `BVDEC (_, _) 
           | `BV2NAT
-          | `BVCONCAT 
-          | `BVSIGNEXT _ -> assert false
+          | `BVCONCAT -> assert false
           
       )
 
