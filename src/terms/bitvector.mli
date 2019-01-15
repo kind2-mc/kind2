@@ -9,6 +9,12 @@ val repeat_bit : bool -> int -> t
 (* Return the first bit of input bitvector b *)
 val first_bit : t -> bool
 
+(* Return bits m down to n from the input bitvector *)
+val bvextract : int -> int -> t -> t
+
+(* Return input bitvector sign-extended to m bits *)
+val bvsignext : int -> t -> t
+
 (** Return size 8 unsigned bitvector converted from an int *)
 val int_to_ubv8 : int -> t
 

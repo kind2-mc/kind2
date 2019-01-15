@@ -27,6 +27,27 @@ let first_bit (b : t) : bool =
   | h :: t -> h
   | _ -> raise NonStandardBVSize
 
+(* Function that extracts m down to n from the input bitvector *)
+let rec bvextract (m : int) (n : int) (b : t) : t =
+  let b_rev = (List.rev b) in
+    if (m < n) then 
+      raise NonStandardBVSize
+    else if (n != 0) then
+      raise NonStandardBVSize
+    else
+      match m with
+      | 0 -> [List.hd b_rev]
+      | m' -> (List.nth b_rev m') :: (bvextract (m' - 1) n b_rev)
+
+(* Function that sign extends the input bitvector by m bits *)
+let rec bvsignext (m : int) (b : t) : t =
+  let sign = List.hd b in
+    let rec repeat (m : int) (b : bool) : t =
+      match m with
+      | 0 -> []
+      | m' -> b :: repeat (m' - 1) b 
+    in List.append (repeat m sign) b
+
 (* ********************************************************************** *)
 (* Int -> Unsigned BV                                                     *)
 (* ********************************************************************** *)

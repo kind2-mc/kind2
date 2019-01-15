@@ -2280,15 +2280,25 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVEXTRACT (i, j) ->
             (match args with
               | [] -> assert false
-              | [BV b] -> BV (Term.mk_bvextract i j b)
-              | [UBV b] -> UBV (Term.mk_bvextract i j b)
+              | [BV b] -> BV (Term.mk_bv (Bitvector.bvextract 
+                                            (Numeral.to_int i) 
+                                            (Numeral.to_int j) 
+                                            (Term.bitvector_of_term b)))            
+              | [UBV b] -> UBV (Term.mk_bv (Bitvector.bvextract 
+                                              (Numeral.to_int i) 
+                                              (Numeral.to_int j) 
+                                              (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVSIGNEXT i ->
             (match args with
               | [] -> assert false
-              | [BV b] -> BV (Term.mk_bvsignext i b)
-              | [UBV b] -> UBV (Term.mk_bvsignext i b)
+              | [BV b] -> BV (Term.mk_bv (Bitvector.bvsignext
+                                            (Numeral.to_int i)
+                                            (Term.bitvector_of_term b)))
+              | [UBV b] -> UBV (Term.mk_bv (Bitvector.bvsignext
+                                              (Numeral.to_int i)
+                                              (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           (* Constant symbols *)
