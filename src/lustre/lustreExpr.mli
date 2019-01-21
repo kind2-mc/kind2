@@ -56,6 +56,7 @@
 (** Types of expressions do not match signature of operator *)
 exception Type_mismatch
 exception FixedWidthInt_overflow
+exception BV_size_mismatch
 
 (** {1 Types} *)
 

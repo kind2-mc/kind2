@@ -37,7 +37,7 @@ let rec bvextract (m : int) (n : int) (b : t) : t =
     else
       match m with
       | 0 -> [List.hd b_rev]
-      | m' -> (List.nth b_rev m') :: (bvextract (m' - 1) n b_rev)
+      | m' -> (List.nth b_rev m') :: (bvextract (m' - 1) n b)
 
 (* Function that sign extends the input bitvector by m bits *)
 let rec bvsignext (m : int) (b : t) : t =
@@ -47,6 +47,7 @@ let rec bvsignext (m : int) (b : t) : t =
       | 0 -> []
       | m' -> b :: repeat (m' - 1) b 
     in List.append (repeat m sign) b
+
 
 (* ********************************************************************** *)
 (* Int -> Unsigned BV                                                     *)
@@ -58,10 +59,11 @@ in OCaml rounds toward 0, we design modulo which considers
 division that rounds toward negative infinity. 
 For example, -1 mod 8 is -1 (with quotient 0) in OCaml, 
 we want it to be 7 (with quotient -1).
-The OCaml mod operator will do if we don't consider 
-a mod b where a is negative. This function considers this 
-case, but doesn't consider the case where b could be 
-negative. But that's ok since we don't consider cases of 
+While considering a mod b, the OCaml mod operator will do what 
+we want when a and b are positive. The following function will 
+additionally do what we want when a is negative; it wont do what 
+we want when b is negative, but that's okay since 
+we don't consider cases of 
 modulo-n arithmetic where n is negative. *)
 let modulo x y =
   let result = x mod y in
@@ -112,6 +114,57 @@ let ubvM_to_ubvm (m2 : int) (m : int) (n : int) : t =
     let range = 1 lsl m2 in
     let i = modulo n range in
     int_to_ubv m i
+
+
+(* ********************************************************************** *)
+(* Numeral -> Unsigned BV                                                     *)
+(* ********************************************************************** *)
+
+(* The mod operator in OCaml implements remainder 
+with respect to integer division. Since integer division
+in OCaml rounds toward 0, we design modulo which considers 
+division that rounds toward negative infinity. 
+For example, -1 mod 8 is -1 (with quotient 0) in OCaml, 
+we want it to be 7 (with quotient -1).
+While considering a mod b, the OCaml mod operator will do what 
+we want when a and b are positive. The following function will 
+additionally do what we want when a is negative; it wont do what 
+we want when b is negative, but that's okay since 
+we don't consider cases of 
+modulo-n arithmetic where n is negative. *)
+let modulo_num (x : Numeral.t) (y : Numeral.t) : Numeral.t =
+  let result = (Numeral.rem x y) in
+    if (Numeral.geq result Numeral.zero) then result
+  else (Numeral.add result y)
+
+(*
+(* Function that returns unsigned fixed-width int or bitvector version of an int *)
+let num_to_ubv (size : Numeral.t) (i : Numeral.t) : t =
+  (* 
+  For converting n to UBV8, n modulo 256.
+  In general, for converting n to UBVm, 
+  n modulo 2^m, or n modulo r where
+  r = 1 << m since (<< m) <=> ( * 2^m).
+  *)
+  let m = 1 lsl size in
+  let n = modulo i m
+    (* if (i < 0) then (m + (i mod m)) mod m
+    else i mod m *)
+  in
+  (* Tail-recursive function that converts n to type t,
+  which is a list of bools *)
+  let rec convert acc l n =
+    if n>0 then
+      convert (((n mod 2) = 1) :: acc) (l+1) (n / 2)
+    else (acc, l)
+  in
+  let bv, l = convert [] 0 n in
+  (* For n-bit BV, pad upto n bits with 0s *)
+  let rec pad bv l =
+    if l>0 then pad (false :: bv) (l-1) else bv
+  in
+  pad bv (size - l)
+*)
 
 (* ********************************************************************** *)
 (* Unsigned BV -> Int                                                     *)
@@ -556,7 +609,7 @@ let decimal_of_string s =
 
 
 (* Convert a sequence of binary digits to a constant bitvector *)
-let rec bitvector_of_string_b a i s = 
+let rec bitvector_of_string_b (a : t) (i : int) (s : string) : t = 
 
   if i <= 1 then a else
     
@@ -585,7 +638,45 @@ let bitvector_of_string s =
 
     (* Convert from a hexadecimal string *)
     | "#x" -> bitvector_of_string_x [] ((String.length s) - 1) s
-      
+
+    (* Convert from a decimal string *)
+    | "_ " -> 
+      let f n s = (n, s) in
+        let (n, s) =
+          (try 
+            Scanf.sscanf s "(_ bv%d %d)" f (*use %Ld and %u here to account for 64 bit ints*)
+           with
+           Scanf.Scan_failure _ -> 
+            raise (Invalid_argument "bitvector_of_string"))
+        in (int_to_bv s n)
+        (*with
+          | "bv" -> [false;false;true;true]
+
+            let len = String.length s in
+              let lenminus1 = (len - 1) in
+
+              match
+              (try 
+                String.sub s lenminus1 1)
+               with
+                Invalid_argument _ ->
+                  raise (Invalid_argument "bitvector_of_string"))
+
+              with 
+                | ")" ->
+
+                  let substr = String.sub s 5 (len - 6) in
+                    let num_list = (String.split_on_char ' ' substr) in
+                      let n = (List.nth num_list 0) in
+                        let s = (List.nth num_list 1) in
+                          let n_num = (int_of_string n) in
+                            let s_num = (int_of_string s) in
+                              int_to_bv s_num n_num
+                
+                | _ -> raise (Invalid_argument "bitvector_of_string")
+          
+          | _ -> raise (Invalid_argument "bitvector_of_string")*)
+
     (* Invalid prefix *)
     | _ -> raise (Invalid_argument "bitvector_of_string")
 

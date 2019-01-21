@@ -229,6 +229,24 @@ let rec is_numeral t = match destruct t with
   | _ -> false
 
 
+(* Return true if the term is a signed bitvector constant *)
+let is_bitvector t = match destruct t with
+
+  (* Term is a bitvector constant *)
+  | T.Const s when Symbol.is_bitvector s -> true
+
+  | _ -> false
+
+
+(* Return true if the term is an unsigned bitvector constant *)
+let is_ubitvector t = match destruct t with
+
+  (* Term is an unsigned bitvector constant *)
+  | T.Const s when Symbol.is_ubitvector s -> true
+
+  | _ -> false
+
+
 (* Return integer constant of a term *)
 let rec numeral_of_term t = match destruct t with 
 
@@ -256,6 +274,15 @@ let bitvector_of_term t = match destruct t with
   | T.Const s when Symbol.is_bitvector s -> Symbol.bitvector_of_symbol s
 
   | _ -> invalid_arg "bitvector_of_term"
+
+
+(* Return unsigned bitvector constant of a term *)
+let ubitvector_of_term t = match destruct t with
+
+  (* Term is an unsigned bitvector constant *)
+  | T.Const s when Symbol.is_ubitvector s -> Symbol.ubitvector_of_symbol s
+
+  | _ -> invalid_arg "ubitvector_of_term"
 
 
 (* Return decimal constant of a term *)

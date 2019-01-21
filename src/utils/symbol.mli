@@ -304,6 +304,9 @@ val is_decimal : t -> bool
 (** Return true if the symbol is a bitvector *)
 val is_bitvector : t -> bool
 
+(** Return true if the symbol is an unsigned bitvector *)
+val is_ubitvector : t -> bool
+
 (** Return true if the symbol is an unsigned bitvector of size 8 *)
 val is_ubv8 : t -> bool
 
@@ -345,6 +348,9 @@ val decimal_of_symbol : t -> Decimal.t
 
 (** Return the bitvector in a [`BV _] symbol *)
 val bitvector_of_symbol : t -> Bitvector.t
+
+(** Return the ubitvector in a [`UBV _] symbol *)
+val ubitvector_of_symbol : t -> Bitvector.t
 
 (** Return [true] for the [`TRUE] symbol and [false] for the [`FALSE]
     symbol *)

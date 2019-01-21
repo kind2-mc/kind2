@@ -502,8 +502,12 @@ let is_decimal = function
 
 (* Return true if the symbol is a bitvector *)
 let is_bitvector = function 
-  | { Hashcons.node = `UBV _ } -> true
   | { Hashcons.node = `BV _ } -> true 
+  | _ -> false
+
+(* Return true if the symbol is an unsigned bitvector *)
+let is_ubitvector = function
+  | { Hashcons.node = `UBV _ } -> true
   | _ -> false
 
 (* Return true if the symbol is an unsigned bitvector of size 8 *)
@@ -572,9 +576,13 @@ let decimal_of_symbol = function
 
 (* Return the bitvector in a `BV symbol  *)
 let bitvector_of_symbol = function 
-  | { Hashcons.node = `UBV n } -> n 
-  | { Hashcons.node = `BV n } -> n 
+  | { Hashcons.node = `BV b } -> b 
   | _ -> raise (Invalid_argument "bitvector_of_symbol")
+
+(* Return the unsigned bitvector in a `UBV symbol *)
+let ubitvector_of_symbol = function
+  | { Hashcons.node = `UBV b } -> b
+  | _ -> raise (Invalid_argument "ubitvector_of_symbol")
 
 (* Return [true] for the [`TRUE] symbol and [false] for the [`FALSE]
     symbol *)

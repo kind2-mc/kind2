@@ -837,6 +837,19 @@ let relation_to_nf_bv rel = function
   (* Arity greater than 2 *)
   | _ -> assert false
 
+let relation_to_nf_ubv rel = function
+  (* Relation must be binary *)
+  | [] 
+  | [_] -> assert false
+
+  (* Binary relation *)
+  | [a; b] -> (match (rel (Term.ubitvector_of_term (term_of_nf a)) (Term.ubitvector_of_term (term_of_nf b))) with
+    | true -> Bool Term.t_true
+    | false -> Bool Term.t_false)
+  
+  (* Arity greater than 2 *)
+  | _ -> assert false
+
 (* Normalize an n-ary relation by unchaining it into a conjunction of
    binary relations, subtracting the right-hand side from the
    left-hand side and evaluating to true or false if possible
@@ -985,7 +998,7 @@ let relation
 
     (* Relation must be between integers or reals *)
 
-    | UBV _ :: _ as args -> relation_to_nf_bv rel_ubv args
+    | UBV _ :: _ as args -> relation_to_nf_ubv rel_ubv args
 
     | BV _ :: _ as args -> relation_to_nf_bv rel_bv args
 
@@ -1966,9 +1979,12 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           (* Conversion to unsigned integer8 is a monomial with polynomial
              subterms *)
           | `TO_UINT8 -> 
-          
+
             (match args with 
-              | [UBV b] -> UBV b
+              | [UBV b] -> let s = (Bitvector.length_of_bitvector (Term.ubitvector_of_term b)) in
+                  (match s with 
+                  | 8 -> UBV b
+                  | _ -> UBV (Term.mk_bv (Bitvector.bvextract 7 0 (Term.ubitvector_of_term b))))
               | [Num n] -> UBV (
                                 Term.mk_bv 
                                   (Bitvector.int_to_ubv8 
@@ -1981,7 +1997,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           (* Conversion to unsigned integer16 is a monomial with polynomial
              subterms *)
           | `TO_UINT16 -> 
-          
+
             (match args with 
               | [UBV b] -> UBV b
               | [Num n] ->  UBV (
@@ -2028,7 +2044,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `TO_INT8 -> 
           
             (match args with 
-              | [BV b] -> BV b
+              | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
+                  (match s with 
+                  | 8 -> BV b
+                  | _ -> BV (Term.mk_bv (Bitvector.bvextract 7 0 (Term.bitvector_of_term b))))
               | [Num n] -> BV (
                                 Term.mk_bv 
                                   (Bitvector.int_to_bv8 
@@ -2043,8 +2062,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `TO_INT16 -> 
           
             (match args with 
-              | [BV b] -> BV b
-              | [Num n] ->  BV (
+              | [BV b] -> Format.printf "simplify.loc6.1\n";BV b
+              | [Num n] ->  Format.printf "simplify.loc6.2\n";BV (
                                 Term.mk_bv 
                                   (Bitvector.int_to_bv16 
                                     (Numeral.to_int 
@@ -2093,7 +2112,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
            (* (match args with
               | [UBV b] -> let t = term_of_nf (UBV b) in
                            let tp = Term.type_of_term t in
-                           let bv = Term.bitvector_of_term t in
+                           let bv = Term.ubitvector_of_term t in
                             if (Type.is_uint8 tp) then 
                               Num (Numeral.of_int (Bitvector.bv8_to_int bv))
                             else if (Type.is_uint16 tp) then 
@@ -2277,7 +2296,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV a] -> BV (Term.mk_bvneg a)
               | _ -> assert false)
 
-          | `BVEXTRACT (i, j) ->
+          | `BVEXTRACT (i, j) -> 
             (match args with
               | [] -> assert false
               | [BV b] -> BV (Term.mk_bv (Bitvector.bvextract 
@@ -2287,7 +2306,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [UBV b] -> UBV (Term.mk_bv (Bitvector.bvextract 
                                               (Numeral.to_int i) 
                                               (Numeral.to_int j) 
-                                              (Term.bitvector_of_term b)))
+                                              (Term.ubitvector_of_term b)))
               | _ -> assert false)
 
           | `BVSIGNEXT i ->
@@ -2298,7 +2317,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                                             (Term.bitvector_of_term b)))
               | [UBV b] -> UBV (Term.mk_bv (Bitvector.bvsignext
                                               (Numeral.to_int i)
-                                              (Term.bitvector_of_term b)))
+                                              (Term.ubitvector_of_term b)))
               | _ -> assert false)
 
           (* Constant symbols *)

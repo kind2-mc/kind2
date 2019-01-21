@@ -684,9 +684,35 @@ let rec pp_print_term ty ppf term =
       
       (* Pretty-print as Boolean value *)
       Format.fprintf ppf "false"
-        
+
+  (* Constant is a signed bitvector? *)
+  else if Term.is_bitvector term then
+
+    let bv = Term.bitvector_of_term term in
+      let size = Bitvector.length_of_bitvector bv in
+        let num = (match size with
+          | 8 -> Bitvector.bv8_to_num bv
+          | 16 -> Bitvector.bv16_to_num bv
+          | 32 -> Bitvector.bv32_to_num bv
+          | 64 -> Bitvector.bv64_to_num bv
+          | _ -> raise E.BV_size_mismatch) in
+        Numeral.pp_print_numeral ppf num
+
+  (* Constant is an unsigned bitvector? *)
+  else if Term.is_ubitvector term then
+
+    let ubv = Term.ubitvector_of_term term in
+      let size = Bitvector.length_of_bitvector ubv in
+        let num = (match size with
+          | 8 -> Bitvector.ubv8_to_num ubv
+          | 16 -> Bitvector.ubv16_to_num ubv
+          | 32 -> Bitvector.ubv32_to_num ubv
+          | 64 -> Bitvector.ubv64_to_num ubv
+          | _ -> raise E.BV_size_mismatch) in
+        Numeral.pp_print_numeral ppf num
+
   else
-    
+
     (* Fall back to pretty-print as lustre expression *)
     (LustreExpr.pp_print_expr false) ppf
       (LustreExpr.unsafe_expr_of_term term)

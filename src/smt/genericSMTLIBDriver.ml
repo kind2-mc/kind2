@@ -198,7 +198,7 @@ let gen_expr_of_string_sexpr'
   function 
 
     (* An empty list *)
-    | HStringSExpr.List [] -> 
+    | HStringSExpr.List [] -> Format.printf "genSMTDriver.loc1";
 
       (* Cannot convert to an expression *)
       failwith "Invalid Nil in S-expression"
@@ -332,31 +332,31 @@ let gen_expr_of_string_sexpr'
 
     (*  A list with more than one element *)
     | HStringSExpr.List ((HStringSExpr.Atom h) :: tl) -> 
-
+Format.printf "genSMTDriver.loc2\n";
       (
 
         (* Symbol from string *)
         let s = 
 
           try 
-
+Format.printf "genSMTDriver.loc2.1\n";
             (* Map the string to an interpreted function symbol *)
             symbol_of_atom h 
 
           with 
 
             (* Function symbol is uninterpreted *)
-            | Not_found -> 
+            | Not_found -> Format.printf "genSMTDriver.loc2.2\n";
 
               (* Uninterpreted symbol from string *)
               let u = 
 
                 try 
-
+Format.printf "genSMTDriver.loc2.3\n";
                   UfSymbol.uf_symbol_of_string (HString.string_of_hstring h)
 
                 with Not_found -> 
-
+  Format.printf "SYMBOL IS %s\n" (HString.string_of_hstring h);Format.printf "genSMTDriver.loc2.4\n";
                   (* Cannot convert to an expression *)
                   failwith 
                     (Format.sprintf 
@@ -364,13 +364,13 @@ let gen_expr_of_string_sexpr'
                         S-expression"
                        (HString.string_of_hstring h))
               in
-
+Format.printf "genSMTDriver.loc2.5\n";
               (* Get the uninterpreted symbol of the string *)
               Symbol.mk_symbol (`UF u)
 
 
         in
-
+Format.printf "genSMTDriver.loc2.6\n";
         (* parse arguments *)
         let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
 

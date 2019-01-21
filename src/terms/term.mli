@@ -494,6 +494,15 @@ val numeral_of_term : t -> Numeral.t
 (** Return bitvector constant of a term *)
 val bitvector_of_term : t -> Bitvector.t
 
+(** Return unsigned bitvector constant of a term *)
+val ubitvector_of_term : t -> Bitvector.t
+
+(** Return true if the term is a signed bitvector consant *)
+val is_bitvector : t -> bool
+
+(** Return true if the term is an unsigned bitvector constant *)
+val is_ubitvector : t -> bool
+
 (** Return true if the term is a decimal constant *)
 val is_decimal : t -> bool
 

@@ -318,8 +318,9 @@ let string_of_symbol = function
             | 16 -> Bitvector.bv16_to_num b
             | 32 -> Bitvector.bv32_to_num b
             | 64 -> Bitvector.bv64_to_num b
-            | _ -> Format.printf "ZZZZZZ %d" (Bitvector.length_of_bitvector b);raise BV_size_mismatch) in
+            | _ -> raise BV_size_mismatch) in
           Numeral.string_of_numeral bi
+  | `BVDEC (n, s) -> "(_ bv" ^ (Numeral.string_of_numeral n) ^ " )"
   | `MINUS -> "-"
   | `PLUS -> "+"
   | `TIMES -> "*"
@@ -373,8 +374,6 @@ let pp_print_symbol_as_type as_type ppf s =
   | Some ty, `NUMERAL n when Type.is_enum ty ->
      Type.get_constr_of_num n
      |> Format.pp_print_string ppf
-  | Some ty, _ when Type.is_ubitvector ty -> raise Random
-  | Some ty, _ when Type.is_bitvector ty -> raise Random
   | _ ->
      Format.pp_print_string ppf (string_of_symbol s) 
     
@@ -1786,9 +1785,7 @@ let eval_to_uint8 expr =
     if (Type.is_uint8 tt) then 
       expr
     else
-      (match Term.destruct expr with
-      | Term.T.Const s -> Term.mk_bv (Bitvector.bvextract 7 0 (Term.bitvector_of_term expr))
-      | _ -> Term.mk_bvextract (Numeral.of_int 7) (Numeral.of_int 0) expr)
+      Term.mk_bvextract (Numeral.of_int 7) (Numeral.of_int 0) expr
   else 
     raise Type_mismatch
 
