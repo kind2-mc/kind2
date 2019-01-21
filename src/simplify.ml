@@ -2062,8 +2062,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `TO_INT16 -> 
           
             (match args with 
-              | [BV b] -> Format.printf "simplify.loc6.1\n";BV b
-              | [Num n] ->  Format.printf "simplify.loc6.2\n";BV (
+              | [BV b] -> BV b
+              | [Num n] -> BV (
                                 Term.mk_bv 
                                   (Bitvector.int_to_bv16 
                                     (Numeral.to_int 
