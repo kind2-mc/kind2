@@ -86,7 +86,8 @@ type interpreted_symbol =
   | `BVNEG                (* Arithmetic negation (unary) *)
   | `BVAND                (* Bit-wise conjunction (binary) *)
   | `BVOR                 (* Bit-wise disjunction (binary) *)
-  | `BVADD                (* Arithmetic sum (binary) *)
+  | `BVADD                (* Signed bitvector sum (binary) *)
+  | `BVUADD               (* Unsigned bitvector sum (binary) *)
   | `BVMUL                (* Arithmetic multiplication (binary) *)
   | `BVUDIV               (* Arithmetic integer division (binary) *)
   | `BVUREM               (* Arithmetic remainder (binary) *)
@@ -226,6 +227,7 @@ module Symbol_node = struct
     | `BVAND, `BVAND
     | `BVOR, `BVOR
     | `BVADD, `BVADD
+    | `BVUADD, `BVUADD
     | `BVMUL, `BVMUL
     | `BVUDIV, `BVUDIV
     | `BVUREM, `BVUREM
@@ -286,6 +288,7 @@ module Symbol_node = struct
     | `BVAND, _
     | `BVOR, _
     | `BVADD, _
+    | `BVUADD, _
     | `BVMUL, _
     | `BVUDIV, _
     | `BVUREM, _
@@ -445,6 +448,7 @@ let rec pp_print_symbol_node ppf = function
   | `BVAND -> Format.pp_print_string ppf "bvand"
   | `BVOR -> Format.pp_print_string ppf "bvor"
   | `BVADD -> Format.pp_print_string ppf "bvadd"
+  | `BVUADD -> Format.pp_print_string ppf "bvadd"
   | `BVMUL -> Format.pp_print_string ppf "bvmul"
   | `BVUDIV -> Format.pp_print_string ppf "bvudiv"
   | `BVUREM -> Format.pp_print_string ppf "bvurem"
@@ -501,12 +505,12 @@ let is_decimal = function
   | _ -> false
 
 (* Return true if the symbol is a bitvector *)
-let is_bitvector = function 
+let rec is_bitvector = function 
   | { Hashcons.node = `BV _ } -> true 
   | _ -> false
 
 (* Return true if the symbol is an unsigned bitvector *)
-let is_ubitvector = function
+let rec is_ubitvector = function
   | { Hashcons.node = `UBV _ } -> true
   | _ -> false
 
@@ -575,7 +579,7 @@ let decimal_of_symbol = function
   | _ -> raise (Invalid_argument "decimal_of_symbol")
 
 (* Return the bitvector in a `BV symbol  *)
-let bitvector_of_symbol = function 
+let bitvector_of_symbol =  function 
   | { Hashcons.node = `BV b } -> b 
   | _ -> raise (Invalid_argument "bitvector_of_symbol")
 
@@ -663,6 +667,9 @@ let s_plus = mk_symbol `PLUS
 
 (* Constant minus operator *)
 let s_minus = mk_symbol `MINUS
+
+(* Constant plus operator for unsigned bitvectors *)
+let s_bvuadd = mk_symbol `BVUADD
 
 (* Constant times operator *)
 let s_times = mk_symbol `TIMES

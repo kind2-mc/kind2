@@ -228,11 +228,23 @@ let rec is_numeral t = match destruct t with
 
   | _ -> false
 
-
-(* Return true if the term is a signed bitvector constant *)
+(* Dont really need these
+(* Return true if the term is a (sign-agnostic) 
+   bitvector constant *)
 let is_bitvector t = match destruct t with
 
   (* Term is a bitvector constant *)
+  | T.Const s when Symbol.is_bitvector s -> true
+
+  | T.Const s when Symbol.is_ubitvector s -> true
+
+  | _ -> false
+
+
+(* Return true if the term is a signed bitvector constant *)
+let is_sbitvector t = match destruct t with
+
+  (* Term is a signed bitvector constant *)
   | T.Const s when Symbol.is_bitvector s -> true
 
   | _ -> false
@@ -245,7 +257,7 @@ let is_ubitvector t = match destruct t with
   | T.Const s when Symbol.is_ubitvector s -> true
 
   | _ -> false
-
+*)
 
 (* Return integer constant of a term *)
 let rec numeral_of_term t = match destruct t with 
@@ -268,21 +280,43 @@ let rec numeral_of_term t = match destruct t with
 
 
 (* Return bitvector constant of a term *)
+(* This function is to be used for terms that are 
+   returned from the SMT solver. As a result, 
+   it doesn't differentiate between signed 
+   and unsigned BVs. type.ml is to be used to 
+   do that. *)
 let bitvector_of_term t = match destruct t with
 
   (* Term is a bitvector constant *)
-  | T.Const s when Symbol.is_bitvector s -> Symbol.bitvector_of_symbol s
+  | T.Const s when Symbol.is_bitvector s -> 
+      Symbol.bitvector_of_symbol s
+
+  | T.Const s when Symbol.is_ubitvector s -> 
+      Symbol.ubitvector_of_symbol s
 
   | _ -> invalid_arg "bitvector_of_term"
 
 
+(* Return signed bitvector constant of a term *)
+(* This function is to be used for terms before 
+   they are sent to the SMT solver. *)
+let sbitvector_of_term t = Format.printf "term.sbv\n";match destruct t with
+
+  (* Term is a signed bitvector constant *)
+  | T.Const s when Symbol.is_bitvector s -> Symbol.bitvector_of_symbol s
+
+  | _ -> invalid_arg "sbitvector_of_term"
+
+
 (* Return unsigned bitvector constant of a term *)
-let ubitvector_of_term t = match destruct t with
+(* This function is to be used for terms before 
+   they are sent to the SMT solver. *)
+let ubitvector_of_term t = Format.printf "term.ubv\n";match destruct t with
 
   (* Term is an unsigned bitvector constant *)
-  | T.Const s when Symbol.is_ubitvector s -> Symbol.ubitvector_of_symbol s
+  | T.Const s when Symbol.is_ubitvector s -> (Format.printf "term.ubv.case1\n";Symbol.ubitvector_of_symbol s)
 
-  | _ -> invalid_arg "ubitvector_of_term"
+  | _ -> (Format.printf "term.ubv.case3\n";invalid_arg "ubitvector_of_term")
 
 
 (* Return decimal constant of a term *)
@@ -611,10 +645,20 @@ let rec type_of_term t = match T.destruct t with
 
         (* Bitvector-valued function *)
         | `BVEXTRACT (i, j) -> 
+          
+          (match l with
 
-          (* Compute width of resulting bitvector *)
-          Type.mk_bv
-            ((Numeral.to_int j) - (Numeral.to_int i) + 1)
+          | [a] -> (match (Type.node_of_type (type_of_term a)) with
+
+            | Type.BV b -> 
+              (* Compute width of resulting bitvector *)
+              Type.mk_bv ((Numeral.to_int j) - (Numeral.to_int i) + 1)
+            | Type.UBV b -> 
+              (* Compute width of resulting bitvector *)
+              Type.mk_ubv ((Numeral.to_int j) - (Numeral.to_int i) + 1)
+            | _ -> assert false)
+
+          | _ -> assert false)
 
         | `BVCONCAT -> 
 
@@ -629,9 +673,9 @@ let rec type_of_term t = match T.destruct t with
                    Type.node_of_type (type_of_term b))
                with
                  | Type.BV i, Type.BV j -> 
-
-                   Type.mk_bv (i + j)
-
+                    Type.mk_bv (i + j)
+                 | Type.UBV i, Type.UBV j -> 
+                    Type.mk_ubv (i + j)
                  | _ -> assert false)
 
             | _ -> assert false)
@@ -644,6 +688,7 @@ let rec type_of_term t = match T.destruct t with
               
               (match Type.node_of_type (type_of_term a) with
                 | Type.BV j -> Type.mk_bv ((Numeral.to_int i) + j)
+                | Type.UBV j -> Type.mk_ubv ((Numeral.to_int i) + j)
                 | _ -> assert false)
                 
             | _ -> assert false)
@@ -671,6 +716,7 @@ let rec type_of_term t = match T.destruct t with
         | `BVAND
         | `BVOR
         | `BVADD
+        | `BVUADD
         | `BVMUL
         | `BVUDIV
         | `BVUREM
@@ -1136,11 +1182,17 @@ let mk_ubv b = mk_const_of_symbol_node (`UBV b)
 (* Hashcons a bitvector *)
 let mk_bv b = mk_const_of_symbol_node (`BV b)
 
-(* Hascons a bitvector addition *)
+(* Hascons a signed bitvector addition *)
 let mk_bvadd = function
   | [] -> invalid_arg "Term.mk_bvadd"
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVADD a
+
+(* Hascons an unsigned bitvector addition *)
+let mk_bvuadd = function
+  | [] -> invalid_arg "Term.mk_bvuadd"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVUADD a
 
 (* Hashcons a bitvector multiplication *)
 let mk_bvmul = function

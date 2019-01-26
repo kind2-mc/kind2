@@ -347,6 +347,7 @@ let string_of_symbol = function
   | `BVNOT -> "!"
   | `BVNEG -> "-"
   | `BVADD -> "+"
+  | `BVUADD -> "+"
   | `BVMUL -> "*"
   | `BVUDIV -> "div"
   | `BVUREM -> "mod"
@@ -656,6 +657,7 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `BVAND
     | `BVOR
     | `BVADD
+    | `BVUADD
     | `BVMUL
     | `BVUDIV
     | `BVUREM
@@ -2405,9 +2407,12 @@ let eval_plus expr1 expr2 =
         Decimal.(Symbol.decimal_of_symbol c1 +
                  Symbol.decimal_of_symbol c2) 
   
-    | _ -> (if (Type.is_bitvector (Term.type_of_term expr1) ||
-               Type.is_ubitvector (Term.type_of_term expr1)) then 
+    | _ -> (if ((Type.is_bitvector (Term.type_of_term expr1)) 
+                  && (Type.is_bitvector (Term.type_of_term expr2))) then
               Term.mk_bvadd [expr1; expr2]
+            else if ((Type.is_ubitvector (Term.type_of_term expr1)) 
+                  && (Type.is_ubitvector (Term.type_of_term expr1))) then 
+              Term.mk_bvuadd [expr1; expr2]
             else 
               Term.mk_plus [expr1; expr2])
 

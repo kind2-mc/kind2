@@ -61,7 +61,8 @@
     {- [`BVNEG] unary: arithmetic negation (unary)}
     {- [`BVAND] binary: bit-wise conjunction}
     {- [`BVOR] binary: bit-wise disjunction}
-    {- [`BVADD] binary: arithmetic sum}
+    {- [`BVADD] binary: signed bitvector sum}
+    {- [`BVUADD] binary unsigned bitvector sum}
     {- [`BVMUL] binary: arithmetic multiplication}
     {- [`BVUDIV] binary: arithmetic integer division}
     {- [`BVUREM] binary: arithmetic remainder}
@@ -158,7 +159,8 @@ type interpreted_symbol =
   | `BVNEG                (** Arithmetic negation (unary) *)
   | `BVAND                (** Bit-wise conjunction (binary) *)
   | `BVOR                 (** Bit-wise disjunction (binary) *)
-  | `BVADD                (** Arithmetic sum (binary) *)
+  | `BVADD                (** Signed bitvector sum (binary) *)
+  | `BVUADD                (** Unsigned bitvector sum (binary) *)
   | `BVMUL                (** Arithmetic multiplication (binary) *)
   | `BVUDIV               (** Arithmetic integer division (binary) *)
   | `BVUREM               (** Arithmetic remainder (binary) *)
@@ -272,6 +274,9 @@ val s_plus : t
 
 (** Constant minus operator symbol *)
 val s_minus : t
+
+(** Constant plus operator for unsigned bitvectors *)
+val s_bvuadd : t
 
 (** Constant times operator symbol *)
 val s_times : t

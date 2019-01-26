@@ -686,7 +686,7 @@ let rec pp_print_term ty ppf term =
       Format.fprintf ppf "false"
 
   (* Constant is a signed bitvector? *)
-  else if Term.is_bitvector term then
+  else if Type.is_bitvector (Term.type_of_term term) then
 
     let bv = Term.bitvector_of_term term in
       let size = Bitvector.length_of_bitvector bv in
@@ -699,9 +699,9 @@ let rec pp_print_term ty ppf term =
         Numeral.pp_print_numeral ppf num
 
   (* Constant is an unsigned bitvector? *)
-  else if Term.is_ubitvector term then
+  else if Type.is_ubitvector (Term.type_of_term term) then
 
-    let ubv = Term.ubitvector_of_term term in
+    let ubv = Term.bitvector_of_term term in
       let size = Bitvector.length_of_bitvector ubv in
         let num = (match size with
           | 8 -> Bitvector.ubv8_to_num ubv

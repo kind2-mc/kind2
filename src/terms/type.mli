@@ -239,6 +239,21 @@ val print_type : t -> unit
 val string_of_type : t -> string
 
 
+(** DEBUGGING {1 Pretty-printing} *)
+
+(** Pretty-print a type *)
+val pp_print_type_node2 : Format.formatter -> kindtype -> unit
+
+(** Pretty-print a type *)
+val pp_print_type2 : Format.formatter -> t -> unit
+
+(** Pretty-print a type to the standard formatter *)
+val print_type2 : t -> unit
+
+(** Return a string representation of a type *)
+val string_of_type2 : t -> string
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

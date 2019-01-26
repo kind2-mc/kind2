@@ -305,6 +305,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVAND -> Format.pp_print_string ppf "bv-and"
   | `BVOR -> Format.pp_print_string ppf "bv-or"
   | `BVADD -> Format.pp_print_string ppf "bv-add"
+  | `BVUADD -> Format.pp_print_string ppf "bv-add"
   | `BVMUL -> Format.pp_print_string ppf "bv-mul"
   | `BVUDIV -> Format.pp_print_string ppf "bv-div"
   | `BVUREM -> Format.pp_print_string ppf "bvurem"

@@ -385,6 +385,11 @@ let mult l r = match l, r with
   if n = zero then Undef else
   if lt n zero then InfPos else InfNeg
 
+let pow b e = 
+  match e with
+  | zero -> one
+  | one -> b
+  | 
 (* Quotient *)
 let div l r = match l, r with
 | I l', I r' ->

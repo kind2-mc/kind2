@@ -232,6 +232,68 @@ let string_of_type t = string_of_t pp_print_type t
 
 
 (* ********************************************************************* *)
+(* DEBUGGING Pretty-printing                                             *)
+(* ********************************************************************* *)
+
+(* Pretty-print a type *)
+let rec pp_print_type_node2 ppf = function 
+
+  | Bool -> Format.pp_print_string ppf "Bool"
+
+  | Int -> Format.pp_print_string ppf "Int"
+
+  | IntRange (i, j, Range) -> 
+
+    Format.fprintf
+      ppf 
+      "(IntRange %a %a)" 
+      Numeral.pp_print_numeral i 
+      Numeral.pp_print_numeral j
+
+  | IntRange (i, j, Enum) -> 
+
+    Format.fprintf
+      ppf 
+      "(Enum %a %a)" 
+      Numeral.pp_print_numeral i 
+      Numeral.pp_print_numeral j
+
+  | Real -> Format.pp_print_string ppf "Real"
+
+  | UBV i -> 
+
+    Format.fprintf
+      ppf 
+      "uint%d" 
+      i 
+
+  | BV i -> 
+
+    Format.fprintf
+      ppf 
+      "int%d" 
+      i
+
+  | Array (s, t) -> 
+    Format.fprintf
+      ppf 
+      "(Array %a %a)"
+      pp_print_type s 
+      pp_print_type t
+
+  | Abstr s -> Format.pp_print_string ppf s
+
+
+(* Pretty-print a hashconsed variable *)
+and pp_print_type2 ppf { Hashcons.node = t } = pp_print_type_node2 ppf t
+
+let print_type2 = pp_print_type2 Format.std_formatter
+
+(* Return a string representation of a type *)
+let string_of_type2 t = string_of_t pp_print_type2 t
+
+
+(* ********************************************************************* *)
 (* Constructors                                                          *)
 (* ********************************************************************* *)
 

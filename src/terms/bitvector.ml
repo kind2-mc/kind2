@@ -137,34 +137,42 @@ let modulo_num (x : Numeral.t) (y : Numeral.t) : Numeral.t =
     if (Numeral.geq result Numeral.zero) then result
   else (Numeral.add result y)
 
-(*
+
 (* Function that returns unsigned fixed-width int or bitvector version of an int *)
 let num_to_ubv (size : Numeral.t) (i : Numeral.t) : t =
-  (* 
-  For converting n to UBV8, n modulo 256.
-  In general, for converting n to UBVm, 
-  n modulo 2^m, or n modulo r where
-  r = 1 << m since (<< m) <=> ( * 2^m).
-  *)
-  let m = 1 lsl size in
-  let n = modulo i m
+  (* Hardcode values x =2^n for ubvN, where 
+  we need to do n modulo x on the input n *)
+  let size_int = Numeral.to_int size in
+  let m = 
+    (match size_int with
+     | 8 -> (Numeral.of_string "256")
+     | 16 -> (Numeral.of_string "65536")
+     | 32 -> (Numeral.of_string "4294967296")
+     | 64 -> (Numeral.of_string "18446744073709551616")
+     | _ -> assert false)
+  in
+  let n = modulo_num i m
     (* if (i < 0) then (m + (i mod m)) mod m
     else i mod m *)
   in
   (* Tail-recursive function that converts n to type t,
   which is a list of bools *)
-  let rec convert acc l n =
-    if n>0 then
-      convert (((n mod 2) = 1) :: acc) (l+1) (n / 2)
+  let rec convert acc (l : Numeral.t) (n : Numeral.t) =
+    if (Numeral.gt n Numeral.zero) then
+      convert (((Numeral.rem n (Numeral.of_int 2)) = Numeral.one) :: acc) 
+        (Numeral.add l Numeral.one) (Numeral.div n (Numeral.of_int 2))
     else (acc, l)
   in
-  let bv, l = convert [] 0 n in
+  let bv, l = convert [] Numeral.zero n in
   (* For n-bit BV, pad upto n bits with 0s *)
-  let rec pad bv l =
-    if l>0 then pad (false :: bv) (l-1) else bv
+  let rec pad (bv : t) (l :Numeral.t) =
+    if (Numeral.gt l Numeral.zero) then 
+      pad (false :: bv) (Numeral.sub l Numeral.one) 
+    else 
+      bv
   in
-  pad bv (size - l)
-*)
+  pad bv (Numeral.sub size l)
+
 
 (* ********************************************************************** *)
 (* Unsigned BV -> Int                                                     *)
