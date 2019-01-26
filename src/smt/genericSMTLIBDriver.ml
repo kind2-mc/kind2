@@ -637,7 +637,6 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `UBV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b 
   | `BV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b
-  | `BVDEC (i, s) -> Bitvector.pp_smtlib_print_bitvector_d ppf i s 
 
   | `MINUS -> Format.pp_print_string ppf "-"
   | `PLUS -> Format.pp_print_string ppf "+"

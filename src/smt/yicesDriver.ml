@@ -266,7 +266,6 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `UBV b -> Bitvector.pp_yices_print_bitvector_b ppf b
   | `BV b -> Bitvector.pp_yices_print_bitvector_b ppf b
-  | `BVDEC (i, s) -> Bitvector.pp_yices_print_bitvector_d ppf i s
 
   (* Special case for unary minus : print -a as (- 0 a) *)
   | `MINUS when arity = Some 1 -> Format.pp_print_string ppf "- 0"

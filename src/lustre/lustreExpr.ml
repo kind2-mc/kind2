@@ -320,7 +320,6 @@ let string_of_symbol = function
             | 64 -> Bitvector.bv64_to_num b
             | _ -> raise BV_size_mismatch) in
           Numeral.string_of_numeral bi
-  | `BVDEC (n, s) -> "(_ bv" ^ (Numeral.string_of_numeral n) ^ " )"
   | `MINUS -> "-"
   | `PLUS -> "+"
   | `TIMES -> "*"
@@ -607,7 +606,6 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `DECIMAL _
   | `UBV _
   | `BV _ 
-  | `BVDEC (_, _) 
   | `BV2NAT -> (function _ -> assert false)
 
   (* Unary symbols *) 

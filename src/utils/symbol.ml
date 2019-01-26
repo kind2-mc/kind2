@@ -53,7 +53,6 @@ type interpreted_symbol =
 
   | `UBV of Bitvector.t   (* Constant unsigned bitvector *)
   | `BV of Bitvector.t    (* Constant bitvector *)
-  | `BVDEC of Numeral.t  * Numeral.t (* Constant bitvector specified using decimal constant *)    
 
   | `MINUS                (* Difference or unary negation (left-associative) *)
   | `PLUS                 (* Sum (left-associative) *)
@@ -164,7 +163,6 @@ module Symbol_node = struct
 
     | `UBV i, `UBV j -> i = j
     | `BV i, `BV j -> i = j
-    | `BVDEC (i1, s1), `BVDEC (i2, s2) -> i1 = i2 && s1 = s2
 
     | `UF u1, `UF u2 -> UfSymbol.equal_uf_symbols u1 u2
 
@@ -174,7 +172,6 @@ module Symbol_node = struct
 
     | `UBV _, _
     | `BV _, _
-    | `BVDEC (_, _), _
 
     | `UF _, _  -> false
 
@@ -410,7 +407,6 @@ let rec pp_print_symbol_node ppf = function
   | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
   | `UBV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b
   | `BV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b
-  | `BVDEC (i, s) -> Bitvector.pp_smtlib_print_bitvector_d ppf i s 
 
   | `MINUS -> Format.pp_print_string ppf "-"
   | `PLUS -> Format.pp_print_string ppf "+"

@@ -745,8 +745,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `NUMERAL _, _
       | `DECIMAL _, _ 
       | `UBV _, _
-      | `BV _, _ 
-      | `BVDEC (_, _), _ -> assert false
+      | `BV _, _ -> assert false
 
       (* Can only negate Boolean terms *)
       | `MINUS, _
@@ -2341,7 +2340,6 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
           | `UBV _
           | `BV _ 
-          | `BVDEC (_, _) 
           | `BV2NAT
           | `BVCONCAT -> assert false
           

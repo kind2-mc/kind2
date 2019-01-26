@@ -759,8 +759,7 @@ let rec type_of_term t = match T.destruct t with
         | `NUMERAL _
         | `DECIMAL _ 
         | `UBV _ 
-        | `BV _ 
-        | `BVDEC (_, _) -> assert false
+        | `BV _ -> assert false
 
     )
 
