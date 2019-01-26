@@ -505,12 +505,12 @@ let is_decimal = function
   | _ -> false
 
 (* Return true if the symbol is a bitvector *)
-let rec is_bitvector = function 
+let is_bitvector = function 
   | { Hashcons.node = `BV _ } -> true 
   | _ -> false
 
 (* Return true if the symbol is an unsigned bitvector *)
-let rec is_ubitvector = function
+let is_ubitvector = function
   | { Hashcons.node = `UBV _ } -> true
   | _ -> false
 

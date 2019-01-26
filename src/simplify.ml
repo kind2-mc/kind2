@@ -1005,9 +1005,9 @@ let relation
 
     (* Relation must be between integers or reals *)
 
-    | UBV _ :: _ as args -> Format.printf "simplify.loc1(ubv)\n";relation_to_nf_ubv rel_ubv args
+    | UBV _ :: _ as args -> relation_to_nf_ubv rel_ubv args
 
-    | BV _ :: _ as args -> Format.printf "simplify.loc2(bv)\n"; relation_to_nf_bv rel_bv args
+    | BV _ :: _ as args -> relation_to_nf_bv rel_bv args
 
     | (Bool _ | Array _ ) :: _ -> assert false
 
