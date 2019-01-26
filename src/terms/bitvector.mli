@@ -15,6 +15,64 @@ val bvextract : int -> int -> t -> t
 (* Return input bitvector sign-extended to m bits *)
 val bvsignext : int -> t -> t
 
+
+(** {Numeral to Unsigned Bitvector} *)
+(** Return size 8 unsigned bitvector converted from a numeral *)
+val num_to_ubv8 : Numeral.t -> t
+
+(** Return size 16 unsigned bitvector converted from a numeral *)
+val num_to_ubv16 : Numeral.t -> t
+
+(** Return size 32 unsigned bitvector converted from a numeral *)
+val num_to_ubv32 : Numeral.t -> t
+
+(** Return size 64 unsigned bitvector converted from a numeral *)
+val num_to_ubv64 : Numeral.t -> t
+
+
+(** {Usigned Bitvector to Numeral} *)
+(** Return numeral converted from a size 8 unsigned bitvector *)
+val ubv8_to_num : t -> Numeral.t
+
+(** Return numeral converted from a size 16 unsigned bitvector *)
+val ubv16_to_num : t -> Numeral.t
+
+(** Return numeral converted from a size 32 unsigned bitvector *)
+val ubv32_to_num : t -> Numeral.t
+
+(** Return numeral converted from a size 64 unsigned bitvector *)
+val ubv64_to_num : t -> Numeral.t
+
+
+(** {Numeral to Signed Bitvector} *)
+(** Return size 8 signed bitvector converted from a numeral *)
+val num_to_bv8 : Numeral.t -> t
+
+(** Return size 16 signed bitvector converted from a numeral *)
+val num_to_bv16 : Numeral.t -> t
+
+(** Return size 32 signed bitvector converted from a numeral *)
+val num_to_bv32 : Numeral.t -> t
+
+(** Return size 64 signed bitvector converted from a numeral *)
+val num_to_bv64 : Numeral.t -> t
+
+
+(** {Signed Bitvector to Numeral} *)
+(** Return numeral converted from a size 8 signed bitvector *)
+val bv8_to_num : t -> Numeral.t
+
+(** Return numeral converted from a size 16 signed bitvector *)
+val bv16_to_num : t -> Numeral.t
+
+(** Return numeral converted from a size 32 signed bitvector *)
+val bv32_to_num : t -> Numeral.t
+
+(** Return numeral converted from a size 64 signed bitvector *)
+val bv64_to_num : t -> Numeral.t
+
+
+(*
 (** Return size 8 unsigned bitvector converted from an int *)
 val int_to_ubv8 : int -> t
 
@@ -26,6 +84,7 @@ val int_to_ubv32 : int -> t
 
 (** Return size 64 unsigned bitvector converted from an int *)
 val int_to_ubv64 : int -> t
+
 
 (** Return integer converted from a size 8 unsigned bitvector *)
 val ubv8_to_int : t -> int
@@ -39,17 +98,6 @@ val ubv32_to_int : t -> int
 (** Return integer converted from a size 64 unsigned bitvector *)
 val ubv64_to_int : t -> int
 
-(** Return numeral converted from a size 8 unsigned bitvector *)
-val ubv8_to_num : t -> Numeral.t
-
-(** Return numeral converted from a size 16 unsigned bitvector *)
-val ubv16_to_num : t -> Numeral.t
-
-(** Return numeral converted from a size 32 unsigned bitvector *)
-val ubv32_to_num : t -> Numeral.t
-
-(** Return numeral converted from a size 64 unsigned bitvector *)
-val ubv64_to_num : t -> Numeral.t
 
 (** Return size 8 bitvector converted from an int *)
 val int_to_bv8 : int -> t
@@ -63,6 +111,7 @@ val int_to_bv32 : int -> t
 (** Return size 64 bitvector converted from an int *)
 val int_to_bv64 : int -> t
 
+
 (** Return integer converted from a size 8 bitvector *)
 val bv8_to_int : t -> int
 
@@ -74,25 +123,10 @@ val bv32_to_int : t -> int
 
 (** Return integer converted from a size 64 bitvector *)
 val bv64_to_int : t -> int
+*)
 
-(** Return the length of a bitvector as a numeral *)
-val length_of_bitvector : t -> int
 
-(** Return numeral converted from a size 8 bitvector *)
-val bv8_to_num : t -> Numeral.t
-
-(** Return numeral converted from a size 16 bitvector *)
-val bv16_to_num : t -> Numeral.t
-
-(** Return numeral converted from a size 32 bitvector *)
-val bv32_to_num : t -> Numeral.t
-
-(** Return numeral converted from a size 64 bitvector *)
-val bv64_to_num : t -> Numeral.t
-
-(** Return the length of a bitvector as a numeral *)
-val length_of_bitvector : t -> int
-
+(** {Unused} *)
 (** Function that inputs a list of bitvectors and returns an Some n
    if all bitvectors have size n, where n = 8,16,32,64, and None otherwise 
    Special case: it returns None for the input of an empty list of BVs.
@@ -100,19 +134,8 @@ val length_of_bitvector : t -> int
    validly sized inputs *)
 val check_bv_uniform : t list -> int option
 
-(** Convert a string to a bitvector
 
-    Binary and hexadecimal notation is accepted as #b[01]+ and
-    #x[0-9a-fA-F]+ as in the SMTLIB standard *)
-val bitvector_of_string : string -> t
-
-(** Convert a hashconsed string to a bitvector, store all converted
-    values in a cache *)
-val bitvector_of_hstring : HString.t -> t
-
-(** Convert a hashconsed string to a Boolean value *)
-val bool_of_hstring : HString.t -> bool
-
+(** {Pretty Printing} *)
 (** Pretty-print a constant bitvector in SMTLIB binary format *)
 val pp_smtlib_print_bitvector_b : Format.formatter -> t -> unit
 
@@ -129,8 +152,24 @@ val pp_yices_print_bitvector_d : Format.formatter -> Numeral.t -> Numeral.t -> u
 val pp_print_bitvector_x : Format.formatter -> t -> unit
 
 
-(** Comparison operators *)
+(** {Conversions} *)
+(** Convert a string to a bitvector
+    Binary and hexadecimal notation is accepted as #b[01]+ and
+    #x[0-9a-fA-F]+ as in the SMTLIB standard *)
+val bitvector_of_string : string -> t
 
+(** Convert a hashconsed string to a bitvector, store all converted
+    values in a cache *)
+val bitvector_of_hstring : HString.t -> t
+
+(** Convert a hashconsed string to a Boolean value *)
+val bool_of_hstring : HString.t -> bool
+
+(** Return the length of a bitvector as a numeral *)
+val length_of_bitvector : t -> int
+
+
+(** {Comparison Operators} *)
 (** Equality *)
 val equal : t -> t -> bool
 
@@ -159,8 +198,7 @@ val lte : t -> t -> bool
 val gte : t -> t -> bool
 
 
-(** Infix comparison operators *)
-
+(** {Infix Comparison Operators} *)
 (** Equality *)
 val ( = ) : t -> t -> bool
 

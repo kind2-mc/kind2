@@ -50,11 +50,11 @@ let rec bvsignext (m : int) (b : t) : t =
 
 
 (* ********************************************************************** *)
-(* Int -> Unsigned BV                                                     *)
+(* Numeral -> Unsigned BV                                                 *)
 (* ********************************************************************** *)
 
 (* The mod operator in OCaml implements remainder 
-with respect to integer division. Since integer division
+with respect to numeral division. Since numeral division
 in OCaml rounds toward 0, we design modulo which considers 
 division that rounds toward negative infinity. 
 For example, -1 mod 8 is -1 (with quotient 0) in OCaml, 
@@ -65,102 +65,31 @@ additionally do what we want when a is negative; it wont do what
 we want when b is negative, but that's okay since 
 we don't consider cases of 
 modulo-n arithmetic where n is negative. *)
-let modulo x y =
-  let result = x mod y in
-  if result >= 0 then result
-  else result + y
-
-
-(* Function that returns unsigned fixed-width int or bitvector version of an int *)
-let int_to_ubv (size : int) (i : int) : t =
-  (* 
-  For converting n to UBV8, n modulo 256.
-  In general, for converting n to UBVm, 
-  n modulo 2^m, or n modulo r where
-  r = 1 << m since (<< m) <=> ( * 2^m).
-  *)
-  let m = 1 lsl size in
-  let n = modulo i m
-    (* if (i < 0) then (m + (i mod m)) mod m
-    else i mod m *)
-  in
-  (* Tail-recursive function that converts n to type t,
-  which is a list of bools *)
-  let rec convert acc l n =
-    if n>0 then
-      convert (((n mod 2) = 1) :: acc) (l+1) (n / 2)
-    else (acc, l)
-  in
-  let bv, l = convert [] 0 n in
-  (* For n-bit BV, pad upto n bits with 0s *)
-  let rec pad bv l =
-    if l>0 then pad (false :: bv) (l-1) else bv
-  in
-  pad bv (size - l)
-
-let int_to_ubv8 = int_to_ubv 8 
-
-let int_to_ubv16 = int_to_ubv 16
-
-let int_to_ubv32 = int_to_ubv 32
-
-let int_to_ubv64 = int_to_ubv 64
-
-
-let ubvM_to_ubvm (m2 : int) (m : int) (n : int) : t =
-  if (m2 <= m) then
-    (int_to_ubv m n)
-  else
-    let range = 1 lsl m2 in
-    let i = modulo n range in
-    int_to_ubv m i
-
-
-(* ********************************************************************** *)
-(* Numeral -> Unsigned BV                                                     *)
-(* ********************************************************************** *)
-
-(* The mod operator in OCaml implements remainder 
-with respect to integer division. Since integer division
-in OCaml rounds toward 0, we design modulo which considers 
-division that rounds toward negative infinity. 
-For example, -1 mod 8 is -1 (with quotient 0) in OCaml, 
-we want it to be 7 (with quotient -1).
-While considering a mod b, the OCaml mod operator will do what 
-we want when a and b are positive. The following function will 
-additionally do what we want when a is negative; it wont do what 
-we want when b is negative, but that's okay since 
-we don't consider cases of 
-modulo-n arithmetic where n is negative. *)
-let modulo_num (x : Numeral.t) (y : Numeral.t) : Numeral.t =
+let modulo (x : Numeral.t) (y : Numeral.t) : Numeral.t =
   let result = (Numeral.rem x y) in
     if (Numeral.geq result Numeral.zero) then result
   else (Numeral.add result y)
 
+(* Function that calculates the nth power of two *)
+let rec pow2 (n : Numeral.t) : Numeral.t =
+  if (Numeral.equal n Numeral.zero) then
+    Numeral.one
+  else
+    Numeral.mult (Numeral.succ (Numeral.one)) 
+                 (pow2 (Numeral.sub n Numeral.one))
 
-(* Function that returns unsigned fixed-width int or bitvector version of an int *)
+(* Function that returns unsigned fixed-width int or bitvector version of a numeral *)
 let num_to_ubv (size : Numeral.t) (i : Numeral.t) : t =
-  (* Hardcode values x =2^n for ubvN, where 
-  we need to do n modulo x on the input n *)
-  let size_int = Numeral.to_int size in
-  let m = 
-    (match size_int with
-     | 8 -> (Numeral.of_string "256")
-     | 16 -> (Numeral.of_string "65536")
-     | 32 -> (Numeral.of_string "4294967296")
-     | 64 -> (Numeral.of_string "18446744073709551616")
-     | _ -> assert false)
-  in
-  let n = modulo_num i m
-    (* if (i < 0) then (m + (i mod m)) mod m
-    else i mod m *)
-  in
+  (* x = 2^N for ubvN, where we need to 
+  do n modulo x on the input n *)
+  let m = pow2 size in
+  let n = modulo i m in
   (* Tail-recursive function that converts n to type t,
   which is a list of bools *)
   let rec convert acc (l : Numeral.t) (n : Numeral.t) =
     if (Numeral.gt n Numeral.zero) then
       convert (((Numeral.rem n (Numeral.of_int 2)) = Numeral.one) :: acc) 
-        (Numeral.add l Numeral.one) (Numeral.div n (Numeral.of_int 2))
+              (Numeral.add l Numeral.one) (Numeral.div n (Numeral.of_int 2))
     else (acc, l)
   in
   let bv, l = convert [] Numeral.zero n in
@@ -173,36 +102,13 @@ let num_to_ubv (size : Numeral.t) (i : Numeral.t) : t =
   in
   pad bv (Numeral.sub size l)
 
+  let num_to_ubv8 = num_to_ubv (Numeral.of_int 8)
 
-(* ********************************************************************** *)
-(* Unsigned BV -> Int                                                     *)
-(* ********************************************************************** *)
+  let num_to_ubv16 = num_to_ubv (Numeral.of_int 16)
 
-(* Function that converts a Boolean to a single binary integer digit *)
-let bool_to_bin (b : bool) : int =
-  match b with 
-  | false -> 0
-  | true -> 1
+  let num_to_ubv32 = num_to_ubv (Numeral.of_int 32)
 
-(* Function that calculates the nth power of two *)
-let rec pow2 (n : int) : int =
-  match n with
-  | 0 -> 1
-  | n' -> 2 * pow2 (n' - 1)
-
-(* Function that returns the integer corresponding to a bitvector *)
-let rec ubv_to_int (size : int)  (b: t) : int =
-  match b with
-  | h :: t ->  (bool_to_bin h) * (pow2 (size - 1)) + ubv_to_int (size - 1) t
-  | nil -> 0
-
-let ubv8_to_int = ubv_to_int 8
-
-let ubv16_to_int = ubv_to_int 16
-
-let ubv32_to_int = ubv_to_int 32
-
-let ubv64_to_int = ubv_to_int 64
+  let num_to_ubv64 = num_to_ubv (Numeral.of_int 64)
 
 
 (* ********************************************************************** *)
@@ -210,24 +116,19 @@ let ubv64_to_int = ubv_to_int 64
 (* ********************************************************************** *)
 
 (* Function that converts a Boolean to a single binary numeral *)
-let bool_to_bin_num (b : bool) : Numeral.t =
+let bool_to_bin (b : bool) : Numeral.t =
   match b with 
   | false -> Numeral.zero
   | true -> Numeral.one
-
-(* Function that calculates the nth power of two *)
-let rec pow2_num (n : Numeral.t) : Numeral.t =
-  if (Numeral.equal n Numeral.zero) then
-    Numeral.one
-  else
-    Numeral.mult (Numeral.succ (Numeral.one)) 
-                 (pow2_num (Numeral.sub n Numeral.one))
   
 (*Function that returns the numeral corresponding to a bitvector *)
 let rec ubv_to_num (size : Numeral.t) (b : t) : Numeral.t =
   match b with
-  | h :: t -> let prod = Numeral.mult (bool_to_bin_num h) (pow2_num (Numeral.sub size Numeral.one)) in
-    Numeral.add prod (ubv_to_num (Numeral.sub size Numeral.one) t)
+  | h :: t -> 
+      let prod = Numeral.mult (bool_to_bin h) 
+                              (pow2 (Numeral.sub size Numeral.one)) 
+      in
+        Numeral.add prod (ubv_to_num (Numeral.sub size Numeral.one) t)
   | nil -> Numeral.zero
 
 let ubv8_to_num = ubv_to_num (Numeral.of_int 8)
@@ -240,25 +141,30 @@ let ubv64_to_num = ubv_to_num (Numeral.of_int 64)
 
 
 (* ********************************************************************** *)
-(* Int -> Signed BV                                                       *)
+(* Numeral -> Signed BV                                                   *)
 (* ********************************************************************** *)
 
-(* Input any number n, input the size of the 
-BV range, output the number fit into the range.
-For example, for 4-bit signed integers, input 
--9, 16 (2^4), and output 7 *)
-let signed_modulo (n : int) (range_size : int) : int = 
-  let neg_lim = -(range_size/2) in
-    let pos_lim = (range_size/2) - 1 in
-      if (n < neg_lim) then
-        let diff = (neg_lim - n) in 
-          let diff_mod = (diff mod range_size) in
-            if (diff_mod = 0) then neg_lim else (pos_lim - (diff_mod - 1))
-      else if (n > pos_lim) then
-        let diff = (n - pos_lim) in
-	  let diff_mod = (diff mod range_size) in
-	    if (diff_mod = 0) then pos_lim else (neg_lim + (diff_mod - 1))
-      else n
+(* Input any numeral n, input the size of the BV range, output the 
+numeral fit into the range.For example, for 4-bit signed integers, 
+input -9, 16 (2^4), and output 7 *)
+let signed_modulo (n : Numeral.t) (range_size : Numeral.t) : Numeral.t = 
+  let neg_lim = Numeral.neg (Numeral.div range_size (Numeral.of_int 2)) in
+  let pos_lim = Numeral.sub (Numeral.div range_size (Numeral.of_int 2)) Numeral.one in 
+    if (Numeral.lt n neg_lim) then
+      let diff = (Numeral.sub neg_lim n) in
+      let diff_mod = (Numeral.rem diff range_size) in
+        if (Numeral.equal diff_mod Numeral.zero) then 
+          neg_lim 
+        else 
+          (Numeral.sub pos_lim (Numeral.sub diff_mod Numeral.one))
+    else if (Numeral.gt n pos_lim) then
+      let diff = Numeral.sub n pos_lim in
+      let diff_mod = (Numeral.rem diff range_size) in
+        if(Numeral.equal diff_mod Numeral.zero) then 
+          pos_lim
+        else 
+          Numeral.add neg_lim (Numeral.sub diff_mod Numeral.one)
+    else n
 
 (*1's complement of binary number - 
 flip all bits *)
@@ -269,7 +175,7 @@ let rec ones_comp (n : t) : t =
 	      | true -> false :: (ones_comp t)
 	      | false -> true :: (ones_comp t)
 
-(* Return a binary version of size-bit 1 *)
+(* Return a binary version of "size"-bit 1 *)
 let rec bin_one (size : int) : t =
   if (size > 1) then
     false :: (bin_one (size - 1))
@@ -306,44 +212,25 @@ let plus_one (n : t) (one : t) : t =
   let r_one = List.rev one in 
   List.rev (bitwise_add r_n r_one false)
 
-let int_to_bv (size : int) (i : int) : t =
-  let m = 1 lsl size in 
+let num_to_bv (size : Numeral.t) (i : Numeral.t) : t =
+  (* x =2^n for ubvN, where we need to do 
+     n modulo x on the input n *)
+  let m = pow2 size in
   let n = signed_modulo i m in
-  if (n >= 0) then 
-    (int_to_ubv size i)
-  else 
-    let pos = (int_to_ubv size (-(n))) in
-    let onescomp = ones_comp pos in 
-    plus_one onescomp (bin_one size)
+    if (Numeral.geq n Numeral.zero) then
+      (num_to_ubv size n)
+    else 
+      let pos = (num_to_ubv size (Numeral.neg n)) in
+      let onescomp = ones_comp pos in
+      plus_one onescomp (bin_one (Numeral.to_int size))
 
-let int_to_bv8 = int_to_bv 8 
+let num_to_bv8 = num_to_bv (Numeral.of_int 8) 
 
-let int_to_bv16 = int_to_bv 16
+let num_to_bv16 = num_to_bv (Numeral.of_int 16)
 
-let int_to_bv32 = int_to_bv 32
+let num_to_bv32 = num_to_bv (Numeral.of_int 32)
 
-let int_to_bv64 = int_to_bv 64
-
-
-(* ********************************************************************** *)
-(* Signed BV -> Int                                                       *)
-(* ********************************************************************** *)
-
-let bv_to_int (size : int) (b : t) :  int =
-  if ((List.nth b 0) = false) then
-    ubv_to_int size b
-  else 
-    (-(ubv_to_int size 
-                  (plus_one (ones_comp b) 
-                            (bin_one size))))
-
-let bv8_to_int = bv_to_int 8
-
-let bv16_to_int = bv_to_int 16
-
-let bv32_to_int = bv_to_int 32
-
-let bv64_to_int = bv_to_int 64
+let num_to_bv64 = num_to_bv (Numeral.of_int 64)
 
 
 (* ********************************************************************** *)
@@ -365,6 +252,165 @@ let bv16_to_num = bv_to_num (Numeral.of_int 16)
 let bv32_to_num = bv_to_num (Numeral.of_int 32)
 
 let bv64_to_num = bv_to_num (Numeral.of_int 64)
+
+
+(* Using functions involving numerals rather than ints 
+(* ********************************************************************** *)
+(* Int -> Unsigned BV                                                     *)
+(* ********************************************************************** *)
+
+(* The mod operator in OCaml implements remainder 
+with respect to integer division. Since integer division
+in OCaml rounds toward 0, we design modulo which considers 
+division that rounds toward negative infinity. 
+For example, -1 mod 8 is -1 (with quotient 0) in OCaml, 
+we want it to be 7 (with quotient -1).
+While considering a mod b, the OCaml mod operator will do what 
+we want when a and b are positive. The following function will 
+additionally do what we want when a is negative; it wont do what 
+we want when b is negative, but that's okay since 
+we don't consider cases of 
+modulo-n arithmetic where n is negative. *)
+let modulo_int x y =
+  let result = x mod y in
+  if result >= 0 then result
+  else result + y
+
+(* Function that returns unsigned fixed-width int or bitvector version of an int *)
+let int_to_ubv (size : int) (i : int) : t =
+  (* 
+  For converting n to UBV8, n modulo 256.
+  In general, for converting n to UBVm, 
+  n modulo 2^m, or n modulo r where
+  r = 1 << m since (<< m) <=> ( * 2^m).
+  *)
+  let m = 1 lsl size in
+  let n = modulo_int i m in
+  (* Tail-recursive function that converts n to type t,
+  which is a list of bools *)
+  let rec convert acc l n =
+    if n>0 then
+      convert (((n mod 2) = 1) :: acc) (l+1) (n / 2)
+    else (acc, l)
+  in
+  let bv, l = convert [] 0 n in
+  (* For n-bit BV, pad upto n bits with 0s *)
+  let rec pad bv l =
+    if l>0 then pad (false :: bv) (l-1) else bv
+  in
+  pad bv (size - l)
+
+let int_to_ubv8 = int_to_ubv 8 
+
+let int_to_ubv16 = int_to_ubv 16
+
+let int_to_ubv32 = int_to_ubv 32
+
+let int_to_ubv64 = int_to_ubv 64
+
+
+let ubvM_to_ubvm (m2 : int) (m : int) (n : int) : t =
+  if (m2 <= m) then
+    (int_to_ubv m n)
+  else
+    let range = 1 lsl m2 in
+    let i = modulo n range in
+    int_to_ubv m i
+
+(* Using functions involving numerals rather than ints *)
+(* ********************************************************************** *)
+(* Unsigned BV -> Int                                                     *)
+(* ********************************************************************** *)
+
+(* Function that converts a Boolean to a single binary integer digit *)
+let bool_to_bin_int (b : bool) : int =
+  match b with 
+  | false -> 0
+  | true -> 1
+
+(* Function that calculates the nth power of two *)
+let rec pow2_int (n : int) : int =
+  match n with
+  | 0 -> 1
+  | n' -> 2 * pow2_int (n' - 1)
+
+(* Function that returns the integer corresponding to a bitvector *)
+let rec ubv_to_int (size : int)  (b: t) : int =
+  match b with
+  | h :: t ->  (bool_to_bin_int h) * (pow2_int (size - 1)) + ubv_to_int (size - 1) t
+  | nil -> 0
+
+let ubv8_to_int = ubv_to_int 8
+
+let ubv16_to_int = ubv_to_int 16
+
+let ubv32_to_int = ubv_to_int 32
+
+let ubv64_to_int = ubv_to_int 64
+
+
+(* Using functions involving numerals rather than ints *)
+(* ********************************************************************** *)
+(* Int -> Signed BV                                                       *)
+(* ********************************************************************** *)
+
+(* Input any number n, input the size of the 
+BV range, output the number fit into the range.
+For example, for 4-bit signed integers, input 
+-9, 16 (2^4), and output 7 *)
+let signed_modulo_int (n : int) (range_size : int) : int = 
+  let neg_lim = -(range_size/2) in
+  let pos_lim = (range_size/2) - 1 in
+    if (n < neg_lim) then
+      let diff = (neg_lim - n) in 
+      let diff_mod = (diff mod range_size) in
+        if (diff_mod = 0) then neg_lim else (pos_lim - (diff_mod - 1))
+    else if (n > pos_lim) then
+      let diff = (n - pos_lim) in
+	    let diff_mod = (diff mod range_size) in
+	      if (diff_mod = 0) then pos_lim else (neg_lim + (diff_mod - 1))
+    else n
+
+let int_to_bv (size : int) (i : int) : t =
+  let m = 1 lsl size in 
+  let n = signed_modulo_int i m in
+  if (n >= 0) then 
+    (int_to_ubv size i)
+  else 
+    let pos = (int_to_ubv size (-(n))) in
+    let onescomp = ones_comp pos in 
+    plus_one onescomp (bin_one size)
+
+let int_to_bv8 = int_to_bv 8 
+
+let int_to_bv16 = int_to_bv 16
+
+let int_to_bv32 = int_to_bv 32
+
+let int_to_bv64 = int_to_bv 64
+
+
+(* Using functions involving numerals rather than ints *)
+(* ********************************************************************** *)
+(* Signed BV -> Int                                                       *)
+(* ********************************************************************** *)
+
+let bv_to_int (size : int) (b : t) :  int =
+  if ((List.nth b 0) = false) then
+    ubv_to_int size b
+  else 
+    (-(ubv_to_int size 
+                  (plus_one (ones_comp b) 
+                            (bin_one size))))
+
+let bv8_to_int = bv_to_int 8
+
+let bv16_to_int = bv_to_int 16
+
+let bv32_to_int = bv_to_int 32
+
+let bv64_to_int = bv_to_int 64
+*)
 
 
 (* ********************************************************************** *)
@@ -436,10 +482,10 @@ let pp_yices_print_bitvector_b ppf b =
 let pp_yices_print_bitvector_d ppf i s = 
   let size = (Numeral.to_int s) in
   let b = (match size with
-    | 8 -> int_to_ubv8 (Numeral.to_int i) 
-    | 16 -> int_to_ubv8 (Numeral.to_int i) 
-    | 32 -> int_to_ubv8 (Numeral.to_int i) 
-    | 64 -> int_to_ubv8 (Numeral.to_int i)
+    | 8 -> num_to_ubv8 i
+    | 16 -> num_to_ubv16 i
+    | 32 -> num_to_ubv32 i
+    | 64 -> num_to_ubv64 i
     | _ -> raise NonStandardBVSize) 
   in
     fprintf ppf "0b%a" pp_print_bitvector_b' b
@@ -656,7 +702,7 @@ let bitvector_of_string s =
            with
            Scanf.Scan_failure _ -> 
             raise (Invalid_argument "bitvector_of_string"))
-        in (int_to_bv s n)
+        in (num_to_bv (Numeral.of_int s) (Numeral.of_int n))
         (*with
           | "bv" -> [false;false;true;true]
 
@@ -816,27 +862,27 @@ let rec ugte bv1 bv2 =
 
 (* Signed lesser than *)
 let lt (bv1 : t) (bv2 : t) : bool = 
-  let i1 = bv_to_int (List.length bv1) bv1 in
-  let i2 = bv_to_int (List.length bv2) bv2 in
-    (i1 < i2)
+  let i1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
+  let i2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    (Numeral.lt i1 i2)
 
 (* Signed greater than *)
 let gt (bv1 : t) (bv2 : t) : bool = 
-  let i1 = bv_to_int (List.length bv1) bv1 in
-  let i2 = bv_to_int (List.length bv2) bv2 in
-    (i1 > i2)
+  let i1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
+  let i2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    (Numeral.gt i1 i2)
 
 (* Signed lesser than or equal to *)
 let lte (bv1 : t) (bv2 : t) : bool = 
-  let i1 = bv_to_int (List.length bv1) bv1 in
-  let i2 = bv_to_int (List.length bv2) bv2 in
-    (i1 <= i2)
+  let i1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
+  let i2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    (Numeral.leq i1 i2)
 
 (* Signed greater than or equal to *)
 let gte (bv1 : t) (bv2 : t) : bool = 
-  let i1 = bv_to_int (List.length bv1) bv1 in
-  let i2 = bv_to_int (List.length bv2) bv2 in
-    (i1 >= i2)
+  let i1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
+  let i2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    (Numeral.geq i1 i2)
 
 
 (* ********************************************************************** *)

@@ -1991,12 +1991,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   (match s with 
                   | 8 -> UBV b
                   | _ -> UBV (Term.mk_ubv (Bitvector.bvextract 7 0 (Term.ubitvector_of_term b))))
-              | [Num n] -> UBV (
-                                Term.mk_ubv 
-                                  (Bitvector.int_to_ubv8 
-                                    (Numeral.to_int 
-                                      (Term.numeral_of_term 
-                                        (term_of_nf (Num n))))))
+              | [Num n] -> UBV (Term.mk_ubv 
+                                  (Bitvector.num_to_ubv8 
+                                    (Term.numeral_of_term 
+                                      (term_of_nf (Num n)))))
               | _ -> assert false
             )
 
@@ -2006,12 +2004,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
             (match args with 
               | [UBV b] -> UBV b
-              | [Num n] ->  UBV (
-                                Term.mk_ubv 
-                                  (Bitvector.int_to_ubv16 
-                                    (Numeral.to_int 
-                                      (Term.numeral_of_term 
-                                        (term_of_nf (Num n))))))
+              | [Num n] ->  UBV (Term.mk_ubv 
+                                  (Bitvector.num_to_ubv16 
+                                    (Term.numeral_of_term 
+                                      (term_of_nf (Num n)))))
               | _ -> assert false
             )          
 
@@ -2021,12 +2017,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           
             (match args with 
               | [UBV b] -> UBV b
-              | [Num n] ->  UBV (
-                                Term.mk_ubv 
-                                  (Bitvector.int_to_ubv32 
-                                    (Numeral.to_int 
-                                      (Term.numeral_of_term 
-                                        (term_of_nf (Num n))))))
+              | [Num n] ->  UBV (Term.mk_ubv 
+                                  (Bitvector.num_to_ubv32 
+                                    (Term.numeral_of_term 
+                                      (term_of_nf (Num n)))))
               | _ -> assert false
             )          
 
@@ -2036,12 +2030,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           
             (match args with 
               | [UBV b] -> UBV b
-              | [Num n] ->  UBV (
-                                Term.mk_ubv 
-                                  (Bitvector.int_to_ubv64 
-                                    (Numeral.to_int 
-                                      (Term.numeral_of_term 
-                                        (term_of_nf (Num n))))))
+              | [Num n] ->  UBV (Term.mk_ubv 
+                                  (Bitvector.num_to_ubv64 
+                                    (Term.numeral_of_term 
+                                      (term_of_nf (Num n)))))
               | _ -> assert false
             )          
 
@@ -2054,12 +2046,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   (match s with 
                   | 8 -> BV b
                   | _ -> BV (Term.mk_bv (Bitvector.bvextract 7 0 (Term.bitvector_of_term b))))
-              | [Num n] -> BV (
-                                Term.mk_bv 
-                                  (Bitvector.int_to_bv8 
-                                    (Numeral.to_int 
-                                      (Term.numeral_of_term 
-                                        (term_of_nf (Num n))))))
+              | [Num n] -> BV (Term.mk_bv 
+                                  (Bitvector.num_to_bv8 
+                                    (Term.numeral_of_term 
+                                      (term_of_nf (Num n)))))
               | _ -> assert false
             )
 
@@ -2069,12 +2059,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           
             (match args with 
               | [BV b] -> BV b
-              | [Num n] -> BV (
-                                Term.mk_bv 
-                                  (Bitvector.int_to_bv16 
-                                    (Numeral.to_int 
-                                      (Term.numeral_of_term 
-                                        (term_of_nf (Num n))))))
+              | [Num n] -> BV (Term.mk_bv 
+                                  (Bitvector.num_to_bv16 
+                                    (Term.numeral_of_term 
+                                      (term_of_nf (Num n)))))
               | _ -> assert false
             )          
 
@@ -2084,12 +2072,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           
             (match args with 
               | [BV b] -> BV b
-              | [Num n] ->  BV (
-                                Term.mk_bv 
-                                  (Bitvector.int_to_bv32 
-                                    (Numeral.to_int 
-                                      (Term.numeral_of_term 
-                                        (term_of_nf (Num n))))))
+              | [Num n] ->  BV (Term.mk_bv 
+                                  (Bitvector.num_to_bv32 
+                                    (Term.numeral_of_term 
+                                      (term_of_nf (Num n)))))
               | _ -> assert false
             )          
 
@@ -2099,12 +2085,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           
             (match args with 
               | [BV b] -> BV b
-              | [Num n] ->  BV (
-                                Term.mk_bv 
-                                  (Bitvector.int_to_bv64 
-                                    (Numeral.to_int 
-                                      (Term.numeral_of_term 
-                                        (term_of_nf (Num n))))))
+              | [Num n] ->  BV (Term.mk_bv 
+                                  (Bitvector.num_to_bv64 
+                                    (Term.numeral_of_term 
+                                      (term_of_nf (Num n)))))
               | _ -> assert false
             )
           
