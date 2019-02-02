@@ -32,7 +32,7 @@
     construct terms. An exception will be raised if an incorrectly
     typed term is constructed.
 
-    @author Christoph Sticksel
+    @author Christoph Sticksel, Arjun Viswanathan
 *)
 
 

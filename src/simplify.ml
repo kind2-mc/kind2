@@ -2316,16 +2316,26 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                                               (Term.bitvector_of_term b)))
               | _ -> assert false)
 
+          | `BVCONCAT -> 
+            (match args with
+              | [] -> assert false
+              | [a] -> a
+              | [BV a; BV b] -> BV (Term.mk_bv (Bitvector.bvconcat 
+                                                  (Term.bitvector_of_term a) 
+                                                  (Term.bitvector_of_term b)))
+              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.bvconcat
+                                                      (Term.bitvector_of_term a)
+                                                      (Term.bitvector_of_term b)))
+              | _ -> assert false)
+
           (* Constant symbols *)
           | `TRUE
           | `FALSE
           | `NUMERAL _
-          | `DECIMAL _ -> assert false
-
-          | `UBV _
+          | `DECIMAL _
+          | `UBV _ 
           | `BV _ 
-          | `BV2NAT
-          | `BVCONCAT -> assert false
+          | `BV2NAT -> assert false
           
       )
 

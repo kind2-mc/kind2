@@ -48,6 +48,10 @@ let rec bvsignext (m : int) (b : t) : t =
       | m' -> b :: repeat (m' - 1) b 
     in List.append (repeat m sign) b
 
+(* Function that concatenates the input bitvectors *)
+let rec bvconcat (b1 : t) (b2 : t) : t =
+  List.append b1 b2
+
 
 (* ********************************************************************** *)
 (* Numeral -> Unsigned BV                                                 *)
@@ -88,7 +92,7 @@ let num_to_ubv (size : Numeral.t) (i : Numeral.t) : t =
   which is a list of bools *)
   let rec convert acc (l : Numeral.t) (n : Numeral.t) =
     if (Numeral.gt n Numeral.zero) then
-      convert (((Numeral.rem n (Numeral.of_int 2)) = Numeral.one) :: acc) 
+      convert ((Numeral.equal (Numeral.rem n (Numeral.of_int 2)) Numeral.one) :: acc) 
               (Numeral.add l Numeral.one) (Numeral.div n (Numeral.of_int 2))
     else (acc, l)
   in

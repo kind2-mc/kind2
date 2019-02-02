@@ -2350,7 +2350,8 @@ let eval_minus expr1 expr2 =
         Decimal.(Symbol.decimal_of_symbol c1 -
                  Symbol.decimal_of_symbol c2) 
 
-    | _ -> (if (Type.is_bitvector (Term.type_of_term expr1)) then 
+    | _ -> (if ((Type.is_bitvector (Term.type_of_term expr1)) 
+            && (Type.is_bitvector (Term.type_of_term expr1))) then 
               let e2 = Term.mk_bvneg expr2 in
                 Term.mk_bvadd [expr1; e2]
             else 

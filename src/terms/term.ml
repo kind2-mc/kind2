@@ -507,6 +507,7 @@ let print_lambda t = pp_print_lambda Format.std_formatter t
 (* Return a string representation of a term *)
 let string_of_lambda t = string_of_t pp_print_lambda t
 
+
 (* ********************************************************************* *)
 (* Folding and utility functions on terms                                *)
 (* ********************************************************************* *)

@@ -50,7 +50,7 @@
     Expressions can only be constructed with the constructors which do
     type checking and some easy simplifications with constants.
 
-    @author Christoph Sticksel *)
+    @author Christoph Sticksel, Arjun Viswanathan *)
 
 
 (** Types of expressions do not match signature of operator *)

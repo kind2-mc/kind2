@@ -20,7 +20,7 @@
 
     A type has to be hash-consed to be used in hash-consed terms.
 
-    @author Christoph Sticksel *)
+    @author Christoph Sticksel, Arjun Viswanathan *)
 
 (** {1 Types and hash-consing} *)
 

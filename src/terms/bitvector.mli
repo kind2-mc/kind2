@@ -1,4 +1,27 @@
-(** {1 Infinite-precision numbers and bit-vectors} *)
+(* This file is part of the Kind 2 model checker.
+
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
+*)
+
+(** Bit-vectors
+
+    @author Arjun Viswanathan
+*)
+
+
 
 (** Constant bitvector *)
 type t
@@ -6,14 +29,17 @@ type t
 (** Return bitvector resulting from repeating input bit b, (input) n times *)
 val repeat_bit : bool -> int -> t
 
-(* Return the first bit of input bitvector b *)
+(** Return the first bit of input bitvector b *)
 val first_bit : t -> bool
 
-(* Return bits m down to n from the input bitvector *)
+(** Return bits m down to n from the input bitvector *)
 val bvextract : int -> int -> t -> t
 
-(* Return input bitvector sign-extended to m bits *)
+(** Return input bitvector sign-extended to m bits *)
 val bvsignext : int -> t -> t
+
+(** Return input bitvectors concatenated together *)
+val bvconcat : t -> t -> t
 
 
 (** {Numeral to Unsigned Bitvector} *)
