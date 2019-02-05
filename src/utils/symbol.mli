@@ -61,6 +61,7 @@
     {- [`BVAND] binary: bit-wise conjunction}
     {- [`BVOR] binary: bit-wise disjunction}
     {- [`BVADD] binary: signed bitvector sum}
+    {- [`BVSUB] binary: signed bitvector difference}
     {- [`BVUADD] binary unsigned bitvector sum}
     {- [`BVMUL] binary: arithmetic multiplication}
     {- [`BVUDIV] binary: arithmetic integer division}
@@ -158,6 +159,7 @@ type interpreted_symbol =
   | `BVAND                (** Bit-wise conjunction (binary) *)
   | `BVOR                 (** Bit-wise disjunction (binary) *)
   | `BVADD                (** Signed bitvector sum (binary) *)
+  | `BVSUB                (** Signed bitvector difference (binary) *)
   | `BVUADD               (** Unsigned bitvector sum (binary) *)
   | `BVMUL                (** Arithmetic multiplication (binary) *)
   | `BVUDIV               (** Arithmetic integer division (binary) *)

@@ -501,6 +501,17 @@ let ubv_div (bv1 : t) (bv2 : t) : t =
     num_to_ubv (Numeral.of_int (List.length bv1)) q
 
 
+(* Subtraction *)
+let sbv_sub (bv1 : t) (bv2 : t) : t =
+  if ((List.length bv1) != (List.length bv2)) then
+    raise ComparingUnequalBVs
+  else
+    let num1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let diff = Numeral.sub num1 num2 in
+    num_to_bv (Numeral.of_int (List.length bv1)) diff
+
+
 (* ********************************************************************** *)
 (* Unused - Might be Useful in the Future                                 *)
 (* ********************************************************************** *)

@@ -171,6 +171,9 @@ val sbv_div : t -> t -> t
 (** Function that divides two unsigned bitvectors *)
 val ubv_div : t -> t -> t
 
+(** Function for signed bitvector subtraction *)
+val sbv_sub : t -> t -> t
+
 
 (** {Unused} *)
 (** Function that inputs a list of bitvectors and returns an Some n

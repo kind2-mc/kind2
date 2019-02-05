@@ -148,6 +148,9 @@ val mk_bv : Bitvector.t -> t
 (** Create a signed bitvector sum *)
 val mk_bvadd : t list -> t
 
+(** Create a signed bitvector difference *)
+val mk_bvsub : t list -> t
+
 (** Create an unsigned bitvector sum *)
 val mk_bvuadd : t list -> t
 

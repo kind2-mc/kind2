@@ -86,6 +86,7 @@ type interpreted_symbol =
   | `BVAND                (* Bit-wise conjunction (binary) *)
   | `BVOR                 (* Bit-wise disjunction (binary) *)
   | `BVADD                (* Signed bitvector sum (binary) *)
+  | `BVSUB                (* Signed bitvector difference (binary) *)
   | `BVUADD               (* Unsigned bitvector sum (binary) *)
   | `BVMUL                (* Arithmetic multiplication (binary) *)
   | `BVUDIV               (* Arithmetic integer division (binary) *)
@@ -225,6 +226,7 @@ module Symbol_node = struct
     | `BVAND, `BVAND
     | `BVOR, `BVOR
     | `BVADD, `BVADD
+    | `BVSUB, `BVSUB
     | `BVUADD, `BVUADD
     | `BVMUL, `BVMUL
     | `BVUDIV, `BVUDIV
@@ -287,6 +289,7 @@ module Symbol_node = struct
     | `BVAND, _
     | `BVOR, _
     | `BVADD, _
+    | `BVSUB, _
     | `BVUADD, _
     | `BVMUL, _
     | `BVUDIV, _
@@ -447,6 +450,7 @@ let rec pp_print_symbol_node ppf = function
   | `BVAND -> Format.pp_print_string ppf "bvand"
   | `BVOR -> Format.pp_print_string ppf "bvor"
   | `BVADD -> Format.pp_print_string ppf "bvadd"
+  | `BVSUB -> Format.pp_print_string ppf "bvsub"
   | `BVUADD -> Format.pp_print_string ppf "bvadd"
   | `BVMUL -> Format.pp_print_string ppf "bvmul"
   | `BVUDIV -> Format.pp_print_string ppf "bvudiv"

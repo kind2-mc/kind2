@@ -572,6 +572,7 @@ let smtlib_string_symbol_list =
    ("bvand", Symbol.mk_symbol `BVAND);
    ("bvor", Symbol.mk_symbol `BVOR);
    ("bvadd", Symbol.mk_symbol `BVADD);
+   ("bvsub", Symbol.mk_symbol `BVSUB);
    ("bvmul", Symbol.mk_symbol `BVMUL);
    ("bvudiv", Symbol.mk_symbol `BVUDIV);
    ("bvsdiv", Symbol.mk_symbol `BVSDIV);
@@ -675,6 +676,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVAND -> Format.pp_print_string ppf "bvand"
   | `BVOR -> Format.pp_print_string ppf "bvor"
   | `BVADD -> Format.pp_print_string ppf "bvadd"
+  | `BVSUB -> Format.pp_print_string ppf "bvsub"
   | `BVUADD -> Format.pp_print_string ppf "bvadd"
   | `BVMUL -> Format.pp_print_string ppf "bvmul"
   | `BVUDIV -> Format.pp_print_string ppf "bvudiv"

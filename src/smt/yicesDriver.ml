@@ -214,6 +214,7 @@ let string_symbol_list =
    ("bv-and", Symbol.mk_symbol `BVAND);
    ("bv-or", Symbol.mk_symbol `BVOR);
    ("bv-add", Symbol.mk_symbol `BVADD);
+   ("bv-sub", Symbol.mk_symbol `BVSUB);
    ("bv-mul", Symbol.mk_symbol `BVMUL);
    ("bv-div", Symbol.mk_symbol `BVUDIV);
    ("bv-sdiv", Symbol.mk_symbol `BVSDIV);
@@ -305,6 +306,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVAND -> Format.pp_print_string ppf "bv-and"
   | `BVOR -> Format.pp_print_string ppf "bv-or"
   | `BVADD -> Format.pp_print_string ppf "bv-add"
+  | `BVSUB -> Format.pp_print_string ppf "bv-sub"
   | `BVUADD -> Format.pp_print_string ppf "bv-add"
   | `BVMUL -> Format.pp_print_string ppf "bv-mul"
   | `BVUDIV -> Format.pp_print_string ppf "bv-div"
