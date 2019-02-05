@@ -133,7 +133,7 @@ let rec ubv_to_num (size : Numeral.t) (b : t) : Numeral.t =
                               (pow2 (Numeral.sub size Numeral.one)) 
       in
         Numeral.add prod (ubv_to_num (Numeral.sub size Numeral.one) t)
-  | nil -> Numeral.zero
+  | [] -> Numeral.zero
 
 let ubv8_to_num = ubv_to_num (Numeral.of_int 8)
 
@@ -342,7 +342,7 @@ let rec pow2_int (n : int) : int =
 let rec ubv_to_int (size : int)  (b: t) : int =
   match b with
   | h :: t ->  (bool_to_bin_int h) * (pow2_int (size - 1)) + ubv_to_int (size - 1) t
-  | nil -> 0
+  | [] -> 0
 
 let ubv8_to_int = ubv_to_int 8
 
@@ -415,6 +415,90 @@ let bv32_to_int = bv_to_int 32
 
 let bv64_to_int = bv_to_int 64
 *)
+
+
+(* ********************************************************************** *)
+(* Arithmetic Operations                                                  *)
+(* ********************************************************************** *)
+
+(* Addition *)
+let sbv_add (bv1 : t) (bv2 : t) : t =
+  if ((List.length bv1) != (List.length bv2)) then
+    raise ComparingUnequalBVs
+  else
+    let num1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let sum = Numeral.add num1 num2 in
+    num_to_bv (Numeral.of_int (List.length bv1)) sum
+
+let ubv_add (bv1 : t) (bv2 : t) : t =
+  if ((List.length bv1) != (List.length bv2)) then
+    raise ComparingUnequalBVs
+  else
+    let num1 = ubv_to_num (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = ubv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let sum = Numeral.add num1 num2 in
+    num_to_ubv (Numeral.of_int (List.length bv1)) sum
+
+
+(* Multiplication *)
+let sbv_mult (bv1 : t) (bv2 : t) : t =
+  if ((List.length bv1) != (List.length bv2)) then
+    raise ComparingUnequalBVs
+  else
+    let num1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let prod = Numeral.mult num1 num2 in
+    num_to_bv (Numeral.of_int (List.length bv1)) prod
+
+let ubv_mult (bv1 : t) (bv2 : t) : t =
+  if ((List.length bv1) != (List.length bv2)) then
+    raise ComparingUnequalBVs
+  else
+    let num1 = ubv_to_num (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = ubv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let prod = Numeral.mult num1 num2 in
+    num_to_ubv (Numeral.of_int (List.length bv1)) prod
+
+
+(* Division *)
+let sbv_div (bv1 : t) (bv2 : t) : t =
+  if ((List.length bv1) != (List.length bv2)) then
+    raise ComparingUnequalBVs
+  else
+    let num1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let q = 
+      (match num1, num2 with
+      | n1, n2 when ((Numeral.geq n1 Numeral.zero) && 
+                     (Numeral.geq n2 Numeral.zero))
+        -> Numeral.div n1 n2
+      | n1, n2 when ((Numeral.lt n1 Numeral.zero) &&
+                     (Numeral.geq n2 Numeral.zero))
+        -> let neg_n1 = (Numeral.neg n1) in
+           let q_aux = Numeral.div neg_n1 n2 in
+           Numeral.neg q_aux
+      | n1, n2 when ((Numeral.geq n1 Numeral.zero) &&
+                     (Numeral.lt n2 Numeral.zero))
+        -> let neg_n2 = (Numeral.neg n2) in
+           let q_aux = Numeral.div n1 neg_n2 in
+           Numeral.neg q_aux
+      | n1, n2 when ((Numeral.lt n1 Numeral.zero) &&
+                     (Numeral.lt n2 Numeral.zero))
+        -> let neg_n1 = (Numeral.neg n1) in
+           let neg_n2 = (Numeral.neg n2) in
+           Numeral.div neg_n1 neg_n2
+      | _ -> assert false) in
+    num_to_bv (Numeral.of_int (List.length bv1)) q
+
+let ubv_div (bv1 : t) (bv2 : t) : t =
+  if ((List.length bv1) != (List.length bv2)) then
+    raise ComparingUnequalBVs
+  else
+    let num1 = ubv_to_num (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = ubv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let q = Numeral.div num1 num2 in
+    num_to_ubv (Numeral.of_int (List.length bv1)) q
 
 
 (* ********************************************************************** *)

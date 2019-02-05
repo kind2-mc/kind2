@@ -157,6 +157,9 @@ val mk_bvmul : t list -> t
 (** Create a bitvector division *)
 val mk_bvudiv : t list -> t
 
+(**Create a signed bitvector division *)
+val mk_bvsdiv : t list -> t
+
 (** Create a bitvector modulus *)
 val mk_bvurem : t list -> t
 

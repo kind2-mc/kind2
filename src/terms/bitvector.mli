@@ -152,6 +152,26 @@ val bv64_to_int : t -> int
 *)
 
 
+(** {Arithmetic Operations} *)
+(** Function that adds two signed bitvectors *)
+val sbv_add : t -> t -> t
+
+(** Function that adds two unsigned bitvectors *)
+val ubv_add : t -> t -> t
+
+(** Function that multiplies two signed bitvectors *)
+val sbv_mult : t -> t -> t
+
+(** Function that multiplies two unsigned bitvectors *)
+val ubv_mult : t -> t -> t
+
+(** Function that divides two signed bitvectors *)
+val sbv_div : t -> t -> t
+
+(** Function that divides two unsigned bitvectors *)
+val ubv_div : t -> t -> t
+
+
 (** {Unused} *)
 (** Function that inputs a list of bitvectors and returns an Some n
    if all bitvectors have size n, where n = 8,16,32,64, and None otherwise 

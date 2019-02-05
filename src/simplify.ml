@@ -547,7 +547,7 @@ let add = function
                     
   (* Add as real polynomials if head of list is real *)
   | Dec _ :: _ as args -> Dec (add_dec args)
-                     
+
   (* Cannot add other types *)
   | _ -> assert false
 
@@ -772,6 +772,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVUADD, _
       | `BVMUL, _
       | `BVUDIV, _
+      | `BVSDIV, _
       | `BVUREM, _
       | `BVSHL, _
       | `BVLSHR, _
@@ -2195,31 +2196,48 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVADD ->
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [BV a; BV b] -> BV (Term.mk_bvadd [a;b])
+              | [BV a; BV b] -> BV (Term.mk_bv (Bitvector.sbv_add
+                                                  (Term.bitvector_of_term a)
+                                                  (Term.bitvector_of_term b)))
+              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.ubv_add
+                                                      (Term.bitvector_of_term a)
+                                                      (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVUADD ->
             (match args with
               | [] -> assert false
               | [a] -> a
-              | [UBV a; UBV b] -> UBV (Term.mk_bvuadd [a;b])
+              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.ubv_add
+                                                      (Term.bitvector_of_term a)
+                                                      (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVMUL ->
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [UBV a; UBV b] -> UBV (Term.mk_bvmul [a;b])
-              | [BV a; BV b] -> BV (Term.mk_bvmul [a;b])
+              | [BV a; BV b] -> BV (Term.mk_bv (Bitvector.sbv_mult
+                                                  (Term.bitvector_of_term a)
+                                                  (Term.bitvector_of_term b)))              
+              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.ubv_mult
+                                                      (Term.bitvector_of_term a)
+                                                      (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVUDIV ->
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [UBV a; UBV b] -> UBV (Term.mk_bvudiv [a;b])
-              | [BV a; BV b] -> BV (Term.mk_bvudiv [a;b])
+              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.ubv_div
+                                                      (Term.bitvector_of_term a)
+                                                      (Term.bitvector_of_term b)))
+              | _ -> assert false)
+
+          | `BVSDIV ->
+            (match args with
+              | [] -> assert false
+              | [BV a; BV b] -> BV (Term.mk_bv (Bitvector.sbv_div
+                                              (Term.bitvector_of_term a)
+                                              (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVUREM ->

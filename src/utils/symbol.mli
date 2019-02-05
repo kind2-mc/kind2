@@ -64,6 +64,7 @@
     {- [`BVUADD] binary unsigned bitvector sum}
     {- [`BVMUL] binary: arithmetic multiplication}
     {- [`BVUDIV] binary: arithmetic integer division}
+    {- [`BVSDIV] binary: arithmetic integer signed division}
     {- [`BVUREM] binary: arithmetic remainder}
     {- [`BVSHL] binary: logical shift left}
     {- [`BVLSHR] binary: logical shift right}
@@ -157,9 +158,10 @@ type interpreted_symbol =
   | `BVAND                (** Bit-wise conjunction (binary) *)
   | `BVOR                 (** Bit-wise disjunction (binary) *)
   | `BVADD                (** Signed bitvector sum (binary) *)
-  | `BVUADD                (** Unsigned bitvector sum (binary) *)
+  | `BVUADD               (** Unsigned bitvector sum (binary) *)
   | `BVMUL                (** Arithmetic multiplication (binary) *)
   | `BVUDIV               (** Arithmetic integer division (binary) *)
+  | `BVSDIV               (** Arithmetic integer signed division (binary) *)
   | `BVUREM               (** Arithmetic remainder (binary) *)
   | `BVSHL                (** Logical shift left (binary) *)
   | `BVLSHR               (** Logical shift right (binary) *)

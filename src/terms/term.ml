@@ -720,6 +720,7 @@ let rec type_of_term t = match T.destruct t with
         | `BVUADD
         | `BVMUL
         | `BVUDIV
+        | `BVSDIV
         | `BVUREM
         | `BVSHL
         | `BVLSHR 
@@ -1205,6 +1206,12 @@ let mk_bvudiv = function
   | [] -> invalid_arg "Term.mk_bvdiv"
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVUDIV a
+
+(* Hashcons a bitvector signed division *)
+let mk_bvsdiv = function
+  | [] -> invalid_arg "Term.mk_bvsdiv"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSDIV a
 
 (* Hashcons a bitvector modulus *)
 let mk_bvurem = function

@@ -216,7 +216,8 @@ let string_symbol_list =
    ("bv-add", Symbol.mk_symbol `BVADD);
    ("bv-mul", Symbol.mk_symbol `BVMUL);
    ("bv-div", Symbol.mk_symbol `BVUDIV);
-   (* ("bvurem", Symbol.mk_symbol `BVUREM); *)
+   ("bv-sdiv", Symbol.mk_symbol `BVSDIV);
+   ("bv-rem", Symbol.mk_symbol `BVUREM);
    ("bv-shift-left0", Symbol.mk_symbol `BVSHL);
    ("bv-shift-right0", Symbol.mk_symbol `BVLSHR);
    ("bv-ashift-right", Symbol.mk_symbol `BVASHR);
@@ -307,7 +308,8 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVUADD -> Format.pp_print_string ppf "bv-add"
   | `BVMUL -> Format.pp_print_string ppf "bv-mul"
   | `BVUDIV -> Format.pp_print_string ppf "bv-div"
-  | `BVUREM -> Format.pp_print_string ppf "bvurem"
+  | `BVSDIV -> Format.pp_print_string ppf "bv-sdiv"
+  | `BVUREM -> Format.pp_print_string ppf "bv-rem"
   | `BVSHL -> Format.pp_print_string ppf "bv-shift-left0"
   | `BVLSHR -> Format.pp_print_string ppf "bv-shift-right0"
   | `BVASHR -> Format.pp_print_string ppf "bv-ashift-right"

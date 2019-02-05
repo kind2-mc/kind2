@@ -349,6 +349,7 @@ let string_of_symbol = function
   | `BVUADD -> "+"
   | `BVMUL -> "*"
   | `BVUDIV -> "div"
+  | `BVSDIV -> "div"
   | `BVUREM -> "mod"
   | `BVULT -> "<"
   | `BVULE -> "<="
@@ -658,6 +659,7 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `BVUADD
     | `BVMUL
     | `BVUDIV
+    | `BVSDIV
     | `BVUREM
     | `PLUS
     | `TIMES
@@ -2406,12 +2408,15 @@ let eval_plus expr1 expr2 =
         Decimal.(Symbol.decimal_of_symbol c1 +
                  Symbol.decimal_of_symbol c2) 
   
-    | _ -> (if ((Type.is_bitvector (Term.type_of_term expr1)) 
-                  && (Type.is_bitvector (Term.type_of_term expr2))) then
+    | _ -> (if (((Type.is_bitvector (Term.type_of_term expr1)) 
+                  && (Type.is_bitvector (Term.type_of_term expr2)))
+                  ||
+                ((Type.is_ubitvector (Term.type_of_term expr1)) 
+                  && (Type.is_ubitvector (Term.type_of_term expr1)))) then
               Term.mk_bvadd [expr1; expr2]
-            else if ((Type.is_ubitvector (Term.type_of_term expr1)) 
+            (*else if ((Type.is_ubitvector (Term.type_of_term expr1)) 
                   && (Type.is_ubitvector (Term.type_of_term expr1))) then 
-              Term.mk_bvuadd [expr1; expr2]
+              Term.mk_bvuadd [expr1; expr2]*)
             else 
               Term.mk_plus [expr1; expr2])
 
@@ -2548,6 +2553,8 @@ let eval_intdiv expr1 expr2 =
 
     | _ -> (if Type.is_ubitvector (Term.type_of_term expr1) then 
               Term.mk_bvudiv [expr1; expr2]
+            else if Type.is_bitvector (Term.type_of_term expr1) then
+              Term.mk_bvsdiv [expr1; expr2]
             else 
               Term.mk_intdiv [expr1; expr2])
 
@@ -2581,8 +2588,24 @@ let type_of_intdiv t t' =
               | 64, 64 -> Type.t_ubv 64
               | _, _ -> raise Type_mismatch)
       | _ -> raise Type_mismatch)
+    | t when Type.is_bitvector t -> (
+      match t' with
+      | t' when Type.is_bitvector t' ->
+        let s1 = Type.bitvectorsize t in
+          let s2 = Type.bitvectorsize t' in 
+            if s1 != s2 then
+              raise BV_size_mismatch
+            else
+              (match s1,s2 with
+              | 8, 8 -> Type.t_bv 8
+              | 16, 16 -> Type.t_bv 16
+              | 32, 32 -> Type.t_bv 32
+              | 64, 64 -> Type.t_bv 64
+              | _, _ -> raise Type_mismatch)
+      | _ -> raise Type_mismatch)
     | _ -> raise Type_mismatch
-  )
+    )
+  
 
 
 (* Integer division *)
