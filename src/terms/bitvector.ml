@@ -654,6 +654,66 @@ let gte (bv1 : t) (bv2 : t) : bool =
 
 
 (* ********************************************************************** *)
+(* Shift operators                                                   *)
+(* ********************************************************************** *)
+
+(* Left shift *)
+let rec shift_left (bv : t) (n : Numeral.t) : t =
+  if (Numeral.equal n Numeral.zero) then
+    bv
+  else
+    (match bv with
+    | [] -> []
+    | h :: t -> shift_left 
+                  (List.append t [false]) 
+                  (Numeral.sub n Numeral.one))
+
+let bv_lsh (bv1 : t) (bv2 : t) : t =
+  let n = ubv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    shift_left bv1 n
+
+
+(* Right shift *)
+let rec remove_last (bv : t) : t =
+  match bv with
+  | [] -> []
+  | [_] -> []
+  | h :: t -> h :: (remove_last t)
+
+let rec shift_right (bv : t) (n : Numeral.t) : t =
+  if (Numeral.equal n Numeral.zero) then
+    bv
+  else
+    (match bv with
+    | [] -> []
+    | h :: t -> shift_right
+                  (false :: (h :: (remove_last t)))
+                  (Numeral.sub n Numeral.one))
+
+let bv_rsh (bv1 : t) (bv2 : t) : t =
+  let n = ubv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    shift_right bv1 n
+
+
+(* Arithmetic right shift *)
+let rec ar_shift_right (bv : t) (n : Numeral.t) (sign : bool) : t =
+  if(Numeral.equal n Numeral.zero) then
+    bv
+  else
+    (match bv with
+    | [] -> []
+    | h :: t -> ar_shift_right
+                  (sign :: (h :: (remove_last t)))
+                  (Numeral.sub n Numeral.one)
+                  sign)
+
+let bv_arsh (bv1 : t) (bv2 : t) : t =
+  let n = ubv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+  let sign = List.hd bv1 in
+    ar_shift_right bv1 n sign
+
+
+(* ********************************************************************** *)
 (* Unused - Might be Useful in the Future                                 *)
 (* ********************************************************************** *)
 

@@ -218,6 +218,20 @@ val lte : t -> t -> bool
 val gte : t -> t -> bool
 
 
+(** {Shift Operators} *)
+(** Shift bitvector left by n times, 
+    where n is specified as an unsigned BV *)
+val bv_lsh : t -> t -> t
+
+(** Shift bitvector right by n times, 
+    where n is specified as an unsigned BV *)
+val bv_rsh : t -> t -> t
+
+(** Arithmetic right shift of bitvector by n times, 
+    where n is specified as an unsigned BV *)
+val bv_arsh : t -> t -> t
+
+
 (** {Unused} *)
 (** Function that inputs a list of bitvectors and returns an Some n
    if all bitvectors have size n, where n = 8,16,32,64, and None otherwise 

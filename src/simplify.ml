@@ -2181,25 +2181,28 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVSHL ->
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [BV a; UBV b] -> BV (Term.mk_bvshl [a;b]) 
-              | [UBV a; UBV b] -> BV (Term.mk_bvshl [a;b])
+              | [BV a; UBV b] -> BV (Term.mk_bv (Bitvector.bv_lsh
+                                                  (Term.bitvector_of_term a)
+                                                  (Term.bitvector_of_term b))) 
+              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.bv_lsh
+                                                    (Term.bitvector_of_term a)
+                                                    (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVLSHR ->
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [BV a; UBV b] -> BV (Term.mk_bvlshr [a;b]) 
-              | [UBV a; UBV b] -> BV (Term.mk_bvlshr [a;b])
+              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.bv_rsh
+                                                  (Term.bitvector_of_term a)
+                                                  (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVASHR ->
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [BV a; UBV b] -> BV (Term.mk_bvashr [a;b]) 
-              | [UBV a; UBV b] -> BV (Term.mk_bvashr [a;b])
+              | [BV a; UBV b] -> BV (Term.mk_bv (Bitvector.bv_arsh
+                                                  (Term.bitvector_of_term a)
+                                                  (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVADD ->

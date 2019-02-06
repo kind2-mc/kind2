@@ -2682,7 +2682,7 @@ let mk_bvshl expr1 expr2 = mk_binary eval_bvshl type_of_bvshl expr1 expr2
 (* ********************************************************************** *)
 
 
-(* Evaluate bitvector logical right shift *)
+(* Evaluate bitvector (logical or arithmetic) right shift *)
 let eval_bvshr expr1 expr2 = 
 
   match Term.destruct expr1, Term.destruct expr2 with
