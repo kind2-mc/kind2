@@ -2150,24 +2150,32 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVAND ->
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [UBV a; UBV b] -> UBV (Term.mk_bvand [a;b])
-              | [BV a; BV b] -> BV (Term.mk_bvand [a;b])
+              | [BV a; BV b] -> BV (Term.mk_bv (Bitvector.bv_and
+                                                  (Term.bitvector_of_term a)
+                                                  (Term.bitvector_of_term b)))
+              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.bv_and
+                                                  (Term.bitvector_of_term a)
+                                                  (Term.bitvector_of_term b)))
               | _ -> assert false)
           
           | `BVOR ->
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [UBV a; UBV b] -> UBV (Term.mk_bvor [a;b])
-              | [BV a; BV b] -> BV (Term.mk_bvor [a;b])
+              | [BV a; BV b] -> BV (Term.mk_bv (Bitvector.bv_or
+                                                  (Term.bitvector_of_term a)
+                                                  (Term.bitvector_of_term b)))
+              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.bv_or
+                                                  (Term.bitvector_of_term a)
+                                                  (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVNOT ->
             (match args with 
               | [] -> assert false 
-              | [UBV a] -> UBV (Term.mk_bvnot a)
-              | [BV a] -> BV (Term.mk_bvnot a)
+              | [BV a] -> BV (Term.mk_bv (Bitvector.bv_not 
+                                            (Term.bitvector_of_term a)))
+              | [UBV a] -> UBV (Term.mk_ubv (Bitvector.bv_not
+                                              (Term.bitvector_of_term a)))
               | _ -> assert false)
             
           | `BVSHL ->

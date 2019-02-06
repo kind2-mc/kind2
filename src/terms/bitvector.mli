@@ -175,6 +175,17 @@ val ubv_div : t -> t -> t
 val sbv_sub : t -> t -> t
 
 
+(** {Logical Operations} *)
+(** Function that computes bitwise conjunction *)
+val bv_and : t -> t -> t
+
+(** Funciton that computes bitwise disjunction *)
+val bv_or : t -> t -> t
+
+(** Function that computes bitwise negation *)
+val bv_not : t -> t
+
+
 (** {Unused} *)
 (** Function that inputs a list of bitvectors and returns an Some n
    if all bitvectors have size n, where n = 8,16,32,64, and None otherwise 
