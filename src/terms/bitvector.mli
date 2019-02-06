@@ -186,6 +186,35 @@ val bv_or : t -> t -> t
 val bv_not : t -> t
 
 
+(** {Comparison Operators} *)
+(** Equality *)
+val equal : t -> t -> bool
+
+(** Unsigned lesser than *)
+val ult : t -> t -> bool
+
+(** Unsigned greater than *)
+val ugt : t -> t -> bool
+
+(** Unsigned lesser than or equal to *)
+val ulte : t -> t -> bool
+
+(** Unsigned greater than or equal to *)
+val ugte : t -> t -> bool
+
+(** Signed lesser than *)
+val lt : t -> t -> bool
+
+(** Signed greater than *)
+val gt : t -> t -> bool
+
+(** Signed lesser than or equal to *)
+val lte : t -> t -> bool
+
+(** Signed greater than or equal to *)
+val gte : t -> t -> bool
+
+
 (** {Unused} *)
 (** Function that inputs a list of bitvectors and returns an Some n
    if all bitvectors have size n, where n = 8,16,32,64, and None otherwise 
@@ -227,35 +256,6 @@ val bool_of_hstring : HString.t -> bool
 
 (** Return the length of a bitvector as a numeral *)
 val length_of_bitvector : t -> int
-
-
-(** {Comparison Operators} *)
-(** Equality *)
-val equal : t -> t -> bool
-
-(** Unsigned lesser than *)
-val ult : t -> t -> bool
-
-(** Unsigned greater than *)
-val ugt : t -> t -> bool
-
-(** Unsigned lesser than or equal to *)
-val ulte : t -> t -> bool
-
-(** Unsigned greater than or equal to *)
-val ugte : t -> t -> bool
-
-(** Signed lesser than *)
-val lt : t -> t -> bool
-
-(** Signed greater than *)
-val gt : t -> t -> bool
-
-(** Signed lesser than or equal to *)
-val lte : t -> t -> bool
-
-(** Signed greater than or equal to *)
-val gte : t -> t -> bool
 
 
 (** {Infix Comparison Operators} *)

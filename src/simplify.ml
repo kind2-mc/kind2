@@ -2268,57 +2268,65 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVULT -> 
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [UBV a; UBV b] -> Bool (Term.mk_bvult [a;b])
+              | [UBV a; UBV b] -> Bool (Term.mk_bool (Bitvector.ult
+                                                      (Term.bitvector_of_term a)
+                                                      (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVULE -> 
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [UBV a; UBV b] -> Bool (Term.mk_bvule [a;b])
+              | [UBV a; UBV b] -> Bool (Term.mk_bool (Bitvector.ulte
+                                                      (Term.bitvector_of_term a)
+                                                      (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVUGT -> 
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [UBV a; UBV b] -> Bool (Term.mk_bvugt [a;b])
+              | [UBV a; UBV b] -> Bool (Term.mk_bool (Bitvector.ugt
+                                                      (Term.bitvector_of_term a)
+                                                      (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVUGE -> 
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [UBV a; UBV b] -> Bool (Term.mk_bvuge [a;b])
+              | [UBV a; UBV b] -> Bool (Term.mk_bool (Bitvector.ugte
+                                                      (Term.bitvector_of_term a)
+                                                      (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVSLT -> 
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [BV a; BV b] -> Bool (Term.mk_bvslt [a;b])
+              | [BV a; BV b] -> Bool (Term.mk_bool (Bitvector.lt
+                                                      (Term.bitvector_of_term a)
+                                                      (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVSLE -> 
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [BV a; BV b] -> Bool (Term.mk_bvsle [a;b])
+              | [BV a; BV b] -> Bool (Term.mk_bool (Bitvector.lte
+                                                      (Term.bitvector_of_term a)
+                                                      (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVSGT -> 
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [BV a; BV b] -> Bool (Term.mk_bvsgt [a;b])
+              | [BV a; BV b] -> Bool (Term.mk_bool (Bitvector.gt
+                                                      (Term.bitvector_of_term a)
+                                                      (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVSGE -> 
             (match args with
               | [] -> assert false
-              | [a] -> a
-              | [BV a; BV b] -> Bool (Term.mk_bvsge [a;b])
+              | [BV a; BV b] -> Bool (Term.mk_bool (Bitvector.gte
+                                                      (Term.bitvector_of_term a)
+                                                      (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVNEG -> 
