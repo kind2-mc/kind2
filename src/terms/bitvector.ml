@@ -512,6 +512,25 @@ let sbv_sub (bv1 : t) (bv2 : t) : t =
     num_to_bv (Numeral.of_int (List.length bv1)) diff
 
 
+(* Negation *)
+let rec create_one (size : Numeral.t) : t =
+  if (Numeral.equal size Numeral.zero) then
+    []
+  else if (Numeral.equal size Numeral.one) then
+    [true]
+  else 
+    false :: (create_one (Numeral.sub size Numeral.one))
+  
+(* Using ones_comp and bitwise_add from Numeral -> Signed BV conversion *)
+let sbv_neg (bv : t) : t =
+  let bv_ones_comp = ones_comp bv in
+  let res = bitwise_add 
+              (List.rev bv_ones_comp)
+              (List.rev (create_one (Numeral.of_int (List.length bv))))
+              false
+  in List.rev res
+
+
 (* ********************************************************************** *)
 (* Logical Operations                                                     *)
 (* ********************************************************************** *)

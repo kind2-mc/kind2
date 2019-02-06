@@ -174,6 +174,9 @@ val ubv_div : t -> t -> t
 (** Function for signed bitvector subtraction *)
 val sbv_sub : t -> t -> t
 
+(** Funciton for signed bitvector negation *)
+val sbv_neg : t -> t
+
 
 (** {Logical Operations} *)
 (** Function that computes bitwise conjunction *)

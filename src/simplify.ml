@@ -2332,7 +2332,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVNEG -> 
             (match args with
               | [] -> assert false
-              | [BV a] -> BV (Term.mk_bvneg a)
+              | [BV a] -> BV (Term.mk_bv (Bitvector.sbv_neg 
+                                            (Term.bitvector_of_term a)))
               | _ -> assert false)
 
           | `BVEXTRACT (i, j) -> 

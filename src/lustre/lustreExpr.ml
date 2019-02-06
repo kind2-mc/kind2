@@ -1689,7 +1689,11 @@ let eval_uminus expr = match Term.destruct expr with
 
   | Term.T.App (s, [e]) when s == Symbol.s_minus -> e
 
-  | _ -> Term.mk_minus [expr]
+  | _ -> if (Type.is_bitvector (Term.type_of_term expr)) then
+            Term.mk_bvneg expr
+         else
+            Term.mk_minus [expr]
+
   | exception Invalid_argument _ -> Term.mk_minus [expr]
 
 
@@ -1705,6 +1709,10 @@ let type_of_uminus = function
   | t when Type.is_int_range t -> 
     let (ubound, lbound) = Type.bounds_of_int_range t in
     Type.mk_int_range Numeral.(- ubound) Numeral.(- lbound)
+  | t when Type.is_int8 t -> Type.t_bv 8
+  | t when Type.is_int16 t -> Type.t_bv 16
+  | t when Type.is_int32 t -> Type.t_bv 32
+  | t when Type.is_int64 t -> Type.t_bv 64
   | _ -> raise Type_mismatch
 
 
