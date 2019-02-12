@@ -1991,42 +1991,6 @@ let rec add_node_equation ctx pos state_var bounds indexes expr =
           (* Type of expression may not be subtype of declared type *)
           match state_var_type, expr_type with 
 
-            | t, s 
-              when Type.is_uint8 t && Type.is_int_range s ->
-                let (lbound, ubound) = Type.bounds_of_int_range s in
-                if((Numeral.to_int lbound) < -128 || (Numeral.to_int ubound) > 127) then
-                  raise E.FixedWidthInt_overflow
-                else
-                  let expr1 = E.mk_to_uint8 expr in
-                  add_node_equation ctx pos state_var bounds indexes expr1
-
-            | t, s 
-              when Type.is_uint16 t && Type.is_int_range s ->
-                let (lbound, ubound) = Type.bounds_of_int_range s in
-                if((Numeral.to_int lbound) < -32768 || (Numeral.to_int ubound) > 32767) then
-                  raise E.FixedWidthInt_overflow
-                else              
-                  let expr1 = E.mk_to_uint16 expr in
-                  add_node_equation ctx pos state_var bounds indexes expr1
-
-            | t, s 
-              when Type.is_uint32 t && Type.is_int_range s ->
-                let (lbound, ubound) = Type.bounds_of_int_range s in
-                if((Numeral.to_int lbound) < -2147483648 || (Numeral.to_int ubound) > 2147483647) then
-                  raise E.FixedWidthInt_overflow
-                else
-                  let expr1 = E.mk_to_uint32 expr in
-                  add_node_equation ctx pos state_var bounds indexes expr1
-
-            | t, s 
-              when Type.is_uint64 t && Type.is_int_range s ->
-                let (lbound, ubound) = Type.bounds_of_int_range s in
-                if((Numeral.to_int lbound) < -2147483648(*-9223372036854775808*) || (Numeral.to_int ubound) > 2147483647(*9223372036854775807*)) then
-                  raise E.FixedWidthInt_overflow
-                else
-                  let expr1 = E.mk_to_uint64 expr in
-                  add_node_equation ctx pos state_var bounds indexes expr1
-
             (* Declared type is an actual integer range, expression is of type
                integer *)
             | t, s 

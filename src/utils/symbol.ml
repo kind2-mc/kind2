@@ -562,6 +562,26 @@ let is_bv64 = function
       if (Bitvector.length_of_bitvector n = 64) then true else false
   | _ -> false
 
+(* Return true if the symbol is a to_uint8 *)
+let is_to_uint8 = function
+  | { Hashcons.node = `TO_UINT8 } -> true
+  | _ -> false
+
+(* Return true if the symbol is a to_uint16 *)
+let is_to_uint16 = function
+  | { Hashcons.node = `TO_UINT16 } -> true
+  | _ -> false
+
+(* Return true if the symbol is a to_uint32 *)
+let is_to_uint32 = function
+  | { Hashcons.node = `TO_UINT32 } -> true
+  | _ -> false
+
+(* Return true if the symbol is a to_uint64 *)
+let is_to_uint64 = function
+  | { Hashcons.node = `TO_UINT64 } -> true
+  | _ -> false
+
 (* Return true if the symbol is [`TRUE] or [`FALSE] *)
 let is_bool = function 
   | { Hashcons.node = `TRUE } 

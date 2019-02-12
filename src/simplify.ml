@@ -2045,7 +2045,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   | 16 -> UBV (Term.mk_ubv (Bitvector.bvsignext 48 (Term.ubitvector_of_term b)))
                   | 32 -> UBV (Term.mk_ubv (Bitvector.bvsignext 32 (Term.ubitvector_of_term b)))
                   | _ -> UBV b)
-              | [Num n] ->  UBV (Term.mk_ubv 
+              | [Num n] -> UBV (Term.mk_ubv 
                                   (Bitvector.num_to_ubv64 
                                     (Term.numeral_of_term 
                                       (term_of_nf (Num n)))))

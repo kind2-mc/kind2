@@ -332,6 +332,18 @@ val is_bv32 : t -> bool
 (** Return true if the symbol is a bitvector of size 64 *)
 val is_bv64 : t -> bool
 
+(** Return true if the symbol is a touint8 *)
+val is_to_uint8 : t -> bool
+
+(** Return true if the symbol is a touint16 *)
+val is_to_uint16 : t -> bool
+
+(** Return true if the symbol is a touint32 *)
+val is_to_uint32 : t -> bool
+
+(** Return true if the symbol is a touint64 *)
+val is_to_uint64 : t -> bool
+
 (** Return true if the symbol is select from array  *)
 val is_select : t -> bool
 

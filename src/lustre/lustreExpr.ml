@@ -27,9 +27,9 @@ module VS = Var.VarSet
 
 (* Exceptions *)
 exception Type_mismatch
-exception FixedWidthInt_overflow
-exception BV_size_mismatch
 exception Random
+exception BV_size_mismatch (* This should never be seen in the front-end *)
+exception NonConstantShiftOperand
 
 (* A Lustre expression is a term *)
 type expr = Term.t
@@ -2662,7 +2662,11 @@ let mk_bvor expr1 expr2 = mk_binary eval_bvor type_of_bvor expr1 expr2
 let eval_bvshl expr1 expr2 = 
 
   match Term.destruct expr1, Term.destruct expr2 with
-  | _ -> Term.mk_bvshl [expr1; expr2]
+  | _, Term.T.App (s, l) 
+    when ((Symbol.is_to_uint8 s) || (Symbol.is_to_uint16 s)
+          || (Symbol.is_to_uint32 s) || (Symbol.is_to_uint64 s))
+      -> Term.mk_bvshl [expr1; expr2]
+  | _ -> raise NonConstantShiftOperand
   | exception Invalid_argument _ -> Term.mk_bvshl [expr1; expr2]
 
 
@@ -2681,7 +2685,10 @@ let mk_bvshl expr1 expr2 = mk_binary eval_bvshl type_of_bvshl expr1 expr2
 let eval_bvshr expr1 expr2 = 
 
   match Term.destruct expr1, Term.destruct expr2 with
-  | _ -> if(Type.is_bitvector (Term.type_of_term expr1) 
+  | _, Term.T.App (s, l) 
+    when ((Symbol.is_to_uint8 s) || (Symbol.is_to_uint16 s)
+          || (Symbol.is_to_uint32 s) || (Symbol.is_to_uint64 s)) 
+       -> if(Type.is_bitvector (Term.type_of_term expr1) 
             && Type.is_ubitvector (Term.type_of_term expr2)) then
               Term.mk_bvashr [expr1; expr2]
           else if(Type.is_ubitvector (Term.type_of_term expr1) 
@@ -2689,6 +2696,8 @@ let eval_bvshr expr1 expr2 =
               Term.mk_bvlshr [expr1; expr2]
           else 
               raise Type_mismatch
+  | _ -> raise NonConstantShiftOperand
+  | exception Invalid_argument _ -> Term.mk_bvshl [expr1; expr2]
 
 
 (* Type of bitvector logical right shift *)
