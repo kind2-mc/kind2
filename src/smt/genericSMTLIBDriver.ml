@@ -677,7 +677,6 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVOR -> Format.pp_print_string ppf "bvor"
   | `BVADD -> Format.pp_print_string ppf "bvadd"
   | `BVSUB -> Format.pp_print_string ppf "bvsub"
-  | `BVUADD -> Format.pp_print_string ppf "bvadd"
   | `BVMUL -> Format.pp_print_string ppf "bvmul"
   | `BVUDIV -> Format.pp_print_string ppf "bvudiv"
   | `BVSDIV -> Format.pp_print_string ppf "bvsdiv"

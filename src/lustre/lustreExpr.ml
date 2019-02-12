@@ -347,7 +347,6 @@ let string_of_symbol = function
   | `BVNEG -> "-"
   | `BVADD -> "+"
   | `BVSUB -> "-"
-  | `BVUADD -> "+"
   | `BVMUL -> "*"
   | `BVUDIV -> "div"
   | `BVSDIV -> "div"
@@ -658,7 +657,6 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `BVOR
     | `BVADD
     | `BVSUB
-    | `BVUADD
     | `BVMUL
     | `BVUDIV
     | `BVSDIV
@@ -2423,9 +2421,6 @@ let eval_plus expr1 expr2 =
                 ((Type.is_ubitvector (Term.type_of_term expr1)) 
                   && (Type.is_ubitvector (Term.type_of_term expr1)))) then
               Term.mk_bvadd [expr1; expr2]
-            (*else if ((Type.is_ubitvector (Term.type_of_term expr1)) 
-                  && (Type.is_ubitvector (Term.type_of_term expr1))) then 
-              Term.mk_bvuadd [expr1; expr2]*)
             else 
               Term.mk_plus [expr1; expr2])
 

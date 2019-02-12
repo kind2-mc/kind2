@@ -87,7 +87,6 @@ type interpreted_symbol =
   | `BVOR                 (* Bit-wise disjunction (binary) *)
   | `BVADD                (* Signed bitvector sum (binary) *)
   | `BVSUB                (* Signed bitvector difference (binary) *)
-  | `BVUADD               (* Unsigned bitvector sum (binary) *)
   | `BVMUL                (* Arithmetic multiplication (binary) *)
   | `BVUDIV               (* Arithmetic integer division (binary) *)
   | `BVSDIV               (* Arithmetic integer signed division (binary) *)
@@ -227,7 +226,6 @@ module Symbol_node = struct
     | `BVOR, `BVOR
     | `BVADD, `BVADD
     | `BVSUB, `BVSUB
-    | `BVUADD, `BVUADD
     | `BVMUL, `BVMUL
     | `BVUDIV, `BVUDIV
     | `BVSDIV, `BVSDIV
@@ -290,7 +288,6 @@ module Symbol_node = struct
     | `BVOR, _
     | `BVADD, _
     | `BVSUB, _
-    | `BVUADD, _
     | `BVMUL, _
     | `BVUDIV, _
     | `BVSDIV, _
@@ -451,7 +448,6 @@ let rec pp_print_symbol_node ppf = function
   | `BVOR -> Format.pp_print_string ppf "bvor"
   | `BVADD -> Format.pp_print_string ppf "bvadd"
   | `BVSUB -> Format.pp_print_string ppf "bvsub"
-  | `BVUADD -> Format.pp_print_string ppf "bvadd"
   | `BVMUL -> Format.pp_print_string ppf "bvmul"
   | `BVUDIV -> Format.pp_print_string ppf "bvudiv"
   | `BVSDIV -> Format.pp_print_string ppf "bvsdiv"
@@ -671,9 +667,6 @@ let s_plus = mk_symbol `PLUS
 
 (* Constant minus operator *)
 let s_minus = mk_symbol `MINUS
-
-(* Constant plus operator for unsigned bitvectors *)
-let s_bvuadd = mk_symbol `BVUADD
 
 (* Constant times operator *)
 let s_times = mk_symbol `TIMES
