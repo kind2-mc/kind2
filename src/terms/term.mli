@@ -163,6 +163,9 @@ val mk_bvsdiv : t list -> t
 (** Create a bitvector modulus *)
 val mk_bvurem : t list -> t
 
+(** Create a signed bitvector modulus *)
+val mk_bvsrem : t list -> t
+
 (** Create a bitvector conjunction *)
 val mk_bvand : t list -> t
 

@@ -351,6 +351,7 @@ let string_of_symbol = function
   | `BVUDIV -> "div"
   | `BVSDIV -> "div"
   | `BVUREM -> "mod"
+  | `BVSREM -> "mod"
   | `BVULT -> "<"
   | `BVULE -> "<="
   | `BVUGT -> ">"
@@ -661,6 +662,7 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `BVUDIV
     | `BVSDIV
     | `BVUREM
+    | `BVSREM
     | `PLUS
     | `TIMES
     | `DIV
@@ -2279,12 +2281,13 @@ let eval_mod expr1 expr2 =
         Numeral.(Symbol.numeral_of_symbol c1 mod 
                  Symbol.numeral_of_symbol c2) 
     
-    | _ -> (if (Type.is_bitvector (Term.type_of_term expr1) ||
-                Type.is_ubitvector (Term.type_of_term expr1)) then 
+    | _ -> (if Type.is_ubitvector (Term.type_of_term expr1) then 
               Term.mk_bvurem [expr1; expr2]
+            else if Type.is_bitvector (Term.type_of_term expr1) then
+              Term.mk_bvsrem [expr1; expr2]
             else 
               Term.mk_mod expr1 expr2)
-
+    
     | exception Invalid_argument _ -> Term.mk_mod expr1 expr2
 
 

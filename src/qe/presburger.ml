@@ -563,6 +563,7 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                | `BVSDIV, _
                | `BVNOT, _
                | `BVUREM, _
+               | `BVSREM, _
                | `BVOR, _
                | `BVLSHR, _
                | `BVASHR, _

@@ -66,6 +66,7 @@
     {- [`BVUDIV] binary: arithmetic integer division}
     {- [`BVSDIV] binary: arithmetic integer signed division}
     {- [`BVUREM] binary: arithmetic remainder}
+    {- [`BVSREM] binary: arithmetic signed remainder}
     {- [`BVSHL] binary: logical shift left}
     {- [`BVLSHR] binary: logical shift right}
     {- [`BVASHR] binary: arithmetic shift right}
@@ -163,6 +164,7 @@ type interpreted_symbol =
   | `BVUDIV               (** Arithmetic integer division (binary) *)
   | `BVSDIV               (** Arithmetic integer signed division (binary) *)
   | `BVUREM               (** Arithmetic remainder (binary) *)
+  | `BVSREM               (** Arithmetic signed remainder (binary) *)
   | `BVSHL                (** Logical shift left (binary) *)
   | `BVLSHR               (** Logical shift right (binary) *)
   | `BVASHR               (** Arithmetic shift right (binary) *)

@@ -577,6 +577,7 @@ let smtlib_string_symbol_list =
    ("bvudiv", Symbol.mk_symbol `BVUDIV);
    ("bvsdiv", Symbol.mk_symbol `BVSDIV);
    ("bvurem", Symbol.mk_symbol `BVUREM);
+   ("bvsrem", Symbol.mk_symbol `BVSREM);
    ("bvshl", Symbol.mk_symbol `BVSHL);
    ("bvlshr", Symbol.mk_symbol `BVLSHR);
    ("bvashr", Symbol.mk_symbol `BVASHR);
@@ -681,6 +682,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVUDIV -> Format.pp_print_string ppf "bvudiv"
   | `BVSDIV -> Format.pp_print_string ppf "bvsdiv"
   | `BVUREM -> Format.pp_print_string ppf "bvurem"
+  | `BVSREM -> Format.pp_print_string ppf "bvsrem"
   | `BVSHL -> Format.pp_print_string ppf "bvshl"
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
   | `BVASHR -> Format.pp_print_string ppf "bvashr"

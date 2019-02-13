@@ -722,6 +722,7 @@ let rec type_of_term t = match T.destruct t with
         | `BVUDIV
         | `BVSDIV
         | `BVUREM
+        | `BVSREM
         | `BVSHL
         | `BVLSHR 
         | `BVASHR ->
@@ -1218,6 +1219,12 @@ let mk_bvurem = function
   | [] -> invalid_arg "Term.mk_bvurem"
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVUREM a
+
+(* Hashcons a bitvector signed modulus *)
+let mk_bvsrem = function
+  | [] -> invalid_arg "Term.mk_bvsrem"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSREM a
 
 (* Hashcons a bitvector conjunction *)
 let mk_bvand = function
