@@ -176,6 +176,8 @@ let merge_branches transitions =
 %token BVAND
 %token BVOR
 %token BVNOT
+%token LSH
+%token RSH
 
 (* Tokens for clocks *)
 %token WHEN
@@ -207,6 +209,7 @@ let merge_branches transitions =
 %token EOF
     
 (* Priorities and associativity of operators, lowest first *)
+%nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64
 %nonassoc WHEN CURRENT 
 %left PIPE
 %nonassoc ELSE
@@ -219,7 +222,7 @@ let merge_branches transitions =
 %left PLUS MINUS
 %left MULT INTDIV MOD DIV
 %left BVAND BVOR
-%nonassoc LPARAMBRACKET RPARAMBRACKET
+%nonassoc LSH RSH
 %nonassoc PRE 
 %nonassoc INT REAL 
 %nonassoc NOT
@@ -878,8 +881,8 @@ pexpr(Q):
   | BVNOT; e = pexpr(Q) {A.BVNot (mk_pos $startpos, e) }
   | e1 = pexpr(Q); BVAND; e2 = pexpr(Q) { A.BVAnd (mk_pos $startpos, e1, e2) }
   | e1 = pexpr(Q); BVOR; e2 = pexpr(Q) { A.BVOr (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); LPARAMBRACKET; e2 = pexpr(Q) { A.BVShiftL (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); RPARAMBRACKET; e2 = pexpr(Q) { A.BVShiftR (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); LSH; e2 = pexpr(Q) { A.BVShiftL (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); RSH; e2 = pexpr(Q) { A.BVShiftR (mk_pos $startpos, e1, e2) }
 
   (* A quantified expression *)
   | FORALL; q = Q;
