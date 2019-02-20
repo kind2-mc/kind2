@@ -23,7 +23,7 @@ html: target/target.md
 	cat ./rsc/options | \
 	sed 's:^\([a-z]\):-V \1:; s:##version##:$(version):g'| \
 	tr '\n' ' ' |  xargs \
-	pandoc --toc -S -H ./rsc/github-pandoc.css.include ./target/target.md \
+	pandoc --toc -smart -H ./rsc/github-pandoc.css.include ./target/target.md \
 	-s -o ./target/doc.html
 
 update:

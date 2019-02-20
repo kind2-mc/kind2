@@ -92,8 +92,8 @@ test: all
 
 doc:
 	make -C $(LOCAL_USRDOCDIR)
-	cp $(LOCAL_USRDOCDIR)/doc.pdf $(LOCAL_ALLDOCDIR)/user_documentation.pdf
-	cp $(LOCAL_USRDOCDIR)/doc.html $(LOCAL_ALLDOCDIR)/user_documentation.html
+	cp $(LOCAL_USRDOCDIR)/target/doc.pdf $(LOCAL_ALLDOCDIR)/user_documentation.pdf
+	cp $(LOCAL_USRDOCDIR)/target/doc.html $(LOCAL_ALLDOCDIR)/user_documentation.html
 
 doc-sync:
 	make -C $(LOCAL_USRDOCDIR) update
