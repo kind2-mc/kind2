@@ -139,6 +139,8 @@ val mk_dec : Decimal.t -> t
 val mk_dec_of_float : float -> t
 *)
 
+
+(**@author Arjun Viswanathan*)
 (** Create a constant unsigned bitvector *)
 val mk_ubv : Bitvector.t -> t
 
@@ -210,6 +212,7 @@ val mk_bvsgt : t list -> t
 
 (** Create a bitvector greater-than=or-eqaul-to comparison *)
 val mk_bvsge : t list -> t
+
 
 (** Create an integer or real difference *)
 val mk_minus : t list -> t

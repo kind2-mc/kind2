@@ -42,7 +42,9 @@ val bvsignext : int -> t -> t
 val bvconcat : t -> t -> t
 
 
-(** {Numeral to Unsigned Bitvector} *)
+(** {Numeral to Unsigned Bitvector} 
+@author Arjun Viswanathan *)
+
 (** Return size 8 unsigned bitvector converted from a numeral *)
 val num_to_ubv8 : Numeral.t -> t
 
@@ -56,7 +58,9 @@ val num_to_ubv32 : Numeral.t -> t
 val num_to_ubv64 : Numeral.t -> t
 
 
-(** {Usigned Bitvector to Numeral} *)
+(** {Usigned Bitvector to Numeral} 
+@author Arjun Viswanathan*)
+
 (** Return numeral converted from a size 8 unsigned bitvector *)
 val ubv8_to_num : t -> Numeral.t
 
@@ -70,7 +74,9 @@ val ubv32_to_num : t -> Numeral.t
 val ubv64_to_num : t -> Numeral.t
 
 
-(** {Numeral to Signed Bitvector} *)
+(** {Numeral to Signed Bitvector} 
+@author Arjun Viswanathan*)
+
 (** Return size 8 signed bitvector converted from a numeral *)
 val num_to_bv8 : Numeral.t -> t
 
@@ -84,7 +90,9 @@ val num_to_bv32 : Numeral.t -> t
 val num_to_bv64 : Numeral.t -> t
 
 
-(** {Signed Bitvector to Numeral} *)
+(** {Signed Bitvector to Numeral} 
+@author Arjun Viswanathan*)
+
 (** Return numeral converted from a size 8 signed bitvector *)
 val bv8_to_num : t -> Numeral.t
 
@@ -98,7 +106,7 @@ val bv32_to_num : t -> Numeral.t
 val bv64_to_num : t -> Numeral.t
 
 
-(*
+(* @author Arjun Viswanathan
 (** Return size 8 unsigned bitvector converted from an int *)
 val int_to_ubv8 : int -> t
 
@@ -152,7 +160,9 @@ val bv64_to_int : t -> int
 *)
 
 
-(** {Arithmetic Operations} *)
+(** {Arithmetic Operations} 
+@author Arjun Viswanathan*)
+
 (** Function that adds two signed bitvectors *)
 val sbv_add : t -> t -> t
 
@@ -184,7 +194,9 @@ val sbv_sub : t -> t -> t
 val sbv_neg : t -> t
 
 
-(** {Logical Operations} *)
+(** {Logical Operations} 
+@author Arjun Viswanathan*)
+
 (** Function that computes bitwise conjunction *)
 val bv_and : t -> t -> t
 
@@ -195,7 +207,9 @@ val bv_or : t -> t -> t
 val bv_not : t -> t
 
 
-(** {Comparison Operators} *)
+(** {Comparison Operators} 
+@author Arjun Viswanathan*)
+
 (** Equality *)
 val equal : t -> t -> bool
 
@@ -224,7 +238,9 @@ val lte : t -> t -> bool
 val gte : t -> t -> bool
 
 
-(** {Shift Operators} *)
+(** {Shift Operators} 
+@author Arjun Viswanathan*)
+
 (** Shift bitvector left by n times, 
     where n is specified as an unsigned BV *)
 val bv_lsh : t -> t -> t
@@ -238,7 +254,9 @@ val bv_rsh : t -> t -> t
 val bv_arsh : t -> t -> t
 
 
-(** {Unused} *)
+(** {Unused} 
+@author Arjun Viswanathan*)
+
 (** Function that inputs a list of bitvectors and returns an Some n
    if all bitvectors have size n, where n = 8,16,32,64, and None otherwise 
    Special case: it returns None for the input of an empty list of BVs.

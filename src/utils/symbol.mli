@@ -102,7 +102,7 @@
     [`DECIMAL f] and [`SYM (s, t)] symbols need to be hashconsed for
     physical equality.
 
-    @author Christoph Sticksel *)
+    @author Christoph Sticksel, Arjun Viswanathan *)
 
 
 (** {1 Types and hash-consing} *)
@@ -153,7 +153,7 @@ type interpreted_symbol =
 
   | `DIVISIBLE of Numeral.t
                           (** Divisible by [n] (unary) *)
-
+(**@author Arjun Viswanathan*)
   | `BVNOT                (** Bit-wise negation (unary) *)
   | `BVNEG                (** Arithmetic negation (unary) *)
   | `BVAND                (** Bit-wise conjunction (binary) *)
@@ -304,6 +304,8 @@ val is_numeral : t -> bool
 (** Return true if the symbol is a decimal *)
 val is_decimal : t -> bool
 
+
+(**@author Arjun Viswanathan*)
 (** Return true if the symbol is a bitvector *)
 val is_bitvector : t -> bool
 
@@ -345,6 +347,7 @@ val is_to_uint32 : t -> bool
 
 (** Return true if the symbol is a touint64 *)
 val is_to_uint64 : t -> bool
+
 
 (** Return true if the symbol is select from array  *)
 val is_select : t -> bool
