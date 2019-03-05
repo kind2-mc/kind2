@@ -2301,7 +2301,9 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [UBV a; UBV b] -> Bool (Term.mk_bool (Bitvector.ult
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
-              | _ -> assert false)
+              | _ -> relation_lt
+                      (simplify_term_node default_of_var uf_defs model) 
+                      args)
 
           | `BVULE -> 
             (match args with
@@ -2309,15 +2311,19 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [UBV a; UBV b] -> Bool (Term.mk_bool (Bitvector.ulte
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
-              | _ -> assert false)
+              | _ -> relation_leq
+                      (simplify_term_node default_of_var uf_defs model) 
+                      args)
 
-          | `BVUGT -> 
+          | `BVUGT ->             
             (match args with
               | [] -> assert false
               | [UBV a; UBV b] -> Bool (Term.mk_bool (Bitvector.ugt
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
-              | _ -> assert false)
+              | _ -> relation_gt
+                      (simplify_term_node default_of_var uf_defs model) 
+                      args)
 
           | `BVUGE -> 
             (match args with
@@ -2325,7 +2331,9 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [UBV a; UBV b] -> Bool (Term.mk_bool (Bitvector.ugte
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
-              | _ -> assert false)
+              | _ -> relation_geq
+                      (simplify_term_node default_of_var uf_defs model) 
+                      args)
 
           | `BVSLT -> 
             (match args with
@@ -2333,7 +2341,9 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV a; BV b] -> Bool (Term.mk_bool (Bitvector.lt
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
-              | _ -> assert false)
+              | _ -> relation_lt
+                      (simplify_term_node default_of_var uf_defs model) 
+                      args)
 
           | `BVSLE -> 
             (match args with
@@ -2341,7 +2351,9 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV a; BV b] -> Bool (Term.mk_bool (Bitvector.lte
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
-              | _ -> assert false)
+              | _ -> relation_leq
+                      (simplify_term_node default_of_var uf_defs model) 
+                      args)
 
           | `BVSGT -> 
             (match args with
@@ -2349,7 +2361,9 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV a; BV b] -> Bool (Term.mk_bool (Bitvector.gt
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
-              | _ -> assert false)
+              | _ -> relation_gt
+                      (simplify_term_node default_of_var uf_defs model) 
+                      args)
 
           | `BVSGE -> 
             (match args with
@@ -2357,7 +2371,9 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV a; BV b] -> Bool (Term.mk_bool (Bitvector.gte
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
-              | _ -> assert false)
+              | _ -> relation_geq
+                      (simplify_term_node default_of_var uf_defs model) 
+                      args)
 
           | `BVNEG -> 
             (match args with
