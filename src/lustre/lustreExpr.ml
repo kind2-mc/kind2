@@ -3023,7 +3023,7 @@ let eval_gt expr1 expr2 =
         else 
           Term.mk_gt [expr1; expr2])
 
-    | exception Invalid_argument _ -> Format.printf "lustreExpr.loc2 = exception case of eval_gt\n";Term.mk_gt [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_gt [expr1; expr2]
 
 
 (* Type of inequality

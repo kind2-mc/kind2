@@ -1102,7 +1102,6 @@ let atom_of_term t =
   if Type.is_int tt || Type.is_int_range tt || Type.is_enum tt then
 
     (* Integer polynomial for a variable is (0 + 1 * x) *)
-    (Format.printf "%a@." Term.pp_print_term t;
     Num (Numeral.zero, [Numeral.one, [t]]))
 
   (* Term is of type real *)
