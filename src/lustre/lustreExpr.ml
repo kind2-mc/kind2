@@ -3009,13 +3009,21 @@ let eval_gt expr1 expr2 =
     | _ ->
         (* Bitvector comparisons are simplified in the simplify module *) 
         (if (Type.is_ubitvector (Term.type_of_term expr1)) then 
+          (*if (Bitvector.ugt (Term.bitvector_of_term expr1) (Term.bitvector_of_term expr2)) then
+            Term.t_true
+          else
+            Term.t_false*)
           Term.mk_bvugt [expr1; expr2]
         else if (Type.is_bitvector (Term.type_of_term expr1)) then
+          (*if (Bitvector.gt (Term.bitvector_of_term expr1) (Term.bitvector_of_term expr2)) then
+            Term.t_true
+           else 
+            Term.t_false*)
           Term.mk_bvsgt [expr1; expr2]
         else 
           Term.mk_gt [expr1; expr2])
 
-    | exception Invalid_argument _ -> Term.mk_gt [expr1; expr2]
+    | exception Invalid_argument _ -> Format.printf "lustreExpr.loc2 = exception case of eval_gt\n";Term.mk_gt [expr1; expr2]
 
 
 (* Type of inequality

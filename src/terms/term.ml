@@ -1184,6 +1184,7 @@ let mk_ubv b = mk_const_of_symbol_node (`UBV b)
 (* Hashcons a bitvector *)
 let mk_bv b = mk_const_of_symbol_node (`BV b)
 
+
 (* Hashcons a signed bitvector addition *)
 let mk_bvadd = function
   | [] -> invalid_arg "Term.mk_bvadd"

@@ -955,7 +955,7 @@ let relation
     | [_] -> assert false
 
     (* Relation between integers *)
-    | Num _ :: _ as args -> 
+    | Num _ :: _ as args ->
 
       (* Compute relation between constant integer polynomials *)
       let irel p q = 
@@ -1102,7 +1102,8 @@ let atom_of_term t =
   if Type.is_int tt || Type.is_int_range tt || Type.is_enum tt then
 
     (* Integer polynomial for a variable is (0 + 1 * x) *)
-    Num (Numeral.zero, [Numeral.one, [t]])
+    (Format.printf "%a@." Term.pp_print_term t;
+    Num (Numeral.zero, [Numeral.one, [t]]))
 
   (* Term is of type real *)
   else if Type.is_real tt then
@@ -1246,10 +1247,20 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
         
         (* Free variable with assignment in model *)
         | Model.Term v' ->
-
-          Term.eval_t
-            (simplify_term_node default_of_var uf_defs model)
-            v'
+          (* This check is necessary because the SMT solver doesn't 
+             differentiate between signed and unsigned BV types. We 
+             do it here before simplifying the model *)
+          let v'' = 
+            (if (Type.is_bitvector (Var.type_of_var v)) then
+              Term.mk_bv (Term.bitvector_of_term v')
+             else if (Type.is_ubitvector (Var.type_of_var v)) then
+              Term.mk_ubv (Term.bitvector_of_term v')
+             else
+              v')
+          in
+            Term.eval_t
+              (simplify_term_node default_of_var uf_defs model)
+              v''
 
         (* Defer evaluation of lambda abstraction or arrays *)
         | Model.Lambda _ | Model.Map _ -> atom_of_term (Term.mk_var v)
@@ -1301,7 +1312,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
           (* Signed bitvector *)
           | `BV b -> 
-          
+            
             let tbv = Term.mk_bv b in
               BV tbv
 
@@ -1766,7 +1777,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               (simplify_term_node default_of_var uf_defs model) 
               args
 
-          | `GT -> 
+          | `GT ->
 
             relation_gt
               (simplify_term_node default_of_var uf_defs model) 
@@ -2315,7 +2326,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                       (simplify_term_node default_of_var uf_defs model) 
                       args)
 
-          | `BVUGT ->             
+          | `BVUGT ->           
             (match args with
               | [] -> assert false
               | [UBV a; UBV b] -> Bool (Term.mk_bool (Bitvector.ugt
@@ -2355,7 +2366,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                       (simplify_term_node default_of_var uf_defs model) 
                       args)
 
-          | `BVSGT -> 
+          | `BVSGT ->
             (match args with
               | [] -> assert false
               | [BV a; BV b] -> Bool (Term.mk_bool (Bitvector.gt
@@ -2471,7 +2482,7 @@ let simplify_term_model ?default_of_var uf_defs model term =
   in
 
   (* Simplify term to a normal form and convert back to a term *)
-  let res = 
+  let res =
     term_of_nf
       (Term.eval_t
          (simplify_term_node default_of_var' uf_defs model) 

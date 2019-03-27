@@ -231,6 +231,64 @@ let print_type = pp_print_type Format.std_formatter
 let string_of_type t = string_of_t pp_print_type t
 
 
+(* Pretty-printing for debugging - these functions differentiate
+   signed and unsigned bitvectors *)
+let rec pp_print_type_node_debug ppf = function 
+
+  | Bool -> Format.pp_print_string ppf "Bool"
+
+  | Int -> Format.pp_print_string ppf "Int"
+
+  | IntRange (i, j, Range) -> 
+
+    Format.fprintf
+      ppf 
+      "(IntRange %a %a)" 
+      Numeral.pp_print_numeral i 
+      Numeral.pp_print_numeral j
+
+  | IntRange (i, j, Enum) -> 
+
+    Format.fprintf
+      ppf 
+      "(Enum %a %a)" 
+      Numeral.pp_print_numeral i 
+      Numeral.pp_print_numeral j
+
+  | Real -> Format.pp_print_string ppf "Real"
+
+  | UBV i -> 
+
+    Format.fprintf
+      ppf 
+      "(_ UBitVec %d)" 
+      i 
+
+  | BV i -> 
+
+    Format.fprintf
+      ppf 
+      "(_ SBitVec %d)" 
+      i
+
+  | Array (s, t) -> 
+    Format.fprintf
+      ppf 
+      "(Array %a %a)"
+      pp_print_type s 
+      pp_print_type t
+
+  | Abstr s -> Format.pp_print_string ppf s
+
+(* Pretty-print a hashconsed variable *)
+and pp_print_type_debug ppf { Hashcons.node = t } = pp_print_type_node_debug ppf t
+
+let print_type_debug = pp_print_type_debug Format.std_formatter
+
+(* Return a string representation of a type *)
+let string_of_type_debug t = string_of_t pp_print_type_debug t
+
+
 (* ********************************************************************* *)
 (* Constructors                                                          *)
 (* ********************************************************************* *)
