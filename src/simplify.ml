@@ -1102,7 +1102,7 @@ let atom_of_term t =
   if Type.is_int tt || Type.is_int_range tt || Type.is_enum tt then
 
     (* Integer polynomial for a variable is (0 + 1 * x) *)
-    Num (Numeral.zero, [Numeral.one, [t]]))
+    Num (Numeral.zero, [Numeral.one, [t]])
 
   (* Term is of type real *)
   else if Type.is_real tt then
