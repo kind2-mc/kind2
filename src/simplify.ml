@@ -1119,6 +1119,16 @@ let atom_of_term t =
   else if Type.is_array tt then
 
     Array t
+
+  (* Term is of type signed bitvector *)
+  else if Type.is_bitvector tt then
+
+    BV t
+
+  (* Term is of type unsigned bitvector *)
+  else if Type.is_ubitvector tt then
+
+    UBV t
     
     (* Term is of some other type  *)
   else (
