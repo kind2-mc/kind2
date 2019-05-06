@@ -461,6 +461,7 @@ let add_expr_for_indexed_ident
     (* Get trie for expression *)
     let t = IT.find (List.hd ident_expr_map) ident in
 
+    (* Disable temporarily this check because it is very restrictive
     if 
 
       (* Fail if trie for the idnetifier in the current scope already
@@ -479,7 +480,7 @@ let add_expr_for_indexed_ident
     then
       raise (Invalid_argument "add_expr_for_ident")    
 
-    else
+    else*)
 
       (* Add expression for index to trie *)
       let t' = D.add index expr t in
