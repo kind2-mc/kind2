@@ -358,6 +358,9 @@ val is_divisible : t -> bool
 (** Return true if the symbol is [`TRUE] or [`FALSE] *)
 val is_bool : t -> bool
 
+(** Return true if the symbol is [`ITE] *)
+val is_ite : t -> bool
+
 (** Return the numeral in a [`NUMERAL _] symbol *)
 val numeral_of_symbol : t -> Numeral.t 
 

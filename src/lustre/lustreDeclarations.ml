@@ -1308,7 +1308,11 @@ and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
     |> C.close_expr pos
   in
   (* Check the expression if asked to. *)
-  ( match check with
+  (* Disable temporarily this check because it is very restrictive:
+     only if the final streams depend on a current output value, it should give an error
+     (an output stream passed as an argument in a node call is not an error if only the 
+     previous value of the stream is used)
+    ( match check with
     | None -> ()
     | Some desc -> (
       match contract_check_no_output ctx pos expr with
@@ -1344,7 +1348,7 @@ and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
               ) svars suff
         )
     )
-  ) ;
+  ) ;*)
   (* Define expression with a state variable *)
   let (svar, _), ctx = C.mk_local_for_expr ~is_ghost:true pos ctx expr in
   (* Add state variable to accumulator, continue with possibly modified

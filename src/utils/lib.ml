@@ -178,6 +178,16 @@ let chain_list = function
     List.rev (fst (List.fold_left chain_list ([], h) tl))
 
 
+(* [chain_list_p \[e1; e2; ...\]] is [\[(e1, e2); (e2, e3); ... \]] *)
+let chain_list_p = function
+
+  | []
+  | _ :: [] -> invalid_arg "chain_list_p"
+
+  | h :: tl ->
+
+    let rec chain_list' (accum, last) curr = ((last, curr) :: accum, curr) in
+    List.rev (fst (List.fold_left chain_list' ([], h) tl))
 
 (* Return a list containing all values in the first list that are not
     in the second list *)

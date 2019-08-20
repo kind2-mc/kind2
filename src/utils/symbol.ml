@@ -624,6 +624,11 @@ let is_uf = function
   | { Hashcons.node = `UF _ } -> true 
   | _ -> false
 
+(* Return true if the symbol is [`ITE] *)
+let is_ite = function
+  | { Hashcons.node = `ITE } -> true
+  | _ -> false
+
 (* Return the uninterpreted symbol of a symbol *)
 let uf_of_symbol = function 
   | { Hashcons.node = `UF u } -> u

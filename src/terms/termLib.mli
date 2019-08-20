@@ -140,6 +140,8 @@ module Signals: sig
   val catch_break: bool -> unit
 
 end
+
+val add_quantifiers : logic -> logic
  
 (* 
    Local Variables:

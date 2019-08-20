@@ -270,10 +270,6 @@ let keyword_table = mk_hashtbl [
   (* Check *)
   "check", CHECK ;
 
-  (* Annotations. *)
-  "PROPERTY", PROPERTY ;
-  "MAIN", MAIN ;
-  
   (* Contract related things. *)
   "contract", CONTRACT ;
   "import", IMPORTCONTRACT ;
@@ -373,19 +369,23 @@ rule token = parse
   (* |===| Annotations. *)
 
   (* Inline. *)
-  |"--%" { PERCENTANNOT }
-  |"--!" { BANGANNOT }
+  |"--%PROPERTY" { PROPERTY_ANNOT }
+  |"--%MAIN" { MAIN_P_ANNOT }
+  |"--!PROPERTY" { PROPERTY_ANNOT }
+  |"--!MAIN" { MAIN_B_ANNOT }
 
   (* Parenthesis star (PS) block annotations. *)
-  | "(*" ('%'|'!') { PSBLOCKSTART }
-  | "(*@" { PSATBLOCK }
+  | "(*" ('%'|'!') "MAIN" { MAIN_PSBLOCKSTART }
+  | "(*" ('%'|'!') "PROPERTY" { PROPERTY_PSBLOCKSTART }
+  | "(*@contract" { CONTRACT_PSATBLOCK }
 
   (* End of parenthesis star (PS). *)
   | "*)" { PSBLOCKEND }
 
   (* Slash star (SS) block annotations. *)
-  | "/*" ('%'|'!') { SSBLOCKSTART }
-  | "/*@" { SSATBLOCK }
+  | "/*" ('%'|'!') "MAIN" { MAIN_SSBLOCKSTART }
+  | "/*" ('%'|'!') "PROPERTY" { PROPERTY_SSBLOCKSTART }
+  | "/*@contract" { CONTRACT_SSATBLOCK }
 
   (* End of slash star (SS). *)
   | "*/" { SSBLOCKEND }

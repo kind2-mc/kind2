@@ -44,7 +44,6 @@ let string_of_logic l =
   let open TermLib in
   let open TermLib.FeatureSet in
   match l with
-  | `Inferred l when is_empty l -> "QF_UF"
   | `Inferred l when mem IA l && mem RA l ->
     if mem Q l then "AUFLIRA"
     else "QF_AUFLIRA"

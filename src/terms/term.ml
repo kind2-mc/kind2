@@ -412,6 +412,13 @@ let is_store t = match node_of_term t with
                                  
   | _ -> false
 
+(* Return true if the term is an application of the ite operator *)
+let is_ite t = match node_of_term t with
+
+  (* Top symbol is an ite operator *)
+  | T.Node (s, _) -> Symbol.is_ite s
+
+  | _ -> false
 
 (* Return the indexes of the select operator 
 
