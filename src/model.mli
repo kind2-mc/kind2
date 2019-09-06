@@ -42,6 +42,9 @@ val pp_print_value : ?as_type:Type.t -> Format.formatter -> value -> unit
 (** Pretty-print a value in xml format *)
 val pp_print_value_xml : ?as_type:Type.t -> Format.formatter -> value -> unit
 
+(** Pretty-print a value in json format *)
+val pp_print_value_json : ?as_type:Type.t -> Format.formatter -> value -> unit
+
 (** Pretty-print a model *)
 val pp_print_model : Format.formatter -> t -> unit
 
