@@ -1475,7 +1475,7 @@ let pp_print_stream_value_json ty ppf i show v =
   if show then
     Format.fprintf ppf
       "@,[%d, %a]"
-      i (Model.pp_print_value_xml ~as_type:ty) v
+      i (Model.pp_print_value_json ~as_type:ty) v
 
 
 let pp_print_stream_values_json clock ty ppf l =

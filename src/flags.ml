@@ -2629,7 +2629,7 @@ let solver_dependant_actions () =
     | Some (major_rev, minor_rev) ->
       if major_rev < 4 || (major_rev = 4 && minor_rev < 6) then (
         if Smt.check_sat_assume () then (
-          Log.log L_warn "Detected an old version of Z3 (< 4.6.0): disabling check_sat_assume";
+          Log.log L_warn "Detected Z3 4.5.x or older: disabling check_sat_assume";
           Smt.set_check_sat_assume false
         )
       )
@@ -2661,7 +2661,7 @@ let solver_dependant_actions () =
           else actions
         in
         if actions <> [] then (
-          Log.log L_warn "Detected an old version of Yices 2 (< 2.6.0): %a"
+          Log.log L_warn "Detected Yices 2.5.x or older: %a"
             (pp_print_list Format.pp_print_string ",@ ") actions
         )
       )
@@ -2673,7 +2673,7 @@ let solver_dependant_actions () =
     | Some (major_rev, minor_rev) ->
       if major_rev < 1 || (major_rev = 1 && minor_rev < 7) then (
         if Smt.check_sat_assume () then (
-          Log.log L_warn "Detected an old version of CVC4 (< 1.7): disabling check_sat_assume";
+          Log.log L_warn "Detected CVC4 1.6 or older: disabling check_sat_assume";
           Smt.set_check_sat_assume false
         )
       )
@@ -2769,10 +2769,9 @@ let parse_argv () =
   (* Finalize the list of enabled module. *)
   Global.finalize_enabled ();
 
-  solver_dependant_actions ();
-
-  post_argv_parse_actions ()
+  post_argv_parse_actions ();
   
+  solver_dependant_actions ()
 
 
 (* Parsing command line arguments at load time *)
