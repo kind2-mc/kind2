@@ -47,3 +47,6 @@ configure
 ocamlczmq/{include,lib}
 ocamlczmq/src/.libs
 ocamlczmq
+
+# Generated documentation
+doc/usr/build/**
