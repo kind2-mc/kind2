@@ -1,4 +1,5 @@
 .PHONY: all clean update build-pdf build-html pdf html
+doc_root := doc\/usr\/source
 
 all: pdf html
 
@@ -14,6 +15,7 @@ update:
 	cat source/travis_links.md >> ../../README.md
 	cat source/title.md >> ../../README.md
 	cat source/home.md >> ../../README.md
+	sed -i -E "s/(\[.*\])(\()(\.)([^)]*\))/\1\2$(doc_root)\4/" ../../README.md
 	cp source/9_other/license.md ../../LICENSE.md
 
 build-pdf: 
