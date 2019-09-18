@@ -1,4 +1,5 @@
 # Kind 2
+
 A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 
 Kind 2 takes as input a Lustre file annotated with properties to be proven
@@ -88,7 +89,14 @@ You can pass arguments to Kind 2 with the `ARGS="..."` syntax. For instance
 
 ## Documentation
 
-### TODO
+You can generate the user documentation by running `make doc`. This will generate a `pdf` document in `doc/` corresponding to the markdown documentation
+available [on the GitHub page](https://github.com/kind2-mc/kind2/blob/develop/doc/usr/content/Home.md#kind-2).
+
+To generate the documentation, you need
+
+* a GNU version of `sed` (`gsed` on OSX), and
+* [Pandoc](http://pandoc.org/).
+
 
 
 ## Docker
