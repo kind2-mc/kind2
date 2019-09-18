@@ -1,44 +1,27 @@
-CONTENT = $(shell find content -iname "*.md")
+.PHONY: all clean update build-pdf build-html pdf html
 
 all: pdf html
 
-preprocess: src/preprocess.ml
-	ocamlc -o preprocess unix.cma src/preprocess.ml
-
-target/target.md: $(CONTENT) preprocess
-	mkdir -p target
-	./preprocess ./target/target.md ./content/Home.md \
-		`find ./content/*/ -iname "*.md" | sort | sed -e 's:\n: :g' -e 's://*:/:g'`
-	find content -iname "*.png" -exec cp -f {} target/. \;
-
-pdf: target/target.md
-	cd target ; \
-	cat ../rsc/options | \
-	sed 's:^\([a-z]\):-V \1:; s:##version##:$(version):g'| \
-	tr '\n' ' ' |  xargs \
-	pandoc --template=./../rsc/template ./target.md \
-	-s -o ./doc.pdf
-
-html: target/target.md
-	cat ./rsc/options | \
-	sed 's:^\([a-z]\):-V \1:; s:##version##:$(version):g'| \
-	tr '\n' ' ' |  xargs \
-	pandoc --toc -smart -H ./rsc/github-pandoc.css.include ./target/target.md \
-	-s -o ./target/doc.html
+clean:
+	rm -f ../../README.md
+	rm -f ../../LICENSE.md
+	rm -f source/about.md
 
 update:
-	rm -f ../../README.md
-	echo "\n\n<!-- DO NOT EDIT, see ./doc/usr/content/{Home.md,TravisLinks} -->\n\n" > \
-		../../README.md
-	cat content/TravisLinks >> ../../README.md
-	cat content/Home.md | \
-		sed -e 's:](\./\([^)]*\)):](doc/usr/content/\1):g' >> \
-		../../README.md
-	cp content/9_other/license.md ../../LICENSE.md
+	cat source/title.md >> source/about.md
+	cat source/home.md >> source/about.md
+	echo "\n<!-- DO NOT EDIT, see ./doc/usr/README.md for details -->\n" > ../../README.md
+	cat source/travis_links.md >> ../../README.md
+	cat source/title.md >> ../../README.md
+	cat source/home.md >> ../../README.md
+	cp source/9_other/license.md ../../LICENSE.md
 
-clean:
-	rm -f src/*.cmi src/*.cmo src/*.cmx src/*.o
-	rm -f preprocess texput.log
-	rm -rf target
+build-pdf: 
+	sphinx-build -b latex source build && cd build && make && cd ..
 
-.PHONY: pdf html
+build-html:
+	sphinx-build -b html source build
+
+pdf: clean update build-pdf
+
+html: clean update build-html
