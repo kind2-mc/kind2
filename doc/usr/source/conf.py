@@ -16,6 +16,8 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+from recommonmark.transform import AutoStructify
+
 # -- Project information -----------------------------------------------------
 
 project = 'Kind2'
@@ -252,3 +254,14 @@ texinfo_documents = [
      author, 'Test', 'One line description of project.',
      'Miscellaneous'),
 ]
+
+# -- RecommonMark setup for URLs  ----------------------------------------------
+github_doc_root = 'https://github.com/kblicharski/kind2/tree/develop/doc/usr/source'
+# github_doc_root = 'https://github.com/kind2-mc/kind2/tree/master/doc/usr/source'
+def setup(app):
+    app.add_config_value('recommonmark_config', {
+            'url_resolver': lambda url: github_doc_root + url,
+            'auto_toc_tree_section': 'Contents',
+            }, True)
+    app.add_transform(AutoStructify)
+
