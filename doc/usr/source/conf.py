@@ -145,7 +145,6 @@ latex_elements = {
         \usepackage{amsmath,amsfonts,amssymb,amsthm}
         \usepackage{titlesec}
 
-
         % Removes "Chapter" text and sets the chapter number
         % on the same line as the title
         %   https://tex.stackexchange.com/a/88240
@@ -170,22 +169,6 @@ latex_elements = {
         \usepackage{setspace}
         \singlespacing
 
-        %%%%%%%%%%% datetime
-        \usepackage{datetime}
-        \newdateformat{MonthYearFormat}{%
-            \monthname[\THEMONTH], \THEYEAR}
-
-%%%        \usepackage[markcase=ignoreupper]{scrlayer-scrpage}
-%%%        \clearpairofpagestyles
-%%%        \automark[section]{section}
-%%%        \ohead{\headmark}
-%%%        \ofoot*{\pagemark}
-
-%%%       \usepackage[automark,markcase=upper,headsepline]{scrlayer-scrpage}
-%%%       \clearpairofpagestyles
-%%%       \ihead{\headmark}
-%%%       \ofoot[\pagemark]{\pagemark}
-
         \usepackage{lastpage}
         \usepackage{fancyhdr}
         \usepackage{blindtext}
@@ -197,8 +180,6 @@ latex_elements = {
             \renewcommand{\headrulewidth}{0pt}
             \renewcommand{\footrulewidth}{0pt}
         }
-        %%\pagestyle{plain}
-        %%% \renewcommand\chapterpagestyle{plain}
         \xpatchcmd{\chapter}{%
             \thispagestyle{plain}%
         }{%
@@ -208,6 +189,17 @@ latex_elements = {
         %%reduce spacing for itemize
         \usepackage{enumitem}
         \setlist{nosep}
+
+        % Needed in order to get the table of contents to appear on the
+        % same page as the title rather than where Sphinx wants to
+        % put it. We define this command to be used in maketitle and
+        % instead prevent Sphinx from generating the TOC by setting the
+        % 'tableofcontents' parameter to be an empty string.
+        %   https://tex.stackexchange.com/a/45863
+        %
+        \makeatletter
+        \newcommand*{\toccontents}{\@starttoc{toc}}
+        \makeatother
     ''',
     'sphinxsetup': \
         'verbatimwithframe=true, \
@@ -226,14 +218,18 @@ latex_elements = {
 
             \sffamily\Large \textbf{Version 1.1.0}
 
-            \vspace{10mm}
+            \vspace{6mm}
             \newdateformat{monthdayyear}{%
                 \monthname[\THEMONTH] \THEDAY, \THEYEAR}
             \monthdayyear\today
 
+            \vspace{6mm}
+            \sffamily\toccontents
+
         \end{titlepage}
         \pagenumbering{arabic}
         ''',
+    'tableofcontents': ''
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
