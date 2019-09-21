@@ -119,7 +119,7 @@ latex_elements = {
     'papersize': 'letterpaper',
     # disable fancychp to remove top-level section header styling
     'fncychap': '',
-    'fontenc': r'\usepackage[T1]{fontenc}',
+    'fontenc': r'\usepackage[T1]{fontenc}', # Default
     'fontpkg': r'\usepackage{lmodern}',
     'figure_align':'htbp',
     # The font size ('10pt', '11pt' or '12pt').
@@ -127,9 +127,15 @@ latex_elements = {
 
     # Additional stuff for the LaTeX preamble.
     'preamble': r'''
+        % Needed for formatting dates appropriately
+        %   https://tex.stackexchange.com/a/212264
+        %
+        \usepackage{datetime}
 
         % Change the default sans serif family in the document
-        % https://tex.stackexchange.com/a/94360
+        % so that chapter titles can use lmodern
+        %   https://tex.stackexchange.com/a/94360
+        %
         \renewcommand{\sfdefault}{lmss}
 
         \setcounter{secnumdepth}{2}
@@ -140,8 +146,16 @@ latex_elements = {
         \usepackage{titlesec}
 
 
+        % Removes "Chapter" text and sets the chapter number
+        % on the same line as the title
+        %   https://tex.stackexchange.com/a/88240
+        % 
         \titleformat{\chapter}
-            {\sffamily\bfseries\huge}{\thechapter.}{20pt}{\huge}
+            {\sffamily\bfseries\huge}{\thechapter}{20pt}{\huge}
+
+        % Decreases spacing around the chapter titles
+        %   https://tex.stackexchange.com/a/63393
+        % 
         \titlespacing*{\chapter}{0pt}{-40pt}{20pt}
 
         %%% reduce spaces for Table of contents, figures and tables
@@ -200,7 +214,26 @@ latex_elements = {
         TitleColor={rgb}{0,0,0}, \
         InnerLinkColor={rgb}{0,0,1}, \
         OuterLinkColor={rgb}{0,0,1}',
-    'extraclassoptions': 'openany'
+    'extraclassoptions': 'openany,oneside,notitlepage',
+    'maketitle': r'''
+        \pagenumbering{roman}
+        \begin{titlepage}
+            \centering
+
+            \vspace*{10mm}
+
+            \sffamily\Large \textbf{\Huge {Kind 2 User Documentation}}
+
+            \sffamily\Large \textbf{Version 1.1.0}
+
+            \vspace{10mm}
+            \newdateformat{monthdayyear}{%
+                \monthname[\THEMONTH] \THEDAY, \THEYEAR}
+            \monthdayyear\today
+
+        \end{titlepage}
+        \pagenumbering{arabic}
+        ''',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
@@ -211,7 +244,8 @@ latex_documents = [
 
 latex_docclass = {
     'howto': 'scrartcl',
-    # 'manual': 'scrreprt'
+    # This causes the header and footers to change, unfortunately
+    # 'manual': 'scrbook'
    'manual': 'report'
 }
 
