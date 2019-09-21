@@ -87,8 +87,6 @@ You can pass arguments to Kind 2 with the `ARGS="..."` syntax. For instance
 
 ## Documentation
 
-### TODO
-
 
 ## Docker
 
