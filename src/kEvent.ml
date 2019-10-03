@@ -585,7 +585,7 @@ let prop_attributes_xml trans_sys prop_name =
   let rec get_attributes = function
     | Property.PropAnnot pos ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
-        Format.asprintf " line=\"%d\" column=\"%d\"%a"
+        Format.asprintf " line=\"%d\" column=\"%d\" source=\"PropAnnot\"%a"
         lnum cnum pp_print_fname fname
     | Property.Generated _ -> ""
     | Property.Candidate None -> ""
@@ -594,19 +594,19 @@ let prop_attributes_xml trans_sys prop_name =
         get_attributes prop.Property.prop_source
     | Property.Assumption (pos, scope) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
-        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\"%a"
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Assumption\"%a"
           lnum cnum (String.concat "." scope) pp_print_fname fname
     | Property.Guarantee (pos, scope) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
-        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\"%a"
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Guarantee\"%a"
           lnum cnum (String.concat "." scope) pp_print_fname fname
     | Property.GuaranteeOneModeActive (pos, scope) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
-        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\""
-          lnum cnum (String.concat "." scope)
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"OneModeActive\"%a"
+          lnum cnum (String.concat "." scope) pp_print_fname fname
     | Property.GuaranteeModeImplication (pos, scope) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
-        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\"%a"
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Ensure\"%a"
           lnum cnum (String.concat "." scope) pp_print_fname fname
   in
 
@@ -869,20 +869,23 @@ let pp_print_list_attrib pp ppf = function
 let prop_attributes_json ppf trans_sys prop_name =
   let prop = TransSys.property_of_name trans_sys prop_name in
 
+  let print_attributes pos scope source =
+    let _, lnum, cnum = file_row_col_of_pos pos in
+    Format.fprintf ppf
+      "\"scope\" : \"%s\",@,\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"%s\",@,"
+      (String.concat "." scope) lnum cnum source
+  in
+
   let rec get_attributes = function
     | Property.PropAnnot pos ->
         let _, lnum, cnum = file_row_col_of_pos pos in
-        Format.fprintf ppf "\"line\" : %d,@,\"column\" : %d,@," lnum cnum
+        Format.fprintf ppf "\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"PropAnnot\",@," lnum cnum
     | Property.Instantiated (scope,prop) ->
         get_attributes prop.Property.prop_source
-    | Property.Assumption (pos, scope)
-    | Property.Guarantee (pos, scope)
-    | Property.GuaranteeOneModeActive (pos, scope)
-    | Property.GuaranteeModeImplication (pos, scope) ->
-        let _, lnum, cnum = file_row_col_of_pos pos in
-        Format.fprintf ppf
-          "\"scope\" : \"%s\",@,\"line\" : %d,@,\"column\" : %d,@,"
-          (String.concat "." scope) lnum cnum
+    | Property.Assumption (pos, scope) -> print_attributes pos scope "Assumption"
+    | Property.Guarantee (pos, scope) -> print_attributes pos scope "Guarantee"
+    | Property.GuaranteeOneModeActive (pos, scope) -> print_attributes pos scope "OneModeActive"
+    | Property.GuaranteeModeImplication (pos, scope) -> print_attributes pos scope "Ensure"
     | Property.Generated _
     | Property.Candidate None -> ()
     | Property.Candidate (Some source) -> get_attributes source
