@@ -83,6 +83,7 @@ pygments_style = 'sphinx'
 #
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = ['_themes',]
+html_css_files = ['css/styles.css',]
 
 # Allow us to modify css as we please
 # https://docs.readthedocs.io/en/latest/guides/adding-custom-css.html#overriding-or-replacing-a-theme-s-stylesheet
