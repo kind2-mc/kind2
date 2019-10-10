@@ -6,17 +6,17 @@ Kind 2
 A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 
 Kind 2 takes as input a Lustre file annotated with properties to be proven
-invariant (see :ref:`2_input/1_lustre`), and
+invariant (see :ref:`Lustre Input <2_input/1_lustre>`), and
 outputs which of the properties are true for all inputs, as well as an input
 sequence for those properties that are falsified. To ease processing by front-end tools,
-Kind 2 can output its results in XML format (see :ref:`3_output/2_xml`).
+Kind 2 can output its results in XML format (see :ref:`XML Output <3_output/2_xml>`).
 
 By default Kind 2 runs a process for bounded model checking (BMC), a process
 for k-induction, two processes for invariant generation, and a process for IC3
 in parallel on all properties simultaneously. It incrementally outputs
 counterexamples to properties as well as properties proved invariant.
 
-The following command-line options control its operation (run ``kind2 --help`` for a full list). See :ref:`1_techniques/1_techniques` for configuration examples and more details on each technique.
+The following command-line options control its operation (run ``kind2 --help`` for a full list). See :ref:`Techniques <1_techniques/1_techniques>` for configuration examples and more details on each technique.
 
 ``--enable {BMC|IND|INVGEN|INVGENOS|IC3}`` Select model checking engines
 
@@ -120,7 +120,7 @@ In order to generate the documentation, you need:
 
 For HTML documentation, you additionally need:
 
-* `sphinx-rtd-theme <https://github.com/readthedocs/sphinx_rtd_theme#install    ation>`_
+* `sphinx-rtd-theme <https://github.com/readthedocs/sphinx_rtd_theme#installation>`_
 
 For PDF documentation, you additionally need:
 
