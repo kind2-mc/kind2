@@ -1,5 +1,8 @@
 .. DO NOT EDIT, see ./doc/usr/README.rst for details
 
+
+Kind 2
+======
 ``develop``: 
 .. image:: https://travis-ci.org/kind2-mc/kind2.svg?branch=develop
     :target: https://travis-ci.org/kind2-mc/kind2
@@ -10,9 +13,6 @@
 .. image:: https://travis-ci.org/kind2-mc/kind2.svg?branch=master
     :target: https://travis-ci.org/kind2-mc/kind2
     :alt: Master Build Status
-
-Kind 2
-======
 
 A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 

@@ -14,8 +14,8 @@ update:
 	cat source/title.rst >> source/about.rst
 	cat source/home.rst >> source/about.rst
 	echo ".. DO NOT EDIT, see ./doc/usr/README.rst for details\n" > ../../README.rst
-	cat source/travis_links.rst >> ../../README.rst
 	cat source/title.rst >> ../../README.rst
+	cat source/travis_links.rst >> ../../README.rst
 	cat source/home.rst >> ../../README.rst
 	cp source/9_other/license.rst ../../LICENSE.rst
 
