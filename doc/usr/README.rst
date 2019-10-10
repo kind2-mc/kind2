@@ -12,7 +12,7 @@ In order to generate the documentation, you need:
 
 For HTML documentation, you additionally need:
 
-* `sphinx-rtd-theme <https://github.com/readthedocs/sphinx_rtd_theme#install    ation>`_
+* `sphinx-rtd-theme <https://github.com/readthedocs/sphinx_rtd_theme#installation>`_
 
 For PDF documentation, you additionally need:
 
