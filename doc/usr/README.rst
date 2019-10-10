@@ -9,14 +9,23 @@ In order to generate the documentation, you need:
 
 * A GNU version of ``sed`` (``gsed`` on OSX)
 * `Sphinx <https://www.sphinx-doc.org/en/master/usage/installation.html>`_
+
+For HTML documentation, you additionally need:
+
+* `sphinx-rtd-theme <https://github.com/readthedocs/sphinx_rtd_theme#install    ation>`_
+
+For PDF documentation, you additionally need:
+
 * `latexmk <https://packages.ubuntu.com/xenial/latexmk>`_
 * `XeTeX <https://packages.debian.org/sid/texlive-xetex>`_
+* `lmodern <https://packages.debian.org/sid/lmodern>`_
 
-If you're on Ubuntu, you can simply run the following:
+If you're on Debian/Ubuntu, you can simply run the following:
 
 .. code-block:: bash
 
-    sudo apt-get install latexmk texlive-xetex python3-sphinx
+    sudo apt-get install python3-sphinx latexmk texlive-xetex lmodern
+    pip install sphinx-rtd-theme
 
 Generating Documentation
 ------------------------
@@ -28,8 +37,8 @@ When documentation is generated, the ``README`` and ``LICENSE`` in the root of t
 project are automatically replaced. If you want to modify those files, you should
 edit the corresponding files in the ``source/`` directory.
 
-The final step in generating the root ``README`` is a ``sed`` invocation to convert
-all internal references into explicit ones. This is needed in order for RST to
+When ``make`` is called, ``sed`` is invoked to convert
+all internal references into explicit ones. This is needed in order for reST to
 render on Github because the ``:ref:`` directive is not supported.
 
 Important Files

@@ -117,6 +117,13 @@ In order to generate the documentation, you need:
 
 * A GNU version of ``sed`` (``gsed`` on OSX)
 * `Sphinx <https://www.sphinx-doc.org/en/master/usage/installation.html>`_
+
+For HTML documentation, you additionally need:
+
+* `sphinx-rtd-theme <https://github.com/readthedocs/sphinx_rtd_theme#install    ation>`_
+
+For PDF documentation, you additionally need:
+
 * `latexmk <https://packages.ubuntu.com/xenial/latexmk>`_
 * `XeTeX <https://packages.debian.org/sid/texlive-xetex>`_
 
