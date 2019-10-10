@@ -20,7 +20,7 @@ update:
 	cat source/travis_links.rst >> ../../README.rst
 	cat source/home.rst >> ../../README.rst
 	# Replace internal references with explicit ones to render README on Github
-	sed -E -i 's/:ref:`(.+)`/`\1 <${doc_root}\/\1>`_/g' ../../README.rst
+	sed -E -i 's/:ref:`(.+)`/`\1 <${doc_root}\/\1\.rst>`_/g' ../../README.rst
 	cp source/9_other/license.rst ../../LICENSE.rst
 
 build-pdf: 
