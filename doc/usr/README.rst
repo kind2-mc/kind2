@@ -25,7 +25,7 @@ If you're on Debian/Ubuntu, you can simply run the following:
 .. code-block:: bash
 
     sudo apt-get install python3-sphinx latexmk texlive-xetex lmodern
-    pip install sphinx-rtd-theme
+    pip3 install sphinx-rtd-theme
 
 Generating Documentation
 ------------------------

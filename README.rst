@@ -1,15 +1,17 @@
+.. |develop| image:: https://travis-ci.org/kind2-mc/kind2.svg?branch=develop
+   :target: https://travis-ci.org/kind2-mc/kind2
 
-``develop``:
+.. |master| image:: https://travis-ci.org/kind2-mc/kind2.svg?branch=master
+   :target: https://travis-ci.org/kind2-mc/kind2
 
-.. image:: https://travis-ci.org/kind2-mc/kind2.svg?branch=develop
-    :target: https://travis-ci.org/kind2-mc/kind2
+.. list-table::
 
-``master``:
-
-.. image:: https://travis-ci.org/kind2-mc/kind2.svg?branch=master
-    :target: https://travis-ci.org/kind2-mc/kind2
+   * - master:  |master|
+     - develop: |develop|
 
 .. DO NOT EDIT, see doc/usr/README.rst for details
+
+.. include:: travis_links.rst
 
 Kind 2
 ======
