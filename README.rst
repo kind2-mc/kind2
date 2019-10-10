@@ -1,14 +1,15 @@
 .. DO NOT EDIT, see ./doc/usr/README.rst for details
 
-|develop-badge|_ |master-badge|_
+``develop``: 
+.. image:: https://travis-ci.org/kind2-mc/kind2.svg?branch=develop
+    :target: https://travis-ci.org/kind2-mc/kind2
+    :alt: Develop Build Status
 
-``develop``
-.. |develop-badge| image:: https://travis-ci.org/kind2-mc/kind2.svg?branch=develop
-.. _develop-badge: https://travis-ci.org/kind2-mc/kind2
 
-``master``
-.. |master-badge| image:: https://travis-ci.org/kind2-mc/kind2.svg?branch=master
-.. _master-badge: https://travis-ci.org/kind2-mc/kind2
+``master``: 
+.. image:: https://travis-ci.org/kind2-mc/kind2.svg?branch=master
+    :target: https://travis-ci.org/kind2-mc/kind2
+    :alt: Master Build Status
 
 Kind 2
 ======
