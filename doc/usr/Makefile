@@ -17,6 +17,7 @@ update:
 	cat source/title.rst >> ../../README.rst
 	cat source/travis_links.rst >> ../../README.rst
 	cat source/home.rst >> ../../README.rst
+	sed -E -i 's/:ref:`(.+)`/`\1 <"${doc_root}"\/\1>\`/g' ../../README.rst
 	cp source/9_other/license.rst ../../LICENSE.rst
 
 build-pdf: 
