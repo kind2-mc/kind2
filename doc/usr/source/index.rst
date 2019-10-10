@@ -6,7 +6,7 @@ Table of Contents
     :maxdepth: 2
     :caption: Getting Started
 
-    about
+    home
 
 .. toctree::
     :maxdepth: 2

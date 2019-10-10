@@ -1,3 +1,7 @@
+.. DO NOT EDIT, see doc/usr/README.rst for details
+
+Kind 2
+======
 
 A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 
@@ -102,10 +106,21 @@ You can pass arguments to Kind 2 with the ``ARGS="..."`` syntax. For instance
 
    make ARGS="--enable IC3" test
 
-
-
 Documentation
 -------------
+
+Kind 2 user documentation is `available online <http://kind.cs.uiowa.edu/kind2_user_doc/>`_.
+You can also generate a PDF version by running ``make doc``, which will be placed in the
+``doc/`` directory.
+
+In order to generate the documentation, you need:
+
+* A GNU version of ``sed`` (``gsed`` on OSX)
+* `Sphinx <https://www.sphinx-doc.org/en/master/usage/installation.html>`_
+* `latexmk <https://packages.ubuntu.com/xenial/latexmk>`_
+* `XeTeX <https://packages.debian.org/sid/texlive-xetex>`_
+
+See the README in the documentation root for more information.
 
 Docker
 ------

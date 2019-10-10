@@ -82,13 +82,13 @@ SMT-LIB 2 certificates do not require anything additional excepted for an SMT
 solver to check the certificates.
 
 LFSC proofs production require a proof producing version of CVC4 (the binary
-can be specified with ``--cvc4_bin``\ ), and the LFSC checker to be compiled for
+can be specified with ``--cvc4_bin``), and the LFSC checker to be compiled for
 the final proof checking phase.
 
 LFSC checker
 ~~~~~~~~~~~~
 
-The LFSC checker is also distributed with Kind 2 in the directory ``lfsc``\ , it
+The LFSC checker is also distributed with Kind 2 in the directory ``lfsc``, it
 contains the checker and the necessary signature files with the proof rules:
 
 .. code-block:: none
@@ -118,7 +118,7 @@ SMT-LIB 2 certificates
 These certificates are always produced but are only used as an intermediate
 step for LFSC proof production. The user still has the possibility to get them
 as the final output of Kind 2 in a convenient form. To do so, invoke Kind 2 (on
-the previous example ``add_two.lus``\ ) with the following
+the previous example ``add_two.lus``) with the following
 
 .. code-block:: none
 
@@ -272,17 +272,17 @@ sub-proofs of validity (unsatisfiability) returned by CVC4.
 LFSC signature
 --------------
 
-A proof system is formally defined in LFSC through *signatures*\ , which contain
+A proof system is formally defined in LFSC through *signatures*, which contain
 a definition of the system's language together with axioms and proof rules.
 The proof system used by CVC4 is defined over a number of signatures, which are
-included in its source code distribution.  Those relevant to this work include
-signatures for propositional logic and resolution (\ ``sat.plf``\ ); first-order
+included in its source code distribution. Those relevant to this work include
+signatures for propositional logic and resolution (``sat.plf``); first-order
 terms and formulas, with rules for CNF conversion and abstraction to
-propositional logic (\ ``smt.plf``\ ); equality over uninterpreted functions
-(\ ``th_base.plf``\ ); and real and integer linear arithmetic (\ ``th_int.plf`` and
-``th_real.plf``\ ).
+propositional logic (``smt.plf``); equality over uninterpreted functions
+(``th_base.plf``); and real and integer linear arithmetic (``th_int.plf`` and
+``th_real.plf``).
 
-CVC4's proof system is extended with an additional signature (`kind.plf) for
+CVC4's proof system is extended with an additional signature (``kind.plf``) for
 *k*\ -inductive reasoning, invariance and safety.  This signature also specifies
 the encoding for state variables, initial states, transition relations, and
 property predicates.  State variables are encoded as functions from natural

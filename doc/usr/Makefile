@@ -7,16 +7,9 @@ clean:
 	rm -rf build/*
 	rm -f ../../README.rst
 	rm -f ../../LICENSE.rst
-	rm -f source/about.rst
 
 update:
-	# Generate about.rst without the CI links for the documentation
-	echo ".. DO NOT EDIT, see ./doc/usr/README.rst for details\n" >> source/about.rst
-	cat source/title.rst >> source/about.rst
-	cat source/home.rst >> source/about.rst
 	# Generate the project README with CI links for Github
-	echo ".. DO NOT EDIT, see ./doc/usr/README.rst for details\n" > ../../README.rst
-	cat source/title.rst >> ../../README.rst
 	cat source/travis_links.rst >> ../../README.rst
 	cat source/home.rst >> ../../README.rst
 	# Replace internal references with explicit ones to render README on Github

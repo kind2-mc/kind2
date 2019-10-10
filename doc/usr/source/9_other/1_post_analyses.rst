@@ -50,6 +50,7 @@ were not met by the system and/or the last analysis. The prerequisites for each
 treatment are:
 
 .. We have to use the explicit grid table form to allow for wrapping in cells
+
 +---------------------+-----------------------------------------------+----------------------------------------+
 | Treatment           | Conditions                                    | Notes                                  |
 +---------------------+-----------------------------------------------+----------------------------------------+
