@@ -82,14 +82,19 @@ pygments_style = 'sphinx'
 # a list of builtin themes.
 #
 html_theme = 'sphinx_rtd_theme'
-html_theme_path = ['_themes', ]
-html_css_files = ['styles.css']
+html_theme_path = ['_themes',]
+
+# Allow us to modify css as we please
+# https://docs.readthedocs.io/en/latest/guides/adding-custom-css.html#overriding-or-replacing-a-theme-s-stylesheet
+#
+html_style = 'css/styles.css'
+
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-html_theme_options = {}
+# html_theme_options = {}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -290,7 +295,4 @@ texinfo_documents = [
      author, 'Test', 'One line description of project.',
      'Miscellaneous'),
 ]
-
-def setup(app):
-    app.add_stylesheet('styles.css')
 
