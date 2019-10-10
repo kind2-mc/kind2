@@ -1,0 +1,27 @@
+.. _1_techniques/4_ic3:
+
+IC3
+---
+
+`IC3/PDR <http://link.springer.com/chapter/10.1007%2F978-3-642-18275-4_7>`_ is a recent technique by Aaron Bradley. IC3 alone can falsify and prove properties. To enable nothing but IC3, run
+
+.. code-block:: none
+
+   kind2 --enable IC3 <file>
+
+The challenge when lifting IC3 to infinite state systems is the pre-image computation. If the input problem is in linear integer arithmetic, Kind 2 performs a fast approximate quantifier elimination. Otherwise, the quantifier elimination is delegated to an SMT solver, which is at this time only possible with Z3.
+
+Options
+^^^^^^^
+
+``--ic3_qe {cooper|Z3}`` (default ``cooper``\ ) -- select the quantifier elimination strategy: ``cooper`` (default) for the built-in approximate method, ``Z3`` to delegate to the SMT solver. If the problem is not in linear integer arithmetic, ``cooper`` falls back to ``Z3``.
+
+``--ic3_check_inductive <bool>`` (default ``true``\ ) -- Check if a blocking clause is inductive and communicate it as an invariant to concurrent verification engines. 
+
+``--ic3_block_in_future  <bool>`` (default ``true``\ ) -- Block each clause not only in the frame it was discovered, but also in all higher frames.
+
+``--ic3_fwd_prop_non_gen <bool>`` (default ``true``\ ) -- Attempt forward propagation of clauses before inductive generalization.
+
+``--ic3_fwd_prop_ind_gen <bool>`` (default ``true``\ ) -- Inductively generalize clauses after forward propagation.
+
+``--ic3_fwd_prop_subsume <bool>`` (default ``true``\ ) -- Check syntactic subsumption of forward propagated clauses

@@ -3,13 +3,13 @@ Table of Contents
 =================
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Getting Started
 
     about
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Techniques
 
     1_techniques/1_techniques
@@ -18,7 +18,7 @@ Table of Contents
     1_techniques/4_ic3
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Inputs and Outputs
 
     2_input/1_lustre
@@ -26,7 +26,7 @@ Table of Contents
     3_output/2_xml
 
 .. toctree:: 
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Advanced Features
 
     9_other/1_post_analyses
@@ -38,7 +38,7 @@ Table of Contents
     9_other/7_invariant_logging
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: License
 
     9_other/license
