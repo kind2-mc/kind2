@@ -3,4 +3,4 @@
 /* Align images with the text they are next to.
  * Currently only used for the Travis CI badges.
  * */
-img {vertical-align: middle;}
+.align-img {vertical-align: middle;}
