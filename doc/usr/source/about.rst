@@ -4,6 +4,7 @@
 Kind 2
 ======
 
+
 A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 
 Kind 2 takes as input a Lustre file annotated with properties to be proven
