@@ -10,14 +10,17 @@ clean:
 	rm -f source/about.rst
 
 update:
+	# Generate about.rst without the CI links for the documentation
 	echo ".. DO NOT EDIT, see ./doc/usr/README.rst for details\n" >> source/about.rst
 	cat source/title.rst >> source/about.rst
 	cat source/home.rst >> source/about.rst
+	# Generate the project README with CI links for Github
 	echo ".. DO NOT EDIT, see ./doc/usr/README.rst for details\n" > ../../README.rst
 	cat source/title.rst >> ../../README.rst
 	cat source/travis_links.rst >> ../../README.rst
 	cat source/home.rst >> ../../README.rst
-	sed -E -i 's/:ref:`(.+)`/`\1 <"${doc_root}"\/\1>\`/g' ../../README.rst
+	# Replace internal references with explicit ones to render README on Github
+	sed -E -i 's/:ref:`(.+)`/`\1 <${doc_root}\/\1>`_/g' ../../README.rst
 	cp source/9_other/license.rst ../../LICENSE.rst
 
 build-pdf: 
