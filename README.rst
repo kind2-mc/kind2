@@ -1,17 +1,20 @@
 .. |develop| image:: https://travis-ci.org/kind2-mc/kind2.svg?branch=develop
    :target: https://travis-ci.org/kind2-mc/kind2
-   :align: bottom
+   :align: middle
 
 .. |master| image:: https://travis-ci.org/kind2-mc/kind2.svg?branch=master
    :target: https://travis-ci.org/kind2-mc/kind2
-   :align: bottom
+   :align: middle
+
+.. |nbsp| unicode:: 0xA0
 
 .. list-table::
+   :widths: 30 30
 
-   * - master:  |master|
-     - develop: |develop|
-
+   * - master: |nbsp| |master|
+     - develop: |nbsp| |develop|
 .. DO NOT EDIT, see doc/usr/README.rst for details
+
 
 Kind 2
 ======
