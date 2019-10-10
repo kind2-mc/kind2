@@ -1,14 +1,12 @@
-.. rst-class:: align-img
-
 .. |develop| image:: https://travis-ci.org/kind2-mc/kind2.svg?branch=develop
    :target: https://travis-ci.org/kind2-mc/kind2
    :align: middle
-
-.. rst-class:: align-img
+   :class: align-img
 
 .. |master| image:: https://travis-ci.org/kind2-mc/kind2.svg?branch=master
    :target: https://travis-ci.org/kind2-mc/kind2
    :align: middle
+   :class: align-img
 
 .. |nbsp| unicode:: 0xA0
 
