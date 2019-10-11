@@ -6,6 +6,8 @@
    :target: https://travis-ci.org/kind2-mc/kind2
    :align: middle
 
+.. https://stackoverflow.com/a/12145490/8261793
+
 .. |nbsp| unicode:: 0xA0
 
 .. list-table::

@@ -17,10 +17,10 @@ update:
 	cp source/9_other/license.rst ../../LICENSE.rst
 
 build-pdf: 
-	sphinx-build -W -b latex source build && cd build && make && cd ..
+	sphinx-build -W -b latex source build/pdf && cd build/pdf && make && cd ../..
 
 build-html:
-	sphinx-build -W -b html source build
+	sphinx-build -W -b html source build/html
 
 pdf: clean update build-pdf
 

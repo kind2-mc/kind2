@@ -50,5 +50,4 @@ ocamlczmq
 
 # Generated documentation
 doc/usr/build/**
-doc/user_documentation.html
 doc/user_documentation.pdf
