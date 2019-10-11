@@ -1143,11 +1143,17 @@ let minimize_invariants sys invs =
   let k_orig, nb_invs = k, List.length invs in
   
   Debug.certif "Trying to simplify up to k = %d\n" k_orig;
-  
+
+  let logic =
+    match TransSys.get_logic sys with
+    | `Inferred l -> `Inferred (TermLib.FeatureSet.add UF l)
+    | l -> l
+  in
+
   (* Creating solver that will be used to replay and minimize inductive step *)
   let solver =
     SMTSolver.create_instance ~produce_cores:true
-      (TransSys.get_logic sys) (Flags.Smt.solver ())
+      logic (Flags.Smt.solver ())
   in
   
   (* Defining uf's and declaring variables. *)
