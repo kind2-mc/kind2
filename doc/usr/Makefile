@@ -1,44 +1,27 @@
-CONTENT = $(shell find content -iname "*.md")
+.PHONY: all clean update build-pdf build-html pdf html
+doc_root := doc\/usr\/source
 
-all: pdf html
-
-preprocess: src/preprocess.ml
-	ocamlc -o preprocess unix.cma src/preprocess.ml
-
-target/target.md: $(CONTENT) preprocess
-	mkdir -p target
-	./preprocess ./target/target.md ./content/Home.md \
-		`find ./content/*/ -iname "*.md" | sort | sed -e 's:\n: :g' -e 's://*:/:g'`
-	find content -iname "*.png" -exec cp -f {} target/. \;
-
-pdf: target/target.md
-	cd target ; \
-	cat ../rsc/options | \
-	sed 's:^\([a-z]\):-V \1:; s:##version##:$(version):g'| \
-	tr '\n' ' ' |  xargs \
-	pandoc --template=./../rsc/template ./target.md \
-	-s -o ./doc.pdf
-
-html: target/target.md
-	cat ./rsc/options | \
-	sed 's:^\([a-z]\):-V \1:; s:##version##:$(version):g'| \
-	tr '\n' ' ' |  xargs \
-	pandoc --toc -smart -H ./rsc/github-pandoc.css.include ./target/target.md \
-	-s -o ./target/doc.html
-
-update:
-	rm -f ../../README.md
-	echo "\n\n<!-- DO NOT EDIT, see ./doc/usr/content/{Home.md,TravisLinks} -->\n\n" > \
-		../../README.md
-	cat content/TravisLinks >> ../../README.md
-	cat content/Home.md | \
-		sed -e 's:](\./\([^)]*\)):](doc/usr/content/\1):g' >> \
-		../../README.md
-	cp content/9_other/license.md ../../LICENSE.md
+all: clean html pdf
 
 clean:
-	rm -f src/*.cmi src/*.cmo src/*.cmx src/*.o
-	rm -f preprocess texput.log
-	rm -rf target
+	rm -rf build/*
+	rm -f ../../README.rst
+	rm -f ../../LICENSE.rst
 
-.PHONY: pdf html
+update:
+	# Generate the project README with CI links for Github
+	cat source/travis_links.rst >> ../../README.rst
+	cat source/home.rst >> ../../README.rst
+	# Replace internal references with explicit ones to render README on Github
+	sed -E -i 's/:ref:`(.*)<(.*)>`/`\1<${doc_root}\/\2\.rst>`_/g' ../../README.rst
+	cp source/9_other/license.rst ../../LICENSE.rst
+
+build-pdf: 
+	sphinx-build -W -b latex source build/pdf && cd build/pdf && make && cd ../..
+
+build-html:
+	sphinx-build -W -b html source build/html
+
+pdf: clean update build-pdf
+
+html: clean update build-html
