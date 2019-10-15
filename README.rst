@@ -127,7 +127,7 @@ You can pass arguments to Kind 2 with the ``ARGS="..."`` syntax. For instance
 Documentation
 -------------
 
-.. include:: requirements.rst
+.. include:: doc/usr/source/requirements.rst
 
 See the README in the documentation root for more information.
 

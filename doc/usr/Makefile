@@ -14,6 +14,8 @@ update:
 	cat source/home.rst >> ../../README.rst
 	# Replace internal references with explicit ones to render README on Github
 	sed -E -i 's/:ref:`(.*)<(.*)>`/`\1<${doc_root}\/\2\.rst>`_/g' ../../README.rst
+	# Prefix include directives with the doc_root
+	sed -E -i 's/(\.\. include:: )(.*)/\1${doc_root}\/\2/g' ../../README.rst
 	cp source/9_other/license.rst ../../LICENSE.rst
 
 build-pdf: 
