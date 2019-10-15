@@ -18,7 +18,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'Kind2'
+project = 'Kind 2'
 copyright = '2019, Board of Trustees of the University of Iowa'
 author = 'Cesare Tinelli, Daniel Larraz, Mudathir Mohamed'
 
@@ -81,7 +81,7 @@ pygments_style = 'sphinx'
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'press'
 html_theme_path = ['_themes',]
 html_css_files = ['css/styles.css',]
 

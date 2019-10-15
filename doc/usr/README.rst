@@ -9,10 +9,11 @@ In order to generate the documentation, you need:
 
 * A GNU version of ``sed`` (``gsed`` on OSX)
 * `Sphinx <https://www.sphinx-doc.org/en/master/usage/installation.html>`_
+* `Python v3.5 or later <https://www.python.org/downloads/>`_
 
 For HTML documentation, you additionally need:
 
-* `sphinx-rtd-theme <https://github.com/readthedocs/sphinx_rtd_theme#installation>`_
+* `sphinx-press-theme <https://pypi.org/project/sphinx-press-theme/>`_
 
 For PDF documentation, you additionally need:
 
@@ -25,7 +26,7 @@ If you're on Debian/Ubuntu, you can simply run the following:
 .. code-block:: bash
 
     sudo apt-get install python3-sphinx latexmk texlive-xetex lmodern
-    pip3 install sphinx-rtd-theme
+    pip3 install sphinx_press_theme
 
 Generating Documentation
 ------------------------
