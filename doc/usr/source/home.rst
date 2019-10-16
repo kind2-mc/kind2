@@ -1,6 +1,3 @@
-.. DO NOT EDIT, see doc/usr/README.rst for details
-
-
 Kind 2
 ======
 
@@ -110,9 +107,11 @@ You can pass arguments to Kind 2 with the ``ARGS="..."`` syntax. For instance
 Documentation
 -------------
 
-.. include:: requirements.rst
+Documentation is available online in `HTML <http://kind.cs.uiowa.edu/kind2_user_doc/>`_ or `PDF <http://kind.cs.uiowa.edu/kind2_user_doc/doc.pdf>`_ forms.
 
-See the README in the documentation root for more information.
+.. include:: doc_requirements.rst
+
+See ``doc/usr/README.rst`` for more information.
 
 Docker
 ------
