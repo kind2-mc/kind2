@@ -1,6 +1,3 @@
-.. DO NOT EDIT, see doc/usr/README.rst for details
-
-
 Kind 2
 ======
 
@@ -110,25 +107,11 @@ You can pass arguments to Kind 2 with the ``ARGS="..."`` syntax. For instance
 Documentation
 -------------
 
-Kind 2 user documentation is `available online <http://kind.cs.uiowa.edu/kind2_user_doc/>`_.
-You can also generate a PDF version by running ``make doc``, which will be placed in the
-``doc/`` directory.
+Documentation is available online in `HTML <http://kind.cs.uiowa.edu/kind2_user_doc/>`_ or `PDF <http://kind.cs.uiowa.edu/kind2_user_doc/doc.pdf>`_ forms.
 
-In order to generate the documentation, you need:
+.. include:: doc_requirements.rst
 
-* A GNU version of ``sed`` (``gsed`` on OSX)
-* `Sphinx <https://www.sphinx-doc.org/en/master/usage/installation.html>`_
-
-For HTML documentation, you additionally need:
-
-* `sphinx-rtd-theme <https://github.com/readthedocs/sphinx_rtd_theme#installation>`_
-
-For PDF documentation, you additionally need:
-
-* `latexmk <https://packages.ubuntu.com/xenial/latexmk>`_
-* `XeTeX <https://packages.debian.org/sid/texlive-xetex>`_
-
-See the README in the documentation root for more information.
+See ``doc/usr/README.rst`` for more information.
 
 Docker
 ------
