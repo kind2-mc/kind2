@@ -27,7 +27,6 @@ module VS = Var.VarSet
 
 (* Exceptions *)
 exception Type_mismatch
-exception Random
 exception BV_size_mismatch (* This should never be seen in the front-end *)
 exception NonConstantShiftOperand
 
@@ -298,28 +297,24 @@ let string_of_symbol = function
   | `IMPLIES -> "=>"
   | `AND -> "and"
   | `OR -> "or"
-  | `XOR -> "xor"
   | `EQ -> "="
   | `NUMERAL n -> Numeral.string_of_numeral n
   | `DECIMAL d -> Decimal.string_of_decimal d
-  | `UBV b -> 
-          let bi = 
-            (match Bitvector.length_of_bitvector b with
-            | 8 -> Bitvector.ubv8_to_num b
-            | 16 -> Bitvector.ubv16_to_num b
-            | 32 -> Bitvector.ubv32_to_num b
-            | 64 -> Bitvector.ubv64_to_num b
-            | _ -> raise BV_size_mismatch) in
-          Numeral.string_of_numeral bi
+  | `XOR -> "xor"
+  | `UBV b ->
+          (match Bitvector.length_of_bitvector b with
+          | 8 -> "(uint8 " ^ (Numeral.string_of_numeral (Bitvector.ubv8_to_num b)) ^ ")"
+          | 16 -> "(uint16 " ^ (Numeral.string_of_numeral (Bitvector.ubv16_to_num b)) ^ ")"
+          | 32 -> "(uint32 " ^ (Numeral.string_of_numeral (Bitvector.ubv32_to_num b)) ^ ")"
+          | 64 -> "(uint64 " ^ (Numeral.string_of_numeral (Bitvector.ubv64_to_num b)) ^ ")"
+          | _ -> raise BV_size_mismatch)
   | `BV b -> 
-          let bi = 
-            (match Bitvector.length_of_bitvector b with
-            | 8 -> Bitvector.bv8_to_num b
-            | 16 -> Bitvector.bv16_to_num b
-            | 32 -> Bitvector.bv32_to_num b
-            | 64 -> Bitvector.bv64_to_num b
-            | _ -> raise BV_size_mismatch) in
-          Numeral.string_of_numeral bi
+          (match Bitvector.length_of_bitvector b with
+          | 8 -> "(int8 " ^ (Numeral.string_of_numeral (Bitvector.bv8_to_num b)) ^ ")"
+          | 16 -> "(int16 " ^ (Numeral.string_of_numeral (Bitvector.bv16_to_num b)) ^ ")"
+          | 32 -> "(int32 " ^ (Numeral.string_of_numeral (Bitvector.bv32_to_num b)) ^ ")"
+          | 64 -> "(int64 " ^ (Numeral.string_of_numeral (Bitvector.bv64_to_num b)) ^ ")"
+          | _ -> raise BV_size_mismatch)
   | `MINUS -> "-"
   | `PLUS -> "+"
   | `TIMES -> "*"
@@ -333,14 +328,14 @@ let string_of_symbol = function
   | `GT -> ">"
   | `TO_REAL -> "real"
   | `TO_INT -> "int"
-  | `TO_UINT8 -> "(_ int2bv 8)"
-  | `TO_UINT16 -> "(_ int2bv 16)"
-  | `TO_UINT32 -> "(_ int2bv 32)"
-  | `TO_UINT64 -> "(_ int2bv 64)"
-  | `TO_INT8 -> "(_ int2bv 8)"
-  | `TO_INT16 -> "(_ int2bv 16)"
-  | `TO_INT32 -> "(_ int2bv 32)"
-  | `TO_INT64 -> "(_ int2bv 64)"
+  | `TO_UINT8 -> "uint8"
+  | `TO_UINT16 -> "uint16"
+  | `TO_UINT32 -> "uint32"
+  | `TO_UINT64 -> "uint64"
+  | `TO_INT8 -> "int8"
+  | `TO_INT16 -> "int16"
+  | `TO_INT32 -> "int32"
+  | `TO_INT64 -> "int64"
   | `BVAND -> "&&"
   | `BVOR -> "||"
   | `BVNOT -> "!"

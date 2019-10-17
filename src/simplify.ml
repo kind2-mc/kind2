@@ -219,7 +219,7 @@ let is_constant = function
   | Num (_, [])
   | Dec (_, [])  -> true
   | Bool b when b == Term.t_true || b == Term.t_false -> true
-  | UBV _ | BV _ -> true
+  | UBV _ | BV _ -> false
   | Num _ | Dec _ | Bool _ | Array _ -> false
 
 

@@ -29,9 +29,6 @@ type t
 (** Return bitvector resulting from repeating input bit b, (input) n times *)
 val repeat_bit : bool -> int -> t
 
-(** Return the first bit of input bitvector b *)
-val first_bit : t -> bool
-
 (** Return bits m down to n from the input bitvector *)
 val bvextract : int -> int -> t -> t
 
@@ -254,17 +251,6 @@ val bv_rsh : t -> t -> t
 val bv_arsh : t -> t -> t
 
 
-(** {Unused} 
-@author Arjun Viswanathan*)
-
-(** Function that inputs a list of bitvectors and returns an Some n
-   if all bitvectors have size n, where n = 8,16,32,64, and None otherwise 
-   Special case: it returns None for the input of an empty list of BVs.
-   Used to check if non-unary BV operators operate on uniformly sized and
-   validly sized inputs *)
-val check_bv_uniform : t list -> int option
-
-
 (** {Pretty Printing} *)
 (** Pretty-print a constant bitvector in SMTLIB binary format *)
 val pp_smtlib_print_bitvector_b : Format.formatter -> t -> unit
@@ -314,3 +300,8 @@ val ( <= ) : t -> t -> bool
 
 (** Signed greater than or equal to *)
 val ( >= ) : t -> t -> bool
+
+
+(** {Unused Functions} *)
+(** Return the first bit of input bitvector b *)
+val first_bit : t -> bool
