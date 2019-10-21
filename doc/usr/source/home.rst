@@ -1,7 +1,7 @@
 Kind 2
 ======
 
-`Kind 2 <http://kind.cs.uiowa.edu/>`_ \ is a multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
+`Kind 2 <http://kind.cs.uiowa.edu/>`_\ is a multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 
 Kind 2 takes as input a Lustre file annotated with properties to be proven
 invariant (see :ref:`Lustre Input <2_input/1_lustre>`), and
