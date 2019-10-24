@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015-2019 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -432,7 +432,7 @@ let run_process in_sys param sys messaging_setup process =
     child_pids := (pid, process) :: !child_pids
 
 (** Performs an analysis. *)
-let analyze ?(ignore_props = false) msg_setup modules in_sys param sys =
+let analyze msg_setup ignore_props modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
   ( if TSys.has_properties sys |> not && not ignore_props then
@@ -561,20 +561,20 @@ let run in_sys =
         ( match !latest_trans_sys with
           | Some old when TSys.equal_scope old sys |> not ->
             PostAnalysis.run in_sys (TSys.scope_of_trans_sys old) (
-              analyze ~ignore_props:true msg_setup
+              analyze msg_setup
             ) !all_results
           | _ -> ()
         ) ;
         latest_trans_sys := Some sys ;
         (* Analyze... *)
-        analyze msg_setup modules in_sys param sys ;
+        analyze msg_setup false modules in_sys param sys ;
         (* ...and loop. *)
         loop ()
 
       | None -> (
         ( match !latest_trans_sys with
           | Some sys -> PostAnalysis.run in_sys (TSys.scope_of_trans_sys sys) (
-            analyze ~ignore_props:true msg_setup
+            analyze msg_setup
           ) !all_results
           | _ -> ()
         ) ;
