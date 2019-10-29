@@ -695,7 +695,7 @@ let rec pp_print_term ty ppf term =
           | 16 -> Bitvector.bv16_to_num bv
           | 32 -> Bitvector.bv32_to_num bv
           | 64 -> Bitvector.bv64_to_num bv
-          | _ -> raise E.BV_size_mismatch) in
+          | _ -> raise E.Type_mismatch) in
         Numeral.pp_print_numeral ppf num
 
   (* Constant is an unsigned bitvector? *)
@@ -708,7 +708,7 @@ let rec pp_print_term ty ppf term =
           | 16 -> Bitvector.ubv16_to_num ubv
           | 32 -> Bitvector.ubv32_to_num ubv
           | 64 -> Bitvector.ubv64_to_num ubv
-          | _ -> raise E.BV_size_mismatch) in
+          | _ -> raise E.Type_mismatch) in
         Numeral.pp_print_numeral ppf num
 
   else

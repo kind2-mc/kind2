@@ -27,7 +27,6 @@ module VS = Var.VarSet
 
 (* Exceptions *)
 exception Type_mismatch
-exception BV_size_mismatch (* This should never be seen in the front-end *)
 exception NonConstantShiftOperand
 
 (* A Lustre expression is a term *)
@@ -307,14 +306,14 @@ let string_of_symbol = function
           | 16 -> "(uint16 " ^ (Numeral.string_of_numeral (Bitvector.ubv16_to_num b)) ^ ")"
           | 32 -> "(uint32 " ^ (Numeral.string_of_numeral (Bitvector.ubv32_to_num b)) ^ ")"
           | 64 -> "(uint64 " ^ (Numeral.string_of_numeral (Bitvector.ubv64_to_num b)) ^ ")"
-          | _ -> raise BV_size_mismatch)
+          | _ -> raise Type_mismatch)
   | `BV b -> 
           (match Bitvector.length_of_bitvector b with
           | 8 -> "(int8 " ^ (Numeral.string_of_numeral (Bitvector.bv8_to_num b)) ^ ")"
           | 16 -> "(int16 " ^ (Numeral.string_of_numeral (Bitvector.bv16_to_num b)) ^ ")"
           | 32 -> "(int32 " ^ (Numeral.string_of_numeral (Bitvector.bv32_to_num b)) ^ ")"
           | 64 -> "(int64 " ^ (Numeral.string_of_numeral (Bitvector.bv64_to_num b)) ^ ")"
-          | _ -> raise BV_size_mismatch)
+          | _ -> raise Type_mismatch)
   | `MINUS -> "-"
   | `PLUS -> "+"
   | `TIMES -> "*"
@@ -1622,7 +1621,7 @@ let type_of_num_num_bool = function
             | 16,16 -> Type.t_bool
             | 32,32 -> Type.t_bool
             | 64,64 -> Type.t_bool
-            | _, _ -> raise BV_size_mismatch)
+            | _, _ -> raise Type_mismatch)
       | _ -> raise Type_mismatch)
 
   | t when Type.is_bitvector t ->
@@ -1635,7 +1634,7 @@ let type_of_num_num_bool = function
             | 16,16 -> Type.t_bool
             | 32,32 -> Type.t_bool
             | 64,64 -> Type.t_bool
-            | _, _ -> raise BV_size_mismatch)
+            | _, _ -> raise Type_mismatch)
       | _ -> raise Type_mismatch)
 
   | _ -> raise Type_mismatch
@@ -1731,7 +1730,7 @@ let type_of_bvnot = function
         | 16 -> Type.t_ubv 16
         | 32 -> Type.t_ubv 32
         | 64 -> Type.t_ubv 64
-        | _ -> raise BV_size_mismatch)
+        | _ -> raise Type_mismatch)
   | t when Type.is_bitvector t -> 
       let s = Type.bitvectorsize t in
         (match s with
@@ -1739,7 +1738,7 @@ let type_of_bvnot = function
         | 16 -> Type.t_bv 16
         | 32 -> Type.t_bv 32
         | 64 -> Type.t_bv 64
-        | _ -> raise BV_size_mismatch)
+        | _ -> raise Type_mismatch)
   | _ -> raise Type_mismatch
 
 
@@ -2306,7 +2305,7 @@ let type_of_mod = function
         let s1 = Type.bitvectorsize t1 in
           let s2 = Type.bitvectorsize t2 in 
             if s1 != s2 then
-              raise BV_size_mismatch
+              raise Type_mismatch
             else
               (match s1,s2 with
               | 8, 8 -> Type.t_ubv 8
@@ -2321,7 +2320,7 @@ let type_of_mod = function
         let s1 = Type.bitvectorsize t1 in
           let s2 = Type.bitvectorsize t2 in 
             if s1 != s2 then
-              raise BV_size_mismatch
+              raise Type_mismatch
             else
               (match s1,s2 with
               | 8, 8 -> Type.t_bv 8
@@ -2581,7 +2580,7 @@ let type_of_intdiv t t' =
         let s1 = Type.bitvectorsize t in
           let s2 = Type.bitvectorsize t' in 
             if s1 != s2 then
-              raise BV_size_mismatch
+              raise Type_mismatch
             else
               (match s1,s2 with
               | 8, 8 -> Type.t_ubv 8
@@ -2596,7 +2595,7 @@ let type_of_intdiv t t' =
         let s1 = Type.bitvectorsize t in
           let s2 = Type.bitvectorsize t' in 
             if s1 != s2 then
-              raise BV_size_mismatch
+              raise Type_mismatch
             else
               (match s1,s2 with
               | 8, 8 -> Type.t_bv 8
