@@ -4,16 +4,11 @@ open Lib
 (* Constant bitvector *)
 type t = bool list
 
-exception NonBinaryDigit
 exception ComparingUnequalBVs
 exception NonStandardBVSize
 
-(* Function that converts a single binary integer digit to Boolean *)
-(*let bin_to_bool (digit : int) : bool =
-  match digit with 
-  | 0 -> false
-  | 1 -> true
-  | _ -> raise NonBinaryDigit*)
+(* Convert a bitvector to an integer *)
+let length_of_bitvector b = List.length b
 
 (* Function that inputs bit b, integer n, and repeats b n times *)
 let rec repeat_bit (b : bool) (n : int) : t =
@@ -615,6 +610,30 @@ let pp_yices_print_bitvector_d ppf i s =
 let pp_smtlib_print_bitvector_d ppf n size = 
   fprintf ppf "(_ bv%s %s)" (Numeral.string_of_numeral n) (Numeral.string_of_numeral size)
 
+(* Pretty-print an unsigned Lustre machine integer *)
+let pp_print_unsigned_machine_integer ppf b =
+  let len = length_of_bitvector b in
+    let num = (match len with
+               | 8 -> ubv8_to_num b
+               | 16 -> ubv16_to_num b
+               | 32 -> ubv32_to_num b
+               | 64 -> ubv64_to_num b
+               | _ -> raise NonStandardBVSize) in
+      let num_str = Numeral.string_of_numeral num in
+        pp_print_string ppf ("(uint" ^  (string_of_int len) ^ " " ^ num_str ^ ")")
+
+(* Pretty-print a signed Lustre machine integer *)
+let pp_print_signed_machine_integer ppf b =
+  let len = length_of_bitvector b in
+    let num = (match len with
+               | 8 -> bv8_to_num b
+               | 16 -> bv16_to_num b
+               | 32 -> bv32_to_num b
+               | 64 -> bv64_to_num b
+               | _ -> raise NonStandardBVSize) in
+      let num_str = Numeral.string_of_numeral num in
+        pp_print_string ppf ("(int" ^  (string_of_int len) ^ " " ^ num_str ^ ")")
+
 
 (* Hexadecimal *)
 
@@ -758,9 +777,6 @@ let float_of_decimal d = float_of_string (HString.string_of_hstring d)
 (* Convert a bitvector to an integer *)
 let int_of_bitvector b = 
   List.fold_left (fun a b -> a lsl 1 + (if b then 1 else 0)) 0 b
-
-(* Convert a bitvector to an integer *)
-let length_of_bitvector b = List.length b
 
 (* A sequence of digits without leading zero *)
 let numeral_of_string s = 

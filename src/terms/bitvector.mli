@@ -26,6 +26,9 @@
 (** Constant bitvector *)
 type t
 
+(** Return the length of a bitvector as a numeral *)
+val length_of_bitvector : t -> int
+
 (** Return bitvector resulting from repeating input bit b, (input) n times *)
 val repeat_bit : bool -> int -> t
 
@@ -264,6 +267,12 @@ val pp_yices_print_bitvector_b : Format.formatter -> t -> unit
 (** Pretty-print a constant bitvector in Yices' binary format given the decimal value and size *)
 val pp_yices_print_bitvector_d : Format.formatter -> Numeral.t -> Numeral.t -> unit
 
+(** Pretty-print a constant unsigned bitvector as a Lustre machine integer *)
+val pp_print_unsigned_machine_integer : Format.formatter -> t -> unit
+
+(** Pretty-print a constant signed bitvector as a Lustre machine integer *)
+val pp_print_signed_machine_integer : Format.formatter -> t -> unit
+
 (** Pretty-print a constant bitvector in hexadeciaml format *)
 val pp_print_bitvector_x : Format.formatter -> t -> unit
 
@@ -280,9 +289,6 @@ val bitvector_of_hstring : HString.t -> t
 
 (** Convert a hashconsed string to a Boolean value *)
 val bool_of_hstring : HString.t -> bool
-
-(** Return the length of a bitvector as a numeral *)
-val length_of_bitvector : t -> int
 
 
 (** {Infix Comparison Operators} *)

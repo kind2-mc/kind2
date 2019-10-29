@@ -1514,9 +1514,14 @@ Currently, the Yices2 SMT solver doesn't support logics that will allow
 for the usage of integers and machine integers together. 
 When using combinations of integers and machine integers, currently Kind2 
 must be told to use CVC4 or Z3. This can be done with the option 
---smt_solver CVC4, or --smt_solver Z3, respectively.
+"--smt_solver CVC4", or "--smt_solver Z3", respectively.
 
 IC3 is enabled by default in Kind2, and IC3 methods don't support theories
 which deal with machine integers, so IC3 must be disabled while using Kind2
 with problems containing machine integers. This is done using the option
---disable IC3.
+"--disable IC3".
+
+To reason about machine integers, Kind2 uses the SMT theory of bitvectors.
+Since we still haven't implemented logic detection, whenever you use
+machine integers, you need to tell Kind2 to consider all logics. This 
+is done using the option "--smt_logic none".
