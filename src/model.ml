@@ -260,6 +260,15 @@ let pp_print_value_xml ?as_type ppf v =  match v, as_type with
       pp_print_map_as_xml ppf m
     with Not_found -> ()
 
+let pp_print_value_json ?as_type ppf v =  match v, as_type with
+  | Term t, Some ty when Term.is_numeral t && Type.is_enum ty ->
+    Format.fprintf ppf "\"%s\"" (Type.get_constr_of_num (Term.numeral_of_term t))
+  | Term t, _ -> pp_print_term ppf t
+  | Lambda l, _ -> Term.pp_print_lambda ppf l
+  | Map m, _ ->
+    try
+      pp_print_map_as_xml ppf m
+    with Not_found -> ()
 
 (* Pretty-print a model *)
 let pp_print_model ppf model = 

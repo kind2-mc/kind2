@@ -91,15 +91,9 @@ test: all
 	./tests/run.sh $(LOCAL_REGRESSIONDIR) $(LOCAL_BINDIR)/kind2 "${ARGS}"
 
 doc:
-	make -C $(LOCAL_USRDOCDIR)
-	cp $(LOCAL_USRDOCDIR)/target/doc.pdf $(LOCAL_ALLDOCDIR)/user_documentation.pdf
-	cp $(LOCAL_USRDOCDIR)/target/doc.html $(LOCAL_ALLDOCDIR)/user_documentation.html
-
-doc-sync:
-	make -C $(LOCAL_USRDOCDIR) update
-
-doc-clean:
-	make -C $(LOCAL_USRDOCDIR) clean
+	make -C $(LOCAL_USRDOCDIR) all
+	cp $(LOCAL_USRDOCDIR)/build/kind2.pdf $(LOCAL_ALLDOCDIR)/user_documentation.pdf
+	cp $(LOCAL_USRDOCDIR)/build/index.html $(LOCAL_ALLDOCDIR)/user_documentation.html
 
 clean-@PACKAGE_NAME@:
 	make -C src clean
