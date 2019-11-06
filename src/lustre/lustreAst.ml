@@ -555,8 +555,8 @@ let rec pp_print_expr ppf =
     | BVAnd (p, e1, e2) -> p2 p "&" e1 e2
     | BVOr (p, e1, e2) -> p2 p "|" e1 e2
     | BVNot (p, e) -> p1 p "!" e
-    | BVShiftL (p, e1, e2) -> p2 p "<<" e1 e2
-    | BVShiftR (p, e1, e2) -> p2 p ">>" e1 e2
+    | BVShiftL (p, e1, e2) -> p2 p "shl" e1 e2
+    | BVShiftR (p, e1, e2) -> p2 p "shr" e1 e2
 
 
     | Ite (p, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3

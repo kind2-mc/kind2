@@ -1858,7 +1858,7 @@ let add_node_property ctx source name expr =
 
 
 (* Add node equation to context *)
-let rec add_node_equation ctx pos state_var bounds indexes expr = 
+let add_node_equation ctx pos state_var bounds indexes expr = 
 
   match ctx with 
 
