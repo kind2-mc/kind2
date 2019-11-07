@@ -356,7 +356,7 @@ let gen_expr_of_string_sexpr'
                   UfSymbol.uf_symbol_of_string (HString.string_of_hstring h)
 
                 with Not_found -> 
-
+  
                   (* Cannot convert to an expression *)
                   failwith 
                     (Format.sprintf 
@@ -510,7 +510,12 @@ let pp_print_logic = TermLib.pp_print_logic
 (* Convert type *)
 let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ -> Type.mk_int ()
-  | Type.Bool | Type.Int | Type.Real | Type.Abstr _ -> t
+  | Type.Bool | Type.Int | Type.UBV 8 | Type.UBV 16 
+  | Type.UBV 32 | Type.UBV 64 | Type.BV 8 | Type.BV 16 
+  | Type.BV 32 | Type.BV 64 -> t
+  | Type.UBV _ | Type.BV _ -> raise 
+      (Invalid_argument "rec_interpr_type: BV size not allowed")
+  | Type.Real | Type.Abstr _ -> t
   | Type.Array (te, ti) ->
     let ti', te' = interpr_type ti, interpr_type te in
     if Type.equal_types ti ti' && Type.equal_types te te' then t
@@ -556,21 +561,35 @@ let smtlib_string_symbol_list =
    (">", Symbol.mk_symbol `GT);
    ("to_real", Symbol.mk_symbol `TO_REAL);
    ("to_int", Symbol.mk_symbol `TO_INT);
+   ("(_ int2bv 8)", Symbol.mk_symbol `TO_UINT8);
+   ("(_ int2bv 16)", Symbol.mk_symbol `TO_UINT16);
+   ("(_ int2bv 32)", Symbol.mk_symbol `TO_UINT32);
+   ("(_ int2bv 64)", Symbol.mk_symbol `TO_UINT64);         
    ("is_int", Symbol.mk_symbol `IS_INT);
-(*
-   ("concat", Symbol.mk_symbol `CONCAT);
+
    ("bvnot", Symbol.mk_symbol `BVNOT);
    ("bvneg", Symbol.mk_symbol `BVNEG);
    ("bvand", Symbol.mk_symbol `BVAND);
    ("bvor", Symbol.mk_symbol `BVOR);
    ("bvadd", Symbol.mk_symbol `BVADD);
+   ("bvsub", Symbol.mk_symbol `BVSUB);
    ("bvmul", Symbol.mk_symbol `BVMUL);
-   ("bvdiv", Symbol.mk_symbol `BVDIV);
+   ("bvudiv", Symbol.mk_symbol `BVUDIV);
+   ("bvsdiv", Symbol.mk_symbol `BVSDIV);
    ("bvurem", Symbol.mk_symbol `BVUREM);
+   ("bvsrem", Symbol.mk_symbol `BVSREM);
    ("bvshl", Symbol.mk_symbol `BVSHL);
    ("bvlshr", Symbol.mk_symbol `BVLSHR);
+   ("bvashr", Symbol.mk_symbol `BVASHR);
    ("bvult", Symbol.mk_symbol `BVULT);
-*)
+   ("bvule", Symbol.mk_symbol `BVULE);
+   ("bvugt", Symbol.mk_symbol `BVUGT);
+   ("bvuge", Symbol.mk_symbol `BVUGE);
+   ("bvslt", Symbol.mk_symbol `BVSLT);
+   ("bvsle", Symbol.mk_symbol `BVSLE);
+   ("bvsgt", Symbol.mk_symbol `BVSGT);
+   ("bvsge", Symbol.mk_symbol `BVSGE);
+
    ("select", Symbol.mk_symbol
       (`SELECT (Type.mk_array Type.t_int Type.t_int))); (* placeholder *)
    (* uninterpreted select *)
@@ -584,7 +603,7 @@ let smtlib_string_symbol_list =
 let smtlib_reserved_word_list = 
   List.map 
     HString.mk_hstring 
-    ["par"; "_"; "!"; "as" ]
+    ["par"; "!"; "as" ]
 
 (* Hashtable for hashconsed strings to function symbols *)
 let hstring_symbol_table = HString.HStringHashtbl.create 50 
@@ -618,9 +637,10 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `NUMERAL i -> Numeral.pp_print_numeral_sexpr ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
-(*
-  | `BV b -> pp_smtlib_print_bitvector_b ppf b
-*)
+
+  | `UBV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b 
+  | `BV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b
+
   | `MINUS -> Format.pp_print_string ppf "-"
   | `PLUS -> Format.pp_print_string ppf "+"
   | `TIMES -> Format.pp_print_string ppf "*"
@@ -636,33 +656,56 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
+  | `TO_UINT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
+  | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
+  | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
+  | `TO_UINT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
+  | `TO_INT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
+  | `TO_INT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
+  | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
+  | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
+  | `BV2NAT -> Format.pp_print_string ppf "bv2nat"
   | `IS_INT -> Format.pp_print_string ppf "is_int"
 
   | `DIVISIBLE n -> 
     Format.pp_print_string ppf "divisible";
     Format.pp_print_space ppf ();
     Numeral.pp_print_numeral ppf n
-(*
-  | `CONCAT -> Format.pp_print_string ppf "concat"
-  | `EXTRACT (i, j) -> 
-    Format.fprintf 
-      ppf 
-      "(_ extract %a %a)" 
-      Numeral.pp_print_numeral i
-      Numeral.pp_print_numeral j
 
   | `BVNOT -> Format.pp_print_string ppf "bvnot"
   | `BVNEG -> Format.pp_print_string ppf "bvneg"
   | `BVAND -> Format.pp_print_string ppf "bvand"
   | `BVOR -> Format.pp_print_string ppf "bvor"
   | `BVADD -> Format.pp_print_string ppf "bvadd"
+  | `BVSUB -> Format.pp_print_string ppf "bvsub"
   | `BVMUL -> Format.pp_print_string ppf "bvmul"
-  | `BVDIV -> Format.pp_print_string ppf "bvdiv"
+  | `BVUDIV -> Format.pp_print_string ppf "bvudiv"
+  | `BVSDIV -> Format.pp_print_string ppf "bvsdiv"
   | `BVUREM -> Format.pp_print_string ppf "bvurem"
+  | `BVSREM -> Format.pp_print_string ppf "bvsrem"
   | `BVSHL -> Format.pp_print_string ppf "bvshl"
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
+  | `BVASHR -> Format.pp_print_string ppf "bvashr"
   | `BVULT -> Format.pp_print_string ppf "bvult"
-*)
+  | `BVULE -> Format.pp_print_string ppf "bvule"
+  | `BVUGT -> Format.pp_print_string ppf "bvugt"
+  | `BVUGE -> Format.pp_print_string ppf "bvuge"
+  | `BVSLT -> Format.pp_print_string ppf "bvslt"
+  | `BVSLE -> Format.pp_print_string ppf "bvsle"
+  | `BVSGT -> Format.pp_print_string ppf "bvsgt"
+  | `BVSGE -> Format.pp_print_string ppf "bvsge"
+  | `BVCONCAT -> Format.pp_print_string ppf "concat"
+  | `BVEXTRACT (i, j) -> 
+      Format.fprintf 
+        ppf 
+        "(_ extract %a %a)" 
+        Numeral.pp_print_numeral i
+        Numeral.pp_print_numeral j
+  | `BVSIGNEXT i -> 
+      Format.fprintf
+        ppf
+        "(_ sign_extend %a)"
+        Numeral.pp_print_numeral i
   | `SELECT ty_array ->
 
     if Flags.Arrays.smt () then
@@ -760,48 +803,50 @@ let const_of_smtlib_atom b t =
                                            (HString.string_of_hstring t)))
           with
             Invalid_argument _ | Failure _ -> 
-(*
             try 
               (* Return bitvector of string *)
-              Term.mk_bv (bitvector_of_hstring t)
+              Term.mk_bv (Bitvector.bitvector_of_hstring t)
             with Invalid_argument _ -> 
-*)
               try 
-                (* Return symbol of string *)
-                Term.mk_bool (bool_of_hstring t)
-              (* String is not an interpreted symbol *)
-              with Invalid_argument _ -> 
-                try 
-                  (* Return bound symbol *)
-                  Term.mk_var (List.assq t b)
-                (* String is not a bound variable *)
-                with Not_found -> 
+                (* Return unsigned bitvector of string *)
+                Term.mk_ubv (Bitvector.bitvector_of_hstring t)
+              with Invalid_argument _ ->
+                try
+                  (* Return symbol of string *)
+                  Term.mk_bool (bool_of_hstring t)
+                (* String is not an interpreted symbol *)
+                with Invalid_argument _ -> 
                   try 
-                    (* Name of state variable *)
-                    let state_var_name = HString.string_of_hstring t in
+                    (* Return bound symbol *)
+                    Term.mk_var (List.assq t b)
+                  (* String is not a bound variable *)
+                  with Not_found -> 
+                    try 
+                      (* Name of state variable *)
+                      let state_var_name = HString.string_of_hstring t in
 
-                    (* State variable of name and given scope *)
-                    let state_var = 
-                      StateVar.state_var_of_long_string state_var_name in
+                      (* State variable of name and given scope *)
+                      let state_var = 
+                        StateVar.state_var_of_long_string state_var_name in
 
-                    (* State variable at instant zero *)
-                    let var = 
-                      Var.mk_state_var_instance state_var Numeral.zero in
+                      (* State variable at instant zero *)
+                      let var = 
+                        Var.mk_state_var_instance state_var Numeral.zero in
 
-                    (* Return term *)
-                    Term.mk_var var
+                      (* Return term *)
+                      Term.mk_var var
 
-                (* String is not a state variable *)
-                with Not_found -> 
+                    (* String is not a state variable *)
+                    with Not_found -> 
 
-                  try 
+                    try 
 
-                    (* Return uninterpreted constant *)
-                    Term.mk_uf 
-                      (UfSymbol.uf_symbol_of_string
-                         (HString.string_of_hstring t))
-                      []
-                with Not_found -> 
+                      (* Return uninterpreted constant *)
+                      Term.mk_uf 
+                        (UfSymbol.uf_symbol_of_string
+                          (HString.string_of_hstring t))
+                        []
+                    with Not_found -> 
                     Debug.smtexpr
                         "const_of_smtlib_token %s failed" 
                         (HString.string_of_hstring t);

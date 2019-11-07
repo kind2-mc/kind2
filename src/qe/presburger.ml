@@ -509,6 +509,33 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                (* Fail on conversion to integer *)
                | `TO_INT, _ -> raise Not_in_LIA
 
+               (* Fail on conversion to unsigned integer8 *)
+               | `TO_UINT8, _ -> raise Not_in_LIA
+
+               (* Fail on conversion to unsigned integer16 *)
+               | `TO_UINT16, _ -> raise Not_in_LIA
+
+               (* Fail on conversion to unsigned integer32 *)
+               | `TO_UINT32, _ -> raise Not_in_LIA
+
+               (* Fail on conversion to unsigned integer64 *)
+               | `TO_UINT64, _ -> raise Not_in_LIA
+
+               (* Fail on conversion to integer8 *)
+               | `TO_INT8, _ -> raise Not_in_LIA
+
+               (* Fail on conversion to integer16 *)
+               | `TO_INT16, _ -> raise Not_in_LIA
+
+               (* Fail on conversion to integer32 *)
+               | `TO_INT32, _ -> raise Not_in_LIA
+
+               (* Fail on conversion to integer64 *)
+               | `TO_INT64, _ -> raise Not_in_LIA
+
+               (* Fail on bitvector to nat conversion *)
+               | `BV2NAT, _ -> raise Not_in_LIA
+
                (* Fail on coincidence with integer predicate *)
                | `IS_INT, _ -> raise Not_in_LIA
 
@@ -523,26 +550,40 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                | `NOT, _
                | `MINUS, _
                | `DIVISIBLE _, _
-(*
+
                | `BVNEG, _
-               | `BVADD, _
+               | `BVADD, _ 
+               | `BVSUB, _
+
+               | `UBV _, _
                | `BV _, _ 
                | `BVMUL, _
                | `BVSHL, _
-               | `BVDIV, _
-               | `CONCAT, _
+               | `BVUDIV, _
+               | `BVSDIV, _
                | `BVNOT, _
                | `BVUREM, _
+               | `BVSREM, _
                | `BVOR, _
                | `BVLSHR, _
+               | `BVASHR, _
                | `BVAND, _
-*)
+
                | `SELECT _, _
                | `STORE, _
 
-(*
+
                | `BVULT, _
-               | `EXTRACT _, _  *)
+               | `BVULE, _
+               | `BVUGT, _
+               | `BVUGE, _ 
+               | `BVSLT, _
+               | `BVSLE, _
+               | `BVSGT, _
+               | `BVSGE, _ 
+               | `BVEXTRACT _, _
+               | `BVCONCAT, _
+               | `BVSIGNEXT _, _
                -> raise Not_in_LIA
 
              )

@@ -45,6 +45,20 @@ let default_of_type t =
     (* Integers are zero by default *)
     | Type.Int -> Term.mk_num Numeral.zero
 
+    (* Wixed-width integers are zero by default *)
+    | Type.UBV i ->
+      begin match i with
+      | 8 | 16 | 32 | 64 -> Term.mk_num Numeral.zero
+      | _ -> raise 
+      (Invalid_argument "default_of_type: BV size not allowed")
+      end
+    | Type.BV i ->
+      begin match i with
+      | 8 | 16 | 32 | 64 -> Term.mk_num Numeral.zero
+      | _ -> raise 
+      (Invalid_argument "default_of_type: BV size not allowed")
+      end
+
     (* Integer range values are their lower bound by default *)
     | Type.IntRange (l, _, _) -> Term.mk_num l
 
@@ -71,6 +85,7 @@ type feature =
   | RA (* Real arithmetic *)
   | LA (* Linear arithmetic *)
   | NA (* Non-linear arithmetic *)
+  | BV (* Bit vectors*)
 
 
 (* Set of features *)
@@ -102,6 +117,11 @@ let rec logic_of_sort ty =
   | Bool | Abstr _ -> empty
     
   | Int | IntRange _ -> singleton IA
+  
+  | UBV 8 | UBV 16 | UBV 32 | UBV 64
+  | BV 8 | BV 16 | BV 32 | BV 64 -> singleton BV
+  | UBV _ | BV _ -> raise 
+      (Invalid_argument "logic of sort: BV size not allowed")
                           
   | Real -> singleton RA
               
@@ -214,6 +234,7 @@ let pp_print_features fmt l =
   if L.is_empty l then fprintf fmt "UF";
   if L.mem A l && Flags.Arrays.smt () then fprintf fmt "A";
   if L.mem UF l then fprintf fmt "UF";
+  if L.mem BV l then fprintf fmt "BV";
   if L.mem NA l then fprintf fmt "N"
   else if L.mem LA l || L.mem IA l || L.mem RA l then fprintf fmt "L";
   if L.mem IA l then fprintf fmt "I";

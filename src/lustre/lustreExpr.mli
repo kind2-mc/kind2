@@ -50,11 +50,12 @@
     Expressions can only be constructed with the constructors which do
     type checking and some easy simplifications with constants.
 
-    @author Christoph Sticksel *)
+    @author Christoph Sticksel, Arjun Viswanathan *)
 
 
 (** Types of expressions do not match signature of operator *)
 exception Type_mismatch
+exception NonConstantShiftOperand
 
 (** {1 Types} *)
 
@@ -313,6 +314,30 @@ val mk_constr : string -> Type.t -> t
 (** Return an expression of an integer numeral. *)
 val mk_int : Numeral.t -> t
 
+(** Return an expression of an unsigned integer8 numeral. *)
+val mk_uint8 : Numeral.t -> t
+
+(** Return an expression of an unsigned integer16 numeral. *)
+val mk_uint16 : Numeral.t -> t
+
+(** Return an expression of an unsigned integer32 numeral. *)
+val mk_uint32 : Numeral.t -> t
+
+(** Return an expression of an unsigned integer64 numeral. *)
+val mk_uint64 : Numeral.t -> t
+
+(** Return an expression of an integer8 numeral. *)
+val mk_int8 : Numeral.t -> t
+
+(** Return an expression of an integer16 numeral. *)
+val mk_int16 : Numeral.t -> t
+
+(** Return an expression of an integer32 numeral. *)
+val mk_int32 : Numeral.t -> t
+
+(** Return an expression of an integer64 numeral. *)
+val mk_int64 : Numeral.t -> t
+
 (** Return an expression of a floating point decimal. *)
 val mk_real : Decimal.t -> t
 
@@ -333,6 +358,30 @@ val has_indexes : t -> bool
 (** Return a conversion to an integer numeral. *)
 val mk_to_int : t -> t
 
+(** Return a conversion to an unsigned integer8 numeral. *)
+val mk_to_uint8 : t -> t
+
+(** Return a conversion to an unsigned integer16 numeral. *)
+val mk_to_uint16 : t -> t
+
+(** Return a conversion to an unsigned integer32 numeral. *)
+val mk_to_uint32 : t -> t
+
+(** Return a conversion to an unsigned integer64 numeral. *)
+val mk_to_uint64 : t -> t
+
+(** Return a conversion to an integer8 numeral. *)
+val mk_to_int8 : t -> t
+
+(** Return a conversion to an integer16 numeral. *)
+val mk_to_int16 : t -> t
+
+(** Return a conversion to an integer32 numeral. *)
+val mk_to_int32 : t -> t
+
+(** Return a conversion to an integer64 numeral. *)
+val mk_to_int64 : t -> t
+
 (** Return a conversion to a floating-point decimal. *)
 val mk_to_real : t -> t
 
@@ -344,6 +393,9 @@ val mk_not : t -> t
 
 (** Return the unary minus of the expression. *)
 val mk_uminus : t -> t
+
+(** Return the bitwise negation of the expression *)
+val mk_bvnot : t -> t
 
 (** Return the Boolean conjunction of the two expressions. *)
 val mk_and : t -> t -> t 
@@ -386,6 +438,18 @@ val mk_times : t -> t -> t
 
 (** Return the integer quotient of the two expressions. *)
 val mk_intdiv : t -> t -> t 
+
+(** Return the bitvector conjunction of the two expressions. *)
+val mk_bvand : t -> t -> t
+
+(** Return the bitvector disjunction of the two expressions. *)
+val mk_bvor : t -> t -> t
+
+(** Return the bitvector left shift of the two expressions. *)
+val mk_bvshl : t -> t -> t
+
+(** Return the bitvector right shift of the two expressions. *)
+val mk_bvshr : t -> t -> t
 
 (** Return the equality relation on the two expressions. *)
 val mk_eq : t -> t -> t 

@@ -75,6 +75,26 @@ and pp_print_type_node ppf = function
 
     | Type.Int -> Format.pp_print_string ppf "int"
 
+    | Type.UBV i ->
+      begin match i with
+      | 8 -> Format.pp_print_string ppf "uint8"
+      | 16 -> Format.pp_print_string ppf "uint16"
+      | 32 -> Format.pp_print_string ppf "uint32"
+      | 64 -> Format.pp_print_string ppf "uint64"
+      | _ -> raise 
+      (Invalid_argument "pp_print_type_node: BV size not allowed")
+      end
+
+    | Type.BV i ->
+      begin match i with
+      | 8 -> Format.pp_print_string ppf "int8"
+      | 16 -> Format.pp_print_string ppf "int16"
+      | 32 -> Format.pp_print_string ppf "int32"
+      | 64 -> Format.pp_print_string ppf "int64"
+      | _ -> raise 
+      (Invalid_argument "pp_print_type_node: BV size not allowed")
+      end
+
     | Type.IntRange (i, j, _) ->
       Format.fprintf ppf "(subrange %a %a)"
         Numeral.pp_print_numeral i Numeral.pp_print_numeral j
@@ -82,7 +102,7 @@ and pp_print_type_node ppf = function
     | Type.Real -> Format.pp_print_string ppf "real"
     | Type.Abstr s -> Format.pp_print_string ppf s
 (*
-  | BV i -> 
+  | Type.BV i -> 
 
     Format.fprintf
       ppf 
@@ -105,7 +125,11 @@ let pp_print_logic ppf l =  failwith "no logic selection in yices"
 
 let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ (* -> Type.mk_int () *)
-  | Type.Bool | Type.Int | Type.Real | Type.Abstr _  -> t
+  | Type.Bool | Type.Int | Type.UBV 8 | Type.UBV 16 
+  | Type.UBV 32 | Type.UBV 64 | Type.BV 8 | Type.BV 16 
+  | Type.BV 32 | Type.BV 64 | Type.Real | Type.Abstr _  -> t
+  | Type.UBV _ | Type.BV _ -> raise 
+      (Invalid_argument "rec_interpr_type: BV size not allowed")
   | Type.Array (te, ti) ->
     let ti', te' = interpr_type ti, interpr_type te in
     if Type.equal_types ti ti' && Type.equal_types te te' then t
@@ -179,21 +203,35 @@ let string_symbol_list =
    (">", Symbol.mk_symbol `GT);
    ("to_real", Symbol.mk_symbol `TO_REAL);
    ("to_int", Symbol.mk_symbol `TO_INT);
+   ("(_ int2bv 8)", Symbol.mk_symbol `TO_UINT8);
+   ("(_ int2bv 16)", Symbol.mk_symbol `TO_UINT16);
+   ("(_ int2bv 32)", Symbol.mk_symbol `TO_UINT32);
+   ("(_ int2bv 64)", Symbol.mk_symbol `TO_UINT64);
    (* ("is_int", Symbol.mk_symbol `IS_INT); *)
-(*
-   ("bv-concat", Symbol.mk_symbol `CONCAT);
+
    ("bv-not", Symbol.mk_symbol `BVNOT);
    ("bv-neg", Symbol.mk_symbol `BVNEG);
    ("bv-and", Symbol.mk_symbol `BVAND);
    ("bv-or", Symbol.mk_symbol `BVOR);
    ("bv-add", Symbol.mk_symbol `BVADD);
+   ("bv-sub", Symbol.mk_symbol `BVSUB);
    ("bv-mul", Symbol.mk_symbol `BVMUL);
-   ("bv-div", Symbol.mk_symbol `BVDIV);
-   (* ("bvurem", Symbol.mk_symbol `BVUREM); *)
+   ("bv-div", Symbol.mk_symbol `BVUDIV);
+   ("bv-sdiv", Symbol.mk_symbol `BVSDIV);
+   ("bv-rem", Symbol.mk_symbol `BVUREM);
+   ("bv-srem", Symbol.mk_symbol `BVSREM);
    ("bv-shift-left0", Symbol.mk_symbol `BVSHL);
    ("bv-shift-right0", Symbol.mk_symbol `BVLSHR);
+   ("bv-ashift-right", Symbol.mk_symbol `BVASHR);
    ("bv-lt", Symbol.mk_symbol `BVULT);
-*)
+   ("bv-le", Symbol.mk_symbol `BVULE);
+   ("bv-gt", Symbol.mk_symbol `BVUGT);
+   ("bv-ge", Symbol.mk_symbol `BVUGE);
+   ("bv-slt", Symbol.mk_symbol `BVSLT);
+   ("bv-sle", Symbol.mk_symbol `BVSLE);
+   ("bv-sgt", Symbol.mk_symbol `BVSGT);
+   ("bv-sge", Symbol.mk_symbol `BVSGE);
+   ("bv-concat", Symbol.mk_symbol `BVCONCAT);
    (* ("select", Symbol.mk_symbol `SELECT); *)
 
    ("update", Symbol.mk_symbol `STORE)
@@ -228,9 +266,10 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `NUMERAL i -> Numeral.pp_print_numeral ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal ppf f
-(*
-  | `BV b -> pp_yices_print_bitvector_b ppf b
-*)
+
+  | `UBV b -> Bitvector.pp_yices_print_bitvector_b ppf b
+  | `BV b -> Bitvector.pp_yices_print_bitvector_b ppf b
+
   (* Special case for unary minus : print -a as (- 0 a) *)
   | `MINUS when arity = Some 1 -> Format.pp_print_string ppf "- 0"
 
@@ -249,31 +288,55 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
+  | `TO_UINT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
+  | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
+  | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
+  | `TO_UINT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
+  | `TO_INT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
+  | `TO_INT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
+  | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
+  | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
+  | `BV2NAT -> Format.pp_print_string ppf "bv2nat"
   | `IS_INT -> failwith "is_int not implemented for yices"
 
   | `DIVISIBLE n ->
     failwith "divisible not implemented for yices"
-(*
-  | `CONCAT -> Format.pp_print_string ppf "bv-concat"
-  | `EXTRACT (i, j) -> 
-    Format.fprintf 
-      ppf 
-      "bv-extract %a %a" 
-      Numeral.pp_print_numeral j
-      Numeral.pp_print_numeral i
 
   | `BVNOT -> Format.pp_print_string ppf "bv-not"
   | `BVNEG -> Format.pp_print_string ppf "bv-neg"
   | `BVAND -> Format.pp_print_string ppf "bv-and"
   | `BVOR -> Format.pp_print_string ppf "bv-or"
   | `BVADD -> Format.pp_print_string ppf "bv-add"
+  | `BVSUB -> Format.pp_print_string ppf "bv-sub"
   | `BVMUL -> Format.pp_print_string ppf "bv-mul"
-  | `BVDIV -> Format.pp_print_string ppf "bv-div"
-  | `BVUREM -> Format.pp_print_string ppf "bvurem"
+  | `BVUDIV -> Format.pp_print_string ppf "bv-div"
+  | `BVSDIV -> Format.pp_print_string ppf "bv-sdiv"
+  | `BVUREM -> Format.pp_print_string ppf "bv-rem"
+  | `BVSREM -> Format.pp_print_string ppf "bv-srem"
   | `BVSHL -> Format.pp_print_string ppf "bv-shift-left0"
   | `BVLSHR -> Format.pp_print_string ppf "bv-shift-right0"
+  | `BVASHR -> Format.pp_print_string ppf "bv-ashift-right"
   | `BVULT -> Format.pp_print_string ppf "bv-lt"
-*)
+  | `BVULE -> Format.pp_print_string ppf "bv-le"
+  | `BVUGT -> Format.pp_print_string ppf "bv-gt"
+  | `BVUGE -> Format.pp_print_string ppf "bv-ge"
+  | `BVSLT -> Format.pp_print_string ppf "bv-slt"
+  | `BVSLE -> Format.pp_print_string ppf "bv-sle"
+  | `BVSGT -> Format.pp_print_string ppf "bv-sgt"
+  | `BVSGE -> Format.pp_print_string ppf "bv-sge"
+  | `BVCONCAT -> Format.pp_print_string ppf "bv-concat"
+  | `BVEXTRACT (i, j) -> 
+      Format.fprintf 
+        ppf 
+        "bv-extract %a %a" 
+        Numeral.pp_print_numeral j
+        Numeral.pp_print_numeral i
+  | `BVSIGNEXT i ->
+      Format.fprintf
+        ppf
+        "bv-sign-extend %a"
+        Numeral.pp_print_numeral i
+        
   | `SELECT _ -> Format.pp_print_string ppf ""
 
   | `STORE -> Format.pp_print_string ppf "update"

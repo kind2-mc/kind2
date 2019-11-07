@@ -72,6 +72,14 @@ type expr =
   | Num of position * string
   | Dec of position * string
   | ToInt of position * expr
+  | ToUInt8 of position * expr
+  | ToUInt16 of position * expr
+  | ToUInt32 of position * expr
+  | ToUInt64 of position * expr
+  | ToInt8 of position * expr
+  | ToInt16 of position * expr
+  | ToInt32 of position * expr
+  | ToInt64 of position * expr
   | ToReal of position * expr
   | ExprList of position * expr list
   | TupleExpr of position * expr list
@@ -95,6 +103,11 @@ type expr =
   | Div of position * expr * expr
   | Times of position * expr * expr
   | IntDiv of position * expr * expr
+  | BVAnd of position * expr * expr
+  | BVOr of position * expr * expr
+  | BVNot of position * expr
+  | BVShiftL of position * expr * expr
+  | BVShiftR of position * expr * expr
   | Ite of position * expr * expr * expr
   | With of position * expr * expr * expr
   | Eq of position * expr * expr
@@ -120,6 +133,14 @@ type expr =
 and lustre_type =
     Bool of position
   | Int of position
+  | UInt8 of position
+  | UInt16 of position
+  | UInt32 of position
+  | UInt64 of position
+  | Int8 of position
+  | Int16 of position
+  | Int32 of position
+  | Int64 of position
   | IntRange of position * expr * expr
   | Real of position
   | UserType of position * ident

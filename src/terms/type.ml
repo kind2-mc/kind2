@@ -35,9 +35,8 @@ type kindtype =
   | Int
   | IntRange of Numeral.t * Numeral.t * rangekind
   | Real
-(*
+  | UBV of int
   | BV of int
-*)
   (* First is element type, second is index type, and third is the size *)
   | Array of t * t
   | Abstr of string
@@ -81,16 +80,16 @@ module Kindtype_node = struct
     | Bool, Bool -> true
     | Bool, _ -> false
     | Int, Int -> true
-    | Int, _ -> false
+    | Int, _ -> false    
     | IntRange (l1, u1, k1), IntRange (l2, u2, k2) ->
       k1 = k2 && Numeral.equal l1 l2 && Numeral.equal u1 u2 
     | IntRange _, _ -> false
     | Real, Real -> true
     | Real, _ -> false
-(*
+    | UBV i, UBV j -> i = j
+    | UBV i, _ -> false
     | BV i, BV j -> i = j
     | BV i, _ -> false
-*)
     | Array (i1, t1), Array (i2, t2) -> (i1 == i2) && (t1 == t2)
     | Array (_, _), _ -> false
     | Abstr s1, Abstr s2 -> s1 = s2
@@ -198,14 +197,21 @@ let rec pp_print_type_node ppf = function
       Numeral.pp_print_numeral j
 
   | Real -> Format.pp_print_string ppf "Real"
-(*
+
+  | UBV i -> 
+
+    Format.fprintf
+      ppf 
+      "(_ BitVec %d)" 
+      i 
+
   | BV i -> 
 
     Format.fprintf
       ppf 
-      "BitVec %d" 
-      i 
-*)
+      "(_ BitVec %d)" 
+      i
+
   | Array (s, t) -> 
     Format.fprintf
       ppf 
@@ -225,6 +231,64 @@ let print_type = pp_print_type Format.std_formatter
 let string_of_type t = string_of_t pp_print_type t
 
 
+(* Pretty-printing for debugging - these functions differentiate
+   signed and unsigned bitvectors *)
+let rec pp_print_type_node_debug ppf = function 
+
+  | Bool -> Format.pp_print_string ppf "Bool"
+
+  | Int -> Format.pp_print_string ppf "Int"
+
+  | IntRange (i, j, Range) -> 
+
+    Format.fprintf
+      ppf 
+      "(IntRange %a %a)" 
+      Numeral.pp_print_numeral i 
+      Numeral.pp_print_numeral j
+
+  | IntRange (i, j, Enum) -> 
+
+    Format.fprintf
+      ppf 
+      "(Enum %a %a)" 
+      Numeral.pp_print_numeral i 
+      Numeral.pp_print_numeral j
+
+  | Real -> Format.pp_print_string ppf "Real"
+
+  | UBV i -> 
+
+    Format.fprintf
+      ppf 
+      "(_ UBitVec %d)" 
+      i 
+
+  | BV i -> 
+
+    Format.fprintf
+      ppf 
+      "(_ SBitVec %d)" 
+      i
+
+  | Array (s, t) -> 
+    Format.fprintf
+      ppf 
+      "(Array %a %a)"
+      pp_print_type s 
+      pp_print_type t
+
+  | Abstr s -> Format.pp_print_string ppf s
+
+(* Pretty-print a hashconsed variable *)
+and pp_print_type_debug ppf { Hashcons.node = t } = pp_print_type_node_debug ppf t
+
+let print_type_debug = pp_print_type_debug Format.std_formatter
+
+(* Return a string representation of a type *)
+let string_of_type_debug t = string_of_t pp_print_type_debug t
+
+
 (* ********************************************************************* *)
 (* Constructors                                                          *)
 (* ********************************************************************* *)
@@ -240,9 +304,11 @@ let mk_int () = Hkindtype.hashcons ht Int ()
 let mk_int_range l u = Hkindtype.hashcons ht (IntRange (l, u, Range)) ()
 
 let mk_real () = Hkindtype.hashcons ht Real ()
-(*
+
+let mk_ubv w = Hkindtype.hashcons ht (UBV w) ()
+
 let mk_bv w = Hkindtype.hashcons ht (BV w) ()
-*)
+
 let mk_array i t = Hkindtype.hashcons ht (Array (i, t)) ()
 
 let mk_abstr s = Hkindtype.hashcons ht (Abstr s) ()
@@ -309,7 +375,8 @@ let rec import { Hashcons.node = n } = match n with
   | Bool
   | Int
   | IntRange _
-(*  | BV _ *)
+  | UBV _
+  | BV _ 
   | Real as t -> mk_type t
 
 
@@ -322,6 +389,8 @@ let rec import { Hashcons.node = n } = match n with
 (* Static values *)
 let t_bool = mk_bool ()
 let t_int = mk_int ()
+let t_ubv w = mk_ubv w
+let t_bv w = mk_bv w
 let t_real = mk_real ()
 
 
@@ -347,6 +416,51 @@ let rec is_int_range { Hashcons.node = t } = match t with
   | IntRange (_,_,Range) -> true 
   | Array (t, _) -> false (* is_int_range t *)
   |  _ -> false
+
+let rec is_ubitvector { Hashcons.node = t } = match t with
+  | UBV _ -> true
+  | _ -> false
+
+let rec is_bitvector { Hashcons.node = t } = match t with
+  | BV _ -> true
+  | _ -> false
+
+let bitvectorsize { Hashcons.node = t } = match t with
+  | UBV n -> n
+  | BV n -> n
+  | _ -> 0
+  
+let rec is_uint8 { Hashcons.node = t } = match t with
+  | UBV 8 -> true 
+  | _-> false
+
+let rec is_uint16 { Hashcons.node = t } = match t with
+  | UBV 16 -> true 
+  | _-> false
+
+let rec is_uint32 { Hashcons.node = t } = match t with
+  | UBV 32 -> true 
+  | _-> false
+
+let rec is_uint64 { Hashcons.node = t } = match t with
+  | UBV 64 -> true 
+  | _-> false
+
+let rec is_int8 { Hashcons.node = t } = match t with
+  | BV 8 -> true 
+  | _-> false
+
+let rec is_int16 { Hashcons.node = t } = match t with
+  | BV 16 -> true 
+  | _-> false
+
+let rec is_int32 { Hashcons.node = t } = match t with
+  | BV 32 -> true 
+  | _-> false
+
+let rec is_int64 { Hashcons.node = t } = match t with
+  | BV 64 -> true 
+  | _-> false
 
 let rec is_enum { Hashcons.node = t } = match t with
   | IntRange (_,_,Enum) -> true 
@@ -438,6 +552,10 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
     | Real, Real
     | Bool, Bool -> true
 
+    | UBV i, UBV j -> i = j
+    
+    | BV i, BV j -> i = j
+    
     | Abstr s1, Abstr s2 -> s1 = s2
       
     (* IntRange is a subtype of Int *)

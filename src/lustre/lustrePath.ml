@@ -684,9 +684,35 @@ let rec pp_print_term ty ppf term =
       
       (* Pretty-print as Boolean value *)
       Format.fprintf ppf "false"
-        
+
+  (* Constant is a signed bitvector? *)
+  else if Type.is_bitvector (Term.type_of_term term) then
+
+    let bv = Term.bitvector_of_term term in
+      let size = Bitvector.length_of_bitvector bv in
+        let num = (match size with
+          | 8 -> Bitvector.bv8_to_num bv
+          | 16 -> Bitvector.bv16_to_num bv
+          | 32 -> Bitvector.bv32_to_num bv
+          | 64 -> Bitvector.bv64_to_num bv
+          | _ -> raise E.Type_mismatch) in
+        Numeral.pp_print_numeral ppf num
+
+  (* Constant is an unsigned bitvector? *)
+  else if Type.is_ubitvector (Term.type_of_term term) then
+
+    let ubv = Term.bitvector_of_term term in
+      let size = Bitvector.length_of_bitvector ubv in
+        let num = (match size with
+          | 8 -> Bitvector.ubv8_to_num ubv
+          | 16 -> Bitvector.ubv16_to_num ubv
+          | 32 -> Bitvector.ubv32_to_num ubv
+          | 64 -> Bitvector.ubv64_to_num ubv
+          | _ -> raise E.Type_mismatch) in
+        Numeral.pp_print_numeral ppf num
+
   else
-    
+
     (* Fall back to pretty-print as lustre expression *)
     (LustreExpr.pp_print_expr false) ppf
       (LustreExpr.unsafe_expr_of_term term)
@@ -1229,7 +1255,25 @@ let pp_print_stream_xml get_source model clock ppf (index, state_var) =
     | Type.Bool ->
       Format.pp_print_string ppf "type=\"bool\""
     | Type.Int ->
-      Format.pp_print_string ppf "type=\"int\""
+      Format.pp_print_string ppf "type=\"int\""              
+    | Type.UBV i ->
+      begin match i with
+      | 8 -> Format.pp_print_string ppf "type=\"uint8\""
+      | 16 -> Format.pp_print_string ppf "type=\"uint16\""
+      | 32 -> Format.pp_print_string ppf "type=\"uint32\""
+      | 64 -> Format.pp_print_string ppf "type=\"uint64\""
+      | _ -> raise 
+      (Invalid_argument "pp_print_type: BV size not allowed")
+      end
+    | Type.BV i ->
+      begin match i with
+      | 8 -> Format.pp_print_string ppf "type=\"int8\""
+      | 16 -> Format.pp_print_string ppf "type=\"int16\""
+      | 32 -> Format.pp_print_string ppf "type=\"int32\""
+      | 64 -> Format.pp_print_string ppf "type=\"int64\""
+      | _ -> raise 
+      (Invalid_argument "pp_print_type: BV size not allowed")
+      end
     | Type.IntRange (i, j, Type.Range) ->
       Format.fprintf ppf "type=\"subrange\" min=\"%a\" max=\"%a\""
       Numeral.pp_print_numeral i Numeral.pp_print_numeral j

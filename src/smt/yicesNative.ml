@@ -494,32 +494,53 @@ let ensure_symbol_qf_lira s =
   | `GT
   | `TO_REAL
   | `TO_INT
+  | `TO_UINT8
+  | `TO_UINT16
+  | `TO_UINT32
+  | `TO_UINT64
+  | `TO_INT8
+  | `TO_INT16
+  | `TO_INT32
+  | `TO_INT64
+  | `BV2NAT
   | `IS_INT
   | `UF _
     -> ()
 
   (* | `UF f when UfSymbol.arg_type_of_uf_symbol f = [] -> () *)
 
-(*  | `BV _ *)
+  | `UBV _
+  | `BV _ 
   | `INTDIV
   | `DIVISIBLE _
   | `MOD
   | `ABS
-(*
-  | `CONCAT
-  | `EXTRACT _
+
   | `BVNOT
   | `BVNEG
   | `BVAND
   | `BVOR
   | `BVADD
+  | `BVSUB
   | `BVMUL
-  | `BVDIV
+  | `BVUDIV
+  | `BVSDIV
   | `BVUREM
+  | `BVSREM
   | `BVSHL
   | `BVLSHR
+  | `BVASHR
   | `BVULT
-*)
+  | `BVULE
+  | `BVUGT
+  | `BVUGE
+  | `BVSLT
+  | `BVSLE
+  | `BVSGT
+  | `BVSGE
+  | `BVEXTRACT _
+  | `BVCONCAT
+  | `BVSIGNEXT _
   | `SELECT _
   | `STORE ->
     

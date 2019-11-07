@@ -32,7 +32,7 @@
     construct terms. An exception will be raised if an incorrectly
     typed term is constructed.
 
-    @author Christoph Sticksel
+    @author Christoph Sticksel, Arjun Viswanathan
 *)
 
 
@@ -138,10 +138,82 @@ val mk_dec : Decimal.t -> t
 (** Create a floating point decimal *)
 val mk_dec_of_float : float -> t
 *)
-(*
+
+
+(**@author Arjun Viswanathan*)
+(** Create a constant unsigned bitvector *)
+val mk_ubv : Bitvector.t -> t
+
 (** Create a constant bitvector *)
-val mk_bv : Lib.bitvector -> t
-*)
+val mk_bv : Bitvector.t -> t
+
+(** Create a signed bitvector sum *)
+val mk_bvadd : t list -> t
+
+(** Create a signed bitvector difference *)
+val mk_bvsub : t list -> t
+
+(** Create a bitvector produce *)
+val mk_bvmul : t list -> t
+
+(** Create a bitvector division *)
+val mk_bvudiv : t list -> t
+
+(**Create a signed bitvector division *)
+val mk_bvsdiv : t list -> t
+
+(** Create a bitvector modulus *)
+val mk_bvurem : t list -> t
+
+(** Create a signed bitvector modulus *)
+val mk_bvsrem : t list -> t
+
+(** Create a bitvector conjunction *)
+val mk_bvand : t list -> t
+
+(** Create a bitvector disjunction *)
+val mk_bvor : t list -> t
+
+(** Create a bitwise negation *)
+val mk_bvnot : t -> t
+
+(* Create a bitvector negation (2's complement) *)
+val mk_bvneg : t -> t
+
+(** Create a bitvector left shift *)
+val mk_bvshl : t list -> t
+
+(** Create a bitvector logical right shift *)
+val mk_bvlshr : t list -> t
+
+(** Create a bitvector arithmetic right shift *)
+val mk_bvashr : t list -> t
+
+(** Create an unsigned bitvector less-than comparison *)
+val mk_bvult : t list -> t
+
+(** Create an unsigned bitvector less-than-or-equal-to comparison *)
+val mk_bvule : t list -> t
+
+(** Create an unsigned bitvector greater-than comparison *)
+val mk_bvugt : t list -> t
+
+(** Create an unsigned bitvector greater-than-or-eqaul-to comparison *)
+val mk_bvuge : t list -> t
+
+(** Create a bitvector less-than comparison *)
+val mk_bvslt : t list -> t
+
+(** Create a bitvector less-than-or-equal-to comparison *)
+val mk_bvsle : t list -> t
+
+(** Create a bitvector greater-than comparison *)
+val mk_bvsgt : t list -> t
+
+(** Create a bitvector greater-than=or-eqaul-to comparison *)
+val mk_bvsge : t list -> t
+
+
 (** Create an integer or real difference *)
 val mk_minus : t list -> t
 
@@ -180,6 +252,42 @@ val mk_to_real : t -> t
 
 (** Create a conversion to an integer numeral *)
 val mk_to_int : t -> t
+
+(** Create a conversion to an unsigned integer8 numeral *)
+val mk_to_uint8 : t -> t
+
+(** Create a conversion to an unsigned integer16 numeral *)
+val mk_to_uint16 : t -> t
+
+(** Create a conversion to an unsigned integer32 numeral *)
+val mk_to_uint32 : t -> t
+
+(** Create a conversion to an unsigned integer64 numeral *)
+val mk_to_uint64 : t -> t
+
+(** Create a conversion to an integer8 numeral *)
+val mk_to_int8 : t -> t
+
+(** Create a conversion to an integer16 numeral *)
+val mk_to_int16 : t -> t
+
+(** Create a conversion to an integer32 numeral *)
+val mk_to_int32 : t -> t
+
+(** Create a conversion to an integer64 numeral *)
+val mk_to_int64 : t -> t
+
+(** Create a bitvector to nat conversion *)
+val mk_bv2nat : t -> t
+
+(** Create a BV extraction *)
+val mk_bvextract : Numeral.t -> Numeral.t -> t -> t
+
+(** Create a BV concatenation *)
+val mk_bvconcat : t -> t -> t
+
+(** Create a BV sign extension *)
+val mk_bvsignext : Numeral.t -> t -> t
 
 (** Create a predicate for coincidence of a real with an integer *)
 val mk_is_int : t -> t
@@ -394,6 +502,26 @@ val is_numeral : t -> bool
 
 (** Return integer constant of a term *)
 val numeral_of_term : t -> Numeral.t
+
+(** Return bitvector constant of a term (sign-agnostic) *)
+val bitvector_of_term : t -> Bitvector.t
+
+(** Return signed bitvector constant of a term *)
+val sbitvector_of_term : t -> Bitvector.t
+
+(** Return unsigned bitvector constant of a term *)
+val ubitvector_of_term : t -> Bitvector.t
+
+(*
+(** Return true if the term is a (sign-agnostic) bitvector consant *)
+val is_bitvector : t -> bool
+
+(** Return true if the term is a signed bitvector constant *)
+val is_sbitvector : t -> bool
+
+(** Return true if the term is an unsigned bitvector constant *)
+val is_ubitvector : t -> bool
+*)
 
 (** Return true if the term is a decimal constant *)
 val is_decimal : t -> bool

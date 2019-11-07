@@ -40,7 +40,8 @@ let cmd_line
        "--rewrite-divk"; (* Allows division by constant in QF_LIA problems *)
        "--decision=internal";
        "--ext-rew-prep";
-       "--ext-rew-prep-agg" |] in
+       "--ext-rew-prep-agg";
+       "--bv-print-consts-in-binary" (* Outputs BV constant as binary values *) |] in
 
   (*
   let fmfint_flags = [||] in (*

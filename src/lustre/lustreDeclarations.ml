@@ -226,15 +226,19 @@ let rec used_inputs_expr inputs acc =
 
   | Ident (_, i) | Last (_, i) -> ISet.add i acc
 
-  | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
-  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _)
+  | RecordProject (_, e, _) | ToInt (_, e) 
+  | ToUInt8 (_, e) | ToUInt16 (_, e) | ToUInt32 (_, e) | ToUInt64 (_, e) 
+  | ToInt8 (_, e) | ToInt16 (_, e) | ToInt32 (_, e) | ToInt64 (_, e) | ToReal (_, e)
+  | Not (_, e) | Uminus (_, e) | BVNot (_, e) | Current (_, e) | When (_, e, _)
   | Forall (_, _, e) | Exists (_, _, e) ->
     used_inputs_expr inputs acc e
 
   | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
   | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
   | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
-  | Times (_, e1, e2) | IntDiv (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
+  | Times (_, e1, e2) | IntDiv (_, e1, e2) | BVAnd (_, e1, e2) | BVOr (_, e1, e2) 
+  | BVShiftL (_, e1, e2) | BVShiftR (_, e1, e2)
+  | Eq (_, e1, e2) | Neq (_, e1, e2)
   | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
   | ArrayConcat (_, e1, e2) ->
     used_inputs_expr inputs (used_inputs_expr inputs acc e2) e1

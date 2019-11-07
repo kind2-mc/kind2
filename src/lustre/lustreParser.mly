@@ -75,6 +75,14 @@ let merge_branches transitions =
 (* Tokens for types *)
 %token TYPE
 %token INT
+%token UINT8;
+%token UINT16;
+%token UINT32;
+%token UINT64;
+%token INT8;
+%token INT16;
+%token INT32;
+%token INT64;
 %token REAL
 %token BOOL
 %token SUBRANGE
@@ -163,6 +171,13 @@ let merge_branches transitions =
 %token INTDIV
 %token MOD
     
+(* Tokens for bitvector operators *)
+%token BVAND
+%token BVOR
+%token BVNOT
+%token LSH
+%token RSH
+
 (* Tokens for clocks *)
 %token WHEN
 %token CURRENT
@@ -193,6 +208,7 @@ let merge_branches transitions =
 %token EOF
     
 (* Priorities and associativity of operators, lowest first *)
+%nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64
 %nonassoc WHEN CURRENT 
 %left PIPE
 %nonassoc ELSE
@@ -204,9 +220,12 @@ let merge_branches transitions =
 %left LT LTE EQUALS NEQ GTE GT
 %left PLUS MINUS
 %left MULT INTDIV MOD DIV
+%left BVAND BVOR
+%nonassoc LSH RSH
 %nonassoc PRE 
 %nonassoc INT REAL 
-%nonassoc NOT 
+%nonassoc NOT
+%nonassoc BVNOT 
 %left CARET 
 %left LSQBRACKET DOT DOTPERCENT
 
@@ -222,6 +241,7 @@ one_expr: e = expr EOF { e }
 
 (* A Lustre program is a list of declarations *)
 main: p = list(decl) EOF { List.flatten p }
+
 
 (* A declaration is a type, a constant, a node or a function declaration *)
 decl:
@@ -316,7 +336,14 @@ lustre_type:
   | BOOL { A.Bool (mk_pos $startpos) }
   | INT { A.Int (mk_pos $startpos)}
   | REAL { A.Real (mk_pos $startpos)}
-
+  | UINT8 { A.UInt8 (mk_pos $startpos)}
+  | UINT16 { A.UInt16 (mk_pos $startpos)}
+  | UINT32 { A.UInt32 (mk_pos $startpos)}
+  | UINT64 { A.UInt64 (mk_pos $startpos)}
+  | INT8 { A.Int8 (mk_pos $startpos)}
+  | INT16 { A.Int16 (mk_pos $startpos)}
+  | INT32 { A.Int32 (mk_pos $startpos)}
+  | INT64 { A.Int64 (mk_pos $startpos)}
   | SUBRANGE;
     LSQBRACKET;
     l = expr; 
@@ -768,6 +795,14 @@ pexpr(Q):
   (* Conversions *)
   | INT; e = expr { A.ToInt (mk_pos $startpos, e) }
   | REAL; e = expr { A.ToReal (mk_pos $startpos, e) }
+  | UINT8; e = expr { A.ToUInt8 (mk_pos $startpos, e) }
+  | UINT16; e = expr { A.ToUInt16 (mk_pos $startpos, e) }
+  | UINT32; e = expr { A.ToUInt32 (mk_pos $startpos, e) }
+  | UINT64; e = expr { A.ToUInt64 (mk_pos $startpos, e) }
+  | INT8; e = expr { A.ToInt8 (mk_pos $startpos, e) }
+  | INT16; e = expr { A.ToInt16 (mk_pos $startpos, e) }
+  | INT32; e = expr { A.ToInt32 (mk_pos $startpos, e) }
+  | INT64; e = expr { A.ToInt64 (mk_pos $startpos, e) }
 
   (* A parenthesized single expression *)
   | LPAREN; e = pexpr(Q); RPAREN { e } 
@@ -835,6 +870,13 @@ pexpr(Q):
   | e1 = pexpr(Q); XOR; e2 = pexpr(Q) { A.Xor (mk_pos $startpos, e1, e2) }
   | e1 = pexpr(Q); IMPL; e2 = pexpr(Q) { A.Impl (mk_pos $startpos, e1, e2) }
   | HASH; LPAREN; e = pexpr_list(Q); RPAREN { A.OneHot (mk_pos $startpos, e) }
+
+  (* A Bitvector operator *)
+  | BVNOT; e = pexpr(Q) {A.BVNot (mk_pos $startpos, e) }
+  | e1 = pexpr(Q); BVAND; e2 = pexpr(Q) { A.BVAnd (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); BVOR; e2 = pexpr(Q) { A.BVOr (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); LSH; e2 = pexpr(Q) { A.BVShiftL (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); RSH; e2 = pexpr(Q) { A.BVShiftR (mk_pos $startpos, e1, e2) }
 
   (* A quantified expression *)
   | FORALL; q = Q;

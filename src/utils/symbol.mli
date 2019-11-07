@@ -39,7 +39,8 @@
     {- [`ITE] ternary: if-then-else}
     {- [`NUMERAL i] nullary: integer numeral}
     {- [`DECIMAL f] nullary: floating-point decimal}
-    {- [`BV b] nullary: onstant bitvector}
+    {- [`UBV b] nullary: constant unsigned bitvector}
+    {- [`BV b] nullary: consant bitvector}
     {- [`MINUS] variadic, left-associative: difference or a unary negation}
     {- [`PLUS] variadic, left-associative: sum}
     {- [`TIMES] variadic, left-associative: product}
@@ -55,19 +56,31 @@
     {- [`TO_INT] unary: conversion to an integer number }
     {- [`IS_INT] unary: real is an integer}
     {- [`DIVISIBLE n] unary: divisibilibty by n}
-    {- [`CONCAT] binary: concatenation of bitvectors }
-    {- [`EXTRACT (i, j)] unary: extract subsequence from bitvector}
     {- [`BVNOT] unary: bit-wise negation}
     {- [`BVNEG] unary: arithmetic negation (unary)}
     {- [`BVAND] binary: bit-wise conjunction}
     {- [`BVOR] binary: bit-wise disjunction}
-    {- [`BVADD] binary: arithmetic sum}
+    {- [`BVADD] binary: signed bitvector sum}
+    {- [`BVSUB] binary: signed bitvector difference}
     {- [`BVMUL] binary: arithmetic multiplication}
-    {- [`BVDIV] binary: arithmetic integer division}
+    {- [`BVUDIV] binary: arithmetic integer division}
+    {- [`BVSDIV] binary: arithmetic integer signed division}
     {- [`BVUREM] binary: arithmetic remainder}
-    {- [`BVSHL] unary: logical shift left}
-    {- [`BVLSHR] unary: logical shift right}
-    {- [`BVULT] binary: arithmetic comparision}
+    {- [`BVSREM] binary: arithmetic signed remainder}
+    {- [`BVSHL] binary: logical shift left}
+    {- [`BVLSHR] binary: logical shift right}
+    {- [`BVASHR] binary: arithmetic shift right}
+    {- [`BVULT] binary: arithmetic comparision less than}
+    {- [`BVULE] binary: arithmetic comparision less than or equal to}
+    {- [`BVUGT] binary: arithmetic comparision greater than}
+    {- [`BVUGE] binary: arithmetic comparision greater than or equal to}
+    {- [`BVSLT] signed binary: arithmetic comparision less than}
+    {- [`BVSLE] signed binary: arithmetic comparision less than or equal to}
+    {- [`BVSGT] signed binary: arithmetic comparision greater than}
+    {- [`BVSGE] signed binary: arithmetic comparision greater than or equal to}
+    {- [`BVEXTRACT (i, j)] unary: extract subsequence from bitvector}
+    {- [`BVCONCAT] binary: concatenation of bitvectors}
+    {- [`BVSIGNEXT i] unary: sign extension of bitvectors}
     {- [`SELECT] binary: selection from array}
     {- [`STORE] ternary: update of an array}
     }
@@ -89,7 +102,7 @@
     [`DECIMAL f] and [`SYM (s, t)] symbols need to be hashconsed for
     physical equality.
 
-    @author Christoph Sticksel *)
+    @author Christoph Sticksel, Arjun Viswanathan *)
 
 
 (** {1 Types and hash-consing} *)
@@ -110,9 +123,10 @@ type interpreted_symbol =
 
   | `NUMERAL of Numeral.t (** Infinite precision integer numeral (nullary) *)
   | `DECIMAL of Decimal.t  (** infinite precision floating-point decimal (nullary) *)
-(*
-  | `BV of Lib.bitvector    (** Constant bitvector *)
-*)
+
+  | `UBV of Bitvector.t   (** Constant unsigned bitvector *)
+  | `BV of Bitvector.t    (** Constant bitvector *)
+  
   | `MINUS                (** Difference or unary negation (left-associative) *)
   | `PLUS                 (** Sum (left-associative) *)
   | `TIMES                (** Product (left-associative) *)
@@ -125,27 +139,49 @@ type interpreted_symbol =
   | `GEQ                  (** Greater than or equal relation (chainable) *)
   | `GT                   (** Greater than relation (chainable) *)
   | `TO_REAL              (** Conversion to a floating-point decimal (unary) *)
-  | `TO_INT               (** Conversion to an integer numeral (unary) *)
+  | `TO_INT               (** Conversion to an unsigned integer numeral (unary) *)
+  | `TO_UINT8             (** Conversion to an unsigned integer8 numeral (unary) *)  
+  | `TO_UINT16            (** Conversion to an unsigned integer16 numeral (unary) *)  
+  | `TO_UINT32            (** Conversion to an unsigned integer32 numeral (unary) *)  
+  | `TO_UINT64            (** Conversion to an unsigned integer64 numeral (unary) *)
+  | `TO_INT8              (** Conversion to an integer8 numeral (unary) *)  
+  | `TO_INT16             (** Conversion to an integer16 numeral (unary) *)  
+  | `TO_INT32             (** Conversion to an integer32 numeral (unary) *)  
+  | `TO_INT64             (** Conversion to an integer64 numeral (unary) *)    
+  | `BV2NAT               (** Conversion from bitvector to a natural number *)
   | `IS_INT               (** Real is an integer (unary) *)
 
   | `DIVISIBLE of Numeral.t
                           (** Divisible by [n] (unary) *)
-(*
-  | `CONCAT               (** Concatenation of bitvectors (binary) *)
-  | `EXTRACT of Numeral.t * Numeral.t 
-                          (** Extract subsequence from bitvector (unary) *)
+(**@author Arjun Viswanathan*)
   | `BVNOT                (** Bit-wise negation (unary) *)
   | `BVNEG                (** Arithmetic negation (unary) *)
   | `BVAND                (** Bit-wise conjunction (binary) *)
   | `BVOR                 (** Bit-wise disjunction (binary) *)
-  | `BVADD                (** Arithmetic sum (binary) *)
+  | `BVADD                (** Signed bitvector sum (binary) *)
+  | `BVSUB                (** Signed bitvector difference (binary) *)
   | `BVMUL                (** Arithmetic multiplication (binary) *)
-  | `BVDIV                (** Arithmetic integer division (binary) *)
+  | `BVUDIV               (** Arithmetic integer division (binary) *)
+  | `BVSDIV               (** Arithmetic integer signed division (binary) *)
   | `BVUREM               (** Arithmetic remainder (binary) *)
-  | `BVSHL                (** Logical shift left (unary) *)
-  | `BVLSHR               (** Logical shift right (unary) *)
-  | `BVULT                (** Arithmetic comparision (binary) *)
-*)
+  | `BVSREM               (** Arithmetic signed remainder (binary) *)
+  | `BVSHL                (** Logical shift left (binary) *)
+  | `BVLSHR               (** Logical shift right (binary) *)
+  | `BVASHR               (** Arithmetic shift right (binary) *)
+  | `BVULT                (* Arithmetic comparision less than (binary) *)
+  | `BVULE                (* Arithmetic comparision less than or equal to (binary) *)
+  | `BVUGT                (* Arithmetic comparision greater than (binary) *)
+  | `BVUGE                (* Arithmetic comparision greater than or equal to (binary) *)
+  | `BVSLT                (* Arithmetic comparision less than (signed binary) *)
+  | `BVSLE                (* Arithmetic comparision less than or equal to (signed binary) *)
+  | `BVSGT                (* Arithmetic comparision greater than (signed binary) *)
+  | `BVSGE                (* Arithmetic comparision greater than or equal to (signed binary) *)
+  | `BVEXTRACT of Numeral.t * Numeral.t 
+                          (** Extract subsequence from bitvector (unary) *)
+  | `BVCONCAT             (** Concatenation of bitvectors (binary) *)
+  | `BVSIGNEXT of Numeral.t
+                          (** Sign extension of bitvector (unary) *)                        
+
 
   (** Selection from array (binary) *)
   | `SELECT of Type.t
@@ -268,10 +304,50 @@ val is_numeral : t -> bool
 (** Return true if the symbol is a decimal *)
 val is_decimal : t -> bool
 
-(*
+
+(**@author Arjun Viswanathan*)
 (** Return true if the symbol is a bitvector *)
 val is_bitvector : t -> bool
-*)
+
+(** Return true if the symbol is an unsigned bitvector *)
+val is_ubitvector : t -> bool
+
+(** Return true if the symbol is an unsigned bitvector of size 8 *)
+val is_ubv8 : t -> bool
+
+(** Return true if the symbol is an unsigned bitvector of size 16 *)
+val is_ubv16 : t -> bool
+
+(** Return true if the symbol is an unsigned bitvector of size 32 *)
+val is_ubv32 : t -> bool
+
+(** Return true if the symbol is an unsigned bitvector of size 64 *)
+val is_ubv64 : t -> bool
+
+(** Return true if the symbol is a bitvector of size 8 *)
+val is_bv8 : t -> bool
+
+(** Return true if the symbol is a bitvector of size 16 *)
+val is_bv16 : t -> bool
+
+(** Return true if the symbol is a bitvector of size 32 *)
+val is_bv32 : t -> bool
+
+(** Return true if the symbol is a bitvector of size 64 *)
+val is_bv64 : t -> bool
+
+(** Return true if the symbol is a touint8 *)
+val is_to_uint8 : t -> bool
+
+(** Return true if the symbol is a touint16 *)
+val is_to_uint16 : t -> bool
+
+(** Return true if the symbol is a touint32 *)
+val is_to_uint32 : t -> bool
+
+(** Return true if the symbol is a touint64 *)
+val is_to_uint64 : t -> bool
+
 
 (** Return true if the symbol is select from array  *)
 val is_select : t -> bool
@@ -290,10 +366,13 @@ val numeral_of_symbol : t -> Numeral.t
 
 (** Return the decimal in a [`DECIMAL _] symbol *)
 val decimal_of_symbol : t -> Decimal.t 
-(*
+
 (** Return the bitvector in a [`BV _] symbol *)
-val bitvector_of_symbol : t -> Lib.bitvector 
-*)
+val bitvector_of_symbol : t -> Bitvector.t
+
+(** Return the ubitvector in a [`UBV _] symbol *)
+val ubitvector_of_symbol : t -> Bitvector.t
+
 (** Return [true] for the [`TRUE] symbol and [false] for the [`FALSE]
     symbol *)
 val bool_of_symbol : t -> bool 

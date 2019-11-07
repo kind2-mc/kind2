@@ -20,7 +20,7 @@
 
     A type has to be hash-consed to be used in hash-consed terms.
 
-    @author Christoph Sticksel *)
+    @author Christoph Sticksel, Arjun Viswanathan *)
 
 (** {1 Types and hash-consing} *)
 
@@ -33,7 +33,8 @@ type kindtype =
   | Int
   | IntRange of Numeral.t * Numeral.t * rangekind
   | Real
-(*  | BV of int *)
+  | UBV of int
+  | BV of int 
   | Array of t * t
   | Abstr of string
 
@@ -80,10 +81,13 @@ val mk_int_range : Numeral.t -> Numeral.t -> t
 
 (** Return the real decimal type *)
 val mk_real : unit -> t
-(*
+
+(** Return the unsigned bitvector type *)
+val mk_ubv : int -> t
+
 (** Return the bitvector type *)
 val mk_bv : int -> t
-*)
+
 (** Return an array type of index sort and element sort *)
 val mk_array : t -> t -> t
 
@@ -105,6 +109,11 @@ val t_int : t
 (** The real decimal type *)
 val t_real : t
 
+(** The unsigned bitvector type *)
+val t_ubv : int -> t
+
+(** The bitvector type *)
+val t_bv : int -> t
 
 (** {1 Type checking} *)
 
@@ -120,6 +129,42 @@ val is_bool : t -> bool
 (** Return [true] if the type is the integer type *)
 val is_int : t -> bool
 
+
+(**@author Arjun Viswanathan*)
+(** Return [true] if the type is an unsigned bitvector (integern) type *)
+val is_ubitvector : t -> bool
+
+(** Return [true] if the type is a bitvector (integern) type *)
+val is_bitvector : t -> bool
+
+(** Return [true] if the type is a bitvector (integern) type *)
+val bitvectorsize : t -> int
+
+(** Return [true] if the type is the unsigned integer8 type *)
+val is_uint8 : t -> bool
+
+(** Return [true] if the type is the unsigned integer16 type *)
+val is_uint16 : t -> bool
+
+(** Return [true] if the type is the unsigned integer32 type *)
+val is_uint32 : t -> bool
+
+(** Return [true] if the type is the unsigned integer64 type *)
+val is_uint64 : t -> bool
+
+(** Return [true] if the type is the integer8 type *)
+val is_int8 : t -> bool
+
+(** Return [true] if the type is the integer16 type *)
+val is_int16 : t -> bool
+
+(** Return [true] if the type is the integer32 type *)
+val is_int32 : t -> bool
+
+(** Return [true] if the type is the integer64 type *)
+val is_int64 : t -> bool
+
+
 (** Return [true] if the type is an integer range type *)
 val is_int_range : t -> bool
 
@@ -128,10 +173,7 @@ val is_enum : t -> bool
 
 (** Return [true] if the type is the real type *)
 val is_real : t -> bool
-(*
-(** Return [true] if the type is a bitvector type *)
-val is_bv : t -> bool
-*)
+
 (** Return [true] if the type is an array type *)
 val is_array : t -> bool
 
@@ -199,6 +241,20 @@ val print_type : t -> unit
 (** Return a string representation of a type *)
 val string_of_type : t -> string
 
+
+(** {1 Pretty-printing for debugging - differentiates UBV and BV } *)
+
+(** Pretty-print a type *)
+val pp_print_type_node_debug : Format.formatter -> kindtype -> unit
+
+(** Pretty-print a type *)
+val pp_print_type_debug : Format.formatter -> t -> unit
+
+(** Pretty-print a type to the standard formatter *)
+val print_type_debug : t -> unit
+
+(** Return a string representation of a type *)
+val string_of_type_debug : t -> string
 
 (* 
    Local Variables:

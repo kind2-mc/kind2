@@ -153,7 +153,7 @@ let leaf_of_term t = match node_of_term t with
 (* Return true if the term is a function application *)
 let is_node t = match node_of_term t with
   | T.Node _ -> true 
-  | _ -> false 
+  | _ -> false
 
 
 (* Return the symbol of a function application *)
@@ -228,6 +228,36 @@ let rec is_numeral t = match destruct t with
 
   | _ -> false
 
+(* Dont really need these
+(* Return true if the term is a (sign-agnostic) 
+   bitvector constant *)
+let is_bitvector t = match destruct t with
+
+  (* Term is a bitvector constant *)
+  | T.Const s when Symbol.is_bitvector s -> true
+
+  | T.Const s when Symbol.is_ubitvector s -> true
+
+  | _ -> false
+
+
+(* Return true if the term is a signed bitvector constant *)
+let is_sbitvector t = match destruct t with
+
+  (* Term is a signed bitvector constant *)
+  | T.Const s when Symbol.is_bitvector s -> true
+
+  | _ -> false
+
+
+(* Return true if the term is an unsigned bitvector constant *)
+let is_ubitvector t = match destruct t with
+
+  (* Term is an unsigned bitvector constant *)
+  | T.Const s when Symbol.is_ubitvector s -> true
+
+  | _ -> false
+*)
 
 (* Return integer constant of a term *)
 let rec numeral_of_term t = match destruct t with 
@@ -247,6 +277,46 @@ let rec numeral_of_term t = match destruct t with
     Numeral.(~- (numeral_of_term a))
 
   | _ -> invalid_arg "numeral_of_term"
+
+
+(* Return bitvector constant of a term *)
+(* This function is to be used for terms that are 
+   returned from the SMT solver. As a result, 
+   it doesn't differentiate between signed 
+   and unsigned BVs. type.ml is to be used to 
+   do that. *)
+let bitvector_of_term t = match destruct t with
+
+  (* Term is a bitvector constant *)
+  | T.Const s when Symbol.is_bitvector s -> 
+      Symbol.bitvector_of_symbol s
+
+  | T.Const s when Symbol.is_ubitvector s -> 
+      Symbol.ubitvector_of_symbol s
+
+  | _ -> invalid_arg "bitvector_of_term"
+
+
+(* Return signed bitvector constant of a term *)
+(* This function is to be used for terms before 
+   they are sent to the SMT solver. *)
+let sbitvector_of_term t = match destruct t with
+
+  (* Term is a signed bitvector constant *)
+  | T.Const s when Symbol.is_bitvector s -> Symbol.bitvector_of_symbol s
+
+  | _ -> invalid_arg "sbitvector_of_term"
+
+
+(* Return unsigned bitvector constant of a term *)
+(* This function is to be used for terms before 
+   they are sent to the SMT solver. *)
+let ubitvector_of_term t = match destruct t with
+
+  (* Term is an unsigned bitvector constant *)
+  | T.Const s when Symbol.is_ubitvector s -> Symbol.ubitvector_of_symbol s
+
+  | _ -> invalid_arg "ubitvector_of_term"
 
 
 (* Return decimal constant of a term *)
@@ -444,6 +514,7 @@ let print_lambda t = pp_print_lambda Format.std_formatter t
 (* Return a string representation of a term *)
 let string_of_lambda t = string_of_t pp_print_lambda t
 
+
 (* ********************************************************************* *)
 (* Folding and utility functions on terms                                *)
 (* ********************************************************************* *)
@@ -503,10 +574,13 @@ let rec type_of_term t = match T.destruct t with
 
         (* Real constant *)
         | `DECIMAL _ -> Type.mk_real ()
-(*
+
+        (* Unsigned bitvector constant *)
+        | `UBV b -> Type.mk_ubv (Bitvector.length_of_bitvector b)
+
         (* Bitvector constant *)
-        | `BV b -> Type.mk_bv (length_of_bitvector b)
-*)        
+        | `BV b -> Type.mk_bv (Bitvector.length_of_bitvector b)
+        
         (* Uninterpreted constant *)
         | `UF s -> UfSymbol.res_type_of_uf_symbol s
 
@@ -537,48 +611,37 @@ let rec type_of_term t = match T.destruct t with
         | `GEQ
         | `GT
         | `DIVISIBLE _ -> Type.mk_bool ()
-(*
-        | `BVULT -> Type.mk_bool ()
-*)
+
+        | `BVULT 
+        | `BVULE
+        | `BVUGT
+        | `BVUGE
+        | `BVSLT 
+        | `BVSLE
+        | `BVSGT
+        | `BVSGE -> Type.mk_bool ()
+
         (* Integer-valued functions *)
         | `TO_INT
         | `MOD
         | `ABS
-        | `INTDIV -> Type.mk_int ()
-          
+        | `INTDIV
+        | `BV2NAT -> Type.mk_int ()
+
+        | `TO_UINT8 -> Type.mk_ubv 8
+        | `TO_UINT16 -> Type.mk_ubv 16
+        | `TO_UINT32 -> Type.mk_ubv 32
+        | `TO_UINT64 -> Type.mk_ubv 64
+
+        | `TO_INT8 -> Type.mk_bv 8
+        | `TO_INT16 -> Type.mk_bv 16
+        | `TO_INT32 -> Type.mk_bv 32
+        | `TO_INT64 -> Type.mk_bv 64 
+
         (* Real-valued functions *)
         | `TO_REAL
         | `DIV -> Type.mk_real ()
-(*          
-        (* Bitvector-valued function *)
-        | `CONCAT -> 
-
-          (match l with 
-
-            (* Concat is binary *)
-            | [a; b] -> 
-              
-              (* Compute width of resulting bitvector *)
-              (match 
-                  (Type.node_of_type (type_of_term a), 
-                   Type.node_of_type (type_of_term b))
-               with
-                 | Type.BV i, Type.BV j -> 
-
-                   Type.mk_bv (i + j)
-
-                 | _ -> assert false)
-                
-            | _ -> assert false)
-     
-            
-        (* Bitvector-valued function *)
-        | `EXTRACT (i, j) -> 
-          
-          (* Compute width of resulting bitvector *)
-          Type.mk_bv
-            ((Numeral.to_int j) - (Numeral.to_int i) + 1)
-*)
+      
             
         (* Array-valued function *)
         | `SELECT ty_array ->
@@ -587,6 +650,56 @@ let rec type_of_term t = match T.destruct t with
            | a :: _ -> Type.elem_type_of_array (type_of_term a)
            | _ -> assert false)
 
+
+        (* Bitvector-valued function *)
+        | `BVEXTRACT (i, j) -> 
+          
+          (match l with
+
+          | [a] -> (match (Type.node_of_type (type_of_term a)) with
+
+            | Type.BV b -> 
+              (* Compute width of resulting bitvector *)
+              Type.mk_bv ((Numeral.to_int j) - (Numeral.to_int i) + 1)
+            | Type.UBV b -> 
+              (* Compute width of resulting bitvector *)
+              Type.mk_ubv ((Numeral.to_int j) - (Numeral.to_int i) + 1)
+            | _ -> assert false)
+
+          | _ -> assert false)
+
+        | `BVCONCAT -> 
+
+          (match l with 
+
+            (* Concat is binary *)
+            | [a; b] -> 
+
+              (* Compute width of resulting bitvector *)
+              (match 
+                  (Type.node_of_type (type_of_term a), 
+                   Type.node_of_type (type_of_term b))
+               with
+                 | Type.BV i, Type.BV j -> 
+                    Type.mk_bv (i + j)
+                 | Type.UBV i, Type.UBV j -> 
+                    Type.mk_ubv (i + j)
+                 | _ -> assert false)
+
+            | _ -> assert false)
+
+        | `BVSIGNEXT i ->
+
+          (match l with
+          
+            | [a] ->
+              
+              (match Type.node_of_type (type_of_term a) with
+                | Type.BV j -> Type.mk_bv ((Numeral.to_int i) + j)
+                | Type.UBV j -> Type.mk_ubv ((Numeral.to_int i) + j)
+                | _ -> assert false)
+                
+            | _ -> assert false)
       
         (* Return type of first argument *)
         | `MINUS
@@ -599,18 +712,34 @@ let rec type_of_term t = match T.destruct t with
             | a :: _ -> type_of_term a
             | _ -> assert false)
 
-(*
+
         | `BVNOT
-        | `BVNEG
+        | `BVNEG -> 
+          (match l with 
+
+            (* Function must be unary *)
+            | [a] -> type_of_term a
+            | _ -> assert false) 
+
         | `BVAND
         | `BVOR
         | `BVADD
+        | `BVSUB
         | `BVMUL
-        | `BVDIV
+        | `BVUDIV
+        | `BVSDIV
         | `BVUREM
+        | `BVSREM
         | `BVSHL
-        | `BVLSHR
-*)
+        | `BVLSHR 
+        | `BVASHR ->
+
+          (match l with
+
+            (* Function must be binary *)
+            | a :: _ -> type_of_term a
+            | _ -> assert false)
+
         | `STORE -> 
 
           (match l with 
@@ -638,10 +767,10 @@ let rec type_of_term t = match T.destruct t with
         | `TRUE
         | `FALSE
         | `NUMERAL _
-        | `DECIMAL _ -> assert false
-(*
+        | `DECIMAL _ 
+        | `UBV _ 
         | `BV _ -> assert false
-*)
+
     )
 
   (* Return type of term *)
@@ -663,6 +792,7 @@ let type_check_app s a =
     | `FALSE
     | `NUMERAL _
     | `DECIMAL _
+    | `UBV _
     | `BV _
         when List.length a = 0 -> true
 
@@ -684,6 +814,24 @@ let type_check_app s a =
     | `IS_INT 
     | `TO_INT 
         when a = [Type.Real] -> true
+
+    | `TO_UINT8
+        when a = [Type.Real] || a = [Type.Int]
+    | `TO_UINT16
+        when a = [Type.Real] || a = [Type.Int]
+    | `TO_UINT32
+        when a = [Type.Real] || a = [Type.Int]    
+    | `TO_UINT64
+        when a = [Type.Real] || a = [Type.Int]  -> true
+    
+    | `TO_INT8
+        when a = [Type.Real] || a = [Type.Int]
+    | `TO_INT16
+        when a = [Type.Real] || a = [Type.Int]
+    | `TO_INT32
+        when a = [Type.Real] || a = [Type.Int]    
+    | `TO_INT64
+        when a = [Type.Real] || a = [Type.Int]  -> true
 
     (* Variadic, but at least binary function symbols of Boolean arguments *)
     | `IMPLIES 
@@ -1036,10 +1184,139 @@ let mk_dec_of_float = function
     mk_minus [mk_const_of_symbol_node (`DECIMAL (decimal_of_float (-. f)))]
 *)
 
-(*
+
+(* Hashcons an unsigned bitvector *)
+let mk_ubv b = mk_const_of_symbol_node (`UBV b)
+
 (* Hashcons a bitvector *)
 let mk_bv b = mk_const_of_symbol_node (`BV b)
-*)
+
+
+(* Hashcons a signed bitvector addition *)
+let mk_bvadd = function
+  | [] -> invalid_arg "Term.mk_bvadd"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVADD a
+
+(* Hashcons a signed bitvector subtraaction *)
+let mk_bvsub = function
+  | [] -> invalid_arg "Term.mk_bvsub"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSUB a
+
+(* Hashcons a bitvector multiplication *)
+let mk_bvmul = function
+  | [] -> invalid_arg "Term.mk_bvmul"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVMUL a
+
+(* Hashcons a bitvector division *)
+let mk_bvudiv = function
+  | [] -> invalid_arg "Term.mk_bvdiv"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVUDIV a
+
+(* Hashcons a bitvector signed division *)
+let mk_bvsdiv = function
+  | [] -> invalid_arg "Term.mk_bvsdiv"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSDIV a
+
+(* Hashcons a bitvector modulus *)
+let mk_bvurem = function
+  | [] -> invalid_arg "Term.mk_bvurem"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVUREM a
+
+(* Hashcons a bitvector signed modulus *)
+let mk_bvsrem = function
+  | [] -> invalid_arg "Term.mk_bvsrem"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSREM a
+
+(* Hashcons a bitvector conjunction *)
+let mk_bvand = function
+  | [] -> invalid_arg "Term.mk_bvand"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVAND a
+
+(* Hashcons a bitvector disjunction *)
+let mk_bvor = function
+  | [] -> invalid_arg "Term.mk_bvor"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVOR a
+
+(* Hashcons a bitwise negation *)
+let mk_bvnot t = mk_app_of_symbol_node `BVNOT [t]
+
+(* Hashcons a bitvector negation (2's complement) *)
+let mk_bvneg t = mk_app_of_symbol_node `BVNEG [t]
+
+(* Hashcons a bitvector left shift *)
+let mk_bvshl = function
+  | [] -> invalid_arg "Term.mk_bvshl"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSHL a
+
+(* Hashcons a bitvector logical right shift *)
+let mk_bvlshr = function
+  | [] -> invalid_arg "Term.mk_bvlrshr"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVLSHR a
+
+(* Hashcons a bitvector arithmetic right shift *)
+let mk_bvashr = function
+  | [] -> invalid_arg "Term.mk_bvarshr"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVASHR a
+
+(* Hashcons an unsigned bitvector less-than comparison *)
+let mk_bvult = function
+  | [] -> invalid_arg "Term.mk_bvult"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVULT a
+
+(* Hashcons an unsigned bitvector less-than-or-equal-to comparison *)
+let mk_bvule = function
+  | [] -> invalid_arg "Term.mk_bvule"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVULE a
+
+(* Hashcons an unsigned bitvector greater-than comparison *)
+let mk_bvugt = function
+  | [] -> invalid_arg "Term.mk_bvugt"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVUGT a
+
+(* Hashcons an unsigned bitvector greater-than-or-eqaul-to comparison *)
+let mk_bvuge = function
+  | [] -> invalid_arg "Term.mk_bvuge"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVUGE a
+
+(* Hashcons a bitvector less-than comparison *)
+let mk_bvslt = function
+  | [] -> invalid_arg "Term.mk_bvslt"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSLT a
+
+(* Hashcons a bitvector less-than-or-equal-to comparison *)
+let mk_bvsle = function
+  | [] -> invalid_arg "Term.mk_bvsle"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSLE a
+
+(* Hashcons a bitvector greater-than comparison *)
+let mk_bvsgt = function
+  | [] -> invalid_arg "Term.mk_bvsgt"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSGT a
+
+(* Hashcons a bitvector greater-than-or-eqaul-to comparison *)
+let mk_bvsge = function
+  | [] -> invalid_arg "Term.mk_bvsge"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSGE a
 
 (* Hashcons an addition *)
 let mk_plus = function
@@ -1112,6 +1389,42 @@ let mk_to_real t = mk_app_of_symbol_node `TO_REAL [t]
 (* Hashcons a unary conversion to an integer numeral *)
 let mk_to_int t = mk_app_of_symbol_node `TO_INT [t]
 
+(* Hashcons a unary conversion to an unsigned integer8 numeral *)
+let mk_to_uint8 t = mk_app_of_symbol_node `TO_UINT8 [t]
+
+(* Hashcons a unary conversion to an unsigned integer16 numeral *)
+let mk_to_uint16 t = mk_app_of_symbol_node `TO_UINT16 [t]
+
+(* Hashcons a unary conversion to an unsigned integer32 numeral *)
+let mk_to_uint32 t = mk_app_of_symbol_node `TO_UINT32 [t]
+
+(* Hashcons a unary conversion to an unsigned integer64 numeral *)
+let mk_to_uint64 t = mk_app_of_symbol_node `TO_UINT64 [t]
+
+
+(* Hashcons a unary conversion to an integer8 numeral *)
+let mk_to_int8 t = mk_app_of_symbol_node `TO_INT8 [t]
+
+(* Hashcons a unary conversion to an integer16 numeral *)
+let mk_to_int16 t = mk_app_of_symbol_node `TO_INT16 [t]
+
+(* Hashcons a unary conversion to an integer32 numeral *)
+let mk_to_int32 t = mk_app_of_symbol_node `TO_INT32 [t]
+
+(* Hashcons a unary conversion to an integer64 numeral *)
+let mk_to_int64 t = mk_app_of_symbol_node `TO_INT64 [t]
+
+(* Hashcons a unary bitvector to nat conversion *)
+let mk_bv2nat t = mk_app_of_symbol_node `BV2NAT [t]
+
+(* Hashcons a BV extraction *)
+let mk_bvextract i j t = mk_app_of_symbol_node (`BVEXTRACT (i, j)) [t]
+
+(* Hashcons a BV concatenation *)
+let mk_bvconcat a b = mk_app_of_symbol_node `BVCONCAT [a;b]
+
+(* Hashcons a BV sign extension *)
+let mk_bvsignext i t = mk_app_of_symbol_node (`BVSIGNEXT i) [t]
 
 (* Hashcons a predicate for coincidence of a real with an integer *)
 let mk_is_int t = mk_app_of_symbol_node `IS_INT [t]

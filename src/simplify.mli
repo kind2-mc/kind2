@@ -38,7 +38,7 @@
     the optional argument [~default_of_var] that returns the value to
     assign to the variable given as parameter.
 
-    @author Christoph Sticksel, Adrien Champion, Alain Mebsout
+    @author Christoph Sticksel, Adrien Champion, Alain Mebsout, Arjun Viswanathan
 *)
 
 (** Returns true iff a division by zero happened in a simplification since

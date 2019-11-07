@@ -50,9 +50,10 @@ type interpreted_symbol =
   | `NUMERAL of Numeral.t   (* Infinite precision integer numeral (nullary) *)
   | `DECIMAL of Decimal.t 
                        (* Infinite precision floating-point decimal (nullary) *)
-(*
-  | `BV of bitvector      (* Constant bitvector *)
-*)
+
+  | `UBV of Bitvector.t   (* Constant unsigned bitvector *)
+  | `BV of Bitvector.t    (* Constant bitvector *)
+
   | `MINUS                (* Difference or unary negation (left-associative) *)
   | `PLUS                 (* Sum (left-associative) *)
   | `TIMES                (* Product (left-associative) *)
@@ -66,26 +67,48 @@ type interpreted_symbol =
   | `GT                   (* Greater than relation (chainable) *)
   | `TO_REAL              (* Conversion to a floating-point decimal (unary) *)
   | `TO_INT               (* Conversion to an integer numeral (unary) *)
+  | `TO_UINT8             (* Conversion to an unsigned integer8 numeral (unary) *)  
+  | `TO_UINT16            (* Conversion to an unsigned integer16 numeral (unary) *)  
+  | `TO_UINT32            (* Conversion to an unsigned integer32 numeral (unary) *)  
+  | `TO_UINT64            (* Conversion to an unsigned integer64 numeral (unary) *)
+  | `TO_INT8              (* Conversion to an integer8 numeral (unary) *)  
+  | `TO_INT16             (* Conversion to an integer16 numeral (unary) *)  
+  | `TO_INT32             (* Conversion to an integer32 numeral (unary) *)  
+  | `TO_INT64             (* Conversion to an integer64 numeral (unary) *)  
+  | `BV2NAT               (* Conversion from bitvector to natural number *)
   | `IS_INT               (* Real is an integer (unary) *)
 
   | `DIVISIBLE of Numeral.t 
                           (* Divisible by [n] (unary) *)
-(*
-  | `CONCAT               (* Concatenation of bitvectors (binary) *)
-  | `EXTRACT of Numeral.t * Numeral.t 
-                          (* Extract subsequence from bitvector (unary) *)
+
   | `BVNOT                (* Bit-wise negation (unary) *)
   | `BVNEG                (* Arithmetic negation (unary) *)
   | `BVAND                (* Bit-wise conjunction (binary) *)
   | `BVOR                 (* Bit-wise disjunction (binary) *)
-  | `BVADD                (* Arithmetic sum (binary) *)
+  | `BVADD                (* Signed bitvector sum (binary) *)
+  | `BVSUB                (* Signed bitvector difference (binary) *)
   | `BVMUL                (* Arithmetic multiplication (binary) *)
-  | `BVDIV                (* Arithmetic integer division (binary) *)
+  | `BVUDIV               (* Arithmetic integer division (binary) *)
+  | `BVSDIV               (* Arithmetic integer signed division (binary) *)
   | `BVUREM               (* Arithmetic remainder (binary) *)
-  | `BVSHL                (* Logical shift left (unary) *)
-  | `BVLSHR               (* Logical shift right (unary) *)
-  | `BVULT                (* Arithmetic comparision (binary) *)
-*)
+  | `BVSREM               (* Arithmetic signed remainder (binary) *)
+  | `BVSHL                (* Logical shift left (binary) *)
+  | `BVLSHR               (* Logical shift right (binary) *)
+  | `BVASHR               (* Arithmetic right shift (binary) *)
+  | `BVULT                (* Arithmetic comparision less than (unsigned binary) *)
+  | `BVULE                (* Arithmetic comparision less than or equal to (unsigned binary) *)
+  | `BVUGT                (* Arithmetic comparision greater than (unsigned binary) *)
+  | `BVUGE                (* Arithmetic comparision greater than or equal to (unsigned binary) *)
+  | `BVSLT                (* Arithmetic comparision less than (signed binary) *)
+  | `BVSLE                (* Arithmetic comparision less than or equal to (signed binary) *)
+  | `BVSGT                (* Arithmetic comparision greater than (signed binary) *)
+  | `BVSGE                (* Arithmetic comparision greater than or equal to (signed binary) *)
+  | `BVEXTRACT of Numeral.t * Numeral.t 
+                          (* Extract subsequence from bitvector (unary) *)
+  | `BVCONCAT             (* Concatenation of bitvectors (binary) *)
+  | `BVSIGNEXT of Numeral.t
+                          (* Sign extension of bitvector (unary) *)
+
   (* Selection from array (binary) *)
   | `SELECT of Type.t
   | `STORE                (* Update of an array (ternary) *)
@@ -139,19 +162,19 @@ module Symbol_node = struct
     | `NUMERAL n1, `NUMERAL n2 -> Numeral.equal n1 n2
     | `DECIMAL d1, `DECIMAL d2 -> Decimal.equal d1 d2
     | `DIVISIBLE n1, `DIVISIBLE n2 -> Numeral.equal n1 n2
-(*
-    | `EXTRACT (i1, j1), `EXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
+
+    | `UBV i, `UBV j -> i = j
     | `BV i, `BV j -> i = j
-*)
+
     | `UF u1, `UF u2 -> UfSymbol.equal_uf_symbols u1 u2
 
     | `NUMERAL _, _
     | `DECIMAL _, _
     | `DIVISIBLE _, _
-(*
-    | `EXTRACT _, _
+
+    | `UBV _, _
     | `BV _, _
-*)
+
     | `UF _, _  -> false
 
     (* Non-parametric symbols *)
@@ -178,6 +201,15 @@ module Symbol_node = struct
     | `GT, `GT
     | `TO_REAL, `TO_REAL
     | `TO_INT, `TO_INT
+    | `TO_UINT8, `TO_UINT8
+    | `TO_UINT16, `TO_UINT16
+    | `TO_UINT32, `TO_UINT32
+    | `TO_UINT64, `TO_UINT64
+    | `TO_INT8, `TO_INT8
+    | `TO_INT16, `TO_INT16
+    | `TO_INT32, `TO_INT32
+    | `TO_INT64, `TO_INT64
+    | `BV2NAT, `BV2NAT
     | `IS_INT, `IS_INT -> true
 
   
@@ -187,20 +219,31 @@ module Symbol_node = struct
 
     | `STORE, `STORE -> true
 
-(*
-    | `CONCAT, `CONCAT
+    | `BVEXTRACT (i1, j1), `BVEXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
+    | `BVSIGNEXT i1, `BVSIGNEXT i2 -> Numeral.equal i1 i2
     | `BVNOT, `BVNOT 
     | `BVNEG, `BVNEG
     | `BVAND, `BVAND
     | `BVOR, `BVOR
     | `BVADD, `BVADD
+    | `BVSUB, `BVSUB
     | `BVMUL, `BVMUL
-    | `BVDIV, `BVDIV
+    | `BVUDIV, `BVUDIV
+    | `BVSDIV, `BVSDIV
     | `BVUREM, `BVUREM
+    | `BVSREM, `BVSREM
     | `BVSHL, `BVSHL
     | `BVLSHR, `BVLSHR
+    | `BVASHR, `BVASHR
     | `BVULT, `BVULT
-*)
+    | `BVULE, `BVULE
+    | `BVUGT, `BVUGT
+    | `BVUGE, `BVUGE
+    | `BVSLT, `BVSLT
+    | `BVSLE, `BVSLE
+    | `BVSGT, `BVSGT
+    | `BVSGE, `BVSGE
+    | `BVCONCAT, `BVCONCAT
 
     | `TRUE, _
     | `FALSE, _
@@ -225,23 +268,44 @@ module Symbol_node = struct
     | `GT, _
     | `TO_REAL, _
     | `TO_INT, _
+    | `TO_UINT8, _    
+    | `TO_UINT16, _ 
+    | `TO_UINT32, _ 
+    | `TO_UINT64, _
+    | `TO_INT8, _    
+    | `TO_INT16, _ 
+    | `TO_INT32, _ 
+    | `TO_INT64, _ 
+    | `BV2NAT, _
     | `IS_INT, _
     | `SELECT _, _
-    | `STORE, _ -> false
-(*
-    | `CONCAT, _
+    | `STORE, _ 
+    | `BVEXTRACT _, _
+    | `BVCONCAT, _
+    | `BVSIGNEXT _, _
+
     | `BVNOT, _ 
     | `BVNEG, _
     | `BVAND, _
     | `BVOR, _
     | `BVADD, _
+    | `BVSUB, _
     | `BVMUL, _
-    | `BVDIV, _
+    | `BVUDIV, _
+    | `BVSDIV, _
     | `BVUREM, _
+    | `BVSREM, _
     | `BVSHL, _
     | `BVLSHR, _
-    | `BVULT, _
-*)
+    | `BVASHR, _
+    | `BVULT, _ 
+    | `BVULE, _
+    | `BVUGT, _
+    | `BVUGE, _
+    | `BVSLT, _ 
+    | `BVSLE, _
+    | `BVSGT, _
+    | `BVSGE, _ -> false
 
 
   (* Return hash of a symbol *)
@@ -347,6 +411,7 @@ let rec pp_print_symbol_node ppf = function
 
   | `NUMERAL i -> Numeral.pp_print_numeral ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
+  | `UBV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b
   | `BV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b
 
   | `MINUS -> Format.pp_print_string ppf "-"
@@ -364,33 +429,56 @@ let rec pp_print_symbol_node ppf = function
 
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
+  | `TO_UINT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
+  | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
+  | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
+  | `TO_UINT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
+  | `TO_INT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
+  | `TO_INT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
+  | `TO_INT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
+  | `TO_INT64 -> Format.pp_print_string ppf "(_ int2bv 64)"
+  | `BV2NAT -> Format.pp_print_string ppf "bv2nat"
   | `IS_INT -> Format.pp_print_string ppf "is_int"
 
   | `DIVISIBLE n -> 
     Format.pp_print_string ppf "divisible";
     Format.pp_print_space ppf ();
     Numeral.pp_print_numeral ppf n
-(*
-  | `CONCAT -> Format.pp_print_string ppf "concat"
-  | `EXTRACT (i, j) -> 
-    Format.fprintf 
-      ppf 
-      "(_ extract %a %a)" 
-      Numeral.pp_print_numeral i
-      Numeral.pp_print_numeral j
 
   | `BVNOT -> Format.pp_print_string ppf "bvnot"
   | `BVNEG -> Format.pp_print_string ppf "bvneg"
   | `BVAND -> Format.pp_print_string ppf "bvand"
   | `BVOR -> Format.pp_print_string ppf "bvor"
   | `BVADD -> Format.pp_print_string ppf "bvadd"
+  | `BVSUB -> Format.pp_print_string ppf "bvsub"
   | `BVMUL -> Format.pp_print_string ppf "bvmul"
-  | `BVDIV -> Format.pp_print_string ppf "bvdiv"
+  | `BVUDIV -> Format.pp_print_string ppf "bvudiv"
+  | `BVSDIV -> Format.pp_print_string ppf "bvsdiv"
   | `BVUREM -> Format.pp_print_string ppf "bvurem"
+  | `BVSREM -> Format.pp_print_string ppf "bvsrem"
   | `BVSHL -> Format.pp_print_string ppf "bvshl"
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
+  | `BVASHR -> Format.pp_print_string ppf "bvashr"
   | `BVULT -> Format.pp_print_string ppf "bvult"
-*)
+  | `BVULE -> Format.pp_print_string ppf "bvule"
+  | `BVUGT -> Format.pp_print_string ppf "bvugt"
+  | `BVUGE -> Format.pp_print_string ppf "bvuge"
+  | `BVSLT -> Format.pp_print_string ppf "bvslt"
+  | `BVSLE -> Format.pp_print_string ppf "bvsle"
+  | `BVSGT -> Format.pp_print_string ppf "bvsgt"
+  | `BVSGE -> Format.pp_print_string ppf "bvsge"
+  | `BVCONCAT -> Format.pp_print_string ppf "concat"
+  | `BVEXTRACT (i, j) -> 
+      Format.fprintf 
+      ppf 
+      "(_ extract %a %a)" 
+      Numeral.pp_print_numeral i
+      Numeral.pp_print_numeral j
+  | `BVSIGNEXT i ->
+      Format.fprintf
+      ppf
+      "(_ sign_extend %a)"
+      Numeral.pp_print_numeral i
 
   | `SELECT _ -> Format.pp_print_string ppf "select"
   | `STORE -> Format.pp_print_string ppf "store"
@@ -419,12 +507,85 @@ let is_numeral = function
 let is_decimal = function 
   | { Hashcons.node = `DECIMAL _ } -> true 
   | _ -> false
-(*
+
 (* Return true if the symbol is a bitvector *)
 let is_bitvector = function 
   | { Hashcons.node = `BV _ } -> true 
   | _ -> false
-*)
+
+(* Return true if the symbol is an unsigned bitvector *)
+let is_ubitvector = function
+  | { Hashcons.node = `UBV _ } -> true
+  | _ -> false
+
+(* Return true if the symbol is an unsigned bitvector of size 8 *)
+let is_ubv8 = function
+  | { Hashcons.node = `UBV n } -> 
+      if (Bitvector.length_of_bitvector n = 8) then true else false
+  | _ -> false
+
+(* Return true if the symbol is an unsigned bitvector of size 16 *)
+let is_ubv16 = function
+  | { Hashcons.node = `UBV n } -> 
+      if (Bitvector.length_of_bitvector n = 16) then true else false
+  | _ -> false
+
+(* Return true if the symbol is an unsigned bitvector of size 32 *)
+let is_ubv32 = function
+  | { Hashcons.node = `UBV n } -> 
+      if (Bitvector.length_of_bitvector n = 32) then true else false
+  | _ -> false
+
+(* Return true if the symbol is an unsigned bitvector of size 64 *)
+let is_ubv64 = function
+  | { Hashcons.node = `UBV n } -> 
+      if (Bitvector.length_of_bitvector n = 64) then true else false
+  | _ -> false
+
+(* Return true if the symbol is a bitvector of size 8 *)
+let is_bv8 = function
+  | { Hashcons.node = `BV n } -> 
+      if (Bitvector.length_of_bitvector n = 8) then true else false
+  | _ -> false
+
+(* Return true if the symbol is a bitvector of size 16 *)
+let is_bv16 = function
+  | { Hashcons.node = `BV n } -> 
+      if (Bitvector.length_of_bitvector n = 16) then true else false
+  | _ -> false
+
+(* Return true if the symbol is a bitvector of size 32 *)
+let is_bv32 = function
+  | { Hashcons.node = `BV n } -> 
+      if (Bitvector.length_of_bitvector n = 32) then true else false
+  | _ -> false
+
+(* Return true if the symbol is a bitvector of size 64 *)
+let is_bv64 = function
+  | { Hashcons.node = `BV n } -> 
+      if (Bitvector.length_of_bitvector n = 64) then true else false
+  | _ -> false
+
+(* Return true if the symbol is a to_uint8 *)
+let is_to_uint8 = function
+  | { Hashcons.node = `TO_UINT8 } -> true
+  | _ -> false
+
+(* Return true if the symbol is a to_uint16 *)
+let is_to_uint16 = function
+  | { Hashcons.node = `TO_UINT16 } -> true
+  | _ -> false
+
+(* Return true if the symbol is a to_uint32 *)
+let is_to_uint32 = function
+  | { Hashcons.node = `TO_UINT32 } -> true
+  | _ -> false
+
+(* Return true if the symbol is a to_uint64 *)
+let is_to_uint64 = function
+  | { Hashcons.node = `TO_UINT64 } -> true
+  | _ -> false
+
 (* Return true if the symbol is [`TRUE] or [`FALSE] *)
 let is_bool = function 
   | { Hashcons.node = `TRUE } 
@@ -440,12 +601,17 @@ let numeral_of_symbol = function
 let decimal_of_symbol = function 
   | { Hashcons.node = `DECIMAL n } -> n 
   | _ -> raise (Invalid_argument "decimal_of_symbol")
-(*
+
 (* Return the bitvector in a `BV symbol  *)
-let bitvector_of_symbol = function 
-  | { Hashcons.node = `BV n } -> n 
+let bitvector_of_symbol =  function 
+  | { Hashcons.node = `BV b } -> b 
   | _ -> raise (Invalid_argument "bitvector_of_symbol")
-*)
+
+(* Return the unsigned bitvector in a `UBV symbol *)
+let ubitvector_of_symbol = function
+  | { Hashcons.node = `UBV b } -> b
+  | _ -> raise (Invalid_argument "ubitvector_of_symbol")
+
 (* Return [true] for the [`TRUE] symbol and [false] for the [`FALSE]
     symbol *)
 let bool_of_symbol = function 
