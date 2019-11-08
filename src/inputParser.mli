@@ -16,13 +16,19 @@
 
 *)
 
+type statevar_at_index = StateVar.t * int list
+
+val read_file: string list -> string -> (statevar_at_index * (Term.t list)) list
+
 (** Parser for a CSV input file 
 
     @author Baoluo Meng, Christoph Sticksel *)
 
 (** Parse a CSV input file *)
-val read_file: string list -> string -> (StateVar.t * (Term.t list)) list
+val read_csv_file: string list -> string -> (StateVar.t * (Term.t list)) list
 
+(** Parse a JSON input file *)
+val read_json_file: string list -> string -> (statevar_at_index * (Term.t list)) list
 
 (* 
    Local Variables:

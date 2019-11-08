@@ -67,25 +67,26 @@ let main input_file input_sys aparam trans_sys =
   let input_scope = TransSys.scope_of_trans_sys trans_sys @
                     LustreIdent.user_scope in
 
+  let trans_svars = TransSys.state_vars trans_sys in
+  (*trans_svars |> List.iter (fun sv -> KEvent.log_uncond "%a" StateVar.pp_print_state_var sv) ;*)
+
   (* Read inputs from file *)
   let inputs =
     if input_file = "" then []
     else
-      try InputParser.read_file input_scope input_file 
+      try InputParser.read_file input_scope input_file
       with Sys_error e -> 
         (* Output warning *)
         KEvent.log L_warn "@[<v>Error reading interpreter input file.@,%s@]" e;
         raise (Failure "main")
   in
 
-  let trans_svars = TransSys.state_vars trans_sys in
-
   let nb_inputs = List.filter StateVar.is_input trans_svars |> List.length in
 
   (* Check that constant inputs are indeed constant. *)
   inputs |> List.iter (
     function
-    | (sv, head :: tail) when StateVar.is_const sv ->
+    | ((sv, _), head :: tail) when StateVar.is_const sv ->
       tail |> List.fold_left (
         fun acc value ->
           if acc != value then (
@@ -103,7 +104,7 @@ let main input_file input_sys aparam trans_sys =
   ) ;
 
   (* Remove sliced inputs *)
-  let inputs = List.filter (fun (sv, _) ->
+  let inputs = List.filter (fun ((sv,_), _) ->
       List.exists (StateVar.equal_state_vars sv) trans_svars
     ) inputs
   in
@@ -119,7 +120,7 @@ let main input_file input_sys aparam trans_sys =
 
   (* Check if all inputs are of the same length *)
   List.iter
-    (fun (state_var, inputs) -> 
+    (fun ((state_var, _), inputs) -> 
 
        (* Is input longer than minimum? *)
        if List.length inputs > input_length then
@@ -189,31 +190,37 @@ let main input_file input_sys aparam trans_sys =
      instant *)
   List.iter
 
-    (fun (state_var, values) ->
+    (fun ((state_var, indexes), values) ->
 
        List.iteri 
          (fun instant instant_value ->
 
             (* Only assert up to the maximum number of steps *)
             if instant < steps then
+            (
+              (* Create variable at instant *)
+              let var = 
+                Var.mk_state_var_instance 
+                  state_var 
+                  (Numeral.of_int instant)
+                |> Term.mk_var
+              in
 
-              (
+              (* Select index of instance variable *)
+              let var = List.fold_left (
+                fun acc i ->
+                Term.mk_select acc (Term.mk_num_of_int i)
+              ) var indexes |> Term.convert_select in
 
-                (* Create variable at instant *)
-                let var = 
-                  Var.mk_state_var_instance 
-                    state_var 
-                    (Numeral.of_int instant)
-                in
+              (* Constrain variable to its value at instant *)
+              let equation = 
+                Term.mk_eq [var; instant_value] 
+              in
 
-                (* Constrain variable to its value at instant *)
-                let equation = 
-                  Term.mk_eq [Term.mk_var var; instant_value] 
-                in
-
-                (* Assert equation *)
-                SMTSolver.assert_term solver equation))
-
+              (* Assert equation *)
+              SMTSolver.assert_term solver equation
+            )
+          )
          values)
 
     inputs;
