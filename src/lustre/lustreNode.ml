@@ -174,7 +174,7 @@ type t = {
   calls : node_call list;
 
   (* Assertions of node *)
-  asserts : E.t list;
+  asserts : (position * E.t) list;
 
   (* Proof obligations for node *)
   props : (StateVar.t * string * Property.prop_source) list;
@@ -469,7 +469,7 @@ let pp_print_call safe ppf = function
 
 
 (* Pretty-print an assertion *)
-let pp_print_assert safe ppf expr = 
+let pp_print_assert safe ppf (_,expr) = 
 
   Format.fprintf ppf
     "@[<hv 2>assert@ %a;@]"
@@ -728,7 +728,7 @@ let pp_print_node_debug
     (pp_print_list pp_print_state_var_trie_debug ";@ ") locals
     (pp_print_list pp_print_equation "@ ") equations
     (pp_print_list pp_print_node_call_debug ";@ ") calls
-    (pp_print_list (E.pp_print_lustre_expr false) ";@ ") asserts
+    (pp_print_list (pp_print_assert false) ";@ ") asserts
     (pp_print_list pp_print_prop ";@ ") props
     (fun fmt -> function
       | None -> ()
@@ -1291,7 +1291,7 @@ let stateful_vars_of_node
   (* Add stateful variables from assertions *)
   let stateful_vars = 
     List.fold_left 
-      (fun accum expr -> 
+      (fun accum (_,expr) -> 
 
          (* Add stateful variables of assertion *)
          SVS.union accum (stateful_vars_of_expr expr) |> 
@@ -1542,6 +1542,26 @@ let get_state_var_instances state_var =
   (* Return empty list *)
   with Not_found -> []
 
+let all_state_vars_dbg t =
+  let inputs = D.bindings t.inputs |> List.map snd in
+  let outputs = D.bindings t.outputs |> List.map snd in
+  let locals = t.locals
+    |> List.map (fun ls -> D.bindings ls |> List.map snd)
+    |> List.flatten in
+  t.instance::(inputs@outputs@locals)
+
+let pp_print_state_var_instances_debug fmt t =
+  let print_sv state_var =
+    Format.fprintf fmt "--- %a ---\n" StateVar.pp_print_state_var state_var ;
+    get_state_var_instances state_var
+    |> List.iter (fun (pos, id, sv) ->
+      Format.fprintf fmt "%a: %a %a\n"
+      (LustreIdent.pp_print_ident true) id
+      StateVar.pp_print_state_var sv
+      Lib.pp_print_position pos
+    )
+  in
+  List.iter print_sv (all_state_vars_dbg t)
 
 (* State variable is identical to a state variable in a node instance *)
 let set_state_var_instance state_var pos node state_var' = 
@@ -1574,6 +1594,77 @@ let set_state_var_instance state_var pos node state_var' =
     state_var_instance_map 
     state_var
     instances'
+
+
+type state_var_def =
+  | CallOutput of position * LustreIndex.index
+  | ProperEq of position * LustreIndex.index
+  | GeneratedEq of position * LustreIndex.index
+  | ContractItem of position
+
+let state_var_defs_map : state_var_def list StateVar.StateVarHashtbl.t = 
+  StateVar.StateVarHashtbl.create 20
+
+let get_state_var_defs state_var = 
+  try 
+    StateVar.StateVarHashtbl.find
+      state_var_defs_map 
+      state_var
+  with Not_found -> []
+
+let add_state_var_def state_var def = 
+  let defs = get_state_var_defs state_var in
+  let defs =
+    if List.exists (fun d -> d=def) defs
+    then defs
+    else def::defs
+  in
+
+  StateVar.StateVarHashtbl.replace
+    state_var_defs_map 
+    state_var
+    defs
+
+let has_state_var_a_proper_def state_var =
+  if StateVar.is_input state_var then true
+  else
+    get_state_var_defs state_var |>
+    List.exists (function
+      | ContractItem _ | CallOutput _ | ProperEq _ -> true
+      | GeneratedEq _ -> false)
+
+let pos_of_state_var_def = function
+  | CallOutput (p,_) -> p
+  | ProperEq (p,_) -> p
+  | GeneratedEq (p,_) -> p
+  | ContractItem p -> p
+
+let index_of_state_var_def = function
+  | CallOutput (_,i) -> i
+  | ProperEq (_,i) -> i
+  | GeneratedEq (_,i) -> i
+  | ContractItem _ -> []
+
+let pp_print_state_var_defs_debug fmt t =
+  let print_sv state_var =
+    Format.fprintf fmt "--- %a ---\n" StateVar.pp_print_state_var state_var ;
+    get_state_var_defs state_var
+    |> List.iter (function
+      | CallOutput (p,i) ->
+        Format.fprintf fmt "Call Output: %a (%a)\n"
+        Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+      | ProperEq (p,i) ->
+        Format.fprintf fmt "Proper Eq: %a (%a)\n"
+        Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+      | GeneratedEq (p,i) ->
+        Format.fprintf fmt "Generated Eq: %a (%a)\n"
+        Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+      | ContractItem p ->
+        Format.fprintf fmt "Contract Item: %a\n" Lib.pp_print_position p
+      )
+  in
+  List.iter print_sv (all_state_vars_dbg t)
+
 
 let map_svars_in_equation f ((svar, index), expr) =
   let f_svar = f svar in

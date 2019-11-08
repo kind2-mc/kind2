@@ -222,8 +222,8 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
 
   let s_declare_datatypes = HString.mk_hstring "declare-datatypes"
-  let s__compress_equal_mod_input =
-    HString.mk_hstring "__compress_equal_mod_input"
+  let s__compress_equal_mod_input () =
+    HString.mk_hstring (Compress.function_symbol_name ())
 
 
   let ignore_model_item = function
@@ -234,7 +234,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
     (* (define-fun __compress_equal_mod_input ...) *)
     | HStringSExpr.List (HStringSExpr.Atom s :: HStringSExpr.Atom c :: _)
-      when s == s_define_fun && c == s__compress_equal_mod_input -> true 
+      when s == s_define_fun && c == s__compress_equal_mod_input () -> true 
   
     | _ -> false
 

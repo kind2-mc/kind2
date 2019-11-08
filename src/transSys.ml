@@ -121,8 +121,8 @@ type t =
     (* Formal parameters of initial state constraint *)
     init_formals : Var.t list;
 
-    (* Initial state constraint *)
-    init : Term.t;
+    (* Initial state constraint. Mutable because we change it when computing IVC. *)
+    mutable init : Term.t;
 
     (* Predicate symbol for transition relation *)
     trans_uf_symbol : UfSymbol.t;
@@ -130,8 +130,8 @@ type t =
     (* Formal parameters of transition relation *)
     trans_formals : Var.t list;
 
-    (* Transition relation *)
-    trans : Term.t;
+    (* Transition relation. Mutable because we change it when computing IVC. *)
+    mutable trans : Term.t;
 
     (* Properties to prove invariant for this transition system 
 
@@ -145,8 +145,11 @@ type t =
 
     invariants : Invs.t ;
 
-  }
+    (* Map that associate to some subterms of the init/trans system
+       their position in the source Lustre file *)
+    terms_position_map : Lib.position Term.TermMap.t;
 
+  }
 
 (* ********************************************************************** *)
 (* Pretty-printing                                                        *)
@@ -527,6 +530,9 @@ let init_trans_open { instance_var_bindings; init; trans } =
    init,
    trans)
 
+let set_init_trans t init trans =
+  t.init <- init ;
+  t.trans <- trans
 
 
 
@@ -710,7 +716,6 @@ let iter_subsystems ?(include_top = true) f ({ subsystems } as trans_sys) =
     () 
     Scope.Set.empty 
     (if include_top then [trans_sys] else (List.map fst subsystems))
-
 
 (* Fold bottom-up over subsystems, including the top level system
     without repeating subsystems already seen *)
@@ -918,11 +923,46 @@ let declare_selects declare =
 let define_init define { init_uf_symbol; init_formals; init } = 
   define init_uf_symbol init_formals init
 
-
 (* Define transition relation predicate *)
 let define_trans define { trans_uf_symbol; trans_formals; trans } =
   define trans_uf_symbol trans_formals trans
 
+(* Declare the sorts, uninterpreted functions and const variables
+   of this system and its subsystems. *)
+let declare_sorts_ufs_const trans_sys declare declare_sort =
+  (* declare uninterpreted sorts *)
+  Type.get_all_abstr_types () |>
+  List.iter (fun ty -> match Type.node_of_type ty with
+      | Type.Abstr _ -> declare_sort ty
+      | _ -> ());
+
+  (* Declare monomorphized select symbols *)
+  if not (Flags.Arrays.smt ()) then declare_selects declare;
+
+  (* Declare other functions of top system *)
+  declare_ufs trans_sys declare;
+
+  (* Declare constant state variables of top system *)
+  declare_const_vars trans_sys declare ;
+
+  (* Iterate over all subsystems *)
+  trans_sys |> iter_subsystems ~include_top:false (fun t ->
+
+    (* Declare other functions of sub system *)
+    declare_ufs t declare
+  )
+
+(* Declare the init and trans functions of the subsystems *)
+let define_subsystems trans_sys define =
+  (* Iterate over all subsystems *)
+  trans_sys |> iter_subsystems ~include_top:false (fun t ->
+
+    (* Define initial state predicate *)
+    define_init define t ;
+
+    (* Define transition relation predicate *)
+    define_trans define t
+  )
 
 (* Define predicates, declare constant and global state variables, and
    declare state variables of the top system between and including the
@@ -1288,7 +1328,18 @@ let set_prop_ktrue trans_sys k p =
 
 let set_prop_false trans_sys p c =
   P.PropFalse c |> set_prop_status trans_sys p
-  
+
+let force_set_prop_unknown { properties } p =
+  let found =
+    properties |> List.fold_left (
+      fun found -> function
+      | { P.prop_name } as prop when prop_name = p ->
+        P.force_set_prop_unknown prop ;
+        true
+      | _ -> found
+    ) false
+  in
+  if not found then raise Not_found
 
 (* Return current status of all properties *)
 let get_prop_status_all_nocands t = 
@@ -1449,9 +1500,33 @@ let get_all_invariants t =
       Scope.Map.add scope invariants map
   ) Scope.Map.empty
 
+let clear_invariants { invariants } =
+  Invs.clear invariants
+
+let clear_all_invariants =
+  iter_subsystems ~include_top:true clear_invariants
+
+let get_terms_position_map { terms_position_map } =
+  terms_position_map
+
 (* ********************************************************************** *)
 (* Construct a transition system                                          *)
 (* ********************************************************************** *)
+
+let copy t =
+  let copy subsystems_copy_f t =
+    { t with invariants = Invs.copy t.invariants ;
+    properties = List.map Property.copy t.properties ;
+    subsystems = List.map (fun (s,i) -> (subsystems_copy_f s,i)) t.subsystems }
+  in
+  let copies = fold_subsystems ~include_top:true (
+    fun copies t ->
+      let subsystems_copy_f t =
+        Scope.Map.find (scope_of_trans_sys t) copies
+      in
+      Scope.Map.add (scope_of_trans_sys t) (copy subsystems_copy_f t) copies
+  ) Scope.Map.empty t in
+  Scope.Map.find (scope_of_trans_sys t) copies
 
 let mk_trans_sys 
   ?(instance_var_id_start = 0)
@@ -1473,6 +1548,7 @@ let mk_trans_sys
   properties
   mode_requires
   invariants
+  terms_position_map
 =
 
   (* Map instance variables of this system and all subsystems to a
@@ -1632,7 +1708,8 @@ let mk_trans_sys
       properties;
       mode_requires;
       logic;
-      invariants; }
+      invariants;
+      terms_position_map; }
   in
 
   trans_sys, instance_var_id_start'

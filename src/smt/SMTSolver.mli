@@ -70,10 +70,10 @@ val assert_expr : t -> SMTExpr.t -> unit
 val assert_term : t -> Term.t -> unit
 
 (** Name a term, convert a term to an SMT expression and assert *)
-val assert_named_term : t -> SMTExpr.t -> unit
+val assert_named_term : t -> Term.t -> unit
 
 (** Name a term, convert a term to an SMT expression and assert, and return the name *)
-val assert_named_term_wr : t -> SMTExpr.t -> string
+val assert_named_term_wr : t -> Term.t -> string
 
 (** Push a new scope to the context stack *)
 val push : ?n:int -> t -> unit
@@ -98,10 +98,8 @@ val get_var_values :
   Var.t list -> Model.t
 
 (** Return an unsatisfiable core of named expressions if the current
-    context is unsatisfiable *)
-val get_unsat_core_of_names : t -> Term.t list
-
-(** Interpret unsatisfiable core as names and return corresponing terms *)
+    context is unsatisfiable.
+    Interpret unsatisfiable core as names and return corresponing terms *)
 val get_unsat_core_of_names : t -> Term.t list
   
 (** Interpret unsatisfiable core as literals and return as terms *)

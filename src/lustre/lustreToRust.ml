@@ -678,7 +678,7 @@ let fmt_calls_doc fmt = function
 let fmt_asserts_doc fmt = function
 | [] -> Format.fprintf fmt "No assertions for this system.@."
 | asserts -> Format.fprintf fmt "%a@." (
-  pp_print_list (fun fmt expr ->
+  pp_print_list (fun fmt (_,expr) ->
     Format.fprintf fmt
       "- `%a`"
       (E.pp_print_lustre_expr false) expr
@@ -1205,7 +1205,7 @@ let node_to_rust oracle_info is_top fmt (
       then
         Format.fprintf fmt
           "%a@ @ "
-          ( pp_print_list (fun fmt expr ->
+          ( pp_print_list (fun fmt (_,expr) ->
               Format.fprintf fmt
                 "// %a@ if ! (@   %a@ ) {@   \
                   @[<v>\
@@ -1349,7 +1349,7 @@ let node_to_rust oracle_info is_top fmt (
       ) "@ "
     ) eqs_next
 
-    ( pp_print_list (fun fmt expr ->
+    ( pp_print_list (fun fmt (_,expr) ->
         Format.fprintf fmt
           "// %a@ if ! (@   %a@ ) {@   \
             @[<v>\

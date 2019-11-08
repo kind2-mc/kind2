@@ -28,7 +28,7 @@ module SVar = StateVar
 module SVM = SVar.StateVarMap
 
 type _ t =
-| Lustre : (LustreNode.t S.t * LustreGlobals.t) -> LustreNode.t t
+| Lustre : (LustreNode.t S.t * LustreGlobals.t * LustreAst.declaration list) -> LustreNode.t t
 | Native : TransSys.t S.t -> TransSys.t t
 | Horn : unit S.t -> unit t
 
@@ -42,7 +42,7 @@ let read_input_horn input_file = assert false
 
 let silent_contracts_of (type s) : s t -> (Scope.t * string list) list
 = function
-  | Lustre (subsystem, _) ->
+  | Lustre (subsystem, _, _) ->
     S.all_subsystems subsystem
     |> List.fold_left (
       fun acc { S.scope ; S.source = { N.silent_contracts } } ->
@@ -54,7 +54,7 @@ let silent_contracts_of (type s) : s t -> (Scope.t * string list) list
   | Horn subsystem -> raise (UnsupportedFileFormat "Horn")
 
 let ordered_scopes_of (type s) : s t -> Scope.t list = function
-  | Lustre (subsystem, _) ->
+  | Lustre (subsystem, _, _) ->
     S.all_subsystems subsystem
     |> List.map (fun { S.scope } -> scope)
 
@@ -85,7 +85,7 @@ let get_testgen_uid () =
 let maximal_abstraction_for_testgen (type s)
 : s t -> Scope.t -> Analysis.assumptions -> Analysis.param option = function
 
-  | Lustre (subsystem, _) -> (fun top assumptions ->
+  | Lustre (subsystem, _, _) -> (fun top assumptions ->
 
     (* Collects all subsystems, abstracting them if possible. *)
     let rec collect map = function
@@ -140,7 +140,7 @@ let maximal_abstraction_for_testgen (type s)
 let next_analysis_of_strategy (type s)
 : s t -> 'a -> Analysis.param option = function
 
-  | Lustre (subsystem, _) -> (
+  | Lustre (subsystem, _, _) -> (
     fun results ->
       let subs_of_scope scope =
         let { S.subsystems } = S.find_subsystem subsystem scope in
@@ -183,7 +183,7 @@ let interpreter_param (type s) (input_system : s t) =
 
   let scope, abstraction_map =
     match input_system with
-    | Lustre ({S.scope} as sub, _) -> (scope,
+    | Lustre ({S.scope} as sub, _, _) -> (scope,
       List.fold_left (
         fun abs_map ({ S.scope; S.has_impl }) ->
           Scope.Map.add scope (not has_impl) abs_map
@@ -208,11 +208,49 @@ let interpreter_param (type s) (input_system : s t) =
   }
 
 
-let pp_print_subsystems_debug (type s) : s t -> Format.formatter -> unit = function
-  | Lustre (subsystem, _) -> (fun fmt ->
+let pp_print_subsystems_debug (type s) : Format.formatter -> s t -> unit =
+  (fun fmt -> function
+    | Lustre (subsystem, _, _) -> 
       let subsystems = S.all_subsystems subsystem in
       let lustre_nodes = List.map (fun sb -> sb.S.source) subsystems in
-      List.iter (Format.fprintf fmt "%a@." LustreNode.pp_print_node_debug) lustre_nodes)
+      List.iter (Format.fprintf fmt "%a@." LustreNode.pp_print_node_debug) lustre_nodes
+    | Native _ -> failwith "Unsupported input system: Native"
+    | Horn _ -> failwith "Unsupported input system: Horn"
+  )
+
+let pp_print_state_var_instances_debug (type s) : Format.formatter -> s t -> unit =
+  (fun fmt -> function
+    | Lustre (subsystem, _, _) -> 
+      let subsystems = S.all_subsystems subsystem in
+      let lustre_nodes = List.map (fun sb -> sb.S.source) subsystems in
+      List.iter (
+        Format.fprintf fmt "%a@." LustreNode.pp_print_state_var_instances_debug
+      ) lustre_nodes
+    | Native _ -> failwith "Unsupported input system: Native"
+    | Horn _ -> failwith "Unsupported input system: Horn"
+  )
+
+let pp_print_state_var_defs_debug (type s) : Format.formatter -> s t -> unit =
+  (fun fmt -> function
+    | Lustre (subsystem, _, _) -> 
+      let subsystems = S.all_subsystems subsystem in
+      let lustre_nodes = List.map (fun sb -> sb.S.source) subsystems in
+      List.iter (
+        Format.fprintf fmt "%a@." LustreNode.pp_print_state_var_defs_debug
+      ) lustre_nodes
+    | Native _ -> failwith "Unsupported input system: Native"
+    | Horn _ -> failwith "Unsupported input system: Horn"
+  )
+
+let lustre_definitions_of_state_var (type s) (input_system : s t) state_var =
+  match input_system with
+  | Lustre _ -> LustreNode.get_state_var_defs state_var
+  | Native _ -> failwith "Unsupported input system: Native"
+  | Horn _ -> failwith "Unsupported input system: Horn"
+
+let lustre_source_ast (type s) (input_system : s t) =
+  match input_system with
+  | Lustre (_,_,ast) -> ast
   | Native _ -> failwith "Unsupported input system: Native"
   | Horn _ -> failwith "Unsupported input system: Horn"
 
@@ -222,13 +260,13 @@ let trans_sys_of_analysis (type s) ?(preserve_sig = false)
 ?(slice_nodes = Flags.slice_nodes ())
 : s t -> Analysis.param -> TransSys.t * s t = function
 
-  | Lustre (subsystem, globals) -> (
+  | Lustre (subsystem, globals, ast) -> (
     function analysis ->
       let t, s =
         LustreTransSys.trans_sys_of_nodes
           ~preserve_sig ~slice_nodes globals subsystem analysis
       in
-      t, Lustre (s, globals)
+      t, Lustre (s, globals, ast)
     )
 
   | Native sub -> (fun _ -> sub.SubSystem.source, Native sub)
@@ -242,7 +280,7 @@ let pp_print_path_pt
 
   match input_system with 
 
-  | Lustre (subsystem, _) ->
+  | Lustre (subsystem, _, _) ->
     LustrePath.pp_print_path_pt
       trans_sys instances subsystem first_is_init ppf model
 
@@ -259,7 +297,7 @@ let pp_print_path_xml
 
   match input_system with 
 
-  | Lustre (subsystem, _) ->
+  | Lustre (subsystem, _, _) ->
     LustrePath.pp_print_path_xml
       trans_sys instances subsystem first_is_init ppf model
 
@@ -276,7 +314,7 @@ let pp_print_path_json
 
   match input_system with
 
-  | Lustre (subsystem, _) ->
+  | Lustre (subsystem, _, _) ->
     LustrePath.pp_print_path_json
       trans_sys instances subsystem first_is_init ppf model
 
@@ -291,7 +329,7 @@ let pp_print_path_in_csv
 (type s) (input_system : s t) trans_sys instances first_is_init ppf model =
   match input_system with
 
-  | Lustre (subsystem, _) ->
+  | Lustre (subsystem, _, _) ->
     LustrePath.pp_print_path_in_csv
       trans_sys instances subsystem first_is_init ppf model
 
@@ -304,7 +342,7 @@ let pp_print_path_in_csv
 
 let reconstruct_lustre_streams (type s) (input_system : s t) state_vars =
   match input_system with 
-  | Lustre (subsystem, _) ->
+  | Lustre (subsystem, _, _) ->
     LustrePath.reconstruct_lustre_streams subsystem state_vars
   | Native _ -> assert false
   | Horn _ -> assert false
@@ -440,7 +478,7 @@ let slice_to_abstraction_and_property
     match input_sys with 
 
     (* Slice Lustre subnode to property term *)
-    | Lustre (subsystem, globals) ->
+    | Lustre (subsystem, globals, ast) ->
 
       let vars = match prop'.Property.prop_source with
         | Property.Assumption _ ->
@@ -464,7 +502,7 @@ let slice_to_abstraction_and_property
             analysis' vars subsystem
       in
 
-      Lustre (subsystem', globals)
+      Lustre (subsystem', globals, ast)
 
     (* No slicing in native input *)
     | Native subsystem -> Native subsystem
@@ -481,7 +519,7 @@ let inval_arg s = invalid_arg (
 let compile_to_rust (type s): s t -> Scope.t -> string -> unit =
 fun sys top_scope target ->
   match sys with
-  | Lustre (sub, _) ->
+  | Lustre (sub, _, _) ->
     LustreToRust.implem_to_rust target (
       fun scope -> (S.find_subsystem sub scope).S.source
     ) sub.S.source
@@ -497,7 +535,7 @@ let compile_oracle_to_rust (type s): s t -> Scope.t -> string -> (
 ) =
 fun sys top_scope target ->
   match sys with
-  | Lustre (sub, _) ->
+  | Lustre (sub, _, _) ->
     LustreToRust.oracle_to_rust target (
       fun scope -> (S.find_subsystem sub scope).S.source
     ) sub.S.source
@@ -509,7 +547,7 @@ fun sys top_scope target ->
 let contract_gen_param (type s): s t -> (Analysis.param * (Scope.t -> N.t)) =
 fun sys ->
   match sys with
-  | Lustre (sub, _) -> (
+  | Lustre (sub, _, _) -> (
     match
       S.all_subsystems sub
       |> List.map (fun ({ S.scope } as sub) ->

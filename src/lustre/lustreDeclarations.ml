@@ -1107,7 +1107,7 @@ let rec eval_node_equation inputs outputs locals ctx = function
     let ctx = C.reset_guard_flag ctx in
 
     (* Add assertion to node *)
-    C.add_node_assert ctx expr
+    C.add_node_assert ctx pos expr
       
 
   (* Equations with possibly more than one variable on the left-hand side
@@ -1121,8 +1121,16 @@ let rec eval_node_equation inputs outputs locals ctx = function
     let eq_lhs, indexes, ctx = eval_eq_lhs ctx pos lhs in
 
     (* array bounds. TODO: check that the order is correct *)
+    let rm_array_var_index lst =
+      List.filter (function
+      | D.ArrayVarIndex _ -> false
+      | _ -> true
+      ) lst
+    in
     let lhs_bounds =
-      List.fold_left (fun acc (i, _) ->
+      List.fold_left (fun acc (i, sv) ->
+          N.add_state_var_def sv
+            (N.ProperEq (A.pos_of_expr ast_expr, rm_array_var_index i)) ;
           List.fold_left (fun (acc, cpt) -> function
               | D.ArrayVarIndex b ->
                 if cpt < indexes then E.Bound b :: acc, succ cpt
@@ -1351,6 +1359,7 @@ and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
   ) ;*)
   (* Define expression with a state variable *)
   let (svar, _), ctx = C.mk_local_for_expr ~is_ghost:true pos ctx expr in
+  N.add_state_var_def svar (N.ContractItem pos) ;
   (* Add state variable to accumulator, continue with possibly modified
   context. *)
   ctx, (Contract.mk_svar pos count iname svar scope) :: accum, count + 1

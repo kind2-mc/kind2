@@ -195,7 +195,7 @@ type t = {
   calls : node_call list;
   (** Node calls inside the node *)
 
-  asserts : LustreExpr.t list;
+  asserts : (position * LustreExpr.t) list;
   (** Assertions of node *)
 
   props : (StateVar.t * string * Property.prop_source) list;
@@ -227,10 +227,15 @@ type t = {
 
 }
 
-
-(** Instance of state vars as streams with their position  *)
+(** Instance of state vars as streams with their position *)
 type state_var_instance = position * LustreIdent.t * StateVar.t
 
+(** Definition of state vars with their position *)
+type state_var_def =
+  | CallOutput of position * LustreIndex.index
+  | ProperEq of position * LustreIndex.index
+  | GeneratedEq of position * LustreIndex.index
+  | ContractItem of position
 
 (** Return a node of the given name and is extern flag without inputs, outputs,
     oracles, equations, etc. Create a state variable for the {!t.instance} and
@@ -396,6 +401,25 @@ val get_state_var_expr_map : t -> LustreExpr.t StateVar.StateVarHashtbl.t
 
 (** get all instances of a state variable *)
 val get_state_var_instances : StateVar.t -> state_var_instance list
+
+(** print state var instances for debug *)
+val pp_print_state_var_instances_debug : Format.formatter -> t -> unit
+
+(** Get the definitions (with positions in the Lustre program) of a state variable *)
+val get_state_var_defs : StateVar.t -> state_var_def list
+
+(** Add a definition (with positions in the Lustre program) for a state variable *)
+val add_state_var_def : StateVar.t -> state_var_def -> unit
+
+(** True if the state var has a proper equation in the original lustre code *)
+val has_state_var_a_proper_def : StateVar.t -> bool
+
+val pos_of_state_var_def : state_var_def -> position
+
+val index_of_state_var_def : state_var_def -> LustreIndex.index
+
+(** print state var defs for debug *)
+val pp_print_state_var_defs_debug : Format.formatter -> t -> unit
 
 (** Return true if the state variable should be visible to the user,
     false if it was created internally

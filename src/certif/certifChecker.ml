@@ -1146,6 +1146,8 @@ let minimize_invariants sys invs =
 
   let logic =
     match TransSys.get_logic sys with
+    | `Inferred fs when Flags.BmcKind.compress () ->
+      `Inferred (TermLib.sup_logics [fs; TermLib.FeatureSet.of_list [IA; LA; UF]])
     | `Inferred l -> `Inferred (TermLib.FeatureSet.add UF l)
     | l -> l
   in
@@ -2526,7 +2528,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       trans_term
       [kind2_subsys_inst; jkind_subsys_inst]
       props
-      (None, []) (Invs.empty ()) in
+      (None, []) (Invs.empty ()) (Term.TermMap.empty) in
 
   (* (\* Add caller info to subnodes *\) *)
   (* TS.add_caller kind2_sys *)

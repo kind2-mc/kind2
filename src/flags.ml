@@ -1117,6 +1117,136 @@ module Certif = struct
 
 end
 
+(* Inductive Validity Cores flags. *)
+(* Contracts flags. *)
+module IVC = struct
+
+  include Make_Spec (struct end)
+
+  (* Identifier of the module. *)
+  let id = "ivc"
+  (* Short description of the module. *)
+  let desc = "Inductive Validity Cores generation flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Kind 2 generates a minimal inductive validity core,@ \
+      that is a subset of the equations sufficient to prove the properties.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := List.rev_append specs !all_specs
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let compute_ivc_default = false
+  let compute_ivc = ref compute_ivc_default
+  let _ = add_spec
+    "--ivc"
+    (bool_arg compute_ivc)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Compute a minimal inductive validity core@ \
+          Default: %a\
+        "
+        fmt_bool compute_ivc_default
+    )
+  let compute_ivc () = !compute_ivc
+
+
+  let ivc_enter_nodes_default = false
+  let ivc_enter_nodes = ref ivc_enter_nodes_default
+  let _ = add_spec
+    "--ivc_enter_nodes"
+    (bool_arg ivc_enter_nodes)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          If true, equations of all subsystems will be taken into account@ \
+          Default: %a\
+        "
+        fmt_bool ivc_enter_nodes_default
+    )
+  let ivc_enter_nodes () = !ivc_enter_nodes
+
+
+  let print_ivc_default = true
+  let print_ivc = ref print_ivc_default
+  let _ = add_spec
+    "--print_ivc"
+    (bool_arg print_ivc)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Print the equations of the computed inductive validity core@ \
+          Default: %a\
+        "
+        fmt_bool print_ivc_default
+    )
+  let print_ivc () = !print_ivc
+
+
+  let print_not_ivc_default = false
+  let print_not_ivc = ref print_not_ivc_default
+  let _ = add_spec
+    "--print_not_ivc"
+    (bool_arg print_not_ivc)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Print the equations that are NOT in the computed inductive validity core@ \
+          Default: %a\
+        "
+        fmt_bool print_not_ivc_default
+    )
+  let print_not_ivc () = !print_not_ivc
+
+let print_minimized_program_default = false
+  let print_minimized_program = ref print_minimized_program_default
+  let _ = add_spec
+    "--print_minimized_program"
+    (bool_arg print_minimized_program)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Print the program minimized according to the inductive validity core computed@ \
+          Default: %a\
+        "
+        fmt_bool print_minimized_program_default
+    )
+  let print_minimized_program () = !print_minimized_program
+
+  type ivcimpl = [ `IVC_BF | `IVC_AUC | `IVC_UC | `IVC_UCBF ]
+
+  let ivcimpl_of_string = function
+    | "IVC_BF" -> `IVC_BF
+    | "IVC_AUC" -> `IVC_AUC
+    | "IVC_UC" -> `IVC_UC
+    | "IVC_UCBF" -> `IVC_UCBF
+    | _ -> raise (Arg.Bad "Bad value for --ivc_impl")
+
+  let ivc_impl_default = `IVC_UC
+  let ivc_impl = ref ivc_impl_default
+  let _ = add_spec
+    "--ivc_impl"
+    (Arg.String (fun str -> ivc_impl := ivcimpl_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Select the implementation for computing IVC@ \
+          \"IVC_BF\" to perform a bruteforce minimisation@ \
+          \"IVC_AUC\" to perform an approximate unsat-core based minimisation@ \
+          \"IVC_UC\" to perform an unsat-core based minimisation (default)@ \
+          \"IVC_UCBF\" to perform an unsat-core minimisation and then a bruteforce\
+        "
+    )
+  let ivc_impl () = !ivc_impl
+
+end
 
 (* Arrays flags. *)
 module Arrays = struct
@@ -1621,6 +1751,9 @@ let module_map = [
   ) ;
   (Contracts.id,
     (module Contracts: FlagModule)
+  ) ;
+  (IVC.id,
+    (module IVC: FlagModule)
   ) ;
   (Arrays.id,
     (module Arrays: FlagModule)
@@ -2378,8 +2511,6 @@ module Global = struct
         fmt_bool weakhcons_default
     )
   let weakhcons () = !weakhcons
-
-  
   
   (* Version flag. *)
   let _ = add_spec

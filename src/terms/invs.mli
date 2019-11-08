@@ -24,6 +24,8 @@ One table is for one-state invariants, the other is for two-state invariants.
 (** Stores invariants. *)
 type t
 
+val copy: t -> t
+
 (** The empty collection of invariants. *)
 val empty : unit -> t
 
@@ -47,6 +49,8 @@ val filter : (bool -> Term.t -> Certificate.t -> bool) -> t -> t
 val add_os : t -> Term.t -> Certificate.t -> unit
 (** Adds a two-state invariant. *)
 val add_ts : t -> Term.t -> Certificate.t -> unit
+(** Remove all the invariants. *)
+val clear : t -> unit
 
 (** The one-state invariants. *)
 val get_os : t -> Term.TermSet.t

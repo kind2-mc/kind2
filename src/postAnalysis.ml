@@ -550,6 +550,162 @@ module RunCertif: PostAnalysis = struct
     )
 end
 
+(** Inductive validity core computation *)
+module RunIVC: PostAnalysis = struct
+  let name = "ivc"
+  let title = "inductive validity core"
+  let is_active () = Flags.IVC.compute_ivc ()
+
+  let aux_vars sys =
+    let usr_name =
+      assert (List.length LustreIdent.user_scope = 1) ;
+      List.hd LustreIdent.user_scope
+    in
+    List.filter
+      (fun sv ->
+        not ( List.mem usr_name (StateVar.scope_of_state_var sv) )
+      )
+      (TSys.state_vars sys)
+
+  let compute_var_map in_sys sys =
+    let aux_vars = TSys.fold_subsystems ~include_top:true (fun acc sys -> (aux_vars sys)@acc) [] sys in
+    ISys.mk_state_var_to_lustre_name_map in_sys aux_vars
+
+  let print_positions = function
+  | [] -> "None"
+  | hd::lst ->
+    List.fold_left
+      (fun acc pos -> Format.asprintf "%s and %a" acc Lib.pp_print_pos pos)
+      (Format.asprintf "%a" Lib.pp_print_pos hd)
+      lst
+
+  let pp_loc_eq var_map (eq, loc, cat) =
+    let term = eq.Ivc.closed in
+    let pos = List.map (fun l -> l.Ivc.pos) loc in
+    match cat with
+    | Ivc.NodeCall (s,_) ->
+      Format.asprintf "Node call %a at position %s"
+        Symbol.pp_print_symbol s (print_positions pos)
+    | Ivc.ContractItem _ ->
+      let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
+      Format.asprintf "Contract item %a at position %s" fmt_inv term (print_positions pos)
+    | Ivc.Equation _ ->
+      let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
+      Format.asprintf "Equation %a at position %s" fmt_inv term (print_positions pos)
+    | Ivc.Assertion ->
+      let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
+      Format.asprintf "Assertion %a at position %s" fmt_inv term (print_positions pos)
+    | Ivc.Unknown ->
+      let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
+      Format.asprintf "Unknown element %a" fmt_inv term
+
+  let pp_eq var_map (eq, _, _) =
+    let term = eq.Ivc.closed in
+    (*List.iter
+      (fun t ->
+        let fmt_inv = Term.pp_print_term in
+        KEvent.log_uncond "%a" fmt_inv t
+      )
+    terms;*)
+    match Term.destruct term with
+    | Term.T.App (s, _) when
+      (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
+      -> Format.asprintf "Node call %a" Symbol.pp_print_symbol s
+    | _ ->
+      let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
+      Format.asprintf "%a" fmt_inv term
+
+  let pp_loc_eqs var_map terms =
+    let print = pp_loc_eq var_map in
+    List.fold_left (fun acc t -> Format.sprintf "%s%s\n" acc (print t)) "" terms
+
+  let pp_eqs var_map terms =
+    let print = pp_eq var_map in
+    List.fold_left (fun acc t -> Format.sprintf "%s%s\n" acc (print t)) "" terms
+
+  let run in_sys param analyze results =
+    let top = (Analysis.info_of_param param).Analysis.top in
+    last_result results top
+    |> Res.chain (fun { Analysis.sys } ->
+      try (
+        (* TODO: tmp *)
+        (*Format.printf "%a\n" ISys.pp_print_subsystems_debug in_sys;*)
+        (*Format.printf "%a\n" ISys.pp_print_state_var_instances_debug in_sys;*)
+        (*Format.printf "%a\n" ISys.pp_print_state_var_defs_debug in_sys;*)
+        (*let (_,_,trans) = TSys.init_trans_open sys in
+        Term.print_term trans ; Format.printf "\n" ;*)
+        Format.print_flush () ;
+
+        let res = match Flags.IVC.ivc_impl () with
+          | `IVC_UC -> Ivc.ivc_uc in_sys ~approximate:false sys
+          | `IVC_AUC -> Ivc.ivc_uc in_sys ~approximate:true sys
+          | `IVC_BF -> Ivc.ivc_bf in_sys param analyze sys
+          | `IVC_UCBF -> Ivc.ivc_ucbf in_sys param analyze sys
+        in
+        if res.success
+        then
+          let eqs_count eqs =
+            Ivc.ScMap.fold (fun _ v acc -> acc + List.length v) eqs 0
+          in
+          let var_map = compute_var_map in_sys sys in
+          let initial = Ivc.all_eqs in_sys sys in
+          KEvent.log_uncond "Transitions:@ %i equations (%i initially)"
+            (eqs_count res.trans) (eqs_count initial.trans) ;
+
+          if Flags.IVC.print_ivc ()
+          then begin
+            Ivc.ScMap.iter (fun scope eqs -> 
+              KEvent.log_uncond "----- %s -----" (Scope.to_string scope) ;
+              KEvent.log_uncond "%s" (pp_loc_eqs var_map eqs)
+            ) res.trans
+          end ;
+
+          if Flags.IVC.print_not_ivc ()
+          then begin
+            KEvent.log_uncond "========== NOT IN THE CORE ==========";
+            Ivc.ScMap.iter (fun scope eqs ->
+              let eqs = List.filter
+                (fun (eq,_,_) ->
+                match Ivc.ScMap.find_opt scope res.trans with
+                | None -> true
+                | Some lst ->
+                  let lst = List.map (fun (eq,_,_) -> eq.Ivc.closed) lst in
+                  Term.TermSet.mem eq.Ivc.closed (Term.TermSet.of_list lst)
+                  |> not
+                ) eqs
+              in
+              KEvent.log_uncond "----- %s -----" (Scope.to_string scope) ;
+              KEvent.log_uncond "%s" (pp_eqs var_map eqs)
+            ) initial.trans
+          end ;
+
+          if Flags.IVC.print_minimized_program ()
+          then begin
+            let minimized = ISys.lustre_source_ast in_sys
+            |> Ivc.minimize_lustre_ast ~valid_lustre:true initial res in
+            KEvent.log_uncond "========== MINIMIZED PROGRAM ==========";
+            KEvent.log_uncond "%a" LustreAst.pp_print_program minimized ;
+          end ;
+          
+          Ok ()
+        else
+          Err (fun fmt -> Format.fprintf fmt "Failed to compute inductive validity cores.")
+      )
+      with
+      | CertifChecker.CouldNotProve printer ->
+        Err (
+          (fun fmt -> Format.fprintf fmt
+          "An error occured while computing minimal invariants:@ " ;
+          printer fmt)
+      )
+      | e -> Err (
+        fun fmt -> Format.fprintf fmt
+          "An error occured:@ %s"
+          (Printexc.to_string e)
+      )
+    )
+end
+
 (** List of post-analysis modules. *)
 let post_analysis = [
   (module RunTestGen: PostAnalysis) ;
@@ -558,6 +714,7 @@ let post_analysis = [
   (module RunInvLog: PostAnalysis) ;
   (module RunInvPrint: PostAnalysis) ;
   (module RunCertif: PostAnalysis) ;
+  (module RunIVC: PostAnalysis) ;
 ]
 
 (** Runs the post-analysis things on a system and its results.

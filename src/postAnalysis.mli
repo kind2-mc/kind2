@@ -51,6 +51,7 @@ module RunRustGen: PostAnalysis
 module RunInvLog: PostAnalysis
 module RunInvPrint: PostAnalysis
 module RunCertif: PostAnalysis
+module RunIVC: PostAnalysis
 
 (** Runs the post-analysis things on a system and its results. *)
 val run: 'a InputSystem.t -> Scope.t ->

@@ -1718,7 +1718,7 @@ let add_node_mode ctx mode =
 
 
 (* Add node assert to context *)
-let add_node_assert ctx expr = 
+let add_node_assert ctx pos expr = 
 
   match ctx with 
 
@@ -1727,7 +1727,7 @@ let add_node_assert ctx expr =
     | { node = Some ({ N.asserts } as node) } -> 
 
       (* Return node with assertion added *)
-      { ctx with node = Some { node with N.asserts = expr :: asserts } }
+      { ctx with node = Some { node with N.asserts = (pos, expr) :: asserts } }
 
 
 (* Add node sofar(assumption) to context *)

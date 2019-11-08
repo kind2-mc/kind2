@@ -73,7 +73,15 @@ val pp_print_path_json : _ t -> TransSys.t -> TransSys.instance list -> bool -> 
 val pp_print_path_in_csv : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output all subsystems of the input system **)
-val pp_print_subsystems_debug: 'a t -> Format.formatter -> unit
+val pp_print_subsystems_debug: Format.formatter -> 'a t -> unit
+
+val pp_print_state_var_instances_debug: Format.formatter -> 'a t -> unit
+
+val pp_print_state_var_defs_debug: Format.formatter -> 'a t -> unit
+
+val lustre_definitions_of_state_var : 'a t -> StateVar.t -> LustreNode.state_var_def list
+
+val lustre_source_ast : 'a t -> LustreAst.t
 
 val slice_to_abstraction_and_property : 'a t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.value list) list -> Property.t -> TransSys.t * TransSys.instance list * (StateVar.t * Model.value list) list * Term.t * 'a t
 

@@ -1127,24 +1127,21 @@ let pp_print_contract_spec ppf = function
 
 
 (* Pretty-prints a contract node. *)
-let pp_print_contract_node ppf (
-  id, _, i, o, contract
-) =
-  Format.fprintf ppf "@[<v>\
-      contract %s (@   \
-        @[<v>%a@]@ \
-      ) returns (@   \
-        @[<v>%a@]@ \
-      ) ;@ \
-      spec@   \
-        %a@ \
-      ceps\
-      @]
-    @]"
-    id
-    (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
-    (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-    pp_print_contract contract 
+let pp_print_contract_node_decl ppf (n,p,i,o,e)
+ =
+     Format.fprintf
+       ppf
+       "@[<hv>@[<hv 2>contract %a%t@ \
+        @[<hv 1>(%a)@]@;<1 -2>\
+        returns@ @[<hv 1>(%a)@];@]@.\
+        @[<hv 2>let@ \
+        %a@;<1 -2>\
+        tel;@]@]"
+       pp_print_ident n
+       (function ppf -> pp_print_node_param_list ppf p)
+       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
+       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+       pp_print_contract e
 
 
 let pp_print_node_or_fun_decl is_fun ppf (
@@ -1154,9 +1151,9 @@ let pp_print_node_or_fun_decl is_fun ppf (
     Format.fprintf ppf
       "@[<hv>@[<hv 2>%s%s %a%t@ \
        @[<hv 1>(%a)@]@;<1 -2>\
-       returns@ @[<hv 1>(%a)@];@]@ \
-       %a@ \
-       %a@ \
+       returns@ @[<hv 1>(%a)@];@]@.\
+       %a@?\
+       %a@?\
        @[<v 2>let@ \
        %a@;<1 -2>\
        tel;@]@]"
@@ -1166,8 +1163,7 @@ let pp_print_node_or_fun_decl is_fun ppf (
       (function ppf -> pp_print_node_param_list ppf p)
       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-      pp_print_contract_spec
-      r
+      pp_print_contract_spec r
       pp_print_node_local_decl l
       (pp_print_list pp_print_node_item "@ ") e
 
@@ -1187,21 +1183,8 @@ let pp_print_declaration ppf = function
   | FuncDecl (pos, decl) ->
     pp_print_node_or_fun_decl true ppf (pos, decl)
 
-  | ContractNodeDecl (pos, (n,p,i,o,e)) ->
-
-     Format.fprintf
-       ppf
-       "@[<hv>@[<hv 2>contract %a%t@ \
-        @[<hv 1>(%a)@]@;<1 -2>\
-        returns@ @[<hv 1>(%a)@];@]@ \
-        @[<hv 2>let@ \
-        %a@;<1 -2>\
-        tel;@]@]"
-       pp_print_ident n
-       (function ppf -> pp_print_node_param_list ppf p)
-       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
-       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-       pp_print_contract e
+  | ContractNodeDecl (pos, decl) ->
+    pp_print_contract_node_decl ppf decl
 
   | NodeParamInst (pos, (n, s, p)) -> 
 

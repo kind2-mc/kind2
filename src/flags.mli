@@ -210,7 +210,6 @@ val color : unit -> bool
 (** Use weak hash-consing. *)
 val weakhcons : unit -> bool
 
-
 (** {2 SMT solver flags} *)
 module Smt : sig
 
@@ -425,6 +424,30 @@ module Certif : sig
 
 end
 
+(** {2 Inductive Validity Cores} *)
+module IVC : sig
+
+  type ivcimpl = [ `IVC_BF | `IVC_AUC | `IVC_UC | `IVC_UCBF ]
+
+  (** Enable computation of Inductive Validity Cores *)
+  val compute_ivc : unit -> bool
+
+  (** Print the equations of the computed IVC *)
+  val print_ivc : unit -> bool
+
+  (** Print the equations NOT in the computed IVC *)
+  val print_not_ivc : unit -> bool
+
+  (** Print the lustre program minimized according to the IVC *)
+  val print_minimized_program : unit -> bool
+
+  (** If true, compute a core with equations of all subsystems *)
+  val ivc_enter_nodes : unit -> bool
+
+  (** Specify the implementation *)
+  val ivc_impl : unit -> ivcimpl
+
+end
 
 (** {2 Arrays flags} *)
 module Arrays : sig

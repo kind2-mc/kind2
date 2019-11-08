@@ -82,6 +82,8 @@ and prop_source =
   | Candidate of prop_source option
 
 
+val copy : t -> t
+
 (** Pretty-prints a property source. *)
 val pp_print_prop_source : Format.formatter -> prop_source -> unit
 
@@ -101,6 +103,8 @@ val set_prop_status : t -> prop_status -> unit
 val set_prop_invariant : t -> Certificate.t ->unit
 val set_prop_ktrue : t -> int -> unit
 val set_prop_false : t -> (StateVar.t * Model.value list) list -> unit
+
+val force_set_prop_unknown : t -> unit
 
 val length_of_cex :  (StateVar.t * Model.value list) list -> int
 

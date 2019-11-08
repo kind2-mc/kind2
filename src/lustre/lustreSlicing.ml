@@ -142,7 +142,7 @@ let rec describe_cycle node accum = function
          tl
 
      (* Skip oracles and calls *)
-        | N.KLocal
+     | N.KLocal
      | N.Call
      | N.Alias (_,_)
      | N.Oracle -> describe_cycle node accum tl
@@ -727,7 +727,7 @@ let roots_of_contract = function
 (* Add state variables in assertion *)
 let add_roots_of_asserts asserts roots = 
   List.fold_left 
-    (fun accum expr -> E.state_vars_of_expr expr |> SVS.union accum)
+    (fun accum (_,expr) -> E.state_vars_of_expr expr |> SVS.union accum)
     roots
     asserts
 

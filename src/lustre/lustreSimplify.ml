@@ -423,7 +423,7 @@ let rec eval_ast_expr bounds ctx =
 
       D.fold
 
-        (fun index expr (accum, ctx) -> 
+        (fun index expr' (accum, ctx) -> 
 
              let mk_lhs_term (sv, bounds) =
                List.fold_left (fun (i, t) -> function
@@ -439,13 +439,20 @@ let rec eval_ast_expr bounds ctx =
              |> snd
              in
              
+           let mk_local a b =
+            let ((sv,_), _) as res = C.mk_local_for_expr ~original ~bounds pos a b in
+            let pos = A.pos_of_expr expr in
+            if not (N.has_state_var_a_proper_def sv)
+            then N.add_state_var_def sv (LustreNode.GeneratedEq (pos, index)) ;
+            res
+           in
            let expr', ctx =
              E.mk_pre
-              (C.mk_local_for_expr ~original ~bounds pos)
+              mk_local
               mk_lhs_term
               ctx
               (C.guard_flag ctx)
-              expr
+              expr'
            in
            
            (D.add index expr' accum, ctx))
@@ -1133,6 +1140,7 @@ let rec eval_ast_expr bounds ctx =
                (* abstract with array state variable *)
                let (state_var, _) , ctx = 
                  C.mk_local_for_expr ~bounds:[bound] pos ctx e in
+               (* MAPPING TODO: add_state_var_def *)
                let e' = E.mk_var state_var in
                D.add (D.ArrayVarIndex array_size :: j) e' a, ctx)
         expr'
@@ -1673,12 +1681,12 @@ and eval_node_call
 
   (* Type check expressions for node inputs and abstract to fresh
      state variables *)
-  let node_inputs_of_exprs bounds ctx node_inputs pos expr =
+  let node_inputs_of_exprs bounds ctx node_inputs pos ast =
     try
       (* Evaluate input value *)
       let expr', ctx = 
         (* Evaluate inputs as list *)
-        let expr', ctx = eval_ast_expr bounds ctx (A.ExprList (dummy_pos, expr)) in
+        let expr', ctx = eval_ast_expr bounds ctx (A.ExprList (dummy_pos, ast)) in
         (* Return actual parameters and changed context if actual and formal
            parameters have the same indexes otherwise remove list index when
            expression is a singleton list *)
@@ -1727,6 +1735,12 @@ and eval_node_call
                 expr
             in
             N.set_state_var_instance state_var' pos ident state_var;
+            let (pos', i') = try (match i with
+            | (ListIndex i)::indexes -> (A.pos_of_expr (List.nth ast i), indexes)
+            | indexes -> (A.pos_of_expr (List.hd ast)), indexes)
+            with _ -> (pos, i) in
+            if not (N.has_state_var_a_proper_def state_var')
+            then N.add_state_var_def state_var' (N.GeneratedEq (pos',i')) ;
             let ctx =
               C.current_node_map ctx (
                 fun node ->
@@ -1863,6 +1877,7 @@ and eval_node_call
                 ~bounds
                 ctx (StateVar.type_of_state_var sv) in
             N.set_state_var_instance sv' pos ident sv;
+            (* No need to call N.add_state_var_def for oracles as they have no def *)
             (ctx, sv' :: accum)
         ) (ctx, [])
       in
@@ -1877,6 +1892,7 @@ and eval_node_call
               C.mk_fresh_local ~bounds ctx (StateVar.type_of_state_var sv)
             in
             N.set_state_var_instance sv' pos ident sv ;
+            N.add_state_var_def sv' (N.CallOutput (pos, i)) ;
             let ctx =
               C.current_node_map ctx (
                 fun node -> N.set_state_var_node_call node sv'

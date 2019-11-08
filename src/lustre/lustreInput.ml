@@ -110,7 +110,7 @@ let of_channel in_ch =
   in
 
   (* Return a subsystem tree from the list of nodes *)
-  N.subsystem_of_nodes nodes', globals
+  N.subsystem_of_nodes nodes', globals, declarations
 
 
 (* Returns the AST from a file. *)

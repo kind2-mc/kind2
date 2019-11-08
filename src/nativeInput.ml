@@ -486,7 +486,7 @@ let of_channel in_ch =
             trans_term
             subsystems
             props
-            (None, []) (Invs.empty ()) in
+            (None, []) (Invs.empty ()) Term.TermMap.empty in
 
         (* Add calling information *)
         (* List.iter (fun (c, m, g) -> *)
