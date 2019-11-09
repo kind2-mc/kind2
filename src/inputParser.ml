@@ -17,6 +17,8 @@
 *)
 open Lib
 
+(* ====================== CSV ======================== *)
+
 (* typing errors *)
 exception Type_error of Type.t * string
 
@@ -119,45 +121,47 @@ let read_csv_file top_scope_index filename =
 
 open Yojson.Safe.Util
 
+type assignment_lhs = StateVar.t * int list
+
 module StringMap = Map.Make (String)
 module SVMap = StateVar.StateVarMap
-
-type statevar_at_index = StateVar.t * int list
-module StateVarIndex =
+module LHS =
 struct
-  type t = statevar_at_index
-
+  type t = assignment_lhs
   let compare (a,b) (a',b') =
     match StateVar.compare_state_vars a a' with
     | 0 -> Pervasives.compare b b'
     | i -> i
 end
+module LHSMap = Map.Make(LHS)
 
-module SVIMap = Map.Make(StateVarIndex)
+exception Missing_definition of int * assignment_lhs
 
-exception Missing_definition of int * StateVarIndex.t
-
+(* Transforms a list of list of variable assignments
+  (the outer list representing the steps and the inner the different variables)
+  into a list associating to each variable the list of all its successive assignments *)
 let group_by_var lst =
   let steps_passed = ref 0 in
   List.fold_right
     (fun lst acc -> 
       List.fold_left (fun acc (var, term) ->
-          let old = match SVIMap.find_opt var acc with
+          let old = match LHSMap.find_opt var acc with
           | None -> []
           | Some lst -> lst
           in
           let n = List.length old in
           if n < !steps_passed then raise (Missing_definition(n, var)) ;
           steps_passed := n ;
-          SVIMap.add var (term::old) acc
+          LHSMap.add var (term::old) acc
         )
         acc lst
-    ) lst SVIMap.empty
-  |> SVIMap.bindings
+    ) lst LHSMap.empty
+  |> LHSMap.bindings
 
 exception Not_an_input of string
 exception Type_mismatch of string
 
+(* Convert a record of the format { "0":elt0 , "1":elt1 ... } into a tuple *)
 let record_to_tuple assoc =
   try (
     assoc
@@ -168,8 +172,10 @@ let record_to_tuple assoc =
   )
   with Failure _ -> None
 
+(* Take as input a JSON element representing the value of a variable (at a given step)
+   and return the associated assignments.
+   It can return multiple variable assignements if the value is an array/record/tuple. *)
 let rec read_val scope name indexes arr_indexes json =
-  (* Can return multiple variables in the case of an array/record/tuple *)
   match json with
   | `Assoc lst ->
     (* Can represent a record or a tuple *)
@@ -204,7 +210,8 @@ let rec read_val scope name indexes arr_indexes json =
     let indexes = List.rev indexes in
     let arr_indexes = List.rev arr_indexes in
     let full_scope = scope @ (LustreIndex.mk_scope_for_index indexes) in
-    (* Concatenate identifier and indexes *)
+    (* See LustreContext.mk_state_var for more information
+       about how variable names are choosen *)
     let full_name =
       indexes
       |>
@@ -226,6 +233,7 @@ let rec read_val scope name indexes arr_indexes json =
     let typ = StateVar.type_of_state_var sv in
     let sv = (sv, arr_indexes) in
 
+    (* Is a numeral in the range of a type? *)
     let is_in_range n t =
       match Type.node_of_type t with
       | Int -> true
@@ -233,8 +241,10 @@ let rec read_val scope name indexes arr_indexes json =
         Numeral.leq l n && Numeral.leq n u
       | _ -> false
     in
+    (* Is an integer in the range of a type? *)
     let is_in_range_i i = is_in_range (Numeral.of_int i) in
 
+    (* Extract the type of an element of an array (and check the ranges) *)
     let rec extract_element_type arr_indexes typ =
       match arr_indexes, Type.node_of_type typ with
       | [], _ -> typ
@@ -267,17 +277,19 @@ let rec read_val scope name indexes arr_indexes json =
     )
     with Invalid_argument _ -> raise (Type_mismatch full_name)
 
+(* Parse the assignments of a JSON object representing a step *)
 let read_vars scope json =
   to_assoc json |> List.map (fun (name, json) -> read_val scope name [] [] json)
 
+(* Parse a JSON input file *)
 let read_json_file top_scope_index filename =
-  (* try ( *)
-    let json = Yojson.Safe.from_file filename in
-    to_list json |> List.map (read_vars top_scope_index) |> List.flatten |> group_by_var
-  (* ) with
-  | _ -> raise Parsing.Parse_error *)
+  Yojson.Safe.from_file filename |> to_list
+  |> List.map (read_vars top_scope_index) |> List.flatten |> group_by_var
 
 
+(* ====================== GENERAL ======================== *)
+
+(* Parse a JSON or CSV input file. The format is determined from the extension. *)
 let read_file top_scope_index filename =
   if Filename.check_suffix filename ".json"
   then
