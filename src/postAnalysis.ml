@@ -666,12 +666,12 @@ module RunIVC: PostAnalysis = struct
             Ivc.ScMap.iter (fun scope eqs ->
               let eqs = List.filter
                 (fun (eq,_,_) ->
-                match Ivc.ScMap.find_opt scope res.trans with
-                | None -> true
-                | Some lst ->
-                  let lst = List.map (fun (eq,_,_) -> eq.Ivc.closed) lst in
-                  Term.TermSet.mem eq.Ivc.closed (Term.TermSet.of_list lst)
-                  |> not
+                  try
+                    let lst = Ivc.ScMap.find scope res.trans
+                    |> List.map (fun (eq,_,_) -> eq.Ivc.closed) in
+                    Term.TermSet.mem eq.Ivc.closed (Term.TermSet.of_list lst)
+                    |> not
+                  with Not_found -> true
                 ) eqs
               in
               KEvent.log_uncond "----- %s -----" (Scope.to_string scope) ;

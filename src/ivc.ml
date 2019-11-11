@@ -61,15 +61,15 @@ let undef_expr pos_sv_map typ expr =
   | None -> A.Ident (pos, "_")
   | Some pos_sv_map ->
     let svs = PosMap.find pos pos_sv_map in
-    begin match Hashtbl.find_opt previous_rands svs with
-    | None ->
-      let i = counter () in
-      let n = (List.length typ) in
-      if n > !max_nb_args then max_nb_args := n ;
-      let res =
-        A.CallParam (pos, rand_fun_ident n, typ, [Num (dpos, string_of_int i)])
-      in Hashtbl.replace previous_rands svs res ; res
-    | Some res -> res
+    begin
+      try Hashtbl.find previous_rands svs
+      with Not_found ->
+        let i = counter () in
+        let n = (List.length typ) in
+        if n > !max_nb_args then max_nb_args := n ;
+        let res =
+          A.CallParam (pos, rand_fun_ident n, typ, [Num (dpos, string_of_int i)])
+        in Hashtbl.replace previous_rands svs res ; res
     end
 
 let rand_node nb_outputs =
@@ -261,12 +261,14 @@ let minimize_node_decl ue ivc
     (id, extern, tparams, inputs, outputs, locals, items, spec)
   in
   
-  match ScMap.find_opt (Scope.mk_scope [id]) ivc with
-  | None when not (Flags.IVC.ivc_enter_nodes ()) -> ndecl
-  | None -> minimize_with_lst []
-  | Some lst ->
-    lst |> List.map (fun (_,l,_) -> l) |> List.flatten
+  try
+    ScMap.find (Scope.mk_scope [id]) ivc
+    |> List.map (fun (_,l,_) -> l) |> List.flatten
     |> List.map (fun l -> l.pos) |> minimize_with_lst
+  with Not_found ->
+    if Flags.IVC.ivc_enter_nodes ()
+    then minimize_with_lst []
+    else ndecl
 
 let minimize_contract_decl ivc (id, tparams, inputs, outputs, body) =
   let lst = ScMap.bindings ivc
@@ -313,8 +315,7 @@ let minimize_lustre_ast ?(valid_lustre=false) all_eqs res ast =
             in
             List.fold_left
             (fun acc l ->
-              let old = match PosMap.find_opt l.pos acc
-                with None -> [] | Some lst -> lst in
+              let old = try PosMap.find l.pos acc with Not_found -> [] in
               PosMap.add l.pos (svs@old) acc
             )
             acc ls
@@ -377,9 +378,10 @@ let locs_of_eq_term in_sys t =
 
 let loc_according_to_trans_sys sys eq =
   let terms_pos_map = TS.get_terms_position_map sys in
-  match Term.TermMap.find_opt eq.opened terms_pos_map with
-  | None -> None
-  | Some pos -> Some { pos=pos; index=[] }
+  try
+    let pos = Term.TermMap.find eq.opened terms_pos_map in
+    Some { pos=pos; index=[] }
+  with Not_found -> None
 
 let add_loc in_sys sys eq =
   try begin
@@ -621,9 +623,7 @@ let filter_core core actlits =
   ScMap.map (symbols_inter actlits) core
 
 let eq_of_scope eqs_map scope =
-  match ScMap.find_opt scope eqs_map with
-  | None -> Term.mk_true ()
-  | Some eq -> eq
+  try ScMap.find scope eqs_map with Not_found -> Term.mk_true ()
 
 type result = NOT_OK | OK of core
 
@@ -749,11 +749,7 @@ let ivc_uc_ ?(minimize_init=false) ?(approximate=false) sys =
   in
 
   let add_to_core acc (actlit,scope,_) =
-    let old =
-      match ScMap.find_opt scope acc with
-      | None -> []
-      | Some lst -> lst
-    in
+    let old = try ScMap.find scope acc with Not_found -> [] in
     ScMap.add scope (actlit::old) acc
   in
   let core_init = List.fold_left add_to_core ScMap.empty init_bindings in
@@ -882,6 +878,7 @@ let pick_eqmap = pick_core
 
 exception CannotProve
 
+(* TODO: constants (like in test.lus) are sometimes wrongly removed because they still are present in the init system *)
 (** Implements the algorithm IVC_BF *)
 let ivc_bf_ in_sys param analyze sys init trans =
   let param = Analysis.param_clone param in
@@ -908,14 +905,21 @@ let ivc_bf_ in_sys param analyze sys init trans =
     let union = eqmap_union keep test in
     let prepare_subsystem sys =
       let scope = TS.scope_of_trans_sys sys in
-      match ScMap.find_opt scope union with
+      let eqs =
+        try Some (ScMap.find scope union)
+        with Not_found -> if Flags.IVC.ivc_enter_nodes () then Some [] else None
+      in
+      begin match eqs with
       | None -> ()
       | Some eqs ->
-        let init_eq = List.map (fun eq -> eq.opened) (ScMap.find scope init)
+        let init_eq =
+          (try List.map (fun eq -> eq.opened) (ScMap.find scope init)
+          with Not_found -> [])
         |> Term.mk_and in
         let trans_eq = List.map (fun eq -> eq.opened) eqs
         |> Term.mk_and in
-        TS.set_init_trans sys init_eq trans_eq
+        TS.set_init_trans sys init_eq trans_eq 
+      end
     in
     TS.iter_subsystems ~include_top:true prepare_subsystem sys
   in
