@@ -1289,28 +1289,11 @@ let stateful_vars_of_node
   in
 
   (* Add stateful variables from assertions *)
-  (*let stateful_vars = 
-    List.fold_left 
-      (fun accum expr -> 
-
-         (* Add stateful variables of assertion *)
-         SVS.union accum (stateful_vars_of_expr expr) |> 
-         
-         (* Variables in assertion that do not have a definition must
-            be stateful *)
-         SVS.union
-           (E.state_vars_of_expr expr
-            |> 
-            SVS.filter
-              (fun sv -> 
-                 not
-                   (List.exists
-                      (fun ((sv', _), _) -> 
-                         StateVar.equal_state_vars sv sv') 
-                      equations))))
+  let stateful_vars = 
+    add_to_svs
       stateful_vars
-      asserts
-  in*)
+      (List.map (fun (_, sv) -> sv) asserts) 
+  in
 
   (* Add variables from node calls *)
   let stateful_vars = 
