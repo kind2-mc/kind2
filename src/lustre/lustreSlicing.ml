@@ -727,7 +727,7 @@ let roots_of_contract = function
 (* Add state variables in assertion *)
 let add_roots_of_asserts asserts roots = 
   List.fold_left 
-    (fun accum expr -> E.state_vars_of_expr expr |> SVS.union accum)
+    (fun accum (_,sv) -> SVS.add sv accum)
     roots
     asserts
 

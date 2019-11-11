@@ -305,7 +305,7 @@ val add_node_gua : t -> (LustreContract.svar * bool) list -> t
 val add_node_mode : t -> LustreContract.mode -> t
 
 (** Add assertion to context *)
-val add_node_assert : t -> LustreExpr.t -> t
+val add_node_assert : t -> Lib.position -> StateVar.t -> t
 
 (* Add sofar(assumptions) to context *)
 val add_node_sofar_assumption : t -> t

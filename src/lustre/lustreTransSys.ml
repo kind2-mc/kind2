@@ -1243,25 +1243,11 @@ let rec constraints_of_asserts init_terms trans_terms = function
   | [] -> (init_terms, trans_terms)
           
   (* Assertion with term for initial state and term for transitions *)
-  | { E.expr_init; E.expr_step } :: tl ->
+  | (_,sv) :: tl ->
 
-     (* Term for assertion in initial state *)
-    let init_term = E.base_term_of_expr TransSys.init_base expr_init
-                    |> Term.convert_select in 
-
-     (* Term for assertion in step state *)
-    let trans_term = E.cur_term_of_expr TransSys.trans_base expr_step
-                     |> Term.convert_select in 
-
-     (* Add constraint unless it is true *)
-     let init_terms = 
-      if Term.equal init_term Term.t_true then init_terms
-      else init_term :: init_terms in
-
-     (* Add constraint unless it is true *)
-     let trans_terms = 
-      if Term.equal trans_term Term.t_true then trans_terms
-      else trans_term :: trans_terms in
+    let expr = E.mk_var sv in
+    let init_terms = (expr |> E.base_term_of_t TransSys.init_base) :: init_terms in
+    let trans_terms = (expr |> E.cur_term_of_t TransSys.trans_base) :: trans_terms in
 
     (* Continue with next assertions *)
     constraints_of_asserts init_terms trans_terms tl
