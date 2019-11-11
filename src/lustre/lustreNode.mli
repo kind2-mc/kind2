@@ -195,7 +195,7 @@ type t = {
   calls : node_call list;
   (** Node calls inside the node *)
 
-  asserts : LustreExpr.t list;
+  asserts : (position * StateVar.t) list;
   (** Assertions of node *)
 
   props : (StateVar.t * string * Property.prop_source) list;
