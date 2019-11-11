@@ -145,10 +145,7 @@ let group_by_var lst =
   List.fold_right
     (fun lst acc -> 
       List.fold_left (fun acc (var, term) ->
-          let old = match LHSMap.find_opt var acc with
-          | None -> []
-          | Some lst -> lst
-          in
+          let old = try LHSMap.find var acc with Not_found -> [] in
           let n = List.length old in
           if n < !steps_passed then raise (Missing_definition(n, var)) ;
           steps_passed := n ;
