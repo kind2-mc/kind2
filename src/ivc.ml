@@ -46,15 +46,27 @@ type ivc_result = {
 
 (* ---------- LUSTRE AST ---------- *)
 
-let dpos = Lib.dummy_pos
-let rand_fun_ident nb = "rand"^(string_of_int nb)
-
 let counter =
   let last = ref 0 in
   (fun () -> last := !last + 1 ; !last)
 
+let dpos = Lib.dummy_pos
+let rand_fun_ident nb = "rand"^(string_of_int nb)
+let new_rand_fun_ident () = rand_fun_ident (counter ())
+
 let max_nb_args = ref 0
+let rand_functions = Hashtbl.create 10
 let previous_rands = Hashtbl.create 10
+
+let rand_function_name_for _ ts =
+  begin
+  try Hashtbl.find rand_functions ts
+  with Not_found ->
+    let new_rand = new_rand_fun_ident () in
+    Hashtbl.replace rand_functions ts new_rand ;
+    new_rand
+  end
+
 let undef_expr pos_sv_map typ expr =
   let pos = A.pos_of_expr expr in
   match pos_sv_map with
@@ -66,7 +78,7 @@ let undef_expr pos_sv_map typ expr =
       let i = counter () in
       let n = (List.length typ) in
       if n > !max_nb_args then max_nb_args := n ;
-      A.CallParam (pos, rand_fun_ident n, typ, [Num (dpos, string_of_int i)])
+      A.Call(*Param*) (pos, rand_function_name_for n typ, (*typ,*) [Num (dpos, string_of_int i)])
     end else begin
       try Hashtbl.find previous_rands svs
       with Not_found ->
@@ -74,11 +86,11 @@ let undef_expr pos_sv_map typ expr =
         let n = (List.length typ) in
         if n > !max_nb_args then max_nb_args := n ;
         let res =
-          A.CallParam (pos, rand_fun_ident n, typ, [Num (dpos, string_of_int i)])
+          A.Call(*Param*) (pos, rand_function_name_for n typ, (*typ,*) [Num (dpos, string_of_int i)])
         in Hashtbl.replace previous_rands svs res ; res
     end
 
-let rand_node nb_outputs =
+let parametric_rand_node nb_outputs =
   let rec aux prefix acc nb =
     match nb with
     | 0 -> acc
@@ -92,6 +104,20 @@ let rand_node nb_outputs =
   let ts = List.map (fun str -> A.TypeParam str) ts in
   A.NodeDecl (dpos,
     (rand_fun_ident nb_outputs, true, ts, [dpos,"id",A.Int dpos,A.ClockTrue, false],
+    outs, [], [], None)
+  )
+
+let rand_node name ts =
+  let rec aux prefix acc nb =
+    match nb with
+    | 0 -> acc
+    | n -> aux prefix ((prefix^(string_of_int (counter ())))::acc) (n-1)
+  in
+  let outs = aux "out" [] (List.length ts)
+  |> List.map2 (fun t out -> dpos,out,t,A.ClockTrue) ts
+  in
+  A.NodeDecl (dpos,
+    (name, true, [], [dpos,"id",A.Int dpos,A.ClockTrue, false],
     outs, [], [], None)
   )
 
@@ -333,12 +359,17 @@ let minimize_lustre_ast ?(valid_lustre=false) all_eqs res ast =
       else undef_expr None in
     let minimized = List.map (minimize_decl undef_expr ivc) ast in
 
-    let rec aux acc nb =
+    (*let rec aux acc nb =
       match nb with
       | 0 -> acc
       | n -> aux ((rand_node n)::acc) (nb-1)
     in
-    aux minimized (!max_nb_args)
+    aux minimized (!max_nb_args)*)
+    Hashtbl.fold (fun ts n acc ->
+      (rand_node n ts)::acc
+    )
+    rand_functions
+    minimized
 
 (* ---------- MAPPING BACK ---------- *)
 
