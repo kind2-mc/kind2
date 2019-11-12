@@ -1096,7 +1096,7 @@ let pp_print_contract_mode ppf (_, id, reqs, enss) =
 
 let pp_print_contract_call fmt (_, id, in_params, out_params) =
   Format.fprintf
-    fmt "@[<hov 2>import %a (@,%a@,) (@,%a@,) ;@]"
+    fmt "@[<hov 2>import %a (@,%a@,) returns (@,%a@,) ;@]"
     pp_print_ident id
     (pp_print_list pp_print_expr ", ") in_params
     (pp_print_list pp_print_expr ", ") out_params
@@ -1147,25 +1147,40 @@ let pp_print_contract_node_decl ppf (n,p,i,o,e)
 let pp_print_node_or_fun_decl is_fun ppf (
   pos, (n, ext, p, i, o, l, e, r)
 ) =
-
-    Format.fprintf ppf
-      "@[<hv>@[<hv 2>%s%s %a%t@ \
-       @[<hv 1>(%a)@]@;<1 -2>\
-       returns@ @[<hv 1>(%a)@];@]@.\
-       %a@?\
-       %a@?\
-       @[<v 2>let@ \
-       %a@;<1 -2>\
-       tel;@]@]"
-      (if ext then "extern " else "")
-      (if is_fun then "function" else "node")
-      pp_print_ident n 
-      (function ppf -> pp_print_node_param_list ppf p)
-      (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
-      (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-      pp_print_contract_spec r
-      pp_print_node_local_decl l
-      (pp_print_list pp_print_node_item "@ ") e
+    if e = [] then
+      Format.fprintf ppf
+        "@[<hv>@[<hv 2>%s%s %a%t@ \
+        @[<hv 1>(%a)@]@;<1 -2>\
+        returns@ @[<hv 1>(%a)@];@]@.\
+        %a@?\
+        %a@?@]"
+        (if is_fun then "function" else "node")
+        (if ext then " imported" else "")
+        pp_print_ident n 
+        (function ppf -> pp_print_node_param_list ppf p)
+        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
+        (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+        pp_print_contract_spec r
+        pp_print_node_local_decl l
+    else
+      Format.fprintf ppf
+        "@[<hv>@[<hv 2>%s%s %a%t@ \
+        @[<hv 1>(%a)@]@;<1 -2>\
+        returns@ @[<hv 1>(%a)@];@]@.\
+        %a@?\
+        %a@?\
+        @[<v 2>let@ \
+        %a@;<1 -2>\
+        tel;@]@]"
+        (if is_fun then "function" else "node")
+        (if ext then " imported" else "")
+        pp_print_ident n 
+        (function ppf -> pp_print_node_param_list ppf p)
+        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
+        (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+        pp_print_contract_spec r
+        pp_print_node_local_decl l
+        (pp_print_list pp_print_node_item "@ ") e
 
 
 (* Pretty-print a declaration *)
