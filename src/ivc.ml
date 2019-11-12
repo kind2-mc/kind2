@@ -60,8 +60,14 @@ let undef_expr pos_sv_map typ expr =
   match pos_sv_map with
   | None -> A.Ident (pos, "_")
   | Some pos_sv_map ->
-    let svs = PosMap.find pos pos_sv_map in
-    begin
+    let svs = try PosMap.find pos pos_sv_map with Not_found -> [] in
+    if svs = []
+    then begin
+      let i = counter () in
+      let n = (List.length typ) in
+      if n > !max_nb_args then max_nb_args := n ;
+      A.CallParam (pos, rand_fun_ident n, typ, [Num (dpos, string_of_int i)])
+    end else begin
       try Hashtbl.find previous_rands svs
       with Not_found ->
         let i = counter () in
