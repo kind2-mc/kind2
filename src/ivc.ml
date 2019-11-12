@@ -44,6 +44,8 @@ type ivc_result = {
   trans: ivc;
 }
 
+(* TODO: solve mapping issue with minimized.lus (= minimized test.lus) *)
+
 (* ---------- LUSTRE AST ---------- *)
 
 let counter =
@@ -51,7 +53,7 @@ let counter =
   (fun () -> last := !last + 1 ; !last)
 
 let dpos = Lib.dummy_pos
-let rand_fun_ident nb = "rand"^(string_of_int nb)
+let rand_fun_ident nb = "__rand"^(string_of_int nb)
 let new_rand_fun_ident () = rand_fun_ident (counter ())
 
 let max_nb_args = ref 0
