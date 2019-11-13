@@ -62,7 +62,29 @@ let max_nb_args = ref 0
 let rand_functions = Hashtbl.create 10
 let previous_rands = Hashtbl.create 10
 
+let rec unannot_pos = function
+  | A.Bool _ -> A.Bool dpos
+  | A.Int _ -> A.Int dpos
+  | A.UInt8 _ -> A.UInt8 dpos
+  | A.UInt16 _ -> A.UInt16 dpos
+  | A.UInt32 _ -> A.UInt32 dpos
+  | A.UInt64 _ -> A.UInt64 dpos
+  | A.Int8 _ -> A.Int8 dpos
+  | A.Int16 _ -> A.Int16 dpos
+  | A.Int32 _ -> A.Int32 dpos
+  | A.Int64 _ -> A.Int64 dpos
+  | A.IntRange (_,e1,e2) -> A.IntRange (dpos,e1,e2)
+  | A.Real _ -> A.Real dpos
+  | A.UserType (_,id) -> A.UserType (dpos,id)
+  | A.TupleType (_,ts) -> A.TupleType (dpos, List.map unannot_pos ts)
+  | A.RecordType (_,tids) ->
+    let aux (_,id,t) = (dpos,id,unannot_pos t) in
+    A.RecordType (dpos,List.map aux tids)
+  | A.ArrayType (_,(t,e)) -> A.ArrayType (dpos,(unannot_pos t,e))
+  | A.EnumType (_,id,ids) -> A.EnumType (dpos,id,ids)
+
 let rand_function_name_for _ ts =
+  let ts = List.map unannot_pos ts in
   begin
   try Hashtbl.find rand_functions ts
   with Not_found ->
