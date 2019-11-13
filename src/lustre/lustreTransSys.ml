@@ -1238,35 +1238,21 @@ let rec constraints_of_node_calls
 
 (* Add constraints from assertions to initial state constraint and
    transition relation *)
-let rec constraints_of_asserts init_terms trans_terms terms_pos_map = function
+let rec constraints_of_asserts init_terms trans_terms = function
 
   (* All assertions consumed, return term for initial state
      constraint and transition relation *)
-  | [] -> (init_terms, trans_terms, terms_pos_map)
+  | [] -> (init_terms, trans_terms)
           
   (* Assertion with term for initial state and term for transitions *)
-  | (pos, { E.expr_init; E.expr_step }) :: tl ->
+  | (_,sv) :: tl ->
 
-     (* Term for assertion in initial state *)
-    let init_term = E.base_term_of_expr TransSys.init_base expr_init
-                    |> Term.convert_select in 
-
-     (* Term for assertion in step state *)
-    let trans_term = E.cur_term_of_expr TransSys.trans_base expr_step
-                     |> Term.convert_select in 
-
-     (* Add constraint unless it is true *)
-     let (init_terms, terms_pos_map) = 
-      if Term.equal init_term Term.t_true then (init_terms, terms_pos_map)
-      else (init_term :: init_terms, Term.TermMap.add init_term pos terms_pos_map) in
-
-     (* Add constraint unless it is true *)
-     let (trans_terms, terms_pos_map) = 
-      if Term.equal trans_term Term.t_true then (trans_terms, terms_pos_map)
-      else (trans_term :: trans_terms, Term.TermMap.add trans_term pos terms_pos_map) in
+    let expr = E.mk_var sv in
+    let init_terms = (expr |> E.base_term_of_t TransSys.init_base) :: init_terms in
+    let trans_terms = (expr |> E.cur_term_of_t TransSys.trans_base) :: trans_terms in
 
     (* Continue with next assertions *)
-    constraints_of_asserts init_terms trans_terms terms_pos_map tl
+    constraints_of_asserts init_terms trans_terms tl
 
 
 module MBounds = Map.Make (struct
@@ -1893,8 +1879,8 @@ let rec trans_sys_of_node'
              {!constraints_of_equations}.                           *)
 
           (* Constraints from assertions *)
-          let init_terms, trans_terms, terms_pos_map = 
-              constraints_of_asserts init_terms trans_terms (Term.TermMap.empty) asserts in
+          let init_terms, trans_terms = 
+              constraints_of_asserts init_terms trans_terms asserts in
 
 
           (* ****************************************************** *)
@@ -2162,7 +2148,6 @@ let rec trans_sys_of_node'
               properties
               mode_requires
               node_assumptions
-              terms_pos_map
           in
           trans_sys_of_node'
             globals

@@ -144,11 +144,6 @@ type t =
     mode_requires: Term.t option * (Scope.t * Term.t) list ;
 
     invariants : Invs.t ;
-
-    (* Map that associate to some subterms of the init/trans system
-       their position in the source Lustre file *)
-    terms_position_map : Lib.position Term.TermMap.t;
-
   }
 
 (* ********************************************************************** *)
@@ -1506,9 +1501,6 @@ let clear_invariants { invariants } =
 let clear_all_invariants =
   iter_subsystems ~include_top:true clear_invariants
 
-let get_terms_position_map { terms_position_map } =
-  terms_position_map
-
 (* ********************************************************************** *)
 (* Construct a transition system                                          *)
 (* ********************************************************************** *)
@@ -1548,7 +1540,6 @@ let mk_trans_sys
   properties
   mode_requires
   invariants
-  terms_position_map
 =
 
   (* Map instance variables of this system and all subsystems to a
@@ -1708,8 +1699,7 @@ let mk_trans_sys
       properties;
       mode_requires;
       logic;
-      invariants;
-      terms_position_map; }
+      invariants; }
   in
 
   trans_sys, instance_var_id_start'

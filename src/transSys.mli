@@ -204,8 +204,6 @@ val get_mode_requires : t -> Term.t option * (Scope.t * Term.t) list
 val get_split_properties :
   t -> Property.t list * Property.t list * Property.t list
 
-(** Returns a mapping from subterms of init/trans to position in the source program. *)
-val get_terms_position_map : t -> Lib.position Term.TermMap.t
 
 (** Make a copy of every mutable field of the transition system and its subsystems. *)
 val copy : t -> t
@@ -267,13 +265,8 @@ val mk_trans_sys :
       generation). *)
   Term.t option * (Scope.t * Term.t) list ->
 
-
   (** Invariants. *)
   Invs.t ->
-
-  (** Map that associate to some subterms of the init/trans system
-    their position in the source program *)
-  Lib.position Term.TermMap.t ->
 
   (** Created transition system and next starting value for fresh
       instance identifiers *)

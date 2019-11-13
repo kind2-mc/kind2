@@ -195,7 +195,7 @@ type t = {
   calls : node_call list;
   (** Node calls inside the node *)
 
-  asserts : (position * LustreExpr.t) list;
+  asserts : (position * StateVar.t) list;
   (** Assertions of node *)
 
   props : (StateVar.t * string * Property.prop_source) list;
@@ -236,6 +236,7 @@ type state_var_def =
   | ProperEq of position * LustreIndex.index
   | GeneratedEq of position * LustreIndex.index
   | ContractItem of position
+  | Assertion of position
 
 (** Return a node of the given name and is extern flag without inputs, outputs,
     oracles, equations, etc. Create a state variable for the {!t.instance} and

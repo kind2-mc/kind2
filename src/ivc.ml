@@ -23,7 +23,7 @@ module IdMap = Map.Make(AstID)
 type term_cat = NodeCall of string * StateVar.t list
 | ContractItem of StateVar.t
 | Equation of StateVar.t
-| Assertion
+| Assertion of StateVar.t
 | Unknown
 
 type equation = {
@@ -344,9 +344,8 @@ let minimize_lustre_ast ?(valid_lustre=false) all_eqs res ast =
           List.fold_left
           (fun acc (_,ls,cat) ->
             let svs = match cat with
-            | Unknown | Assertion -> []
-            | Equation sv -> [sv]
-            | ContractItem sv -> [sv]
+            | Unknown -> []
+            | Equation sv | Assertion sv | ContractItem sv -> [sv]
             | NodeCall (_, svs) -> svs
             in
             List.fold_left
@@ -395,6 +394,7 @@ let locs_of_node_call in_sys name args =
   |> List.fold_left
     (fun (svs, locs) (sv,loc) -> (sv::svs, loc@locs))
     ([], [])
+  |> (fun (svs,locs) -> (List.sort_uniq StateVar.compare_state_vars svs, locs))
 
 (* The order matters, for this reason we can't use Term.state_vars_of_term *)
 let rec find_vars t =
@@ -408,53 +408,53 @@ let rec find_vars t =
 
 let locs_of_eq_term in_sys t =
   try
+    let has_contract_items = ref false in
+    let has_asserts = ref false in
     let sv = find_vars t |> List.hd |> Var.state_var_of_state_var_instance in
     InputSystem.lustre_definitions_of_state_var in_sys sv
     |> List.map (fun def ->
+      (match def with LustreNode.Assertion _ -> has_asserts := true
+        | LustreNode.ContractItem _ -> has_contract_items := true | _ -> ());
       let p = LustreNode.pos_of_state_var_def def in
       let i = LustreNode.index_of_state_var_def def in
       { pos=p ; index=i }
     )
-    |> (fun locs -> (sv, locs))
+    |> (fun locs ->
+      if !has_contract_items then (ContractItem sv, locs)
+      else if !has_asserts then (Assertion sv, locs)
+      else (Equation sv, locs)
+    )
   with _ -> assert false
 
-let loc_according_to_trans_sys sys eq =
-  let terms_pos_map = TS.get_terms_position_map sys in
-  try
-    let pos = Term.TermMap.find eq.opened terms_pos_map in
-    Some { pos=pos; index=[] }
-  with Not_found -> None
-
 let add_loc in_sys sys eq =
-  try begin
-    match loc_according_to_trans_sys sys eq with
-    | None ->
-      let term = eq.closed in
-      begin match Term.destruct term with
-      | Term.T.App (s, ts) when
-        (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
-        -> (* Case of a node call *)
-        (* Retrieve the actual name of the node *)
-        let regexp = Printf.sprintf "^\\(%s\\|%s\\)_\\(.+\\)_[0-9]+$"
-          Lib.ReservedIds.init_uf_string Lib.ReservedIds.trans_uf_string
-          |> Str.regexp in
-        let name = Symbol.string_of_symbol s in
-        let name =
-          if Str.string_match regexp name 0 
-          then Str.matched_group 2 name
-          else name
-        in
-        let (svs,pos) = locs_of_node_call in_sys name ts in
-        (eq, pos, NodeCall (name,svs))
-      | Term.T.Var _ ->
-        let (sv,loc) = locs_of_eq_term in_sys term in
-        (eq, loc, ContractItem sv)
-      | _ ->
-        let (sv,loc) = locs_of_eq_term in_sys term in
-        (eq, loc, Equation sv)
+  try
+    let term = eq.closed in
+    begin match Term.destruct term with
+    | Term.T.App (s, ts) when
+      (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
+      -> (* Case of a node call *)
+      (* Retrieve the actual name of the node *)
+      let regexp = Printf.sprintf "^\\(%s\\|%s\\)_\\(.+\\)_[0-9]+$"
+        Lib.ReservedIds.init_uf_string Lib.ReservedIds.trans_uf_string
+        |> Str.regexp in
+      let name = Symbol.string_of_symbol s in
+      let name =
+        if Str.string_match regexp name 0 
+        then Str.matched_group 2 name
+        else name
+      in
+      let (svs,pos) = locs_of_node_call in_sys name ts in
+      (eq, pos, NodeCall (name,svs))
+    | Term.T.Var _ ->
+      let (cat,loc) = locs_of_eq_term in_sys term in
+      (eq, loc, cat)
+    | _ ->
+      let (cat,loc) = locs_of_eq_term in_sys term in
+      begin match cat with
+      | ContractItem sv | Assertion sv | Equation sv -> (eq, loc, Equation sv)
+      | _ -> assert false
       end
-    | Some l -> (eq, [l], Assertion)
-  end
+    end
   with _ -> (* If the input is not a Lustre file, it may fail *)
     (eq, [], Unknown) 
 

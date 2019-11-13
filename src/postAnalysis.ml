@@ -592,7 +592,7 @@ module RunIVC: PostAnalysis = struct
     | Ivc.Equation _ ->
       let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
       Format.asprintf "Equation %a at position %s" fmt_inv term (print_positions pos)
-    | Ivc.Assertion ->
+    | Ivc.Assertion _ ->
       let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
       Format.asprintf "Assertion %a at position %s" fmt_inv term (print_positions pos)
     | Ivc.Unknown ->

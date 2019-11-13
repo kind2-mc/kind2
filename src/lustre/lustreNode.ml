@@ -174,7 +174,7 @@ type t = {
   calls : node_call list;
 
   (* Assertions of node *)
-  asserts : (position * E.t) list;
+  asserts : (position * StateVar.t) list;
 
   (* Proof obligations for node *)
   props : (StateVar.t * string * Property.prop_source) list;
@@ -469,11 +469,11 @@ let pp_print_call safe ppf = function
 
 
 (* Pretty-print an assertion *)
-let pp_print_assert safe ppf (_,expr) = 
+let pp_print_assert safe ppf (_,sv) = 
 
   Format.fprintf ppf
     "@[<hv 2>assert@ %a;@]"
-    (E.pp_print_lustre_expr safe) expr
+    (E.pp_print_lustre_var safe) sv 
 
 
 (* Pretty-print a property *)
@@ -728,7 +728,7 @@ let pp_print_node_debug
     (pp_print_list pp_print_state_var_trie_debug ";@ ") locals
     (pp_print_list pp_print_equation "@ ") equations
     (pp_print_list pp_print_node_call_debug ";@ ") calls
-    (pp_print_list (pp_print_assert false) ";@ ") asserts
+    (pp_print_list (fun fmt (_,sv) -> E.pp_print_lustre_var false fmt sv) ";@ ") asserts
     (pp_print_list pp_print_prop ";@ ") props
     (fun fmt -> function
       | None -> ()
@@ -1290,26 +1290,9 @@ let stateful_vars_of_node
 
   (* Add stateful variables from assertions *)
   let stateful_vars = 
-    List.fold_left 
-      (fun accum (_,expr) -> 
-
-         (* Add stateful variables of assertion *)
-         SVS.union accum (stateful_vars_of_expr expr) |> 
-         
-         (* Variables in assertion that do not have a definition must
-            be stateful *)
-         SVS.union
-           (E.state_vars_of_expr expr
-            |> 
-            SVS.filter
-              (fun sv -> 
-                 not
-                   (List.exists
-                      (fun ((sv', _), _) -> 
-                         StateVar.equal_state_vars sv sv') 
-                      equations))))
+    add_to_svs
       stateful_vars
-      asserts
+      (List.map (fun (_, sv) -> sv) asserts) 
   in
 
   (* Add variables from node calls *)
@@ -1601,6 +1584,7 @@ type state_var_def =
   | ProperEq of position * LustreIndex.index
   | GeneratedEq of position * LustreIndex.index
   | ContractItem of position
+  | Assertion of position
 
 let state_var_defs_map : state_var_def list StateVar.StateVarHashtbl.t = 
   StateVar.StateVarHashtbl.create 20
@@ -1630,20 +1614,16 @@ let has_state_var_a_proper_def state_var =
   else
     get_state_var_defs state_var |>
     List.exists (function
-      | ContractItem _ | CallOutput _ | ProperEq _ -> true
+      | Assertion _ | ContractItem _ | CallOutput _ | ProperEq _ -> true
       | GeneratedEq _ -> false)
 
 let pos_of_state_var_def = function
-  | CallOutput (p,_) -> p
-  | ProperEq (p,_) -> p
-  | GeneratedEq (p,_) -> p
-  | ContractItem p -> p
+  | CallOutput (p,_) | ProperEq (p,_) | GeneratedEq (p,_) -> p
+  | ContractItem p | Assertion p -> p
 
 let index_of_state_var_def = function
-  | CallOutput (_,i) -> i
-  | ProperEq (_,i) -> i
-  | GeneratedEq (_,i) -> i
-  | ContractItem _ -> []
+  | CallOutput (_,i) | ProperEq (_,i) | GeneratedEq (_,i) -> i
+  | ContractItem _ | Assertion _ -> []
 
 let pp_print_state_var_defs_debug fmt t =
   let print_sv state_var =
@@ -1661,6 +1641,8 @@ let pp_print_state_var_defs_debug fmt t =
         Lib.pp_print_position p (LustreIndex.pp_print_index true) i
       | ContractItem p ->
         Format.fprintf fmt "Contract Item: %a\n" Lib.pp_print_position p
+      | Assertion p ->
+        Format.fprintf fmt "Assertion: %a\n" Lib.pp_print_position p
       )
   in
   List.iter print_sv (all_state_vars_dbg t)

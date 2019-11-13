@@ -1107,7 +1107,9 @@ let rec eval_node_equation inputs outputs locals ctx = function
     let ctx = C.reset_guard_flag ctx in
 
     (* Add assertion to node *)
-    C.add_node_assert ctx pos expr
+    let (svar, _), ctx = C.mk_local_for_expr ~is_ghost:true pos ctx expr in
+    N.add_state_var_def svar (N.Assertion pos) ;
+    C.add_node_assert ctx pos svar
       
 
   (* Equations with possibly more than one variable on the left-hand side
