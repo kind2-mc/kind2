@@ -207,39 +207,44 @@ let interpreter_param (type s) (input_system : s t) =
     Analysis.assumptions = Scope.Map.empty ;
   }
 
+let retrieve_lustre_nodes (type s) : s t -> LustreNode.t list =
+  (function
+  | Lustre (subsystem, _, _) -> 
+    let subsystems = S.all_subsystems subsystem in
+    List.map (fun sb -> sb.S.source) subsystems
+  | Native _ -> failwith "Unsupported input system: Native"
+  | Horn _ -> failwith "Unsupported input system: Horn"
+  )
+
+let find_lustre_node (type s) : Scope.t -> s t -> LustreNode.t =
+  (fun scope -> function
+  | Lustre (subsystem, _, _) ->
+    let subsystem = S.find_subsystem subsystem scope in
+    subsystem.S.source
+  | Native _ -> failwith "Unsupported input system: Native"
+  | Horn _ -> failwith "Unsupported input system: Horn"
+  ) 
 
 let pp_print_subsystems_debug (type s) : Format.formatter -> s t -> unit =
-  (fun fmt -> function
-    | Lustre (subsystem, _, _) -> 
-      let subsystems = S.all_subsystems subsystem in
-      let lustre_nodes = List.map (fun sb -> sb.S.source) subsystems in
-      List.iter (Format.fprintf fmt "%a@." LustreNode.pp_print_node_debug) lustre_nodes
-    | Native _ -> failwith "Unsupported input system: Native"
-    | Horn _ -> failwith "Unsupported input system: Horn"
+  (fun fmt in_sys ->
+    let lustre_nodes = retrieve_lustre_nodes in_sys in
+    List.iter (Format.fprintf fmt "%a@." LustreNode.pp_print_node_debug) lustre_nodes
   )
 
 let pp_print_state_var_instances_debug (type s) : Format.formatter -> s t -> unit =
-  (fun fmt -> function
-    | Lustre (subsystem, _, _) -> 
-      let subsystems = S.all_subsystems subsystem in
-      let lustre_nodes = List.map (fun sb -> sb.S.source) subsystems in
-      List.iter (
-        Format.fprintf fmt "%a@." LustreNode.pp_print_state_var_instances_debug
-      ) lustre_nodes
-    | Native _ -> failwith "Unsupported input system: Native"
-    | Horn _ -> failwith "Unsupported input system: Horn"
+  (fun fmt in_sys ->
+    let lustre_nodes = retrieve_lustre_nodes in_sys in
+    List.iter (
+      Format.fprintf fmt "%a@." LustreNode.pp_print_state_var_instances_debug
+    ) lustre_nodes
   )
 
 let pp_print_state_var_defs_debug (type s) : Format.formatter -> s t -> unit =
-  (fun fmt -> function
-    | Lustre (subsystem, _, _) -> 
-      let subsystems = S.all_subsystems subsystem in
-      let lustre_nodes = List.map (fun sb -> sb.S.source) subsystems in
-      List.iter (
-        Format.fprintf fmt "%a@." LustreNode.pp_print_state_var_defs_debug
-      ) lustre_nodes
-    | Native _ -> failwith "Unsupported input system: Native"
-    | Horn _ -> failwith "Unsupported input system: Horn"
+  (fun fmt in_sys ->
+    let lustre_nodes = retrieve_lustre_nodes in_sys in
+    List.iter (
+      Format.fprintf fmt "%a@." LustreNode.pp_print_state_var_defs_debug
+    ) lustre_nodes
   )
 
 let lustre_definitions_of_state_var (type s) (input_system : s t) state_var =

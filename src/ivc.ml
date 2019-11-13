@@ -44,6 +44,10 @@ type ivc_result = {
   trans: ivc;
 }
 
+let rec interval imin imax =
+  if imin > imax then []
+  else imin::(interval (imin+1) imax)
+
 (* ---------- LUSTRE AST ---------- *)
 
 let counter =
@@ -354,7 +358,7 @@ let minimize_lustre_ast ?(valid_lustre=false) all_eqs res ast =
           )
           acc lst
         ) all_eqs PosMap.empty
-        |> PosMap.map (fun lst -> List.sort compare lst) in
+        |> PosMap.map (fun lst -> List.sort_uniq StateVar.compare_state_vars lst) in
         undef_expr (Some pos_sv_map)
       else undef_expr None in
     let minimized = List.map (minimize_decl undef_expr ivc) ast in
@@ -373,20 +377,20 @@ let minimize_lustre_ast ?(valid_lustre=false) all_eqs res ast =
 
 (* ---------- MAPPING BACK ---------- *)
 
-(* TODO: Must not rely on the type of the def CallOutput. Should explore all defs for known return vars and take tne intersection. *)
-let locs_of_node_call in_sys args =
-  args
-  |> List.map (fun t -> match Term.destruct t with
-  | Var v ->
-    let sv = Var.state_var_of_state_var_instance v in
-    InputSystem.lustre_definitions_of_state_var in_sys sv
-    |> List.map (function
-      | LustreNode.CallOutput (p, i) -> [{ pos=p ; index=i }]
-      | _ -> []
-    )
-    |> List.flatten
-    |> (fun x -> (sv,x))
-  | _ -> assert false
+let locs_of_node_call in_sys name args =
+  let node = InputSystem.find_lustre_node (Scope.mk_scope [Ident.of_string name]) in_sys in
+  let nb_inputs = LustreIndex.cardinal (node.LustreNode.inputs) in
+  let nb_outputs = LustreIndex.cardinal (node.LustreNode.outputs) in
+
+  interval nb_inputs (nb_inputs + nb_outputs - 1)
+  |> List.map (fun i -> match Term.destruct (List.nth args i) with
+    | Var v ->
+      let sv = Var.state_var_of_state_var_instance v in
+      InputSystem.lustre_definitions_of_state_var in_sys sv
+      |> List.map
+        (fun d -> { pos=LustreNode.pos_of_state_var_def d ; index=LustreNode.index_of_state_var_def d })
+      |> (fun x -> (sv,x))
+    | _ -> assert false
   )
   |> List.fold_left
     (fun (svs, locs) (sv,loc) -> (sv::svs, loc@locs))
@@ -440,7 +444,7 @@ let add_loc in_sys sys eq =
           then Str.matched_group 2 name
           else name
         in
-        let (svs,pos) = locs_of_node_call in_sys ts in
+        let (svs,pos) = locs_of_node_call in_sys name ts in
         (eq, pos, NodeCall (name,svs))
       | Term.T.Var _ ->
         let (sv,loc) = locs_of_eq_term in_sys term in
@@ -563,10 +567,6 @@ let actlit_of_term t = match Term.destruct t with
     | Const s -> Symbol.uf_of_symbol s
     | App _ -> assert false
     | Attr _ -> assert false
-
-let rec interval imin imax =
-  if imin > imax then []
-  else imin::(interval (imin+1) imax)
 
 let base_k sys b0 init_eq trans_eq prop_eq os_prop_eq k =
   let prop_eq = if k = 0 then os_prop_eq else prop_eq in

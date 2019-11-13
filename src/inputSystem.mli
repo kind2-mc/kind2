@@ -85,6 +85,12 @@ val lustre_source_ast : 'a t -> LustreAst.t
 
 val slice_to_abstraction_and_property : 'a t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.value list) list -> Property.t -> TransSys.t * TransSys.instance list * (StateVar.t * Model.value list) list * Term.t * 'a t
 
+val retrieve_lustre_nodes : _ t -> LustreNode.t list
+
+(** Return the lustre node of the given scope 
+
+   Raise [Not_found] if there is no subsystem of that scope *)
+val find_lustre_node : Scope.t -> _ t -> LustreNode.t
 
 val reconstruct_lustre_streams :
   _ t -> 

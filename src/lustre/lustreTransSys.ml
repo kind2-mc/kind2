@@ -1328,24 +1328,26 @@ let rec constraints_of_equations_wo_arrays node
   (* Can define state variable with a let binding *)
   | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl ->
     
-    (* We must transfer the defs of this stae variable
-    to all the state variables that depend on it *)
-    let defs = N.get_state_var_defs state_var in
-    let add_defs_to_sv sv =
-      List.iter (fun def -> N.add_state_var_def sv def) defs
-    in
-    let is_using_this_sv { E.expr_init; E.expr_step } =
-      let aux t =
-        StateVar.StateVarSet.mem state_var (Term.state_vars_of_term t)
+    if not (E.is_var expr) then begin
+      (* We must transfer the defs of this state variable
+      to all the state variables that depend on it *)
+      let defs = N.get_state_var_defs state_var in
+      let add_defs_to_sv sv =
+        List.iter (fun def -> N.add_state_var_def sv def) defs
       in
-      aux (E.base_term_of_expr Numeral.zero expr_init)
-      || aux (E.base_term_of_expr Numeral.zero expr_step)
-    in
-    let transfer_defs_to_eq_if_needed ((sv,_),eq) =
-      if not (StateVar.equal_state_vars sv state_var) && is_using_this_sv eq
-      then add_defs_to_sv sv
-    in
-    List.iter transfer_defs_to_eq_if_needed node.N.equations ;
+      let is_using_this_sv { E.expr_init; E.expr_step } =
+        let aux t =
+          StateVar.StateVarSet.mem state_var (Term.state_vars_of_term t)
+        in
+        aux (E.base_term_of_expr Numeral.zero expr_init)
+        || aux (E.base_term_of_expr Numeral.zero expr_step)
+      in
+      let transfer_defs_to_eq_if_needed ((sv,_),eq) =
+        if not (StateVar.equal_state_vars sv state_var) && is_using_this_sv eq
+        then add_defs_to_sv sv
+      in
+      List.iter transfer_defs_to_eq_if_needed node.N.equations
+    end ;
 
     (* Let binding for stateless variable, in closure form *)
     let let_closure =

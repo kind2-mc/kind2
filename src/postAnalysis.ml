@@ -675,7 +675,7 @@ module RunIVC: PostAnalysis = struct
                 ) eqs
               in
               KEvent.log_uncond "----- %s -----" (Scope.to_string scope) ;
-              KEvent.log_uncond "%s" (pp_eqs var_map eqs)
+              KEvent.log_uncond "%s" (pp_loc_eqs var_map eqs)
             ) initial.trans
           end ;
 
