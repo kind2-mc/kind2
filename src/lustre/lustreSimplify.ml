@@ -439,11 +439,16 @@ let rec eval_ast_expr bounds ctx =
              |> snd
              in
              
-           let mk_local a b =
-            let ((sv,_), _) as res = C.mk_local_for_expr ~original ~bounds pos a b in
+           let mk_local ctx expr' =
+            let ((sv,_), _) as res = C.mk_local_for_expr ~original ~bounds pos ctx expr' in
             let pos = A.pos_of_expr expr in
-            if not (N.has_state_var_a_proper_def sv)
-            then N.add_state_var_def sv (LustreNode.GeneratedEq (pos, index)) ;
+            (*let is_a_def =
+              try
+                not (StateVar.equal_state_vars (E.state_var_of_expr expr') sv)
+              with Invalid_argument _ -> true
+            in*)
+            if (*not (N.has_state_var_a_proper_def sv)*) (*is_a_def*) not (StateVar.is_input sv)
+            then N.add_state_var_def sv (N.GeneratedEq (pos, index)) ;
             res
            in
            let expr', ctx =
@@ -1739,7 +1744,13 @@ and eval_node_call
             | (ListIndex i)::indexes -> (A.pos_of_expr (List.nth ast i), indexes)
             | indexes -> (A.pos_of_expr (List.hd ast)), indexes)
             with _ -> (pos, i) in
-            if not (N.has_state_var_a_proper_def state_var')
+            (*let is_a_def =
+              try
+                not (StateVar.equal_state_vars (E.state_var_of_expr expr) state_var')
+              with Invalid_argument _ -> true
+            in
+            Format.printf "%a %a %b\n" StateVar.pp_print_state_var state_var' Lib.pp_print_pos pos' is_a_def ;*)
+            if (*not (N.has_state_var_a_proper_def state_var')*) (*is_a_def*) not (StateVar.is_input state_var')
             then N.add_state_var_def state_var' (N.GeneratedEq (pos',i')) ;
             let ctx =
               C.current_node_map ctx (

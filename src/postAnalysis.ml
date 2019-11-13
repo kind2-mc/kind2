@@ -583,9 +583,9 @@ module RunIVC: PostAnalysis = struct
     let term = eq.Ivc.closed in
     let pos = List.map (fun l -> l.Ivc.pos) loc in
     match cat with
-    | Ivc.NodeCall (s,_) ->
-      Format.asprintf "Node call %a at position %s"
-        Symbol.pp_print_symbol s (print_positions pos)
+    | Ivc.NodeCall (n,_) ->
+      Format.asprintf "Node call %s at position %s"
+        n (print_positions pos)
     | Ivc.ContractItem _ ->
       let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
       Format.asprintf "Contract item %a at position %s" fmt_inv term (print_positions pos)

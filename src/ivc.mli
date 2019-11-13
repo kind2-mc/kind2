@@ -1,6 +1,6 @@
 module ScMap = Scope.Map
 
-type term_cat = NodeCall of Symbol.t * StateVar.t list
+type term_cat = NodeCall of string * StateVar.t list
 | ContractItem of StateVar.t
 | Equation of StateVar.t
 | Assertion

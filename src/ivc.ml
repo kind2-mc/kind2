@@ -20,7 +20,7 @@ module AstID = struct
 end
 module IdMap = Map.Make(AstID)
 
-type term_cat = NodeCall of Symbol.t * StateVar.t list
+type term_cat = NodeCall of string * StateVar.t list
 | ContractItem of StateVar.t
 | Equation of StateVar.t
 | Assertion
@@ -43,8 +43,6 @@ type ivc_result = {
   init: ivc;
   trans: ivc;
 }
-
-(* TODO: solve mapping issue with minimized.lus (= minimized test.lus) *)
 
 (* ---------- LUSTRE AST ---------- *)
 
@@ -375,6 +373,7 @@ let minimize_lustre_ast ?(valid_lustre=false) all_eqs res ast =
 
 (* ---------- MAPPING BACK ---------- *)
 
+(* TODO: Must not rely on the type of the def CallOutput. Should explore all defs for known return vars and take tne intersection. *)
 let locs_of_node_call in_sys args =
   args
   |> List.map (fun t -> match Term.destruct t with
@@ -431,8 +430,18 @@ let add_loc in_sys sys eq =
       | Term.T.App (s, ts) when
         (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
         -> (* Case of a node call *)
+        (* Retrieve the actual name of the node *)
+        let regexp = Printf.sprintf "^\\(%s\\|%s\\)_\\(.+\\)_[0-9]+$"
+          Lib.ReservedIds.init_uf_string Lib.ReservedIds.trans_uf_string
+          |> Str.regexp in
+        let name = Symbol.string_of_symbol s in
+        let name =
+          if Str.string_match regexp name 0 
+          then Str.matched_group 2 name
+          else name
+        in
         let (svs,pos) = locs_of_node_call in_sys ts in
-        (eq, pos, NodeCall (s,svs))
+        (eq, pos, NodeCall (name,svs))
       | Term.T.Var _ ->
         let (sv,loc) = locs_of_eq_term in_sys term in
         (eq, loc, ContractItem sv)
