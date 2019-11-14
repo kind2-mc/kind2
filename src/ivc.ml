@@ -6,6 +6,8 @@ module SyMap = UfSymbol.UfSymbolMap
 module SySet = UfSymbol.UfSymbolSet
 module ScMap = Scope.Map
 module ScSet = Scope.Set
+module SVSet = StateVar.StateVarSet
+module SVSMap = Map.Make(SVSet)
 
 module Position = struct
   type t = Lib.position
@@ -20,7 +22,7 @@ module AstID = struct
 end
 module IdMap = Map.Make(AstID)
 
-type term_cat = NodeCall of string * StateVar.t list
+type term_cat = NodeCall of string * SVSet.t
 | ContractItem of StateVar.t
 | Equation of StateVar.t
 | Assertion of StateVar.t
@@ -99,8 +101,8 @@ let undef_expr pos_sv_map typ expr =
   match pos_sv_map with
   | None -> A.Ident (pos, "_")
   | Some pos_sv_map ->
-    let svs = try PosMap.find pos pos_sv_map with Not_found -> [] in
-    if svs = []
+    let svs = try PosMap.find pos pos_sv_map with Not_found -> SVSet.empty in
+    if SVSet.is_empty svs
     then begin
       let i = counter () in
       let n = (List.length typ) in
@@ -382,20 +384,19 @@ let minimize_lustre_ast ?(valid_lustre=false) all_eqs res ast =
           List.fold_left
           (fun acc (_,ls,cat) ->
             let svs = match cat with
-            | Unknown -> []
-            | Equation sv | Assertion sv | ContractItem sv -> [sv]
+            | Unknown -> SVSet.empty
+            | Equation sv | Assertion sv | ContractItem sv -> SVSet.singleton sv
             | NodeCall (_, svs) -> svs
             in
             List.fold_left
             (fun acc l ->
-              let old = try PosMap.find l.pos acc with Not_found -> [] in
-              PosMap.add l.pos (svs@old) acc
+              let old = try PosMap.find l.pos acc with Not_found -> SVSet.empty in
+              PosMap.add l.pos (SVSet.union svs old) acc
             )
             acc ls
           )
           acc lst
-        ) all_eqs PosMap.empty
-        |> PosMap.map (fun lst -> List.sort_uniq StateVar.compare_state_vars lst) in
+        ) all_eqs PosMap.empty in
         undef_expr (Some pos_sv_map)
       else undef_expr None in
     let minimized = List.map (minimize_decl undef_expr ivc) ast in
@@ -416,6 +417,7 @@ let minimize_lustre_ast ?(valid_lustre=false) all_eqs res ast =
 
 let locs_of_node_call in_sys output_svs =
   output_svs
+  |> SVSet.elements
   |> List.map (fun sv ->
       InputSystem.lustre_definitions_of_state_var in_sys sv
       |> List.map
@@ -452,7 +454,7 @@ let name_and_svs_of_node_call in_sys s args =
     | _ -> assert false
   )
   in
-  (name, List.sort_uniq StateVar.compare_state_vars svs)
+  (name, (*List.sort_uniq StateVar.compare_state_vars*)SVSet.of_list svs)
 
 (* The order matters, for this reason we can't use Term.state_vars_of_term *)
 let rec find_vars t =
@@ -513,7 +515,7 @@ let svs_of_term in_sys t =
     -> (* Case of a node call *)
     let (_, svs) = name_and_svs_of_node_call in_sys s ts in
     svs
-  | _ -> [sv_of_term t]
+  | _ -> SVSet.singleton (sv_of_term t)
 
 (* ---------- UTILITIES ---------- *)
 
@@ -556,9 +558,6 @@ let rec is_one_step t =
 
 exception InitTransMismatch of int * int
 
-module SVSet = StateVar.StateVarSet
-module SVSMap = Map.Make(SVSet)
-
 let extract_toplevel_equations in_sys sys =
   let (_,oinit,otrans) = TS.init_trans_open sys in
   let cinit = TS.init_of_bound None sys Numeral.zero
@@ -570,7 +569,7 @@ let extract_toplevel_equations in_sys sys =
   let init = List.combine oinit cinit
   and trans = List.combine otrans ctrans in
   let mk_map = List.fold_left (fun acc (o,c) ->
-    let svs = svs_of_term in_sys c |> SVSet.of_list in
+    let svs = svs_of_term in_sys c in
     let (o,c) =
       try
         let (o',c') = SVSMap.find svs acc in

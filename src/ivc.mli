@@ -1,6 +1,7 @@
 module ScMap = Scope.Map
+module SVSet = StateVar.StateVarSet
 
-type term_cat = NodeCall of string * StateVar.t list
+type term_cat = NodeCall of string * SVSet.t
 | ContractItem of StateVar.t
 | Equation of StateVar.t
 | Assertion of StateVar.t
