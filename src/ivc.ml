@@ -272,7 +272,9 @@ let minimize_const_decl ue lst = function
   | A.UntypedConst (p,id,e) -> A.UntypedConst (p,id,e)
   | A.FreeConst (p,id,t) -> A.FreeConst (p,id,t)
   | A.TypedConst (p,id,e,t) ->
-    let (_,e) = minimize_expr ue lst [t] e in
+    (*let (_,e) = minimize_expr ue lst [t] e in
+    A.TypedConst (p,id,e,t)*)
+    (* Disabled for now, because __rand calls are invalid constant expressions *)
     A.TypedConst (p,id,e,t)
 
 let minimize_node_local_decl ue lst = function
