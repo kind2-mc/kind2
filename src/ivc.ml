@@ -367,9 +367,6 @@ let minimize_decl ue ivc = function
     A.ContractNodeDecl (p, minimize_contract_decl ue ivc cdecl)
   | decl -> decl 
 
-(* TODO: Test that soundness issues relative to init terms are now solved *)
-(* Ex: in test.lus, constants are wrongly removed for IVC_UCBF because they still are present in the init system *)
-(* Ex: in BacteriaPopulation.lus *)
 let minimize_lustre_ast ?(valid_lustre=false) all_eqs res ast =
   if not res.success then ast
   else
@@ -417,25 +414,45 @@ let minimize_lustre_ast ?(valid_lustre=false) all_eqs res ast =
 
 (* ---------- MAPPING BACK ---------- *)
 
-let locs_of_node_call in_sys name args =
-  let node = InputSystem.find_lustre_node (Scope.mk_scope [Ident.of_string name]) in_sys in
-  let nb_inputs = LustreIndex.cardinal (node.LustreNode.inputs) in
-  let nb_outputs = LustreIndex.cardinal (node.LustreNode.outputs) in
-
-  interval nb_inputs (nb_inputs + nb_outputs - 1)
-  |> List.map (fun i -> match Term.destruct (List.nth args i) with
-    | Var v ->
-      let sv = Var.state_var_of_state_var_instance v in
+let locs_of_node_call in_sys output_svs =
+  output_svs
+  |> List.map (fun sv ->
       InputSystem.lustre_definitions_of_state_var in_sys sv
       |> List.map
         (fun d -> { pos=LustreNode.pos_of_state_var_def d ; index=LustreNode.index_of_state_var_def d })
-      |> (fun x -> (sv,x))
+  )
+  |> List.flatten
+
+let rec sublist i count lst =
+  match i, count, lst with
+  | _, 0, _ -> []
+  | _, _, [] -> assert false
+  | 0, k, hd::lst -> hd::(sublist 0 (k-1) lst)
+  | i, k, _::lst -> sublist (i-1) k lst
+
+let name_and_svs_of_node_call in_sys s args =
+  (* Retrieve name of node *)
+  let regexp = Printf.sprintf "^\\(%s\\|%s\\)_\\(.+\\)_[0-9]+$"
+    Lib.ReservedIds.init_uf_string Lib.ReservedIds.trans_uf_string
+    |> Str.regexp in
+  let name = Symbol.string_of_symbol s in
+  let name =
+    if Str.string_match regexp name 0 
+    then Str.matched_group 2 name
+    else name
+  in
+  (* Retrieve number of inputs/outputs *)
+  let node = InputSystem.find_lustre_node (Scope.mk_scope [Ident.of_string name]) in_sys in
+  let nb_inputs = LustreIndex.cardinal (node.LustreNode.inputs) in
+  let nb_outputs = LustreIndex.cardinal (node.LustreNode.outputs) in
+  (* Retrieve output statevars *)
+  let svs = sublist nb_inputs nb_outputs args
+  |> List.map (fun t -> match Term.destruct t with
+    | Var v -> Var.state_var_of_state_var_instance v
     | _ -> assert false
   )
-  |> List.fold_left
-    (fun (svs, locs) (sv,loc) -> (sv::svs, loc@locs))
-    ([], [])
-  |> (fun (svs,locs) -> (List.sort_uniq StateVar.compare_state_vars svs, locs))
+  in
+  (name, List.sort_uniq StateVar.compare_state_vars svs)
 
 (* The order matters, for this reason we can't use Term.state_vars_of_term *)
 let rec find_vars t =
@@ -447,11 +464,14 @@ let rec find_vars t =
     |> List.flatten
   | Attr (t, _) -> find_vars t
 
+let sv_of_term t = 
+  find_vars t |> List.hd |> Var.state_var_of_state_var_instance
+
 let locs_of_eq_term in_sys t =
   try
     let has_contract_items = ref false in
     let has_asserts = ref false in
-    let sv = find_vars t |> List.hd |> Var.state_var_of_state_var_instance in
+    let sv = sv_of_term t in
     InputSystem.lustre_definitions_of_state_var in_sys sv
     |> List.map (fun def ->
       (match def with LustreNode.Assertion _ -> has_asserts := true
@@ -467,39 +487,33 @@ let locs_of_eq_term in_sys t =
     )
   with _ -> assert false
 
-let add_loc in_sys sys eq =
+let add_loc in_sys eq =
   try
     let term = eq.trans_closed in
     begin match Term.destruct term with
     | Term.T.App (s, ts) when
       (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
       -> (* Case of a node call *)
-      (* Retrieve the actual name of the node *)
-      let regexp = Printf.sprintf "^\\(%s\\|%s\\)_\\(.+\\)_[0-9]+$"
-        Lib.ReservedIds.init_uf_string Lib.ReservedIds.trans_uf_string
-        |> Str.regexp in
-      let name = Symbol.string_of_symbol s in
-      let name =
-        if Str.string_match regexp name 0 
-        then Str.matched_group 2 name
-        else name
-      in
-      let (svs,pos) = locs_of_node_call in_sys name ts in
+      let (name, svs) = name_and_svs_of_node_call in_sys s ts in
+      let pos = locs_of_node_call in_sys svs in
       (eq, pos, NodeCall (name,svs))
-    | Term.T.Var _ ->
-      let (cat,loc) = locs_of_eq_term in_sys term in
-      (eq, loc, cat)
     | _ ->
       let (cat,loc) = locs_of_eq_term in_sys term in
-      begin match cat with
-      | ContractItem sv | Assertion sv | Equation sv -> (eq, loc, Equation sv)
-      | _ -> assert false
-      end
+      (eq, loc, cat)
     end
   with _ -> (* If the input is not a Lustre file, it may fail *)
     (eq, [], Unknown) 
 
-let eqmap_to_ivc in_sys sys = ScMap.map (List.map (add_loc in_sys sys))
+let eqmap_to_ivc in_sys = ScMap.map (List.map (add_loc in_sys))
+
+let svs_of_term in_sys t =
+  match Term.destruct t with
+  | Term.T.App (s, ts) when
+    (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
+    -> (* Case of a node call *)
+    let (_, svs) = name_and_svs_of_node_call in_sys s ts in
+    svs
+  | _ -> [sv_of_term t]
 
 (* ---------- UTILITIES ---------- *)
 
@@ -542,39 +556,58 @@ let rec is_one_step t =
 
 exception InitTransMismatch of int * int
 
-let extract_toplevel_equations sys =
+module SVSet = StateVar.StateVarSet
+module SVSMap = Map.Make(SVSet)
+
+let extract_toplevel_equations in_sys sys =
   let (_,oinit,otrans) = TS.init_trans_open sys in
   let cinit = TS.init_of_bound None sys Numeral.zero
   and ctrans = TS.trans_of_bound None sys Numeral.zero in
-  let pack (oi,ci) (ot,ct) =
-    { init_opened=oi ; init_closed=ci ; trans_opened=ot ; trans_closed=ct }
-  in
   let oinit = deconstruct_conj oinit
   and otrans = deconstruct_conj otrans
   and cinit = deconstruct_conj cinit
   and ctrans = deconstruct_conj ctrans in
-  if List.length oinit <> List.length otrans
-  then raise (InitTransMismatch (List.length oinit, List.length otrans)) ;
-  List.map2 pack (List.combine oinit cinit) (List.combine otrans ctrans)
+  let init = List.combine oinit cinit
+  and trans = List.combine otrans ctrans in
+  let mk_map = List.fold_left (fun acc (o,c) ->
+    let svs = svs_of_term in_sys c |> SVSet.of_list in
+    let (o,c) =
+      try
+        let (o',c') = SVSMap.find svs acc in
+        (Term.mk_and [o;o'], Term.mk_and [c;c'])
+      with Not_found -> (o,c) in
+    SVSMap.add svs (o,c) acc
+  ) SVSMap.empty
+  in
+  let init_bindings = mk_map init |> SVSMap.bindings
+  and trans_bindings = mk_map trans |> SVSMap.bindings in
+  let init_n = List.length init_bindings
+  and trans_n = List.length trans_bindings in
+  if init_n <> trans_n then raise (InitTransMismatch (init_n, trans_n)) ;
+  List.map2 (fun (ki,(oi,ci)) (kt,(ot,ct)) ->
+    if SVSet.compare ki kt <> 0
+    then raise (InitTransMismatch (init_n, trans_n)) ;
+    { init_opened=oi ; init_closed=ci ; trans_opened=ot ; trans_closed=ct }
+  ) init_bindings trans_bindings
 
 type eqmap = (equation list) ScMap.t
 
-let _all_eqs sys =
+let _all_eqs in_sys sys =
   let scope = TS.scope_of_trans_sys sys in
-  let eqs = extract_toplevel_equations sys in
+  let eqs = extract_toplevel_equations in_sys sys in
   let eqmap = ScMap.singleton scope eqs in
   if Flags.IVC.ivc_enter_nodes ()
   then
     TS.fold_subsystems ~include_top:false (fun eqmap sys ->
       let scope = TS.scope_of_trans_sys sys in
-      let eqs = extract_toplevel_equations sys in
+      let eqs = extract_toplevel_equations in_sys sys in
       ScMap.add scope eqs eqmap
     ) eqmap sys
   else eqmap
 
 let all_eqs in_sys sys =
-  let eqmap = _all_eqs sys in
-  { success=true ; ivc=eqmap_to_ivc in_sys sys eqmap }
+  let eqmap = _all_eqs in_sys sys in
+  { success=true ; ivc=eqmap_to_ivc in_sys eqmap }
 
 let term_of_eq init closed eq =
   if init && closed then eq.init_closed
@@ -821,7 +854,7 @@ let pick_core c =
 exception NotKInductive
 
 (** Implements the algorithm IVC_UC *)
-let ivc_uc_ ?(approximate=false) sys =
+let ivc_uc_ in_sys ?(approximate=false) sys =
   let scope = TS.scope_of_trans_sys sys in
   let k, invs = CertifChecker.minimize_invariants sys None in
   (* Sometimes fail when giving 'Some (TS.invars_of_bound sys Numeral.zero)' as 2nd parameter *)
@@ -835,7 +868,7 @@ let ivc_uc_ ?(approximate=false) sys =
 
   (* Activation litterals, core and mapping to equations *)
   let add_to_bindings act_bindings sys =
-    let eqs = extract_toplevel_equations sys in
+    let eqs = extract_toplevel_equations in_sys sys in
     let scope = TS.scope_of_trans_sys sys in
     let act_bindings' =
       List.map (fun eq -> (Actlit.fresh_actlit (), scope, eq)) eqs in
@@ -927,8 +960,8 @@ let ivc_uc_ ?(approximate=false) sys =
 
 let ivc_uc in_sys ?(approximate=false) sys =
   try (
-    let eqmap = ivc_uc_ ~approximate:approximate sys in
-    { success=true; ivc=eqmap_to_ivc in_sys sys eqmap }
+    let eqmap = ivc_uc_ in_sys ~approximate:approximate sys in
+    { success=true; ivc=eqmap_to_ivc in_sys eqmap }
   ) with
   | NotKInductive ->
     KEvent.log L_error "Properties are not k-inductive." ;
@@ -1018,9 +1051,9 @@ let ivc_bf_ in_sys param analyze sys eqmap =
 
 let ivc_bf in_sys param analyze sys =
   try (
-    let eqmap = _all_eqs sys in
+    let eqmap = _all_eqs in_sys sys in
     let eqmap = ivc_bf_ in_sys param analyze sys eqmap in
-    { success=true; ivc=eqmap_to_ivc in_sys sys eqmap }
+    { success=true; ivc=eqmap_to_ivc in_sys eqmap }
   ) with
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
@@ -1032,9 +1065,9 @@ let ivc_bf in_sys param analyze sys =
 (** Implements the algorithm IVC_UCBF *)
 let ivc_ucbf in_sys param analyze sys =
   try (
-    let eqmap = ivc_uc_ sys in
+    let eqmap = ivc_uc_ in_sys sys in
     let eqmap = ivc_bf_ in_sys param analyze sys eqmap in
-    { success=true; ivc=eqmap_to_ivc in_sys sys eqmap }
+    { success=true; ivc=eqmap_to_ivc in_sys eqmap }
   ) with
   | NotKInductive ->
     KEvent.log L_error "Properties are not k-inductive." ;

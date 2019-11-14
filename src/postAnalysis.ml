@@ -580,7 +580,8 @@ module RunIVC: PostAnalysis = struct
       lst
 
   let pp_loc_eq var_map (eq, loc, cat) =
-    let term = eq.Ivc.trans_closed in
+    (*let init = eq.Ivc.init_closed in*)
+    let trans = eq.Ivc.trans_closed in
     let pos = List.map (fun l -> l.Ivc.pos) loc in
     match cat with
     | Ivc.NodeCall (n,_) ->
@@ -588,32 +589,27 @@ module RunIVC: PostAnalysis = struct
         n (print_positions pos)
     | Ivc.ContractItem _ ->
       let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
-      Format.asprintf "Contract item %a at position %s" fmt_inv term (print_positions pos)
+      Format.asprintf "Contract item %a at position %s" fmt_inv trans (print_positions pos)
     | Ivc.Equation _ ->
       let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
-      Format.asprintf "Equation %a at position %s" fmt_inv term (print_positions pos)
+      Format.asprintf "Equation %a at position %s" fmt_inv trans (print_positions pos)
     | Ivc.Assertion _ ->
       let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
-      Format.asprintf "Assertion %a at position %s" fmt_inv term (print_positions pos)
+      Format.asprintf "Assertion %a at position %s" fmt_inv trans (print_positions pos)
     | Ivc.Unknown ->
       let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
-      Format.asprintf "Unknown element %a" fmt_inv term
+      Format.asprintf "Unknown element %a" fmt_inv trans
 
   let pp_eq var_map (eq, _, _) =
-    let term = eq.Ivc.trans_closed in
-    (*List.iter
-      (fun t ->
-        let fmt_inv = Term.pp_print_term in
-        KEvent.log_uncond "%a" fmt_inv t
-      )
-    terms;*)
-    match Term.destruct term with
+    (*let init = eq.Ivc.init_closed in*)
+    let trans = eq.Ivc.trans_closed in
+    match Term.destruct trans with
     | Term.T.App (s, _) when
       (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
       -> Format.asprintf "Node call %a" Symbol.pp_print_symbol s
     | _ ->
       let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
-      Format.asprintf "%a" fmt_inv term
+      Format.asprintf "%a" fmt_inv trans
 
   let pp_loc_eqs var_map terms =
     let print = pp_loc_eq var_map in
