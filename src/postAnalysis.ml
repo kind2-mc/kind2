@@ -580,7 +580,7 @@ module RunIVC: PostAnalysis = struct
       lst
 
   let pp_loc_eq var_map (eq, loc, cat) =
-    let term = eq.Ivc.closed in
+    let term = eq.Ivc.trans_closed in
     let pos = List.map (fun l -> l.Ivc.pos) loc in
     match cat with
     | Ivc.NodeCall (n,_) ->
@@ -600,7 +600,7 @@ module RunIVC: PostAnalysis = struct
       Format.asprintf "Unknown element %a" fmt_inv term
 
   let pp_eq var_map (eq, _, _) =
-    let term = eq.Ivc.closed in
+    let term = eq.Ivc.trans_closed in
     (*List.iter
       (fun t ->
         let fmt_inv = Term.pp_print_term in
@@ -650,14 +650,14 @@ module RunIVC: PostAnalysis = struct
           let var_map = compute_var_map in_sys sys in
           let initial = Ivc.all_eqs in_sys sys in
           KEvent.log_uncond "Transitions:@ %i equations (%i initially)"
-            (eqs_count res.trans) (eqs_count initial.trans) ;
+            (eqs_count res.ivc) (eqs_count initial.ivc) ;
 
           if Flags.IVC.print_ivc ()
           then begin
             Ivc.ScMap.iter (fun scope eqs -> 
               KEvent.log_uncond "----- %s -----" (Scope.to_string scope) ;
               KEvent.log_uncond "%s" (pp_loc_eqs var_map eqs)
-            ) res.trans
+            ) res.ivc
           end ;
 
           if Flags.IVC.print_not_ivc ()
@@ -667,16 +667,16 @@ module RunIVC: PostAnalysis = struct
               let eqs = List.filter
                 (fun (eq,_,_) ->
                   try
-                    let lst = Ivc.ScMap.find scope res.trans
-                    |> List.map (fun (eq,_,_) -> eq.Ivc.closed) in
-                    Term.TermSet.mem eq.Ivc.closed (Term.TermSet.of_list lst)
+                    let lst = Ivc.ScMap.find scope res.ivc
+                    |> List.map (fun (eq,_,_) -> eq.Ivc.trans_closed) in
+                    Term.TermSet.mem eq.Ivc.trans_closed (Term.TermSet.of_list lst)
                     |> not
                   with Not_found -> true
                 ) eqs
               in
               KEvent.log_uncond "----- %s -----" (Scope.to_string scope) ;
               KEvent.log_uncond "%s" (pp_loc_eqs var_map eqs)
-            ) initial.trans
+            ) initial.ivc
           end ;
 
           if Flags.IVC.print_minimized_program ()

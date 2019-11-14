@@ -27,9 +27,11 @@ type term_cat = NodeCall of string * StateVar.t list
 | Unknown
 
 type equation = {
-    opened: Term.t ;
-    closed: Term.t ;
-  }
+  init_opened: Term.t ;
+  init_closed: Term.t ;
+  trans_opened: Term.t ;
+  trans_closed: Term.t ;
+}
 
 type loc = {
   pos: Lib.position ;
@@ -40,8 +42,7 @@ type ivc = (equation * (loc list) * term_cat) list ScMap.t
 
 type ivc_result = {
   success: bool;
-  init: ivc;
-  trans: ivc;
+  ivc: ivc;
 }
 
 let rec interval imin imax =
@@ -364,14 +365,14 @@ let minimize_decl ue ivc = function
     A.ContractNodeDecl (p, minimize_contract_decl ue ivc cdecl)
   | decl -> decl 
 
-(* TODO: take init eqs into account (otherwise it could be unsound) *)
+(* TODO: Test that soundness issues relative to init terms are now solved *)
 (* Ex: in test.lus, constants are wrongly removed for IVC_UCBF because they still are present in the init system *)
 (* Ex: in BacteriaPopulation.lus *)
 let minimize_lustre_ast ?(valid_lustre=false) all_eqs res ast =
   if not res.success then ast
   else
-    let ivc = res.trans in
-    let all_eqs = all_eqs.trans in
+    let ivc = res.ivc in
+    let all_eqs = all_eqs.ivc in
     let undef_expr =
       if valid_lustre
       then
@@ -466,7 +467,7 @@ let locs_of_eq_term in_sys t =
 
 let add_loc in_sys sys eq =
   try
-    let term = eq.closed in
+    let term = eq.trans_closed in
     begin match Term.destruct term with
     | Term.T.App (s, ts) when
       (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
@@ -500,7 +501,7 @@ let eqmap_to_ivc in_sys sys = ScMap.map (List.map (add_loc in_sys sys))
 
 (* ---------- UTILITIES ---------- *)
 
-let error_result = { success=false; init=ScMap.empty; trans=ScMap.empty }
+let error_result = { success=false; ivc=ScMap.empty }
 
 let extract_props sys =
   List.filter (function
@@ -537,37 +538,47 @@ let rec is_one_step t =
     is_one_step t
   | Annot (t,_) -> is_one_step t
 
+exception InitTransMismatch of int * int
+
 let extract_toplevel_equations sys =
   let (_,oinit,otrans) = TS.init_trans_open sys in
   let cinit = TS.init_of_bound None sys Numeral.zero
   and ctrans = TS.trans_of_bound None sys Numeral.zero in
-  let pack o c = { opened=o ; closed=c } in
+  let pack (oi,ci) (ot,ct) =
+    { init_opened=oi ; init_closed=ci ; trans_opened=ot ; trans_closed=ct }
+  in
   let oinit = deconstruct_conj oinit
   and otrans = deconstruct_conj otrans
   and cinit = deconstruct_conj cinit
   and ctrans = deconstruct_conj ctrans in
-  (List.map2 pack oinit cinit, List.map2 pack otrans ctrans)
+  if List.length oinit <> List.length otrans
+  then raise (InitTransMismatch (List.length oinit, List.length otrans)) ;
+  List.map2 pack (List.combine oinit cinit) (List.combine otrans ctrans)
 
-type nonloc_ivc = (equation list) ScMap.t
+type eqmap = (equation list) ScMap.t
 
 let _all_eqs sys =
   let scope = TS.scope_of_trans_sys sys in
-  let (init, trans) = extract_toplevel_equations sys in
-  let init = ScMap.singleton scope init in
-  let trans = ScMap.singleton scope trans in
+  let eqs = extract_toplevel_equations sys in
+  let eqmap = ScMap.singleton scope eqs in
   if Flags.IVC.ivc_enter_nodes ()
   then
-    TS.fold_subsystems ~include_top:false (fun (init_acc, trans_acc) sys ->
+    TS.fold_subsystems ~include_top:false (fun eqmap sys ->
       let scope = TS.scope_of_trans_sys sys in
-      let (init, trans) = extract_toplevel_equations sys in
-      (ScMap.add scope init init_acc, ScMap.add scope trans trans_acc)
-    ) (init, trans) sys
-  else (init, trans)
+      let eqs = extract_toplevel_equations sys in
+      ScMap.add scope eqs eqmap
+    ) eqmap sys
+  else eqmap
 
 let all_eqs in_sys sys =
-  let (init, trans) = _all_eqs sys in
-  { success=true ; init=eqmap_to_ivc in_sys sys init ;
-    trans=eqmap_to_ivc in_sys sys trans }
+  let eqmap = _all_eqs sys in
+  { success=true ; ivc=eqmap_to_ivc in_sys sys eqmap }
+
+let term_of_eq init closed eq =
+  if init && closed then eq.init_closed
+  else if init then eq.init_opened
+  else if closed then eq.trans_closed
+  else eq.trans_opened
 
 (* ---------- IVC_UC ---------- *)
 
@@ -708,12 +719,12 @@ let core_union c1 c2 =
 let filter_core core actlits =
   ScMap.map (symbols_inter actlits) core
 
-let eq_of_scope eqs_map scope =
-  try ScMap.find scope eqs_map with Not_found -> Term.mk_true ()
+let term_of_scope term_map scope =
+  try ScMap.find scope term_map with Not_found -> Term.mk_true ()
 
 type result = NOT_OK | OK of core
 
-let compute_unsat_core ?(pathcomp=None) sys core init_eqs trans_eqs bmin bmax t =
+let compute_unsat_core ?(pathcomp=None) sys core init_terms trans_terms bmin bmax t =
   let enable_compr = pathcomp <> None in
   let actlits = actlits_of_core core in
   let solver = create_solver ~pathcomp:enable_compr sys actlits bmin bmax in
@@ -724,8 +735,8 @@ let compute_unsat_core ?(pathcomp=None) sys core init_eqs trans_eqs bmin bmax t 
     sys |> TS.iter_subsystems ~include_top:false (fun t ->
       let define = SMTSolver.define_fun solver in
       let scope = TS.scope_of_trans_sys t in
-      let init = eq_of_scope init_eqs scope in
-      let trans = eq_of_scope trans_eqs scope in
+      let init = term_of_scope init_terms scope in
+      let trans = term_of_scope trans_terms scope in
       define (TS.init_uf_symbol t) (TS.init_formals t) init ;
       define (TS.trans_uf_symbol t) (TS.trans_formals t) trans
     )
@@ -754,35 +765,43 @@ let compute_unsat_core ?(pathcomp=None) sys core init_eqs trans_eqs bmin bmax t 
   SMTSolver.delete_instance solver ;
   res
 
-let check_k_inductive sys actlits init_eqs trans_eqs prop_eq os_prop_eq k =
+let check_k_inductive sys actlits init_terms trans_terms prop os_prop k =
   (* In the functions above, k starts at 0 whereas it start at 1 with Kind2 notation *)
   let k = k - 1 in
   let scope = TS.scope_of_trans_sys sys in
-  let init_eq = eq_of_scope init_eqs scope in
-  let trans_eq = eq_of_scope trans_eqs scope in
+  let init_eq = term_of_scope init_terms scope in
+  let trans_eq = term_of_scope trans_terms scope in
 
   if Flags.BmcKind.compress ()
   then
-    let (bmax, t) = base_until_k sys 0 init_eq trans_eq prop_eq os_prop_eq k in
+    let (bmax, t) = base_until_k sys 0 init_eq trans_eq prop os_prop k in
     let bmax = bmax-1 in
     let t = Term.mk_not t in
-    let res_base = compute_unsat_core sys actlits init_eqs trans_eqs 0 bmax t in
+    let res_base = compute_unsat_core sys actlits init_terms trans_terms 0 bmax t in
     match res_base with
     | NOT_OK -> NOT_OK
     | OK core ->
-      let (bmax, t, pathcomp) = ind_k sys 0 trans_eq prop_eq os_prop_eq prop_eq k in
+      let (bmax, t, pathcomp) = ind_k sys 0 trans_eq prop os_prop prop k in
       let bmax = bmax-1 in
       let t = Term.mk_not t in
-      let res_ind = compute_unsat_core ~pathcomp:(Some pathcomp) sys actlits init_eqs trans_eqs 0 bmax t in
+      let res_ind = compute_unsat_core ~pathcomp:(Some pathcomp) sys actlits init_terms trans_terms 0 bmax t in
       begin match res_ind with
       | NOT_OK -> NOT_OK
       | OK core' -> OK (core_union core core')
       end
   else
-    let (bmax, t, _) = k_induction sys 0 init_eq trans_eq prop_eq os_prop_eq k in
+    let (bmax, t, _) = k_induction sys 0 init_eq trans_eq prop os_prop k in
     let bmax = bmax-1 in
     let t = Term.mk_not t in
-    compute_unsat_core sys actlits init_eqs trans_eqs 0 bmax t
+    compute_unsat_core sys actlits init_terms trans_terms 0 bmax t
+
+let lstmap_union c1 c2 =
+  let merge _ lst1 lst2 = match lst1, lst2 with
+  | None, None -> None
+  | Some lst, None | None, Some lst -> Some lst
+  | Some lst1, Some lst2 -> Some (lst1@lst2)
+  in
+  ScMap.merge merge c1 c2
 
 let is_empty_core c =
   ScMap.for_all (fun _ v -> v = []) c
@@ -800,7 +819,7 @@ let pick_core c =
 exception NotKInductive
 
 (** Implements the algorithm IVC_UC *)
-let ivc_uc_ ?(minimize_init=false) ?(approximate=false) sys =
+let ivc_uc_ ?(approximate=false) sys =
   let scope = TS.scope_of_trans_sys sys in
   let k, invs = CertifChecker.minimize_invariants sys None in
   (* Sometimes fail when giving 'Some (TS.invars_of_bound sys Numeral.zero)' as 2nd parameter *)
@@ -812,45 +831,42 @@ let ivc_uc_ ?(minimize_init=false) ?(approximate=false) sys =
   KEvent.log L_info "One-step inductive property: %a" Term.pp_print_term os_prop ;
   KEvent.log L_info "Value of k: %n" k ;
 
-  (* Activation litterals and utilities *)
-  let add_to_bindings (aib, atb) sys =
-    let bind_with_fresh_lit scope lst =
-      List.map (fun t -> (Actlit.fresh_actlit (), scope, t)) lst
-    in
-    let (init, trans) = extract_toplevel_equations sys in
+  (* Activation litterals, core and mapping to equations *)
+  let add_to_bindings act_bindings sys =
+    let eqs = extract_toplevel_equations sys in
     let scope = TS.scope_of_trans_sys sys in
-    let aib' = bind_with_fresh_lit scope init in
-    let atb' = bind_with_fresh_lit scope trans in
-    (aib'@aib, atb'@atb)
+    let act_bindings' =
+      List.map (fun eq -> (Actlit.fresh_actlit (), scope, eq)) eqs in
+    act_bindings'@act_bindings
   in
-  let (init_bindings, trans_bindings) =
+  let act_bindings =
     if Flags.IVC.ivc_enter_nodes ()
-    then
-      TS.fold_subsystems ~include_top:false (add_to_bindings) ([], []) sys
-    else
-      ([], [])
+    then TS.fold_subsystems ~include_top:false (add_to_bindings) [] sys
+    else []
   in
-  let (init_bindings, trans_bindings) =
-    add_to_bindings (init_bindings, trans_bindings) sys
-  in
+  let act_bindings = add_to_bindings act_bindings sys in
 
   let add_to_core acc (actlit,scope,_) =
     let old = try ScMap.find scope acc with Not_found -> [] in
     ScMap.add scope (actlit::old) acc
   in
-  let core_init = List.fold_left add_to_core ScMap.empty init_bindings in
-  let core_trans = List.fold_left add_to_core ScMap.empty trans_bindings in
+  let core = List.fold_left add_to_core ScMap.empty act_bindings in
 
-  let actlits_terms_map =
+  let actlits_eqs_map =
     List.fold_left (fun acc (k,_,v) -> SyMap.add k v acc)
-      SyMap.empty (init_bindings@trans_bindings)
+      SyMap.empty act_bindings
   in
-  let eq_of_actlit ?(with_act=false) opened a =
-    let t = SyMap.find a actlits_terms_map in
-    let t = if opened then t.opened else t.closed in
+  let eq_of_actlit ?(with_act=false) a =
+    let eq = SyMap.find a actlits_eqs_map in
     if with_act
-    then (* Term.mk_eq *) Term.mk_implies [Actlit.term_of_actlit a ; t]
-    else t
+    then
+      let guard t =
+        (* Term.mk_eq *)
+        Term.mk_implies [Actlit.term_of_actlit a ; t]
+      in
+      { init_opened=guard eq.init_opened ; init_closed=guard eq.init_closed ;
+        trans_opened=guard eq.trans_opened ; trans_closed=guard eq.trans_closed }
+    else eq
   in
 
   (* Minimization *)
@@ -874,63 +890,49 @@ let ivc_uc_ ?(minimize_init=false) ?(approximate=false) sys =
         end
   in
 
-  let eqs_of_current_state keep test =
-    let eqs_map_union c1 c2 =
-      let merge _ lst1 lst2 = match lst1, lst2 with
-      | None, None -> None
-      | Some lst, None | None, Some lst -> Some lst
-      | Some lst1, Some lst2 -> Some (lst1@lst2)
-      in
-      ScMap.merge merge c1 c2
+  let terms_of_current_state keep test =
+    let aux with_act init core =
+      ScMap.mapi (fun s lst -> List.map 
+        (fun a ->
+          let eq = eq_of_actlit ~with_act:with_act a in
+          term_of_eq init (Scope.equal s scope) eq
+        )
+        lst)
+        core
     in
-    let keep = ScMap.mapi
-      (fun s v -> List.map (eq_of_actlit (not (Scope.equal s scope))) v) keep in
-    let test = ScMap.mapi
-      (fun s v -> List.map (eq_of_actlit ~with_act:true (not (Scope.equal s scope))) v) test in
-    let combined = eqs_map_union keep test in
-    ScMap.map (fun v -> Term.mk_and v) combined
+    let keep_init = aux false true keep in
+    let keep_trans = aux false false keep in
+    let test_init = aux true true test in
+    let test_trans = aux true false test in
+    let init = lstmap_union keep_init test_init
+    |> ScMap.map (fun t -> Term.mk_and t) in
+    let trans = lstmap_union keep_trans test_trans
+    |> ScMap.map (fun t -> Term.mk_and t) in
+    (init, trans)
   in
 
   let core_to_eqmap core =
-    ScMap.map (fun v -> List.map
-      (fun s -> {opened=eq_of_actlit true s ; closed=eq_of_actlit false s}) v)
-      core
+    ScMap.map (fun v -> List.map eq_of_actlit v) core
   in
 
-  let init_eqs = eqs_of_current_state core_init ScMap.empty in
-  let check_trans keep test =
-    let eqs = eqs_of_current_state keep test in
-    check_k_inductive sys test init_eqs eqs prop os_prop k
+  let check keep test =
+    let (init, trans) = terms_of_current_state keep test in
+    check_k_inductive sys test init trans prop os_prop k
   in
-  let (core_trans, trans_res) = match minimize check_trans ScMap.empty core_trans with
+  match minimize check ScMap.empty core with
   | None -> raise NotKInductive
-  | Some acts -> (acts, core_to_eqmap acts)
-  in
+  | Some core -> core_to_eqmap core
 
-  let (core_init, init_res) =
-    if minimize_init then
-      let trans_eqs = eqs_of_current_state core_trans ScMap.empty in
-      let check_init keep test =
-        let eqs = eqs_of_current_state keep test in
-        check_k_inductive sys test eqs trans_eqs prop os_prop k
-      in
-      match minimize check_init ScMap.empty core_init with
-      | None -> raise NotKInductive
-      | Some acts -> (acts, core_to_eqmap acts)
-  else
-    (core_init, core_to_eqmap core_init)
-  in
-  (init_res, trans_res)
-
-let ivc_uc in_sys ?(minimize_init=false) ?(approximate=false) sys =
+let ivc_uc in_sys ?(approximate=false) sys =
   try (
-    let (init, trans) =
-      ivc_uc_ ~minimize_init:minimize_init ~approximate:approximate sys in
-    { success=true; init=eqmap_to_ivc in_sys sys init ;
-      trans=eqmap_to_ivc in_sys sys trans }
+    let eqmap = ivc_uc_ ~approximate:approximate sys in
+    { success=true; ivc=eqmap_to_ivc in_sys sys eqmap }
   ) with
   | NotKInductive ->
     KEvent.log L_error "Properties are not k-inductive." ;
+    error_result
+  | InitTransMismatch (i,t) ->
+    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
     error_result
 
 (* ---------- IVC_BF ---------- *)
@@ -950,14 +952,6 @@ let check_result prop_names sys =
     | _ -> false)
     prop_names
 
-let eqmap_union m1 m2 =
-  let merge _ lst1 lst2 = match lst1, lst2 with
-  | None, None -> None
-  | Some lst, None | None, Some lst -> Some lst
-  | Some lst1, Some lst2 -> Some (lst1@lst2)
-  in
-  ScMap.merge merge m1 m2
-
 let is_empty_eqmap = is_empty_core
 
 let pick_eqmap = pick_core
@@ -965,7 +959,7 @@ let pick_eqmap = pick_core
 exception CannotProve
 
 (** Implements the algorithm IVC_BF *)
-let ivc_bf_ in_sys param analyze sys init trans =
+let ivc_bf_ in_sys param analyze sys eqmap =
   let param = Analysis.param_clone param in
   let sys = TS.copy sys in
   let prop_names = extract_props_names sys in
@@ -980,14 +974,14 @@ let ivc_bf_ in_sys param analyze sys init trans =
         let (scope, eq, test) = pick_eqmap test in
         match minimize check keep test with
         | None ->
-          minimize check (eqmap_union (ScMap.singleton scope [eq]) keep) test
+          minimize check (lstmap_union (ScMap.singleton scope [eq]) keep) test
         | Some res -> Some res
     else None
   in
 
   let prepare_ts_for_check keep test =
     reset_ts prop_names sys ;
-    let union = eqmap_union keep test in
+    let union = lstmap_union keep test in
     let prepare_subsystem sys =
       let scope = TS.scope_of_trans_sys sys in
       let eqs =
@@ -997,11 +991,9 @@ let ivc_bf_ in_sys param analyze sys init trans =
       begin match eqs with
       | None -> ()
       | Some eqs ->
-        let init_eq =
-          (try List.map (fun eq -> eq.opened) (ScMap.find scope init)
-          with Not_found -> [])
+        let init_eq = List.map (fun eq -> eq.init_opened) eqs
         |> Term.mk_and in
-        let trans_eq = List.map (fun eq -> eq.opened) eqs
+        let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
         |> Term.mk_and in
         TS.set_init_trans sys init_eq trans_eq 
       end
@@ -1017,21 +1009,20 @@ let ivc_bf_ in_sys param analyze sys init trans =
     check_result prop_names sys
   in
 
-  let trans =
-    begin match minimize check ScMap.empty trans with
-    | None -> raise CannotProve
-    | Some res -> res
-    end
-  in
-  (init, trans)
+  begin match minimize check ScMap.empty eqmap with
+  | None -> raise CannotProve
+  | Some eqmap -> eqmap
+  end
 
 let ivc_bf in_sys param analyze sys =
   try (
-    let (init, trans) = _all_eqs sys in
-    let (init, trans) = ivc_bf_ in_sys param analyze sys init trans in
-    { success=true; init=init |> eqmap_to_ivc in_sys sys ;
-      trans=trans |> eqmap_to_ivc in_sys sys }
+    let eqmap = _all_eqs sys in
+    let eqmap = ivc_bf_ in_sys param analyze sys eqmap in
+    { success=true; ivc=eqmap_to_ivc in_sys sys eqmap }
   ) with
+  | InitTransMismatch (i,t) ->
+    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
+    error_result
   | CannotProve ->
     KEvent.log L_error "Cannot prove the properties." ;
     error_result
@@ -1039,13 +1030,15 @@ let ivc_bf in_sys param analyze sys =
 (** Implements the algorithm IVC_UCBF *)
 let ivc_ucbf in_sys param analyze sys =
   try (
-    let (init, trans) = ivc_uc_ sys in
-    let (init, trans) = ivc_bf_ in_sys param analyze sys init trans in
-    { success=true; init=init |> eqmap_to_ivc in_sys sys ;
-      trans=trans |> eqmap_to_ivc in_sys sys }
+    let eqmap = ivc_uc_ sys in
+    let eqmap = ivc_bf_ in_sys param analyze sys eqmap in
+    { success=true; ivc=eqmap_to_ivc in_sys sys eqmap }
   ) with
   | NotKInductive ->
     KEvent.log L_error "Properties are not k-inductive." ;
+    error_result
+  | InitTransMismatch (i,t) ->
+    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
     error_result
   | CannotProve ->
     KEvent.log L_error "Cannot prove the properties." ;

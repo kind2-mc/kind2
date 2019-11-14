@@ -7,9 +7,11 @@ type term_cat = NodeCall of string * StateVar.t list
 | Unknown
 
 type equation = {
-    opened: Term.t ;
-    closed: Term.t ;
-  }
+  init_opened: Term.t ;
+  init_closed: Term.t ;
+  trans_opened: Term.t ;
+  trans_closed: Term.t ;
+}
 
 type loc = {
   pos: Lib.position ;
@@ -20,8 +22,7 @@ type ivc = (equation * (loc list) * term_cat) list ScMap.t
 
 type ivc_result = {
   success: bool;
-  init: ivc;
-  trans: ivc;
+  ivc: ivc;
 }
 
 val error_result : ivc_result
@@ -32,7 +33,6 @@ val minimize_lustre_ast : ?valid_lustre:bool -> ivc_result -> ivc_result -> Lust
 
 val ivc_uc :
   'a InputSystem.t ->
-  ?minimize_init:bool ->
   ?approximate:bool ->
   TransSys.t ->
   ivc_result
