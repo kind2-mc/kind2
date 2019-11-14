@@ -267,6 +267,18 @@ let minimize_item id_typ_map ue lst = function
     | Some eq -> [A.Body eq]
     end
 
+let minimize_const_decl ue lst = function
+  | A.UntypedConst (p,id,e) -> A.UntypedConst (p,id,e)
+  | A.FreeConst (p,id,t) -> A.FreeConst (p,id,t)
+  | A.TypedConst (p,id,e,t) ->
+    let (_,e) = minimize_expr ue lst [t] e in
+    A.TypedConst (p,id,e,t)
+
+let minimize_node_local_decl ue lst = function
+  | A.NodeConstDecl (p,d) ->
+    A.NodeConstDecl (p,minimize_const_decl ue lst d)
+  | A.NodeVarDecl (p,d) -> A.NodeVarDecl (p,d)
+
 let build_id_typ_map input output local =
   let add_input acc (_,id,t,_,_) =
     IdMap.add id t acc
@@ -286,10 +298,11 @@ let build_id_typ_map input output local =
   let acc = List.fold_left add_output acc output in
   List.fold_left add_local acc local
 
-let minimize_contract_node_eq lst cne =
+let minimize_contract_node_eq ue lst cne =
   match cne with
-  | A.GhostConst _ | A.GhostVar _ | A.ContractCall _
-    -> [cne]
+  | A.ContractCall _ -> [cne]
+  | A.GhostConst d -> [A.GhostConst (minimize_const_decl ue lst d)]
+  | A.GhostVar d -> [A.GhostVar (minimize_const_decl ue lst d)]
   | A.Assume (pos,_,_)
   | A.Guarantee (pos,_,_) ->
     if List.exists (fun p -> Lib.compare_pos p pos = 0) lst
@@ -312,10 +325,11 @@ let minimize_node_decl ue ivc
     let spec = 
     begin match spec with
       | None -> None
-      | Some spec -> List.map (minimize_contract_node_eq lst) spec 
+      | Some spec -> List.map (minimize_contract_node_eq ue lst) spec 
       |> List.flatten |> (fun s -> Some s)
     end
     in
+    let locals = List.map (minimize_node_local_decl ue lst) locals in
     (id, extern, tparams, inputs, outputs, locals, items, spec)
   in
   
@@ -328,7 +342,7 @@ let minimize_node_decl ue ivc
     then minimize_with_lst []
     else ndecl
 
-let minimize_contract_decl ivc (id, tparams, inputs, outputs, body) =
+let minimize_contract_decl ue ivc (id, tparams, inputs, outputs, body) =
   let lst = ScMap.bindings ivc
     |> List.map (fun (_,v) -> v)
     |> List.flatten
@@ -336,7 +350,7 @@ let minimize_contract_decl ivc (id, tparams, inputs, outputs, body) =
     |> List.flatten
     |> List.map (fun l -> l.pos) in
   let body = body
-    |> List.map (minimize_contract_node_eq lst)
+    |> List.map (minimize_contract_node_eq ue lst)
     |> List.flatten
   in
   (id, tparams, inputs, outputs, body)
@@ -347,10 +361,12 @@ let minimize_decl ue ivc = function
   | A.FuncDecl (p, ndecl) ->
     A.FuncDecl (p, minimize_node_decl ue ivc ndecl)
   | A.ContractNodeDecl (p, cdecl) ->
-    A.ContractNodeDecl (p, minimize_contract_decl ivc cdecl)
+    A.ContractNodeDecl (p, minimize_contract_decl ue ivc cdecl)
   | decl -> decl 
 
 (* TODO: take init eqs into account (otherwise it could be unsound) *)
+(* Ex: in test.lus, constants are wrongly removed for IVC_UCBF because they still are present in the init system *)
+(* Ex: in BacteriaPopulation.lus *)
 let minimize_lustre_ast ?(valid_lustre=false) all_eqs res ast =
   if not res.success then ast
   else
@@ -948,7 +964,6 @@ let pick_eqmap = pick_core
 
 exception CannotProve
 
-(* TODO: constants (like in test.lus) are sometimes wrongly removed because they still are present in the init system *)
 (** Implements the algorithm IVC_BF *)
 let ivc_bf_ in_sys param analyze sys init trans =
   let param = Analysis.param_clone param in
