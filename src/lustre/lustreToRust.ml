@@ -676,16 +676,16 @@ let fmt_calls_doc fmt = function
 
 (* Pretty prints assertions for struct documentation. *)
 let fmt_asserts_doc fmt = function
-| [] -> Format.fprintf fmt "No assertions for this system.@."
+| [] -> Format.fprintf fmt "/// No assertions for this system.@."
 | asserts -> Format.fprintf fmt "%a@." (
-  pp_print_list (fun fmt expr ->
+  pp_print_list (fun fmt (pos,_) ->
     Format.fprintf fmt
       "- `%a`"
-      (E.pp_print_lustre_expr false) expr
+      fmt_pos_as_link pos
   ) "@ /// "
 ) asserts
 
-(* Pretty prints assertions for a struct documentation. *)
+(* Pretty prints assumptions for a struct documentation. *)
 let fmt_assumes_doc fmt = function
 | [] -> Format.fprintf fmt "/// No assumptions for this system.@."
 | assumes -> Format.fprintf fmt "\
@@ -1205,22 +1205,19 @@ let node_to_rust oracle_info is_top fmt (
       then
         Format.fprintf fmt
           "%a@ @ "
-          ( pp_print_list (fun fmt expr ->
+          ( pp_print_list (fun fmt (pos, svar) ->
               Format.fprintf fmt
-                "// %a@ if ! (@   %a@ ) {@   \
+                "// Assertion at %a@ if ! %s%s {@   \
                   @[<v>\
                     return Err(@   \
                       \"assertion failure in system `%s`: %a\".to_string()@ \
                     )\
                   @]@ \
                 } ;"
-                (E.pp_print_lustre_expr false) expr
-                (fmt_term svar_pref) (
-                  expr.E.expr_init
-                  |> E.base_term_of_expr (Numeral.succ E.base_offset)
-                )
+                fmt_pos_as_link pos
+                svar_pref (SVar.name_of_state_var svar)
                 name
-                (E.pp_print_lustre_expr false) expr
+                fmt_pos_as_link pos
             ) "@ "
           ) asserts
     ) asserts
@@ -1349,21 +1346,19 @@ let node_to_rust oracle_info is_top fmt (
       ) "@ "
     ) eqs_next
 
-    ( pp_print_list (fun fmt expr ->
+    ( pp_print_list (fun fmt (pos, svar) ->
         Format.fprintf fmt
-          "// %a@ if ! (@   %a@ ) {@   \
+          "// Assertion at %a@ if ! %s%s {@   \
             @[<v>\
               return Err(@   \
-                \"assertion failure: %a\".to_string()@ \
+                \"assertion failure in system `%s`: %a\".to_string()@ \
               )\
             @]@ \
           } ;"
-          (E.pp_print_lustre_expr false) expr
-          (fmt_term svar_pref) (
-            expr.E.expr_step
-            |> E.base_term_of_expr (Numeral.succ E.base_offset)
-          )
-          (E.pp_print_lustre_expr false) expr
+          fmt_pos_as_link pos
+          svar_pref (SVar.name_of_state_var svar)
+          name
+          fmt_pos_as_link pos
       ) "@ "
     ) asserts
 
