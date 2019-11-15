@@ -16,7 +16,7 @@ RUN wget -qq https://github.com/ocaml/opam/releases/download/2.0.1/opam-2.0.1-x8
   && opam init --disable-sandboxing --yes --comp 4.04.0 && eval $(opam env)
 
 # Install ocaml packages needed for Kind 2.
-RUN opam install --yes ocamlfind camlp4 menhir
+RUN opam install --yes ocamlfind camlp4 menhir yojson
 
 # Force to use opam version of ocamlc.
 ENV PATH="/root/.opam/4.04.0/bin:${PATH}"

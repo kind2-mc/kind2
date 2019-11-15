@@ -1,4 +1,4 @@
-OCAMLBUILD=@OCAMLBUILD@ -j 0 -cflags -w,@P@U@F
+OCAMLBUILD=@OCAMLBUILD@ -j 0 -pkg yojson -cflags -w,@P@U@F
 
 # Check if git is installed and use output of git describe as version
 # number, else use version number from configure

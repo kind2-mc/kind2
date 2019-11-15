@@ -21,7 +21,7 @@
 Kind 2
 ======
 
-A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
+`Kind 2 <http://kind.cs.uiowa.edu/>`_ \ is a multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 
 Kind 2 takes as input a Lustre file annotated with properties to be proven
 invariant (see `Lustre Input <doc/usr/source/2_input/1_lustre.rst>`_), and
@@ -70,6 +70,7 @@ Requirements
 * pkg-config,
 * OCaml 4.04 or later,
 * `Ocamlbuild <https://github.com/ocaml/ocamlbuild>`_\ , Ocamlfind, `Camlp4 <https://github.com/ocaml/camlp4>`_\ ,
+* `Yojson <https://github.com/ocaml-community/yojson>`_\ ,
 * `num <https://github.com/ocaml/num>`_ (part of OCaml distribution until 4.06),
 * `Menhir <http://gallium.inria.fr/~fpottier/menhir/>`_ parser generator, and
 * a supported SMT solver
