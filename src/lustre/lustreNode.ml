@@ -174,7 +174,7 @@ type t = {
   calls : node_call list;
 
   (* Assertions of node *)
-  asserts : E.t list;
+  asserts : (position * StateVar.t) list;
 
   (* Proof obligations for node *)
   props : (StateVar.t * string * Property.prop_source) list;
@@ -469,11 +469,11 @@ let pp_print_call safe ppf = function
 
 
 (* Pretty-print an assertion *)
-let pp_print_assert safe ppf expr = 
+let pp_print_assert safe ppf (_,sv) = 
 
   Format.fprintf ppf
     "@[<hv 2>assert@ %a;@]"
-    (E.pp_print_lustre_expr safe) expr
+    (E.pp_print_lustre_var safe) sv 
 
 
 (* Pretty-print a property *)
@@ -728,7 +728,7 @@ let pp_print_node_debug
     (pp_print_list pp_print_state_var_trie_debug ";@ ") locals
     (pp_print_list pp_print_equation "@ ") equations
     (pp_print_list pp_print_node_call_debug ";@ ") calls
-    (pp_print_list (E.pp_print_lustre_expr false) ";@ ") asserts
+    (pp_print_list (fun fmt (_,sv) -> E.pp_print_lustre_var false fmt sv) ";@ ") asserts
     (pp_print_list pp_print_prop ";@ ") props
     (fun fmt -> function
       | None -> ()
@@ -1290,26 +1290,9 @@ let stateful_vars_of_node
 
   (* Add stateful variables from assertions *)
   let stateful_vars = 
-    List.fold_left 
-      (fun accum expr -> 
-
-         (* Add stateful variables of assertion *)
-         SVS.union accum (stateful_vars_of_expr expr) |> 
-         
-         (* Variables in assertion that do not have a definition must
-            be stateful *)
-         SVS.union
-           (E.state_vars_of_expr expr
-            |> 
-            SVS.filter
-              (fun sv -> 
-                 not
-                   (List.exists
-                      (fun ((sv', _), _) -> 
-                         StateVar.equal_state_vars sv sv') 
-                      equations))))
+    add_to_svs
       stateful_vars
-      asserts
+      (List.map (fun (_, sv) -> sv) asserts) 
   in
 
   (* Add variables from node calls *)
