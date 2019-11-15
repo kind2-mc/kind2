@@ -36,6 +36,7 @@ Table of Contents
     9_other/5_proofs
     9_other/6_contract_generation
     9_other/7_invariant_logging
+    9_other/8_interpreter
 
 .. toctree::
     :maxdepth: 2
