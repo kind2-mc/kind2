@@ -22,6 +22,7 @@ Table of Contents
     :caption: Inputs and Outputs
 
     2_input/1_lustre
+    2_input/3_machine_ints
     2_input/2_arrays
     3_output/2_xml
 
