@@ -25,6 +25,7 @@ let cmd_line
     produce_assignments
     produce_proofs
     produce_cores
+    minimize_cores
     produce_interpolants = 
 
   (* Path and name of Yices executable *)
@@ -48,7 +49,7 @@ let check_sat_assuming_cmd _ =
   failwith "Yices: check_sat_assuming not applicable"
 
 
-let headers () = []
+let headers _ = []
 
 let prelude =
   [

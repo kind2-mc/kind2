@@ -24,6 +24,7 @@ let cmd_line
     produce_assignments
     produce_proofs
     produce_cores
+    minimize_cores
     produce_interpolants = 
 
   (* Path and name of Z3 executable *)
@@ -37,7 +38,10 @@ let check_sat_limited_cmd ms =
   Format.sprintf "(check-sat-using (try-for smt %d))" ms
 
 
-let headers () = ["(set-option :interactive-mode true)"]
+let headers minimize_cores =
+  ["(set-option :interactive-mode true)"] @
+  (* Core minimization only supported in Z3 for now *)
+  if minimize_cores then ["(set-option :smt.core.minimize true)"] else []
 
 
 let string_of_logic l =

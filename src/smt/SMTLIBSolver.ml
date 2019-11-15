@@ -891,6 +891,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       ?(produce_assignments=false)
       ?(produce_proofs=false)
       ?(produce_cores=false)
+      ?(minimize_cores=false)
       ?(produce_interpolants=false)
       logic
       id =
@@ -902,6 +903,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         produce_assignments
         produce_proofs
         produce_cores
+        minimize_cores
         produce_interpolants
     in
     let config = { solver_cmd = solver_cmd } in
@@ -971,10 +973,10 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
           "(declare-sort FArray 2)";
         ]
       else [] in
-    
+
     let headers =
       "(set-option :print-success true)" ::
-      (headers ()) @
+      (headers minimize_cores) @
       (if produce_assignments then
          ["(set-option :produce-assignments true)"] else []) @
       (if produce_cores then
@@ -1124,6 +1126,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     let solver = create_instance
         ~produce_assignments:P.produce_assignments
         ~produce_cores:P.produce_cores
+        ~minimize_cores:P.minimize_cores
         ~produce_proofs:P.produce_proofs
         P.logic P.id
 

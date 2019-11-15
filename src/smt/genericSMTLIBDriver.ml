@@ -24,7 +24,7 @@ open Lib
 (* ********************************************************************** *)
 
 (* Command line options *)
-let cmd_line _ _ _ _ _ = [| |]
+let cmd_line _ _ _ _ _ _ = [| |]
 
 (* Dummy implementation *)
 let check_sat_limited_cmd ms = failwith "Not implemented"
@@ -36,7 +36,7 @@ let check_sat_assuming_cmd ms = "check-sat-assuming"
 let check_sat_assuming_supported () = Flags.Smt.check_sat_assume ()
 
 (* Headers to send after creating solver instance *)
-let headers () = []
+let headers _ = []
 
 (* top level declaration to add to the solver *)
 let prelude = []

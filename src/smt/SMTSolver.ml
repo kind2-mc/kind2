@@ -108,6 +108,7 @@ let create_instance
     ?produce_assignments
     ?produce_proofs
     ?produce_cores
+    ?minimize_cores
     ?produce_interpolants
     l
     kind =
@@ -121,6 +122,7 @@ let create_instance
     let produce_assignments = bool_of_bool_option produce_assignments
     let produce_proofs = bool_of_bool_option produce_proofs
     let produce_cores = bool_of_bool_option produce_cores
+    let minimize_cores = bool_of_bool_option minimize_cores
     let produce_interpolants = bool_of_bool_option produce_interpolants
     let logic = l
     let id = id

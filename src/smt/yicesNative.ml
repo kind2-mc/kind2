@@ -1193,6 +1193,7 @@ let create_instance
       produce_proofs
       produce_cores
       false
+      false
   in
 
   let config = { solver_cmd = solver_cmd; solver_arith_only = arith_only } in

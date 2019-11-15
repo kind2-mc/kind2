@@ -35,6 +35,7 @@ val create_instance :
   ?produce_assignments:bool ->
   ?produce_proofs:bool ->
   ?produce_cores:bool ->
+  ?minimize_cores:bool ->
   ?produce_interpolants:bool ->
   TermLib.logic ->
   Flags.Smt.solver ->

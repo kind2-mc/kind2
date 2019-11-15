@@ -25,6 +25,8 @@ module type Params = sig
 
   val produce_cores : bool
 
+  val minimize_cores : bool
+
   val produce_proofs : bool
 
   val logic : TermLib.logic

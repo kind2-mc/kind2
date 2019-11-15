@@ -26,6 +26,7 @@ let cmd_line
     produce_assignments
     produce_proofs
     produce_cores
+    minimize_cores
     produce_interpolants =
 
   let open TermLib in

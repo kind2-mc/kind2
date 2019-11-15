@@ -624,10 +624,10 @@ let get_logic ?(pathcomp=false) sys =
       TermLib.FeatureSet.(sup_logics [fs; of_list [IA; LA; UF]])
   | l -> l
 
-let create_solver ?(pathcomp=false) sys actlits bmin bmax =
+let create_solver ?(pathcomp=false) ?(approximate=false) sys actlits bmin bmax =
   let solver =
     SMTSolver.create_instance ~produce_assignments:pathcomp ~produce_cores:true
-    (get_logic ~pathcomp sys) (Flags.Smt.solver ()) in
+    ~minimize_cores:(not approximate) (get_logic ~pathcomp sys) (Flags.Smt.solver ()) in
   List.iter (SMTSolver.declare_fun solver) actlits ;
   TS.declare_sorts_ufs_const sys (SMTSolver.declare_fun solver) (SMTSolver.declare_sort solver) ;
   TS.declare_vars_of_bounds
@@ -758,10 +758,14 @@ let term_of_scope term_map scope =
 
 type result = NOT_OK | OK of core
 
-let compute_unsat_core ?(pathcomp=None) sys core init_terms trans_terms bmin bmax t =
+let compute_unsat_core ?(pathcomp=None) ?(approximate=false)
+  sys core init_terms trans_terms bmin bmax t =
+
   let enable_compr = pathcomp <> None in
   let actlits = actlits_of_core core in
-  let solver = create_solver ~pathcomp:enable_compr sys actlits bmin bmax in
+  let solver =
+    create_solver ~pathcomp:enable_compr ~approximate:approximate
+    sys actlits bmin bmax in
 
   (* Define non-top-level nodes *)
   if Flags.IVC.ivc_enter_nodes ()
@@ -799,7 +803,7 @@ let compute_unsat_core ?(pathcomp=None) sys core init_terms trans_terms bmin bma
   SMTSolver.delete_instance solver ;
   res
 
-let check_k_inductive sys actlits init_terms trans_terms prop os_prop k =
+let check_k_inductive ?(approximate=false) sys actlits init_terms trans_terms prop os_prop k =
   (* In the functions above, k starts at 0 whereas it start at 1 with Kind2 notation *)
   let k = k - 1 in
   let scope = TS.scope_of_trans_sys sys in
@@ -811,14 +815,18 @@ let check_k_inductive sys actlits init_terms trans_terms prop os_prop k =
     let (bmax, t) = base_until_k sys 0 init_eq trans_eq prop os_prop k in
     let bmax = bmax-1 in
     let t = Term.mk_not t in
-    let res_base = compute_unsat_core sys actlits init_terms trans_terms 0 bmax t in
+    let res_base =
+      compute_unsat_core ~approximate:approximate
+      sys actlits init_terms trans_terms 0 bmax t in
     match res_base with
     | NOT_OK -> NOT_OK
     | OK core ->
       let (bmax, t, pathcomp) = ind_k sys 0 trans_eq prop os_prop prop k in
       let bmax = bmax-1 in
       let t = Term.mk_not t in
-      let res_ind = compute_unsat_core ~pathcomp:(Some pathcomp) sys actlits init_terms trans_terms 0 bmax t in
+      let res_ind =
+        compute_unsat_core ~pathcomp:(Some pathcomp) ~approximate:approximate
+        sys actlits init_terms trans_terms 0 bmax t in
       begin match res_ind with
       | NOT_OK -> NOT_OK
       | OK core' -> OK (core_union core core')
@@ -827,7 +835,8 @@ let check_k_inductive sys actlits init_terms trans_terms prop os_prop k =
     let (bmax, t, _) = k_induction sys 0 init_eq trans_eq prop os_prop k in
     let bmax = bmax-1 in
     let t = Term.mk_not t in
-    compute_unsat_core sys actlits init_terms trans_terms 0 bmax t
+    compute_unsat_core ~approximate:approximate
+    sys actlits init_terms trans_terms 0 bmax t
 
 let lstmap_union c1 c2 =
   let merge _ lst1 lst2 = match lst1, lst2 with
@@ -854,6 +863,7 @@ exception NotKInductive
 
 (** Implements the algorithm IVC_UC *)
 let ivc_uc_ in_sys ?(approximate=false) sys =
+
   let scope = TS.scope_of_trans_sys sys in
   let k, invs = CertifChecker.minimize_invariants sys None in
   (* Sometimes fail when giving 'Some (TS.invars_of_bound sys Numeral.zero)' as 2nd parameter *)
@@ -904,13 +914,16 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
   in
 
   (* Minimization *)
+  (* If Z3 is used, we use the 'minimize cores' feature
+    so we do not need to minimized them manually *)
+  let z3_used = match Flags.Smt.solver () with `Z3_SMTLIB -> true | _ -> false in
   let rec minimize check keep test =
     match check keep test with
     | NOT_OK -> (*KEvent.log_uncond "Not k-inductive." ;*) None 
     | OK core ->
       (*KEvent.log_uncond "UNSAT core eliminated %n equations."
         (core_size test - core_size core) ;*)
-      if approximate
+      if approximate || z3_used
       then Some (core_union keep core)
       else
         if is_empty_core core
@@ -951,7 +964,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
 
   let check keep test =
     let (init, trans) = terms_of_current_state keep test in
-    check_k_inductive sys test init trans prop os_prop k
+    check_k_inductive ~approximate:approximate sys test init trans prop os_prop k
   in
   match minimize check ScMap.empty core with
   | None -> raise NotKInductive
