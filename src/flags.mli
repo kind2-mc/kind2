@@ -436,7 +436,7 @@ module IVC : sig
   val print_ivc : unit -> bool
 
   (** Print the equations NOT in the computed IVC *)
-  val print_not_ivc : unit -> bool
+  val print_ivc_compl : unit -> bool
 
   (** Print the lustre program minimized according to the IVC *)
   val print_minimized_program : unit -> bool

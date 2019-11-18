@@ -1190,20 +1190,20 @@ module IVC = struct
   let print_ivc () = !print_ivc
 
 
-  let print_not_ivc_default = false
-  let print_not_ivc = ref print_not_ivc_default
+  let print_ivc_compl_default = false
+  let print_ivc_compl = ref print_ivc_compl_default
   let _ = add_spec
-    "--print_not_ivc"
-    (bool_arg print_not_ivc)
+    "--print_ivc_complementary"
+    (bool_arg print_ivc_compl)
     (fun fmt ->
       Format.fprintf fmt
         "\
           Print the equations that are NOT in the computed inductive validity core@ \
           Default: %a\
         "
-        fmt_bool print_not_ivc_default
+        fmt_bool print_ivc_compl_default
     )
-  let print_not_ivc () = !print_not_ivc
+  let print_ivc_compl () = !print_ivc_compl
 
 let print_minimized_program_default = false
   let print_minimized_program = ref print_minimized_program_default

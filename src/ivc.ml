@@ -40,7 +40,9 @@ type loc = {
   index: LustreIndex.index ;
 }
 
-type ivc = (equation * (loc list) * term_cat) list ScMap.t
+type loc_equation = equation * (loc list) * term_cat
+
+type ivc = loc_equation list ScMap.t
 
 type ivc_result = {
   success: bool;
@@ -50,6 +52,76 @@ type ivc_result = {
 let rec interval imin imax =
   if imin > imax then []
   else imin::(interval (imin+1) imax)
+
+(* ---------- PRETTY PRINTING ---------- *)
+
+let aux_vars sys =
+  let usr_name =
+    assert (List.length LustreIdent.user_scope = 1) ;
+    List.hd LustreIdent.user_scope
+  in
+  List.filter
+    (fun sv ->
+      not ( List.mem usr_name (StateVar.scope_of_state_var sv) )
+    )
+    (TS.state_vars sys)
+
+let compute_var_map in_sys sys =
+  let aux_vars = TS.fold_subsystems ~include_top:true (fun acc sys -> (aux_vars sys)@acc) [] sys in
+  InputSystem.mk_state_var_to_lustre_name_map in_sys aux_vars
+
+let pp_print_loc fmt {pos=pos ; index=index} =
+  match index with
+  | [] -> Lib.pp_print_pos fmt pos
+  | index ->
+    Format.fprintf fmt "%a (index %a)"
+      Lib.pp_print_pos pos (LustreIndex.pp_print_index false) index
+
+let pp_print_locs fmt = function
+| [] -> Format.fprintf fmt "None"
+| hd::lst ->
+  pp_print_loc fmt hd ;
+  List.iter (Format.fprintf fmt " and %a" pp_print_loc) lst
+
+let pp_print_loc_eq_ var_map fmt (eq, loc, cat) =
+  (*let init = eq.init_closed in*)
+  let trans = eq.trans_closed in
+  let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
+  match cat with
+  | NodeCall (n,_) ->
+    Format.fprintf fmt "Node call %s at position %a" n pp_print_locs loc
+  | ContractItem _ ->
+    Format.fprintf fmt "Contract item %a at position %a" fmt_inv trans pp_print_locs loc
+  | Equation _ ->
+    Format.fprintf fmt "Equation %a at position %a" fmt_inv trans pp_print_locs loc
+  | Assertion _ ->
+    Format.fprintf fmt "Assertion %a at position %a" fmt_inv trans pp_print_locs loc
+  | Unknown ->
+    Format.fprintf fmt "Unknown element %a" fmt_inv trans
+
+let pp_print_loc_eq in_sys sys =
+  let var_map = compute_var_map in_sys sys in
+  pp_print_loc_eq_ var_map
+
+let pp_print_loc_eqs_ var_map fmt =
+  let print = pp_print_loc_eq_ var_map in
+  List.iter (Format.fprintf fmt "%a\n" print)
+
+let pp_print_loc_eqs in_sys sys =
+  let var_map = compute_var_map in_sys sys in
+  pp_print_loc_eqs_ var_map
+
+let pp_print_ivc in_sys sys fmt =
+  let var_map = compute_var_map in_sys sys in
+  let print = pp_print_loc_eqs_ var_map in
+  ScMap.iter (fun scope eqs -> 
+    Format.fprintf fmt "----- %s -----\n" (Scope.to_string scope) ;
+    Format.fprintf fmt "%a\n" print eqs
+  )
+
+let pp_print_ivc_result in_sys sys fmt {success=success ; ivc=ivc} =
+  if success then pp_print_ivc in_sys sys fmt ivc
+  else Format.fprintf fmt "No IVC to show..."
 
 (* ---------- LUSTRE AST ---------- *)
 
@@ -369,49 +441,45 @@ let minimize_decl ue ivc = function
     A.ContractNodeDecl (p, minimize_contract_decl ue ivc cdecl)
   | decl -> decl 
 
-let minimize_lustre_ast ?(valid_lustre=false) all_eqs res ast =
-  if not res.success then ast
-  else
-    let ivc = res.ivc in
-    let all_eqs = all_eqs.ivc in
-    let undef_expr =
-      if valid_lustre
-      then
-        (* We construct a map that associate to each position a list of state vars
-           that correspond to the state vars characterizing this position (if any) *)
-        let pos_sv_map = ScMap.fold
-        (fun _ lst acc ->
+let minimize_lustre_ast ?(valid_lustre=false) ivc_all ivc ast =
+  let undef_expr =
+    if valid_lustre
+    then
+      (* We construct a map that associate to each position a list of state vars
+          that correspond to the state vars characterizing this position (if any) *)
+      let pos_sv_map = ScMap.fold
+      (fun _ lst acc ->
+        List.fold_left
+        (fun acc (_,ls,cat) ->
+          let svs = match cat with
+          | Unknown -> SVSet.empty
+          | Equation sv | Assertion sv | ContractItem sv -> SVSet.singleton sv
+          | NodeCall (_, svs) -> svs
+          in
           List.fold_left
-          (fun acc (_,ls,cat) ->
-            let svs = match cat with
-            | Unknown -> SVSet.empty
-            | Equation sv | Assertion sv | ContractItem sv -> SVSet.singleton sv
-            | NodeCall (_, svs) -> svs
-            in
-            List.fold_left
-            (fun acc l ->
-              let old = try PosMap.find l.pos acc with Not_found -> SVSet.empty in
-              PosMap.add l.pos (SVSet.union svs old) acc
-            )
-            acc ls
+          (fun acc l ->
+            let old = try PosMap.find l.pos acc with Not_found -> SVSet.empty in
+            PosMap.add l.pos (SVSet.union svs old) acc
           )
-          acc lst
-        ) all_eqs PosMap.empty in
-        undef_expr (Some pos_sv_map)
-      else undef_expr None in
-    let minimized = List.map (minimize_decl undef_expr ivc) ast in
+          acc ls
+        )
+        acc lst
+      ) ivc_all PosMap.empty in
+      undef_expr (Some pos_sv_map)
+    else undef_expr None in
+  let minimized = List.map (minimize_decl undef_expr ivc) ast in
 
-    (*let rec aux acc nb =
-      match nb with
-      | 0 -> acc
-      | n -> aux ((rand_node n)::acc) (nb-1)
-    in
-    aux minimized (!max_nb_args)*)
-    Hashtbl.fold (fun ts n acc ->
-      (rand_node n ts)::acc
-    )
-    rand_functions
-    minimized
+  (*let rec aux acc nb =
+    match nb with
+    | 0 -> acc
+    | n -> aux ((rand_node n)::acc) (nb-1)
+  in
+  aux minimized (!max_nb_args)*)
+  Hashtbl.fold (fun ts n acc ->
+    (rand_node n ts)::acc
+  )
+  rand_functions
+  minimized
 
 (* ---------- MAPPING BACK ---------- *)
 
@@ -489,6 +557,14 @@ let locs_of_eq_term in_sys t =
     )
   with _ -> assert false
 
+let compare_loc {pos=pos;index=index} {pos=pos';index=index'} =
+  match Lib.compare_pos pos pos' with
+  | 0 -> LustreIndex.compare_indexes index index'
+  | n -> n
+
+let normalize_loc lst =
+  List.sort_uniq compare_loc lst
+
 let add_loc in_sys eq =
   try
     let term = eq.trans_closed in
@@ -497,14 +573,14 @@ let add_loc in_sys eq =
       (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
       -> (* Case of a node call *)
       let (name, svs) = name_and_svs_of_node_call in_sys s ts in
-      let pos = locs_of_node_call in_sys svs in
-      (eq, pos, NodeCall (name,svs))
+      let loc = locs_of_node_call in_sys svs in
+      (eq, normalize_loc loc, NodeCall (name,svs))
     | _ ->
       let (cat,loc) = locs_of_eq_term in_sys term in
-      (eq, loc, cat)
+      (eq, normalize_loc loc, cat)
     end
   with _ -> (* If the input is not a Lustre file, it may fail *)
-    (eq, [], Unknown) 
+    (eq, [], Unknown)
 
 let eqmap_to_ivc in_sys = ScMap.map (List.map (add_loc in_sys))
 
@@ -606,7 +682,7 @@ let _all_eqs in_sys sys =
 
 let all_eqs in_sys sys =
   let eqmap = _all_eqs in_sys sys in
-  { success=true ; ivc=eqmap_to_ivc in_sys eqmap }
+  eqmap_to_ivc in_sys eqmap
 
 let term_of_eq init closed eq =
   if init && closed then eq.init_closed

@@ -556,81 +556,17 @@ module RunIVC: PostAnalysis = struct
   let title = "inductive validity core"
   let is_active () = Flags.IVC.compute_ivc ()
 
-  let aux_vars sys =
-    let usr_name =
-      assert (List.length LustreIdent.user_scope = 1) ;
-      List.hd LustreIdent.user_scope
-    in
-    List.filter
-      (fun sv ->
-        not ( List.mem usr_name (StateVar.scope_of_state_var sv) )
-      )
-      (TSys.state_vars sys)
-
-  let compute_var_map in_sys sys =
-    let aux_vars = TSys.fold_subsystems ~include_top:true (fun acc sys -> (aux_vars sys)@acc) [] sys in
-    ISys.mk_state_var_to_lustre_name_map in_sys aux_vars
-
-  let print_positions = function
-  | [] -> "None"
-  | hd::lst ->
-    List.fold_left
-      (fun acc pos -> Format.asprintf "%s and %a" acc Lib.pp_print_pos pos)
-      (Format.asprintf "%a" Lib.pp_print_pos hd)
-      lst
-
-  let pp_loc_eq var_map (eq, loc, cat) =
-    (*let init = eq.Ivc.init_closed in*)
-    let trans = eq.Ivc.trans_closed in
-    let pos = List.map (fun l -> l.Ivc.pos) loc in
-    match cat with
-    | Ivc.NodeCall (n,_) ->
-      Format.asprintf "Node call %s at position %s"
-        n (print_positions pos)
-    | Ivc.ContractItem _ ->
-      let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
-      Format.asprintf "Contract item %a at position %s" fmt_inv trans (print_positions pos)
-    | Ivc.Equation _ ->
-      let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
-      Format.asprintf "Equation %a at position %s" fmt_inv trans (print_positions pos)
-    | Ivc.Assertion _ ->
-      let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
-      Format.asprintf "Assertion %a at position %s" fmt_inv trans (print_positions pos)
-    | Ivc.Unknown ->
-      let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
-      Format.asprintf "Unknown element %a" fmt_inv trans
-
-  let pp_eq var_map (eq, _, _) =
-    (*let init = eq.Ivc.init_closed in*)
-    let trans = eq.Ivc.trans_closed in
-    match Term.destruct trans with
-    | Term.T.App (s, _) when
-      (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
-      -> Format.asprintf "Node call %a" Symbol.pp_print_symbol s
-    | _ ->
-      let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
-      Format.asprintf "%a" fmt_inv trans
-
-  let pp_loc_eqs var_map terms =
-    let print = pp_loc_eq var_map in
-    List.fold_left (fun acc t -> Format.sprintf "%s%s\n" acc (print t)) "" terms
-
-  let pp_eqs var_map terms =
-    let print = pp_eq var_map in
-    List.fold_left (fun acc t -> Format.sprintf "%s%s\n" acc (print t)) "" terms
-
   let run in_sys param analyze results =
     let top = (Analysis.info_of_param param).Analysis.top in
     last_result results top
     |> Res.chain (fun { Analysis.sys } ->
       try (
-        (* TODO: tmp *)
         (*Format.printf "%a\n" ISys.pp_print_subsystems_debug in_sys;*)
         (*Format.printf "%a\n" ISys.pp_print_state_var_instances_debug in_sys;*)
         (*Format.printf "%a\n" ISys.pp_print_state_var_defs_debug in_sys;*)
         (*let (_,_,trans) = TSys.init_trans_open sys in
         Term.print_term trans ; Format.printf "\n" ;*)
-        Format.print_flush () ;
+        (*Format.print_flush () ;*)
 
         let res = match Flags.IVC.ivc_impl () with
           | `IVC_UC -> Ivc.ivc_uc in_sys ~approximate:false sys
@@ -640,45 +576,37 @@ module RunIVC: PostAnalysis = struct
         in
         if res.success
         then
+          let ivc = res.ivc in
           let eqs_count eqs =
             Ivc.ScMap.fold (fun _ v acc -> acc + List.length v) eqs 0
           in
-          let var_map = compute_var_map in_sys sys in
           let initial = Ivc.all_eqs in_sys sys in
           KEvent.log_uncond "Transitions:@ %i equations (%i initially)"
-            (eqs_count res.ivc) (eqs_count initial.ivc) ;
+            (eqs_count ivc) (eqs_count initial) ;
 
           if Flags.IVC.print_ivc ()
-          then begin
-            Ivc.ScMap.iter (fun scope eqs -> 
-              KEvent.log_uncond "----- %s -----" (Scope.to_string scope) ;
-              KEvent.log_uncond "%s" (pp_loc_eqs var_map eqs)
-            ) res.ivc
-          end ;
+          then KEvent.log_uncond "%a" (Ivc.pp_print_ivc in_sys sys) ivc ;
 
-          if Flags.IVC.print_not_ivc ()
+          if Flags.IVC.print_ivc_compl ()
           then begin
             KEvent.log_uncond "========== NOT IN THE CORE ==========";
-            Ivc.ScMap.iter (fun scope eqs ->
-              let eqs = List.filter
-                (fun (eq,_,_) ->
+            let not_ivc = Ivc.ScMap.mapi (fun scope eqs ->
+              List.filter (fun (eq,_,_) ->
                   try
-                    let lst = Ivc.ScMap.find scope res.ivc
+                    let lst = Ivc.ScMap.find scope ivc
                     |> List.map (fun (eq,_,_) -> eq.Ivc.trans_closed) in
                     Term.TermSet.mem eq.Ivc.trans_closed (Term.TermSet.of_list lst)
                     |> not
                   with Not_found -> true
                 ) eqs
-              in
-              KEvent.log_uncond "----- %s -----" (Scope.to_string scope) ;
-              KEvent.log_uncond "%s" (pp_loc_eqs var_map eqs)
-            ) initial.ivc
+              ) initial in
+            KEvent.log_uncond "%a" (Ivc.pp_print_ivc in_sys sys) not_ivc ;
           end ;
 
           if Flags.IVC.print_minimized_program ()
           then begin
             let minimized = ISys.lustre_source_ast in_sys
-            |> Ivc.minimize_lustre_ast ~valid_lustre:true initial res in
+            |> Ivc.minimize_lustre_ast ~valid_lustre:true initial ivc in
             KEvent.log_uncond "========== MINIMIZED PROGRAM ==========";
             KEvent.log_uncond "%a" LustreAst.pp_print_program minimized ;
           end ;
