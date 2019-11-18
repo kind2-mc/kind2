@@ -22,6 +22,7 @@ Table of Contents
     :caption: Inputs and Outputs
 
     2_input/1_lustre
+    2_input/3_machine_ints
     2_input/2_arrays
     3_output/2_xml
 
@@ -36,6 +37,7 @@ Table of Contents
     9_other/5_proofs
     9_other/6_contract_generation
     9_other/7_invariant_logging
+    9_other/8_interpreter
 
 .. toctree::
     :maxdepth: 2

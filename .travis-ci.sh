@@ -10,7 +10,7 @@ export OPAMYES=1
 eval $(opam config env)
 
 # Install ocaml packages needed for Kind 2.
-opam install ocamlfind camlp4 menhir
+opam install ocamlfind camlp4 menhir yojson
 
 # Build the PR's Kind 2.
 ./autogen.sh

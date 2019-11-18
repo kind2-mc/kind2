@@ -16,13 +16,22 @@
 
 *)
 
+(** Represents the lhs of an assignment. For non-array state vars, the index list is empty. 
+    For array state vars, the index list indicates which cell of the array must be assigned. *)
+type assignment_lhs = StateVar.t * int list
+
+(** Parse a JSON or CSV input file. The format is determined from the extension. *)
+val read_file: string list -> string -> (assignment_lhs * (Term.t list)) list
+
 (** Parser for a CSV input file 
 
     @author Baoluo Meng, Christoph Sticksel *)
 
 (** Parse a CSV input file *)
-val read_file: string list -> string -> (StateVar.t * (Term.t list)) list
+val read_csv_file: string list -> string -> (StateVar.t * (Term.t list)) list
 
+(** Parse a JSON input file *)
+val read_json_file: string list -> string -> (assignment_lhs * (Term.t list)) list
 
 (* 
    Local Variables:

@@ -164,13 +164,13 @@ let status_of_exn process status = function
     ExitCodes.error
   (* Got unknown, issue error but normal termination. *)
   | SMTSolver.Unknown ->
-    KEvent.log L_warn "In %a: a check-sat resulted in \"unknown\".@ \
-      This is most likely due to non-linear expressions in the model,@ \
+    KEvent.log L_warn "In %a: a check-sat resulted in `unknown`. \
+      This is most likely due to non-linear expressions in the model, \
       usually multiplications `v_1 * v_2` or divisions `v_1 / v_2`.%t"
       pp_print_kind_module process
       (fun fmt -> if Flags.Smt.check_sat_assume () then
          Format.fprintf fmt
-           " Consider running Kind 2 with `--check_sat_assume false` or@ \
+           " Consider running Kind 2 with `--check_sat_assume false` or \
              abstracting non-linear expressions using contracts."
        else ()
       );
