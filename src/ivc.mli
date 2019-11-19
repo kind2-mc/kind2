@@ -34,6 +34,7 @@ val pp_print_ivc : 'a InputSystem.t -> TransSys.t -> Format.formatter -> ivc -> 
 val pp_print_ivc_result : 'a InputSystem.t -> TransSys.t -> Format.formatter -> ivc_result -> unit
 
 val pp_print_ivc_xml : 'a InputSystem.t -> TransSys.t -> Format.formatter -> ivc -> unit
+val pp_print_ivc_json : 'a InputSystem.t -> TransSys.t -> Format.formatter -> ivc -> unit
 
 val error_result : ivc_result
 

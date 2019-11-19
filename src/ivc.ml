@@ -70,6 +70,10 @@ let compute_var_map in_sys sys =
   let aux_vars = TS.fold_subsystems ~include_top:true (fun acc sys -> (aux_vars sys)@acc) [] sys in
   InputSystem.mk_state_var_to_lustre_name_map in_sys aux_vars
 
+let pp_print_json fmt json =
+  Yojson.Basic.pretty_to_string json
+  |> Format.fprintf fmt "%s"
+
 let pp_print_loc fmt {pos=pos ; index=index} =
   match index with
   | [] -> Lib.pp_print_pos fmt pos
@@ -82,8 +86,17 @@ let pp_print_loc_xml fmt {pos=pos ; index=index} =
   match index with
   | [] -> Format.fprintf fmt "<Position line=%i column=%i />" row col
   | index ->
-    Format.fprintf fmt "<Position line=%i column=%i index='%a' />"
+    Format.fprintf fmt "<Position line=%i column=%i index=\"%a\" />"
       row col (LustreIndex.pp_print_index false) index
+
+let loc2json {pos=pos ; index=index} =
+  let (_,row,col) = Lib.file_row_col_of_pos pos in
+  match index with
+  | [] ->
+    `Assoc [("objectType", `String "position") ; ("line", `Int row) ; ("column", `Int col)]
+  | index ->
+    `Assoc [("objectType", `String "position") ; ("line", `Int row) ; ("column", `Int col) ;
+      ("index", `String (Format.asprintf "%a" (LustreIndex.pp_print_index false) index))]
 
 let pp_print_locs fmt = function
 | [] -> Format.fprintf fmt "None"
@@ -93,6 +106,9 @@ let pp_print_locs fmt = function
 
 let pp_print_locs_xml fmt =
   List.iter (pp_print_loc_xml fmt)
+
+let locs2json lst =
+  `List (List.map loc2json lst)
 
 let expr_pp_print var_map fmt expr =
   try LustreExpr.pp_print_term_as_expr_mvar false var_map fmt expr
@@ -118,9 +134,16 @@ let pp_print_loc_eq_ var_map fmt (eq, loc, cat) =
     (eq_expr_pp_print var_map) (eq, loc, cat) pp_print_locs loc
 
 let pp_print_loc_eq_xml var_map fmt (eq, loc, cat) =
-  Format.fprintf fmt "<Equation cat='%s' init='%a' trans='%a'>%a</Equation>"
+  Format.fprintf fmt "<Equation cat=\"%s\" init=\"%a\" trans=\"%a\">%a</Equation>"
     (cat_to_string cat) (eq_expr_pp_print ~init:true var_map) (eq, loc, cat)
     (eq_expr_pp_print var_map) (eq, loc, cat) pp_print_locs_xml loc
+
+let loc_eq2json var_map (eq, loc, cat) =
+  `Assoc [("objectType", `String "equation") ; ("cat", `String (cat_to_string cat)) ;
+    ("init", `String (Format.asprintf "%a" (eq_expr_pp_print ~init:true var_map) (eq, loc, cat))) ;
+    ("trans", `String (Format.asprintf "%a" (eq_expr_pp_print var_map) (eq, loc, cat))) ;
+    ("positions", locs2json loc)
+  ]
 
 let pp_print_loc_eq in_sys sys =
   let var_map = compute_var_map in_sys sys in
@@ -133,6 +156,9 @@ let pp_print_loc_eqs_ var_map fmt =
 let pp_print_loc_eqs_xml var_map fmt =
   let print = pp_print_loc_eq_xml var_map in
   List.iter (Format.fprintf fmt "%a\n" print)
+
+let loc_eqs2json var_map lst =
+  `List (List.map (loc_eq2json var_map) lst)
 
 let pp_print_loc_eqs in_sys sys =
   let var_map = compute_var_map in_sys sys in
@@ -159,14 +185,33 @@ let impl_to_string = function
 let pp_print_ivc_xml in_sys sys fmt ivc =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
-  Format.fprintf fmt "<IVC enter_nodes=%b impl='%s'>\n"
+  Format.fprintf fmt "<IVC enter_nodes=%b impl=\"%s\">\n"
     (Flags.IVC.ivc_enter_nodes ()) (impl_to_string (Flags.IVC.ivc_impl ())) ;
   ScMap.iter (fun scope eqs -> 
-    Format.fprintf fmt "<scope name='%s'>\n" (Scope.to_string scope) ;
+    Format.fprintf fmt "<scope name=\"%s\">\n" (Scope.to_string scope) ;
     Format.fprintf fmt "%a" print eqs ;
     Format.fprintf fmt "</scope>\n\n"
   ) ivc ;
   Format.fprintf fmt "</IVC>\n"
+
+let ivc2json in_sys sys ivc =
+  let var_map = compute_var_map in_sys sys in
+  let loc_eqs2json = loc_eqs2json var_map in
+  `Assoc [
+    ("objectType", `String "ivc") ;
+    ("enterNodes", `Bool (Flags.IVC.ivc_enter_nodes ())) ;
+    ("impl", `String (impl_to_string (Flags.IVC.ivc_impl ()))) ;
+    ("value", `List (List.map (fun (scope, eqs) ->
+      `Assoc [
+        ("objectType", `String "scope") ;
+        ("name", `String (Scope.to_string scope)) ;
+        ("value", loc_eqs2json eqs)
+      ]
+    ) (ScMap.bindings ivc)))
+  ]
+
+let pp_print_ivc_json in_sys sys fmt ivc =
+  pp_print_json fmt (ivc2json in_sys sys ivc)
 
 (* ---------- LUSTRE AST ---------- *)
 
