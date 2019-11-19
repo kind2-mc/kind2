@@ -1157,6 +1157,43 @@ module IVC = struct
     )
   let compute_ivc () = !compute_ivc
 
+  type ivc_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN ]
+  let ivc_element_of_string = function
+    | "node_calls" -> `NODE_CALL
+    | "contracts" -> `CONTRACT_ITEM
+    | "equations" -> `EQUATION
+    | "assertions" -> `ASSERTION
+    | unexpected -> Arg.Bad (
+      Format.sprintf "Unexpected value \"%s\" for flag --ivc_elements" unexpected
+    ) |> raise
+  let ivc_elements_default_init = []
+  let ivc_elements_default_after =
+    [`NODE_CALL ; `CONTRACT_ITEM ; `EQUATION ; `ASSERTION ; `UNKNOWN]
+  let ivc_elements = ref ivc_elements_default_init
+  let finalize_ivc_elements () =
+    (* If [enabled] is unchanged, set it do default after init. *)
+    if !ivc_elements = ivc_elements_default_init then (
+      ivc_elements := ivc_elements_default_after
+    )
+  let _ = add_spec
+    "--ivc_category"
+    (Arg.String
+      (fun str ->
+        let elt = ivc_element_of_string str in
+        if List.mem elt !ivc_elements |> not
+        then ivc_elements := elt :: !ivc_elements
+      )
+    )
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          where <string> can be 'node_calls', 'contracts', 'equations' or 'assertions'@ \
+          Minimize only a specific category of elements, repeat option to minimize multiple categories@ \
+          Default: minimize all categories of elements\
+        "
+    )
+  let ivc_elements () = !ivc_elements
+
 
   let ivc_enter_nodes_default = false
   let ivc_enter_nodes = ref ivc_enter_nodes_default
@@ -2922,6 +2959,8 @@ let parse_argv () =
 
   (* Finalize the list of enabled module. *)
   Global.finalize_enabled ();
+
+  IVC.finalize_ivc_elements ();
 
   post_argv_parse_actions ();
   
