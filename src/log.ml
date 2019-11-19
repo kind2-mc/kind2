@@ -244,6 +244,11 @@ let unset_relay_log () = log_format := !prev_log_format
 module type SLog = sig
   val log : 'a log_printer
   val log_uncond : ('a, Format.formatter, unit) format -> 'a
+  val log_result : (Format.formatter -> 'a -> unit)
+    -> (Format.formatter -> 'a -> unit)
+    -> (Format.formatter -> 'a -> unit)
+    -> 'a
+    -> unit
 end
 
 module Make (R : sig val printf_relay : 'a m_log_printer end) : SLog = struct
@@ -274,7 +279,18 @@ module Make (R : sig val printf_relay : 'a m_log_printer end) : SLog = struct
     | F_xml -> printf_xml mdl L_info fmt
     | F_json -> printf_json mdl L_info fmt
     | F_relay -> R.printf_relay mdl L_info fmt
-                   
+
+  let log_result pt xml json a =
+
+    let fmt = !Lib.log_ppf in
+    let print = Lib.ignore_or_fprintf L_note fmt "%a" in
+
+    match !log_format with 
+    | F_pt -> print pt a
+    | F_xml -> print xml a
+    | F_json -> print json a
+    | F_relay -> ()
+ 
 end
 
 

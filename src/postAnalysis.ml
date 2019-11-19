@@ -585,7 +585,9 @@ module RunIVC: PostAnalysis = struct
             (eqs_count ivc) (eqs_count initial) ;
 
           if Flags.IVC.print_ivc ()
-          then KEvent.log_uncond "%a" (Ivc.pp_print_ivc in_sys sys) ivc ;
+          then KEvent.log_result (Ivc.pp_print_ivc in_sys sys)
+            (Ivc.pp_print_ivc_xml in_sys sys) (Ivc.pp_print_ivc_xml in_sys sys) ivc ;
+          (* TODO: JSON format *)
 
           if Flags.IVC.print_ivc_compl ()
           then begin

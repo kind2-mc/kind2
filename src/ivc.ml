@@ -77,27 +77,50 @@ let pp_print_loc fmt {pos=pos ; index=index} =
     Format.fprintf fmt "%a (index %a)"
       Lib.pp_print_pos pos (LustreIndex.pp_print_index false) index
 
+let pp_print_loc_xml fmt {pos=pos ; index=index} =
+  let (_,row,col) = Lib.file_row_col_of_pos pos in
+  match index with
+  | [] -> Format.fprintf fmt "<Position line=%i column=%i />" row col
+  | index ->
+    Format.fprintf fmt "<Position line=%i column=%i index='%a' />"
+      row col (LustreIndex.pp_print_index false) index
+
 let pp_print_locs fmt = function
 | [] -> Format.fprintf fmt "None"
 | hd::lst ->
   pp_print_loc fmt hd ;
   List.iter (Format.fprintf fmt " and %a" pp_print_loc) lst
 
-let pp_print_loc_eq_ var_map fmt (eq, loc, cat) =
-  (*let init = eq.init_closed in*)
-  let trans = eq.trans_closed in
-  let fmt_inv = LustreExpr.pp_print_term_as_expr_mvar false var_map in
+let pp_print_locs_xml fmt =
+  List.iter (pp_print_loc_xml fmt)
+
+let expr_pp_print var_map fmt expr =
+  try LustreExpr.pp_print_term_as_expr_mvar false var_map fmt expr
+  with _ -> Format.fprintf fmt "_"
+
+let cat_to_string = function
+  | NodeCall _ -> "Node call"
+  | ContractItem _ -> "Contract item"
+  | Equation _ -> "Equation"
+  | Assertion _ -> "Assertion"
+  | Unknown -> "Unknown element"
+
+let eq_expr_pp_print ?(init=false) var_map fmt (eq, _, cat) =
   match cat with
-  | NodeCall (n,_) ->
-    Format.fprintf fmt "Node call %s at position %a" n pp_print_locs loc
-  | ContractItem _ ->
-    Format.fprintf fmt "Contract item %a at position %a" fmt_inv trans pp_print_locs loc
-  | Equation _ ->
-    Format.fprintf fmt "Equation %a at position %a" fmt_inv trans pp_print_locs loc
-  | Assertion _ ->
-    Format.fprintf fmt "Assertion %a at position %a" fmt_inv trans pp_print_locs loc
-  | Unknown ->
-    Format.fprintf fmt "Unknown element %a" fmt_inv trans
+  | NodeCall (n,_) -> Format.fprintf fmt "%s" n
+  | ContractItem _  | Equation _ | Assertion _ | Unknown ->
+    if init
+    then expr_pp_print var_map fmt eq.init_closed
+    else expr_pp_print var_map fmt eq.trans_closed
+
+let pp_print_loc_eq_ var_map fmt (eq, loc, cat) =
+  Format.fprintf fmt "%s %a at position %a" (cat_to_string cat)
+    (eq_expr_pp_print var_map) (eq, loc, cat) pp_print_locs loc
+
+let pp_print_loc_eq_xml var_map fmt (eq, loc, cat) =
+  Format.fprintf fmt "<Equation cat='%s' init='%a' trans='%a'>%a</Equation>"
+    (cat_to_string cat) (eq_expr_pp_print ~init:true var_map) (eq, loc, cat)
+    (eq_expr_pp_print var_map) (eq, loc, cat) pp_print_locs_xml loc
 
 let pp_print_loc_eq in_sys sys =
   let var_map = compute_var_map in_sys sys in
@@ -105,6 +128,10 @@ let pp_print_loc_eq in_sys sys =
 
 let pp_print_loc_eqs_ var_map fmt =
   let print = pp_print_loc_eq_ var_map in
+  List.iter (Format.fprintf fmt "%a\n" print)
+
+let pp_print_loc_eqs_xml var_map fmt =
+  let print = pp_print_loc_eq_xml var_map in
   List.iter (Format.fprintf fmt "%a\n" print)
 
 let pp_print_loc_eqs in_sys sys =
@@ -122,6 +149,24 @@ let pp_print_ivc in_sys sys fmt =
 let pp_print_ivc_result in_sys sys fmt {success=success ; ivc=ivc} =
   if success then pp_print_ivc in_sys sys fmt ivc
   else Format.fprintf fmt "No IVC to show..."
+
+let impl_to_string = function
+| `IVC_AUC -> "IVC_AUC"
+| `IVC_UC -> "IVC_UC"
+| `IVC_UCBF -> "IVC_UCBF"
+| `IVC_BF -> "IVC_BF"
+
+let pp_print_ivc_xml in_sys sys fmt ivc =
+  let var_map = compute_var_map in_sys sys in
+  let print = pp_print_loc_eqs_xml var_map in
+  Format.fprintf fmt "<IVC enter_nodes=%b impl='%s'>\n"
+    (Flags.IVC.ivc_enter_nodes ()) (impl_to_string (Flags.IVC.ivc_impl ())) ;
+  ScMap.iter (fun scope eqs -> 
+    Format.fprintf fmt "<scope name='%s'>\n" (Scope.to_string scope) ;
+    Format.fprintf fmt "%a" print eqs ;
+    Format.fprintf fmt "</scope>\n\n"
+  ) ivc ;
+  Format.fprintf fmt "</IVC>\n"
 
 (* ---------- LUSTRE AST ---------- *)
 
