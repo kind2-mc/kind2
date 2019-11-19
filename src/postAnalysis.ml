@@ -610,17 +610,28 @@ module RunIVC: PostAnalysis = struct
             KEvent.log_result pt xml json not_ivc
           end ;
 
-          if Flags.IVC.print_minimized_program ()
+          if Flags.IVC.minimize_program () <> `DO_NOT_MINIMIZE
           then begin
-            let minimized = ISys.lustre_source_ast in_sys
-            |> Ivc.minimize_lustre_ast ~valid_lustre:true initial ivc in
-            let pt fmt minimized =
-              Format.fprintf fmt "========== MINIMIZED PROGRAM ==========\n\n%a"
-                LustreAst.pp_print_program minimized
+            let minimized =
+              ISys.lustre_source_ast in_sys
+              |> Ivc.minimize_lustre_ast
+                ~valid_lustre:(Flags.IVC.minimize_program () = `VALID_LUSTRE) initial ivc
             in
-            let xml fmt elt = () in
-            let json fmt elt = () in
-            KEvent.log_result pt xml json minimized
+            let filename =
+              match Flags.IVC.minimized_program_filename () with
+              | "" ->
+                let input_file = Flags.input_file () in
+                let ext = Filename.extension input_file in
+                input_file
+                |> Filename.remove_extension
+                |> (fun str -> str^"_min"^ext)
+              | str -> str
+            in
+            let print_channel out =
+              let fmt = Format.formatter_of_out_channel out in
+              LustreAst.pp_print_program fmt
+            in
+            print_channel (open_out filename) minimized
           end ;
           
           Ok ()

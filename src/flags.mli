@@ -428,6 +428,7 @@ end
 module IVC : sig
 
   type ivcimpl = [ `IVC_BF | `IVC_AUC | `IVC_UC | `IVC_UCBF ]
+  type minimize_mode = [ `DO_NOT_MINIMIZE | `VALID_LUSTRE | `CONCISE ]
 
   (** Enable computation of Inductive Validity Cores *)
   val compute_ivc : unit -> bool
@@ -438,8 +439,11 @@ module IVC : sig
   (** Print the equations NOT in the computed IVC *)
   val print_ivc_compl : unit -> bool
 
-  (** Print the lustre program minimized according to the IVC *)
-  val print_minimized_program : unit -> bool
+  (** Generate a minimize lustre program *)
+  val minimize_program : unit -> minimize_mode
+
+  (** The filename of the minimized program *)
+  val minimized_program_filename : unit -> string
 
   (** If true, compute a core with equations of all subsystems *)
   val ivc_enter_nodes : unit -> bool

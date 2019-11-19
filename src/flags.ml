@@ -1205,20 +1205,43 @@ module IVC = struct
     )
   let print_ivc_compl () = !print_ivc_compl
 
-let print_minimized_program_default = false
-  let print_minimized_program = ref print_minimized_program_default
+
+  type minimize_mode = [ `DO_NOT_MINIMIZE | `VALID_LUSTRE | `CONCISE ]
+
+  let mm_of_string = function
+    | "no" -> `DO_NOT_MINIMIZE
+    | "valid_lustre" -> `VALID_LUSTRE
+    | "concise" -> `CONCISE
+    | _ -> raise (Arg.Bad "Bad value for --minimize_program")
+
+  let minimize_program_default = `DO_NOT_MINIMIZE
+  let minimize_program = ref minimize_program_default
   let _ = add_spec
-    "--print_minimized_program"
-    (bool_arg print_minimized_program)
+    "--minimize_program"
+    (Arg.String (fun str -> minimize_program := mm_of_string str))
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Print the program minimized according to the inductive validity core computed@ \
-          Default: %a\
+          Minimize the source Lustre program according to the inductive validity core computed@ \
+          \"no\" to disable this feature (default)@ \
+          \"valid_lustre\" to replace useless expressions by a node call@ \
+          \"concise\" to replace useless expressions by a '_'\
         "
-        fmt_bool print_minimized_program_default
     )
-  let print_minimized_program () = !print_minimized_program
+  let minimize_program () = !minimize_program
+
+  let minimized_program_filename_default = ""
+  let minimized_program_filename = ref minimized_program_filename_default
+  let _ = add_spec
+      "--minimized_program_filename"
+      (Arg.Set_string minimized_program_filename)
+      (fun fmt ->
+         Format.fprintf fmt
+           "Filename of the minimized Lustre program to generate.@ \
+            Default: <INPUT_FILENAME>_min.lus"
+      )
+  let minimized_program_filename () = !minimized_program_filename
+
 
   type ivcimpl = [ `IVC_BF | `IVC_AUC | `IVC_UC | `IVC_UCBF ]
 

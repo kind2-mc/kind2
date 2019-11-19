@@ -256,28 +256,30 @@ let rand_function_name_for _ ts =
     new_rand
   end
 
-let undef_expr pos_sv_map typ expr =
+let undef_expr pos_sv_map const_expr typ expr =
   let pos = A.pos_of_expr expr in
   match pos_sv_map with
   | None -> A.Ident (pos, "_")
   | Some pos_sv_map ->
-    let svs = try PosMap.find pos pos_sv_map with Not_found -> SVSet.empty in
-    if SVSet.is_empty svs
-    then begin
-      let i = counter () in
-      let n = (List.length typ) in
-      if n > !max_nb_args then max_nb_args := n ;
-      A.Call(*Param*) (pos, rand_function_name_for n typ, (*typ,*) [Num (dpos, string_of_int i)])
-    end else begin
-      try Hashtbl.find previous_rands svs
-      with Not_found ->
+    if const_expr then expr (* a call to __rand is not a valid constant expression *)
+    else
+      let svs = try PosMap.find pos pos_sv_map with Not_found -> SVSet.empty in
+      if SVSet.is_empty svs
+      then begin
         let i = counter () in
         let n = (List.length typ) in
         if n > !max_nb_args then max_nb_args := n ;
-        let res =
-          A.Call(*Param*) (pos, rand_function_name_for n typ, (*typ,*) [Num (dpos, string_of_int i)])
-        in Hashtbl.replace previous_rands svs res ; res
-    end
+        A.Call(*Param*) (pos, rand_function_name_for n typ, (*typ,*) [Num (dpos, string_of_int i)])
+      end else begin
+        try Hashtbl.find previous_rands svs
+        with Not_found ->
+          let i = counter () in
+          let n = (List.length typ) in
+          if n > !max_nb_args then max_nb_args := n ;
+          let res =
+            A.Call(*Param*) (pos, rand_function_name_for n typ, (*typ,*) [Num (dpos, string_of_int i)])
+          in Hashtbl.replace previous_rands svs res ; res
+      end
 
 let parametric_rand_node nb_outputs =
   let rec aux prefix acc nb =
@@ -417,7 +419,7 @@ let minimize_node_eq id_typ_map ue lst = function
   | A.Automaton _ as automaton -> Some automaton
   | A.Equation (pos, lhs, expr) ->
     let (novarindex_lhs, typ) = tyof_lhs id_typ_map lhs in
-    let (b, expr) = minimize_expr ue lst typ expr in
+    let (b, expr) = minimize_expr (ue false) lst typ expr in
     let lhs = if b then novarindex_lhs else lhs in
     Some (A.Equation (pos, lhs, expr))
 
@@ -434,9 +436,9 @@ let minimize_const_decl ue lst = function
   | A.UntypedConst (p,id,e) -> A.UntypedConst (p,id,e)
   | A.FreeConst (p,id,t) -> A.FreeConst (p,id,t)
   | A.TypedConst (p,id,e,t) ->
-    (*let (_,e) = minimize_expr ue lst [t] e in
-    A.TypedConst (p,id,e,t)*)
-    (* Disabled for now, because __rand calls are invalid constant expressions *)
+    (* Constants are inlined most of time so they may not appear as equations *)
+    (* Therefore we should not minimize them *)
+    (*let (_,e) = minimize_expr (ue true) lst [t] e in*)
     A.TypedConst (p,id,e,t)
 
 let minimize_node_local_decl ue lst = function
