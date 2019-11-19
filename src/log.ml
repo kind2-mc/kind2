@@ -280,10 +280,12 @@ module Make (R : sig val printf_relay : 'a m_log_printer end) : SLog = struct
     | F_json -> printf_json mdl L_info fmt
     | F_relay -> R.printf_relay mdl L_info fmt
 
+  (* Logs the result of a post-analysis. *)
   let log_result pt xml json a =
 
     let fmt = !Lib.log_ppf in
-    let print = Lib.ignore_or_fprintf L_note fmt "%a" in
+    let print = Format.fprintf fmt "%a"
+      (*Lib.ignore_or_fprintf L_note fmt "%a"*) in
 
     match !log_format with 
     | F_pt -> print pt a

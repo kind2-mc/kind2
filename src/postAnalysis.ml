@@ -581,35 +581,46 @@ module RunIVC: PostAnalysis = struct
             Ivc.ScMap.fold (fun _ v acc -> acc + List.length v) eqs 0
           in
           let initial = Ivc.all_eqs in_sys sys in
-          KEvent.log_uncond "Transitions:@ %i equations (%i initially)"
+          KEvent.log_uncond "%i equations after minimization (%i initially)"
             (eqs_count ivc) (eqs_count initial) ;
 
           if Flags.IVC.print_ivc ()
-          then KEvent.log_result (Ivc.pp_print_ivc in_sys sys)
-            (Ivc.pp_print_ivc_xml in_sys sys) (Ivc.pp_print_ivc_json in_sys sys) ivc ;
+          then begin
+            let pt = Ivc.pp_print_ivc in_sys sys "MAIN" in
+            let xml = Ivc.pp_print_ivc_xml in_sys sys "main" in
+            let json = Ivc.pp_print_ivc_json in_sys sys "main" in
+            KEvent.log_result pt xml json ivc
+          end ;
 
           if Flags.IVC.print_ivc_compl ()
           then begin
-            KEvent.log_uncond "========== NOT IN THE CORE ==========";
             let not_ivc = Ivc.ScMap.mapi (fun scope eqs ->
-              List.filter (fun (eq,_,_) ->
-                  try
-                    let lst = Ivc.ScMap.find scope ivc
-                    |> List.map (fun (eq,_,_) -> eq.Ivc.trans_closed) in
-                    Term.TermSet.mem eq.Ivc.trans_closed (Term.TermSet.of_list lst)
-                    |> not
-                  with Not_found -> true
-                ) eqs
-              ) initial in
-            KEvent.log_uncond "%a" (Ivc.pp_print_ivc in_sys sys) not_ivc ;
+            List.filter (fun (eq,_,_) ->
+                try
+                  let lst = Ivc.ScMap.find scope ivc
+                  |> List.map (fun (eq,_,_) -> eq.Ivc.trans_closed) in
+                  Term.TermSet.mem eq.Ivc.trans_closed (Term.TermSet.of_list lst)
+                  |> not
+                with Not_found -> true
+              ) eqs
+            ) initial in
+            let pt = Ivc.pp_print_ivc in_sys sys "COMPLEMENT" in
+            let xml = Ivc.pp_print_ivc_xml in_sys sys "complement" in
+            let json = Ivc.pp_print_ivc_json in_sys sys "complement" in
+            KEvent.log_result pt xml json not_ivc
           end ;
 
           if Flags.IVC.print_minimized_program ()
           then begin
             let minimized = ISys.lustre_source_ast in_sys
             |> Ivc.minimize_lustre_ast ~valid_lustre:true initial ivc in
-            KEvent.log_uncond "========== MINIMIZED PROGRAM ==========";
-            KEvent.log_uncond "%a" LustreAst.pp_print_program minimized ;
+            let pt fmt minimized =
+              Format.fprintf fmt "========== MINIMIZED PROGRAM ==========\n\n%a"
+                LustreAst.pp_print_program minimized
+            in
+            let xml fmt elt = () in
+            let json fmt elt = () in
+            KEvent.log_result pt xml json minimized
           end ;
           
           Ok ()

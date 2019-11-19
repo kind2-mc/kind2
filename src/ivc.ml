@@ -164,17 +164,14 @@ let pp_print_loc_eqs in_sys sys =
   let var_map = compute_var_map in_sys sys in
   pp_print_loc_eqs_ var_map
 
-let pp_print_ivc in_sys sys fmt =
+let pp_print_ivc in_sys sys title fmt =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_ var_map in
+  Format.fprintf fmt "========== %s ==========\n\n" title ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "----- %s -----\n" (Scope.to_string scope) ;
     Format.fprintf fmt "%a\n" print eqs
   )
-
-let pp_print_ivc_result in_sys sys fmt {success=success ; ivc=ivc} =
-  if success then pp_print_ivc in_sys sys fmt ivc
-  else Format.fprintf fmt "No IVC to show..."
 
 let impl_to_string = function
 | `IVC_AUC -> "IVC_AUC"
@@ -182,10 +179,10 @@ let impl_to_string = function
 | `IVC_UCBF -> "IVC_UCBF"
 | `IVC_BF -> "IVC_BF"
 
-let pp_print_ivc_xml in_sys sys fmt ivc =
+let pp_print_ivc_xml in_sys sys title fmt ivc =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
-  Format.fprintf fmt "<IVC enter_nodes=%b impl=\"%s\">\n"
+  Format.fprintf fmt "<IVC title=\"%s\" enter_nodes=%b impl=\"%s\">\n" title
     (Flags.IVC.ivc_enter_nodes ()) (impl_to_string (Flags.IVC.ivc_impl ())) ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "<scope name=\"%s\">\n" (Scope.to_string scope) ;
@@ -194,11 +191,12 @@ let pp_print_ivc_xml in_sys sys fmt ivc =
   ) ivc ;
   Format.fprintf fmt "</IVC>\n"
 
-let ivc2json in_sys sys ivc =
+let ivc2json in_sys sys title ivc =
   let var_map = compute_var_map in_sys sys in
   let loc_eqs2json = loc_eqs2json var_map in
   `Assoc [
     ("objectType", `String "ivc") ;
+    ("title", `String title) ;
     ("enterNodes", `Bool (Flags.IVC.ivc_enter_nodes ())) ;
     ("impl", `String (impl_to_string (Flags.IVC.ivc_impl ()))) ;
     ("value", `List (List.map (fun (scope, eqs) ->
@@ -210,8 +208,8 @@ let ivc2json in_sys sys ivc =
     ) (ScMap.bindings ivc)))
   ]
 
-let pp_print_ivc_json in_sys sys fmt ivc =
-  pp_print_json fmt (ivc2json in_sys sys ivc)
+let pp_print_ivc_json in_sys sys title fmt ivc =
+  pp_print_json fmt (ivc2json in_sys sys title ivc)
 
 (* ---------- LUSTRE AST ---------- *)
 

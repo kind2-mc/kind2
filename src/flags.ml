@@ -1193,7 +1193,7 @@ module IVC = struct
   let print_ivc_compl_default = false
   let print_ivc_compl = ref print_ivc_compl_default
   let _ = add_spec
-    "--print_ivc_complementary"
+    "--print_ivc_complement"
     (bool_arg print_ivc_compl)
     (fun fmt ->
       Format.fprintf fmt

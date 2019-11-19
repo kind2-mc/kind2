@@ -30,11 +30,10 @@ type ivc_result = {
 
 val pp_print_loc_eq : 'a InputSystem.t -> TransSys.t -> Format.formatter -> loc_equation -> unit
 val pp_print_loc_eqs : 'a InputSystem.t -> TransSys.t -> Format.formatter -> loc_equation list -> unit
-val pp_print_ivc : 'a InputSystem.t -> TransSys.t -> Format.formatter -> ivc -> unit
-val pp_print_ivc_result : 'a InputSystem.t -> TransSys.t -> Format.formatter -> ivc_result -> unit
 
-val pp_print_ivc_xml : 'a InputSystem.t -> TransSys.t -> Format.formatter -> ivc -> unit
-val pp_print_ivc_json : 'a InputSystem.t -> TransSys.t -> Format.formatter -> ivc -> unit
+val pp_print_ivc : 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
+val pp_print_ivc_xml : 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
+val pp_print_ivc_json : 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
 
 val error_result : ivc_result
 
