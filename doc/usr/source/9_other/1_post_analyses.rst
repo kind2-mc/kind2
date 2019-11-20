@@ -66,8 +66,8 @@ treatment are:
 +---------------------+-----------------------------------------------+----------------------------------------+
 | invariant logging   | last analysis proved the system safe          |                                        |
 +---------------------+-----------------------------------------------+----------------------------------------+
-| inductive validity  | last analysis proved the selected properties  |                                        |
-| core generation     | safe                                          |                                        |
+| inductive validity  | last analysis proved the system safe          |                                        |
+| core generation     |                                               |                                        |
 +---------------------+-----------------------------------------------+----------------------------------------+
 
 Silent Contract Loading

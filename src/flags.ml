@@ -1203,7 +1203,7 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          If true, equations of all subsystems will be taken into account@ \
+          Minimize elements of all the nodes (not only elements of the top-level node)@ \
           Default: %a\
         "
         fmt_bool ivc_enter_nodes_default
@@ -1219,7 +1219,7 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Print the equations of the computed inductive validity core@ \
+          Print the inductive validity core computed@ \
           Default: %a\
         "
         fmt_bool print_ivc_default
@@ -1235,7 +1235,8 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Print the equations that are NOT in the computed inductive validity core@ \
+          Print the complement of the inductive validity core computed@ \
+          (= the elements that are not necessary to prove the system safe)@ \
           Default: %a\
         "
         fmt_bool print_ivc_compl_default
@@ -1261,7 +1262,7 @@ module IVC = struct
         "\
           Minimize the source Lustre program according to the inductive validity core computed@ \
           \"no\" to disable this feature (default)@ \
-          \"valid_lustre\" to replace useless expressions by a node call@ \
+          \"valid_lustre\" to replace useless expressions by a valid node call@ \
           \"concise\" to replace useless expressions by a '_'\
         "
     )
@@ -1274,8 +1275,8 @@ module IVC = struct
       (Arg.Set_string minimized_program_filename)
       (fun fmt ->
          Format.fprintf fmt
-           "Filename of the minimized Lustre program to generate.@ \
-            Default: <INPUT_FILENAME>_min.lus"
+           "Filename for the minimized Lustre program@ \
+            Default: <INPUT_FILENAME>_min.<EXT>"
       )
   let minimized_program_filename () = !minimized_program_filename
 
@@ -1283,10 +1284,10 @@ module IVC = struct
   type ivcimpl = [ `IVC_BF | `IVC_AUC | `IVC_UC | `IVC_UCBF ]
 
   let ivcimpl_of_string = function
-    | "IVC_BF" -> `IVC_BF
-    | "IVC_AUC" -> `IVC_AUC
-    | "IVC_UC" -> `IVC_UC
-    | "IVC_UCBF" -> `IVC_UCBF
+    | "BF" -> `IVC_BF
+    | "AUC" -> `IVC_AUC
+    | "UC" -> `IVC_UC
+    | "UCBF" -> `IVC_UCBF
     | _ -> raise (Arg.Bad "Bad value for --ivc_impl")
 
   let ivc_impl_default = `IVC_UC
@@ -1297,11 +1298,11 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Select the implementation for computing IVC@ \
-          \"IVC_BF\" to perform a bruteforce minimisation@ \
-          \"IVC_AUC\" to perform an approximate unsat-core based minimisation@ \
-          \"IVC_UC\" to perform an unsat-core based minimisation (default)@ \
-          \"IVC_UCBF\" to perform an unsat-core minimisation and then a bruteforce\
+          Select the implementation for the IVC computation@ \
+          \"AUC\" to perform an approximate unsat-core based minimisation@ \
+          \"UC\" to perform an unsat-core based minimisation (default)@ \
+          \"BF\" to perform a bruteforce minimisation@ \
+          \"UCBF\" to perform an unsat-core minimisation and then a bruteforce\
         "
     )
   let ivc_impl () = !ivc_impl
