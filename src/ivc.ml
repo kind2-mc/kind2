@@ -755,7 +755,32 @@ let extract_toplevel_equations in_sys sys =
     { init_opened=oi ; init_closed=ci ; trans_opened=ot ; trans_closed=ct }
   ) init_bindings trans_bindings
 
+let should_minimize_equation in_sys eq =
+  let cats = Flags.IVC.ivc_elements () in
+  let (_,_,cat) = add_loc in_sys eq in
+  let cat = match cat with
+  | NodeCall _ -> `NODE_CALL
+  | ContractItem _ -> `CONTRACT_ITEM
+  | Equation _ -> `EQUATION
+  | Assertion _ -> `ASSERTION
+  | Unknown -> `UNKNOWN
+  in
+  List.mem cat cats
+
+let separate_equations_by_category in_sys eqs =
+  let eqs =
+    List.map (fun eq -> (should_minimize_equation in_sys eq, eq)) eqs in
+  let ok = List.filter fst eqs in
+  let not_ok = List.filter (fun (ok,_) -> not ok) eqs in
+  (List.map snd not_ok, List.map snd ok)
+
 type eqmap = (equation list) ScMap.t
+
+let separate_eqmap_by_category in_sys eqmap =
+  ScMap.fold (fun scope eqs (keep,test) ->
+    let (k,t) = separate_equations_by_category in_sys eqs in
+    (ScMap.add scope k keep, ScMap.add scope t test)
+  ) eqmap (ScMap.empty, ScMap.empty)
 
 let _all_eqs in_sys sys =
   let scope = TS.scope_of_trans_sys sys in
@@ -1056,12 +1081,6 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
   in
   let act_bindings = add_to_bindings act_bindings sys in
 
-  let add_to_core acc (actlit,scope,_) =
-    let old = try ScMap.find scope acc with Not_found -> [] in
-    ScMap.add scope (actlit::old) acc
-  in
-  let core = List.fold_left add_to_core ScMap.empty act_bindings in
-
   let actlits_eqs_map =
     List.fold_left (fun acc (k,_,v) -> SyMap.add k v acc)
       SyMap.empty act_bindings
@@ -1078,6 +1097,17 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
         trans_opened=guard eq.trans_opened ; trans_closed=guard eq.trans_closed }
     else eq
   in
+
+  let add_to_core (keep, test) (actlit,scope,eq) =
+    if should_minimize_equation in_sys eq
+    then
+      let old = try ScMap.find scope test with Not_found -> [] in
+      (keep, ScMap.add scope (actlit::old) test)
+    else
+      let old = try ScMap.find scope keep with Not_found -> [] in
+      (ScMap.add scope (actlit::old) keep, test)
+  in
+  let (keep,test) = List.fold_left add_to_core (ScMap.empty,ScMap.empty) act_bindings in
 
   (* Minimization *)
   (* If Z3 is used, we use the 'minimize cores' feature
@@ -1132,7 +1162,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
     let (init, trans) = terms_of_current_state keep test in
     check_k_inductive ~approximate:approximate sys test init trans prop os_prop k
   in
-  match minimize check ScMap.empty core with
+  match minimize check keep test with
   | None -> raise NotKInductive
   | Some core -> core_to_eqmap core
 
@@ -1178,6 +1208,8 @@ let ivc_bf_ in_sys param analyze sys eqmap =
   let prop_names = extract_props_names sys in
   let modules = Flags.enabled () in
 
+  let (keep, test) = separate_eqmap_by_category in_sys eqmap in
+
   (* Minimization *)
   let rec minimize check keep test =
     if check keep test then
@@ -1222,7 +1254,7 @@ let ivc_bf_ in_sys param analyze sys eqmap =
     check_result prop_names sys
   in
 
-  begin match minimize check ScMap.empty eqmap with
+  begin match minimize check keep test with
   | None -> raise CannotProve
   | Some eqmap -> eqmap
   end
