@@ -282,7 +282,11 @@ module ModeTrace = struct
   (** Formats a tree as a cex step in JSON *)
   let fmt_as_cex_step_json fmt (top_mods, trees) =
 
-    let pp_print_list_attrib pp ppf = function
+    let pp_print_qstring ppf s =
+      Format.fprintf ppf "\"%s\"" s
+    in
+
+    let pp_print_mode_list pp ppf = function
       | [] -> Format.fprintf ppf " []"
       | lst -> Format.fprintf ppf
         "@,[@[<v 1>@,%a@]@,]" (pp_print_list pp ",@,") lst
@@ -296,7 +300,7 @@ module ModeTrace = struct
             \"modes\" :%a,@,\
             \"subcontractModes\" :\
           "
-          name (pp_print_list_attrib Format.pp_print_string) modes;
+          name (pp_print_mode_list pp_print_qstring) modes;
         if subs = [] then (
           Format.fprintf fmt " []"; loop (tail :: right) subs
         )
@@ -325,7 +329,7 @@ module ModeTrace = struct
       "\"topModes\" :%a,@,\
        \"contractModes\" :\
       "
-      (pp_print_list_attrib Format.pp_print_string) top_mods;
+      (pp_print_mode_list pp_print_qstring) top_mods;
 
     if trees = [] then Format.fprintf fmt " []"
     else (
