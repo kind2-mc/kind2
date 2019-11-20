@@ -1609,14 +1609,6 @@ let add_state_var_def state_var def =
     state_var
     defs
 
-let has_state_var_a_proper_def state_var =
-  if StateVar.is_input state_var then true
-  else
-    get_state_var_defs state_var |>
-    List.exists (function
-      | Assertion _ | ContractItem _ | CallOutput _ | ProperEq _ -> true
-      | GeneratedEq _ -> false)
-
 let pos_of_state_var_def = function
   | CallOutput (p,_) | ProperEq (p,_) | GeneratedEq (p,_) -> p
   | ContractItem p | Assertion p -> p

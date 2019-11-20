@@ -230,7 +230,9 @@ type t = {
 (** Instance of state vars as streams with their position *)
 type state_var_instance = position * LustreIdent.t * StateVar.t
 
-(** Definition of state vars with their position *)
+(** A definition of a state variable in the initial Lustre program.
+  For a given state var s, it indicates the position p of an expression e that defines s
+  as well as the corresponding index i, such that s defined by the value of e at index i. *)
 type state_var_def =
   | CallOutput of position * LustreIndex.index
   | ProperEq of position * LustreIndex.index
@@ -411,9 +413,6 @@ val get_state_var_defs : StateVar.t -> state_var_def list
 
 (** Add a definition (with positions in the Lustre program) for a state variable *)
 val add_state_var_def : StateVar.t -> state_var_def -> unit
-
-(** True if the state var has a proper equation in the original lustre code *)
-val has_state_var_a_proper_def : StateVar.t -> bool
 
 val pos_of_state_var_def : state_var_def -> position
 

@@ -39,20 +39,31 @@ val error_result : ivc_result
 
 val compare_loc : loc -> loc -> int
 
+(** For a given transition system, returns the full initial inductive validity core
+(not minimized, so that it contains all the equations of the transition system) *)
 val all_eqs : 'a InputSystem.t -> TransSys.t -> ivc
 
 (** Separate an IVC into two IVC, the second one containing elements from the categories selected
     by the user, and the first one containing the others elements *)
 val separate_ivc_by_category : ivc -> (ivc * ivc)
 
+(** [minimize_lustre_ast full_ivc ivc ast]
+    Minimize the lustre AST [ast] according to the inductive validity core [ivc].
+    [full_ivc] should be an IVC containing all the equations, it can be obtained by calling [all_eqs].
+    The optional parameter valid_lustre (default: false) determine whether the generated AST must be
+    a valid lustre program or not (in this case, it will be more concise). *)
 val minimize_lustre_ast : ?valid_lustre:bool -> ivc -> ivc -> LustreAst.t -> LustreAst.t
 
+(** Outputs a minized (not necessarily minimal) inductive validity core by computing an UNSAT core.
+    It [approximate] is set to false, then the unsat core computed is not guaranteed to be minimal. *)
 val ivc_uc :
   'a InputSystem.t ->
   ?approximate:bool ->
   TransSys.t ->
   ivc_result
 
+(** Outputs a minimal inductive validity core by trying to remove all the equations one after another
+    and running the whole analysis on the new system each time. *)
 val ivc_bf :
   'a InputSystem.t ->
   Analysis.param ->
@@ -64,6 +75,9 @@ val ivc_bf :
   TransSys.t ->
   ivc_result
 
+(** Outputs a minimal inductive validity core by first computing an UNSAT core (ivc_uc),
+    and then trying to remove the remaining equations with bruteforce (ivc_bf).
+    This should be faster than ivc_bf. *)
 val ivc_ucbf :
   'a InputSystem.t ->
   Analysis.param ->
