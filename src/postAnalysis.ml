@@ -589,7 +589,8 @@ module RunIVC: PostAnalysis = struct
             let pt = Ivc.pp_print_ivc in_sys sys "MAIN" in
             let xml = Ivc.pp_print_ivc_xml in_sys sys "main" in
             let json = Ivc.pp_print_ivc_json in_sys sys "main" in
-            KEvent.log_result pt xml json ivc
+            let (_,filtered_ivc) = Ivc.separate_ivc_by_category ivc in
+            KEvent.log_result pt xml json filtered_ivc
           end ;
 
           if Flags.IVC.print_ivc_compl ()
@@ -607,7 +608,8 @@ module RunIVC: PostAnalysis = struct
             let pt = Ivc.pp_print_ivc in_sys sys "COMPLEMENT" in
             let xml = Ivc.pp_print_ivc_xml in_sys sys "complement" in
             let json = Ivc.pp_print_ivc_json in_sys sys "complement" in
-            KEvent.log_result pt xml json not_ivc
+            let (_,filtered_not_ivc) = Ivc.separate_ivc_by_category not_ivc in
+            KEvent.log_result pt xml json filtered_not_ivc
           end ;
 
           if Flags.IVC.minimize_program () <> `DO_NOT_MINIMIZE

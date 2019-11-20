@@ -41,6 +41,10 @@ val compare_loc : loc -> loc -> int
 
 val all_eqs : 'a InputSystem.t -> TransSys.t -> ivc
 
+(** Separate an IVC into two IVC, the second one containing elements from the categories selected
+    by the user, and the first one containing the others elements *)
+val separate_ivc_by_category : ivc -> (ivc * ivc)
+
 val minimize_lustre_ast : ?valid_lustre:bool -> ivc -> ivc -> LustreAst.t -> LustreAst.t
 
 val ivc_uc :

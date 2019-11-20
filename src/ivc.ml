@@ -755,9 +755,8 @@ let extract_toplevel_equations in_sys sys =
     { init_opened=oi ; init_closed=ci ; trans_opened=ot ; trans_closed=ct }
   ) init_bindings trans_bindings
 
-let should_minimize_equation in_sys eq =
+let check_loc_eq_category (_,_,cat) =
   let cats = Flags.IVC.ivc_elements () in
-  let (_,_,cat) = add_loc in_sys eq in
   let cat = match cat with
   | NodeCall _ -> `NODE_CALL
   | ContractItem _ -> `CONTRACT_ITEM
@@ -767,20 +766,34 @@ let should_minimize_equation in_sys eq =
   in
   List.mem cat cats
 
-let separate_equations_by_category in_sys eqs =
-  let eqs =
-    List.map (fun eq -> (should_minimize_equation in_sys eq, eq)) eqs in
-  let ok = List.filter fst eqs in
-  let not_ok = List.filter (fun (ok,_) -> not ok) eqs in
+let should_minimize_equation in_sys eq =
+  check_loc_eq_category (add_loc in_sys eq)
+
+let separate_by_predicate f lst =
+  let lst = List.map (fun e -> (f e, e)) lst in
+  let ok = List.filter fst lst in
+  let not_ok = List.filter (fun (ok,_) -> not ok) lst in
   (List.map snd not_ok, List.map snd ok)
+
+let separate_loc_eqs_by_category =
+  separate_by_predicate check_loc_eq_category
+
+let separate_equations_by_category in_sys =
+  separate_by_predicate (should_minimize_equation in_sys)
+
+let separate_scmap f scmap =
+  ScMap.fold (fun k v (map1,map2) ->
+    let (v1,v2) = f v in
+    (ScMap.add k v1 map1, ScMap.add k v2 map2)
+  ) scmap (ScMap.empty, ScMap.empty)
+
+let separate_ivc_by_category =
+  separate_scmap separate_loc_eqs_by_category
 
 type eqmap = (equation list) ScMap.t
 
-let separate_eqmap_by_category in_sys eqmap =
-  ScMap.fold (fun scope eqs (keep,test) ->
-    let (k,t) = separate_equations_by_category in_sys eqs in
-    (ScMap.add scope k keep, ScMap.add scope t test)
-  ) eqmap (ScMap.empty, ScMap.empty)
+let separate_eqmap_by_category in_sys =
+  separate_scmap (separate_equations_by_category in_sys)
 
 let _all_eqs in_sys sys =
   let scope = TS.scope_of_trans_sys sys in
