@@ -588,7 +588,7 @@ module RunIVC: PostAnalysis = struct
           then begin
             let pt = Ivc.pp_print_ivc in_sys sys "MAIN" in
             let xml = Ivc.pp_print_ivc_xml in_sys sys "main" in
-            let json = Ivc.pp_print_ivc_json in_sys sys "main" in
+            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json in_sys sys "main") in
             let (_,filtered_ivc) = Ivc.separate_ivc_by_category ivc in
             KEvent.log_result pt xml json filtered_ivc
           end ;
@@ -607,7 +607,7 @@ module RunIVC: PostAnalysis = struct
             ) initial in
             let pt = Ivc.pp_print_ivc in_sys sys "COMPLEMENT" in
             let xml = Ivc.pp_print_ivc_xml in_sys sys "complement" in
-            let json = Ivc.pp_print_ivc_json in_sys sys "complement" in
+            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json in_sys sys "complement") in
             let (_,filtered_not_ivc) = Ivc.separate_ivc_by_category not_ivc in
             KEvent.log_result pt xml json filtered_not_ivc
           end ;
