@@ -581,7 +581,7 @@ module RunIVC: PostAnalysis = struct
             Ivc.ScMap.fold (fun _ v acc -> acc + List.length v) eqs 0
           in
           let initial = Ivc.all_eqs in_sys sys in
-          KEvent.log_uncond "%i equations after minimization (%i initially)"
+          KEvent.log_uncond "%i elements after minimization (%i initially)"
             (eqs_count ivc) (eqs_count initial) ;
 
           if Flags.IVC.print_ivc ()

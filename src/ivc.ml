@@ -111,8 +111,7 @@ let locs2json lst =
   `List (List.map loc2json lst)
 
 let expr_pp_print var_map fmt expr =
-  try LustreExpr.pp_print_term_as_expr_mvar false var_map fmt expr
-  with _ -> Format.fprintf fmt "_"
+  LustreExpr.pp_print_term_as_expr_mvar false var_map fmt expr
 
 let cat_to_string = function
   | NodeCall _ -> "Node call"
