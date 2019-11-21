@@ -174,16 +174,26 @@ let pp_print_ivc in_sys sys title fmt =
   )
 
 let impl_to_string = function
-| `IVC_AUC -> "IVC_AUC"
-| `IVC_UC -> "IVC_UC"
-| `IVC_UCBF -> "IVC_UCBF"
-| `IVC_BF -> "IVC_BF"
+| `IVC_AUC -> "AUC"
+| `IVC_UC -> "UC"
+| `IVC_UCBF -> "UCBF"
+| `IVC_BF -> "BF"
+
+let pp_print_categories fmt =
+  List.iter (function
+    | `NODE_CALL -> Format.fprintf fmt "node_calls "
+    | `CONTRACT_ITEM -> Format.fprintf fmt "contracts "
+    | `EQUATION -> Format.fprintf fmt "equations "
+    | `ASSERTION -> Format.fprintf fmt "assertions "
+    | `UNKNOWN -> Format.fprintf fmt "unknown "
+  )
 
 let pp_print_ivc_xml in_sys sys title fmt ivc =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
-  Format.fprintf fmt "<IVC title=\"%s\" enter_nodes=%b impl=\"%s\">\n" title
-    (Flags.IVC.ivc_enter_nodes ()) (impl_to_string (Flags.IVC.ivc_impl ())) ;
+  Format.fprintf fmt "<IVC title=\"%s\" category=\"%a\" enter_nodes=%b impl=\"%s\">\n" title
+    pp_print_categories (Flags.IVC.ivc_elements ()) (Flags.IVC.ivc_enter_nodes ())
+    (impl_to_string (Flags.IVC.ivc_impl ())) ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "<scope name=\"%s\">\n" (Scope.to_string scope) ;
     Format.fprintf fmt "%a" print eqs ;
@@ -197,6 +207,7 @@ let ivc2json in_sys sys title ivc =
   `Assoc [
     ("objectType", `String "ivc") ;
     ("title", `String title) ;
+    ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.IVC.ivc_elements ()))) ;
     ("enterNodes", `Bool (Flags.IVC.ivc_enter_nodes ())) ;
     ("impl", `String (impl_to_string (Flags.IVC.ivc_impl ()))) ;
     ("value", `List (List.map (fun (scope, eqs) ->
