@@ -1017,6 +1017,12 @@ let compute_unsat_core ?(pathcomp=None) ?(approximate=false)
   SMTSolver.delete_instance solver ;
   res
 
+let is_empty_core c =
+  ScMap.for_all (fun _ v -> v = []) c
+
+let core_size c =
+  ScMap.fold (fun _ lst acc -> acc + (List.length lst)) c 0
+
 let check_k_inductive ?(approximate=false) sys actlits init_terms trans_terms prop os_prop k =
   (* In the functions above, k starts at 0 whereas it start at 1 with Kind2 notation *)
   let k = k - 1 in
@@ -1060,12 +1066,6 @@ let lstmap_union c1 c2 =
   in
   ScMap.merge merge c1 c2
 
-let is_empty_core c =
-  ScMap.for_all (fun _ v -> v = []) c
-
-let core_size c =
-  ScMap.fold (fun _ lst acc -> acc + (List.length lst)) c 0
-
 let pick_core c =
   let c = ScMap.filter (fun _ lst -> lst <> []) c in
   let (scope, lst) = List.hd (ScMap.bindings c) in
@@ -1080,7 +1080,6 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
 
   let scope = TS.scope_of_trans_sys sys in
   let k, invs = CertifChecker.minimize_invariants sys None in
-  (* Sometimes fail when giving 'Some (TS.invars_of_bound sys Numeral.zero)' as 2nd parameter *)
   let os_invs = List.filter is_one_step invs in
   let prop = extract_props_terms sys in
   let os_prop = Term.mk_and (prop::os_invs) in
@@ -1134,10 +1133,15 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
 
   (* Minimization *)
   (* If Z3 is used, we use the 'minimize cores' feature
-    so we do not need to minimized them manually *)
+    so we do not need to minimize them manually *)
   let z3_used = match Flags.Smt.solver () with `Z3_SMTLIB -> true | _ -> false in
-  let rec minimize check keep test =
-    match check keep test with
+  let rec minimize ?(skip_first_check=false) check keep test =
+    let first_check =
+      if skip_first_check
+      then OK test
+      else check keep test
+    in
+    match first_check with
     | NOT_OK -> (*KEvent.log_uncond "Not k-inductive." ;*) None 
     | OK core ->
       (*KEvent.log_uncond "UNSAT core eliminated %n equations."
@@ -1150,7 +1154,8 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
         else begin
           let (scope, symb, test) = pick_core core in
           begin match minimize check keep test with
-          | None -> minimize check (core_union (ScMap.singleton scope [symb]) keep) test
+          | None -> minimize check ~skip_first_check:true
+            (core_union (ScMap.singleton scope [symb]) keep) test
           | Some res -> Some res
           end
         end
@@ -1182,6 +1187,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
   in
 
   let check keep test =
+    KEvent.log L_info "Minimizing using an UNSAT core... (%i left)" (core_size test) ;
     let (init, trans) = terms_of_current_state keep test in
     check_k_inductive ~approximate:approximate sys test init trans prop os_prop k
   in
@@ -1219,7 +1225,7 @@ let check_result prop_names sys =
     prop_names
 
 let is_empty_eqmap = is_empty_core
-
+let eqmap_size = core_size
 let pick_eqmap = pick_core
 
 exception CannotProve
@@ -1234,15 +1240,15 @@ let ivc_bf_ in_sys param analyze sys eqmap =
   let (keep, test) = separate_eqmap_by_category in_sys eqmap in
 
   (* Minimization *)
-  let rec minimize check keep test =
-    if check keep test then
+  let rec minimize ?(skip_first_check=false) check keep test =
+    if skip_first_check || check keep test then
       if is_empty_eqmap test
       then Some keep
       else
         let (scope, eq, test) = pick_eqmap test in
         match minimize check keep test with
         | None ->
-          minimize check (lstmap_union (ScMap.singleton scope [eq]) keep) test
+          minimize ~skip_first_check:true check (lstmap_union (ScMap.singleton scope [eq]) keep) test
         | Some res -> Some res
     else None
   in
@@ -1269,6 +1275,7 @@ let ivc_bf_ in_sys param analyze sys eqmap =
     TS.iter_subsystems ~include_top:true prepare_subsystem sys
   in
   let check keep test =
+    KEvent.log L_info "Minimizing using bruteforce... (%i left)" (eqmap_size test) ;
     prepare_ts_for_check keep test ;
     let old_log_level = Lib.get_log_level () in
     Lib.set_log_level L_off ;
