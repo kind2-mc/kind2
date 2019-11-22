@@ -14,6 +14,7 @@ module Position = struct
   let compare = Lib.compare_pos
 end
 module PosMap = Map.Make(Position)
+module PosSet = Set.Make(Position)
 
 module A = LustreAst
 module AstID = struct
@@ -403,9 +404,56 @@ let rec minimize_node_call_args ue lst expr =
     | A.Arrow (p,e1,e2) -> A.Arrow (p,aux e1,aux e2)
   in aux expr
 
+and ast_contains p ast =
+  let rec aux ast =
+    if p ast then true
+    else match ast with
+    | A.True _ | A.False _ | A.Ident _ | A.ModeRef _ | A.Num _ | A.Dec _ | A.Last _
+      -> false
+    | A.Call (_, _, args) | A.CallParam (_, _, _, args) ->
+      List.map aux args
+      |> List.exists (fun x -> x)
+    | A.ToInt (_,e) | A.ToUInt8 (_,e) | A.ToUInt16 (_,e) | A.ToUInt32 (_,e) | A.ToUInt64 (_,e)
+    | A.ToInt8 (_,e) | A.ToInt16 (_,e) | A.ToInt32 (_,e) | A.ToInt64 (_,e) | A.ToReal (_,e)
+    | A.Not (_,e) | A.RecordProject (_,e,_) | A.Forall (_,_,e) | A.Exists (_,_,e)
+    | A.Uminus (_,e) | A.BVNot (_,e) | A.When (_,e,_) | A.Current (_,e) | A.Pre (_,e) ->
+      aux e
+    | A.StructUpdate (_,e1,_,e2) | A.ArrayConstr (_,e1,e2)
+    | A.ArrayConcat (_,e1,e2) | A.TupleProject (_,e1,e2)
+    | A.And (_,e1,e2) | A.Or (_,e1,e2) | A.Xor (_,e1,e2) | A.Impl (_,e1,e2)
+    | A.Mod (_,e1,e2) | A.Minus (_,e1,e2) | A.Plus (_,e1,e2) | A.Div (_,e1,e2)
+    | A.Times (_,e1,e2) | A.IntDiv (_,e1,e2) | A.BVAnd (_,e1,e2) | A.BVOr (_,e1,e2)
+    | A.BVShiftL (_,e1,e2) | A.BVShiftR (_,e1,e2)
+    | A.Eq (_,e1,e2) | A.Neq (_,e1,e2) | A.Lte (_,e1,e2) | A.Lt (_,e1,e2)
+    | A.Gte (_,e1,e2) | A.Gt (_,e1,e2) | A.Fby (_,e1,_,e2) | A.Arrow (_,e1,e2) ->
+      aux e1 || aux e2
+    | A.TupleExpr (_,es) | A.ArrayExpr (_,es) | A.ExprList (_,es) | A.OneHot (_,es) ->
+      List.map aux es
+      |> List.exists (fun x -> x)
+    | A.ArraySlice (_,e1,(e2,e3))
+    | A.Ite (_,e1,e2,e3) | A.With (_,e1,e2,e3) ->
+      aux e1 || aux e2 || aux e3
+    | A.RecordExpr (_,_,lst) | A.Merge (_,_,lst) ->
+      List.map (fun (_,e) -> aux e) lst
+      |> List.exists (fun x -> x)
+    | A.Condact (_,e1,e2,_,es1,es2) ->
+      List.map aux (e1::e2::(es1@es2))
+      |> List.exists (fun x -> x)
+    | A.Activate (_,_,e1,e2,es) ->
+      List.map aux (e1::e2::es)
+      |> List.exists (fun x -> x)
+    | A.RestartEvery (_,_,es,e) ->
+      List.map aux (e::es)
+      |> List.exists (fun x -> x)
+  in
+  aux ast
+
 and minimize_expr ue lst typ expr =
-  let pos = A.pos_of_expr expr in
-  if List.exists (fun p -> Lib.compare_pos p pos = 0) lst
+  let all_pos = PosSet.of_list lst in
+  let keep_expr expr =
+    PosSet.mem (A.pos_of_expr expr) all_pos
+  in
+  if ast_contains keep_expr expr
   then (false, minimize_node_call_args ue lst expr)
   else (true, ue typ expr)
 
