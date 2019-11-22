@@ -976,7 +976,7 @@ and pp_print_states ppf =
 
 and pp_print_state ppf =
   function State (_, name, init, locals, eqs, unless, until) ->
-    Format.fprintf ppf "state %s@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a" name
+    Format.fprintf ppf "state %s@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a@?" name
       (pp_print_auto_trans "unless") unless
       pp_print_node_local_decl locals
       (pp_print_list pp_print_body "@ ") eqs
@@ -1136,7 +1136,7 @@ let pp_print_contract_node_decl ppf (n,p,i,o,e)
         returns@ @[<hv 1>(%a)@];@]@.\
         @[<hv 2>let@ \
         %a@;<1 -2>\
-        tel;@]@]"
+        tel;@]@]@?"
        pp_print_ident n
        (function ppf -> pp_print_node_param_list ppf p)
        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
@@ -1153,7 +1153,7 @@ let pp_print_node_or_fun_decl is_fun ppf (
         @[<hv 1>(%a)@]@;<1 -2>\
         returns@ @[<hv 1>(%a)@];@]@.\
         %a@?\
-        %a@?@]"
+        %a@?@]@?"
         (if is_fun then "function" else "node")
         (if ext then " imported" else "")
         pp_print_ident n 
@@ -1171,7 +1171,7 @@ let pp_print_node_or_fun_decl is_fun ppf (
         %a@?\
         @[<v 2>let@ \
         %a@;<1 -2>\
-        tel;@]@]"
+        tel;@]@]@?"
         (if is_fun then "function" else "node")
         (if ext then " imported" else "")
         pp_print_ident n 

@@ -633,7 +633,9 @@ module RunIVC: PostAnalysis = struct
               let fmt = Format.formatter_of_out_channel out in
               LustreAst.pp_print_program fmt
             in
-            print_channel (open_out filename) minimized
+            let oc = open_out filename in
+            print_channel oc minimized ;
+            close_out oc
           end ;
           
           Ok ()
