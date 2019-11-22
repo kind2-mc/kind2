@@ -662,9 +662,10 @@ let name_and_svs_of_node_call in_sys s args =
   (* Retrieve number of inputs/outputs *)
   let node = InputSystem.find_lustre_node (Scope.mk_scope [Ident.of_string name]) in_sys in
   let nb_inputs = LustreIndex.cardinal (node.LustreNode.inputs) in
+  let nb_oracles = List.length (node.LustreNode.oracles) in
   let nb_outputs = LustreIndex.cardinal (node.LustreNode.outputs) in
   (* Retrieve output statevars *)
-  let svs = sublist nb_inputs nb_outputs args
+  let svs = sublist (nb_inputs+nb_oracles) nb_outputs args
   |> List.map (fun t -> match Term.destruct t with
     | Var v -> Var.state_var_of_state_var_instance v
     | _ -> assert false
