@@ -64,97 +64,70 @@ type clock_expr =
   | ClockConstr of ident * ident
 
 
-(* A Lustre expression *)
-type expr =
+(* Some symbols for lustre expressions *)
+type conversion_operator =
+  | ToInt | ToReal
+  | ToInt8 | ToInt16 | ToInt32 | ToInt64
+  | ToUInt8 | ToUInt16 | ToUInt32 | ToUInt64
 
-  (* Identifier *)
+type unary_operator =
+  | Not | Uminus
+  | BVNot
+
+type binary_operator =
+  | And | Or | Xor | Impl
+  | Mod | Minus | Plus | Div | Times | IntDiv
+  | BVAnd | BVOr | BVShiftL | BVShiftR
+
+type ternary_operator =
+  | Ite
+  | With (* With operator for recursive definitions *)
+
+type n_arity_operator =
+  | OneHot
+
+type comparison_operator =
+  | Eq | Neq  | Lte  | Lt  | Gte | Gt
+
+type constant =
+  | True | False
+  | Num of string
+  | Dec of string
+
+type quantifier =
+  | Forall | Exists
+
+type group_expr =
+  | ExprList (* List of expressions *)
+  | TupleExpr (* Tuple expression *)
+  | ArrayExpr (* Array expression *)
+
+(** A Lustre expression *)
+type expr =
+  (* Identifiers *)
   | Ident of position * ident
   | ModeRef of position * ident list
   | RecordProject of position * expr * index
   | TupleProject of position * expr * expr
-
-  (* Update of an indexed expression *)
-  | StructUpdate of position * expr * label_or_index list * expr
-
   (* Values *)
-  | True of position
-  | False of position
-  | Num of position * string
-  | Dec of position * string
-
-  (* Conversions *)
-  | ToInt of position * expr
-  | ToUInt8 of position * expr
-  | ToUInt16 of position * expr
-  | ToUInt32 of position * expr
-  | ToUInt64 of position * expr
-  | ToInt8 of position * expr
-  | ToInt16 of position * expr
-  | ToInt32 of position * expr
-  | ToInt64 of position * expr
-  | ToReal of position * expr
-
-  (* List of expressions *)
-  | ExprList of position * expr list 
-
-  (* Tuple expression *)
-  | TupleExpr of position * expr list 
-
-  (* Array expression *)
-  | ArrayExpr of position * expr list 
-
-  (* Array expression *)
-  | ArrayConstr of position * expr * expr 
-
-  (* Slice of array *)
-  | ArraySlice of position * expr * (expr * expr) 
-
-  (* Array concatenation *)
-  | ArrayConcat of position * expr * expr
-
-  (* Record expression *)
+  | Const of position * constant
+  (* Operators *)
+  | UnaryOp of position * unary_operator * expr
+  | BinaryOp of position * binary_operator * expr * expr
+  | TernaryOp of position * ternary_operator * expr * expr * expr
+  | NArityOp of position * n_arity_operator * expr list
+  | ConvOp of position * conversion_operator * expr
+  | CompOp of position * comparison_operator * expr * expr
+  (* Structured expressions *)
   | RecordExpr of position * ident * (ident * expr) list
-
-  (* Boolean operators *)
-  | Not of position * expr 
-  | And of position * expr * expr 
-  | Or of position * expr * expr
-  | Xor of position * expr * expr 
-  | Impl of position * expr * expr 
-  | Forall of position * typed_ident list * expr
-  | Exists of position * typed_ident list * expr
-  | OneHot of position * expr list
-
-  (* Arithmetic operators *)
-  | Uminus of position * expr 
-  | Mod of position * expr * expr
-  | Minus of position * expr * expr
-  | Plus of position * expr * expr
-  | Div of position * expr * expr
-  | Times of position * expr * expr
-  | IntDiv of position * expr * expr
-
-  (* Bitvector operators *)
-  | BVAnd of position * expr * expr
-  | BVOr of position * expr * expr
-  | BVNot of position * expr
-  | BVShiftL of position * expr * expr
-  | BVShiftR of position * expr * expr
-
-  (* If operator *)
-  | Ite of position * expr * expr * expr 
-
-  (* With operator for recursive definitions *)
-  | With of position * expr * expr * expr 
-
-  (* Relations *)
-  | Eq of position * expr * expr 
-  | Neq of position * expr * expr
-  | Lte of position * expr * expr
-  | Lt of position * expr * expr
-  | Gte of position * expr * expr
-  | Gt of position * expr * expr
-
+  | GroupExpr of position * group_expr * expr list
+  (* Update of structured expressions *)
+  | StructUpdate of position * expr * label_or_index list * expr
+  | ArrayConstr of position * expr * expr 
+  | ArraySlice of position * expr * (expr * expr) 
+  | ArrayConcat of position * expr * expr
+  (* Quantified expressions *)
+  | Quantifier of position * quantifier * typed_ident list * expr
   (* Clock operators *)
   | When of position * expr * clock_expr
   | Current of position * expr
@@ -162,18 +135,14 @@ type expr =
   | Activate of position * ident * expr * expr * expr list
   | Merge of position * ident * (ident * expr) list
   | RestartEvery of position * ident * expr list * expr
-      
   (* Temporal operators *)
   | Pre of position * expr
   | Last of position * ident
-  | Fby of position * expr * int * expr 
-  | Arrow of position * expr * expr 
-
-  (* A node call *)
-  | Call of position * ident * expr list 
-
-  (* A node call setting static parameters *)
-  | CallParam of position * ident * lustre_type list * expr list 
+  | Fby of position * expr * int * expr
+  | Arrow of position * expr * expr
+  (* Node calls *)
+  | Call of position * ident * expr list
+  | CallParam of position * ident * lustre_type list * expr list
 
 
 (* A built-in type *)
@@ -453,11 +422,11 @@ let rec pp_print_expr ppf =
         pp_print_list pp_print_ident "::"
       ) ids
  
-    | ExprList (p, l) -> Format.fprintf ppf "%a@[<hv 1>(%a)@]" ppos p pl l
+    | GroupExpr (p, ExprList, l) -> Format.fprintf ppf "%a@[<hv 1>(%a)@]" ppos p pl l
 
-    | TupleExpr (p, l) -> Format.fprintf ppf "%a@[<hv 1>{%a}@]" ppos p pl l
+    | GroupExpr (p, TupleExpr, l) -> Format.fprintf ppf "%a@[<hv 1>{%a}@]" ppos p pl l
 
-    | ArrayExpr (p, l) -> Format.fprintf ppf "%a@[<hv 1>[%a]@]" ppos p pl l
+    | GroupExpr (p, ArrayExpr, l) -> Format.fprintf ppf "%a@[<hv 1>[%a]@]" ppos p pl l
 
     | StructUpdate (p, e1, i, e2) -> 
 
@@ -512,63 +481,61 @@ let rec pp_print_expr ppf =
 
       Format.fprintf ppf "%a%a.%%%a" ppos p pp_print_expr e pp_print_expr f
 
-    | True p -> ps p "true"
-    | False p -> ps p "false"
+    | Const (p, True) -> ps p "true"
+    | Const (p, False) -> ps p "false"
+    | Const (p, Num n) -> ps p n
+    | Const (p, Dec d) -> ps p d
 
-    | Num (p, n) -> ps p n
-    | Dec (p, d) -> ps p d
+    | ConvOp (p, ToInt, e) -> p1 p "int" e
+    | ConvOp (p, ToUInt8, e) -> p1 p "uint8" e
+    | ConvOp (p, ToUInt16, e) -> p1 p "uint16" e
+    | ConvOp (p, ToUInt32, e) -> p1 p "uint32" e
+    | ConvOp (p, ToUInt64, e) -> p1 p "uint64" e
+    | ConvOp (p, ToInt8, e) -> p1 p "int8" e
+    | ConvOp (p, ToInt16, e) -> p1 p "int16" e
+    | ConvOp (p, ToInt32, e) -> p1 p "int32" e
+    | ConvOp (p, ToInt64, e) -> p1 p "int64" e
+    | ConvOp (p, ToReal, e) -> p1 p "real" e
 
-    | ToInt (p, e) -> p1 p "int" e
-    | ToUInt8 (p, e) -> p1 p "uint8" e
-    | ToUInt16 (p, e) -> p1 p "uint16" e
-    | ToUInt32 (p, e) -> p1 p "uint32" e
-    | ToUInt64 (p, e) -> p1 p "uint64" e
-    | ToInt8 (p, e) -> p1 p "int8" e
-    | ToInt16 (p, e) -> p1 p "int16" e
-    | ToInt32 (p, e) -> p1 p "int32" e
-    | ToInt64 (p, e) -> p1 p "int64" e
-    | ToReal (p, e) -> p1 p "real" e
-
-    | Not (p, e) -> p1 p "not" e
-    | And (p, e1, e2) -> p2 p "and" e1 e2
-    | Or (p, e1, e2) -> p2 p "or" e1 e2
-    | Xor (p, e1, e2) -> p2 p "xor" e1 e2
-    | Impl (p, e1, e2) -> p2 p "=>" e1 e2
-    | OneHot (p, e) -> pnp p "#" e
-    | Forall (pos, vars, e) -> 
+    | UnaryOp (p, Not, e) -> p1 p "not" e
+    | BinaryOp (p, And, e1, e2) -> p2 p "and" e1 e2
+    | BinaryOp (p, Or, e1, e2) -> p2 p "or" e1 e2
+    | BinaryOp (p, Xor, e1, e2) -> p2 p "xor" e1 e2
+    | BinaryOp (p, Impl, e1, e2) -> p2 p "=>" e1 e2
+    | NArityOp (p, OneHot, e) -> pnp p "#" e
+    
+    | Quantifier (pos, Forall, vars, e) -> 
       Format.fprintf ppf "@[<hv 2>forall@ @[<hv 1>(%a)@]@ %a@]" 
         (pp_print_list pp_print_typed_decl ";@ ") vars
         pp_print_expr e
-    | Exists (pos, vars, e) -> 
+    | Quantifier (pos, Exists, vars, e) -> 
       Format.fprintf ppf "@[<hv 2>exists@ @[<hv 1>(%a)@]@ %a@]" 
         (pp_print_list pp_print_typed_decl ";@ ") vars
         pp_print_expr e
 
-    | Uminus (p, e) -> p1 p "-" e
-    | Mod (p, e1, e2) -> p2 p "mod" e1 e2 
-    | Minus (p, e1, e2) -> p2 p "-" e1 e2
-    | Plus (p, e1, e2) -> p2 p "+" e1 e2
-    | Div (p, e1, e2) -> p2 p "/" e1 e2
-    | Times (p, e1, e2) -> p2 p "*" e1 e2
-    | IntDiv (p, e1, e2) -> p2 p "div" e1 e2
+    | UnaryOp (p, Uminus, e) -> p1 p "-" e
+    | BinaryOp (p, Mod, e1, e2) -> p2 p "mod" e1 e2 
+    | BinaryOp (p, Minus, e1, e2) -> p2 p "-" e1 e2
+    | BinaryOp (p, Plus, e1, e2) -> p2 p "+" e1 e2
+    | BinaryOp (p, Div, e1, e2) -> p2 p "/" e1 e2
+    | BinaryOp (p, Times, e1, e2) -> p2 p "*" e1 e2
+    | BinaryOp (p, IntDiv, e1, e2) -> p2 p "div" e1 e2
 
-    | BVAnd (p, e1, e2) -> p2 p "&" e1 e2
-    | BVOr (p, e1, e2) -> p2 p "|" e1 e2
-    | BVNot (p, e) -> p1 p "!" e
-    | BVShiftL (p, e1, e2) -> p2 p "shl" e1 e2
-    | BVShiftR (p, e1, e2) -> p2 p "shr" e1 e2
+    | BinaryOp (p, BVAnd, e1, e2) -> p2 p "&" e1 e2
+    | BinaryOp (p, BVOr, e1, e2) -> p2 p "|" e1 e2
+    | UnaryOp (p, BVNot, e) -> p1 p "!" e
+    | BinaryOp (p, BVShiftL, e1, e2) -> p2 p "shl" e1 e2
+    | BinaryOp (p, BVShiftR, e1, e2) -> p2 p "shr" e1 e2
 
+    | TernaryOp (p, Ite, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
+    | TernaryOp (p, With, e1, e2, e3) -> p3 p "with" "then" "else" e1 e2 e3
 
-    | Ite (p, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
-
-    | With (p, e1, e2, e3) -> p3 p "with" "then" "else" e1 e2 e3
-
-    | Eq (p, e1, e2) -> p2 p "=" e1 e2
-    | Neq (p, e1, e2) -> p2 p "<>" e1 e2
-    | Lte (p, e1, e2) -> p2 p "<=" e1 e2
-    | Lt (p, e1, e2) -> p2 p "<" e1 e2
-    | Gte (p, e1, e2) -> p2 p ">=" e1 e2
-    | Gt (p, e1, e2) -> p2 p ">" e1 e2
+    | CompOp (p, Eq, e1, e2) -> p2 p "=" e1 e2
+    | CompOp (p, Neq, e1, e2) -> p2 p "<>" e1 e2
+    | CompOp (p, Lte, e1, e2) -> p2 p "<=" e1 e2
+    | CompOp (p, Lt, e1, e2) -> p2 p "<" e1 e2
+    | CompOp (p, Gte, e1, e2) -> p2 p ">=" e1 e2
+    | CompOp (p, Gt, e1, e2) -> p2 p ">" e1 e2
 
     | When (p, e1, e2) ->
       Format.fprintf ppf "%a %a when %a"
@@ -1228,23 +1195,12 @@ let pp_print_program ppf p =
 
 let pos_of_expr = function
   | Ident (pos , _) | ModeRef (pos , _ ) | RecordProject (pos , _ , _)
-  | TupleProject (pos , _ , _) | StructUpdate (pos , _ , _ , _) | True pos
-  | False pos | Num (pos , _) | Dec (pos , _) | ToInt (pos , _) 
-  | ToUInt8(pos , _) | ToUInt16(pos , _) | ToUInt32(pos , _) | ToUInt64(pos , _)
-  | ToInt8(pos , _) | ToInt16(pos , _) | ToInt32(pos , _) | ToInt64(pos , _)
-  | ToReal (pos , _) | ExprList (pos , _ ) | TupleExpr (pos , _ )
-  | ArrayExpr (pos , _ ) | ArrayConstr (pos , _ , _ )
+  | TupleProject (pos , _ , _) | StructUpdate (pos , _ , _ , _) | Const (pos, _)
+  | ConvOp (pos , _, _) | GroupExpr (pos , _, _ ) | ArrayConstr (pos , _ , _ )
   | ArraySlice (pos , _ , _) | ArrayConcat (pos , _ , _)
-  | RecordExpr (pos , _ , _) | Not (pos , _) | And (pos , _ , _)
-  | Or (pos , _ , _) | Xor (pos , _ , _) | Impl (pos , _ , _)
-  | OneHot (pos , _ ) | Uminus (pos , _) | Mod (pos , _ , _)
-  | Minus (pos , _ , _) | Plus (pos , _ , _) | Div (pos , _ , _)
-  | Times (pos , _ , _) | IntDiv (pos , _ , _) 
-  | BVAnd (pos, _, _) | BVOr (pos, _, _) | BVNot (pos, _) 
-  | BVShiftL (pos, _, _) | BVShiftR (pos, _, _)
-  | Ite (pos , _ , _ , _) | With (pos , _ , _ , _) | Eq (pos , _ , _) | Neq (pos , _ , _)
-  | Lte (pos , _ , _) | Lt (pos , _ , _) | Gte (pos , _ , _) | Gt (pos , _ , _)
-  | Forall (pos, _, _) | Exists (pos, _, _)
+  | RecordExpr (pos , _ , _) | UnaryOp (pos , _, _) | BinaryOp (pos , _, _ , _)
+  | NArityOp (pos , _, _ ) | TernaryOp (pos , _, _ , _ , _) | CompOp (pos , _, _ , _)
+  | Quantifier (pos, _, _, _)
   | When (pos , _ , _) | Current (pos , _) | Condact (pos , _ , _ , _ , _, _)
   | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
   | Last (pos , _) | RestartEvery (pos, _, _, _)
@@ -1254,36 +1210,27 @@ let pos_of_expr = function
 
 
 let rec has_unguarded_pre ung = function
-  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> false
+  | Const _ | Ident _ | ModeRef _ -> false
     
-  | RecordProject (_, e, _) | ToInt (_, e) | ToUInt8 (_, e) 
-  | ToUInt16 (_, e) | ToUInt32 (_, e) | ToUInt64 (_, e) | ToInt8 (_, e) 
-  | ToInt16 (_, e) | ToInt32 (_, e) | ToInt64 (_, e) | ToReal (_, e)
-  | Not (_, e) | Uminus (_, e) | BVNot (_, e) | Current (_, e) | When (_, e, _)
-  | Forall (_, _, e) | Exists (_, _, e) -> has_unguarded_pre ung e
+  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
+  | Quantifier (_, _, _, e) -> has_unguarded_pre ung e
 
-  | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
-  | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
-  | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
-  | Times (_, e1, e2) | IntDiv (_, e1, e2) | BVAnd (_, e1, e2) 
-  | BVOr (_, e1, e2) | BVShiftL (_, e1, e2) | BVShiftR (_, e1, e2)
-  | Eq (_, e1, e2) | Neq (_, e1, e2)
-  | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
-  | ArrayConcat (_, e1, e2) ->
+  | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
+  | CompOp (_, _, e1, e2) | ArrayConcat (_, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre ung e2 in
-
     u1 || u2
 
-  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
+  | TernaryOp (_, _, e1, e2, e3)
   | ArraySlice (_, e1, (e2, e3)) ->
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre ung e2 in
     let u3 = has_unguarded_pre ung e3 in
     u1 || u2 || u3
   
-  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
-  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+  | GroupExpr (_, _, l) | NArityOp (_, _, l)
+  | Call (_, _, l) | CallParam (_, _, _, l) ->
     let us = List.map (has_unguarded_pre ung) l in
     List.exists Lib.identity us
 
@@ -1376,30 +1323,21 @@ let some_of_list = List.fold_left (
 
 (** Checks whether an expression has a `pre` or a `->`. *)
 let rec has_pre_or_arrow = function
-  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> None
+  | Const _ | Ident _ | ModeRef _ -> None
     
-  | RecordProject (_, e, _) | ToInt (_, e) | ToUInt8 (_, e) 
-  | ToUInt16 (_, e) | ToUInt32 (_, e) | ToUInt64 (_, e) | ToInt8 (_, e) 
-  | ToInt16 (_, e) | ToInt32 (_, e) | ToInt64 (_, e) | ToReal (_, e)
-  | Not (_, e) | Uminus (_, e) | BVNot (_, e) | Current (_, e) | When (_, e, _)
-  | Forall (_, _, e) | Exists (_, _, e) ->
+  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
+  | Quantifier (_, _, _, e) ->
     has_pre_or_arrow e
 
-  | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
-  | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
-  | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
-  | Times (_, e1, e2) | IntDiv (_, e1, e2) | BVAnd (_, e1, e2) 
-  | BVOr (_, e1, e2) | BVShiftL (_, e1, e2) | BVShiftR (_, e1, e2)
-  | Eq (_, e1, e2) | Neq (_, e1, e2)
-  | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
-  | ArrayConcat (_, e1, e2) -> (
+  | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
+  | ArrayConcat (_, e1, e2) | ArrayConstr (_, e1, e2)  -> (
     match has_pre_or_arrow e1 with
     | None -> has_pre_or_arrow e2
     | res -> res
   )
 
-  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
-  | ArraySlice (_, e1, (e2, e3)) ->
+  | TernaryOp (_, _, e1, e2, e3) | ArraySlice (_, e1, (e2, e3)) ->
     has_pre_or_arrow e1
     |> unwrap_or (
       fun _ ->
@@ -1409,8 +1347,8 @@ let rec has_pre_or_arrow = function
         )
     )
   
-  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
-  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+  | GroupExpr (_, _, l) | NArityOp (_, _, l)
+  | Call (_, _, l) | CallParam (_, _, _, l) ->
     List.map has_pre_or_arrow l
     |> some_of_list
 
@@ -1460,31 +1398,22 @@ let rec has_pre_or_arrow = function
 
 (** Returns identifiers under a last operator *)
 let rec lasts_of_expr acc = function
-  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> acc
+  | Const _ | Ident _ | ModeRef _ -> acc
     
-  | RecordProject (_, e, _) | ToInt (_, e) | ToUInt8 (_, e) 
-  | ToUInt16 (_, e) | ToUInt32 (_, e) | ToUInt64 (_, e) | ToInt8 (_, e) 
-  | ToInt16 (_, e) | ToInt32 (_, e) | ToInt64 (_, e) | ToReal (_, e)
-  | Not (_, e) | Uminus (_, e) | BVNot (_, e) | Current (_, e) 
-  | When (_, e, _) | Forall (_, _, e) | Exists (_, _, e) ->
+  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
+  | Quantifier (_, _, _, e) ->
     lasts_of_expr acc e
 
-  | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
-  | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
-  | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
-  | Times (_, e1, e2) | IntDiv (_, e1, e2) | BVAnd (_, e1, e2) 
-  | BVOr (_, e1, e2) | BVShiftL (_, e1, e2) | BVShiftR (_, e1, e2) 
-  | Eq (_, e1, e2) | Neq (_, e1, e2)
-  | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
-  | ArrayConcat (_, e1, e2) ->
+  | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
+  | ArrayConcat (_, e1, e2) | ArrayConstr (_, e1, e2)  ->
     lasts_of_expr (lasts_of_expr acc e1) e2
 
-  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
-  | ArraySlice (_, e1, (e2, e3)) ->
+  | TernaryOp (_, _, e1, e2, e3) | ArraySlice (_, e1, (e2, e3)) ->
     lasts_of_expr (lasts_of_expr (lasts_of_expr acc e1) e2) e3
   
-  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
-  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+  | GroupExpr (_, _, l) | NArityOp (_, _, l)
+  | Call (_, _, l) | CallParam (_, _, _, l) ->
     List.fold_left lasts_of_expr acc l
 
   | Merge (_, _, l) ->
@@ -1521,7 +1450,7 @@ let rec lasts_of_expr acc = function
 
 
 let rec replace_lasts allowed prefix acc ee = match ee with
-  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ ->
+  | Const _ | Ident _ | ModeRef _ ->
     ee, acc
     
   | RecordProject (pos, e, i) ->
@@ -1529,70 +1458,15 @@ let rec replace_lasts allowed prefix acc ee = match ee with
     if e == e' then ee, acc
     else RecordProject (pos, e', i), acc'
          
-  | ToInt (pos, e) ->
+  | ConvOp (pos, op, e) ->
     let e', acc' = replace_lasts allowed prefix acc e in
     if e == e' then ee, acc
-    else ToInt (pos, e'), acc'
+    else ConvOp (pos, op, e'), acc'
 
-  | ToUInt8 (pos, e) ->
+  | UnaryOp (pos, op, e) ->
     let e', acc' = replace_lasts allowed prefix acc e in
     if e == e' then ee, acc
-    else ToUInt8 (pos, e'), acc'
-
-  | ToUInt16 (pos, e) ->
-    let e', acc' = replace_lasts allowed prefix acc e in
-    if e == e' then ee, acc
-    else ToUInt16 (pos, e'), acc'
-  
-  | ToUInt32 (pos, e) ->
-    let e', acc' = replace_lasts allowed prefix acc e in
-    if e == e' then ee, acc
-    else ToUInt32 (pos, e'), acc'
-
-  | ToUInt64 (pos, e) ->
-    let e', acc' = replace_lasts allowed prefix acc e in
-    if e == e' then ee, acc
-    else ToUInt64 (pos, e'), acc'
-
-  | ToInt8 (pos, e) ->
-    let e', acc' = replace_lasts allowed prefix acc e in
-    if e == e' then ee, acc
-    else ToInt8 (pos, e'), acc'
-
-  | ToInt16 (pos, e) ->
-    let e', acc' = replace_lasts allowed prefix acc e in
-    if e == e' then ee, acc
-    else ToInt16 (pos, e'), acc'
-  
-  | ToInt32 (pos, e) ->
-    let e', acc' = replace_lasts allowed prefix acc e in
-    if e == e' then ee, acc
-    else ToInt32 (pos, e'), acc'
-
-  | ToInt64 (pos, e) ->
-    let e', acc' = replace_lasts allowed prefix acc e in
-    if e == e' then ee, acc
-    else ToInt64 (pos, e'), acc'
-
-  | ToReal (pos, e) ->
-    let e', acc' = replace_lasts allowed prefix acc e in
-    if e == e' then ee, acc
-    else ToReal (pos, e'), acc'
-
-  | Not (pos, e) ->
-    let e', acc' = replace_lasts allowed prefix acc e in
-    if e == e' then ee, acc
-    else Not (pos, e'), acc'
-
-  | Uminus (pos, e) ->
-    let e', acc' = replace_lasts allowed prefix acc e in
-    if e == e' then ee, acc
-    else Uminus (pos, e'), acc'
-
-  | BVNot (pos, e) -> 
-    let e', acc' = replace_lasts allowed prefix acc e in
-    if e == e' then ee,acc
-    else BVNot (pos, e'), acc'
+    else UnaryOp (pos, op, e'), acc'
 
   | Current (pos, e) ->
     let e', acc' = replace_lasts allowed prefix acc e in
@@ -1604,68 +1478,57 @@ let rec replace_lasts allowed prefix acc ee = match ee with
     if e == e' then ee, acc
     else When (pos, e', c), acc'
 
-  | Forall (pos, vs, e) ->
+  | Quantifier (pos, q, vs, e) ->
     let e', acc' = replace_lasts allowed prefix acc e in
     if e == e' then ee, acc
-    else Forall (pos, vs, e'), acc'
+    else Quantifier (pos, q, vs, e'), acc'
 
-  | Exists (pos, vs, e) ->
-    let e', acc' = replace_lasts allowed prefix acc e in
-    if e == e' then ee, acc
-    else Exists (pos, vs, e'), acc'
-
-  | TupleProject (pos, e1, e2)
-  | And (pos, e1, e2) | Or (pos, e1, e2) | Xor (pos, e1, e2)
-  | Impl (pos, e1, e2) | ArrayConstr (pos, e1, e2) | Mod (pos, e1, e2)
-  | Minus (pos, e1, e2) | Plus (pos, e1, e2) | Div (pos, e1, e2)
-  | Times (pos, e1, e2) | IntDiv (pos, e1, e2) | BVAnd (pos, e1, e2)
-  | BVOr (pos, e1, e2) | BVShiftL (pos, e1, e2) | BVShiftR (pos, e1, e2) 
-  | Eq (pos, e1, e2) | Neq (pos, e1, e2) 
-  | Lte (pos, e1, e2) | Lt (pos, e1, e2)
-  | Gte (pos, e1, e2) | Gt (pos, e1, e2) | ArrayConcat (pos, e1, e2) ->
+  | TupleProject (pos, e1, e2) ->
     let e1', acc' = replace_lasts allowed prefix acc e1 in
     let e2', acc' = replace_lasts allowed prefix acc' e2 in
     if e1 == e1' && e2 == e2' then ee, acc
-    else (match ee with
-        | TupleProject (pos, e1, e2) -> TupleProject (pos, e1', e2')
-        | And (pos, e1, e2) -> And (pos, e1', e2')
-        | Or (pos, e1, e2) -> Or (pos, e1', e2')
-        | Xor (pos, e1, e2) -> Xor (pos, e1', e2')
-        | Impl (pos, e1, e2) -> Impl (pos, e1', e2')
-        | ArrayConstr (pos, e1, e2)  -> ArrayConstr (pos, e1', e2') 
-        | Mod (pos, e1, e2) -> Mod (pos, e1', e2')
-        | Minus (pos, e1, e2) -> Minus (pos, e1', e2')
-        | Plus (pos, e1, e2) -> Plus (pos, e1', e2')
-        | Div (pos, e1, e2) -> Div (pos, e1', e2')
-        | Times (pos, e1, e2) -> Times (pos, e1', e2')
-        | IntDiv (pos, e1, e2) -> IntDiv (pos, e1', e2')
-        | BVAnd (pos, e1, e2) -> BVAnd (pos, e1', e2')
-        | BVOr (pos, e1, e2) -> BVOr (pos, e1', e2')
-        | Eq (pos, e1, e2) -> Eq (pos, e1', e2')
-        | Neq (pos, e1, e2) -> Neq (pos, e1', e2')
-        | Lte (pos, e1, e2) -> Lte (pos, e1', e2')
-        | Lt (pos, e1, e2) -> Lt (pos, e1', e2')
-        | Gte (pos, e1, e2) -> Gte (pos, e1', e2')
-        | Gt (pos, e1, e2) -> Gt (pos, e1', e2')
-        | ArrayConcat (pos, e1, e2) -> ArrayConcat (pos, e1', e2')
-        | _ -> assert false
-      ), acc'
+    else TupleProject (pos, e1', e2'), acc'
 
-  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
-  | ArraySlice (_, e1, (e2, e3)) ->
+  | ArrayConstr (pos, e1, e2) ->
+    let e1', acc' = replace_lasts allowed prefix acc e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    if e1 == e1' && e2 == e2' then ee, acc
+    else ArrayConstr (pos, e1', e2'), acc'
+
+  | BinaryOp (pos, op, e1, e2) ->
+    let e1', acc' = replace_lasts allowed prefix acc e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    if e1 == e1' && e2 == e2' then ee, acc
+    else BinaryOp (pos, op, e1', e2'), acc'
+
+  | CompOp (pos, op, e1, e2) ->
+    let e1', acc' = replace_lasts allowed prefix acc e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    if e1 == e1' && e2 == e2' then ee, acc
+    else CompOp (pos, op, e1', e2'), acc'
+
+  | ArrayConcat (pos, e1, e2) ->
+    let e1', acc' = replace_lasts allowed prefix acc e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    if e1 == e1' && e2 == e2' then ee, acc
+    else ArrayConcat (pos, e1', e2'), acc'
+
+  | TernaryOp (pos, op, e1, e2, e3) ->
     let e1', acc' = replace_lasts allowed prefix acc e1 in
     let e2', acc' = replace_lasts allowed prefix acc' e2 in
     let e3', acc' = replace_lasts allowed prefix acc' e3 in
     if e1 == e1' && e2 == e2' && e3 == e3' then ee, acc
-    else (match ee with
-        | Ite (pos, e1, e2, e3) -> Ite (pos, e1', e2', e3')
-        | With (pos, e1, e2, e3) -> With (pos, e1', e2', e3')
-        | ArraySlice (pos, e1, (e2, e3)) -> ArraySlice (pos, e1', (e2', e3'))
-        | _ -> assert false
-      ), acc'
+    else TernaryOp (pos, op, e1', e2', e3'), acc'
+
+  | ArraySlice (pos, e1, (e2, e3)) ->
+    let e1', acc' = replace_lasts allowed prefix acc e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    let e3', acc' = replace_lasts allowed prefix acc' e3 in
+    if e1 == e1' && e2 == e2' && e3 == e3' then ee, acc
+    else ArraySlice (pos, e1', (e2', e3')), acc'
   
-  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
-  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+  | GroupExpr (_, _, l) | NArityOp (_, _, l)
+  | Call (_, _, l) | CallParam (_, _, _, l) ->
     let l', acc' =
       List.fold_left (fun (l, acc) e ->
           let e, acc = replace_lasts allowed prefix acc e in
@@ -1674,15 +1537,12 @@ let rec replace_lasts allowed prefix acc ee = match ee with
     let l' = List.rev l' in
     if try List.for_all2 (==) l l' with _ -> false then ee, acc
     else (match ee with
-        | ExprList (pos, l) -> ExprList (pos, l')
-        | TupleExpr (pos, l) -> TupleExpr (pos, l')
-        | ArrayExpr (pos, l) -> ArrayExpr (pos, l')
-        | OneHot (pos, l) -> OneHot (pos, l')
+        | GroupExpr (pos, g, l) -> GroupExpr (pos, g, l')
+        | NArityOp (pos, op, l) -> NArityOp (pos, op, l')
         | Call (pos, n, l) -> Call (pos, n, l')
         | CallParam (pos, n, t, l) -> CallParam (pos, n, t, l')
         | _ -> assert false
       ), acc'
-      
 
   | Merge (pos, c, l) ->
     let l', acc' =
