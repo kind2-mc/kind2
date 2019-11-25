@@ -387,21 +387,25 @@ let extract_props_terms sys =
 (* Extract properties and invariants together with their certificates from a
    system. *)
 let extract_props_certs sys =
+
+  (* We add certificates of the invariants first,
+    because certificates of properties may depend on invariants *)
+  let certs, invs = List.fold_left (fun (c_acc, i_acc) (i, c) ->
+    (* let (k, p') = c in
+    KEvent.log_uncond "[INV] %a -----> %i:%a" Term.pp_print_term i k Term.pp_print_term p' ; *)
+    (c :: c_acc, i :: i_acc)
+  ) ([], []) (TS.get_invariants sys |> Invs.flatten) in
+
   let certs, props = List.fold_left (fun ((c_acc, p_acc) as acc) -> function
-      | { Property.prop_source = Property.Candidate _ } ->
-        (* Put valid candidates in invariants *)
-        acc
+      | { Property.prop_source = Property.Candidate _ } -> acc
       | { Property.prop_status = Property.PropInvariant c; prop_term = p } ->
-        c :: c_acc, p :: p_acc
+        (* let (k,p') = c in
+        KEvent.log_uncond "[PROP] %a -----> %i:%a" Term.pp_print_term p k Term.pp_print_term p' ; *)
+        (if List.exists (Term.equal p) invs then c_acc else c :: c_acc), p :: p_acc
       | { Property.prop_name } ->
         KEvent.log L_info "Skipping unproved property %s" prop_name;
         acc
-    ) ([], []) (TS.get_real_properties sys) in
-
-  let certs = List.fold_left (fun c_acc (i, c) ->
-      if List.exists (Term.equal i) props then c_acc
-      else c :: c_acc
-    ) certs (TS.get_invariants sys |> Invs.flatten) in
+    ) (certs, []) (TS.get_real_properties sys) in
 
   let certs =  List.fold_left (fun certs -> function
       | { Property.prop_status = Property.PropInvariant c;
@@ -945,7 +949,7 @@ let rec find_bound sys solver k kmax invs prop =
 
 (* Pre-compute activation literal for unrolling of transtion relation between 1
    and k. We do this because we don't want to assert the whole k unrollings of
-   the the transition relation as this can overwhelm the solver. *)
+   the transition relation as this can overwhelm the solver. *)
 let unroll_trans_actlits sys solver kmax =
 
   let rec fill acc prev = function
