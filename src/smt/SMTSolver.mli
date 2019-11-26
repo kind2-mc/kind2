@@ -32,6 +32,7 @@ exception Unknown
 (** Create a new instance of an SMT solver of the given kind and with
     the given flags *)
 val create_instance :
+  ?timeout: int ->
   ?produce_assignments:bool ->
   ?produce_proofs:bool ->
   ?produce_cores:bool ->

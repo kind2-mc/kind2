@@ -22,6 +22,7 @@ include GenericSMTLIBDriver
 (* Configuration for Yices *)
 let cmd_line
     logic
+    timeout
     produce_assignments
     produce_proofs
     produce_cores

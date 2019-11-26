@@ -20,8 +20,9 @@ open Lib
 
 
 (* Configuration for Yices *)
-let cmd_line 
+let cmd_line
     logic
+    timeout
     produce_assignments
     produce_proofs
     produce_cores
@@ -49,7 +50,7 @@ let check_sat_assuming_cmd _ =
   failwith "Yices: check_sat_assuming not applicable"
 
 
-let headers _ = []
+let headers _ _ = []
 
 let prelude =
   [

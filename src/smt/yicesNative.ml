@@ -1189,6 +1189,7 @@ let create_instance
   let solver_cmd  = 
     YicesDriver.cmd_line
       logic
+      0
       produce_assignments
       produce_proofs
       produce_cores
@@ -1282,7 +1283,7 @@ let create_instance
   let headers =
     (Format.sprintf "(set-evidence! %B)" evidence) ::
     (header_logic solver) @
-    (headers ())
+    (headers 0 false)
   in
   
   (* Print specific headers specifications *)

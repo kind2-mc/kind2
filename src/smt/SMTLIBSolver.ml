@@ -888,6 +888,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
   (* Create an instance of the solver *)
   let create_instance
+      ?(timeout=0)
       ?(produce_assignments=false)
       ?(produce_proofs=false)
       ?(produce_cores=false)
@@ -898,8 +899,9 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     
     (* Get autoconfigured configuration *)
     let solver_cmd  = 
-      Driver.cmd_line 
+      Driver.cmd_line
         logic
+        timeout
         produce_assignments
         produce_proofs
         produce_cores
@@ -976,7 +978,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
     let headers =
       "(set-option :print-success true)" ::
-      (headers minimize_cores) @
+      (headers timeout minimize_cores) @
       (if produce_assignments then
          ["(set-option :produce-assignments true)"] else []) @
       (if produce_cores then
@@ -1124,6 +1126,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     module Conv = Conv
     
     let solver = create_instance
+        ~timeout:P.timeout
         ~produce_assignments:P.produce_assignments
         ~produce_cores:P.produce_cores
         ~minimize_cores:P.minimize_cores

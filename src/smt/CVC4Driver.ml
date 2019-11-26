@@ -23,6 +23,7 @@ include GenericSMTLIBDriver
 (* Configuration for CVC4 *)
 let cmd_line
     logic
+    timeout
     produce_assignments
     produce_proofs
     produce_cores

@@ -19,8 +19,9 @@
 include GenericSMTLIBDriver
 
 (* Configuration for Z3 *)
-let cmd_line 
+let cmd_line
     logic
+    timeout
     produce_assignments
     produce_proofs
     produce_cores
@@ -38,11 +39,12 @@ let check_sat_limited_cmd ms =
   Format.sprintf "(check-sat-using (try-for smt %d))" ms
 
 
-let headers minimize_cores =
+let headers timeout minimize_cores =
   ["(set-option :interactive-mode true)"] @
-  (* Core minimization only supported in Z3 for now *)
-  if minimize_cores then ["(set-option :smt.core.minimize true)"] else []
-
+  (* Core minimization only supported by Z3 for now *)
+  (if minimize_cores then ["(set-option :smt.core.minimize true)"] else []) @
+  (* Soft-timeout only supported by Z3 for now *)
+  (if timeout > 0 then [Printf.sprintf "(set-option :timeout %i)" timeout] else [])
 
 let string_of_logic l =
   let open TermLib in

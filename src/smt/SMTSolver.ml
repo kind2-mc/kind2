@@ -102,9 +102,14 @@ let bool_of_bool_option = function
   | None -> false
   | Some b -> b
 
+let bool_of_int_option = function
+  | None -> 0
+  | Some i -> i
+
 (* Create a new instance of an SMT solver, declare all currently created
    uninterpreted function symbols *)
 let create_instance
+    ?timeout
     ?produce_assignments
     ?produce_proofs
     ?produce_cores
@@ -119,6 +124,7 @@ let create_instance
   (* Module for parameters of solver instance *)
   let module Params = 
   struct
+    let timeout = bool_of_int_option timeout
     let produce_assignments = bool_of_bool_option produce_assignments
     let produce_proofs = bool_of_bool_option produce_proofs
     let produce_cores = bool_of_bool_option produce_cores
