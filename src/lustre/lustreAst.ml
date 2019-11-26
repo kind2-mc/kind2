@@ -712,7 +712,7 @@ and pp_print_lustre_type ppf = function
   | ArrayType (pos, (t, e)) -> 
 
     Format.fprintf ppf 
-      "(%a^%a)" 
+      "%a^%a" 
       pp_print_lustre_type t 
       pp_print_expr e
 

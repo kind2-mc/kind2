@@ -459,15 +459,14 @@ and minimize_expr ue lst typ expr =
 
 let tyof_lhs id_typ_map lhs =
   let A.StructDef (pos, items) = lhs in
-  let main = List.hd items in
   let rec aux = function
-  | A.SingleIdent (_,id) -> [IdMap.find id id_typ_map]
-  | A.TupleStructItem (_,items) -> List.map aux items |> List.flatten
-  | A.ArraySliceStructItem _ | A.ArrayDef _ | A.FieldSelection _ | A.TupleSelection _
+  | A.SingleIdent (_,id) as e -> [e, IdMap.find id id_typ_map]
+  | A.ArrayDef (pos,id,_) -> [A.SingleIdent (pos,id), IdMap.find id id_typ_map]
+  | A.TupleStructItem _ | A.ArraySliceStructItem _ | A.FieldSelection _ | A.TupleSelection _
     -> assert false
   in
-  let typ = aux main in
-  (A.StructDef (pos, [main]), typ)
+  let (items,typ) = List.map aux items |> List.flatten |> List.split in
+  (A.StructDef (pos, items), typ)
 
 let minimize_node_eq id_typ_map ue lst = function
   | A.Assert (pos, expr) when
@@ -1193,7 +1192,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
       else
         try
           check (approximate || !has_timeout) keep test
-        with Failure _ (* Timeout *) -> (
+        with SMTSolver.Timeout -> (
           has_timeout := true ;
           OK test
         )

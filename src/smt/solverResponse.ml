@@ -17,7 +17,7 @@
 *)
 
 
-type error_response = [ `Error of string ]
+type error_response = [ `Error of string | `Timeout ]
        
 type no_response = [ `NoResponse ]
 
@@ -124,6 +124,9 @@ let pp_print_response ppf = function
   | `Error e -> 
     Format.pp_print_string ppf "Error: "; 
     Format.pp_print_string ppf e
+
+  | `Timeout -> 
+    Format.pp_print_string ppf "Timeout"; 
 
   | `Sat -> Format.pp_print_string ppf "Sat"
 

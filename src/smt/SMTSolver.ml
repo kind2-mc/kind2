@@ -21,6 +21,7 @@ open SolverResponse
 
 
 exception Unknown
+exception Timeout
 
 
 module IntMap = Map.Make(
@@ -70,13 +71,18 @@ let add_solver ( { id } as solver ) =
 (** Forgets a solver. *)
 let drop_solver { id } =
   all_solvers := IntMap.remove id !all_solvers
+(* Destroys a solver instance. *)
+let destroy s =
+  let module S = (val s.solver_inst) in
+  S.delete_instance ()
 
 (* Raise an exception on error responses from the SMT solver *)
-let fail_on_smt_error = function       
+let fail_on_smt_error s = function
+
+  | `Timeout -> drop_solver s ; destroy s ; raise Timeout
 
   | `Error e -> 
-    raise 
-      (Failure ("SMT solver failed: " ^ e))
+    raise (Failure ("SMT solver failed: " ^ e))
 
   | `Unsupported -> 
     raise 
@@ -88,7 +94,16 @@ let fail_on_smt_error = function
       (Failure 
          ("SMT solver did not produce a reply"))
 
-  | _ -> () 
+  | _ -> ()
+
+let smt_error s = function
+
+  | `Timeout -> drop_solver s ; destroy s ; raise Timeout
+
+  | `Error e -> 
+    raise (Failure ("SMT solver failed: " ^ e))
+
+  | _ -> assert false
 
 (* Format for named literals in unsat core for check-sat with
    assumptions *)
@@ -160,11 +175,6 @@ let create_instance
 
   solver
 
-(* Destroys a solver instance. *)
-let destroy s =
-  let module S = (val s.solver_inst) in
-  S.delete_instance ()
-
 (* Delete a solver instance *)
 let delete_instance s =
   if (IntMap.mem s.id !all_solvers) then (
@@ -191,14 +201,14 @@ let id_of_instance { id } = id
 (* Declare an uninterpreted sort symbol *) 
 let declare_sort s sort =
   let module S = (val s.solver_inst) in
-  fail_on_smt_error (S.declare_sort sort)
+  fail_on_smt_error s (S.declare_sort sort)
 
 
 (* Declare an uninterpreted function symbol *) 
 let declare_fun s uf_symbol =
   let module S = (val s.solver_inst) in
 
-  fail_on_smt_error 
+  fail_on_smt_error s
     (S.declare_fun
        (UfSymbol.string_of_uf_symbol uf_symbol)
        (UfSymbol.arg_type_of_uf_symbol uf_symbol)
@@ -209,7 +219,7 @@ let declare_fun s uf_symbol =
 let define_fun s uf_symbol vars term =
   let module S = (val s.solver_inst) in
 
-  fail_on_smt_error 
+  fail_on_smt_error s
     (S.define_fun
        (UfSymbol.string_of_uf_symbol uf_symbol)
        vars
@@ -226,7 +236,7 @@ let define_fun s uf_symbol vars term =
 let assert_expr s expr =
   let module S = (val s.solver_inst) in
   (* Assert SMT expression in solver instance and fail on error *)
-  fail_on_smt_error (S.assert_expr expr)
+  fail_on_smt_error s (S.assert_expr expr)
 
 
 (* Convert a term to an SMT expression and assert *)
@@ -237,7 +247,7 @@ let assert_term s term =
   let expr = S.Conv.smtexpr_of_term term in
 
   (* Assert SMT expression in solver instance and fail on error *)
-  fail_on_smt_error (S.assert_expr expr)
+  fail_on_smt_error s (S.assert_expr expr)
 
 
 (* Name a term with a fresh name, convert to an SMT expression and
@@ -266,12 +276,12 @@ let assert_named_term_wr s term =
 (* Push a new scope to the context and fail on error *)
 let push ?(n = 1) s =
   let module S = (val s.solver_inst) in
-  fail_on_smt_error (S.push n) 
+  fail_on_smt_error s (S.push n) 
 
 (* Pop a new scope from the context and fail on error *)
 let pop ?(n = 1) s =
   let module S = (val s.solver_inst) in
-  fail_on_smt_error (S.pop n)
+  fail_on_smt_error s (S.pop n)
 
 
 (* ******************************************************************** *)
@@ -335,9 +345,7 @@ let check_sat ?(timeout = 0) s =
   | `Unknown -> raise Unknown
 
   (* Fail on error *)
-  | `Error _ as r -> 
-    fail_on_smt_error r; 
-    failwith "SMT solver returned Success on check-sat"
+  | r -> smt_error s r
 
 
 (* Convert models given as pairs of SMT expressions to pairs of
@@ -547,11 +555,6 @@ let get_var_values s state_var_indexes vars =
   (* Get values of SMT expressions in current context *)
   let model =
     match prof_get_value s sexpr_vars with 
-
-    | `Error e -> 
-      raise 
-        (Failure ("SMT solver failed: " ^ e))
-
     | `Values v -> 
 
       model_of_smt_values 
@@ -565,6 +568,8 @@ let get_var_values s state_var_indexes vars =
            (Term.free_var_of_term t)
         )
         Var.type_of_var s v
+
+      | r -> smt_error s r
   in
 
   (* Get model for arrays *)
@@ -616,7 +621,7 @@ let get_var_values s state_var_indexes vars =
         if sexprs = [] then [] (* when the size of the array is 0 in the model *)
         else match prof_get_value s sexprs with
           | `Values v -> v
-          | `Error e -> raise (Failure ("SMT solver failed: " ^ e))
+          | r -> smt_error s r
       in
       let m =
         List.fold_left (fun acc (t, e) ->
@@ -637,21 +642,12 @@ let get_var_values s state_var_indexes vars =
 (* Get model of the current context *)
 let get_model s =
   let module S = (val s.solver_inst) in
-
   match 
-    
     (* Get model in current context *)
     prof_get_model s ()
-
   with 
-    
-    | `Error e -> 
-      raise 
-        (Failure ("SMT solver failed: " ^ e))
-        
-    | `Model m ->
-      
-      partial_model_of_smt_model s m 
+    | `Model m -> partial_model_of_smt_model s m 
+    | r -> smt_error s r
 
 
 (* Get unsat core of the current context *)
@@ -659,13 +655,9 @@ let get_unsat_core_of_names s =
 
   match prof_get_unsat_core s with 
 
-  | `Error e -> 
-    raise 
-      (Failure ("SMT solver failed: " ^ e))
-
   | `Unsat_core c -> 
 
-    try 
+    begin try 
 
       (* Convert strings t<int> to integer *)
       let core_names = 
@@ -686,6 +678,9 @@ let get_unsat_core_of_names s =
     | End_of_file
     | Failure _ -> 
       raise (Failure "Invalid string in reply from SMT solver")
+    end
+
+  | r -> smt_error s r
 
         
 (* Get unsat core of the current context *)
@@ -693,10 +688,6 @@ let get_unsat_core_lits s =
   let module S = (val s.solver_inst) in
   
   match prof_get_unsat_core s with 
-
-    | `Error e -> 
-      raise 
-        (Failure ("SMT solver failed: " ^ e))
 
     | `Unsat_core c -> 
 
@@ -739,6 +730,8 @@ let get_unsat_core_lits s =
             with Failure _ -> a)
           []
           c
+
+    | r -> smt_error s r
       
       
 (* ******************************************************************** *)
@@ -763,11 +756,6 @@ let check_sat_assuming s if_sat if_unsat literals =
         prof_check_sat_assuming s literals
 
       with
-
-        (* Fail on error *)
-        | `Error e -> 
-          raise 
-            (Failure ("SMT solver failed: " ^ e))
             
         (* Return true if satisfiable *)
         | `Sat -> true
@@ -777,6 +765,8 @@ let check_sat_assuming s if_sat if_unsat literals =
           
         (* Fail on unknown *)
         | `Unknown -> raise Unknown
+
+        | r -> smt_error s r
                         
     in
     
@@ -850,13 +840,11 @@ let get_term_values s terms =
     (* Get values of SMT expressions in current context *)
     prof_get_value s (List.map S.Conv.smtexpr_of_term terms)
   with
-  | `Error e ->
-    raise
-      (Failure ("SMT solver failed: " ^ e))
 
   | `Values m ->
     values_of_smt_values S.Conv.term_of_smtexpr Term.type_of_term s m
 
+  | r -> smt_error s r
 
 (* In some cases, CVC4 returns syntactically different terms
    to the ones sent in a get-value query. For instance:
@@ -1117,8 +1105,7 @@ let get_qe_z3 simpl solver expr =
     | `Custom r ->
        (* Take first goal as quantifier eliminated term *)
        goals_to_terms solver (List.hd r)
-    | `Error e ->
-       failwith  ("SMT solver failed: " ^ e)
+    | r -> smt_error solver r
   in
   (* Decrement scope level to remove assertion *)
   pop solver;
@@ -1131,7 +1118,7 @@ let get_qe_cvc4 solver expr =
   match execute_custom_command solver "get-qe" [SMTExpr.ArgExpr expr] 1 with
   | `Custom r -> [S.Conv.term_of_smtexpr
       (GenericSMTLIBDriver.expr_of_string_sexpr (List.hd r))]
-  | `Error e -> failwith  ("SMT solver failed: " ^ e)
+  | r -> smt_error solver r
 
 
 let get_qe_expr ?(simpl = false) solver quantified_expr =

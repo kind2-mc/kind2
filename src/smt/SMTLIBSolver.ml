@@ -33,6 +33,7 @@ type _ command_type =
   | CustomCmd : int -> custom_response command_type
 
 
+let s_timeout = HString.mk_hstring "timeout"
 let s_success = HString.mk_hstring "success"
 let s_unsupported = HString.mk_hstring "unsupported"
 let s_error = HString.mk_hstring "error"
@@ -91,6 +92,12 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     
   (***** TODO from smtexpr : inline this later on *****)
 
+  let response_error e = match e with
+    | HStringSExpr.Atom s when s == s_timeout -> `Timeout
+    | e -> 
+      raise 
+        (Failure 
+           ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
 
   (* Return a solver response of an S-expression *)
   let response_of_sexpr : HStringSExpr.t -> decl_response = function 
@@ -107,11 +114,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       `Error (HString.string_of_hstring e)
 
     (* Invalid response *)
-    | e -> 
-
-      raise 
-        (Failure 
-           ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
+    | e -> response_error e
 
   
   (* Return a solver response to a check-sat command of an S-expression *)
@@ -121,11 +124,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     | HStringSExpr.Atom s when s == s_unsat -> `Unsat
     | HStringSExpr.Atom s when s == s_unknown -> `Unknown
     (* | r -> Response (response_of_sexpr r) *)
-    | e -> 
-      raise 
-        (Failure 
-           ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
-
+    | e -> response_error e
 
   (* Helper function to return a solver response to a get-value command
      as expression pairs *)
@@ -214,10 +213,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     | HStringSExpr.List l -> get_value_response_of_sexpr' [] l
 
     (* Solver returned other response *)
-    | e -> 
-      raise 
-        (Failure 
-           ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
+    | e -> response_error e
 
 
 
@@ -260,10 +256,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       |> get_model_response_of_sexpr' []
 
     (* Solver returned other response *)
-    | e -> 
-      raise 
-        (Failure 
-           ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
+    | e -> response_error e
 
 
   (* Return a solver response to a get-unsat-core command as list of strings *)
@@ -287,10 +280,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
            l)
 
     (* Solver returned other response *)
-    | e -> 
-      raise 
-        (Failure 
-           ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
+    | e -> response_error e
 
 
   (* Return a solver response to a custom command *)

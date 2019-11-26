@@ -26,6 +26,7 @@ type t
 
 (** Exception raised when the solver returns "unknown" to a check-sat. *)
 exception Unknown
+exception Timeout
 
 (** {1 Creating and finalizing a solver instance} *)
 
