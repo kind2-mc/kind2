@@ -889,7 +889,8 @@ let get_logic ?(pathcomp=false) sys =
 
 let create_solver ?(pathcomp=false) ?(approximate=false) sys actlits bmin bmax =
   let solver =
-    SMTSolver.create_instance ~produce_assignments:pathcomp ~produce_cores:true
+    SMTSolver.create_instance ~timeout:(Flags.IVC.ivc_uc_timeout ())
+    ~produce_assignments:pathcomp ~produce_cores:true
     ~minimize_cores:(not approximate) (get_logic ~pathcomp sys) (Flags.Smt.solver ()) in
   List.iter (SMTSolver.declare_fun solver) actlits ;
   TS.declare_sorts_ufs_const sys (SMTSolver.declare_fun solver) (SMTSolver.declare_sort solver) ;
@@ -1184,18 +1185,25 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
   (* If Z3 is used, we use the 'minimize cores' feature
     so we do not need to minimize them manually *)
   let z3_used = match Flags.Smt.solver () with `Z3_SMTLIB -> true | _ -> false in
+  let has_timeout = ref false in
   let rec minimize ?(skip_first_check=false) check keep test =
     let first_check =
       if skip_first_check
       then OK test
-      else check keep test
+      else
+        try
+          check (approximate || !has_timeout) keep test
+        with Failure _ (* Timeout *) -> (
+          has_timeout := true ;
+          OK test
+        )
     in
     match first_check with
     | NOT_OK -> (*KEvent.log_uncond "Not k-inductive." ;*) None 
     | OK core ->
       (*KEvent.log_uncond "UNSAT core eliminated %n equations."
         (core_size test - core_size core) ;*)
-      if approximate || z3_used
+      if approximate || (z3_used && not !has_timeout)
       then Some (core_union keep core)
       else
         if is_empty_core core
@@ -1235,7 +1243,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
     ScMap.map (fun v -> List.map eq_of_actlit v) core
   in
 
-  let check keep test =
+  let check approximate keep test =
     KEvent.log L_info "Minimizing using an UNSAT core... (%i left)" (core_size test) ;
     let (init, trans) = terms_of_current_state keep test in
     check_k_inductive ~approximate:approximate sys test init trans prop os_prop k

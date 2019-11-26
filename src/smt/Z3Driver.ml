@@ -30,7 +30,9 @@ let cmd_line
 
   (* Path and name of Z3 executable *)
   let z3_bin = Flags.Smt.z3_bin () in
-  [| z3_bin; "-smt2"; "-in" |]
+  if timeout > 0
+  then [| z3_bin; "-smt2"; Printf.sprintf "-T:%n" timeout ; "-in" |]
+  else [| z3_bin; "-smt2"; "-in" |]
 
 
 (* Command to limit check-sat in Z3 to run for the given numer of ms
@@ -42,9 +44,9 @@ let check_sat_limited_cmd ms =
 let headers timeout minimize_cores =
   ["(set-option :interactive-mode true)"] @
   (* Core minimization only supported by Z3 for now *)
-  (if minimize_cores then ["(set-option :smt.core.minimize true)"] else []) @
-  (* Soft-timeout only supported by Z3 for now *)
-  (if timeout > 0 then [Printf.sprintf "(set-option :timeout %i)" timeout] else [])
+  (if minimize_cores then ["(set-option :smt.core.minimize true)"] else [])
+  (* Hard timeout is already set in cmd_line *)
+  (*(if timeout > 0 then [Printf.sprintf "(set-option :timeout %i)" timeout] else [])*)
 
 let string_of_logic l =
   let open TermLib in

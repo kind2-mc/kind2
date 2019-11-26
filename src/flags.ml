@@ -1307,6 +1307,24 @@ module IVC = struct
     )
   let ivc_impl () = !ivc_impl
 
+
+  let ivc_uc_timeout_default = 10
+  let ivc_uc_timeout = ref ivc_uc_timeout_default
+  let _ = add_spec
+    "--ivc_uc_timeout"
+    (Arg.Set_int ivc_uc_timeout)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Set a timeout for each unsat core request sent to the solver.@ \
+          This setting is ignored if a solver different than Z3 is used.@ \
+          Set to 0 to disable timeout.@ \
+          Default: %n\
+        "
+        ivc_uc_timeout_default
+    )
+  let ivc_uc_timeout () = !ivc_uc_timeout
+
 end
 
 (* Arrays flags. *)
