@@ -785,24 +785,24 @@ pexpr(Q):
   }
 
   (* A propositional constant *)
-  | TRUE { A.True (mk_pos $startpos) }
-  | FALSE { A.False (mk_pos $startpos) }
+  | TRUE { A.Const (mk_pos $startpos, A.True) }
+  | FALSE { A.Const (mk_pos $startpos, A.False) }
 
   (* An integer numeral or a floating-point decimal constant *)
-  | s = NUMERAL { A.Num (mk_pos $startpos, s) } 
-  | s = DECIMAL { A.Dec (mk_pos $startpos, s) } 
+  | s = NUMERAL { A.Const (mk_pos $startpos, A.Num s) } 
+  | s = DECIMAL { A.Const (mk_pos $startpos, A.Dec s) } 
 
   (* Conversions *)
-  | INT; e = expr { A.ToInt (mk_pos $startpos, e) }
-  | REAL; e = expr { A.ToReal (mk_pos $startpos, e) }
-  | UINT8; e = expr { A.ToUInt8 (mk_pos $startpos, e) }
-  | UINT16; e = expr { A.ToUInt16 (mk_pos $startpos, e) }
-  | UINT32; e = expr { A.ToUInt32 (mk_pos $startpos, e) }
-  | UINT64; e = expr { A.ToUInt64 (mk_pos $startpos, e) }
-  | INT8; e = expr { A.ToInt8 (mk_pos $startpos, e) }
-  | INT16; e = expr { A.ToInt16 (mk_pos $startpos, e) }
-  | INT32; e = expr { A.ToInt32 (mk_pos $startpos, e) }
-  | INT64; e = expr { A.ToInt64 (mk_pos $startpos, e) }
+  | INT; e = expr { A.ConvOp (mk_pos $startpos, A.ToInt, e) }
+  | REAL; e = expr { A.ConvOp (mk_pos $startpos, A.ToReal, e) }
+  | UINT8; e = expr { A.ConvOp (mk_pos $startpos, A.ToUInt8, e) }
+  | UINT16; e = expr { A.ConvOp (mk_pos $startpos, A.ToUInt16, e) }
+  | UINT32; e = expr { A.ConvOp (mk_pos $startpos, A.ToUInt32, e) }
+  | UINT64; e = expr { A.ConvOp (mk_pos $startpos, A.ToUInt64, e) }
+  | INT8; e = expr { A.ConvOp (mk_pos $startpos, A.ToInt8, e) }
+  | INT16; e = expr { A.ConvOp (mk_pos $startpos, A.ToInt16, e) }
+  | INT32; e = expr { A.ConvOp (mk_pos $startpos, A.ToInt32, e) }
+  | INT64; e = expr { A.ConvOp (mk_pos $startpos, A.ToInt64, e) }
 
   (* A parenthesized single expression *)
   | LPAREN; e = pexpr(Q); RPAREN { e } 
@@ -811,14 +811,14 @@ pexpr(Q):
 
      Singleton list is in production above *)
   | LPAREN; h = pexpr(Q); COMMA; l = pexpr_list(Q); RPAREN 
-    { A.ExprList (mk_pos $startpos, h :: l) } 
+    { A.GroupExpr (mk_pos $startpos, A.ExprList, h :: l) } 
 
   (* A tuple expression (not quantified) *)
   (* | LSQBRACKET; l = qexpr_list; RSQBRACKET { A.TupleExpr (mk_pos $startpos, l) } *)
-  | LCURLYBRACKET; l = pexpr_list(Q); RCURLYBRACKET { A.TupleExpr (mk_pos $startpos, l) }
+  | LCURLYBRACKET; l = pexpr_list(Q); RCURLYBRACKET { A.GroupExpr (mk_pos $startpos, A.TupleExpr, l) }
 
   (* An array expression (not quantified) *)
-  | LSQBRACKET; l = pexpr_list(Q); RSQBRACKET { A.ArrayExpr (mk_pos $startpos, l) }
+  | LSQBRACKET; l = pexpr_list(Q); RSQBRACKET { A.GroupExpr (mk_pos $startpos, A.ArrayExpr, l) }
 
   (* An array constructor (not quantified) *)
   | e1 = pexpr(Q); CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
@@ -855,28 +855,28 @@ pexpr(Q):
     { A.StructUpdate (mk_pos $startpos, e1, i, e2) } 
 
   (* An arithmetic operation *)
-  | e1 = pexpr(Q); MINUS; e2 = pexpr(Q) { A.Minus (mk_pos $startpos, e1, e2) }
-  | MINUS; e = expr { A.Uminus (mk_pos $startpos, e) } 
-  | e1 = pexpr(Q); PLUS; e2 = pexpr(Q) { A.Plus (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); MULT; e2 = pexpr(Q) { A.Times (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); DIV; e2 = pexpr(Q) { A.Div (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); INTDIV; e2 = pexpr(Q) { A.IntDiv (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); MOD; e2 = pexpr(Q) { A.Mod (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); MINUS; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Minus, e1, e2) }
+  | MINUS; e = expr { A.UnaryOp (mk_pos $startpos, A.Uminus, e) } 
+  | e1 = pexpr(Q); PLUS; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Plus, e1, e2) }
+  | e1 = pexpr(Q); MULT; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Times, e1, e2) }
+  | e1 = pexpr(Q); DIV; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Div, e1, e2) }
+  | e1 = pexpr(Q); INTDIV; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.IntDiv, e1, e2) }
+  | e1 = pexpr(Q); MOD; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Mod, e1, e2) }
 
   (* A Boolean operation *)
-  | NOT; e = pexpr(Q) { A.Not (mk_pos $startpos, e) } 
-  | e1 = pexpr(Q); AND; e2 = pexpr(Q) { A.And (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); OR; e2 = pexpr(Q) { A.Or (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); XOR; e2 = pexpr(Q) { A.Xor (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); IMPL; e2 = pexpr(Q) { A.Impl (mk_pos $startpos, e1, e2) }
-  | HASH; LPAREN; e = pexpr_list(Q); RPAREN { A.OneHot (mk_pos $startpos, e) }
+  | NOT; e = pexpr(Q) { A.UnaryOp (mk_pos $startpos, A.Not, e) } 
+  | e1 = pexpr(Q); AND; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.And, e1, e2) }
+  | e1 = pexpr(Q); OR; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Or, e1, e2) }
+  | e1 = pexpr(Q); XOR; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Xor, e1, e2) }
+  | e1 = pexpr(Q); IMPL; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.Impl, e1, e2) }
+  | HASH; LPAREN; e = pexpr_list(Q); RPAREN { A.NArityOp (mk_pos $startpos, A.OneHot, e) }
 
   (* A Bitvector operator *)
-  | BVNOT; e = pexpr(Q) {A.BVNot (mk_pos $startpos, e) }
-  | e1 = pexpr(Q); BVAND; e2 = pexpr(Q) { A.BVAnd (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); BVOR; e2 = pexpr(Q) { A.BVOr (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); LSH; e2 = pexpr(Q) { A.BVShiftL (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); RSH; e2 = pexpr(Q) { A.BVShiftR (mk_pos $startpos, e1, e2) }
+  | BVNOT; e = pexpr(Q) { A.UnaryOp (mk_pos $startpos, A.BVNot, e) }
+  | e1 = pexpr(Q); BVAND; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.BVAnd, e1, e2) }
+  | e1 = pexpr(Q); BVOR; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.BVOr, e1, e2) }
+  | e1 = pexpr(Q); LSH; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.BVShiftL, e1, e2) }
+  | e1 = pexpr(Q); RSH; e2 = pexpr(Q) { A.BinaryOp (mk_pos $startpos, A.BVShiftR, e1, e2) }
 
   (* A quantified expression *)
   | FORALL; q = Q;
@@ -886,7 +886,7 @@ pexpr(Q):
       if not q then
         LustreContext.fail_at_position
           pos "Quantifiers not allowed in this position";
-      A.Forall (pos, List.flatten vars, e) }
+      A.Quantifier (pos, A.Forall, List.flatten vars, e) }
   | EXISTS; q = Q;
     vars = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents); e = pexpr(Q)
     %prec prec_exists
@@ -894,23 +894,23 @@ pexpr(Q):
       if not q then
         LustreContext.fail_at_position
           pos "Quantifiers not allowed in this position";
-      A.Exists (pos, List.flatten vars, e) }
+      A.Quantifier (pos, A.Exists, List.flatten vars, e) }
                                                                        
   (* A relation *)
-  | e1 = pexpr(Q); LT; e2 = pexpr(Q) { A.Lt (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); GT; e2 = pexpr(Q) { A.Gt (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); LTE; e2 = pexpr(Q) { A.Lte (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); GTE; e2 = pexpr(Q) { A.Gte (mk_pos $startpos, e1, e2) }
-  | e1 = pexpr(Q); EQUALS; e2 = pexpr(Q) { A.Eq (mk_pos $startpos, e1, e2) } 
-  | e1 = pexpr(Q); NEQ; e2 = pexpr(Q) { A.Neq (mk_pos $startpos, e1, e2) } 
+  | e1 = pexpr(Q); LT; e2 = pexpr(Q) { A.CompOp (mk_pos $startpos, A.Lt, e1, e2) }
+  | e1 = pexpr(Q); GT; e2 = pexpr(Q) { A.CompOp (mk_pos $startpos, A.Gt, e1, e2) }
+  | e1 = pexpr(Q); LTE; e2 = pexpr(Q) { A.CompOp (mk_pos $startpos, A.Lte, e1, e2) }
+  | e1 = pexpr(Q); GTE; e2 = pexpr(Q) { A.CompOp (mk_pos $startpos, A.Gte, e1, e2) }
+  | e1 = pexpr(Q); EQUALS; e2 = pexpr(Q) { A.CompOp (mk_pos $startpos, A.Eq, e1, e2) } 
+  | e1 = pexpr(Q); NEQ; e2 = pexpr(Q) { A.CompOp (mk_pos $startpos, A.Neq, e1, e2) } 
 
   (* An if operation *)
   | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
-    { A.Ite (mk_pos $startpos, e1, e2, e3) }
+    { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
 
   (* Recursive node call *)
   | WITH; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
-    { A.With (mk_pos $startpos, e1, e2, e3) }
+    { A.TernaryOp (mk_pos $startpos, A.With, e1, e2, e3) }
 
   (* when operator on qexpression  *)
   | e1 = pexpr(Q); WHEN; e2 = clock_expr { A.When (mk_pos $startpos, e1, e2) }
@@ -928,7 +928,7 @@ pexpr(Q):
     d = pexpr_list(Q)
     RPAREN
     { let pos = mk_pos $startpos in
-      A.Condact (pos, e1, A.False pos, s, a, d) } 
+      A.Condact (pos, e1, A.Const (pos, A.False), s, a, d) } 
 
   (* condact call may have no return values and therefore no defaults *)
   | CONDACT 
@@ -939,7 +939,7 @@ pexpr(Q):
     RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Condact (pos, c, A.False pos, s, a, []) } 
+      A.Condact (pos, c, A.Const (pos, A.False), s, a, []) } 
 
   (* condact call with defaults and restart *)
   | CONDACT LPAREN;
@@ -970,7 +970,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Condact (pos, c, A.False pos, s, a, d) }
+      A.Condact (pos, c, A.Const (pos, A.False), s, a, d) }
     
   (* activate operator without initial defaults
 
@@ -979,7 +979,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Activate (pos, s, c, A.False pos, a) }
+      A.Activate (pos, s, c, A.Const (pos, A.False), a) }
 
   (* activate restart *)
   | LPAREN; ACTIVATE;
