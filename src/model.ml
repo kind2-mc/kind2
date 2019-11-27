@@ -180,7 +180,7 @@ let rec map_to_array_model m =
   |> MIL.fold add_at_indexes m
 
 
-let rec pp_print_array_model top_level ppf index it =
+let rec pp_print_array_model_as_xml top_level ppf index it =
   if not top_level then
     Format.fprintf ppf "@[<hv 2><Item index=\"%d\">@," index;
   begin match it with
@@ -190,7 +190,7 @@ let rec pp_print_array_model top_level ppf index it =
     Format.fprintf ppf
       "@[<hv 2><Array size=\"%d\">@,%a@;<0 -2></Array>@]"
       s
-      (pp_print_listi (pp_print_array_model false) "@,") (Array.to_list a)
+      (pp_print_listi (pp_print_array_model_as_xml false) "@,") (Array.to_list a)
   end;
   if not top_level then Format.fprintf ppf "@;<0 -2></Item>@]"
 
@@ -198,7 +198,20 @@ let rec pp_print_array_model top_level ppf index it =
 (* Show map as xml in counteexamples *)
 let pp_print_map_as_xml ppf m =
   let arm = map_to_array_model m in
-  pp_print_array_model true ppf 0 arm
+  pp_print_array_model_as_xml true ppf 0 arm
+
+let rec pp_print_array_model_as_json ppf _ it = 
+  match it with
+  | ItemArray (s, a) -> (
+    Format.fprintf ppf "[%a]"
+      (pp_print_listi pp_print_array_model_as_json ", ") (Array.to_list a)
+  )
+  | ItemValue v ->
+    Format.fprintf ppf "%a" pp_print_term v
+
+let pp_print_map_as_json ppf m =
+  let arm = map_to_array_model m in
+  pp_print_array_model_as_json ppf 0 arm
 
 
 (* Print a value of the model *)  
@@ -267,7 +280,7 @@ let pp_print_value_json ?as_type ppf v =  match v, as_type with
   | Lambda l, _ -> Term.pp_print_lambda ppf l
   | Map m, _ ->
     try
-      pp_print_map_as_xml ppf m
+      pp_print_map_as_json ppf m
     with Not_found -> ()
 
 (* Pretty-print a model *)
