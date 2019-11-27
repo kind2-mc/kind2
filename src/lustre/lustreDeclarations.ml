@@ -222,35 +222,24 @@ let defined_vars_eqs eqs =
 let rec used_inputs_expr inputs acc =
   let open A in
   function
-  | True _ | False _ | Num _ | Dec _ | ModeRef _ -> acc
+  | Const _ | ModeRef _ -> acc
 
   | Ident (_, i) | Last (_, i) -> ISet.add i acc
 
-  | RecordProject (_, e, _) | ToInt (_, e) 
-  | ToUInt8 (_, e) | ToUInt16 (_, e) | ToUInt32 (_, e) | ToUInt64 (_, e) 
-  | ToInt8 (_, e) | ToInt16 (_, e) | ToInt32 (_, e) | ToInt64 (_, e) | ToReal (_, e)
-  | Not (_, e) | Uminus (_, e) | BVNot (_, e) | Current (_, e) | When (_, e, _)
-  | Forall (_, _, e) | Exists (_, _, e) ->
+  | RecordProject (_, e, _) | ConvOp (_,_,e) | UnaryOp (_, _, e)
+  | Current (_, e) | When (_, e, _) | Quantifier (_, _, _, e) ->
     used_inputs_expr inputs acc e
 
-  | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
-  | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
-  | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
-  | Times (_, e1, e2) | IntDiv (_, e1, e2) | BVAnd (_, e1, e2) | BVOr (_, e1, e2) 
-  | BVShiftL (_, e1, e2) | BVShiftR (_, e1, e2)
-  | Eq (_, e1, e2) | Neq (_, e1, e2)
-  | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
-  | ArrayConcat (_, e1, e2) ->
+  | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
+  | ArrayConstr (_, e1, e2) | ArrayConcat (_, e1, e2) ->
     used_inputs_expr inputs (used_inputs_expr inputs acc e2) e1
     
-
-  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
-  | ArraySlice (_, e1, (e2, e3)) ->
+  | TernaryOp (_, _, e1, e2, e3) | ArraySlice (_, e1, (e2, e3)) ->
     used_inputs_expr inputs
       (used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2) e3
   
-  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
-  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+  | GroupExpr (_, _, l) | NArityOp (_, _, l)
+  | Call (_, _, l) | CallParam (_, _, _, l) ->
     List.fold_left (used_inputs_expr inputs) acc l
 
   | Merge (_, _, l) ->
@@ -2109,7 +2098,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
       A.Equation
         (pos,
          A.StructDef (pos, [A.SingleIdent (pos, i_restart_selected)]),
-         A.Arrow (pos, A.False pos,
+         A.Arrow (pos, A.Const (pos, A.False),
                   A.Pre (pos, A.Ident (pos, i_restart_selected_next)))) in
 
     (* let inputs_idents = *)
@@ -2123,7 +2112,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
         A.Activate
           (pos, handler,
            (* clock *)
-           A.Eq (pos, A.Ident (pos, i_state), A.Ident (pos, state_c)),
+           A.CompOp (pos, A.Eq, A.Ident (pos, i_state), A.Ident (pos, state_c)),
            (* restart *)
            A.Ident (pos, i_restart),
            (* arguments to the call = inputs of the node + others + lasts *)
@@ -2154,7 +2143,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
         A.Activate
           (pos, unless, 
            (* clock *)
-           A.Eq (pos, A.Ident (pos, i_state_selected), A.Ident (pos, state_c)),
+           A.CompOp (pos, A.Eq, A.Ident (pos, i_state_selected), A.Ident (pos, state_c)),
            (* restart *)
            A.Ident (pos, i_restart_selected),
            (* arguments = state_selected + restart_selected +
@@ -2199,19 +2188,19 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
 and encode_transition_branch pos state_c default = function
   (* restart t *)
   | A.Target (A.TransRestart (pos_t, (pos_s, s))) ->
-    A.ExprList (pos_t, [A.Ident (pos_s, s); A.True pos_t])
+    A.GroupExpr (pos_t, A.ExprList, [A.Ident (pos_s, s); A.Const (pos_t,A.True)])
   (* resume t *)
   | A.Target (A.TransResume (pos_t, (pos_s, s))) ->
-    A.ExprList (pos_t, [A.Ident (pos_s, s); A.False pos_t])
+    A.GroupExpr (pos_t, A.ExprList, [A.Ident (pos_s, s); A.Const (pos_t,A.False)])
   (* if cond then_br; *)
   | A.TransIf (posif, cond, then_br, None) ->
-    A.Ite (posif, cond,
+    A.TernaryOp (posif, A.Ite, cond,
            encode_transition_branch pos state_c default then_br,
            (* else default *)
            default)
   (* if cond then then_br else/elsif else_br end; *)
   | A.TransIf (posif, cond, then_br, Some else_br) ->
-    A.Ite (posif, cond,
+    A.TernaryOp (posif, A.Ite, cond,
            encode_transition_branch pos state_c default then_br,
            encode_transition_branch pos state_c default else_br)
 
@@ -2221,7 +2210,7 @@ and encode_until_handler pos
       auto_outputs; other_vars; lasts_inputs;
       i_state_selected; i_restart_selected; node_inputs }
     state_c locals eqs until_tr ctx =
-  let stay = A.ExprList (pos, [A.Ident (pos, state_c); A.False pos]) in
+  let stay = A.GroupExpr (pos, A.ExprList, [A.Ident (pos, state_c); A.Const (pos, A.False)]) in
   let e = match until_tr with
     | None -> stay
     | Some (posb, br) -> encode_transition_branch posb state_c stay br
@@ -2277,7 +2266,7 @@ and encode_unless pos
      node_inputs; auto_outputs; other_vars; lasts_inputs;
      i_state_selected; i_restart_selected; i_state; i_restart }
     state_c unless_tr ctx =
-  let skip = A.ExprList (pos, [A.Ident (pos, i_state_selected);
+  let skip = A.GroupExpr (pos, A.ExprList, [A.Ident (pos, i_state_selected);
                                A.Ident (pos, i_restart_selected)]) in
   let e = match unless_tr with
     | None -> skip
