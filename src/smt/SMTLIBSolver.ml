@@ -1034,8 +1034,9 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     begin
       try ignore(execute_command_no_response solver "(exit)" 0)
       with Signal s when s = Sys.sigpipe ->
-        KEvent.log L_fatal
-          "[Warning] Got broken pipe when trying to exit %s instance PID %d."
+        KEvent.log L_warn
+          "[Warning] Got broken pipe when trying to exit %s instance PID %d.\
+          It may be due to a tiemout."
           solver.solver_config.solver_cmd.(0) solver_pid
     end;
 
