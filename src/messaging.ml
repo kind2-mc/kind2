@@ -124,6 +124,8 @@ sig
   val recv : unit -> (Lib.kind_module * message) list
     
   val update_child_processes_list : (int * Lib.kind_module) list -> unit
+
+  val purge_im_mailbox : ctx * socket * socket -> unit
     
   val check_termination : unit -> bool
 
@@ -199,8 +201,8 @@ struct
     | OutputMessage (Log (l, s)) -> 
       Format.fprintf ppf "@[<hv>LOG %d@ %s@]" l s
                                
-    | OutputMessage (Stat s) -> 
-      Format.fprintf ppf "@[<v>STAT@,%s@]" s
+    | OutputMessage (Stat _) -> 
+      Format.fprintf ppf "@[<v>STAT@,@]"
         
     | OutputMessage (Progress k) -> 
       Format.fprintf ppf "@[<h>PROGRESS %d@]" k
@@ -357,30 +359,6 @@ struct
 
   let new_locking_list_option () =
     { lock = Mutex.create () ; l_opt = None }
-
-  let retrieve_locking_list_option list_option =
-    (* Taking a lock on the list_option. *)
-    Mutex.lock list_option.lock ;
-    (* Retrieving value. *)
-    let res = list_option.l_opt in
-    (* Setting stored value to [None]. *)
-    list_option.l_opt <- None ;
-    (* Releasing lock. *)
-    Mutex.unlock list_option.lock ;
-    (* Returning result. *)
-    res
-
-  let set_locking_list_option list_option list =
-    (* Taking a lock on the list option. *)
-    Mutex.lock list_option.lock ;
-    (* Making sure the list option value is currently None, i.e. the
-       last update was consumed by the background thread. *)
-    assert ( list_option.l_opt = None ) ;
-    (* Setting the new value of the list option. *)
-    list_option.l_opt <- Some list ;
-    (* Releasing lock. *)
-    Mutex.unlock list_option.lock
-
 
   (* ******************************************************************** *)
   (* Threadsafe locking queue                                             *)
@@ -558,7 +536,8 @@ struct
 
             enqueue
               ((List.assoc sender workers), payload) 
-              incoming_handled);
+              incoming_handled
+        );
 
         (* update the status of the sender *)
         Hashtbl.replace worker_status sender (Unix.time ());
@@ -982,9 +961,6 @@ struct
     update_worker_status workers worker_status
     
 
-  let im_check_for_new_workers () =
-    retrieve_locking_list_option new_workers_option
-
 
   let im_check_workers_status workers worker_status pub_sock pull_sock = 
 
@@ -1072,36 +1048,49 @@ struct
 
     and run workers worker_pids worker_status invariants =
 
-      (* Check for new workers, indicating a restart of the
-         supervisor. *)
-      match im_check_for_new_workers () with
+      (* We take the lock to avoid race conditions during restarts,
+      especially we want to avoid messages from the previous analysis to be received *)
+      Mutex.lock new_workers_option.lock ;
+
+      (* Check for new workers, indicating a restart of the supervisor. *)
+      let res = new_workers_option.l_opt in
+      new_workers_option.l_opt <- None ;
+      match res with
       | Some new_workers -> (
-          Debug.messaging
-            "Child processes update, \
-             setting things up and resume running.";
-         init_and_run new_workers
+        (* We do not need the lock here
+        because init_and_run does not reads the messages *)
+        Mutex.unlock new_workers_option.lock ;
+        Debug.messaging
+          "Child processes update, \
+            setting things up and resume running.";
+        init_and_run new_workers
       )
       | None -> (
+        (* No worker means that the reception of messages is disabled *)
+        if worker_pids <> []
+        then (
+          (* Check on the workers. *)
+          im_check_workers_status
+            worker_pids worker_status pub_sock pull_sock ;
 
-        (* Check on the workers. *)
-        im_check_workers_status
-          worker_pids worker_status pub_sock pull_sock ;
+          (* Get any messages from workers. *)
+          recv_messages
+            pull_sock true ;
 
-        (* Get any messages from workers. *)
-        recv_messages
-          pull_sock true ;
-
-        (* Relay messages. *)
-        im_handle_messages
-          workers worker_status invariant_id invariants ;
+          (* Relay messages. *)
+          im_handle_messages
+            workers worker_status invariant_id invariants
+        ) ;
 
         (* Send any messages in outgoing queue. *)
         im_send_messages pub_sock ;
+        
+        (* We free the lock *)
+        Mutex.unlock new_workers_option.lock ;
 
         minisleep 0.01 ;
 
         run workers worker_pids worker_status invariants
-
       )
 
     in
@@ -1349,8 +1338,23 @@ struct
       "Updating child process list in background thread.";
     if !initialized_process = None
     then raise NotInitialized
-    else set_locking_list_option new_workers_option ps
+    else (
+      (* Taking a lock on the list option. *)
+      Mutex.lock new_workers_option.lock ;
+      (* Setting the new value of the list option. *)
+      new_workers_option.l_opt <- Some ps ;
+      (* Releasing lock. *)
+      Mutex.unlock new_workers_option.lock
+    )
 
+  let purge_im_mailbox (_, _, pull_sock) =
+    if !initialized_process = None
+    then raise NotInitialized
+    else (
+      (* Purging the messages because they refer to the old child processes *)
+      recv_messages pull_sock true ;
+      empty_list incoming |> ignore
+    )
 
   let check_termination () =
 
