@@ -95,7 +95,7 @@ type t =
 
        Also contains [instance_state_var] unless it is None, but not
        state variables in [global_state_vars]. *)
-    state_vars : StateVar.t list;
+    mutable state_vars : StateVar.t list;
 
     (* register indexes of state variables for later use *)
     state_var_bounds : 
@@ -814,6 +814,9 @@ module Hashtbl = Hashtbl.Make (T)
 (* Return state variables of the transition system *)
 let state_vars { state_vars } = state_vars
 
+(** Add a state variable to a transition system *)
+let add_state_var ts sv =
+  ts.state_vars <- (sv::ts.state_vars)
 
 (* Return global state variables of the transition system *)
 let global_state_vars { global_state_vars } = global_state_vars

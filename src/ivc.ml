@@ -1122,6 +1122,18 @@ let pick_core c =
   | [] -> assert false
   | hd::lst -> (scope, hd, ScMap.add scope lst c)
 
+let eq_of_actlit actlits_eqs_map ?(with_act=false) a =
+  let eq = SyMap.find a actlits_eqs_map in
+  if with_act
+  then
+    let guard t =
+      (* Term.mk_eq *)
+      Term.mk_implies [Actlit.term_of_actlit a ; t]
+    in
+    { init_opened=guard eq.init_opened ; init_closed=guard eq.init_closed ;
+      trans_opened=guard eq.trans_opened ; trans_closed=guard eq.trans_closed }
+  else eq
+
 exception NotKInductive
 
 (** Implements the algorithm IVC_UC *)
@@ -1156,18 +1168,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
     List.fold_left (fun acc (k,_,v) -> SyMap.add k v acc)
       SyMap.empty act_bindings
   in
-  let eq_of_actlit ?(with_act=false) a =
-    let eq = SyMap.find a actlits_eqs_map in
-    if with_act
-    then
-      let guard t =
-        (* Term.mk_eq *)
-        Term.mk_implies [Actlit.term_of_actlit a ; t]
-      in
-      { init_opened=guard eq.init_opened ; init_closed=guard eq.init_closed ;
-        trans_opened=guard eq.trans_opened ; trans_closed=guard eq.trans_closed }
-    else eq
-  in
+  let eq_of_actlit = eq_of_actlit actlits_eqs_map in
 
   let add_to_core (keep, test) (actlit,scope,eq) =
     if should_minimize_equation in_sys eq
@@ -1374,3 +1375,56 @@ let ivc_ucbf in_sys param analyze sys =
   | CannotProve ->
     KEvent.log L_error "Cannot prove the properties." ;
     error_result
+
+(* ---------- AUTOMATED DEBUGGING ---------- *)
+
+let compute_cs check_ts sys actlits_eqs_map keep test k already_found =
+  let prop_names = extract_props_names sys in
+  let eq_of_actlit = eq_of_actlit actlits_eqs_map in
+  let prepare_ts_for_check keep test =
+    reset_ts prop_names sys ;
+    let prepare_subsystem sys =
+      let scope = TS.scope_of_trans_sys sys in
+      let keep_actlits =
+        try Some (ScMap.find scope keep)
+        with Not_found -> if Flags.IVC.ivc_enter_nodes () then Some [] else None
+      in
+      let test_actlits =
+        try Some (ScMap.find scope test)
+        with Not_found -> if Flags.IVC.ivc_enter_nodes () then Some [] else None
+      in
+      let actlits =
+        match keep_actlits, test_actlits with
+        | None, None -> None
+        | Some k, None -> Some (k, [])
+        | None, Some t -> Some ([], t)
+        | Some k, Some t -> Some (k, t)
+      in
+      begin match actlits with
+      | None -> ()
+      | Some (ks,ts) ->
+        let eqs =
+          (List.map (fun k -> eq_of_actlit ~with_act:false k) ks) @
+          (List.map (fun t -> eq_of_actlit ~with_act:true t) ts)
+        in
+        let init_eq = List.map (fun eq -> eq.init_opened) eqs
+        |> Term.mk_and in
+        let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
+        |> Term.mk_and in
+        TS.set_init_trans sys init_eq trans_eq 
+      end
+    in
+    TS.iter_subsystems ~include_top:true prepare_subsystem sys
+  in
+  ()
+
+let compute_mcs check_ts sys actlits_eqs_map keep test =
+  ()
+
+let compute_all_mcs check_ts sys actlits_eqs_map keep test =
+  ()
+
+(* ---------- UMIVC ---------- *)
+
+let umivc in_sys param analyze sys k =
+  ()
