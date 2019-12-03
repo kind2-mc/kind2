@@ -46,11 +46,6 @@ type loc_equation = equation * (loc list) * term_cat
 
 type ivc = loc_equation list ScMap.t
 
-type ivc_result = {
-  success: bool;
-  ivc: ivc;
-}
-
 let rec interval imin imax =
   if imin > imax then []
   else imin::(interval (imin+1) imax)
@@ -179,6 +174,7 @@ let impl_to_string = function
 | `IVC_UC -> "UC"
 | `IVC_UCBF -> "UCBF"
 | `IVC_BF -> "BF"
+| `UMIVC -> "UMIVC"
 
 let pp_print_categories fmt =
   List.iter (function
@@ -744,8 +740,6 @@ let svs_of_term in_sys t =
 
 (* ---------- UTILITIES ---------- *)
 
-let error_result = { success=false; ivc=ScMap.empty }
-
 let extract_props sys =
   List.filter (function
     | { Property.prop_status = Property.PropInvariant _ } -> true
@@ -1255,14 +1249,14 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
 let ivc_uc in_sys ?(approximate=false) sys =
   try (
     let eqmap = ivc_uc_ in_sys ~approximate:approximate sys in
-    { success=true; ivc=eqmap_to_ivc in_sys eqmap }
+    Some (eqmap_to_ivc in_sys eqmap)
   ) with
   | NotKInductive ->
     KEvent.log L_error "Properties are not k-inductive." ;
-    error_result
+    None
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
-    error_result
+    None
 
 (* ---------- IVC_BF ---------- *)
 
@@ -1350,31 +1344,31 @@ let ivc_bf in_sys param analyze sys =
   try (
     let eqmap = _all_eqs in_sys sys in
     let eqmap = ivc_bf_ in_sys param analyze sys eqmap in
-    { success=true; ivc=eqmap_to_ivc in_sys eqmap }
+    Some (eqmap_to_ivc in_sys eqmap)
   ) with
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
-    error_result
+    None
   | CannotProve ->
     KEvent.log L_error "Cannot prove the properties." ;
-    error_result
+    None
 
 (** Implements the algorithm IVC_UCBF *)
 let ivc_ucbf in_sys param analyze sys =
   try (
     let eqmap = ivc_uc_ in_sys sys in
     let eqmap = ivc_bf_ in_sys param analyze sys eqmap in
-    { success=true; ivc=eqmap_to_ivc in_sys eqmap }
+    Some (eqmap_to_ivc in_sys eqmap)
   ) with
   | NotKInductive ->
     KEvent.log L_error "Properties are not k-inductive." ;
-    error_result
+    None
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
-    error_result
+    None
   | CannotProve ->
     KEvent.log L_error "Cannot prove the properties." ;
-    error_result
+    None
 
 (* ---------- AUTOMATED DEBUGGING ---------- *)
 
@@ -1424,8 +1418,7 @@ let exactly_k_true svs k =
   let sum = Term.mk_plus cptl in
   Term.mk_eq [sum; Term.mk_num_of_int k]
 
-let compute_cs check_ts sys actsvs_eqs_map keep test k already_found =
-  let prop_names = extract_props_names sys in
+let compute_cs check_ts sys prop_names actsvs_eqs_map keep test k already_found =
   let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
   let actsvs = actsvs_of_core test in
   let prepare_ts_for_check keep test =
@@ -1478,15 +1471,75 @@ let compute_cs check_ts sys actsvs_eqs_map keep test k already_found =
   | None -> None
   | Some actsvs -> Some (filter_core test actsvs)
 
-let compute_mcs check_ts sys actsvs_eqs_map keep test =
+let compute_mcs check_ts sys prop_names actsvs_eqs_map keep test =
   ()
 
-let compute_all_mcs check_ts sys actsvs_eqs_map keep test =
+let compute_all_mcs check_ts sys prop_names actsvs_eqs_map keep test =
   ()
 
 (* ---------- UMIVC ---------- *)
 
+let actsvs_counter =
+  let last = ref 0 in
+  (fun () -> last := !last + 1 ; !last)
+
+let fresh_actsv_name () =
+  Printf.sprintf "__umivc_%i" (actsvs_counter ())
+
 let umivc in_sys param analyze sys k =
-  (* TODO: create actsvs *)
-  (* TODO: add actsvs to the transition system (top level) *)
-  ()
+
+  let param = Analysis.param_clone param in
+  let sys = TS.copy sys in
+  let prop_names = extract_props_names sys in
+  let modules = Flags.enabled () in
+  let check_ts = analyze false modules in_sys param in
+
+  (* Activation litterals, core and mapping to equations *)
+  let add_to_bindings act_bindings sys =
+    let eqs = extract_toplevel_equations in_sys sys in
+    let scope = TS.scope_of_trans_sys sys in
+    let act_bindings' =
+      List.map (fun eq ->
+      let actsv =
+        StateVar.mk_state_var ~is_input:false ~is_const:true
+        (fresh_actsv_name ()) [] (Type.mk_bool ()) in
+      (actsv, scope, eq)
+    ) eqs in
+    act_bindings'@act_bindings
+  in
+  let act_bindings =
+    if Flags.IVC.ivc_enter_nodes ()
+    then TS.fold_subsystems ~include_top:false (add_to_bindings) [] sys
+    else []
+  in
+  let act_bindings = add_to_bindings act_bindings sys in
+
+  let actsvs_eqs_map =
+    List.fold_left (fun acc (k,_,v) -> SVMap.add k v acc)
+      SVMap.empty act_bindings
+  in
+
+  let add_to_core (keep, test) (actsv,scope,eq) =
+    if should_minimize_equation in_sys eq
+    then
+      let old = try ScMap.find scope test with Not_found -> [] in
+      (keep, ScMap.add scope (actsv::old) test)
+    else
+      let old = try ScMap.find scope keep with Not_found -> [] in
+      (ScMap.add scope (actsv::old) keep, test)
+  in
+  let (keep,test) = List.fold_left add_to_core (ScMap.empty,ScMap.empty) act_bindings in
+
+  (* Add actsvs to the transition system (at top level) *)
+  let actsvs = actsvs_of_core test in
+  List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
+
+  (* Test *)
+  let n = List.length actsvs in
+  for k=0 to n do
+    let res = compute_cs check_ts sys prop_names actsvs_eqs_map keep test k [] in
+    match res with
+    | None -> KEvent.log_uncond "CS for k=%n : None" k
+    | Some res -> KEvent.log_uncond "CS for k=%n : %n" k (core_size res)
+  done ;
+  []

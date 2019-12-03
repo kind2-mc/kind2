@@ -567,15 +567,16 @@ module RunIVC: PostAnalysis = struct
         Term.print_term trans ; Format.printf "\n" ;*)
         (*Format.print_flush () ;*)
 
+        let opt_to_lst = function None -> [] | Some e -> [e] in
         let res = match Flags.IVC.ivc_impl () with
-          | `IVC_UC -> Ivc.ivc_uc in_sys ~approximate:false sys
-          | `IVC_AUC -> Ivc.ivc_uc in_sys ~approximate:true sys
-          | `IVC_BF -> Ivc.ivc_bf in_sys param analyze sys
-          | `IVC_UCBF -> Ivc.ivc_ucbf in_sys param analyze sys
+          | `IVC_UC -> opt_to_lst (Ivc.ivc_uc in_sys ~approximate:false sys)
+          | `IVC_AUC -> opt_to_lst (Ivc.ivc_uc in_sys ~approximate:true sys)
+          | `IVC_BF -> opt_to_lst (Ivc.ivc_bf in_sys param analyze sys)
+          | `IVC_UCBF -> opt_to_lst (Ivc.ivc_ucbf in_sys param analyze sys)
+          | `UMIVC -> Ivc.umivc in_sys param analyze sys 0 (* TODO *)
         in
-        if res.success
-        then
-          let ivc = res.ivc in
+
+        let treat_ivc ivc =
           let eqs_count eqs =
             Ivc.ScMap.fold (fun _ v acc -> acc + List.length v) eqs 0
           in
@@ -618,7 +619,7 @@ module RunIVC: PostAnalysis = struct
               |> Ivc.minimize_lustre_ast
                 ~valid_lustre:(Flags.IVC.minimize_program () = `VALID_LUSTRE) initial ivc
             in
-            let filename =
+            let filename = (* TODO: if many ivc, print to different files *)
               match Flags.IVC.minimized_program_filename () with
               | "" ->
                 let input_file = Flags.input_file () in
@@ -635,11 +636,11 @@ module RunIVC: PostAnalysis = struct
             let oc = open_out filename in
             print_channel oc minimized ;
             close_out oc
-          end ;
-          
-          Ok ()
-        else
-          Err (fun fmt -> Format.fprintf fmt "Failed to compute inductive validity cores.")
+          end
+        in
+        
+        List.iter treat_ivc res ;
+        Ok ()
       )
       with
       | CertifChecker.CouldNotProve printer ->

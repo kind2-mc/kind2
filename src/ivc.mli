@@ -23,19 +23,12 @@ type loc_equation = equation * (loc list) * term_cat
 
 type ivc = loc_equation list ScMap.t
 
-type ivc_result = {
-  success: bool;
-  ivc: ivc;
-}
-
 val pp_print_loc_eq : 'a InputSystem.t -> TransSys.t -> Format.formatter -> loc_equation -> unit
 val pp_print_loc_eqs : 'a InputSystem.t -> TransSys.t -> Format.formatter -> loc_equation list -> unit
 
 val pp_print_ivc : 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
 val pp_print_ivc_xml : 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
 val pp_print_ivc_json : 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
-
-val error_result : ivc_result
 
 val compare_loc : loc -> loc -> int
 
@@ -60,7 +53,7 @@ val ivc_uc :
   'a InputSystem.t ->
   ?approximate:bool ->
   TransSys.t ->
-  ivc_result
+  ivc option
 
 (** Outputs a minimal inductive validity core by trying to remove all the equations one after another
     and running the whole analysis on the new system each time. *)
@@ -73,7 +66,7 @@ val ivc_bf :
     -> unit
    ) ->
   TransSys.t ->
-  ivc_result
+  ivc option
 
 (** Outputs a minimal inductive validity core by first computing an UNSAT core (ivc_uc),
     and then trying to remove the remaining equations with bruteforce (ivc_bf).
@@ -87,4 +80,19 @@ val ivc_ucbf :
     -> unit
    ) ->
   TransSys.t ->
-  ivc_result
+  ivc option
+
+
+
+val umivc :
+'a InputSystem.t ->
+  Analysis.param ->
+  (
+    bool ->
+    Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
+    -> unit
+   ) ->
+  TransSys.t ->
+  int ->
+  ivc list
+

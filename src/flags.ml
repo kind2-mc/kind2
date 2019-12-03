@@ -1281,13 +1281,14 @@ module IVC = struct
   let minimized_program_filename () = !minimized_program_filename
 
 
-  type ivcimpl = [ `IVC_BF | `IVC_AUC | `IVC_UC | `IVC_UCBF ]
+  type ivcimpl = [ `IVC_BF | `IVC_AUC | `IVC_UC | `IVC_UCBF | `UMIVC ]
 
   let ivcimpl_of_string = function
     | "BF" -> `IVC_BF
     | "AUC" -> `IVC_AUC
     | "UC" -> `IVC_UC
     | "UCBF" -> `IVC_UCBF
+    | "UMIVC" -> `UMIVC
     | _ -> raise (Arg.Bad "Bad value for --ivc_impl")
 
   let ivc_impl_default = `IVC_UC
@@ -1302,7 +1303,8 @@ module IVC = struct
           \"AUC\" to perform an approximate unsat-core based minimisation@ \
           \"UC\" to perform an unsat-core based minimisation (default)@ \
           \"BF\" to perform a bruteforce minimisation@ \
-          \"UCBF\" to perform an unsat-core minimisation and then a bruteforce\
+          \"UCBF\" to perform an unsat-core minimisation and then a bruteforce@ \
+          \"UMIVC\" to compute all the minimal inductive validity cores\
         "
     )
   let ivc_impl () = !ivc_impl
