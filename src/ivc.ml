@@ -1487,20 +1487,41 @@ let compute_cs check_ts sys prop_names actsvs_eqs_map keep test k already_found 
     assert (List.length actsvs = k) ;
     Some (filter_core test actsvs)
 
-let compute_all_cs check_ts sys prop_names actsvs_eqs_map keep test k =
+let compute_all_cs check_ts sys prop_names actsvs_eqs_map keep test k already_found =
   let rec aux acc already_found =
     match compute_cs
       check_ts sys prop_names actsvs_eqs_map keep test k already_found with
     | None -> acc
     | Some core -> aux (core::acc) (actsvs_of_core core::already_found)
   in
-  aux [] []
+  aux [] already_found
 
 let compute_mcs check_ts sys prop_names actsvs_eqs_map keep test =
-  ()
+  let n = core_size test in
+  let rec aux k =
+    if k < n
+    then
+      match compute_cs check_ts sys prop_names actsvs_eqs_map keep test k [] with
+      | None -> aux (k+1)
+      | Some core -> core
+    else test
+  in
+  aux 1
 
 let compute_all_mcs check_ts sys prop_names actsvs_eqs_map keep test =
-  ()
+  let n = core_size test in
+  let rec aux acc already_found k =
+    if k < n
+    then
+      let new_mcs = compute_all_cs
+        check_ts sys prop_names actsvs_eqs_map keep test k already_found in
+      let already_found = (List.map actsvs_of_core new_mcs)@already_found in
+      let acc = new_mcs@acc in
+      aux acc already_found (k+1)
+    else if acc = [] then [test]
+    else acc
+  in
+  aux [] [] 1
 
 (* ---------- UMIVC ---------- *)
 
@@ -1560,9 +1581,12 @@ let umivc in_sys param analyze sys k =
   List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
 
   (* Test *)
-  let n = List.length actsvs in
+  (*let n = List.length actsvs in
   for k=0 to n do
     let css = compute_all_cs check_ts sys prop_names actsvs_eqs_map keep test k in
     KEvent.log_uncond "Number of CS for k=%n : %n" k (List.length css)
-  done ;
+  done ;*)
+
+  let mcs = compute_all_mcs check_ts sys prop_names actsvs_eqs_map keep test in
+  KEvent.log_uncond "Number of MCS : %n" (List.length mcs) ;
   []
