@@ -7,6 +7,7 @@ module SySet = UfSymbol.UfSymbolSet
 module ScMap = Scope.Map
 module ScSet = Scope.Set
 module SVSet = StateVar.StateVarSet
+module SVMap = StateVar.StateVarMap
 module SVSMap = Map.Make(SVSet)
 
 module Position = struct
@@ -999,9 +1000,6 @@ type core = (UfSymbol.t list) ScMap.t
 
 let actlits_of_core map = List.flatten (List.map snd (ScMap.bindings map))
 
-let symbols_inter lst1 lst2 =
-  SySet.inter (SySet.of_list lst1) (SySet.of_list lst2) |> SySet.elements
-
 let symbols_union lst1 lst2 =
   SySet.union (SySet.of_list lst1) (SySet.of_list lst2) |> SySet.elements
 
@@ -1014,7 +1012,9 @@ let core_union c1 c2 =
   ScMap.merge merge c1 c2
 
 let filter_core core actlits =
-  ScMap.map (symbols_inter actlits) core
+  let actlits = SySet.of_list actlits in
+  ScMap.map (fun lst -> SySet.of_list lst |> SySet.inter actlits |> SySet.elements) core
+
 
 let term_of_scope term_map scope =
   try ScMap.find scope term_map with Not_found -> Term.mk_true ()
@@ -1378,34 +1378,81 @@ let ivc_ucbf in_sys param analyze sys =
 
 (* ---------- AUTOMATED DEBUGGING ---------- *)
 
-let compute_cs check_ts sys actlits_eqs_map keep test k already_found =
+let actsvs_of_core = actlits_of_core
+
+let filter_core core actsvs =
+  let actsvs = SVSet.of_list actsvs in
+  ScMap.map (fun lst -> SVSet.of_list lst |> SVSet.inter actsvs |> SVSet.elements) core
+
+let eq_of_actsv actsv_eqs_map ?(with_act=false) sv =
+  let eq = SVMap.find sv actsv_eqs_map in
+  if with_act
+  then
+    let guard t =
+      (* Term.mk_eq *)
+      Term.mk_implies [Term.mk_not (Term.mk_var (Var.mk_const_state_var sv)) ; t]
+    in
+    { init_opened=guard eq.init_opened ; init_closed=guard eq.init_closed ;
+      trans_opened=guard eq.trans_opened ; trans_closed=guard eq.trans_closed }
+  else eq
+
+let get_counterexample_actsvs prop_names sys actsvs =
+  let rec aux = function
+  | [] -> None
+  | p::prop_names ->
+    begin match TS.get_prop_status sys p with
+      | Property.PropFalse cex ->
+        let svs = SVSet.of_list actsvs in
+        cex
+        |> List.filter (fun (sv, values) -> SVSet.mem sv svs)
+        |> List.filter (fun (_, values) -> match List.hd values with
+            | Model.Term t -> Term.equal t (Term.mk_true ())
+            | _ -> false
+            )
+        |> List.map fst
+        |> (fun x -> Some x)
+      | _ -> aux prop_names
+    end
+  in
+  aux prop_names
+
+let exactly_k_true svs k =
+  let cptl = svs
+  |> List.map (fun sv -> Term.mk_var (Var.mk_const_state_var sv))
+  |> List.map (fun t -> Term.mk_ite t (Term.mk_num_of_int 1) (Term.mk_num_of_int 0))
+  in
+  let sum = Term.mk_plus cptl in
+  Term.mk_eq [sum; Term.mk_num_of_int k]
+
+let compute_cs check_ts sys actsvs_eqs_map keep test k already_found =
   let prop_names = extract_props_names sys in
-  let eq_of_actlit = eq_of_actlit actlits_eqs_map in
+  let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
+  let actsvs = actsvs_of_core test in
   let prepare_ts_for_check keep test =
     reset_ts prop_names sys ;
     let prepare_subsystem sys =
       let scope = TS.scope_of_trans_sys sys in
-      let keep_actlits =
+      let keep_actsvs =
         try Some (ScMap.find scope keep)
         with Not_found -> if Flags.IVC.ivc_enter_nodes () then Some [] else None
       in
-      let test_actlits =
+      let test_actsvs =
         try Some (ScMap.find scope test)
         with Not_found -> if Flags.IVC.ivc_enter_nodes () then Some [] else None
       in
-      let actlits =
-        match keep_actlits, test_actlits with
+      let actsvs =
+        match keep_actsvs, test_actsvs with
         | None, None -> None
         | Some k, None -> Some (k, [])
         | None, Some t -> Some ([], t)
         | Some k, Some t -> Some (k, t)
       in
-      begin match actlits with
+      begin match actsvs with
       | None -> ()
       | Some (ks,ts) ->
         let eqs =
-          (List.map (fun k -> eq_of_actlit ~with_act:false k) ks) @
-          (List.map (fun t -> eq_of_actlit ~with_act:true t) ts)
+          (List.map (fun k -> eq_of_actsv ~with_act:false k) ks) @
+          (List.map (fun t -> eq_of_actsv ~with_act:true t) ts)
         in
         let init_eq = List.map (fun eq -> eq.init_opened) eqs
         |> Term.mk_and in
@@ -1414,17 +1461,32 @@ let compute_cs check_ts sys actlits_eqs_map keep test k already_found =
         TS.set_init_trans sys init_eq trans_eq 
       end
     in
-    TS.iter_subsystems ~include_top:true prepare_subsystem sys
+    TS.iter_subsystems ~include_top:true prepare_subsystem sys ;
+    let (_,init_eq,trans_eq) = TS.init_trans_open sys in
+    let init_eq = Term.mk_and ((exactly_k_true actsvs k)::(deconstruct_conj init_eq)) in
+    TS.set_init_trans sys init_eq trans_eq
+    (* TODO: add already_found constraints *)
   in
+
+  KEvent.log L_info "Computing a correction set using automated debugging..." ;
+  prepare_ts_for_check keep test ;
+  let old_log_level = Lib.get_log_level () in
+  Lib.set_log_level L_off ;
+  check_ts sys ;
+  Lib.set_log_level old_log_level;
+  match get_counterexample_actsvs prop_names sys actsvs with
+  | None -> None
+  | Some actsvs -> Some (filter_core test actsvs)
+
+let compute_mcs check_ts sys actsvs_eqs_map keep test =
   ()
 
-let compute_mcs check_ts sys actlits_eqs_map keep test =
-  ()
-
-let compute_all_mcs check_ts sys actlits_eqs_map keep test =
+let compute_all_mcs check_ts sys actsvs_eqs_map keep test =
   ()
 
 (* ---------- UMIVC ---------- *)
 
 let umivc in_sys param analyze sys k =
+  (* TODO: create actsvs *)
+  (* TODO: add actsvs to the transition system (top level) *)
   ()

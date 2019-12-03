@@ -89,7 +89,7 @@ type t =
     global_state_vars : (StateVar.t * Term.t list) list;
 
     (* List of global free constants *)
-    global_consts : Var.t list;
+    mutable global_consts : Var.t list;
     
     (* State variables in the scope of this transition system 
 
@@ -814,9 +814,10 @@ module Hashtbl = Hashtbl.Make (T)
 (* Return state variables of the transition system *)
 let state_vars { state_vars } = state_vars
 
-(** Add a state variable to a transition system *)
-let add_state_var ts sv =
-  ts.state_vars <- (sv::ts.state_vars)
+(** Add a global constant to a transition system *)
+let add_global_const ts v =
+  ts.global_consts <- v::ts.global_consts ;
+  ts.state_vars <- (Var.state_var_of_state_var_instance v)::ts.state_vars
 
 (* Return global state variables of the transition system *)
 let global_state_vars { global_state_vars } = global_state_vars
@@ -850,7 +851,7 @@ let rec vars_of_bounds' state_vars lbound ubound accum =
    between and including [lbound] and [uboud] *)
 let vars_of_bounds
     ?(with_init_flag = true)
-    { init_flag_state_var; state_vars; global_consts } 
+    { init_flag_state_var; state_vars } 
     lbound
     ubound =
 
