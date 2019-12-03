@@ -1079,11 +1079,11 @@ struct
 
           (* Relay messages. *)
           im_handle_messages
-            workers worker_status invariant_id invariants
-        ) ;
+            workers worker_status invariant_id invariants ;
 
-        (* Send any messages in outgoing queue. *)
-        im_send_messages pub_sock ;
+          (* Send any messages in outgoing queue. *)
+          im_send_messages pub_sock
+        ) ;
         
         (* We free the lock *)
         Mutex.unlock new_workers_option.lock ;
@@ -1353,7 +1353,9 @@ struct
     else (
       (* Purging the messages because they refer to the old child processes *)
       recv_messages pull_sock true ;
-      empty_list incoming |> ignore
+      empty_list incoming |> ignore ;
+      empty_list incoming_handled |> ignore ;
+      empty_list outgoing |> ignore
     )
 
   let check_termination () =
