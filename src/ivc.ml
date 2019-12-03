@@ -1418,9 +1418,21 @@ let exactly_k_true svs k =
   let sum = Term.mk_plus cptl in
   Term.mk_eq [sum; Term.mk_num_of_int k]
 
+let at_least_one_false svs =
+  svs
+  |> List.map (fun sv -> Term.mk_not (Term.mk_var (Var.mk_const_state_var sv)))
+  |> Term.mk_or
+
 let compute_cs check_ts sys prop_names actsvs_eqs_map keep test k already_found =
   let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
   let actsvs = actsvs_of_core test in
+
+  let not_already_found =
+    already_found
+    |> List.map at_least_one_false
+    |> Term.mk_and
+  in
+
   let prepare_ts_for_check keep test =
     reset_ts prop_names sys ;
     let prepare_subsystem sys =
@@ -1456,9 +1468,11 @@ let compute_cs check_ts sys prop_names actsvs_eqs_map keep test k already_found 
     in
     TS.iter_subsystems ~include_top:true prepare_subsystem sys ;
     let (_,init_eq,trans_eq) = TS.init_trans_open sys in
-    let init_eq = Term.mk_and ((exactly_k_true actsvs k)::(deconstruct_conj init_eq)) in
+    let init_eq =
+      Term.mk_and ((exactly_k_true actsvs k) (* Cardinality constraint *)
+      ::not_already_found            (* 'Not already found' constraint *)
+      ::(deconstruct_conj init_eq)) in
     TS.set_init_trans sys init_eq trans_eq
-    (* TODO: add already_found constraints *)
   in
 
   KEvent.log L_info "Computing a correction set using automated debugging..." ;
@@ -1469,7 +1483,18 @@ let compute_cs check_ts sys prop_names actsvs_eqs_map keep test k already_found 
   Lib.set_log_level old_log_level;
   match get_counterexample_actsvs prop_names sys actsvs with
   | None -> None
-  | Some actsvs -> Some (filter_core test actsvs)
+  | Some actsvs ->
+    assert (List.length actsvs = k) ;
+    Some (filter_core test actsvs)
+
+let compute_all_cs check_ts sys prop_names actsvs_eqs_map keep test k =
+  let rec aux acc already_found =
+    match compute_cs
+      check_ts sys prop_names actsvs_eqs_map keep test k already_found with
+    | None -> acc
+    | Some core -> aux (core::acc) (actsvs_of_core core::already_found)
+  in
+  aux [] []
 
 let compute_mcs check_ts sys prop_names actsvs_eqs_map keep test =
   ()
@@ -1537,9 +1562,7 @@ let umivc in_sys param analyze sys k =
   (* Test *)
   let n = List.length actsvs in
   for k=0 to n do
-    let res = compute_cs check_ts sys prop_names actsvs_eqs_map keep test k [] in
-    match res with
-    | None -> KEvent.log_uncond "CS for k=%n : None" k
-    | Some res -> KEvent.log_uncond "CS for k=%n : %n" k (core_size res)
+    let css = compute_all_cs check_ts sys prop_names actsvs_eqs_map keep test k in
+    KEvent.log_uncond "Number of CS for k=%n : %n" k (List.length css)
   done ;
   []
