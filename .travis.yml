@@ -1,26 +1,25 @@
-dist: trusty
+jobs:
+  include:
+    - os: linux
+      dist: trusty
+    - os: osx
 branches:
   only:
   - develop
   - master
 language: c
-sudo: required
 script: bash -ex .travis-ci.sh
 env:
-- OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
-os:
-- linux
-- osx
-before_deploy:
-- git config --local user.name "Travis Test"
-- git config --local user.email "travis-test@example.com"
-- export TRAVIS_TAG=${$(TRAVIS_OS_NAME)-nightly-$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)}
-- git tag $TRAVIS_TAG
+  matrix:
+  - OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
+  global:
+    secure: RP0xPukyaAKnfloshEYYh+BmKl2VsS6lDBWq/3lUGDCOJyFH18VlmukhkGTnHnZLSkPoDgzRdZPON+JuE+/kzPhgI3PhaME4fD/s48QXbrJPCvl7lN7zqvu/bokX99F08J80V3wrwou6gIh2fekAplJHbIPouf6dN4fWhhxEj4GuY1HNOVzuWXMnMYiCXXk/1Zu1C03GqupajI/CnbCuIVRN/4omwcgBOq5adw0pvo1p+16oDUst5uCNps7usuR4zo8jdEx+nv7Ke4LImbkSfKPsJBNq+LnsHIlYprBwesltyPdgadoCMa/Us2pegWAsbrx374IM87B7Z5PUBubecgWSwD1CC1lbkurJktAXbV7pJ4jYXbX9E/H/VOIyXoFCV4ceWZCBEKBdSUpCmBgBbjnxjzIpTK5DQgSjk7B4bgpJTiIZtmSvRmD2B/OkBrosWphgSmaAAqIcDFO2cjhdlND+ed2BWdZGraS6ZpqGJzr13nDy3JSyiCMcSxhQSDbD+yj3QQLPPzAZWTZJL386hkOfXAFxzY06sqNsyBuPcHAtx+IaspOdmHJ3qfUhNdLU8FEUEfiMwpOYi4ZS8dxkjQQzL/SFJ+Z1ELO/mZFrGOzmkJqc9AI5uAOuHebdTmk7fricTO1BgTWBGX4i1KADUZns4GQqA/Gtxri1fNEzsnk=
+before_deploy: ./.deploy.sh
 deploy:
   provider: releases
-  token:
-    secure: uBBuSw48wdJ3iGTGPJ1C7AnDlW6eqrgmt6y0jOS9DJogU3u/Iyjkiq1JvELrCwG8Rx6ihn84rmDSvxDVLx7CtSDMXEKfv4fn8zN2Ck2fLeJXHbGDqGXu/9tphdHdSURALf0WFrUU+kaYYwTRyunKxoAXROVzBv+Hm5ws1pGOG2qrMP4ormZj+IJaXJs7uHwFCjhs/Un/Kr636j+WgOEoI0JNAZzkSeixUydPNBEZdpDYiI/AoBw5lEZeaFIpc7/XdeDm8w8SZu+MpPFC2i/x1y/WMWwlzXx0zDsua3PK0piXO5m4Ma0/NAvIud/U3XQSxo+0r2aMuEtl5kDJSJORm9/CAQfF4rDB1xIIQpOAjD4raUnySsxDPF2gud/o3ux1gAMaAn5hLrg5j4fzFpOxqwUMO6Izk3yl+dZJtE5zK1xZGUCkgiTfqOTeHa4CnR+Sb+LZAvu7jen6EZ3thiUNpYDDyLZLSHEndw88/6AlXTTBHBKqohBhw7kQDYPEOUUR7DBQv2HMnuKvtYDab4npxiLcdLAWEo9Y8LVQB78TR/L1F82B4jjBI5tQUAlmSjJDLqQ1I/7D3P3IanF3dSl/HLcUOMDrzax9Zw15xniDLD6u2BdF7OBe332Wg2sijsLfdRBwTBcO96l63cKX0cei1R6NCNtRj6VoTAJ06lBWpBM=
+  token: ${GH_TOKEN}
   file: "/usr/local/bin/kind2"
   on:
     tags: true
   overwrite: true
+  edge: true
