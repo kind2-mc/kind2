@@ -1428,6 +1428,11 @@ let at_least_one_false svs =
   |> List.map (fun sv -> Term.mk_not (Term.mk_var (Var.mk_const_state_var sv)))
   |> Term.mk_or
 
+let at_least_one_true svs =
+  svs
+  |> List.map (fun sv -> Term.mk_var (Var.mk_const_state_var sv))
+  |> Term.mk_or
+
 let compute_cs check_ts sys prop_names actsvs_eqs_map keep test k already_found =
   let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
   let actsvs = actsvs_of_core test in
@@ -1546,7 +1551,7 @@ let fresh_actsv_name () =
 let sv2ufs = StateVar.uf_symbol_of_state_var
 let ufs2sv = StateVar.state_var_of_uf_symbol
 
-let get_unexplored actsvs map =
+let get_unexplored map actsvs =
   if SMTSolver.check_sat map
   then
     let model = SMTSolver.get_model map in
@@ -1559,6 +1564,17 @@ let get_unexplored actsvs map =
     |> (fun x -> Some x)
   else
     None
+
+let block_up map _ s =
+  at_least_one_false s
+  |> SMTSolver.assert_term map
+
+let block_down map actsvs s =
+  SVSet.of_list s
+  |> SVSet.diff (SVSet.of_list actsvs)
+  |> SVSet.elements
+  |> at_least_one_true
+  |> SMTSolver.assert_term map
 
 let umivc in_sys param analyze sys k =
 
@@ -1614,7 +1630,9 @@ let umivc in_sys param analyze sys k =
   actsvs
   |> List.map sv2ufs
   |> List.iter (SMTSolver.declare_fun map) ;
-  let get_unexplored = get_unexplored actsvs in
+  let get_unexplored () = get_unexplored map actsvs in
+  let block_up = block_up map actsvs in
+  let block_down = block_down map actsvs in
 
   (* Check safety *)
   let prepare_ts_for_check keep =
@@ -1650,7 +1668,7 @@ let umivc in_sys param analyze sys k =
 
   (* Main loop *)
   let rec next () =
-    match get_unexplored map with
+    match get_unexplored () with
     | None -> ()
     | Some actsvs ->
       let test = filter_core test actsvs in
