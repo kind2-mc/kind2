@@ -3,10 +3,10 @@ jobs:
     - os: linux
       dist: trusty
     - os: osx
-branches:
-  only:
-  - develop
-  - master
+# branches:
+#   only:
+#   - develop
+#   - master
 language: c
 script: bash -ex .travis-ci.sh
 env:
