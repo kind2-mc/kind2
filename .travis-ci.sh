@@ -26,4 +26,5 @@ fi
 # Checking regression test .
 # make test
 
+mkdir bin
 echo 'Hello World!' > bin/kind2
