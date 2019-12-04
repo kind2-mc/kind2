@@ -1585,7 +1585,7 @@ let block_down map actsvs s =
   |> at_least_one_true
   |> SMTSolver.assert_term map
 
-let umivc in_sys param analyze sys k =
+let umivc_ in_sys param analyze sys k =
 
   let param = Analysis.param_clone param in
   let sys = TS.copy sys in
@@ -1617,6 +1617,7 @@ let umivc in_sys param analyze sys k =
     List.fold_left (fun acc (k,_,v) -> SVMap.add k v acc)
       SVMap.empty act_bindings
   in
+  let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
 
   let add_to_core (keep, test) (actsv,scope,eq) =
     if should_minimize_equation in_sys eq
@@ -1658,7 +1659,7 @@ let umivc in_sys param analyze sys k =
       begin match actsvs with
       | None -> ()
       | Some actsvs ->
-        let eqs = List.map (fun sv -> SVMap.find sv actsvs_eqs_map) actsvs in
+        let eqs = List.map eq_of_actsv actsvs in
         let init_eq = List.map (fun eq -> eq.init_opened) eqs
         |> Term.mk_and in
         let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
@@ -1679,20 +1680,47 @@ let umivc in_sys param analyze sys k =
   in
 
   (* Main loop *)
-  let rec next () =
+  let rec next acc =
     match get_unexplored () with
-    | None -> ()
+    | None -> acc
     | Some actsvs ->
       let seed = filter_core test actsvs in
-      if check (core_union keep seed) then
-        ()
-      else
+      if check (core_union keep seed)
+      then (
+        (* Implements shrink(seed) using UCBF *)
+        let mivc = seed (* TODO *) in
+        (* Save and Block up *)
+        block_up (actsvs_of_core mivc) ;
+        next (mivc::acc)
+      ) else (
         (* Implements grow(seed) using MCS computation *)
         let mcs = compute_mcs (core_diff test seed) in
         let mua = core_diff test mcs in
         (* Block down *)
-        block_down (actsvs_of_core mua)
+        block_down (actsvs_of_core mua) ;
+        next acc
+      )
   in
 
+  let all_mivc = next [] in
   SMTSolver.delete_instance map ;
-  []
+  let core_to_eqmap core =
+    ScMap.map (fun v -> List.map eq_of_actsv v) core
+  in
+  List.map core_to_eqmap all_mivc
+
+(** Implements the algorithm UMIVC *)
+let umivc in_sys param analyze sys k =
+  try (
+    let eqmaps = umivc_ in_sys param analyze sys k in
+    List.map (eqmap_to_ivc in_sys) eqmaps
+  ) with
+  | NotKInductive ->
+    KEvent.log L_error "Properties are not k-inductive." ;
+    []
+  | InitTransMismatch (i,t) ->
+    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
+    []
+  | CannotProve ->
+    KEvent.log L_error "Cannot prove the properties." ;
+    []
