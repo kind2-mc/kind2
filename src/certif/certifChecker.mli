@@ -42,6 +42,6 @@ val generate_all_proofs : int -> 'a InputSystem.t -> TransSys.t -> unit
 (** Minimization of certificate: returns the minimum bound for k-induction and
   a list of useful invariants for this preservation step.
 
-Second parameter is an optional list of terms forcing minimization to consider
-only invariants of the system that are part of this list. *)
-val minimize_invariants : TransSys.t -> Term.t list option -> int * Term.t list
+  Second parameter is an optionnal predicate that forces the minimization
+  to only consider invariants that evaluates to true. *)
+val minimize_invariants : TransSys.t -> (Term.t -> bool) option -> int * Term.t list
