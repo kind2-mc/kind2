@@ -3,10 +3,6 @@ jobs:
     - os: linux
       dist: trusty
     - os: osx
-# branches:
-#   only:
-#   - develop
-#   - master
 language: c
 script: bash -ex .travis-ci.sh
 env:
@@ -22,3 +18,8 @@ deploy:
   tag_name: "nightly"
   overwrite: true
   edge: true
+  on:
+    branches:
+      only:
+        - develop
+        - master
