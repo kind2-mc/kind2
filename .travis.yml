@@ -14,7 +14,7 @@ os:
 before_deploy:
 - git config --local user.name "Travis Test"
 - git config --local user.email "travis-test@example.com"
-- export TRAVIS_TAG=${nightly-$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)}
+- export TRAVIS_TAG=${$(TRAVIS_OS_NAME)-nightly-$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)}
 - git tag $TRAVIS_TAG
 deploy:
   provider: releases
