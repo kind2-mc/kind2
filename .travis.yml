@@ -12,13 +12,13 @@ script: bash -ex .travis-ci.sh
 env:
   matrix:
   - OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
-after_success: bash -ex .deploy.sh
+before_deploy: bash -ex .deploy.sh
 deploy:
   provider: releases
-  file: bin/kind2
-  tag_name: nightly-${TRAVIS_OS_NAME}
+  file_glob: true
+  file: bin/kind2-*
+  tag_name: nightly
   skip_cleanup: true
-  overwrite: true
   on:
     all_branches: true
-  api_key: ${API_KEY}
+  api_key: $API_KEY
