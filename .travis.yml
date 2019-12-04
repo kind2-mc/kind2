@@ -7,4 +7,20 @@ language: c
 sudo: required
 script: bash -ex .travis-ci.sh
 env:
-  - OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
+- OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
+os:
+- linux
+- osx
+before_deploy:
+- git config --local user.name "Travis Test"
+- git config --local user.email "travis-test@example.com"
+- export TRAVIS_TAG=${nightly-$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)}
+- git tag $TRAVIS_TAG
+deploy:
+  provider: releases
+  token:
+    secure: uBBuSw48wdJ3iGTGPJ1C7AnDlW6eqrgmt6y0jOS9DJogU3u/Iyjkiq1JvELrCwG8Rx6ihn84rmDSvxDVLx7CtSDMXEKfv4fn8zN2Ck2fLeJXHbGDqGXu/9tphdHdSURALf0WFrUU+kaYYwTRyunKxoAXROVzBv+Hm5ws1pGOG2qrMP4ormZj+IJaXJs7uHwFCjhs/Un/Kr636j+WgOEoI0JNAZzkSeixUydPNBEZdpDYiI/AoBw5lEZeaFIpc7/XdeDm8w8SZu+MpPFC2i/x1y/WMWwlzXx0zDsua3PK0piXO5m4Ma0/NAvIud/U3XQSxo+0r2aMuEtl5kDJSJORm9/CAQfF4rDB1xIIQpOAjD4raUnySsxDPF2gud/o3ux1gAMaAn5hLrg5j4fzFpOxqwUMO6Izk3yl+dZJtE5zK1xZGUCkgiTfqOTeHa4CnR+Sb+LZAvu7jen6EZ3thiUNpYDDyLZLSHEndw88/6AlXTTBHBKqohBhw7kQDYPEOUUR7DBQv2HMnuKvtYDab4npxiLcdLAWEo9Y8LVQB78TR/L1F82B4jjBI5tQUAlmSjJDLqQ1I/7D3P3IanF3dSl/HLcUOMDrzax9Zw15xniDLD6u2BdF7OBe332Wg2sijsLfdRBwTBcO96l63cKX0cei1R6NCNtRj6VoTAJ06lBWpBM=
+  file: "/usr/local/bin/kind2"
+  on:
+    tags: true
+  overwrite: true
