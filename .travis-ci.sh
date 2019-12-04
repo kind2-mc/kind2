@@ -28,4 +28,4 @@ fi
 # make test
 
 mkdir bin
-echo 'Hello World' > bin/kind2.txt
+echo 'Hello World!' > bin/kind2
