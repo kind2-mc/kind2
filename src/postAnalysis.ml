@@ -422,10 +422,7 @@ module RunInvLog: PostAnalysis = struct
       in
       try (
         let k_min, invs_min =
-          TSys.invars_of_bound sys Num.zero
-          |> List.filter nice_invariants
-          |> fun a -> Some a
-          |> CertifChecker.minimize_invariants sys
+          CertifChecker.minimize_invariants sys (Some nice_invariants)
         in
         KEvent.log_uncond
           "Minimization result: \
