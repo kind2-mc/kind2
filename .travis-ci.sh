@@ -22,7 +22,7 @@ opam install ocamlfind camlp4 menhir yojson
 
 # Build the PR's Kind 2.
 ./autogen.sh
-./build.sh --prefix=.
+./build.sh --prefix=$(pwd)
 
 # Checking regression test .
 make test
