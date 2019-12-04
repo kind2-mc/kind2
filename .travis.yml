@@ -14,12 +14,11 @@ env:
   - OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
   global:
     secure: RP0xPukyaAKnfloshEYYh+BmKl2VsS6lDBWq/3lUGDCOJyFH18VlmukhkGTnHnZLSkPoDgzRdZPON+JuE+/kzPhgI3PhaME4fD/s48QXbrJPCvl7lN7zqvu/bokX99F08J80V3wrwou6gIh2fekAplJHbIPouf6dN4fWhhxEj4GuY1HNOVzuWXMnMYiCXXk/1Zu1C03GqupajI/CnbCuIVRN/4omwcgBOq5adw0pvo1p+16oDUst5uCNps7usuR4zo8jdEx+nv7Ke4LImbkSfKPsJBNq+LnsHIlYprBwesltyPdgadoCMa/Us2pegWAsbrx374IM87B7Z5PUBubecgWSwD1CC1lbkurJktAXbV7pJ4jYXbX9E/H/VOIyXoFCV4ceWZCBEKBdSUpCmBgBbjnxjzIpTK5DQgSjk7B4bgpJTiIZtmSvRmD2B/OkBrosWphgSmaAAqIcDFO2cjhdlND+ed2BWdZGraS6ZpqGJzr13nDy3JSyiCMcSxhQSDbD+yj3QQLPPzAZWTZJL386hkOfXAFxzY06sqNsyBuPcHAtx+IaspOdmHJ3qfUhNdLU8FEUEfiMwpOYi4ZS8dxkjQQzL/SFJ+Z1ELO/mZFrGOzmkJqc9AI5uAOuHebdTmk7fricTO1BgTWBGX4i1KADUZns4GQqA/Gtxri1fNEzsnk=
-before_deploy: ./.deploy.sh
+after_success: ./.deploy.sh
 deploy:
   provider: releases
   token: ${GH_TOKEN}
   file: "/usr/local/bin/kind2"
-  on:
-    tags: true
+  tag_name: "nightly"
   overwrite: true
   edge: true
