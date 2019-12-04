@@ -13,11 +13,11 @@ env:
   matrix:
     - OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
 after_failure:
-  - cat tests/regression/success/reset_counters.lus.log
-  - cat tests/regression/success/mode_reqs_by_idents_shadowing.lus.log
-  - cat tests/regression/success/contract_ordering.lus.log
-  - cat tests/regression/falsifiable/test-const.lus.log
-  - cat tests/regression/falsifiable/stopwatch-condact.lus.log
+  - echo $(cat tests/regression/success/reset_counters.lus.log)
+  - echo $(cat tests/regression/success/mode_reqs_by_idents_shadowing.lus.log)
+  - echo $(cat tests/regression/success/contract_ordering.lus.log)
+  - echo $(cat tests/regression/falsifiable/test-const.lus.log)
+  - echo $(cat tests/regression/falsifiable/stopwatch-condact.lus.log)
 before_deploy: bash -ex .deploy.sh
 deploy:
   provider: releases
