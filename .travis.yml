@@ -1,24 +1,30 @@
 jobs:
   include:
-  - os: linux
-    dist: trusty
-  - os: osx
+    - os: linux
+      dist: trusty
+    - os: osx
 branches:
   only:
-  - develop
-  - master
+    - develop
+    - master
 language: c
 script: bash -ex .travis-ci.sh
 env:
   matrix:
-  - OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
+    - OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
+after_failure:
+  - cat tests/regression/success/reset_counters.lus.log
+  - cat tests/regression/success/mode_reqs_by_idents_shadowing.lus.log
+  - cat tests/regression/success/contract_ordering.lus.log
+  - cat tests/regression/falsifiable/test-const.lus.log
+  - cat tests/regression/falsifiable/stopwatch-condact.lus.log
 before_deploy: bash -ex .deploy.sh
 deploy:
   provider: releases
-  file_glob: true       # allows shorthand for uploading multiple files
-  file: bin/kind2-*     # files to upload, relative to the Travis worker's working directory
-  tag_name: nightly     # name of the tag to associate the release with
-  skip_cleanup: true    # required to prevent Travis from discarding the binaries
+  file_glob: true # allows shorthand for uploading multiple files
+  file: bin/kind2-* # files to upload, relative to the Travis worker's working directory
+  tag_name: nightly # name of the tag to associate the release with
+  skip_cleanup: true # required to prevent Travis from discarding the binaries
   on:
     all_branches: true
     condition: "$TRAVIS_EVENT_TYPE = cron"
