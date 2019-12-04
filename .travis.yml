@@ -12,8 +12,6 @@ script: bash -ex .travis-ci.sh
 env:
   matrix:
   - OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
-  global:
-    secure: F4WSvnlw4TzbPNUClArC800BHkjMaLNir9apRbsiVgY+j110VI6BIQJ2HXnMVjFx8OeyT9eJ9ulq2F3w0Ue8lWYYLMs41yiYPCL0Jlz0SSjmbYOfocpQgjxKvf5ae0hYh4ei/dWhw7vrqfvXa9MIHFqyT5Mh7EuWRoXHI1dNmGQWjQJyLxThKwKQhA39kbQZ6pN7iOqLFHNJ93s/RGV+C6RFl3y/59cHzPsqR4bjPtDP67q1V6eAUGc8Kwxw+udsdBuzAhyk0wF/2pWJFS+D6ksBqoAg/P47xv0rTI6KG6r3jt2yAxxDdnzC+Oj1W0CGfMyzkyBXzKnPkG8+JLanJgU3yh253UdLPP/+fxcDBJqQVJGopoQfMWqVTy5pyAfo+zPqxJI1pR62U1N6WK+/bsqVhU6+N1WpbDICWhQRL08hYC2bEAXa7Xj2fAOTZGn3kru3Jg6zMBLFwCy1GNlhnH6YCeO5+wcMdM3tWXH3CHoXRSTMp0ee/0AwSFz5JeOD+fuCj/sqinpPkS3vyheLYMUpuw4HLOtLjPymWzDl5yRKoqSAvdwI4407/ZCO0Pev1ZXycME+OOVxsgCceJCI/NlssGklRKbs8+QlRS0ed16T+OSVcgPo4XitEoXUMnoUgjlLzV7yLywUm7qW9PjqANftQ+wPv9p92OYY9BNf41c=
 after_success: bash -ex .deploy.sh
 deploy:
   provider: releases
@@ -23,5 +21,4 @@ deploy:
   skip_cleanup: true
   on:
     all_branches: true
-  api_key:
-    secure: nPtLKQh7sNAa7hAUZB7WRbTcOHYdFp/S3rdslLVJpRJnMoqwIq/YJPlstJzlYFNGAyKUEaRWgFWO1ZAg0Pq6n8W7CqfJKZGTDKhat11VGw7twYD7utLpFf4SC/ji5WInlCY9S0oKhqIzD9h6zj9UznRgM32ZJCpocjMgrBoAFjbvwcYv0q84y+ILNZombvvQn9suXj6vvKUqzB+1ycMDd1/MYBBZbDzGZGaYryxc1ihfGj9Nb7OIECo1+uQktIUjya2arZksnHCzsO6R3yPDbz5lpcJT7bVcZTON6kzyUxGym8sjdgufGPMJ7rS/cCnaLQdTUyaae2XBN34z7IvqMk2E7juP+b3okgkODY1NxEpfwtDos07VD+YIFpnGtqmsXjl3fbn/5YGQdTgJwKK4UM4GqOj9gIPAk9UtSB9NQPTFIA/VTm3WzNCo7FD11q14j7OwpNZn1WT19j07iU/J7QTNHS/yhiU1vK9IF0AoELJHuDGQrFjy716lPNoBICIKn2TNOj7BVNxPXgqCVWy8E+zVKBVe+VGtIxVeHN3q/Sz+UGaDSLNPa+dF8RgK2ZViCvPk2gu3rdtYRv3P4Yifn0rhSxgtU85zCIMWD23mo7V8br2dusVpuzw08eBVQDCWFLwN2sglVOieuA2rtrj/4mfMvf9IPPMb018/na5vkrw=
+  api_key: $API_KEY
