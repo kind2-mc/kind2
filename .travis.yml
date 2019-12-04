@@ -8,18 +8,18 @@ script: bash -ex .travis-ci.sh
 env:
   matrix:
   - OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
-  global:
-    secure: GrhgNHmaSTAiTBtd6egrCKgqDPr20HeFmPfCYcYmQxz6DDRwZqg/l1ixe5ZZXX2dhjYcXMOi3sS9dC9BSdsSalzcIFn3t8Tn4D42OamcKAvWwJ5yTKx2XgExp9zan08L++OBvN8r8upwwO4QwIW53fvNXjfdjRAXVoARdAJ+ObkjsNaE0NkkdzWi+lzqIGPtUp/Vx3fGLzEDTHSJMaFo+JV+8oV0iGe4eOv6+KBOi9GBgEvQeNigqBAusSf5mgsobbiGGervclwPpyHFYr8D9rF4YuXOypi3POzsPDR5ZDocuBO1F8Wks/dZDCyWJ6w20pK5fx5TTjqk66A3qHxa6+lVOvwVzczuqN8CmXCjA3kPWnR9mWfj+7ILDRHiIHchMym2gssRnjVdFLu6mgUpTV26drIEgzg09mASdJ2I+c1ANHEoFK1GCQBH/w3MJFwz9U04Mw8ANYcDh33deATK9YEdz2KUQ39tHwrtG/DNlr+yYj8L87iUVKv6fl+Im+mtJe6O2bXz478IAGIK/7efJ8i/sjkNZ1GjmeMh+AP5Rs/gjFqI6xxX3rx5nT9+IEKCe6dWIWu7+MbPlhW0BTdz6Q81FOJk2TysyKqHarKj0qCL2TEJtkQV0vJuoDA7IIS2/fR1rguk05PD5SQv95HBJAuUEYSXH+y5BiTSJ2QCVLU=
 after_success: bash -ex .deploy.sh
 deploy:
   provider: releases
-  token: "${GH_TOKEN}"
+  token:
+    secure: VZu7Clnw63x21hwNSkmkFi6Hs6GKRY0HwqRpkaHUF8nEafeKbY/YysnYfmIE9QdHzPfu7pih4hcdA24GD5vJ9RzjeiieZZwrQAgYSzfRxzNqLbG0cQzC8zEXrN1uow8I1VHEMsPRo5uSLd5cAorh4SUwecGF9tCK+F6gWsv1c8WcxWq298N9LbgUHVYgEmuYtYBoXKWOdsKe9YErvERHeey2QInGdCngsX6k3dd/5NM5Nzz4qMWaXnTVBnhuP8o/BA+0EXExjFWjD29bSBVdt+urYnKDhmBS75aABgGaF2Y4nuRClyiwLA2lLtM8bU8pcvWZc6FYSH3nchbNXyK4yq2c7JwWcID0HozqEh14wxcBze3w/zsTSnQHD/t1RbarSkJvyLMnUZ27UXq6Bzm7Z4nLsh8V7iyRwRu/1MvVHAFF6GRShEf7tuwYDgRzIiLIfTJDncX6uacEh1Yrj/AI/wwU1zzWFjbm8+zn8aqlUCNX1xpMomKXnL2i4wr3klo262Z4d/ESw3O55w8gYVdTSx5yCmTH2SJD7bGQgpdlQqarV/sDWWgWQ00T9+3TrBoJhK3/7JtzRe0MF7XRMZ4FRWDertUXil0Jq0Jj2Bi/Bvri/KXfE7C/K941XB9L4PnujW9wzbYYgFba7Da28xo3lIyAX88bl6wBqxj0TbuezVI=
   file: "/usr/local/bin/kind2"
   tag_name: nightly
   overwrite: true
-  edge: true
+  skip_cleanup: true
   on:
     branches:
       only:
       - develop
       - master
+      - nightly
