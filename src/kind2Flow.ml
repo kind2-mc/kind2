@@ -448,10 +448,17 @@ let analyze msg_setup ignore_props modules in_sys param sys =
       List.length props |> KEvent.log L_info "%d properties." ;
 
       KEvent.log L_debug "Starting child processes." ;
+
+      (* Disable the reception of messages of the invariant manager. *)
+      KEvent.update_child_processes_list [] ;
+      (* Get rid of messages from the previous analysis. *)
+      KEvent.purge_im msg_setup ;
+
       (* Start all child processes. *)
       modules |> List.iter (
         fun p -> run_process in_sys param sys msg_setup p
       ) ;
+
       (* Update background thread with new kids. *)
       KEvent.update_child_processes_list !child_pids ;
 

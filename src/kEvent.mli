@@ -219,6 +219,11 @@ val setup : unit -> messaging_setup
 val run_im :
   messaging_setup -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
 
+(** Purge the invariant manager mailbox.
+  Should be called before calling update_child_processes_list
+  in order to get rid of messages from the previous analysis. *)
+val purge_im : messaging_setup -> unit
+
 (** Start messaging for another process *)
 val run_process : Lib.kind_module -> messaging_setup -> (exn -> unit) -> mthread
 

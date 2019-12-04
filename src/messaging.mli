@@ -124,6 +124,11 @@ sig
       restarting. *)
   val update_child_processes_list : (int * Lib.kind_module) list -> unit
 
+  (** Purge the invariant manager mailbox.
+    Should be called before calling update_child_processes_list
+    in order to get rid of messages from the previous analysis. *)
+  val purge_im_mailbox : ctx * socket * socket -> unit
+
   (** Returns true if a termination message was received. Does NOT
       modify received message in any way. *)
   val check_termination : unit -> bool
