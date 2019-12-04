@@ -17,7 +17,7 @@ deploy:
   provider: releases
   file: bin/kind2
   tag_name: nightly-${TRAVIS_OS_NAME}
-  cleanup: false
+  skip_cleanup: true
   on:
     all_branches: true
   api_key: ${API_KEY}
