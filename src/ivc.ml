@@ -997,13 +997,15 @@ let actlits_of_core map = List.flatten (List.map snd (ScMap.bindings map))
 let symbols_union lst1 lst2 =
   SySet.union (SySet.of_list lst1) (SySet.of_list lst2) |> SySet.elements
 
-let core_union c1 c2 =
+let scmap_union union c1 c2 =
   let merge _ lst1 lst2 = match lst1, lst2 with
   | None, None -> None
   | Some lst, None | None, Some lst -> Some lst
-  | Some lst1, Some lst2 -> Some (symbols_union lst1 lst2)
+  | Some lst1, Some lst2 -> Some (union lst1 lst2)
   in
   ScMap.merge merge c1 c2
+
+let core_union = scmap_union symbols_union
 
 let filter_core core actlits =
   let actlits = SySet.of_list actlits in
@@ -1390,6 +1392,10 @@ let eq_of_actsv actsv_eqs_map ?(with_act=false) sv =
       trans_opened=guard eq.trans_opened ; trans_closed=guard eq.trans_closed }
   else eq
 
+let is_model_value_true = function
+  | Model.Term t -> Term.equal t (Term.mk_true ())
+  | _ -> false
+
 let get_counterexample_actsvs prop_names sys actsvs =
   let rec aux = function
   | [] -> None
@@ -1399,9 +1405,8 @@ let get_counterexample_actsvs prop_names sys actsvs =
         let svs = SVSet.of_list actsvs in
         cex
         |> List.filter (fun (sv, values) -> SVSet.mem sv svs)
-        |> List.filter (fun (_, values) -> match List.hd values with
-            | Model.Term t -> Term.equal t (Term.mk_true ())
-            | _ -> false
+        |> List.filter (fun (_, values) ->
+              is_model_value_true (List.hd values)
             )
         |> List.map fst
         |> (fun x -> Some x)
@@ -1475,7 +1480,6 @@ let compute_cs check_ts sys prop_names actsvs_eqs_map keep test k already_found 
     TS.set_init_trans sys init_eq trans_eq
   in
 
-  KEvent.log L_info "Computing a correction set using automated debugging..." ;
   prepare_ts_for_check keep test ;
   let old_log_level = Lib.get_log_level () in
   Lib.set_log_level L_off ;
@@ -1497,6 +1501,7 @@ let compute_all_cs check_ts sys prop_names actsvs_eqs_map keep test k already_fo
   aux [] already_found
 
 let compute_mcs check_ts sys prop_names actsvs_eqs_map keep test =
+  KEvent.log L_info "Computing a MCS using automated debugging..." ;
   let n = core_size test in
   let rec aux k =
     if k < n
@@ -1509,6 +1514,7 @@ let compute_mcs check_ts sys prop_names actsvs_eqs_map keep test =
   aux 1
 
 let compute_all_mcs check_ts sys prop_names actsvs_eqs_map keep test =
+  KEvent.log L_info "Computing all MCS using automated debugging..." ;
   let n = core_size test in
   let rec aux acc already_found k =
     if k < n
@@ -1525,12 +1531,34 @@ let compute_all_mcs check_ts sys prop_names actsvs_eqs_map keep test =
 
 (* ---------- UMIVC ---------- *)
 
+let svs_union lst1 lst2 =
+  SVSet.union (SVSet.of_list lst1) (SVSet.of_list lst2) |> SVSet.elements
+
+let core_union = scmap_union svs_union
+
 let actsvs_counter =
   let last = ref 0 in
   (fun () -> last := !last + 1 ; !last)
 
 let fresh_actsv_name () =
   Printf.sprintf "__umivc_%i" (actsvs_counter ())
+
+let sv2ufs = StateVar.uf_symbol_of_state_var
+let ufs2sv = StateVar.state_var_of_uf_symbol
+
+let get_unexplored actsvs map =
+  if SMTSolver.check_sat map
+  then
+    let model = SMTSolver.get_model map in
+    actsvs
+    |> List.filter (fun sv ->
+      Var.mk_const_state_var sv
+      |> Var.VarHashtbl.find model
+      |> is_model_value_true
+    )
+    |> (fun x -> Some x)
+  else
+    None
 
 let umivc in_sys param analyze sys k =
 
@@ -1580,13 +1608,62 @@ let umivc in_sys param analyze sys k =
   let actsvs = actsvs_of_core test in
   List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
 
-  (* Test *)
-  (*let n = List.length actsvs in
-  for k=0 to n do
-    let css = compute_all_cs check_ts sys prop_names actsvs_eqs_map keep test k in
-    KEvent.log_uncond "Number of CS for k=%n : %n" k (List.length css)
-  done ;*)
+  (* Initialize the seed map *)
+  let map = SMTSolver.create_instance ~produce_assignments:true
+    (`Inferred (TermLib.FeatureSet.of_list [UF])) (Flags.Smt.solver ()) in
+  actsvs
+  |> List.map sv2ufs
+  |> List.iter (SMTSolver.declare_fun map) ;
+  let get_unexplored = get_unexplored actsvs in
 
+  (* Check safety *)
+  let prepare_ts_for_check keep =
+    reset_ts prop_names sys ;
+    let prepare_subsystem sys =
+      let scope = TS.scope_of_trans_sys sys in
+      let actsvs =
+        try Some (ScMap.find scope keep)
+        with Not_found -> if Flags.IVC.ivc_enter_nodes () then Some [] else None
+      in
+      begin match actsvs with
+      | None -> ()
+      | Some actsvs ->
+        let eqs = List.map (fun sv -> SVMap.find sv actsvs_eqs_map) actsvs in
+        let init_eq = List.map (fun eq -> eq.init_opened) eqs
+        |> Term.mk_and in
+        let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
+        |> Term.mk_and in
+        TS.set_init_trans sys init_eq trans_eq 
+      end
+    in
+    TS.iter_subsystems ~include_top:true prepare_subsystem sys
+  in
+  let check keep =
+    KEvent.log L_info "Testing safety of next seed..." ;
+    prepare_ts_for_check keep ;
+    let old_log_level = Lib.get_log_level () in
+    Lib.set_log_level L_off ;
+    check_ts sys ;
+    Lib.set_log_level old_log_level;
+    check_result prop_names sys
+  in
+
+  (* Main loop *)
+  let rec next () =
+    match get_unexplored map with
+    | None -> ()
+    | Some actsvs ->
+      let test = filter_core test actsvs in
+      let union = core_union keep test in
+      if check union then
+        ()
+      else
+        ()
+  in
+
+  SMTSolver.delete_instance map ;
+
+  (* Test (TMP) *)
   let mcs = compute_all_mcs check_ts sys prop_names actsvs_eqs_map keep test in
   KEvent.log_uncond "Number of MCS : %n" (List.length mcs) ;
   []
