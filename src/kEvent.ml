@@ -1672,6 +1672,10 @@ let update_child_processes_list new_process_list =
       new_process_list
   with Messaging.NotInitialized -> ()
 
+let purge_im (ctx, _) =
+  try EventMessaging.purge_im_mailbox ctx
+  with Messaging.NotInitialized -> ()
+
 (* Terminates if a termination message was received. Does NOT modified
    received messages. *)
 let check_termination () =
