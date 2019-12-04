@@ -7,24 +7,21 @@ elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
   install_dir="/usr/local/bin/z3"
 fi
 
-# wget "https://github.com/Z3Prover/z3/releases/download/z3-4.7.1/${z3_version}.zip"
-# unzip "${z3_version}.zip"
-# sudo cp "${z3_version}/bin/z3" $install_dir
+wget "https://github.com/Z3Prover/z3/releases/download/z3-4.7.1/${z3_version}.zip"
+unzip "${z3_version}.zip"
+sudo cp "${z3_version}/bin/z3" $install_dir
 
 # Retrieve opam.
-# wget -qq https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh -O - | sh -s /usr/local/bin 4.04.0
-# export OPAMYES=1
-# eval $(opam config env)
+wget -qq https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh -O - | sh -s /usr/local/bin 4.04.0
+export OPAMYES=1
+eval $(opam config env)
 
 # Install ocaml packages needed for Kind 2.
-# opam install ocamlfind camlp4 menhir yojson
+opam install ocamlfind camlp4 menhir yojson
 
 # Build the PR's Kind 2.
-# ./autogen.sh
-# ./build.sh --prefix=$(pwd)
+./autogen.sh
+./build.sh --prefix=$(pwd)  # prefix installs the binary into the working directory for Travis
 
-# Checking regression test .
-# make test
-
-mkdir bin
-echo 'Hello World!' > bin/kind2
+# Checking regression test.
+make test
