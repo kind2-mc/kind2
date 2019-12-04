@@ -37,6 +37,15 @@ type equation = {
   trans_closed: Term.t ;
 }
 
+module Equation = struct
+  type t = equation
+  let compare t1 t2 =
+    match Term.compare t1.trans_opened t2.trans_opened with
+    | 0 -> Term.compare t1.init_opened t2.init_opened
+    | n -> n
+end
+module EqMap = Map.Make(Equation)
+
 type loc = {
   pos: Lib.position ;
   index: LustreIndex.index ;
@@ -1133,7 +1142,7 @@ let eq_of_actlit actlits_eqs_map ?(with_act=false) a =
 exception NotKInductive
 
 (** Implements the algorithm IVC_UC *)
-let ivc_uc_ in_sys ?(approximate=false) sys =
+let ivc_uc_ in_sys ?(approximate=false) sys eqmap =
 
   let scope = TS.scope_of_trans_sys sys in
   let k, invs = CertifChecker.minimize_invariants sys None in
@@ -1146,19 +1155,12 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
   KEvent.log L_info "Value of k: %n" k ;
 
   (* Activation litterals, core and mapping to equations *)
-  let add_to_bindings act_bindings sys =
-    let eqs = extract_toplevel_equations in_sys sys in
-    let scope = TS.scope_of_trans_sys sys in
+  let add_to_bindings scope eqs act_bindings =
     let act_bindings' =
       List.map (fun eq -> (Actlit.fresh_actlit (), scope, eq)) eqs in
     act_bindings'@act_bindings
   in
-  let act_bindings =
-    if Flags.IVC.ivc_enter_nodes ()
-    then TS.fold_subsystems ~include_top:false (add_to_bindings) [] sys
-    else []
-  in
-  let act_bindings = add_to_bindings act_bindings sys in
+  let act_bindings = ScMap.fold add_to_bindings eqmap [] in
 
   let actlits_eqs_map =
     List.fold_left (fun acc (k,_,v) -> SyMap.add k v acc)
@@ -1250,7 +1252,8 @@ let ivc_uc_ in_sys ?(approximate=false) sys =
 
 let ivc_uc in_sys ?(approximate=false) sys =
   try (
-    let eqmap = ivc_uc_ in_sys ~approximate:approximate sys in
+    let eqmap = _all_eqs in_sys sys in
+    let eqmap = ivc_uc_ in_sys ~approximate:approximate sys eqmap in
     Some (eqmap_to_ivc in_sys eqmap)
   ) with
   | NotKInductive ->
@@ -1358,7 +1361,8 @@ let ivc_bf in_sys param analyze sys =
 (** Implements the algorithm IVC_UCBF *)
 let ivc_ucbf in_sys param analyze sys =
   try (
-    let eqmap = ivc_uc_ in_sys sys in
+    let eqmap = _all_eqs in_sys sys in
+    let eqmap = ivc_uc_ in_sys sys eqmap in
     let eqmap = ivc_bf_ in_sys param analyze sys eqmap in
     Some (eqmap_to_ivc in_sys eqmap)
   ) with
@@ -1585,7 +1589,7 @@ let block_down map actsvs s =
   |> at_least_one_true
   |> SMTSolver.assert_term map
 
-let umivc_ in_sys param analyze sys k =
+let umivc_ in_sys param analyze sys k eqmap =
 
   let param = Analysis.param_clone param in
   let sys = TS.copy sys in
@@ -1594,9 +1598,7 @@ let umivc_ in_sys param analyze sys k =
   let check_ts = analyze false modules in_sys param in
 
   (* Activation litterals, core and mapping to equations *)
-  let add_to_bindings act_bindings sys =
-    let eqs = extract_toplevel_equations in_sys sys in
-    let scope = TS.scope_of_trans_sys sys in
+  let add_to_bindings scope eqs act_bindings =
     let act_bindings' =
       List.map (fun eq ->
       let actsv =
@@ -1606,18 +1608,18 @@ let umivc_ in_sys param analyze sys k =
     ) eqs in
     act_bindings'@act_bindings
   in
-  let act_bindings =
-    if Flags.IVC.ivc_enter_nodes ()
-    then TS.fold_subsystems ~include_top:false (add_to_bindings) [] sys
-    else []
-  in
-  let act_bindings = add_to_bindings act_bindings sys in
+  let act_bindings = ScMap.fold add_to_bindings eqmap [] in
 
   let actsvs_eqs_map =
     List.fold_left (fun acc (k,_,v) -> SVMap.add k v acc)
       SVMap.empty act_bindings
   in
+  let eqs_actsvs_map =
+    List.fold_left (fun acc (v,_,k) -> EqMap.add k v acc)
+      EqMap.empty act_bindings
+  in
   let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
+  let actsv_of_eq eq = EqMap.find eq eqs_actsvs_map in
 
   let add_to_core (keep, test) (actsv,scope,eq) =
     if should_minimize_equation in_sys eq
@@ -1678,6 +1680,9 @@ let umivc_ in_sys param analyze sys k =
     Lib.set_log_level old_log_level;
     check_result prop_names sys
   in
+  let core_to_eqmap core =
+    ScMap.map (fun v -> List.map eq_of_actsv v) core
+  in
 
   (* Main loop *)
   let rec next acc =
@@ -1685,10 +1690,15 @@ let umivc_ in_sys param analyze sys k =
     | None -> acc
     | Some actsvs ->
       let seed = filter_core test actsvs in
-      if check (core_union keep seed)
+      let union = core_union keep seed in
+      if check union
       then (
         (* Implements shrink(seed) using UCBF *)
-        let mivc = seed (* TODO *) in
+        let eqmap = core_to_eqmap union in
+        let eqmap = ivc_uc_ in_sys sys eqmap in
+        let eqmap = ivc_bf_ in_sys param analyze sys eqmap in
+        let actsvs = eqmap |> actlits_of_core |> List.map actsv_of_eq in
+        let mivc = filter_core seed actsvs in
         (* Save and Block up *)
         block_up (actsvs_of_core mivc) ;
         next (mivc::acc)
@@ -1704,15 +1714,13 @@ let umivc_ in_sys param analyze sys k =
 
   let all_mivc = next [] in
   SMTSolver.delete_instance map ;
-  let core_to_eqmap core =
-    ScMap.map (fun v -> List.map eq_of_actsv v) core
-  in
   List.map core_to_eqmap all_mivc
 
 (** Implements the algorithm UMIVC *)
 let umivc in_sys param analyze sys k =
   try (
-    let eqmaps = umivc_ in_sys param analyze sys k in
+    let eqmap = _all_eqs in_sys sys in
+    let eqmaps = umivc_ in_sys param analyze sys k eqmap in
     List.map (eqmap_to_ivc in_sys) eqmaps
   ) with
   | NotKInductive ->
