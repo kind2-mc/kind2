@@ -1539,7 +1539,18 @@ let compute_all_mcs check_ts sys prop_names actsvs_eqs_map keep test =
 let svs_union lst1 lst2 =
   SVSet.union (SVSet.of_list lst1) (SVSet.of_list lst2) |> SVSet.elements
 
+let svs_diff lst1 lst2 =
+  SVSet.diff (SVSet.of_list lst1) (SVSet.of_list lst2) |> SVSet.elements
+
 let core_union = scmap_union svs_union
+
+let core_diff c1 c2 =
+  let merge _ lst1 lst2 = match lst1, lst2 with
+  | None, _ -> None
+  | Some lst, None -> Some lst
+  | Some lst1, Some lst2 -> Some (svs_diff lst1 lst2)
+  in
+  ScMap.merge merge c1 c2
 
 let actsvs_counter =
   let last = ref 0 in
@@ -1570,9 +1581,7 @@ let block_up map _ s =
   |> SMTSolver.assert_term map
 
 let block_down map actsvs s =
-  SVSet.of_list s
-  |> SVSet.diff (SVSet.of_list actsvs)
-  |> SVSet.elements
+  svs_diff actsvs s
   |> at_least_one_true
   |> SMTSolver.assert_term map
 
@@ -1630,9 +1639,12 @@ let umivc in_sys param analyze sys k =
   actsvs
   |> List.map sv2ufs
   |> List.iter (SMTSolver.declare_fun map) ;
+  (* Utility functions *)
   let get_unexplored () = get_unexplored map actsvs in
   let block_up = block_up map actsvs in
   let block_down = block_down map actsvs in
+  let compute_all_mcs = compute_all_mcs check_ts sys prop_names actsvs_eqs_map keep in
+  let compute_mcs = compute_mcs check_ts sys prop_names actsvs_eqs_map keep in
 
   (* Check safety *)
   let prepare_ts_for_check keep =
@@ -1671,17 +1683,16 @@ let umivc in_sys param analyze sys k =
     match get_unexplored () with
     | None -> ()
     | Some actsvs ->
-      let test = filter_core test actsvs in
-      let union = core_union keep test in
-      if check union then
+      let seed = filter_core test actsvs in
+      if check (core_union keep seed) then
         ()
       else
-        ()
+        (* Implements grow(seed) using MCS computation *)
+        let mcs = compute_mcs (core_diff test seed) in
+        let mua = core_diff test mcs in
+        (* Block down *)
+        block_down (actsvs_of_core mua)
   in
 
   SMTSolver.delete_instance map ;
-
-  (* Test (TMP) *)
-  let mcs = compute_all_mcs check_ts sys prop_names actsvs_eqs_map keep test in
-  KEvent.log_uncond "Number of MCS : %n" (List.length mcs) ;
   []
