@@ -54,3 +54,7 @@ doc/user_documentation.pdf
 
 # VSCode config files
 .vscode/
+
+# GitHub deploy key
+travis_key
+travis_key.pub

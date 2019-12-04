@@ -3,23 +3,22 @@ jobs:
   - os: linux
     dist: trusty
   - os: osx
+branches:
+  only:
+  - develop
+  - master
+  - nightly
 language: c
 script: bash -ex .travis-ci.sh
 env:
   matrix:
   - OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
+  - secure: zaDy17FSQJMxLmID0ZCCHt0f4/iLMb+D7sUIJbg5o9WTWTTGgN/gRGxT41K/NWekY3RJnAP4tMlM5N0sqt4PdQPfboPz3N6RKNfu4wijsZ5lpxse4GOyUtgprHLnefnif+kzhRRjzQ0S/fJ+w37zzhkj4uB9LneGhJyUuGbau59RWmrlMhZTfP/tRQ/5Pd4PDVbCdCrzvMzm9nWDginGrwpH/fcxjKKS4mRysmb9GRg5sKYg8+zUaQ39vh4/bD7gny2KkdHpm6TJSu1OcrMiQpkmBUgbXfHzpNr8/CUBFYElsWmfhqdfAkw80Fb9KmUcyqueVj4liBcWxPo4NK0q4nis9DQozcHpCpV8fbr25/pZfMACLA8YlkFt6NEm4r1e2hJC9SxTR9QIGMhVVZdiwMqNxHwCumA/lJDaLGpxEmwvEk++5x8fkOVxf7Fn+6erTPq5J7buFlkNDde+hbZO4YoEk0a+c1cfA0ZBSQMCcaFbQHlyphFVjZDDLEUXCfVQeIz0yQZn/PFJJbKnQBfQmfILGk0CfkDx6UJcwX2kLYGNOBMlvSgEenijtM0a6p9ke4Ci3LBwjw3KtoOKFP16ArQHzXQ2QWp0UgaDM9MnDFjTwrFHTL7WufLaBpkMG1lSjyVXTRVpoh4TdE6pV4++f5Att3904u2wpSYG+2Z8xBY=
 after_success: bash -ex .deploy.sh
 deploy:
   provider: releases
-  token:
-    secure: VZu7Clnw63x21hwNSkmkFi6Hs6GKRY0HwqRpkaHUF8nEafeKbY/YysnYfmIE9QdHzPfu7pih4hcdA24GD5vJ9RzjeiieZZwrQAgYSzfRxzNqLbG0cQzC8zEXrN1uow8I1VHEMsPRo5uSLd5cAorh4SUwecGF9tCK+F6gWsv1c8WcxWq298N9LbgUHVYgEmuYtYBoXKWOdsKe9YErvERHeey2QInGdCngsX6k3dd/5NM5Nzz4qMWaXnTVBnhuP8o/BA+0EXExjFWjD29bSBVdt+urYnKDhmBS75aABgGaF2Y4nuRClyiwLA2lLtM8bU8pcvWZc6FYSH3nchbNXyK4yq2c7JwWcID0HozqEh14wxcBze3w/zsTSnQHD/t1RbarSkJvyLMnUZ27UXq6Bzm7Z4nLsh8V7iyRwRu/1MvVHAFF6GRShEf7tuwYDgRzIiLIfTJDncX6uacEh1Yrj/AI/wwU1zzWFjbm8+zn8aqlUCNX1xpMomKXnL2i4wr3klo262Z4d/ESw3O55w8gYVdTSx5yCmTH2SJD7bGQgpdlQqarV/sDWWgWQ00T9+3TrBoJhK3/7JtzRe0MF7XRMZ4FRWDertUXil0Jq0Jj2Bi/Bvri/KXfE7C/K941XB9L4PnujW9wzbYYgFba7Da28xo3lIyAX88bl6wBqxj0TbuezVI=
+  api_key:
+    secure: sfzmTcXI5/FvMmBhc1a9gsSZAmW7jKeBU/IviCYJ3Vunu+Fq2KIV+QMd7zqjjMCC3l3H5YiCCyfUgxeaOgdEcOxX/m/eMg7RvZHyCz/H9b8vATep6O2wK+FdEXcV+B6hDPIiZwC0SfgzLBAX5apkdGI3my0WxTBG9Apvbzs0C4HdZS/s+eP0cGThpbmyQZmR24yl+NFdU2f3c3mUT8vos5IMX4WgN/ou7K4mW9gbqiWB6U8EwmimHQSqJmwR0N66Nh648OR+gsUnvAQnr4dmP8qmcQZjlWzZfKdQa2MdRSa3TGg1lfG0OyeJZ2te4yCvP2yRpmNE8Drktl7spNaJRhOnlYTM9U8EK7ZEUD8e/ZdqCDpkTjHUrwIvxsf9jrPFs3ixDQN3sPMmlgN4Twr8FwO01I0kzwNPKkVRcCqobQlzhNzUP/LSy0H5PZMyG5fG5aeNpPZqjnj21pfs0kTZTfYMkB8cfx5bmufoUvk3SmdjoV22C4A5de6QukNfE35POH4x1+DhFTr3ge1BnloPPtW/pC5n3VcNLlQlYaPOlyAchcSd4q6CnrqO3g1sw3S8gu+FjzZPg2Q1alr2BkGSudZ23kBbmLkDllSkR+qqSeR2hHoj3T7qm2AZ7+ZFQmzI2TCZCoyWk4DOXrr2vqKe92MoMqzni4iWlVknBvFWXUo=
   file: "/usr/local/bin/kind2"
   tag_name: nightly
   overwrite: true
-  skip_cleanup: true
-  on:
-    branches:
-      only:
-      - develop
-      - master
-      - nightly
