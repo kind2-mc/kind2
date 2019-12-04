@@ -1,25 +1,25 @@
 jobs:
   include:
-    - os: linux
-      dist: trusty
-    - os: osx
+  - os: linux
+    dist: trusty
+  - os: osx
 language: c
 script: bash -ex .travis-ci.sh
 env:
   matrix:
   - OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
   global:
-    secure: RP0xPukyaAKnfloshEYYh+BmKl2VsS6lDBWq/3lUGDCOJyFH18VlmukhkGTnHnZLSkPoDgzRdZPON+JuE+/kzPhgI3PhaME4fD/s48QXbrJPCvl7lN7zqvu/bokX99F08J80V3wrwou6gIh2fekAplJHbIPouf6dN4fWhhxEj4GuY1HNOVzuWXMnMYiCXXk/1Zu1C03GqupajI/CnbCuIVRN/4omwcgBOq5adw0pvo1p+16oDUst5uCNps7usuR4zo8jdEx+nv7Ke4LImbkSfKPsJBNq+LnsHIlYprBwesltyPdgadoCMa/Us2pegWAsbrx374IM87B7Z5PUBubecgWSwD1CC1lbkurJktAXbV7pJ4jYXbX9E/H/VOIyXoFCV4ceWZCBEKBdSUpCmBgBbjnxjzIpTK5DQgSjk7B4bgpJTiIZtmSvRmD2B/OkBrosWphgSmaAAqIcDFO2cjhdlND+ed2BWdZGraS6ZpqGJzr13nDy3JSyiCMcSxhQSDbD+yj3QQLPPzAZWTZJL386hkOfXAFxzY06sqNsyBuPcHAtx+IaspOdmHJ3qfUhNdLU8FEUEfiMwpOYi4ZS8dxkjQQzL/SFJ+Z1ELO/mZFrGOzmkJqc9AI5uAOuHebdTmk7fricTO1BgTWBGX4i1KADUZns4GQqA/Gtxri1fNEzsnk=
+    secure: GrhgNHmaSTAiTBtd6egrCKgqDPr20HeFmPfCYcYmQxz6DDRwZqg/l1ixe5ZZXX2dhjYcXMOi3sS9dC9BSdsSalzcIFn3t8Tn4D42OamcKAvWwJ5yTKx2XgExp9zan08L++OBvN8r8upwwO4QwIW53fvNXjfdjRAXVoARdAJ+ObkjsNaE0NkkdzWi+lzqIGPtUp/Vx3fGLzEDTHSJMaFo+JV+8oV0iGe4eOv6+KBOi9GBgEvQeNigqBAusSf5mgsobbiGGervclwPpyHFYr8D9rF4YuXOypi3POzsPDR5ZDocuBO1F8Wks/dZDCyWJ6w20pK5fx5TTjqk66A3qHxa6+lVOvwVzczuqN8CmXCjA3kPWnR9mWfj+7ILDRHiIHchMym2gssRnjVdFLu6mgUpTV26drIEgzg09mASdJ2I+c1ANHEoFK1GCQBH/w3MJFwz9U04Mw8ANYcDh33deATK9YEdz2KUQ39tHwrtG/DNlr+yYj8L87iUVKv6fl+Im+mtJe6O2bXz478IAGIK/7efJ8i/sjkNZ1GjmeMh+AP5Rs/gjFqI6xxX3rx5nT9+IEKCe6dWIWu7+MbPlhW0BTdz6Q81FOJk2TysyKqHarKj0qCL2TEJtkQV0vJuoDA7IIS2/fR1rguk05PD5SQv95HBJAuUEYSXH+y5BiTSJ2QCVLU=
 after_success: bash -ex .deploy.sh
 deploy:
   provider: releases
-  token: ${GH_TOKEN}
+  token: "${GH_TOKEN}"
   file: "/usr/local/bin/kind2"
-  tag_name: "nightly"
+  tag_name: nightly
   overwrite: true
   edge: true
   on:
     branches:
       only:
-        - develop
-        - master
+      - develop
+      - master
