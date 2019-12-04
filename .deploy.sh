@@ -1,4 +1,4 @@
-git config --global user.email "travis@travis-ci.com"
+git config --global user.email "travis@travis-ci.org"
 git config --global user.name "Travis CI"
 
 openssl aes-256-cbc -k "$TRAVIS_KEY_PASSWORD" -d -md sha256 -a -in travis_key.enc -out travis_key
@@ -11,5 +11,5 @@ if ! git push -v ; then
   _err "git push error"
 fi
 
-git tag -f nightly
+git tag -f "nightly-${TRAVIS_OS_NAME}"
 git push --tags -f

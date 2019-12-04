@@ -16,9 +16,9 @@ after_success: bash -ex .deploy.sh
 deploy:
   provider: releases
   file: bin/kind2
-  tag_name: nightly
+  tag_name: nightly-${TRAVIS_OS_NAME}
   overwrite: true
-  skip_cleanup: true
+  cleanup: false
   on:
     all_branches: true
-  api_key: $API_KEY
+  api_key: ${API_KEY}
