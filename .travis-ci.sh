@@ -1,4 +1,3 @@
-
 # Install z3.
 if [ "$TRAVIS_OS_NAME" = "linux" ]; then
   z3_version="z3-4.7.1-x64-ubuntu-14.04"
@@ -27,5 +26,4 @@ fi
 # Checking regression test .
 # make test
 
-mkdir bin
 echo 'Hello World!' > bin/kind2
