@@ -21,5 +21,5 @@ deploy:
   skip_cleanup: true # required to prevent Travis from discarding the binaries
   on:
     all_branches: true
-    condition: "$TRAVIS_EVENT_TYPE = cron"
+    condition: "$TRAVIS_EVENT_TYPE = cron && $TRAVIS_REPO_SLUG = kind-mc/kind2"
   api_key: $API_KEY
