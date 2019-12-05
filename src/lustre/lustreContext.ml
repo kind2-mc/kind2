@@ -283,7 +283,7 @@ let push_scope ({
 
 (* Add contract scope to context *)
 let push_contract_scope ({
-  contract_scope ; ident_expr_map ; fresh_local_index ; fresh_oracle_index
+  contract_scope ; ident_expr_map
 } as ctx) ident = { ctx with 
   contract_scope = ident :: contract_scope;
   ident_expr_map = IT.create 7 :: ident_expr_map;
@@ -424,15 +424,13 @@ let add_expr_for_ident ?(shadow = false) ({ident_expr_map} as ctx) ident expr =
      then also if some of the lower scopes contains a binding to the
      identifier. *)
   if 
-
-  (* TODO check this *)    
-    not shadow
-    &&
-    (IT.mem (List.hd ident_expr_map) ident ||
+    (* TODO check this *)
+    IT.mem (List.hd ident_expr_map) ident ||  
+    (not shadow &&
      List.exists (fun m -> IT.mem m ident) (List.tl ident_expr_map))
 
   then
-    
+
     raise (Invalid_argument
              ("add_expr_for_ident: "^I.string_of_ident false ident))
 
@@ -689,7 +687,7 @@ let mk_state_var
   let ctx = 
 
     (* State variable without index? *)
-    (if index = D.empty_index then 
+    (if index = D.empty_index then
 
        (* Create singleton trie for identifier *)
        D.singleton D.empty_index expr
@@ -924,7 +922,7 @@ let set_state_var_oracle ctx state_var oracle =
 (* Create a fresh state variable as an oracle input for the state variable *)
 let mk_fresh_oracle_for_state_var
     ?bounds
-    ({ state_var_oracle_map; fresh_oracle_index } as ctx) 
+    ({ state_var_oracle_map } as ctx) 
     state_var =
 
   (* Create fresh oracle *)
@@ -1065,7 +1063,7 @@ let bounds_of_expr bounds ctx expr =
     ) bounds
   
 
-    
+
 let fresh_state_var_for_expr
     ?(is_input = false)
     ?(is_const = false)
@@ -1126,7 +1124,7 @@ let fresh_state_var_for_expr
     
     (* Evaluate continuation after creating new variable *)
     let ctx = after_mk ctx state_var in
-    
+
     (* Hash table is modified in place, increment index of fresh state
        variable *)
     let ctx = 
@@ -1146,8 +1144,7 @@ let mk_abs_for_expr
     ?(for_inv_gen = true)
     ?(bounds = [])
     ?(reuse = true)
-    ({ expr_abs_map; 
-       fresh_local_index } as ctx)
+    ({ expr_abs_map } as ctx)
     after_mk
     ({ E.expr_type } as expr) = 
 
@@ -1250,8 +1247,7 @@ let mk_local_for_expr
     ?original
     pos
     ({ node; 
-       definitions_allowed;
-       fresh_local_index } as ctx)
+       definitions_allowed } as ctx)
     ({ E.expr_type } as expr) =
 
   match definitions_allowed with 
