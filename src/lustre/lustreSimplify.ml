@@ -1145,7 +1145,8 @@ let rec eval_ast_expr bounds ctx =
                (* abstract with array state variable *)
                let (state_var, _) , ctx = 
                  C.mk_local_for_expr ~bounds:[bound] pos ctx e in
-               (* MAPPING TODO: add_state_var_def *)
+               if not (StateVar.is_input state_var)
+               then N.add_state_var_def state_var (N.GeneratedEq (A.pos_of_expr expr, j)) ;
                let e' = E.mk_var state_var in
                D.add (D.ArrayVarIndex array_size :: j) e' a, ctx)
         expr'
