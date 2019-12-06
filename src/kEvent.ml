@@ -689,7 +689,7 @@ let pp_print_counterexample_xml
           Format.fprintf ppf
             "@[<hv 2>\ <%s>%a@]@,</%s>"
             tag
-            (InputSystem.pp_print_path_xml input_sys' trans_sys' instances true)
+            (InputSystem.pp_print_path_xml input_sys' trans_sys' instances disproved)
             (Model.path_of_list cex')
             tag
         with TimeoutWall -> (
@@ -967,7 +967,7 @@ let pp_print_counterexample_json
           (* Output counterexample *)
           Format.fprintf ppf
             "\"counterExample\" :%a"
-            (InputSystem.pp_print_path_json input_sys' trans_sys' instances true)
+            (InputSystem.pp_print_path_json input_sys' trans_sys' instances disproved)
             (Model.path_of_list cex')
         with TimeoutWall -> (
           Format.fprintf ppf " []@.}@.";
@@ -1805,7 +1805,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
           | (sv, []) as c -> c
           | (sv, _::vl) -> sv, vl) cex
       in
-      
+
       (* Output disproved property *)
       log_cex false m L_warn input_sys analysis trans_sys p cex ;
 
