@@ -419,6 +419,9 @@ let add_expr_for_ident ?(shadow = false) ({ident_expr_map} as ctx) ident expr =
   (* Must have at least a map for the top level *)
   assert (ident_expr_map <> []);
 
+  (* TODO: TMP_FIX *)
+  if  IT.mem (List.hd ident_expr_map) ident then IT.remove (List.hd ident_expr_map) ident ;
+
   (* Fail if hash table for the current scope already contains a
      binding to the identifier, and if the binding should not shadow,
      then also if some of the lower scopes contains a binding to the
@@ -1860,8 +1863,21 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
     | { node = None } -> raise (Invalid_argument "add_node_equation")
 
-    | { node = Some { N.equations; N.calls } } -> 
-      if 
+    | { node = Some { N.equations; N.calls } } ->
+      (* TODO: TMP_FIX *)
+      let equations = List.filter
+          (fun ((sv, b), _) -> 
+             (StateVar.equal_state_vars state_var sv &&
+             List.for_all2 
+               (fun b1 b2 -> match b1, b2 with
+                  | E.Fixed e1, E.Fixed e2 -> E.equal_expr e1 e2
+                  | E.Bound _, E.Bound _ -> true
+                  | _ -> false)
+               b bounds) |> not)
+          equations
+      in
+
+      if  
         (* State variable already defined by equation? *)
         List.exists
           (fun ((sv, b), _) -> 
@@ -2086,6 +2102,18 @@ let add_node_call ctx pos ({ N.call_node_name; N.call_outputs } as node_call) =
     | { node = None } -> raise (Invalid_argument "add_node_call")
 
     | { node = Some ({ N.equations; N.calls } as node) } -> 
+
+      (* TODO: TMP_FIX *)
+      let calls =
+        D.fold (fun _ state_var calls ->
+          List.filter
+            (fun { N.call_node_name; N.call_outputs } -> 
+              D.exists 
+                (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                call_outputs |> not)
+            calls )
+          call_outputs calls
+      in
 
       if D.exists (
         fun _ state_var -> 
