@@ -1647,8 +1647,8 @@ let umivc_ in_sys param analyze sys k eqmap =
   let get_unexplored () = get_unexplored map actsvs in
   let block_up = block_up map actsvs in
   let block_down = block_down map actsvs in
-  let compute_all_mcs = compute_all_mcs check_ts sys prop_names actsvs_eqs_map keep in
-  let compute_mcs = compute_mcs check_ts sys prop_names actsvs_eqs_map keep in
+  let compute_all_mcs = compute_all_mcs check_ts sys prop_names actsvs_eqs_map in
+  let compute_mcs = compute_mcs check_ts sys prop_names actsvs_eqs_map in
 
   (* Check safety *)
   let prepare_ts_for_check keep =
@@ -1684,6 +1684,18 @@ let umivc_ in_sys param analyze sys k eqmap =
   let core_to_eqmap core =
     ScMap.map (fun v -> List.map eq_of_actsv v) core
   in
+  (*let print_acts fmt acts =
+    List.iter (fun a ->
+        Format.fprintf fmt "%a\n" Term.pp_print_term ((eq_of_actsv a).trans_opened)
+      ) acts
+  in
+  let print_core fmt core =
+    Format.fprintf fmt "\n===== CORE =====\n" ;
+    ScMap.iter (fun k v ->
+      Format.fprintf fmt "----- %s -----\n%a" (Scope.to_string k)
+      print_acts v) core ;
+    Format.print_flush () ;
+  in*)
 
   (* Main loop *)
   let rec next acc =
@@ -1705,7 +1717,7 @@ let umivc_ in_sys param analyze sys k eqmap =
         next (mivc::acc)
       ) else (
         (* Implements grow(seed) using MCS computation *)
-        let mcs = compute_mcs (core_diff test seed) in
+        let mcs = compute_mcs (core_union keep seed) (core_diff test seed) in
         let mua = core_diff test mcs in
         (* Block down *)
         block_down (actsvs_of_core mua) ;

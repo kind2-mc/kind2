@@ -572,6 +572,8 @@ module RunIVC: PostAnalysis = struct
           | `IVC_UCBF -> opt_to_lst (Ivc.ivc_ucbf in_sys param analyze sys)
           | `UMIVC -> Ivc.umivc in_sys param analyze sys 0 (* TODO *)
         in
+        KEvent.log_uncond "Number of minimal IVCs found: %n"
+          (List.length res) ;
 
         let treat_ivc ivc =
           let eqs_count eqs =
