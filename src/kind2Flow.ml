@@ -254,7 +254,7 @@ let slaughter_kids process sys =
 
     (
       try
-        while true do
+        while !child_pids <> [] do
           try
             (* Wait for child process to terminate *)
             let pid, status = Unix.wait () in
@@ -350,6 +350,8 @@ let run_process in_sys param sys messaging_setup process =
     (* Make the process leader of a new session. *)
     Unix.setsid () |> ignore ;
     let pid = Unix.getpid () in
+    (* Remove solvers entries (they are owned by the parent) *)
+    SMTSolver.delete_instance_entries () ;
     (* Initialize messaging system for process. *)
     let messaging_thread =
       on_exit_child None process
@@ -401,8 +403,6 @@ let run_process in_sys param sys messaging_setup process =
       (* let in_sys = in_sys in *)
       (* Run main function of process *)
       main_of_process process in_sys param sys ;
-      (* Kill all remaining solvers. *)
-      SMTSolver.destroy_all () ;
       (* Cleanup and exit *)
       on_exit_child (Some messaging_thread) process Exit
 

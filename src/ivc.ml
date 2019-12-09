@@ -1640,8 +1640,9 @@ let umivc_ in_sys param analyze sys k eqmap =
   let map = SMTSolver.create_instance ~produce_assignments:true
     (`Inferred (TermLib.FeatureSet.of_list [UF])) (Flags.Smt.solver ()) in
   actsvs
-  |> List.map sv2ufs
-  |> List.iter (SMTSolver.declare_fun map) ;
+  |> List.map Var.mk_const_state_var
+  |> Var.declare_constant_vars (SMTSolver.declare_fun map) ;
+
   (* Utility functions *)
   let get_unexplored () = get_unexplored map actsvs in
   let block_up = block_up map actsvs in

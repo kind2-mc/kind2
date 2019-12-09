@@ -190,6 +190,9 @@ let destroy_all () =
   ) ;
   all_solvers := IntMap.empty
 
+(** Delete instance entries (should be called after forking, on child processes). *)
+let delete_instance_entries () =
+  all_solvers := IntMap.empty
 
 (* Return the unique identifier of the solver instance *)
 let id_of_instance { id } = id

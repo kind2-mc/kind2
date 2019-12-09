@@ -49,6 +49,9 @@ val delete_instance : t -> unit
 (** Destroys all live solver instances. *)
 val destroy_all : unit -> unit
 
+(** Delete instance entries (should be called after forking, on child processes). *)
+val delete_instance_entries : unit -> unit
+
 (** Return the unique identifier of the solver instance *)
 val id_of_instance : t -> int
   
