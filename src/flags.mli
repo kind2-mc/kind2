@@ -455,6 +455,9 @@ module IVC : sig
   (** Specify the implementation *)
   val ivc_impl : unit -> ivcimpl
 
+  (* Value of the parameter 'k' for the muivc implementation *)
+  val ivc_umivc_k : unit -> int
+
   (** Timeout for unsat core computation *)
   val ivc_uc_timeout : unit -> int
 

@@ -570,7 +570,7 @@ module RunIVC: PostAnalysis = struct
           | `IVC_AUC -> opt_to_lst (Ivc.ivc_uc in_sys ~approximate:true sys)
           | `IVC_BF -> opt_to_lst (Ivc.ivc_bf in_sys param analyze sys)
           | `IVC_UCBF -> opt_to_lst (Ivc.ivc_ucbf in_sys param analyze sys)
-          | `UMIVC -> Ivc.umivc in_sys param analyze sys 0 (* TODO *)
+          | `UMIVC -> Ivc.umivc in_sys param analyze sys (Flags.IVC.ivc_umivc_k ())
         in
         KEvent.log_uncond "Number of minimal IVCs found: %n"
           (List.length res) ;

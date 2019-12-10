@@ -1579,6 +1579,23 @@ let get_unexplored map actsvs =
   else
     None
 
+let get_unexplored_with_card map actsvs n =
+  SMTSolver.push map ;
+  exactly_k_true actsvs n |> SMTSolver.assert_term map ;
+  let res = get_unexplored map actsvs in
+  SMTSolver.pop map ;
+  res
+
+let get_unexplored_min map actsvs =
+  let n = List.length actsvs in
+  let rec aux k =
+    if k > n then None
+    else match get_unexplored_with_card map actsvs k with
+    | None -> aux (k+1)
+    | Some res -> Some res
+  in
+  aux 0
+
 let block_up map _ s =
   at_least_one_false s
   |> SMTSolver.assert_term map
@@ -1589,7 +1606,6 @@ let block_down map actsvs s =
   |> SMTSolver.assert_term map
 
 let umivc_ in_sys param analyze sys k eqmap =
-
   let param = Analysis.param_clone param in
   let sys = TS.copy sys in
   let prop_names = extract_props_names sys in
@@ -1619,6 +1635,9 @@ let umivc_ in_sys param analyze sys k eqmap =
   in
   let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
   let actsv_of_eq eq = EqMap.find eq eqs_actsvs_map in
+  let core_to_eqmap core =
+    ScMap.map (fun v -> List.map eq_of_actsv v) core
+  in
 
   let add_to_core (keep, test) (actsv,scope,eq) =
     if should_minimize_equation in_sys eq
@@ -1637,17 +1656,26 @@ let umivc_ in_sys param analyze sys k eqmap =
 
   (* Initialize the seed map *)
   let map = SMTSolver.create_instance ~produce_assignments:true
-    (`Inferred (TermLib.FeatureSet.of_list [UF])) (Flags.Smt.solver ()) in
+    (`Inferred (TermLib.FeatureSet.of_list [IA; LA])) (Flags.Smt.solver ()) in
   actsvs
   |> List.map Var.mk_const_state_var
   |> Var.declare_constant_vars (SMTSolver.declare_fun map) ;
 
   (* Utility functions *)
   let get_unexplored () = get_unexplored map actsvs in
+  let get_unexplored_min () = get_unexplored_min map actsvs in
   let block_up = block_up map actsvs in
   let block_down = block_down map actsvs in
   let compute_mcs = compute_mcs check_ts sys prop_names actsvs_eqs_map in
   let compute_all_cs = compute_all_cs check_ts sys prop_names actsvs_eqs_map in
+  let compute_mivc core =
+    core_to_eqmap (core_union keep core)
+    |> ivc_uc_ in_sys sys
+    |> ivc_bf_ in_sys param analyze sys
+    |> actlits_of_core
+    |> List.map actsv_of_eq
+    |> filter_core test
+  in
 
   (* Check safety *)
   let prepare_ts_for_check keep =
@@ -1680,9 +1708,6 @@ let umivc_ in_sys param analyze sys k eqmap =
     Lib.set_log_level old_log_level;
     check_result prop_names sys
   in
-  let core_to_eqmap core =
-    ScMap.map (fun v -> List.map eq_of_actsv v) core
-  in
   (*let print_acts fmt acts =
     List.iter (fun a ->
         Format.fprintf fmt "%a\n" Term.pp_print_term ((eq_of_actsv a).trans_opened)
@@ -1697,6 +1722,11 @@ let umivc_ in_sys param analyze sys k eqmap =
   in*)
 
   (* ----- Part 1 : CAMUS ----- *)
+  let k = if k > 100 then 100 else k in
+  let k = if k < 0 then 0 else k in
+  let n = core_size test in
+  let k = (k * n) / 100 in
+  let is_camus = k >= n in
   let rec next i already_found =
     if i > k then ()
     else (
@@ -1712,20 +1742,20 @@ let umivc_ in_sys param analyze sys k eqmap =
   next 1 [] ;
 
   (* ----- Part 2 : MARCO ----- *)
+  let (get_unexplored_auto, check, compute_mivc) =
+    if is_camus
+    then (get_unexplored_min, (fun _ -> true), (fun x -> x))
+    else (get_unexplored, check, compute_mivc)
+  in
   let rec next acc =
-    match get_unexplored () with
+    match get_unexplored_auto () with
     | None -> acc
     | Some actsvs ->
       let seed = filter_core test actsvs in
-      let union = core_union keep seed in
-      if check union
+      if check (core_union keep seed)
       then (
         (* Implements shrink(seed) using UCBF *)
-        let eqmap = core_to_eqmap union in
-        let eqmap = ivc_uc_ in_sys sys eqmap in
-        let eqmap = ivc_bf_ in_sys param analyze sys eqmap in
-        let actsvs = eqmap |> actlits_of_core |> List.map actsv_of_eq in
-        let mivc = filter_core seed actsvs in
+        let mivc = compute_mivc seed in
         (* Save and Block up *)
         block_up (actsvs_of_core mivc) ;
         next (mivc::acc)
@@ -1743,7 +1773,7 @@ let umivc_ in_sys param analyze sys k eqmap =
   SMTSolver.delete_instance map ;
   List.map core_to_eqmap all_mivc
 
-(** Implements the algorithm UMIVC *)
+(** Implements the algorithm UMIVC. 'k' is specified in percentage. *)
 let umivc in_sys param analyze sys k =
   try (
     let eqmap = _all_eqs in_sys sys in

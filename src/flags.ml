@@ -1310,6 +1310,25 @@ module IVC = struct
   let ivc_impl () = !ivc_impl
 
 
+  let ivc_umivc_k_default = 0
+  let ivc_umivc_k = ref ivc_umivc_k_default
+  let _ = add_spec
+    "--ivc_umivc_k"
+    (Arg.Set_int ivc_umivc_k)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Set the parameter 'k' for the implementation UMIVC.@ \
+          It must be specified in percentage.@ \
+          In particular, the value 0 implements the MARCO algorithm,@ \
+          whereas the value 100 implements the CAMUS algorithm.@ \
+          Default: %n\
+        "
+        ivc_umivc_k_default
+    )
+  let ivc_umivc_k () = !ivc_umivc_k
+
+
   let ivc_uc_timeout_default = 10
   let ivc_uc_timeout = ref ivc_uc_timeout_default
   let _ = add_spec

@@ -82,8 +82,8 @@ val ivc_ucbf :
   TransSys.t ->
   ivc option
 
-
-
+(** Outputs all minimal inductive validity cores by implementing the UMIVC algorithm.
+    The last parameter correspond to the parameter 'k', specified in percentage. *)
 val umivc :
 'a InputSystem.t ->
   Analysis.param ->
