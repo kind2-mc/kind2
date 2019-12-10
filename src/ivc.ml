@@ -1531,8 +1531,7 @@ let compute_all_mcs check_ts sys prop_names actsvs_eqs_map keep test =
       let new_mcs = compute_all_cs
         check_ts sys prop_names actsvs_eqs_map keep test k already_found in
       let already_found = (List.map actsvs_of_core new_mcs)@already_found in
-      let acc = new_mcs@acc in
-      aux acc already_found (k+1)
+      aux (new_mcs@acc) already_found (k+1)
     else if acc = [] then [test]
     else acc
   in
@@ -1647,8 +1646,8 @@ let umivc_ in_sys param analyze sys k eqmap =
   let get_unexplored () = get_unexplored map actsvs in
   let block_up = block_up map actsvs in
   let block_down = block_down map actsvs in
-  let compute_all_mcs = compute_all_mcs check_ts sys prop_names actsvs_eqs_map in
   let compute_mcs = compute_mcs check_ts sys prop_names actsvs_eqs_map in
+  let compute_all_cs = compute_all_cs check_ts sys prop_names actsvs_eqs_map in
 
   (* Check safety *)
   let prepare_ts_for_check keep =
@@ -1697,7 +1696,22 @@ let umivc_ in_sys param analyze sys k eqmap =
     Format.print_flush () ;
   in*)
 
-  (* Main loop *)
+  (* ----- Part 1 : CAMUS ----- *)
+  let rec next i already_found =
+    if i > k then ()
+    else (
+      let mcs = compute_all_cs keep test i already_found in
+      List.iter (
+        fun mcs ->
+          let mua = core_diff test mcs in
+          block_down (actsvs_of_core mua)
+      ) mcs ;
+      next (i+1) ((List.map actsvs_of_core mcs)@already_found)
+    )
+  in
+  next 1 [] ;
+
+  (* ----- Part 2 : MARCO ----- *)
   let rec next acc =
     match get_unexplored () with
     | None -> acc
