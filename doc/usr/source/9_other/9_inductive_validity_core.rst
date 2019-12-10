@@ -22,7 +22,7 @@ Options
 * ``--minimize_program {no|valid_lustre|concise}`` (default ``no``\ ) -- Minimize the source Lustre program according to the inductive validity core(s) computed
 * ``--ivc_output_dir <string>`` (default ``<INPUT_FILENAME>``\ ) -- Output directory for the minimized programs
 * ``--ivc_impl {AUC|UC|BF|UCBF|UMIVC}`` (default ``UC``\ ) -- Select the implementation for the IVC computation
-* ``--ivc_umivc_k <int>`` (default ``0``\ ) -- Set the parameter 'k' for the implementation UMIVC, in percentage
+* ``--ivc_umivc_k <int>`` (default ``0``\ ) -- Set the parameter 'k' for the implementation UMIVC
 * ``--ivc_uc_timeout <int>`` (default ``10``\ ) -- Set a timeout for each unsat core check sent to the solver
 
 Example
@@ -78,3 +78,21 @@ We obtain the following inductive validity core:
   Contract item (abs_4 and (abs_4 = (r >= v))) at position [l7c4]
 
   ----- main -----
+
+Computing all Inductive Validity Cores
+--------------------------------------
+
+If we want to compute ALL the minimal inductive validity cores, we must select the implementation ``UMIVC``:
+
+.. code-block:: none
+
+  kind2 <lustre_file> --ivc true --ivc_impl UMIVC
+
+The ``UMIVC`` implementation does not terminate until all minimal inductive validity cores have been found,
+but when an inductive validity core is found, it is directly printed (no need to wait for the algorithm to terminate).
+
+``UMIVC`` is composed of two phases: the first one reduces the search space by computing some Maximal Unsafe Abstractions,
+and the second one search for Minimal Inductive Validity Cores.
+A parameter ``k`` between 0 and infinity determines how long the first phase will be.
+More precisely, the first phase computes all the Maximal Unsafe Abstractions of cardinality up to ``k``.
+``k`` can be set using the option ``--ivc_umivc_k``, with the value -1 for infinity.

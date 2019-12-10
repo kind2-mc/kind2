@@ -83,7 +83,7 @@ val ivc_ucbf :
   ivc option
 
 (** Outputs all minimal inductive validity cores by implementing the UMIVC algorithm.
-    The 5th parameter correspond to the parameter 'k', specified in percentage. *)
+    The 5th parameter correspond to the parameter 'k'. *)
 val umivc :
 'a InputSystem.t ->
   Analysis.param ->

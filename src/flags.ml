@@ -1319,9 +1319,8 @@ module IVC = struct
       Format.fprintf fmt
         "\
           Set the parameter 'k' for the implementation UMIVC.@ \
-          It must be specified in percentage.@ \
           In particular, the value 0 implements the MARCO algorithm,@ \
-          whereas the value 100 implements the CAMUS algorithm.@ \
+          and the value -1 (infinity) implements the CAMUS algorithm.@ \
           Default: %n\
         "
         ivc_umivc_k_default

@@ -1742,12 +1742,10 @@ let umivc_ in_sys param analyze sys k cont eqmap =
     in*)
 
     (* ----- Part 1 : CAMUS ----- *)
-    KEvent.log L_info "Phase 1: CAMUS..." ;
-    let k = if k > 100 then 100 else k in
-    let k = if k < 0 then 0 else k in
-    let k = (k * n) / 100 in
+    KEvent.log L_info "Phase 1: CAMUS" ;
+    let k = if k > n || k < 0 then n else k in
     let is_camus = k >= n in
-    let is_marco = ref true in
+    let is_marco = k <= 0 in
     let rec next i already_found =
       if i > k then ()
       else (
@@ -1755,7 +1753,6 @@ let umivc_ in_sys param analyze sys k cont eqmap =
         let mcs = compute_all_cs keep test i already_found in
         List.iter (
           fun mcs ->
-            is_marco := false ;
             let mua = core_diff test mcs in
             block_down (actsvs_of_core mua)
         ) mcs ;
@@ -1767,7 +1764,7 @@ let umivc_ in_sys param analyze sys k cont eqmap =
     let get_unexplored_auto =
       if is_camus
       then (fun () -> Min, get_unexplored_min ())
-      else if !is_marco
+      else if is_marco
       then (fun () -> Max, get_unexplored_max ())
       else (* Implements GetUnexploredZZ *) (
         let last_was_min = ref true in
@@ -1780,7 +1777,7 @@ let umivc_ in_sys param analyze sys k cont eqmap =
       )
     in
     (* ----- Part 3 : MARCO ----- *)
-    KEvent.log L_info "Phase 2: MARCO..." ;
+    KEvent.log L_info "Phase 2: MARCO" ;
     let rec next acc =
       match get_unexplored_auto () with
       | _, None -> acc
@@ -1814,7 +1811,7 @@ let umivc_ in_sys param analyze sys k cont eqmap =
     all_mivc
   )
 
-(** Implements the algorithm UMIVC. 'k' is specified in percentage. *)
+(** Implements the algorithm UMIVC. *)
 let umivc in_sys param analyze sys k cont =
   try (
     let res = ref [] in
