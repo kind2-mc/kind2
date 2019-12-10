@@ -1662,145 +1662,149 @@ let umivc_ in_sys param analyze sys k eqmap =
   in
   let (keep,test) = List.fold_left add_to_core (ScMap.empty,ScMap.empty) act_bindings in
 
-  (* Add actsvs to the transition system (at top level) *)
-  let actsvs = actsvs_of_core test in
-  List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
-
-  (* Initialize the seed map *)
-  let map = SMTSolver.create_instance ~produce_assignments:true
-    (`Inferred (TermLib.FeatureSet.of_list [IA; LA])) (Flags.Smt.solver ()) in
-  actsvs
-  |> List.map Var.mk_const_state_var
-  |> Var.declare_constant_vars (SMTSolver.declare_fun map) ;
-
-  (* Utility functions *)
-  (*let get_unexplored () = get_unexplored map actsvs in*)
-  let get_unexplored_min () = get_unexplored_min map actsvs in
-  let get_unexplored_max () = get_unexplored_max map actsvs in
-  let block_up = block_up map actsvs in
-  let block_down = block_down map actsvs in
-  let compute_mcs = compute_mcs check_ts sys prop_names actsvs_eqs_map in
-  let compute_all_cs = compute_all_cs check_ts sys prop_names actsvs_eqs_map in
-  let compute_mivc core =
-    core_to_eqmap (core_union keep core)
-    |> ivc_uc_ in_sys sys
-    |> ivc_bf_ in_sys param analyze sys
-    |> actlits_of_core
-    |> List.map actsv_of_eq
-    |> filter_core test
-  in
-
-  (* Check safety *)
-  let prepare_ts_for_check keep =
-    reset_ts prop_names sys ;
-    let prepare_subsystem sys =
-      let scope = TS.scope_of_trans_sys sys in
-      let actsvs =
-        try Some (ScMap.find scope keep)
-        with Not_found -> if Flags.IVC.ivc_enter_nodes () then Some [] else None
-      in
-      begin match actsvs with
-      | None -> ()
-      | Some actsvs ->
-        let eqs = List.map eq_of_actsv actsvs in
-        let init_eq = List.map (fun eq -> eq.init_opened) eqs
-        |> Term.mk_and in
-        let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
-        |> Term.mk_and in
-        TS.set_init_trans sys init_eq trans_eq 
-      end
-    in
-    TS.iter_subsystems ~include_top:true prepare_subsystem sys
-  in
-  let check keep =
-    KEvent.log L_info "Testing safety of next seed..." ;
-    prepare_ts_for_check keep ;
-    let old_log_level = Lib.get_log_level () in
-    Lib.set_log_level L_off ;
-    check_ts sys ;
-    Lib.set_log_level old_log_level;
-    check_result prop_names sys
-  in
-  (*let print_acts fmt acts =
-    List.iter (fun a ->
-        Format.fprintf fmt "%a\n" Term.pp_print_term ((eq_of_actsv a).trans_opened)
-      ) acts
-  in
-  let print_core fmt core =
-    Format.fprintf fmt "\n===== CORE =====\n" ;
-    ScMap.iter (fun k v ->
-      Format.fprintf fmt "----- %s -----\n%a" (Scope.to_string k)
-      print_acts v) core ;
-    Format.print_flush () ;
-  in*)
-
-  (* ----- Part 1 : CAMUS ----- *)
-  let k = if k > 100 then 100 else k in
-  let k = if k < 0 then 0 else k in
+  (* If test is empty, we can return *)
   let n = core_size test in
-  let k = (k * n) / 100 in
-  let is_camus = k >= n in
-  let is_marco = ref true in
-  let rec next i already_found =
-    if i > k then ()
-    else (
-      let mcs = compute_all_cs keep test i already_found in
-      List.iter (
-        fun mcs ->
-          is_marco := false ;
-          let mua = core_diff test mcs in
-          block_down (actsvs_of_core mua)
-      ) mcs ;
-      next (i+1) ((List.map actsvs_of_core mcs)@already_found)
-    )
-  in
-  next 1 [] ;
-  (* ----- Part 2 : DETERMINING STRATEGY ----- *)
-  let get_unexplored_auto =
-    if is_camus
-    then (fun () -> Min, get_unexplored_min ())
-    else if !is_marco
-    then (fun () -> Max, get_unexplored_max ())
-    else (* Implements GetUnexploredZZ *) (
-      let last_was_min = ref true in
-      (fun () ->
-        last_was_min := not (!last_was_min) ;
-        if !last_was_min
-        then Min, get_unexplored_min ()
-        else Max, get_unexplored_max ()
-      )
-    )
-  in
-  (* ----- Part 3 : MARCO ----- *)
-  let rec next acc =
-    match get_unexplored_auto () with
-    | _, None -> acc
-    | typ, Some actsvs ->
-      let seed = filter_core test actsvs in
-      if is_camus || check (core_union keep seed)
-      then (
-        (* Implements shrink(seed) using UCBF *)
-        let mivc = if typ = Min then seed else compute_mivc seed in
-        (* Save and Block up *)
-        block_up (actsvs_of_core mivc) ;
-        next (mivc::acc)
-      ) else (
-        (* Implements grow(seed) using MCS computation *)
-        let mua = if typ = Max then seed
-        else (
-          compute_mcs (core_union keep seed) (core_diff test seed)
-          |> core_diff test
-        )
-        in
-        (* Block down *)
-        block_down (actsvs_of_core mua) ;
-        next acc
-      )
-  in
+  if n = 0 then [core_to_eqmap test]
+  else (
+    (* Add actsvs to the transition system (at top level) *)
+    let actsvs = actsvs_of_core test in
+    List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
 
-  let all_mivc = next [] in
-  SMTSolver.delete_instance map ;
-  List.map core_to_eqmap all_mivc
+    (* Initialize the seed map *)
+    let map = SMTSolver.create_instance ~produce_assignments:true
+      (`Inferred (TermLib.FeatureSet.of_list [IA; LA])) (Flags.Smt.solver ()) in
+    actsvs
+    |> List.map Var.mk_const_state_var
+    |> Var.declare_constant_vars (SMTSolver.declare_fun map) ;
+
+    (* Utility functions *)
+    (*let get_unexplored () = get_unexplored map actsvs in*)
+    let get_unexplored_min () = get_unexplored_min map actsvs in
+    let get_unexplored_max () = get_unexplored_max map actsvs in
+    let block_up = block_up map actsvs in
+    let block_down = block_down map actsvs in
+    let compute_mcs = compute_mcs check_ts sys prop_names actsvs_eqs_map in
+    let compute_all_cs = compute_all_cs check_ts sys prop_names actsvs_eqs_map in
+    let compute_mivc core =
+      core_to_eqmap (core_union keep core)
+      |> ivc_uc_ in_sys sys
+      |> ivc_bf_ in_sys param analyze sys
+      |> actlits_of_core
+      |> List.map actsv_of_eq
+      |> filter_core test
+    in
+
+    (* Check safety *)
+    let prepare_ts_for_check keep =
+      reset_ts prop_names sys ;
+      let prepare_subsystem sys =
+        let scope = TS.scope_of_trans_sys sys in
+        let actsvs =
+          try Some (ScMap.find scope keep)
+          with Not_found -> if Flags.IVC.ivc_enter_nodes () then Some [] else None
+        in
+        begin match actsvs with
+        | None -> ()
+        | Some actsvs ->
+          let eqs = List.map eq_of_actsv actsvs in
+          let init_eq = List.map (fun eq -> eq.init_opened) eqs
+          |> Term.mk_and in
+          let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
+          |> Term.mk_and in
+          TS.set_init_trans sys init_eq trans_eq 
+        end
+      in
+      TS.iter_subsystems ~include_top:true prepare_subsystem sys
+    in
+    let check keep =
+      KEvent.log L_info "Testing safety of next seed..." ;
+      prepare_ts_for_check keep ;
+      let old_log_level = Lib.get_log_level () in
+      Lib.set_log_level L_off ;
+      check_ts sys ;
+      Lib.set_log_level old_log_level;
+      check_result prop_names sys
+    in
+    (*let print_acts fmt acts =
+      List.iter (fun a ->
+          Format.fprintf fmt "%a\n" Term.pp_print_term ((eq_of_actsv a).trans_opened)
+        ) acts
+    in
+    let print_core fmt core =
+      Format.fprintf fmt "\n===== CORE =====\n" ;
+      ScMap.iter (fun k v ->
+        Format.fprintf fmt "----- %s -----\n%a" (Scope.to_string k)
+        print_acts v) core ;
+      Format.print_flush () ;
+    in*)
+
+    (* ----- Part 1 : CAMUS ----- *)
+    let k = if k > 100 then 100 else k in
+    let k = if k < 0 then 0 else k in
+    let k = (k * n) / 100 in
+    let is_camus = k >= n in
+    let is_marco = ref true in
+    let rec next i already_found =
+      if i > k then ()
+      else (
+        let mcs = compute_all_cs keep test i already_found in
+        List.iter (
+          fun mcs ->
+            is_marco := false ;
+            let mua = core_diff test mcs in
+            block_down (actsvs_of_core mua)
+        ) mcs ;
+        next (i+1) ((List.map actsvs_of_core mcs)@already_found)
+      )
+    in
+    next 1 [] ;
+    (* ----- Part 2 : DETERMINING STRATEGY ----- *)
+    let get_unexplored_auto =
+      if is_camus
+      then (fun () -> Min, get_unexplored_min ())
+      else if !is_marco
+      then (fun () -> Max, get_unexplored_max ())
+      else (* Implements GetUnexploredZZ *) (
+        let last_was_min = ref true in
+        (fun () ->
+          last_was_min := not (!last_was_min) ;
+          if !last_was_min
+          then Min, get_unexplored_min ()
+          else Max, get_unexplored_max ()
+        )
+      )
+    in
+    (* ----- Part 3 : MARCO ----- *)
+    let rec next acc =
+      match get_unexplored_auto () with
+      | _, None -> acc
+      | typ, Some actsvs ->
+        let seed = filter_core test actsvs in
+        if is_camus || check (core_union keep seed)
+        then (
+          (* Implements shrink(seed) using UCBF *)
+          let mivc = if typ = Min then seed else compute_mivc seed in
+          (* Save and Block up *)
+          block_up (actsvs_of_core mivc) ;
+          next (mivc::acc)
+        ) else (
+          (* Implements grow(seed) using MCS computation *)
+          let mua = if typ = Max then seed
+          else (
+            compute_mcs (core_union keep seed) (core_diff test seed)
+            |> core_diff test
+          )
+          in
+          (* Block down *)
+          block_down (actsvs_of_core mua) ;
+          next acc
+        )
+    in
+
+    let all_mivc = next [] in
+    SMTSolver.delete_instance map ;
+    List.map core_to_eqmap all_mivc
+  )
 
 (** Implements the algorithm UMIVC. 'k' is specified in percentage. *)
 let umivc in_sys param analyze sys k =
