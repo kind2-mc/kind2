@@ -1596,6 +1596,16 @@ let get_unexplored_min map actsvs =
   in
   aux 0
 
+let get_unexplored_max map actsvs =
+  let n = List.length actsvs in
+  let rec aux k =
+    if k < 0 then None
+    else match get_unexplored_with_card map actsvs k with
+    | None -> aux (k-1)
+    | Some res -> Some res
+  in
+  aux n
+
 let block_up map _ s =
   at_least_one_false s
   |> SMTSolver.assert_term map
@@ -1604,6 +1614,8 @@ let block_down map actsvs s =
   svs_diff actsvs s
   |> at_least_one_true
   |> SMTSolver.assert_term map
+
+type unexplored_type = | Any | Min | Max
 
 let umivc_ in_sys param analyze sys k eqmap =
   let param = Analysis.param_clone param in
@@ -1662,8 +1674,9 @@ let umivc_ in_sys param analyze sys k eqmap =
   |> Var.declare_constant_vars (SMTSolver.declare_fun map) ;
 
   (* Utility functions *)
-  let get_unexplored () = get_unexplored map actsvs in
+  (*let get_unexplored () = get_unexplored map actsvs in*)
   let get_unexplored_min () = get_unexplored_min map actsvs in
+  let get_unexplored_max () = get_unexplored_max map actsvs in
   let block_up = block_up map actsvs in
   let block_down = block_down map actsvs in
   let compute_mcs = compute_mcs check_ts sys prop_names actsvs_eqs_map in
@@ -1727,12 +1740,14 @@ let umivc_ in_sys param analyze sys k eqmap =
   let n = core_size test in
   let k = (k * n) / 100 in
   let is_camus = k >= n in
+  let is_marco = ref true in
   let rec next i already_found =
     if i > k then ()
     else (
       let mcs = compute_all_cs keep test i already_found in
       List.iter (
         fun mcs ->
+          is_marco := false ;
           let mua = core_diff test mcs in
           block_down (actsvs_of_core mua)
       ) mcs ;
@@ -1740,29 +1755,43 @@ let umivc_ in_sys param analyze sys k eqmap =
     )
   in
   next 1 [] ;
-
-  (* ----- Part 2 : MARCO ----- *)
-  let (get_unexplored_auto, check, compute_mivc) =
+  (* ----- Part 2 : DETERMINING STRATEGY ----- *)
+  let get_unexplored_auto =
     if is_camus
-    then (get_unexplored_min, (fun _ -> true), (fun x -> x))
-    else (get_unexplored, check, compute_mivc)
+    then (fun () -> Min, get_unexplored_min ())
+    else if !is_marco
+    then (fun () -> Max, get_unexplored_max ())
+    else (* Implements GetUnexploredZZ *) (
+      let last_was_min = ref true in
+      (fun () ->
+        last_was_min := not (!last_was_min) ;
+        if !last_was_min
+        then Min, get_unexplored_min ()
+        else Max, get_unexplored_max ()
+      )
+    )
   in
+  (* ----- Part 3 : MARCO ----- *)
   let rec next acc =
     match get_unexplored_auto () with
-    | None -> acc
-    | Some actsvs ->
+    | _, None -> acc
+    | typ, Some actsvs ->
       let seed = filter_core test actsvs in
-      if check (core_union keep seed)
+      if is_camus || check (core_union keep seed)
       then (
         (* Implements shrink(seed) using UCBF *)
-        let mivc = compute_mivc seed in
+        let mivc = if typ = Min then seed else compute_mivc seed in
         (* Save and Block up *)
         block_up (actsvs_of_core mivc) ;
         next (mivc::acc)
       ) else (
         (* Implements grow(seed) using MCS computation *)
-        let mcs = compute_mcs (core_union keep seed) (core_diff test seed) in
-        let mua = core_diff test mcs in
+        let mua = if typ = Max then seed
+        else (
+          compute_mcs (core_union keep seed) (core_diff test seed)
+          |> core_diff test
+        )
+        in
         (* Block down *)
         block_down (actsvs_of_core mua) ;
         next acc
