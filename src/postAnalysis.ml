@@ -572,17 +572,11 @@ module RunIVC: PostAnalysis = struct
           | `IVC_UCBF -> opt_to_lst (Ivc.ivc_ucbf in_sys param analyze sys)
           | `UMIVC -> Ivc.umivc in_sys param analyze sys (Flags.IVC.ivc_umivc_k ())
         in
-        KEvent.log_uncond "Number of minimal IVCs found: %n"
-          (List.length res) ;
 
+        let nb = ref 0 in
+        let initial = Ivc.all_eqs in_sys sys in
         let treat_ivc ivc =
-          let eqs_count eqs =
-            Ivc.ScMap.fold (fun _ v acc -> acc + List.length v) eqs 0
-          in
-          let initial = Ivc.all_eqs in_sys sys in
-          KEvent.log_uncond "%i elements after minimization (%i initially)"
-            (eqs_count ivc) (eqs_count initial) ;
-
+        
           if Flags.IVC.print_ivc ()
           then begin
             let pt = Ivc.pp_print_ivc in_sys sys "MAIN" in
@@ -618,16 +612,15 @@ module RunIVC: PostAnalysis = struct
               |> Ivc.minimize_lustre_ast
                 ~valid_lustre:(Flags.IVC.minimize_program () = `VALID_LUSTRE) initial ivc
             in
-            let filename = (* TODO: if many ivc, print to different files *)
-              match Flags.IVC.minimized_program_filename () with
+            let dir =
+              match Flags.IVC.minimized_program_dir () with
               | "" ->
-                let input_file = Flags.input_file () in
-                let ext = Filename.extension input_file in
-                input_file
+                Flags.input_file ()
                 |> Filename.remove_extension
-                |> (fun str -> str^"_min"^ext)
               | str -> str
             in
+            (try Unix.mkdir dir 0o755 with _ -> ()) ;
+            let filename = Filename.concat dir (Printf.sprintf "%n.lus" !nb) in
             let print_channel out =
               let fmt = Format.formatter_of_out_channel out in
               LustreAst.pp_print_program fmt
@@ -635,10 +628,13 @@ module RunIVC: PostAnalysis = struct
             let oc = open_out filename in
             print_channel oc minimized ;
             close_out oc
-          end
+          end ;
+
+          nb := !nb + 1
         in
         
         List.iter treat_ivc res ;
+        KEvent.log_uncond "Number of minimal IVCs found: %n" (List.length res) ;
         Ok ()
       )
       with

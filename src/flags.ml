@@ -1260,7 +1260,7 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Minimize the source Lustre program according to the inductive validity core computed@ \
+          Minimize the source Lustre program according to the inductive validity core(s) computed@ \
           \"no\" to disable this feature (default)@ \
           \"valid_lustre\" to replace useless expressions by a valid node call@ \
           \"concise\" to replace useless expressions by a '_'\
@@ -1268,17 +1268,17 @@ module IVC = struct
     )
   let minimize_program () = !minimize_program
 
-  let minimized_program_filename_default = ""
-  let minimized_program_filename = ref minimized_program_filename_default
+  let minimized_program_dir_default = ""
+  let minimized_program_dir = ref minimized_program_dir_default
   let _ = add_spec
-      "--minimized_program_filename"
-      (Arg.Set_string minimized_program_filename)
+      "--ivc_output_dir"
+      (Arg.Set_string minimized_program_dir)
       (fun fmt ->
          Format.fprintf fmt
-           "Filename for the minimized Lustre program@ \
-            Default: <INPUT_FILENAME>_min.<EXT>"
+           "Output directory for the minimized programs@ \
+            Default: <INPUT_FILENAME>"
       )
-  let minimized_program_filename () = !minimized_program_filename
+  let minimized_program_dir () = !minimized_program_dir
 
 
   type ivcimpl = [ `IVC_BF | `IVC_AUC | `IVC_UC | `IVC_UCBF | `UMIVC ]

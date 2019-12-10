@@ -446,8 +446,8 @@ module IVC : sig
   (** Generate a minimize lustre program *)
   val minimize_program : unit -> minimize_mode
 
-  (** The filename of the minimized program *)
-  val minimized_program_filename : unit -> string
+  (** The directory where minimized programs should be saved *)
+  val minimized_program_dir : unit -> string
 
   (** If true, compute a core with equations of all subsystems *)
   val ivc_enter_nodes : unit -> bool
