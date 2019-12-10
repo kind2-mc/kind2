@@ -64,7 +64,7 @@ val ivc_bf :
     bool ->
     Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
     -> unit
-   ) ->
+  ) ->
   TransSys.t ->
   ivc option
 
@@ -78,12 +78,12 @@ val ivc_ucbf :
     bool ->
     Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
     -> unit
-   ) ->
+  ) ->
   TransSys.t ->
   ivc option
 
 (** Outputs all minimal inductive validity cores by implementing the UMIVC algorithm.
-    The last parameter correspond to the parameter 'k', specified in percentage. *)
+    The 5th parameter correspond to the parameter 'k', specified in percentage. *)
 val umivc :
 'a InputSystem.t ->
   Analysis.param ->
@@ -91,8 +91,9 @@ val umivc :
     bool ->
     Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
     -> unit
-   ) ->
+  ) ->
   TransSys.t ->
   int ->
+  (ivc -> unit) ->
   ivc list
 

@@ -1334,6 +1334,7 @@ let ivc_bf_ in_sys param analyze sys eqmap =
     KEvent.log L_info "Minimizing using bruteforce... (%i left)" (eqmap_size test) ;
     prepare_ts_for_check keep test ;
     let old_log_level = Lib.get_log_level () in
+    Format.print_flush () ;
     Lib.set_log_level L_off ;
     analyze false modules in_sys param sys ;
     Lib.set_log_level old_log_level;
@@ -1491,6 +1492,7 @@ let compute_cs check_ts sys prop_names actsvs_eqs_map keep test k already_found 
 
   prepare_ts_for_check keep test ;
   let old_log_level = Lib.get_log_level () in
+  Format.print_flush () ;
   Lib.set_log_level L_off ;
   check_ts sys ;
   Lib.set_log_level old_log_level;
@@ -1617,7 +1619,7 @@ let block_down map actsvs s =
 
 type unexplored_type = | Any | Min | Max
 
-let umivc_ in_sys param analyze sys k eqmap =
+let umivc_ in_sys param analyze sys k cont eqmap =
   let param = Analysis.param_clone param in
   let sys = TS.copy sys in
   let prop_names = extract_props_names sys in
@@ -1720,6 +1722,7 @@ let umivc_ in_sys param analyze sys k eqmap =
       KEvent.log L_info "Testing safety of next seed..." ;
       prepare_ts_for_check keep ;
       let old_log_level = Lib.get_log_level () in
+      Format.print_flush () ;
       Lib.set_log_level L_off ;
       check_ts sys ;
       Lib.set_log_level old_log_level;
@@ -1785,8 +1788,10 @@ let umivc_ in_sys param analyze sys k eqmap =
           (* Implements shrink(seed) using UCBF *)
           let mivc = if typ = Min then seed else compute_mivc seed in
           (* Save and Block up *)
+          let mivc_eqmap = core_to_eqmap mivc in
+          cont mivc_eqmap ;
           block_up (actsvs_of_core mivc) ;
-          next (mivc::acc)
+          next (mivc_eqmap::acc)
         ) else (
           (* Implements grow(seed) using MCS computation *)
           let mua = if typ = Max then seed
@@ -1803,15 +1808,21 @@ let umivc_ in_sys param analyze sys k eqmap =
 
     let all_mivc = next [] in
     SMTSolver.delete_instance map ;
-    List.map core_to_eqmap all_mivc
+    all_mivc
   )
 
 (** Implements the algorithm UMIVC. 'k' is specified in percentage. *)
-let umivc in_sys param analyze sys k =
+let umivc in_sys param analyze sys k cont =
   try (
+    let res = ref [] in
+    let cont eqmap =
+      let ivc = eqmap_to_ivc in_sys eqmap in
+      res := ivc::(!res) ;
+      cont ivc
+    in
     let eqmap = _all_eqs in_sys sys in
-    let eqmaps = umivc_ in_sys param analyze sys k eqmap in
-    List.map (eqmap_to_ivc in_sys) eqmaps
+    let _ = umivc_ in_sys param analyze sys k cont eqmap in
+    List.rev (!res)
   ) with
   | NotKInductive ->
     KEvent.log L_error "Properties are not k-inductive." ;

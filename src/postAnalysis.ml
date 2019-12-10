@@ -564,19 +564,10 @@ module RunIVC: PostAnalysis = struct
         Term.print_term trans ; Format.printf "\n" ;*)
         (*Format.print_flush () ;*)
 
-        let opt_to_lst = function None -> [] | Some e -> [e] in
-        let res = match Flags.IVC.ivc_impl () with
-          | `IVC_UC -> opt_to_lst (Ivc.ivc_uc in_sys ~approximate:false sys)
-          | `IVC_AUC -> opt_to_lst (Ivc.ivc_uc in_sys ~approximate:true sys)
-          | `IVC_BF -> opt_to_lst (Ivc.ivc_bf in_sys param analyze sys)
-          | `IVC_UCBF -> opt_to_lst (Ivc.ivc_ucbf in_sys param analyze sys)
-          | `UMIVC -> Ivc.umivc in_sys param analyze sys (Flags.IVC.ivc_umivc_k ())
-        in
-
         let nb = ref 0 in
         let initial = Ivc.all_eqs in_sys sys in
         let treat_ivc ivc =
-        
+
           if Flags.IVC.print_ivc ()
           then begin
             let pt = Ivc.pp_print_ivc in_sys sys "MAIN" in
@@ -632,8 +623,17 @@ module RunIVC: PostAnalysis = struct
 
           nb := !nb + 1
         in
-        
-        List.iter treat_ivc res ;
+
+        let treat_and_return_lst = function
+          | None -> []
+          | Some e -> treat_ivc e ; [e] in
+        let res = match Flags.IVC.ivc_impl () with
+          | `IVC_UC -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:false sys)
+          | `IVC_AUC -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:true sys)
+          | `IVC_BF -> treat_and_return_lst (Ivc.ivc_bf in_sys param analyze sys)
+          | `IVC_UCBF -> treat_and_return_lst (Ivc.ivc_ucbf in_sys param analyze sys)
+          | `UMIVC -> Ivc.umivc in_sys param analyze sys (Flags.IVC.ivc_umivc_k ()) treat_ivc
+        in
         KEvent.log_uncond "Number of minimal IVCs found: %n" (List.length res) ;
         Ok ()
       )
