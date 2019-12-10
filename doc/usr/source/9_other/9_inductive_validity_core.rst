@@ -19,9 +19,11 @@ Options
 * ``--ivc_enter_nodes <bool>`` (default ``false``\ ) -- Minimize elements of all the nodes (not only elements of the top-level node)
 * ``--print_ivc <bool>`` (default ``true``\ ) -- Print the inductive validity core computed
 * ``--print_ivc_complement <bool>`` (default ``false``\ ) -- Print the complement of the inductive validity core computed (= the elements that are not necessary to prove the system safe)
-* ``--minimize_program {no|valid_lustre|concise}`` (default ``no``\ ) -- Minimize the source Lustre program according to the inductive validity core computed
-* ``--minimized_program_filename <string>`` (default ``<INPUT_FILENAME>_min.<EXT>``\ ) -- Filename for the minimized Lustre program
-* ``--ivc_impl {AUC|UC|BF|UCBF}`` (default ``UC``\ ) -- Select the implementation for the IVC computation
+* ``--minimize_program {no|valid_lustre|concise}`` (default ``no``\ ) -- Minimize the source Lustre program according to the inductive validity core(s) computed
+* ``--ivc_output_dir <string>`` (default ``<INPUT_FILENAME>``\ ) -- Output directory for the minimized programs
+* ``--ivc_impl {AUC|UC|BF|UCBF|UMIVC}`` (default ``UC``\ ) -- Select the implementation for the IVC computation
+* ``--ivc_umivc_k <int>`` (default ``0``\ ) -- Set the parameter 'k' for the implementation UMIVC, in percentage
+* ``--ivc_uc_timeout <int>`` (default ``10``\ ) -- Set a timeout for each unsat core check sent to the solver
 
 Example
 -------

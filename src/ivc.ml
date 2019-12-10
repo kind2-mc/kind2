@@ -1742,6 +1742,7 @@ let umivc_ in_sys param analyze sys k cont eqmap =
     in*)
 
     (* ----- Part 1 : CAMUS ----- *)
+    KEvent.log L_info "Phase 1: CAMUS..." ;
     let k = if k > 100 then 100 else k in
     let k = if k < 0 then 0 else k in
     let k = (k * n) / 100 in
@@ -1750,6 +1751,7 @@ let umivc_ in_sys param analyze sys k cont eqmap =
     let rec next i already_found =
       if i > k then ()
       else (
+        KEvent.log L_info "Computing all MCS of cardinality %n..." i ;
         let mcs = compute_all_cs keep test i already_found in
         List.iter (
           fun mcs ->
@@ -1778,6 +1780,7 @@ let umivc_ in_sys param analyze sys k cont eqmap =
       )
     in
     (* ----- Part 3 : MARCO ----- *)
+    KEvent.log L_info "Phase 2: MARCO..." ;
     let rec next acc =
       match get_unexplored_auto () with
       | _, None -> acc

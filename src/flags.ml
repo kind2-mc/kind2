@@ -1337,7 +1337,7 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Set a timeout for each unsat core request sent to the solver.@ \
+          Set a timeout for each unsat core check sent to the solver.@ \
           This setting is ignored if a solver different than Z3 is used.@ \
           Set to 0 to disable timeout.@ \
           Default: %n\
