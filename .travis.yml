@@ -1,10 +1,25 @@
-dist: trusty
+jobs:
+  include:
+    - os: linux
+      dist: trusty
+    - os: osx
 branches:
   only:
-  - develop
-  - master
+    - develop
+    - master
 language: c
-sudo: required
 script: bash -ex .travis-ci.sh
 env:
-  - OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
+  matrix:
+    - OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
+before_deploy: bash -ex .deploy.sh
+deploy:
+  provider: releases
+  file_glob: true # allows shorthand for uploading multiple files
+  file: bin/kind2-* # files to upload, relative to the Travis worker's working directory
+  tag_name: nightly # name of the tag to associate the release with
+  skip_cleanup: true # required to prevent Travis from discarding the binaries
+  on:
+    all_branches: true
+    condition: "$TRAVIS_EVENT_TYPE = cron && $TRAVIS_REPO_SLUG = kind-mc/kind2"
+  api_key: $API_KEY
