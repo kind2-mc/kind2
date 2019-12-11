@@ -1012,6 +1012,9 @@ let actlits_of_core map = List.flatten (List.map snd (ScMap.bindings map))
 let symbols_union lst1 lst2 =
   SySet.union (SySet.of_list lst1) (SySet.of_list lst2) |> SySet.elements
 
+let symbols_diff lst1 lst2 =
+  SySet.diff (SySet.of_list lst1) (SySet.of_list lst2) |> SySet.elements
+
 let scmap_union union c1 c2 =
   let merge _ lst1 lst2 = match lst1, lst2 with
   | None, None -> None
@@ -1020,7 +1023,16 @@ let scmap_union union c1 c2 =
   in
   ScMap.merge merge c1 c2
 
+let scmap_diff diff c1 c2 =
+  let merge _ lst1 lst2 = match lst1, lst2 with
+  | None, _ -> None
+  | Some lst, None -> Some lst
+  | Some lst1, Some lst2 -> Some (diff lst1 lst2)
+  in
+  ScMap.merge merge c1 c2
+
 let core_union = scmap_union symbols_union
+let core_diff = scmap_diff symbols_diff
 
 let filter_core core actlits =
   let actlits = SySet.of_list actlits in
@@ -1148,7 +1160,7 @@ let eq_of_actlit actlits_eqs_map ?(with_act=false) a =
 exception NotKInductive
 
 (** Implements the algorithm IVC_UC *)
-let ivc_uc_ in_sys ?(approximate=false) sys eqmap =
+let ivc_uc_ in_sys ?(approximate=false) sys eqmap_keep eqmap_test =
 
   let scope = TS.scope_of_trans_sys sys in
   let k, invs = CertifChecker.minimize_invariants sys None in
@@ -1161,21 +1173,22 @@ let ivc_uc_ in_sys ?(approximate=false) sys eqmap =
   KEvent.log L_info "Value of k: %n" k ;
 
   (* Activation litterals, core and mapping to equations *)
-  let add_to_bindings scope eqs act_bindings =
+  let add_to_bindings must_be_tested scope eqs act_bindings =
     let act_bindings' =
-      List.map (fun eq -> (Actlit.fresh_actlit (), scope, eq)) eqs in
+      List.map (fun eq -> (must_be_tested, Actlit.fresh_actlit (), scope, eq)) eqs in
     act_bindings'@act_bindings
   in
-  let act_bindings = ScMap.fold add_to_bindings eqmap [] in
+  let act_bindings = ScMap.fold (add_to_bindings false) eqmap_keep [] in
+  let act_bindings = ScMap.fold (add_to_bindings true) eqmap_test act_bindings in
 
   let actlits_eqs_map =
-    List.fold_left (fun acc (k,_,v) -> SyMap.add k v acc)
+    List.fold_left (fun acc (_,k,_,v) -> SyMap.add k v acc)
       SyMap.empty act_bindings
   in
   let eq_of_actlit = eq_of_actlit actlits_eqs_map in
 
-  let add_to_core (keep, test) (actlit,scope,eq) =
-    if should_minimize_equation in_sys eq
+  let add_to_core (keep, test) (must_be_tested,actlit,scope,eq) =
+    if must_be_tested
     then
       let old = try ScMap.find scope test with Not_found -> [] in
       (keep, ScMap.add scope (actlit::old) test)
@@ -1207,19 +1220,16 @@ let ivc_uc_ in_sys ?(approximate=false) sys eqmap =
     | OK core ->
       (*KEvent.log_uncond "UNSAT core eliminated %n equations."
         (core_size test - core_size core) ;*)
-      if approximate || (z3_used && not !has_timeout)
+      if approximate || (z3_used && not !has_timeout) || is_empty_core core
       then Some (core_union keep core)
-      else
-        if is_empty_core core
-        then Some keep
-        else begin
-          let (scope, symb, test) = pick_core core in
-          begin match minimize check keep test with
-          | None -> minimize check ~skip_first_check:true
-            (core_union (ScMap.singleton scope [symb]) keep) test
-          | Some res -> Some res
-          end
+      else begin
+        let (scope, symb, test) = pick_core core in
+        begin match minimize check keep test with
+        | None -> minimize check ~skip_first_check:true
+          (core_union (ScMap.singleton scope [symb]) keep) test
+        | Some res -> Some res
         end
+      end
   in
 
   let terms_of_current_state keep test =
@@ -1247,20 +1257,21 @@ let ivc_uc_ in_sys ?(approximate=false) sys eqmap =
     ScMap.map (fun v -> List.map eq_of_actlit v) core
   in
 
-  let check approximate keep test =
+  let check approximate keep' test =
     KEvent.log L_info "Minimizing using an UNSAT core... (%i left)" (core_size test) ;
-    let (init, trans) = terms_of_current_state keep test in
+    let (init, trans) = terms_of_current_state (core_union keep keep') test in
     check_k_inductive ~approximate:approximate sys test init trans prop os_prop k
   in
-  match minimize check keep test with
+  match minimize check ScMap.empty test with
   | None -> raise NotKInductive
   | Some core -> core_to_eqmap core
 
 let ivc_uc in_sys ?(approximate=false) sys =
   try (
     let eqmap = _all_eqs in_sys sys in
-    let eqmap = ivc_uc_ in_sys ~approximate:approximate sys eqmap in
-    Some (eqmap_to_ivc in_sys eqmap)
+    let (keep, test) = separate_eqmap_by_category in_sys eqmap in
+    let test = ivc_uc_ in_sys ~approximate:approximate sys keep test in
+    Some (eqmap_to_ivc in_sys (lstmap_union keep test))
   ) with
   | NotKInductive ->
     KEvent.log L_error "Properties are not k-inductive." ;
@@ -1293,9 +1304,8 @@ let pick_eqmap = pick_core
 exception CannotProve
 
 (** Implements the algorithm IVC_BF *)
-let ivc_bf_ in_sys check_ts sys eqmap =
+let ivc_bf_ in_sys check_ts sys keep test =
   let prop_names = extract_props_names sys in
-  let (keep, test) = separate_eqmap_by_category in_sys eqmap in
 
   (* Minimization *)
   let rec minimize ?(skip_first_check=false) check keep test =
@@ -1332,9 +1342,9 @@ let ivc_bf_ in_sys check_ts sys eqmap =
     in
     TS.iter_subsystems ~include_top:true prepare_subsystem sys
   in
-  let check keep test =
+  let check keep' test =
     KEvent.log L_info "Minimizing using bruteforce... (%i left)" (eqmap_size test) ;
-    prepare_ts_for_check keep test ;
+    prepare_ts_for_check (lstmap_union keep keep') test ;
     let old_log_level = Lib.get_log_level () in
     Format.print_flush () ;
     Lib.set_log_level L_off ;
@@ -1343,7 +1353,7 @@ let ivc_bf_ in_sys check_ts sys eqmap =
     check_result prop_names sys
   in
 
-  begin match minimize check keep test with
+  begin match minimize check ScMap.empty test with
   | None -> raise CannotProve
   | Some eqmap -> eqmap
   end
@@ -1351,9 +1361,10 @@ let ivc_bf_ in_sys check_ts sys eqmap =
 let ivc_bf in_sys param analyze sys =
   try (
     let eqmap = _all_eqs in_sys sys in
+    let (keep, test) = separate_eqmap_by_category in_sys eqmap in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
-    let eqmap = ivc_bf_ in_sys check_ts sys eqmap in
-    Some (eqmap_to_ivc in_sys eqmap)
+    let test = ivc_bf_ in_sys check_ts sys keep test in
+    Some (eqmap_to_ivc in_sys (lstmap_union keep test))
   ) with
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
@@ -1366,10 +1377,11 @@ let ivc_bf in_sys param analyze sys =
 let ivc_ucbf in_sys param analyze sys =
   try (
     let eqmap = _all_eqs in_sys sys in
-    let eqmap = ivc_uc_ in_sys sys eqmap in
+    let (keep, test) = separate_eqmap_by_category in_sys eqmap in
+    let test = ivc_uc_ in_sys sys keep test in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
-    let eqmap = ivc_bf_ in_sys check_ts sys eqmap in
-    Some (eqmap_to_ivc in_sys eqmap)
+    let test = ivc_bf_ in_sys check_ts sys keep test in
+    Some (eqmap_to_ivc in_sys (lstmap_union keep test))
   ) with
   | NotKInductive ->
     KEvent.log L_error "Properties are not k-inductive." ;
@@ -1552,14 +1564,7 @@ let svs_diff lst1 lst2 =
   SVSet.diff (SVSet.of_list lst1) (SVSet.of_list lst2) |> SVSet.elements
 
 let core_union = scmap_union svs_union
-
-let core_diff c1 c2 =
-  let merge _ lst1 lst2 = match lst1, lst2 with
-  | None, _ -> None
-  | Some lst, None -> Some lst
-  | Some lst1, Some lst2 -> Some (svs_diff lst1 lst2)
-  in
-  ScMap.merge merge c1 c2
+let core_diff = scmap_diff svs_diff
 
 let actsvs_counter =
   let last = ref 0 in
@@ -1623,31 +1628,32 @@ let block_down map actsvs s =
 
 type unexplored_type = | Any | Min | Max
 
-let umivc_ in_sys make_check_ts sys k cont eqmap =
+let umivc_ in_sys make_check_ts sys k cont eqmap_keep eqmap_test =
   let prop_names = extract_props_names sys in
   let sys_original = sys in
   let (sys_cs, check_ts_cs) = make_check_ts sys in
   let (sys, check_ts) = make_check_ts sys in
 
   (* Activation litterals, core and mapping to equations *)
-  let add_to_bindings scope eqs act_bindings =
+  let add_to_bindings must_be_tested scope eqs act_bindings =
     let act_bindings' =
       List.map (fun eq ->
       let actsv =
         StateVar.mk_state_var ~is_input:false ~is_const:true
         (fresh_actsv_name ()) [] (Type.mk_bool ()) in
-      (actsv, scope, eq)
+      (must_be_tested, actsv, scope, eq)
     ) eqs in
     act_bindings'@act_bindings
   in
-  let act_bindings = ScMap.fold add_to_bindings eqmap [] in
+  let act_bindings = ScMap.fold (add_to_bindings false) eqmap_keep [] in
+  let act_bindings = ScMap.fold (add_to_bindings true) eqmap_test act_bindings in
 
   let actsvs_eqs_map =
-    List.fold_left (fun acc (k,_,v) -> SVMap.add k v acc)
+    List.fold_left (fun acc (_,k,_,v) -> SVMap.add k v acc)
       SVMap.empty act_bindings
   in
   let eqs_actsvs_map =
-    List.fold_left (fun acc (v,_,k) -> EqMap.add k v acc)
+    List.fold_left (fun acc (_,v,_,k) -> EqMap.add k v acc)
       EqMap.empty act_bindings
   in
   let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
@@ -1656,8 +1662,8 @@ let umivc_ in_sys make_check_ts sys k cont eqmap =
     ScMap.map (fun v -> List.map eq_of_actsv v) core
   in
 
-  let add_to_core (keep, test) (actsv,scope,eq) =
-    if should_minimize_equation in_sys eq
+  let add_to_core (keep, test) (must_be_tested,actsv,scope,eq) =
+    if must_be_tested
     then
       let old = try ScMap.find scope test with Not_found -> [] in
       (keep, ScMap.add scope (actsv::old) test)
@@ -1690,10 +1696,11 @@ let umivc_ in_sys make_check_ts sys k cont eqmap =
     let block_down = block_down map actsvs in
     let compute_mcs = compute_mcs check_ts_cs sys_cs prop_names actsvs_eqs_map in
     let compute_all_cs = compute_all_cs check_ts_cs sys_cs prop_names actsvs_eqs_map in
+    let eqmap_keep = core_to_eqmap keep in
     let compute_mivc core =
-      core_to_eqmap (core_union keep core)
-      |> ivc_uc_ in_sys sys_original
-      |> ivc_bf_ in_sys check_ts sys
+      core_to_eqmap core
+      |> ivc_uc_ in_sys sys_original eqmap_keep
+      |> ivc_bf_ in_sys check_ts sys eqmap_keep
       |> actlits_of_core
       |> List.map actsv_of_eq
       |> filter_core test
@@ -1817,15 +1824,16 @@ let umivc_ in_sys make_check_ts sys k cont eqmap =
 (** Implements the algorithm UMIVC. *)
 let umivc in_sys param analyze sys k cont =
   try (
+    let eqmap = _all_eqs in_sys sys in
+    let (keep, test) = separate_eqmap_by_category in_sys eqmap in
     let res = ref [] in
-    let cont eqmap =
-      let ivc = eqmap_to_ivc in_sys eqmap in
+    let cont test =
+      let ivc = eqmap_to_ivc in_sys (lstmap_union keep test) in
       res := ivc::(!res) ;
       cont ivc
     in
-    let eqmap = _all_eqs in_sys sys in
     let make_check_ts = make_check_ts in_sys param analyze in
-    let _ = umivc_ in_sys make_check_ts sys k cont eqmap in
+    let _ = umivc_ in_sys make_check_ts sys k cont keep test in
     List.rev (!res)
   ) with
   | NotKInductive ->
