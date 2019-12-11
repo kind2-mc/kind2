@@ -749,6 +749,12 @@ let svs_of_term in_sys t =
 
 (* ---------- UTILITIES ---------- *)
 
+let make_check_ts in_sys param analyze sys =
+  let param = Analysis.param_clone param in
+  let sys = TS.copy sys in
+  let modules = Flags.enabled () in
+  sys, (fun () -> analyze false modules in_sys param sys)
+
 let extract_props sys =
   List.filter (function
     | { Property.prop_status = Property.PropInvariant _ } -> true
@@ -1287,12 +1293,8 @@ let pick_eqmap = pick_core
 exception CannotProve
 
 (** Implements the algorithm IVC_BF *)
-let ivc_bf_ in_sys param analyze sys eqmap =
-  let param = Analysis.param_clone param in
-  let sys = TS.copy sys in
+let ivc_bf_ in_sys check_ts sys eqmap =
   let prop_names = extract_props_names sys in
-  let modules = Flags.enabled () in
-
   let (keep, test) = separate_eqmap_by_category in_sys eqmap in
 
   (* Minimization *)
@@ -1336,7 +1338,7 @@ let ivc_bf_ in_sys param analyze sys eqmap =
     let old_log_level = Lib.get_log_level () in
     Format.print_flush () ;
     Lib.set_log_level L_off ;
-    analyze false modules in_sys param sys ;
+    check_ts () ;
     Lib.set_log_level old_log_level;
     check_result prop_names sys
   in
@@ -1349,7 +1351,8 @@ let ivc_bf_ in_sys param analyze sys eqmap =
 let ivc_bf in_sys param analyze sys =
   try (
     let eqmap = _all_eqs in_sys sys in
-    let eqmap = ivc_bf_ in_sys param analyze sys eqmap in
+    let (sys, check_ts) = make_check_ts in_sys param analyze sys in
+    let eqmap = ivc_bf_ in_sys check_ts sys eqmap in
     Some (eqmap_to_ivc in_sys eqmap)
   ) with
   | InitTransMismatch (i,t) ->
@@ -1364,7 +1367,8 @@ let ivc_ucbf in_sys param analyze sys =
   try (
     let eqmap = _all_eqs in_sys sys in
     let eqmap = ivc_uc_ in_sys sys eqmap in
-    let eqmap = ivc_bf_ in_sys param analyze sys eqmap in
+    let (sys, check_ts) = make_check_ts in_sys param analyze sys in
+    let eqmap = ivc_bf_ in_sys check_ts sys eqmap in
     Some (eqmap_to_ivc in_sys eqmap)
   ) with
   | NotKInductive ->
@@ -1494,7 +1498,7 @@ let compute_cs check_ts sys prop_names actsvs_eqs_map keep test k already_found 
   let old_log_level = Lib.get_log_level () in
   Format.print_flush () ;
   Lib.set_log_level L_off ;
-  check_ts sys ;
+  check_ts () ;
   Lib.set_log_level old_log_level;
   match get_counterexample_actsvs prop_names sys actsvs with
   | None -> None
@@ -1619,12 +1623,11 @@ let block_down map actsvs s =
 
 type unexplored_type = | Any | Min | Max
 
-let umivc_ in_sys param analyze sys k cont eqmap =
-  let param = Analysis.param_clone param in
-  let sys = TS.copy sys in
+let umivc_ in_sys make_check_ts sys k cont eqmap =
   let prop_names = extract_props_names sys in
-  let modules = Flags.enabled () in
-  let check_ts = analyze false modules in_sys param in
+  let sys_original = sys in
+  let (sys_cs, check_ts_cs) = make_check_ts sys in
+  let (sys, check_ts) = make_check_ts sys in
 
   (* Activation litterals, core and mapping to equations *)
   let add_to_bindings scope eqs act_bindings =
@@ -1668,9 +1671,9 @@ let umivc_ in_sys param analyze sys k cont eqmap =
   let n = core_size test in
   if n = 0 then [core_to_eqmap test]
   else (
-    (* Add actsvs to the transition system (at top level) *)
+    (* Add actsvs to the CS transition system (at top level) *)
     let actsvs = actsvs_of_core test in
-    List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
+    List.iter (fun sv -> TS.add_global_const sys_cs (Var.mk_const_state_var sv)) actsvs ;
 
     (* Initialize the seed map *)
     let map = SMTSolver.create_instance ~produce_assignments:true
@@ -1685,12 +1688,12 @@ let umivc_ in_sys param analyze sys k cont eqmap =
     let get_unexplored_max () = get_unexplored_max map actsvs in
     let block_up = block_up map actsvs in
     let block_down = block_down map actsvs in
-    let compute_mcs = compute_mcs check_ts sys prop_names actsvs_eqs_map in
-    let compute_all_cs = compute_all_cs check_ts sys prop_names actsvs_eqs_map in
+    let compute_mcs = compute_mcs check_ts_cs sys_cs prop_names actsvs_eqs_map in
+    let compute_all_cs = compute_all_cs check_ts_cs sys_cs prop_names actsvs_eqs_map in
     let compute_mivc core =
       core_to_eqmap (core_union keep core)
-      |> ivc_uc_ in_sys sys
-      |> ivc_bf_ in_sys param analyze sys
+      |> ivc_uc_ in_sys sys_original
+      |> ivc_bf_ in_sys check_ts sys
       |> actlits_of_core
       |> List.map actsv_of_eq
       |> filter_core test
@@ -1724,7 +1727,7 @@ let umivc_ in_sys param analyze sys k cont eqmap =
       let old_log_level = Lib.get_log_level () in
       Format.print_flush () ;
       Lib.set_log_level L_off ;
-      check_ts sys ;
+      check_ts () ;
       Lib.set_log_level old_log_level;
       check_result prop_names sys
     in
@@ -1821,7 +1824,8 @@ let umivc in_sys param analyze sys k cont =
       cont ivc
     in
     let eqmap = _all_eqs in_sys sys in
-    let _ = umivc_ in_sys param analyze sys k cont eqmap in
+    let make_check_ts = make_check_ts in_sys param analyze in
+    let _ = umivc_ in_sys make_check_ts sys k cont eqmap in
     List.rev (!res)
   ) with
   | NotKInductive ->
