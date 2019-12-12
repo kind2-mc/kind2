@@ -1283,15 +1283,16 @@ and eval_ghost_var
     (* No type check for untyped or free constant *)
     | _ -> (
       (* Evaluate ghost expression *)
-      let expr, ctx =
+      let expr, ctx' =
         S.eval_ast_expr [] (
           (* Change context to fail on new definitions *)
-          if no_defs then 
+          if no_defs then
             C.fail_on_new_definition
               ctx pos "Invalid expression for variable"
           else ctx
         ) expr
       in
+      let ctx = if no_defs then ctx else ctx' in
       
       let type_expr = D.map (fun { E.expr_type } -> expr_type) expr in
       (* Add ghost to context. *)
@@ -1302,7 +1303,6 @@ and eval_ghost_var
 
       ctx
     )
-
 
 (* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
 and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =

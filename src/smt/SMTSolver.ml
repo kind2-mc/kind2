@@ -745,6 +745,10 @@ let get_unsat_core_lits s =
    unsat. *)
 let check_sat_assuming s if_sat if_unsat literals =
 
+  (* Calling check_sat_assuming with no litteral fails with CVC4,
+    so it is better to put this verification here *)
+  assert (literals <> []) ;
+
   let module S = (val s.solver_inst) in
 
   (* Does the solver suport check-sat with assumptions? *)
