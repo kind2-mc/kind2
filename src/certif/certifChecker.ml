@@ -1158,7 +1158,7 @@ let minimize_invariants sys invs_predicate =
 
   (* Creating solver that will be used to replay and minimize inductive step *)
   let solver =
-    SMTSolver.create_instance ~produce_cores:true
+    SMTSolver.create_instance ~produce_cores:true ~produce_assignments:true
       logic (Flags.Smt.solver ())
   in
   
