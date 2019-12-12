@@ -60,72 +60,83 @@ type clock_expr =
   | ClockNeg of ident
   | ClockConstr of ident * ident
 
+(* Some symbols for lustre expressions *)
+type conversion_operator =
+  | ToInt | ToReal
+  | ToInt8 | ToInt16 | ToInt32 | ToInt64
+  | ToUInt8 | ToUInt16 | ToUInt32 | ToUInt64
+
+type unary_operator =
+  | Not | Uminus
+  | BVNot
+
+type binary_operator =
+  | And | Or | Xor | Impl
+  | Mod | Minus | Plus | Div | Times | IntDiv
+  | BVAnd | BVOr | BVShiftL | BVShiftR
+
+type ternary_operator =
+  | Ite
+  | With (* With operator for recursive definitions *)
+
+type n_arity_operator =
+  | OneHot
+
+type comparison_operator =
+  | Eq | Neq  | Lte  | Lt  | Gte | Gt
+
+type constant =
+  | True | False
+  | Num of string
+  | Dec of string
+
+type quantifier =
+  | Forall | Exists
+
+type group_expr =
+  | ExprList (* List of expressions *)
+  | TupleExpr (* Tuple expression *)
+  | ArrayExpr (* Array expression *)
+
 (** A Lustre expression *)
 type expr =
-    Ident of position * ident
+  (* Identifiers *)
+  | Ident of position * ident
   | ModeRef of position * ident list
   | RecordProject of position * expr * index
   | TupleProject of position * expr * expr
+  (* Values *)
+  | Const of position * constant
+  (* Operators *)
+  | UnaryOp of position * unary_operator * expr
+  | BinaryOp of position * binary_operator * expr * expr
+  | TernaryOp of position * ternary_operator * expr * expr * expr
+  | NArityOp of position * n_arity_operator * expr list
+  | ConvOp of position * conversion_operator * expr
+  | CompOp of position * comparison_operator * expr * expr
+  (* Structured expressions *)
+  | RecordExpr of position * ident * (ident * expr) list
+  | GroupExpr of position * group_expr * expr list
+  (* Update of structured expressions *)
   | StructUpdate of position * expr * label_or_index list * expr
-  | True of position
-  | False of position
-  | Num of position * string
-  | Dec of position * string
-  | ToInt of position * expr
-  | ToUInt8 of position * expr
-  | ToUInt16 of position * expr
-  | ToUInt32 of position * expr
-  | ToUInt64 of position * expr
-  | ToInt8 of position * expr
-  | ToInt16 of position * expr
-  | ToInt32 of position * expr
-  | ToInt64 of position * expr
-  | ToReal of position * expr
-  | ExprList of position * expr list
-  | TupleExpr of position * expr list
-  | ArrayExpr of position * expr list
   | ArrayConstr of position * expr * expr 
   | ArraySlice of position * expr * (expr * expr) 
   | ArrayConcat of position * expr * expr
-  | RecordExpr of position * ident * (ident * expr) list
-  | Not of position * expr
-  | And of position * expr * expr
-  | Or of position * expr * expr
-  | Xor of position * expr * expr
-  | Impl of position * expr * expr
-  | Forall of position * typed_ident list * expr
-  | Exists of position * typed_ident list * expr
-  | OneHot of position * expr list
-  | Uminus of position * expr
-  | Mod of position * expr * expr
-  | Minus of position * expr * expr
-  | Plus of position * expr * expr
-  | Div of position * expr * expr
-  | Times of position * expr * expr
-  | IntDiv of position * expr * expr
-  | BVAnd of position * expr * expr
-  | BVOr of position * expr * expr
-  | BVNot of position * expr
-  | BVShiftL of position * expr * expr
-  | BVShiftR of position * expr * expr
-  | Ite of position * expr * expr * expr
-  | With of position * expr * expr * expr
-  | Eq of position * expr * expr
-  | Neq of position * expr * expr
-  | Lte of position * expr * expr
-  | Lt of position * expr * expr
-  | Gte of position * expr * expr
-  | Gt of position * expr * expr
+  (* Quantified expressions *)
+  | Quantifier of position * quantifier * typed_ident list * expr
+  (* Clock operators *)
   | When of position * expr * clock_expr
   | Current of position * expr
   | Condact of position * expr * expr * ident * expr list * expr list
   | Activate of position * ident * expr * expr * expr list
   | Merge of position * ident * (ident * expr) list
   | RestartEvery of position * ident * expr list * expr
+  (* Temporal operators *)
   | Pre of position * expr
   | Last of position * ident
   | Fby of position * expr * int * expr
   | Arrow of position * expr * expr
+  (* Node calls *)
   | Call of position * ident * expr list
   | CallParam of position * ident * lustre_type list * expr list
 

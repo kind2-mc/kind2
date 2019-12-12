@@ -286,15 +286,16 @@ let undef_expr pos_sv_map const_expr typ expr =
         let i = counter () in
         let n = (List.length typ) in
         if n > !max_nb_args then max_nb_args := n ;
-        A.Call(*Param*) (pos, rand_function_name_for n typ, (*typ,*) [Num (dpos, string_of_int i)])
+        A.Call(*Param*)
+          (pos, rand_function_name_for n typ, (*typ,*) [Const (dpos, Num (string_of_int i))])
       end else begin
         try Hashtbl.find previous_rands svs
         with Not_found ->
           let i = counter () in
           let n = (List.length typ) in
           if n > !max_nb_args then max_nb_args := n ;
-          let res =
-            A.Call(*Param*) (pos, rand_function_name_for n typ, (*typ,*) [Num (dpos, string_of_int i)])
+          let res = A.Call(*Param*)
+            (pos, rand_function_name_for n typ, (*typ,*) [Const (dpos, Num (string_of_int i))])
           in Hashtbl.replace previous_rands svs res ; res
       end
 
@@ -341,7 +342,7 @@ let rec minimize_node_call_args ue lst expr =
   in
   let rec aux expr =
     match expr with
-    | A.True _ | A.False _ | A.Ident _ | A.ModeRef _ | A.Num _ | A.Dec _ | A.Last _
+    | A.Const _ | A.Ident _ | A.ModeRef _ | A.Last _
     -> expr
     | A.Call (pos, ident, args) ->
       A.Call (pos, ident, List.mapi (minimize_arg ident) args)
@@ -350,52 +351,19 @@ let rec minimize_node_call_args ue lst expr =
     | A.RecordProject (p,e,i) -> A.RecordProject (p,aux e,i)
     | A.TupleProject (p,e1,e2) -> A.TupleProject (p,aux e1,aux e2)
     | A.StructUpdate (p,e1,ls,e2) -> A.StructUpdate (p,aux e1,ls,aux e2)
-    | A.ToInt (p,e) -> A.ToInt (p,aux e)
-    | A.ToUInt8 (p,e) -> A.ToUInt8 (p,aux e)
-    | A.ToUInt16 (p,e) -> A.ToUInt16 (p,aux e)
-    | A.ToUInt32 (p,e) -> A.ToUInt32 (p,aux e)
-    | A.ToUInt64 (p,e) -> A.ToUInt64 (p,aux e)
-    | A.ToInt8 (p,e) -> A.ToInt8 (p,aux e)
-    | A.ToInt16 (p,e) -> A.ToInt16 (p,aux e)
-    | A.ToInt32 (p,e) -> A.ToInt32 (p,aux e)
-    | A.ToInt64 (p,e) -> A.ToInt64 (p,aux e)
-    | A.ToReal (p,e) -> A.ToReal (p,aux e)
-    | A.ExprList (p,es) -> A.ExprList (p,List.map aux es)
-    | A.TupleExpr (p,es) -> A.TupleExpr (p,List.map aux es)
-    | A.ArrayExpr (p,es) -> A.ArrayExpr (p,List.map aux es)
+    | A.ConvOp (p,op,e) -> A.ConvOp (p,op,aux e)
+    | A.GroupExpr (p,ge,es) -> A.GroupExpr (p,ge,List.map aux es)
     | A.ArrayConstr (p,e1,e2) -> A.ArrayConstr (p,aux e1,aux e2)
     | A.ArraySlice (p,e1,(e2,e3)) -> A.ArraySlice (p,aux e1,(aux e2,aux e3))
     | A.ArrayConcat (p,e1,e2) -> A.ArrayConcat (p,aux e1,aux e2)
     | A.RecordExpr (p,id,lst) ->
       A.RecordExpr (p,id,List.map (fun (i,e) -> (i, aux e)) lst)
-    | A.Not (p,e) -> A.Not (p,aux e)
-    | A.And (p,e1,e2) -> A.And (p,aux e1,aux e2)
-    | A.Or (p,e1,e2) -> A.Or (p,aux e1,aux e2)
-    | A.Xor (p,e1,e2) -> A.Xor (p,aux e1,aux e2)
-    | A.Impl (p,e1,e2) -> A.Impl (p,aux e1,aux e2)
-    | A.Forall (p,ids,e) -> A.Forall (p,ids,aux e)
-    | A.Exists (p,ids,e) -> A.Exists (p,ids,aux e)
-    | A.OneHot (p,es) -> A.OneHot (p,List.map aux es)
-    | A.Uminus (p,e) -> A.Uminus (p,aux e)
-    | A.Mod (p,e1,e2) -> A.Mod (p,aux e1,aux e2)
-    | A.Minus (p,e1,e2) -> A.Minus (p,aux e1,aux e2)
-    | A.Plus (p,e1,e2) -> A.Plus (p,aux e1,aux e2)
-    | A.Div (p,e1,e2) -> A.Div (p,aux e1,aux e2)
-    | A.Times (p,e1,e2) -> A.Times (p,aux e1,aux e2)
-    | A.IntDiv (p,e1,e2) -> A.IntDiv (p,aux e1,aux e2)
-    | A.BVAnd (p,e1,e2) -> A.BVAnd (p,aux e1,aux e2)
-    | A.BVOr (p,e1,e2) -> A.BVOr (p,aux e1,aux e2)
-    | A.BVNot (p,e) -> A.BVNot (p,aux e)
-    | A.BVShiftL (p,e1,e2) -> A.BVShiftL (p,aux e1,aux e2)
-    | A.BVShiftR (p,e1,e2) -> A.BVShiftR (p,aux e1,aux e2)
-    | A.Ite (p,e1,e2,e3) -> A.Ite (p,aux e1,aux e2,aux e3)
-    | A.With (p,e1,e2,e3) -> A.With (p,aux e1,aux e2,aux e3)
-    | A.Eq (p,e1,e2) -> A.Eq (p,aux e1,aux e2)
-    | A.Neq (p,e1,e2) -> A.Neq (p,aux e1,aux e2)
-    | A.Lte (p,e1,e2) -> A.Lte (p,aux e1,aux e2)
-    | A.Lt (p,e1,e2) -> A.Lt (p,aux e1,aux e2)
-    | A.Gte (p,e1,e2) -> A.Gte (p,aux e1,aux e2)
-    | A.Gt (p,e1,e2) -> A.Gt (p,aux e1,aux e2)
+    | A.UnaryOp (p,op,e) -> A.UnaryOp (p,op,aux e)
+    | A.BinaryOp (p,op,e1,e2) -> A.BinaryOp (p,op,aux e1,aux e2)
+    | A.Quantifier (p,q,ids,e) -> A.Quantifier (p,q,ids,aux e)
+    | A.NArityOp (p,op,es) -> A.NArityOp (p,op,List.map aux es)
+    | A.TernaryOp (p,op,e1,e2,e3) -> A.TernaryOp (p,op,aux e1,aux e2,aux e3)
+    | A.CompOp (p,op,e1,e2) -> A.CompOp (p,op,aux e1,aux e2)
     | A.When (p,e,c) -> A.When (p,aux e,c)
     | A.Current (p,e) -> A.Current (p,aux e)
     | A.Condact (p,e1,e2,id,es1,es2) ->
@@ -414,30 +382,22 @@ and ast_contains p ast =
   let rec aux ast =
     if p ast then true
     else match ast with
-    | A.True _ | A.False _ | A.Ident _ | A.ModeRef _ | A.Num _ | A.Dec _ | A.Last _
+    | A.Const _ | A.Ident _ | A.ModeRef _ | A.Last _
       -> false
     | A.Call (_, _, args) | A.CallParam (_, _, _, args) ->
       List.map aux args
       |> List.exists (fun x -> x)
-    | A.ToInt (_,e) | A.ToUInt8 (_,e) | A.ToUInt16 (_,e) | A.ToUInt32 (_,e) | A.ToUInt64 (_,e)
-    | A.ToInt8 (_,e) | A.ToInt16 (_,e) | A.ToInt32 (_,e) | A.ToInt64 (_,e) | A.ToReal (_,e)
-    | A.Not (_,e) | A.RecordProject (_,e,_) | A.Forall (_,_,e) | A.Exists (_,_,e)
-    | A.Uminus (_,e) | A.BVNot (_,e) | A.When (_,e,_) | A.Current (_,e) | A.Pre (_,e) ->
+    | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)
+    | A.Quantifier (_,_,_,e) | A.When (_,e,_) | A.Current (_,e) | A.Pre (_,e) ->
       aux e
     | A.StructUpdate (_,e1,_,e2) | A.ArrayConstr (_,e1,e2)
-    | A.ArrayConcat (_,e1,e2) | A.TupleProject (_,e1,e2)
-    | A.And (_,e1,e2) | A.Or (_,e1,e2) | A.Xor (_,e1,e2) | A.Impl (_,e1,e2)
-    | A.Mod (_,e1,e2) | A.Minus (_,e1,e2) | A.Plus (_,e1,e2) | A.Div (_,e1,e2)
-    | A.Times (_,e1,e2) | A.IntDiv (_,e1,e2) | A.BVAnd (_,e1,e2) | A.BVOr (_,e1,e2)
-    | A.BVShiftL (_,e1,e2) | A.BVShiftR (_,e1,e2)
-    | A.Eq (_,e1,e2) | A.Neq (_,e1,e2) | A.Lte (_,e1,e2) | A.Lt (_,e1,e2)
-    | A.Gte (_,e1,e2) | A.Gt (_,e1,e2) | A.Fby (_,e1,_,e2) | A.Arrow (_,e1,e2) ->
+    | A.ArrayConcat (_,e1,e2) | A.TupleProject (_,e1,e2) | A.BinaryOp (_,_,e1,e2)
+    | A.CompOp (_,_,e1,e2) | A.Fby (_,e1,_,e2) | A.Arrow (_,e1,e2) ->
       aux e1 || aux e2
-    | A.TupleExpr (_,es) | A.ArrayExpr (_,es) | A.ExprList (_,es) | A.OneHot (_,es) ->
+    | A.GroupExpr (_,_,es) | A.NArityOp (_,_,es) ->
       List.map aux es
       |> List.exists (fun x -> x)
-    | A.ArraySlice (_,e1,(e2,e3))
-    | A.Ite (_,e1,e2,e3) | A.With (_,e1,e2,e3) ->
+    | A.ArraySlice (_,e1,(e2,e3)) | A.TernaryOp (_,_,e1,e2,e3) ->
       aux e1 || aux e2 || aux e3
     | A.RecordExpr (_,_,lst) | A.Merge (_,_,lst) ->
       List.map (fun (_,e) -> aux e) lst

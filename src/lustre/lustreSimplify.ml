@@ -185,18 +185,18 @@ let rec eval_ast_expr bounds ctx =
   (* ****************************************************************** *)
 
   (* Boolean constant true [true] *)
-  | A.True pos -> eval_nullary_expr ctx pos E.t_true
+  | A.Const (pos, A.True) -> eval_nullary_expr ctx pos E.t_true
 
   (* Boolean constant false [false] *)
-  | A.False pos -> eval_nullary_expr ctx pos E.t_false
+  | A.Const (pos, A.False) -> eval_nullary_expr ctx pos E.t_false
 
   (* Integer constant [d] *)
-  | A.Num (pos, d) -> 
+  | A.Const (pos, A.Num d) -> 
 
     eval_nullary_expr ctx pos (E.mk_int (Numeral.of_string d) )
 
   (* Real constant [f] *)
-  | A.Dec (pos, f) -> 
+  | A.Const (pos, A.Dec f) -> 
 
     eval_nullary_expr ctx pos (E.mk_real (Decimal.of_string f))
 
@@ -205,141 +205,141 @@ let rec eval_ast_expr bounds ctx =
   (* ****************************************************************** *)
 
   (* Conversion to an integer number [int expr] *)
-    | A.ToInt (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int expr 
+    | A.ConvOp (pos, A.ToInt, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int expr 
 
   (* Conversion to unsigned fixed-width integer numbers [uint8-uint64 expr] *)
-    | A.ToUInt8 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_uint8 expr
-    | A.ToUInt16 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_uint16 expr
-    | A.ToUInt32 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_uint32 expr
-    | A.ToUInt64 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_uint64 expr
+    | A.ConvOp (pos, A.ToUInt8, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_uint8 expr
+    | A.ConvOp (pos, A.ToUInt16, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_uint16 expr
+    | A.ConvOp (pos, A.ToUInt32, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_uint32 expr
+    | A.ConvOp (pos, A.ToUInt64, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_uint64 expr
 
   (* Conversion to signed fixed-width integer numbers [int8-int64 expr] *)
-    | A.ToInt8 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int8 expr
-    | A.ToInt16 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int16 expr
-    | A.ToInt32 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int32 expr
-    | A.ToInt64 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int64 expr
+    | A.ConvOp (pos, A.ToInt8, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int8 expr
+    | A.ConvOp (pos, A.ToInt16, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int16 expr
+    | A.ConvOp (pos, A.ToInt32, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int32 expr
+    | A.ConvOp (pos, A.ToInt64, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int64 expr
 
   (* Conversion to a real number [real expr] *)
-    | A.ToReal (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_real expr
+    | A.ConvOp (pos, A.ToReal, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_real expr
 
   (* Boolean negation [not expr] *)
-    | A.Not (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_not expr 
+    | A.UnaryOp (pos, A.Not, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_not expr 
 
   (* Unary minus [- expr] *)
-    | A.Uminus (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_uminus expr 
+    | A.UnaryOp (pos, A.Uminus, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_uminus expr 
 
   (* Bitwise negation [! expr] *)
-    | A.BVNot (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_bvnot expr
+    | A.UnaryOp (pos, A.BVNot, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_bvnot expr
 
   (* ****************************************************************** *)
   (* Binary operators                                                   *)
   (* ****************************************************************** *)
 
   (* Boolean conjunction [expr1 and expr2] *)
-  | A.And (pos, expr1, expr2) ->
+  | A.BinaryOp (pos, A.And, expr1, expr2) ->
 
       eval_binary_ast_expr bounds ctx pos E.mk_and expr1 expr2
 
   (* Boolean disjunction [expr1 or expr2] *)
-  | A.Or (pos, expr1, expr2) -> 
+  | A.BinaryOp (pos, A.Or, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_or expr1 expr2 
 
   (* Boolean exclusive disjunction [expr1 xor expr2] *)
-  | A.Xor (pos, expr1, expr2) -> 
+  | A.BinaryOp (pos, A.Xor, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_xor expr1 expr2 
 
   (* Boolean implication [expr1 => expr2] *)
-  | A.Impl (pos, expr1, expr2) -> 
+  | A.BinaryOp (pos, A.Impl, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_impl expr1 expr2 
 
-    (* Universal quantification *)
-    | A.Forall (pos, avars, expr) ->
+  (* Universal quantification *)
+  | A.Quantifier (pos, A.Forall, avars, expr) ->
 
-      let ctx, vars = vars_of_quant ctx avars in
-      let bounds = bounds @
-        List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
-          vars in
-      eval_unary_ast_expr bounds ctx pos (E.mk_forall vars) expr
-        
-    (* Existential quantification *)
-    | A.Exists (pos, avars, expr) ->
+    let ctx, vars = vars_of_quant ctx avars in
+    let bounds = bounds @
+      List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
+        vars in
+    eval_unary_ast_expr bounds ctx pos (E.mk_forall vars) expr
+      
+  (* Existential quantification *)
+  | A.Quantifier (pos, A.Exists, avars, expr) ->
 
-      let ctx, vars = vars_of_quant ctx avars in
-      let bounds = bounds @
-        List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
-          vars in
-      eval_unary_ast_expr bounds ctx pos (E.mk_exists vars) expr
+    let ctx, vars = vars_of_quant ctx avars in
+    let bounds = bounds @
+      List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
+        vars in
+    eval_unary_ast_expr bounds ctx pos (E.mk_exists vars) expr
 
   (* Integer modulus [expr1 mod expr2] *)
-  | A.Mod (pos, expr1, expr2) -> 
+  | A.BinaryOp (pos, A.Mod, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_mod expr1 expr2 
 
   (* Subtraction [expr1 - expr2] *)
-  | A.Minus (pos, expr1, expr2) -> 
+  | A.BinaryOp (pos, A.Minus, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_minus expr1 expr2
 
   (* Addition [expr1 + expr2] *)
-  | A.Plus (pos, expr1, expr2) -> 
+  | A.BinaryOp (pos, A.Plus, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_plus expr1 expr2
 
   (* Real division [expr1 / expr2] *)
-  | A.Div (pos, expr1, expr2) -> 
+  | A.BinaryOp (pos, A.Div, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_div expr1 expr2 
 
   (* Multiplication [expr1 * expr2] ]*)
-  | A.Times (pos, expr1, expr2) -> 
+  | A.BinaryOp (pos, A.Times, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_times expr1 expr2 
 
   (* Integer division [expr1 div expr2] *)
-  | A.IntDiv (pos, expr1, expr2) -> 
+  | A.BinaryOp (pos, A.IntDiv, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_intdiv expr1 expr2 
 
   (* Bitwise conjunction [expr1 & expr2] *)
-  | A.BVAnd (pos, expr1, expr2) -> 
+  | A.BinaryOp (pos, A.BVAnd, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_bvand expr1 expr2
 
   (* Bitwise disjunction [expr1 | expr2] *)
-  | A.BVOr (pos, expr1, expr2) -> 
+  | A.BinaryOp (pos, A.BVOr, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_bvor expr1 expr2
 
   (* Bitwise logical left shift *)
-  | A.BVShiftL (pos, expr1, expr2) ->
+  | A.BinaryOp (pos, A.BVShiftL, expr1, expr2) ->
     
       eval_binary_ast_expr bounds ctx pos E.mk_bvshl expr1 expr2
 
   (* Bitwise logical right shift *)
-  | A.BVShiftR (pos, expr1, expr2) ->
+  | A.BinaryOp (pos, A.BVShiftR, expr1, expr2) ->
     
       eval_binary_ast_expr bounds ctx pos E.mk_bvshr expr1 expr2
 
   (* Less than or equal [expr1 <= expr2] *)
-  | A.Lte (pos, expr1, expr2) -> 
+  | A.CompOp (pos, A.Lte, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_lte expr1 expr2 
 
   (* Less than [expr1 < expr2] *)
-  | A.Lt (pos, expr1, expr2) -> 
+  | A.CompOp (pos, A.Lt, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_lt expr1 expr2 
 
   (* Greater than or equal [expr1 >= expr2] *)
-  | A.Gte (pos, expr1, expr2) -> 
+  | A.CompOp (pos, A.Gte, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_gte expr1 expr2 
 
   (* Greater than [expr1 > expr2] *)
-  | A.Gt (pos, expr1, expr2) -> 
+  | A.CompOp (pos, A.Gt, expr1, expr2) -> 
 
       eval_binary_ast_expr bounds ctx pos E.mk_gt expr1 expr2 
 
@@ -353,7 +353,7 @@ let rec eval_ast_expr bounds ctx =
   (* ****************************************************************** *)
 
   (* Equality [expr1 = expr2] *)
-  | A.Eq (pos, expr1, expr2) -> 
+  | A.CompOp (pos, A.Eq, expr1, expr2) -> 
 
     (* Apply equality pointwise *)
     let expr, ctx = 
@@ -386,16 +386,16 @@ let rec eval_ast_expr bounds ctx =
 
 
   (* Disequality [expr1 <> expr2] *)
-  | A.Neq (pos, expr1, expr2) -> 
+  | A.CompOp (pos, A.Neq, expr1, expr2) -> 
 
     (* Translate to negated equation *)
     eval_ast_expr
       bounds
       ctx
-      (A.Not (Lib.dummy_pos, A.Eq (pos, expr1, expr2)))
+      (A.UnaryOp (Lib.dummy_pos, A.Not, A.CompOp (pos, A.Eq, expr1, expr2)))
 
   (* If-then-else [if expr1 then expr2 else expr3 ]*)
-  | A.Ite (pos, expr1, expr2, expr3) -> 
+  | A.TernaryOp (pos, A.Ite, expr1, expr2, expr3) -> 
 
     (* Evaluate expression for condition *)
     let expr1', ctx = 
@@ -500,9 +500,9 @@ let rec eval_ast_expr bounds ctx =
 
     let cond_of_clock_value clock_value = match clock_value with
       | "true" -> A.Ident (pos, clock_ident)
-      | "false" -> A.Not (pos, A.Ident (pos, clock_ident))
+      | "false" -> A.UnaryOp (pos, A.Not, A.Ident (pos, clock_ident))
       | _ ->
-        A.Eq (pos, A.Ident (pos, clock_ident), A.Ident (pos, clock_value))
+        A.CompOp (pos, A.Eq, A.Ident (pos, clock_ident), A.Ident (pos, clock_value))
     in
 
     let cond_expr_clock_value clock_value = match clock_value with
@@ -535,10 +535,10 @@ let rec eval_ast_expr bounds ctx =
           | A.Ident (_, c) when clock_value = "true" && c = clock_ident -> ()
 
           (* Compare low clock with merge clock by name *)
-          | A.Not (_, A.Ident (_, c))
+          | A.UnaryOp (_, A.Not, A.Ident (_, c))
             when clock_value = "false" && c = clock_ident -> ()
              
-          | A.Eq (_, A.Ident (_, c), A.Ident (_, cv))
+          | A.CompOp (_, A.Eq, A.Ident (_, c), A.Ident (_, cv))
             when clock_value = cv && c = clock_ident -> ()
              
           (* Clocks must be identical identifiers *)
@@ -565,7 +565,7 @@ let rec eval_ast_expr bounds ctx =
           pos
           (I.mk_string_ident ident)
           (cond_of_clock_value clock_value)
-          (A.False pos)
+          (A.Const (pos, A.False))
           args
           None
 
@@ -657,14 +657,14 @@ let rec eval_ast_expr bounds ctx =
 
   (* An expression list, flatten nested lists and add an index to
      each elements [(expr1, expr2)] *)
-  | A.ExprList (pos, expr_list) -> 
+  | A.GroupExpr (pos, A.ExprList, expr_list) -> 
 
     (* Flatten nested lists *)
     let rec flatten_expr_list accum = function 
 
       | [] -> List.rev accum
 
-      | A.ExprList (pos, expr_list) :: tl -> 
+      | A.GroupExpr (pos, A.ExprList, expr_list) :: tl -> 
         flatten_expr_list accum (expr_list @ tl)
 
       | expr :: tl -> flatten_expr_list (expr :: accum) tl
@@ -709,7 +709,7 @@ let rec eval_ast_expr bounds ctx =
     (res, ctx)
 
   (* Tuple constructor [{expr1, expr2, ...}] *)
-  | A.TupleExpr (pos, expr_list) -> 
+  | A.GroupExpr (pos, A.TupleExpr, expr_list) -> 
 
     let _, res, ctx = 
 
@@ -1045,14 +1045,14 @@ let rec eval_ast_expr bounds ctx =
 
   (* Node call without activation condition *)
   | A.Call (pos, ident, args)
-  | A.RestartEvery (pos, ident, args, A.False _) ->
+  | A.RestartEvery (pos, ident, args, A.Const (_, A.False)) ->
     try_eval_node_call
       bounds
       ctx
       pos
       (I.mk_string_ident ident)
-      (A.True dummy_pos)
-      (A.False dummy_pos)
+      (A.Const (dummy_pos, A.True))
+      (A.Const (dummy_pos, A.False))
       args
       None
 
@@ -1064,7 +1064,7 @@ let rec eval_ast_expr bounds ctx =
       ctx
       pos
       (I.mk_string_ident ident)
-      (A.True dummy_pos)
+      (A.Const (dummy_pos, A.True))
       cond
       args
       None
@@ -1074,7 +1074,7 @@ let rec eval_ast_expr bounds ctx =
   (* ****************************************************************** *)
 
   (* Array constructor [[expr1, expr2]] *)
-  | A.ArrayExpr (pos, expr_list) -> 
+  | A.GroupExpr (pos, A.ArrayExpr, expr_list) -> 
 
     let _, res, ctx = 
 
@@ -1129,7 +1129,7 @@ let rec eval_ast_expr bounds ctx =
           |> Numeral.to_int
           |> Lib.list_init (fun _ -> expr) in
         
-        eval_ast_expr bounds ctx (A.ArrayExpr (pos, l_expr))
+        eval_ast_expr bounds ctx (A.GroupExpr (pos, A.ArrayExpr, l_expr))
       else
 
         let bound =
@@ -1270,7 +1270,7 @@ let rec eval_ast_expr bounds ctx =
     C.fail_at_position pos "Current expression not supported"
 
   (* Boolean at-most-one constaint *)
-  | A.OneHot (pos, _) -> 
+  | A.NArityOp (pos, A.OneHot, _) -> 
 
     C.fail_at_position pos "One-hot expression not supported"
 
@@ -1300,7 +1300,7 @@ let rec eval_ast_expr bounds ctx =
       "Activate operator only supported in merge"
 
   (* With operator for recursive node calls *)
-  | A.With (pos, _, _, _) -> 
+  | A.TernaryOp (pos, A.With, _, _, _) -> 
 
     C.fail_at_position pos "Recursive nodes not supported"
 
@@ -1692,7 +1692,7 @@ and eval_node_call
       (* Evaluate input value *)
       let expr', ctx = 
         (* Evaluate inputs as list *)
-        let expr', ctx = eval_ast_expr bounds ctx (A.ExprList (dummy_pos, ast)) in
+        let expr', ctx = eval_ast_expr bounds ctx (A.GroupExpr (dummy_pos, A.ExprList, ast)) in
         (* Return actual parameters and changed context if actual and formal
            parameters have the same indexes otherwise remove list index when
            expression is a singleton list *)
@@ -1797,7 +1797,7 @@ and eval_node_call
           Some d', ctx
         (* Not a single default, wrap in list *)
         | Some d ->
-          let d', ctx = eval_ast_expr bounds ctx (A.ExprList (dummy_pos, d)) in 
+          let d', ctx = eval_ast_expr bounds ctx (A.GroupExpr (dummy_pos, A.ExprList, d)) in 
           Some d', ctx
         (* No defaults, skip *)
         | None -> None, ctx
