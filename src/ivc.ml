@@ -914,7 +914,7 @@ let create_solver ?(pathcomp=false) ?(approximate=false) sys actlits bmin bmax =
   end ;
   solver
 
-let check_sat solver actlits =
+let check_sat_assuming solver actlits =
   let act_terms = List.map Actlit.term_of_actlit actlits in
   SMTSolver.check_sat_assuming solver (fun _ -> true) (fun _ -> false) act_terms
 
@@ -1068,8 +1068,14 @@ let compute_unsat_core ?(pathcomp=None) ?(approximate=false)
 
   SMTSolver.assert_term solver t |> ignore ;
 
+  let (check_sat, get_unsat_core) =
+    if actlits = []
+    then (fun () -> SMTSolver.check_sat solver), (fun () -> [])
+    else (fun () -> check_sat_assuming solver actlits),
+         (fun () -> SMTSolver.get_unsat_core_lits solver)
+  in
   let rec check () =
-    if check_sat solver actlits
+    if check_sat ()
     then
       if enable_compr then begin
         match pathcomp with
@@ -1080,7 +1086,7 @@ let compute_unsat_core ?(pathcomp=None) ?(approximate=false)
       end
       else NOT_OK
     else
-      let res = SMTSolver.get_unsat_core_lits solver
+      let res = get_unsat_core ()
       |> List.map actlit_of_term
       in OK (filter_core core res)
   in
