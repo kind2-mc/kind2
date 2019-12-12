@@ -1585,7 +1585,10 @@ let ufs2sv = StateVar.state_var_of_uf_symbol
 let get_unexplored map actsvs =
   if SMTSolver.check_sat map
   then
-    let model = SMTSolver.get_model map in
+    let hashtbl = StateVar.StateVarHashtbl.create 0 in
+    let model =
+      List.map (fun sv -> Var.mk_const_state_var sv) actsvs
+      |> SMTSolver.get_var_values map hashtbl in
     actsvs
     |> List.filter (fun sv ->
       Var.mk_const_state_var sv
