@@ -976,7 +976,10 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       "(set-option :print-success true)" ::
       (headers ()) @
       (if produce_assignments then
-         ["(set-option :produce-assignments true)"] else []) @
+        (*["(set-option :produce-assignments true)"] else []) @*)
+        (* The command get-model is used instead of get-assignment,
+          thus we should use the option produce-models instead of produce-assignments *)
+        ["(set-option :produce-models true)"] else []) @
       (if produce_cores then
          (* Every current use of get_unsat_core really means get_unsat_assumptions.
             TODO: replace variable name with a less misleading one *)
