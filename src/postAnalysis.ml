@@ -518,6 +518,11 @@ module RunInvPrint: PostAnalysis = struct
         invs_min ;
         Ok ()
       ) with
+      | CertifChecker.CouldNotProve err -> Err(
+        fun fmt ->
+          Format.fprintf fmt
+            "Could not minimize invariants:@ %a" (fun fmt () -> err fmt) ()
+      )
       | e -> Err (
         fun fmt -> Format.fprintf fmt
           "Could not minimize invariants:@ %s"

@@ -741,7 +741,11 @@ But minimize_invariants does not differantiate two-states and one-state invarian
 let rec is_one_step t =
   let open Term in
   match node_of_term t with
-  | FreeVar v -> Numeral.leq Numeral.zero (Var.offset_of_state_var_instance v)
+  | FreeVar v ->
+    begin
+      try Numeral.leq Numeral.zero (Var.offset_of_state_var_instance v)
+      with _ -> true
+    end
   | BoundVar _ | Leaf _ -> true
   | Node (_, lst) | Let (_, lst) ->
     List.map is_one_step lst |> List.for_all (fun b -> b)
