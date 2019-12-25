@@ -45,18 +45,22 @@ let default_of_type t =
     (* Integers are zero by default *)
     | Type.Int -> Term.mk_num Numeral.zero
 
-    (* Wixed-width integers are zero by default *)
+    (* Fixed-width integers are zero by default *)
     | Type.UBV i ->
       begin match i with
-      | 8 | 16 | 32 | 64 -> Term.mk_num Numeral.zero
-      | _ -> raise 
-      (Invalid_argument "default_of_type: BV size not allowed")
+      | 8 -> Term.mk_ubv (Bitvector.repeat_bit false 8)
+      | 16 -> Term.mk_ubv (Bitvector.repeat_bit false 16)
+      | 32 -> Term.mk_ubv (Bitvector.repeat_bit false 32)
+      | 64 -> Term.mk_ubv (Bitvector.repeat_bit false 64)
+      | _ -> raise (Invalid_argument "default_of_type: BV size not allowed")
       end
     | Type.BV i ->
       begin match i with
-      | 8 | 16 | 32 | 64 -> Term.mk_num Numeral.zero
-      | _ -> raise 
-      (Invalid_argument "default_of_type: BV size not allowed")
+      | 8 -> Term.mk_bv (Bitvector.repeat_bit false 8)
+      | 16 -> Term.mk_bv (Bitvector.repeat_bit false 16)
+      | 32 -> Term.mk_bv (Bitvector.repeat_bit false 32)
+      | 64 -> Term.mk_bv (Bitvector.repeat_bit false 64)
+      | _ -> raise (Invalid_argument "default_of_type: BV size not allowed")
       end
 
     (* Integer range values are their lower bound by default *)
@@ -118,10 +122,7 @@ let rec logic_of_sort ty =
     
   | Int | IntRange _ -> singleton IA
   
-  | UBV 8 | UBV 16 | UBV 32 | UBV 64
-  | BV 8 | BV 16 | BV 32 | BV 64 -> singleton BV
-  | UBV _ | BV _ -> raise 
-      (Invalid_argument "logic of sort: BV size not allowed")
+  | UBV _ | BV _ -> singleton BV
                           
   | Real -> singleton RA
               
@@ -160,9 +161,9 @@ let logic_of_flat fun_symbols t acc =
 
   | Attr _ -> sup_logics acc
   
-  | Var v -> Var.type_of_var v |> logic_of_sort |> union @@ sup_logics acc
+  | Var v -> Format.printf "adding var logic for var %s\n" (Var.string_of_var v);Var.type_of_var v |> logic_of_sort |> union @@ sup_logics acc
 
-  | Const s | App (s, []) ->
+  | Const s | App (s, []) ->Format.printf "adding const logic for %s\n" (Symbol.string_of_symbol s);
     if Symbol.is_uf s then
       Symbol.uf_of_symbol s
       |> UfSymbol.res_type_of_uf_symbol
@@ -170,6 +171,8 @@ let logic_of_flat fun_symbols t acc =
       |> union @@ sup_logics acc
     else if Symbol.is_numeral s then add IA (sup_logics acc)
     else if Symbol.is_decimal s then add RA (sup_logics acc)
+    else if Symbol.is_bitvector s then add BV (sup_logics acc)
+    else if Symbol.is_ubitvector s then add BV (sup_logics acc)
     else sup_logics acc
 
   | App (s, _) when Symbol.(s == s_plus || s == s_minus) ->
@@ -206,6 +209,10 @@ let logic_of_flat fun_symbols t acc =
 
   | App (s, _) when Symbol.(s == s_to_int || s == s_to_real || is_divisible s) ->
     sup_logics acc |> add LA |> add IA |> add RA
+
+  | App (s, _) when Symbol.(is_to_uint8 s || is_to_uint16 s || is_to_uint32 s || is_to_uint64 s ||
+                            is_to_int8 s || is_to_int16 s || is_to_int32 s || is_to_int64 s) ->
+    add BV (sup_logics acc)
 
   | App _ -> sup_logics acc
 
@@ -249,13 +256,19 @@ type logic = [ `None | `Inferred of features | `SMTLogic of string ]
 
 let pp_print_logic fmt = function
   | `None -> pp_print_string fmt "ALL"
-  | `Inferred l -> pp_print_features fmt l
+  | `Inferred l -> if (L.mem BV l) then 
+                    pp_print_string fmt "ALL"
+                   else 
+                    pp_print_features fmt l
   | `SMTLogic s -> pp_print_string fmt (if s = "" then "ALL" else s)
 
 
 let string_of_logic = function
   | `None -> "ALL"
-  | `Inferred l -> string_of_features l
+  | `Inferred l -> if (L.mem BV l) then 
+                    "ALL"
+                   else
+                    string_of_features l
   | `SMTLogic s -> if s = "" then "ALL" else s
 
 

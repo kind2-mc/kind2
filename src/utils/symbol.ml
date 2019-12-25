@@ -586,6 +586,26 @@ let is_to_uint64 = function
   | { Hashcons.node = `TO_UINT64 } -> true
   | _ -> false
 
+(* Return true if the symbol is a to_int8 *)
+let is_to_int8 = function
+  | { Hashcons.node = `TO_INT8 } -> true
+  | _ -> false
+
+(* Return true if the symbol is a to_int16 *)
+let is_to_int16 = function
+  | { Hashcons.node = `TO_INT16 } -> true
+  | _ -> false
+
+(* Return true if the symbol is a to_int32 *)
+let is_to_int32 = function
+  | { Hashcons.node = `TO_INT32 } -> true
+  | _ -> false
+
+(* Return true if the symbol is a to_int64 *)
+let is_to_int64 = function
+  | { Hashcons.node = `TO_INT64 } -> true
+  | _ -> false
+
 (* Return true if the symbol is [`TRUE] or [`FALSE] *)
 let is_bool = function 
   | { Hashcons.node = `TRUE } 
