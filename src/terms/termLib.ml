@@ -161,9 +161,9 @@ let logic_of_flat fun_symbols t acc =
 
   | Attr _ -> sup_logics acc
   
-  | Var v -> Format.printf "adding var logic for var %s\n" (Var.string_of_var v);Var.type_of_var v |> logic_of_sort |> union @@ sup_logics acc
+  | Var v -> Var.type_of_var v |> logic_of_sort |> union @@ sup_logics acc
 
-  | Const s | App (s, []) ->Format.printf "adding const logic for %s\n" (Symbol.string_of_symbol s);
+  | Const s | App (s, []) ->
     if Symbol.is_uf s then
       Symbol.uf_of_symbol s
       |> UfSymbol.res_type_of_uf_symbol
