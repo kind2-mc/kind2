@@ -146,10 +146,7 @@ The following comparison operations are all binary: ``>``, ``<``, ``>=``, ``<=``
 Options
 -------
 
-Currently, the Yices2 SMT solver doesn't support logics that will allow for the usage of integers and machine integers together.  When using combinations of integers and machine integers, currently Kind2 must be told to use CVC4 or Z3. This can be done with the option ``--smt_solver CVC4``, or ``--smt_solver Z3``, respectively.
-
-Logic detection in Kind2 hasn't been extended to the machine integers (bitvector) logic. Thus, when using machine integers on Kind2, the user needs to manually tell Kind2 to use the ALL logic of SMT. This can be done with the option ``--smt_logic none``.
+Currently, the Yices2 SMT solver doesn't support logics that will allow for the usage of integers and machine integers together.  When using machine integers in Lustre, Kind2 will throw an error if it is called to use the Yices or Yices2 SMT solvers. To tell Kind2 to explicitly use a particular solver, call it with the option ``--smt_solver solver``, where solver can be 
+``CVC4`` or ``Z3``.
 
 IC3 is enabled by default in Kind2, and IC3 methods don't support theories which deal with machine integers, so IC3 must be disabled while using Kind2 with problems containing machine integers. This is done using the option ``--disable IC3``.
-
-In summary, if you want to use the machine integer type with Kind2, you need to call Kind2 with the options ``--smt_solver CVC4 --smt_logic none --disable IC3`` or ``--smt_solver Z3 --smt_logic none --disable IC3``. Kind2 will be extended to avoid this in the future.
