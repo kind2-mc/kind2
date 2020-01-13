@@ -750,7 +750,7 @@ let rec is_one_step t =
   | Node (_, lst) | Let (_, lst) ->
     List.map is_one_step lst |> List.for_all (fun b -> b)
   | Exists l | Forall l ->
-    let (L (_, t)) = T.node_of_lambda l in 
+    let (T.L (_, t)) = T.node_of_lambda l in 
     is_one_step t
   | Annot (t,_) -> is_one_step t
 
