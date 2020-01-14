@@ -648,7 +648,7 @@ let rec find_vars t =
     |> List.flatten
   | Attr (t, _) -> find_vars t
 
-let sv_of_term t = 
+let sv_of_term t =
   find_vars t |> List.hd |> Var.state_var_of_state_var_instance
 
 let locs_of_eq_term in_sys t =
@@ -705,7 +705,9 @@ let svs_of_term in_sys t =
     -> (* Case of a node call *)
     let (_, svs) = name_and_svs_of_node_call in_sys s ts in
     svs
-  | _ -> SVSet.singleton (sv_of_term t)
+  | _ ->
+    try SVSet.singleton (sv_of_term t)
+    with _ -> SVSet.empty
 
 (* ---------- UTILITIES ---------- *)
 
@@ -768,12 +770,14 @@ let extract_toplevel_equations in_sys sys =
   and trans = List.combine otrans ctrans in
   let mk_map = List.fold_left (fun acc (o,c) ->
     let svs = svs_of_term in_sys c in
-    let (o,c) =
-      try
-        let (o',c') = SVSMap.find svs acc in
-        (Term.mk_and [o;o'], Term.mk_and [c;c'])
-      with Not_found -> (o,c) in
-    SVSMap.add svs (o,c) acc
+    if SVSet.is_empty svs then acc
+    else
+      let (o,c) =
+        try
+          let (o',c') = SVSMap.find svs acc in
+          (Term.mk_and [o;o'], Term.mk_and [c;c'])
+        with Not_found -> (o,c) in
+      SVSMap.add svs (o,c) acc
   ) SVSMap.empty
   in
   let init_bindings = mk_map init |> SVSMap.bindings
