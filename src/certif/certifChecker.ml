@@ -409,7 +409,7 @@ let extract_props_certs sys =
 
   let certs =  List.fold_left (fun certs -> function
       | { Property.prop_status = Property.PropInvariant c;
-          prop_source = Property.Candidate None; prop_term = p } -> c :: certs
+          prop_source = Property.Candidate _; prop_term = p } -> c :: certs
       | { Property.prop_name } ->
         KEvent.log L_info "Skipping unproved candidate %s" prop_name;
         certs

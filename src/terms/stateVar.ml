@@ -239,7 +239,7 @@ let gen_uf =
   fun a s -> 
     incr r; 
     UfSymbol.mk_uf_symbol 
-      (Format.sprintf "f%d" !r)
+      (Format.sprintf "%%f%d" !r)
       a
       s
 
