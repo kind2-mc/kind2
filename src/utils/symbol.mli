@@ -348,6 +348,18 @@ val is_to_uint32 : t -> bool
 (** Return true if the symbol is a touint64 *)
 val is_to_uint64 : t -> bool
 
+(** Return true if the symbol is a toint8 *)
+val is_to_int8 : t -> bool
+
+(** Return true if the symbol is a toint16 *)
+val is_to_int16 : t -> bool
+
+(** Return true if the symbol is a toint32 *)
+val is_to_int32 : t -> bool
+
+(** Return true if the symbol is a toint64 *)
+val is_to_int64 : t -> bool
+
 
 (** Return true if the symbol is select from array  *)
 val is_select : t -> bool
