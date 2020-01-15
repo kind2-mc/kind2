@@ -127,19 +127,12 @@ function run_in {
   work_dir="$1"
   shift
   kind2_cmd="$@"
-  kind2_cmd_bv="${kind2_cmd} --smt_solver Z3 --smt_logic none"
   # Falsifiable
   find_cmd=`find_tests $work_dir $falsifiable_dir`
   file_count=`eval $find_cmd | wc -l | tr -d ' '`
   echo "| Running \"falsifiable\" ($file_count files)"
   for file in `eval $find_cmd`; do
-    #if the regression files are those for bitvectors, we append 
-    #the options " --smt_solver Z3 --smt_logic none" to the call to kind2
-    if [[ $file == *"bv-lia-ex.lus" ]] || [[ $file == *"bv-conversions.lus" ]]; then
-    	run_one "$file" "$falsifiable_code" "$kind2_cmd_bv"
-    else
-    	run_one "$file" "$falsifiable_code" "$kind2_cmd"
-    fi
+    run_one "$file" "$falsifiable_code" "$kind2_cmd"
   done
 
   # Success
@@ -147,13 +140,7 @@ function run_in {
   file_count=`eval $find_cmd | wc -l | tr -d ' '`
   echo "| Running \"success\" ($file_count files)"
   for file in `eval $find_cmd`; do
-    #if the regression files are those for bitvectors, we append 
-    #the options " --smt_solver Z3 --smt_logic none" to the call to kind2
-    if [[ $file == *"bv-logical.lus" ]]; then
-        run_one "$file" "$success_code" "$kind2_cmd_bv"
-    else     
-        run_one "$file" "$success_code" "$kind2_cmd"
-    fi
+    run_one "$file" "$success_code" "$kind2_cmd"
   done
 
   # Error
@@ -161,13 +148,7 @@ function run_in {
   file_count=`eval $find_cmd | wc -l | tr -d ' '`
   echo "| Running \"error\" ($file_count files)"
   for file in `eval $find_cmd`; do
-    #if the regression files are those for bitvectors, we append 
-    #the options " --smt_solver Z3 --smt_logic none" to the call to kind2
-    if [[ $file == *"bv-sh-exception.lus" ]]; then
-        run_one "$file" "$error_code" "$kind2_cmd_bv --lus_strict true"
-    else
-        run_one "$file" "$error_code" "$kind2_cmd --lus_strict true"
-    fi
+    run_one "$file" "$error_code" "$kind2_cmd --lus_strict true"
   done
 }
 

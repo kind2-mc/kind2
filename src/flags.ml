@@ -331,14 +331,14 @@ module Smt = struct
     (* User did not choose SMT solver *)
     | `detect ->
       try
-        let exec = find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ()) in
-        set_solver `Yices_SMTLIB;
-        set_yices2smt2_bin exec;
-      with Not_found ->
-      try
         let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
         set_solver `Z3_SMTLIB;
         set_z3_bin exec;
+      with Not_found ->
+      try
+        let exec = find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ()) in
+        set_solver `Yices_SMTLIB;
+        set_yices2smt2_bin exec;
       with Not_found ->
       try
         let exec = find_solver ~fail:false "CVC4" (cvc4_bin ()) in

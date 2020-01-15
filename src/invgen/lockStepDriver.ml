@@ -65,7 +65,7 @@ let reset_actlit_uids () = actlit_uid := 0
 (* Returns an actlit built from a uid. Beware of name collisions. *)
 let fresh_actlit_of uid =
   UfSymbol.mk_uf_symbol (
-    Format.sprintf "actlit_%d" uid
+    Format.sprintf "%%actlit_%d" uid
   ) [] (Type.mk_bool ())
 
 (* Returns an actlit built from a uid. Beware of name collisions. *)
