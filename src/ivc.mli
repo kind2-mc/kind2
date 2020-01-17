@@ -97,3 +97,33 @@ val umivc :
   (ivc -> unit) ->
   ivc list
 
+(* ----- MAXIMAL UNSAFE ABSTRACTIONS ----- *)
+
+type ua = ivc
+
+(** Compute a Maximal Unsafe Abstraction using Automated Debugging
+    and duality with Minimal Correction Subsets. *)
+val mua :
+  'a InputSystem.t ->
+  Analysis.param ->
+  (
+    bool ->
+    Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
+    -> unit
+  ) ->
+  TransSys.t ->
+  ua option
+
+(** Compute all Maximal Unsafe Abstractions using Automated Debugging
+    and duality with Minimal Correction Subsets. *)
+(*val all_mua :
+  'a InputSystem.t ->
+  Analysis.param ->
+  (
+    bool ->
+    Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
+    -> unit
+  ) ->
+  TransSys.t ->
+  ua list
+*)

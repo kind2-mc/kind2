@@ -1822,3 +1822,72 @@ let umivc in_sys param analyze sys k cont =
   | CannotProve ->
     KEvent.log L_error "Cannot prove the properties." ;
     []
+
+(* ---------- MAXIMAL UNSAFE ABSTRACTIONS ---------- *)
+
+type ua = ivc
+
+let mua_ in_sys make_check_ts sys eqmap_keep eqmap_test =
+  let prop_names = extract_props_names sys in
+  let (sys, check_ts) = make_check_ts sys in
+
+  (* Activation litterals, core and mapping to equations *)
+  let add_to_bindings must_be_tested scope eqs act_bindings =
+    let act_bindings' =
+      List.map (fun eq ->
+      let actsv =
+        StateVar.mk_state_var ~is_input:false ~is_const:true
+        (fresh_actsv_name ()) [] (Type.mk_bool ()) in
+      (must_be_tested, actsv, scope, eq)
+    ) eqs in
+    act_bindings'@act_bindings
+  in
+  let act_bindings = ScMap.fold (add_to_bindings false) eqmap_keep [] in
+  let act_bindings = ScMap.fold (add_to_bindings true) eqmap_test act_bindings in
+
+  let actsvs_eqs_map =
+    List.fold_left (fun acc (_,k,_,v) -> SVMap.add k v acc)
+      SVMap.empty act_bindings
+  in
+  let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
+  let core_to_eqmap core =
+    ScMap.map (fun v -> List.map eq_of_actsv v) core
+  in
+
+  let add_to_core (keep, test) (must_be_tested,actsv,scope,eq) =
+    if must_be_tested
+    then
+      let old = try ScMap.find scope test with Not_found -> [] in
+      (keep, ScMap.add scope (actsv::old) test)
+    else
+      let old = try ScMap.find scope keep with Not_found -> [] in
+      (ScMap.add scope (actsv::old) keep, test)
+  in
+  let (keep,test) = List.fold_left add_to_core (ScMap.empty,ScMap.empty) act_bindings in
+
+  (* Add actsvs to the CS transition system (at top level) *)
+  let actsvs = actsvs_of_core test in
+  List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
+
+  let compute_mcs = compute_mcs check_ts sys prop_names actsvs_eqs_map in
+  (*let compute_all_cs = compute_all_cs check_ts sys prop_names actsvs_eqs_map in*)
+
+  compute_mcs keep test |> core_diff test |> core_to_eqmap
+
+(** Compute a Maximal Unsafe Abstraction using Automated Debugging
+    and duality with Minimal Correction Subsets. *)
+let mua in_sys param analyze sys =
+  try (
+    let eqmap = _all_eqs in_sys sys in
+    let (keep, test) = separate_eqmap_by_category in_sys eqmap in
+    let make_check_ts = make_check_ts in_sys param analyze in
+    let test = mua_ in_sys make_check_ts sys keep test in
+    let ivc = eqmap_to_ivc in_sys (lstmap_union keep test) in
+    Some ivc
+  ) with
+  | InitTransMismatch (i,t) ->
+    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
+    None
+  | CannotProve ->
+    KEvent.log L_error "Cannot prove the properties." ;
+    None
