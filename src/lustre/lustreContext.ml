@@ -635,7 +635,8 @@ let mk_state_var
            | D.ArrayIntIndex _ -> false
            | D.RecordIndex _
            | D.TupleIndex _
-           | D.ListIndex _ -> true)
+           | D.ListIndex _
+           | D.AbstractTypeIndex _ -> true)
          index)
   in
 

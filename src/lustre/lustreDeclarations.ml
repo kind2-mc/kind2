@@ -1003,7 +1003,10 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
   (* Record index on left-hand and right-hand side *)
   | (D.RecordIndex i :: lhs_index_tl, state_var) :: lhs_tl,
-    (D.RecordIndex j :: rhs_index_tl, expr) :: rhs_tl -> 
+    (D.RecordIndex j :: rhs_index_tl, expr) :: rhs_tl
+  (* Abstract type index works like record except program cannot project field *)
+  | (D.AbstractTypeIndex i :: lhs_index_tl, state_var) :: lhs_tl,
+    (D.AbstractTypeIndex j :: rhs_index_tl, expr) :: rhs_tl -> 
 
     (* Indexes are sorted, must match *)
     if i = j then 
@@ -1024,24 +1027,35 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
   | (D.RecordIndex _ :: _, _) :: _, (D.ListIndex _ :: _, _) :: _
   | (D.RecordIndex _ :: _, _) :: _, (D.ArrayIntIndex _ :: _, _) :: _
   | (D.RecordIndex _ :: _, _) :: _, (D.ArrayVarIndex _ :: _, _) :: _
+  | (D.RecordIndex _ :: _, _) :: _, (D.AbstractTypeIndex _ :: _, _) :: _
 
   | (D.TupleIndex _ :: _, _) :: _, (D.RecordIndex _ :: _, _) :: _
   | (D.TupleIndex _ :: _, _) :: _, (D.ListIndex _ :: _, _) :: _
   | (D.TupleIndex _ :: _, _) :: _, (D.ArrayVarIndex _ :: _, _) :: _
+  | (D.TupleIndex _ :: _, _) :: _, (D.AbstractTypeIndex _ :: _, _) :: _
 
   | (D.ListIndex _ :: _, _) :: _, (D.RecordIndex _ :: _, _) :: _
   | (D.ListIndex _ :: _, _) :: _, (D.TupleIndex _ :: _, _) :: _
   | (D.ListIndex _ :: _, _) :: _, (D.ArrayIntIndex _ :: _, _) :: _
   | (D.ListIndex _ :: _, _) :: _, (D.ArrayVarIndex _ :: _, _) :: _
+  | (D.ListIndex _ :: _, _) :: _, (D.AbstractTypeIndex _ :: _, _) :: _
 
   | (D.ArrayIntIndex _ :: _, _) :: _, (D.RecordIndex _ :: _, _) :: _
   | (D.ArrayIntIndex _ :: _, _) :: _, (D.TupleIndex _ :: _, _) :: _
   | (D.ArrayIntIndex _ :: _, _) :: _, (D.ListIndex _ :: _, _) :: _
   | (D.ArrayIntIndex _ :: _, _) :: _, (D.ArrayVarIndex _ :: _, _) :: _
+  | (D.ArrayIntIndex _ :: _, _) :: _, (D.AbstractTypeIndex _ :: _, _) :: _
 
   | (D.ArrayVarIndex _ :: _, _) :: _, (D.RecordIndex _ :: _, _) :: _
   | (D.ArrayVarIndex _ :: _, _) :: _, (D.TupleIndex _ :: _, _) :: _
   | (D.ArrayVarIndex _ :: _, _) :: _, (D.ListIndex _ :: _, _) :: _
+  | (D.ArrayVarIndex _ :: _, _) :: _, (D.AbstractTypeIndex _ :: _, _) :: _
+
+  | (D.AbstractTypeIndex _ :: _, _) :: _, (D.RecordIndex _ :: _, _) :: _
+  | (D.AbstractTypeIndex _ :: _, _) :: _, (D.TupleIndex _ :: _, _) :: _
+  | (D.AbstractTypeIndex _ :: _, _) :: _, (D.ListIndex _ :: _, _) :: _
+  | (D.AbstractTypeIndex _ :: _, _) :: _, (D.ArrayIntIndex _ :: _, _) :: _
+  | (D.AbstractTypeIndex _ :: _, _) :: _, (D.ArrayVarIndex _ :: _, _) :: _
 
   | (_ :: _, _) :: _, ([], _) :: _ 
   | ([], _) :: _, (_ :: _, _) :: _ ->
@@ -2589,7 +2603,15 @@ and eval_node_decl
 (** Handle declaration and return context. *)
 and declaration_to_context ctx = function
 (* Declaration of a type as alias or free *)
-| A.TypeDecl (pos, A.AliasType (_, i, type_expr)) ->
+| A.TypeDecl (pos, type_rhs) ->
+
+  let (i, type_expr) = match type_rhs with
+    (* Replace type aliases with their right-hand-side *)
+    | A.AliasType (_, i, type_expr) -> (i, type_expr)
+    (* Replace free types with an abstract type with no user-accessible
+     * representation. *)
+    | A.FreeType (_, i) -> (i, A.AbstractType (pos, i))
+  in
 
   (* Identifier of AST identifier *)
   let ident = I.mk_string_ident i in
@@ -2869,11 +2891,6 @@ and declaration_to_context ctx = function
 (* ******************************************************************** *)
 (* Unsupported below                                                    *)
 (* ******************************************************************** *)
-
-(* Identifier is a free type *)
-| A.TypeDecl (pos, (A.FreeType _)) ->
-
-  C.fail_at_position pos "Free types not supported"
 
 
 (* Parametric node declaration *)

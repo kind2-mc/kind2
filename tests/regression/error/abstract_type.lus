@@ -1,0 +1,9 @@
+(* Check type checking for abstract types*)
+type COUNTER;
+
+node test (const init : COUNTER) returns (out : int) ;
+let
+  (* Type error *)
+  out = init + 1;
+tel
+
