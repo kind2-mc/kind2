@@ -1118,7 +1118,6 @@ module Certif = struct
 end
 
 (* Inductive Validity Cores flags. *)
-(* Contracts flags. *)
 module IVC = struct
 
   include Make_Spec (struct end)
@@ -1344,6 +1343,149 @@ module IVC = struct
         ivc_uc_timeout_default
     )
   let ivc_uc_timeout () = !ivc_uc_timeout
+
+end
+
+(* Maximal Unsafe Abstractions flags. *)
+module MUA = struct
+
+  include Make_Spec (struct end)
+
+  (* Identifier of the module. *)
+  let id = "mua"
+  (* Short description of the module. *)
+  let desc = "Maximal Unsafe Abstractions generation flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Kind 2 generates a maximal unsafe abstraction,@ \
+      that is a maximal subset of the equations that is unsafe.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := List.rev_append specs !all_specs
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let compute_mua_default = false
+  let compute_mua = ref compute_mua_default
+  let _ = add_spec
+    "--mua"
+    (bool_arg compute_mua)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Compute a maximal unsafe abstraction@ \
+          Default: %a\
+        "
+        fmt_bool compute_mua_default
+    )
+  let compute_mua () = !compute_mua
+
+  type mua_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN ]
+  let mua_element_of_string = function
+    | "node_calls" -> `NODE_CALL
+    | "contracts" -> `CONTRACT_ITEM
+    | "equations" -> `EQUATION
+    | "assertions" -> `ASSERTION
+    | unexpected -> Arg.Bad (
+      Format.sprintf "Unexpected value \"%s\" for flag --mua_elements" unexpected
+    ) |> raise
+  let mua_elements_default_init = []
+  let mua_elements_default_after =
+    [`NODE_CALL ; `CONTRACT_ITEM ; `EQUATION ; `ASSERTION ; `UNKNOWN]
+  let mua_elements = ref mua_elements_default_init
+  let finalize_mua_elements () =
+    (* If [enabled] is unchanged, set it do default after init. *)
+    if !mua_elements = mua_elements_default_init then (
+      mua_elements := mua_elements_default_after
+    )
+  let _ = add_spec
+    "--mua_category"
+    (Arg.String
+      (fun str ->
+        let elt = mua_element_of_string str in
+        if List.mem elt !mua_elements |> not
+        then mua_elements := elt :: !mua_elements
+      )
+    )
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          where <string> can be 'node_calls', 'contracts', 'equations' or 'assertions'@ \
+          Consider only a specific category of elements, repeat option to consider multiple categories@ \
+          Default: consider all categories of elements\
+        "
+    )
+  let mua_elements () = !mua_elements
+
+
+  let mua_enter_nodes_default = false
+  let mua_enter_nodes = ref mua_enter_nodes_default
+  let _ = add_spec
+    "--mua_enter_nodes"
+    (bool_arg mua_enter_nodes)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Consider elements of all the nodes (not only elements of the top-level node)@ \
+          Default: %a\
+        "
+        fmt_bool mua_enter_nodes_default
+    )
+  let mua_enter_nodes () = !mua_enter_nodes
+
+
+  let mua_all_default = false
+  let mua_all = ref mua_all_default
+  let _ = add_spec
+    "--mua_all"
+    (bool_arg mua_all)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Specify whether all the Maximal Unsafe Abstractions must be computed or just one@ \
+          Default: %a\
+        "
+        fmt_bool mua_all_default
+    )
+  let mua_all () = !mua_all
+
+
+  let print_mua_default = true
+  let print_mua = ref print_mua_default
+  let _ = add_spec
+    "--print_mua"
+    (bool_arg print_mua)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Print the maximal unsafe abstraction computed@ \
+          Default: %a\
+        "
+        fmt_bool print_mua_default
+    )
+  let print_mua () = !print_mua
+
+
+  let print_mua_compl_default = false
+  let print_mua_compl = ref print_mua_compl_default
+  let _ = add_spec
+    "--print_mua_complement"
+    (bool_arg print_mua_compl)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Print the complement of the maximal unsafe abstraction computed@ \
+          (this is equivalent to computing a minimal correction set)@ \
+          Default: %a\
+        "
+        fmt_bool print_mua_compl_default
+    )
+  let print_mua_compl () = !print_mua_compl
 
 end
 
@@ -1853,6 +1995,9 @@ let module_map = [
   ) ;
   (IVC.id,
     (module IVC: FlagModule)
+  ) ;
+  (MUA.id,
+    (module MUA: FlagModule)
   ) ;
   (Arrays.id,
     (module Arrays: FlagModule)
@@ -3000,6 +3145,7 @@ let parse_argv () =
   Global.finalize_enabled ();
 
   IVC.finalize_ivc_elements ();
+  MUA.finalize_mua_elements ();
 
   post_argv_parse_actions ();
   

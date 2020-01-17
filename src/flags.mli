@@ -463,6 +463,31 @@ module IVC : sig
 
 end
 
+(** {2 Maximal Unsafe Abstractions} *)
+module MUA : sig
+
+  type mua_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN ]
+
+  (** Enable computation of Maximal Unsafe Abstractions *)
+  val compute_mua : unit -> bool
+
+  (** Specify whether all the Maximal Unsafe Abstractions must be computed or just one *)
+  val mua_all : unit -> bool
+
+  (** Specify on which elements we want to minimize *)
+  val mua_elements : unit -> mua_element list
+
+  (** Print the equations of the computed IVC *)
+  val print_mua : unit -> bool
+
+  (** Print the equations NOT in the computed MUA *)
+  val print_mua_compl : unit -> bool
+
+  (** If true, compute a core with equations of all subsystems *)
+  val mua_enter_nodes : unit -> bool
+
+end
+
 (** {2 Arrays flags} *)
 module Arrays : sig
 
