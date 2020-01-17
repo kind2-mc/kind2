@@ -1827,7 +1827,7 @@ let umivc in_sys param analyze sys k cont =
 
 type ua = ivc
 
-let mua_ in_sys make_check_ts sys eqmap_keep eqmap_test =
+let mua_ in_sys make_check_ts sys all eqmap_keep eqmap_test =
   let prop_names = extract_props_names sys in
   let (sys, check_ts) = make_check_ts sys in
 
@@ -1870,24 +1870,28 @@ let mua_ in_sys make_check_ts sys eqmap_keep eqmap_test =
   List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
 
   let compute_mcs = compute_mcs check_ts sys prop_names actsvs_eqs_map in
-  (*let compute_all_cs = compute_all_cs check_ts sys prop_names actsvs_eqs_map in*)
+  let compute_all_mcs = compute_all_mcs check_ts sys prop_names actsvs_eqs_map in
 
-  compute_mcs keep test |> core_diff test |> core_to_eqmap
+  let mcs =
+    if all then compute_all_mcs keep test else [compute_mcs keep test]
+  in
+  mcs |> List.map (core_diff test) |> List.map core_to_eqmap
 
-(** Compute a Maximal Unsafe Abstraction using Automated Debugging
-    and duality with Minimal Correction Subsets. *)
-let mua in_sys param analyze sys =
+(** Compute one/all Maximal Unsafe Abstraction(s) using Automated Debugging
+    and duality between MUAs and Minimal Correction Subsets. *)
+let mua in_sys param analyze sys all =
   try (
     let eqmap = _all_eqs in_sys sys in
     let (keep, test) = separate_eqmap_by_category in_sys eqmap in
     let make_check_ts = make_check_ts in_sys param analyze in
-    let test = mua_ in_sys make_check_ts sys keep test in
-    let ivc = eqmap_to_ivc in_sys (lstmap_union keep test) in
-    Some ivc
+    let res = mua_ in_sys make_check_ts sys all keep test in
+    List.map (
+      fun test -> eqmap_to_ivc in_sys (lstmap_union keep test)
+    ) res
   ) with
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
-    None
+    []
   | CannotProve ->
     KEvent.log L_error "Cannot prove the properties." ;
-    None
+    []
