@@ -657,6 +657,70 @@ module RunIVC: PostAnalysis = struct
     )
 end
 
+(** Maximal Unsafe Abstraction computation *)
+module RunMUA: PostAnalysis = struct
+  let name = "mua"
+  let title = "maximal unsafe abstraction"
+  let is_active () = Flags.MUA.compute_mua ()
+
+  let run in_sys param analyze results =
+    let top = (Analysis.info_of_param param).Analysis.top in
+    last_result results top
+    |> Res.chain (fun { Analysis.sys } ->
+      try (
+        (*Format.printf "%a\n" ISys.pp_print_subsystems_debug in_sys;*)
+        (*Format.printf "%a\n" ISys.pp_print_state_var_instances_debug in_sys;*)
+        (*Format.printf "%a\n" ISys.pp_print_state_var_defs_debug in_sys;*)
+        (*let (_,_,trans) = TSys.init_trans_open sys in
+        Term.print_term trans ; Format.printf "\n" ;*)
+        (*Format.print_flush () ;*)
+
+        let initial = Ivc.all_eqs in_sys sys in
+        let treat_mua mua =
+
+          if Flags.MUA.print_mua ()
+          then begin
+            let pt = Ivc.pp_print_ivc in_sys sys "MAIN" in
+            let xml = Ivc.pp_print_ivc_xml in_sys sys "main" in
+            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json in_sys sys "main") in
+            let (_,filtered_mua) = Ivc.separate_ivc_by_category mua in
+            KEvent.log_result pt xml json filtered_mua
+          end ;
+
+          if Flags.MUA.print_mua_compl ()
+          then begin
+            let not_mua = Ivc.ScMap.mapi (fun scope eqs ->
+            List.filter (fun (eq,_,_) ->
+                try
+                  let lst = Ivc.ScMap.find scope mua
+                  |> List.map (fun (eq,_,_) -> eq.Ivc.trans_closed) in
+                  Term.TermSet.mem eq.Ivc.trans_closed (Term.TermSet.of_list lst)
+                  |> not
+                with Not_found -> true
+              ) eqs
+            ) initial in
+            let pt = Ivc.pp_print_ivc in_sys sys "COMPLEMENT" in
+            let xml = Ivc.pp_print_ivc_xml in_sys sys "complement" in
+            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json in_sys sys "complement") in
+            let (_,filtered_not_mua) = Ivc.separate_ivc_by_category not_mua in
+            KEvent.log_result pt xml json filtered_not_mua
+          end
+        in
+
+        let res = Ivc.mua in_sys param analyze sys (Flags.MUA.mua_all ()) in
+        List.iter treat_mua res ;
+        KEvent.log_uncond "Number of MUAs found: %n" (List.length res) ;
+        Ok ()
+      )
+      with
+      | e -> Err (
+        fun fmt -> Format.fprintf fmt
+          "An error occured:@ %s"
+          (Printexc.to_string e)
+      )
+    )
+end
+
 (** List of post-analysis modules. *)
 let post_analysis = [
   (module RunTestGen: PostAnalysis) ;
@@ -666,6 +730,7 @@ let post_analysis = [
   (module RunInvPrint: PostAnalysis) ;
   (module RunCertif: PostAnalysis) ;
   (module RunIVC: PostAnalysis) ;
+  (module RunMUA: PostAnalysis) ;
 ]
 
 (** Runs the post-analysis things on a system and its results.
