@@ -178,6 +178,8 @@ let pp_print_ivc in_sys sys title fmt =
     Format.fprintf fmt "%a\n" print eqs
   )
 
+let pp_print_mua = pp_print_ivc
+
 let impl_to_string = function
 | `IVC_AUC -> "AUC"
 | `IVC_UC -> "UC"
@@ -207,6 +209,18 @@ let pp_print_ivc_xml in_sys sys title fmt ivc =
   ) ivc ;
   Format.fprintf fmt "</IVC>\n"
 
+let pp_print_mua_xml in_sys sys title fmt mua =
+  let var_map = compute_var_map in_sys sys in
+  let print = pp_print_loc_eqs_xml var_map in
+  Format.fprintf fmt "<MUA title=\"%s\" category=\"%a\" enter_nodes=%b>\n" title
+    pp_print_categories (Flags.MUA.mua_elements ()) (Flags.MUA.mua_enter_nodes ()) ;
+  ScMap.iter (fun scope eqs -> 
+    Format.fprintf fmt "<scope name=\"%s\">\n" (Scope.to_string scope) ;
+    Format.fprintf fmt "%a" print eqs ;
+    Format.fprintf fmt "</scope>\n\n"
+  ) mua ;
+  Format.fprintf fmt "</MUA>\n"
+
 let ivc2json in_sys sys title ivc =
   let var_map = compute_var_map in_sys sys in
   let loc_eqs2json = loc_eqs2json var_map in
@@ -225,8 +239,28 @@ let ivc2json in_sys sys title ivc =
     ) (ScMap.bindings ivc)))
   ]
 
+let mua2json in_sys sys title mua =
+  let var_map = compute_var_map in_sys sys in
+  let loc_eqs2json = loc_eqs2json var_map in
+  `Assoc [
+    ("objectType", `String "mua") ;
+    ("title", `String title) ;
+    ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.MUA.mua_elements ()))) ;
+    ("enterNodes", `Bool (Flags.MUA.mua_enter_nodes ())) ;
+    ("value", `List (List.map (fun (scope, eqs) ->
+      `Assoc [
+        ("objectType", `String "scope") ;
+        ("name", `String (Scope.to_string scope)) ;
+        ("value", loc_eqs2json eqs)
+      ]
+    ) (ScMap.bindings mua)))
+  ]
+
 let pp_print_ivc_json in_sys sys title fmt ivc =
   pp_print_json fmt (ivc2json in_sys sys title ivc)
+
+let pp_print_mua_json in_sys sys title fmt mua =
+  pp_print_json fmt (mua2json in_sys sys title mua)
 
 (* ---------- LUSTRE AST ---------- *)
 
@@ -791,8 +825,7 @@ let extract_toplevel_equations in_sys sys =
     { init_opened=oi ; init_closed=ci ; trans_opened=ot ; trans_closed=ct }
   ) init_bindings trans_bindings
 
-let check_loc_eq_category (_,_,cat) =
-  let cats = Flags.IVC.ivc_elements () in
+let check_loc_eq_category cats (_,_,cat) =
   let cat = match cat with
   | NodeCall _ -> `NODE_CALL
   | ContractItem _ -> `CONTRACT_ITEM
@@ -802,8 +835,8 @@ let check_loc_eq_category (_,_,cat) =
   in
   List.mem cat cats
 
-let should_minimize_equation in_sys eq =
-  check_loc_eq_category (add_loc in_sys eq)
+let should_minimize_equation in_sys cats eq =
+  check_loc_eq_category cats (add_loc in_sys eq)
 
 let separate_by_predicate f lst =
   let lst = List.map (fun e -> (f e, e)) lst in
@@ -811,11 +844,11 @@ let separate_by_predicate f lst =
   let not_ok = List.filter (fun (ok,_) -> not ok) lst in
   (List.map snd not_ok, List.map snd ok)
 
-let separate_loc_eqs_by_category =
-  separate_by_predicate check_loc_eq_category
+let separate_loc_eqs_by_category cats =
+  separate_by_predicate (check_loc_eq_category cats)
 
-let separate_equations_by_category in_sys =
-  separate_by_predicate (should_minimize_equation in_sys)
+let separate_equations_by_category in_sys cats =
+  separate_by_predicate (should_minimize_equation in_sys cats)
 
 let separate_scmap f scmap =
   ScMap.fold (fun k v (map1,map2) ->
@@ -824,18 +857,21 @@ let separate_scmap f scmap =
   ) scmap (ScMap.empty, ScMap.empty)
 
 let separate_ivc_by_category =
-  separate_scmap separate_loc_eqs_by_category
+  separate_scmap (separate_loc_eqs_by_category (Flags.IVC.ivc_elements ()))
+
+let separate_mua_by_category =
+  separate_scmap (separate_loc_eqs_by_category (Flags.MUA.mua_elements ()))
 
 type eqmap = (equation list) ScMap.t
 
-let separate_eqmap_by_category in_sys =
-  separate_scmap (separate_equations_by_category in_sys)
+let separate_eqmap_by_category in_sys cats =
+  separate_scmap (separate_equations_by_category in_sys cats)
 
-let _all_eqs in_sys sys =
+let _all_eqs in_sys sys enter_nodes =
   let scope = TS.scope_of_trans_sys sys in
   let eqs = extract_toplevel_equations in_sys sys in
   let eqmap = ScMap.singleton scope eqs in
-  if Flags.IVC.ivc_enter_nodes ()
+  if enter_nodes
   then
     TS.fold_subsystems ~include_top:false (fun eqmap sys ->
       let scope = TS.scope_of_trans_sys sys in
@@ -844,8 +880,8 @@ let _all_eqs in_sys sys =
     ) eqmap sys
   else eqmap
 
-let all_eqs in_sys sys =
-  let eqmap = _all_eqs in_sys sys in
+let all_eqs in_sys sys enter_nodes =
+  let eqmap = _all_eqs in_sys sys enter_nodes in
   eqmap_to_ivc in_sys eqmap
 
 let term_of_eq init closed eq =
@@ -1242,8 +1278,8 @@ let ivc_uc_ in_sys ?(approximate=false) sys eqmap_keep eqmap_test =
 
 let ivc_uc in_sys ?(approximate=false) sys =
   try (
-    let eqmap = _all_eqs in_sys sys in
-    let (keep, test) = separate_eqmap_by_category in_sys eqmap in
+    let eqmap = _all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
     let test = ivc_uc_ in_sys ~approximate:approximate sys keep test in
     Some (eqmap_to_ivc in_sys (lstmap_union keep test))
   ) with
@@ -1334,8 +1370,8 @@ let ivc_bf_ in_sys check_ts sys keep test =
 
 let ivc_bf in_sys param analyze sys =
   try (
-    let eqmap = _all_eqs in_sys sys in
-    let (keep, test) = separate_eqmap_by_category in_sys eqmap in
+    let eqmap = _all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
     let test = ivc_bf_ in_sys check_ts sys keep test in
     Some (eqmap_to_ivc in_sys (lstmap_union keep test))
@@ -1350,8 +1386,8 @@ let ivc_bf in_sys param analyze sys =
 (** Implements the algorithm IVC_UCBF *)
 let ivc_ucbf in_sys param analyze sys =
   try (
-    let eqmap = _all_eqs in_sys sys in
-    let (keep, test) = separate_eqmap_by_category in_sys eqmap in
+    let eqmap = _all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
     let test = ivc_uc_ in_sys sys keep test in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
     let test = ivc_bf_ in_sys check_ts sys keep test in
@@ -1801,8 +1837,8 @@ let umivc_ in_sys make_check_ts sys k cont eqmap_keep eqmap_test =
 (** Implements the algorithm UMIVC. *)
 let umivc in_sys param analyze sys k cont =
   try (
-    let eqmap = _all_eqs in_sys sys in
-    let (keep, test) = separate_eqmap_by_category in_sys eqmap in
+    let eqmap = _all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
     let res = ref [] in
     let cont test =
       let ivc = eqmap_to_ivc in_sys (lstmap_union keep test) in
@@ -1825,7 +1861,7 @@ let umivc in_sys param analyze sys k cont =
 
 (* ---------- MAXIMAL UNSAFE ABSTRACTIONS ---------- *)
 
-type ua = ivc
+type mua = ivc
 
 let mua_ in_sys make_check_ts sys all eqmap_keep eqmap_test =
   let prop_names = extract_props_names sys in
@@ -1881,8 +1917,8 @@ let mua_ in_sys make_check_ts sys all eqmap_keep eqmap_test =
     and duality between MUAs and Minimal Correction Subsets. *)
 let mua in_sys param analyze sys all =
   try (
-    let eqmap = _all_eqs in_sys sys in
-    let (keep, test) = separate_eqmap_by_category in_sys eqmap in
+    let eqmap = _all_eqs in_sys sys (Flags.MUA.mua_enter_nodes ()) in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.MUA.mua_elements ()) eqmap in
     let make_check_ts = make_check_ts in_sys param analyze in
     let res = mua_ in_sys make_check_ts sys all keep test in
     List.map (

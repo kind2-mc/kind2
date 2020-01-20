@@ -33,8 +33,9 @@ val pp_print_ivc_json : 'a InputSystem.t -> TransSys.t -> string -> Format.forma
 val compare_loc : loc -> loc -> int
 
 (** For a given transition system, returns the full initial inductive validity core
-(not minimized, so that it contains all the equations of the transition system) *)
-val all_eqs : 'a InputSystem.t -> TransSys.t -> ivc
+(not minimized, so that it contains all the equations of the transition system).
+If the third parameter is false, only the top-level node will be explored. *)
+val all_eqs : 'a InputSystem.t -> TransSys.t -> bool -> ivc
 
 (** Separate an IVC into two IVC, the second one containing elements from the categories selected
     by the user, and the first one containing the others elements *)
@@ -99,7 +100,15 @@ val umivc :
 
 (* ----- MAXIMAL UNSAFE ABSTRACTIONS ----- *)
 
-type ua = ivc
+type mua = ivc
+
+val pp_print_mua : 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> mua -> unit
+val pp_print_mua_xml : 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> mua -> unit
+val pp_print_mua_json : 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> mua -> unit
+
+(** Separate a MUA into two MUA, the second one containing elements from the categories selected
+    by the user, and the first one containing the others elements *)
+val separate_mua_by_category : mua -> (mua * mua)
 
 (** Compute one/all Maximal Unsafe Abstraction(s) using Automated Debugging
     and duality between MUAs and Minimal Correction Subsets. *)
@@ -113,4 +122,4 @@ val mua :
   ) ->
   TransSys.t ->
   bool -> (* Compute them all? *)
-  ua list
+  mua list

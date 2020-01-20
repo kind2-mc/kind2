@@ -570,7 +570,7 @@ module RunIVC: PostAnalysis = struct
         (*Format.print_flush () ;*)
 
         let nb = ref 0 in
-        let initial = Ivc.all_eqs in_sys sys in
+        let initial = Ivc.all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
         let treat_ivc ivc =
 
           if Flags.IVC.print_ivc ()
@@ -675,15 +675,15 @@ module RunMUA: PostAnalysis = struct
         Term.print_term trans ; Format.printf "\n" ;*)
         (*Format.print_flush () ;*)
 
-        let initial = Ivc.all_eqs in_sys sys in
+        let initial = Ivc.all_eqs in_sys sys (Flags.MUA.mua_enter_nodes ()) in
         let treat_mua mua =
 
           if Flags.MUA.print_mua ()
           then begin
-            let pt = Ivc.pp_print_ivc in_sys sys "MAIN" in
-            let xml = Ivc.pp_print_ivc_xml in_sys sys "main" in
-            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json in_sys sys "main") in
-            let (_,filtered_mua) = Ivc.separate_ivc_by_category mua in
+            let pt = Ivc.pp_print_mua in_sys sys "MAIN" in
+            let xml = Ivc.pp_print_mua_xml in_sys sys "main" in
+            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mua_json in_sys sys "main") in
+            let (_,filtered_mua) = Ivc.separate_mua_by_category mua in
             KEvent.log_result pt xml json filtered_mua
           end ;
 
@@ -699,10 +699,10 @@ module RunMUA: PostAnalysis = struct
                 with Not_found -> true
               ) eqs
             ) initial in
-            let pt = Ivc.pp_print_ivc in_sys sys "COMPLEMENT" in
-            let xml = Ivc.pp_print_ivc_xml in_sys sys "complement" in
-            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json in_sys sys "complement") in
-            let (_,filtered_not_mua) = Ivc.separate_ivc_by_category not_mua in
+            let pt = Ivc.pp_print_mua in_sys sys "COMPLEMENT" in
+            let xml = Ivc.pp_print_mua_xml in_sys sys "complement" in
+            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mua_json in_sys sys "complement") in
+            let (_,filtered_not_mua) = Ivc.separate_mua_by_category not_mua in
             KEvent.log_result pt xml json filtered_not_mua
           end
         in
