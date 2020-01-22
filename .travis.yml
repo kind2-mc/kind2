@@ -21,7 +21,7 @@ deploy:
   skip_cleanup: true # required to prevent Travis from discarding the binaries
   on:
     all_branches: true
-    condition: "$TRAVIS_EVENT_TYPE = cron && $TRAVIS_REPO_SLUG = kind-mc/kind2"
+    condition: "$TRAVIS_EVENT_TYPE = cron"
   prerelease: true
   name: "nightly"
   description: "nightly build"
