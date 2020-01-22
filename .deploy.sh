@@ -1,3 +1,10 @@
+# Needed because OSX doesn't use GNU utils by default
+if [[ $TRAVIS_OS_NAME = "osx" ]]; then 
+  DATE=$(gdate -I)
+else
+  DATE=$(date -I)
+fi
+
 # Add a suffix to the built binary to distinguish
 # OSX from Linux and prevent a race condition where
 # one may overwrite another:
