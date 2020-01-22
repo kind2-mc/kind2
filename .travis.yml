@@ -16,10 +16,13 @@ before_deploy: bash -ex .deploy.sh
 deploy:
   provider: releases
   file_glob: true # allows shorthand for uploading multiple files
-  file: bin/kind2-* # files to upload, relative to the Travis worker's working directory
+  file: kind2-* # files to upload, relative to the Travis worker's working directory
   tag_name: nightly # name of the tag to associate the release with
   skip_cleanup: true # required to prevent Travis from discarding the binaries
   on:
     all_branches: true
     condition: "$TRAVIS_EVENT_TYPE = cron && $TRAVIS_REPO_SLUG = kind-mc/kind2"
+  prerelease: true
+  name: "nightly"
+  description: "nightly build"
   api_key: $API_KEY
