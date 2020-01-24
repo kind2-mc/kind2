@@ -133,6 +133,7 @@ let merge_branches transitions =
 %token MODE
 %token REQUIRE
 %token ENSURE
+%token WEAKLY
 
 (* Token for assertions *)
 %token ASSERT
@@ -444,8 +445,10 @@ contract_ghost_const:
     { A.GhostConst (A.UntypedConst (mk_pos $startpos, i, e)) }
 
 contract_assume:
-  ASSUME; name = option(STRING); e = qexpr; SEMICOLON
-  { A.Assume (mk_pos $startpos, name, e) }
+  | ASSUME; name = option(STRING); e = qexpr; SEMICOLON
+  { A.Assume (mk_pos $startpos, name, false, e) }
+  | WEAKLY; ASSUME; name = option(STRING); e = qexpr; SEMICOLON
+  { A.Assume (mk_pos $startpos, name, true, e) }
 
 contract_guarantee:
   GUARANTEE; name = option(STRING); e = qexpr; SEMICOLON
@@ -1134,6 +1137,7 @@ ident:
   | GUARANTEE { "guarantee" }
   | REQUIRE { "require" }
   | ENSURE { "ensure" }
+  | WEAKLY { "weakly" }
   | s = SYM { s }
 
 ident_or_quotident:

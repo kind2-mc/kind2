@@ -77,6 +77,8 @@ val mk_mode:
 type t = {
   (** Assumptions of the contract. *)
   assumes: svar list ;
+  (** Weak assumptions *)
+  weak_assumes: svar list;
   (** State variable to model Sofar(/\ assumes) *)
   sofar_assump: StateVar.t ;
   (** Guarantees of the contract (boolean is the [candidate] flag). *)
@@ -87,10 +89,13 @@ type t = {
 
 (** Creates a new contract from a set of assumes, a set of guarantess, and a
 list of modes. *)
-val mk: svar list -> StateVar.t -> (svar * bool) list -> mode list -> t
+val mk: svar list -> svar list -> StateVar.t -> (svar * bool) list -> mode list -> t
 
 (** Adds assumes to a contract. *)
 val add_ass: t -> svar list -> t
+
+(** Adds weak assumes to a contract. *)
+val add_weakly_ass: t -> svar list -> t
 
 (** Adds guarantees to a contract. *)
 val add_gua: t -> (svar * bool) list -> t

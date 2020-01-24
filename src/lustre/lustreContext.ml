@@ -1671,9 +1671,27 @@ let add_node_ass ctx assumes =
       let contract, ctx = match contract with
         | None -> (
           let svar, ctx = mk_fresh_local ctx Type.t_bool in
-          C.mk assumes svar [] [], ctx
+          C.mk assumes [] svar [] [], ctx
         )
         | Some contract -> C.add_ass contract assumes, ctx
+      in
+      (* Return node with contract added *)
+      { ctx with node = Some { node with N.contract = Some contract } }
+
+(* Add node weak assumptions to context *)
+let add_node_weakly_ass ctx weak_assumes = 
+
+  match ctx with
+
+    | { node = None } -> raise (Invalid_argument "add_node_global_contract")
+
+    | { node = Some ({ N.contract } as node) } ->
+      let contract, ctx = match contract with
+        | None -> (
+          let svar, ctx = mk_fresh_local ctx Type.t_bool in
+          C.mk [] weak_assumes svar [] [], ctx
+        )
+        | Some contract -> C.add_weakly_ass contract weak_assumes, ctx
       in
       (* Return node with contract added *)
       { ctx with node = Some { node with N.contract = Some contract } }
@@ -1689,7 +1707,7 @@ let add_node_gua ctx guarantees =
       let contract, ctx = match contract with
         | None -> (
           let svar, ctx = mk_fresh_local ctx Type.t_bool in
-          C.mk [] svar guarantees [], ctx
+          C.mk [] [] svar guarantees [], ctx
         )
         | Some contract -> C.add_gua contract guarantees, ctx
       in
@@ -1708,7 +1726,7 @@ let add_node_mode ctx mode =
       let contract, ctx = match contract with
         | None -> (
           let svar, ctx = mk_fresh_local ctx Type.t_bool in
-          C.mk [] svar [] [ mode ], ctx
+          C.mk [] [] svar [] [ mode ], ctx
         )
         | Some contract -> C.add_modes contract [ mode ], ctx
       in

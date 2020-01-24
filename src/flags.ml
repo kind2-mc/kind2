@@ -1385,18 +1385,19 @@ module MUA = struct
     )
   let compute_mua () = !compute_mua
 
-  type mua_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN ]
+  type mua_element =
+    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN | `WEAK_ASS ]
   let mua_element_of_string = function
     | "node_calls" -> `NODE_CALL
     | "contracts" -> `CONTRACT_ITEM
     | "equations" -> `EQUATION
     | "assertions" -> `ASSERTION
+    | "weak_assumptions" -> `WEAK_ASS
     | unexpected -> Arg.Bad (
       Format.sprintf "Unexpected value \"%s\" for flag --mua_elements" unexpected
     ) |> raise
   let mua_elements_default_init = []
-  let mua_elements_default_after =
-    [`NODE_CALL ; `CONTRACT_ITEM ; `EQUATION ; `ASSERTION ; `UNKNOWN]
+  let mua_elements_default_after = [`WEAK_ASS]
   let mua_elements = ref mua_elements_default_init
   let finalize_mua_elements () =
     (* If [enabled] is unchanged, set it do default after init. *)
@@ -1415,9 +1416,9 @@ module MUA = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          where <string> can be 'node_calls', 'contracts', 'equations' or 'assertions'@ \
+          where <string> can be 'node_calls', 'contracts', 'equations', 'assertions' or 'weak_assumptions'@ \
           Consider only a specific category of elements, repeat option to consider multiple categories@ \
-          Default: consider all categories of elements\
+          Default: weak_assumptions\
         "
     )
   let mua_elements () = !mua_elements

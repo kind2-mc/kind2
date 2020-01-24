@@ -193,6 +193,7 @@ let pp_print_categories fmt =
     | `CONTRACT_ITEM -> Format.fprintf fmt "contracts "
     | `EQUATION -> Format.fprintf fmt "equations "
     | `ASSERTION -> Format.fprintf fmt "assertions "
+    | `WEAK_ASS -> Format.fprintf fmt "weak_assumptions "
     | `UNKNOWN -> Format.fprintf fmt "unknown "
   )
 
@@ -527,7 +528,7 @@ let minimize_contract_node_eq ue lst cne =
   | A.ContractCall _ -> [cne]
   | A.GhostConst d -> [A.GhostConst (minimize_const_decl ue lst d)]
   | A.GhostVar d -> [A.GhostVar (minimize_const_decl ue lst d)]
-  | A.Assume (pos,_,_)
+  | A.Assume (pos,_,_,_)
   | A.Guarantee (pos,_,_) ->
     if List.exists (fun p -> Lib.compare_pos p pos = 0) lst
     then [cne] else []
@@ -751,19 +752,32 @@ let make_check_ts in_sys param analyze sys =
   let modules = Flags.enabled () in
   sys, (fun () -> analyze false modules in_sys param sys)
 
-let extract_props sys =
+let is_system_falsifiable sys =
+  List.exists (function
+    | { Property.prop_status = Property.PropFalse _ } -> true
+    | _ -> false
+  ) (TS.get_real_properties sys)
+
+let extract_props sys can_be_valid can_be_invalid =
   List.filter (function
-    | { Property.prop_status = Property.PropInvariant _ } -> true
+    | { Property.prop_status = Property.PropInvariant _ } when can_be_valid -> true
+    | { Property.prop_status = Property.PropInvariant _ ; Property.prop_name } ->
+      KEvent.log L_info "Skipping proved property %s" prop_name ;
+      false
+    | { Property.prop_status = Property.PropFalse _ } when can_be_invalid -> true
+    | { Property.prop_status = Property.PropFalse _ ; Property.prop_name } ->
+      KEvent.log L_info "Skipping falsifiable property %s" prop_name ;
+      false
     | { Property.prop_name } ->
-      KEvent.log L_warn "Skipping unproved property %s" prop_name ;
+      KEvent.log L_warn "Skipping unknown property %s" prop_name ;
       false
   ) (TS.get_real_properties sys)
 
-let extract_props_names sys =
-  List.map (fun { Property.prop_name = n } -> n) (extract_props sys)
+let extract_props_names sys can_be_valid can_be_invalid =
+  List.map (fun { Property.prop_name = n } -> n) (extract_props sys can_be_valid can_be_invalid)
 
-let extract_props_terms sys =
-  List.map (fun { Property.prop_term = p } -> p) (extract_props sys)
+let extract_props_terms sys can_be_valid can_be_invalid =
+  List.map (fun { Property.prop_term = p } -> p) (extract_props sys can_be_valid can_be_invalid)
   |> Term.mk_and
 
 let rec deconstruct_conj t =
@@ -1175,7 +1189,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys eqmap_keep eqmap_test =
   let scope = TS.scope_of_trans_sys sys in
   let k, invs = CertifChecker.minimize_invariants sys None in
   let os_invs = List.filter is_one_step invs in
-  let prop = extract_props_terms sys in
+  let prop = extract_props_terms sys true false in
   let os_prop = Term.mk_and (prop::os_invs) in
   let prop = Term.mk_and (prop::invs) in
   KEvent.log L_info "Inductive property: %a" Term.pp_print_term prop ;
@@ -1315,7 +1329,7 @@ exception CannotProve
 
 (** Implements the algorithm IVC_BF *)
 let ivc_bf_ in_sys check_ts sys keep test =
-  let prop_names = extract_props_names sys in
+  let prop_names = extract_props_names sys true false in
 
   (* Minimization *)
   let rec minimize ?(skip_first_check=false) check keep test =
@@ -1642,7 +1656,7 @@ let block_down map actsvs s =
 type unexplored_type = | Any | Min | Max
 
 let umivc_ in_sys make_check_ts sys k cont eqmap_keep eqmap_test =
-  let prop_names = extract_props_names sys in
+  let prop_names = extract_props_names sys true false in
   let sys_original = sys in
   let (sys_cs, check_ts_cs) = make_check_ts sys in
   let (sys, check_ts) = make_check_ts sys in
@@ -1864,8 +1878,12 @@ let umivc in_sys param analyze sys k cont =
 type mua = ivc
 
 let mua_ in_sys make_check_ts sys all eqmap_keep eqmap_test =
-  let prop_names = extract_props_names sys in
+  let prop_names =
+    if is_system_falsifiable sys
+    then extract_props_names sys false true
+    else extract_props_names sys true true in
   let (sys, check_ts) = make_check_ts sys in
+  (* TODO: consider weak_assumptions *)
 
   (* Activation litterals, core and mapping to equations *)
   let add_to_bindings must_be_tested scope eqs act_bindings =

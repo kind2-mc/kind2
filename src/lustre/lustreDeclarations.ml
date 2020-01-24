@@ -1796,10 +1796,12 @@ and eval_node_contract_item
     eval_ghost_var is_postponed inputs outputs locals ctx v, cpt_a, cpt_g
 
   (* Evaluate assumption *)
-  | A.Assume ( (_, _, expr) as a ) ->
+  | A.Assume (pos, name, soft, expr) ->
     let ctx, assumes, cpt_a =
-      eval_contract_item (Some "assume") scope (ctx, [], cpt_a) a in
-    C.add_node_ass ctx assumes, cpt_a, cpt_g
+      eval_contract_item (Some (if soft then "weakly assume" else "assume"))
+        scope (ctx, [], cpt_a) (pos, name, expr) in
+    (if soft then C.add_node_weakly_ass ctx assumes else C.add_node_ass ctx assumes),
+    cpt_a, cpt_g
 
   (* Evaluate guarantee *)
   | A.Guarantee g ->

@@ -466,7 +466,8 @@ end
 (** {2 Maximal Unsafe Abstractions} *)
 module MUA : sig
 
-  type mua_element = IVC.ivc_element
+  type mua_element =
+    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN | `WEAK_ASS ]
 
   (** Enable computation of Maximal Unsafe Abstractions *)
   val compute_mua : unit -> bool
