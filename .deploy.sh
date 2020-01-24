@@ -1,20 +1,11 @@
-# Needed because OSX doesn't use GNU utils by default
-if [[ $TRAVIS_OS_NAME = "osx" ]]; then 
-  DATE=$(gdate -I)
-else
-  DATE=$(date -I)
-fi
-
 # Add a suffix to the built binary to distinguish
 # OSX from Linux and prevent a race condition where
 # one may overwrite another:
 #   https://dev.to/hawkinjs/leveraging-travis-ci-for-continuous-deployment-to-publish-compiled-binaries-to-github-2k06
 # 
-# Also compress the binary and reformat its name.
-#
 if [[ -f bin/kind2 ]]; then 
   mv bin/kind2 bin/kind2-$TRAVIS_OS_NAME
-  tar -czf "kind2-$(date -I)-$TRAVIS_OS_NAME.tar.gz" bin/kind2-$TRAVIS_OS_NAME
+  tar -czf "kind2-$TRAVIS_OS_NAME.tar.gz" bin/kind2-$TRAVIS_OS_NAME
 fi
 
 # In order to update where the 'nightly' tag points to, we
