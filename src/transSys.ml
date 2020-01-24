@@ -1590,6 +1590,15 @@ let mk_trans_sys
 
   in
 
+  (match logic with
+  | `Inferred l when TermLib.FeatureSet.mem BV l -> (
+    match Flags.Smt.solver() with
+    | `Yices_SMTLIB | `Yices_native -> 
+      raise (Failure "Lustre files with machine integers cannot be used with Yices or Yices2 solvers")
+    | _ -> ()
+  )
+  | _ -> ());
+
   (* Increment start value of fresh instance identifier for next
      transition system *)
   let instance_var_id_start' = 

@@ -409,7 +409,7 @@ let extract_props_certs sys =
 
   let certs =  List.fold_left (fun certs -> function
       | { Property.prop_status = Property.PropInvariant c;
-          prop_source = Property.Candidate None; prop_term = p } -> c :: certs
+          prop_source = Property.Candidate _; prop_term = p } -> c :: certs
       | { Property.prop_name } ->
         KEvent.log L_info "Skipping unproved candidate %s" prop_name;
         certs
@@ -1158,7 +1158,7 @@ let minimize_invariants sys invs_predicate =
 
   (* Creating solver that will be used to replay and minimize inductive step *)
   let solver =
-    SMTSolver.create_instance ~produce_cores:true
+    SMTSolver.create_instance ~produce_cores:true ~produce_assignments:true
       logic (Flags.Smt.solver ())
   in
   

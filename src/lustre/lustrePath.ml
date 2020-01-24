@@ -280,7 +280,6 @@ let map_top_reconstruct_and_add
     model'
     index
     state_var =
-
   try
 
     (* Format.printf "map_top_reconstruct_and_add@.@." ;
@@ -360,6 +359,38 @@ let map_top_reconstruct_and_add
 
         (* Add term to accumulator as first value and return *)
         Model.Term v :: accum
+
+      (* If this is the last step but not an initial state *)
+      | [m] ->
+
+        let expr_not_init = match expr_not_init with
+          | None -> expr false
+          | Some eni -> eni
+        in
+
+        (* Value for state variable at step *)
+        let v =
+
+          (* Get expression for step state *)
+          E.cur_term_of_t Model.path_offset expr_not_init
+
+          (* Map variables in term to top system *)
+          |> (map_term_top instances)
+
+          (* Evaluate expression for step state *)
+          |> Eval.eval_term
+            (TransSys.uf_defs trans_sys)
+            (* We do not know the state of the variables at the previous step,
+               so we evaluate this term with only the current state *)
+            m
+
+          (* Return term *)
+          |> Eval.term_of_value
+
+        in
+
+        (* Add term to accumulator and continue *)
+        (Model.Term v :: accum)
 
       (* Model for step of path *)
       | m :: tl ->
@@ -626,7 +657,7 @@ let node_path_of_subsystems
   let nodes = N.nodes_of_subsystem subsystems in
 
   (* Format.printf "folding@.@." ; *)
-  Printexc.record_backtrace true ;
+  (*Printexc.record_backtrace true ;*)
 
   try
     (* Create models for all subnodes *)
@@ -639,11 +670,11 @@ let node_path_of_subsystems
   | TimeoutWall -> raise TimeoutWall
   | e ->
     (* Get backtrace now, Printf changes it *)
-    let backtrace = Printexc.get_backtrace () in
+    (*let backtrace = Printexc.get_backtrace () in
 
     Format.printf "Caught %s.@ Backtrace:@\n%s@.@."
       (Printexc.to_string e)
-      backtrace ;
+      backtrace ;*)
     raise e
 
 
