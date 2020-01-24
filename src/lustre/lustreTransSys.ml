@@ -234,6 +234,10 @@ let term_conj_of l = List.map (
 (* The assumption of the contract. *)
 let assumption_of_contract { C.assumes } = conj_of assumes
 
+(* The weak assumptions of the contract, as a list of state variables. *)
+let weak_assumptions_of_contract { C.weak_assumes } =
+  List.map (fun {C.svar} -> svar) weak_assumes
+
 (* The mode requirements of a contract, for test generation. *)
 let ass_and_mode_requires_of_contract = function
 | Some { C.assumes ; C.modes } -> (
@@ -246,7 +250,7 @@ let ass_and_mode_requires_of_contract = function
 | None -> None, []
 
 (* The guarantees of a contract, including mode implications, as properties. *)
-let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
+let guarantees_of_contract scope { C.guarantees ; C.modes } =
   (* Originally properties are unknown. *)
   let prop_status = P.PropUnknown in
   (* Creates a property for a guarantee. *)
@@ -1736,14 +1740,15 @@ let rec trans_sys_of_node'
           (* Assertions from contracts and init flag                *)
 
           (* Start with asserts and properties for contracts *)
-          let contract_asserts, properties = match contract with
-            | None -> [], []
+          let contract_weak_assumes, contract_asserts, properties = match contract with
+            | None -> [], [], []
             | Some contract ->
 
               (* Add requirements to invariants if node is the top node *)
-              let contract_asserts, properties = 
+              let contract_weak_assumes, contract_asserts, properties = 
                 if I.equal node_name top_name then
                   (* Node is top, forcing contract assumption. *)
+                  ( weak_assumptions_of_contract contract ),
                   [ assumption_of_contract contract ],
                   (* Add property for completeness of modes if top node is
                     abstract. *)
@@ -1751,16 +1756,17 @@ let rec trans_sys_of_node'
                     [ one_mode_active scope contract ]
                   else []
                 else
-                  [], []
+                  [], [], []
               in
 
               (* Add mode implications to invariants if node is abstract,
                  otherwise add ensures as properties *)
               if A.param_scope_is_abstract analysis_param scope then
+                contract_weak_assumes,
                 abstraction_of_contract contract :: contract_asserts,
                 properties 
               else
-                contract_asserts,
+                contract_weak_assumes, contract_asserts,
                 guarantees_of_contract scope contract @ properties
           in
 
@@ -2148,6 +2154,7 @@ let rec trans_sys_of_node'
               properties
               mode_requires
               node_assumptions
+              contract_weak_assumes
           in
           trans_sys_of_node'
             globals

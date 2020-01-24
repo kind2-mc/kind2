@@ -165,6 +165,10 @@ val init_trans_open : t -> StateVar.t list * Term.t * Term.t
 (** Update the init and trans equations of the toplevel system *)
 val set_init_trans : t -> Term.t -> Term.t -> unit
 
+(** Return the list of the weak assumptions of the node.
+    Should be empty if [t] is not the top-level node. *)
+val get_weak_assumptions : t -> StateVar.t list
+
 (** Return the logic fragment needed to express the transition system *)
 val get_logic : t -> TermLib.logic
 
@@ -267,6 +271,9 @@ val mk_trans_sys :
 
   (** Invariants. *)
   Invs.t ->
+
+  (** Weak assumptions (for MUA computation) *)
+  StateVar.t list ->
 
   (** Created transition system and next starting value for fresh
       instance identifiers *)

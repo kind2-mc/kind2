@@ -144,6 +144,9 @@ type t =
     mode_requires: Term.t option * (Scope.t * Term.t) list ;
 
     invariants : Invs.t ;
+
+    (** Weak assumptions (for MUA computation) *)
+    weak_ass: StateVar.t list ;
   }
 
 (* ********************************************************************** *)
@@ -529,6 +532,9 @@ let set_init_trans t init trans =
   t.init <- init ;
   t.trans <- trans
 
+(* Return the list of the weak assumptions of the node.
+    Should be empty if [t] is not the top-level node. *)
+let get_weak_assumptions { weak_ass } = weak_ass
 
 
 (* Return the state variable for the init flag *)
@@ -1544,6 +1550,7 @@ let mk_trans_sys
   properties
   mode_requires
   invariants
+  weak_ass
 =
 
   (* Map instance variables of this system and all subsystems to a
@@ -1712,7 +1719,8 @@ let mk_trans_sys
       properties;
       mode_requires;
       logic;
-      invariants; }
+      invariants;
+      weak_ass }
   in
 
   trans_sys, instance_var_id_start'

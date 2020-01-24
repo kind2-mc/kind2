@@ -2532,7 +2532,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       trans_term
       [kind2_subsys_inst; jkind_subsys_inst]
       props
-      (None, []) (Invs.empty ()) in
+      (None, []) (Invs.empty ()) [] in
 
   (* (\* Add caller info to subnodes *\) *)
   (* TS.add_caller kind2_sys *)
