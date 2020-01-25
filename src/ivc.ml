@@ -840,14 +840,15 @@ let extract_toplevel_equations in_sys sys =
   ) init_bindings trans_bindings
 
 let check_loc_eq_category cats (_,_,cat) =
+  (* TODO: Add an indicator in ContractItem to determine whether it is a weak assumption or not *)
   let cat = match cat with
-  | NodeCall _ -> `NODE_CALL
-  | ContractItem _ -> `CONTRACT_ITEM
-  | Equation _ -> `EQUATION
-  | Assertion _ -> `ASSERTION
-  | Unknown -> `UNKNOWN
+  | NodeCall _ -> [`NODE_CALL]
+  | ContractItem _ -> [`CONTRACT_ITEM ; `WEAK_ASS]
+  | Equation _ -> [`EQUATION]
+  | Assertion _ -> [`ASSERTION]
+  | Unknown -> [`UNKNOWN]
   in
-  List.mem cat cats
+  List.exists (fun cat -> List.mem cat cats) cat
 
 let should_minimize_equation in_sys cats eq =
   check_loc_eq_category cats (add_loc in_sys eq)
@@ -1933,10 +1934,25 @@ let mua_ in_sys make_check_ts sys all eqmap_keep eqmap_test =
 
 (** Compute one/all Maximal Unsafe Abstraction(s) using Automated Debugging
     and duality between MUAs and Minimal Correction Subsets. *)
-let mua in_sys param analyze sys all =
+let mua in_sys param analyze sys all = (* TODO: solve issue ./kind2-mua --mua true --mua_category weak_assumptions ivc_ex4_.lus *)
   try (
     let eqmap = _all_eqs in_sys sys (Flags.MUA.mua_enter_nodes ()) in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.MUA.mua_elements ()) eqmap in
+    let test =
+      if List.mem `WEAK_ASS (Flags.MUA.mua_elements ())
+      then
+        let eqs_init = TS.get_weak_assumptions_of_bound sys TransSys.init_base in
+        let eqs_trans = TS.get_weak_assumptions_of_bound sys TransSys.trans_base in
+        let eqs =
+          List.map2 (fun (oi,oc) (ot,ct) -> 
+            { init_opened=oi ; init_closed=oc ; trans_opened=ot ; trans_closed=ct }
+          ) eqs_init eqs_trans
+        in
+        let scope = TS.scope_of_trans_sys sys in
+        let old = try ScMap.find scope test with Not_found -> [] in
+        ScMap.add scope (eqs@old) test
+      else test
+    in
     let make_check_ts = make_check_ts in_sys param analyze in
     let res = mua_ in_sys make_check_ts sys all keep test in
     List.map (

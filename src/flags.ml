@@ -1156,7 +1156,7 @@ module IVC = struct
     )
   let compute_ivc () = !compute_ivc
 
-  type ivc_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN ]
+  type ivc_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN | `WEAK_ASS ]
   let ivc_element_of_string = function
     | "node_calls" -> `NODE_CALL
     | "contracts" -> `CONTRACT_ITEM

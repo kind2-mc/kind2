@@ -429,7 +429,7 @@ module IVC : sig
 
   type ivcimpl = [ `IVC_BF | `IVC_AUC | `IVC_UC | `IVC_UCBF | `UMIVC ]
   type minimize_mode = [ `DO_NOT_MINIMIZE | `VALID_LUSTRE | `CONCISE ]
-  type ivc_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN ]
+  type ivc_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN  | `WEAK_ASS ]
 
   (** Enable computation of Inductive Validity Cores *)
   val compute_ivc : unit -> bool
