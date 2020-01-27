@@ -806,7 +806,7 @@ let rec is_one_step t =
 
 exception InitTransMismatch of int * int
 
-let extract_toplevel_equations in_sys sys =
+let extract_toplevel_equations ?(include_weak_ass=false) in_sys sys =
   let (_,oinit,otrans) = TS.init_trans_open sys in
   let cinit = TS.init_of_bound None sys Numeral.zero
   and ctrans = TS.trans_of_bound None sys Numeral.zero in
@@ -816,6 +816,18 @@ let extract_toplevel_equations in_sys sys =
   and ctrans = deconstruct_conj ctrans in
   let init = List.combine oinit cinit
   and trans = List.combine otrans ctrans in
+
+  let (init, trans) =
+    if include_weak_ass
+    then
+      let init_wa =
+        TS.get_weak_assumptions_of_bound sys TS.init_base in
+      let trans_wa =
+        TS.get_weak_assumptions_of_bound sys TS.init_base in
+      (init_wa@init, trans_wa@trans)
+    else (init, trans)
+  in
+
   let mk_map = List.fold_left (fun acc (o,c) ->
     let svs = svs_of_term in_sys c in
     if SVSet.is_empty svs then acc
@@ -882,9 +894,9 @@ type eqmap = (equation list) ScMap.t
 let separate_eqmap_by_category in_sys cats =
   separate_scmap (separate_equations_by_category in_sys cats)
 
-let _all_eqs in_sys sys enter_nodes =
+let _all_eqs ?(include_weak_ass=false) in_sys sys enter_nodes =
   let scope = TS.scope_of_trans_sys sys in
-  let eqs = extract_toplevel_equations in_sys sys in
+  let eqs = extract_toplevel_equations ~include_weak_ass in_sys sys in
   let eqmap = ScMap.singleton scope eqs in
   if enter_nodes
   then
@@ -1934,25 +1946,11 @@ let mua_ in_sys make_check_ts sys all eqmap_keep eqmap_test =
 
 (** Compute one/all Maximal Unsafe Abstraction(s) using Automated Debugging
     and duality between MUAs and Minimal Correction Subsets. *)
-let mua in_sys param analyze sys all = (* TODO: solve issue ./kind2-mua --mua true --mua_category weak_assumptions ivc_ex4_.lus *)
+let mua in_sys param analyze sys all =
   try (
-    let eqmap = _all_eqs in_sys sys (Flags.MUA.mua_enter_nodes ()) in
+    let include_weak_ass = List.mem `WEAK_ASS (Flags.MUA.mua_elements ()) in
+    let eqmap = _all_eqs ~include_weak_ass in_sys sys (Flags.MUA.mua_enter_nodes ()) in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.MUA.mua_elements ()) eqmap in
-    let test =
-      if List.mem `WEAK_ASS (Flags.MUA.mua_elements ())
-      then
-        let eqs_init = TS.get_weak_assumptions_of_bound sys TransSys.init_base in
-        let eqs_trans = TS.get_weak_assumptions_of_bound sys TransSys.trans_base in
-        let eqs =
-          List.map2 (fun (oi,oc) (ot,ct) -> 
-            { init_opened=oi ; init_closed=oc ; trans_opened=ot ; trans_closed=ct }
-          ) eqs_init eqs_trans
-        in
-        let scope = TS.scope_of_trans_sys sys in
-        let old = try ScMap.find scope test with Not_found -> [] in
-        ScMap.add scope (eqs@old) test
-      else test
-    in
     let make_check_ts = make_check_ts in_sys param analyze in
     let res = mua_ in_sys make_check_ts sys all keep test in
     List.map (
