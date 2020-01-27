@@ -237,7 +237,7 @@ type state_var_def =
   | CallOutput of position * LustreIndex.index
   | ProperEq of position * LustreIndex.index
   | GeneratedEq of position * LustreIndex.index
-  | ContractItem of position
+  | ContractItem of position * bool (* soft *)
   | Assertion of position
 
 (** Return a node of the given name and is extern flag without inputs, outputs,

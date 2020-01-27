@@ -24,8 +24,9 @@ module AstID = struct
 end
 module IdMap = Map.Make(AstID)
 
-type term_cat = NodeCall of string * SVSet.t
-| ContractItem of StateVar.t
+type term_cat =
+| NodeCall of string * SVSet.t
+| ContractItem of StateVar.t * bool (* soft *)
 | Equation of StateVar.t
 | Assertion of StateVar.t
 | Unknown
@@ -121,7 +122,8 @@ let expr_pp_print var_map fmt expr =
 
 let cat_to_string = function
   | NodeCall _ -> "Node call"
-  | ContractItem _ -> "Contract item"
+  | ContractItem (_, false) -> "Contract item"
+  | ContractItem (_, true) -> "Weak assumption"
   | Equation _ -> "Equation"
   | Assertion _ -> "Assertion"
   | Unknown -> "Unknown element"
@@ -601,7 +603,7 @@ let minimize_lustre_ast ?(valid_lustre=false) ivc_all ivc ast =
         (fun acc (_,ls,cat) ->
           let svs = match cat with
           | Unknown -> SVSet.empty
-          | Equation sv | Assertion sv | ContractItem sv -> SVSet.singleton sv
+          | Equation sv | Assertion sv | ContractItem (sv, _) -> SVSet.singleton sv
           | NodeCall (_, svs) -> svs
           in
           List.fold_left
@@ -688,19 +690,25 @@ let sv_of_term t =
 
 let locs_of_eq_term in_sys t =
   try
+    let has_soft_contract_items = ref false in
     let has_contract_items = ref false in
     let has_asserts = ref false in
     let sv = sv_of_term t in
     InputSystem.lustre_definitions_of_state_var in_sys sv
     |> List.map (fun def ->
-      (match def with LustreNode.Assertion _ -> has_asserts := true
-        | LustreNode.ContractItem _ -> has_contract_items := true | _ -> ());
+      ( match def with
+        | LustreNode.Assertion _ -> has_asserts := true
+        | LustreNode.ContractItem (_, false) -> has_contract_items := true
+        | LustreNode.ContractItem (_, true) -> has_soft_contract_items := true
+        | _ -> ()
+      );
       let p = LustreNode.pos_of_state_var_def def in
       let i = LustreNode.index_of_state_var_def def in
       { pos=p ; index=i }
     )
     |> (fun locs ->
-      if !has_contract_items then (ContractItem sv, locs)
+      if !has_soft_contract_items then (ContractItem (sv, true), locs)
+      else if !has_contract_items then (ContractItem (sv, false), locs)
       else if !has_asserts then (Assertion sv, locs)
       else (Equation sv, locs)
     )
@@ -824,7 +832,7 @@ let extract_toplevel_equations ?(include_weak_ass=false) in_sys sys =
         TS.get_weak_assumptions_of_bound sys TS.init_base in
       let trans_wa =
         TS.get_weak_assumptions_of_bound sys TS.init_base in
-      (init_wa@init, trans_wa@trans)
+      (init@init_wa, trans@trans_wa)
     else (init, trans)
   in
 
@@ -852,10 +860,10 @@ let extract_toplevel_equations ?(include_weak_ass=false) in_sys sys =
   ) init_bindings trans_bindings
 
 let check_loc_eq_category cats (_,_,cat) =
-  (* TODO: Add an indicator in ContractItem to determine whether it is a weak assumption or not *)
   let cat = match cat with
   | NodeCall _ -> [`NODE_CALL]
-  | ContractItem _ -> [`CONTRACT_ITEM ; `WEAK_ASS]
+  | ContractItem (_, false) -> [`CONTRACT_ITEM]
+  | ContractItem (_, true) -> [`WEAK_ASS]
   | Equation _ -> [`EQUATION]
   | Assertion _ -> [`ASSERTION]
   | Unknown -> [`UNKNOWN]
@@ -1896,7 +1904,6 @@ let mua_ in_sys make_check_ts sys all eqmap_keep eqmap_test =
     then extract_props_names sys false true
     else extract_props_names sys true true in
   let (sys, check_ts) = make_check_ts sys in
-  (* TODO: consider weak_assumptions *)
 
   (* Activation litterals, core and mapping to equations *)
   let add_to_bindings must_be_tested scope eqs act_bindings =

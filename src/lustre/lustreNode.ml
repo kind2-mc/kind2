@@ -1583,7 +1583,7 @@ type state_var_def =
   | CallOutput of position * LustreIndex.index
   | ProperEq of position * LustreIndex.index
   | GeneratedEq of position * LustreIndex.index
-  | ContractItem of position
+  | ContractItem of position * bool (* soft *)
   | Assertion of position
 
 let state_var_defs_map : state_var_def list StateVar.StateVarHashtbl.t = 
@@ -1610,8 +1610,8 @@ let add_state_var_def state_var def =
     defs
 
 let pos_of_state_var_def = function
-  | CallOutput (p,_) | ProperEq (p,_) | GeneratedEq (p,_) -> p
-  | ContractItem p | Assertion p -> p
+  | CallOutput (p,_) | ProperEq (p,_) | GeneratedEq (p,_)
+  | ContractItem (p, _) | Assertion p -> p
 
 let index_of_state_var_def = function
   | CallOutput (_,i) | ProperEq (_,i) | GeneratedEq (_,i) -> i
@@ -1631,8 +1631,9 @@ let pp_print_state_var_defs_debug fmt t =
       | GeneratedEq (p,i) ->
         Format.fprintf fmt "Generated Eq: %a (%a)\n"
         Lib.pp_print_position p (LustreIndex.pp_print_index true) i
-      | ContractItem p ->
-        Format.fprintf fmt "Contract Item: %a\n" Lib.pp_print_position p
+      | ContractItem (p, b) ->
+        Format.fprintf fmt "%sContract Item: %a\n"
+          (if b then "Soft " else "") Lib.pp_print_position p
       | Assertion p ->
         Format.fprintf fmt "Assertion: %a\n" Lib.pp_print_position p
       )

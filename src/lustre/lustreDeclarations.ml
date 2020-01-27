@@ -1294,7 +1294,7 @@ and eval_ghost_var
     )
 
 (* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
-and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
+and eval_contract_item check ?(soft=false) scope (ctx, accum, count) (pos, iname, expr) =
   (* Check for unguarded pre-s. *)
   if A.has_unguarded_pre expr then (
     fail_or_warn pos "Illegal unguarded pre in contract item."
@@ -1350,7 +1350,7 @@ and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
   ) ;*)
   (* Define expression with a state variable *)
   let (svar, _), ctx = C.mk_local_for_expr ~is_ghost:true pos ctx expr in
-  N.add_state_var_def svar (N.ContractItem pos) ;
+  N.add_state_var_def svar (N.ContractItem (pos, soft)) ;
   (* Add state variable to accumulator, continue with possibly modified
   context. *)
   ctx, (Contract.mk_svar pos count iname svar scope) :: accum, count + 1
@@ -1799,7 +1799,7 @@ and eval_node_contract_item
   | A.Assume (pos, name, soft, expr) ->
     let ctx, assumes, cpt_a =
       eval_contract_item (Some (if soft then "weakly assume" else "assume"))
-        scope (ctx, [], cpt_a) (pos, name, expr) in
+        ~soft:soft scope (ctx, [], cpt_a) (pos, name, expr) in
     (if soft then C.add_node_weakly_ass ctx assumes else C.add_node_ass ctx assumes),
     cpt_a, cpt_g
 
