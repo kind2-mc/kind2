@@ -915,8 +915,8 @@ let _all_eqs ?(include_weak_ass=false) in_sys sys enter_nodes =
     ) eqmap sys
   else eqmap
 
-let all_eqs in_sys sys enter_nodes =
-  let eqmap = _all_eqs in_sys sys enter_nodes in
+let all_eqs ?(include_weak_ass=false) in_sys sys enter_nodes =
+  let eqmap = _all_eqs ~include_weak_ass in_sys sys enter_nodes in
   eqmap_to_ivc in_sys eqmap
 
 let term_of_eq init closed eq =

@@ -675,7 +675,8 @@ module RunMUA: PostAnalysis = struct
         Term.print_term trans ; Format.printf "\n" ;*)
         (*Format.print_flush () ;*)
 
-        let initial = Ivc.all_eqs in_sys sys (Flags.MUA.mua_enter_nodes ()) in
+        let include_weak_ass = List.mem `WEAK_ASS (Flags.MUA.mua_elements ()) in
+        let initial = Ivc.all_eqs ~include_weak_ass in_sys sys (Flags.MUA.mua_enter_nodes ()) in
         let treat_mua mua =
 
           if Flags.MUA.print_mua ()

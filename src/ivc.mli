@@ -36,7 +36,7 @@ val compare_loc : loc -> loc -> int
 (** For a given transition system, returns the full initial inductive validity core
 (not minimized, so that it contains all the equations of the transition system).
 If the third parameter is false, only the top-level node will be explored. *)
-val all_eqs : 'a InputSystem.t -> TransSys.t -> bool -> ivc
+val all_eqs : ?include_weak_ass:bool -> 'a InputSystem.t -> TransSys.t -> bool -> ivc
 
 (** Separate an IVC into two IVC, the second one containing elements from the categories selected
     by the user, and the first one containing the others elements *)
