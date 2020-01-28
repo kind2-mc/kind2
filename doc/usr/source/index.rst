@@ -39,6 +39,7 @@ Table of Contents
     9_other/7_invariant_logging
     9_other/8_interpreter
     9_other/9_inductive_validity_core
+    9_other/10_maximal_unsafe_abstraction
 
 .. toctree::
     :maxdepth: 2
