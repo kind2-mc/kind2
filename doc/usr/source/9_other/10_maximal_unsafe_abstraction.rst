@@ -6,7 +6,7 @@ Maximal Unsafe Abstraction
 The maximal unsafe abstraction generation is a post-analysis treatement that computes a maximal subset
 of weak assumptions to add to the system such that the system is still unsafe.
 
-To enable maximal unsafe abstraction generation generation, run
+To enable maximal unsafe abstraction generation, run
 
 .. code-block:: none
 
