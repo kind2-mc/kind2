@@ -1559,8 +1559,12 @@ let pp_print_stream_values_json clock ty ppf l =
     (* Show all values if no clock *)
     pp_print_listi (fun ppf i -> pp_print_stream_value_json ty ppf i true) "," ppf l
   | Some c ->
-    (* Show values sampled on the clock *)
-    pp_print_list2i (pp_print_stream_value_json ty) "," ppf c l
+    (* Filter out values according to the clock *)
+    let trues = List.map2 (fun v c -> (v, c)) l c
+      |> List.filter (fun (v,c) -> c)
+      |> List.map fst
+    in
+      pp_print_listi (fun ppf i -> pp_print_stream_value_json ty ppf i true) "," ppf trues
 
 
 (* Pretty-print a single stream *)
