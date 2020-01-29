@@ -22,7 +22,7 @@ type loc = {
 
 type loc_equation = equation * (loc list) * term_cat
 
-type ivc = loc_equation list ScMap.t
+type ivc = (Property.t list * loc_equation list ScMap.t)
 
 val pp_print_loc_eq : 'a InputSystem.t -> TransSys.t -> Format.formatter -> loc_equation -> unit
 val pp_print_loc_eqs : 'a InputSystem.t -> TransSys.t -> Format.formatter -> loc_equation list -> unit
@@ -122,6 +122,7 @@ val mua :
     -> unit
   ) ->
   TransSys.t ->
+  Property.t list option ->
   bool -> (* Compute them all? *)
   mua list
 

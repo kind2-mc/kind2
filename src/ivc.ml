@@ -54,7 +54,7 @@ type loc = {
 
 type loc_equation = equation * (loc list) * term_cat
 
-type ivc = loc_equation list ScMap.t
+type ivc = (Property.t list * loc_equation list ScMap.t)
 
 let rec interval imin imax =
   if imin > imax then []
@@ -172,14 +172,19 @@ let pp_print_loc_eqs in_sys sys =
   let var_map = compute_var_map in_sys sys in
   pp_print_loc_eqs_ var_map
 
-let pp_print_ivc in_sys sys title fmt =
+let rec pp_print_properties fmt = function
+  | [] -> ()
+  | { Property.prop_name = n }::props ->
+    Format.fprintf fmt "%s %a" n pp_print_properties props
+
+let pp_print_ivc in_sys sys title fmt (props,ivc) =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_ var_map in
-  Format.fprintf fmt "========== %s ==========\n\n" title ;
+  Format.fprintf fmt "========== %a (%s) ==========\n\n" pp_print_properties props title ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "----- %s -----\n" (Scope.to_string scope) ;
     Format.fprintf fmt "%a\n" print eqs
-  )
+  ) ivc
 
 let pp_print_mua = pp_print_ivc
 
@@ -200,10 +205,11 @@ let pp_print_categories fmt =
     | `UNKNOWN -> Format.fprintf fmt "unknown "
   )
 
-let pp_print_ivc_xml in_sys sys title fmt ivc =
+let pp_print_ivc_xml in_sys sys title fmt (props,ivc) =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
-  Format.fprintf fmt "<IVC title=\"%s\" category=\"%a\" enter_nodes=%b impl=\"%s\">\n" title
+  Format.fprintf fmt "<IVC property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b impl=\"%s\">\n"
+    pp_print_properties props title
     pp_print_categories (Flags.IVC.ivc_elements ()) (Flags.IVC.ivc_enter_nodes ())
     (impl_to_string (Flags.IVC.ivc_impl ())) ;
   ScMap.iter (fun scope eqs -> 
@@ -213,10 +219,11 @@ let pp_print_ivc_xml in_sys sys title fmt ivc =
   ) ivc ;
   Format.fprintf fmt "</IVC>\n"
 
-let pp_print_mua_xml in_sys sys title fmt mua =
+let pp_print_mua_xml in_sys sys title fmt (props,mua) =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
-  Format.fprintf fmt "<MUA title=\"%s\" category=\"%a\" enter_nodes=%b>\n" title
+  Format.fprintf fmt "<MUA property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b>\n"
+    pp_print_properties props title
     pp_print_categories (Flags.MUA.mua_elements ()) (Flags.MUA.mua_enter_nodes ()) ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "<scope name=\"%s\">\n" (Scope.to_string scope) ;
@@ -225,11 +232,12 @@ let pp_print_mua_xml in_sys sys title fmt mua =
   ) mua ;
   Format.fprintf fmt "</MUA>\n"
 
-let ivc2json in_sys sys title ivc =
+let ivc2json in_sys sys title (props,ivc) =
   let var_map = compute_var_map in_sys sys in
   let loc_eqs2json = loc_eqs2json var_map in
   `Assoc [
     ("objectType", `String "ivc") ;
+    ("property", `String (Format.asprintf "%a" pp_print_properties props)) ;
     ("title", `String title) ;
     ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.IVC.ivc_elements ()))) ;
     ("enterNodes", `Bool (Flags.IVC.ivc_enter_nodes ())) ;
@@ -243,11 +251,12 @@ let ivc2json in_sys sys title ivc =
     ) (ScMap.bindings ivc)))
   ]
 
-let mua2json in_sys sys title mua =
+let mua2json in_sys sys title (props,mua) =
   let var_map = compute_var_map in_sys sys in
   let loc_eqs2json = loc_eqs2json var_map in
   `Assoc [
     ("objectType", `String "mua") ;
+    ("property", `String (Format.asprintf "%a" pp_print_properties props)) ;
     ("title", `String title) ;
     ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.MUA.mua_elements ()))) ;
     ("enterNodes", `Bool (Flags.MUA.mua_enter_nodes ())) ;
@@ -592,7 +601,7 @@ let minimize_decl ue ivc = function
     A.ContractNodeDecl (p, minimize_contract_decl ue ivc cdecl)
   | decl -> decl 
 
-let minimize_lustre_ast ?(valid_lustre=false) ivc_all ivc ast =
+let minimize_lustre_ast ?(valid_lustre=false) (_,ivc_all) (_,ivc) ast =
   let undef_expr =
     if valid_lustre
     then
@@ -742,7 +751,7 @@ let add_loc in_sys eq =
   with _ -> (* If the input is not a Lustre file, it may fail *)
     (eq, [], Unknown)
 
-let eqmap_to_ivc in_sys = ScMap.map (List.map (add_loc in_sys))
+let eqmap_to_ivc in_sys props eqmap = (props, ScMap.map (List.map (add_loc in_sys)) eqmap)
 
 let svs_of_term in_sys t =
   match Term.destruct t with
@@ -897,11 +906,13 @@ let separate_scmap f scmap =
     (ScMap.add k v1 map1, ScMap.add k v2 map2)
   ) scmap (ScMap.empty, ScMap.empty)
 
-let separate_ivc_by_category =
-  separate_scmap (separate_loc_eqs_by_category (Flags.IVC.ivc_elements ()))
+let separate_ivc_by_category (props, ivc) =
+  let (ivc1, ivc2) = separate_scmap (separate_loc_eqs_by_category (Flags.IVC.ivc_elements ())) ivc
+  in (props, ivc1), (props, ivc2)
 
-let separate_mua_by_category =
-  separate_scmap (separate_loc_eqs_by_category (Flags.MUA.mua_elements ()))
+let separate_mua_by_category (props, mua) =
+  let (mua1, mua2) = separate_scmap (separate_loc_eqs_by_category (Flags.MUA.mua_elements ())) mua
+  in (props, mua1), (props, mua2)
 
 type eqmap = (equation list) ScMap.t
 
@@ -923,7 +934,7 @@ let _all_eqs ?(include_weak_ass=false) in_sys sys enter_nodes =
 
 let all_eqs ?(include_weak_ass=false) in_sys sys enter_nodes =
   let eqmap = _all_eqs ~include_weak_ass in_sys sys enter_nodes in
-  eqmap_to_ivc in_sys eqmap
+  eqmap_to_ivc in_sys [] eqmap
 
 let term_of_eq init closed eq =
   if init && closed then eq.init_closed
@@ -1332,7 +1343,7 @@ let ivc_uc in_sys ?(approximate=false) sys =
     let eqmap = _all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
     let test = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
-    Some (eqmap_to_ivc in_sys (lstmap_union keep test))
+    Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
   ) with
   | NotKInductive ->
     KEvent.log L_error "Properties are not k-inductive." ;
@@ -1419,7 +1430,7 @@ let ivc_bf in_sys param analyze sys =
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
     let test = ivc_bf_ in_sys check_ts sys props enter_nodes keep test in
-    Some (eqmap_to_ivc in_sys (lstmap_union keep test))
+    Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
   ) with
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
@@ -1438,7 +1449,7 @@ let ivc_ucbf in_sys param analyze sys =
     let test = ivc_uc_ in_sys sys props enter_nodes keep test in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
     let test = ivc_bf_ in_sys check_ts sys props enter_nodes keep test in
-    Some (eqmap_to_ivc in_sys (lstmap_union keep test))
+    Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
   ) with
   | NotKInductive ->
     KEvent.log L_error "Properties are not k-inductive." ;
@@ -1890,7 +1901,7 @@ let umivc in_sys param analyze sys k cont =
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
     let res = ref [] in
     let cont test =
-      let ivc = eqmap_to_ivc in_sys (lstmap_union keep test) in
+      let ivc = eqmap_to_ivc in_sys props (lstmap_union keep test) in
       res := ivc::(!res) ;
       cont ivc
     in
@@ -1969,9 +1980,12 @@ let mua_ in_sys make_check_ts sys props all enter_nodes eqmap_keep eqmap_test =
 
 (** Compute one/all Maximal Unsafe Abstraction(s) using Automated Debugging
     and duality between MUAs and Minimal Correction Subsets. *)
-let mua in_sys param analyze sys all =
+let mua in_sys param analyze sys props all =
   try (
-    let props = properties_of_interest_for_mua sys in
+    let props = match props with
+    | None -> properties_of_interest_for_mua sys
+    | Some props -> props
+    in
     let enter_nodes = (Flags.MUA.mua_enter_nodes ()) in
     let elements = (Flags.MUA.mua_elements ()) in
     let include_weak_ass = List.mem `WEAK_ASS elements in
@@ -1980,7 +1994,7 @@ let mua in_sys param analyze sys all =
     let make_check_ts = make_check_ts in_sys param analyze in
     let res = mua_ in_sys make_check_ts sys props all enter_nodes keep test in
     List.map (
-      fun test -> eqmap_to_ivc in_sys (lstmap_union keep test)
+      fun test -> eqmap_to_ivc in_sys props (lstmap_union keep test)
     ) res
   ) with
   | InitTransMismatch (i,t) ->

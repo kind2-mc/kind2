@@ -1488,6 +1488,22 @@ module MUA = struct
     )
   let print_mua_compl () = !print_mua_compl
 
+
+  let mua_per_property_default = true
+  let mua_per_property = ref mua_per_property_default
+  let _ = add_spec
+    "--mua_per_property"
+    (bool_arg mua_per_property)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          If true, MUAs will be computed for each property separately.@ \
+          Default: %a\
+        "
+        fmt_bool mua_per_property_default
+    )
+  let mua_per_property () = !mua_per_property
+
 end
 
 (* Arrays flags. *)

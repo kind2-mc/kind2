@@ -487,6 +487,9 @@ module MUA : sig
   (** If true, compute a core with equations of all subsystems *)
   val mua_enter_nodes : unit -> bool
 
+  (** If true, MUAs will be computed for each properties separately *)
+  val mua_per_property : unit -> bool
+
 end
 
 (** {2 Arrays flags} *)
