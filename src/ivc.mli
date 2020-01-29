@@ -124,3 +124,7 @@ val mua :
   TransSys.t ->
   bool -> (* Compute them all? *)
   mua list
+
+(** Returns the names of the properties for which we may be interested in computing a MUA. *)
+val properties_of_interest_for_mua : TransSys.t -> Property.t list
+

@@ -784,12 +784,15 @@ let extract_props sys can_be_valid can_be_invalid =
       false
   ) (TS.get_real_properties sys)
 
-let extract_props_names sys can_be_valid can_be_invalid =
-  List.map (fun { Property.prop_name = n } -> n) (extract_props sys can_be_valid can_be_invalid)
+let props_names props =
+  List.map (fun { Property.prop_name = n } -> n) props
 
-let extract_props_terms sys can_be_valid can_be_invalid =
-  List.map (fun { Property.prop_term = p } -> p) (extract_props sys can_be_valid can_be_invalid)
+let props_term props =
+  List.map (fun { Property.prop_term = p } -> p) props
   |> Term.mk_and
+
+let extract_all_props_names sys =
+  List.map (fun { Property.prop_name = n } -> n) (TS.get_properties sys)
 
 let rec deconstruct_conj t =
   match Term.destruct t with
@@ -927,6 +930,14 @@ let term_of_eq init closed eq =
   else if init then eq.init_opened
   else if closed then eq.trans_closed
   else eq.trans_opened
+
+let reset_ts enter_nodes sys =
+  if enter_nodes
+  then TS.clear_all_invariants sys
+  else TS.clear_invariants sys ;
+  List.iter
+    (fun str -> TS.force_set_prop_unknown sys str)
+    (extract_all_props_names sys)
 
 (* ---------- IVC_UC ---------- *)
 
@@ -1087,7 +1098,7 @@ let term_of_scope term_map scope =
 type result = NOT_OK | OK of core
 
 let compute_unsat_core ?(pathcomp=None) ?(approximate=false)
-  sys core init_terms trans_terms bmin bmax t =
+  sys enter_nodes core init_terms trans_terms bmin bmax t =
 
   let enable_compr = pathcomp <> None in
   let actlits = actlits_of_core core in
@@ -1096,7 +1107,7 @@ let compute_unsat_core ?(pathcomp=None) ?(approximate=false)
     sys actlits bmin bmax in
 
   (* Define non-top-level nodes *)
-  if Flags.IVC.ivc_enter_nodes ()
+  if enter_nodes
   then
     sys |> TS.iter_subsystems ~include_top:false (fun t ->
       let define = SMTSolver.define_fun solver in
@@ -1143,7 +1154,7 @@ let is_empty_core c =
 let core_size c =
   ScMap.fold (fun _ lst acc -> acc + (List.length lst)) c 0
 
-let check_k_inductive ?(approximate=false) sys actlits init_terms trans_terms prop os_prop k =
+let check_k_inductive ?(approximate=false) sys enter_nodes actlits init_terms trans_terms prop os_prop k =
   (* In the functions above, k starts at 0 whereas it start at 1 with Kind2 notation *)
   let k = k - 1 in
   let scope = TS.scope_of_trans_sys sys in
@@ -1157,7 +1168,7 @@ let check_k_inductive ?(approximate=false) sys actlits init_terms trans_terms pr
     let t = Term.mk_not t in
     let res_base =
       compute_unsat_core ~approximate:approximate
-      sys actlits init_terms trans_terms 0 bmax t in
+      sys enter_nodes actlits init_terms trans_terms 0 bmax t in
     match res_base with
     | NOT_OK -> NOT_OK
     | OK core ->
@@ -1166,7 +1177,7 @@ let check_k_inductive ?(approximate=false) sys actlits init_terms trans_terms pr
       let t = Term.mk_not t in
       let res_ind =
         compute_unsat_core ~pathcomp:(Some pathcomp) ~approximate:approximate
-        sys actlits init_terms trans_terms 0 bmax t in
+        sys enter_nodes actlits init_terms trans_terms 0 bmax t in
       begin match res_ind with
       | NOT_OK -> NOT_OK
       | OK core' -> OK (core_union core core')
@@ -1176,7 +1187,7 @@ let check_k_inductive ?(approximate=false) sys actlits init_terms trans_terms pr
     let bmax = bmax-1 in
     let t = Term.mk_not t in
     compute_unsat_core ~approximate:approximate
-    sys actlits init_terms trans_terms 0 bmax t
+    sys enter_nodes actlits init_terms trans_terms 0 bmax t
 
 let lstmap_union c1 c2 =
   let merge _ lst1 lst2 = match lst1, lst2 with
@@ -1208,12 +1219,12 @@ let eq_of_actlit actlits_eqs_map ?(with_act=false) a =
 exception NotKInductive
 
 (** Implements the algorithm IVC_UC *)
-let ivc_uc_ in_sys ?(approximate=false) sys eqmap_keep eqmap_test =
+let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_test =
 
   let scope = TS.scope_of_trans_sys sys in
   let k, invs = CertifChecker.minimize_invariants sys None in
   let os_invs = List.filter is_one_step invs in
-  let prop = extract_props_terms sys true false in
+  let prop = props_term props in
   let os_prop = Term.mk_and (prop::os_invs) in
   let prop = Term.mk_and (prop::invs) in
   KEvent.log L_info "Inductive property: %a" Term.pp_print_term prop ;
@@ -1308,7 +1319,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys eqmap_keep eqmap_test =
   let check approximate keep' test =
     KEvent.log L_info "Minimizing using an UNSAT core... (%i left)" (core_size test) ;
     let (init, trans) = terms_of_current_state (core_union keep keep') test in
-    check_k_inductive ~approximate:approximate sys test init trans prop os_prop k
+    check_k_inductive ~approximate:approximate sys enter_nodes test init trans prop os_prop k
   in
   match minimize check ScMap.empty test with
   | None -> raise NotKInductive
@@ -1316,9 +1327,11 @@ let ivc_uc_ in_sys ?(approximate=false) sys eqmap_keep eqmap_test =
 
 let ivc_uc in_sys ?(approximate=false) sys =
   try (
+    let props = extract_props sys true false in
+    let enter_nodes = Flags.IVC.ivc_enter_nodes () in
     let eqmap = _all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
-    let test = ivc_uc_ in_sys ~approximate:approximate sys keep test in
+    let test = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys (lstmap_union keep test))
   ) with
   | NotKInductive ->
@@ -1329,14 +1342,6 @@ let ivc_uc in_sys ?(approximate=false) sys =
     None
 
 (* ---------- IVC_BF ---------- *)
-
-let reset_ts prop_names sys =
-  if Flags.IVC.ivc_enter_nodes ()
-  then TS.clear_all_invariants sys
-  else TS.clear_invariants sys ;
-  List.iter
-    (fun str -> TS.force_set_prop_unknown sys str)
-    prop_names
 
 let check_result prop_names sys =
   List.for_all
@@ -1352,8 +1357,8 @@ let pick_eqmap = pick_core
 exception CannotProve
 
 (** Implements the algorithm IVC_BF *)
-let ivc_bf_ in_sys check_ts sys keep test =
-  let prop_names = extract_props_names sys true false in
+let ivc_bf_ in_sys check_ts sys props enter_nodes keep test =
+  let prop_names = props_names props in
 
   (* Minimization *)
   let rec minimize ?(skip_first_check=false) check keep test =
@@ -1370,13 +1375,13 @@ let ivc_bf_ in_sys check_ts sys keep test =
   in
 
   let prepare_ts_for_check keep test =
-    reset_ts prop_names sys ;
+    reset_ts enter_nodes sys ;
     let union = lstmap_union keep test in
     let prepare_subsystem sys =
       let scope = TS.scope_of_trans_sys sys in
       let eqs =
         try Some (ScMap.find scope union)
-        with Not_found -> if Flags.IVC.ivc_enter_nodes () then Some [] else None
+        with Not_found -> if enter_nodes then Some [] else None
       in
       begin match eqs with
       | None -> ()
@@ -1408,10 +1413,12 @@ let ivc_bf_ in_sys check_ts sys keep test =
 
 let ivc_bf in_sys param analyze sys =
   try (
-    let eqmap = _all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
+    let props = extract_props sys true false in
+    let enter_nodes = Flags.IVC.ivc_enter_nodes () in
+    let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
-    let test = ivc_bf_ in_sys check_ts sys keep test in
+    let test = ivc_bf_ in_sys check_ts sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys (lstmap_union keep test))
   ) with
   | InitTransMismatch (i,t) ->
@@ -1424,11 +1431,13 @@ let ivc_bf in_sys param analyze sys =
 (** Implements the algorithm IVC_UCBF *)
 let ivc_ucbf in_sys param analyze sys =
   try (
-    let eqmap = _all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
+    let props = extract_props sys true false in
+    let enter_nodes = Flags.IVC.ivc_enter_nodes () in
+    let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
-    let test = ivc_uc_ in_sys sys keep test in
+    let test = ivc_uc_ in_sys sys props enter_nodes keep test in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
-    let test = ivc_bf_ in_sys check_ts sys keep test in
+    let test = ivc_bf_ in_sys check_ts sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys (lstmap_union keep test))
   ) with
   | NotKInductive ->
@@ -1502,7 +1511,7 @@ let at_least_one_true svs =
   |> List.map (fun sv -> Term.mk_var (Var.mk_const_state_var sv))
   |> Term.mk_or
 
-let compute_cs check_ts sys prop_names actsvs_eqs_map keep test k already_found =
+let compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found =
   let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
   let actsvs = actsvs_of_core test in
 
@@ -1513,16 +1522,16 @@ let compute_cs check_ts sys prop_names actsvs_eqs_map keep test k already_found 
   in
 
   let prepare_ts_for_check keep test =
-    reset_ts prop_names sys ;
+    reset_ts enter_nodes sys ;
     let prepare_subsystem sys =
       let scope = TS.scope_of_trans_sys sys in
       let keep_actsvs =
         try Some (ScMap.find scope keep)
-        with Not_found -> if Flags.IVC.ivc_enter_nodes () then Some [] else None
+        with Not_found -> if enter_nodes then Some [] else None
       in
       let test_actsvs =
         try Some (ScMap.find scope test)
-        with Not_found -> if Flags.IVC.ivc_enter_nodes () then Some [] else None
+        with Not_found -> if enter_nodes then Some [] else None
       in
       let actsvs =
         match keep_actsvs, test_actsvs with
@@ -1566,36 +1575,36 @@ let compute_cs check_ts sys prop_names actsvs_eqs_map keep test k already_found 
     assert (List.length actsvs = k) ;
     Some (filter_core test actsvs)
 
-let compute_all_cs check_ts sys prop_names actsvs_eqs_map keep test k already_found =
+let compute_all_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found =
   let rec aux acc already_found =
     match compute_cs
-      check_ts sys prop_names actsvs_eqs_map keep test k already_found with
+      check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found with
     | None -> acc
     | Some core -> aux (core::acc) (actsvs_of_core core::already_found)
   in
   aux [] already_found
 
-let compute_mcs check_ts sys prop_names actsvs_eqs_map keep test =
+let compute_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test =
   KEvent.log L_info "Computing a MCS using automated debugging..." ;
   let n = core_size test in
   let rec aux k =
     if k < n
     then
-      match compute_cs check_ts sys prop_names actsvs_eqs_map keep test k [] with
+      match compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k [] with
       | None -> aux (k+1)
       | Some core -> core
     else test
   in
   aux 1
 
-let compute_all_mcs check_ts sys prop_names actsvs_eqs_map keep test =
+let compute_all_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test =
   KEvent.log L_info "Computing all MCS using automated debugging..." ;
   let n = core_size test in
   let rec aux acc already_found k =
     if k < n
     then
       let new_mcs = compute_all_cs
-        check_ts sys prop_names actsvs_eqs_map keep test k already_found in
+        check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found in
       let already_found = (List.map actsvs_of_core new_mcs)@already_found in
       aux (new_mcs@acc) already_found (k+1)
     else if acc = [] then [test]
@@ -1679,8 +1688,8 @@ let block_down map actsvs s =
 
 type unexplored_type = | Any | Min | Max
 
-let umivc_ in_sys make_check_ts sys k cont eqmap_keep eqmap_test =
-  let prop_names = extract_props_names sys true false in
+let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_test =
+  let prop_names = props_names props in
   let sys_original = sys in
   let (sys_cs, check_ts_cs) = make_check_ts sys in
   let (sys, check_ts) = make_check_ts sys in
@@ -1745,13 +1754,13 @@ let umivc_ in_sys make_check_ts sys k cont eqmap_keep eqmap_test =
     let get_unexplored_max () = get_unexplored_max map actsvs in
     let block_up = block_up map actsvs in
     let block_down = block_down map actsvs in
-    let compute_mcs = compute_mcs check_ts_cs sys_cs prop_names actsvs_eqs_map in
-    let compute_all_cs = compute_all_cs check_ts_cs sys_cs prop_names actsvs_eqs_map in
+    let compute_mcs = compute_mcs check_ts_cs sys_cs prop_names enter_nodes actsvs_eqs_map in
+    let compute_all_cs = compute_all_cs check_ts_cs sys_cs prop_names enter_nodes actsvs_eqs_map in
     let eqmap_keep = core_to_eqmap keep in
     let compute_mivc core =
       core_to_eqmap core
-      |> ivc_uc_ in_sys sys_original eqmap_keep
-      |> ivc_bf_ in_sys check_ts sys eqmap_keep
+      |> ivc_uc_ in_sys sys_original props enter_nodes eqmap_keep
+      |> ivc_bf_ in_sys check_ts sys props enter_nodes eqmap_keep
       |> actlits_of_core
       |> List.map actsv_of_eq
       |> filter_core test
@@ -1759,12 +1768,12 @@ let umivc_ in_sys make_check_ts sys k cont eqmap_keep eqmap_test =
 
     (* Check safety *)
     let prepare_ts_for_check keep =
-      reset_ts prop_names sys ;
+      reset_ts enter_nodes sys ;
       let prepare_subsystem sys =
         let scope = TS.scope_of_trans_sys sys in
         let actsvs =
           try Some (ScMap.find scope keep)
-          with Not_found -> if Flags.IVC.ivc_enter_nodes () then Some [] else None
+          with Not_found -> if enter_nodes then Some [] else None
         in
         begin match actsvs with
         | None -> ()
@@ -1875,7 +1884,9 @@ let umivc_ in_sys make_check_ts sys k cont eqmap_keep eqmap_test =
 (** Implements the algorithm UMIVC. *)
 let umivc in_sys param analyze sys k cont =
   try (
-    let eqmap = _all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
+    let props = extract_props sys true false in
+    let enter_nodes = (Flags.IVC.ivc_enter_nodes ()) in
+    let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
     let res = ref [] in
     let cont test =
@@ -1884,7 +1895,7 @@ let umivc in_sys param analyze sys k cont =
       cont ivc
     in
     let make_check_ts = make_check_ts in_sys param analyze in
-    let _ = umivc_ in_sys make_check_ts sys k cont keep test in
+    let _ = umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test in
     List.rev (!res)
   ) with
   | NotKInductive ->
@@ -1901,11 +1912,13 @@ let umivc in_sys param analyze sys k cont =
 
 type mua = ivc
 
-let mua_ in_sys make_check_ts sys all eqmap_keep eqmap_test =
-  let prop_names =
-    if is_system_falsifiable sys
-    then extract_props_names sys false true
-    else extract_props_names sys true true in
+let properties_of_interest_for_mua sys =
+  if is_system_falsifiable sys
+  then extract_props sys false true
+  else extract_props sys true true
+
+let mua_ in_sys make_check_ts sys props all enter_nodes eqmap_keep eqmap_test =
+  let prop_names = props_names props in
   let (sys, check_ts) = make_check_ts sys in
 
   (* Activation litterals, core and mapping to equations *)
@@ -1946,8 +1959,8 @@ let mua_ in_sys make_check_ts sys all eqmap_keep eqmap_test =
   let actsvs = actsvs_of_core test in
   List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
 
-  let compute_mcs = compute_mcs check_ts sys prop_names actsvs_eqs_map in
-  let compute_all_mcs = compute_all_mcs check_ts sys prop_names actsvs_eqs_map in
+  let compute_mcs = compute_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map in
+  let compute_all_mcs = compute_all_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map in
 
   let mcs =
     if all then compute_all_mcs keep test else [compute_mcs keep test]
@@ -1958,11 +1971,14 @@ let mua_ in_sys make_check_ts sys all eqmap_keep eqmap_test =
     and duality between MUAs and Minimal Correction Subsets. *)
 let mua in_sys param analyze sys all =
   try (
-    let include_weak_ass = List.mem `WEAK_ASS (Flags.MUA.mua_elements ()) in
-    let eqmap = _all_eqs ~include_weak_ass in_sys sys (Flags.MUA.mua_enter_nodes ()) in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.MUA.mua_elements ()) eqmap in
+    let props = properties_of_interest_for_mua sys in
+    let enter_nodes = (Flags.MUA.mua_enter_nodes ()) in
+    let elements = (Flags.MUA.mua_elements ()) in
+    let include_weak_ass = List.mem `WEAK_ASS elements in
+    let eqmap = _all_eqs ~include_weak_ass in_sys sys enter_nodes in
+    let (keep, test) = separate_eqmap_by_category in_sys elements eqmap in
     let make_check_ts = make_check_ts in_sys param analyze in
-    let res = mua_ in_sys make_check_ts sys all keep test in
+    let res = mua_ in_sys make_check_ts sys props all enter_nodes keep test in
     List.map (
       fun test -> eqmap_to_ivc in_sys (lstmap_union keep test)
     ) res
