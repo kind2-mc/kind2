@@ -26,7 +26,7 @@ module IdMap = Map.Make(AstID)
 
 type term_cat =
 | NodeCall of string * SVSet.t
-| ContractItem of StateVar.t * bool (* soft *)
+| ContractItem of StateVar.t * string option (* name *) * bool (* soft *)
 | Equation of StateVar.t
 | Assertion of StateVar.t
 | Unknown
@@ -122,8 +122,9 @@ let expr_pp_print var_map fmt expr =
 
 let cat_to_string = function
   | NodeCall _ -> "Node call"
-  | ContractItem (_, false) -> "Contract item"
-  | ContractItem (_, true) -> "Weak assumption"
+  | ContractItem (_, None, false) -> "Contract item"
+  | ContractItem (_, None, true) -> "Weak assumption"
+  | ContractItem (_, Some str, _) -> str
   | Equation _ -> "Equation"
   | Assertion _ -> "Assertion"
   | Unknown -> "Unknown element"
@@ -603,7 +604,7 @@ let minimize_lustre_ast ?(valid_lustre=false) ivc_all ivc ast =
         (fun acc (_,ls,cat) ->
           let svs = match cat with
           | Unknown -> SVSet.empty
-          | Equation sv | Assertion sv | ContractItem (sv, _) -> SVSet.singleton sv
+          | Equation sv | Assertion sv | ContractItem (sv, _, _) -> SVSet.singleton sv
           | NodeCall (_, svs) -> svs
           in
           List.fold_left
@@ -693,13 +694,15 @@ let locs_of_eq_term in_sys t =
     let has_soft_contract_items = ref false in
     let has_contract_items = ref false in
     let has_asserts = ref false in
+    let name = ref None in
+    let set_name = function None -> () | Some str -> name := Some str in
     let sv = sv_of_term t in
     InputSystem.lustre_definitions_of_state_var in_sys sv
     |> List.map (fun def ->
       ( match def with
         | LustreNode.Assertion _ -> has_asserts := true
-        | LustreNode.ContractItem (_, false) -> has_contract_items := true
-        | LustreNode.ContractItem (_, true) -> has_soft_contract_items := true
+        | LustreNode.ContractItem (_, str, false) -> has_contract_items := true ; set_name str
+        | LustreNode.ContractItem (_, str, true) -> has_soft_contract_items := true ; set_name str
         | _ -> ()
       );
       let p = LustreNode.pos_of_state_var_def def in
@@ -707,8 +710,8 @@ let locs_of_eq_term in_sys t =
       { pos=p ; index=i }
     )
     |> (fun locs ->
-      if !has_soft_contract_items then (ContractItem (sv, true), locs)
-      else if !has_contract_items then (ContractItem (sv, false), locs)
+      if !has_soft_contract_items then (ContractItem (sv, !name, true), locs)
+      else if !has_contract_items then (ContractItem (sv, !name, false), locs)
       else if !has_asserts then (Assertion sv, locs)
       else (Equation sv, locs)
     )
@@ -862,8 +865,8 @@ let extract_toplevel_equations ?(include_weak_ass=false) in_sys sys =
 let check_loc_eq_category cats (_,_,cat) =
   let cat = match cat with
   | NodeCall _ -> [`NODE_CALL]
-  | ContractItem (_, false) -> [`CONTRACT_ITEM]
-  | ContractItem (_, true) -> [`WEAK_ASS]
+  | ContractItem (_, _, false) -> [`CONTRACT_ITEM]
+  | ContractItem (_, _, true) -> [`WEAK_ASS]
   | Equation _ -> [`EQUATION]
   | Assertion _ -> [`ASSERTION]
   | Unknown -> [`UNKNOWN]

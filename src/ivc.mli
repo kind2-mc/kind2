@@ -3,7 +3,7 @@ module SVSet = StateVar.StateVarSet
 
 type term_cat =
 | NodeCall of string * SVSet.t
-| ContractItem of StateVar.t * bool (* soft *)
+| ContractItem of StateVar.t * string option (* name *) * bool (* soft *)
 | Equation of StateVar.t
 | Assertion of StateVar.t
 | Unknown
