@@ -174,13 +174,14 @@ let pp_print_loc_eqs in_sys sys =
 
 let rec pp_print_properties fmt = function
   | [] -> ()
+  | _::_::_ -> ()
   | { Property.prop_name = n }::props ->
     Format.fprintf fmt "%s %a" n pp_print_properties props
 
 let pp_print_ivc in_sys sys title fmt (props,ivc) =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_ var_map in
-  Format.fprintf fmt "========== %a (%s) ==========\n\n" pp_print_properties props title ;
+  Format.fprintf fmt "========== %a(%s) ==========\n\n" pp_print_properties props title ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "----- %s -----\n" (Scope.to_string scope) ;
     Format.fprintf fmt "%a\n" print eqs
