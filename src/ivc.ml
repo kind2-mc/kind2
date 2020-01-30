@@ -1499,7 +1499,7 @@ let get_counterexample_actsvs prop_names sys actsvs =
               is_model_value_true (List.hd values)
             )
         |> List.map fst
-        |> (fun x -> Some x)
+        |> (fun x -> Some (x, cex))
       | _ -> aux prop_names
     end
   in
@@ -1583,16 +1583,16 @@ let compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k al
   Lib.set_log_level old_log_level;
   match get_counterexample_actsvs prop_names sys actsvs with
   | None -> None
-  | Some actsvs ->
+  | Some (actsvs, cex) ->
     assert (List.length actsvs = k) ;
-    Some (filter_core test actsvs)
+    Some (filter_core test actsvs, cex)
 
 let compute_all_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found =
   let rec aux acc already_found =
     match compute_cs
       check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found with
     | None -> acc
-    | Some core -> aux (core::acc) (actsvs_of_core core::already_found)
+    | Some (core, cex) -> aux ((core, cex)::acc) (actsvs_of_core core::already_found)
   in
   aux [] already_found
 
@@ -1604,8 +1604,8 @@ let compute_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test =
     then
       match compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k [] with
       | None -> aux (k+1)
-      | Some core -> core
-    else test
+      | Some (core, cex) -> (core, cex)
+    else (test, [])
   in
   aux 1
 
@@ -1615,11 +1615,12 @@ let compute_all_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test
   let rec aux acc already_found k =
     if k < n
     then
-      let new_mcs = compute_all_cs
-        check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found in
+      let (new_mcs, cex) = compute_all_cs
+        check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found
+        |> List.split in
       let already_found = (List.map actsvs_of_core new_mcs)@already_found in
-      aux (new_mcs@acc) already_found (k+1)
-    else if acc = [] then [test]
+      aux ((List.combine new_mcs cex)@acc) already_found (k+1)
+    else if acc = [] then [(test, [])]
     else acc
   in
   aux [] [] 1
@@ -1767,7 +1768,9 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_te
     let block_up = block_up map actsvs in
     let block_down = block_down map actsvs in
     let compute_mcs = compute_mcs check_ts_cs sys_cs prop_names enter_nodes actsvs_eqs_map in
+    let compute_mcs k t = fst (compute_mcs k t) in
     let compute_all_cs = compute_all_cs check_ts_cs sys_cs prop_names enter_nodes actsvs_eqs_map in
+    let compute_all_cs k t i af = List.map fst (compute_all_cs k t i af) in
     let eqmap_keep = core_to_eqmap keep in
     let compute_mivc core =
       core_to_eqmap core
@@ -1972,7 +1975,9 @@ let mua_ in_sys make_check_ts sys props all enter_nodes eqmap_keep eqmap_test =
   List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
 
   let compute_mcs = compute_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map in
+  let compute_mcs k t = fst (compute_mcs k t) in
   let compute_all_mcs = compute_all_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map in
+  let compute_all_mcs k t = List.map fst (compute_all_mcs k t) in
 
   let mcs =
     if all then compute_all_mcs keep test else [compute_mcs keep test]
