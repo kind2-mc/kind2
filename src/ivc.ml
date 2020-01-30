@@ -187,7 +187,8 @@ let pp_print_ivc in_sys sys title fmt (props,ivc) =
     Format.fprintf fmt "%a\n" print eqs
   ) ivc
 
-let pp_print_mua = pp_print_ivc
+let pp_print_mua in_sys sys title fmt ((props,_), mua) =
+  pp_print_ivc in_sys sys title fmt (props, mua)
 
 let impl_to_string = function
 | `IVC_AUC -> "AUC"
@@ -220,7 +221,7 @@ let pp_print_ivc_xml in_sys sys title fmt (props,ivc) =
   ) ivc ;
   Format.fprintf fmt "</IVC>\n"
 
-let pp_print_mua_xml in_sys sys title fmt (props,mua) =
+let pp_print_mua_xml in_sys sys title fmt ((props, _),mua) =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
   Format.fprintf fmt "<MUA property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b>\n"
@@ -252,7 +253,7 @@ let ivc2json in_sys sys title (props,ivc) =
     ) (ScMap.bindings ivc)))
   ]
 
-let mua2json in_sys sys title (props,mua) =
+let mua2json in_sys sys title ((props, _),mua) =
   let var_map = compute_var_map in_sys sys in
   let loc_eqs2json = loc_eqs2json var_map in
   `Assoc [
@@ -1925,7 +1926,7 @@ let umivc in_sys param analyze sys k cont =
 
 (* ---------- MAXIMAL UNSAFE ABSTRACTIONS ---------- *)
 
-type mua = ivc
+type mua = ((Property.t list * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
 
 let properties_of_interest_for_mua sys =
   if is_system_falsifiable sys
@@ -1975,14 +1976,12 @@ let mua_ in_sys make_check_ts sys props all enter_nodes eqmap_keep eqmap_test =
   List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
 
   let compute_mcs = compute_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map in
-  let compute_mcs k t = fst (compute_mcs k t) in
   let compute_all_mcs = compute_all_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map in
-  let compute_all_mcs k t = List.map fst (compute_all_mcs k t) in
 
   let mcs =
     if all then compute_all_mcs keep test else [compute_mcs keep test]
   in
-  mcs |> List.map (core_diff test) |> List.map core_to_eqmap
+  mcs |> List.map (fun (core, cex) -> (core_diff test core |> core_to_eqmap, cex))
 
 (** Compute one/all Maximal Unsafe Abstraction(s) using Automated Debugging
     and duality between MUAs and Minimal Correction Subsets. *)
@@ -2000,7 +1999,7 @@ let mua in_sys param analyze sys props all =
     let make_check_ts = make_check_ts in_sys param analyze in
     let res = mua_ in_sys make_check_ts sys props all enter_nodes keep test in
     List.map (
-      fun test -> eqmap_to_ivc in_sys props (lstmap_union keep test)
+      fun (test, cex) -> eqmap_to_ivc in_sys (props, cex) (lstmap_union keep test)
     ) res
   ) with
   | InitTransMismatch (i,t) ->
