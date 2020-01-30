@@ -73,13 +73,15 @@ let get_params results subs_of_scope result =
         (* Is candidate currently abstracted? *)
         if Scope.Map.find candidate abstraction then
           (* Is candidate refineable? *)
-          match A.results_find candidate results with
+          try match A.results_find candidate results with
           | result :: _ ->
             (* It is if everything was proved in the last analysis. *)
             if A.result_is_all_proved result then Some result
             (* Otherwise keep going. *)
             else tail :: lower |> loop
           | [] -> failwith "unreachable"
+          with Not_found -> (* Case of imported nodes (they have no result) *)
+            tail :: lower |> loop
         else (* Candidate is not abstracted, remembering its subsystems and
                 looping. *)
           (tail :: lower) @ [ subs_of_scope candidate ] |> loop
