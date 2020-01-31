@@ -484,6 +484,9 @@ module MUA : sig
   (** Print the equations NOT in the computed MUA *)
   val print_mua_compl : unit -> bool
 
+    (** Print the equations NOT in the computed MUA *)
+  val print_counterexample : unit -> bool
+
   (** If true, compute a core with equations of all subsystems *)
   val mua_enter_nodes : unit -> bool
 

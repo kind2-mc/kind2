@@ -187,8 +187,25 @@ let pp_print_ivc in_sys sys title fmt (props,ivc) =
     Format.fprintf fmt "%a\n" print eqs
   ) ivc
 
-let pp_print_mua in_sys sys title fmt ((props,_), mua) =
-  pp_print_ivc in_sys sys title fmt (props, mua)
+let print_mua_counterexample in_sys param sys typ fmt (props,cex) =
+  try
+    if List.length props = 1 && Flags.MUA.print_counterexample ()
+    then
+      match typ with
+      | `PT ->
+        KEvent.pp_print_counterexample_pt L_warn
+        in_sys param sys (List.hd props).Property.prop_name true fmt cex
+      | `XML ->
+        KEvent.pp_print_counterexample_xml
+        in_sys param sys (List.hd props).Property.prop_name true fmt cex
+      | `JSON ->
+        KEvent.pp_print_counterexample_json
+        in_sys param sys (List.hd props).Property.prop_name true fmt cex
+    with _ -> ()
+
+let pp_print_mua in_sys param sys title fmt ((props,cex), mua) =
+  pp_print_ivc in_sys sys title fmt (props, mua) ;
+  print_mua_counterexample in_sys param sys `PT fmt (props,cex)
 
 let impl_to_string = function
 | `IVC_AUC -> "AUC"
@@ -221,7 +238,7 @@ let pp_print_ivc_xml in_sys sys title fmt (props,ivc) =
   ) ivc ;
   Format.fprintf fmt "</IVC>\n"
 
-let pp_print_mua_xml in_sys sys title fmt ((props, _),mua) =
+let pp_print_mua_xml in_sys param sys title fmt ((props, cex),mua) =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
   Format.fprintf fmt "<MUA property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b>\n"
@@ -232,6 +249,7 @@ let pp_print_mua_xml in_sys sys title fmt ((props, _),mua) =
     Format.fprintf fmt "%a" print eqs ;
     Format.fprintf fmt "</scope>\n\n"
   ) mua ;
+  print_mua_counterexample in_sys param sys `XML fmt (props,cex) ;
   Format.fprintf fmt "</MUA>\n"
 
 let ivc2json in_sys sys title (props,ivc) =
@@ -253,7 +271,7 @@ let ivc2json in_sys sys title (props,ivc) =
     ) (ScMap.bindings ivc)))
   ]
 
-let mua2json in_sys sys title ((props, _),mua) =
+let mua2json in_sys param sys title ((props, _),mua) =
   let var_map = compute_var_map in_sys sys in
   let loc_eqs2json = loc_eqs2json var_map in
   `Assoc [
@@ -274,8 +292,8 @@ let mua2json in_sys sys title ((props, _),mua) =
 let pp_print_ivc_json in_sys sys title fmt ivc =
   pp_print_json fmt (ivc2json in_sys sys title ivc)
 
-let pp_print_mua_json in_sys sys title fmt mua =
-  pp_print_json fmt (mua2json in_sys sys title mua)
+let pp_print_mua_json in_sys param sys title fmt mua =
+  pp_print_json fmt (mua2json in_sys param sys title mua)
 
 (* ---------- LUSTRE AST ---------- *)
 
@@ -1510,7 +1528,7 @@ let get_counterexample_actsvs prop_names sys actsvs =
               is_model_value_true (List.hd values)
             )
         |> List.map fst
-        |> (fun x -> Some (x, cex))
+        |> (fun x -> Some (x, (p,cex)))
       | _ -> aux prop_names
     end
   in
@@ -1607,6 +1625,7 @@ let compute_all_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test 
   in
   aux [] already_found
 
+let default_cex = ("", [])
 let compute_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test =
   KEvent.log L_info "Computing a MCS using automated debugging..." ;
   let n = core_size test in
@@ -1616,7 +1635,7 @@ let compute_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test =
       match compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k [] with
       | None -> aux (k+1)
       | Some (core, cex) -> (core, cex)
-    else (test, [])
+    else (test, default_cex)
   in
   aux 1
 
@@ -1631,7 +1650,7 @@ let compute_all_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test
         |> List.split in
       let already_found = (List.map actsvs_of_core new_mcs)@already_found in
       aux ((List.combine new_mcs cex)@acc) already_found (k+1)
-    else if acc = [] then [(test, [])]
+    else if acc = [] then [(test, default_cex)]
     else acc
   in
   aux [] [] 1
@@ -1991,7 +2010,7 @@ let mua_ in_sys make_check_ts sys props all enter_nodes eqmap_keep eqmap_test =
   let mcs =
     if all then compute_all_mcs keep test else [compute_mcs keep test]
   in
-  mcs |> List.map (fun (core, cex) -> (core_diff test core |> core_to_eqmap, cex))
+  mcs |> List.map (fun (core, (prop,cex)) -> (core_diff test core |> core_to_eqmap, (prop,cex)))
 
 (** Compute one/all Maximal Unsafe Abstraction(s) using Automated Debugging
     and duality between MUAs and Minimal Correction Subsets. *)
@@ -2009,7 +2028,10 @@ let mua in_sys param analyze sys props all =
     let make_check_ts = make_check_ts in_sys param analyze in
     let res = mua_ in_sys make_check_ts sys props all enter_nodes keep test in
     List.map (
-      fun (test, cex) -> eqmap_to_ivc in_sys (props, cex) (lstmap_union keep test)
+      fun (test, (prop,cex)) ->
+      if (prop, cex) <> default_cex
+      then eqmap_to_ivc in_sys ([TS.property_of_name sys prop], cex) (lstmap_union keep test)
+      else eqmap_to_ivc in_sys (props, cex) (lstmap_union keep test)
     ) res
   ) with
   | InitTransMismatch (i,t) ->

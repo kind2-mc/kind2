@@ -1489,6 +1489,22 @@ module MUA = struct
   let print_mua_compl () = !print_mua_compl
 
 
+  let print_counterexample_default = false
+  let print_counterexample = ref print_counterexample_default
+  let _ = add_spec
+    "--print_mua_counterexample"
+    (bool_arg print_counterexample)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Print a counterexample for each MUA found@ \
+          Default: %a\
+        "
+        fmt_bool print_counterexample_default
+    )
+  let print_counterexample () = !print_counterexample
+
+
   let mua_per_property_default = true
   let mua_per_property = ref mua_per_property_default
   let _ = add_spec

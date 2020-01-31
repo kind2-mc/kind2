@@ -497,7 +497,6 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
 
     Debug.event "Status of property %s already known" prop
 
-
 (* Output statistics section as plain text *)
 let stat_pt mdl level stats =
 
