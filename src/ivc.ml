@@ -507,8 +507,6 @@ let minimize_node_decl ue ivc
   ((id, extern, tparams, inputs, outputs, locals, items, spec) as ndecl) =
 
   let id_typ_map = build_id_typ_map inputs outputs locals in
-  let typ_of_input (_,_,t,_,_) = t in
-  Hashtbl.replace nodes_input_types id (List.map typ_of_input inputs) ;
 
   let minimize_with_lst lst =
     let items = List.map (minimize_item id_typ_map ue lst) items |> List.flatten in
@@ -554,7 +552,19 @@ let minimize_decl ue ivc = function
     A.ContractNodeDecl (p, minimize_contract_decl ue ivc cdecl)
   | decl -> decl 
 
+let fill_input_types_hashtbl ast =
+  let aux_node_decl (id, _, _, inputs, _, _, _, _) =
+    let typ_of_input (_,_,t,_,_) = t in
+    Hashtbl.replace nodes_input_types id (List.map typ_of_input inputs) ;
+  in
+  let aux_decl = function
+  | A.NodeDecl (_, ndecl) | A.FuncDecl (_, ndecl) -> aux_node_decl ndecl
+  | _ -> ()
+  in
+  List.iter aux_decl ast
+
 let minimize_lustre_ast ?(valid_lustre=false) ivc_all ivc ast =
+  fill_input_types_hashtbl ast ;
   let undef_expr =
     if valid_lustre
     then
