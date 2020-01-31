@@ -1525,7 +1525,7 @@ let get_state_var_instances state_var =
   (* Return empty list *)
   with Not_found -> []
 
-let all_state_vars_dbg t =
+let get_all_state_vars t =
   let inputs = D.bindings t.inputs |> List.map snd in
   let outputs = D.bindings t.outputs |> List.map snd in
   let locals = t.locals
@@ -1544,7 +1544,7 @@ let pp_print_state_var_instances_debug fmt t =
       Lib.pp_print_position pos
     )
   in
-  List.iter print_sv (all_state_vars_dbg t)
+  List.iter print_sv (get_all_state_vars t)
 
 (* State variable is identical to a state variable in a node instance *)
 let set_state_var_instance state_var pos node state_var' = 
@@ -1637,7 +1637,7 @@ let pp_print_state_var_defs_debug fmt t =
         Format.fprintf fmt "Assertion: %a\n" Lib.pp_print_position p
       )
   in
-  List.iter print_sv (all_state_vars_dbg t)
+  List.iter print_sv (get_all_state_vars t)
 
 
 let map_svars_in_equation f ((svar, index), expr) =

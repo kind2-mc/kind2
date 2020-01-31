@@ -402,6 +402,8 @@ val set_state_var_expr : t -> StateVar.t -> LustreExpr.t -> unit
 
 val get_state_var_expr_map : t -> LustreExpr.t StateVar.StateVarHashtbl.t
 
+val get_all_state_vars : t -> StateVar.t list
+
 (** get all instances of a state variable *)
 val get_state_var_instances : StateVar.t -> state_var_instance list
 
