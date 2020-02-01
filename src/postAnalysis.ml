@@ -606,7 +606,7 @@ module RunIVC: PostAnalysis = struct
             let minimized =
               ISys.lustre_source_ast in_sys
               |> Ivc.minimize_lustre_ast
-                ~valid_lustre:(Flags.IVC.minimize_program () = `VALID_LUSTRE) initial ivc
+                ~valid_lustre:(Flags.IVC.minimize_program () = `VALID_LUSTRE) in_sys ivc
             in
             let dir =
               match Flags.IVC.minimized_program_dir () with

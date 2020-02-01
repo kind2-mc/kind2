@@ -47,7 +47,7 @@ val separate_ivc_by_category : ivc -> (ivc * ivc)
     [full_ivc] should be an IVC containing all the equations, it can be obtained by calling [all_eqs].
     The optional parameter valid_lustre (default: false) determine whether the generated AST must be
     a valid lustre program or not (in this case, it will be more concise). *)
-val minimize_lustre_ast : ?valid_lustre:bool -> ivc -> ivc -> LustreAst.t -> LustreAst.t
+val minimize_lustre_ast : ?valid_lustre:bool -> 'a InputSystem.t -> ivc -> LustreAst.t -> LustreAst.t
 
 (** Outputs a minized (not necessarily minimal) inductive validity core by computing an UNSAT core.
     It [approximate] is set to false, then the unsat core computed is not guaranteed to be minimal. *)

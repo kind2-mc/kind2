@@ -630,31 +630,27 @@ let fill_input_types_hashtbl ast =
   in
   List.iter aux_decl ast
 
-let minimize_lustre_ast ?(valid_lustre=false) (_,ivc_all) (_,ivc) ast =
+let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,ivc) ast =
   fill_input_types_hashtbl ast ;
   let undef_expr =
     if valid_lustre
     then
       (* We construct a map that associate to each position a list of state vars
           that correspond to the state vars characterizing this position (if any) *)
-      let pos_sv_map = ScMap.fold
-      (fun _ lst acc ->
+      let pos_sv_map = List.fold_left
+      (fun acc node ->
         List.fold_left
-        (fun acc (_,ls,cat) ->
-          let svs = match cat with
-          | Unknown -> SVSet.empty
-          | Equation sv | Assertion sv | ContractItem (sv, _, _) -> SVSet.singleton sv
-          | NodeCall (_, svs) -> svs
-          in
+        (fun acc sv ->
           List.fold_left
-          (fun acc l ->
-            let old = try PosMap.find l.pos acc with Not_found -> SVSet.empty in
-            PosMap.add l.pos (SVSet.union svs old) acc
+          (fun acc def ->
+            let pos = LustreNode.pos_of_state_var_def def in
+            let old = try PosMap.find pos acc with Not_found -> SVSet.empty in
+            PosMap.add pos (SVSet.add sv old) acc
           )
-          acc ls
+          acc (LustreNode.get_state_var_defs sv)
         )
-        acc lst
-      ) ivc_all PosMap.empty in
+        acc (LustreNode.get_all_state_vars node)
+      ) PosMap.empty (InputSystem.retrieve_lustre_nodes in_sys) in
       undef_expr (Some pos_sv_map)
     else undef_expr None in
   let minimized = List.map (minimize_decl undef_expr ivc) ast in
