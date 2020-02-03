@@ -607,6 +607,7 @@ let locs_of_node_call in_sys output_svs =
   |> SVSet.elements
   |> List.map (fun sv ->
       InputSystem.lustre_definitions_of_state_var in_sys sv
+      |> List.filter (function LustreNode.CallOutput _ -> true | _ -> false)
       |> List.map
         (fun d -> { pos=LustreNode.pos_of_state_var_def d ; index=LustreNode.index_of_state_var_def d })
   )
@@ -663,9 +664,12 @@ let locs_of_eq_term in_sys t =
     let has_asserts = ref false in
     let sv = sv_of_term t in
     InputSystem.lustre_definitions_of_state_var in_sys sv
+    |> List.filter (function LustreNode.CallOutput _ -> false | _ -> true)
     |> List.map (fun def ->
-      (match def with LustreNode.Assertion _ -> has_asserts := true
-        | LustreNode.ContractItem _ -> has_contract_items := true | _ -> ());
+      (match def with
+        | LustreNode.Assertion _ -> has_asserts := true
+        | LustreNode.ContractItem _ -> has_contract_items := true
+        | _ -> ());
       let p = LustreNode.pos_of_state_var_def def in
       let i = LustreNode.index_of_state_var_def def in
       { pos=p ; index=i }
@@ -704,16 +708,27 @@ let add_loc in_sys eq =
 
 let eqmap_to_ivc in_sys = ScMap.map (List.map (add_loc in_sys))
 
-let svs_of_term in_sys t =
+type term_id = SVSet.t * bool (* Is node call *)
+module TermID = struct
+  type t = term_id
+  let is_empty (k,_) = SVSet.is_empty k
+  let compare (a,b) (a',b') =
+    match compare b b' with
+    | 0 -> SVSet.compare a a'
+    | n -> n
+end
+module TIDMap = Map.Make(TermID)
+
+let id_of_term in_sys t =
   match Term.destruct t with
   | Term.T.App (s, ts) when
     (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
     -> (* Case of a node call *)
     let (_, svs) = name_and_svs_of_node_call in_sys s ts in
-    svs
+    (svs, true)
   | _ ->
-    try SVSet.singleton (sv_of_term t)
-    with _ -> SVSet.empty
+    try (SVSet.singleton (sv_of_term t), false)
+    with _ -> (SVSet.empty, false)
 
 (* ---------- UTILITIES ---------- *)
 
@@ -775,24 +790,24 @@ let extract_toplevel_equations in_sys sys =
   let init = List.combine oinit cinit
   and trans = List.combine otrans ctrans in
   let mk_map = List.fold_left (fun acc (o,c) ->
-    let svs = svs_of_term in_sys c in
-    if SVSet.is_empty svs then acc
+    let tid = id_of_term in_sys c in
+    if TermID.is_empty tid then acc
     else
       let (o,c) =
         try
-          let (o',c') = SVSMap.find svs acc in
+          let (o',c') = TIDMap.find tid acc in
           (Term.mk_and [o;o'], Term.mk_and [c;c'])
         with Not_found -> (o,c) in
-      SVSMap.add svs (o,c) acc
-  ) SVSMap.empty
+      TIDMap.add tid (o,c) acc
+  ) TIDMap.empty
   in
-  let init_bindings = mk_map init |> SVSMap.bindings
-  and trans_bindings = mk_map trans |> SVSMap.bindings in
+  let init_bindings = mk_map init |> TIDMap.bindings
+  and trans_bindings = mk_map trans |> TIDMap.bindings in
   let init_n = List.length init_bindings
   and trans_n = List.length trans_bindings in
   if init_n <> trans_n then raise (InitTransMismatch (init_n, trans_n)) ;
   List.map2 (fun (ki,(oi,ci)) (kt,(ot,ct)) ->
-    if SVSet.compare ki kt <> 0
+    if TermID.compare ki kt <> 0
     then raise (InitTransMismatch (init_n, trans_n)) ;
     { init_opened=oi ; init_closed=ci ; trans_opened=ot ; trans_closed=ct }
   ) init_bindings trans_bindings
