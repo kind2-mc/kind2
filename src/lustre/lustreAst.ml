@@ -547,11 +547,11 @@ let rec pp_print_expr ppf =
     | Condact (p, e1, er, n, e2, e3) -> 
   
       Format.fprintf ppf 
-        "%acondact(%a,restart %a,%a(%a),%a)" 
+        "%acondact(%a,(restart %a every %a)(%a),%a)" 
         ppos p
         pp_print_expr e1
-        pp_print_expr er
         pp_print_ident n
+        pp_print_expr er
         (pp_print_list pp_print_expr ",@ ") e2
         (pp_print_list pp_print_expr ",@ ") e3
 
