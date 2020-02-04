@@ -334,7 +334,7 @@ let nodes_input_types = Hashtbl.create 10
 let rec minimize_node_call_args ue lst expr =
   let minimize_arg ident i arg =
     match arg with
-    | A.Ident _ -> arg
+    | A.Ident _ | A.ModeRef _ | A.RecordProject _ | A.TupleProject _ -> arg
     | _ ->
       let t = Hashtbl.find nodes_input_types ident |> (fun lst -> List.nth lst i) in
       let (_, expr) = minimize_expr ue lst [t] arg in
