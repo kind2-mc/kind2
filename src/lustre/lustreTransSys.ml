@@ -1314,7 +1314,7 @@ let rec constraints_of_equations_wo_arrays node
   (* Can define state variable with a let binding *)
   | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl ->
     
-    if not (E.is_var expr) then begin
+    (*if not (E.is_var expr) then begin*)
       (* We must transfer the defs of this state variable
       to all the state variables that depend on it *)
       let defs = N.get_state_var_defs state_var in
@@ -1333,7 +1333,7 @@ let rec constraints_of_equations_wo_arrays node
         then add_defs_to_sv sv
       in
       List.iter transfer_defs_to_eq_if_needed node.N.equations
-    end ;
+    (*end*) ;
 
     (* Let binding for stateless variable, in closure form *)
     let let_closure =

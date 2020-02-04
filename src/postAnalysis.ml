@@ -565,9 +565,12 @@ module RunIVC: PostAnalysis = struct
         (*Format.printf "%a\n" ISys.pp_print_subsystems_debug in_sys;*)
         (*Format.printf "%a\n" ISys.pp_print_state_var_instances_debug in_sys;*)
         (*Format.printf "%a\n" ISys.pp_print_state_var_defs_debug in_sys;*)
-        (*let (_,_,trans) = TSys.init_trans_open sys in
-        Term.print_term trans ; Format.printf "\n" ;*)
-        (*Format.print_flush () ;*)
+        (*TSys.iter_subsystems (fun sys ->
+          let (_,_,trans) = TSys.init_trans_open sys in
+          Format.printf "---------- %a ----------\n" Scope.pp_print_scope (TSys.scope_of_trans_sys sys) ;
+          Term.print_term trans ; Format.printf "\n"
+        ) sys ;*)
+        (*Format.print_flush ();*)
 
         let nb = ref 0 in
         let initial = Ivc.all_eqs in_sys sys in
