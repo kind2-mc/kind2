@@ -759,24 +759,6 @@ let rec deconstruct_conj t =
     List.map deconstruct_conj ts |> List.flatten
   | _ -> [t]
 
-(* TODO: Not the right way to do it...
-But minimize_invariants does not differantiate two-states and one-state invariants. *)
-let rec is_one_step t =
-  let open Term in
-  match node_of_term t with
-  | FreeVar v ->
-    begin
-      try Numeral.leq Numeral.zero (Var.offset_of_state_var_instance v)
-      with _ -> true
-    end
-  | BoundVar _ | Leaf _ -> true
-  | Node (_, lst) | Let (_, lst) ->
-    List.map is_one_step lst |> List.for_all (fun b -> b)
-  | Exists l | Forall l ->
-    let (T.L (_, t)) = T.node_of_lambda l in 
-    is_one_step t
-  | Annot (t,_) -> is_one_step t
-
 exception InitTransMismatch of int * int
 
 let extract_toplevel_equations in_sys sys =
@@ -951,11 +933,11 @@ let ind_k sys b0 trans_eq inv_eq os_inv_eq prop_eq k =
     |> Term.mk_and
   in
 
-  let inv_eq = Term.bump_state (Numeral.of_int b0) os_inv_eq in
+  let os_inv_eq = Term.bump_state (Numeral.of_int b0) os_inv_eq in
   let inv_eq =
     interval (b0+1) (b0+k)
     |> List.map (fun i -> Term.bump_state (Numeral.of_int i) inv_eq)
-    |> (fun eqs -> inv_eq::eqs)
+    |> (fun eqs -> os_inv_eq::eqs)
     |> Term.mk_and
   in
 
@@ -1159,7 +1141,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys eqmap_keep eqmap_test =
 
   let scope = TS.scope_of_trans_sys sys in
   let k, invs = CertifChecker.minimize_invariants sys None in
-  let os_invs = List.filter is_one_step invs in
+  let os_invs = List.filter (fun t -> CertifChecker.is_two_state t |> not) invs in
   let prop = extract_props_terms sys in
   let os_prop = Term.mk_and (prop::os_invs) in
   let prop = Term.mk_and (prop::invs) in
