@@ -45,3 +45,6 @@ val generate_all_proofs : int -> 'a InputSystem.t -> TransSys.t -> unit
   Second parameter is an optionnal predicate that forces the minimization
   to only consider invariants that evaluates to true. *)
 val minimize_invariants : TransSys.t -> (Term.t -> bool) option -> int * Term.t list
+
+(** Returns true if the term contains at least two different var offsets *)
+val is_two_state : Term.t -> bool
