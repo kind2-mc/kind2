@@ -411,7 +411,11 @@ let model_of_smt_values conv_left type_left s smt_values =
         then
 
           (* Convert term to a real *)
-          Term.mk_to_real e'
+          if Term.is_numeral e' then (
+            let bint = Numeral.to_big_int (Term.numeral_of_term e') in
+            Term.mk_dec (Decimal.of_big_int bint)
+          )
+          else Term.mk_to_real e'
 
         else
           
