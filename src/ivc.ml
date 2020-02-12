@@ -1610,7 +1610,7 @@ type unexplored_type = | Any | Min | Max
 
 let umivc_ in_sys make_check_ts sys k cont eqmap_keep eqmap_test =
   let prop_names = extract_props_names sys in
-  let sys_original = sys in
+  (*let sys_original = sys in*)
   let (sys_cs, check_ts_cs) = make_check_ts sys in
   let (sys, check_ts) = make_check_ts sys in
 
@@ -1679,7 +1679,13 @@ let umivc_ in_sys make_check_ts sys k cont eqmap_keep eqmap_test =
     let eqmap_keep = core_to_eqmap keep in
     let compute_mivc core =
       core_to_eqmap core
-      |> ivc_uc_ in_sys sys_original eqmap_keep
+      (* The ivc_uc phase has been disabled because it shouldn't be called
+      over a strict subset of the initial equations.
+      As it relies on the success of the last analysis of the transition system,
+      calling it over the original transition system but with only a subset of
+      its equations as argument is likely to raise an exception
+      (Not_k_inductive or CertifChecker.Cannot_prove) *)
+      (*|> ivc_uc_ in_sys sys_original eqmap_keep*)
       |> ivc_bf_ in_sys check_ts sys eqmap_keep
       |> actlits_of_core
       |> List.map actsv_of_eq
