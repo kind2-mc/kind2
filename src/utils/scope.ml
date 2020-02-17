@@ -52,7 +52,7 @@ module Scope = struct
     with Invalid_argument _ -> false
       
   (* Total order on scopes *)
-  let compare s1 s2 = compare_lists compare s1 s2
+  let compare s1 s2 = compare_lists Ident.compare s1 s2
 
   let hash s = Hashtbl.hash s
 
