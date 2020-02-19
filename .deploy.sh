@@ -27,10 +27,14 @@ echo "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6Tb
 git tag -f nightly
 git push --tags -f
 
-if [ $TRAVIS_OS_NAME = 'osx' ]; then
-    brew install pyenv-virtualenv
-    pyenv install 3.6
+# OSX doesn't ship with a version of Python 3 on Travis
+if [ "$TRAVIS_OS_NAME" = "osx" ]; then 
+  brew install pyenv-virtualenv
+  pyenv install 3.6.3
+  pip --version
+  python --version
 fi
+
 
 # Clear all older uploaded release artifacts for the `nightly` tag
 # `pyenv global 3.6` is required to instruct Travis to use Python 3 rather than 2
