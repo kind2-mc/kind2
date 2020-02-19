@@ -13,6 +13,9 @@ TIMESTAMP = sys.argv[1]
 # Authorization is needed to delete release assets
 AUTH_HEADER = {'Authorization': 'token {}'.format(os.getenv('API_KEY'))}
 
+release = None
+assets = None
+
 try:
     # Retrieve the ID for the release by tag
     release = get('{}/releases/tags/nightly'.format(BASE_URL)).json()

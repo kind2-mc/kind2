@@ -27,18 +27,11 @@ echo "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6Tb
 git tag -f nightly
 git push --tags -f
 
-# OSX doesn't ship with a version of Python 3 on Travis
-
-
 # Clear all older uploaded release artifacts for the `nightly` tag
 # `pyenv global 3.6` is required to instruct Travis to use Python 3 rather than 2
 # `$DATE_STRING` is passed so the Mac OS build doesn't overwrite the Linux binary
 if [ "$TRAVIS_OS_NAME" = "linux" ]; then 
     pyenv global 3.6
 fi
-pip --version
-python --version
-pip3 --version
-python3 --version
-pip install --user requests
-python scripts/travis-clean-nightly.py $DATE_STRING
+pip3 install --user requests
+python3 scripts/travis-clean-nightly.py $DATE_STRING
