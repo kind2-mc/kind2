@@ -27,5 +27,10 @@ git tag -f nightly
 git push --tags -f
 
 # Clear all older uploaded release artifacts for the `nightly` tag
-pip install requests
+pyenv global 3.6
+pip --version
+python --version
+pip3 --version
+python3 --version
+pip install --user requests
 python scripts/travis-clean-nightly.py

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-#
 # Reference:
 #     https://developer.github.com/v3/repos/releases/
 from requests import *
