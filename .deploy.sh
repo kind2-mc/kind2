@@ -29,10 +29,9 @@ git push --tags -f
 
 # OSX doesn't ship with a version of Python 3 on Travis
 if [ "$TRAVIS_OS_NAME" = "osx" ]; then 
-  brew install pyenv-virtualenv
-  pyenv install 3.6.3
-  pip --version
+  brew install python
   python --version
+  python3 --version
 fi
 
 
