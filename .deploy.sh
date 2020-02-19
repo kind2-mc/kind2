@@ -1,11 +1,13 @@
+DATE_STRING=$(date -I)
+
 # Add a suffix to the built binary to distinguish
 # OSX from Linux and prevent a race condition where
 # one may overwrite another:
 #   https://dev.to/hawkinjs/leveraging-travis-ci-for-continuous-deployment-to-publish-compiled-binaries-to-github-2k06
 # 
 if [[ -f bin/kind2 ]]; then 
-  mv bin/kind2 bin/kind2-$TRAVIS_OS_NAME
-  tar -czf "kind2-$TRAVIS_OS_NAME.tar.gz" bin/kind2-$TRAVIS_OS_NAME
+  mv bin/kind2 bin/kind2-$DATE_STRING-$TRAVIS_OS_NAME
+  tar -czf "kind2-$DATE_STRING-$TRAVIS_OS_NAME.tar.gz" bin/kind2-$DATE_STRING-$TRAVIS_OS_NAME
 fi
 
 # In order to update where the 'nightly' tag points to, we
@@ -23,3 +25,7 @@ echo "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6Tb
 # allow us to assign a release to it.
 git tag -f nightly
 git push --tags -f
+
+# Clear all older uploaded release artifacts for the `nightly` tag
+# pip3 install requests
+# python3 scripts/travis-clean-nightly.py
