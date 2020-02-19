@@ -14,7 +14,7 @@ fi
 # need write access to the repository:
 #   http://markbucciarelli.com/posts/2019-01-26_how-to-push-to-github-from-travis-ci.html
 # 
-openssl aes-256-cbc -k "$TRAVIS_KEY_PASSWORD" -d -md sha256 -a -in travis_key.enc -out travis_key
+openssl aes-256-cbc -k "$TRAVIS_KEY_PASSWORD" -d -md sha256 -a -in travis_key_test.enc -out travis_key
 echo "Host github.com" > ~/.ssh/config
 echo "  IdentityFile  $(pwd)/travis_key" >> ~/.ssh/config
 chmod 400 travis_key
@@ -27,5 +27,5 @@ git tag -f nightly
 git push --tags -f
 
 # Clear all older uploaded release artifacts for the `nightly` tag
-# pip3 install requests
-# python3 scripts/travis-clean-nightly.py
+pip3 install requests
+python3 scripts/travis-clean-nightly.py
