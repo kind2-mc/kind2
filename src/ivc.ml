@@ -169,10 +169,11 @@ let pp_print_loc_eqs in_sys sys =
   let var_map = compute_var_map in_sys sys in
   pp_print_loc_eqs_ var_map
 
-let pp_print_ivc in_sys sys title fmt =
+let pp_print_ivc ?(time=None) in_sys sys title fmt =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_ var_map in
-  Format.fprintf fmt "========== %s ==========\n\n" title ;
+  Format.fprintf fmt "========== %s%s ==========\n\n" title
+  (match time with None -> "" | Some f -> Format.sprintf " (%.3fs)" f) ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "----- %s -----\n" (Scope.to_string scope) ;
     Format.fprintf fmt "%a\n" print eqs
@@ -194,12 +195,15 @@ let pp_print_categories fmt =
     | `UNKNOWN -> Format.fprintf fmt "unknown "
   )
 
-let pp_print_ivc_xml in_sys sys title fmt ivc =
+let pp_print_ivc_xml ?(time=None) in_sys sys title fmt ivc =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
   Format.fprintf fmt "<IVC title=\"%s\" category=\"%a\" enter_nodes=%b impl=\"%s\">\n" title
     pp_print_categories (Flags.IVC.ivc_elements ()) (Flags.IVC.ivc_enter_nodes ())
     (impl_to_string (Flags.IVC.ivc_impl ())) ;
+  match time with None -> ()
+  | Some f -> Format.fprintf fmt "<Runtime unit=\"sec\">%.3f</Runtime>\n" f
+  ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "<scope name=\"%s\">\n" (Scope.to_string scope) ;
     Format.fprintf fmt "%a" print eqs ;
@@ -207,10 +211,10 @@ let pp_print_ivc_xml in_sys sys title fmt ivc =
   ) ivc ;
   Format.fprintf fmt "</IVC>\n"
 
-let ivc2json in_sys sys title ivc =
+let ivc2json ?(time=None) in_sys sys title ivc =
   let var_map = compute_var_map in_sys sys in
   let loc_eqs2json = loc_eqs2json var_map in
-  `Assoc [
+  let assoc = [
     ("objectType", `String "ivc") ;
     ("title", `String title) ;
     ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.IVC.ivc_elements ()))) ;
@@ -224,9 +228,14 @@ let ivc2json in_sys sys title ivc =
       ]
     ) (ScMap.bindings ivc)))
   ]
+  in
+  let assoc = match time with None -> assoc
+  | Some f -> assoc@[("runtime", `Assoc [("unit", `String "sec") ; ("value", `Float f)])]
+  in
+  `Assoc assoc
 
-let pp_print_ivc_json in_sys sys title fmt ivc =
-  pp_print_json fmt (ivc2json in_sys sys title ivc)
+let pp_print_ivc_json ?(time=None) in_sys sys title fmt ivc =
+  pp_print_json fmt (ivc2json ~time in_sys sys title ivc)
 
 (* ---------- LUSTRE AST ---------- *)
 
