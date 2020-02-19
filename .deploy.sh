@@ -1,5 +1,5 @@
-DATE_STRING=$(date -I)
-BINARY_FILENAME="kind2-$DATE_STRING-$TRAVIS_OS_NAME"
+DATE_STRING=$(date "+%Y-%m-%d")
+BINARY_FILENAME="kind2_$DATE_STRING_$TRAVIS_OS_NAME"
 
 # Add a suffix to the built binary to distinguish
 # OSX from Linux and prevent a race condition where
@@ -29,6 +29,7 @@ git push --tags -f
 
 # Clear all older uploaded release artifacts for the `nightly` tag
 # `pyenv global 3.6` is required to instruct Travis to use Python 3 rather than 2
+# `$DATE_STRING` is passed so the Mac OS build doesn't overwrite the Linux binary
 pyenv global 3.6
 pip install --user requests
-python scripts/travis-clean-nightly.py
+python scripts/travis-clean-nightly.py $DATE_STRING
