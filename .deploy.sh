@@ -1,5 +1,5 @@
 DATE_STRING=$(date "+%Y-%m-%d")
-BINARY_FILENAME="kind2_$DATE_STRING_$TRAVIS_OS_NAME"
+BINARY_FILENAME="kind2_${DATE_STRING}_${TRAVIS_OS_NAME}"
 
 # Add a suffix to the built binary to distinguish
 # OSX from Linux and prevent a race condition where
