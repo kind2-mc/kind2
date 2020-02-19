@@ -1,4 +1,5 @@
 DATE_STRING=$(date -I)
+BINARY_FILENAME="kind2-$DATE_STRING-$TRAVIS_OS_NAME"
 
 # Add a suffix to the built binary to distinguish
 # OSX from Linux and prevent a race condition where
@@ -6,8 +7,8 @@ DATE_STRING=$(date -I)
 #   https://dev.to/hawkinjs/leveraging-travis-ci-for-continuous-deployment-to-publish-compiled-binaries-to-github-2k06
 # 
 if [[ -f bin/kind2 ]]; then 
-  mv bin/kind2 bin/kind2-$DATE_STRING-$TRAVIS_OS_NAME
-  tar -czf "kind2-$DATE_STRING-$TRAVIS_OS_NAME.tar.gz" bin/kind2-$DATE_STRING-$TRAVIS_OS_NAME
+  mv bin/kind2 bin/$BINARY_FILENAME
+  tar -czf "$BINARY_FILENAME.tar.gz" bin/$BINARY_FILENAME
 fi
 
 # In order to update where the 'nightly' tag points to, we
@@ -27,10 +28,7 @@ git tag -f nightly
 git push --tags -f
 
 # Clear all older uploaded release artifacts for the `nightly` tag
+# `pyenv global 3.6` is required to instruct Travis to use Python 3 rather than 2
 pyenv global 3.6
-pip --version
-python --version
-pip3 --version
-python3 --version
 pip install --user requests
 python scripts/travis-clean-nightly.py
