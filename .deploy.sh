@@ -5,6 +5,7 @@
 # 
 if [[ -f bin/kind2 ]]; then 
   mv bin/kind2 bin/kind2-$TRAVIS_OS_NAME
+  tar -czf "kind2-$TRAVIS_OS_NAME.tar.gz" bin/kind2-$TRAVIS_OS_NAME
 fi
 
 # In order to update where the 'nightly' tag points to, we
