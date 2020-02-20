@@ -20,7 +20,7 @@ assets = {}
 
 
 def assets_present():
-    return all([a.get('id') is not None and a.get('name') is not None for a in assets])
+    return len(assets) != 0 and all([a.get('id') is not None and a.get('name') is not None for a in assets])
 
 
 # Retrieve the ID for the release by tag
