@@ -34,9 +34,13 @@ while release.get('id') is None and i < TIMEOUT:
 # Get all of the assets for that release
 i = 0
 while not assets_present() and i < TIMEOUT:
-    assets = get('{}/releases/{}/assets'.format(BASE_URL, release['id'])).json()
-    time.sleep(1)
-    i += 1
+    try:
+        assets = get('{}/releases/{}/assets'.format(BASE_URL, release['id'])).json()
+        time.sleep(1)
+        i += 1
+    except KeyError:
+        print(assets, file=sys.stderr)
+        sys.exit(1)
 
 # Map each asset to its ID and filter out those with the current date,
 # as these should either be kept (so the OSX build doesn't delete the Linux build's asset)
