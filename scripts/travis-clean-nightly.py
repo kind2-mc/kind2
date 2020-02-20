@@ -3,7 +3,7 @@
 import os
 import sys
 import time
-
+from pprint import pprint
 from requests import *
 
 
@@ -13,7 +13,7 @@ TIMESTAMP = sys.argv[1]
 # Authorization is needed to delete release assets
 AUTH_HEADER = {'Authorization': 'token {}'.format(os.getenv('API_KEY'))}
 # Max number of retries for API requests before exiting
-TIMEOUT = 5
+TIMEOUT = 10
 
 release = {}
 assets = {}
@@ -31,16 +31,23 @@ while release.get('id') is None and i < TIMEOUT:
     time.sleep(1)
     i += 1
 
+# Should not be empty by this point
+assert release
+print('Took {} attempts to fetch the release...'.format(i))
+pprint(release)
+
+
 # Get all of the assets for that release
 i = 0
 while not assets_present() and i < TIMEOUT:
-    try:
-        assets = get('{}/releases/{}/assets'.format(BASE_URL, release['id'])).json()
-        time.sleep(1)
-        i += 1
-    except KeyError:
-        print(assets, file=sys.stderr)
-        sys.exit(1)
+    assets = get('{}/releases/{}/assets'.format(BASE_URL, release['id'])).json()
+    time.sleep(1)
+    i += 1
+
+# Should not be empty by this point
+assert assets
+print('Took {} attempts to fetch release assets...'.format(i))
+pprint(assets)
 
 # Map each asset to its ID and filter out those with the current date,
 # as these should either be kept (so the OSX build doesn't delete the Linux build's asset)
