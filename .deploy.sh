@@ -15,7 +15,7 @@ fi
 # need write access to the repository:
 #   http://markbucciarelli.com/posts/2019-01-26_how-to-push-to-github-from-travis-ci.html
 # 
-openssl aes-256-cbc -k "$TRAVIS_KEY_PASSWORD" -d -md sha256 -a -in travis_key_test.enc -out travis_key
+openssl aes-256-cbc -k "$TRAVIS_KEY_PASSWORD" -d -md sha256 -a -in travis_key.enc -out travis_key
 echo "Host github.com" > ~/.ssh/config
 echo "  IdentityFile  $(pwd)/travis_key" >> ~/.ssh/config
 chmod 400 travis_key
@@ -28,7 +28,7 @@ git tag -f nightly
 git push --tags -f
 
 # Clear all older uploaded release artifacts for the `nightly` tag
-# `pyenv global 3.6` is required to instruct Travis to use Python 3 rather than 2
+# `pyenv global 3.6` is required to instruct Travis to use Python 3, but isn't installed on OSX
 # `$DATE_STRING` is passed so the Mac OS build doesn't overwrite the Linux binary
 if [ "$TRAVIS_OS_NAME" = "linux" ]; then 
     pyenv global 3.6

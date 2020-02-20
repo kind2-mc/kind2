@@ -11,9 +11,10 @@ BASE_URL = 'https://api.github.com/repos/{}'.format(os.getenv('TRAVIS_REPO_SLUG'
 # Argument passed during the invocation of this script to prevent unwanted overwrites
 TIMESTAMP = sys.argv[1]
 # Authorization is needed to delete release assets
+# Also needed to avoid serious rate-limiting (60 requests per hour without, 5000 with)
 AUTH_HEADER = {'Authorization': 'token {}'.format(os.getenv('API_KEY'))}
 # Max number of retries for API requests before exiting
-TIMEOUT = 10
+TIMEOUT = 5
 
 release = {}
 assets = {}
@@ -31,7 +32,7 @@ while release.get('id') is None and i < TIMEOUT:
     time.sleep(1)
     i += 1
 
-print('Took {} attempts to fetch the release...'.format(i))
+print('Took {} attempt(s) to fetch the release...'.format(i))
 pprint(release)
 
 
@@ -42,7 +43,7 @@ while not assets_present() and i < TIMEOUT:
     time.sleep(1)
     i += 1
 
-print('Took {} attempts to fetch release assets...'.format(i))
+print('Took {} attempt(s) to fetch release assets...'.format(i))
 pprint(assets)
 
 # The OSX build may not find any assets if the Linux build had deleted them
