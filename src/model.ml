@@ -276,6 +276,10 @@ let pp_print_value_xml ?as_type ppf v =  match v, as_type with
 let pp_print_value_json ?as_type ppf v =  match v, as_type with
   | Term t, Some ty when Term.is_numeral t && Type.is_enum ty ->
     Format.fprintf ppf "\"%s\"" (Type.get_constr_of_num (Term.numeral_of_term t))
+  | Term t, _ when Term.is_decimal t -> (
+    let d = Term.decimal_of_term t in
+    Decimal.pp_print_decimal_as_json ppf d
+  )
   | Term t, _ -> pp_print_term ppf t
   | Lambda l, _ -> Term.pp_print_lambda ppf l
   | Map m, _ ->
