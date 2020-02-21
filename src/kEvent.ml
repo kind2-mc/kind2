@@ -1287,11 +1287,11 @@ let number_of_subsystem_assumptions info =
 
 (* Logs the start of an analysis. *)
 let log_analysis_start sys param =
-  let param = Analysis.shrink_param_to_sys param sys in
-  let info = Analysis.info_of_param param in
-  match get_log_format () with
-  | F_pt ->
-    if Flags.log_level () = L_off |> not then
+  if Flags.log_level () <> L_off then begin
+    let param = Analysis.shrink_param_to_sys param sys in
+    let info = Analysis.info_of_param param in
+    match get_log_format () with
+    | F_pt ->
       Format.fprintf !log_ppf "\
         @.@.%a@{<b>Analyzing @{<blue>%a@}@}@   with %a\
       @.@."
@@ -1299,58 +1299,59 @@ let log_analysis_start sys param =
       Scope.pp_print_scope info.Analysis.top
       (Analysis.pp_print_param false) param
 
-  | F_xml ->
-    (* Splitting abstract and concrete systems. *)
-    let abstract, concrete = split_abstract_and_concrete_systems sys info in
-    (* Counting the number of assumption for each subsystem. *)
-    let assumption_count = number_of_subsystem_assumptions info in
-    (* Opening [analysis] tag and printing info. *)
-    Format.fprintf !log_ppf "@.@.\
-        <AnalysisStart \
-          top=\"%a\" \
-          concrete=\"%a\" \
-          abstract=\"%a\" \
-          assumptions=\"%a\"\
-        />@.@.\
-      "
-      Scope.pp_print_scope info.Analysis.top
-      (pp_print_list Scope.pp_print_scope ",") concrete
-      (pp_print_list Scope.pp_print_scope ",") abstract
-      (pp_print_list (fun fmt (scope, cpt) ->
-          Format.fprintf fmt "(%a,%d)" Scope.pp_print_scope scope cpt
-        )
-        ","
-      ) assumption_count ;
-    analysis_start_not_closed := true
+    | F_xml ->
+      (* Splitting abstract and concrete systems. *)
+      let abstract, concrete = split_abstract_and_concrete_systems sys info in
+      (* Counting the number of assumption for each subsystem. *)
+      let assumption_count = number_of_subsystem_assumptions info in
+      (* Opening [analysis] tag and printing info. *)
+      Format.fprintf !log_ppf "@.@.\
+          <AnalysisStart \
+            top=\"%a\" \
+            concrete=\"%a\" \
+            abstract=\"%a\" \
+            assumptions=\"%a\"\
+          />@.@.\
+        "
+        Scope.pp_print_scope info.Analysis.top
+        (pp_print_list Scope.pp_print_scope ",") concrete
+        (pp_print_list Scope.pp_print_scope ",") abstract
+        (pp_print_list (fun fmt (scope, cpt) ->
+            Format.fprintf fmt "(%a,%d)" Scope.pp_print_scope scope cpt
+          )
+          ","
+        ) assumption_count ;
+      analysis_start_not_closed := true
 
-  | F_json ->
-    let pp_print_scope_str fmt scope =
-      Format.fprintf fmt "\"%a\"" Scope.pp_print_scope scope
-    in
-    (* Splitting abstract and concrete systems. *)
-    let abstract, concrete = split_abstract_and_concrete_systems sys info in
-    (* Counting the number of assumption for each subsystem. *)
-    let assumption_count = number_of_subsystem_assumptions info in
-    (* Opening [analysis] tag and printing info. *)
-    Format.fprintf !log_ppf "\
-        ,@.{@[<v 1>@,\
-        \"objectType\" : \"analysisStart\",@,\
-        \"top\" : \"%a\",@,\
-        \"concrete\" :%a,@,\
-        \"abstract\" :%a,@,\
-        \"assumptions\" :%a\
-        @]@.}@.\
-      "
-      Scope.pp_print_scope info.Analysis.top
-      (pp_print_list_attrib pp_print_scope_str) concrete
-      (pp_print_list_attrib pp_print_scope_str) abstract
-      (pp_print_list_attrib (fun fmt (scope, cpt) ->
-          Format.fprintf fmt "[%a,%d]" pp_print_scope_str scope cpt
-        )
-      ) assumption_count;
-    analysis_start_not_closed := true
+    | F_json ->
+      let pp_print_scope_str fmt scope =
+        Format.fprintf fmt "\"%a\"" Scope.pp_print_scope scope
+      in
+      (* Splitting abstract and concrete systems. *)
+      let abstract, concrete = split_abstract_and_concrete_systems sys info in
+      (* Counting the number of assumption for each subsystem. *)
+      let assumption_count = number_of_subsystem_assumptions info in
+      (* Opening [analysis] tag and printing info. *)
+      Format.fprintf !log_ppf "\
+          ,@.{@[<v 1>@,\
+          \"objectType\" : \"analysisStart\",@,\
+          \"top\" : \"%a\",@,\
+          \"concrete\" :%a,@,\
+          \"abstract\" :%a,@,\
+          \"assumptions\" :%a\
+          @]@.}@.\
+        "
+        Scope.pp_print_scope info.Analysis.top
+        (pp_print_list_attrib pp_print_scope_str) concrete
+        (pp_print_list_attrib pp_print_scope_str) abstract
+        (pp_print_list_attrib (fun fmt (scope, cpt) ->
+            Format.fprintf fmt "[%a,%d]" pp_print_scope_str scope cpt
+          )
+        ) assumption_count;
+      analysis_start_not_closed := true
 
-  | F_relay -> failwith "can only be called by supervisor"
+    | F_relay -> failwith "can only be called by supervisor"
+  end
 
 (** Logs the end of an analysis.
     [log_analysis_start result] logs the end of an analysis. *)
