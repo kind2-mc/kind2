@@ -27,9 +27,9 @@ type ivc = (Property.t list * loc_equation list ScMap.t)
 val pp_print_loc_eq : 'a InputSystem.t -> TransSys.t -> Format.formatter -> loc_equation -> unit
 val pp_print_loc_eqs : 'a InputSystem.t -> TransSys.t -> Format.formatter -> loc_equation list -> unit
 
-val pp_print_ivc : 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
-val pp_print_ivc_xml : 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
-val pp_print_ivc_json : 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
+val pp_print_ivc : ?time:float option -> 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
+val pp_print_ivc_xml : ?time:float option -> 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
+val pp_print_ivc_json : ?time:float option -> 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
 
 val compare_loc : loc -> loc -> int
 

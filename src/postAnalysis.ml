@@ -573,14 +573,19 @@ module RunIVC: PostAnalysis = struct
         (*Format.print_flush ();*)
 
         let nb = ref 0 in
+        let time = ref (Unix.gettimeofday ()) in
         let initial = Ivc.all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
         let treat_ivc ivc =
 
+          let ntime = Unix.gettimeofday () in
+          let elapsed = Some (ntime -. !time) in
+          time := ntime ;
+
           if Flags.IVC.print_ivc ()
           then begin
-            let pt = Ivc.pp_print_ivc in_sys sys "MAIN" in
-            let xml = Ivc.pp_print_ivc_xml in_sys sys "main" in
-            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json in_sys sys "main") in
+            let pt = Ivc.pp_print_ivc ~time:elapsed in_sys sys "MAIN" in
+            let xml = Ivc.pp_print_ivc_xml ~time:elapsed in_sys sys "main" in
+            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json ~time:elapsed in_sys sys "main") in
             let (_,filtered_ivc) = Ivc.separate_ivc_by_category ivc in
             KEvent.log_result pt xml json filtered_ivc
           end ;
@@ -597,9 +602,9 @@ module RunIVC: PostAnalysis = struct
                 with Not_found -> true
               ) eqs
             ) (snd initial) in
-            let pt = Ivc.pp_print_ivc in_sys sys "COMPLEMENT" in
-            let xml = Ivc.pp_print_ivc_xml in_sys sys "complement" in
-            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json in_sys sys "complement") in
+            let pt = Ivc.pp_print_ivc ~time:elapsed in_sys sys "COMPLEMENT" in
+            let xml = Ivc.pp_print_ivc_xml ~time:elapsed in_sys sys "complement" in
+            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json ~time:elapsed in_sys sys "complement") in
             let (_,filtered_not_ivc) = Ivc.separate_ivc_by_category (fst ivc, not_ivc) in
             KEvent.log_result pt xml json filtered_not_ivc
           end ;

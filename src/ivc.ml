@@ -178,10 +178,11 @@ let rec pp_print_properties fmt = function
   | { Property.prop_name = n }::props ->
     Format.fprintf fmt "%s %a" n pp_print_properties props
 
-let pp_print_ivc in_sys sys title fmt (props,ivc) =
+let pp_print_ivc ?(time=None) in_sys sys title fmt (props,ivc) =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_ var_map in
-  Format.fprintf fmt "========== %a(%s) ==========\n\n" pp_print_properties props title ;
+  Format.fprintf fmt "========== %a(%s%s) ==========\n\n" pp_print_properties props title
+  (match time with None -> "" | Some f -> Format.sprintf ", %.3fs" f) ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "----- %s -----\n" (Scope.to_string scope) ;
     Format.fprintf fmt "%a\n" print eqs
@@ -224,13 +225,16 @@ let pp_print_categories fmt =
     | `UNKNOWN -> Format.fprintf fmt "unknown "
   )
 
-let pp_print_ivc_xml in_sys sys title fmt (props,ivc) =
+let pp_print_ivc_xml ?(time=None) in_sys sys title fmt (props,ivc) =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
   Format.fprintf fmt "<IVC property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b impl=\"%s\">\n"
     pp_print_properties props title
     pp_print_categories (Flags.IVC.ivc_elements ()) (Flags.IVC.ivc_enter_nodes ())
     (impl_to_string (Flags.IVC.ivc_impl ())) ;
+  match time with None -> ()
+  | Some f -> Format.fprintf fmt "<Runtime unit=\"sec\">%.3f</Runtime>\n" f
+  ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "<scope name=\"%s\">\n" (Scope.to_string scope) ;
     Format.fprintf fmt "%a" print eqs ;
@@ -252,10 +256,10 @@ let pp_print_mua_xml in_sys param sys title fmt ((props, cex),mua) =
   print_mua_counterexample in_sys param sys `XML fmt (props,cex) ;
   Format.fprintf fmt "</MUA>\n"
 
-let ivc2json in_sys sys title (props,ivc) =
+let ivc2json ?(time=None) in_sys sys title (props,ivc) =
   let var_map = compute_var_map in_sys sys in
   let loc_eqs2json = loc_eqs2json var_map in
-  `Assoc [
+  let assoc = [
     ("objectType", `String "ivc") ;
     ("property", `String (Format.asprintf "%a" pp_print_properties props)) ;
     ("title", `String title) ;
@@ -270,6 +274,11 @@ let ivc2json in_sys sys title (props,ivc) =
       ]
     ) (ScMap.bindings ivc)))
   ]
+  in
+  let assoc = match time with None -> assoc
+  | Some f -> assoc@[("runtime", `Assoc [("unit", `String "sec") ; ("value", `Float f)])]
+  in
+  `Assoc assoc
 
 let mua2json in_sys param sys title ((props, _),mua) =
   let var_map = compute_var_map in_sys sys in
@@ -289,8 +298,8 @@ let mua2json in_sys param sys title ((props, _),mua) =
     ) (ScMap.bindings mua)))
   ]
 
-let pp_print_ivc_json in_sys sys title fmt ivc =
-  pp_print_json fmt (ivc2json in_sys sys title ivc)
+let pp_print_ivc_json ?(time=None) in_sys sys title fmt ivc =
+  pp_print_json fmt (ivc2json ~time in_sys sys title ivc)
 
 let pp_print_mua_json in_sys param sys title fmt mua =
   pp_print_json fmt (mua2json in_sys param sys title mua)

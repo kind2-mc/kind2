@@ -1546,21 +1546,27 @@ let rec pp_print_stream_prop_json ppf = function
 
 
 (* Pretty-print a single value of a stream at an instant *)
-let pp_print_stream_value_json ty ppf i show v =
-  if show then
-    Format.fprintf ppf
-      "@,[%d, %a]"
-      i (Model.pp_print_value_json ~as_type:ty) v
+let pp_print_stream_value_json ty ppf i v =
+  Format.fprintf ppf
+    "@,[%d, %a]"
+    i (Model.pp_print_value_json ~as_type:ty) v
 
 
 let pp_print_stream_values_json clock ty ppf l =
   match clock with
   | None ->
     (* Show all values if no clock *)
-    pp_print_listi (fun ppf i -> pp_print_stream_value_json ty ppf i true) "," ppf l
+    pp_print_listi (fun ppf i -> pp_print_stream_value_json ty ppf i) "," ppf l
   | Some c ->
-    (* Show values sampled on the clock *)
-    pp_print_list2i (pp_print_stream_value_json ty) "," ppf c l
+    (* Pair each value with its index and clock, and then filter out undefined ones.
+     * This must be done before printing, because otherwise we print commas in-between
+     * filtered elements, which is invalid json. *)
+    let values_on_clock =
+      List.mapi (fun i c -> (i, c)) c
+      |> List.map2 (fun v (i, c) -> (i, v, c)) l
+      |> List.filter (fun (i, v, c) -> c)
+    in
+      pp_print_list (fun ppf (i, v, _c) -> pp_print_stream_value_json ty ppf i v) "," ppf values_on_clock
 
 
 (* Pretty-print a single stream *)
