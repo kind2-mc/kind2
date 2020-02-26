@@ -285,6 +285,10 @@ module Smt = struct
   let set_yices2smt2_bin str = yices2smt2_bin := str
   let yices2smt2_bin () = !yices2smt2_bin
 
+  let yices2_smt2models = ref false
+  let set_yices2_smt2models b = yices2_smt2models := b
+  let yices2_smt2models () = !yices2_smt2models
+
   (* Activates logging of SMT interactions. *)
   let trace_default = false
   let trace = ref trace_default
@@ -2608,25 +2612,29 @@ let parse_clas specs anon_action global_usage_msg =
 
 let solver_dependant_actions () =
 
-  let get_version cmd =
-    (*let version_re = Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)\\.\\([0-9]\\)" in*)
-    let version_re = Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)" in
+  let get_version with_patch cmd =
+    let get_rev output idx =
+      Pervasives.int_of_string (Str.matched_group idx output)
+    in
+    let version_re =
+      if with_patch then Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)\\.\\([0-9]\\)"
+      else Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)"
+    in
     let output = syscall cmd in
     try
       let _ = Str.search_forward version_re output 0 in
-      let major_rev = Pervasives.int_of_string (Str.matched_group 1 output) in
-      let minor_rev = Pervasives.int_of_string (Str.matched_group 2 output) in
-      (*let bug_rev = Pervasives.int_of_string (Str.matched_group 3 output) in
-      Some (major_rev, minor_rev, bug_rev)*)
-      Some (major_rev, minor_rev)
+      let major_rev = get_rev output 1 in
+      let minor_rev = get_rev output 2 in
+      let patch_rev = if with_patch then get_rev output 3 else 0 in
+      Some (major_rev, minor_rev, patch_rev)
     with Not_found -> None
   in
 
   match Smt.solver () with
   | `Z3_SMTLIB -> (
     let cmd = Format.asprintf "%s -version" (Smt.z3_bin ()) in
-    match get_version cmd with
-    | Some (major_rev, minor_rev) ->
+    match get_version false cmd with
+    | Some (major_rev, minor_rev, _) ->
       if major_rev < 4 || (major_rev = 4 && minor_rev < 6) then (
         if Smt.check_sat_assume () then (
           Log.log L_warn "Detected Z3 4.5.x or older: disabling check_sat_assume";
@@ -2637,8 +2645,8 @@ let solver_dependant_actions () =
   )
   | `Yices_SMTLIB -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices2smt2_bin ()) in
-    match get_version cmd with
-    | Some (major_rev, minor_rev) ->
+    match get_version true cmd with
+    | Some (major_rev, minor_rev, patch_rev) ->
       if major_rev < 2 || (major_rev = 2 && minor_rev < 6) then (
         let actions = [] in
         let actions =
@@ -2665,12 +2673,15 @@ let solver_dependant_actions () =
             (pp_print_list Format.pp_print_string ",@ ") actions
         )
       )
+      else if (major_rev > 2 || minor_rev > 6 || patch_rev > 1) then (
+        Smt.set_yices2_smt2models true
+      )
     | None -> Log.log L_warn "Couldn't determine Yices 2 version"
   )
   | `CVC4_SMTLIB -> (
     let cmd = Format.asprintf "%s --version" (Smt.cvc4_bin ()) in
-    match get_version cmd with
-    | Some (major_rev, minor_rev) ->
+    match get_version false cmd with
+    | Some (major_rev, minor_rev, _) ->
       if major_rev < 1 || (major_rev = 1 && minor_rev < 7) then (
         if Smt.check_sat_assume () then (
           Log.log L_warn "Detected CVC4 1.6 or older: disabling check_sat_assume";
@@ -2681,8 +2692,8 @@ let solver_dependant_actions () =
   )
   | `Yices_native -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
-    match get_version cmd with
-    | Some (major_rev, minor_rev) ->
+    match get_version false cmd with
+    | Some (major_rev, minor_rev, _) ->
       if major_rev > 1 then (
         Log.log L_error "Selected Yices 1 (native format), but found Yices 2 or later";
         exit 2
