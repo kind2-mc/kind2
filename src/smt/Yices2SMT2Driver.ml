@@ -41,7 +41,10 @@ let cmd_line
 
   (* Path and name of Yices executable *)
   let yices2smt2_bin = Flags.Smt.yices2smt2_bin () in
-  [| yices2smt2_bin; "--incremental" |]
+  if Flags.Smt.yices2_smt2models () then
+    [| yices2smt2_bin; "--incremental"; "--smt2-model-format" |]
+  else
+    [| yices2smt2_bin; "--incremental" |]
 
 
 let check_sat_limited_cmd _ = 

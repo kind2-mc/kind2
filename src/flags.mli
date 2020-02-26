@@ -260,6 +260,11 @@ module Smt : sig
   (** Executable of Yices2 SMT2 solver *)
   val yices2smt2_bin : unit -> string
 
+  (** Yices 2 binary supports models in SMT2 format **)
+  val yices2_smt2models : unit -> bool
+
+  val set_yices2_smt2models : bool -> unit
+
   (** Forces SMT traces. *)
   val set_trace: bool -> unit
   (** Write all SMT commands to files *)
