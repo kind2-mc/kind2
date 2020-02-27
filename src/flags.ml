@@ -2461,12 +2461,13 @@ let subdir_for scope =
 
 let anon_action s =
   match Global.input_file () with
-  | "" ->
+  | "" -> (
     (* filenames that start with - are allowed after the flag -- *)
     if not !Global.only_filename && s.[0] = '-' then raise (UnknownFlag s);
-    Global.set_input_file s;
+    try Global.set_input_file s with Unix.Unix_error _ -> ();
     Global.set_input_format s;
-    Global.set_output_dir s;
+    Global.set_output_dir s
+  )
   | _ ->
     if s.[0] = '-' then raise (UnknownFlag s)
     else raise (Arg.Bad ("More than one input file given: "^s))
