@@ -59,6 +59,9 @@ let rec interval imin imax =
   if imin > imax then []
   else imin::(interval (imin+1) imax)
 
+let scmap_size c =
+  ScMap.fold (fun _ lst acc -> acc + (List.length lst)) c 0
+
 (* ---------- PRETTY PRINTING ---------- *)
 
 let aux_vars sys =
@@ -169,15 +172,15 @@ let pp_print_loc_eqs in_sys sys =
   let var_map = compute_var_map in_sys sys in
   pp_print_loc_eqs_ var_map
 
-let pp_print_ivc ?(time=None) in_sys sys title fmt =
+let pp_print_ivc ?(time=None) in_sys sys title fmt ivc =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_ var_map in
-  Format.fprintf fmt "========== %s%s ==========\n\n" title
-  (match time with None -> "" | Some f -> Format.sprintf " (%.3fs)" f) ;
+  Format.fprintf fmt "========== %s (%i elements%s) ==========\n\n" title (scmap_size ivc)
+  (match time with None -> "" | Some f -> Format.sprintf ", %.3fs" f) ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "----- %s -----\n" (Scope.to_string scope) ;
     Format.fprintf fmt "%a\n" print eqs
-  )
+  ) ivc
 
 let impl_to_string = function
 | `IVC_AUC -> "AUC"
@@ -198,8 +201,8 @@ let pp_print_categories fmt =
 let pp_print_ivc_xml ?(time=None) in_sys sys title fmt ivc =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
-  Format.fprintf fmt "<IVC title=\"%s\" category=\"%a\" enter_nodes=%b impl=\"%s\">\n" title
-    pp_print_categories (Flags.IVC.ivc_elements ()) (Flags.IVC.ivc_enter_nodes ())
+  Format.fprintf fmt "<IVC size=\"%i\" title=\"%s\" category=\"%a\" enter_nodes=%b impl=\"%s\">\n"
+    (scmap_size ivc) title pp_print_categories (Flags.IVC.ivc_elements ()) (Flags.IVC.ivc_enter_nodes ())
     (impl_to_string (Flags.IVC.ivc_impl ())) ;
   match time with None -> ()
   | Some f -> Format.fprintf fmt "<Runtime unit=\"sec\">%.3f</Runtime>\n" f
@@ -216,6 +219,7 @@ let ivc2json ?(time=None) in_sys sys title ivc =
   let loc_eqs2json = loc_eqs2json var_map in
   let assoc = [
     ("objectType", `String "ivc") ;
+    ("size", `Int (scmap_size ivc)) ;
     ("title", `String title) ;
     ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.IVC.ivc_elements ()))) ;
     ("enterNodes", `Bool (Flags.IVC.ivc_enter_nodes ())) ;
@@ -1078,8 +1082,7 @@ let compute_unsat_core ?(pathcomp=None) ?(approximate=false)
 let is_empty_core c =
   ScMap.for_all (fun _ v -> v = []) c
 
-let core_size c =
-  ScMap.fold (fun _ lst acc -> acc + (List.length lst)) c 0
+let core_size = scmap_size
 
 let check_k_inductive ?(approximate=false) sys actlits init_terms trans_terms prop os_prop k =
   (* In the functions above, k starts at 0 whereas it start at 1 with Kind2 notation *)
