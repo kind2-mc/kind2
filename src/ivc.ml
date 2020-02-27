@@ -331,7 +331,6 @@ let all_wa_names_of_mua scmap =
   scmap []
 
 let mua2json_legacy in_sys param sys ((props, _),mua) (_, mua_compl) =
-  let var_map = compute_var_map in_sys sys in
   let (prop_src, prop_pos) = props_info props in
   let (_, pr, pc) = Lib.file_row_col_of_pos prop_pos in
   let wa = all_wa_names_of_mua mua |>
@@ -354,6 +353,20 @@ let mua2json_legacy in_sys param sys ((props, _),mua) (_, mua_compl) =
 
 let pp_print_mua_json_legacy in_sys param sys fmt (mua, mua_compl) =
   pp_print_json fmt (mua2json_legacy in_sys param sys mua mua_compl)
+
+let pp_print_mua_xml_legacy in_sys param sys fmt (((props, cex), mua), (_, mua_compl)) =
+  let (prop_src, prop_pos) = props_info props in
+  let (_, pr, pc) = Lib.file_row_col_of_pos prop_pos in
+  Format.fprintf fmt "<Property name=\"%a\" line=\"%i\" column=\"%i\" source=\"%s\">\n"
+    pp_print_properties props pr pc prop_src ;
+  Format.fprintf fmt "<WeakAssumptions>\n" ;
+  all_wa_names_of_mua mua |>
+    List.iter (Format.fprintf fmt "<WeakAssumption name=\"%s\" satisfied=\"true\" />\n") ;
+  all_wa_names_of_mua mua_compl |>
+    List.iter (Format.fprintf fmt "<WeakAssumption name=\"%s\" satisfied=\"false\" />\n") ;
+  Format.fprintf fmt "</WeakAssumptions>\n" ;
+  print_mua_counterexample in_sys param sys `XML fmt (props,cex) ;
+  Format.fprintf fmt "</Property>\n"
 
 (* ---------- LUSTRE AST ---------- *)
 
