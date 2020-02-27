@@ -1583,7 +1583,7 @@ type state_var_def =
   | CallOutput of position * LustreIndex.index
   | ProperEq of position * LustreIndex.index
   | GeneratedEq of position * LustreIndex.index
-  | ContractItem of position * string option (* name *) * bool (* soft *)
+  | ContractItem of position * LustreContract.svar * bool (* soft *)
   | Assertion of position
 
 let state_var_defs_map : state_var_def list StateVar.StateVarHashtbl.t = 

@@ -1489,6 +1489,23 @@ module MUA = struct
   let print_mua_compl () = !print_mua_compl
 
 
+  let print_mua_legacy_default = false
+  let print_mua_legacy = ref print_mua_legacy_default
+  let _ = add_spec
+    "--print_mua_legacy"
+    (bool_arg print_mua_legacy)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Print the maximal unsafe abstraction using the legacy format@ \
+          (only available with the -xml or -json flag)@ \
+          Default: %a\
+        "
+        fmt_bool print_mua_legacy_default
+    )
+  let print_mua_legacy () = !print_mua_legacy
+
+
   let print_counterexample_default = false
   let print_counterexample = ref print_counterexample_default
   let _ = add_spec

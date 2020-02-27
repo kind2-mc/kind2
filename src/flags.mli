@@ -484,6 +484,9 @@ module MUA : sig
   (** Print the equations NOT in the computed MUA *)
   val print_mua_compl : unit -> bool
 
+  (** Print the MUA using the legacy format (only for xml/json) *)
+  val print_mua_legacy : unit -> bool
+
     (** Print the equations NOT in the computed MUA *)
   val print_counterexample : unit -> bool
 

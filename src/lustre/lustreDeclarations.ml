@@ -1350,10 +1350,11 @@ and eval_contract_item check ?(soft=false) scope (ctx, accum, count) (pos, iname
   ) ;*)
   (* Define expression with a state variable *)
   let (svar, _), ctx = C.mk_local_for_expr ~is_ghost:true pos ctx expr in
-  N.add_state_var_def svar (N.ContractItem (pos, iname, soft)) ;
+  let contract_svar = Contract.mk_svar pos count iname svar scope in
+  N.add_state_var_def svar (N.ContractItem (pos, contract_svar, soft)) ;
   (* Add state variable to accumulator, continue with possibly modified
   context. *)
-  ctx, (Contract.mk_svar pos count iname svar scope) :: accum, count + 1
+  ctx, contract_svar :: accum, count + 1
 
 
 (* Fail if a contract node input is incompatible with a node input *)

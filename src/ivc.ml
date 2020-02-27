@@ -26,7 +26,7 @@ module IdMap = Map.Make(AstID)
 
 type term_cat =
 | NodeCall of string * SVSet.t
-| ContractItem of StateVar.t * string option (* name *) * bool (* soft *)
+| ContractItem of StateVar.t * LustreContract.svar * bool (* soft *)
 | Equation of StateVar.t
 | Assertion of StateVar.t
 | Unknown
@@ -122,9 +122,9 @@ let expr_pp_print var_map fmt expr =
 
 let cat_to_string = function
   | NodeCall _ -> "Node call"
-  | ContractItem (_, None, false) -> "Contract item"
-  | ContractItem (_, None, true) -> "Weak assumption"
-  | ContractItem (_, Some str, _) -> str
+  | ContractItem (_, {LustreContract.name = None}, false) -> "Contract item"
+  | ContractItem (_, {LustreContract.name = None}, true) -> "Weak assumption"
+  | ContractItem (_, {LustreContract.name = Some str}, _) -> str
   | Equation _ -> "Equation"
   | Assertion _ -> "Assertion"
   | Unknown -> "Unknown element"
@@ -303,6 +303,57 @@ let pp_print_ivc_json ?(time=None) in_sys sys title fmt ivc =
 
 let pp_print_mua_json in_sys param sys title fmt mua =
   pp_print_json fmt (mua2json in_sys param sys title mua)
+
+let prop_info { Property.prop_source } =
+  match prop_source with
+  | PropAnnot p -> ("PropAnnot", p)
+  | Assumption (p, _) -> ("Assumption", p)
+  | _ -> failwith "Property should be an annotation or an assumption"
+
+let props_info = function
+  | [] -> ("", Lib.dummy_pos)
+  | _::_::_ -> ("", Lib.dummy_pos)
+  | [p] -> prop_info p
+
+let name_of_wa_cat = function
+  | ContractItem (_, svar, true) -> Some (LustreContract.prop_name_of_svar svar "weakly_assume" "")
+  | _ -> None
+
+let all_wa_names_of_mua scmap =
+  ScMap.fold
+  (fun _ lst acc ->
+    List.fold_left (fun acc (_,_,cat) ->
+      match name_of_wa_cat cat with
+      | None -> acc
+      | Some str -> str::acc
+    ) acc lst
+  )
+  scmap []
+
+let mua2json_legacy in_sys param sys ((props, _),mua) (_, mua_compl) =
+  let var_map = compute_var_map in_sys sys in
+  let (prop_src, prop_pos) = props_info props in
+  let (_, pr, pc) = Lib.file_row_col_of_pos prop_pos in
+  let wa = all_wa_names_of_mua mua |>
+    List.map (fun str ->
+      `Assoc [("name", `String str) ; ("satisfied", `Bool true)]
+    ) in
+  let wa' = all_wa_names_of_mua mua_compl |>
+    List.map (fun str ->
+      `Assoc [("name", `String str) ; ("satisfied", `Bool false)]
+    ) in
+  let wa = wa@wa' in
+  `Assoc [
+    ("objectType", `String "property") ;
+    ("name", `String (Format.asprintf "%a" pp_print_properties props)) ;
+    ("source", `String prop_src) ;
+    ("line", `Int pr) ;
+    ("column", `Int pc) ;
+    ("weakAssumptions", `List wa)
+  ]
+
+let pp_print_mua_json_legacy in_sys param sys fmt (mua, mua_compl) =
+  pp_print_json fmt (mua2json_legacy in_sys param sys mua mua_compl)
 
 (* ---------- LUSTRE AST ---------- *)
 
@@ -736,19 +787,18 @@ let sv_of_term t =
 
 let locs_of_eq_term in_sys t =
   try
-    let has_soft_contract_items = ref false in
-    let has_contract_items = ref false in
+    let soft_contract = ref false in
+    let contract_items = ref None in
+    let set_contract_item svar = contract_items := Some svar in
     let has_asserts = ref false in
-    let name = ref None in
-    let set_name = function None -> () | Some str -> name := Some str in
     let sv = sv_of_term t in
     InputSystem.lustre_definitions_of_state_var in_sys sv
     |> List.filter (function LustreNode.CallOutput _ -> false | _ -> true)
     |> List.map (fun def ->
       ( match def with
         | LustreNode.Assertion _ -> has_asserts := true
-        | LustreNode.ContractItem (_, str, false) -> has_contract_items := true ; set_name str
-        | LustreNode.ContractItem (_, str, true) -> has_soft_contract_items := true ; set_name str
+        | LustreNode.ContractItem (_, svar, false) -> set_contract_item svar
+        | LustreNode.ContractItem (_, svar, true) -> soft_contract := true ; set_contract_item svar
         | _ -> ()
       );
       let p = LustreNode.pos_of_state_var_def def in
@@ -756,10 +806,11 @@ let locs_of_eq_term in_sys t =
       { pos=p ; index=i }
     )
     |> (fun locs ->
-      if !has_soft_contract_items then (ContractItem (sv, !name, true), locs)
-      else if !has_contract_items then (ContractItem (sv, !name, false), locs)
-      else if !has_asserts then (Assertion sv, locs)
-      else (Equation sv, locs)
+      match !contract_items with
+      | Some svar -> (ContractItem (sv, svar, !soft_contract), locs)
+      | None ->
+        if !has_asserts then (Assertion sv, locs)
+        else (Equation sv, locs)
     )
   with _ -> assert false
 

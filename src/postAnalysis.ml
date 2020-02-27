@@ -688,18 +688,7 @@ module RunMUA: PostAnalysis = struct
 
           let treat_mua mua =
 
-            if Flags.MUA.print_mua ()
-            then begin
-              let pt = Ivc.pp_print_mua in_sys param sys "MAIN" in
-              let xml = Ivc.pp_print_mua_xml in_sys param sys "main" in
-              let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mua_json in_sys param sys "main") in
-              let (_,filtered_mua) = Ivc.separate_mua_by_category mua in
-              KEvent.log_result pt xml json filtered_mua
-            end ;
-
-            if Flags.MUA.print_mua_compl ()
-            then begin
-              let not_mua = Ivc.ScMap.mapi (fun scope eqs ->
+            let not_mua = Ivc.ScMap.mapi (fun scope eqs ->
               List.filter (fun (eq,_,_) ->
                   try
                     let lst = Ivc.ScMap.find scope (snd mua)
@@ -709,11 +698,32 @@ module RunMUA: PostAnalysis = struct
                   with Not_found -> true
                 ) eqs
               ) (snd initial) in
-              let pt = Ivc.pp_print_mua in_sys param sys "COMPLEMENT" in
-              let xml = Ivc.pp_print_mua_xml in_sys param sys "complement" in
-              let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mua_json in_sys param sys "complement") in
-              let (_,filtered_not_mua) = Ivc.separate_mua_by_category (fst mua, not_mua) in
-              KEvent.log_result pt xml json filtered_not_mua
+            let not_mua = (fst mua, not_mua) in
+
+            if Flags.MUA.print_mua_legacy ()
+            then begin
+              let pt = (fun _ _ -> ()) in
+              let xml = (fun _ _ -> ()) in
+              let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mua_json_legacy in_sys param sys) in
+              KEvent.log_result pt xml json (mua, not_mua)
+            end else begin
+              if Flags.MUA.print_mua ()
+              then begin
+                let pt = Ivc.pp_print_mua in_sys param sys "MAIN" in
+                let xml = Ivc.pp_print_mua_xml in_sys param sys "main" in
+                let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mua_json in_sys param sys "main") in
+                let (_,filtered_mua) = Ivc.separate_mua_by_category mua in
+                KEvent.log_result pt xml json filtered_mua
+              end ;
+
+              if Flags.MUA.print_mua_compl ()
+              then begin
+                let pt = Ivc.pp_print_mua in_sys param sys "COMPLEMENT" in
+                let xml = Ivc.pp_print_mua_xml in_sys param sys "complement" in
+                let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mua_json in_sys param sys "complement") in
+                let (_,filtered_not_mua) = Ivc.separate_mua_by_category not_mua in
+                KEvent.log_result pt xml json filtered_not_mua
+              end
             end
           in
 
