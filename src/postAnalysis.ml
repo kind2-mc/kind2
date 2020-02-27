@@ -583,9 +583,9 @@ module RunIVC: PostAnalysis = struct
 
           if Flags.IVC.print_ivc ()
           then begin
-            let pt = Ivc.pp_print_ivc ~time:elapsed in_sys sys "MAIN" in
-            let xml = Ivc.pp_print_ivc_xml ~time:elapsed in_sys sys "main" in
-            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json ~time:elapsed in_sys sys "main") in
+            let pt = Ivc.pp_print_ivc ~time:elapsed in_sys sys "CORE" in
+            let xml = Ivc.pp_print_ivc_xml ~time:elapsed in_sys sys "core" in
+            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json ~time:elapsed in_sys sys "core") in
             let (_,filtered_ivc) = Ivc.separate_ivc_by_category ivc in
             KEvent.log_result pt xml json filtered_ivc
           end ;
@@ -709,9 +709,9 @@ module RunMUA: PostAnalysis = struct
             end else begin
               if Flags.MUA.print_mua ()
               then begin
-                let pt = Ivc.pp_print_mua in_sys param sys "MAIN" in
-                let xml = Ivc.pp_print_mua_xml in_sys param sys "main" in
-                let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mua_json in_sys param sys "main") in
+                let pt = Ivc.pp_print_mua in_sys param sys "CORE" in
+                let xml = Ivc.pp_print_mua_xml in_sys param sys "core" in
+                let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mua_json in_sys param sys "core") in
                 let (_,filtered_mua) = Ivc.separate_mua_by_category mua in
                 KEvent.log_result pt xml json filtered_mua
               end ;
