@@ -1498,7 +1498,7 @@ module MUA = struct
       Format.fprintf fmt
         "\
           Print the maximal unsafe abstraction using the legacy format@ \
-          (only available with the -xml or -json flag)@ \
+          (only available if --mua_per_property is true)@ \
           Default: %a\
         "
         fmt_bool print_mua_legacy_default
