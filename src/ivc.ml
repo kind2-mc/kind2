@@ -309,17 +309,6 @@ let pp_print_ivc_json ?(time=None) in_sys sys title fmt ivc =
 let pp_print_mua_json in_sys param sys title fmt mua =
   pp_print_json fmt (mua2json in_sys param sys title mua)
 
-let prop_info { Property.prop_source } =
-  match prop_source with
-  | PropAnnot p -> ("PropAnnot", p)
-  | Assumption (p, _) -> ("Assumption", p)
-  | _ -> failwith "Property should be an annotation or an assumption"
-
-let props_info = function
-  | [] -> ("", Lib.dummy_pos)
-  | _::_::_ -> ("", Lib.dummy_pos)
-  | [p] -> prop_info p
-
 let name_of_wa_cat = function
   | ContractItem (_, svar, true) -> Some (LustreContract.prop_name_of_svar svar "weakly_assume" "")
   | _ -> None
@@ -335,43 +324,22 @@ let all_wa_names_of_mua scmap =
   )
   scmap []
 
-let mua2json_legacy in_sys param sys ((props, _),mua) (_, mua_compl) =
-  let (prop_src, prop_pos) = props_info props in
-  let (_, pr, pc) = Lib.file_row_col_of_pos prop_pos in
-  let wa = all_wa_names_of_mua mua |>
-    List.map (fun str ->
-      `Assoc [("name", `String str) ; ("satisfied", `Bool true)]
-    ) in
-  let wa' = all_wa_names_of_mua mua_compl |>
-    List.map (fun str ->
-      `Assoc [("name", `String str) ; ("satisfied", `Bool false)]
-    ) in
-  let wa = wa@wa' in
-  `Assoc [
-    ("objectType", `String "property") ;
-    ("name", `String (Format.asprintf "%a" pp_print_properties props)) ;
-    ("source", `String prop_src) ;
-    ("line", `Int pr) ;
-    ("column", `Int pc) ;
-    ("weakAssumptions", `List wa)
-  ]
-
-let pp_print_mua_json_legacy in_sys param sys fmt (mua, mua_compl) =
-  pp_print_json fmt (mua2json_legacy in_sys param sys mua mua_compl)
-
-let pp_print_mua_xml_legacy in_sys param sys fmt (((props, cex), mua), (_, mua_compl)) =
-  let (prop_src, prop_pos) = props_info props in
-  let (_, pr, pc) = Lib.file_row_col_of_pos prop_pos in
-  Format.fprintf fmt "<Property name=\"%a\" line=\"%i\" column=\"%i\" source=\"%s\">\n"
-    pp_print_properties props pr pc prop_src ;
-  Format.fprintf fmt "<WeakAssumptions>\n" ;
-  all_wa_names_of_mua mua |>
-    List.iter (Format.fprintf fmt "<WeakAssumption name=\"%s\" satisfied=\"true\" />\n") ;
-  all_wa_names_of_mua mua_compl |>
-    List.iter (Format.fprintf fmt "<WeakAssumption name=\"%s\" satisfied=\"false\" />\n") ;
-  Format.fprintf fmt "</WeakAssumptions>\n" ;
-  print_mua_counterexample in_sys param sys `XML fmt (props,cex) ;
-  Format.fprintf fmt "</Property>\n"
+let pp_print_mua_legacy in_sys param sys ((props, cex), mua) (_, mua_compl) =
+  match props with
+  | [] | _::_::_ -> KEvent.log L_error "Legacy printing for MUA only support one property at a time."
+  | [{Property.prop_name}] ->
+    let sys = TS.copy sys in
+    let wa_model =
+      all_wa_names_of_mua mua
+      |>  List.map (fun str -> (str, true))
+    in
+    let wa_model' =
+        all_wa_names_of_mua mua_compl
+      |>  List.map (fun str -> (str, false))
+    in
+    TS.force_set_prop_unknown sys prop_name ;
+    let wa_model = wa_model@wa_model' in
+    KEvent.cex_wam cex wa_model in_sys param sys prop_name
 
 (* ---------- LUSTRE AST ---------- *)
 

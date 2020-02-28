@@ -106,8 +106,7 @@ type mua = ((Property.t list * (StateVar.t * Model.value list) list) * loc_equat
 val pp_print_mua : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
 val pp_print_mua_xml : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
 val pp_print_mua_json : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
-val pp_print_mua_json_legacy : 'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> mua * mua -> unit
-val pp_print_mua_xml_legacy : 'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> mua * mua -> unit
+val pp_print_mua_legacy : 'a InputSystem.t -> Analysis.param -> TransSys.t -> mua -> mua -> unit
 
 (** Separate a MUA into two MUA, the second one containing elements from the categories selected
     by the user, and the first one containing the others elements *)

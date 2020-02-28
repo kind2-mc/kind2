@@ -702,10 +702,7 @@ module RunMUA: PostAnalysis = struct
 
             if Flags.MUA.print_mua_legacy ()
             then begin
-              let pt = (fun _ _ -> ()) in
-              let xml = Ivc.pp_print_mua_xml_legacy in_sys param sys in
-              let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mua_json_legacy in_sys param sys) in
-              KEvent.log_result pt xml json (mua, not_mua)
+              Ivc.pp_print_mua_legacy in_sys param sys mua not_mua
             end else begin
               if Flags.MUA.print_mua ()
               then begin
