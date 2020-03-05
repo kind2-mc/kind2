@@ -4,7 +4,7 @@ Maximal Unsafe Abstraction
 ==========================
 
 The maximal unsafe abstraction generation is a post-analysis treatement that computes a maximal subset
-of weak assumptions to add to the system such that the system is still unsafe.
+of the weak assumptions such that the system is still unsafe even if these weak assumptions are satisifed.
 
 To enable maximal unsafe abstraction generation, run
 
@@ -17,9 +17,12 @@ Options
 
 * ``--mua_category {weak_assumptions|node_calls|contracts|equations|assertions}`` (default: weak_assumptions) -- Consider only a specific category of elements, repeat option to consider multiple categories
 * ``--mua_enter_nodes <bool>`` (default ``false``\ ) -- Consider elements of all the nodes (not only elements of the top-level node)
+* ``--mua_all <bool>`` (default ``false``\ ) -- Specify whether all the Maximal Unsafe Abstractions must be computed or just one
+* ``--mua_per_property <bool>`` (default ``true``\ ) -- If true, MUAs will be computed for each property separately
 * ``--print_mua <bool>`` (default ``true``\ ) -- Print the maximal unsafe abstraction computed
 * ``--print_mua_complement <bool>`` (default ``false``\ ) -- Print the complement of the maximal unsafe abstraction computed (this is equivalent to computing a minimal correction set)
-* ``--mua_all <bool>`` (default ``false``\ ) -- Specify whether all the Maximal Unsafe Abstractions must be computed or just one
+* ``--print_mua_legacy <bool>`` (default ``false``\ ) -- Print the maximal unsafe abstraction using the legacy format (only available if ``--mua_per_property`` is true)
+* ``--print_mua_counterexample <bool>`` (default ``false``\ ) -- Print a counterexample for each MUA found (ignored if ``--print_mua_legacy`` is true)
 
 Example
 -------
@@ -44,8 +47,8 @@ Let's consider the following Lustre code:
       --%PROPERTY P;
   tel;
 
-If we are interesting in determining which of the weak assumptions of the contract ``fSpec`` can be satisfied by still remaining unsafe,
-we should run this command:
+If you are interesting in determining which of the weak assumptions of the contract ``fSpec`` can be satisfied by still remaining unsafe,
+you can run this command:
 
 .. code-block:: none
 
@@ -53,7 +56,7 @@ we should run this command:
 
 Note that ``--mua_category weak_assumptions`` is not required since it is the default value.
 
-We obtain the following maximal unsafe abstraction:
+The following maximal unsafe abstraction is printed:
 
 .. code-block:: none
 

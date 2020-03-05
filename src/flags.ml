@@ -1515,6 +1515,7 @@ module MUA = struct
       Format.fprintf fmt
         "\
           Print a counterexample for each MUA found@ \
+          (ignored if --print_mua_legacy is true)@ \
           Default: %a\
         "
         fmt_bool print_counterexample_default
@@ -1530,7 +1531,7 @@ module MUA = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          If true, MUAs will be computed for each property separately.@ \
+          If true, MUAs will be computed for each property separately@ \
           Default: %a\
         "
         fmt_bool mua_per_property_default
