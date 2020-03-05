@@ -49,7 +49,7 @@ Requirements
 * GNU Libtool,
 * pkg-config,
 * OCaml 4.04 or later,
-* `Ocamlbuild <https://github.com/ocaml/ocamlbuild>`_\ , Ocamlfind, `Camlp4 <https://github.com/ocaml/camlp4>`_\ ,
+* `Ocamlbuild <https://github.com/ocaml/ocamlbuild>`_\ , Ocamlfind,
 * `Yojson <https://github.com/ocaml-community/yojson>`_\ ,
 * `num <https://github.com/ocaml/num>`_ (part of OCaml distribution until 4.06),
 * `Menhir <http://gallium.inria.fr/~fpottier/menhir/>`_ parser generator, and
