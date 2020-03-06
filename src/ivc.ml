@@ -62,13 +62,6 @@ let rec interval imin imax =
 let scmap_size c =
   ScMap.fold (fun _ lst acc -> acc + (List.length lst)) c 0
 
-
-let rec deconstruct_conj t =
-  match Term.destruct t with
-  | Term.T.App (s_and, ts) when Symbol.equal_symbols s_and Symbol.s_and ->
-    List.map deconstruct_conj ts |> List.flatten
-  | _ -> [t]
-
 let rec term_size t =
   match Term.destruct t with
   | Term.T.Var _ | Term.T.Const _ -> 0
