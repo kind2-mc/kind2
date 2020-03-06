@@ -12,12 +12,12 @@ unzip "${z3_version}.zip"
 sudo cp "${z3_version}/bin/z3" $install_dir
 
 # Retrieve opam.
-wget -qq https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh -O - | sh -s /usr/local/bin 4.04.0
-export OPAMYES=1
-eval $(opam config env)
+wget -qq https://github.com/ocaml/opam/releases/download/2.0.6/opam-2.0.6-x86_64-linux
+mv opam-2.0.6-x86_64-linux /usr/local/bin/opam && chmod a+x /usr/local/bin/opam
+opam init --disable-sandboxing --yes --comp 4.04.0 && eval $(opam env)
 
 # Install ocaml packages needed for Kind 2.
-opam install ocamlfind menhir yojson
+opam install --yes ocamlbuild ocamlfind menhir yojson
 
 # Build the PR's Kind 2.
 ./autogen.sh
