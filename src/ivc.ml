@@ -62,6 +62,25 @@ let rec interval imin imax =
 let scmap_size c =
   ScMap.fold (fun _ lst acc -> acc + (List.length lst)) c 0
 
+
+let rec deconstruct_conj t =
+  match Term.destruct t with
+  | Term.T.App (s_and, ts) when Symbol.equal_symbols s_and Symbol.s_and ->
+    List.map deconstruct_conj ts |> List.flatten
+  | _ -> [t]
+
+let rec term_size t =
+  match Term.destruct t with
+  | Term.T.Var _ | Term.T.Const _ -> 0
+  | Term.T.App (_, ts) -> List.fold_left (fun acc t -> acc + term_size t) 1 ts
+  | Term.T.Attr (t, _) -> term_size t
+
+let loc_eq_size ({ trans_opened ; init_opened }, _, _) =
+  (term_size trans_opened) + (term_size init_opened)
+
+let ivc_term_size c =
+  ScMap.fold (fun _ lst acc -> List.fold_left (fun acc e -> acc + loc_eq_size e) acc lst) c 0
+
 (* ---------- PRETTY PRINTING ---------- *)
 
 let aux_vars sys =
@@ -201,9 +220,9 @@ let pp_print_categories fmt =
 let pp_print_ivc_xml ?(time=None) in_sys sys title fmt ivc =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
-  Format.fprintf fmt "<IVC size=\"%i\" title=\"%s\" category=\"%a\" enter_nodes=%b impl=\"%s\">\n"
-    (scmap_size ivc) title pp_print_categories (Flags.IVC.ivc_elements ()) (Flags.IVC.ivc_enter_nodes ())
-    (impl_to_string (Flags.IVC.ivc_impl ())) ;
+  Format.fprintf fmt "<IVC size=\"%i\" node_size=\"%i\" title=\"%s\" category=\"%a\" enter_nodes=%b impl=\"%s\">\n"
+    (scmap_size ivc) (ivc_term_size ivc) title pp_print_categories (Flags.IVC.ivc_elements ())
+    (Flags.IVC.ivc_enter_nodes ()) (impl_to_string (Flags.IVC.ivc_impl ())) ;
   match time with None -> ()
   | Some f -> Format.fprintf fmt "<Runtime unit=\"sec\">%.3f</Runtime>\n" f
   ;
@@ -220,6 +239,7 @@ let ivc2json ?(time=None) in_sys sys title ivc =
   let assoc = [
     ("objectType", `String "ivc") ;
     ("size", `Int (scmap_size ivc)) ;
+    ("nodeSize", `Int (ivc_term_size ivc)) ;
     ("title", `String title) ;
     ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.IVC.ivc_elements ()))) ;
     ("enterNodes", `Bool (Flags.IVC.ivc_enter_nodes ())) ;
