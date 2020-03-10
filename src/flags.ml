@@ -2459,12 +2459,15 @@ let subdir_for scope =
 (* Parsing of command-line options into flags                             *)
 (* ********************************************************************** *)
 
+let set_input_file s =
+  try Global.set_input_file s with Unix.Unix_error _ -> ()
+
 let anon_action s =
   match Global.input_file () with
   | "" -> (
     (* filenames that start with - are allowed after the flag -- *)
     if not !Global.only_filename && s.[0] = '-' then raise (UnknownFlag s);
-    try Global.set_input_file s with Unix.Unix_error _ -> ();
+    set_input_file s ;
     Global.set_input_format s;
     Global.set_output_dir s
   )
