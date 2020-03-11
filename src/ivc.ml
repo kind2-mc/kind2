@@ -63,6 +63,18 @@ let rec interval imin imax =
 let scmap_size c =
   ScMap.fold (fun _ lst acc -> acc + (List.length lst)) c 0
 
+let rec term_size t =
+  match Term.destruct t with
+  | Term.T.Var _ | Term.T.Const _ -> 0
+  | Term.T.App (_, ts) -> List.fold_left (fun acc t -> acc + term_size t) 1 ts
+  | Term.T.Attr (t, _) -> term_size t
+
+let loc_eq_size ({ trans_opened ; init_opened }, _, _) =
+  (term_size trans_opened) + (term_size init_opened)
+
+let ivc_term_size c =
+  ScMap.fold (fun _ lst acc -> List.fold_left (fun acc e -> acc + loc_eq_size e) acc lst) c 0
+
 (* ---------- PRETTY PRINTING ---------- *)
 
 let aux_vars sys =
@@ -231,8 +243,8 @@ let pp_print_categories fmt =
 let pp_print_ivc_xml ?(time=None) in_sys sys title fmt (props,ivc) =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
-  Format.fprintf fmt "<IVC size=\"%i\" property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b impl=\"%s\">\n"
-    (scmap_size ivc) pp_print_properties props title
+  Format.fprintf fmt "<IVC size=\"%i\" node_size=\"%i\" property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b impl=\"%s\">\n"
+    (scmap_size ivc) (ivc_term_size ivc) pp_print_properties props title
     pp_print_categories (Flags.IVC.ivc_elements ()) (Flags.IVC.ivc_enter_nodes ())
     (impl_to_string (Flags.IVC.ivc_impl ())) ;
   match time with None -> ()
@@ -248,8 +260,8 @@ let pp_print_ivc_xml ?(time=None) in_sys sys title fmt (props,ivc) =
 let pp_print_mua_xml in_sys param sys title fmt ((props, cex),mua) =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
-  Format.fprintf fmt "<MUA size=\"%i\" property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b>\n"
-    (scmap_size mua) pp_print_properties props title
+  Format.fprintf fmt "<MUA size=\"%i\" node_size=\"%i\" property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b>\n"
+    (scmap_size mua) (ivc_term_size mua) pp_print_properties props title
     pp_print_categories (Flags.MUA.mua_elements ()) (Flags.MUA.mua_enter_nodes ()) ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "<scope name=\"%s\">\n" (Scope.to_string scope) ;
@@ -265,6 +277,7 @@ let ivc2json ?(time=None) in_sys sys title (props,ivc) =
   let assoc = [
     ("objectType", `String "ivc") ;
     ("size", `Int (scmap_size ivc)) ;
+    ("nodeSize", `Int (ivc_term_size ivc)) ;
     ("property", `String (Format.asprintf "%a" pp_print_properties props)) ;
     ("title", `String title) ;
     ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.IVC.ivc_elements ()))) ;
@@ -290,6 +303,7 @@ let mua2json in_sys param sys title ((props, _),mua) =
   `Assoc [
     ("objectType", `String "mua") ;
     ("size", `Int (scmap_size mua)) ;
+    ("nodeSize", `Int (ivc_term_size mua)) ;
     ("property", `String (Format.asprintf "%a" pp_print_properties props)) ;
     ("title", `String title) ;
     ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.MUA.mua_elements ()))) ;
