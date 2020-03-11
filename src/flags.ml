@@ -2476,20 +2476,20 @@ let anon_action s =
     else raise (Arg.Bad ("More than one input file given: "^s))
 
 
-let bool_of_string ((flag, _, desc) as tuple) s =
+let arg_bool_of_string ((flag, _, desc) as tuple) s =
   if List.mem s true_strings then true else
   if List.mem s false_strings then false else BadArg (
     Format.sprintf "expected bool but got \"%s\"" s,
     tuple
   ) |> raise
 
-let int_of_string ((flag, _, desc) as tuple) s = try (
+let arg_int_of_string ((flag, _, desc) as tuple) s = try (
   int_of_string s
 ) with _ -> BadArg (
   Format.sprintf "expected int but got \"%s\"" s, tuple
 ) |> raise
 
-let float_of_string ((flag, _, desc) as tuple) s = try (
+let arg_float_of_string ((flag, _, desc) as tuple) s = try (
   float_of_string s
 ) with _ -> BadArg (
   Format.sprintf "expected float but got \"%s\"" s, tuple
@@ -2515,13 +2515,13 @@ let parse_clas specs anon_action global_usage_msg =
           (* Got a next argument, matching on spec. *)
           | arg :: clas ->
             (match spec with
-              | Arg.Bool f -> bool_of_string tuple arg |> f
+              | Arg.Bool f -> arg_bool_of_string tuple arg |> f
               | Arg.String f -> f arg
               | Arg.Set_string s_ref -> s_ref := arg
-              | Arg.Int f -> int_of_string tuple arg |> f
-              | Arg.Set_int i_ref -> i_ref := int_of_string tuple arg
-              | Arg.Float f -> float_of_string tuple arg |> f
-              | Arg.Set_float f_ref -> f_ref := float_of_string tuple arg
+              | Arg.Int f -> arg_int_of_string tuple arg |> f
+              | Arg.Set_int i_ref -> i_ref := arg_int_of_string tuple arg
+              | Arg.Float f -> arg_float_of_string tuple arg |> f
+              | Arg.Set_float f_ref -> f_ref := arg_float_of_string tuple arg
               | _ ->
                 failwith "unsupported specification (Tuple, Symbol, or Rest)"
             ) ;
@@ -2618,7 +2618,7 @@ let solver_dependant_actions () =
 
   let get_version with_patch cmd =
     let get_rev output idx =
-      Pervasives.int_of_string (Str.matched_group idx output)
+      int_of_string (Str.matched_group idx output)
     in
     let version_re =
       if with_patch then Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)\\.\\([0-9]\\)"
