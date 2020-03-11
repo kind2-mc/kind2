@@ -857,12 +857,6 @@ let make_check_ts in_sys param analyze sys =
   let modules = Flags.enabled () in
   sys, (fun () -> analyze false modules in_sys param sys)
 
-let is_system_falsifiable sys =
-  List.exists (function
-    | { Property.prop_status = Property.PropFalse _ } -> true
-    | _ -> false
-  ) (TS.get_real_properties sys)
-
 let extract_props sys can_be_valid can_be_invalid =
   List.filter (function
     | { Property.prop_status = Property.PropInvariant _ } when can_be_valid -> true
@@ -2000,9 +1994,8 @@ let umivc in_sys param analyze sys k cont =
 type mua = ((Property.t list * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
 
 let properties_of_interest_for_mua sys =
-  if is_system_falsifiable sys
-  then extract_props sys false true
-  else extract_props sys true true
+  let ignore_valid_props = Flags.MUA.mua_elements () |> List.for_all (fun x -> x = `WEAK_ASS)
+  in extract_props sys (not ignore_valid_props) true
 
 let mua_ in_sys make_check_ts sys props all enter_nodes eqmap_keep eqmap_test =
   let prop_names = props_names props in
