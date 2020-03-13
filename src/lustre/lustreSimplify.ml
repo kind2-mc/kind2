@@ -148,7 +148,7 @@ let rec eval_ast_expr bounds ctx =
     let fail () =
       C.fail_at_position pos (
         Format.asprintf
-          "reference to unknown mode \"::%a\""
+          "reference to unknown mode '::%a'"
           (pp_print_list Format.pp_print_string "::") p4th
       )
     in

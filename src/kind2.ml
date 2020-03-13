@@ -47,7 +47,7 @@ let setup : unit -> any_input = fun () ->
     | Some f ->
       let oc = try open_out f with Sys_error msg ->
         Format.sprintf
-          "Could not open debug logfile \"%s\": \"%s\"" f msg
+          "Could not open debug logfile '%s': '%s'" f msg
         |> failwith
       in
       Debug.set_formatter (Format.formatter_of_out_channel oc)
@@ -84,7 +84,7 @@ let setup : unit -> any_input = fun () ->
   KEvent.log L_info "Parsing %s."
     (match in_file with
      | "" -> "standard input"
-     | _ -> "input file \"" ^ in_file ^ "\"");
+     | _ -> "input file '" ^ in_file ^ "'");
 
   try
     (* in_file |> *)
@@ -106,7 +106,7 @@ let setup : unit -> any_input = fun () ->
     let backtrace = Printexc.get_raw_backtrace () in
 
     KEvent.log
-      L_fatal "Error opening input file \"%s\":@ %s%a"
+      L_fatal "Error opening input file '%s':@ %s%a"
       (Flags.input_file ()) (Printexc.to_string e)
       (if Printexc.backtrace_status () then
          fun fmt -> Format.fprintf fmt "@\nBacktrace:@ %a" print_backtrace
@@ -144,13 +144,13 @@ let main () =
   match Flags.Contracts.translate_contracts () with
   | Some target -> (
     let src = Flags.input_file () in
-    KEvent.log_uncond "Translating contracts to file \"%s\"" target ;
+    KEvent.log_uncond "Translating contracts to file '%s'" target ;
     try (
       InputSystem.translate_contracts_lustre src target ;
       KEvent.log_uncond "Success"
     ) with e ->
       KEvent.log L_error
-        "Could not translate contracts from file \"%s\":@ %s"
+        "Could not translate contracts from file '%s':@ %s"
         src (Printexc.to_string e)
   )
   | None ->

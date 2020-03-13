@@ -88,7 +88,7 @@ let prev_log_format = ref !log_format
 let get_log_format () = !log_format
 let set_log_format l = log_format := l
 
-
+let first_log_flag = ref true
 
 
 (* ********************************************************************** *)
@@ -184,7 +184,12 @@ let printf_json mdl level fmt =
 
   (ignore_or_fprintf level)
     !log_ppf
-    (",@.{@[<v 1>@," ^^
+    ( (if !first_log_flag then
+         (first_log_flag := false; "")
+       else
+         ",@."
+      ) ^^
+      "{@[<v 1>@," ^^
       "\"objectType\" : \"log\",@," ^^
       "\"level\" : \"%s\",@," ^^
       "\"source\" : \"%s\",@," ^^
@@ -201,16 +206,22 @@ let parse_log_json level pos msg =
   let file, lnum, cnum = file_row_col_of_pos pos in
   (ignore_or_fprintf level)
     !log_ppf
-    ",@.{@[<v 1>@,\
-     \"objectType\" : \"log\",@,\
-     \"level\" : \"%s\",@,\
-     \"source\" : \"parse\",@,\
-     %a\
-     \"line\" : %d,@,\
-     \"column\" : %d,@,\
-     \"value\" : \"%s\"\
-     @]@.}@.\
-    "
+    ( (if !first_log_flag then
+         (first_log_flag := false; "")
+       else
+         ",@."
+      ) ^^
+      "{@[<v 1>@,\
+       \"objectType\" : \"log\",@,\
+       \"level\" : \"%s\",@,\
+       \"source\" : \"parse\",@,\
+       %a\
+       \"line\" : %d,@,\
+       \"column\" : %d,@,\
+       \"value\" : \"%s\"\
+       @]@.}@.\
+      "
+    )
     (string_of_log_level level)
     pp_print_fname file
     lnum cnum msg
@@ -239,7 +250,6 @@ let set_relay_log () =
 
 
 let unset_relay_log () = log_format := !prev_log_format
-
 
 module type SLog = sig
   val log : 'a log_printer
