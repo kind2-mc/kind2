@@ -280,7 +280,7 @@ module ModeTrace = struct
     loop [] trees
 
   (** Formats a tree as a cex step in JSON *)
-  let fmt_as_cex_step_json fmt (top_mods, trees) =
+  let fmt_as_cex_step_json fmt (top_mods, contract_modes) =
 
     let pp_print_qstring ppf s =
       Format.fprintf ppf "\"%s\"" s
@@ -292,51 +292,29 @@ module ModeTrace = struct
         "@,[@[<v 1>@,%a@]@,]" (pp_print_list pp ",@,") lst
     in
 
-    let rec loop right = function
-      | (Contract (name, modes, subs)) :: tail ->
-        Format.fprintf fmt
-          "@,{@[<v 1>@,\
+    let rec pp_contract_modes ppf (Contract (name, modes, subs)) =
+      Format.fprintf fmt
+          "{@[<v 1>@,\
             \"contract\" : \"%s\",@,\
             \"modes\" :%a,@,\
-            \"subcontractModes\" :\
+            \"subcontractModes\" :%a\
+           @]@,}\
           "
-          name (pp_print_mode_list pp_print_qstring) modes;
-        if subs = [] then (
-          Format.fprintf fmt " []"; loop (tail :: right) subs
-        )
-        else (
-          Format.fprintf fmt "@,[@[<v 1>@,";
-          loop (tail :: right) subs;
-          Format.fprintf fmt "@]@,]"
-        )
-      | [] -> go_up right
-    and go_up = function
-      | head :: tail -> (
-        match head with
-        | [] -> (
-          Format.fprintf fmt "@]@,}";
-          go_up tail
-        )
-        | _ -> (
-          Format.fprintf fmt "@]@,},";
-          loop tail head
-        )
-      )
-      | [] -> ()
+          name (pp_print_mode_list pp_print_qstring) modes
+          pp_print_contract_modes_list subs
+    and
+      pp_print_contract_modes_list ppf = function
+      | [] -> Format.fprintf ppf " []"
+      | lst -> Format.fprintf ppf
+        "@,[@[<v 1>@,%a@]@,]" (pp_print_list pp_contract_modes ",@,") lst
     in
 
     Format.fprintf fmt
       "\"topModes\" :%a,@,\
-       \"contractModes\" :\
+       \"contractModes\" :%a\
       "
-      (pp_print_mode_list pp_print_qstring) top_mods;
-
-    if trees = [] then Format.fprintf fmt " []"
-    else (
-      Format.fprintf fmt "@,[@[<v 1>";
-      loop [] trees;
-      Format.fprintf fmt "@]@,]"
-    )
+      (pp_print_mode_list pp_print_qstring) top_mods
+      pp_print_contract_modes_list contract_modes
 
 end
 
