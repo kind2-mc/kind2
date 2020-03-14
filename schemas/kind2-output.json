@@ -40,14 +40,110 @@
             "required": ["objectType", "level", "source", "value"]
         },
         "kind2Options": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+                "objectType" : {
+                    "const": "kind2Options"
+                },
+                "enabled": {
+                    "type": "array",
+                    "items": { "type" : "string" }
+                },
+                "timeout": {
+                    "type": "number"
+                },
+                "bmcMax": {
+                    "type": "integer"
+                },
+                "compositional": {
+                    "type": "boolean"
+                },
+                "modular": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "objectType", "enabled", "timeout", "bmcMax",
+                "compositional", "modular"
+            ]
+        },
+        "scope": {
+            "type": "string"
+        },
+        "analysisStart": {
+            "type": "object",
+            "properties": {
+                "objectType" : {
+                    "const": "analysisStart"
+                },
+                "top": {
+                    "$ref": "#/definitions/scope"
+                },
+                "concrete": {
+                    "type": "array",
+                    "items": { "$ref": "#/definitions/scope" }
+                },
+                "abstract": {
+                    "type": "array",
+                    "items": { "$ref": "#/definitions/scope" }
+                },
+                "assumptions": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "items": [
+                          { "$ref": "#/definitions/scope" },
+                          { "type": "integer" }
+                      ],
+                      "minItems": 2,
+                      "maxItems": 2
+                    }
+                }
+            },
+            "required": [
+                "objectType", "top", "concrete", "abstract", "assumptions"
+            ]
+        },
+        "postAnalysisStart": {
+            "type": "object",
+            "properties": {
+                "objectType": {
+                    "const": "postAnalysisStart"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "required": [ "objectType", "name" ]
+        },
+        "analysisStop": {
+            "type": "object",
+            "properties": {
+                "objectType": {
+                    "const": "analysisStop"
+                }
+            },
+            "required": [ "objectType" ]
+        },
+        "postAnalysisStop": {
+            "type": "object",
+            "properties": {
+                "objectType": {
+                    "const": "postAnalysisStop"
+                }
+            },
+            "required": [ "objectType" ]
         },
         "results": {
-            "type" : "array",
+            "type": "array",
             "items": {
                 "anyOf": [
                    { "$ref": "#/definitions/log" },
-                   { "$ref": "#/definitions/kind2Options" }
+                   { "$ref": "#/definitions/kind2Options" },
+                   { "$ref": "#/definitions/analysisStart" },
+                   { "$ref": "#/definitions/postAnalysisStart" },
+                   { "$ref": "#/definitions/analysisStop" },
+                   { "$ref": "#/definitions/postAnalysisStop" }
                 ] 
             }
         }
