@@ -1,0 +1,60 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "https://kind.cs.uiowa.edu/kind2-output.json",
+    "title": "JSON schema for Kind 2's output",
+
+    "definitions": {
+        "log": {
+            "type": "object",
+            "properties": {
+                "objectType" : {
+                    "const": "log"
+                },
+                "level": {
+                    "enum": [
+                        "fatal",
+                        "error",
+                        "warn",
+                        "note",
+                        "info",
+                        "debug",
+                        "trace"
+                    ]
+                },
+                "source": {
+                    "type": "string"
+                },
+                "file": {
+                    "type": "string"
+                },
+                "line": {
+                    "type": "integer"
+                },
+                "column": {
+                    "type": "integer"
+                },
+                "value": {
+                    "type": "string"
+                }
+            },
+            "required": ["objectType", "level", "source", "value"]
+        },
+        "kind2Options": {
+            "type": "object"
+        },
+        "results": {
+            "type" : "array",
+            "items": {
+                "anyOf": [
+                   { "$ref": "#/definitions/log" },
+                   { "$ref": "#/definitions/kind2Options" }
+                ] 
+            }
+        }
+    },
+
+    "anyOf": [
+      { "$ref": "#/definitions/log" },
+      { "$ref": "#/definitions/results" }
+    ]
+}
