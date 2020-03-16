@@ -1210,6 +1210,22 @@ module IVC = struct
   let ivc_enter_nodes () = !ivc_enter_nodes
 
 
+  let ivc_per_property_default = true
+  let ivc_per_property = ref ivc_per_property_default
+  let _ = add_spec
+    "--ivc_per_property"
+    (bool_arg ivc_per_property)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          If true, IVCs will be computed for each property separately@ \
+          Default: %a\
+        "
+        fmt_bool ivc_per_property_default
+    )
+  let ivc_per_property () = !ivc_per_property
+
+
   let print_ivc_default = true
   let print_ivc = ref print_ivc_default
   let _ = add_spec

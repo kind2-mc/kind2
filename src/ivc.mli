@@ -55,6 +55,7 @@ val ivc_uc :
   'a InputSystem.t ->
   ?approximate:bool ->
   TransSys.t ->
+  Property.t list option ->
   ivc option
 
 (** Outputs a minimal inductive validity core by trying to remove all the equations one after another
@@ -68,6 +69,7 @@ val ivc_bf :
     -> unit
   ) ->
   TransSys.t ->
+  Property.t list option ->
   ivc option
 
 (** Outputs a minimal inductive validity core by first computing an UNSAT core (ivc_uc),
@@ -82,6 +84,7 @@ val ivc_ucbf :
     -> unit
   ) ->
   TransSys.t ->
+  Property.t list option ->
   ivc option
 
 (** Outputs all minimal inductive validity cores by implementing the UMIVC algorithm.
@@ -95,9 +98,14 @@ val umivc :
     -> unit
   ) ->
   TransSys.t ->
+  Property.t list option ->
   int ->
   (ivc -> unit) ->
   ivc list
+
+(** Returns the names of the properties for which we may be interested in computing an IVC. *)
+val properties_of_interest_for_ivc : TransSys.t -> Property.t list
+
 
 (* ----- MAXIMAL UNSAFE ABSTRACTIONS ----- *)
 

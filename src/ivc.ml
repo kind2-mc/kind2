@@ -189,14 +189,13 @@ let pp_print_loc_eqs in_sys sys =
 
 let rec pp_print_properties fmt = function
   | [] -> ()
-  | _::_::_ -> ()
-  | { Property.prop_name = n }::props ->
-    Format.fprintf fmt "%s %a" n pp_print_properties props
+  | _::_::_ -> Format.fprintf fmt "all"
+  | [{ Property.prop_name = n }] -> Format.fprintf fmt "%s" n
 
 let pp_print_ivc ?(time=None) in_sys sys title fmt (props,ivc) =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_ var_map in
-  Format.fprintf fmt "========== %a(%s, %i elements%s) ==========\n\n" pp_print_properties props title (scmap_size ivc)
+  Format.fprintf fmt "========== %a (%s, %i elements%s) ==========\n\n" pp_print_properties props title (scmap_size ivc)
   (match time with None -> "" | Some f -> Format.sprintf ", %.3fs" f) ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "----- %s -----\n" (Scope.to_string scope) ;
@@ -1410,9 +1409,17 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_t
   | None -> raise NotKInductive
   | Some core -> core_to_eqmap core
 
-let ivc_uc in_sys ?(approximate=false) sys =
+let properties_of_interest_for_ivc sys =
+  extract_props sys true false
+
+let ivc_props sys props =
+  match props with
+  | None -> properties_of_interest_for_ivc sys
+  | Some props -> props
+
+let ivc_uc in_sys ?(approximate=false) sys props =
   try (
-    let props = extract_props sys true false in
+    let props = ivc_props sys props in
     let enter_nodes = Flags.IVC.ivc_enter_nodes () in
     let eqmap = _all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
@@ -1496,9 +1503,9 @@ let ivc_bf_ in_sys check_ts sys props enter_nodes keep test =
   | Some eqmap -> eqmap
   end
 
-let ivc_bf in_sys param analyze sys =
+let ivc_bf in_sys param analyze sys props =
   try (
-    let props = extract_props sys true false in
+    let props = ivc_props sys props in
     let enter_nodes = Flags.IVC.ivc_enter_nodes () in
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
@@ -1514,9 +1521,9 @@ let ivc_bf in_sys param analyze sys =
     None
 
 (** Implements the algorithm IVC_UCBF *)
-let ivc_ucbf in_sys param analyze sys =
+let ivc_ucbf in_sys param analyze sys props =
   try (
-    let props = extract_props sys true false in
+    let props = ivc_props sys props in
     let enter_nodes = Flags.IVC.ivc_enter_nodes () in
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
@@ -1977,9 +1984,9 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_te
   )
 
 (** Implements the algorithm UMIVC. *)
-let umivc in_sys param analyze sys k cont =
+let umivc in_sys param analyze sys props k cont =
   try (
-    let props = extract_props sys true false in
+    let props = ivc_props sys props in
     let enter_nodes = (Flags.IVC.ivc_enter_nodes ()) in
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in

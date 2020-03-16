@@ -452,6 +452,9 @@ module IVC : sig
   (** If true, compute a core with equations of all subsystems *)
   val ivc_enter_nodes : unit -> bool
 
+  (** If true, IVCs will be computed for each properties separately *)
+  val ivc_per_property : unit -> bool
+
   (** Specify the implementation *)
   val ivc_impl : unit -> ivcimpl
 

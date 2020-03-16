@@ -557,6 +557,11 @@ module RunIVC: PostAnalysis = struct
   let title = "inductive validity core"
   let is_active () = Flags.IVC.compute_ivc ()
 
+  let rec pp_print_properties fmt = function
+  | [] -> ()
+  | _::_::_ -> Format.fprintf fmt "all"
+  | [{ Property.prop_name = n }] -> Format.fprintf fmt "%s" n
+
   let run in_sys param analyze results =
     let top = (Analysis.info_of_param param).Analysis.top in
     last_result results top
@@ -575,79 +580,89 @@ module RunIVC: PostAnalysis = struct
         let nb = ref 0 in
         let time = ref (Unix.gettimeofday ()) in
         let initial = Ivc.all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
-        let treat_ivc ivc =
 
-          let ntime = Unix.gettimeofday () in
-          let elapsed = Some (ntime -. !time) in
-          time := ntime ;
-
-          if Flags.IVC.print_ivc ()
-          then begin
-            let pt = Ivc.pp_print_ivc ~time:elapsed in_sys sys "CORE" in
-            let xml = Ivc.pp_print_ivc_xml ~time:elapsed in_sys sys "core" in
-            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json ~time:elapsed in_sys sys "core") in
-            let (_,filtered_ivc) = Ivc.separate_ivc_by_category ivc in
-            KEvent.log_result pt xml json filtered_ivc
-          end ;
-
-          if Flags.IVC.print_ivc_compl ()
-          then begin
-            let not_ivc = Ivc.ScMap.mapi (fun scope eqs ->
-            List.filter (fun (eq,_,_) ->
-                try
-                  let lst = Ivc.ScMap.find scope (snd ivc)
-                  |> List.map (fun (eq,_,_) -> eq.Ivc.trans_closed) in
-                  Term.TermSet.mem eq.Ivc.trans_closed (Term.TermSet.of_list lst)
-                  |> not
-                with Not_found -> true
-              ) eqs
-            ) (snd initial) in
-            let pt = Ivc.pp_print_ivc ~time:elapsed in_sys sys "COMPLEMENT" in
-            let xml = Ivc.pp_print_ivc_xml ~time:elapsed in_sys sys "complement" in
-            let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json ~time:elapsed in_sys sys "complement") in
-            let (_,filtered_not_ivc) = Ivc.separate_ivc_by_category (fst ivc, not_ivc) in
-            KEvent.log_result pt xml json filtered_not_ivc
-          end ;
-
-          if Flags.IVC.minimize_program () <> `DO_NOT_MINIMIZE
-          then begin
-            let minimized =
-              ISys.lustre_source_ast in_sys
-              |> Ivc.minimize_lustre_ast
-                ~valid_lustre:(Flags.IVC.minimize_program () = `VALID_LUSTRE) in_sys ivc
-            in
-            let dir =
-              match Flags.IVC.minimized_program_dir () with
-              | "" ->
-                Flags.input_file ()
-                |> Filename.remove_extension
-              | str -> str
-            in
-            (try Unix.mkdir dir 0o755 with _ -> ()) ;
-            let filename = Filename.concat dir (Printf.sprintf "%n.lus" !nb) in
-            let print_channel out =
-              let fmt = Format.formatter_of_out_channel out in
-              LustreAst.pp_print_program fmt
-            in
-            let oc = open_out filename in
-            print_channel oc minimized ;
-            close_out oc
-          end ;
-
-          nb := !nb + 1
+        let props =
+          if Flags.IVC.ivc_per_property ()
+          then List.map (fun x -> [x]) (Ivc.properties_of_interest_for_ivc sys)
+          else [Ivc.properties_of_interest_for_ivc sys]
         in
+        
+        let treat_props props =
+          let treat_ivc ivc =
 
-        let treat_and_return_lst = function
-          | None -> []
-          | Some e -> treat_ivc e ; [e] in
-        let res = match Flags.IVC.ivc_impl () with
-          | `IVC_UC -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:false sys)
-          | `IVC_AUC -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:true sys)
-          | `IVC_BF -> treat_and_return_lst (Ivc.ivc_bf in_sys param analyze sys)
-          | `IVC_UCBF -> treat_and_return_lst (Ivc.ivc_ucbf in_sys param analyze sys)
-          | `UMIVC -> Ivc.umivc in_sys param analyze sys (Flags.IVC.ivc_umivc_k ()) treat_ivc
+            let ntime = Unix.gettimeofday () in
+            let elapsed = Some (ntime -. !time) in
+            time := ntime ;
+
+            if Flags.IVC.print_ivc ()
+            then begin
+              let pt = Ivc.pp_print_ivc ~time:elapsed in_sys sys "CORE" in
+              let xml = Ivc.pp_print_ivc_xml ~time:elapsed in_sys sys "core" in
+              let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json ~time:elapsed in_sys sys "core") in
+              let (_,filtered_ivc) = Ivc.separate_ivc_by_category ivc in
+              KEvent.log_result pt xml json filtered_ivc
+            end ;
+
+            if Flags.IVC.print_ivc_compl ()
+            then begin
+              let not_ivc = Ivc.ScMap.mapi (fun scope eqs ->
+              List.filter (fun (eq,_,_) ->
+                  try
+                    let lst = Ivc.ScMap.find scope (snd ivc)
+                    |> List.map (fun (eq,_,_) -> eq.Ivc.trans_closed) in
+                    Term.TermSet.mem eq.Ivc.trans_closed (Term.TermSet.of_list lst)
+                    |> not
+                  with Not_found -> true
+                ) eqs
+              ) (snd initial) in
+              let pt = Ivc.pp_print_ivc ~time:elapsed in_sys sys "COMPLEMENT" in
+              let xml = Ivc.pp_print_ivc_xml ~time:elapsed in_sys sys "complement" in
+              let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json ~time:elapsed in_sys sys "complement") in
+              let (_,filtered_not_ivc) = Ivc.separate_ivc_by_category (fst ivc, not_ivc) in
+              KEvent.log_result pt xml json filtered_not_ivc
+            end ;
+
+            if Flags.IVC.minimize_program () <> `DO_NOT_MINIMIZE
+            then begin
+              let minimized =
+                ISys.lustre_source_ast in_sys
+                |> Ivc.minimize_lustre_ast
+                  ~valid_lustre:(Flags.IVC.minimize_program () = `VALID_LUSTRE) in_sys ivc
+              in
+              let dir =
+                match Flags.IVC.minimized_program_dir () with
+                | "" ->
+                  Flags.input_file ()
+                  |> Filename.remove_extension
+                | str -> str
+              in
+              (try Unix.mkdir dir 0o755 with _ -> ()) ;
+              let filename = Filename.concat dir (Format.asprintf "%a_%n.lus" pp_print_properties props !nb) in
+              let print_channel out =
+                let fmt = Format.formatter_of_out_channel out in
+                LustreAst.pp_print_program fmt
+              in
+              let oc = open_out filename in
+              print_channel oc minimized ;
+              close_out oc
+            end ;
+
+            nb := !nb + 1
+          in
+
+          let treat_and_return_lst = function
+            | None -> []
+            | Some e -> treat_ivc e ; [e] in
+          let res = match Flags.IVC.ivc_impl () with
+            | `IVC_UC -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:false sys (Some props))
+            | `IVC_AUC -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:true sys (Some props))
+            | `IVC_BF -> treat_and_return_lst (Ivc.ivc_bf in_sys param analyze sys (Some props))
+            | `IVC_UCBF -> treat_and_return_lst (Ivc.ivc_ucbf in_sys param analyze sys (Some props))
+            | `UMIVC -> Ivc.umivc in_sys param analyze sys (Some props) (Flags.IVC.ivc_umivc_k ()) treat_ivc
+          in
+          KEvent.log_uncond "Number of minimal IVCs found: %n" (List.length res) ;
         in
-        KEvent.log_uncond "Number of minimal IVCs found: %n" (List.length res) ;
+        List.iter treat_props props ;
         Ok ()
       )
       with
