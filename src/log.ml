@@ -171,14 +171,6 @@ let parse_log_xml level pos msg =
 (* JSON output                                                            *)
 (* ********************************************************************** *)
 
-let escape_json_string s =
-  let backslash = Str.regexp "\\" in
-  let double_quotes = Str.regexp "\"" in
-  let newline = Str.regexp "\n" in
-  s |> Str.global_replace backslash "\\\\"
-    |> Str.global_replace double_quotes "\\\""
-    |> Str.global_replace newline "\\n"
-
 (* Output message as JSON *)
 let printf_json mdl level fmt =
 
