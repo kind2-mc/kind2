@@ -1604,7 +1604,7 @@ let pp_print_active_modes_json ppf = function
         (pp_print_list (fun fmt (k, tree) ->
           Format.fprintf ppf
             "@,{@[<v 1>@,\
-              \"instant\" : \"%d\",@,\
+              \"instant\" : %d,@,\
               %a\
              @]@,}\
             "
