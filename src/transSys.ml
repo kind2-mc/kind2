@@ -136,7 +136,7 @@ type t =
     (* Properties to prove invariant for this transition system 
 
        Does not need to be mutable, because a Property.t is *)
-    properties : Property.t list;
+    mutable properties : Property.t list;
 
     (** Requirements of global and non-global modes for this system (used by
         test generation).
@@ -1378,6 +1378,9 @@ let get_prop_status_all_unknown t =
 let has_properties = function
 | { properties = [] } -> false
 | _ -> true
+
+let set_properties ts ps =
+  ts.properties <- ps
 
 (* Return true if all properties which are not candidates are either valid or
    invalid *)

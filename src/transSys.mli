@@ -539,6 +539,9 @@ val set_prop_ktrue : t -> int -> string -> unit
 
 val force_set_prop_unknown : t -> string -> unit
 
+(* Set the list of properties. /!\ Mutable *)
+val set_properties : t -> Property.t list -> unit
+
 (** Returns true iff sys has at least one property. *)
 val has_properties : t -> bool
 

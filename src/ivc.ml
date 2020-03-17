@@ -1017,12 +1017,34 @@ let term_of_eq init closed eq =
   else eq.trans_opened
 
 let reset_ts enter_nodes sys =
+  let set_props_unknown sys =
+    List.iter
+      (fun str -> TS.force_set_prop_unknown sys str)
+      (extract_all_props_names sys)
+  in
   if enter_nodes
-  then TS.clear_all_invariants sys
-  else TS.clear_invariants sys ;
-  List.iter
-    (fun str -> TS.force_set_prop_unknown sys str)
-    (extract_all_props_names sys)
+  then (
+    TS.clear_all_invariants sys ;
+    TS.iter_subsystems ~include_top:true set_props_unknown sys
+  )
+  else (
+    TS.clear_invariants sys ;
+    set_props_unknown sys
+  )
+
+let make_other_props_candidate sys prop_names =
+  let aux sys =
+    let props = TS.get_properties sys in
+    let aux prop =
+      let name = prop.Property.prop_name in
+      if List.exists (fun n -> n = name) prop_names
+      then prop
+      else { prop with prop_source = Property.Candidate None }
+    in
+    List.map aux props
+    |> TS.set_properties sys
+  in
+  TS.iter_subsystems ~include_top:true aux sys
 
 (* ---------- IVC_UC ---------- *)
 
@@ -1451,7 +1473,7 @@ exception CannotProve
 (** Implements the algorithm IVC_BF *)
 let ivc_bf_ in_sys check_ts sys props enter_nodes keep test =
   let prop_names = props_names props in
-
+  make_other_props_candidate sys prop_names ;
   (* Minimization *)
   let rec minimize ?(skip_first_check=false) check keep test =
     if skip_first_check || check keep test then
@@ -1786,7 +1808,9 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_te
   let prop_names = props_names props in
   (*let sys_original = sys in*)
   let (sys_cs, check_ts_cs) = make_check_ts sys in
+  make_other_props_candidate sys_cs prop_names ;
   let (sys, check_ts) = make_check_ts sys in
+  make_other_props_candidate sys prop_names ;
 
   (* Activation litterals, core and mapping to equations *)
   let add_to_bindings must_be_tested scope eqs act_bindings =
@@ -2021,6 +2045,7 @@ let properties_of_interest_for_mua sys =
 let mua_ in_sys make_check_ts sys props all enter_nodes eqmap_keep eqmap_test =
   let prop_names = props_names props in
   let (sys, check_ts) = make_check_ts sys in
+  make_other_props_candidate sys prop_names ;
 
   (* Activation litterals, core and mapping to equations *)
   let add_to_bindings must_be_tested scope eqs act_bindings =
