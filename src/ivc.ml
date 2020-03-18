@@ -1048,7 +1048,8 @@ let make_other_props_candidate sys prop_names =
   aux prop_names sys
 
 let add_invariants_as_candidate enter_nodes sys =
-  let _cnt = ref 0 in
+  (* Disabled because it seems to favorize runtime exceptions *)
+  (*let _cnt = ref 0 in
   let cnt () =
     _cnt := !_cnt + 1 ;
     !_cnt
@@ -1069,7 +1070,8 @@ let add_invariants_as_candidate enter_nodes sys =
   in
   if enter_nodes
   then TS.iter_subsystems ~include_top:true aux sys
-  else aux sys
+  else aux sys*)
+  ()
 
 (* ---------- IVC_UC ---------- *)
 
