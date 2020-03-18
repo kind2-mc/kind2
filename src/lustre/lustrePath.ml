@@ -1313,12 +1313,15 @@ let pp_print_stream_xml get_source model clock ppf (index, state_var) =
     | Type.Abstr s ->
       Format.pp_print_string ppf s
     | Type.IntRange (i, j, Type.Enum) ->
-      let name = match Type.name_of_enum stream_type with
-        | Some n -> n
-        | None -> assert false
+      let pp_print_enum_name ppf =
+        match Type.name_of_enum stream_type with
+        | Some n -> (
+          Format.fprintf ppf "enumName=\"%s\" " n
+        )
+        | None -> ()
       in
-      Format.fprintf ppf "type=\"enum\"@ enumName=\"%s\" values=\"%a\""
-        (name) (pp_print_list Format.pp_print_string ", ")
+      Format.fprintf ppf "type=\"enum\"@ %tvalues=\"%a\""
+        pp_print_enum_name (pp_print_list Format.pp_print_string ", ")
         (Type.constructors_of_enum stream_type)
     | Type.Array (s, t) ->
       Format.pp_print_string ppf "type=\"array\""
