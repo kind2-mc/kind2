@@ -1055,7 +1055,7 @@ let add_invariants_as_candidate enter_nodes sys =
   in
   let aux sys =
     let invs = TS.get_invariants sys in
-    let invs = Term.TermSet.union (Invs.get_os invs) (Invs.get_ts invs) in
+    let invs = Invs.get_os invs in
     let add_as_candidate t =
       let p = Property.{
         prop_name = Format.sprintf "%%inv_%i" (cnt ()) ;
