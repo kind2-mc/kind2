@@ -279,7 +279,66 @@
             }
         },
         "kind2Type": {
-            "type": "string"
+            "enum": [
+                "bool",
+                "int", "subrange",
+                "int8", "int16", "int32", "int64",
+                "uint8", "uint16", "uint32", "uint64",
+                "real",
+                "enum",
+                "array",
+                "abstr"
+             ]
+        },
+        "subrangeTypeInfo": {
+            "type": "object",
+            "properties": {
+                "min": { "type": "integer" },
+                "max": { "type": "integer" }
+            },
+            "required": ["min", "max"]
+        },
+        "enumTypeInfo": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string" },
+                "values": {
+                    "type": "array",
+                    "items": { "type" : "string" }
+                }
+            },
+            "required": ["values"]
+        },
+        "arrayTypeInfo": {
+            "type": "object",
+            "properties": {
+                "baseType": {
+                    "$ref": "#/definitions/kind2Type"
+                },
+                "baseTypeInfo": {
+                    "$ref": "#/definitions/kind2TypeInfo"
+                },
+                "sizes": {
+                    "type": "array",
+                    "items": { "type" : "integer" }
+                }
+            },
+            "required": ["baseType", "sizes"]
+        },
+        "abstrTypeInfo": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string" }
+            },
+            "required": ["name"]
+        },
+        "kind2TypeInfo": {
+            "anyOf": [
+                { "$ref": "#/definitions/subrangeTypeInfo" },
+                { "$ref": "#/definitions/enumTypeInfo" },
+                { "$ref": "#/definitions/arrayTypeInfo" },
+                { "$ref": "#/definitions/abstrTypeInfo" }
+            ]
         },
         "enumValue": {
             "type": "string"
@@ -297,7 +356,11 @@
                 { "type": "boolean" },
                 { "type": "number" },
                 { "$ref": "#/definitions/enumValue" },
-                { "$ref": "#/definitions/fractionalLiteral" }
+                { "$ref": "#/definitions/fractionalLiteral" },
+                {
+                  "type": "array",
+                  "items": { "$ref": "#/definitions/kind2Value" }
+                }
             ]
         },
         "streamValues": {
@@ -308,6 +371,9 @@
                 },
                 "type": {
                     "$ref": "#/definitions/kind2Type"
+                },
+                "typeInfo": {
+                    "$ref": "#/definitions/kind2TypeInfo"
                 },
                 "class": {
                     "enum": ["input", "output", "local"]
