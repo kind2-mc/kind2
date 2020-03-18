@@ -109,7 +109,31 @@ let width_val_of_map m =
       max (width_of_string (string_of_t pp_print_term v))
     ) m 0
 
-      
+
+let pp_print_value_term as_type ppf t = match as_type with
+  | Some ty when Term.is_numeral t && Type.is_enum ty -> (
+    try (
+      Term.numeral_of_term t
+      |> Type.get_constr_of_num
+      |> Format.pp_print_string ppf
+    ) with Not_found ->
+      (* If value is out of range, we assume value is not on clock
+         (see sample_streams_on_clock in lustrePath). If it is not
+         the case, there is something wrong with problem encoding!
+      *)
+      Format.pp_print_string ppf "_"
+  )
+  | Some ty when Type.is_bitvector ty ->
+    let bv = Term.bitvector_of_term t in
+      Bitvector.pp_print_signed_machine_integer ppf bv
+
+  | Some ty when Type.is_ubitvector ty ->
+    let ubv = Term.bitvector_of_term t in
+      Bitvector.pp_print_unsigned_machine_integer ppf ubv
+
+  | _ -> (*Type.pp_print_type2 ppf (Term.type_of_term t);*)pp_print_term ppf t
+
+     
 (* Show map as an array in counteexamples *)
 let pp_print_map_as_array ppf m =
   if MIL.is_empty m then Format.fprintf ppf "[]"
@@ -180,6 +204,25 @@ let rec map_to_array_model m =
   |> MIL.fold add_at_indexes m
 
 
+let pp_print_value_term_xml as_type ppf t = match as_type with
+  | Some ty when Term.is_numeral t && Type.is_enum ty ->
+    Term.numeral_of_term t
+    |> Type.get_constr_of_num
+    |> Format.pp_print_string ppf
+  | Some ty when Type.is_bitvector ty || Type.is_ubitvector ty -> (
+    let bv = Term.bitvector_of_term t in
+    let bv_num =
+      try
+        if Type.is_bitvector ty then Bitvector.bv_to_num bv
+        else Bitvector.ubv_to_num bv
+      with
+        Bitvector.NonStandardBVSize -> raise LustreExpr.Type_mismatch
+    in
+    Numeral.pp_print_numeral ppf bv_num
+  )
+  | _ -> pp_print_term ppf t
+
+
 let rec pp_print_array_model_as_xml top_level ppf index it =
   if not top_level then
     Format.fprintf ppf "@[<hv 2><Item index=\"%d\">@," index;
@@ -200,6 +243,28 @@ let pp_print_map_as_xml ppf m =
   let arm = map_to_array_model m in
   pp_print_array_model_as_xml true ppf 0 arm
 
+
+let pp_print_value_term_json as_type ppf t = match as_type with
+  | Some ty when Term.is_numeral t && Type.is_enum ty ->
+    Format.fprintf ppf "\"%s\"" (Type.get_constr_of_num (Term.numeral_of_term t))
+  | _ when Term.is_decimal t -> (
+    let d = Term.decimal_of_term t in
+    Decimal.pp_print_decimal_as_json ppf d
+  )
+  | Some ty when Type.is_bitvector ty || Type.is_ubitvector ty -> (
+    let bv = Term.bitvector_of_term t in
+    let bv_num =
+      try
+        if Type.is_bitvector ty then Bitvector.bv_to_num bv
+        else Bitvector.ubv_to_num bv
+      with
+        Bitvector.NonStandardBVSize -> raise LustreExpr.Type_mismatch
+    in
+    Numeral.pp_print_numeral ppf bv_num
+  )
+  | _ -> pp_print_term ppf t
+
+
 let rec pp_print_array_model_as_json ppf _ it = 
   match it with
   | ItemArray (s, a) -> (
@@ -213,81 +278,21 @@ let pp_print_map_as_json ppf m =
   let arm = map_to_array_model m in
   pp_print_array_model_as_json ppf 0 arm
 
+(* Print a value of the model *)
+let pp_print_value ?as_type ppf = function
+  | Term t -> pp_print_value_term as_type ppf t
+  | Lambda l -> Term.pp_print_lambda ppf l
+  | Map m -> Format.fprintf ppf "@[<hov 0>%a@]" pp_print_map_as_array m
 
-(* Print a value of the model *)  
-let pp_print_value ?as_type ppf v = match v, as_type with
-  | Term t, Some ty when Term.is_numeral t && Type.is_enum ty -> (
-    try (
-      Term.numeral_of_term t
-      |> Type.get_constr_of_num
-      |> Format.pp_print_string ppf
-    ) with Not_found ->
-      (* If value is out of range, we assume value is not on clock
-         (see sample_streams_on_clock in lustrePath). If it is not
-         the case, there is something wrong with problem encoding!
-      *)
-      Format.pp_print_string ppf "_"
-  )
-  | Term t, Some ty when Type.is_bitvector ty -> 
-    let bv = Term.bitvector_of_term t in
-      Bitvector.pp_print_signed_machine_integer ppf bv
+let pp_print_value_xml ?as_type ppf = function
+  | Term t -> pp_print_value_term_xml as_type ppf t
+  | Lambda l -> Term.pp_print_lambda ppf l
+  | Map m -> try pp_print_map_as_xml ppf m with Not_found -> ()
 
-  | Term t, Some ty when Type.is_ubitvector ty ->
-    let ubv = Term.bitvector_of_term t in
-      Bitvector.pp_print_unsigned_machine_integer ppf ubv
-
-  | Term t, _ -> (*Type.pp_print_type2 ppf (Term.type_of_term t);*)pp_print_term ppf t
-  | Lambda l, _ -> Term.pp_print_lambda ppf l
-  | Map m, _ -> Format.fprintf ppf "@[<hov 0>%a@]" pp_print_map_as_array m
-
-
-let pp_print_value_xml ?as_type ppf v =  match v, as_type with
-  | Term t, Some ty when Term.is_numeral t && Type.is_enum ty ->
-    Term.numeral_of_term t
-    |> Type.get_constr_of_num
-    |> Format.pp_print_string ppf
-  | Term t, Some ty when Type.is_bitvector ty || Type.is_ubitvector ty -> (
-    let bv = Term.bitvector_of_term t in
-    let bv_num =
-      try
-        if Type.is_bitvector ty then Bitvector.bv_to_num bv
-        else Bitvector.ubv_to_num bv
-      with
-        Bitvector.NonStandardBVSize -> raise LustreExpr.Type_mismatch
-    in
-    Numeral.pp_print_numeral ppf bv_num
-  )
-  | Term t, _ -> pp_print_term ppf t
-  | Lambda l, _ -> Term.pp_print_lambda ppf l
-  | Map m, _ ->
-    try
-      pp_print_map_as_xml ppf m
-    with Not_found -> ()
-
-let pp_print_value_json ?as_type ppf v =  match v, as_type with
-  | Term t, Some ty when Term.is_numeral t && Type.is_enum ty ->
-    Format.fprintf ppf "\"%s\"" (Type.get_constr_of_num (Term.numeral_of_term t))
-  | Term t, _ when Term.is_decimal t -> (
-    let d = Term.decimal_of_term t in
-    Decimal.pp_print_decimal_as_json ppf d
-  )
-  | Term t, Some ty when Type.is_bitvector ty || Type.is_ubitvector ty -> (
-    let bv = Term.bitvector_of_term t in
-    let bv_num =
-      try
-        if Type.is_bitvector ty then Bitvector.bv_to_num bv
-        else Bitvector.ubv_to_num bv
-      with
-        Bitvector.NonStandardBVSize -> raise LustreExpr.Type_mismatch
-    in
-    Numeral.pp_print_numeral ppf bv_num
-  )
-  | Term t, _ -> pp_print_term ppf t
-  | Lambda l, _ -> Term.pp_print_lambda ppf l
-  | Map m, _ ->
-    try
-      pp_print_map_as_json ppf m
-    with Not_found -> ()
+let pp_print_value_json ?as_type ppf = function
+  | Term t -> pp_print_value_term_json as_type ppf t
+  | Lambda l -> Term.pp_print_lambda ppf l
+  | Map m -> try pp_print_map_as_json ppf m with Not_found -> ()
 
 (* Pretty-print a model *)
 let pp_print_model ppf model = 
