@@ -70,7 +70,6 @@ module type Sig = sig
   (** Cancel relaying of log messages *)
   val unset_relay_log : unit -> unit
 
-
   (** {1 Auxiliary functions} *)
 
   val pp_print_kind_module_xml_src : Format.formatter -> Lib.kind_module -> unit

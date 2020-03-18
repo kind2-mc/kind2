@@ -279,7 +279,7 @@ let pp_print_param verbose fmt param =
       fun (abs,con) (s,b) -> if b then s :: abs, con else abs, s :: con
     ) ([], [])
   in
-  Format.fprintf fmt "%s @[<v>top: \"%a\"%a%a@]"
+  Format.fprintf fmt "%s @[<v>top: '%a'%a%a@]"
     ( match param with
       | ContractCheck _ -> "ContractCheck"
       | First _ -> "First"

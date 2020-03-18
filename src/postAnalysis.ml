@@ -169,7 +169,7 @@ module RunTestGen: PostAnalysis = struct
           let tests_target = Format.sprintf "%s/%s" target Paths.testgen in
           mk_dir tests_target ;
           KEvent.log_uncond
-            "%sGenerating tests for node \"%a\" to `%s`."
+            "%sGenerating tests for node '%a' to '%s'."
             TestGen.log_prefix Scope.pp_print_scope top tests_target ;
           let testgen_xmls =
             TestGen.main param input_sys_sliced sys tests_target
@@ -180,7 +180,7 @@ module RunTestGen: PostAnalysis = struct
           let oracle_target = Format.sprintf "%s/%s" target Paths.oracle in
           mk_dir oracle_target ;
           KEvent.log_uncond
-            "%sCompiling oracle to Rust for node \"%a\" to `%s`."
+            "%sCompiling oracle to Rust for node '%a' to '%s'."
             TestGen.log_prefix Scope.pp_print_scope top oracle_target ;
           let name, guarantees, modes =
             InputSystem.compile_oracle_to_rust in_sys top oracle_target
@@ -320,7 +320,7 @@ module RunRustGen: PostAnalysis = struct
     (* Implementation directory. *)
     let target = Format.sprintf "%s/%s" target Paths.implem in
     KEvent.log_uncond
-      "  Compiling node \"%a\" to Rust in `%s`."
+      "  Compiling node '%a' to Rust in '%s'."
       Scope.pp_print_scope top target ;
     InputSystem.compile_to_rust in_sys top target ;
     KEvent.log_uncond "  Done compiling." ;

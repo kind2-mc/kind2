@@ -6,8 +6,8 @@ Kind 2
 Kind 2 takes as input a Lustre file annotated with properties to be proven
 invariant (see :ref:`Lustre Input <2_input/1_lustre>`), and
 outputs which of the properties are true for all inputs, as well as an input
-sequence for those properties that are falsified. To ease processing by front-end tools,
-Kind 2 can output its results in XML format (see :ref:`XML Output <3_output/2_xml>`).
+sequence for those properties that are falsified. To ease processing by external tools,
+Kind 2 can output its results in JSON and XML formats (see :ref:`JSON / XML Output <3_output/2_xml>`).
 
 By default Kind 2 runs a process for bounded model checking (BMC), a process
 for k-induction, two processes for invariant generation, and a process for IC3
@@ -37,6 +37,8 @@ The default is ``Z3``\ , but see options of the ``./build.sh`` script to overrid
 ``--z3_bin <file>`` -- Executable for Z3
 
 ``-v`` Output informational messages
+
+``-json`` Output in JSON format
 
 ``-xml`` Output in XML format
 

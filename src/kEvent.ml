@@ -42,7 +42,7 @@ let analysis_start_not_closed = ref false
 let div_by_zero_text prop_name = [
   "Division by zero detected in model reconstruction." ;
   Format.sprintf
-    "Counterexample for property \"%s\" may be inconsistent."
+    "Counterexample for property '%s' may be inconsistent."
     prop_name
 ]
 
@@ -1042,7 +1042,7 @@ let execution_path_json level input_sys analysis trans_sys path =
     !log_ppf
     ",@.{@[<v 1>@,\
         \"objectType\" : \"execution\",@,\
-        \"trace\" :@,[@[<v 1>%a@]@,]\
+        \"trace\" :%a\
        @]@.}@.\
     "
     (InputSystem.pp_print_path_json input_sys trans_sys [] true)
