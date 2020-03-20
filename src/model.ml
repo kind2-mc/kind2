@@ -256,14 +256,17 @@ let rec pp_print_array_model_as_xml as_type top_level ppf index it =
 
 (* Show map as xml in counteexamples *)
 let pp_print_map_as_xml as_type ppf m =
-  let arm = map_to_array_model m in
-  let as_type =
-    match as_type with
-    | Some ty when Type.is_array ty ->
-      Some (Type.last_elem_type_of_array ty)
-    | _ -> None
-  in
-  pp_print_array_model_as_xml as_type true ppf 0 arm
+  if MIL.is_empty m then
+    Format.fprintf ppf "@[<hv 2><Array size=\"0\"></Array>@]"
+  else
+    let arm = map_to_array_model m in
+    let as_type =
+      match as_type with
+      | Some ty when Type.is_array ty ->
+        Some (Type.last_elem_type_of_array ty)
+      | _ -> None
+    in
+    pp_print_array_model_as_xml as_type true ppf 0 arm
 
 
 let pp_print_value_term_json as_type ppf t = match as_type with
@@ -304,14 +307,17 @@ let rec pp_print_array_model_as_json as_type ppf _ it =
     Format.fprintf ppf "%a" (pp_print_value_term_json as_type) v
 
 let pp_print_map_as_json as_type ppf m =
-  let arm = map_to_array_model m in
-  let as_type =
-    match as_type with
-    | Some ty when Type.is_array ty ->
-      Some (Type.last_elem_type_of_array ty)
-    | _ -> None
-  in
-  pp_print_array_model_as_json as_type ppf 0 arm
+  if MIL.is_empty m then
+    Format.fprintf ppf " []"
+  else
+    let arm = map_to_array_model m in
+    let as_type =
+      match as_type with
+      | Some ty when Type.is_array ty ->
+        Some (Type.last_elem_type_of_array ty)
+      | _ -> None
+    in
+    pp_print_array_model_as_json as_type ppf 0 arm
 
 (* Print a value of the model *)
 let pp_print_value ?as_type ppf = function
