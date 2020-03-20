@@ -135,7 +135,7 @@ let pp_print_value_term as_type ppf t = match as_type with
 
      
 (* Show map as an array in counteexamples *)
-let pp_print_map_as_array ppf m =
+let pp_print_map_as_array as_type ppf m =
   if MIL.is_empty m then Format.fprintf ppf "[]"
   else
     let val_width = width_val_of_map m in
@@ -160,7 +160,14 @@ let pp_print_map_as_array ppf m =
           Format.fprintf ppf "@[<hov 0>[";
         done;
         let w = width_of_string (string_of_t pp_print_term v) in
-        Format.fprintf ppf "%*s%a" (val_width - w) "" pp_print_term v;
+        let ty =
+          match as_type with
+          | Some ty when Type.is_array ty ->
+            Some (Type.last_elem_type_of_array ty)
+          | _ -> None
+        in
+        Format.fprintf ppf "%*s%a"
+          (val_width - w) "" (pp_print_value_term ty) v;
         first := false;
       ) m;
     for i = 1 to dim do
@@ -205,10 +212,18 @@ let rec map_to_array_model m =
 
 
 let pp_print_value_term_xml as_type ppf t = match as_type with
-  | Some ty when Term.is_numeral t && Type.is_enum ty ->
-    Term.numeral_of_term t
-    |> Type.get_constr_of_num
-    |> Format.pp_print_string ppf
+  | Some ty when Term.is_numeral t && Type.is_enum ty -> (
+    try (
+      Term.numeral_of_term t
+      |> Type.get_constr_of_num
+      |> Format.pp_print_string ppf
+    ) with Not_found ->
+      (* If value is out of range, we assume value is not on clock
+         (see sample_streams_on_clock in lustrePath). If it is not
+         the case, there is something wrong with problem encoding!
+      *)
+      Format.pp_print_string ppf "_"
+  )
   | Some ty when Type.is_bitvector ty || Type.is_ubitvector ty -> (
     let bv = Term.bitvector_of_term t in
     let bv_num =
@@ -223,30 +238,42 @@ let pp_print_value_term_xml as_type ppf t = match as_type with
   | _ -> pp_print_term ppf t
 
 
-let rec pp_print_array_model_as_xml top_level ppf index it =
+let rec pp_print_array_model_as_xml as_type top_level ppf index it =
   if not top_level then
     Format.fprintf ppf "@[<hv 2><Item index=\"%d\">@," index;
   begin match it with
-  | ItemValue v ->
-    Format.fprintf ppf "@[<hv 2>%a@]" pp_print_term v
+  | ItemValue v -> (
+    Format.fprintf ppf "@[<hv 2>%a@]" (pp_print_value_term_xml as_type) v
+  )
   | ItemArray (s, a) ->
     Format.fprintf ppf
       "@[<hv 2><Array size=\"%d\">@,%a@;<0 -2></Array>@]"
       s
-      (pp_print_listi (pp_print_array_model_as_xml false) "@,") (Array.to_list a)
+      (pp_print_listi (pp_print_array_model_as_xml as_type false) "@,") (Array.to_list a)
   end;
   if not top_level then Format.fprintf ppf "@;<0 -2></Item>@]"
 
 
 (* Show map as xml in counteexamples *)
-let pp_print_map_as_xml ppf m =
+let pp_print_map_as_xml as_type ppf m =
   let arm = map_to_array_model m in
-  pp_print_array_model_as_xml true ppf 0 arm
+  let as_type =
+    match as_type with
+    | Some ty when Type.is_array ty ->
+      Some (Type.last_elem_type_of_array ty)
+    | _ -> None
+  in
+  pp_print_array_model_as_xml as_type true ppf 0 arm
 
 
 let pp_print_value_term_json as_type ppf t = match as_type with
-  | Some ty when Term.is_numeral t && Type.is_enum ty ->
-    Format.fprintf ppf "\"%s\"" (Type.get_constr_of_num (Term.numeral_of_term t))
+  | Some ty when Term.is_numeral t && Type.is_enum ty -> (
+    let num_str =
+      try Type.get_constr_of_num (Term.numeral_of_term t)
+      with Not_found -> "_"
+    in
+    Format.fprintf ppf "\"%s\"" num_str
+  )
   | _ when Term.is_decimal t -> (
     let d = Term.decimal_of_term t in
     Decimal.pp_print_decimal_as_json ppf d
@@ -265,34 +292,48 @@ let pp_print_value_term_json as_type ppf t = match as_type with
   | _ -> pp_print_term ppf t
 
 
-let rec pp_print_array_model_as_json ppf _ it = 
+let rec pp_print_array_model_as_json as_type ppf _ it =
   match it with
   | ItemArray (s, a) -> (
     Format.fprintf ppf "[%a]"
-      (pp_print_listi pp_print_array_model_as_json ", ") (Array.to_list a)
+      (pp_print_listi
+        (pp_print_array_model_as_json as_type) ", ")
+      (Array.to_list a)
   )
   | ItemValue v ->
-    Format.fprintf ppf "%a" pp_print_term v
+    Format.fprintf ppf "%a" (pp_print_value_term_json as_type) v
 
-let pp_print_map_as_json ppf m =
+let pp_print_map_as_json as_type ppf m =
   let arm = map_to_array_model m in
-  pp_print_array_model_as_json ppf 0 arm
+  let as_type =
+    match as_type with
+    | Some ty when Type.is_array ty ->
+      Some (Type.last_elem_type_of_array ty)
+    | _ -> None
+  in
+  pp_print_array_model_as_json as_type ppf 0 arm
 
 (* Print a value of the model *)
 let pp_print_value ?as_type ppf = function
   | Term t -> pp_print_value_term as_type ppf t
   | Lambda l -> Term.pp_print_lambda ppf l
-  | Map m -> Format.fprintf ppf "@[<hov 0>%a@]" pp_print_map_as_array m
+  | Map m ->
+   Format.fprintf ppf "@[<hov 0>%a@]"
+       (pp_print_map_as_array as_type) m
 
 let pp_print_value_xml ?as_type ppf = function
   | Term t -> pp_print_value_term_xml as_type ppf t
   | Lambda l -> Term.pp_print_lambda ppf l
-  | Map m -> try pp_print_map_as_xml ppf m with Not_found -> ()
+  | Map m ->
+      try pp_print_map_as_xml as_type ppf m
+      with Not_found -> ()
 
 let pp_print_value_json ?as_type ppf = function
   | Term t -> pp_print_value_term_json as_type ppf t
   | Lambda l -> Term.pp_print_lambda ppf l
-  | Map m -> try pp_print_map_as_json ppf m with Not_found -> ()
+  | Map m ->
+      try pp_print_map_as_json as_type ppf m
+      with Not_found -> ()
 
 (* Pretty-print a model *)
 let pp_print_model ppf model = 
