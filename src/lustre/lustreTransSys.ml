@@ -379,6 +379,61 @@ let add_constraints_of_type init terms state_var =
     (* Add to terms *)
     :: terms 
 
+  else if Type.is_array state_var_type then (
+
+    let base_type = Type.last_elem_type_of_array state_var_type in
+
+    if Type.is_int_range base_type || Type.is_enum base_type then (
+
+      let indices =
+        Type.all_index_types_of_array state_var_type
+        |> List.map (fun ty -> ty, Var.mk_fresh_var Type.t_int)
+      in
+
+      let array_var =
+        Var.mk_state_var_instance state_var
+          (if init then TransSys.init_base else TransSys.trans_base)
+        |> Term.mk_var
+      in
+
+      let select_term =
+        List.fold_left
+          (fun acc (_, iv) -> Term.mk_select acc (Term.mk_var iv))
+          array_var
+          indices
+      in
+
+      let l, u = Type.bounds_of_int_range base_type in
+
+      let ct =
+        Term.mk_leq [ Term.mk_num l; select_term; Term.mk_num u]
+      in
+
+      let qct =
+        List.fold_left
+          (fun acc (ty, iv) ->
+             match Type.node_of_type ty with
+             | Type.IntRange (i, j, Type.Range) -> (
+               let bounds =
+                 Term.mk_leq [ Term.mk_num i; Term.mk_var iv; Term.mk_num j]
+               in
+               Term.mk_forall [iv] (Term.mk_implies [bounds; acc])
+             )
+             | _ ->
+               Term.mk_forall [iv] acc)
+          ct
+          indices
+        |> Term.convert_select
+      in
+
+      qct :: terms
+
+    )
+    else
+
+      terms
+
+  )
   else
 
     (* No contraints to add*)
