@@ -51,7 +51,7 @@ let pp_print_one_index' db = function
     
     (function ppf -> function 
        | RecordIndex i -> ()
-       | TupleIndex i -> Format.fprintf ppf "<%d>" i
+       | TupleIndex i -> Format.fprintf ppf "(%d)" i
        | ListIndex i -> Format.fprintf ppf "{%d}" i
        | ArrayIntIndex i -> Format.fprintf ppf "[%d]" i
        | ArrayVarIndex v -> ()) (* Format.fprintf ppf "[X%d(%a)]" db (E.pp_print_expr false) v ) *)

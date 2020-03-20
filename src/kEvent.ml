@@ -922,7 +922,7 @@ let proved_json mdl level trans_sys k prop =
         }\
         @]@.}@.\
       "
-      prop
+      (Lib.escape_json_string prop)
       (function ppf -> prop_attributes_json ppf trans_sys prop)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match k with
@@ -1014,7 +1014,7 @@ let cex_json mdl level input_sys analysis trans_sys prop cex disproved =
         %a\
         @]@.}@.\
       "
-      prop
+      (Lib.escape_json_string prop)
       (function ppf -> prop_attributes_json ppf trans_sys prop)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match cex with
@@ -1077,7 +1077,7 @@ let prop_status_json level trans_sys prop_status =
                }\
                @]@.}\
              "
-             p
+             (Lib.escape_json_string p)
              (function ppf -> prop_attributes_json ppf trans_sys p)
              (function ppf -> match s with
                 | Property.PropKTrue k ->

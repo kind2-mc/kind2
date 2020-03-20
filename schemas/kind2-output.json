@@ -320,7 +320,12 @@
                 },
                 "sizes": {
                     "type": "array",
-                    "items": { "type" : "integer" }
+                    "items": {
+                        "anyOf": [
+                            { "type" : "integer" },
+                            { "type" : "null" }
+                        ]
+                    }
                 }
             },
             "required": ["baseType", "sizes"]

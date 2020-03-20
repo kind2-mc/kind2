@@ -21,7 +21,8 @@
     @author Arjun Viswanathan
 *)
 
-
+exception ComparingUnequalBVs
+exception NonStandardBVSize
 
 (** Constant bitvector *)
 type t
@@ -61,6 +62,9 @@ val num_to_ubv64 : Numeral.t -> t
 (** {Usigned Bitvector to Numeral} 
 @author Arjun Viswanathan*)
 
+(** Return numeral converted from an unsigned bitvector *)
+val ubv_to_num : t -> Numeral.t
+
 (** Return numeral converted from a size 8 unsigned bitvector *)
 val ubv8_to_num : t -> Numeral.t
 
@@ -92,6 +96,9 @@ val num_to_bv64 : Numeral.t -> t
 
 (** {Signed Bitvector to Numeral} 
 @author Arjun Viswanathan*)
+
+(** Return numeral converted from a signed bitvector *)
+val bv_to_num : t -> Numeral.t
 
 (** Return numeral converted from a size 8 signed bitvector *)
 val bv8_to_num : t -> Numeral.t
