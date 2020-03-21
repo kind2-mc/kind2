@@ -1119,11 +1119,16 @@ let find_bound_frontier_dicho sys solver kmax invs prop =
 
 (* Minimization of certificate: returns the minimum bound for k-induction and a
    list of useful invariants for this preservation step *)
-let minimize_invariants sys invs_predicate =
+let minimize_invariants sys props invs_predicate =
   (* printf "@{<b>Certificate minimization@}@."; *)
 
   (* Extract certificates of top level system *)
-  let props, certs = extract_props_certs sys in
+  let props', certs = extract_props_certs sys in
+  let props =
+    match props with
+    | Some props -> props
+    | None -> props'
+  in
   let certs =
     match invs_predicate with
     | None -> certs
@@ -1210,7 +1215,7 @@ let minimize_invariants sys invs_predicate =
   kmin, uinvs
 
 let minimize_certificate sys =
-  minimize_invariants sys None
+  minimize_invariants sys None None
 
 
 (***********************************************)

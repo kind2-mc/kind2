@@ -888,9 +888,11 @@ let extract_props sys can_be_valid can_be_invalid =
 let props_names props =
   List.map (fun { Property.prop_name = n } -> n) props
 
-let props_term props =
+let props_terms props =
   List.map (fun { Property.prop_term = p } -> p) props
-  |> Term.mk_and
+
+let props_term props =
+  props_terms props |> Term.mk_and
 
 let extract_all_props_names sys =
   List.map (fun { Property.prop_name = n } -> n) (TS.get_properties sys)
@@ -1355,9 +1357,10 @@ exception NotKInductive
 let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_test =
 
   let scope = TS.scope_of_trans_sys sys in
-  let k, invs = CertifChecker.minimize_invariants sys None in
+  let props = props_terms props in
+  let k, invs = CertifChecker.minimize_invariants sys (Some props) None in
   let os_invs = List.filter (fun t -> CertifChecker.is_two_state t |> not) invs in
-  let prop = props_term props in
+  let prop = Term.mk_and props in
   let os_prop = Term.mk_and (prop::os_invs) in
   let prop = Term.mk_and (prop::invs) in
   KEvent.log L_info "Inductive property: %a" Term.pp_print_term prop ;
