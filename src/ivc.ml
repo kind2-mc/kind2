@@ -1453,7 +1453,11 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_t
   in
 
   let check approximate keep' test =
-    KEvent.log L_info "Minimizing using an UNSAT core... (%i left)" (core_size test) ;
+    let remaining = (core_size test) + 1 in
+    let total = remaining + (core_size keep') in
+    if not approximate && not z3_used
+    then KEvent.log L_info "Minimizing using an UNSAT core... (%i elements in the IVC, %i checks left)" total remaining
+    else KEvent.log L_info "Minimizing using an UNSAT core... (%i elements in the IVC)" total ;
     let (init, trans) = terms_of_current_state (core_union keep keep') test in
     check_k_inductive ~approximate:approximate sys enter_nodes test init trans prop os_prop k
   in
@@ -1541,7 +1545,9 @@ let ivc_bf_ in_sys check_ts sys props enter_nodes keep test =
     TS.iter_subsystems ~include_top:true prepare_subsystem sys
   in
   let check keep' test =
-    KEvent.log L_info "Minimizing using bruteforce... (%i left)" (eqmap_size test) ;
+    let remaining = (eqmap_size test) + 1 in
+    let total = remaining + (eqmap_size keep') in
+    KEvent.log L_info "Minimizing using bruteforce... (%i elements in the IVC, %i checks left)" total remaining ;
     prepare_ts_for_check (lstmap_union keep keep') test ;
     let old_log_level = Lib.get_log_level () in
     Format.print_flush () ;

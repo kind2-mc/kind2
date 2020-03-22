@@ -1130,7 +1130,7 @@ module IVC = struct
   let fmt_explain fmt =
     Format.fprintf fmt "@[<v>\
       Kind 2 generates a minimal inductive validity core,@ \
-      that is a subset of the equations sufficient to prove the properties.\
+      that is a subset of the model elements sufficient to prove the properties.\
     @]"
 
   (* All the flag specification of this module. *)
@@ -1315,10 +1315,10 @@ module IVC = struct
       Format.fprintf fmt
         "\
           Select the implementation for the IVC computation@ \
-          \"AUC\" to perform an approximate unsat-core based minimisation@ \
-          \"UC\" to perform an unsat-core based minimisation (default)@ \
-          \"BF\" to perform a bruteforce minimisation@ \
-          \"UCBF\" to perform an unsat-core minimisation and then a bruteforce@ \
+          \"AUC\" to perform an approximate unsat-core based minimization@ \
+          \"UC\" to perform an unsat-core based minimization (default)@ \
+          \"BF\" to perform a bruteforce minimization@ \
+          \"UCBF\" to perform an unsat-core minimization and then a bruteforce@ \
           \"UMIVC\" to compute all the minimal inductive validity cores\
         "
     )
