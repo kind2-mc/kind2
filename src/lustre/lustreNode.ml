@@ -1596,10 +1596,21 @@ let get_state_var_defs state_var =
       state_var
   with Not_found -> []
 
+let state_var_defs_equal d1 d2 =
+  match d1, d2 with
+  | CallOutput (p1, i1), CallOutput (p2, i2)
+  | ProperEq (p1, i1), ProperEq (p2, i2)
+  | GeneratedEq (p1, i1), GeneratedEq (p2, i2) ->
+    (Lib.compare_pos p1 p2) = 0 && LustreIndex.equal_index i1 i2
+  | ContractItem (p1, svar1, soft1), ContractItem (p2, svar2, soft2) ->
+    (Lib.compare_pos p1 p2) = 0 && soft1 = soft2 && StateVar.equal_state_vars svar1.svar svar2.svar
+  | Assertion p1, Assertion p2 -> (Lib.compare_pos p1 p2) = 0
+  | _ -> false
+
 let add_state_var_def state_var def = 
   let defs = get_state_var_defs state_var in
   let defs =
-    if List.exists (fun d -> d=def) defs
+    if List.exists (fun d -> state_var_defs_equal d def) defs
     then defs
     else def::defs
   in

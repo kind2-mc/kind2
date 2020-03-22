@@ -735,7 +735,8 @@ let locs_of_node_call in_sys output_svs =
       InputSystem.lustre_definitions_of_state_var in_sys sv
       |> List.filter (function LustreNode.CallOutput _ -> true | _ -> false)
       |> List.map
-        (fun d -> { pos=LustreNode.pos_of_state_var_def d ; index=LustreNode.index_of_state_var_def d })
+        (fun d -> { pos=LustreNode.pos_of_state_var_def d ;
+                    index=[](*LustreNode.index_of_state_var_def d*) })
   )
   |> List.flatten
 
