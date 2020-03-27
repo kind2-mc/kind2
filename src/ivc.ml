@@ -1035,16 +1035,14 @@ let reset_ts enter_nodes sys =
     set_props_unknown sys
   )
 
-let make_other_props_candidate sys prop_names =
+let remove_other_props sys prop_names =
   let aux prop_names sys =
     let props = TS.get_properties sys in
     let aux prop =
       let name = prop.Property.prop_name in
-      if List.exists (fun n -> n = name) prop_names
-      then prop
-      else { prop with prop_source = Property.Candidate None }
+      List.exists (fun n -> n = name) prop_names
     in
-    List.map aux props
+    List.filter aux props
     |> TS.set_properties sys
   in
   TS.iter_subsystems ~include_top:false (aux []) sys ;
@@ -1074,6 +1072,24 @@ let add_invariants_as_candidate enter_nodes sys =
   if enter_nodes
   then TS.iter_subsystems ~include_top:true aux sys
   else aux sys
+
+let add_as_candidate os_invs sys =
+  (* Disabled because it seems to favorize runtime exceptions *)
+  let _cnt = ref 0 in
+  let cnt () =
+    _cnt := !_cnt + 1 ;
+    !_cnt
+  in
+  let add_as_candidate t =
+    let p = Property.{
+      prop_name = Format.sprintf "%%inv_%i" (cnt ()) ;
+      prop_source = Property.Candidate None ;
+      prop_term = t ;
+      prop_status = PropUnknown
+    } in
+    TS.set_properties sys (p::(TS.get_properties sys))
+  in
+  List.iter add_as_candidate os_invs
 
 (* ---------- IVC_UC ---------- *)
 
@@ -1461,9 +1477,10 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_t
     let (init, trans) = terms_of_current_state (core_union keep keep') test in
     check_k_inductive ~approximate:approximate sys enter_nodes test init trans prop os_prop k
   in
-  match minimize check ScMap.empty test with
+  let res = match minimize check ScMap.empty test with
   | None -> raise NotKInductive
   | Some core -> core_to_eqmap core
+  in (os_invs, res)
 
 let properties_of_interest_for_ivc sys =
   extract_props sys true false
@@ -1479,7 +1496,7 @@ let ivc_uc in_sys ?(approximate=false) sys props =
     let enter_nodes = Flags.IVC.ivc_enter_nodes () in
     let eqmap = _all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
-    let test = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
+    let (_, test) = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
   ) with
   | NotKInductive ->
@@ -1505,10 +1522,10 @@ let pick_eqmap = pick_core
 exception CannotProve
 
 (** Implements the algorithm IVC_BF *)
-let ivc_bf_ in_sys check_ts sys props enter_nodes keep test =
+let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   let prop_names = props_names props in
-  make_other_props_candidate sys prop_names ;
-  add_invariants_as_candidate enter_nodes sys ;
+  remove_other_props sys prop_names ;
+  add_as_candidate os_invs sys ;
   (* Minimization *)
   let rec minimize ?(skip_first_check=false) check keep test =
     if skip_first_check || check keep test then
@@ -1586,9 +1603,9 @@ let ivc_ucbf in_sys param analyze sys props =
     let enter_nodes = Flags.IVC.ivc_enter_nodes () in
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
-    let test = ivc_uc_ in_sys sys props enter_nodes keep test in
+    let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep test in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
-    let test = ivc_bf_ in_sys check_ts sys props enter_nodes keep test in
+    let test = ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
   ) with
   | NotKInductive ->
@@ -1845,11 +1862,7 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_te
   let prop_names = props_names props in
   (*let sys_original = sys in*)
   let (sys_cs, check_ts_cs) = make_check_ts sys in
-  make_other_props_candidate sys_cs prop_names ;
-  add_invariants_as_candidate enter_nodes sys_cs ;
   let (sys, check_ts) = make_check_ts sys in
-  make_other_props_candidate sys prop_names ;
-  add_invariants_as_candidate enter_nodes sys ;
 
   (* Activation litterals, core and mapping to equations *)
   let add_to_bindings must_be_tested scope eqs act_bindings =
@@ -1965,9 +1978,9 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_te
     (* Compute MIVC *)
     let compute_mivc core =
       check core |> ignore ;
-      core_to_eqmap core
-      |> ivc_uc_ in_sys sys props enter_nodes eqmap_keep
-      |> ivc_bf_ in_sys check_ts sys props enter_nodes eqmap_keep
+      let (os_invs, eqmap_test) = core_to_eqmap core
+      |> ivc_uc_ in_sys sys props enter_nodes eqmap_keep in
+      ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes eqmap_keep eqmap_test
       |> actlits_of_core
       |> List.map actsv_of_eq
       |> filter_core test
@@ -2078,11 +2091,11 @@ let properties_of_interest_for_mua sys =
   let ignore_valid_props = Flags.MUA.mua_elements () |> List.for_all (fun x -> x = `WEAK_ASS)
   in extract_props sys (not ignore_valid_props) true
 
-let mua_ in_sys make_check_ts sys props all enter_nodes eqmap_keep eqmap_test =
+(* TODO : use os_invs *)
+let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes eqmap_keep eqmap_test =
   let prop_names = props_names props in
-  let (sys, check_ts) = make_check_ts sys in
-  make_other_props_candidate sys prop_names ;
-  add_invariants_as_candidate enter_nodes sys ;
+  remove_other_props sys prop_names ;
+  add_as_candidate os_invs sys ;
 
   (* Activation litterals, core and mapping to equations *)
   let add_to_bindings must_be_tested scope eqs act_bindings =
@@ -2143,8 +2156,8 @@ let mua in_sys param analyze sys props all =
     let include_weak_ass = List.mem `WEAK_ASS elements in
     let eqmap = _all_eqs ~include_weak_ass in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys elements eqmap in
-    let make_check_ts = make_check_ts in_sys param analyze in
-    let res = mua_ in_sys make_check_ts sys props all enter_nodes keep test in
+    let (sys, check_ts) = make_check_ts in_sys param analyze sys in
+    let res = mua_ in_sys check_ts sys props all enter_nodes keep test in
     List.map (
       fun (test, (prop,cex)) ->
       if (prop, cex) <> default_cex
