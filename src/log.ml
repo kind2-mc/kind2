@@ -24,7 +24,7 @@ open Lib
 module type Sig = sig
   type 'a log_printer =
     Lib.log_level ->
-    ('a, Format.formatter, unit, unit, unit, unit) format6 -> 'a
+    ('a, Format.formatter, unit) format -> 'a
   type 'a m_log_printer =
     Lib.kind_module -> 'a log_printer
   val set_module : Lib.kind_module -> unit 
@@ -52,8 +52,7 @@ end
 (* ********************************************************************** *)
 
 type 'a log_printer =
-  Lib.log_level ->
-  ('a, Format.formatter, unit, unit, unit, unit) format6 -> 'a
+  Lib.log_level -> ('a, Format.formatter, unit) format -> 'a
 
 type 'a m_log_printer =
   Lib.kind_module -> 'a log_printer
@@ -143,15 +142,29 @@ let print_xml_trailer () =
 
 
 (* Output message as XML *)
-let printf_xml mdl level fmt = 
+let printf_xml_string mdl level s =
 
   (ignore_or_fprintf level)
     !log_ppf 
-    ("@[<hv 2><Log class=\"%a\" source=\"%a\">@,@[<hov>" ^^ 
-     fmt ^^ 
-     "@]@;<0 -2></Log>@]@.") 
+    ("@[<hv 2><Log class=\"%a\" source=\"%a\">@,\
+      @[<hov>%s@]@;<0 -2></Log>@]@.")
     pp_print_level_xml_cls level
-    pp_print_kind_module_xml_src mdl
+    pp_print_kind_module_xml_src mdl s
+
+
+let printf_xml mdl level fmt =
+
+  Format.kfprintf
+    (function ppf ->
+      let s =
+        Format.flush_str_formatter ()
+        |> Lib.escape_xml_string
+      in
+      printf_xml_string mdl level s
+    )
+
+    Format.str_formatter
+    fmt
 
 
 let parse_log_xml level pos msg =
@@ -164,16 +177,15 @@ let parse_log_xml level pos msg =
     !log_ppf
     "@[<hv 2><Log class=\"%a\" source=\"parse\" line=\"%d\" column=\"%d\"%a>\
     @,@[<hov>%s@]@;<0 -2></Log>@]@."
-    pp_print_level_xml_cls level lnum cnum pp_print_fname file msg
+    pp_print_level_xml_cls level lnum cnum pp_print_fname file
+    (Lib.escape_xml_string msg)
 
 
 (* ********************************************************************** *)
 (* JSON output                                                            *)
 (* ********************************************************************** *)
 
-(* Output message as JSON *)
-let printf_json mdl level fmt =
-
+let printf_json_string mdl level s =
   (ignore_or_fprintf level)
     !log_ppf
     ( (if !first_log_flag then
@@ -185,10 +197,25 @@ let printf_json mdl level fmt =
       "\"objectType\" : \"log\",@," ^^
       "\"level\" : \"%s\",@," ^^
       "\"source\" : \"%s\",@," ^^
-      "\"value\" : \"" ^^ fmt ^^ "\"" ^^
+      "\"value\" : @[<h>\"%s\"@]" ^^
       "@]@.}@.")
     (string_of_log_level level)
-    (short_name_of_kind_module mdl)
+    (short_name_of_kind_module mdl) s
+
+(* Output message as JSON *)
+let printf_json mdl level fmt =
+
+  Format.kfprintf
+    (function ppf ->
+      let s =
+        Format.flush_str_formatter ()
+        |> Lib.escape_json_string
+      in
+      printf_json_string mdl level s
+    )
+
+    Format.str_formatter
+    fmt
 
 let parse_log_json level pos msg =
   let pp_print_fname ppf fname =
@@ -210,13 +237,13 @@ let parse_log_json level pos msg =
        %a\
        \"line\" : %d,@,\
        \"column\" : %d,@,\
-       \"value\" : \"%s\"\
+       \"value\" : @[<h>\"%s\"@]\
        @]@.}@.\
       "
     )
     (string_of_log_level level)
     pp_print_fname file
-    lnum cnum msg
+    lnum cnum (Lib.escape_json_string msg)
 
 
 (*****************************************************************)
