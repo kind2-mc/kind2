@@ -1916,20 +1916,6 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_te
     let compute_all_cs = compute_all_cs check_ts_cs sys_cs prop_names enter_nodes actsvs_eqs_map in
     let compute_all_cs k t i af = List.map fst (compute_all_cs k t i af) in
     let eqmap_keep = core_to_eqmap keep in
-    let compute_mivc core =
-      core_to_eqmap core
-      (* The ivc_uc phase has been disabled because it shouldn't be called
-      over a strict subset of the initial equations.
-      As it relies on the success of the last analysis of the transition system,
-      calling it over the original transition system but with only a subset of
-      its equations as argument is likely to raise an exception
-      (Not_k_inductive or CertifChecker.Cannot_prove) *)
-      (*|> ivc_uc_ in_sys sys_original props enter_nodes eqmap_keep*)
-      |> ivc_bf_ in_sys check_ts sys props enter_nodes eqmap_keep
-      |> actlits_of_core
-      |> List.map actsv_of_eq
-      |> filter_core test
-    in
 
     (* Check safety *)
     let prepare_ts_for_check keep =
@@ -1975,6 +1961,17 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_te
         print_acts v) core ;
       Format.print_flush () ;
     in*)
+
+    (* Compute MIVC *)
+    let compute_mivc core =
+      check core |> ignore ;
+      core_to_eqmap core
+      |> ivc_uc_ in_sys sys props enter_nodes eqmap_keep
+      |> ivc_bf_ in_sys check_ts sys props enter_nodes eqmap_keep
+      |> actlits_of_core
+      |> List.map actsv_of_eq
+      |> filter_core test
+    in
 
     (* ----- Part 1 : CAMUS ----- *)
     KEvent.log L_info "Phase 1: CAMUS" ;
