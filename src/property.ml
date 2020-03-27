@@ -134,7 +134,7 @@ let pp_print_prop_source ppf = function
 
 let pp_print_prop_quiet ppf { prop_name ; prop_source } =
   Format.fprintf ppf
-    "\"%s\": %a"
+    "'%s': %a"
     prop_name
     pp_print_prop_source prop_source
 

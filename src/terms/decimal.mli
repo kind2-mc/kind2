@@ -41,6 +41,8 @@ val pp_print_decimal_approximation: Format.formatter -> t -> unit
 (** Pretty-print a rational as an S-expression *)
 val pp_print_decimal_sexpr : Format.formatter -> t -> unit
 
+val pp_print_decimal_as_json : Format.formatter -> t -> unit
+
 (** Return a string representation of a rational *)
 val string_of_decimal : t -> string
 

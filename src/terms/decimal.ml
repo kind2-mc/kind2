@@ -71,6 +71,36 @@ let pp_print_decimal_sexpr ppf = function
   pp_print_positive_decimal_sexpr ppf d
 
 
+let pp_print_positive_decimal_as_json ppf = function
+
+  | Num.Int i -> Format.fprintf ppf "{\"num\": %d, \"den\": 1}" i
+
+  | Num.Big_int n -> Format.fprintf ppf "{\"num\": %s, \"den\": 1}" (Big_int.string_of_big_int n)
+
+  | Num.Ratio r ->
+
+    (* Normalize rational number *)
+    let r' = Ratio.normalize_ratio r in
+
+    (* Get numerator and denominator *)
+    let rn = Ratio.numerator_ratio r' in
+    let rd = Ratio.denominator_ratio r' in
+
+    (* Print with division as prefix operator *)
+    Format.fprintf ppf
+      "@[<hv 1>{\"num\": %s, \"den\": %s}@]"
+      (Big_int.string_of_big_int rn)
+      (Big_int.string_of_big_int rd)
+
+let pp_print_decimal_as_json ppf = function
+| InfPos -> Format.fprintf ppf "{\"num\": 1, \"den\": 0}"
+| InfNeg -> Format.fprintf ppf "{\"num\": -1, \"den\": 0}"
+| Undef -> Format.fprintf ppf "{\"num\": 0, \"den\": 0}"
+| N d ->
+  (* assert (Num.ge_num d zero); *)
+  pp_print_positive_decimal_as_json ppf d
+
+
 (* Pretty-print a numeral as an S-expression *)
 let pp_print_positive_decimal ppf = function
 

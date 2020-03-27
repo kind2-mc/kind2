@@ -460,7 +460,7 @@ module BoolRules = struct
 
   let comp_set sys = TransSys.get_unknown_candidates sys |> Set.of_list
 
-  type svar_info = ()
+  type svar_info = unit
 
   let svar_rules two_state svars set = (
     svars |> List.fold_left (
@@ -478,7 +478,7 @@ module BoolRules = struct
     ()
   )
 
-  type flat_info = ()
+  type flat_info = unit
 
   let post_svars two_state (set, _) = set, ()
 
@@ -575,7 +575,7 @@ module IntRules = struct
   let comp_set _ = Set.empty
 
   (* We'll extract the state var to create octagons. *)
-  type svar_info = ()
+  type svar_info = unit
 
   let svar_rules two_state svars set =
     (* Format.printf "svars: @[<v>%a@]@.@."
@@ -682,7 +682,7 @@ module RealRules = struct
   let comp_set _ = Set.empty
 
   (* We'll extract the state var to create octagons. *)
-  type svar_info = ()
+  type svar_info = unit
 
   let svar_rules two_state svars set =
     (* Format.printf "svars: @[<v>%a@]@.@."

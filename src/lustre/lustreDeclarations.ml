@@ -1307,10 +1307,6 @@ and eval_contract_item check ?(soft=false) scope (ctx, accum, count) (pos, iname
     |> C.close_expr pos
   in
   (* Check the expression if asked to. *)
-  (* Disable temporarily this check because it is very restrictive:
-     only if the final streams depend on a current output value, it should give an error
-     (an output stream passed as an argument in a node call is not an error if only the 
-     previous value of the stream is used)
     ( match check with
     | None -> ()
     | Some desc -> (
@@ -1336,18 +1332,23 @@ and eval_contract_item check ?(soft=false) scope (ctx, accum, count) (pos, iname
                 ) ", "
               )
         in
-        C.fail_at_position pos (
+        (* It triggers a warning instead of an error because current check is more restrictive
+           than it should be: it should trigger an error only if the final streams depend on
+           a current output value (an output stream passed as an argument in a node call is not
+           an error if only the previous value of the stream is used)
+        *)
+        C.warn_at_position pos (
           Format.asprintf
             "@[<v>%s mentions output%s%s %a%s@]"
               desc s pref (
                 pp_print_list (
                   fun fmt sv ->
-                    Format.fprintf fmt "\"%s\"" (StateVar.name_of_state_var sv)
+                    Format.fprintf fmt "'%s'" (StateVar.name_of_state_var sv)
                 ) ", "
               ) svars suff
         )
     )
-  ) ;*)
+  ) ;
   (* Define expression with a state variable *)
   let (svar, _), ctx = C.mk_local_for_expr ~is_ghost:true pos ctx expr in
   let contract_svar = Contract.mk_svar pos count iname svar scope in
@@ -1530,7 +1531,7 @@ let rec check_no_contract_in_node_calls ctx = function
   match
     try C.node_of_name ctx call_node_name
     with Not_found -> C.fail_at_position call_pos (
-      Format.asprintf "call to unknown node \"%a\""
+      Format.asprintf "call to unknown node '%a'"
         (LustreIdent.pp_print_ident false) call_node_name
     )
   with
@@ -1663,7 +1664,7 @@ and eval_node_contract_call
                       pref s (
                       pp_print_list (
                         fun fmt sv ->
-                          Format.fprintf fmt "\"%s\""
+                          Format.fprintf fmt "'%s'"
                             (StateVar.name_of_state_var sv)
                       ) ", "
                     ) svars
@@ -1862,11 +1863,11 @@ and eval_node_contract_spec
           in
           let msg = if sc = [] then
             Format.asprintf
-              "unknown %a \"%a\""
+              "unknown %a '%a'"
               pp_print_type s_type (I.pp_print_ident false) s_ident
           else
             Format.asprintf
-              "unknown %a \"%a\" referenced in contract \"%a\""
+              "unknown %a '%a' referenced in contract '%a'"
               pp_print_type s_type (I.pp_print_ident false) s_ident
               Scope.pp_print_scope sc
           in
@@ -1922,7 +1923,7 @@ and eval_node_contract_spec
           |> loop known
         | { N.name } :: _ -> (* PEBCAK. *)
           Format.asprintf "\
-            Illegal call to node \"%a\" in the cone of influence of this \
+            Illegal call to node '%a' in the cone of influence of this \
             contract: node %a has a contract.\
           " (I.pp_print_ident false) name (I.pp_print_ident false) name
           |> C.fail_at_position pos
@@ -2373,7 +2374,7 @@ and eval_node_items inputs outputs locals ctx = function
       | Some n -> (
         if C.prop_name_in_context ctx n then
           C.fail_at_position pos
-            (Format.asprintf "Name \"%s\" already used by another property" n)
+            (Format.asprintf "Name '%s' already used by another property" n)
         else n
       )
       | None -> Format.asprintf "@[<h>%a@]" A.pp_print_expr ast_expr

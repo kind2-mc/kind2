@@ -711,11 +711,8 @@ struct
   let purge_messages sock = 
 
     let rec recv_iter zmsg =
-
       if (zmsg_size zmsg != 0) then 
-
           recv_iter (zmsg_recv_nowait sock)
-
     in
 
     recv_iter (zmsg_recv_nowait sock)

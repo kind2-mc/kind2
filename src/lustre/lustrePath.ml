@@ -1313,12 +1313,15 @@ let pp_print_stream_xml get_source model clock ppf (index, state_var) =
     | Type.Abstr s ->
       Format.pp_print_string ppf s
     | Type.IntRange (i, j, Type.Enum) ->
-      let name = match Type.name_of_enum stream_type with
-        | Some n -> n
-        | None -> assert false
+      let pp_print_enum_name ppf =
+        match Type.name_of_enum stream_type with
+        | Some n -> (
+          Format.fprintf ppf "enumName=\"%s\" " n
+        )
+        | None -> ()
       in
-      Format.fprintf ppf "type=\"enum\"@ enumName=\"%s\" values=\"%a\""
-        (name) (pp_print_list Format.pp_print_string ", ")
+      Format.fprintf ppf "type=\"enum\"@ %tvalues=\"%a\""
+        pp_print_enum_name (pp_print_list Format.pp_print_string ", ")
         (Type.constructors_of_enum stream_type)
     | Type.Array (s, t) ->
       Format.pp_print_string ppf "type=\"array\""
@@ -1569,6 +1572,81 @@ let pp_print_stream_values_json clock ty ppf l =
       pp_print_list (fun ppf (i, v, _c) -> pp_print_stream_value_json ty ppf i v) "," ppf values_on_clock
 
 
+let rec pp_print_type_json field ppf stream_type =
+  match (Type.node_of_type stream_type) with
+  | Type.Bool
+  | Type.Int
+  | Type.UBV _
+  | Type.BV _
+  | Type.Real -> (
+    Format.fprintf ppf "\"%s\" : \"%a\",@,"
+        field (E.pp_print_lustre_type false) stream_type
+  )
+  | Type.Abstr s -> (
+    Format.fprintf ppf
+        "\"%s\" : \"abstr\",@,\
+         \"%sInfo\" :@,{@[<v 1>@,\
+         \"name\" : %s\
+         @]@,},@,\
+        "
+        field field s
+  )
+  | Type.IntRange (i, j, Type.Range) -> (
+    Format.fprintf ppf
+        "\"%s\" : \"subrange\",@,\
+         \"%sInfo\" :@,{@[<v 1>@,\
+         \"min\" : %a,@,\
+         \"max\" : %a\
+         @]@,},@,\
+        "
+        field field
+        Numeral.pp_print_numeral i Numeral.pp_print_numeral j
+  )
+  | Type.IntRange (i, j, Type.Enum) -> (
+    let pp_print_qstring ppf s =
+      Format.fprintf ppf "\"%s\"" s
+    in
+    let pp_print_enum_name ppf =
+      match Type.name_of_enum stream_type with
+      | Some n -> (
+        Format.fprintf ppf "\"name\" : \"%s\",@," n
+      )
+      | None -> ()
+    in
+    Format.fprintf ppf
+        "\"%s\" : \"enum\",@,\
+         \"%sInfo\" :@,{@[<v 1>@,\
+         %t\
+         \"values\" : [%a]\
+         @]@,},@,\
+        "
+        field field
+        pp_print_enum_name
+        (pp_print_list pp_print_qstring ", ")
+        (Type.constructors_of_enum stream_type)
+  )
+  | Type.Array _ -> (
+    let base_type = Type.last_elem_type_of_array stream_type in
+    let sizes =
+      Type.all_index_types_of_array stream_type |>
+      List.map Type.node_of_type |>
+      List.map (function
+        | Type.IntRange (i, j, Type.Range) ->
+          Numeral.string_of_numeral j
+        | _ -> "null"
+      )
+    in
+    Format.fprintf ppf
+        "\"type\" : \"array\",@,\
+         \"typeInfo\" :@,{@[<v 1>@,\
+         %a\
+         \"sizes\" : [%a]\
+         @]@,},@,\
+        "
+        (pp_print_type_json "baseType") base_type
+        (pp_print_list Format.pp_print_string ", ") sizes
+  )
+
 (* Pretty-print a single stream *)
 let pp_print_stream_json get_source model clock ppf (index, state_var) =
   try
@@ -1577,13 +1655,13 @@ let pp_print_stream_json get_source model clock ppf (index, state_var) =
     Format.fprintf ppf
       "@,{@[<v 1>@,\
         \"name\" : \"%a\",@,\
-        \"type\" : \"%a\",@,\
+        %a\
         %a\
         \"instantValues\" :%t\
        @]@,}\
       "
       pp_print_stream_ident_json (index, state_var)
-      (E.pp_print_lustre_type false) stream_type
+      (pp_print_type_json "type") stream_type
       pp_print_stream_prop_json (get_source state_var)
       (function ppf ->
          if stream_values = [] then
@@ -1604,7 +1682,7 @@ let pp_print_active_modes_json ppf = function
         (pp_print_list (fun fmt (k, tree) ->
           Format.fprintf ppf
             "@,{@[<v 1>@,\
-              \"instant\" : \"%d\",@,\
+              \"instant\" : %d,@,\
               %a\
              @]@,}\
             "

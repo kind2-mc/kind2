@@ -129,9 +129,9 @@ A left shift is equivalent to multiplication by 2, and a right shift is equivale
 .. code-block::
 
    a, b, c : bool;
-   a = (uint8 0) << (uint8 10) = (uint8 0); --true
-   b = (uint8 255) >> (uint8 12) = (uint8 255); --true
-   c = (int8 -1) << (uint8 1) = (int8 -2); --true
+   a = (uint8 0) lsh (uint8 10) = (uint8 0); --true
+   b = (uint8 255) rsh (uint8 12) = (uint8 255); --true
+   c = (int8 -1) lsh (uint8 1) = (int8 -2); --true
 
 Comparison Operations
 ^^^^^^^^^^^^^^^^^^^^^

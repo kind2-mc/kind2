@@ -42,7 +42,7 @@ let analysis_start_not_closed = ref false
 let div_by_zero_text prop_name = [
   "Division by zero detected in model reconstruction." ;
   Format.sprintf
-    "Counterexample for property \"%s\" may be inconsistent."
+    "Counterexample for property '%s' may be inconsistent."
     prop_name
 ]
 
@@ -960,7 +960,7 @@ let proved_json mdl level trans_sys k prop =
         }\
         @]@.}@.\
       "
-      prop
+      (Lib.escape_json_string prop)
       (function ppf -> prop_attributes_json ppf trans_sys prop)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match k with
@@ -1053,7 +1053,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
         %a\
         @]@.}@.\
       "
-      prop
+      (Lib.escape_json_string prop)
       (function ppf -> prop_attributes_json ppf trans_sys prop)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match cex with
@@ -1098,7 +1098,7 @@ let execution_path_json level input_sys analysis trans_sys path =
     !log_ppf
     ",@.{@[<v 1>@,\
         \"objectType\" : \"execution\",@,\
-        \"trace\" :@,[@[<v 1>%a@]@,]\
+        \"trace\" :%a\
        @]@.}@.\
     "
     (InputSystem.pp_print_path_json input_sys trans_sys [] true)
@@ -1133,7 +1133,7 @@ let prop_status_json level trans_sys prop_status =
                }\
                @]@.}\
              "
-             p
+             (Lib.escape_json_string p)
              (function ppf -> prop_attributes_json ppf trans_sys p)
              (function ppf -> match s with
                 | Property.PropKTrue k ->

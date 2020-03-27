@@ -1,0 +1,531 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "https://kind.cs.uiowa.edu/schemas/kind2-output.json",
+    "title": "JSON schema for Kind 2's output",
+
+    "definitions": {
+        "log": {
+            "type": "object",
+            "properties": {
+                "objectType" : {
+                    "const": "log"
+                },
+                "level": {
+                    "enum": [
+                        "fatal",
+                        "error",
+                        "warn",
+                        "note",
+                        "info",
+                        "debug",
+                        "trace"
+                    ]
+                },
+                "source": {
+                    "type": "string"
+                },
+                "file": {
+                    "type": "string"
+                },
+                "line": {
+                    "type": "integer"
+                },
+                "column": {
+                    "type": "integer"
+                },
+                "value": {
+                    "type": "string"
+                }
+            },
+            "required": ["objectType", "level", "source", "value"]
+        },
+        "statItem": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "enum": ["int", "float", "list"]
+                },
+                "value": {
+                    "type": "number"
+                },
+                "valueList": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "enum": ["int", "float"]
+                            },
+                            "value": {
+                                "type": "number"
+                            }
+                        },
+                        "required": ["type", "value"]
+                    }
+                }
+            },
+            "required": ["name", "type"]
+        },
+        "statSection": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/statItem"
+                    }
+                }
+            },
+            "required": ["name", "items"]
+        },
+        "stat": {
+            "type": "object",
+            "properties": {
+                "objectType" : {
+                    "const": "stat"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "sections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/statSection"
+                    }
+                }
+            },
+            "required": ["objectType", "source", "sections"]
+        },
+        "progress": {
+            "type": "object",
+            "properties": {
+                "objectType" : {
+                    "const": "progress"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "k": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            },
+            "required": ["objectType", "source", "k"]
+        },
+        "kind2Options": {
+            "type": "object",
+            "properties": {
+                "objectType" : {
+                    "const": "kind2Options"
+                },
+                "enabled": {
+                    "type": "array",
+                    "items": { "type" : "string" }
+                },
+                "timeout": {
+                    "type": "number"
+                },
+                "bmcMax": {
+                    "type": "integer"
+                },
+                "compositional": {
+                    "type": "boolean"
+                },
+                "modular": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "objectType", "enabled", "timeout", "bmcMax",
+                "compositional", "modular"
+            ]
+        },
+        "scope": {
+            "type": "string"
+        },
+        "analysisStart": {
+            "type": "object",
+            "properties": {
+                "objectType" : {
+                    "const": "analysisStart"
+                },
+                "top": {
+                    "$ref": "#/definitions/scope"
+                },
+                "concrete": {
+                    "type": "array",
+                    "items": { "$ref": "#/definitions/scope" }
+                },
+                "abstract": {
+                    "type": "array",
+                    "items": { "$ref": "#/definitions/scope" }
+                },
+                "assumptions": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "items": [
+                          { "$ref": "#/definitions/scope" },
+                          { "type": "integer" }
+                      ],
+                      "minItems": 2,
+                      "maxItems": 2
+                    }
+                }
+            },
+            "required": [
+                "objectType", "top", "concrete", "abstract", "assumptions"
+            ]
+        },
+        "postAnalysisStart": {
+            "type": "object",
+            "properties": {
+                "objectType": {
+                    "const": "postAnalysisStart"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "required": ["objectType", "name"]
+        },
+        "analysisStop": {
+            "type": "object",
+            "properties": {
+                "objectType": {
+                    "const": "analysisStop"
+                }
+            },
+            "required": ["objectType"]
+        },
+        "postAnalysisStop": {
+            "type": "object",
+            "properties": {
+                "objectType": {
+                    "const": "postAnalysisStop"
+                }
+            },
+            "required": ["objectType"]
+        },
+        "runtime": {
+            "type": "object",
+            "properties": {
+                "unit": {
+                    "const": "sec"
+                },
+                "timeout": {
+                    "type": "boolean"
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
+        "answer": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string"
+                },
+                "value": {
+                    "enum": ["valid", "falsifiable", "unknown"]
+                }
+            },
+            "required": ["value"]
+        },
+        "contractModes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "contract": {
+                        "type": "string"
+                    },
+                    "modes": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                    },
+                    "subcontractModes": {
+                        "$ref": "#/definitions/contractModes"
+                    }
+                },
+                "required": ["contract", "modes", "subcontractModes"]
+            }
+        },
+        "activeModes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "instant": {
+                       "type": "integer",
+                       "minimum": 0
+                    },
+                    "topModes": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                    },
+                    "contractModes": {
+                        "$ref": "#/definitions/contractModes"
+                    }
+                },
+                "required": ["instant", "topModes", "contractModes"]
+            }
+        },
+        "kind2Type": {
+            "enum": [
+                "bool",
+                "int", "subrange",
+                "int8", "int16", "int32", "int64",
+                "uint8", "uint16", "uint32", "uint64",
+                "real",
+                "enum",
+                "array",
+                "abstr"
+             ]
+        },
+        "subrangeTypeInfo": {
+            "type": "object",
+            "properties": {
+                "min": { "type": "integer" },
+                "max": { "type": "integer" }
+            },
+            "required": ["min", "max"]
+        },
+        "enumTypeInfo": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string" },
+                "values": {
+                    "type": "array",
+                    "items": { "type" : "string" }
+                }
+            },
+            "required": ["values"]
+        },
+        "arrayTypeInfo": {
+            "type": "object",
+            "properties": {
+                "baseType": {
+                    "$ref": "#/definitions/kind2Type"
+                },
+                "baseTypeInfo": {
+                    "$ref": "#/definitions/kind2TypeInfo"
+                },
+                "sizes": {
+                    "type": "array",
+                    "items": {
+                        "anyOf": [
+                            { "type" : "integer" },
+                            { "type" : "null" }
+                        ]
+                    }
+                }
+            },
+            "required": ["baseType", "sizes"]
+        },
+        "abstrTypeInfo": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string" }
+            },
+            "required": ["name"]
+        },
+        "kind2TypeInfo": {
+            "anyOf": [
+                { "$ref": "#/definitions/subrangeTypeInfo" },
+                { "$ref": "#/definitions/enumTypeInfo" },
+                { "$ref": "#/definitions/arrayTypeInfo" },
+                { "$ref": "#/definitions/abstrTypeInfo" }
+            ]
+        },
+        "enumValue": {
+            "type": "string"
+        },
+        "fractionalLiteral": {
+            "type": "object",
+            "properties": {
+                "num": { "type": "integer" },
+                "den": { "type": "integer" }
+            },
+            "required": ["num", "den"]
+        },
+        "kind2Value": {
+            "anyOf": [
+                { "type": "boolean" },
+                { "type": "number" },
+                { "$ref": "#/definitions/enumValue" },
+                { "$ref": "#/definitions/fractionalLiteral" },
+                {
+                  "type": "array",
+                  "items": { "$ref": "#/definitions/kind2Value" }
+                }
+            ]
+        },
+        "streamValues": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/kind2Type"
+                },
+                "typeInfo": {
+                    "$ref": "#/definitions/kind2TypeInfo"
+                },
+                "class": {
+                    "enum": ["input", "output", "local"]
+                },
+                "instantValues": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": [
+                            { "type": "integer" },
+                            { "$ref": "#/definitions/kind2Value" }
+                        ],
+                        "minItems": 2,
+                        "maxItems": 2
+                    }
+                }
+            },
+            "required": ["name", "type", "class", "instantValues"]
+        },
+        "automatonStreams": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "streams" : {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/streamValues"
+                    }
+                }
+            },
+            "required": ["name"]
+        },
+        "trace": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "blockType": {
+                        "enum": ["node", "function", "state"]
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "activeModes": {
+                        "$ref": "#/definitions/activeModes"
+                    },
+                    "streams" : {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/streamValues"
+                        }
+                    },
+                    "automata": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/automatonStreams"
+                        }
+                    },
+                    "subnodes": {
+                        "$ref": "#/definitions/trace"
+                    }
+                },
+                "required": ["blockType", "name"]
+            }
+        },
+        "property": {
+            "type": "object",
+            "properties": {
+                "objectType": {
+                    "const": "property"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "scope": {
+                    "$ref": "#/definitions/scope"
+                },
+                "line": {
+                    "type": "integer"
+                },
+                "column": {
+                    "type": "integer"
+                },
+                "source": {
+                    "enum": [
+                        "Assumption",
+                        "Guarantee",
+                        "OneModeActive",
+                        "Ensure",
+                        "PropAnnot"
+                    ]
+                },
+                "runtime": {
+                    "$ref": "#/definitions/runtime"
+                },
+                "k": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "trueFor": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "answer": {
+                    "$ref": "#/definitions/answer"
+                },
+                "counterExample": {
+                    "$ref": "#/definitions/trace"
+                }
+            },
+            "required": ["objectType", "name", "line", "column", "source", "answer"]
+        },
+        "execution": {
+            "type": "object",
+            "properties": {
+                "objectType": {
+                    "const": "execution"
+                },
+                "trace": {
+                    "$ref": "#/definitions/trace"
+                }
+            },
+            "required": ["objectType", "trace"]
+        },
+        "results": {
+            "type": "array",
+            "items": {
+                "anyOf": [
+                   { "$ref": "#/definitions/log" },
+                   { "$ref": "#/definitions/stat" },
+                   { "$ref": "#/definitions/progress" },
+                   { "$ref": "#/definitions/kind2Options" },
+                   { "$ref": "#/definitions/analysisStart" },
+                   { "$ref": "#/definitions/analysisStop" },
+                   { "$ref": "#/definitions/postAnalysisStart" },
+                   { "$ref": "#/definitions/postAnalysisStop" },
+                   { "$ref": "#/definitions/property" },
+                   { "$ref": "#/definitions/execution" }
+                ] 
+            }
+        }
+    },
+
+    "anyOf": [
+      { "$ref": "#/definitions/log" },
+      { "$ref": "#/definitions/results" }
+    ]
+}

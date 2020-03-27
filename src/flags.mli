@@ -171,6 +171,9 @@ val log_level : unit -> Lib.log_level
 (** Output in XML format *)
 val log_format_xml : unit -> bool
 
+(** Output in XML format *)
+val log_format_json : unit -> bool
+
 (** Wallclock timeout. *)
 val timeout_wall : unit -> float
 
@@ -258,6 +261,11 @@ module Smt : sig
 
   (** Executable of Yices2 SMT2 solver *)
   val yices2smt2_bin : unit -> string
+
+  (** Yices 2 binary supports models in SMT2 format **)
+  val yices2_smt2models : unit -> bool
+
+  val set_yices2_smt2models : bool -> unit
 
   (** Forces SMT traces. *)
   val set_trace: bool -> unit

@@ -2840,7 +2840,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 (* Check if the property is valid in the initial state and in the
    successor of the initial state, raise exception [Counterexample] if
    not *)
-let rec bmc_checks solver input_sys aparam trans_sys props =
+let bmc_checks solver input_sys aparam trans_sys props bound =
 
   (* Activation literal for frame, is symbol has been declared *)
   let actlit_R0 = C.actlit_of_frame 0 in
@@ -2982,6 +2982,16 @@ let rec bmc_checks solver input_sys aparam trans_sys props =
      those that don't *)
   let props' = bmc_check false props in
 
+  (* Assert transition relation unguarded
+
+     T[x,x'] *)
+  SMTSolver.trace_comment solver "main: Assert unguarded transition relation";
+  SMTSolver.assert_term
+    solver
+
+    (TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver))
+       trans_sys (Numeral.of_int bound));
+
   (* Check if properties hold in the successor of the initial state
      and filter out those that don't *)
   let props'' = bmc_check true props' in
@@ -3083,15 +3093,6 @@ let main_ic3 input_sys aparam trans_sys =
         (TransSys.init_of_bound (Some (SMTSolver.declare_fun solver))
            trans_sys Numeral.zero)]);
 
-  (* Assert transition relation unguarded
-
-     T[x,x'] *)
-  SMTSolver.trace_comment solver "main: Assert unguarded transition relation";
-  SMTSolver.assert_term
-    solver
-    (TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver))
-       trans_sys (Numeral.of_int bound));
-
   (* Print inductive assertions to file? *)
   (match Flags.IC3.print_to_file () with
 
@@ -3157,7 +3158,23 @@ let main_ic3 input_sys aparam trans_sys =
   let props' =
 
     (* Is BMC running in parallel? *)
-    if List.mem `BMC (Flags.enabled ()) && not debug_assert then
+    if List.mem `BMC (Flags.enabled ()) && not debug_assert then (
+
+      (* When transition relation comes from a contract, it may be unsatisfiable.
+         If check for zero counterexample is delegated to BMC, it is safe to assert
+         transition relation here. Otherwise, we assert it after check for zero cex
+         in bmc_checks
+      *)
+
+      (* Assert transition relation unguarded
+
+         T[x,x'] *)
+      SMTSolver.trace_comment solver "main: Assert unguarded transition relation";
+      SMTSolver.assert_term
+        solver
+
+        (TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver))
+           trans_sys (Numeral.of_int bound));
 
       (KEvent.log L_info
          "Delegating check for zero and one step counterexamples \
@@ -3165,6 +3182,7 @@ let main_ic3 input_sys aparam trans_sys =
 
        trans_sys_props)
 
+    )
     else
 
       (* BMC is not running, must check here *)
@@ -3174,6 +3192,7 @@ let main_ic3 input_sys aparam trans_sys =
         aparam 
         trans_sys
         trans_sys_props
+        bound
 
   in
 
