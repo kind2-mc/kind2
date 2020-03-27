@@ -228,6 +228,8 @@ val paren_string_of_string_list : string list -> string
 
 val escape_json_string : string -> string
 
+val escape_xml_string : string -> string
+
 (** {1 Logging} *)
 
 (** Levels of log messages

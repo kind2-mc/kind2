@@ -565,12 +565,6 @@ let prop_status_pt level prop_status =
 (* XML specific functions                                                 *)
 (* ********************************************************************** *)
 
-let escape_xml_name s =
-  let ltr = Str.regexp "<" in
-  let gtr = Str.regexp ">" in
-  s |> Str.global_replace ltr "&lt;"
-    |> Str.global_replace gtr "&gt;"
-
 (* Level to class attribute of log tag *)
 let xml_cls_of_level = string_of_log_level
 
@@ -638,7 +632,7 @@ let proved_xml mdl level trans_sys k prop_name =
         %t\
         <Answer source=\"%a\"%t>valid</Answer>@;<0 -2>\
         </Property>@]@.")
-      (escape_xml_name prop_name) (prop_attributes_xml trans_sys prop_name)
+      (Lib.escape_xml_string prop_name) (prop_attributes_xml trans_sys prop_name)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match k with 
          | None -> () 
@@ -760,7 +754,7 @@ mdl level input_sys analysis trans_sys prop_name (
         <Answer source=\"%a\"%t>%s</Answer>@,\
         %a@;<0 -2>\
         </Property>@]@.") 
-      (escape_xml_name prop_name) (prop_attributes_xml trans_sys prop_name)
+      (Lib.escape_xml_string prop_name) (prop_attributes_xml trans_sys prop_name)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match cex with 
          | [] -> () 
@@ -829,7 +823,7 @@ let prop_status_xml level trans_sys prop_status =
                @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]@,\
                %a@,\
                @;<0 -2></Property>@]"
-              (escape_xml_name p) (prop_attributes_xml trans_sys p)
+              (Lib.escape_xml_string p) (prop_attributes_xml trans_sys p)
               (function ppf -> function 
                  | Property.PropUnknown
                  | Property.PropKTrue _ -> Format.fprintf ppf "unknown"
@@ -1123,7 +1117,7 @@ let progress_json mdl level k =
     ",@.{@[<v 1>@,\
         \"objectType\" : \"progress\",@,\
         \"source\" : \"%s\",@,\
-        \"k\" : \"%d\"\
+        \"k\" : %d\
       @]@.}@.\
     "
     (short_name_of_kind_module mdl) k
