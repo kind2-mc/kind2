@@ -55,7 +55,7 @@ The list of properties of a ``Log`` object are:
 
 .. csv-table::
    :header: "Key", "Type", "Description"
-   :widths: auto
+   :widths: 5,5,30
 
    ``level``, ``string``, "A level that gives a rough guide of the importance of the message. Can be ``fatal``, ``error``, ``warn``, ``note``, ``info``, ``debug``, or ``trace``."
    ``source``, ``string``, "The name of the Kind 2 module which wrote the log."
@@ -131,7 +131,7 @@ The list of properties of an ``AnalysisStart`` object are:
 
 .. csv-table::
    :header: "Key", "Type", "Description"
-   :widths: auto
+   :widths: 10,5,30
 
    ``name``, ``string``, "Property identifier or description."
    ``scope``, ``string``, "Name of the component where the property was analyzed."
@@ -155,7 +155,7 @@ The list of properties of a ``Stat`` object are:
 
 .. csv-table::
    :header: "Key", "Type", "Description"
-   :widths: auto
+   :widths: 5,5,30
 
    ``source``, ``string``, "Name of the Kind 2 module which reported the info."
    ``sections``, ``array``, "List of ``statSection`` objects, each of them with a section ``name`` and a list of ``statItem`` objects. Each ``statItem`` has a ``name``, a ``type``, and a ``value``. See `schemas/kind2-output.json`_ for further details."
@@ -234,7 +234,7 @@ The list of attributes of a ``Log`` element are:
 
 .. csv-table::
    :header: "Attribute", "Base Type", "Description"
-   :widths: auto
+   :widths: 5,8,30
 
    ``class``, ``xs:string``, "A level that gives a rough guide of the importance of the message. Can be ``fatal``, ``error``, ``warn``, ``note``, ``info``, ``debug``, or ``trace``."
    ``source``, ``xs:string``, "The name of the Kind 2 module which wrote the log."
@@ -274,7 +274,7 @@ The list of attributes of an ``AnalysisStart`` element are:
 
 .. csv-table::
    :header: "Attribute", "Base Type", "Description"
-   :widths: auto
+   :widths: 8,8,30
 
    ``top``, ``xs:string``, "Name of the current top-level component."
    ``concrete``, ``xs:string``, "Names of the subcomponents whose implementation is used in the analysis (comma-separated list)."
@@ -299,7 +299,7 @@ is contained. The list of attributes of a ``Property`` element are:
 
 .. csv-table::
    :header: "Attribute", "Base Type", "Description"
-   :widths: auto
+   :widths: 5,7,30
 
    ``name``, ``xs:string``, "Property identifier or description."
    ``scope``, ``xs:string``, "Name of the component where the property was analyzed."

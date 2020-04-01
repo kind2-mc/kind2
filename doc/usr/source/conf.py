@@ -250,7 +250,7 @@ latex_elements = {
 
             \sffamily\Large \textbf{\Huge {Kind 2 User Documentation}}
 
-            \sffamily\Large \textbf{Version 1.1.0}
+            \sffamily\Large \textbf{Version 1.2.0}
 
             \newdateformat{monthdayyear}{%
                 \monthname[\THEMONTH] \THEDAY, \THEYEAR}
