@@ -80,7 +80,7 @@ Requirements
   * `Yices 1 <http://yices.csl.sri.com/old/download-yices1-full.shtml>`_\ , or
   * `Z3 <https://github.com/Z3Prover/z3>`_ (presently recommended)
 
-Consider to use [opam](https://opam.ocaml.org/) to install the OCaml compiler and the OCaml libraries.
+Consider to use `opam <https://opam.ocaml.org/>`_ to install the OCaml compiler and the OCaml libraries.
 
 Building and installing
 -----------------------
