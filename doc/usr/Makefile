@@ -1,5 +1,5 @@
 .PHONY: all clean replace-include update build-pdf build-html pdf html
-doc_root := doc\/usr\/source\/
+doc_root := https:\/\/kind.cs.uiowa.edu\/kind2_user_doc\/
 
 all: html pdf
 
@@ -15,7 +15,7 @@ update:
 	cat source/travis_links.rst >> ../../README.rst
 	cat source/home.rst >> ../../README.rst
 	# Replace internal references with explicit ones to render README on Github
-	sed -E -i 's/:ref:`(.*)<(.*)>`/`\1<${doc_root}\2\.rst>`_/g' ../../README.rst
+	sed -E -i 's/:ref:`(.*)<(.*)>`/`\1<${doc_root}\2\.html>`_/g' ../../README.rst
 	# Replace include directives with the file contents, as the
 	# directives are not currently supported/rendered on Github.
 	# The source/ directory is where files included in

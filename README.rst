@@ -24,17 +24,17 @@ Kind 2
 `Kind 2 <http://kind.cs.uiowa.edu/>`_ \ is a multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 
 Kind 2 takes as input a Lustre file annotated with properties to be proven
-invariant (see `Lustre Input <doc/usr/source/2_input/1_lustre.rst>`_), and
+invariant (see `Lustre Input <https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html>`_), and
 outputs which of the properties are true for all inputs, as well as an input
 sequence for those properties that are falsified. To ease processing by external tools,
-Kind 2 can output its results in JSON and XML formats (see `JSON / XML Output <doc/usr/source/3_output/2_machine_readable.rst>`_).
+Kind 2 can output its results in JSON and XML formats (see `JSON / XML Output <https://kind.cs.uiowa.edu/kind2_user_doc/3_output/2_machine_readable.html>`_).
 
 By default Kind 2 runs a process for bounded model checking (BMC), a process
 for k-induction, two processes for invariant generation, and a process for IC3
 in parallel on all properties simultaneously. It incrementally outputs
 counterexamples to properties as well as properties proved invariant.
 
-The following command-line options control its operation (run ``kind2 --help`` for a full list). See `Techniques <doc/usr/source/1_techniques/1_techniques.rst>`_ for configuration examples and more details on each technique.
+The following command-line options control its operation (run ``kind2 --help`` for a full list). See `Techniques <https://kind.cs.uiowa.edu/kind2_user_doc/1_techniques/1_techniques.html>`_ for configuration examples and more details on each technique.
 
 ``--enable {BMC|IND|INVGEN|INVGENOS|IC3}`` Select model checking engines
 
