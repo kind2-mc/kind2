@@ -19,13 +19,13 @@
 # -- Project information -----------------------------------------------------
 
 project = 'Kind 2'
-copyright = '2019, Board of Trustees of the University of Iowa'
-author = 'Cesare Tinelli, Daniel Larraz, Mudathir Mohamed'
+copyright = '2015-2019, Board of Trustees of the University of Iowa'
+author = 'Kind 2 Team'
 
 # The short X.Y version
-version = 'v1.1'
+version = 'v1.2'
 # The full version, including alpha/beta/rc tags
-release = 'v1.1.0'
+release = 'v1.2.0'
 
 nitpicky = True
 
