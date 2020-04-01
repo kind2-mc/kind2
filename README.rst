@@ -27,7 +27,7 @@ Kind 2 takes as input a Lustre file annotated with properties to be proven
 invariant (see `Lustre Input <doc/usr/source/2_input/1_lustre.rst>`_), and
 outputs which of the properties are true for all inputs, as well as an input
 sequence for those properties that are falsified. To ease processing by external tools,
-Kind 2 can output its results in JSON and XML formats (see `JSON / XML Output <doc/usr/source/3_output/2_xml.rst>`_).
+Kind 2 can output its results in JSON and XML formats (see `JSON / XML Output <doc/usr/source/3_output/2_machine_readable.rst>`_).
 
 By default Kind 2 runs a process for bounded model checking (BMC), a process
 for k-induction, two processes for invariant generation, and a process for IC3
@@ -65,7 +65,6 @@ The default is ``Z3``\ , but see options of the ``./build.sh`` script to overrid
 Requirements
 ------------
 
-
 * Linux or Mac OS X,
 * Automake,
 * GNU Libtool,
@@ -80,6 +79,8 @@ Requirements
   * `Yices 2 <http://yices.csl.sri.com/>`_\ ,
   * `Yices 1 <http://yices.csl.sri.com/old/download-yices1-full.shtml>`_\ , or
   * `Z3 <https://github.com/Z3Prover/z3>`_ (presently recommended)
+
+Consider to use [opam](https://opam.ocaml.org/) to install the OCaml compiler and the OCaml libraries.
 
 Building and installing
 -----------------------

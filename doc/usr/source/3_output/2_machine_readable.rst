@@ -1,4 +1,4 @@
-.. _3_output/2_xml:
+.. _3_output/2_machine_readable:
 
 JSON / XML Output
 =================
