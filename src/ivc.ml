@@ -1756,19 +1756,32 @@ let default_cex = ("", [])
 let compute_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test =
   KEvent.log L_info "Computing a MCS using automated debugging..." ;
   let n = core_size test in
-  let rec aux k =
+  (* Increasing cardinality... *)
+  (*let rec aux k =
     if k < n
     then
       match compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k [] with
       | None -> aux (k+1)
-      | Some (core, cex) -> (core, cex)
+      | Some res -> res
     else (test, default_cex)
   in
-  aux 1
+  aux 1*)
+  (* Decreasing cardinality... *)
+  let rec aux k previous_res =
+    if k >= 1
+    then
+      match compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k [] with
+      | None -> previous_res
+      | Some res -> aux (k-1) res
+    else previous_res
+  in
+  aux (n-1) (test, default_cex)
 
 let compute_all_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test =
   KEvent.log L_info "Computing all MCS using automated debugging..." ;
   let n = core_size test in
+  let (res, res_cex) = compute_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test in
+  let k = core_size res in
   let rec aux acc already_found k =
     if k < n
     then
@@ -1780,7 +1793,7 @@ let compute_all_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test
     else if acc = [] then [(test, default_cex)]
     else acc
   in
-  aux [] [] 1
+  aux [(res, res_cex)] [actsvs_of_core res] k
 
 (* ---------- UMIVC ---------- *)
 
@@ -2091,7 +2104,6 @@ let properties_of_interest_for_mua sys =
   let ignore_valid_props = Flags.MUA.mua_elements () |> List.for_all (fun x -> x = `WEAK_ASS)
   in extract_props sys (not ignore_valid_props) true
 
-(* TODO : use os_invs *)
 let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes eqmap_keep eqmap_test =
   let prop_names = props_names props in
   remove_other_props sys prop_names ;
