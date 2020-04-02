@@ -159,7 +159,7 @@ of each mode
 
 .. math::
 
-   \text{one\_mode\_active} = \bigvee_i (\bigwedge_j r_{ij})
+   \mathsf{one\_mode\_active} = \bigvee_i (\bigwedge_j r_{ij})
 
 is an invariant for the system
 
