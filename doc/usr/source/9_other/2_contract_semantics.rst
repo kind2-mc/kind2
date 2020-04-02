@@ -14,11 +14,12 @@ An *assume-guarantee contract* ``(A,G)`` for a node ``n`` is a set of *assumptio
 ``A`` and a set of *guarantees* ``G``. Assumptions describe how ``n`` **must** be
 used, while guarantees specify how ``n`` behaves.
 
-More formally, ``n`` respects its contract ``(A,G)`` if
+More formally, ``n`` respects its contract ``(A,G)`` if all of its executions 
+satisfy the temporal formula
 
 .. code-block:: none
 
-   (□ A) ⇒ (□ G)
+   □A ⇒ □G
 
 where □ is the globally temporal operator of Linear Temporal Logic.
 
@@ -76,9 +77,9 @@ can be re-written as an assume-guarantee contract ``(A,G')`` where
 
 .. code-block:: none
 
-   G' = G U { (/\ r_i) => (/\ e_i), ({r_i}, {e_i}) in M }
+   G' = G ⋃ { (∧ r_i) ⇒ (∧ e_i) | ({r_i}, {e_i}) ∈ M }
 
-where ``U`` is set union.
+where ⋃ is set union and ∈ is set membership.
 
 For instance, a (linear) contract for non-linear multiplication could be
 
@@ -162,13 +163,13 @@ of each mode
 
 .. code-block:: none
 
-   one_mode_active = \/ { r_i }
+   one_mode_active = ∨ { r_i }
 
 is an invariant for the system
 
 .. code-block:: none
 
-   A /\ G /\ { r_i => e_i }
+   A ∧ G ∧ { r_i ⇒ e_i }
 
 If ``one_mode_active`` is indeed invariant, it means that as long as
 
