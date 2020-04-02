@@ -191,6 +191,9 @@ The list of properties of an ``PostAnalysisStart`` object are:
 
    ``name``, ``string``, "Name of the post-analysis"
 
+The post-analyses currently available are ``testgen``, ``contractgen``,
+``rustgen``, ``invlog``, ``invprint``, and ``certification``.
+
 .. _PostAnalysisEnd Object:
 
 PostAnalysisEnd Object
@@ -352,6 +355,8 @@ PostAnalysisStart Element
 An ``PostAnalysisStart`` element is an empty element that indicates
 the beginning of a post-analysis. It has only one attribute of type ``xs:string``,
 the ``name`` of the post-analysis.
+The post-analyses currently available are ``testgen``, ``contractgen``,
+``rustgen``, ``invlog``, ``invprint``, and ``certification``.
 
 .. _PostAnalysisEnd Element:
 
