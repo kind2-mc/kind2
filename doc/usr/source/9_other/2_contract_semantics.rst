@@ -18,9 +18,9 @@ More formally, ``n`` respects its contract ``(A,G)`` if
 
 .. code-block:: none
 
-   ([] A) => ([] G)
+   (□ A) ⇒ (□ G)
 
-where ``[]`` is the box (globally) temporal operator.
+where □ is the globally temporal operator of Linear Temporal Logic.
 
 That is, if the assumptions always hold then the guarantees hold. Contracts are
 interesting when a node ``top`` calls a node ``sub``\ , where ``sub`` has a contract
