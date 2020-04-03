@@ -72,6 +72,19 @@ val ivc_bf :
   Property.t list option ->
   ivc option
 
+(** Outputs the MUST set by computing all the minimal correction sets of cardinality 1. *)
+val must_set :
+  'a InputSystem.t ->
+  Analysis.param ->
+  (
+    bool ->
+    Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
+    -> unit
+  ) ->
+  TransSys.t ->
+  Property.t list option ->
+  ivc option
+
 (** Outputs a minimal inductive validity core by first computing an UNSAT core (ivc_uc),
     and then trying to remove the remaining equations with bruteforce (ivc_bf).
     This should be faster than ivc_bf. *)

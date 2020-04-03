@@ -1301,7 +1301,7 @@ module IVC = struct
   let minimized_program_dir () = !minimized_program_dir
 
 
-  type ivcimpl = [ `IVC_BF | `IVC_AUC | `IVC_UC | `IVC_UCBF | `UMIVC ]
+  type ivcimpl = [ `IVC_BF | `IVC_AUC | `IVC_UC | `IVC_UCBF | `UMIVC | `MUST ]
 
   let ivcimpl_of_string = function
     | "BF" -> `IVC_BF
@@ -1309,6 +1309,7 @@ module IVC = struct
     | "UC" -> `IVC_UC
     | "UCBF" -> `IVC_UCBF
     | "UMIVC" -> `UMIVC
+    | "MUST" -> `MUST
     | _ -> raise (Arg.Bad "Bad value for --ivc_impl")
 
   let ivc_impl_default = `IVC_UC
@@ -1324,7 +1325,8 @@ module IVC = struct
           \"UC\" to perform an unsat-core based minimization (default)@ \
           \"BF\" to perform a bruteforce minimization@ \
           \"UCBF\" to perform an unsat-core minimization and then a bruteforce@ \
-          \"UMIVC\" to compute all the minimal inductive validity cores\
+          \"UMIVC\" to compute all the minimal inductive validity cores@ \
+          \"MUST\" to compute the MUST set using minimal correction sets\
         "
     )
   let ivc_impl () = !ivc_impl

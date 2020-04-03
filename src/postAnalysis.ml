@@ -657,6 +657,7 @@ module RunIVC: PostAnalysis = struct
             | `IVC_UC -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:false sys (Some props))
             | `IVC_AUC -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:true sys (Some props))
             | `IVC_BF -> treat_and_return_lst (Ivc.ivc_bf in_sys param analyze sys (Some props))
+            | `MUST -> treat_and_return_lst (Ivc.must_set in_sys param analyze sys (Some props))
             | `IVC_UCBF -> treat_and_return_lst (Ivc.ivc_ucbf in_sys param analyze sys (Some props))
             | `UMIVC -> Ivc.umivc in_sys param analyze sys (Some props) (Flags.IVC.ivc_umivc_k ()) treat_ivc
           in
