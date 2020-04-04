@@ -1383,10 +1383,13 @@ let must_set_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes eqmap_keep eqm
   let actsvs = actsvs_of_core test in
   List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
 
-  compute_all_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test 1 []
-  |> List.map fst
-  |> List.fold_left core_union ScMap.empty
-  |> core_to_eqmap
+  let core =
+    compute_all_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test 1 []
+    |> List.map fst
+    |> List.fold_left core_union ScMap.empty
+  in
+  let test = core_diff test core in
+  (core_to_eqmap core, core_to_eqmap test)
 
 let properties_of_interest_for_ivc sys =
   extract_props sys true false
@@ -1403,8 +1406,8 @@ let must_set in_sys param analyze sys props =
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
-    let test = must_set_ in_sys check_ts sys props enter_nodes keep test in
-    Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
+    let (keep', _) = must_set_ in_sys check_ts sys props enter_nodes keep test in
+    Some (eqmap_to_ivc in_sys props (lstmap_union keep keep'))
   ) with
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
@@ -1783,6 +1786,38 @@ let is_empty_eqmap = is_empty_core
 let eqmap_size = core_size
 let pick_eqmap = pick_core
 
+let check_core check_ts sys prop_names enter_nodes core =
+  let prepare_ts_for_check core =
+    reset_ts enter_nodes sys ;
+    let prepare_subsystem sys =
+      let scope = TS.scope_of_trans_sys sys in
+      let eqs =
+        try Some (ScMap.find scope core)
+        with Not_found -> if enter_nodes then Some [] else None
+      in
+      begin match eqs with
+      | None -> ()
+      | Some eqs ->
+        let init_eq = List.map (fun eq -> eq.init_opened) eqs
+        |> Term.mk_and in
+        let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
+        |> Term.mk_and in
+        TS.set_init_trans sys init_eq trans_eq 
+      end
+    in
+    TS.iter_subsystems ~include_top:true prepare_subsystem sys
+  in
+  let check core =
+    prepare_ts_for_check core ;
+    let old_log_level = Lib.get_log_level () in
+    Format.print_flush () ;
+    Lib.set_log_level L_off ;
+    check_ts () ;
+    Lib.set_log_level old_log_level;
+    check_result prop_names sys
+  in
+  check core
+
 (** Implements the algorithm IVC_BF *)
 let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   let prop_names = props_names props in
@@ -1802,38 +1837,13 @@ let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
     else None
   in
 
-  let prepare_ts_for_check keep test =
-    reset_ts enter_nodes sys ;
-    let union = lstmap_union keep test in
-    let prepare_subsystem sys =
-      let scope = TS.scope_of_trans_sys sys in
-      let eqs =
-        try Some (ScMap.find scope union)
-        with Not_found -> if enter_nodes then Some [] else None
-      in
-      begin match eqs with
-      | None -> ()
-      | Some eqs ->
-        let init_eq = List.map (fun eq -> eq.init_opened) eqs
-        |> Term.mk_and in
-        let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
-        |> Term.mk_and in
-        TS.set_init_trans sys init_eq trans_eq 
-      end
-    in
-    TS.iter_subsystems ~include_top:true prepare_subsystem sys
-  in
   let check keep' test =
     let remaining = (eqmap_size test) + 1 in
     let total = remaining + (eqmap_size keep') in
     KEvent.log L_info "Minimizing using bruteforce... (%i elements in the IVC, %i checks left)" total remaining ;
-    prepare_ts_for_check (lstmap_union keep keep') test ;
-    let old_log_level = Lib.get_log_level () in
-    Format.print_flush () ;
-    Lib.set_log_level L_off ;
-    check_ts () ;
-    Lib.set_log_level old_log_level;
-    check_result prop_names sys
+    lstmap_union keep keep'
+    |> lstmap_union test
+    |> check_core check_ts sys prop_names enter_nodes
   in
 
   begin match minimize check ScMap.empty test with
@@ -1841,8 +1851,24 @@ let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   | Some eqmap -> eqmap
   end
 
-let ivc_bf in_sys param analyze sys props =
+(** Compute the MUST set and then call IVC_BF if needed *)
+let ivc_must_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
+  let prop_names = props_names props in
+
+  let (keep, test) = must_set_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
+  if check_core check_ts sys prop_names enter_nodes keep
+  then (
+    KEvent.log L_info "MUST set is a valid IVC." ;
+    keep
+  )
+  else (
+    KEvent.log L_info "MUST set is not a valid IVC. Minimizing with bruteforce..." ;
+    ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test
+  )
+
+let ivc_bf in_sys ?(use_must_set=false) param analyze sys props =
   try (
+    let ivc_bf_ = if use_must_set then ivc_must_bf_ else ivc_bf_ in
     let props = ivc_props sys props in
     let enter_nodes = Flags.IVC.ivc_enter_nodes () in
     let eqmap = _all_eqs in_sys sys enter_nodes in
@@ -1859,8 +1885,9 @@ let ivc_bf in_sys param analyze sys props =
     None
 
 (** Implements the algorithm IVC_UCBF *)
-let ivc_ucbf in_sys param analyze sys props =
+let ivc_ucbf in_sys ?(use_must_set=false) param analyze sys props =
   try (
+    let ivc_bf_ = if use_must_set then ivc_must_bf_ else ivc_bf_ in
     let props = ivc_props sys props in
     let enter_nodes = Flags.IVC.ivc_enter_nodes () in
     let eqmap = _all_eqs in_sys sys enter_nodes in
