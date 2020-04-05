@@ -2165,9 +2165,26 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_te
     all_mivc
   )
 
+let must_umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test =
+  let prop_names = props_names props in
+  let (sys, check_ts) = make_check_ts sys in
+
+  let (keep, test) = must_set_ in_sys check_ts sys props enter_nodes keep test in
+  if check_core check_ts sys prop_names enter_nodes keep
+  then (
+    KEvent.log L_info "MUST set is a valid IVC." ;
+    [keep]
+  )
+  else (
+    KEvent.log L_info "MUST set is not a valid IVC. Running UMIVC..." ;
+    umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test
+  )
+
+
 (** Implements the algorithm UMIVC. *)
-let umivc in_sys param analyze sys props k cont =
+let umivc in_sys ?(use_must_set=false) param analyze sys props k cont =
   try (
+    let umivc_ = if use_must_set then must_umivc_ else umivc_ in
     let props = ivc_props sys props in
     let enter_nodes = (Flags.IVC.ivc_enter_nodes ()) in
     let eqmap = _all_eqs in_sys sys enter_nodes in
