@@ -1,6 +1,6 @@
 FROM ubuntu:18.04 as builder
 
-COPY . kind2-build/
+ARG SOURCE_BRANCH
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -9,6 +9,13 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     unzip \
     wget
+
+# Command for DockerHub
+RUN if [ -n "${SOURCE_BRANCH}" ] ; then \
+  apt-get install -y git && \
+  git clone --depth 1 --branch ${SOURCE_BRANCH} https://github.com/kind2-mc/kind2.git kind2-build ; fi
+
+COPY . kind2-build/
 
 # Install opam and ocaml from GitHub (Ubuntu version causes problems)
 RUN wget -qq https://github.com/ocaml/opam/releases/download/2.0.6/opam-2.0.6-x86_64-linux \
