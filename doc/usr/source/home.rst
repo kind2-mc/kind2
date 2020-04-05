@@ -177,12 +177,13 @@ where
 Packaging your local version of Kind 2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-At the top level of the Kind 2 repository is a ``Dockerfile`` you can use to
+In the ``docker`` directory at the top level of the Kind 2 repository,
+there is a ``Dockerfile`` you can use to
 build your own Kind 2 image. To do so, just run
 
 .. code-block:: none
 
-   docker build -t kind2-local .
+   docker build -t kind2-local -f ./docker/Dockerfile .
 
 at the root of the repository. ``kind2-local`` is given here as an example, feel
 free to call it whatever you want.
