@@ -11,14 +11,6 @@ RUN apt-get update && apt-get install -y \
     unzip \
     wget
 
-# Command for DockerHub
-RUN if [ -n "${COMMIT}" ] ; then \
-  apt-get install -y git && \
-  git clone --depth 25 --branch ${BRANCH} https://github.com/kind2-mc/kind2.git kind2-build && \
-  cd kind2-build && git checkout ${COMMIT} && cd .. ; fi
-
-COPY . kind2-build/
-
 # Install opam and ocaml from GitHub (Ubuntu version causes problems)
 RUN wget -qq https://github.com/ocaml/opam/releases/download/2.0.6/opam-2.0.6-x86_64-linux \
   && mv opam-2.0.6-x86_64-linux /usr/local/bin/opam && chmod a+x /usr/local/bin/opam \
@@ -40,7 +32,15 @@ RUN wget -qq https://yices.csl.sri.com/releases/2.6.1/yices-2.6.1-x86_64-pc-linu
 
 # Retrieve JKind and CVC4 (required for certification)
 RUN wget -qq https://github.com/agacek/jkind/releases/download/v4.0.1/jkind.zip && unzip jkind.zip \
- && ./kind2-build/docker/latest_cvc4.sh
+ && wget -qq https://github.com/CVC4/CVC4/releases/download/1.7/cvc4-1.7-x86_64-linux-opt -O cvc4
+
+# Command for DockerHub
+RUN if [ -n "${COMMIT}" ] ; then \
+  apt-get install -y git && \
+  git clone --depth 25 --branch ${BRANCH} https://github.com/kind2-mc/kind2.git kind2-build && \
+  cd kind2-build && git checkout ${COMMIT} && cd .. ; fi
+
+COPY . kind2-build/
 
 # Build Kind 2
 WORKDIR kind2-build
