@@ -2173,6 +2173,7 @@ let must_umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test =
   if check_core check_ts sys prop_names enter_nodes keep
   then (
     KEvent.log L_info "MUST set is a valid IVC." ;
+    cont keep ;
     [keep]
   )
   else (
