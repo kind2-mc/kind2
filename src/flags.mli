@@ -460,6 +460,9 @@ module IVC : sig
   (** If true, compute a core with equations of all subsystems *)
   val ivc_enter_nodes : unit -> bool
 
+  (** If true, compute the MUST set first and compute the IVCs starting from it *)
+  val ivc_compute_must_set_first : unit -> bool
+
   (** If true, IVCs will be computed for each properties separately *)
   val ivc_per_property : unit -> bool
 

@@ -1231,6 +1231,22 @@ module IVC = struct
   let ivc_per_property () = false
 
 
+  let ivc_compute_must_set_first_default = false
+  let ivc_compute_must_set_first = ref ivc_compute_must_set_first_default
+  let _ = add_spec
+    "--ivc_compute_must_set_first"
+    (bool_arg ivc_compute_must_set_first)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Compute the MUST set first and compute the IVCs starting from it@ \
+          Default: %a\
+        "
+        fmt_bool ivc_compute_must_set_first_default
+    )
+  let ivc_compute_must_set_first () = !ivc_compute_must_set_first
+
+
   let print_ivc_default = true
   let print_ivc = ref print_ivc_default
   let _ = add_spec
