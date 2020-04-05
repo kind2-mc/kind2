@@ -1,6 +1,7 @@
 FROM ubuntu:18.04 as builder
 
-ARG SOURCE_BRANCH
+ARG BRANCH=develop
+ARG COMMIT
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -11,9 +12,10 @@ RUN apt-get update && apt-get install -y \
     wget
 
 # Command for DockerHub
-RUN if [ -n "${SOURCE_BRANCH}" ] ; then \
+RUN if [ -n "${COMMIT}" ] ; then \
   apt-get install -y git && \
-  git clone --depth 1 --branch ${SOURCE_BRANCH} https://github.com/kind2-mc/kind2.git kind2-build ; fi
+  git clone --depth 25 --branch ${BRANCH} https://github.com/kind2-mc/kind2.git kind2-build && \
+  cd kind2-build && git checkout ${COMMIT} && cd .. ; fi
 
 COPY . kind2-build/
 
