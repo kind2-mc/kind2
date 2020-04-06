@@ -1855,7 +1855,8 @@ let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
 let ivc_must_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   let prop_names = props_names props in
 
-  let (keep, test) = must_set_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
+  let (keep', test) = must_set_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
+  let keep = lstmap_union keep keep' in
   if check_core check_ts sys prop_names enter_nodes keep
   then (
     KEvent.log L_info "MUST set is a valid IVC." ;
@@ -1864,6 +1865,7 @@ let ivc_must_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   else (
     KEvent.log L_info "MUST set is not a valid IVC. Minimizing with bruteforce..." ;
     ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test
+    |> lstmap_union keep'
   )
 
 let ivc_bf in_sys ?(use_must_set=false) param analyze sys props =
@@ -2169,7 +2171,8 @@ let must_umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test =
   let prop_names = props_names props in
   let (sys', check_ts') = make_check_ts sys in
 
-  let (keep, test) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
+  let (keep', test) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
+  let keep = lstmap_union keep keep' in
   if check_core check_ts' sys' prop_names enter_nodes keep
   then (
     KEvent.log L_info "MUST set is a valid IVC." ;
@@ -2178,7 +2181,10 @@ let must_umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test =
   )
   else (
     KEvent.log L_info "MUST set is not a valid IVC. Running UMIVC..." ;
+    let post core = lstmap_union core keep' in
+    let cont core = core |> post |> cont in
     umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test
+    |> List.map post
   )
 
 
