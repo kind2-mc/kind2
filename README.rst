@@ -158,6 +158,13 @@ you can run the following:
 
 See ``doc/usr/README.rst`` for more information.
 
+
+Online Web Application
+----------------------
+
+You can try `Kind 2 from your browser <https://kind.cs.uiowa.edu/app/>`_ if you are not ready to install it.
+
+
 Docker
 ------
 
