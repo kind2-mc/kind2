@@ -36,6 +36,8 @@ by Kind 2 to make sure they conform to their understanding of the system.
 The Kind 2 team is looking forward to receiving feedback on this feature, which
 we think can greatly improve user experience if used properly.
 
+.. _Invariant Logging Failures:
+
 Failures
 ^^^^^^^^
 

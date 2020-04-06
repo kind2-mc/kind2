@@ -30,13 +30,14 @@ Table of Contents
     :maxdepth: 2
     :caption: Advanced Features
 
-    9_other/1_post_analyses
     9_other/2_contract_semantics
+    9_other/1_post_analyses
     9_other/3_test_generation
     9_other/4_rust_compilation
     9_other/5_proofs
     9_other/6_contract_generation
     9_other/7_invariant_logging
+    9_other/9_invariant_printing
     9_other/8_interpreter
 
 .. toctree::
