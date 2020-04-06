@@ -137,7 +137,7 @@ The list of properties of an ``AnalysisStart`` object are:
    ``scope``, ``string``, "Name of the component where the property was analyzed."
    ``line``, ``integer``, "Associated line in the input file, if any."
    ``column``, ``integer``, "Associated column in the input file, if any."
-   ``source``, ``string``, "Origin of the property. Can be ``Assumption`` if it comes from an assumption check, ``Guarantee`` if it comes from the check of a guarantee, ``Ensure`` if it comes from a check of an ensure clause in a contract mode, ``OneModeActive`` if it comes from an exhaustiveness check of the state space covered by the modes of a contract, and ``PropAnnot`` if it comes from the check of a property annotation."
+   ``source``, ``string``, "Origin of the property. Can be ``Assumption`` if it comes from an assumption check, ``Guarantee`` if it comes from the check of a guarantee, ``Ensure`` if it comes from a check of a require-ensure clause in a contract mode, ``OneModeActive`` if it comes from an exhaustiveness check of the state space covered by the modes of a contract, and ``PropAnnot`` if it comes from the check of a property annotation."
    ``runtime``, ``object``, "The runtime of the analysis (in seconds), and whether the timeout expired"
    ``k``, ``integer``, "The value of ``k`` in a k-inductive proof, if any."
    ``trueFor``, ``integer``, "The largest value of ``k`` for which the property was proved to be true, if any."
@@ -191,8 +191,12 @@ The list of properties of an ``PostAnalysisStart`` object are:
 
    ``name``, ``string``, "Name of the post-analysis"
 
-The post-analyses currently available are ``testgen``, ``contractgen``,
-``rustgen``, ``invlog``, ``invprint``, and ``certification``.
+The post-analyses currently available are :ref:`9_other/3_test_generation` (``testgen``),
+:ref:`9_other/5_proofs` (``certification``),
+:ref:`9_other/6_contract_generation` (``contractgen``),
+:ref:`9_other/4_rust_compilation` (``rustgen``),
+:ref:`9_other/7_invariant_logging` (``invlog``), and
+:ref:`9_other/9_invariant_printing` (``invprint``).
 
 .. _PostAnalysisEnd Object:
 
@@ -355,8 +359,12 @@ PostAnalysisStart Element
 An ``PostAnalysisStart`` element is an empty element that indicates
 the beginning of a post-analysis. It has only one attribute of type ``xs:string``,
 the ``name`` of the post-analysis.
-The post-analyses currently available are ``testgen``, ``contractgen``,
-``rustgen``, ``invlog``, ``invprint``, and ``certification``.
+The post-analyses currently available are :ref:`9_other/3_test_generation` (``testgen``),
+:ref:`9_other/5_proofs` (``certification``),
+:ref:`9_other/6_contract_generation` (``contractgen``),
+:ref:`9_other/4_rust_compilation` (``rustgen``),
+:ref:`9_other/7_invariant_logging` (``invlog``), and
+:ref:`9_other/9_invariant_printing` (``invprint``).
 
 .. _PostAnalysisEnd Element:
 
