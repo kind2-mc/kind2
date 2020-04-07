@@ -49,32 +49,46 @@
 <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
 
-      <h2>
-      <a name="about" class="anchor" href="#about"><span class="octicon octicon-link"></span></a>About</h2>
+  <h2>
+  <a name="about" class="anchor" href="#about"><span class="octicon octicon-link"></span></a>About</h2>
 
-      <p>Kind 2 is an open-source, multi-engine, SMT-based automatic model checker for
-safety properties of synchronous reactive systems expressed as in an extension of the <a href="http://www-verimag.imag.fr/The-Lustre-Programming-Language.html?lang=en">Lustre</a> language. It takes as input one or more Lustre files annotated with properties to be proven invariant, and outputs for each property either a confirmation or a counterexample, i.e., a sequence inputs that falsifies the property.</p>
+  <p>Kind 2 is an open-source, multi-engine, SMT-based automatic model checker 
+        for safety properties of finite-state or infinite-state synchronous reactive systems 
+        expressed as in an extension of the 
+        <a href="http://www-verimag.imag.fr/The-Lustre-Programming-Language.html?lang=en">Lustre</a> language. 
+        In its basic configuration it takes as input one or more Lustre files annotated with properties 
+        to be proven invariant, and outputs for each property either a confirmation or a counterexample, 
+        i.e., a sequence inputs that falsifies the property.
+        More advanced features include contract-based compositional verification, proof generation
+        for proven properties, and contract-based test generation.
+  </p>
 
-      <p>Kind 2 is a from-scratch reimplementation of the <a href="http://clc.cs.uiowa.edu/Kind">Kind</a> model checker.</p>
+  <p>Kind 2 is a from-scratch reimplementation of the <a href="http://clc.cs.uiowa.edu/Kind">Kind</a> model checker.</p>
 
-      <p>Main features:
-      <ul>
-	<li>Bounded Model Checking (BMC)</li>
-	<li><em>k</em>-induction with lazy path compression</li>
-	<li>IC3 aka PDR</li>
+  <h4>Main features</h4>
+  <p>
+  <ul>
+    <li>Input in Lustre V4 and parts of V6 translated to a modular transition system</li>
+    <li>Assume/guarantee-based contract language</li>
+	  <li>Modular and compositional verification</li>
+	  <li>Counterexample generation</li>
+	  <li>Proof certificate generation</li>
+    <li>Multiple model checking engines
+       <ul>
+        <li>Bounded Model Checking (BMC)</li>
+        <li><em>k</em>-induction with lazy path compression</li>
+        <li>IC3 aka PDR</li>
         <li>Invariant discovery from templates for a syntactic analysis of the system</li>
-	<li>Message-passing based parallel composition of model checking engines</li>
-	<li>Sharing of discovered invariants between all engines</li>
-	<li>Input in Lustre V4 and parts of V6 translated to a modular transition system</li>
-	<li>Use of either of the SMT solvers Z3, CVC4 and Yices</li>
-	<li>Assume/guarantee-based contract language</li>
-	<li>Modular and compositional verification</li>
-	<li>An improved graph based invariant generation technique</li>
-	<li>Compilation of Lustre to Rust</li>
-	<li>Test-case generation</li>
-	<li>Proof certificate generation</li>
       </ul>
-      </p>
+    </li>
+	  <li>Message-passing-based parallel composition of model checking engines</li>
+    <li>Graph-based invariant generation</li>
+	  <li>Sharing of discovered invariants between all engines</li>
+	  <li>Use of SMT solvers Z3, CVC4, Yices 1, and Yices 2  as backend reasoning engines</li>
+  	<li>Compilation of executable Lustre models to Rust</li>
+	  <li>Test-case generation</li>
+  </ul>
+  </p>
 
       <h2> <a name="groups" class="anchor" href="#groups"><span class="octicon octicon-link"></span></a>Mailing Lists</h2>
 
@@ -103,9 +117,9 @@ safety properties of synchronous reactive systems expressed as in an extension o
 
       <p>Visit our <a href="https://kind.cs.uiowa.edu/app" rel="nofollow"> web interface</a> to try Kind 2 from your browser</p>
 
-      <h2> <a name="download" class="anchor" href="#download"><span class="octicon octicon-link"></span></a>Download</h2>
-
-      <ul>
+<h2> <a name="download" class="anchor" href="#download"><span class="octicon octicon-link"></span></a>Download</h2>
+<h4>Executables</h4>
+  <ul>
 	<li>
 	<a href="https://github.com/kind2-mc/kind2/releases/download/v1.2.0/kind2-v1.2.0-linux.tar.gz">Download
 	Kind 2 v1.2.0 for Linux (64 bits)</a>
@@ -119,23 +133,24 @@ safety properties of synchronous reactive systems expressed as in an extension o
 	</li>
       </ul>
 
-      <h2> <a name="docker" class="anchor" href="#docker"><span class="octicon octicon-link"></span></a>Docker</h2>
+<h4>Docker</h4>
 
-       <p>Kind 2 is also available on <a href="https://hub.docker.com/r/kind2/kind2/">Docker Hub</a>.
-          Follow these <a href="https://github.com/kind2-mc/kind2#docker">steps</a> to install one of the images.</p>
+<p>Kind 2 is also available on <a href="https://hub.docker.com/r/kind2/kind2/">Docker Hub</a>.
+Follow these <a href="https://github.com/kind2-mc/kind2#docker">steps</a> to install one of the images.</p>
 
-      <h2> <a name="people" class="anchor" href="#people"><span class="octicon octicon-link"></span></a>People</h2>
-      <ul>
+<h2> <a name="people" class="anchor" href="#people"><span class="octicon octicon-link"></span></a>People</h2>
+  <ul>
 	<li><a href="http://homepage.divms.uiowa.edu/~tinelli">Cesare Tinelli</a></li>
 	<li><a href="https://daniel-larraz.github.io/">Daniel Larraz</a></li>
 	<li><a href="http://homepage.divms.uiowa.edu/~viswanathn/">Arjun Viswanathan</a></li>
 	<li><a href="http://homepage.divms.uiowa.edu/~mahgoubyahia/">Mudathir Mohamed</a></li>
 	<li>Mickaël Laurent</li>
-      </ul>
+  </ul>
 
 
-      <p>Formerly:
-      <ul>
+<h4>Former Developers</h4>
+<p> 
+  <ul>
 	<li><a href="https://www.researchgate.net/profile/Adrien_Champion">Adrien Champion</a></li>
   <li><a href="http://homepage.divms.uiowa.edu/~amebsout">Alain Mebsout</a></li>
 	<li><a href="http://www.sticksel.info/christoph/">Christoph Sticksel</a></li>
@@ -146,10 +161,23 @@ safety properties of synchronous reactive systems expressed as in an extension o
 	<li>Eric Burns</li>
 	<li>Jason Oxley</li>
 	<li>Ruoyu Zhang</li>
-      </ul>
-      </p>
+</ul>
+</p>
+
+<h2> <a name="acknowledgments" class="anchor" href="#acknowledgments"><span class="octicon octicon-link"></span></a>Acknowledgments</h2>
       
-      </section>
+<p>
+The development of Kind 2 has been partially supported with funding from the following organizations.
+<ul>
+  <li><a href="https://www.wpafb.af.mil/AFRL/">AFRL</a> (award #FA8750-13-C-0051)</li>
+  <li><a href="http://www.darpa.mil/">DARPA</a> (awards #N66001-18-C-4006, N66001-18-C-4012)</li>
+  <li><a href="http://www.geglobalresearch.com/">GE Global Research</a></li>
+  <li><a href="https://www.nasa.gov">NASA</a> (awards #NNA13AA21C, #NNL14AA06C, #NNX14AI09G)</li>
+  <li><a href="https://www.rockwellcollins.com">Rockwell Collins</a></li>
+</ul>
+</p>
+
+    </section>
     </div>
 
     <!-- FOOTER  -->
