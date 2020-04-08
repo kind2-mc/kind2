@@ -434,7 +434,7 @@ let run_process in_sys param sys messaging_setup process =
     child_pids := (pid, process) :: !child_pids
 
 (** Performs an analysis. *)
-let analyze msg_setup ignore_props modules in_sys param sys =
+let analyze msg_setup save_results ignore_props modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
   ( if TSys.has_properties sys |> not && not ignore_props then
@@ -476,7 +476,7 @@ let analyze msg_setup ignore_props modules in_sys param sys =
     |> Anal.mk_result param sys
   in
 
-  if not ignore_props then (
+  if not ignore_props && save_results then (
     let results = Anal.results_add result !all_results in
     all_results := results
   ) ;
@@ -570,20 +570,20 @@ let run in_sys =
         ( match !latest_trans_sys with
           | Some old when TSys.equal_scope old sys |> not ->
             PostAnalysis.run in_sys (TSys.scope_of_trans_sys old) (
-              analyze msg_setup
+              analyze msg_setup false
             ) !all_results
           | _ -> ()
         ) ;
         latest_trans_sys := Some sys ;
         (* Analyze... *)
-        analyze msg_setup false modules in_sys param sys ;
+        analyze msg_setup true false modules in_sys param sys ;
         (* ...and loop. *)
         loop ()
 
       | None -> (
         ( match !latest_trans_sys with
           | Some sys -> PostAnalysis.run in_sys (TSys.scope_of_trans_sys sys) (
-            analyze msg_setup
+            analyze msg_setup false
           ) !all_results
           | _ -> ()
         ) ;
