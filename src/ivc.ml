@@ -2088,7 +2088,8 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_te
 
     (* Compute MIVC *)
     let compute_mivc core =
-      check (core_union keep core) |> ignore ;
+      (* NOT NEEDED BECAUSE A CHECK IS NECESSARILY DONE JUST BEFORE CALLING THIS FUNCTION *)
+      (*check (core_union keep core) |> ignore ;*)
       let (os_invs, eqmap_test) = core_to_eqmap core
       |> ivc_uc_ in_sys sys props enter_nodes eqmap_keep in
       ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes eqmap_keep eqmap_test
