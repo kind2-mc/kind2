@@ -2172,7 +2172,8 @@ let must_umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test =
   let prop_names = props_names props in
   let (sys', check_ts') = make_check_ts sys in
 
-  let (keep', test) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
+  let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep test in
+  let (keep', test) = must_set_ in_sys ~os_invs check_ts' sys' props enter_nodes keep test in
   let keep = lstmap_union keep keep' in
   if check_core check_ts' sys' prop_names enter_nodes keep
   then (
