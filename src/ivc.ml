@@ -1695,10 +1695,10 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_t
       then OK test
       else
         try
-          check (approximate || !has_timeout) keep test
+          check approximate keep test
         with SMTSolver.Timeout -> (
           has_timeout := true ;
-          OK test
+          NOT_OK
         )
     in
     match first_check with
@@ -1706,7 +1706,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_t
     | OK core ->
       (*KEvent.log_uncond "UNSAT core eliminated %n equations."
         (core_size test - core_size core) ;*)
-      if approximate || (z3_used && not !has_timeout) || is_empty_core core
+      if approximate || z3_used || is_empty_core core
       then Some (actlit_core_union keep core)
       else begin
         let (scope, symb, test) = pick_core core in
@@ -1753,7 +1753,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_t
     check_k_inductive ~approximate:approximate sys enter_nodes test init trans prop os_prop k
   in
   let res = match minimize check ScMap.empty test with
-  | None -> raise NotKInductive
+  | None -> if !has_timeout then core_to_eqmap test else raise NotKInductive
   | Some core -> core_to_eqmap core
   in (os_invs, res)
 

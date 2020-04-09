@@ -1366,7 +1366,7 @@ module IVC = struct
   let ivc_umivc_k () = !ivc_umivc_k
 
 
-  let ivc_uc_timeout_default = 10
+  let ivc_uc_timeout_default = 0
   let ivc_uc_timeout = ref ivc_uc_timeout_default
   let _ = add_spec
     "--ivc_uc_timeout"
