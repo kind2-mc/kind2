@@ -1,0 +1,29 @@
+(* An abstract / free type with axiomatised operations *)
+type COUNTER;
+
+(* Operation to get counter value *)
+function imported get_counter (in: COUNTER) returns (out: int) ;
+
+(* Increment a counter -- the new one is bigger than the old one *)
+function imported increment (in: COUNTER) returns (out: COUNTER) ;
+(*@contract
+  guarantee get_counter(out) = get_counter(in) + 1 ;
+*)
+
+(* Construct a new counter *)
+function imported zero () returns (out: COUNTER) ;
+(*@contract
+  guarantee get_counter(out) = 0 ;
+*)
+
+(* Prove that incrementing the counter works... *)
+node test (const init : COUNTER) returns (c : COUNTER) ;
+let
+  c = init -> increment(pre c);
+  --%PROPERTY true -> (get_counter(c) > get_counter(pre c));
+  --%PROPERTY get_counter(init) >= 0 => get_counter(c) >= 0;
+  (* An example of a property that fails: *)
+  (* --%PROPERTY get_counter(init) >= 0 => get_counter(c) = get_counter(init); *)
+  (* An example of a property that should not typecheck: *)
+  (* --%PROPERTY get_counter(init) >= 0 => get_counter(c) = init; *)
+tel

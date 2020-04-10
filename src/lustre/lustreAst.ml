@@ -160,6 +160,7 @@ and lustre_type =
   | IntRange of position * expr * expr
   | Real of position
   | UserType of position * ident
+  | AbstractType of position * ident
   | TupleType of position * lustre_type list
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
@@ -661,6 +662,10 @@ and pp_print_lustre_type ppf = function
   | Real pos -> Format.fprintf ppf "real"
 
   | UserType (pos, s) -> 
+
+    Format.fprintf ppf "%a" pp_print_ident s
+
+  | AbstractType (pos, s) ->
 
     Format.fprintf ppf "%a" pp_print_ident s
 
