@@ -44,8 +44,10 @@ module Equation = struct
     match Term.compare t1.trans_opened t2.trans_opened with
     | 0 -> Term.compare t1.init_opened t2.init_opened
     | n -> n
+  let equal t1 t2 = compare t1 t2 = 0
 end
 module EqMap = Map.Make(Equation)
+module EqSet = Set.Make(Equation)
 
 type loc = {
   pos: Lib.position ;
@@ -1338,58 +1340,7 @@ let compute_all_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test
   in
   aux [(res, res_cex)] [actsvs_of_core res] k
 
-(* ---------- MUST SET ---------- *)
-
-let must_set_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes eqmap_keep eqmap_test =
-  let prop_names = props_names props in
-  remove_other_props sys prop_names ;
-  add_as_candidate os_invs sys ;
-
-  (* Activation litterals, core and mapping to equations *)
-  let add_to_bindings must_be_tested scope eqs act_bindings =
-    let act_bindings' =
-      List.map (fun eq ->
-      let actsv =
-        StateVar.mk_state_var ~is_input:false ~is_const:true
-        (fresh_actsv_name ()) [] (Type.mk_bool ()) in
-      (must_be_tested, actsv, scope, eq)
-    ) eqs in
-    act_bindings'@act_bindings
-  in
-  let act_bindings = ScMap.fold (add_to_bindings false) eqmap_keep [] in
-  let act_bindings = ScMap.fold (add_to_bindings true) eqmap_test act_bindings in
-
-  let actsvs_eqs_map =
-    List.fold_left (fun acc (_,k,_,v) -> SVMap.add k v acc)
-      SVMap.empty act_bindings
-  in
-  let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
-  let core_to_eqmap core =
-    ScMap.map (fun v -> List.map eq_of_actsv v) core
-  in
-
-  let add_to_core (keep, test) (must_be_tested,actsv,scope,eq) =
-    if must_be_tested
-    then
-      let old = try ScMap.find scope test with Not_found -> [] in
-      (keep, ScMap.add scope (actsv::old) test)
-    else
-      let old = try ScMap.find scope keep with Not_found -> [] in
-      (ScMap.add scope (actsv::old) keep, test)
-  in
-  let (keep,test) = List.fold_left add_to_core (ScMap.empty,ScMap.empty) act_bindings in
-
-  (* Add actsvs to the CS transition system (at top level) *)
-  let actsvs = actsvs_of_core test in
-  List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
-
-  let core =
-    compute_all_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test 1 []
-    |> List.map fst
-    |> List.fold_left core_union ScMap.empty
-  in
-  let test = core_diff test core in
-  (core_to_eqmap core, core_to_eqmap test)
+(* ---------- IVC_UC ---------- *)
 
 let properties_of_interest_for_ivc sys =
   extract_props sys true false
@@ -1398,25 +1349,6 @@ let ivc_props sys props =
   match props with
   | None -> properties_of_interest_for_ivc sys
   | Some props -> props
-
-let must_set in_sys param analyze sys props =
-  try (
-    let props = ivc_props sys props in
-    let enter_nodes = Flags.IVC.ivc_enter_nodes () in
-    let eqmap = _all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
-    let (sys, check_ts) = make_check_ts in_sys param analyze sys in
-    let (keep', _) = must_set_ in_sys check_ts sys props enter_nodes keep test in
-    Some (eqmap_to_ivc in_sys props (lstmap_union keep keep'))
-  ) with
-  | InitTransMismatch (i,t) ->
-    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
-    None
-  | CannotProve ->
-    KEvent.log L_error "Cannot prove the properties." ;
-    None
-
-(* ---------- IVC_UC ---------- *)
 
 let get_logic ?(pathcomp=false) sys =
   let open TermLib in
@@ -1773,6 +1705,102 @@ let ivc_uc in_sys ?(approximate=false) sys props =
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
     None
 
+(* ---------- MUST SET ---------- *)
+
+let must_set_ in_sys ?(os_invs=None) check_ts sys props enter_nodes eqmap_keep eqmap_test =
+
+  (* If os_invs is None,
+  we minimize using UC first and we retrieve the minimized invariants in the same time *)
+  let (os_invs, reduced_eqmap_test) =
+  match os_invs with
+  | Some os_invs -> (os_invs, eqmap_test)
+  | None -> ivc_uc_ in_sys sys props enter_nodes eqmap_keep eqmap_test
+  in
+
+  let prop_names = props_names props in
+  remove_other_props sys prop_names ;
+  add_as_candidate os_invs sys ;
+
+  (* Activation litterals, core and mapping to equations *)
+  let add_to_bindings must_be_tested scope eqs act_bindings =
+    let act_bindings' =
+      List.map (fun eq ->
+      let actsv =
+        StateVar.mk_state_var ~is_input:false ~is_const:true
+        (fresh_actsv_name ()) [] (Type.mk_bool ()) in
+      (must_be_tested, actsv, scope, eq)
+    ) eqs in
+    act_bindings'@act_bindings
+  in
+  let act_bindings = ScMap.fold (add_to_bindings false) eqmap_keep [] in
+  let act_bindings = ScMap.fold (add_to_bindings true) eqmap_test act_bindings in
+
+  let actsvs_eqs_map =
+    List.fold_left (fun acc (_,k,_,v) -> SVMap.add k v acc)
+      SVMap.empty act_bindings
+  in
+  let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
+  let core_to_eqmap core =
+    ScMap.map (fun v -> List.map eq_of_actsv v) core
+  in
+
+  let add_to_core (keep, test) (must_be_tested,actsv,scope,eq) =
+    if must_be_tested
+    then
+      let old = try ScMap.find scope test with Not_found -> [] in
+      (keep, ScMap.add scope (actsv::old) test)
+    else
+      let old = try ScMap.find scope keep with Not_found -> [] in
+      (ScMap.add scope (actsv::old) keep, test)
+  in
+  let (keep,test) = List.fold_left add_to_core (ScMap.empty,ScMap.empty) act_bindings in
+
+  let reduce scope lst (acc_keep, acc_test) =
+    let reduced_set =
+      (try ScMap.find scope reduced_eqmap_test with Not_found -> [])
+      |> EqSet.of_list
+    in
+    let keep = try ScMap.find scope acc_keep with Not_found -> [] in
+    let test = [] in
+    let aux (keep, test) elt =
+      if EqSet.mem (eq_of_actsv elt) reduced_set
+      then (keep, elt::test)
+      else (elt::keep, test)
+    in
+    let (keep, test) = List.fold_left aux (keep, test) lst in
+    (ScMap.add scope keep acc_keep, ScMap.add scope test acc_test)
+  in
+  let (increased_keep, reduced_test) = ScMap.fold reduce test (keep, test) in
+
+  (* Add actsvs to the CS transition system (at top level) *)
+  let actsvs = actsvs_of_core reduced_test in
+  List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
+
+  let core =
+    compute_all_cs check_ts sys prop_names enter_nodes actsvs_eqs_map increased_keep reduced_test 1 []
+    |> List.map fst
+    |> List.fold_left core_union ScMap.empty
+  in
+  let test = core_diff test core in
+  (core_to_eqmap core, core_to_eqmap test)
+
+let must_set in_sys param analyze sys props =
+  try (
+    let props = ivc_props sys props in
+    let enter_nodes = Flags.IVC.ivc_enter_nodes () in
+    let eqmap = _all_eqs in_sys sys enter_nodes in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
+    let (sys, check_ts) = make_check_ts in_sys param analyze sys in
+    let (keep', _) = must_set_ in_sys check_ts sys props enter_nodes keep test in
+    Some (eqmap_to_ivc in_sys props (lstmap_union keep keep'))
+  ) with
+  | InitTransMismatch (i,t) ->
+    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
+    None
+  | CannotProve ->
+    KEvent.log L_error "Cannot prove the properties." ;
+    None
+
 (* ---------- IVC_BF ---------- *)
 
 let check_result prop_names sys =
@@ -1855,7 +1883,7 @@ let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
 let ivc_must_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   let prop_names = props_names props in
 
-  let (keep', test) = must_set_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
+  let (keep', test) = must_set_ in_sys ~os_invs:(Some os_invs) check_ts sys props enter_nodes keep test in
   let keep = lstmap_union keep keep' in
   if check_core check_ts sys prop_names enter_nodes keep
   then (
@@ -2172,8 +2200,7 @@ let must_umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test =
   let prop_names = props_names props in
   let (sys', check_ts') = make_check_ts sys in
 
-  let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep test in
-  let (keep', test) = must_set_ in_sys ~os_invs check_ts' sys' props enter_nodes keep test in
+  let (keep', test) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
   let keep = lstmap_union keep keep' in
   if check_core check_ts' sys' prop_names enter_nodes keep
   then (
