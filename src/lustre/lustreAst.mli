@@ -155,6 +155,7 @@ and lustre_type =
   | IntRange of position * expr * expr
   | Real of position
   | UserType of position * ident
+  | AbstractType of position * ident
   | TupleType of position * lustre_type list
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)

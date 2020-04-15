@@ -10,7 +10,8 @@ directly related to verification. The current post-analysis treatments available
 * compilation to Rust,
 * test generation,
 * contract generation,
-* invariant logging, and
+* invariant logging
+* invariant printing, and
 * inductive validity core generation
 
 All of them are deactivated by default. Post-analysis treatments run on the
@@ -66,8 +67,12 @@ treatment are:
 +---------------------+-----------------------------------------------+----------------------------------------+
 | invariant logging   | last analysis proved the system safe          |                                        |
 +---------------------+-----------------------------------------------+----------------------------------------+
+<<<<<<< HEAD
 | inductive validity  | last analysis proved the system safe          |                                        |
 | core generation     |                                               |                                        |
+=======
+| invariant printing  |                                               |                                        |
+>>>>>>> e61c44988b2bab3249a5a183ec836accdadc4ac8
 +---------------------+-----------------------------------------------+----------------------------------------+
 
 Silent Contract Loading

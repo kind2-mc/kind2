@@ -1,6 +1,7 @@
 FROM ubuntu:18.04 as builder
 
-COPY . kind2-build/
+ARG BRANCH=develop
+ARG COMMIT
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -31,7 +32,15 @@ RUN wget -qq https://yices.csl.sri.com/releases/2.6.1/yices-2.6.1-x86_64-pc-linu
 
 # Retrieve JKind and CVC4 (required for certification)
 RUN wget -qq https://github.com/agacek/jkind/releases/download/v4.0.1/jkind.zip && unzip jkind.zip \
- && ./kind2-build/docker_scripts/latest_cvc4.sh
+ && wget -qq https://github.com/CVC4/CVC4/releases/download/1.7/cvc4-1.7-x86_64-linux-opt -O cvc4
+
+# Command for DockerHub
+RUN if [ -n "${COMMIT}" ] ; then \
+  apt-get install -y git && \
+  git clone --depth 25 --branch ${BRANCH} https://github.com/kind2-mc/kind2.git kind2-build && \
+  cd kind2-build && git checkout ${COMMIT} && cd .. ; fi
+
+COPY . kind2-build/
 
 # Build Kind 2
 WORKDIR kind2-build

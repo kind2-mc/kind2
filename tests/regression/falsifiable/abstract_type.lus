@@ -1,0 +1,19 @@
+(* An abstract / free type with axiomatised operations *)
+type COUNTER;
+
+(* Operation to get counter value *)
+function imported get_counter (in: COUNTER) returns (out: int) ;
+
+(* Increment a counter -- the new one is bigger than the old one *)
+function imported increment (in: COUNTER) returns (out: COUNTER) ;
+(*@contract
+  guarantee get_counter(out) = get_counter(in) + 1 ;
+*)
+
+(* Try to prove that incrementing the counter does nothing... *)
+node test (const init : COUNTER) returns (c : COUNTER) ;
+let
+  c = init -> increment(pre c);
+  --%PROPERTY true -> (get_counter(c) = get_counter(pre c));
+tel
+

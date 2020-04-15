@@ -218,7 +218,8 @@ let rec read_val scope name indexes arr_indexes json =
           | LustreIndex.ArrayIntIndex _ -> false
           | LustreIndex.RecordIndex _
           | LustreIndex.TupleIndex _
-          | LustreIndex.ListIndex _ -> true)
+          | LustreIndex.ListIndex _
+          | LustreIndex.AbstractTypeIndex _ -> true)
       |>
       Format.asprintf "%s%a" name (LustreIndex.pp_print_index true) 
     in

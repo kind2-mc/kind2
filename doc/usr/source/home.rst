@@ -7,7 +7,7 @@ Kind 2 takes as input a Lustre file annotated with properties to be proven
 invariant (see :ref:`Lustre Input <2_input/1_lustre>`), and
 outputs which of the properties are true for all inputs, as well as an input
 sequence for those properties that are falsified. To ease processing by external tools,
-Kind 2 can output its results in JSON and XML formats (see :ref:`JSON / XML Output <3_output/2_xml>`).
+Kind 2 can output its results in JSON and XML formats (see :ref:`JSON / XML Output <3_output/2_machine_readable>`).
 
 By default Kind 2 runs a process for bounded model checking (BMC), a process
 for k-induction, two processes for invariant generation, and a process for IC3
@@ -45,7 +45,6 @@ The default is ``Z3``\ , but see options of the ``./build.sh`` script to overrid
 Requirements
 ------------
 
-
 * Linux or Mac OS X,
 * Automake,
 * GNU Libtool,
@@ -60,6 +59,8 @@ Requirements
   * `Yices 2 <http://yices.csl.sri.com/>`_\ ,
   * `Yices 1 <http://yices.csl.sri.com/old/download-yices1-full.shtml>`_\ , or
   * `Z3 <https://github.com/Z3Prover/z3>`_ (presently recommended)
+
+Consider to use `opam <https://opam.ocaml.org/>`_ to install the OCaml compiler and the OCaml libraries.
 
 Building and installing
 -----------------------
@@ -114,6 +115,13 @@ Documentation is available online in `HTML <http://kind.cs.uiowa.edu/kind2_user_
 .. include:: doc_requirements.rst
 
 See ``doc/usr/README.rst`` for more information.
+
+
+Online Web Application
+----------------------
+
+You can try `Kind 2 from your browser <https://kind.cs.uiowa.edu/app/>`_ if you are not ready to install it.
+
 
 Docker
 ------
@@ -176,12 +184,13 @@ where
 Packaging your local version of Kind 2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-At the top level of the Kind 2 repository is a ``Dockerfile`` you can use to
+In the ``docker`` directory at the top level of the Kind 2 repository,
+there is a ``Dockerfile`` you can use to
 build your own Kind 2 image. To do so, just run
 
 .. code-block:: none
 
-   docker build -t kind2-local .
+   docker build -t kind2-local -f ./docker/Dockerfile .
 
 at the root of the repository. ``kind2-local`` is given here as an example, feel
 free to call it whatever you want.

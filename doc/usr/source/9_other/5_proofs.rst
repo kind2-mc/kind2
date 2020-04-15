@@ -263,9 +263,9 @@ Contents of certificates
 ------------------------
 
 For a given problem (whose safety property is P), an internal certificate
-consists in only a pair ``(k, phi)`` where phi is a *k*\ -inductive invariant of the
+consists in only a pair :math:`(k, \phi)` where :math:`\phi` is a *k*\ -inductive invariant of the
 system which implies the original properties. SMT-LIB 2 certificates are in
-fact scripts whose check make sure that phi implies P and is *k*\ -inductive. The
+fact scripts whose check make sure that :math:`\phi` implies P and is *k*\ -inductive. The
 LFSC proof is a formal proof that P is invariant in the system, using
 sub-proofs of validity (unsatisfiability) returned by CVC4.
 
@@ -295,17 +295,21 @@ from naturals to reals and integers.  So we will use the tuples (\ *y*\ (0) ,
 *y0* , *y* 1 , ..., *z0* , *z1*\ , ... are (distinct) variables.  Correspondingly,
 our LFSC encoding of a transition relation formula T[\ **x**\ , **x'**\ ] is
 parametrized by two natural variables, the index of the pre-state and of the
-post-state, instead of two tuples of state variables.  Similarly, I, P and phi
+post-state, instead of two tuples of state variables.  Similarly, I, P and :math:`\phi`
 are parametrized by a single natural variable.
 
 The signature defines several derivability judgments,
 including one for proofs of invariance, which has the following type:
 
-.. code-block:: none
 
-   invariant: Π I: ℕ → formula.
-              Π T: ℕ → ℕ → formula.
-              Π I: ℕ → formula. Type
+.. math::
+
+   \begin{split}
+   \text{invariant}: \Pi\ \text{I}:&\ \mathbb{N} \to \text{formula}.\\
+   \Pi\ \text{T}:&\ \mathbb{N} \to \mathbb{N} \to \text{formula}.\\
+   \Pi\ \text{I}:&\ \mathbb{N} \to \text{formula}. \text{Type}
+   \end{split}
+
 
 It also contains various rules to build proofs of invariance by *k*\ -induction.
 This signature also specifies how to encapsulate proofs for the front-end
