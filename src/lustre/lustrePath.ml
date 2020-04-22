@@ -145,6 +145,12 @@ let rec map_top_and_add instances model model' i state_var =
     | [] -> raise Not_found
 
 
+let safe_map_top_and_add instances model model' i state_var =
+  try
+    map_top_and_add instances model model' i state_var
+  with Not_found -> () (* No state variable is added to model' *)
+
+
 let find_and_move_to_head f =
   let rec loop pref = function
   | hd :: tl when fst hd |> f -> hd :: (List.rev_append pref tl)
@@ -578,15 +584,21 @@ let node_path_of_instance
      path to the model
 
      Inputs are always stateful, therefore there is exactly one state
-     variable of the top system each input is an instance of. *)
-  D.iter (map_top_and_add instances model_top model) inputs;
+     variable of the top system each input is an instance of.
+
+     There is only one exception. The input is a global constant
+     without a definition. We use safe_* version of map_top_and_add
+     to allow this case.
+  *)
+  D.iter (safe_map_top_and_add instances model_top model) inputs;
 
   (* Map all output state variables to the top instances and add their
      path to the model
 
      Ouputs are always stateful, therefore there is exactly one state
-     variable of the top system each output is an instance of. *)
-  D.iter (map_top_and_add instances model_top model) outputs;
+     variable of the top system each output is an instance of.
+  *)
+  D.iter (safe_map_top_and_add instances model_top model) outputs;
 
   (* Map all activation conditions and add their path to the model, but start
      from one level up in the instance hierarchy *)
@@ -937,7 +949,19 @@ let rec streams_to_values path ident_width val_width streams =
       with Not_found ->
         (* Format.eprintf "Where is %a ?@." *)
         (*   StateVar.pp_print_state_var state_var; *)
-        assert false
+        (* We ignore the state variable and continue converting.
+           There is only one case in the current implementation where
+           this may happen and it is not because a bug. The model contains
+           a global constant without a definition.
+           TODO: check that if we are here, the above is really the case.
+        *)
+        streams_to_values
+          path
+          ident_width
+          val_width
+          streams
+          tl
+
 
 
 (* Output a stream value with given width for the identifier and
