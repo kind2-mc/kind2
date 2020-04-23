@@ -1148,71 +1148,80 @@ let minimize_invariants sys props invs_predicate =
     ) (0, []) certs
   in
 
-  (* For stats *)
-  let k_orig, nb_invs = k, List.length invs in
-  
-  Debug.certif "Trying to simplify up to k = %d\n" k_orig;
+  (* TODO: Fix the minimize_invariant function when Smt.check_sat_assume is false.
+     The issue seems to come from the fact that nested calls to check_sat_assume
+     and get_unsat_core_lits are done inside of the continuation given to check_sat_assume. *)
+  if Flags.Smt.check_sat_assume ()
+  then
 
-  let logic =
-    match TransSys.get_logic sys with
-    | `Inferred fs when Flags.BmcKind.compress () ->
-      `Inferred (TermLib.sup_logics [fs; TermLib.FeatureSet.of_list [IA; LA; UF]])
-    | `Inferred l -> `Inferred (TermLib.FeatureSet.add UF l)
-    | l -> l
-  in
+    (* For stats *)
+    let k_orig, nb_invs = k, List.length invs in
+    
+    Debug.certif "Trying to simplify up to k = %d\n" k_orig;
 
-  (* Creating solver that will be used to replay and minimize inductive step *)
-  let solver =
-    SMTSolver.create_instance ~produce_cores:true ~produce_assignments:true
-      logic (Flags.Smt.solver ())
-  in
-  
-  (* Defining uf's and declaring variables. *)
-  TransSys.define_and_declare_of_bounds
-    sys
-    (SMTSolver.define_fun solver)
-    (SMTSolver.declare_fun solver)
-    (SMTSolver.declare_sort solver)
-    Numeral.zero (Numeral.of_int (k+1));
+    let logic =
+      match TransSys.get_logic sys with
+      | `Inferred fs when Flags.BmcKind.compress () ->
+        `Inferred (TermLib.sup_logics [fs; TermLib.FeatureSet.of_list [IA; LA; UF]])
+      | `Inferred l -> `Inferred (TermLib.FeatureSet.add UF l)
+      | l -> l
+    in
 
-  (* Declaring path compression function if needed. *)
-  if Flags.BmcKind.compress () then
-    Compress.init (SMTSolver.declare_fun solver) sys ;
-  
-  (* The property we want to re-verify is the conjunction of all properties *)
-  let prop = Term.mk_and props in
+    (* Creating solver that will be used to replay and minimize inductive step *)
+    let solver =
+      SMTSolver.create_instance ~produce_cores:true ~produce_assignments:true
+        logic (Flags.Smt.solver ())
+    in
+    
+    (* Defining uf's and declaring variables. *)
+    TransSys.define_and_declare_of_bounds
+      sys
+      (SMTSolver.define_fun solver)
+      (SMTSolver.declare_fun solver)
+      (SMTSolver.declare_sort solver)
+      Numeral.zero (Numeral.of_int (k+1));
 
-  let min_strategy = match Flags.Certif.mink () with
-    | `No -> assert false
-    | (`Fwd | `Bwd | `Dicho | `FrontierDicho) as s -> s
-    | `Auto ->
-      (* Heuristic to find best strategy *)
-      if k <= 3 then `Fwd
-      else if k <= 20 then `Dicho
-      else `FrontierDicho
-  in
+    (* Declaring path compression function if needed. *)
+    if Flags.BmcKind.compress () then
+      Compress.init (SMTSolver.declare_fun solver) sys ;
+    
+    (* The property we want to re-verify is the conjunction of all properties *)
+    let prop = Term.mk_and props in
 
-  (* Depending on the minimization strategy, we use different variants to find
-     the minimum bound kmin, and the set of useful invariants for the proof of
-     prop *)
-  let kmin, uinvs = match min_strategy with
-    | `Fwd -> find_bound sys solver 1 k invs prop
-    | `Bwd -> find_bound_back sys solver 3 invs prop
-    | `FrontierDicho -> find_bound_frontier_dicho sys solver k invs prop
-    | `Dicho -> find_bound_dicho sys solver k invs prop
-  in
+    let min_strategy = match Flags.Certif.mink () with
+      | `No -> assert false
+      | (`Fwd | `Bwd | `Dicho | `FrontierDicho) as s -> s
+      | `Auto ->
+        (* Heuristic to find best strategy *)
+        if k <= 3 then `Fwd
+        else if k <= 20 then `Dicho
+        else `FrontierDicho
+    in
 
-  (* We are done with this step of minimization and we don't need the solver
-     anylonger *)
-  SMTSolver.delete_instance solver;
-  
-  Debug.certif "Simplification found for k = %d\n" kmin;
+    (* Depending on the minimization strategy, we use different variants to find
+      the minimum bound kmin, and the set of useful invariants for the proof of
+      prop *)
+    let kmin, uinvs = match min_strategy with
+      | `Fwd -> find_bound sys solver 1 k invs prop
+      | `Bwd -> find_bound_back sys solver 3 invs prop
+      | `FrontierDicho -> find_bound_frontier_dicho sys solver k invs prop
+      | `Dicho -> find_bound_dicho sys solver k invs prop
+    in
 
-  (* printf "Kept %d (out of %d) invariants at bound %d (down from %d)@."
-    (List.length uinvs) nb_invs kmin k_orig; *)
+    (* We are done with this step of minimization and we don't need the solver
+      anylonger *)
+    SMTSolver.delete_instance solver;
+    
+    Debug.certif "Simplification found for k = %d\n" kmin;
 
-  (* Return minimum k found, and the useful invariants *)
-  kmin, uinvs
+    (* printf "Kept %d (out of %d) invariants at bound %d (down from %d)@."
+      (List.length uinvs) nb_invs kmin k_orig; *)
+
+    (* Return minimum k found, and the useful invariants *)
+    kmin, uinvs
+
+  else
+    k, invs
 
 let minimize_certificate sys =
   minimize_invariants sys None None
