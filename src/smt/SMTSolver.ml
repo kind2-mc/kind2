@@ -741,8 +741,9 @@ let get_unsat_core_lits s =
 (* Higher level functions                                               *)
 (* ******************************************************************** *)
 
-(* Checks satisfiability of some literals, runs if_sat if sat and if_unsat if
-   unsat. *)
+(* Checks satisfiability of some literals, runs if_sat if sat and if_unsat if unsat.
+   Any call to get_unsat_core_lits should be done INSIDE the continutation if_unsat,
+   and NOT in AFTER the call to check_sat_assuming. *)
 let check_sat_assuming s if_sat if_unsat literals =
 
   (* Calling check_sat_assuming with no litteral fails with CVC4,
