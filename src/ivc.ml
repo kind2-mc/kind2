@@ -77,6 +77,21 @@ let loc_eq_size ({ trans_opened ; init_opened }, _, _) =
 let ivc_term_size c =
   ScMap.fold (fun _ lst acc -> List.fold_left (fun acc e -> acc + loc_eq_size e) acc lst) c 0
 
+let rec simplify_term t =
+  let open Term.T in
+  match Term.destruct t with
+    (* Rewrite v1 /\ v1 = t into t *)
+    | App (s, [t1 ; t2]) when Symbol.equal_symbols s (Symbol.s_and) ->
+      begin match (Term.destruct t1, Term.destruct t2) with
+      | (Var v, App (s, [t1 ; t2])) when Symbol.equal_symbols s (Symbol.s_eq) ->
+        begin match Term.destruct t1 with
+        | Var v' when Var.equal_vars v v' -> t2
+        | _ -> t
+        end
+      | _ -> t
+      end
+    | _ -> t
+
 (* ---------- PRETTY PRINTING ---------- *)
 
 let aux_vars sys =
@@ -135,13 +150,13 @@ let locs2json lst =
   `List (List.map loc2json lst)
 
 let expr_pp_print var_map fmt expr =
-  LustreExpr.pp_print_term_as_expr_mvar false var_map fmt expr
+  simplify_term expr
+  |> LustreExpr.pp_print_term_as_expr_mvar false var_map fmt
 
 let cat_to_string = function
   | NodeCall _ -> "Node call"
-  | ContractItem (_, {LustreContract.name = None}, false) -> "Contract item"
-  | ContractItem (_, {LustreContract.name = None}, true) -> "Weak assumption"
-  | ContractItem (_, {LustreContract.name = Some str}, _) -> str
+  | ContractItem (_, _, false) -> "Contract item"
+  | ContractItem (_, _, true) -> "Weak assumption"
   | Equation _ -> "Equation"
   | Assertion _ -> "Assertion"
   | Unknown -> "Unknown element"
@@ -149,7 +164,9 @@ let cat_to_string = function
 let eq_expr_pp_print ?(init=false) var_map fmt (eq, _, cat) =
   match cat with
   | NodeCall (n,_) -> Format.fprintf fmt "%s" n
-  | ContractItem _  | Equation _ | Assertion _ | Unknown ->
+  | ContractItem (_,{LustreContract.name=Some str},_) ->
+    Format.fprintf fmt "%s" str
+  | ContractItem _ | Equation _ | Assertion _ | Unknown ->
     if init
     then expr_pp_print var_map fmt eq.init_closed
     else expr_pp_print var_map fmt eq.trans_closed
