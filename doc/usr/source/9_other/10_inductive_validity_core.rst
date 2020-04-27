@@ -1,4 +1,4 @@
-.. _9_other/9_inductive_validity_core:
+.. _9_other/10_inductive_validity_core:
 
 Inductive Validity Core
 =======================
@@ -74,8 +74,8 @@ We obtain the following inductive validity core:
 .. code-block:: none
 
   ----- f -----
-  Contract item (abs_3 and (abs_3 = (r >= u))) at position [l6c4]
-  Contract item (abs_4 and (abs_4 = (r >= v))) at position [l7c4]
+  Contract item (r >= u) at position [l6c4]
+  Contract item (r >= v) at position [l7c4]
 
   ----- main -----
 
