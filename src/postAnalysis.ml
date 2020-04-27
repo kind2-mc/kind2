@@ -607,16 +607,9 @@ module RunIVC: PostAnalysis = struct
 
               if Flags.IVC.print_ivc_compl ()
               then begin
-                let not_ivc = Ivc.ScMap.mapi (fun scope eqs ->
-                List.filter (fun (eq,_,_) ->
-                    try
-                      let lst = Ivc.ScMap.find scope (snd ivc)
-                      |> List.map (fun (eq,_,_) -> eq.Ivc.trans_closed) in
-                      Term.TermSet.mem eq.Ivc.trans_closed (Term.TermSet.of_list lst)
-                      |> not
-                    with Not_found -> true
-                  ) eqs
-                ) (snd initial) in
+                let not_ivc =
+                  Ivc.complement_of_core (snd initial) (snd ivc)
+                in
                 let pt = Ivc.pp_print_ivc ~time:elapsed in_sys sys "COMPLEMENT" in
                 let xml = Ivc.pp_print_ivc_xml ~time:elapsed in_sys sys "complement" in
                 let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json ~time:elapsed in_sys sys "complement") in
@@ -686,20 +679,20 @@ module RunIVC: PostAnalysis = struct
 end
 
 (** Maximal Unsafe Abstraction computation *)
-module RunMUA: PostAnalysis = struct
-  let name = "mua"
-  let title = "maximal unsafe abstraction"
-  let is_active () = Flags.MUA.compute_mua ()
+module RunMCS: PostAnalysis = struct
+  let name = "mcs"
+  let title = "minimal correction set"
+  let is_active () = Flags.MCS.compute_mcs ()
 
   let run in_sys param analyze results =
     let top = (Analysis.info_of_param param).Analysis.top in
     last_result results top
     |> Res.chain (fun { Analysis.sys } ->
       try (
-        let include_weak_ass = List.mem `WEAK_ASS (Flags.MUA.mua_elements ()) in
-        let initial = Ivc.all_eqs ~include_weak_ass in_sys sys (Flags.MUA.mua_enter_nodes ()) in
+        let include_weak_ass = List.mem `WEAK_ASS (Flags.MCS.mcs_elements ()) in
+        let initial = Ivc.all_eqs ~include_weak_ass in_sys sys (Flags.MCS.mcs_enter_nodes ()) in
         let props =
-          if Flags.MUA.mua_per_property ()
+          if Flags.MCS.mcs_per_property ()
           then List.map (fun x -> [x]) (Ivc.properties_of_interest_for_mua sys)
           else [Ivc.properties_of_interest_for_mua sys]
         in
@@ -710,45 +703,38 @@ module RunMUA: PostAnalysis = struct
           then begin
             let treat_mua mua =
 
-              let not_mua = Ivc.ScMap.mapi (fun scope eqs ->
-                List.filter (fun (eq,_,_) ->
-                    try
-                      let lst = Ivc.ScMap.find scope (snd mua)
-                      |> List.map (fun (eq,_,_) -> eq.Ivc.trans_closed) in
-                      Term.TermSet.mem eq.Ivc.trans_closed (Term.TermSet.of_list lst)
-                      |> not
-                    with Not_found -> true
-                  ) eqs
-                ) (snd initial) in
+              let not_mua =
+                Ivc.complement_of_core (snd initial) (snd mua)
+              in
               let not_mua = (fst mua, not_mua) in
 
-              if Flags.MUA.print_mua_legacy ()
+              if Flags.MCS.print_mcs_legacy ()
               then begin
-                Ivc.pp_print_mua_legacy in_sys param sys mua not_mua
+                Ivc.pp_print_mcs_legacy in_sys param sys not_mua mua
               end else begin
-                if Flags.MUA.print_mua ()
+                if Flags.MCS.print_mcs ()
                 then begin
-                  let pt = Ivc.pp_print_mua in_sys param sys "CORE" in
-                  let xml = Ivc.pp_print_mua_xml in_sys param sys "core" in
-                  let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mua_json in_sys param sys "core") in
-                  let (_,filtered_mua) = Ivc.separate_mua_by_category mua in
-                  KEvent.log_result pt xml json filtered_mua
-                end ;
-
-                if Flags.MUA.print_mua_compl ()
-                then begin
-                  let pt = Ivc.pp_print_mua in_sys param sys "COMPLEMENT" in
-                  let xml = Ivc.pp_print_mua_xml in_sys param sys "complement" in
-                  let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mua_json in_sys param sys "complement") in
+                  let pt = Ivc.pp_print_mcs in_sys param sys "CORE" in
+                  let xml = Ivc.pp_print_mcs_xml in_sys param sys "core" in
+                  let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mcs_json in_sys param sys "core") in
                   let (_,filtered_not_mua) = Ivc.separate_mua_by_category not_mua in
                   KEvent.log_result pt xml json filtered_not_mua
+                end ;
+
+                if Flags.MCS.print_mcs_compl ()
+                then begin
+                  let pt = Ivc.pp_print_mcs in_sys param sys "COMPLEMENT" in
+                  let xml = Ivc.pp_print_mcs_xml in_sys param sys "complement" in
+                  let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mcs_json in_sys param sys "complement") in
+                  let (_,filtered_mua) = Ivc.separate_mua_by_category mua in
+                  KEvent.log_result pt xml json filtered_mua
                 end
               end
             in
 
-            let res = Ivc.mua in_sys param analyze sys (Some props) (Flags.MUA.mua_all ()) in
+            let res = Ivc.mua in_sys param analyze sys (Some props) (Flags.MCS.mcs_all ()) in
             List.iter treat_mua res ;
-            KEvent.log_uncond "Number of MUAs found: %n" (List.length res)
+            KEvent.log_uncond "Number of MCS found: %n" (List.length res)
           end
         in
         List.iter treat_props props ;
@@ -772,7 +758,7 @@ let post_analysis = [
   (module RunInvPrint: PostAnalysis) ;
   (module RunCertif: PostAnalysis) ;
   (module RunIVC: PostAnalysis) ;
-  (module RunMUA: PostAnalysis) ;
+  (module RunMCS: PostAnalysis) ;
 ]
 
 (** Runs the post-analysis things on a system and its results.

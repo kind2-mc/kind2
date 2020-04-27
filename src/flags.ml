@@ -1385,20 +1385,20 @@ module IVC = struct
 
 end
 
-(* Maximal Unsafe Abstractions flags. *)
-module MUA = struct
+(* Minimal Correction Sets flags. *)
+module MCS = struct
 
   include Make_Spec (struct end)
 
   (* Identifier of the module. *)
-  let id = "mua"
+  let id = "mcs"
   (* Short description of the module. *)
-  let desc = "Maximal Unsafe Abstractions generation flags"
+  let desc = "Minimal Correction Sets generation flags"
   (* Explanation of the module. *)
   let fmt_explain fmt =
     Format.fprintf fmt "@[<v>\
-      Kind 2 generates a maximal unsafe abstraction,@ \
-      that is a maximal subset of the equations that is unsafe.\
+      Kind 2 generates a minimal correction set,@ \
+      that is a minimal subset of the equations that makes the system unsafe if removed.\
     @]"
 
   (* All the flag specification of this module. *)
@@ -1409,47 +1409,47 @@ module MUA = struct
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
 
-  let compute_mua_default = false
-  let compute_mua = ref compute_mua_default
+  let compute_mcs_default = false
+  let compute_mcs = ref compute_mcs_default
   let _ = add_spec
-    "--mua"
-    (bool_arg compute_mua)
+    "--mcs"
+    (bool_arg compute_mcs)
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Compute a maximal unsafe abstraction@ \
+          Compute a minimal correction set@ \
           Default: %a\
         "
-        fmt_bool compute_mua_default
+        fmt_bool compute_mcs_default
     )
-  let compute_mua () = !compute_mua
+  let compute_mcs () = !compute_mcs
 
-  type mua_element =
+  type mcs_element =
     [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN | `WEAK_ASS ]
-  let mua_element_of_string = function
+  let mcs_element_of_string = function
     | "node_calls" -> `NODE_CALL
     | "contracts" -> `CONTRACT_ITEM
     | "equations" -> `EQUATION
     | "assertions" -> `ASSERTION
     | "weak_assumptions" -> `WEAK_ASS
     | unexpected -> Arg.Bad (
-      Format.sprintf "Unexpected value \"%s\" for flag --mua_elements" unexpected
+      Format.sprintf "Unexpected value \"%s\" for flag --mcs_elements" unexpected
     ) |> raise
-  let mua_elements_default_init = []
-  let mua_elements_default_after = [`WEAK_ASS]
-  let mua_elements = ref mua_elements_default_init
-  let finalize_mua_elements () =
+  let mcs_elements_default_init = []
+  let mcs_elements_default_after = [`WEAK_ASS]
+  let mcs_elements = ref mcs_elements_default_init
+  let finalize_mcs_elements () =
     (* If [enabled] is unchanged, set it do default after init. *)
-    if !mua_elements = mua_elements_default_init then (
-      mua_elements := mua_elements_default_after
+    if !mcs_elements = mcs_elements_default_init then (
+      mcs_elements := mcs_elements_default_after
     )
   let _ = add_spec
-    "--mua_category"
+    "--mcs_category"
     (Arg.String
       (fun str ->
-        let elt = mua_element_of_string str in
-        if List.mem elt !mua_elements |> not
-        then mua_elements := elt :: !mua_elements
+        let elt = mcs_element_of_string str in
+        if List.mem elt !mcs_elements |> not
+        then mcs_elements := elt :: !mcs_elements
       )
     )
     (fun fmt ->
@@ -1460,101 +1460,101 @@ module MUA = struct
           Default: weak_assumptions\
         "
     )
-  let mua_elements () = !mua_elements
+  let mcs_elements () = !mcs_elements
 
 
-  let mua_enter_nodes_default = false
-  let mua_enter_nodes = ref mua_enter_nodes_default
+  let mcs_enter_nodes_default = false
+  let mcs_enter_nodes = ref mcs_enter_nodes_default
   let _ = add_spec
-    "--mua_enter_nodes"
-    (bool_arg mua_enter_nodes)
+    "--mcs_enter_nodes"
+    (bool_arg mcs_enter_nodes)
     (fun fmt ->
       Format.fprintf fmt
         "\
           Consider elements of all the nodes (not only elements of the top-level node)@ \
           Default: %a\
         "
-        fmt_bool mua_enter_nodes_default
+        fmt_bool mcs_enter_nodes_default
     )
-  let mua_enter_nodes () = !mua_enter_nodes
+  let mcs_enter_nodes () = !mcs_enter_nodes
 
 
-  let mua_all_default = false
-  let mua_all = ref mua_all_default
+  let mcs_all_default = false
+  let mcs_all = ref mcs_all_default
   let _ = add_spec
-    "--mua_all"
-    (bool_arg mua_all)
+    "--mcs_all"
+    (bool_arg mcs_all)
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Specify whether all the Maximal Unsafe Abstractions must be computed or just one@ \
+          Specify whether all the Minimal Correction Sets must be computed or just one@ \
           Default: %a\
         "
-        fmt_bool mua_all_default
+        fmt_bool mcs_all_default
     )
-  let mua_all () = !mua_all
+  let mcs_all () = !mcs_all
 
 
-  let print_mua_default = true
-  let print_mua = ref print_mua_default
+  let print_mcs_default = true
+  let print_mcs = ref print_mcs_default
   let _ = add_spec
-    "--print_mua"
-    (bool_arg print_mua)
+    "--print_mcs"
+    (bool_arg print_mcs)
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Print the maximal unsafe abstraction computed@ \
+          Print the minimal correction set computed@ \
           Default: %a\
         "
-        fmt_bool print_mua_default
+        fmt_bool print_mcs_default
     )
-  let print_mua () = !print_mua
+  let print_mcs () = !print_mcs
 
 
-  let print_mua_compl_default = false
-  let print_mua_compl = ref print_mua_compl_default
+  let print_mcs_compl_default = false
+  let print_mcs_compl = ref print_mcs_compl_default
   let _ = add_spec
-    "--print_mua_complement"
-    (bool_arg print_mua_compl)
+    "--print_mcs_complement"
+    (bool_arg print_mcs_compl)
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Print the complement of the maximal unsafe abstraction computed@ \
-          (this is equivalent to computing a minimal correction set)@ \
+          Print the complement of the minimal correction set computed@ \
+          (this is equivalent to computing a Maximal Unsafe Abstraction)@ \
           Default: %a\
         "
-        fmt_bool print_mua_compl_default
+        fmt_bool print_mcs_compl_default
     )
-  let print_mua_compl () = !print_mua_compl
+  let print_mcs_compl () = !print_mcs_compl
 
 
-  let print_mua_legacy_default = false
-  let print_mua_legacy = ref print_mua_legacy_default
+  let print_mcs_legacy_default = false
+  let print_mcs_legacy = ref print_mcs_legacy_default
   let _ = add_spec
-    "--print_mua_legacy"
-    (bool_arg print_mua_legacy)
+    "--print_mcs_legacy"
+    (bool_arg print_mcs_legacy)
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Print the maximal unsafe abstraction using the legacy format@ \
-          (only available if --mua_per_property is true)@ \
+          Print the minimal correction set using the legacy format@ \
+          (only available if --mcs_per_property is true)@ \
           Default: %a\
         "
-        fmt_bool print_mua_legacy_default
+        fmt_bool print_mcs_legacy_default
     )
-  let print_mua_legacy () = !print_mua_legacy
+  let print_mcs_legacy () = !print_mcs_legacy
 
 
   let print_counterexample_default = false
   let print_counterexample = ref print_counterexample_default
   let _ = add_spec
-    "--print_mua_counterexample"
+    "--print_mcs_counterexample"
     (bool_arg print_counterexample)
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Print a counterexample for each MUA found@ \
-          (ignored if --print_mua_legacy is true)@ \
+          Print a counterexample for each MCS found@ \
+          (ignored if --print_mcs_legacy is true)@ \
           Default: %a\
         "
         fmt_bool print_counterexample_default
@@ -1562,20 +1562,20 @@ module MUA = struct
   let print_counterexample () = !print_counterexample
 
 
-  let mua_per_property_default = true
-  let mua_per_property = ref mua_per_property_default
+  let mcs_per_property_default = true
+  let mcs_per_property = ref mcs_per_property_default
   let _ = add_spec
-    "--mua_per_property"
-    (bool_arg mua_per_property)
+    "--mcs_per_property"
+    (bool_arg mcs_per_property)
     (fun fmt ->
       Format.fprintf fmt
         "\
-          If true, MUAs will be computed for each property separately@ \
+          If true, MCSs will be computed for each property separately@ \
           Default: %a\
         "
-        fmt_bool mua_per_property_default
+        fmt_bool mcs_per_property_default
     )
-  let mua_per_property () = !mua_per_property
+  let mcs_per_property () = !mcs_per_property
 
 end
 
@@ -2086,8 +2086,8 @@ let module_map = [
   (IVC.id,
     (module IVC: FlagModule)
   ) ;
-  (MUA.id,
-    (module MUA: FlagModule)
+  (MCS.id,
+    (module MCS: FlagModule)
   ) ;
   (Arrays.id,
     (module Arrays: FlagModule)
@@ -3245,7 +3245,7 @@ let parse_argv () =
   Global.finalize_enabled ();
 
   IVC.finalize_ivc_elements ();
-  MUA.finalize_mua_elements ();
+  MCS.finalize_mcs_elements ();
 
   post_argv_parse_actions ();
   

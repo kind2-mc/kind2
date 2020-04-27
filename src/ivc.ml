@@ -221,9 +221,9 @@ let pp_print_ivc ?(time=None) in_sys sys title fmt (props,ivc) =
     Format.fprintf fmt "%a\n" print eqs
   ) ivc
 
-let print_mua_counterexample in_sys param sys typ fmt (props,cex) =
+let print_mcs_counterexample in_sys param sys typ fmt (props,cex) =
   try
-    if List.length props = 1 && Flags.MUA.print_counterexample ()
+    if List.length props = 1 && Flags.MCS.print_counterexample ()
     then
       match typ with
       | `PT ->
@@ -237,9 +237,9 @@ let print_mua_counterexample in_sys param sys typ fmt (props,cex) =
         in_sys param sys (List.hd props).Property.prop_name true fmt cex
     with _ -> ()
 
-let pp_print_mua in_sys param sys title fmt ((props,cex), mua) =
-  pp_print_ivc in_sys sys title fmt (props, mua) ;
-  print_mua_counterexample in_sys param sys `PT fmt (props,cex)
+let pp_print_mcs in_sys param sys title fmt ((props,cex), mcs) =
+  pp_print_ivc in_sys sys title fmt (props, mcs) ;
+  print_mcs_counterexample in_sys param sys `PT fmt (props,cex)
 
 let impl_to_string = function
 | `IVC_AUC -> "AUC"
@@ -276,19 +276,19 @@ let pp_print_ivc_xml ?(time=None) in_sys sys title fmt (props,ivc) =
   ) ivc ;
   Format.fprintf fmt "</IVC>\n"
 
-let pp_print_mua_xml in_sys param sys title fmt ((props, cex),mua) =
+let pp_print_mcs_xml in_sys param sys title fmt ((props, cex), mcs) =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
-  Format.fprintf fmt "<MUA size=\"%i\" node_size=\"%i\" property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b>\n"
-    (scmap_size mua) (ivc_term_size mua) pp_print_properties props title
-    pp_print_categories (Flags.MUA.mua_elements ()) (Flags.MUA.mua_enter_nodes ()) ;
+  Format.fprintf fmt "<MCS size=\"%i\" node_size=\"%i\" property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b>\n"
+    (scmap_size mcs) (ivc_term_size mcs) pp_print_properties props title
+    pp_print_categories (Flags.MCS.mcs_elements ()) (Flags.MCS.mcs_enter_nodes ()) ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "<scope name=\"%s\">\n" (Scope.to_string scope) ;
     Format.fprintf fmt "%a" print eqs ;
     Format.fprintf fmt "</scope>\n\n"
-  ) mua ;
-  print_mua_counterexample in_sys param sys `XML fmt (props,cex) ;
-  Format.fprintf fmt "</MUA>\n"
+  ) mcs ;
+  print_mcs_counterexample in_sys param sys `XML fmt (props,cex) ;
+  Format.fprintf fmt "</MCS>\n"
 
 let ivc2json ?(time=None) in_sys sys title (props,ivc) =
   let var_map = compute_var_map in_sys sys in
@@ -316,37 +316,37 @@ let ivc2json ?(time=None) in_sys sys title (props,ivc) =
   in
   `Assoc assoc
 
-let mua2json in_sys param sys title ((props, _),mua) =
+let mcs2json in_sys param sys title ((props, _),mcs) =
   let var_map = compute_var_map in_sys sys in
   let loc_eqs2json = loc_eqs2json var_map in
   `Assoc [
-    ("objectType", `String "mua") ;
-    ("size", `Int (scmap_size mua)) ;
-    ("nodeSize", `Int (ivc_term_size mua)) ;
+    ("objectType", `String "mcs") ;
+    ("size", `Int (scmap_size mcs)) ;
+    ("nodeSize", `Int (ivc_term_size mcs)) ;
     ("property", `String (Format.asprintf "%a" pp_print_properties props)) ;
     ("title", `String title) ;
-    ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.MUA.mua_elements ()))) ;
-    ("enterNodes", `Bool (Flags.MUA.mua_enter_nodes ())) ;
+    ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.MCS.mcs_elements ()))) ;
+    ("enterNodes", `Bool (Flags.MCS.mcs_enter_nodes ())) ;
     ("value", `List (List.map (fun (scope, eqs) ->
       `Assoc [
         ("objectType", `String "scope") ;
         ("name", `String (Scope.to_string scope)) ;
         ("value", loc_eqs2json eqs)
       ]
-    ) (ScMap.bindings mua)))
+    ) (ScMap.bindings mcs)))
   ]
 
 let pp_print_ivc_json ?(time=None) in_sys sys title fmt ivc =
   pp_print_json fmt (ivc2json ~time in_sys sys title ivc)
 
-let pp_print_mua_json in_sys param sys title fmt mua =
-  pp_print_json fmt (mua2json in_sys param sys title mua)
+let pp_print_mcs_json in_sys param sys title fmt mcs =
+  pp_print_json fmt (mcs2json in_sys param sys title mcs)
 
 let name_of_wa_cat = function
   | ContractItem (_, svar, true) -> Some (LustreContract.prop_name_of_svar svar "weakly_assume" "")
   | _ -> None
 
-let all_wa_names_of_mua scmap =
+let all_wa_names_of_mcs scmap =
   ScMap.fold
   (fun _ lst acc ->
     List.fold_left (fun acc (_,_,cat) ->
@@ -357,17 +357,17 @@ let all_wa_names_of_mua scmap =
   )
   scmap []
 
-let pp_print_mua_legacy in_sys param sys ((props, cex), mua) (_, mua_compl) =
+let pp_print_mcs_legacy in_sys param sys ((props, cex), mcs) (_, mcs_compl) =
   match props with
-  | [] | _::_::_ -> KEvent.log L_error "Legacy printing for MUA only support one property at a time."
+  | [] | _::_::_ -> KEvent.log L_error "Legacy printing for MCS only support one property at a time."
   | [{Property.prop_name}] ->
     let sys = TS.copy sys in
     let wa_model =
-      all_wa_names_of_mua mua
+      all_wa_names_of_mcs mcs_compl
       |>  List.map (fun str -> (str, true))
     in
     let wa_model' =
-        all_wa_names_of_mua mua_compl
+        all_wa_names_of_mcs mcs
       |>  List.map (fun str -> (str, false))
     in
     TS.force_set_prop_unknown sys prop_name ;
@@ -1009,7 +1009,7 @@ let separate_ivc_by_category (props, ivc) =
   in (props, ivc1), (props, ivc2)
 
 let separate_mua_by_category (props, mua) =
-  let (mua1, mua2) = separate_scmap (separate_loc_eqs_by_category (Flags.MUA.mua_elements ())) mua
+  let (mua1, mua2) = separate_scmap (separate_loc_eqs_by_category (Flags.MCS.mcs_elements ())) mua
   in (props, mua1), (props, mua2)
 
 type eqmap = (equation list) ScMap.t
@@ -1033,6 +1033,18 @@ let _all_eqs ?(include_weak_ass=false) in_sys sys enter_nodes =
 let all_eqs ?(include_weak_ass=false) in_sys sys enter_nodes =
   let eqmap = _all_eqs ~include_weak_ass in_sys sys enter_nodes in
   eqmap_to_ivc in_sys [] eqmap
+
+let complement_of_core initial core =
+  ScMap.mapi (fun scope eqs ->
+    List.filter (fun (eq,_,_) ->
+        try
+          let lst = ScMap.find scope core
+          |> List.map (fun (eq,_,_) -> eq.trans_closed) in
+          Term.TermSet.mem eq.trans_closed (Term.TermSet.of_list lst)
+          |> not
+        with Not_found -> true
+      ) eqs
+    ) initial
 
 let term_of_eq init closed eq =
   if init && closed then eq.init_closed
@@ -2271,7 +2283,7 @@ let umivc in_sys ?(use_must_set=false) param analyze sys props k cont =
 type mua = ((Property.t list * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
 
 let properties_of_interest_for_mua sys =
-  let ignore_valid_props = Flags.MUA.mua_elements () |> List.for_all (fun x -> x = `WEAK_ASS)
+  let ignore_valid_props = Flags.MCS.mcs_elements () |> List.for_all (fun x -> x = `WEAK_ASS)
   in extract_props sys (not ignore_valid_props) true
 
 let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes eqmap_keep eqmap_test =
@@ -2333,8 +2345,8 @@ let mua in_sys param analyze sys props all =
     | None -> properties_of_interest_for_mua sys
     | Some props -> props
     in
-    let enter_nodes = (Flags.MUA.mua_enter_nodes ()) in
-    let elements = (Flags.MUA.mua_elements ()) in
+    let enter_nodes = (Flags.MCS.mcs_enter_nodes ()) in
+    let elements = (Flags.MCS.mcs_elements ()) in
     let include_weak_ass = List.mem `WEAK_ASS elements in
     let eqmap = _all_eqs ~include_weak_ass in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys elements eqmap in

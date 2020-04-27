@@ -38,6 +38,10 @@ val compare_loc : loc -> loc -> int
 If the third parameter is false, only the top-level node will be explored. *)
 val all_eqs : ?include_weak_ass:bool -> 'a InputSystem.t -> TransSys.t -> bool -> ivc
 
+(** [complement_of_core all_eqs core] returns the complement of [core], with [all_eqs] being
+    the set of all the initial equations (can be retrieved using the [all_eqs] function). *)
+val complement_of_core : loc_equation list ScMap.t -> loc_equation list ScMap.t -> loc_equation list ScMap.t
+
 (** Separate an IVC into two IVC, the second one containing elements from the categories selected
     by the user, and the first one containing the others elements *)
 val separate_ivc_by_category : ivc -> (ivc * ivc)
@@ -123,14 +127,14 @@ val umivc :
 val properties_of_interest_for_ivc : TransSys.t -> Property.t list
 
 
-(* ----- MAXIMAL UNSAFE ABSTRACTIONS ----- *)
+(* ----- MAXIMAL UNSAFE ABSTRACTIONS  MINIMAL CORRECTION SETS ----- *)
 
 type mua = ((Property.t list * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
 
-val pp_print_mua : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
-val pp_print_mua_xml : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
-val pp_print_mua_json : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
-val pp_print_mua_legacy : 'a InputSystem.t -> Analysis.param -> TransSys.t -> mua -> mua -> unit
+val pp_print_mcs : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
+val pp_print_mcs_xml : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
+val pp_print_mcs_json : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
+val pp_print_mcs_legacy : 'a InputSystem.t -> Analysis.param -> TransSys.t -> mua -> mua -> unit
 
 (** Separate a MUA into two MUA, the second one containing elements from the categories selected
     by the user, and the first one containing the others elements *)

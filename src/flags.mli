@@ -477,38 +477,38 @@ module IVC : sig
 
 end
 
-(** {2 Maximal Unsafe Abstractions} *)
-module MUA : sig
+(** {2 Maximal Correction Sets} *)
+module MCS : sig
 
-  type mua_element =
+  type mcs_element =
     [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN | `WEAK_ASS ]
 
-  (** Enable computation of Maximal Unsafe Abstractions *)
-  val compute_mua : unit -> bool
+  (** Enable computation of Maximal Correction Sets *)
+  val compute_mcs : unit -> bool
 
-  (** Specify whether all the Maximal Unsafe Abstractions must be computed or just one *)
-  val mua_all : unit -> bool
+  (** Specify whether all the Maximal Correction Sets must be computed or just one *)
+  val mcs_all : unit -> bool
 
   (** Specify on which elements we want to minimize *)
-  val mua_elements : unit -> mua_element list
+  val mcs_elements : unit -> mcs_element list
 
-  (** Print the equations of the computed IVC *)
-  val print_mua : unit -> bool
+  (** Print the equations of the computed MCS *)
+  val print_mcs : unit -> bool
 
-  (** Print the equations NOT in the computed MUA *)
-  val print_mua_compl : unit -> bool
+  (** Print the equations NOT in the computed MCS *)
+  val print_mcs_compl : unit -> bool
 
-  (** Print the MUA using the legacy format *)
-  val print_mua_legacy : unit -> bool
+  (** Print the MCS using the legacy format *)
+  val print_mcs_legacy : unit -> bool
 
-    (** Print the equations NOT in the computed MUA *)
+  (** Print the equations NOT in the computed MCS *)
   val print_counterexample : unit -> bool
 
   (** If true, compute a core with equations of all subsystems *)
-  val mua_enter_nodes : unit -> bool
+  val mcs_enter_nodes : unit -> bool
 
-  (** If true, MUAs will be computed for each properties separately *)
-  val mua_per_property : unit -> bool
+  (** If true, MCSs will be computed for each properties separately *)
+  val mcs_per_property : unit -> bool
 
 end
 
