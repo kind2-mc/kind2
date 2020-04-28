@@ -730,6 +730,8 @@ let s_to_real = mk_symbol `TO_REAL
 (* Array read operator *)
 let s_select ta = mk_symbol (`SELECT ta)
 
+let s_to_uint8 = mk_symbol `TO_UINT8
+
 let is_select = function 
   | { Hashcons.node = `SELECT _ } -> true
   | { Hashcons.node = `UF u } ->

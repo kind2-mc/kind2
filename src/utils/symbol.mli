@@ -292,6 +292,7 @@ val s_select : Type.t -> t
 (** array store symbol *)
 val s_store : t
 
+val s_to_uint8 : t
 
 (** {1 Accessors functions} *)
 

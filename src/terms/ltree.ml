@@ -670,11 +670,16 @@ struct
 
     (* Print a function application as S-expression *)
     | { H.node = Node (s, a) } -> 
-
-      Format.fprintf ppf 
+      if (Symbol.is_to_uint8 (Symbol.mk_symbol s)) then
+        (Format.fprintf ppf 
+          "@[<hv 1>(_ bv%a@ %a)@]"
+          (pp_print_term_list pp_symbol pp_var pp_sort db) a
+          (pp_symbol ?arity:(Some (List.length a))) s)
+      else
+      (Format.fprintf ppf 
         "@[<hv 1>(%a@ %a)@]" 
         (pp_symbol ?arity:(Some (List.length a))) s 
-        (pp_print_term_list pp_symbol pp_var pp_sort db) a
+        (pp_print_term_list pp_symbol pp_var pp_sort db) a)
 
     (* Print a let binding *)
     | { H.node = Let ({ H.node = L (_, t) }, b) } -> 
