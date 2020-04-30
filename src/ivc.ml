@@ -892,7 +892,7 @@ let make_check_ts in_sys param analyze sys =
   let modules = Flags.enabled () in
   sys, (fun () -> analyze false modules in_sys param sys)
 
-let extract_props sys can_be_valid can_be_invalid =
+let extract_props sys ?(can_be_unknown=false) can_be_valid can_be_invalid =
   List.filter (function
     | { Property.prop_status = Property.PropInvariant _ } when can_be_valid -> true
     | { Property.prop_status = Property.PropInvariant _ ; Property.prop_name } ->
@@ -902,6 +902,7 @@ let extract_props sys can_be_valid can_be_invalid =
     | { Property.prop_status = Property.PropFalse _ ; Property.prop_name } ->
       KEvent.log L_info "Skipping falsifiable property %s" prop_name ;
       false
+    | { Property.prop_name } when can_be_unknown -> true
     | { Property.prop_name } ->
       KEvent.log L_warn "Skipping unknown property %s" prop_name ;
       false
@@ -2283,8 +2284,11 @@ let umivc in_sys ?(use_must_set=false) param analyze sys props k cont =
 type mua = ((Property.t list * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
 
 let properties_of_interest_for_mua sys =
+  (*
   let ignore_valid_props = Flags.MCS.mcs_elements () |> List.for_all (fun x -> x = `WEAK_ASS)
   in extract_props sys (not ignore_valid_props) true
+  *)
+  extract_props sys ~can_be_unknown:true true true
 
 let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes eqmap_keep eqmap_test =
   let prop_names = props_names props in

@@ -56,6 +56,8 @@ val next_analysis_of_strategy :
 
 val interpreter_param : 'a t -> Analysis.param
 
+val mcs_params : 'a t -> Analysis.param list
+
 (** Return a transition system for an analysis run *)
 val trans_sys_of_analysis:
   ?preserve_sig:bool -> ?slice_nodes:bool -> 'a t -> Analysis.param -> TransSys.t * 'a t

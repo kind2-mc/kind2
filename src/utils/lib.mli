@@ -322,7 +322,8 @@ type kind_module =
   | `Interpreter
   | `Supervisor
   | `Parser
-  | `Certif ]
+  | `Certif
+  | `MCS ]
 
 (** Wallclock timeout *)
 exception TimeoutWall

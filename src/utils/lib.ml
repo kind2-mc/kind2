@@ -743,7 +743,8 @@ type kind_module =
   | `Interpreter
   | `Supervisor
   | `Parser
-  | `Certif  ]
+  | `Certif
+  | `MCS  ]
 
 
 (* Pretty-print the type of the process *)
@@ -763,6 +764,7 @@ let pp_print_kind_module ppf = function
   | `Supervisor -> fprintf ppf "invariant manager"
   | `Parser -> fprintf ppf "parser"
   | `Certif -> Format.fprintf ppf "certificate"
+  | `MCS -> Format.fprintf ppf "minimal correction set"
 
 (* String representation of a process type *)
 let string_of_kind_module = string_of_t pp_print_kind_module
@@ -785,6 +787,7 @@ let short_name_of_kind_module = function
  | `Supervisor -> "super"
  | `Parser -> "parse"
  | `Certif -> "certif"
+ | `MCS -> "mcs"
                 
 
 (* Process type of a string *)
@@ -804,6 +807,7 @@ let kind_module_of_string = function
 
 
 let int_of_kind_module = function
+  | `MCS -> -5
   | `Certif -> -4
   | `Parser -> -3
   | `Interpreter -> -2

@@ -179,6 +179,48 @@ let next_analysis_of_strategy (type s)
   | Horn subsystem -> (function _ -> assert false)
 
 
+let mcs_params (type s) (input_system : s t) =
+  let param_for_subsystem sub =
+    let scope, abstraction_map =
+     sub.S.scope, (* Abstraction map *)
+      List.fold_left (
+        fun abs_map ({ S.scope; S.has_impl; S.has_contract }) ->
+          if Flags.Contracts.compositional () then
+            Scope.Map.add scope
+              ((not has_impl || has_contract)
+              && not (Scope.equal sub.S.scope scope))
+              abs_map
+          else
+            Scope.Map.add scope (not has_impl) abs_map
+        )
+        Scope.Map.empty (S.all_subsystems sub)
+    in
+    Analysis.First {
+      Analysis.top = scope ;
+      Analysis.uid = Analysis.get_uid () ;
+      Analysis.abstraction_map = abstraction_map ;
+      Analysis.assumptions = Scope.Map.empty ;
+    }
+  in
+  match input_system with
+  | Lustre (sub, _, _) ->
+    if Flags.modular ()
+    then
+      S.all_subsystems sub
+      |> List.rev
+      |> List.map param_for_subsystem
+    else
+      [sub |> param_for_subsystem]
+  | Native sub ->
+    if Flags.modular ()
+    then
+      S.all_subsystems sub
+      |> List.rev
+      |> List.map param_for_subsystem
+    else
+      [sub |> param_for_subsystem]
+  | Horn _ -> raise (UnsupportedFileFormat "Horn")
+
 let interpreter_param (type s) (input_system : s t) =
 
   let scope, abstraction_map =
