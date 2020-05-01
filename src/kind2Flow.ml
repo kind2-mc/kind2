@@ -533,41 +533,39 @@ let run in_sys =
     with e -> on_exit_child None m e
   )
 
-  (* Only MCS is active. *)
-  | [m] when m = `MCS -> (
-
-    (* TODO: We should enable modules BMC, KIND, IC3, etc *)
-    
-    check_analysis_flags ();
-    let msg_setup = KEvent.setup () in
-    KEvent.set_module `Supervisor ;
-    KEvent.run_im msg_setup [] (on_exit None `Supervisor) |> ignore ;
-    KEvent.log L_debug "Messaging initialized in supervisor." ;
-
-    KEvent.set_module m ;
-    let params = ISys.mcs_params in_sys in
-    let run_mcs param =
-      (* Build trans sys and slicing info. *)
-      let sys, _ =
-        ISys.trans_sys_of_analysis
-          (*~preserve_sig:true ~slice_nodes:false*) in_sys param
-      in
-      PostAnalysis.run_mcs_post_analysis in_sys param
-        (analyze msg_setup false) sys |> ignore
-    in
-    List.iter run_mcs params ;
-    on_exit_child None m Exit
-  )
-
-    (* Some modules, including the MCS computation. *)
-  | modules when List.mem `MCS modules ->
-    KEvent.log L_fatal "Cannot run the MCS module with other processes." ;
-    exit ExitCodes.error
-
   (* Some modules, including the interpreter. *)
   | modules when List.mem `Interpreter modules ->
     KEvent.log L_fatal "Cannot run the interpreter with other processes." ;
     exit ExitCodes.error
+
+  (* MCS is active. *)
+  | modules when List.mem `MCS modules -> (
+
+    check_analysis_flags ();
+
+    try (
+      let msg_setup = KEvent.setup () in
+      KEvent.set_module `Supervisor ;
+      KEvent.run_im msg_setup [] (on_exit None `Supervisor) |> ignore ;
+      KEvent.log L_debug "Messaging initialized in supervisor." ;
+
+      KEvent.set_module `MCS ;
+      let params = ISys.mcs_params in_sys in
+      let run_mcs param =
+        (* Build trans sys and slicing info. *)
+        let sys, _ =
+          ISys.trans_sys_of_analysis
+            (*~preserve_sig:true ~slice_nodes:false*) in_sys param
+        in
+        PostAnalysis.run_mcs_post_analysis in_sys param
+          (analyze msg_setup false) sys |> ignore
+      in
+      List.iter run_mcs params ;
+      post_clean_exit `Supervisor Exit
+    ) with
+    | TimeoutWall -> on_exit None `Supervisor TimeoutWall
+    | e -> on_exit None `Supervisor e
+  ) 
 
   (* Some analysis modules. *)
   (* Some modules, not including the interpreter. *)

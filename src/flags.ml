@@ -2570,6 +2570,9 @@ module Global = struct
     (* If [enabled] is unchanged, set it do default after init. *)
     if !enabled = enable_default_init then (
       enabled := enable_default_after
+    ) 
+    else if !enabled = `MCS::enable_default_init then (
+      enabled := `MCS::enable_default_after
     ) ;
     (* Remove disabled modules. *)
     enabled := !enabled |> List.filter (
