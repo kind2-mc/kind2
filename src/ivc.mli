@@ -66,7 +66,7 @@ val ivc_uc :
     and running the whole analysis on the new system each time. *)
 val ivc_bf :
   'a InputSystem.t ->
-  ?use_must_set:bool ->
+  ?use_must_set:(ivc -> unit) option ->
   Analysis.param ->
   (
     bool ->
@@ -95,7 +95,7 @@ val must_set :
     This should be faster than ivc_bf. *)
 val ivc_ucbf :
   'a InputSystem.t ->
-  ?use_must_set:bool ->
+  ?use_must_set:(ivc -> unit) option ->
   Analysis.param ->
   (
     bool ->
@@ -110,7 +110,7 @@ val ivc_ucbf :
     The 5th parameter correspond to the parameter 'k'. *)
 val umivc :
   'a InputSystem.t ->
-  ?use_must_set:bool ->
+  ?use_must_set:(ivc -> unit) option ->
   Analysis.param ->
   (
     bool ->

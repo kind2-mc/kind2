@@ -1903,10 +1903,11 @@ let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   end
 
 (** Compute the MUST set and then call IVC_BF if needed *)
-let ivc_must_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
+let ivc_must_bf_ must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   let prop_names = props_names props in
 
   let (keep', test) = must_set_ in_sys ~os_invs:(Some os_invs) check_ts sys props enter_nodes keep test in
+  must_cont keep' ;
   let keep = lstmap_union keep keep' in
   if check_core check_ts sys prop_names enter_nodes keep
   then (
@@ -1919,13 +1920,15 @@ let ivc_must_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
     |> lstmap_union keep'
   )
 
-let ivc_bf in_sys ?(use_must_set=false) param analyze sys props =
+let ivc_bf in_sys ?(use_must_set=None) param analyze sys props =
   try (
-    let ivc_bf_ = if use_must_set then ivc_must_bf_ else ivc_bf_ in
     let props = ivc_props sys props in
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
+    let ivc_bf_ = match use_must_set with
+    | Some f -> (fun x -> x |> lstmap_union keep |> eqmap_to_ivc in_sys props |> f) |> ivc_must_bf_
+    | None -> ivc_bf_ in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
     let test = ivc_bf_ in_sys check_ts sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
@@ -1938,13 +1941,15 @@ let ivc_bf in_sys ?(use_must_set=false) param analyze sys props =
     None
 
 (** Implements the algorithm IVC_UCBF *)
-let ivc_ucbf in_sys ?(use_must_set=false) param analyze sys props =
+let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
   try (
-    let ivc_bf_ = if use_must_set then ivc_must_bf_ else ivc_bf_ in
     let props = ivc_props sys props in
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
+    let ivc_bf_ = match use_must_set with
+    | Some f -> (fun x -> x |> lstmap_union keep |> eqmap_to_ivc in_sys props |> f) |> ivc_must_bf_
+    | None -> ivc_bf_ in
     let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep test in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
     let test = ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
@@ -2219,11 +2224,12 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_te
     all_mivc
   )
 
-let must_umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test =
+let must_umivc_ must_cont in_sys make_check_ts sys props k enter_nodes cont keep test =
   let prop_names = props_names props in
   let (sys', check_ts') = make_check_ts sys in
 
   let (keep', test) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
+  must_cont keep' ;
   let keep = lstmap_union keep keep' in
   if check_core check_ts' sys' prop_names enter_nodes keep
   then (
@@ -2241,13 +2247,15 @@ let must_umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test =
 
 
 (** Implements the algorithm UMIVC. *)
-let umivc in_sys ?(use_must_set=false) param analyze sys props k cont =
+let umivc in_sys ?(use_must_set=None) param analyze sys props k cont =
   try (
-    let umivc_ = if use_must_set then must_umivc_ else umivc_ in
     let props = ivc_props sys props in
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
+    let umivc_ = match use_must_set with
+      | Some f -> (fun x -> x |> lstmap_union keep |> eqmap_to_ivc in_sys props |> f) |> must_umivc_
+      | None -> umivc_ in
     let res = ref [] in
     let cont test =
       let ivc = eqmap_to_ivc in_sys props (lstmap_union keep test) in
