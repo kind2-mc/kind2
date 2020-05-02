@@ -123,6 +123,10 @@ let main () =
   (* Set everything up and produce input system. *)
   let Input input_sys = setup () in
 
+  if Flags.only_parse () then (
+    KEvent.log L_note "No parse errors found!"; exit 0
+  );
+
   (* Notify user of silent contract loading. *)
   (try
      InputSystem.silent_contracts_of input_sys

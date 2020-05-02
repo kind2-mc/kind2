@@ -2039,6 +2039,21 @@ module Global = struct
   ])
   let timeout_analysis () = !timeout_analysis
 
+  (* Only parse mode. *)
+  let only_parse_default = false
+  let only_parse = ref only_parse_default
+  let _ = add_spec
+    "--only_parse"
+    (Arg.Set only_parse)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Only parse the Lustre program. No analysis is performed.@ \
+          Default: %a\
+        "
+        fmt_bool only_parse_default
+    )
+  let only_parse () = !only_parse
 
   (* Modules enabled. *)
   type enable = kind_module list
@@ -2418,6 +2433,7 @@ let output_dir = Global.output_dir
 let include_dirs = Global.include_dirs
 let log_invs = Global.log_invs
 let print_invs = Global.print_invs
+let only_parse = Global.only_parse
 let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable
