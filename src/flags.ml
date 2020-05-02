@@ -1134,7 +1134,7 @@ module IVC = struct
   let fmt_explain fmt =
     Format.fprintf fmt "@[<v>\
       Kind 2 generates a minimal inductive validity core,@ \
-      that is a subset of the model elements sufficient to prove the properties.\
+      that is a minimal subset of the model elements sufficient to prove the properties.\
     @]"
 
   (* All the flag specification of this module. *)
@@ -1289,7 +1289,7 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Compute the MUST set first and then compute the IVCs starting from it@ \
+          Compute the MUST set in addition to the IVCs@ \
           Default: %a\
         "
         fmt_bool ivc_must_set_default
@@ -1419,7 +1419,7 @@ module MCS = struct
   let fmt_explain fmt =
     Format.fprintf fmt "@[<v>\
       Kind 2 generates a minimal correction set,@ \
-      that is a minimal subset of the equations that makes the system unsafe if removed.\
+      that is a minimal subset of the model elements that makes the system unsafe if removed.\
     @]"
 
   (* All the flag specification of this module. *)

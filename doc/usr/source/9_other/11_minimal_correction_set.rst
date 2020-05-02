@@ -3,8 +3,8 @@
 Minimal Correction Set
 ======================
 
-The minimal correction set generation is a post-analysis treatement that computes a minimal subset
-of the weak assumptions such that the system become unsafe if we remove these assumptions.
+The minimal correction set generation is a post-analysis treatement that computes a minimal subset of
+the model elements (contract items, equations or node calls) such that the system become unsafe if we remove these assumptions.
 
 To enable minimal correction set generation, run
 

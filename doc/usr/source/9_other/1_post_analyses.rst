@@ -11,8 +11,9 @@ directly related to verification. The current post-analysis treatments available
 * test generation,
 * contract generation,
 * invariant logging
-* invariant printing, and
-* inductive validity core generation
+* invariant printing,
+* inductive validity core generation, and
+* minimal correction set generation
 
 All of them are deactivated by default. Post-analysis treatments run on the
 *last analysis* of a system. It is defined as the last analysis performed by

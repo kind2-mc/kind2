@@ -4,7 +4,7 @@ Inductive Validity Core
 =======================
 
 The inductive validity core generation is a post-analysis treatement that computes a minimal subset of
-equations, nodes or contract items such that the system is still safe.
+the model elements (contract items, equations or node calls) such that the system is still safe.
 
 To enable inductive validity core generation, run
 
@@ -18,9 +18,9 @@ Options
 * ``--ivc_category {node_calls|contracts|equations|assertions}`` (default: all categories) -- Minimize only a specific category of elements, repeat option to minimize multiple categories
 * ``--ivc_only_main_node <bool>`` (default ``false``\ ) -- Compute an IVC over the elements of the main node only
 * ``--ivc_all <bool>`` (default ``false``\ ) -- Compute all the Inductive Validity Cores
-* ``--ivc_approximate <bool>`` (default ``false``\ ) -- Compute an approximation (superset) of an IVC
-* ``--ivc_smallest_first <bool>`` (default ``false``\ ) -- Compute the smallest IVC first. Ignored if ``--ivc_all`` is ``true``
-* ``--ivc_must_set <bool>`` (default ``false``\ ) -- Compute the MUST set first and then compute the IVCs starting from it
+* ``--ivc_approximate <bool>`` (default ``false``\ ) -- Compute an approximation (superset) of an IVC. Ignored if ``--ivc_all`` is ``true``
+* ``--ivc_smallest_first <bool>`` (default ``false``\ ) -- Compute the smallest IVC first. Ignored if ``--ivc_all`` is ``false``
+* ``--ivc_must_set <bool>`` (default ``false``\ ) -- Compute the MUST set in addition to the IVCs
 * ``--print_ivc <bool>`` (default ``true``\ ) -- Print the inductive validity core computed
 * ``--print_ivc_complement <bool>`` (default ``false``\ ) -- Print the complement of the inductive validity core computed (= the elements that are not necessary to prove the system safe)
 * ``--minimize_program {no|valid_lustre|concise}`` (default ``no``\ ) -- Minimize the source Lustre program according to the inductive validity core(s) computed
@@ -89,7 +89,6 @@ If we want to compute ALL the minimal inductive validity cores, we can use the f
 
 .. code-block:: none
 
-  kind2 <lustre_file> --ivc true --ivc_all true --ivc_must_set true
+  kind2 <lustre_file> --ivc true --ivc_all true
 
 * ``--ivc_all true``: specify that we want to compute all the IVCs
-* ``--ivc_must_set true``: indicate that the MUST set should be computed first. In general, when ``--ivc_all`` is ``true``, it is more efficient to enable this option
