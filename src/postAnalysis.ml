@@ -579,7 +579,7 @@ module RunIVC: PostAnalysis = struct
 
         let nb = ref 0 in
         let time = ref (Unix.gettimeofday ()) in
-        let initial = Ivc.all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
+        let initial = Ivc.all_eqs in_sys sys (Flags.IVC.ivc_only_main_node () |> not) in
 
         let props =
           if Flags.IVC.ivc_per_property ()
@@ -648,14 +648,11 @@ module RunIVC: PostAnalysis = struct
             let treat_and_return_lst = function
               | None -> []
               | Some e -> treat_ivc e ; [e] in
-            let use_must_set = Flags.IVC.ivc_compute_must_set_first () in
-            let res = match Flags.IVC.ivc_impl () with
-              | `IVC_UC -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:false sys (Some props))
-              | `IVC_AUC -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:true sys (Some props))
-              | `IVC_BF -> treat_and_return_lst (Ivc.ivc_bf in_sys ~use_must_set param analyze sys (Some props))
-              | `MUST -> treat_and_return_lst (Ivc.must_set in_sys param analyze sys (Some props))
-              | `IVC_UCBF -> treat_and_return_lst (Ivc.ivc_ucbf in_sys ~use_must_set param analyze sys (Some props))
-              | `UMIVC -> Ivc.umivc in_sys ~use_must_set param analyze sys (Some props) (Flags.IVC.ivc_umivc_k ()) treat_ivc
+            let use_must_set = Flags.IVC.ivc_must_set () in
+            let res = match (Flags.IVC.ivc_all (), Flags.IVC.ivc_approximate ()) with
+              | (false, true) -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:false sys (Some props))
+              | (false, false) -> treat_and_return_lst (Ivc.ivc_ucbf in_sys ~use_must_set param analyze sys (Some props))
+              | (true, _) -> Ivc.umivc in_sys ~use_must_set param analyze sys (Some props) (Flags.IVC.ivc_precomputed_mcs ()) treat_ivc
             in
             KEvent.log_uncond "Number of minimal IVCs found: %n" (List.length res) ;
           end
@@ -689,8 +686,8 @@ module RunMCS: PostAnalysis = struct
     last_result results top
     |> Res.chain (fun { Analysis.sys } ->
       try (
-        let include_weak_ass = List.mem `WEAK_ASS (Flags.MCS.mcs_elements ()) in
-        let initial = Ivc.all_eqs ~include_weak_ass in_sys sys (Flags.MCS.mcs_enter_nodes ()) in
+        let include_weak_ass = List.mem `WEAK_ASS (Flags.MCS.mcs_category ()) in
+        let initial = Ivc.all_eqs ~include_weak_ass in_sys sys (Flags.MCS.mcs_only_main_node () |> not) in
         let props =
           if Flags.MCS.mcs_per_property ()
           then List.map (fun x -> [x]) (Ivc.properties_of_interest_for_mua sys)

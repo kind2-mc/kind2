@@ -1167,24 +1167,24 @@ module IVC = struct
     | "equations" -> `EQUATION
     | "assertions" -> `ASSERTION
     | unexpected -> Arg.Bad (
-      Format.sprintf "Unexpected value \"%s\" for flag --ivc_elements" unexpected
+      Format.sprintf "Unexpected value \"%s\" for flag --ivc_category" unexpected
     ) |> raise
-  let ivc_elements_default_init = []
-  let ivc_elements_default_after =
+  let ivc_category_default_init = []
+  let ivc_category_default_after =
     [`NODE_CALL ; `CONTRACT_ITEM ; `EQUATION ; `ASSERTION ; `UNKNOWN]
-  let ivc_elements = ref ivc_elements_default_init
+  let ivc_category = ref ivc_category_default_init
   let finalize_ivc_elements () =
     (* If [enabled] is unchanged, set it do default after init. *)
-    if !ivc_elements = ivc_elements_default_init then (
-      ivc_elements := ivc_elements_default_after
+    if !ivc_category = ivc_category_default_init then (
+      ivc_category := ivc_category_default_after
     )
   let _ = add_spec
     "--ivc_category"
     (Arg.String
       (fun str ->
         let elt = ivc_element_of_string str in
-        if List.mem elt !ivc_elements |> not
-        then ivc_elements := elt :: !ivc_elements
+        if List.mem elt !ivc_category |> not
+        then ivc_category := elt :: !ivc_category
       )
     )
     (fun fmt ->
@@ -1195,23 +1195,73 @@ module IVC = struct
           Default: minimize all categories of elements\
         "
     )
-  let ivc_elements () = !ivc_elements
+  let ivc_category () = !ivc_category
 
 
-  let ivc_enter_nodes_default = false
-  let ivc_enter_nodes = ref ivc_enter_nodes_default
+  let ivc_all_default = false
+  let ivc_all = ref ivc_all_default
   let _ = add_spec
-    "--ivc_enter_nodes"
-    (bool_arg ivc_enter_nodes)
+    "--ivc_all"
+    (bool_arg ivc_all)
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Minimize elements of all the nodes (not only elements of the top-level node)@ \
+          Compute all the Inductive Validity Cores.@ \
           Default: %a\
         "
-        fmt_bool ivc_enter_nodes_default
+        fmt_bool ivc_all_default
     )
-  let ivc_enter_nodes () = !ivc_enter_nodes
+  let ivc_all () = !ivc_all
+
+
+  let ivc_approximate_default = false
+  let ivc_approximate = ref ivc_approximate_default
+  let _ = add_spec
+    "--ivc_approximate"
+    (bool_arg ivc_approximate)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Compute an approximation (superset) of an IVC.@ \
+          Ignored if --ivc_all is true.@ \
+          Default: %a\
+        "
+        fmt_bool ivc_approximate_default
+    )
+  let ivc_approximate () = !ivc_approximate
+
+
+  let ivc_smallest_first_default = false
+  let ivc_smallest_first = ref ivc_smallest_first_default
+  let _ = add_spec
+    "--ivc_smallest_first"
+    (bool_arg ivc_smallest_first)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Compute the smallest IVC first.@ \
+          Ignored if --ivc_all is false.@ \
+          Default: %a\
+        "
+        fmt_bool ivc_smallest_first_default
+    )
+  let ivc_smallest_first () = !ivc_smallest_first
+
+
+  let ivc_only_main_node_default = false
+  let ivc_only_main_node = ref ivc_only_main_node_default
+  let _ = add_spec
+    "--ivc_only_main_node"
+    (bool_arg ivc_only_main_node)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Compute an IVC over the elements of the main node only@ \
+          Default: %a\
+        "
+        fmt_bool ivc_only_main_node_default
+    )
+  let ivc_only_main_node () = !ivc_only_main_node
 
 
   (*let ivc_per_property_default = true
@@ -1231,20 +1281,20 @@ module IVC = struct
   let ivc_per_property () = false
 
 
-  let ivc_compute_must_set_first_default = false
-  let ivc_compute_must_set_first = ref ivc_compute_must_set_first_default
+  let ivc_must_set_default = false
+  let ivc_must_set = ref ivc_must_set_default
   let _ = add_spec
-    "--ivc_compute_must_set_first"
-    (bool_arg ivc_compute_must_set_first)
+    "--ivc_must_set"
+    (bool_arg ivc_must_set)
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Compute the MUST set first and compute the IVCs starting from it@ \
+          Compute the MUST set first and then compute the IVCs starting from it@ \
           Default: %a\
         "
-        fmt_bool ivc_compute_must_set_first_default
+        fmt_bool ivc_must_set_default
     )
-  let ivc_compute_must_set_first () = !ivc_compute_must_set_first
+  let ivc_must_set () = !ivc_must_set
 
 
   let print_ivc_default = true
@@ -1317,53 +1367,24 @@ module IVC = struct
   let minimized_program_dir () = !minimized_program_dir
 
 
-  type ivcimpl = [ `IVC_BF | `IVC_AUC | `IVC_UC | `IVC_UCBF | `UMIVC | `MUST ]
-
-  let ivcimpl_of_string = function
-    | "BF" -> `IVC_BF
-    | "AUC" -> `IVC_AUC
-    | "UC" -> `IVC_UC
-    | "UCBF" -> `IVC_UCBF
-    | "UMIVC" -> `UMIVC
-    | "MUST" -> `MUST
-    | _ -> raise (Arg.Bad "Bad value for --ivc_impl")
-
-  let ivc_impl_default = `IVC_UC
-  let ivc_impl = ref ivc_impl_default
+  let ivc_precomputed_mcs_default = 0
+  let ivc_precomputed_mcs = ref ivc_precomputed_mcs_default
   let _ = add_spec
-    "--ivc_impl"
-    (Arg.String (fun str -> ivc_impl := ivcimpl_of_string str))
+    "--ivc_precomputed_mcs"
+    (Arg.Set_int ivc_precomputed_mcs)
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Select the implementation for the IVC computation@ \
-          \"AUC\" to perform an approximate unsat-core based minimization@ \
-          \"UC\" to perform an unsat-core based minimization (default)@ \
-          \"BF\" to perform a bruteforce minimization@ \
-          \"UCBF\" to perform an unsat-core minimization and then a bruteforce@ \
-          \"UMIVC\" to compute all the minimal inductive validity cores@ \
-          \"MUST\" to compute the MUST set using minimal correction sets\
-        "
-    )
-  let ivc_impl () = !ivc_impl
-
-
-  let ivc_umivc_k_default = 0
-  let ivc_umivc_k = ref ivc_umivc_k_default
-  let _ = add_spec
-    "--ivc_umivc_k"
-    (Arg.Set_int ivc_umivc_k)
-    (fun fmt ->
-      Format.fprintf fmt
-        "\
-          Set the parameter 'k' for the implementation UMIVC.@ \
+          When computing all IVCs, determine the cardinality up to which@ \
+          MCS will be computed before starting to compute the IVCs.@ \
+          Correspond to the parameter 'k' of the implementation UMIVC.@ \
           In particular, the value 0 implements the MARCO algorithm,@ \
           and the value -1 (infinity) implements the CAMUS algorithm.@ \
           Default: %n\
         "
-        ivc_umivc_k_default
+        ivc_precomputed_mcs_default
     )
-  let ivc_umivc_k () = !ivc_umivc_k
+  let ivc_precomputed_mcs () = !ivc_precomputed_mcs
 
 
   let ivc_uc_timeout_default = 0
@@ -1433,23 +1454,23 @@ module MCS = struct
     | "assertions" -> `ASSERTION
     | "weak_assumptions" -> `WEAK_ASS
     | unexpected -> Arg.Bad (
-      Format.sprintf "Unexpected value \"%s\" for flag --mcs_elements" unexpected
+      Format.sprintf "Unexpected value \"%s\" for flag --mcs_category" unexpected
     ) |> raise
-  let mcs_elements_default_init = []
-  let mcs_elements_default_after = [`WEAK_ASS]
-  let mcs_elements = ref mcs_elements_default_init
+  let mcs_category_default_init = []
+  let mcs_category_default_after = [`WEAK_ASS]
+  let mcs_category = ref mcs_category_default_init
   let finalize_mcs_elements () =
     (* If [enabled] is unchanged, set it do default after init. *)
-    if !mcs_elements = mcs_elements_default_init then (
-      mcs_elements := mcs_elements_default_after
+    if !mcs_category = mcs_category_default_init then (
+      mcs_category := mcs_category_default_after
     )
   let _ = add_spec
     "--mcs_category"
     (Arg.String
       (fun str ->
         let elt = mcs_element_of_string str in
-        if List.mem elt !mcs_elements |> not
-        then mcs_elements := elt :: !mcs_elements
+        if List.mem elt !mcs_category |> not
+        then mcs_category := elt :: !mcs_category
       )
     )
     (fun fmt ->
@@ -1460,23 +1481,23 @@ module MCS = struct
           Default: weak_assumptions\
         "
     )
-  let mcs_elements () = !mcs_elements
+  let mcs_category () = !mcs_category
 
 
-  let mcs_enter_nodes_default = false
-  let mcs_enter_nodes = ref mcs_enter_nodes_default
+  let mcs_only_main_node_default = false
+  let mcs_only_main_node = ref mcs_only_main_node_default
   let _ = add_spec
-    "--mcs_enter_nodes"
-    (bool_arg mcs_enter_nodes)
+    "--mcs_only_main_node"
+    (bool_arg mcs_only_main_node)
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Consider elements of all the nodes (not only elements of the top-level node)@ \
+          Compute a MCS over the elements of the main node only.@ \
           Default: %a\
         "
-        fmt_bool mcs_enter_nodes_default
+        fmt_bool mcs_only_main_node_default
     )
-  let mcs_enter_nodes () = !mcs_enter_nodes
+  let mcs_only_main_node () = !mcs_only_main_node
 
 
   let mcs_all_default = false
@@ -1545,11 +1566,11 @@ module MCS = struct
   let print_mcs_legacy () = !print_mcs_legacy
 
 
-  let print_counterexample_default = false
-  let print_counterexample = ref print_counterexample_default
+  let print_mcs_counterexample_default = false
+  let print_mcs_counterexample = ref print_mcs_counterexample_default
   let _ = add_spec
     "--print_mcs_counterexample"
-    (bool_arg print_counterexample)
+    (bool_arg print_mcs_counterexample)
     (fun fmt ->
       Format.fprintf fmt
         "\
@@ -1557,9 +1578,9 @@ module MCS = struct
           (ignored if --print_mcs_legacy is true)@ \
           Default: %a\
         "
-        fmt_bool print_counterexample_default
+        fmt_bool print_mcs_counterexample_default
     )
-  let print_counterexample () = !print_counterexample
+  let print_mcs_counterexample () = !print_mcs_counterexample
 
 
   let mcs_per_property_default = true

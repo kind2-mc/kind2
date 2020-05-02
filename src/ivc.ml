@@ -223,7 +223,7 @@ let pp_print_ivc ?(time=None) in_sys sys title fmt (props,ivc) =
 
 let print_mcs_counterexample in_sys param sys typ fmt (props,cex) =
   try
-    if List.length props = 1 && Flags.MCS.print_counterexample ()
+    if List.length props = 1 && Flags.MCS.print_mcs_counterexample ()
     then
       match typ with
       | `PT ->
@@ -241,14 +241,6 @@ let pp_print_mcs in_sys param sys title fmt ((props,cex), mcs) =
   pp_print_ivc in_sys sys title fmt (props, mcs) ;
   print_mcs_counterexample in_sys param sys `PT fmt (props,cex)
 
-let impl_to_string = function
-| `IVC_AUC -> "AUC"
-| `IVC_UC -> "UC"
-| `IVC_UCBF -> "UCBF"
-| `IVC_BF -> "BF"
-| `UMIVC -> "UMIVC"
-| `MUST -> "MUST"
-
 let pp_print_categories fmt =
   List.iter (function
     | `NODE_CALL -> Format.fprintf fmt "node_calls "
@@ -262,10 +254,9 @@ let pp_print_categories fmt =
 let pp_print_ivc_xml ?(time=None) in_sys sys title fmt (props,ivc) =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
-  Format.fprintf fmt "<IVC size=\"%i\" node_size=\"%i\" property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b impl=\"%s\">\n"
+  Format.fprintf fmt "<IVC size=\"%i\" node_size=\"%i\" property=\"%a\" title=\"%s\" category=\"%a\" only_main_node=%b>\n"
     (scmap_size ivc) (ivc_term_size ivc) pp_print_properties props title
-    pp_print_categories (Flags.IVC.ivc_elements ()) (Flags.IVC.ivc_enter_nodes ())
-    (impl_to_string (Flags.IVC.ivc_impl ())) ;
+    pp_print_categories (Flags.IVC.ivc_category ()) (Flags.IVC.ivc_only_main_node ()) ;
   match time with None -> ()
   | Some f -> Format.fprintf fmt "<Runtime unit=\"sec\">%.3f</Runtime>\n" f
   ;
@@ -279,9 +270,9 @@ let pp_print_ivc_xml ?(time=None) in_sys sys title fmt (props,ivc) =
 let pp_print_mcs_xml in_sys param sys title fmt ((props, cex), mcs) =
   let var_map = compute_var_map in_sys sys in
   let print = pp_print_loc_eqs_xml var_map in
-  Format.fprintf fmt "<MCS size=\"%i\" node_size=\"%i\" property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b>\n"
+  Format.fprintf fmt "<MCS size=\"%i\" node_size=\"%i\" property=\"%a\" title=\"%s\" category=\"%a\" only_main_node=%b>\n"
     (scmap_size mcs) (ivc_term_size mcs) pp_print_properties props title
-    pp_print_categories (Flags.MCS.mcs_elements ()) (Flags.MCS.mcs_enter_nodes ()) ;
+    pp_print_categories (Flags.MCS.mcs_category ()) (Flags.MCS.mcs_only_main_node ()) ;
   ScMap.iter (fun scope eqs -> 
     Format.fprintf fmt "<scope name=\"%s\">\n" (Scope.to_string scope) ;
     Format.fprintf fmt "%a" print eqs ;
@@ -299,9 +290,8 @@ let ivc2json ?(time=None) in_sys sys title (props,ivc) =
     ("nodeSize", `Int (ivc_term_size ivc)) ;
     ("property", `String (Format.asprintf "%a" pp_print_properties props)) ;
     ("title", `String title) ;
-    ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.IVC.ivc_elements ()))) ;
-    ("enterNodes", `Bool (Flags.IVC.ivc_enter_nodes ())) ;
-    ("impl", `String (impl_to_string (Flags.IVC.ivc_impl ()))) ;
+    ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.IVC.ivc_category ()))) ;
+    ("onlyMainNode", `Bool (Flags.IVC.ivc_only_main_node ())) ;
     ("value", `List (List.map (fun (scope, eqs) ->
       `Assoc [
         ("objectType", `String "scope") ;
@@ -325,8 +315,8 @@ let mcs2json in_sys param sys title ((props, _),mcs) =
     ("nodeSize", `Int (ivc_term_size mcs)) ;
     ("property", `String (Format.asprintf "%a" pp_print_properties props)) ;
     ("title", `String title) ;
-    ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.MCS.mcs_elements ()))) ;
-    ("enterNodes", `Bool (Flags.MCS.mcs_enter_nodes ())) ;
+    ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.MCS.mcs_category ()))) ;
+    ("onlyMainNode", `Bool (Flags.MCS.mcs_only_main_node ())) ;
     ("value", `List (List.map (fun (scope, eqs) ->
       `Assoc [
         ("objectType", `String "scope") ;
@@ -673,10 +663,10 @@ let minimize_node_decl ue ivc
     |> List.map (fun (_,l,_) -> l) |> List.flatten
     |> List.map (fun l -> l.pos) |> minimize_with_lst
   with Not_found ->
-    if Flags.IVC.ivc_enter_nodes ()
-    then minimize_with_lst []
-    else ndecl
-
+    if Flags.IVC.ivc_only_main_node ()
+    then ndecl
+    else minimize_with_lst []
+    
 let minimize_contract_decl ue ivc (id, tparams, inputs, outputs, body) =
   let lst = ScMap.bindings ivc
     |> List.map (fun (_,v) -> v)
@@ -1005,11 +995,11 @@ let separate_scmap f scmap =
   ) scmap (ScMap.empty, ScMap.empty)
 
 let separate_ivc_by_category (props, ivc) =
-  let (ivc1, ivc2) = separate_scmap (separate_loc_eqs_by_category (Flags.IVC.ivc_elements ())) ivc
+  let (ivc1, ivc2) = separate_scmap (separate_loc_eqs_by_category (Flags.IVC.ivc_category ())) ivc
   in (props, ivc1), (props, ivc2)
 
 let separate_mua_by_category (props, mua) =
-  let (mua1, mua2) = separate_scmap (separate_loc_eqs_by_category (Flags.MCS.mcs_elements ())) mua
+  let (mua1, mua2) = separate_scmap (separate_loc_eqs_by_category (Flags.MCS.mcs_category ())) mua
   in (props, mua1), (props, mua2)
 
 type eqmap = (equation list) ScMap.t
@@ -1725,9 +1715,9 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_t
 let ivc_uc in_sys ?(approximate=false) sys props =
   try (
     let props = ivc_props sys props in
-    let enter_nodes = Flags.IVC.ivc_enter_nodes () in
-    let eqmap = _all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
+    let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
+    let eqmap = _all_eqs in_sys sys enter_nodes in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
     let (_, test) = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
   ) with
@@ -1820,9 +1810,9 @@ let must_set_ in_sys ?(os_invs=None) check_ts sys props enter_nodes eqmap_keep e
 let must_set in_sys param analyze sys props =
   try (
     let props = ivc_props sys props in
-    let enter_nodes = Flags.IVC.ivc_enter_nodes () in
+    let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
     let (keep', _) = must_set_ in_sys check_ts sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys props (lstmap_union keep keep'))
@@ -1933,9 +1923,9 @@ let ivc_bf in_sys ?(use_must_set=false) param analyze sys props =
   try (
     let ivc_bf_ = if use_must_set then ivc_must_bf_ else ivc_bf_ in
     let props = ivc_props sys props in
-    let enter_nodes = Flags.IVC.ivc_enter_nodes () in
+    let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
     let test = ivc_bf_ in_sys check_ts sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
@@ -1952,9 +1942,9 @@ let ivc_ucbf in_sys ?(use_must_set=false) param analyze sys props =
   try (
     let ivc_bf_ = if use_must_set then ivc_must_bf_ else ivc_bf_ in
     let props = ivc_props sys props in
-    let enter_nodes = Flags.IVC.ivc_enter_nodes () in
+    let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
     let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep test in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
     let test = ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
@@ -2255,9 +2245,9 @@ let umivc in_sys ?(use_must_set=false) param analyze sys props k cont =
   try (
     let umivc_ = if use_must_set then must_umivc_ else umivc_ in
     let props = ivc_props sys props in
-    let enter_nodes = (Flags.IVC.ivc_enter_nodes ()) in
+    let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
     let res = ref [] in
     let cont test =
       let ivc = eqmap_to_ivc in_sys props (lstmap_union keep test) in
@@ -2283,7 +2273,7 @@ let umivc in_sys ?(use_must_set=false) param analyze sys props k cont =
 type mua = ((Property.t list * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
 
 let properties_of_interest_for_mua sys =
-  let ignore_valid_props = Flags.MCS.mcs_elements () |> List.for_all (fun x -> x = `WEAK_ASS)
+  let ignore_valid_props = Flags.MCS.mcs_category () |> List.for_all (fun x -> x = `WEAK_ASS)
   in extract_props sys (not ignore_valid_props) true
 
 let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes eqmap_keep eqmap_test =
@@ -2345,8 +2335,8 @@ let mua in_sys param analyze sys props all =
     | None -> properties_of_interest_for_mua sys
     | Some props -> props
     in
-    let enter_nodes = (Flags.MCS.mcs_enter_nodes ()) in
-    let elements = (Flags.MCS.mcs_elements ()) in
+    let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
+    let elements = (Flags.MCS.mcs_category ()) in
     let include_weak_ass = List.mem `WEAK_ASS elements in
     let eqmap = _all_eqs ~include_weak_ass in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys elements eqmap in
