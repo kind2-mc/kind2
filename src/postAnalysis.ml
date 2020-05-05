@@ -596,27 +596,28 @@ module RunIVC: PostAnalysis = struct
               let elapsed = Some (ntime -. !time) in
               time := ntime ;
 
+              let pt = Ivc.pp_print_core_data in_sys param sys in
+              let xml = Ivc.pp_print_core_data in_sys param sys in
+              (*let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mcs_json in_sys param sys "core") in*)
+              let json = Ivc.pp_print_core_data in_sys param sys in
+
               if Flags.IVC.print_ivc ()
               then begin
-                let title = if is_must_set then "must" else "core" in
-                let pt = Ivc.pp_print_ivc ~time:elapsed in_sys sys title in
-                let xml = Ivc.pp_print_ivc_xml ~time:elapsed in_sys sys title in
-                let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json ~time:elapsed in_sys sys title) in
                 let (_,filtered_ivc) = Ivc.separate_ivc_by_category ivc in
-                KEvent.log_result pt xml json filtered_ivc
+                let cpd = Ivc.ivc_to_print_data in_sys sys false filtered_ivc in
+                let cpd = { cpd with time=elapsed } in
+                let cpd = if is_must_set then { cpd with core_class="must" } else cpd in
+                KEvent.log_result pt xml json cpd
               end ;
 
               if Flags.IVC.print_ivc_compl ()
               then begin
-                let not_ivc =
-                  Ivc.complement_of_core (snd initial) (snd ivc)
-                in
-                let title = if is_must_set then "must_complement" else "core_complement" in
-                let pt = Ivc.pp_print_ivc ~time:elapsed in_sys sys title in
-                let xml = Ivc.pp_print_ivc_xml ~time:elapsed in_sys sys title in
-                let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json ~time:elapsed in_sys sys title) in
+                let not_ivc = Ivc.complement_of_core (snd initial) (snd ivc) in
                 let (_,filtered_not_ivc) = Ivc.separate_ivc_by_category (fst ivc, not_ivc) in
-                KEvent.log_result pt xml json filtered_not_ivc
+                let cpd = Ivc.ivc_to_print_data in_sys sys true filtered_not_ivc in
+                let cpd = { cpd with time=elapsed } in
+                let cpd = if is_must_set then { cpd with core_class="must complement" } else cpd in
+                KEvent.log_result pt xml json cpd
               end ;
 
               if Flags.IVC.minimize_program () <> `DO_NOT_MINIMIZE && not is_must_set
@@ -713,31 +714,31 @@ module RunMCS: PostAnalysis = struct
           then begin
             let treat_mua mua =
 
-              let not_mua =
-                Ivc.complement_of_core (snd initial) (snd mua)
-              in
+              let not_mua = Ivc.complement_of_core (snd initial) (snd mua) in
               let not_mua = (fst mua, not_mua) in
 
               if Flags.MCS.print_mcs_legacy ()
               then begin
                 Ivc.pp_print_mcs_legacy in_sys param sys not_mua mua
               end else begin
+
+                let pt = Ivc.pp_print_core_data in_sys param sys in
+                let xml = Ivc.pp_print_core_data in_sys param sys in
+                (*let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mcs_json in_sys param sys "core") in*)
+                let json = Ivc.pp_print_core_data in_sys param sys in
+
                 if Flags.MCS.print_mcs ()
                 then begin
-                  let pt = Ivc.pp_print_mcs in_sys param sys "CORE" in
-                  let xml = Ivc.pp_print_mcs_xml in_sys param sys "core" in
-                  let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mcs_json in_sys param sys "core") in
-                  let (_,filtered_not_mua) = Ivc.separate_mua_by_category not_mua in
-                  KEvent.log_result pt xml json filtered_not_mua
+                  let (_,filtered_mcs) = Ivc.separate_mua_by_category not_mua in
+                  let cpd = Ivc.mcs_to_print_data in_sys sys false filtered_mcs in
+                  KEvent.log_result pt xml json cpd
                 end ;
 
                 if Flags.MCS.print_mcs_compl ()
                 then begin
-                  let pt = Ivc.pp_print_mcs in_sys param sys "COMPLEMENT" in
-                  let xml = Ivc.pp_print_mcs_xml in_sys param sys "complement" in
-                  let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mcs_json in_sys param sys "complement") in
                   let (_,filtered_mua) = Ivc.separate_mua_by_category mua in
-                  KEvent.log_result pt xml json filtered_mua
+                  let cpd = Ivc.mcs_to_print_data in_sys sys true filtered_mua in
+                  KEvent.log_result pt xml json cpd
                 end
               end
             in

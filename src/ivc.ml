@@ -94,6 +94,10 @@ let rec simplify_term t =
 
 (* ---------- PRETTY PRINTING ---------- *)
 
+(* TODO: clean unused code *)
+(* TODO: colors *)
+(* TODO: post-analysis flags data *)
+
 let aux_vars sys =
   let usr_name =
     assert (List.length LustreIdent.user_scope = 1) ;
@@ -108,6 +112,15 @@ let aux_vars sys =
 let compute_var_map in_sys sys =
   let aux_vars = TS.fold_subsystems ~include_top:true (fun acc sys -> (aux_vars sys)@acc) [] sys in
   InputSystem.mk_state_var_to_lustre_name_map in_sys aux_vars
+
+let lustre_name_of_sv var_map sv =
+  let usr_name =
+    assert (List.length LustreIdent.user_scope = 1) ;
+    List.hd LustreIdent.user_scope
+  in
+  if List.mem usr_name (StateVar.scope_of_state_var sv)
+  then StateVar.name_of_state_var sv
+  else StateVar.StateVarMap.find sv var_map
 
 let pp_print_json fmt json =
   Yojson.Basic.pretty_to_string json
@@ -250,23 +263,23 @@ let print_data_of_loc_equation var_map (eq, locs, cat) =
     | NodeCall (name, _) ->
       Some {
         name = name ;
-        category = "nodeCall" ;
+        category = "node call" ;
         position = last_position_of_locs locs ;
       }
     | Equation sv ->
       (
         try
-        Some {
-          name = StateVar.StateVarMap.find sv var_map ;
-          category = "equation" ;
-          position = last_position_of_locs locs ;
-        }
+          Some {
+            name = lustre_name_of_sv var_map sv ;
+            category = "equation" ;
+            position = last_position_of_locs locs ;
+          }
         with Not_found -> None
       )
     | Assertion sv ->
       Some {
         name = Format.asprintf "assertion%a" pp_print_locs_short locs ;
-        category = "equation" ;
+        category = "assertion" ;
         position = last_position_of_locs locs ;
       }
     | ContractItem (_, svar, typ) ->
@@ -310,6 +323,65 @@ let ivc_to_print_data in_sys sys is_compl (_,ivc) =
     size = scmap_size elements ;
   }
 
+let mcs_to_print_data in_sys sys is_compl ((props, cex),mcs) =
+  let core_class =
+    if is_compl then "mcs complement" else "mcs"
+  in
+  let property =
+    match props with
+    | [{ Property.prop_name = n }] -> Some n
+    | _ -> None
+  in
+  let elements = printable_elements_of_core in_sys sys mcs in
+  {
+    core_class ;
+    property ;
+    counterexample = Some cex ;
+    time = None ;
+    elements ;
+    size = scmap_size elements ;
+  }
+
+let print_mcs_counterexample in_sys param sys typ fmt prop cex =
+  try
+    if Flags.MCS.print_mcs_counterexample ()
+    then
+      match typ with
+      | `PT ->
+        KEvent.pp_print_counterexample_pt L_warn in_sys param sys prop true fmt cex
+      | `XML ->
+        KEvent.pp_print_counterexample_xml in_sys param sys prop true fmt cex
+      | `JSON ->
+        KEvent.pp_print_counterexample_json in_sys param sys prop true fmt cex
+  with _ -> ()
+
+let pp_print_core_data in_sys param sys fmt cpd =
+  let print_elt elt =
+    Format.fprintf fmt "%s %s at position %a@ "
+      (String.capitalize_ascii elt.category) elt.name
+      Lib.pp_print_pos elt.position
+  in
+  let print_node scope lst =
+    Format.fprintf fmt "Node %s@ " (Scope.to_string scope) ;
+    Format.fprintf fmt "  @[<v>" ;
+    List.iter print_elt lst ;
+    Format.fprintf fmt "@]@ "
+  in
+  Format.fprintf fmt "%s (%i elements)%s:@."
+    (String.uppercase_ascii cpd.core_class) cpd.size
+    (match cpd.property with
+    | None -> ""
+    | Some n -> " for property "^n
+    ) ;
+  Format.fprintf fmt "  @[<v>" ;
+  ScMap.iter print_node cpd.elements ;
+  (match cpd.counterexample, cpd.property with
+  | Some cex, Some p ->
+    print_mcs_counterexample in_sys param sys `PT fmt p cex
+  | _, _ -> ()
+  ) ;
+  Format.fprintf fmt "@]@."
+
 (* --------------------------------- *)
 
 let pp_print_ivc ?(time=None) in_sys sys title fmt (props,ivc) =
@@ -322,25 +394,9 @@ let pp_print_ivc ?(time=None) in_sys sys title fmt (props,ivc) =
     Format.fprintf fmt "%a\n" print eqs
   ) ivc
 
-let print_mcs_counterexample in_sys param sys typ fmt (props,cex) =
-  try
-    if List.length props = 1 && Flags.MCS.print_mcs_counterexample ()
-    then
-      match typ with
-      | `PT ->
-        KEvent.pp_print_counterexample_pt L_warn
-        in_sys param sys (List.hd props).Property.prop_name true fmt cex
-      | `XML ->
-        KEvent.pp_print_counterexample_xml
-        in_sys param sys (List.hd props).Property.prop_name true fmt cex
-      | `JSON ->
-        KEvent.pp_print_counterexample_json
-        in_sys param sys (List.hd props).Property.prop_name true fmt cex
-    with _ -> ()
-
 let pp_print_mcs in_sys param sys title fmt ((props,cex), mcs) =
-  pp_print_ivc in_sys sys title fmt (props, mcs) ;
-  print_mcs_counterexample in_sys param sys `PT fmt (props,cex)
+  pp_print_ivc in_sys sys title fmt (props, mcs) (*;
+  print_mcs_counterexample in_sys param sys `PT fmt (props,cex)*)
 
 let pp_print_categories fmt =
   List.iter (function
@@ -379,7 +435,7 @@ let pp_print_mcs_xml in_sys param sys title fmt ((props, cex), mcs) =
     Format.fprintf fmt "%a" print eqs ;
     Format.fprintf fmt "</scope>\n\n"
   ) mcs ;
-  print_mcs_counterexample in_sys param sys `XML fmt (props,cex) ;
+  (*print_mcs_counterexample in_sys param sys `XML fmt (props,cex) ;*)
   Format.fprintf fmt "</MCS>\n"
 
 let ivc2json ?(time=None) in_sys sys title (props,ivc) =

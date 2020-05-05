@@ -181,7 +181,8 @@ type core_print_data = {
 val ivc_to_print_data :
   'a InputSystem.t -> TransSys.t -> bool -> ivc -> core_print_data
 
-(*
+val mcs_to_print_data :
+  'a InputSystem.t -> TransSys.t -> bool -> mua -> core_print_data
+
 val pp_print_core_data :
   'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit
-*)
