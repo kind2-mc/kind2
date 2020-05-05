@@ -1,9 +1,11 @@
 module ScMap = Scope.Map
 module SVSet = StateVar.StateVarSet
 
+(* ----- INDUCTIVE VALIDITY CORES ----- *)
+
 type term_cat =
 | NodeCall of string * SVSet.t
-| ContractItem of StateVar.t * LustreContract.svar * bool (* soft *)
+| ContractItem of StateVar.t * LustreContract.svar * LustreNode.contract_item_type
 | Equation of StateVar.t
 | Assertion of StateVar.t
 | Unknown
@@ -158,3 +160,28 @@ val mua :
 (** Returns the names of the properties for which we may be interested in computing a MUA. *)
 val properties_of_interest_for_mua : TransSys.t -> Property.t list
 
+
+(* ----- Structures for printing ----- *)
+
+type term_print_data = {
+  name: string ;
+  category: string ;
+  position: Lib.position ;
+}
+
+type core_print_data = {
+  core_class: string ;
+  property: string option ; (* Only for MCSs *)
+  counterexample: ((StateVar.t * Model.value list) list) option ; (* Only for MCSs *)
+  time: float option ;
+  size: int ;
+  elements: term_print_data list ScMap.t ;
+}
+
+val ivc_to_print_data :
+  'a InputSystem.t -> TransSys.t -> bool -> ivc -> core_print_data
+
+(*
+val pp_print_core_data :
+  'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit
+*)

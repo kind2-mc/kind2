@@ -26,7 +26,7 @@ module IdMap = Map.Make(AstID)
 
 type term_cat =
 | NodeCall of string * SVSet.t
-| ContractItem of StateVar.t * LustreContract.svar * bool (* soft *)
+| ContractItem of StateVar.t * LustreContract.svar * LustreNode.contract_item_type
 | Equation of StateVar.t
 | Assertion of StateVar.t
 | Unknown
@@ -155,8 +155,8 @@ let expr_pp_print var_map fmt expr =
 
 let cat_to_string = function
   | NodeCall _ -> "Node call"
-  | ContractItem (_, _, false) -> "Contract item"
-  | ContractItem (_, _, true) -> "Weak assumption"
+  | ContractItem (_, _, LustreNode.WeakAssumption) -> "Weak assumption"
+  | ContractItem (_, _, _) -> "Contract item"
   | Equation _ -> "Equation"
   | Assertion _ -> "Assertion"
   | Unknown -> "Unknown element"
@@ -210,6 +210,107 @@ let rec pp_print_properties fmt = function
   | [] -> ()
   | _::_::_ -> Format.fprintf fmt "all"
   | [{ Property.prop_name = n }] -> Format.fprintf fmt "%s" n
+
+
+
+
+(* ----- Structures for printing ----- *)
+
+type term_print_data = {
+  name: string ;
+  category: string ;
+  position: Lib.position ;
+}
+
+type core_print_data = {
+  core_class: string ;
+  property: string option ; (* Only for MCSs *)
+  counterexample: ((StateVar.t * Model.value list) list) option ; (* Only for MCSs *)
+  time: float option ;
+  size: int ;
+  elements: term_print_data list ScMap.t ;
+}
+
+let pp_print_locs_short =
+  Lib.pp_print_list (
+    fun fmt {pos} ->
+      Format.fprintf fmt "%a" Lib.pp_print_pos pos
+  ) ""
+
+(* The last position is the main one (the first one added) *)
+let last_position_of_locs locs =
+  (List.hd (List.rev locs)).pos
+
+let print_data_of_loc_equation var_map (eq, locs, cat) =
+  if locs = []
+  then None
+  else
+    match cat with
+    | Unknown -> None
+    | NodeCall (name, _) ->
+      Some {
+        name = name ;
+        category = "nodeCall" ;
+        position = last_position_of_locs locs ;
+      }
+    | Equation sv ->
+      (
+        try
+        Some {
+          name = StateVar.StateVarMap.find sv var_map ;
+          category = "equation" ;
+          position = last_position_of_locs locs ;
+        }
+        with Not_found -> None
+      )
+    | Assertion sv ->
+      Some {
+        name = Format.asprintf "assertion%a" pp_print_locs_short locs ;
+        category = "equation" ;
+        position = last_position_of_locs locs ;
+      }
+    | ContractItem (_, svar, typ) ->
+      let (kind, category) = 
+        match typ with
+        | LustreNode.WeakAssumption -> ("weakly_assume", "assumption")
+        | LustreNode.Assumption -> ("assume", "assumption")
+        | LustreNode.Guarantee -> ("guarantee", "guarantee")
+        | LustreNode.Require -> ("require", "assumption")
+        | LustreNode.Ensure -> ("ensure", "guarantee")
+      in
+      Some {
+        name = LustreContract.prop_name_of_svar svar kind "" ;
+        category ;
+        position = last_position_of_locs locs ;
+      }
+
+let printable_elements_of_core in_sys sys core =
+  let var_map = compute_var_map in_sys sys in
+  let aux lst =
+    lst
+    |> List.map (print_data_of_loc_equation var_map)
+    |> List.filter (function Some _ -> true | None -> false)
+    |> List.map (function Some x -> x | None -> assert false)
+  in
+  core
+  |> ScMap.map aux (* Build map *)
+  |> ScMap.filter (fun _ lst -> lst <> []) (* Remove empty entries *)
+
+let ivc_to_print_data in_sys sys is_compl (_,ivc) =
+  let core_class =
+    if is_compl then "ivc complement" else "ivc"
+  in
+  let elements = printable_elements_of_core in_sys sys ivc in
+  {
+    core_class ;
+    property = None ;
+    counterexample = None ;
+    time = None ;
+    elements ;
+    size = scmap_size elements ;
+  }
+
+(* --------------------------------- *)
 
 let pp_print_ivc ?(time=None) in_sys sys title fmt (props,ivc) =
   let var_map = compute_var_map in_sys sys in
@@ -333,7 +434,8 @@ let pp_print_mcs_json in_sys param sys title fmt mcs =
   pp_print_json fmt (mcs2json in_sys param sys title mcs)
 
 let name_of_wa_cat = function
-  | ContractItem (_, svar, true) -> Some (LustreContract.prop_name_of_svar svar "weakly_assume" "")
+  | ContractItem (_, svar, LustreNode.WeakAssumption) ->
+    Some (LustreContract.prop_name_of_svar svar "weakly_assume" "")
   | _ -> None
 
 let all_wa_names_of_mcs scmap =
@@ -798,7 +900,7 @@ let sv_of_term t =
 
 let locs_of_eq_term in_sys t =
   try
-    let soft_contract = ref false in
+    let contract_typ = ref LustreNode.Assumption in
     let contract_items = ref None in
     let set_contract_item svar = contract_items := Some svar in
     let has_asserts = ref false in
@@ -808,8 +910,7 @@ let locs_of_eq_term in_sys t =
     |> List.map (fun def ->
       ( match def with
         | LustreNode.Assertion _ -> has_asserts := true
-        | LustreNode.ContractItem (_, svar, false) -> set_contract_item svar
-        | LustreNode.ContractItem (_, svar, true) -> soft_contract := true ; set_contract_item svar
+        | LustreNode.ContractItem (_, svar, typ) -> contract_typ := typ ; set_contract_item svar
         | _ -> ()
       );
       let p = LustreNode.pos_of_state_var_def def in
@@ -818,7 +919,7 @@ let locs_of_eq_term in_sys t =
     )
     |> (fun locs ->
       match !contract_items with
-      | Some svar -> (ContractItem (sv, svar, !soft_contract), locs)
+      | Some svar -> (ContractItem (sv, svar, !contract_typ), locs)
       | None ->
         if !has_asserts then (Assertion sv, locs)
         else (Equation sv, locs)
@@ -965,8 +1066,8 @@ let extract_toplevel_equations ?(include_weak_ass=false) in_sys sys =
 let check_loc_eq_category cats (_,_,cat) =
   let cat = match cat with
   | NodeCall _ -> [`NODE_CALL]
-  | ContractItem (_, _, false) -> [`CONTRACT_ITEM]
-  | ContractItem (_, _, true) -> [`WEAK_ASS]
+  | ContractItem (_, _, LustreNode.WeakAssumption) -> [`WEAK_ASS]
+  | ContractItem (_, _, _) -> [`CONTRACT_ITEM]
   | Equation _ -> [`EQUATION]
   | Assertion _ -> [`ASSERTION]
   | Unknown -> [`UNKNOWN]

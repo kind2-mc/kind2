@@ -230,6 +230,8 @@ type t = {
 (** Instance of state vars as streams with their position *)
 type state_var_instance = position * LustreIdent.t * StateVar.t
 
+type contract_item_type =
+    | Assumption | WeakAssumption | Guarantee | Require | Ensure
 (** A definition of a state variable in the initial Lustre program.
   For a given state var s, it indicates the position p of an expression e that defines s
   as well as the corresponding index i, such that s defined by the value of e at index i. *)
@@ -237,7 +239,7 @@ type state_var_def =
   | CallOutput of position * LustreIndex.index
   | ProperEq of position * LustreIndex.index
   | GeneratedEq of position * LustreIndex.index
-  | ContractItem of position * LustreContract.svar * bool (* soft *)
+  | ContractItem of position * LustreContract.svar * contract_item_type
   | Assertion of position
 
 (** Return a node of the given name and is extern flag without inputs, outputs,
