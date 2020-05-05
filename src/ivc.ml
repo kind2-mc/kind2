@@ -342,7 +342,7 @@ let mcs_to_print_data in_sys sys is_compl ((props, cex),mcs) =
     size = scmap_size elements ;
   }
 
-let print_mcs_counterexample in_sys param sys typ fmt prop cex =
+let print_mcs_counterexample in_sys param sys typ fmt (prop,cex) =
   try
     if Flags.MCS.print_mcs_counterexample ()
     then
@@ -377,10 +377,67 @@ let pp_print_core_data in_sys param sys fmt cpd =
   ScMap.iter print_node cpd.elements ;
   (match cpd.counterexample, cpd.property with
   | Some cex, Some p ->
-    print_mcs_counterexample in_sys param sys `PT fmt p cex
+    print_mcs_counterexample in_sys param sys `PT fmt (p,cex)
   | _, _ -> ()
   ) ;
   Format.fprintf fmt "@]@."
+
+let pp_print_core_data_json in_sys param sys fmt cpd =
+  let json_of_elt elt =
+    let (file, row, col) = Lib.file_row_col_of_pos elt.position in
+    `Assoc [
+      ("category", `String elt.category) ;
+      ("name", `String elt.name) ;
+      ("file", `String file) ;
+      ("line", `Int row) ;
+      ("column", `Int col) ;
+    ]
+  in
+  let assoc = [
+    ("objectType", `String "modelElementSet") ;
+    ("class", `String cpd.core_class) ;
+    ("size", `Int cpd.size) ;
+  ] in
+  let assoc = assoc @ (
+    match cpd.property with
+    | None -> []
+    | Some n -> [("property", `String n)]
+  )
+  in
+  let assoc = assoc @ (
+    match cpd.time with
+    | None -> []
+    | Some f -> [("runtime", `Assoc [("unit", `String "sec") ; ("value", `Float f)])]
+  )
+  in
+  let assoc = assoc @ ([
+    ("nodes", `List (List.map (fun (scope, elts) ->
+      `Assoc [
+        ("name", `String (Scope.to_string scope)) ;
+        ("elements", `List (List.map json_of_elt elts))
+      ]
+    ) (ScMap.bindings cpd.elements)))
+  ])
+  in
+  let assoc = assoc @
+    (match cpd.counterexample, cpd.property with
+    | Some cex, Some p ->
+      let str = Format.asprintf "%a"
+        (print_mcs_counterexample in_sys param sys `JSON) (p, cex) in
+      if String.equal str "" then []
+      else [
+          match Yojson.Basic.from_string ("{"^str^"}") with
+          | `Assoc [json] -> json
+          | _ -> assert false
+        ]
+    | _, _ -> []
+    )
+  in
+  pp_print_json fmt (`Assoc assoc)
+
+let pp_print_core_data_xml in_sys param sys fmt cpd =
+  pp_print_core_data in_sys param sys fmt cpd
+  (* TODO *)
 
 (* --------------------------------- *)
 

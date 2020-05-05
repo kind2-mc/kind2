@@ -597,9 +597,9 @@ module RunIVC: PostAnalysis = struct
               time := ntime ;
 
               let pt = Ivc.pp_print_core_data in_sys param sys in
-              let xml = Ivc.pp_print_core_data in_sys param sys in
-              (*let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mcs_json in_sys param sys "core") in*)
-              let json = Ivc.pp_print_core_data in_sys param sys in
+              let xml = Ivc.pp_print_core_data_xml in_sys param sys in
+              let json fmt = Format.fprintf fmt ",\n%a"
+                (Ivc.pp_print_core_data_json in_sys param sys) in
 
               if Flags.IVC.print_ivc ()
               then begin
@@ -723,9 +723,9 @@ module RunMCS: PostAnalysis = struct
               end else begin
 
                 let pt = Ivc.pp_print_core_data in_sys param sys in
-                let xml = Ivc.pp_print_core_data in_sys param sys in
-                (*let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mcs_json in_sys param sys "core") in*)
-                let json = Ivc.pp_print_core_data in_sys param sys in
+                let xml = Ivc.pp_print_core_data_xml in_sys param sys in
+                let json fmt = Format.fprintf fmt ",\n%a"
+                  (Ivc.pp_print_core_data_json in_sys param sys) in
 
                 if Flags.MCS.print_mcs ()
                 then begin
