@@ -281,13 +281,14 @@ let pp_print_json fmt json =
 let pp_print_core_data_json in_sys param sys fmt cpd =
   let json_of_elt elt =
     let (file, row, col) = Lib.file_row_col_of_pos elt.position in
-    `Assoc [
+    `Assoc ([
       ("category", `String elt.category) ;
       ("name", `String elt.name) ;
-      ("file", `String file) ;
       ("line", `Int row) ;
       ("column", `Int col) ;
-    ]
+    ] @
+    (if file = "" then [] else [("file", `String file)])
+    )
   in
   let assoc = [
     ("objectType", `String "modelElementSet") ;
@@ -339,8 +340,8 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
     let print_elt elt =
       if not !fst then Format.fprintf fmt "@ " else fst := false ;
       let (file, row, col) = Lib.file_row_col_of_pos elt.position in
-      Format.fprintf fmt "<Element category=\"%s\" name=\"%s\" file=\"%s\" line=\"%i\" column=\"%i\">"
-        elt.category elt.name file row col
+      Format.fprintf fmt "<Element category=\"%s\" name=\"%s\" line=\"%i\" column=\"%i\"%s>"
+        elt.category elt.name row col (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
     in
     Format.fprintf fmt "<Node name=\"%s\">@   @[<v>" (Scope.to_string scope) ;
     List.iter print_elt elts ;
