@@ -94,7 +94,7 @@ let rec simplify_term t =
 
 (* ---------- PRETTY PRINTING ---------- *)
 
-(* TODO: clean unused code *)
+(* TODO: clean unused code. Remove unrelevant \n *)
 (* TODO: colors *)
 (* TODO: post-analysis flags data *)
 
@@ -425,19 +425,48 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
       let str = Format.asprintf "%a"
         (print_mcs_counterexample in_sys param sys `JSON) (p, cex) in
       if String.equal str "" then []
-      else [
+      else (
           match Yojson.Basic.from_string ("{"^str^"}") with
-          | `Assoc [json] -> json
+          | `Assoc json -> json
           | _ -> assert false
-        ]
+      )
     | _, _ -> []
     )
   in
   pp_print_json fmt (`Assoc assoc)
 
 let pp_print_core_data_xml in_sys param sys fmt cpd =
-  pp_print_core_data in_sys param sys fmt cpd
-  (* TODO *)
+  let fst = ref true in
+  let print_node scope elts =
+    if not !fst then Format.fprintf fmt "@ " else fst := false ;
+    let fst = ref true in
+    let print_elt elt =
+      if not !fst then Format.fprintf fmt "@ " else fst := false ;
+      let (file, row, col) = Lib.file_row_col_of_pos elt.position in
+      Format.fprintf fmt "<Element category=\"%s\" name=\"%s\" file=\"%s\" line=\"%i\" column=\"%i\">"
+        elt.category elt.name file row col
+    in
+    Format.fprintf fmt "<Node name=\"%s\">@   @[<v>" (Scope.to_string scope) ;
+    List.iter print_elt elts ;
+    Format.fprintf fmt "@]@ </Node>"
+  in
+  Format.fprintf fmt "<ModelElementSet class=\"%s\" size=\"%i\"%s>@.  @[<v>"
+    cpd.core_class cpd.size
+    (match cpd.property with None -> "" | Some n -> Format.asprintf " property=\"%s\"" n) ;
+  (
+    match cpd.time with
+    | None -> ()
+    | Some f -> Format.fprintf fmt "<Runtime unit=\"sec\">%.3f</Runtime>@ " f
+  ) ;
+  ScMap.iter print_node cpd.elements ;
+  (
+    match cpd.counterexample, cpd.property with
+    | Some cex, Some p ->
+      Format.fprintf fmt "@ " ;
+      print_mcs_counterexample in_sys param sys `XML fmt (p, cex)
+    | _, _ -> ()
+  ) ;
+  Format.fprintf fmt "@]@.</ModelElementSet>@."
 
 (* --------------------------------- *)
 
