@@ -1240,7 +1240,7 @@ module IVC = struct
       Format.fprintf fmt
         "\
           Compute the smallest IVC first.@ \
-          Ignored if --ivc_all is false.@ \
+          If --ivc_all is false, compute the smallest IVC only.@ \
           Default: %a\
         "
         fmt_bool ivc_smallest_first_default

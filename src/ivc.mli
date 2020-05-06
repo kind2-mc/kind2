@@ -106,6 +106,7 @@ val ivc_ucbf :
 val umivc :
   'a InputSystem.t ->
   ?use_must_set:(ivc -> unit) option ->
+  ?stop_after:int ->
   Analysis.param ->
   (
     bool ->

@@ -658,15 +658,17 @@ module RunIVC: PostAnalysis = struct
               then Some (fun _ -> ())
               else None
             in
+            let use_umivc = Flags.IVC.ivc_all () || Flags.IVC.ivc_smallest_first () in
+            let stop_after = if Flags.IVC.ivc_all () then 0 else 1 in
             let k =
               if Flags.IVC.ivc_smallest_first ()
               then -1
               else Flags.IVC.ivc_precomputed_mcs ()
             in
-            let res = match (Flags.IVC.ivc_all (), Flags.IVC.ivc_approximate ()) with
+            let res = match (use_umivc, Flags.IVC.ivc_approximate ()) with
               | (false, true) -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:false sys (Some props))
               | (false, false) -> treat_and_return_lst (Ivc.ivc_ucbf in_sys ~use_must_set param analyze sys (Some props))
-              | (true, _) -> Ivc.umivc in_sys ~use_must_set param analyze sys (Some props) k (treat_ivc false)
+              | (true, _) -> Ivc.umivc in_sys ~use_must_set ~stop_after param analyze sys (Some props) k (treat_ivc false)
             in
             KEvent.log_uncond "Number of minimal IVCs found: %n" (List.length res) ;
           end

@@ -2057,7 +2057,8 @@ let block_down map actsvs s =
 
 type unexplored_type = | Any | Min | Max
 
-let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_test =
+let umivc_ in_sys make_check_ts sys props k enter_nodes
+  ?(stop_after=0) cont eqmap_keep eqmap_test =
   let prop_names = props_names props in
   (*let sys_original = sys in*)
   let (sys_cs, check_ts_cs) = make_check_ts sys in
@@ -2235,8 +2236,13 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_te
           (* Save and Block up *)
           let mivc_eqmap = core_to_eqmap mivc in
           cont mivc_eqmap ;
-          block_up (actsvs_of_core mivc) ;
-          next (mivc_eqmap::acc)
+          let new_acc = mivc_eqmap::acc in
+          if List.length new_acc = stop_after
+          then new_acc
+          else (
+            block_up (actsvs_of_core mivc) ;
+            next new_acc
+          )
         ) else (
           (* Implements grow(seed) using MCS computation *)
           let mua = if typ = Max then seed
@@ -2256,7 +2262,8 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_te
     all_mivc
   )
 
-let must_umivc_ must_cont in_sys make_check_ts sys props k enter_nodes cont keep test =
+let must_umivc_ must_cont in_sys make_check_ts sys props k enter_nodes
+  ?(stop_after=0) cont keep test =
   let prop_names = props_names props in
   let (sys', check_ts') = make_check_ts sys in
 
@@ -2273,13 +2280,13 @@ let must_umivc_ must_cont in_sys make_check_ts sys props k enter_nodes cont keep
     KEvent.log L_info "MUST set is not a valid IVC. Running UMIVC..." ;
     let post core = lstmap_union core keep' in
     let cont core = core |> post |> cont in
-    umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test
+    umivc_ in_sys make_check_ts sys props k enter_nodes ~stop_after cont keep test
     |> List.map post
   )
 
 
 (** Implements the algorithm UMIVC. *)
-let umivc in_sys ?(use_must_set=None) param analyze sys props k cont =
+let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k cont =
   try (
     let props = ivc_props sys props in
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
@@ -2295,7 +2302,7 @@ let umivc in_sys ?(use_must_set=None) param analyze sys props k cont =
       cont ivc
     in
     let make_check_ts = make_check_ts in_sys param analyze in
-    let _ = umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test in
+    let _ = umivc_ in_sys make_check_ts sys props k enter_nodes ~stop_after cont keep test in
     List.rev (!res)
   ) with
   | NotKInductive ->
