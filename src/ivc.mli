@@ -26,13 +26,6 @@ type loc_equation = equation * (loc list) * term_cat
 
 type ivc = (Property.t list * loc_equation list ScMap.t)
 
-val pp_print_loc_eq : 'a InputSystem.t -> TransSys.t -> Format.formatter -> loc_equation -> unit
-val pp_print_loc_eqs : 'a InputSystem.t -> TransSys.t -> Format.formatter -> loc_equation list -> unit
-
-val pp_print_ivc : ?time:float option -> 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
-val pp_print_ivc_xml : ?time:float option -> 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
-val pp_print_ivc_json : ?time:float option -> 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
-
 val compare_loc : loc -> loc -> int
 
 (** For a given transition system, returns the full initial inductive validity core
@@ -128,15 +121,9 @@ val umivc :
 (** Returns the names of the properties for which we may be interested in computing an IVC. *)
 val properties_of_interest_for_ivc : TransSys.t -> Property.t list
 
-
 (* ----- MAXIMAL UNSAFE ABSTRACTIONS  MINIMAL CORRECTION SETS ----- *)
 
 type mua = ((Property.t list * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
-
-val pp_print_mcs : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
-val pp_print_mcs_xml : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
-val pp_print_mcs_json : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
-val pp_print_mcs_legacy : 'a InputSystem.t -> Analysis.param -> TransSys.t -> mua -> mua -> unit
 
 (** Separate a MUA into two MUA, the second one containing elements from the categories selected
     by the user, and the first one containing the others elements *)
@@ -159,7 +146,6 @@ val mua :
 
 (** Returns the names of the properties for which we may be interested in computing a MUA. *)
 val properties_of_interest_for_mua : TransSys.t -> Property.t list
-
 
 (* ----- Structures for printing ----- *)
 
@@ -193,3 +179,4 @@ val pp_print_core_data_xml :
 val pp_print_core_data_json :
   'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit
 
+val pp_print_mcs_legacy : 'a InputSystem.t -> Analysis.param -> TransSys.t -> mua -> mua -> unit
