@@ -228,7 +228,6 @@ let rec is_numeral t = match destruct t with
 
   | _ -> false
 
-(* Dont really need these
 (* Return true if the term is a (sign-agnostic) 
    bitvector constant *)
 let is_bitvector t = match destruct t with
@@ -257,7 +256,6 @@ let is_ubitvector t = match destruct t with
   | T.Const s when Symbol.is_ubitvector s -> true
 
   | _ -> false
-*)
 
 (* Return integer constant of a term *)
 let rec numeral_of_term t = match destruct t with 
