@@ -228,6 +228,16 @@ let rec is_numeral t = match destruct t with
 
   | _ -> false
 
+(* NOTE: These should never be necessary, especially with 
+bitvectors since they are differentiated as signed 
+and unsigned bitvectors. To accurately detect this 
+difference, always use 
+  Type.is_ubitvector (Term.type_of_term arg)
+or
+  Type.is_bitvector (Term.type_of_term arg)
+instead and only if for some reason that doesn't work,
+resort to the following functions.
+
 (* Return true if the term is a (sign-agnostic) 
    bitvector constant *)
 let is_bitvector t = match destruct t with
@@ -255,7 +265,7 @@ let is_ubitvector t = match destruct t with
   (* Term is an unsigned bitvector constant *)
   | T.Const s when Symbol.is_ubitvector s -> true
 
-  | _ -> false
+  | _ -> false*)
 
 (* Return integer constant of a term *)
 let rec numeral_of_term t = match destruct t with 

@@ -2713,15 +2713,16 @@ let mk_bvor expr1 expr2 = mk_binary eval_bvor type_of_bvor expr1 expr2
 
 (* Evaluate bitvector left shift *)
 let eval_bvshl expr1 expr2 = 
-
-  match Term.destruct expr1, Term.destruct expr2 with
-  | _, Term.T.App (s, l) 
-    when ((Symbol.is_to_uint8 s) || (Symbol.is_to_uint16 s)
-          || (Symbol.is_to_uint32 s) || (Symbol.is_to_uint64 s)
-          || (Term.is_bitvector expr2))
-      -> Term.mk_bvshl [expr1; expr2]
-  | _ -> Format.printf "%b" (Term.is_bitvector expr2); Term.print_term expr2; raise NonConstantShiftOperand
-  | exception Invalid_argument _ -> Term.mk_bvshl [expr1; expr2]
+  if (Type.is_ubitvector (Term.type_of_term expr2)) then
+    Term.mk_bvshl [expr1; expr2]
+  else
+    match Term.destruct expr1, Term.destruct expr2 with
+    | _, Term.T.App (s, l) 
+      when ((Symbol.is_to_uint8 s) || (Symbol.is_to_uint16 s)
+            || (Symbol.is_to_uint32 s) || (Symbol.is_to_uint64 s))
+          -> Term.mk_bvshl [expr1; expr2]
+    | _ -> raise NonConstantShiftOperand
+    | exception Invalid_argument _ -> Term.mk_bvshl [expr1; expr2]
 
 
 (* Type of bitvector left shift *)
@@ -2737,21 +2738,27 @@ let mk_bvshl expr1 expr2 = mk_binary eval_bvshl type_of_bvshl expr1 expr2
 
 (* Evaluate bitvector (logical or arithmetic) right shift *)
 let eval_bvshr expr1 expr2 = 
-
-  match Term.destruct expr1, Term.destruct expr2 with
-  | _, Term.T.App (s, l) 
-    when ((Symbol.is_to_uint8 s) || (Symbol.is_to_uint16 s)
+  if ((Type.is_ubitvector (Term.type_of_term expr2)) 
+      && (Type.is_bitvector (Term.type_of_term expr1))) then
+    Term.mk_bvashr [expr1; expr2]
+  else if ((Type.is_ubitvector (Term.type_of_term expr2)) 
+          && (Type.is_ubitvector (Term.type_of_term expr1))) then
+    Term.mk_bvlshr [expr1; expr2]
+  else
+    match Term.destruct expr1, Term.destruct expr2 with
+    | _, Term.T.App (s, l) 
+      when ((Symbol.is_to_uint8 s) || (Symbol.is_to_uint16 s)
           || (Symbol.is_to_uint32 s) || (Symbol.is_to_uint64 s)) 
-       -> if(Type.is_bitvector (Term.type_of_term expr1) 
-            && Type.is_ubitvector (Term.type_of_term expr2)) then
-              Term.mk_bvashr [expr1; expr2]
-          else if(Type.is_ubitvector (Term.type_of_term expr1) 
-            && Type.is_ubitvector (Term.type_of_term expr2)) then
-              Term.mk_bvlshr [expr1; expr2]
-          else 
-              raise Type_mismatch
-  | _ -> raise NonConstantShiftOperand
-  | exception Invalid_argument _ -> Term.mk_bvshl [expr1; expr2]
+          -> if(Type.is_bitvector (Term.type_of_term expr1) 
+              && Type.is_ubitvector (Term.type_of_term expr2)) then
+                Term.mk_bvashr [expr1; expr2]
+            else if(Type.is_ubitvector (Term.type_of_term expr1) 
+              && Type.is_ubitvector (Term.type_of_term expr2)) then
+                Term.mk_bvlshr [expr1; expr2]
+            else 
+                raise Type_mismatch
+    | _ -> raise NonConstantShiftOperand
+    | exception Invalid_argument _ -> Term.mk_bvshl [expr1; expr2]
 
 
 (* Type of bitvector logical right shift *)
