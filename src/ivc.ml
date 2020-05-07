@@ -94,7 +94,6 @@ let rec simplify_term t =
 
 (* ---------- PRETTY PRINTING ---------- *)
 
-(* TODO: colors *)
 (* TODO: print post-analysis flags *)
 
 let aux_vars sys =
@@ -249,22 +248,22 @@ let print_mcs_counterexample in_sys param sys typ fmt (prop,cex) =
 
 let pp_print_core_data in_sys param sys fmt cpd =
   let print_elt elt =
-    Format.fprintf fmt "%s %s at position %a@ "
+    Format.fprintf fmt "%s @{<blue_b>%s@} at position %a@ "
       (String.capitalize_ascii elt.category) elt.name
       Lib.pp_print_pos elt.position
   in
   let print_node scope lst =
-    Format.fprintf fmt "Node %s@ " (Scope.to_string scope) ;
+    Format.fprintf fmt "@{<b>Node@} @{<blue>%s@}@ " (Scope.to_string scope) ;
     Format.fprintf fmt "  @[<v>" ;
     List.iter print_elt lst ;
     Format.fprintf fmt "@]@ "
   in
-  Format.fprintf fmt "%s (%i elements)%s:@."
+  (match cpd.property with
+  | None -> Format.fprintf fmt "%s (%i elements):@."
     (String.uppercase_ascii cpd.core_class) cpd.size
-    (match cpd.property with
-    | None -> ""
-    | Some n -> " for property "^n
-    ) ;
+  | Some n -> Format.fprintf fmt "%s (%i elements) for property @{<blue_b>%s@}:@."
+    (String.uppercase_ascii cpd.core_class) cpd.size n
+  ) ;
   Format.fprintf fmt "  @[<v>" ;
   ScMap.iter print_node cpd.elements ;
   (match cpd.counterexample, cpd.property with

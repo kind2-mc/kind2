@@ -677,7 +677,8 @@ module RunIVC: PostAnalysis = struct
               | (false, false) -> treat_and_return_lst (Ivc.ivc_ucbf in_sys ~use_must_set param analyze sys (Some props))
               | (true, _) -> Ivc.umivc in_sys ~use_must_set ~stop_after param analyze sys (Some props) k (treat_ivc false)
             in
-            KEvent.log_uncond "Number of minimal IVCs found: %n" (List.length res) ;
+            KEvent.log_with_tag L_note Pretty.note_tag
+              (Format.asprintf "Number of minimal IVCs found: %n" (List.length res))
           end
         in
         List.iter treat_props props ;
@@ -764,7 +765,8 @@ module RunMCS: PostAnalysis = struct
 
             let res = Ivc.mua in_sys param analyze sys (Some props) (Flags.MCS.mcs_all ()) in
             List.iter treat_mua res ;
-            KEvent.log_uncond "Number of MCS found: %n" (List.length res)
+            KEvent.log_with_tag L_note Pretty.note_tag
+              (Format.asprintf "Number of MCS found: %n" (List.length res))
           end
         in
         List.iter treat_props props ;
