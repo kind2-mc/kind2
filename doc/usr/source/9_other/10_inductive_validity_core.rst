@@ -18,7 +18,7 @@ Options
 * ``--ivc_category {node_calls|contracts|equations|assertions}`` (default: all categories) -- Minimize only a specific category of elements, repeat option to minimize multiple categories
 * ``--ivc_only_main_node <bool>`` (default ``false``\ ) -- Compute an IVC over the elements of the main node only
 * ``--ivc_all <bool>`` (default ``false``\ ) -- Compute all the Inductive Validity Cores
-* ``--ivc_approximate <bool>`` (default ``false``\ ) -- Compute an approximation (superset) of an IVC. Ignored if ``--ivc_all`` is ``true``
+* ``--ivc_approximate <bool>`` (default ``true``\ ) -- Compute an approximation (superset) of an IVC. Ignored if ``--ivc_all`` is ``true``
 * ``--ivc_smallest_first <bool>`` (default ``false``\ ) -- Compute the smallest IVC first. If ``--ivc_all`` is ``false``, compute the smallest IVC only
 * ``--ivc_must_set <bool>`` (default ``false``\ ) -- Compute the MUST set in addition to the IVCs
 * ``--print_ivc <bool>`` (default ``true``\ ) -- Print the inductive validity core computed

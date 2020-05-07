@@ -94,8 +94,6 @@ let rec simplify_term t =
 
 (* ---------- PRETTY PRINTING ---------- *)
 
-(* TODO: print post-analysis flags *)
-
 let aux_vars sys =
   let usr_name =
     assert (List.length LustreIdent.user_scope = 1) ;
@@ -259,9 +257,9 @@ let pp_print_core_data in_sys param sys fmt cpd =
     Format.fprintf fmt "@]@ "
   in
   (match cpd.property with
-  | None -> Format.fprintf fmt "%s (%i elements):@."
+  | None -> Format.fprintf fmt "@{<b>%s (%i elements):@}@."
     (String.uppercase_ascii cpd.core_class) cpd.size
-  | Some n -> Format.fprintf fmt "%s (%i elements) for property @{<blue_b>%s@}:@."
+  | Some n -> Format.fprintf fmt "@{<b>%s (%i elements)@} for property @{<blue_b>%s@}:@."
     (String.uppercase_ascii cpd.core_class) cpd.size n
   ) ;
   Format.fprintf fmt "  @[<v>" ;
@@ -1001,7 +999,7 @@ let check_loc_eq_category cats (_,_,cat) =
   | ContractItem (_, _, _) -> [`CONTRACT_ITEM]
   | Equation _ -> [`EQUATION]
   | Assertion _ -> [`ASSERTION]
-  | Unknown -> [`UNKNOWN]
+  | Unknown -> [(*`UNKNOWN*)]
   in
   List.exists (fun cat -> List.mem cat cats) cat
 

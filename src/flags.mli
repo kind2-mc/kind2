@@ -436,7 +436,7 @@ end
 module IVC : sig
 
   type minimize_mode = [ `DO_NOT_MINIMIZE | `VALID_LUSTRE | `CONCISE ]
-  type ivc_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN  | `WEAK_ASS ]
+  type ivc_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `WEAK_ASS ]
 
   (** Enable computation of Inductive Validity Cores *)
   val compute_ivc : unit -> bool
@@ -464,7 +464,11 @@ module IVC : sig
   (** If true, compute IVC over elements of the main node only *)
   val ivc_only_main_node : unit -> bool
 
-  (** Parameter k of the UMIVC algorithm *)
+  (** Parameter k of the UMIVC algorithm.
+  Correspond to the parameter 'k' of the implementation UMIVC.
+  In particular, the value 0 implements the MARCO algorithm,
+  and the value -1 (infinity) implements the CAMUS algorithm.
+  *)
   val ivc_precomputed_mcs: unit -> int
 
   (** If true, IVCs will be computed for each properties separately *)
@@ -485,7 +489,7 @@ end
 module MCS : sig
 
   type mcs_element =
-    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN | `WEAK_ASS ]
+    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `WEAK_ASS ]
 
   (** Enable computation of Maximal Correction Sets *)
   val compute_mcs : unit -> bool

@@ -1160,7 +1160,7 @@ module IVC = struct
     )
   let compute_ivc () = !compute_ivc
 
-  type ivc_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN | `WEAK_ASS ]
+  type ivc_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `WEAK_ASS ]
   let ivc_element_of_string = function
     | "node_calls" -> `NODE_CALL
     | "contracts" -> `CONTRACT_ITEM
@@ -1171,7 +1171,7 @@ module IVC = struct
     ) |> raise
   let ivc_category_default_init = []
   let ivc_category_default_after =
-    [`NODE_CALL ; `CONTRACT_ITEM ; `EQUATION ; `ASSERTION ; `UNKNOWN]
+    [`NODE_CALL ; `CONTRACT_ITEM ; `EQUATION ; `ASSERTION ]
   let ivc_category = ref ivc_category_default_init
   let finalize_ivc_elements () =
     (* If [enabled] is unchanged, set it do default after init. *)
@@ -1214,7 +1214,7 @@ module IVC = struct
   let ivc_all () = !ivc_all
 
 
-  let ivc_approximate_default = false
+  let ivc_approximate_default = true
   let ivc_approximate = ref ivc_approximate_default
   let _ = add_spec
     "--ivc_approximate"
@@ -1446,7 +1446,7 @@ module MCS = struct
   let compute_mcs () = !compute_mcs
 
   type mcs_element =
-    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN | `WEAK_ASS ]
+    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `WEAK_ASS ]
   let mcs_element_of_string = function
     | "node_calls" -> `NODE_CALL
     | "contracts" -> `CONTRACT_ITEM
@@ -3187,8 +3187,18 @@ let solver_dependant_actions () =
   | _ -> ()
 
 
+let name_of_category = function
+  | `NODE_CALL -> ("node_calls", "nodeCalls")
+  | `CONTRACT_ITEM -> ("contracts", "contracts")
+  | `EQUATION -> ("equations", "equations")
+  | `ASSERTION -> ("assertions", "assertions")
+  | `WEAK_ASS -> ("weak_assumptions", "weakAssumptions")
+
 (* XML starting with options *)
 let print_xml_options () =
+    let pp_print_category_str fmt cat =
+      Format.fprintf fmt "%s" (name_of_category cat |> fst)
+    in
     Format.fprintf !log_ppf "@[<v>\
       <Results \
         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \
@@ -3196,7 +3206,7 @@ let print_xml_options () =
         timeout=\"%f\" \
         bmc_max=\"%d\" \
         compositional=\"%b\" \
-        modular=\"%b\"\
+        modular=\"%b\"%s%s\
       >@.@.@.\
     "
     (pp_print_list Log.pp_print_kind_module_xml_src ",") (Global.enabled ())
@@ -3204,11 +3214,39 @@ let print_xml_options () =
     (BmcKind.max ())
     (Contracts.compositional ())
     (Global.modular ())
-
+    (
+      if IVC.compute_ivc ()
+      then
+        Format.asprintf " \
+        ivc_category=\"%a\" \
+        ivc_all=\"%b\" \
+        ivc_approximate=\"%b\" \
+        ivc_smallest_first=\"%b\" \
+        ivc_only_main_node=\"%b\" \
+        ivc_must_set=\"%b\""
+        (pp_print_list pp_print_category_str ",") (IVC.ivc_category ())
+        (IVC.ivc_all ()) (IVC.ivc_approximate ()) (IVC.ivc_smallest_first ())
+        (IVC.ivc_only_main_node ()) (IVC.ivc_must_set ())
+      else ""
+    )
+    (
+      if MCS.compute_mcs ()
+      then
+        Format.asprintf " \
+        mcs_category=\"%a\" \
+        mcs_all=\"%b\" \
+        mcs_only_main_node=\"%b\""
+        (pp_print_list pp_print_category_str ",") (MCS.mcs_category ())
+        (MCS.mcs_all ()) (MCS.mcs_only_main_node ())
+      else ""
+    )
 
 let print_json_options () =
     let pp_print_module_str fmt mdl =
       Format.fprintf fmt "\"%s\"" (Lib.short_name_of_kind_module mdl)
+    in
+    let pp_print_category_str fmt cat =
+      Format.fprintf fmt "\"%s\"" (name_of_category cat |> snd)
     in
     Format.fprintf !log_ppf "{@[<v 1>@,\
         \"objectType\" : \"kind2Options\",@,\
@@ -3216,7 +3254,7 @@ let print_json_options () =
         \"timeout\" : %f,@,\
         \"bmcMax\" : %d,@,\
         \"compositional\" : %b,@,\
-        \"modular\" : %b\
+        \"modular\" : %b%s%s\
         @]@.}@.\
     "
     (pp_print_list pp_print_module_str ",@,") (Global.enabled ())
@@ -3224,7 +3262,38 @@ let print_json_options () =
     (BmcKind.max ())
     (Contracts.compositional ())
     (Global.modular ())
-
+    (
+      if IVC.compute_ivc ()
+      then
+        Format.asprintf ",@.  \
+        \"ivc\" :@,  \
+        { @[<v>@,\
+        \"ivcCategory\" :@,[@[<v 1>@,%a@]@,],@,\
+        \"ivcAll\" : %b,@,\
+        \"ivcApproximate\" : %b,@,\
+        \"ivcSmallestFirst\" : %b,@,\
+        \"ivcOnlyMainNode\" : %b,@,\
+        \"ivcMustSet\" : %b\
+        @]@.  }"
+        (pp_print_list pp_print_category_str ",@,") (IVC.ivc_category ())
+        (IVC.ivc_all ()) (IVC.ivc_approximate ()) (IVC.ivc_smallest_first ())
+        (IVC.ivc_only_main_node ()) (IVC.ivc_must_set ())
+      else ""
+    )
+    (
+      if MCS.compute_mcs ()
+      then
+        Format.asprintf ",@.  \
+        \"mcs\" :@,  \
+        { @[<v>@,\
+        \"mcsCategory\" :@,[@[<v 1>@,%a@]@,],@,\
+        \"mcsAll\" : %b,@,\
+        \"mcsOnlyMainNode\" : %b\
+        @]@.  }"
+        (pp_print_list pp_print_category_str ",@,") (MCS.mcs_category ())
+        (MCS.mcs_all ()) (MCS.mcs_only_main_node ())
+      else ""
+    )
 
 let post_argv_parse_actions () =
 
