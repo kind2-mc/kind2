@@ -726,10 +726,6 @@ let rec pp_print_symbol_node ?arity ppf = function
 
 (* Pretty-print a hashconsed symbol *)
 and pp_print_symbol ?arity ppf s =
-  if (Symbol.is_to_uint8 s) then
-    Format.printf "Symbol is %s\n" (Symbol.string_of_symbol s);
-  if (Symbol.is_numeral s) then
-    Format.printf "Symbol is %s\n" (Symbol.string_of_symbol s);
   pp_print_symbol_node ?arity ppf (Symbol.node_of_symbol s)
 
 

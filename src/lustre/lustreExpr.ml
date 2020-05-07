@@ -1784,16 +1784,23 @@ let mk_to_int expr = mk_unary eval_to_int type_of_to_int expr
 
 (* Evaluate conversion to unsigned integer8 *)
 let eval_to_uint8 expr =
-  let tt = Term.type_of_term expr in
-  if (Type.is_int tt) then
-    Term.mk_to_uint8 expr
-  else if (Type.is_ubitvector tt) then
-    if (Type.is_uint8 tt) then 
-      expr
-    else
-      Term.mk_bvextract (Numeral.of_int 7) (Numeral.of_int 0) expr
-  else 
-    raise Type_mismatch
+
+  match Term.destruct expr with
+
+    | Term.T.Const c when Symbol.is_numeral c ->
+
+      Term.mk_bv (Bitvector.num_to_ubv8 (Symbol.numeral_of_symbol c))
+    
+    | _ -> let tt = Term.type_of_term expr in
+            if (Type.is_int tt) then
+              Term.mk_to_uint8 expr
+            else if (Type.is_ubitvector tt) then
+              if (Type.is_uint8 tt) then 
+                expr
+              else
+                Term.mk_bvextract (Numeral.of_int 7) (Numeral.of_int 0) expr
+            else 
+              raise Type_mismatch
 
  
 (* Type of conversion to unsigned integer8  
