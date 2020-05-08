@@ -1003,7 +1003,10 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
   (* Record index on left-hand and right-hand side *)
   | (D.RecordIndex i :: lhs_index_tl, state_var) :: lhs_tl,
-    (D.RecordIndex j :: rhs_index_tl, expr) :: rhs_tl -> 
+    (D.RecordIndex j :: rhs_index_tl, expr) :: rhs_tl
+  (* Abstract type index works like record except program cannot project field *)
+  | (D.AbstractTypeIndex i :: lhs_index_tl, state_var) :: lhs_tl,
+    (D.AbstractTypeIndex j :: rhs_index_tl, expr) :: rhs_tl -> 
 
     (* Indexes are sorted, must match *)
     if i = j then 
@@ -1024,24 +1027,35 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
   | (D.RecordIndex _ :: _, _) :: _, (D.ListIndex _ :: _, _) :: _
   | (D.RecordIndex _ :: _, _) :: _, (D.ArrayIntIndex _ :: _, _) :: _
   | (D.RecordIndex _ :: _, _) :: _, (D.ArrayVarIndex _ :: _, _) :: _
+  | (D.RecordIndex _ :: _, _) :: _, (D.AbstractTypeIndex _ :: _, _) :: _
 
   | (D.TupleIndex _ :: _, _) :: _, (D.RecordIndex _ :: _, _) :: _
   | (D.TupleIndex _ :: _, _) :: _, (D.ListIndex _ :: _, _) :: _
   | (D.TupleIndex _ :: _, _) :: _, (D.ArrayVarIndex _ :: _, _) :: _
+  | (D.TupleIndex _ :: _, _) :: _, (D.AbstractTypeIndex _ :: _, _) :: _
 
   | (D.ListIndex _ :: _, _) :: _, (D.RecordIndex _ :: _, _) :: _
   | (D.ListIndex _ :: _, _) :: _, (D.TupleIndex _ :: _, _) :: _
   | (D.ListIndex _ :: _, _) :: _, (D.ArrayIntIndex _ :: _, _) :: _
   | (D.ListIndex _ :: _, _) :: _, (D.ArrayVarIndex _ :: _, _) :: _
+  | (D.ListIndex _ :: _, _) :: _, (D.AbstractTypeIndex _ :: _, _) :: _
 
   | (D.ArrayIntIndex _ :: _, _) :: _, (D.RecordIndex _ :: _, _) :: _
   | (D.ArrayIntIndex _ :: _, _) :: _, (D.TupleIndex _ :: _, _) :: _
   | (D.ArrayIntIndex _ :: _, _) :: _, (D.ListIndex _ :: _, _) :: _
   | (D.ArrayIntIndex _ :: _, _) :: _, (D.ArrayVarIndex _ :: _, _) :: _
+  | (D.ArrayIntIndex _ :: _, _) :: _, (D.AbstractTypeIndex _ :: _, _) :: _
 
   | (D.ArrayVarIndex _ :: _, _) :: _, (D.RecordIndex _ :: _, _) :: _
   | (D.ArrayVarIndex _ :: _, _) :: _, (D.TupleIndex _ :: _, _) :: _
   | (D.ArrayVarIndex _ :: _, _) :: _, (D.ListIndex _ :: _, _) :: _
+  | (D.ArrayVarIndex _ :: _, _) :: _, (D.AbstractTypeIndex _ :: _, _) :: _
+
+  | (D.AbstractTypeIndex _ :: _, _) :: _, (D.RecordIndex _ :: _, _) :: _
+  | (D.AbstractTypeIndex _ :: _, _) :: _, (D.TupleIndex _ :: _, _) :: _
+  | (D.AbstractTypeIndex _ :: _, _) :: _, (D.ListIndex _ :: _, _) :: _
+  | (D.AbstractTypeIndex _ :: _, _) :: _, (D.ArrayIntIndex _ :: _, _) :: _
+  | (D.AbstractTypeIndex _ :: _, _) :: _, (D.ArrayVarIndex _ :: _, _) :: _
 
   | (_ :: _, _) :: _, ([], _) :: _ 
   | ([], _) :: _, (_ :: _, _) :: _ ->
@@ -1298,10 +1312,6 @@ and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
     |> C.close_expr pos
   in
   (* Check the expression if asked to. *)
-  (* Disable temporarily this check because it is very restrictive:
-     only if the final streams depend on a current output value, it should give an error
-     (an output stream passed as an argument in a node call is not an error if only the 
-     previous value of the stream is used)
     ( match check with
     | None -> ()
     | Some desc -> (
@@ -1327,18 +1337,23 @@ and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
                 ) ", "
               )
         in
-        C.fail_at_position pos (
+        (* It triggers a warning instead of an error because current check is more restrictive
+           than it should be: it should trigger an error only if the final streams depend on
+           a current output value (an output stream passed as an argument in a node call is not
+           an error if only the previous value of the stream is used)
+        *)
+        C.warn_at_position pos (
           Format.asprintf
             "@[<v>%s mentions output%s%s %a%s@]"
               desc s pref (
                 pp_print_list (
                   fun fmt sv ->
-                    Format.fprintf fmt "\"%s\"" (StateVar.name_of_state_var sv)
+                    Format.fprintf fmt "'%s'" (StateVar.name_of_state_var sv)
                 ) ", "
               ) svars suff
         )
     )
-  ) ;*)
+  ) ;
   (* Define expression with a state variable *)
   let (svar, _), ctx = C.mk_local_for_expr ~is_ghost:true pos ctx expr in
   (* Add state variable to accumulator, continue with possibly modified
@@ -1519,7 +1534,7 @@ let rec check_no_contract_in_node_calls ctx = function
   match
     try C.node_of_name ctx call_node_name
     with Not_found -> C.fail_at_position call_pos (
-      Format.asprintf "call to unknown node \"%a\""
+      Format.asprintf "call to unknown node '%a'"
         (LustreIdent.pp_print_ident false) call_node_name
     )
   with
@@ -1652,7 +1667,7 @@ and eval_node_contract_call
                       pref s (
                       pp_print_list (
                         fun fmt sv ->
-                          Format.fprintf fmt "\"%s\""
+                          Format.fprintf fmt "'%s'"
                             (StateVar.name_of_state_var sv)
                       ) ", "
                     ) svars
@@ -1849,11 +1864,11 @@ and eval_node_contract_spec
           in
           let msg = if sc = [] then
             Format.asprintf
-              "unknown %a \"%a\""
+              "unknown %a '%a'"
               pp_print_type s_type (I.pp_print_ident false) s_ident
           else
             Format.asprintf
-              "unknown %a \"%a\" referenced in contract \"%a\""
+              "unknown %a '%a' referenced in contract '%a'"
               pp_print_type s_type (I.pp_print_ident false) s_ident
               Scope.pp_print_scope sc
           in
@@ -1909,7 +1924,7 @@ and eval_node_contract_spec
           |> loop known
         | { N.name } :: _ -> (* PEBCAK. *)
           Format.asprintf "\
-            Illegal call to node \"%a\" in the cone of influence of this \
+            Illegal call to node '%a' in the cone of influence of this \
             contract: node %a has a contract.\
           " (I.pp_print_ident false) name (I.pp_print_ident false) name
           |> C.fail_at_position pos
@@ -2360,7 +2375,7 @@ and eval_node_items inputs outputs locals ctx = function
       | Some n -> (
         if C.prop_name_in_context ctx n then
           C.fail_at_position pos
-            (Format.asprintf "Name \"%s\" already used by another property" n)
+            (Format.asprintf "Name '%s' already used by another property" n)
         else n
       )
       | None -> Format.asprintf "@[<h>%a@]" A.pp_print_expr ast_expr
@@ -2589,7 +2604,15 @@ and eval_node_decl
 (** Handle declaration and return context. *)
 and declaration_to_context ctx = function
 (* Declaration of a type as alias or free *)
-| A.TypeDecl (pos, A.AliasType (_, i, type_expr)) ->
+| A.TypeDecl (pos, type_rhs) ->
+
+  let (i, type_expr) = match type_rhs with
+    (* Replace type aliases with their right-hand-side *)
+    | A.AliasType (_, i, type_expr) -> (i, type_expr)
+    (* Replace free types with an abstract type with no user-accessible
+     * representation. *)
+    | A.FreeType (_, i) -> (i, A.AbstractType (pos, i))
+  in
 
   (* Identifier of AST identifier *)
   let ident = I.mk_string_ident i in
@@ -2869,11 +2892,6 @@ and declaration_to_context ctx = function
 (* ******************************************************************** *)
 (* Unsupported below                                                    *)
 (* ******************************************************************** *)
-
-(* Identifier is a free type *)
-| A.TypeDecl (pos, (A.FreeType _)) ->
-
-  C.fail_at_position pos "Free types not supported"
 
 
 (* Parametric node declaration *)

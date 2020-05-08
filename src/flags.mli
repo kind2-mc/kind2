@@ -171,6 +171,9 @@ val log_level : unit -> Lib.log_level
 (** Output in XML format *)
 val log_format_xml : unit -> bool
 
+(** Output in XML format *)
+val log_format_json : unit -> bool
+
 (** Wallclock timeout. *)
 val timeout_wall : unit -> float
 
@@ -179,6 +182,9 @@ val timeout_analysis : unit -> float
 
 (** The Kind modules enabled is a list of [kind_module]s. *)
 type enable = Lib.kind_module list
+
+(** Only parse the Lustre program. No analysis is performed. *)
+val only_parse : unit -> bool
 
 (** The modules enabled. *)
 val enabled : unit -> enable
@@ -259,6 +265,11 @@ module Smt : sig
 
   (** Executable of Yices2 SMT2 solver *)
   val yices2smt2_bin : unit -> string
+
+  (** Yices 2 binary supports models in SMT2 format **)
+  val yices2_smt2models : unit -> bool
+
+  val set_yices2_smt2models : bool -> unit
 
   (** Forces SMT traces. *)
   val set_trace: bool -> unit

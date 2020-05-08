@@ -285,6 +285,10 @@ module Smt = struct
   let set_yices2smt2_bin str = yices2smt2_bin := str
   let yices2smt2_bin () = !yices2smt2_bin
 
+  let yices2_smt2models = ref false
+  let set_yices2_smt2models b = yices2_smt2models := b
+  let yices2_smt2models () = !yices2_smt2models
+
   (* Activates logging of SMT interactions. *)
   let trace_default = false
   let trace = ref trace_default
@@ -2035,6 +2039,21 @@ module Global = struct
   ])
   let timeout_analysis () = !timeout_analysis
 
+  (* Only parse mode. *)
+  let only_parse_default = false
+  let only_parse = ref only_parse_default
+  let _ = add_spec
+    "--only_parse"
+    (Arg.Set only_parse)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Only parse the Lustre program. No analysis is performed.@ \
+          Default: %a\
+        "
+        fmt_bool only_parse_default
+    )
+  let only_parse () = !only_parse
 
   (* Modules enabled. *)
   type enable = kind_module list
@@ -2052,7 +2071,7 @@ module Global = struct
     | "C2I" -> `C2I
     | "interpreter" -> `Interpreter
     | unexpected -> Arg.Bad (
-      Format.sprintf "Unexpected value \"%s\" for flag --enable" unexpected
+      Format.sprintf "Unexpected value '%s' for flag --enable" unexpected
     ) |> raise
 
   let string_of_kind_module = function
@@ -2330,22 +2349,17 @@ module Global = struct
     (fun fmt -> Format.fprintf fmt "Output in XML format")
   let log_format_xml () = Log.get_log_format () = Log.F_xml
 
-  (** ************************************************************ **)
-
-
   (* JSON log. *)
-  let log_format_json_default = false
-  let log_format_json = ref log_format_json_default
-  let _ = add_spec
+  let _ = add_format_spec
     "-json"
     (Arg.Unit (fun () ->
-         log_format_json := true;
          Log.set_log_format_json ()
        ))
     (fun fmt -> Format.fprintf fmt "Output in JSON format")
-  let log_format_json () = !log_format_json
+  let log_format_json () = Log.get_log_format () = Log.F_json
 
-  
+  (** ************************************************************ **)
+
   (* Colored output *)
   let color_default = true
   let color = ref color_default
@@ -2419,6 +2433,7 @@ let output_dir = Global.output_dir
 let include_dirs = Global.include_dirs
 let log_invs = Global.log_invs
 let print_invs = Global.print_invs
+let only_parse = Global.only_parse
 let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable
@@ -2455,33 +2470,37 @@ let subdir_for scope =
 (* Parsing of command-line options into flags                             *)
 (* ********************************************************************** *)
 
+let set_input_file s =
+  try Global.set_input_file s with Unix.Unix_error _ -> ()
+
 let anon_action s =
   match Global.input_file () with
-  | "" ->
+  | "" -> (
     (* filenames that start with - are allowed after the flag -- *)
     if not !Global.only_filename && s.[0] = '-' then raise (UnknownFlag s);
-    Global.set_input_file s;
+    set_input_file s ;
     Global.set_input_format s;
-    Global.set_output_dir s;
+    Global.set_output_dir s
+  )
   | _ ->
     if s.[0] = '-' then raise (UnknownFlag s)
     else raise (Arg.Bad ("More than one input file given: "^s))
 
 
-let bool_of_string ((flag, _, desc) as tuple) s =
+let arg_bool_of_string ((flag, _, desc) as tuple) s =
   if List.mem s true_strings then true else
   if List.mem s false_strings then false else BadArg (
     Format.sprintf "expected bool but got \"%s\"" s,
     tuple
   ) |> raise
 
-let int_of_string ((flag, _, desc) as tuple) s = try (
+let arg_int_of_string ((flag, _, desc) as tuple) s = try (
   int_of_string s
 ) with _ -> BadArg (
   Format.sprintf "expected int but got \"%s\"" s, tuple
 ) |> raise
 
-let float_of_string ((flag, _, desc) as tuple) s = try (
+let arg_float_of_string ((flag, _, desc) as tuple) s = try (
   float_of_string s
 ) with _ -> BadArg (
   Format.sprintf "expected float but got \"%s\"" s, tuple
@@ -2507,13 +2526,13 @@ let parse_clas specs anon_action global_usage_msg =
           (* Got a next argument, matching on spec. *)
           | arg :: clas ->
             (match spec with
-              | Arg.Bool f -> bool_of_string tuple arg |> f
+              | Arg.Bool f -> arg_bool_of_string tuple arg |> f
               | Arg.String f -> f arg
               | Arg.Set_string s_ref -> s_ref := arg
-              | Arg.Int f -> int_of_string tuple arg |> f
-              | Arg.Set_int i_ref -> i_ref := int_of_string tuple arg
-              | Arg.Float f -> float_of_string tuple arg |> f
-              | Arg.Set_float f_ref -> f_ref := float_of_string tuple arg
+              | Arg.Int f -> arg_int_of_string tuple arg |> f
+              | Arg.Set_int i_ref -> i_ref := arg_int_of_string tuple arg
+              | Arg.Float f -> arg_float_of_string tuple arg |> f
+              | Arg.Set_float f_ref -> f_ref := arg_float_of_string tuple arg
               | _ ->
                 failwith "unsupported specification (Tuple, Symbol, or Rest)"
             ) ;
@@ -2567,7 +2586,7 @@ let parse_clas specs anon_action global_usage_msg =
             Format.printf "\n\x1b[31;1mError\x1b[0m: unknown flag \"%s\".@." flag
           )
           | Log.F_xml | Log.F_json -> (
-            Log.log L_error "Unknown flag '%s'.@." flag
+            Log.log L_error "Unknown flag '%s'" flag
           )
         );
         exit 2
@@ -2583,7 +2602,7 @@ let parse_clas specs anon_action global_usage_msg =
           )
           | Log.F_xml | Log.F_json -> (
             let flag, _, _ = spec in
-            Log.log L_error "Error on flag '%s': %s@." flag error
+            Log.log L_error "Error on flag '%s': %s" flag error
           )
         );
         exit 2
@@ -2595,8 +2614,11 @@ let parse_clas specs anon_action global_usage_msg =
             Format.printf
               "\x1b[31;1mBad argument\x1b[0m: @[<v>%s.@]@." expl
           )
-          | Log.F_xml | Log.F_json -> (
-            Log.log L_error "Bad argument:@ @[<v>%s.@]@." expl
+          | Log.F_xml -> (
+            Log.log L_error "Bad argument:@ @[<v>%s@]@." expl
+          )
+          | Log.F_json -> (
+            Log.log L_error "Bad argument: %s" expl
           )
         );
         exit 2
@@ -2608,25 +2630,29 @@ let parse_clas specs anon_action global_usage_msg =
 
 let solver_dependant_actions () =
 
-  let get_version cmd =
-    (*let version_re = Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)\\.\\([0-9]\\)" in*)
-    let version_re = Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)" in
+  let get_version with_patch cmd =
+    let get_rev output idx =
+      int_of_string (Str.matched_group idx output)
+    in
+    let version_re =
+      if with_patch then Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)\\.\\([0-9]\\)"
+      else Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)"
+    in
     let output = syscall cmd in
     try
       let _ = Str.search_forward version_re output 0 in
-      let major_rev = Pervasives.int_of_string (Str.matched_group 1 output) in
-      let minor_rev = Pervasives.int_of_string (Str.matched_group 2 output) in
-      (*let bug_rev = Pervasives.int_of_string (Str.matched_group 3 output) in
-      Some (major_rev, minor_rev, bug_rev)*)
-      Some (major_rev, minor_rev)
+      let major_rev = get_rev output 1 in
+      let minor_rev = get_rev output 2 in
+      let patch_rev = if with_patch then get_rev output 3 else 0 in
+      Some (major_rev, minor_rev, patch_rev)
     with Not_found -> None
   in
 
   match Smt.solver () with
   | `Z3_SMTLIB -> (
     let cmd = Format.asprintf "%s -version" (Smt.z3_bin ()) in
-    match get_version cmd with
-    | Some (major_rev, minor_rev) ->
+    match get_version false cmd with
+    | Some (major_rev, minor_rev, _) ->
       if major_rev < 4 || (major_rev = 4 && minor_rev < 6) then (
         if Smt.check_sat_assume () then (
           Log.log L_warn "Detected Z3 4.5.x or older: disabling check_sat_assume";
@@ -2637,8 +2663,8 @@ let solver_dependant_actions () =
   )
   | `Yices_SMTLIB -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices2smt2_bin ()) in
-    match get_version cmd with
-    | Some (major_rev, minor_rev) ->
+    match get_version true cmd with
+    | Some (major_rev, minor_rev, patch_rev) ->
       if major_rev < 2 || (major_rev = 2 && minor_rev < 6) then (
         let actions = [] in
         let actions =
@@ -2665,12 +2691,15 @@ let solver_dependant_actions () =
             (pp_print_list Format.pp_print_string ",@ ") actions
         )
       )
+      else if (major_rev > 2 || minor_rev > 6 || patch_rev > 1) then (
+        Smt.set_yices2_smt2models true
+      )
     | None -> Log.log L_warn "Couldn't determine Yices 2 version"
   )
   | `CVC4_SMTLIB -> (
     let cmd = Format.asprintf "%s --version" (Smt.cvc4_bin ()) in
-    match get_version cmd with
-    | Some (major_rev, minor_rev) ->
+    match get_version false cmd with
+    | Some (major_rev, minor_rev, _) ->
       if major_rev < 1 || (major_rev = 1 && minor_rev < 7) then (
         if Smt.check_sat_assume () then (
           Log.log L_warn "Detected CVC4 1.6 or older: disabling check_sat_assume";
@@ -2681,8 +2710,8 @@ let solver_dependant_actions () =
   )
   | `Yices_native -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
-    match get_version cmd with
-    | Some (major_rev, minor_rev) ->
+    match get_version false cmd with
+    | Some (major_rev, minor_rev, _) ->
       if major_rev > 1 then (
         Log.log L_error "Selected Yices 1 (native format), but found Yices 2 or later";
         exit 2
@@ -2715,7 +2744,7 @@ let print_json_options () =
     let pp_print_module_str fmt mdl =
       Format.fprintf fmt "\"%s\"" (Lib.short_name_of_kind_module mdl)
     in
-    Format.fprintf !log_ppf "[@.{@[<v 1>@,\
+    Format.fprintf !log_ppf "{@[<v 1>@,\
         \"objectType\" : \"kind2Options\",@,\
         \"enabled\" :@,[@[<v 1>@,%a@]@,],@,\
         \"timeout\" : %f,@,\
@@ -2734,7 +2763,7 @@ let print_json_options () =
 let post_argv_parse_actions () =
 
   if Global.log_format_xml () then print_xml_options ();
-  if Global.log_format_json () then print_json_options ();
+  if Global.log_format_json () then Format.fprintf !log_ppf "[@.";
 
   (* Don't print banner if no output at all. *)
   if not (Global.log_level () = L_off) then (
@@ -2742,10 +2771,11 @@ let post_argv_parse_actions () =
     let old_log_level = get_log_level () in
     set_log_level L_info ;
     Log.log L_info "%a" pp_print_banner () ;
+    if Global.log_format_json () then Format.fprintf !log_ppf ",@.";
     (* Reset log level. *)
     set_log_level old_log_level ;
-  )
-
+  );
+  if Global.log_format_json () then print_json_options ()
 
 
 let parse_argv () =

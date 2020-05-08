@@ -110,10 +110,10 @@ type t = {
   state_var_oracle_map : StateVar.t SVT.t;
 
   (* Index to use for next fresh state variable *)
-  fresh_local_index : int;
+  fresh_local_index : int ref;
 
   (* Index to use for next fresh oracle state variable *)
-  fresh_oracle_index : int;
+  fresh_oracle_index : int ref;
 
   (* [None] if definitions are allowed, otherwise a pair of a
      message and a position to raise an error with. *)
@@ -163,8 +163,8 @@ let mk_empty_context () =
       expr_abs_map = ET.create 7;
       state_var_oracle_map = SVT.create 7;
       state_var_bounds = SVT.create 7;
-      fresh_local_index = 0;
-      fresh_oracle_index = 0;
+      fresh_local_index = ref 0;
+      fresh_oracle_index = ref 0;
       definitions_allowed = None;
       locals_info = [];
       outputs_info = [];
@@ -348,6 +348,8 @@ let create_node = function
         ident_type_map = IT.copy ident_type_map;
         ident_expr_map = List.map IT.copy ident_expr_map;
         expr_abs_map = ET.copy expr_abs_map;
+        fresh_local_index = ref !(ctx.fresh_local_index);
+        fresh_oracle_index = ref !(ctx.fresh_oracle_index);
         node = Some (N.empty_node ident is_extern) } )
 
 (** Maps something to the current node. *)
@@ -398,6 +400,8 @@ let create_function = function
           (* Make deep copies of hash tables *)
           ident_type_map = IT.copy ident_type_map;
           ident_expr_map = List.map IT.copy ident_expr_map;
+          fresh_local_index = ref !(ctx.fresh_local_index);
+          fresh_oracle_index = ref !(ctx.fresh_oracle_index);
           expr_abs_map = ET.copy expr_abs_map } )
 
 
@@ -419,7 +423,7 @@ let add_expr_for_ident ?(shadow = false) ({ident_expr_map} as ctx) ident expr =
   (* Must have at least a map for the top level *)
   assert (ident_expr_map <> []);
 
-  (* TODO: TMP_FIX *)
+  (* TODO: This is a temporary fix *)
   if  IT.mem (List.hd ident_expr_map) ident then IT.remove (List.hd ident_expr_map) ident ;
 
   (* Fail if hash table for the current scope already contains a
@@ -635,7 +639,8 @@ let mk_state_var
            | D.ArrayIntIndex _ -> false
            | D.RecordIndex _
            | D.TupleIndex _
-           | D.ListIndex _ -> true)
+           | D.ListIndex _
+           | D.AbstractTypeIndex _ -> true)
          index)
   in
 
@@ -854,10 +859,9 @@ let add_node_oracle = function
   | { node = None } -> (fun _ -> assert false)
   | { node = Some node } as ctx ->
     fun state_var ->
-      { ctx with 
-        node = Some { node with 
-                      N.oracles = state_var :: node.N.oracles}; 
-        fresh_oracle_index = succ ctx.fresh_oracle_index }
+      ctx.fresh_oracle_index := succ !(ctx.fresh_oracle_index) ;
+      { ctx with node = Some { node with 
+                      N.oracles = state_var :: node.N.oracles} }
 
 
 (* Create a fresh state variable as an oracle input *)
@@ -896,7 +900,7 @@ let mk_fresh_oracle
               ?for_inv_gen:for_inv_gen
               ctx
               (scope_of_node ctx @ I.reserved_scope)
-              (I.push_index I.oracle_ident fresh_oracle_index)
+              (I.push_index I.oracle_ident !fresh_oracle_index)
               D.empty_index
               state_var_type
               (Some N.Oracle)
@@ -1105,7 +1109,7 @@ let fresh_state_var_for_expr
         ~for_inv_gen:for_inv_gen
         ctx
         (scope_of_node ctx @ I.reserved_scope)
-        (I.push_index I.abs_ident fresh_local_index)
+        (I.push_index I.abs_ident !fresh_local_index)
         D.empty_index
         expr_type
         None
@@ -1130,10 +1134,7 @@ let fresh_state_var_for_expr
 
     (* Hash table is modified in place, increment index of fresh state
        variable *)
-    let ctx = 
-      { ctx with 
-        fresh_local_index = succ fresh_local_index }
-    in
+    ctx.fresh_local_index := succ !fresh_local_index ;
 
     (* Return variable and changed context *)
     (abs, ctx)
@@ -1331,7 +1332,7 @@ let mk_fresh_local
           ?for_inv_gen:for_inv_gen
           ctx
           (scope_of_node ctx @ I.reserved_scope)
-          (I.push_index I.abs_ident fresh_local_index)
+          (I.push_index I.abs_ident !fresh_local_index)
           D.empty_index
           state_var_type
           None
@@ -1342,15 +1343,14 @@ let mk_fresh_local
 
 
       (* Increment index of fresh oracle *)
+      ctx.fresh_local_index := succ !fresh_local_index ;
       let ctx = 
         match ctx with
           | { node = None } -> assert false
           | { node = Some node } ->
             { ctx with 
                 node = Some { node with 
-                                N.locals = 
-                                  D.singleton D.empty_index state_var :: locals };
-                fresh_local_index = succ fresh_local_index }
+                   N.locals = D.singleton D.empty_index state_var :: locals } }
       in
 
       (* Return variable and changed context *)
@@ -1864,8 +1864,8 @@ let add_node_equation ctx pos state_var bounds indexes expr =
     | { node = None } -> raise (Invalid_argument "add_node_equation")
 
     | { node = Some { N.equations; N.calls } } ->
-      (* TODO: TMP_FIX *)
-      let equations = List.filter
+      (* TODO: This was a temporary fix. It does not seem to be necessary anymore *)
+      (*let equations = List.filter
           (fun ((sv, b), _) -> 
              (StateVar.equal_state_vars state_var sv &&
              List.for_all2 
@@ -1875,7 +1875,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
                   | _ -> false)
                b bounds) |> not)
           equations
-      in
+      in*)
 
       if  
         (* State variable already defined by equation? *)
@@ -2103,8 +2103,8 @@ let add_node_call ctx pos ({ N.call_node_name; N.call_outputs } as node_call) =
 
     | { node = Some ({ N.equations; N.calls } as node) } -> 
 
-      (* TODO: TMP_FIX *)
-      let calls =
+      (* TODO: This was a temporary fix. It does not seem to be necessary anymore *)
+      (*let calls =
         D.fold (fun _ state_var calls ->
           List.filter
             (fun { N.call_node_name; N.call_outputs } -> 
@@ -2113,7 +2113,7 @@ let add_node_call ctx pos ({ N.call_node_name; N.call_outputs } as node_call) =
                 call_outputs |> not)
             calls )
           call_outputs calls
-      in
+      in*)
 
       if D.exists (
         fun _ state_var -> 
@@ -2200,7 +2200,7 @@ let solve_fref { deps' } decl (f_type, f_ident, f_pos) decls =
   (* Does the declaration forward ref-ed depend on current declaration? *)
   if Deps.mem deps' (f_type, f_ident) (typ, ident) then (
     Format.asprintf
-      "circular dependency between %a \"%a\" and %a \"%a\""
+      "circular dependency between %a '%a' and %a '%a'"
       Deps.pp_print_decl f_type (I.pp_print_ident false) f_ident
       Deps.pp_print_decl typ (I.pp_print_ident false) ident
     |> fail_at_position pos
@@ -2212,7 +2212,7 @@ let solve_fref { deps' } decl (f_type, f_ident, f_pos) decls =
     with Not_found ->
       (* Forward reference to unknown declaration. *)
       Format.asprintf
-        "unknown %a \"%a\" referenced in %a \"%a\""
+        "unknown %a '%a' referenced in %a '%a'"
         ( fun ppf -> function
           (* If it's an unknown constant, it's more generally an unknown
           identifier. *)

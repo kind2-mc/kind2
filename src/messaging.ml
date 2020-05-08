@@ -498,6 +498,8 @@ struct
           pp_print_message payload 
           sender;
 
+        if List.mem_assoc sender workers then begin
+
         (match payload with 
 
           | OutputMessage m -> 
@@ -540,7 +542,8 @@ struct
         );
 
         (* update the status of the sender *)
-        Hashtbl.replace worker_status sender (Unix.time ());
+        Hashtbl.replace worker_status sender (Unix.time ())
+        end ;
 
         handle_all t;
 
@@ -705,6 +708,14 @@ struct
 
     handle_all (empty_list incoming)
 
+  let purge_messages sock = 
+
+    let rec recv_iter zmsg =
+      if (zmsg_size zmsg != 0) then 
+          recv_iter (zmsg_recv_nowait sock)
+    in
+
+    recv_iter (zmsg_recv_nowait sock)
 
   let recv_messages sock as_invariant_manager = 
 
@@ -1347,12 +1358,13 @@ struct
       Mutex.unlock new_workers_option.lock
     )
 
-  let purge_im_mailbox (_, _, pull_sock) =
+  let purge_im_mailbox (_, sub_sock, pull_sock) =
     if !initialized_process = None
     then raise NotInitialized
     else (
       (* Purging the messages because they refer to the old child processes *)
-      recv_messages pull_sock true ;
+      purge_messages pull_sock ;
+      purge_messages sub_sock ;
       empty_list incoming |> ignore ;
       empty_list incoming_handled |> ignore ;
       empty_list outgoing |> ignore

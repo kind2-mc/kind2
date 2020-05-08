@@ -43,6 +43,9 @@ type one_index =
   (* Array field indexed by variable *)
   | ArrayVarIndex of E.expr
 
+  (* Index to the representation field of an abstract type *)
+  | AbstractTypeIndex of string
+
 
 (* Pretty-print a single index *)
 let pp_print_one_index' db = function 
@@ -51,10 +54,11 @@ let pp_print_one_index' db = function
     
     (function ppf -> function 
        | RecordIndex i -> ()
-       | TupleIndex i -> Format.fprintf ppf "<%d>" i
+       | TupleIndex i -> Format.fprintf ppf "(%d)" i
        | ListIndex i -> Format.fprintf ppf "{%d}" i
        | ArrayIntIndex i -> Format.fprintf ppf "[%d]" i
-       | ArrayVarIndex v -> ()) (* Format.fprintf ppf "[X%d(%a)]" db (E.pp_print_expr false) v ) *)
+       | ArrayVarIndex v -> () (* Format.fprintf ppf "[X%d(%a)]" db (E.pp_print_expr false) v ) *)
+       | AbstractTypeIndex i -> ())
 
   | true ->
     
@@ -63,7 +67,8 @@ let pp_print_one_index' db = function
        | TupleIndex i -> Format.fprintf ppf "_%d" i
        | ListIndex i -> Format.fprintf ppf "_%d" i
        | ArrayIntIndex i -> Format.fprintf ppf "_%d" i
-       | ArrayVarIndex v ->  Format.fprintf ppf "_X%d" db)
+       | ArrayVarIndex v ->  Format.fprintf ppf "_X%d" db
+       | AbstractTypeIndex i -> Format.fprintf ppf ".%s" i)
 
 
 (* Pretty-print a list of single indexes, given the number of previously seen *)
@@ -106,7 +111,8 @@ type index = one_index list
 let compare_one_index a b = match a, b with 
 
   (* Use polymorphic comparison on strings and integers *)
-  | RecordIndex a, RecordIndex b -> Pervasives.compare a b
+  | RecordIndex a, RecordIndex b
+  | AbstractTypeIndex a, AbstractTypeIndex b -> Pervasives.compare a b
   | TupleIndex a, TupleIndex b
   | ListIndex a, ListIndex b
   | ArrayIntIndex a, ArrayIntIndex b -> Pervasives.compare a b
@@ -118,38 +124,51 @@ let compare_one_index a b = match a, b with
   | RecordIndex _, TupleIndex _
   | RecordIndex _, ListIndex _
   | RecordIndex _, ArrayIntIndex _
-  | RecordIndex _, ArrayVarIndex _ -> 1 
+  | RecordIndex _, ArrayVarIndex _
+  | RecordIndex _, AbstractTypeIndex _ -> 1 
 
   (* Tuple indexes are only smaller than record indexes *)
   | TupleIndex _, RecordIndex _ -> -1 
   | TupleIndex _, ListIndex _
   | TupleIndex _, ArrayIntIndex _
-  | TupleIndex _, ArrayVarIndex _ -> 1 
+  | TupleIndex _, ArrayVarIndex _
+  | TupleIndex _, AbstractTypeIndex _ -> 1 
 
   (* List indexes are smaller than tuple and record indexes *)
   | ListIndex _, RecordIndex _
   | ListIndex _, TupleIndex _ -> -1 
   | ListIndex _, ArrayIntIndex _
-  | ListIndex _, ArrayVarIndex _ -> 1 
+  | ListIndex _, ArrayVarIndex _
+  | ListIndex _, AbstractTypeIndex _ -> 1 
 
-  (* Intger array indexes are only greater than array variables indexes *)
+  (* Intger array indexes are greater than array variables
+   * and abstract type indexes *)
   | ArrayIntIndex _, RecordIndex _
   | ArrayIntIndex _, TupleIndex _
   | ArrayIntIndex _, ListIndex _ -> -1
-  | ArrayIntIndex _, ArrayVarIndex _ -> 1
+  | ArrayIntIndex _, ArrayVarIndex _
+  | ArrayIntIndex _, AbstractTypeIndex _ -> 1
 
-  (* Array variable indexes are smallest *)
+  (* Array variable indexes are only greater than abstract type indexes *)
   | ArrayVarIndex _, RecordIndex _
   | ArrayVarIndex _, ArrayIntIndex _
   | ArrayVarIndex _, ListIndex _
   | ArrayVarIndex _, TupleIndex _ -> -1
+  | ArrayVarIndex _, AbstractTypeIndex _ -> 1
 
+  (* Abstract type indexes are the smallest *)
+  | AbstractTypeIndex _, RecordIndex _
+  | AbstractTypeIndex _, ArrayIntIndex _
+  | AbstractTypeIndex _, ListIndex _
+  | AbstractTypeIndex _, TupleIndex _
+  | AbstractTypeIndex _, ArrayVarIndex _ -> -1
 
 (* Equality of indexes *)
 let equal_one_index a b = match a,b with 
   
   (* String indexes are equal if the strings are *)
-  | RecordIndex a, RecordIndex b -> a = b
+  | RecordIndex a, RecordIndex b
+  | AbstractTypeIndex a, AbstractTypeIndex b -> a = b
 
   (* Integer indexes are equal if the integers are *)
   | TupleIndex a, TupleIndex b 
@@ -255,6 +274,7 @@ let compatible_one_index i1 i2 = match i1, i2 with
   | ArrayIntIndex _, ArrayVarIndex _
   | ArrayVarIndex _, ArrayIntIndex _
   | ArrayVarIndex _, ArrayVarIndex _ -> true
+  | AbstractTypeIndex s1, AbstractTypeIndex s2 -> s1 = s2
   | _ -> false
 
 let compatible_indexes = List.for_all2 compatible_one_index

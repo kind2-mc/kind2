@@ -24,17 +24,17 @@ Kind 2
 `Kind 2 <http://kind.cs.uiowa.edu/>`_ \ is a multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 
 Kind 2 takes as input a Lustre file annotated with properties to be proven
-invariant (see `Lustre Input <doc/usr/source/2_input/1_lustre.rst>`_), and
+invariant (see `Lustre Input <https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html>`_), and
 outputs which of the properties are true for all inputs, as well as an input
-sequence for those properties that are falsified. To ease processing by front-end tools,
-Kind 2 can output its results in XML format (see `XML Output <doc/usr/source/3_output/2_xml.rst>`_).
+sequence for those properties that are falsified. To ease processing by external tools,
+Kind 2 can output its results in JSON and XML formats (see `JSON / XML Output <https://kind.cs.uiowa.edu/kind2_user_doc/3_output/2_machine_readable.html>`_).
 
 By default Kind 2 runs a process for bounded model checking (BMC), a process
 for k-induction, two processes for invariant generation, and a process for IC3
 in parallel on all properties simultaneously. It incrementally outputs
 counterexamples to properties as well as properties proved invariant.
 
-The following command-line options control its operation (run ``kind2 --help`` for a full list). See `Techniques <doc/usr/source/1_techniques/1_techniques.rst>`_ for configuration examples and more details on each technique.
+The following command-line options control its operation (run ``kind2 --help`` for a full list). See `Techniques <https://kind.cs.uiowa.edu/kind2_user_doc/1_techniques/1_techniques.html>`_ for configuration examples and more details on each technique.
 
 ``--enable {BMC|IND|INVGEN|INVGENOS|IC3}`` Select model checking engines
 
@@ -58,19 +58,19 @@ The default is ``Z3``\ , but see options of the ``./build.sh`` script to overrid
 
 ``-v`` Output informational messages
 
+``-json`` Output in JSON format
+
 ``-xml`` Output in XML format
 
 Requirements
 ------------
-
 
 * Linux or Mac OS X,
 * Automake,
 * GNU Libtool,
 * pkg-config,
 * OCaml 4.04 or later,
-* `Ocamlbuild <https://github.com/ocaml/ocamlbuild>`_\ , Ocamlfind, `Camlp4 <https://github.com/ocaml/camlp4>`_\ ,
-* `Yojson <https://github.com/ocaml-community/yojson>`_\ ,
+* `Ocamlbuild <https://github.com/ocaml/ocamlbuild>`_\ , Ocamlfind, `Yojson <https://github.com/ocaml-community/yojson>`_\ ,
 * `num <https://github.com/ocaml/num>`_ (part of OCaml distribution until 4.06),
 * `Menhir <http://gallium.inria.fr/~fpottier/menhir/>`_ parser generator, and
 * a supported SMT solver
@@ -79,6 +79,8 @@ Requirements
   * `Yices 2 <http://yices.csl.sri.com/>`_\ ,
   * `Yices 1 <http://yices.csl.sri.com/old/download-yices1-full.shtml>`_\ , or
   * `Z3 <https://github.com/Z3Prover/z3>`_ (presently recommended)
+
+Consider to use `opam <https://opam.ocaml.org/>`_ to install the OCaml compiler and the OCaml libraries.
 
 Building and installing
 -----------------------
@@ -156,6 +158,13 @@ you can run the following:
 
 See ``doc/usr/README.rst`` for more information.
 
+
+Online Web Application
+----------------------
+
+You can try `Kind 2 from your browser <https://kind.cs.uiowa.edu/app/>`_ if you are not ready to install it.
+
+
 Docker
 ------
 
@@ -217,12 +226,13 @@ where
 Packaging your local version of Kind 2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-At the top level of the Kind 2 repository is a ``Dockerfile`` you can use to
+In the ``docker`` directory at the top level of the Kind 2 repository,
+there is a ``Dockerfile`` you can use to
 build your own Kind 2 image. To do so, just run
 
 .. code-block:: none
 
-   docker build -t kind2-local .
+   docker build -t kind2-local -f ./docker/Dockerfile .
 
 at the root of the repository. ``kind2-local`` is given here as an example, feel
 free to call it whatever you want.

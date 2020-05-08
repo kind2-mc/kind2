@@ -571,6 +571,22 @@ let width_of_string s =
       max max_width (String.length s)
     ) 0 lines
 
+let escape_json_string s =
+  let backslash = Str.regexp "\\" in
+  let double_quotes = Str.regexp "\"" in
+  let newline = Str.regexp "\n" in
+  s |> Str.global_replace backslash "\\\\"
+    |> Str.global_replace double_quotes "\'"
+    |> Str.global_replace newline "\\n"
+
+let escape_xml_string s =
+  let ltr = Str.regexp "<" in
+  let gtr = Str.regexp ">" in
+  let ampr = Str.regexp "&" in
+  s |> Str.global_replace ltr "&lt;"
+    |> Str.global_replace gtr "&gt;"
+    |> Str.global_replace ampr "&amp;"
+
 
 (* ********************************************************************** *)
 (* Option types                                                           *)

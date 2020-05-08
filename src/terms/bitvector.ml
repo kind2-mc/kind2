@@ -115,22 +115,28 @@ let bool_to_bin (b : bool) : Numeral.t =
   | true -> Numeral.one
   
 (*Function that returns the numeral corresponding to a bitvector *)
-let rec ubv_to_num (size : Numeral.t) (b : t) : Numeral.t =
+let rec ubv_to_num' (size : Numeral.t) (b : t) : Numeral.t =
   match b with
   | h :: t -> 
       let prod = Numeral.mult (bool_to_bin h) 
                               (pow2 (Numeral.sub size Numeral.one)) 
       in
-        Numeral.add prod (ubv_to_num (Numeral.sub size Numeral.one) t)
+        Numeral.add prod (ubv_to_num' (Numeral.sub size Numeral.one) t)
   | [] -> Numeral.zero
 
-let ubv8_to_num = ubv_to_num (Numeral.of_int 8)
+let ubv_to_num (b : t) : Numeral.t =
+  let len = length_of_bitvector b in
+  match len with
+  | 8 | 16 | 32 | 64 -> ubv_to_num' (Numeral.of_int len) b
+  | _ -> raise NonStandardBVSize
 
-let ubv16_to_num = ubv_to_num (Numeral.of_int 16)
+let ubv8_to_num = ubv_to_num' (Numeral.of_int 8)
 
-let ubv32_to_num = ubv_to_num (Numeral.of_int 32)
+let ubv16_to_num = ubv_to_num' (Numeral.of_int 16)
 
-let ubv64_to_num = ubv_to_num (Numeral.of_int 64)
+let ubv32_to_num = ubv_to_num' (Numeral.of_int 32)
+
+let ubv64_to_num = ubv_to_num' (Numeral.of_int 64)
 
 
 (* ********************************************************************** *)
@@ -230,21 +236,28 @@ let num_to_bv64 = num_to_bv (Numeral.of_int 64)
 (* Signed BV -> Num                                                       *)
 (* ********************************************************************** *)
 
-let bv_to_num (size : Numeral.t) (b : t) : Numeral.t =
+let bv_to_num' (size : Numeral.t) (b : t) : Numeral.t =
   if((List.nth b 0) = false) then
-    ubv_to_num size b
+    ubv_to_num' size b
   else
-    (Numeral.neg (ubv_to_num size
+    (Numeral.neg (ubv_to_num' size
                              (plus_one (ones_comp b) 
                                        (bin_one (Numeral.to_int size)))))
-  
-let bv8_to_num = bv_to_num (Numeral.of_int 8)
 
-let bv16_to_num = bv_to_num (Numeral.of_int 16)
+let bv_to_num (b : t) : Numeral.t =
+  let len = length_of_bitvector b in
+  match len with
+  | 8 | 16 | 32 | 64 -> bv_to_num' (Numeral.of_int len) b
+  | _ -> raise NonStandardBVSize
 
-let bv32_to_num = bv_to_num (Numeral.of_int 32)
 
-let bv64_to_num = bv_to_num (Numeral.of_int 64)
+let bv8_to_num = bv_to_num' (Numeral.of_int 8)
+
+let bv16_to_num = bv_to_num' (Numeral.of_int 16)
+
+let bv32_to_num = bv_to_num' (Numeral.of_int 32)
+
+let bv64_to_num = bv_to_num' (Numeral.of_int 64)
 
 
 (* ********************************************************************** *)
@@ -256,8 +269,8 @@ let sbv_add (bv1 : t) (bv2 : t) : t =
   if ((List.length bv1) != (List.length bv2)) then
     raise ComparingUnequalBVs
   else
-    let num1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
-    let num2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let num1 = bv_to_num' (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = bv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     let sum = Numeral.add num1 num2 in
     num_to_bv (Numeral.of_int (List.length bv1)) sum
 
@@ -265,8 +278,8 @@ let ubv_add (bv1 : t) (bv2 : t) : t =
   if ((List.length bv1) != (List.length bv2)) then
     raise ComparingUnequalBVs
   else
-    let num1 = ubv_to_num (Numeral.of_int (List.length bv1)) bv1 in
-    let num2 = ubv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let num1 = ubv_to_num' (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = ubv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     let sum = Numeral.add num1 num2 in
     num_to_ubv (Numeral.of_int (List.length bv1)) sum
 
@@ -276,8 +289,8 @@ let sbv_mult (bv1 : t) (bv2 : t) : t =
   if ((List.length bv1) != (List.length bv2)) then
     raise ComparingUnequalBVs
   else
-    let num1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
-    let num2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let num1 = bv_to_num' (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = bv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     let prod = Numeral.mult num1 num2 in
     num_to_bv (Numeral.of_int (List.length bv1)) prod
 
@@ -285,8 +298,8 @@ let ubv_mult (bv1 : t) (bv2 : t) : t =
   if ((List.length bv1) != (List.length bv2)) then
     raise ComparingUnequalBVs
   else
-    let num1 = ubv_to_num (Numeral.of_int (List.length bv1)) bv1 in
-    let num2 = ubv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let num1 = ubv_to_num' (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = ubv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     let prod = Numeral.mult num1 num2 in
     num_to_ubv (Numeral.of_int (List.length bv1)) prod
 
@@ -296,8 +309,8 @@ let sbv_div (bv1 : t) (bv2 : t) : t =
   if ((List.length bv1) != (List.length bv2)) then
     raise ComparingUnequalBVs
   else
-    let num1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
-    let num2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let num1 = bv_to_num' (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = bv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     let q = 
       (match num1, num2 with
       | n1, n2 when ((Numeral.geq n1 Numeral.zero) && 
@@ -325,8 +338,8 @@ let ubv_div (bv1 : t) (bv2 : t) : t =
   if ((List.length bv1) != (List.length bv2)) then
     raise ComparingUnequalBVs
   else
-    let num1 = ubv_to_num (Numeral.of_int (List.length bv1)) bv1 in
-    let num2 = ubv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let num1 = ubv_to_num' (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = ubv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     let q = Numeral.div num1 num2 in
     num_to_ubv (Numeral.of_int (List.length bv1)) q
 
@@ -336,8 +349,8 @@ let sbv_rem (bv1 : t) (bv2 : t) : t =
   if ((List.length bv1) != (List.length bv2)) then
     raise ComparingUnequalBVs
   else
-    let num1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
-    let num2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let num1 = bv_to_num' (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = bv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     let r = Numeral.rem num1 num2 in
     num_to_bv (Numeral.of_int (List.length bv1)) r
 
@@ -345,8 +358,8 @@ let ubv_rem (bv1 : t) (bv2 : t) : t =
   if ((List.length bv1) != (List.length bv2)) then
     raise ComparingUnequalBVs
   else 
-    let num1 = ubv_to_num (Numeral.of_int (List.length bv1)) bv1 in
-    let num2 = ubv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let num1 = ubv_to_num' (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = ubv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     let r = Numeral.rem num1 num2 in
     num_to_ubv (Numeral.of_int (List.length bv1)) r
 
@@ -356,8 +369,8 @@ let sbv_sub (bv1 : t) (bv2 : t) : t =
   if ((List.length bv1) != (List.length bv2)) then
     raise ComparingUnequalBVs
   else
-    let num1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
-    let num2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+    let num1 = bv_to_num' (Numeral.of_int (List.length bv1)) bv1 in
+    let num2 = bv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     let diff = Numeral.sub num1 num2 in
     num_to_bv (Numeral.of_int (List.length bv1)) diff
 
@@ -480,26 +493,26 @@ let rec ugte bv1 bv2 =
 
 (* Signed lesser than *)
 let lt (bv1 : t) (bv2 : t) : bool = 
-  let i1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
-  let i2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+  let i1 = bv_to_num' (Numeral.of_int (List.length bv1)) bv1 in
+  let i2 = bv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     (Numeral.lt i1 i2)
 
 (* Signed greater than *)
 let gt (bv1 : t) (bv2 : t) : bool = 
-  let i1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
-  let i2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+  let i1 = bv_to_num' (Numeral.of_int (List.length bv1)) bv1 in
+  let i2 = bv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     (Numeral.gt i1 i2)
 
 (* Signed lesser than or equal to *)
 let lte (bv1 : t) (bv2 : t) : bool = 
-  let i1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
-  let i2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+  let i1 = bv_to_num' (Numeral.of_int (List.length bv1)) bv1 in
+  let i2 = bv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     (Numeral.leq i1 i2)
 
 (* Signed greater than or equal to *)
 let gte (bv1 : t) (bv2 : t) : bool = 
-  let i1 = bv_to_num (Numeral.of_int (List.length bv1)) bv1 in
-  let i2 = bv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+  let i1 = bv_to_num' (Numeral.of_int (List.length bv1)) bv1 in
+  let i2 = bv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     (Numeral.geq i1 i2)
 
 
@@ -519,7 +532,7 @@ let rec shift_left (bv : t) (n : Numeral.t) : t =
                   (Numeral.sub n Numeral.one))
 
 let bv_lsh (bv1 : t) (bv2 : t) : t =
-  let n = ubv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+  let n = ubv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     shift_left bv1 n
 
 
@@ -541,7 +554,7 @@ let rec shift_right (bv : t) (n : Numeral.t) : t =
                   (Numeral.sub n Numeral.one))
 
 let bv_rsh (bv1 : t) (bv2 : t) : t =
-  let n = ubv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+  let n = ubv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
     shift_right bv1 n
 
 
@@ -558,7 +571,7 @@ let rec ar_shift_right (bv : t) (n : Numeral.t) (sign : bool) : t =
                   sign)
 
 let bv_arsh (bv1 : t) (bv2 : t) : t =
-  let n = ubv_to_num (Numeral.of_int (List.length bv2)) bv2 in
+  let n = ubv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
   let sign = List.hd bv1 in
     ar_shift_right bv1 n sign
 

@@ -1,7 +1,0 @@
-node integr (x: int) returns (c: int);
-var three : int;
-let
-  three = 3;
-  c = 1 -> pre (2 -> three);
-  --%PROPERTY c <> 2;
-tel

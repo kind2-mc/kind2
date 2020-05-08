@@ -145,6 +145,12 @@ let rec map_top_and_add instances model model' i state_var =
     | [] -> raise Not_found
 
 
+let safe_map_top_and_add instances model model' i state_var =
+  try
+    map_top_and_add instances model model' i state_var
+  with Not_found -> () (* No state variable is added to model' *)
+
+
 let find_and_move_to_head f =
   let rec loop pref = function
   | hd :: tl when fst hd |> f -> hd :: (List.rev_append pref tl)
@@ -578,15 +584,21 @@ let node_path_of_instance
      path to the model
 
      Inputs are always stateful, therefore there is exactly one state
-     variable of the top system each input is an instance of. *)
-  D.iter (map_top_and_add instances model_top model) inputs;
+     variable of the top system each input is an instance of.
+
+     There is only one exception. The input is a global constant
+     without a definition. We use safe_* version of map_top_and_add
+     to allow this case.
+  *)
+  D.iter (safe_map_top_and_add instances model_top model) inputs;
 
   (* Map all output state variables to the top instances and add their
      path to the model
 
      Ouputs are always stateful, therefore there is exactly one state
-     variable of the top system each output is an instance of. *)
-  D.iter (map_top_and_add instances model_top model) outputs;
+     variable of the top system each output is an instance of.
+  *)
+  D.iter (safe_map_top_and_add instances model_top model) outputs;
 
   (* Map all activation conditions and add their path to the model, but start
      from one level up in the instance hierarchy *)
@@ -937,7 +949,19 @@ let rec streams_to_values path ident_width val_width streams =
       with Not_found ->
         (* Format.eprintf "Where is %a ?@." *)
         (*   StateVar.pp_print_state_var state_var; *)
-        assert false
+        (* We ignore the state variable and continue converting.
+           There is only one case in the current implementation where
+           this may happen and it is not because a bug. The model contains
+           a global constant without a definition.
+           TODO: check that if we are here, the above is really the case.
+        *)
+        streams_to_values
+          path
+          ident_width
+          val_width
+          streams
+          tl
+
 
 
 (* Output a stream value with given width for the identifier and
@@ -1313,12 +1337,15 @@ let pp_print_stream_xml get_source model clock ppf (index, state_var) =
     | Type.Abstr s ->
       Format.pp_print_string ppf s
     | Type.IntRange (i, j, Type.Enum) ->
-      let name = match Type.name_of_enum stream_type with
-        | Some n -> n
-        | None -> assert false
+      let pp_print_enum_name ppf =
+        match Type.name_of_enum stream_type with
+        | Some n -> (
+          Format.fprintf ppf "enumName=\"%s\" " n
+        )
+        | None -> ()
       in
-      Format.fprintf ppf "type=\"enum\"@ enumName=\"%s\" values=\"%a\""
-        (name) (pp_print_list Format.pp_print_string ", ")
+      Format.fprintf ppf "type=\"enum\"@ %tvalues=\"%a\""
+        pp_print_enum_name (pp_print_list Format.pp_print_string ", ")
         (Type.constructors_of_enum stream_type)
     | Type.Array (s, t) ->
       Format.pp_print_string ppf "type=\"array\""
@@ -1546,22 +1573,103 @@ let rec pp_print_stream_prop_json ppf = function
 
 
 (* Pretty-print a single value of a stream at an instant *)
-let pp_print_stream_value_json ty ppf i show v =
-  if show then
-    Format.fprintf ppf
-      "@,[%d, %a]"
-      i (Model.pp_print_value_json ~as_type:ty) v
+let pp_print_stream_value_json ty ppf i v =
+  Format.fprintf ppf
+    "@,[%d, %a]"
+    i (Model.pp_print_value_json ~as_type:ty) v
 
 
 let pp_print_stream_values_json clock ty ppf l =
   match clock with
   | None ->
     (* Show all values if no clock *)
-    pp_print_listi (fun ppf i -> pp_print_stream_value_json ty ppf i true) "," ppf l
+    pp_print_listi (fun ppf i -> pp_print_stream_value_json ty ppf i) "," ppf l
   | Some c ->
-    (* Show values sampled on the clock *)
-    pp_print_list2i (pp_print_stream_value_json ty) "," ppf c l
+    (* Pair each value with its index and clock, and then filter out undefined ones.
+     * This must be done before printing, because otherwise we print commas in-between
+     * filtered elements, which is invalid json. *)
+    let values_on_clock =
+      List.mapi (fun i c -> (i, c)) c
+      |> List.map2 (fun v (i, c) -> (i, v, c)) l
+      |> List.filter (fun (i, v, c) -> c)
+    in
+      pp_print_list (fun ppf (i, v, _c) -> pp_print_stream_value_json ty ppf i v) "," ppf values_on_clock
 
+
+let rec pp_print_type_json field ppf stream_type =
+  match (Type.node_of_type stream_type) with
+  | Type.Bool
+  | Type.Int
+  | Type.UBV _
+  | Type.BV _
+  | Type.Real -> (
+    Format.fprintf ppf "\"%s\" : \"%a\",@,"
+        field (E.pp_print_lustre_type false) stream_type
+  )
+  | Type.Abstr s -> (
+    Format.fprintf ppf
+        "\"%s\" : \"abstr\",@,\
+         \"%sInfo\" :@,{@[<v 1>@,\
+         \"name\" : %s\
+         @]@,},@,\
+        "
+        field field s
+  )
+  | Type.IntRange (i, j, Type.Range) -> (
+    Format.fprintf ppf
+        "\"%s\" : \"subrange\",@,\
+         \"%sInfo\" :@,{@[<v 1>@,\
+         \"min\" : %a,@,\
+         \"max\" : %a\
+         @]@,},@,\
+        "
+        field field
+        Numeral.pp_print_numeral i Numeral.pp_print_numeral j
+  )
+  | Type.IntRange (i, j, Type.Enum) -> (
+    let pp_print_qstring ppf s =
+      Format.fprintf ppf "\"%s\"" s
+    in
+    let pp_print_enum_name ppf =
+      match Type.name_of_enum stream_type with
+      | Some n -> (
+        Format.fprintf ppf "\"name\" : \"%s\",@," n
+      )
+      | None -> ()
+    in
+    Format.fprintf ppf
+        "\"%s\" : \"enum\",@,\
+         \"%sInfo\" :@,{@[<v 1>@,\
+         %t\
+         \"values\" : [%a]\
+         @]@,},@,\
+        "
+        field field
+        pp_print_enum_name
+        (pp_print_list pp_print_qstring ", ")
+        (Type.constructors_of_enum stream_type)
+  )
+  | Type.Array _ -> (
+    let base_type = Type.last_elem_type_of_array stream_type in
+    let sizes =
+      Type.all_index_types_of_array stream_type |>
+      List.map Type.node_of_type |>
+      List.map (function
+        | Type.IntRange (i, j, Type.Range) ->
+          Numeral.string_of_numeral j
+        | _ -> "null"
+      )
+    in
+    Format.fprintf ppf
+        "\"type\" : \"array\",@,\
+         \"typeInfo\" :@,{@[<v 1>@,\
+         %a\
+         \"sizes\" : [%a]\
+         @]@,},@,\
+        "
+        (pp_print_type_json "baseType") base_type
+        (pp_print_list Format.pp_print_string ", ") sizes
+  )
 
 (* Pretty-print a single stream *)
 let pp_print_stream_json get_source model clock ppf (index, state_var) =
@@ -1571,13 +1679,13 @@ let pp_print_stream_json get_source model clock ppf (index, state_var) =
     Format.fprintf ppf
       "@,{@[<v 1>@,\
         \"name\" : \"%a\",@,\
-        \"type\" : \"%a\",@,\
+        %a\
         %a\
         \"instantValues\" :%t\
        @]@,}\
       "
       pp_print_stream_ident_json (index, state_var)
-      (E.pp_print_lustre_type false) stream_type
+      (pp_print_type_json "type") stream_type
       pp_print_stream_prop_json (get_source state_var)
       (function ppf ->
          if stream_values = [] then
@@ -1598,7 +1706,7 @@ let pp_print_active_modes_json ppf = function
         (pp_print_list (fun fmt (k, tree) ->
           Format.fprintf ppf
             "@,{@[<v 1>@,\
-              \"instant\" : \"%d\",@,\
+              \"instant\" : %d,@,\
               %a\
              @]@,}\
             "

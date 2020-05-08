@@ -222,7 +222,7 @@ let status_of_exn process status = function
   | e -> (
     InvarManager.print_stats !latest_trans_sys ;
     KEvent.log L_fatal "Runtime error in %a: %s"
-      pp_print_kind_module process (Printexc.to_string e) ;
+      pp_print_kind_module process (Printexc.to_string e);
     ExitCodes.error
   )
 

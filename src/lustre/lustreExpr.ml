@@ -1580,12 +1580,6 @@ let type_of_a_a_bool type1 type2 =
     (* Extend integer ranges if one is not a subtype of the other *)
     || (Type.is_int_range type1 && Type.is_int_range type2) 
 
-    (* Variables of fixed-width integer types can be assigned values of int-range types *)
-    || ((Type.is_uint8 type1 || Type.is_uint16 type1 || Type.is_uint32 type1 || Type.is_uint64 type1) 
-    && Type.is_int_range type2)
-    || ((Type.is_int8 type1 || Type.is_int16 type1 || Type.is_int32 type1 || Type.is_int64 type1) 
-    && Type.is_int_range type2)
-
   then 
 
     (* Resulting type is Boolean *)

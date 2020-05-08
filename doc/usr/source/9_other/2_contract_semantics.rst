@@ -14,13 +14,12 @@ An *assume-guarantee contract* ``(A,G)`` for a node ``n`` is a set of *assumptio
 ``A`` and a set of *guarantees* ``G``. Assumptions describe how ``n`` **must** be
 used, while guarantees specify how ``n`` behaves.
 
-More formally, ``n`` respects its contract ``(A,G)`` if
+More formally, ``n`` respects its contract ``(A,G)`` if all of its executions 
+satisfy the temporal LTL formula
 
-.. code-block:: none
+.. math::
 
-   ([] A) => ([] G)
-
-where ``[]`` is the box (globally) temporal operator.
+  \square A \Rightarrow \square G
 
 That is, if the assumptions always hold then the guarantees hold. Contracts are
 interesting when a node ``top`` calls a node ``sub``\ , where ``sub`` has a contract
@@ -74,11 +73,9 @@ Semantics
 A mode represents a *situation* / *reaction* implication. A contract ``(A,G,M)``
 can be re-written as an assume-guarantee contract ``(A,G')`` where
 
-.. code-block:: none
+.. math::
 
-   G' = G U { (/\ r_i) => (/\ e_i), ({r_i}, {e_i}) in M }
-
-where ``U`` is set union.
+   G' = G\ \cup\ \{\ \bigwedge_i r_i \Rightarrow \bigwedge_i e_i \mid (\{r_i\}, \{e_i\}) \in M \}
 
 For instance, a (linear) contract for non-linear multiplication could be
 
@@ -153,22 +150,22 @@ its contract.
 
 More formally, consider a node ``n`` with contract
 
-.. code-block:: none
+.. math::
 
-   (A, G, M = { (r_i, e_i) }
+   (A, G, \{(R_i, E_i)\})
 
 The defensive check consists in checking that the disjunction of the requires
 of each mode
 
-.. code-block:: none
+.. math::
 
-   one_mode_active = \/ { r_i }
+   \mathsf{one\_mode\_active} = \bigvee_i (\bigwedge_j r_{ij})
 
 is an invariant for the system
 
-.. code-block:: none
+.. math::
 
-   A /\ G /\ { r_i => e_i }
+   A \wedge G \wedge (\bigwedge r_i \Rightarrow \bigwedge e_i)
 
 If ``one_mode_active`` is indeed invariant, it means that as long as
 

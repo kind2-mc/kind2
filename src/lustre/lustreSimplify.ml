@@ -148,7 +148,7 @@ let rec eval_ast_expr bounds ctx =
     let fail () =
       C.fail_at_position pos (
         Format.asprintf
-          "reference to unknown mode \"::%a\""
+          "reference to unknown mode '::%a'"
           (pp_print_list Format.pp_print_string "::") p4th
       )
     in
@@ -905,9 +905,10 @@ let rec eval_ast_expr bounds ctx =
                   pos
                   "Invalid index for expression"
 
-            (* Cannot be record, list or empty index *)
+            (* Cannot be record, list, abstract type or empty index *)
             | D.RecordIndex _ :: _, _
             | D.ListIndex _ :: _, _
+            | D.AbstractTypeIndex _ :: _, _
             | [], _ ->
 
               C.fail_at_position
@@ -1210,7 +1211,8 @@ let rec eval_ast_expr bounds ctx =
       (* Projection from a tuple expression *)
         | D.TupleIndex _ :: _, _
         | D.RecordIndex _ :: _, _ 
-        | D.ListIndex _ :: _, _ ->
+        | D.ListIndex _ :: _, _
+        | D.AbstractTypeIndex _ :: _, _ ->
 
 
           (* Try again underneath *)
@@ -1625,7 +1627,8 @@ and eval_ast_projection bounds ctx pos expr = function
   (* Cannot project array field this way, need to use select
      operator *)
   | D.ListIndex _
-  | D.ArrayVarIndex _ -> raise (Invalid_argument "eval_ast_projection")
+  | D.ArrayVarIndex _
+  | D.AbstractTypeIndex _ -> raise (Invalid_argument "eval_ast_projection")
 
 
 and try_eval_node_call bounds ctx pos ident cond restart args defaults =
@@ -2117,6 +2120,14 @@ and eval_ast_type ctx = function
       (* Type might be forward referenced. *)
       Deps.Unknown_decl (Deps.Type, ident, pos) |> raise
   )
+
+  (* User-defined abstract types are represented as an integer reference
+   * to an object. This reference is wrapped inside an index for that type
+   * so it cannot be used as a raw integer.
+   * There are abstract types in Type, but using an integer reference is able
+   * to give better counterexamples. *)
+  | A.AbstractType (pos, ident) ->
+      D.singleton [D.AbstractTypeIndex ident] Type.t_int
 
   (* Record type, return trie of indexes in record *)
   | A.RecordType (pos, record_fields) -> 

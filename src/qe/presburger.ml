@@ -326,6 +326,9 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
 
            | Term.T.Attr _ -> assert false
 
+           | Term.T.Var var when Var.type_of_var var = Type.t_real ->
+             raise Not_in_LIA
+
      	   | Term.T.Var var ->
              Poly [(Numeral.one, Some var)]
 

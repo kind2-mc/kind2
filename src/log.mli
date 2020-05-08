@@ -28,7 +28,7 @@ module type Sig = sig
 
   type 'a log_printer =
     Lib.log_level ->
-    ('a, Format.formatter, unit, unit, unit, unit) format6 -> 'a
+    ('a, Format.formatter, unit) format -> 'a
   
   type 'a m_log_printer =
     Lib.kind_module -> 'a log_printer
@@ -69,7 +69,6 @@ module type Sig = sig
 
   (** Cancel relaying of log messages *)
   val unset_relay_log : unit -> unit
-
 
   (** {1 Auxiliary functions} *)
 
