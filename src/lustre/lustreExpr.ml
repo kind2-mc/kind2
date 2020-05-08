@@ -2713,7 +2713,7 @@ let mk_bvor expr1 expr2 = mk_binary eval_bvor type_of_bvor expr1 expr2
 
 (* Evaluate bitvector left shift *)
 let eval_bvshl expr1 expr2 = 
-  if (Type.is_ubitvector (Term.type_of_term expr2)) then
+  if ((Term.is_bitvector expr2) && (Type.is_ubitvector (Term.type_of_term expr2))) then
     Term.mk_bvshl [expr1; expr2]
   else
     match Term.destruct expr1, Term.destruct expr2 with
@@ -2738,10 +2738,10 @@ let mk_bvshl expr1 expr2 = mk_binary eval_bvshl type_of_bvshl expr1 expr2
 
 (* Evaluate bitvector (logical or arithmetic) right shift *)
 let eval_bvshr expr1 expr2 = 
-  if ((Type.is_ubitvector (Term.type_of_term expr2)) 
+  if ((Term.is_bitvector expr2) && (Type.is_ubitvector (Term.type_of_term expr2)) 
       && (Type.is_bitvector (Term.type_of_term expr1))) then
     Term.mk_bvashr [expr1; expr2]
-  else if ((Type.is_ubitvector (Term.type_of_term expr2)) 
+  else if ((Term.is_bitvector expr2) && (Type.is_ubitvector (Term.type_of_term expr2)) 
           && (Type.is_ubitvector (Term.type_of_term expr1))) then
     Term.mk_bvlshr [expr1; expr2]
   else
