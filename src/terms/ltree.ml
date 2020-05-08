@@ -670,11 +670,11 @@ struct
 
     (* Print a function application as S-expression *)
     | { H.node = Node (s, a) } -> 
-
-      Format.fprintf ppf 
+        
+      (Format.fprintf ppf 
         "@[<hv 1>(%a@ %a)@]" 
         (pp_symbol ?arity:(Some (List.length a))) s 
-        (pp_print_term_list pp_symbol pp_var pp_sort db) a
+        (pp_print_term_list pp_symbol pp_var pp_sort db) a)
 
     (* Print a let binding *)
     | { H.node = Let ({ H.node = L (_, t) }, b) } -> 
