@@ -1,9 +1,11 @@
 module ScMap = Scope.Map
 module SVSet = StateVar.StateVarSet
 
+(* ----- INDUCTIVE VALIDITY CORES ----- *)
+
 type term_cat =
 | NodeCall of string * SVSet.t
-| ContractItem of StateVar.t * LustreContract.svar * bool (* soft *)
+| ContractItem of StateVar.t * LustreContract.svar * LustreNode.contract_item_type
 | Equation of StateVar.t
 | Assertion of StateVar.t
 | Unknown
@@ -23,13 +25,6 @@ type loc = {
 type loc_equation = equation * (loc list) * term_cat
 
 type ivc = (Property.t list * loc_equation list ScMap.t)
-
-val pp_print_loc_eq : 'a InputSystem.t -> TransSys.t -> Format.formatter -> loc_equation -> unit
-val pp_print_loc_eqs : 'a InputSystem.t -> TransSys.t -> Format.formatter -> loc_equation list -> unit
-
-val pp_print_ivc : ?time:float option -> 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
-val pp_print_ivc_xml : ?time:float option -> 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
-val pp_print_ivc_json : ?time:float option -> 'a InputSystem.t -> TransSys.t -> string -> Format.formatter -> ivc -> unit
 
 val compare_loc : loc -> loc -> int
 
@@ -66,7 +61,7 @@ val ivc_uc :
     and running the whole analysis on the new system each time. *)
 val ivc_bf :
   'a InputSystem.t ->
-  ?use_must_set:bool ->
+  ?use_must_set:(ivc -> unit) option ->
   Analysis.param ->
   (
     bool ->
@@ -95,7 +90,7 @@ val must_set :
     This should be faster than ivc_bf. *)
 val ivc_ucbf :
   'a InputSystem.t ->
-  ?use_must_set:bool ->
+  ?use_must_set:(ivc -> unit) option ->
   Analysis.param ->
   (
     bool ->
@@ -110,7 +105,8 @@ val ivc_ucbf :
     The 5th parameter correspond to the parameter 'k'. *)
 val umivc :
   'a InputSystem.t ->
-  ?use_must_set:bool ->
+  ?use_must_set:(ivc -> unit) option ->
+  ?stop_after:int ->
   Analysis.param ->
   (
     bool ->
@@ -126,15 +122,9 @@ val umivc :
 (** Returns the names of the properties for which we may be interested in computing an IVC. *)
 val properties_of_interest_for_ivc : TransSys.t -> Property.t list
 
-
 (* ----- MAXIMAL UNSAFE ABSTRACTIONS  MINIMAL CORRECTION SETS ----- *)
 
 type mua = ((Property.t list * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
-
-val pp_print_mcs : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
-val pp_print_mcs_xml : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
-val pp_print_mcs_json : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Format.formatter -> mua -> unit
-val pp_print_mcs_legacy : 'a InputSystem.t -> Analysis.param -> TransSys.t -> mua -> mua -> unit
 
 (** Separate a MUA into two MUA, the second one containing elements from the categories selected
     by the user, and the first one containing the others elements *)
@@ -158,3 +148,36 @@ val mua :
 (** Returns the names of the properties for which we may be interested in computing a MUA. *)
 val properties_of_interest_for_mua : TransSys.t -> Property.t list
 
+(* ----- Structures for printing ----- *)
+
+type term_print_data = {
+  name: string ;
+  category: string ;
+  position: Lib.position ;
+}
+
+type core_print_data = {
+  core_class: string ;
+  property: string option ; (* Only for MCSs *)
+  counterexample: ((StateVar.t * Model.value list) list) option ; (* Only for MCSs *)
+  time: float option ;
+  size: int ;
+  elements: term_print_data list ScMap.t ;
+}
+
+val ivc_to_print_data :
+  'a InputSystem.t -> TransSys.t -> bool -> ivc -> core_print_data
+
+val mcs_to_print_data :
+  'a InputSystem.t -> TransSys.t -> bool -> mua -> core_print_data
+
+val pp_print_core_data :
+  'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit
+
+val pp_print_core_data_xml :
+  'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit
+
+val pp_print_core_data_json :
+  'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit
+
+val pp_print_mcs_legacy : 'a InputSystem.t -> Analysis.param -> TransSys.t -> mua -> mua -> unit

@@ -1578,12 +1578,13 @@ let set_state_var_instance state_var pos node state_var' =
     state_var
     instances'
 
-
+type contract_item_type =
+    | Assumption | WeakAssumption | Guarantee | Require | Ensure
 type state_var_def =
   | CallOutput of position * LustreIndex.index
   | ProperEq of position * LustreIndex.index
   | GeneratedEq of position * LustreIndex.index
-  | ContractItem of position * LustreContract.svar * bool (* soft *)
+  | ContractItem of position * LustreContract.svar * contract_item_type
   | Assertion of position
 
 let state_var_defs_map : state_var_def list StateVar.StateVarHashtbl.t = 
@@ -1602,8 +1603,8 @@ let state_var_defs_equal d1 d2 =
   | ProperEq (p1, i1), ProperEq (p2, i2)
   | GeneratedEq (p1, i1), GeneratedEq (p2, i2) ->
     (Lib.compare_pos p1 p2) = 0 && LustreIndex.equal_index i1 i2
-  | ContractItem (p1, svar1, soft1), ContractItem (p2, svar2, soft2) ->
-    (Lib.compare_pos p1 p2) = 0 && soft1 = soft2 && StateVar.equal_state_vars svar1.svar svar2.svar
+  | ContractItem (p1, svar1, typ1), ContractItem (p2, svar2, typ2) ->
+    (Lib.compare_pos p1 p2) = 0 && typ1 = typ2 && StateVar.equal_state_vars svar1.svar svar2.svar
   | Assertion p1, Assertion p2 -> (Lib.compare_pos p1 p2) = 0
   | _ -> false
 
@@ -1642,9 +1643,8 @@ let pp_print_state_var_defs_debug fmt t =
       | GeneratedEq (p,i) ->
         Format.fprintf fmt "Generated Eq: %a (%a)\n"
         Lib.pp_print_position p (LustreIndex.pp_print_index true) i
-      | ContractItem (p,_,b) ->
-        Format.fprintf fmt "%sContract Item: %a\n"
-          (if b then "Soft " else "") Lib.pp_print_position p
+      | ContractItem (p,_,_) ->
+        Format.fprintf fmt "Contract Item: %a\n" Lib.pp_print_position p
       | Assertion p ->
         Format.fprintf fmt "Assertion: %a\n" Lib.pp_print_position p
       )

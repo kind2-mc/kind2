@@ -3,8 +3,8 @@
 Minimal Correction Set
 ======================
 
-The minimal correction set generation is a post-analysis treatement that computes a minimal subset
-of the weak assumptions such that the system become unsafe if we remove these assumptions.
+The minimal correction set generation is a post-analysis treatement that computes a minimal subset of
+the model elements (contract items, equations or node calls) such that the system become unsafe if we remove these assumptions.
 
 To enable minimal correction set generation, run
 
@@ -16,7 +16,7 @@ Options
 -------
 
 * ``--mcs_category {weak_assumptions|node_calls|contracts|equations|assertions}`` (default: weak_assumptions) -- Consider only a specific category of elements, repeat option to consider multiple categories
-* ``--mcs_enter_nodes <bool>`` (default ``false``\ ) -- Consider elements of all the nodes (not only elements of the top-level node)
+* ``--mcs_only_main_node <bool>`` (default ``false``\ ) -- Compute a MCS over the elements of the main node only
 * ``--mcs_all <bool>`` (default ``false``\ ) -- Specify whether all the Minimal Correction Sets must be computed or just one
 * ``--mcs_per_property <bool>`` (default ``true``\ ) -- If true, MCS will be computed for each property separately
 * ``--print_mcs <bool>`` (default ``true``\ ) -- Print the minimal correction set computed

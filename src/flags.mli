@@ -435,15 +435,16 @@ end
 (** {2 Inductive Validity Cores} *)
 module IVC : sig
 
-  type ivcimpl = [ `IVC_BF | `IVC_AUC | `IVC_UC | `IVC_UCBF | `UMIVC | `MUST ]
   type minimize_mode = [ `DO_NOT_MINIMIZE | `VALID_LUSTRE | `CONCISE ]
-  type ivc_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN  | `WEAK_ASS ]
+  type ivc_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `WEAK_ASS ]
 
   (** Enable computation of Inductive Validity Cores *)
   val compute_ivc : unit -> bool
 
+  val ivc_all : unit -> bool
+
   (** Specify on which elements we want to minimize *)
-  val ivc_elements : unit -> ivc_element list
+  val ivc_category : unit -> ivc_element list
 
   (** Print the equations of the computed IVC *)
   val print_ivc : unit -> bool
@@ -451,26 +452,33 @@ module IVC : sig
   (** Print the equations NOT in the computed IVC *)
   val print_ivc_compl : unit -> bool
 
+  (** If true, compute an approximation of an IVC *)
+  val ivc_approximate : unit -> bool
+
+  (** If true, compute the MUST set first and compute the IVCs starting from it *)
+  val ivc_must_set : unit -> bool
+
+  (** If true, compute the smallest IVC first *)
+  val ivc_smallest_first : unit -> bool
+
+  (** If true, compute IVC over elements of the main node only *)
+  val ivc_only_main_node : unit -> bool
+
+  (** Parameter k of the UMIVC algorithm.
+  Correspond to the parameter 'k' of the implementation UMIVC.
+  In particular, the value 0 implements the MARCO algorithm,
+  and the value -1 (infinity) implements the CAMUS algorithm.
+  *)
+  val ivc_precomputed_mcs: unit -> int
+
+  (** If true, IVCs will be computed for each properties separately *)
+  val ivc_per_property : unit -> bool
+
   (** Generate a minimize lustre program *)
   val minimize_program : unit -> minimize_mode
 
   (** The directory where minimized programs should be saved *)
   val minimized_program_dir : unit -> string
-
-  (** If true, compute a core with equations of all subsystems *)
-  val ivc_enter_nodes : unit -> bool
-
-  (** If true, compute the MUST set first and compute the IVCs starting from it *)
-  val ivc_compute_must_set_first : unit -> bool
-
-  (** If true, IVCs will be computed for each properties separately *)
-  val ivc_per_property : unit -> bool
-
-  (** Specify the implementation *)
-  val ivc_impl : unit -> ivcimpl
-
-  (* Value of the parameter 'k' for the muivc implementation *)
-  val ivc_umivc_k : unit -> int
 
   (** Timeout for unsat core computation *)
   val ivc_uc_timeout : unit -> int
@@ -481,7 +489,7 @@ end
 module MCS : sig
 
   type mcs_element =
-    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN | `WEAK_ASS ]
+    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `WEAK_ASS ]
 
   (** Enable computation of Maximal Correction Sets *)
   val compute_mcs : unit -> bool
@@ -490,7 +498,7 @@ module MCS : sig
   val mcs_all : unit -> bool
 
   (** Specify on which elements we want to minimize *)
-  val mcs_elements : unit -> mcs_element list
+  val mcs_category : unit -> mcs_element list
 
   (** Print the equations of the computed MCS *)
   val print_mcs : unit -> bool
@@ -502,10 +510,10 @@ module MCS : sig
   val print_mcs_legacy : unit -> bool
 
   (** Print the equations NOT in the computed MCS *)
-  val print_counterexample : unit -> bool
+  val print_mcs_counterexample : unit -> bool
 
-  (** If true, compute a core with equations of all subsystems *)
-  val mcs_enter_nodes : unit -> bool
+  (** If true, compute MCS over elements of the main node only *)
+  val mcs_only_main_node : unit -> bool
 
   (** If true, MCSs will be computed for each properties separately *)
   val mcs_per_property : unit -> bool

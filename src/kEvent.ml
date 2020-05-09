@@ -360,6 +360,14 @@ let printf_pt_uncond mdl fmt =
   Format.fprintf !log_ppf ("@[<hov>" ^^ fmt ^^ "@]@.@.@?")
 
 
+(* Output with a tag *)
+let tag_pt level tag str = 
+
+  (ignore_or_fprintf level)
+    !log_ppf
+    ("@[<hov>%t %s@.@.")
+    tag
+    str
 
 (* Output proved property as plain text *)
 let proved_pt mdl level trans_sys k prop = 
@@ -1230,6 +1238,14 @@ let log_proved mdl level trans_sys k prop =
     | F_pt -> proved_pt mdl level trans_sys k prop
     | F_xml -> proved_xml mdl level trans_sys k prop
     | F_json -> proved_json mdl level trans_sys k prop
+    | F_relay -> ()
+
+(* Log a message with a tag, only in the plain text output *)
+let log_with_tag level tag str =
+  match get_log_format () with 
+    | F_pt -> tag_pt level tag str
+    | F_xml -> ()
+    | F_json -> ()
     | F_relay -> ()
 
 (* Warning issued if model reconstruction triggers a division by zero. *)

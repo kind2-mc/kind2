@@ -26,7 +26,7 @@ module IdMap = Map.Make(AstID)
 
 type term_cat =
 | NodeCall of string * SVSet.t
-| ContractItem of StateVar.t * LustreContract.svar * bool (* soft *)
+| ContractItem of StateVar.t * LustreContract.svar * LustreNode.contract_item_type
 | Equation of StateVar.t
 | Assertion of StateVar.t
 | Unknown
@@ -109,241 +109,262 @@ let compute_var_map in_sys sys =
   let aux_vars = TS.fold_subsystems ~include_top:true (fun acc sys -> (aux_vars sys)@acc) [] sys in
   InputSystem.mk_state_var_to_lustre_name_map in_sys aux_vars
 
+let lustre_name_of_sv var_map sv =
+  let usr_name =
+    assert (List.length LustreIdent.user_scope = 1) ;
+    List.hd LustreIdent.user_scope
+  in
+  if List.mem usr_name (StateVar.scope_of_state_var sv)
+  then StateVar.name_of_state_var sv
+  else StateVar.StateVarMap.find sv var_map
+
+type term_print_data = {
+  name: string ;
+  category: string ;
+  position: Lib.position ;
+}
+
+type core_print_data = {
+  core_class: string ;
+  property: string option ; (* Only for MCSs *)
+  counterexample: ((StateVar.t * Model.value list) list) option ; (* Only for MCSs *)
+  time: float option ;
+  size: int ;
+  elements: term_print_data list ScMap.t ;
+}
+
+let pp_print_locs_short =
+  Lib.pp_print_list (
+    fun fmt {pos} ->
+      Format.fprintf fmt "%a" Lib.pp_print_pos pos
+  ) ""
+
+(* The last position is the main one (the first one added) *)
+let last_position_of_locs locs =
+  (List.hd (List.rev locs)).pos
+
+let print_data_of_loc_equation var_map (eq, locs, cat) =
+  if locs = []
+  then None
+  else
+    match cat with
+    | Unknown -> None
+    | NodeCall (name, _) ->
+      Some {
+        name = name ;
+        category = "node call" ;
+        position = last_position_of_locs locs ;
+      }
+    | Equation sv ->
+      (
+        try
+          Some {
+            name = lustre_name_of_sv var_map sv ;
+            category = "equation" ;
+            position = last_position_of_locs locs ;
+          }
+        with Not_found -> None
+      )
+    | Assertion sv ->
+      Some {
+        name = Format.asprintf "assertion%a" pp_print_locs_short locs ;
+        category = "assertion" ;
+        position = last_position_of_locs locs ;
+      }
+    | ContractItem (_, svar, typ) ->
+      let (kind, category) = 
+        match typ with
+        | LustreNode.WeakAssumption -> ("weakly_assume", "assumption")
+        | LustreNode.Assumption -> ("assume", "assumption")
+        | LustreNode.Guarantee -> ("guarantee", "guarantee")
+        | LustreNode.Require -> ("require", "assumption")
+        | LustreNode.Ensure -> ("ensure", "guarantee")
+      in
+      Some {
+        name = LustreContract.prop_name_of_svar svar kind "" ;
+        category ;
+        position = last_position_of_locs locs ;
+      }
+
+let printable_elements_of_core in_sys sys core =
+  let var_map = compute_var_map in_sys sys in
+  let aux lst =
+    lst
+    |> List.map (print_data_of_loc_equation var_map)
+    |> List.filter (function Some _ -> true | None -> false)
+    |> List.map (function Some x -> x | None -> assert false)
+  in
+  core
+  |> ScMap.map aux (* Build map *)
+  |> ScMap.filter (fun _ lst -> lst <> []) (* Remove empty entries *)
+
+let ivc_to_print_data in_sys sys is_compl (_,ivc) =
+  let core_class =
+    if is_compl then "ivc complement" else "ivc"
+  in
+  let elements = printable_elements_of_core in_sys sys ivc in
+  {
+    core_class ;
+    property = None ;
+    counterexample = None ;
+    time = None ;
+    elements ;
+    size = scmap_size elements ;
+  }
+
+let mcs_to_print_data in_sys sys is_compl ((props, cex),mcs) =
+  let core_class =
+    if is_compl then "mcs complement" else "mcs"
+  in
+  let property =
+    match props with
+    | [{ Property.prop_name = n }] -> Some n
+    | _ -> None
+  in
+  let elements = printable_elements_of_core in_sys sys mcs in
+  {
+    core_class ;
+    property ;
+    counterexample = Some cex ;
+    time = None ;
+    elements ;
+    size = scmap_size elements ;
+  }
+
+let print_mcs_counterexample in_sys param sys typ fmt (prop,cex) =
+  try
+    if Flags.MCS.print_mcs_counterexample ()
+    then
+      match typ with
+      | `PT ->
+        KEvent.pp_print_counterexample_pt L_warn in_sys param sys prop true fmt cex
+      | `XML ->
+        KEvent.pp_print_counterexample_xml in_sys param sys prop true fmt cex
+      | `JSON ->
+        KEvent.pp_print_counterexample_json in_sys param sys prop true fmt cex
+  with _ -> ()
+
+let pp_print_core_data in_sys param sys fmt cpd =
+  let print_elt elt =
+    Format.fprintf fmt "%s @{<blue_b>%s@} at position %a@ "
+      (String.capitalize_ascii elt.category) elt.name
+      Lib.pp_print_pos elt.position
+  in
+  let print_node scope lst =
+    Format.fprintf fmt "@{<b>Node@} @{<blue>%s@}@ " (Scope.to_string scope) ;
+    Format.fprintf fmt "  @[<v>" ;
+    List.iter print_elt lst ;
+    Format.fprintf fmt "@]@ "
+  in
+  (match cpd.property with
+  | None -> Format.fprintf fmt "@{<b>%s (%i elements):@}@."
+    (String.uppercase_ascii cpd.core_class) cpd.size
+  | Some n -> Format.fprintf fmt "@{<b>%s (%i elements)@} for property @{<blue_b>%s@}:@."
+    (String.uppercase_ascii cpd.core_class) cpd.size n
+  ) ;
+  Format.fprintf fmt "  @[<v>" ;
+  ScMap.iter print_node cpd.elements ;
+  (match cpd.counterexample, cpd.property with
+  | Some cex, Some p ->
+    print_mcs_counterexample in_sys param sys `PT fmt (p,cex)
+  | _, _ -> ()
+  ) ;
+  Format.fprintf fmt "@]@."
+
 let pp_print_json fmt json =
   Yojson.Basic.pretty_to_string json
   |> Format.fprintf fmt "%s"
 
-let pp_print_loc fmt {pos=pos ; index=index} =
-  match index with
-  | [] -> Lib.pp_print_pos fmt pos
-  | index ->
-    Format.fprintf fmt "%a (index %a)"
-      Lib.pp_print_pos pos (LustreIndex.pp_print_index false) index
-
-let pp_print_loc_xml fmt {pos=pos ; index=index} =
-  let (_,row,col) = Lib.file_row_col_of_pos pos in
-  match index with
-  | [] -> Format.fprintf fmt "<Position line=%i column=%i />" row col
-  | index ->
-    Format.fprintf fmt "<Position line=%i column=%i index=\"%a\" />"
-      row col (LustreIndex.pp_print_index false) index
-
-let loc2json {pos=pos ; index=index} =
-  let (_,row,col) = Lib.file_row_col_of_pos pos in
-  match index with
-  | [] ->
-    `Assoc [("objectType", `String "position") ; ("line", `Int row) ; ("column", `Int col)]
-  | index ->
-    `Assoc [("objectType", `String "position") ; ("line", `Int row) ; ("column", `Int col) ;
-      ("index", `String (Format.asprintf "%a" (LustreIndex.pp_print_index false) index))]
-
-let pp_print_locs fmt = function
-| [] -> Format.fprintf fmt "None"
-| hd::lst ->
-  pp_print_loc fmt hd ;
-  List.iter (Format.fprintf fmt " and %a" pp_print_loc) lst
-
-let pp_print_locs_xml fmt =
-  List.iter (pp_print_loc_xml fmt)
-
-let locs2json lst =
-  `List (List.map loc2json lst)
-
-let expr_pp_print var_map fmt expr =
-  simplify_term expr
-  |> LustreExpr.pp_print_term_as_expr_mvar false var_map fmt
-
-let cat_to_string = function
-  | NodeCall _ -> "Node call"
-  | ContractItem (_, _, false) -> "Contract item"
-  | ContractItem (_, _, true) -> "Weak assumption"
-  | Equation _ -> "Equation"
-  | Assertion _ -> "Assertion"
-  | Unknown -> "Unknown element"
-
-let eq_expr_pp_print ?(init=false) var_map fmt (eq, _, cat) =
-  match cat with
-  | NodeCall (n,_) -> Format.fprintf fmt "%s" n
-  | ContractItem (_,{LustreContract.name=Some str},_) ->
-    Format.fprintf fmt "%s" str
-  | ContractItem _ | Equation _ | Assertion _ | Unknown ->
-    if init
-    then expr_pp_print var_map fmt eq.init_closed
-    else expr_pp_print var_map fmt eq.trans_closed
-
-let pp_print_loc_eq_ var_map fmt (eq, loc, cat) =
-  Format.fprintf fmt "%s %a at position %a" (cat_to_string cat)
-    (eq_expr_pp_print var_map) (eq, loc, cat) pp_print_locs loc
-
-let pp_print_loc_eq_xml var_map fmt (eq, loc, cat) =
-  Format.fprintf fmt "<Equation cat=\"%s\" init=\"%a\" trans=\"%a\">%a</Equation>"
-    (cat_to_string cat) (eq_expr_pp_print ~init:true var_map) (eq, loc, cat)
-    (eq_expr_pp_print var_map) (eq, loc, cat) pp_print_locs_xml loc
-
-let loc_eq2json var_map (eq, loc, cat) =
-  `Assoc [("objectType", `String "equation") ; ("cat", `String (cat_to_string cat)) ;
-    ("init", `String (Format.asprintf "%a" (eq_expr_pp_print ~init:true var_map) (eq, loc, cat))) ;
-    ("trans", `String (Format.asprintf "%a" (eq_expr_pp_print var_map) (eq, loc, cat))) ;
-    ("positions", locs2json loc)
-  ]
-
-let pp_print_loc_eq in_sys sys =
-  let var_map = compute_var_map in_sys sys in
-  pp_print_loc_eq_ var_map
-
-let pp_print_loc_eqs_ var_map fmt =
-  let print = pp_print_loc_eq_ var_map in
-  List.iter (Format.fprintf fmt "%a\n" print)
-
-let pp_print_loc_eqs_xml var_map fmt =
-  let print = pp_print_loc_eq_xml var_map in
-  List.iter (Format.fprintf fmt "%a\n" print)
-
-let loc_eqs2json var_map lst =
-  `List (List.map (loc_eq2json var_map) lst)
-
-let pp_print_loc_eqs in_sys sys =
-  let var_map = compute_var_map in_sys sys in
-  pp_print_loc_eqs_ var_map
-
-let rec pp_print_properties fmt = function
-  | [] -> ()
-  | _::_::_ -> Format.fprintf fmt "all"
-  | [{ Property.prop_name = n }] -> Format.fprintf fmt "%s" n
-
-let pp_print_ivc ?(time=None) in_sys sys title fmt (props,ivc) =
-  let var_map = compute_var_map in_sys sys in
-  let print = pp_print_loc_eqs_ var_map in
-  Format.fprintf fmt "========== %a (%s, %i elements%s) ==========\n\n" pp_print_properties props title (scmap_size ivc)
-  (match time with None -> "" | Some f -> Format.sprintf ", %.3fs" f) ;
-  ScMap.iter (fun scope eqs -> 
-    Format.fprintf fmt "----- %s -----\n" (Scope.to_string scope) ;
-    Format.fprintf fmt "%a\n" print eqs
-  ) ivc
-
-let print_mcs_counterexample in_sys param sys typ fmt (props,cex) =
-  try
-    if List.length props = 1 && Flags.MCS.print_counterexample ()
-    then
-      match typ with
-      | `PT ->
-        KEvent.pp_print_counterexample_pt L_warn
-        in_sys param sys (List.hd props).Property.prop_name true fmt cex
-      | `XML ->
-        KEvent.pp_print_counterexample_xml
-        in_sys param sys (List.hd props).Property.prop_name true fmt cex
-      | `JSON ->
-        KEvent.pp_print_counterexample_json
-        in_sys param sys (List.hd props).Property.prop_name true fmt cex
-    with _ -> ()
-
-let pp_print_mcs in_sys param sys title fmt ((props,cex), mcs) =
-  pp_print_ivc in_sys sys title fmt (props, mcs) ;
-  print_mcs_counterexample in_sys param sys `PT fmt (props,cex)
-
-let impl_to_string = function
-| `IVC_AUC -> "AUC"
-| `IVC_UC -> "UC"
-| `IVC_UCBF -> "UCBF"
-| `IVC_BF -> "BF"
-| `UMIVC -> "UMIVC"
-| `MUST -> "MUST"
-
-let pp_print_categories fmt =
-  List.iter (function
-    | `NODE_CALL -> Format.fprintf fmt "node_calls "
-    | `CONTRACT_ITEM -> Format.fprintf fmt "contracts "
-    | `EQUATION -> Format.fprintf fmt "equations "
-    | `ASSERTION -> Format.fprintf fmt "assertions "
-    | `WEAK_ASS -> Format.fprintf fmt "weak_assumptions "
-    | `UNKNOWN -> Format.fprintf fmt "unknown "
-  )
-
-let pp_print_ivc_xml ?(time=None) in_sys sys title fmt (props,ivc) =
-  let var_map = compute_var_map in_sys sys in
-  let print = pp_print_loc_eqs_xml var_map in
-  Format.fprintf fmt "<IVC size=\"%i\" node_size=\"%i\" property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b impl=\"%s\">\n"
-    (scmap_size ivc) (ivc_term_size ivc) pp_print_properties props title
-    pp_print_categories (Flags.IVC.ivc_elements ()) (Flags.IVC.ivc_enter_nodes ())
-    (impl_to_string (Flags.IVC.ivc_impl ())) ;
-  match time with None -> ()
-  | Some f -> Format.fprintf fmt "<Runtime unit=\"sec\">%.3f</Runtime>\n" f
-  ;
-  ScMap.iter (fun scope eqs -> 
-    Format.fprintf fmt "<scope name=\"%s\">\n" (Scope.to_string scope) ;
-    Format.fprintf fmt "%a" print eqs ;
-    Format.fprintf fmt "</scope>\n\n"
-  ) ivc ;
-  Format.fprintf fmt "</IVC>\n"
-
-let pp_print_mcs_xml in_sys param sys title fmt ((props, cex), mcs) =
-  let var_map = compute_var_map in_sys sys in
-  let print = pp_print_loc_eqs_xml var_map in
-  Format.fprintf fmt "<MCS size=\"%i\" node_size=\"%i\" property=\"%a\" title=\"%s\" category=\"%a\" enter_nodes=%b>\n"
-    (scmap_size mcs) (ivc_term_size mcs) pp_print_properties props title
-    pp_print_categories (Flags.MCS.mcs_elements ()) (Flags.MCS.mcs_enter_nodes ()) ;
-  ScMap.iter (fun scope eqs -> 
-    Format.fprintf fmt "<scope name=\"%s\">\n" (Scope.to_string scope) ;
-    Format.fprintf fmt "%a" print eqs ;
-    Format.fprintf fmt "</scope>\n\n"
-  ) mcs ;
-  print_mcs_counterexample in_sys param sys `XML fmt (props,cex) ;
-  Format.fprintf fmt "</MCS>\n"
-
-let ivc2json ?(time=None) in_sys sys title (props,ivc) =
-  let var_map = compute_var_map in_sys sys in
-  let loc_eqs2json = loc_eqs2json var_map in
+let pp_print_core_data_json in_sys param sys fmt cpd =
+  let json_of_elt elt =
+    let (file, row, col) = Lib.file_row_col_of_pos elt.position in
+    `Assoc ([
+      ("category", `String elt.category) ;
+      ("name", `String elt.name) ;
+      ("line", `Int row) ;
+      ("column", `Int col) ;
+    ] @
+    (if file = "" then [] else [("file", `String file)])
+    )
+  in
   let assoc = [
-    ("objectType", `String "ivc") ;
-    ("size", `Int (scmap_size ivc)) ;
-    ("nodeSize", `Int (ivc_term_size ivc)) ;
-    ("property", `String (Format.asprintf "%a" pp_print_properties props)) ;
-    ("title", `String title) ;
-    ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.IVC.ivc_elements ()))) ;
-    ("enterNodes", `Bool (Flags.IVC.ivc_enter_nodes ())) ;
-    ("impl", `String (impl_to_string (Flags.IVC.ivc_impl ()))) ;
-    ("value", `List (List.map (fun (scope, eqs) ->
-      `Assoc [
-        ("objectType", `String "scope") ;
-        ("name", `String (Scope.to_string scope)) ;
-        ("value", loc_eqs2json eqs)
-      ]
-    ) (ScMap.bindings ivc)))
-  ]
+    ("objectType", `String "modelElementSet") ;
+    ("class", `String cpd.core_class) ;
+    ("size", `Int cpd.size) ;
+  ] in
+  let assoc = assoc @ (
+    match cpd.property with
+    | None -> []
+    | Some n -> [("property", `String n)]
+  )
   in
-  let assoc = match time with None -> assoc
-  | Some f -> assoc@[("runtime", `Assoc [("unit", `String "sec") ; ("value", `Float f)])]
+  let assoc = assoc @ (
+    match cpd.time with
+    | None -> []
+    | Some f -> [("runtime", `Assoc [("unit", `String "sec") ; ("value", `Float f)])]
+  )
   in
-  `Assoc assoc
-
-let mcs2json in_sys param sys title ((props, _),mcs) =
-  let var_map = compute_var_map in_sys sys in
-  let loc_eqs2json = loc_eqs2json var_map in
-  `Assoc [
-    ("objectType", `String "mcs") ;
-    ("size", `Int (scmap_size mcs)) ;
-    ("nodeSize", `Int (ivc_term_size mcs)) ;
-    ("property", `String (Format.asprintf "%a" pp_print_properties props)) ;
-    ("title", `String title) ;
-    ("category", `String (Format.asprintf "%a" pp_print_categories (Flags.MCS.mcs_elements ()))) ;
-    ("enterNodes", `Bool (Flags.MCS.mcs_enter_nodes ())) ;
-    ("value", `List (List.map (fun (scope, eqs) ->
+  let assoc = assoc @ ([
+    ("nodes", `List (List.map (fun (scope, elts) ->
       `Assoc [
-        ("objectType", `String "scope") ;
         ("name", `String (Scope.to_string scope)) ;
-        ("value", loc_eqs2json eqs)
+        ("elements", `List (List.map json_of_elt elts))
       ]
-    ) (ScMap.bindings mcs)))
-  ]
+    ) (ScMap.bindings cpd.elements)))
+  ])
+  in
+  let assoc = assoc @
+    (match cpd.counterexample, cpd.property with
+    | Some cex, Some p ->
+      let str = Format.asprintf "%a"
+        (print_mcs_counterexample in_sys param sys `JSON) (p, cex) in
+      if String.equal str "" then []
+      else (
+          match Yojson.Basic.from_string ("{"^str^"}") with
+          | `Assoc json -> json
+          | _ -> assert false
+      )
+    | _, _ -> []
+    )
+  in
+  pp_print_json fmt (`Assoc assoc)
 
-let pp_print_ivc_json ?(time=None) in_sys sys title fmt ivc =
-  pp_print_json fmt (ivc2json ~time in_sys sys title ivc)
-
-let pp_print_mcs_json in_sys param sys title fmt mcs =
-  pp_print_json fmt (mcs2json in_sys param sys title mcs)
+let pp_print_core_data_xml in_sys param sys fmt cpd =
+  let fst = ref true in
+  let print_node scope elts =
+    if not !fst then Format.fprintf fmt "@ " else fst := false ;
+    let fst = ref true in
+    let print_elt elt =
+      if not !fst then Format.fprintf fmt "@ " else fst := false ;
+      let (file, row, col) = Lib.file_row_col_of_pos elt.position in
+      Format.fprintf fmt "<Element category=\"%s\" name=\"%s\" line=\"%i\" column=\"%i\"%s>"
+        elt.category elt.name row col (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
+    in
+    Format.fprintf fmt "<Node name=\"%s\">@   @[<v>" (Scope.to_string scope) ;
+    List.iter print_elt elts ;
+    Format.fprintf fmt "@]@ </Node>"
+  in
+  Format.fprintf fmt "<ModelElementSet class=\"%s\" size=\"%i\"%s>@.  @[<v>"
+    cpd.core_class cpd.size
+    (match cpd.property with None -> "" | Some n -> Format.asprintf " property=\"%s\"" n) ;
+  (
+    match cpd.time with
+    | None -> ()
+    | Some f -> Format.fprintf fmt "<Runtime unit=\"sec\">%.3f</Runtime>@ " f
+  ) ;
+  ScMap.iter print_node cpd.elements ;
+  (
+    match cpd.counterexample, cpd.property with
+    | Some cex, Some p ->
+      Format.fprintf fmt "@ " ;
+      print_mcs_counterexample in_sys param sys `XML fmt (p, cex)
+    | _, _ -> ()
+  ) ;
+  Format.fprintf fmt "@]@.</ModelElementSet>@."
 
 let name_of_wa_cat = function
-  | ContractItem (_, svar, true) -> Some (LustreContract.prop_name_of_svar svar "weakly_assume" "")
+  | ContractItem (_, svar, LustreNode.WeakAssumption) ->
+    Some (LustreContract.prop_name_of_svar svar "weakly_assume" "")
   | _ -> None
 
 let all_wa_names_of_mcs scmap =
@@ -673,10 +694,10 @@ let minimize_node_decl ue ivc
     |> List.map (fun (_,l,_) -> l) |> List.flatten
     |> List.map (fun l -> l.pos) |> minimize_with_lst
   with Not_found ->
-    if Flags.IVC.ivc_enter_nodes ()
-    then minimize_with_lst []
-    else ndecl
-
+    if Flags.IVC.ivc_only_main_node ()
+    then ndecl
+    else minimize_with_lst []
+    
 let minimize_contract_decl ue ivc (id, tparams, inputs, outputs, body) =
   let lst = ScMap.bindings ivc
     |> List.map (fun (_,v) -> v)
@@ -808,7 +829,7 @@ let sv_of_term t =
 
 let locs_of_eq_term in_sys t =
   try
-    let soft_contract = ref false in
+    let contract_typ = ref LustreNode.Assumption in
     let contract_items = ref None in
     let set_contract_item svar = contract_items := Some svar in
     let has_asserts = ref false in
@@ -818,8 +839,7 @@ let locs_of_eq_term in_sys t =
     |> List.map (fun def ->
       ( match def with
         | LustreNode.Assertion _ -> has_asserts := true
-        | LustreNode.ContractItem (_, svar, false) -> set_contract_item svar
-        | LustreNode.ContractItem (_, svar, true) -> soft_contract := true ; set_contract_item svar
+        | LustreNode.ContractItem (_, svar, typ) -> contract_typ := typ ; set_contract_item svar
         | _ -> ()
       );
       let p = LustreNode.pos_of_state_var_def def in
@@ -828,7 +848,7 @@ let locs_of_eq_term in_sys t =
     )
     |> (fun locs ->
       match !contract_items with
-      | Some svar -> (ContractItem (sv, svar, !soft_contract), locs)
+      | Some svar -> (ContractItem (sv, svar, !contract_typ), locs)
       | None ->
         if !has_asserts then (Assertion sv, locs)
         else (Equation sv, locs)
@@ -976,11 +996,11 @@ let extract_toplevel_equations ?(include_weak_ass=false) in_sys sys =
 let check_loc_eq_category cats (_,_,cat) =
   let cat = match cat with
   | NodeCall _ -> [`NODE_CALL]
-  | ContractItem (_, _, false) -> [`CONTRACT_ITEM]
-  | ContractItem (_, _, true) -> [`WEAK_ASS]
+  | ContractItem (_, _, LustreNode.WeakAssumption) -> [`WEAK_ASS]
+  | ContractItem (_, _, _) -> [`CONTRACT_ITEM]
   | Equation _ -> [`EQUATION]
   | Assertion _ -> [`ASSERTION]
-  | Unknown -> [`UNKNOWN]
+  | Unknown -> [(*`UNKNOWN*)]
   in
   List.exists (fun cat -> List.mem cat cats) cat
 
@@ -1006,11 +1026,11 @@ let separate_scmap f scmap =
   ) scmap (ScMap.empty, ScMap.empty)
 
 let separate_ivc_by_category (props, ivc) =
-  let (ivc1, ivc2) = separate_scmap (separate_loc_eqs_by_category (Flags.IVC.ivc_elements ())) ivc
+  let (ivc1, ivc2) = separate_scmap (separate_loc_eqs_by_category (Flags.IVC.ivc_category ())) ivc
   in (props, ivc1), (props, ivc2)
 
 let separate_mua_by_category (props, mua) =
-  let (mua1, mua2) = separate_scmap (separate_loc_eqs_by_category (Flags.MCS.mcs_elements ())) mua
+  let (mua1, mua2) = separate_scmap (separate_loc_eqs_by_category (Flags.MCS.mcs_category ())) mua
   in (props, mua1), (props, mua2)
 
 type eqmap = (equation list) ScMap.t
@@ -1726,9 +1746,9 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_t
 let ivc_uc in_sys ?(approximate=false) sys props =
   try (
     let props = ivc_props sys props in
-    let enter_nodes = Flags.IVC.ivc_enter_nodes () in
-    let eqmap = _all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
+    let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
+    let eqmap = _all_eqs in_sys sys enter_nodes in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
     let (_, test) = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
   ) with
@@ -1736,7 +1756,7 @@ let ivc_uc in_sys ?(approximate=false) sys props =
     KEvent.log L_error "Properties are not k-inductive." ;
     None
   | InitTransMismatch (i,t) ->
-    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
+    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
     None
 
 (* ---------- MUST SET ---------- *)
@@ -1821,15 +1841,15 @@ let must_set_ in_sys ?(os_invs=None) check_ts sys props enter_nodes eqmap_keep e
 let must_set in_sys param analyze sys props =
   try (
     let props = ivc_props sys props in
-    let enter_nodes = Flags.IVC.ivc_enter_nodes () in
+    let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
     let (keep', _) = must_set_ in_sys check_ts sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys props (lstmap_union keep keep'))
   ) with
   | InitTransMismatch (i,t) ->
-    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
+    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
     None
   | CannotProve ->
     KEvent.log L_error "Cannot prove the properties." ;
@@ -1914,10 +1934,11 @@ let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   end
 
 (** Compute the MUST set and then call IVC_BF if needed *)
-let ivc_must_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
+let ivc_must_bf_ must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   let prop_names = props_names props in
 
   let (keep', test) = must_set_ in_sys ~os_invs:(Some os_invs) check_ts sys props enter_nodes keep test in
+  must_cont keep' ;
   let keep = lstmap_union keep keep' in
   if check_core check_ts sys prop_names enter_nodes keep
   then (
@@ -1930,32 +1951,36 @@ let ivc_must_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
     |> lstmap_union keep'
   )
 
-let ivc_bf in_sys ?(use_must_set=false) param analyze sys props =
+let ivc_bf in_sys ?(use_must_set=None) param analyze sys props =
   try (
-    let ivc_bf_ = if use_must_set then ivc_must_bf_ else ivc_bf_ in
     let props = ivc_props sys props in
-    let enter_nodes = Flags.IVC.ivc_enter_nodes () in
+    let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
+    let ivc_bf_ = match use_must_set with
+    | Some f -> (fun x -> x |> lstmap_union keep |> eqmap_to_ivc in_sys props |> f) |> ivc_must_bf_
+    | None -> ivc_bf_ in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
     let test = ivc_bf_ in_sys check_ts sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
   ) with
   | InitTransMismatch (i,t) ->
-    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
+    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
     None
   | CannotProve ->
     KEvent.log L_error "Cannot prove the properties." ;
     None
 
 (** Implements the algorithm IVC_UCBF *)
-let ivc_ucbf in_sys ?(use_must_set=false) param analyze sys props =
+let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
   try (
-    let ivc_bf_ = if use_must_set then ivc_must_bf_ else ivc_bf_ in
     let props = ivc_props sys props in
-    let enter_nodes = Flags.IVC.ivc_enter_nodes () in
+    let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
+    let ivc_bf_ = match use_must_set with
+    | Some f -> (fun x -> x |> lstmap_union keep |> eqmap_to_ivc in_sys props |> f) |> ivc_must_bf_
+    | None -> ivc_bf_ in
     let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep test in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
     let test = ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
@@ -1965,7 +1990,7 @@ let ivc_ucbf in_sys ?(use_must_set=false) param analyze sys props =
     KEvent.log L_error "Properties are not k-inductive." ;
     None
   | InitTransMismatch (i,t) ->
-    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
+    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
     None
   | CannotProve ->
     KEvent.log L_error "Cannot prove the properties." ;
@@ -2031,7 +2056,8 @@ let block_down map actsvs s =
 
 type unexplored_type = | Any | Min | Max
 
-let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_test =
+let umivc_ in_sys make_check_ts sys props k enter_nodes
+  ?(stop_after=0) cont eqmap_keep eqmap_test =
   let prop_names = props_names props in
   (*let sys_original = sys in*)
   let (sys_cs, check_ts_cs) = make_check_ts sys in
@@ -2209,8 +2235,13 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_te
           (* Save and Block up *)
           let mivc_eqmap = core_to_eqmap mivc in
           cont mivc_eqmap ;
-          block_up (actsvs_of_core mivc) ;
-          next (mivc_eqmap::acc)
+          let new_acc = mivc_eqmap::acc in
+          if List.length new_acc = stop_after
+          then new_acc
+          else (
+            block_up (actsvs_of_core mivc) ;
+            next new_acc
+          )
         ) else (
           (* Implements grow(seed) using MCS computation *)
           let mua = if typ = Max then seed
@@ -2230,11 +2261,13 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes cont eqmap_keep eqmap_te
     all_mivc
   )
 
-let must_umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test =
+let must_umivc_ must_cont in_sys make_check_ts sys props k enter_nodes
+  ?(stop_after=0) cont keep test =
   let prop_names = props_names props in
   let (sys', check_ts') = make_check_ts sys in
 
   let (keep', test) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
+  must_cont keep' ;
   let keep = lstmap_union keep keep' in
   if check_core check_ts' sys' prop_names enter_nodes keep
   then (
@@ -2246,19 +2279,21 @@ let must_umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test =
     KEvent.log L_info "MUST set is not a valid IVC. Running UMIVC..." ;
     let post core = lstmap_union core keep' in
     let cont core = core |> post |> cont in
-    umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test
+    umivc_ in_sys make_check_ts sys props k enter_nodes ~stop_after cont keep test
     |> List.map post
   )
 
 
 (** Implements the algorithm UMIVC. *)
-let umivc in_sys ?(use_must_set=false) param analyze sys props k cont =
+let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k cont =
   try (
-    let umivc_ = if use_must_set then must_umivc_ else umivc_ in
     let props = ivc_props sys props in
-    let enter_nodes = (Flags.IVC.ivc_enter_nodes ()) in
+    let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_elements ()) eqmap in
+    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
+    let umivc_ = match use_must_set with
+      | Some f -> (fun x -> x |> lstmap_union keep |> eqmap_to_ivc in_sys props |> f) |> must_umivc_
+      | None -> umivc_ in
     let res = ref [] in
     let cont test =
       let ivc = eqmap_to_ivc in_sys props (lstmap_union keep test) in
@@ -2266,14 +2301,14 @@ let umivc in_sys ?(use_must_set=false) param analyze sys props k cont =
       cont ivc
     in
     let make_check_ts = make_check_ts in_sys param analyze in
-    let _ = umivc_ in_sys make_check_ts sys props k enter_nodes cont keep test in
+    let _ = umivc_ in_sys make_check_ts sys props k enter_nodes ~stop_after cont keep test in
     List.rev (!res)
   ) with
   | NotKInductive ->
     KEvent.log L_error "Properties are not k-inductive." ;
     []
   | InitTransMismatch (i,t) ->
-    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
+    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
     []
   | CannotProve ->
     KEvent.log L_error "Cannot prove the properties." ;
@@ -2285,7 +2320,7 @@ type mua = ((Property.t list * (StateVar.t * Model.value list) list) * loc_equat
 
 let properties_of_interest_for_mua sys =
   (*
-  let ignore_valid_props = Flags.MCS.mcs_elements () |> List.for_all (fun x -> x = `WEAK_ASS)
+  let ignore_valid_props = Flags.MCS.mcs_category () |> List.for_all (fun x -> x = `WEAK_ASS)
   in extract_props sys (not ignore_valid_props) true
   *)
   extract_props sys ~can_be_unknown:true true true
@@ -2349,8 +2384,8 @@ let mua in_sys param analyze sys props all =
     | None -> properties_of_interest_for_mua sys
     | Some props -> props
     in
-    let enter_nodes = (Flags.MCS.mcs_enter_nodes ()) in
-    let elements = (Flags.MCS.mcs_elements ()) in
+    let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
+    let elements = (Flags.MCS.mcs_category ()) in
     let include_weak_ass = List.mem `WEAK_ASS elements in
     let eqmap = _all_eqs ~include_weak_ass in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys elements eqmap in
@@ -2364,7 +2399,7 @@ let mua in_sys param analyze sys props all =
     ) res
   ) with
   | InitTransMismatch (i,t) ->
-    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)\n" i t ;
+    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
     []
   | CannotProve ->
     KEvent.log L_error "Cannot prove the properties." ;

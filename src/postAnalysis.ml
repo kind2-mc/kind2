@@ -580,7 +580,7 @@ module RunIVC: PostAnalysis = struct
 
         let nb = ref 0 in
         let time = ref (Unix.gettimeofday ()) in
-        let initial = Ivc.all_eqs in_sys sys (Flags.IVC.ivc_enter_nodes ()) in
+        let initial = Ivc.all_eqs in_sys sys (Flags.IVC.ivc_only_main_node () |> not) in
 
         let props =
           if Flags.IVC.ivc_per_property ()
@@ -591,34 +591,50 @@ module RunIVC: PostAnalysis = struct
         let treat_props props =
           if List.length props > 0
           then begin
-            let treat_ivc ivc =
+            let use_umivc = Flags.IVC.ivc_all () || Flags.IVC.ivc_smallest_first () in
+            let stop_after = if Flags.IVC.ivc_all () then 0 else 1 in
+            let k =
+              if Flags.IVC.ivc_smallest_first ()
+              then -1
+              else Flags.IVC.ivc_precomputed_mcs ()
+            in
+
+            let treat_ivc is_must_set ivc =
 
               let ntime = Unix.gettimeofday () in
-              let elapsed = Some (ntime -. !time) in
+              let elapsed = ntime -. !time in
               time := ntime ;
+
+              KEvent.log_with_tag L_warn Pretty.success_tag
+                (Format.asprintf "%s generated after %.3fs."
+                (if use_umivc || not (Flags.IVC.ivc_approximate ())
+                then "Minimal IVC" else "Approximate minimal IVC") elapsed) ;
+
+              let pt = Ivc.pp_print_core_data in_sys param sys in
+              let xml = Ivc.pp_print_core_data_xml in_sys param sys in
+              let json fmt = Format.fprintf fmt ",\n%a"
+                (Ivc.pp_print_core_data_json in_sys param sys) in
 
               if Flags.IVC.print_ivc ()
               then begin
-                let pt = Ivc.pp_print_ivc ~time:elapsed in_sys sys "CORE" in
-                let xml = Ivc.pp_print_ivc_xml ~time:elapsed in_sys sys "core" in
-                let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json ~time:elapsed in_sys sys "core") in
                 let (_,filtered_ivc) = Ivc.separate_ivc_by_category ivc in
-                KEvent.log_result pt xml json filtered_ivc
+                let cpd = Ivc.ivc_to_print_data in_sys sys false filtered_ivc in
+                let cpd = { cpd with time=Some elapsed } in
+                let cpd = if is_must_set then { cpd with core_class="must" } else cpd in
+                KEvent.log_result pt xml json cpd
               end ;
 
               if Flags.IVC.print_ivc_compl ()
               then begin
-                let not_ivc =
-                  Ivc.complement_of_core (snd initial) (snd ivc)
-                in
-                let pt = Ivc.pp_print_ivc ~time:elapsed in_sys sys "COMPLEMENT" in
-                let xml = Ivc.pp_print_ivc_xml ~time:elapsed in_sys sys "complement" in
-                let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_ivc_json ~time:elapsed in_sys sys "complement") in
+                let not_ivc = Ivc.complement_of_core (snd initial) (snd ivc) in
                 let (_,filtered_not_ivc) = Ivc.separate_ivc_by_category (fst ivc, not_ivc) in
-                KEvent.log_result pt xml json filtered_not_ivc
+                let cpd = Ivc.ivc_to_print_data in_sys sys true filtered_not_ivc in
+                let cpd = { cpd with time=Some elapsed } in
+                let cpd = if is_must_set then { cpd with core_class="must complement" } else cpd in
+                KEvent.log_result pt xml json cpd
               end ;
 
-              if Flags.IVC.minimize_program () <> `DO_NOT_MINIMIZE
+              if Flags.IVC.minimize_program () <> `DO_NOT_MINIMIZE && not is_must_set
               then begin
                 let minimized =
                   ISys.lustre_source_ast in_sys
@@ -643,22 +659,29 @@ module RunIVC: PostAnalysis = struct
                 close_out oc
               end ;
 
-              nb := !nb + 1
+              if not is_must_set then nb := !nb + 1
+            in
+
+            let use_must_set =
+              if Flags.IVC.ivc_must_set ()
+              then Some (treat_ivc true)
+              else if Flags.IVC.ivc_all ()
+              then Some (fun _ -> ())
+              else None
             in
 
             let treat_and_return_lst = function
               | None -> []
-              | Some e -> treat_ivc e ; [e] in
-            let use_must_set = Flags.IVC.ivc_compute_must_set_first () in
-            let res = match Flags.IVC.ivc_impl () with
-              | `IVC_UC -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:false sys (Some props))
-              | `IVC_AUC -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:true sys (Some props))
-              | `IVC_BF -> treat_and_return_lst (Ivc.ivc_bf in_sys ~use_must_set param analyze sys (Some props))
-              | `MUST -> treat_and_return_lst (Ivc.must_set in_sys param analyze sys (Some props))
-              | `IVC_UCBF -> treat_and_return_lst (Ivc.ivc_ucbf in_sys ~use_must_set param analyze sys (Some props))
-              | `UMIVC -> Ivc.umivc in_sys ~use_must_set param analyze sys (Some props) (Flags.IVC.ivc_umivc_k ()) treat_ivc
+              | Some e -> treat_ivc false e ; [e] in
+            let res = match (use_umivc, Flags.IVC.ivc_approximate ()) with
+              | (false, true) -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:false sys (Some props))
+              | (false, false) -> treat_and_return_lst (Ivc.ivc_ucbf in_sys ~use_must_set param analyze sys (Some props))
+              | (true, _) -> Ivc.umivc in_sys ~use_must_set ~stop_after param analyze sys (Some props) k (treat_ivc false)
             in
-            KEvent.log_uncond "Number of minimal IVCs found: %n" (List.length res) ;
+            if Flags.IVC.ivc_all ()
+            then
+              KEvent.log_with_tag L_note Pretty.note_tag
+                (Format.asprintf "Number of minimal IVCs found: %n" (List.length res))
           end
         in
         List.iter treat_props props ;
@@ -681,13 +704,14 @@ end
 
 let run_mcs_post_analysis in_sys param analyze sys =
   try (
-    let include_weak_ass = List.mem `WEAK_ASS (Flags.MCS.mcs_elements ()) in
-    let initial = Ivc.all_eqs ~include_weak_ass in_sys sys (Flags.MCS.mcs_enter_nodes ()) in
+    let include_weak_ass = List.mem `WEAK_ASS (Flags.MCS.mcs_category ()) in
+    let initial = Ivc.all_eqs ~include_weak_ass in_sys sys (Flags.MCS.mcs_only_main_node () |> not) in
     let props =
       if Flags.MCS.mcs_per_property ()
       then List.map (fun x -> [x]) (Ivc.properties_of_interest_for_mua sys)
       else [Ivc.properties_of_interest_for_mua sys]
     in
+    let time = ref (Unix.gettimeofday ()) in
     
     let treat_props props =
 
@@ -695,38 +719,50 @@ let run_mcs_post_analysis in_sys param analyze sys =
       then begin
         let treat_mua mua =
 
-          let not_mua =
-            Ivc.complement_of_core (snd initial) (snd mua)
-          in
+          let ntime = Unix.gettimeofday () in
+          let elapsed = ntime -. !time in
+          time := ntime ;
+
+          KEvent.log_with_tag L_warn Pretty.success_tag
+            (Format.asprintf "Minimal Correction Set generated after %.3fs." elapsed) ;
+
+          let not_mua = Ivc.complement_of_core (snd initial) (snd mua) in
           let not_mua = (fst mua, not_mua) in
 
           if Flags.MCS.print_mcs_legacy ()
           then begin
             Ivc.pp_print_mcs_legacy in_sys param sys not_mua mua
           end else begin
+
+            let pt = Ivc.pp_print_core_data in_sys param sys in
+            let xml = Ivc.pp_print_core_data_xml in_sys param sys in
+            let json fmt = Format.fprintf fmt ",\n%a"
+              (Ivc.pp_print_core_data_json in_sys param sys) in
+
             if Flags.MCS.print_mcs ()
             then begin
-              let pt = Ivc.pp_print_mcs in_sys param sys "CORE" in
-              let xml = Ivc.pp_print_mcs_xml in_sys param sys "core" in
-              let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mcs_json in_sys param sys "core") in
-              let (_,filtered_not_mua) = Ivc.separate_mua_by_category not_mua in
-              KEvent.log_result pt xml json filtered_not_mua
+              let (_,filtered_mcs) = Ivc.separate_mua_by_category not_mua in
+              let cpd = Ivc.mcs_to_print_data in_sys sys false filtered_mcs in
+              let cpd = { cpd with time=Some elapsed } in
+              KEvent.log_result pt xml json cpd
             end ;
 
             if Flags.MCS.print_mcs_compl ()
             then begin
-              let pt = Ivc.pp_print_mcs in_sys param sys "COMPLEMENT" in
-              let xml = Ivc.pp_print_mcs_xml in_sys param sys "complement" in
-              let json fmt = Format.fprintf fmt ",\n%a" (Ivc.pp_print_mcs_json in_sys param sys "complement") in
               let (_,filtered_mua) = Ivc.separate_mua_by_category mua in
-              KEvent.log_result pt xml json filtered_mua
+              let cpd = Ivc.mcs_to_print_data in_sys sys true filtered_mua in
+              let cpd = { cpd with time=Some elapsed } in
+              KEvent.log_result pt xml json cpd
             end
           end
         in
 
         let res = Ivc.mua in_sys param analyze sys (Some props) (Flags.MCS.mcs_all ()) in
         List.iter treat_mua res ;
-        KEvent.log_uncond "Number of MCS found: %n" (List.length res)
+        if Flags.MCS.mcs_all ()
+        then
+          KEvent.log_with_tag L_note Pretty.note_tag
+            (Format.asprintf "Number of MCS found: %n" (List.length res))
       end
     in
     List.iter treat_props props ;
@@ -738,6 +774,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
       "An error occured:@ %s"
       (Printexc.to_string e)
   )
+
 
 (** Maximal Unsafe Abstraction computation *)
 module RunMCS: PostAnalysis = struct
