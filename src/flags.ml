@@ -1409,7 +1409,7 @@ module MCS = struct
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
 
-  let compute_mcs_default = false
+  (*let compute_mcs_default = false
   let compute_mcs = ref compute_mcs_default
   let _ = add_spec
     "--mcs"
@@ -1422,7 +1422,8 @@ module MCS = struct
         "
         fmt_bool compute_mcs_default
     )
-  let compute_mcs () = !compute_mcs
+  let compute_mcs () = !compute_mcs*)
+  let compute_mcs () = false
 
   type mcs_element =
     [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `UNKNOWN | `WEAK_ASS ]
