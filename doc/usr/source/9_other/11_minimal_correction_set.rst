@@ -18,6 +18,7 @@ Options
 * ``--mcs_category {weak_assumptions|node_calls|contracts|equations|assertions}`` (default: weak_assumptions) -- Consider only a specific category of elements, repeat option to consider multiple categories
 * ``--mcs_only_main_node <bool>`` (default ``false``\ ) -- Compute a MCS over the elements of the main node only
 * ``--mcs_all <bool>`` (default ``false``\ ) -- Specify whether all the Minimal Correction Sets must be computed or just one
+* ``--mcs_max_cardinality <int>`` (default ``0``\ ) -- Only search for MCS of cardinality lower or equal to this parameter. If ``0``, all cardinalities will be considered
 * ``--mcs_per_property <bool>`` (default ``true``\ ) -- If true, MCS will be computed for each property separately
 * ``--print_mcs <bool>`` (default ``true``\ ) -- Print the minimal correction set computed
 * ``--print_mcs_complement <bool>`` (default ``false``\ ) -- Print the complement of the minimal correction set computed (this is equivalent to computing a Maximal Unsafe Abstraction)

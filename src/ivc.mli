@@ -142,6 +142,7 @@ val mua :
   ) ->
   TransSys.t ->
   Property.t list option ->
+  ?max_mcs_cardinality:int ->
   bool -> (* Compute them all? *)
   mua list
 

@@ -500,6 +500,9 @@ module MCS : sig
   (** Specify on which elements we want to minimize *)
   val mcs_category : unit -> mcs_element list
 
+  (** Only search for MCS of cardinality lower or equal to this parameter *)
+  val mcs_max_cardinality : unit -> int
+
   (** Print the equations of the computed MCS *)
   val print_mcs : unit -> bool
 

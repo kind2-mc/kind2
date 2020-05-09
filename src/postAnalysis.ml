@@ -757,7 +757,9 @@ let run_mcs_post_analysis in_sys param analyze sys =
           end
         in
 
-        let res = Ivc.mua in_sys param analyze sys (Some props) (Flags.MCS.mcs_all ()) in
+        let max_mcs_cardinality = Flags.MCS.mcs_max_cardinality () in
+        let mcs_all = Flags.MCS.mcs_all () in
+        let res = Ivc.mua in_sys param analyze sys (Some props) ~max_mcs_cardinality mcs_all in
         List.iter treat_mua res ;
         if Flags.MCS.mcs_all ()
         then

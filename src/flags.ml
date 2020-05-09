@@ -1517,6 +1517,23 @@ module MCS = struct
   let mcs_all () = !mcs_all
 
 
+  let mcs_max_cardinality_default = 0
+  let mcs_max_cardinality = ref mcs_max_cardinality_default
+  let _ = add_spec
+    "--mcs_max_cardinality"
+    (Arg.Set_int mcs_max_cardinality)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Only search for MCS of cardinality lower or equal to this parameter.@ \
+          If 0, all cardinalities will be considered.@ \
+          Default: %n\
+        "
+        mcs_max_cardinality_default
+    )
+  let mcs_max_cardinality () = !mcs_max_cardinality
+
+
   let print_mcs_default = true
   let print_mcs = ref print_mcs_default
   let _ = add_spec
