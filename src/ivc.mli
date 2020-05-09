@@ -124,7 +124,7 @@ val properties_of_interest_for_ivc : TransSys.t -> Property.t list
 
 (* ----- MAXIMAL UNSAFE ABSTRACTIONS  MINIMAL CORRECTION SETS ----- *)
 
-type mua = ((Property.t list * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
+type mua = ((Property.t * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
 
 (** Separate a MUA into two MUA, the second one containing elements from the categories selected
     by the user, and the first one containing the others elements *)

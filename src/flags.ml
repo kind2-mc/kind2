@@ -1559,7 +1559,6 @@ module MCS = struct
       Format.fprintf fmt
         "\
           Print the minimal correction set using the legacy format@ \
-          (only available if --mcs_per_property is true)@ \
           Default: %a\
         "
         fmt_bool print_mcs_legacy_default

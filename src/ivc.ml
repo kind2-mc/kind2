@@ -212,15 +212,11 @@ let ivc_to_print_data in_sys sys is_compl (_,ivc) =
     size = scmap_size elements ;
   }
 
-let mcs_to_print_data in_sys sys is_compl ((props, cex),mcs) =
+let mcs_to_print_data in_sys sys is_compl ((prop, cex), mcs) =
   let core_class =
     if is_compl then "mcs complement" else "mcs"
   in
-  let property =
-    match props with
-    | [{ Property.prop_name = n }] -> Some n
-    | _ -> None
-  in
+  let property = Some prop.Property.prop_name in
   let elements = printable_elements_of_core in_sys sys mcs in
   {
     core_class ;
@@ -231,7 +227,7 @@ let mcs_to_print_data in_sys sys is_compl ((props, cex),mcs) =
     size = scmap_size elements ;
   }
 
-let print_mcs_counterexample in_sys param sys typ fmt (prop,cex) =
+let print_mcs_counterexample in_sys param sys typ fmt (prop, cex) =
   try
     if Flags.MCS.print_mcs_counterexample ()
     then
@@ -378,22 +374,20 @@ let all_wa_names_of_mcs scmap =
   )
   scmap []
 
-let pp_print_mcs_legacy in_sys param sys ((props, cex), mcs) (_, mcs_compl) =
-  match props with
-  | [] | _::_::_ -> KEvent.log L_error "Legacy printing for MCS only support one property at a time."
-  | [{Property.prop_name}] ->
-    let sys = TS.copy sys in
-    let wa_model =
-      all_wa_names_of_mcs mcs_compl
-      |>  List.map (fun str -> (str, true))
-    in
-    let wa_model' =
-        all_wa_names_of_mcs mcs
-      |>  List.map (fun str -> (str, false))
-    in
-    TS.force_set_prop_unknown sys prop_name ;
-    let wa_model = wa_model@wa_model' in
-    KEvent.cex_wam cex wa_model in_sys param sys prop_name
+let pp_print_mcs_legacy in_sys param sys ((prop, cex), mcs) (_, mcs_compl) =
+  let prop_name = prop.Property.prop_name in
+  let sys = TS.copy sys in
+  let wa_model =
+    all_wa_names_of_mcs mcs_compl
+    |>  List.map (fun str -> (str, true))
+  in
+  let wa_model' =
+      all_wa_names_of_mcs mcs
+    |>  List.map (fun str -> (str, false))
+  in
+  TS.force_set_prop_unknown sys prop_name ;
+  let wa_model = wa_model@wa_model' in
+  KEvent.cex_wam cex wa_model in_sys param sys prop_name
 
 (* ---------- LUSTRE AST ---------- *)
 
@@ -1029,9 +1023,9 @@ let separate_ivc_by_category (props, ivc) =
   let (ivc1, ivc2) = separate_scmap (separate_loc_eqs_by_category (Flags.IVC.ivc_category ())) ivc
   in (props, ivc1), (props, ivc2)
 
-let separate_mua_by_category (props, mua) =
+let separate_mua_by_category (prop, mua) =
   let (mua1, mua2) = separate_scmap (separate_loc_eqs_by_category (Flags.MCS.mcs_category ())) mua
-  in (props, mua1), (props, mua2)
+  in (prop, mua1), (prop, mua2)
 
 type eqmap = (equation list) ScMap.t
 
@@ -2318,7 +2312,7 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
 
 (* ---------- MAXIMAL UNSAFE ABSTRACTIONS ---------- *)
 
-type mua = ((Property.t list * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
+type mua = ((Property.t * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
 
 let properties_of_interest_for_mua sys =
   (*
@@ -2399,7 +2393,7 @@ let mua in_sys param analyze sys props all =
     let res = mua_ in_sys check_ts sys props all enter_nodes keep test in
     List.map (
       fun (test, (prop,cex)) ->
-      eqmap_to_ivc in_sys ([TS.property_of_name sys prop], cex) (lstmap_union keep test)
+      eqmap_to_ivc in_sys (TS.property_of_name sys prop, cex) (lstmap_union keep test)
     ) res
   ) with
   | InitTransMismatch (i,t) ->

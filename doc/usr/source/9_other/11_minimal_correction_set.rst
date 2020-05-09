@@ -21,7 +21,7 @@ Options
 * ``--mcs_per_property <bool>`` (default ``true``\ ) -- If true, MCS will be computed for each property separately
 * ``--print_mcs <bool>`` (default ``true``\ ) -- Print the minimal correction set computed
 * ``--print_mcs_complement <bool>`` (default ``false``\ ) -- Print the complement of the minimal correction set computed (this is equivalent to computing a Maximal Unsafe Abstraction)
-* ``--print_mcs_legacy <bool>`` (default ``false``\ ) -- Print the minimal correction set using the legacy format (only available if ``--mcs_per_property`` is true)
+* ``--print_mcs_legacy <bool>`` (default ``false``\ ) -- Print the minimal correction set using the legacy format
 * ``--print_mcs_counterexample <bool>`` (default ``false``\ ) -- Print a counterexample for each MCS found (ignored if ``--print_mcs_legacy`` is true)
 
 Example
