@@ -83,6 +83,8 @@ val shrink_info_to_sys: info -> TransSys.t -> info
 
 (** Parameter of an analysis. *)
 type param =
+  (** Simulation of a system *)
+  | Interpreter of info
   (** Analysis of the contract of a system. *)
   | ContractCheck of info
   (** First analysis of a system. *)

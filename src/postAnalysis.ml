@@ -82,6 +82,11 @@ module RunTestGen: PostAnalysis = struct
     let top = TSys.scope_of_trans_sys sys in
 
     match param with
+    | Analysis.Interpreter _ -> Err (
+      fun fmt ->
+        Format.fprintf fmt
+          "%t@ Test generation is not compatible with interpreter mode." (head sys)
+    )
     (* Contract check, node must be abstract. *)
     | Analysis.ContractCheck _ -> Err (
       fun fmt ->
@@ -145,18 +150,7 @@ module RunTestGen: PostAnalysis = struct
         mk_dir target ;
 
         (* Tweak analysis uid to avoid clashes with future analyses. *)
-        let param = match param with
-          | Analysis.ContractCheck info -> Analysis.ContractCheck {
-            info with Analysis.uid = Analysis.get_uid ()
-          }
-          | Analysis.First info -> Analysis.First {
-            info with Analysis.uid = Analysis.get_uid ()
-          }
-          | Analysis.Refinement (info, res) -> Analysis.Refinement (
-            { info with Analysis.uid = Analysis.get_uid () },
-            res
-          )
-        in
+        let param = Analysis.param_clone param in
 
         (* Extracting transition system. *)
         let sys, input_sys_sliced =

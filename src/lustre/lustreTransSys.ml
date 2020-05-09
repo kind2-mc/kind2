@@ -1774,9 +1774,15 @@ let rec trans_sys_of_node'
             | None -> [], []
             | Some contract ->
 
+              let interpreter_mode =
+                match analysis_param with
+                | A.Interpreter _ -> true
+                | _ -> false
+              in
+
               (* Add requirements to invariants if node is the top node *)
               let contract_asserts, properties = 
-                if I.equal node_name top_name then
+                if I.equal node_name top_name && not interpreter_mode then
                   (* Node is top, forcing contract assumption. *)
                   [ assumption_of_contract contract ],
                   (* Add property for completeness of modes if top node is
@@ -2222,6 +2228,7 @@ let trans_sys_of_nodes
 
      Contracts would be trivially satisfied otherwise *)
   ( match analysis_param with
+    | A.Interpreter _
     | A.ContractCheck _ -> ()
     | _ -> if A.param_scope_is_abstract analysis_param top then raise (
       Invalid_argument

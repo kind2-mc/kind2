@@ -83,6 +83,8 @@ let shrink_info_to_sys ({ abstraction_map } as info) sys =
 
 (** Parameter of an analysis. *)
 type param =
+  (* Simulation of a system *)
+  | Interpreter of info
   (* Analysis of the contract of a system. *)
   | ContractCheck of info
   (* First analysis of a system. *)
@@ -118,18 +120,21 @@ let info_clone info = { info with uid = get_uid () }
 
 (* Clones a [param], only changes its [uid]. *)
 let param_clone = function
+| Interpreter info -> Interpreter (info_clone info)
 | ContractCheck info -> ContractCheck (info_clone info)
 | First info -> First (info_clone info)
 | Refinement (info, res) -> Refinement (info_clone info, res)
 
 (* The info or a param. *)
 let info_of_param = function
+| Interpreter info -> info
 | ContractCheck info -> info
 | First info -> info
 | Refinement (info,_) -> info
 
 (** Shrinks a param to a system. *)
 let shrink_param_to_sys param sys = match param with
+| Interpreter info -> Interpreter (shrink_info_to_sys info sys)
 | ContractCheck info -> ContractCheck (shrink_info_to_sys info sys)
 | First info -> First (shrink_info_to_sys info sys)
 | Refinement (info, res) -> Refinement ( (shrink_info_to_sys info sys), res )
@@ -281,6 +286,7 @@ let pp_print_param verbose fmt param =
   in
   Format.fprintf fmt "%s @[<v>top: '%a'%a%a@]"
     ( match param with
+      | Interpreter _ -> "Interpreter"
       | ContractCheck _ -> "ContractCheck"
       | First _ -> "First"
       | Refinement _ -> "Refinement")
@@ -344,6 +350,7 @@ let split_properties_nocands sys =
 let pp_print_param_of_result fmt { param ; sys } =
   let param = shrink_param_to_sys param sys in
   match param with
+  | Interpreter _ -> Format.fprintf fmt "simulating system"
   | ContractCheck _ -> Format.fprintf fmt "checking mode exhaustiveness"
   | First { abstraction_map } ->
     let count =
