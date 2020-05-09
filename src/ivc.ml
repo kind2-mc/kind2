@@ -1348,48 +1348,48 @@ let compute_all_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test 
   in
   aux [] already_found
 
-let default_cex = ("", [])
 let compute_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test =
   KEvent.log L_info "Computing a MCS using automated debugging..." ;
   let n = core_size test in
   (* Increasing cardinality... *)
   (*let rec aux k =
-    if k < n
+    if k <= n
     then
       match compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k [] with
       | None -> aux (k+1)
-      | Some res -> res
-    else (test, default_cex)
+      | Some res -> Some res
+    else None
   in
-  aux 1*)
+  aux 0*)
   (* Decreasing cardinality... *)
   let rec aux k previous_res =
-    if k >= 1
+    if k >= 0
     then
       match compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k [] with
       | None -> previous_res
-      | Some res -> aux (k-1) res
+      | Some res -> aux (k-1) (Some res)
     else previous_res
   in
-  aux (n-1) (test, default_cex)
+  aux n None
 
 let compute_all_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test =
   KEvent.log L_info "Computing all MCS using automated debugging..." ;
   let n = core_size test in
-  let (res, res_cex) = compute_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test in
-  let k = core_size res in
-  let rec aux acc already_found k =
-    if k < n
-    then
-      let (new_mcs, cex) = compute_all_cs
-        check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found
-        |> List.split in
-      let already_found = (List.map actsvs_of_core new_mcs)@already_found in
-      aux ((List.combine new_mcs cex)@acc) already_found (k+1)
-    else if acc = [] then [(test, default_cex)]
-    else acc
-  in
-  aux [(res, res_cex)] [actsvs_of_core res] k
+  match compute_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test with
+  | None -> []
+  | Some (res, res_cex) ->
+    let k = core_size res in
+    let rec aux acc already_found k =
+      if k < n
+      then
+        let (new_mcs, cex) = compute_all_cs
+          check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found
+          |> List.split in
+        let already_found = (List.map actsvs_of_core new_mcs)@already_found in
+        aux ((List.combine new_mcs cex)@acc) already_found (k+1)
+      else acc
+    in
+    aux [(res, res_cex)] [actsvs_of_core res] k
 
 (* ---------- IVC_UC ---------- *)
 
@@ -2124,7 +2124,9 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes
     let block_up = block_up map actsvs in
     let block_down = block_down map actsvs in
     let compute_mcs = compute_mcs check_ts_cs sys_cs prop_names enter_nodes actsvs_eqs_map in
-    let compute_mcs k t = fst (compute_mcs k t) in
+    let compute_mcs k t = match compute_mcs k t with
+      | None -> assert false (* Should always be called on UNSAFE models *)
+      | Some (r, _) -> r in
     let compute_all_cs = compute_all_cs check_ts_cs sys_cs prop_names enter_nodes actsvs_eqs_map in
     let compute_all_cs k t i af = List.map fst (compute_all_cs k t i af) in
     let eqmap_keep = core_to_eqmap keep in
@@ -2372,7 +2374,11 @@ let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes eqmap_keep eqma
   let compute_all_mcs = compute_all_mcs check_ts sys prop_names enter_nodes actsvs_eqs_map in
 
   let mcs =
-    if all then compute_all_mcs keep test else [compute_mcs keep test]
+    if all then compute_all_mcs keep test
+    else
+      match compute_mcs keep test with
+      | None -> []
+      | Some res -> [res]
   in
   mcs |> List.map (fun (core, (prop,cex)) -> (core_diff test core |> core_to_eqmap, (prop,cex)))
 
@@ -2393,9 +2399,7 @@ let mua in_sys param analyze sys props all =
     let res = mua_ in_sys check_ts sys props all enter_nodes keep test in
     List.map (
       fun (test, (prop,cex)) ->
-      if (prop, cex) <> default_cex
-      then eqmap_to_ivc in_sys ([TS.property_of_name sys prop], cex) (lstmap_union keep test)
-      else eqmap_to_ivc in_sys (props, cex) (lstmap_union keep test)
+      eqmap_to_ivc in_sys ([TS.property_of_name sys prop], cex) (lstmap_union keep test)
     ) res
   ) with
   | InitTransMismatch (i,t) ->
