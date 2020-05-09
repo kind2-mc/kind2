@@ -2044,7 +2044,7 @@ module Global = struct
   let only_parse = ref only_parse_default
   let _ = add_spec
     "--only_parse"
-    (Arg.Set only_parse)
+    (bool_arg only_parse)
     (fun fmt ->
       Format.fprintf fmt
         "\
@@ -2412,7 +2412,7 @@ module Global = struct
   let _ = add_spec
     "--"
     (Arg.Set only_filename)
-    (fun fmt -> Format.fprintf fmt "What follows on the command line is\
+    (fun fmt -> Format.fprintf fmt "What follows on the command line is \
                                     a file name.")
 
 end
