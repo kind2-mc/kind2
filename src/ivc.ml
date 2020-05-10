@@ -964,7 +964,7 @@ let extract_toplevel_equations ?(include_weak_ass=false) in_sys sys =
       let init_wa =
         TS.get_weak_assumptions_of_bound sys TS.init_base in
       let trans_wa =
-        TS.get_weak_assumptions_of_bound sys TS.init_base in
+        TS.get_weak_assumptions_of_bound sys TS.trans_base in
       (init@init_wa, trans@trans_wa)
     else (init, trans)
   in
