@@ -144,6 +144,7 @@ val mua :
   Property.t list option ->
   ?max_mcs_cardinality:int ->
   bool -> (* Compute them all? *)
+  (mua -> unit) ->
   mua list
 
 (** Returns the names of the properties for which we may be interested in computing a MUA. *)

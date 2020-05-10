@@ -1333,12 +1333,16 @@ let compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k al
     assert (List.length actsvs = k) ;
     Some (filter_core test actsvs, cex)
 
-let compute_all_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found =
+let compute_all_cs check_ts sys prop_names enter_nodes ?(cont=(fun _ -> ()))
+  actsvs_eqs_map keep test k already_found =
+
   let rec aux acc already_found =
     match compute_cs
       check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found with
     | None -> acc
-    | Some (core, cex) -> aux ((core, cex)::acc) (actsvs_of_core core::already_found)
+    | Some (core, cex) ->
+      cont (core, cex) ;
+      aux ((core, cex)::acc) (actsvs_of_core core::already_found)
   in
   aux [] already_found
 
@@ -1371,11 +1375,14 @@ let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality=0) act
   in
   aux n None
 
-let compute_all_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality=0) actsvs_eqs_map keep test =
+let compute_all_mcs check_ts sys prop_names enter_nodes
+  ?(max_mcs_cardinality=0) ?(cont=(fun _ -> ())) actsvs_eqs_map keep test =
+
   KEvent.log L_info "Computing all MCS using automated debugging..." ;
   match compute_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality actsvs_eqs_map keep test with
   | None -> []
   | Some (res, res_cex) ->
+    cont (res, res_cex) ;
     let n = core_size test in
     let n =
       if max_mcs_cardinality > 0 && max_mcs_cardinality < n
@@ -1389,7 +1396,7 @@ let compute_all_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality=0)
          then it will be found by the initial 'compute_mcs' call *)
       then
         let (new_mcs, cex) = compute_all_cs
-          check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found
+          check_ts sys prop_names enter_nodes ~cont actsvs_eqs_map keep test k already_found
           |> List.split in
         let already_found = (List.map actsvs_of_core new_mcs)@already_found in
         aux ((List.combine new_mcs cex)@acc) already_found (k+1)
@@ -2333,7 +2340,7 @@ let properties_of_interest_for_mua sys =
   *)
   extract_props sys ~can_be_unknown:true true true
 
-let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardinality=0) eqmap_keep eqmap_test =
+let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardinality=0) cont eqmap_keep eqmap_test =
   let prop_names = props_names props in
   remove_other_props sys prop_names ;
   add_as_candidate os_invs sys ;
@@ -2376,21 +2383,25 @@ let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardi
   let actsvs = actsvs_of_core test in
   List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
 
+  let cont (core, cex) =
+    (core_diff test core |> core_to_eqmap, cex) |> cont
+  in
+
   let compute_mcs = compute_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality actsvs_eqs_map in
-  let compute_all_mcs = compute_all_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality actsvs_eqs_map in
+  let compute_all_mcs = compute_all_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality ~cont actsvs_eqs_map in
 
   let mcs =
     if all then compute_all_mcs keep test
     else
       match compute_mcs keep test with
       | None -> []
-      | Some res -> [res]
+      | Some res -> cont res ; [res]
   in
-  mcs |> List.map (fun (core, (prop,cex)) -> (core_diff test core |> core_to_eqmap, (prop,cex)))
+  mcs |> List.map (fun (core, cex) -> (core_diff test core |> core_to_eqmap, cex))
 
 (** Compute one/all Maximal Unsafe Abstraction(s) using Automated Debugging
     and duality between MUAs and Minimal Correction Subsets. *)
-let mua in_sys param analyze sys props ?(max_mcs_cardinality=0) all =
+let mua in_sys param analyze sys props ?(max_mcs_cardinality=0) all cont =
   try (
     let props = match props with
     | None -> properties_of_interest_for_mua sys
@@ -2402,11 +2413,14 @@ let mua in_sys param analyze sys props ?(max_mcs_cardinality=0) all =
     let eqmap = _all_eqs ~include_weak_ass in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys elements eqmap in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
-    let res = mua_ in_sys check_ts sys props all enter_nodes ~max_mcs_cardinality keep test in
-    List.map (
-      fun (test, (prop,cex)) ->
-      eqmap_to_ivc in_sys (TS.property_of_name sys prop, cex) (lstmap_union keep test)
-    ) res
+    let res = ref [] in
+    let cont (test, (prop,cex)) =
+      let mua = eqmap_to_ivc in_sys (TS.property_of_name sys prop, cex) (lstmap_union keep test) in
+      res := mua::(!res) ;
+      cont mua
+    in
+    let _ = mua_ in_sys check_ts sys props all enter_nodes ~max_mcs_cardinality cont keep test in
+    List.rev (!res)
   ) with
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;

@@ -759,8 +759,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
 
         let max_mcs_cardinality = Flags.MCS.mcs_max_cardinality () in
         let mcs_all = Flags.MCS.mcs_all () in
-        let res = Ivc.mua in_sys param analyze sys (Some props) ~max_mcs_cardinality mcs_all in
-        List.iter treat_mua res ;
+        let res = Ivc.mua in_sys param analyze sys (Some props) ~max_mcs_cardinality mcs_all treat_mua in
         if Flags.MCS.mcs_all ()
         then
           KEvent.log_with_tag L_note Pretty.note_tag
