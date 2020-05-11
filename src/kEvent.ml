@@ -1422,22 +1422,24 @@ let log_analysis_start sys param =
 (** Logs the end of an analysis.
     [log_analysis_start result] logs the end of an analysis. *)
 let log_analysis_end result =
-  match get_log_format () with
-  | F_pt -> ()
-  | F_xml ->
-    if !analysis_start_not_closed then (
-      (* Closing [analysis] tag. *)
-      Format.fprintf !log_ppf "<AnalysisStop/>@.@." ;
-      analysis_start_not_closed := false
-    ) ;
+  if Flags.log_level () <> L_off then begin
+    match get_log_format () with
+    | F_pt -> ()
+    | F_xml ->
+      if !analysis_start_not_closed then (
+        (* Closing [analysis] tag. *)
+        Format.fprintf !log_ppf "<AnalysisStop/>@.@." ;
+        analysis_start_not_closed := false
+      ) ;
 
-  | F_json ->
-    if !analysis_start_not_closed then (
-      Format.fprintf !log_ppf ",@.{\"objectType\" : \"analysisStop\"}@." ;
-      analysis_start_not_closed := false
-    ) ;
+    | F_json ->
+      if !analysis_start_not_closed then (
+        Format.fprintf !log_ppf ",@.{\"objectType\" : \"analysisStop\"}@." ;
+        analysis_start_not_closed := false
+      ) ;
 
-  | F_relay -> failwith "can only be called by supervisor"
+    | F_relay -> failwith "can only be called by supervisor"
+  end
 
 (** Logs the start of a post-analysis treatment. *)
 let log_post_analysis_start name title =

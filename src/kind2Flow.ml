@@ -557,8 +557,15 @@ let run in_sys =
           ISys.trans_sys_of_analysis
             (*~preserve_sig:true ~slice_nodes:false*) in_sys param
         in
+        KEvent.log_analysis_start sys param ;
+        Stat.start_timer Stat.analysis_time ;
+        
         PostAnalysis.run_mcs_post_analysis in_sys param
-          (analyze msg_setup false) sys |> ignore
+          (analyze msg_setup false) sys |> ignore ;
+
+        Stat.get_float Stat.analysis_time
+        |> Anal.mk_result param sys
+        |> KEvent.log_analysis_end
       in
       List.iter run_mcs params ;
       post_clean_exit `Supervisor Exit

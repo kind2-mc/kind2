@@ -763,7 +763,9 @@ let run_mcs_post_analysis in_sys param analyze sys =
         if Flags.MCS.mcs_all ()
         then
           KEvent.log_with_tag L_note Pretty.note_tag
-            (Format.asprintf "Number of MCS found: %n" (List.length res))
+            (Format.asprintf "Number of MCS found%s: %n"
+            (match props with [{prop_name}] -> " for property "^prop_name | _ -> "")
+            (List.length res))
       end
     in
     List.iter treat_props props ;
