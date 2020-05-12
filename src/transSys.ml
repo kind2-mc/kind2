@@ -145,8 +145,6 @@ type t =
 
     invariants : Invs.t ;
 
-    (** Weak assumptions (for MUA computation) *)
-    weak_ass: StateVar.t list ;
   }
 
 (* ********************************************************************** *)
@@ -531,14 +529,6 @@ let init_trans_open { instance_var_bindings; init; trans } =
 let set_init_trans t init trans =
   t.init <- init ;
   t.trans <- trans
-
-(*  Return the list of the weak assumptions of the node.
-    Each assumption is represented by a tuple (term_open, term_closed).
-    Should be empty if [t] is not the top-level node. *)
-let get_weak_assumptions_of_bound { weak_ass ; instance_var_bindings } i =
-  weak_ass
-  |> List.map (fun sv -> Var.mk_state_var_instance sv i |> Term.mk_var)
-  |> List.map (fun t -> (t, close_term instance_var_bindings t))
 
 (* Return the state variable for the init flag *)
 let init_flag_state_var { init_flag_state_var } = init_flag_state_var
@@ -1556,7 +1546,6 @@ let mk_trans_sys
   properties
   mode_requires
   invariants
-  weak_ass
 =
 
   (* Map instance variables of this system and all subsystems to a
@@ -1725,8 +1714,7 @@ let mk_trans_sys
       properties;
       mode_requires;
       logic;
-      invariants;
-      weak_ass }
+      invariants}
   in
 
   trans_sys, instance_var_id_start'

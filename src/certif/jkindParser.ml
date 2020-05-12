@@ -466,7 +466,7 @@ let of_channel in_ch =
       trans_args
       trans_term
       (* No subsystems, no properties *)
-      [] [] (None, []) (Invs.empty ()) []
+      [] [] (None, []) (Invs.empty ())
   in
 
   sys

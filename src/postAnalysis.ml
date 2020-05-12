@@ -704,8 +704,7 @@ end
 
 let run_mcs_post_analysis in_sys param analyze sys =
   try (
-    let include_weak_ass = List.mem `WEAK_ASS (Flags.MCS.mcs_category ()) in
-    let initial = Ivc.all_eqs ~include_weak_ass in_sys sys (Flags.MCS.mcs_only_main_node () |> not) in
+    let initial = Ivc.all_eqs in_sys sys (Flags.MCS.mcs_only_main_node () |> not) in
     let props =
       if Flags.MCS.mcs_per_property ()
       then List.map (fun x -> [x]) (Ivc.properties_of_interest_for_mua sys)

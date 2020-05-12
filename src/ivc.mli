@@ -31,7 +31,7 @@ val compare_loc : loc -> loc -> int
 (** For a given transition system, returns the full initial inductive validity core
 (not minimized, so that it contains all the equations of the transition system).
 If the third parameter is false, only the top-level node will be explored. *)
-val all_eqs : ?include_weak_ass:bool -> 'a InputSystem.t -> TransSys.t -> bool -> ivc
+val all_eqs : 'a InputSystem.t -> TransSys.t -> bool -> ivc
 
 (** [complement_of_core all_eqs core] returns the complement of [core], with [all_eqs] being
     the set of all the initial equations (can be retrieved using the [all_eqs] function). *)

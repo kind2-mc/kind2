@@ -942,7 +942,7 @@ let rec deconstruct_conj t =
 
 exception InitTransMismatch of int * int
 
-let extract_toplevel_equations ?(include_weak_ass=false) in_sys sys =
+let extract_toplevel_equations in_sys sys =
   let (_,oinit,otrans) = TS.init_trans_open sys in
   let cinit = TS.init_of_bound None sys Numeral.zero
   and ctrans = TS.trans_of_bound None sys Numeral.zero in
@@ -952,17 +952,6 @@ let extract_toplevel_equations ?(include_weak_ass=false) in_sys sys =
   and ctrans = deconstruct_conj ctrans in
   let init = List.combine oinit cinit
   and trans = List.combine otrans ctrans in
-
-  let (init, trans) =
-    if include_weak_ass
-    then
-      let init_wa =
-        TS.get_weak_assumptions_of_bound sys TS.init_base in
-      let trans_wa =
-        TS.get_weak_assumptions_of_bound sys TS.trans_base in
-      (init@init_wa, trans@trans_wa)
-    else (init, trans)
-  in
 
   let mk_map = List.fold_left (fun acc (o,c) ->
     let tid = id_of_term in_sys c in
@@ -990,7 +979,7 @@ let extract_toplevel_equations ?(include_weak_ass=false) in_sys sys =
 let check_loc_eq_category cats (_,_,cat) =
   let cat = match cat with
   | NodeCall _ -> [`NODE_CALL]
-  | ContractItem (_, _, LustreNode.WeakAssumption) -> [`WEAK_ASS]
+  | ContractItem (_, _, LustreNode.WeakAssumption) -> [`WEAK_ASS ; `CONTRACT_ITEM]
   | ContractItem (_, _, _) -> [`CONTRACT_ITEM]
   | Equation _ -> [`EQUATION]
   | Assertion _ -> [`ASSERTION]
@@ -1032,9 +1021,9 @@ type eqmap = (equation list) ScMap.t
 let separate_eqmap_by_category in_sys cats =
   separate_scmap (separate_equations_by_category in_sys cats)
 
-let _all_eqs ?(include_weak_ass=false) in_sys sys enter_nodes =
+let _all_eqs in_sys sys enter_nodes =
   let scope = TS.scope_of_trans_sys sys in
-  let eqs = extract_toplevel_equations ~include_weak_ass in_sys sys in
+  let eqs = extract_toplevel_equations in_sys sys in
   let eqmap = ScMap.singleton scope eqs in
   if enter_nodes
   then
@@ -1045,8 +1034,8 @@ let _all_eqs ?(include_weak_ass=false) in_sys sys enter_nodes =
     ) eqmap sys
   else eqmap
 
-let all_eqs ?(include_weak_ass=false) in_sys sys enter_nodes =
-  let eqmap = _all_eqs ~include_weak_ass in_sys sys enter_nodes in
+let all_eqs in_sys sys enter_nodes =
+  let eqmap = _all_eqs in_sys sys enter_nodes in
   eqmap_to_ivc in_sys [] eqmap
 
 let complement_of_core initial core =
@@ -2334,10 +2323,6 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
 type mua = ((Property.t * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
 
 let properties_of_interest_for_mua sys =
-  (*
-  let ignore_valid_props = Flags.MCS.mcs_category () |> List.for_all (fun x -> x = `WEAK_ASS)
-  in extract_props sys (not ignore_valid_props) true
-  *)
   extract_props sys ~can_be_unknown:true true true
 
 let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardinality=0) cont eqmap_keep eqmap_test =
@@ -2409,8 +2394,7 @@ let mua in_sys param analyze sys props ?(max_mcs_cardinality=0) all cont =
     in
     let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
     let elements = (Flags.MCS.mcs_category ()) in
-    let include_weak_ass = List.mem `WEAK_ASS elements in
-    let eqmap = _all_eqs ~include_weak_ass in_sys sys enter_nodes in
+    let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys elements eqmap in
     let (sys, check_ts) = make_check_ts in_sys param analyze sys in
     let res = ref [] in

@@ -31,8 +31,11 @@ type svar = {
   / ensure of the mode it's from. *)
   num: int ;
 
-  (** optional name for an assume or a guarantee *)
+  (** Optional name for an assume or a guarantee *)
   name: string option;
+
+  (** Whether this contract item must be minimized or not when computing MCS *)
+  weak: bool ;
   
   (** Actual state variable. *)
   svar: StateVar.t ;
@@ -43,7 +46,7 @@ type svar = {
 
 (** Creates a [svar]. *)
 val mk_svar :
-  Lib.position -> int -> string option ->
+  Lib.position -> int -> string option -> bool ->
   StateVar.t -> (Lib.position * string) list -> svar
 
 (** Generates a property name.
@@ -77,8 +80,6 @@ val mk_mode:
 type t = {
   (** Assumptions of the contract. *)
   assumes: svar list ;
-  (** Weak assumptions *)
-  weak_assumes: svar list;
   (** State variable to model Sofar(/\ assumes) *)
   sofar_assump: StateVar.t ;
   (** Guarantees of the contract (boolean is the [candidate] flag). *)
@@ -89,13 +90,10 @@ type t = {
 
 (** Creates a new contract from a set of assumes, a set of guarantess, and a
 list of modes. *)
-val mk: svar list -> svar list -> StateVar.t -> (svar * bool) list -> mode list -> t
+val mk: svar list -> StateVar.t -> (svar * bool) list -> mode list -> t
 
 (** Adds assumes to a contract. *)
 val add_ass: t -> svar list -> t
-
-(** Adds weak assumes to a contract. *)
-val add_weakly_ass: t -> svar list -> t
 
 (** Adds guarantees to a contract. *)
 val add_gua: t -> (svar * bool) list -> t

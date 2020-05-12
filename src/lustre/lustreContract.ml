@@ -27,12 +27,13 @@ type svar = {
   pos: position ;
   num: int ;
   name: string option;
+  weak: bool ;
   svar: SVar.t ;
   scope: (position * string) list ;
 }
 
-let mk_svar pos num name svar scope = {
-  pos ; num ; name; svar ; scope
+let mk_svar pos num name weak svar scope = {
+  pos ; num ; name; weak ; svar ; scope
 }
 
 (* Quiet pretty printer for non dummy positions. *)
@@ -75,26 +76,20 @@ let mk_mode name pos path requires ensures candidate = {
 
 type t = {
   assumes: svar list ;
-  weak_assumes: svar list ;
   sofar_assump: StateVar.t ;
   guarantees: (svar * bool) list ;
   modes: mode list ;
 }
 
 
-let mk assumes weak_assumes sofar_assump guarantees modes = {
-  assumes ; weak_assumes ; sofar_assump ; guarantees ; modes
+let mk assumes sofar_assump guarantees modes = {
+  assumes ; sofar_assump ; guarantees ; modes
 }
 
 
 let add_ass t assumes = {
   t with
     assumes = t.assumes @ assumes ;
-}
-
-let add_weakly_ass t weak_assumes = {
-  t with
-    weak_assumes = t.weak_assumes @ weak_assumes ;
 }
 
 let add_gua t guarantees = {
@@ -122,7 +117,7 @@ let svars_of_modes modes set = modes |> List.fold_left (
 ) set
 
 
-let svars_of { assumes ; weak_assumes ; sofar_assump ; guarantees ; modes } =
+let svars_of { assumes ; sofar_assump ; guarantees ; modes } =
   let initial_set =
     if assumes <> [] then
       SVarSet.singleton sofar_assump
@@ -130,7 +125,6 @@ let svars_of { assumes ; weak_assumes ; sofar_assump ; guarantees ; modes } =
       SVarSet.empty
   in
   svars_of_list assumes initial_set
-  |> svars_of_list weak_assumes
   |> svars_of_plist guarantees
   |> svars_of_modes modes
 
