@@ -1335,11 +1335,11 @@ let compute_all_cs check_ts sys prop_names enter_nodes ?(cont=(fun _ -> ()))
   in
   aux [] already_found
 
-let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality=0) actsvs_eqs_map keep test =
+let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality= -1) actsvs_eqs_map keep test =
   KEvent.log L_info "Computing a MCS using automated debugging..." ;
   let n = core_size test in
   let n =
-    if max_mcs_cardinality > 0 && max_mcs_cardinality < n
+    if max_mcs_cardinality >= 0 && max_mcs_cardinality < n
     then max_mcs_cardinality
     else n
   in
@@ -1365,7 +1365,7 @@ let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality=0) act
   aux n None
 
 let compute_all_mcs check_ts sys prop_names enter_nodes
-  ?(max_mcs_cardinality=0) ?(cont=(fun _ -> ())) actsvs_eqs_map keep test =
+  ?(max_mcs_cardinality= -1) ?(cont=(fun _ -> ())) actsvs_eqs_map keep test =
 
   KEvent.log L_info "Computing all MCS using automated debugging..." ;
   match compute_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality actsvs_eqs_map keep test with
@@ -1374,7 +1374,7 @@ let compute_all_mcs check_ts sys prop_names enter_nodes
     cont (res, res_cex) ;
     let n = core_size test in
     let n =
-      if max_mcs_cardinality > 0 && max_mcs_cardinality < n
+      if max_mcs_cardinality >= 0 && max_mcs_cardinality < n
       then max_mcs_cardinality
       else n
     in
@@ -2325,7 +2325,7 @@ type mua = ((Property.t * (StateVar.t * Model.value list) list) * loc_equation l
 let properties_of_interest_for_mua sys =
   extract_props sys ~can_be_unknown:true true true
 
-let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardinality=0) cont eqmap_keep eqmap_test =
+let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardinality= -1) cont eqmap_keep eqmap_test =
   let prop_names = props_names props in
   remove_other_props sys prop_names ;
   add_as_candidate os_invs sys ;
@@ -2386,7 +2386,7 @@ let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardi
 
 (** Compute one/all Maximal Unsafe Abstraction(s) using Automated Debugging
     and duality between MUAs and Minimal Correction Subsets. *)
-let mua in_sys param analyze sys props ?(max_mcs_cardinality=0) all cont =
+let mua in_sys param analyze sys props ?(max_mcs_cardinality= -1) all cont =
   try (
     let props = match props with
     | None -> properties_of_interest_for_mua sys
