@@ -452,7 +452,9 @@ contract_assume:
 
 contract_guarantee:
   GUARANTEE; name = option(STRING); e = qexpr; SEMICOLON
-  { A.Guarantee (mk_pos $startpos, name, e) }
+  { A.Guarantee (mk_pos $startpos, name, false, e) }
+  | WEAKLY; GUARANTEE; name = option(STRING); e = qexpr; SEMICOLON
+  { A.Guarantee (mk_pos $startpos, name, true, e) }
 
 contract_require:
   REQUIRE; name = option(STRING); e = qexpr; SEMICOLON

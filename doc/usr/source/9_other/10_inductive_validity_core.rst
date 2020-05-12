@@ -15,7 +15,7 @@ To enable inductive validity core generation, run
 Options
 -------
 
-* ``--ivc_category {node_calls|contracts|equations|assertions}`` (default: all categories) -- Minimize only a specific category of elements, repeat option to minimize multiple categories
+* ``--ivc_category {node_calls|contracts|equations|assertions|annotations}`` (default: all categories) -- Minimize only a specific category of elements, repeat option to minimize multiple categories
 * ``--ivc_only_main_node <bool>`` (default ``false``\ ) -- Compute an IVC over the elements of the main node only
 * ``--ivc_all <bool>`` (default ``false``\ ) -- Compute all the Inductive Validity Cores
 * ``--ivc_approximate <bool>`` (default ``true``\ ) -- Compute an approximation (superset) of an IVC. Ignored if ``--ivc_all`` is ``true``

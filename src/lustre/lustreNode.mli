@@ -231,7 +231,7 @@ type t = {
 type state_var_instance = position * LustreIdent.t * StateVar.t
 
 type contract_item_type =
-    | Assumption | WeakAssumption | Guarantee | Require | Ensure
+    | Assumption | WeakAssumption | Guarantee | WeakGuarantee | Require | Ensure
 (** A definition of a state variable in the initial Lustre program.
   For a given state var s, it indicates the position p of an expression e that defines s
   as well as the corresponding index i, such that s defined by the value of e at index i. *)

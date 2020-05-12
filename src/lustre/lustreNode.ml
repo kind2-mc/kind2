@@ -1579,7 +1579,7 @@ let set_state_var_instance state_var pos node state_var' =
     instances'
 
 type contract_item_type =
-    | Assumption | WeakAssumption | Guarantee | Require | Ensure
+    | Assumption | WeakAssumption | Guarantee | WeakGuarantee | Require | Ensure
 type state_var_def =
   | CallOutput of position * LustreIndex.index
   | ProperEq of position * LustreIndex.index

@@ -175,6 +175,7 @@ let print_data_of_loc_equation var_map (eq, locs, cat) =
       let (kind, category) = 
         match typ with
         | LustreNode.WeakAssumption -> ("weakly_assume", "assumption")
+        | LustreNode.WeakGuarantee -> ("weakly_guarantee", "guarantee")
         | LustreNode.Assumption -> ("assume", "assumption")
         | LustreNode.Guarantee -> ("guarantee", "guarantee")
         | LustreNode.Require -> ("require", "assumption")
@@ -361,6 +362,8 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
 let name_of_wa_cat = function
   | ContractItem (_, svar, LustreNode.WeakAssumption) ->
     Some (LustreContract.prop_name_of_svar svar "weakly_assume" "")
+  | ContractItem (_, svar, LustreNode.WeakGuarantee) ->
+    Some (LustreContract.prop_name_of_svar svar "weakly_guarantee" "")
   | _ -> None
 
 let all_wa_names_of_mcs scmap =
@@ -656,7 +659,7 @@ let minimize_contract_node_eq ue lst cne =
   | A.GhostConst d -> [A.GhostConst (minimize_const_decl ue lst d)]
   | A.GhostVar d -> [A.GhostVar (minimize_const_decl ue lst d)]
   | A.Assume (pos,_,_,_)
-  | A.Guarantee (pos,_,_) ->
+  | A.Guarantee (pos,_,_,_) ->
     if List.exists (fun p -> Lib.compare_pos p pos = 0) lst
     then [cne] else []
   | A.Mode (pos,id,req,ens) ->
@@ -979,7 +982,8 @@ let extract_toplevel_equations in_sys sys =
 let check_loc_eq_category cats (_,_,cat) =
   let cat = match cat with
   | NodeCall _ -> [`NODE_CALL]
-  | ContractItem (_, _, LustreNode.WeakAssumption) -> [`WEAK_ASS ; `CONTRACT_ITEM]
+  | ContractItem (_, _, LustreNode.WeakAssumption)
+  | ContractItem (_, _, LustreNode.WeakGuarantee) -> [`ANNOTATIONS ; `CONTRACT_ITEM]
   | ContractItem (_, _, _) -> [`CONTRACT_ITEM]
   | Equation _ -> [`EQUATION]
   | Assertion _ -> [`ASSERTION]

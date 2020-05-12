@@ -63,12 +63,11 @@ let rec collect_contracts (locals, asserts, props) = function
         blah "Contract variable declaration" pos, info
       ) :: locals, asserts, props
 
-    | Ast.Assume (pos, name, soft, expr) ->
-      locals, (if soft then asserts else (
-        blah_opt "Assumption" name pos, Ast.Assert (dummy_pos, expr)
-      ) :: asserts), props
+    | Ast.Assume (pos, name, _, expr) ->
+      locals, (blah_opt "Assumption" name pos, Ast.Assert (dummy_pos, expr)
+      ) :: asserts, props
 
-    | Ast.Guarantee (pos, name, expr) ->
+    | Ast.Guarantee (pos, name, _, expr) ->
       locals, asserts, (blah_opt "Guarantee" name pos, [], expr) :: props
 
     | Ast.Mode (pos, name, reqs, enss) ->

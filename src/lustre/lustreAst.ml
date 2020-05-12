@@ -271,7 +271,7 @@ type contract_ghost_var = const_decl
 type contract_assume = position * string option * bool (* soft *) * expr
 
 (* A contract guarantee. *)
-type contract_guarantee = position * string option * expr
+type contract_guarantee = position * string option * bool (* soft *) * expr
 
 (* A contract requirement. *)
 type contract_require = position * string option * expr
@@ -1031,10 +1031,11 @@ let pp_print_contract_assume ppf (_, n, s, e) =
     (match n with None -> "" | Some s -> " \""^s^"\"")
     pp_print_expr e
 
-let pp_print_contract_guarantee ppf (_, n, e) =
+let pp_print_contract_guarantee ppf (_, n, s, e) =
   Format.fprintf
     ppf
-    "@[<hv 3>guarantee%s@ %a;@]"
+    "@[<hv 3>%sguarantee%s@ %a;@]"
+    (if s then "weakly " else "")
     (match n with None -> "" | Some s -> " \""^s^"\"")
     pp_print_expr e
 
@@ -1715,7 +1716,7 @@ let contract_node_equation_has_pre_or_arrow = function
 | GhostConst decl
 | GhostVar decl -> const_decl_has_pre_or_arrow decl
 | Assume (_, _, _, e)
-| Guarantee (_, _, e) -> has_pre_or_arrow e
+| Guarantee (_, _, _, e) -> has_pre_or_arrow e
 | Mode (_, _, reqs, enss) ->
   List.map (fun (_, _, e) -> has_pre_or_arrow e) reqs
   |> some_of_list

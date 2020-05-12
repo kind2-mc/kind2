@@ -1160,12 +1160,14 @@ module IVC = struct
     )
   let compute_ivc () = !compute_ivc
 
-  type ivc_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `WEAK_ASS ]
+  type ivc_element =
+    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `ANNOTATIONS ]
   let ivc_element_of_string = function
     | "node_calls" -> `NODE_CALL
     | "contracts" -> `CONTRACT_ITEM
     | "equations" -> `EQUATION
     | "assertions" -> `ASSERTION
+    | "annotations" -> `ANNOTATIONS
     | unexpected -> Arg.Bad (
       Format.sprintf "Unexpected value \"%s\" for flag --ivc_category" unexpected
     ) |> raise
@@ -1190,7 +1192,7 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          where <string> can be 'node_calls', 'contracts', 'equations' or 'assertions'@ \
+          where <string> can be 'node_calls', 'contracts', 'equations', 'assertions' or 'annotations'@ \
           Minimize only a specific category of elements, repeat option to minimize multiple categories@ \
           Default: minimize all categories of elements\
         "
@@ -1447,18 +1449,18 @@ module MCS = struct
   let compute_mcs () = false
 
   type mcs_element =
-    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `WEAK_ASS ]
+    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `ANNOTATIONS ]
   let mcs_element_of_string = function
     | "node_calls" -> `NODE_CALL
     | "contracts" -> `CONTRACT_ITEM
     | "equations" -> `EQUATION
     | "assertions" -> `ASSERTION
-    | "weak_assumptions" -> `WEAK_ASS
+    | "annotations" -> `ANNOTATIONS
     | unexpected -> Arg.Bad (
       Format.sprintf "Unexpected value \"%s\" for flag --mcs_category" unexpected
     ) |> raise
   let mcs_category_default_init = []
-  let mcs_category_default_after = [`WEAK_ASS]
+  let mcs_category_default_after = [`ANNOTATIONS]
   let mcs_category = ref mcs_category_default_init
   let finalize_mcs_elements () =
     (* If [enabled] is unchanged, set it do default after init. *)
@@ -1477,9 +1479,9 @@ module MCS = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          where <string> can be 'node_calls', 'contracts', 'equations', 'assertions' or 'weak_assumptions'@ \
+          where <string> can be 'node_calls', 'contracts', 'equations', 'assertions' or 'annotations'@ \
           Consider only a specific category of elements, repeat option to consider multiple categories@ \
-          Default: weak_assumptions\
+          Default: annotations\
         "
     )
   let mcs_category () = !mcs_category
@@ -3214,7 +3216,7 @@ let name_of_category = function
   | `CONTRACT_ITEM -> ("contracts", "contracts")
   | `EQUATION -> ("equations", "equations")
   | `ASSERTION -> ("assertions", "assertions")
-  | `WEAK_ASS -> ("weak_assumptions", "weakAssumptions")
+  | `ANNOTATIONS -> ("annotations", "annotations")
 
 (* XML starting with options *)
 let print_xml_options () =

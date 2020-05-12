@@ -436,7 +436,8 @@ end
 module IVC : sig
 
   type minimize_mode = [ `DO_NOT_MINIMIZE | `VALID_LUSTRE | `CONCISE ]
-  type ivc_element = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `WEAK_ASS ]
+  type ivc_element =
+    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `ANNOTATIONS ]
 
   (** Enable computation of Inductive Validity Cores *)
   val compute_ivc : unit -> bool
@@ -489,7 +490,7 @@ end
 module MCS : sig
 
   type mcs_element =
-    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `WEAK_ASS ]
+    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `ANNOTATIONS ]
 
   (** Enable computation of Maximal Correction Sets *)
   val compute_mcs : unit -> bool

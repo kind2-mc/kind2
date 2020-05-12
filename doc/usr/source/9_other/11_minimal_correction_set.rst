@@ -15,7 +15,7 @@ To enable minimal correction set generation, run
 Options
 -------
 
-* ``--mcs_category {weak_assumptions|node_calls|contracts|equations|assertions}`` (default: weak_assumptions) -- Consider only a specific category of elements, repeat option to consider multiple categories
+* ``--mcs_category {annotations|node_calls|contracts|equations|assertions}`` (default: annotations) -- Consider only a specific category of elements, repeat option to consider multiple categories
 * ``--mcs_only_main_node <bool>`` (default ``false``\ ) -- Compute a MCS over the elements of the main node only
 * ``--mcs_all <bool>`` (default ``false``\ ) -- Specify whether all the Minimal Correction Sets must be computed or just one
 * ``--mcs_max_cardinality <int>`` (default ``-1``\ ) -- Only search for MCS of cardinality lower or equal to this parameter. If ``-1``, all cardinalities will be considered
@@ -53,9 +53,9 @@ you can run this command:
 
 .. code-block:: none
 
-  kind2 <lustre_file> --mcs true --mcs_category weak_assumptions
+  kind2 <lustre_file> --mcs true --mcs_category annotations
 
-Note that ``--mcs_category weak_assumptions`` is not required since it is the default value.
+Note that ``--mcs_category annotations`` is not required since it is the default value.
 
 The following minimal correction set is printed:
 

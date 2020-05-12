@@ -1821,10 +1821,10 @@ and eval_node_contract_item
     cpt_a, cpt_g
 
   (* Evaluate guarantee *)
-  | A.Guarantee g ->
+  | A.Guarantee (pos, name, soft, expr) ->
     let ctx, guarantees, cpt_g =
-      eval_contract_item None ~typ:N.Guarantee scope (ctx, [], cpt_g) g
-    in
+      eval_contract_item None ~typ:(if soft then N.WeakGuarantee else N.Guarantee)
+      scope (ctx, [], cpt_g) (pos, name, expr) in
     List.map (fun g -> g, is_candidate) guarantees |> C.add_node_gua ctx,
     cpt_a, cpt_g
 
