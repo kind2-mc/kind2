@@ -33,9 +33,6 @@ type svar = {
 
   (** Optional name for an assume or a guarantee *)
   name: string option;
-
-  (** Whether this contract item must be minimized or not when computing MCS *)
-  weak: bool ;
   
   (** Actual state variable. *)
   svar: StateVar.t ;
@@ -46,7 +43,7 @@ type svar = {
 
 (** Creates a [svar]. *)
 val mk_svar :
-  Lib.position -> int -> string option -> bool ->
+  Lib.position -> int -> string option ->
   StateVar.t -> (Lib.position * string) list -> svar
 
 (** Generates a property name.

@@ -1365,9 +1365,7 @@ and eval_contract_item check ~typ scope (ctx, accum, count) (pos, iname, expr) =
   ) ;
   (* Define expression with a state variable *)
   let (svar, _), ctx = C.mk_local_for_expr ~reuse:false ~is_ghost:true pos ctx expr in
-  let weak = match typ with N.WeakAssumption -> true
-  | N.Assumption | N.Guarantee | N.Require | N.Ensure -> false in
-  let contract_svar = Contract.mk_svar pos count iname weak svar scope in
+  let contract_svar = Contract.mk_svar pos count iname svar scope in
   N.add_state_var_def svar (N.ContractItem (pos, contract_svar, typ)) ;
   (* Add state variable to accumulator, continue with possibly modified
   context. *)

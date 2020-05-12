@@ -27,13 +27,12 @@ type svar = {
   pos: position ;
   num: int ;
   name: string option;
-  weak: bool ;
   svar: SVar.t ;
   scope: (position * string) list ;
 }
 
-let mk_svar pos num name weak svar scope = {
-  pos ; num ; name; weak ; svar ; scope
+let mk_svar pos num name svar scope = {
+  pos ; num ; name ; svar ; scope
 }
 
 (* Quiet pretty printer for non dummy positions. *)
