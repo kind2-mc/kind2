@@ -723,7 +723,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
           time := ntime ;
 
           KEvent.log_with_tag L_warn Pretty.success_tag
-            (Format.asprintf "Minimal Correction Set generated after %.3fs." elapsed) ;
+            (Format.asprintf "Minimal Cut Set generated after %.3fs." elapsed) ;
 
           let not_mua = Ivc.complement_of_core (snd initial) (snd mua) in
           let not_mua = (fst mua, not_mua) in
@@ -781,7 +781,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
 (** Maximal Unsafe Abstraction computation *)
 module RunMCS: PostAnalysis = struct
   let name = "mcs"
-  let title = "minimal correction set"
+  let title = "minimal cut set"
   let is_active () = Flags.MCS.compute_mcs ()
 
   let run in_sys param analyze results =

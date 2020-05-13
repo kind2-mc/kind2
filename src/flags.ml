@@ -1408,7 +1408,7 @@ module IVC = struct
 
 end
 
-(* Minimal Correction Sets flags. *)
+(* Minimal Cut Sets flags. *)
 module MCS = struct
 
   include Make_Spec (struct end)
@@ -1416,11 +1416,11 @@ module MCS = struct
   (* Identifier of the module. *)
   let id = "mcs"
   (* Short description of the module. *)
-  let desc = "Minimal Correction Sets generation flags"
+  let desc = "Minimal Cut Sets generation flags"
   (* Explanation of the module. *)
   let fmt_explain fmt =
     Format.fprintf fmt "@[<v>\
-      Kind 2 generates a minimal correction set,@ \
+      Kind 2 generates a minimal cut set,@ \
       that is a minimal subset of the model elements that makes the system unsafe if removed.\
     @]"
 
@@ -1440,7 +1440,7 @@ module MCS = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Compute a minimal correction set@ \
+          Compute a minimal cut set@ \
           Default: %a\
         "
         fmt_bool compute_mcs_default
@@ -1511,7 +1511,7 @@ module MCS = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Specify whether all the Minimal Correction Sets must be computed or just one@ \
+          Specify whether all the Minimal Cut Sets must be computed or just one@ \
           Default: %a\
         "
         fmt_bool mcs_all_default
@@ -1544,7 +1544,7 @@ module MCS = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Print the minimal correction set computed@ \
+          Print the minimal cut set computed@ \
           Default: %a\
         "
         fmt_bool print_mcs_default
@@ -1560,7 +1560,7 @@ module MCS = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Print the complement of the minimal correction set computed@ \
+          Print the complement of the minimal cut set computed@ \
           (this is equivalent to computing a Maximal Unsafe Abstraction)@ \
           Default: %a\
         "
@@ -1577,7 +1577,7 @@ module MCS = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Print the minimal correction set using the legacy format@ \
+          Print the minimal cut set using the legacy format@ \
           Default: %a\
         "
         fmt_bool print_mcs_legacy_default

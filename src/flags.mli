@@ -486,16 +486,16 @@ module IVC : sig
 
 end
 
-(** {2 Maximal Correction Sets} *)
+(** {2 Minimal Cut Sets} *)
 module MCS : sig
 
   type mcs_element =
     [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `ANNOTATIONS ]
 
-  (** Enable computation of Maximal Correction Sets *)
+  (** Enable computation of Maximal Cut Sets *)
   val compute_mcs : unit -> bool
 
-  (** Specify whether all the Maximal Correction Sets must be computed or just one *)
+  (** Specify whether all the Maximal Cut Sets must be computed or just one *)
   val mcs_all : unit -> bool
 
   (** Specify on which elements we want to minimize *)

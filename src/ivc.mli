@@ -72,7 +72,7 @@ val ivc_bf :
   Property.t list option ->
   ivc option
 
-(** Outputs the MUST set by computing all the minimal correction sets of cardinality 1. *)
+(** Outputs the MUST set by computing all the minimal cut sets of cardinality 1. *)
 val must_set :
   'a InputSystem.t ->
   Analysis.param ->
@@ -122,7 +122,7 @@ val umivc :
 (** Returns the names of the properties for which we may be interested in computing an IVC. *)
 val properties_of_interest_for_ivc : TransSys.t -> Property.t list
 
-(* ----- MAXIMAL UNSAFE ABSTRACTIONS  MINIMAL CORRECTION SETS ----- *)
+(* ----- MAXIMAL UNSAFE ABSTRACTIONS  MINIMAL CUTS SETS ----- *)
 
 type mua = ((Property.t * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
 

@@ -764,7 +764,7 @@ let pp_print_kind_module ppf = function
   | `Supervisor -> fprintf ppf "invariant manager"
   | `Parser -> fprintf ppf "parser"
   | `Certif -> Format.fprintf ppf "certificate"
-  | `MCS -> Format.fprintf ppf "minimal correction set"
+  | `MCS -> Format.fprintf ppf "minimal cut set"
 
 (* String representation of a process type *)
 let string_of_kind_module = string_of_t pp_print_kind_module

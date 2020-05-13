@@ -1,12 +1,12 @@
 .. _9_other/11_minimal_correction_set:
 
-Minimal Correction Set
+Minimal Cut Set
 ======================
 
-The minimal correction set generation is a post-analysis treatement that computes a minimal subset of
+The minimal cut set generation is a post-analysis treatement that computes a minimal subset of
 the model elements (contract items, equations or node calls) such that the system become unsafe if we remove these assumptions.
 
-To enable minimal correction set generation, run
+To enable minimal cut set generation, run
 
 .. code-block:: none
 
@@ -17,12 +17,12 @@ Options
 
 * ``--mcs_category {annotations|node_calls|contracts|equations|assertions}`` (default: annotations) -- Consider only a specific category of elements, repeat option to consider multiple categories
 * ``--mcs_only_main_node <bool>`` (default ``false``\ ) -- Compute a MCS over the elements of the main node only
-* ``--mcs_all <bool>`` (default ``false``\ ) -- Specify whether all the Minimal Correction Sets must be computed or just one
+* ``--mcs_all <bool>`` (default ``false``\ ) -- Specify whether all the Minimal Cut Sets must be computed or just one
 * ``--mcs_max_cardinality <int>`` (default ``-1``\ ) -- Only search for MCS of cardinality lower or equal to this parameter. If ``-1``, all cardinalities will be considered
 * ``--mcs_per_property <bool>`` (default ``true``\ ) -- If true, MCS will be computed for each property separately
-* ``--print_mcs <bool>`` (default ``true``\ ) -- Print the minimal correction set computed
-* ``--print_mcs_complement <bool>`` (default ``false``\ ) -- Print the complement of the minimal correction set computed (this is equivalent to computing a Maximal Unsafe Abstraction)
-* ``--print_mcs_legacy <bool>`` (default ``false``\ ) -- Print the minimal correction set using the legacy format
+* ``--print_mcs <bool>`` (default ``true``\ ) -- Print the minimal cut set computed
+* ``--print_mcs_complement <bool>`` (default ``false``\ ) -- Print the complement of the minimal cut set computed (this is equivalent to computing a Maximal Unsafe Abstraction)
+* ``--print_mcs_legacy <bool>`` (default ``false``\ ) -- Print the minimal cut set using the legacy format
 * ``--print_mcs_counterexample <bool>`` (default ``false``\ ) -- Print a counterexample for each MCS found (ignored if ``--print_mcs_legacy`` is true)
 
 Example
@@ -57,7 +57,7 @@ you can run this command:
 
 Note that ``--mcs_category annotations`` is not required since it is the default value.
 
-The following minimal correction set is printed:
+The following minimal cut set is printed:
 
 .. code-block:: none
 
