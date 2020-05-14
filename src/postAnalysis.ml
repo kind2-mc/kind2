@@ -617,7 +617,7 @@ module RunIVC: PostAnalysis = struct
 
               if Flags.IVC.print_ivc ()
               then begin
-                let (_,filtered_ivc) = Ivc.separate_ivc_by_category ivc in
+                let (_,filtered_ivc) = Ivc.separate_ivc_by_category in_sys ivc in
                 let cpd = Ivc.ivc_to_print_data in_sys sys false filtered_ivc in
                 let cpd = { cpd with time=Some elapsed } in
                 let cpd = if is_must_set then { cpd with core_class="must" } else cpd in
@@ -627,7 +627,7 @@ module RunIVC: PostAnalysis = struct
               if Flags.IVC.print_ivc_compl ()
               then begin
                 let not_ivc = Ivc.complement_of_core (snd initial) (snd ivc) in
-                let (_,filtered_not_ivc) = Ivc.separate_ivc_by_category (fst ivc, not_ivc) in
+                let (_,filtered_not_ivc) = Ivc.separate_ivc_by_category in_sys (fst ivc, not_ivc) in
                 let cpd = Ivc.ivc_to_print_data in_sys sys true filtered_not_ivc in
                 let cpd = { cpd with time=Some elapsed } in
                 let cpd = if is_must_set then { cpd with core_class="must complement" } else cpd in
@@ -740,7 +740,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
 
             if Flags.MCS.print_mcs ()
             then begin
-              let (_,filtered_mcs) = Ivc.separate_mua_by_category not_mua in
+              let (_,filtered_mcs) = Ivc.separate_mua_by_category in_sys not_mua in
               let cpd = Ivc.mcs_to_print_data in_sys sys false filtered_mcs in
               let cpd = { cpd with time=Some elapsed } in
               KEvent.log_result pt xml json cpd
@@ -748,7 +748,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
 
             if Flags.MCS.print_mcs_compl ()
             then begin
-              let (_,filtered_mua) = Ivc.separate_mua_by_category mua in
+              let (_,filtered_mua) = Ivc.separate_mua_by_category in_sys mua in
               let cpd = Ivc.mcs_to_print_data in_sys sys true filtered_mua in
               let cpd = { cpd with time=Some elapsed } in
               KEvent.log_result pt xml json cpd

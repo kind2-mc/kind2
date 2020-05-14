@@ -39,7 +39,7 @@ val complement_of_core : loc_equation list ScMap.t -> loc_equation list ScMap.t 
 
 (** Separate an IVC into two IVC, the second one containing elements from the categories selected
     by the user, and the first one containing the others elements *)
-val separate_ivc_by_category : ivc -> (ivc * ivc)
+val separate_ivc_by_category : 'a InputSystem.t -> ivc -> (ivc * ivc)
 
 (** [minimize_lustre_ast full_ivc ivc ast]
     Minimize the lustre AST [ast] according to the inductive validity core [ivc].
@@ -128,7 +128,7 @@ type mua = ((Property.t * (StateVar.t * Model.value list) list) * loc_equation l
 
 (** Separate a MUA into two MUA, the second one containing elements from the categories selected
     by the user, and the first one containing the others elements *)
-val separate_mua_by_category : mua -> (mua * mua)
+val separate_mua_by_category : 'a InputSystem.t -> mua -> (mua * mua)
 
 (** Compute one/all Maximal Unsafe Abstraction(s) using Automated Debugging
     and duality between MUAs and Minimal Correction Subsets. *)

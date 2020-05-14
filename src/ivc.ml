@@ -979,20 +979,26 @@ let extract_toplevel_equations in_sys sys =
     { init_opened=oi ; init_closed=ci ; trans_opened=ot ; trans_closed=ct }
   ) init_bindings trans_bindings
 
-let check_loc_eq_category cats (_,_,cat) =
+let check_loc_eq_category is_main_node cats (_,_,cat) =
   let cat = match cat with
   | NodeCall _ -> [`NODE_CALL]
-  | ContractItem (_, _, LustreNode.WeakAssumption)
-  | ContractItem (_, _, LustreNode.WeakGuarantee) -> [`ANNOTATIONS ; `CONTRACT_ITEM]
-  | ContractItem (_, _, _) -> [`CONTRACT_ITEM]
+  | ContractItem (_, _, LustreNode.WeakAssumption) when is_main_node
+  -> [`ANNOTATIONS ; `CONTRACT_ITEM]
+  | ContractItem (_, _, LustreNode.WeakGuarantee) when not is_main_node
+  -> [`ANNOTATIONS ; `CONTRACT_ITEM]
+  | ContractItem (_, _, LustreNode.Assumption) when is_main_node
+  -> [`CONTRACT_ITEM]
+  | ContractItem (_, _, LustreNode.Guarantee) when not is_main_node
+  -> [`CONTRACT_ITEM]
+  | ContractItem (_, _, _) -> []
   | Equation _ -> [`EQUATION]
   | Assertion _ -> [`ASSERTION]
   | Unknown -> [(*`UNKNOWN*)]
   in
   List.exists (fun cat -> List.mem cat cats) cat
 
-let should_minimize_equation in_sys cats eq =
-  check_loc_eq_category cats (add_loc in_sys eq)
+let should_minimize_equation is_main_node in_sys cats eq =
+  check_loc_eq_category is_main_node cats (add_loc in_sys eq)
 
 let separate_by_predicate f lst =
   let lst = List.map (fun e -> (f e, e)) lst in
@@ -1000,30 +1006,33 @@ let separate_by_predicate f lst =
   let not_ok = List.filter (fun (ok,_) -> not ok) lst in
   (List.map snd not_ok, List.map snd ok)
 
-let separate_loc_eqs_by_category cats =
-  separate_by_predicate (check_loc_eq_category cats)
+let separate_loc_eqs_by_category cats is_main_node =
+  separate_by_predicate (check_loc_eq_category is_main_node cats)
 
-let separate_equations_by_category in_sys cats =
-  separate_by_predicate (should_minimize_equation in_sys cats)
+let separate_equations_by_category in_sys cats is_main_node =
+  separate_by_predicate (should_minimize_equation is_main_node in_sys cats)
 
-let separate_scmap f scmap =
+let separate_scmap main_scope f scmap =
   ScMap.fold (fun k v (map1,map2) ->
-    let (v1,v2) = f v in
+    let (v1,v2) = f (Scope.equal k main_scope) v in
     (ScMap.add k v1 map1, ScMap.add k v2 map2)
   ) scmap (ScMap.empty, ScMap.empty)
 
-let separate_ivc_by_category (props, ivc) =
-  let (ivc1, ivc2) = separate_scmap (separate_loc_eqs_by_category (Flags.IVC.ivc_category ())) ivc
+let separate_ivc_by_category in_sys (props, ivc) =
+  let main_scope = InputSystem.ordered_scopes_of in_sys |> List.hd in
+  let (ivc1, ivc2) = separate_scmap main_scope (separate_loc_eqs_by_category (Flags.IVC.ivc_category ())) ivc
   in (props, ivc1), (props, ivc2)
 
-let separate_mua_by_category (prop, mua) =
-  let (mua1, mua2) = separate_scmap (separate_loc_eqs_by_category (Flags.MCS.mcs_category ())) mua
+let separate_mua_by_category in_sys (prop, mua) =
+  let main_scope = InputSystem.ordered_scopes_of in_sys |> List.hd in
+  let (mua1, mua2) = separate_scmap main_scope (separate_loc_eqs_by_category (Flags.MCS.mcs_category ())) mua
   in (prop, mua1), (prop, mua2)
 
 type eqmap = (equation list) ScMap.t
 
 let separate_eqmap_by_category in_sys cats =
-  separate_scmap (separate_equations_by_category in_sys cats)
+  let main_scope = InputSystem.ordered_scopes_of in_sys |> List.hd in
+  separate_scmap main_scope (separate_equations_by_category in_sys cats)
 
 let _all_eqs in_sys sys enter_nodes =
   let scope = TS.scope_of_trans_sys sys in
