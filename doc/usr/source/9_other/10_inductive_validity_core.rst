@@ -4,7 +4,7 @@ Inductive Validity Core
 =======================
 
 The inductive validity core generation is a post-analysis treatement that computes a minimal subset of
-the model elements (contract items, equations or node calls) such that the system is still safe.
+the model elements (assumptions, guarantees, equations or node calls) that are sufficient to prove all properties.
 
 To enable inductive validity core generation, run
 
@@ -16,17 +16,17 @@ Options
 -------
 
 * ``--ivc_category {node_calls|contracts|equations|assertions|annotations}`` (default: all categories) -- Minimize only a specific category of elements, repeat option to minimize multiple categories
-* ``--ivc_only_main_node <bool>`` (default ``false``\ ) -- Compute an IVC over the elements of the main node only
-* ``--ivc_all <bool>`` (default ``false``\ ) -- Compute all the Inductive Validity Cores
-* ``--ivc_approximate <bool>`` (default ``true``\ ) -- Compute an approximation (superset) of an IVC. Ignored if ``--ivc_all`` is ``true``
-* ``--ivc_smallest_first <bool>`` (default ``false``\ ) -- Compute the smallest IVC first. If ``--ivc_all`` is ``false``, compute the smallest IVC only
+* ``--ivc_only_main_node <bool>`` (default ``false``\ ) -- Only elements of the main node are considered in the computation
+* ``--ivc_all <bool>`` (default ``false``\ ) -- Compute all the Minimal Inductive Validity Cores
+* ``--ivc_approximate <bool>`` (default ``true``\ ) -- Compute an approximation (superset) of a MIVC. Ignored if ``--ivc_all`` is ``true``
+* ``--ivc_smallest_first <bool>`` (default ``false``\ ) -- Compute a smallest IVC first. If ``--ivc_all`` is ``false``, the computed IVC will be a smallest one
 * ``--ivc_must_set <bool>`` (default ``false``\ ) -- Compute the MUST set in addition to the IVCs
 * ``--print_ivc <bool>`` (default ``true``\ ) -- Print the inductive validity core computed
-* ``--print_ivc_complement <bool>`` (default ``false``\ ) -- Print the complement of the inductive validity core computed (= the elements that are not necessary to prove the system safe)
+* ``--print_ivc_complement <bool>`` (default ``false``\ ) -- Print the complement of the inductive validity core computed (= the elements that were not necessary to prove the properties)
 * ``--minimize_program {no|valid_lustre|concise}`` (default ``no``\ ) -- Minimize the source Lustre program according to the inductive validity core(s) computed
 * ``--ivc_output_dir <string>`` (default ``<INPUT_FILENAME>``\ ) -- Output directory for the minimized programs
-* ``--ivc_uc_timeout <int>`` (default ``10``\ ) -- Set a timeout for each unsat core check sent to the solver
-* ``--ivc_precomputed_mcs <int>`` (default ``0``\ ) -- When computing all IVCs, determine the cardinality up to which MCS will be computed before starting to compute the IVCs
+* ``--ivc_uc_timeout <int>`` (default ``0``\ ) -- Set a timeout for each unsat core check sent to the solver
+* ``--ivc_precomputed_mcs <int>`` (default ``0``\ ) -- When computing all MIVCs, set a cardinality upper bound for the precomputed MCSs (helps prune space of candidates)
 
 Example
 -------
@@ -70,7 +70,7 @@ we should run this command:
 
 * ``--ivc_category contracts``: because we are only interested in minimizing the contract ``fSpec``
 * ``--ivc_only_main_node false``: because ``fSpec`` is not the contract of the main node, so we need to consider all nodes
-* ``--compositional true``: as we want to minimize the contract of ``f`` and not its implementation, we must enable the compositionnal reasonning
+* ``--compositional true``: as we want to minimize the contract of ``f`` and not its implementation, we need to enable compositional analysis
 
 We obtain the following inductive validity core:
 

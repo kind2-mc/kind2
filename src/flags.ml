@@ -1153,7 +1153,7 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Compute a minimal inductive validity core@ \
+          Enable inductive validity core generation@ \
           Default: %a\
         "
         fmt_bool compute_ivc_default
@@ -1208,7 +1208,7 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Compute all the Inductive Validity Cores.@ \
+          Compute all the Minimal Inductive Validity Cores.@ \
           Default: %a\
         "
         fmt_bool ivc_all_default
@@ -1224,7 +1224,7 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Compute an approximation (superset) of an IVC.@ \
+          Compute an approximation (superset) of a MIVC.@ \
           Ignored if --ivc_all is true.@ \
           Default: %a\
         "
@@ -1241,8 +1241,8 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Compute the smallest IVC first.@ \
-          If --ivc_all is false, compute the smallest IVC only.@ \
+          Compute a smallest IVC first.@ \
+          If --ivc_all is false, the computed IVC will be a smallest one.@ \
           Default: %a\
         "
         fmt_bool ivc_smallest_first_default
@@ -1258,7 +1258,7 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Compute an IVC over the elements of the main node only@ \
+          Only elements of the main node are considered in the computation@ \
           Default: %a\
         "
         fmt_bool ivc_only_main_node_default
@@ -1324,7 +1324,7 @@ module IVC = struct
       Format.fprintf fmt
         "\
           Print the complement of the inductive validity core computed@ \
-          (= the elements that are not necessary to prove the system safe)@ \
+          (= the elements that were not necessary to prove the properties)@ \
           Default: %a\
         "
         fmt_bool print_ivc_compl_default
@@ -1377,11 +1377,9 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          When computing all IVCs, determine the cardinality up to which@ \
-          MCS will be computed before starting to compute the IVCs.@ \
-          Correspond to the parameter 'k' of the implementation UMIVC.@ \
-          In particular, the value 0 implements the MARCO algorithm,@ \
-          and the value -1 (infinity) implements the CAMUS algorithm.@ \
+          When computing all MIVCs,@ \
+          set a cardinality upper bound for the precomputed MCSs@ \
+          (helps prune space of candidates).@ \
           Default: %n\
         "
         ivc_precomputed_mcs_default
@@ -1421,7 +1419,8 @@ module MCS = struct
   let fmt_explain fmt =
     Format.fprintf fmt "@[<v>\
       Kind 2 generates a minimal cut set,@ \
-      that is a minimal subset of the model elements that makes the system unsafe if removed.\
+      that is a minimal subset of the model elements@ \
+      whose no satisfaction leads to the violation of a property.@ \
     @]"
 
   (* All the flag specification of this module. *)
@@ -1495,7 +1494,7 @@ module MCS = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Compute a MCS over the elements of the main node only.@ \
+          Only elements of the main node are considered in the computation@ \
           Default: %a\
         "
         fmt_bool mcs_only_main_node_default
@@ -1527,8 +1526,8 @@ module MCS = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Only search for MCS of cardinality lower or equal to this parameter.@ \
-          If -1, all cardinalities will be considered.@ \
+          Only search for MCSs of cardinality lower or equal to this parameter.@ \
+          If -1, all MCSs will be considered.@ \
           Default: %n\
         "
         mcs_max_cardinality_default

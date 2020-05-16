@@ -450,19 +450,19 @@ module IVC : sig
   (** Specify on which elements we want to minimize *)
   val ivc_category : unit -> ivc_element list
 
-  (** Print the equations of the computed IVC *)
+  (** Print the model elements of the computed IVC *)
   val print_ivc : unit -> bool
 
-  (** Print the equations NOT in the computed IVC *)
+  (** Print the model elements NOT in the computed IVC *)
   val print_ivc_compl : unit -> bool
 
-  (** If true, compute an approximation of an IVC *)
+  (** If true, compute an approximation of a MIVC *)
   val ivc_approximate : unit -> bool
 
   (** If true, compute the MUST set first and compute the IVCs starting from it *)
   val ivc_must_set : unit -> bool
 
-  (** If true, compute the smallest IVC first *)
+  (** If true, compute a smallest IVC first *)
   val ivc_smallest_first : unit -> bool
 
   (** If true, compute IVC over elements of the main node only *)
@@ -495,28 +495,28 @@ module MCS : sig
   type mcs_element =
     [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `ANNOTATIONS ]
 
-  (** Enable computation of Maximal Cut Sets *)
+  (** Enable computation of Minimal Cut Sets *)
   val compute_mcs : unit -> bool
 
-  (** Specify whether all the Maximal Cut Sets must be computed or just one *)
+  (** Specify whether all the Minimal Cut Sets must be computed or just one *)
   val mcs_all : unit -> bool
 
   (** Specify on which elements we want to minimize *)
   val mcs_category : unit -> mcs_element list
 
-  (** Only search for MCS of cardinality lower or equal to this parameter *)
+  (** Only search for MCSs of cardinality lower or equal to this parameter *)
   val mcs_max_cardinality : unit -> int
 
-  (** Print the equations of the computed MCS *)
+  (** Print the model elements of the computed MCS *)
   val print_mcs : unit -> bool
 
-  (** Print the equations NOT in the computed MCS *)
+  (** Print the model elements NOT in the computed MCS *)
   val print_mcs_compl : unit -> bool
 
   (** Print the MCS using the legacy format *)
   val print_mcs_legacy : unit -> bool
 
-  (** Print the equations NOT in the computed MCS *)
+  (** Print the counterexample found for each MCS *)
   val print_mcs_counterexample : unit -> bool
 
   (** If true, compute MCS over elements of the main node only *)

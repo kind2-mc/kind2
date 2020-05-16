@@ -45,7 +45,7 @@ val generate_all_proofs : int -> 'a InputSystem.t -> TransSys.t -> unit
   The second parameter is an optional list of properties
   (if None, all the safe properties are considered).
 
-  The third parameter is an optionnal predicate that forces the minimization
+  The third parameter is an optional predicate that forces the minimization
   to only consider invariants that evaluates to true. *)
 val minimize_invariants : TransSys.t -> Term.t list option ->
     (Term.t -> bool) option -> int * Term.t list
