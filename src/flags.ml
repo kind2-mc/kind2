@@ -1420,7 +1420,7 @@ module MCS = struct
     Format.fprintf fmt "@[<v>\
       Kind 2 generates a minimal cut set,@ \
       that is a minimal subset of the model elements@ \
-      whose no satisfaction leads to the violation of a property.@ \
+      whose no satisfaction leads to the violation of a property.\
     @]"
 
   (* All the flag specification of this module. *)
@@ -1528,7 +1528,7 @@ module MCS = struct
         "\
           Only search for MCSs of cardinality lower or equal to this parameter.@ \
           If -1, all MCSs will be considered.@ \
-          Default: %n\
+          Default: %i\
         "
         mcs_max_cardinality_default
     )
