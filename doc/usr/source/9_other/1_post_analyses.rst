@@ -12,8 +12,7 @@ directly related to verification. The current post-analysis treatments available
 * contract generation,
 * invariant logging
 * invariant printing,
-* inductive validity core generation, and
-* minimal cut set generation
+* inductive validity core generation
 
 All of them are deactivated by default. Post-analysis treatments run on the
 *last analysis* of a system. It is defined as the last analysis performed by
@@ -72,9 +71,6 @@ treatment are:
 +---------------------+-----------------------------------------------+----------------------------------------+
 | inductive validity  | last analysis proved the system safe          |                                        |
 | core generation     |                                               |                                        |
-+---------------------+-----------------------------------------------+----------------------------------------+
-| minimal cut set     |                                               |                                        |
-| generation          |                                               |                                        |
 +---------------------+-----------------------------------------------+----------------------------------------+
 
 Silent Contract Loading

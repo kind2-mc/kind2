@@ -1,16 +1,16 @@
 .. _9_other/11_minimal_correction_set:
 
 Minimal Cut Set
-======================
+================
 
-The minimal cut set generation is a post-analysis treatement that computes a minimal subset of
+The minimal cut set generation is a special mode where Kind 2 computes a minimal subset of
 the model elements (contract items, equations or node calls) such that the system become unsafe if we remove these assumptions.
 
 To enable minimal cut set generation, run
 
 .. code-block:: none
 
-  kind2 <lustre_file> --mcs true
+  kind2 <lustre_file> --enable MCS
 
 Options
 -------
@@ -53,7 +53,7 @@ you can run this command:
 
 .. code-block:: none
 
-  kind2 <lustre_file> --mcs true --mcs_category annotations
+  kind2 <lustre_file> --enable MCS --mcs_category annotations
 
 Note that ``--mcs_category annotations`` is not required since it is the default value.
 
