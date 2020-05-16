@@ -183,6 +183,9 @@ val timeout_analysis : unit -> float
 (** The Kind modules enabled is a list of [kind_module]s. *)
 type enable = Lib.kind_module list
 
+(** Only parse the Lustre program. No analysis is performed. *)
+val only_parse : unit -> bool
+
 (** The modules enabled. *)
 val enabled : unit -> enable
 

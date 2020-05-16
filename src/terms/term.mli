@@ -512,7 +512,6 @@ val sbitvector_of_term : t -> Bitvector.t
 (** Return unsigned bitvector constant of a term *)
 val ubitvector_of_term : t -> Bitvector.t
 
-(*
 (** Return true if the term is a (sign-agnostic) bitvector consant *)
 val is_bitvector : t -> bool
 
@@ -521,7 +520,6 @@ val is_sbitvector : t -> bool
 
 (** Return true if the term is an unsigned bitvector constant *)
 val is_ubitvector : t -> bool
-*)
 
 (** Return true if the term is a decimal constant *)
 val is_decimal : t -> bool

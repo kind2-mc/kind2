@@ -242,7 +242,7 @@ let interpreter_param (type s) (input_system : s t) =
     | Horn _ -> raise (UnsupportedFileFormat "Horn")
   in
 
-  Analysis.First {
+  Analysis.Interpreter {
     Analysis.top = scope ;
     Analysis.uid = Analysis.get_uid () ;
     Analysis.abstraction_map = abstraction_map ;
