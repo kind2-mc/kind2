@@ -3374,6 +3374,10 @@ let parse_argv () =
   Global.finalize_enabled ();
 
   IVC.finalize_ivc_elements ();
+  if IVC.compute_ivc () && BmcKind.compress () then (
+    BmcKind.disable_compress () ;
+    Log.log L_warn "IVC post-analysis enabled: disabling ind_compress"
+  ) ;
   MCS.finalize_mcs_elements ();
 
   post_argv_parse_actions ();
