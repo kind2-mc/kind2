@@ -152,7 +152,7 @@ let print_data_of_loc_equation var_map (eq, locs, cat) =
     | NodeCall (name, _) ->
       Some {
         name = name ;
-        category = "node call" ;
+        category = "Node Call" ;
         position = last_position_of_locs locs ;
       }
     | Equation sv ->
@@ -160,7 +160,7 @@ let print_data_of_loc_equation var_map (eq, locs, cat) =
         try
           Some {
             name = lustre_name_of_sv var_map sv ;
-            category = "equation" ;
+            category = "Equation" ;
             position = last_position_of_locs locs ;
           }
         with Not_found -> None
@@ -168,18 +168,18 @@ let print_data_of_loc_equation var_map (eq, locs, cat) =
     | Assertion sv ->
       Some {
         name = Format.asprintf "assertion%a" pp_print_locs_short locs ;
-        category = "assertion" ;
+        category = "Assertion" ;
         position = last_position_of_locs locs ;
       }
     | ContractItem (_, svar, typ) ->
       let (kind, category) = 
         match typ with
-        | LustreNode.WeakAssumption -> ("weakly_assume", "assumption")
-        | LustreNode.WeakGuarantee -> ("weakly_guarantee", "guarantee")
-        | LustreNode.Assumption -> ("assume", "assumption")
-        | LustreNode.Guarantee -> ("guarantee", "guarantee")
-        | LustreNode.Require -> ("require", "assumption")
-        | LustreNode.Ensure -> ("ensure", "guarantee")
+        | LustreNode.WeakAssumption -> ("weakly_assume", "Assumption")
+        | LustreNode.WeakGuarantee -> ("weakly_guarantee", "Guarantee")
+        | LustreNode.Assumption -> ("assume", "Assumption")
+        | LustreNode.Guarantee -> ("guarantee", "Guarantee")
+        | LustreNode.Require -> ("require", "Require")
+        | LustreNode.Ensure -> ("ensure", "Ensure")
       in
       Some {
         name = LustreContract.prop_name_of_svar svar kind "" ;
@@ -241,10 +241,15 @@ let print_mcs_counterexample in_sys param sys typ fmt (prop, cex) =
         KEvent.pp_print_counterexample_json in_sys param sys prop true fmt cex
   with _ -> ()
 
+let format_name_for_pt str =
+  String.capitalize_ascii (String.lowercase_ascii str)
+
+let format_name_for_json_xml = Str.global_replace (Str.regexp " ") ""
+
 let pp_print_core_data in_sys param sys fmt cpd =
   let print_elt elt =
     Format.fprintf fmt "%s @{<blue_b>%s@} at position %a@ "
-      (String.capitalize_ascii elt.category) elt.name
+      (format_name_for_pt elt.category) elt.name
       Lib.pp_print_pos elt.position
   in
   let print_node scope lst =
@@ -276,7 +281,7 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
   let json_of_elt elt =
     let (file, row, col) = Lib.file_row_col_of_pos elt.position in
     `Assoc ([
-      ("category", `String elt.category) ;
+      ("category", `String (format_name_for_json_xml elt.category)) ;
       ("name", `String elt.name) ;
       ("line", `Int row) ;
       ("column", `Int col) ;
@@ -335,7 +340,7 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
       if not !fst then Format.fprintf fmt "@ " else fst := false ;
       let (file, row, col) = Lib.file_row_col_of_pos elt.position in
       Format.fprintf fmt "<Element category=\"%s\" name=\"%s\" line=\"%i\" column=\"%i\"%s>"
-        elt.category elt.name row col (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
+        (format_name_for_json_xml elt.category) elt.name row col (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
     in
     Format.fprintf fmt "<Node name=\"%s\">@   @[<v>" (Scope.to_string scope) ;
     List.iter print_elt elts ;
