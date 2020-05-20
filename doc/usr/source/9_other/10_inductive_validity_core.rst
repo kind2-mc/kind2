@@ -76,11 +76,41 @@ We obtain the following inductive validity core:
 
 .. code-block:: none
 
-  ----- f -----
-  Contract item (r >= u) at position [l6c4]
-  Contract item (r >= v) at position [l7c4]
+  IVC (2 elements):
+    Node f
+      Guarantee fSpec[l11c12].guarantee[l6c4][3] at position [l6c4]
+      Guarantee fSpec[l11c12].guarantee[l7c4][4] at position [l7c4]
 
-  ----- main -----
+Minimizing over a subset of the assumptions/guarantees
+------------------------------------------------------
+
+If you are interested in computing an IVC among a subset of the assumptions or guarantees, you can use the category ``annotations``.
+The assumptions and guarantees that should be considered must be preceded by the keyword ``weakly``.
+All the other assumptions and guarantees will be considered as always present when computing the IVCs.
+
+For instance, we can modify the previous example as follows:
+
+.. code-block:: none
+
+  contract fSpec(u,v: real) returns(r: real);
+  let
+      weakly guarantee r >= 0.0;
+      guarantee true -> r >= pre(r);
+      weakly guarantee r >= u;
+      guarantee r >= v;
+  tel;
+
+.. code-block:: none
+
+  kind2 <lustre_file> --ivc true --ivc_category annotations --ivc_only_main_node false --compositional true
+
+We obtain the following inductive validity core:
+
+.. code-block:: none
+
+  IVC (1 elements):
+    Node f
+      Guarantee fSpec[l11c12].weakly_guarantee[l6c4][3] at position [l6c4]
 
 Computing all Inductive Validity Cores
 --------------------------------------

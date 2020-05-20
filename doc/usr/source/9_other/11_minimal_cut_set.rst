@@ -38,12 +38,12 @@ Let's consider the following Lustre code:
       weakly assume x >= 0.0;
   tel;
 
-  node main(x, y : real) returns (a : real);
+  node main(x, y : real) returns (z : real);
   (*@contract import spec(x,y) returns (z) ; *)
   var P : bool;
   let
-      a = x + y;
-      P = a = 0.0;
+      z = x + y;
+      P = z = 0.0;
       --%MAIN;
       --%PROPERTY P;
   tel;
@@ -61,5 +61,15 @@ The following minimal cut set is printed:
 
 .. code-block:: none
 
-  ----- main -----
-  Weak assumption (x = -y) at position [l4c4]
+  MCS (1 elements) for property P:
+    Node main
+      Assumption spec[l9c12].weakly_assume[l4c4][1] at position [l4c4]
+
+In the example above, the ``weakly`` keywork is used to annotate the assumptions and guarantees to consider for the MCS computation
+(Kind2 will only try to remove these assumptions and guarantees, all the others will be kept).
+
+Alternatively, if we want to compute a MCS over all the assumptions and guarantees, we can change the category to ``contracts``:
+
+.. code-block:: none
+
+  kind2 <lustre_file> --enable MCS --mcs_category contracts
