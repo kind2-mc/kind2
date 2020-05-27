@@ -89,13 +89,13 @@ type t =
     global_state_vars : (StateVar.t * Term.t list) list;
 
     (* List of global free constants *)
-    mutable global_consts : Var.t list;
+    global_consts : Var.t list;
     
     (* State variables in the scope of this transition system 
 
        Also contains [instance_state_var] unless it is None, but not
        state variables in [global_state_vars]. *)
-    mutable state_vars : StateVar.t list;
+    state_vars : StateVar.t list;
 
     (* register indexes of state variables for later use *)
     state_var_bounds : 
@@ -122,7 +122,7 @@ type t =
     init_formals : Var.t list;
 
     (* Initial state constraint. Mutable because we change it when computing IVC. *)
-    mutable init : Term.t;
+    init : Term.t;
 
     (* Predicate symbol for transition relation *)
     trans_uf_symbol : UfSymbol.t;
@@ -131,12 +131,12 @@ type t =
     trans_formals : Var.t list;
 
     (* Transition relation. Mutable because we change it when computing IVC. *)
-    mutable trans : Term.t;
+    trans : Term.t;
 
     (* Properties to prove invariant for this transition system 
 
        Does not need to be mutable, because a Property.t is *)
-    mutable properties : Property.t list;
+    properties : Property.t list;
 
     (** Requirements of global and non-global modes for this system (used by
         test generation).
@@ -526,9 +526,17 @@ let init_trans_open { instance_var_bindings; init; trans } =
    init,
    trans)
 
-let set_init_trans t init trans =
-  t.init <- init ;
-  t.trans <- trans
+let rec set_subsystem_equations t scope init trans =
+  let aux (t, instances) =
+    (set_subsystem_equations t scope init trans, instances)
+  in
+  let subsystems = List.map aux t.subsystems in
+  let (init, trans) =
+    if Scope.equal t.scope scope
+    then (init, trans)
+    else (t.init, t.trans)
+  in
+  { t with init; trans; subsystems }
 
 (* Return the state variable for the init flag *)
 let init_flag_state_var { init_flag_state_var } = init_flag_state_var
@@ -814,9 +822,10 @@ module Hashtbl = Hashtbl.Make (T)
 let state_vars { state_vars } = state_vars
 
 (** Add a global constant to a transition system *)
-let add_global_const ts v =
-  ts.global_consts <- v::ts.global_consts ;
-  ts.state_vars <- (Var.state_var_of_state_var_instance v)::ts.state_vars
+let add_global_constant t v =
+  let global_consts = v::t.global_consts in
+  let state_vars = (Var.state_var_of_state_var_instance v)::t.state_vars in
+  { t with global_consts ; state_vars }
 
 (* Return global state variables of the transition system *)
 let global_state_vars { global_state_vars } = global_state_vars
@@ -1369,8 +1378,18 @@ let has_properties = function
 | { properties = [] } -> false
 | _ -> true
 
-let set_properties ts ps =
-  ts.properties <- ps
+let rec set_subsystem_properties t scope ps =
+  let aux (t, instances) =
+    (set_subsystem_properties t scope ps, instances)
+  in
+  let subsystems = List.map aux t.subsystems in
+  let properties =
+    if Scope.equal t.scope scope
+    then ps
+    else t.properties
+  in
+  { t with properties; subsystems }
+
 
 (* Return true if all properties which are not candidates are either valid or
    invalid *)

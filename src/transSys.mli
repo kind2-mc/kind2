@@ -162,8 +162,8 @@ val init_flag_of_bound : t -> Numeral.t -> Term.t
     at [trans_base] with the instance variables free. *)
 val init_trans_open : t -> StateVar.t list * Term.t * Term.t
 
-(** Update the init and trans equations of the toplevel system *)
-val set_init_trans : t -> Term.t -> Term.t -> unit
+(** Update the init and trans equations of a subsystem *)
+val set_subsystem_equations : t -> Scope.t -> Term.t -> Term.t -> t
 
 (** Return the logic fragment needed to express the transition system *)
 val get_logic : t -> TermLib.logic
@@ -371,8 +371,8 @@ val map_cex_prop_to_subsystem : (Scope.t -> instance -> (StateVar.t * Model.valu
 (** Return the state variables of a transition system *)
 val state_vars : t -> StateVar.t list
 
-(** Add a global constant to a transition system *)
-val add_global_const : t -> Var.t -> unit
+(** Add a global constant to the toplevel transition system *)
+val add_global_constant : t -> Var.t -> t
 
 (** Return instances of the state variables of the transition system
     between given instants
@@ -531,8 +531,8 @@ val set_prop_ktrue : t -> int -> string -> unit
 
 val force_set_prop_unknown : t -> string -> unit
 
-(* Set the list of properties. /!\ Mutable *)
-val set_properties : t -> Property.t list -> unit
+(* Set the list of properties of a subsystem *)
+val set_subsystem_properties : t -> Scope.t -> Property.t list -> t
 
 (** Returns true iff sys has at least one property. *)
 val has_properties : t -> bool

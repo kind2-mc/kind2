@@ -1091,60 +1091,35 @@ let reset_ts enter_nodes sys =
   )
 
 let remove_other_props sys prop_names =
-  let aux prop_names sys =
+  let aux prop_names acc sys =
     let props = TS.get_properties sys in
     let aux prop =
       let name = prop.Property.prop_name in
       List.exists (fun n -> n = name) prop_names
     in
     List.filter aux props
-    |> TS.set_properties sys
+    |> TS.set_subsystem_properties acc (TS.scope_of_trans_sys sys)
   in
-  TS.iter_subsystems ~include_top:false (aux []) sys ;
-  aux prop_names sys
-
-let add_invariants_as_candidate enter_nodes sys =
-  (* Disabled because it seems to favorize runtime exceptions *)
-  let _cnt = ref 0 in
-  let cnt () =
-    _cnt := !_cnt + 1 ;
-    !_cnt
-  in
-  let aux sys =
-    let invs = TS.get_invariants sys in
-    let invs = Invs.get_os invs in
-    let add_as_candidate t =
-      let p = Property.{
-        prop_name = Format.sprintf "%%inv_%i" (cnt ()) ;
-        prop_source = Property.Candidate None ;
-        prop_term = t ;
-        prop_status = PropUnknown
-      } in
-      TS.set_properties sys (p::(TS.get_properties sys))
-    in
-    Term.TermSet.iter add_as_candidate invs
-  in
-  if enter_nodes
-  then TS.iter_subsystems ~include_top:true aux sys
-  else aux sys
+  let sys = TS.fold_subsystems ~include_top:false (aux []) sys sys
+  in aux prop_names sys sys
 
 let add_as_candidate os_invs sys =
-  (* Disabled because it seems to favorize runtime exceptions *)
   let _cnt = ref 0 in
   let cnt () =
     _cnt := !_cnt + 1 ;
     !_cnt
   in
-  let add_as_candidate t =
-    let p = Property.{
+  let create_candidate t =
+    Property.{
       prop_name = Format.sprintf "%%inv_%i" (cnt ()) ;
       prop_source = Property.Candidate None ;
       prop_term = t ;
       prop_status = PropUnknown
-    } in
-    TS.set_properties sys (p::(TS.get_properties sys))
+    }
   in
-  List.iter add_as_candidate os_invs
+  let props = List.map create_candidate os_invs in
+  let props = props @ (TS.get_properties sys) in
+  TS.set_subsystem_properties sys (TS.scope_of_trans_sys sys) props
 
 type core = (UfSymbol.t list) ScMap.t
 
@@ -1286,9 +1261,9 @@ let compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k al
     |> Term.mk_and
   in
 
-  let prepare_ts_for_check keep test =
+  let prepare_ts_for_check sys keep test =
     reset_ts enter_nodes sys ;
-    let prepare_subsystem sys =
+    let prepare_subsystem acc sys =
       let scope = TS.scope_of_trans_sys sys in
       let keep_actsvs =
         try Some (ScMap.find scope keep)
@@ -1306,7 +1281,7 @@ let compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k al
         | Some k, Some t -> Some (k, t)
       in
       begin match actsvs with
-      | None -> ()
+      | None -> acc
       | Some (ks,ts) ->
         let eqs =
           (List.map (fun k -> eq_of_actsv ~with_act:false k) ks) @
@@ -1316,19 +1291,19 @@ let compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k al
         |> Term.mk_and in
         let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
         |> Term.mk_and in
-        TS.set_init_trans sys init_eq trans_eq 
+        TS.set_subsystem_equations acc scope init_eq trans_eq 
       end
     in
-    TS.iter_subsystems ~include_top:true prepare_subsystem sys ;
+    let sys = TS.fold_subsystems ~include_top:true prepare_subsystem sys sys in
     let (_,init_eq,trans_eq) = TS.init_trans_open sys in
     let init_eq =
       Term.mk_and ((exactly_k_true actsvs k) (* Cardinality constraint *)
       ::not_already_found            (* 'Not already found' constraint *)
       ::(deconstruct_conj init_eq)) in
-    TS.set_init_trans sys init_eq trans_eq
+    TS.set_subsystem_equations sys (TS.scope_of_trans_sys sys) init_eq trans_eq
   in
 
-  prepare_ts_for_check keep test ;
+  let sys = prepare_ts_for_check sys keep test in
   let old_log_level = Lib.get_log_level () in
   Format.print_flush () ;
   Lib.set_log_level L_off ;
@@ -1792,8 +1767,8 @@ let must_set_ in_sys ?(os_invs=None) check_ts sys props enter_nodes eqmap_keep e
   in
 
   let prop_names = props_names props in
-  remove_other_props sys prop_names ;
-  add_as_candidate os_invs sys ;
+  let sys = remove_other_props sys prop_names in
+  let sys = add_as_candidate os_invs sys in
 
   (* Activation litterals, core and mapping to equations *)
   let add_to_bindings must_be_tested scope eqs act_bindings =
@@ -1848,7 +1823,7 @@ let must_set_ in_sys ?(os_invs=None) check_ts sys props enter_nodes eqmap_keep e
 
   (* Add actsvs to the CS transition system (at top level) *)
   let actsvs = actsvs_of_core reduced_test in
-  List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
+  let sys = List.fold_left (fun acc sv -> TS.add_global_constant acc (Var.mk_const_state_var sv)) sys actsvs in
 
   let core =
     compute_all_cs check_ts sys prop_names enter_nodes actsvs_eqs_map increased_keep reduced_test 1 []
@@ -1889,28 +1864,28 @@ let eqmap_size = core_size
 let pick_eqmap = pick_core
 
 let check_core check_ts sys prop_names enter_nodes core =
-  let prepare_ts_for_check core =
+  let prepare_ts_for_check sys core =
     reset_ts enter_nodes sys ;
-    let prepare_subsystem sys =
+    let prepare_subsystem acc sys =
       let scope = TS.scope_of_trans_sys sys in
       let eqs =
         try Some (ScMap.find scope core)
         with Not_found -> if enter_nodes then Some [] else None
       in
       begin match eqs with
-      | None -> ()
+      | None -> acc
       | Some eqs ->
         let init_eq = List.map (fun eq -> eq.init_opened) eqs
         |> Term.mk_and in
         let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
         |> Term.mk_and in
-        TS.set_init_trans sys init_eq trans_eq 
+        TS.set_subsystem_equations acc scope init_eq trans_eq 
       end
     in
-    TS.iter_subsystems ~include_top:true prepare_subsystem sys
+    TS.fold_subsystems ~include_top:true prepare_subsystem sys sys
   in
   let check core =
-    prepare_ts_for_check core ;
+    let sys = prepare_ts_for_check sys core in
     let old_log_level = Lib.get_log_level () in
     Format.print_flush () ;
     Lib.set_log_level L_off ;
@@ -1923,8 +1898,8 @@ let check_core check_ts sys prop_names enter_nodes core =
 (** Implements the algorithm IVC_BF *)
 let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   let prop_names = props_names props in
-  remove_other_props sys prop_names ;
-  add_as_candidate os_invs sys ;
+  let sys = remove_other_props sys prop_names in
+  let sys = add_as_candidate os_invs sys in
   (* Minimization *)
   let rec minimize ?(skip_first_check=false) check keep test =
     if skip_first_check || check keep test then
@@ -2128,7 +2103,7 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes
   else (
     (* Add actsvs to the CS transition system (at top level) *)
     let actsvs = actsvs_of_core test in
-    List.iter (fun sv -> TS.add_global_const sys_cs (Var.mk_const_state_var sv)) actsvs ;
+    let sys_cs = List.fold_left (fun acc sv -> TS.add_global_constant acc (Var.mk_const_state_var sv)) sys_cs actsvs in
 
     (* Initialize the seed map *)
     let map = SMTSolver.create_instance ~produce_assignments:true
@@ -2152,30 +2127,30 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes
     let eqmap_keep = core_to_eqmap keep in
 
     (* Check safety *)
-    let prepare_ts_for_check keep =
+    let prepare_ts_for_check sys keep =
       reset_ts enter_nodes sys ;
-      let prepare_subsystem sys =
+      let prepare_subsystem acc sys =
         let scope = TS.scope_of_trans_sys sys in
         let actsvs =
           try Some (ScMap.find scope keep)
           with Not_found -> if enter_nodes then Some [] else None
         in
         begin match actsvs with
-        | None -> ()
+        | None -> acc
         | Some actsvs ->
           let eqs = List.map eq_of_actsv actsvs in
           let init_eq = List.map (fun eq -> eq.init_opened) eqs
           |> Term.mk_and in
           let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
           |> Term.mk_and in
-          TS.set_init_trans sys init_eq trans_eq 
+          TS.set_subsystem_equations acc scope init_eq trans_eq 
         end
       in
-      TS.iter_subsystems ~include_top:true prepare_subsystem sys
+      TS.fold_subsystems ~include_top:true prepare_subsystem sys sys
     in
     let check keep =
       KEvent.log L_info "Testing safety of next seed..." ;
-      prepare_ts_for_check keep ;
+      let sys = prepare_ts_for_check sys keep in
       let old_log_level = Lib.get_log_level () in
       Format.print_flush () ;
       Lib.set_log_level L_off ;
@@ -2345,8 +2320,8 @@ let properties_of_interest_for_mua sys =
 
 let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardinality= -1) cont eqmap_keep eqmap_test =
   let prop_names = props_names props in
-  remove_other_props sys prop_names ;
-  add_as_candidate os_invs sys ;
+  let sys = remove_other_props sys prop_names in
+  let sys = add_as_candidate os_invs sys in
 
   (* Activation litterals, core and mapping to equations *)
   let add_to_bindings must_be_tested scope eqs act_bindings =
@@ -2384,7 +2359,7 @@ let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardi
 
   (* Add actsvs to the CS transition system (at top level) *)
   let actsvs = actsvs_of_core test in
-  List.iter (fun sv -> TS.add_global_const sys (Var.mk_const_state_var sv)) actsvs ;
+  let sys = List.fold_left (fun acc sv -> TS.add_global_constant acc (Var.mk_const_state_var sv)) sys actsvs in
 
   let cont (core, cex) =
     (core_diff test core |> core_to_eqmap, cex) |> cont
