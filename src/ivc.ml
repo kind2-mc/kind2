@@ -908,11 +908,11 @@ let id_of_term in_sys t =
 
 (* ---------- UTILITIES ---------- *)
 
-let make_check_ts in_sys param analyze sys =
+let make_ts_analyzer in_sys param analyze sys =
   let param = Analysis.param_clone param in
   let sys = TS.copy sys in
   let modules = Flags.enabled () in
-  sys, (fun () -> analyze false modules in_sys param sys)
+  sys, (fun sys -> analyze false modules in_sys param sys)
 
 let extract_props sys ?(can_be_unknown=false) can_be_valid can_be_invalid =
   List.filter (function
@@ -1307,7 +1307,7 @@ let compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k al
   let old_log_level = Lib.get_log_level () in
   Format.print_flush () ;
   Lib.set_log_level L_off ;
-  check_ts () ;
+  check_ts sys ;
   Lib.set_log_level old_log_level;
   match get_counterexample_actsvs prop_names sys actsvs with
   | None -> None
@@ -1839,7 +1839,7 @@ let must_set in_sys param analyze sys props =
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
-    let (sys, check_ts) = make_check_ts in_sys param analyze sys in
+    let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let (keep', _) = must_set_ in_sys check_ts sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys props (lstmap_union keep keep'))
   ) with
@@ -1889,7 +1889,7 @@ let check_core check_ts sys prop_names enter_nodes core =
     let old_log_level = Lib.get_log_level () in
     Format.print_flush () ;
     Lib.set_log_level L_off ;
-    check_ts () ;
+    check_ts sys ;
     Lib.set_log_level old_log_level;
     check_result prop_names sys
   in
@@ -1955,7 +1955,7 @@ let ivc_bf in_sys ?(use_must_set=None) param analyze sys props =
     let ivc_bf_ = match use_must_set with
     | Some f -> (fun x -> x |> lstmap_union keep |> eqmap_to_ivc in_sys props |> f) |> ivc_must_bf_
     | None -> ivc_bf_ in
-    let (sys, check_ts) = make_check_ts in_sys param analyze sys in
+    let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let test = ivc_bf_ in_sys check_ts sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
   ) with
@@ -1977,7 +1977,7 @@ let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
     | Some f -> (fun x -> x |> lstmap_union keep |> eqmap_to_ivc in_sys props |> f) |> ivc_must_bf_
     | None -> ivc_bf_ in
     let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep test in
-    let (sys, check_ts) = make_check_ts in_sys param analyze sys in
+    let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let test = ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
     Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
   ) with
@@ -2051,12 +2051,12 @@ let block_down map actsvs s =
 
 type unexplored_type = | Any | Min | Max
 
-let umivc_ in_sys make_check_ts sys props k enter_nodes
+let umivc_ in_sys make_ts_analyzer sys props k enter_nodes
   ?(stop_after=0) cont eqmap_keep eqmap_test =
   let prop_names = props_names props in
   (*let sys_original = sys in*)
-  let (sys_cs, check_ts_cs) = make_check_ts sys in
-  let (sys, check_ts) = make_check_ts sys in
+  let (sys_cs, check_ts_cs) = make_ts_analyzer sys in
+  let (sys, check_ts) = make_ts_analyzer sys in
 
   (* Activation litterals, core and mapping to equations *)
   let add_to_bindings must_be_tested scope eqs act_bindings =
@@ -2154,7 +2154,7 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes
       let old_log_level = Lib.get_log_level () in
       Format.print_flush () ;
       Lib.set_log_level L_off ;
-      check_ts () ;
+      check_ts sys ;
       Lib.set_log_level old_log_level;
       check_result prop_names sys
     in
@@ -2258,10 +2258,10 @@ let umivc_ in_sys make_check_ts sys props k enter_nodes
     all_mivc
   )
 
-let must_umivc_ must_cont in_sys make_check_ts sys props k enter_nodes
+let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
   ?(stop_after=0) cont keep test =
   let prop_names = props_names props in
-  let (sys', check_ts') = make_check_ts sys in
+  let (sys', check_ts') = make_ts_analyzer sys in
 
   let (keep', test) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
   must_cont keep' ;
@@ -2276,7 +2276,7 @@ let must_umivc_ must_cont in_sys make_check_ts sys props k enter_nodes
     KEvent.log L_info "MUST set is not a valid IVC. Running UMIVC..." ;
     let post core = lstmap_union core keep' in
     let cont core = core |> post |> cont in
-    umivc_ in_sys make_check_ts sys props k enter_nodes ~stop_after cont keep test
+    umivc_ in_sys make_ts_analyzer sys props k enter_nodes ~stop_after cont keep test
     |> List.map post
   )
 
@@ -2297,8 +2297,8 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
       res := ivc::(!res) ;
       cont ivc
     in
-    let make_check_ts = make_check_ts in_sys param analyze in
-    let _ = umivc_ in_sys make_check_ts sys props k enter_nodes ~stop_after cont keep test in
+    let make_ts_analyzer = make_ts_analyzer in_sys param analyze in
+    let _ = umivc_ in_sys make_ts_analyzer sys props k enter_nodes ~stop_after cont keep test in
     List.rev (!res)
   ) with
   | NotKInductive ->
@@ -2389,7 +2389,7 @@ let mua in_sys param analyze sys props ?(max_mcs_cardinality= -1) all cont =
     let elements = (Flags.MCS.mcs_category ()) in
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys elements eqmap in
-    let (sys, check_ts) = make_check_ts in_sys param analyze sys in
+    let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let res = ref [] in
     let cont (test, (prop,cex)) =
       let mua = eqmap_to_ivc in_sys (TS.property_of_name sys prop, cex) (lstmap_union keep test) in
