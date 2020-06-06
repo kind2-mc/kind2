@@ -473,6 +473,7 @@ val misc_stats : stat_item list
 (** Print general statistics *)
 val pp_print_misc_stats : Format.formatter -> unit 
 
+val remaining_timeout : unit -> float
 
 (* 
    Local Variables:
