@@ -28,8 +28,15 @@ let cmd_line
 
   (* Path and name of Z3 executable *)
   let z3_bin = Flags.Smt.z3_bin () in
-  [| z3_bin; "-smt2"; "-in" |]
-
+  let base_cmd = [| z3_bin; "-smt2"; "-in" |] in
+  if Flags.timeout_wall () > 0. then (
+    let timeout =
+      let timeout_val = Stat.remaining_timeout () +. 1.0 in
+      Format.sprintf "-T:%.0f" (timeout_val |> ceil)
+    in
+    Array.append base_cmd [| timeout |]
+  )
+  else base_cmd
 
 (* Command to limit check-sat in Z3 to run for the given numer of ms
    at most *)
