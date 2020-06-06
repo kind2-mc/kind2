@@ -764,7 +764,7 @@ let rec type_of_term t = match T.destruct t with
             (* ite must be ternary *)
             | [_; a; _] -> type_of_term a
             | _ ->
-              Format.eprintf "%a@." pp_print_term t;
+              (* Format.eprintf "%a@." pp_print_term t; *)
               assert false)
             
         (* Uninterpreted constant *)
