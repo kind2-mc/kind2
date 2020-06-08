@@ -163,7 +163,7 @@ val step_cex :
 (** Broadcast a property status *)
 val prop_status : Property.prop_status -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> unit
 
-(* Log a property disproved during the computation of a Maximal Unsafe Abstraction *)
+(* Log a property disproved during the computation of a Minimal Cut Set *)
 val cex_wam : (StateVar.t * Model.value list) list -> (string * bool) list -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> unit
 
 (** Broadcast an execution path *)

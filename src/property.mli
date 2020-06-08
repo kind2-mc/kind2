@@ -104,7 +104,7 @@ val set_prop_invariant : t -> Certificate.t ->unit
 val set_prop_ktrue : t -> int -> unit
 val set_prop_false : t -> (StateVar.t * Model.value list) list -> unit
 
-val force_set_prop_unknown : t -> unit
+val set_prop_unknown : t -> unit
 
 val length_of_cex :  (StateVar.t * Model.value list) list -> int
 

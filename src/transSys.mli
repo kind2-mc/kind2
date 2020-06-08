@@ -529,7 +529,7 @@ val set_prop_false :
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
 
-val force_set_prop_unknown : t -> string -> unit
+val set_prop_unknown : t -> string -> unit
 
 (* Set the list of properties of a subsystem *)
 val set_subsystem_properties : t -> Scope.t -> Property.t list -> t

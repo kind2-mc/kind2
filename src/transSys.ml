@@ -121,7 +121,7 @@ type t =
     (* Formal parameters of initial state constraint *)
     init_formals : Var.t list;
 
-    (* Initial state constraint. Mutable because we change it when computing IVC. *)
+    (* Initial state constraint. *)
     init : Term.t;
 
     (* Predicate symbol for transition relation *)
@@ -130,7 +130,7 @@ type t =
     (* Formal parameters of transition relation *)
     trans_formals : Var.t list;
 
-    (* Transition relation. Mutable because we change it when computing IVC. *)
+    (* Transition relation. *)
     trans : Term.t;
 
     (* Properties to prove invariant for this transition system 
@@ -1336,12 +1336,12 @@ let set_prop_ktrue trans_sys k p =
 let set_prop_false trans_sys p c =
   P.PropFalse c |> set_prop_status trans_sys p
 
-let force_set_prop_unknown { properties } p =
+let set_prop_unknown { properties } p =
   let found =
     properties |> List.fold_left (
       fun found -> function
       | { P.prop_name } as prop when prop_name = p ->
-        P.force_set_prop_unknown prop ;
+        P.set_prop_unknown prop ;
         true
       | _ -> found
     ) false

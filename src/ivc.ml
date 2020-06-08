@@ -393,7 +393,7 @@ let pp_print_mcs_legacy in_sys param sys ((prop, cex), mcs) (_, mcs_compl) =
       all_wa_names_of_mcs mcs
     |>  List.map (fun str -> (str, false))
   in
-  TS.force_set_prop_unknown sys prop_name ;
+  TS.set_prop_unknown sys prop_name ;
   let wa_model = wa_model@wa_model' in
   KEvent.cex_wam cex wa_model in_sys param sys prop_name
 
@@ -1077,7 +1077,7 @@ let term_of_eq init closed eq =
 let reset_ts enter_nodes sys =
   let set_props_unknown sys =
     List.iter
-      (fun str -> TS.force_set_prop_unknown sys str)
+      (fun str -> TS.set_prop_unknown sys str)
       (extract_all_props_names sys)
   in
   if enter_nodes

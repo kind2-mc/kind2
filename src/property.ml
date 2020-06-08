@@ -266,7 +266,7 @@ let set_prop_status p = function
 
   | PropFalse c -> set_prop_false p c
 
-let force_set_prop_unknown p =
+let set_prop_unknown p =
   p.prop_status <- PropUnknown
 
 (* Get property status *)

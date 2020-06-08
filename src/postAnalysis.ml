@@ -772,7 +772,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
   )
 
 
-(** Maximal Unsafe Abstraction computation *)
+(** Minimal Cut Set computation *)
 module RunMCS: PostAnalysis = struct
   let name = "mcs"
   let title = "minimal cut set"
