@@ -67,9 +67,33 @@ let cmd_line
     | _, true -> fmfrec_flags
     | _, false -> fmfint_flags in*)
 
-  let default_cmd = [| cvc4_bin; "--lang"; "smt2" |] in
+  let base_cmd = [| cvc4_bin; "--lang"; "smt2" |] in
 
-  Array.concat [default_cmd; common_flags]
+  let timeout_global =
+    if Flags.timeout_wall () > 0.
+    then Stat.remaining_timeout () +. 1.0
+    else Float.infinity
+  in
+  let timeout_local =
+    if timeout > 0
+    then float_of_int timeout
+    else Float.infinity
+  in
+  let timeout =
+    if timeout_global < timeout_local then timeout_global else timeout_local
+  in
+
+  let cmd =
+    if timeout < Float.infinity then (
+      let timeout =
+        Format.sprintf "--tlimit=%.0f" ((1000.0 *. timeout) |> ceil)
+      in
+      Array.append base_cmd [|timeout|]
+    )
+    else base_cmd
+  in
+
+  Array.concat [cmd; common_flags]
   
 
 let check_sat_limited_cmd _ = 

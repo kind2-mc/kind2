@@ -32,7 +32,27 @@ let cmd_line
   (* Path and name of Yices executable *)
   let yices_bin = Flags.Smt.yices_bin () in
 
-  [| yices_bin |]
+  let timeout_global =
+    if Flags.timeout_wall () > 0.
+    then Stat.remaining_timeout () +. 1.0
+    else Float.infinity
+  in
+  let timeout_local =
+    if timeout > 0
+    then float_of_int timeout
+    else Float.infinity
+  in
+  let timeout =
+    if timeout_global < timeout_local then timeout_global else timeout_local
+  in
+
+  if timeout < Float.infinity then (
+    let timeout =
+      Format.sprintf "--timeout=%.0f" (timeout |> ceil)
+    in
+    [| yices_bin; timeout |]
+  )
+  else [| yices_bin |]
 
 
 

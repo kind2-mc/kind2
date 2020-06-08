@@ -790,6 +790,10 @@ let pp_print_misc_stats ppf =
   Format.fprintf ppf "@[<v>%a@]"
     pp_print_stats misc_stats
 
+let remaining_timeout () =
+  let elapsed = get_float total_time in
+  if Flags.timeout_wall () < elapsed then 0.
+  else Flags.timeout_wall () -. elapsed
 
 (* 
    Local Variables:

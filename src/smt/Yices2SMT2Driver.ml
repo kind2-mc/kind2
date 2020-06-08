@@ -43,10 +43,37 @@ let cmd_line
 
   (* Path and name of Yices executable *)
   let yices2smt2_bin = Flags.Smt.yices2smt2_bin () in
+
+  let base_cmd = [| yices2smt2_bin; "--incremental" |] in
+
+  let timeout_global =
+    if Flags.timeout_wall () > 0.
+    then Stat.remaining_timeout () +. 1.0
+    else Float.infinity
+  in
+  let timeout_local =
+    if timeout > 0
+    then float_of_int timeout
+    else Float.infinity
+  in
+  let timeout =
+    if timeout_global < timeout_local then timeout_global else timeout_local
+  in
+
+  let cmd =
+    if timeout < Float.infinity then (
+      let timeout =
+        Format.sprintf "--timeout=%.0f" (timeout |> ceil)
+      in
+      Array.append base_cmd [|timeout|]
+    )
+    else base_cmd
+  in
+
   if Flags.Smt.yices2_smt2models () then
-    [| yices2smt2_bin; "--incremental"; "--smt2-model-format" |]
+    Array.append cmd [|"--smt2-model-format"|]
   else
-    [| yices2smt2_bin; "--incremental" |]
+    cmd
 
 
 let check_sat_limited_cmd _ = 

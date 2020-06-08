@@ -30,10 +30,29 @@ let cmd_line
 
   (* Path and name of Z3 executable *)
   let z3_bin = Flags.Smt.z3_bin () in
-  if timeout > 0
-  then [| z3_bin; "-smt2"; Printf.sprintf "-T:%n" timeout ; "-in" |]
-  else [| z3_bin; "-smt2"; "-in" |]
 
+  let timeout_global =
+    if Flags.timeout_wall () > 0.
+    then Stat.remaining_timeout () +. 1.0
+    else Float.infinity
+  in
+  let timeout_local =
+    if timeout > 0
+    then float_of_int timeout
+    else Float.infinity
+  in
+  let timeout =
+    if timeout_global < timeout_local then timeout_global else timeout_local
+  in
+
+  let base_cmd = [| z3_bin; "-smt2"; "-in" |] in
+  if timeout < Float.infinity then (
+    let timeout = 
+      Format.sprintf "-T:%.0f" (timeout |> ceil)
+    in
+    Array.append base_cmd [| timeout |]
+  )
+  else base_cmd
 
 (* Command to limit check-sat in Z3 to run for the given numer of ms
    at most *)
