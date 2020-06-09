@@ -112,10 +112,10 @@ let compare_one_index a b = match a, b with
 
   (* Use polymorphic comparison on strings and integers *)
   | RecordIndex a, RecordIndex b
-  | AbstractTypeIndex a, AbstractTypeIndex b -> Pervasives.compare a b
+  | AbstractTypeIndex a, AbstractTypeIndex b -> Stdlib.compare a b
   | TupleIndex a, TupleIndex b
   | ListIndex a, ListIndex b
-  | ArrayIntIndex a, ArrayIntIndex b -> Pervasives.compare a b
+  | ArrayIntIndex a, ArrayIntIndex b -> Stdlib.compare a b
 
   (* Variable indexes are equal regardless of the bound expression *)
   | ArrayVarIndex _, ArrayVarIndex _ -> 0

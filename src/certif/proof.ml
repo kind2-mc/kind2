@@ -384,7 +384,7 @@ let lex_comp h1 h2 =
 
 
 (* Same on bindings *)
-let lex_comp_b (_, i1, _) (_, i2, _) = Pervasives.compare i1 i2
+let lex_comp_b (_, i1, _) (_, i2, _) = Stdlib.compare i1 i2
 
 
 let is_fdummya b =

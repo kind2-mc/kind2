@@ -1,5 +1,6 @@
 # Log files.
 *.log
+*.err
 
 # Generated opam switch.
 _opam

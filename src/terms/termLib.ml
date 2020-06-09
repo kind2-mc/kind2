@@ -95,7 +95,7 @@ type feature =
 (* Set of features *)
 module FeatureSet = Set.Make (struct
     type t = feature
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
   end)
 
 

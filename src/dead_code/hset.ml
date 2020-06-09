@@ -318,7 +318,7 @@ let rec max_elt = function
 
 let equal = (=)
 
-let compare = Pervasives.compare
+let compare = Stdlib.compare
 
 (*i*)
 let make l = List.fold_right add l empty

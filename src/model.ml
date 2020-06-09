@@ -32,7 +32,7 @@ module MIL = Map.Make
         | [], _ -> -1
         | _, [] -> 1
         | x :: r1, y :: r2 ->
-          let c = Pervasives.compare x y in
+          let c = Stdlib.compare x y in
           if c <> 0 then c
           else compare r1 r2
     end)
