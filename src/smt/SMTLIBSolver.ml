@@ -968,7 +968,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
     let headers =
       "(set-option :print-success true)" ::
-      (headers timeout minimize_cores) @
+      (headers minimize_cores) @
       (if produce_assignments then
         (*["(set-option :produce-assignments true)"] else []) @*)
         (* The command get-model is used instead of get-assignment,

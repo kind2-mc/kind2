@@ -34,7 +34,7 @@ module type S = sig
   val check_sat_assuming_cmd : unit -> string
 
   (** Solver specific headers to add at the beginning of the file *)
-  val headers : int -> bool -> string list
+  val headers : bool -> string list
 
   (** Solver specific commands to add at the beginning of the file *)
   val prelude : string list

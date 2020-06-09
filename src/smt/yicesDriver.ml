@@ -70,7 +70,7 @@ let check_sat_assuming_cmd _ =
   failwith "Yices: check_sat_assuming not applicable"
 
 
-let headers _ _ = []
+let headers _ = []
 
 let prelude =
   [

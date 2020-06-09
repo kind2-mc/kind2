@@ -36,7 +36,7 @@ let check_sat_assuming_cmd ms = "check-sat-assuming"
 let check_sat_assuming_supported () = Flags.Smt.check_sat_assume ()
 
 (* Headers to send after creating solver instance *)
-let headers _ _ = []
+let headers _ = []
 
 (* top level declaration to add to the solver *)
 let prelude = []

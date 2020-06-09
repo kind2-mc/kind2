@@ -1,3 +1,31 @@
+(* This file is part of the Kind 2 model checker.
+
+   Copyright (c) 2020 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
+*)
+
+(** Computation of Inductive Validity Cores and Maximal Unsafe Abstractions / Minimal Cut Sets
+
+    This implementation is inspired from the following paper:
+
+    Berryhill, Ryan & Veneris, Andreas. (2019).
+    Chasing Minimal Inductive Validity Cores in Hardware Model Checking.
+    19-27. 10.23919/FMCAD.2019.8894268. 
+
+    @author Mickael Laurent *)
+
 module ScMap = Scope.Map
 module SVSet = StateVar.StateVarSet
 
@@ -122,7 +150,7 @@ val umivc :
 (** Returns the names of the properties for which we may be interested in computing an IVC. *)
 val properties_of_interest_for_ivc : TransSys.t -> Property.t list
 
-(* ----- MAXIMAL UNSAFE ABSTRACTIONS  MINIMAL CUTS SETS ----- *)
+(* ----- MAXIMAL UNSAFE ABSTRACTIONS / MINIMAL CUTS SETS ----- *)
 
 type mua = ((Property.t * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
 

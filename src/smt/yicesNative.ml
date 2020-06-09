@@ -1283,7 +1283,7 @@ let create_instance
   let headers =
     (Format.sprintf "(set-evidence! %B)" evidence) ::
     (header_logic solver) @
-    (headers 0 false)
+    (headers false)
   in
   
   (* Print specific headers specifications *)
