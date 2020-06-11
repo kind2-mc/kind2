@@ -37,3 +37,6 @@ doc/user_documentation.pdf
 # GitHub deploy key
 travis_key
 travis_key.pub
+
+# opam related files
+_opam
