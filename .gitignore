@@ -40,3 +40,7 @@ travis_key.pub
 
 # opam related files
 _opam
+
+# merlin files
+.merlin
+./**/.merlin
