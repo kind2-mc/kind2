@@ -41,6 +41,11 @@ module AstID = struct
 end
 module IdMap = Map.Make(AstID)
 
+type 'a result =
+| Solution of 'a
+| NoSolution
+| InternalError
+
 type term_cat =
 | NodeCall of string * SVSet.t
 | ContractItem of StateVar.t * LustreContract.svar * LustreNode.contract_item_type
@@ -931,22 +936,6 @@ let make_ts_analyzer in_sys param analyze sys =
   let modules = Flags.enabled () in
   sys, (fun sys -> analyze false modules in_sys param sys)
 
-let extract_props sys ?(can_be_unknown=false) can_be_valid can_be_invalid =
-  List.filter (function
-    | { Property.prop_status = Property.PropInvariant _ } when can_be_valid -> true
-    | { Property.prop_status = Property.PropInvariant _ ; Property.prop_name } ->
-      KEvent.log L_info "Skipping proved property %s" prop_name ;
-      false
-    | { Property.prop_status = Property.PropFalse _ } when can_be_invalid -> true
-    | { Property.prop_status = Property.PropFalse _ ; Property.prop_name } ->
-      KEvent.log L_info "Skipping falsifiable property %s" prop_name ;
-      false
-    | { Property.prop_name } when can_be_unknown -> true
-    | { Property.prop_name } ->
-      KEvent.log L_warn "Skipping unknown property %s" prop_name ;
-      false
-  ) (TS.get_real_properties sys)
-
 let props_names props =
   List.map (fun { Property.prop_name = n } -> n) props
 
@@ -1139,8 +1128,6 @@ let add_as_candidate os_invs sys =
   TS.set_subsystem_properties sys (TS.scope_of_trans_sys sys) props
 
 type core = (UfSymbol.t list) ScMap.t
-
-exception CannotProve
 
 (* ---------- SOME MORE UTILITIES ---------- *)
 
@@ -1405,13 +1392,11 @@ let compute_all_mcs check_ts sys prop_names enter_nodes
 
 (* ---------- IVC_UC ---------- *)
 
-let properties_of_interest_for_ivc sys =
-  extract_props sys true false
-
-let ivc_props sys props =
-  match props with
-  | None -> properties_of_interest_for_ivc sys
-  | Some props -> props
+let are_props_safe props =
+  props |> List.for_all
+  (function
+  | { Property.prop_status = Property.PropInvariant _ } -> true
+  | _ -> false)
 
 let get_logic ?(pathcomp=false) sys =
   let open TermLib in
@@ -1533,7 +1518,7 @@ let k_induction sys b0 init_eq trans_eq prop_eq os_prop_eq k =
   let (b0, base) = base_until_k sys b0 init_eq trans_eq prop_eq os_prop_eq k in
   (b0, Term.mk_and [base ; ind], path_compress)
 
-type result = NOT_OK | OK of core
+type core_result = NOT_OK | OK of core
 
 let compute_unsat_core ?(pathcomp=None) ?(approximate=false)
   sys enter_nodes core init_terms trans_terms bmin bmax t =
@@ -1757,19 +1742,19 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_t
 
 let ivc_uc in_sys ?(approximate=false) sys props =
   try (
-    let props = ivc_props sys props in
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
     let (_, test) = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
-    Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
+    Solution (eqmap_to_ivc in_sys props (lstmap_union keep test))
   ) with
-  | NotKInductive ->
-    KEvent.log L_error "Properties are not k-inductive." ;
-    None
+  | NotKInductive | CertifChecker.CouldNotProve _ ->
+    if are_props_safe props
+    then (KEvent.log L_error "Cannot reprove properties." ; InternalError)
+    else NoSolution
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    None
+    InternalError
 
 (* ---------- MUST SET ---------- *)
 
@@ -1852,22 +1837,24 @@ let must_set_ in_sys ?(os_invs=None) check_ts sys props enter_nodes eqmap_keep e
 
 let must_set in_sys param analyze sys props =
   try (
-    let props = ivc_props sys props in
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let (keep', _) = must_set_ in_sys check_ts sys props enter_nodes keep test in
-    Some (eqmap_to_ivc in_sys props (lstmap_union keep keep'))
+    Solution (eqmap_to_ivc in_sys props (lstmap_union keep keep'))
   ) with
+  | NotKInductive | CertifChecker.CouldNotProve _ ->
+    if are_props_safe props
+    then (KEvent.log L_error "Cannot reprove properties." ; InternalError)
+    else NoSolution
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    None
-  | CannotProve ->
-    KEvent.log L_error "Cannot prove the properties." ;
-    None
+    InternalError
 
 (* ---------- IVC_BF ---------- *)
+
+exception CannotProve
 
 let check_result prop_names sys =
   List.for_all
@@ -1965,7 +1952,6 @@ let ivc_must_bf_ must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes k
 
 let ivc_bf in_sys ?(use_must_set=None) param analyze sys props =
   try (
-    let props = ivc_props sys props in
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
@@ -1974,19 +1960,19 @@ let ivc_bf in_sys ?(use_must_set=None) param analyze sys props =
     | None -> ivc_bf_ in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let test = ivc_bf_ in_sys check_ts sys props enter_nodes keep test in
-    Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
+    Solution (eqmap_to_ivc in_sys props (lstmap_union keep test))
   ) with
+  | CannotProve ->
+    if are_props_safe props
+    then (KEvent.log L_error "Cannot reprove properties." ; InternalError)
+    else NoSolution
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    None
-  | CannotProve ->
-    KEvent.log L_error "Cannot prove the properties." ;
-    None
+    InternalError
 
 (** Implements the algorithm IVC_UCBF *)
 let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
   try (
-    let props = ivc_props sys props in
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
@@ -1996,17 +1982,15 @@ let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
     let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep test in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let test = ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
-    Some (eqmap_to_ivc in_sys props (lstmap_union keep test))
+    Solution (eqmap_to_ivc in_sys props (lstmap_union keep test))
   ) with
-  | NotKInductive ->
-    KEvent.log L_error "Properties are not k-inductive." ;
-    None
+  | CannotProve | NotKInductive | CertifChecker.CouldNotProve _ ->
+    if are_props_safe props
+    then (KEvent.log L_error "Cannot reprove properties." ; InternalError)
+    else NoSolution
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    None
-  | CannotProve ->
-    KEvent.log L_error "Cannot prove the properties." ;
-    None
+    InternalError
 
 (* ---------- UMIVC ---------- *)
 
@@ -2301,7 +2285,6 @@ let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
 (** Implements the algorithm UMIVC. *)
 let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k cont =
   try (
-    let props = ivc_props sys props in
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let eqmap = _all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
@@ -2318,22 +2301,17 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
     let _ = umivc_ in_sys make_ts_analyzer sys props k enter_nodes ~stop_after cont keep test in
     List.rev (!res)
   ) with
-  | NotKInductive ->
-    KEvent.log L_error "Properties are not k-inductive." ;
-    []
+  | CannotProve | NotKInductive | CertifChecker.CouldNotProve _ ->
+    if are_props_safe props
+    then (KEvent.log L_error "Cannot reprove properties." ; [])
+    else []
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    []
-  | CannotProve ->
-    KEvent.log L_error "Cannot prove the properties." ;
     []
 
 (* ---------- MAXIMAL UNSAFE ABSTRACTIONS ---------- *)
 
 type mua = ((Property.t * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
-
-let properties_of_interest_for_mua sys =
-  extract_props sys ~can_be_unknown:true true true
 
 let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardinality= -1) cont eqmap_keep eqmap_test =
   let prop_names = props_names props in
@@ -2398,10 +2376,6 @@ let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardi
     and duality between MUAs and Minimal Correction Subsets. *)
 let mua in_sys param analyze sys props ?(max_mcs_cardinality= -1) all cont =
   try (
-    let props = match props with
-    | None -> properties_of_interest_for_mua sys
-    | Some props -> props
-    in
     let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
     let elements = (Flags.MCS.mcs_category ()) in
     let eqmap = _all_eqs in_sys sys enter_nodes in
@@ -2418,7 +2392,4 @@ let mua in_sys param analyze sys props ?(max_mcs_cardinality= -1) all cont =
   ) with
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    []
-  | CannotProve ->
-    KEvent.log L_error "Cannot prove the properties." ;
     []

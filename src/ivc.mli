@@ -29,6 +29,11 @@
 module ScMap = Scope.Map
 module SVSet = StateVar.StateVarSet
 
+type 'a result =
+| Solution of 'a
+| NoSolution
+| InternalError
+
 (* ----- INDUCTIVE VALIDITY CORES ----- *)
 
 type term_cat =
@@ -53,8 +58,6 @@ type loc = {
 type loc_equation = equation * (loc list) * term_cat
 
 type ivc = (Property.t list * loc_equation list ScMap.t)
-
-val compare_loc : loc -> loc -> int
 
 (** For a given transition system, returns the full initial inductive validity core
 (not minimized, so that it contains all the equations of the transition system).
@@ -82,8 +85,8 @@ val ivc_uc :
   'a InputSystem.t ->
   ?approximate:bool ->
   TransSys.t ->
-  Property.t list option ->
-  ivc option
+  Property.t list ->
+  ivc result
 
 (** Outputs a minimal inductive validity core by trying to remove all the equations one after another
     and running the whole analysis on the new system each time. *)
@@ -97,8 +100,8 @@ val ivc_bf :
     -> unit
   ) ->
   TransSys.t ->
-  Property.t list option ->
-  ivc option
+  Property.t list ->
+  ivc result
 
 (** Outputs the MUST set by computing all the minimal cut sets of cardinality 1. *)
 val must_set :
@@ -110,8 +113,8 @@ val must_set :
     -> unit
   ) ->
   TransSys.t ->
-  Property.t list option ->
-  ivc option
+  Property.t list ->
+  ivc result
 
 (** Outputs a minimal inductive validity core by first computing an UNSAT core (ivc_uc),
     and then trying to remove the remaining equations with bruteforce (ivc_bf).
@@ -126,8 +129,8 @@ val ivc_ucbf :
     -> unit
   ) ->
   TransSys.t ->
-  Property.t list option ->
-  ivc option
+  Property.t list ->
+  ivc result
 
 (** Outputs all minimal inductive validity cores by implementing the UMIVC algorithm.
     The 5th parameter correspond to the parameter 'k'. *)
@@ -142,13 +145,10 @@ val umivc :
     -> unit
   ) ->
   TransSys.t ->
-  Property.t list option ->
+  Property.t list ->
   int ->
   (ivc -> unit) ->
   ivc list
-
-(** Returns the names of the properties for which we may be interested in computing an IVC. *)
-val properties_of_interest_for_ivc : TransSys.t -> Property.t list
 
 (* ----- MAXIMAL UNSAFE ABSTRACTIONS / MINIMAL CUTS SETS ----- *)
 
@@ -169,14 +169,11 @@ val mua :
     -> unit
   ) ->
   TransSys.t ->
-  Property.t list option ->
+  Property.t list ->
   ?max_mcs_cardinality:int ->
   bool -> (* Compute them all? *)
   (mua -> unit) ->
   mua list
-
-(** Returns the names of the properties for which we may be interested in computing a MUA. *)
-val properties_of_interest_for_mua : TransSys.t -> Property.t list
 
 (* ----- Structures for printing ----- *)
 

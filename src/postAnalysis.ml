@@ -577,9 +577,17 @@ module RunIVC: PostAnalysis = struct
         let initial = Ivc.all_eqs in_sys sys (Flags.IVC.ivc_only_main_node () |> not) in
 
         let props =
+          TransSys.get_real_properties sys
+          |> List.filter
+            (function
+            | { Property.prop_status = Property.PropInvariant _ } -> true
+            | { Property.prop_name } ->
+              KEvent.log L_info "Skipping unproved property %s" prop_name ; false)
+        in
+        let props =
           if Flags.IVC.ivc_per_property ()
-          then List.map (fun x -> [x]) (Ivc.properties_of_interest_for_ivc sys)
-          else [Ivc.properties_of_interest_for_ivc sys]
+          then List.map (fun x -> [x]) props
+          else [props]
         in
         
         let treat_props props =
@@ -665,12 +673,12 @@ module RunIVC: PostAnalysis = struct
             in
 
             let treat_and_return_lst = function
-              | None -> []
-              | Some e -> treat_ivc false e ; [e] in
+              | Ivc.Solution e -> treat_ivc false e ; [e]
+              | _ -> [] in
             let res = match (use_umivc, Flags.IVC.ivc_approximate ()) with
-              | (false, true) -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:false sys (Some props))
-              | (false, false) -> treat_and_return_lst (Ivc.ivc_ucbf in_sys ~use_must_set param analyze sys (Some props))
-              | (true, _) -> Ivc.umivc in_sys ~use_must_set ~stop_after param analyze sys (Some props) k (treat_ivc false)
+              | (false, true) -> treat_and_return_lst (Ivc.ivc_uc in_sys ~approximate:false sys props)
+              | (false, false) -> treat_and_return_lst (Ivc.ivc_ucbf in_sys ~use_must_set param analyze sys props)
+              | (true, _) -> Ivc.umivc in_sys ~use_must_set ~stop_after param analyze sys props k (treat_ivc false)
             in
             if Flags.IVC.ivc_all ()
             then
@@ -682,12 +690,6 @@ module RunIVC: PostAnalysis = struct
         Ok ()
       )
       with
-      | CertifChecker.CouldNotProve printer ->
-        Err (
-          (fun fmt -> Format.fprintf fmt
-          "An error occured while computing minimal invariants:@ " ;
-          printer fmt)
-      )
       | e -> Err (
         fun fmt -> Format.fprintf fmt
           "An error occured:@ %s"
@@ -701,8 +703,8 @@ let run_mcs_post_analysis in_sys param analyze sys =
     let initial = Ivc.all_eqs in_sys sys (Flags.MCS.mcs_only_main_node () |> not) in
     let props =
       if Flags.MCS.mcs_per_property ()
-      then List.map (fun x -> [x]) (Ivc.properties_of_interest_for_mua sys)
-      else [Ivc.properties_of_interest_for_mua sys]
+      then List.map (fun x -> [x]) (TransSys.get_real_properties sys)
+      else [TransSys.get_real_properties sys]
     in
     let time = ref (Unix.gettimeofday ()) in
     
@@ -752,7 +754,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
 
         let max_mcs_cardinality = Flags.MCS.mcs_max_cardinality () in
         let mcs_all = Flags.MCS.mcs_all () in
-        let res = Ivc.mua in_sys param analyze sys (Some props) ~max_mcs_cardinality mcs_all treat_mua in
+        let res = Ivc.mua in_sys param analyze sys props ~max_mcs_cardinality mcs_all treat_mua in
         if Flags.MCS.mcs_all ()
         then
           KEvent.log_with_tag L_note Pretty.note_tag
