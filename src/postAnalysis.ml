@@ -574,7 +574,6 @@ module RunIVC: PostAnalysis = struct
 
         let nb = ref 0 in
         let time = ref (Unix.gettimeofday ()) in
-        let initial = Ivc.all_eqs in_sys sys (Flags.IVC.ivc_only_main_node () |> not) in
 
         let props =
           TransSys.get_real_properties sys
@@ -628,8 +627,8 @@ module RunIVC: PostAnalysis = struct
 
               if Flags.IVC.print_ivc_compl ()
               then begin
-                let not_ivc = Ivc.complement_of_core (snd initial) (snd ivc) in
-                let (_,filtered_not_ivc) = Ivc.separate_ivc_by_category in_sys (fst ivc, not_ivc) in
+                let not_ivc = Ivc.complement_of_ivc in_sys sys ivc in
+                let (_,filtered_not_ivc) = Ivc.separate_ivc_by_category in_sys not_ivc in
                 let cpd = Ivc.ivc_to_print_data in_sys sys true filtered_not_ivc in
                 let cpd = { cpd with time=Some elapsed } in
                 let cpd = if is_must_set then { cpd with core_class="must complement" } else cpd in
@@ -700,7 +699,6 @@ end
 
 let run_mcs_post_analysis in_sys param analyze sys =
   try (
-    let initial = Ivc.all_eqs in_sys sys (Flags.MCS.mcs_only_main_node () |> not) in
     let props =
       if Flags.MCS.mcs_per_property ()
       then List.map (fun x -> [x]) (TransSys.get_real_properties sys)
@@ -721,8 +719,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
           KEvent.log_with_tag L_warn Pretty.success_tag
             (Format.asprintf "Minimal Cut Set generated after %.3fs." elapsed) ;
 
-          let not_mua = Ivc.complement_of_core (snd initial) (snd mua) in
-          let not_mua = (fst mua, not_mua) in
+          let not_mua = Ivc.complement_of_mua in_sys sys mua in
 
           if Flags.MCS.print_mcs_legacy ()
           then begin

@@ -1045,7 +1045,7 @@ let separate_eqmap_by_category in_sys cats =
   let main_scope = InputSystem.ordered_scopes_of in_sys |> List.hd in
   separate_scmap main_scope (separate_equations_by_category in_sys cats)
 
-let _all_eqs in_sys sys enter_nodes =
+let all_eqs in_sys sys enter_nodes =
   let scope = TS.scope_of_trans_sys sys in
   let eqs = extract_toplevel_equations in_sys sys in
   let eqmap = ScMap.singleton scope eqs in
@@ -1058,9 +1058,9 @@ let _all_eqs in_sys sys enter_nodes =
     ) eqmap sys
   else eqmap
 
-let all_eqs in_sys sys enter_nodes =
-  let eqmap = _all_eqs in_sys sys enter_nodes in
-  eqmap_to_ivc in_sys [] eqmap
+let all_loc_eqs in_sys sys enter_nodes =
+  let eqmap = all_eqs in_sys sys enter_nodes in
+  ScMap.map (List.map (add_loc in_sys)) eqmap
 
 let complement_of_core initial core =
   ScMap.mapi (fun scope eqs ->
@@ -1073,6 +1073,16 @@ let complement_of_core initial core =
         with Not_found -> true
       ) eqs
     ) initial
+
+let complement_of_ivc in_sys sys (props, core) =
+  let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
+  complement_of_core (all_loc_eqs in_sys sys enter_nodes) core
+  |> (fun x -> (props, x))
+
+let complement_of_mua in_sys sys (props_cex, core) =
+  let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
+  complement_of_core (all_loc_eqs in_sys sys enter_nodes) core
+  |> (fun x -> (props_cex, x))
 
 let term_of_eq init closed eq =
   if init && closed then eq.init_closed
@@ -1743,7 +1753,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_t
 let ivc_uc in_sys ?(approximate=false) sys props =
   try (
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
-    let eqmap = _all_eqs in_sys sys enter_nodes in
+    let eqmap = all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
     let (_, test) = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
     Solution (eqmap_to_ivc in_sys props (lstmap_union keep test))
@@ -1838,7 +1848,7 @@ let must_set_ in_sys ?(os_invs=None) check_ts sys props enter_nodes eqmap_keep e
 let must_set in_sys param analyze sys props =
   try (
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
-    let eqmap = _all_eqs in_sys sys enter_nodes in
+    let eqmap = all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let (keep', _) = must_set_ in_sys check_ts sys props enter_nodes keep test in
@@ -1953,7 +1963,7 @@ let ivc_must_bf_ must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes k
 let ivc_bf in_sys ?(use_must_set=None) param analyze sys props =
   try (
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
-    let eqmap = _all_eqs in_sys sys enter_nodes in
+    let eqmap = all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
     let ivc_bf_ = match use_must_set with
     | Some f -> (fun x -> x |> lstmap_union keep |> eqmap_to_ivc in_sys props |> f) |> ivc_must_bf_
@@ -1974,7 +1984,7 @@ let ivc_bf in_sys ?(use_must_set=None) param analyze sys props =
 let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
   try (
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
-    let eqmap = _all_eqs in_sys sys enter_nodes in
+    let eqmap = all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
     let ivc_bf_ = match use_must_set with
     | Some f -> (fun x -> x |> lstmap_union keep |> eqmap_to_ivc in_sys props |> f) |> ivc_must_bf_
@@ -2286,7 +2296,7 @@ let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
 let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k cont =
   try (
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
-    let eqmap = _all_eqs in_sys sys enter_nodes in
+    let eqmap = all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
     let umivc_ = match use_must_set with
       | Some f -> (fun x -> x |> lstmap_union keep |> eqmap_to_ivc in_sys props |> f) |> must_umivc_
@@ -2378,7 +2388,7 @@ let mua in_sys param analyze sys props ?(max_mcs_cardinality= -1) all cont =
   try (
     let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
     let elements = (Flags.MCS.mcs_category ()) in
-    let eqmap = _all_eqs in_sys sys enter_nodes in
+    let eqmap = all_eqs in_sys sys enter_nodes in
     let (keep, test) = separate_eqmap_by_category in_sys elements eqmap in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let res = ref [] in

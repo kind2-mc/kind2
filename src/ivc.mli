@@ -59,14 +59,8 @@ type loc_equation = equation * (loc list) * term_cat
 
 type ivc = (Property.t list * loc_equation list ScMap.t)
 
-(** For a given transition system, returns the full initial inductive validity core
-(not minimized, so that it contains all the equations of the transition system).
-If the third parameter is false, only the top-level node will be explored. *)
-val all_eqs : 'a InputSystem.t -> TransSys.t -> bool -> ivc
-
-(** [complement_of_core all_eqs core] returns the complement of [core], with [all_eqs] being
-    the set of all the initial equations (can be retrieved using the [all_eqs] function). *)
-val complement_of_core : loc_equation list ScMap.t -> loc_equation list ScMap.t -> loc_equation list ScMap.t
+(** [complement_of_ivc in_sys sys mua] returns the complement of [ivc]. *)
+val complement_of_ivc : 'a InputSystem.t -> TransSys.t -> ivc -> ivc
 
 (** Separate an IVC into two IVC, the second one containing elements from the categories selected
     by the user, and the first one containing the others elements *)
@@ -153,6 +147,9 @@ val umivc :
 (* ----- MAXIMAL UNSAFE ABSTRACTIONS / MINIMAL CUTS SETS ----- *)
 
 type mua = ((Property.t * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
+
+(** [complement_of_mua in_sys sys mua] returns the complement of [mua], which is a MCS. *)
+val complement_of_mua : 'a InputSystem.t -> TransSys.t -> mua -> mua
 
 (** Separate a MUA into two MUA, the second one containing elements from the categories selected
     by the user, and the first one containing the others elements *)
