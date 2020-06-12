@@ -36,28 +36,7 @@ type 'a result =
 
 (* ----- INDUCTIVE VALIDITY CORES ----- *)
 
-type term_cat =
-| NodeCall of string * SVSet.t
-| ContractItem of StateVar.t * LustreContract.svar * LustreNode.contract_item_type
-| Equation of StateVar.t
-| Assertion of StateVar.t
-| Unknown
-
-type equation = {
-  init_opened: Term.t ;
-  init_closed: Term.t ;
-  trans_opened: Term.t ;
-  trans_closed: Term.t ;
-}
-
-type loc = {
-  pos: Lib.position ;
-  index: LustreIndex.index ;
-}
-
-type loc_equation = equation * (loc list) * term_cat
-
-type ivc = (Property.t list * loc_equation list ScMap.t)
+type ivc
 
 (** [complement_of_ivc in_sys sys mua] returns the complement of [ivc]. *)
 val complement_of_ivc : 'a InputSystem.t -> TransSys.t -> ivc -> ivc
@@ -146,7 +125,7 @@ val umivc :
 
 (* ----- MAXIMAL UNSAFE ABSTRACTIONS / MINIMAL CUTS SETS ----- *)
 
-type mua = ((Property.t * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
+type mua
 
 (** [complement_of_mua in_sys sys mua] returns the complement of [mua], which is a MCS. *)
 val complement_of_mua : 'a InputSystem.t -> TransSys.t -> mua -> mua
@@ -174,26 +153,13 @@ val mua :
 
 (* ----- Structures for printing ----- *)
 
-type term_print_data = {
-  name: string ;
-  category: string ;
-  position: Lib.position ;
-}
-
-type core_print_data = {
-  core_class: string ;
-  property: string option ; (* Only for MCSs *)
-  counterexample: ((StateVar.t * Model.value list) list) option ; (* Only for MCSs *)
-  time: float option ;
-  size: int ;
-  elements: term_print_data list ScMap.t ;
-}
+type core_print_data
 
 val ivc_to_print_data :
-  'a InputSystem.t -> TransSys.t -> bool -> ivc -> core_print_data
+  'a InputSystem.t -> TransSys.t -> string -> float option -> ivc -> core_print_data
 
 val mcs_to_print_data :
-  'a InputSystem.t -> TransSys.t -> bool -> mua -> core_print_data
+  'a InputSystem.t -> TransSys.t -> string -> float option -> mua -> core_print_data
 
 val pp_print_core_data :
   'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit

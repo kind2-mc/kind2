@@ -221,31 +221,25 @@ let printable_elements_of_core in_sys sys core =
   |> ScMap.map aux (* Build map *)
   |> ScMap.filter (fun _ lst -> lst <> []) (* Remove empty entries *)
 
-let ivc_to_print_data in_sys sys is_compl (_,ivc) =
-  let core_class =
-    if is_compl then "ivc complement" else "ivc"
-  in
+let ivc_to_print_data in_sys sys core_class time (_,ivc) =
   let elements = printable_elements_of_core in_sys sys ivc in
   {
     core_class ;
     property = None ;
     counterexample = None ;
-    time = None ;
+    time ;
     elements ;
     size = scmap_size elements ;
   }
 
-let mcs_to_print_data in_sys sys is_compl ((prop, cex), mcs) =
-  let core_class =
-    if is_compl then "mcs complement" else "mcs"
-  in
+let mcs_to_print_data in_sys sys core_class time ((prop, cex), mcs) =
   let property = Some prop.Property.prop_name in
   let elements = printable_elements_of_core in_sys sys mcs in
   {
     core_class ;
     property ;
     counterexample = Some cex ;
-    time = None ;
+    time ;
     elements ;
     size = scmap_size elements ;
   }
