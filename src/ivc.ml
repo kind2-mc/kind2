@@ -61,6 +61,10 @@ type term_cat =
 | Assertion of StateVar.t
 | Unknown
 
+(* Represents an equation of the transition system.
+   It is not specific to the 'equation' model elements
+   of the source lustre program
+   (any model element can be represented by this 'equation' type) *)
 type equation = {
   init_opened: Term.t ;
   init_closed: Term.t ;
@@ -1510,8 +1514,7 @@ let ind_k sys b0 trans_eq inv_eq os_inv_eq prop_eq k =
     match Compress.check_and_block (SMTSolver.declare_fun solver) sys path with
     | [] -> false
     | compressor ->
-      (*KEvent.log_uncond "Compressor: %n"
-        (List.length compressor) ;*)
+      (*KEvent.log_uncond "Compressor: %n" (List.length compressor) ;*)
       compressor |> Term.mk_and |> SMTSolver.assert_term solver ;
       true
   in
@@ -1584,7 +1587,7 @@ let compute_unsat_core ?(pathcomp=None) ?(approximate=false)
   res
 
 let check_k_inductive ?(approximate=false) sys enter_nodes actlits init_terms trans_terms prop os_prop k =
-  (* In the functions above, k starts at 0 whereas it start at 1 with Kind2 notation *)
+  (* In the functions above, k starts at 0 whereas it starts at 1 with Kind2 notation *)
   let k = k - 1 in
   let scope = TS.scope_of_trans_sys sys in
   let init_eq = term_of_scope init_terms scope in
@@ -1639,7 +1642,7 @@ let eq_of_actlit actlits_eqs_map ?(with_act=false) a =
 
 exception NotKInductive
 
-(** Implements the algorithm IVC_UC *)
+(** Implements the approximate algorithm (using Unsat Cores) *)
 let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_test =
 
   let scope = TS.scope_of_trans_sys sys in
@@ -1911,7 +1914,7 @@ let check_core check_ts sys prop_names enter_nodes core =
   in
   check core
 
-(** Implements the algorithm IVC_BF *)
+(** Implements the bruteforce algorithm *)
 let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   let prop_names = props_names props in
   let sys = remove_other_props sys prop_names in
@@ -1982,7 +1985,7 @@ let ivc_bf in_sys ?(use_must_set=None) param analyze sys props =
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
     InternalError
 
-(** Implements the algorithm IVC_UCBF *)
+(** Implements the algorithm 'Unsat Core, then bruteforce' *)
 let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
   try (
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
@@ -2186,8 +2189,7 @@ let umivc_ in_sys make_ts_analyzer sys props k enter_nodes
 
     (* Compute MIVC *)
     let compute_mivc core =
-      (* NOT NEEDED BECAUSE A CHECK IS NECESSARILY DONE JUST BEFORE CALLING THIS FUNCTION *)
-      (*check (core_union keep core) |> ignore ;*)
+      (*check (core_union keep core) |> ignore ;*) (* Not needed because a check is done before *)
       let (os_invs, eqmap_test) = core_to_eqmap core
       |> ivc_uc_ in_sys sys props enter_nodes eqmap_keep in
       ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes eqmap_keep eqmap_test
@@ -2384,7 +2386,7 @@ let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardi
   in
   mcs |> List.map (fun (core, cex) -> (core_diff test core |> core_to_eqmap, cex))
 
-(** Compute one/all Maximal Unsafe Abstraction(s) using Automated Debugging
+(* Compute one/all Maximal Unsafe Abstraction(s) using Automated Debugging
     and duality between MUAs and Minimal Correction Subsets. *)
 let mua in_sys param analyze sys props ?(max_mcs_cardinality= -1) all cont =
   try (
