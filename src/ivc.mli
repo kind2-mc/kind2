@@ -26,13 +26,18 @@
 
     @author Mickael Laurent *)
 
-module ScMap = Scope.Map
-module SVSet = StateVar.StateVarSet
-
 type 'a result =
 | Solution of 'a
 | NoSolution
 | InternalError
+
+type 'a analyze_func =
+    bool ->
+    Lib.kind_module list ->
+    'a InputSystem.t ->
+    Analysis.param ->
+    TransSys.t ->
+    unit
 
 (* ----- INDUCTIVE VALIDITY CORES ----- *)
 
@@ -67,11 +72,7 @@ val ivc_bf :
   'a InputSystem.t ->
   ?use_must_set:(ivc -> unit) option ->
   Analysis.param ->
-  (
-    bool ->
-    Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
-    -> unit
-  ) ->
+  'a analyze_func ->
   TransSys.t ->
   Property.t list ->
   ivc result
@@ -80,11 +81,7 @@ val ivc_bf :
 val must_set :
   'a InputSystem.t ->
   Analysis.param ->
-  (
-    bool ->
-    Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
-    -> unit
-  ) ->
+  'a analyze_func ->
   TransSys.t ->
   Property.t list ->
   ivc result
@@ -96,11 +93,7 @@ val ivc_ucbf :
   'a InputSystem.t ->
   ?use_must_set:(ivc -> unit) option ->
   Analysis.param ->
-  (
-    bool ->
-    Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
-    -> unit
-  ) ->
+  'a analyze_func ->
   TransSys.t ->
   Property.t list ->
   ivc result
@@ -112,11 +105,7 @@ val umivc :
   ?use_must_set:(ivc -> unit) option ->
   ?stop_after:int ->
   Analysis.param ->
-  (
-    bool ->
-    Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
-    -> unit
-  ) ->
+  'a analyze_func ->
   TransSys.t ->
   Property.t list ->
   int ->
@@ -139,11 +128,7 @@ val separate_mua_by_category : 'a InputSystem.t -> mua -> (mua * mua)
 val mua :
   'a InputSystem.t ->
   Analysis.param ->
-  (
-    bool ->
-    Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
-    -> unit
-  ) ->
+  'a analyze_func ->
   TransSys.t ->
   Property.t list ->
   ?max_mcs_cardinality:int ->

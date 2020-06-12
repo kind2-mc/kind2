@@ -46,6 +46,14 @@ type 'a result =
 | NoSolution
 | InternalError
 
+type 'a analyze_func =
+    bool ->
+    Lib.kind_module list ->
+    'a InputSystem.t ->
+    Analysis.param ->
+    TransSys.t ->
+    unit
+
 type term_cat =
 | NodeCall of string * SVSet.t
 | ContractItem of StateVar.t * LustreContract.svar * LustreNode.contract_item_type
