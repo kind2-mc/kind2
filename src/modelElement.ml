@@ -52,7 +52,7 @@ type ts_equation = {
   trans_closed: Term.t ;
 }
 
-type core = UfSymbol.t ScMap.t * ts_equation SyMap.t
+type core = UfSymbol.t ScMap.t * (ts_equation * StateVar.t) SyMap.t
 
 module Equation = struct
   type t = ts_equation
@@ -363,6 +363,9 @@ let pp_print_mcs_legacy in_sys param sys ((prop, cex), mcs) (_, mcs_compl) =
 
 (* ---------- CORES ---------- *)
 
+let fresh_actsv_name () =
+  Printf.sprintf "__model_elt_%i" (actsvs_counter ())
+
 let term_of_ts_eq ~init ~closed eq =
   if init && closed then eq.init_closed
   else if init then eq.init_opened
@@ -375,14 +378,22 @@ let get_actlits_of_scope (scmap, _) scope =
   try ScMap.find scope scmap with Not_found -> []
 
 let get_ts_equation_of_actlit (_, mapping) actlit =
-  SyMap.find actlit mapping
+  SyMap.find actlit mapping |> fst
+
+let get_sv_of_actlit (_, mapping) actlit =
+  SyMap.find actlit mapping |> snd
 
 let core_size (scmap, _) = scmap_size scmap
+
+let scopes_of_core (scmap, _) =
+  ScMap.bindings scmap |> List.map fst
 
 let add_new_ts_equation_to_core scope eq ((scmap, mapping) as core) =
   let actlit = Actlit.fresh_actlit () in
   let actlits = actlit::(get_actlits_for_scope core scope) in
-  (ScMap.add scope actlits scmap, SyMap.add actlit eq)
+  let sv = StateVar.mk_state_var ~is_input:false ~is_const:true
+        (fresh_actsv_name ()) [] (Type.mk_bool ()) in
+  (ScMap.add scope actlits scmap, SyMap.add actlit (eq, sv) mapping)
 
 let add_to_core scope actlit ((scmap, mapping) as core) =
   let actlits = get_actlits_for_scope core scope in
@@ -430,7 +441,7 @@ let core_diff (scmap1, mapping) (scmap2, _) =
 type eqmap = (equation list) ScMap.t
 
 let core_to_eqmap (scmap, mapping) =
-  ScMap.map (fun actlit -> SyMap.find actlit mapping) scmap
+  ScMap.map (fun actlit -> SyMap.find actlit mapping |> fst) scmap
 
 (* ---------- MAPPING BACK ---------- *)
 
@@ -458,6 +469,15 @@ let get_model_elements_of_scope core scope =
   try ScMap.find scope core with Not_found -> []
 
 let loc_core_size = scmap_size
+
+let scopes_of_loc_core core =
+  ScMap.bindings core |> List.map fst
+
+let normalize_positions lst =
+  List.sort_uniq Lib.compare_pos lst
+
+let get_positions_of_model_element (_,locs,_) =
+  List.map (fun loc -> loc.pos) locs |> normalize_positions
 
 let locs_of_node_call in_sys output_svs =
   output_svs

@@ -345,7 +345,7 @@ let minimize_contract_node_eq ue lst cne =
     in
     [A.Mode (pos,id,req,ens)]
 
-let minimize_node_decl ue ivc
+let minimize_node_decl ue loc_core
   ((id, extern, tparams, inputs, outputs, locals, items, spec) as ndecl) =
 
   let id_typ_map = build_id_typ_map inputs outputs locals in
@@ -363,35 +363,38 @@ let minimize_node_decl ue ivc
     (id, extern, tparams, inputs, outputs, locals, items, spec)
   in
   
-  try
-    ScMap.find (Scope.mk_scope [id]) ivc
-    |> List.map (fun (_,l,_) -> l) |> List.flatten
-    |> List.map (fun l -> l.pos) |> minimize_with_lst
-  with Not_found ->
+  let scope = (Scope.mk_scope [id]) in
+  if List.exists (fun sc -> Scope.equal sc scope) (scopes_of_loc_core loc_core)
+  then (
+    get_model_elements_of_scope loc_core scope
+    |> List.map get_positions_of_model_element
+    |> List.flatten |> minimize_with_lst
+  )
+  else (
     if Flags.IVC.ivc_only_main_node ()
     then ndecl
     else minimize_with_lst []
-    
-let minimize_contract_decl ue ivc (id, tparams, inputs, outputs, body) =
-  let lst = ScMap.bindings ivc
-    |> List.map (fun (_,v) -> v)
+  )
+
+let minimize_contract_decl ue loc_core (id, tparams, inputs, outputs, body) =
+  let lst = scopes_of_loc_core loc_core
+    |> List.map (get_model_elements_of_scope loc_core)
     |> List.flatten
-    |> List.map (fun (_,l,_) -> l)
+    |> List.map get_positions_of_model_element
     |> List.flatten
-    |> List.map (fun l -> l.pos) in
   let body = body
     |> List.map (minimize_contract_node_eq ue lst)
     |> List.flatten
   in
   (id, tparams, inputs, outputs, body)
 
-let minimize_decl ue ivc = function
+let minimize_decl ue loc_core = function
   | A.NodeDecl (p, ndecl) ->
-    A.NodeDecl (p, minimize_node_decl ue ivc ndecl)
+    A.NodeDecl (p, minimize_node_decl ue loc_core ndecl)
   | A.FuncDecl (p, ndecl) ->
-    A.FuncDecl (p, minimize_node_decl ue ivc ndecl)
+    A.FuncDecl (p, minimize_node_decl ue loc_core ndecl)
   | A.ContractNodeDecl (p, cdecl) ->
-    A.ContractNodeDecl (p, minimize_contract_decl ue ivc cdecl)
+    A.ContractNodeDecl (p, minimize_contract_decl ue loc_core cdecl)
   | decl -> decl 
 
 let fill_input_types_hashtbl ast =
@@ -405,7 +408,7 @@ let fill_input_types_hashtbl ast =
   in
   List.iter aux_decl ast
 
-let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,ivc) ast =
+let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,loc_core) ast =
   fill_input_types_hashtbl ast ;
   let undef_expr =
     if valid_lustre
@@ -428,7 +431,7 @@ let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,ivc) ast =
       ) PosMap.empty (InputSystem.retrieve_lustre_nodes in_sys) in
       undef_expr (Some pos_sv_map)
     else undef_expr None in
-  let minimized = List.map (minimize_decl undef_expr ivc) ast in
+  let minimized = List.map (minimize_decl undef_expr loc_core) ast in
 
   (*let rec aux acc nb =
     match nb with
@@ -441,142 +444,6 @@ let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,ivc) ast =
   )
   rand_functions
   minimized
-
-(* ---------- MAPPING BACK ---------- *)
-
-let locs_of_node_call in_sys output_svs =
-  output_svs
-  |> SVSet.elements
-  |> List.map (fun sv ->
-      InputSystem.lustre_definitions_of_state_var in_sys sv
-      |> List.filter (function LustreNode.CallOutput _ -> true | _ -> false)
-      |> List.map
-        (fun d -> { pos=LustreNode.pos_of_state_var_def d ;
-                    index=[](*LustreNode.index_of_state_var_def d*) })
-  )
-  |> List.flatten
-
-let rec sublist i count lst =
-  match i, count, lst with
-  | _, 0, _ -> []
-  | _, _, [] -> assert false
-  | 0, k, hd::lst -> hd::(sublist 0 (k-1) lst)
-  | i, k, _::lst -> sublist (i-1) k lst
-
-let name_and_svs_of_node_call in_sys s args =
-  (* Retrieve name of node *)
-  let regexp = Printf.sprintf "^\\(%s\\|%s\\)_\\(.+\\)_[0-9]+$"
-    Lib.ReservedIds.init_uf_string Lib.ReservedIds.trans_uf_string
-    |> Str.regexp in
-  let name = Symbol.string_of_symbol s in
-  let name =
-    if Str.string_match regexp name 0 
-    then Str.matched_group 2 name
-    else name
-  in
-  (* Retrieve number of inputs/outputs *)
-  let node = InputSystem.find_lustre_node (Scope.mk_scope [Ident.of_string name]) in_sys in
-  let nb_inputs = LustreIndex.cardinal (node.LustreNode.inputs) in
-  let nb_oracles = List.length (node.LustreNode.oracles) in
-  let nb_outputs = LustreIndex.cardinal (node.LustreNode.outputs) in
-  (* Retrieve output statevars *)
-  let svs = sublist (nb_inputs+nb_oracles) nb_outputs args
-  |> List.map (fun t -> match Term.destruct t with
-    | Var v -> Var.state_var_of_state_var_instance v
-    | _ -> assert false
-  )
-  in
-  (name, (*List.sort_uniq StateVar.compare_state_vars*)SVSet.of_list svs)
-
-(* The order matters, for this reason we can't use Term.state_vars_of_term *)
-let rec find_vars t =
-  match Term.destruct t with
-  | Var v -> [v]
-  | Const _ -> []
-  | App (_, lst) ->
-    List.map find_vars lst
-    |> List.flatten
-  | Attr (t, _) -> find_vars t
-
-let sv_of_term t =
-  find_vars t |> List.hd |> Var.state_var_of_state_var_instance
-
-let locs_of_eq_term in_sys t =
-  try
-    let contract_typ = ref LustreNode.Assumption in
-    let contract_items = ref None in
-    let set_contract_item svar = contract_items := Some svar in
-    let has_asserts = ref false in
-    let sv = sv_of_term t in
-    InputSystem.lustre_definitions_of_state_var in_sys sv
-    |> List.filter (function LustreNode.CallOutput _ -> false | _ -> true)
-    |> List.map (fun def ->
-      ( match def with
-        | LustreNode.Assertion _ -> has_asserts := true
-        | LustreNode.ContractItem (_, svar, typ) -> contract_typ := typ ; set_contract_item svar
-        | _ -> ()
-      );
-      let p = LustreNode.pos_of_state_var_def def in
-      let i = LustreNode.index_of_state_var_def def in
-      { pos=p ; index=i }
-    )
-    |> (fun locs ->
-      match !contract_items with
-      | Some svar -> (ContractItem (sv, svar, !contract_typ), locs)
-      | None ->
-        if !has_asserts then (Assertion sv, locs)
-        else (Equation sv, locs)
-    )
-  with _ -> assert false
-
-let compare_loc {pos=pos;index=index} {pos=pos';index=index'} =
-  match Lib.compare_pos pos pos' with
-  | 0 -> LustreIndex.compare_indexes index index'
-  | n -> n
-
-let normalize_loc lst =
-  List.sort_uniq compare_loc lst
-
-let add_loc in_sys eq =
-  try
-    let term = eq.trans_closed in
-    begin match Term.destruct term with
-    | Term.T.App (s, ts) when
-      (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
-      -> (* Case of a node call *)
-      let (name, svs) = name_and_svs_of_node_call in_sys s ts in
-      let loc = locs_of_node_call in_sys svs in
-      (eq, normalize_loc loc, NodeCall (name,svs))
-    | _ ->
-      let (cat,loc) = locs_of_eq_term in_sys term in
-      (eq, normalize_loc loc, cat)
-    end
-  with _ -> (* If the input is not a Lustre file, it may fail *)
-    (eq, [], Unknown)
-
-let eqmap_to_ivc in_sys props eqmap = (props, ScMap.map (List.map (add_loc in_sys)) eqmap)
-
-type term_id = SVSet.t * bool (* Is node call *)
-module TermID = struct
-  type t = term_id
-  let is_empty (k,_) = SVSet.is_empty k
-  let compare (a,b) (a',b') =
-    match compare b b' with
-    | 0 -> SVSet.compare a a'
-    | n -> n
-end
-module TIDMap = Map.Make(TermID)
-
-let id_of_term in_sys t =
-  match Term.destruct t with
-  | Term.T.App (s, ts) when
-    (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
-    -> (* Case of a node call *)
-    let (_, svs) = name_and_svs_of_node_call in_sys s ts in
-    (svs, true)
-  | _ ->
-    try (SVSet.singleton (sv_of_term t), false)
-    with _ -> (SVSet.empty, false)
 
 (* ---------- UTILITIES ---------- *)
 

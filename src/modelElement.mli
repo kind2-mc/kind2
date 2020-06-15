@@ -36,13 +36,13 @@ type ts_equation = {
 }
 type core
 
-(* TODO: Also associate a statevar to elements of core  *)
-
 val term_of_ts_eq : ~init:bool -> ~closed:bool -> ts_equation -> Term.t
 
 val get_actlits_of_scope : core -> Scope.t -> UfSymbol.t list
 val get_ts_equation_of_actlit : core -> UfSymbol.t -> ts_equation
+val get_sv_of_actlit : core -> UfSymbol.t -> StateVar.t
 val core_size : core -> int
+val scopes_of_core : core -> Scope.t list
 
 val empty_core : core
 val add_new_ts_equation_to_core : Scope.t -> ts_equation -> core -> core
@@ -59,6 +59,8 @@ type loc_core
 val equal_model_elements : model_element -> model_element -> bool
 val get_model_elements_of_scope : loc_core -> Scope.t -> model_element list
 val loc_core_size : loc_core -> int
+val get_positions_of_model_element : model_element -> Lib.pos list
+val scopes_of_loc_core : loc_core -> Scope.t list
 
 val ts_equation_to_model_element : 'a InputSystem.t -> ts_equation -> model_element
 val core_to_loc_core : 'a InputSystem.t -> core -> loc_core
