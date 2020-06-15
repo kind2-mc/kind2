@@ -26,6 +26,8 @@
 
     @author Mickael Laurent *)
 
+open ModelElement
+
 type 'a result =
 | Solution of 'a
 | NoSolution
@@ -166,21 +168,8 @@ val mua :
 
 (* ----- Structures for printing ----- *)
 
-type core_print_data
-
 val ivc_to_print_data :
   'a InputSystem.t -> TransSys.t -> string -> float option -> ivc -> core_print_data
 
 val mcs_to_print_data :
   'a InputSystem.t -> TransSys.t -> string -> float option -> mua -> core_print_data
-
-val pp_print_core_data :
-  'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit
-
-val pp_print_core_data_xml :
-  'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit
-
-val pp_print_core_data_json :
-  'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit
-
-val pp_print_mcs_legacy : 'a InputSystem.t -> Analysis.param -> TransSys.t -> mua -> mua -> unit

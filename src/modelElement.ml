@@ -187,10 +187,10 @@ let loc_core_to_print_data in_sys sys core_class time lc =
   }
 
 let attach_counterexample_to_print_data data cex =
-  { data with counterexample = cex }
+  { data with counterexample = Some cex }
 
 let attach_property_to_print_data data prop =
-  { data with property = property }
+  { data with property = Some property.Property.prop_name }
 
 let print_mcs_counterexample in_sys param sys typ fmt (prop, cex) =
   try
@@ -394,6 +394,38 @@ let remove_from_core scope actlit ((scmap, mapping) as core) =
   let actlits = get_actlits_for_scope core scope in
   let actlits = List.filter (fun a -> UfSymbol.equal_uf_symbols a actlit |> not) actlits in
   (ScMap.add scope actlits scmap, mapping)
+
+let sy_union sy1 sy2 =
+  SySet.union (SySet.of_list sy1) (SySet.of_list sy2)
+  |> SySet.elements
+
+let sy_diff sy1 sy2 =
+  SySet.diff (SySet.of_list sy1) (SySet.of_list sy2)
+  |> SySet.elements
+
+let core_union (scmap1, mapping1) (scmap2, mapping2) =
+  let merge _ eq1 eq2 = match eq1, eq2 with
+  | None, None -> None
+  | Some e, _ | None, Some e -> Some e
+  in
+  let mapping = SyMap.merge merge mapping1 mapping2 in
+  let merge _ lst1 lst2 = match lst1, lst2 with
+  | None, None -> None
+  | Some lst, None | None, Some lst -> Some lst
+  | Some lst1, Some lst2 -> Some (sy_union lst1 lst2)
+  in
+  let scmap = ScMap.merge merge scmap1 scmap2 in
+  (scmap, mapping)
+
+let core_diff (scmap1, mapping) (scmap2, _) =
+  let merge _ lst1 lst2 = match lst1, lst2 with
+  | None, _ -> None
+  | Some lst, None -> Some lst
+  | Some lst1, Some lst2 -> Some (sy_diff lst1 lst2)
+  in
+  let scmap = ScMap.merge merge scmap1 scmap2 in
+  (scmap, mapping)
+
 
 type eqmap = (equation list) ScMap.t
 

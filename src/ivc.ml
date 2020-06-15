@@ -16,6 +16,8 @@
 
 *)
 
+open ModelElement
+
 module TS = TransSys
 module SMT  : SolverDriver.S = GenericSMTLIBDriver
 
@@ -54,376 +56,18 @@ type 'a analyze_func =
     TransSys.t ->
     unit
 
-type term_cat =
-| NodeCall of string * SVSet.t
-| ContractItem of StateVar.t * LustreContract.svar * LustreNode.contract_item_type
-| Equation of StateVar.t
-| Assertion of StateVar.t
-| Unknown
-
-(* Represents an equation of the transition system.
-   It is not specific to the 'equation' model elements
-   of the source lustre program
-   (any model element can be represented by this 'equation' type) *)
-type equation = {
-  init_opened: Term.t ;
-  init_closed: Term.t ;
-  trans_opened: Term.t ;
-  trans_closed: Term.t ;
-}
-
-module Equation = struct
-  type t = equation
-  let compare t1 t2 =
-    match Term.compare t1.trans_opened t2.trans_opened with
-    | 0 -> Term.compare t1.init_opened t2.init_opened
-    | n -> n
-  let equal t1 t2 = compare t1 t2 = 0
-end
-module EqMap = Map.Make(Equation)
-module EqSet = Set.Make(Equation)
-
-type loc = {
-  pos: Lib.position ;
-  index: LustreIndex.index ;
-}
-
-type loc_equation = equation * (loc list) * term_cat
-
-type ivc = (Property.t list * loc_equation list ScMap.t)
-
-let rec interval imin imax =
-  if imin > imax then []
-  else imin::(interval (imin+1) imax)
-
-let scmap_size c =
-  ScMap.fold (fun _ lst acc -> acc + (List.length lst)) c 0
-
-let rec term_size t =
-  match Term.destruct t with
-  | Term.T.Var _ | Term.T.Const _ -> 0
-  | Term.T.App (_, ts) -> List.fold_left (fun acc t -> acc + term_size t) 1 ts
-  | Term.T.Attr (t, _) -> term_size t
-
-let loc_eq_size ({ trans_opened ; init_opened }, _, _) =
-  (term_size trans_opened) + (term_size init_opened)
-
-let ivc_term_size c =
-  ScMap.fold (fun _ lst acc -> List.fold_left (fun acc e -> acc + loc_eq_size e) acc lst) c 0
-
-let rec simplify_term t =
-  let open Term.T in
-  match Term.destruct t with
-    (* Rewrite v1 /\ v1 = t into t *)
-    | App (s, [t1 ; t2]) when Symbol.equal_symbols s (Symbol.s_and) ->
-      begin match (Term.destruct t1, Term.destruct t2) with
-      | (Var v, App (s, [t1 ; t2])) when Symbol.equal_symbols s (Symbol.s_eq) ->
-        begin match Term.destruct t1 with
-        | Var v' when Var.equal_vars v v' -> t2
-        | _ -> t
-        end
-      | _ -> t
-      end
-    | _ -> t
+type ivc = (Property.t list * loc_core)
+type mua = ((Property.t * (StateVar.t * Model.value list) list) * loc_core)
 
 (* ---------- PRETTY PRINTING ---------- *)
 
-let aux_vars sys =
-  let usr_name =
-    assert (List.length LustreIdent.user_scope = 1) ;
-    List.hd LustreIdent.user_scope
-  in
-  List.filter
-    (fun sv ->
-      not ( List.mem usr_name (StateVar.scope_of_state_var sv) )
-    )
-    (TS.state_vars sys)
+let ivc_to_print_data in_sys sys core_class time (_,loc_core) =
+  loc_core_to_print_data in_sys sys core_class time loc_core
 
-let compute_var_map in_sys sys =
-  let aux_vars = TS.fold_subsystems ~include_top:true (fun acc sys -> (aux_vars sys)@acc) [] sys in
-  InputSystem.mk_state_var_to_lustre_name_map in_sys aux_vars
-
-let lustre_name_of_sv var_map sv =
-  let usr_name =
-    assert (List.length LustreIdent.user_scope = 1) ;
-    List.hd LustreIdent.user_scope
-  in
-  if List.mem usr_name (StateVar.scope_of_state_var sv)
-  then StateVar.name_of_state_var sv
-  else StateVar.StateVarMap.find sv var_map
-
-type term_print_data = {
-  name: string ;
-  category: string ;
-  position: Lib.position ;
-}
-
-type core_print_data = {
-  core_class: string ;
-  property: string option ; (* Only for MCSs *)
-  counterexample: ((StateVar.t * Model.value list) list) option ; (* Only for MCSs *)
-  time: float option ;
-  size: int ;
-  elements: term_print_data list ScMap.t ;
-}
-
-let pp_print_locs_short =
-  Lib.pp_print_list (
-    fun fmt {pos} ->
-      Format.fprintf fmt "%a" Lib.pp_print_pos pos
-  ) ""
-
-(* The last position is the main one (the first one added) *)
-let last_position_of_locs locs =
-  (List.hd (List.rev locs)).pos
-
-let print_data_of_loc_equation var_map (eq, locs, cat) =
-  if locs = []
-  then None
-  else
-    match cat with
-    | Unknown -> None
-    | NodeCall (name, _) ->
-      Some {
-        name = name ;
-        category = "Node Call" ;
-        position = last_position_of_locs locs ;
-      }
-    | Equation sv ->
-      (
-        try
-          Some {
-            name = lustre_name_of_sv var_map sv ;
-            category = "Equation" ;
-            position = last_position_of_locs locs ;
-          }
-        with Not_found -> None
-      )
-    | Assertion sv ->
-      Some {
-        name = Format.asprintf "assertion%a" pp_print_locs_short locs ;
-        category = "Assertion" ;
-        position = last_position_of_locs locs ;
-      }
-    | ContractItem (_, svar, typ) ->
-      let (kind, category) = 
-        match typ with
-        | LustreNode.WeakAssumption -> ("weakly_assume", "Assumption")
-        | LustreNode.WeakGuarantee -> ("weakly_guarantee", "Guarantee")
-        | LustreNode.Assumption -> ("assume", "Assumption")
-        | LustreNode.Guarantee -> ("guarantee", "Guarantee")
-        | LustreNode.Require -> ("require", "Require")
-        | LustreNode.Ensure -> ("ensure", "Ensure")
-      in
-      Some {
-        name = LustreContract.prop_name_of_svar svar kind "" ;
-        category ;
-        position = last_position_of_locs locs ;
-      }
-
-let printable_elements_of_core in_sys sys core =
-  let var_map = compute_var_map in_sys sys in
-  let aux lst =
-    lst
-    |> List.map (print_data_of_loc_equation var_map)
-    |> List.filter (function Some _ -> true | None -> false)
-    |> List.map (function Some x -> x | None -> assert false)
-  in
-  core
-  |> ScMap.map aux (* Build map *)
-  |> ScMap.filter (fun _ lst -> lst <> []) (* Remove empty entries *)
-
-let ivc_to_print_data in_sys sys core_class time (_,ivc) =
-  let elements = printable_elements_of_core in_sys sys ivc in
-  {
-    core_class ;
-    property = None ;
-    counterexample = None ;
-    time ;
-    elements ;
-    size = scmap_size elements ;
-  }
-
-let mcs_to_print_data in_sys sys core_class time ((prop, cex), mcs) =
-  let property = Some prop.Property.prop_name in
-  let elements = printable_elements_of_core in_sys sys mcs in
-  {
-    core_class ;
-    property ;
-    counterexample = Some cex ;
-    time ;
-    elements ;
-    size = scmap_size elements ;
-  }
-
-let print_mcs_counterexample in_sys param sys typ fmt (prop, cex) =
-  try
-    if Flags.MCS.print_mcs_counterexample ()
-    then
-      match typ with
-      | `PT ->
-        KEvent.pp_print_counterexample_pt L_warn in_sys param sys prop true fmt cex
-      | `XML ->
-        KEvent.pp_print_counterexample_xml in_sys param sys prop true fmt cex
-      | `JSON ->
-        KEvent.pp_print_counterexample_json in_sys param sys prop true fmt cex
-  with _ -> ()
-
-let format_name_for_pt str =
-  String.capitalize_ascii (String.lowercase_ascii str)
-
-let format_name_for_json_xml = Str.global_replace (Str.regexp " ") ""
-
-let pp_print_core_data in_sys param sys fmt cpd =
-  let print_elt elt =
-    Format.fprintf fmt "%s @{<blue_b>%s@} at position %a@ "
-      (format_name_for_pt elt.category) elt.name
-      Lib.pp_print_pos elt.position
-  in
-  let print_node scope lst =
-    Format.fprintf fmt "@{<b>Node@} @{<blue>%s@}@ " (Scope.to_string scope) ;
-    Format.fprintf fmt "  @[<v>" ;
-    List.iter print_elt lst ;
-    Format.fprintf fmt "@]@ "
-  in
-  (match cpd.property with
-  | None -> Format.fprintf fmt "@{<b>%s (%i elements):@}@."
-    (String.uppercase_ascii cpd.core_class) cpd.size
-  | Some n -> Format.fprintf fmt "@{<b>%s (%i elements)@} for property @{<blue_b>%s@}:@."
-    (String.uppercase_ascii cpd.core_class) cpd.size n
-  ) ;
-  Format.fprintf fmt "  @[<v>" ;
-  ScMap.iter print_node cpd.elements ;
-  (match cpd.counterexample, cpd.property with
-  | Some cex, Some p ->
-    print_mcs_counterexample in_sys param sys `PT fmt (p,cex)
-  | _, _ -> ()
-  ) ;
-  Format.fprintf fmt "@]@."
-
-let pp_print_json fmt json =
-  Yojson.Basic.pretty_to_string json
-  |> Format.fprintf fmt "%s"
-
-let pp_print_core_data_json in_sys param sys fmt cpd =
-  let json_of_elt elt =
-    let (file, row, col) = Lib.file_row_col_of_pos elt.position in
-    `Assoc ([
-      ("category", `String (format_name_for_json_xml elt.category)) ;
-      ("name", `String elt.name) ;
-      ("line", `Int row) ;
-      ("column", `Int col) ;
-    ] @
-    (if file = "" then [] else [("file", `String file)])
-    )
-  in
-  let assoc = [
-    ("objectType", `String "modelElementSet") ;
-    ("class", `String cpd.core_class) ;
-    ("size", `Int cpd.size) ;
-  ] in
-  let assoc = assoc @ (
-    match cpd.property with
-    | None -> []
-    | Some n -> [("property", `String n)]
-  )
-  in
-  let assoc = assoc @ (
-    match cpd.time with
-    | None -> []
-    | Some f -> [("runtime", `Assoc [("unit", `String "sec") ; ("value", `Float f)])]
-  )
-  in
-  let assoc = assoc @ ([
-    ("nodes", `List (List.map (fun (scope, elts) ->
-      `Assoc [
-        ("name", `String (Scope.to_string scope)) ;
-        ("elements", `List (List.map json_of_elt elts))
-      ]
-    ) (ScMap.bindings cpd.elements)))
-  ])
-  in
-  let assoc = assoc @
-    (match cpd.counterexample, cpd.property with
-    | Some cex, Some p ->
-      let str = Format.asprintf "%a"
-        (print_mcs_counterexample in_sys param sys `JSON) (p, cex) in
-      if String.equal str "" then []
-      else (
-          match Yojson.Basic.from_string ("{"^str^"}") with
-          | `Assoc json -> json
-          | _ -> assert false
-      )
-    | _, _ -> []
-    )
-  in
-  pp_print_json fmt (`Assoc assoc)
-
-let pp_print_core_data_xml in_sys param sys fmt cpd =
-  let fst = ref true in
-  let print_node scope elts =
-    if not !fst then Format.fprintf fmt "@ " else fst := false ;
-    let fst = ref true in
-    let print_elt elt =
-      if not !fst then Format.fprintf fmt "@ " else fst := false ;
-      let (file, row, col) = Lib.file_row_col_of_pos elt.position in
-      Format.fprintf fmt "<Element category=\"%s\" name=\"%s\" line=\"%i\" column=\"%i\"%s>"
-        (format_name_for_json_xml elt.category) elt.name row col (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
-    in
-    Format.fprintf fmt "<Node name=\"%s\">@   @[<v>" (Scope.to_string scope) ;
-    List.iter print_elt elts ;
-    Format.fprintf fmt "@]@ </Node>"
-  in
-  Format.fprintf fmt "<ModelElementSet class=\"%s\" size=\"%i\"%s>@.  @[<v>"
-    cpd.core_class cpd.size
-    (match cpd.property with None -> "" | Some n -> Format.asprintf " property=\"%s\"" n) ;
-  (
-    match cpd.time with
-    | None -> ()
-    | Some f -> Format.fprintf fmt "<Runtime unit=\"sec\">%.3f</Runtime>@ " f
-  ) ;
-  ScMap.iter print_node cpd.elements ;
-  (
-    match cpd.counterexample, cpd.property with
-    | Some cex, Some p ->
-      Format.fprintf fmt "@ " ;
-      print_mcs_counterexample in_sys param sys `XML fmt (p, cex)
-    | _, _ -> ()
-  ) ;
-  Format.fprintf fmt "@]@.</ModelElementSet>@."
-
-let name_of_wa_cat = function
-  | ContractItem (_, svar, LustreNode.WeakAssumption) ->
-    Some (LustreContract.prop_name_of_svar svar "weakly_assume" "")
-  | ContractItem (_, svar, LustreNode.WeakGuarantee) ->
-    Some (LustreContract.prop_name_of_svar svar "weakly_guarantee" "")
-  | _ -> None
-
-let all_wa_names_of_mcs scmap =
-  ScMap.fold
-  (fun _ lst acc ->
-    List.fold_left (fun acc (_,_,cat) ->
-      match name_of_wa_cat cat with
-      | None -> acc
-      | Some str -> str::acc
-    ) acc lst
-  )
-  scmap []
-
-let pp_print_mcs_legacy in_sys param sys ((prop, cex), mcs) (_, mcs_compl) =
-  let prop_name = prop.Property.prop_name in
-  let sys = TS.copy sys in
-  let wa_model =
-    all_wa_names_of_mcs mcs_compl
-    |>  List.map (fun str -> (str, true))
-  in
-  let wa_model' =
-      all_wa_names_of_mcs mcs
-    |>  List.map (fun str -> (str, false))
-  in
-  TS.set_prop_unknown sys prop_name ;
-  let wa_model = wa_model@wa_model' in
-  KEvent.cex_wam cex wa_model in_sys param sys prop_name
+let mcs_to_print_data in_sys sys core_class time ((prop, cex), loc_core) =
+  let cpd = loc_core_to_print_data in_sys sys core_class time loc_core in
+  let cpd = attach_property_to_print_data cpd prop in
+  attach_counterexample_to_print_data cpd cex
 
 (* ---------- LUSTRE AST ---------- *)
 
@@ -935,6 +579,27 @@ let id_of_term in_sys t =
     with _ -> (SVSet.empty, false)
 
 (* ---------- UTILITIES ---------- *)
+
+(*
+let rec simplify_term t =
+  let open Term.T in
+  match Term.destruct t with
+    (* Rewrite v1 /\ v1 = t into t *)
+    | App (s, [t1 ; t2]) when Symbol.equal_symbols s (Symbol.s_and) ->
+      begin match (Term.destruct t1, Term.destruct t2) with
+      | (Var v, App (s, [t1 ; t2])) when Symbol.equal_symbols s (Symbol.s_eq) ->
+        begin match Term.destruct t1 with
+        | Var v' when Var.equal_vars v v' -> t2
+        | _ -> t
+        end
+      | _ -> t
+      end
+    | _ -> t
+*)
+
+let rec interval imin imax =
+  if imin > imax then []
+  else imin::(interval (imin+1) imax)
 
 let make_ts_analyzer in_sys param analyze sys =
   let param = Analysis.param_clone param in
@@ -2324,8 +1989,6 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
     []
 
 (* ---------- MAXIMAL UNSAFE ABSTRACTIONS ---------- *)
-
-type mua = ((Property.t * (StateVar.t * Model.value list) list) * loc_equation list ScMap.t)
 
 let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardinality= -1) cont eqmap_keep eqmap_test =
   let prop_names = props_names props in

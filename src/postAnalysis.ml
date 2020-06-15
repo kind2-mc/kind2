@@ -611,10 +611,10 @@ module RunIVC: PostAnalysis = struct
                 (if use_umivc || not (Flags.IVC.ivc_approximate ())
                 then "Minimal IVC" else "Approximate minimal IVC") elapsed) ;
 
-              let pt = Ivc.pp_print_core_data in_sys param sys in
-              let xml = Ivc.pp_print_core_data_xml in_sys param sys in
+              let pt = ModelElement.pp_print_core_data in_sys param sys in
+              let xml = ModelElement.pp_print_core_data_xml in_sys param sys in
               let json fmt = Format.fprintf fmt ",\n%a"
-                (Ivc.pp_print_core_data_json in_sys param sys) in
+                (ModelElement.pp_print_core_data_json in_sys param sys) in
 
               if Flags.IVC.print_ivc ()
               then begin
@@ -725,10 +725,10 @@ let run_mcs_post_analysis in_sys param analyze sys =
             Ivc.pp_print_mcs_legacy in_sys param sys not_mua mua
           end else begin
 
-            let pt = Ivc.pp_print_core_data in_sys param sys in
-            let xml = Ivc.pp_print_core_data_xml in_sys param sys in
+            let pt = ModelElement.pp_print_core_data in_sys param sys in
+            let xml = ModelElement.pp_print_core_data_xml in_sys param sys in
             let json fmt = Format.fprintf fmt ",\n%a"
-              (Ivc.pp_print_core_data_json in_sys param sys) in
+              (ModelElement.pp_print_core_data_json in_sys param sys) in
 
             if Flags.MCS.print_mcs ()
             then begin

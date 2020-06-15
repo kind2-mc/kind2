@@ -36,6 +36,8 @@ type ts_equation = {
 }
 type core
 
+(* TODO: Also associate a statevar to elements of core  *)
+
 val term_of_ts_eq : ~init:bool -> ~closed:bool -> ts_equation -> Term.t
 
 val get_actlits_of_scope : core -> Scope.t -> UfSymbol.t list
@@ -46,6 +48,8 @@ val empty_core : core
 val add_new_ts_equation_to_core : Scope.t -> ts_equation -> core -> core
 val add_to_core : Scope.t -> UfSymbol.t -> core -> core
 val remove_from_core : Scope.t -> UfSymbol.t -> core -> core
+val core_union : core -> core -> core (* TODO *)
+val core_diff : core -> core -> core (* TODO *)
 
 (* ----- LUSTRE MODEL LEVEL CORES / MAPPING BACK ----- *)
 
@@ -79,7 +83,7 @@ module TIdMap : Map.S with type key = TermId.t
 
 val id_of_term : 'a InputSystem.t -> Term.t -> TermId.t
 
-(* ----- Structures for printing ----- *)
+(* ----- Pretty Printing ----- *)
 
 type core_print_data
 
