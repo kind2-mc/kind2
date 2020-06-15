@@ -36,8 +36,11 @@ type ts_equation = {
 }
 type core
 
-val get_actlits_of_scope : core -> scope -> UfSymbol.t list
+val term_of_ts_eq : ~init:bool -> ~closed:bool -> ts_equation -> Term.t
+
+val get_actlits_of_scope : core -> Scope.t -> UfSymbol.t list
 val get_ts_equation_of_actlit : core -> UfSymbol.t -> ts_equation
+val core_size : core -> int
 
 val empty_core : core
 val add_new_ts_equation_to_core : Scope.t -> ts_equation -> core -> core
@@ -49,14 +52,17 @@ val remove_from_core : Scope.t -> UfSymbol.t -> core -> core
 type model_element
 type loc_core
 
-val equal_model_elements : model_element -> model_element -> bool (* TODO *)
+val equal_model_elements : model_element -> model_element -> bool
+val get_model_elements_of_scope : loc_core -> Scope.t -> model_element list
+val loc_core_size : loc_core -> int
 
 val ts_equation_to_model_element : 'a InputSystem.t -> ts_equation -> model_element
 val core_to_loc_core : 'a InputSystem.t -> core -> loc_core
 
-val empty_Loc_core : loc_core (* TODO *)
-val add_to_loc_core : Scope.t -> model_element -> loc_core -> loc_core (* TODO *)
-val remove_from_loc_core : Scope.t -> model_element -> loc_core -> loc_core (* TODO *)
+val empty_Loc_core : loc_core
+val add_to_loc_core : Scope.t -> model_element -> loc_core -> loc_core
+val remove_from_loc_core : Scope.t -> model_element -> loc_core -> loc_core
+val loc_core_diff : loc_core -> loc_core -> loc_core
 
 type category = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `ANNOTATIONS ]
 val is_model_element_in_categories :

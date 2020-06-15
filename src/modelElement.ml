@@ -363,6 +363,12 @@ let pp_print_mcs_legacy in_sys param sys ((prop, cex), mcs) (_, mcs_compl) =
 
 (* ---------- CORES ---------- *)
 
+let term_of_ts_eq ~init ~closed eq =
+  if init && closed then eq.init_closed
+  else if init then eq.init_opened
+  else if closed then eq.trans_closed
+  else eq.trans_opened
+
 let empty_core = (ScMap.empty, SyMap.empty)
 
 let get_actlits_of_scope (scmap, _) scope =
@@ -370,6 +376,8 @@ let get_actlits_of_scope (scmap, _) scope =
 
 let get_ts_equation_of_actlit (_, mapping) actlit =
   SyMap.find actlit mapping
+
+let core_size (scmap, _) = scmap_size scmap
 
 let add_new_ts_equation_to_core scope eq ((scmap, mapping) as core) =
   let actlit = Actlit.fresh_actlit () in
@@ -380,12 +388,12 @@ let add_to_core scope actlit ((scmap, mapping) as core) =
   let actlits = get_actlits_for_scope core scope in
   if List.exists (fun a -> UfSymbol.equal_uf_symbols a actlit) actlits
   then core
-  else (ScMap.add scope (actlit::actlits), mapping)
+  else (ScMap.add scope (actlit::actlits) scmap, mapping)
 
 let remove_from_core scope actlit ((scmap, mapping) as core) =
   let actlits = get_actlits_for_scope core scope in
   let actlits = List.filter (fun a -> UfSymbol.equal_uf_symbols a actlit |> not) actlits in
-  (ScMap.add scope actlits, mapping)
+  (ScMap.add scope actlits scmap, mapping)
 
 type eqmap = (equation list) ScMap.t
 
@@ -409,6 +417,15 @@ type loc = {
 type model_element = ts_equation * (loc list) * term_cat
 
 type loc_core = model_element list ScMap.t
+
+let equal_model_elements (eq1, _, _) (eq2, _, _) =
+  Term.equal eq1.trans_closed eq2.trans_closed
+  && Term.equal eq1.init_closed eq2.init_closed
+
+let get_model_elements_of_scope core scope =
+  try ScMap.find scope core with Not_found -> []
+
+let loc_core_size = scmap_size
 
 let locs_of_node_call in_sys output_svs =
   output_svs
@@ -527,6 +544,29 @@ let core_to_loc_core in_sys core =
   |> ScMap.map (List.map (add_loc in_sys))
 
 
+let empty_loc_core = ScMap.empty
+
+let add_to_loc_core scope elt core =
+  let elts = get_model_elements_of_scope core scope in
+  if List.exists (fun e -> equal_model_elements e elt) elts
+  then core
+  else ScMap.add scope (elt::elts) core
+
+let remove_from_loc_core scope elt core =
+  let elts = get_model_elements_of_scope core scope in
+  let elts = List.filter (fun e -> equal_model_elements e elt |> not) elts in
+  (ScMap.add scope elts core, mapping)
+
+let loc_core_diff core1 core2 =
+  ScMap.mapi (fun scope elts ->
+    List.filter (fun elt ->
+        get_model_elements_of_scope scope core2
+        |> List.exists (fun e -> equal_model_elements e elt)
+        |> not
+      ) elts
+  ) core1
+
+
 let is_model_element_in_categories (_,_,cat) is_main_node cats =
   let cat = match cat with
   | NodeCall _ -> [`NODE_CALL]
@@ -567,97 +607,3 @@ let id_of_term in_sys t =
   | _ ->
     try (SVSet.singleton (sv_of_term t), false)
     with _ -> (SVSet.empty, false)
-
-(* ---------- TODO: integrate useful functions above, delete others ---------- *)
-
-let all_eqs in_sys sys enter_nodes =
-  let scope = TS.scope_of_trans_sys sys in
-  let eqs = extract_toplevel_equations in_sys sys in
-  let eqmap = ScMap.singleton scope eqs in
-  if enter_nodes
-  then
-    TS.fold_subsystems ~include_top:false (fun eqmap sys ->
-      let scope = TS.scope_of_trans_sys sys in
-      let eqs = extract_toplevel_equations in_sys sys in
-      ScMap.add scope eqs eqmap
-    ) eqmap sys
-  else eqmap
-
-let all_loc_eqs in_sys sys enter_nodes =
-  let eqmap = all_eqs in_sys sys enter_nodes in
-  ScMap.map (List.map (add_loc in_sys)) eqmap
-
-let complement_of_core initial core =
-  ScMap.mapi (fun scope eqs ->
-    List.filter (fun (eq,_,_) ->
-        try
-          let lst = ScMap.find scope core
-          |> List.map (fun (eq,_,_) -> eq.trans_closed) in
-          Term.TermSet.mem eq.trans_closed (Term.TermSet.of_list lst)
-          |> not
-        with Not_found -> true
-      ) eqs
-    ) initial
-
-let complement_of_ivc in_sys sys (props, core) =
-  let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
-  complement_of_core (all_loc_eqs in_sys sys enter_nodes) core
-  |> (fun x -> (props, x))
-
-let complement_of_mua in_sys sys (props_cex, core) =
-  let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
-  complement_of_core (all_loc_eqs in_sys sys enter_nodes) core
-  |> (fun x -> (props_cex, x))
-
-let term_of_eq init closed eq =
-  if init && closed then eq.init_closed
-  else if init then eq.init_opened
-  else if closed then eq.trans_closed
-  else eq.trans_opened
-
-let reset_ts enter_nodes sys =
-  let set_props_unknown sys =
-    List.iter
-      (fun str -> TS.set_prop_unknown sys str)
-      (extract_all_props_names sys)
-  in
-  if enter_nodes
-  then (
-    TS.clear_all_invariants sys ;
-    TS.iter_subsystems ~include_top:true set_props_unknown sys
-  )
-  else (
-    TS.clear_invariants sys ;
-    set_props_unknown sys
-  )
-
-let remove_other_props sys prop_names =
-  let aux prop_names acc sys =
-    let props = TS.get_properties sys in
-    let aux prop =
-      let name = prop.Property.prop_name in
-      List.exists (fun n -> n = name) prop_names
-    in
-    List.filter aux props
-    |> TS.set_subsystem_properties acc (TS.scope_of_trans_sys sys)
-  in
-  let sys = TS.fold_subsystems ~include_top:false (aux []) sys sys
-  in aux prop_names sys sys
-
-let add_as_candidate os_invs sys =
-  let _cnt = ref 0 in
-  let cnt () =
-    _cnt := !_cnt + 1 ;
-    !_cnt
-  in
-  let create_candidate t =
-    Property.{
-      prop_name = Format.sprintf "%%inv_%i" (cnt ()) ;
-      prop_source = Property.Candidate None ;
-      prop_term = t ;
-      prop_status = PropUnknown
-    }
-  in
-  let props = List.map create_candidate os_invs in
-  let props = props @ (TS.get_properties sys) in
-  TS.set_subsystem_properties sys (TS.scope_of_trans_sys sys) props
