@@ -1042,7 +1042,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes keep test =
       if approximate || z3_used || is_empty_core core
       then Some (core_union keep core)
       else begin
-        let (scope, actlit, test) = pick_core core in
+        let (scope, actlit, test) = pick_element_of_core core in
         begin match minimize check keep test with
         | None -> minimize check ~skip_first_check:true
           (add_from_other_core core scope actlit keep) test
@@ -1151,7 +1151,6 @@ let must_set in_sys param analyze sys props =
     InternalError
 
 (* ---------- IVC_BF ---------- *)
-(* TODO: from here *)
 
 exception CannotProve
 
@@ -1162,18 +1161,16 @@ let check_result prop_names sys =
     | _ -> false)
     prop_names
 
-let is_empty_eqmap = is_empty_core
-let eqmap_size = core_size
-let pick_eqmap = pick_core
-
 let check_core check_ts sys prop_names enter_nodes core =
+  let main_scope = TS.scope_of_trans_sys sys in
   let prepare_ts_for_check sys core =
     reset_ts enter_nodes sys ;
     let prepare_subsystem acc sys =
       let scope = TS.scope_of_trans_sys sys in
       let eqs =
-        try Some (ScMap.find scope core)
-        with Not_found -> if enter_nodes then Some [] else None
+        if enter_nodes || Scope.equal scope main_scope
+        then Some (get_actlits_of_scope core scope |> List.map get_ts_equation_of_actlit core)
+        else None
       in
       begin match eqs with
       | None -> acc
@@ -1206,38 +1203,39 @@ let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   (* Minimization *)
   let rec minimize ?(skip_first_check=false) check keep test =
     if skip_first_check || check keep test then
-      if is_empty_eqmap test
+      if is_empty_core test
       then Some keep
       else
-        let (scope, eq, test) = pick_eqmap test in
-        match minimize check keep test with
+        let (scope, actlit, test') = pick_element_of_core test in
+        match minimize check keep test' with
         | None ->
-          minimize ~skip_first_check:true check (lstmap_union (ScMap.singleton scope [eq]) keep) test
+          minimize ~skip_first_check:true check (add_from_other_core test scope actlit keep) test'
         | Some res -> Some res
     else None
   in
 
   let check keep' test =
-    let remaining = (eqmap_size test) + 1 in
-    let total = remaining + (eqmap_size keep') in
+    let remaining = (core_size test) + 1 in
+    let total = remaining + (core_size keep') in
     KEvent.log L_info "Minimizing using bruteforce... (%i elements in the IVC, %i checks left)" total remaining ;
-    lstmap_union keep keep'
-    |> lstmap_union test
+    core_union keep keep'
+    |> core_union test
     |> check_core check_ts sys prop_names enter_nodes
   in
 
-  begin match minimize check ScMap.empty test with
+  begin match minimize check empty_core test with
   | None -> raise CannotProve
-  | Some eqmap -> eqmap
+  | Some core -> core
   end
 
 (** Compute the MUST set and then call IVC_BF if needed *)
 let ivc_must_bf_ must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   let prop_names = props_names props in
 
-  let (keep', test) = must_set_ in_sys ~os_invs:(Some os_invs) check_ts sys props enter_nodes keep test in
-  must_cont keep' ;
-  let keep = lstmap_union keep keep' in
+  let must = must_set_ in_sys ~os_invs:(Some os_invs) check_ts sys props enter_nodes keep test in
+  must_cont must ;
+  let keep = core_union keep must in
+  let test = core_diff test must in
   if check_core check_ts sys prop_names enter_nodes keep
   then (
     KEvent.log L_info "MUST set is a valid IVC." ;
@@ -1246,20 +1244,20 @@ let ivc_must_bf_ must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes k
   else (
     KEvent.log L_info "MUST set is not a valid IVC. Minimizing with bruteforce..." ;
     ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test
-    |> lstmap_union keep'
+    |> core_union must
   )
 
 let ivc_bf in_sys ?(use_must_set=None) param analyze sys props =
   try (
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
-    let eqmap = all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
+    let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
     let ivc_bf_ = match use_must_set with
-    | Some f -> (fun x -> x |> lstmap_union keep |> eqmap_to_ivc in_sys props |> f) |> ivc_must_bf_
+    | Some f ->
+      (fun x -> (props, core_to_loc_core in_sys (core_union keep x)) |> f) |> ivc_must_bf_
     | None -> ivc_bf_ in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let test = ivc_bf_ in_sys check_ts sys props enter_nodes keep test in
-    Solution (eqmap_to_ivc in_sys props (lstmap_union keep test))
+    Solution (props, core_to_loc_core in_sys (core_union keep test))
   ) with
   | CannotProve ->
     if are_props_safe props
@@ -1273,15 +1271,15 @@ let ivc_bf in_sys ?(use_must_set=None) param analyze sys props =
 let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
   try (
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
-    let eqmap = all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
+    let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
     let ivc_bf_ = match use_must_set with
-    | Some f -> (fun x -> x |> lstmap_union keep |> eqmap_to_ivc in_sys props |> f) |> ivc_must_bf_
+    | Some f ->
+      (fun x -> (props, core_to_loc_core in_sys (core_union keep x)) |> f) |> ivc_must_bf_
     | None -> ivc_bf_ in
     let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep test in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let test = ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
-    Solution (eqmap_to_ivc in_sys props (lstmap_union keep test))
+    Solution (props, core_to_loc_core in_sys (core_union keep test))
   ) with
   | CannotProve | NotKInductive | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
@@ -1292,6 +1290,7 @@ let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
     InternalError
 
 (* ---------- UMIVC ---------- *)
+(* TODO: from here *)
 
 let sv2ufs = StateVar.uf_symbol_of_state_var
 let ufs2sv = StateVar.state_var_of_uf_symbol
