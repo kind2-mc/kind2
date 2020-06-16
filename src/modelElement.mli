@@ -44,10 +44,11 @@ val get_ts_equation_of_actlit : core -> UfSymbol.t -> ts_equation
 val get_sv_of_actlit : core -> UfSymbol.t -> StateVar.t
 val core_size : core -> int
 val scopes_of_core : core -> Scope.t list
+val pick_element_of_core : core -> (Scope.t * UfSymbol.t * core) option
 
 val empty_core : core
 val add_new_ts_equation_to_core : Scope.t -> ts_equation -> core -> core
-val add_to_core : Scope.t -> UfSymbol.t -> core -> core
+val add_from_other_core : core (* src *) -> Scope.t -> UfSymbol.t -> core (* dst *) -> core
 val remove_from_core : UfSymbol.t -> core -> core
 val filter_core : UfSymbol.t list -> core -> core
 val filter_core_svs : StateVar.t list -> core -> core

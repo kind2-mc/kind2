@@ -392,6 +392,17 @@ let core_size (scmap, _) = scmap_size scmap
 let scopes_of_core (scmap, _) =
   ScMap.bindings scmap |> List.map fst
 
+let pick_element_of_core (scmap, mapping) =
+  let scmap = ScMap.filter (fun _ lst -> lst <> []) scmap in
+  match ScMap.bindings scmap with
+  | [] -> None
+  | (scope, lst)::_ ->
+    Some (scope, List.hd lst, (ScMap.add scope (List.tl lst) scmap, mapping))
+
+  match lst with
+  | [] -> assert false
+  | hd::lst -> 
+
 let add_new_ts_equation_to_core scope eq ((scmap, mapping) as core) =
   let actlit = Actlit.fresh_actlit () in
   let actlits = actlit::(get_actlits_for_scope core scope) in
@@ -399,11 +410,15 @@ let add_new_ts_equation_to_core scope eq ((scmap, mapping) as core) =
         (fresh_actsv_name ()) [] (Type.mk_bool ()) in
   (ScMap.add scope actlits scmap, SyMap.add actlit (eq, sv) mapping)
 
-let add_to_core scope actlit ((scmap, mapping) as core) =
+let add_from_other_core
+  (_, src_mapping) scope actlit ((scmap, mapping) as core) =
   let actlits = get_actlits_for_scope core scope in
   if List.exists (fun a -> UfSymbol.equal_uf_symbols a actlit) actlits
   then core
-  else (ScMap.add scope (actlit::actlits) scmap, mapping)
+  else (
+    let mapping = SyMap.add actlit (SyMap.find actlit src_mapping) mapping in
+    ScMap.add scope (actlit::actlits) scmap, mapping
+  )
 
 let sy_union sy1 sy2 =
   SySet.union (SySet.of_list sy1) (SySet.of_list sy2)

@@ -570,6 +570,19 @@ let term_of_scope term_map scope =
 
 let is_empty_core c = (core_size c) = 0
 
+let lstmap_union scmap1 scmap2 =
+  let merge _ lst1 lst2 = match lst1, lst2 with
+  | None, None -> None
+  | Some lst, None | None, Some lst -> Some lst
+  | Some lst1, Some lst2 -> Some (lst1@lst2)
+  in
+  ScMap.merge merge scmap1 scmap2
+
+let generate_initial_cores in_sys sys enter_nodes cats =
+  let full_loc_core = full_loc_core_for_sys in_sys sys ~only_top_level:(not enter_nodes) in
+  let (test, keep) = separate_loc_core_by_category in_sys cats full_loc_core in
+  (loc_core_to_new_core keep, loc_core_to_new_core test)
+
 (* ---------- AUTOMATED DEBUGGING ---------- *)
 
 let eq_of_actlit core ?(with_act=false) actlit =
@@ -627,7 +640,7 @@ let at_least_one_true svs =
   |> Term.mk_or
 
 let compute_cs check_ts sys prop_names enter_nodes keep test k already_found =
-  let eq_of_actlit = eq_of_actlit test in
+  let eq_of_actlit = eq_of_actlit (core_union keep test) in
   let actsvs = actsvs_of_core test in
 
   let not_already_found =
@@ -940,7 +953,7 @@ let compute_unsat_core ?(pathcomp=None) ?(approximate=false)
   SMTSolver.delete_instance solver ;
   res
 
-let check_k_inductive ?(approximate=false) sys enter_nodes actlits init_terms trans_terms prop os_prop k =
+let check_k_inductive ?(approximate=false) sys enter_nodes core init_terms trans_terms prop os_prop k =
   (* In the functions above, k starts at 0 whereas it starts at 1 with Kind2 notation *)
   let k = k - 1 in
   let scope = TS.scope_of_trans_sys sys in
@@ -954,7 +967,7 @@ let check_k_inductive ?(approximate=false) sys enter_nodes actlits init_terms tr
     let t = Term.mk_not t in
     let res_base =
       compute_unsat_core ~approximate:approximate
-      sys enter_nodes actlits init_terms trans_terms 0 bmax t in
+        sys enter_nodes core init_terms trans_terms 0 bmax t in
     match res_base with
     | NOT_OK -> NOT_OK
     | OK core ->
@@ -963,27 +976,20 @@ let check_k_inductive ?(approximate=false) sys enter_nodes actlits init_terms tr
       let t = Term.mk_not t in
       let res_ind =
         compute_unsat_core ~pathcomp:(Some pathcomp) ~approximate:approximate
-        sys enter_nodes actlits init_terms trans_terms 0 bmax t in
+          sys enter_nodes core init_terms trans_terms 0 bmax t in
       begin match res_ind with
       | NOT_OK -> NOT_OK
-      | OK core' -> OK (actlit_core_union core core')
+      | OK core' -> OK (core_union core core')
       end
   else
     let (bmax, t, _) = k_induction sys 0 init_eq trans_eq prop os_prop k in
     let bmax = bmax-1 in
     let t = Term.mk_not t in
     compute_unsat_core ~approximate:approximate
-    sys enter_nodes actlits init_terms trans_terms 0 bmax t
+      sys enter_nodes core init_terms trans_terms 0 bmax t
 
-let pick_core c =
-  let c = ScMap.filter (fun _ lst -> lst <> []) c in
-  let (scope, lst) = List.hd (ScMap.bindings c) in
-  match lst with
-  | [] -> assert false
-  | hd::lst -> (scope, hd, ScMap.add scope lst c)
-
-let eq_of_actlit actlits_eqs_map ?(with_act=false) a =
-  let eq = SyMap.find a actlits_eqs_map in
+let eq_of_actlit core ?(with_act=false) a =
+  let eq = get_ts_equation_of_actlit core a in
   if with_act
   then
     let guard t =
@@ -997,7 +1003,7 @@ let eq_of_actlit actlits_eqs_map ?(with_act=false) a =
 exception NotKInductive
 
 (** Implements the approximate algorithm (using Unsat Cores) *)
-let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_test =
+let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes keep test =
 
   let scope = TS.scope_of_trans_sys sys in
   let props = props_terms props in
@@ -1010,32 +1016,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_t
   KEvent.log L_info "One-step inductive property: %a" Term.pp_print_term os_prop ;
   KEvent.log L_info "Value of k: %n" k ;
 
-  (* Activation litterals, core and mapping to equations *)
-  let add_to_bindings must_be_tested scope eqs act_bindings =
-    let act_bindings' =
-      List.map (fun eq -> (must_be_tested, Actlit.fresh_actlit (), scope, eq)) eqs in
-    act_bindings'@act_bindings
-  in
-  let act_bindings = ScMap.fold (add_to_bindings false) eqmap_keep [] in
-  let act_bindings = ScMap.fold (add_to_bindings true) eqmap_test act_bindings in
-
-  let actlits_eqs_map =
-    List.fold_left (fun acc (_,k,_,v) -> SyMap.add k v acc)
-      SyMap.empty act_bindings
-  in
-  let eq_of_actlit = eq_of_actlit actlits_eqs_map in
-
-  let add_to_core (keep, test) (must_be_tested,actlit,scope,eq) =
-    if must_be_tested
-    then
-      let old = try ScMap.find scope test with Not_found -> [] in
-      (keep, ScMap.add scope (actlit::old) test)
-    else
-      let old = try ScMap.find scope keep with Not_found -> [] in
-      (ScMap.add scope (actlit::old) keep, test)
-  in
-  let (keep,test) = List.fold_left add_to_core (ScMap.empty,ScMap.empty) act_bindings in
-
+  let eq_of_actlit = eq_of_actlit (core_union keep test) in
   (* Minimization *)
   (* If Z3 is used, we use the 'minimize cores' feature
     so we do not need to minimize them manually *)
@@ -1059,12 +1040,12 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_t
       (*KEvent.log_uncond "UNSAT core eliminated %n equations."
         (core_size test - core_size core) ;*)
       if approximate || z3_used || is_empty_core core
-      then Some (actlit_core_union keep core)
+      then Some (core_union keep core)
       else begin
-        let (scope, symb, test) = pick_core core in
+        let (scope, actlit, test) = pick_core core in
         begin match minimize check keep test with
         | None -> minimize check ~skip_first_check:true
-          (actlit_core_union (ScMap.singleton scope [symb]) keep) test
+          (add_from_other_core core scope actlit keep) test
         | Some res -> Some res
         end
       end
@@ -1072,13 +1053,17 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_t
 
   let terms_of_current_state keep test =
     let aux with_act init core =
-      ScMap.mapi (fun s lst -> List.map 
-        (fun a ->
-          let eq = eq_of_actlit ~with_act:with_act a in
-          term_of_eq init (Scope.equal s scope) eq
-        )
-        lst)
-        core
+      List.fold_left (fun acc s ->
+        let eqs =
+          get_actlits_of_scope core s
+          |> List.map 
+            (fun a ->
+              let eq = eq_of_actlit ~with_act:with_act a in
+              term_of_ts_eq ~init ~closed:(Scope.equal s scope) eq
+            )
+        in
+        ScMap.add s eqs acc
+      ) ScMap.empty (scopes_of_core core) 
     in
     let keep_init = aux false true keep in
     let keep_trans = aux false false keep in
@@ -1091,31 +1076,26 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes eqmap_keep eqmap_t
     (init, trans)
   in
 
-  let core_to_eqmap core =
-    ScMap.map (fun v -> List.map eq_of_actlit v) core
-  in
-
   let check approximate keep' test =
     let remaining = (core_size test) + 1 in
     let total = remaining + (core_size keep') in
     if not approximate && not z3_used
     then KEvent.log L_info "Minimizing using an UNSAT core... (%i elements in the IVC, %i checks left)" total remaining
     else KEvent.log L_info "Minimizing using an UNSAT core... (%i elements in the IVC)" total ;
-    let (init, trans) = terms_of_current_state (actlit_core_union keep keep') test in
+    let (init, trans) = terms_of_current_state (core_union keep keep') test in
     check_k_inductive ~approximate:approximate sys enter_nodes test init trans prop os_prop k
   in
-  let res = match minimize check ScMap.empty test with
-  | None -> if !has_timeout then core_to_eqmap test else raise NotKInductive
-  | Some core -> core_to_eqmap core
+  let res = match minimize check empty_core test with
+  | None -> if !has_timeout then test else raise NotKInductive
+  | Some core -> core
   in (os_invs, res)
 
 let ivc_uc in_sys ?(approximate=false) sys props =
   try (
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
-    let eqmap = all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
+    let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
     let (_, test) = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
-    Solution (eqmap_to_ivc in_sys props (lstmap_union keep test))
+    Solution (props, core_to_loc_core in_sys (core_union keep test))
   ) with
   | NotKInductive | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
@@ -1126,6 +1106,7 @@ let ivc_uc in_sys ?(approximate=false) sys props =
     InternalError
 
 (* ---------- MUST SET ---------- *)
+(* TODO: from here *)
 
 let must_set_ in_sys ?(os_invs=None) check_ts sys props enter_nodes eqmap_keep eqmap_test =
 
