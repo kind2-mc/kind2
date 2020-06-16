@@ -423,6 +423,15 @@ let remove_from_core actlit ((scmap, mapping) as core) =
 let filter_core actlits ((scmap, mapping) as core) =
   (ScMap.map (fun actlits' -> sy_inter actlits actlits') scmap, mapping)
 
+let filter_core_svs state_vars ((scmap, mapping) as core) =
+  let svs = StateVarSet.of_list state_vars in
+  let aux actlits =
+    List.filter
+      (fun a -> StateVarSet.mem (get_sv_of_actlit a) svs)
+      actlits
+  in
+  (ScMap.map aux scmap, mapping)
+
 let core_union (scmap1, mapping1) (scmap2, mapping2) =
   let merge _ eq1 eq2 = match eq1, eq2 with
   | None, None -> None

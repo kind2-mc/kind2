@@ -561,27 +561,22 @@ let actlits_of_core core =
   in
   List.fold_left aux [] (scopes_of_core core)
 
+let actsvs_of_core core =
+  actlits_of_core core
+  |> List.map (get_sv_of_actlit core)
+
 let term_of_scope term_map scope =
   try ScMap.find scope term_map with Not_found -> Term.mk_true ()
 
 let is_empty_core c = (core_size c) = 0
 
-let actsvs_counter =
-  let last = ref 0 in
-  (fun () -> last := !last + 1 ; !last)
-
 (* ---------- AUTOMATED DEBUGGING ---------- *)
 
-let actsvs_of_core = actlits_of_core
-
-let filter_core core actsvs =
-  let actsvs = SVSet.of_list actsvs in
-  ScMap.map (fun lst -> SVSet.of_list lst |> SVSet.inter actsvs |> SVSet.elements) core
-
-let eq_of_actsv actsv_eqs_map ?(with_act=false) sv =
-  let eq = SVMap.find sv actsv_eqs_map in
+let eq_of_actlit core ?(with_act=false) actlit =
+  let eq = get_ts_equation_of_actlit core actlit in
   if with_act
   then
+    let sv = get_sv_of_actlit core actlit in
     let guard t =
       (* Term.mk_eq *)
       Term.mk_implies [Term.mk_not (Term.mk_var (Var.mk_const_state_var sv)) ; t]
@@ -631,8 +626,8 @@ let at_least_one_true svs =
   |> List.map (fun sv -> Term.mk_var (Var.mk_const_state_var sv))
   |> Term.mk_or
 
-let compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found =
-  let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
+let compute_cs check_ts sys prop_names enter_nodes keep test k already_found =
+  let eq_of_actlit = eq_of_actlit test in
   let actsvs = actsvs_of_core test in
 
   let not_already_found =
@@ -641,31 +636,30 @@ let compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k al
     |> Term.mk_and
   in
 
+  let main_scope = TS.scope_of_trans_sys sys in
   let prepare_ts_for_check sys keep test =
     reset_ts enter_nodes sys ;
     let prepare_subsystem acc sys =
       let scope = TS.scope_of_trans_sys sys in
-      let keep_actsvs =
-        try Some (ScMap.find scope keep)
-        with Not_found -> if enter_nodes then Some [] else None
+      let (keep_actlits, test_actlits) =
+        if enter_nodes || Scope.equal scope main_scope
+        then (Some (get_actlits_of_scope keep scope),
+              Some (get_actlits_of_scope test scope))
+        else (None, None)
       in
-      let test_actsvs =
-        try Some (ScMap.find scope test)
-        with Not_found -> if enter_nodes then Some [] else None
-      in
-      let actsvs =
-        match keep_actsvs, test_actsvs with
+      let actlits =
+        match keep_actlits, test_actlits with
         | None, None -> None
         | Some k, None -> Some (k, [])
         | None, Some t -> Some ([], t)
         | Some k, Some t -> Some (k, t)
       in
-      begin match actsvs with
+      begin match actlits with
       | None -> acc
       | Some (ks,ts) ->
         let eqs =
-          (List.map (fun k -> eq_of_actsv ~with_act:false k) ks) @
-          (List.map (fun t -> eq_of_actsv ~with_act:true t) ts)
+          (List.map (fun k -> eq_of_actlit ~with_act:false k) ks) @
+          (List.map (fun t -> eq_of_actlit ~with_act:true t) ts)
         in
         let init_eq = List.map (fun eq -> eq.init_opened) eqs
         |> Term.mk_and in
@@ -693,14 +687,14 @@ let compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k al
   | None -> None
   | Some (actsvs, cex) ->
     assert (List.length actsvs = k) ;
-    Some (filter_core test actsvs, cex)
+    Some (filter_core_svs actsvs test, cex)
 
 let compute_all_cs check_ts sys prop_names enter_nodes ?(cont=(fun _ -> ()))
-  actsvs_eqs_map keep test k already_found =
+  keep test k already_found =
 
   let rec aux acc already_found =
     match compute_cs
-      check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k already_found with
+      check_ts sys prop_names enter_nodes keep test k already_found with
     | None -> acc
     | Some (core, cex) ->
       cont (core, cex) ;
@@ -708,7 +702,7 @@ let compute_all_cs check_ts sys prop_names enter_nodes ?(cont=(fun _ -> ()))
   in
   aux [] already_found
 
-let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality= -1) actsvs_eqs_map keep test =
+let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality= -1) keep test =
   KEvent.log L_info "Computing a MCS using automated debugging..." ;
   let n = core_size test in
   let n =
@@ -720,7 +714,7 @@ let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality= -1) a
   (*let rec aux k =
     if k <= n
     then
-      match compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k [] with
+      match compute_cs check_ts sys prop_names enter_nodes keep test k [] with
       | None -> aux (k+1)
       | Some res -> Some res
     else None
@@ -730,7 +724,7 @@ let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality= -1) a
   let rec aux k previous_res =
     if k >= 0
     then
-      match compute_cs check_ts sys prop_names enter_nodes actsvs_eqs_map keep test k [] with
+      match compute_cs check_ts sys prop_names enter_nodes keep test k [] with
       | None -> previous_res
       | Some res -> aux (k-1) (Some res)
     else previous_res
@@ -738,10 +732,10 @@ let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality= -1) a
   aux n None
 
 let compute_all_mcs check_ts sys prop_names enter_nodes
-  ?(max_mcs_cardinality= -1) ?(cont=(fun _ -> ())) actsvs_eqs_map keep test =
+  ?(max_mcs_cardinality= -1) ?(cont=(fun _ -> ())) keep test =
 
   KEvent.log L_info "Computing all MCS using automated debugging..." ;
-  match compute_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality actsvs_eqs_map keep test with
+  match compute_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality keep test with
   | None -> []
   | Some (res, res_cex) ->
     cont (res, res_cex) ;
@@ -758,7 +752,7 @@ let compute_all_mcs check_ts sys prop_names enter_nodes
          then it will be found by the initial 'compute_mcs' call *)
       then
         let (new_mcs, cex) = compute_all_cs
-          check_ts sys prop_names enter_nodes ~cont actsvs_eqs_map keep test k already_found
+          check_ts sys prop_names enter_nodes ~cont keep test k already_found
           |> List.split in
         let already_found = (List.map actsvs_of_core new_mcs)@already_found in
         aux ((List.combine new_mcs cex)@acc) already_found (k+1)
