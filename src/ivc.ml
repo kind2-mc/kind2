@@ -946,7 +946,7 @@ let compute_unsat_core ?(pathcomp=None) ?(approximate=false)
     else
       let res = unsat_core
       |> List.map actlit_of_term
-      in OK (filter_actlit_core core res)
+      in OK (filter_core core res)
   in
 
   let res = check () in
@@ -1418,16 +1418,11 @@ let umivc_ in_sys make_ts_analyzer sys props k enter_nodes
       check_result prop_names sys
     in
 
-    (* TODO: from here *)
     (* Compute MIVC *)
     let compute_mivc core =
       (*check (core_union keep core) |> ignore ;*) (* Not needed because a check is done before *)
-      let (os_invs, eqmap_test) = core_to_eqmap core
-      |> ivc_uc_ in_sys sys props enter_nodes eqmap_keep in
-      ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes eqmap_keep eqmap_test
-      |> actlits_of_core
-      |> List.map actsv_of_eq
-      |> filter_core test
+      let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep core in
+      ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test
     in
 
     (* ----- Part 1 : CAMUS ----- *)
@@ -1471,15 +1466,14 @@ let umivc_ in_sys make_ts_analyzer sys props k enter_nodes
       match get_unexplored_auto () with
       | _, None -> acc
       | typ, Some actsvs ->
-        let seed = filter_core test actsvs in
+        let seed = filter_core_svs test actsvs in
         if is_camus || check (core_union keep seed)
         then (
           (* Implements shrink(seed) using UCBF *)
           let mivc = if typ = Min then seed else compute_mivc seed in
           (* Save and Block up *)
-          let mivc_eqmap = core_to_eqmap mivc in
-          cont mivc_eqmap ;
-          let new_acc = mivc_eqmap::acc in
+          cont mivc ;
+          let new_acc = mivc::acc in
           if List.length new_acc = stop_after
           then new_acc
           else (
@@ -1510,9 +1504,10 @@ let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
   let prop_names = props_names props in
   let (sys', check_ts') = make_ts_analyzer sys in
 
-  let (keep', test) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
-  must_cont keep' ;
-  let keep = lstmap_union keep keep' in
+  let (must, test) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
+  must_cont must ;
+  let keep = core_union keep must in
+  let test = core_diff test must in
   if check_core check_ts' sys' prop_names enter_nodes keep
   then (
     KEvent.log L_info "MUST set is a valid IVC." ;
@@ -1521,25 +1516,24 @@ let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
   )
   else (
     KEvent.log L_info "MUST set is not a valid IVC. Running UMIVC..." ;
-    let post core = lstmap_union core keep' in
+    let post core = core_union core must in
     let cont core = core |> post |> cont in
     umivc_ in_sys make_ts_analyzer sys props k enter_nodes ~stop_after cont keep test
     |> List.map post
   )
 
-
 (** Implements the algorithm UMIVC. *)
 let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k cont =
   try (
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
-    let eqmap = all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
+    let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
     let umivc_ = match use_must_set with
-      | Some f -> (fun x -> x |> lstmap_union keep |> eqmap_to_ivc in_sys props |> f) |> must_umivc_
+      | Some f ->
+        (fun x -> (props, core_to_loc_core in_sys (core_union keep x)) |> f) |> must_umivc_
       | None -> umivc_ in
     let res = ref [] in
     let cont test =
-      let ivc = eqmap_to_ivc in_sys props (lstmap_union keep test) in
+      let ivc = (props, core_to_loc_core in_sys (core_union keep test)) in
       res := ivc::(!res) ;
       cont ivc
     in
@@ -1556,6 +1550,7 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
     []
 
 (* ---------- MAXIMAL UNSAFE ABSTRACTIONS ---------- *)
+(* TODO: from here *)
 
 let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardinality= -1) cont eqmap_keep eqmap_test =
   let prop_names = props_names props in
