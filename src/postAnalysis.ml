@@ -618,7 +618,7 @@ module RunIVC: PostAnalysis = struct
 
               if Flags.IVC.print_ivc ()
               then begin
-                let (_,filtered_ivc) = Ivc.separate_ivc_by_category in_sys ivc in
+                let (filtered_ivc,_) = Ivc.separate_ivc_by_category in_sys ivc in
                 let cpd = Ivc.ivc_to_print_data in_sys sys
                   (if is_must_set then "must" else "ivc") (Some elapsed) filtered_ivc in
                 KEvent.log_result pt xml json cpd
@@ -627,7 +627,7 @@ module RunIVC: PostAnalysis = struct
               if Flags.IVC.print_ivc_compl ()
               then begin
                 let not_ivc = Ivc.complement_of_ivc in_sys sys ivc in
-                let (_,filtered_not_ivc) = Ivc.separate_ivc_by_category in_sys not_ivc in
+                let (filtered_not_ivc,_) = Ivc.separate_ivc_by_category in_sys not_ivc in
                 let cpd = Ivc.ivc_to_print_data in_sys sys
                   (if is_must_set then "must complement" else "ivc complement")
                   (Some elapsed) filtered_not_ivc in
@@ -732,14 +732,14 @@ let run_mcs_post_analysis in_sys param analyze sys =
 
             if Flags.MCS.print_mcs ()
             then begin
-              let (_,filtered_mcs) = Ivc.separate_mua_by_category in_sys not_mua in
+              let (filtered_mcs,_) = Ivc.separate_mua_by_category in_sys not_mua in
               let cpd = Ivc.mcs_to_print_data in_sys sys "mcs" (Some elapsed) filtered_mcs in
               KEvent.log_result pt xml json cpd
             end ;
 
             if Flags.MCS.print_mcs_compl ()
             then begin
-              let (_,filtered_mua) = Ivc.separate_mua_by_category in_sys mua in
+              let (filtered_mua,_) = Ivc.separate_mua_by_category in_sys mua in
               let cpd = Ivc.mcs_to_print_data in_sys sys "mcs complement"
                 (Some elapsed) filtered_mua in
               KEvent.log_result pt xml json cpd

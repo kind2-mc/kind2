@@ -50,8 +50,8 @@ type ivc
 val complement_of_ivc : 'a InputSystem.t -> TransSys.t -> ivc -> ivc
 
 (** [separate_ivc_by_category in_sys ivc] separates [ivc] into two IVCs:
-    the second one only contains elements from the categories selected by the user,
-    and the first contains the remaining elements of [ivc].
+    the first one only contains elements from the categories selected by the user,
+    and the second one contains the remaining elements of [ivc].
     The parameters [in_sys] should be the same as the one used to generate [ivc]. *)
 val separate_ivc_by_category : 'a InputSystem.t -> ivc -> (ivc * ivc)
 
@@ -144,8 +144,8 @@ type mua
 val complement_of_mua : 'a InputSystem.t -> TransSys.t -> mua -> mua
 
 (** [separate_mua_by_category in_sys mua] separates [mua] into two MUAs:
-    the second one only contains elements from the categories selected by the user,
-    and the first contains the remaining elements of [mua].
+    the first one only contains elements from the categories selected by the user,
+    and the second one contains the remaining elements of [mua].
     The parameters [in_sys] should be the same as the one used to generate [mua]. *)
 val separate_mua_by_category : 'a InputSystem.t -> mua -> (mua * mua)
 

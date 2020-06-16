@@ -486,147 +486,27 @@ let props_term props =
 let extract_all_props_names sys =
   List.map (fun { Property.prop_name = n } -> n) (TS.get_properties sys)
 
-let rec deconstruct_conj t =
-  match Term.destruct t with
-  | Term.T.App (s_and, ts) when Symbol.equal_symbols s_and Symbol.s_and ->
-    List.map deconstruct_conj ts |> List.flatten
-  | _ -> [t]
-
-exception InitTransMismatch of int * int
-
-let extract_toplevel_equations in_sys sys =
-  let (_,oinit,otrans) = TS.init_trans_open sys in
-  let cinit = TS.init_of_bound None sys Numeral.zero
-  and ctrans = TS.trans_of_bound None sys Numeral.zero in
-  let oinit = deconstruct_conj oinit
-  and otrans = deconstruct_conj otrans
-  and cinit = deconstruct_conj cinit
-  and ctrans = deconstruct_conj ctrans in
-  let init = List.combine oinit cinit
-  and trans = List.combine otrans ctrans in
-
-  let mk_map = List.fold_left (fun acc (o,c) ->
-    let tid = id_of_term in_sys c in
-    if TermId.is_empty tid then acc
-    else
-      let (o,c) =
-        try
-          let (o',c') = TIdMap.find tid acc in
-          (Term.mk_and [o;o'], Term.mk_and [c;c'])
-        with Not_found -> (o,c) in
-      TIdMap.add tid (o,c) acc
-  ) TIdMap.empty
-  in
-  let init_bindings = mk_map init |> TIdMap.bindings
-  and trans_bindings = mk_map trans |> TIdMap.bindings in
-  let init_n = List.length init_bindings
-  and trans_n = List.length trans_bindings in
-  if init_n <> trans_n then raise (InitTransMismatch (init_n, trans_n)) ;
-  List.map2 (fun (ki,(oi,ci)) (kt,(ot,ct)) ->
-    if TermId.compare ki kt <> 0
-    then raise (InitTransMismatch (init_n, trans_n)) ;
-    { init_opened=oi ; init_closed=ci ; trans_opened=ot ; trans_closed=ct }
-  ) init_bindings trans_bindings
-
-let check_loc_eq_category is_main_node cats (_,_,cat) =
-  let cat = match cat with
-  | NodeCall _ -> [`NODE_CALL]
-  | ContractItem (_, _, LustreNode.WeakAssumption) when is_main_node
-  -> [`ANNOTATIONS ; `CONTRACT_ITEM]
-  | ContractItem (_, _, LustreNode.WeakGuarantee) when not is_main_node
-  -> [`ANNOTATIONS ; `CONTRACT_ITEM]
-  | ContractItem (_, _, LustreNode.Assumption) when is_main_node
-  -> [`CONTRACT_ITEM]
-  | ContractItem (_, _, LustreNode.Guarantee) when not is_main_node
-  -> [`CONTRACT_ITEM]
-  | ContractItem (_, _, _) -> []
-  | Equation _ -> [`EQUATION]
-  | Assertion _ -> [`ASSERTION]
-  | Unknown -> [(*`UNKNOWN*)]
-  in
-  List.exists (fun cat -> List.mem cat cats) cat
-
-let should_minimize_equation is_main_node in_sys cats eq =
-  check_loc_eq_category is_main_node cats (add_loc in_sys eq)
-
-let separate_by_predicate f lst =
-  let lst = List.map (fun e -> (f e, e)) lst in
-  let ok = List.filter fst lst in
-  let not_ok = List.filter (fun (ok,_) -> not ok) lst in
-  (List.map snd not_ok, List.map snd ok)
-
-let separate_loc_eqs_by_category cats is_main_node =
-  separate_by_predicate (check_loc_eq_category is_main_node cats)
-
-let separate_equations_by_category in_sys cats is_main_node =
-  separate_by_predicate (should_minimize_equation is_main_node in_sys cats)
-
-let separate_scmap main_scope f scmap =
-  ScMap.fold (fun k v (map1,map2) ->
-    let (v1,v2) = f (Scope.equal k main_scope) v in
-    (ScMap.add k v1 map1, ScMap.add k v2 map2)
-  ) scmap (ScMap.empty, ScMap.empty)
-
-let separate_ivc_by_category in_sys (props, ivc) =
+let separate_loc_core_by_category in_sys cats =
   let main_scope = InputSystem.ordered_scopes_of in_sys |> List.hd in
-  let (ivc1, ivc2) = separate_scmap main_scope (separate_loc_eqs_by_category (Flags.IVC.ivc_category ())) ivc
-  in (props, ivc1), (props, ivc2)
+  filter_loc_core_by_categories main_scope cats
 
-let separate_mua_by_category in_sys (prop, mua) =
-  let main_scope = InputSystem.ordered_scopes_of in_sys |> List.hd in
-  let (mua1, mua2) = separate_scmap main_scope (separate_loc_eqs_by_category (Flags.MCS.mcs_category ())) mua
-  in (prop, mua1), (prop, mua2)
+let separate_ivc_by_category in_sys (props, core) =
+  let (core1, core2) = separate_loc_core_by_category in_sys (Flags.IVC.ivc_category ()) core
+  in (props, core1), (props, core2)
 
-type eqmap = (equation list) ScMap.t
-
-let separate_eqmap_by_category in_sys cats =
-  let main_scope = InputSystem.ordered_scopes_of in_sys |> List.hd in
-  separate_scmap main_scope (separate_equations_by_category in_sys cats)
-
-let all_eqs in_sys sys enter_nodes =
-  let scope = TS.scope_of_trans_sys sys in
-  let eqs = extract_toplevel_equations in_sys sys in
-  let eqmap = ScMap.singleton scope eqs in
-  if enter_nodes
-  then
-    TS.fold_subsystems ~include_top:false (fun eqmap sys ->
-      let scope = TS.scope_of_trans_sys sys in
-      let eqs = extract_toplevel_equations in_sys sys in
-      ScMap.add scope eqs eqmap
-    ) eqmap sys
-  else eqmap
-
-let all_loc_eqs in_sys sys enter_nodes =
-  let eqmap = all_eqs in_sys sys enter_nodes in
-  ScMap.map (List.map (add_loc in_sys)) eqmap
-
-let complement_of_core initial core =
-  ScMap.mapi (fun scope eqs ->
-    List.filter (fun (eq,_,_) ->
-        try
-          let lst = ScMap.find scope core
-          |> List.map (fun (eq,_,_) -> eq.trans_closed) in
-          Term.TermSet.mem eq.trans_closed (Term.TermSet.of_list lst)
-          |> not
-        with Not_found -> true
-      ) eqs
-    ) initial
+let separate_mua_by_category in_sys (data, core) =
+  let (core1, core2) = separate_loc_core_by_category in_sys (Flags.MCS.mcs_category ()) core
+  in (data, core1), (data, core2)
 
 let complement_of_ivc in_sys sys (props, core) =
-  let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
-  complement_of_core (all_loc_eqs in_sys sys enter_nodes) core
+  let only_top_level = Flags.IVC.ivc_only_main_node () in
+  loc_core_diff (full_loc_core_for_sys in_sys sys ~only_top_level) core
   |> (fun x -> (props, x))
 
 let complement_of_mua in_sys sys (props_cex, core) =
-  let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
-  complement_of_core (all_loc_eqs in_sys sys enter_nodes) core
+  let only_top_level = Flags.MCS.mcs_only_main_node () in
+  loc_core_diff (full_loc_core_for_sys in_sys sys ~only_top_level) core
   |> (fun x -> (props_cex, x))
-
-let term_of_eq init closed eq =
-  if init && closed then eq.init_closed
-  else if init then eq.init_opened
-  else if closed then eq.trans_closed
-  else eq.trans_opened
 
 let reset_ts enter_nodes sys =
   let set_props_unknown sys =
@@ -674,8 +554,6 @@ let add_as_candidate os_invs sys =
   let props = List.map create_candidate os_invs in
   let props = props @ (TS.get_properties sys) in
   TS.set_subsystem_properties sys (TS.scope_of_trans_sys sys) props
-
-type core = (UfSymbol.t list) ScMap.t
 
 (* ---------- SOME MORE UTILITIES ---------- *)
 
