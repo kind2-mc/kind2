@@ -42,6 +42,7 @@ val term_of_ts_eq : ~init:bool -> ~closed:bool -> ts_equation -> Term.t
 val get_actlits_of_scope : core -> Scope.t -> UfSymbol.t list
 val get_ts_equation_of_actlit : core -> UfSymbol.t -> ts_equation
 val get_sv_of_actlit : core -> UfSymbol.t -> StateVar.t
+(*val get_actlit_of_sv : core -> StateVar.t -> UfSymbol.t*)
 val core_size : core -> int
 val scopes_of_core : core -> Scope.t list
 val pick_element_of_core : core -> (Scope.t * UfSymbol.t * core) option

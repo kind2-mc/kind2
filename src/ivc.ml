@@ -1169,7 +1169,7 @@ let check_core check_ts sys prop_names enter_nodes core =
       let scope = TS.scope_of_trans_sys sys in
       let eqs =
         if enter_nodes || Scope.equal scope main_scope
-        then Some (get_actlits_of_scope core scope |> List.map get_ts_equation_of_actlit core)
+        then Some (get_actlits_of_scope core scope |> List.map (get_ts_equation_of_actlit core))
         else None
       in
       begin match eqs with
@@ -1290,10 +1290,6 @@ let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
     InternalError
 
 (* ---------- UMIVC ---------- *)
-(* TODO: from here *)
-
-let sv2ufs = StateVar.uf_symbol_of_state_var
-let ufs2sv = StateVar.state_var_of_uf_symbol
 
 let get_unexplored map actsvs =
   if SMTSolver.check_sat map
@@ -1351,54 +1347,17 @@ let block_down map actsvs s =
 type unexplored_type = | Any | Min | Max
 
 let umivc_ in_sys make_ts_analyzer sys props k enter_nodes
-  ?(stop_after=0) cont eqmap_keep eqmap_test =
+  ?(stop_after=0) cont keep test =
   let prop_names = props_names props in
   (*let sys_original = sys in*)
   let (sys_cs, check_ts_cs) = make_ts_analyzer sys in
   let (sys, check_ts) = make_ts_analyzer sys in
 
-  (* Activation litterals, core and mapping to equations *)
-  let add_to_bindings must_be_tested scope eqs act_bindings =
-    let act_bindings' =
-      List.map (fun eq ->
-      let actsv =
-        StateVar.mk_state_var ~is_input:false ~is_const:true
-        (fresh_actsv_name ()) [] (Type.mk_bool ()) in
-      (must_be_tested, actsv, scope, eq)
-    ) eqs in
-    act_bindings'@act_bindings
-  in
-  let act_bindings = ScMap.fold (add_to_bindings false) eqmap_keep [] in
-  let act_bindings = ScMap.fold (add_to_bindings true) eqmap_test act_bindings in
-
-  let actsvs_eqs_map =
-    List.fold_left (fun acc (_,k,_,v) -> SVMap.add k v acc)
-      SVMap.empty act_bindings
-  in
-  let eqs_actsvs_map =
-    List.fold_left (fun acc (_,v,_,k) -> EqMap.add k v acc)
-      EqMap.empty act_bindings
-  in
-  let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
-  let actsv_of_eq eq = EqMap.find eq eqs_actsvs_map in
-  let core_to_eqmap core =
-    ScMap.map (fun v -> List.map eq_of_actsv v) core
-  in
-
-  let add_to_core (keep, test) (must_be_tested,actsv,scope,eq) =
-    if must_be_tested
-    then
-      let old = try ScMap.find scope test with Not_found -> [] in
-      (keep, ScMap.add scope (actsv::old) test)
-    else
-      let old = try ScMap.find scope keep with Not_found -> [] in
-      (ScMap.add scope (actsv::old) keep, test)
-  in
-  let (keep,test) = List.fold_left add_to_core (ScMap.empty,ScMap.empty) act_bindings in
-
+  let eq_of_actlit = get_ts_equation_of_actlit (core_union keep test) in
   (* If test is empty, we can return *)
   let n = core_size test in
-  if n = 0 then [core_to_eqmap test]
+  if not (are_props_safe props) then []
+  else if n = 0 then (cont test ; [test])
   else (
     (* Add actsvs to the CS transition system (at top level) *)
     let actsvs = actsvs_of_core test in
@@ -1417,27 +1376,28 @@ let umivc_ in_sys make_ts_analyzer sys props k enter_nodes
     let get_unexplored_max () = get_unexplored_max map actsvs in
     let block_up = block_up map actsvs in
     let block_down = block_down map actsvs in
-    let compute_mcs = compute_mcs check_ts_cs sys_cs prop_names enter_nodes actsvs_eqs_map in
+    let compute_mcs = compute_mcs check_ts_cs sys_cs prop_names enter_nodes in
     let compute_mcs k t = match compute_mcs k t with
       | None -> assert false (* Should always be called on UNSAFE models *)
       | Some (r, _) -> r in
-    let compute_all_cs = compute_all_cs check_ts_cs sys_cs prop_names enter_nodes actsvs_eqs_map in
+    let compute_all_cs = compute_all_cs check_ts_cs sys_cs prop_names enter_nodes in
     let compute_all_cs k t i af = List.map fst (compute_all_cs k t i af) in
-    let eqmap_keep = core_to_eqmap keep in
 
     (* Check safety *)
+    let main_scope = TS.scope_of_trans_sys sys in
     let prepare_ts_for_check sys keep =
       reset_ts enter_nodes sys ;
       let prepare_subsystem acc sys =
         let scope = TS.scope_of_trans_sys sys in
-        let actsvs =
-          try Some (ScMap.find scope keep)
-          with Not_found -> if enter_nodes then Some [] else None
+        let actlits =
+          if enter_nodes || Scope.equal scope main_scope
+          then Some (get_actlits_of_scope keep scope)
+          else None
         in
-        begin match actsvs with
+        begin match actlits with
         | None -> acc
-        | Some actsvs ->
-          let eqs = List.map eq_of_actsv actsvs in
+        | Some actlits ->
+          let eqs = List.map eq_of_actlit actsvs in
           let init_eq = List.map (fun eq -> eq.init_opened) eqs
           |> Term.mk_and in
           let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
@@ -1457,19 +1417,8 @@ let umivc_ in_sys make_ts_analyzer sys props k enter_nodes
       Lib.set_log_level old_log_level;
       check_result prop_names sys
     in
-    (*let print_acts fmt acts =
-      List.iter (fun a ->
-          Format.fprintf fmt "%a\n" Term.pp_print_term ((eq_of_actsv a).trans_opened)
-        ) acts
-    in
-    let print_core fmt core =
-      Format.fprintf fmt "\n===== CORE =====\n" ;
-      ScMap.iter (fun k v ->
-        Format.fprintf fmt "----- %s -----\n%a" (Scope.to_string k)
-        print_acts v) core ;
-      Format.print_flush () ;
-    in*)
 
+    (* TODO: from here *)
     (* Compute MIVC *)
     let compute_mivc core =
       (*check (core_union keep core) |> ignore ;*) (* Not needed because a check is done before *)
