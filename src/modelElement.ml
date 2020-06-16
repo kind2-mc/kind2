@@ -595,12 +595,19 @@ let core_to_loc_core in_sys core =
   core_to_eqmap core
   |> ScMap.map (List.map (add_loc in_sys))
 
+let loc_core_to_new_core in_sys loc_core =
+  let add_eqs_of_scope scope lst acc =
+    List.fold_left
+      (fun acc (eq, _, _) -> add_new_ts_equation_to_core scope eq acc)
+      acc lst
+  in
+  ScMap.fold add_eqs_of_scope loc_core empty_core
 
 let empty_loc_core = ScMap.empty
 
-let add_to_loc_core scope elt core =
+let add_to_loc_core ?(check_already_exists=false) scope elt core =
   let elts = get_model_elements_of_scope core scope in
-  if List.exists (fun e -> equal_model_elements e elt) elts
+  if check_already_exists && List.exists (fun e -> equal_model_elements e elt) elts
   then core
   else ScMap.add scope (elt::elts) core
 
@@ -638,6 +645,8 @@ let is_model_element_in_categories (_,_,cat) is_main_node cats =
   List.exists (fun cat -> List.mem cat cats) cat
 
 
+(* Identify the provenance of a term.
+   A 'trans' term and its corresponding 'init' term should have the same TermId. *)
 type term_id = SVSet.t * bool (* Is node call *)
 module TermId = struct
   type t = term_id
@@ -659,3 +668,74 @@ let id_of_term in_sys t =
   | _ ->
     try (SVSet.singleton (sv_of_term t), false)
     with _ -> (SVSet.empty, false)
+
+exception InitTransMismatch of int * int
+
+let rec deconstruct_conj t =
+  match Term.destruct t with
+  | Term.T.App (s_and, ts) when Symbol.equal_symbols s_and Symbol.s_and ->
+    List.map deconstruct_conj ts |> List.flatten
+  | _ -> [t]
+
+let extract_toplevel_equations in_sys sys =
+  let (_,oinit,otrans) = TS.init_trans_open sys in
+  let cinit = TS.init_of_bound None sys Numeral.zero
+  and ctrans = TS.trans_of_bound None sys Numeral.zero in
+  let oinit = deconstruct_conj oinit
+  and otrans = deconstruct_conj otrans
+  and cinit = deconstruct_conj cinit
+  and ctrans = deconstruct_conj ctrans in
+  let init = List.combine oinit cinit
+  and trans = List.combine otrans ctrans in
+
+  let mk_map = List.fold_left (fun acc (o,c) ->
+    let tid = id_of_term in_sys c in
+    if TermId.is_empty tid then acc
+    else
+      let (o,c) =
+        try
+          let (o',c') = TIdMap.find tid acc in
+          (Term.mk_and [o;o'], Term.mk_and [c;c'])
+        with Not_found -> (o,c) in
+      TIdMap.add tid (o,c) acc
+  ) TIdMap.empty
+  in
+  let init_bindings = mk_map init |> TIdMap.bindings
+  and trans_bindings = mk_map trans |> TIdMap.bindings in
+  let init_n = List.length init_bindings
+  and trans_n = List.length trans_bindings in
+  if init_n <> trans_n then raise (InitTransMismatch (init_n, trans_n)) ;
+  List.map2 (fun (ki,(oi,ci)) (kt,(ot,ct)) ->
+    if TermId.compare ki kt <> 0
+    then raise (InitTransMismatch (init_n, trans_n)) ;
+    { init_opened=oi ; init_closed=ci ; trans_opened=ot ; trans_closed=ct }
+  ) init_bindings trans_bindings
+
+let full_loc_core_for_sys in_sys sys ~only_top_level =
+  let treat_subnode acc sys =
+    let scope = TS.scope scope_of_trans_sys sys in
+    extract_toplevel_equations in_sys sys
+    |> List.map (ts_equation_to_model_element in_sys)
+    |> List.fold_left (fun acc elt -> add_to_loc_core scope elt acc) acc
+  in
+  let res = treat_subnode empty_loc_core sys in
+  if only_top_level then res
+  else TS.fold_subsystems ~include_top:false treat_subnode res sys
+
+let filter_loc_core_by_categories main_scope cats loc_core =
+  let ok =
+    ScMap.mapi (fun scope elts ->
+      let main = Scope.equal scope main_scope in
+      List.filter
+        (fun elt -> is_model_element_in_categories elt main cats)
+        elts
+    ) loc_core in
+  let not_ok =
+    ScMap.mapi (fun scope elts ->
+      let main = Scope.equal scope main_scope in
+      List.filter
+        (fun elt -> is_model_element_in_categories elt main cats)
+        elts
+      |> not
+    ) loc_core in
+  (ok, not_ok)

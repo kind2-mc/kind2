@@ -507,23 +507,23 @@ let extract_toplevel_equations in_sys sys =
 
   let mk_map = List.fold_left (fun acc (o,c) ->
     let tid = id_of_term in_sys c in
-    if TermID.is_empty tid then acc
+    if TermId.is_empty tid then acc
     else
       let (o,c) =
         try
-          let (o',c') = TIDMap.find tid acc in
+          let (o',c') = TIdMap.find tid acc in
           (Term.mk_and [o;o'], Term.mk_and [c;c'])
         with Not_found -> (o,c) in
-      TIDMap.add tid (o,c) acc
-  ) TIDMap.empty
+      TIdMap.add tid (o,c) acc
+  ) TIdMap.empty
   in
-  let init_bindings = mk_map init |> TIDMap.bindings
-  and trans_bindings = mk_map trans |> TIDMap.bindings in
+  let init_bindings = mk_map init |> TIdMap.bindings
+  and trans_bindings = mk_map trans |> TIdMap.bindings in
   let init_n = List.length init_bindings
   and trans_n = List.length trans_bindings in
   if init_n <> trans_n then raise (InitTransMismatch (init_n, trans_n)) ;
   List.map2 (fun (ki,(oi,ci)) (kt,(ot,ct)) ->
-    if TermID.compare ki kt <> 0
+    if TermId.compare ki kt <> 0
     then raise (InitTransMismatch (init_n, trans_n)) ;
     { init_opened=oi ; init_closed=ci ; trans_opened=ot ; trans_closed=ct }
   ) init_bindings trans_bindings

@@ -18,11 +18,12 @@
 
 (** Manpulation of sets of equations and model elements
     (equations, assertions, assumptions, guarantees, node calls).
+    Make the link between TransSys-level equations and Lustre model elements.
 
     @author Mickael Laurent *)
 
 
-(* ----- TRANSITION SYSTEM LEVEL CORES ----- *)
+(* ----- TRANSITION SYSTEM LEVEL ----- *)
 
 (** Represents an equation of the transition system.
     It is not specific to the 'equation' model elements
@@ -48,10 +49,10 @@ val empty_core : core
 val add_new_ts_equation_to_core : Scope.t -> ts_equation -> core -> core
 val add_to_core : Scope.t -> UfSymbol.t -> core -> core
 val remove_from_core : Scope.t -> UfSymbol.t -> core -> core
-val core_union : core -> core -> core (* TODO *)
-val core_diff : core -> core -> core (* TODO *)
+val core_union : core -> core -> core
+val core_diff : core -> core -> core
 
-(* ----- LUSTRE MODEL LEVEL CORES / MAPPING BACK ----- *)
+(* ----- LUSTRE MODEL LEVEL / MAPPING BACK ----- *)
 
 type model_element
 type loc_core
@@ -64,9 +65,11 @@ val scopes_of_loc_core : loc_core -> Scope.t list
 
 val ts_equation_to_model_element : 'a InputSystem.t -> ts_equation -> model_element
 val core_to_loc_core : 'a InputSystem.t -> core -> loc_core
+val loc_core_to_new_core : core -> loc_core
 
 val empty_Loc_core : loc_core
-val add_to_loc_core : Scope.t -> model_element -> loc_core -> loc_core
+val add_to_loc_core :
+  ?check_already_exists:bool -> Scope.t -> model_element -> loc_core -> loc_core
 val remove_from_loc_core : Scope.t -> model_element -> loc_core -> loc_core
 val loc_core_diff : loc_core -> loc_core -> loc_core
 
@@ -74,18 +77,13 @@ type category = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `ANNOTA
 val is_model_element_in_categories :
   model_element -> bool (* is_main_node *) -> category list -> bool
 
-(** Identify the provenance of a term.
-    A 'trans' term and its corresponding 'init' term should have the same TermId. *)
-module TermId : sig
-  type t
-  val is_empty : t -> bool
-  val compare : t -> t -> int
-end
-module TIdMap : Map.S with type key = TermId.t
+exception InitTransMismatch of int * int
+val full_loc_core_for_sys :
+  'a InputSystem.t -> TransSys.t -> ~only_top_level:bool -> loc_core
+val filter_loc_core_by_categories :
+  Scope.t (* Toplevel scope *) -> category list -> loc_core -> loc_core * loc_core
 
-val id_of_term : 'a InputSystem.t -> Term.t -> TermId.t
-
-(* ----- Pretty Printing ----- *)
+(* ----- PRETTY PRINTING ----- *)
 
 type core_print_data
 
