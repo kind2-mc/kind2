@@ -1106,93 +1106,41 @@ let ivc_uc in_sys ?(approximate=false) sys props =
     InternalError
 
 (* ---------- MUST SET ---------- *)
-(* TODO: from here *)
 
-let must_set_ in_sys ?(os_invs=None) check_ts sys props enter_nodes eqmap_keep eqmap_test =
+let must_set_ in_sys ?(os_invs=None) check_ts sys props enter_nodes keep test =
 
   (* If os_invs is None,
   we minimize using UC first and we retrieve the minimized invariants in the same time *)
-  let (os_invs, reduced_eqmap_test) =
+  let (os_invs, reduced_test) =
   match os_invs with
-  | Some os_invs -> (os_invs, eqmap_test)
-  | None -> ivc_uc_ in_sys sys props enter_nodes eqmap_keep eqmap_test
+  | Some os_invs -> (os_invs, test)
+  | None -> ivc_uc_ in_sys sys props enter_nodes keep test
   in
+  let increased_keep = core_diff (core_union keep test) reduced_test in
 
   let prop_names = props_names props in
   let sys = remove_other_props sys prop_names in
   let sys = add_as_candidate os_invs sys in
 
-  (* Activation litterals, core and mapping to equations *)
-  let add_to_bindings must_be_tested scope eqs act_bindings =
-    let act_bindings' =
-      List.map (fun eq ->
-      let actsv =
-        StateVar.mk_state_var ~is_input:false ~is_const:true
-        (fresh_actsv_name ()) [] (Type.mk_bool ()) in
-      (must_be_tested, actsv, scope, eq)
-    ) eqs in
-    act_bindings'@act_bindings
-  in
-  let act_bindings = ScMap.fold (add_to_bindings false) eqmap_keep [] in
-  let act_bindings = ScMap.fold (add_to_bindings true) eqmap_test act_bindings in
-
-  let actsvs_eqs_map =
-    List.fold_left (fun acc (_,k,_,v) -> SVMap.add k v acc)
-      SVMap.empty act_bindings
-  in
-  let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
-  let core_to_eqmap core =
-    ScMap.map (fun v -> List.map eq_of_actsv v) core
-  in
-
-  let add_to_core (keep, test) (must_be_tested,actsv,scope,eq) =
-    if must_be_tested
-    then
-      let old = try ScMap.find scope test with Not_found -> [] in
-      (keep, ScMap.add scope (actsv::old) test)
-    else
-      let old = try ScMap.find scope keep with Not_found -> [] in
-      (ScMap.add scope (actsv::old) keep, test)
-  in
-  let (keep,test) = List.fold_left add_to_core (ScMap.empty,ScMap.empty) act_bindings in
-
-  let reduce scope lst (acc_keep, acc_test) =
-    let reduced_set =
-      (try ScMap.find scope reduced_eqmap_test with Not_found -> [])
-      |> EqSet.of_list
-    in
-    let keep = try ScMap.find scope acc_keep with Not_found -> [] in
-    let test = [] in
-    let aux (keep, test) elt =
-      if EqSet.mem (eq_of_actsv elt) reduced_set
-      then (keep, elt::test)
-      else (elt::keep, test)
-    in
-    let (keep, test) = List.fold_left aux (keep, test) lst in
-    (ScMap.add scope keep acc_keep, ScMap.add scope test acc_test)
-  in
-  let (increased_keep, reduced_test) = ScMap.fold reduce test (keep, test) in
-
+  let eq_of_actlit = eq_of_actlit (core_union keep test) in
   (* Add actsvs to the CS transition system (at top level) *)
   let actsvs = actsvs_of_core reduced_test in
   let sys = List.fold_left (fun acc sv -> TS.add_global_constant acc (Var.mk_const_state_var sv)) sys actsvs in
 
   let core =
-    compute_all_cs check_ts sys prop_names enter_nodes actsvs_eqs_map increased_keep reduced_test 1 []
+    compute_all_cs check_ts sys prop_names enter_nodes increased_keep reduced_test 1 []
     |> List.map fst
     |> List.fold_left core_union ScMap.empty
   in
-  let test = core_diff test core in
-  (core_to_eqmap core, core_to_eqmap test)
+  core
 
 let must_set in_sys param analyze sys props =
   try (
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
-    let eqmap = all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys (Flags.IVC.ivc_category ()) eqmap in
+    let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
-    let (keep', _) = must_set_ in_sys check_ts sys props enter_nodes keep test in
-    Solution (eqmap_to_ivc in_sys props (lstmap_union keep keep'))
+    let must = must_set_ in_sys check_ts sys props enter_nodes keep test in
+    Solution (props, core_to_loc_core in_sys (core_union keep must))
   ) with
   | NotKInductive | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
@@ -1203,6 +1151,7 @@ let must_set in_sys param analyze sys props =
     InternalError
 
 (* ---------- IVC_BF ---------- *)
+(* TODO: from here *)
 
 exception CannotProve
 
