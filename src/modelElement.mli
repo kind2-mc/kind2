@@ -48,7 +48,8 @@ val scopes_of_core : core -> Scope.t list
 val empty_core : core
 val add_new_ts_equation_to_core : Scope.t -> ts_equation -> core -> core
 val add_to_core : Scope.t -> UfSymbol.t -> core -> core
-val remove_from_core : Scope.t -> UfSymbol.t -> core -> core
+val remove_from_core : UfSymbol.t -> core -> core
+val filter_core : UfSymbol.t list -> core -> core
 val core_union : core -> core -> core
 val core_diff : core -> core -> core
 

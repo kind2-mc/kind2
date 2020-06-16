@@ -555,70 +555,20 @@ let add_as_candidate os_invs sys =
   let props = props @ (TS.get_properties sys) in
   TS.set_subsystem_properties sys (TS.scope_of_trans_sys sys) props
 
-(* ---------- SOME MORE UTILITIES ---------- *)
-
-let actlits_of_core map = List.flatten (List.map snd (ScMap.bindings map))
-
-let symbols_union lst1 lst2 =
-  SySet.union (SySet.of_list lst1) (SySet.of_list lst2) |> SySet.elements
-
-let symbols_diff lst1 lst2 =
-  SySet.diff (SySet.of_list lst1) (SySet.of_list lst2) |> SySet.elements
-
-let scmap_union union c1 c2 =
-  let merge _ lst1 lst2 = match lst1, lst2 with
-  | None, None -> None
-  | Some lst, None | None, Some lst -> Some lst
-  | Some lst1, Some lst2 -> Some (union lst1 lst2)
+let actlits_of_core core =
+  let aux acc scope =
+    (get_actlits_of_scope core scope)@acc
   in
-  ScMap.merge merge c1 c2
-
-let scmap_diff diff c1 c2 =
-  let merge _ lst1 lst2 = match lst1, lst2 with
-  | None, _ -> None
-  | Some lst, None -> Some lst
-  | Some lst1, Some lst2 -> Some (diff lst1 lst2)
-  in
-  ScMap.merge merge c1 c2
-
-let actlit_core_union = scmap_union symbols_union
-let actlit_core_diff = scmap_diff symbols_diff
-
-let svs_union lst1 lst2 =
-  SVSet.union (SVSet.of_list lst1) (SVSet.of_list lst2) |> SVSet.elements
-
-let svs_diff lst1 lst2 =
-  SVSet.diff (SVSet.of_list lst1) (SVSet.of_list lst2) |> SVSet.elements
-
-let core_union = scmap_union svs_union
-let core_diff = scmap_diff svs_diff
-
-let filter_actlit_core core actlits =
-  let actlits = SySet.of_list actlits in
-  ScMap.map (fun lst -> SySet.of_list lst |> SySet.inter actlits |> SySet.elements) core
+  List.fold_left aux [] (scopes_of_core core)
 
 let term_of_scope term_map scope =
   try ScMap.find scope term_map with Not_found -> Term.mk_true ()
 
-let is_empty_core c =
-  ScMap.for_all (fun _ v -> v = []) c
-
-let core_size = scmap_size
+let is_empty_core c = (core_size c) = 0
 
 let actsvs_counter =
   let last = ref 0 in
   (fun () -> last := !last + 1 ; !last)
-
-let fresh_actsv_name () =
-  Printf.sprintf "__umivc_%i" (actsvs_counter ())
-
-let lstmap_union c1 c2 =
-  let merge _ lst1 lst2 = match lst1, lst2 with
-  | None, None -> None
-  | Some lst, None | None, Some lst -> Some lst
-  | Some lst1, Some lst2 -> Some (lst1@lst2)
-  in
-  ScMap.merge merge c1 c2
 
 (* ---------- AUTOMATED DEBUGGING ---------- *)
 

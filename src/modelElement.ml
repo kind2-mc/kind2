@@ -363,6 +363,10 @@ let pp_print_mcs_legacy in_sys param sys ((prop, cex), mcs) (_, mcs_compl) =
 
 (* ---------- CORES ---------- *)
 
+let actsvs_counter =
+  let last = ref 0 in
+  (fun () -> last := !last + 1 ; !last)
+
 let fresh_actsv_name () =
   Printf.sprintf "__model_elt_%i" (actsvs_counter ())
 
@@ -401,18 +405,23 @@ let add_to_core scope actlit ((scmap, mapping) as core) =
   then core
   else (ScMap.add scope (actlit::actlits) scmap, mapping)
 
-let remove_from_core scope actlit ((scmap, mapping) as core) =
-  let actlits = get_actlits_for_scope core scope in
-  let actlits = List.filter (fun a -> UfSymbol.equal_uf_symbols a actlit |> not) actlits in
-  (ScMap.add scope actlits scmap, mapping)
-
 let sy_union sy1 sy2 =
   SySet.union (SySet.of_list sy1) (SySet.of_list sy2)
+  |> SySet.elements
+
+let sy_inter sy1 sy2 =
+  SySet.inter (SySet.of_list sy1) (SySet.of_list sy2)
   |> SySet.elements
 
 let sy_diff sy1 sy2 =
   SySet.diff (SySet.of_list sy1) (SySet.of_list sy2)
   |> SySet.elements
+
+let remove_from_core actlit ((scmap, mapping) as core) =
+  (ScMap.map (fun actlits -> sy_diff actlits [actlit]) scmap, mapping)
+
+let filter_core actlits ((scmap, mapping) as core) =
+  (ScMap.map (fun actlits' -> sy_inter actlits actlits') scmap, mapping)
 
 let core_union (scmap1, mapping1) (scmap2, mapping2) =
   let merge _ eq1 eq2 = match eq1, eq2 with
@@ -734,8 +743,7 @@ let filter_loc_core_by_categories main_scope cats loc_core =
     ScMap.mapi (fun scope elts ->
       let main = Scope.equal scope main_scope in
       List.filter
-        (fun elt -> is_model_element_in_categories elt main cats)
+        (fun elt -> is_model_element_in_categories elt main cats |> not)
         elts
-      |> not
     ) loc_core in
   (ok, not_ok)
