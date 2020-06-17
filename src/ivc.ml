@@ -1504,7 +1504,7 @@ let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
   let prop_names = props_names props in
   let (sys', check_ts') = make_ts_analyzer sys in
 
-  let (must, test) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
+  let must = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
   must_cont must ;
   let keep = core_union keep must in
   let test = core_diff test must in
@@ -1550,57 +1550,22 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
     []
 
 (* ---------- MAXIMAL UNSAFE ABSTRACTIONS ---------- *)
-(* TODO: from here *)
 
-let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardinality= -1) cont eqmap_keep eqmap_test =
+let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
+  ?(max_mcs_cardinality= -1) cont keep test =
   let prop_names = props_names props in
   let sys = remove_other_props sys prop_names in
   let sys = add_as_candidate os_invs sys in
 
-  (* Activation litterals, core and mapping to equations *)
-  let add_to_bindings must_be_tested scope eqs act_bindings =
-    let act_bindings' =
-      List.map (fun eq ->
-      let actsv =
-        StateVar.mk_state_var ~is_input:false ~is_const:true
-        (fresh_actsv_name ()) [] (Type.mk_bool ()) in
-      (must_be_tested, actsv, scope, eq)
-    ) eqs in
-    act_bindings'@act_bindings
-  in
-  let act_bindings = ScMap.fold (add_to_bindings false) eqmap_keep [] in
-  let act_bindings = ScMap.fold (add_to_bindings true) eqmap_test act_bindings in
-
-  let actsvs_eqs_map =
-    List.fold_left (fun acc (_,k,_,v) -> SVMap.add k v acc)
-      SVMap.empty act_bindings
-  in
-  let eq_of_actsv = eq_of_actsv actsvs_eqs_map in
-  let core_to_eqmap core =
-    ScMap.map (fun v -> List.map eq_of_actsv v) core
-  in
-
-  let add_to_core (keep, test) (must_be_tested,actsv,scope,eq) =
-    if must_be_tested
-    then
-      let old = try ScMap.find scope test with Not_found -> [] in
-      (keep, ScMap.add scope (actsv::old) test)
-    else
-      let old = try ScMap.find scope keep with Not_found -> [] in
-      (ScMap.add scope (actsv::old) keep, test)
-  in
-  let (keep,test) = List.fold_left add_to_core (ScMap.empty,ScMap.empty) act_bindings in
-
+  let eq_of_actlit = eq_of_actlit (core_union keep test) in
   (* Add actsvs to the CS transition system (at top level) *)
   let actsvs = actsvs_of_core test in
   let sys = List.fold_left (fun acc sv -> TS.add_global_constant acc (Var.mk_const_state_var sv)) sys actsvs in
 
-  let cont (core, cex) =
-    (core_diff test core |> core_to_eqmap, cex) |> cont
-  in
+  let cont (core, cex) = (core_diff test core, cex) |> cont in
 
-  let compute_mcs = compute_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality actsvs_eqs_map in
-  let compute_all_mcs = compute_all_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality ~cont actsvs_eqs_map in
+  let compute_mcs = compute_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality in
+  let compute_all_mcs = compute_all_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality ~cont in
 
   let mcs =
     if all then compute_all_mcs keep test
@@ -1609,7 +1574,7 @@ let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes ?(max_mcs_cardi
       | None -> []
       | Some res -> cont res ; [res]
   in
-  mcs |> List.map (fun (core, cex) -> (core_diff test core |> core_to_eqmap, cex))
+  mcs |> List.map (fun (core, cex) -> (core_diff test core, cex))
 
 (* Compute one/all Maximal Unsafe Abstraction(s) using Automated Debugging
     and duality between MUAs and Minimal Correction Subsets. *)
@@ -1617,12 +1582,12 @@ let mua in_sys param analyze sys props ?(max_mcs_cardinality= -1) all cont =
   try (
     let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
     let elements = (Flags.MCS.mcs_category ()) in
-    let eqmap = all_eqs in_sys sys enter_nodes in
-    let (keep, test) = separate_eqmap_by_category in_sys elements eqmap in
+    let (keep, test) = generate_initial_cores in_sys sys enter_nodes elements in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let res = ref [] in
     let cont (test, (prop,cex)) =
-      let mua = eqmap_to_ivc in_sys (TS.property_of_name sys prop, cex) (lstmap_union keep test) in
+      let mua = ((TS.property_of_name sys prop, cex),
+                 core_to_loc_core in_sys (core_union keep test)) in
       res := mua::(!res) ;
       cont mua
     in
