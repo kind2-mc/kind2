@@ -69,6 +69,39 @@ let mcs_to_print_data in_sys sys core_class time ((prop, cex), loc_core) =
   let cpd = attach_property_to_print_data cpd prop in
   attach_counterexample_to_print_data cpd cex
 
+let name_of_wa_cat = function
+  | ContractItem (_, svar, LustreNode.WeakAssumption) ->
+    Some (LustreContract.prop_name_of_svar svar "weakly_assume" "")
+  | ContractItem (_, svar, LustreNode.WeakGuarantee) ->
+    Some (LustreContract.prop_name_of_svar svar "weakly_guarantee" "")
+  | _ -> None
+
+let all_wa_names_of_mcs scmap =
+  ScMap.fold
+  (fun _ lst acc ->
+    List.fold_left (fun acc (_,_,cat) ->
+      match name_of_wa_cat cat with
+      | None -> acc
+      | Some str -> str::acc
+    ) acc lst
+  )
+  scmap []
+
+let pp_print_mcs_legacy in_sys param sys ((prop, cex), mcs) (_, mcs_compl) =
+  let prop_name = prop.Property.prop_name in
+  let sys = TS.copy sys in
+  let wa_model =
+    all_wa_names_of_mcs mcs_compl
+    |>  List.map (fun str -> (str, true))
+  in
+  let wa_model' =
+      all_wa_names_of_mcs mcs
+    |>  List.map (fun str -> (str, false))
+  in
+  TS.set_prop_unknown sys prop_name ;
+  let wa_model = wa_model@wa_model' in
+  KEvent.cex_wam cex wa_model in_sys param sys prop_name
+
 (* ---------- LUSTRE AST ---------- *)
 
 let counter =
@@ -382,6 +415,7 @@ let minimize_contract_decl ue loc_core (id, tparams, inputs, outputs, body) =
     |> List.flatten
     |> List.map get_positions_of_model_element
     |> List.flatten
+  in
   let body = body
     |> List.map (minimize_contract_node_eq ue lst)
     |> List.flatten

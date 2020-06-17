@@ -52,7 +52,19 @@ type ts_equation = {
   trans_closed: Term.t ;
 }
 
-type core = UfSymbol.t ScMap.t * (ts_equation * StateVar.t) SyMap.t
+type core = (UfSymbol.t list) ScMap.t * (ts_equation * StateVar.t) SyMap.t
+
+type loc = {
+  pos: Lib.position ;
+  index: LustreIndex.index ;
+}
+
+type term_cat =
+| NodeCall of string * SVSet.t
+| ContractItem of StateVar.t * LustreContract.svar * LustreNode.contract_item_type
+| Equation of StateVar.t
+| Assertion of StateVar.t
+| Unknown
 
 module Equation = struct
   type t = ts_equation
@@ -190,7 +202,7 @@ let attach_counterexample_to_print_data data cex =
   { data with counterexample = Some cex }
 
 let attach_property_to_print_data data prop =
-  { data with property = Some property.Property.prop_name }
+  { data with property = Some prop.Property.prop_name }
 
 let print_mcs_counterexample in_sys param sys typ fmt (prop, cex) =
   try
@@ -328,39 +340,6 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
   ) ;
   Format.fprintf fmt "@]@.</ModelElementSet>@."
 
-let name_of_wa_cat = function
-  | ContractItem (_, svar, LustreNode.WeakAssumption) ->
-    Some (LustreContract.prop_name_of_svar svar "weakly_assume" "")
-  | ContractItem (_, svar, LustreNode.WeakGuarantee) ->
-    Some (LustreContract.prop_name_of_svar svar "weakly_guarantee" "")
-  | _ -> None
-
-let all_wa_names_of_mcs scmap =
-  ScMap.fold
-  (fun _ lst acc ->
-    List.fold_left (fun acc (_,_,cat) ->
-      match name_of_wa_cat cat with
-      | None -> acc
-      | Some str -> str::acc
-    ) acc lst
-  )
-  scmap []
-
-let pp_print_mcs_legacy in_sys param sys ((prop, cex), mcs) (_, mcs_compl) =
-  let prop_name = prop.Property.prop_name in
-  let sys = TS.copy sys in
-  let wa_model =
-    all_wa_names_of_mcs mcs_compl
-    |>  List.map (fun str -> (str, true))
-  in
-  let wa_model' =
-      all_wa_names_of_mcs mcs
-    |>  List.map (fun str -> (str, false))
-  in
-  TS.set_prop_unknown sys prop_name ;
-  let wa_model = wa_model@wa_model' in
-  KEvent.cex_wam cex wa_model in_sys param sys prop_name
-
 (* ---------- CORES ---------- *)
 
 let actsvs_counter =
@@ -404,20 +383,16 @@ let pick_element_of_core (scmap, mapping) =
   | (scope, lst)::_ ->
     Some (scope, List.hd lst, (ScMap.add scope (List.tl lst) scmap, mapping))
 
-  match lst with
-  | [] -> assert false
-  | hd::lst -> 
-
 let add_new_ts_equation_to_core scope eq ((scmap, mapping) as core) =
   let actlit = Actlit.fresh_actlit () in
-  let actlits = actlit::(get_actlits_for_scope core scope) in
+  let actlits = actlit::(get_actlits_of_scope core scope) in
   let sv = StateVar.mk_state_var ~is_input:false ~is_const:true
         (fresh_actsv_name ()) [] (Type.mk_bool ()) in
   (ScMap.add scope actlits scmap, SyMap.add actlit (eq, sv) mapping)
 
 let add_from_other_core
   (_, src_mapping) scope actlit ((scmap, mapping) as core) =
-  let actlits = get_actlits_for_scope core scope in
+  let actlits = get_actlits_of_scope core scope in
   if List.exists (fun a -> UfSymbol.equal_uf_symbols a actlit) actlits
   then core
   else (
@@ -444,10 +419,10 @@ let filter_core actlits ((scmap, mapping) as core) =
   (ScMap.map (fun actlits' -> sy_inter actlits actlits') scmap, mapping)
 
 let filter_core_svs state_vars ((scmap, mapping) as core) =
-  let svs = StateVarSet.of_list state_vars in
+  let svs = SVSet.of_list state_vars in
   let aux actlits =
     List.filter
-      (fun a -> StateVarSet.mem (get_sv_of_actlit a) svs)
+      (fun a -> SVSet.mem (get_sv_of_actlit core a) svs)
       actlits
   in
   (ScMap.map aux scmap, mapping)
@@ -476,24 +451,12 @@ let core_diff (scmap1, mapping) (scmap2, _) =
   (scmap, mapping)
 
 
-type eqmap = (equation list) ScMap.t
+type eqmap = (ts_equation list) ScMap.t
 
 let core_to_eqmap (scmap, mapping) =
-  ScMap.map (fun actlit -> SyMap.find actlit mapping |> fst) scmap
+  ScMap.map (List.map (fun a -> SyMap.find a mapping |> fst)) scmap
 
 (* ---------- MAPPING BACK ---------- *)
-
-type term_cat =
-| NodeCall of string * SVSet.t
-| ContractItem of StateVar.t * LustreContract.svar * LustreNode.contract_item_type
-| Equation of StateVar.t
-| Assertion of StateVar.t
-| Unknown
-
-type loc = {
-  pos: Lib.position ;
-  index: LustreIndex.index ;
-}
 
 type model_element = ts_equation * (loc list) * term_cat
 
@@ -633,7 +596,7 @@ let core_to_loc_core in_sys core =
   core_to_eqmap core
   |> ScMap.map (List.map (add_loc in_sys))
 
-let loc_core_to_new_core in_sys loc_core =
+let loc_core_to_new_core loc_core =
   let add_eqs_of_scope scope lst acc =
     List.fold_left
       (fun acc (eq, _, _) -> add_new_ts_equation_to_core scope eq acc)
@@ -652,17 +615,18 @@ let add_to_loc_core ?(check_already_exists=false) scope elt core =
 let remove_from_loc_core scope elt core =
   let elts = get_model_elements_of_scope core scope in
   let elts = List.filter (fun e -> equal_model_elements e elt |> not) elts in
-  (ScMap.add scope elts core, mapping)
+  ScMap.add scope elts core
 
 let loc_core_diff core1 core2 =
   ScMap.mapi (fun scope elts ->
     List.filter (fun elt ->
-        get_model_elements_of_scope scope core2
+        get_model_elements_of_scope core2 scope
         |> List.exists (fun e -> equal_model_elements e elt)
         |> not
       ) elts
   ) core1
 
+type category = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `ANNOTATIONS ]
 
 let is_model_element_in_categories (_,_,cat) is_main_node cats =
   let cat = match cat with
@@ -751,7 +715,7 @@ let extract_toplevel_equations in_sys sys =
 
 let full_loc_core_for_sys in_sys sys ~only_top_level =
   let treat_subnode acc sys =
-    let scope = TS.scope scope_of_trans_sys sys in
+    let scope = TS.scope_of_trans_sys sys in
     extract_toplevel_equations in_sys sys
     |> List.map (ts_equation_to_model_element in_sys)
     |> List.fold_left (fun acc elt -> add_to_loc_core scope elt acc) acc

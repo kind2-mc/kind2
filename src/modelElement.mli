@@ -37,7 +37,7 @@ type ts_equation = {
 }
 type core
 
-val term_of_ts_eq : ~init:bool -> ~closed:bool -> ts_equation -> Term.t
+val term_of_ts_eq : init:bool -> closed:bool -> ts_equation -> Term.t
 
 val get_actlits_of_scope : core -> Scope.t -> UfSymbol.t list
 val get_ts_equation_of_actlit : core -> UfSymbol.t -> ts_equation
@@ -64,14 +64,14 @@ type loc_core
 val equal_model_elements : model_element -> model_element -> bool
 val get_model_elements_of_scope : loc_core -> Scope.t -> model_element list
 val loc_core_size : loc_core -> int
-val get_positions_of_model_element : model_element -> Lib.pos list
+val get_positions_of_model_element : model_element -> Lib.position list
 val scopes_of_loc_core : loc_core -> Scope.t list
 
 val ts_equation_to_model_element : 'a InputSystem.t -> ts_equation -> model_element
 val core_to_loc_core : 'a InputSystem.t -> core -> loc_core
-val loc_core_to_new_core : core -> loc_core
+val loc_core_to_new_core : loc_core -> core
 
-val empty_Loc_core : loc_core
+val empty_loc_core : loc_core
 val add_to_loc_core :
   ?check_already_exists:bool -> Scope.t -> model_element -> loc_core -> loc_core
 val remove_from_loc_core : Scope.t -> model_element -> loc_core -> loc_core
@@ -83,7 +83,7 @@ val is_model_element_in_categories :
 
 exception InitTransMismatch of int * int
 val full_loc_core_for_sys :
-  'a InputSystem.t -> TransSys.t -> ~only_top_level:bool -> loc_core
+  'a InputSystem.t -> TransSys.t -> only_top_level:bool -> loc_core
 val filter_loc_core_by_categories :
   Scope.t (* Toplevel scope *) -> category list -> loc_core -> loc_core * loc_core
 
@@ -108,5 +108,3 @@ val pp_print_core_data_xml :
 
 val pp_print_core_data_json :
   'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit
-
-val pp_print_mcs_legacy : 'a InputSystem.t -> Analysis.param -> TransSys.t -> mua -> mua -> unit
