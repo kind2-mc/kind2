@@ -340,6 +340,24 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
   ) ;
   Format.fprintf fmt "@]@.</ModelElementSet>@."
 
+let name_of_wa_cat = function
+  | ContractItem (_, svar, LustreNode.WeakAssumption) ->
+    Some (LustreContract.prop_name_of_svar svar "weakly_assume" "")
+  | ContractItem (_, svar, LustreNode.WeakGuarantee) ->
+    Some (LustreContract.prop_name_of_svar svar "weakly_guarantee" "")
+  | _ -> None
+
+let all_wa_names_of_loc_core core =
+  ScMap.fold
+  (fun _ lst acc ->
+    List.fold_left (fun acc (_,_,cat) ->
+      match name_of_wa_cat cat with
+      | None -> acc
+      | Some str -> str::acc
+    ) acc lst
+  )
+  core []
+
 (* ---------- CORES ---------- *)
 
 let actsvs_counter =

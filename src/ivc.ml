@@ -69,33 +69,15 @@ let mcs_to_print_data in_sys sys core_class time ((prop, cex), loc_core) =
   let cpd = attach_property_to_print_data cpd prop in
   attach_counterexample_to_print_data cpd cex
 
-let name_of_wa_cat = function
-  | ContractItem (_, svar, LustreNode.WeakAssumption) ->
-    Some (LustreContract.prop_name_of_svar svar "weakly_assume" "")
-  | ContractItem (_, svar, LustreNode.WeakGuarantee) ->
-    Some (LustreContract.prop_name_of_svar svar "weakly_guarantee" "")
-  | _ -> None
-
-let all_wa_names_of_mcs scmap =
-  ScMap.fold
-  (fun _ lst acc ->
-    List.fold_left (fun acc (_,_,cat) ->
-      match name_of_wa_cat cat with
-      | None -> acc
-      | Some str -> str::acc
-    ) acc lst
-  )
-  scmap []
-
-let pp_print_mcs_legacy in_sys param sys ((prop, cex), mcs) (_, mcs_compl) =
+let pp_print_mcs_legacy in_sys param sys ((prop, cex), core) (_, core_compl) =
   let prop_name = prop.Property.prop_name in
   let sys = TS.copy sys in
   let wa_model =
-    all_wa_names_of_mcs mcs_compl
+    all_wa_names_of_loc_core core_compl
     |>  List.map (fun str -> (str, true))
   in
   let wa_model' =
-      all_wa_names_of_mcs mcs
+      all_wa_names_of_loc_core core
     |>  List.map (fun str -> (str, false))
   in
   TS.set_prop_unknown sys prop_name ;
@@ -617,6 +599,11 @@ let generate_initial_cores in_sys sys enter_nodes cats =
   let (test, keep) = separate_loc_core_by_category in_sys cats full_loc_core in
   (loc_core_to_new_core keep, loc_core_to_new_core test)
 
+let pick_element_of_core core =
+  match pick_element_of_core core with
+  | None -> assert false
+  | Some r -> r
+
 (* ---------- AUTOMATED DEBUGGING ---------- *)
 
 let eq_of_actlit core ?(with_act=false) actlit =
@@ -720,7 +707,7 @@ let compute_cs check_ts sys prop_names enter_nodes keep test k already_found =
     let init_eq =
       Term.mk_and ((exactly_k_true actsvs k) (* Cardinality constraint *)
       ::not_already_found            (* 'Not already found' constraint *)
-      ::(deconstruct_conj init_eq)) in
+      ::[init_eq]) in
     TS.set_subsystem_equations sys (TS.scope_of_trans_sys sys) init_eq trans_eq
   in
 
@@ -980,7 +967,7 @@ let compute_unsat_core ?(pathcomp=None) ?(approximate=false)
     else
       let res = unsat_core
       |> List.map actlit_of_term
-      in OK (filter_core core res)
+      in OK (filter_core res core)
   in
 
   let res = check () in
@@ -1164,7 +1151,7 @@ let must_set_ in_sys ?(os_invs=None) check_ts sys props enter_nodes keep test =
   let core =
     compute_all_cs check_ts sys prop_names enter_nodes increased_keep reduced_test 1 []
     |> List.map fst
-    |> List.fold_left core_union ScMap.empty
+    |> List.fold_left core_union empty_core
   in
   core
 
@@ -1373,6 +1360,10 @@ let block_up map _ s =
   at_least_one_false s
   |> SMTSolver.assert_term map
 
+let svs_diff svs1 svs2 =
+  SVSet.diff (SVSet.of_list svs1) (SVSet.of_list svs2)
+  |> SVSet.elements
+
 let block_down map actsvs s =
   svs_diff actsvs s
   |> at_least_one_true
@@ -1431,7 +1422,7 @@ let umivc_ in_sys make_ts_analyzer sys props k enter_nodes
         begin match actlits with
         | None -> acc
         | Some actlits ->
-          let eqs = List.map eq_of_actlit actsvs in
+          let eqs = List.map eq_of_actlit actlits in
           let init_eq = List.map (fun eq -> eq.init_opened) eqs
           |> Term.mk_and in
           let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
@@ -1500,7 +1491,7 @@ let umivc_ in_sys make_ts_analyzer sys props k enter_nodes
       match get_unexplored_auto () with
       | _, None -> acc
       | typ, Some actsvs ->
-        let seed = filter_core_svs test actsvs in
+        let seed = filter_core_svs actsvs test in
         if is_camus || check (core_union keep seed)
         then (
           (* Implements shrink(seed) using UCBF *)
