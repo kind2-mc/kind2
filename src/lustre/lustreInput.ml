@@ -17,7 +17,8 @@
 *)
 
 open Lib
-
+open Lexing
+   
 module A = LustreAst
 module I = LustreIdent
 module N = LustreNode
@@ -25,88 +26,76 @@ module C = LustreContext
 module D = LustreDeclarations
 module S = SubSystem
 
+module LPI = LustreParser.Incremental
+module MI = LustreParser.MenhirInterpreter
 
-(* Constructs an AST from an input channel. *)
-let ast_of_channel in_ch =
+let succeed (v : LustreAst.t): LustreAst.t =
+  (* The parser has succeeded and produced a semantic value. Print it. *)
+  (* TODO: Find a good way of logging switch to be enabled if asked for. something like kind2 --debug *)
+  (* Format.printf "Parsed :\n=========\n\n%a\n@." LustreAst.pp_print_program v ; *)
+  v
 
+let fail lexbuf (_ : LustreAst.t MI.checkpoint): LustreAst.t =
+  (* The parser has suspended itself because of a syntax error. Stop. *)
+  Printf.fprintf stderr
+    "At offset %d: syntax error.\n%!"
+    (lexeme_start lexbuf); failwith "Parser Error"
+
+let parse lexbuf result =
+  let supplier = MI.lexer_lexbuf_to_supplier LustreLexer.token lexbuf in
+  MI.loop_handle succeed (fail lexbuf) supplier result
+
+(* Parses input channel to generate an AST *)
+let ast_of_channel(in_ch: in_channel): LustreAst.t =
   (* Create lexing buffer *)
   let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
-
   (* Initialize lexing buffer with channel *)
   LustreLexer.lexbuf_init 
     in_ch
     (try Filename.dirname (Flags.input_file ())
      with Failure _ -> Sys.getcwd ());
 
-  try
-    (* Parse file to list of declarations *)
-    LustreParser.main LustreLexer.token lexbuf 
-  with
-  | LustreParser.Error ->
-    let lexer_pos = Lexing.lexeme_start_p lexbuf in
-    C.fail_at_position (position_of_lexing lexer_pos) "Syntax error"
-  | LustreLexer.Lexer_error msg ->
-    let lexer_pos = Lexing.lexeme_start_p lexbuf in
-    C.fail_at_position (position_of_lexing lexer_pos) msg
-
-
+  (* Create lexing buffer *)
+  parse lexbuf (LPI.main lexbuf.lex_curr_p)
+         
 (* Parse from input channel *)
 let of_channel in_ch =
-
   (* Get declarations from channel. *)
   let declarations = ast_of_channel in_ch in
-
-  (* Format.printf "Parsed :\n=========\n\n%a\n@." *)
-  (*   LustreAst.pp_print_program declarations ; *)
-  (* failwith "stop" ; *)
-
+  (* Format.printf "Parsed :\n=========\n\n%a\n@."
+   *   LustreAst.pp_print_program declarations ; *)
   (* Simplify declarations to a list of nodes *)
   let nodes, globals = D.declarations_to_nodes declarations in
 
   (* Name of main node *)
   let main_node = 
-
     (* Command-line flag for main node given? *)
     match Flags.lus_main () with 
-      
       (* Use given identifier to choose main node *)
       | Some s -> LustreIdent.mk_string_ident s
-                    
       (* No main node name given on command-line *)
       | None -> 
-
         (try 
-
            (* Find main node by annotation, or take last node as
               main *)
            LustreNode.find_main nodes 
-             
          (* No main node found
-
             This only happens when there are no nodes in the input. *)
          with Not_found -> 
-
            raise (Invalid_argument "No main node defined in input"))
-
   in
 
   (* Put main node at the head of the list of nodes *)
   let nodes' = 
-
     try 
-
       (* Get main node by name and copy it at the head of the list of
          nodes *)
       N.node_of_name main_node nodes :: nodes
-
     with Not_found -> 
-
       (* Node with name of main not found 
-
          This can only happens when the name is passed as command-line
          argument *)
       raise (Invalid_argument "Main node not found")
-
   in
 
   (* Return a subsystem tree from the list of nodes *)
@@ -115,25 +104,21 @@ let of_channel in_ch =
 
 (* Returns the AST from a file. *)
 let ast_of_file filename =
-
   (* Open the given file for reading *)
   let in_ch = match filename with
     | "" -> stdin
     | _ -> open_in filename
   in
-
   ast_of_channel in_ch
 
 
 (* Open and parse from file *)
 let of_file filename =
-
   (* Open the given file for reading *)
   let in_ch = match filename with
     | "" -> stdin
     | _ -> open_in filename
   in
-
   of_channel in_ch
 
 
