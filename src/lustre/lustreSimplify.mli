@@ -30,6 +30,9 @@ val eval_ast_expr :
 val eval_ast_type :
   LustreContext.t -> LustreAst.lustre_type -> Type.t LustreIndex.t
 
+val eval_ast_type_flatten :
+  bool -> LustreContext.t -> LustreAst.lustre_type -> Type.t LustreIndex.t
+
 val eval_bool_ast_expr :
   LustreExpr.expr LustreExpr.bound_or_fixed list ->  LustreContext.t ->
   Lib.position -> LustreAst.expr -> LustreExpr.t * LustreContext.t
