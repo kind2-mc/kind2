@@ -411,10 +411,10 @@ let sy_diff sy1 sy2 =
   SySet.diff (SySet.of_list sy1) (SySet.of_list sy2)
   |> SySet.elements
 
-let remove_from_core actlit ((scmap, mapping) as core) =
+let remove_from_core actlit (scmap, mapping) =
   (ScMap.map (fun actlits -> sy_diff actlits [actlit]) scmap, mapping)
 
-let filter_core actlits ((scmap, mapping) as core) =
+let filter_core actlits (scmap, mapping) =
   (ScMap.map (fun actlits' -> sy_inter actlits actlits') scmap, mapping)
 
 let filter_core_svs state_vars ((scmap, mapping) as core) =
