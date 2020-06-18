@@ -365,7 +365,7 @@ let minimize_node_decl ue loc_core
     begin match spec with
       | None -> None
       | Some spec -> List.map (minimize_contract_node_eq ue lst) spec 
-      |> List.flatten |> (fun s -> Some s)
+      |> List.flatten |> (fun s -> if s = [] then None else Some s)
     end
     in
     let locals = List.map (minimize_node_local_decl ue lst) locals in
