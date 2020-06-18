@@ -23,12 +23,14 @@
     @author Mickael Laurent *)
 
 
-(* ----- TRANSITION SYSTEM LEVEL ----- *)
+(** {1 TransSys-level cores} *)
 
 (** Represents an equation of the transition system.
     It is not specific to the 'equation' model elements
     of the source lustre program
-    (any model element can be represented by this 'equation' type) *)
+    (any model element can be represented by this 'equation' type).
+    Intuitively, a ts_equation corresponds to a conjunct of the transition system.
+    However, some conjuncts might be grouped together if they are related. *)
 type ts_equation = {
   init_opened: Term.t ;
   init_closed: Term.t ;
@@ -56,7 +58,7 @@ val filter_core_svs : StateVar.t list -> core -> core
 val core_union : core -> core -> core
 val core_diff : core -> core -> core
 
-(* ----- LUSTRE MODEL LEVEL / MAPPING BACK ----- *)
+(** {1 Lustre-level cores} *)
 
 type model_element
 type loc_core
@@ -87,7 +89,7 @@ val full_loc_core_for_sys :
 val filter_loc_core_by_categories :
   Scope.t (* Toplevel scope *) -> category list -> loc_core -> loc_core * loc_core
 
-(* ----- PRETTY PRINTING ----- *)
+(** {1 Pretty Printing} *)
 
 type core_print_data
 

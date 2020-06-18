@@ -31,7 +31,7 @@ open ModelElement
 type 'a result =
 | Solution of 'a
 | NoSolution
-| InternalError
+| Error of string
 
 type 'a analyze_func =
     bool ->
@@ -41,7 +41,7 @@ type 'a analyze_func =
     TransSys.t ->
     unit
 
-(* ----- INDUCTIVE VALIDITY CORES ----- *)
+(** {1 Inductive Validity Cores} *)
 
 type ivc
 
@@ -135,7 +135,7 @@ val umivc :
   (ivc -> unit) ->
   ivc list
 
-(* ----- MAXIMAL UNSAFE ABSTRACTIONS / MINIMAL CUTS SETS ----- *)
+(** {1 Maximal Unsafe Abstractions (and Minimal Cut Sets)} *)
 
 type mua
 
@@ -166,7 +166,7 @@ val mua :
   (mua -> unit) ->
   mua list
 
-(* ----- Structures for printing ----- *)
+(** {1 Structures for printing} *)
 
 val ivc_to_print_data :
   'a InputSystem.t -> TransSys.t -> string -> float option -> ivc -> core_print_data

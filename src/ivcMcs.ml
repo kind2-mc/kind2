@@ -40,7 +40,7 @@ module IdMap = Map.Make(AstID)
 type 'a result =
 | Solution of 'a
 | NoSolution
-| InternalError
+| Error of string
 
 type 'a analyze_func =
     bool ->
@@ -1114,11 +1114,12 @@ let ivc_uc in_sys ?(approximate=false) sys props =
   ) with
   | NotKInductive | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
-    then (KEvent.log L_error "Cannot reprove properties." ; InternalError)
+    then (KEvent.log L_error "Cannot reprove properties." ;
+          Error "Cannot reprove properties")
     else NoSolution
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    InternalError
+    Error "Init and trans equations mismatch"
 
 (* ---------- MUST SET ---------- *)
 
@@ -1158,11 +1159,12 @@ let must_set in_sys param analyze sys props =
   ) with
   | NotKInductive | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
-    then (KEvent.log L_error "Cannot reprove properties." ; InternalError)
+    then (KEvent.log L_error "Cannot reprove properties." ;
+          Error "Cannot reprove properties")
     else NoSolution
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    InternalError
+    Error "Init and trans equations mismatch"
 
 (* ---------- IVC_BF ---------- *)
 
@@ -1275,11 +1277,12 @@ let ivc_bf in_sys ?(use_must_set=None) param analyze sys props =
   ) with
   | CannotProve ->
     if are_props_safe props
-    then (KEvent.log L_error "Cannot reprove properties." ; InternalError)
+    then (KEvent.log L_error "Cannot reprove properties." ;
+          Error "Cannot reprove properties")
     else NoSolution
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    InternalError
+    Error "Init and trans equations mismatch"
 
 (** Implements the algorithm 'Unsat Core, then bruteforce' *)
 let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
@@ -1297,11 +1300,12 @@ let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
   ) with
   | CannotProve | NotKInductive | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
-    then (KEvent.log L_error "Cannot reprove properties." ; InternalError)
+    then (KEvent.log L_error "Cannot reprove properties." ;
+          Error "Cannot reprove properties")
     else NoSolution
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    InternalError
+    Error "Init and trans equations mismatch"
 
 (* ---------- UMIVC ---------- *)
 
