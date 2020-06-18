@@ -396,6 +396,10 @@ let minimize_contract_decl ue loc_core (id, tparams, inputs, outputs, body) =
     |> List.map (minimize_contract_node_eq ue lst)
     |> List.flatten
   in
+  let body = if body = []
+    then [A.Guarantee (dpos, None, false, A.Const(dpos, A.True))]
+    else body
+  in
   (id, tparams, inputs, outputs, body)
 
 let minimize_decl ue loc_core = function
