@@ -18,32 +18,67 @@
 
 open Lib
 open Lexing
+open MenhirLib.General
    
-module A = LustreAst
-module I = LustreIdent
-module N = LustreNode
-module C = LustreContext
-module D = LustreDeclarations
-module S = SubSystem
+module LA = LustreAst
+module LI = LustreIdent
+module LN = LustreNode
+module LC = LustreContext
+module LD = LustreDeclarations
+module SS = SubSystem
 
 module LPI = LustreParser.Incremental
-module MI = LustreParser.MenhirInterpreter
+module LL = LustreLexer          
+module LPMI = LustreParser.MenhirInterpreter
+module LPE = LustreParserErrors
 
-let succeed (v : LustreAst.t): LustreAst.t =
+
+exception Syntax_error of ((int * int) option * string)
+
+let success (v : LustreAst.t): LustreAst.t =
   (* The parser has succeeded and produced a semantic value. Print it. *)
   (* TODO: Find a good way of logging switch to be enabled if asked for. something like kind2 --debug *)
   (* Format.printf "Parsed :\n=========\n\n%a\n@." LustreAst.pp_print_program v ; *)
   v
 
-let fail lexbuf (_ : LustreAst.t MI.checkpoint): LustreAst.t =
-  (* The parser has suspended itself because of a syntax error. Stop. *)
-  Printf.fprintf stderr
-    "At offset %d: syntax error.\n%!"
-    (lexeme_start lexbuf); failwith "Parser Error"
+let get_lexing_position lexbuf =
+  let p = Lexing.lexeme_start_p lexbuf in
+  let line_number = p.Lexing.pos_lnum in
+  let column = p.Lexing.pos_cnum - p.Lexing.pos_bol + 1 in
+  (line_number, column)
 
-let parse lexbuf result =
-  let supplier = MI.lexer_lexbuf_to_supplier LustreLexer.token lexbuf in
-  MI.loop_handle succeed (fail lexbuf) supplier result
+  
+let get_parse_error env =
+    match LPMI.stack env with
+    | lazy Nil -> "Invalid syntax"
+    | lazy (Cons (LPMI.Element (state, _, _, _), _)) ->
+        try (LPE.message (LPMI.number state)) with
+        | Not_found -> "invalid syntax (no specific message for this eror)"
+
+                     
+let fail env lexbuf =
+  let line, pos = get_lexing_position lexbuf in
+  let err = get_parse_error env in
+  raise (Syntax_error (Some (line, pos), err))
+
+let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
+  match chkpnt with
+  | LPMI.InputNeeded _ ->
+     let token = LL.token lexbuf in
+     let startp = lexbuf.lex_start_p
+     and endp = lexbuf.lex_curr_p in
+     let chkpnt = LPMI.offer chkpnt (token, startp, endp) in
+     parse lexbuf chkpnt
+  | LPMI.Shifting _
+  | LPMI.AboutToReduce _ ->
+     let chkpnt = LPMI.resume chkpnt in
+     parse lexbuf chkpnt
+  | LPMI.HandlingError env ->
+     fail env lexbuf
+  | LPMI.Accepted v -> success v
+  | LPMI.Rejected ->
+     raise (Syntax_error (None, "invalid syntax (parser rejected the input)"))
+  
 
 (* Parses input channel to generate an AST *)
 let ast_of_channel(in_ch: in_channel): LustreAst.t =
@@ -65,7 +100,7 @@ let of_channel in_ch =
   (* Format.printf "Parsed :\n=========\n\n%a\n@."
    *   LustreAst.pp_print_program declarations ; *)
   (* Simplify declarations to a list of nodes *)
-  let nodes, globals = D.declarations_to_nodes declarations in
+  let nodes, globals = LD.declarations_to_nodes declarations in
 
   (* Name of main node *)
   let main_node = 
@@ -90,7 +125,7 @@ let of_channel in_ch =
     try 
       (* Get main node by name and copy it at the head of the list of
          nodes *)
-      N.node_of_name main_node nodes :: nodes
+      LN.node_of_name main_node nodes :: nodes
     with Not_found -> 
       (* Node with name of main not found 
          This can only happens when the name is passed as command-line
@@ -99,7 +134,7 @@ let of_channel in_ch =
   in
 
   (* Return a subsystem tree from the list of nodes *)
-  N.subsystem_of_nodes nodes', globals, declarations
+  LN.subsystem_of_nodes nodes', globals, declarations
 
 
 (* Returns the AST from a file. *)
