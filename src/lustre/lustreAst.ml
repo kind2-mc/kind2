@@ -20,7 +20,7 @@ open Lib
 
 module SI = Set.Make (Ident)
 
-exception Parser_error
+exception Parser_error of ((int * int) option * string)
 
 
 let error_at_position pos msg =
@@ -1311,8 +1311,8 @@ let rec has_unguarded_pre ung = function
 
 let has_unguarded_pre e =
   let u = has_unguarded_pre true e in
-  if u && Flags.lus_strict () then raise Parser_error;
-  u
+  if u && Flags.lus_strict ()
+  then raise (Parser_error (None, "Unguarded Expression")); u
 
 (** If second argument is `Some _`, returns that. Otherwise runs `f`. *)
 let unwrap_or f = function

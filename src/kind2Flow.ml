@@ -160,7 +160,7 @@ let status_of_exn process status = function
   (* Normal termination. *)
   | Exit -> status
   (* Parser error *)
-  | LustreAst.Parser_error | Parsing.Parse_error ->
+  | LustreAst.Parser_error _ | Parsing.Parse_error ->
     ExitCodes.error
   (* Got unknown, issue error but normal termination. *)
   | SMTSolver.Unknown ->

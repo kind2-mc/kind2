@@ -1,4 +1,4 @@
 type tup = [bool, subrange [-2, 2] of int, real];
 type rec = {b: bool; c: [int, real, bool]; d: tup; a: int^3};
 
-node id (x: int) returns (y: int); let y = x; tel
+node id (x: int) returns (y: int); let y = x x; tel

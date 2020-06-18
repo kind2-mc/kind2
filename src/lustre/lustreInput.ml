@@ -33,8 +33,6 @@ module LPMI = LustreParser.MenhirInterpreter
 module LPE = LustreParserErrors
 
 
-exception Syntax_error of ((int * int) option * string)
-
 let success (v : LustreAst.t): LustreAst.t =
   (* The parser has succeeded and produced a semantic value. Print it. *)
   (* TODO: Find a good way of logging switch to be enabled if asked for. something like kind2 --debug *)
@@ -59,9 +57,9 @@ let get_parse_error env =
 let fail env lexbuf =
   let line, pos = get_lexing_position lexbuf in
   let err = get_parse_error env in
-  Format.printf "At (line %d, columm %d), Syntax error: %s"
-    line pos err
-    ; failwith "Syntax Error"
+  (* Format.printf "At (line %d, columm %d), Syntax error: %s"
+   *   line pos err *)
+    raise (LA.Parser_error (Some (line, pos), err))
   
 let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
   match chkpnt with
@@ -79,7 +77,7 @@ let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
      fail env lexbuf
   | LPMI.Accepted v -> success v
   | LPMI.Rejected ->
-     raise (Syntax_error (None, "invalid syntax (parser rejected the input)"))
+     raise (LA.Parser_error (None, "invalid syntax (parser rejected the input)"))
   
 
 (* Parses input channel to generate an AST *)
