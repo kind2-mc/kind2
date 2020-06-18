@@ -59,8 +59,10 @@ let get_parse_error env =
 let fail env lexbuf =
   let line, pos = get_lexing_position lexbuf in
   let err = get_parse_error env in
-  raise (Syntax_error (Some (line, pos), err))
-
+  Format.printf "At (line %d, columm %d), Syntax error: %s"
+    line pos err
+    ; failwith "Syntax Error"
+  
 let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
   match chkpnt with
   | LPMI.InputNeeded _ ->
