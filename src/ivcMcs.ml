@@ -20,14 +20,8 @@ open ModelElement
 
 module TS = TransSys
 module SMT  : SolverDriver.S = GenericSMTLIBDriver
-
-module SyMap = UfSymbol.UfSymbolMap
-module SySet = UfSymbol.UfSymbolSet
 module ScMap = Scope.Map
-module ScSet = Scope.Set
 module SVSet = StateVar.StateVarSet
-module SVMap = StateVar.StateVarMap
-module SVSMap = Map.Make(SVSet)
 
 module Position = struct
   type t = Lib.position
@@ -1143,7 +1137,6 @@ let must_set_ in_sys ?(os_invs=None) check_ts sys props enter_nodes keep test =
   let sys = remove_other_props sys prop_names in
   let sys = add_as_candidate os_invs sys in
 
-  let eq_of_actlit = eq_of_actlit (core_union keep test) in
   (* Add actsvs to the CS transition system (at top level) *)
   let actsvs = actsvs_of_core reduced_test in
   let sys = List.fold_left (fun acc sv -> TS.add_global_constant acc (Var.mk_const_state_var sv)) sys actsvs in
@@ -1582,7 +1575,6 @@ let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
   let sys = remove_other_props sys prop_names in
   let sys = add_as_candidate os_invs sys in
 
-  let eq_of_actlit = eq_of_actlit (core_union keep test) in
   (* Add actsvs to the CS transition system (at top level) *)
   let actsvs = actsvs_of_core test in
   let sys = List.fold_left (fun acc sv -> TS.add_global_constant acc (Var.mk_const_state_var sv)) sys actsvs in

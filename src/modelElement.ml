@@ -17,29 +17,10 @@
 *)
 
 module TS = TransSys
-module SMT  : SolverDriver.S = GenericSMTLIBDriver
-
 module SyMap = UfSymbol.UfSymbolMap
 module SySet = UfSymbol.UfSymbolSet
 module ScMap = Scope.Map
-module ScSet = Scope.Set
 module SVSet = StateVar.StateVarSet
-module SVMap = StateVar.StateVarMap
-module SVSMap = Map.Make(SVSet)
-
-module Position = struct
-  type t = Lib.position
-  let compare = Lib.compare_pos
-end
-module PosMap = Map.Make(Position)
-module PosSet = Set.Make(Position)
-
-module A = LustreAst
-module AstID = struct
-  type t = A.ident
-  let compare = compare
-end
-module IdMap = Map.Make(AstID)
 
 (* Represents an equation of the transition system.
    It is not specific to the 'equation' model elements
