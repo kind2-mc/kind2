@@ -18,5 +18,5 @@
 
 
 (* This is the function that is to be called when parsing fails. 
-It is automatically generated using menhir's incremental API *)
+ * The implimentation is automatically generated using Menhir's incremental API *)
 val message: int -> string
