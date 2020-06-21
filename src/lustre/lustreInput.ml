@@ -32,34 +32,33 @@ module LL = LustreLexer
 module LPMI = LustreParser.MenhirInterpreter
 module LPE = LustreParserErrors
 
-
+(* The parser has succeeded and produced a semantic value.*)
 let success (v : LustreAst.t): LustreAst.t =
-  (* The parser has succeeded and produced a semantic value. Print it. *)
-  (* TODO: Find a good way of logging switch to be enabled if asked for. something like kind2 --debug *)
-  (* Format.printf "Parsed :\n=========\n\n%a\n@." LustreAst.pp_print_program v ; *)
+  Log.log L_debug "Parsed :\n=========\n\n%a\n@." LustreAst.pp_print_program v;
   v
 
+(* obtain the position of the token from the lexer buffer *)
 let get_lexing_position lexbuf =
-  let p = Lexing.lexeme_start_p lexbuf in
-  let line_number = p.Lexing.pos_lnum in
-  let column = p.Lexing.pos_cnum - p.Lexing.pos_bol + 1 in
-  (line_number, column)
+  let lpos = Lexing.lexeme_start_p lexbuf in
+  let lno = lpos.Lexing.pos_lnum in
+  let col = lpos.Lexing.pos_cnum - lpos.Lexing.pos_bol + 1 in
+  (lno, col)
 
-  
+(* Generates the appropriate parser error message *)
 let get_parse_error env =
     match LPMI.stack env with
-    | lazy Nil -> "Invalid syntax"
+    | lazy Nil -> "Syntax Error"
     | lazy (Cons (LPMI.Element (state, _, _, _), _)) ->
-        try (LPE.message (LPMI.number state)) with
-        | Not_found -> "invalid syntax (no specific message for this eror)"
+       let pstate = LPMI.number state in
+        try (LPE.message pstate) with
+        | Not_found -> "Syntax Error (Parser State: "^ (string_of_int pstate) ^ ")" 
+                       ^ "Please report this issue with a minimum working example."
 
-                     
+(* Raises the [Parser_error] exception with appropriate position and error message *)
 let fail env lexbuf =
-  let line, pos = get_lexing_position lexbuf in
+  let lno, col = get_lexing_position lexbuf in
   let err = get_parse_error env in
-  (* Format.printf "At (line %d, columm %d), Syntax error: %s"
-   *   line pos err *)
-    raise (LA.Parser_error {position=Some (line, pos);err=err})
+  raise (LA.Parser_error {position = Some (lno, col); err})
   
 let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
   match chkpnt with
@@ -77,7 +76,7 @@ let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
      fail env lexbuf
   | LPMI.Accepted v -> success v
   | LPMI.Rejected ->
-     raise (LA.Parser_error {position=None; err="invalid syntax (parser rejected the input)"})
+     raise (LA.Parser_error {position=None; err="Parser Error: Parser rejected the input."})
   
 
 (* Parses input channel to generate an AST *)
@@ -97,11 +96,8 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
 let of_channel in_ch =
   (* Get declarations from channel. *)
   let declarations = ast_of_channel in_ch in
-  (* Format.printf "Parsed :\n=========\n\n%a\n@."
-   *   LustreAst.pp_print_program declarations ; *)
   (* Simplify declarations to a list of nodes *)
   let nodes, globals = LD.declarations_to_nodes declarations in
-
   (* Name of main node *)
   let main_node = 
     (* Command-line flag for main node given? *)
@@ -119,7 +115,6 @@ let of_channel in_ch =
          with Not_found -> 
            raise (Invalid_argument "No main node defined in input"))
   in
-
   (* Put main node at the head of the list of nodes *)
   let nodes' = 
     try 
@@ -132,10 +127,8 @@ let of_channel in_ch =
          argument *)
       raise (Invalid_argument "Main node not found")
   in
-
   (* Return a subsystem tree from the list of nodes *)
   LN.subsystem_of_nodes nodes', globals, declarations
-
 
 (* Returns the AST from a file. *)
 let ast_of_file filename =
