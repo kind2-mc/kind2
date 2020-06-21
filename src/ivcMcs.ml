@@ -602,7 +602,7 @@ let pick_element_of_core core =
   | None -> assert false
   | Some r -> r
 
-(* ---------- AUTOMATED DEBUGGING ---------- *)
+(* ---------- MCS COMPUTATION ---------- *)
 
 let eq_of_actlit core ?(with_act=false) actlit =
   let eq = get_ts_equation_of_actlit core actlit in
@@ -735,7 +735,7 @@ let compute_all_cs check_ts sys prop_names enter_nodes ?(cont=(fun _ -> ()))
   aux [] already_found
 
 let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality= -1) keep test =
-  KEvent.log L_info "Computing a MCS using automated debugging..." ;
+  KEvent.log L_info "Computing a MCS..." ;
   let n = core_size test in
   let n =
     if max_mcs_cardinality >= 0 && max_mcs_cardinality < n
@@ -766,7 +766,7 @@ let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality= -1) k
 let compute_all_mcs check_ts sys prop_names enter_nodes
   ?(max_mcs_cardinality= -1) ?(cont=(fun _ -> ())) keep test =
 
-  KEvent.log L_info "Computing all MCS using automated debugging..." ;
+  KEvent.log L_info "Computing all MCSs..." ;
   match compute_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality keep test with
   | None -> []
   | Some (res, res_cex) ->
@@ -1601,8 +1601,7 @@ let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
   in
   mcs |> List.map (fun (core, cex) -> (core_diff test core, cex))
 
-(* Compute one/all Maximal Unsafe Abstraction(s) using Automated Debugging
-    and duality between MUAs and Minimal Correction Subsets. *)
+(* Compute one/all Maximal Unsafe Abstraction(s). *)
 let mua in_sys param analyze sys props ?(max_mcs_cardinality= -1) all cont =
   try (
     let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in

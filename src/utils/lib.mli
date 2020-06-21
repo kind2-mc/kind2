@@ -55,6 +55,9 @@ val mk_dir : string -> unit
     if the option value is [None] *)
 val get : 'a option -> 'a
 
+(** Return the min between two optional floats. Return None if both floats are None. *)
+val min_option : float option -> float option -> float option
+
 
 (** {1 Integer functions} *)
 

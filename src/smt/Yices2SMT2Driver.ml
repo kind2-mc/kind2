@@ -48,26 +48,24 @@ let cmd_line
 
   let timeout_global =
     if Flags.timeout_wall () > 0.
-    then Stat.remaining_timeout () +. 1.0
-    else Float.infinity
+    then Some (Stat.remaining_timeout () +. 1.0)
+    else None
   in
   let timeout_local =
     if timeout > 0
-    then float_of_int timeout
-    else Float.infinity
+    then Some (float_of_int timeout)
+    else None
   in
-  let timeout =
-    if timeout_global < timeout_local then timeout_global else timeout_local
-  in
+  let timeout = Lib.min_option timeout_global timeout_local in
 
   let cmd =
-    if timeout < Float.infinity then (
+    match timeout with
+    | None -> base_cmd
+    | Some timeout ->
       let timeout =
         Format.sprintf "--timeout=%.0f" (timeout |> ceil)
       in
       Array.append base_cmd [|timeout|]
-    )
-    else base_cmd
   in
 
   if Flags.Smt.yices2_smt2models () then
