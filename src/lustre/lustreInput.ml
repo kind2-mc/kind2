@@ -59,7 +59,7 @@ let fail env lexbuf =
   let err = get_parse_error env in
   (* Format.printf "At (line %d, columm %d), Syntax error: %s"
    *   line pos err *)
-    raise (LA.Parser_error (Some (line, pos), err))
+    raise (LA.Parser_error {position=Some (line, pos);err=err})
   
 let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
   match chkpnt with
@@ -77,7 +77,7 @@ let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
      fail env lexbuf
   | LPMI.Accepted v -> success v
   | LPMI.Rejected ->
-     raise (LA.Parser_error (None, "invalid syntax (parser rejected the input)"))
+     raise (LA.Parser_error {position=None; err="invalid syntax (parser rejected the input)"})
   
 
 (* Parses input channel to generate an AST *)

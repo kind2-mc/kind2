@@ -43,7 +43,7 @@ open Lib
 module SI : Set.S with type elt = Ident.t
 
 (** Error while parsing *)
-exception Parser_error of ((int * int) option * string)
+exception Parser_error of {position: (int * int) option; err: string }
 
 (** {1 Types} *)
 
