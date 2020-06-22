@@ -56,10 +56,11 @@ let get_parse_error env =
 
 (* Raises the [Parser_error] exception with appropriate position and error message *)
 let fail env lexbuf =
-  let lno, col = get_lexing_position lexbuf in
   let err = get_parse_error env in
-  raise (LA.Parser_error {position = Some (lno, col); err})
-  
+  let pos = position_of_lexing lexbuf.lex_curr_p in
+  LC.fail_at_position pos err
+
+(* Incremental Parsing *)
 let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
   match chkpnt with
   | LPMI.InputNeeded _ ->
@@ -76,7 +77,7 @@ let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
      fail env lexbuf
   | LPMI.Accepted v -> success v
   | LPMI.Rejected ->
-     raise (LA.Parser_error {position=None; err="Parser Error: Parser rejected the input."})
+     LC.fail_no_position "Parser Error: Parser rejected the input."
   
 
 (* Parses input channel to generate an AST *)
@@ -88,8 +89,7 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
     in_ch
     (try Filename.dirname (Flags.input_file ())
      with Failure _ -> Sys.getcwd ());
-
-  (* Create lexing buffer *)
+  (* Create lexing buffer and incrementally parse it*)
   parse lexbuf (LPI.main lexbuf.lex_curr_p)
          
 (* Parse from input channel *)

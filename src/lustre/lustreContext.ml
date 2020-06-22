@@ -201,7 +201,7 @@ let fail_at_position pos msg =
    | Log.F_json -> Log.parse_log_json L_error pos msg
    | Log.F_relay -> ()
   );
-  raise (A.Parser_error {position=None; err=""})
+  raise A.Parser_error
 
 
 let warn_at_position_pt level pos msg =
@@ -226,7 +226,7 @@ let note_at_position pos msg =
 (* Raise parsing exception *)
 let fail_no_position msg =
   Log.log L_error "Parser error: %s" msg;
-  raise (A.Parser_error {position=None; err=""})
+  raise A.Parser_error
 
   
 

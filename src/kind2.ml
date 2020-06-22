@@ -96,14 +96,8 @@ let setup : unit -> any_input = fun () ->
       KEvent.terminate_log () ;
       exit ExitCodes.error
   with (* Could not create input system. *)
-  | LustreAst.Parser_error {position; err}  ->
-     (* Print the error that has bubbled up because of parsing *)
-     (match position with
-     | None -> KEvent.log L_fatal "Unknown Parser Error"
-     | Some (ln, co) -> KEvent.log L_fatal
-                          "%s Parsing Failed for %s at line %d, column %d."
-                             err (Flags.input_file ()) ln co);          
-    KEvent.terminate_log () ; exit ExitCodes.error
+  | LustreAst.Parser_error  ->  (* terminate log and exit as the error is already on the log file *)
+     KEvent.terminate_log () ; exit ExitCodes.error
   | e ->
     let backtrace = Printexc.get_raw_backtrace () in
     KEvent.log
