@@ -96,7 +96,9 @@ let setup : unit -> any_input = fun () ->
       KEvent.terminate_log () ;
       exit ExitCodes.error
   with (* Could not create input system. *)
-  | LustreAst.Parser_error  ->  (* terminate log and exit as the error is already on the log file *)
+  | LustreAst.Parser_error  ->
+     (* terminate log after printing file name and exit as the error is already on the log file *)
+     KEvent.log L_fatal "While parsing file %s" (Flags.input_file ()); 
      KEvent.terminate_log () ; exit ExitCodes.error
   | e ->
     let backtrace = Printexc.get_raw_backtrace () in

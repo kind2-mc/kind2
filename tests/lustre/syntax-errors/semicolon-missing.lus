@@ -1,0 +1,7 @@
+node abs (x : real) returns (y: real);
+var Absolute: bool;
+let
+   if (x >= 0.0) then x else -x;
+   Absolute = y >= 0.0;
+   --%PROPERTY Absolute;
+tel

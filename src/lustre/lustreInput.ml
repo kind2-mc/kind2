@@ -37,28 +37,23 @@ let success (v : LustreAst.t): LustreAst.t =
   Log.log L_debug "Parsed :\n=========\n\n%a\n@." LustreAst.pp_print_program v;
   v
 
-(* obtain the position of the token from the lexer buffer *)
-let get_lexing_position lexbuf =
-  let lpos = Lexing.lexeme_start_p lexbuf in
-  let lno = lpos.Lexing.pos_lnum in
-  let col = lpos.Lexing.pos_cnum - lpos.Lexing.pos_bol + 1 in
-  (lno, col)
-
 (* Generates the appropriate parser error message *)
-let get_parse_error env =
+let build_parse_error_msg env =
     match LPMI.stack env with
     | lazy Nil -> "Syntax Error"
     | lazy (Cons (LPMI.Element (state, _, _, _), _)) ->
        let pstate = LPMI.number state in
-        try (LPE.message pstate) with
-        | Not_found -> "Syntax Error (Parser State: "^ (string_of_int pstate) ^ ")" 
-                       ^ "Please report this issue with a minimum working example."
+        let error_msg = try (LPE.message pstate) with
+                        | Not_found -> "Syntax Error! " 
+                                       ^ "Please report this issue with a minimum working example." in
+        error_msg ^ "(Parser State: " ^ (string_of_int pstate) ^ ")"
+                                     
 
 (* Raises the [Parser_error] exception with appropriate position and error message *)
 let fail env lexbuf =
-  let err = get_parse_error env in
+  let emsg = build_parse_error_msg env in
   let pos = position_of_lexing lexbuf.lex_curr_p in
-  LC.fail_at_position pos err
+  LC.fail_at_position pos emsg
 
 (* Incremental Parsing *)
 let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =

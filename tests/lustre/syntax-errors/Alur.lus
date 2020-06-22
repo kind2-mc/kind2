@@ -1,0 +1,493 @@
+----------------------
+-- Auxiliary nodes
+----------------------
+
+-- bool_choose() simulates a non-deterministic choice,
+-- at each step of the computation, between the two Boolean values.
+node imported bool_choose() returns (bool: b);
+
+-- real_choose() simulates a non-deterministic choice
+-- at each step of the computation, of a real (actually, rational) 
+-- value from the close interval [0.0, 2.0].
+node imported real_choose() returns (z: real) ;
+(*@contract
+  guarantee 0.0 <= z and z <= 2.0 ;
+*)
+
+-- First(b) is constant stream consisting of the first value of b. 
+node First(b: bool) returns (f: bool) ;
+let
+  f = b -> pre f ;
+tel
+
+
+----------------------
+-- Figure 2.1
+----------------------
+
+-- one-step delay component
+-- For all steps > 0, Delay(in) is the previous value of in;
+-- at step 0 it is false.
+node Delay(in: bool) returns (out: bool) ;
+  var x: bool ;
+let
+  out = x ;
+  x = false -> pre in ;
+tel
+
+-- Delay node for integer streams.
+node IntDelay(in: int) returns (out: int) ;
+  var x: int ;
+let
+  out = x ;
+  x = 0 -> pre in ;
+tel
+
+
+----------------------
+-- Figure 2.2
+----------------------
+
+-- Switch(press) models a timed light switch where the light stays
+-- on for at most 10 steps unless it is switched off before.
+-- The input button is interpreted as an off or an on command 
+-- depending on whether the light was respectively on or off.
+
+node Switch(press: bool) returns (mode: enum {on, off}) ;
+  var x: int ;
+let
+  mode = off -> if pre mode = off then if press then on else off
+                else if press or x >= 10 then off
+                else on;
+  x = 0 -> if pre mode = off then pre x
+           else if press or pre x >= 10 then 0
+           else pre x + 1;
+tel
+
+
+----------------------
+-- Figure 2.4
+----------------------
+
+-- The assumptions on the input values restrict their
+-- range to natural numbers during verification,
+-- obviating the need for a nat type.
+node Comparator(in1, in2: int) returns (out: bool) ;
+(*@contract
+  assume in1 >= 0 ;
+  assume in2 >= 0 ;
+ *)
+let
+  out = (in1 >= in2) ;
+tel
+
+
+----------------------
+-- Event type
+----------------------
+
+-- Kind 2's type system does not have event types 
+-- but they can be simulated by suitable user-defined types
+
+-- 'Bot' and 'Top' respectively denote the absence and 
+-- the presence of the event.
+type event = enum {Bot, Top} ;
+
+function Pres(e: event) returns (b: bool) ;
+let
+  b = (e = Top) ;
+tel
+
+function Abs(e: event) returns (b: bool) ;
+let
+  b = (e = Bot) ;
+tel
+
+
+----------------------
+-- Figure 2.6
+----------------------
+
+node Clocked(in: bool; clock: event) returns (out: bool) ;
+  var x: bool ;
+let
+  out = x ;
+
+  x = if Pres(clock) then in else (false -> pre x) ;
+tel
+
+
+----------------------
+-- Boolean events
+----------------------
+
+-- Boolean event types can be simulated by a record with two fields:
+-- 'status', specifying whether the event is present or not; and
+-- 'value', containing the Boolean value of the event.
+-- The content of 'value' is meaningful only when 'status' is 'Top'.
+
+type bool_event = {status: event; value: bool } ;
+
+function bool_Pres(e: bool_event) returns (b: bool) ;
+let
+  b = (e.status = Top) ;
+tel
+
+
+----------------------
+-- Figure 2.5
+----------------------
+
+-- The output event of Triggered(in) is the same as 'in' 
+-- if that input is "present", that is, in.status = Bot;
+-- otherwise out gets a value denoting an absent event. 
+node Triggered(in: bool_event) returns (out: bool_event) ;
+  var x: int ;
+let
+  out = if bool_Pres(in) then in 
+        else bool_event {status = Bot; value = bool_choose() } ;
+
+  x = 0 -> if bool_Pres(in) then pre x + 1 else pre x ;
+tel
+
+
+----------------------
+-- Figure 2.7
+----------------------
+
+-- Arbiter grants input requests expressed by the event 'req1' and 'req2'.
+-- At all times, a request on the first input is always granted (expressed 
+-- by issuing the event gra1), if it is the only request. The policy for 
+-- second input is analogous. When both inputs contain a request, one of  
+-- the two is granted, with a non-deterministic choice.
+--
+node Arbiter(req1, req2: event) returns (gra1, gra2: event) ;
+  var c: bool; 
+let
+  c = bool_choose();
+  gra1 = if Abs(req1) then Bot
+         else if Abs(req2) then Top 
+         else if c then Top
+         else Bot ;
+  gra2 = if Abs(req2) then Bot
+         else if Abs(req1) then Top 
+         else if c then Bot 
+         else Top ;
+
+-- We expect these two properties to fail. Since the choice of which 
+-- request to grant is non-derministic and so can change over time and 
+-- over executions. 
+--%PROPERTY "P1.1" Pres(req1) and Pres(req2) => Pres(gra1) ; 
+--%PROPERTY "P1.2" Pres(req1) and Pres(req2) => Pres(gra2) ; 
+
+-- We expect all the following properties to hold, i.e., to be invariant.
+
+-- In the precence of both requests, exactly one is granted.
+--%PROPERTY "P2" Pres(req1) and Pres(req2) => Pres(gra1) xor Pres(gra2) ; 
+-- In the precence of one request only, that request is granted.
+--%PROPERTY "P3.1" Pres(req1) and Abs(req2) => Pres(gra1) ; 
+--%PROPERTY "P3.2" Pres(req2) and Abs(req1) => Pres(gra2) ; 
+
+-- Requests are granted only if present.
+--%PROPERTY "P4.1" Pres(gra1) => Pres(req1) ; 
+--%PROPERTY "P4.2" Pres(gra2) => Pres(req2) ; 
+
+--% MAIN ; 
+tel
+
+
+-- Alternative, more compact definition of 'Arbiter'. 
+node ArbiterS(req1, req2: event) returns (gra1, gra2: event) ;
+  var choice: int;
+let
+  choice = if bool_choose() then 1 else 2;
+  gra1 = if Pres(req1) and (Abs(req2) or choice = 1) 
+         then Top else Bot ;
+  gra2 = if Pres(req2) and (Abs(req1) or choice = 2) 
+         then Top else Bot ;
+tel
+
+
+-- Version of 'Arbiter' where the non-deterministic choice is provided
+-- by the environment as the input variable 'c'.
+node Arbiter_in(c: bool; req1, req2: event) returns (gra1, gra2: event) ;
+let
+  gra1 = if Abs(req1) then Bot
+         else if Abs(req2) then Top 
+         else if c then Top
+         else Bot ;
+  gra2 = if Abs(req2) then Bot
+         else if Abs(req1) then Top 
+         else if c then Bot 
+         else Top ;
+tel
+
+-- Version of 'ArbiterS' where the non-deterministic choice is provided
+-- by the environment as the input variable 'c'.
+node ArbiterS_in(c: bool; req1, req2: event) returns (gra1, gra2: event) ;
+  var choice: int;
+let
+  choice = if c then 1 else 2;
+  gra1 = if Pres(req1) and (Abs(req2) or choice = 1) 
+         then Top else Bot ;
+  gra2 = if Pres(req2) and (Abs(req1) or choice = 2) 
+         then Top else Bot ;
+tel
+
+
+-- Monitor(c, req1, req2) checks that 'Arbiter_in' and 'ArbiterS_in' are
+-- _behaviorally equivalent_, i.e., provide the same output when 
+-- given the same requests and the same non-deterministic decisions
+-- in case of concurrent requests.  
+node Monitor(c: bool; req1, req2: event) returns (b: bool);
+  var g1, g2, g1S, g2S: event ;
+let
+  (g1,  g2)  = Arbiter_in(c, req1, req2) ;
+  (g1S, g2S) = ArbiterS_in(c, req1, req2) ; 
+
+  -- 'b' is true iff 'Arbiter_in' and 'Arbiter_in' produce the same output
+  -- when fed the same input.
+  b = (g1 = g1S and g2S = g2S);
+
+  --%PROPERTY "Arbiter and ArbiterS are behaviorally equivalent" b ;
+  -- %MAIN ;
+tel
+
+
+----------------------
+-- Figure 2.15
+----------------------
+
+-- Parallel composition is achieved by applying nodes
+-- as macros. 
+node int_Delay(in: int) returns (out: int) ;
+  var x: int ;
+let
+  out = x ;
+  x = 0 -> pre in ;
+tel
+
+(*          
+     +------------------------------------+
+     |   int_DoubleDelay                  |
+     |                                    |
+     |  +-----------+      +-----------+  |
+  in |  |           | temp |           |  | out
+ ----+->| int_Delay |----->| int_Delay |--+---->
+     |  |           |      |           |  |
+     |  +-----------+      +-----------+  |
+     |                                    |
+     +------------------------------------+
+*)
+node int_DoubleDelay(in: int) returns (out: int) ;
+  var temp: int  ;
+let
+  out  = int_Delay(temp) ; temp = int_Delay(in) ;
+tel
+
+-- the temp variable is actually not needed
+node int_DoubleDelay2(in: int) returns (out: int) ;
+let 
+  out = int_Delay(int_Delay(in)) ;
+tel
+
+
+----------------------
+-- Figure 2.25
+----------------------
+
+-- 'Latch1' has a Boolean state represented by internal variable 'x'
+-- whose initial value of 'x' is provided by 'b'.
+-- A set request (represented by 'set' being true) sets 'x' to true
+-- unless there is a concurrent reset request (represented by 'reset'
+-- being true) . In that case, the choice between the two requests
+-- is resolved with the value of b. 
+-- The response to a request is delayed by one step, that is, 'x'
+-- is set or reset in the step immediately following the request.
+-- This is captured by the auxiliary variable 'next_x'.
+-- At all times, the output is the curren value of 'x'  
+node Latch1(b: bool; set, reset: bool) returns (out: bool) ;
+  var x, next_x: bool ;
+let
+  out = x ;
+  
+  next_x = if          reset and     set then b
+           else if     reset and not set then false
+           else if not reset and     set then true
+           else x ;
+ 
+   x = b -> pre next_x ;
+  tel
+
+
+-- 'Latch2' has the same behavior as 'Latch1' but its defintion
+-- is more idiomatic in Kind 2.
+-- 'out' can be used as both the output and the state variable
+-- (so no 'x' is needed). Also, the next value of 'out', provided
+-- by auxiliary variable 'next_out', can be defined simply by
+-- stating when exactly it is supposed to be 'true'.
+node Latch2(b: bool; set, reset: bool) returns (out: bool) ;
+  var next_out: bool ;
+let
+  out = b -> pre next_out ;
+  
+  next_out = (set and (not reset or b)) or 
+             (not set and not reset and out) ;
+tel
+
+
+-- 'Observer2' checks that 'Latch1' and 'Latch2' are behaviorally
+-- equivalent. Its ouput 'p' is constantly 'true' only if they are. 
+node Observer2(b, set, reset: bool) returns (p: bool);
+let
+  p = (Latch1(b, set, reset) = Latch2(b, set, reset)) ; 
+
+  --%PROPERTY "Latch1 and Latch2 are behav. equivalent" p;
+  -- %MAIN ;
+tel
+
+
+-- This version of Latch makes its non-deterministic decision
+-- internally, instead of having them externally provided.
+node Latch(set, reset: bool) returns (out: bool) ;
+  var next_out, b: bool ;
+let
+  b = bool_choose() ;
+
+  out = b -> pre next_out ;
+  
+  next_out = (set and (not reset or b)) or 
+             (not set and not reset and out) ;
+tel
+
+
+----------------------
+-- Figure 2.26
+----------------------
+(*
+       +------------------------------------------------------------+
+       |                                                            |
+       | +--------------------------------------------------------+ |
+       | |                                              +-------+ | |
+       +-|-----------------------------------|``-.  set |       | | |
+       | |                          |`-._    |    :---->|       | | |
+       | +->|``-.                +--|   _]o--|..-`      | Latch | | |
+       |    |    :--+----\``-.   |  |.-`          reset |       |-+-+--> out
+  inc -+----|..-`   |     )   :--+--------------------->|       |   |
+       |            | +--/..-`                          +-------+   |
+       |            | |                                             |
+start ----------------+                OneBitCounter                |
+       |            |                                               |
+       +------------+-----------------------------------------------+
+                    |     
+                    v carry
+*)
+-- 'OneBitCounter' is a stateful 1-bit counter implemented using 
+-- the latch component modeled by 'Latch'.
+-- The counter goes from 0 (actually, to 'false') to 1 (actually, 'true')
+-- with a carry value of 0 or from 1 to 0 with a carry value of 1 when
+-- the increment signal 'inc' is true.
+-- It is reset to 0 (actually, to 'false') when the start signal is true.
+-- The initial value of the counter is arbitrary (as)
+node OneBitCounter(inc, start: bool) returns (out, carry: bool) ;
+  var set, reset: bool;
+let
+  out = Latch(set, reset) ;
+
+  set = inc and not reset ; 
+
+  reset = carry or start ;
+
+  carry = inc and out ;
+tel
+
+
+----------------------
+-- Figure 2.27
+----------------------
+
+-- 'ThreeBitCounter' implements a 3-bit resettable counter
+-- by cascading three 1-bit counters. 
+-- The output is three Boolean values standing for the three bits, 
+-- with out0 being the least significant one.
+node ThreeBitCounter(inc, start: bool) 
+returns (out0, out1, out2: bool) ;
+  var carry0, carry1, carry2: bool;
+let
+  (out0, carry0) = OneBitCounter(inc,    start) ;
+  (out1, carry1) = OneBitCounter(carry0, start) ;
+  (out2, carry2) = OneBitCounter(carry1, start) ;
+  -- %MAIN ;
+tel
+
+
+-- 'DelayedCounter' is a delayed, resettable integer counter 
+-- that ranges from 0 to 7. It's initial value is 0.
+node DelayedCounter(inc, start: bool) returns (n: int) ;
+  var next: int ;
+let
+  next = if start then 0 
+         else if inc then if n = 7 then 0 else n + 1
+         else n ;
+
+  n = 0 -> pre next ; 
+tel
+
+
+----------------
+-- bits to ints
+----------------
+
+function ToBit(b: bool) returns (n: int) ;
+let
+   n = if b then 1 else 0 ;
+tel
+
+-- ToInt(b2, b1, b0) computes the integer denoted
+-- by b2b1b0 when seen as a binary number 
+function ToInt(b2, b1, b0: bool) returns (n: int) ;
+let
+   n = 4 * ToBit(b2) + 2 * ToBit(b1) + ToBit(b0) ;
+tel
+
+
+----------------------
+-- Temporal Operators
+----------------------
+
+-- At each step, Happened(X) is true if X has been true 
+-- at any time in the past or is true now.
+node Happened(X: bool) returns (Z: bool) ;
+let
+  Z =  X -> X or pre Z ;
+tel
+
+
+-- Since(X,Y) is true precisely when X has been true 
+-- at some point in the past, and Y has been continuously 
+-- true afterwards.
+node Since(X, Y: bool) returns (Z: bool) ;
+let
+  Z =  X or (Y and (false -> pre Z)) ;
+tel
+
+
+
+-- 'Observer4' checks that 'ThreeBitCounter' behaves like
+-- a delayed resettable counter modulo 8.
+node Observer4(inc, start: bool) returns (n1, n2: int) ;
+  var out0, out1, out2: bool ;
+let
+  (out0, out1, out2) = ThreeBitCounter(inc, start) ;
+
+  n1 = ToInt(out2, out1, out0) ;
+
+  n2 = DelayedCounter(inc, start) ;
+
+  -- Only the third property holds
+  --%PROPERTY "Same count" n1 = n2;
+  --%PROPERTY "Same count 1" Since(start, n1 = n2);
+  --%PROPERTY "Same count 2" Happened(start) => Since(start, n1 = n2) ;
+
+  -- %MAIN;
+tel

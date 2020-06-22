@@ -35,7 +35,7 @@ one_expr: BVNOT TRUE VAR
 ## BVNOT pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: BVNOT XOR
 ##
@@ -47,7 +47,7 @@ one_expr: BVNOT XOR
 ## BVNOT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: COLON COLON SYM COLON COLON XOR
 ##
@@ -59,7 +59,7 @@ one_expr: COLON COLON SYM COLON COLON XOR
 ## ident two_colons
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: COLON COLON SYM VAR
 ##
@@ -72,7 +72,7 @@ one_expr: COLON COLON SYM VAR
 ## ident
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: COLON COLON XOR
 ##
@@ -84,7 +84,7 @@ one_expr: COLON COLON XOR
 ## two_colons
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: COLON XOR
 ##
@@ -115,7 +115,7 @@ one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN 
 ## In state 222, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN RPAREN COMMA XOR
 ##
@@ -127,7 +127,7 @@ one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN 
 ## CONDACT LPAREN pexpr(nonquantified) COMMA LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN LPAREN loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) RPAREN COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN RPAREN XOR
 ##
@@ -140,7 +140,7 @@ one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN 
 ## CONDACT LPAREN pexpr(nonquantified) COMMA LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN LPAREN loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN TRUE RESTART
 ##
@@ -160,7 +160,7 @@ one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN 
 ## In state 214, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN XOR
 ##
@@ -173,7 +173,7 @@ one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN 
 ## CONDACT LPAREN pexpr(nonquantified) COMMA LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN XOR
 ##
@@ -186,7 +186,7 @@ one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN XOR
 ## CONDACT LPAREN pexpr(nonquantified) COMMA LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE WITH
 ##
@@ -226,7 +226,7 @@ one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE WITH
 ## CONDACT LPAREN pexpr(nonquantified) COMMA LPAREN RESTART ident EVERY pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY XOR
 ##
@@ -239,7 +239,7 @@ one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY XOR
 ## CONDACT LPAREN pexpr(nonquantified) COMMA LPAREN RESTART ident EVERY
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM XOR
 ##
@@ -252,7 +252,7 @@ one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM XOR
 ## CONDACT LPAREN pexpr(nonquantified) COMMA LPAREN RESTART ident
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART XOR
 ##
@@ -265,7 +265,7 @@ one_expr: CONDACT LPAREN TRUE COMMA LPAREN RESTART XOR
 ## CONDACT LPAREN pexpr(nonquantified) COMMA LPAREN RESTART
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA LPAREN XOR
 ##
@@ -278,7 +278,7 @@ one_expr: CONDACT LPAREN TRUE COMMA LPAREN XOR
 ## CONDACT LPAREN pexpr(nonquantified) COMMA LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA SYM LPAREN RPAREN COMMA TRUE RSQBRACKET
 ##
@@ -297,7 +297,7 @@ one_expr: CONDACT LPAREN TRUE COMMA SYM LPAREN RPAREN COMMA TRUE RSQBRACKET
 ## In state 222, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA SYM LPAREN RPAREN COMMA XOR
 ##
@@ -309,7 +309,7 @@ one_expr: CONDACT LPAREN TRUE COMMA SYM LPAREN RPAREN COMMA XOR
 ## CONDACT LPAREN pexpr(nonquantified) COMMA ident LPAREN loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) RPAREN COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA SYM LPAREN RPAREN XOR
 ##
@@ -322,7 +322,7 @@ one_expr: CONDACT LPAREN TRUE COMMA SYM LPAREN RPAREN XOR
 ## CONDACT LPAREN pexpr(nonquantified) COMMA ident LPAREN loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA SYM LPAREN TRUE RESTART
 ##
@@ -342,7 +342,7 @@ one_expr: CONDACT LPAREN TRUE COMMA SYM LPAREN TRUE RESTART
 ## In state 214, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA SYM LPAREN XOR
 ##
@@ -355,7 +355,7 @@ one_expr: CONDACT LPAREN TRUE COMMA SYM LPAREN XOR
 ## CONDACT LPAREN pexpr(nonquantified) COMMA ident LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA SYM XOR
 ##
@@ -368,7 +368,7 @@ one_expr: CONDACT LPAREN TRUE COMMA SYM XOR
 ## CONDACT LPAREN pexpr(nonquantified) COMMA ident
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE COMMA XOR
 ##
@@ -383,7 +383,7 @@ one_expr: CONDACT LPAREN TRUE COMMA XOR
 ## CONDACT LPAREN pexpr(nonquantified) COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN TRUE WITH
 ##
@@ -425,7 +425,7 @@ one_expr: CONDACT LPAREN TRUE WITH
 ## CONDACT LPAREN pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT LPAREN XOR
 ##
@@ -440,7 +440,7 @@ one_expr: CONDACT LPAREN XOR
 ## CONDACT LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CONDACT XOR
 ##
@@ -455,7 +455,7 @@ one_expr: CONDACT XOR
 ## CONDACT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CURRENT TRUE WHEN
 ##
@@ -494,7 +494,7 @@ one_expr: CURRENT TRUE WHEN
 ## CURRENT pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: CURRENT XOR
 ##
@@ -506,7 +506,7 @@ one_expr: CURRENT XOR
 ## CURRENT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: EXISTS LPAREN RPAREN TRUE VAR
 ##
@@ -545,7 +545,7 @@ one_expr: EXISTS LPAREN RPAREN TRUE VAR
 ## EXISTS tlist(LPAREN,SEMICOLON,RPAREN,typed_idents) pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: EXISTS LPAREN RPAREN XOR
 ##
@@ -557,7 +557,7 @@ one_expr: EXISTS LPAREN RPAREN XOR
 ## EXISTS tlist(LPAREN,SEMICOLON,RPAREN,typed_idents)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: EXISTS XOR
 ##
@@ -569,7 +569,7 @@ one_expr: EXISTS XOR
 ## EXISTS
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FBY LPAREN TRUE COMMA NUMERAL COMMA TRUE WITH
 ##
@@ -608,7 +608,7 @@ one_expr: FBY LPAREN TRUE COMMA NUMERAL COMMA TRUE WITH
 ## FBY LPAREN pexpr(nonquantified) COMMA NUMERAL COMMA pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FBY LPAREN TRUE COMMA NUMERAL COMMA XOR
 ##
@@ -620,7 +620,7 @@ one_expr: FBY LPAREN TRUE COMMA NUMERAL COMMA XOR
 ## FBY LPAREN pexpr(nonquantified) COMMA NUMERAL COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FBY LPAREN TRUE COMMA NUMERAL XOR
 ##
@@ -632,7 +632,7 @@ one_expr: FBY LPAREN TRUE COMMA NUMERAL XOR
 ## FBY LPAREN pexpr(nonquantified) COMMA NUMERAL
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FBY LPAREN TRUE COMMA XOR
 ##
@@ -644,7 +644,7 @@ one_expr: FBY LPAREN TRUE COMMA XOR
 ## FBY LPAREN pexpr(nonquantified) COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FBY LPAREN TRUE WITH
 ##
@@ -683,7 +683,7 @@ one_expr: FBY LPAREN TRUE WITH
 ## FBY LPAREN pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FBY LPAREN XOR
 ##
@@ -695,7 +695,7 @@ one_expr: FBY LPAREN XOR
 ## FBY LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FBY XOR
 ##
@@ -707,7 +707,7 @@ one_expr: FBY XOR
 ## FBY
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FORALL LPAREN RPAREN TRUE VAR
 ##
@@ -746,7 +746,7 @@ one_expr: FORALL LPAREN RPAREN TRUE VAR
 ## FORALL tlist(LPAREN,SEMICOLON,RPAREN,typed_idents) pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FORALL LPAREN RPAREN XOR
 ##
@@ -758,7 +758,7 @@ one_expr: FORALL LPAREN RPAREN XOR
 ## FORALL tlist(LPAREN,SEMICOLON,RPAREN,typed_idents)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FORALL LPAREN SYM COLON ASSUME SEMICOLON XOR
 ##
@@ -771,7 +771,7 @@ one_expr: FORALL LPAREN SYM COLON ASSUME SEMICOLON XOR
 ## typed_idents SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FORALL LPAREN SYM COLON ASSUME WHEN
 ##
@@ -790,7 +790,7 @@ one_expr: FORALL LPAREN SYM COLON ASSUME WHEN
 ## In state 242, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FORALL LPAREN SYM COLON UINT8 XOR
 ##
@@ -803,7 +803,7 @@ one_expr: FORALL LPAREN SYM COLON UINT8 XOR
 ## ident_list_pos COLON lustre_type
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FORALL LPAREN SYM COLON XOR
 ##
@@ -815,7 +815,7 @@ one_expr: FORALL LPAREN SYM COLON XOR
 ## ident_list_pos COLON
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FORALL LPAREN SYM COMMA XOR
 ##
@@ -827,7 +827,7 @@ one_expr: FORALL LPAREN SYM COMMA XOR
 ## ident COMMA
 ##
 
-Syntax Error
+Syntax Error! Perhaps a missing colon between an identifier and type.
 
 one_expr: FORALL LPAREN SYM XOR
 ##
@@ -840,7 +840,7 @@ one_expr: FORALL LPAREN SYM XOR
 ## ident
 ##
 
-Syntax Error
+Syntax Error! Perhaps a missing delimiter such as a semicolon.
 
 one_expr: FORALL LPAREN XOR
 ##
@@ -853,7 +853,7 @@ one_expr: FORALL LPAREN XOR
 ## LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: FORALL XOR
 ##
@@ -865,7 +865,7 @@ one_expr: FORALL XOR
 ## FORALL
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: HASH LPAREN TRUE RSQBRACKET
 ##
@@ -884,7 +884,7 @@ one_expr: HASH LPAREN TRUE RSQBRACKET
 ## In state 222, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: HASH LPAREN XOR
 ##
@@ -896,7 +896,7 @@ one_expr: HASH LPAREN XOR
 ## HASH LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: HASH XOR
 ##
@@ -908,7 +908,7 @@ one_expr: HASH XOR
 ## HASH
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: IF TRUE THEN TRUE ELSE TRUE VAR
 ##
@@ -947,7 +947,7 @@ one_expr: IF TRUE THEN TRUE ELSE TRUE VAR
 ## IF pexpr(nonquantified) THEN pexpr(nonquantified) ELSE pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: IF TRUE THEN TRUE ELSE XOR
 ##
@@ -959,7 +959,7 @@ one_expr: IF TRUE THEN TRUE ELSE XOR
 ## IF pexpr(nonquantified) THEN pexpr(nonquantified) ELSE
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: IF TRUE THEN TRUE WITH
 ##
@@ -998,7 +998,7 @@ one_expr: IF TRUE THEN TRUE WITH
 ## IF pexpr(nonquantified) THEN pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: IF TRUE THEN XOR
 ##
@@ -1010,7 +1010,7 @@ one_expr: IF TRUE THEN XOR
 ## IF pexpr(nonquantified) THEN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: IF TRUE WITH
 ##
@@ -1049,7 +1049,7 @@ one_expr: IF TRUE WITH
 ## IF pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: IF XOR
 ##
@@ -1061,7 +1061,7 @@ one_expr: IF XOR
 ## IF
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: INT TRUE VAR
 ##
@@ -1100,7 +1100,7 @@ one_expr: INT TRUE VAR
 ## INT pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: INT XOR
 ##
@@ -1112,7 +1112,7 @@ one_expr: INT XOR
 ## INT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: INT16 TRUE VAR
 ##
@@ -1151,7 +1151,7 @@ one_expr: INT16 TRUE VAR
 ## INT16 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: INT16 XOR
 ##
@@ -1163,7 +1163,7 @@ one_expr: INT16 XOR
 ## INT16
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: INT32 TRUE VAR
 ##
@@ -1202,7 +1202,7 @@ one_expr: INT32 TRUE VAR
 ## INT32 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: INT32 XOR
 ##
@@ -1214,7 +1214,7 @@ one_expr: INT32 XOR
 ## INT32
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: INT64 TRUE VAR
 ##
@@ -1253,7 +1253,7 @@ one_expr: INT64 TRUE VAR
 ## INT64 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: INT64 XOR
 ##
@@ -1265,7 +1265,7 @@ one_expr: INT64 XOR
 ## INT64
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: INT8 TRUE VAR
 ##
@@ -1304,7 +1304,7 @@ one_expr: INT8 TRUE VAR
 ## INT8 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: INT8 XOR
 ##
@@ -1316,7 +1316,7 @@ one_expr: INT8 XOR
 ## INT8
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LAST XOR
 ##
@@ -1328,7 +1328,7 @@ one_expr: LAST XOR
 ## LAST
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LCURLYBRACKET TRUE RSQBRACKET
 ##
@@ -1347,7 +1347,7 @@ one_expr: LCURLYBRACKET TRUE RSQBRACKET
 ## In state 222, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LCURLYBRACKET XOR
 ##
@@ -1359,7 +1359,7 @@ one_expr: LCURLYBRACKET XOR
 ## LCURLYBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIAL DEFAULT RPAREN LPAREN TRUE RESTART
 ##
@@ -1378,7 +1378,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIA
 ## In state 214, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIAL DEFAULT RPAREN LPAREN XOR
 ##
@@ -1390,7 +1390,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIA
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN EVERY pexpr(nonquantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIAL DEFAULT RPAREN XOR
 ##
@@ -1402,7 +1402,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIA
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN EVERY pexpr(nonquantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIAL DEFAULT TRUE RESTART
 ##
@@ -1421,7 +1421,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIA
 ## In state 214, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIAL DEFAULT XOR
 ##
@@ -1433,7 +1433,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIA
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN EVERY pexpr(nonquantified) INITIAL DEFAULT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIAL XOR
 ##
@@ -1445,7 +1445,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIA
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN EVERY pexpr(nonquantified) INITIAL
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE RPAREN LPAREN TRUE RESTART
 ##
@@ -1464,7 +1464,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE RPAREN
 ## In state 214, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE RPAREN LPAREN XOR
 ##
@@ -1476,7 +1476,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE RPAREN
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN EVERY pexpr(nonquantified) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE RPAREN XOR
 ##
@@ -1488,7 +1488,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE RPAREN
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN EVERY pexpr(nonquantified) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE WITH
 ##
@@ -1528,7 +1528,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE WITH
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN EVERY pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY XOR
 ##
@@ -1541,7 +1541,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY XOR
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN EVERY
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN XOR
 ##
@@ -1554,7 +1554,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN XOR
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE WITH
 ##
@@ -1594,7 +1594,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE WITH
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY XOR
 ##
@@ -1607,7 +1607,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM EVERY XOR
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART SYM XOR
 ##
@@ -1620,7 +1620,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART SYM XOR
 ## LPAREN ACTIVATE LPAREN RESTART ident
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN RESTART XOR
 ##
@@ -1633,7 +1633,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART XOR
 ## LPAREN ACTIVATE LPAREN RESTART
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE LPAREN XOR
 ##
@@ -1646,7 +1646,7 @@ one_expr: LPAREN ACTIVATE LPAREN XOR
 ## LPAREN ACTIVATE LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY TRUE RPAREN LPAREN TRUE RESTART
 ##
@@ -1665,7 +1665,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY TRUE RPAR
 ## In state 214, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY TRUE RPAREN LPAREN XOR
 ##
@@ -1677,7 +1677,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY TRUE RPAR
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) RESTART EVERY pexpr(nonquantified) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY TRUE RPAREN XOR
 ##
@@ -1689,7 +1689,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY TRUE RPAR
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) RESTART EVERY pexpr(nonquantified) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY TRUE WITH
 ##
@@ -1728,7 +1728,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY TRUE WITH
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) RESTART EVERY pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY XOR
 ##
@@ -1740,7 +1740,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY XOR
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) RESTART EVERY
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART XOR
 ##
@@ -1752,7 +1752,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART XOR
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) RESTART
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RPAREN LPAREN TRUE RESTART
 ##
@@ -1771,7 +1771,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RPAREN LPAREN TRUE REST
 ## In state 214, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RPAREN LPAREN XOR
 ##
@@ -1783,7 +1783,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RPAREN LPAREN XOR
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RPAREN XOR
 ##
@@ -1795,7 +1795,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RPAREN XOR
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT TRUE RCURLYBRACKET
 ##
@@ -1815,7 +1815,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT TRUE RCURLYBRACKET
 ## In state 214, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT XOR
 ##
@@ -1828,7 +1828,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT XOR
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) INITIAL DEFAULT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL XOR
 ##
@@ -1841,7 +1841,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE INITIAL XOR
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) INITIAL
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY TRUE RPAREN LPAREN TRUE RESTART
 ##
@@ -1860,7 +1860,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY TRUE RPAREN LPAREN TRUE R
 ## In state 214, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY TRUE RPAREN LPAREN XOR
 ##
@@ -1872,7 +1872,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY TRUE RPAREN LPAREN XOR
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) RESTART EVERY pexpr(nonquantified) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY TRUE RPAREN XOR
 ##
@@ -1884,7 +1884,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY TRUE RPAREN XOR
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) RESTART EVERY pexpr(nonquantified) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY TRUE WITH
 ##
@@ -1923,7 +1923,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY TRUE WITH
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) RESTART EVERY pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY XOR
 ##
@@ -1935,7 +1935,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY XOR
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) RESTART EVERY
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE RESTART XOR
 ##
@@ -1947,7 +1947,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE RESTART XOR
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) RESTART
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE RPAREN LPAREN TRUE RESTART
 ##
@@ -1966,7 +1966,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE RPAREN LPAREN TRUE RESTART
 ## In state 214, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE RPAREN LPAREN XOR
 ##
@@ -1978,7 +1978,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE RPAREN LPAREN XOR
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE RPAREN XOR
 ##
@@ -1990,7 +1990,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE RPAREN XOR
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY TRUE WITH
 ##
@@ -2032,7 +2032,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY TRUE WITH
 ## LPAREN ACTIVATE ident EVERY pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM EVERY XOR
 ##
@@ -2047,7 +2047,7 @@ one_expr: LPAREN ACTIVATE SYM EVERY XOR
 ## LPAREN ACTIVATE ident EVERY
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE SYM XOR
 ##
@@ -2062,7 +2062,7 @@ one_expr: LPAREN ACTIVATE SYM XOR
 ## LPAREN ACTIVATE ident
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN ACTIVATE XOR
 ##
@@ -2079,7 +2079,7 @@ one_expr: LPAREN ACTIVATE XOR
 ## LPAREN ACTIVATE
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN TRUE RESTART
 ##
@@ -2098,7 +2098,7 @@ one_expr: LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN TRUE RESTART
 ## In state 214, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN XOR
 ##
@@ -2110,7 +2110,7 @@ one_expr: LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN XOR
 ## LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN RESTART SYM EVERY TRUE RPAREN XOR
 ##
@@ -2122,7 +2122,7 @@ one_expr: LPAREN RESTART SYM EVERY TRUE RPAREN XOR
 ## LPAREN RESTART ident EVERY pexpr(nonquantified) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN RESTART SYM EVERY TRUE WITH
 ##
@@ -2161,7 +2161,7 @@ one_expr: LPAREN RESTART SYM EVERY TRUE WITH
 ## LPAREN RESTART ident EVERY pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN RESTART SYM EVERY XOR
 ##
@@ -2173,7 +2173,7 @@ one_expr: LPAREN RESTART SYM EVERY XOR
 ## LPAREN RESTART ident EVERY
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN RESTART SYM XOR
 ##
@@ -2185,7 +2185,7 @@ one_expr: LPAREN RESTART SYM XOR
 ## LPAREN RESTART ident
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN RESTART XOR
 ##
@@ -2197,7 +2197,7 @@ one_expr: LPAREN RESTART XOR
 ## LPAREN RESTART
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN TRUE COMMA TRUE RSQBRACKET
 ##
@@ -2216,7 +2216,7 @@ one_expr: LPAREN TRUE COMMA TRUE RSQBRACKET
 ## In state 222, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN TRUE COMMA XOR
 ##
@@ -2228,7 +2228,7 @@ one_expr: LPAREN TRUE COMMA XOR
 ## LPAREN pexpr(nonquantified) COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN TRUE VAR
 ##
@@ -2269,7 +2269,7 @@ one_expr: LPAREN TRUE VAR
 ## LPAREN pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN TRUE WITH DOT SYM XOR
 ##
@@ -2282,7 +2282,7 @@ one_expr: LPAREN TRUE WITH DOT SYM XOR
 ## label_or_index
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN TRUE WITH DOT XOR
 ##
@@ -2294,7 +2294,7 @@ one_expr: LPAREN TRUE WITH DOT XOR
 ## DOT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN TRUE WITH DOTPERCENT TRUE EQUALS TRUE WITH
 ##
@@ -2333,7 +2333,7 @@ one_expr: LPAREN TRUE WITH DOTPERCENT TRUE EQUALS TRUE WITH
 ## LPAREN pexpr(nonquantified) WITH nonempty_list(label_or_index) EQUALS pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN TRUE WITH DOTPERCENT TRUE EQUALS XOR
 ##
@@ -2345,7 +2345,7 @@ one_expr: LPAREN TRUE WITH DOTPERCENT TRUE EQUALS XOR
 ## LPAREN pexpr(nonquantified) WITH nonempty_list(label_or_index) EQUALS
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN TRUE WITH DOTPERCENT TRUE WITH
 ##
@@ -2384,7 +2384,7 @@ one_expr: LPAREN TRUE WITH DOTPERCENT TRUE WITH
 ## DOTPERCENT pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN TRUE WITH DOTPERCENT XOR
 ##
@@ -2396,7 +2396,7 @@ one_expr: LPAREN TRUE WITH DOTPERCENT XOR
 ## DOTPERCENT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN TRUE WITH LSQBRACKET TRUE WITH
 ##
@@ -2435,7 +2435,7 @@ one_expr: LPAREN TRUE WITH LSQBRACKET TRUE WITH
 ## LSQBRACKET pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN TRUE WITH LSQBRACKET XOR
 ##
@@ -2447,7 +2447,7 @@ one_expr: LPAREN TRUE WITH LSQBRACKET XOR
 ## LSQBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN TRUE WITH XOR
 ##
@@ -2459,7 +2459,7 @@ one_expr: LPAREN TRUE WITH XOR
 ## LPAREN pexpr(nonquantified) WITH
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LPAREN XOR
 ##
@@ -2480,7 +2480,7 @@ one_expr: LPAREN XOR
 ## LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LSQBRACKET TRUE COMMA XOR
 ##
@@ -2492,7 +2492,7 @@ one_expr: LSQBRACKET TRUE COMMA XOR
 ## pexpr(nonquantified) COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LSQBRACKET TRUE RPAREN
 ##
@@ -2511,7 +2511,7 @@ one_expr: LSQBRACKET TRUE RPAREN
 ## In state 222, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LSQBRACKET TRUE WITH
 ##
@@ -2551,7 +2551,7 @@ one_expr: LSQBRACKET TRUE WITH
 ## pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: LSQBRACKET XOR
 ##
@@ -2563,7 +2563,7 @@ one_expr: LSQBRACKET XOR
 ## LSQBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MERGE LPAREN SYM SEMICOLON TRUE SEMICOLON TRUE WITH
 ##
@@ -2602,7 +2602,7 @@ one_expr: MERGE LPAREN SYM SEMICOLON TRUE SEMICOLON TRUE WITH
 ## MERGE LPAREN ident SEMICOLON pexpr(nonquantified) SEMICOLON pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MERGE LPAREN SYM SEMICOLON TRUE SEMICOLON XOR
 ##
@@ -2614,7 +2614,7 @@ one_expr: MERGE LPAREN SYM SEMICOLON TRUE SEMICOLON XOR
 ## MERGE LPAREN ident SEMICOLON pexpr(nonquantified) SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MERGE LPAREN SYM SEMICOLON TRUE WITH
 ##
@@ -2653,7 +2653,7 @@ one_expr: MERGE LPAREN SYM SEMICOLON TRUE WITH
 ## MERGE LPAREN ident SEMICOLON pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MERGE LPAREN SYM SEMICOLON XOR
 ##
@@ -2665,7 +2665,7 @@ one_expr: MERGE LPAREN SYM SEMICOLON XOR
 ## MERGE LPAREN ident SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MERGE LPAREN SYM XOR
 ##
@@ -2677,7 +2677,7 @@ one_expr: MERGE LPAREN SYM XOR
 ## MERGE LPAREN ident
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MERGE LPAREN XOR
 ##
@@ -2689,7 +2689,7 @@ one_expr: MERGE LPAREN XOR
 ## MERGE LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MERGE SYM LPAREN TRUE ARROW ASSUME RPAREN VAR
 ##
@@ -2702,7 +2702,7 @@ one_expr: MERGE SYM LPAREN TRUE ARROW ASSUME RPAREN VAR
 ## merge_case
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MERGE SYM LPAREN TRUE ARROW TRUE WITH
 ##
@@ -2741,7 +2741,7 @@ one_expr: MERGE SYM LPAREN TRUE ARROW TRUE WITH
 ## LPAREN merge_case_id ARROW pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MERGE SYM LPAREN TRUE ARROW XOR
 ##
@@ -2753,7 +2753,7 @@ one_expr: MERGE SYM LPAREN TRUE ARROW XOR
 ## LPAREN merge_case_id ARROW
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MERGE SYM LPAREN TRUE XOR
 ##
@@ -2765,7 +2765,7 @@ one_expr: MERGE SYM LPAREN TRUE XOR
 ## LPAREN merge_case_id
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MERGE SYM LPAREN XOR
 ##
@@ -2777,7 +2777,7 @@ one_expr: MERGE SYM LPAREN XOR
 ## LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MERGE SYM XOR
 ##
@@ -2789,7 +2789,7 @@ one_expr: MERGE SYM XOR
 ## MERGE ident
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MERGE XOR
 ##
@@ -2802,7 +2802,7 @@ one_expr: MERGE XOR
 ## MERGE
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MINUS TRUE VAR
 ##
@@ -2841,7 +2841,7 @@ one_expr: MINUS TRUE VAR
 ## MINUS pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: MINUS XOR
 ##
@@ -2853,7 +2853,7 @@ one_expr: MINUS XOR
 ## MINUS
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: NOT TRUE VAR
 ##
@@ -2892,7 +2892,7 @@ one_expr: NOT TRUE VAR
 ## NOT pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: NOT XOR
 ##
@@ -2904,7 +2904,7 @@ one_expr: NOT XOR
 ## NOT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: PRE TRUE VAR
 ##
@@ -2943,7 +2943,7 @@ one_expr: PRE TRUE VAR
 ## PRE pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: PRE XOR
 ##
@@ -2955,7 +2955,7 @@ one_expr: PRE XOR
 ## PRE
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: REAL TRUE VAR
 ##
@@ -2994,7 +2994,7 @@ one_expr: REAL TRUE VAR
 ## REAL pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: REAL XOR
 ##
@@ -3006,7 +3006,7 @@ one_expr: REAL XOR
 ## REAL
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LCURLYBRACKET SYM EQUALS ASSUME SEMICOLON XOR
 ##
@@ -3019,7 +3019,7 @@ one_expr: SYM LCURLYBRACKET SYM EQUALS ASSUME SEMICOLON XOR
 ## record_field_assign SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LCURLYBRACKET SYM EQUALS TRUE WITH
 ##
@@ -3058,7 +3058,7 @@ one_expr: SYM LCURLYBRACKET SYM EQUALS TRUE WITH
 ## ident EQUALS pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LCURLYBRACKET SYM EQUALS XOR
 ##
@@ -3070,7 +3070,7 @@ one_expr: SYM LCURLYBRACKET SYM EQUALS XOR
 ## ident EQUALS
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LCURLYBRACKET SYM XOR
 ##
@@ -3082,7 +3082,7 @@ one_expr: SYM LCURLYBRACKET SYM XOR
 ## ident
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LCURLYBRACKET XOR
 ##
@@ -3095,7 +3095,7 @@ one_expr: SYM LCURLYBRACKET XOR
 ## LCURLYBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET ENUM LCURLYBRACKET SYM SEMICOLON
 ##
@@ -3114,7 +3114,7 @@ one_expr: SYM LPARAMBRACKET ENUM LCURLYBRACKET SYM SEMICOLON
 ## In state 8, spurious reduction of production ident_list -> separated_nonempty_list(COMMA,ident) 
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET ENUM LCURLYBRACKET XOR
 ##
@@ -3126,7 +3126,7 @@ one_expr: SYM LPARAMBRACKET ENUM LCURLYBRACKET XOR
 ## ENUM LCURLYBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET ENUM XOR
 ##
@@ -3138,7 +3138,7 @@ one_expr: SYM LPARAMBRACKET ENUM XOR
 ## ENUM
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET LSQBRACKET UINT8 COMMA XOR
 ##
@@ -3150,7 +3150,7 @@ one_expr: SYM LPARAMBRACKET LSQBRACKET UINT8 COMMA XOR
 ## lustre_type COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET LSQBRACKET UINT8 XOR
 ##
@@ -3164,7 +3164,7 @@ one_expr: SYM LPARAMBRACKET LSQBRACKET UINT8 XOR
 ## lustre_type
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET LSQBRACKET XOR
 ##
@@ -3176,7 +3176,7 @@ one_expr: SYM LPARAMBRACKET LSQBRACKET XOR
 ## LSQBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET RPARAMBRACKET LPAREN XOR
 ##
@@ -3188,7 +3188,7 @@ one_expr: SYM LPARAMBRACKET RPARAMBRACKET LPAREN XOR
 ## ident tlist(LPARAMBRACKET,SEMICOLON,RPARAMBRACKET,node_call_static_param) LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET RPARAMBRACKET XOR
 ##
@@ -3200,7 +3200,7 @@ one_expr: SYM LPARAMBRACKET RPARAMBRACKET XOR
 ## ident tlist(LPARAMBRACKET,SEMICOLON,RPARAMBRACKET,node_call_static_param)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET SUBRANGE LSQBRACKET TRUE COMMA TRUE RSQBRACKET OF XOR
 ##
@@ -3212,7 +3212,7 @@ one_expr: SYM LPARAMBRACKET SUBRANGE LSQBRACKET TRUE COMMA TRUE RSQBRACKET OF XO
 ## SUBRANGE LSQBRACKET pexpr(nonquantified) COMMA pexpr(nonquantified) RSQBRACKET OF
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET SUBRANGE LSQBRACKET TRUE COMMA TRUE RSQBRACKET XOR
 ##
@@ -3224,7 +3224,7 @@ one_expr: SYM LPARAMBRACKET SUBRANGE LSQBRACKET TRUE COMMA TRUE RSQBRACKET XOR
 ## SUBRANGE LSQBRACKET pexpr(nonquantified) COMMA pexpr(nonquantified) RSQBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET SUBRANGE LSQBRACKET TRUE COMMA TRUE WITH
 ##
@@ -3263,7 +3263,7 @@ one_expr: SYM LPARAMBRACKET SUBRANGE LSQBRACKET TRUE COMMA TRUE WITH
 ## SUBRANGE LSQBRACKET pexpr(nonquantified) COMMA pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET SUBRANGE LSQBRACKET TRUE COMMA XOR
 ##
@@ -3275,7 +3275,7 @@ one_expr: SYM LPARAMBRACKET SUBRANGE LSQBRACKET TRUE COMMA XOR
 ## SUBRANGE LSQBRACKET pexpr(nonquantified) COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET SUBRANGE LSQBRACKET TRUE WITH
 ##
@@ -3314,7 +3314,7 @@ one_expr: SYM LPARAMBRACKET SUBRANGE LSQBRACKET TRUE WITH
 ## SUBRANGE LSQBRACKET pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET SUBRANGE LSQBRACKET XOR
 ##
@@ -3326,7 +3326,7 @@ one_expr: SYM LPARAMBRACKET SUBRANGE LSQBRACKET XOR
 ## SUBRANGE LSQBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET SUBRANGE XOR
 ##
@@ -3338,7 +3338,7 @@ one_expr: SYM LPARAMBRACKET SUBRANGE XOR
 ## SUBRANGE
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET UINT8 CARET TRUE WITH
 ##
@@ -3377,7 +3377,7 @@ one_expr: SYM LPARAMBRACKET UINT8 CARET TRUE WITH
 ## lustre_type CARET pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET UINT8 CARET XOR
 ##
@@ -3389,7 +3389,7 @@ one_expr: SYM LPARAMBRACKET UINT8 CARET XOR
 ## lustre_type CARET
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET UINT8 SEMICOLON XOR
 ##
@@ -3402,7 +3402,7 @@ one_expr: SYM LPARAMBRACKET UINT8 SEMICOLON XOR
 ## node_call_static_param SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET UINT8 XOR
 ##
@@ -3415,7 +3415,7 @@ one_expr: SYM LPARAMBRACKET UINT8 XOR
 ## lustre_type
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPARAMBRACKET XOR
 ##
@@ -3428,7 +3428,7 @@ one_expr: SYM LPARAMBRACKET XOR
 ## LPARAMBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPAREN TRUE COMMA XOR
 ##
@@ -3440,7 +3440,7 @@ one_expr: SYM LPAREN TRUE COMMA XOR
 ## pexpr(nonquantified) COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPAREN TRUE WITH
 ##
@@ -3480,7 +3480,7 @@ one_expr: SYM LPAREN TRUE WITH
 ## pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM LPAREN XOR
 ##
@@ -3492,7 +3492,7 @@ one_expr: SYM LPAREN XOR
 ## ident LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: SYM VAR
 ##
@@ -3507,7 +3507,7 @@ one_expr: SYM VAR
 ## ident
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE AND TRUE VAR
 ##
@@ -3546,7 +3546,7 @@ one_expr: TRUE AND TRUE VAR
 ## pexpr(nonquantified) AND pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE AND XOR
 ##
@@ -3558,7 +3558,7 @@ one_expr: TRUE AND XOR
 ## pexpr(nonquantified) AND
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE ARROW TRUE VAR
 ##
@@ -3597,7 +3597,7 @@ one_expr: TRUE ARROW TRUE VAR
 ## pexpr(nonquantified) ARROW pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE ARROW XOR
 ##
@@ -3609,7 +3609,7 @@ one_expr: TRUE ARROW XOR
 ## pexpr(nonquantified) ARROW
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE BVAND TRUE VAR
 ##
@@ -3648,7 +3648,7 @@ one_expr: TRUE BVAND TRUE VAR
 ## pexpr(nonquantified) BVAND pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE BVAND XOR
 ##
@@ -3660,7 +3660,7 @@ one_expr: TRUE BVAND XOR
 ## pexpr(nonquantified) BVAND
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE BVOR TRUE VAR
 ##
@@ -3699,7 +3699,7 @@ one_expr: TRUE BVOR TRUE VAR
 ## pexpr(nonquantified) BVOR pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE BVOR XOR
 ##
@@ -3711,7 +3711,7 @@ one_expr: TRUE BVOR XOR
 ## pexpr(nonquantified) BVOR
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE CARET TRUE VAR
 ##
@@ -3750,7 +3750,7 @@ one_expr: TRUE CARET TRUE VAR
 ## pexpr(nonquantified) CARET pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE CARET XOR
 ##
@@ -3762,7 +3762,7 @@ one_expr: TRUE CARET XOR
 ## pexpr(nonquantified) CARET
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE DIV TRUE VAR
 ##
@@ -3801,7 +3801,7 @@ one_expr: TRUE DIV TRUE VAR
 ## pexpr(nonquantified) DIV pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE DIV XOR
 ##
@@ -3813,7 +3813,7 @@ one_expr: TRUE DIV XOR
 ## pexpr(nonquantified) DIV
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE DOT XOR
 ##
@@ -3825,7 +3825,7 @@ one_expr: TRUE DOT XOR
 ## pexpr(nonquantified) DOT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE DOTPERCENT XOR
 ##
@@ -3837,7 +3837,7 @@ one_expr: TRUE DOTPERCENT XOR
 ## pexpr(nonquantified) DOTPERCENT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE EQUALS TRUE VAR
 ##
@@ -3876,7 +3876,7 @@ one_expr: TRUE EQUALS TRUE VAR
 ## pexpr(nonquantified) EQUALS pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE EQUALS XOR
 ##
@@ -3888,7 +3888,7 @@ one_expr: TRUE EQUALS XOR
 ## pexpr(nonquantified) EQUALS
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE GT TRUE VAR
 ##
@@ -3927,7 +3927,7 @@ one_expr: TRUE GT TRUE VAR
 ## pexpr(nonquantified) GT pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error! Illegal expression for variable assignment
 
 one_expr: TRUE GT XOR
 ##
@@ -3939,7 +3939,7 @@ one_expr: TRUE GT XOR
 ## pexpr(nonquantified) GT
 ##
 
-Syntax Error
+Syntax Error! Illegal expression for variable assignment.
 
 one_expr: TRUE GTE TRUE VAR
 ##
@@ -3978,7 +3978,8 @@ one_expr: TRUE GTE TRUE VAR
 ## pexpr(nonquantified) GTE pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error! Illegal expression for variable assignment.
+Perhaps a missing delimiter such as a semicolon.
 
 one_expr: TRUE GTE XOR
 ##
@@ -3990,7 +3991,7 @@ one_expr: TRUE GTE XOR
 ## pexpr(nonquantified) GTE
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE IMPL TRUE VAR
 ##
@@ -4029,7 +4030,7 @@ one_expr: TRUE IMPL TRUE VAR
 ## pexpr(nonquantified) IMPL pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE IMPL XOR
 ##
@@ -4041,7 +4042,7 @@ one_expr: TRUE IMPL XOR
 ## pexpr(nonquantified) IMPL
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE INTDIV TRUE VAR
 ##
@@ -4080,7 +4081,7 @@ one_expr: TRUE INTDIV TRUE VAR
 ## pexpr(nonquantified) INTDIV pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE INTDIV XOR
 ##
@@ -4092,7 +4093,7 @@ one_expr: TRUE INTDIV XOR
 ## pexpr(nonquantified) INTDIV
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE LSH TRUE VAR
 ##
@@ -4131,7 +4132,7 @@ one_expr: TRUE LSH TRUE VAR
 ## pexpr(nonquantified) LSH pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE LSH XOR
 ##
@@ -4143,7 +4144,7 @@ one_expr: TRUE LSH XOR
 ## pexpr(nonquantified) LSH
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE LSQBRACKET TRUE DOTDOT TRUE WITH
 ##
@@ -4182,7 +4183,7 @@ one_expr: TRUE LSQBRACKET TRUE DOTDOT TRUE WITH
 ## pexpr(nonquantified) DOTDOT pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE LSQBRACKET TRUE DOTDOT XOR
 ##
@@ -4194,7 +4195,7 @@ one_expr: TRUE LSQBRACKET TRUE DOTDOT XOR
 ## pexpr(nonquantified) DOTDOT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE LSQBRACKET TRUE WITH
 ##
@@ -4234,7 +4235,7 @@ one_expr: TRUE LSQBRACKET TRUE WITH
 ## pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE LSQBRACKET XOR
 ##
@@ -4246,7 +4247,7 @@ one_expr: TRUE LSQBRACKET XOR
 ## pexpr(nonquantified) LSQBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE LT TRUE VAR
 ##
@@ -4285,7 +4286,7 @@ one_expr: TRUE LT TRUE VAR
 ## pexpr(nonquantified) LT pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE LT XOR
 ##
@@ -4297,7 +4298,7 @@ one_expr: TRUE LT XOR
 ## pexpr(nonquantified) LT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE LTE TRUE VAR
 ##
@@ -4336,7 +4337,7 @@ one_expr: TRUE LTE TRUE VAR
 ## pexpr(nonquantified) LTE pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE LTE XOR
 ##
@@ -4348,7 +4349,7 @@ one_expr: TRUE LTE XOR
 ## pexpr(nonquantified) LTE
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE MINUS TRUE VAR
 ##
@@ -4387,7 +4388,7 @@ one_expr: TRUE MINUS TRUE VAR
 ## pexpr(nonquantified) MINUS pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE MINUS XOR
 ##
@@ -4399,7 +4400,7 @@ one_expr: TRUE MINUS XOR
 ## pexpr(nonquantified) MINUS
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE MOD TRUE VAR
 ##
@@ -4438,7 +4439,7 @@ one_expr: TRUE MOD TRUE VAR
 ## pexpr(nonquantified) MOD pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE MOD XOR
 ##
@@ -4450,7 +4451,7 @@ one_expr: TRUE MOD XOR
 ## pexpr(nonquantified) MOD
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE MULT TRUE VAR
 ##
@@ -4489,7 +4490,7 @@ one_expr: TRUE MULT TRUE VAR
 ## pexpr(nonquantified) MULT pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE MULT XOR
 ##
@@ -4501,7 +4502,7 @@ one_expr: TRUE MULT XOR
 ## pexpr(nonquantified) MULT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE NEQ TRUE VAR
 ##
@@ -4540,7 +4541,7 @@ one_expr: TRUE NEQ TRUE VAR
 ## pexpr(nonquantified) NEQ pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE NEQ XOR
 ##
@@ -4552,7 +4553,7 @@ one_expr: TRUE NEQ XOR
 ## pexpr(nonquantified) NEQ
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE OR TRUE VAR
 ##
@@ -4591,7 +4592,7 @@ one_expr: TRUE OR TRUE VAR
 ## pexpr(nonquantified) OR pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE OR XOR
 ##
@@ -4603,7 +4604,7 @@ one_expr: TRUE OR XOR
 ## pexpr(nonquantified) OR
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE PIPE TRUE VAR
 ##
@@ -4642,7 +4643,7 @@ one_expr: TRUE PIPE TRUE VAR
 ## pexpr(nonquantified) PIPE pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE PIPE XOR
 ##
@@ -4654,7 +4655,7 @@ one_expr: TRUE PIPE XOR
 ## pexpr(nonquantified) PIPE
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE PLUS TRUE VAR
 ##
@@ -4693,7 +4694,7 @@ one_expr: TRUE PLUS TRUE VAR
 ## pexpr(nonquantified) PLUS pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE PLUS XOR
 ##
@@ -4705,7 +4706,7 @@ one_expr: TRUE PLUS XOR
 ## pexpr(nonquantified) PLUS
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE RSH TRUE VAR
 ##
@@ -4744,7 +4745,7 @@ one_expr: TRUE RSH TRUE VAR
 ## pexpr(nonquantified) RSH pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE RSH XOR
 ##
@@ -4756,7 +4757,7 @@ one_expr: TRUE RSH XOR
 ## pexpr(nonquantified) RSH
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE WHEN NOT LPAREN SYM XOR
 ##
@@ -4768,7 +4769,7 @@ one_expr: TRUE WHEN NOT LPAREN SYM XOR
 ## NOT LPAREN ident
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE WHEN NOT LPAREN XOR
 ##
@@ -4780,7 +4781,7 @@ one_expr: TRUE WHEN NOT LPAREN XOR
 ## NOT LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE WHEN NOT XOR
 ##
@@ -4793,7 +4794,7 @@ one_expr: TRUE WHEN NOT XOR
 ## NOT
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE WHEN SYM LPAREN SYM XOR
 ##
@@ -4805,7 +4806,7 @@ one_expr: TRUE WHEN SYM LPAREN SYM XOR
 ## ident LPAREN ident
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE WHEN SYM LPAREN XOR
 ##
@@ -4817,7 +4818,7 @@ one_expr: TRUE WHEN SYM LPAREN XOR
 ## ident LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE WHEN SYM VAR
 ##
@@ -4830,7 +4831,7 @@ one_expr: TRUE WHEN SYM VAR
 ## ident
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE WHEN XOR
 ##
@@ -4842,7 +4843,7 @@ one_expr: TRUE WHEN XOR
 ## pexpr(nonquantified) WHEN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE WITH
 ##
@@ -4881,7 +4882,7 @@ one_expr: TRUE WITH
 ## pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE XOR TRUE VAR
 ##
@@ -4920,7 +4921,7 @@ one_expr: TRUE XOR TRUE VAR
 ## pexpr(nonquantified) XOR pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: TRUE XOR XOR
 ##
@@ -4932,7 +4933,7 @@ one_expr: TRUE XOR XOR
 ## pexpr(nonquantified) XOR
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: UINT16 TRUE VAR
 ##
@@ -4971,7 +4972,7 @@ one_expr: UINT16 TRUE VAR
 ## UINT16 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: UINT16 XOR
 ##
@@ -4983,7 +4984,7 @@ one_expr: UINT16 XOR
 ## UINT16
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: UINT32 TRUE VAR
 ##
@@ -5022,7 +5023,7 @@ one_expr: UINT32 TRUE VAR
 ## UINT32 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: UINT32 XOR
 ##
@@ -5034,7 +5035,7 @@ one_expr: UINT32 XOR
 ## UINT32
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: UINT64 TRUE VAR
 ##
@@ -5073,7 +5074,7 @@ one_expr: UINT64 TRUE VAR
 ## UINT64 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: UINT64 XOR
 ##
@@ -5085,7 +5086,7 @@ one_expr: UINT64 XOR
 ## UINT64
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: UINT8 TRUE VAR
 ##
@@ -5124,7 +5125,7 @@ one_expr: UINT8 TRUE VAR
 ## UINT8 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: UINT8 XOR
 ##
@@ -5136,7 +5137,7 @@ one_expr: UINT8 XOR
 ## UINT8
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: WITH TRUE THEN TRUE ELSE TRUE VAR
 ##
@@ -5175,7 +5176,7 @@ one_expr: WITH TRUE THEN TRUE ELSE TRUE VAR
 ## WITH pexpr(nonquantified) THEN pexpr(nonquantified) ELSE pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: WITH TRUE THEN TRUE ELSE XOR
 ##
@@ -5187,7 +5188,7 @@ one_expr: WITH TRUE THEN TRUE ELSE XOR
 ## WITH pexpr(nonquantified) THEN pexpr(nonquantified) ELSE
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: WITH TRUE THEN TRUE WITH
 ##
@@ -5226,7 +5227,7 @@ one_expr: WITH TRUE THEN TRUE WITH
 ## WITH pexpr(nonquantified) THEN pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: WITH TRUE THEN XOR
 ##
@@ -5238,7 +5239,7 @@ one_expr: WITH TRUE THEN XOR
 ## WITH pexpr(nonquantified) THEN
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: WITH TRUE WITH
 ##
@@ -5277,7 +5278,7 @@ one_expr: WITH TRUE WITH
 ## WITH pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: WITH XOR
 ##
@@ -5289,7 +5290,7 @@ one_expr: WITH XOR
 ## WITH
 ##
 
-Syntax Error
+Syntax Error!
 
 one_expr: XOR
 ##
@@ -5301,7 +5302,7 @@ one_expr: XOR
 ##
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONST SYM COLON ASSUME EQUALS TRUE WITH
 ##
@@ -5340,7 +5341,7 @@ main: CONST SYM COLON ASSUME EQUALS TRUE WITH
 ## typed_ident EQUALS pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONST SYM COLON ASSUME EQUALS XOR
 ##
@@ -5352,7 +5353,7 @@ main: CONST SYM COLON ASSUME EQUALS XOR
 ## typed_ident EQUALS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONST SYM COLON UINT8 XOR
 ##
@@ -5366,7 +5367,7 @@ main: CONST SYM COLON UINT8 XOR
 ## ident COLON lustre_type
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONST SYM COLON XOR
 ##
@@ -5379,7 +5380,7 @@ main: CONST SYM COLON XOR
 ## ident COLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONST SYM COMMA SYM COLON UINT8 XOR
 ##
@@ -5392,7 +5393,7 @@ main: CONST SYM COMMA SYM COLON UINT8 XOR
 ## ident COMMA ident_list COLON lustre_type
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONST SYM COMMA SYM COLON XOR
 ##
@@ -5404,7 +5405,7 @@ main: CONST SYM COMMA SYM COLON XOR
 ## ident COMMA ident_list COLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONST SYM COMMA SYM SEMICOLON
 ##
@@ -5423,7 +5424,7 @@ main: CONST SYM COMMA SYM SEMICOLON
 ## In state 8, spurious reduction of production ident_list -> separated_nonempty_list(COMMA,ident) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONST SYM COMMA XOR
 ##
@@ -5435,7 +5436,7 @@ main: CONST SYM COMMA XOR
 ## ident COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONST SYM EQUALS ASSUME SEMICOLON XOR
 ##
@@ -5448,7 +5449,7 @@ main: CONST SYM EQUALS ASSUME SEMICOLON XOR
 ## const_decl_body
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONST SYM EQUALS TRUE WITH
 ##
@@ -5487,7 +5488,7 @@ main: CONST SYM EQUALS TRUE WITH
 ## ident EQUALS pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONST SYM EQUALS XOR
 ##
@@ -5499,7 +5500,7 @@ main: CONST SYM EQUALS XOR
 ## ident EQUALS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONST SYM XOR
 ##
@@ -5514,7 +5515,7 @@ main: CONST SYM XOR
 ## ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONST XOR
 ##
@@ -5526,7 +5527,7 @@ main: CONST XOR
 ## CONST
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONTRACT SYM LPARAMBRACKET RPARAMBRACKET XOR
 ##
@@ -5538,7 +5539,7 @@ main: CONTRACT SYM LPARAMBRACKET RPARAMBRACKET XOR
 ## CONTRACT ident loption(static_params)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONTRACT SYM LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON LET GUARANTEE TRUE SEMICOLON SSBLOCKEND
 ##
@@ -5557,7 +5558,7 @@ main: CONTRACT SYM LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON LET GUARANTEE T
 ## In state 758, spurious reduction of production contract_in_block -> nonempty_list(contract_item) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONTRACT SYM LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON LET GUARANTEE TRUE SEMICOLON TEL XOR
 ##
@@ -5569,7 +5570,7 @@ main: CONTRACT SYM LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON LET GUARANTEE T
 ## CONTRACT ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) SEMICOLON LET contract_in_block TEL
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONTRACT SYM LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON LET XOR
 ##
@@ -5581,7 +5582,7 @@ main: CONTRACT SYM LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON LET XOR
 ## CONTRACT ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) SEMICOLON LET
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONTRACT SYM LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON XOR
 ##
@@ -5593,7 +5594,7 @@ main: CONTRACT SYM LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON XOR
 ## CONTRACT ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONTRACT SYM LPAREN RPAREN RETURNS LPAREN RPAREN XOR
 ##
@@ -5605,7 +5606,7 @@ main: CONTRACT SYM LPAREN RPAREN RETURNS LPAREN RPAREN XOR
 ## CONTRACT ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONTRACT SYM LPAREN RPAREN RETURNS XOR
 ##
@@ -5617,7 +5618,7 @@ main: CONTRACT SYM LPAREN RPAREN RETURNS XOR
 ## CONTRACT ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONTRACT SYM LPAREN RPAREN XOR
 ##
@@ -5629,7 +5630,7 @@ main: CONTRACT SYM LPAREN RPAREN XOR
 ## CONTRACT ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONTRACT SYM XOR
 ##
@@ -5641,7 +5642,7 @@ main: CONTRACT SYM XOR
 ## CONTRACT ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: CONTRACT XOR
 ##
@@ -5653,7 +5654,7 @@ main: CONTRACT XOR
 ## CONTRACT
 ##
 
-Syntax Error
+Syntax Error! Perhaps a missing parenthesis in contract declaration.
 
 main: FUNCTION IMPORTED XOR
 ##
@@ -5665,7 +5666,7 @@ main: FUNCTION IMPORTED XOR
 ## FUNCTION IMPORTED
 ##
 
-Syntax Error
+Syntax Error!
 
 main: FUNCTION SYM LPAREN RPAREN RETURNS LPAREN RPAREN TYPE
 ##
@@ -5685,7 +5686,7 @@ main: FUNCTION SYM LPAREN RPAREN RETURNS LPAREN RPAREN TYPE
 ## In state 772, spurious reduction of production node_decl -> ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) option(SEMICOLON) option(contract_spec) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: FUNCTION SYM XOR
 ##
@@ -5697,7 +5698,7 @@ main: FUNCTION SYM XOR
 ## ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: FUNCTION XOR
 ##
@@ -5710,7 +5711,7 @@ main: FUNCTION XOR
 ## FUNCTION
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE IMPORTED XOR
 ##
@@ -5722,7 +5723,7 @@ main: NODE IMPORTED XOR
 ## NODE IMPORTED
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM EQUALS SYM LPARAMBRACKET RPARAMBRACKET XOR
 ##
@@ -5734,7 +5735,7 @@ main: NODE SYM EQUALS SYM LPARAMBRACKET RPARAMBRACKET XOR
 ## NODE ident EQUALS ident tlist(LPARAMBRACKET,SEMICOLON,RPARAMBRACKET,node_call_static_param)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM EQUALS SYM XOR
 ##
@@ -5746,7 +5747,7 @@ main: NODE SYM EQUALS SYM XOR
 ## NODE ident EQUALS ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM EQUALS XOR
 ##
@@ -5758,7 +5759,7 @@ main: NODE SYM EQUALS XOR
 ## NODE ident EQUALS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPARAMBRACKET RPARAMBRACKET XOR
 ##
@@ -5770,7 +5771,7 @@ main: NODE SYM LPARAMBRACKET RPARAMBRACKET XOR
 ## ident loption(static_params)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPARAMBRACKET TYPE SYM SEMICOLON XOR
 ##
@@ -5783,7 +5784,7 @@ main: NODE SYM LPARAMBRACKET TYPE SYM SEMICOLON XOR
 ## static_param SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPARAMBRACKET TYPE SYM XOR
 ##
@@ -5796,7 +5797,7 @@ main: NODE SYM LPARAMBRACKET TYPE SYM XOR
 ## static_param
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPARAMBRACKET TYPE XOR
 ##
@@ -5808,7 +5809,7 @@ main: NODE SYM LPARAMBRACKET TYPE XOR
 ## TYPE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPARAMBRACKET XOR
 ##
@@ -5821,7 +5822,7 @@ main: NODE SYM LPARAMBRACKET XOR
 ## LPARAMBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN CONST ASSERT
 ##
@@ -5833,7 +5834,7 @@ main: NODE SYM LPAREN CONST ASSERT
 ## boption(CONST)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN LPAREN SYM COLON ASSUME RPAREN WHEN XOR
 ##
@@ -5845,7 +5846,7 @@ main: NODE SYM LPAREN LPAREN SYM COLON ASSUME RPAREN WHEN XOR
 ## LPAREN const_typed_idents RPAREN WHEN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN LPAREN SYM COLON ASSUME RPAREN XOR
 ##
@@ -5857,7 +5858,7 @@ main: NODE SYM LPAREN LPAREN SYM COLON ASSUME RPAREN XOR
 ## LPAREN const_typed_idents RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN LPAREN SYM COLON ASSUME SEMICOLON SYM COLON ASSUME RPAREN WHEN XOR
 ##
@@ -5869,7 +5870,7 @@ main: NODE SYM LPAREN LPAREN SYM COLON ASSUME SEMICOLON SYM COLON ASSUME RPAREN 
 ## LPAREN const_typed_idents SEMICOLON tlist_tail(SEMICOLON,RPAREN,const_typed_idents) WHEN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN LPAREN SYM COLON ASSUME SEMICOLON SYM COLON ASSUME RPAREN XOR
 ##
@@ -5881,7 +5882,7 @@ main: NODE SYM LPAREN LPAREN SYM COLON ASSUME SEMICOLON SYM COLON ASSUME RPAREN 
 ## LPAREN const_typed_idents SEMICOLON tlist_tail(SEMICOLON,RPAREN,const_typed_idents)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN LPAREN SYM COLON ASSUME SEMICOLON SYM COLON ASSUME SEMICOLON XOR
 ##
@@ -5894,7 +5895,7 @@ main: NODE SYM LPAREN LPAREN SYM COLON ASSUME SEMICOLON SYM COLON ASSUME SEMICOL
 ## const_typed_idents SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN LPAREN SYM COLON ASSUME SEMICOLON SYM COLON ASSUME WHEN
 ##
@@ -5914,7 +5915,7 @@ main: NODE SYM LPAREN LPAREN SYM COLON ASSUME SEMICOLON SYM COLON ASSUME WHEN
 ## In state 419, spurious reduction of production const_typed_idents -> boption(CONST) typed_idents 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN LPAREN SYM COLON ASSUME SEMICOLON XOR
 ##
@@ -5926,7 +5927,7 @@ main: NODE SYM LPAREN LPAREN SYM COLON ASSUME SEMICOLON XOR
 ## LPAREN const_typed_idents SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN LPAREN SYM COLON ASSUME WHEN
 ##
@@ -5946,7 +5947,7 @@ main: NODE SYM LPAREN LPAREN SYM COLON ASSUME WHEN
 ## In state 419, spurious reduction of production const_typed_idents -> boption(CONST) typed_idents 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN LPAREN XOR
 ##
@@ -5959,7 +5960,7 @@ main: NODE SYM LPAREN LPAREN XOR
 ## LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN LPAREN SYM COLON ASSUME RPAREN WHEN XOR
 ##
@@ -5971,7 +5972,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN LPAREN SYM COLON ASSUME RPAREN WHEN 
 ## LPAREN typed_idents RPAREN WHEN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN LPAREN SYM COLON ASSUME RPAREN XOR
 ##
@@ -5983,7 +5984,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN LPAREN SYM COLON ASSUME RPAREN XOR
 ## LPAREN typed_idents RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN LPAREN SYM COLON ASSUME SEMICOLON SYM COLON ASSUME RPAREN WHEN XOR
 ##
@@ -5995,7 +5996,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN LPAREN SYM COLON ASSUME SEMICOLON SY
 ## LPAREN typed_idents SEMICOLON tlist_tail(SEMICOLON,RPAREN,typed_idents) WHEN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN LPAREN SYM COLON ASSUME SEMICOLON SYM COLON ASSUME RPAREN XOR
 ##
@@ -6007,7 +6008,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN LPAREN SYM COLON ASSUME SEMICOLON SY
 ## LPAREN typed_idents SEMICOLON tlist_tail(SEMICOLON,RPAREN,typed_idents)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN LPAREN SYM COLON ASSUME SEMICOLON XOR
 ##
@@ -6019,7 +6020,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN LPAREN SYM COLON ASSUME SEMICOLON XO
 ## LPAREN typed_idents SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN LPAREN SYM COLON ASSUME WHEN
 ##
@@ -6038,7 +6039,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN LPAREN SYM COLON ASSUME WHEN
 ## In state 242, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN LPAREN XOR
 ##
@@ -6051,7 +6052,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN LPAREN XOR
 ## LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONST ASSUME EQUALS ASSUME SEMICOLON TYPE
 ##
@@ -6071,7 +6072,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONST ASSUME EQUALS ASSUME SE
 ## In state 804, spurious reduction of production node_local_decl -> const_decl 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_PSATBLOCK GUARANTEE TRUE SEMICOLON TEL
 ##
@@ -6090,7 +6091,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_PSATBLOCK GUARANTEE 
 ## In state 758, spurious reduction of production contract_in_block -> nonempty_list(contract_item) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_PSATBLOCK XOR
 ##
@@ -6102,7 +6103,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_PSATBLOCK XOR
 ## CONTRACT_PSATBLOCK
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK ASSUME STRING ASSERT
 ##
@@ -6114,7 +6115,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK ASSUME STR
 ## ASSUME option(STRING)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK ASSUME TRUE WITH
 ##
@@ -6153,7 +6154,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK ASSUME TRU
 ## ASSUME option(STRING) pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK ASSUME XOR
 ##
@@ -6165,7 +6166,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK ASSUME XOR
 ## ASSUME
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST SYM COLON UINT8 EQUALS TRUE WITH
 ##
@@ -6204,7 +6205,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST SYM 
 ## CONST ident COLON lustre_type EQUALS pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST SYM COLON UINT8 EQUALS XOR
 ##
@@ -6216,7 +6217,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST SYM 
 ## CONST ident COLON lustre_type EQUALS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST SYM COLON UINT8 XOR
 ##
@@ -6229,7 +6230,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST SYM 
 ## CONST ident COLON lustre_type
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST SYM COLON XOR
 ##
@@ -6241,7 +6242,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST SYM 
 ## CONST ident COLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST SYM EQUALS TRUE WITH
 ##
@@ -6280,7 +6281,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST SYM 
 ## CONST ident EQUALS pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST SYM EQUALS XOR
 ##
@@ -6292,7 +6293,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST SYM 
 ## CONST ident EQUALS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST SYM XOR
 ##
@@ -6305,7 +6306,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST SYM 
 ## CONST ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST XOR
 ##
@@ -6318,7 +6319,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST XOR
 ## CONST
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE ASSUME SEMICOLON TEL
 ##
@@ -6337,7 +6338,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE 
 ## In state 758, spurious reduction of production contract_in_block -> nonempty_list(contract_item) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE ASSUME SEMICOLON XOR
 ##
@@ -6350,7 +6351,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE 
 ## contract_item
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE STRING ASSERT
 ##
@@ -6362,7 +6363,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE 
 ## GUARANTEE option(STRING)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE TRUE WITH
 ##
@@ -6401,7 +6402,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE 
 ## GUARANTEE option(STRING) pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE XOR
 ##
@@ -6413,7 +6414,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE 
 ## GUARANTEE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT SYM LPAREN RPAREN RETURNS LPAREN RPAREN XOR
 ##
@@ -6425,7 +6426,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONT
 ## IMPORTCONTRACT ident LPAREN loption(separated_nonempty_list(COMMA,qexpr)) RPAREN RETURNS LPAREN loption(separated_nonempty_list(COMMA,qexpr)) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT SYM LPAREN RPAREN RETURNS LPAREN XOR
 ##
@@ -6437,7 +6438,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONT
 ## IMPORTCONTRACT ident LPAREN loption(separated_nonempty_list(COMMA,qexpr)) RPAREN RETURNS LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT SYM LPAREN RPAREN RETURNS XOR
 ##
@@ -6449,7 +6450,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONT
 ## IMPORTCONTRACT ident LPAREN loption(separated_nonempty_list(COMMA,qexpr)) RPAREN RETURNS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT SYM LPAREN RPAREN XOR
 ##
@@ -6461,7 +6462,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONT
 ## IMPORTCONTRACT ident LPAREN loption(separated_nonempty_list(COMMA,qexpr)) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT SYM LPAREN TRUE COMMA XOR
 ##
@@ -6473,7 +6474,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONT
 ## pexpr(quantified) COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT SYM LPAREN TRUE WITH
 ##
@@ -6513,7 +6514,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONT
 ## pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT SYM LPAREN XOR
 ##
@@ -6525,7 +6526,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONT
 ## IMPORTCONTRACT ident LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT SYM XOR
 ##
@@ -6537,7 +6538,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONT
 ## IMPORTCONTRACT ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT XOR
 ##
@@ -6549,7 +6550,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONT
 ## IMPORTCONTRACT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM LPAREN ENSURE ASSUME SEMICOLON XOR
 ##
@@ -6561,7 +6562,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM L
 ## contract_ensure
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM LPAREN ENSURE STRING ASSERT
 ##
@@ -6573,7 +6574,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM L
 ## ENSURE option(STRING)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM LPAREN ENSURE TRUE WITH
 ##
@@ -6612,7 +6613,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM L
 ## ENSURE option(STRING) pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM LPAREN ENSURE XOR
 ##
@@ -6624,7 +6625,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM L
 ## ENSURE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM LPAREN REQUIRE ASSUME SEMICOLON XOR
 ##
@@ -6636,7 +6637,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM L
 ## contract_require
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM LPAREN REQUIRE STRING ASSERT
 ##
@@ -6648,7 +6649,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM L
 ## REQUIRE option(STRING)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM LPAREN REQUIRE TRUE WITH
 ##
@@ -6687,7 +6688,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM L
 ## REQUIRE option(STRING) pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM LPAREN REQUIRE XOR
 ##
@@ -6699,7 +6700,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM L
 ## REQUIRE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM LPAREN RPAREN XOR
 ##
@@ -6711,7 +6712,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM L
 ## MODE ident LPAREN list(contract_require) list(contract_ensure) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM LPAREN XOR
 ##
@@ -6723,7 +6724,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM L
 ## MODE ident LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM XOR
 ##
@@ -6735,7 +6736,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE SYM X
 ## MODE ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE XOR
 ##
@@ -6747,7 +6748,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE XOR
 ## MODE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR SYM COLON UINT8 EQUALS TRUE WITH
 ##
@@ -6786,7 +6787,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR SYM CO
 ## VAR ident COLON lustre_type EQUALS pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR SYM COLON UINT8 EQUALS XOR
 ##
@@ -6798,7 +6799,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR SYM CO
 ## VAR ident COLON lustre_type EQUALS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR SYM COLON UINT8 XOR
 ##
@@ -6811,7 +6812,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR SYM CO
 ## VAR ident COLON lustre_type
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR SYM COLON XOR
 ##
@@ -6823,7 +6824,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR SYM CO
 ## VAR ident COLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR SYM XOR
 ##
@@ -6835,7 +6836,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR SYM XO
 ## VAR ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR XOR
 ##
@@ -6847,7 +6848,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR XOR
 ## VAR
 ##
 
-Syntax Error
+Syntax Error! Unexpected delimiter found, perhaps an added semicolon.
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK XOR
 ##
@@ -6859,7 +6860,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK XOR
 ## CONTRACT_SSATBLOCK
 ##
 
-Syntax Error
+Syntax Error! Unexpected delimiter found, perhaps an added semicolon.
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT BVNOT TRUE VAR
 ##
@@ -6898,7 +6899,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT BVNOT TRUE VAR
 ## BVNOT pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT BVNOT XOR
 ##
@@ -6910,7 +6911,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT BVNOT XOR
 ## BVNOT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT COLON COLON XOR
 ##
@@ -6922,7 +6923,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT COLON COLON XOR
 ## two_colons
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN RPAREN COMMA TRUE RSQBRACKET
 ##
@@ -6941,7 +6942,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## In state 597, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN RPAREN COMMA XOR
 ##
@@ -6953,7 +6954,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified) COMMA LPAREN RESTART ident EVERY pexpr(quantified) RPAREN LPAREN loption(separated_nonempty_list(COMMA,pexpr(quantified))) RPAREN COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN RPAREN XOR
 ##
@@ -6966,7 +6967,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified) COMMA LPAREN RESTART ident EVERY pexpr(quantified) RPAREN LPAREN loption(separated_nonempty_list(COMMA,pexpr(quantified))) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN TRUE RESTART
 ##
@@ -6986,7 +6987,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## In state 589, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN XOR
 ##
@@ -6999,7 +7000,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified) COMMA LPAREN RESTART ident EVERY pexpr(quantified) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE RPAREN XOR
 ##
@@ -7012,7 +7013,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified) COMMA LPAREN RESTART ident EVERY pexpr(quantified) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY TRUE WITH
 ##
@@ -7052,7 +7053,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified) COMMA LPAREN RESTART ident EVERY pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM EVERY XOR
 ##
@@ -7065,7 +7066,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified) COMMA LPAREN RESTART ident EVERY
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA LPAREN RESTART SYM XOR
 ##
@@ -7078,7 +7079,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified) COMMA LPAREN RESTART ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA LPAREN RESTART XOR
 ##
@@ -7091,7 +7092,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified) COMMA LPAREN RESTART
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA LPAREN XOR
 ##
@@ -7104,7 +7105,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified) COMMA LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA SYM LPAREN RPAREN COMMA TRUE RSQBRACKET
 ##
@@ -7123,7 +7124,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## In state 597, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA SYM LPAREN RPAREN COMMA XOR
 ##
@@ -7135,7 +7136,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified) COMMA ident LPAREN loption(separated_nonempty_list(COMMA,pexpr(quantified))) RPAREN COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA SYM LPAREN RPAREN XOR
 ##
@@ -7148,7 +7149,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified) COMMA ident LPAREN loption(separated_nonempty_list(COMMA,pexpr(quantified))) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA SYM LPAREN TRUE RESTART
 ##
@@ -7168,7 +7169,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## In state 589, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA SYM LPAREN XOR
 ##
@@ -7181,7 +7182,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified) COMMA ident LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA SYM XOR
 ##
@@ -7194,7 +7195,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified) COMMA ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE COMMA XOR
 ##
@@ -7209,7 +7210,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified) COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRUE WITH
 ##
@@ -7251,7 +7252,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN TRU
 ## CONDACT LPAREN pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN XOR
 ##
@@ -7266,7 +7267,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN XOR
 ## CONDACT LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT XOR
 ##
@@ -7281,7 +7282,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT XOR
 ## CONDACT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CURRENT TRUE WHEN
 ##
@@ -7320,7 +7321,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CURRENT TRUE WHEN
 ## CURRENT pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CURRENT XOR
 ##
@@ -7332,7 +7333,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CURRENT XOR
 ## CURRENT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT EXISTS LPAREN RPAREN TRUE VAR
 ##
@@ -7371,7 +7372,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT EXISTS LPAREN RPAR
 ## EXISTS tlist(LPAREN,SEMICOLON,RPAREN,typed_idents) pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT EXISTS LPAREN RPAREN XOR
 ##
@@ -7383,7 +7384,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT EXISTS LPAREN RPAR
 ## EXISTS tlist(LPAREN,SEMICOLON,RPAREN,typed_idents)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT EXISTS XOR
 ##
@@ -7395,7 +7396,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT EXISTS XOR
 ## EXISTS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY LPAREN TRUE COMMA NUMERAL COMMA TRUE WITH
 ##
@@ -7434,7 +7435,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY LPAREN TRUE CO
 ## FBY LPAREN pexpr(quantified) COMMA NUMERAL COMMA pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY LPAREN TRUE COMMA NUMERAL COMMA XOR
 ##
@@ -7446,7 +7447,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY LPAREN TRUE CO
 ## FBY LPAREN pexpr(quantified) COMMA NUMERAL COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY LPAREN TRUE COMMA NUMERAL XOR
 ##
@@ -7458,7 +7459,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY LPAREN TRUE CO
 ## FBY LPAREN pexpr(quantified) COMMA NUMERAL
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY LPAREN TRUE COMMA XOR
 ##
@@ -7470,7 +7471,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY LPAREN TRUE CO
 ## FBY LPAREN pexpr(quantified) COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY LPAREN TRUE WITH
 ##
@@ -7509,7 +7510,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY LPAREN TRUE WI
 ## FBY LPAREN pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY LPAREN XOR
 ##
@@ -7521,7 +7522,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY LPAREN XOR
 ## FBY LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY XOR
 ##
@@ -7533,7 +7534,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY XOR
 ## FBY
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FORALL LPAREN RPAREN TRUE VAR
 ##
@@ -7572,7 +7573,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FORALL LPAREN RPAR
 ## FORALL tlist(LPAREN,SEMICOLON,RPAREN,typed_idents) pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FORALL LPAREN RPAREN XOR
 ##
@@ -7584,7 +7585,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FORALL LPAREN RPAR
 ## FORALL tlist(LPAREN,SEMICOLON,RPAREN,typed_idents)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FORALL XOR
 ##
@@ -7596,7 +7597,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FORALL XOR
 ## FORALL
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT HASH LPAREN TRUE RSQBRACKET
 ##
@@ -7615,7 +7616,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT HASH LPAREN TRUE R
 ## In state 597, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT HASH LPAREN XOR
 ##
@@ -7627,7 +7628,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT HASH LPAREN XOR
 ## HASH LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT HASH XOR
 ##
@@ -7639,7 +7640,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT HASH XOR
 ## HASH
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT IF TRUE THEN TRUE ELSE TRUE VAR
 ##
@@ -7678,7 +7679,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT IF TRUE THEN TRUE 
 ## IF pexpr(quantified) THEN pexpr(quantified) ELSE pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT IF TRUE THEN TRUE ELSE XOR
 ##
@@ -7690,7 +7691,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT IF TRUE THEN TRUE 
 ## IF pexpr(quantified) THEN pexpr(quantified) ELSE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT IF TRUE THEN TRUE WITH
 ##
@@ -7729,7 +7730,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT IF TRUE THEN TRUE 
 ## IF pexpr(quantified) THEN pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT IF TRUE THEN XOR
 ##
@@ -7741,7 +7742,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT IF TRUE THEN XOR
 ## IF pexpr(quantified) THEN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT IF TRUE WITH
 ##
@@ -7780,7 +7781,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT IF TRUE WITH
 ## IF pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT IF XOR
 ##
@@ -7792,7 +7793,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT IF XOR
 ## IF
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT TRUE VAR
 ##
@@ -7831,7 +7832,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT TRUE VAR
 ## INT pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT XOR
 ##
@@ -7843,7 +7844,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT XOR
 ## INT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT16 TRUE VAR
 ##
@@ -7882,7 +7883,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT16 TRUE VAR
 ## INT16 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT16 XOR
 ##
@@ -7894,7 +7895,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT16 XOR
 ## INT16
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT32 TRUE VAR
 ##
@@ -7933,7 +7934,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT32 TRUE VAR
 ## INT32 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT32 XOR
 ##
@@ -7945,7 +7946,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT32 XOR
 ## INT32
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT64 TRUE VAR
 ##
@@ -7984,7 +7985,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT64 TRUE VAR
 ## INT64 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT64 XOR
 ##
@@ -7996,7 +7997,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT64 XOR
 ## INT64
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT8 TRUE VAR
 ##
@@ -8035,7 +8036,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT8 TRUE VAR
 ## INT8 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT8 XOR
 ##
@@ -8047,7 +8048,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT8 XOR
 ## INT8
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LAST XOR
 ##
@@ -8059,7 +8060,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LAST XOR
 ## LAST
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LCURLYBRACKET TRUE RSQBRACKET
 ##
@@ -8078,7 +8079,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LCURLYBRACKET TRUE
 ## In state 597, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LCURLYBRACKET XOR
 ##
@@ -8090,7 +8091,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LCURLYBRACKET XOR
 ## LCURLYBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIAL DEFAULT RPAREN LPAREN TRUE RESTART
 ##
@@ -8109,7 +8110,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## In state 589, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIAL DEFAULT RPAREN LPAREN XOR
 ##
@@ -8121,7 +8122,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(quantified) RPAREN EVERY pexpr(quantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(quantified))) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIAL DEFAULT RPAREN XOR
 ##
@@ -8133,7 +8134,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(quantified) RPAREN EVERY pexpr(quantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(quantified))) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIAL DEFAULT TRUE RESTART
 ##
@@ -8152,7 +8153,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## In state 589, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIAL DEFAULT XOR
 ##
@@ -8164,7 +8165,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(quantified) RPAREN EVERY pexpr(quantified) INITIAL DEFAULT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE INITIAL XOR
 ##
@@ -8176,7 +8177,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(quantified) RPAREN EVERY pexpr(quantified) INITIAL
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE RPAREN LPAREN TRUE RESTART
 ##
@@ -8195,7 +8196,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## In state 589, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE RPAREN LPAREN XOR
 ##
@@ -8207,7 +8208,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(quantified) RPAREN EVERY pexpr(quantified) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE RPAREN XOR
 ##
@@ -8219,7 +8220,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(quantified) RPAREN EVERY pexpr(quantified) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY TRUE WITH
 ##
@@ -8259,7 +8260,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(quantified) RPAREN EVERY pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN EVERY XOR
 ##
@@ -8272,7 +8273,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(quantified) RPAREN EVERY
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE RPAREN XOR
 ##
@@ -8285,7 +8286,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(quantified) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM EVERY TRUE WITH
 ##
@@ -8325,7 +8326,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM EVERY XOR
 ##
@@ -8338,7 +8339,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## LPAREN ACTIVATE LPAREN RESTART ident EVERY
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART SYM XOR
 ##
@@ -8351,7 +8352,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## LPAREN ACTIVATE LPAREN RESTART ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN RESTART XOR
 ##
@@ -8364,7 +8365,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## LPAREN ACTIVATE LPAREN RESTART
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LPAREN XOR
 ##
@@ -8377,7 +8378,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE LP
 ## LPAREN ACTIVATE LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY TRUE RPAREN LPAREN TRUE RESTART
 ##
@@ -8396,7 +8397,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## In state 589, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY TRUE RPAREN LPAREN XOR
 ##
@@ -8408,7 +8409,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(quantified))) RESTART EVERY pexpr(quantified) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY TRUE RPAREN XOR
 ##
@@ -8420,7 +8421,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(quantified))) RESTART EVERY pexpr(quantified) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY TRUE WITH
 ##
@@ -8459,7 +8460,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(quantified))) RESTART EVERY pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART EVERY XOR
 ##
@@ -8471,7 +8472,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(quantified))) RESTART EVERY
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RESTART XOR
 ##
@@ -8483,7 +8484,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(quantified))) RESTART
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RPAREN LPAREN TRUE RESTART
 ##
@@ -8502,7 +8503,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## In state 589, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RPAREN LPAREN XOR
 ##
@@ -8514,7 +8515,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(quantified))) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT RPAREN XOR
 ##
@@ -8526,7 +8527,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) INITIAL DEFAULT loption(separated_nonempty_list(COMMA,pexpr(quantified))) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT TRUE RCURLYBRACKET
 ##
@@ -8546,7 +8547,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## In state 589, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE INITIAL DEFAULT XOR
 ##
@@ -8559,7 +8560,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) INITIAL DEFAULT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE INITIAL XOR
 ##
@@ -8572,7 +8573,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) INITIAL
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY TRUE RPAREN LPAREN TRUE RESTART
 ##
@@ -8591,7 +8592,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## In state 589, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY TRUE RPAREN LPAREN XOR
 ##
@@ -8603,7 +8604,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) RESTART EVERY pexpr(quantified) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY TRUE RPAREN XOR
 ##
@@ -8615,7 +8616,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) RESTART EVERY pexpr(quantified) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY TRUE WITH
 ##
@@ -8654,7 +8655,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) RESTART EVERY pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE RESTART EVERY XOR
 ##
@@ -8666,7 +8667,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) RESTART EVERY
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE RESTART XOR
 ##
@@ -8678,7 +8679,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) RESTART
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE RPAREN LPAREN TRUE RESTART
 ##
@@ -8697,7 +8698,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## In state 589, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE RPAREN LPAREN XOR
 ##
@@ -8709,7 +8710,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE RPAREN XOR
 ##
@@ -8721,7 +8722,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY TRUE WITH
 ##
@@ -8763,7 +8764,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM EVERY XOR
 ##
@@ -8778,7 +8779,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident EVERY
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SYM XOR
 ##
@@ -8793,7 +8794,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE SY
 ## LPAREN ACTIVATE ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE XOR
 ##
@@ -8810,7 +8811,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE XO
 ## LPAREN ACTIVATE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN TRUE RESTART
 ##
@@ -8829,7 +8830,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART SYM
 ## In state 589, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART SYM EVERY TRUE RPAREN LPAREN XOR
 ##
@@ -8841,7 +8842,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART SYM
 ## LPAREN RESTART ident EVERY pexpr(quantified) RPAREN LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART SYM EVERY TRUE RPAREN XOR
 ##
@@ -8853,7 +8854,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART SYM
 ## LPAREN RESTART ident EVERY pexpr(quantified) RPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART SYM EVERY TRUE WITH
 ##
@@ -8892,7 +8893,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART SYM
 ## LPAREN RESTART ident EVERY pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART SYM EVERY XOR
 ##
@@ -8904,7 +8905,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART SYM
 ## LPAREN RESTART ident EVERY
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART SYM XOR
 ##
@@ -8916,7 +8917,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART SYM
 ## LPAREN RESTART ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART XOR
 ##
@@ -8928,7 +8929,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART XOR
 ## LPAREN RESTART
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN TRUE COMMA TRUE RSQBRACKET
 ##
@@ -8947,7 +8948,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN TRUE COMMA 
 ## In state 597, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN TRUE COMMA XOR
 ##
@@ -8959,7 +8960,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN TRUE COMMA 
 ## LPAREN pexpr(quantified) COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN TRUE VAR
 ##
@@ -9000,7 +9001,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN TRUE VAR
 ## LPAREN pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN TRUE WITH DOTPERCENT ASSUME EQUALS TRUE WITH
 ##
@@ -9039,7 +9040,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN TRUE WITH D
 ## LPAREN pexpr(quantified) WITH nonempty_list(label_or_index) EQUALS pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN TRUE WITH DOTPERCENT ASSUME EQUALS XOR
 ##
@@ -9051,7 +9052,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN TRUE WITH D
 ## LPAREN pexpr(quantified) WITH nonempty_list(label_or_index) EQUALS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN TRUE WITH XOR
 ##
@@ -9063,7 +9064,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN TRUE WITH X
 ## LPAREN pexpr(quantified) WITH
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN XOR
 ##
@@ -9084,7 +9085,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN XOR
 ## LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LSQBRACKET TRUE COMMA XOR
 ##
@@ -9096,7 +9097,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LSQBRACKET TRUE CO
 ## pexpr(quantified) COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LSQBRACKET TRUE RPAREN
 ##
@@ -9115,7 +9116,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LSQBRACKET TRUE RP
 ## In state 597, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LSQBRACKET TRUE WITH
 ##
@@ -9155,7 +9156,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LSQBRACKET TRUE WI
 ## pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LSQBRACKET XOR
 ##
@@ -9167,7 +9168,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LSQBRACKET XOR
 ## LSQBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE LPAREN SYM SEMICOLON TRUE SEMICOLON TRUE WITH
 ##
@@ -9206,7 +9207,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE LPAREN SYM S
 ## MERGE LPAREN ident SEMICOLON pexpr(quantified) SEMICOLON pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE LPAREN SYM SEMICOLON TRUE SEMICOLON XOR
 ##
@@ -9218,7 +9219,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE LPAREN SYM S
 ## MERGE LPAREN ident SEMICOLON pexpr(quantified) SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE LPAREN SYM SEMICOLON TRUE WITH
 ##
@@ -9257,7 +9258,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE LPAREN SYM S
 ## MERGE LPAREN ident SEMICOLON pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE LPAREN SYM SEMICOLON XOR
 ##
@@ -9269,7 +9270,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE LPAREN SYM S
 ## MERGE LPAREN ident SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE LPAREN SYM XOR
 ##
@@ -9281,7 +9282,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE LPAREN SYM X
 ## MERGE LPAREN ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE LPAREN XOR
 ##
@@ -9293,7 +9294,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE LPAREN XOR
 ## MERGE LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE SYM XOR
 ##
@@ -9305,7 +9306,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE SYM XOR
 ## MERGE ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE XOR
 ##
@@ -9318,7 +9319,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE XOR
 ## MERGE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MINUS TRUE VAR
 ##
@@ -9357,7 +9358,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MINUS TRUE VAR
 ## MINUS pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MINUS XOR
 ##
@@ -9369,7 +9370,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MINUS XOR
 ## MINUS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT NOT TRUE VAR
 ##
@@ -9408,7 +9409,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT NOT TRUE VAR
 ## NOT pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT NOT XOR
 ##
@@ -9420,7 +9421,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT NOT XOR
 ## NOT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT PRE TRUE VAR
 ##
@@ -9459,7 +9460,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT PRE TRUE VAR
 ## PRE pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT PRE XOR
 ##
@@ -9471,7 +9472,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT PRE XOR
 ## PRE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT REAL TRUE VAR
 ##
@@ -9510,7 +9511,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT REAL TRUE VAR
 ## REAL pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT REAL XOR
 ##
@@ -9522,7 +9523,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT REAL XOR
 ## REAL
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT SYM VAR
 ##
@@ -9537,7 +9538,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT SYM VAR
 ## ident
 ##
 
-Syntax Error
+Syntax Error! Expected a delimiter, perhaps a missing semicolon.
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE AND TRUE VAR
 ##
@@ -9576,7 +9577,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE AND TRUE VAR
 ## pexpr(quantified) AND pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE AND XOR
 ##
@@ -9588,7 +9589,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE AND XOR
 ## pexpr(quantified) AND
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE ARROW TRUE VAR
 ##
@@ -9627,7 +9628,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE ARROW TRUE VA
 ## pexpr(quantified) ARROW pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE ARROW XOR
 ##
@@ -9639,7 +9640,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE ARROW XOR
 ## pexpr(quantified) ARROW
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE BVAND TRUE VAR
 ##
@@ -9678,7 +9679,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE BVAND TRUE VA
 ## pexpr(quantified) BVAND pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE BVAND XOR
 ##
@@ -9690,7 +9691,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE BVAND XOR
 ## pexpr(quantified) BVAND
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE BVOR TRUE VAR
 ##
@@ -9729,7 +9730,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE BVOR TRUE VAR
 ## pexpr(quantified) BVOR pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE BVOR XOR
 ##
@@ -9741,7 +9742,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE BVOR XOR
 ## pexpr(quantified) BVOR
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE CARET TRUE VAR
 ##
@@ -9780,7 +9781,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE CARET TRUE VA
 ## pexpr(quantified) CARET pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE CARET XOR
 ##
@@ -9792,7 +9793,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE CARET XOR
 ## pexpr(quantified) CARET
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE DIV TRUE VAR
 ##
@@ -9831,7 +9832,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE DIV TRUE VAR
 ## pexpr(quantified) DIV pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE DIV XOR
 ##
@@ -9843,7 +9844,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE DIV XOR
 ## pexpr(quantified) DIV
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE DOT XOR
 ##
@@ -9855,7 +9856,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE DOT XOR
 ## pexpr(quantified) DOT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE DOTPERCENT XOR
 ##
@@ -9867,7 +9868,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE DOTPERCENT XO
 ## pexpr(quantified) DOTPERCENT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE EQUALS TRUE VAR
 ##
@@ -9906,7 +9907,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE EQUALS TRUE V
 ## pexpr(quantified) EQUALS pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE EQUALS XOR
 ##
@@ -9918,7 +9919,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE EQUALS XOR
 ## pexpr(quantified) EQUALS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE GT TRUE VAR
 ##
@@ -9957,7 +9958,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE GT TRUE VAR
 ## pexpr(quantified) GT pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE GT XOR
 ##
@@ -9969,7 +9970,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE GT XOR
 ## pexpr(quantified) GT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE GTE TRUE VAR
 ##
@@ -10008,7 +10009,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE GTE TRUE VAR
 ## pexpr(quantified) GTE pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE GTE XOR
 ##
@@ -10020,7 +10021,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE GTE XOR
 ## pexpr(quantified) GTE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE IMPL TRUE VAR
 ##
@@ -10059,7 +10060,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE IMPL TRUE VAR
 ## pexpr(quantified) IMPL pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE IMPL XOR
 ##
@@ -10071,7 +10072,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE IMPL XOR
 ## pexpr(quantified) IMPL
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE INTDIV TRUE VAR
 ##
@@ -10110,7 +10111,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE INTDIV TRUE V
 ## pexpr(quantified) INTDIV pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE INTDIV XOR
 ##
@@ -10122,7 +10123,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE INTDIV XOR
 ## pexpr(quantified) INTDIV
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LSH TRUE VAR
 ##
@@ -10161,7 +10162,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LSH TRUE VAR
 ## pexpr(quantified) LSH pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LSH XOR
 ##
@@ -10173,7 +10174,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LSH XOR
 ## pexpr(quantified) LSH
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LSQBRACKET XOR
 ##
@@ -10185,7 +10186,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LSQBRACKET XO
 ## pexpr(quantified) LSQBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LT TRUE VAR
 ##
@@ -10224,7 +10225,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LT TRUE VAR
 ## pexpr(quantified) LT pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LT XOR
 ##
@@ -10236,7 +10237,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LT XOR
 ## pexpr(quantified) LT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LTE TRUE VAR
 ##
@@ -10275,7 +10276,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LTE TRUE VAR
 ## pexpr(quantified) LTE pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LTE XOR
 ##
@@ -10287,7 +10288,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LTE XOR
 ## pexpr(quantified) LTE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE MINUS TRUE VAR
 ##
@@ -10326,7 +10327,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE MINUS TRUE VA
 ## pexpr(quantified) MINUS pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE MINUS XOR
 ##
@@ -10338,7 +10339,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE MINUS XOR
 ## pexpr(quantified) MINUS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE MOD TRUE VAR
 ##
@@ -10377,7 +10378,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE MOD TRUE VAR
 ## pexpr(quantified) MOD pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE MOD XOR
 ##
@@ -10389,7 +10390,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE MOD XOR
 ## pexpr(quantified) MOD
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE MULT TRUE VAR
 ##
@@ -10428,7 +10429,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE MULT TRUE VAR
 ## pexpr(quantified) MULT pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE MULT XOR
 ##
@@ -10440,7 +10441,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE MULT XOR
 ## pexpr(quantified) MULT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE NEQ TRUE VAR
 ##
@@ -10479,7 +10480,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE NEQ TRUE VAR
 ## pexpr(quantified) NEQ pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE NEQ XOR
 ##
@@ -10491,7 +10492,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE NEQ XOR
 ## pexpr(quantified) NEQ
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE OR TRUE VAR
 ##
@@ -10530,7 +10531,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE OR TRUE VAR
 ## pexpr(quantified) OR pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE OR XOR
 ##
@@ -10542,7 +10543,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE OR XOR
 ## pexpr(quantified) OR
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE PIPE TRUE VAR
 ##
@@ -10581,7 +10582,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE PIPE TRUE VAR
 ## pexpr(quantified) PIPE pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE PIPE XOR
 ##
@@ -10593,7 +10594,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE PIPE XOR
 ## pexpr(quantified) PIPE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE PLUS TRUE VAR
 ##
@@ -10632,7 +10633,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE PLUS TRUE VAR
 ## pexpr(quantified) PLUS pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE PLUS XOR
 ##
@@ -10644,7 +10645,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE PLUS XOR
 ## pexpr(quantified) PLUS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE RSH TRUE VAR
 ##
@@ -10683,7 +10684,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE RSH TRUE VAR
 ## pexpr(quantified) RSH pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE RSH XOR
 ##
@@ -10695,7 +10696,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE RSH XOR
 ## pexpr(quantified) RSH
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE WHEN XOR
 ##
@@ -10707,7 +10708,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE WHEN XOR
 ## pexpr(quantified) WHEN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE WITH
 ##
@@ -10746,7 +10747,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE WITH
 ## ASSERT pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE XOR TRUE VAR
 ##
@@ -10785,7 +10786,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE XOR TRUE VAR
 ## pexpr(quantified) XOR pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE XOR XOR
 ##
@@ -10797,7 +10798,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE XOR XOR
 ## pexpr(quantified) XOR
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT16 TRUE VAR
 ##
@@ -10836,7 +10837,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT16 TRUE VAR
 ## UINT16 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT16 XOR
 ##
@@ -10848,7 +10849,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT16 XOR
 ## UINT16
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT32 TRUE VAR
 ##
@@ -10887,7 +10888,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT32 TRUE VAR
 ## UINT32 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT32 XOR
 ##
@@ -10899,7 +10900,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT32 XOR
 ## UINT32
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT64 TRUE VAR
 ##
@@ -10938,7 +10939,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT64 TRUE VAR
 ## UINT64 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT64 XOR
 ##
@@ -10950,7 +10951,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT64 XOR
 ## UINT64
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT8 TRUE VAR
 ##
@@ -10989,7 +10990,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT8 TRUE VAR
 ## UINT8 pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT8 XOR
 ##
@@ -11001,7 +11002,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT8 XOR
 ## UINT8
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WITH TRUE THEN TRUE ELSE TRUE VAR
 ##
@@ -11040,7 +11041,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WITH TRUE THEN TRU
 ## WITH pexpr(quantified) THEN pexpr(quantified) ELSE pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WITH TRUE THEN TRUE ELSE XOR
 ##
@@ -11052,7 +11053,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WITH TRUE THEN TRU
 ## WITH pexpr(quantified) THEN pexpr(quantified) ELSE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WITH TRUE THEN TRUE WITH
 ##
@@ -11091,7 +11092,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WITH TRUE THEN TRU
 ## WITH pexpr(quantified) THEN pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WITH TRUE THEN XOR
 ##
@@ -11103,7 +11104,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WITH TRUE THEN XOR
 ## WITH pexpr(quantified) THEN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WITH TRUE WITH
 ##
@@ -11142,7 +11143,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WITH TRUE WITH
 ## WITH pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WITH XOR
 ##
@@ -11154,7 +11155,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WITH XOR
 ## WITH
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT XOR
 ##
@@ -11166,7 +11167,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT XOR
 ## ASSERT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON INITIAL STATE XOR
 ##
@@ -11178,7 +11179,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON INITIAL STATE X
 ## INITIAL STATE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON INITIAL XOR
 ##
@@ -11190,7 +11191,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON INITIAL XOR
 ## INITIAL
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON RETURNS DOTDOT XOR
 ##
@@ -11202,7 +11203,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON RETURNS DOTDOT 
 ## AUTOMATON option(ident) list(state) RETURNS DOTDOT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON RETURNS SYM RCURLYBRACKET
 ##
@@ -11221,7 +11222,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON RETURNS SYM RCU
 ## In state 8, spurious reduction of production ident_list -> separated_nonempty_list(COMMA,ident) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON RETURNS XOR
 ##
@@ -11234,7 +11235,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON RETURNS XOR
 ## AUTOMATON option(ident) list(state) RETURNS
 ##
 
-Syntax Error
+Syntax Error! Unexpected symbol found.
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM COLON ARROW
 ##
@@ -11247,7 +11248,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM COLON
 ## state_decl option(COLON)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM LET AUTOMATON STATE SYM PROPERTY_SSBLOCKSTART
 ##
@@ -11270,7 +11271,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM LET A
 ## In state 935, spurious reduction of production node_equation -> AUTOMATON option(ident) nonempty_list(state) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM LET TEL XOR
 ##
@@ -11282,7 +11283,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM LET T
 ## state_decl option(COLON) unless_transitions list(node_local_decl) LET list(node_equation) TEL
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM LET XOR
 ##
@@ -11294,7 +11295,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM LET X
 ## state_decl option(COLON) unless_transitions list(node_local_decl) LET
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS IF TRUE IF TRUE RESUME ASSUME XOR
 ##
@@ -11307,7 +11308,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## IF pexpr(nonquantified) branch
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS IF TRUE IF TRUE WITH
 ##
@@ -11347,7 +11348,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## IF pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS IF TRUE IF XOR
 ##
@@ -11360,7 +11361,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## IF
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS IF TRUE RESUME ASSUME ELSE RESTART ASSUME XOR
 ##
@@ -11372,7 +11373,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## IF pexpr(nonquantified) branch elsif_branch
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS IF TRUE RESUME ASSUME ELSE XOR
 ##
@@ -11384,7 +11385,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## ELSE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS IF TRUE RESUME ASSUME ELSIF TRUE RESUME ASSUME XOR
 ##
@@ -11397,7 +11398,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## ELSIF pexpr(nonquantified) branch
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS IF TRUE RESUME ASSUME ELSIF TRUE WITH
 ##
@@ -11437,7 +11438,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## ELSIF pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS IF TRUE RESUME ASSUME ELSIF XOR
 ##
@@ -11450,7 +11451,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## ELSIF
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS IF TRUE RESUME ASSUME XOR
 ##
@@ -11463,7 +11464,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## IF pexpr(nonquantified) target
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS IF TRUE WITH
 ##
@@ -11505,7 +11506,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## IF pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS IF XOR
 ##
@@ -11520,7 +11521,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## IF
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS RESTART XOR
 ##
@@ -11532,7 +11533,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## RESTART
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS RESUME SYM SEMICOLON XOR
 ##
@@ -11544,7 +11545,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## UNLESS transition_branch
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS RESUME SYM XOR
 ##
@@ -11556,7 +11557,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## branch
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS RESUME XOR
 ##
@@ -11568,7 +11569,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## RESUME
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS TRUE RESUME ASSUME XOR
 ##
@@ -11580,7 +11581,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## pexpr(nonquantified) target
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS TRUE WITH
 ##
@@ -11619,7 +11620,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLESS XOR
 ##
@@ -11631,7 +11632,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNLES
 ## UNLESS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNTIL RESUME ASSUME VAR
 ##
@@ -11650,7 +11651,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNTIL
 ## In state 911, spurious reduction of production transition_branch -> branch option(SEMICOLON) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNTIL XOR
 ##
@@ -11662,7 +11663,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM UNTIL
 ## UNTIL
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM XOR
 ##
@@ -11675,7 +11676,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE SYM XOR
 ## state_decl
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE XOR
 ##
@@ -11687,7 +11688,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE XOR
 ## STATE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON SYM IMPORTED
 ##
@@ -11701,7 +11702,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON SYM IMPORTED
 ## AUTOMATON option(ident)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON XOR
 ##
@@ -11715,7 +11716,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON XOR
 ## AUTOMATON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET CHECK STRING ASSERT
 ##
@@ -11727,7 +11728,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET CHECK STRING ASSERT
 ## CHECK option(STRING)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET CHECK TRUE WITH
 ##
@@ -11766,7 +11767,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET CHECK TRUE WITH
 ## CHECK option(STRING) pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET CHECK XOR
 ##
@@ -11778,7 +11779,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET CHECK XOR
 ## CHECK
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET LPAREN SYM EQUALS
 ##
@@ -11798,7 +11799,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET LPAREN SYM EQUALS
 ## In state 867, spurious reduction of production struct_item_list -> separated_nonempty_list(COMMA,struct_item) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET LPAREN XOR
 ##
@@ -11811,7 +11812,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET LPAREN XOR
 ## LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_B_ANNOT COLON TRUE XOR
 ##
@@ -11823,7 +11824,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_B_ANNOT COLON TRUE X
 ## MAIN_B_ANNOT COLON boolean
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_B_ANNOT COLON XOR
 ##
@@ -11835,7 +11836,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_B_ANNOT COLON XOR
 ## MAIN_B_ANNOT COLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_B_ANNOT XOR
 ##
@@ -11847,7 +11848,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_B_ANNOT XOR
 ## MAIN_B_ANNOT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART COLON TRUE SEMICOLON PROPERTY_SSBLOCKSTART
 ##
@@ -11859,7 +11860,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART COLON T
 ## MAIN_PSBLOCKSTART COLON boolean option(SEMICOLON)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART COLON TRUE XOR
 ##
@@ -11871,7 +11872,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART COLON T
 ## MAIN_PSBLOCKSTART COLON boolean
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART COLON XOR
 ##
@@ -11883,7 +11884,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART COLON X
 ## MAIN_PSBLOCKSTART COLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART SEMICOLON PROPERTY_SSBLOCKSTART
 ##
@@ -11895,7 +11896,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART SEMICOL
 ## MAIN_PSBLOCKSTART option(SEMICOLON)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART XOR
 ##
@@ -11908,7 +11909,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART XOR
 ## MAIN_PSBLOCKSTART
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_P_ANNOT XOR
 ##
@@ -11920,7 +11921,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_P_ANNOT XOR
 ## MAIN_P_ANNOT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART COLON TRUE SEMICOLON XOR
 ##
@@ -11932,7 +11933,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART COLON T
 ## MAIN_SSBLOCKSTART COLON boolean option(SEMICOLON)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART COLON TRUE XOR
 ##
@@ -11944,7 +11945,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART COLON T
 ## MAIN_SSBLOCKSTART COLON boolean
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART COLON XOR
 ##
@@ -11956,7 +11957,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART COLON X
 ## MAIN_SSBLOCKSTART COLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART SEMICOLON XOR
 ##
@@ -11968,7 +11969,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART SEMICOL
 ## MAIN_SSBLOCKSTART option(SEMICOLON)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART SSBLOCKEND XOR
 ##
@@ -11980,7 +11981,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART SSBLOCK
 ## node_item
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART XOR
 ##
@@ -11993,7 +11994,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART XOR
 ## MAIN_SSBLOCKSTART
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_ANNOT STRING ASSERT
 ##
@@ -12005,7 +12006,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_ANNOT STRING ASS
 ## PROPERTY_ANNOT option(STRING)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_ANNOT TRUE WITH
 ##
@@ -12044,7 +12045,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_ANNOT TRUE WITH
 ## PROPERTY_ANNOT option(STRING) pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_ANNOT XOR
 ##
@@ -12056,7 +12057,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_ANNOT XOR
 ## PROPERTY_ANNOT
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART COLON TRUE SEMICOLON XOR
 ##
@@ -12068,7 +12069,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART COL
 ## PROPERTY_PSBLOCKSTART option(STRING) COLON pexpr(quantified) SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART COLON TRUE WITH
 ##
@@ -12107,7 +12108,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART COL
 ## PROPERTY_PSBLOCKSTART option(STRING) COLON pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART COLON XOR
 ##
@@ -12120,7 +12121,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART COL
 ## PROPERTY_PSBLOCKSTART option(STRING) COLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART STRING ASSERT
 ##
@@ -12133,7 +12134,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART STR
 ## PROPERTY_PSBLOCKSTART option(STRING)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART TRUE SEMICOLON XOR
 ##
@@ -12145,7 +12146,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART TRU
 ## PROPERTY_PSBLOCKSTART option(STRING) pexpr(quantified) SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART TRUE WITH
 ##
@@ -12184,7 +12185,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART TRU
 ## PROPERTY_PSBLOCKSTART option(STRING) pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART XOR
 ##
@@ -12197,7 +12198,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART XOR
 ## PROPERTY_PSBLOCKSTART
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART COLON COLON XOR
 ##
@@ -12210,7 +12211,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART COL
 ## COLON COLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART COLON TRUE SEMICOLON XOR
 ##
@@ -12222,7 +12223,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART COL
 ## PROPERTY_SSBLOCKSTART option(STRING) COLON pexpr(quantified) SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART COLON TRUE WITH
 ##
@@ -12261,7 +12262,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART COL
 ## PROPERTY_SSBLOCKSTART option(STRING) COLON pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART COLON XOR
 ##
@@ -12274,7 +12275,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART COL
 ## PROPERTY_SSBLOCKSTART option(STRING) COLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART STRING ASSERT
 ##
@@ -12287,7 +12288,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART STR
 ## PROPERTY_SSBLOCKSTART option(STRING)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART TRUE SEMICOLON XOR
 ##
@@ -12299,7 +12300,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART TRU
 ## PROPERTY_SSBLOCKSTART option(STRING) pexpr(quantified) SEMICOLON
 ##
 
-Syntax Error
+Syntax Error! Perhaps missing variable assignment for expression.
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART TRUE WITH
 ##
@@ -12338,7 +12339,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART TRU
 ## PROPERTY_SSBLOCKSTART option(STRING) pexpr(quantified)
 ##
 
-Syntax Error
+Syntax Error! Perhaps missing variable assignment for expression.
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART XOR
 ##
@@ -12351,7 +12352,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART XOR
 ## PROPERTY_SSBLOCKSTART
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM COMMA XOR
 ##
@@ -12363,7 +12364,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM COMMA XOR
 ## struct_item COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM EQUALS TRUE WITH
 ##
@@ -12402,7 +12403,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM EQUALS TRUE WITH
 ## left_side EQUALS pexpr(nonquantified)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM EQUALS XOR
 ##
@@ -12414,7 +12415,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM EQUALS XOR
 ## left_side EQUALS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM LSQBRACKET SYM RSQBRACKET XOR
 ##
@@ -12427,7 +12428,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM LSQBRACKET SYM RSQBRA
 ## index_var
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM LSQBRACKET SYM XOR
 ##
@@ -12439,7 +12440,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM LSQBRACKET SYM XOR
 ## LSQBRACKET ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM LSQBRACKET XOR
 ##
@@ -12451,7 +12452,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM LSQBRACKET XOR
 ## LSQBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM RPAREN
 ##
@@ -12472,7 +12473,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM RPAREN
 ## In state 922, spurious reduction of production left_side -> struct_item_list 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM XOR
 ##
@@ -12485,7 +12486,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET SYM XOR
 ## ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET TEL XOR
 ##
@@ -12497,7 +12498,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET TEL XOR
 ## list(node_local_decl) LET list(node_item) TEL
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET XOR
 ##
@@ -12509,7 +12510,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET XOR
 ## list(node_local_decl) LET
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON CONDACT
 ##
@@ -12521,7 +12522,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON CONDACT
 ## ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) option(SEMICOLON)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN TYPE
 ##
@@ -12541,7 +12542,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN TYPE
 ## In state 772, spurious reduction of production node_decl -> ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) option(SEMICOLON) option(contract_spec) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN VAR SYM COLON ASSUME RPAREN
 ##
@@ -12560,7 +12561,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN VAR SYM COLON ASSUME RPAREN
 ## In state 447, spurious reduction of production clocked_typed_idents -> typed_idents 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN VAR SYM COLON ASSUME SEMICOLON XOR
 ##
@@ -12573,7 +12574,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN VAR SYM COLON ASSUME SEMICOLO
 ## var_decl
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN VAR XOR
 ##
@@ -12585,7 +12586,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN VAR XOR
 ## VAR
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN XOR
 ##
@@ -12597,7 +12598,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN XOR
 ## ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN SYM COLON ASSUME RCURLYBRACKET
 ##
@@ -12616,7 +12617,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN SYM COLON ASSUME RCURLYBRACKET
 ## In state 242, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN SYM COLON ASSUME SEMICOLON XOR
 ##
@@ -12629,7 +12630,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN SYM COLON ASSUME SEMICOLON XOR
 ## clocked_typed_idents SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN SYM COLON ASSUME WHEN ASSUME XOR
 ##
@@ -12649,7 +12650,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN SYM COLON ASSUME WHEN ASSUME XOR
 ## In state 449, spurious reduction of production clocked_typed_idents -> typed_idents WHEN clock_expr 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN SYM COLON ASSUME WHEN XOR
 ##
@@ -12661,7 +12662,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN SYM COLON ASSUME WHEN XOR
 ## typed_idents WHEN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN XOR
 ##
@@ -12674,7 +12675,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN XOR
 ## LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN RETURNS XOR
 ##
@@ -12686,7 +12687,7 @@ main: NODE SYM LPAREN RPAREN RETURNS XOR
 ## ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN RPAREN XOR
 ##
@@ -12698,7 +12699,7 @@ main: NODE SYM LPAREN RPAREN XOR
 ## ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN SYM COLON ASSUME RCURLYBRACKET
 ##
@@ -12718,7 +12719,7 @@ main: NODE SYM LPAREN SYM COLON ASSUME RCURLYBRACKET
 ## In state 419, spurious reduction of production const_typed_idents -> boption(CONST) typed_idents 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN SYM COLON ASSUME SEMICOLON XOR
 ##
@@ -12731,7 +12732,7 @@ main: NODE SYM LPAREN SYM COLON ASSUME SEMICOLON XOR
 ## const_clocked_typed_idents SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN SYM COLON ASSUME WHEN ASSUME XOR
 ##
@@ -12751,7 +12752,7 @@ main: NODE SYM LPAREN SYM COLON ASSUME WHEN ASSUME XOR
 ## In state 428, spurious reduction of production const_clocked_typed_idents -> const_typed_idents WHEN clock_expr 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN SYM COLON ASSUME WHEN XOR
 ##
@@ -12763,7 +12764,7 @@ main: NODE SYM LPAREN SYM COLON ASSUME WHEN XOR
 ## const_typed_idents WHEN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM LPAREN XOR
 ##
@@ -12776,7 +12777,7 @@ main: NODE SYM LPAREN XOR
 ## LPAREN
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE SYM XOR
 ##
@@ -12789,7 +12790,7 @@ main: NODE SYM XOR
 ## NODE ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: NODE XOR
 ##
@@ -12803,7 +12804,7 @@ main: NODE XOR
 ## NODE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: TYPE SYM COMMA XOR
 ##
@@ -12815,7 +12816,7 @@ main: TYPE SYM COMMA XOR
 ## ident COMMA
 ##
 
-Syntax Error
+Syntax Error!
 
 main: TYPE SYM EQUALS LCURLYBRACKET RCURLYBRACKET XOR
 ##
@@ -12827,7 +12828,7 @@ main: TYPE SYM EQUALS LCURLYBRACKET RCURLYBRACKET XOR
 ## TYPE ident_list EQUALS record_type
 ##
 
-Syntax Error
+Syntax Error!
 
 main: TYPE SYM EQUALS LCURLYBRACKET SYM COLON ASSUME SEMICOLON XOR
 ##
@@ -12840,7 +12841,7 @@ main: TYPE SYM EQUALS LCURLYBRACKET SYM COLON ASSUME SEMICOLON XOR
 ## typed_idents SEMICOLON
 ##
 
-Syntax Error
+Syntax Error!
 
 main: TYPE SYM EQUALS LCURLYBRACKET SYM COLON ASSUME WHEN
 ##
@@ -12859,7 +12860,7 @@ main: TYPE SYM EQUALS LCURLYBRACKET SYM COLON ASSUME WHEN
 ## In state 242, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: TYPE SYM EQUALS LCURLYBRACKET XOR
 ##
@@ -12872,7 +12873,7 @@ main: TYPE SYM EQUALS LCURLYBRACKET XOR
 ## LCURLYBRACKET
 ##
 
-Syntax Error
+Syntax Error!
 
 main: TYPE SYM EQUALS STRUCT LAST
 ##
@@ -12884,7 +12885,7 @@ main: TYPE SYM EQUALS STRUCT LAST
 ## option(STRUCT)
 ##
 
-Syntax Error
+Syntax Error!
 
 main: TYPE SYM EQUALS UINT8 XOR
 ##
@@ -12897,7 +12898,7 @@ main: TYPE SYM EQUALS UINT8 XOR
 ## TYPE ident_list EQUALS lustre_type
 ##
 
-Syntax Error
+Syntax Error!
 
 main: TYPE SYM EQUALS XOR
 ##
@@ -12910,7 +12911,7 @@ main: TYPE SYM EQUALS XOR
 ## TYPE ident_list EQUALS
 ##
 
-Syntax Error
+Syntax Error!
 
 main: TYPE SYM RCURLYBRACKET
 ##
@@ -12931,7 +12932,7 @@ main: TYPE SYM RCURLYBRACKET
 ## In state 8, spurious reduction of production ident_list -> separated_nonempty_list(COMMA,ident) 
 ##
 
-Syntax Error
+Syntax Error!
 
 main: TYPE SYM SEMICOLON XOR
 ##
@@ -12943,7 +12944,7 @@ main: TYPE SYM SEMICOLON XOR
 ## decl
 ##
 
-Syntax Error
+Syntax Error!
 
 main: TYPE SYM XOR
 ##
@@ -12956,7 +12957,7 @@ main: TYPE SYM XOR
 ## ident
 ##
 
-Syntax Error
+Syntax Error!
 
 main: TYPE XOR
 ##
@@ -12970,7 +12971,7 @@ main: TYPE XOR
 ## TYPE
 ##
 
-Syntax Error
+Syntax Error!
 
 main: XOR
 ##
@@ -12982,5 +12983,5 @@ main: XOR
 ##
 ##
 
-Syntax Error
+Syntax Error!
 
