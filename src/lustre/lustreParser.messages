@@ -707,7 +707,7 @@ one_expr: FBY XOR
 ## FBY
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing identifier in type.
 
 one_expr: FORALL LPAREN RPAREN TRUE VAR
 ##
@@ -803,7 +803,10 @@ one_expr: FORALL LPAREN SYM COLON UINT8 XOR
 ## ident_list_pos COLON lustre_type
 ##
 
-Syntax Error!
+Syntax Error! Possible diagnosis includes:
+1. A missing colon between a variable and its type
+2. A missing semicolon separating variables
+3. A missing type for a variable
 
 one_expr: FORALL LPAREN SYM COLON XOR
 ##
@@ -840,7 +843,10 @@ one_expr: FORALL LPAREN SYM XOR
 ## ident
 ##
 
-Syntax Error! Perhaps a missing delimiter such as a semicolon.
+Syntax Error! Possible diagnosis includes:
+1. A missing colon between a variable and its type
+2. A missing semicolon separating variables
+3. A missing type for a variable
 
 one_expr: FORALL LPAREN XOR
 ##
@@ -947,7 +953,7 @@ one_expr: IF TRUE THEN TRUE ELSE TRUE VAR
 ## IF pexpr(nonquantified) THEN pexpr(nonquantified) ELSE pexpr(nonquantified)
 ##
 
-Syntax Error!
+Syntax Error! Missing delimiter, perhaps a missing semicolon at the end of statement.
 
 one_expr: IF TRUE THEN TRUE ELSE XOR
 ##
@@ -1100,7 +1106,7 @@ one_expr: INT TRUE VAR
 ## INT pexpr(nonquantified)
 ##
 
-Syntax Error!
+Syntax Error! Missing delimiter, perhaps a missing semicolon at the end of statement.
 
 one_expr: INT XOR
 ##
@@ -1151,7 +1157,7 @@ one_expr: INT16 TRUE VAR
 ## INT16 pexpr(nonquantified)
 ##
 
-Syntax Error!
+Syntax Error! Missing delimiter, perhaps a missing semicolon at the end of statement.
 
 one_expr: INT16 XOR
 ##
@@ -2802,7 +2808,7 @@ one_expr: MERGE XOR
 ## MERGE
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing constant in expression.
 
 one_expr: MINUS TRUE VAR
 ##
@@ -2943,7 +2949,7 @@ one_expr: PRE TRUE VAR
 ## PRE pexpr(nonquantified)
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing argument to `pre`
 
 one_expr: PRE XOR
 ##
@@ -2955,7 +2961,7 @@ one_expr: PRE XOR
 ## PRE
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing argument to `pre`.
 
 one_expr: REAL TRUE VAR
 ##
@@ -3389,7 +3395,7 @@ one_expr: SYM LPARAMBRACKET UINT8 CARET XOR
 ## lustre_type CARET
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing identifier in type.
 
 one_expr: SYM LPARAMBRACKET UINT8 SEMICOLON XOR
 ##
@@ -3492,7 +3498,7 @@ one_expr: SYM LPAREN XOR
 ## ident LPAREN
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing boolean operator in expression.
 
 one_expr: SYM VAR
 ##
@@ -3507,7 +3513,7 @@ one_expr: SYM VAR
 ## ident
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing boolean operator in expression.
 
 one_expr: TRUE AND TRUE VAR
 ##
@@ -3597,7 +3603,7 @@ one_expr: TRUE ARROW TRUE VAR
 ## pexpr(nonquantified) ARROW pexpr(nonquantified)
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing statement delimiter such as a semicolon at the end of the statement.
 
 one_expr: TRUE ARROW XOR
 ##
@@ -9472,7 +9478,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT PRE XOR
 ## PRE
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing argument to `pre`
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT REAL TRUE VAR
 ##
@@ -10060,7 +10066,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE IMPL TRUE VAR
 ## pexpr(quantified) IMPL pexpr(quantified)
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing delimiter such as a semicolon at the end of the statement.
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE IMPL XOR
 ##
@@ -10288,7 +10294,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE LTE XOR
 ## pexpr(quantified) LTE
 ##
 
-Syntax Error!
+Syntax Error! Perhaps an invalid symbol in expression.
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT TRUE MINUS TRUE VAR
 ##
@@ -11688,7 +11694,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON STATE XOR
 ## STATE
 ##
 
-Syntax Error!
+Syntax Error! Perhaps an invalid symbol in assignment.
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET AUTOMATON SYM IMPORTED
 ##
@@ -11728,7 +11734,8 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET CHECK STRING ASSERT
 ## CHECK option(STRING)
 ##
 
-Syntax Error!
+Syntax Error! Unexpected parenthesis.
+Array indexing is done using square brackets e.g. A[i]
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET CHECK TRUE WITH
 ##
@@ -11767,7 +11774,8 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET CHECK TRUE WITH
 ## CHECK option(STRING) pexpr(quantified)
 ##
 
-Syntax Error!
+Syntax Error! Unexpected parenthesis.
+Array indexing is done using square brackets e.g. `A[i]` 
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN RPAREN LET CHECK XOR
 ##
@@ -12687,7 +12695,7 @@ main: NODE SYM LPAREN RPAREN RETURNS XOR
 ## ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing return statement
 
 main: NODE SYM LPAREN RPAREN XOR
 ##
@@ -12699,7 +12707,7 @@ main: NODE SYM LPAREN RPAREN XOR
 ## ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents)
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing or incomplete `return` clause in node specification.
 
 main: NODE SYM LPAREN SYM COLON ASSUME RCURLYBRACKET
 ##
@@ -12790,7 +12798,7 @@ main: NODE SYM XOR
 ## NODE ident
 ##
 
-Syntax Error!
+Syntax Error! Perhaps an ill-formed contract specification
 
 main: NODE XOR
 ##

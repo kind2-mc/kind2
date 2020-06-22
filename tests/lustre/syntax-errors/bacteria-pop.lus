@@ -1,0 +1,100 @@
+
+-- First(X) is the constant stream consisting of the first value of X
+node first( X : real ) returns ( Y : real );
+let
+  Y = X -> pre Y;
+tel
+
+-- HasHappened(X) is true iff X has been true at some point
+node hasHappened(X : bool) returns (Y : bool);
+let
+  Y = X or (false -> pre Y);
+tel
+
+-- Sofar(X) is true at any point iff X has been true from
+-- the beginning until that point
+node sofar( X : bool ) returns ( Y : bool );
+let
+ Y = X -> (X and (pre Y))
+tel
+
+-------------------------------------------------------------------
+-- bacteria Population specs
+-------------------------------------------------------------------
+contract bacteriaPopulationSpec(p: real) returns(population: real);
+let
+   -- the maximum population size in the environment
+   const environmentCapacity : real = 32.0;
+   
+   -- the initial size of the population
+   var initialPopulation:real = first(p);
+   
+   -- the initial population is greater than zero
+   assume initialPopulation > 0.0;
+   
+   -- the population will always be positive
+   guarantee population > 0.0;
+   
+   -- initially the population is equal to the initial population
+   guarantee population =  initialPopulation -> true;
+   
+   -- if the population increases at some time, and both the previous population
+   -- and the current population are smaller than the capacity, then
+   -- so far the population has been growing
+   guarantee true -> hasHappened(true -> pre population < population)
+                     and pre population < environmentCapacity
+                     and population < environmentCapacity
+                     =>  sofar(true -> pre population < population);
+ 
+   -- if the population descreases at some time, and both the previous population
+   -- and the current population are larger than the capacity, then
+   -- so far the population has been declining
+   guarantee true -> hasHappened(true -> pre population > population)
+                     and pre population > environmentCapacity
+                     and population > environmentCapacity
+                     => sofar(true -> pre population > population);
+   
+   mode increasing (
+    -- the previous population is smaller than the capacity
+    require true -> pre population < environmentCapacity ;
+    
+    -- The current population is strictly larger than previous population
+    -- if the latter is smaller than the capacity
+    ensure true -> pre population < population;
+    ) ;
+    
+    mode decreasing (
+    -- the previous population is larger than the capacity
+    require true -> pre population > environmentCapacity ;
+    
+    -- The current population is strictly smaller than previous population
+    -- if the latter is larger than the capacity
+    ensure true -> pre population > population;
+    );
+    
+    mode stable (
+    -- the previous population is the same as the enviroment capacity
+    require true -> pre population = environmentCapacity ;
+    
+    -- The current population is the same as the previous population
+    ensure true -> population = pre population;
+    ) ;
+tel
+
+-- This node simulates bacteria population growth over time
+-- input : population size at time 0
+-- output: population size at time t assuming exponential growth/decline
+--         within an environment that has a carrying capacity
+
+node bacteriaPopulation(population0: real) returns(population: real);
+(*@contract import bacteriaPopulationSpec(population0) returns (population) ; *)
+    const  environmentCapacity : real = 32.0;
+let
+   population =  population0 ->  
+                if (pre population  < environmentCapacity) then pre population * 2.0
+                else if (pre population  > environmentCapacity) then pre population * 0.5
+                else pre population;
+tel
+
+
+

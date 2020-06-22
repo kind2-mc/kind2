@@ -4,7 +4,7 @@
 
 -- bool_choose() simulates a non-deterministic choice,
 -- at each step of the computation, between the two Boolean values.
-node imported bool_choose() returns (bool: b);
+node imported bool_choose() returns (b: bool);
 
 -- real_choose() simulates a non-deterministic choice
 -- at each step of the computation, of a real (actually, rational) 
@@ -36,7 +36,7 @@ let
 tel
 
 -- Delay node for integer streams.
-node IntDelay(in: int) returns (out: int) ;
+node IntDelay(in: int^n) returns (out: int) ;
   var x: int ;
 let
   out = x ;
