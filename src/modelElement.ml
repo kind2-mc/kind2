@@ -33,6 +33,13 @@ type ts_equation = {
   trans_closed: Term.t ;
 }
 
+(* Each equation in the core is identified by a uninterpreted function symbol (UfSymbol.t)
+   (it can also be used as an activation litteral).
+   The first item is a mapping from scopes to the list of equations
+   (represented by their UfSymbol identifier) that are present in the core.
+   The second item is a mapping from equation identifiers to their corresponding [ts_equation] object
+   and a fresh state var that can be used as an activation litteral for this equation.
+*)
 type core = (UfSymbol.t list) ScMap.t * (ts_equation * StateVar.t) SyMap.t
 
 type loc = {
@@ -457,8 +464,14 @@ let core_to_eqmap (scmap, mapping) =
 
 (* ---------- MAPPING BACK ---------- *)
 
+(* The first item contains the transition-system terms corresponding to the model element,
+   the second item contains a list of position in the Lustre model that defines this model element,
+   and the third item corresponds to the category of the model element
+   (node call, lustre equation, assumption, guarantee, etc.).
+*)
 type model_element = ts_equation * (loc list) * term_cat
 
+(* A [loc_core] is just a map from scopes to the corresponding list of model elements. *)
 type loc_core = model_element list ScMap.t
 
 let equal_model_elements (eq1, _, _) (eq2, _, _) =

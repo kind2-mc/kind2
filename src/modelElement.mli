@@ -37,6 +37,12 @@ type ts_equation = {
   trans_opened: Term.t ;
   trans_closed: Term.t ;
 }
+
+(** Represents a set of equations at the level of the transition system.
+    The equations are separated by scope.
+    The equations inside are not localized (i.e. they are not mapped to the initial Lustre model).
+    This type can be used when manipulating sets of equations: many operations are implemented
+    (cores can be filtered, you can get an activation litteral or state variable for each equation, etc.) *)
 type core
 
 val term_of_ts_eq : init:bool -> closed:bool -> ts_equation -> Term.t
@@ -60,7 +66,17 @@ val core_diff : core -> core -> core
 
 (** {1 Lustre-level cores} *)
 
+(** Represents an equation at the level of the transition system
+    together with localisation data that relates it to the original Lustre model.
+ *)
 type model_element
+
+(** Represents a set of localized equations ([model_element]).
+    The equations are separated by scope.
+    This type can be used to store a set of equations together with their localization data
+    and to perform some basic manipulations such as filtering the equations by Lustre category.
+    However, the type [core] should be prefered for manipulations at the level of the transition system.
+ *)
 type loc_core
 
 val equal_model_elements : model_element -> model_element -> bool

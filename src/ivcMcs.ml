@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2020 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2019-2020 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -50,8 +50,17 @@ type 'a analyze_func =
     TransSys.t ->
     unit
 
-type ivc = (Property.t list * loc_core)
-type mua = ((Property.t * (StateVar.t * Model.value list) list) * loc_core)
+type counterexample = (StateVar.t * Model.value list) list
+
+(* Represents an Inductive Validity Core. The first element correspond to the properties
+   for whch the IVC has been computed, and the second element is the core (= set of equations) itself. *)
+type ivc = Property.t list * loc_core
+
+(* Represents a Maximal Unsafe Abstraction (or, depending on the context, a Minimal Correction Set).
+   The first element is a tuple that indicates a property that is unsatisfied by the core,
+   together with the corresponding counterexample.
+   The second element is the core (= set of equations) itself. *)
+type mua = (Property.t * counterexample) * loc_core
 
 (* ---------- PRETTY PRINTING ---------- *)
 
