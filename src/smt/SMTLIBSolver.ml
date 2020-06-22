@@ -33,6 +33,7 @@ type _ command_type =
   | CustomCmd : int -> custom_response command_type
 
 
+let s_timeout = HString.mk_hstring "timeout"
 let s_success = HString.mk_hstring "success"
 let s_unsupported = HString.mk_hstring "unsupported"
 let s_error = HString.mk_hstring "error"
@@ -91,6 +92,12 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     
   (***** TODO from smtexpr : inline this later on *****)
 
+  let response_error e = match e with
+    | HStringSExpr.Atom s when s == s_timeout -> `Timeout
+    | e -> 
+      raise 
+        (Failure 
+           ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
 
   (* Return a solver response of an S-expression *)
   let response_of_sexpr : HStringSExpr.t -> decl_response = function 
@@ -107,11 +114,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       `Error (HString.string_of_hstring e)
 
     (* Invalid response *)
-    | e -> 
-
-      raise 
-        (Failure 
-           ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
+    | e -> response_error e
 
   
   (* Return a solver response to a check-sat command of an S-expression *)
@@ -121,11 +124,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     | HStringSExpr.Atom s when s == s_unsat -> `Unsat
     | HStringSExpr.Atom s when s == s_unknown -> `Unknown
     (* | r -> Response (response_of_sexpr r) *)
-    | e -> 
-      raise 
-        (Failure 
-           ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
-
+    | e -> response_error e
 
   (* Helper function to return a solver response to a get-value command
      as expression pairs *)
@@ -214,16 +213,13 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     | HStringSExpr.List l -> get_value_response_of_sexpr' [] l
 
     (* Solver returned other response *)
-    | e -> 
-      raise 
-        (Failure 
-           ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
+    | e -> response_error e
 
 
 
   let s_declare_datatypes = HString.mk_hstring "declare-datatypes"
-  let s__compress_equal_mod_input =
-    HString.mk_hstring "__compress_equal_mod_input"
+  let s__compress_equal_mod_input () =
+    HString.mk_hstring (Compress.function_symbol_name ())
 
 
   let ignore_model_item = function
@@ -234,7 +230,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
     (* (define-fun __compress_equal_mod_input ...) *)
     | HStringSExpr.List (HStringSExpr.Atom s :: HStringSExpr.Atom c :: _)
-      when s == s_define_fun && c == s__compress_equal_mod_input -> true 
+      when s == s_define_fun && c == s__compress_equal_mod_input () -> true 
   
     | _ -> false
 
@@ -260,10 +256,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       |> get_model_response_of_sexpr' []
 
     (* Solver returned other response *)
-    | e -> 
-      raise 
-        (Failure 
-           ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
+    | e -> response_error e
 
 
   (* Return a solver response to a get-unsat-core command as list of strings *)
@@ -287,10 +280,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
            l)
 
     (* Solver returned other response *)
-    | e -> 
-      raise 
-        (Failure 
-           ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
+    | e -> response_error e
 
 
   (* Return a solver response to a custom command *)
@@ -888,20 +878,24 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
   (* Create an instance of the solver *)
   let create_instance
+      ?(timeout=0)
       ?(produce_assignments=false)
       ?(produce_proofs=false)
       ?(produce_cores=false)
+      ?(minimize_cores=false)
       ?(produce_interpolants=false)
       logic
       id =
     
     (* Get autoconfigured configuration *)
     let solver_cmd  = 
-      Driver.cmd_line 
+      Driver.cmd_line
         logic
+        timeout
         produce_assignments
         produce_proofs
         produce_cores
+        minimize_cores
         produce_interpolants
     in
     let config = { solver_cmd = solver_cmd } in
@@ -971,10 +965,10 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
           "(declare-sort FArray 2)";
         ]
       else [] in
-    
+
     let headers =
       "(set-option :print-success true)" ::
-      (headers ()) @
+      (headers minimize_cores) @
       (if produce_assignments then
         (*["(set-option :produce-assignments true)"] else []) @*)
         (* The command get-model is used instead of get-assignment,
@@ -1043,8 +1037,9 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     begin
       try ignore(execute_command_no_response solver "(exit)" 0)
       with Signal s when s = Sys.sigpipe ->
-        KEvent.log L_fatal
-          "[Warning] Got broken pipe when trying to exit %s instance PID %d."
+        KEvent.log L_warn
+          "[Warning] Got broken pipe when trying to exit %s instance PID %d.\
+          It may be due to a timeout."
           solver.solver_config.solver_cmd.(0) solver_pid
     end;
 
@@ -1125,8 +1120,10 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     module Conv = Conv
     
     let solver = create_instance
+        ~timeout:P.timeout
         ~produce_assignments:P.produce_assignments
         ~produce_cores:P.produce_cores
+        ~minimize_cores:P.minimize_cores
         ~produce_proofs:P.produce_proofs
         P.logic P.id
 

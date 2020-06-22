@@ -22,9 +22,11 @@ include GenericSMTLIBDriver
 (* Configuration for Yices *)
 let cmd_line
     logic
+    timeout
     produce_assignments
     produce_proofs
     produce_cores
+    minimize_cores
     produce_interpolants = 
 
   (let open TermLib in
@@ -44,15 +46,26 @@ let cmd_line
 
   let base_cmd = [| yices2smt2_bin; "--incremental" |] in
 
+  let timeout_global =
+    if Flags.timeout_wall () > 0.
+    then Some (Stat.remaining_timeout () +. 1.0)
+    else None
+  in
+  let timeout_local =
+    if timeout > 0
+    then Some (float_of_int timeout)
+    else None
+  in
+  let timeout = Lib.min_option timeout_global timeout_local in
+
   let cmd =
-    if Flags.timeout_wall () > 0. then (
-      let timeout_val = Stat.remaining_timeout () +. 1.0 in
+    match timeout with
+    | None -> base_cmd
+    | Some timeout ->
       let timeout =
-        Format.sprintf "--timeout=%.0f" (timeout_val |> ceil)
+        Format.sprintf "--timeout=%.0f" (timeout |> ceil)
       in
       Array.append base_cmd [|timeout|]
-    )
-    else base_cmd
   in
 
   if Flags.Smt.yices2_smt2models () then

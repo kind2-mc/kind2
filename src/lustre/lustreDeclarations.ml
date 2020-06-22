@@ -1111,6 +1111,7 @@ let rec eval_node_equation inputs outputs locals ctx = function
 
     (* Add assertion to node *)
     let (svar, _), ctx = C.mk_local_for_expr ~is_ghost:true pos ctx expr in
+    N.add_state_var_def svar (N.Assertion pos) ;
     C.add_node_assert ctx pos svar
       
 
@@ -1125,8 +1126,16 @@ let rec eval_node_equation inputs outputs locals ctx = function
     let eq_lhs, indexes, ctx = eval_eq_lhs ctx pos lhs in
 
     (* array bounds. TODO: check that the order is correct *)
+    let rm_array_var_index lst =
+      List.filter (function
+      | D.ArrayVarIndex _ -> false
+      | _ -> true
+      ) lst
+    in
     let lhs_bounds =
-      List.fold_left (fun acc (i, _) ->
+      List.fold_left (fun acc (i, sv) ->
+          N.add_state_var_def sv
+            (N.ProperEq (A.pos_of_expr ast_expr, rm_array_var_index i)) ;
           List.fold_left (fun (acc, cpt) -> function
               | D.ArrayVarIndex b ->
                 if cpt < indexes then E.Bound b :: acc, succ cpt
@@ -1299,7 +1308,7 @@ and eval_ghost_var
     )
 
 (* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
-and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
+and eval_contract_item check ~typ scope (ctx, accum, count) (pos, iname, expr) =
   (* Check for unguarded pre-s. *)
   if A.has_unguarded_pre expr then (
     fail_or_warn pos "Illegal unguarded pre in contract item."
@@ -1355,10 +1364,12 @@ and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
     )
   ) ;
   (* Define expression with a state variable *)
-  let (svar, _), ctx = C.mk_local_for_expr ~is_ghost:true pos ctx expr in
+  let (svar, _), ctx = C.mk_local_for_expr ~reuse:false ~is_ghost:true pos ctx expr in
+  let contract_svar = Contract.mk_svar pos count iname svar scope in
+  N.add_state_var_def svar (N.ContractItem (pos, contract_svar, typ)) ;
   (* Add state variable to accumulator, continue with possibly modified
   context. *)
-  ctx, (Contract.mk_svar pos count iname svar scope) :: accum, count + 1
+  ctx, contract_svar :: accum, count + 1
 
 
 (* Fail if a contract node input is incompatible with a node input *)
@@ -1512,11 +1523,11 @@ and eval_node_mode scope ctx is_candidate (pos, id, reqs, enss) =
   (* Evaluate requires. *)
   let ctx, reqs, _ =
     reqs
-    |> List.fold_left (eval_contract_item (Some "require") scope)
+    |> List.fold_left (eval_contract_item (Some "require") ~typ:N.Require scope)
        (ctx, [], 1) in
   (* Evaluate ensures. *)
   let ctx, enss, _ =
-    enss |> List.fold_left (eval_contract_item None scope) (ctx, [], 1) in
+    enss |> List.fold_left (eval_contract_item None ~typ:N.Ensure scope) (ctx, [], 1) in
   let path =
     scope |> List.fold_left (fun l (_, name) -> name :: l) [id]
   in
@@ -1801,16 +1812,19 @@ and eval_node_contract_item
     eval_ghost_var is_postponed inputs outputs locals ctx v, cpt_a, cpt_g
 
   (* Evaluate assumption *)
-  | A.Assume ( (_, _, expr) as a ) ->
+  | A.Assume (pos, name, soft, expr) ->
     let ctx, assumes, cpt_a =
-      eval_contract_item (Some "assume") scope (ctx, [], cpt_a) a in
-    C.add_node_ass ctx assumes, cpt_a, cpt_g
+      eval_contract_item (Some (if soft then "weakly assume" else "assume"))
+        ~typ:(if soft then N.WeakAssumption else N.Assumption) scope (ctx, [], cpt_a)
+        (pos, name, expr) in
+    C.add_node_ass ctx assumes,
+    cpt_a, cpt_g
 
   (* Evaluate guarantee *)
-  | A.Guarantee g ->
+  | A.Guarantee (pos, name, soft, expr) ->
     let ctx, guarantees, cpt_g =
-      eval_contract_item None scope (ctx, [], cpt_g) g
-    in
+      eval_contract_item None ~typ:(if soft then N.WeakGuarantee else N.Guarantee)
+      scope (ctx, [], cpt_g) (pos, name, expr) in
     List.map (fun g -> g, is_candidate) guarantees |> C.add_node_gua ctx,
     cpt_a, cpt_g
 

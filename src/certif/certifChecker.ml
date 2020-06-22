@@ -798,6 +798,11 @@ type return_of_try =
   (* Inductiveness was verified, and we identified the useful invariants which
      are attached *)
 
+let is_two_state inv =
+  match Term.var_offsets_of_term inv with
+  | Some lo, Some hi when Numeral.(equal lo hi |> not) -> true
+  | _ -> false
+
 (* Verify inductiveness of given property and invariants at k. The argument
    just_check_ind controls whether we want to also identify the useful
    invariants *)
@@ -818,12 +823,7 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
   (* Construct invariants (with activation literals) from 1 to k-1 and for k *)
   let invs_acts, invs_infos = List.fold_left (
     fun (invs_acts, invs_infos) inv ->
-      let is_two_state =
-        match Term.var_offsets_of_term inv with
-        | Some lo, Some hi when Numeral.(equal lo hi |> not) -> true
-        | _ -> false
-      in
-      let l = ref (if is_two_state then [] else [inv]) in
+      let l = ref (if is_two_state inv then [] else [inv]) in
       for i = 1 to k - 1 do
         l := Term.bump_state (Numeral.of_int i) inv :: !l;
       done;
@@ -1119,11 +1119,16 @@ let find_bound_frontier_dicho sys solver kmax invs prop =
 
 (* Minimization of certificate: returns the minimum bound for k-induction and a
    list of useful invariants for this preservation step *)
-let minimize_invariants sys invs_predicate =
+let minimize_invariants sys props invs_predicate =
   (* printf "@{<b>Certificate minimization@}@."; *)
 
   (* Extract certificates of top level system *)
-  let props, certs = extract_props_certs sys in
+  let props', certs = extract_props_certs sys in
+  let props =
+    match props with
+    | Some props -> props
+    | None -> props'
+  in
   let certs =
     match invs_predicate with
     | None -> certs
@@ -1219,7 +1224,7 @@ let minimize_invariants sys invs_predicate =
     k, invs
 
 let minimize_certificate sys =
-  minimize_invariants sys None
+  minimize_invariants sys None None
 
 
 (***********************************************)

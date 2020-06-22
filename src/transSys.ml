@@ -121,7 +121,7 @@ type t =
     (* Formal parameters of initial state constraint *)
     init_formals : Var.t list;
 
-    (* Initial state constraint *)
+    (* Initial state constraint. *)
     init : Term.t;
 
     (* Predicate symbol for transition relation *)
@@ -130,7 +130,7 @@ type t =
     (* Formal parameters of transition relation *)
     trans_formals : Var.t list;
 
-    (* Transition relation *)
+    (* Transition relation. *)
     trans : Term.t;
 
     (* Properties to prove invariant for this transition system 
@@ -146,7 +146,6 @@ type t =
     invariants : Invs.t ;
 
   }
-
 
 (* ********************************************************************** *)
 (* Pretty-printing                                                        *)
@@ -527,8 +526,17 @@ let init_trans_open { instance_var_bindings; init; trans } =
    init,
    trans)
 
-
-
+let rec set_subsystem_equations t scope init trans =
+  let aux (t, instances) =
+    (set_subsystem_equations t scope init trans, instances)
+  in
+  let subsystems = List.map aux t.subsystems in
+  let (init, trans) =
+    if Scope.equal t.scope scope
+    then (init, trans)
+    else (t.init, t.trans)
+  in
+  { t with init; trans; subsystems }
 
 (* Return the state variable for the init flag *)
 let init_flag_state_var { init_flag_state_var } = init_flag_state_var
@@ -711,7 +719,6 @@ let iter_subsystems ?(include_top = true) f ({ subsystems } as trans_sys) =
     Scope.Set.empty 
     (if include_top then [trans_sys] else (List.map fst subsystems))
 
-
 (* Fold bottom-up over subsystems, including the top level system
     without repeating subsystems already seen *)
 let fold_subsystems ?(include_top = true) f accum ({ subsystems } as trans_sys) =
@@ -814,6 +821,11 @@ module Hashtbl = Hashtbl.Make (T)
 (* Return state variables of the transition system *)
 let state_vars { state_vars } = state_vars
 
+(** Add a global constant to a transition system *)
+let add_global_constant t v =
+  let global_consts = v::t.global_consts in
+  let state_vars = (Var.state_var_of_state_var_instance v)::t.state_vars in
+  { t with global_consts ; state_vars }
 
 (* Return global state variables of the transition system *)
 let global_state_vars { global_state_vars } = global_state_vars
@@ -847,7 +859,7 @@ let rec vars_of_bounds' state_vars lbound ubound accum =
    between and including [lbound] and [uboud] *)
 let vars_of_bounds
     ?(with_init_flag = true)
-    { init_flag_state_var; state_vars; global_consts } 
+    { init_flag_state_var; state_vars } 
     lbound
     ubound =
 
@@ -918,11 +930,46 @@ let declare_selects declare =
 let define_init define { init_uf_symbol; init_formals; init } = 
   define init_uf_symbol init_formals init
 
-
 (* Define transition relation predicate *)
 let define_trans define { trans_uf_symbol; trans_formals; trans } =
   define trans_uf_symbol trans_formals trans
 
+(* Declare the sorts, uninterpreted functions and const variables
+   of this system and its subsystems. *)
+let declare_sorts_ufs_const trans_sys declare declare_sort =
+  (* declare uninterpreted sorts *)
+  Type.get_all_abstr_types () |>
+  List.iter (fun ty -> match Type.node_of_type ty with
+      | Type.Abstr _ -> declare_sort ty
+      | _ -> ());
+
+  (* Declare monomorphized select symbols *)
+  if not (Flags.Arrays.smt ()) then declare_selects declare;
+
+  (* Declare other functions of top system *)
+  declare_ufs trans_sys declare;
+
+  (* Declare constant state variables of top system *)
+  declare_const_vars trans_sys declare ;
+
+  (* Iterate over all subsystems *)
+  trans_sys |> iter_subsystems ~include_top:false (fun t ->
+
+    (* Declare other functions of sub system *)
+    declare_ufs t declare
+  )
+
+(* Declare the init and trans functions of the subsystems *)
+let define_subsystems trans_sys define =
+  (* Iterate over all subsystems *)
+  trans_sys |> iter_subsystems ~include_top:false (fun t ->
+
+    (* Define initial state predicate *)
+    define_init define t ;
+
+    (* Define transition relation predicate *)
+    define_trans define t
+  )
 
 (* Define predicates, declare constant and global state variables, and
    declare state variables of the top system between and including the
@@ -1288,7 +1335,18 @@ let set_prop_ktrue trans_sys k p =
 
 let set_prop_false trans_sys p c =
   P.PropFalse c |> set_prop_status trans_sys p
-  
+
+let set_prop_unknown { properties } p =
+  let found =
+    properties |> List.fold_left (
+      fun found -> function
+      | { P.prop_name } as prop when prop_name = p ->
+        P.set_prop_unknown prop ;
+        true
+      | _ -> found
+    ) false
+  in
+  if not found then raise Not_found
 
 (* Return current status of all properties *)
 let get_prop_status_all_nocands t = 
@@ -1319,6 +1377,19 @@ let get_prop_status_all_unknown t =
 let has_properties = function
 | { properties = [] } -> false
 | _ -> true
+
+let rec set_subsystem_properties t scope ps =
+  let aux (t, instances) =
+    (set_subsystem_properties t scope ps, instances)
+  in
+  let subsystems = List.map aux t.subsystems in
+  let properties =
+    if Scope.equal t.scope scope
+    then ps
+    else t.properties
+  in
+  { t with properties; subsystems }
+
 
 (* Return true if all properties which are not candidates are either valid or
    invalid *)
@@ -1449,9 +1520,30 @@ let get_all_invariants t =
       Scope.Map.add scope invariants map
   ) Scope.Map.empty
 
+let clear_invariants { invariants } =
+  Invs.clear invariants
+
+let clear_all_invariants =
+  iter_subsystems ~include_top:true clear_invariants
+
 (* ********************************************************************** *)
 (* Construct a transition system                                          *)
 (* ********************************************************************** *)
+
+let copy t =
+  let copy subsystems_copy_f t =
+    { t with invariants = Invs.copy t.invariants ;
+    properties = List.map Property.copy t.properties ;
+    subsystems = List.map (fun (s,i) -> (subsystems_copy_f s,i)) t.subsystems }
+  in
+  let copies = fold_subsystems ~include_top:true (
+    fun copies t ->
+      let subsystems_copy_f t =
+        Scope.Map.find (scope_of_trans_sys t) copies
+      in
+      Scope.Map.add (scope_of_trans_sys t) (copy subsystems_copy_f t) copies
+  ) Scope.Map.empty t in
+  Scope.Map.find (scope_of_trans_sys t) copies
 
 let mk_trans_sys 
   ?(instance_var_id_start = 0)
@@ -1641,7 +1733,7 @@ let mk_trans_sys
       properties;
       mode_requires;
       logic;
-      invariants; }
+      invariants}
   in
 
   trans_sys, instance_var_id_start'

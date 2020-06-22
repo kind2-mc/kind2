@@ -19,24 +19,38 @@
 include GenericSMTLIBDriver
 
 (* Configuration for Z3 *)
-let cmd_line 
+let cmd_line
     logic
+    timeout
     produce_assignments
     produce_proofs
     produce_cores
+    minimize_cores
     produce_interpolants = 
 
   (* Path and name of Z3 executable *)
   let z3_bin = Flags.Smt.z3_bin () in
+
+  let timeout_global =
+    if Flags.timeout_wall () > 0.
+    then Some (Stat.remaining_timeout () +. 1.0)
+    else None
+  in
+  let timeout_local =
+    if timeout > 0
+    then Some (float_of_int timeout)
+    else None
+  in
+  let timeout = Lib.min_option timeout_global timeout_local in
+
   let base_cmd = [| z3_bin; "-smt2"; "-in" |] in
-  if Flags.timeout_wall () > 0. then (
-    let timeout =
-      let timeout_val = Stat.remaining_timeout () +. 1.0 in
-      Format.sprintf "-T:%.0f" (timeout_val |> ceil)
+  match timeout with
+  | None -> base_cmd
+  | Some timeout ->
+    let timeout = 
+      Format.sprintf "-T:%.0f" (timeout |> ceil)
     in
     Array.append base_cmd [| timeout |]
-  )
-  else base_cmd
 
 (* Command to limit check-sat in Z3 to run for the given numer of ms
    at most *)
@@ -44,8 +58,10 @@ let check_sat_limited_cmd ms =
   Format.sprintf "(check-sat-using (try-for smt %d))" ms
 
 
-let headers () = ["(set-option :interactive-mode true)"]
-
+let headers minimize_cores =
+  ["(set-option :interactive-mode true)"] @
+  (* Core minimization only supported by Z3 for now *)
+  (if minimize_cores then ["(set-option :smt.core.minimize true)"] else [])
 
 let string_of_logic l =
   let open TermLib in

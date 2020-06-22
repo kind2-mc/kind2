@@ -22,7 +22,7 @@ module type S = sig
   (** {2 Solver configuration options} *)
 
   (** Command line options *)
-  val cmd_line : TermLib.logic -> bool -> bool -> bool -> bool -> string array
+  val cmd_line : TermLib.logic -> int -> bool -> bool -> bool -> bool -> bool -> string array
 
   (** Internal command for check-sat with timeout in milliseconds*)
   val check_sat_limited_cmd : int -> string
@@ -34,7 +34,7 @@ module type S = sig
   val check_sat_assuming_cmd : unit -> string
 
   (** Solver spcific headers to add at the beginning of the file *)
-  val headers : unit -> string list
+  val headers : bool -> string list
 
   (** Solver specific commands to add at the beginning of the file *)
   val prelude : string list

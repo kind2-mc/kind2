@@ -20,6 +20,9 @@
 
     @author Christoph Sticksel *)
 
+
+val function_symbol_name : unit -> string
+
 (** Initialize compression 
 
     The first argument is the function to declare an uninterpreted

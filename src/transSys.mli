@@ -162,6 +162,9 @@ val init_flag_of_bound : t -> Numeral.t -> Term.t
     at [trans_base] with the instance variables free. *)
 val init_trans_open : t -> StateVar.t list * Term.t * Term.t
 
+(** Update the init and trans equations of a subsystem *)
+val set_subsystem_equations : t -> Scope.t -> Term.t -> Term.t -> t
+
 (** Return the logic fragment needed to express the transition system *)
 val get_logic : t -> TermLib.logic
 
@@ -201,6 +204,9 @@ val get_mode_requires : t -> Term.t option * (Scope.t * Term.t) list
 val get_split_properties :
   t -> Property.t list * Property.t list * Property.t list
 
+
+(** Make a copy of every mutable field of the transition system and its subsystems. *)
+val copy : t -> t
 
 val mk_trans_sys :
 
@@ -259,7 +265,6 @@ val mk_trans_sys :
       generation). *)
   Term.t option * (Scope.t * Term.t) list ->
 
-
   (** Invariants. *)
   Invs.t ->
 
@@ -278,7 +283,7 @@ val mk_trans_sys :
     subsystem [s] of [t]. If [t] contains a subsystem [s] twice, no
     matter at which level, [f s] is evaluated only once.
 *)
-val iter_subsystems : ?include_top:bool -> (t -> unit) -> t -> unit 
+val iter_subsystems : ?include_top:bool -> (t -> unit) -> t -> unit
 
 (** Fold bottom-up over subsystems, including or excluding the top
     level system, without repeating subsystems already seen
@@ -366,6 +371,9 @@ val map_cex_prop_to_subsystem : (Scope.t -> instance -> (StateVar.t * Model.valu
 (** Return the state variables of a transition system *)
 val state_vars : t -> StateVar.t list
 
+(** Add a global constant to the toplevel transition system *)
+val add_global_constant : t -> Var.t -> t
+
 (** Return instances of the state variables of the transition system
     between given instants
 
@@ -398,6 +406,18 @@ val declare_const_vars : t -> (UfSymbol.t -> unit) -> unit
 *)
 val declare_init_flag_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
 
+(** Declare the sorts, uninterpreted functions and const variables
+   of this system and its subsystems. *)
+val declare_sorts_ufs_const :
+  t ->
+  (UfSymbol.t -> unit) ->
+  (Type.t -> unit) -> unit
+
+(** Declare the init and trans functions of the subsystems *)
+val define_subsystems :
+  t ->
+  (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+  unit
 
 (** Define predicates and declare constant and global state variables,
     declare state variables of top system between and including the
@@ -499,9 +519,6 @@ val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list
     system of the first property of name [n] to [s]. *)
 val set_prop_status : t -> string -> Property.prop_status -> unit
 
-(** Mark current status of property *)
-val set_prop_status : t -> string -> Property.prop_status -> unit
-
 (** Mark property as invariant *)
 val set_prop_invariant : t -> string -> Certificate.t -> unit
 
@@ -511,6 +528,11 @@ val set_prop_false :
 
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
+
+val set_prop_unknown : t -> string -> unit
+
+(* Set the list of properties of a subsystem *)
+val set_subsystem_properties : t -> Scope.t -> Property.t list -> t
 
 (** Returns true iff sys has at least one property. *)
 val has_properties : t -> bool
@@ -540,6 +562,12 @@ val get_invariants : t -> Invs.t
 
 (** Returns the invariants for all (sub)systems. *)
 val get_all_invariants : t -> Invs.t Scope.Map.t
+
+(** Clear invariants of the top_level system *)
+val clear_invariants : t -> unit
+
+(** Clear invariants of all (sub)systems *)
+val clear_all_invariants : t -> unit
 
 (** Instantiate a term of a given scope from all instances of the
     system of that scope upwards to the top system

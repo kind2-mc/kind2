@@ -85,6 +85,7 @@ and prop_source =
   | Candidate of prop_source option
 
 
+let copy t = { t with prop_status = t.prop_status }
 
 (* Return the length of the counterexample *)
 let length_of_cex = function 
@@ -265,6 +266,8 @@ let set_prop_status p = function
 
   | PropFalse c -> set_prop_false p c
 
+let set_prop_unknown p =
+  p.prop_status <- PropUnknown
 
 (* Get property status *)
 let get_prop_status { prop_status } = prop_status

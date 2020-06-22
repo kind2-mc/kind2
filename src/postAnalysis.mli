@@ -51,6 +51,22 @@ module RunRustGen: PostAnalysis
 module RunInvLog: PostAnalysis
 module RunInvPrint: PostAnalysis
 module RunCertif: PostAnalysis
+module RunIVC: PostAnalysis
+module RunMCS: PostAnalysis
+
+ val run_mcs_post_analysis:
+    (** Input system. *)
+    'a InputSystem.t ->
+    (** Analysis parameter. *)
+    Analysis.param ->
+    (** A function running an analysis with some modules. *)
+    (
+      bool -> Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
+      -> unit
+    ) ->
+    TransSys.t
+    (** Can fail. *)
+    -> unit Res.res
 
 (** Runs the post-analysis things on a system and its results. *)
 val run: 'a InputSystem.t -> Scope.t ->

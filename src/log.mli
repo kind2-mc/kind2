@@ -99,6 +99,15 @@ module type SLog = sig
       formatted with the parameterized string [f] and the values [v ...] *)
   val log_uncond : ('a, Format.formatter, unit) format -> 'a
 
+  (** [log_result pt xml json a] outputs a result
+    (for instance, for a post analysis) by choosing the right printing
+    function depending on the output format *)
+  val log_result : (Format.formatter -> 'a -> unit)
+    -> (Format.formatter -> 'a -> unit)
+    -> (Format.formatter -> 'a -> unit)
+    -> 'a
+    -> unit
+
 end
 
 

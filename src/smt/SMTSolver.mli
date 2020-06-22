@@ -26,15 +26,18 @@ type t
 
 (** Exception raised when the solver returns "unknown" to a check-sat. *)
 exception Unknown
+exception Timeout
 
 (** {1 Creating and finalizing a solver instance} *)
 
 (** Create a new instance of an SMT solver of the given kind and with
     the given flags *)
 val create_instance :
+  ?timeout: int ->
   ?produce_assignments:bool ->
   ?produce_proofs:bool ->
   ?produce_cores:bool ->
+  ?minimize_cores:bool ->
   ?produce_interpolants:bool ->
   TermLib.logic ->
   Flags.Smt.solver ->
@@ -45,6 +48,9 @@ val delete_instance : t -> unit
 
 (** Destroys all live solver instances. *)
 val destroy_all : unit -> unit
+
+(** Delete instance entries (should be called after forking, on child processes). *)
+val delete_instance_entries : unit -> unit
 
 (** Return the unique identifier of the solver instance *)
 val id_of_instance : t -> int
@@ -70,10 +76,10 @@ val assert_expr : t -> SMTExpr.t -> unit
 val assert_term : t -> Term.t -> unit
 
 (** Name a term, convert a term to an SMT expression and assert *)
-val assert_named_term : t -> SMTExpr.t -> unit
+val assert_named_term : t -> Term.t -> unit
 
 (** Name a term, convert a term to an SMT expression and assert, and return the name *)
-val assert_named_term_wr : t -> SMTExpr.t -> string
+val assert_named_term_wr : t -> Term.t -> string
 
 (** Push a new scope to the context stack *)
 val push : ?n:int -> t -> unit
@@ -98,10 +104,8 @@ val get_var_values :
   Var.t list -> Model.t
 
 (** Return an unsatisfiable core of named expressions if the current
-    context is unsatisfiable *)
-val get_unsat_core_of_names : t -> Term.t list
-
-(** Interpret unsatisfiable core as names and return corresponing terms *)
+    context is unsatisfiable.
+    Interpret unsatisfiable core as names and return corresponing terms *)
 val get_unsat_core_of_names : t -> Term.t list
   
 (** Interpret unsatisfiable core as literals and return as terms *)

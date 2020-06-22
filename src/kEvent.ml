@@ -360,6 +360,14 @@ let printf_pt_uncond mdl fmt =
   Format.fprintf !log_ppf ("@[<hov>" ^^ fmt ^^ "@]@.@.@?")
 
 
+(* Output with a tag *)
+let tag_pt level tag str = 
+
+  (ignore_or_fprintf level)
+    !log_ppf
+    ("@[<hov>%t %s@.@.")
+    tag
+    str
 
 (* Output proved property as plain text *)
 let proved_pt mdl level trans_sys k prop = 
@@ -433,7 +441,7 @@ let execution_path_pt level input_sys analysis trans_sys path =
     (pp_print_path_pt input_sys analysis trans_sys true) path
 
 (* Output cex for a property as plain text *)
-let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
+let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disproved =
 
   (* Only ouptut if status was unknown *)
   if 
@@ -467,7 +475,7 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
       (* Output cex. *)
       (ignore_or_fprintf level)
         !log_ppf 
-      "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%a@]@."
+      "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%t%a@]@."
         (if disproved then failure_tag else warning_tag)
         prop
         (
@@ -481,6 +489,34 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
          | ((_, c) :: _) ->
            (List.length c) - 1 |> Format.fprintf ppf "for k=%d ")
         (Stat.get_float Stat.analysis_time)
+        (fun ppf ->
+           let pp_sep ppf () = Format.fprintf ppf "@," in
+           let pp_print_weak_assumptions color title assumps ppf =
+             Format.fprintf ppf "@{<%s>%s weak assumptions:@}@,%a@," color title
+              (Format.pp_print_list ~pp_sep (fun ppf (id, _) ->
+                 Format.fprintf ppf "@{<blue_b>%s@}" id)) assumps
+
+           in
+           let sat, unsat = List.partition (fun (_,v) -> v) wa_model in
+           let pp_print_unsatisfied_wa =
+             pp_print_weak_assumptions "red" "Unsatisfied" unsat
+           in
+           let pp_print_satisfied_wa =
+             pp_print_weak_assumptions "green" "Satisfied" sat
+           in
+           match sat, unsat with
+           | [], [] -> ()
+           | [], _ -> (
+             Format.fprintf ppf "%t@," pp_print_unsatisfied_wa
+           )
+           | _, [] -> (
+             Format.fprintf ppf "%t@," pp_print_satisfied_wa
+           )
+           | _, _ -> (
+             Format.fprintf ppf "%t@,%t@,"
+               pp_print_satisfied_wa pp_print_unsatisfied_wa
+           )
+        )
         (pp_print_counterexample_pt
            level input_sys analysis trans_sys prop disproved)
         cex ;
@@ -496,7 +532,6 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
   ) else
 
     Debug.event "Status of property %s already known" prop
-
 
 (* Output statistics section as plain text *)
 let stat_pt mdl level stats =
@@ -715,7 +750,7 @@ let execution_path_xml level input_sys analysis trans_sys path =
 
 (* Output disproved property as XML *)
 let cex_xml
-mdl level input_sys analysis trans_sys prop_name (
+?(wa_model=[]) mdl level input_sys analysis trans_sys prop_name (
   cex : (StateVar.t * Model.value list) list
 ) disproved = 
 
@@ -752,6 +787,7 @@ mdl level input_sys analysis trans_sys prop_name (
         <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
         %t\
         <Answer source=\"%a\"%t>%s</Answer>@,\
+        %t\
         %a@;<0 -2>\
         </Property>@]@.") 
       (Lib.escape_xml_string prop_name) (prop_attributes_xml trans_sys prop_name)
@@ -766,6 +802,16 @@ mdl level input_sys analysis trans_sys prop_name (
          | Some msg -> Format.fprintf ppf " comment=\"%s\"" msg
       )
       answer
+      (function ppf -> match wa_model with
+         | [] -> ()
+         | _ -> (
+           let pp_sep ppf () = Format.fprintf ppf "@," in
+           Format.fprintf ppf "@[<hv 2><WeakAssumptions>@,%a@]@,</WeakAssumptions>@,"
+             (Format.pp_print_list ~pp_sep (fun ppf (id, vl) ->
+                Format.fprintf ppf "<WeakAssumption name=\"%s\" satisfied=\"%b\" />" id vl))
+             wa_model
+         )
+      )
       (pp_print_counterexample_xml input_sys analysis trans_sys prop_name disproved)
       cex ;
 
@@ -971,7 +1017,7 @@ let pp_print_counterexample_json
 
 
 (* Output disproved property as JSON *)
-let cex_json mdl level input_sys analysis trans_sys prop cex disproved =
+let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disproved =
 
   (* Only output if status was unknown *)
   if
@@ -1005,6 +1051,7 @@ let cex_json mdl level input_sys analysis trans_sys prop cex disproved =
           \"source\" : \"%s\", \
           \"value\" : \"%s\"\
         },@,\
+        %t\
         %a\
         @]@.}@.\
       "
@@ -1016,6 +1063,23 @@ let cex_json mdl level input_sys analysis trans_sys prop cex disproved =
          | cex -> let k = (Property.length_of_cex cex) - 1 in
            Format.fprintf ppf "\"k\" : %d,@," k)
       (short_name_of_kind_module mdl) answer
+      (function ppf -> match wa_model with
+         | [] -> ()
+         | _ -> (
+           let pp_sep ppf () = Format.fprintf ppf ",@," in
+           Format.fprintf ppf "\"weakAssumptions\" : @,[@[<v 1>@,%a@]@,],@,"
+             (Format.pp_print_list ~pp_sep (fun ppf (id, vl) ->
+                Format.fprintf ppf
+                   "{@[<v 1>@,\
+                    \"name\" : \"%s\",@,\
+                    \"satisfied\" : \"%b\"\
+                    @]@,}\
+                   "
+                   id vl)
+             )
+             wa_model
+         )
+      )
       (pp_print_counterexample_json input_sys analysis trans_sys prop disproved)
       cex
       ;
@@ -1176,18 +1240,26 @@ let log_proved mdl level trans_sys k prop =
     | F_json -> proved_json mdl level trans_sys k prop
     | F_relay -> ()
 
+(* Log a message with a tag, only in the plain text output *)
+let log_with_tag level tag str =
+  match get_log_format () with 
+    | F_pt -> tag_pt level tag str
+    | F_xml -> ()
+    | F_json -> ()
+    | F_relay -> ()
+
 (* Warning issued if model reconstruction triggers a division by zero. *)
 let div_by_zero_text = "division by zero detected, model may be inconsistent"
 
 (* Log a message with source and log level *)
-let log_cex disproved mdl level input_sys analysis trans_sys prop cex =
+let log_cex ?(wa_model=[]) disproved mdl level input_sys analysis trans_sys prop cex =
   match get_log_format () with 
   | F_pt ->
-    cex_pt mdl level input_sys analysis trans_sys prop cex disproved
+    cex_pt ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
   | F_xml ->
-    cex_xml mdl level input_sys analysis trans_sys prop cex disproved
+    cex_xml ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
   | F_json ->
-    cex_json mdl level input_sys analysis trans_sys prop cex disproved
+    cex_json ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
   | F_relay -> ()
 
 (* Log a message with source and log level *)
@@ -1350,22 +1422,24 @@ let log_analysis_start sys param =
 (** Logs the end of an analysis.
     [log_analysis_start result] logs the end of an analysis. *)
 let log_analysis_end result =
-  match get_log_format () with
-  | F_pt -> ()
-  | F_xml ->
-    if !analysis_start_not_closed then (
-      (* Closing [analysis] tag. *)
-      Format.fprintf !log_ppf "<AnalysisStop/>@.@." ;
-      analysis_start_not_closed := false
-    ) ;
+  if Flags.log_level () <> L_off then begin
+    match get_log_format () with
+    | F_pt -> ()
+    | F_xml ->
+      if !analysis_start_not_closed then (
+        (* Closing [analysis] tag. *)
+        Format.fprintf !log_ppf "<AnalysisStop/>@.@." ;
+        analysis_start_not_closed := false
+      ) ;
 
-  | F_json ->
-    if !analysis_start_not_closed then (
-      Format.fprintf !log_ppf ",@.{\"objectType\" : \"analysisStop\"}@." ;
-      analysis_start_not_closed := false
-    ) ;
+    | F_json ->
+      if !analysis_start_not_closed then (
+        Format.fprintf !log_ppf ",@.{\"objectType\" : \"analysisStop\"}@." ;
+        analysis_start_not_closed := false
+      ) ;
 
-  | F_relay -> failwith "can only be called by supervisor"
+    | F_relay -> failwith "can only be called by supervisor"
+  end
 
 (** Logs the start of a post-analysis treatment. *)
 let log_post_analysis_start name title =
@@ -1492,6 +1566,19 @@ let prop_status status input_sys analysis trans_sys prop =
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
 
+
+let cex_wam cex wa_model input_sys analysis trans_sys prop =
+
+  (* Update time in case we are not running in parallel mode *)
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
+
+  let mdl = get_module () in
+
+  log_cex ~wa_model true mdl L_warn input_sys analysis trans_sys prop cex;
+
+  (* Update status of property in transition system *)
+  TransSys.set_prop_status trans_sys prop (Property.PropFalse cex)
 
 
 (* Broadcast a step cex *)

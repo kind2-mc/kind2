@@ -227,10 +227,20 @@ type t = {
 
 }
 
-
-(** Instance of state vars as streams with their position  *)
+(** Instance of state vars as streams with their position *)
 type state_var_instance = position * LustreIdent.t * StateVar.t
 
+type contract_item_type =
+    | Assumption | WeakAssumption | Guarantee | WeakGuarantee | Require | Ensure
+(** A definition of a state variable in the initial Lustre program.
+  For a given state var s, it indicates the position p of an expression e that defines s
+  as well as the corresponding index i, such that s defined by the value of e at index i. *)
+type state_var_def =
+  | CallOutput of position * LustreIndex.index
+  | ProperEq of position * LustreIndex.index
+  | GeneratedEq of position * LustreIndex.index
+  | ContractItem of position * LustreContract.svar * contract_item_type
+  | Assertion of position
 
 (** Return a node of the given name and is extern flag without inputs, outputs,
     oracles, equations, etc. Create a state variable for the {!t.instance} and
@@ -394,8 +404,26 @@ val set_state_var_expr : t -> StateVar.t -> LustreExpr.t -> unit
 
 val get_state_var_expr_map : t -> LustreExpr.t StateVar.StateVarHashtbl.t
 
+val get_all_state_vars : t -> StateVar.t list
+
 (** get all instances of a state variable *)
 val get_state_var_instances : StateVar.t -> state_var_instance list
+
+(** print state var instances for debug *)
+val pp_print_state_var_instances_debug : Format.formatter -> t -> unit
+
+(** Get the definitions (with positions in the Lustre program) of a state variable *)
+val get_state_var_defs : StateVar.t -> state_var_def list
+
+(** Add a definition (with positions in the Lustre program) for a state variable *)
+val add_state_var_def : StateVar.t -> state_var_def -> unit
+
+val pos_of_state_var_def : state_var_def -> position
+
+val index_of_state_var_def : state_var_def -> LustreIndex.index
+
+(** print state var defs for debug *)
+val pp_print_state_var_defs_debug : Format.formatter -> t -> unit
 
 (** Return true if the state variable should be visible to the user,
     false if it was created internally

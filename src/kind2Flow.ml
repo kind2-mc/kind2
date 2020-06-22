@@ -83,7 +83,7 @@ let main_of_process = function
   | `C2I -> renice () ; C2I.main
   | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
   | `Supervisor -> InvarManager.main false child_pids
-  | `Parser | `Certif -> ( fun _ _ _ -> () )
+  | `MCS | `Parser | `Certif -> ( fun _ _ _ -> () )
 
 (** Cleanup function of the process *)
 let on_exit_of_process mdl =
@@ -101,7 +101,7 @@ let on_exit_of_process mdl =
     | `C2I -> C2I.on_exit None
     | `Interpreter -> Interpreter.on_exit None
     | `Supervisor -> InvarManager.on_exit None
-    | `Parser | `Certif -> ()
+    | `MCS | `Parser | `Certif -> ()
   ) ;
   SMTSolver.destroy_all ()
 
@@ -254,7 +254,7 @@ let slaughter_kids process sys =
 
     (
       try
-        while true do
+        while !child_pids <> [] do
           try
             (* Wait for child process to terminate *)
             let pid, status = Unix.wait () in
@@ -350,6 +350,8 @@ let run_process in_sys param sys messaging_setup process =
     (* Make the process leader of a new session. *)
     Unix.setsid () |> ignore ;
     let pid = Unix.getpid () in
+    (* Remove solvers entries (they are owned by the parent) *)
+    SMTSolver.delete_instance_entries () ;
     (* Initialize messaging system for process. *)
     let messaging_thread =
       on_exit_child None process
@@ -401,8 +403,6 @@ let run_process in_sys param sys messaging_setup process =
       (* let in_sys = in_sys in *)
       (* Run main function of process *)
       main_of_process process in_sys param sys ;
-      (* Kill all remaining solvers. *)
-      SMTSolver.destroy_all () ;
       (* Cleanup and exit *)
       on_exit_child (Some messaging_thread) process Exit
 
@@ -432,7 +432,7 @@ let run_process in_sys param sys messaging_setup process =
     child_pids := (pid, process) :: !child_pids
 
 (** Performs an analysis. *)
-let analyze msg_setup ignore_props modules in_sys param sys =
+let analyze msg_setup save_results ignore_props modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
   ( if TSys.has_properties sys |> not && not ignore_props then
@@ -474,7 +474,7 @@ let analyze msg_setup ignore_props modules in_sys param sys =
     |> Anal.mk_result param sys
   in
 
-  if not ignore_props then (
+  if not ignore_props && save_results then (
     let results = Anal.results_add result !all_results in
     all_results := results
   ) ;
@@ -538,6 +538,42 @@ let run in_sys =
     KEvent.log L_fatal "Cannot run the interpreter with other processes." ;
     exit ExitCodes.error
 
+  (* MCS is active. *)
+  | modules when List.mem `MCS modules -> (
+
+    check_analysis_flags ();
+
+    try (
+      let msg_setup = KEvent.setup () in
+      KEvent.set_module `Supervisor ;
+      KEvent.run_im msg_setup [] (on_exit None `Supervisor) |> ignore ;
+      KEvent.log L_debug "Messaging initialized in supervisor." ;
+
+      KEvent.set_module `MCS ;
+      let params = ISys.mcs_params in_sys in
+      let run_mcs param =
+        (* Build trans sys and slicing info. *)
+        let sys, _ =
+          ISys.trans_sys_of_analysis
+            (*~preserve_sig:true ~slice_nodes:false*) in_sys param
+        in
+        KEvent.log_analysis_start sys param ;
+        Stat.start_timer Stat.analysis_time ;
+        
+        PostAnalysis.run_mcs_post_analysis in_sys param
+          (analyze msg_setup false) sys |> ignore ;
+
+        Stat.get_float Stat.analysis_time
+        |> Anal.mk_result param sys
+        |> KEvent.log_analysis_end
+      in
+      List.iter run_mcs params ;
+      post_clean_exit `Supervisor Exit
+    ) with
+    | TimeoutWall -> on_exit None `Supervisor TimeoutWall
+    | e -> on_exit None `Supervisor e
+  ) 
+
   (* Some analysis modules. *)
   (* Some modules, not including the interpreter. *)
   | modules ->
@@ -568,20 +604,20 @@ let run in_sys =
         ( match !latest_trans_sys with
           | Some old when TSys.equal_scope old sys |> not ->
             PostAnalysis.run in_sys (TSys.scope_of_trans_sys old) (
-              analyze msg_setup
+              analyze msg_setup false
             ) !all_results
           | _ -> ()
         ) ;
         latest_trans_sys := Some sys ;
         (* Analyze... *)
-        analyze msg_setup false modules in_sys param sys ;
+        analyze msg_setup true false modules in_sys param sys ;
         (* ...and loop. *)
         loop ()
 
       | None -> (
         ( match !latest_trans_sys with
           | Some sys -> PostAnalysis.run in_sys (TSys.scope_of_trans_sys sys) (
-            analyze msg_setup
+            analyze msg_setup false
           ) !all_results
           | _ -> ()
         ) ;

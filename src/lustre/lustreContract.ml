@@ -32,7 +32,7 @@ type svar = {
 }
 
 let mk_svar pos num name svar scope = {
-  pos ; num ; name; svar ; scope
+  pos ; num ; name ; svar ; scope
 }
 
 (* Quiet pretty printer for non dummy positions. *)
@@ -90,7 +90,6 @@ let add_ass t assumes = {
   t with
     assumes = t.assumes @ assumes ;
 }
-
 
 let add_gua t guarantees = {
   t with

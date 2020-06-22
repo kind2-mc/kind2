@@ -321,6 +321,7 @@ let keyword_table = mk_hashtbl [
   "guarantee", GUARANTEE;
   "require", REQUIRE;
   "ensure", ENSURE;
+  "weakly", WEAKLY;
       
   ]
 

@@ -56,6 +56,8 @@ val next_analysis_of_strategy :
 
 val interpreter_param : 'a t -> Analysis.param
 
+val mcs_params : 'a t -> Analysis.param list
+
 (** Return a transition system for an analysis run *)
 val trans_sys_of_analysis:
   ?preserve_sig:bool -> ?slice_nodes:bool -> 'a t -> Analysis.param -> TransSys.t * 'a t
@@ -73,10 +75,24 @@ val pp_print_path_json : _ t -> TransSys.t -> TransSys.instance list -> bool -> 
 val pp_print_path_in_csv : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output all subsystems of the input system **)
-val pp_print_subsystems_debug: 'a t -> Format.formatter -> unit
+val pp_print_subsystems_debug: Format.formatter -> 'a t -> unit
+
+val pp_print_state_var_instances_debug: Format.formatter -> 'a t -> unit
+
+val pp_print_state_var_defs_debug: Format.formatter -> 'a t -> unit
+
+val lustre_definitions_of_state_var : 'a t -> StateVar.t -> LustreNode.state_var_def list
+
+val lustre_source_ast : 'a t -> LustreAst.t
 
 val slice_to_abstraction_and_property : 'a t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.value list) list -> Property.t -> TransSys.t * TransSys.instance list * (StateVar.t * Model.value list) list * Term.t * 'a t
 
+val retrieve_lustre_nodes : _ t -> LustreNode.t list
+
+(** Return the lustre node of the given scope 
+
+   Raise [Not_found] if there is no subsystem of that scope *)
+val find_lustre_node : Scope.t -> _ t -> LustreNode.t
 
 val reconstruct_lustre_streams :
   _ t -> 

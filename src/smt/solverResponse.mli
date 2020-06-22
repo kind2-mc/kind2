@@ -22,7 +22,7 @@
 
 
 (** Type of reponses for errors *)
-type error_response = [ `Error of string ]
+type error_response = [ `Error of string | `Timeout ]
                       
 type no_response = [ `NoResponse ]
 

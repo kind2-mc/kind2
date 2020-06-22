@@ -171,16 +171,27 @@ let offset_of_vars m =
 (* Simulation relation: Equality modulo input variables                   *)
 (* ********************************************************************** *)
 
-(* Name of the uninterpreted function symbol *)
-let equal_mod_input_string = "__compress_equal_mod_input"
+let counter =
+  let i = ref 0 in
+  fun () -> i := !i + 1 ; !i
 
+(* Name of the uninterpreted function symbol *)
+let equal_mod_input_string = ref "__compress_equal_mod_input"
+
+let function_symbol_name () =
+  !equal_mod_input_string
+
+let new_function_symbol_name () =
+  equal_mod_input_string := Printf.sprintf "__compress_equal_mod_input_%i" (counter ())
 
 (* Declare uninterpreted function symbol *)
-let init_equal_mod_input declare_fun trans_sys = 
+let init_equal_mod_input declare_fun trans_sys =
+
+  new_function_symbol_name () ;
   
   let uf_distinct = 
     UfSymbol.mk_uf_symbol
-      equal_mod_input_string
+      !equal_mod_input_string
       (List.fold_left 
          (fun a sv -> 
             if not (StateVar.is_input sv) then 
@@ -201,7 +212,7 @@ let init_equal_mod_input declare_fun trans_sys =
 let equal_mod_input accum s1 s2 = 
 
   let uf_distinct = 
-    UfSymbol.uf_symbol_of_string equal_mod_input_string
+    UfSymbol.uf_symbol_of_string !equal_mod_input_string
   in
 
   if

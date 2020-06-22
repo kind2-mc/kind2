@@ -1525,6 +1525,26 @@ let get_state_var_instances state_var =
   (* Return empty list *)
   with Not_found -> []
 
+let get_all_state_vars t =
+  let inputs = D.bindings t.inputs |> List.map snd in
+  let outputs = D.bindings t.outputs |> List.map snd in
+  let locals = t.locals
+    |> List.map (fun ls -> D.bindings ls |> List.map snd)
+    |> List.flatten in
+  t.instance::(inputs@outputs@locals)
+
+let pp_print_state_var_instances_debug fmt t =
+  let print_sv state_var =
+    Format.fprintf fmt "--- %a ---\n" StateVar.pp_print_state_var state_var ;
+    get_state_var_instances state_var
+    |> List.iter (fun (pos, id, sv) ->
+      Format.fprintf fmt "%a: %a %a\n"
+      (LustreIdent.pp_print_ident true) id
+      StateVar.pp_print_state_var sv
+      Lib.pp_print_position pos
+    )
+  in
+  List.iter print_sv (get_all_state_vars t)
 
 (* State variable is identical to a state variable in a node instance *)
 let set_state_var_instance state_var pos node state_var' = 
@@ -1557,6 +1577,80 @@ let set_state_var_instance state_var pos node state_var' =
     state_var_instance_map 
     state_var
     instances'
+
+type contract_item_type =
+    | Assumption | WeakAssumption | Guarantee | WeakGuarantee | Require | Ensure
+type state_var_def =
+  | CallOutput of position * LustreIndex.index
+  | ProperEq of position * LustreIndex.index
+  | GeneratedEq of position * LustreIndex.index
+  | ContractItem of position * LustreContract.svar * contract_item_type
+  | Assertion of position
+
+let state_var_defs_map : state_var_def list StateVar.StateVarHashtbl.t = 
+  StateVar.StateVarHashtbl.create 20
+
+let get_state_var_defs state_var = 
+  try 
+    StateVar.StateVarHashtbl.find
+      state_var_defs_map 
+      state_var
+  with Not_found -> []
+
+let state_var_defs_equal d1 d2 =
+  match d1, d2 with
+  | CallOutput (p1, i1), CallOutput (p2, i2)
+  | ProperEq (p1, i1), ProperEq (p2, i2)
+  | GeneratedEq (p1, i1), GeneratedEq (p2, i2) ->
+    (Lib.compare_pos p1 p2) = 0 && LustreIndex.equal_index i1 i2
+  | ContractItem (p1, svar1, typ1), ContractItem (p2, svar2, typ2) ->
+    (Lib.compare_pos p1 p2) = 0 && typ1 = typ2 && StateVar.equal_state_vars svar1.svar svar2.svar
+  | Assertion p1, Assertion p2 -> (Lib.compare_pos p1 p2) = 0
+  | _ -> false
+
+let add_state_var_def state_var def = 
+  let defs = get_state_var_defs state_var in
+  let defs =
+    if List.exists (fun d -> state_var_defs_equal d def) defs
+    then defs
+    else def::defs
+  in
+
+  StateVar.StateVarHashtbl.replace
+    state_var_defs_map 
+    state_var
+    defs
+
+let pos_of_state_var_def = function
+  | CallOutput (p,_) | ProperEq (p,_) | GeneratedEq (p,_)
+  | ContractItem (p, _, _) | Assertion p -> p
+
+let index_of_state_var_def = function
+  | CallOutput (_,i) | ProperEq (_,i) | GeneratedEq (_,i) -> i
+  | ContractItem _ | Assertion _ -> []
+
+let pp_print_state_var_defs_debug fmt t =
+  let print_sv state_var =
+    Format.fprintf fmt "--- %a ---\n" StateVar.pp_print_state_var state_var ;
+    get_state_var_defs state_var
+    |> List.iter (function
+      | CallOutput (p,i) ->
+        Format.fprintf fmt "Call Output: %a (%a)\n"
+        Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+      | ProperEq (p,i) ->
+        Format.fprintf fmt "Proper Eq: %a (%a)\n"
+        Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+      | GeneratedEq (p,i) ->
+        Format.fprintf fmt "Generated Eq: %a (%a)\n"
+        Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+      | ContractItem (p,_,_) ->
+        Format.fprintf fmt "Contract Item: %a\n" Lib.pp_print_position p
+      | Assertion p ->
+        Format.fprintf fmt "Assertion: %a\n" Lib.pp_print_position p
+      )
+  in
+  List.iter print_sv (get_all_state_vars t)
+
 
 let map_svars_in_equation f ((svar, index), expr) =
   let f_svar = f svar in

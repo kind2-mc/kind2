@@ -770,6 +770,8 @@ and pp_print_app ?as_type safe pvar ppf = function
             
         | _ -> assert false)
         
+    | `UF sym as s when Symbol.is_select (Symbol.mk_symbol s) ->
+      pp_print_app ?as_type safe pvar ppf (`SELECT (UfSymbol.res_type_of_uf_symbol sym))
         
     (* Unsupported functions symbols *)
     | `BVCONCAT

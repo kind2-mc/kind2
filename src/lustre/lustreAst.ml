@@ -268,10 +268,10 @@ type contract_ghost_const = const_decl
 type contract_ghost_var = const_decl
 
 (* A contract assume. *)
-type contract_assume = position * string option * expr
+type contract_assume = position * string option * bool (* soft *) * expr
 
 (* A contract guarantee. *)
-type contract_guarantee = position * string option * expr
+type contract_guarantee = position * string option * bool (* soft *) * expr
 
 (* A contract requirement. *)
 type contract_require = position * string option * expr
@@ -548,11 +548,11 @@ let rec pp_print_expr ppf =
     | Condact (p, e1, er, n, e2, e3) -> 
   
       Format.fprintf ppf 
-        "%acondact(%a,restart %a,%a(%a),%a)" 
+        "%acondact(%a,(restart %a every %a)(%a),%a)" 
         ppos p
         pp_print_expr e1
-        pp_print_expr er
         pp_print_ident n
+        pp_print_expr er
         (pp_print_list pp_print_expr ",@ ") e2
         (pp_print_list pp_print_expr ",@ ") e3
 
@@ -684,7 +684,7 @@ and pp_print_lustre_type ppf = function
   | ArrayType (pos, (t, e)) -> 
 
     Format.fprintf ppf 
-      "(%a^%a)" 
+      "%a^%a" 
       pp_print_lustre_type t 
       pp_print_expr e
 
@@ -948,7 +948,7 @@ and pp_print_states ppf =
 
 and pp_print_state ppf =
   function State (_, name, init, locals, eqs, unless, until) ->
-    Format.fprintf ppf "state %s@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a" name
+    Format.fprintf ppf "state %s@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a@?" name
       (pp_print_auto_trans "unless") unless
       pp_print_node_local_decl locals
       (pp_print_list pp_print_body "@ ") eqs
@@ -1023,17 +1023,19 @@ let pp_print_contract_ghost_var ppf = function
       pp_print_expr e
 
     
-let pp_print_contract_assume ppf (_, n, e) =
+let pp_print_contract_assume ppf (_, n, s, e) =
   Format.fprintf
     ppf
-    "@[<hv 3>assume%s@ %a;@]"
+    "@[<hv 3>%sassume%s@ %a;@]"
+    (if s then "weakly " else "")
     (match n with None -> "" | Some s -> " \""^s^"\"")
     pp_print_expr e
 
-let pp_print_contract_guarantee ppf (_, n, e) =
+let pp_print_contract_guarantee ppf (_, n, s, e) =
   Format.fprintf
     ppf
-    "@[<hv 3>guarantee%s@ %a;@]"
+    "@[<hv 3>%sguarantee%s@ %a;@]"
+    (if s then "weakly " else "")
     (match n with None -> "" | Some s -> " \""^s^"\"")
     pp_print_expr e
 
@@ -1068,7 +1070,7 @@ let pp_print_contract_mode ppf (_, id, reqs, enss) =
 
 let pp_print_contract_call fmt (_, id, in_params, out_params) =
   Format.fprintf
-    fmt "@[<hov 2>import %a (@,%a@,) (@,%a@,) ;@]"
+    fmt "@[<hov 2>import %a (@,%a@,) returns (@,%a@,) ;@]"
     pp_print_ident id
     (pp_print_list pp_print_expr ", ") in_params
     (pp_print_list pp_print_expr ", ") out_params
@@ -1099,49 +1101,60 @@ let pp_print_contract_spec ppf = function
 
 
 (* Pretty-prints a contract node. *)
-let pp_print_contract_node ppf (
-  id, _, i, o, contract
-) =
-  Format.fprintf ppf "@[<v>\
-      contract %s (@   \
-        @[<v>%a@]@ \
-      ) returns (@   \
-        @[<v>%a@]@ \
-      ) ;@ \
-      spec@   \
-        %a@ \
-      ceps\
-      @]
-    @]"
-    id
-    (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
-    (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-    pp_print_contract contract 
+let pp_print_contract_node_decl ppf (n,p,i,o,e)
+ =
+     Format.fprintf
+       ppf
+       "@[<hv>@[<hv 2>contract %a%t@ \
+        @[<hv 1>(%a)@]@;<1 -2>\
+        returns@ @[<hv 1>(%a)@];@]@.\
+        @[<hv 2>let@ \
+        %a@;<1 -2>\
+        tel;@]@]@?"
+       pp_print_ident n
+       (function ppf -> pp_print_node_param_list ppf p)
+       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
+       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+       pp_print_contract e
 
 
 let pp_print_node_or_fun_decl is_fun ppf (
   pos, (n, ext, p, i, o, l, e, r)
 ) =
-
-    Format.fprintf ppf
-      "@[<hv>@[<hv 2>%s%s %a%t@ \
-       @[<hv 1>(%a)@]@;<1 -2>\
-       returns@ @[<hv 1>(%a)@];@]@ \
-       %a@ \
-       %a@ \
-       @[<v 2>let@ \
-       %a@;<1 -2>\
-       tel;@]@]"
-      (if ext then "extern " else "")
-      (if is_fun then "function" else "node")
-      pp_print_ident n 
-      (function ppf -> pp_print_node_param_list ppf p)
-      (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
-      (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-      pp_print_contract_spec
-      r
-      pp_print_node_local_decl l
-      (pp_print_list pp_print_node_item "@ ") e
+    if e = [] then
+      Format.fprintf ppf
+        "@[<hv>@[<hv 2>%s%s %a%t@ \
+        @[<hv 1>(%a)@]@;<1 -2>\
+        returns@ @[<hv 1>(%a)@];@]@.\
+        %a@?\
+        %a@?@]@?"
+        (if is_fun then "function" else "node")
+        (if ext then " imported" else "")
+        pp_print_ident n 
+        (function ppf -> pp_print_node_param_list ppf p)
+        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
+        (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+        pp_print_contract_spec r
+        pp_print_node_local_decl l
+    else
+      Format.fprintf ppf
+        "@[<hv>@[<hv 2>%s%s %a%t@ \
+        @[<hv 1>(%a)@]@;<1 -2>\
+        returns@ @[<hv 1>(%a)@];@]@.\
+        %a@?\
+        %a@?\
+        @[<v 2>let@ \
+        %a@;<1 -2>\
+        tel;@]@]@?"
+        (if is_fun then "function" else "node")
+        (if ext then " imported" else "")
+        pp_print_ident n 
+        (function ppf -> pp_print_node_param_list ppf p)
+        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
+        (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+        pp_print_contract_spec r
+        pp_print_node_local_decl l
+        (pp_print_list pp_print_node_item "@ ") e
 
 
 (* Pretty-print a declaration *)
@@ -1159,21 +1172,8 @@ let pp_print_declaration ppf = function
   | FuncDecl (pos, decl) ->
     pp_print_node_or_fun_decl true ppf (pos, decl)
 
-  | ContractNodeDecl (pos, (n,p,i,o,e)) ->
-
-     Format.fprintf
-       ppf
-       "@[<hv>@[<hv 2>contract %a%t@ \
-        @[<hv 1>(%a)@]@;<1 -2>\
-        returns@ @[<hv 1>(%a)@];@]@ \
-        @[<hv 2>let@ \
-        %a@;<1 -2>\
-        tel;@]@]"
-       pp_print_ident n
-       (function ppf -> pp_print_node_param_list ppf p)
-       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
-       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-       pp_print_contract e
+  | ContractNodeDecl (pos, decl) ->
+    pp_print_contract_node_decl ppf decl
 
   | NodeParamInst (pos, (n, s, p)) -> 
 
@@ -1715,8 +1715,8 @@ outputs. *)
 let contract_node_equation_has_pre_or_arrow = function
 | GhostConst decl
 | GhostVar decl -> const_decl_has_pre_or_arrow decl
-| Assume (_, _, e)
-| Guarantee (_, _, e) -> has_pre_or_arrow e
+| Assume (_, _, _, e)
+| Guarantee (_, _, _, e) -> has_pre_or_arrow e
 | Mode (_, _, reqs, enss) ->
   List.map (fun (_, _, e) -> has_pre_or_arrow e) reqs
   |> some_of_list

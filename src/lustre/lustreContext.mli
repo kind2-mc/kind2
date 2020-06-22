@@ -247,7 +247,7 @@ val set_state_var_source : t -> StateVar.t -> LustreNode.state_var_source -> t
 val mk_local_for_expr :
   ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
   ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
-  ?is_ghost:bool -> ?original:LustreAst.expr ->
+  ?reuse:bool -> ?is_ghost:bool -> ?original:LustreAst.expr ->
   Lib.position -> t -> LustreExpr.t -> LustreNode.equation_lhs * t
 
 (** Create a fresh oracle state variable in the context. *)

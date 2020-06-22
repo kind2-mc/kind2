@@ -1189,9 +1189,11 @@ let create_instance
   let solver_cmd  = 
     YicesDriver.cmd_line
       logic
+      0
       produce_assignments
       produce_proofs
       produce_cores
+      false
       false
   in
 
@@ -1281,7 +1283,7 @@ let create_instance
   let headers =
     (Format.sprintf "(set-evidence! %B)" evidence) ::
     (header_logic solver) @
-    (headers ())
+    (headers false)
   in
   
   (* Print specific headers specifications *)
@@ -1323,8 +1325,9 @@ let delete_instance
   begin
     try ignore(execute_command_no_response solver "(exit)" 0)
     with Signal s when s = Sys.sigpipe ->
-      KEvent.log L_fatal
-        "[Warning] Got broken pipe when trying to exit %s instance PID %d."
+      KEvent.log L_warn
+        "[Warning] Got broken pipe when trying to exit %s instance PID %d.\
+        It may be due to a timeout."
         solver.solver_config.solver_cmd.(0) solver_pid
   end;
 

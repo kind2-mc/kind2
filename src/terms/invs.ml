@@ -35,6 +35,9 @@ type t = {
   ts: Cert.t TMap.t ;
 }
 
+let copy { os ; ts } =
+  { os = TMap.copy os ; ts = TMap.copy ts }
+
 (** The empty collection of invariants. *)
 let empty () = {
   os = TMap.create 107 ;
@@ -86,6 +89,10 @@ let add_ts { os ; ts } inv cert =
     TMap.mem os inv |> not &&
     TMap.mem ts inv |> not
   ) then TMap.add ts inv cert
+
+(** Remove all the invariants. *)
+let clear { os ; ts } =
+  TMap.clear os ; TMap.clear ts
 
 (** The one-state invariants. *)
 let get_os { os } = TMap.fold (

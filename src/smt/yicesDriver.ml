@@ -20,24 +20,38 @@ open Lib
 
 
 (* Configuration for Yices *)
-let cmd_line 
+let cmd_line
     logic
+    timeout
     produce_assignments
     produce_proofs
     produce_cores
+    minimize_cores
     produce_interpolants = 
 
   (* Path and name of Yices executable *)
   let yices_bin = Flags.Smt.yices_bin () in
 
-  if Flags.timeout_wall () > 0. then (
+  let timeout_global =
+    if Flags.timeout_wall () > 0.
+    then Some (Stat.remaining_timeout () +. 1.0)
+    else None
+  in
+  let timeout_local =
+    if timeout > 0
+    then Some (float_of_int timeout)
+    else None
+  in
+  let timeout = Lib.min_option timeout_global timeout_local in
+
+  match timeout with
+  | None -> [| yices_bin |]
+  | Some timeout ->
     let timeout =
-      let timeout_val = Stat.remaining_timeout () +. 1.0 in
-      Format.sprintf "--timeout=%.0f" (timeout_val |> ceil)
+      Format.sprintf "--timeout=%.0f" (timeout |> ceil)
     in
     [| yices_bin; timeout |]
-  )
-  else [| yices_bin |]
+
 
 
 
@@ -55,7 +69,7 @@ let check_sat_assuming_cmd _ =
   failwith "Yices: check_sat_assuming not applicable"
 
 
-let headers () = []
+let headers _ = []
 
 let prelude =
   [

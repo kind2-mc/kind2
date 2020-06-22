@@ -21,9 +21,13 @@ open SolverResponse
 (** Solver paramters *)
 module type Params = sig
 
+  val timeout : int
+
   val produce_assignments : bool
 
   val produce_cores : bool
+
+  val minimize_cores : bool
 
   val produce_proofs : bool
 

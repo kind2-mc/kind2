@@ -246,7 +246,7 @@ let ass_and_mode_requires_of_contract = function
 | None -> None, []
 
 (* The guarantees of a contract, including mode implications, as properties. *)
-let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
+let guarantees_of_contract scope { C.guarantees ; C.modes } =
   (* Originally properties are unknown. *)
   let prop_status = P.PropUnknown in
   (* Creates a property for a guarantee. *)
@@ -616,6 +616,8 @@ let call_terms_of_node_call mk_fresh_state_var globals
 
          N.set_state_var_instance
            inst_state_var call_pos call_node_name state_var;
+          (* No need to call N.add_state_var_def for local instances
+             because they have no definition in this node *)
          
          (* Add fresh state variable to locals of this node, to actual
             input parameters of node call and to map of state variable
@@ -1335,9 +1337,8 @@ module MBounds = Map.Make (struct
 
 (* Add constraints from equations to initial state constraint and
    transition relation *)
-let rec constraints_of_equations_wo_arrays
-    eq_bounds init stateful_vars terms lets = function 
-
+let rec constraints_of_equations_wo_arrays node
+    eq_bounds init stateful_vars terms (lets, lets_dependencies) = function
   (* Constraints for all equations generated *)
   | [] -> terms, lets, eq_bounds
 
@@ -1349,45 +1350,85 @@ let rec constraints_of_equations_wo_arrays
     let def = 
       Term.mk_eq 
         (if init then 
-           (* Equation for initial constraint on variable *)
-           [E.base_term_of_state_var TransSys.init_base state_var; 
+            (* Equation for initial constraint on variable *)
+            [E.base_term_of_state_var TransSys.init_base state_var; 
             E.base_term_of_expr TransSys.init_base expr_init] 
-         else
-           (* Equation for transition relation on variable *)
-           [E.cur_term_of_state_var TransSys.trans_base state_var; 
+          else
+            (* Equation for transition relation on variable *)
+            [E.cur_term_of_state_var TransSys.trans_base state_var; 
             E.cur_term_of_expr TransSys.trans_base expr_step])
       (* Convert select operators to uninterpreted functions *)
       |> Term.convert_select
     in
 
     (* Add terms of equation *)
-    constraints_of_equations_wo_arrays
-      eq_bounds init stateful_vars (def :: terms) lets tl
+    constraints_of_equations_wo_arrays node
+      eq_bounds init stateful_vars (def :: terms) (lets, lets_dependencies) tl
 
 
   (* Can define state variable with a let binding *)
   | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl ->
 
+    (*if not (E.is_var expr) then begin*)
+      (* We update the let dependencies *)
+      let add_dependency sv acc =
+        let old =
+          try SVM.find sv acc
+          with Not_found -> SVS.empty
+        in
+        SVM.add sv (SVS.add state_var old) acc
+      in
+      let svs_in_expr { E.expr_init; E.expr_step } =
+        let aux t = Term.state_vars_of_term t in
+        let bt expr = E.base_term_of_expr Numeral.zero expr in
+        SVS.union (aux (bt expr_init)) (aux (bt expr_step))
+      in
+      let lets_dependencies =
+        SVS.fold add_dependency (svs_in_expr expr) lets_dependencies
+      in
+
+      (* We must transfer the defs of this state variable
+      to all the state variables that depend on it or one of its dependencies *)
+      let dependencies =
+        try SVM.find state_var lets_dependencies
+        with Not_found -> SVS.empty
+      in
+      let dependencies = SVS.add state_var dependencies in
+      let defs = N.get_state_var_defs state_var in
+      let add_defs_to_sv sv =
+        List.iter (fun def -> N.add_state_var_def sv def) defs
+      in
+      let depends_on_this_sv expr =
+        SVS.inter dependencies (svs_in_expr expr)
+        |> SVS.is_empty |> not
+      in
+      let transfer_defs_to_eq_if_needed ((sv,_),eq) =
+        if not (StateVar.equal_state_vars sv state_var) && depends_on_this_sv eq
+        then add_defs_to_sv sv
+      in
+      List.iter transfer_defs_to_eq_if_needed node.N.equations
+    (*end*) ;
+
     (* Let binding for stateless variable, in closure form *)
     let let_closure =
       Term.mk_let 
         (if init then 
-           (* Binding for the variable at the base instant only *)
-           [(E.base_var_of_state_var TransSys.init_base state_var, 
-             E.base_term_of_expr TransSys.init_base expr_init)] 
-         else
-           (* Binding for the variable at the current instant *)
-           (E.cur_var_of_state_var TransSys.trans_base state_var, 
+            (* Binding for the variable at the base instant only *)
+            [(E.base_var_of_state_var TransSys.init_base state_var, 
+              E.base_term_of_expr TransSys.init_base expr_init)] 
+          else
+            (* Binding for the variable at the current instant *)
+            (E.cur_var_of_state_var TransSys.trans_base state_var, 
             E.cur_term_of_expr TransSys.trans_base expr_step) :: 
-           (if 
-             (* Does the state variable occur at the previous
+            (if 
+              (* Does the state variable occur at the previous
                 instant? *)
-             try
-             Term.state_vars_at_offset_of_term 
-               Numeral.(TransSys.trans_base |> pred) 
-               (Term.mk_and terms)
-             |> SVS.mem state_var  
-             with Invalid_argument _ -> true
+              try
+              Term.state_vars_at_offset_of_term 
+                Numeral.(TransSys.trans_base |> pred) 
+                (Term.mk_and terms)
+              |> SVS.mem state_var  
+              with Invalid_argument _ -> true
 
               
             then
@@ -1401,12 +1442,12 @@ let rec constraints_of_equations_wo_arrays
             else (* No binding for the variable at the previous instant
                     necessary *)
               [])
-           )
+            )
     in
 
     (* Start with singleton lists of let-bound terms *)
-    constraints_of_equations_wo_arrays
-      eq_bounds init stateful_vars terms (let_closure :: lets) tl
+    constraints_of_equations_wo_arrays node
+      eq_bounds init stateful_vars terms (let_closure :: lets, lets_dependencies) tl
 
   (* Array state variable *)
   | (((state_var, bounds), { E.expr_init; E.expr_step }) as eq) :: tl -> 
@@ -1416,9 +1457,8 @@ let rec constraints_of_equations_wo_arrays
     (* map equation to its bounds for future treatment and continue *)
     let eq_bounds = MBounds.add bounds (eq :: other_eqs) eq_bounds in
     
-    constraints_of_equations_wo_arrays
-      eq_bounds init stateful_vars terms lets tl
-
+    constraints_of_equations_wo_arrays node
+      eq_bounds init stateful_vars terms (lets, lets_dependencies) tl
 
 
 (* create quantified (or no) constraints for recursive arrays definitions *)
@@ -1521,12 +1561,12 @@ let constraints_of_arrays init terms eq_bounds =
     ) eq_bounds terms              
            
            
-let constraints_of_equations init stateful_vars terms equations =
+let constraints_of_equations node init stateful_vars terms equations =
         
   (* make constraints for equations which do not redefine arrays first *)
   let terms, lets, eq_bounds =
-    constraints_of_equations_wo_arrays
-      MBounds.empty init stateful_vars terms [] equations
+    constraints_of_equations_wo_arrays node
+      MBounds.empty init stateful_vars terms ([], SVM.empty) equations
     in
 
   (* then make constraints for recursive arrays so as to merge quantifiers as
@@ -1959,7 +1999,7 @@ let rec trans_sys_of_node'
           let init_terms, node_output_input_dep_init =
             S.order_equations true output_input_dep node
               |> (fun (e, d) ->
-               constraints_of_equations
+               constraints_of_equations node
                     true stateful_vars init_terms (List.rev e), d)
           in
 
@@ -1968,7 +2008,7 @@ let rec trans_sys_of_node'
           let trans_terms, node_output_input_dep_trans =
             S.order_equations false output_input_dep node
               |> (fun (e, d) ->
-               constraints_of_equations
+               constraints_of_equations node
                     false stateful_vars trans_terms (List.rev e), d)
           in
 

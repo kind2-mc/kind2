@@ -250,10 +250,10 @@ type contract_ghost_const = const_decl
 type contract_ghost_var = const_decl
 
 (* A contract assume. *)
-type contract_assume = position * string option * expr
+type contract_assume = position * string option * bool (* soft *) * expr
 
 (* A contract guarantee. *)
-type contract_guarantee = position * string option * expr
+type contract_guarantee = position * string option * bool (* soft *) * expr
 
 (* A contract requirement. *)
 type contract_require = position * string option * expr
@@ -367,7 +367,7 @@ val pp_print_declaration : Format.formatter -> declaration -> unit
 val pp_print_program : Format.formatter -> t -> unit
 
 val pp_print_contract_item : Format.formatter -> contract_node_equation -> unit
-val pp_print_contract_node : Format.formatter -> contract_node_decl -> unit
+val pp_print_contract_node_decl : Format.formatter -> contract_node_decl -> unit
 
 
 (** {1 Helpers} *)

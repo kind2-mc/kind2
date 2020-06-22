@@ -1247,6 +1247,7 @@ let mk_local_for_expr
     ?is_const
     ?for_inv_gen
     ?bounds
+    ?(reuse=true)
     ?(is_ghost=false)
     ?original
     pos
@@ -1281,7 +1282,7 @@ let mk_local_for_expr
               ?is_const
               ?for_inv_gen
               ?bounds
-              (* ?reuse *)
+              ~reuse
               (* ~reuse:(not ctx.guard_pre) *)
               ctx add_state_var_to_locals expr'
           in

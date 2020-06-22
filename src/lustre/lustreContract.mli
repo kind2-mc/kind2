@@ -31,7 +31,7 @@ type svar = {
   / ensure of the mode it's from. *)
   num: int ;
 
-  (** optional name for an assume or a guarantee *)
+  (** Optional name for an assume or a guarantee *)
   name: string option;
   
   (** Actual state variable. *)

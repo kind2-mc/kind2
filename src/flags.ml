@@ -1121,6 +1121,502 @@ module Certif = struct
 
 end
 
+(* Inductive Validity Cores flags. *)
+module IVC = struct
+
+  include Make_Spec (struct end)
+
+  (* Identifier of the module. *)
+  let id = "ivc"
+  (* Short description of the module. *)
+  let desc = "Inductive Validity Cores generation flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Kind 2 generates a minimal inductive validity core,@ \
+      that is a minimal subset of the model elements sufficient to prove the properties.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := List.rev_append specs !all_specs
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let compute_ivc_default = false
+  let compute_ivc = ref compute_ivc_default
+  let _ = add_spec
+    "--ivc"
+    (bool_arg compute_ivc)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Enable inductive validity core generation@ \
+          Default: %a\
+        "
+        fmt_bool compute_ivc_default
+    )
+  let compute_ivc () = !compute_ivc
+
+  type ivc_element =
+    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `ANNOTATIONS ]
+  let ivc_element_of_string = function
+    | "node_calls" -> `NODE_CALL
+    | "contracts" -> `CONTRACT_ITEM
+    | "equations" -> `EQUATION
+    | "assertions" -> `ASSERTION
+    | "annotations" -> `ANNOTATIONS
+    | unexpected -> Arg.Bad (
+      Format.sprintf "Unexpected value \"%s\" for flag --ivc_category" unexpected
+    ) |> raise
+  let ivc_category_default_init = []
+  let ivc_category_default_after =
+    [`NODE_CALL ; `CONTRACT_ITEM ; `EQUATION ; `ASSERTION ]
+  let ivc_category = ref ivc_category_default_init
+  let finalize_ivc_elements () =
+    (* If [enabled] is unchanged, set it do default after init. *)
+    if !ivc_category = ivc_category_default_init then (
+      ivc_category := ivc_category_default_after
+    )
+  let _ = add_spec
+    "--ivc_category"
+    (Arg.String
+      (fun str ->
+        let elt = ivc_element_of_string str in
+        if List.mem elt !ivc_category |> not
+        then ivc_category := elt :: !ivc_category
+      )
+    )
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          where <string> can be 'node_calls', 'contracts', 'equations', 'assertions' or 'annotations'@ \
+          Minimize only a specific category of elements, repeat option to minimize multiple categories@ \
+          Default: minimize all categories of elements\
+        "
+    )
+  let ivc_category () = !ivc_category
+
+
+  let ivc_all_default = false
+  let ivc_all = ref ivc_all_default
+  let _ = add_spec
+    "--ivc_all"
+    (bool_arg ivc_all)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Compute all the Minimal Inductive Validity Cores.@ \
+          Default: %a\
+        "
+        fmt_bool ivc_all_default
+    )
+  let ivc_all () = !ivc_all
+
+
+  let ivc_approximate_default = true
+  let ivc_approximate = ref ivc_approximate_default
+  let _ = add_spec
+    "--ivc_approximate"
+    (bool_arg ivc_approximate)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Compute an approximation (superset) of a MIVC.@ \
+          Ignored if --ivc_all is true.@ \
+          Default: %a\
+        "
+        fmt_bool ivc_approximate_default
+    )
+  let ivc_approximate () = !ivc_approximate
+
+
+  let ivc_smallest_first_default = false
+  let ivc_smallest_first = ref ivc_smallest_first_default
+  let _ = add_spec
+    "--ivc_smallest_first"
+    (bool_arg ivc_smallest_first)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Compute a smallest IVC first.@ \
+          If --ivc_all is false, the computed IVC will be a smallest one.@ \
+          Default: %a\
+        "
+        fmt_bool ivc_smallest_first_default
+    )
+  let ivc_smallest_first () = !ivc_smallest_first
+
+
+  let ivc_only_main_node_default = false
+  let ivc_only_main_node = ref ivc_only_main_node_default
+  let _ = add_spec
+    "--ivc_only_main_node"
+    (bool_arg ivc_only_main_node)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Only elements of the main node are considered in the computation@ \
+          Default: %a\
+        "
+        fmt_bool ivc_only_main_node_default
+    )
+  let ivc_only_main_node () = !ivc_only_main_node
+
+
+  (*let ivc_per_property_default = true
+  let ivc_per_property = ref ivc_per_property_default
+  let _ = add_spec
+    "--ivc_per_property"
+    (bool_arg ivc_per_property)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          If true, IVCs will be computed for each property separately@ \
+          Default: %a\
+        "
+        fmt_bool ivc_per_property_default
+    )
+  let ivc_per_property () = !ivc_per_property*)
+  let ivc_per_property () = false
+
+
+  let ivc_must_set_default = false
+  let ivc_must_set = ref ivc_must_set_default
+  let _ = add_spec
+    "--ivc_must_set"
+    (bool_arg ivc_must_set)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Compute the MUST set in addition to the IVCs@ \
+          Default: %a\
+        "
+        fmt_bool ivc_must_set_default
+    )
+  let ivc_must_set () = !ivc_must_set
+
+
+  let print_ivc_default = true
+  let print_ivc = ref print_ivc_default
+  let _ = add_spec
+    "--print_ivc"
+    (bool_arg print_ivc)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Print the inductive validity core computed@ \
+          Default: %a\
+        "
+        fmt_bool print_ivc_default
+    )
+  let print_ivc () = !print_ivc
+
+
+  let print_ivc_compl_default = false
+  let print_ivc_compl = ref print_ivc_compl_default
+  let _ = add_spec
+    "--print_ivc_complement"
+    (bool_arg print_ivc_compl)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Print the complement of the inductive validity core computed@ \
+          (= the elements that were not necessary to prove the properties)@ \
+          Default: %a\
+        "
+        fmt_bool print_ivc_compl_default
+    )
+  let print_ivc_compl () = !print_ivc_compl
+
+
+  type minimize_mode = [ `DO_NOT_MINIMIZE | `VALID_LUSTRE | `CONCISE ]
+
+  let mm_of_string = function
+    | "no" -> `DO_NOT_MINIMIZE
+    | "valid_lustre" -> `VALID_LUSTRE
+    | "concise" -> `CONCISE
+    | _ -> raise (Arg.Bad "Bad value for --minimize_program")
+
+  let minimize_program_default = `DO_NOT_MINIMIZE
+  let minimize_program = ref minimize_program_default
+  let _ = add_spec
+    "--minimize_program"
+    (Arg.String (fun str -> minimize_program := mm_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Minimize the source Lustre program according to the inductive validity core(s) computed@ \
+          \"no\" to disable this feature (default)@ \
+          \"valid_lustre\" to replace useless expressions by a valid node call@ \
+          \"concise\" to replace useless expressions by a '_'\
+        "
+    )
+  let minimize_program () = !minimize_program
+
+  let minimized_program_dir_default = ""
+  let minimized_program_dir = ref minimized_program_dir_default
+  let _ = add_spec
+      "--ivc_output_dir"
+      (Arg.Set_string minimized_program_dir)
+      (fun fmt ->
+         Format.fprintf fmt
+           "Output directory for the minimized programs@ \
+            Default: <INPUT_FILENAME>"
+      )
+  let minimized_program_dir () = !minimized_program_dir
+
+
+  let ivc_precomputed_mcs_default = 0
+  let ivc_precomputed_mcs = ref ivc_precomputed_mcs_default
+  let _ = add_spec
+    "--ivc_precomputed_mcs"
+    (Arg.Set_int ivc_precomputed_mcs)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          When computing all MIVCs,@ \
+          set a cardinality upper bound for the precomputed MCSs@ \
+          (helps prune space of candidates).@ \
+          Default: %n\
+        "
+        ivc_precomputed_mcs_default
+    )
+  let ivc_precomputed_mcs () = !ivc_precomputed_mcs
+
+
+  let ivc_uc_timeout_default = 0
+  let ivc_uc_timeout = ref ivc_uc_timeout_default
+  let _ = add_spec
+    "--ivc_uc_timeout"
+    (Arg.Set_int ivc_uc_timeout)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Set a timeout for each unsat core check sent to the solver.@ \
+          This setting is ignored if a solver different than Z3 is used.@ \
+          Set to 0 to disable timeout.@ \
+          Default: %n\
+        "
+        ivc_uc_timeout_default
+    )
+  let ivc_uc_timeout () = !ivc_uc_timeout
+
+end
+
+(* Minimal Cut Sets flags. *)
+module MCS = struct
+
+  include Make_Spec (struct end)
+
+  (* Identifier of the module. *)
+  let id = "mcs"
+  (* Short description of the module. *)
+  let desc = "Minimal Cut Sets generation flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Kind 2 generates a minimal cut set,@ \
+      that is a minimal subset of the model elements@ \
+      whose no satisfaction leads to the violation of a property.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := List.rev_append specs !all_specs
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  (*let compute_mcs_default = false
+  let compute_mcs = ref compute_mcs_default
+  let _ = add_spec
+    "--mcs"
+    (bool_arg compute_mcs)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Compute a minimal cut set@ \
+          Default: %a\
+        "
+        fmt_bool compute_mcs_default
+    )
+  let compute_mcs () = !compute_mcs*)
+  let compute_mcs () = false
+
+  type mcs_element =
+    [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `ANNOTATIONS ]
+  let mcs_element_of_string = function
+    | "node_calls" -> `NODE_CALL
+    | "contracts" -> `CONTRACT_ITEM
+    | "equations" -> `EQUATION
+    | "assertions" -> `ASSERTION
+    | "annotations" -> `ANNOTATIONS
+    | unexpected -> Arg.Bad (
+      Format.sprintf "Unexpected value \"%s\" for flag --mcs_category" unexpected
+    ) |> raise
+  let mcs_category_default_init = []
+  let mcs_category_default_after = [`ANNOTATIONS]
+  let mcs_category = ref mcs_category_default_init
+  let finalize_mcs_elements () =
+    (* If [enabled] is unchanged, set it do default after init. *)
+    if !mcs_category = mcs_category_default_init then (
+      mcs_category := mcs_category_default_after
+    )
+  let _ = add_spec
+    "--mcs_category"
+    (Arg.String
+      (fun str ->
+        let elt = mcs_element_of_string str in
+        if List.mem elt !mcs_category |> not
+        then mcs_category := elt :: !mcs_category
+      )
+    )
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          where <string> can be 'node_calls', 'contracts', 'equations', 'assertions' or 'annotations'@ \
+          Consider only a specific category of elements, repeat option to consider multiple categories@ \
+          Default: annotations\
+        "
+    )
+  let mcs_category () = !mcs_category
+
+
+  let mcs_only_main_node_default = false
+  let mcs_only_main_node = ref mcs_only_main_node_default
+  let _ = add_spec
+    "--mcs_only_main_node"
+    (bool_arg mcs_only_main_node)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Only elements of the main node are considered in the computation@ \
+          Default: %a\
+        "
+        fmt_bool mcs_only_main_node_default
+    )
+  let mcs_only_main_node () = !mcs_only_main_node
+
+
+  let mcs_all_default = false
+  let mcs_all = ref mcs_all_default
+  let _ = add_spec
+    "--mcs_all"
+    (bool_arg mcs_all)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Specify whether all the Minimal Cut Sets must be computed or just one@ \
+          Default: %a\
+        "
+        fmt_bool mcs_all_default
+    )
+  let mcs_all () = !mcs_all
+
+
+  let mcs_max_cardinality_default = -1
+  let mcs_max_cardinality = ref mcs_max_cardinality_default
+  let _ = add_spec
+    "--mcs_max_cardinality"
+    (Arg.Set_int mcs_max_cardinality)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Only search for MCSs of cardinality lower or equal to this parameter.@ \
+          If -1, all MCSs will be considered.@ \
+          Default: %i\
+        "
+        mcs_max_cardinality_default
+    )
+  let mcs_max_cardinality () = !mcs_max_cardinality
+
+
+  let print_mcs_default = true
+  let print_mcs = ref print_mcs_default
+  let _ = add_spec
+    "--print_mcs"
+    (bool_arg print_mcs)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Print the minimal cut set computed@ \
+          Default: %a\
+        "
+        fmt_bool print_mcs_default
+    )
+  let print_mcs () = !print_mcs
+
+
+  let print_mcs_compl_default = false
+  let print_mcs_compl = ref print_mcs_compl_default
+  let _ = add_spec
+    "--print_mcs_complement"
+    (bool_arg print_mcs_compl)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Print the complement of the minimal cut set computed@ \
+          (this is equivalent to computing a Maximal Unsafe Abstraction)@ \
+          Default: %a\
+        "
+        fmt_bool print_mcs_compl_default
+    )
+  let print_mcs_compl () = !print_mcs_compl
+
+
+  let print_mcs_legacy_default = false
+  let print_mcs_legacy = ref print_mcs_legacy_default
+  let _ = add_spec
+    "--print_mcs_legacy"
+    (bool_arg print_mcs_legacy)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Print the minimal cut set using the legacy format@ \
+          Default: %a\
+        "
+        fmt_bool print_mcs_legacy_default
+    )
+  let print_mcs_legacy () = !print_mcs_legacy
+
+
+  let print_mcs_counterexample_default = false
+  let print_mcs_counterexample = ref print_mcs_counterexample_default
+  let _ = add_spec
+    "--print_mcs_counterexample"
+    (bool_arg print_mcs_counterexample)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Print a counterexample for each MCS found@ \
+          (ignored if --print_mcs_legacy is true)@ \
+          Default: %a\
+        "
+        fmt_bool print_mcs_counterexample_default
+    )
+  let print_mcs_counterexample () = !print_mcs_counterexample
+
+
+  let mcs_per_property_default = true
+  let mcs_per_property = ref mcs_per_property_default
+  let _ = add_spec
+    "--mcs_per_property"
+    (bool_arg mcs_per_property)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          If true, MCSs will be computed for each property separately@ \
+          Default: %a\
+        "
+        fmt_bool mcs_per_property_default
+    )
+  let mcs_per_property () = !mcs_per_property
+
+end
 
 (* Arrays flags. *)
 module Arrays = struct
@@ -1626,6 +2122,12 @@ let module_map = [
   (Contracts.id,
     (module Contracts: FlagModule)
   ) ;
+  (IVC.id,
+    (module IVC: FlagModule)
+  ) ;
+  (MCS.id,
+    (module MCS: FlagModule)
+  ) ;
   (Arrays.id,
     (module Arrays: FlagModule)
   ) ;
@@ -2070,6 +2572,7 @@ module Global = struct
     | "INVGENREALOS" -> `INVGENREALOS
     | "C2I" -> `C2I
     | "interpreter" -> `Interpreter
+    | "MCS" -> `MCS
     | unexpected -> Arg.Bad (
       Format.sprintf "Unexpected value '%s' for flag --enable" unexpected
     ) |> raise
@@ -2087,6 +2590,7 @@ module Global = struct
     | `INVGENREALOS -> "INVGENREALOS"
     | `C2I -> "C2I"
     | `Interpreter -> "interpreter"
+    | `MCS -> "MCS"
   let string_of_enable = function
     | head :: tail -> (
       List.fold_left
@@ -2100,7 +2604,7 @@ module Global = struct
     `INVGEN ; `INVGENOS ;
     `INVGENINT ; `INVGENINTOS ;
     `INVGENREAL ; `INVGENREALOS ;
-    `C2I ; `Interpreter
+    `C2I ; `Interpreter ; `MCS
   ] |> List.map string_of_kind_module |> String.concat ", "
 
   let enable_default_init = []
@@ -2120,6 +2624,9 @@ module Global = struct
     (* If [enabled] is unchanged, set it do default after init. *)
     if !enabled = enable_default_init then (
       enabled := enable_default_after
+    ) 
+    else if !enabled = `MCS::enable_default_init then (
+      enabled := `MCS::enable_default_after
     ) ;
     (* Remove disabled modules. *)
     enabled := !enabled |> List.filter (
@@ -2392,8 +2899,6 @@ module Global = struct
         fmt_bool weakhcons_default
     )
   let weakhcons () = !weakhcons
-
-  
   
   (* Version flag. *)
   let _ = add_spec
@@ -2721,8 +3226,18 @@ let solver_dependant_actions () =
   | _ -> ()
 
 
+let name_of_category = function
+  | `NODE_CALL -> ("node_calls", "nodeCalls")
+  | `CONTRACT_ITEM -> ("contracts", "contracts")
+  | `EQUATION -> ("equations", "equations")
+  | `ASSERTION -> ("assertions", "assertions")
+  | `ANNOTATIONS -> ("annotations", "annotations")
+
 (* XML starting with options *)
 let print_xml_options () =
+    let pp_print_category_str fmt cat =
+      Format.fprintf fmt "%s" (name_of_category cat |> fst)
+    in
     Format.fprintf !log_ppf "@[<v>\
       <Results \
         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \
@@ -2730,7 +3245,7 @@ let print_xml_options () =
         timeout=\"%f\" \
         bmc_max=\"%d\" \
         compositional=\"%b\" \
-        modular=\"%b\"\
+        modular=\"%b\"%s%s\
       >@.@.@.\
     "
     (pp_print_list Log.pp_print_kind_module_xml_src ",") (Global.enabled ())
@@ -2738,11 +3253,39 @@ let print_xml_options () =
     (BmcKind.max ())
     (Contracts.compositional ())
     (Global.modular ())
-
+    (
+      if IVC.compute_ivc ()
+      then
+        Format.asprintf " \
+        ivc_category=\"%a\" \
+        ivc_all=\"%b\" \
+        ivc_approximate=\"%b\" \
+        ivc_smallest_first=\"%b\" \
+        ivc_only_main_node=\"%b\" \
+        ivc_must_set=\"%b\""
+        (pp_print_list pp_print_category_str ",") (IVC.ivc_category ())
+        (IVC.ivc_all ()) (IVC.ivc_approximate ()) (IVC.ivc_smallest_first ())
+        (IVC.ivc_only_main_node ()) (IVC.ivc_must_set ())
+      else ""
+    )
+    (
+      if MCS.compute_mcs ()
+      then
+        Format.asprintf " \
+        mcs_category=\"%a\" \
+        mcs_all=\"%b\" \
+        mcs_only_main_node=\"%b\""
+        (pp_print_list pp_print_category_str ",") (MCS.mcs_category ())
+        (MCS.mcs_all ()) (MCS.mcs_only_main_node ())
+      else ""
+    )
 
 let print_json_options () =
     let pp_print_module_str fmt mdl =
       Format.fprintf fmt "\"%s\"" (Lib.short_name_of_kind_module mdl)
+    in
+    let pp_print_category_str fmt cat =
+      Format.fprintf fmt "\"%s\"" (name_of_category cat |> snd)
     in
     Format.fprintf !log_ppf "{@[<v 1>@,\
         \"objectType\" : \"kind2Options\",@,\
@@ -2750,7 +3293,7 @@ let print_json_options () =
         \"timeout\" : %f,@,\
         \"bmcMax\" : %d,@,\
         \"compositional\" : %b,@,\
-        \"modular\" : %b\
+        \"modular\" : %b%s%s\
         @]@.}@.\
     "
     (pp_print_list pp_print_module_str ",@,") (Global.enabled ())
@@ -2758,7 +3301,38 @@ let print_json_options () =
     (BmcKind.max ())
     (Contracts.compositional ())
     (Global.modular ())
-
+    (
+      if IVC.compute_ivc ()
+      then
+        Format.asprintf ",@.  \
+        \"ivc\" :@,  \
+        { @[<v>@,\
+        \"ivcCategory\" :@,[@[<v 1>@,%a@]@,],@,\
+        \"ivcAll\" : %b,@,\
+        \"ivcApproximate\" : %b,@,\
+        \"ivcSmallestFirst\" : %b,@,\
+        \"ivcOnlyMainNode\" : %b,@,\
+        \"ivcMustSet\" : %b\
+        @]@.  }"
+        (pp_print_list pp_print_category_str ",@,") (IVC.ivc_category ())
+        (IVC.ivc_all ()) (IVC.ivc_approximate ()) (IVC.ivc_smallest_first ())
+        (IVC.ivc_only_main_node ()) (IVC.ivc_must_set ())
+      else ""
+    )
+    (
+      if MCS.compute_mcs ()
+      then
+        Format.asprintf ",@.  \
+        \"mcs\" :@,  \
+        { @[<v>@,\
+        \"mcsCategory\" :@,[@[<v 1>@,%a@]@,],@,\
+        \"mcsAll\" : %b,@,\
+        \"mcsOnlyMainNode\" : %b\
+        @]@.  }"
+        (pp_print_list pp_print_category_str ",@,") (MCS.mcs_category ())
+        (MCS.mcs_all ()) (MCS.mcs_only_main_node ())
+      else ""
+    )
 
 let post_argv_parse_actions () =
 
@@ -2799,9 +3373,17 @@ let parse_argv () =
   (* Finalize the list of enabled module. *)
   Global.finalize_enabled ();
 
+  IVC.finalize_ivc_elements ();
+  MCS.finalize_mcs_elements ();
+
   post_argv_parse_actions ();
   
-  solver_dependant_actions ()
+  solver_dependant_actions ();
+
+  if IVC.compute_ivc () && BmcKind.compress () then (
+    BmcKind.disable_compress () ;
+    Log.log L_warn "IVC post-analysis enabled: disabling ind_compress"
+  )
 
 
 (* Parsing command line arguments at load time *)
