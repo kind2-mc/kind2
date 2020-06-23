@@ -1,0 +1,10 @@
+-- where 0! = 1
+--       n! = n * (n-1)!
+node fact (_ : bool) returns (F: int);
+var N: int;
+let
+  -- all the natural numbers
+  N = 0 -> (pre N) + 1;
+  -- all the factorial numbers
+  F = 1 ->  N * (pre N);
+tel

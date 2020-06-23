@@ -36,11 +36,11 @@ let
 tel
 
 -- Delay node for integer streams.
-node IntDelay(in: int^n) returns (out: int) ;
+node IntDelay(const n:int; in: int^n) returns (out: int) ;
   var x: int ;
 let
   out = x ;
-  x = 0 -> pre in ;
+  x = 0 -> pre in;
 tel
 
 

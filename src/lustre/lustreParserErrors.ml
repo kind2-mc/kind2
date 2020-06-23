@@ -109,7 +109,7 @@ let message =
     | 821 ->
         "Syntax Error!\n"
     | 828 ->
-        "Syntax Error!\n"
+        "Syntax Error! Probably a missing delimiter such as a semicolon at the end of the statement.\n"
     | 834 ->
         "Syntax Error!\n"
     | 835 ->
@@ -899,7 +899,7 @@ let message =
     | 129 ->
         "Syntax Error!\n"
     | 130 ->
-        "Syntax Error!\n"
+        "Syntax Error! Possible diagnosis includes:\n1. A missing delimiter such as a semicolon at the end of the statement.\n2. Malformed arithmetic expression\n"
     | 149 ->
         "Syntax Error!\n"
     | 150 ->
@@ -913,9 +913,9 @@ let message =
     | 154 ->
         "Syntax Error!\n"
     | 131 ->
-        "Syntax Error!\n"
+        "Syntax Error! Possible diagnosis includes:\n1. A missing delimiter such as a semicolon at the end of the statement.\n2. Malformed arithmetic expression\n"
     | 132 ->
-        "Syntax Error!\n"
+        "Syntax Error! Possible diagnosis includes:\n1. A missing delimiter such as a semicolon at the end of the statement.\n2. Malformed arithmetic expression \n"
     | 143 ->
         "Syntax Error!\n"
     | 144 ->
@@ -941,9 +941,9 @@ let message =
     | 203 ->
         "Syntax Error!\n"
     | 133 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps a missing delimiter such as a semicolon at the end of the statement.\n"
     | 134 ->
-        "Syntax Error!\n"
+        "Syntax Error! Possible diagnosis includes:\n1. A missing delimiter such as a semicolon at the end of the statement.\n2. Malformed arithmetic expression\n"
     | 145 ->
         "Syntax Error!\n"
     | 146 ->
@@ -993,9 +993,9 @@ let message =
     | 168 ->
         "Syntax Error!\n"
     | 113 ->
-        "Syntax Error! Perhaps a missing boolean operator in expression.\n"
+        "Syntax Error! Possible diagnosis include:\n1. A missing boolean operator in expression.\n2. Missing semicolon at the end of the statement.\n"
     | 114 ->
-        "Syntax Error! Perhaps a missing boolean operator in expression.\n"
+        "Syntax Error! Possible diagnosis includes:\n1. A missing boolean operator in expression.\n2. Missing semicolon at the end of the statement.\n"
     | 116 ->
         "Syntax Error!\n"
     | 173 ->
@@ -1273,13 +1273,13 @@ let message =
     | 53 ->
         "Syntax Error!\n"
     | 244 ->
-        "Syntax Error! Possible diagnosis includes:\n1. A missing colon between a variable and its type\n2. A missing semicolon separating variables\n3. A missing type for a variable\n"
+        "Syntax Error! Possible diagnosis includes:\n1. A missing colon between a variable and its type\n2. A missing semicolon separating variables\n3. A missing type for a variable\n4. Missing/unbalanced parenthesis\n"
     | 245 ->
         "Syntax Error! Perhaps a missing colon between an identifier and type.\n"
     | 59 ->
-        "Syntax Error!\n"
+        "Syntax Error! Possible diagnosis include:\n1. An extra colon between identifier and its type.\n2. Incorrect type specification.\n"
     | 243 ->
-        "Syntax Error! Possible diagnosis includes:\n1. A missing colon between a variable and its type\n2. A missing semicolon separating variables\n3. A missing type for a variable\n"
+        "Syntax Error! Possible diagnosis includes:\n1. A missing colon between a variable and its type\n2. A missing semicolon separating variables\n3. A missing type for a variable\n4. Missing/unbalanced parenthesis\n"
     | 55 ->
         "Syntax Error!\n"
     | 56 ->
