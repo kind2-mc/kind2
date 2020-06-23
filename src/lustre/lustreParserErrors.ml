@@ -57,7 +57,7 @@ let message =
     | 452 ->
         "Syntax Error!\n"
     | 453 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps a missing/unbalanced parenthesis.\n"
     | 448 ->
         "Syntax Error!\n"
     | 457 ->
@@ -797,7 +797,7 @@ let message =
     | 971 ->
         "Syntax Error!\n"
     | 975 ->
-        "Syntax Error! Perhaps a missing parenthesis in contract declaration.\n"
+        "Syntax Error! Perhaps a missing/unbalanced parenthesis in contract declaration.\n"
     | 976 ->
         "Syntax Error!\n"
     | 978 ->
@@ -1103,7 +1103,7 @@ let message =
     | 35 ->
         "Syntax Error!\n"
     | 320 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps a missing/unbalanced parenthesis.\n"
     | 321 ->
         "Syntax Error!\n"
     | 322 ->
@@ -1121,7 +1121,7 @@ let message =
     | 332 ->
         "Syntax Error!\n"
     | 319 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps a missing/unbalanced parenthesis.\n"
     | 335 ->
         "Syntax Error!\n"
     | 336 ->
@@ -1227,7 +1227,7 @@ let message =
     | 39 ->
         "Syntax Error!\n"
     | 264 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps a missing/unbalanced curly brace or parenthesis.\n"
     | 40 ->
         "Syntax Error!\n"
     | 44 ->
@@ -1253,9 +1253,9 @@ let message =
     | 49 ->
         "Syntax Error!\n"
     | 254 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps a missing/unbalanced parenthesis.\n"
     | 255 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps a missing parenthesis.\n"
     | 256 ->
         "Syntax Error!\n"
     | 257 ->

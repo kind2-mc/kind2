@@ -1016,7 +1016,7 @@ one_expr: IF TRUE THEN XOR
 ## IF pexpr(nonquantified) THEN
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing parenthesis.
 
 one_expr: IF TRUE WITH
 ##
@@ -1055,7 +1055,7 @@ one_expr: IF TRUE WITH
 ## IF pexpr(nonquantified)
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing/unbalanced parenthesis.
 
 one_expr: IF XOR
 ##
@@ -1353,7 +1353,7 @@ one_expr: LCURLYBRACKET TRUE RSQBRACKET
 ## In state 222, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing/unbalanced curly brace or parenthesis.
 
 one_expr: LCURLYBRACKET XOR
 ##
@@ -2275,7 +2275,7 @@ one_expr: LPAREN TRUE VAR
 ## LPAREN pexpr(nonquantified)
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing/unbalanced parenthesis.
 
 one_expr: LPAREN TRUE WITH DOT SYM XOR
 ##
@@ -2465,7 +2465,7 @@ one_expr: LPAREN TRUE WITH XOR
 ## LPAREN pexpr(nonquantified) WITH
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing/unbalanced parenthesis.
 
 one_expr: LPAREN XOR
 ##
@@ -5660,7 +5660,7 @@ main: CONTRACT XOR
 ## CONTRACT
 ##
 
-Syntax Error! Perhaps a missing parenthesis in contract declaration.
+Syntax Error! Perhaps a missing/unbalanced parenthesis in contract declaration.
 
 main: FUNCTION IMPORTED XOR
 ##
@@ -12638,7 +12638,7 @@ main: NODE SYM LPAREN RPAREN RETURNS LPAREN SYM COLON ASSUME SEMICOLON XOR
 ## clocked_typed_idents SEMICOLON
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing/unbalanced parenthesis.
 
 main: NODE SYM LPAREN RPAREN RETURNS LPAREN SYM COLON ASSUME WHEN ASSUME XOR
 ##
