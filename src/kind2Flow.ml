@@ -308,6 +308,17 @@ let post_clean_exit process exn =
   (* Exit with status. *)
   exit status
 
+(** Called after everything has been cleaned up, for a MCS analysis. *)
+let post_clean_exit_mcs_analysis process exn =
+  (* Exit status of process depends on exception. *)
+  let status = status_of_exn process ExitCodes.unknown exn in
+  (* Close tags in XML output. *)
+  KEvent.terminate_log () ;
+  (* Kill all live solvers. *)
+  SMTSolver.destroy_all () ;
+  (* Exit with status. *)
+  exit status
+
 (** Clean up before exit. *)
 let on_exit sys process exn =
   try
@@ -568,7 +579,7 @@ let run in_sys =
         |> KEvent.log_analysis_end
       in
       List.iter run_mcs params ;
-      post_clean_exit `Supervisor Exit
+      post_clean_exit_mcs_analysis `Supervisor Exit
     ) with
     | TimeoutWall -> on_exit None `Supervisor TimeoutWall
     | e -> on_exit None `Supervisor e
