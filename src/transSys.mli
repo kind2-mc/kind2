@@ -541,6 +541,9 @@ val has_properties : t -> bool
     invalid *)
 val all_props_proved : t -> bool
 
+(** Return true if at least one prop has been falsified *)
+val at_least_one_prop_falsified : t -> bool
+
 (** Add properties to the transition system *)
 val add_properties : t -> Property.t list -> t
 

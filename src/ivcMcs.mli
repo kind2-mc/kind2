@@ -34,7 +34,7 @@ type 'a result =
 | Error of string
 
 type 'a analyze_func =
-    bool ->
+    bool -> bool ->
     Lib.kind_module list ->
     'a InputSystem.t ->
     Analysis.param ->

@@ -82,7 +82,7 @@ let main_of_process = function
   | `INVGENREALOS -> renice () ; InvGen.main_real false
   | `C2I -> renice () ; C2I.main
   | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
-  | `Supervisor -> InvarManager.main false child_pids
+  | `Supervisor -> InvarManager.main false false child_pids
   | `MCS | `Parser | `Certif -> ( fun _ _ _ -> () )
 
 (** Cleanup function of the process *)
@@ -443,7 +443,7 @@ let run_process in_sys param sys messaging_setup process =
     child_pids := (pid, process) :: !child_pids
 
 (** Performs an analysis. *)
-let analyze msg_setup save_results ignore_props modules in_sys param sys =
+let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
   ( if TSys.has_properties sys |> not && not ignore_props then
@@ -474,7 +474,7 @@ let analyze msg_setup save_results ignore_props modules in_sys param sys =
       KEvent.update_child_processes_list !child_pids ;
 
       (* Running supervisor. *)
-      InvarManager.main ignore_props child_pids in_sys param sys ;
+      InvarManager.main ignore_props stop_if_falsified child_pids in_sys param sys ;
 
       (* Killing kids when supervisor's done. *)
       Some sys |> slaughter_kids `Supervisor
@@ -621,7 +621,7 @@ let run in_sys =
         ) ;
         latest_trans_sys := Some sys ;
         (* Analyze... *)
-        analyze msg_setup true false modules in_sys param sys ;
+        analyze msg_setup true false false modules in_sys param sys ;
         (* ...and loop. *)
         loop ()
 

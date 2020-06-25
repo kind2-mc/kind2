@@ -43,7 +43,7 @@ type 'a result =
 | Error of string
 
 type 'a analyze_func =
-    bool ->
+    bool -> bool ->
     Lib.kind_module list ->
     'a InputSystem.t ->
     Analysis.param ->
@@ -495,7 +495,7 @@ let make_ts_analyzer in_sys param analyze sys =
   let param = Analysis.param_clone param in
   let sys = TS.copy sys in
   let modules = Flags.enabled () in
-  sys, (fun sys -> analyze false modules in_sys param sys)
+  sys, (fun sys -> analyze false true modules in_sys param sys)
 
 let props_names props =
   List.map (fun { Property.prop_name = n } -> n) props
