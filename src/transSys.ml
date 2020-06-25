@@ -821,11 +821,15 @@ module Hashtbl = Hashtbl.Make (T)
 (* Return state variables of the transition system *)
 let state_vars { state_vars } = state_vars
 
-(** Add a global constant to a transition system *)
-let add_global_constant t v =
+(* Add a global constant to a transition system *)
+let rec add_global_constant t v =
+  let aux (t, instances) =
+    (add_global_constant t v, instances)
+  in
+  let subsystems = List.map aux t.subsystems in
   let global_consts = v::t.global_consts in
   let state_vars = (Var.state_var_of_state_var_instance v)::t.state_vars in
-  { t with global_consts ; state_vars }
+  { t with subsystems ; global_consts ; state_vars }
 
 (* Return global state variables of the transition system *)
 let global_state_vars { global_state_vars } = global_state_vars
