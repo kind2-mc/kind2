@@ -36,7 +36,7 @@ module type PostAnalysis = sig
     Analysis.param ->
     (** A function running an analysis with some modules. *)
     (
-      bool -> Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
+      bool -> bool -> Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
       -> unit
     ) ->
     (** Results for the current system. *)
@@ -61,7 +61,7 @@ module RunMCS: PostAnalysis
     Analysis.param ->
     (** A function running an analysis with some modules. *)
     (
-      bool -> Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
+      bool -> bool -> Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
       -> unit
     ) ->
     TransSys.t
@@ -72,7 +72,7 @@ module RunMCS: PostAnalysis
 val run: 'a InputSystem.t -> Scope.t ->
     (** A function running an analysis with some modules. *)
     (
-      bool -> Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
+      bool -> bool -> Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
       -> unit
     ) ->
     Analysis.results -> unit

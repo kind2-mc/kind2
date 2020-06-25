@@ -1401,7 +1401,14 @@ let all_props_proved t =
       | _ -> false
     ) t.properties
 
-
+(* Return true if at least one prop has been falsified *)
+let at_least_one_prop_falsified t =
+  List.exists
+    (function
+      | { P.prop_source = P.Candidate _ } -> false
+      | { P.prop_status = (P.PropFalse _) } -> true
+      | _ -> false
+    ) t.properties
 
 (* Instantiate terms in association list to the bound *)
 let named_terms_list_of_bound l i = 
