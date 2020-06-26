@@ -55,7 +55,7 @@ Overall system architecture.
 
 {!modules:
   Log
-  Event
+  KEvent
 }
 
 {2:strategies Analysis and Strategies}
