@@ -1,4 +1,3 @@
-let package_name = "kind2"
+let package_name = "%%NAME%%"
 
-let version = "%%%GIT_DESCRIBE%%%"
-
+let version = "%%VERSION%%"

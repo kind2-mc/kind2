@@ -726,7 +726,7 @@ let log_to_stdout () = log_ppf := std_formatter
 (* ********************************************************************** *)
 
 let pp_print_banner ppf () =
-    fprintf ppf "%s %s" Kind2Config.package_name Version.version
+    fprintf ppf "%s %s" Version.package_name Version.version
 
 let pp_print_version ppf = pp_print_banner ppf ()
   

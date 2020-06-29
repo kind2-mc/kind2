@@ -46,11 +46,10 @@ Requirements
 ------------
 
 * Linux or Mac OS X,
-* Automake,
-* GNU Libtool,
-* pkg-config,
-* OCaml 4.04 or later,
-* `Ocamlbuild <https://github.com/ocaml/ocamlbuild>`_\ , Ocamlfind, `Yojson <https://github.com/ocaml-community/yojson>`_\ ,
+* `OPAM <http://opam.ocaml.org>`_\,
+* `libzmq (c lib) 4.x or later <https://zeromq.org>`_\,
+* OCaml 4.07 or later,
+* `Yojson <https://github.com/ocaml-community/yojson>`_\ ,
 * `num <https://github.com/ocaml/num>`_ (part of OCaml distribution until 4.06),
 * `Menhir <http://gallium.inria.fr/~fpottier/menhir/>`_ parser generator, and
 * a supported SMT solver
@@ -60,52 +59,34 @@ Requirements
   * `Yices 1 <http://yices.csl.sri.com/old/download-yices1-full.shtml>`_\ , or
   * `Z3 <https://github.com/Z3Prover/z3>`_ (presently recommended)
 
-Consider to use `opam <https://opam.ocaml.org/>`_ to install the OCaml compiler and the OCaml libraries.
-
 Building and installing
 -----------------------
 
-Move to the top-level directory of the Kind 2 distribution, and make sure the path to that directory does not contain any white spaces (i.e., do not use something like /Users/Smith/Kind 2/). Then, run
+Move to the top-level directory of the Kind 2 distribution, Then, run
 
 .. code-block:: none
 
-   ./autogen.sh
+   opam install kind2
 
-
-By default, ``kind2`` will be installed into ``/usr/local/bin``\ , an operation for which you usually need to be root. Call 
-
-.. code-block:: none
-
-   ./build.sh --prefix=<path>
-
-
-to install the Kind 2 binary into ``<path>/bin``. You can omit the option to accept the default path of ``/usr/local/bin``. 
-
-The ZeroMQ and CZMQ libraries, and OCaml bindings to CZMQ are distributed with Kind 2. The build script will compile and link to those, ignoring any versions that are installed on your system. 
-
-If it has been successful, call 
+By default, ``kind2`` will be installed into the bin directory of your current OPAM switch. Run 
 
 .. code-block:: none
 
-   make install
+   opam install kind2 --destdir=DIR
 
-
-to install the Kind 2 binary into the chosen location. If you need to pass options to the configure scripts of any of ZeroMQ, CZMQ, the OCaml bindings or Kind 2, add these to the ``build.sh`` call. Use ``./configure --help`` after ``autogen.sh`` to see all available options.
+to install the Kind 2 binary into ``<DIR>/bin``.
 
 You need a supported SMT solver on your path when running ``kind2``.
 
-You can run tests to see if Kind 2 has been built correctly. To do so run
+Development
+-----------
+
+With OPAM 2.x you can create a local switch which will install all dependencies automatically.
 
 .. code-block:: none
 
-   make test
-
-
-You can pass arguments to Kind 2 with the ``ARGS="..."`` syntax. For instance
-
-.. code-block:: none
-
-   make ARGS="--enable IC3" test
+   opam switch create .
+   make
 
 Documentation
 -------------
