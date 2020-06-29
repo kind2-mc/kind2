@@ -83,11 +83,13 @@
   <!-- Enumerations for IVC and MCS -->
   <xs:simpleType name="ModelElementCategory">
     <xs:restriction base="xs:string">
-      <xs:enumeration value="node_calls"/>
-      <xs:enumeration value="contracts"/>
-      <xs:enumeration value="equations"/>
-      <xs:enumeration value="assertions"/>
-      <xs:enumeration value="annotations"/>
+      <xs:enumeration value="node_call"/>
+      <xs:enumeration value="assumption"/>
+      <xs:enumeration value="guarantee"/>
+      <xs:enumeration value="require"/>
+      <xs:enumeration value="ensure"/>
+      <xs:enumeration value="equation"/>
+      <xs:enumeration value="assertion"/>
     </xs:restriction>
   </xs:simpleType>
 

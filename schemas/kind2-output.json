@@ -120,6 +120,17 @@
         },
         "modelElementCategory": {
             "enum": [
+                "nodeCall",
+                "assumption",
+                "guarantee",
+                "require",
+                "ensure",
+                "equation",
+                "assertion"
+            ]
+        },
+        "modelElementCategories": {
+            "enum": [
                 "nodeCalls",
                 "contracts",
                 "equations",
@@ -142,7 +153,7 @@
             "properties": {
                 "ivcCategory": {
                     "type": "array",
-                    "items": { "$ref": "#/definitions/modelElementCategory" }
+                    "items": { "$ref": "#/definitions/modelElementCategories" }
                 },
                 "ivcAll": {
                     "type": "boolean"
@@ -170,7 +181,7 @@
             "properties": {
                 "mcsCategory": {
                     "type": "array",
-                    "items": { "$ref": "#/definitions/modelElementCategory" }
+                    "items": { "$ref": "#/definitions/modelElementCategories" }
                 },
                 "mcsAll": {
                     "type": "boolean"
