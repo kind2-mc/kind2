@@ -1,7 +1,0 @@
-#! /bin/bash
-#
-#   Generate README.md and upload to git
-gitdown README.txt
-git add README.* images
-git commit -m "Generated documentation"
-# git push origin master
