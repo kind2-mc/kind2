@@ -1,47 +1,6 @@
-{ul
-  {- {%html: <a href="#devdoc"> %}Developers' Documentation{%html: </a>%}
-     {ul
-       {- {%html: <a href="#strategies">%}Analysis and Strategies {%html: </a>%}}
-       {- {%html: <a href="#terms">%}Terms {%html: </a>%}}
-       {- {%html: <a href="#trans_sys">%}Transition System {%html: </a>%}}
-       {- {%html: <a href="#engines">%}Verification Engines{%html: </a>%}
-          {ul
-            {- {%html: <a href="#induction">%}k-induction{%html: </a>%}}
-            {- {%html: <a href="#ic3">%}IC3{%html: </a>%}}
-            {- {%html: <a href="#invgen">%}Invariant Generators{%html: </a>%}
-               {ul
-                  {- {%html: <a href="#invgen_graph">%}Implication Graph-based Invariant Generation{%html: </a>%}}
-                  {- {%html: <a href="#c2i">%}C2I: Machine-learning-based Invariant Generation{%html: </a>%}}
-               }}
-            {- {%html: <a href="#interpreter">%}Interpreter{%html: </a>%}}
-       }}
-       {- {%html: <a href="#input">%}Input Modules{%html: </a>%}
-          {ul
-            {- {%html: <a href="#input_lustre">%}Lustre{%html: </a>%}}
-            {- {%html: <a href="#input_native">%}Native{%html: </a>%}}
-       }}
-       {- {%html: <a href="#smt">%}SMT Solver Interface{%html: </a>%}
-          {ul
-            {- {%html: <a href="#smtlib">%}SMT-LIB 2.0 Interfaces{%html: </a>%}}
-            {- {%html: <a href="#yices">%}Yices Interface{%html: </a>%}}
-       }}
-       {- {%html: <a href="#compil">%}Lustre to Rust{%html: </a>%}
-       }
-       {- {%html: <a href="#testgen">%}Test Generation{%html: </a>%}
-       }
-       {- {%html: <a href="#util">%}Utilities{%html: </a>%}}
-  }} 
-  {- {%html: <a href="#howto">%}Howto{%html: </a>%}
-     {ul
-       {- {%html: <a href="#howto_doc">%}Documentation{%html: </a>%}}
-       {- {%html: <a href="#howto_dir">%}Add a new subdirectory{%html: </a>%}}
-  }}
-  {- {%html: <a href="#indexes">%}Indexes{%html: </a>%}}
-}
-
+{0 Kind 2 Developer's Documentation}
 
 {1 Developers' Documentation}
-
 
 Overall system architecture.
 
@@ -55,7 +14,7 @@ Overall system architecture.
 
 {!modules:
   Log
-  KEvent
+  Event
 }
 
 {2:strategies Analysis and Strategies}

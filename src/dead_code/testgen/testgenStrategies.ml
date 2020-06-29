@@ -155,7 +155,7 @@ module Unit_ModeSwitch : Sig = struct
       [ (empty_path_actlit, Numeral.(~- one), []) ]
       sys declare activate get_values comment
 
-  let max_k () = Flags.testgen_len () |> Numeral.of_int
+  let max_k () = Flags.Testgen.len () |> Numeral.of_int
 
   let work context k =
 
