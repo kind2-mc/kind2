@@ -303,7 +303,7 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
     let print_elt elt =
       if not !fst then Format.fprintf fmt "@ " else fst := false ;
       let (file, row, col) = Lib.file_row_col_of_pos elt.position in
-      Format.fprintf fmt "<Element category=\"%s\" name=\"%s\" line=\"%i\" column=\"%i\"%s>"
+      Format.fprintf fmt "<Element category=\"%s\" name=\"%s\" line=\"%i\" column=\"%i\"%s/>"
         (format_name_for_json_xml elt.category) elt.name row col (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
     in
     Format.fprintf fmt "<Node name=\"%s\">@   @[<v>" (Scope.to_string scope) ;
