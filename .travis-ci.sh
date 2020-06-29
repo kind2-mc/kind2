@@ -12,16 +12,12 @@ unzip "${z3_version}.zip"
 sudo cp "${z3_version}/bin/z3" $install_dir
 
 # Retrieve opam.
-wget -qq https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh -O - | sh -s /usr/local/bin 4.04.0
-export OPAMYES=1
-eval $(opam config env)
+wget -qq https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh
+echo "/usr/local/bin" | sh install.sh
+opam init -y --disable-sandboxing -c $OCAML_VERSION
+eval $(opam env)
 
 # Install ocaml packages needed for Kind 2.
-opam install ocamlbuild ocamlfind menhir yojson
-
-# Build the PR's Kind 2.
-./autogen.sh
-./build.sh --prefix=$(pwd)  # prefix installs the binary into the working directory for Travis
-
-# Checking regression test.
+opam install -y .
+make build
 make test

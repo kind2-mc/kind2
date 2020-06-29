@@ -35,7 +35,7 @@ kind2-doc:
 	@cp -rf $(DUNE_DOCDIR)/* $(LOCAL_DOCDIR)
 
 test:
-	@dune test --no-buffer
+	@$(CURDIR)/tests/run.sh $(CURDIR)/tests/regression $(CURDIR)/bin/kind2 --timeout 42
 
 uninstall:
 	@opam remove .
