@@ -1,10 +1,10 @@
 (executable
  (public_name kind2)
- (libraries kind2Internal)
+ (libraries kind2dev)
  (modules kind2))
 
 (library
- (name kind2Internal)
+ (name kind2dev)
  (libraries num str threads yojson zmq)
  (modules
   (:standard \ horn kind2 lustreChecker nusmv oldParser testgen testgenLib
