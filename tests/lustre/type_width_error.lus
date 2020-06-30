@@ -1,5 +1,5 @@
-const w = 11;
-const n = 5;
+const n = 11;
+const w = 5;
 
 node f(x : bool) returns (b : bool^n);
 let

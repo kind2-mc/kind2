@@ -33,7 +33,7 @@ module LPMI = LustreParser.MenhirInterpreter
 module LPE = LustreParserErrors
 
 exception NoMainNode of string
-           
+
 (* The parser has succeeded and produced a semantic value.*)
 let success (v : LustreAst.t): LustreAst.t =
   Log.log L_debug "Parsed :\n=========\n\n%a\n@." LustreAst.pp_print_program v;
@@ -101,26 +101,31 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
     (parse lexbuf (LPI.main lexbuf.lex_curr_p))
   with
   | LustreLexer.Lexer_error err -> LC.fail_at_position (Lib.position_of_lexing lexbuf.lex_curr_p) err  
-         
+
 (* Parse from input channel *)
 let of_channel in_ch =
   (* Get declarations from channel. *)
   let declarations = ast_of_channel in_ch in
   (* Simplify declarations to a list of nodes *)
+  (let tcRes = TC.typeAnalize declarations in
+  (* Perform Type analysis *)
+   match tcRes with
+   | TC.Ok -> ()
+   | TC.NotOk (pos, err) -> LC.fail_at_position pos err);
   let nodes, globals = LD.declarations_to_nodes declarations in
   (* Name of main node *)
   let main_node = 
     (* Command-line flag for main node given? *)
     match Flags.lus_main () with 
-      (* Use given identifier to choose main node *)
-      | Some s -> LustreIdent.mk_string_ident s
-      (* No main node name given on command-line *)
-      | None -> 
-        (try 
-           (* Find main node by annotation, or take last node as
+    (* Use given identifier to choose main node *)
+    | Some s -> LustreIdent.mk_string_ident s
+    (* No main node name given on command-line *)
+    | None -> 
+       (try 
+          (* Find main node by annotation, or take last node as
               main *)
-           LustreNode.find_main nodes 
-         (* No main node found
+          LustreNode.find_main nodes 
+        (* No main node found
             This only happens when there are no nodes in the input. *)
          with Not_found -> 
            raise (NoMainNode "No main node defined in input"))
