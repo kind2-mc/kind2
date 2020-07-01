@@ -19,17 +19,22 @@
     
     @author Apoorv Ingle *)
 
+module LA = LustreAst
+
 type tcResult = Ok | NotOk of Lib.position * string
 
 type tcContext
 
 val emptyContext: tcContext
   
-(* Type check with an empty context *)
-val typeCheck: LustreAst.expr -> tcResult
-
 (* typecheck with a user supplied context *)
-val typeCheck': tcContext -> LustreAst.expr -> tcResult                 
+val typeCheckExpr: tcContext -> LA.expr -> tcResult                 
 
 (* Perform type analysis on the AST *)
-val typeAnalize: LustreAst.t -> tcResult
+val staticTypeAnalize: LA.t -> tcResult list
+
+(* Report whether everything is [Ok] or [NotOk] *)
+val reportAnalysisResult: tcResult list -> tcResult
+
+val typeCheckProgram: LA.t -> tcResult  
+

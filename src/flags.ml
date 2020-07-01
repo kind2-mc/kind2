@@ -2622,6 +2622,23 @@ module Global = struct
     )
   let only_parse () = !only_parse
 
+  (* Only typecheck mode. *)
+  let only_tc_default = false
+  let only_tc = ref only_tc_default
+  let _ = add_spec
+    "--only_tc"
+    (bool_arg only_tc)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Only type check the Lustre program. No analysis is performed.@ \
+          Default: %a\
+        "
+        fmt_bool only_tc_default
+    )
+  let only_tc () = !only_tc
+                    
+                    
   (* Modules enabled. *)
   type enable = kind_module list
   let kind_module_of_string = function
@@ -3004,6 +3021,7 @@ let include_dirs = Global.include_dirs
 let log_invs = Global.log_invs
 let print_invs = Global.print_invs
 let only_parse = Global.only_parse
+let only_tc = Global.only_tc
 let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable

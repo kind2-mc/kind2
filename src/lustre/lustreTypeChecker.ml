@@ -18,32 +18,63 @@
 
 (* @author Apoorv Ingle *)
 
+module LA = LustreAst
+module LC = LustreContext
+
+          
 type tcResult = Ok | NotOk of Lib.position * string
 
 module OrdIdent = struct
-  type t = LustreAst.ident
+  type t = LA.ident
   let compare i1 i2 = Pervasives.compare i1 i2
 end
                             
 module IdentMap = Map.Make(OrdIdent)
                 
-type tcContext = LustreAst.lustre_type IdentMap.t
+type tcContext = LA.lustre_type IdentMap.t
                             
 let emptyContext = IdentMap.empty
 
-let typeCheck': LustreAst.expr -> tcContext -> tcResult
-  = fun expr tcContext -> Ok
-                 
-let typeCheck:  LustreAst.expr -> tcResult
-  = fun e -> typeCheck' e emptyContext
+let typeCheckExpr: tcContext -> LA.expr -> tcResult
+  = fun _ e -> Ok 
 
-let typingContextof: LustreAst.t -> tcContext
-  = fun _ -> emptyContext
+let scc: LA.t -> LA.t list
+  = fun decls -> [decls]
+           
+(* TODO: Find strongly connected components, put them in a group, then typecheck the group *)
+let typingContextOf: LA.t -> tcContext
+  = fun decls -> 
+  let typingContextOf': tcContext -> LA.declaration -> tcContext
+    = fun ctx decl ->
+    match decl with
+      | LA.TypeDecl  (_, tyDecl) -> emptyContext
+      | LA.ConstDecl (_, tyDecl) -> emptyContext
+      | LA.NodeDecl  (_, nodeDecl) -> emptyContext
+      | LA.FuncDecl  (_, nodeDecl) -> emptyContext
+      | LA.ContractNodeDecl (_, cnrtNodeDecl) -> emptyContext
+      | LA.NodeParamInst (_, nodeParamLst) -> emptyContext
+    in List.fold_left typingContextOf' emptyContext decls 
 
-let typeAnalize: LustreAst.t -> tcResult =
+let typeCheckGroup: (tcContext * LA.t) list -> tcResult list =
+  fun ctxGrpPair -> List.map (fun _ -> Ok) ctxGrpPair 
+
+let staticTypeAnalize: LustreAst.t -> tcResult list =
   fun decls ->
-  let _ = typingContextof decls in
-  match decls with
-  | _ -> Ok 
-  
-                       
+  (* Setup type checking contexts by first breaking the program 
+   * into typing groups (strongly connected components) *)
+  let typingGroups = scc decls in
+  (* compute the base typing contexts of each typing group *)
+  let tyGrpsCtxs = List.map typingContextOf typingGroups in
+  let ctxAndDeclPair = List.combine tyGrpsCtxs typingGroups in
+  typeCheckGroup ctxAndDeclPair  
+
+(* Get the top most error at a time *)
+let reportAnalysisResult: tcResult list -> tcResult = function
+  | []
+  | Ok :: _ -> Ok
+  | NotOk (pos,err) :: _ -> LC.fail_at_position pos err  
+
+
+let typeCheckProgram: LA.t -> tcResult = fun prg ->
+  prg |> staticTypeAnalize |> reportAnalysisResult 
+    

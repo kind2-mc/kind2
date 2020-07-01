@@ -106,12 +106,17 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
 let of_channel in_ch =
   (* Get declarations from channel. *)
   let declarations = ast_of_channel in_ch in
+
+  (let tcRes = TC.typeCheckProgram declarations in
+    (* Perform Type check *)
+    match tcRes with
+    | TC.Ok -> ()
+    | TC.NotOk (pos, err) -> LC.fail_at_position pos err);
+  
+  (if Flags.only_tc ()
+  then (Log.log L_note "No type errors found!"; exit 0));
+
   (* Simplify declarations to a list of nodes *)
-  (let tcRes = TC.typeAnalize declarations in
-  (* Perform Type analysis *)
-   match tcRes with
-   | TC.Ok -> ()
-   | TC.NotOk (pos, err) -> LC.fail_at_position pos err);
   let nodes, globals = LD.declarations_to_nodes declarations in
   (* Name of main node *)
   let main_node = 
