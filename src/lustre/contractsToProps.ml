@@ -18,9 +18,9 @@
 
 open Lib
 
+module PpAst = PpLustreAst
 module Ast = LustreAst
-module Expr = LustreExpr
-
+           
 let blah txt pos = Format.asprintf "%s at %a" txt pp_print_pos pos
 let blah_opt txt name pos =
   Format.asprintf "%s%t at %a"
@@ -113,10 +113,10 @@ let fmt_node_decl fmt (
     ) returns (@.  \
       @[<hov>%a@]@.\
     ) ;@.@?\
-  " Ast.pp_print_ident ident
-    Ast.pp_print_node_param_list params
-    (pp_print_list Ast.pp_print_const_clocked_typed_ident " ;@ ") ins
-    (pp_print_list Ast.pp_print_clocked_typed_ident " ;@ ") outs ;
+  " PpAst.pp_print_ident ident
+    PpAst.pp_print_node_param_list params
+    (pp_print_list PpAst.pp_print_const_clocked_typed_ident " ;@ ") ins
+    (pp_print_list PpAst.pp_print_clocked_typed_ident " ;@ ") outs ;
 
   (* Locals. *)
   let locals_empty, c_locals_empty = locals = [], c_locals = [] in
@@ -126,7 +126,7 @@ let fmt_node_decl fmt (
       if locals_empty then
         Format.fprintf fmt "var@."
       else
-        Format.fprintf fmt "  @[<v>%a@]@." Ast.pp_print_node_local_decl locals
+        Format.fprintf fmt "  @[<v>%a@]@." PpAst.pp_print_node_local_decl locals
     ) ;
 
     if not c_locals_empty then
@@ -134,15 +134,15 @@ let fmt_node_decl fmt (
         fun (blah, (id,_,typ)) ->
           Format.fprintf fmt "  -- %s@.  %a: %a ;@."
             blah
-            Ast.pp_print_ident id
-            Ast.pp_print_lustre_type typ
+            PpAst.pp_print_ident id
+            PpAst.pp_print_lustre_type typ
       )
   ) ;
 
   (* body. *)
   Format.fprintf fmt "let@." ;
   Format.fprintf fmt "  @[<v>%a@]@.@?"
-    (pp_print_list Ast.pp_print_node_item "@ ") items ;
+    (pp_print_list PpAst.pp_print_node_item "@ ") items ;
 
   if items <> [] then Format.fprintf fmt "@." ;
 
@@ -150,15 +150,15 @@ let fmt_node_decl fmt (
     fun (blah, (id,expr,_)) ->
       Format.fprintf fmt "  -- %s@.  %a = %a ;@."
         blah
-        Ast.pp_print_ident id
-        Ast.pp_print_expr expr
+        PpAst.pp_print_ident id
+        PpAst.pp_print_expr expr
   ) ;
   if c_locals <> [] then Format.fprintf fmt "@." ;
   
   c_asserts |> List.iter (
     fun (blah, ass) ->
       Format.fprintf fmt "  -- %s@.  %a@."
-        blah Ast.pp_print_node_item (LustreAst.Body ass)
+        blah PpAst.pp_print_node_item (LustreAst.Body ass)
   ) ;
   if c_asserts <> [] then Format.fprintf fmt "@." ;
 
@@ -169,9 +169,9 @@ let fmt_node_decl fmt (
         | [] -> ()
         | _ ->
           Format.fprintf fmt "(not (%a)) or "
-            (pp_print_list Ast.pp_print_expr " and ") lhs
+            (pp_print_list PpAst.pp_print_expr " and ") lhs
       ) ;
-      Format.fprintf fmt "(%a) ;@." Ast.pp_print_expr rhs
+      Format.fprintf fmt "(%a) ;@." PpAst.pp_print_expr rhs
   ) ;
   if c_properties <> [] then Format.fprintf fmt "@." ;
 
@@ -197,7 +197,7 @@ let rec fmt_declarations fmt = function
       fmt_node_decl fmt (wan,two,tri,far,fiv,six) contract_info
     )
 
-    | dec -> Ast.pp_print_declaration fmt dec
+    | dec -> PpAst.pp_print_declaration fmt dec
   ) ;
   Format.fprintf fmt "@.@.@?" ;
   fmt_declarations fmt tail

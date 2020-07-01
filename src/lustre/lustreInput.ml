@@ -36,7 +36,7 @@ exception NoMainNode of string
 
 (* The parser has succeeded and produced a semantic value.*)
 let success (v : LustreAst.t): LustreAst.t =
-  Log.log L_debug "Parsed :\n=========\n\n%a\n@." LustreAst.pp_print_program v;
+  Log.log L_debug "Parsed :\n=========\n\n%a\n@." PpLustreAst.pp_print_program v;
   v
 
 (* Generates the appropriate parser error message *)
@@ -111,7 +111,7 @@ let of_channel in_ch =
     (* Perform Type check *)
     match tcRes with
     | TC.Ok -> ()
-    | TC.NotOk (pos, err) -> LC.fail_at_position pos err);
+    | TC.Error (pos, err) -> LC.fail_at_position pos err);
   
   (if Flags.only_tc ()
   then (Log.log L_note "No type errors found!"; exit 0));

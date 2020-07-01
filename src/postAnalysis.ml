@@ -652,7 +652,7 @@ module RunIVC: PostAnalysis = struct
                 let filename = Filename.concat dir (Format.asprintf "%a_%n.lus" pp_print_properties props !nb) in
                 let print_channel out =
                   let fmt = Format.formatter_of_out_channel out in
-                  LustreAst.pp_print_program fmt
+                  PpLustreAst.pp_print_program fmt
                 in
                 let oc = open_out filename in
                 print_channel oc minimized ;

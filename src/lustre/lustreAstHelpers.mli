@@ -31,8 +31,8 @@ val has_unguarded_pre : expr -> bool
 val has_pre_or_arrow : expr -> Lib.position option
 
 (** Returns true iff a contract mentions a `pre` or a `->`.
-Does not (cannot) check contract calls recursively, checks only inputs and
-outputs. *)
+    Does not (cannot) check contract calls recursively, checks only inputs and
+    outputs. *)
 val contract_has_pre_or_arrow : contract -> Lib.position option
 
 (** Checks whether a node local declaration has a `pre` or a `->`. *)

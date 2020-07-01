@@ -49,7 +49,9 @@ let false_of_any _ = false
 let mk_dir dir =
   try Unix.mkdir dir 0o740 with Unix.Unix_error(Unix.EEXIST, _, _) -> ()
 
-                                                                    
+(* Flips the expected argument of the function *)
+let flip f = fun b a -> f a b 
+
 (* ********************************************************************** *)
 (* Arithmetic functions                                                   *)
 (* ********************************************************************** *)
