@@ -998,7 +998,7 @@ let check_k_inductive ?(approximate=false) sys enter_nodes core init_terms trans
         sys enter_nodes core init_terms trans_terms 0 bmax t in
     match res_base with
     | NOT_OK -> NOT_OK
-    | OK core ->
+    | OK core' ->
       let (bmax, t, pathcomp) = ind_k sys 0 trans_eq prop os_prop prop k in
       let bmax = bmax-1 in
       let t = Term.mk_not t in
@@ -1007,7 +1007,7 @@ let check_k_inductive ?(approximate=false) sys enter_nodes core init_terms trans
           sys enter_nodes core init_terms trans_terms 0 bmax t in
       begin match res_ind with
       | NOT_OK -> NOT_OK
-      | OK core' -> OK (core_union core core')
+      | OK core'' -> OK (core_union core' core'')
       end
   else
     let (bmax, t, _) = k_induction sys 0 init_eq trans_eq prop os_prop k in
