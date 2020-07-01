@@ -1160,14 +1160,14 @@ let must_set_ in_sys ?(os_invs=None) check_ts sys props enter_nodes keep test =
     |> List.map fst
     |> List.fold_left core_union empty_core
   in
-  core
+  (os_invs, core)
 
 let must_set in_sys param analyze sys props =
   try (
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
-    let must = must_set_ in_sys check_ts sys props enter_nodes keep test in
+    let (_, must) = must_set_ in_sys check_ts sys props enter_nodes keep test in
     Solution (props, core_to_loc_core in_sys (core_union keep must))
   ) with
   | NotKInductive | CertifChecker.CouldNotProve _ ->
@@ -1261,10 +1261,13 @@ let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
 let ivc_must_bf_ must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   let prop_names = props_names props in
 
-  let must = must_set_ in_sys ~os_invs:(Some os_invs) check_ts sys props enter_nodes keep test in
+  let (os_invs, must) =
+    must_set_ in_sys ~os_invs:(Some os_invs) check_ts sys props enter_nodes keep test in
   must_cont must ;
   let keep = core_union keep must in
   let test = core_diff test must in
+  let sys = remove_other_props sys prop_names in
+  let sys = add_as_candidate os_invs sys in
   if check_core check_ts sys prop_names enter_nodes keep
   then (
     KEvent.log L_info "MUST set is a valid IVC." ;
@@ -1381,12 +1384,16 @@ let block_down map actsvs s =
 
 type unexplored_type = | Any | Min | Max
 
-let umivc_ in_sys make_ts_analyzer sys props k enter_nodes
+let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
   ?(stop_after=0) cont keep test =
   let prop_names = props_names props in
   (*let sys_original = sys in*)
   let (sys_cs, check_ts_cs) = make_ts_analyzer sys in
   let (sys, check_ts) = make_ts_analyzer sys in
+  let sys = remove_other_props sys prop_names in
+  let sys = add_as_candidate os_invs sys in
+  let sys_cs = remove_other_props sys_cs prop_names in
+  let sys_cs = add_as_candidate os_invs sys_cs in
 
   let eq_of_actlit = get_ts_equation_of_actlit (core_union keep test) in
   (* If test is empty, we can return *)
@@ -1539,10 +1546,12 @@ let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
   let prop_names = props_names props in
   let (sys', check_ts') = make_ts_analyzer sys in
 
-  let must = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
+  let (os_invs, must) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
   must_cont must ;
   let keep = core_union keep must in
   let test = core_diff test must in
+  let sys' = remove_other_props sys' prop_names in
+  let sys' = add_as_candidate os_invs sys' in
   if check_core check_ts' sys' prop_names enter_nodes keep
   then (
     KEvent.log L_info "MUST set is a valid IVC." ;
@@ -1553,7 +1562,7 @@ let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
     KEvent.log L_info "MUST set is not a valid IVC. Running UMIVC..." ;
     let post core = core_union core must in
     let cont core = core |> post |> cont in
-    umivc_ in_sys make_ts_analyzer sys props k enter_nodes ~stop_after cont keep test
+    umivc_ in_sys ~os_invs make_ts_analyzer sys props k enter_nodes ~stop_after cont keep test
     |> List.map post
   )
 
@@ -1562,18 +1571,19 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
   try (
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
+    let make_ts_analyzer = make_ts_analyzer in_sys param analyze in
     let umivc_ = match use_must_set with
       | Some f ->
-        (fun x -> (props, core_to_loc_core in_sys (core_union keep x)) |> f) |> must_umivc_
-      | None -> umivc_ in
+        (fun x -> (props, core_to_loc_core in_sys (core_union keep x)) |> f)
+        |> (fun cont -> must_umivc_ cont in_sys make_ts_analyzer)
+      | None -> umivc_ in_sys make_ts_analyzer in
     let res = ref [] in
     let cont test =
       let ivc = (props, core_to_loc_core in_sys (core_union keep test)) in
       res := ivc::(!res) ;
       cont ivc
     in
-    let make_ts_analyzer = make_ts_analyzer in_sys param analyze in
-    let _ = umivc_ in_sys make_ts_analyzer sys props k enter_nodes ~stop_after cont keep test in
+    let _ = umivc_ sys props k enter_nodes ~stop_after cont keep test in
     List.rev (!res)
   ) with
   | CannotProve | NotKInductive | CertifChecker.CouldNotProve _ ->
