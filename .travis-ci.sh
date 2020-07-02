@@ -2,7 +2,7 @@
 if [ "$TRAVIS_OS_NAME" = "linux" ]; then
   z3_version="z3-4.7.1-x64-ubuntu-14.04"
   install_dir="/usr/bin/z3"
-elif [ "$TRAVIS_OS_NAME" = "osx" ]; then 
+elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
   z3_version="z3-4.7.1-x64-osx-10.11.6"
   install_dir="/usr/local/bin/z3"
 fi
@@ -18,6 +18,6 @@ opam init -y --disable-sandboxing -c $OCAML_VERSION
 eval $(opam env)
 
 # Install ocaml packages needed for Kind 2.
-opam install -y .
+opam install -y . --deps-only
 make build
 make test

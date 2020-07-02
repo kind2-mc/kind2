@@ -11,7 +11,7 @@ LOCAL_USRDOCDIR=$(CURDIR)/doc/usr
 all: build
 
 build:
-	@sed -i "s/%%VERSION%%/$(GIT_DESCRIBE)/g" $(CURDIR)/src/version.ml
+	@sed -i "s/%%VERSION%%/$(GIT_DESCRIBE)/g" "$(CURDIR)/src/version.ml"
 	@dune build
 	@git checkout $(CURDIR)/src/version.ml
 	@mkdir -p $(LOCAL_BINDIR)

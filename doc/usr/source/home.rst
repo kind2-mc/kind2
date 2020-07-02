@@ -46,11 +46,13 @@ Requirements
 ------------
 
 * Linux or Mac OS X,
-* `OPAM <http://opam.ocaml.org>`_\,
-* `libzmq (c lib) 4.x or later <https://zeromq.org>`_\,
 * OCaml 4.07 or later,
+* `OPAM package manager <http://opam.ocaml.org>`_\,
+* `Dune 2.2 or later <https://github.com/ocaml/dune>`_\,
+* `ZeroMQ (C library) 4.x or later <https://zeromq.org>`_\,
+* `OCaml bindings for ZMQ <https://github.com/issuu/ocaml-zmq>`_\,
 * `Yojson <https://github.com/ocaml-community/yojson>`_\ ,
-* `num <https://github.com/ocaml/num>`_ (part of OCaml distribution until 4.06),
+* `num <https://github.com/ocaml/num>`_\,
 * `Menhir <http://gallium.inria.fr/~fpottier/menhir/>`_ parser generator, and
 * a supported SMT solver
 
@@ -62,7 +64,7 @@ Requirements
 Building and installing
 -----------------------
 
-Move to the top-level directory of the Kind 2 distribution, Then, run
+Start by installing `opam <https://zeromq.org/download>`_ and `libzmq <https://zeromq.org/download>`_ following the instructions on their websites. Move to the top-level directory of the Kind 2 distribution, Then, run
 
 .. code-block:: none
 
