@@ -179,20 +179,15 @@ let actlitify ?(imp=false) solver t =
     (* end; *)
     ta
 
+let is_two_state inv =
+  match Term.var_offsets_of_term inv with
+  | Some lo, Some hi when Numeral.(equal lo hi |> not) -> true
+  | _ -> false
+
 let guard_two_state_term_list t v_at_0 =
 
-  let rec is_a_two_state_term t =
-    match Term.node_of_term t with
-    | Term.T.Node (_, l) -> List.exists is_a_two_state_term l
-    | Term.T.FreeVar v ->
-      if Var.is_state_var_instance v then
-        Numeral.equal (Var.offset_of_state_var_instance v) (Numeral.of_int (-1))
-      else false
-    | _ -> false
-  in
-
   let guard_two_state_term t =
-    if is_a_two_state_term t then
+    if is_two_state t then
       Term.mk_implies [Term.mk_gt [v_at_0; t0]; t]
     else t
   in
@@ -797,11 +792,6 @@ type return_of_try =
   | Inductive of Term.t list
   (* Inductiveness was verified, and we identified the useful invariants which
      are attached *)
-
-let is_two_state inv =
-  match Term.var_offsets_of_term inv with
-  | Some lo, Some hi when Numeral.(equal lo hi |> not) -> true
-  | _ -> false
 
 (* Verify inductiveness of given property and invariants at k. The argument
    just_check_ind controls whether we want to also identify the useful
