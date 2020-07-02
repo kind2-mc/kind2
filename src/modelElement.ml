@@ -273,7 +273,7 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
   let assoc = assoc @ (
     match cpd.time with
     | None -> []
-    | Some f -> [("runtime", `Assoc [("unit", `String "sec") ; ("value", `Float f)])]
+    | Some f -> [("runtime", `Assoc [("unit", `String "sec") ; ("value", `Float f) ; ("timeout", `Bool false)])]
   )
   in
   let assoc = assoc @ ([
@@ -322,7 +322,7 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
   (
     match cpd.time with
     | None -> ()
-    | Some f -> Format.fprintf fmt "<Runtime unit=\"sec\">%.3f</Runtime>@ " f
+    | Some f -> Format.fprintf fmt "<Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@ " f
   ) ;
   ScMap.iter print_node cpd.elements ;
   (
