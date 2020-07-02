@@ -87,6 +87,9 @@ let pp_print_mcs_legacy in_sys param sys ((prop, cex), core) (_, core_compl) =
   let wa_model = wa_model@wa_model' in
   KEvent.cex_wam cex wa_model in_sys param sys prop_name
 
+let print_timeout_warning () =
+  KEvent.log L_warn "An analysis has timeout, the result might be approximate."
+
 (* ---------- LUSTRE AST ---------- *)
 
 let counter =
@@ -632,7 +635,13 @@ let is_model_value_true = function
 
 let get_counterexample_actsvs prop_names sys actsvs =
   let rec aux = function
-  | [] -> None
+  | [] ->
+    if List.for_all (fun p ->
+      match TS.get_prop_status sys p with
+      | Property.PropInvariant _ -> true
+      | _ -> false) prop_names
+    then None
+    else (print_timeout_warning () ; None)
   | p::prop_names ->
     begin match TS.get_prop_status sys p with
       | Property.PropFalse cex ->
@@ -1114,8 +1123,8 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes keep test =
     check_k_inductive ~approximate:approximate sys enter_nodes test init trans prop os_prop k
   in
   let res = match minimize check empty_core test with
-  | None -> if !has_timeout then test else raise NotKInductive
-  | Some core -> core
+  | None -> if !has_timeout then (print_timeout_warning () ; test) else raise NotKInductive
+  | Some core -> (if !has_timeout then print_timeout_warning ()) ; core
   in (os_invs, res)
 
 let ivc_uc in_sys ?(approximate=false) sys props =
@@ -1183,12 +1192,21 @@ let must_set in_sys param analyze sys props =
 
 exception CannotProve
 
-let check_result prop_names sys =
-  List.for_all
-    (fun str -> match TS.get_prop_status sys str with
-    | Property.PropInvariant _ -> true
-    | _ -> false)
-    prop_names
+let check_result_safe prop_names sys =
+  if
+    List.for_all
+      (fun str -> match TS.get_prop_status sys str with
+      | Property.PropInvariant _ -> true
+      | _ -> false)
+      prop_names
+  then true
+  else if List.exists
+      (fun str -> match TS.get_prop_status sys str with
+      | Property.PropFalse _ -> true
+      | _ -> false)
+      prop_names
+  then false
+  else (print_timeout_warning () ; false)
 
 let check_core check_ts sys prop_names enter_nodes core =
   let main_scope = TS.scope_of_trans_sys sys in
@@ -1220,7 +1238,7 @@ let check_core check_ts sys prop_names enter_nodes core =
     Lib.set_log_level L_off ;
     check_ts sys ;
     Lib.set_log_level old_log_level;
-    check_result prop_names sys
+    check_result_safe prop_names sys
   in
   check core
 
@@ -1457,7 +1475,7 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
       Lib.set_log_level L_off ;
       check_ts sys ;
       Lib.set_log_level old_log_level;
-      check_result prop_names sys
+      check_result_safe prop_names sys
     in
 
     (* Compute MIVC *)
