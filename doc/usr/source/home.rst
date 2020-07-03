@@ -64,13 +64,21 @@ Requirements
 Building and installing
 -----------------------
 
-Start by installing `opam <https://zeromq.org/download>`_ and `libzmq <https://zeromq.org/download>`_ following the instructions on their websites. Move to the top-level directory of the Kind 2 distribution, Then, run
+Start by installing `OPAM <https://zeromq.org/download>`_ following the instructions on the website. Then, run
 
 .. code-block:: none
 
-   opam install kind2
+   opam pin add -n kind2 https://github.com/kind2-mc/kind2.git
+   opam depext kind2
+   opam install z3 kind2
 
-By default, ``kind2`` will be installed into the bin directory of your current OPAM switch. Run 
+The first command points OPAM to this github repo to install Kind 2 binary. The second command installs the ZeroMQ library using the default package manager for your OS (may require sudo permission). The third command installs ``Z3`` SMT solver and ``kind2``. Alternatively, you can clone this repo, move to the top-level directory, and run
+
+.. code-block:: none
+
+   make install
+
+to install ``kind2`` and its dependencies. By default, ``kind2`` will be installed into the bin directory of your current OPAM switch. Run
 
 .. code-block:: none
 
@@ -83,7 +91,7 @@ You need a supported SMT solver on your path when running ``kind2``.
 Development
 -----------
 
-With OPAM 2.x you can create a local switch which will install all dependencies automatically.
+With OPAM 2.x you can create a local switch which will install ``kind2`` and all its dependencies automatically.
 
 .. code-block:: none
 

@@ -24,7 +24,9 @@ doc:
 	cp $(LOCAL_USRDOCDIR)/build/pdf/kind2.pdf $(LOCAL_ALLDOCDIR)/user_documentation.pdf
 
 install:
-	@opam install .
+	@opam pin add -n -y kind2 https://github.com/kind2-mc/kind2.git
+	@opam depext -y kind2
+	@opam install -y z3 kind2
 
 kind2-doc:
 	@dune build @doc-private
@@ -36,4 +38,5 @@ test:
 	@$(CURDIR)/tests/run.sh $(CURDIR)/tests/regression $(CURDIR)/bin/kind2 --timeout 42
 
 uninstall:
-	@opam remove .
+	@opam remove -y kind2
+	@opam unpin kind2
