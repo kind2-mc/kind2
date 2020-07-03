@@ -90,6 +90,9 @@ let pp_print_mcs_legacy in_sys param sys ((prop, cex), core) (_, core_compl) =
 let print_timeout_warning () =
   KEvent.log L_warn "An analysis has timeout, the result might be approximate."
 
+let print_uc_error_note () =
+  KEvent.log L_note "Cannot solve the UNSAT core..."
+
 (* ---------- LUSTRE AST ---------- *)
 
 let counter =
@@ -1123,7 +1126,9 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes keep test =
     check_k_inductive ~approximate:approximate sys enter_nodes test init trans prop os_prop k
   in
   let res = match minimize check empty_core test with
-  | None -> if !has_timeout then (print_timeout_warning () ; test) else raise NotKInductive
+  | None ->
+    if !has_timeout then test
+    else (print_uc_error_note () ; test)
   | Some core -> (if !has_timeout then print_timeout_warning ()) ; core
   in (os_invs, res)
 
