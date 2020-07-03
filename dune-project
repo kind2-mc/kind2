@@ -19,6 +19,7 @@
   (ocaml
    (>= 4.07))
   dune
+  dune-build-info
   menhir
   num
   yojson

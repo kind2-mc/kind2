@@ -1,21 +1,19 @@
 DUNE_DOCDIR=$(CURDIR)/_build/default/_doc/_html
-DUNE_EXEDIR=$(CURDIR)/_build/default/src
-GIT_DESCRIBE=$(shell git describe --always --dirty)
 LOCAL_ALLDOCDIR=$(CURDIR)/doc
 LOCAL_BINDIR=$(CURDIR)/bin
 LOCAL_DOCDIR=$(CURDIR)/ocamldoc
 LOCAL_USRDOCDIR=$(CURDIR)/doc/usr
+LOCAL_TMPDIR=$(CURDIR)/_build/local_install
 
 .PHONY: all build clean doc install kind2-doc test uninstall
 
 all: build
 
 build:
-	@sed -i"" "s/%%VERSION%%/$(GIT_DESCRIBE)/g" $(CURDIR)/src/version.ml
 	@dune build
-	@git checkout $(CURDIR)/src/version.ml
+	@dune install --prefix $(LOCAL_TMPDIR)/ 2> /dev/null
 	@mkdir -p $(LOCAL_BINDIR)
-	@cp $(DUNE_EXEDIR)/kind2.exe $(LOCAL_BINDIR)/kind2
+	@mv $(LOCAL_TMPDIR)/bin/kind2 $(LOCAL_BINDIR)
 
 clean:
 	@dune clean
