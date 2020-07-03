@@ -3,7 +3,7 @@ LOCAL_ALLDOCDIR=$(CURDIR)/doc
 LOCAL_BINDIR=$(CURDIR)/bin
 LOCAL_DOCDIR=$(CURDIR)/ocamldoc
 LOCAL_USRDOCDIR=$(CURDIR)/doc/usr
-LOCAL_TMPDIR=$(CURDIR)/tmp
+LOCAL_TMPDIR=$(CURDIR)/_build/local_install
 
 .PHONY: all build clean doc install kind2-doc test uninstall
 
@@ -14,7 +14,6 @@ build:
 	@dune install --prefix $(LOCAL_TMPDIR)/ 2> /dev/null
 	@mkdir -p $(LOCAL_BINDIR)
 	@mv $(LOCAL_TMPDIR)/bin/kind2 $(LOCAL_BINDIR)
-	@rm -rf $(LOCAL_TMPDIR)
 
 clean:
 	@dune clean
