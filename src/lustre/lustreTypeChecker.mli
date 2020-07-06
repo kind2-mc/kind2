@@ -21,6 +21,8 @@
 
 module LA = LustreAst
 
+exception Type_error of Lib.position * string           
+
 (** The typechecking can either be [Ok] will be an [Error] with some helpful message *)
 type tcResult = Ok | Error of Lib.position * string
 

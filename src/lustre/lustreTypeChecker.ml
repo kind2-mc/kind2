@@ -20,9 +20,13 @@
 
 module LA = LustreAst
 module LC = LustreContext
-
+module LAH = LustreAstHelpers
+           
 let todo = failwith "Unsupported"
-          
+
+exception Type_error of Lib.position * string           
+let throwTypeError pos string = raise (Type_error (pos, string))
+                      
 (** Returns [Ok] if the typecheck/typeinference runs fine 
  * or reports an error at position with the error *)
 type tcResult = Ok | Error of Lib.position * string
@@ -42,9 +46,7 @@ module TyMap = Map.Make(OrdIdent)
 type tcType  =
   (* Simple Types *)
   | Bool
-  | Int
-  | Real
-  | BV
+  | Num    (* Num acts as an Int and Real also acts as a BV for approximating *)
   (* Function type of argument and return *)
   | Fun of tcType * tcType
   (* Arrays Tuples, ranges *)
@@ -57,14 +59,14 @@ type tcType  =
   | ArrayTy of tcType * int
   | EnumTy of LA.ident option * (LA.ident list)
 
-(* A constant should be evaluated to an integer *)
+(** A constant should be evaluated to an integer *)
 let evalToConstExp: LA.expr -> int = todo
 
 (** Converts a [LA.lustre_type] to tcType *)
 let rec toTcType: LA.lustre_type -> tcType
   = function
   | LA.Bool _ -> Bool
-  | LA.Int _ -> Int 
+  | LA.Int _ 
   | LA.UInt8 _  
   | LA.UInt16 _ 
   | LA.UInt32 _  
@@ -72,9 +74,9 @@ let rec toTcType: LA.lustre_type -> tcType
   | LA.Int8 _ 
   | LA.Int16 _  
   | LA.Int32 _ 
-  | LA.Int64 _ -> BV
+  | LA.Int64 _ -> Num
   | LA.IntRange (_, e1, e2) -> IntRange (evalToConstExp e1, evalToConstExp e2)
-  | LA.Real _-> Real 
+  | LA.Real _-> Num
   | LA.UserType (_, i) -> UserTy i
   | LA.AbstractType (_, i) -> AbstractTy i
   | LA.TupleType (_, ids) -> TupleTy (List.map toTcType ids)
@@ -93,40 +95,70 @@ let emptyContext = TyMap.empty
 let typeError pos err = Error (pos, err)
 
 let lookup: tcContext -> LA.ident -> tcType =
-  fun ctx i -> TyMap.find i ctx 
+  fun ctx i -> TyMap.find i ctx
+
 let add: tcContext -> LA.ident -> tcType -> tcContext
   = fun ctx i ty -> TyMap.add i ty ctx 
              
 let inferConstType: LA.constant -> tcType
   = function
-     | Num _ -> Int
-     | Dec _ -> Real
+     | Num _ -> Num
+     | Dec _ -> Num
      | _ -> Bool
 
 let inferUnaryOpType: LA.unary_operator -> tcType = function
   | LA.Not -> Fun (Bool, Bool)
-  | LA.BVNot -> Fun (BV, BV)
-  | LA.Uminus -> Fun (Int, Int)
-          
-(** Type checks an expression and returns [Ok] if the expected type is the given type 
- * Else, returns a [Error] *)
-let rec inferTypeExpr: tcContext -> LA.expr -> tcType
+  | LA.BVNot
+  | LA.Uminus -> Fun (Num, Num)
+
+let inferBinaryOp: LA.binary_operator -> tcType = function
+  | LA.And | LA.Or | LA.Xor | LA.Impl
+    -> Fun (Bool, Bool)
+  | LA.Mod | LA. Minus | LA.Plus | LA. Div | LA.Times | LA.IntDiv
+    | LA.BVAnd | LA.BVOr | LA.BVShiftL | LA.BVShiftR
+    -> Fun (Num, Num) 
+  
+
+let inferTernaryOp: LA.ternary_operator -> tcType = todo
+
+let inferNaryOp: LA.n_arity_operator -> tcType = todo
+
+let inferTypeFun: tcContext -> LA.expr -> tcType = fun ctx e ->
+  match e with
+  | _ -> todo
+  
+(** Check if the function type of the [LA.expr] is the same as the exptected [tcType] 
+  * where the free variables are given in [tcContext] *)
+let rec checkTypeFun: tcContext -> LA.expr -> tcType -> tcResult
+  = fun ctx f expTy ->
+  match f with
+  | UnaryOp (_, op, e) ->  todo
+  | BinaryOp (_, op, e1, e2) -> todo
+  | TernaryOp (_, op, e1, e2, e3) -> todo
+  | NArityOp (_, op, es) -> todo
+  | _ -> Error (LAH.pos_of_expr f, "Operator is not a funtion type")
+  and
+(** Infer the type of a [LA.expr] with the types of free variables given in [tcContext] *)
+  inferTypeExpr: tcContext -> LA.expr -> tcType
   = fun ctx expr ->
   match expr with
   (* Identifiers *)
-  | Ident (_, i) -> lookup ctx i
+  | Ident (pos, i) ->
+     (try(lookup ctx i) with
+     | Not_found -> throwTypeError  pos ("Unbound Variable: " ^ i)) 
   | ModeRef (pos, ids) -> TupleTy (List.map (lookup ctx) ids)
   (* | RecordProject _ -> *) 
   (* | TupleProject of position * expr * expr *)
   (* Values *)
   | Const (pos, c) -> inferConstType c 
   (* Operators *)
-  | UnaryOp (_, op, e) -> inferUnaryOpType op 
-  (*of position * unary_operator * expr*)
-   (* | BinaryOp of position * binary_operator * expr * expr
-   * | TernaryOp of position * ternary_operator * expr * expr * expr
-   * | NArityOp of position * n_arity_operator * expr list
-   * | ConvOp of position * conversion_operator * expr
+  | UnaryOp _ 
+  | BinaryOp _ 
+  | TernaryOp _
+  | NArityOp _ as op -> (inferTypeFun ctx op) 
+    
+         
+   (* | ConvOp of position * conversion_operator * expr
    * | CompOp of position * comparison_operator * expr * expr
    * (\* Structured expressions *\)
    * | RecordExpr of position * ident * (ident * expr) list
@@ -154,9 +186,11 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType
    * | Call of position * ident * expr list
    * | CallParam of position * ident * lustre_type list * expr list *)
   | _ -> todo
-
-let rec typeCheckExpr: tcContext -> LA.expr -> tcType -> tcType -> tcResult
-  = fun ctx expr expTy infTy ->
+(** Type checks an expression and returns [Ok] 
+ * if the expected is the given type [tcType]  
+ * returns an [Error] otherwise *)
+and checkTypeExpr: tcContext -> LA.expr -> tcType -> tcResult
+  = fun ctx expr expTy ->
   match expr with
   | Ident (pos, i) as ident ->
      if (inferTypeExpr ctx ident) = expTy
@@ -173,7 +207,7 @@ let typingContextOfConstDecl:  tcContext -> LA.const_decl -> (tcContext, tcResul
   | LA.UntypedConst (_, i, expr) -> Ok (ctx)
   | LA.TypedConst (pos, i, expr, ty)
     ->  let expTy = toTcType ty in
-        match (typeCheckExpr ctx expr expTy (inferTypeExpr ctx expr)) with
+        match (checkTypeExpr ctx expr expTy) with
         | Ok -> Ok(add ctx i expTy)
         | Error (pos, err) ->
            Error (typeError pos ("Declared type does not match the expression: " ^ err))

@@ -168,12 +168,12 @@ and lustre_type =
 
 
 (* A declaration of an unclocked type *)
-and typed_ident = Lib.position * ident * lustre_type
+and typed_ident = position * ident * lustre_type
 
 (* A record field or an array or tuple index *)
 and label_or_index = 
-  | Label of Lib.position * index
-  | Index of Lib.position * expr
+  | Label of position * index
+  | Index of position * expr
 
 (* A declaration of a type *)
 type type_decl = 
