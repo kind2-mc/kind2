@@ -31,10 +31,12 @@ let cmd_line
   (* Path and name of Z3 executable *)
   let z3_bin = Flags.Smt.z3_bin () in
 
-  let timeout_global =
-    if Flags.timeout_wall () > 0.
+  (* Timeout based on Flags.timeout_wall has been disabled because
+     it seems to cause performance regressions on some models... *)
+  let timeout_global = None
+  (*  if Flags.timeout_wall () > 0.
     then Some (Stat.remaining_timeout () +. 1.0)
-    else None
+    else None*)
   in
   let timeout_local =
     if timeout > 0

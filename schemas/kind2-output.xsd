@@ -80,6 +80,30 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- Enumerations for IVC and MCS -->
+  <xs:simpleType name="ModelElementCategory">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="node_call"/>
+      <xs:enumeration value="assumption"/>
+      <xs:enumeration value="guarantee"/>
+      <xs:enumeration value="require"/>
+      <xs:enumeration value="ensure"/>
+      <xs:enumeration value="equation"/>
+      <xs:enumeration value="assertion"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="CoreClass">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="must"/>
+      <xs:enumeration value="must complement"/>
+      <xs:enumeration value="ivc"/>
+      <xs:enumeration value="ivc complement"/>
+      <xs:enumeration value="mcs"/>
+      <xs:enumeration value="mcs complement"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- |===| Complex types -->
 
   <xs:complexType name="GenericLogType">
@@ -297,6 +321,32 @@
     <xs:attribute name="name" type="xs:string" use="required"/>
   </xs:complexType>
 
+  <xs:complexType name="ModelElementType">
+    <xs:attribute name="category" type="ModelElementCategory" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="file" type="xs:string"/>
+    <xs:attribute name="line" type="NonNegativeInteger" use="required"/>
+    <xs:attribute name="column" type="NonNegativeInteger" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="ModelElementNodeSetType">
+    <xs:sequence>
+      <xs:element name="Element" type="ModelElementType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="ModelElementSetType">
+    <xs:sequence>
+      <xs:element name="Runtime" type="RuntimeType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Node" type="ModelElementNodeSetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="CounterExample" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+    <xs:attribute name="class" type="CoreClass" use="required"/>
+    <xs:attribute name="size" type="NonNegativeInteger" use="required"/>
+    <xs:attribute name="property" type="xs:string" />
+  </xs:complexType>
+
   <xs:complexType name="ResultsType">
     <xs:choice minOccurs="0" maxOccurs="unbounded">
       <xs:element name="Log" type="GenericLogType" minOccurs="1" maxOccurs="unbounded"/>
@@ -306,6 +356,7 @@
       <xs:element name="AnalysisStop" type="AnalysisStopType" minOccurs="1" maxOccurs="unbounded"/>
       <xs:element name="Property" type="PropertyType" minOccurs="1" maxOccurs="unbounded"/>
       <xs:element name="PostAnalysisStart" type="PostAnalysisStartType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="ModelElementSet" type="ModelElementSetType" minOccurs="0" maxOccurs="unbounded"/>
       <xs:element name="PostAnalysisEnd" type="AnalysisStopType" minOccurs="0" maxOccurs="unbounded"/>
       <xs:element name="Execution" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
     </xs:choice>
@@ -314,6 +365,17 @@
     <xs:attribute name="bmc_max" type="NonNegativeInteger"/>
     <xs:attribute name="modular" type="xs:boolean"/>
     <xs:attribute name="compositional" type="xs:boolean"/>
+
+    <xs:attribute name="ivc_category" type="xs:string"/>
+    <xs:attribute name="ivc_all" type="xs:boolean"/>
+    <xs:attribute name="ivc_approximate" type="xs:boolean"/>
+    <xs:attribute name="ivc_smallest_first" type="xs:boolean"/>
+    <xs:attribute name="ivc_only_main_node" type="xs:boolean"/>
+    <xs:attribute name="ivc_must_set" type="xs:boolean"/>
+
+    <xs:attribute name="mcs_category" type="xs:string"/>
+    <xs:attribute name="mcs_all" type="xs:boolean"/>
+    <xs:attribute name="mcs_only_main_node" type="xs:boolean"/>
   </xs:complexType>
 
   <!-- |===| Root: Either a Log or a Results element -->

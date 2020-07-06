@@ -371,7 +371,7 @@ val map_cex_prop_to_subsystem : (Scope.t -> instance -> (StateVar.t * Model.valu
 (** Return the state variables of a transition system *)
 val state_vars : t -> StateVar.t list
 
-(** Add a global constant to the toplevel transition system *)
+(** Add a global constant to the transition system and all the subnodes *)
 val add_global_constant : t -> Var.t -> t
 
 (** Return instances of the state variables of the transition system
@@ -540,6 +540,9 @@ val has_properties : t -> bool
 (** Return true if all properties which are not candidates are either valid or
     invalid *)
 val all_props_proved : t -> bool
+
+(** Return true if at least one prop has been falsified *)
+val at_least_one_prop_falsified : t -> bool
 
 (** Add properties to the transition system *)
 val add_properties : t -> Property.t list -> t

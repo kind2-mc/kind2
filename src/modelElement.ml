@@ -208,7 +208,13 @@ let print_mcs_counterexample in_sys param sys typ fmt (prop, cex) =
 let format_name_for_pt str =
   String.capitalize_ascii (String.lowercase_ascii str)
 
-let format_name_for_json_xml = Str.global_replace (Str.regexp " ") ""
+let format_name_for_json str =
+  String.uncapitalize_ascii str
+  |> Str.global_replace (Str.regexp " ") ""
+
+let format_name_for_xml str =
+  String.lowercase_ascii str
+  |> Str.global_replace (Str.regexp " ") "_"
 
 let pp_print_core_data in_sys param sys fmt cpd =
   let print_elt elt =
@@ -245,7 +251,7 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
   let json_of_elt elt =
     let (file, row, col) = Lib.file_row_col_of_pos elt.position in
     `Assoc ([
-      ("category", `String (format_name_for_json_xml elt.category)) ;
+      ("category", `String (format_name_for_json elt.category)) ;
       ("name", `String elt.name) ;
       ("line", `Int row) ;
       ("column", `Int col) ;
@@ -267,7 +273,7 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
   let assoc = assoc @ (
     match cpd.time with
     | None -> []
-    | Some f -> [("runtime", `Assoc [("unit", `String "sec") ; ("value", `Float f)])]
+    | Some f -> [("runtime", `Assoc [("unit", `String "sec") ; ("value", `Float f) ; ("timeout", `Bool false)])]
   )
   in
   let assoc = assoc @ ([
@@ -303,8 +309,8 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
     let print_elt elt =
       if not !fst then Format.fprintf fmt "@ " else fst := false ;
       let (file, row, col) = Lib.file_row_col_of_pos elt.position in
-      Format.fprintf fmt "<Element category=\"%s\" name=\"%s\" line=\"%i\" column=\"%i\"%s>"
-        (format_name_for_json_xml elt.category) elt.name row col (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
+      Format.fprintf fmt "<Element category=\"%s\" name=\"%s\" line=\"%i\" column=\"%i\"%s/>"
+        (format_name_for_xml elt.category) elt.name row col (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
     in
     Format.fprintf fmt "<Node name=\"%s\">@   @[<v>" (Scope.to_string scope) ;
     List.iter print_elt elts ;
@@ -316,7 +322,7 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
   (
     match cpd.time with
     | None -> ()
-    | Some f -> Format.fprintf fmt "<Runtime unit=\"sec\">%.3f</Runtime>@ " f
+    | Some f -> Format.fprintf fmt "<Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@ " f
   ) ;
   ScMap.iter print_node cpd.elements ;
   (

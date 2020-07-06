@@ -195,8 +195,9 @@ The post-analyses currently available are :ref:`9_other/3_test_generation` (``te
 :ref:`9_other/5_proofs` (``certification``),
 :ref:`9_other/6_contract_generation` (``contractgen``),
 :ref:`9_other/4_rust_compilation` (``rustgen``),
-:ref:`9_other/7_invariant_logging` (``invlog``), and
-:ref:`9_other/9_invariant_printing` (``invprint``).
+:ref:`9_other/7_invariant_logging` (``invlog``),
+:ref:`9_other/9_invariant_printing` (``invprint``), and
+:ref:`9_other/10_inductive_validity_core` (``ivc``).
 
 .. _PostAnalysisEnd Object:
 
@@ -215,6 +216,28 @@ An ``Execution`` object describes the sequences of values for the output and sta
 of an input model computed from its simulation (see the :ref:`interpreter<9_other/8_interpreter>` mode).
 The value of its ``objectType`` property is ``execution``. It only has one object property called
 ``trace`` which follows the same format than property ``counterExample`` in :ref:`Property Object`.
+
+.. _ModelElementSet Object:
+
+ModelElementSet Object
+^^^^^^^^^^^^^^^^^^^^^^
+
+A ``ModelElementSet`` object describes a set of model elements (a model element can be an equation, a node call, an assumption, a guarantee, etc).
+It is used to describe a core that we can get from an :ref:`9_other/10_inductive_validity_core` (``ivc``)
+or :ref:`9_other/11_minimal_correction_set` (``mcs``) analysis.
+The result should be considered in the context of the analysis or post-analysis in which the ModelElementSet object
+is contained. The value of its ``objectType`` property is ``modelElementSet``.
+
+.. csv-table::
+   :header: "Key", "Type", "Description"
+   :widths: 10,5,30
+
+   ``class``, ``string``, "Class of the core. Can be ``must``, ``must complement``, ``ivc``, ``ivc complement``, ``mcs`` or ``mcs complement``."
+   ``size``, ``integer``, "Number of model elements in the core."
+   ``property``, ``string``, "The property associated with the core. If all properties are considered, this field is missing."
+   ``runtime``, ``object``, "The runtime for computing the core (in seconds)."
+   ``nodes``, ``array``, "For each node, contains an object that enumerates the model elements of the node that are part of the core."
+   ``counterExample``, ``object``, "Counterexample to the property satisfaction (only when relevant, that is, when class is ``mcs`` or ``mcs complement``). See the ``property`` object for more info."
 
 .. _XML format:
 
@@ -363,8 +386,9 @@ The post-analyses currently available are :ref:`9_other/3_test_generation` (``te
 :ref:`9_other/5_proofs` (``certification``),
 :ref:`9_other/6_contract_generation` (``contractgen``),
 :ref:`9_other/4_rust_compilation` (``rustgen``),
-:ref:`9_other/7_invariant_logging` (``invlog``), and
-:ref:`9_other/9_invariant_printing` (``invprint``).
+:ref:`9_other/7_invariant_logging` (``invlog``),
+:ref:`9_other/9_invariant_printing` (``invprint``), and
+:ref:`9_other/10_inductive_validity_core` (``ivc``).
 
 .. _PostAnalysisEnd Element:
 
@@ -382,3 +406,27 @@ Execution Element
 An ``Execution`` element describes the sequences of values for the output and
 state variables of an input model computed from the simulation of its execustion
 (see the :ref:`interpreter<9_other/8_interpreter>` mode).
+
+
+.. _ModelElementSet Element:
+
+ModelElementSet Element
+^^^^^^^^^^^^^^^^^^^^^^^
+
+A ``ModelElementSet`` element describes a set of model elements (a model element can be an equation, a node call, an assumption, a guarantee, etc).
+It is used to describe a core that we can get from an :ref:`9_other/10_inductive_validity_core` (``ivc``)
+or :ref:`9_other/11_minimal_correction_set` (``mcs``) analysis.
+The result should be considered in the context of the analysis or post-analysis in which the ModelElementSet element
+is contained. The list of attributes of a ``ModelElementSet`` element are:
+
+.. csv-table::
+   :header: "Attribute", "Base Type", "Description"
+   :widths: 7,5,30
+
+   ``class``, ``string``, "Class of the core. Can be ``must``, ``must complement``, ``ivc``, ``ivc complement``, ``mcs`` or ``mcs complement``."
+   ``size``, ``integer``, "Number of model elements in the core."
+   ``property``, ``string``, "The property associated with the core. If all properties are considered, this attribute is missing."
+
+A ``ModelElementSet`` element contains one ``Runtime`` element, which indicates the runtime for computing the core.
+It also contains a sequence of ``Node`` elements, each one enumerating the model elements in that node that are part of the core.
+When relevant, it can also contain a ``Counterexample`` element (see the ``Property`` element for more info).

@@ -118,6 +118,82 @@
             },
             "required": ["objectType", "source", "k"]
         },
+        "modelElementCategory": {
+            "enum": [
+                "nodeCall",
+                "assumption",
+                "guarantee",
+                "require",
+                "ensure",
+                "equation",
+                "assertion"
+            ]
+        },
+        "modelElementCategories": {
+            "enum": [
+                "nodeCalls",
+                "contracts",
+                "equations",
+                "assertions",
+                "annotations"
+            ]
+        },
+        "coreClass": {
+            "enum": [
+                "must",
+                "must complement",
+                "ivc",
+                "ivc complement",
+                "mcs",
+                "mcs complement"
+            ]
+        },
+        "ivcSettings": {
+            "type": "object",
+            "properties": {
+                "ivcCategory": {
+                    "type": "array",
+                    "items": { "$ref": "#/definitions/modelElementCategories" }
+                },
+                "ivcAll": {
+                    "type": "boolean"
+                },
+                "ivcApproximate": {
+                    "type": "boolean"
+                },
+                "ivcSmallestFirst": {
+                    "type": "boolean"
+                },
+                "ivcOnlyMainNode": {
+                    "type": "boolean"
+                },
+                "ivcMustSet": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "ivcCategory", "ivcAll", "ivcApproximate", "ivcSmallestFirst",
+                "ivcOnlyMainNode", "ivcMustSet"
+            ]
+        },
+        "mcsSettings": {
+            "type": "object",
+            "properties": {
+                "mcsCategory": {
+                    "type": "array",
+                    "items": { "$ref": "#/definitions/modelElementCategories" }
+                },
+                "mcsAll": {
+                    "type": "boolean"
+                },
+                "mcsOnlyMainNode": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "mcsCategory", "mcsAll", "mcsOnlyMainNode"
+            ]
+        },
         "kind2Options": {
             "type": "object",
             "properties": {
@@ -139,11 +215,85 @@
                 },
                 "modular": {
                     "type": "boolean"
+                },
+                "mcs": {
+                    "$ref": "#/definitions/mcsSettings"
+                },
+                "ivc": {
+                    "$ref": "#/definitions/ivcSettings"
                 }
             },
             "required": [
                 "objectType", "enabled", "timeout", "bmcMax",
                 "compositional", "modular"
+            ]
+        },
+        "modelElement": {
+            "type": "object",
+            "properties": {
+                "category": { 
+                    "$ref": "#/definitions/modelElementCategory"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "line": {
+                    "type": "integer"
+                },
+                "column": {
+                    "type": "integer"
+                },
+                "file": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "category", "name", "line", "column"
+            ]
+        },
+        "modelElementNodeSet": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "elements": {
+                    "type": "array",
+                    "items": { "$ref": "#/definitions/modelElement" }
+                }
+            },
+            "required": [
+                "name", "elements"
+            ]
+        },
+        "modelElementSet": {
+            "type": "object",
+            "properties": {
+                "objectType" : {
+                    "const": "modelElementSet"
+                },
+                "class": {
+                    "$ref": "#/definitions/coreClass"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "property": {
+                    "type": "string"
+                },
+                "runtime": {
+                    "$ref": "#/definitions/runtime"
+                },
+                "nodes": {
+                    "type": "array",
+                    "items": { "$ref": "#/definitions/modelElementNodeSet" }
+                },
+                "counterExample": {
+                    "$ref": "#/definitions/trace"
+                }
+            },
+            "required": [
+                "objectType", "class", "size", "runtime", "nodes"
             ]
         },
         "scope": {
@@ -516,6 +666,7 @@
                    { "$ref": "#/definitions/analysisStart" },
                    { "$ref": "#/definitions/analysisStop" },
                    { "$ref": "#/definitions/postAnalysisStart" },
+                   { "$ref": "#/definitions/modelElementSet" },
                    { "$ref": "#/definitions/postAnalysisEnd" },
                    { "$ref": "#/definitions/property" },
                    { "$ref": "#/definitions/execution" }

@@ -3269,7 +3269,7 @@ let print_xml_options () =
       else ""
     )
     (
-      if MCS.compute_mcs ()
+      if MCS.compute_mcs () || (Global.enabled () |> List.exists (fun m -> m = `MCS))
       then
         Format.asprintf " \
         mcs_category=\"%a\" \
@@ -3320,7 +3320,7 @@ let print_json_options () =
       else ""
     )
     (
-      if MCS.compute_mcs ()
+      if MCS.compute_mcs () || (Global.enabled () |> List.exists (fun m -> m = `MCS))
       then
         Format.asprintf ",@.  \
         \"mcs\" :@,  \
