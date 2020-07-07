@@ -2631,13 +2631,29 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Only type check the Lustre program. No analysis is performed.@ \
+          Stop after type checking the Lustre program. No analysis is performed.@ \
           Default: %a\
         "
         fmt_bool only_tc_default
     )
   let only_tc () = !only_tc
-                    
+
+  (* Do not run typechecker *)
+  let no_tc_default = true
+  let no_tc = ref no_tc_default
+  let _ = add_spec
+    "--no_tc"
+    (bool_arg no_tc)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Skip the typechecking pass.@ \
+          Default: %a\
+        "
+        fmt_bool no_tc_default
+    )
+  let no_tc () = !no_tc
+                 
                     
   (* Modules enabled. *)
   type enable = kind_module list
@@ -3022,6 +3038,7 @@ let log_invs = Global.log_invs
 let print_invs = Global.print_invs
 let only_parse = Global.only_parse
 let only_tc = Global.only_tc
+let no_tc = Global.no_tc            
 let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable

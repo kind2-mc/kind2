@@ -107,15 +107,15 @@ let of_channel in_ch =
   (* Get declarations from channel. *)
   let declarations = ast_of_channel in_ch in
 
-  (let tcRes = TC.typeCheckProgram declarations in
-    (* Perform Type check *)
-    match tcRes with
-    | TC.Ok -> ()
-    | TC.Error (pos, err) -> LC.fail_at_position pos err);
+  (* If type checking is enabled then do this pass *)
+  if not (Flags.no_tc ()) then
+    (Log.log L_note "Typechecking enabled.";
+     (let tcRes = TC.typeCheckProgram declarations in
+      match tcRes with
+      | TC.(Ok ()) -> Log.log L_note "No type errors found!";
+                      (if Flags.only_tc () then exit 0);
+      | TC.(Error (pos, err)) -> LC.fail_at_position pos err)) ;
   
-  (if Flags.only_tc ()
-  then (Log.log L_note "No type errors found!"; exit 0));
-
   (* Simplify declarations to a list of nodes *)
   let nodes, globals = LD.declarations_to_nodes declarations in
   (* Name of main node *)

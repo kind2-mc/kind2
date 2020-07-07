@@ -21,25 +21,14 @@
 
 module LA = LustreAst
 
-exception Type_error of Lib.position * string           
-
 (** The typechecking can either be [Ok] will be an [Error] with some helpful message *)
-type tcResult = Ok | Error of Lib.position * string
-
-(** Types for free variables in an expression*)
-(* type tcContext *)
-
-(** Empty typing context *)
-(* val emptyContext: tcContext *)
+type 'a tcResult = ('a, Lib.position * string) result
 
 (** Typecheck a complete program and return the result *)
-val typeCheckProgram: LA.t -> tcResult  
-                            
-(** Perform type analysis on the AST *)
-val staticTypeAnalize: LA.t -> tcResult list
+val typeCheckProgram: LA.t -> unit tcResult  
 
 (** Report whether everything is [Ok] or [NotOk] *)
-val reportAnalysisResult: tcResult list -> tcResult
+val reportTcResult: unit tcResult list -> unit tcResult
 
 (* 
    Local Variables:
