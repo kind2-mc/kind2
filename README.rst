@@ -65,15 +65,8 @@ The default is ``Z3``\ , but see options of the ``./build.sh`` script to overrid
 Requirements
 ------------
 
-* Linux or Mac OS X,
-* OCaml 4.07 or later,
-* `OPAM package manager <http://opam.ocaml.org>`_\,
-* `Dune 2.2 or later <https://github.com/ocaml/dune>`_\,
-* `ZeroMQ (C library) 4.x or later <https://zeromq.org>`_\,
-* `OCaml bindings for ZMQ <https://github.com/issuu/ocaml-zmq>`_\,
-* `Yojson <https://github.com/ocaml-community/yojson>`_\ ,
-* `num <https://github.com/ocaml/num>`_\,
-* `Menhir <http://gallium.inria.fr/~fpottier/menhir/>`_ parser generator, and
+* Linux or Mac OS X
+* `ZeroMQ (C library) 4.x or later <https://zeromq.org>`_\, and
 * a supported SMT solver
 
   * `CVC4 <http://cvc4.cs.stanford.edu/>`_\ ,
@@ -81,10 +74,24 @@ Requirements
   * `Yices 1 <http://yices.csl.sri.com/old/download-yices1-full.shtml>`_\ , or
   * `Z3 <https://github.com/Z3Prover/z3>`_ (presently recommended)
 
+To build Kind 2 you also need the following requirements (see next section
+`Building and installing`_ to learn how to install them using
+the `OPAM package manager <http://opam.ocaml.org>`_\):
+
+* OCaml 4.07 or later,
+* `Dune 2.2 or later <https://github.com/ocaml/dune>`_ (and dune-build-info)\,
+* `OCaml bindings for ZMQ <https://github.com/issuu/ocaml-zmq>`_\,
+* `Yojson <https://github.com/ocaml-community/yojson>`_\ ,
+* `num <https://github.com/ocaml/num>`_\,
+* `Menhir <http://gallium.inria.fr/~fpottier/menhir/>`_ parser generator
+
 Building and installing
 -----------------------
 
-Start by installing `OPAM <https://zeromq.org/download>`_ following the instructions on the website. Then, run
+Using OPAM
+^^^^^^^^^^
+
+Start by installing `OPAM 2.1.0 or later <https://zeromq.org/download>`_ following the instructions on the website. Then, run
 
 .. code-block:: none
 
@@ -92,7 +99,7 @@ Start by installing `OPAM <https://zeromq.org/download>`_ following the instruct
    opam depext kind2
    opam install z3 kind2
 
-The first command points OPAM to this github repo to install Kind 2 binary. The second command installs the ZeroMQ C library using the default package manager for your OS (may require sudo permission). The third command installs ``Z3`` SMT solver and ``kind2``. Alternatively, you can clone this repo, move to the top-level directory, and run
+The first command points OPAM to this GitHub repo to install Kind 2 binary. The second command installs the ZeroMQ C library using the default package manager for your OS (may require sudo permission). The third command installs ``Z3`` SMT solver and ``kind2``. Alternatively, you can clone this repo, move to the top-level directory, and run
 
 .. code-block:: none
 
@@ -106,6 +113,19 @@ to install ``kind2`` and its dependencies. By default, ``kind2`` will be install
 
 to install the Kind 2 binary into ``<DIR>/bin``.
 
+Using Dune (OPAM not required)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Install all the requirements on your system using your preferred method.
+Clone this repo, move to the top-level directory, and run
+
+.. code-block:: none
+
+   dune build
+   dune install --prefix DIR
+
+to install the Kind 2 binary into ``<DIR>/bin``.
+
 You need a supported SMT solver on your path when running ``kind2``.
 
 Development
@@ -116,6 +136,13 @@ With OPAM 2.x you can create a local switch which will install all dependencies 
 .. code-block:: none
 
    opam switch create .
+   make
+
+Alternatively, you can install all dependencies in your current switch by running:
+
+.. code-block:: none
+
+   opam install . --deps-only
    make
 
 Documentation
