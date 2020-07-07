@@ -2,5 +2,5 @@
 
 (menhir
  (infer false)
- (flags --explain)
+ (flags --explain --table)
  (modules lustreParser))
