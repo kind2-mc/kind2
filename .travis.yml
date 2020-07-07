@@ -3,6 +3,7 @@ jobs:
     - os: linux
       dist: bionic
     - os: osx
+      osx_image: xcode12
 branches:
   only:
   - /.*/
@@ -14,7 +15,6 @@ addons:
       - bubblewrap
   homebrew:
     packages: zeromq
-    update: true
 script: bash -ex .travis-ci.sh
 env:
   matrix:
