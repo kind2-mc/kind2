@@ -80,7 +80,7 @@ Building and installing
 Using OPAM
 ^^^^^^^^^^
 
-Start by installing `OPAM 2.1.0 or later <https://zeromq.org/download>`_
+Start by installing `OPAM 2.x <https://zeromq.org/download>`_
 following the instructions on the website. Then, run
 
 .. code-block:: none
