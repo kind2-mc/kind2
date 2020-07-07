@@ -32,22 +32,25 @@ module type RelayMessage =
 sig
 
   (** Message *)
-  type t 
+  type t
+
+  (** ZMQ's representation of a multipart message *)
+  type zmsg = string list
 
   (** Convert a message to a strings for message frames *)
-  val message_of_strings : (unit -> string) -> t
+  val message_of_strings : zmsg -> t
 
   (** Convert string from message frames to a message *)
-  val strings_of_message : t -> string list
+  val strings_of_message : t -> zmsg
 
   (** Pretty-print a message *)
   val pp_print_message : Format.formatter -> t -> unit
-  
+
 end
 
 module type S =
 sig
-  
+
   type relay_message 
 
   (** A message to be output to the user *)
@@ -79,7 +82,7 @@ sig
 
   (** Thread *)
   type thread
-  
+
   (** Create a messaging context and bind ports for the invariant
       manager. Return a pair of pub socket and pull socket and pair of
       addresses of pub and pull sockets for workers to connect to. 
@@ -89,18 +92,18 @@ sig
       child processes must use the socket addresses in the second
       return argument. *)
   val init_im : unit -> (ctx * socket * socket) * (string * string)
-                      
+
   (** Create a messaging context and bind given ports for a worker
       process. Return a messaging context and a pair of sub and push
       sockets. *)
-  val init_worker : Lib.kind_module -> string -> string -> ctx * socket * socket 
-                 
+  val init_worker : Lib.kind_module -> string -> string -> ctx * socket * socket
+
   (** Start the background thread for the invariant manager, using the
       given context and sockets. The second parameter is a list of
       PIDs and the kind of worker processes to watch, the third
       argument is the function to call to handle exceptions. *)
   val run_im : ctx * socket * socket -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
-    
+
   (** Start the background thread for a worker process, using the
       given context and sockets. The second parameter is type of
       worker process, the third is the function to call to handle
@@ -109,13 +112,13 @@ sig
 
   (** Broadcast a message to the worker processes *)
   val send_relay_message : relay_message -> unit
-    
+
   (** Send a message to the invariant manager for output to the user *)
   val send_output_message : output_message -> unit
 
   (** Send a termination message to the invariant manager *)
   val send_term_message : unit -> unit
-    
+
   (** Receive messages queued by the background thread *)
   val recv : unit -> (Lib.kind_module * message) list
 
@@ -134,7 +137,7 @@ sig
   val check_termination : unit -> bool
 
   (** Request the background thread of a worker process to terminate *)
-  val exit : thread -> unit 
+  val exit : thread -> unit
 
 end
 

@@ -19,13 +19,14 @@
 (* #load "threads.cma" *) (* might be necessary if testing in toplevel *)
 
 open Lib
-open ZMQ
+open Zmq
 open Printf
 
 
 (******************************)
 (*  Types                     *)
 (******************************)
+
 
 exception SocketConnectFailure
 exception SocketBindFailure
@@ -41,38 +42,34 @@ let is_invariant_manager = function
 
 
 (* Pretty-print ZMQ message frames *)
-let rec pp_print_zmsg_frames n ppf zmsg =
-
-  if n <= 0 then () else
-
-    (Format.fprintf ppf "%s" (String.escaped (ZMQ.zmsg_popstr zmsg));
-     if n > 1 then Format.fprintf ppf ";@ ";
-     pp_print_zmsg_frames (pred n) ppf zmsg)
+let rec pp_print_zmsg_frames ppf = function
+  | [] -> ()
+  | x :: xs ->
+      Format.fprintf ppf "%s" (String.escaped x);
+      if xs != [] then Format.fprintf ppf ";@ ";
+      pp_print_zmsg_frames ppf xs
 
 (* Pretty-print a ZMQ message *)
-let pp_print_zmsg ppf zmsg = 
-  
+let pp_print_zmsg ppf zmsg =
   (* Copy message and print all frames *)
-  Format.fprintf 
-    ppf
-    "@[<hv 1>{%a}@]"
-    (pp_print_zmsg_frames (ZMQ.zmsg_size zmsg)) 
-    (ZMQ.zmsg_dup zmsg)
+  Format.fprintf ppf "@[<hv 1>{%a}@]" pp_print_zmsg_frames zmsg
 
-  
 
 (* Message and conversions *)
 module type RelayMessage = 
 sig
 
   (* A message to be relayed to other processes *)
-  type t 
+  type t
+
+  (** ZMQ's representation of the message *)
+  type zmsg = string list
 
   (* Convert a message to a strings for message frames *)
-  val message_of_strings : (unit -> string) -> t
+  val message_of_strings : zmsg -> t
 
   (* Convert string from message frames to a message *)
-  val strings_of_message : t -> string list
+  val strings_of_message : t -> zmsg
 
   (* Pretty-print a message *)
   val pp_print_message : Format.formatter -> t -> unit
@@ -107,16 +104,17 @@ sig
   type socket
 
   type thread
-  
+
   val init_im : unit -> (ctx * socket * socket) * (string * string)
-                      
-  val init_worker : Lib.kind_module -> string -> string -> ctx * socket * socket 
+
+  val init_worker : Lib.kind_module -> string -> string -> ctx * socket * socket
+
   val run_im : ctx * socket * socket -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
-    
+
   val run_worker : ctx * socket * socket -> Lib.kind_module -> (exn -> unit) -> thread
 
   val send_relay_message : relay_message -> unit
-    
+
   val send_output_message : output_message -> unit
 
   val send_term_message : unit -> unit
@@ -139,16 +137,13 @@ module Make (T: RelayMessage) : S with type relay_message = T.t =
 struct
 
   (* ZeroMQ context *)
-  type ctx = ZMQ.zctx
+  type ctx = Zmq.Context.t
 
-               
   (* ZeroMQ socket *)
-  type socket = ZMQ.zsocket
+  type socket = [ `Pub | `Sub | `Push | `Pull ] Zmq.Socket.t
 
-                  
   (* Background thread *)
   type thread = Thread.t
-
 
   (* Message to be broadcast *)
   type relay_message = T.t
@@ -221,7 +216,7 @@ struct
 
     | RelayMessage (i, m) -> 
       Format.fprintf ppf "@[<hv>Relay %d@ %a@]" i T.pp_print_message m
-        
+
 
   (* ******************************************************************** *)
   (* Conversions                                                          *)
@@ -229,25 +224,21 @@ struct
 
   (* Return a list of strings of a message *)
   let strings_of_output_message = function 
-    | Log (i, s) -> [s; string_of_int i; "LOG"]
-    | Stat s -> [s; "STAT"]
-    | Progress i -> [string_of_int i; "PROGRESS"]
+    | Log (i, s) -> ["LOG"; string_of_int i; s]
+    | Stat s -> ["STAT"; s]
+    | Progress i -> ["PROGRESS"; string_of_int i]
 
 
   (* Return a message of a list of strings *)
-  let output_message_of_strings pop = match pop () with
-    | "LOG" -> let i = pop () in let s = pop () in
-      (try Log (int_of_string i, s) with 
+  let output_message_of_strings = function
+    | "LOG" :: i :: s :: _ -> (try Log (int_of_string i, s) with
+        | Invalid_argument _ ->
+          raise (Invalid_argument "output_message_of_strings a"))
+    | "STAT" :: s :: _ -> Stat s
+    | "PROGRESS" :: i :: _ -> (try Progress (int_of_string i) with 
         | Invalid_argument _ -> 
-          raise (Invalid_argument "output_message_of_strings"))
-    | "STAT" -> let s = pop () in
-      Stat s
-    | "PROGRESS" -> let i = pop () in
-      (try Progress (int_of_string i) with 
-        | Invalid_argument _ -> 
-          raise (Invalid_argument "output_message_of_strings"))
-    | _ -> 
-      raise (Invalid_argument "output_message_of_strings")
+          raise (Invalid_argument "output_message_of_strings b"))
+    | x -> ignore (Debug.messaging "MSG:%s" (String.concat "" x)); raise (Invalid_argument "output_message_of_strings c")
 
 
   (* Return a list of strings of a message *)
@@ -255,20 +246,18 @@ struct
     | Ready -> ["READY"]
     | Ping -> ["PING"]
     | Terminate -> ["TERM"]
-    | Resend i -> [string_of_int i; "RESEND"]
+    | Resend i -> ["RESEND"; string_of_int i]
 
 
   (* Return a message of a list of strings *)
-  let control_message_of_strings pop = match pop () with
-    | "READY" -> Ready 
-    | "PING" -> Ping
-    | "TERM" -> Terminate
-    | "RESEND" -> let i = pop () in
-      (try Resend (int_of_string i) with 
+  let control_message_of_strings = function
+    | "READY" :: _ -> Ready
+    | "PING" :: _ -> Ping
+    | "TERM" :: _ -> Terminate
+    | "RESEND" :: i :: _ -> (try Resend (int_of_string i) with 
         | Invalid_argument _ -> 
           raise (Invalid_argument "control_message_of_strings"))
-    | _ -> 
-      raise (Invalid_argument "control_message_of_strings")
+    | _ -> raise (Invalid_argument "control_message_of_strings")
 
 
   (* Return unique tag for message type *)
@@ -279,12 +268,14 @@ struct
 
 
   (* Return a message from strings *)
-  let message_of_strings pop = function
-    | "OUTPUT" -> OutputMessage (output_message_of_strings pop)
-    | "CONTROL" -> ControlMessage (control_message_of_strings pop)
-    | "RELAY" -> let i = pop () in 
-      (try RelayMessage (int_of_string i, T.message_of_strings pop) with 
-        | Invalid_argument _ -> raise BadMessage)
+  let message_of_strings payload = function
+    | "OUTPUT" -> OutputMessage (output_message_of_strings payload)
+    | "CONTROL" -> ControlMessage (control_message_of_strings payload)
+    | "RELAY" -> (
+        let i = List.hd payload in
+        try
+          RelayMessage (int_of_string i, T.message_of_strings (List.tl payload))
+        with Invalid_argument _ -> raise BadMessage)
     | _ -> raise BadMessage
 
 
@@ -298,62 +289,34 @@ struct
      subscribe to the relevant messages only *)
 
   (* Create a ZeroMQ message *)
-  let zmsg_of_msg msg = 
-    
+  let zmsg_of_msg msg =
     (* Use the PID of the process as sender *)
     let sender = string_of_int (Unix.getpid ()) in
-    
-    let zmsg = zmsg_new () in 
-
-    (* Push payload of message *)
-    List.iter
-      (fun f -> 
-         ignore (zmsg_pushstr zmsg f))
-      (match msg with 
-        | OutputMessage m -> strings_of_output_message m
-        | ControlMessage m -> strings_of_control_message m
-        | RelayMessage (i, m) -> 
-          T.strings_of_message m @ [string_of_int i]);
-
-    (* Push sender of message *)
-    ignore (zmsg_pushstr zmsg sender);
-
-    (* Push identifying tag of message *)
-    ignore (zmsg_pushstr zmsg (tag_of_message msg));
-
-    Debug.messaging
-      "@[<hv>zmsg_of_msg:@ %a@]" pp_print_zmsg zmsg; 
-
-     (* Return message *)
-     zmsg
+    let zmsg =
+      tag_of_message msg :: sender
+      ::
+      ( match msg with
+      | OutputMessage m -> strings_of_output_message m
+      | ControlMessage m -> strings_of_control_message m
+      | RelayMessage (i, m) -> string_of_int i :: T.strings_of_message m )
+    in
+    Debug.messaging "@[<hv>zmsg_of_msg:@ %a@]" pp_print_zmsg zmsg;
+    (* Return message *)
+    zmsg
 
 
   (* Return a message of a ZeroMQ message *)
-  let msg_of_zmsg zmsg =
-
-    Debug.messaging "@[<hv>msg_of_zmsg:@ %a@]" pp_print_zmsg zmsg;
-
-    (* Pop the topmost message frame and return as string *)
-    let pop () = 
-      try zmsg_popstr zmsg with Failure _ -> raise BadMessage 
-    in
-
-    (* Message tag is topmost frame *)
-    let message_tag = pop () in
-
-    (* Send is second frame *)
-    let sender = 
-      try int_of_string (pop ()) with Failure _ -> raise BadMessage 
-    in
-    
-    (* Return message of frame *)
-    (sender, message_of_strings pop message_tag)
-
+  let msg_of_zmsg = function
+    | tag :: sender :: payload ->
+        Debug.messaging "@[<hv>msg_of_zmsg:@ %a@]" pp_print_zmsg
+          (tag :: sender :: payload);
+        (int_of_string sender, message_of_strings payload tag)
+    | _ -> raise BadMessage
 
   (* ******************************************************************** *)
   (* Threadsafe list option                                               *)
   (* ******************************************************************** *)
-        
+
   type 'a locking_list_option =
       { lock : Mutex.t ; mutable l_opt : 'a list option }
 
@@ -381,6 +344,7 @@ struct
     (* a tail-recursive append would be more efficient, depending on
        how big queue gets *)
     Mutex.unlock queue.lock
+
 
   
   let push_front entry queue = 
@@ -708,172 +672,84 @@ struct
 
     handle_all (empty_list incoming)
 
-  let purge_messages sock = 
 
-    let rec recv_iter zmsg =
-      if (zmsg_size zmsg != 0) then 
-          recv_iter (zmsg_recv_nowait sock)
-    in
+  let purge_messages sock =
+    let rec recv_iter _ = recv_iter (Zmq.Socket.recv_all ~block:false sock) in
 
-    recv_iter (zmsg_recv_nowait sock)
+    try recv_iter (Zmq.Socket.recv_all ~block:false sock)
+    with Unix.Unix_error (Unix.EAGAIN, _, _) -> ()
 
-  let recv_messages sock as_invariant_manager = 
 
+  let recv_messages sock as_invariant_manager =
     (* receive up to 'message_burst_size' messages from sock *)
     let rec recv_iter i zmsg =
-
-      if (i < message_burst_size) && (zmsg_size zmsg != 0) then 
-
-        (
-
-          if as_invariant_manager || (not !debug_mode) then 
-
-            (
-
-              enqueue (msg_of_zmsg zmsg) incoming
-
-            ) 
-
-          else 
-
-            (
-
-              let sender, message = (msg_of_zmsg (zmsg)) in
-
-              enqueue
-                (`Supervisor, message) 
-                incoming_handled
-
-            );
-
-          recv_iter (i+1) (zmsg_recv_nowait sock)
-
-        )
-
+      if i < message_burst_size then (
+        ( if as_invariant_manager || not !debug_mode then
+          enqueue (msg_of_zmsg zmsg) incoming
+        else
+          let _, message = msg_of_zmsg zmsg in
+          enqueue (`Supervisor, message) incoming_handled );
+        recv_iter (i + 1) (Zmq.Socket.recv_all ~block:false sock) )
     in
 
-    recv_iter 0 (zmsg_recv_nowait sock)
+    try recv_iter 0 (Zmq.Socket.recv_all ~block:false sock)
+    with Unix.Unix_error (Unix.EAGAIN, _, _) -> ()
 
 
-  let im_send_messages sock = 
-
+  let im_send_messages sock =
     (* send up to 'message_burst_size' messages in invariant manager's
        outgoing message queue *)
     let rec send_iter i outgoing_msg =
+      if i < message_burst_size && outgoing_msg != None then (
+        let message = get outgoing_msg in
+        let zm = zmsg_of_msg message in
+        Zmq.Socket.send_all sock zm;
 
-      if (i < message_burst_size) && (outgoing_msg != None) then 
-
-        (
-
-          let message = get (outgoing_msg) in
-          let zm = zmsg_of_msg message in
-          let rc = zmsg_send (zm) sock in
-
-          (* Retry sending on failure
-
-             We are sending [message_burst_size] messages, this will
-             terminate *)
-          if (rc < 0) then push_front message outgoing; 
-
-          send_iter (i+1) (dequeue outgoing)
-
-        ) 
-
-      else 
-
-        ()
-
-    in 
+        send_iter (i + 1) (dequeue outgoing) )
+    in
 
     send_iter 0 (dequeue outgoing)
 
 
-  let worker_send_messages proc sock unconfirmed_invariants = 
-
+  let worker_send_messages proc sock unconfirmed_invariants =
     (* send up to 'message_burst_size' messages in worker's outgoing
        message queue *)
     let rec send_iter i outgoing_msg =
+      if i < message_burst_size && outgoing_msg != None then (
+        let message = get outgoing_msg in
 
-      if (i < message_burst_size) && (outgoing_msg != None) then 
+        Debug.messaging "Worker %d sending message %a" (Unix.getpid ())
+          pp_print_message message;
 
-        (
+        Zmq.Socket.send_all sock (zmsg_of_msg message);
 
-          let message = get (outgoing_msg) in
+        (* if this message is a relay message, place it in
+           unconfirmed list with current timestamp *)
+        ( match message with
+        | RelayMessage (_, m) ->
+            Hashtbl.add unconfirmed_invariants
+              (RelayMessage (0, m))
+              (Unix.time ())
+        | _ -> () );
 
-          Debug.messaging
-            "Worker %d sending message %a"
-            (Unix.getpid ())
-            pp_print_message message;
-
-          let rc = 
-            zmsg_send (zmsg_of_msg message) sock 
-          in
-
-          (* Retry sending on failure
-
-             We are sending [message_burst_size] messages, this will
-             terminate *)
-          if (rc < 0) then push_front message outgoing else 
-
-            (
-
-              (* if this message is a relay message, place it in
-                 unconfirmed list with current timestamp *)
-              (match message with 
-                | RelayMessage (_, m) ->
-                  
-                  Hashtbl.add 
-                    unconfirmed_invariants 
-                    (RelayMessage (0, m))
-                    (Unix.time ())
-
-                | _ -> ()
-
-              )
-
-            );
-
-          send_iter (i+1) (dequeue outgoing)
-
-        )
-
-    in 
+        send_iter (i + 1) (dequeue outgoing) )
+    in
 
     send_iter 0 (dequeue outgoing)
 
 
-  let worker_resend_invariants unconfirmed_invariants = 
-
+  let worker_resend_invariants unconfirmed_invariants =
     (* resend unconfirmed invariants *)
     let resend_if_needed invariant timestamp =
+      if Unix.time () -. timestamp > worker_invariant_confirmation_threshold
+      then (
+        enqueue invariant outgoing;
 
-      if 
-
-        (>)
-          ((Unix.time ()) -. timestamp) 
-          worker_invariant_confirmation_threshold 
-
-      then 
-
-        (
-
-          enqueue invariant outgoing;
-
-          (* a missed invariant is only resent once *)
-          (match invariant with
-
-            | RelayMessage (_, m) ->
-
-              Hashtbl.remove 
-                unconfirmed_invariants 
-                (RelayMessage (0, m))
-
-            | _ -> ()
-
-          )
-
-        )
-
+        (* a missed invariant is only resent once *)
+        match invariant with
+        | RelayMessage (_, m) ->
+            Hashtbl.remove unconfirmed_invariants (RelayMessage (0, m))
+        | _ -> () )
     in
 
     Hashtbl.iter resend_if_needed unconfirmed_invariants
@@ -887,133 +763,65 @@ struct
 
 
   let wait_for_workers workers worker_status pub_sock pull_sock =
-
     (* wait for ready from all workers *)
-    let rec wait_iter = function 
-      
+    let rec wait_iter = function
       (* No more workers to wait for *)
-      | [] -> () 
-              
+      | [] -> ()
       (* List of workers to wait for is not empty *)
-      | workers_remaining -> 
-
-        (
-
+      | workers_remaining -> (
           Debug.messaging "Sending PING to workers";
 
           (* let workers know invariant manager is ready *)
-          let rc = 
-            zmsg_send 
-              (zmsg_of_msg 
-                 (ControlMessage Ping)) 
-              pub_sock
-          in
-
-          assert (rc = 0);
+          Zmq.Socket.send_all pub_sock (zmsg_of_msg (ControlMessage Ping));
 
           (* Receive message on PULL socket *)
-          let msg = zmsg_recv_nowait pull_sock in
-          
-          (* Message is empty ? *)
-          if (zmsg_size msg) != 0 then 
-            
-            (
-              
-              let sender, payload = (msg_of_zmsg msg) in
-              
-              if payload = ControlMessage Ready then 
-                
-                (
-                  
-                  Debug.messaging 
-                    "Received a READY message from %d while waiting for \
-                     workers" 
-                    sender; 
+          try
+            let msg = Zmq.Socket.recv_all ~block:false pull_sock in
 
-                  wait_iter (List.filter ((<>) sender) workers_remaining);
+            let sender, payload = msg_of_zmsg msg in
 
-                )
-                
-              else
-
-                (
-
-
-                  Debug.messaging
-                    "Received message from %d while waiting for \
-                     workers: %a" 
-                    sender 
-                    pp_print_message payload;
-
-                  wait_iter (List.filter ((<>) sender) workers_remaining);
-
-                )
-
-            ) 
-
-          else 
-
-            (
-
+            if payload = ControlMessage Ready then (
               Debug.messaging
-                  "No message received, still waiting for workers";
+                "Received a READY message from %d while waiting for workers"
+                sender;
 
-              minisleep 0.1;
-              wait_iter workers_remaining
+              wait_iter (List.filter (( <> ) sender) workers_remaining) )
+            else (
+              Debug.messaging
+                "Received message from %d while waiting for workers: %a" sender
+                pp_print_message payload;
 
-            )
-            
-        ) 
-        
+              wait_iter (List.filter (( <> ) sender) workers_remaining) )
+          with Unix.Unix_error (Unix.EAGAIN, _, _) ->
+            Debug.messaging "No message received, still waiting for workers";
+
+            minisleep 0.1;
+            wait_iter workers_remaining )
     in
-    
+
     wait_iter workers;
-
     update_worker_status workers worker_status
-    
 
 
-  let im_check_workers_status workers worker_status pub_sock pull_sock = 
-
+  let im_check_workers_status workers worker_status pub_sock pull_sock =
     (* ensure that all workers have checked in within
        worker_time_threshold seconds *)
-    let rec check_status workers need_ping = 
-
+    let rec check_status workers need_ping =
       match workers with
-        | h :: t ->
+      | h :: t ->
+          if
+            Unix.time () -. Hashtbl.find worker_status h > worker_time_threshold
+          then (
+            (* at least one worker has not communicated recently *)
+            Hashtbl.replace worker_status h (Unix.time ());
 
-          if 
-
-            (Unix.time () -. (Hashtbl.find worker_status h)) > 
-            worker_time_threshold 
-
-          then 
-
-            (
-
-              (* at least one worker has not communicated recently *)
-              Hashtbl.replace (worker_status) h (Unix.time ());
-
-              check_status t true
-
-            ) 
-
-          else 
-
-            (
-
-              check_status t need_ping
-
-            )
-
-        | []  -> need_ping
-
+            check_status t true )
+          else check_status t need_ping
+      | [] -> need_ping
     in
 
     (* if a worker hasn't communicated in a while, broadcast a ping *)
-    if check_status workers false then 
-      enqueue (ControlMessage Ping) outgoing
-
+    if check_status workers false then enqueue (ControlMessage Ping) outgoing
 
 
   (* ******************************************************************** *)
@@ -1194,137 +1002,89 @@ struct
 (* ******************************************************************** *)
 
   let init_im () =
-
     (* sockets for communication with worker processes *)
-    let bg_ctx = zctx_new () in
+    let bg_ctx = Zmq.Context.create () in
 
     (* pub socket to send updates to workers *)
-    let pub_sock = zsocket_new bg_ctx ZMQ_PUB in
-    let bcast_port = zsocket_bind pub_sock "tcp://127.0.0.1:*" in
+    let pub_sock = Zmq.Socket.create bg_ctx Zmq.Socket.pub in
+    Zmq.Socket.bind pub_sock "tcp://127.0.0.1:*";
+    let bcast_port = Zmq.Socket.get_last_endpoint pub_sock in
 
-    if bcast_port < 0 then raise SocketBindFailure else
+    (* pull socket to get updates from workers *)
+    let pull_sock = Zmq.Socket.create bg_ctx Zmq.Socket.pull in
+    Zmq.Socket.bind pull_sock "tcp://127.0.0.1:*";
+    let push_port = Zmq.Socket.get_last_endpoint pull_sock in
+    Debug.messaging "PUB socket is at %s, PULL socket is at %s" bcast_port
+      push_port;
 
-      (
-
-        (* pull socket to get updates from workers *)
-        let pull_sock = (zsocket_new bg_ctx ZMQ_PULL) in 
-        let push_port = zsocket_bind pull_sock "tcp://127.0.0.1:*" in
-
-        if push_port < 0 then raise SocketBindFailure else
-
-          (
-
-            Debug.messaging
-              "PUB socket is at tcp://127.0.0.1:%d, \
-               PULL socket is at tcp://127.0.0.1:%d" 
-              bcast_port 
-              push_port;
-
-            (* Return sockets *)
-            (bg_ctx, pub_sock, pull_sock), 
-
-            (* Return broadcast and push ports *)
-            (Format.sprintf "tcp://127.0.0.1:%d" bcast_port,
-             Format.sprintf "tcp://127.0.0.1:%d" push_port)
-
-          )
-
-      )
+    (* Return sockets *)
+    ( (bg_ctx, pub_sock, pull_sock),
+      (* Return broadcast and push ports *)
+      (bcast_port, push_port) )
 
 
-
-  let init_worker proc bcast_port push_port = 
-
+  let init_worker proc bcast_port push_port =
     (* sockets for communication with invariant manager *)
-    let bg_ctx = zctx_new () in
+    let bg_ctx = Zmq.Context.create () in
 
     (* subscribe to updates from invariant manager *)
-    let sub_sock = zsocket_new bg_ctx ZMQ_SUB in
+    let sub_sock = Zmq.Socket.create bg_ctx Zmq.Socket.sub in
 
-    let rc = 
-      zsocket_connect 
-        sub_sock 
-        bcast_port
-    in
+    Zmq.Socket.connect sub_sock bcast_port;
 
-    if rc < 0 then raise SocketConnectFailure else
+    Zmq.Socket.subscribe sub_sock "CONTROL";
+    Zmq.Socket.subscribe sub_sock "RELAY";
 
-      (
+    (* create push socket for sending updates to the invariant manager *)
+    let push_sock = Zmq.Socket.create bg_ctx Zmq.Socket.push in
+    Zmq.Socket.connect push_sock push_port;
 
-        zsocket_set_subscribe sub_sock "CONTROL";
-        zsocket_set_subscribe sub_sock "RELAY";
+    Debug.messaging "SUB port for %a is %s, PUSH port is %s"
+      pp_print_kind_module proc bcast_port push_port;
 
-        (* create push socket for sending updates to the invariant manager *)
-        let push_sock = zsocket_new bg_ctx ZMQ_PUSH in 
-        let rc = 
-          zsocket_connect 
-            push_sock 
-            push_port
-        in
-
-        if rc < 0 then raise SocketConnectFailure else 
-
-          (
-
-            Debug.messaging
-              "SUB port for %a is %s, PUSH port is %s" 
-              pp_print_kind_module proc
-              bcast_port 
-              push_port ;
-
-            (* Return sockets *)
-            (bg_ctx, sub_sock, push_sock)
-
-          )
-
-      )
+    (* Return sockets *)
+    (bg_ctx, sub_sock, push_sock)
 
 
   let run_im (bg_ctx, pub_sock, pull_sock) workers on_exit =
+    try
+      let p =
+        Thread.create
+          (im_thread (bg_ctx, pub_sock, pull_sock) workers)
+          (fun exn ->
+            Zmq.Socket.close pub_sock;
+            Zmq.Socket.close pull_sock;
+            Zmq.Context.terminate bg_ctx;
+            on_exit exn)
+      in
 
-    try           
+      initialized_process := Some `Supervisor;
 
-      (
+      (* thread identifier, might come in handy *)
+      ignore p
+    with SocketBindFailure -> raise SocketBindFailure
 
-        let p = 
-          Thread.create
-            (im_thread (bg_ctx, pub_sock, pull_sock) workers) 
-            on_exit 
-        in
 
-        initialized_process := Some(`Supervisor);
-
-        ignore(p) (* thread identifier, might come in handy *)
-
-      )
-      
-    with 
-      
-      | SocketBindFailure -> raise SocketBindFailure
-                               
-  
   let run_worker (bg_ctx, sub_sock, push_sock) proc on_exit =
+    try
+      let p =
+        Thread.create
+          (worker_thread (bg_ctx, sub_sock, push_sock))
+          ( proc,
+            fun exn ->
+              Zmq.Socket.close sub_sock;
+              Zmq.Socket.close push_sock;
+              Zmq.Context.terminate bg_ctx;
+              on_exit exn )
+      in
 
-    try 
+      initialized_process := Some proc;
 
-      (
+      p
+    with (* | Terminate -> raise Terminate *)
+    | SocketConnectFailure ->
+      raise SocketConnectFailure
 
-        let p = 
-          Thread.create 
-            (worker_thread (bg_ctx, sub_sock, push_sock)) 
-            (proc, on_exit) 
-        in
-
-        initialized_process := Some(proc);
-
-        p
-
-      )
-
-    with 
-      (* | Terminate -> raise Terminate *)
-      | SocketConnectFailure -> raise SocketConnectFailure
-      
 
   let send msg = 
     if !initialized_process = None then raise NotInitialized else
@@ -1335,14 +1095,17 @@ struct
 
   let send_term_message () = send (ControlMessage Terminate)
 
+
   let send_output_message msg = send (OutputMessage msg)
+
 
   let send_relay_message msg = send (RelayMessage (0, msg))
 
-  let recv () = 
 
+  let recv () = 
     if !initialized_process = None then raise NotInitialized else
       (empty_list incoming_handled)
+
 
   let update_child_processes_list ps =
     Debug.messaging
@@ -1358,13 +1121,16 @@ struct
       Mutex.unlock new_workers_option.lock
     )
 
-  let purge_im_mailbox (_, sub_sock, pull_sock) =
+
+  let purge_im_mailbox (_, pub_sock, pull_sock) =
+    Debug.messaging "PUB: %s, PULL: %s"
+      (Zmq.Socket.get_last_endpoint pub_sock)
+      (Zmq.Socket.get_last_endpoint pull_sock);
     if !initialized_process = None
     then raise NotInitialized
     else (
       (* Purging the messages because they refer to the old child processes *)
       purge_messages pull_sock ;
-      purge_messages sub_sock ;
       empty_list incoming |> ignore ;
       empty_list incoming_handled |> ignore ;
       empty_list outgoing |> ignore
