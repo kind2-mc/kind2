@@ -1,32 +1,41 @@
 Kind 2
 ======
 
-`Kind 2 <http://kind.cs.uiowa.edu/>`_ \ is a multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
+`Kind 2 <http://kind.cs.uiowa.edu/>`_ \ is a multi-engine, parallel,
+SMT-based automatic model checker for safety properties of Lustre programs.
 
 Kind 2 takes as input a Lustre file annotated with properties to be proven
 invariant (see :ref:`Lustre Input <2_input/1_lustre>`), and
 outputs which of the properties are true for all inputs, as well as an input
-sequence for those properties that are falsified. To ease processing by external tools,
-Kind 2 can output its results in JSON and XML formats (see :ref:`JSON / XML Output <3_output/2_machine_readable>`).
+sequence for those properties that are falsified. To ease processing by
+external tools, Kind 2 can output its results in JSON and XML formats
+(see :ref:`JSON / XML Output <3_output/2_machine_readable>`).
 
 By default Kind 2 runs a process for bounded model checking (BMC), a process
 for k-induction, two processes for invariant generation, and a process for IC3
 in parallel on all properties simultaneously. It incrementally outputs
 counterexamples to properties as well as properties proved invariant.
 
-The following command-line options control its operation (run ``kind2 --help`` for a full list). See :ref:`Techniques <1_techniques/1_techniques>` for configuration examples and more details on each technique.
+The following command-line options control its operation
+(run ``kind2 --help`` for a full list).
+See :ref:`Techniques <1_techniques/1_techniques>` for configuration examples and
+more details on each technique.
 
 ``--enable {BMC|IND|INVGEN|INVGENOS|IC3}`` Select model checking engines
 
-By default, all three model checking engines are run in parallel. Give any combination of ``--enable BMC``\ , ``--enable IND`` and ``--enable IC3`` to select which engines to run. The option ``--enable BMC`` alone will not be able to prove properties valid, choosing ``--enable IND`` only will not produce any results. Any other combination is sound (properties claimed to be invariant are indeed invariant) and counterexample-complete (a counterexample will be produced for each property that is not invariant, given enough time and resources).
+By default, all three model checking engines are run in parallel.
+Give any combination of ``--enable BMC``\ , ``--enable IND`` and
+``--enable IC3`` to select which engines to run. The option ``--enable BMC`` alone
+will not be able to prove properties valid, choosing ``--enable IND`` only will not
+produce any results. Any other combination is sound (properties claimed to be
+invariant are indeed invariant) and counterexample-complete (a counterexample will be
+produced for each property that is not invariant, given enough time and resources).
 
 ``--timeout_wall <int>`` (default ``0`` = none) -- Run for the given number of seconds of wall clock time
 
 ``--timeout_virtual <int>`` (default ``0`` = none) -- Run for the given number of seconds of CPU time
 
 ``--smtsolver {CVC4|Yices|Yices2|Z3}`` (default ``Z3``\ ) -- Select SMT solver
-
-The default is ``Z3``\ , but see options of the ``./build.sh`` script to override at compile time
 
 ``--cvc4_bin <file>`` -- Executable for CVC4
 
@@ -71,7 +80,8 @@ Building and installing
 Using OPAM
 ^^^^^^^^^^
 
-Start by installing `OPAM 2.1.0 or later <https://zeromq.org/download>`_ following the instructions on the website. Then, run
+Start by installing `OPAM 2.1.0 or later <https://zeromq.org/download>`_
+following the instructions on the website. Then, run
 
 .. code-block:: none
 
@@ -79,19 +89,25 @@ Start by installing `OPAM 2.1.0 or later <https://zeromq.org/download>`_ followi
    opam depext kind2
    opam install z3 kind2
 
-The first command points OPAM to this GitHub repo to install Kind 2 binary. The second command installs the ZeroMQ C library using the default package manager for your OS (may require sudo permission). The third command installs ``Z3`` SMT solver and ``kind2``. Alternatively, you can clone this repo, move to the top-level directory, and run
-
-.. code-block:: none
-
-   make install
-
-to install ``kind2`` and its dependencies. By default, ``kind2`` will be installed into the bin directory of your current OPAM switch. Run
+The first command points OPAM to this GitHub repo to install Kind 2 binary.
+The second command installs the ZeroMQ C library using the default package
+manager for your OS (may require sudo permission). The third command installs
+``Z3`` SMT solver and ``kind2``. By default, ``kind2`` will be installed into
+the bin directory of your current OPAM switch. Run
 
 .. code-block:: none
 
    opam install kind2 --destdir=DIR
 
 to install the Kind 2 binary into ``<DIR>/bin``.
+
+Alternatively, you can clone this repo, move to the top-level directory, and run
+
+.. code-block:: none
+
+   make install
+
+to install ``kind2`` and its dependencies.
 
 Using Dune (OPAM not required)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -128,7 +144,8 @@ Alternatively, you can install all dependencies in your current switch by runnin
 Documentation
 -------------
 
-Documentation is available online in `HTML <http://kind.cs.uiowa.edu/kind2_user_doc/>`_ or `PDF <http://kind.cs.uiowa.edu/kind2_user_doc/doc.pdf>`_ forms.
+Documentation is available online in `HTML <http://kind.cs.uiowa.edu/kind2_user_doc/>`_
+or `PDF <http://kind.cs.uiowa.edu/kind2_user_doc/doc.pdf>`_ forms.
 
 .. include:: doc_requirements.rst
 
@@ -138,7 +155,8 @@ See ``doc/usr/README.rst`` for more information.
 Online Web Application
 ----------------------
 
-You can try `Kind 2 from your browser <https://kind.cs.uiowa.edu/app/>`_ if you are not ready to install it.
+You can try `Kind 2 from your browser <https://kind.cs.uiowa.edu/app/>`_
+if you are not ready to install it.
 
 
 Docker
@@ -171,7 +189,8 @@ If you want to update your Kind 2 image to latest one, simply re-run the
 Running Kind 2 through docker
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To run Kind 2 on a file on your system, it is recommended to mount the folder in which this file is as a `volume <https://docs.docker.com/engine/tutorials/dockervolumes/#/mount-a-host-directory-as-a-data-volume>`_.
+To run Kind 2 on a file on your system, it is recommended to mount the folder
+in which this file is as a `volume <https://docs.docker.com/engine/tutorials/dockervolumes/#/mount-a-host-directory-as-a-data-volume>`_.
 In practice, run
 
 .. code-block:: none
@@ -181,15 +200,15 @@ In practice, run
 where
 
 
-* ``<absolute_path_to_folder>`` is the absolute path to the folder your file is
-  in,
+* ``<absolute_path_to_folder>`` is the absolute path to the folder your file is in,
 * ``<your_file>`` is the lustre file you want to run Kind 2 on, and
 * ``<options>`` are some Kind 2 options of your choice.
 
 **N.B.**
 
 
-* the fact that the path to your folder must be absolute is `a docker constraint <https://docs.docker.com/engine/tutorials/dockervolumes/#/mount-a-host-directory-as-a-data-volume>`_\ ;
+* the fact that the path to your folder must be absolute is
+  `a docker constraint <https://docs.docker.com/engine/tutorials/dockervolumes/#/mount-a-host-directory-as-a-data-volume>`_\ ;
 * mount point ``/lus`` is arbitrary and does not matter as long as it is
   consistent with the last argument ``/lus/<your_file>``. To avoid name clashes
   with folders already present in the container however, it is recommended to
