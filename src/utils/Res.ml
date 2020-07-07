@@ -18,36 +18,43 @@
 
 open Lib
 
-(** A result for some type. *)
-type 'a res =
-(** Everything went fine. *)
-| Ok of 'a
-(** There was a problem. *)
-| Err of (Format.formatter -> unit)
+(** A result for some computation. [Ok] or [Error] of [Format.formatter]*)
+type 'a res = ('a, Format.formatter -> unit) result
 
+let ok v = Ok v
+
+let error e = Error e
+
+let bind r f = match r with Ok v -> f v | Error _ as e -> e
+
+let join = function Ok r -> r | Error _ as e -> e
+
+let map f = function Ok v -> Ok (f v) | Error _ as e -> e
+
+       
 (** Unwraps a result. *)
 let unwrap = function
   | Ok arg -> arg
-  | Err err ->
+  | Error err ->
     Format.printf "%t" err ;
     Invalid_argument "Res.unwrap" |> raise
 
 (** Maps functions to [Ok] or [Err]. *)
 let map_res f_ok f_err = function
   | Ok arg -> Ok (f_ok arg)
-  | Err err -> Err (f_err err)
+  | Error err -> Error (f_err err)
 
 (** Maps a function to a result if it's [Ok]. *)
 let map f = map_res f identity
 
-(** Maps a function to a result if it's [Err]. *)
+(** Maps a function to a result if it's [Error]. *)
 let map_err f = map_res identity f
 
 (** Feeds a result to a function returning a result, propagates if argument's
 an error. *)
 let chain ?fmt:(fmt = identity) f = function
   | Ok arg -> f arg |> map_err fmt
-  | Err err -> Err err
+  | Error err -> Error err
 
 (** Fold over a list of results. *)
 let l_fold ?fmt:(fmt = identity) f init =
@@ -55,7 +62,7 @@ let l_fold ?fmt:(fmt = identity) f init =
     | head :: tail -> (
       match f acc head with
       | Ok acc -> loop acc tail
-      | Err err -> Err (fmt err)
+      | Error err -> Error (fmt err)
     )
     | [] -> Ok acc
   in
@@ -67,7 +74,7 @@ let l_map ?fmt:(fmt = identity) f =
     | head :: tail -> (
       match f head with
       | Ok res -> loop (res :: pref) tail
-      | Err err -> Err (fmt err)
+      | Error err -> Error (fmt err)
     )
     | [] -> Ok (List.rev pref)
   in
@@ -79,7 +86,7 @@ let l_iter ?fmt:(fmt = identity) f =
     | head :: tail -> (
       match f head with
       | Ok () -> loop tail
-      | Err err -> Err (fmt err)
+      | Error err -> Error (fmt err)
     )
     | [] -> Ok ()
   in

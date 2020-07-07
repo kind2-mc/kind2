@@ -16,13 +16,30 @@
 
 *)
 
-(** A result for some type. *)
-type 'a res =
-(** Everything went fine. *)
-| Ok of 'a
-(** There was a problem. *)
-| Err of (Format.formatter -> unit)
+(** A result for some computation. [Ok] or [Error] of [Format.formatter]*)
+type 'a res = ('a, Format.formatter -> unit) result
 
+            
+val ok : 'a -> ('a, 'e) result
+(** [ok v] is [Ok v]. *)
+
+val error : 'e -> ('a, 'e) result
+(** [error e] is [Error e]. *)
+
+val bind : ('a, 'e) result -> ('a -> ('b, 'e) result) -> ('b, 'e) result
+(** [bind r f] is [f v] if [r] is [Ok v] and [r] if [r] is [Error _]. *)
+
+val join : (('a, 'e) result, 'e) result -> ('a, 'e) result
+(** [join rr] is [r] if [rr] is [Ok r] and [rr] if [rr] is [Error _]. *)
+
+val map : ('a -> 'b) -> ('a, 'e) result -> ('b, 'e) result
+(** [map f r] is [Ok (f v)] if [r] is [Ok v] and [r] if [r] is [Error _]. *)
+
+(** The following functions have been taken from  (future) 4.09 Stdlib.Result. 
+ * These 4 functions, [ok], [error], [bind], [join] and [map] should be ported to 
+ * the original library functions after the Stdlib upgrade. *)
+  
+            
 (** Unwraps a result. *)
 val unwrap : 'a res -> 'a
 

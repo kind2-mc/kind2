@@ -349,12 +349,12 @@ val pp_print_clock_expr : Format.formatter -> clock_expr -> unit
 val pp_print_lustre_type : Format.formatter -> lustre_type -> unit
 val pp_print_typed_ident : Format.formatter -> typed_ident -> unit
 val pp_print_clocked_typed_ident :
-  Format.formatter -> position * ident * lustre_type * clock_expr -> unit
+  Format.formatter -> Lib.position * ident * lustre_type * clock_expr -> unit
 val pp_print_const_clocked_typed_ident :
-  Format.formatter -> position * ident * lustre_type * clock_expr * bool -> unit
+  Format.formatter -> Lib.position * ident * lustre_type * clock_expr * bool -> unit
 val pp_print_type_decl : Format.formatter -> type_decl -> unit
 val pp_print_var_decl :
-  Format.formatter -> position * ident * lustre_type * clock_expr -> unit
+  Format.formatter -> Lib.position * ident * lustre_type * clock_expr -> unit
 val pp_print_const_decl : Format.formatter -> const_decl -> unit
 val pp_print_node_local_decl_var :
   Format.formatter -> node_local_decl -> unit

@@ -140,7 +140,7 @@ let info_of_decl = function
 | decl ->
   Format.asprintf
     "info requested on unsupported declaration: %a"
-    PpLustreAst.pp_print_declaration decl
+    A.pp_print_declaration decl
   |> failwith
 
 (** Inserts a declaration in a list of declarations, after the one with name

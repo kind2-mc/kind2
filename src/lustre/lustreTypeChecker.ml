@@ -20,26 +20,17 @@
 
 module LA = LustreAst
 module LC = LustreContext
-module R =  Stdlib.Result
-(* module LAH = LustreAstHelpers *)
+module R = Res
            
 let todo s = failwith ("Unsupported operation at " ^ s)
 
+           
 (* exception Type_error of Lib.position * string           
  * let throwTypeError pos string = raise (Type_error (pos, string)) *)
                       
 (** Returns [ok] if the typecheck/typeinference runs fine 
  * or reports an error at position with the error *)
 type 'a tcResult = ('a, Lib.position * string) result
-
-(** Module for identifier Map *)
-module OrdIdent = struct
-  type t = LA.ident
-  let compare i1 i2 = Stdlib.compare i1 i2
-end
-
-(** Map for types with identifiers as keys *)
-module TyMap = Map.Make(OrdIdent)
 
 (** Simplified view of [LA.lustre_type]
  * This does not appear in the the interface file as we do not want it to escape the
@@ -60,30 +51,35 @@ type tcType  =
   | ArrayTy of tcType * int
   | EnumTy of LA.ident option * (LA.ident list)
 
-let rec to_string: tcType -> string = function
-  | Bool -> "Bool"
-  | Num  -> "Num"
+let rec pp_print_tcType: Format.formatter -> tcType -> unit
+  = fun ppf ty ->
+  match ty with
+  | Bool -> Format.fprintf ppf "@[Bool@]"
+  | Num  -> Format.fprintf ppf "@[Num@]"
   (* Function type of argument and return *)
-  | Fun (argTy, retTy) -> to_string argTy ^ " -> " ^ to_string retTy
+  | Fun (argTy, retTy) -> Format.fprintf ppf "@[%a @, -> %a@]" pp_print_tcType argTy pp_print_tcType retTy 
   (* Arrays Tuples, ranges *)
-  | IntRange (mi, ma) -> "IntRange(" ^ string_of_int mi ^ "," ^ string_of_int ma ^ ")" 
-  | UserTy i -> "UserType " ^ i
-  | TupleTy tyLst ->
-     (List.fold_left (fun s ty -> s ^ ", " ^ (to_string ty)) "Tuple (" tyLst) ^ ")"
+  | IntRange (mi, ma) -> Format.fprintf ppf "IntRange(%a, %a)" Format.pp_print_int mi Format.pp_print_int ma
+  | UserTy i -> Format.fprintf ppf "UserType %a" LA.pp_print_ident i
+  | TupleTy tys -> Format.fprintf ppf "@[TupleTy (%a)@]" (Lib.pp_print_list pp_print_tcType "*") tys
   (* lustre V6 types *)
-  | AbstractTy i -> "AbstractType " ^ i 
-  | RecordTy fs ->
-     (List.fold_left (fun s (i, ty) -> s ^ ", " ^ i ^";"^ (to_string ty))
-        "RecordType (" fs) ^ ")"
-  | ArrayTy (ty, size) -> "["^ to_string ty ^ "^" ^ string_of_int size ^"]"
-  | EnumTy (n, ids) -> "EnumType "
-                       ^ (match n with
-                        | Some n' -> n'
-                        | None -> "" )
-                       ^ "{"
-                       ^ List.fold_left (fun s i -> s ^ ", " ^ i) "" ids
-                       ^ "}" 
-                     
+  | AbstractTy i -> Format.fprintf ppf "AbstractType %a" LA.pp_print_ident i 
+  | RecordTy fs -> let pp_print_field ppf = fun (i, ty) ->
+                     Format.fprintf ppf "@[%a: %a@]" LA.pp_print_ident i pp_print_tcType ty in
+                   Format.fprintf ppf "@[RecordTy {@ %a@ }@]" (Lib.pp_print_list pp_print_field ";@,") fs
+  | ArrayTy (ty, size) -> Format.fprintf ppf "[@ %a ^ %a@ ]" pp_print_tcType ty Format.pp_print_int size
+  | EnumTy (n, ids) ->
+     (* let pp_print_enumname ppf = fun n ->
+      *   (match n with
+      *    | Some name -> LA.pp_print_ident ppf name
+      *    | None -> ()) in *)
+     Format.fprintf ppf "EnumType %a {@ %a@ }"
+       (* (pp_print_enumname n) *)
+       (Lib.pp_print_option LA.pp_print_ident) n
+       (Lib.pp_print_list LA.pp_print_ident ",@,") ids
+     
+            
+let string_of_tcType t = Lib.string_of_t pp_print_tcType t                     
   
 (** A constant should be evaluated to an integer *)
 let evalToConstExp: LA.expr -> int = function _  -> todo __LOC__
@@ -112,11 +108,31 @@ let rec toTcType: LA.lustre_type -> tcType
 and typedIdentToTcTuple: LA.typed_ident -> (LA.ident * tcType) = function
     (_, i, ty) -> (i, toTcType ty) 
 
+(** Module for identifier Map *)
+module OrdIdent = struct
+  type t = LA.ident
+  let compare i1 i2 = Stdlib.compare i1 i2
+end
+
+(** Map for types with identifiers as keys *)
+module TyMap = struct
+  include Map.Make(OrdIdent)
+
+  let pp_print_tcType ppf = fun ty ->
+    Format.fprintf ppf "%s" (string_of_tcType ty)
+    
+  let pp_print_type_binding ppf = fun i ty -> 
+    Format.fprintf ppf "%a: %a\n" LA.pp_print_ident i pp_print_tcType ty
+end
+             
 (** Typing context is nothing but a mapping of indentifier to its type *)
 type tcContext = tcType TyMap.t
-                            
+
 let emptyContext = TyMap.empty
 
+let pp_print_tcContext ppf ctx = 
+  (* Format.fprintf ppf "@========\n%a\n======\n" *) (TyMap.iter (TyMap.pp_print_type_binding ppf) ctx)
+                 
 (* [typeerror] returns an [Error] of [tcResult] *)
 let typeError pos err = R.error (pos, err)
 
@@ -129,39 +145,40 @@ let add: tcContext -> LA.ident -> tcType -> tcContext
 let union: tcContext -> tcContext -> tcContext
   = fun ctx1 ctx2 -> TyMap.merge (fun k v1 v2 -> v1) ctx1 ctx2
                   
-let inferConstType: LA.constant -> tcType
+let inferTypeConst: LA.constant -> tcType
   = function
      | Num _ -> Num
      | Dec _ -> Num
      | _ -> Bool
 
-let inferUnaryOpType: LA.unary_operator -> tcType = function
-  | LA.Not -> Fun (Bool, Bool)
+let inferTypeUnaryOp: LA.unary_operator -> tcType tcResult = function
+  | LA.Not -> R.ok (Fun (Bool, Bool))
   | LA.BVNot
-  | LA.Uminus -> Fun (Num, Num)
+  | LA.Uminus -> R.ok (Fun (Num, Num))
 
-let inferBinaryOp: LA.binary_operator -> tcType = function
+let inferTypeBinaryOp: LA.binary_operator -> tcType tcResult = function
   | LA.And | LA.Or | LA.Xor | LA.Impl
-    -> Fun (Bool, Bool)
+    -> R.ok (Fun (Bool, Fun(Bool, Bool)))
   | LA.Mod | LA. Minus | LA.Plus | LA. Div | LA.Times | LA.IntDiv
     | LA.BVAnd | LA.BVOr | LA.BVShiftL | LA.BVShiftR
-    -> Fun (Num, Num) 
+    -> R.ok (Fun (Num, Fun(Num, Num))) 
   
 
-let inferTernaryOp: LA.ternary_operator -> tcType = function | _ -> todo __LOC__
+let inferTypeTernaryOp: LA.ternary_operator -> tcType tcResult = function | _ -> todo __LOC__
 
-let inferNaryOp: LA.n_arity_operator -> tcType = function | _ -> todo __LOC__
+let inferTypeNaryOp: LA.n_arity_operator -> tcType tcResult  = function | _ -> todo __LOC__
 
-let inferTypeConvOp: LA.conversion_operator -> tcType = function
-  | _ -> Fun (Num, Num)
+let inferTypeConvOp: LA.conversion_operator -> tcType tcResult = function
+  | _ -> R.ok (Fun (Num, Num))
 
-let inferTypeCompOp: LA.comparison_operator -> tcType = function
-  | _ -> Fun (Num, Fun (Num, Bool)) 
+let inferTypeCompOp: LA.comparison_operator -> tcType tcResult = function
+  | _ -> R.ok (Fun (Num, Fun (Num, Bool))) 
 
 let inferTypeGrpExpr: LA.expr -> tcType = function | _ -> todo __LOC__
-                                        
+                                                        
 (** Infer the type of a [LA.expr] with the types of free variables given in [tcContext] *)
-let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
+let
+  rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
   = fun ctx expr ->
   match expr with
   (* Identifiers *)
@@ -173,57 +190,67 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
   (* | TupleProject of position * expr * expr *)
 
   (* Values *)
-  | Const (_, c) -> R.ok (inferConstType c)
+  | Const (_, c) -> R.ok (inferTypeConst c)
 
   (* Operator applications *)
   | UnaryOp (pos, op, e) ->
-     (match (inferUnaryOpType op) with
-      | Fun (argTy, resTy) ->
-         R.bind (checkTypeExpr ctx e argTy) (fun _ ->
-             R.ok resTy)
-      | fty -> typeError pos ("Unexpected unary operator type: " ^ to_string fty))
+     R.bind (inferTypeUnaryOp op) (fun ty ->
+         match ty with
+         | Fun (argTy, resTy) ->
+            R.bind (checkTypeExpr ctx e argTy) (fun _ ->
+                R.ok resTy)
+         | fty -> typeError pos ("Unexpected unary operator type: "
+                                 ^ string_of_tcType fty))
   | BinaryOp (pos, bop, e1, e2) ->
-     (match (inferBinaryOp bop) with
-      | Fun (argTy1, Fun (argTy2, resTy)) ->
-         (R.bind (checkTypeExpr ctx e1 argTy1) (fun _ ->
-              R.bind (checkTypeExpr ctx e2 argTy2) (fun _ ->
-                  R.ok resTy)))
-      | fty -> typeError pos ("Unexpected binary operator type: " ^ to_string fty))
+     R.bind (inferTypeBinaryOp bop) (fun ty ->
+         match ty with
+         | Fun (argTy1, Fun (argTy2, resTy)) ->
+            (R.bind (checkTypeExpr ctx e1 argTy1) (fun _ ->
+                 R.bind (checkTypeExpr ctx e2 argTy2) (fun _ ->
+                     R.ok resTy)))
+         | fty -> typeError pos ("Unexpected binary operator type: "
+                                 ^ string_of_tcType fty))
   | TernaryOp (pos, top, e1, e2, e3) ->
-     (match (inferTernaryOp top) with
-      | Fun (argTy1, Fun (argTy2, (Fun (argTy3, resTy)))) -> 
-         (R.bind (checkTypeExpr ctx e1 argTy1) (fun _ ->
-              R.bind (checkTypeExpr ctx e2 argTy2) (fun _ ->
-                  R.bind (checkTypeExpr ctx e3 argTy3) (fun _ ->
-                      R.ok resTy))))
-      | fty -> typeError pos ("Unexpected ternary operator type: " ^ to_string fty))
+     R.bind (inferTypeTernaryOp top) (fun ty ->
+         match ty with
+         | Fun (argTy1, Fun (argTy2, (Fun (argTy3, resTy)))) -> 
+            (R.bind (checkTypeExpr ctx e1 argTy1) (fun _ ->
+                 R.bind (checkTypeExpr ctx e2 argTy2) (fun _ ->
+                     R.bind (checkTypeExpr ctx e3 argTy3) (fun _ ->
+                         R.ok resTy))))
+         | fty -> typeError pos ("Unexpected ternary operator type: "
+                                 ^ string_of_tcType fty))
   | NArityOp _ -> todo __LOC__          (* One hot expression is not supported? *)    
-  | ConvOp (pos, cop, e) ->
-     (match (inferTypeConvOp cop) with
-      | Fun (argTy, resTy) ->
-         R.bind (checkTypeExpr ctx e argTy) (fun _ ->
-             R.ok resTy)
-      | fty -> typeError pos ("Unexpected conversion operator type: " ^ to_string fty))
+  | ConvOp (pos, cop, e) -> 
+     R.bind (inferTypeConvOp cop) (fun ty ->
+         match ty with
+         | Fun (argTy, resTy) ->
+            R.bind (checkTypeExpr ctx e argTy) (fun _ ->
+                R.ok resTy)
+         | fty -> typeError pos ("Unexpected conversion operator type: "
+                                 ^ string_of_tcType fty))
   | CompOp (pos, cop, e1, e2) ->
-     (match (inferTypeCompOp cop) with
-      | Fun (argTy1, Fun (argTy2, resTy)) ->
-         (R.bind (checkTypeExpr ctx e1 argTy1) (fun _ ->
-              R.bind (checkTypeExpr ctx e2 argTy2) (fun _ -> 
-                  R.ok resTy)))
-      | fty -> typeError pos ("Unexpected comparison operator type: " ^ to_string fty))
-                            
+     R.bind (inferTypeCompOp cop) (fun ty ->
+         match ty with
+         | Fun (argTy1, Fun (argTy2, resTy)) ->
+            (R.bind (checkTypeExpr ctx e1 argTy1) (fun _ ->
+                 R.bind (checkTypeExpr ctx e2 argTy2) (fun _ -> 
+                     R.ok resTy)))
+         | fty -> typeError pos ("Unexpected comparison operator type: "
+                                 ^ string_of_tcType fty))
+    
   (* Structured expressions *)
   | RecordExpr (pos, _, flds) ->
      (let rec inferFields = function
         | [] -> R.ok []
         | (i, e):: tl -> R.bind (inferFields tl) (fun tl' -> 
-                               R.bind (inferTypeExpr ctx e) (fun ty -> 
-                                   R.ok ((i, ty) :: tl')))
-    in match inferFields flds with
-    | R.Ok fldTys -> R.ok (RecordTy fldTys)
-    | Error _ as err -> err)
-      
-   | GroupExpr _ as ge -> R.ok (inferTypeGrpExpr ge)
+                             R.bind (inferTypeExpr ctx e) (fun ty -> 
+                                 R.ok ((i, ty) :: tl')))
+      in match inferFields flds with
+         | Ok fldTys -> R.ok (RecordTy fldTys)
+         | Error _ as err -> err)
+    
+  | GroupExpr _ as ge -> R.ok (inferTypeGrpExpr ge)
   (* Update of structured expressions *)
   (* | StructUpdate of position * expr * label_or_index list * expr
    * | ArrayConstr of position * expr * expr 
@@ -239,38 +266,114 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
    * | Merge of position * ident * (ident * expr) list
    * | RestartEvery of position * ident * expr list * expr *)
   (* Temporal operators *)
-  (* | Pre of position * expr
-   * | Last of position * ident
-   * | Fby of position * expr * int * expr
-   * | Arrow of position * expr * expr *)
+  | Pre (pos, e) -> inferTypeExpr ctx e
+  (* | Last of position * ident
+   * | Fby of position * expr * int * expr*)
+  | Arrow (pos, e1, e2) -> R.bind (inferTypeExpr ctx e1) (fun ty1 ->
+                               R.bind (inferTypeExpr ctx e2) (fun ty2 ->
+                                   if ty1 == ty2 then R.ok ty1 else
+                                     typeError pos
+                                       ("Arrow types do not match "
+                                        ^ string_of_tcType ty1
+                                        ^ " and " ^ string_of_tcType ty2))) 
   (* Node calls *)
-  (* | Call of position * ident * expr list
-   * | CallParam of position * ident * lustre_type list * expr list *)
+  | Call (pos, i, args) ->
+     let ty = lookup ctx i in
+     let rec inferTypeNodeArgs: tcContext -> LA.expr list -> tcType -> tcType tcResult
+       = fun ctx args ty -> 
+       match (args, ty) with
+       | arg :: [], Fun (argTy, resTy) ->
+          R.bind (checkTypeExpr ctx arg argTy) (fun _ ->
+              R.ok resTy)
+       | arg :: [], ty' -> typeError pos "Arguments type mismatch"
+       | arg :: args', Fun(argTy, resTy) ->
+          R.bind (checkTypeExpr ctx arg argTy) (fun _ ->
+              inferTypeNodeArgs ctx args' resTy)
+       | _ -> typeError pos "panic while checking arguments"
+     in
+     inferTypeNodeArgs ctx args ty 
+     
+  (* | CallParam of position * ident * lustre_type list * expr list *)
   | _ -> todo __LOC__
 
-  (** Type checks an expression and returns [ok] 
-   * if the expected is the given type [tcType]  
-   * returns an [Error] otherwise *)
-  and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
-    = fun ctx expr expTy ->
-    match expr with
-    | Ident (pos, i) as ident ->
-       (match (inferTypeExpr ctx ident) with
-        | Ok ty -> (if (ty = expTy)
-                    then R.ok ()
-                    else typeError pos ("Indentifier " ^ i
-                                        ^ " does not match expected type"
-                                        ^ to_string expTy))
-        | Error _ as err -> err)
-    | UnaryOp (pos, op, _) ->
-       (match (inferUnaryOpType op) with
-        | Fun (argTy, retTy) ->
-           if expTy = argTy then R.ok ()
-           else typeError pos ("Expected type " ^ to_string expTy ^ " but found type " ^ to_string argTy)
-        | _ -> typeError pos ("Unexpted Operator type"))
-    | _ -> todo __LOC__
+(** Type checks an expression and returns [ok] 
+ * if the expected is the given type [tcType]  
+ * returns an [Error] otherwise *)
+and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
+  = fun ctx expr expTy ->
+  match expr with
+  (* Identifiers *)
+  | Ident (pos, i) as ident ->
+     R.bind (inferTypeExpr ctx ident) (fun ty ->
+         if (ty = expTy)
+         then R.ok ()
+         else typeError pos ("Indentifier " ^ i
+                             ^ " does not match expected type"
+                             ^ string_of_tcType expTy))
+  (* Operators *)
+  | UnaryOp (pos, op, _) ->
+     R.bind (inferTypeUnaryOp op) (fun ty ->
+         match ty with 
+         | Fun (argTy, retTy) ->
+            if expTy = argTy then R.ok ()
+            else typeError pos ("Expected type " ^ string_of_tcType expTy ^ " but found type " ^ string_of_tcType argTy)
+         | _ -> typeError pos ("Unexpected Operator type"))
+  | BinaryOp (pos, op, e1, e2) ->
+     R.bind (inferTypeBinaryOp op) (fun ty ->
+         match ty with
+         | Fun (argTy1, Fun (argTy2, resTy)) ->
+            R.bind (checkTypeExpr ctx e1 argTy1) (fun _ ->
+                R.bind (checkTypeExpr ctx e2 argTy2) (fun _ -> R.ok()))
+         | _ -> typeError pos ("Unexpected Operator type " ^ string_of_tcType ty))
+    
+  | LA.TernaryOp (pos, op, con, e1, e2) ->
+     R.bind (inferTypeExpr ctx con) (fun ty ->
+         if ty = Bool
+         then
+           R.bind (inferTypeExpr ctx e1) (fun ty1 ->
+               R.bind (inferTypeExpr ctx e2) (fun ty2 ->
+                   if (ty1 = ty2)
+                   then R.ok ()
+                   else typeError pos ("Type mismatch\n"
+                        ^ "Expected both branches to either have type " ^ string_of_tcType ty1
+                        ^ "or type " ^ string_of_tcType ty2))) 
+         else
+           typeError pos ("If then else condition type mismatch "
+           ^ "Expected: " ^ string_of_tcType Bool
+           ^ "Found: " ^ string_of_tcType ty))
+  (* Values/Constants *)
+  | Const (pos, c) -> R.ok ()
+  | _ -> todo __LOC__
        
-             
+and checkTypeConstDecl: tcContext -> LA.const_decl -> unit tcResult =
+  fun ctx ->
+  function
+  | FreeConst (pos, i, lusTy) -> let infTy = (lookup ctx i) in
+                                 let expTy = toTcType lusTy in
+                                 if infTy == expTy
+                                 then R.ok ()
+                                 else R.error (pos
+                                             , "Type mismatch for identifier "
+                                               ^ i
+                                               ^ " expected " ^ string_of_tcType infTy
+                                               ^ " but found." ^ string_of_tcType expTy)
+  | UntypedConst _ -> R.ok ()
+  | TypedConst (pos, i, exp, lusTy) -> let expTy = toTcType lusTy in
+                                       R.bind (inferTypeExpr ctx exp) (fun exprTy ->
+                                           if expTy = exprTy
+                                           then R.ok ()
+                                           else R.error ( pos
+                                                        , "Type declaration mismatch for identifier "
+                                                          ^ i
+                                                          ^ " expected type: " ^ string_of_tcType expTy
+                                                          ^ " but inferred type was: " ^ string_of_tcType exprTy))  
+
+
+and checkTypeNodeDecl: tcContext -> LA.node_decl -> unit tcResult
+  = fun ctx
+        (i, extern, params, _, _, localdecls, items, contract) -> 
+  todo __LOC__
+                       
 let typingContextOfTyDecl: LA.type_decl -> tcContext
   = function
   | _ -> emptyContext
@@ -290,6 +393,7 @@ let typingContextOfConstDecl:  tcContext -> LA.const_decl -> tcContext tcResult
 let scc: LA.t -> LA.t list
   = fun decls -> [decls]
 
+(** Obtain a global typing context *)
 let rec typingContextOf: LA.t -> tcContext tcResult
   = let typingContextOf': tcContext -> LA.declaration -> tcContext tcResult
     = fun ctx decl ->
@@ -302,32 +406,49 @@ let rec typingContextOf: LA.t -> tcContext tcResult
                      R.bind (typingContextOf' ctx' d) (fun ctx -> 
                          R.ok ctx))
 
-let typeCheckGroup: tcContext -> LA.t ->  unit tcResult
-  = fun ctx grp -> 
-  R.ok ()
+
                
-(* typecheck a list of groups *)
-let rec typeCheckDeclGrps: LA.t list -> unit tcResult list =
-  function
-  | [] -> []
-  | grp :: grps ->
-     R.bind (typingContextOf grp) (fun ctx ->
-         typeCheckGroup ctx grp) :: typeCheckDeclGrps grps
+(* By this point, all the circularity should be resolved,
+ * the top most declaration should be able to access 
+ * the types of all the forward referenced indentifiers from the context*)
+let rec typeCheckGroup: tcContext -> LA.t ->  unit tcResult list
+  = fun ctx
+  -> function
+  | [] -> [R.ok ()]
+  (* We do not  have anything to do with for Type declarations*)
+  | LA.TypeDecl (_, _) :: rest -> typeCheckGroup ctx rest
+  | LA.ConstDecl (_, constDecl) :: rest -> (checkTypeConstDecl ctx constDecl) :: typeCheckGroup ctx rest  
+  | LA.NodeDecl (pos, nodeDecl) :: rest -> (checkTypeNodeDecl ctx nodeDecl) :: typeCheckGroup ctx rest  
+  (*    match dec with
+   * | ConstDecl of position * const_decl
+   * | FuncDecl of position * node_decl
+   * | ContractNodeDecl of position * contract_node_decl
+   * | NodeParamInst of position * node_param_inst *)
+  | _ -> todo __LOC__
+ 
+               
+(* typecheck a list of independent groups using a global context*)
+let typeCheckDeclGrps: tcContext -> LA.t list -> unit tcResult list = fun ctx decls -> 
+  List.concat (List.map (typeCheckGroup ctx) decls)
+
                  
 (* Get the first error *)
 let rec reportTcResult: unit tcResult list -> unit tcResult = function
+  | [] -> R.ok () 
   | Error (pos,err) :: _ -> LC.fail_at_position pos err
-  | R.Ok () :: tl -> reportTcResult tl
-  | _ -> R.ok () 
+  | Ok () :: tl -> reportTcResult tl
 
 
 let typeCheckProgram: LA.t -> unit tcResult = fun prg ->
-  prg |> scc |> typeCheckDeclGrps |> reportTcResult 
+  R.bind (typingContextOf prg) (fun p ->
+      Log.log L_debug "Global Typing Context\n====\n%a====" pp_print_tcContext p; 
+   prg |> scc |> typeCheckDeclGrps p |> reportTcResult) 
     
-
+    
 (* 
    Local Variables:
    compile-command: "make -k -C .."
    indent-tabs-mode: nil
    End: 
-*)
+ *)
+
