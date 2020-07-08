@@ -665,6 +665,8 @@ module RunIVC: PostAnalysis = struct
             let use_must_set =
               if Flags.IVC.ivc_must_set ()
               then Some (treat_ivc true)
+              else if Flags.IVC.ivc_disable_must_opt ()
+              then None
               else if Flags.IVC.ivc_all ()
               then Some (fun _ -> ())
               else None
