@@ -13,6 +13,7 @@ _build
 
 # Generated merlin file.
 .merlin
+./**/.merlin
 
 # Generated doc.
 ocamldoc
@@ -37,7 +38,3 @@ doc/user_documentation.pdf
 # GitHub deploy key
 travis_key
 travis_key.pub
-
-# merlin files
-.merlin
-./**/.merlin
