@@ -101,7 +101,7 @@ let setup : unit -> any_input = fun () ->
      KEvent.log L_fatal "While parsing file %s" (Flags.input_file ()); 
      KEvent.terminate_log () ; exit ExitCodes.error
   | LustreLexer.Lexer_error err ->
-     KEvent.log L_fatal "Lexing error: %s" err;
+     KEvent.log L_fatal "While parsing file %s\n Lexing error: %s" (Flags.input_file ()) err;
      KEvent.terminate_log () ; exit ExitCodes.error
   | e ->
     let backtrace = Printexc.get_raw_backtrace () in
