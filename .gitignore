@@ -38,9 +38,6 @@ doc/user_documentation.pdf
 travis_key
 travis_key.pub
 
-# opam related files
-_opam
-
 # merlin files
 .merlin
 ./**/.merlin
