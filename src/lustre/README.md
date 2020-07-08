@@ -12,7 +12,11 @@ $ menhir --compile-errors src/lustre/lustreParser.messages src/lustre/lustrePars
 ```
 3. Compile against the new `LustreParserErrors.ml` file
 ```
-$ make kind2
+$ make build
+```
+or
+```
+$ dune build
 ```
 4. Test if the error message is displayed. There is some over-approximation/under-approximation caveats for
 producing proper error messages.
