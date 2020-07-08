@@ -50,11 +50,6 @@
     [--lustre_main] is not found, there are two nodes with a [--%MAIN]
     annotation, or the input contains no nodes.
 
-
-
-
-
-
     In particular, the output of the entry point {!LustreParser.main}
     returns a Lustre file as a list of declarations of
 
@@ -93,11 +88,6 @@
 
     - [name] an identifier 
     - [inputs] the list of input variables 
-
-
-
-
-
 
     After finding the designated main node with
     {!LustreNode.find_main}, the definitions in the main node and list
