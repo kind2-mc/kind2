@@ -28,6 +28,12 @@ type any_input =
 | Input : 'a InputSystem.t -> any_input
 
 
+let classify_input_stream: string -> string = fun in_file -> 
+  match in_file with
+   | "" -> "standard input"
+   | _  -> "input file '" ^ in_file ^ "'"
+
+
 (* Setup everything and returns the input system. Setup includes:
    - debug setup,
    - log level setup,
@@ -81,10 +87,7 @@ let setup : unit -> any_input = fun () ->
 
   let in_file = Flags.input_file () in
 
-  KEvent.log L_info "Parsing %s."
-    (match in_file with
-     | "" -> "standard input"
-     | _ -> "input file '" ^ in_file ^ "'");
+  KEvent.log L_info "Parsing %s." (classify_input_stream in_file);
 
   try
     (* in_file |> *)
@@ -98,10 +101,10 @@ let setup : unit -> any_input = fun () ->
   with (* Could not create input system. *)
   | LustreAst.Parser_error  ->
      (* terminate log after printing file name and exit as the error is already on the log file *)
-     KEvent.log L_fatal "While parsing file %s" (Flags.input_file ()); 
+     KEvent.log L_fatal "While parsing %s" (classify_input_stream (Flags.input_file ())); 
      KEvent.terminate_log () ; exit ExitCodes.error
   | LustreLexer.Lexer_error err ->
-     KEvent.log L_fatal "While parsing file %s\n Lexing error: %s" (Flags.input_file ()) err;
+     KEvent.log L_fatal "While parsing %s\n Lexing error: %s" (classify_input_stream (Flags.input_file ())) err;
      KEvent.terminate_log () ; exit ExitCodes.error
   | e ->
     let backtrace = Printexc.get_raw_backtrace () in
