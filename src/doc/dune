@@ -1,0 +1,11 @@
+; this rule generates index.html and copies it with ./include to private
+; documentation
+(rule
+ (alias copy)
+ (deps
+  (universe)
+  (source_tree .)
+  (source_tree ../_doc/html)
+  (source_tree ../.kind2Internal.objs/byte))
+ (action
+  (run ./copy.sh)))

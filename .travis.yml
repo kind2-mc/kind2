@@ -1,17 +1,24 @@
 jobs:
   include:
     - os: linux
-      dist: trusty
+      dist: bionic
     - os: osx
 branches:
   only:
-    - develop
-    - master
+  - /.*/
 language: c
+addons:
+  apt:
+    packages:
+      - libzmq3-dev
+      - bubblewrap
+  homebrew:
+    packages: zeromq
+    update: true
 script: bash -ex .travis-ci.sh
 env:
   matrix:
-    - OCAML_VERSION=4.04.0 OPAM_VERSION=1.2.2
+    - OCAML_VERSION=4.07.1
 before_deploy: bash -ex .deploy.sh
 deploy:
   provider: releases

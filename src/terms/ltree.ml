@@ -413,7 +413,7 @@ struct
   let stats () = Ht.stats ht
 
   (* Ordering of terms based on tags *)
-  let compare { H.tag = t1 } { H.tag = t2 } = Pervasives.compare t1 t2
+  let compare { H.tag = t1 } { H.tag = t2 } = Stdlib.compare t1 t2
 
   (* Equality of terms based on tags *)
   let equal { H.tag = t1 } { H.tag = t2 } = t1 = t2

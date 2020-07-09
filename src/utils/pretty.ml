@@ -237,8 +237,8 @@ let stop_tag t =
 
 let add_colors formatter =
   (* pp_set_tags formatter true; *)
-  let old_fs = pp_get_formatter_tag_functions formatter () in
-  pp_set_formatter_tag_functions formatter
+  let old_fs = Format.pp_get_formatter_tag_functions formatter () in
+  Format.pp_set_formatter_tag_functions formatter
     { old_fs with
       mark_open_tag = start_tag;
       mark_close_tag = stop_tag }

@@ -2069,8 +2069,12 @@ let array_of_tuple pos index_vars expr =
 (* Type declarations                                                    *)
 (* ******************************************************************** *)
     
-(* Evalute a parsed type expression to a trie of types of indexes *)
-and eval_ast_type ctx = function
+(* Evaluate a parsed type expression to a trie of types of indexes *)
+and eval_ast_type ctx = eval_ast_type_flatten false ctx
+
+(* Evaluate a parsed type expression to a trie of types of indexes,
+   optionally flattening/unrolling arrays if 'flatten_arrays' is true. *)
+and eval_ast_type_flatten flatten_arrays ctx = function
 
   (* Basic type bool, add to empty trie with empty index *)
   | A.Bool pos -> D.singleton D.empty_index Type.t_bool
@@ -2167,7 +2171,7 @@ and eval_ast_type ctx = function
       (fun a (_, i, t) ->
          
          (* Evaluate type expression for field to a trie *)
-         let expr = eval_ast_type ctx t in
+         let expr = eval_ast_type_flatten flatten_arrays ctx t in
 
          (* Take all indexes and their defined types and add index of record
             field to index of type and add to trie *)
@@ -2191,7 +2195,7 @@ and eval_ast_type ctx = function
       (fun (i, a) t -> 
 
          (* Evaluate type expression for field to a trie *)
-         let expr = eval_ast_type ctx t in
+         let expr = eval_ast_type_flatten flatten_arrays ctx t in
 
          (* Take all indexes and their defined types and add index of tuple
             field to index of type and add to trie *)
@@ -2223,19 +2227,30 @@ and eval_ast_type ctx = function
          (E.pp_print_expr false) array_size);
     
     (* Evaluate type expression for elements *)
-    let element_type = eval_ast_type ctx type_expr in
+    let element_type = eval_ast_type_flatten flatten_arrays ctx type_expr in
 
-    (* Add array bounds to type *)
-    D.fold
-      (fun j t a -> 
-         D.add (j @ [D.ArrayVarIndex array_size])
-           (Type.mk_array t
-              (if E.is_numeral array_size then
-                 Type.mk_int_range Numeral.zero (E.numeral_of_expr array_size)
-               else Type.t_int))
-           a)
-      element_type
-      D.empty
+    if flatten_arrays
+    then
+      (* Loop through all the indices, adding array bounds for each element *)
+      let upper = E.numeral_of_expr array_size in
+      let result = ref D.empty in
+      for ix = 0 to (Numeral.to_int upper - 1) do
+        result := D.fold
+          (fun j t a -> D.add (j @ [D.ArrayIntIndex ix]) t a) element_type !result
+      done;
+      !result
+    else
+      (* Add array bounds to type *)
+      D.fold
+        (fun j t a ->
+           D.add (j @ [D.ArrayVarIndex array_size])
+             (Type.mk_array t
+                (if E.is_numeral array_size then
+                   Type.mk_int_range Numeral.zero (E.numeral_of_expr array_size)
+                 else Type.t_int))
+             a)
+        element_type
+        D.empty
 
 (*
 

@@ -419,8 +419,9 @@ let eval_const_decl ?(ghost = false) ctx = function
 
         (try 
 
-           (* Evaluate type expression *)
-           let type_expr' = S.eval_ast_type ctx type_expr in 
+           (* Evaluate type expression. Flatten any arrays so that we check
+            * each element against its expected type *)
+           let type_expr' = S.eval_ast_type_flatten true ctx type_expr in
 
            (* Check if type of expression is a subtype of the defined
               type at each index *)
@@ -438,8 +439,7 @@ let eval_const_decl ?(ghost = false) ctx = function
                     raise E.Type_mismatch
              ) type_expr' res
 
-         with Invalid_argument _ | E.Type_mismatch -> 
-
+         with Invalid_argument _ | E.Type_mismatch ->
            (C.fail_at_position
               pos
               "Type mismatch in constant declaration"))

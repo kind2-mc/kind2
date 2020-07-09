@@ -418,7 +418,7 @@ module IntegerSet =
   Set.Make
   (struct
     type t = int
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
     let equal = (=)
    end)
   
@@ -672,7 +672,7 @@ let string_of_log_level = function
 
 (* Compare two levels *)
 let compare_levels l1 l2 = 
-  Pervasives.compare (int_of_log_level l1) (int_of_log_level l2)
+  Stdlib.compare (int_of_log_level l1) (int_of_log_level l2)
 
 
 (* Current log level *)
@@ -726,7 +726,7 @@ let log_to_stdout () = log_ppf := std_formatter
 (* ********************************************************************** *)
 
 let pp_print_banner ppf () =
-    fprintf ppf "%s %s" Kind2Config.package_name Version.version
+    fprintf ppf "%s %s" Version.package_name Version.version
 
 let pp_print_version ppf = pp_print_banner ppf ()
   
@@ -1011,7 +1011,7 @@ let compare_pos
 
   compare_pairs 
     String.compare
-    (compare_pairs Pervasives.compare Pervasives.compare)
+    (compare_pairs Stdlib.compare Stdlib.compare)
     (p1, (l1, c1)) 
     (p2, (l2, c2)) 
 

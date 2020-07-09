@@ -1056,7 +1056,7 @@ pexpr(Q):
   (* A temporal operation *)
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
   | FBY LPAREN; e1 = pexpr(Q) COMMA; s = NUMERAL; COMMA; e2 = pexpr(Q) RPAREN
-    { A.Fby (mk_pos $startpos, e2, (int_of_string s), e2) } 
+    { A.Fby (mk_pos $startpos, e1, (int_of_string s), e2) }
 
   | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }
 

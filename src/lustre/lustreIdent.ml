@@ -42,7 +42,7 @@ module LustreIdent = struct
   let compare (i1, l1) (i2, l2) =
     let c = Ident.compare i1 i2 in
     if c <> 0 then c
-    else Lib.compare_lists Pervasives.compare l1 l2
+    else Lib.compare_lists Stdlib.compare l1 l2
       
 
 end
