@@ -101,10 +101,7 @@ let setup : unit -> any_input = fun () ->
   with (* Could not create input system. *)
   | LustreAst.Parser_error  ->
      (* terminate log after printing file name and exit as the error is already on the log file *)
-     KEvent.log L_fatal "While parsing %s" (classify_input_stream (Flags.input_file ())); 
-     KEvent.terminate_log () ; exit ExitCodes.error
-  | LustreLexer.Lexer_error err ->
-     KEvent.log L_fatal "While parsing %s\n Lexing error: %s" (classify_input_stream (Flags.input_file ())) err;
+     (* KEvent.log L_fatal "While parsing %s" (classify_input_stream (Flags.input_file ())); *) 
      KEvent.terminate_log () ; exit ExitCodes.error
   | e ->
     let backtrace = Printexc.get_raw_backtrace () in
