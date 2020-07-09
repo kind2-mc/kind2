@@ -117,6 +117,7 @@ module Smt = struct
 
   (* Active SMT solver. *)
   type solver = [
+    | `Boolector_SMTLIB
     | `Z3_SMTLIB
     | `CVC4_SMTLIB
     | `Yices_SMTLIB
@@ -124,18 +125,20 @@ module Smt = struct
     | `detect
   ]
   let solver_of_string = function
+    | "Boolector" -> `Boolector_SMTLIB
     | "Z3" -> `Z3_SMTLIB
     | "CVC4" -> `CVC4_SMTLIB
     | "Yices2" -> `Yices_SMTLIB
     | "Yices" -> `Yices_native
     | _ -> Arg.Bad "Bad value for --smt_solver" |> raise
   let string_of_solver = function
+    | `Boolector_SMTLIB -> "Boolector"
     | `Z3_SMTLIB -> "Z3"
     | `CVC4_SMTLIB -> "CVC4"
     | `Yices_SMTLIB -> "Yices2"
     | `Yices_native -> "Yices"
     | `detect -> "detect"
-  let solver_values = "Z3, CVC4, Yices, Yices2"
+  let solver_values = "Boolector, Z3, CVC4, Yices, Yices2"
   let solver_default = `detect
   let solver = ref solver_default
   let _ = add_spec
@@ -229,6 +232,20 @@ module Smt = struct
   let set_short_names b = short_names := b
   let short_names () = !short_names
 
+  (* Boolector binary. *)
+  let boolector_bin_default = "Boolector"
+  let boolector_bin = ref boolector_bin_default
+  let _ = add_spec
+    "--Boolector_bin"
+    (Arg.Set_string boolector_bin)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Executable of Boolector solver@ Default: \"%s\"@]"
+        boolector_bin_default
+    )
+  let set_boolector_bin str = boolector_bin := str
+  let boolector_bin () = !boolector_bin
+
   (* Z3 binary. *)
   let z3_bin_default = "z3"
   let z3_bin = ref z3_bin_default
@@ -320,6 +337,9 @@ module Smt = struct
   
   (* Check which SMT solver is available *)
   let check_smtsolver () = match solver () with
+    (* User chose Boolector *)
+    | `Boolector_SMTLIB ->
+      find_solver ~fail:true "Boolector" (boolector_bin ()) |> ignore
     (* User chose Z3 *)
     | `Z3_SMTLIB ->
       find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
@@ -334,6 +354,11 @@ module Smt = struct
       find_solver ~fail:true "Yices2 SMT2" (yices2smt2_bin ()) |> ignore
     (* User did not choose SMT solver *)
     | `detect ->
+      try
+        let exec = find_solver ~fail:false "Boolector" (boolector_bin ()) in
+        set_solver `Boolector_SMTLIB;
+        set_boolector_bin exec;
+      with Not_found ->
       try
         let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
         set_solver `Z3_SMTLIB;
@@ -3154,6 +3179,18 @@ let solver_dependant_actions () =
   in
 
   match Smt.solver () with
+  | `Boolector_SMTLIB -> (
+    let cmd = Format.asprintf "%s --version" (Smt.boolector_bin ()) in
+    match get_version false cmd with
+    | Some (major_rev, minor_rev, _) ->
+      if major_rev < 3 then (
+        if Smt.check_sat_assume () then (
+          Log.log L_warn "Detected Boolector 2.4.1 or older: disabling check_sat_assume";
+          Smt.set_check_sat_assume false
+        )
+      )
+    | None -> Log.log L_warn "Couldn't determine Boolector version"
+  )
   | `Z3_SMTLIB -> (
     let cmd = Format.asprintf "%s -version" (Smt.z3_bin ()) in
     match get_version false cmd with

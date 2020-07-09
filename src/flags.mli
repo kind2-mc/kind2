@@ -229,6 +229,7 @@ module Smt : sig
 
   (** Legal SMT solvers. *)
   type solver = [
+    | `Boolector_SMTLIB
     | `Z3_SMTLIB
     | `CVC4_SMTLIB
     | `Yices_SMTLIB
