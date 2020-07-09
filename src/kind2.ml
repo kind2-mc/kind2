@@ -87,34 +87,38 @@ let setup : unit -> any_input = fun () ->
 
   let in_file = Flags.input_file () in
 
-  KEvent.log L_info "Parsing %s." (classify_input_stream in_file);
+  KEvent.log L_info "Creating Input system from  %s." (classify_input_stream in_file);
 
   try
-    (* in_file |> *)
-    match Flags.input_format () with
-    | `Lustre -> Input (InputSystem.read_input_lustre in_file)
-    | `Native -> Input (InputSystem.read_input_native in_file)
-    | `Horn   ->
-      KEvent.log L_fatal "Horn clauses are not supported." ;
-      KEvent.terminate_log () ;
-      exit ExitCodes.error
-  with (* Could not create input system. *)
+    let input_system = 
+      match Flags.input_format () with
+      | `Lustre -> KEvent.log L_debug "Lustre input detected";
+                   Input (InputSystem.read_input_lustre in_file)
+                   
+      | `Native -> KEvent.log L_debug "Native input detected";
+                   Input (InputSystem.read_input_native in_file)
+                   
+      | `Horn   -> KEvent.log L_fatal "Horn clauses are not supported." ;
+                   KEvent.terminate_log () ;
+                   exit ExitCodes.error
+    in
+    KEvent.log L_debug "Input System built";
+    input_system
+  with
+  (* Could not create input system. *)
   | LustreAst.Parser_error  ->
-     (* terminate log after printing file name and exit as the error is already on the log file *)
-     (* KEvent.log L_fatal "While parsing %s" (classify_input_stream (Flags.input_file ())); *) 
+     (* We should have printed the appropriate message so just 'gracefully' exit *)
      KEvent.terminate_log () ; exit ExitCodes.error
   | e ->
-    let backtrace = Printexc.get_raw_backtrace () in
-    KEvent.log
-      L_fatal "Error opening input file '%s':@ %s%a"
-      (Flags.input_file ()) (Printexc.to_string e)
-      (if Printexc.backtrace_status () then
-         fun fmt -> Format.fprintf fmt "@\nBacktrace:@ %a" print_backtrace
-       else fun _ _ -> ()) backtrace;
-    (* Terminating log and exiting with error. *)
-    KEvent.terminate_log () ;
-    exit ExitCodes.error  
-
+     let backtrace = Printexc.get_raw_backtrace () in
+     KEvent.log L_fatal "Error opening input file '%s':@ %s%a"
+       (in_file) (Printexc.to_string e)
+       (if Printexc.backtrace_status ()
+        then fun fmt -> Format.fprintf fmt "@\nBacktrace:@ %a" print_backtrace
+        else fun _ _ -> ()) backtrace;
+     (* Terminating log and exiting with error. *)
+     KEvent.terminate_log () ;
+     exit ExitCodes.error  
 
 (* Entry point *)
 let main () =
