@@ -191,7 +191,7 @@ let in_automaton ctx = ctx.in_automaton
 
 (* Raise parsing exception *)
 let fail_at_position_pt pos msg =
-  Log.log L_error "Failure at %a: @[<v>%s@]"
+  Log.log L_error "%a: Failure cause: @[<v>%s@] "
     Lib.pp_print_position pos msg
 
 let fail_at_position pos msg =
