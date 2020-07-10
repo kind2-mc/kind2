@@ -39,11 +39,23 @@ let cmd_line
 
   let common_flags =
     [| incr_mode;
-       "--rewrite-divk"; (* Allows division by constant in QF_LIA problems *)
        "--decision=internal";
        "--ext-rew-prep";
-       "--ext-rew-prep-agg";
-       "--bv-print-consts-in-binary" (* Outputs BV constant as binary values *) |] in
+       "--ext-rew-prep-agg" |]
+    |> (
+    if Flags.Smt.cvc4_rewrite_divk () then
+      Array.append
+        [|"--rewrite-divk"|] (* Allows division by constant in QF_LIA problems *)
+    else
+      Lib.identity
+    ) |> (
+    if Flags.Smt.cvc4_bv_consts_in_binary () then
+      Array.append
+        [|"--bv-print-consts-in-binary"|] (* Outputs BV constant as binary values *)
+    else
+      Lib.identity
+    )
+  in
 
   (*
   let fmfint_flags = [||] in (*
