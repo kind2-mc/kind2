@@ -372,6 +372,9 @@ val find_on_path : string -> string
     the list of directories, or None otherwise **)
 val find_file : string -> string list -> string option
 
+(** Returns a relative path if the given filepath is absolute *)
+val get_relative_path: string -> string
+  
 (** {1 Positions in the input} *)
 
 (** A position in the input *)
@@ -404,6 +407,8 @@ val pos_of_file_row_col : string * int * int -> position
 (** Convert a position of the lexer to a position *)
 val position_of_lexing : Lexing.position -> position
 
+(** set the filename in lexing buffer*)
+val set_lexer_filename: Lexing.lexbuf -> string -> unit
 
 (** Pretty print a backtrace *)
 val print_backtrace : Format.formatter -> Printexc.raw_backtrace -> unit

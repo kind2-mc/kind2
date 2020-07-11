@@ -49,7 +49,7 @@ let false_of_any _ = false
 let mk_dir dir =
   try Unix.mkdir dir 0o740 with Unix.Unix_error(Unix.EEXIST, _, _) -> ()
 
-
+                                                                    
 (* ********************************************************************** *)
 (* Arithmetic functions                                                   *)
 (* ********************************************************************** *)
@@ -991,6 +991,14 @@ let rec find_file filename = function
     else find_file filename include_dirs
 
 
+(* Gets the relative path of the file name given a file path *)
+let get_relative_path fpath =
+  if Filename.is_relative fpath
+  then fpath
+  else let pwd = Sys.getcwd () in
+       String.sub fpath (1 + String.length pwd) (String.length fpath - String.length pwd - 1) 
+    
+
 (* ********************************************************************** *)
 (* Parser and lexer functions                                             *)
 (* ********************************************************************** *)
@@ -1104,6 +1112,11 @@ let file_row_col_of_pos = function
   (* Return tuple of filename, line and column *)
   | { pos_fname; pos_lnum; pos_cnum } -> (pos_fname, pos_lnum, pos_cnum)
 
+
+(** set the filename in lexing buffer*)
+let set_lexer_filename lexbuf fname =
+  lexbuf.Lexing.lex_curr_p <- {lexbuf.Lexing.lex_curr_p with pos_fname = fname}
+                                       
 
 let print_backtrace fmt bt =
   match Printexc.backtrace_slots bt with

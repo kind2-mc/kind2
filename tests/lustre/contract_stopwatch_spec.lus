@@ -1,0 +1,60 @@
+-------------------------------
+-- Stopwatch high-level spec --
+-------------------------------
+contract stopwatchSpec ( toggle, reset : bool ) returns ( time : int ) ;
+let
+  -- the watch is activated initially if the toggle button is pressed
+  -- afterwards, it is activated iff 
+  --   it was activated before and the toggle button is unpressed or
+  --   it was not activated before and the toggle button is pressed 
+  var on: bool = toggle ->    (pre on and not toggle) 
+                           or (not pre on and toggle) ;
+  
+  -- we can assume that the two buttons are never pressed together
+  assume not (toggle and reset) ; 
+  
+  -- the elapsed time starts at 1 or 0 depending 
+  -- on whether the watch is activated or not
+  guarantee (on => time = 1) -> true ;
+  guarantee (not on => time = 0) -> true ;
+  -- the elapsed time is always non-negative
+  guarantee time >= 0 ;
+  
+  -- if there is no reset now and there was an even number of counts since the last reset
+  -- then the current elapsed time is the same as the previous one
+  guarantee not reset and Since(reset, Even(Count(toggle))) 
+            => Stable(time) ;
+  -- if there is no reset now and there was an odd number of counts since the last reset
+  -- then the current elapsed time is greater than previous one
+  guarantee not reset and Since(reset, not Even(Count(toggle))) 
+            => Increased(time) ;
+
+
+--  guarantee true -> not Even(Count(toggle)) and Count(reset) = 0 => time > pre time ;
+
+  
+  -- the watch is in resetting mode if the reset button is pressed
+  -- while in that mode, the elapsed time is 0
+  mode resetting ( 
+    require reset ; 
+    ensure time = 0 ; 
+  ) ;
+
+  -- the watch is in running mode if is activated and 
+  -- the reset button is unpressed.
+  -- while in that mode, the elapsed time increases by 1
+  mode running ( 
+    require on ; 
+    require not reset ; 
+    ensure true -> time = pre time + 1 ; 
+  ) ;
+
+  -- the watch is in stopped mode if is not activated and 
+  -- the reset button is unpressed
+  -- while in that mode, the elapsed time remains the same
+  mode stopped ( 
+    require not reset ; 
+    require not on ; 
+    ensure true -> time = pre time ; 
+  ) ;
+tel
