@@ -88,6 +88,7 @@ val scopes_of_loc_core : loc_core -> Scope.t list
 val ts_equation_to_model_element : 'a InputSystem.t -> ts_equation -> model_element
 val core_to_loc_core : 'a InputSystem.t -> core -> loc_core
 val loc_core_to_new_core : loc_core -> core
+val loc_core_to_filtered_core : loc_core -> core -> core
 
 val empty_loc_core : loc_core
 val add_to_loc_core :

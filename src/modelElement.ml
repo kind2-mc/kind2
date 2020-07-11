@@ -481,8 +481,7 @@ type model_element = ts_equation * (loc list) * term_cat
 type loc_core = model_element list ScMap.t
 
 let equal_model_elements (eq1, _, _) (eq2, _, _) =
-  Term.equal eq1.trans_closed eq2.trans_closed
-  && Term.equal eq1.init_closed eq2.init_closed
+  Equation.equal eq1 eq2
 
 let get_model_elements_of_scope core scope =
   try ScMap.find scope core with Not_found -> []
@@ -621,6 +620,17 @@ let loc_core_to_new_core loc_core =
       acc lst
   in
   ScMap.fold add_eqs_of_scope loc_core empty_core
+
+let loc_core_to_filtered_core loc_core ((scmap, mapping) as core) =
+  let aux scope actlits =
+    let eqs = get_model_elements_of_scope loc_core scope
+    |> List.map (fun (a,_,_) -> a)
+    |> EqSet.of_list in
+    List.filter
+      (fun a -> EqSet.mem (get_ts_equation_of_actlit core a) eqs)
+      actlits
+  in
+  (ScMap.mapi aux scmap, mapping)
 
 let empty_loc_core = ScMap.empty
 

@@ -154,13 +154,16 @@ val separate_mua_by_category : 'a InputSystem.t -> mua -> (mua * mua)
     Only properties [props] are considered. If [all] is true, all the MUAs will be computed.
     Each MUA is passed to the continuation [cont] as soon as it is found.
     If the optional parameter [max_mcs_cardinality] is n >= 0, only MUAs of cardinality greater
-    or equal to (total_number_of_model_elements - n) will be computed. *)
+    or equal to (total_number_of_model_elements - n) will be computed.
+    If a global initial MUA analysis has been performed, its result should be passed in [initial_solution],
+    otherwise you can omit this parameter. *)
 val mua :
   'a InputSystem.t ->
   Analysis.param ->
   'a analyze_func ->
   TransSys.t ->
   Property.t list ->
+  ?initial_solution:mua option ->
   ?max_mcs_cardinality:int ->
   bool -> (* Compute them all? *)
   (mua -> unit) ->

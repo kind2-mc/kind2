@@ -755,7 +755,8 @@ let compute_all_cs check_ts sys prop_names enter_nodes ?(cont=(fun _ -> ()))
   in
   aux [] already_found
 
-let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality= -1) keep test =
+let compute_mcs check_ts sys prop_names enter_nodes
+  ?(max_mcs_cardinality= -1) ?(initial_solution=None) keep test =
   KEvent.log L_info "Computing a MCS..." ;
   let n = core_size test in
   let n =
@@ -763,6 +764,7 @@ let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality= -1) k
     then max_mcs_cardinality
     else n
   in
+  let n = if initial_solution = None then n else n-1 in
   (* Increasing cardinality... *)
   (*let rec aux k =
     if k <= n
@@ -782,13 +784,14 @@ let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality= -1) k
       | Some res -> aux (k-1) (Some res)
     else previous_res
   in
-  aux n None
+  aux n initial_solution
 
 let compute_all_mcs check_ts sys prop_names enter_nodes
-  ?(max_mcs_cardinality= -1) ?(cont=(fun _ -> ())) keep test =
+  ?(max_mcs_cardinality= -1) ?(initial_solution=None) ?(cont=(fun _ -> ())) keep test =
 
   KEvent.log L_info "Computing all MCSs..." ;
-  match compute_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality keep test with
+  match compute_mcs check_ts sys prop_names enter_nodes
+    ~max_mcs_cardinality ~initial_solution keep test with
   | None -> []
   | Some (res, res_cex) ->
     cont (res, res_cex) ;
@@ -1620,7 +1623,7 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
 (* ---------- MAXIMAL UNSAFE ABSTRACTIONS ---------- *)
 
 let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
-  ?(max_mcs_cardinality= -1) cont keep test =
+  ?(initial_solution=None) ?(max_mcs_cardinality= -1) cont keep test =
   let prop_names = props_names props in
   let sys = remove_other_props sys prop_names in
   let sys = add_as_candidate os_invs sys in
@@ -1631,8 +1634,16 @@ let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
 
   let cont (core, cex) = (core_diff test core, cex) |> cont in
 
-  let compute_mcs = compute_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality in
-  let compute_all_mcs = compute_all_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality ~cont in
+  let initial_solution = match initial_solution with
+  | None -> None
+  | Some (({ Property.prop_name }, cex), loc_core) ->
+    Some (loc_core_to_filtered_core loc_core test, (prop_name, cex))
+  in
+
+  let compute_mcs =
+    compute_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality ~initial_solution in
+  let compute_all_mcs =
+    compute_all_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality ~initial_solution ~cont in
 
   let mcs =
     if all then compute_all_mcs keep test
@@ -1644,7 +1655,8 @@ let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
   mcs |> List.map (fun (core, cex) -> (core_diff test core, cex))
 
 (* Compute one/all Maximal Unsafe Abstraction(s). *)
-let mua in_sys param analyze sys props ?(max_mcs_cardinality= -1) all cont =
+let mua in_sys param analyze sys props
+  ?(initial_solution=None) ?(max_mcs_cardinality= -1) all cont =
   try (
     let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
     let elements = (Flags.MCS.mcs_category ()) in
@@ -1657,7 +1669,7 @@ let mua in_sys param analyze sys props ?(max_mcs_cardinality= -1) all cont =
       res := mua::(!res) ;
       cont mua
     in
-    let _ = mua_ in_sys check_ts sys props all enter_nodes ~max_mcs_cardinality cont keep test in
+    let _ = mua_ in_sys check_ts sys props all enter_nodes ~initial_solution ~max_mcs_cardinality cont keep test in
     List.rev (!res)
   ) with
   | InitTransMismatch (i,t) ->
