@@ -497,11 +497,11 @@ let rec interval imin imax =
   if imin > imax then []
   else imin::(interval (imin+1) imax)
 
-let make_ts_analyzer in_sys param analyze sys =
+let make_ts_analyzer in_sys ?(stop_after_disprove=true) param analyze sys =
   let param = Analysis.param_clone param in
   let sys = TS.copy sys in
   let modules = Flags.enabled () in
-  sys, (fun sys -> analyze false true modules in_sys param sys)
+  sys, (fun sys -> analyze false stop_after_disprove modules in_sys param sys)
 
 let props_names props =
   List.map (fun { Property.prop_name = n } -> n) props
@@ -661,6 +661,25 @@ let get_counterexample_actsvs prop_names sys actsvs =
   in
   aux prop_names
 
+let get_counterexamples_actsvs prop_names sys actsvs =
+  let rec aux = function
+  | [] -> []
+  | p::prop_names ->
+    begin match TS.get_prop_status sys p with
+      | Property.PropFalse cex ->
+        let svs = SVSet.of_list actsvs in
+        cex
+        |> List.filter (fun (sv, values) -> SVSet.mem sv svs)
+        |> List.filter (fun (_, values) ->
+              is_model_value_true (List.hd values)
+            )
+        |> List.map fst
+        |> (fun x -> (x, (p,cex))::(aux prop_names))
+      | _ -> aux prop_names
+    end
+  in
+  aux prop_names
+
 let exactly_k_true svs k =
   let cptl = svs
   |> List.map (fun sv -> Term.mk_var (Var.mk_const_state_var sv))
@@ -679,8 +698,8 @@ let at_least_one_true svs =
   |> List.map (fun sv -> Term.mk_var (Var.mk_const_state_var sv))
   |> Term.mk_or
 
-let compute_cs check_ts sys prop_names enter_nodes keep test k already_found =
-  let eq_of_actlit = eq_of_actlit (core_union keep test) in
+let compute_cs_aux check_ts sys prop_names enter_nodes keep test k already_found =
+let eq_of_actlit = eq_of_actlit (core_union keep test) in
   let actsvs = actsvs_of_core test in
 
   let not_already_found =
@@ -736,11 +755,33 @@ let compute_cs check_ts sys prop_names enter_nodes keep test k already_found =
   Lib.set_log_level L_off ;
   check_ts sys ;
   Lib.set_log_level old_log_level;
+  (sys, actsvs)
+
+let compute_cs check_ts sys prop_names enter_nodes keep test k already_found =
+  let (sys, actsvs) =
+    compute_cs_aux check_ts sys prop_names enter_nodes keep test k already_found in
   match get_counterexample_actsvs prop_names sys actsvs with
   | None -> None
   | Some (actsvs, cex) ->
     assert (List.length actsvs = k) ;
     Some (filter_core_svs actsvs test, cex)
+
+let compute_max_card_cs check_ts sys prop_names enter_nodes
+  ?(max_mcs_cardinality= -1) keep test =
+  KEvent.log L_info "Computing a correction set of maximal cardinality..." ;
+  let n = core_size test in
+  let n =
+    if max_mcs_cardinality >= 0 && max_mcs_cardinality < n
+    then max_mcs_cardinality
+    else n
+  in
+  let (sys, actsvs) =
+    compute_cs_aux check_ts sys prop_names enter_nodes keep test n [] in
+  get_counterexamples_actsvs prop_names sys actsvs
+  |> List.map (fun(actsvs, cex) ->
+    assert (List.length actsvs = n) ;
+    (filter_core_svs actsvs test, cex)
+  )
 
 let compute_all_cs check_ts sys prop_names enter_nodes ?(cont=(fun _ -> ()))
   keep test k already_found =
@@ -1675,3 +1716,37 @@ let mua in_sys param analyze sys props
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
     []
+
+let mcs_initial_analysis_ in_sys ?(os_invs=[]) check_ts sys enter_nodes
+  ?(max_mcs_cardinality= -1) keep test =
+  let props = TS.get_real_properties sys in
+  let prop_names = props_names props in
+  let sys = remove_other_props sys prop_names in
+  let sys = add_as_candidate os_invs sys in
+
+  (* Add actsvs to the CS transition system (at top level) *)
+  let actsvs = actsvs_of_core test in
+  let sys = List.fold_left (fun acc sv -> TS.add_global_constant acc (Var.mk_const_state_var sv)) sys actsvs in
+
+  compute_max_card_cs check_ts sys prop_names enter_nodes ~max_mcs_cardinality keep test
+  |> List.map (fun (core, (p, cex)) -> (p, (core, (p, cex))))
+
+let mcs_initial_analysis in_sys param analyze ?(max_mcs_cardinality= -1) sys =
+  try (
+    let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
+    let elements = (Flags.MCS.mcs_category ()) in
+    let (keep, test) = generate_initial_cores in_sys sys enter_nodes elements in
+    let (sys, check_ts) = make_ts_analyzer in_sys ~stop_after_disprove:false param analyze sys in
+
+    let res_to_mcs (test, (prop,cex)) =
+      ((TS.property_of_name sys prop, cex),
+        core_to_loc_core in_sys (core_union keep test))
+    in
+
+    mcs_initial_analysis_ in_sys check_ts sys enter_nodes ~max_mcs_cardinality keep test
+    |> List.map (fun (p, res) -> (TS.property_of_name sys p, res_to_mcs res))
+  ) with
+  | InitTransMismatch (i,t) ->
+    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
+    []
+

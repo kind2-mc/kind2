@@ -169,6 +169,16 @@ val mua :
   (mua -> unit) ->
   mua list
 
+(* TODO: Rename mua to mcs *)
+
+val mcs_initial_analysis :
+  'a InputSystem.t ->
+  Analysis.param ->
+  'a analyze_func ->
+  ?max_mcs_cardinality:int ->
+  TransSys.t ->
+  (Property.t * mua) list
+
 (** {1 Structures for printing} *)
 
 val ivc_to_print_data :
