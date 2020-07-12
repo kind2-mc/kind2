@@ -135,41 +135,39 @@ val umivc :
   (ivc -> unit) ->
   ivc list
 
-(** {1 Maximal Unsafe Abstractions (and Minimal Cut Sets)} *)
+(** {1 Minimal Cut Sets} *)
 
-type mua
+type mcs
 
-(** [complement_of_mua in_sys sys mua] returns the complement of [mua] (the complement of a MUA is a MCS).
-    The parameters [in_sys] and [sys] must be the same as the ones used to generate [mua]. *)
-val complement_of_mua : 'a InputSystem.t -> TransSys.t -> mua -> mua
+(** [complement_of_mcs in_sys sys mcs] returns the complement of [mcs] (the complement of a MCS is a MUA).
+    The parameters [in_sys] and [sys] must be the same as the ones used to generate [mcs]. *)
+val complement_of_mcs : 'a InputSystem.t -> TransSys.t -> mcs -> mcs
 
-(** [separate_mua_by_category in_sys mua] separates [mua] into two MUAs:
+(** [separate_mcs_by_category in_sys mcs] separates [mcs] into two MCSes:
     the first one only contains elements from the categories selected by the user,
-    and the second one contains the remaining elements of [mua].
-    The parameters [in_sys] should be the same as the one used to generate [mua]. *)
-val separate_mua_by_category : 'a InputSystem.t -> mua -> (mua * mua)
+    and the second one contains the remaining elements of [mcs].
+    The parameters [in_sys] should be the same as the one used to generate [mcs]. *)
+val separate_mcs_by_category : 'a InputSystem.t -> mcs -> (mcs * mcs)
 
-(** [mua in_sys param analyze_func sys props all cont] computes a maximal unsafe abstraction
+(** [mcs in_sys param analyze_func sys props all cont] computes a maximal unsafe abstraction
     for the input system [in_sys], the analysis parameter [param] and the transition system [sys].
-    Only properties [props] are considered. If [all] is true, all the MUAs will be computed.
-    Each MUA is passed to the continuation [cont] as soon as it is found.
-    If the optional parameter [max_mcs_cardinality] is n >= 0, only MUAs of cardinality greater
+    Only properties [props] are considered. If [all] is true, all the MCSes will be computed.
+    Each MCS is passed to the continuation [cont] as soon as it is found.
+    If the optional parameter [max_mcs_cardinality] is n >= 0, only MCSes of cardinality greater
     or equal to (total_number_of_model_elements - n) will be computed.
-    If a global initial MUA analysis has been performed, its result should be passed in [initial_solution],
+    If a global initial MCS analysis has been performed, its result should be passed in [initial_solution],
     otherwise you can omit this parameter. *)
-val mua :
+val mcs :
   'a InputSystem.t ->
   Analysis.param ->
   'a analyze_func ->
   TransSys.t ->
   Property.t list ->
-  ?initial_solution:mua option ->
+  ?initial_solution:mcs option ->
   ?max_mcs_cardinality:int ->
   bool -> (* Compute them all? *)
-  (mua -> unit) ->
-  mua list
-
-(* TODO: Rename mua to mcs *)
+  (mcs -> unit) ->
+  mcs list
 
 val mcs_initial_analysis :
   'a InputSystem.t ->
@@ -177,7 +175,7 @@ val mcs_initial_analysis :
   'a analyze_func ->
   ?max_mcs_cardinality:int ->
   TransSys.t ->
-  (Property.t * mua) list
+  (Property.t * mcs) list
 
 (** {1 Structures for printing} *)
 
@@ -185,6 +183,6 @@ val ivc_to_print_data :
   'a InputSystem.t -> TransSys.t -> string -> float option -> ivc -> core_print_data
 
 val mcs_to_print_data :
-  'a InputSystem.t -> TransSys.t -> string -> float option -> mua -> core_print_data
+  'a InputSystem.t -> TransSys.t -> string -> float option -> mcs -> core_print_data
 
-val pp_print_mcs_legacy : 'a InputSystem.t -> Analysis.param -> TransSys.t -> mua -> mua -> unit
+val pp_print_mcs_legacy : 'a InputSystem.t -> Analysis.param -> TransSys.t -> mcs -> mcs -> unit

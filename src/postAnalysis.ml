@@ -711,7 +711,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
 
       if List.length props > 0
       then begin
-        let treat_mua mua =
+        let treat_mcs mcs =
 
           let ntime = Unix.gettimeofday () in
           let elapsed = ntime -. !time in
@@ -720,11 +720,11 @@ let run_mcs_post_analysis in_sys param analyze sys =
           KEvent.log_with_tag L_warn Pretty.success_tag
             (Format.asprintf "Minimal Cut Set generated after %.3fs." elapsed) ;
 
-          let not_mua = IvcMcs.complement_of_mua in_sys sys mua in
+          let mua = IvcMcs.complement_of_mcs in_sys sys mcs in
 
           if Flags.MCS.print_mcs_legacy ()
           then begin
-            IvcMcs.pp_print_mcs_legacy in_sys param sys not_mua mua
+            IvcMcs.pp_print_mcs_legacy in_sys param sys mcs mua
           end else begin
 
             let pt = ModelElement.pp_print_core_data in_sys param sys in
@@ -734,14 +734,14 @@ let run_mcs_post_analysis in_sys param analyze sys =
 
             if Flags.MCS.print_mcs ()
             then begin
-              let (filtered_mcs,_) = IvcMcs.separate_mua_by_category in_sys not_mua in
+              let (filtered_mcs,_) = IvcMcs.separate_mcs_by_category in_sys mcs in
               let cpd = IvcMcs.mcs_to_print_data in_sys sys "mcs" (Some elapsed) filtered_mcs in
               KEvent.log_result pt xml json cpd
             end ;
 
             if Flags.MCS.print_mcs_compl ()
             then begin
-              let (filtered_mua,_) = IvcMcs.separate_mua_by_category in_sys mua in
+              let (filtered_mua,_) = IvcMcs.separate_mcs_by_category in_sys mua in
               let cpd = IvcMcs.mcs_to_print_data in_sys sys "mcs complement"
                 (Some elapsed) filtered_mua in
               KEvent.log_result pt xml json cpd
@@ -751,7 +751,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
 
         let max_mcs_cardinality = Flags.MCS.mcs_max_cardinality () in
         let mcs_all = Flags.MCS.mcs_all () in
-        let res = IvcMcs.mua in_sys param analyze sys props ~max_mcs_cardinality mcs_all treat_mua in
+        let res = IvcMcs.mcs in_sys param analyze sys props ~max_mcs_cardinality mcs_all treat_mcs in
         if Flags.MCS.mcs_all ()
         then
           KEvent.log_with_tag L_note Pretty.note_tag

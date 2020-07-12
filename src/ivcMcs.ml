@@ -60,7 +60,7 @@ type ivc = Property.t list * loc_core
    The first element is a tuple that indicates a property that is unsatisfied by the core,
    together with the corresponding counterexample.
    The second element is the core (= set of equations) itself. *)
-type mua = (Property.t * counterexample) * loc_core
+type mcs = (Property.t * counterexample) * loc_core
 
 (* ---------- PRETTY PRINTING ---------- *)
 
@@ -523,7 +523,7 @@ let separate_ivc_by_category in_sys (props, core) =
   let (core1, core2) = separate_loc_core_by_category in_sys (Flags.IVC.ivc_category ()) core
   in (props, core1), (props, core2)
 
-let separate_mua_by_category in_sys (data, core) =
+let separate_mcs_by_category in_sys (data, core) =
   let (core1, core2) = separate_loc_core_by_category in_sys (Flags.MCS.mcs_category ()) core
   in (data, core1), (data, core2)
 
@@ -532,7 +532,7 @@ let complement_of_ivc in_sys sys (props, core) =
   loc_core_diff (full_loc_core_for_sys in_sys sys ~only_top_level) core
   |> (fun x -> (props, x))
 
-let complement_of_mua in_sys sys (props_cex, core) =
+let complement_of_mcs in_sys sys (props_cex, core) =
   let only_top_level = Flags.MCS.mcs_only_main_node () in
   loc_core_diff (full_loc_core_for_sys in_sys sys ~only_top_level) core
   |> (fun x -> (props_cex, x))
@@ -1661,9 +1661,9 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
     []
 
-(* ---------- MAXIMAL UNSAFE ABSTRACTIONS ---------- *)
+(* ---------- MINIMAL CORRECTION SETS ---------- *)
 
-let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
+let mcs_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
   ?(initial_solution=None) ?(max_mcs_cardinality= -1) cont keep test =
   let prop_names = props_names props in
   let sys = remove_other_props sys prop_names in
@@ -1672,8 +1672,6 @@ let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
   (* Add actsvs to the CS transition system (at top level) *)
   let actsvs = actsvs_of_core test in
   let sys = List.fold_left (fun acc sv -> TS.add_global_constant acc (Var.mk_const_state_var sv)) sys actsvs in
-
-  let cont (core, cex) = (core_diff test core, cex) |> cont in
 
   let initial_solution = match initial_solution with
   | None -> None
@@ -1693,10 +1691,10 @@ let mua_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
       | None -> []
       | Some res -> cont res ; [res]
   in
-  mcs |> List.map (fun (core, cex) -> (core_diff test core, cex))
+  mcs |> List.map (fun (core, cex) -> (core, cex))
 
 (* Compute one/all Maximal Unsafe Abstraction(s). *)
-let mua in_sys param analyze sys props
+let mcs in_sys param analyze sys props
   ?(initial_solution=None) ?(max_mcs_cardinality= -1) all cont =
   try (
     let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
@@ -1705,12 +1703,12 @@ let mua in_sys param analyze sys props
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let res = ref [] in
     let cont (test, (prop,cex)) =
-      let mua = ((TS.property_of_name sys prop, cex),
+      let mcs = ((TS.property_of_name sys prop, cex),
                  core_to_loc_core in_sys (core_union keep test)) in
-      res := mua::(!res) ;
-      cont mua
+      res := mcs::(!res) ;
+      cont mcs
     in
-    let _ = mua_ in_sys check_ts sys props all enter_nodes ~initial_solution ~max_mcs_cardinality cont keep test in
+    let _ = mcs_ in_sys check_ts sys props all enter_nodes ~initial_solution ~max_mcs_cardinality cont keep test in
     List.rev (!res)
   ) with
   | InitTransMismatch (i,t) ->
