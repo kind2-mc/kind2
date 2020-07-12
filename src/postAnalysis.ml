@@ -700,14 +700,17 @@ end
 
 let run_mcs_post_analysis in_sys param analyze sys =
   try (
+    let max_mcs_cardinality = Flags.MCS.mcs_max_cardinality () in
     let props =
       if Flags.MCS.mcs_per_property ()
-      then List.map (fun x -> [x]) (TransSys.get_real_properties sys)
-      else [TransSys.get_real_properties sys]
+      then
+        IvcMcs.mcs_initial_analysis in_sys param analyze ~max_mcs_cardinality sys
+        |> List.map (fun (p,sol) -> ([p], Some sol))
+      else [TransSys.get_real_properties sys, None]
     in
     let time = ref (Unix.gettimeofday ()) in
     
-    let treat_props props =
+    let treat_props (props, initial_solution) =
 
       if List.length props > 0
       then begin
@@ -749,9 +752,9 @@ let run_mcs_post_analysis in_sys param analyze sys =
           end
         in
 
-        let max_mcs_cardinality = Flags.MCS.mcs_max_cardinality () in
         let mcs_all = Flags.MCS.mcs_all () in
-        let res = IvcMcs.mcs in_sys param analyze sys props ~max_mcs_cardinality mcs_all treat_mcs in
+        let res = IvcMcs.mcs in_sys param analyze sys props
+          ~initial_solution ~max_mcs_cardinality mcs_all treat_mcs in
         if Flags.MCS.mcs_all ()
         then
           KEvent.log_with_tag L_note Pretty.note_tag
