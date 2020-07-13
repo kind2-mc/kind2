@@ -31,11 +31,6 @@ module LPI = LustreParser.Incremental
 module LL = LustreLexer          
 module LPMI = LustreParser.MenhirInterpreter
 module LPE = LustreParserErrors
-
-
-(** set the filename in lexing buffer*)
-let set_filename lexbuf fname =
-  lexbuf.lex_curr_p <- {lexbuf.lex_curr_p with pos_fname = fname}
            
 (* The parser has succeeded and produced a semantic value.*)
 let success (v : LustreAst.t): LustreAst.t =
@@ -93,8 +88,11 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
     in_ch
     (try Filename.dirname (input_source)
      with Failure _ -> Sys.getcwd ());
-  (* Set the file name in lex buffer *)
-  set_filename lexbuf (input_source);
+
+  (* Set the relative file name in lex buffer *)
+  (* Lib.set_lexer_filename lexbuf (input_source); *)
+  (* Setting the name in the lexer buffer causes issues with the way we display properties.
+   * For the time being we would not want to change this behaviour *)
 
   (* Create lexing buffer and incrementally parse it*)
   try

@@ -371,7 +371,7 @@ val find_on_path : string -> string
 (** Return full path to file if the file is found in
     the list of directories, or None otherwise **)
 val find_file : string -> string list -> string option
-
+  
 (** {1 Positions in the input} *)
 
 (** A position in the input *)
@@ -403,7 +403,6 @@ val pos_of_file_row_col : string * int * int -> position
 
 (** Convert a position of the lexer to a position *)
 val position_of_lexing : Lexing.position -> position
-
 
 (** Pretty print a backtrace *)
 val print_backtrace : Format.formatter -> Printexc.raw_backtrace -> unit
