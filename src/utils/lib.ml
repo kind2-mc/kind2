@@ -989,14 +989,6 @@ let rec find_file filename = function
     let path = Filename.concat dir filename in
     if Sys.file_exists path then Some path
     else find_file filename include_dirs
-
-
-(* Gets the relative path of the file name given a file path *)
-let get_relative_path fpath =
-  if Filename.is_relative fpath
-  then fpath
-  else let pwd = Sys.getcwd () in
-       String.sub fpath (1 + String.length pwd) (String.length fpath - String.length pwd - 1) 
     
 
 (* ********************************************************************** *)
@@ -1111,11 +1103,6 @@ let file_row_col_of_pos = function
 
   (* Return tuple of filename, line and column *)
   | { pos_fname; pos_lnum; pos_cnum } -> (pos_fname, pos_lnum, pos_cnum)
-
-
-(** set the filename in lexing buffer*)
-let set_lexer_filename lexbuf fname =
-  lexbuf.Lexing.lex_curr_p <- {lexbuf.Lexing.lex_curr_p with pos_fname = fname}
                                        
 
 let print_backtrace fmt bt =
@@ -1166,7 +1153,6 @@ let create_dir dir =
 
    Implementation adapted from "Unix system programming in OCaml" by Xavier
    Leroy and Didier Remy*)
-
 
 
 let copy_fds fd_in fd_out =
