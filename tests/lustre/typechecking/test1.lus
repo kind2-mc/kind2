@@ -1,9 +1,0 @@
-const n = 3;
-
-const n_1:int = 3;
-
-const n2:bool = true;
-
-const n_3:int = 3 + 1;
-
-const n4:int = if (n2) then 4 else 5;
