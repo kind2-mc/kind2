@@ -233,10 +233,10 @@ module Smt = struct
   let short_names () = !short_names
 
   (* Boolector binary. *)
-  let boolector_bin_default = "Boolector"
+  let boolector_bin_default = "boolector"
   let boolector_bin = ref boolector_bin_default
   let _ = add_spec
-    "--Boolector_bin"
+    "--boolector_bin"
     (Arg.Set_string boolector_bin)
     (fun fmt ->
       Format.fprintf fmt
@@ -355,11 +355,6 @@ module Smt = struct
     (* User did not choose SMT solver *)
     | `detect ->
       try
-        let exec = find_solver ~fail:false "Boolector" (boolector_bin ()) in
-        set_solver `Boolector_SMTLIB;
-        set_boolector_bin exec;
-      with Not_found ->
-      try
         let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
         set_solver `Z3_SMTLIB;
         set_z3_bin exec;
@@ -378,6 +373,11 @@ module Smt = struct
         let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
         set_solver `Yices_native;
         set_yices_bin exec;
+      with Not_found ->
+      try
+        let exec = find_solver ~fail:false "Boolector" (boolector_bin ()) in
+        set_solver `Boolector_SMTLIB;
+        set_boolector_bin exec;
       with Not_found ->
         Log.log L_fatal "No SMT Solver found.";
         exit 2

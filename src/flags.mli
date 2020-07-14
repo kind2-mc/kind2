@@ -254,6 +254,9 @@ module Smt : sig
   (** Change sending of short names to SMT solver *)
   val set_short_names : bool -> unit
 
+  (** Executable of Boolector solver *)
+  val boolector_bin : unit -> string
+
   (** Executable of Z3 solver *)
   val z3_bin : unit -> string
 
