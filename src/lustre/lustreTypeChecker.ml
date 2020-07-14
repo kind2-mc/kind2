@@ -193,8 +193,7 @@ let inferTypeCompOp: LA.comparison_operator -> tcType tcResult = function
 let inferTypeGrpExpr: LA.expr -> tcType = function | _ -> todo __LOC__
                                                         
 (** Infer the type of a [LA.expr] with the types of free variables given in [tcContext] *)
-let
-  rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
+let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
   = fun ctx expr ->
   match expr with
   (* Identifiers *)
@@ -233,7 +232,7 @@ let
                              ^ string_of_tcType cTy)
          else R.bind (inferTypeExpr ctx e1) (fun e1Ty->
                   R.bind (checkTypeExpr ctx e1 e1Ty) (fun _ ->
-       R.ok e1Ty)))
+                      R.ok e1Ty)))
   | NArityOp _ -> todo __LOC__          (* One hot expression is not supported? *)    
   | ConvOp (pos, cop, e) -> 
      R.bind (inferTypeConvOp cop) (fun ty ->
@@ -327,42 +326,70 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
   | RecordProject _  -> todo __LOC__
   | TupleProject (pos, e1, e2) -> todo __LOC__ 
   (* Operators *)
-  | UnaryOp (pos, op, _) ->
+  | UnaryOp (pos, op, e) ->
      R.bind (inferTypeUnaryOp op) (fun ty ->
-         match ty with 
-         | Fun (argTy, retTy) ->
-            if expTy = argTy then R.ok ()
-            else typeError pos ("Expected type " ^ string_of_tcType expTy ^ " but found type " ^ string_of_tcType argTy)
-         | _ -> typeError pos ("Unexpected Operator type"))
+         R.bind (inferTypeExpr ctx e) (fun argTy ->
+             if ty = Fun (argTy, expTy)
+             then R.ok ()
+             else typeError pos ("Type mismatch: Cannot apply argument of type "
+                                 ^ string_of_tcType argTy
+                                 ^ " to operator of type "
+                                 ^ string_of_tcType ty)))
   | BinaryOp (pos, op, e1, e2) ->
      R.bind (inferTypeBinaryOp op) (fun ty ->
-         match ty with
-         | Fun (argTy1, Fun (argTy2, resTy)) ->
-            R.bind (checkTypeExpr ctx e1 argTy1) (fun _ ->
-                R.bind (checkTypeExpr ctx e2 argTy2) (fun _ -> R.ok()))
-         | _ -> typeError pos ("Unexpected Operator type " ^ string_of_tcType ty))
+         R.bind (inferTypeExpr ctx e1) (fun argTy1 ->
+             R.bind (inferTypeExpr ctx e2) (fun argTy2 ->
+                 if ty = Fun (argTy1, Fun (argTy2, expTy))
+                 then R.ok ()
+                 else typeError pos ("Type mismatch: Cannot apply arguments of type "
+                                     ^ string_of_tcType argTy1
+                                     ^ "and type " ^ string_of_tcType argTy2
+                                     ^ "to operator of type " ^ string_of_tcType ty))))
     
   | LA.TernaryOp (pos, op, con, e1, e2) ->
      R.bind (inferTypeExpr ctx con) (fun ty ->
          if ty = Bool
-         then
-           R.bind (inferTypeExpr ctx e1) (fun ty1 ->
-               R.bind (inferTypeExpr ctx e2) (fun ty2 ->
-                   if (ty1 = ty2)
-                   then R.ok ()
-                   else typeError pos ("Type mismatch\n"
-                        ^ "Expected both branches to either have type " ^ string_of_tcType ty1
-                        ^ "or type " ^ string_of_tcType ty2))) 
+         then R.bind (inferTypeExpr ctx e1) (fun ty1 ->
+                  R.bind (inferTypeExpr ctx e2) (fun ty2 ->
+                      if (ty1 = ty2)
+                      then R.ok ()
+                      else typeError pos
+                             ("Type mismatch: "
+                              ^ "Expected both branches to either have type "
+                              ^ string_of_tcType ty1
+                              ^ "or type "
+                              ^ string_of_tcType ty2)))
          else
-           typeError pos ("If then else condition type mismatch "
-           ^ "Expected: " ^ string_of_tcType Bool
-           ^ "Found: " ^ string_of_tcType ty))
+           typeError pos ("Type mismatch: ITE condition expression "
+                          ^ "Expected: " ^ string_of_tcType Bool
+                          ^ "Found: " ^ string_of_tcType ty))
+  | NArityOp _ -> todo __LOC__          (* One hot expression is not supported? *)    
+  | ConvOp (pos, cvop, e) ->
+     R.bind (inferTypeConvOp cvop) (fun cvopTy ->
+         R.bind (inferTypeExpr ctx e) (fun exprTy ->
+             if cvopTy = Fun (exprTy, expTy)
+             then R.ok ()
+             else typeError pos ("Type mismatch: cannot apply argument of type"
+                                 ^ string_of_tcType exprTy
+                                 ^ "to operator of type "
+                                 ^ string_of_tcType cvopTy)))
+  | CompOp (pos, cop, e1, e2) ->
+     R.bind (inferTypeCompOp cop) (fun ty ->
+         R.bind (inferTypeExpr ctx e1) (fun argTy1 ->
+             R.bind (inferTypeExpr ctx e2) (fun argTy2 ->
+                 if ty = Fun (argTy1, Fun (argTy2, expTy))
+                 then R.ok()
+                 else typeError pos
+                        ("Type mismatch: cannot apply arguments of type "
+                         ^ string_of_tcType argTy1
+                         ^ " and " ^ string_of_tcType argTy2
+                         ^ " to operator of type "
+                         ^ string_of_tcType ty))))
   (* Values/Constants *)
   | Const (pos, c) -> R.ok ()
 
   (* Structured expressions *)
-  | RecordExpr (pos, _, flds) ->
-     todo __LOC__
+  | RecordExpr (pos, _, flds) -> todo __LOC__
   | GroupExpr _ -> todo __LOC__
   (* Update of structured expressions *)
   (* | StructUpdate of position * expr * label_or_index list * expr
@@ -437,7 +464,7 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
       | LA.NodeVarDecl (pos, (_, i, ty, _)) -> singleton i (toTcType ty) 
     in
 
-    (* if the node is extren, we will not have any body to typecheck *)
+    (* if the node is extren, we will not have any body to typecheck so skip it *)
     if isExtern
     then (Log.log L_debug "External Node, skipping type check"; R.ok ())
     else(
@@ -456,18 +483,20 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
         Log.log L_debug "Clocked typed decls: %a\nops:%a"
           (Lib.pp_print_list LA.pp_print_clocked_typed_ident ",@,") clktydecls
           pp_print_tcContext ops
-        ; let localCtx = union ctx
-                           (union localVars
-                              (union ips ops)) in
-          Log.log L_debug "Local Typing Context{%a}" pp_print_tcContext localCtx
+
+        ; let localCtx = union ctx               (* global context *)
+                           (union localVars      (* declared local variables *)
+                              (union ips ops))   (* input and output type vars *)
+          in
+          Log.log L_debug "Local Typing Context {%a}" pp_print_tcContext localCtx
           ; let doNodeEqn ctx eqn = match eqn with
               | LA.Assert (_, e) ->
                  R.bind
                    ( Log.log L_debug "Assertion (skipped)"
                    ; inferTypeExpr ctx e) (fun _ -> R.ok ())
-              | LA.Equation (_, lhs, expr) ->
+              | LA.Equation (_, lhs, expr) as eqn ->
                  R.bind
-                   ( Log.log L_debug "Node Equation"
+                   ( Log.log L_debug "Node Equation: %a" LA.pp_print_node_body eqn
                    ; inferTypeExpr ctx expr) (fun ty ->
                      checkTypeStructDef ctx lhs ty)
               | LA.Automaton (pos, _, _, _) ->
@@ -493,10 +522,25 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
             ; r
     )
   
-and checkTypeNodeItem: tcContext -> LA.node_item -> tcType -> unit tcResult = fun ctx node_item ty -> todo __LOC__
-
+(* The structure of the left hand side of the equation 
+ * should match the type of the right hand side expression *)
 and checkTypeStructDef: tcContext -> LA.eq_lhs -> tcType -> unit tcResult
-  = fun ctx lhss ty -> R.ok ()
+  = fun ctx (StructDef (pos, lhss)) ty ->
+  if (List.length lhss) > 1
+  then todo __LOC__
+  else
+    assert (List.length lhss = 1)
+  ; let lhs = List.hd lhss in
+    match lhs with
+    | SingleIdent (pos, i) -> let expTy = lookup ctx i in
+                            if expTy = ty
+                            then R.ok()
+                            else typeError pos ("Type mismatch. Expected type"
+                                                ^ string_of_tcType expTy
+                                                ^ " but found type "
+                                                ^ string_of_tcType ty)
+    | _ -> todo __LOC__
+  
 
 (** Obtain a global typing context *)
 and typingContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->

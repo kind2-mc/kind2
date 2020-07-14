@@ -903,7 +903,7 @@ let pp_print_eq_lhs ppf = function
       (pp_print_list pp_print_struct_item ",") l
   
 
-let rec pp_print_body ppf = function
+let rec pp_print_node_body ppf = function
 
   | Assert (pos, e) -> 
 
@@ -923,7 +923,7 @@ let rec pp_print_body ppf = function
 (* Pretty-print a node equation *)
 and pp_print_node_item ppf = function
   
-  | Body b -> pp_print_body ppf b
+  | Body b -> pp_print_node_body ppf b
 
   | AnnotMain true -> Format.fprintf ppf "--%%MAIN;"
 
@@ -956,7 +956,7 @@ and pp_print_state ppf =
     Format.fprintf ppf "state %s@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a@?" name
       (pp_print_auto_trans "unless") unless
       pp_print_node_local_decl locals
-      (pp_print_list pp_print_body "@ ") eqs
+      (pp_print_list pp_print_node_body "@ ") eqs
       (pp_print_auto_trans "until") until
 
 and pp_print_auto_trans kind ppf = function

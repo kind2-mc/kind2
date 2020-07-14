@@ -363,6 +363,7 @@ val pp_print_node_local_decl_const :
 val pp_print_node_local_decl :
   Format.formatter -> node_local_decl list -> unit
 val pp_print_struct_item : Format.formatter -> struct_item -> unit
+val pp_print_node_body: Format.formatter -> node_equation -> unit
 val pp_print_node_item : Format.formatter -> node_item -> unit
 val pp_print_declaration : Format.formatter -> declaration -> unit
 val pp_print_program : Format.formatter -> t -> unit
