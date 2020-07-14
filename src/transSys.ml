@@ -594,6 +594,7 @@ let get_split_properties { properties } =
       valid, invalid, p :: unknown
   ) ([], [], [])
 
+let get_function_symbols { ufs } = ufs
 
 (* **************************************************************** *)
 (* Iterate and Fold over Subsystems                                 *)

@@ -204,6 +204,8 @@ val get_mode_requires : t -> Term.t option * (Scope.t * Term.t) list
 val get_split_properties :
   t -> Property.t list * Property.t list * Property.t list
 
+(** Returns function symbols declared in the transition system *)
+val get_function_symbols : t -> UfSymbol.t list
 
 (** Make a copy of every mutable field of the transition system and its subsystems. *)
 val copy : t -> t
