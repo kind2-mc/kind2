@@ -1404,13 +1404,30 @@ module IVC = struct
       Format.fprintf fmt
         "\
           Set a timeout for each unsat core check sent to the solver.@ \
-          This setting is ignored if a solver different than Z3 is used.@ \
           Set to 0 to disable timeout.@ \
           Default: %n\
         "
         ivc_uc_timeout_default
     )
   let ivc_uc_timeout () = !ivc_uc_timeout
+
+
+  (*let ivc_disable_must_opt_default = false
+  let ivc_disable_must_opt = ref ivc_disable_must_opt_default
+  let _ = add_spec
+    "--ivc_disable_must_opt"
+    (bool_arg ivc_disable_must_opt)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Disable the must-set optimisation.@ \
+          This setting is ignored if --ivc_must_set is true.@ \
+          Default: %a\
+        "
+        fmt_bool ivc_disable_must_opt_default
+    )
+  let ivc_disable_must_opt () = !ivc_disable_must_opt*)
+  let ivc_disable_must_opt () = false
 
 end
 

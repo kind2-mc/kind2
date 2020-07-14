@@ -665,6 +665,8 @@ module RunIVC: PostAnalysis = struct
             let use_must_set =
               if Flags.IVC.ivc_must_set ()
               then Some (treat_ivc true)
+              else if Flags.IVC.ivc_disable_must_opt ()
+              then None
               else if Flags.IVC.ivc_all ()
               then Some (fun _ -> ())
               else None
@@ -698,18 +700,21 @@ end
 
 let run_mcs_post_analysis in_sys param analyze sys =
   try (
+    let max_mcs_cardinality = Flags.MCS.mcs_max_cardinality () in
     let props =
       if Flags.MCS.mcs_per_property ()
-      then List.map (fun x -> [x]) (TransSys.get_real_properties sys)
-      else [TransSys.get_real_properties sys]
+      then
+        IvcMcs.mcs_initial_analysis in_sys param analyze ~max_mcs_cardinality sys
+        |> List.map (fun (p,sol) -> ([p], Some sol))
+      else [TransSys.get_real_properties sys, None]
     in
     let time = ref (Unix.gettimeofday ()) in
     
-    let treat_props props =
+    let treat_props (props, initial_solution) =
 
       if List.length props > 0
       then begin
-        let treat_mua mua =
+        let treat_mcs mcs =
 
           let ntime = Unix.gettimeofday () in
           let elapsed = ntime -. !time in
@@ -718,11 +723,11 @@ let run_mcs_post_analysis in_sys param analyze sys =
           KEvent.log_with_tag L_warn Pretty.success_tag
             (Format.asprintf "Minimal Cut Set generated after %.3fs." elapsed) ;
 
-          let not_mua = IvcMcs.complement_of_mua in_sys sys mua in
+          let mua = IvcMcs.complement_of_mcs in_sys sys mcs in
 
           if Flags.MCS.print_mcs_legacy ()
           then begin
-            IvcMcs.pp_print_mcs_legacy in_sys param sys not_mua mua
+            IvcMcs.pp_print_mcs_legacy in_sys param sys mcs mua
           end else begin
 
             let pt = ModelElement.pp_print_core_data in_sys param sys in
@@ -732,14 +737,14 @@ let run_mcs_post_analysis in_sys param analyze sys =
 
             if Flags.MCS.print_mcs ()
             then begin
-              let (filtered_mcs,_) = IvcMcs.separate_mua_by_category in_sys not_mua in
+              let (filtered_mcs,_) = IvcMcs.separate_mcs_by_category in_sys mcs in
               let cpd = IvcMcs.mcs_to_print_data in_sys sys "mcs" (Some elapsed) filtered_mcs in
               KEvent.log_result pt xml json cpd
             end ;
 
             if Flags.MCS.print_mcs_compl ()
             then begin
-              let (filtered_mua,_) = IvcMcs.separate_mua_by_category in_sys mua in
+              let (filtered_mua,_) = IvcMcs.separate_mcs_by_category in_sys mua in
               let cpd = IvcMcs.mcs_to_print_data in_sys sys "mcs complement"
                 (Some elapsed) filtered_mua in
               KEvent.log_result pt xml json cpd
@@ -747,9 +752,9 @@ let run_mcs_post_analysis in_sys param analyze sys =
           end
         in
 
-        let max_mcs_cardinality = Flags.MCS.mcs_max_cardinality () in
         let mcs_all = Flags.MCS.mcs_all () in
-        let res = IvcMcs.mua in_sys param analyze sys props ~max_mcs_cardinality mcs_all treat_mua in
+        let res = IvcMcs.mcs in_sys param analyze sys props
+          ~initial_solution ~max_mcs_cardinality mcs_all treat_mcs in
         if Flags.MCS.mcs_all ()
         then
           KEvent.log_with_tag L_note Pretty.note_tag
