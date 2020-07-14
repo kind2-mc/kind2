@@ -259,6 +259,16 @@ module Smt : sig
   (** Executable of CVC4 solver *)
   val cvc4_bin : unit -> string
 
+  (** CVC4 binary requires --rewrite-divk flag *)
+  val cvc4_rewrite_divk : unit -> bool
+
+  val set_cvc4_rewrite_divk : bool -> unit
+
+  (** CVC4 binary requires --bv-print-consts-in-binary flag *)
+  val cvc4_bv_consts_in_binary : unit -> bool
+
+  val set_cvc4_bv_consts_in_binary : bool -> unit
+
   (** Executable of Yices solver *)
   val yices_bin : unit -> string
 

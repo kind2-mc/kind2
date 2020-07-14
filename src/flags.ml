@@ -257,6 +257,14 @@ module Smt = struct
   let set_cvc4_bin str = cvc4_bin := str
   let cvc4_bin () = !cvc4_bin
 
+  let cvc4_rewrite_divk = ref true
+  let set_cvc4_rewrite_divk b = cvc4_rewrite_divk := b
+  let cvc4_rewrite_divk () = !cvc4_rewrite_divk
+
+  let cvc4_bv_consts_in_binary = ref true
+  let set_cvc4_bv_consts_in_binary b = cvc4_bv_consts_in_binary := b
+  let cvc4_bv_consts_in_binary () = !cvc4_bv_consts_in_binary
+
   (* Yices binary. *)
   let yices_bin_default = "yices"
   let yices_bin = ref yices_bin_default
@@ -3227,6 +3235,10 @@ let solver_dependant_actions () =
           Log.log L_warn "Detected CVC4 1.6 or older: disabling check_sat_assume";
           Smt.set_check_sat_assume false
         )
+      )
+      else if (major_rev > 1 || minor_rev >= 8) then (
+        Smt.set_cvc4_rewrite_divk false;
+        Smt.set_cvc4_bv_consts_in_binary false
       )
     | None -> Log.log L_warn "Couldn't determine CVC4 version"
   )

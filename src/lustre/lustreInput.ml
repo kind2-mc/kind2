@@ -31,7 +31,7 @@ module LPI = LustreParser.Incremental
 module LL = LustreLexer          
 module LPMI = LustreParser.MenhirInterpreter
 module LPE = LustreParserErrors
-
+           
 (* The parser has succeeded and produced a semantic value.*)
 let success (v : LustreAst.t): LustreAst.t =
   Log.log L_debug "Parsed :\n=========\n\n%a\n@." LustreAst.pp_print_program v;
@@ -78,15 +78,27 @@ let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
 
 (* Parses input channel to generate an AST *)
 let ast_of_channel(in_ch: in_channel): LustreAst.t =
+
+  let input_source = Flags.input_file () in
   (* Create lexing buffer *)
   let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
+
   (* Initialize lexing buffer with channel *)
   LustreLexer.lexbuf_init 
     in_ch
-    (try Filename.dirname (Flags.input_file ())
+    (try Filename.dirname (input_source)
      with Failure _ -> Sys.getcwd ());
+
+  (* Set the relative file name in lex buffer *)
+  (* Lib.set_lexer_filename lexbuf (input_source); *)
+  (* Setting the name in the lexer buffer causes issues with the way we display properties.
+   * For the time being we would not want to change this behaviour *)
+
   (* Create lexing buffer and incrementally parse it*)
-  parse lexbuf (LPI.main lexbuf.lex_curr_p)
+  try
+    (parse lexbuf (LPI.main lexbuf.lex_curr_p))
+  with
+  | LustreLexer.Lexer_error err -> LC.fail_at_position (Lib.position_of_lexing lexbuf.lex_curr_p) err  
          
 (* Parse from input channel *)
 let of_channel in_ch =

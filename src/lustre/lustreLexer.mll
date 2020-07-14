@@ -521,11 +521,8 @@ rule token = parse
 
   (* Unrecognized character *)
   | _ as c {
-       let (lno, cnum, b) = (lexbuf.lex_curr_p.pos_lnum, lexbuf.lex_curr_p.pos_cnum, lexbuf.lex_curr_p.pos_bol) in
-       let msg = Format.sprintf
-                   "Unrecognized token %c (0x%X) found at line %d, column %d"
-                   c (Char.code c) lno (cnum - b) in
-    raise (Lexer_error msg)
+       let msg = Format.sprintf "Unrecognized token %c (0x%X)" c (Char.code c) in
+       raise (Lexer_error msg)
   }
 
 (* Parse until end of comment, count newlines and otherwise discard
