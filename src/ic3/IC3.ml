@@ -3223,7 +3223,20 @@ let main input_sys aparam trans_sys =
     )
 
   )
-  | _ -> main_ic3 input_sys aparam trans_sys
+  | _ ->
+    match Flags.IC3.abstr () with
+    | `IA -> main_ic3 input_sys aparam trans_sys
+    | `None -> (
+      TransSys.iter_subsystems
+        ~include_top:true
+        (fun ts ->
+          if TransSys.get_function_symbols ts <> [] then
+            raise (UnsupportedFeature
+              "Disabling IC3: system includes imported functions.")
+        )
+        trans_sys;
+      main_ic3 input_sys aparam trans_sys
+    )
 
 
 (* 
