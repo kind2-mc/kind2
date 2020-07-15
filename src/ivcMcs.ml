@@ -688,6 +688,14 @@ let exactly_k_true svs k =
   let sum = Term.mk_plus cptl in
   Term.mk_eq [sum; Term.mk_num_of_int k]
 
+let at_most_k_true svs k =
+  let cptl = svs
+  |> List.map (fun sv -> Term.mk_var (Var.mk_const_state_var sv))
+  |> List.map (fun t -> Term.mk_ite t (Term.mk_num_of_int 1) (Term.mk_num_of_int 0))
+  in
+  let sum = Term.mk_plus cptl in
+  Term.mk_leq [sum; Term.mk_num_of_int k]
+
 let at_least_one_false svs =
   svs
   |> List.map (fun sv -> Term.mk_not (Term.mk_var (Var.mk_const_state_var sv)))
@@ -698,7 +706,7 @@ let at_least_one_true svs =
   |> List.map (fun sv -> Term.mk_var (Var.mk_const_state_var sv))
   |> Term.mk_or
 
-let compute_cs_aux check_ts sys prop_names enter_nodes keep test k already_found =
+let compute_cs_aux check_ts sys prop_names enter_nodes keep test k ?(exact_card=true) already_found =
 let eq_of_actlit = eq_of_actlit (core_union keep test) in
   let actsvs = actsvs_of_core test in
 
@@ -743,7 +751,8 @@ let eq_of_actlit = eq_of_actlit (core_union keep test) in
     let sys = TS.fold_subsystems ~include_top:true prepare_subsystem sys sys in
     let (_,init_eq,trans_eq) = TS.init_trans_open sys in
     let init_eq =
-      Term.mk_and ((exactly_k_true actsvs k) (* Cardinality constraint *)
+      Term.mk_and (
+      (if exact_card then exactly_k_true actsvs k else at_most_k_true actsvs k) (* Cardinality constraint *)
       ::not_already_found            (* 'Not already found' constraint *)
       ::[init_eq]) in
     TS.set_subsystem_equations sys (TS.scope_of_trans_sys sys) init_eq trans_eq
@@ -757,16 +766,16 @@ let eq_of_actlit = eq_of_actlit (core_union keep test) in
   Lib.set_log_level old_log_level;
   (sys, actsvs)
 
-let compute_cs check_ts sys prop_names enter_nodes keep test k already_found =
+let compute_cs check_ts sys prop_names enter_nodes keep test k ?(exact_card=true) already_found =
   let (sys, actsvs) =
-    compute_cs_aux check_ts sys prop_names enter_nodes keep test k already_found in
+    compute_cs_aux check_ts sys prop_names enter_nodes keep test k ~exact_card already_found in
   match get_counterexample_actsvs prop_names sys actsvs with
   | None -> None
   | Some (actsvs, cex) ->
-    assert (List.length actsvs = k) ;
+    assert (List.length actsvs <= k) ;
     Some (filter_core_svs actsvs test, cex)
 
-let compute_max_card_cs check_ts sys prop_names enter_nodes
+let compute_approx_mcs_for_each_prop check_ts sys prop_names enter_nodes
   ?(max_mcs_cardinality= -1) keep test =
   KEvent.log L_info "Computing a correction set of maximal cardinality..." ;
   let n = core_size test in
@@ -776,10 +785,10 @@ let compute_max_card_cs check_ts sys prop_names enter_nodes
     else n
   in
   let (sys, actsvs) =
-    compute_cs_aux check_ts sys prop_names enter_nodes keep test n [] in
+    compute_cs_aux check_ts sys prop_names enter_nodes keep test n ~exact_card:false [] in
   get_counterexamples_actsvs prop_names sys actsvs
   |> List.map (fun(actsvs, cex) ->
-    assert (List.length actsvs = n) ;
+    assert (List.length actsvs <= n) ;
     (filter_core_svs actsvs test, cex)
   )
 
@@ -805,7 +814,9 @@ let compute_mcs check_ts sys prop_names enter_nodes
     then max_mcs_cardinality
     else n
   in
-  let n = if initial_solution = None then n else n-1 in
+  let n = match initial_solution with
+  | None -> n
+  | Some (core, _) -> (core_size core) - 1 in
   (* Increasing cardinality... *)
   (*let rec aux k =
     if k <= n
@@ -820,9 +831,9 @@ let compute_mcs check_ts sys prop_names enter_nodes
   let rec aux k previous_res =
     if k >= 0
     then
-      match compute_cs check_ts sys prop_names enter_nodes keep test k [] with
+      match compute_cs check_ts sys prop_names enter_nodes keep test k ~exact_card:false [] with
       | None -> previous_res
-      | Some res -> aux (k-1) (Some res)
+      | Some (core, cex) -> aux ((core_size core)-1) (Some (core, cex))
     else previous_res
   in
   aux n initial_solution
@@ -1489,8 +1500,9 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
     let compute_mcs k t = match compute_mcs k t with
       | None -> assert false (* Should always be called on UNSAFE models *)
       | Some (r, _) -> r in
-    let compute_all_cs = compute_all_cs check_ts_cs sys_cs prop_names enter_nodes in
-    let compute_all_cs k t i af = List.map fst (compute_all_cs k t i af) in
+    let compute_all_mcs = compute_all_mcs check_ts_cs sys_cs prop_names enter_nodes in
+    let compute_all_mcs k t max_mcs_cardinality =
+      List.map fst (compute_all_mcs ~max_mcs_cardinality k t) in
 
     (* Check safety *)
     let main_scope = TS.scope_of_trans_sys sys in
@@ -1539,20 +1551,17 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
     let k = if k > n || k < 0 then n else k in
     let is_camus = k >= n in
     let is_marco = k <= 0 in
-    let rec next i already_found =
-      if i > k then ()
-      else (
-        KEvent.log L_info "Computing all MCS of cardinality %n..." i ;
-        let mcs = compute_all_cs keep test i already_found in
-        List.iter (
-          fun mcs ->
-            let mua = core_diff test mcs in
-            block_down (actsvs_of_core mua)
-        ) mcs ;
-        next (i+1) ((List.map actsvs_of_core mcs)@already_found)
+
+    if not is_marco then (
+      KEvent.log L_info "Computing all MCS of cardinality smaller than %n..." k ;
+      compute_all_mcs keep test k |>
+      List.iter (
+        fun mcs ->
+          let mua = core_diff test mcs in
+          block_down (actsvs_of_core mua)
       )
-    in
-    next 1 [] ;
+    ) ;
+
     (* ----- Part 2 : DETERMINING STRATEGY ----- *)
     let get_unexplored_auto =
       if is_camus
@@ -1726,7 +1735,7 @@ let mcs_initial_analysis_ in_sys ?(os_invs=[]) check_ts sys enter_nodes
   let actsvs = actsvs_of_core test in
   let sys = List.fold_left (fun acc sv -> TS.add_global_constant acc (Var.mk_const_state_var sv)) sys actsvs in
 
-  compute_max_card_cs check_ts sys prop_names enter_nodes ~max_mcs_cardinality keep test
+  compute_approx_mcs_for_each_prop check_ts sys prop_names enter_nodes ~max_mcs_cardinality keep test
   |> List.map (fun (core, (p, cex)) -> (p, (core, (p, cex))))
 
 let mcs_initial_analysis in_sys param analyze ?(max_mcs_cardinality= -1) sys =
