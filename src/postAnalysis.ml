@@ -753,8 +753,9 @@ let run_mcs_post_analysis in_sys param analyze sys =
         in
 
         let mcs_all = Flags.MCS.mcs_all () in
+        let approx = Flags.MCS.mcs_approximate () in
         let res = IvcMcs.mcs in_sys param analyze sys props
-          ~initial_solution ~max_mcs_cardinality mcs_all treat_mcs in
+          ~initial_solution ~max_mcs_cardinality mcs_all approx treat_mcs in
         if Flags.MCS.mcs_all ()
         then
           KEvent.log_with_tag L_note Pretty.note_tag

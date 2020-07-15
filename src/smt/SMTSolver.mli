@@ -72,8 +72,14 @@ val define_fun : t -> UfSymbol.t -> Var.t list -> Term.t -> unit
 (** Assert an SMT expression in the current context *)
 val assert_expr : t -> SMTExpr.t -> unit
 
+(** Assert-soft an SMT expression in the current context *)
+val assert_soft_expr : t -> SMTExpr.t -> int -> unit
+
 (** Convert a term to an SMT expression and assert *)
 val assert_term : t -> Term.t -> unit
+
+(** Convert a term to an SMT expression and assert-soft *)
+val assert_soft_term : t -> Term.t -> int -> unit
 
 (** Name a term, convert a term to an SMT expression and assert *)
 val assert_named_term : t -> Term.t -> unit

@@ -241,6 +241,11 @@ let assert_expr s expr =
   (* Assert SMT expression in solver instance and fail on error *)
   fail_on_smt_error s (S.assert_expr expr)
 
+(* Assert-soft an SMT expression *)
+let assert_soft_expr s expr weight =
+  let module S = (val s.solver_inst) in
+  (* Assert-soft SMT expression in solver instance and fail on error *)
+  fail_on_smt_error s (S.assert_soft_expr expr weight)
 
 (* Convert a term to an SMT expression and assert *)
 let assert_term s term =
@@ -251,6 +256,16 @@ let assert_term s term =
 
   (* Assert SMT expression in solver instance and fail on error *)
   fail_on_smt_error s (S.assert_expr expr)
+
+(* Convert a term to an SMT expression and assert-soft *)
+let assert_soft_term s term weight =
+  let module S = (val s.solver_inst) in
+
+  (* Convert term to SMT expression *)
+  let expr = S.Conv.smtexpr_of_term term in
+
+  (* Assert SMT expression in solver instance and fail on error *)
+  fail_on_smt_error s (S.assert_soft_expr expr weight)
 
 
 (* Name a term with a fresh name, convert to an SMT expression and
