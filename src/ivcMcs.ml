@@ -698,8 +698,48 @@ let at_least_one_true svs =
   |> List.map (fun sv -> Term.mk_var (Var.mk_const_state_var sv))
   |> Term.mk_or
 
+let prepare_ts_for_cs_check sys enter_nodes init_consts keep test =
+  let eq_of_actlit = eq_of_actlit (core_union keep test) in
+  let main_scope = TS.scope_of_trans_sys sys in
+  reset_ts enter_nodes sys ;
+  let prepare_subsystem acc sys =
+    let scope = TS.scope_of_trans_sys sys in
+    let (keep_actlits, test_actlits) =
+      if enter_nodes || Scope.equal scope main_scope
+      then (Some (get_actlits_of_scope keep scope),
+            Some (get_actlits_of_scope test scope))
+      else (None, None)
+    in
+    let actlits =
+      match keep_actlits, test_actlits with
+      | None, None -> None
+      | Some k, None -> Some (k, [])
+      | None, Some t -> Some ([], t)
+      | Some k, Some t -> Some (k, t)
+    in
+    begin match actlits with
+    | None -> acc
+    | Some (ks,ts) ->
+      let eqs =
+        (List.map (fun k -> eq_of_actlit ~with_act:false k) ks) @
+        (List.map (fun t -> eq_of_actlit ~with_act:true t) ts)
+      in
+      let init_eq = List.map (fun eq -> eq.init_opened) eqs
+      |> Term.mk_and in
+      let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
+      |> Term.mk_and in
+      TS.set_subsystem_equations acc scope init_eq trans_eq
+    end
+  in
+  let sys = TS.fold_subsystems ~include_top:true prepare_subsystem sys sys in
+  let (_,init_eq,trans_eq) = TS.init_trans_open sys in
+  let init_eq =
+    Term.mk_and (List.rev_append init_consts [init_eq])
+  in
+  TS.set_subsystem_equations sys (TS.scope_of_trans_sys sys) init_eq trans_eq
+
+
 let compute_cs_aux check_ts sys prop_names enter_nodes keep test k already_found =
-let eq_of_actlit = eq_of_actlit (core_union keep test) in
   let actsvs = actsvs_of_core test in
 
   let not_already_found =
@@ -708,48 +748,13 @@ let eq_of_actlit = eq_of_actlit (core_union keep test) in
     |> Term.mk_and
   in
 
-  let main_scope = TS.scope_of_trans_sys sys in
-  let prepare_ts_for_check sys keep test =
-    reset_ts enter_nodes sys ;
-    let prepare_subsystem acc sys =
-      let scope = TS.scope_of_trans_sys sys in
-      let (keep_actlits, test_actlits) =
-        if enter_nodes || Scope.equal scope main_scope
-        then (Some (get_actlits_of_scope keep scope),
-              Some (get_actlits_of_scope test scope))
-        else (None, None)
-      in
-      let actlits =
-        match keep_actlits, test_actlits with
-        | None, None -> None
-        | Some k, None -> Some (k, [])
-        | None, Some t -> Some ([], t)
-        | Some k, Some t -> Some (k, t)
-      in
-      begin match actlits with
-      | None -> acc
-      | Some (ks,ts) ->
-        let eqs =
-          (List.map (fun k -> eq_of_actlit ~with_act:false k) ks) @
-          (List.map (fun t -> eq_of_actlit ~with_act:true t) ts)
-        in
-        let init_eq = List.map (fun eq -> eq.init_opened) eqs
-        |> Term.mk_and in
-        let trans_eq = List.map (fun eq -> eq.trans_opened) eqs
-        |> Term.mk_and in
-        TS.set_subsystem_equations acc scope init_eq trans_eq 
-      end
-    in
-    let sys = TS.fold_subsystems ~include_top:true prepare_subsystem sys sys in
-    let (_,init_eq,trans_eq) = TS.init_trans_open sys in
-    let init_eq =
-      Term.mk_and ((exactly_k_true actsvs k) (* Cardinality constraint *)
-      ::not_already_found            (* 'Not already found' constraint *)
-      ::[init_eq]) in
-    TS.set_subsystem_equations sys (TS.scope_of_trans_sys sys) init_eq trans_eq
+  let init_consts =
+    [
+      not_already_found;         (* 'Not already found' constraint *)
+      (exactly_k_true actsvs k)  (* Cardinality constraint *)
+    ]
   in
-
-  let sys = prepare_ts_for_check sys keep test in
+  let sys = prepare_ts_for_cs_check sys enter_nodes init_consts keep test in
   let old_log_level = Lib.get_log_level () in
   Format.print_flush () ;
   Lib.set_log_level L_off ;
@@ -796,8 +801,116 @@ let compute_all_cs check_ts sys prop_names enter_nodes ?(cont=(fun _ -> ()))
   in
   aux [] already_found
 
-let compute_mcs check_ts sys prop_names enter_nodes
-  ?(max_mcs_cardinality= -1) ?(initial_solution=None) keep test =
+
+let create_smt_solver logic =
+  let solver = Flags.Smt.solver () in
+  match solver with
+  | `Z3_SMTLIB -> (
+    SMTSolver.create_instance
+      (TermLib.add_quantifiers logic)
+      solver
+  )
+  | _ -> (
+    failwith "Max-SMT is not supported by SMT solver or \
+              implementation is not available"
+  )
+
+(* Computes a Minimal Cut Set that is minimal with respect to
+   any solution whose associated counterexample has the same
+   length than the counterexample provided ([cex]).
+*)
+let compute_local_cs sys prop_names enter_nodes cex keep test =
+  let k = (Property.length_of_cex cex) - 1 in
+
+  let num_k = Numeral.of_int k in
+
+  let sys = prepare_ts_for_cs_check sys enter_nodes [] keep test in
+
+  let solver = create_smt_solver (TS.get_logic sys) in
+  TS.define_and_declare_of_bounds
+    sys
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
+    (SMTSolver.declare_sort solver)
+    Numeral.zero num_k;
+
+  TS.init_of_bound None sys Numeral.zero
+  |> SMTSolver.assert_term solver;
+  for i = 0 to (k - 1) do
+    TS.trans_of_bound None sys (Numeral.of_int (i+1))
+    |> SMTSolver.assert_term solver
+  done;
+
+  let actsvs = actsvs_of_core test in
+
+  let actsv_terms =
+    List.map
+      (fun sv -> Term.mk_var (Var.mk_const_state_var sv))
+      actsvs
+  in
+
+  List.iter
+    (fun t -> SMTSolver.assert_soft_term solver (Term.mk_not t) 1)
+    actsv_terms;
+
+  let props =
+    TransSys.get_real_properties sys
+    |> List.filter (fun p -> List.mem p.Property.prop_name prop_names)
+  in
+
+  let prop_conj =
+    Term.mk_and (List.map (fun p -> p.Property.prop_term) props)
+  in
+
+  let prop_at_last_step =
+    Term.bump_state num_k prop_conj
+  in
+  SMTSolver.assert_term solver (Term.negate prop_at_last_step);
+
+  try (
+    let sat = SMTSolver.check_sat solver in
+    assert (sat);
+
+    let model =
+      (* SMTSolver.get_model solver *)
+      SMTSolver.get_var_values
+        solver
+        (TransSys.get_state_var_bounds sys)
+        (TransSys.vars_of_bounds sys Numeral.zero num_k)
+    in
+
+    let eval term =
+      Eval.eval_term (TS.uf_defs sys) model term
+      |> Eval.bool_of_value
+    in
+
+    let falsified_prop =
+      List.find (fun p -> not (eval p.Property.prop_term)) props
+    in
+
+    (* Extract counterexample from solver *)
+    let cex =
+      Model.path_from_model
+        (TS.state_vars sys) model num_k
+      |> Model.path_to_list
+    in
+
+    let active_svs =
+      List.combine actsvs actsv_terms
+      |> List.filter (fun (sv, t) -> eval t)
+      |> List.map fst
+    in
+
+    let core = filter_core_svs active_svs test in
+
+    Some (core, (falsified_prop.Property.prop_name, cex))
+  )
+  with
+  | SMTSolver.Unknown -> None
+
+let compute_mcs check_ts sys prop_names enter_nodes ?(max_mcs_cardinality= -1)
+  ?(initial_solution=None) ?(approx=false) keep test
+=
   KEvent.log L_info "Computing a MCS..." ;
   let n = core_size test in
   let n =
@@ -806,26 +919,42 @@ let compute_mcs check_ts sys prop_names enter_nodes
     else n
   in
   let n = if initial_solution = None then n else n-1 in
-  (* Increasing cardinality... *)
-  (*let rec aux k =
-    if k <= n
-    then
-      match compute_cs check_ts sys prop_names enter_nodes keep test k [] with
-      | None -> aux (k+1)
-      | Some res -> Some res
-    else None
-  in
-  aux 0*)
-  (* Decreasing cardinality... *)
-  let rec aux k previous_res =
-    if k >= 0
-    then
-      match compute_cs check_ts sys prop_names enter_nodes keep test k [] with
-      | None -> previous_res
-      | Some res -> aux (k-1) (Some res)
-    else previous_res
-  in
-  aux n initial_solution
+  if approx then (
+    let sol =
+      match initial_solution with
+      | None -> compute_cs check_ts sys prop_names enter_nodes keep test n []
+      | _ -> initial_solution
+    in
+    match sol with
+    | None -> None
+    | Some (_, (_, cex)) -> (
+      match compute_local_cs sys prop_names enter_nodes cex keep test with
+      | None -> sol
+      | res -> res
+    )
+  )
+  else (
+    (* Increasing cardinality... *)
+    (*let rec aux k =
+      if k <= n
+      then
+        match compute_cs check_ts sys prop_names enter_nodes keep test k [] with
+        | None -> aux (k+1)
+        | Some res -> Some res
+      else None
+    in
+    aux 0*)
+    (* Decreasing cardinality... *)
+    let rec aux k previous_res =
+      if k >= 0
+      then
+        match compute_cs check_ts sys prop_names enter_nodes keep test k [] with
+        | None -> previous_res
+        | Some res -> aux (k-1) (Some res)
+      else previous_res
+    in
+    aux n initial_solution
+  )
 
 let compute_all_mcs check_ts sys prop_names enter_nodes
   ?(max_mcs_cardinality= -1) ?(initial_solution=None) ?(cont=(fun _ -> ())) keep test =
@@ -1664,7 +1793,7 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
 (* ---------- MINIMAL CORRECTION SETS ---------- *)
 
 let mcs_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
-  ?(initial_solution=None) ?(max_mcs_cardinality= -1) cont keep test =
+  ?(initial_solution=None) ?(max_mcs_cardinality= -1) ?(approx= false) cont keep test =
   let prop_names = props_names props in
   let sys = remove_other_props sys prop_names in
   let sys = add_as_candidate os_invs sys in
@@ -1680,9 +1809,11 @@ let mcs_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
   in
 
   let compute_mcs =
-    compute_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality ~initial_solution in
+    compute_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality ~initial_solution ~approx
+  in
   let compute_all_mcs =
-    compute_all_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality ~initial_solution ~cont in
+    compute_all_mcs check_ts sys prop_names enter_nodes ~max_mcs_cardinality ~initial_solution ~cont
+  in
 
   let mcs =
     if all then compute_all_mcs keep test
@@ -1695,7 +1826,7 @@ let mcs_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
 
 (* Compute one/all Maximal Unsafe Abstraction(s). *)
 let mcs in_sys param analyze sys props
-  ?(initial_solution=None) ?(max_mcs_cardinality= -1) all cont =
+  ?(initial_solution=None) ?(max_mcs_cardinality= -1) all approx cont =
   try (
     let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
     let elements = (Flags.MCS.mcs_category ()) in
@@ -1708,7 +1839,9 @@ let mcs in_sys param analyze sys props
       res := mcs::(!res) ;
       cont mcs
     in
-    let _ = mcs_ in_sys check_ts sys props all enter_nodes ~initial_solution ~max_mcs_cardinality cont keep test in
+    let _ =
+      mcs_ in_sys check_ts sys props all enter_nodes ~initial_solution ~max_mcs_cardinality ~approx cont keep test
+    in
     List.rev (!res)
   ) with
   | InitTransMismatch (i,t) ->

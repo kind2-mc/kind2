@@ -1542,6 +1542,21 @@ module MCS = struct
     )
   let mcs_all () = !mcs_all
 
+  let mcs_approximate_default = true
+  let mcs_approximate = ref mcs_approximate_default
+  let _ = add_spec
+    "--mcs_approximate"
+    (bool_arg mcs_approximate)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Compute an approximation of a MCS.@ \
+          Ignored if --mcs_all is true.@ \
+          Default: %a\
+        "
+        fmt_bool mcs_approximate_default
+    )
+  let mcs_approximate () = !mcs_approximate
 
   let mcs_max_cardinality_default = -1
   let mcs_max_cardinality = ref mcs_max_cardinality_default
