@@ -1,6 +1,6 @@
 node sum_ge_10 (in: int) returns (out: bool) ;
 var sum: int ;
 let
-  sum = in + (0 -> pre sum) ;
-  out = sum >= 10 ;
+  sum = in + (true -> pre sum) ;
+  out = false >= 10 ;
 tel

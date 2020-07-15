@@ -1,6 +1,5 @@
 -- This file shows the supported Lustre syntax and can be used to test
 -- the parser. It does not contain any sensible properties to prove.
-
 /* This is a comment 
   over several lines */ 
 
@@ -247,7 +246,7 @@ function imported sqrt(n: real) returns (r: real);
   guarantee r >= 0.0 and r * r = n;
 *)
 
-node sum_ge_10 (in: int) returns (out: bool) ;
+node sum_ge_10 (const in: int) returns (out: bool) ;
 var sum: int ;
 let
   sum = in + (0 -> pre sum) ;

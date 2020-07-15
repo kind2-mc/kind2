@@ -35,11 +35,15 @@ val join : (('a, 'e) result, 'e) result -> ('a, 'e) result
 val map : ('a -> 'b) -> ('a, 'e) result -> ('b, 'e) result
 (** [map f r] is [Ok (f v)] if [r] is [Ok v] and [r] if [r] is [Error _]. *)
 
+  
 (** The following functions have been taken from  (future) 4.09 Stdlib.Result. 
  * These 4 functions, [ok], [error], [bind], [join] and [map] should be ported to 
  * the original library functions after the Stdlib upgrade. *)
-  
-            
+
+val seq: ('a, 'e) result list -> ('a list, 'e) result  
+(** sequences a [list] of [result] into a [result] of [list] 
+ * basically errors out on first error or returns the whole value list *)
+
 (** Unwraps a result. *)
 val unwrap : 'a res -> 'a
 
