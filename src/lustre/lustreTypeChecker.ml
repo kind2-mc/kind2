@@ -97,29 +97,29 @@ module OrdIdent = struct
 end
 
 (** Map for types with identifiers as keys *)
-module TyMap = struct
+module IMap = struct
   include Map.Make(OrdIdent)
   let pp_print_type_binding ppf = fun i ty -> 
     Format.fprintf ppf "(%a:%a),@, " LA.pp_print_ident i pp_print_tcType ty
-end
-
-module VStore = struct
-  include Map.Make(OrdIdent)
   let pp_print_val_binding ppf = fun i v ->
     Format.fprintf ppf "(%a:->%a)" LA.pp_print_ident i LA.pp_print_expr v
 end
 
-             
+type tyStore = tcType IMap.t
+type vlStore = LA.expr IMap.t 
 (** Typing context is nothing but a mapping of indentifier to its type *)
-type tcContext = tcType TyMap.t
-
-type vstore = LA.expr VStore.t
+type tcContext = tyStore * vlStore 
              
-let pp_print_tymap ppf = TyMap.iter (TyMap.pp_print_type_binding ppf)   
+let pp_print_tymap ppf = IMap.iter (IMap.pp_print_type_binding ppf)   
+let pp_print_vstore ppf = IMap.iter (IMap.pp_print_val_binding ppf)   
 
-let pp_print_tcContext ppf = Format.fprintf ppf "TypingContext: {@ %a@ }" pp_print_tymap 
+let pp_print_tcContext ppf ctx
+  = Format.fprintf ppf
+      "TypeContext: {@ %a@ }\nValuecontext{@ %a @ }"
+      pp_print_tymap (fst ctx)
+      pp_print_vstore (snd ctx)
 
-let emptyContext = TyMap.empty
+let emptyContext = (IMap.empty, IMap.empty)
                  
 
 (** A constant should be evaluated to an integer *)
@@ -159,20 +159,33 @@ and typedIdentToTcTuple: LA.typed_ident -> (LA.ident * tcType) = function
 (** [typeError] returns an [Error] of [tcResult] *)
 let typeError pos err = R.error (pos, err)
 
-let lookup: tcContext -> LA.ident -> tcType =
-  fun ctx i -> TyMap.find i ctx
+let lookupTy: tcContext -> LA.ident -> tcType =
+  fun ctx i -> IMap.find i (fst ctx)
 
-let add: tcContext -> LA.ident -> tcType -> tcContext
-  = fun ctx i ty -> TyMap.add i ty ctx 
+let lookupVal: tcContext -> LA.ident -> LA.expr =
+  fun ctx i -> IMap.find i (snd ctx)
+
+let addTy: tcContext -> LA.ident -> tcType -> tcContext
+  = fun ctx i ty -> (IMap.add i ty (fst ctx), snd ctx) 
+
+let addVal: tcContext -> LA.ident -> LA.expr -> tcContext
+  = fun ctx i e -> ((fst ctx), IMap.add i e (snd ctx)) 
 
 let union: tcContext -> tcContext -> tcContext
-  = fun ctx1 ctx2 -> TyMap.union (fun k v1 v2 -> Some v1) ctx1 ctx2
+  = fun ctx1 ctx2 -> ( IMap.union (fun k v1 v2 -> Some v1) (fst ctx1) (fst ctx2)
+                     , IMap.union (fun k v1 v2 -> Some v1) (snd ctx1) (snd ctx2))
 
-let singleton: LA.ident -> tcType -> tcContext =
-  fun i ty -> add emptyContext i ty
+let singletonTy: LA.ident -> tcType -> tcContext =
+  fun i ty -> addTy emptyContext i ty
+
+let singletonVal: LA.ident -> LA.expr -> tcContext =
+  fun i e -> addVal emptyContext i e
                    
-let member: tcContext -> LA.ident -> bool
-  = fun ctx i -> TyMap.mem i ctx
+let memberTy: tcContext -> LA.ident -> bool
+  = fun ctx i -> IMap.mem i (fst ctx)
+
+let memberVal: tcContext -> LA.ident -> bool
+  = fun ctx i -> IMap.mem i (snd ctx)
 
 let inferTypeConst: LA.constant -> tcType
   = function
@@ -212,7 +225,7 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
   match expr with
   (* Identifiers *)
   | LA.Ident (pos, i) ->
-     (try (Ok (lookup ctx i)) with
+     (try (Ok (lookupTy ctx i)) with
       | Not_found -> typeError pos ("Unbound Variable: << " ^ i ^ " >>")) 
   | LA.ModeRef (pos, ids) -> todo __LOC__
   | LA.RecordProject _  -> todo __LOC__
@@ -316,7 +329,7 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
                                         ^ " and " ^ string_of_tcType ty2))) 
   (* Node calls *)
   | Call (pos, i, args) ->
-     let ty = lookup ctx i in
+     let ty = lookupTy ctx i in
      let rec inferTypeNodeArgs: tcContext -> LA.expr list -> tcType -> tcType tcResult
        = fun ctx args ty -> 
        match (args, ty) with
@@ -446,7 +459,7 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
 and checkTypeConstDecl: tcContext -> LA.const_decl -> tcType -> unit tcResult =
   fun ctx constDecl expTy ->
   match constDecl with
-  | FreeConst (pos, i, lusTy) -> let infTy = (lookup ctx i) in
+  | FreeConst (pos, i, lusTy) -> let infTy = (lookupTy ctx i) in
                                  if infTy != expTy
                                  then typeError pos
                                                ("Type mismatch for identifier "
@@ -478,21 +491,22 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
         expTy ->
   Log.log L_debug "TC node declaration{\n %a" LA.pp_print_ident i
   ; let extractArg: LA.const_clocked_typed_decl -> tcContext
-      = fun  (_, i,ty, _, _) -> singleton i (toTcType ty) in
+      = fun  (_, i,ty, _, _) -> singletonTy i (toTcType ty) in
     let extractRet: LA.clocked_typed_decl -> tcContext
-      = fun (_, i, ty, _) -> singleton i (toTcType ty) in
+      = fun (_, i, ty, _) -> singletonTy i (toTcType ty) in
     let localVarTyBinding: LA.node_local_decl -> tcContext = function
       | LA.NodeConstDecl (pos, constDecls) ->
          (match constDecls with
-         | FreeConst (pos, i, ty) -> singleton i (toTcType ty)
+         | FreeConst (pos, i, ty) -> singletonTy i (toTcType ty)
          | _ -> todo __LOC__)
-      | LA.NodeVarDecl (pos, (_, i, ty, _)) -> singleton i (toTcType ty) 
+      | LA.NodeVarDecl (pos, (_, i, ty, _)) -> singletonTy i (toTcType ty) 
     in
 
     (* if the node is extren, we will not have any body to typecheck so skip it *)
     if isExtern
-    then (Log.log L_debug "External Node, skipping type check"; R.ok ())
-    else(
+    then ( Log.log L_debug "External Node, skipping type check"
+         ; R.ok ())
+    else (
       Log.log L_debug "Params: %a" LA.pp_print_node_param_list params
     ; Log.log L_debug "Local decls: %a" LA.pp_print_node_local_decl localdecls
     ; let localVars = List.fold_left union emptyContext (List.map localVarTyBinding localdecls) in
@@ -557,7 +571,7 @@ and checkTypeStructDef: tcContext -> LA.eq_lhs -> tcType -> unit tcResult
     assert (List.length lhss = 1)
   ; let lhs = List.hd lhss in
     match lhs with
-    | SingleIdent (pos, i) -> let expTy = lookup ctx i in
+    | SingleIdent (pos, i) -> let expTy = lookupTy ctx i in
                             if expTy = ty
                             then R.ok()
                             else typeError pos ("Type mismatch. Expected type"
@@ -568,39 +582,43 @@ and checkTypeStructDef: tcContext -> LA.eq_lhs -> tcType -> unit tcResult
   
 
 (** Obtain a global typing context *)
-and typingContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
-  let typingContextOf': tcContext -> LA.declaration -> tcContext tcResult
+and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
+  let tcContextOf': tcContext -> LA.declaration -> tcContext tcResult
     = fun ctx decl ->
     match decl with
-    | LA.ConstDecl (_, tyDecl) -> typingContextOfConstDecl ctx tyDecl
-    | LA.NodeDecl (pos, nodeDecl) -> typingContextOfNodeDecl pos ctx nodeDecl 
+    | LA.ConstDecl (_, tyDecl) -> tcCtxConstDecl ctx tyDecl
+    | LA.NodeDecl (pos, nodeDecl) -> tcCtxOfNodeDecl pos ctx nodeDecl 
     | _ -> R.ok ctx
 
   in function 
   | [] -> R.ok ctx
-  | d :: tl -> R.bind ( Log.log L_debug "Extracting typing context from declaration: %a" LA.pp_print_declaration d
-                      ; typingContextOf' ctx d) (fun ctx' ->
+  | d :: tl -> R.bind ( Log.log L_debug
+                          "Extracting typing context from declaration: %a"
+                          LA.pp_print_declaration d
+                      ; tcContextOf' ctx d) (fun ctx' ->
                    R.bind (
                        Log.log L_debug "%a" pp_print_tcContext (union ctx' ctx)
-                     ; typingContextOf (union ctx' ctx) tl) (fun c -> 
+                     ; tcContextOf (union ctx' ctx) tl) (fun c -> 
                        R.ok c))
-and typingContextOfTyDecl: tcContext -> LA.type_decl -> tcContext
+and tcCtxTyDecl: tcContext -> LA.type_decl -> tcContext
   = fun ctx _ -> ctx
 (** Shadow the old binding with the new type *)
-and typingContextOfConstDecl:  tcContext -> LA.const_decl -> tcContext tcResult
+and tcCtxConstDecl: tcContext -> LA.const_decl -> tcContext tcResult
   = fun ctx -> function
-            | LA.FreeConst (_, i, ty) -> R.ok (add ctx i (toTcType ty))
-            | LA.UntypedConst (_, i, expr) -> R.ok ctx
+            | LA.FreeConst (_, i, ty) ->
+               R.ok (addTy ctx i (toTcType ty))
+            | LA.UntypedConst (_, i, expr) ->
+               R.ok (addVal ctx i expr)
             | LA.TypedConst (pos, i, expr, ty)
               ->  let expTy = toTcType ty in
                   R.bind (checkTypeExpr ctx expr expTy) (fun _ ->
-                      R.ok (add ctx i expTy))
+                      R.ok (addTy ctx i expTy))
 (** get the type signature of node or a function *)
-and typingContextOfNodeDecl: Lib.position -> tcContext -> LA.node_decl -> tcContext tcResult
+and tcCtxOfNodeDecl: Lib.position -> tcContext -> LA.node_decl -> tcContext tcResult
   = fun pos ctx (i, _, _ , ip, op,_ ,_ ,_) ->
-  if (member ctx i)
+  if (memberTy ctx i)
   then typeError pos ("Duplicate node detected with name: " ^ i)
-  else R.ok (add ctx i (buildFunTy ip op))
+  else R.ok (addTy ctx i (buildFunTy ip op))
   
 (* Function type for nodes will be (TupleTy ips) -> (tuple outputs)  *)
 and  buildFunTy: LA.const_clocked_typed_decl list -> LA.clocked_typed_decl list -> tcType
@@ -610,8 +628,13 @@ and  buildFunTy: LA.const_clocked_typed_decl list -> LA.clocked_typed_decl list 
   let ips =  List.map extractIp args in
   let ops = List.map extractOp rets in
   Fun (TupleTy ips, TupleTy ops)
-  
-  
+(** Evalute const expressions to a value *)
+and evalExprs: LA.expr IMap.t -> (LA.expr IMap.t) tcResult = fun vstore
+  -> todo __LOC__ (* IMap.map (fun e -> evalExpr vstore e) vstore *)
+and propogateConsts: tcContext -> tcContext tcResult = fun (tyCtx, valCtx) ->
+  R.bind (evalExprs valCtx) (fun vctx' ->
+      R.ok (tyCtx, vctx'))
+
 (* Compute the strongly connected components for type checking *)
 (* TODO: Find strongly connected components, put them in a group *)
 let scc: LA.t -> LA.t list
@@ -628,7 +651,7 @@ let rec typeCheckGroup: tcContext -> LA.t ->  unit tcResult list
   | (LA.TypeDecl _ :: rest) 
   | LA.ConstDecl _ :: rest -> typeCheckGroup ctx rest  
   | LA.NodeDecl (pos, ((i, _,_, _, _, _, _, _) as nodeDecl)) :: rest ->
-     (checkTypeNodeDecl ctx nodeDecl (lookup ctx i)) :: typeCheckGroup ctx rest  
+     (checkTypeNodeDecl ctx nodeDecl (lookupTy ctx i)) :: typeCheckGroup ctx rest  
   (*    match dec with
    * | FuncDecl of position * node_decl
    * | ContractNodeDecl of position * contract_node_decl
@@ -641,10 +664,11 @@ let typeCheckDeclGrps: tcContext -> LA.t list -> unit tcResult list = fun ctx de
   List.concat (List.map (typeCheckGroup ctx) decls)               
 
 let typeCheckProgram: LA.t -> unit tcResult = fun prg ->
-  let tcCtx = typingContextOf emptyContext prg in 
-  R.bind (tcCtx) (fun p ->
-      Log.log L_debug "Global Typing Context\n====\n%a\n====\n" pp_print_tcContext p; 
-      prg |> scc |> typeCheckDeclGrps p |> reportTcResult) 
+  R.bind (tcContextOf emptyContext prg) (fun tcCtx ->
+      Log.log L_debug "Type Checker Context\n====\n%a\n====\n" pp_print_tcContext  tcCtx
+    ; R.bind (propogateConsts tcCtx) (fun p ->
+          Log.log L_debug "Global Typing Context\n====\n%a\n====\n" pp_print_tcContext p; 
+          prg |> scc |> typeCheckDeclGrps p |> reportTcResult)) 
     
     
 (* 
