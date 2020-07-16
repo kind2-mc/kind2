@@ -91,27 +91,35 @@ following the instructions on the website. Then, run
 
    opam pin add -n kind2 https://github.com/kind2-mc/kind2.git
    opam depext kind2
-   opam install z3 kind2
+   opam install kind2
 
 The first command points OPAM to this GitHub repo to install Kind 2 binary.
 The second command installs the ZeroMQ C library using the default package
-manager for your OS (may require sudo permission). The third command installs
-``Z3`` SMT solver and ``kind2``. By default, ``kind2`` will be installed into
+manager for your OS (may require sudo permission). The third command installs ``kind2``. 
+By default, ``kind2`` will be installed into
 the bin directory of your current OPAM switch. Run
 
 .. code-block:: none
 
-   opam install kind2 --destdir=DIR
+   opam install kind2 --destdir=<DIR>
 
 to install the Kind 2 binary into ``<DIR>/bin``.
 
-Alternatively, you can clone this repo, move to the top-level directory, and run
+In alternative, you can clone https://github.com/kind2-mc/kind2.git, move to its top-level directory, and run
 
 .. code-block:: none
 
    make install
 
-to install ``kind2`` and its dependencies.
+to have OPAM install ``kind2`` and its dependencies.
+
+Note that z3 is available in OPAM so it is possible to install it too with OPAM by running:
+
+.. code-block:: none
+
+   opam install z3
+
+Be aware, however, that this takes quite a bit of time (up to 25 minutes).
 
 
 Direct Installation Using Dune 
