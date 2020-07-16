@@ -4,7 +4,8 @@ Kind 2
 `Kind 2 <http://kind.cs.uiowa.edu/>`_ \ is a multi-engine, parallel,
 SMT-based automatic model checker for safety properties of Lustre programs.
 
-Kind 2 takes as input a Lustre file annotated with properties to be proven
+Kind 2 is a command-line tool. 
+It takes as input a Lustre file annotated with properties to be proven
 invariant (see :ref:`Lustre Input <2_input/1_lustre>`), and
 outputs which of the properties are true for all inputs, as well as an input
 sequence for those properties that are falsified. To ease processing by
@@ -142,11 +143,12 @@ move to the top-level directory of the repository, and run
 .. code-block:: none
 
    dune build
-   dune install --prefix DIR
+   dune install --prefix <DIR>
 
 to install the Kind 2 binary into ``<DIR>/bin``.
 
-You need a supported SMT solver on your path when running ``kind2``.
+You need a supported SMT solver in your PATH environment variable when running ``kind2``.
+
 
 Development
 -----------
@@ -164,6 +166,7 @@ Alternatively, you can install all dependencies in your current switch by runnin
 
    opam install . --deps-only
    make
+
 
 Documentation
 -------------
