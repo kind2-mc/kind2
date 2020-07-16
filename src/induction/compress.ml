@@ -184,6 +184,18 @@ let function_symbol_name () =
 let new_function_symbol_name () =
   equal_mod_input_string := Printf.sprintf "__compress_equal_mod_input_%i" (counter ())
 
+
+let only_bv trans_sys =
+  match TransSys.get_logic trans_sys with
+  | `SMTLogic "QF_BV"
+  | `SMTLogic "QF_ABV"
+  | `SMTLogic "QF_UFBV"
+  | `SMTLogic "QF_AUFBV" -> true
+  | `SMTLogic _
+  | `None -> false
+  | `Inferred l -> TermLib.FeatureSet.(mem BV l && not(mem IA l))
+
+
 (* Declare uninterpreted function symbol *)
 let init_equal_mod_input declare_fun trans_sys =
 
@@ -201,7 +213,7 @@ let init_equal_mod_input declare_fun trans_sys =
          (List.sort 
             StateVar.compare_state_vars
             (TransSys.state_vars trans_sys)))
-      Type.t_int
+      (if only_bv trans_sys then Type.mk_ubv 64 else Type.t_int)
   in
   
   declare_fun uf_distinct
@@ -209,7 +221,7 @@ let init_equal_mod_input declare_fun trans_sys =
 
 (* States are equivalent if for each variable the variable is either
    an input or the values are equal *)
-let equal_mod_input accum s1 s2 = 
+let equal_mod_input only_bv accum s1 s2 =
 
   let uf_distinct = 
     UfSymbol.uf_symbol_of_string !equal_mod_input_string
@@ -258,7 +270,13 @@ let equal_mod_input accum s1 s2 =
             in
 
             (* Equation f(v1, ..., vn) = i *)
-            let term_of_state s = 
+            let term_of_state s =
+              let n =
+                if only_bv then
+                  Term.mk_ubv (Bitvector.num_to_ubv64 (aux s))
+                else
+                  Term.mk_num (aux s)
+              in
               Term.mk_eq
                 [Term.mk_uf
                    uf_distinct 
@@ -269,7 +287,7 @@ let equal_mod_input accum s1 s2 =
                              (StateVar.is_input
                                 (Var.state_var_of_state_var_instance v))
                          then Term.mk_var v :: a else a) s []);
-                 Term.mk_num (aux s)]
+                 n]
             in              
 
             (* Equation to force first state distinct from others *)
@@ -743,7 +761,7 @@ let check_and_block declare_fun trans_sys path =
 
     if Flags.BmcKind.compress_equal () then 
 
-      fold_pairs equal_mod_input block_terms states
+      fold_pairs (equal_mod_input (only_bv trans_sys)) block_terms states
 
     else 
 
