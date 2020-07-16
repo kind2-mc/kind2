@@ -51,8 +51,18 @@ produced for each property that is not invariant, given enough time and resource
 
 ``-xml`` Output in XML format
 
-Requirements
-------------
+
+Download
+--------
+
+If you use a Linux or a MacOS computer, you can download an executable of the latest version 
+of Kind 2 from `here <https://github.com/kind2-mc/kind2/releases/latest/>`_\.
+First make sure though that you have the required software described next.
+
+Required Software
+-----------------
+
+To run Kind 2 the following software must be installed on your computer:
 
 * Linux or Mac OS X
 * `ZeroMQ (C library) 4.x or later <https://zeromq.org>`_\, and
@@ -63,19 +73,13 @@ Requirements
   * `Yices 1 <http://yices.csl.sri.com/old/download-yices1-full.shtml>`_\ , or
   * `Z3 <https://github.com/Z3Prover/z3>`_ (presently recommended)
 
-To build Kind 2 you also need the following requirements (see next section
-`Building and installing`_ to learn how to install them using
-the `OPAM package manager <http://opam.ocaml.org>`_\):
-
-* OCaml 4.07 or later,
-* `Dune 2.2 or later <https://github.com/ocaml/dune>`_ (and dune-build-info)\,
-* `OCaml bindings for ZMQ <https://github.com/issuu/ocaml-zmq>`_\,
-* `Yojson <https://github.com/ocaml-community/yojson>`_\ ,
-* `num <https://github.com/ocaml/num>`_\,
-* `Menhir <http://gallium.inria.fr/~fpottier/menhir/>`_ parser generator
 
 Building and installing
 -----------------------
+
+If you prefer, you can build Kind 2 directly from sources, 
+either through the OPAM package manager (recommended) or directly.
+
 
 Using OPAM
 ^^^^^^^^^^
@@ -109,11 +113,23 @@ Alternatively, you can clone this repo, move to the top-level directory, and run
 
 to install ``kind2`` and its dependencies.
 
-Using Dune (OPAM not required)
+
+Direct Installation Using Dune 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Install all the requirements on your system using your preferred method.
-Clone this repo, move to the top-level directory, and run
+To build directly from sources you will also need the following software 
+first:
+
+* OCaml 4.07 or later,
+* `Dune 2.2 or later <https://github.com/ocaml/dune>`_ (and dune-build-info)\,
+* `OCaml bindings for ZMQ <https://github.com/issuu/ocaml-zmq>`_\,
+* `Yojson <https://github.com/ocaml-community/yojson>`_\ ,
+* `num <https://github.com/ocaml/num>`_\,
+* `Menhir <http://gallium.inria.fr/~fpottier/menhir/>`_ parser generator
+
+First install this software on your system using your preferred method.
+Then clone the `Kind 2 git repository <https://github.com/kind2-mc/kind2>`_, 
+move to the top-level directory of the repository, and run
 
 .. code-block:: none
 
