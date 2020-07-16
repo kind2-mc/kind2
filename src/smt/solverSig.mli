@@ -64,6 +64,8 @@ module type Inst = sig
   (** Assert the expression *)
   val assert_expr : SMTExpr.t -> decl_response
 
+  val assert_soft_expr : SMTExpr.t -> int -> decl_response
+
   (** Push a number of empty assertion sets to the stack *)
   val push : int -> decl_response 
 

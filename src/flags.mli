@@ -514,6 +514,9 @@ module MCS : sig
   (** Specify whether all the Minimal Cut Sets must be computed or just one *)
   val mcs_all : unit -> bool
 
+  (** If true, compute an approximation of a MCS *)
+  val mcs_approximate : unit -> bool
+
   (** Specify on which elements we want to minimize *)
   val mcs_category : unit -> mcs_element list
 

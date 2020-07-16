@@ -166,6 +166,7 @@ val mcs :
   ?initial_solution:mcs option ->
   ?max_mcs_cardinality:int ->
   bool -> (* Compute them all? *)
+  bool -> (* Approximate? *)
   (mcs -> unit) ->
   mcs list
 

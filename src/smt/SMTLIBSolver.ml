@@ -591,6 +591,18 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     execute_command solver cmd 0
 
 
+  (* Assert-soft the expression *)
+  let assert_soft_expr solver expr weight =
+
+    let cmd =
+      Format.sprintf
+        "@[<hv 1>(assert-soft@ @[<hv>%s@] :weight %d)@]"
+        (string_of_expr expr) weight in
+
+    (* Send command to the solver without timeout *)
+    execute_command solver cmd 0
+
+
   (* Push a number of empty assertion sets to the stack *)
   let push solver scopes = 
 
@@ -1134,6 +1146,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     let declare_fun = declare_fun solver
     let define_fun = define_fun solver
     let assert_expr = assert_expr solver
+    let assert_soft_expr = assert_soft_expr solver
 
     let push = push solver
     let pop = pop solver
