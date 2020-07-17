@@ -53,6 +53,11 @@ produced for each property that is not invariant, given enough time and resource
 ``-xml`` Output in XML format
 
 
+Try Kind 2 Online
+-----------------
+
+Visit our `web interface <https://kind.cs.uiowa.edu/app/>`_ to try Kind 2 from your browser.
+
 Download
 --------
 
@@ -74,12 +79,89 @@ To run Kind 2 the following software must be installed on your computer:
   * `Yices 1 <http://yices.csl.sri.com/old/download-yices1-full.shtml>`_\ , or
   * `Z3 <https://github.com/Z3Prover/z3>`_ (presently recommended)
 
+Docker
+------
+
+Kind 2 is also available on `Docker Hub <https://hub.docker.com/r/kind2/kind2/>`_.
+
+Retrieving / updating the image
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+`Install docker <https://www.docker.com/products/docker>`_ and then run
+
+.. code-block:: none
+
+   docker pull kind2/kind2:dev
+
+Docker will retrieve the *layers* corresponding to the latest version of the
+Kind 2 repository, ``develop`` version. If you are interested in the latest
+release, run
+
+.. code-block:: none
+
+   docker pull kind2/kind2
+
+instead.
+
+If you want to update your Kind 2 image to latest one, simply re-run the
+``docker pull`` command.
+
+Running Kind 2 through docker
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To run Kind 2 on a file on your system, it is recommended to mount the folder
+in which this file is as a `volume <https://docs.docker.com/engine/tutorials/dockervolumes/#/mount-a-host-directory-as-a-data-volume>`_.
+In practice, run
+
+.. code-block:: none
+
+   docker run -v <absolute_path_to_folder>:/lus kind2/kind2:dev <options> /lus/<your_file>
+
+where
+
+
+* ``<absolute_path_to_folder>`` is the absolute path to the folder your file is in,
+* ``<your_file>`` is the lustre file you want to run Kind 2 on, and
+* ``<options>`` are some Kind 2 options of your choice.
+
+**N.B.**
+
+
+* the fact that the path to your folder must be absolute is
+  `a docker constraint <https://docs.docker.com/engine/tutorials/dockervolumes/#/mount-a-host-directory-as-a-data-volume>`_\ ;
+* mount point ``/lus`` is arbitrary and does not matter as long as it is
+  consistent with the last argument ``/lus/<your_file>``. To avoid name clashes
+  with folders already present in the container however, it is recommended to
+  use ``/lus``\ ;
+* replace ``kind2:dev`` by ``kind2`` if you want to run the latest release of Kind2
+  instead of the ``develop`` version;
+* ``docker run`` does **not** update your local Kind 2 image to the latest one:
+  the appropriate ``docker pull`` command does.
+
+Packaging your local version of Kind 2
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In the ``docker`` directory at the top level of the Kind 2 repository,
+there is a ``Dockerfile`` you can use to
+build your own Kind 2 image. To do so, just run
+
+.. code-block:: none
+
+   docker build -t kind2-local -f ./docker/Dockerfile .
+
+at the root of the repository. ``kind2-local`` is given here as an example, feel
+free to call it whatever you want.
+
+Note that building your own local Kind 2 image **does require access to the
+Internet**. This is because of the packages the build process needs to
+retrieve, as well as for downloading the z3 and cvc4 solvers.
 
 Building and installing
 -----------------------
 
 If you prefer, you can build Kind 2 directly from sources, 
-either through the OPAM package manager (recommended) or directly.
+either through the OPAM package manager (recommended) or
+directly using dune.
 
 
 Using OPAM
@@ -177,88 +259,3 @@ or `PDF <http://kind.cs.uiowa.edu/kind2_user_doc/doc.pdf>`_ forms.
 .. include:: doc_requirements.rst
 
 See ``doc/usr/README.rst`` for more information.
-
-
-Online Web Application
-----------------------
-
-You can try `Kind 2 from your browser <https://kind.cs.uiowa.edu/app/>`_
-if you are not ready to install it.
-
-
-Docker
-------
-
-Kind 2 is available on `docker <https://hub.docker.com/r/kind2/kind2/>`_.
-
-Retrieving / updating the image
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-`Install docker <https://www.docker.com/products/docker>`_ and then run
-
-.. code-block:: none
-
-   docker pull kind2/kind2:dev
-
-Docker will retrieve the *layers* corresponding to the latest version of the
-Kind 2 repository, ``develop`` version. If you are interested in the latest
-release, run
-
-.. code-block:: none
-
-   docker pull kind2/kind2
-
-instead.
-
-If you want to update your Kind 2 image to latest one, simply re-run the
-``docker pull`` command.
-
-Running Kind 2 through docker
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To run Kind 2 on a file on your system, it is recommended to mount the folder
-in which this file is as a `volume <https://docs.docker.com/engine/tutorials/dockervolumes/#/mount-a-host-directory-as-a-data-volume>`_.
-In practice, run
-
-.. code-block:: none
-
-   docker run -v <absolute_path_to_folder>:/lus kind2/kind2:dev <options> /lus/<your_file>
-
-where
-
-
-* ``<absolute_path_to_folder>`` is the absolute path to the folder your file is in,
-* ``<your_file>`` is the lustre file you want to run Kind 2 on, and
-* ``<options>`` are some Kind 2 options of your choice.
-
-**N.B.**
-
-
-* the fact that the path to your folder must be absolute is
-  `a docker constraint <https://docs.docker.com/engine/tutorials/dockervolumes/#/mount-a-host-directory-as-a-data-volume>`_\ ;
-* mount point ``/lus`` is arbitrary and does not matter as long as it is
-  consistent with the last argument ``/lus/<your_file>``. To avoid name clashes
-  with folders already present in the container however, it is recommended to
-  use ``/lus``\ ;
-* replace ``kind2:dev`` by ``kind2`` if you want to run the latest release of Kind2
-  instead of the ``develop`` version;
-* ``docker run`` does **not** update your local Kind 2 image to the latest one:
-  the appropriate ``docker pull`` command does.
-
-Packaging your local version of Kind 2
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-In the ``docker`` directory at the top level of the Kind 2 repository,
-there is a ``Dockerfile`` you can use to
-build your own Kind 2 image. To do so, just run
-
-.. code-block:: none
-
-   docker build -t kind2-local -f ./docker/Dockerfile .
-
-at the root of the repository. ``kind2-local`` is given here as an example, feel
-free to call it whatever you want.
-
-Note that building your own local Kind 2 image **does require access to the
-Internet**. This is because of the packages the build process needs to
-retrieve, as well as for downloading the z3 and cvc4 solvers.
