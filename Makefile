@@ -26,7 +26,7 @@ doc:
 install:
 	@opam pin add -n -y kind2 https://github.com/kind2-mc/kind2.git
 	@opam depext -y kind2
-	@opam install -y z3 kind2
+	@opam install -y kind2
 
 kind2-doc:
 	@dune build @doc-private
