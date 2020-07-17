@@ -187,6 +187,7 @@ the bin directory of your current OPAM switch. Run
    opam install kind2 --destdir=<DIR>
 
 to install the Kind 2 binary into ``<DIR>/bin``.
+This will also create directories ``<DIR>/doc`` and ``<DIR>/lib``.
 
 In alternative, you can clone https://github.com/kind2-mc/kind2.git, move to its top-level directory, and run
 
@@ -225,7 +226,7 @@ move to the top-level directory of the repository, and run
 .. code-block:: none
 
    dune build
-   dune install --prefix <DIR>
+   dune install --sections=bin --prefix <DIR>
 
 to install the Kind 2 binary into ``<DIR>/bin``.
 
