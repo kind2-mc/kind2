@@ -176,7 +176,7 @@ let lift_prop_name node_name pos prop_name =
       (* Print attributes *)
       Format.fprintf 
         ppf
-        "[%al%dc%d]"
+        "[%a:%d:%d]"
         pp_print_file pos_file
         pos_lnum
         pos_cnum

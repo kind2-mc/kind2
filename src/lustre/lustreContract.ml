@@ -38,26 +38,26 @@ let mk_svar pos num name svar scope = {
 (* Quiet pretty printer for non dummy positions. *)
 let pprint_pos fmt pos =
   let f,l,c = file_row_col_of_pos pos in
-  let f = if f = "" then "" else f ^ "|" in
-  Format.fprintf fmt "%sl%dc%d" f l c
+  let f' = if f = "" then "" else f ^ ":" in
+  Format.fprintf fmt "%s%d:%d" f' l c
 
 let prop_name_of_svar { pos ; num ; name = s; scope } kind name =
   match s with
   | Some n ->
-    Format.asprintf "%a%s[%d]" (
+    Format.asprintf "%a%s" (
       pp_print_list (
         fun fmt (pos, call) ->
           Format.fprintf fmt "%s[%a]." call pprint_pos pos
       ) ""
-    ) scope n num
+    ) scope n
     
   | None ->
-    Format.asprintf "%a%s%s[%a][%d]" (
+    Format.asprintf "%a%s%s[%a]" (
       pp_print_list (
         fun fmt (pos, call) ->
           Format.fprintf fmt "%s[%a]." call pprint_pos pos
       ) ""
-    ) scope kind name pprint_pos pos num
+    ) scope kind name pprint_pos pos
 
 
 type mode = {

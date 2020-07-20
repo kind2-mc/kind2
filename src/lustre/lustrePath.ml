@@ -801,7 +801,7 @@ let pp_print_pos_pt ppf pos =
     (* Print attributes *)
     Format.fprintf 
       ppf
-      "[%al%dc%d]"
+      "[%a:%d:%d]"
       pp_print_file_pt pos_file
       pos_lnum
       pos_cnum

@@ -1068,9 +1068,9 @@ let pp_print_pos ppf (
 
     fprintf 
       ppf
-      "[%tl%dc%d]"
+      "[%t:%d:%d]"
       (function ppf -> 
-        if pos_fname = "" then () else fprintf ppf "%s|" pos_fname)
+        if pos_fname = "" then () else fprintf ppf "%s:" pos_fname)
       pos_lnum
       pos_cnum
 
@@ -1122,6 +1122,8 @@ let print_backtrace fmt bt =
 let pos_of_file_row_col (pos_fname, pos_lnum, pos_cnum) =
   { pos_fname; pos_lnum; pos_cnum }
 
+let set_lexer_filename lexbuf fname  =
+  lexbuf.Lexing.lex_curr_p <- {lexbuf.Lexing.lex_curr_p with pos_fname = fname}
 
 (* Split a string at its first dot. Raises {Not_found} if there are not dots *)
 let split_dot s =

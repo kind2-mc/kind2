@@ -442,7 +442,9 @@ rule token = parse
       in
 
       (* Set new position in lexing buffer *)
-      lexbuf.Lexing.lex_curr_p <- zero_pos
+      lexbuf.Lexing.lex_curr_p <- zero_pos;
+      (* Set the include filename the new the buffer *)
+      Lib.set_lexer_filename lexbuf fname;
     );
 
     (* Continue with included file *)

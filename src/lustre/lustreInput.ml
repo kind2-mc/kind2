@@ -89,10 +89,8 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
     (try Filename.dirname (input_source)
      with Failure _ -> Sys.getcwd ());
 
-  (* Set the relative file name in lex buffer *)
-  (* Lib.set_lexer_filename lexbuf (input_source); *)
-  (* Setting the name in the lexer buffer causes issues with the way we display properties.
-   * For the time being we would not want to change this behaviour *)
+  (* Set the main file name in lex buffer *)
+  Lib.set_lexer_filename lexbuf (input_source);
 
   (* Create lexing buffer and incrementally parse it*)
   try

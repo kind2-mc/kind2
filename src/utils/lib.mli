@@ -404,6 +404,9 @@ val pos_of_file_row_col : string * int * int -> position
 (** Convert a position of the lexer to a position *)
 val position_of_lexing : Lexing.position -> position
 
+(** set the filename in lexing buffer*)	
+val set_lexer_filename: Lexing.lexbuf -> string -> unit
+  
 (** Pretty print a backtrace *)
 val print_backtrace : Format.formatter -> Printexc.raw_backtrace -> unit
 
