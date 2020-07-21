@@ -590,13 +590,14 @@ and checkTypeStructDef: tcContext -> LA.eq_lhs -> tcType -> unit tcResult
     | _ -> Lib.todo __LOC__
          
 
-(** Obtain a global typing context *)
+(** Obtain a global typing context, get contatnts and function decls*)
 and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
   let tcContextOf': tcContext -> LA.declaration -> tcContext tcResult
     = fun ctx decl ->
     match decl with
     | LA.ConstDecl (_, tyDecl) -> tcCtxConstDecl ctx tyDecl
-    | LA.NodeDecl (pos, nodeDecl) -> tcCtxOfNodeDecl pos ctx nodeDecl 
+    | LA.NodeDecl (pos, nodeDecl) -> tcCtxOfNodeDecl pos ctx nodeDecl
+    | LA.FuncDecl (pos, nodeDecl) -> tcCtxOfNodeDecl pos ctx nodeDecl
     | _ -> R.ok ctx
 
   in function 
@@ -609,8 +610,7 @@ and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
                        Log.log L_debug "%a" IMap.pp_print_tcContext (union ctx ctx')
                      ; tcContextOf (union ctx ctx') tl) (fun c -> 
                        R.ok c))
-and tcCtxTyDecl: tcContext -> LA.type_decl -> tcContext
-  = fun ctx _ -> ctx
+
 (** Shadow the old binding with the new decl *)
 and tcCtxConstDecl: tcContext -> LA.const_decl -> tcContext tcResult
   = fun ctx -> function
@@ -632,7 +632,7 @@ and tcCtxOfNodeDecl: Lib.position -> tcContext -> LA.node_decl -> tcContext tcRe
   else R.ok (addTy ctx i (buildFunTy pos ip op))
   
 (** Function type for nodes will be (TupleTy ips) -> (tuple outputs)  *)
-and  buildFunTy: Lib.position -> LA.const_clocked_typed_decl list -> LA.clocked_typed_decl list -> tcType
+and buildFunTy: Lib.position -> LA.const_clocked_typed_decl list -> LA.clocked_typed_decl list -> tcType
   = fun pos args rets -> 
   let extractIp (_, _, ty, _, _) =  ty in
   let extractOp (_, _, ty, _) = ty in
@@ -640,60 +640,52 @@ and  buildFunTy: Lib.position -> LA.const_clocked_typed_decl list -> LA.clocked_
   let ops = List.map extractOp rets in
   TArr (pos, TupleType (pos, ips), TupleType (pos, ops))
 
+(** Compute Equality for lustre types  *)
 and eqLustreType : tcContext -> LA.lustre_type -> LA.lustre_type -> bool tcResult = fun ctx t1 t2 ->
   match (t1, t2) with
+  (* Type Variable *)
   | TVar (_, i1), TVar (_, i2) -> R.ok (i1 = i2)
-  | TVar _, _ -> R.ok false
+  (* Simple types *)
   | Bool _, Bool _ -> R.ok true
-  | Bool _, _ -> R.ok false
   | Int _, Int _ -> R.ok true
-  | Int _, _ -> R.ok false
   | UInt8 _, UInt8 _ -> R.ok true
-  | UInt8 _, _ -> R.ok false
   | UInt16 _, UInt16 _ -> R.ok true              
-  | UInt16 _, _ -> R.ok false              
   | UInt32 _, UInt32 _ -> R.ok true
-  | UInt32 _, _ -> R.ok false              
   | UInt64 _,UInt64 _ -> R.ok true 
-  | UInt64 _, _ -> R.ok false              
   | Int8 _, Int8 _ -> R.ok true 
-  | Int8 _, _ -> R.ok false              
   | Int16 _, Int16 _ -> R.ok true
-  | Int16  _, _ -> R.ok false              
   | Int32 _, Int32 _ -> R.ok true
-  | Int32 _, _ -> R.ok false              
   | Int64 _, Int64 _ -> R.ok true
-  | Int64 _, _ -> R.ok false              
-  | IntRange _, IntRange _ -> R.ok true
-  | IntRange _, _ -> R.ok false              
   | Real _, Real _ -> R.ok true
-  | Real _, _ -> R.ok false              
+  (* Integer Range *)
+  | IntRange _, IntRange _ -> R.ok true
+  (* Lustre V6 features *)
   | UserType (_, i1), UserType (_, i2) -> R.ok (i1 = i2) 
-  | UserType  _, _ -> R.ok false              
   | AbstractType (_, i1), AbstractType (_, i2) -> R.ok (i1 = i2)
-  | AbstractType _, _ -> R.ok (false)              
   | TupleType (_, tys1), TupleType (_, tys2) ->
      R.bind (R.seq (List.map2 (eqLustreType ctx) tys1 tys2)) (fun isEqs ->
          R.ok (List.fold_left (&&) true isEqs))      
-  | TupleType  _, _ -> R.ok false              
   | RecordType (_, tys1), RecordType (_, tys2) ->
      R.bind (R.seq (List.map2 (eqTypedIdent ctx) tys1 tys2)) (fun isEqs ->
         R.ok (List.fold_left (&&) true isEqs))
-  | RecordType _, _ -> R.ok false              
   | ArrayType (pos1, arr1), ArrayType (pos2, arr2) -> eqTypeArray ctx arr1 arr2 
-  | ArrayType _, _ -> R.ok false                     
-  | EnumType (_, n1, is1), EnumType (_, n2, is2) -> R.ok (n1 = n2 && (List.fold_left (&&) true (List.map2 (=) is1 is2))) 
-  | EnumType _, _ -> R.ok false                       
+  | EnumType (_, n1, is1), EnumType (_, n2, is2) ->
+     R.ok (n1 = n2 && (List.fold_left (&&) true (List.map2 (=) is1 is2)))
+  (* node/function type *)
   | TArr (_, argTy1, retTy1), TArr (_, argTy2, retTy2) ->
      R.bind (eqLustreType ctx argTy1 argTy2) (fun isEqArgTy ->
          if isEqArgTy
          then eqLustreType ctx retTy1 retTy2
          else R.ok false )
-  | TArr _, _ -> R.ok false
+  | _, _ -> R.ok false
+
+(** Compute equality for [LA.typed_ident] *)
 and eqTypedIdent: tcContext -> LA.typed_ident -> LA.typed_ident -> bool tcResult =
   fun ctx (_, i1, ty1) (_, i2, ty2) -> if (i1 = i2)
                                        then eqLustreType ctx ty1 ty2
                                        else R.ok false
+
+(** Compute equality for [LA.ArrayType] *)
 and eqTypeArray: tcContext -> (LA.lustre_type * LA.expr) -> (LA.lustre_type * LA.expr) -> bool tcResult
   = fun ctx (ty1, e1) (ty2, e2) -> 
        R.bind (eqLustreType ctx ty1 ty2) (fun isTyEq ->
@@ -724,7 +716,9 @@ and evalConstExpr: tcContext -> LA.expr -> int tcResult = fun ctx e ->
    * | ConvOp of position * conversion_operator * expr
    * | CompOp of position * comparison_operator * expr * expr
    * |  *)
-  | _ -> typeError (LustreAstHelpers.pos_of_expr e) "Cannot evaluate constant"
+  | _ -> typeError (LustreAstHelpers.pos_of_expr e)
+           ("Cannot evaluate expression"
+            ^ Lib.string_of_t LA.pp_print_expr e ^" to constant")
 
 (* Compute the strongly connected components for type checking *)
 (* LIB.TODO: Find strongly connected components, put them in a group *)
@@ -742,9 +736,11 @@ let rec typeCheckGroup: tcContext -> LA.t ->  unit tcResult list
   | (LA.TypeDecl _ :: rest) 
     | LA.ConstDecl _ :: rest -> typeCheckGroup ctx rest  
   | LA.NodeDecl (pos, ((i, _,_, _, _, _, _, _) as nodeDecl)) :: rest ->
-     (checkTypeNodeDecl ctx nodeDecl (lookupTy ctx i)) :: typeCheckGroup ctx rest  
-  (*    match dec with
-   * | FuncDecl of position * node_decl
+     (checkTypeNodeDecl ctx nodeDecl (lookupTy ctx i)) :: typeCheckGroup ctx rest
+  | LA.FuncDecl (pos, ((i, _,_, _, _, _, _, _) as nodeDecl)):: rest ->
+     (checkTypeNodeDecl ctx nodeDecl (lookupTy ctx i)) :: typeCheckGroup ctx rest
+  (* 
+   * | 
    * | ContractNodeDecl of position * contract_node_decl
    * | NodeParamInst of position * node_param_inst *)
   | _ -> Lib.todo __LOC__
