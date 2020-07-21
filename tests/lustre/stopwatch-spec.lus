@@ -1,5 +1,5 @@
-include "auxilary_stopwatch_funs.lus"
-include "contract_stopwatch_spec.lus"
+include "includes/auxilary_stopwatch_funs.lus"
+include "includes/contract_stopwatch_spec.lus"
 
 ------------------------------
 -- Stopwatch low-level spec --
