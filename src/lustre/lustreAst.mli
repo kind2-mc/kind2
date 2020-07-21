@@ -98,8 +98,31 @@ type group_expr =
   | TupleExpr (* Tuple expression *)
   | ArrayExpr (* Array expression *)
 
+(** A Lustre type *)
+type lustre_type =
+  | TVar of position * ident
+  | Bool of position
+  | Int of position
+  | UInt8 of position
+  | UInt16 of position
+  | UInt32 of position
+  | UInt64 of position
+  | Int8 of position
+  | Int16 of position
+  | Int32 of position
+  | Int64 of position
+  | IntRange of position * expr * expr
+  | Real of position
+  | UserType of position * ident
+  | AbstractType of position * ident
+  | TupleType of position * lustre_type list
+  | RecordType of position * typed_ident list
+  | ArrayType of position * (lustre_type * expr)
+  | EnumType of position * ident option * ident list
+  | TArr of position * lustre_type * lustre_type
+  
 (** A Lustre expression *)
-type expr =
+and expr =
   (* Identifiers *)
   | Ident of position * ident
   | ModeRef of position * ident list
@@ -140,27 +163,6 @@ type expr =
   (* Node calls *)
   | Call of position * ident * expr list
   | CallParam of position * ident * lustre_type list * expr list
-
-(** A Lustre type *)
-and lustre_type =
-    Bool of position
-  | Int of position
-  | UInt8 of position
-  | UInt16 of position
-  | UInt32 of position
-  | UInt64 of position
-  | Int8 of position
-  | Int16 of position
-  | Int32 of position
-  | Int64 of position
-  | IntRange of position * expr * expr
-  | Real of position
-  | UserType of position * ident
-  | AbstractType of position * ident
-  | TupleType of position * lustre_type list
-  | RecordType of position * typed_ident list
-  | ArrayType of position * (lustre_type * expr)
-  | EnumType of position * ident option * ident list
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type

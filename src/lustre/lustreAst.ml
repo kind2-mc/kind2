@@ -144,9 +144,9 @@ type expr =
   | Call of position * ident * expr list
   | CallParam of position * ident * lustre_type list * expr list
 
-
-(* A built-in type *)
+(** A Lustre type *)
 and lustre_type =
+  | TVar of position * ident
   | Bool of position
   | Int of position
   | UInt8 of position
@@ -165,6 +165,7 @@ and lustre_type =
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
   | EnumType of position * ident option * ident list
+  | TArr of position * lustre_type * lustre_type  
 
 
 (* A declaration of an unclocked type *)
@@ -636,69 +637,45 @@ and pp_print_field_assign ppf (i, e) =
 
 (* Pretty-print a Lustre type *)
 and pp_print_lustre_type ppf = function
-
+  | TVar (_, i) -> pp_print_ident ppf "i"
   | Bool pos -> Format.fprintf ppf "bool"
-
   | Int pos -> Format.fprintf ppf "int"
-
   | UInt8 pos -> Format.fprintf ppf "uint8"
-
   | UInt16 pos -> Format.fprintf ppf "uint16"
-
   | UInt32 pos -> Format.fprintf ppf "uint32"
-
   | UInt64 pos -> Format.fprintf ppf "uint64"
-
   | Int8 pos -> Format.fprintf ppf "int8"
-
   | Int16 pos -> Format.fprintf ppf "int16"
-
   | Int32 pos -> Format.fprintf ppf "int32"
-
   | Int64 pos -> Format.fprintf ppf "int64"
-
   | IntRange (pos, l, u) -> 
-
     Format.fprintf ppf 
       "subrange [%a,%a] of int" 
       pp_print_expr l
       pp_print_expr u
-
   | Real pos -> Format.fprintf ppf "real"
-
   | UserType (pos, s) -> 
-
     Format.fprintf ppf "%a" pp_print_ident s
-
   | AbstractType (pos, s) ->
-
     Format.fprintf ppf "%a" pp_print_ident s
-
   | TupleType (pos, l) -> 
-
     Format.fprintf ppf 
       "@[<hv 1>[%a]@]" 
       (pp_print_list pp_print_lustre_type ",@ ") l
-
   | RecordType (pos, l) -> 
-
     Format.fprintf ppf 
       "struct @[<hv 2>{ %a }@]" 
       (pp_print_list pp_print_typed_ident ";@ ") l
-
   | ArrayType (pos, (t, e)) -> 
-
     Format.fprintf ppf 
       "%a^%a" 
       pp_print_lustre_type t 
       pp_print_expr e
-
   | EnumType (pos, _, l) -> 
-
     Format.fprintf ppf 
       "enum @[<hv 2>{ %a }@]" 
       (pp_print_list Format.pp_print_string ",@ ") l
-
+  | TArr (pos, argTy, retTy) -> Format.fprintf ppf "@[ @[%a@] @, -> @[%a@] @]" pp_print_lustre_type argTy pp_print_lustre_type retTy 
 
 (* Pretty-print a typed identifier *)
 and pp_print_typed_ident ppf (p, s, t) = 

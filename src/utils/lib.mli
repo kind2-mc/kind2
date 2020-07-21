@@ -21,6 +21,10 @@
     @author Christoph Sticksel
 *)
 
+exception Unsupported of string
+(** thunk for an unimplimented function *)
+
+val todo: string -> 'a        
 (** {1 Helper functions} *)
 
 (** Identity function. *)

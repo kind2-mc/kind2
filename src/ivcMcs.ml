@@ -131,6 +131,7 @@ let rand_functions = Hashtbl.create 10
 let previous_rands = Hashtbl.create 10
 
 let rec unannot_pos = function
+  | A.TVar (_, i) -> A.TVar (dpos, i)
   | A.Bool _ -> A.Bool dpos
   | A.Int _ -> A.Int dpos
   | A.UInt8 _ -> A.UInt8 dpos
@@ -151,6 +152,7 @@ let rec unannot_pos = function
     A.RecordType (dpos,List.map aux tids)
   | A.ArrayType (_,(t,e)) -> A.ArrayType (dpos,(unannot_pos t,e))
   | A.EnumType (_,id,ids) -> A.EnumType (dpos,id,ids)
+  | A.TArr (_, aTy, rTy) -> A.TArr (dpos, aTy, rTy)
 
 let rand_function_name_for _ ts =
   let ts = List.map unannot_pos ts in
