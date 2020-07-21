@@ -21,9 +21,6 @@
 module LA = LustreAst
 module LC = LustreContext
 module R = Res
-
-let todo s = failwith ("Unsupported operation at " ^ s)
-
            
 (* exception Type_error of Lib.position * string           
  * let throwTypeError pos string = raise (Type_error (pos, string)) *)
@@ -48,51 +45,6 @@ type tcType  = LA.lustre_type
  *   | KStar
  *   | KNat
  *   | KArr of lustre_kind * lustre_kind *)
-
-let rec eqLustreType : LA.lustre_type -> LA.lustre_type -> bool = fun t1 t2 ->
-  match (t1, t2) with
-  | TVar (_, i1), TVar (_, i2) -> i1 = i2
-  | TVar _, _ -> false
-  | Bool _, Bool _ -> true
-  | Bool _, _ -> false
-  | Int _, Int _ -> true
-  | Int _, _ -> false
-  | UInt8 _, UInt8 _ -> true
-  | UInt8 _, _ -> false
-  | UInt16 _, UInt16 _ -> true              
-  | UInt16 _, _ -> false              
-  | UInt32 _, UInt32 _ -> true
-  | UInt32 _, _ -> false              
-  | UInt64 _,UInt64 _ -> true 
-  | UInt64 _, _ -> false              
-  | Int8 _, Int8 _ -> true 
-  | Int8 _, _ -> false              
-  | Int16 _, Int16 _ -> true
-  | Int16  _, _ -> false              
-  | Int32 _, Int32 _ -> true
-  | Int32 _, _ -> false              
-  | Int64 _, Int64 _ -> true
-  | Int64 _, _ -> false              
-  | IntRange _, IntRange _ -> true
-  | IntRange _, _ -> false              
-  | Real _, Real _ -> true
-  | Real _, _ -> false              
-  | UserType (_, i1), UserType (_, i2) -> i1 = i2 
-  | UserType  _, _ -> false              
-  | AbstractType (_, i1), AbstractType (_, i2) -> i1 = i2
-  | AbstractType _, _ -> false              
-  | TupleType (_, tys1), TupleType (_, tys2) -> List.fold_left (&&) true (List.map2 eqLustreType tys1 tys2)
-  | TupleType  _, _ -> false              
-  | RecordType (_, tys1), RecordType (_, tys2) -> List.fold_left (&&) true (List.map2 eqTypedIdent tys1 tys2) 
-  | RecordType _, _ -> false              
-  | ArrayType (_, (ty1, _)), ArrayType (_, (ty2, _)) -> eqLustreType ty1 ty2 (** Is this problamatic? *)
-  | ArrayType _, _ -> false                     
-  | EnumType (_, n1, is1), EnumType (_, n2, is2) -> n1 = n2 && (List.fold_left (&&) true (List.map2 (=) is1 is2)) 
-  | EnumType _, _ -> false                       
-  | TArr (_, argTy1, retTy1), TArr (_, argTy2, retTy2) -> (eqLustreType argTy1 argTy2) && (eqLustreType retTy1 retTy2)
-  | TArr _, _ -> false
-and eqTypedIdent: LA.typed_ident -> LA.typed_ident -> bool =
-  fun (_, i1, ty1) (_, i2, ty2) -> (i1 = i2) && eqLustreType ty1 ty2
   
 (* This is different from [LA.pp_print_lustre_type] because we do not want position value to 
  * pollute the logs *)
@@ -116,13 +68,13 @@ let rec pp_print_tcType: Format.formatter -> tcType -> unit
   (* Arrays Tuples, ranges *)
   | IntRange (_, mi, ma) -> Format.fprintf ppf "IntRange (%a, %a)" LA.pp_print_expr mi LA.pp_print_expr ma
   | UserType (_, i) -> Format.fprintf ppf "UserType %a" LA.pp_print_ident i
-  | TupleType (_, tys) -> Format.fprintf ppf "@[TupleType (%a)@]" (Lib.pp_print_list pp_print_tcType "*") tys
+  | TupleType (_, tys) -> Format.fprintf ppf "(%a)" (Lib.pp_print_list pp_print_tcType "*") tys
   (* lustre V6 types *)
   | AbstractType (_,i) -> Format.fprintf ppf "AbstractType %a" LA.pp_print_ident i 
   | RecordType (_, fs) -> let pp_print_field ppf = fun (_, i, ty) ->
                      Format.fprintf ppf "@[%a: %a@]" LA.pp_print_ident i pp_print_tcType ty in
                    Format.fprintf ppf "@[RecordType {@ %a@ }@]" (Lib.pp_print_list pp_print_field ";@,") fs
-  | ArrayType (_, (ty, e)) -> Format.fprintf ppf "[@ %a ^ %a@ ]" pp_print_tcType ty LA.pp_print_expr e
+  | ArrayType (_, (ty, e)) -> Format.fprintf ppf "@[[(%a)^(%a)]@]" pp_print_tcType ty LA.pp_print_expr e
   | EnumType (_, n, ids) ->
      let pp_print_enumname ppf = function
        | Some name -> LA.pp_print_ident ppf name
@@ -179,18 +131,6 @@ type tcContext = tyStore * vStore
                
 
 let emptyContext = (IMap.empty, IMap.empty)
-                 
-
-(** A constant should be evaluated to an integer *)
-let rec evalToConstExp: LA.expr -> int
-  = function
-  | LA.Const (_, c) ->
-     (match c with
-      | LA.Num n -> int_of_string n
-      | _ -> todo __LOC__)
-  | LA.Ident (_, i) -> todo __LOC__
-  | _  -> todo __LOC__
-
                 
 (** [typeError] returns an [Error] of [tcResult] *)
 let typeError pos err = R.error (pos, "Type error: " ^ err)
@@ -245,9 +185,9 @@ let inferTypeBinaryOp: Lib.position -> LA.binary_operator -> tcType tcResult = f
     -> R.ok (LA.TArr (pos, Int pos, TArr(pos, Int pos, Int pos))) 
      
 
-let inferTypeTernaryOp: LA.ternary_operator -> tcType tcResult = function | _ -> todo __LOC__
+let inferTypeTernaryOp: LA.ternary_operator -> tcType tcResult = function | _ -> Lib.todo __LOC__
 
-let inferTypeNaryOp: LA.n_arity_operator -> tcType tcResult  = function | _ -> todo __LOC__
+let inferTypeNaryOp: LA.n_arity_operator -> tcType tcResult  = function | _ -> Lib.todo __LOC__
 
 let inferTypeConvOp: Lib.position -> LA.conversion_operator -> tcType tcResult = fun pos ->
   function
@@ -257,7 +197,7 @@ let inferTypeCompOp: Lib.position -> LA.comparison_operator -> tcType tcResult =
   function
   | _ -> R.ok (LA.TArr (pos, Int pos, LA.TArr (pos, Int pos, Bool pos))) 
 
-let inferTypeGrpExpr: LA.expr -> tcType = function | _ -> todo __LOC__
+let inferTypeGrpExpr: LA.expr -> tcType = function | _ -> Lib.todo __LOC__
                                                         
 (** Infer the type of a [LA.expr] with the types of free variables given in [tcContext] *)
 let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
@@ -267,9 +207,9 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
   | LA.Ident (pos, i) ->
      (try (Ok (lookupTy ctx i)) with
       | Not_found -> typeError pos ("Unbound Variable: << " ^ i ^ " >>")) 
-  | LA.ModeRef (pos, ids) -> todo __LOC__
-  | LA.RecordProject _  -> todo __LOC__
-  | LA.TupleProject (pos, e1, e2) -> todo __LOC__ 
+  | LA.ModeRef (pos, ids) -> Lib.todo __LOC__
+  | LA.RecordProject _  -> Lib.todo __LOC__
+  | LA.TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
 
   (* Values *)
   | LA.Const (pos, c) -> R.ok (inferTypeConst pos c)
@@ -300,7 +240,7 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
                               R.ok e1Ty))
          | _   ->  typeError pos ("Expected a boolean expression but found "
                                   ^ string_of_tcType cTy))
-  | LA.NArityOp _ -> todo __LOC__          (* One hot expression is not supported *)    
+  | LA.NArityOp _ -> Lib.todo __LOC__          (* One hot expression is not supported *)    
   | LA.ConvOp (pos, cop, e) -> 
      R.bind (inferTypeConvOp pos cop) (fun ty ->
          match ty with
@@ -341,8 +281,14 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
                              else typeError pos "All expressions must be of the same type in an Array"))
     
   (* Update of structured expressions *)
+  | ArrayConstr (pos, bExpr, supExpr) ->
+     R.bind (inferTypeExpr ctx bExpr) (fun bTy ->
+         R.bind (inferTypeExpr ctx supExpr) (fun supTy ->
+             R.bind (eqLustreType ctx supTy (Int pos)) (fun isBoundInt ->
+                 if isBoundInt 
+                 then R.ok(LA.ArrayType (pos, (bTy, supExpr)))
+                 else typeError pos "Array cannot have non numeral type as its bounds")))
   (* | StructUpdate of position * expr * label_or_index list * expr
-   * | ArrayConstr of position * expr * expr 
    * | ArraySlice of position * expr * (expr * expr) 
    * | ArrayConcat of position * expr * expr *)
   (* Quantified expressions *)
@@ -366,24 +312,29 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
                                         ^ string_of_tcType ty1
                                         ^ " and " ^ string_of_tcType ty2))) 
   (* Node calls *)
-  | Call (pos, i, args) ->
-     let ty = lookupTy ctx i in
-     let rec inferTypeNodeArgs: tcContext -> LA.expr list -> tcType -> tcType tcResult
-       = fun ctx args ty -> 
-       match (args, ty) with
-       | arg :: [], TArr (_,argTy, resTy) ->
-          R.bind (checkTypeExpr ctx arg argTy) (fun _ ->
-              R.ok resTy)
-       | arg :: [], ty' -> typeError pos "Arguments type mismatch"
-       | arg :: args', TArr (pos, argTy, resTy) ->
-          R.bind (checkTypeExpr ctx arg argTy) (fun _ ->
-              inferTypeNodeArgs ctx args' resTy)
-       | _ -> typeError pos "panic while checking arguments"
-     in
-     inferTypeNodeArgs ctx args ty 
-     
+  | Call (pos, i, argExprs) ->
+     Log.log L_debug "Inferring type for node call %a" LA.pp_print_ident i  
+    ; let rec inferTypeNodeArgs: tcContext -> LA.expr list -> tcType tcResult
+        = fun ctx args ->
+        R.bind (R.seq (List.map (inferTypeExpr ctx) args)) (fun argTys ->
+            R.ok (LA.TupleType (pos, argTys)))
+      in
+      (match (lookupTy ctx i) with 
+       | TArr (_, expArgTys, expRetTys) ->
+          R.bind (inferTypeNodeArgs ctx argExprs) (fun givenArgTys ->
+              R.bind (eqLustreType ctx expArgTys givenArgTys) (fun isArgTyOk ->
+                  if isArgTyOk
+                  then R.ok expRetTys
+                  else typeError pos ("Node arguments expected to have type "
+                                      ^ string_of_tcType expArgTys
+                                      ^ " but found type "
+                                      ^ string_of_tcType givenArgTys)))
+       | ty -> typeError pos
+                 ("Expected node type to be a function type, but found type"
+                  ^ string_of_tcType ty)) 
+      
   (* | CallParam of position * ident * lustre_type list * expr list *)
-  | _ -> todo __LOC__
+  | _ -> Lib.todo __LOC__
 (** Type checks an expression and returns [ok] 
  * if the expected is the given type [tcType]  
  * returns an [Error] otherwise *)
@@ -393,84 +344,98 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
   (* Identifiers *)
   | Ident (pos, i) as ident ->
      R.bind (inferTypeExpr ctx ident) (fun ty ->
-         if (eqLustreType ty expTy)
-         then R.ok ()
-         else typeError pos ("Indentifier " ^ i
-                             ^ " does not match expected type "
-                             ^ string_of_tcType expTy
-                             ^ " with infered type "
-                             ^ string_of_tcType ty))
-  | ModeRef (pos, ids) -> todo __LOC__
-  | RecordProject _  -> todo __LOC__
-  | TupleProject (pos, e1, e2) -> todo __LOC__ 
+         R.bind (eqLustreType ctx ty expTy) (fun isEq ->
+             if isEq
+             then R.ok ()
+             else typeError pos ("Indentifier " ^ i
+                                 ^ " does not match expected type "
+                                 ^ string_of_tcType expTy
+                                 ^ " with infered type "
+                             ^ string_of_tcType ty)))
+  (* | ModeRef (pos, ids) -> Lib.todo __LOC__
+   * | RecordProject _  -> Lib.todo __LOC__
+   * | TupleProject (pos, e1, e2) -> Lib.todo __LOC__  *)
   (* Operators *)
   | UnaryOp (pos, op, e) ->
      R.bind (inferTypeUnaryOp pos op) (fun ty ->
          R.bind (inferTypeExpr ctx e) (fun argTy ->
-             if eqLustreType ty (TArr(pos,argTy, expTy))
-             then R.ok ()
-             else typeError pos ("Cannot apply argument of type "
-                                 ^ string_of_tcType argTy
-                                 ^ " to operator of type "
-                                 ^ string_of_tcType ty)))
+             R.bind (eqLustreType ctx ty (TArr(pos,argTy, expTy))) (fun isEq ->
+                 if isEq
+                 then R.ok ()
+                 else typeError pos ("Cannot apply argument of type "
+                                     ^ string_of_tcType argTy
+                                     ^ " to operator of type "
+                                     ^ string_of_tcType ty))))
   | BinaryOp (pos, op, e1, e2) ->
      R.bind (inferTypeBinaryOp pos op) (fun ty ->
          R.bind (inferTypeExpr ctx e1) (fun argTy1 ->
              R.bind (inferTypeExpr ctx e2) (fun argTy2 ->
-                 if eqLustreType ty (TArr (pos,argTy1, TArr (pos, argTy2, expTy)))
-                 then R.ok ()
-                 else typeError pos (" Cannot apply arguments of type "
-                                     ^ string_of_tcType argTy1
-                                     ^ " and type " ^ string_of_tcType argTy2
-                                     ^ " to operator of type " ^ string_of_tcType ty))))
-    
+                 R.bind (eqLustreType ctx ty (TArr (pos,argTy1, TArr (pos, argTy2, expTy)))) (fun isEq ->
+                     if isEq 
+                     then R.ok ()
+                     else typeError pos (" Cannot apply arguments of type "
+                                         ^ string_of_tcType argTy1
+                                         ^ " and type " ^ string_of_tcType argTy2
+                                         ^ " to operator of type " ^ string_of_tcType ty)))))
   | LA.TernaryOp (pos, op, con, e1, e2) ->
      R.bind (inferTypeExpr ctx con) (fun ty ->
          match ty with
          | Bool _ -> R.bind (inferTypeExpr ctx e1) (fun ty1 ->
                          R.bind (inferTypeExpr ctx e2) (fun ty2 ->
-                             if (eqLustreType ty1 ty2)
-                             then R.ok ()
-                             else typeError pos
-                                    ("Cannot unify type "
-                                     ^ string_of_tcType ty1
-                                     ^ "with type "
-                                     ^ string_of_tcType ty2)))
+                             R.bind (eqLustreType ctx ty1 ty2)(fun isEq ->
+                                 if isEq
+                                 then R.ok ()
+                                 else typeError pos
+                                        ("Cannot unify type "
+                                         ^ string_of_tcType ty1
+                                         ^ "with type "
+                                         ^ string_of_tcType ty2))))
          | _ -> typeError pos ("ITE condition expression "
                                ^ "Expected: " ^ string_of_tcType (Bool pos)
                                ^ "Found: " ^ string_of_tcType ty))
-  | NArityOp _ -> todo __LOC__          (* One hot expression is not supported? *)    
+  | NArityOp _ -> Lib.todo __LOC__          (* One hot expression is not supported? *)    
   | ConvOp (pos, cvop, e) ->
      R.bind (inferTypeConvOp pos cvop) (fun cvopTy ->
          R.bind (inferTypeExpr ctx e) (fun exprTy ->
-             if eqLustreType cvopTy (TArr (pos,exprTy, expTy))
-             then R.ok ()
-             else typeError pos ("Cannot apply argument of type "
-                                 ^ string_of_tcType exprTy
-                                 ^ " to operator of type "
-                                 ^ string_of_tcType cvopTy)))
+             R.bind (eqLustreType ctx cvopTy (TArr (pos,exprTy, expTy)))(fun isEq ->
+                 if isEq
+                 then R.ok ()
+                 else typeError pos ("Cannot apply argument of type "
+                                     ^ string_of_tcType exprTy
+                                     ^ " to operator of type "
+                                     ^ string_of_tcType cvopTy))))
   | CompOp (pos, cop, e1, e2) ->
      R.bind (inferTypeCompOp pos cop) (fun ty ->
          R.bind (inferTypeExpr ctx e1) (fun argTy1 ->
              R.bind (inferTypeExpr ctx e2) (fun argTy2 ->
-                 if eqLustreType ty (TArr (pos,argTy1, TArr (pos,argTy2, expTy)))
-                 then R.ok()
-                 else typeError pos
-                        (" cannot apply arguments of type "
-                         ^ string_of_tcType argTy1
-                         ^ " and " ^ string_of_tcType argTy2
-                         ^ " to operator of type "
-                         ^ string_of_tcType ty))))
+                 R.bind (eqLustreType ctx ty (TArr (pos,argTy1, TArr (pos,argTy2, expTy)))) (fun isEq ->
+                     if isEq 
+                     then R.ok()
+                     else typeError pos
+                            (" cannot apply arguments of type "
+                             ^ string_of_tcType argTy1
+                             ^ " and " ^ string_of_tcType argTy2
+                             ^ " to operator of type "
+                             ^ string_of_tcType ty)))))
   (* Values/Constants *)
   | Const (pos, c) -> R.ok ()
 
   (* Structured expressions *)
-  | RecordExpr (pos, _, flds) -> todo __LOC__
-  | GroupExpr _ -> todo __LOC__
+  | RecordExpr (pos, _, flds) -> Lib.todo __LOC__
+  | GroupExpr _ -> Lib.todo __LOC__
   (* Update of structured expressions *)
-  (* | StructUpdate of position * expr * label_or_index list * expr
-   * | ArrayConstr of position * expr * expr 
-   * | ArraySlice of position * expr * (expr * expr) 
+  (* | StructUpdate of position * expr * label_or_index list * expr *)
+  | ArrayConstr (pos, bExp, supExp) ->
+     R.bind (inferTypeExpr ctx bExp) (fun bTy ->
+         R.bind (inferTypeExpr ctx supExp) (fun supTy ->
+             R.bind (eqLustreType ctx expTy (LA.ArrayType (pos, (bTy, bExp)))) (fun isEq ->
+                 if isEq
+                 then R.ok()
+                 else typeError pos ("Expecting array type "
+                                     ^ string_of_tcType expTy
+                                     ^ " but found "
+                                     ^ string_of_tcType (LA.ArrayType (pos, (bTy, bExp)))))))
+  (* | ArraySlice of position * expr * (expr * expr) 
    * | ArrayConcat of position * expr * expr *)
   (* Quantified expressions *)
   (* | Quantifier of position * quantifier * typed_ident list * expr *)
@@ -482,17 +447,18 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
    * | Merge of position * ident * (ident * expr) list
    * | RestartEvery of position * ident * expr list * expr *)
   (* Temporal operators *)
-  | Pre (pos, e) -> todo __LOC__
+  | Pre (pos, e) -> checkTypeExpr ctx e expTy
   (* | Last of position * ident
    * | Fby of position * expr * int * expr*)
   | Arrow (pos, e1, e2) -> R.bind(inferTypeExpr ctx e1) (fun ty1 ->
                                R.bind(inferTypeExpr ctx e2) (fun ty2 ->
-                                   if (eqLustreType ty1 ty2)
-                                   then R.ok ()
-                                   else typeError pos (" Cannot unify "
-                                                       ^ string_of_tcType ty1
-                                                       ^ " and " ^ string_of_tcType ty2)))
-  | _ -> todo __LOC__
+                                   R.bind (eqLustreType ctx ty1 ty2)(fun isEq ->
+                                       if isEq 
+                                       then R.ok ()
+                                       else typeError pos (" Cannot unify "
+                                                           ^ string_of_tcType ty1
+                                                           ^ " and " ^ string_of_tcType ty2))))
+  | _ -> Lib.todo __LOC__
        
 and checkTypeConstDecl: tcContext -> LA.const_decl -> tcType -> unit tcResult =
   fun ctx constDecl expTy ->
@@ -536,7 +502,7 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
       | LA.NodeConstDecl (pos, constDecls) ->
          (match constDecls with
           | FreeConst (pos, i, ty) -> singletonTy i ty
-          | _ -> todo __LOC__)
+          | _ -> Lib.todo __LOC__)
       | LA.NodeVarDecl (pos, (_, i, ty, _)) -> singletonTy i ty 
     in
 
@@ -577,7 +543,7 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
                    ; inferTypeExpr ctx expr) (fun ty ->
                      checkTypeStructDef ctx lhs ty)
               | LA.Automaton (pos, _, _, _) ->
-                 typeError pos "Typechecker failed. Unsupported feature Automation."
+                 Lib.todo ("Unsupported feature Automation." ^ __LOC__)
             in
             let rec doItems: tcContext -> LA.node_item list -> unit tcResult =
               fun ctx its -> match its with
@@ -602,21 +568,26 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
 (* The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 and checkTypeStructDef: tcContext -> LA.eq_lhs -> tcType -> unit tcResult
-  = fun ctx (StructDef (pos, lhss)) ty ->
+  = fun ctx (StructDef (pos, lhss)) expTy ->
   if (List.length lhss) > 1
-  then todo __LOC__
+  then Lib.todo __LOC__
   else
     assert (List.length lhss = 1)
   ; let lhs = List.hd lhss in
     match lhs with
-    | SingleIdent (pos, i) -> let expTy = lookupTy ctx i in
-                              if eqLustreType expTy ty
-                              then R.ok()
-                              else typeError pos ("Type mismatch. Expected type "
-                                                  ^ string_of_tcType expTy
-                                                  ^ " but found type "
-                                                  ^ string_of_tcType ty)
-    | _ -> todo __LOC__
+    | SingleIdent (pos, i) -> let infTy = lookupTy ctx i in
+                              R.bind (eqLustreType ctx expTy infTy) (fun isEq ->
+                                  if isEq
+                                  then R.ok ()
+                                  (*This is an ugly fix to try and see if the RHS is a function return call *)
+                                  else R.bind (eqLustreType ctx expTy (TupleType (pos, (infTy::[])))) (fun isEq' ->
+                                           if isEq'
+                                           then R.ok()
+                                           else typeError pos ("Expected type "
+                                                               ^ string_of_tcType expTy
+                                                               ^ " but found type "
+                                                               ^ string_of_tcType infTy)))
+    | _ -> Lib.todo __LOC__
          
 
 (** Obtain a global typing context *)
@@ -635,8 +606,8 @@ and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
                           LA.pp_print_declaration d
                       ; tcContextOf' ctx d) (fun ctx' ->
                    R.bind (
-                       Log.log L_debug "%a" IMap.pp_print_tcContext (union ctx' ctx)
-                     ; tcContextOf (union ctx' ctx) tl) (fun c -> 
+                       Log.log L_debug "%a" IMap.pp_print_tcContext (union ctx ctx')
+                     ; tcContextOf (union ctx ctx') tl) (fun c -> 
                        R.ok c))
 and tcCtxTyDecl: tcContext -> LA.type_decl -> tcContext
   = fun ctx _ -> ctx
@@ -646,7 +617,8 @@ and tcCtxConstDecl: tcContext -> LA.const_decl -> tcContext tcResult
             | LA.FreeConst (_, i, ty) ->
                R.ok (addTy ctx i ty)
             | LA.UntypedConst (_, i, expr) ->
-               R.ok (addVal ctx i expr)
+               R.bind (inferTypeExpr ctx expr) (fun ty -> 
+                   R.ok (addTy (addVal ctx i expr) i ty))
             | LA.TypedConst (pos, i, expr, ty)
               ->  let expTy = ty in
                   R.bind (checkTypeExpr ctx expr expTy) (fun _ ->
@@ -668,32 +640,94 @@ and  buildFunTy: Lib.position -> LA.const_clocked_typed_decl list -> LA.clocked_
   let ops = List.map extractOp rets in
   TArr (pos, TupleType (pos, ips), TupleType (pos, ops))
 
-(** Evalute const expressions to a value *)
-(* and evalConstExpr: LA.expr IMap.t -> LA.expr -> LA.expr tcResult = fun ctx ->
- *   function
- *   (\* identifier and constants *\)
- *   | Ident (_, i) -> R.ok (IMap.find i ctx)
- *   | Const _ as c -> R.ok c
- *   (\* more complex operations *\)
- *   (\* | UnaryOp of position * unary_operator * expr
- *    * | BinaryOp of position * binary_operator * expr * expr
- *    * | TernaryOp of position * ternary_operator * expr * expr * expr
- *    * | NArityOp of position * n_arity_operator * expr list
- *    * | ConvOp of position * conversion_operator * expr
- *    * | CompOp of position * comparison_operator * expr * expr
- *    * 
- *    * |  *\)
- *   | _ -> todo __LOC__
- *        
- * and evalConstExprs: LA.expr IMap.t -> (LA.expr IMap.t) tcResult = fun vstore
- *   ->  IMap.mapM (fun e -> evalConstExpr vstore e) vstore
- * 
- * and propogateConsts: tcContext -> tcContext tcResult = fun (tyCtx, valCtx) ->
- *   R.bind (evalConstExprs valCtx) (fun vctx' ->
- *       R.ok (tyCtx, vctx')) *)
+and eqLustreType : tcContext -> LA.lustre_type -> LA.lustre_type -> bool tcResult = fun ctx t1 t2 ->
+  match (t1, t2) with
+  | TVar (_, i1), TVar (_, i2) -> R.ok (i1 = i2)
+  | TVar _, _ -> R.ok false
+  | Bool _, Bool _ -> R.ok true
+  | Bool _, _ -> R.ok false
+  | Int _, Int _ -> R.ok true
+  | Int _, _ -> R.ok false
+  | UInt8 _, UInt8 _ -> R.ok true
+  | UInt8 _, _ -> R.ok false
+  | UInt16 _, UInt16 _ -> R.ok true              
+  | UInt16 _, _ -> R.ok false              
+  | UInt32 _, UInt32 _ -> R.ok true
+  | UInt32 _, _ -> R.ok false              
+  | UInt64 _,UInt64 _ -> R.ok true 
+  | UInt64 _, _ -> R.ok false              
+  | Int8 _, Int8 _ -> R.ok true 
+  | Int8 _, _ -> R.ok false              
+  | Int16 _, Int16 _ -> R.ok true
+  | Int16  _, _ -> R.ok false              
+  | Int32 _, Int32 _ -> R.ok true
+  | Int32 _, _ -> R.ok false              
+  | Int64 _, Int64 _ -> R.ok true
+  | Int64 _, _ -> R.ok false              
+  | IntRange _, IntRange _ -> R.ok true
+  | IntRange _, _ -> R.ok false              
+  | Real _, Real _ -> R.ok true
+  | Real _, _ -> R.ok false              
+  | UserType (_, i1), UserType (_, i2) -> R.ok (i1 = i2) 
+  | UserType  _, _ -> R.ok false              
+  | AbstractType (_, i1), AbstractType (_, i2) -> R.ok (i1 = i2)
+  | AbstractType _, _ -> R.ok (false)              
+  | TupleType (_, tys1), TupleType (_, tys2) ->
+     R.bind (R.seq (List.map2 (eqLustreType ctx) tys1 tys2)) (fun isEqs ->
+         R.ok (List.fold_left (&&) true isEqs))      
+  | TupleType  _, _ -> R.ok false              
+  | RecordType (_, tys1), RecordType (_, tys2) ->
+     R.bind (R.seq (List.map2 (eqTypedIdent ctx) tys1 tys2)) (fun isEqs ->
+        R.ok (List.fold_left (&&) true isEqs))
+  | RecordType _, _ -> R.ok false              
+  | ArrayType (pos1, arr1), ArrayType (pos2, arr2) -> eqTypeArray ctx arr1 arr2 
+  | ArrayType _, _ -> R.ok false                     
+  | EnumType (_, n1, is1), EnumType (_, n2, is2) -> R.ok (n1 = n2 && (List.fold_left (&&) true (List.map2 (=) is1 is2))) 
+  | EnumType _, _ -> R.ok false                       
+  | TArr (_, argTy1, retTy1), TArr (_, argTy2, retTy2) ->
+     R.bind (eqLustreType ctx argTy1 argTy2) (fun isEqArgTy ->
+         if isEqArgTy
+         then eqLustreType ctx retTy1 retTy2
+         else R.ok false )
+  | TArr _, _ -> R.ok false
+and eqTypedIdent: tcContext -> LA.typed_ident -> LA.typed_ident -> bool tcResult =
+  fun ctx (_, i1, ty1) (_, i2, ty2) -> if (i1 = i2)
+                                       then eqLustreType ctx ty1 ty2
+                                       else R.ok false
+and eqTypeArray: tcContext -> (LA.lustre_type * LA.expr) -> (LA.lustre_type * LA.expr) -> bool tcResult
+  = fun ctx (ty1, e1) (ty2, e2) -> 
+       R.bind (eqLustreType ctx ty1 ty2) (fun isTyEq ->
+         if isTyEq
+         then R.bind (checkTypeExpr ctx e1 (Int (LustreAstHelpers.pos_of_expr e1))) (fun _ ->
+                  R.bind (checkTypeExpr ctx e2 (Int (LustreAstHelpers.pos_of_expr e2))) (fun _ ->
+                      R.bind (evalConstExpr ctx e1) (fun val1 ->
+                          R.bind (evalConstExpr ctx e2) (fun val2 ->
+                              R.ok (val1 = val2)))))
+         else R.ok false)
+
+  
+(** Evalute const expressions to an integer value.*)
+(** TODO Make sure constant expressions do not have a cyclic dependency*)
+and evalConstExpr: tcContext -> LA.expr -> int tcResult = fun ctx e ->
+  match e with
+  (* identifier and constants *)
+  | Ident (_, i) -> evalConstExpr ctx (lookupVal ctx i)
+  | Const (pos, c) -> (match c with
+                    | Num n -> R.ok (int_of_string n)
+                    | _ -> typeError pos ("Constant " ^ Lib.string_of_t LA.pp_print_expr e
+                                          ^ " is expected to have type type " ^ string_of_tcType (Int pos))) 
+  (* more complex operations *)
+  (* | UnaryOp of position * unary_operator * expr
+   * | BinaryOp of position * binary_operator * expr * expr
+   * | TernaryOp of position * ternary_operator * expr * expr * expr
+   * | NArityOp of position * n_arity_operator * expr list
+   * | ConvOp of position * conversion_operator * expr
+   * | CompOp of position * comparison_operator * expr * expr
+   * |  *)
+  | _ -> typeError (LustreAstHelpers.pos_of_expr e) "Cannot evaluate constant"
 
 (* Compute the strongly connected components for type checking *)
-(* TODO: Find strongly connected components, put them in a group *)
+(* LIB.TODO: Find strongly connected components, put them in a group *)
 let scc: LA.t -> LA.t list
   = fun decls -> [decls]
                
@@ -713,7 +747,7 @@ let rec typeCheckGroup: tcContext -> LA.t ->  unit tcResult list
    * | FuncDecl of position * node_decl
    * | ContractNodeDecl of position * contract_node_decl
    * | NodeParamInst of position * node_param_inst *)
-  | _ -> todo __LOC__
+  | _ -> Lib.todo __LOC__
        
        
 (* typecheck a list of independent groups using a global context*)
