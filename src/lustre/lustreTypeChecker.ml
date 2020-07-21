@@ -68,13 +68,13 @@ let rec pp_print_tcType: Format.formatter -> tcType -> unit
   (* Arrays Tuples, ranges *)
   | IntRange (_, mi, ma) -> Format.fprintf ppf "IntRange (%a, %a)" LA.pp_print_expr mi LA.pp_print_expr ma
   | UserType (_, i) -> Format.fprintf ppf "UserType %a" LA.pp_print_ident i
-  | TupleType (_, tys) -> Format.fprintf ppf "(%a)" (Lib.pp_print_list pp_print_tcType "*") tys
+  | TupleType (_, tys) -> Format.fprintf ppf "%a" (Lib.pp_print_list pp_print_tcType "*") tys
   (* lustre V6 types *)
   | AbstractType (_,i) -> Format.fprintf ppf "AbstractType %a" LA.pp_print_ident i 
   | RecordType (_, fs) -> let pp_print_field ppf = fun (_, i, ty) ->
                      Format.fprintf ppf "@[%a: %a@]" LA.pp_print_ident i pp_print_tcType ty in
                    Format.fprintf ppf "@[RecordType {@ %a@ }@]" (Lib.pp_print_list pp_print_field ";@,") fs
-  | ArrayType (_, (ty, e)) -> Format.fprintf ppf "@[[(%a)^(%a)]@]" pp_print_tcType ty LA.pp_print_expr e
+  | ArrayType (_, (ty, e)) -> Format.fprintf ppf "@[[%a]^%a@]" pp_print_tcType ty LA.pp_print_expr e
   | EnumType (_, n, ids) ->
      let pp_print_enumname ppf = function
        | Some name -> LA.pp_print_ident ppf name
