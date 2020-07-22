@@ -24,7 +24,8 @@ Kind 2
 `Kind 2 <http://kind.cs.uiowa.edu/>`_ \ is a multi-engine, parallel,
 SMT-based automatic model checker for safety properties of Lustre programs.
 
-Kind 2 takes as input a Lustre file annotated with properties to be proven
+Kind 2 is a command-line tool. 
+It takes as input a Lustre file annotated with properties to be proven
 invariant (see `Lustre Input <https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html>`_), and
 outputs which of the properties are true for all inputs, as well as an input
 sequence for those properties that are falsified. To ease processing by
@@ -71,8 +72,23 @@ produced for each property that is not invariant, given enough time and resource
 
 ``-xml`` Output in XML format
 
-Requirements
-------------
+
+Try Kind 2 Online
+-----------------
+
+Visit our `web interface <https://kind.cs.uiowa.edu/app/>`_ to try Kind 2 from your browser.
+
+Download
+--------
+
+If you use a Linux or a MacOS computer, you can download an executable of the latest version 
+of Kind 2 from `here <https://github.com/kind2-mc/kind2/releases/latest/>`_\.
+First make sure though that you have the required software described next.
+
+Required Software
+-----------------
+
+To run Kind 2 the following software must be installed on your computer:
 
 * Linux or Mac OS X
 * `ZeroMQ (C library) 4.x or later <https://zeromq.org>`_\, and
@@ -83,128 +99,10 @@ Requirements
   * `Yices 1 <http://yices.csl.sri.com/old/download-yices1-full.shtml>`_\ , or
   * `Z3 <https://github.com/Z3Prover/z3>`_ (presently recommended)
 
-To build Kind 2 you also need the following requirements (see next section
-`Building and installing`_ to learn how to install them using
-the `OPAM package manager <http://opam.ocaml.org>`_\):
-
-* OCaml 4.07 or later,
-* `Dune 2.2 or later <https://github.com/ocaml/dune>`_ (and dune-build-info)\,
-* `OCaml bindings for ZMQ <https://github.com/issuu/ocaml-zmq>`_\,
-* `Yojson <https://github.com/ocaml-community/yojson>`_\ ,
-* `num <https://github.com/ocaml/num>`_\,
-* `Menhir <http://gallium.inria.fr/~fpottier/menhir/>`_ parser generator
-
-Building and installing
------------------------
-
-Using OPAM
-^^^^^^^^^^
-
-Start by installing `OPAM 2.x <https://zeromq.org/download>`_
-following the instructions on the website. Then, run
-
-.. code-block:: none
-
-   opam pin add -n kind2 https://github.com/kind2-mc/kind2.git
-   opam depext kind2
-   opam install z3 kind2
-
-The first command points OPAM to this GitHub repo to install Kind 2 binary.
-The second command installs the ZeroMQ C library using the default package
-manager for your OS (may require sudo permission). The third command installs
-``Z3`` SMT solver and ``kind2``. By default, ``kind2`` will be installed into
-the bin directory of your current OPAM switch. Run
-
-.. code-block:: none
-
-   opam install kind2 --destdir=DIR
-
-to install the Kind 2 binary into ``<DIR>/bin``.
-
-Alternatively, you can clone this repo, move to the top-level directory, and run
-
-.. code-block:: none
-
-   make install
-
-to install ``kind2`` and its dependencies.
-
-Using Dune (OPAM not required)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Install all the requirements on your system using your preferred method.
-Clone this repo, move to the top-level directory, and run
-
-.. code-block:: none
-
-   dune build
-   dune install --prefix DIR
-
-to install the Kind 2 binary into ``<DIR>/bin``.
-
-You need a supported SMT solver on your path when running ``kind2``.
-
-Development
------------
-
-With OPAM 2.x you can create a local switch which will install all dependencies automatically.
-
-.. code-block:: none
-
-   opam switch create .
-   make
-
-Alternatively, you can install all dependencies in your current switch by running:
-
-.. code-block:: none
-
-   opam install . --deps-only
-   make
-
-Documentation
--------------
-
-Documentation is available online in `HTML <http://kind.cs.uiowa.edu/kind2_user_doc/>`_
-or `PDF <http://kind.cs.uiowa.edu/kind2_user_doc/doc.pdf>`_ forms.
-
-In order to generate the documentation locally, you need:
-
-* A GNU version of ``sed`` (``gsed`` on OSX)
-* `Python v3.5 or later <https://www.python.org/downloads/>`_
-* `Sphinx <https://www.sphinx-doc.org/en/master/usage/installation.html>`_
-
-For HTML documentation, you additionally need:
-
-* `sphinx-press-theme <https://pypi.org/project/sphinx-press-theme/>`_
-
-For PDF documentation, you additionally need:
-
-* `latexmk <https://packages.ubuntu.com/xenial/latexmk>`_
-* `XeTeX <https://packages.debian.org/sid/texlive-xetex>`_
-* `lmodern <https://packages.debian.org/sid/lmodern>`_
-
-If you're on Debian/Ubuntu, assuming you have Python 3 installed,
-you can run the following:
-
-.. code-block:: bash
-
-    sudo apt-get install python3-sphinx latexmk texlive-xetex lmodern
-    pip3 install sphinx_press_theme
-
-See ``doc/usr/README.rst`` for more information.
-
-
-Online Web Application
-----------------------
-
-You can try `Kind 2 from your browser <https://kind.cs.uiowa.edu/app/>`_
-if you are not ready to install it.
-
-
 Docker
 ------
 
-Kind 2 is available on `docker <https://hub.docker.com/r/kind2/kind2/>`_.
+Kind 2 is also available on `Docker Hub <https://hub.docker.com/r/kind2/kind2/>`_.
 
 Retrieving / updating the image
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -277,3 +175,130 @@ free to call it whatever you want.
 Note that building your own local Kind 2 image **does require access to the
 Internet**. This is because of the packages the build process needs to
 retrieve, as well as for downloading the z3 and cvc4 solvers.
+
+Building and installing
+-----------------------
+
+If you prefer, you can build Kind 2 directly from sources, 
+either through the OPAM package manager (recommended) or
+directly using dune.
+
+
+Using OPAM
+^^^^^^^^^^
+
+Start by installing `OPAM 2.x <https://zeromq.org/download>`_
+following the instructions on the website. Then, run
+
+.. code-block:: none
+
+   opam pin add -n kind2 https://github.com/kind2-mc/kind2.git
+   opam depext kind2
+   opam install kind2
+
+The first command points OPAM to this GitHub repo to install Kind 2 binary.
+The second command installs the ZeroMQ C library using the default package
+manager for your OS (may require sudo permission). The third command installs ``kind2``. 
+By default, ``kind2`` will be installed into
+the bin directory of your current OPAM switch. Run
+
+.. code-block:: none
+
+   opam install kind2 --destdir=<DIR>
+
+to install the Kind 2 binary into ``<DIR>/bin``.
+This will also create directories ``<DIR>/doc`` and ``<DIR>/lib``.
+
+In alternative, you can clone https://github.com/kind2-mc/kind2.git, move to its top-level directory, and run
+
+.. code-block:: none
+
+   make install
+
+to have OPAM install ``kind2`` and its dependencies.
+
+Note that z3 is available in OPAM so it is possible to install it too with OPAM by running:
+
+.. code-block:: none
+
+   opam install z3
+
+Be aware, however, that this takes quite a bit of time (up to 25 minutes).
+
+
+Direct Installation Using Dune 
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To build directly from sources you will also need the following software 
+first:
+
+* OCaml 4.07 or later,
+* `Dune 2.2 or later <https://github.com/ocaml/dune>`_ (and dune-build-info)\,
+* `OCaml bindings for ZMQ <https://github.com/issuu/ocaml-zmq>`_\,
+* `Yojson <https://github.com/ocaml-community/yojson>`_\ ,
+* `num <https://github.com/ocaml/num>`_\,
+* `Menhir <http://gallium.inria.fr/~fpottier/menhir/>`_ parser generator
+
+First install this software on your system using your preferred method.
+Then clone the `Kind 2 git repository <https://github.com/kind2-mc/kind2>`_, 
+move to the top-level directory of the repository, and run
+
+.. code-block:: none
+
+   dune build
+   dune install --sections=bin --prefix <DIR>
+
+to install the Kind 2 binary into ``<DIR>/bin``.
+
+You need a supported SMT solver in your PATH environment variable when running ``kind2``.
+
+
+Development
+-----------
+
+With OPAM 2.x you can create a local switch which will install all dependencies automatically.
+
+.. code-block:: none
+
+   opam switch create .
+   make
+
+Alternatively, you can install all dependencies in your current switch by running:
+
+.. code-block:: none
+
+   opam install . --deps-only
+   make
+
+
+Documentation
+-------------
+
+Documentation is available online in `HTML <http://kind.cs.uiowa.edu/kind2_user_doc/>`_
+or `PDF <http://kind.cs.uiowa.edu/kind2_user_doc/doc.pdf>`_ forms.
+
+In order to generate the documentation locally, you need:
+
+* A GNU version of ``sed`` (``gsed`` on OSX)
+* `Python v3.5 or later <https://www.python.org/downloads/>`_
+* `Sphinx <https://www.sphinx-doc.org/en/master/usage/installation.html>`_
+
+For HTML documentation, you additionally need:
+
+* `sphinx-press-theme <https://pypi.org/project/sphinx-press-theme/>`_
+
+For PDF documentation, you additionally need:
+
+* `latexmk <https://packages.ubuntu.com/xenial/latexmk>`_
+* `XeTeX <https://packages.debian.org/sid/texlive-xetex>`_
+* `lmodern <https://packages.debian.org/sid/lmodern>`_
+
+If you're on Debian/Ubuntu, assuming you have Python 3 installed,
+you can run the following:
+
+.. code-block:: bash
+
+    sudo apt-get install python3-sphinx latexmk texlive-xetex lmodern
+    pip3 install sphinx_press_theme
+
+See ``doc/usr/README.rst`` for more information.

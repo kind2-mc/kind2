@@ -3,7 +3,6 @@ LOCAL_ALLDOCDIR=$(CURDIR)/doc
 LOCAL_BINDIR=$(CURDIR)/bin
 LOCAL_DOCDIR=$(CURDIR)/ocamldoc
 LOCAL_USRDOCDIR=$(CURDIR)/doc/usr
-LOCAL_TMPDIR=$(CURDIR)/_build/local_install
 
 .PHONY: all build clean doc install kind2-doc test uninstall
 
@@ -11,9 +10,7 @@ all: build
 
 build:
 	@dune build
-	@dune install --prefix $(LOCAL_TMPDIR)/ 2> /dev/null
-	@mkdir -p $(LOCAL_BINDIR)
-	@mv $(LOCAL_TMPDIR)/bin/kind2 $(LOCAL_BINDIR)
+	@dune install --sections=bin --prefix . 2> /dev/null
 
 clean:
 	@dune clean
@@ -26,7 +23,7 @@ doc:
 install:
 	@opam pin add -n -y kind2 https://github.com/kind2-mc/kind2.git
 	@opam depext -y kind2
-	@opam install -y z3 kind2
+	@opam install -y kind2
 
 kind2-doc:
 	@dune build @doc-private
