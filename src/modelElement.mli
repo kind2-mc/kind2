@@ -128,4 +128,13 @@ val pp_print_core_data_xml :
 val pp_print_core_data_json :
   'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit
 
+val pp_print_no_solution :
+  TransSys.t -> string -> Format.formatter -> Property.t -> unit
+
+val pp_print_no_solution_xml :
+  TransSys.t -> string -> Format.formatter -> Property.t -> unit
+
+val pp_print_no_solution_json :
+  TransSys.t -> string -> Format.formatter -> Property.t -> unit
+
 val all_wa_names_of_loc_core : loc_core -> string list

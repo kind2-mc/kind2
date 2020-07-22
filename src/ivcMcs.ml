@@ -87,6 +87,16 @@ let pp_print_mcs_legacy in_sys param sys ((prop, cex), core) (_, core_compl) =
   let wa_model = wa_model@wa_model' in
   KEvent.cex_wam cex wa_model in_sys param sys prop_name
 
+let pp_print_no_mcs_legacy prop sys =
+  let prop_name = prop.Property.prop_name in
+  let sys = TS.copy sys in
+  let cert = match prop.Property.prop_status with
+  | PropInvariant cert -> cert
+  | _ -> assert false
+  in
+  TS.set_prop_unknown sys prop_name ;
+  KEvent.proved_wam cert sys prop_name
+
 let print_timeout_warning () =
   KEvent.log L_warn "An analysis has timeout, the result might be approximate."
 
@@ -497,9 +507,9 @@ let rec interval imin imax =
   if imin > imax then []
   else imin::(interval (imin+1) imax)
 
-let make_ts_analyzer in_sys ?(stop_after_disprove=true) param analyze sys =
+let make_ts_analyzer in_sys ?(stop_after_disprove=true) ?(no_copy=false) param analyze sys =
   let param = Analysis.param_clone param in
-  let sys = TS.copy sys in
+  let sys = if no_copy then sys else TS.copy sys in
   let modules = Flags.enabled () in
   sys, (fun sys -> analyze false stop_after_disprove modules in_sys param sys)
 
@@ -1875,7 +1885,7 @@ let mcs_initial_analysis in_sys param analyze ?(max_mcs_cardinality= -1) sys =
     let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
     let elements = (Flags.MCS.mcs_category ()) in
     let (keep, test) = generate_initial_cores in_sys sys enter_nodes elements in
-    let (sys, check_ts) = make_ts_analyzer in_sys ~stop_after_disprove:false param analyze sys in
+    let (sys, check_ts) = make_ts_analyzer in_sys ~stop_after_disprove:false ~no_copy:true param analyze sys in
 
     let res_to_mcs (test, (prop,cex)) =
       ((TS.property_of_name sys prop, cex),

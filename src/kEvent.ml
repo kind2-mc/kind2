@@ -1522,6 +1522,19 @@ let cex_wam cex wa_model input_sys analysis trans_sys prop =
   (* Update status of property in transition system *)
   TransSys.set_prop_status trans_sys prop (Property.PropFalse cex)
 
+let proved_wam (k, t) trans_sys prop =
+
+  (* Update time in case we are not running in parallel mode *)
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
+
+  let mdl = get_module () in
+
+  log_proved mdl L_warn trans_sys (Some k) prop ;
+
+  (* Update status of property in transition system *)
+  TransSys.set_prop_status trans_sys prop (Property.PropInvariant (k, t))
+
 
 (* Broadcast a step cex *)
 let step_cex input_sys analysis trans_sys prop cex =
