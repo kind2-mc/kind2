@@ -52,36 +52,36 @@ let rec pp_print_tcType: Format.formatter -> tcType -> unit
   = fun ppf ty ->
   match ty with
   | TVar (_, i) -> Format.fprintf ppf "@[%a@]" LA.pp_print_ident i
-  | Int _ -> Format.fprintf ppf "@[Int@]"
-  | Bool _ -> Format.fprintf ppf "@[Bool@]"
-  | UInt8 _ -> Format.fprintf ppf "@[UInt8@]"
-  | UInt16 _ -> Format.fprintf ppf "@[UInt16@]"
-  | UInt32 _ -> Format.fprintf ppf "@[UInt32@]"
-  | UInt64 _ -> Format.fprintf ppf "@[UInt64@]"
-  | Int8 _ -> Format.fprintf ppf "@[Int8@]"
-  | Int16 _ -> Format.fprintf ppf "@[Int16@]"
-  | Int32 _ -> Format.fprintf ppf "@[Int32@]"
-  | Int64 _ -> Format.fprintf ppf "@[Int64@]"
-  | Real _ -> Format.fprintf ppf "@[Real@]"
+  | Int _ -> Format.fprintf ppf "@[int@]"
+  | Bool _ -> Format.fprintf ppf "@[bool@]"
+  | UInt8 _ -> Format.fprintf ppf "@[uint8@]"
+  | UInt16 _ -> Format.fprintf ppf "@[uint16@]"
+  | UInt32 _ -> Format.fprintf ppf "@[uint32@]"
+  | UInt64 _ -> Format.fprintf ppf "@[uint64@]"
+  | Int8 _ -> Format.fprintf ppf "@[int8@]"
+  | Int16 _ -> Format.fprintf ppf "@[int16@]"
+  | Int32 _ -> Format.fprintf ppf "@[int32@]"
+  | Int64 _ -> Format.fprintf ppf "@[int64@]"
+  | Real _ -> Format.fprintf ppf "@[real@]"
   (* Function type of argument and return *)
   | TArr (_, argTy, retTy) -> Format.fprintf ppf "@[%a->@,%a@]" pp_print_tcType argTy pp_print_tcType retTy 
   (* Arrays Tuples, ranges *)
-  | IntRange (_, mi, ma) -> Format.fprintf ppf "IntRange (%a, %a)" LA.pp_print_expr mi LA.pp_print_expr ma
-  | UserType (_, i) -> Format.fprintf ppf "UserType %a" LA.pp_print_ident i
+  | IntRange (_, mi, ma) -> Format.fprintf ppf "intRange (%a, %a)" LA.pp_print_expr mi LA.pp_print_expr ma
+  | UserType (_, i) -> Format.fprintf ppf "userType %a" LA.pp_print_ident i
   | TupleType (_, tys) -> Format.fprintf ppf "[%a]" (Lib.pp_print_list pp_print_tcType ",") tys
   (* lustre V6 types *)
-  | AbstractType (_,i) -> Format.fprintf ppf "AbstractType %a" LA.pp_print_ident i 
+  | AbstractType (_,i) -> Format.fprintf ppf "abstractType %a" LA.pp_print_ident i 
   | RecordType (_, fs) -> let pp_print_field ppf = fun (_, i, ty) ->
-                     Format.fprintf ppf "@[%a: %a@]" LA.pp_print_ident i pp_print_tcType ty in
-                   Format.fprintf ppf "@[RecordType {@ %a@ }@]" (Lib.pp_print_list pp_print_field ";@,") fs
+                     Format.fprintf ppf "@[%a:%a@]" LA.pp_print_ident i pp_print_tcType ty in
+                   Format.fprintf ppf "@[recordType {@ %a@ }@]" (Lib.pp_print_list pp_print_field ";@ @,") fs
   | ArrayType (_, (ty, e)) -> Format.fprintf ppf "@[[%a]^%a@]" pp_print_tcType ty LA.pp_print_expr e
   | EnumType (_, n, ids) ->
      let pp_print_enumname ppf = function
        | Some name -> LA.pp_print_ident ppf name
        | None -> () in
-     Format.fprintf ppf "EnumType %a {@ %a@ }"
+     Format.fprintf ppf "enumType %a {@ %a@ }"
        pp_print_enumname n
-       (Lib.pp_print_list LA.pp_print_ident ",@,") ids
+       (Lib.pp_print_list LA.pp_print_ident ";@ @,") ids
      
 let string_of_tcType t = Lib.string_of_t pp_print_tcType t
                        
@@ -128,10 +128,14 @@ let sortTypedIdent: LA.typed_ident list -> LA.typed_ident list = fun tyIdents ->
 
 let sortIdents: LA.ident list -> LA.ident list = fun ids ->
   List.sort (fun i1 i2 -> Stdlib.compare i1 i2) ids
-  
-type tyStore = tcType IMap.t
-type vStore = LA.expr IMap.t 
 
+type tyStore = tcType IMap.t
+(** A store of identifier and their types*)
+
+type vStore = LA.expr IMap.t 
+(** A Store of constant identifier and their (const) expressions. 
+ *  The values of the assoicated identifiers should ideally evaluate to a Bool or an Int*)
+            
 (** Type Checker context is a pair type store and a value store with identifier as its key *)
 type tcContext = tyStore * vStore
 
@@ -356,10 +360,27 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
                                  ^ " does not match expected type "
                                  ^ string_of_tcType expTy
                                  ^ " with infered type "
-                             ^ string_of_tcType ty)))
-  (* | ModeRef (pos, ids) -> Lib.todo __LOC__
-   * | RecordProject _  -> Lib.todo __LOC__
-   * | TupleProject (pos, e1, e2) -> Lib.todo __LOC__  *)
+                                 ^ string_of_tcType ty)))
+  | ModeRef (pos, ids) -> Lib.todo __LOC__
+  | RecordProject (pos, expr, idx) ->
+     R.bind(inferTypeExpr ctx expr) (fun recTy ->
+         match recTy with
+         | RecordType (pos, flds) ->
+            R.bind (try R.ok (List.find (fun (_, i, _) -> i = idx) flds) with
+            | Not_found -> typeError pos ("Cannot project field " ^ idx
+                                          ^ " from a non record type "
+                                          ^ Lib.string_of_t pp_print_tcType recTy)) (fun (_, _, fty) -> 
+                R.bind (eqLustreType ctx fty expTy) (fun isEq ->
+                    if isEq
+                    then R.ok ()
+                    else typeError pos ("Cannot match expected type "
+                                        ^ Lib.string_of_t pp_print_tcType expTy
+                                        ^ " with infered type "
+                                        ^ Lib.string_of_t pp_print_tcType fty)))
+         | _ -> typeError pos ("Cannot project field " ^ idx
+                               ^ " from a non record type "
+                               ^ Lib.string_of_t pp_print_tcType recTy))
+  | TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
   (* Operators *)
   | UnaryOp (pos, op, e) ->
      R.bind (inferTypeUnaryOp pos op) (fun ty ->
@@ -441,7 +462,7 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
      
   | GroupExpr _ -> Lib.todo __LOC__
   (* Update of structured expressions *)
-  (* | StructUpdate of position * expr * label_or_index list * expr *)
+  | StructUpdate _ -> Lib.todo __LOC__
   | ArrayConstr (pos, bExp, supExp) ->
      R.bind (inferTypeExpr ctx bExp) (fun bTy ->
          R.bind (inferTypeExpr ctx supExp) (fun supTy ->
@@ -452,8 +473,8 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
                                      ^ string_of_tcType expTy
                                      ^ " but found "
                                      ^ string_of_tcType (LA.ArrayType (pos, (bTy, bExp)))))))
-  (* | ArraySlice of position * expr * (expr * expr) 
-   * | ArrayConcat of position * expr * expr *)
+  | ArraySlice _ -> Lib.todo __LOC__
+  | ArrayConcat _ -> Lib.todo __LOC__
   (* Quantified expressions *)
   (* | Quantifier of position * quantifier * typed_ident list * expr *)
   (* Clock operators *)
