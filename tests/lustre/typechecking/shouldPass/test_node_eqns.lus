@@ -1,0 +1,20 @@
+node y (const a: bool) returns (b: int);
+
+-- Local constant declarations
+const c : int = 1; d = 2;
+
+-- Local variable declarations 
+var t : y_t;
+    e, f: int;
+    j, k: bool;
+    -- Must not clash with previously declared constant 
+    y_l: int;
+    m: real;
+let
+
+  -- (Constant) stream definitions 
+  e = 1;
+  (f) = 2;
+  -- List can be in parentheses
+  (j, k, y_l, m) = (true, false, 1, 2.0);
+tel;

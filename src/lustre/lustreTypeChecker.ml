@@ -127,8 +127,7 @@ type tyStore = tcType IMap.t
 type vStore = LA.expr IMap.t 
 
 (** Type Checker context is a pair type store and a value store with identifier as its key *)
-type tcContext = tyStore * vStore 
-               
+type tcContext = tyStore * vStore
 
 let emptyContext = (IMap.empty, IMap.empty)
                 
@@ -498,25 +497,20 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
       = fun  (_, i,ty, _, _) -> singletonTy i ty in
     let extractRet: LA.clocked_typed_decl -> tcContext
       = fun (_, i, ty, _) -> singletonTy i ty in
-    let localVarTyBinding: LA.node_local_decl -> tcContext = function
-      | LA.NodeConstDecl (pos, constDecls) ->
-         (match constDecls with
-          | FreeConst (pos, i, ty) -> singletonTy i ty
-          | _ -> Lib.todo __LOC__)
-      | LA.NodeVarDecl (pos, (_, i, ty, _)) -> singletonTy i ty 
+    let localVarBinding: tcContext -> LA.node_local_decl -> tcContext tcResult = fun ctx -> function
+      | LA.NodeConstDecl (pos, constDecls) -> tcCtxConstDecl ctx constDecls 
+      | LA.NodeVarDecl (pos, (_, i, ty, _)) -> R.ok (addTy ctx i ty) 
     in
 
-    (* if the node is extren, we will not have any body to typecheck so skip it *)
+    (* if the node is extern, we will not have any body to typecheck so skip it *)
     if isExtern
     then ( Log.log L_debug "External Node, skipping type check"
          ; R.ok ())
     else (
       Log.log L_debug "Params: %a" LA.pp_print_node_param_list params
-    ; Log.log L_debug "Local decls: %a" LA.pp_print_node_local_decl localdecls
-    ; let localVars = List.fold_left union emptyContext (List.map localVarTyBinding localdecls) in
 
       (* These are inputs to the node *)
-      let ips = List.fold_left union emptyContext (List.map extractArg cclktydecls) in
+      ; let ips = List.fold_left union emptyContext (List.map extractArg cclktydecls) in
       Log.log L_debug "Const clocked typed decls: %a\nips:%a"
         (Lib.pp_print_list LA.pp_print_const_clocked_typed_ident ",@,") cclktydecls
         IMap.pp_print_tcContext ips
@@ -526,43 +520,46 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
         Log.log L_debug "Clocked typed decls: %a\nops:%a"
           (Lib.pp_print_list LA.pp_print_clocked_typed_ident ",@,") clktydecls
           IMap.pp_print_tcContext ops
+        ; Log.log L_debug "Local decls: %a" LA.pp_print_node_local_decl localdecls
+        ; R.bind (R.seq (List.map (localVarBinding ctx) localdecls)) (fun localVarCtxts ->
+              let localDecls = List.fold_left union ctx localVarCtxts in
+              Log.log L_debug "Extracted local consts and vars: %a" IMap.pp_print_tcContext localDecls
+              ; let localCtx = union ctx                (* global context *)
+                               (union localDecls      (* declared local variables and constants *)
+                                  (union ips ops))    (* input and output type vars *)
+              in
+              Log.log L_debug "Local Typing Context {%a}" IMap.pp_print_tcContext localCtx
+              ; let doNodeEqn ctx eqn = match eqn with
+                  | LA.Assert (_, e) ->
+                     R.bind
+                       ( Log.log L_debug "Assertion (skipped)"
+                       ; inferTypeExpr ctx e) (fun _ -> R.ok ())
+                  | LA.Equation (_, lhs, expr) as eqn ->
+                     R.bind
+                       ( Log.log L_debug "Node Equation: %a" LA.pp_print_node_body eqn
+                       ; inferTypeExpr ctx expr) (fun ty ->
+                         checkTypeStructDef ctx lhs ty)
+                  | LA.Automaton (pos, _, _, _) ->
+                     Lib.todo ("Unsupported feature Automation." ^ __LOC__)
+                in
+                let rec doItems: tcContext -> LA.node_item list -> unit tcResult =
+                  fun ctx its -> match its with
+                                 | [] -> R.ok ()
+                                 | (LA.Body eqn as body) :: rest ->
+                                    R.bind ( Log.log L_debug "Node Item: %a" LA.pp_print_node_item body
+                                           ; doNodeEqn ctx eqn) (fun _ ->
+                                        doItems ctx rest)
+                                 | (LA.AnnotMain _ as ann) :: rest ->
+                                    Log.log L_debug "Node Item (skipped): %a" LA.pp_print_node_item ann
+                                   ; doItems ctx rest
+                                 | (LA.AnnotProperty _ as ann) :: rest ->
+                                    Log.log L_debug "Node Item (skipped): %a" LA.pp_print_node_item ann
+                                   ; doItems ctx rest 
+                in
 
-        ; let localCtx = union ctx               (* global context *)
-                           (union localVars      (* declared local variables *)
-                              (union ips ops))   (* input and output type vars *)
-          in
-          Log.log L_debug "Local Typing Context {%a}" IMap.pp_print_tcContext localCtx
-          ; let doNodeEqn ctx eqn = match eqn with
-              | LA.Assert (_, e) ->
-                 R.bind
-                   ( Log.log L_debug "Assertion (skipped)"
-                   ; inferTypeExpr ctx e) (fun _ -> R.ok ())
-              | LA.Equation (_, lhs, expr) as eqn ->
-                 R.bind
-                   ( Log.log L_debug "Node Equation: %a" LA.pp_print_node_body eqn
-                   ; inferTypeExpr ctx expr) (fun ty ->
-                     checkTypeStructDef ctx lhs ty)
-              | LA.Automaton (pos, _, _, _) ->
-                 Lib.todo ("Unsupported feature Automation." ^ __LOC__)
-            in
-            let rec doItems: tcContext -> LA.node_item list -> unit tcResult =
-              fun ctx its -> match its with
-                             | [] -> R.ok ()
-                             | (LA.Body eqn as body) :: rest ->
-                                R.bind ( Log.log L_debug "Node Item: %a" LA.pp_print_node_item body
-                                       ; doNodeEqn ctx eqn) (fun _ ->
-                                    doItems ctx rest)
-                             | (LA.AnnotMain _ as ann) :: rest ->
-                                Log.log L_debug "Node Item (skipped): %a" LA.pp_print_node_item ann
-                               ; doItems ctx rest
-                             | (LA.AnnotProperty _ as ann) :: rest ->
-                                Log.log L_debug "Node Item (skipped): %a" LA.pp_print_node_item ann
-                               ; doItems ctx rest 
-            in
-
-            let r = doItems localCtx items in
-            Log.log L_debug "Node TC done }"
-            ; r
+                let r = doItems localCtx items in
+                Log.log L_debug "Node TC done }"
+                ; r)
     )
     
 (* The structure of the left hand side of the equation 
@@ -622,7 +619,7 @@ and tcCtxConstDecl: tcContext -> LA.const_decl -> tcContext tcResult
             | LA.TypedConst (pos, i, expr, ty)
               ->  let expTy = ty in
                   R.bind (checkTypeExpr ctx expr expTy) (fun _ ->
-                      R.ok (addTy ctx i expTy))
+                      R.ok (addTy (addVal ctx i expr) i expTy))
 
 (** get the type signature of node or a function *)
 and tcCtxOfNodeDecl: Lib.position -> tcContext -> LA.node_decl -> tcContext tcResult

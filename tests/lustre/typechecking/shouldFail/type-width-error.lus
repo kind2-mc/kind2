@@ -1,14 +1,12 @@
-const n = 11;
 const w = 5;
 const t = true;
 
-node f(x : bool) returns (b1 : bool^n);
-var k:bool ^ n;
+node f(const n:int; x : bool) returns (b1 : bool^n);
 let
-  k = false ^ n;
+  b1 = false ^ n;
 tel
 
-node b(x : bool) returns (xb : bool^w);
+node b(x : bool) returns (xb : bool^t);
 let
   --%PROPERTY xb[1] = false;
   xb = f(x);
