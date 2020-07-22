@@ -559,7 +559,7 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
   = fun ctx
         (i, isExtern, params, cclktydecls, clktydecls, localdecls, items, contract)
         expTy ->
-  Log.log L_debug "TC node declaration{\n %a" LA.pp_print_ident i
+  Log.log L_debug "TC node declaration {\n %a" LA.pp_print_ident i
   ; let extractArg: LA.const_clocked_typed_decl -> tcContext
       = fun  (_, i,ty, _, _) -> singletonTy i ty in
     let extractRet: LA.clocked_typed_decl -> tcContext
@@ -622,7 +622,7 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
                                    ; doItems ctx rest 
                 in
                 let r = doItems localCtx items in
-                Log.log L_debug "Node TC done }"
+                Log.log L_debug "TC node declaration %a done }" LA.pp_print_ident i
                 ; r)
     )
 
@@ -656,9 +656,9 @@ and checkTypeStructDef: tcContext -> LA.eq_lhs -> tcType -> unit tcResult
          if List.length lhss = List.length expTyLst
          then R.seq_ (List.map2 (checkTypeStructItem ctx) lhss expTyLst)
          else typeError pos ("Term structure on left hand side of the equation"
-                             ^ "does not match expected type structure "
+                             ^ " does not match expected type "
                              ^ Lib.string_of_t pp_print_tcType expTy 
-                             ^ "on right hand side of the node equation")
+                             ^ " on right hand side of the node equation")
       (* We are dealing with simple types, so lhs has to be a singleton list *)
       | Bool _
       | Int _
@@ -669,15 +669,17 @@ and checkTypeStructDef: tcContext -> LA.eq_lhs -> tcType -> unit tcResult
       | Int8  _
       | Int16 _
       | Int32 _ 
-      | Int64 _ -> if (List.length lhss != 1)
+      | Int64 _
+      | RecordType _ -> if (List.length lhss != 1)
                    then typeError pos ("Term structure on left hand side of the equation"
-                             ^ "does not match expected type structure "
+                             ^ " does not match expected type structure "
                              ^ Lib.string_of_t pp_print_tcType expTy 
-                             ^ "on right hand side of the node equation")
+                             ^ " on right hand side of the node equation")
                    else let lhs = List.hd lhss in
                         checkTypeStructItem ctx lhs expTy
-      | RecordType _  
-      | _ -> Lib.todo __LOC__)
+      | _ -> typeError pos ("Unexpected type"
+                            ^ Lib.string_of_t pp_print_tcType expTy
+                            ^"infered on the left hand side of the node equation"))
 
 (** Obtain a global typing context, get contatnts and function decls*)
 and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
