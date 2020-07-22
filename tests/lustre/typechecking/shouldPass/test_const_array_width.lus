@@ -1,5 +1,7 @@
+-- Currently this will fail as we do not have a bounded value for const n
+-- The semantics of such a function remains unclear
 node f(const n: int; x : bool) returns (b1 : bool^n);
 let
-  --%PROPERTY b1[1] = false     
+  --%PROPERTY b1[1] = false;     
   b1 = false ^ n;
 tel

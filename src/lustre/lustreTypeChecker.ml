@@ -64,7 +64,7 @@ let rec pp_print_tcType: Format.formatter -> tcType -> unit
   | Int64 _ -> Format.fprintf ppf "@[Int64@]"
   | Real _ -> Format.fprintf ppf "@[Real@]"
   (* Function type of argument and return *)
-  | TArr (_, argTy, retTy) -> Format.fprintf ppf "@[ @[%a@] @, -> @[%a@] @]" pp_print_tcType argTy pp_print_tcType retTy 
+  | TArr (_, argTy, retTy) -> Format.fprintf ppf "@[%a->@,%a@]" pp_print_tcType argTy pp_print_tcType retTy 
   (* Arrays Tuples, ranges *)
   | IntRange (_, mi, ma) -> Format.fprintf ppf "IntRange (%a, %a)" LA.pp_print_expr mi LA.pp_print_expr ma
   | UserType (_, i) -> Format.fprintf ppf "UserType %a" LA.pp_print_ident i
@@ -103,11 +103,11 @@ module IMap = struct
 
   (** Pretty print type bindings*)
   let pp_print_type_binding ppf = fun i ty -> 
-    Format.fprintf ppf "(%a:%a),@, " LA.pp_print_ident i pp_print_tcType ty
+    Format.fprintf ppf "(%a:%a), " LA.pp_print_ident i pp_print_tcType ty
 
   (** Pretty print value bindings (used for constants)*)
   let pp_print_val_binding ppf = fun i v ->
-    Format.fprintf ppf "(%a:->%a)" LA.pp_print_ident i LA.pp_print_expr v
+    Format.fprintf ppf "(%a:->%a), " LA.pp_print_ident i LA.pp_print_expr v
 
   (** Pretty print type context *)
   let pp_print_tymap ppf = iter (pp_print_type_binding ppf)   
@@ -117,7 +117,7 @@ module IMap = struct
   (** Pretty print the complete type checker context*)
   let pp_print_tcContext ppf ctx
     = Format.fprintf ppf
-        "TypeContext: {@ %a@ }\nValuecontext{@ %a @ }"
+        "TypeContext: {%a}\n ConstValueContext: {%a}"
         pp_print_tymap (fst ctx)
         pp_print_vstore (snd ctx)
 
@@ -660,8 +660,10 @@ and eqLustreType : tcContext -> LA.lustre_type -> LA.lustre_type -> bool tcResul
   | UserType (_, i1), UserType (_, i2) -> R.ok (i1 = i2) 
   | AbstractType (_, i1), AbstractType (_, i2) -> R.ok (i1 = i2)
   | TupleType (_, tys1), TupleType (_, tys2) ->
-     R.bind (R.seq (List.map2 (eqLustreType ctx) tys1 tys2)) (fun isEqs ->
-         R.ok (List.fold_left (&&) true isEqs))      
+     if List.length tys1 = List.length tys2
+     then R.bind (R.seq (List.map2 (eqLustreType ctx) tys1 tys2)) (fun isEqs ->
+              R.ok (List.fold_left (&&) true isEqs))
+     else R.ok false
   | RecordType (_, tys1), RecordType (_, tys2) ->
      R.bind (R.seq (List.map2 (eqTypedIdent ctx) tys1 tys2)) (fun isEqs ->
         R.ok (List.fold_left (&&) true isEqs))
@@ -700,7 +702,9 @@ and eqTypeArray: tcContext -> (LA.lustre_type * LA.expr) -> (LA.lustre_type * LA
 and evalConstExpr: tcContext -> LA.expr -> int tcResult = fun ctx e ->
   match e with
   (* identifier and constants *)
-  | Ident (_, i) -> evalConstExpr ctx (lookupVal ctx i)
+  | Ident (pos, i) -> (try evalConstExpr ctx (lookupVal ctx i) with
+                    | Not_found -> typeError pos ("Identifier " ^ i ^ " does not have a bounded value"))  
+                      
   | Const (pos, c) -> (match c with
                     | Num n -> R.ok (int_of_string n)
                     | _ -> typeError pos ("Constant " ^ Lib.string_of_t LA.pp_print_expr e
