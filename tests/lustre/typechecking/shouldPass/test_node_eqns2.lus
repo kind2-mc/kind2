@@ -1,0 +1,32 @@
+
+-- A record type 
+type t = { one: int; two: real; three: bool };
+
+-- A node returning a record type 
+node Z(x: bool) returns (y: t);
+let
+  y = if x then
+        t { one=0; two=1.0; three = true } 
+      else
+        t { one=1; two=2.0; three = false };
+tel;
+
+-- Another node 
+node X(x: int) returns (y: int);
+var v: t; 
+let 
+
+  -- Return value of record type 
+  v = Z(true);
+
+  -- Nested and unguarded pres 
+  y = pre pre x + v.one;
+
+tel;
+
+-- Node with two return values
+node nodecall (x: int) returns (f: bool; v: int);
+let
+  f = false;
+  v = 0;
+tel;

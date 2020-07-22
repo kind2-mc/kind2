@@ -161,11 +161,24 @@ let pp_print_tcContext ppf ctx
 (** [typeError] returns an [Error] of [tcResult] *)
 let typeError pos err = R.error (pos, "Type error: " ^ err)
 
+let memberTySyn: tcContext -> LA.ident -> bool
+  = fun ctx i -> IMap.mem i (ctx.tySyns)
+           
+let memberTy: tcContext -> LA.ident -> bool
+  = fun ctx i -> IMap.mem i (ctx.tyCtx)
+
+let memberVal: tcContext -> LA.ident -> bool
+  = fun ctx i -> IMap.mem i (ctx.vlCtx)
+
+                      
 let lookupTySyn: tcContext -> LA.ident -> tcType =
   fun ctx i -> IMap.find i (ctx.tySyns)
                       
 let lookupTy: tcContext -> LA.ident -> tcType =
-  fun ctx i -> IMap.find i (ctx.tyCtx)
+  fun ctx i -> let ty = IMap.find i (ctx.tyCtx) in
+               match ty with
+               | LA.UserType (_, uid) -> if (memberTySyn ctx uid) then (lookupTySyn ctx uid) else ty
+               | _ ->  ty
 
 let lookupVal: tcContext -> LA.ident -> LA.expr =
   fun ctx i -> IMap.find i (ctx.vlCtx)
@@ -190,15 +203,6 @@ let singletonTy: LA.ident -> tcType -> tcContext =
 
 let singletonVal: LA.ident -> LA.expr -> tcContext =
   fun i e -> addVal emptyContext i e
-
-let memberTySyn: tcContext -> LA.ident -> bool
-  = fun ctx i -> IMap.mem i (ctx.tySyns)
-           
-let memberTy: tcContext -> LA.ident -> bool
-  = fun ctx i -> IMap.mem i (ctx.tyCtx)
-
-let memberVal: tcContext -> LA.ident -> bool
-  = fun ctx i -> IMap.mem i (ctx.vlCtx)
 
 let inferTypeConst: Lib.position -> LA.constant -> tcType
   = fun pos -> function
@@ -242,7 +246,7 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
   match expr with
   (* Identifiers *)
   | LA.Ident (pos, i) ->
-     (try (Ok (lookupTy ctx i)) with
+     (try R.ok (lookupTy ctx i) with
       | Not_found -> typeError pos ("Unbound Variable: << " ^ i ^ " >>")) 
   | LA.ModeRef (pos, ids) -> Lib.todo __LOC__
   | LA.RecordProject _  -> Lib.todo __LOC__
@@ -390,24 +394,7 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
                                  ^ " with infered type "
                                  ^ string_of_tcType ty)))
   | ModeRef (pos, ids) -> Lib.todo __LOC__
-  | RecordProject (pos, expr, idx) ->
-     R.bind(inferTypeExpr ctx expr) (fun recTy ->
-         match recTy with
-         | RecordType (pos, flds) ->
-            R.bind (try R.ok (List.find (fun (_, i, _) -> i = idx) flds) with
-            | Not_found -> typeError pos ("Cannot project field " ^ idx
-                                          ^ " from given record type "
-                                          ^ Lib.string_of_t pp_print_tcType recTy)) (fun (_, _, fty) -> 
-                R.bind (eqLustreType ctx fty expTy) (fun isEq ->
-                    if isEq
-                    then R.ok ()
-                    else typeError pos ("Cannot match expected type "
-                                        ^ Lib.string_of_t pp_print_tcType expTy
-                                        ^ " with infered type "
-                                        ^ Lib.string_of_t pp_print_tcType fty)))
-         | _ -> typeError pos ("Cannot project field " ^ idx
-                               ^ " from a non record type "
-                               ^ Lib.string_of_t pp_print_tcType recTy))
+  | RecordProject (pos, expr, idx) -> checkTypeRecordProj pos ctx expr idx expTy
   | TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
   (* Operators *)
   | UnaryOp (pos, op, e) ->
@@ -525,7 +512,25 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
                                                            ^ string_of_tcType ty1
                                                            ^ " and " ^ string_of_tcType ty2))))
   | _ -> Lib.todo __LOC__
-       
+and checkTypeRecordProj: Lib.position -> tcContext -> LA.expr -> LA.index -> tcType -> unit tcResult =
+  fun pos ctx expr idx expTy -> 
+  R.bind(inferTypeExpr ctx expr) (fun recTy ->
+         match recTy with
+         | RecordType (_, flds) ->
+            R.bind (try R.ok (List.find (fun (_, i, _) -> i = idx) flds) with
+            | Not_found -> typeError pos ("Cannot project field " ^ idx
+                                          ^ " from given record type "
+                                          ^ Lib.string_of_t pp_print_tcType recTy)) (fun (_, _, fty) -> 
+                R.bind (eqLustreType ctx fty expTy) (fun isEq ->
+                    if isEq
+                    then R.ok ()
+                    else typeError pos ("Cannot match expected type "
+                                        ^ Lib.string_of_t pp_print_tcType expTy
+                                        ^ " with infered type "
+                                        ^ Lib.string_of_t pp_print_tcType fty)))
+         | _ -> typeError pos ("Cannot project field " ^ idx
+                               ^ " from a non record type "
+                               ^ Lib.string_of_t pp_print_tcType recTy))       
 and checkTypeConstDecl: tcContext -> LA.const_decl -> tcType -> unit tcResult =
   fun ctx constDecl expTy ->
   match constDecl with
