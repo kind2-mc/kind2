@@ -296,6 +296,26 @@
                 "objectType", "class", "size", "runtime", "nodes"
             ]
         },
+        "noModelElementSet": {
+            "type": "object",
+            "properties": {
+                "objectType" : {
+                    "const": "noModelElementSet"
+                },
+                "class": {
+                    "$ref": "#/definitions/coreClass"
+                },
+                "property": {
+                    "type": "string"
+                },
+                "runtime": {
+                    "$ref": "#/definitions/runtime"
+                }
+            },
+            "required": [
+                "objectType", "class", "runtime"
+            ]
+        },
         "scope": {
             "type": "string"
         },
@@ -667,6 +687,7 @@
                    { "$ref": "#/definitions/analysisStop" },
                    { "$ref": "#/definitions/postAnalysisStart" },
                    { "$ref": "#/definitions/modelElementSet" },
+                   { "$ref": "#/definitions/noModelElementSet" },
                    { "$ref": "#/definitions/postAnalysisEnd" },
                    { "$ref": "#/definitions/property" },
                    { "$ref": "#/definitions/execution" }
