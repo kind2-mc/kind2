@@ -33,7 +33,7 @@ const i_two : bool = i.two;
 const i_one : i2 = i.one;
 
 -- A constant of type int
-const i_one_a : int = i_one.a;
+-- const i_one_a : int = i_one.a;
 
 -- Enum type (V6) 
 type j = enum { st_init, st_step, st_stop };

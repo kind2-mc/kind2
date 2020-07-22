@@ -18,6 +18,10 @@
 
 (* @author Apoorv Ingle *)
 
+(* TODO: Find strongly connected components, put them in a group *)
+(* TODO: This also checks if we have co-dependent types or values *)
+(* TODO: UserType if they are alias of any other type, then flatten them out *)
+
 module LA = LustreAst
 module LC = LustreContext
 module R = Res
@@ -101,6 +105,10 @@ module IMap = struct
    * let mapM: ('a -> 'b tcResult) -> 'a t -> 'b t tcResult =   
    *   fun m f -> todo __LOC__ *)
 
+  (** Pretty print type synonyms*)
+  let pp_print_type_binding ppf = fun i ty -> 
+    Format.fprintf ppf "(%a<->%a), " LA.pp_print_ident i pp_print_tcType ty
+
   (** Pretty print type bindings*)
   let pp_print_type_binding ppf = fun i ty -> 
     Format.fprintf ppf "(%a:%a), " LA.pp_print_ident i pp_print_tcType ty
@@ -110,17 +118,13 @@ module IMap = struct
     Format.fprintf ppf "(%a:->%a), " LA.pp_print_ident i LA.pp_print_expr v
 
   (** Pretty print type context *)
+  let pp_print_tySyns ppf = iter (pp_print_type_binding ppf)   
+
+  (** Pretty print type context *)
   let pp_print_tymap ppf = iter (pp_print_type_binding ppf)   
+
   (** Pretty print value store *)
   let pp_print_vstore ppf = iter (pp_print_val_binding ppf)
-
-  (** Pretty print the complete type checker context*)
-  let pp_print_tcContext ppf ctx
-    = Format.fprintf ppf
-        "TypeContext={%a}\nConstValueContext={%a}"
-        pp_print_tymap (fst ctx)
-        pp_print_vstore (snd ctx)
-
 end
 
 let sortTypedIdent: LA.typed_ident list -> LA.typed_ident list = fun tyIdents ->
@@ -128,6 +132,9 @@ let sortTypedIdent: LA.typed_ident list -> LA.typed_ident list = fun tyIdents ->
 
 let sortIdents: LA.ident list -> LA.ident list = fun ids ->
   List.sort (fun i1 i2 -> Stdlib.compare i1 i2) ids
+
+type tyAliasStore = tcType IMap.t
+(** A store of type Aliases, i.e. for user defined types  *)
 
 type tyStore = tcType IMap.t
 (** A store of identifier and their types*)
@@ -137,40 +144,61 @@ type vStore = LA.expr IMap.t
  *  The values of the assoicated identifiers should ideally evaluate to a Bool or an Int*)
             
 (** Type Checker context is a pair type store and a value store with identifier as its key *)
-type tcContext = tyStore * vStore
+type tcContext = { tySyns: tyAliasStore; tyCtx:tyStore; vlCtx: vStore}
 
-let emptyContext = (IMap.empty, IMap.empty)
-                
+let emptyContext: tcContext = {tySyns = IMap.empty; tyCtx= IMap.empty; vlCtx=IMap.empty}
+
+(** Pretty print the complete type checker context*)
+let pp_print_tcContext ppf ctx
+  = Format.fprintf ppf
+      "TypeSynonyms={%a}\nTypeContext={%a}\nConstValueContext={%a}"
+      IMap.pp_print_tySyns (ctx.tySyns)
+      IMap.pp_print_tymap (ctx.tyCtx)
+      IMap.pp_print_vstore (ctx.vlCtx)
+
+
+                            
 (** [typeError] returns an [Error] of [tcResult] *)
 let typeError pos err = R.error (pos, "Type error: " ^ err)
 
+let lookupTySyn: tcContext -> LA.ident -> tcType =
+  fun ctx i -> IMap.find i (ctx.tySyns)
+                      
 let lookupTy: tcContext -> LA.ident -> tcType =
-  fun ctx i -> IMap.find i (fst ctx)
+  fun ctx i -> IMap.find i (ctx.tyCtx)
 
 let lookupVal: tcContext -> LA.ident -> LA.expr =
-  fun ctx i -> IMap.find i (snd ctx)
+  fun ctx i -> IMap.find i (ctx.vlCtx)
+
+let addTySyn: tcContext -> LA.ident -> tcType -> tcContext = 
+  fun ctx i ty -> {ctx with tySyns=IMap.add i ty (ctx.tySyns)}
 
 let addTy: tcContext -> LA.ident -> tcType -> tcContext
-  = fun ctx i ty -> (IMap.add i ty (fst ctx), snd ctx) 
+  = fun ctx i ty -> {ctx with tyCtx=IMap.add i ty (ctx.tyCtx)}
 
 let addVal: tcContext -> LA.ident -> LA.expr -> tcContext
-  = fun ctx i e -> ((fst ctx), IMap.add i e (snd ctx)) 
+  = fun ctx i e -> {ctx with vlCtx=IMap.add i e ctx.vlCtx} 
 
 let union: tcContext -> tcContext -> tcContext
-  = fun ctx1 ctx2 -> ( IMap.union (fun k v1 v2 -> Some v1) (fst ctx1) (fst ctx2)
-                     , IMap.union (fun k v1 v2 -> Some v1) (snd ctx1) (snd ctx2))
+  = fun ctx1 ctx2 -> { tySyns = (IMap.union (fun k v1 v2 -> Some v1) (ctx1.tySyns) (ctx2.tySyns))
+                     ; tyCtx = (IMap.union (fun k v1 v2 -> Some v1) (ctx1.tyCtx) (ctx2.tyCtx))
+                     ; vlCtx = (IMap.union (fun k v1 v2 -> Some v1) (ctx1.vlCtx) (ctx2.vlCtx))
+                     }
 
 let singletonTy: LA.ident -> tcType -> tcContext =
   fun i ty -> addTy emptyContext i ty
 
 let singletonVal: LA.ident -> LA.expr -> tcContext =
   fun i e -> addVal emptyContext i e
+
+let memberTySyn: tcContext -> LA.ident -> bool
+  = fun ctx i -> IMap.mem i (ctx.tySyns)
            
 let memberTy: tcContext -> LA.ident -> bool
-  = fun ctx i -> IMap.mem i (fst ctx)
+  = fun ctx i -> IMap.mem i (ctx.tyCtx)
 
 let memberVal: tcContext -> LA.ident -> bool
-  = fun ctx i -> IMap.mem i (snd ctx)
+  = fun ctx i -> IMap.mem i (ctx.vlCtx)
 
 let inferTypeConst: Lib.position -> LA.constant -> tcType
   = fun pos -> function
@@ -368,7 +396,7 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
          | RecordType (pos, flds) ->
             R.bind (try R.ok (List.find (fun (_, i, _) -> i = idx) flds) with
             | Not_found -> typeError pos ("Cannot project field " ^ idx
-                                          ^ " from a non record type "
+                                          ^ " from given record type "
                                           ^ Lib.string_of_t pp_print_tcType recTy)) (fun (_, _, fty) -> 
                 R.bind (eqLustreType ctx fty expTy) (fun isEq ->
                     if isEq
@@ -552,30 +580,29 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
       ; let ips = List.fold_left union emptyContext (List.map extractArg cclktydecls) in
       Log.log L_debug "Const clocked typed decls: %a\nips:%a"
         (Lib.pp_print_list LA.pp_print_const_clocked_typed_ident ",@,") cclktydecls
-        IMap.pp_print_tcContext ips
+        pp_print_tcContext ips
       
       (* These are outputs of the node *)
       ; let ops = List.fold_left union emptyContext (List.map extractRet clktydecls) in
         Log.log L_debug "Clocked typed decls: %a\nops:%a"
           (Lib.pp_print_list LA.pp_print_clocked_typed_ident ",@,") clktydecls
-          IMap.pp_print_tcContext ops
+          pp_print_tcContext ops
         ; Log.log L_debug "Local decls: %a" LA.pp_print_node_local_decl localdecls
         ; R.bind (R.seq (List.map (localVarBinding ctx) localdecls)) (fun localVarCtxts ->
               let localDecls = List.fold_left union ctx localVarCtxts in
-              Log.log L_debug "Extracted local consts and vars: %a" IMap.pp_print_tcContext localDecls
+              Log.log L_debug "Extracted local consts and vars: %a" pp_print_tcContext localDecls
               ; let localCtx = union localDecls       (* declared local variables and constants *)
                                   (union ips ops)     (* input and output type vars *)
               in
-              Log.log L_debug "Local Typing Context {%a}" IMap.pp_print_tcContext localCtx
+              Log.log L_debug "Local Typing Context {%a}" pp_print_tcContext localCtx
               ; let doNodeEqn ctx eqn = match eqn with
                   | LA.Assert (pos, e) ->
                      R.bind
                        ( Log.log L_debug "checking assertion"
                        ; checkTypeExpr ctx e (Bool pos)) (fun _ -> R.ok ())
-                  | LA.Equation (_, lhs, expr) as eqn ->
+                  | LA.Equation (_, lhs, expr) ->
                      R.bind
-                       ( Log.log L_debug "Node Equation: %a" LA.pp_print_node_body eqn
-                       ; inferTypeExpr ctx expr) (fun ty ->
+                       (inferTypeExpr ctx expr) (fun ty ->
                          checkTypeStructDef ctx lhs ty)
                   | LA.Automaton (pos, _, _, _) ->
                      Lib.todo ("Unsupported feature Automation." ^ __LOC__)
@@ -649,7 +676,7 @@ and checkTypeStructDef: tcContext -> LA.eq_lhs -> tcType -> unit tcResult
                              ^ "on right hand side of the node equation")
                    else let lhs = List.hd lhss in
                         checkTypeStructItem ctx lhs expTy
-      | RecordType _ 
+      | RecordType _  
       | _ -> Lib.todo __LOC__)
 
 (** Obtain a global typing context, get contatnts and function decls*)
@@ -657,7 +684,8 @@ and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
   let tcContextOf': tcContext -> LA.declaration -> tcContext tcResult
     = fun ctx decl ->
     match decl with
-    | LA.ConstDecl (_, tyDecl) -> tcCtxConstDecl ctx tyDecl
+    | LA.TypeDecl (_, tyDecl)     -> tcCtxOfTyDecl ctx tyDecl 
+    | LA.ConstDecl (_, constDecl) -> tcCtxConstDecl ctx constDecl
     | LA.NodeDecl (pos, nodeDecl) -> tcCtxOfNodeDecl pos ctx nodeDecl
     | LA.FuncDecl (pos, nodeDecl) -> tcCtxOfNodeDecl pos ctx nodeDecl
     | _ -> R.ok ctx
@@ -673,6 +701,11 @@ and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
          R.bind (tcContextOf (union ctx' ctx) tl) (fun c -> 
              R.ok c))
 
+and tcCtxOfTyDecl: tcContext -> LA.type_decl -> tcContext tcResult = fun ctx ->
+  function
+  | LA.AliasType (_, i, ty) -> R.ok (addTySyn ctx i ty)
+  | LA.FreeType _ -> R.ok ctx
+  
 (** Shadow the old binding with the new decl *)
 and tcCtxConstDecl: tcContext -> LA.const_decl -> tcContext tcResult
   = fun ctx decl ->
@@ -726,7 +759,7 @@ and eqLustreType : tcContext -> LA.lustre_type -> LA.lustre_type -> bool tcResul
   (* Integer Range *)
   | IntRange _, IntRange _ -> R.ok true
   (* Lustre V6 features *)
-  | UserType (_, i1), UserType (_, i2) -> R.ok (i1 = i2) 
+  | UserType (_, i1), UserType (_, i2) -> R.ok (i1 = i2)
   | AbstractType (_, i1), AbstractType (_, i2) -> R.ok (i1 = i2)
   | TupleType (_, tys1), TupleType (_, tys2) ->
      if List.length tys1 = List.length tys2
@@ -747,6 +780,13 @@ and eqLustreType : tcContext -> LA.lustre_type -> LA.lustre_type -> bool tcResul
          if isEqArgTy
          then eqLustreType ctx retTy1 retTy2
          else R.ok false )
+  (* special case for type synonyms *)
+  | UserType (_, u), ty
+    | ty, UserType (_, u) ->
+     if memberTySyn ctx u
+     then let tyAlias  = lookupTySyn ctx u in 
+          eqLustreType ctx ty tyAlias
+     else R.ok false
   | _, _ -> R.ok false
 
 (** Compute equality for [LA.typed_ident] *)
@@ -791,9 +831,8 @@ and evalConstExpr: tcContext -> LA.expr -> int tcResult = fun ctx e ->
   | _ -> typeError (LustreAstHelpers.pos_of_expr e)
            ("Cannot evaluate expression"
             ^ Lib.string_of_t LA.pp_print_expr e ^" to constant")
-
+       
 (* Compute the strongly connected components for type checking *)
-(* LIB.TODO: Find strongly connected components, put them in a group *)
 let scc: LA.t -> LA.t list
   = fun decls -> [decls]
                
@@ -831,7 +870,7 @@ let typeCheckProgram: LA.t -> unit tcResult = fun prg ->
                        ^^ "Phase 1: Completed Building TC Global Context\n"
                        ^^ "TC Context\n%a\n"
                        ^^"===============================================\n")
-        IMap.pp_print_tcContext  tcCtx
+        pp_print_tcContext  tcCtx
       ; prg |> scc |> typeCheckDeclGrps tcCtx |> reportTcResult)
     
     
