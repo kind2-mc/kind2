@@ -117,7 +117,7 @@ module IMap = struct
   (** Pretty print the complete type checker context*)
   let pp_print_tcContext ppf ctx
     = Format.fprintf ppf
-        "TypeContext: {%a}\n ConstValueContext: {%a}"
+        "TypeContext={%a}\nConstValueContext={%a}"
         pp_print_tymap (fst ctx)
         pp_print_vstore (snd ctx)
 
@@ -641,29 +641,33 @@ and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
     | LA.FuncDecl (pos, nodeDecl) -> tcCtxOfNodeDecl pos ctx nodeDecl
     | _ -> R.ok ctx
 
-  in function 
+  in function
+  (* TODO: make this into a sequence and then fold? *)
   | [] -> R.ok ctx
-  | d :: tl -> R.bind ( Log.log L_debug
-                          "Extracting typing context from declaration: %a"
-                          LA.pp_print_declaration d
-                      ; tcContextOf' ctx d) (fun ctx' ->
-                   R.bind (
-                       Log.log L_debug "%a" IMap.pp_print_tcContext (union ctx ctx')
-                     ; tcContextOf (union ctx ctx') tl) (fun c -> 
-                       R.ok c))
+  | d :: tl ->
+     R.bind ( Log.log L_debug
+                "Extracting typing context from declaration: %a"
+                LA.pp_print_declaration d
+            ; tcContextOf' ctx d) (fun ctx' ->
+         R.bind (tcContextOf (union ctx' ctx) tl) (fun c -> 
+             R.ok c))
 
 (** Shadow the old binding with the new decl *)
 and tcCtxConstDecl: tcContext -> LA.const_decl -> tcContext tcResult
-  = fun ctx -> function
-            | LA.FreeConst (_, i, ty) ->
-               R.ok (addTy ctx i ty)
-            | LA.UntypedConst (_, i, expr) ->
-               R.bind (inferTypeExpr ctx expr) (fun ty -> 
-                   R.ok (addTy (addVal ctx i expr) i ty))
-            | LA.TypedConst (pos, i, expr, ty)
-              ->  let expTy = ty in
-                  R.bind (checkTypeExpr ctx expr expTy) (fun _ ->
-                      R.ok (addTy (addVal ctx i expr) i expTy))
+  = fun ctx decl ->
+  Log.log L_debug
+    "Extracting typing context from const declaration: %a"
+    LA.pp_print_const_decl decl
+  ; match decl with
+    | LA.FreeConst (_, i, ty) ->
+       R.ok (addTy ctx i ty)
+    | LA.UntypedConst (_, i, expr) ->
+       R.bind (inferTypeExpr ctx expr) (fun ty -> 
+           R.ok (addTy (addVal ctx i expr) i ty))
+    | LA.TypedConst (pos, i, expr, ty)
+      ->  let expTy = ty in
+          R.bind (checkTypeExpr ctx expr expTy) (fun _ ->
+              R.ok (addTy (addVal ctx i expr) i expTy))
 
 (** get the type signature of node or a function *)
 and tcCtxOfNodeDecl: Lib.position -> tcContext -> LA.node_decl -> tcContext tcResult
@@ -798,9 +802,16 @@ let typeCheckDeclGrps: tcContext -> LA.t list -> unit tcResult list = fun ctx de
   List.concat (List.map (typeCheckGroup ctx) decls)               
 
 let typeCheckProgram: LA.t -> unit tcResult = fun prg ->
-  R.bind (tcContextOf emptyContext prg) (fun tcCtx ->
-      Log.log L_debug "Type Checker Context\n====\n%a\n====\n" IMap.pp_print_tcContext  tcCtx
-    ; prg |> scc |> typeCheckDeclGrps tcCtx |> reportTcResult)
+  R.bind (Log.log L_debug ("===============================================\n"
+                           ^^ "Phase 1: Building TC Global Context\n"
+                           ^^"===============================================\n")
+        ; tcContextOf emptyContext prg) (fun tcCtx ->
+      Log.log L_debug ("===============================================\n"
+                       ^^ "Phase 1: Completed Building TC Global Context\n"
+                       ^^ "TC Context\n%a\n"
+                       ^^"===============================================\n")
+        IMap.pp_print_tcContext  tcCtx
+      ; prg |> scc |> typeCheckDeclGrps tcCtx |> reportTcResult)
     
     
 (* 
