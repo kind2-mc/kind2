@@ -36,6 +36,12 @@ let rec seq: ('a, 'e) result list -> ('a list, 'e) result  = function
   | h :: t -> bind h (fun h' -> 
                   bind (seq t) (fun t' ->
                       ok (h' :: t')))
+
+let rec seq_: (unit, 'e) result list -> (unit, 'e) result  = function
+  | [] -> ok ()
+  | h :: t -> bind h (fun _ -> 
+                  bind (seq t) (fun _ ->
+                      ok ()))
        
 (** Unwraps a result. *)
 let unwrap = function

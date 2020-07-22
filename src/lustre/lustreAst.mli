@@ -119,6 +119,9 @@ type lustre_type =
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
   | EnumType of position * ident option * ident list
+  (** TArr is always constructed as TupleType -> TupleType
+   *  as we can have more than one arguments and return 
+   *  values  *)
   | TArr of position * lustre_type * lustre_type
   
 (** A Lustre expression *)
