@@ -508,10 +508,19 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
                                    R.bind (eqLustreType ctx ty1 ty2)(fun isEq ->
                                        if isEq 
                                        then R.ok ()
-                                       else typeError pos (" Cannot unify "
+                                       else typeError pos (" Cannot match expected type "
                                                            ^ string_of_tcType ty1
-                                                           ^ " and " ^ string_of_tcType ty2))))
-  | _ -> Lib.todo __LOC__
+                                                           ^ " with " ^ string_of_tcType ty2))))
+  (* Node calls *)
+  | Call (pos, i, args) as ncall -> R.bind (inferTypeExpr ctx ncall) (fun ty ->
+                                        R.bind (eqLustreType ctx ty expTy) (fun isEq ->
+                                            if isEq
+                                            then R.ok ()
+                                            else typeError pos (" Cannot match expected type "
+                                                           ^ string_of_tcType ty
+                                                           ^ " with " ^ string_of_tcType expTy)))  
+  | CallParam _ -> Lib.todo __LOC__
+  | _ -> Lib.todo __LOC__ 
 and checkTypeRecordProj: Lib.position -> tcContext -> LA.expr -> LA.index -> tcType -> unit tcResult =
   fun pos ctx expr idx expTy -> 
   R.bind(inferTypeExpr ctx expr) (fun recTy ->
@@ -665,26 +674,13 @@ and checkTypeStructDef: tcContext -> LA.eq_lhs -> tcType -> unit tcResult
                              ^ Lib.string_of_t pp_print_tcType expTy 
                              ^ " on right hand side of the node equation")
       (* We are dealing with simple types, so lhs has to be a singleton list *)
-      | Bool _
-      | Int _
-      | UInt8 _ 
-      | UInt16 _
-      | UInt32 _
-      | UInt64 _
-      | Int8  _
-      | Int16 _
-      | Int32 _ 
-      | Int64 _
-      | RecordType _ -> if (List.length lhss != 1)
-                   then typeError pos ("Term structure on left hand side of the equation"
-                             ^ " does not match expected type structure "
-                             ^ Lib.string_of_t pp_print_tcType expTy 
-                             ^ " on right hand side of the node equation")
-                   else let lhs = List.hd lhss in
-                        checkTypeStructItem ctx lhs expTy
-      | _ -> typeError pos ("Unexpected type"
-                            ^ Lib.string_of_t pp_print_tcType expTy
-                            ^"infered on the left hand side of the node equation"))
+      | _ -> if (List.length lhss != 1)
+             then typeError pos ("Term structure on left hand side of the equation"
+                                 ^ " does not match expected type structure "
+                                 ^ Lib.string_of_t pp_print_tcType expTy 
+                                 ^ " on right hand side of the node equation")
+             else let lhs = List.hd lhss in
+                  checkTypeStructItem ctx lhs expTy)
 
 (** Obtain a global typing context, get contatnts and function decls*)
 and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
