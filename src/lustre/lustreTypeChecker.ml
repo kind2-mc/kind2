@@ -68,7 +68,7 @@ let rec pp_print_tcType: Format.formatter -> tcType -> unit
   (* Arrays Tuples, ranges *)
   | IntRange (_, mi, ma) -> Format.fprintf ppf "IntRange (%a, %a)" LA.pp_print_expr mi LA.pp_print_expr ma
   | UserType (_, i) -> Format.fprintf ppf "UserType %a" LA.pp_print_ident i
-  | TupleType (_, tys) -> Format.fprintf ppf "%a" (Lib.pp_print_list pp_print_tcType "*") tys
+  | TupleType (_, tys) -> Format.fprintf ppf "[%a]" (Lib.pp_print_list pp_print_tcType ",") tys
   (* lustre V6 types *)
   | AbstractType (_,i) -> Format.fprintf ppf "AbstractType %a" LA.pp_print_ident i 
   | RecordType (_, fs) -> let pp_print_field ppf = fun (_, i, ty) ->
@@ -123,6 +123,12 @@ module IMap = struct
 
 end
 
+let sortTypedIdent: LA.typed_ident list -> LA.typed_ident list = fun tyIdents ->
+  List.sort (fun (_,i1,_) (_,i2,_) -> Stdlib.compare i1 i2) tyIdents
+
+let sortIdents: LA.ident list -> LA.ident list = fun ids ->
+  List.sort (fun i1 i2 -> Stdlib.compare i1 i2) ids
+  
 type tyStore = tcType IMap.t
 type vStore = LA.expr IMap.t 
 
@@ -524,16 +530,15 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
         ; R.bind (R.seq (List.map (localVarBinding ctx) localdecls)) (fun localVarCtxts ->
               let localDecls = List.fold_left union ctx localVarCtxts in
               Log.log L_debug "Extracted local consts and vars: %a" IMap.pp_print_tcContext localDecls
-              ; let localCtx = union ctx                (* global context *)
-                               (union localDecls      (* declared local variables and constants *)
-                                  (union ips ops))    (* input and output type vars *)
+              ; let localCtx = union localDecls       (* declared local variables and constants *)
+                                  (union ips ops)     (* input and output type vars *)
               in
               Log.log L_debug "Local Typing Context {%a}" IMap.pp_print_tcContext localCtx
               ; let doNodeEqn ctx eqn = match eqn with
-                  | LA.Assert (_, e) ->
+                  | LA.Assert (pos, e) ->
                      R.bind
-                       ( Log.log L_debug "Assertion (skipped)"
-                       ; inferTypeExpr ctx e) (fun _ -> R.ok ())
+                       ( Log.log L_debug "checking assertion"
+                       ; checkTypeExpr ctx e (Bool pos)) (fun _ -> R.ok ())
                   | LA.Equation (_, lhs, expr) as eqn ->
                      R.bind
                        ( Log.log L_debug "Node Equation: %a" LA.pp_print_node_body eqn
@@ -546,46 +551,73 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
                   fun ctx its -> match its with
                                  | [] -> R.ok ()
                                  | (LA.Body eqn as body) :: rest ->
-                                    R.bind ( Log.log L_debug "Node Item: %a" LA.pp_print_node_item body
+                                    R.bind ( Log.log L_debug "Node Item (Equation): %a" LA.pp_print_node_item body
                                            ; doNodeEqn ctx eqn) (fun _ ->
                                         doItems ctx rest)
                                  | (LA.AnnotMain _ as ann) :: rest ->
-                                    Log.log L_debug "Node Item (skipped): %a" LA.pp_print_node_item ann
+                                    Log.log L_debug "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann
                                    ; doItems ctx rest
                                  | (LA.AnnotProperty _ as ann) :: rest ->
-                                    Log.log L_debug "Node Item (skipped): %a" LA.pp_print_node_item ann
+                                    Log.log L_debug "Node Item Skipped (Annotation Property): %a" LA.pp_print_node_item ann
                                    ; doItems ctx rest 
                 in
-
                 let r = doItems localCtx items in
                 Log.log L_debug "Node TC done }"
                 ; r)
     )
-    
-(* The structure of the left hand side of the equation 
+
+and checkTypeStructItem: tcContext -> LA.struct_item -> tcType -> unit tcResult
+  = fun ctx st expTy ->
+  match st with
+  | SingleIdent (pos, i) ->
+     let infTy = lookupTy ctx i in
+     R.bind (eqLustreType ctx expTy infTy) (fun isEq ->
+         if isEq
+         then R.ok ()
+         (*This is an ugly fix to try and see if the RHS was instead a function return call *)
+         else R.bind (eqLustreType ctx expTy (TupleType (pos, (infTy::[])))) (fun isEq' ->
+                  if isEq'
+                  then R.ok()
+                  else typeError pos ("Expected type "
+                                      ^ string_of_tcType expTy
+                                      ^ " but found type "
+                                      ^ string_of_tcType infTy)))
+  | _ -> Lib.todo __LOC__
+(** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 and checkTypeStructDef: tcContext -> LA.eq_lhs -> tcType -> unit tcResult
   = fun ctx (StructDef (pos, lhss)) expTy ->
-  if (List.length lhss) > 1
-  then Lib.todo __LOC__
-  else
-    assert (List.length lhss = 1)
-  ; let lhs = List.hd lhss in
-    match lhs with
-    | SingleIdent (pos, i) -> let infTy = lookupTy ctx i in
-                              R.bind (eqLustreType ctx expTy infTy) (fun isEq ->
-                                  if isEq
-                                  then R.ok ()
-                                  (*This is an ugly fix to try and see if the RHS is a function return call *)
-                                  else R.bind (eqLustreType ctx expTy (TupleType (pos, (infTy::[])))) (fun isEq' ->
-                                           if isEq'
-                                           then R.ok()
-                                           else typeError pos ("Expected type "
-                                                               ^ string_of_tcType expTy
-                                                               ^ " but found type "
-                                                               ^ string_of_tcType infTy)))
-    | _ -> Lib.todo __LOC__
-         
+  (* This is a structured type, and we would want the expected type expTy to be a tuple type *)
+    (Log.log L_debug "TypeStructDef checking if %a has type %a"
+       (Lib.pp_print_list LA.pp_print_struct_item ",")
+       lhss pp_print_tcType expTy
+    ; match expTy with
+      | TupleType (_, expTyLst) ->
+         if List.length lhss = List.length expTyLst
+         then R.seq_ (List.map2 (checkTypeStructItem ctx) lhss expTyLst)
+         else typeError pos ("Term structure on left hand side of the equation"
+                             ^ "does not match expected type structure "
+                             ^ Lib.string_of_t pp_print_tcType expTy 
+                             ^ "on right hand side of the node equation")
+      (* We are dealing with simple types, so lhs has to be a singleton list *)
+      | Bool _
+      | Int _
+      | UInt8 _ 
+      | UInt16 _
+      | UInt32 _
+      | UInt64 _
+      | Int8  _
+      | Int16 _
+      | Int32 _ 
+      | Int64 _ -> if (List.length lhss != 1)
+                   then typeError pos ("Term structure on left hand side of the equation"
+                             ^ "does not match expected type structure "
+                             ^ Lib.string_of_t pp_print_tcType expTy 
+                             ^ "on right hand side of the node equation")
+                   else let lhs = List.hd lhss in
+                        checkTypeStructItem ctx lhs expTy
+      | RecordType _ 
+      | _ -> Lib.todo __LOC__)
 
 (** Obtain a global typing context, get contatnts and function decls*)
 and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
@@ -665,11 +697,13 @@ and eqLustreType : tcContext -> LA.lustre_type -> LA.lustre_type -> bool tcResul
               R.ok (List.fold_left (&&) true isEqs))
      else R.ok false
   | RecordType (_, tys1), RecordType (_, tys2) ->
-     R.bind (R.seq (List.map2 (eqTypedIdent ctx) tys1 tys2)) (fun isEqs ->
+     R.bind (R.seq (List.map2 (eqTypedIdent ctx)
+                      (sortTypedIdent tys1)
+                      (sortTypedIdent tys2))) (fun isEqs ->
         R.ok (List.fold_left (&&) true isEqs))
   | ArrayType (pos1, arr1), ArrayType (pos2, arr2) -> eqTypeArray ctx arr1 arr2 
   | EnumType (_, n1, is1), EnumType (_, n2, is2) ->
-     R.ok (n1 = n2 && (List.fold_left (&&) true (List.map2 (=) is1 is2)))
+     R.ok (n1 = n2 && (List.fold_left (&&) true (List.map2 (=) (sortIdents is1) (sortIdents is2))))
   (* node/function type *)
   | TArr (_, argTy1, retTy1), TArr (_, argTy2, retTy2) ->
      R.bind (eqLustreType ctx argTy1 argTy2) (fun isEqArgTy ->

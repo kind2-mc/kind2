@@ -1,3 +1,5 @@
+type y_t = { a: int; b: real };
+
 node y (const a: bool) returns (b: int);
 
 -- Local constant declarations
@@ -17,4 +19,5 @@ let
   (f) = 2;
   -- List can be in parentheses
   (j, k, y_l, m) = (true, false, 1, 2.0);
+  t = y_t { b = 2.0; a = 1 };
 tel;
