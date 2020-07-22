@@ -417,7 +417,7 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
                      if isEq 
                      then R.ok()
                      else typeError pos
-                            (" cannot apply arguments of type "
+                            ("Cannot apply arguments of type "
                              ^ string_of_tcType argTy1
                              ^ " and " ^ string_of_tcType argTy2
                              ^ " to operator of type "
@@ -426,7 +426,19 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
   | Const (pos, c) -> R.ok ()
 
   (* Structured expressions *)
-  | RecordExpr (pos, _, flds) -> Lib.todo __LOC__
+  | RecordExpr (pos, _, flds) ->
+     let (ids, es) = List.split flds in
+     let mkTyIdent p i t = (p, i, t) in    
+     R.bind (R.seq (List.map (inferTypeExpr ctx) es)) (fun infTys ->
+         let infRTy = LA.RecordType (pos, (List.map2 (mkTyIdent pos) ids infTys)) in
+         R.bind (eqLustreType ctx expTy infRTy) (fun isEq ->
+             if isEq then R.ok ()
+             else typeError pos
+                    ("RecordType mismatch expected "
+                     ^ string_of_tcType expTy
+                     ^ " but found "
+                     ^ string_of_tcType infRTy)))
+     
   | GroupExpr _ -> Lib.todo __LOC__
   (* Update of structured expressions *)
   (* | StructUpdate of position * expr * label_or_index list * expr *)
