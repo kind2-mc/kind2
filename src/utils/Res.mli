@@ -44,10 +44,15 @@ val seq: ('a, 'e) result list -> ('a list, 'e) result
 (** sequences a [list] of [result] into a [result] of [list] 
  * basically errors out on first error or returns the whole value list *)
 
+val foldM: ('a -> 'b -> 'a) -> 'a -> ('b list, 'e) result -> ('a, 'e) result
+(** Folds a list under a [result] type *)
+
+val seqM: ('a -> 'b -> 'a) -> 'a -> ('b, 'e) result list -> ('a, 'e) result
+(** general case of [seq_] *)
+
 val seq_: (unit, 'e) result list -> (unit, 'e) result  
 (** sequences a [list] of [unit] into a [result] of [unit] 
  * errors out on first error or returns a unit *)
-  
   
 (** Unwraps a result. *)
 val unwrap : 'a res -> 'a

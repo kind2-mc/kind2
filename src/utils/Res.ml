@@ -30,18 +30,21 @@ let bind r f = match r with Ok v -> f v | Error _ as e -> e
 let join = function Ok r -> r | Error _ as e -> e
 
 let map f = function Ok v -> Ok (f v) | Error _ as e -> e
-
+                                                      
 let rec seq: ('a, 'e) result list -> ('a list, 'e) result  = function
   | [] -> ok []
   | h :: t -> bind h (fun h' -> 
                   bind (seq t) (fun t' ->
                       ok (h' :: t')))
 
-let rec seq_: (unit, 'e) result list -> (unit, 'e) result  = function
-  | [] -> ok ()
-  | h :: t -> bind h (fun _ -> 
-                  bind (seq t) (fun _ ->
-                      ok ()))
+let foldM: ('a -> 'b -> 'a) -> 'a -> ('b list, 'e) result -> ('a, 'e) result
+  = fun f e l -> map (List.fold_left f e) l
+
+let seqM: ('a -> 'b -> 'a) -> 'a -> ('b, 'e) result list -> ('a, 'e) result
+  = fun f e m -> foldM f e (seq m)  
+            
+let seq_: (unit, 'e) result list -> (unit, 'e) result  =
+  fun m -> seqM (fun _ _ -> ()) () m
        
 (** Unwraps a result. *)
 let unwrap = function
