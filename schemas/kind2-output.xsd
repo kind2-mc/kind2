@@ -104,6 +104,14 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <xs:simpleType name="NoModelElementSetAnswer">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="no_solution"/>
+      <xs:enumeration value="unknown"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+
   <!-- |===| Complex types -->
 
   <xs:complexType name="GenericLogType">
@@ -347,6 +355,15 @@
     <xs:attribute name="property" type="xs:string" />
   </xs:complexType>
 
+  <xs:complexType name="NoModelElementSetType">
+    <xs:sequence>
+      <xs:element name="Answer" type="NoModelElementSetAnswer" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Runtime" type="RuntimeType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+    <xs:attribute name="class" type="CoreClass" use="required"/>
+    <xs:attribute name="property" type="xs:string" />
+  </xs:complexType>
+
   <xs:complexType name="ResultsType">
     <xs:choice minOccurs="0" maxOccurs="unbounded">
       <xs:element name="Log" type="GenericLogType" minOccurs="1" maxOccurs="unbounded"/>
@@ -357,6 +374,7 @@
       <xs:element name="Property" type="PropertyType" minOccurs="1" maxOccurs="unbounded"/>
       <xs:element name="PostAnalysisStart" type="PostAnalysisStartType" minOccurs="0" maxOccurs="unbounded"/>
       <xs:element name="ModelElementSet" type="ModelElementSetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="NoModelElementSet" type="NoModelElementSetType" minOccurs="0" maxOccurs="unbounded"/>
       <xs:element name="PostAnalysisEnd" type="AnalysisStopType" minOccurs="0" maxOccurs="unbounded"/>
       <xs:element name="Execution" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
     </xs:choice>

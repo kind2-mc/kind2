@@ -334,6 +334,21 @@ let proved_pt mdl level trans_sys k prop =
       pp_print_kind_module_pt mdl
       (Stat.get_float Stat.analysis_time)
 
+let unknown_pt mdl level trans_sys prop = 
+  (* Only ouptut if status was unknown *)
+  if 
+    not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
+  then 
+    (ignore_or_fprintf level)
+      !log_ppf
+      ("@[<hov>%t %s @{<blue_b>%s@} is unknown by %a after %.3fs.@.@.")
+      warning_tag
+      (if TransSys.is_candidate trans_sys prop then
+         "Candidate" else "Property")
+      prop
+      pp_print_kind_module_pt mdl
+      (Stat.get_float Stat.analysis_time)
+
 (* Pretty-print a counterexample *)
 let pp_print_counterexample_pt 
   level input_sys analysis trans_sys prop_name disproved ppf
@@ -620,6 +635,22 @@ let proved_xml mdl level trans_sys k prop_name =
          | Some msg -> Format.fprintf ppf " comment=\"%s\"" msg
       )
 
+let unknown_xml mdl level trans_sys prop_name =
+
+  let prop = TransSys.property_of_name trans_sys prop_name in
+  (* Only ouptut if status was unknown *)
+  if 
+    not (Property.prop_status_known (Property.get_prop_status prop))
+  then 
+    (ignore_or_fprintf level)
+      !log_ppf 
+      ("@[<hv 2><Property name=\"%s\"%s>@,\
+        <Runtime unit=\"sec\" timeout=\"true\">%.3f</Runtime>@,\
+        <Answer source=\"%a\">unknown</Answer>@;<0 -2>\
+        </Property>@]@.")
+      (Lib.escape_xml_string prop_name) (prop_attributes_xml trans_sys prop_name)
+      (Stat.get_float Stat.analysis_time)
+      pp_print_kind_module_xml_src mdl
 
 (* Pretty-print a counterexample *)
 let pp_print_counterexample_xml 
@@ -912,6 +943,33 @@ let proved_json mdl level trans_sys k prop =
          | Some k -> Format.fprintf ppf "\"k\" : %d,@," k)
       (short_name_of_kind_module mdl)
 
+let unknown_json mdl level trans_sys prop =
+
+  (* Only ouptut if status was unknown *)
+  if
+    not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
+  then
+    (ignore_or_fprintf level)
+      !log_ppf
+      ",@.{@[<v 1>@,\
+        \"objectType\" : \"property\",@,\
+        \"name\" : \"%s\",@,\
+        %t\
+        \"runtime\" : {\
+          \"unit\" : \"sec\", \
+          \"timeout\" : true, \
+          \"value\" : %.3f\
+        },@,\
+        \"answer\" : {\
+          \"source\" : \"%s\", \
+          \"value\" : \"unknown\"\
+        }\
+        @]@.}@.\
+      "
+      (Lib.escape_json_string prop)
+      (function ppf -> prop_attributes_json ppf trans_sys prop)
+      (Stat.get_float Stat.analysis_time)
+      (short_name_of_kind_module mdl)
 
 (* Pretty-print a counterexample *)
 let pp_print_counterexample_json
@@ -1180,6 +1238,13 @@ let log_proved mdl level trans_sys k prop =
     | F_pt -> proved_pt mdl level trans_sys k prop
     | F_xml -> proved_xml mdl level trans_sys k prop
     | F_json -> proved_json mdl level trans_sys k prop
+    | F_relay -> ()
+
+let log_unknown mdl level trans_sys prop =
+  match get_log_format () with 
+    | F_pt -> unknown_pt mdl level trans_sys prop
+    | F_xml -> unknown_xml mdl level trans_sys prop
+    | F_json -> unknown_json mdl level trans_sys prop
     | F_relay -> ()
 
 (* Log a message with a tag, only in the plain text output *)
@@ -1522,6 +1587,28 @@ let cex_wam cex wa_model input_sys analysis trans_sys prop =
   (* Update status of property in transition system *)
   TransSys.set_prop_status trans_sys prop (Property.PropFalse cex)
 
+let proved_wam (k, t) trans_sys prop =
+
+  (* Update time in case we are not running in parallel mode *)
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
+
+  let mdl = get_module () in
+
+  log_proved mdl L_warn trans_sys (Some k) prop ;
+
+  (* Update status of property in transition system *)
+  TransSys.set_prop_status trans_sys prop (Property.PropInvariant (k, t))
+
+let unknown_wam trans_sys prop =
+
+  (* Update time in case we are not running in parallel mode *)
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
+
+  let mdl = get_module () in
+
+  log_unknown mdl L_warn trans_sys prop
 
 (* Broadcast a step cex *)
 let step_cex input_sys analysis trans_sys prop cex =

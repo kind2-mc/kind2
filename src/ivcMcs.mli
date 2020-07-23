@@ -187,3 +187,4 @@ val mcs_to_print_data :
   'a InputSystem.t -> TransSys.t -> string -> float option -> mcs -> core_print_data
 
 val pp_print_mcs_legacy : 'a InputSystem.t -> Analysis.param -> TransSys.t -> mcs -> mcs -> unit
+val pp_print_no_mcs_legacy : Property.t -> TransSys.t -> unit

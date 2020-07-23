@@ -703,9 +703,28 @@ let run_mcs_post_analysis in_sys param analyze sys =
     let max_mcs_cardinality = Flags.MCS.mcs_max_cardinality () in
     let props =
       if Flags.MCS.mcs_per_property ()
-      then
-        IvcMcs.mcs_initial_analysis in_sys param analyze ~max_mcs_cardinality sys
-        |> List.map (fun (p,sol) -> ([p], Some sol))
+      then (
+        let props = IvcMcs.mcs_initial_analysis in_sys param analyze ~max_mcs_cardinality sys in
+        (* Print proved properties *)
+        let pt = ModelElement.pp_print_no_solution sys "mcs" in
+        let xml = ModelElement.pp_print_no_solution_xml sys "mcs" in
+        let json ~unknown fmt = Format.fprintf fmt ",\n%a"
+          (ModelElement.pp_print_no_solution_json sys "mcs" ~unknown) in
+        let aux prop =
+          match prop.Property.prop_status with
+          | PropInvariant _ ->
+            if Flags.MCS.print_mcs_legacy ()
+            then IvcMcs.pp_print_no_mcs_legacy prop sys
+            else KEvent.log_result (pt ~unknown:false) (xml ~unknown:false) (json ~unknown:false) prop
+          | PropFalse _ -> ()
+          | _ -> (* Unknown *)
+            if Flags.MCS.print_mcs_legacy ()
+            then IvcMcs.pp_print_no_mcs_legacy prop sys
+            else KEvent.log_result (pt ~unknown:true) (xml ~unknown:true) (json ~unknown:true) prop
+        in
+        List.iter aux (TransSys.get_real_properties sys) ;
+        List.map (fun (p,sol) -> ([p], Some sol)) props
+      )
       else [TransSys.get_real_properties sys, None]
     in
     let time = ref (Unix.gettimeofday ()) in
