@@ -67,21 +67,3 @@ let
   y = y_3[0];
 
 tel;
-
--- Node with two return values 
-node U1(x0: int; y0: real) returns (x1: int; y1: real);
-let 
-  x1, y1 = (x0, y0); 
-tel;
-
-/*
--- Node with tuple input a
-node U2() returns ();
-var x: int; y: real;
-let
-
-  -- Node call with tuple input 
-  x, y = U1(U1(1, 2.0));
-
-tel;
-*/

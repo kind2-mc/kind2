@@ -329,9 +329,23 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
                  if isBoundInt 
                  then R.ok(LA.ArrayType (pos, (bTy, supExpr)))
                  else typeError pos "Array cannot have non numeral type as its bounds")))
-  (* | StructUpdate of position * expr * label_or_index list * expr
-   * | ArraySlice of position * expr * (expr * expr) 
-   * | ArrayConcat of position * expr * expr *)
+  | StructUpdate _ -> Lib.todo __LOC__
+  | ArraySlice (pos, e1, (e2, e3)) ->
+     let pos2 = (LustreAstHelpers.pos_of_expr e2) in
+     let pos3 = (LustreAstHelpers.pos_of_expr e3) in
+     R.bind (checkTypeExpr ctx e2 (Int pos2))(fun _ ->
+         R.bind (checkTypeExpr ctx e3 (Int pos3)) (fun _ ->
+             R.bind(inferTypeExpr ctx e1) (fun ty ->
+                 match ty with
+                 | ArrayType (_, (bty, _)) ->
+                    (* calculate if the bounds are 0 so that we return the base type instead of an array type*)
+                    R.bind(evalConstExpr ctx e2) (fun v1 ->
+                        R.bind(evalConstExpr ctx e3)(fun v2 ->
+                            if v1 = v2 && v1 = 0 then R.ok bty else R.ok ty))
+                 | _ -> typeError pos ("Slicing can only be done on an type Array "
+                                       ^ "but found type "
+                                       ^ Lib.string_of_t pp_print_tcType ty))))
+  | ArrayConcat  _ -> Lib.todo __LOC__
   (* Quantified expressions *)
   (* | Quantifier of position * quantifier * typed_ident list * expr *)
   (* Clock operators *)
@@ -376,9 +390,10 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
       
   (* | CallParam of position * ident * lustre_type list * expr list *)
   | _ -> Lib.todo __LOC__
+
 (** Type checks an expression and returns [ok] 
  * if the expected is the given type [tcType]  
- * returns an [Error] otherwise *)
+ * returns an [Error of string] otherwise *)
 and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
   = fun ctx expr expTy ->
   match expr with
@@ -543,37 +558,40 @@ and checkTypeRecordProj: Lib.position -> tcContext -> LA.expr -> LA.index -> tcT
 and checkTypeConstDecl: tcContext -> LA.const_decl -> tcType -> unit tcResult =
   fun ctx constDecl expTy ->
   match constDecl with
-  | FreeConst (pos, i, lusTy) -> let infTy = (lookupTy ctx i) in
-                                 if infTy != expTy
-                                 then typeError pos
-                                        ("Identifier "
-                                         ^ i
-                                         ^ " expected to have type " ^ string_of_tcType infTy
-                                         ^ " but found type " ^ string_of_tcType expTy)
-                                 else R.ok ()
-  | UntypedConst (pos, i, exp) -> R.bind (inferTypeExpr ctx exp) (fun ty ->
-                                      if expTy != ty
-                                      then typeError pos
-                                             ("Identifier "
-                                              ^ i
-                                              ^ " expected to have type " ^ string_of_tcType expTy
-                                              ^ " but found type " ^ string_of_tcType ty)
-                                      else R.ok ()) 
-                                
-  | TypedConst (pos, i, exp, lusTy) -> R.bind (inferTypeExpr ctx exp) (fun infTy ->
-                                           if expTy != infTy
-                                           then typeError pos
-                                                  ("Identifier "
-                                                   ^ i
-                                                   ^ " expects type " ^ string_of_tcType expTy
-                                                   ^ " but expression is of type " ^ string_of_tcType infTy)
-                                           else R.ok ())  
+  | FreeConst (pos, i, lusTy) ->
+     let infTy = (lookupTy ctx i) in
+     if infTy != expTy
+     then typeError pos
+            ("Identifier "
+             ^ i
+             ^ " expected to have type " ^ string_of_tcType infTy
+             ^ " but found type " ^ string_of_tcType expTy)
+     else R.ok ()
+  | UntypedConst (pos, i, exp) ->
+     R.bind (inferTypeExpr ctx exp) (fun ty ->
+         if expTy != ty
+         then typeError pos
+                ("Identifier "
+                 ^ i
+                 ^ " expected to have type " ^ string_of_tcType expTy
+                 ^ " but found type " ^ string_of_tcType ty)
+         else R.ok ()) 
+    
+  | TypedConst (pos, i, exp, lusTy) ->
+     R.bind (inferTypeExpr ctx exp) (fun infTy ->
+         if expTy != infTy
+         then typeError pos
+                ("Identifier "
+                 ^ i
+                 ^ " expects type " ^ string_of_tcType expTy
+                 ^ " but expression is of type " ^ string_of_tcType infTy)
+         else R.ok ())  
 
 and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
   = fun ctx
         (i, isExtern, params, cclktydecls, clktydecls, localdecls, items, contract)
         expTy ->
-  Log.log L_debug "TC node declaration {\n %a" LA.pp_print_ident i
+  Log.log L_debug "TC declaration node: %a {" LA.pp_print_ident i
   ; let extractArg: LA.const_clocked_typed_decl -> tcContext
       = fun  (_, i,ty, _, _) -> singletonTy i ty in
     let extractRet: LA.clocked_typed_decl -> tcContext
@@ -636,7 +654,7 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
                                    ; doItems ctx rest 
                 in
                 let r = doItems localCtx items in
-                Log.log L_debug "TC node declaration %a done }" LA.pp_print_ident i
+                Log.log L_debug "TC declaration node %a done }" LA.pp_print_ident i
                 ; r)
     )
 
