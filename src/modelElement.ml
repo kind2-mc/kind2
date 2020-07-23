@@ -334,21 +334,26 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
   ) ;
   Format.fprintf fmt "@]@.</ModelElementSet>@."
 
-let pp_print_no_solution sys clas fmt prop =
-  Format.fprintf fmt "No solution for property @{<blue_b>%s@}.@.@." (prop.Property.prop_name)
+let pp_print_no_solution sys clas ~unknown fmt prop =
+  Format.fprintf fmt "%s for property @{<blue_b>%s@}.@.@."
+    (if unknown then "Unknown result" else "No solution") (prop.Property.prop_name)
 
-let pp_print_no_solution_json sys clas fmt prop =
+let pp_print_no_solution_json sys clas ~unknown fmt prop =
   let assoc = [
     ("objectType", `String "noModelElementSet") ;
     ("class", `String clas) ;
     ("property", `String prop.Property.prop_name) ;
-    ("runtime", `Assoc [("unit", `String "sec") ; ("value", `Float (Stat.get_float Stat.analysis_time)) ; ("timeout", `Bool false)])
+    ("answer", `String (if unknown then "unknown" else "noSolution")) ;
+    ("runtime", `Assoc [("unit", `String "sec") ; ("value", `Float (Stat.get_float Stat.analysis_time)) ; ("timeout", `Bool unknown)])
   ] in
   pp_print_json fmt (`Assoc assoc)
 
-let pp_print_no_solution_xml sys clas fmt prop =
+let pp_print_no_solution_xml sys clas ~unknown fmt prop =
   Format.fprintf fmt "<NoModelElementSet class=\"%s\" property=\"%s\">@.  @[<v>" clas prop.Property.prop_name ;
-  Format.fprintf fmt "<Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@ " (Stat.get_float Stat.analysis_time) ;
+  Format.fprintf fmt "<Answer>%s</Answer>@ "
+    (if unknown then "unknown" else "no_solution") ;
+  Format.fprintf fmt "<Runtime unit=\"sec\" timeout=\"%s\">%.3f</Runtime>@ "
+    (if unknown then "true" else "false") (Stat.get_float Stat.analysis_time) ;
   Format.fprintf fmt "@]@.</NoModelElementSet>@."
 
 let name_of_wa_cat = function

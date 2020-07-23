@@ -90,12 +90,12 @@ let pp_print_mcs_legacy in_sys param sys ((prop, cex), core) (_, core_compl) =
 let pp_print_no_mcs_legacy prop sys =
   let prop_name = prop.Property.prop_name in
   let sys = TS.copy sys in
-  let cert = match prop.Property.prop_status with
-  | PropInvariant cert -> cert
-  | _ -> assert false
-  in
-  TS.set_prop_unknown sys prop_name ;
-  KEvent.proved_wam cert sys prop_name
+
+  match prop.Property.prop_status with
+  | PropInvariant cert ->
+    TS.set_prop_unknown sys prop_name ;
+    KEvent.proved_wam cert sys prop_name
+  | _ -> KEvent.unknown_wam sys prop_name
 
 let print_timeout_warning () =
   KEvent.log L_warn "An analysis has timeout, the result might be approximate."

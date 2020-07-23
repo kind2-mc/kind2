@@ -708,15 +708,19 @@ let run_mcs_post_analysis in_sys param analyze sys =
         (* Print proved properties *)
         let pt = ModelElement.pp_print_no_solution sys "mcs" in
         let xml = ModelElement.pp_print_no_solution_xml sys "mcs" in
-        let json fmt = Format.fprintf fmt ",\n%a"
-          (ModelElement.pp_print_no_solution_json sys "mcs") in
+        let json ~unknown fmt = Format.fprintf fmt ",\n%a"
+          (ModelElement.pp_print_no_solution_json sys "mcs" ~unknown) in
         let aux prop =
           match prop.Property.prop_status with
           | PropInvariant _ ->
             if Flags.MCS.print_mcs_legacy ()
             then IvcMcs.pp_print_no_mcs_legacy prop sys
-            else KEvent.log_result pt xml json prop
-          | _ -> ()
+            else KEvent.log_result (pt ~unknown:false) (xml ~unknown:false) (json ~unknown:false) prop
+          | PropFalse _ -> ()
+          | _ -> (* Unknown *)
+            if Flags.MCS.print_mcs_legacy ()
+            then IvcMcs.pp_print_no_mcs_legacy prop sys
+            else KEvent.log_result (pt ~unknown:true) (xml ~unknown:true) (json ~unknown:true) prop
         in
         List.iter aux (TransSys.get_real_properties sys) ;
         List.map (fun (p,sol) -> ([p], Some sol)) props

@@ -169,6 +169,9 @@ val cex_wam : (StateVar.t * Model.value list) list -> (string * bool) list -> 'a
 (* Log a proven property during the computation of a Minimal Cut Set *)
 val proved_wam : Certificate.t -> TransSys.t -> string -> unit
 
+(* Log an unknown property during the computation of a Minimal Cut Set *)
+val unknown_wam : TransSys.t -> string -> unit
+
 (** Broadcast an execution path *)
 val execution_path : 'a InputSystem.t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.value list) list -> unit
 
