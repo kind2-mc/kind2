@@ -57,14 +57,14 @@ let string_of_logic l =
       if mem IA fs || mem RA fs then
         failwith "Boolector only supports BV logics"
       else
-        (* We add BV because Boolector does not support UF and QF_UF logics *)
+        (* We add BV because Boolector does not support QF_UF logic *)
         GenericSMTLIBDriver.string_of_logic (`Inferred (add BV fs))
   | `None -> "ALL"
   | `SMTLogic s ->
       if String.contains s 'I' || String.contains s 'R' then
         failwith "Boolector only supports BV logics"
       else if not (String.contains s 'B') then
-        (* We add BV because Boolector does not support UF and QF_UF logics *)
+        (* We add BV because Boolector does not support QF_UF logic *)
         String.concat "" [ s; "BV" ]
       else s
 
