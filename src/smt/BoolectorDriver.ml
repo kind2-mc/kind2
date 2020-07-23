@@ -49,7 +49,23 @@ let cmd_line logic timeout produce_assignments produce_proofs produce_cores
 let check_sat_limited_cmd ms =
   failwith "check-sat with timeout not implemented for Boolector"
 
-(*TODO: modify to use QFBV/BV *)
-let string_of_logic l = GenericSMTLIBDriver.string_of_logic l
+let string_of_logic l =
+  let open TermLib in
+  let open TermLib.FeatureSet in
+  match l with
+  | `Inferred fs ->
+      if mem IA fs || mem RA fs then
+        failwith "Boolector only supports BV logics"
+      else
+        (* We add BV because Boolector does not support UF and QF_UF logics *)
+        GenericSMTLIBDriver.string_of_logic (`Inferred (add BV fs))
+  | `None -> "ALL"
+  | `SMTLogic s ->
+      if String.contains s 'I' || String.contains s 'R' then
+        failwith "Boolector only supports BV logics"
+      else if not (String.contains s 'B') then
+        (* We add BV because Boolector does not support UF and QF_UF logics *)
+        String.concat "" [ s; "BV" ]
+      else s
 
 let pp_print_logic fmt l = Format.pp_print_string fmt (string_of_logic l)

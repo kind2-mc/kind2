@@ -622,15 +622,17 @@ let launch input_sys aparam trans =
     (TransSys.props_list_of_bound trans Numeral.zero)
   in
 
-  (* compression uses integers and uf *)
+  (* compression uses bitvectors/integers and uf *)
   let logic =
     match TransSys.get_logic trans with
     | `Inferred fs when Flags.BmcKind.compress () ->
-      `Inferred
-        TermLib.FeatureSet.(sup_logics [fs; of_list [IA; LA; UF]])
+        let open TermLib.FeatureSet in
+        if subset fs (of_list [ Q; UF; A; BV ]) then
+          `Inferred (sup_logics [ fs; of_list [ BV; UF ] ])
+        else `Inferred (sup_logics [ fs; of_list [ IA; LA; UF ] ])
     | l -> l
   in
-    
+
   (* Creating solver. *)
   let solver =
     SMTSolver.create_instance ~produce_assignments:true

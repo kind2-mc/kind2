@@ -257,10 +257,7 @@ type logic = [ `None | `Inferred of features | `SMTLogic of string ]
 let pp_print_logic fmt = function
   | `None -> pp_print_string fmt "ALL"
   | `Inferred l ->
-      if
-        L.mem BV l
-        && not (L.is_empty (L.inter l (L.of_list [ IA; RA; LA; NA ])))
-      then pp_print_string fmt "ALL"
+      if L.mem BV l && (L.mem IA l || L.mem RA l) then pp_print_string fmt "ALL"
       else pp_print_features fmt l
   | `SMTLogic s -> pp_print_string fmt (if s = "" then "ALL" else s)
 
@@ -268,10 +265,7 @@ let pp_print_logic fmt = function
 let string_of_logic = function
   | `None -> "ALL"
   | `Inferred l ->
-      if
-        L.mem BV l
-        && not (L.is_empty (L.inter l (L.of_list [ IA; RA; LA; NA ])))
-      then "ALL"
+      if L.mem BV l && (L.mem IA l || L.mem RA l) then "ALL"
       else string_of_features l
   | `SMTLogic s -> if s = "" then "ALL" else s
 

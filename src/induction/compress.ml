@@ -193,7 +193,7 @@ let only_bv trans_sys =
   | `SMTLogic "QF_AUFBV" -> true
   | `SMTLogic _
   | `None -> false
-  | `Inferred l -> TermLib.FeatureSet.(mem BV l && not(mem IA l))
+  | `Inferred l -> TermLib.FeatureSet.(subset l (of_list [ Q; UF; A; BV ]))
 
 
 (* Declare uninterpreted function symbol *)
