@@ -7,13 +7,13 @@ var
   b4 : int^1;
   b5: int; 
 let
-  d1 = a[0];
-  a23 = a[2..3];
-  b1 = A[1];
-  b2 = A[2..4];
-  b3 = A[4..2];
-  b4 = A[2..2];
-  b5 = A[2..4][0];
+  d1 = a[0];       -- type int
+  a23 = a[2..3];   -- type int^1
+  b1 = A[1];       -- type int
+  b2 = A[2..4];    -- type int^2
+  b3 = A[4..2];    -- type int^2
+  b4 = A[2..2];    -- type int^1 
+  b5 = A[2..4][0]; -- type int
 tel
 
 type T = int;

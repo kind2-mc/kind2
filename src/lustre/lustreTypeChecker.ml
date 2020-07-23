@@ -315,11 +315,16 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
          | LA.TupleExpr -> R.bind (R.seq (List.map (inferTypeExpr ctx) exprs)) (fun tys ->
                                R.ok (LA.TupleType (pos, tys)))
        | LA.ArrayExpr -> R.bind (R.seq (List.map (inferTypeExpr ctx) exprs)) (fun tys ->
-                             if List.for_all (fun t -> t = (List.hd tys)) tys 
-                             then let arrTy = List.hd tys in
-                                  let arrExp = LA.Const (pos, Num (string_of_int (List.length tys))) in
-                                   R.ok (LA.ArrayType (pos, (arrTy, arrExp)))
-                             else typeError pos "All expressions must be of the same type in an Array"))
+                             Log.log L_debug "Array elements: [%a]\n Array types: [%a]"
+                               (Lib.pp_print_list LA.pp_print_expr ",") exprs
+                               (Lib.pp_print_list pp_print_tcType ",") tys
+                            ; let elty = List.hd tys in
+                              R.bind(R.seqM (&&) true (List.map (eqLustreType ctx elty) tys)) (fun isEq->
+                                  if isEq
+                                  then let arrTy = List.hd tys in
+                                       let arrExp = LA.Const (pos, Num (string_of_int (List.length tys))) in
+                                       R.ok (LA.ArrayType (pos, (arrTy, arrExp)))
+                                  else typeError pos "All expressions must be of the same type in an Array")))
     
   (* Update of structured expressions *)
   | ArrayConstr (pos, bExpr, supExpr) ->
@@ -337,11 +342,14 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
          R.bind (checkTypeExpr ctx e3 (Int pos3)) (fun _ ->
              R.bind(inferTypeExpr ctx e1) (fun ty ->
                  match ty with
-                 | ArrayType (_, (bty, _)) ->
+                 | ArrayType (p, (bty, _)) ->
                     (* calculate if the bounds are 0 so that we return the base type instead of an array type*)
                     R.bind(evalConstExpr ctx e2) (fun v1 ->
                         R.bind(evalConstExpr ctx e3)(fun v2 ->
-                            if v1 = v2 && v1 = 0 then R.ok bty else R.ok ty))
+                            (* TODO: This seems messed up :( What are the semantics of array indices?*)
+                            if (v1 = 0 && v2 = 0) || (v1 > 0 && v2 = 0)
+                            then R.ok bty
+                            else R.ok (LA.ArrayType (p, (bty, LA.Const (pos, Num (string_of_int (1 + Lib.abs_diff v1 v2))))))))
                  | _ -> typeError pos ("Slicing can only be done on an type Array "
                                        ^ "but found type "
                                        ^ Lib.string_of_t pp_print_tcType ty))))
