@@ -308,12 +308,15 @@
                 "property": {
                     "type": "string"
                 },
+                "answer": {
+                    "enum": ["noSolution", "unknown"]
+                },
                 "runtime": {
                     "$ref": "#/definitions/runtime"
                 }
             },
             "required": [
-                "objectType", "class", "runtime"
+                "objectType", "class", "runtime", "answer"
             ]
         },
         "scope": {
