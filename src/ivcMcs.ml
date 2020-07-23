@@ -903,7 +903,17 @@ let compute_local_cs sys prop_names enter_nodes cex keep test =
     in
 
     let falsified_prop =
-      List.find (fun p -> not (eval p.Property.prop_term)) props
+      try
+        List.find
+          (fun p ->
+            let prop_at_last_step =
+              Term.bump_state num_k p.Property.prop_term
+            in
+            not (eval prop_at_last_step)
+          )
+          props
+      with Not_found ->
+        assert false
     in
 
     (* Extract counterexample from solver *)
