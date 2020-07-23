@@ -64,6 +64,14 @@ let flip f = fun b a -> f a b
    to a negtive number *)
 let safe_hash_interleave h m i = abs(i + (m * h) mod max_int)
 
+let max_of: int -> int -> int = fun a b ->
+  if a > b then a else b
+(** returns the maximum of the integer *)
+
+let abs_diff: int -> int -> int = fun a b ->
+  if a > b then a - b else b - a 
+(** Returns the absolute difference of the two integers *)
+  
 (* ********************************************************************** *)
 (* List functions                                                         *)
 (* ********************************************************************** *)
