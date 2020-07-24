@@ -119,6 +119,9 @@ val attach_counterexample_to_print_data :
 val attach_property_to_print_data :
   core_print_data -> Property.t -> core_print_data
 
+val attach_approx_to_print_data :
+  core_print_data -> bool -> core_print_data
+
 val pp_print_core_data :
   'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit
 
