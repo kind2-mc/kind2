@@ -332,24 +332,15 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
                  then R.ok(LA.ArrayType (pos, (bTy, supExpr)))
                  else typeError pos "Array cannot have non numeral type as its bounds")))
   | StructUpdate _ -> Lib.todo __LOC__
-  | ArraySlice (pos, e1, (e2, e3)) ->
-     let pos2 = (LustreAstHelpers.pos_of_expr e2) in
-     let pos3 = (LustreAstHelpers.pos_of_expr e3) in
-     R.bind (checkTypeExpr ctx e2 (Int pos2))(fun _ ->
-         R.bind (checkTypeExpr ctx e3 (Int pos3)) (fun _ ->
-             R.bind(inferTypeExpr ctx e1) (fun ty ->
-                 match ty with
-                 | ArrayType (p, (bty, _)) ->
-                    (* calculate if the bounds are 0 so that we return the base type instead of an array type*)
-                    R.bind(evalConstExpr ctx e2) (fun v1 ->
-                        R.bind(evalConstExpr ctx e3)(fun v2 ->
-                            (* TODO: This seems messed up :( What are the semantics of array indices?*)
-                            if (v1 = 0 && v2 = 0) || (v1 > 0 && v2 = 0)
-                            then R.ok bty
-                            else R.ok (LA.ArrayType (p, (bty, LA.Const (pos, Num (string_of_int (1 + Lib.abs_diff v1 v2))))))))
-                 | _ -> typeError pos ("Slicing can only be done on an type Array "
+  | ArraySlice (pos, e1, (il, iu)) ->
+     if isExprIntType ctx il && isExprIntType ctx iu
+     then R.bind (inferTypeExpr ctx e1) (fun ty ->
+               match ty with
+               | ArrayType (_, (bTy, s)) -> Lib.todo __LOC__
+               | _ -> typeError pos ("Slicing can only be done on an type Array "
                                        ^ "but found type "
-                                       ^ Lib.string_of_t pp_print_tcType ty))))
+                                       ^ Lib.string_of_t pp_print_tcType ty))
+     else typeError pos ("Slicing should have integer types")        
   | ArrayConcat  _ -> Lib.todo __LOC__
   (* Quantified expressions *)
   (* | Quantifier of position * quantifier * typed_ident list * expr *)
@@ -594,16 +585,21 @@ and checkTypeConstDecl: tcContext -> LA.const_decl -> tcType -> unit tcResult =
 
 and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
   = fun ctx
-        (i, isExtern, params, cclktydecls, clktydecls, localdecls, items, contract)
+        (nodeName, isExtern, params, cclktydecls, clktydecls, localdecls, items, contract)
         expTy ->
-  Log.log L_debug "TC declaration node: %a {" LA.pp_print_ident i
+  Log.log L_debug "TC declaration node: %a {" LA.pp_print_ident nodeName
   ; let extractArg: LA.const_clocked_typed_decl -> tcContext
       = fun  (_, i,ty, _, _) -> singletonTy i ty in
     let extractRet: LA.clocked_typed_decl -> tcContext
       = fun (_, i, ty, _) -> singletonTy i ty in
     let localVarBinding: tcContext -> LA.node_local_decl -> tcContext tcResult = fun ctx -> function
       | LA.NodeConstDecl (pos, constDecls) -> tcCtxConstDecl ctx constDecls 
-      | LA.NodeVarDecl (pos, (_, i, ty, _)) -> R.ok (addTy ctx i ty) 
+      | LA.NodeVarDecl (pos, (_, v, ty, _)) ->
+         if isTypeWellFormed ctx ty then R.ok (addTy ctx v ty)
+         else typeError pos ("Node's local variable "
+                             ^ v
+                             ^ " type should be well formed")
+                                               
     in
 
     (* if the node is extern, we will not have any body to typecheck so skip it *)
@@ -659,7 +655,7 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
                                    ; doItems ctx rest 
                 in
                 let r = doItems localCtx items in
-                Log.log L_debug "TC declaration node %a done }" LA.pp_print_ident i
+                Log.log L_debug "TC declaration node %a done }" LA.pp_print_ident nodeName
                 ; r)
     )
 
@@ -731,10 +727,13 @@ and tcCtxOfTyDecl: tcContext -> LA.type_decl -> tcContext tcResult = fun ctx ->
   function
   | LA.AliasType (_, i, ty) -> R.ok (addTySyn ctx i ty)
   | LA.FreeType _ -> R.ok ctx
-(** Does it make sense to have the type? We do not want types such as int^true *)
+(** Does it make sense to have this type i.e. is it inhabited? We do not want types such as int^true *)
 and isTypeWellFormed: tcContext -> tcType -> bool = fun ctx ty ->
   match ty with
-  | LA.ArrayType (_, (_, s)) -> isExprInt ctx s
+  | LA.TArr (_, argTy, resTy) -> isTypeWellFormed ctx argTy && isTypeWellFormed ctx resTy
+  | LA.RecordType (_, idTys) -> List.fold_left (&&) true (List.map (fun (_, _, ty) -> isTypeWellFormed ctx ty) idTys)
+  | LA.ArrayType (_, (_, s)) -> isExprIntType ctx s && isExprOfConts ctx s
+  | LA.TupleType (_, tys) -> List.fold_left (&&) true (List.map (isTypeWellFormed ctx) tys)
   | _ -> true
                    
 (** Shadow the old binding with the new const decl *)
@@ -744,11 +743,13 @@ and tcCtxConstDecl: tcContext -> LA.const_decl -> tcContext tcResult
     "Extracting typing context from const declaration: %a"
     LA.pp_print_const_decl decl
   ; match decl with
-    | LA.FreeConst (_, i, ty) ->
-       R.ok (addTy ctx i ty)
-    | LA.UntypedConst (_, i, expr) ->
-       R.bind (inferTypeExpr ctx expr) (fun ty -> 
-           R.ok (addTy (addConst ctx i expr ty) i ty))
+    | LA.FreeConst (pos, i, ty) ->
+       if (isTypeWellFormed ctx ty)
+       then R.ok (addTy ctx i ty)
+       else typeError pos "Constant should be of a well formed type"
+    | LA.UntypedConst (_, i, e) ->
+       R.bind (inferTypeExpr ctx e) (fun ty -> 
+           R.ok (addTy (addConst ctx i e ty) i ty))
     | LA.TypedConst (pos, i, expr, ty)
       ->  let expTy = ty in
           R.bind (checkTypeExpr ctx expr expTy) (fun _ ->
@@ -759,7 +760,10 @@ and tcCtxOfNodeDecl: Lib.position -> tcContext -> LA.node_decl -> tcContext tcRe
   = fun pos ctx (i, _, _ , ip, op,_ ,_ ,_) ->
   if (memberTy ctx i)
   then typeError pos ("Duplicate node detected with name: " ^ i)
-  else R.ok (addTy ctx i (buildFunTy pos ip op))
+  else let funTy = buildFunTy pos ip op in
+       if isTypeWellFormed ctx funTy
+       then R.ok (addTy ctx i funTy)
+       else typeError pos "Arguments and return types of the node should be well formed."
   
 (** Function type for nodes will be (TupleTy ips) -> (tuple outputs)  *)
 and buildFunTy: Lib.position -> LA.const_clocked_typed_decl list -> LA.clocked_typed_decl list -> tcType
@@ -823,28 +827,30 @@ and eqLustreType : tcContext -> LA.lustre_type -> LA.lustre_type -> bool tcResul
 (** Checks if the constant is of type Int. This will be useful 
  * in evaluating array sizes that we need to have as constant integers
  * while declaring the array type *)
-and isExprInt: tcContext -> LA.expr -> bool  = fun ctx e ->
+and isExprIntType: tcContext -> LA.expr -> bool  = fun ctx e ->
   R.safe_unwrap false (
       R.bind (inferTypeExpr ctx e) (fun ty -> 
-          eqLustreType ctx ty (Int (LustreAstHelpers.pos_of_expr e))))
-                                                              
-(** Compute equality for [LA.typed_ident] *)
+          eqLustreType ctx ty (LA.Int (LustreAstHelpers.pos_of_expr e))))
+
+and isExprArrayType: tcContext -> LA.expr -> bool  = fun ctx e ->
+  R.safe_unwrap false
+    (R.bind (inferTypeExpr ctx e) (fun ty ->
+         match ty with
+         | ArrayType _ -> R.ok true
+         | _ -> R.ok false))
+(** checks if all the variables in the expression are constants *)
+and isExprOfConts: tcContext -> LA.expr -> bool = fun ctx e ->
+  List.fold_left (&&) true (List.map (memberVal ctx) (LA.SI.elements (LustreAstHelpers.vars e)))
+  
+(** Compute type equality for [LA.typed_ident] *)
 and eqTypedIdent: tcContext -> LA.typed_ident -> LA.typed_ident -> bool tcResult =
-  fun ctx (_, i1, ty1) (_, i2, ty2) -> if (i1 = i2)
-                                       then eqLustreType ctx ty1 ty2
-                                       else R.ok false
+  fun ctx (_, i1, ty1) (_, i2, ty2) -> eqLustreType ctx ty1 ty2
 
 (** Compute equality for [LA.ArrayType] *)
+(** For now, we do not check the bounds for arrays. This introduces bugs similar to Issue #566. 
+    https://github.com/kind2-mc/kind2/issues/566 *)
 and eqTypeArray: tcContext -> (LA.lustre_type * LA.expr) -> (LA.lustre_type * LA.expr) -> bool tcResult
-  = fun ctx (ty1, e1) (ty2, e2) -> 
-       R.bind (eqLustreType ctx ty1 ty2) (fun isTyEq ->
-         if isTyEq
-         then R.bind (checkTypeExpr ctx e1 (Int (LustreAstHelpers.pos_of_expr e1))) (fun _ ->
-                  R.bind (checkTypeExpr ctx e2 (Int (LustreAstHelpers.pos_of_expr e2))) (fun _ ->
-                      R.bind (evalConstExpr ctx e1) (fun val1 ->
-                          R.bind (evalConstExpr ctx e2) (fun val2 ->
-                              R.ok (val1 = val2)))))
-         else R.ok false)
+  = fun ctx (ty1, e1) (ty2, e2) -> eqLustreType ctx ty1 ty2
 
   
 (** Evalute const expressions to an integer value.*)
