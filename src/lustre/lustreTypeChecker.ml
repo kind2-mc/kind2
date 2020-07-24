@@ -101,10 +101,6 @@ module IMap = struct
   (** everything that [Stdlib.Map] gives us  *)
   include Map.Make(OrdIdent)
 
-  (* (\** Monadic map operation *\)
-   * let mapM: ('a -> 'b tcResult) -> 'a t -> 'b t tcResult =   
-   *   fun m f -> todo __LOC__ *)
-
   (** Pretty print type synonyms*)
   let pp_print_type_binding ppf = fun i ty -> 
     Format.fprintf ppf "(%a<->%a), " LA.pp_print_ident i pp_print_tcType ty
@@ -114,8 +110,8 @@ module IMap = struct
     Format.fprintf ppf "(%a:%a), " LA.pp_print_ident i pp_print_tcType ty
 
   (** Pretty print value bindings (used for constants)*)
-  let pp_print_val_binding ppf = fun i v ->
-    Format.fprintf ppf "(%a:->%a), " LA.pp_print_ident i LA.pp_print_expr v
+  let pp_print_val_binding ppf = fun i (v, ty) ->
+    Format.fprintf ppf "(%a:%a :-> %a), " LA.pp_print_ident i pp_print_tcType ty LA.pp_print_expr v
 
   (** Pretty print type context *)
   let pp_print_tySyns ppf = iter (pp_print_type_binding ppf)   
@@ -139,12 +135,13 @@ type tyAliasStore = tcType IMap.t
 type tyStore = tcType IMap.t
 (** A store of identifier and their types*)
 
-type vStore = LA.expr IMap.t 
-(** A Store of constant identifier and their (const) expressions. 
- *  The values of the assoicated identifiers should ideally evaluate to a Bool or an Int*)
+type constStore = (LA.expr * tcType) IMap.t 
+(** A Store of constant identifier and their (const) values with types. 
+ *  The values of the associated identifiers should be evaluated to a 
+ * Bool or an Int at constant propogation phase of type checking *)
             
 (** Type Checker context is a pair type store and a value store with identifier as its key *)
-type tcContext = { tySyns: tyAliasStore; tyCtx:tyStore; vlCtx: vStore}
+type tcContext = { tySyns: tyAliasStore; tyCtx:tyStore; vlCtx: constStore}
 
 let emptyContext: tcContext = {tySyns = IMap.empty; tyCtx= IMap.empty; vlCtx=IMap.empty}
 
@@ -180,7 +177,7 @@ let lookupTy: tcContext -> LA.ident -> tcType =
                | LA.UserType (_, uid) -> if (memberTySyn ctx uid) then (lookupTySyn ctx uid) else ty
                | _ ->  ty
 
-let lookupVal: tcContext -> LA.ident -> LA.expr =
+let lookupConst: tcContext -> LA.ident -> (LA.expr * tcType) =
   fun ctx i -> IMap.find i (ctx.vlCtx)
 
 let addTySyn: tcContext -> LA.ident -> tcType -> tcContext = 
@@ -189,8 +186,8 @@ let addTySyn: tcContext -> LA.ident -> tcType -> tcContext =
 let addTy: tcContext -> LA.ident -> tcType -> tcContext
   = fun ctx i ty -> {ctx with tyCtx=IMap.add i ty (ctx.tyCtx)}
 
-let addVal: tcContext -> LA.ident -> LA.expr -> tcContext
-  = fun ctx i e -> {ctx with vlCtx=IMap.add i e ctx.vlCtx} 
+let addConst: tcContext -> LA.ident -> LA.expr -> tcType -> tcContext
+  = fun ctx i e ty -> {ctx with vlCtx=IMap.add i (e, ty) ctx.vlCtx} 
 
 let union: tcContext -> tcContext -> tcContext
   = fun ctx1 ctx2 -> { tySyns = (IMap.union (fun k v1 v2 -> Some v1) (ctx1.tySyns) (ctx2.tySyns))
@@ -201,8 +198,8 @@ let union: tcContext -> tcContext -> tcContext
 let singletonTy: LA.ident -> tcType -> tcContext =
   fun i ty -> addTy emptyContext i ty
 
-let singletonVal: LA.ident -> LA.expr -> tcContext =
-  fun i e -> addVal emptyContext i e
+let singletonConst: LA.ident -> LA.expr -> tcType -> tcContext =
+  fun i e ty -> addConst emptyContext i e ty
 
 let inferTypeConst: Lib.position -> LA.constant -> tcType
   = fun pos -> function
@@ -735,7 +732,7 @@ and tcCtxOfTyDecl: tcContext -> LA.type_decl -> tcContext tcResult = fun ctx ->
   | LA.AliasType (_, i, ty) -> R.ok (addTySyn ctx i ty)
   | LA.FreeType _ -> R.ok ctx
   
-(** Shadow the old binding with the new decl *)
+(** Shadow the old binding with the new const decl *)
 and tcCtxConstDecl: tcContext -> LA.const_decl -> tcContext tcResult
   = fun ctx decl ->
   Log.log L_debug
@@ -746,11 +743,11 @@ and tcCtxConstDecl: tcContext -> LA.const_decl -> tcContext tcResult
        R.ok (addTy ctx i ty)
     | LA.UntypedConst (_, i, expr) ->
        R.bind (inferTypeExpr ctx expr) (fun ty -> 
-           R.ok (addTy (addVal ctx i expr) i ty))
+           R.ok (addTy (addConst ctx i expr ty) i ty))
     | LA.TypedConst (pos, i, expr, ty)
       ->  let expTy = ty in
           R.bind (checkTypeExpr ctx expr expTy) (fun _ ->
-              R.ok (addTy (addVal ctx i expr) i expTy))
+              R.ok (addTy (addConst ctx i expr expTy) i expTy))
 
 (** get the type signature of node or a function *)
 and tcCtxOfNodeDecl: Lib.position -> tcContext -> LA.node_decl -> tcContext tcResult
@@ -842,7 +839,7 @@ and eqTypeArray: tcContext -> (LA.lustre_type * LA.expr) -> (LA.lustre_type * LA
 and evalConstExpr: tcContext -> LA.expr -> int tcResult = fun ctx e ->
   match e with
   (* identifier and constants *)
-  | Ident (pos, i) -> (try evalConstExpr ctx (lookupVal ctx i) with
+  | Ident (pos, i) -> (try (evalConstExpr ctx (fst (lookupConst ctx i))) with
                     | Not_found -> typeError pos ("Identifier " ^ i ^ " does not have a bounded value"))  
                       
   | Const (pos, c) -> (match c with
