@@ -125,6 +125,7 @@ type expr =
   | StructUpdate of position * expr * label_or_index list * expr
   | ArrayConstr of position * expr * expr 
   | ArraySlice of position * expr * (expr * expr) 
+  | ArrayIndex of position * expr * expr
   | ArrayConcat of position * expr * expr
   (* Quantified expressions *)
   | Quantifier of position * quantifier * typed_ident list * expr
@@ -454,6 +455,14 @@ let rec pp_print_expr ppf =
         pp_print_expr e
         pp_print_array_slice l 
 
+    | ArrayIndex (p, e, l) -> 
+
+      Format.fprintf ppf 
+        "%a@[<hv 1>%a@[<hv 1>[%a]@]@]" 
+        ppos p 
+        pp_print_expr e
+        pp_print_expr l 
+
     | ArrayConcat (p, e1, e2) -> 
 
       Format.fprintf ppf 
@@ -616,9 +625,6 @@ let rec pp_print_expr ppf =
 
 (* Pretty-print an array slice *)
 and pp_print_array_slice ppf (l, u) =
-  if l = u then
-    Format.fprintf ppf "%a" pp_print_expr l
-  else
     Format.fprintf ppf "%a..%a" pp_print_expr l pp_print_expr u
 
 and pp_print_field_assign ppf (i, e) = 
@@ -1202,7 +1208,7 @@ let pos_of_expr = function
   | Ident (pos , _) | ModeRef (pos , _ ) | RecordProject (pos , _ , _)
   | TupleProject (pos , _ , _) | StructUpdate (pos , _ , _ , _) | Const (pos, _)
   | ConvOp (pos , _, _) | GroupExpr (pos , _, _ ) | ArrayConstr (pos , _ , _ )
-  | ArraySlice (pos , _ , _) | ArrayConcat (pos , _ , _)
+  | ArraySlice (pos , _ , _) | ArrayIndex (pos , _, _) | ArrayConcat (pos , _ , _)
   | RecordExpr (pos , _ , _) | UnaryOp (pos , _, _) | BinaryOp (pos , _, _ , _)
   | NArityOp (pos , _, _ ) | TernaryOp (pos , _, _ , _ , _) | CompOp (pos , _, _ , _)
   | Quantifier (pos, _, _, _)
@@ -1233,6 +1239,11 @@ let rec has_unguarded_pre ung = function
     let u2 = has_unguarded_pre ung e2 in
     let u3 = has_unguarded_pre ung e3 in
     u1 || u2 || u3
+
+  | ArrayIndex (_, e1, e2) ->
+    let u1 = has_unguarded_pre ung e1 in
+    let u2 = has_unguarded_pre ung e2 in
+    u1 || u2
   
   | GroupExpr (_, _, l) | NArityOp (_, _, l)
   | Call (_, _, l) | CallParam (_, _, _, l) ->
@@ -1336,7 +1347,7 @@ let rec has_pre_or_arrow = function
     has_pre_or_arrow e
 
   | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
-  | ArrayConcat (_, e1, e2) | ArrayConstr (_, e1, e2)  -> (
+  | ArrayConcat (_, e1, e2) | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  -> (
     match has_pre_or_arrow e1 with
     | None -> has_pre_or_arrow e2
     | res -> res
@@ -1411,7 +1422,7 @@ let rec lasts_of_expr acc = function
     lasts_of_expr acc e
 
   | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
-  | ArrayConcat (_, e1, e2) | ArrayConstr (_, e1, e2)  ->
+  | ArrayConcat (_, e1, e2) | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  ->
     lasts_of_expr (lasts_of_expr acc e1) e2
 
   | TernaryOp (_, _, e1, e2, e3) | ArraySlice (_, e1, (e2, e3)) ->
@@ -1531,7 +1542,13 @@ let rec replace_lasts allowed prefix acc ee = match ee with
     let e3', acc' = replace_lasts allowed prefix acc' e3 in
     if e1 == e1' && e2 == e2' && e3 == e3' then ee, acc
     else ArraySlice (pos, e1', (e2', e3')), acc'
-  
+
+  | ArrayIndex (pos, e1, e2) ->
+    let e1', acc' = replace_lasts allowed prefix acc e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    if e1 == e1' && e2 == e2' then ee, acc
+    else ArrayIndex (pos, e1', e2'), acc'
+    
   | GroupExpr (_, _, l) | NArityOp (_, _, l)
   | Call (_, _, l) | CallParam (_, _, _, l) ->
     let l', acc' =
