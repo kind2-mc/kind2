@@ -836,6 +836,10 @@ pexpr(Q):
   | e = pexpr(Q); LSQBRACKET; s = array_slice; RSQBRACKET
     { A.ArraySlice (mk_pos $startpos, e, s) }
 
+  (* An array index (not quantified) *)
+  | e = pexpr(Q); LSQBRACKET; i = expr; RSQBRACKET
+    { A.ArrayIndex (mk_pos $startpos, e, i) }
+    
   (* A record field projection (not quantified) *)
   | s = pexpr(Q); DOT; t = ident 
     { A.RecordProject (mk_pos $startpos, s, t) }
@@ -1102,7 +1106,6 @@ node_call:
 (* An array slice *)
 array_slice:
   | il = expr; DOTDOT; iu = expr { il, iu }
-  | i = expr { i, i }
 
 
 (* An assignment to a record field *)

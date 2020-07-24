@@ -231,7 +231,7 @@ let rec used_inputs_expr inputs acc =
     used_inputs_expr inputs acc e
 
   | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
-  | ArrayConstr (_, e1, e2) | ArrayConcat (_, e1, e2) ->
+  | ArrayConstr (_, e1, e2) | ArrayConcat (_, e1, e2) | ArrayIndex (_, e1, e2) ->
     used_inputs_expr inputs (used_inputs_expr inputs acc e2) e1
     
   | TernaryOp (_, _, e1, e2, e3) | ArraySlice (_, e1, (e2, e3)) ->

@@ -121,6 +121,7 @@ type expr =
   | StructUpdate of position * expr * label_or_index list * expr
   | ArrayConstr of position * expr * expr 
   | ArraySlice of position * expr * (expr * expr) 
+  | ArrayIndex of position * expr * expr
   | ArrayConcat of position * expr * expr
   (* Quantified expressions *)
   | Quantifier of position * quantifier * typed_ident list * expr
