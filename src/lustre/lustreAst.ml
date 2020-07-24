@@ -17,11 +17,9 @@
 *)
 
 open Lib
-          
+
 exception Parser_error
 
-module SI = Set.Make (Ident)
-          
 let error_at_position pos msg =
   match Log.get_log_format () with
   | Log.F_pt ->
@@ -48,6 +46,16 @@ let warn_at_position pos msg =
 (* An identifier *)
 type ident = string
 
+module SI = struct
+  include (Set.Make (struct
+               type t = ident
+               let compare = Stdlib.compare
+             end))
+  let flatten: t list -> t = fun sets ->
+    List.fold_left union empty sets
+end
+
+           
 type index = string
 
 let pp_print_ident = Format.pp_print_string

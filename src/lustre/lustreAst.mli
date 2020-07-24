@@ -40,8 +40,6 @@
 
 open Lib
 
-module SI : Set.S with type elt = Ident.t
-
 (** Error while parsing *)
 exception Parser_error
 
@@ -49,7 +47,12 @@ exception Parser_error
 
 (** An identifier *)
 type ident = string
-     
+
+module SI: sig
+  include (Set.S with type elt = ident)
+  val flatten: t list -> t
+end
+
 (** A single index *)
 type index = string
 

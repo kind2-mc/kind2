@@ -731,7 +731,12 @@ and tcCtxOfTyDecl: tcContext -> LA.type_decl -> tcContext tcResult = fun ctx ->
   function
   | LA.AliasType (_, i, ty) -> R.ok (addTySyn ctx i ty)
   | LA.FreeType _ -> R.ok ctx
-  
+(** Does it make sense to have the type? We do not want types such as int^true *)
+and isTypeWellFormed: tcContext -> tcType -> bool = fun ctx ty ->
+  match ty with
+  | LA.ArrayType (_, (_, s)) -> isExprInt ctx s
+  | _ -> true
+                   
 (** Shadow the old binding with the new const decl *)
 and tcCtxConstDecl: tcContext -> LA.const_decl -> tcContext tcResult
   = fun ctx decl ->
@@ -815,6 +820,14 @@ and eqLustreType : tcContext -> LA.lustre_type -> LA.lustre_type -> bool tcResul
      else R.ok false
   | _, _ -> R.ok false
 
+(** Checks if the constant is of type Int. This will be useful 
+ * in evaluating array sizes that we need to have as constant integers
+ * while declaring the array type *)
+and isExprInt: tcContext -> LA.expr -> bool  = fun ctx e ->
+  R.safe_unwrap false (
+      R.bind (inferTypeExpr ctx e) (fun ty -> 
+          eqLustreType ctx ty (Int (LustreAstHelpers.pos_of_expr e))))
+                                                              
 (** Compute equality for [LA.typed_ident] *)
 and eqTypedIdent: tcContext -> LA.typed_ident -> LA.typed_ident -> bool tcResult =
   fun ctx (_, i1, ty1) (_, i2, ty2) -> if (i1 = i2)

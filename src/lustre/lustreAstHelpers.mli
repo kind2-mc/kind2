@@ -47,3 +47,6 @@ val node_item_has_pre_or_arrow : node_item -> Lib.position option
     the new AST expression and a set of identifers for which the last
     application was replaced. *)
 val replace_lasts : string list -> string -> SI.t -> expr -> expr * SI.t
+
+(** returns all the [ident] that appear in the expr ast*)
+val vars: expr -> SI.t

@@ -45,7 +45,12 @@ let seqM: ('a -> 'b -> 'a) -> 'a -> ('b, 'e) result list -> ('a, 'e) result
             
 let seq_: (unit, 'e) result list -> (unit, 'e) result  =
   fun m -> seqM (fun _ _ -> ()) () m
-       
+
+let safe_unwrap: 'a -> ('a, 'e) result -> 'a =
+  fun d -> function
+        | Ok v -> v
+        | _ -> d
+         
 (** Unwraps a result. *)
 let unwrap = function
   | Ok arg -> arg
@@ -57,9 +62,6 @@ let unwrap = function
 let map_res f_ok f_err = function
   | Ok arg -> Ok (f_ok arg)
   | Error err -> Error (f_err err)
-
-(** Maps a function to a result if it's [Ok]. *)
-let map f = map_res f identity
 
 (** Maps a function to a result if it's [Error]. *)
 let map_err f = map_res identity f

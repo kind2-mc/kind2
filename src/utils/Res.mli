@@ -34,7 +34,6 @@ val join : (('a, 'e) result, 'e) result -> ('a, 'e) result
 
 val map : ('a -> 'b) -> ('a, 'e) result -> ('b, 'e) result
 (** [map f r] is [Ok (f v)] if [r] is [Ok v] and [r] if [r] is [Error _]. *)
-
   
 (** The following functions have been taken from  (future) 4.09 Stdlib.Result. 
  * These 4 functions, [ok], [error], [bind], [join] and [map] should be ported to 
@@ -53,7 +52,10 @@ val seqM: ('a -> 'b -> 'a) -> 'a -> ('b, 'e) result list -> ('a, 'e) result
 val seq_: (unit, 'e) result list -> (unit, 'e) result  
 (** sequences a [list] of [unit] into a [result] of [unit] 
  * errors out on first error or returns a unit *)
-  
+
+(** Unwrap the result value and return the default value if it is an error*)
+val  safe_unwrap: 'a -> ('a, 'e) result -> 'a
+
 (** Unwraps a result. *)
 val unwrap : 'a res -> 'a
 
@@ -62,9 +64,7 @@ val map_res: ('a -> 'b) -> (
   (Format.formatter -> unit) -> Format.formatter -> unit
 ) -> 'a res -> 'b res
 
-(** Maps a function to a result if it's [Ok]. *)
-val map: ('a -> 'b) -> 'a res -> 'b res
-
+  
 (** Maps a function to a result if it's [Err]. *)
 val map_err: (
   (Format.formatter -> unit) -> Format.formatter -> unit

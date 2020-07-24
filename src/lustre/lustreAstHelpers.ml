@@ -19,6 +19,8 @@
 open Lib
 
 open LustreAst
+
+type iset = LustreAst.SI.t
    
 let error_at_position pos msg =
   match Log.get_log_format () with
@@ -595,3 +597,52 @@ outputs. *)
 let contract_has_pre_or_arrow l =
   List.map contract_node_equation_has_pre_or_arrow l
   |> some_of_list
+
+
+(** returns all identifiers from the [expr] ast*)
+let rec vars: expr -> iset = function
+  | Ident (_, i) -> SI.singleton i
+  | ModeRef (_, is) -> SI.of_list is
+  | RecordProject (_, e, _) -> vars e 
+  | TupleProject (_, e, _) -> vars e
+  (* Values *)
+  | Const _ -> SI.empty
+  (* Operators *)
+  | UnaryOp (_,_,e) -> vars e
+  | BinaryOp (_,_,e1, e2) -> vars e1 |> SI.union (vars e2)
+  | TernaryOp (_,_, e1, e2, e3) -> vars e1 |> SI.union (vars e2) |> SI.union (vars e3) 
+  | NArityOp (_, _,es) -> SI.flatten (List.map vars es)
+  | ConvOp  (_,_,e) -> vars e
+  | CompOp (_,_,e1, e2) -> (vars e1) |> SI.union (vars e2)
+  (* Structured expressions *)
+  | RecordExpr (_, _, flds) -> SI.flatten (List.map vars (snd (List.split flds)))
+  | GroupExpr (_, _, es) -> SI.flatten (List.map vars es)
+  (* Update of structured expressions *)
+   | StructUpdate (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
+   | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
+   | ArraySlice (_, e1, (e2, e3)) -> SI.union (vars e3) (SI.union (vars e1) (vars e2))
+   | ArrayConcat (_, e1, e2) -> SI.union (vars e1) (vars e2)
+  (* Quantified expressions *)
+   | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map varsOfTyIds qs)) 
+  (* Clock operators *)
+  | When (_, e, clkE) -> SI.union (vars e) (varsOfCloclExpr clkE)
+  | Current  (_, e) -> vars e
+  | Condact (_, e1, e2, i, es1, es2) ->
+     SI.add i (SI.flatten (vars e1 :: vars e2:: (List.map vars es1) @ (List.map vars es2)))
+  | Activate (_, _, e1, e2, es) -> SI.flatten (vars e1 :: vars e2 :: List.map vars es)
+  | Merge (_, _, es) -> List.split es |> snd |> List.map vars |> SI.flatten
+  | RestartEvery (_, i, es, e) -> SI.add i (SI.flatten (vars e :: List.map vars es)) 
+  (* Temporal operators *)
+  | Pre (_, e) -> vars e
+  | Last (_, i) -> SI.singleton i
+  | Fby (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
+  | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
+  (* Node calls *)
+  | Call (_, i, es) -> SI.add i (SI.flatten (List.map vars es)) 
+  | CallParam (_, i, _, es) -> SI.add i (SI.flatten (List.map vars es))
+and varsOfTyIds: typed_ident -> iset = fun (_, i, ty) -> SI.singleton i 
+and varsOfCloclExpr: clock_expr -> iset = function
+  | ClockTrue -> SI.empty
+  | ClockPos i -> SI.singleton i
+  | ClockNeg i -> SI.singleton i
+  | ClockConstr (i1, i2) -> SI.of_list [i1; i2]
