@@ -620,6 +620,7 @@ let rec vars: expr -> iset = function
   (* Update of structured expressions *)
    | StructUpdate (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
    | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
+   | ArrayIndex (_, e1, e2) -> SI.union (vars e1) (vars e2)
    | ArraySlice (_, e1, (e2, e3)) -> SI.union (vars e3) (SI.union (vars e1) (vars e2))
    | ArrayConcat (_, e1, e2) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
