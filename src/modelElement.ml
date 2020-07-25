@@ -284,7 +284,7 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
   let assoc = assoc @ (
     match cpd.approx with
     | None -> []
-    | Some b -> [("approximation", `Bool b)]
+    | Some b -> [("approximate", `Bool b)]
   )
   in
   let assoc = assoc @ ([
@@ -330,7 +330,7 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
   Format.fprintf fmt "<ModelElementSet class=\"%s\" size=\"%i\"%s%s>@.  @[<v>"
     cpd.core_class cpd.size
     (match cpd.property with None -> "" | Some n -> Format.asprintf " property=\"%s\"" n)
-    (match cpd.approx with None -> "" | Some b -> Format.asprintf " approximation=\"%b\"" b) ;
+    (match cpd.approx with None -> "" | Some b -> Format.asprintf " approximate=\"%b\"" b) ;
   (
     match cpd.time with
     | None -> ()
