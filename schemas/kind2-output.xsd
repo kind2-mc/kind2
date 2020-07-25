@@ -353,6 +353,7 @@
     <xs:attribute name="class" type="CoreClass" use="required"/>
     <xs:attribute name="size" type="NonNegativeInteger" use="required"/>
     <xs:attribute name="property" type="xs:string" />
+    <xs:attribute name="approximate" type="xs:boolean" use="required"/>
   </xs:complexType>
 
   <xs:complexType name="NoModelElementSetType">
