@@ -1333,7 +1333,10 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes keep test =
   | None ->
     if !has_timeout then test
     else (print_uc_error_note () ; test)
-  | Some core -> (if !has_timeout then print_timeout_warning ()) ; core
+  | Some core ->
+    (if !has_timeout
+    then KEvent.log L_warn "The UNSAT core has timeout..."
+    ) ; core
   in (os_invs, res)
 
 let ivc_uc in_sys ?(approximate=false) sys props =
