@@ -592,22 +592,24 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
       = fun  (_, i,ty, _, _) -> singletonTy i ty in
     let extractRet: LA.clocked_typed_decl -> tcContext
       = fun (_, i, ty, _) -> singletonTy i ty in
-    let localVarBinding: tcContext -> LA.node_local_decl -> tcContext tcResult = fun ctx -> function
-      | LA.NodeConstDecl (pos, constDecls) -> tcCtxConstDecl ctx constDecls 
+    let localVarBinding: tcContext -> LA.node_local_decl -> tcContext tcResult = fun ctx ->
+      function
+      | LA.NodeConstDecl (pos, constDecls) ->
+         Log.log L_debug "Extracting typing context from const declaration: %a"
+           LA.pp_print_const_decl constDecls
+        ; tcCtxConstDecl ctx constDecls 
       | LA.NodeVarDecl (pos, (_, v, ty, _)) ->
          if isTypeWellFormed ctx ty then R.ok (addTy ctx v ty)
          else typeError pos ("Node's local variable "
                              ^ v
                              ^ " type should be well formed")
-                                               
     in
-
-    (* if the node is extern, we will not have any body to typecheck so skip it *)
+    (* if the node is extern, we will not have any body to typecheck *)
     if isExtern
-    then ( Log.log L_debug "External Node, skipping type check"
+    then ( Log.log L_debug "External Node, no body to type check"
          ; R.ok ())
     else (
-      Log.log L_debug "Params: %a" LA.pp_print_node_param_list params
+      Log.log L_debug "Params: %a (skipping)" LA.pp_print_node_param_list params
 
       (* These are inputs to the node *)
       ; let ips = List.fold_left union emptyContext (List.map extractArg cclktydecls) in
@@ -620,45 +622,48 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
         Log.log L_debug "Clocked typed decls: %a\nops:%a"
           (Lib.pp_print_list LA.pp_print_clocked_typed_ident ",@,") clktydecls
           pp_print_tcContext ops
+
+        (* Local variables and constants *)
         ; Log.log L_debug "Local decls: %a" LA.pp_print_node_local_decl localdecls
+
         ; R.bind (R.seq (List.map (localVarBinding ctx) localdecls)) (fun localVarCtxts ->
               let localDecls = List.fold_left union ctx localVarCtxts in
-              Log.log L_debug "Extracted local consts and vars: %a" pp_print_tcContext localDecls
-              ; let localCtx = union localDecls       (* declared local variables and constants *)
-                                  (union ips ops)     (* input and output type vars *)
+
+              let localCtx = (union ips ops)        (* input and output type vars *)
+                             |> union localDecls    (* declared local variables and constants *)
               in
               Log.log L_debug "Local Typing Context {%a}" pp_print_tcContext localCtx
-              ; let doNodeEqn ctx eqn = match eqn with
-                  | LA.Assert (pos, e) ->
-                     R.bind
-                       ( Log.log L_debug "checking assertion"
-                       ; checkTypeExpr ctx e (Bool pos)) (fun _ -> R.ok ())
-                  | LA.Equation (_, lhs, expr) ->
-                     R.bind
-                       (inferTypeExpr ctx expr) (fun ty ->
-                         checkTypeStructDef ctx lhs ty)
-                  | LA.Automaton (pos, _, _, _) ->
-                     Lib.todo ("Unsupported feature Automation." ^ __LOC__)
-                in
-                let rec doItems: tcContext -> LA.node_item list -> unit tcResult =
-                  fun ctx its -> match its with
-                                 | [] -> R.ok ()
-                                 | (LA.Body eqn as body) :: rest ->
-                                    R.bind ( Log.log L_debug "Node Item (Equation): %a" LA.pp_print_node_item body
-                                           ; doNodeEqn ctx eqn) (fun _ ->
-                                        doItems ctx rest)
-                                 | (LA.AnnotMain _ as ann) :: rest ->
-                                    Log.log L_debug "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann
-                                   ; doItems ctx rest
-                                 | (LA.AnnotProperty _ as ann) :: rest ->
-                                    Log.log L_debug "Node Item Skipped (Annotation Property): %a" LA.pp_print_node_item ann
-                                   ; doItems ctx rest 
-                in
-                let r = doItems localCtx items in
+
+              (* Type check the node items now that we have all the local typing context *)
+              ; let r = Res.seq_ (List.map (doItem localCtx) items) in
                 Log.log L_debug "TC declaration node %a done }" LA.pp_print_ident nodeName
                 ; r)
     )
 
+and doNodeEqn: tcContext -> LA.node_equation -> unit tcResult = fun ctx ->
+  function
+  | LA.Assert (pos, e) ->
+     R.bind ( Log.log L_debug "checking assertion"
+            ; checkTypeExpr ctx e (Bool pos)) (fun _ -> R.ok ())
+  | LA.Equation (_, lhs, expr) ->
+     R.bind (inferTypeExpr ctx expr) (fun ty ->
+         checkTypeStructDef ctx lhs ty)
+  | LA.Automaton (pos, _, _, _) ->
+     Lib.todo __LOC__
+
+and doItem: tcContext -> LA.node_item -> unit tcResult = fun ctx ->
+  function
+  | (LA.Body eqn) as body ->
+     Log.log L_debug "Node Item (Equation): %a" LA.pp_print_node_item body
+    ; doNodeEqn ctx eqn
+  | LA.AnnotMain _ as ann ->
+     Log.log L_debug "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann
+    ; R.ok ()
+  | LA.AnnotProperty _ as ann ->
+     Log.log L_debug "Node Item Skipped (Annotation Property): %a" LA.pp_print_node_item ann
+    ; R.ok ()
+
+  
 and checkTypeStructItem: tcContext -> LA.struct_item -> tcType -> unit tcResult
   = fun ctx st expTy ->
   match st with
@@ -703,17 +708,28 @@ and checkTypeStructDef: tcContext -> LA.eq_lhs -> tcType -> unit tcResult
 
 (** Obtain a global typing context, get contatnts and function decls*)
 and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
-  let tcContextOf': tcContext -> LA.declaration -> tcContext tcResult
-    = fun ctx decl ->
-    match decl with
+  let rec tcContextOf': tcContext -> LA.declaration -> tcContext tcResult = fun ctx ->
+    function
     | LA.TypeDecl (_, tyDecl)     -> tcCtxOfTyDecl ctx tyDecl 
     | LA.ConstDecl (_, constDecl) -> tcCtxConstDecl ctx constDecl
     | LA.NodeDecl (pos, nodeDecl) -> tcCtxOfNodeDecl pos ctx nodeDecl
     | LA.FuncDecl (pos, nodeDecl) -> tcCtxOfNodeDecl pos ctx nodeDecl
     | _ -> R.ok ctx
-
+  and tcCtxOfTyDecl: tcContext -> LA.type_decl -> tcContext tcResult = fun ctx ->
+    function
+    | LA.AliasType (_, i, ty) -> R.ok (addTySyn ctx i ty)
+    | LA.FreeType _ -> R.ok ctx
+  (** get the type signature of node or a function *)
+  and tcCtxOfNodeDecl: Lib.position -> tcContext -> LA.node_decl -> tcContext tcResult
+    = fun pos ctx (i, _, _ , ip, op,_ ,_ ,_) ->
+    if (memberTy ctx i)
+    then typeError pos ("Duplicate node detected with name: " ^ i)
+    else let funTy = buildFunTy pos ip op in
+         if isTypeWellFormed ctx funTy
+         then R.ok (addTy ctx i funTy)
+         else typeError pos "Arguments and return types of the node should be well formed."
+         
   in function
-  (* TODO: make this into a sequence and then fold? *)
   | [] -> R.ok ctx
   | d :: tl ->
      R.bind ( Log.log L_debug
@@ -723,10 +739,6 @@ and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
          R.bind (tcContextOf (union ctx' ctx) tl) (fun c -> 
              R.ok c))
 
-and tcCtxOfTyDecl: tcContext -> LA.type_decl -> tcContext tcResult = fun ctx ->
-  function
-  | LA.AliasType (_, i, ty) -> R.ok (addTySyn ctx i ty)
-  | LA.FreeType _ -> R.ok ctx
 (** Does it make sense to have this type i.e. is it inhabited? We do not want types such as int^true *)
 and isTypeWellFormed: tcContext -> tcType -> bool = fun ctx ty ->
   match ty with
@@ -737,33 +749,19 @@ and isTypeWellFormed: tcContext -> tcType -> bool = fun ctx ty ->
   | _ -> true
                    
 (** Shadow the old binding with the new const decl *)
-and tcCtxConstDecl: tcContext -> LA.const_decl -> tcContext tcResult
-  = fun ctx decl ->
-  Log.log L_debug
-    "Extracting typing context from const declaration: %a"
-    LA.pp_print_const_decl decl
-  ; match decl with
-    | LA.FreeConst (pos, i, ty) ->
-       if (isTypeWellFormed ctx ty)
-       then R.ok (addTy ctx i ty)
-       else typeError pos "Constant should be of a well formed type"
-    | LA.UntypedConst (_, i, e) ->
-       R.bind (inferTypeExpr ctx e) (fun ty -> 
-           R.ok (addTy (addConst ctx i e ty) i ty))
-    | LA.TypedConst (pos, i, expr, ty)
-      ->  let expTy = ty in
-          R.bind (checkTypeExpr ctx expr expTy) (fun _ ->
-              R.ok (addTy (addConst ctx i expr expTy) i expTy))
-
-(** get the type signature of node or a function *)
-and tcCtxOfNodeDecl: Lib.position -> tcContext -> LA.node_decl -> tcContext tcResult
-  = fun pos ctx (i, _, _ , ip, op,_ ,_ ,_) ->
-  if (memberTy ctx i)
-  then typeError pos ("Duplicate node detected with name: " ^ i)
-  else let funTy = buildFunTy pos ip op in
-       if isTypeWellFormed ctx funTy
-       then R.ok (addTy ctx i funTy)
-       else typeError pos "Arguments and return types of the node should be well formed."
+and tcCtxConstDecl: tcContext -> LA.const_decl -> tcContext tcResult = fun ctx ->
+  function
+  | LA.FreeConst (pos, i, ty) ->
+     if (isTypeWellFormed ctx ty)
+     then R.ok (addTy ctx i ty)
+     else typeError pos "Constant should be of a well formed type"
+  | LA.UntypedConst (_, i, e) ->
+     R.bind (inferTypeExpr ctx e) (fun ty -> 
+         R.ok (addTy (addConst ctx i e ty) i ty))
+  | LA.TypedConst (pos, i, expr, ty) ->
+     let expTy = ty in
+     R.bind (checkTypeExpr ctx expr expTy) (fun _ ->
+         R.ok (addTy (addConst ctx i expr expTy) i expTy))
   
 (** Function type for nodes will be (TupleTy ips) -> (tuple outputs)  *)
 and buildFunTy: Lib.position -> LA.const_clocked_typed_decl list -> LA.clocked_typed_decl list -> tcType

@@ -31,7 +31,8 @@ let join = function Ok r -> r | Error _ as e -> e
 
 let map f = function Ok v -> Ok (f v) | Error _ as e -> e
                                                       
-let rec seq: ('a, 'e) result list -> ('a list, 'e) result  = function
+let rec seq: ('a, 'e) result list -> ('a list, 'e) result  =
+  function
   | [] -> ok []
   | h :: t -> bind h (fun h' -> 
                   bind (seq t) (fun t' ->
