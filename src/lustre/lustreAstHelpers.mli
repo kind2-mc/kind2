@@ -50,3 +50,9 @@ val replace_lasts : string list -> string -> SI.t -> expr -> expr * SI.t
 
 (** returns all the [ident] that appear in the expr ast*)
 val vars: expr -> SI.t
+
+(** Return an ast that adds two expressions*)
+val addExp: Lib.position -> expr -> expr -> expr
+
+(** returns an ast which is the absolute difference of two expr ast*)
+val abs_diff: Lib.position -> expr -> expr -> expr

@@ -647,3 +647,11 @@ and varsOfCloclExpr: clock_expr -> iset = function
   | ClockPos i -> SI.singleton i
   | ClockNeg i -> SI.singleton i
   | ClockConstr (i1, i2) -> SI.of_list [i1; i2]
+
+
+(** Return an ast that adds two expressions*)
+let addExp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
+  Lib.todo __LOC__
+
+(** returns an ast which is the absolute difference of two expr ast*)
+let abs_diff: Lib.position -> expr -> expr -> expr = fun pos e1 e2 -> Lib.todo __LOC__
