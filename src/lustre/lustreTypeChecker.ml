@@ -515,6 +515,11 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
                                      ^ string_of_tcType expTy
                                      ^ " but found "
                                      ^ string_of_tcType (LA.ArrayType (pos, (bTy, bExp)))))))
+  | ArrayIndex (pos, e, idx) -> 
+     if isExprIntType ctx idx
+     then checkTypeExpr ctx e (ArrayType (pos, (expTy, (LA.Const (pos, Num "10")))))
+     else typeError pos ("Array index should have an integer type")
+
   | ArraySlice _ -> Lib.todo __LOC__
   | ArrayConcat _ -> Lib.todo __LOC__
 
@@ -525,17 +530,17 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
      checkTypeExpr extnCtx e expTy
 
   (* Clock operators *)
-  (* | When of position * expr * clock_expr *)
-  (* | Current of position * expr *)
+  | When _ -> Lib.todo __LOC__
+  | Current _ -> Lib.todo __LOC__
   | Condact _ -> Lib.todo __LOC__
-  (* | Activate of position * ident * expr * expr * expr list *)
-  (* | Merge of position * ident * (ident * expr) list *)
-  (* | RestartEvery of position * ident * expr list * expr *)
+  | Activate _ -> Lib.todo __LOC__
+  | Merge _ -> Lib.todo __LOC__
+  | RestartEvery _ -> Lib.todo __LOC__
 
   (* Temporal operators *)
   | Pre (pos, e) -> checkTypeExpr ctx e expTy
-  (* | Last of position * ident*)
-  (* | Fby of position * expr * int * expr*)
+  | Last _ -> Lib.todo __LOC__
+  | Fby _ -> Lib.todo __LOC__
   | Arrow (pos, e1, e2) -> R.bind(inferTypeExpr ctx e1) (fun ty1 ->
                                R.bind(inferTypeExpr ctx e2) (fun ty2 ->
                                    R.bind (eqLustreType ctx ty1 ty2)(fun isEq ->
@@ -546,15 +551,10 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
                                                            ^ " with " ^ string_of_tcType ty2))))
 
   (* Node calls *)
-  | Call (pos, i, args) as ncall -> R.bind (inferTypeExpr ctx ncall) (fun ty ->
-                                        R.bind (eqLustreType ctx ty expTy) (fun isEq ->
-                                            if isEq
-                                            then R.ok ()
-                                            else typeError pos (" Cannot match expected type "
-                                                           ^ string_of_tcType ty
-                                                           ^ " with " ^ string_of_tcType expTy)))  
+  | Call (pos, i, args) ->
+     R.bind (R.seq (List.map (inferTypeExpr ctx) args)) (fun argTys ->
+         checkTypeExpr ctx (LA.Ident (pos, i)) (TArr (pos, TupleType (pos, argTys), expTy)))
   | CallParam _ -> Lib.todo __LOC__
-  | _ -> Lib.todo __LOC__ 
 
 and checkTypeRecordProj: Lib.position -> tcContext -> LA.expr -> LA.index -> tcType -> unit tcResult =
   fun pos ctx expr idx expTy -> 
@@ -674,8 +674,18 @@ and doNodeEqn: tcContext -> LA.node_equation -> unit tcResult = fun ctx ->
     ; R.bind (checkTypeExpr ctx e (Bool pos)) (fun _ -> R.ok ())
   | LA.Equation (_, lhs, expr)  as eqn ->
      Log.log L_debug "Checking equation: %a" LA.pp_print_node_body eqn
-    ; R.bind (inferTypeExpr ctx expr) (fun ty ->
-          checkTypeStructDef ctx lhs ty)
+    (* This is a special case where we have undeclared identifiers 
+       as short hands for assigning values to arrays *)
+    ; let getArrayDefContext: LA.struct_item -> tcContext = 
+        function
+        | ArrayDef (pos, _, is) -> List.fold_left (fun c i -> addTy c i (LA.Int pos)) emptyContext is 
+        | _ -> emptyContext
+      in
+      let ctxFromLHS: tcContext -> LA.eq_lhs -> tcContext = fun ctx (LA.StructDef (_, items))->
+        List.fold_left union ctx (List.map getArrayDefContext items) 
+      in
+      R.bind (inferTypeExpr (ctxFromLHS ctx lhs) expr) (fun ty ->
+          checkTypeStructDef (ctxFromLHS ctx lhs) lhs ty)
   | LA.Automaton (pos, _, _, _) ->
      Log.log L_debug "Skipping Automation"
        ; R.ok ()
@@ -707,6 +717,13 @@ and checkTypeStructItem: tcContext -> LA.struct_item -> tcType -> unit tcResult
                                       ^ string_of_tcType expTy
                                       ^ " but found type "
                                       ^ string_of_tcType infTy)))
+  | ArrayDef (pos, baseE, idxs) ->
+     let arrayIdxExpr = List.fold_left
+                          (fun e i -> LA.ArrayIndex (pos, e, i))
+                          (LA.Ident (pos, baseE))
+                          (List.map (fun i -> LA.Ident (pos, i)) idxs) in
+     checkTypeExpr ctx arrayIdxExpr expTy
+     
   | _ -> Lib.todo __LOC__
 
 (** The structure of the left hand side of the equation 
