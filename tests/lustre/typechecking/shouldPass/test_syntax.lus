@@ -1,0 +1,872 @@
+-- This file shows the supported Lustre syntax and can be used to test
+-- the parser. It does not contain any sensible properties to prove.
+/* This is a comment 
+  over several lines */ 
+
+(* Pascal-style comments are 
+  also valid - and that officially *)
+
+-- Include file, the name must be in quotes, the path is relative to
+-- this file. This directive can be anywhere in the file.
+include "inc.lus"
+
+-- ------------------------------------------------------------
+-- Type declarations
+-- ------------------------------------------------------------
+
+-- Declare an alias for the built-in type bool
+type a = bool;
+
+-- Declare multiple aliases for the built-in type int
+type b, c = int;
+
+-- Declare aliases for built-in type integer range (our extension)
+type r1 = subrange [1, 2] of int;
+type r2 = subrange [-2, 2] of int;
+
+-- Declare a parametric type with constants as arguments
+const r3_l = 1;
+const r3_u = 2;
+type r3 = subrange [r3_l, r3_u] of int;
+
+-- Declare an alias for the built-in type real
+type d = real;
+
+-- Declare an alias for a user-defined type
+type e = a;
+
+-- Declare a tuple type
+type f = [int, real, bool];
+
+-- Declare a nested tuple type
+type g = [d, [int, bool]];
+
+-- Declare a record type
+type h = struct { one : int; two : bool };
+
+-- Declare a nested record type, keyword struct is optional in record
+-- type declaration
+type i2 = struct { a : int; b: bool };
+type i = { one: i2;  two : bool; };
+
+-- A constant of the type of the record, name of the record is
+-- required
+const i = i { one = i2 { a = 1; b = true }; two = true };
+
+-- A constant of type bool
+const i_two : bool = i.two;
+
+-- A constant of type i2
+const i_one : i2 = i.one;
+
+-- A constant of type int
+const i_one_a : int = i_one.a;
+
+-- Enum type (V6) 
+type j = enum { st_init, st_step, st_stop };
+
+-- Declare an array type
+type k = int^5;
+
+-- Declare a nested array type 
+type l = int^3^5; -- ^ is left-associative
+
+-- A constant of a nested array type
+-- const l : l = 1^3^5;
+
+-- A constant of array type 
+-- const l_1 : int^3 = l[4];
+
+-- Declare an array type with a constant as a parameter 
+const h = 2;
+type m = int^5*h;
+
+-- ------------------------------------------------------------
+-- Global constant declarations
+-- ------------------------------------------------------------
+
+-- Free constants, must have a type
+const a1, a2, a3: a;
+
+-- Define constants without a type, will be inferred
+const b01 = 1;
+      pi = 3.14;
+
+-- Define constant with a type, will be checked 
+const c1 : bool = true;
+      c2 = 5;
+
+-- Use decimal or hexa-decimal notations for numerical constants
+
+const c3 = 0xA0f ;
+      c4 = .45e-45 ;
+      c5 = 0.2E+3 ;
+      c6 = 0x3.1f4p-5 ;
+
+-- ------------------------------------------------------------
+-- Node declarations
+-- ------------------------------------------------------------
+
+-- A node declaration with nested types and type aliases
+node x 
+
+  -- Two arguments with the same type 
+  (a, b: [int, [bool, bool]]; 
+
+   -- A constant argument 
+   const c: k;
+
+   -- Two more arguments 
+   d, e: int) 
+
+returns 
+
+  (x: k; 
+   y, z: [int, [bool, real]]; 
+   u: i2;
+   v: int);
+
+-- Local variable declarations are optional
+let 
+-- Node equations are optional
+tel;
+
+type y_t = { a: int; b: real };
+
+node y (const a: bool) returns (b: int);
+
+-- Local constant declarations
+const c : int = 1; d = 2;
+
+-- Local variable declarations 
+var t : y_t;
+    e, f: int;
+    j, k: bool;
+    -- Must not clash with previously declared constant 
+    y_l: int;
+    m: real;
+let
+
+  -- (Constant) stream definitions 
+  e = 1;
+  (f) = 2;
+
+  -- Main node annotation, semicolon is
+  --necessary,  can be anywhere in the node body 
+
+  --%MAIN;
+  --%MAIN; 
+  --%MAIN ;
+
+  -- Assignment to a list
+  -- g, h, i = x(c);
+
+  -- List can be in parentheses
+  (j, k, y_l, m) = (true, false, 1, 2.0);
+
+/* TODO:  
+  -- Structural assignment from array
+  [n, o, p] = 1^3;
+
+  -- Structural assignment
+  [c, [A[0], A[1]]] = e;
+
+  -- Structural assignment to tuple 
+  [q, r] = [true, 5];
+
+  -- Assignment to array slices 
+  A[i..j] = e^(d-c);
+  B[i..j, k..l] = 3^(d-c)^(-c+d);
+
+  -- Assignment to record field
+  t.a = 5;
+*/
+  
+  -- Record construction
+  t = y_t { b = 2.0; a = 1 };
+
+/* TODO: 
+  -- One-hot expression # --
+  t.b = if a xor false then #(a, b, c) else false; 
+*/
+
+  -- Assertion
+  assert a;
+
+  -- Property, must be terminated with a semicolon
+  --%PROPERTY k; 
+
+  -- Annotations can be commented 
+  -- --%PROPERTY j;
+
+-- A node can end with tel; tel. or tel
+tel.
+
+
+-- Node contracts right after its signature 
+node g () returns ();
+(*@contract
+  assume true;
+  guarantee true;
+*)
+const n = 5;
+var t : int;
+let t = n; tel;
+
+-- External contract definition
+contract countSpec(trigger: bool; val: int) returns (count: int ; error: bool) ;
+let
+  assume val >= 0;
+  var initVal: int = val -> pre(initVal);
+  var once: bool = trigger or (false -> pre once) ;
+  guarantee count >= 0 ;
+  mode still_zero (
+    require not once ;
+    ensure count = initVal ;
+  ) ;
+  mode gt (
+    require not ::still_zero ;
+    ensure count > 0 ;
+  ) ;
+tel
+
+-- Partially defined node with imported contract
+node my_count (trigger: bool; val: int) returns (count: int ; error: bool) ;
+(*@contract
+  import countSpec(trigger, val) returns (count, error);
+*)
+let
+  count = (if trigger then 1 else 0) + (val -> pre count) ;
+tel
+
+-- Imported function with inlined contract
+function imported sqrt(n: real) returns (r: real);
+(*@contract
+  assume n >= 0.0;
+  guarantee r >= 0.0 and r * r = n;
+*)
+
+node sum_ge_10 (const in: int) returns (out: bool) ;
+var sum: int ;
+let
+  sum = in + (0 -> pre sum) ;
+  out = sum >= 10 ;
+tel
+
+node merge_when_activate (in: int) returns (safe_tmp: bool) ;
+var in_pos, pre_tmp: bool;
+let
+  in_pos = in >= 0 ;
+  pre_tmp = false -> pre safe_tmp  ;
+  safe_tmp = merge(
+    in_pos ;
+    (activate sum_ge_10 every in_pos)(in) ;
+    pre_tmp when not in_pos
+  ) ;
+tel
+
+node bounded_counter (const max: int) returns (t: int);
+let
+  t = 0 -> if pre t = max then 0 else pre t + 1;
+tel
+
+node mod3_counter (reset: bool) returns (c: int);
+let
+  c = (restart bounded_counter every reset)(3);
+tel
+
+type ABC = enum { V_A, V_B, V_C };
+
+node n_merge(x,w:int; c: ABC) returns (y:int);
+let
+  y =
+    merge c
+    (V_A -> x when V_A(c))
+    (V_B -> w + 1 when V_B(c))
+    (V_C -> x + w when V_C(c));
+tel
+
+/* TODO: 
+-- Node with a type parameter 
+node changed<<type t>> (b: t) returns (ok: bool); 
+let ok = false ->  not (pre b = b); tel; 
+
+-- A node using a parametric node
+node x (x: bool; y: int;) returns (z: bool);
+let z = changed<<bool>>(x) or changed<<int>>(y); tel
+
+-- Nodes defined as instances of a parametric node 
+node changed_int = changed<<int>>;
+node changed_bool = changed<<bool>>;
+*/
+
+-- An uninterpreted function, parameters cannot be clocked or have
+-- constant parameters
+function imported y2 (a: bool; c: int) returns (b: int);
+
+
+-- A record type 
+type t = { one: int; two: real; three: bool };
+
+-- A node returning a record type 
+node Z(x: bool) returns (y: t);
+let
+  y = if x then
+        t { one=0; two=1.0; three = true } 
+      else
+        t { one=1; two=2.0; three = false };
+tel;
+
+-- Another node 
+node X(x: int) returns (y: int);
+var v: t; 
+let 
+
+  -- Return value of record type 
+  v = Z(true);
+
+  -- Nested and unguarded pres 
+  y = pre pre x + v.one;
+
+tel;
+
+-- Node with two return values
+node nodecall (x: int) returns (f: bool; v: int);
+let
+  f = false;
+  v = 0;
+tel;
+
+
+-- Node with node calls
+node Y(x: int; r: real) returns (y: int; value: int);
+var
+  flag: bool;
+  v: t;
+let
+  v = Z(true);
+
+  -- Node call with pre in input parameter 
+  y = X(pre x + v.one);
+
+  -- Node call with two return values
+  (flag, value) = if x > 0 then nodecall(x) else (true, 0);
+
+  -- Non-variable property
+  --%PROPERTY y > 0;
+tel; 
+
+-- Array-valued node 
+node V(x: int) returns (y: int^3);
+let
+  y = (x + 1)^3;
+tel
+
+-- Nodes with array-valued node calls 
+node W(x: int) returns (y: int);
+var y_3 : int^3;
+let
+
+  -- Node call not top level of expression
+  --y_3 = 1^3 + V(x);
+  y_3 = V(x);
+  y = y_3[0];
+
+tel;
+
+-- Node with two return values 
+node U1(x0: int; y0: real) returns (x1: int; y1: real);
+let 
+  x1, y1 = (x0, y0); 
+tel;
+
+/*
+-- Node with tuple input a
+node U2() returns ();
+var x: int; y: real;
+let
+
+  -- Node call with tuple input 
+  x, y = U1(U1(1, 2.0));
+
+tel;
+*/
+
+-- Rising edge node 
+node Rise (x: bool) returns (y: bool);
+let y = false -> x and not pre x; tel;
+
+-- Counter node 
+node Count() returns (y: int);
+let y = 0 -> pre y + 1; tel;
+
+-- Node counting number of rising edges with a condact 
+node CountRise(x: bool) returns (y: int);
+let y = condact(Rise(x), Count(), 0); tel;
+
+-- Array inductive definitions
+node sum (const n: int; A: int ^ n) returns (s: int);
+var cumul: int ^ n;
+let
+  cumul[i] = if i = 0 then A[0] else A[i] + cumul[i-1];
+  s = cumul[n-1];
+tel
+
+node slice (const n: int; A: int ^ n; const low: int; const up: int)
+returns (B : int ^ (up-low));
+let
+  B[i] = A[low + i];
+tel
+
+-- Quantifier in specification
+node slide (const n:int; s: int) returns(ok: bool^n);
+var A: int^n;
+let
+  A[i] = if i = 0 then s else (-1 -> pre A[i-1]);
+  ok[i] = A[i] = -1 or A[i] = s or (false -> pre ok[i]);
+
+  --%PROPERTY forall (i: int) 0 <= i and i < n => ok[i];
+tel
+
+---------------------------------------------------------------
+-- Examples from the V4 reference manual
+---------------------------------------------------------------
+
+-- Section 1
+
+node count (x, y: int) returns (s: int);
+let
+  s = 2 * (x+y);
+tel
+
+node EDGE (X: bool) returns (Y: bool);
+let
+  Y = false -> X and not pre(X);
+tel
+
+node FALLING_EDGE (X: bool) returns (Y: bool);
+let
+  Y = EDGE(not X);
+tel
+
+node SWITCH1 (set, reset, init: bool) returns (level: bool);
+let
+  level = init -> if set then true else if reset then false else pre(level);
+  assert not (set and reset);
+tel
+
+
+node SWITCH (set, reset, init: bool) returns (level: bool);
+let
+  level = init -> if set and not pre(level) then true else if reset then false else pre(level);
+tel
+
+node x1 (X: bool; N: int) returns ();
+var
+  N1, PN, N2, N3, N4: int;
+let
+  N1 = 0 -> if X then pre N + 1 else pre N;
+  PN = 0 -> pre N;
+  N2 = if X then PN + 1 else PN;
+  N3 = if X then (0 -> pre N) + 1 else (0 -> pre N);
+  N4 = (0 -> pre N) + if X then 0 else 1;
+tel
+
+node COUNTER (init, incr: int; X, reset: bool) returns (N: int);
+var PN: int;
+let
+  PN = init -> pre N;
+  N = if reset then init else if X then PN + incr else PN;
+tel
+
+node x2 () returns (odds, mod10: int);
+var reset: bool;
+let
+  odds = COUNTER(0, 2, true, false);
+  mod10 = COUNTER(0, 1, true, reset);
+  reset = true -> pre(mod10) = 9;
+tel
+
+node integrator (F, STEP, init: real) returns (Y: real);
+let
+  Y = init -> pre(Y) + ((F + pre(F))*STEP)/2.0;
+tel
+
+/*
+-- This has a dependency loop
+node sincos(omega: real) returns (sin, cos: real);
+let
+  sin = omega * integrator(cos, 0.1, 0.0);
+  cos = omega * integrator(-sin, 0.1, 1.0);
+tel
+*/
+
+node sincos (omega: real) returns(sin, cos: real);
+let
+  sin = omega * integrator(cos, 0.1, 0.0);
+  cos = omega * integrator(0.0 -> -pre(sin), 0.1, 1.0);
+tel
+
+node x3 (omega: real) returns (min, max: real);
+var s, c: real;
+let 
+  (s, c) = sincos(omega);
+  (min, max) = if s > c then (s, c) else (c, s);
+tel
+
+node STABLE (set: bool; delay: int) returns (level: bool);
+var count: int;
+let 
+  level = (count > 0);
+  count = if set then delay 
+          else if false -> pre(level) then pre(count) -1
+               else 0;
+tel
+
+node TIME_STABLE (set, second: bool; delay: int) returns (level: bool);
+var count: int;
+let
+  level = (count > 0);
+  count = if set then delay
+          else if second then 
+                 if false -> pre(level) then pre(count) - 1 
+                 else 0
+               else (0 -> pre(count));
+tel
+
+/* TODO:
+node TIME_STABLE2 (set, second: bool; delay: int) returns (level: bool);
+var ck: bool;
+let
+
+  -- Current and when operator 
+  level = current(STABLE(set, delay) when ck);
+  ck = true -> set or second;
+
+tel
+*/
+
+-- Section 2
+
+/* TODO: 
+-- Two free types 
+type TIME, DAY;
+type DISPLAY = [TIME, DAY];
+
+-- Constants of free types 
+const initial_time: TIME;
+const Mo, Tu, We, Th, Fr, Sa, Su: DAY;
+
+-- Uninterpreted functions 
+function imported Increment_Time (time: TIME) returns (new_time: TIME; change_day: bool);
+function imported ToMorrow (today: DAY) returns (tomorrow: DAY);
+
+-- Node with calls to uninterpreted functions 
+node Timer (second: bool) returns (display: DISPLAY);
+var time: TIME; day: DAY; change_day: bool;
+let
+  display = [time, day];
+  (time, change_day) = 
+    (initial_time, false) -> if second then Increment_Time(pre time)
+                             else pre(time, change_day);
+  day = Mo -> if change_day then ToMorrow(pre day) else pre day;
+tel
+*/
+
+/* TODO
+const 
+  size = 32;
+  unknown: int;
+type T;
+node N (const n: int) returns (x: int);
+
+-- Array of fixed size determined by node input 
+var V: T^(2*n);
+let
+tel;
+
+
+node x21 () returns ();
+var X1, X2: int;
+let
+  X = N(size+1); -- is correct
+  X = N(unknown); -- is rejected
+tel
+*/
+
+type T2 = int^3^5;
+type complex = [real, real];
+
+node x22 () returns ();
+var x, y: complex;
+let
+  x = [0.0, 1.0];
+  y = x;
+tel;
+
+const 
+  PI = 3.1416;
+  -- RightAngle = PI/2.0;
+
+const size = 64;
+type vector = int^size;
+
+/* TODO: 
+
+-- Node with clocked local stream
+node x23 () returns ();
+var 
+  my_state: bool;
+  coordinates: [real, real] when state;
+let tel;
+*/
+
+-- Section 5
+
+-- Uninterpreted functions 
+/* TODO: 
+function imported increment (time: time) returns (newtime: time);
+function imported decompose (time: time) returns (hours, minute, second: int);
+
+node x51 (updated_time, actual_time: time) returns (H, M, S: int);
+let
+  (H, M, S) = if update 
+              then decompose(updated_time) 
+              else decompose(increment(actual_time));
+tel
+*/
+
+node N (x, y: bool; const low, high: int) returns ();
+let tel;
+
+/* TODO: 
+
+-- Clocked inputs and outputs 
+node M (x, y: bool; a: int when x; (b: int; r: real) when y) returns ();
+let tel;
+
+-- Clocked inputs and outputs 
+node N2 (c: bool; a: int when c) returns (d: bool when c; b: int when d);
+let tel;
+
+-- Node calling a node with clocked inputs and outputs 
+node x52 (E1: bool; E2: int when E1) returns (F1: bool; F2: int);
+let 
+  (F1, F2) = N(E1, E2);
+tel;
+*/
+
+-- Section 6
+
+node N3 (U, V, W: int) returns (X: int; Y: real); let tel;
+
+node x61 (C: bool; E, E1: int; F, F1: real) returns (X: int; Y: real);
+let 
+  -- (X, Y) = if C then (E, F) else (E1, F1);
+  (X, Y) = (E, F) -> pre (X, Y);
+  -- (X, Y) = (E, F) when C;
+  -- (X, Y) = N3(1, 2, 3);
+tel
+
+
+node NN (a, b: int) returns (c, d: int);
+let (c, d) = (a, b); tel
+
+-- node x62 (E, F, G, H: int) returns (A, B, C, D: int);
+-- let 
+--   (A, B, C, D) = (NN(E, F), NN(G, H));
+-- tel;
+
+/* TODO: 
+-- Node with structural assignments 
+node x63 (e: [bool, [int, int]]) returns (c: bool; a, b: int; A: [int, int]);
+let
+  [c, [a, b]] = e;
+  [c, A] = e;
+  a = e[1][0]; b = e[1][1];
+  A = e[1];
+  [c, [A[0], A[1]]] = e;
+tel;
+*/
+
+
+-- Section 7
+
+node N7 (x1, x2, x3: int) returns (y1, y2, y3: int);
+let 
+  (y1, y2, y3) = (x1, x2, x3);
+tel
+
+-- Node with a condact call 
+node x71 (C: bool; x1, x2, x3: int; v1, v2, v3: int) returns (y1, y2, y3: int);
+let 
+  (y1, y2, y3) = condact(C, N7(x1, x2, x3), v1, v2, v3);
+
+/* TODO:
+-- Equivalent expression to condact call
+  (y1, y2, y3) = if C then current(N7(x1, x2, x3) when C) 
+                 else (v1, v2, v3) -> pre(y1, y2, z3);
+*/
+tel
+
+-- node x72 (e1 : int; e2: real; e3: bool) returns (e: [int, real, bool]; f: real);
+-- let
+--   e = (e1, e2, e3);
+--   f = e[1];
+-- tel
+
+node x73 (a, b, c, e, f: int; d: bool) returns (e1, e2, e4: int; e3: bool);
+let
+  e1 = a + 2 * b;
+  e2 = a + b - c;
+  e3 = not (a = b);
+  e4 = if d then a else e -> f;
+tel
+
+node x74 (e1, e2, e3: int; f2: bool) returns (e: int^3; f: [int, bool, int]);
+let
+   e = [e1, e2, e3];
+tel
+
+/* TODO: 
+-- Node with array slices 
+node x75 (a: int^5) returns (d1: int; a23: int^2);
+const A = [1, 2, 3, 4, 5, 6];
+var
+  b1 : int;
+  b2, b3: int^3;
+  b4 : int^1;
+  b5: int; 
+let
+  d1 = a[0];
+  a23 = a[2..3];
+  b1 = A[1];
+  b2 = A[2..4];
+  b3 = A[4..2];
+  b4 = A[2..2];
+  b5 = A[2..4][0];
+tel
+*/
+
+type T = int;
+
+/* TODO: 
+-- Node with array slices and concatenations 
+node x76 (A: T^10^5) returns (B1: T^10^2; B2: T^2^4; B3: int^5 );
+let
+  B1 = A[1..4][1..2];
+  B2 = A[1..4, 1..2];
+  B3 = [1, 2, 3] | [4, 3];
+tel
+*/
+
+/* TODO: 
+-- Node using array slices and concatenations
+node EQ (const n: int; A, B: int^n) returns (equal: bool);
+var C, E: bool^n;
+let
+  equal = C[n-1];
+  C = [E[0]]|C[0..n-2] and E[1..n-1];
+  E = (A = B);
+tel
+
+-- Node using array slices and concatenations
+node DELAY (const n, default: int;X: int) returns (delayed: int);
+var window: int^n;
+let
+  delayed = window[n-1];
+  window = [X]|(default^(n-1) -> pre(window[0..n-2]));
+tel
+*/
+
+-- ------------------------------------------------------------
+-- Examples from the V6 draft manual
+-- ------------------------------------------------------------
+
+-- Enumerated types 
+type color1 = enum { blue, white, black };
+type color2 = enum { green, orange, yellow };
+
+-- Node with enumerated types 
+node enum0 (x: color1) returns (y: color2);
+let
+  y = if x = blue then green else if x = white then orange else yellow;
+tel
+
+type complex1 = { re: real; im: real };
+const j = complex1 { re = -(3.0)/2.0; im = 3.0/2.0 };
+
+node get_im(c: complex1) returns (x: real);
+let
+  x = c.im;
+tel
+
+type matrix_3_3 = int^3^3;
+const m1 = 0^3^3;
+const m2 = [1, 2, 3]^3;
+
+-- ------------------------------------------------------------
+-- Automaton
+-- ------------------------------------------------------------
+
+node Aut (cond0 : bool; cond1 : bool; in : int) returns (o : int)
+let
+  automaton
+    initial state ST0: 
+    unless if cond0 restart ST1;
+    var k: int;
+    let
+     k = if in < 0 then -in else in;
+     o = k + 1;
+    tel
+    state ST1:
+    var k: int;
+    let
+      k = if in < 0 then in else -in;
+      o = -2 * (k + last o);
+    tel
+    until if cond1 resume ST0 ;
+ returns o;
+tel
+
+-- ------------------------------------------------------------
+-- Machine Integers
+-- ------------------------------------------------------------
+
+node MI1() returns ();
+var a, a_1, a_2 : uint8;
+    b : uint16;
+    c : uint32;
+    d : uint64;
+    e, f : int8;
+let
+  a_1 = (uint8 5);
+  a_2 = (uint8 22);
+  a = a_1 + a_2;
+  b = (uint16 20) * (uint16 200);
+  c = (uint32 500) div (uint32 5);
+  d = (uint64 25) mod (uint64 10);
+  e = (int8 -5) + (- (int8 10));
+  f = (int8 10) - (int8 -5);
+tel
+
+node MI2() returns ();
+var a, b, b1, b2, c : uint8;
+let
+  a = (uint8 0) && (uint8 45); --a = (uint8 0)
+  b1 = (uint8 255);
+  b2 = (uint8 45);
+  b = b1 && b2; --b = (uint8 45)
+  c = !(uint8 0); --c = (uint8 255)
+tel
+
+node MI3() returns ();
+var a, b, c, d, e : bool;
+let
+  a = ((uint8 0) lsh (uint8 10)) <= (uint8 0); --true
+  b = (uint8 255) rsh (uint8 12) >= (uint8 255); --true
+  c = (int8 -1) lsh (uint8 1) = (int8 -2); --true
+  d = (int8 -12) < (int8 12); --true
+  e = (int8 1) > (int8 -1); -- true
+tel
+

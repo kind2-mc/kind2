@@ -65,7 +65,7 @@ let rec pp_print_tcType: Format.formatter -> tcType -> unit
   (* Arrays Tuples, ranges *)
   | IntRange (_, mi, ma) -> Format.fprintf ppf "intRange (%a, %a)" LA.pp_print_expr mi LA.pp_print_expr ma
   | UserType (_, i) -> Format.fprintf ppf "userType %a" LA.pp_print_ident i
-  | TupleType (_, tys) -> Format.fprintf ppf "[%a]" (Lib.pp_print_list pp_print_tcType ",") tys
+  | TupleType (_, tys) -> Format.fprintf ppf "(%a)" (Lib.pp_print_list pp_print_tcType ",") tys
 
   (* lustre V6 types *)
   | AbstractType (_,i) -> Format.fprintf ppf "abstractType %a" LA.pp_print_ident i 
@@ -145,7 +145,6 @@ let pp_print_tcContext ppf ctx
       IMap.pp_print_tymap (ctx.tyCtx)
       IMap.pp_print_vstore (ctx.vlCtx)
 
-
                             
 (** [typeError] returns an [Error] of [tcResult] *)
 let typeError pos err = R.error (pos, "Type error: " ^ err)
@@ -204,15 +203,17 @@ let inferTypeUnaryOp: Lib.position -> LA.unary_operator -> tcType tcResult =
   fun pos -> function
   | LA.Not -> R.ok (LA.TArr (pos ,Bool pos , Bool pos))
   | LA.BVNot
-  | LA.Uminus -> R.ok (LA.TArr (pos, Int pos, Int pos))
+  | LA.Uminus -> R.ok (LA.TArr (pos, Real pos, Real pos))
 
+(** TODO: There is some polymorphism going on here due to overloaded Plus/Times/Minus operations *)
 let inferTypeBinaryOp: Lib.position -> LA.binary_operator -> tcType tcResult = fun pos ->
   function
   | LA.And | LA.Or | LA.Xor | LA.Impl
     -> R.ok (LA.TArr (pos, Bool pos, TArr(pos, Bool pos, Bool pos)))
-  | LA.Mod | LA. Minus | LA.Plus | LA. Div | LA.Times | LA.IntDiv
+  | LA.Mod | LA. Minus | LA.Plus | LA.Times | LA.IntDiv
     | LA.BVAnd | LA.BVOr | LA.BVShiftL | LA.BVShiftR
-    -> R.ok (LA.TArr (pos, Int pos, TArr(pos, Int pos, Int pos))) 
+    -> R.ok (LA.TArr (pos, Int pos, TArr(pos, Int pos, Int pos)))
+  | LA. Div -> R.ok (LA.TArr (pos, Real pos, TArr(pos, Real pos, Real pos)))
      
 let inferTypeConvOp: Lib.position -> LA.conversion_operator -> tcType tcResult = fun pos ->
   function
@@ -347,20 +348,22 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
   | ArrayConcat  _ -> Lib.todo __LOC__
 
   (* Quantified expressions *)
-  (* | Quantifier of position * quantifier * typed_ident list * expr *)
+  | Quantifier (pos, _, qs, e) -> Lib.todo ("This should not have happened: "
+                                            ^ Lib.string_of_t Lib.pp_print_pos pos
+                                            ^ "\n" ^ __LOC__)
 
   (* Clock operators *)
-  (* | When of position * expr * clock_expr
-   * | Current of position * expr
-   * | Condact of position * expr * expr * ident * expr list * expr list
-   * | Activate of position * ident * expr * expr * expr list
-   * | Merge of position * ident * (ident * expr) list
-   * | RestartEvery of position * ident * expr list * expr *)
+  (* | When of position * expr * clock_expr *)
+  (* | Current of position * expr *)
+  | Condact (pos, _, _,_, _, _) -> Lib.todo  (__LOC__ ^ Lib.string_of_t Lib.pp_print_pos pos)
+  (* | Activate of position * ident * expr * expr * expr list *)
+  (* | Merge of position * ident * (ident * expr) list *)
+  (* | RestartEvery of position * ident * expr list * expr *)
 
   (* Temporal operators *)
   | Pre (pos, e) -> inferTypeExpr ctx e
-  (* | Last of position * ident
-   * | Fby of position * expr * int * expr*)
+  (* | Last of position * ident *)
+  (* | Fby of position * expr * int * expr*)
   | Arrow (pos, e1, e2) -> R.bind (inferTypeExpr ctx e1) (fun ty1 ->
                                R.bind (inferTypeExpr ctx e2) (fun ty2 ->
                                    R.bind((eqLustreType ctx ty1 ty2)) (fun isEq -> 
@@ -421,7 +424,7 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
   | UnaryOp (pos, op, e) ->
      R.bind (inferTypeUnaryOp pos op) (fun ty ->
          R.bind (inferTypeExpr ctx e) (fun argTy ->
-             R.bind (eqLustreType ctx ty (TArr(pos,argTy, expTy))) (fun isEq ->
+             R.bind (eqLustreType ctx ty (TArr(pos, argTy, expTy))) (fun isEq ->
                  if isEq
                  then R.ok ()
                  else typeError pos ("Cannot apply argument of type "
@@ -432,12 +435,13 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
      R.bind (inferTypeBinaryOp pos op) (fun ty ->
          R.bind (inferTypeExpr ctx e1) (fun argTy1 ->
              R.bind (inferTypeExpr ctx e2) (fun argTy2 ->
-                 R.bind (eqLustreType ctx ty (TArr (pos,argTy1, TArr (pos, argTy2, expTy)))) (fun isEq ->
+                 R.bind (eqLustreType ctx ty (TArr (pos, argTy1, TArr (pos, argTy2, expTy)))) (fun isEq ->
                      if isEq 
                      then R.ok ()
                      else typeError pos (" Cannot apply arguments of type "
                                          ^ string_of_tcType argTy1
                                          ^ " and type " ^ string_of_tcType argTy2
+                                         ^ " to obtain type " ^ string_of_tcType expTy
                                          ^ " to operator of type " ^ string_of_tcType ty)))))
   | LA.TernaryOp (pos, op, con, e1, e2) ->
      R.bind (inferTypeExpr ctx con) (fun ty ->
@@ -515,20 +519,23 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
   | ArrayConcat _ -> Lib.todo __LOC__
 
   (* Quantified expressions *)
-  (* | Quantifier of position * quantifier * typed_ident list * expr *)
+  | Quantifier (pos, _, qs, e) ->
+     let extnCtx = List.fold_left union ctx
+                     (List.map (fun (_, i, ty) -> singletonTy i ty) qs) in
+     checkTypeExpr extnCtx e expTy
 
   (* Clock operators *)
-  (* | When of position * expr * clock_expr
-   * | Current of position * expr
-   * | Condact of position * expr * expr * ident * expr list * expr list
-   * | Activate of position * ident * expr * expr * expr list
-   * | Merge of position * ident * (ident * expr) list
-   * | RestartEvery of position * ident * expr list * expr *)
+  (* | When of position * expr * clock_expr *)
+  (* | Current of position * expr *)
+  | Condact _ -> Lib.todo __LOC__
+  (* | Activate of position * ident * expr * expr * expr list *)
+  (* | Merge of position * ident * (ident * expr) list *)
+  (* | RestartEvery of position * ident * expr list * expr *)
 
   (* Temporal operators *)
   | Pre (pos, e) -> checkTypeExpr ctx e expTy
-  (* | Last of position * ident
-   * | Fby of position * expr * int * expr*)
+  (* | Last of position * ident*)
+  (* | Fby of position * expr * int * expr*)
   | Arrow (pos, e1, e2) -> R.bind(inferTypeExpr ctx e1) (fun ty1 ->
                                R.bind(inferTypeExpr ctx e2) (fun ty2 ->
                                    R.bind (eqLustreType ctx ty1 ty2)(fun isEq ->
@@ -604,37 +611,42 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
   = fun ctx
         (nodeName, isExtern, params, cclktydecls, clktydecls, localdecls, items, contract)
         expTy ->
+  let extractArg: LA.const_clocked_typed_decl -> tcContext
+    = fun  (_, i,ty, _, _) -> singletonTy i ty in
+  let extractRet: LA.clocked_typed_decl -> tcContext
+    = fun (_, i, ty, _) -> singletonTy i ty in
+  let extractConsts: LA.const_clocked_typed_decl -> tcContext
+    = fun (pos, i, ty, _, isConst) -> if isConst then singletonConst i (LA.Ident (pos, i)) ty else emptyContext in 
+  let localVarBinding: tcContext -> LA.node_local_decl -> tcContext tcResult = fun ctx ->
+    function
+    | LA.NodeConstDecl (pos, constDecls) ->
+       Log.log L_debug "Extracting typing context from const declaration: %a"
+         LA.pp_print_const_decl constDecls
+      ; tcCtxConstDecl ctx constDecls 
+    | LA.NodeVarDecl (pos, (_, v, ty, _)) ->
+       if isTypeWellFormed ctx ty then R.ok (addTy ctx v ty)
+       else typeError pos ("Node's local variable "
+                           ^ v
+                           ^ " type should be well formed")
+  in
   Log.log L_debug "TC declaration node: %a {" LA.pp_print_ident nodeName
-  ; let extractArg: LA.const_clocked_typed_decl -> tcContext
-      = fun  (_, i,ty, _, _) -> singletonTy i ty in
-    let extractRet: LA.clocked_typed_decl -> tcContext
-      = fun (_, i, ty, _) -> singletonTy i ty in
-    let localVarBinding: tcContext -> LA.node_local_decl -> tcContext tcResult = fun ctx ->
-      function
-      | LA.NodeConstDecl (pos, constDecls) ->
-         Log.log L_debug "Extracting typing context from const declaration: %a"
-           LA.pp_print_const_decl constDecls
-        ; tcCtxConstDecl ctx constDecls 
-      | LA.NodeVarDecl (pos, (_, v, ty, _)) ->
-         if isTypeWellFormed ctx ty then R.ok (addTy ctx v ty)
-         else typeError pos ("Node's local variable "
-                             ^ v
-                             ^ " type should be well formed")
-    in
-    (* if the node is extern, we will not have any body to typecheck *)
-    if isExtern
+  (* if the node is extern, we will not have any body to typecheck *)
+  ; if isExtern
     then ( Log.log L_debug "External Node, no body to type check"
          ; R.ok ())
     else (
       Log.log L_debug "Params: %a (skipping)" LA.pp_print_node_param_list params
 
-      (* These are inputs to the node *)
-      ; let ctxPlusIps = List.fold_left union ctx (List.map extractArg cclktydecls) in
-      Log.log L_debug "Const clocked typed decls: %a\nips:%a"
+    (* store the input constants passed in the input *)
+    ; let ipConstantsCtx = List.fold_left union ctx (List.map extractConsts cclktydecls) in
+
+    (* These are inputs to the node *)
+      let ctxPlusIps = List.fold_left union ipConstantsCtx (List.map extractArg cclktydecls) in
+      Log.log L_debug "Const clocked typed decls: %a\nips:%a\n"
         (Lib.pp_print_list LA.pp_print_const_clocked_typed_ident ",@,") cclktydecls
         pp_print_tcContext ctxPlusIps
-      
-      (* These are outputs of the node *)
+
+        (* These are outputs of the node *)
       ; let ctxPlusOpsAndIps = List.fold_left union ctxPlusIps (List.map extractRet clktydecls) in
         Log.log L_debug "Clocked typed decls: %a\nops:%a"
           (Lib.pp_print_list LA.pp_print_clocked_typed_ident ",@,") clktydecls
@@ -658,25 +670,25 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
 and doNodeEqn: tcContext -> LA.node_equation -> unit tcResult = fun ctx ->
   function
   | LA.Assert (pos, e) ->
-     R.bind ( Log.log L_debug "checking assertion"
-            ; checkTypeExpr ctx e (Bool pos)) (fun _ -> R.ok ())
-  | LA.Equation (_, lhs, expr) ->
-     R.bind (inferTypeExpr ctx expr) (fun ty ->
-         checkTypeStructDef ctx lhs ty)
+     Log.log L_debug "Checking assertion: %a" LA.pp_print_expr e
+    ; R.bind (checkTypeExpr ctx e (Bool pos)) (fun _ -> R.ok ())
+  | LA.Equation (_, lhs, expr)  as eqn ->
+     Log.log L_debug "Checking equation: %a" LA.pp_print_node_body eqn
+    ; R.bind (inferTypeExpr ctx expr) (fun ty ->
+          checkTypeStructDef ctx lhs ty)
   | LA.Automaton (pos, _, _, _) ->
-     Lib.todo __LOC__
+     Log.log L_debug "Skipping Automation"
+       ; R.ok ()
 
 and doItem: tcContext -> LA.node_item -> unit tcResult = fun ctx ->
   function
-  | (LA.Body eqn) as body ->
-     Log.log L_debug "Node Item (Equation): %a" LA.pp_print_node_item body
-    ; doNodeEqn ctx eqn
+  | LA.Body eqn -> doNodeEqn ctx eqn
   | LA.AnnotMain _ as ann ->
      Log.log L_debug "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann
     ; R.ok ()
-  | LA.AnnotProperty _ as ann ->
-     Log.log L_debug "Node Item Skipped (Annotation Property): %a" LA.pp_print_node_item ann
-    ; R.ok ()
+  | LA.AnnotProperty (_, _, e) as ann ->
+     Log.log L_debug "Node Item (Annotation Property): %a" LA.pp_print_node_item ann
+    ; checkTypeExpr ctx e (Bool (LH.pos_of_expr e))
 
   
 and checkTypeStructItem: tcContext -> LA.struct_item -> tcType -> unit tcResult
@@ -899,11 +911,8 @@ let rec typeCheckGroup: tcContext -> LA.t ->  unit tcResult list
      (checkTypeNodeDecl ctx nodeDecl (lookupTy ctx i)) :: typeCheckGroup ctx rest
   | LA.FuncDecl (pos, ((i, _,_, _, _, _, _, _) as nodeDecl)):: rest ->
      (checkTypeNodeDecl ctx nodeDecl (lookupTy ctx i)) :: typeCheckGroup ctx rest
-  (* 
-   * | 
-   * | ContractNodeDecl of position * contract_node_decl
-   * | NodeParamInst of position * node_param_inst *)
-  | _ -> Lib.todo __LOC__
+  | LA.ContractNodeDecl _ :: rest -> typeCheckGroup ctx rest
+  | LA.NodeParamInst  _ :: rest -> Lib.todo __LOC__
        
        
 (** Typecheck a list of independent groups using a global context*)
