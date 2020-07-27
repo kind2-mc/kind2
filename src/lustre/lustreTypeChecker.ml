@@ -307,30 +307,28 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
             R.ok (LA.RecordType (pos, fldTys)))
     
   | LA.GroupExpr (pos, structType, exprs)  ->
-     ( match structType with
+     (match structType with
        | LA.ExprList 
-         | LA.TupleExpr -> R.bind (R.seq (List.map (inferTypeExpr ctx) exprs)) (fun tys ->
-                               R.ok (LA.TupleType (pos, tys)))
-       | LA.ArrayExpr -> R.bind (R.seq (List.map (inferTypeExpr ctx) exprs)) (fun tys ->
-                             Log.log L_debug "Array elements: [%a]\n Array types: [%a]"
-                               (Lib.pp_print_list LA.pp_print_expr ",") exprs
-                               (Lib.pp_print_list pp_print_tcType ",") tys
-                            ; let elty = List.hd tys in
-                              R.bind(R.seqM (&&) true (List.map (eqLustreType ctx elty) tys)) (fun isEq->
-                                  if isEq
-                                  then let arrTy = List.hd tys in
-                                       let arrExp = LA.Const (pos, Num (string_of_int (List.length tys))) in
-                                       R.ok (LA.ArrayType (pos, (arrTy, arrExp)))
-                                  else typeError pos "All expressions must be of the same type in an Array")))
+         | LA.TupleExpr ->
+          R.bind (R.seq (List.map (inferTypeExpr ctx) exprs)) (fun tys ->
+              R.ok (LA.TupleType (pos, tys)))
+       | LA.ArrayExpr ->
+          R.bind (R.seq (List.map (inferTypeExpr ctx) exprs)) (fun tys ->
+              let elty = List.hd tys in
+              R.bind (R.seqM (&&) true (List.map (eqLustreType ctx elty) tys)) (fun isEq ->
+                  if isEq
+                  then let arrTy = List.hd tys in
+                       let arrSize = LA.Const (pos, Num (string_of_int (List.length tys))) in
+                       R.ok (LA.ArrayType (pos, (arrTy, arrSize)))
+                  else typeError pos "All expressions must be of the same type in an Array")))
     
   (* Update of structured expressions *)
   | ArrayConstr (pos, bExpr, supExpr) ->
      R.bind (inferTypeExpr ctx bExpr) (fun bTy ->
          R.bind (inferTypeExpr ctx supExpr) (fun supTy ->
-             R.bind (eqLustreType ctx supTy (Int pos)) (fun isBoundInt ->
-                 if isBoundInt 
+                 if isExprIntType ctx supExpr
                  then R.ok(LA.ArrayType (pos, (bTy, supExpr)))
-                 else typeError pos "Array cannot have non numeral type as its bounds")))
+                 else typeError pos "Array cannot have non numeral type as its bounds"))
   | StructUpdate _ -> Lib.todo __LOC__
   | ArraySlice (pos, e1, (il, iu)) ->
      if isExprIntType ctx il && isExprIntType ctx iu
@@ -340,7 +338,16 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
                | _ -> typeError pos ("Slicing can only be done on an type Array "
                                        ^ "but found type "
                                        ^ Lib.string_of_t pp_print_tcType ty))
-     else typeError pos ("Slicing should have integer types")        
+     else typeError pos ("Slicing should have integer types")
+  | ArrayIndex (pos, e, i) ->
+     if isExprIntType ctx i
+     then R.bind (inferTypeExpr ctx e) (fun ty ->
+              match ty with
+              | ArrayType (_, (bTy, _)) -> R.ok bTy
+              | _ -> typeError pos ("Indexing can only be done on an type Array "
+                                    ^ "but found type "
+                                    ^ Lib.string_of_t pp_print_tcType ty))
+     else typeError pos ("Array Index should have integer types") 
   | ArrayConcat  _ -> Lib.todo __LOC__
   (* Quantified expressions *)
   (* | Quantifier of position * quantifier * typed_ident list * expr *)
@@ -612,26 +619,24 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
       Log.log L_debug "Params: %a (skipping)" LA.pp_print_node_param_list params
 
       (* These are inputs to the node *)
-      ; let ips = List.fold_left union emptyContext (List.map extractArg cclktydecls) in
+      ; let ctxPlusIps = List.fold_left union ctx (List.map extractArg cclktydecls) in
       Log.log L_debug "Const clocked typed decls: %a\nips:%a"
         (Lib.pp_print_list LA.pp_print_const_clocked_typed_ident ",@,") cclktydecls
-        pp_print_tcContext ips
+        pp_print_tcContext ctxPlusIps
       
       (* These are outputs of the node *)
-      ; let ops = List.fold_left union emptyContext (List.map extractRet clktydecls) in
+      ; let ctxPlusOpsAndIps = List.fold_left union ctxPlusIps (List.map extractRet clktydecls) in
         Log.log L_debug "Clocked typed decls: %a\nops:%a"
           (Lib.pp_print_list LA.pp_print_clocked_typed_ident ",@,") clktydecls
-          pp_print_tcContext ops
+          pp_print_tcContext ctxPlusOpsAndIps
 
         (* Local variables and constants *)
         ; Log.log L_debug "Local decls: %a" LA.pp_print_node_local_decl localdecls
 
-        ; R.bind (R.seq (List.map (localVarBinding ctx) localdecls)) (fun localVarCtxts ->
-              let localDecls = List.fold_left union ctx localVarCtxts in
+        ; R.bind (R.seq (List.map (localVarBinding ctxPlusIps) localdecls)) (fun localVarCtxts ->
+              (* Local TC context is input vars + output vars + local const and var decls *)
+              let localCtx = List.fold_left union ctxPlusOpsAndIps localVarCtxts in
 
-              let localCtx = (union ips ops)        (* input and output type vars *)
-                             |> union localDecls    (* declared local variables and constants *)
-              in
               Log.log L_debug "Local Typing Context {%a}" pp_print_tcContext localCtx
 
               (* Type check the node items now that we have all the local typing context *)
@@ -724,11 +729,8 @@ and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
     = fun pos ctx (i, _, _ , ip, op,_ ,_ ,_) ->
     if (memberTy ctx i)
     then typeError pos ("Duplicate node detected with name: " ^ i)
-    else let funTy = buildFunTy pos ip op in
-         if isTypeWellFormed ctx funTy
-         then R.ok (addTy ctx i funTy)
-         else typeError pos "Arguments and return types of the node should be well formed."
-         
+    else R.bind (buildNodeFunTy pos ctx ip op) (fun funTy ->
+             R.ok (addTy ctx i funTy))         
   in function
   | [] -> R.ok ctx
   | d :: tl ->
@@ -763,14 +765,24 @@ and tcCtxConstDecl: tcContext -> LA.const_decl -> tcContext tcResult = fun ctx -
      R.bind (checkTypeExpr ctx expr expTy) (fun _ ->
          R.ok (addTy (addConst ctx i expr expTy) i expTy))
   
-(** Function type for nodes will be (TupleTy ips) -> (tuple outputs)  *)
-and buildFunTy: Lib.position -> LA.const_clocked_typed_decl list -> LA.clocked_typed_decl list -> tcType
-  = fun pos args rets -> 
-  let extractIp (_, _, ty, _, _) =  ty in
-  let extractOp (_, _, ty, _) = ty in
-  let ips =  List.map extractIp args in
-  let ops = List.map extractOp rets in
-  TArr (pos, TupleType (pos, ips), TupleType (pos, ops))
+(** Function type for nodes will be (TupleTy ips) -> (TupleTy outputs)  *)
+and buildNodeFunTy: Lib.position -> tcContext -> LA.const_clocked_typed_decl list
+                    -> LA.clocked_typed_decl list -> tcType tcResult
+  = fun pos ctx args rets ->
+  let extractIps (_, i, ty, _, _) = (i, ty) in
+  let extractOpTys (_, i, ty, _) = ty in
+  let isConstArg (_, _, _, _, isConst) = isConst in
+  
+  let funConstCtx = List.fold_left (fun ctx (i,ty) -> addConst ctx i (LA.Ident (pos,i)) ty)
+                      ctx (List.filter isConstArg args |> List.map extractIps) in
+  let funCtx = List.fold_left (fun ctx (i, ty)-> addTy ctx i ty) funConstCtx (List.map extractIps args) in   
+  let ops = List.map extractOpTys rets in
+  let ips = List.map snd (List.map extractIps args) in
+  let retTy = LA.TupleType (pos, ops) in
+  let argTy = LA.TupleType (pos, ips) in
+  if isTypeWellFormed funCtx retTy
+  then R.ok (LA.TArr (pos, argTy, retTy))
+  else typeError pos "Return type of node is not well formed."
 
 (** Compute Equality for lustre types  *)
 and eqLustreType : tcContext -> LA.lustre_type -> LA.lustre_type -> bool tcResult = fun ctx t1 t2 ->
