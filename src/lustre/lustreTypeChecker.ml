@@ -71,7 +71,7 @@ let rec pp_print_tcType: Format.formatter -> tcType -> unit
   | AbstractType (_,i) -> Format.fprintf ppf "abstractType %a" LA.pp_print_ident i 
   | RecordType (_, fs) -> let pp_print_field ppf = fun (_, i, ty) ->
                      Format.fprintf ppf "@[%a:%a@]" LA.pp_print_ident i pp_print_tcType ty in
-                   Format.fprintf ppf "@[recordType {@ %a@ }@]" (Lib.pp_print_list pp_print_field ";@ @,") fs
+                   Format.fprintf ppf "@[struct {@ %a@ }@]" (Lib.pp_print_list pp_print_field ";@ @,") fs
   | ArrayType (_, (ty, e)) -> Format.fprintf ppf "@[[%a]^%a@]" pp_print_tcType ty LA.pp_print_expr e
   | EnumType (_, n, ids) ->
      let pp_print_enumname ppf = function
@@ -232,7 +232,17 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
      (try R.ok (lookupTy ctx i) with
       | Not_found -> typeError pos ("Unbound Variable: << " ^ i ^ " >>")) 
   | LA.ModeRef (pos, ids) -> Lib.todo __LOC__
-  | LA.RecordProject _  -> Lib.todo __LOC__
+  | LA.RecordProject (pos, expr, fld) ->
+     R.bind (inferTypeExpr ctx expr) (fun recTy ->
+         match recTy with
+         | LA.RecordType (_, flds) ->
+            let typedFields = List.map (fun (_, i, ty) -> (i, ty)) flds in
+            (match (List.assoc_opt fld typedFields) with
+             | Some ty -> R.ok ty
+             | None -> typeError pos ("No field named " ^ fld ^ "found in record type")) 
+         | _ -> typeError pos ("Cannot project field out of non record expression type "
+                               ^ string_of_tcType recTy))
+
   | LA.TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
 
   (* Values *)
@@ -353,11 +363,12 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
    * | Fby of position * expr * int * expr*)
   | Arrow (pos, e1, e2) -> R.bind (inferTypeExpr ctx e1) (fun ty1 ->
                                R.bind (inferTypeExpr ctx e2) (fun ty2 ->
-                                   if ty1 == ty2 then R.ok ty1 else
+                                   R.bind((eqLustreType ctx ty1 ty2)) (fun isEq -> 
+                                   if isEq then R.ok ty1 else
                                      typeError pos
                                        ("Arrow types do not match "
                                         ^ string_of_tcType ty1
-                                        ^ " and " ^ string_of_tcType ty2))) 
+                                        ^ " and " ^ string_of_tcType ty2)))) 
 
   (* Node calls *)
   | Call (pos, i, argExprs) ->
@@ -401,8 +412,9 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
                                  ^ string_of_tcType expTy
                                  ^ " with infered type "
                                  ^ string_of_tcType ty)))
+
   | ModeRef (pos, ids) -> Lib.todo __LOC__
-  | RecordProject (pos, expr, idx) -> checkTypeRecordProj pos ctx expr idx expTy
+  | RecordProject (pos, expr, fld) -> checkTypeRecordProj pos ctx expr fld expTy
   | TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
 
   (* Operators *)
