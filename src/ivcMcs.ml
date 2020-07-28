@@ -241,6 +241,7 @@ let rec minimize_node_call_args ue lst expr =
     | A.GroupExpr (p,ge,es) -> A.GroupExpr (p,ge,List.map aux es)
     | A.ArrayConstr (p,e1,e2) -> A.ArrayConstr (p,aux e1,aux e2)
     | A.ArraySlice (p,e1,(e2,e3)) -> A.ArraySlice (p,aux e1,(aux e2,aux e3))
+    | A.ArrayIndex (p,e1, e2) -> A.ArrayIndex (p,aux e1,aux e2)
     | A.ArrayConcat (p,e1,e2) -> A.ArrayConcat (p,aux e1,aux e2)
     | A.RecordExpr (p,id,lst) ->
       A.RecordExpr (p,id,List.map (fun (i,e) -> (i, aux e)) lst)
@@ -277,9 +278,9 @@ and ast_contains p ast =
     | A.Quantifier (_,_,_,e) | A.When (_,e,_) | A.Current (_,e) | A.Pre (_,e) ->
       aux e
     | A.StructUpdate (_,e1,_,e2) | A.ArrayConstr (_,e1,e2)
-    | A.ArrayConcat (_,e1,e2) | A.TupleProject (_,e1,e2) | A.BinaryOp (_,_,e1,e2)
-    | A.CompOp (_,_,e1,e2) | A.Fby (_,e1,_,e2) | A.Arrow (_,e1,e2) ->
-      aux e1 || aux e2
+      | A.ArrayConcat (_,e1,e2) | A.ArrayIndex (_,e1,e2) | A.TupleProject (_,e1,e2)
+      | A.BinaryOp (_,_,e1,e2) | A.CompOp (_,_,e1,e2) | A.Fby (_,e1,_,e2)
+      | A.Arrow (_,e1,e2) -> aux e1 || aux e2
     | A.GroupExpr (_,_,es) | A.NArityOp (_,_,es) ->
       List.map aux es
       |> List.exists (fun x -> x)
@@ -914,7 +915,17 @@ let compute_local_cs sys prop_names enter_nodes cex keep test =
     in
 
     let falsified_prop =
-      List.find (fun p -> not (eval p.Property.prop_term)) props
+      try
+        List.find
+          (fun p ->
+            let prop_at_last_step =
+              Term.bump_state num_k p.Property.prop_term
+            in
+            not (eval prop_at_last_step)
+          )
+          props
+      with Not_found ->
+        assert false
     in
 
     (* Extract counterexample from solver *)

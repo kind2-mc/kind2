@@ -1156,8 +1156,8 @@ let rec eval_ast_expr bounds ctx =
 
     (res, ctx)
 
-  (* Array slice [A[i..j] with i=j is just A[i] *)
-  | A.ArraySlice (pos, expr, (i, j)) when i = j -> 
+  (* Array indexing *)
+  | A.ArrayIndex (pos, expr, i) -> 
 
     (* Evaluate expression to an integer constant *)
     let index_e = static_int_of_ast_expr ctx pos i in
