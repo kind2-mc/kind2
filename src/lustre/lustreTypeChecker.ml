@@ -348,9 +348,10 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
   | ArrayConcat  _ -> Lib.todo __LOC__
 
   (* Quantified expressions *)
-  | Quantifier (pos, _, qs, e) -> Lib.todo ("This should not have happened: "
-                                            ^ Lib.string_of_t Lib.pp_print_pos pos
-                                            ^ "\n" ^ __LOC__)
+  | Quantifier (pos, _, qs, e) ->
+          let extnCtx = List.fold_left union ctx
+                          (List.map (fun (_, i, ty) -> singletonTy i ty) qs) in
+          inferTypeExpr extnCtx e 
 
   (* Clock operators *)
   | When (_, e, _) -> inferTypeExpr ctx e
