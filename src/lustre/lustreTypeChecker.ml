@@ -181,9 +181,9 @@ let addConst: tcContext -> LA.ident -> LA.expr -> tcType -> tcContext
   = fun ctx i e ty -> {ctx with vlCtx=IMap.add i (e, ty) ctx.vlCtx} 
 
 let union: tcContext -> tcContext -> tcContext
-  = fun ctx1 ctx2 -> { tySyns = (IMap.union (fun k v1 v2 -> Some v1) (ctx1.tySyns) (ctx2.tySyns))
-                     ; tyCtx = (IMap.union (fun k v1 v2 -> Some v1) (ctx1.tyCtx) (ctx2.tyCtx))
-                     ; vlCtx = (IMap.union (fun k v1 v2 -> Some v1) (ctx1.vlCtx) (ctx2.vlCtx))
+  = fun ctx1 ctx2 -> { tySyns = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.tySyns) (ctx2.tySyns))
+                     ; tyCtx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.tyCtx) (ctx2.tyCtx))
+                     ; vlCtx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.vlCtx) (ctx2.vlCtx))
                      }
 
 let singletonTy: LA.ident -> tcType -> tcContext =
@@ -203,7 +203,7 @@ let inferTypeUnaryOp: Lib.position -> LA.unary_operator -> tcType tcResult =
   fun pos -> function
   | LA.Not -> R.ok (LA.TArr (pos ,Bool pos , Bool pos))
   | LA.BVNot
-  | LA.Uminus -> R.ok (LA.TArr (pos, Real pos, Real pos))
+  | LA.Uminus -> R.ok (LA.TArr (pos, Int pos, Int pos))
 
 (** TODO: There is some polymorphism going on here due to overloaded Plus/Times/Minus operations *)
 let inferTypeBinaryOp: Lib.position -> LA.binary_operator -> tcType tcResult = fun pos ->
@@ -353,17 +353,19 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
                                             ^ "\n" ^ __LOC__)
 
   (* Clock operators *)
-  (* | When of position * expr * clock_expr *)
-  (* | Current of position * expr *)
+  | When (_, e, _) -> inferTypeExpr ctx e
+  | Current (_, e) -> inferTypeExpr ctx e
   | Condact (pos, _, _,_, _, _) -> Lib.todo  (__LOC__ ^ Lib.string_of_t Lib.pp_print_pos pos)
-  (* | Activate of position * ident * expr * expr * expr list *)
-  (* | Merge of position * ident * (ident * expr) list *)
-  (* | RestartEvery of position * ident * expr list * expr *)
-
+  | Activate _ -> Lib.todo __LOC__
+  | Merge _ -> Lib.todo __LOC__
+  | RestartEvery (pos, node, args, cond) ->
+     R.bind(checkTypeExpr ctx cond (LA.Bool pos)) (fun _ ->
+         inferTypeExpr ctx (LA.Call (pos, node, args)))
+                                
   (* Temporal operators *)
   | Pre (pos, e) -> inferTypeExpr ctx e
-  (* | Last of position * ident *)
-  (* | Fby of position * expr * int * expr*)
+  | Last (pos, i) -> inferTypeExpr ctx (LA.Ident (pos, i))
+  | Fby _ -> Lib.todo __LOC__
   | Arrow (pos, e1, e2) -> R.bind (inferTypeExpr ctx e1) (fun ty1 ->
                                R.bind (inferTypeExpr ctx e2) (fun ty2 ->
                                    R.bind((eqLustreType ctx ty1 ty2)) (fun isEq -> 
@@ -395,8 +397,7 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
                  ("Expected node type to be a function type, but found type"
                   ^ string_of_tcType ty)) 
       
-  (* | CallParam of position * ident * lustre_type list * expr list *)
-  | _ -> Lib.todo __LOC__
+  | CallParam _ -> Lib.todo __LOC__
 
 (** Type checks an expression and returns [ok] 
  * if the expected type is the given type [tcType]  
@@ -530,16 +531,29 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
      checkTypeExpr extnCtx e expTy
 
   (* Clock operators *)
-  | When _ -> Lib.todo __LOC__
-  | Current _ -> Lib.todo __LOC__
+  | When (_, e, _) -> checkTypeExpr ctx e expTy
+  | Current (_, e) -> checkTypeExpr ctx e expTy
   | Condact _ -> Lib.todo __LOC__
   | Activate _ -> Lib.todo __LOC__
   | Merge _ -> Lib.todo __LOC__
-  | RestartEvery _ -> Lib.todo __LOC__
+  | RestartEvery (pos, node, args, cond) ->
+     R.bind(checkTypeExpr ctx cond (LA.Bool pos)) (fun _ ->
+         checkTypeExpr ctx (LA.Call (pos, node, args)) expTy)
+           
 
   (* Temporal operators *)
   | Pre (pos, e) -> checkTypeExpr ctx e expTy
-  | Last _ -> Lib.todo __LOC__
+  | Last (pos, i) ->
+     R.bind (inferTypeExpr ctx (LA.Ident (pos, i))) (fun ty ->
+         R.bind (eqLustreType ctx ty expTy) (fun isEq ->
+             if isEq
+             then R.ok ()
+             else typeError pos ("Indentifier " ^ i
+                                 ^ " does not match expected type "
+                                 ^ string_of_tcType expTy
+                                 ^ " with infered type "
+                                 ^ string_of_tcType ty)))
+ 
   | Fby _ -> Lib.todo __LOC__
   | Arrow (pos, e1, e2) -> R.bind(inferTypeExpr ctx e1) (fun ty1 ->
                                R.bind(inferTypeExpr ctx e2) (fun ty2 ->
