@@ -219,9 +219,9 @@ let inferTypeConvOp: Lib.position -> LA.conversion_operator -> tcType tcResult =
   function
   | _ -> R.ok (LA.TArr (pos, Int pos, Int pos))
 
-let inferTypeCompOp: Lib.position -> LA.comparison_operator -> tcType tcResult = fun pos ->
+let inferTypeCompOp: Lib.position -> tcType -> LA.comparison_operator -> tcType tcResult = fun pos ty ->
   function
-  | _ -> R.ok (LA.TArr (pos, Int pos, LA.TArr (pos, Int pos, Bool pos))) 
+  |_ -> R.ok (LA.TArr (pos, ty, LA.TArr (pos, ty, Bool pos))) 
 
 let inferTypeGrpExpr: LA.expr -> tcType = function | _ -> Lib.todo __LOC__
                                                         
@@ -285,14 +285,14 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
          | fty -> typeError pos ("Unexpected conversion operator type: "
                                  ^ string_of_tcType fty))
   | LA.CompOp (pos, cop, e1, e2) ->
-     R.bind (inferTypeCompOp pos cop) (fun ty ->
-         match ty with
-         | TArr (_,argTy1, TArr (_,argTy2, resTy)) ->
-            (R.bind (checkTypeExpr ctx e1 argTy1) (fun _ ->
-                 R.bind (checkTypeExpr ctx e2 argTy2) (fun _ -> 
-                     R.ok resTy)))
-         | fty -> typeError pos ("Unexpected comparison operator type: "
-                                 ^ string_of_tcType fty))
+     R.bind (inferTypeExpr ctx e1) (fun ty1 -> 
+         R.bind (inferTypeCompOp pos ty1 cop) (fun cty ->
+             match cty with
+             | TArr (_,_, TArr (_,argTy2, resTy)) ->
+                R.bind (checkTypeExpr ctx e2 argTy2) (fun _ -> 
+                    R.ok resTy)
+             | fty -> typeError pos ("Unexpected comparison operator type: "
+                                     ^ string_of_tcType fty)))
     
   (* Structured expressions *)
   | LA.RecordExpr (pos, _, flds) ->
@@ -356,7 +356,7 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
   | When (_, e, _) -> inferTypeExpr ctx e
   | Current (_, e) -> inferTypeExpr ctx e
   | Condact (pos, _, _,_, _, _) -> Lib.todo  (__LOC__ ^ Lib.string_of_t Lib.pp_print_pos pos)
-  | Activate _ -> Lib.todo __LOC__
+  | Activate (pos, node, cond, rcond, args) -> Lib.todo __LOC__
   | Merge _ -> Lib.todo __LOC__
   | RestartEvery (pos, node, args, cond) ->
      R.bind(checkTypeExpr ctx cond (LA.Bool pos)) (fun _ ->
@@ -472,18 +472,15 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
                                      ^ " to operator of type "
                                      ^ string_of_tcType cvopTy))))
   | CompOp (pos, cop, e1, e2) ->
-     R.bind (inferTypeCompOp pos cop) (fun ty ->
-         R.bind (inferTypeExpr ctx e1) (fun argTy1 ->
-             R.bind (inferTypeExpr ctx e2) (fun argTy2 ->
-                 R.bind (eqLustreType ctx ty (TArr (pos,argTy1, TArr (pos,argTy2, expTy)))) (fun isEq ->
+     R.bind (inferTypeExpr ctx e1) (fun argTy1 ->
+         R.bind (inferTypeExpr ctx e2) (fun argTy2 ->
+             R.bind (eqLustreType ctx argTy1 argTy2) (fun isEq ->
                      if isEq 
-                     then R.ok()
+                     then R.ok ()
                      else typeError pos
-                            ("Cannot apply arguments of type "
+                            ("Cannot compare values of different types "
                              ^ string_of_tcType argTy1
-                             ^ " and " ^ string_of_tcType argTy2
-                             ^ " to operator of type "
-                             ^ string_of_tcType ty)))))
+                             ^ " and " ^ string_of_tcType argTy2))))
 
   (* Values/Constants *)
   | Const (pos, c) -> R.ok ()
@@ -777,7 +774,14 @@ and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
     | _ -> R.ok ctx
   and tcCtxOfTyDecl: tcContext -> LA.type_decl -> tcContext tcResult = fun ctx ->
     function
-    | LA.AliasType (_, i, ty) -> R.ok (addTySyn ctx i ty)
+    | LA.AliasType (_, i, ty) ->
+       (match ty with
+        | LA.EnumType (pos, n, econsts) ->
+           (match n with
+            | None -> typeError pos "Necessary Enum name not found"
+            | Some ename -> R.ok (List.fold_left union ctx
+                                    (List.map ((Lib.flip singletonTy) (LA.UserType (pos, ename))) econsts)))
+        | _ -> R.ok (addTySyn ctx i ty))
     | LA.FreeType _ -> R.ok ctx
   (** get the type signature of node or a function *)
   and tcCtxOfNodeDecl: Lib.position -> tcContext -> LA.node_decl -> tcContext tcResult
