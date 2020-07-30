@@ -52,27 +52,33 @@ type 'a analyze_func =
 
 type counterexample = (StateVar.t * Model.value list) list
 
+type additional_info = {
+  approximation: bool
+}
+
 (* Represents an Inductive Validity Core. The first element correspond to the properties
    for whch the IVC has been computed, and the second element is the core (= set of equations) itself. *)
-type ivc = Property.t list * loc_core
+type ivc = Property.t list * loc_core * additional_info
 
 (* Represents a Maximal Unsafe Abstraction (or, depending on the context, a Minimal Correction Set).
    The first element is a tuple that indicates a property that is unsatisfied by the core,
    together with the corresponding counterexample.
    The second element is the core (= set of equations) itself. *)
-type mcs = (Property.t * counterexample) * loc_core
+type mcs = (Property.t * counterexample) * loc_core * additional_info
 
 (* ---------- PRETTY PRINTING ---------- *)
 
-let ivc_to_print_data in_sys sys core_class time (_,loc_core) =
-  loc_core_to_print_data in_sys sys core_class time loc_core
+let ivc_to_print_data in_sys sys core_class time (_,loc_core,info) =
+  let cpd = loc_core_to_print_data in_sys sys core_class time loc_core in
+  attach_approx_to_print_data cpd info.approximation
 
-let mcs_to_print_data in_sys sys core_class time ((prop, cex), loc_core) =
+let mcs_to_print_data in_sys sys core_class time ((prop, cex), loc_core, info) =
   let cpd = loc_core_to_print_data in_sys sys core_class time loc_core in
   let cpd = attach_property_to_print_data cpd prop in
-  attach_counterexample_to_print_data cpd cex
+  let cpd = attach_counterexample_to_print_data cpd cex in
+  attach_approx_to_print_data cpd info.approximation
 
-let pp_print_mcs_legacy in_sys param sys ((prop, cex), core) (_, core_compl) =
+let pp_print_mcs_legacy in_sys param sys ((prop, cex), core, _) (_, core_compl, _) =
   let prop_name = prop.Property.prop_name in
   let sys = TS.copy sys in
   let wa_model =
@@ -97,7 +103,11 @@ let pp_print_no_mcs_legacy prop sys =
     KEvent.proved_wam cert sys prop_name
   | _ -> KEvent.unknown_wam sys prop_name
 
+
+let timeout = ref false
+
 let print_timeout_warning () =
+  timeout := true ;
   KEvent.log L_warn "An analysis has timeout, the result might be approximate."
 
 let print_uc_error_note () =
@@ -448,7 +458,7 @@ let fill_input_types_hashtbl ast =
   in
   List.iter aux_decl ast
 
-let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,loc_core) ast =
+let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,loc_core,_) ast =
   fill_input_types_hashtbl ast ;
   let undef_expr =
     if valid_lustre
@@ -530,23 +540,23 @@ let separate_loc_core_by_category in_sys cats =
   let main_scope = InputSystem.ordered_scopes_of in_sys |> List.hd in
   filter_loc_core_by_categories main_scope cats
 
-let separate_ivc_by_category in_sys (props, core) =
+let separate_ivc_by_category in_sys (props, core, info) =
   let (core1, core2) = separate_loc_core_by_category in_sys (Flags.IVC.ivc_category ()) core
-  in (props, core1), (props, core2)
+  in (props, core1, info), (props, core2, info)
 
-let separate_mcs_by_category in_sys (data, core) =
+let separate_mcs_by_category in_sys (data, core, info) =
   let (core1, core2) = separate_loc_core_by_category in_sys (Flags.MCS.mcs_category ()) core
-  in (data, core1), (data, core2)
+  in (data, core1, info), (data, core2, info)
 
-let complement_of_ivc in_sys sys (props, core) =
+let complement_of_ivc in_sys sys (props, core, info) =
   let only_top_level = Flags.IVC.ivc_only_main_node () in
   loc_core_diff (full_loc_core_for_sys in_sys sys ~only_top_level) core
-  |> (fun x -> (props, x))
+  |> (fun x -> (props, x, info))
 
-let complement_of_mcs in_sys sys (props_cex, core) =
+let complement_of_mcs in_sys sys (props_cex, core, info) =
   let only_top_level = Flags.MCS.mcs_only_main_node () in
   loc_core_diff (full_loc_core_for_sys in_sys sys ~only_top_level) core
-  |> (fun x -> (props_cex, x))
+  |> (fun x -> (props_cex, x, info))
 
 let reset_ts enter_nodes sys =
   let set_props_unknown sys =
@@ -619,6 +629,7 @@ let lstmap_union scmap1 scmap2 =
   ScMap.merge merge scmap1 scmap2
 
 let generate_initial_cores in_sys sys enter_nodes cats =
+  timeout := false ;
   let full_loc_core = full_loc_core_for_sys in_sys sys ~only_top_level:(not enter_nodes) in
   let (test, keep) = separate_loc_core_by_category in_sys cats full_loc_core in
   (loc_core_to_new_core keep, loc_core_to_new_core test)
@@ -1333,7 +1344,10 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes keep test =
   | None ->
     if !has_timeout then test
     else (print_uc_error_note () ; test)
-  | Some core -> (if !has_timeout then print_timeout_warning ()) ; core
+  | Some core ->
+    (if !has_timeout
+    then KEvent.log L_warn "The UNSAT core has timeout..."
+    ) ; core
   in (os_invs, res)
 
 let ivc_uc in_sys ?(approximate=false) sys props =
@@ -1341,7 +1355,7 @@ let ivc_uc in_sys ?(approximate=false) sys props =
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
     let (_, test) = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
-    Solution (props, core_to_loc_core in_sys (core_union keep test))
+    Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation=true })
   ) with
   | NotKInductive | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
@@ -1386,7 +1400,7 @@ let must_set in_sys param analyze sys props =
     let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let (_, must) = must_set_ in_sys check_ts sys props enter_nodes keep test in
-    Solution (props, core_to_loc_core in_sys (core_union keep must))
+    Solution (props, core_to_loc_core in_sys (core_union keep must), { approximation = !timeout })
   ) with
   | NotKInductive | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
@@ -1512,11 +1526,11 @@ let ivc_bf in_sys ?(use_must_set=None) param analyze sys props =
     let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
     let ivc_bf_ = match use_must_set with
     | Some f ->
-      (fun x -> (props, core_to_loc_core in_sys (core_union keep x)) |> f) |> ivc_must_bf_
+      (fun x -> (props, core_to_loc_core in_sys (core_union keep x), { approximation = !timeout }) |> f) |> ivc_must_bf_
     | None -> ivc_bf_ in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let test = ivc_bf_ in_sys check_ts sys props enter_nodes keep test in
-    Solution (props, core_to_loc_core in_sys (core_union keep test))
+    Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation = !timeout })
   ) with
   | CannotProve ->
     if are_props_safe props
@@ -1534,12 +1548,12 @@ let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
     let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
     let ivc_bf_ = match use_must_set with
     | Some f ->
-      (fun x -> (props, core_to_loc_core in_sys (core_union keep x)) |> f) |> ivc_must_bf_
+      (fun x -> (props, core_to_loc_core in_sys (core_union keep x), { approximation = !timeout }) |> f) |> ivc_must_bf_
     | None -> ivc_bf_ in
     let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep test in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
     let test = ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
-    Solution (props, core_to_loc_core in_sys (core_union keep test))
+    Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation = !timeout })
   ) with
   | CannotProve | NotKInductive | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
@@ -1799,12 +1813,12 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
     let make_ts_analyzer = make_ts_analyzer in_sys param analyze in
     let umivc_ = match use_must_set with
       | Some f ->
-        (fun x -> (props, core_to_loc_core in_sys (core_union keep x)) |> f)
+        (fun x -> (props, core_to_loc_core in_sys (core_union keep x), { approximation = !timeout }) |> f)
         |> (fun cont -> must_umivc_ cont in_sys make_ts_analyzer)
       | None -> umivc_ in_sys make_ts_analyzer in
     let res = ref [] in
     let cont test =
-      let ivc = (props, core_to_loc_core in_sys (core_union keep test)) in
+      let ivc = (props, core_to_loc_core in_sys (core_union keep test), { approximation = !timeout }) in
       res := ivc::(!res) ;
       cont ivc
     in
@@ -1833,7 +1847,8 @@ let mcs_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
 
   let initial_solution = match initial_solution with
   | None -> None
-  | Some (({ Property.prop_name }, cex), loc_core) ->
+  | Some (({ Property.prop_name }, cex), loc_core, info) ->
+    if info.approximation then timeout := true ;
     Some (loc_core_to_filtered_core loc_core test, (prop_name, cex))
   in
 
@@ -1864,7 +1879,8 @@ let mcs in_sys param analyze sys props
     let res = ref [] in
     let cont (test, (prop,cex)) =
       let mcs = ((TS.property_of_name sys prop, cex),
-                 core_to_loc_core in_sys (core_union keep test)) in
+                 core_to_loc_core in_sys (core_union keep test),
+                 { approximation = !timeout || approx }) in
       res := mcs::(!res) ;
       cont mcs
     in
@@ -1900,7 +1916,8 @@ let mcs_initial_analysis in_sys param analyze ?(max_mcs_cardinality= -1) sys =
 
     let res_to_mcs (test, (prop,cex)) =
       ((TS.property_of_name sys prop, cex),
-        core_to_loc_core in_sys (core_union keep test))
+        core_to_loc_core in_sys (core_union keep test),
+        { approximation = !timeout })
     in
 
     mcs_initial_analysis_ in_sys check_ts sys enter_nodes ~max_mcs_cardinality keep test

@@ -106,6 +106,7 @@ type core_print_data = {
   counterexample: ((StateVar.t * Model.value list) list) option ; (* Only for MCSs *)
   time: float option ;
   size: int ;
+  approx: bool option ;
   elements: term_print_data list ScMap.t ;
 }
 
@@ -181,6 +182,7 @@ let loc_core_to_print_data in_sys sys core_class time lc =
     core_class ;
     property = None ;
     counterexample = None ;
+    approx = None ;
     time ;
     elements ;
     size = scmap_size elements ;
@@ -191,6 +193,9 @@ let attach_counterexample_to_print_data data cex =
 
 let attach_property_to_print_data data prop =
   { data with property = Some prop.Property.prop_name }
+
+let attach_approx_to_print_data data approx =
+  { data with approx = Some approx }
 
 let print_mcs_counterexample in_sys param sys typ fmt (prop, cex) =
   try
@@ -276,6 +281,12 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
     | Some f -> [("runtime", `Assoc [("unit", `String "sec") ; ("value", `Float f) ; ("timeout", `Bool false)])]
   )
   in
+  let assoc = assoc @ (
+    match cpd.approx with
+    | None -> []
+    | Some b -> [("approximate", `Bool b)]
+  )
+  in
   let assoc = assoc @ ([
     ("nodes", `List (List.map (fun (scope, elts) ->
       `Assoc [
@@ -316,9 +327,10 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
     List.iter print_elt elts ;
     Format.fprintf fmt "@]@ </Node>"
   in
-  Format.fprintf fmt "<ModelElementSet class=\"%s\" size=\"%i\"%s>@.  @[<v>"
+  Format.fprintf fmt "<ModelElementSet class=\"%s\" size=\"%i\"%s%s>@.  @[<v>"
     cpd.core_class cpd.size
-    (match cpd.property with None -> "" | Some n -> Format.asprintf " property=\"%s\"" n) ;
+    (match cpd.property with None -> "" | Some n -> Format.asprintf " property=\"%s\"" n)
+    (match cpd.approx with None -> "" | Some b -> Format.asprintf " approximate=\"%b\"" b) ;
   (
     match cpd.time with
     | None -> ()

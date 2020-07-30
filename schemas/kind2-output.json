@@ -284,6 +284,9 @@
                 "runtime": {
                     "$ref": "#/definitions/runtime"
                 },
+                "approximate": {
+                    "type": "boolean"
+                },
                 "nodes": {
                     "type": "array",
                     "items": { "$ref": "#/definitions/modelElementNodeSet" }
@@ -293,7 +296,7 @@
                 }
             },
             "required": [
-                "objectType", "class", "size", "runtime", "nodes"
+                "objectType", "class", "size", "runtime", "nodes", "approximate"
             ]
         },
         "noModelElementSet": {
