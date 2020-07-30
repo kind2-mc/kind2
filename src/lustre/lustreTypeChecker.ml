@@ -213,11 +213,20 @@ let inferTypeBinaryOp: Lib.position -> LA.binary_operator -> tcType tcResult = f
   | LA.Mod | LA. Minus | LA.Plus | LA.Times | LA.IntDiv
     | LA.BVAnd | LA.BVOr | LA.BVShiftL | LA.BVShiftR
     -> R.ok (LA.TArr (pos, Int pos, TArr(pos, Int pos, Int pos)))
-  | LA. Div -> R.ok (LA.TArr (pos, Real pos, TArr(pos, Real pos, Real pos)))
+  | LA.Div -> R.ok (LA.TArr (pos, Real pos, TArr(pos, Real pos, Real pos)))
      
-let inferTypeConvOp: Lib.position -> LA.conversion_operator -> tcType tcResult = fun pos ->
+let inferTypeConvOp: Lib.position -> tcType -> LA.conversion_operator -> tcType tcResult = fun pos ty ->
   function
-  | _ -> R.ok (LA.TArr (pos, Int pos, Int pos))
+  | ToInt -> R.ok (LA.TArr (pos, ty, Int pos))
+  | ToReal -> R.ok (LA.TArr (pos, ty, Real pos))
+  | ToInt8 -> R.ok (LA.TArr (pos, ty, Int8 pos))
+  | ToInt16 -> R.ok (LA.TArr (pos, ty, Int16 pos))
+  | ToInt32 -> R.ok (LA.TArr (pos, ty, Int32 pos))
+  | ToInt64 -> R.ok (LA.TArr (pos, ty, Int64 pos))
+  | ToUInt8 -> R.ok (LA.TArr (pos, ty, UInt8 pos))
+  | ToUInt16 -> R.ok (LA.TArr (pos, ty, UInt16 pos))
+  | ToUInt32 -> R.ok (LA.TArr (pos, ty, UInt32 pos))
+  | ToUInt64 -> R.ok (LA.TArr (pos, ty, UInt64 pos))
 
 let inferTypeCompOp: Lib.position -> tcType -> LA.comparison_operator -> tcType tcResult = fun pos ty ->
   function
@@ -276,14 +285,13 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
          | _   ->  typeError pos ("Expected a boolean expression but found "
                                   ^ string_of_tcType cTy))
   | LA.NArityOp _ -> Lib.todo __LOC__          (* One hot expression is not supported *)    
-  | LA.ConvOp (pos, cop, e) -> 
-     R.bind (inferTypeConvOp pos cop) (fun ty ->
+  | LA.ConvOp (pos, cop, e) ->
+     R.bind (inferTypeExpr ctx e)(fun eTy -> 
+     R.bind (inferTypeConvOp pos eTy cop) (fun ty ->
          match ty with
-         | TArr (_,argTy, resTy) ->
-            R.bind (checkTypeExpr ctx e argTy) (fun _ ->
-                R.ok resTy)
-         | fty -> typeError pos ("Unexpected conversion operator type: "
-                                 ^ string_of_tcType fty))
+         | TArr (_,argTy, resTy) -> R.ok resTy
+         | _ -> typeError pos ("Unexpected conversion operator type: "
+                                 ^ string_of_tcType ty)))
   | LA.CompOp (pos, cop, e1, e2) ->
      R.bind (inferTypeExpr ctx e1) (fun ty1 -> 
          R.bind (inferTypeCompOp pos ty1 cop) (fun cty ->
@@ -481,15 +489,19 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
                                ^ "Found: " ^ string_of_tcType ty))
   | NArityOp _ -> Lib.todo __LOC__          (* One hot expression is not supported? *)    
   | ConvOp (pos, cvop, e) ->
-     R.bind (inferTypeConvOp pos cvop) (fun cvopTy ->
-         R.bind (inferTypeExpr ctx e) (fun exprTy ->
-             R.bind (eqLustreType ctx cvopTy (TArr (pos,exprTy, expTy)))(fun isEq ->
-                 if isEq
-                 then R.ok ()
-                 else typeError pos ("Cannot apply argument of type "
-                                     ^ string_of_tcType exprTy
-                                     ^ " to operator of type "
-                                     ^ string_of_tcType cvopTy))))
+     R.bind (inferTypeExpr ctx e) (fun eTy ->
+         R.bind (inferTypeConvOp pos eTy cvop) (fun cvopTy ->
+             match cvopTy with
+             | TArr (pos, _, retTy) ->
+                R.bind (eqLustreType ctx cvopTy expTy)(fun isEq ->
+                    if isEq
+                    then R.ok ()
+                    else typeError pos ("Expected type " ^ string_of_tcType expTy
+                                        ^ " but found type " ^ string_of_tcType retTy))
+             | _ -> typeError pos ("Cannot apply argument of type "
+                                        ^ string_of_tcType eTy
+                                        ^ " to operator of type "
+                                        ^ string_of_tcType cvopTy)))
   | CompOp (pos, cop, e1, e2) ->
      R.bind (inferTypeExpr ctx e1) (fun argTy1 ->
          R.bind (inferTypeExpr ctx e2) (fun argTy2 ->
