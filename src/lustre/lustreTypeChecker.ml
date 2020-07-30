@@ -392,15 +392,24 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
   (* Temporal operators *)
   | LA.Pre (pos, e) -> inferTypeExpr ctx e
   | LA.Last (pos, i) -> inferTypeExpr ctx (LA.Ident (pos, i))
-  | LA.Fby _ -> Lib.todo __LOC__
-  | LA.Arrow (pos, e1, e2) -> R.bind (inferTypeExpr ctx e1) (fun ty1 ->
-                               R.bind (inferTypeExpr ctx e2) (fun ty2 ->
-                                   R.bind((eqLustreType ctx ty1 ty2)) (fun isEq -> 
-                                   if isEq then R.ok ty1 else
-                                     typeError pos
-                                       ("Arrow types do not match "
-                                        ^ string_of_tcType ty1
-                                        ^ " and " ^ string_of_tcType ty2)))) 
+  | LA.Fby (pos, e1, _, e2) ->
+     R.bind (inferTypeExpr ctx e1) (fun ty1 ->
+         R.bind(inferTypeExpr ctx e2)(fun ty2 ->
+             R.bind(eqLustreType ctx ty1 ty2)(fun isEq ->
+                 if isEq
+                 then R.ok ty1
+                 else typeError pos ("Both the expressions in Fby should be of the same type."
+                                     ^ "Found types " ^ string_of_tcType ty1
+                                     ^ " and " ^ string_of_tcType ty2))))
+  | LA.Arrow (pos, e1, e2) ->
+     R.bind (inferTypeExpr ctx e1) (fun ty1 ->
+         R.bind (inferTypeExpr ctx e2) (fun ty2 ->
+             R.bind((eqLustreType ctx ty1 ty2)) (fun isEq -> 
+                 if isEq then R.ok ty1 else
+                   typeError pos
+                     ("Arrow types do not match "
+                      ^ string_of_tcType ty1
+                      ^ " and " ^ string_of_tcType ty2)))) 
 
   (* Node calls *)
   | LA.Call (pos, i, argExprs) ->
@@ -438,7 +447,7 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
          R.bind (eqLustreType ctx ty expTy) (fun isEq ->
              if isEq
              then R.ok ()
-             else typeError pos ("Indentifier " ^ i
+             else typeError pos ("Variable " ^ i
                                  ^ " does not match expected type "
                                  ^ string_of_tcType expTy
                                  ^ " with infered type "
@@ -591,16 +600,19 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
                                  ^ string_of_tcType expTy
                                  ^ " with infered type "
                                  ^ string_of_tcType ty)))
- 
-  | Fby _ -> Lib.todo __LOC__
-  | Arrow (pos, e1, e2) -> R.bind(inferTypeExpr ctx e1) (fun ty1 ->
-                               R.bind(inferTypeExpr ctx e2) (fun ty2 ->
-                                   R.bind (eqLustreType ctx ty1 ty2)(fun isEq ->
-                                       if isEq 
-                                       then R.ok ()
-                                       else typeError pos (" Cannot match expected type "
-                                                           ^ string_of_tcType ty1
-                                                           ^ " with " ^ string_of_tcType ty2))))
+  | Fby (pos, e1, _, e2) ->
+     R.bind (checkTypeExpr ctx e1 expTy) (fun _ ->
+         R.bind (checkTypeExpr ctx e2 expTy) (fun _ ->
+             R.ok ()))
+  | Arrow (pos, e1, e2) ->
+     R.bind(inferTypeExpr ctx e1) (fun ty1 ->
+         R.bind(inferTypeExpr ctx e2) (fun ty2 ->
+             R.bind (eqLustreType ctx ty1 ty2)(fun isEq ->
+                 if isEq 
+                 then R.ok ()
+                 else typeError pos (" Cannot match expected type "
+                                     ^ string_of_tcType ty1
+                                     ^ " with " ^ string_of_tcType ty2))))
 
   (* Node calls *)
   | Call (pos, i, args) ->
@@ -635,7 +647,7 @@ and checkTypeConstDecl: tcContext -> LA.const_decl -> tcType -> unit tcResult =
      let infTy = (lookupTy ctx i) in
      if infTy != expTy
      then typeError pos
-            ("Identifier "
+            ("Variable "
              ^ i
              ^ " expected to have type " ^ string_of_tcType infTy
              ^ " but found type " ^ string_of_tcType expTy)
@@ -644,7 +656,7 @@ and checkTypeConstDecl: tcContext -> LA.const_decl -> tcType -> unit tcResult =
      R.bind (inferTypeExpr ctx exp) (fun ty ->
          if expTy != ty
          then typeError pos
-                ("Identifier "
+                ("Variable "
                  ^ i
                  ^ " expected to have type " ^ string_of_tcType expTy
                  ^ " but found type " ^ string_of_tcType ty)
@@ -653,7 +665,7 @@ and checkTypeConstDecl: tcContext -> LA.const_decl -> tcType -> unit tcResult =
      R.bind (inferTypeExpr ctx exp) (fun infTy ->
          if expTy != infTy
          then typeError pos
-                ("Identifier "
+                ("Variable "
                  ^ i
                  ^ " expects type " ^ string_of_tcType expTy
                  ^ " but expression is of type " ^ string_of_tcType infTy)
