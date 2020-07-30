@@ -463,6 +463,9 @@ let pp_print_arrayi pp sep ppf array  =
   in
   let indices = list_init (fun i -> i) n in  
   List.iter print_element indices
+
+let pp_print_pair pp1 pp2 sep ppf (left, right) =
+  pp1 ppf left; fprintf ppf sep; pp2 ppf right 
   
 (* Pretty-print a list *)
 let rec pp_print_list pp sep ppf = function 

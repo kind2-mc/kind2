@@ -183,6 +183,13 @@ module IntegerHashtbl : Hashtbl.S with type key = int
   
 (** {1 Pretty-printing helpers} *)
 
+(** Pretty-print a pair. 
+    it excepts two formatters and a separator and formats the pair
+*)     
+val pp_print_pair: (Format.formatter -> 'a -> 'b) ->
+                   (Format.formatter -> 'c -> 'd) ->
+                   ('e, Format.formatter, unit) format -> Format.formatter -> 'a * 'c -> 'd
+     
 (** Pretty-print an array with given separator
  
  [pp_print_array elem_printer separator formatter array] calls,

@@ -65,7 +65,7 @@ let rec pp_print_tcType: Format.formatter -> tcType -> unit
   (* Arrays Tuples, ranges *)
   | IntRange (_, mi, ma) -> Format.fprintf ppf "intRange (%a, %a)" LA.pp_print_expr mi LA.pp_print_expr ma
   | UserType (_, i) -> Format.fprintf ppf "userType %a" LA.pp_print_ident i
-  | TupleType (_, tys) -> Format.fprintf ppf "(%a)" (Lib.pp_print_list pp_print_tcType ",") tys
+  | TupleType (_, tys) -> Format.fprintf ppf "T(%a)" (Lib.pp_print_list pp_print_tcType ",") tys
 
   (* lustre V6 types *)
   | AbstractType (_,i) -> Format.fprintf ppf "abstractType %a" LA.pp_print_ident i 
@@ -320,14 +320,14 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
                   else typeError pos "All expressions must be of the same type in an Array")))
     
   (* Update structured expressions *)
-  | ArrayConstr (pos, bExpr, supExpr) ->
+  | LA.ArrayConstr (pos, bExpr, supExpr) ->
      R.bind (inferTypeExpr ctx bExpr) (fun bTy ->
          R.bind (inferTypeExpr ctx supExpr) (fun supTy ->
                  if isExprIntType ctx supExpr
                  then R.ok(LA.ArrayType (pos, (bTy, supExpr)))
                  else typeError pos "Array cannot have non numeral type as its bounds"))
-  | StructUpdate _ -> Lib.todo __LOC__
-  | ArraySlice (pos, e1, (il, iu)) ->
+  | LA.StructUpdate _ -> Lib.todo __LOC__
+  | LA.ArraySlice (pos, e1, (il, iu)) ->
      if isExprIntType ctx il && isExprIntType ctx iu
      then R.bind (inferTypeExpr ctx e1) (fun ty ->
                match ty with
@@ -336,7 +336,7 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
                                        ^ "but found type "
                                        ^ Lib.string_of_t pp_print_tcType ty))
      else typeError pos ("Slicing should have integer types")
-  | ArrayIndex (pos, e, i) ->
+  | LA.ArrayIndex (pos, e, i) ->
      if isExprIntType ctx i
      then R.bind (inferTypeExpr ctx e) (fun ty ->
               match ty with
@@ -345,29 +345,41 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
                                     ^ "but found type "
                                     ^ Lib.string_of_t pp_print_tcType ty))
      else typeError pos ("Array Index should have integer types") 
-  | ArrayConcat  _ -> Lib.todo __LOC__
+  | LA.ArrayConcat  _ -> Lib.todo __LOC__
 
   (* Quantified expressions *)
-  | Quantifier (pos, _, qs, e) ->
+  | LA.Quantifier (pos, _, qs, e) ->
           let extnCtx = List.fold_left union ctx
                           (List.map (fun (_, i, ty) -> singletonTy i ty) qs) in
           inferTypeExpr extnCtx e 
 
   (* Clock operators *)
-  | When (_, e, _) -> inferTypeExpr ctx e
-  | Current (_, e) -> inferTypeExpr ctx e
-  | Condact (pos, _, _,_, _, _) -> Lib.todo  (__LOC__ ^ Lib.string_of_t Lib.pp_print_pos pos)
-  | Activate (pos, node, cond, rcond, args) -> Lib.todo __LOC__
-  | Merge _ -> Lib.todo __LOC__
-  | RestartEvery (pos, node, args, cond) ->
+  | LA.When (_, e, _) -> inferTypeExpr ctx e
+  | LA.Current (_, e) -> inferTypeExpr ctx e
+  | LA.Condact (pos, _, _,_, _, _) -> Lib.todo  (__LOC__ ^ Lib.string_of_t Lib.pp_print_pos pos)
+  | LA.Activate (pos, node, cond, rcond, args) ->
+     R.bind (checkTypeExpr ctx cond (Bool pos)) (fun _ ->
+         inferTypeExpr ctx (Call (pos, node, args)))
+  | LA.Merge (pos, i, mcases) ->
+     R.bind (inferTypeExpr ctx (LA.Ident (pos, i))) (fun _ ->
+         let caseTys = List.map snd mcases |> List.map (inferTypeExpr ctx) in
+         R.bind(R.seq caseTys) (fun tys ->
+             let mainTy = List.hd tys in
+             R.bind(R.seq (List.map (eqLustreType ctx mainTy) tys)) (fun isEqs -> 
+                 if
+                   List.fold_left (&&) true isEqs
+                 then R.ok mainTy
+                 else typeError pos ("All expressions in merge expected to be the same type "
+                                     ^ string_of_tcType mainTy))))
+  | LA.RestartEvery (pos, node, args, cond) ->
      R.bind(checkTypeExpr ctx cond (LA.Bool pos)) (fun _ ->
          inferTypeExpr ctx (LA.Call (pos, node, args)))
                                 
   (* Temporal operators *)
-  | Pre (pos, e) -> inferTypeExpr ctx e
-  | Last (pos, i) -> inferTypeExpr ctx (LA.Ident (pos, i))
-  | Fby _ -> Lib.todo __LOC__
-  | Arrow (pos, e1, e2) -> R.bind (inferTypeExpr ctx e1) (fun ty1 ->
+  | LA.Pre (pos, e) -> inferTypeExpr ctx e
+  | LA.Last (pos, i) -> inferTypeExpr ctx (LA.Ident (pos, i))
+  | LA.Fby _ -> Lib.todo __LOC__
+  | LA.Arrow (pos, e1, e2) -> R.bind (inferTypeExpr ctx e1) (fun ty1 ->
                                R.bind (inferTypeExpr ctx e2) (fun ty2 ->
                                    R.bind((eqLustreType ctx ty1 ty2)) (fun isEq -> 
                                    if isEq then R.ok ty1 else
@@ -377,7 +389,7 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
                                         ^ " and " ^ string_of_tcType ty2)))) 
 
   (* Node calls *)
-  | Call (pos, i, argExprs) ->
+  | LA.Call (pos, i, argExprs) ->
      Log.log L_debug "Inferring type for node call %a" LA.pp_print_ident i  
     ; let rec inferTypeNodeArgs: tcContext -> LA.expr list -> tcType tcResult
         = fun ctx args ->
@@ -398,7 +410,7 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
                  ("Expected node type to be a function type, but found type"
                   ^ string_of_tcType ty)) 
       
-  | CallParam _ -> Lib.todo __LOC__
+  | LA.CallParam _ -> Lib.todo __LOC__
 
 (** Type checks an expression and returns [ok] 
  * if the expected type is the given type [tcType]  
@@ -532,8 +544,13 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
   | When (_, e, _) -> checkTypeExpr ctx e expTy
   | Current (_, e) -> checkTypeExpr ctx e expTy
   | Condact _ -> Lib.todo __LOC__
-  | Activate _ -> Lib.todo __LOC__
-  | Merge _ -> Lib.todo __LOC__
+  | Activate (pos, node, cond, rcond, args) -> 
+     R.bind (checkTypeExpr ctx cond (Bool pos)) (fun _ ->
+       checkTypeExpr ctx (Call (pos, node, args)) expTy) 
+  | Merge (pos, i, mcases) ->
+     R.bind (inferTypeExpr ctx (LA.Ident (pos, i))) (fun _ ->
+         let checkedTys = List.map snd mcases |> List.map (fun e -> checkTypeExpr ctx e expTy) in
+         R.bind(R.seq checkedTys) (fun _ -> R.ok ()))
   | RestartEvery (pos, node, args, cond) ->
      R.bind(checkTypeExpr ctx cond (LA.Bool pos)) (fun _ ->
          checkTypeExpr ctx (LA.Call (pos, node, args)) expTy)
@@ -883,14 +900,12 @@ and eqLustreType : tcContext -> LA.lustre_type -> LA.lustre_type -> bool tcResul
   | ArrayType (pos1, arr1), ArrayType (pos2, arr2) -> eqTypeArray ctx arr1 arr2 
   | EnumType (_, n1, is1), EnumType (_, n2, is2) ->
      R.ok (n1 = n2 && (List.fold_left (&&) true (List.map2 (=) (sortIdents is1) (sortIdents is2))))
-
   (* node/function type *)
   | TArr (_, argTy1, retTy1), TArr (_, argTy2, retTy2) ->
      R.bind (eqLustreType ctx argTy1 argTy2) (fun isEqArgTy ->
          if isEqArgTy
          then eqLustreType ctx retTy1 retTy2
          else R.ok false )
-
   (* special case for type synonyms *)
   | UserType (_, u), ty
     | ty, UserType (_, u) ->
@@ -898,6 +913,9 @@ and eqLustreType : tcContext -> LA.lustre_type -> LA.lustre_type -> bool tcResul
      then let tyAlias  = lookupTySyn ctx u in 
           eqLustreType ctx ty tyAlias
      else R.ok false
+  (* Another special case for tuple equality type *)
+  | TupleType (_, tys), t
+    | t, TupleType (_, tys) -> if List.length tys = 1 then (eqLustreType ctx (List.hd tys) t) else R.ok false  
   | _, _ -> R.ok false
 
 (** Checks if the constant is of type Int. This will be useful 
