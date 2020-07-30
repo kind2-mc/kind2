@@ -168,6 +168,9 @@ val compare_pairs : ('a -> 'a -> int) -> ('b -> 'b -> int) -> 'a * 'b -> 'a * 'b
 (** Lexicographic comparison of lists *)
 val compare_lists : ('a -> 'a -> int) -> 'a list -> 'a list -> int 
 
+(** Apply a list of functions to a single argument. Kind of List.map but not really *)
+val list_apply: ('a -> 'b) list -> 'a -> 'b list
+  
 (** {1 Array functions} *)
 
 (** Returns the maximum element of a non-empty array *)

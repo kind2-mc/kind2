@@ -411,6 +411,11 @@ let list_join equal l1 l2 =
     (* Call recursive function with initial accumulator *)
     | _ -> list_join' equal [] l1 l2
 
+let rec list_apply: ('a -> 'b) list -> 'a -> 'b list = fun fs arg ->
+  match fs with
+  | [] -> []
+  | f :: rest -> f arg :: (list_apply rest arg)  
+         
 
 (* ********************************************************************** *)
 (* Array functions                                                        *)

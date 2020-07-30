@@ -309,8 +309,7 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
        R.bind (inferTypeExpr ctx e) (fun ty ->
            R.ok (LH.pos_of_expr e, i, ty))       
      in R.bind (R.seq (List.map (inferField ctx) flds)) (fun fldTys -> 
-            R.ok (LA.RecordType (pos, fldTys)))
-    
+            R.ok (LA.RecordType (pos, fldTys)))    
   | LA.GroupExpr (pos, structType, exprs)  ->
      (match structType with
        | LA.ExprList 
@@ -539,7 +538,27 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
                      ^ string_of_tcType expTy
                      ^ " but found "
                      ^ string_of_tcType infRTy)))
-  | GroupExpr _ -> Lib.todo __LOC__
+  | GroupExpr (pos, groupTy, es) ->
+     (match groupTy with
+      (* These should be tuple type  *)
+      | ExprList
+        | TupleExpr ->
+         (match expTy with
+          | TupleType (_, tys) ->
+             if List.length tys != List.length es
+             then typeError pos "Size of tuple does not match size of expression list"
+             else R.seq_ (List.map2 (checkTypeExpr ctx) es tys)
+          | _ -> typeError pos ("Expression list and Tuple list "
+                                ^ "should be of type Tuple but found "
+                                ^ string_of_tcType expTy))
+      (* This should be array type *)
+      | ArrayExpr ->
+         (match expTy with
+          | ArrayType (_, (bTy, _)) ->
+             R.seq_ (Lib.list_apply (List.map (checkTypeExpr ctx) es) bTy)
+          | _ -> typeError pos ("Array type expected but found "
+                 ^ string_of_tcType expTy))
+     )
 
   (* Update of structured expressions *)
   | StructUpdate _ -> Lib.todo __LOC__
