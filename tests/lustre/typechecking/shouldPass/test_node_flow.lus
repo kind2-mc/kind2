@@ -1,0 +1,10 @@
+node x1 (X: bool; N: int) returns ();
+var
+  N1, PN, N2, N3, N4: int;
+let
+  N1 = 0 -> if X then pre N + 1 else pre N;
+  PN = 0 -> pre N;
+  N2 = if X then PN + 1 else PN;
+  N3 = if X then ((0 -> pre N) + 1) else (0 -> pre N);
+  N4 = (0 -> pre N) + if X then 0 else 1;
+tel
