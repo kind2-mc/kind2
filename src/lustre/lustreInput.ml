@@ -31,6 +31,8 @@ module LPI = LustreParser.Incremental
 module LL = LustreLexer          
 module LPMI = LustreParser.MenhirInterpreter
 module LPE = LustreParserErrors
+
+exception NoMainNode of string
            
 (* The parser has succeeded and produced a semantic value.*)
 let success (v : LustreAst.t): LustreAst.t =
@@ -121,7 +123,7 @@ let of_channel in_ch =
          (* No main node found
             This only happens when there are no nodes in the input. *)
          with Not_found -> 
-           raise (Invalid_argument "No main node defined in input"))
+           raise (NoMainNode "No main node defined in input"))
   in
   (* Put main node at the head of the list of nodes *)
   let nodes' = 
@@ -133,7 +135,7 @@ let of_channel in_ch =
       (* Node with name of main not found 
          This can only happens when the name is passed as command-line
          argument *)
-      raise (Invalid_argument "Main node not found")
+      raise (NoMainNode "Main node not found in input")
   in
   (* Return a subsystem tree from the list of nodes *)
   LN.subsystem_of_nodes nodes', globals, declarations
