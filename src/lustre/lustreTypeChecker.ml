@@ -356,7 +356,13 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
   (* Clock operators *)
   | LA.When (_, e, _) -> inferTypeExpr ctx e
   | LA.Current (_, e) -> inferTypeExpr ctx e
-  | LA.Condact (pos, _, _,_, _, _) -> Lib.todo  (__LOC__ ^ Lib.string_of_t Lib.pp_print_pos pos)
+  | LA.Condact (pos, c, _, node, args, defaults) ->
+     R.bind (checkTypeExpr ctx c (Bool pos)) (fun _ ->
+         R.bind (inferTypeExpr ctx (Call (pos, node, args))) (fun rTy ->
+             R.bind (R.seq (List.map (inferTypeExpr ctx) defaults)) (fun dTys -> 
+                 R.bind (eqLustreType ctx rTy (TupleType (pos, dTys)))(fun isEq -> 
+                 if isEq then R.ok rTy
+                 else typeError pos "Defaults do not have the same type as node call"))))
   | LA.Activate (pos, node, cond, rcond, args) ->
      R.bind (checkTypeExpr ctx cond (Bool pos)) (fun _ ->
          inferTypeExpr ctx (Call (pos, node, args)))
@@ -543,10 +549,16 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
   (* Clock operators *)
   | When (_, e, _) -> checkTypeExpr ctx e expTy
   | Current (_, e) -> checkTypeExpr ctx e expTy
-  | Condact _ -> Lib.todo __LOC__
+  | Condact (pos, c, _, node, args, defaults) ->
+     R.bind (checkTypeExpr ctx c (Bool pos)) (fun _ ->
+         R.bind (checkTypeExpr ctx (Call (pos, node, args)) expTy) (fun _ ->
+             R.bind (R.seq (List.map (inferTypeExpr ctx) defaults)) (fun dTys -> 
+                 R.bind (eqLustreType ctx expTy (TupleType (pos, dTys)))(fun isEq -> 
+                     if isEq then R.ok ()
+                     else typeError pos "Defaults do not have the same type as node call"))))
   | Activate (pos, node, cond, rcond, args) -> 
      R.bind (checkTypeExpr ctx cond (Bool pos)) (fun _ ->
-       checkTypeExpr ctx (Call (pos, node, args)) expTy) 
+         checkTypeExpr ctx (Call (pos, node, args)) expTy) 
   | Merge (pos, i, mcases) ->
      R.bind (inferTypeExpr ctx (LA.Ident (pos, i))) (fun _ ->
          let checkedTys = List.map snd mcases |> List.map (fun e -> checkTypeExpr ctx e expTy) in
@@ -554,7 +566,6 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
   | RestartEvery (pos, node, args, cond) ->
      R.bind(checkTypeExpr ctx cond (LA.Bool pos)) (fun _ ->
          checkTypeExpr ctx (LA.Call (pos, node, args)) expTy)
-           
 
   (* Temporal operators *)
   | Pre (pos, e) -> checkTypeExpr ctx e expTy
