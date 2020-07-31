@@ -262,12 +262,7 @@ let pp_print_logic fmt = function
   | `SMTLogic s -> pp_print_string fmt (if s = "" then "ALL" else s)
 
 
-let string_of_logic = function
-  | `None -> "ALL"
-  | `Inferred l ->
-      if L.mem BV l && (L.mem IA l || L.mem RA l) then "ALL"
-      else string_of_features l
-  | `SMTLogic s -> if s = "" then "ALL" else s
+let string_of_logic l = asprintf "%a" pp_print_logic l
 
 
 let logic_allow_arrays = function

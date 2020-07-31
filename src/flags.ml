@@ -138,7 +138,7 @@ module Smt = struct
     | `Yices_SMTLIB -> "Yices2"
     | `Yices_native -> "Yices"
     | `detect -> "detect"
-  let solver_values = "Boolector, Z3, CVC4, Yices, Yices2"
+  let solver_values = "Z3, CVC4, Yices, Yices2, Boolector"
   let solver_default = `detect
   let solver = ref solver_default
   let _ = add_spec

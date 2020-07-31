@@ -500,6 +500,9 @@ val name_of_named : t -> int
 (** Return true if the term is an integer constant *)
 val is_numeral : t -> bool
 
+(** Return true if the term is a negative integer constant *)
+val is_negative_numeral : t -> bool
+
 (** Return integer constant of a term *)
 val numeral_of_term : t -> Numeral.t
 
