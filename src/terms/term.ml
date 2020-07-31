@@ -228,6 +228,12 @@ let rec is_numeral t = match destruct t with
 
   | _ -> false
 
+
+(** Return true if the term is a negative integer constant *)
+let is_negative_numeral term = match T.destruct term with
+  | T.App (s, [ sub_expr ]) -> s == Symbol.s_minus && is_numeral sub_expr
+  | _ -> false
+
 (* NOTE: Use these if you want to check whether
 the bitvector is a constant. If you want 
 to differentiate between signed and 

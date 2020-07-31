@@ -245,7 +245,7 @@ let pp_print_features fmt l =
   if L.mem NA l then fprintf fmt "N"
   else if L.mem LA l || L.mem IA l || L.mem RA l then fprintf fmt "L";
   if L.mem IA l then fprintf fmt "I";
-  if L.mem RA l then fprintf fmt "R"; 
+  if L.mem RA l then fprintf fmt "R";
   if L.mem IA l || L.mem RA l then fprintf fmt "A"
 
 
@@ -256,20 +256,13 @@ type logic = [ `None | `Inferred of features | `SMTLogic of string ]
 
 let pp_print_logic fmt = function
   | `None -> pp_print_string fmt "ALL"
-  | `Inferred l -> if (L.mem BV l) then 
-                    pp_print_string fmt "ALL"
-                   else 
-                    pp_print_features fmt l
+  | `Inferred l ->
+      if L.mem BV l && (L.mem IA l || L.mem RA l) then pp_print_string fmt "ALL"
+      else pp_print_features fmt l
   | `SMTLogic s -> pp_print_string fmt (if s = "" then "ALL" else s)
 
 
-let string_of_logic = function
-  | `None -> "ALL"
-  | `Inferred l -> if (L.mem BV l) then 
-                    "ALL"
-                   else
-                    string_of_features l
-  | `SMTLogic s -> if s = "" then "ALL" else s
+let string_of_logic l = asprintf "%a" pp_print_logic l
 
 
 let logic_allow_arrays = function

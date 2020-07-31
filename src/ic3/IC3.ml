@@ -3015,11 +3015,18 @@ let main_ic3 input_sys aparam trans_sys =
   Stat.start_timer Stat.ic3_total_time;
 
   (* Determine logic for the SMT solver: add LIA for some clauses of IC3 *)
-  let logic = match TransSys.get_logic trans_sys with
-    | `Inferred fs ->
-      `Inferred
-        (TermLib.FeatureSet.add TermLib.IA
-           (TermLib.FeatureSet.add TermLib.LA fs))
+  let logic =
+    let open TermLib.FeatureSet in
+    match TransSys.get_logic trans_sys with
+    | `Inferred fs when mem BV fs ->
+        raise
+          (UnsupportedFeature
+             "Disabling IC3: The current implementation does not support BV \
+              problems.")
+    | `Inferred fs when not (subset fs (of_list [ Q; UF; A ])) ->
+        `Inferred
+          (TermLib.FeatureSet.add TermLib.IA
+             (TermLib.FeatureSet.add TermLib.LA fs))
     | l -> l
   in
 

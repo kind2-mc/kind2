@@ -1778,6 +1778,7 @@ let mk_to_int expr = mk_unary eval_to_int type_of_to_int expr
 
 (* ********************************************************************** *)
 
+
 (* Evaluate conversion to unsigned integer8 *)
 let eval_to_uint8 expr =
 
@@ -1786,7 +1787,12 @@ let eval_to_uint8 expr =
     | Term.T.Const c when Symbol.is_numeral c ->
 
       Term.mk_ubv (Bitvector.num_to_ubv8 (Symbol.numeral_of_symbol c))
-    
+
+    | Term.T.App (_, [ sub_expr ])
+      when Term.is_negative_numeral expr ->
+        Term.mk_ubv
+          (Bitvector.num_to_ubv8 (Numeral.neg (Term.numeral_of_term sub_expr)))
+
     | _ -> let tt = Term.type_of_term expr in
             if (Type.is_int tt) then
               Term.mk_to_uint8 expr
@@ -1825,7 +1831,12 @@ let eval_to_uint16 expr =
     | Term.T.Const c when Symbol.is_numeral c ->
 
       Term.mk_ubv (Bitvector.num_to_ubv16 (Symbol.numeral_of_symbol c))
-    
+
+    | Term.T.App (_, [ sub_expr ])
+      when Term.is_negative_numeral expr ->
+        Term.mk_ubv
+          (Bitvector.num_to_ubv16 (Numeral.neg (Term.numeral_of_term sub_expr)))
+
     | _ -> let tt = Term.type_of_term expr in
                       if (Type.is_int tt) then
                         Term.mk_to_uint16 expr
@@ -1865,7 +1876,12 @@ let eval_to_uint32 expr =
     | Term.T.Const c when Symbol.is_numeral c ->
 
       Term.mk_ubv (Bitvector.num_to_ubv32 (Symbol.numeral_of_symbol c))
-    
+
+    | Term.T.App (_, [ sub_expr ])
+      when Term.is_negative_numeral expr ->
+        Term.mk_ubv
+          (Bitvector.num_to_ubv32 (Numeral.neg (Term.numeral_of_term sub_expr)))
+
     | _ -> let tt = Term.type_of_term expr in
             if (Type.is_int tt) then
               Term.mk_to_uint32 expr
@@ -1909,7 +1925,12 @@ let eval_to_uint64 expr =
     | Term.T.Const c when Symbol.is_numeral c ->
 
       Term.mk_ubv (Bitvector.num_to_ubv64 (Symbol.numeral_of_symbol c))
-    
+
+    | Term.T.App (_, [ sub_expr ])
+      when Term.is_negative_numeral expr ->
+        Term.mk_ubv
+          (Bitvector.num_to_ubv64 (Numeral.neg (Term.numeral_of_term sub_expr)))
+
     | _ -> let tt = Term.type_of_term expr in
             if (Type.is_int tt) then
               Term.mk_to_uint64 expr
@@ -1951,7 +1972,12 @@ let eval_to_int8 expr =
     | Term.T.Const c when Symbol.is_numeral c ->
 
       Term.mk_bv (Bitvector.num_to_bv8 (Symbol.numeral_of_symbol c))
-    
+
+    | Term.T.App (_, [ sub_expr ])
+      when Term.is_negative_numeral expr ->
+        Term.mk_ubv
+          (Bitvector.num_to_bv8 (Numeral.neg (Term.numeral_of_term sub_expr)))
+
     | _ -> let tt = Term.type_of_term expr in
             if (Type.is_int tt) then
               Term.mk_to_int8 expr
@@ -1990,7 +2016,12 @@ let eval_to_int16 expr =
     | Term.T.Const c when Symbol.is_numeral c ->
 
       Term.mk_bv (Bitvector.num_to_bv16 (Symbol.numeral_of_symbol c))
-    
+
+    | Term.T.App (_, [ sub_expr ])
+      when Term.is_negative_numeral expr ->
+        Term.mk_ubv
+          (Bitvector.num_to_bv16 (Numeral.neg (Term.numeral_of_term sub_expr)))
+
     | _ -> let tt = Term.type_of_term expr in
             if (Type.is_int tt) then
               Term.mk_to_int16 expr
@@ -2030,7 +2061,12 @@ let eval_to_int32 expr =
     | Term.T.Const c when Symbol.is_numeral c ->
 
       Term.mk_bv (Bitvector.num_to_bv32 (Symbol.numeral_of_symbol c))
-    
+
+    | Term.T.App (_, [ sub_expr ])
+      when Term.is_negative_numeral expr ->
+        Term.mk_ubv
+          (Bitvector.num_to_bv32 (Numeral.neg (Term.numeral_of_term sub_expr)))
+
     | _ -> let tt = Term.type_of_term expr in
             if (Type.is_int tt) then
               Term.mk_to_int32 expr
@@ -2072,7 +2108,12 @@ let eval_to_int64 expr =
     | Term.T.Const c when Symbol.is_numeral c ->
 
       Term.mk_bv (Bitvector.num_to_bv64 (Symbol.numeral_of_symbol c))
-    
+
+    | Term.T.App (_, [ sub_expr ])
+      when Term.is_negative_numeral expr ->
+        Term.mk_ubv
+          (Bitvector.num_to_bv64 (Numeral.neg (Term.numeral_of_term sub_expr)))
+
     | _ -> let tt = Term.type_of_term expr in
             if (Type.is_int tt) then
               Term.mk_to_int64 expr
