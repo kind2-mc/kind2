@@ -21,6 +21,7 @@
 (* TODO: Find strongly connected components, put them in a group *)
 (* TODO: This also checks if we have co-dependent types or values *)
 (* TODO: UserType if they are alias of any other type, then flatten them out *)
+(* TODO: Introduce GroupType which is like tuple type but has flattened cannonical structure*)
 
 module R = Res
 
@@ -31,13 +32,6 @@ module LH = LustreAstHelpers
 (** Returns [ok] if the typecheck/typeinference runs fine 
  * or reports an error at position with the error *)
 type 'a tcResult = ('a, Lib.position * string) result
-
-
-(** Get the first error *)
-let rec reportTcResult: unit tcResult list -> unit tcResult = function
-  | [] -> R.ok () 
-  | Error (pos,err) :: _ -> LC.fail_at_position pos err
-  | Ok () :: tl -> reportTcResult tl
 
 (** Type alias for lustre type from LustreAst  *)
 type tcType  = LA.lustre_type
@@ -747,8 +741,7 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
               (* Type check the node items now that we have all the local typing context *)
               ; let r = Res.seq_ (List.map (doItem localCtx) items) in
                 Log.log L_debug "TC declaration node %a done }" LA.pp_print_ident nodeName
-                ; r)
-    )
+                ; r))
 
 and doNodeEqn: tcContext -> LA.node_equation -> unit tcResult = fun ctx ->
   function
@@ -801,13 +794,15 @@ and checkTypeStructItem: tcContext -> LA.struct_item -> tcType -> unit tcResult
                                       ^ " but found type "
                                       ^ string_of_tcType infTy)))
   | ArrayDef (pos, baseE, idxs) ->
-     let arrayIdxExpr = List.fold_left
-                          (fun e i -> LA.ArrayIndex (pos, e, i))
-                          (LA.Ident (pos, baseE))
-                          (List.map (fun i -> LA.Ident (pos, i)) idxs) in
+     let arrayIdxExpr =
+       List.fold_left (fun e i -> LA.ArrayIndex (pos, e, i))
+         (LA.Ident (pos, baseE))
+         (List.map (fun i -> LA.Ident (pos, i)) idxs) in
      checkTypeExpr ctx arrayIdxExpr expTy
-     
-  | _ -> Lib.todo __LOC__
+  | TupleStructItem _ -> Lib.todo __LOC__
+  | TupleSelection _ -> Lib.todo __LOC__
+  | FieldSelection _ -> Lib.todo __LOC__
+  | ArraySliceStructItem _ -> Lib.todo __LOC__
 
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
@@ -843,6 +838,7 @@ and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
     | LA.ConstDecl (_, constDecl) -> tcCtxConstDecl ctx constDecl
     | LA.NodeDecl (pos, nodeDecl) -> tcCtxOfNodeDecl pos ctx nodeDecl
     | LA.FuncDecl (pos, nodeDecl) -> tcCtxOfNodeDecl pos ctx nodeDecl
+    | LA.ContractNodeDecl (pos, contractDecl) -> tcCtxOfContractNodeDecl pos ctx contractDecl
     | _ -> R.ok ctx
   and tcCtxOfTyDecl: tcContext -> LA.type_decl -> tcContext tcResult = fun ctx ->
     function
@@ -857,28 +853,43 @@ and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
     | LA.FreeType _ -> R.ok ctx
   (** get the type signature of node or a function *)
   and tcCtxOfNodeDecl: Lib.position -> tcContext -> LA.node_decl -> tcContext tcResult
-    = fun pos ctx (i, _, _ , ip, op,_ ,_ ,_) ->
-    if (memberTy ctx i)
-    then typeError pos ("Duplicate node detected with name: " ^ i)
+    = fun pos ctx (nname, _, _ , ip, op,_ ,_ ,_) ->
+    Log.log L_debug
+      "Extracting typing context from node declaration: %a"
+      LA.pp_print_ident nname
+    ; if (memberTy ctx nname)
+    then typeError pos ("Duplicate node detected with name: " ^ nname)
     else R.bind (buildNodeFunTy pos ctx ip op) (fun funTy ->
-             R.ok (addTy ctx i funTy))         
+             R.ok (addTy ctx nname funTy))
+  and tcCtxOfContractNodeDecl: Lib.position -> tcContext
+                               -> LA.contract_node_decl -> tcContext tcResult =
+    fun pos ctx (cname, params, inputs, outputs, contrat) ->
+        Log.log L_debug
+      "Extracting typing context from contract declaration: %a"
+      LA.pp_print_ident cname
+    ; if (memberTy ctx cname)
+    then typeError pos ("Duplicate node detected with name: " ^ cname)
+    else R.bind (buildNodeFunTy pos ctx inputs outputs) (fun funTy ->
+             R.ok (addTy ctx cname funTy))
   in function
   | [] -> R.ok ctx
   | d :: tl ->
-     R.bind ( Log.log L_debug
-                "Extracting typing context from declaration: %a"
-                LA.pp_print_declaration d
-            ; tcContextOf' ctx d) (fun ctx' ->
+     R.bind (tcContextOf' ctx d) (fun ctx' ->
          R.bind (tcContextOf (union ctx' ctx) tl) (fun c -> 
-             R.ok c))
-
-(** Does it make sense to have this type i.e. is it inhabited? We do not want types such as int^true *)
+             R.ok c))                                                                                                   
+(** Does it make sense to have this type i.e. is it inhabited? 
+ * We do not want types such as int^true *)
 and isTypeWellFormed: tcContext -> tcType -> bool = fun ctx ty ->
   match ty with
-  | LA.TArr (_, argTy, resTy) -> isTypeWellFormed ctx argTy && isTypeWellFormed ctx resTy
-  | LA.RecordType (_, idTys) -> List.fold_left (&&) true (List.map (fun (_, _, ty) -> isTypeWellFormed ctx ty) idTys)
-  | LA.ArrayType (_, (_, s)) -> isExprIntType ctx s && isExprOfConts ctx s
-  | LA.TupleType (_, tys) -> List.fold_left (&&) true (List.map (isTypeWellFormed ctx) tys)
+  | LA.TArr (_, argTy, resTy) -> isTypeWellFormed ctx argTy
+                                 && isTypeWellFormed ctx resTy
+  | LA.RecordType (_, idTys) -> List.fold_left (&&) true
+                                  (List.map (fun (_, _, ty)
+                                             -> isTypeWellFormed ctx ty) idTys)
+  | LA.ArrayType (_, (_, s)) -> isExprIntType ctx s
+                                && isExprOfConts ctx s
+  | LA.TupleType (_, tys) -> List.fold_left (&&) true
+                               (List.map (isTypeWellFormed ctx) tys)
   | _ -> true
                    
 (** Shadow the old binding with the new const decl *)
@@ -980,6 +991,11 @@ and isExprIntType: tcContext -> LA.expr -> bool  = fun ctx e ->
       R.bind (inferTypeExpr ctx e) (fun ty -> 
           eqLustreType ctx ty (LA.Int (LH.pos_of_expr e))))
 
+and isExprBoolType:  tcContext -> LA.expr -> bool = fun ctx e ->
+  R.safe_unwrap false (
+      R.bind (inferTypeExpr ctx e) (fun ty -> 
+          eqLustreType ctx ty (LA.Bool (LH.pos_of_expr e))))
+
 and isExprArrayType: tcContext -> LA.expr -> bool  = fun ctx e ->
   R.safe_unwrap false
     (R.bind (inferTypeExpr ctx e) (fun ty ->
@@ -996,11 +1012,26 @@ and eqTypedIdent: tcContext -> LA.typed_ident -> LA.typed_ident -> bool tcResult
   fun ctx (_, i1, ty1) (_, i2, ty2) -> eqLustreType ctx ty1 ty2
 
 (** Compute equality for [LA.ArrayType] *)
-(** For now, we do not check the bounds for arrays. This introduces bugs similar to Issue #566. 
-    https://github.com/kind2-mc/kind2/issues/566 *)
 and eqTypeArray: tcContext -> (LA.lustre_type * LA.expr) -> (LA.lustre_type * LA.expr) -> bool tcResult
   = fun ctx (ty1, e1) (ty2, e2) -> eqLustreType ctx ty1 ty2
+(** For now, we do not check the bounds for arrays. This introduces bugs similar to Issue #566. 
+    https://github.com/kind2-mc/kind2/issues/566. 
+    Backend should handle such cases as it can talk to a powerful solver. *)
 
+and checkContractNodeEqn: tcContext -> LA.contract_node_equation -> tcType -> unit tcResult =
+  fun ctx eqn expTy ->
+  match eqn with
+  | GhostConst _ -> (* of contract_ghost_const *) Lib.todo __LOC__
+  | GhostVar _ -> (* of contract_ghost_var *) Lib.todo __LOC__
+  | Assume _ -> (* of contract_assume *) Lib.todo __LOC__
+  | Guarantee _ -> (* of contract_guarantee *) Lib.todo __LOC__
+  | Mode _ -> (* of contract_mode *) Lib.todo __LOC__
+  | ContractCall _ -> (* of contract_call *) Lib.todo __LOC__
+                                 
+and checkTypeContractDecl: tcContext -> LA.contract_node_decl -> tcType -> unit tcResult =
+  fun _ -> Lib.todo __LOC__
+
+                                 
 (** Compute the strongly connected components for type checking *)
 let scc: LA.t -> LA.t list
   = fun decls -> [decls]
@@ -1027,6 +1058,13 @@ let rec typeCheckGroup: tcContext -> LA.t ->  unit tcResult list
 let typeCheckDeclGrps: tcContext -> LA.t list -> unit tcResult list = fun ctx decls -> 
   List.concat (List.map (typeCheckGroup ctx) decls)               
 
+(** Get the first offending error *)
+let rec reportTcResult: unit tcResult list -> unit tcResult = function
+  | [] -> R.ok () 
+  | Error (pos,err) :: _ -> LC.fail_at_position pos err
+  | Ok () :: tl -> reportTcResult tl
+
+  
 let typeCheckProgram: LA.t -> unit tcResult = fun prg ->
   R.bind (Log.log L_debug ("===============================================\n"
                            ^^ "Phase 1: Building TC Global Context\n"
