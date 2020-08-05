@@ -260,7 +260,14 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
   | LA.Ident (pos, i) ->
      (try R.ok (lookupTy ctx i) with
       | Not_found -> typeError pos ("Unbound Variable: " ^ i)) 
-  | LA.ModeRef (pos, ids) -> Lib.todo __LOC__
+  | LA.ModeRef (pos, is) ->      
+     let lookupModeTy ctx i =
+       (try R.ok (lookupTy ctx i) with
+        | Not_found -> typeError pos ("Unbound Variable: " ^ i)) in
+     R.bind(R.seq (List.map (lookupModeTy ctx) is)) (fun tys ->
+         if List.length tys = 1
+         then R.ok (List.hd tys)
+         else R.ok (LA.TupleType (pos, tys)))
   | LA.RecordProject (pos, expr, fld) ->
      R.bind (inferTypeExpr ctx expr) (fun recTy ->
          match recTy with
@@ -271,7 +278,6 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
              | None -> typeError pos ("No field named " ^ fld ^ "found in record type")) 
          | _ -> typeError pos ("Cannot project field out of non record expression type "
                                ^ string_of_tcType recTy))
-
   | LA.TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
 
   (* Values *)
@@ -864,7 +870,7 @@ and checkContractNodeEqn: tcContext -> LA.contract_node_equation -> unit tcResul
   fun ctx eqn ->
   Log.log L_debug "checking contract with equation %a" LA.pp_print_contract_item eqn 
   ; match eqn with
-  | GhostConst const -> (* of contract_ghost_const *) Lib.todo __LOC__
+  | GhostConst _
   | GhostVar _ ->  R.ok () (* This is already checked while extracting ctx *)
   | Assume (pos, _, _, e) -> checkTypeExpr ctx e (Bool pos)
   | Guarantee (pos, _, _, e) -> checkTypeExpr ctx e (Bool pos)
@@ -872,7 +878,7 @@ and checkContractNodeEqn: tcContext -> LA.contract_node_equation -> unit tcResul
      R.seq_ (Lib.list_apply (List.map (checkTypeExpr ctx)
                                (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
                (Bool pos)) 
-  | ContractCall _ -> (* of contract_call *) Lib.todo __LOC__
+  | ContractCall (pos, cname, e1s, e2s) -> (* of contract_call *) Lib.todo __LOC__
 
                                            
 and tcCtxOfTyDecl: tcContext -> LA.type_decl -> tcContext tcResult = fun ctx ->
