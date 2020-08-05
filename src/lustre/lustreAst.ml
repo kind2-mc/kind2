@@ -683,7 +683,10 @@ and pp_print_lustre_type ppf = function
     Format.fprintf ppf 
       "enum @[<hv 2>{ %a }@]" 
       (pp_print_list Format.pp_print_string ",@ ") l
-  | TArr (pos, argTy, retTy) -> Format.fprintf ppf "@[ @[%a@] @, -> @[%a@] @]" pp_print_lustre_type argTy pp_print_lustre_type retTy 
+  | TArr (pos, argTy, retTy) ->
+     Format.fprintf ppf "@[%a->@,%a@]"
+       pp_print_lustre_type argTy
+       pp_print_lustre_type retTy 
 
 (* Pretty-print a typed identifier *)
 and pp_print_typed_ident ppf (p, s, t) = 
@@ -1180,7 +1183,6 @@ let pp_print_program ppf p =
     "@[<v>%a@]" 
     (pp_print_list pp_print_declaration "@ ") 
     p
-
 
 (* 
    Local Variables:

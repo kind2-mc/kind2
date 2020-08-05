@@ -19,9 +19,10 @@
 open Format
 
 exception Unsupported of string
-(** function thunk for unimplimented features*)
 
-let todo = fun s -> raise (Unsupported s)                       
+(** function thunk for unimplimented features*)
+let todo = fun s -> raise (Unsupported s)
+                  
 (* ********************************************************************** *)
 (* Helper functions                                                       *)
 (* ********************************************************************** *)

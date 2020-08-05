@@ -36,68 +36,27 @@ type 'a tcResult = ('a, Lib.position * string) result
 (** Type alias for lustre type from LustreAst  *)
 type tcType  = LA.lustre_type
 
-(** TODO: should now use [LA.pp_print_lustre_type]  *)
-let rec pp_print_tcType: Format.formatter -> tcType -> unit
-  = fun ppf ty ->
-  match ty with
-  | TVar (_, i) -> Format.fprintf ppf "@[%a@]" LA.pp_print_ident i
-  | Int _ -> Format.fprintf ppf "@[int@]"
-  | Bool _ -> Format.fprintf ppf "@[bool@]"
-  | UInt8 _ -> Format.fprintf ppf "@[uint8@]"
-  | UInt16 _ -> Format.fprintf ppf "@[uint16@]"
-  | UInt32 _ -> Format.fprintf ppf "@[uint32@]"
-  | UInt64 _ -> Format.fprintf ppf "@[uint64@]"
-  | Int8 _ -> Format.fprintf ppf "@[int8@]"
-  | Int16 _ -> Format.fprintf ppf "@[int16@]"
-  | Int32 _ -> Format.fprintf ppf "@[int32@]"
-  | Int64 _ -> Format.fprintf ppf "@[int64@]"
-  | Real _ -> Format.fprintf ppf "@[real@]"
-
-  (* Function type of argument and return *)
-  | TArr (_, argTy, retTy) -> Format.fprintf ppf "@[%a->@,%a@]" pp_print_tcType argTy pp_print_tcType retTy 
-
-  (* Arrays Tuples, ranges *)
-  | IntRange (_, mi, ma) -> Format.fprintf ppf "intRange (%a, %a)" LA.pp_print_expr mi LA.pp_print_expr ma
-  | UserType (_, i) -> Format.fprintf ppf "userType %a" LA.pp_print_ident i
-  | TupleType (_, tys) -> Format.fprintf ppf "T(%a)" (Lib.pp_print_list pp_print_tcType ",") tys
-
-  (* lustre V6 types *)
-  | AbstractType (_,i) -> Format.fprintf ppf "abstractType %a" LA.pp_print_ident i 
-  | RecordType (_, fs) -> let pp_print_field ppf = fun (_, i, ty) ->
-                     Format.fprintf ppf "@[%a:%a@]" LA.pp_print_ident i pp_print_tcType ty in
-                   Format.fprintf ppf "@[struct {@ %a@ }@]" (Lib.pp_print_list pp_print_field ";@ @,") fs
-  | ArrayType (_, (ty, e)) -> Format.fprintf ppf "@[[%a]^%a@]" pp_print_tcType ty LA.pp_print_expr e
-  | EnumType (_, n, ids) ->
-     let pp_print_enumname ppf = function
-       | Some name -> LA.pp_print_ident ppf name
-       | None -> () in
-     Format.fprintf ppf "enumType %a {@ %a@ }"
-       pp_print_enumname n
-       (Lib.pp_print_list LA.pp_print_ident ";@ @,") ids
-     
-
-let string_of_tcType: tcType -> string = fun t -> Lib.string_of_t pp_print_tcType t
+(** String of the type to display in type errors *)
+let string_of_tcType: tcType -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
                        
 (** Map for types with identifiers as keys *)
 module IMap = struct
-
   (** everything that [Stdlib.Map] gives us  *)
   include Map.Make(struct
               type t = LA.ident
               let compare i1 i2 = Stdlib.compare i1 i2
             end)
-
   (** Pretty print type synonyms*)
   let pp_print_type_binding ppf = fun i ty -> 
-    Format.fprintf ppf "(%a<->%a), " LA.pp_print_ident i pp_print_tcType ty
+    Format.fprintf ppf "(%a<->%a), " LA.pp_print_ident i LA.pp_print_lustre_type ty
 
   (** Pretty print type bindings*)
   let pp_print_type_binding ppf = fun i ty -> 
-    Format.fprintf ppf "(%a:%a), " LA.pp_print_ident i pp_print_tcType ty
+    Format.fprintf ppf "(%a:%a), " LA.pp_print_ident i LA.pp_print_lustre_type ty
 
   (** Pretty print value bindings (used for constants)*)
   let pp_print_val_binding ppf = fun i (v, ty) ->
-    Format.fprintf ppf "(%a:%a :-> %a), " LA.pp_print_ident i pp_print_tcType ty LA.pp_print_expr v
+    Format.fprintf ppf "(%a:%a :-> %a), " LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v
 
   (** Pretty print type context *)
   let pp_print_tySyns ppf = iter (pp_print_type_binding ppf)   
@@ -134,15 +93,20 @@ let emptyContext: tcContext = {tySyns = IMap.empty; tyCtx= IMap.empty; vlCtx=IMa
 (** Pretty print the complete type checker context*)
 let pp_print_tcContext ppf ctx
   = Format.fprintf ppf
-      "TypeSynonyms={%a}\nTypeContext={%a}\nConstValueContext={%a}"
+      ("TypeSynonyms={%a}\n"
+       ^^ "TypeContext={%a}\n"
+       ^^ "ConstValueContext={%a}")
       IMap.pp_print_tySyns (ctx.tySyns)
       IMap.pp_print_tymap (ctx.tyCtx)
       IMap.pp_print_vstore (ctx.vlCtx)
 
-                            
+(**********************************************
+ * Helper functions for type checker workings *
+ **********************************************)
+  
 (** [typeError] returns an [Error] of [tcResult] *)
 let typeError pos err = R.error (pos, "Type error: " ^ err)
-
+                      
 let memberTySyn: tcContext -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.tySyns)
            
@@ -159,7 +123,10 @@ let lookupTySyn: tcContext -> LA.ident -> tcType =
 let lookupTy: tcContext -> LA.ident -> tcType =
   fun ctx i -> let ty = IMap.find i (ctx.tyCtx) in
                match ty with
-               | LA.UserType (_, uid) -> if (memberTySyn ctx uid) then (lookupTySyn ctx uid) else ty
+               | LA.UserType (_, uid) ->
+                  if (memberTySyn ctx uid)
+                  then (lookupTySyn ctx uid)
+                  else ty
                | _ ->  ty
 
 let lookupConst: tcContext -> LA.ident -> (LA.expr * tcType) =
@@ -209,7 +176,9 @@ let extractConsts: LA.const_clocked_typed_decl -> tcContext
   then singletonConst i (LA.Ident (pos, i)) ty
   else emptyContext 
   
-
+(**********************************************
+ * Type inferring and type checking functions *
+ **********************************************)
               
 let inferTypeConst: Lib.position -> LA.constant -> tcType
   = fun pos -> function
@@ -363,10 +332,10 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
      if isExprIntType ctx il && isExprIntType ctx iu
      then R.bind (inferTypeExpr ctx e1) (fun ty ->
                match ty with
-               | ArrayType (_, (bTy, s)) -> Lib.todo __LOC__
+               | ArrayType (_, (bTy, s)) -> R.ok (LA.ArrayType (pos, (bTy, LH.abs_diff pos il iu)))
                | _ -> typeError pos ("Slicing can only be done on an type Array "
                                        ^ "but found type "
-                                       ^ Lib.string_of_t pp_print_tcType ty))
+                                       ^ Lib.string_of_t LA.pp_print_lustre_type ty))
      else typeError pos ("Slicing should have integer types")
   | LA.ArrayIndex (pos, e, i) ->
      if isExprIntType ctx i
@@ -375,9 +344,25 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
               | ArrayType (_, (bTy, _)) -> R.ok bTy
               | _ -> typeError pos ("Indexing can only be done on an type Array "
                                     ^ "but found type "
-                                    ^ Lib.string_of_t pp_print_tcType ty))
+                                    ^ Lib.string_of_t LA.pp_print_lustre_type ty))
      else typeError pos ("Array Index should have integer types") 
-  | LA.ArrayConcat  _ -> Lib.todo __LOC__
+  | LA.ArrayConcat (pos, arr1, arr2) ->
+     R.bind (inferTypeExpr ctx arr1)(fun ty1 ->
+         match ty1 with
+         | ArrayType (_, (bTy1, size1)) ->
+            R.bind(inferTypeExpr ctx arr2)(fun ty2 ->
+                match ty2 with
+                | ArrayType (_, (bTy2, size2)) ->
+                   R.bind(eqLustreType ctx bTy1 bTy2) (fun isEq ->
+                       if isEq && (isExprIntType ctx size1) && (isExprIntType ctx size2) 
+                       then R.ok (LA.ArrayType (pos, (bTy1, LH.addExp pos size1 size2)))
+                       else typeError pos ("Cannot concat array of two different types "
+                                           ^ string_of_tcType ty1 ^ " and "
+                                           ^ string_of_tcType ty2 ))
+                | _ -> typeError pos ("Cannot concat non-array type "
+                                      ^ string_of_tcType ty2)) 
+         | _ -> typeError pos ("Cannot concat non-array type "
+                               ^ string_of_tcType ty1))
 
   (* Quantified expressions *)
   | LA.Quantifier (pos, _, qs, e) ->
@@ -549,7 +534,6 @@ and checkTypeExpr: tcContext -> LA.expr -> tcType -> unit tcResult
   (* Values/Constants *)
   | Const (pos, c) -> R.ok ()
 
-
   (* Structured expressions *)
   | RecordExpr (pos, _, flds) ->
      let (ids, es) = List.split flds in
@@ -672,17 +656,17 @@ and checkTypeRecordProj: Lib.position -> tcContext -> LA.expr -> LA.index -> tcT
             R.bind (try R.ok (List.find (fun (_, i, _) -> i = idx) flds) with
             | Not_found -> typeError pos ("Cannot project field " ^ idx
                                           ^ " from given record type "
-                                          ^ Lib.string_of_t pp_print_tcType recTy)) (fun (_, _, fty) -> 
+                                          ^ Lib.string_of_t LA.pp_print_lustre_type recTy)) (fun (_, _, fty) -> 
                 R.bind (eqLustreType ctx fty expTy) (fun isEq ->
                     if isEq
                     then R.ok ()
                     else typeError pos ("Cannot match expected type "
-                                        ^ Lib.string_of_t pp_print_tcType expTy
+                                        ^ Lib.string_of_t LA.pp_print_lustre_type expTy
                                         ^ " with infered type "
-                                        ^ Lib.string_of_t pp_print_tcType fty)))
+                                        ^ Lib.string_of_t LA.pp_print_lustre_type fty)))
          | _ -> typeError pos ("Cannot project field " ^ idx
                                ^ " from a non record type "
-                               ^ Lib.string_of_t pp_print_tcType recTy))       
+                               ^ Lib.string_of_t LA.pp_print_lustre_type recTy))       
 
 and checkTypeConstDecl: tcContext -> LA.const_decl -> tcType -> unit tcResult =
   fun ctx constDecl expTy ->
@@ -820,21 +804,21 @@ and checkTypeStructDef: tcContext -> LA.eq_lhs -> tcType -> unit tcResult
   (* This is a structured type, and we would want the expected type expTy to be a tuple type *)
     (Log.log L_debug "TypeStructDef checking if %a has type %a"
        (Lib.pp_print_list LA.pp_print_struct_item ",")
-       lhss pp_print_tcType expTy
+       lhss LA.pp_print_lustre_type expTy
     ; match expTy with
       | TupleType (_, expTyLst) ->
          if List.length lhss = List.length expTyLst
          then R.seq_ (List.map2 (checkTypeStructItem ctx) lhss expTyLst)
          else typeError pos ("Term structure on left hand side of the equation"
                              ^ " does not match expected type "
-                             ^ Lib.string_of_t pp_print_tcType expTy 
+                             ^ Lib.string_of_t LA.pp_print_lustre_type expTy 
                              ^ " on right hand side of the node equation")
 
       (* We are dealing with simple types, so lhs has to be a singleton list *)
       | _ -> if (List.length lhss != 1)
              then typeError pos ("Term structure on left hand side of the equation"
                                  ^ " does not match expected type structure "
-                                 ^ Lib.string_of_t pp_print_tcType expTy 
+                                 ^ Lib.string_of_t LA.pp_print_lustre_type expTy 
                                  ^ " on right hand side of the node equation")
              else let lhs = List.hd lhss in
                   checkTypeStructItem ctx lhs expTy)
@@ -1098,13 +1082,15 @@ let rec typeCheckGroup: tcContext -> LA.t ->  unit tcResult list
 let typeCheckDeclGrps: tcContext -> LA.t list -> unit tcResult list = fun ctx decls -> 
   List.concat (List.map (typeCheckGroup ctx) decls)               
 
-(** Get the first offending error *)
+(** Get the first error *)
 let rec reportTcResult: unit tcResult list -> unit tcResult = function
   | [] -> R.ok () 
   | Error (pos,err) :: _ -> LC.fail_at_position pos err
   | Ok () :: tl -> reportTcResult tl
 
-  
+(****************************************************************
+ * The main function of the file that kicks type checking flow  *
+ ****************************************************************)  
 let typeCheckProgram: LA.t -> unit tcResult = fun prg ->
   R.bind (Log.log L_debug ("===============================================\n"
                            ^^ "Phase 1: Building TC Global Context\n"
@@ -1116,6 +1102,8 @@ let typeCheckProgram: LA.t -> unit tcResult = fun prg ->
                        ^^"===============================================\n")
         pp_print_tcContext  tcCtx
       ; prg |> scc |> typeCheckDeclGrps tcCtx |> reportTcResult)
+(** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
+ *  a [Ok ()] if it succeeds or and [Error of String] if the typechecker fails*)
     
     
 (* 

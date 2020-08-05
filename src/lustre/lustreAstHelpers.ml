@@ -598,7 +598,6 @@ let contract_has_pre_or_arrow l =
   List.map contract_node_equation_has_pre_or_arrow l
   |> some_of_list
 
-
 (** returns all identifiers from the [expr] ast*)
 let rec vars: expr -> iset = function
   | Ident (_, i) -> SI.singleton i
