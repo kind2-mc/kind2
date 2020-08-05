@@ -186,6 +186,31 @@ let singletonTy: LA.ident -> tcType -> tcContext =
 let singletonConst: LA.ident -> LA.expr -> tcType -> tcContext =
   fun i e ty -> addConst emptyContext i e ty
 
+let extractIpTy: LA.const_clocked_typed_decl -> LA.ident * tcType
+  = fun  (_, i, ty, _, _) -> (i, ty)
+
+let extractOpTy: LA.clocked_typed_decl -> LA.ident * tcType
+  = fun (_, i, ty, _) -> (i, ty)
+                           
+let isConstArg: LA.const_clocked_typed_decl -> bool
+  = fun (_, _, _, _, isConst) -> isConst
+
+let extractArgCtx: LA.const_clocked_typed_decl -> tcContext
+  = fun input -> let (i, ty) = extractIpTy input in
+                 singletonTy i ty
+
+let extractRetCtx: LA.clocked_typed_decl -> tcContext
+  = fun op -> let (i, ty) = extractOpTy op in
+              singletonTy i ty
+                       
+let extractConsts: LA.const_clocked_typed_decl -> tcContext
+  = fun (pos, i, ty, _, isConst) ->
+  if isConst
+  then singletonConst i (LA.Ident (pos, i)) ty
+  else emptyContext 
+  
+
+              
 let inferTypeConst: Lib.position -> LA.constant -> tcType
   = fun pos -> function
   | Num _ -> Int pos
@@ -234,7 +259,7 @@ let rec inferTypeExpr: tcContext -> LA.expr -> tcType tcResult
   (* Identifiers *)
   | LA.Ident (pos, i) ->
      (try R.ok (lookupTy ctx i) with
-      | Not_found -> typeError pos ("Unbound Variable: << " ^ i ^ " >>")) 
+      | Not_found -> typeError pos ("Unbound Variable: " ^ i)) 
   | LA.ModeRef (pos, ids) -> Lib.todo __LOC__
   | LA.RecordProject (pos, expr, fld) ->
      R.bind (inferTypeExpr ctx expr) (fun recTy ->
@@ -688,12 +713,6 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
   = fun ctx
         (nodeName, isExtern, params, cclktydecls, clktydecls, localdecls, items, contract)
         expTy ->
-  let extractArg: LA.const_clocked_typed_decl -> tcContext
-    = fun  (_, i,ty, _, _) -> singletonTy i ty in
-  let extractRet: LA.clocked_typed_decl -> tcContext
-    = fun (_, i, ty, _) -> singletonTy i ty in
-  let extractConsts: LA.const_clocked_typed_decl -> tcContext
-    = fun (pos, i, ty, _, isConst) -> if isConst then singletonConst i (LA.Ident (pos, i)) ty else emptyContext in 
   let localVarBinding: tcContext -> LA.node_local_decl -> tcContext tcResult = fun ctx ->
     function
     | LA.NodeConstDecl (pos, constDecls) ->
@@ -704,8 +723,8 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
        if isTypeWellFormed ctx ty then R.ok (addTy ctx v ty)
        else typeError pos ("Node's local variable "
                            ^ v
-                           ^ " type should be well formed")
-  in
+                           ^ " type should be well formed") in
+
   Log.log L_debug "TC declaration node: %a {" LA.pp_print_ident nodeName
   (* if the node is extern, we will not have any body to typecheck *)
   ; if isExtern
@@ -713,35 +732,19 @@ and checkTypeNodeDecl: tcContext -> LA.node_decl -> tcType -> unit tcResult
          ; R.ok ())
     else (
       Log.log L_debug "Params: %a (skipping)" LA.pp_print_node_param_list params
-
-    (* store the input constants passed in the input *)
-    ; let ipConstantsCtx = List.fold_left union ctx (List.map extractConsts cclktydecls) in
-
-    (* These are inputs to the node *)
-      let ctxPlusIps = List.fold_left union ipConstantsCtx (List.map extractArg cclktydecls) in
-      Log.log L_debug "Const clocked typed decls: %a\nips:%a\n"
-        (Lib.pp_print_list LA.pp_print_const_clocked_typed_ident ",@,") cclktydecls
-        pp_print_tcContext ctxPlusIps
-
-        (* These are outputs of the node *)
-      ; let ctxPlusOpsAndIps = List.fold_left union ctxPlusIps (List.map extractRet clktydecls) in
-        Log.log L_debug "Clocked typed decls: %a\nops:%a"
-          (Lib.pp_print_list LA.pp_print_clocked_typed_ident ",@,") clktydecls
-          pp_print_tcContext ctxPlusOpsAndIps
-
-        (* Local variables and constants *)
-        ; Log.log L_debug "Local decls: %a" LA.pp_print_node_local_decl localdecls
-
-        ; R.bind (R.seq (List.map (localVarBinding ctxPlusIps) localdecls)) (fun localVarCtxts ->
+    ; (* store the input constants passed in the input *)
+      let ipConstantsCtx = List.fold_left union ctx (List.map extractConsts cclktydecls) in
+      (* These are inputs to the node *)
+      let ctxPlusIps = List.fold_left union ipConstantsCtx (List.map extractArgCtx cclktydecls) in
+      (* These are outputs of the node *)
+      let ctxPlusOpsAndIps = List.fold_left union ctxPlusIps (List.map extractRetCtx clktydecls) in
+        R.bind (R.seq (List.map (localVarBinding ctxPlusIps) localdecls)) (fun localVarCtxts ->
               (* Local TC context is input vars + output vars + local const and var decls *)
               let localCtx = List.fold_left union ctxPlusOpsAndIps localVarCtxts in
-
               Log.log L_debug "Local Typing Context {%a}" pp_print_tcContext localCtx
-
               (* Type check the node items now that we have all the local typing context *)
-              ; let r = Res.seq_ (List.map (doItem localCtx) items) in
-                Log.log L_debug "TC declaration node %a done }" LA.pp_print_ident nodeName
-                ; r))
+              ; R.bind (R.seq_ (List.map (doItem localCtx) items)) (fun _ -> 
+                    R.ok (Log.log L_debug "TC declaration node %a done }" LA.pp_print_ident nodeName))))
 
 and doNodeEqn: tcContext -> LA.node_equation -> unit tcResult = fun ctx ->
   function
@@ -830,7 +833,83 @@ and checkTypeStructDef: tcContext -> LA.eq_lhs -> tcType -> unit tcResult
              else let lhs = List.hd lhss in
                   checkTypeStructItem ctx lhs expTy)
 
-(** Obtain a global typing context, get contatnts and function decls*)
+
+and extractContractEqnContext: tcContext -> LA.contract_node_equation -> tcContext tcResult =
+  fun ctx -> function
+  | GhostConst c -> tcCtxConstDecl ctx c 
+  | GhostVar c -> tcCtxConstDecl ctx c
+  | Assume (pos, _, _, e) -> R.ok ctx
+  | Guarantee _ -> R.ok ctx
+  | Mode (pos, name, _, _) -> R.ok (addTy ctx name (Bool pos)) 
+  | ContractCall _ -> R.ok ctx
+  
+and checkTypeContractDecl: tcContext -> LA.contract_node_decl -> unit tcResult =
+  fun ctx (cname, params, args, rets, contract) ->
+  Log.log L_debug "TC Contract decl: %a {" LA.pp_print_ident cname 
+  (* build the appropriate local context *)
+  ; let argCtx = List.fold_left union ctx (List.map extractArgCtx args) in
+  let retCtx = List.fold_left union argCtx (List.map extractRetCtx rets) in
+  let localCnstCtx = List.fold_left union retCtx (List.map extractConsts args) in
+  (* get the local const var declarations into the context *)
+  R.bind (R.seq (List.map (extractContractEqnContext localCnstCtx) contract)) (fun ctxs -> 
+      let localCtx = List.fold_left union localCnstCtx ctxs in
+      R.bind (checkTypeContract localCtx contract) (fun _ -> 
+          R.ok (Log.log L_debug "TC Contract Decl %a done }" LA.pp_print_ident cname)))
+  
+and checkTypeContract: tcContext -> LA.contract -> unit tcResult =
+  fun ctx eqns ->
+  R.seq_ (List.map (checkContractNodeEqn ctx) eqns)
+
+and checkContractNodeEqn: tcContext -> LA.contract_node_equation -> unit tcResult =
+  fun ctx eqn ->
+  Log.log L_debug "checking contract with equation %a" LA.pp_print_contract_item eqn 
+  ; match eqn with
+  | GhostConst const -> (* of contract_ghost_const *) Lib.todo __LOC__
+  | GhostVar _ ->  R.ok () (* This is already checked while extracting ctx *)
+  | Assume (pos, _, _, e) -> checkTypeExpr ctx e (Bool pos)
+  | Guarantee (pos, _, _, e) -> checkTypeExpr ctx e (Bool pos)
+  | Mode (pos, _, reqs, ensures) ->
+     R.seq_ (Lib.list_apply (List.map (checkTypeExpr ctx)
+                               (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
+               (Bool pos)) 
+  | ContractCall _ -> (* of contract_call *) Lib.todo __LOC__
+
+                                           
+and tcCtxOfTyDecl: tcContext -> LA.type_decl -> tcContext tcResult = fun ctx ->
+  function
+  | LA.AliasType (_, i, ty) ->
+     (match ty with
+      | LA.EnumType (pos, n, econsts) ->
+         (match n with
+          | None -> typeError pos "Necessary Enum name not found"
+          | Some ename -> R.ok (List.fold_left union ctx
+                                  (List.map ((Lib.flip singletonTy) (LA.UserType (pos, ename))) econsts)))
+      | _ -> R.ok (addTySyn ctx i ty))
+  | LA.FreeType _ -> R.ok ctx
+
+(** get the type signature of node or a function *)
+and tcCtxOfNodeDecl: Lib.position -> tcContext -> LA.node_decl -> tcContext tcResult
+  = fun pos ctx (nname, _, _ , ip, op,_ ,_ ,_) ->
+  Log.log L_debug
+    "Extracting typing context from node declaration: %a"
+    LA.pp_print_ident nname
+  ; if (memberTy ctx nname)
+    then typeError pos ("Duplicate node detected with name: " ^ nname)
+    else R.bind (buildNodeFunTy pos ctx ip op) (fun funTy ->
+             R.ok (addTy ctx nname funTy))
+
+and tcCtxOfContractNodeDecl: Lib.position -> tcContext
+                             -> LA.contract_node_decl -> tcContext tcResult =
+  fun pos ctx (cname, params, inputs, outputs, contrat) ->
+  Log.log L_debug
+    "Extracting typing context from contract declaration: %a"
+    LA.pp_print_ident cname
+  ; if (memberTy ctx cname)
+    then typeError pos ("Duplicate node detected with name: " ^ cname)
+    else R.bind (buildNodeFunTy pos ctx inputs outputs) (fun funTy ->
+             R.ok (addTy ctx cname funTy))
+
+(** Obtain a global typing context, get constants and function decls*)
 and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
   let rec tcContextOf': tcContext -> LA.declaration -> tcContext tcResult = fun ctx ->
     function
@@ -840,43 +919,13 @@ and tcContextOf: tcContext -> LA.t -> tcContext tcResult = fun ctx ->
     | LA.FuncDecl (pos, nodeDecl) -> tcCtxOfNodeDecl pos ctx nodeDecl
     | LA.ContractNodeDecl (pos, contractDecl) -> tcCtxOfContractNodeDecl pos ctx contractDecl
     | _ -> R.ok ctx
-  and tcCtxOfTyDecl: tcContext -> LA.type_decl -> tcContext tcResult = fun ctx ->
-    function
-    | LA.AliasType (_, i, ty) ->
-       (match ty with
-        | LA.EnumType (pos, n, econsts) ->
-           (match n with
-            | None -> typeError pos "Necessary Enum name not found"
-            | Some ename -> R.ok (List.fold_left union ctx
-                                    (List.map ((Lib.flip singletonTy) (LA.UserType (pos, ename))) econsts)))
-        | _ -> R.ok (addTySyn ctx i ty))
-    | LA.FreeType _ -> R.ok ctx
-  (** get the type signature of node or a function *)
-  and tcCtxOfNodeDecl: Lib.position -> tcContext -> LA.node_decl -> tcContext tcResult
-    = fun pos ctx (nname, _, _ , ip, op,_ ,_ ,_) ->
-    Log.log L_debug
-      "Extracting typing context from node declaration: %a"
-      LA.pp_print_ident nname
-    ; if (memberTy ctx nname)
-    then typeError pos ("Duplicate node detected with name: " ^ nname)
-    else R.bind (buildNodeFunTy pos ctx ip op) (fun funTy ->
-             R.ok (addTy ctx nname funTy))
-  and tcCtxOfContractNodeDecl: Lib.position -> tcContext
-                               -> LA.contract_node_decl -> tcContext tcResult =
-    fun pos ctx (cname, params, inputs, outputs, contrat) ->
-        Log.log L_debug
-      "Extracting typing context from contract declaration: %a"
-      LA.pp_print_ident cname
-    ; if (memberTy ctx cname)
-    then typeError pos ("Duplicate node detected with name: " ^ cname)
-    else R.bind (buildNodeFunTy pos ctx inputs outputs) (fun funTy ->
-             R.ok (addTy ctx cname funTy))
-  in function
-  | [] -> R.ok ctx
-  | d :: tl ->
-     R.bind (tcContextOf' ctx d) (fun ctx' ->
-         R.bind (tcContextOf (union ctx' ctx) tl) (fun c -> 
-             R.ok c))                                                                                                   
+    in function
+    | [] -> R.ok ctx
+    | d :: tl ->
+       R.bind (tcContextOf' ctx d) (fun ctx' ->
+           R.bind (tcContextOf (union ctx' ctx) tl) (fun c -> 
+               R.ok c))
+
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true *)
 and isTypeWellFormed: tcContext -> tcType -> bool = fun ctx ty ->
@@ -902,29 +951,24 @@ and tcCtxConstDecl: tcContext -> LA.const_decl -> tcContext tcResult = fun ctx -
   | LA.UntypedConst (_, i, e) ->
      R.bind (inferTypeExpr ctx e) (fun ty -> 
          R.ok (addTy (addConst ctx i e ty) i ty))
-  | LA.TypedConst (pos, i, expr, ty) ->
-     let expTy = ty in
-     R.bind (checkTypeExpr ctx expr expTy) (fun _ ->
+  | LA.TypedConst (pos, i, expr, expTy) ->
+     R.bind (checkTypeExpr (addTy ctx i expTy) expr expTy) (fun _ ->
          R.ok (addTy (addConst ctx i expr expTy) i expTy))
   
 (** Function type for nodes will be (TupleTy ips) -> (TupleTy outputs)  *)
 and buildNodeFunTy: Lib.position -> tcContext -> LA.const_clocked_typed_decl list
                     -> LA.clocked_typed_decl list -> tcType tcResult
   = fun pos ctx args rets ->
-  let extractIps (_, i, ty, _, _) = (i, ty) in
-  let extractOpTys (_, i, ty, _) = ty in
-  let isConstArg (_, _, _, _, isConst) = isConst in
-  
   let funConstCtx = List.fold_left (fun ctx (i,ty) -> addConst ctx i (LA.Ident (pos,i)) ty)
-                      ctx (List.filter isConstArg args |> List.map extractIps) in
-  let funCtx = List.fold_left (fun ctx (i, ty)-> addTy ctx i ty) funConstCtx (List.map extractIps args) in   
-  let ops = List.map extractOpTys rets in
-  let ips = List.map snd (List.map extractIps args) in
+                      ctx (List.filter isConstArg args |> List.map extractIpTy) in
+  let funCtx = List.fold_left (fun ctx (i, ty)-> addTy ctx i ty) funConstCtx (List.map extractIpTy args) in   
+  let ops = List.map snd (List.map extractOpTy rets) in
+  let ips = List.map snd (List.map extractIpTy args) in
   let retTy = LA.TupleType (pos, ops) in
   let argTy = LA.TupleType (pos, ips) in
-  if isTypeWellFormed funCtx retTy
+  if isTypeWellFormed funCtx retTy && isTypeWellFormed funCtx argTy
   then R.ok (LA.TArr (pos, argTy, retTy))
-  else typeError pos "Return type of node is not well formed."
+  else typeError pos "Return type and argument type of node should be well formed."
 
 (** Compute Equality for lustre types  *)
 and eqLustreType : tcContext -> LA.lustre_type -> LA.lustre_type -> bool tcResult = fun ctx t1 t2 ->
@@ -1017,20 +1061,6 @@ and eqTypeArray: tcContext -> (LA.lustre_type * LA.expr) -> (LA.lustre_type * LA
 (** For now, we do not check the bounds for arrays. This introduces bugs similar to Issue #566. 
     https://github.com/kind2-mc/kind2/issues/566. 
     Backend should handle such cases as it can talk to a powerful solver. *)
-
-and checkContractNodeEqn: tcContext -> LA.contract_node_equation -> tcType -> unit tcResult =
-  fun ctx eqn expTy ->
-  match eqn with
-  | GhostConst _ -> (* of contract_ghost_const *) Lib.todo __LOC__
-  | GhostVar _ -> (* of contract_ghost_var *) Lib.todo __LOC__
-  | Assume _ -> (* of contract_assume *) Lib.todo __LOC__
-  | Guarantee _ -> (* of contract_guarantee *) Lib.todo __LOC__
-  | Mode _ -> (* of contract_mode *) Lib.todo __LOC__
-  | ContractCall _ -> (* of contract_call *) Lib.todo __LOC__
-                                 
-and checkTypeContractDecl: tcContext -> LA.contract_node_decl -> tcType -> unit tcResult =
-  fun _ -> Lib.todo __LOC__
-
                                  
 (** Compute the strongly connected components for type checking *)
 let scc: LA.t -> LA.t list
@@ -1040,17 +1070,21 @@ let scc: LA.t -> LA.t list
  * the top most declaration should be able to access 
  * the types of all the forward referenced indentifiers from the context*)
 let rec typeCheckGroup: tcContext -> LA.t ->  unit tcResult list
-  = fun ctx
+  = fun globalCtx
   -> function
   | [] -> [R.ok ()]
   (* skip over type declarations and constDecls*)
   | (LA.TypeDecl _ :: rest) 
-    | LA.ConstDecl _ :: rest -> typeCheckGroup ctx rest  
-  | LA.NodeDecl (pos, ((i, _,_, _, _, _, _, _) as nodeDecl)) :: rest ->
-     (checkTypeNodeDecl ctx nodeDecl (lookupTy ctx i)) :: typeCheckGroup ctx rest
-  | LA.FuncDecl (pos, ((i, _,_, _, _, _, _, _) as nodeDecl)):: rest ->
-     (checkTypeNodeDecl ctx nodeDecl (lookupTy ctx i)) :: typeCheckGroup ctx rest
-  | LA.ContractNodeDecl _ :: rest -> typeCheckGroup ctx rest
+    | LA.ConstDecl _ :: rest -> typeCheckGroup globalCtx rest  
+  | LA.NodeDecl (_, ((i, _,_, _, _, _, _, _) as nodeDecl)) :: rest ->
+     (checkTypeNodeDecl globalCtx nodeDecl (lookupTy globalCtx i))
+     :: typeCheckGroup globalCtx rest
+  | LA.FuncDecl (_, ((i, _,_, _, _, _, _, _) as nodeDecl)):: rest ->
+     (checkTypeNodeDecl globalCtx nodeDecl (lookupTy globalCtx i))
+     :: typeCheckGroup globalCtx rest
+  | LA.ContractNodeDecl (_, ((i, _, _, _, _) as contractDecl)) :: rest ->
+     (checkTypeContractDecl globalCtx contractDecl)
+                                     :: typeCheckGroup globalCtx rest
   | LA.NodeParamInst  _ :: rest -> Lib.todo __LOC__
        
        
