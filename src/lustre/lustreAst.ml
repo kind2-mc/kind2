@@ -645,7 +645,7 @@ and pp_print_field_assign ppf (i, e) =
 
 (* Pretty-print a Lustre type *)
 and pp_print_lustre_type ppf = function
-  | TVar (_, i) -> pp_print_ident ppf "i"
+  | TVar (_, i) -> pp_print_ident ppf i
   | Bool pos -> Format.fprintf ppf "bool"
   | Int pos -> Format.fprintf ppf "int"
   | UInt8 pos -> Format.fprintf ppf "uint8"
