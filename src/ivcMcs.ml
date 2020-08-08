@@ -31,10 +31,13 @@ module PosMap = Map.Make(Position)
 module PosSet = Set.Make(Position)
 
 module A = LustreAst
+module H = LustreAstHelpers
+
 module AstID = struct
   type t = A.ident
   let compare = compare
 end
+
 module IdMap = Map.Make(AstID)
 
 type 'a result =
@@ -160,7 +163,7 @@ let rand_function_name_for _ ts =
   end
 
 let undef_expr pos_sv_map const_expr typ expr =
-  let pos = A.pos_of_expr expr in
+  let pos = H.pos_of_expr expr in
   match pos_sv_map with
   | None -> A.Ident (pos, "_")
   | Some pos_sv_map ->
@@ -304,7 +307,7 @@ and ast_contains p ast =
 and minimize_expr ue lst typ expr =
   let all_pos = PosSet.of_list lst in
   let keep_expr expr =
-    PosSet.mem (A.pos_of_expr expr) all_pos
+    PosSet.mem (H.pos_of_expr expr) all_pos
   in
   if ast_contains keep_expr expr
   then (false, minimize_node_call_args ue lst expr)
