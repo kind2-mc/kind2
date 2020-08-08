@@ -46,9 +46,10 @@ module IMap = struct
               type t = LA.ident
               let compare i1 i2 = Stdlib.compare i1 i2
             end)
+
   (** Pretty print type synonyms*)
-  let pp_print_type_binding ppf = fun i ty -> 
-    Format.fprintf ppf "(%a<->%a), " LA.pp_print_ident i LA.pp_print_lustre_type ty
+  let pp_print_type_syn ppf = fun i ty -> 
+    Format.fprintf ppf "(%a:=%a), " LA.pp_print_ident i LA.pp_print_lustre_type ty
 
   (** Pretty print type bindings*)
   let pp_print_type_binding ppf = fun i ty -> 
@@ -59,7 +60,7 @@ module IMap = struct
     Format.fprintf ppf "(%a:%a :-> %a), " LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v
 
   (** Pretty print type context *)
-  let pp_print_tySyns ppf = iter (pp_print_type_binding ppf)   
+  let pp_print_tySyns ppf = iter (pp_print_type_syn ppf)   
 
   (** Pretty print type context *)
   let pp_print_tymap ppf = iter (pp_print_type_binding ppf)   
