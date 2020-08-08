@@ -623,9 +623,9 @@ let rec vars: expr -> iset = function
    | ArraySlice (_, e1, (e2, e3)) -> SI.union (vars e3) (SI.union (vars e1) (vars e2))
    | ArrayConcat (_, e1, e2) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
-   | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map varsOfTyIds qs)) 
+   | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map vars_of_ty_ids qs)) 
   (* Clock operators *)
-  | When (_, e, clkE) -> SI.union (vars e) (varsOfCloclExpr clkE)
+  | When (_, e, clkE) -> SI.union (vars e) (vars_of_clocl_expr clkE)
   | Current  (_, e) -> vars e
   | Condact (_, e1, e2, i, es1, es2) ->
      SI.add i (SI.flatten (vars e1 :: vars e2:: (List.map vars es1) @ (List.map vars es2)))
@@ -640,8 +640,8 @@ let rec vars: expr -> iset = function
   (* Node calls *)
   | Call (_, i, es) -> SI.add i (SI.flatten (List.map vars es)) 
   | CallParam (_, i, _, es) -> SI.add i (SI.flatten (List.map vars es))
-and varsOfTyIds: typed_ident -> iset = fun (_, i, ty) -> SI.singleton i 
-and varsOfCloclExpr: clock_expr -> iset = function
+and vars_of_ty_ids: typed_ident -> iset = fun (_, i, ty) -> SI.singleton i 
+and vars_of_clocl_expr: clock_expr -> iset = function
   | ClockTrue -> SI.empty
   | ClockPos i -> SI.singleton i
   | ClockNeg i -> SI.singleton i
@@ -649,7 +649,7 @@ and varsOfCloclExpr: clock_expr -> iset = function
 
 
 (** Return an ast that adds two expressions*)
-let addExp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
+let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
   Lib.todo __LOC__
 
 (** returns an ast which is the absolute difference of two expr ast*)
