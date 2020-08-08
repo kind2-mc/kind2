@@ -49,7 +49,7 @@ exception Parser_error
 
 (** An identifier *)
 type ident = string
-
+     
 (** A single index *)
 type index = string
 
@@ -369,38 +369,6 @@ val pp_print_program : Format.formatter -> t -> unit
 
 val pp_print_contract_item : Format.formatter -> contract_node_equation -> unit
 val pp_print_contract_node_decl : Format.formatter -> contract_node_decl -> unit
-
-
-(** {1 Helpers} *)
-
-(** Returns the position of an expression *)
-val pos_of_expr : expr -> Lib.position
-
-(** Returns true if the expression has unguareded pre's *)
-val has_unguarded_pre : expr -> bool
-
-(** Returns true if the expression has a `pre` or a `->`. *)
-val has_pre_or_arrow : expr -> Lib.position option
-
-(** Returns true iff a contract mentions a `pre` or a `->`.
-
-Does not (cannot) check contract calls recursively, checks only inputs and
-outputs. *)
-val contract_has_pre_or_arrow : contract -> Lib.position option
-
-(** Checks whether a node local declaration has a `pre` or a `->`. *)
-val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
-
-(** Checks whether a node equation has a `pre` or a `->`. *)
-val node_item_has_pre_or_arrow : node_item -> Lib.position option
-
-(** [replace_lasts allowed prefix acc e] replaces [last x] expressions in AST
-    [e] by abstract identifiers prefixed with [prefix]. Only identifiers that
-    appear in the list [allowed] are allowed to appear under a last. It returns
-    the new AST expression and a set of identifers for which the last
-    application was replaced. *)
-val replace_lasts : string list -> string -> SI.t -> expr -> expr * SI.t
-
 
 (* 
    Local Variables:
