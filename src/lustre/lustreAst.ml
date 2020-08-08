@@ -20,23 +20,6 @@ open Lib
 
 exception Parser_error
 
-let error_at_position pos msg =
-  match Log.get_log_format () with
-  | Log.F_pt ->
-    Log.log L_error "Parser error at %a: %s" Lib.pp_print_position pos msg
-  | Log.F_xml -> Log.parse_log_xml L_error pos msg
-  | Log.F_json -> Log.parse_log_json L_error pos msg
-  | Log.F_relay -> ()
-
-
-let warn_at_position pos msg = 
-  match Log.get_log_format () with
-  | Log.F_pt ->
-    Log.log L_warn "Parser warning at %a: %s" Lib.pp_print_position pos msg
-  | Log.F_xml -> Log.parse_log_xml L_warn pos msg
-  | Log.F_json -> Log.parse_log_json L_warn pos msg
-  | Log.F_relay -> ()
-
 
 (* ********************************************************************** *)
 (* Type declarations                                                      *)
@@ -683,10 +666,10 @@ and pp_print_lustre_type ppf = function
     Format.fprintf ppf 
       "enum @[<hv 2>{ %a }@]" 
       (pp_print_list Format.pp_print_string ",@ ") l
-  | TArr (pos, argTy, retTy) ->
+  | TArr (pos, arg_ty, ret_ty) ->
      Format.fprintf ppf "@[%a->@,%a@]"
-       pp_print_lustre_type argTy
-       pp_print_lustre_type retTy 
+       pp_print_lustre_type arg_ty
+       pp_print_lustre_type ret_ty 
 
 (* Pretty-print a typed identifier *)
 and pp_print_typed_ident ppf (p, s, t) = 
