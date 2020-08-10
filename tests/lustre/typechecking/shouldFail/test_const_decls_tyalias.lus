@@ -1,3 +1,0 @@
--- const r3_l = 1;
-const r3_u = 2;
-type r3 = subrange [r3_l, r3_u] of int;

@@ -71,12 +71,6 @@ val min_option : float option -> float option -> float option
     [s2] is longer than [s1]. *)
 val string_starts_with : string -> string -> bool
 
-(** returns the maximum of the integer *)
-val max_of: int -> int -> int
-
-(** Returns the absolute difference of the two integers *)
-val abs_diff: int -> int -> int
-
   
 (** {1 Integer functions} *)
 

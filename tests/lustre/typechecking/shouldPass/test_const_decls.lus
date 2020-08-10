@@ -75,3 +75,6 @@ const c3 = 0xA0f ;
       c4 = .45e-45 ;
       c5 = 0.2E+3 ;
       c6 = 0x3.1f4p-5 ;
+
+type complex1 = { re: real; im: real };
+const j = complex1 { re = -(3.0)/2.0; im = 3.0/2.0 };

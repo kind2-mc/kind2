@@ -1,4 +1,5 @@
 -- Node with array slices 
+/* TODO: 
 node x75 (a: int^5) returns (d1: int; a23: int^2);
 const A = [1, 2, 3, 4, 5, 6];
 var
@@ -18,7 +19,6 @@ tel
 
 type T = int;
 
-/* TODO: 
 -- Node with array slices and concatenations 
 node x76 (A: T^10^5) returns (B1: T^10^2; B2: T^2^4; B3: int^5 );
 let

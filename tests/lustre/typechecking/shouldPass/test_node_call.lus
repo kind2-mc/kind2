@@ -1,3 +1,6 @@
+-- A record type 
+type t = { one: int; two: real; three: bool };
+
 -- Node with two return values 
 node U1(x0: int; y0: real) returns (x1: int; y1: real);
 let 
@@ -19,3 +22,52 @@ let
   (x, y) = U1(U1(1, 2.0));
 tel;
 */
+
+
+-- Node with node calls
+node Y(x: int; r: real) returns (y: int; value: int);
+var
+  flag: bool;
+  v: t;
+let
+  v = Z(true);
+
+  -- Node call with pre in input parameter 
+  y = X(pre x + v.one);
+
+  -- Node call with two return values
+  (flag, value) = if x > 0 then nodecall(x) else (true, 0);
+
+  -- Non-variable property
+  --%PROPERTY y > 0;
+tel; 
+
+
+-- Another node 
+node X(x: int) returns (y: int);
+var v: t; 
+let 
+
+  -- Return value of record type 
+  v = Z(true);
+
+  -- Nested and unguarded pres 
+  y = pre (pre x) + v.one;
+
+tel;
+
+-- A node returning a record type 
+node Z(x: bool) returns (y: t);
+let
+  y = if x then
+        t { one=0; two=1.0; three = true } 
+      else
+        t { one=1; two=2.0; three = false };
+tel;
+
+-- Node with two return values
+node nodecall (x: int) returns (f: bool; v: int);
+let
+  f = false;
+  v = 0;
+tel;

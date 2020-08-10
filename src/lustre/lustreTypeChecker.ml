@@ -189,14 +189,6 @@ let infer_type_const: Lib.position -> LA.constant -> tc_type
   | _ -> Bool pos
 (** Infers type of constants *)
 
-let infer_type_unary_op: Lib.position -> LA.unary_operator -> tc_type tc_result
-  = fun pos ->
-  function
-  | LA.Not -> R.ok (LA.TArr (pos ,Bool pos , Bool pos))
-  | LA.BVNot
-    | LA.Uminus -> R.ok (LA.TArr (pos, Int pos, Int pos))
-(** Infers the unary type operators *)
-
 let infer_type_binary_op: Lib.position -> LA.binary_operator -> tc_type tc_result
   = fun pos ->
   function
@@ -231,6 +223,7 @@ let infer_type_comp_op: Lib.position -> tc_type -> LA.comparison_operator -> tc_
 (** Type of comparison operator is takes to values of same type 
  * and returns a [bool]  *)
 
+      
 let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   = fun ctx -> function
   (* Identifiers *)
@@ -262,13 +255,14 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
 
   (* Operator applications *)
   | LA.UnaryOp (pos, op, e) ->
-     R.bind (infer_type_unary_op pos op) (fun ty ->
-         match ty with
-         | TArr (_, arg_ty, res_ty) ->
-            R.bind (check_type_expr ctx e arg_ty) (fun _ ->
-                R.ok res_ty)
-         | fty -> type_error pos ("Unexpected unary operator type: "
-                                 ^ string_of_tc_type fty))
+     R.bind(infer_type_expr ctx e) (fun tye ->
+         R.bind (infer_type_unary_op ctx pos tye op) (fun ty ->
+             match ty with
+             | TArr (_, arg_ty, res_ty) ->
+                R.bind (check_type_expr ctx e arg_ty) (fun _ ->
+                    R.ok res_ty)
+             | fty -> type_error pos ("Unexpected unary operator type: "
+                                      ^ string_of_tc_type fty)))
   | LA.BinaryOp (pos, bop, e1, e2) ->
      R.bind (infer_type_binary_op pos bop) (fun ty ->
          match ty with
@@ -474,12 +468,12 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
 
   (* Operators *)
   | UnaryOp (pos, op, e) ->
-     R.bind (infer_type_unary_op pos op) (fun ty ->
          R.bind (infer_type_expr ctx e) (fun arg_ty ->
-             R.bind (eq_lustre_type ctx ty (TArr (pos, arg_ty, exp_ty))) (fun is_eq ->
-                 if is_eq
-                 then R.ok ()
-                 else type_error pos ("Cannot apply argument of type "
+             R.bind (infer_type_unary_op ctx pos arg_ty op) (fun ty ->
+                 R.bind (eq_lustre_type ctx ty (TArr (pos, arg_ty, exp_ty))) (fun is_eq ->
+                     if is_eq
+                     then R.ok ()
+                     else type_error pos ("Cannot apply argument of type "
                                      ^ string_of_tc_type arg_ty
                                      ^ " to operator of type "
                                      ^ string_of_tc_type ty))))
@@ -657,6 +651,21 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
  * if the expected type is the given type [tc_type]  
  * returns an [Error of string] otherwise *)
 
+and infer_type_unary_op: tc_context -> Lib.position -> tc_type -> LA.unary_operator -> tc_type tc_result
+  = fun ctx pos ty ->
+  function
+  | LA.Not -> R.ok (LA.TArr (pos, Bool pos, Bool pos))
+  | LA.BVNot -> R.ok (LA.TArr (pos, Int pos, Int pos))
+  | LA.Uminus ->
+     R.bind(eq_lustre_type ctx ty (Int pos))(fun isInt ->
+         R.bind (eq_lustre_type ctx ty (Real pos)) (fun isReal ->
+             if (isInt || isReal)
+             then R.ok (LA.TArr (pos, ty, ty))
+             else type_error pos ("Unary minus cannot be applied to expression of type "
+                                  ^ string_of_tc_type ty)))
+(** Infers the unary type operators *)
+
+                 
 and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index -> tc_type -> unit tc_result =
   fun pos ctx expr idx exp_ty -> 
   R.bind(infer_type_expr ctx expr) (fun recTy ->
@@ -1042,7 +1051,7 @@ and is_expr_int_type: tc_context -> LA.expr -> bool  = fun ctx e ->
   R.safe_unwrap false (
       R.bind (infer_type_expr ctx e) (fun ty -> 
           eq_lustre_type ctx ty (LA.Int (LH.pos_of_expr e))))
-(** Checks if the constant is of type Int. This will be useful 
+(** Checks if the expr is of type Int. This will be useful 
  * in evaluating array sizes that we need to have as constant integers
  * while declaring the array type *)
 

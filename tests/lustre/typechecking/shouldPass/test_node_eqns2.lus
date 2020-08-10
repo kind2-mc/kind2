@@ -67,6 +67,7 @@ let
 
 tel;
 
+/* TODO fix the tuple field selectors
 -- Node with structural assignments 
 node x63 (e: [bool, [int, int]]) returns (c: bool; a, b: int; A: [int, int]);
 var ab: [int, int];
@@ -77,3 +78,4 @@ let
   A = e[1];
   -- (c, [A[0], A[1]]) = e;
 tel;
+*/
