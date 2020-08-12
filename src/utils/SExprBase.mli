@@ -22,10 +22,10 @@
     functor {!Make} to instantiate the type to a concrete type, see
     {!HStringSExpr}.
 
-    @author Christoph Sticksel 
-    
     (Incorporating code from the OCaml sexplib, which is part of the
     OCaml Core alternative standard library)
+
+    @author Christoph Sticksel
 *)
 
 (** {1 Functorized interface} *)

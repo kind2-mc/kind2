@@ -45,11 +45,11 @@
     the definition of a variable on the right-hand side. 
 
     For the detection of cycles also consider definitions of called nodes
-    by using the map of outputs to their dependent inputs. If in the
-    node {[node N (i: t) returns (o: t)]} the output [o] depends on
-    the input [i], then the node call [N(x)] must not occur in the
-    definition of [x]. If the output [o] does not depend on the input
-    [i], [N(x)] may occur in the definition of [x].
+    by using the map of outputs to their dependent inputs. If in the node
+    {[node N (i: t) returns (o: t)]}
+    the output [o] depends on the input [i], then the node call [N(x)]
+    must not occur in the definition of [x]. If the output [o] does not
+    depend on the input [i], [N(x)] may occur in the definition of [x].
 
     In particular, if a node is viewed as its contract only, the
     implemention is omitted and node calls never cause cycles in

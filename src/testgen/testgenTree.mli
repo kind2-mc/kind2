@@ -54,7 +54,7 @@ exception TopReached
 (**
   Creates a reversed partial tree. [mode_conj] is a conjunction of modes
   activable in the initial state. [mode_to_term] is the function mapping mode
-  names to their term @0.
+  names to their term at offset zero.
   Originally there are no witnesses, some initial state mode, and no modes
   explored.
 *)

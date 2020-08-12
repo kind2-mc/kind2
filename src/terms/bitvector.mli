@@ -43,7 +43,7 @@ val bvsignext : int -> t -> t
 val bvconcat : t -> t -> t
 
 
-(** {Numeral to Unsigned Bitvector} 
+(** {1 Numeral to Unsigned Bitvector}
 @author Arjun Viswanathan *)
 
 (** Return size 8 unsigned bitvector converted from a numeral *)
@@ -59,7 +59,7 @@ val num_to_ubv32 : Numeral.t -> t
 val num_to_ubv64 : Numeral.t -> t
 
 
-(** {Usigned Bitvector to Numeral} 
+(** {1 Usigned Bitvector to Numeral}
 @author Arjun Viswanathan*)
 
 (** Return numeral converted from an unsigned bitvector *)
@@ -78,7 +78,7 @@ val ubv32_to_num : t -> Numeral.t
 val ubv64_to_num : t -> Numeral.t
 
 
-(** {Numeral to Signed Bitvector} 
+(** {1 Numeral to Signed Bitvector}
 @author Arjun Viswanathan*)
 
 (** Return size 8 signed bitvector converted from a numeral *)
@@ -94,7 +94,7 @@ val num_to_bv32 : Numeral.t -> t
 val num_to_bv64 : Numeral.t -> t
 
 
-(** {Signed Bitvector to Numeral} 
+(** {1 Signed Bitvector to Numeral}
 @author Arjun Viswanathan*)
 
 (** Return numeral converted from a signed bitvector *)
@@ -167,7 +167,7 @@ val bv64_to_int : t -> int
 *)
 
 
-(** {Arithmetic Operations} 
+(** {1 Arithmetic Operations}
 @author Arjun Viswanathan*)
 
 (** Function that adds two signed bitvectors *)
@@ -201,7 +201,7 @@ val sbv_sub : t -> t -> t
 val sbv_neg : t -> t
 
 
-(** {Logical Operations} 
+(** {1 Logical Operations}
 @author Arjun Viswanathan*)
 
 (** Function that computes bitwise conjunction *)
@@ -214,7 +214,7 @@ val bv_or : t -> t -> t
 val bv_not : t -> t
 
 
-(** {Comparison Operators} 
+(** {1 Comparison Operators}
 @author Arjun Viswanathan*)
 
 (** Equality *)
@@ -245,7 +245,7 @@ val lte : t -> t -> bool
 val gte : t -> t -> bool
 
 
-(** {Shift Operators} 
+(** {1 Shift Operators}
 @author Arjun Viswanathan*)
 
 (** Shift bitvector left by n times, 
@@ -261,7 +261,7 @@ val bv_rsh : t -> t -> t
 val bv_arsh : t -> t -> t
 
 
-(** {Pretty Printing} *)
+(** {1 Pretty Printing} *)
 (** Pretty-print a constant bitvector in SMTLIB binary format *)
 val pp_smtlib_print_bitvector_b : Format.formatter -> t -> unit
 
@@ -284,7 +284,7 @@ val pp_print_signed_machine_integer : Format.formatter -> t -> unit
 val pp_print_bitvector_x : Format.formatter -> t -> unit
 
 
-(** {Conversions} *)
+(** {1 Conversions} *)
 (** Convert a string to a bitvector
     Binary and hexadecimal notation is accepted as #b[01]+ and
     #x[0-9a-fA-F]+ as in the SMTLIB standard *)
@@ -298,7 +298,7 @@ val bitvector_of_hstring : HString.t -> t
 val bool_of_hstring : HString.t -> bool
 
 
-(** {Infix Comparison Operators} *)
+(** {1 Infix Comparison Operators} *)
 (** Equality *)
 val ( = ) : t -> t -> bool
 
@@ -315,6 +315,6 @@ val ( <= ) : t -> t -> bool
 val ( >= ) : t -> t -> bool
 
 
-(** {Unused Functions} *)
+(** {1 Unused Functions} *)
 (** Return the first bit of input bitvector b *)
 val first_bit : t -> bool
