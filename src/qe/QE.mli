@@ -18,10 +18,10 @@
 
 (** Quantifier elimination
 
-    
-
-    @author Christoph Sticksel, Adrien Champion, Alain Mebsout,
-            Daniel Larraz
+    @author Christoph Sticksel
+    @author Adrien Champion
+    @author Alain Mebsout
+    @author Daniel Larraz
 *)
 
 (** [generalize f m] evaluates the term [f] with the model [m] and

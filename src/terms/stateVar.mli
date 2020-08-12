@@ -95,7 +95,7 @@ val import : t -> t
 val state_var_of_string : string * string list -> t 
 
 (** Return a previously declared state variable from a string consisting of the
-   concatenation of all scopes and the state variable. Raises {Not_found} if it
+   concatenation of all scopes and the state variable. Raises [Not_found] if it
    was not previously declared. *)
 val state_var_of_long_string : string -> t
 
