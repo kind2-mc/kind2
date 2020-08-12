@@ -78,3 +78,7 @@ const c3 = 0xA0f ;
 
 type complex1 = { re: real; im: real };
 const j = complex1 { re = -(3.0)/2.0; im = 3.0/2.0 };
+
+
+const c100:int = 1 + 1;
+const c101:real = 1.0 + 1.0;
