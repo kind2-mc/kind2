@@ -329,9 +329,32 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                  if is_expr_int_type ctx sup_expr
                  then R.ok(LA.ArrayType (pos, (b_ty, sup_expr)))
                  else type_error pos "Array cannot have non numeral type as its bounds"))
-  | LA.StructUpdate (pos, r, l, e) ->
-     
-     Lib.todo __LOC__
+  | LA.StructUpdate (pos, r, i_or_ls, e) ->
+     if List.length i_or_ls != 1
+     then type_error pos ("List of labels or indices for structure update is not supported") 
+     else (match List.hd i_or_ls with
+     | LA.Label (pos, l) ->  
+        R.bind(infer_type_expr ctx r) (fun r_ty ->
+            match r_ty with
+            | RecordType (_, flds) ->
+               (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
+                (match (List.assoc_opt l typed_fields) with
+                 | Some f_ty ->
+                    R.bind(infer_type_expr ctx e) (fun e_ty -> 
+                        R.bind(eq_lustre_type ctx f_ty e_ty) (fun is_eq ->
+                            if is_eq
+                            then R.ok r_ty
+                            else type_error pos ("Type mismatch. Type of record label " ^ l
+                                 ^ " is of type "
+                                 ^ string_of_tc_type f_ty
+                                 ^ " but the type of the expression is "
+                                 ^ string_of_tc_type e_ty)))
+                 | None -> type_error pos ("No field named " ^ l ^ "found in record type")))
+            | _ -> type_error pos ("Cannot do an update on non-record type "
+                                   ^ string_of_tc_type r_ty))
+     | _ -> type_error pos ("Only labels can be used for record expressions"
+                            ^ " but found index "
+                            ^ Lib.string_of_t LA.pp_print_label_or_index (List.hd i_or_ls)))  
   | LA.ArraySlice (pos, e1, (il, iu)) ->
      if is_expr_int_type ctx il && is_expr_int_type ctx iu
      then R.bind (infer_type_expr ctx e1) (fun ty ->
@@ -583,7 +606,23 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                                  ^ string_of_tc_type exp_ty))
 
   (* Update of structured expressions *)
-  | StructUpdate (pos, r, ls, e) -> Lib.todo __LOC__
+  | StructUpdate (pos, r, i_or_ls, e) ->
+     if List.length i_or_ls != 1
+     then type_error pos ("List of labels or indices for structure update is not supported") 
+     else (match List.hd  i_or_ls with
+     | LA.Label (pos, l) ->  
+        R.bind(infer_type_expr ctx r) (fun r_ty ->
+            match r_ty with
+            | RecordType (_, flds) ->
+               (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
+                (match (List.assoc_opt l typed_fields) with
+                 | Some ty -> check_type_expr ctx e ty 
+                 | None -> type_error pos ("No field named " ^ l ^ "found in record type")))
+            | _ -> type_error pos ("Cannot do an update on non-record type "
+                                   ^ string_of_tc_type r_ty))
+     | _ -> type_error pos ("Only label can be used for record expressions"
+                            ^ " but found index "
+                            ^ Lib.string_of_t LA.pp_print_label_or_index (List.hd i_or_ls)))
   | ArrayConstr (pos, b_exp, sup_exp) ->
      R.bind (infer_type_expr ctx b_exp) (fun b_ty ->
          R.bind (infer_type_expr ctx sup_exp) (fun sup_ty ->
@@ -734,30 +773,30 @@ and infer_type_comp_op: tc_context -> Lib.position -> (tc_type * tc_type) -> LA.
          if is_num
          then R.ok (LA.TArr (pos, ty1, TArr(pos, ty2, Bool pos)))
          else type_error pos ("Both sides of the expression should be of"
-                              ^" type same numeral type but found " ^ string_of_tc_type ty1
+                              ^ " type same numeral type but found " ^ string_of_tc_type ty1
                               ^ " and " ^ string_of_tc_type ty2))
 (** Type of comparison operator is takes to values of same type 
  * and returns a [bool]  *)
                   
 and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index -> tc_type -> unit tc_result =
   fun pos ctx expr idx exp_ty -> 
-  R.bind(infer_type_expr ctx expr) (fun recTy ->
-         match recTy with
+  R.bind(infer_type_expr ctx expr) (fun rec_ty ->
+         match rec_ty with
          | RecordType (_, flds) ->
             R.bind (try R.ok (List.find (fun (_, i, _) -> i = idx) flds) with
             | Not_found -> type_error pos ("Cannot project field " ^ idx
                                           ^ " from given record type "
-                                          ^ Lib.string_of_t LA.pp_print_lustre_type recTy)) (fun (_, _, fty) -> 
+                                          ^ string_of_tc_type rec_ty)) (fun (_, _, fty) -> 
                 R.bind (eq_lustre_type ctx fty exp_ty) (fun is_eq ->
                     if is_eq
                     then R.ok ()
                     else type_error pos ("Cannot match expected type "
-                                        ^ Lib.string_of_t LA.pp_print_lustre_type exp_ty
+                                        ^ string_of_tc_type exp_ty
                                         ^ " with infered type "
-                                        ^ Lib.string_of_t LA.pp_print_lustre_type fty)))
+                                        ^ string_of_tc_type fty)))
          | _ -> type_error pos ("Cannot project field " ^ idx
                                ^ " from a non record type "
-                               ^ Lib.string_of_t LA.pp_print_lustre_type recTy))       
+                               ^ string_of_tc_type rec_ty))       
 
 and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_result =
   fun ctx const_decl exp_ty ->
@@ -766,7 +805,7 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
      let inf_ty = (lookup_ty ctx i) in
      if inf_ty != exp_ty
      then type_error pos
-            ("Variable "
+            ("Identifier constant "
              ^ i
              ^ " expected to have type " ^ string_of_tc_type inf_ty
              ^ " but found type " ^ string_of_tc_type exp_ty)
@@ -775,7 +814,7 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
      R.bind (infer_type_expr ctx exp) (fun ty ->
          if exp_ty != ty
          then type_error pos
-                ("Variable "
+                ("Identifier constant "
                  ^ i
                  ^ " expected to have type " ^ string_of_tc_type exp_ty
                  ^ " but found type " ^ string_of_tc_type ty)
@@ -784,7 +823,7 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
      R.bind (infer_type_expr ctx exp) (fun inf_ty ->
          if exp_ty != inf_ty
          then type_error pos
-                ("Variable "
+                ("Identifier constant "
                  ^ i
                  ^ " expects type " ^ string_of_tc_type exp_ty
                  ^ " but expression is of type " ^ string_of_tc_type inf_ty)
@@ -866,7 +905,6 @@ and do_item: tc_context -> LA.node_item -> unit tc_result = fun ctx ->
   | LA.AnnotProperty (_, _, e) as ann ->
      Log.log L_debug "Checking Node Item (Annotation Property): %a (%a)" LA.pp_print_node_item ann LA.pp_print_expr e
     ; check_type_expr ctx e (Bool (LH.pos_of_expr e))
-
   
 and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> unit tc_result
   = fun ctx st exp_ty ->
