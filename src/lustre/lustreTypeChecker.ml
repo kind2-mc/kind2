@@ -140,6 +140,9 @@ let add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
 let add_ty: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with ty_ctx=IMap.add i ty (ctx.ty_ctx)}
 
+let remove_ty: tc_context -> LA.ident -> tc_context
+  = fun ctx i -> {ctx with ty_ctx= IMap.remove i (ctx.ty_ctx)}
+                  
 let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> tc_context
   = fun ctx i e ty -> {ctx with vl_ctx = IMap.add i (e, ty) ctx.vl_ctx} 
 
@@ -326,7 +329,9 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                  if is_expr_int_type ctx sup_expr
                  then R.ok(LA.ArrayType (pos, (b_ty, sup_expr)))
                  else type_error pos "Array cannot have non numeral type as its bounds"))
-  | LA.StructUpdate _ -> Lib.todo __LOC__
+  | LA.StructUpdate (pos, r, l, e) ->
+     
+     Lib.todo __LOC__
   | LA.ArraySlice (pos, e1, (il, iu)) ->
      if is_expr_int_type ctx il && is_expr_int_type ctx iu
      then R.bind (infer_type_expr ctx e1) (fun ty ->
@@ -552,7 +557,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
          R.bind (eq_lustre_type ctx exp_ty inf_r_ty) (fun is_eq ->
              if is_eq then R.ok ()
              else type_error pos
-                    ("RecordType mismatch expected "
+                    ("RecordType mismatch. Expected "
                      ^ string_of_tc_type exp_ty
                      ^ " but found "
                      ^ string_of_tc_type inf_r_ty)))
@@ -578,7 +583,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                                  ^ string_of_tc_type exp_ty))
 
   (* Update of structured expressions *)
-  | StructUpdate _ -> Lib.todo __LOC__
+  | StructUpdate (pos, r, ls, e) -> Lib.todo __LOC__
   | ArrayConstr (pos, b_exp, sup_exp) ->
      R.bind (infer_type_expr ctx b_exp) (fun b_ty ->
          R.bind (infer_type_expr ctx sup_exp) (fun sup_ty ->
@@ -673,8 +678,6 @@ and infer_type_unary_op: tc_context -> Lib.position -> tc_type -> LA.unary_opera
                                   ^ string_of_tc_type ty)))
 (** Infers the unary type operators *)
 
-
-    
 and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> bool tc_result
   = fun ctx pos ty1 ty2 ->
   let num_tys = [
@@ -735,9 +738,7 @@ and infer_type_comp_op: tc_context -> Lib.position -> (tc_type * tc_type) -> LA.
                               ^ " and " ^ string_of_tc_type ty2))
 (** Type of comparison operator is takes to values of same type 
  * and returns a [bool]  *)
-
                   
-                 
 and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index -> tc_type -> unit tc_result =
   fun pos ctx expr idx exp_ty -> 
   R.bind(infer_type_expr ctx expr) (fun recTy ->
@@ -791,7 +792,7 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
 
 and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_result
   = fun ctx
-        (node_name, is_extern, params, cclktydecls, clktydecls, ldecls, items, contract)
+        (node_name, is_extern, params, input_vars, output_vars, ldecls, items, contract)
         exp_ty ->
   let local_var_binding: tc_context -> LA.node_local_decl -> tc_context tc_result = fun ctx ->
     function
@@ -813,22 +814,24 @@ and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_resul
          ; R.ok ())
     else (
       Log.log L_debug "Params: %a (skipping)" LA.pp_print_node_param_list params
-    ; (* store the input constants passed in the input *)
-      let ip_constants_ctx = List.fold_left union ctx
-                               (List.map extract_consts cclktydecls) in
+    ; (* store the input constants passed in the input 
+         also remove the node name from the context as we should not have recursive
+         nodes *)
+      let ip_constants_ctx = List.fold_left union (remove_ty ctx node_name)
+                               (List.map extract_consts input_vars) in
       (* These are inputs to the node *)
       let ctx_plus_ips = List.fold_left union ip_constants_ctx
-                           (List.map extract_arg_ctx cclktydecls) in
+                           (List.map extract_arg_ctx input_vars) in
       (* These are outputs of the node *)
       let ctx_plus_ops_and_ips = List.fold_left union ctx_plus_ips
-                                   (List.map extract_ret_ctx clktydecls) in
-        R.bind (R.seq (List.map (local_var_binding ctx_plus_ips) ldecls)) (fun local_var_ctxts ->
-              (* Local TC context is input vars + output vars + local const and var decls *)
-              let local_ctx = List.fold_left union ctx_plus_ops_and_ips local_var_ctxts in
-              Log.log L_debug "Local Typing Context {%a}" pp_print_tc_context local_ctx
-              (* Type check the node items now that we have all the local typing context *)
-              ; R.bind (R.seq_ (List.map (do_item local_ctx) items)) (fun _ -> 
-                    R.ok (Log.log L_debug "TC declaration node %a done }" LA.pp_print_ident node_name))))
+                                   (List.map extract_ret_ctx output_vars) in
+      R.bind (R.seq (List.map (local_var_binding ctx_plus_ips) ldecls)) (fun local_var_ctxts ->
+          (* Local TC context is input vars + output vars + local const and var decls *)
+          let local_ctx = List.fold_left union ctx_plus_ops_and_ips local_var_ctxts in
+          Log.log L_debug "Local Typing Context {%a}" pp_print_tc_context local_ctx
+          (* Type check the node items now that we have all the local typing context *)
+          ; R.bind (R.seq_ (List.map (do_item local_ctx) items)) (fun _ -> 
+                R.ok (Log.log L_debug "TC declaration node %a done }" LA.pp_print_ident node_name))))
 
 and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
   function
