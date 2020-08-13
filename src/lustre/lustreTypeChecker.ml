@@ -661,26 +661,47 @@ and infer_type_unary_op: tc_context -> Lib.position -> tc_type -> LA.unary_opera
                                   ^ string_of_tc_type ty)))
 (** Infers the unary type operators *)
 
+
+    
+and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> bool tc_result
+  = fun ctx pos ty1 ty2 ->
+  let num_tys = [
+      LA.Int       pos
+    ; LA.UInt8     pos     
+    ; LA.UInt16    pos  
+    ; LA.UInt32    pos
+    ; LA.UInt64    pos
+    ; LA.Int8      pos
+    ; LA.Int16     pos
+    ; LA.Int32     pos
+    ; LA.Int64     pos
+    ; LA.IntRange  (pos, Const (pos, Num "1"), Const (pos, Num "1")) 
+    ; LA.Real      pos] in
+  let are_equal_types: tc_context -> tc_type -> tc_type -> tc_type -> bool tc_result
+    = fun ctx ty1 ty2 ty -> R.bind (eq_lustre_type ctx ty1 ty) (fun isTy1 ->
+      R.bind(eq_lustre_type ctx ty2 ty)(fun isTy2 ->
+          R.ok (isTy1 && isTy2))) in
+  R.seqM (||) false (List.map (are_equal_types ctx ty1 ty2) num_tys) 
+(** This is an ugly fix till we have polymorphic unification, may be qualified types? *)
+  
 and infer_type_binary_op: tc_context -> Lib.position -> (tc_type * tc_type) -> LA.binary_operator -> tc_type tc_result
   = fun ctx pos (ty1, ty2) ->
   function
   | LA.And | LA.Or | LA.Xor | LA.Impl ->
      R.ok (LA.TArr (pos, Bool pos, TArr(pos, Bool pos, Bool pos)))
-  | LA.Mod | LA. Minus | LA.Plus | LA.Times | LA.IntDiv
-    | LA.BVAnd | LA.BVOr | LA.BVShiftL | LA.BVShiftR ->
-     R.bind(eq_lustre_type ctx ty1 (Int pos))(fun isInt1 ->
-         R.bind(eq_lustre_type ctx ty2 (Int pos))(fun isInt2 ->
-             R.bind (eq_lustre_type ctx ty1 (Real pos)) (fun isReal1 ->
-                 R.bind (eq_lustre_type ctx ty2 (Real pos)) (fun isReal2 ->
-                     if ((isInt1 && isInt2) || (isReal1 && isReal2))
-                     then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty2)))
-                     else type_error pos ("Both sides of the expression should be of"
-                                          ^" type Int or Real but found " ^ string_of_tc_type ty1
-                                          ^ " and " ^ string_of_tc_type ty2)))))
-  | LA.Div -> R.ok (LA.TArr (pos, Real pos, TArr(pos, Real pos, Real pos)))
+  | LA.Mod -> 
+     R.ok (LA.TArr (pos, Int pos, TArr(pos, Int pos, Int pos)))
+  | LA. Minus | LA.Plus | LA.Times
+    | LA.BVAnd | LA.BVOr | LA.BVShiftL | LA.BVShiftR
+    | LA.IntDiv | LA.Div -> 
+                    R.bind(are_args_num ctx pos ty1 ty2) (fun is_num ->
+                      if is_num
+                      then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty2)))
+                      else type_error pos ("Both sides of the expression should be of"
+                                           ^" type same numeral type but found " ^ string_of_tc_type ty1
+                                           ^ " and " ^ string_of_tc_type ty2))
 (** TODO: There is some polymorphism going on here due 
  * to overloaded Plus/Times/Minus operations *)
-
     
                  
 and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index -> tc_type -> unit tc_result =
@@ -901,7 +922,12 @@ and check_contract_node_eqn: tc_context -> LA.contract_node_equation -> unit tc_
      R.seq_ (Lib.list_apply (List.map (check_type_expr ctx)
                                (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
                (Bool pos)) 
-  | ContractCall (pos, cname, e1s, e2s) -> (* of contract_call *) Lib.todo __LOC__
+  | ContractCall (pos, cname, args, rets) ->
+     R.bind (R.seq(List.map (infer_type_expr ctx) args))(fun ret_tys ->  
+         let ret_ty = if List.length ret_tys = 1
+                      then List.hd ret_tys
+                      else LA.TupleType (pos, ret_tys) in
+         check_type_expr ctx (LA.Call (pos, cname, args))(ret_ty)) 
 
 and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
   = fun ctx ->
@@ -1030,6 +1056,8 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> bool tc_r
 
   (* Integer Range *)
   | IntRange _, IntRange _ -> R.ok true
+  | IntRange _, Int _ -> R.ok true
+  | Int _, IntRange _ -> R.ok true
 
   (* Lustre V6 features *)
   | UserType (_, i1), UserType (_, i2) -> R.ok (i1 = i2)
