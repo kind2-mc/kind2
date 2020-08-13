@@ -1046,14 +1046,14 @@ and tc_context_of: tc_context -> LA.t -> tc_context tc_result
   let rec tc_context_of': tc_context -> LA.declaration -> tc_context tc_result
     = fun ctx' ->
     function
-    | LA.TypeDecl (_, tyDecl)     -> tc_ctx_of_ty_decl ctx' tyDecl 
     | LA.ConstDecl (_, const_decl) -> tc_ctx_const_decl ctx' const_decl
     | LA.NodeDecl (pos, node_decl) -> tc_ctx_of_node_decl pos ctx' node_decl
     | LA.FuncDecl (pos, node_decl) -> tc_ctx_of_node_decl pos ctx' node_decl
     | LA.ContractNodeDecl (pos, contract_decl) ->
        tc_ctx_of_contract_node_decl pos ctx' contract_decl
     | _ -> R.ok ctx'
-  in function
+  in
+  function
     | [] -> R.ok ctx
     | d :: tl ->
        R.bind (tc_context_of' ctx d) (fun ctx' ->
@@ -1061,6 +1061,14 @@ and tc_context_of: tc_context -> LA.t -> tc_context tc_result
                R.ok c))
 (** Obtain a global typing context, get constants and function decls*)
 
+and build_type_context: tc_context -> LA.t -> tc_context tc_result
+  = fun ctx -> function
+  | [] -> R.ok ctx
+  | TypeDecl (_, ty_decl) :: rest ->
+     R.bind (tc_ctx_of_ty_decl ctx ty_decl) (fun ctx' ->
+         build_type_context ctx' rest)
+  | _ :: rest -> build_type_context ctx rest
+      
 and is_type_well_formed: tc_context -> tc_type -> bool
   = fun ctx ty ->
   match ty with
@@ -1236,16 +1244,19 @@ let rec report_tc_result: unit tc_result list -> unit tc_result
  ****************************************************************)  
 
 let type_check_program: LA.t -> unit tc_result = fun prg ->
-  R.bind (Log.log L_debug ("===============================================\n"
-                           ^^ "Phase 1: Building TC Global Context\n"
-                           ^^"===============================================\n")
-        ; tc_context_of empty_context prg) (fun tc_ctx ->
-      Log.log L_debug ("===============================================\n"
-                       ^^ "Phase 1: Completed Building TC Global Context\n"
-                       ^^ "TC Context\n%a\n"
-                       ^^"===============================================\n")
-        pp_print_tc_context tc_ctx
-        ; prg |> scc |> type_check_decl_grps tc_ctx |> report_tc_result)
+  Log.log L_debug ("===============================================\n"
+                   ^^ "Phase 1: Building TC Global Context\n"
+                   ^^"===============================================\n")
+  ; R.bind (build_type_context empty_context prg) (fun type_ctx ->
+        R.bind (tc_context_of type_ctx prg) (fun tc_ctx ->
+            Log.log L_debug ("===============================================\n"
+                             ^^ "Phase 1: Completed Building TC Global Context\n"
+                             ^^ "TC Context\n%a\n"
+                             ^^"===============================================\n")
+              pp_print_tc_context tc_ctx
+              ; scc prg
+                |> (type_check_decl_grps tc_ctx)
+                |> report_tc_result ))
 (** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
  *  a [Ok ()] if it succeeds or and [Error of String] if the typechecker fails*)
     
