@@ -26,7 +26,8 @@ let ok v = Ok v
 let error e = Error e
 
 let bind r f = match r with Ok v -> f v | Error _ as e -> e
-
+let (>>=) = fun r f -> bind r f 
+         
 let join = function Ok r -> r | Error _ as e -> e
 
 let map f = function Ok v -> Ok (f v) | Error _ as e -> e

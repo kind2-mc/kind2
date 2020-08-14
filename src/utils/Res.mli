@@ -29,6 +29,9 @@ val error : 'e -> ('a, 'e) result
 val bind : ('a, 'e) result -> ('a -> ('b, 'e) result) -> ('b, 'e) result
 (** [bind r f] is [f v] if [r] is [Ok v] and [r] if [r] is [Error _]. *)
 
+val (>>=): ('a, 'e) result -> ('a -> ('b, 'e) result) -> ('b, 'e) result
+(** Infix version of [bind] *)
+
 val join : (('a, 'e) result, 'e) result -> ('a, 'e) result
 (** [join rr] is [r] if [rr] is [Ok r] and [rr] if [rr] is [Error _]. *)
 

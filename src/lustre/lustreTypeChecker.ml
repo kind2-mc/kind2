@@ -34,6 +34,8 @@ module LH = LustreAstHelpers
  * or reports an error at position with the error *)
 type 'a tc_result = ('a, Lib.position * string) result
 
+let (>>=) = R.(>>=)
+          
 (** Type alias for lustre type from LustreAst  *)
 type tc_type  = LA.lustre_type
 
@@ -232,20 +234,22 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
      let lookup_mode_ty ctx i =
        (try R.ok (lookup_ty ctx i) with
         | Not_found -> type_error pos ("Unbound identifier: " ^ i)) in
-     R.bind(R.seq (List.map (lookup_mode_ty ctx) is)) (fun tys ->
+     (R.seq (List.map (lookup_mode_ty ctx) is))
+     >>= (fun tys ->
          if List.length tys = 1
          then R.ok (List.hd tys)
          else R.ok (LA.TupleType (pos, tys)))
   | LA.RecordProject (pos, expr, fld) ->
-     R.bind (infer_type_expr ctx expr) (fun rec_ty ->
-         match rec_ty with
-         | LA.RecordType (_, flds) ->
-            let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
-            (match (List.assoc_opt fld typed_fields) with
-             | Some ty -> R.ok ty
-             | None -> type_error pos ("No field named " ^ fld ^ "found in record type")) 
-         | _ -> type_error pos ("Cannot project field out of non record expression type "
-                               ^ string_of_tc_type rec_ty))
+     (infer_type_expr ctx expr)
+     >>= (fun rec_ty ->
+      match rec_ty with
+      | LA.RecordType (_, flds) ->
+         let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
+         (match (List.assoc_opt fld typed_fields) with
+          | Some ty -> R.ok ty
+          | None -> type_error pos ("No field named " ^ fld ^ "found in record type")) 
+      | _ -> type_error pos ("Cannot project field out of non record expression type "
+                             ^ string_of_tc_type rec_ty))
   | LA.TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
 
   (* Values *)
@@ -253,224 +257,252 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
 
   (* Operator applications *)
   | LA.UnaryOp (pos, op, e) ->
-     R.bind(infer_type_expr ctx e) (fun tye ->
-         R.bind (infer_type_unary_op ctx pos tye op) (fun ty ->
-             match ty with
-             | TArr (_, arg_ty, res_ty) ->
-                R.bind (check_type_expr ctx e arg_ty) (fun _ ->
-                    R.ok res_ty)
-             | fty -> type_error pos ("Unexpected unary operator type: "
-                                      ^ string_of_tc_type fty)))
+     infer_type_expr ctx e
+     >>= (fun tye ->
+      infer_type_unary_op ctx pos tye op
+      >>= function
+      | TArr (_, arg_ty, res_ty) ->
+         (check_type_expr ctx e arg_ty)
+         >>= (fun _ ->  R.ok res_ty)
+      | fty -> type_error pos ("Unexpected unary operator type: "
+                               ^ string_of_tc_type fty))
   | LA.BinaryOp (pos, bop, e1, e2) ->
-     R.bind (infer_type_expr ctx e1) (fun ty1 ->
-         R.bind (infer_type_expr ctx e2) (fun ty2 ->
-             R.bind (infer_type_binary_op ctx pos (ty1, ty2) bop) (fun ty ->
-                 match ty with
-                 | TArr (_, arg_ty1, TArr (_, arg_ty2, res_ty)) ->
-                    (R.bind (check_type_expr ctx e1 arg_ty1) (fun _ ->
-                         R.bind (check_type_expr ctx e2 arg_ty2) (fun _ ->
-                             R.ok res_ty)))
-                 | fty -> type_error pos ("Unexpected binary operator type: "
-                                          ^ string_of_tc_type fty))))
+     infer_type_expr ctx e1
+     >>= (fun ty1 ->
+      infer_type_expr ctx e2
+      >>= (fun ty2 ->
+            infer_type_binary_op ctx pos (ty1, ty2) bop
+            >>= function
+            | TArr (_, arg_ty1, TArr (_, arg_ty2, res_ty)) ->
+               check_type_expr ctx e1 arg_ty1
+               >>= (fun _ ->
+                check_type_expr ctx e2 arg_ty2
+                >>= (fun _ -> R.ok res_ty))
+            | fty -> type_error pos ("Unexpected binary operator type: "
+                                     ^ string_of_tc_type fty)))
   | LA.TernaryOp (pos, top, con, e1, e2) ->
-     R.bind (infer_type_expr ctx con) (fun c_ty ->
-         match c_ty with
-         | Bool _ ->  R.bind (infer_type_expr ctx e1) (fun e1Ty->
-                          R.bind (check_type_expr ctx e1 e1Ty) (fun _ ->
-                              R.ok e1Ty))
-         | _   ->  type_error pos ("Expected a boolean expression but found "
-                                  ^ string_of_tc_type c_ty))
+     infer_type_expr ctx con
+     >>= (function
+          | Bool _ ->  (infer_type_expr ctx e1)
+                       >>= (fun e1_ty ->
+              check_type_expr ctx e1 e1_ty
+              >>= fun _ -> R.ok e1_ty)
+          | c_ty  ->  type_error pos ("Expected a boolean expression but found "
+                                      ^ string_of_tc_type c_ty))
   | LA.NArityOp _ -> Lib.todo __LOC__          (* One hot expression is not supported *)    
   | LA.ConvOp (pos, cop, e) ->
-     R.bind (infer_type_expr ctx e) (fun e_ty -> 
-     R.bind (infer_type_conv_op pos e_ty cop) (fun ty ->
-         match ty with
-         | TArr (_, arg_ty, res_ty) -> R.ok res_ty
-         | _ -> type_error pos ("Unexpected conversion operator type: "
-                                 ^ string_of_tc_type ty)))
+     infer_type_expr ctx e
+     >>= (fun e_ty -> 
+      infer_type_conv_op pos e_ty cop
+      >>= (fun ty ->
+            match ty with
+            | TArr (_, arg_ty, res_ty) -> R.ok res_ty
+            | _ -> type_error pos ("Unexpected conversion operator type: "
+                                   ^ string_of_tc_type ty)))
   | LA.CompOp (pos, cop, e1, e2) ->
-     R.bind (infer_type_expr ctx e1) (fun ty1 -> 
-         R.bind (infer_type_expr ctx e2) (fun ty2 -> 
-             R.bind (infer_type_comp_op ctx pos (ty1, ty2) cop) (fun cty ->
-             match cty with
-             | TArr (_, _, TArr (_,arg_ty2, res_ty)) ->
-                    R.ok res_ty
-             | fty -> type_error pos ("Unexpected comparison operator type: "
-                                     ^ string_of_tc_type fty))))
+     infer_type_expr ctx e1
+     >>= fun ty1 -> 
+     infer_type_expr ctx e2
+     >>= fun ty2 -> 
+     infer_type_comp_op ctx pos (ty1, ty2) cop
+     >>= (function
+          | TArr (_, _, TArr (_,arg_ty2, res_ty)) ->
+             R.ok res_ty
+          | fty -> type_error pos ("Unexpected comparison operator type: "
+                                   ^ string_of_tc_type fty))
 
   (* Structured expressions *)
   | LA.RecordExpr (pos, _, flds) ->
      let infer_field: tc_context -> (LA.ident * LA.expr) -> (LA.typed_ident) tc_result
-       = fun ctx (i, e) ->
-       R.bind (infer_type_expr ctx e) (fun ty ->
-           R.ok (LH.pos_of_expr e, i, ty)) 
-     in R.bind (R.seq (List.map (infer_field ctx) flds)) (fun fld_tys -> 
-            R.ok (LA.RecordType (pos, fld_tys)))    
+       = fun ctx (i, e) -> infer_type_expr ctx e
+                           >>= fun ty -> R.ok (LH.pos_of_expr e, i, ty) 
+     in R.seq (List.map (infer_field ctx) flds)
+        >>=  (fun fld_tys -> R.ok (LA.RecordType (pos, fld_tys)))    
   | LA.GroupExpr (pos, struct_type, exprs)  ->
      (match struct_type with
-       | LA.ExprList 
-         | LA.TupleExpr ->
-          R.bind (R.seq (List.map (infer_type_expr ctx) exprs)) (fun tys ->
-              R.ok (LA.TupleType (pos, tys)))
-       | LA.ArrayExpr ->
-          R.bind (R.seq (List.map (infer_type_expr ctx) exprs)) (fun tys ->
-              let elty = List.hd tys in
-              R.bind (R.seqM (&&) true (List.map (eq_lustre_type ctx elty) tys)) (fun is_eq ->
-                  if is_eq
-                  then let arr_ty = List.hd tys in
-                       let arr_size = LA.Const (pos, Num (string_of_int (List.length tys))) in
-                       R.ok (LA.ArrayType (pos, (arr_ty, arr_size)))
-                  else type_error pos "All expressions must be of the same type in an Array")))
+      | LA.ExprList 
+        | LA.TupleExpr ->
+         R.seq (List.map (infer_type_expr ctx) exprs)
+         >>= fun tys -> R.ok (LA.TupleType (pos, tys))
+      | LA.ArrayExpr ->
+         R.seq (List.map (infer_type_expr ctx) exprs)
+         >>= (fun tys ->
+          let elty = List.hd tys in
+          R.seqM (&&) true (List.map (eq_lustre_type ctx elty) tys)
+          >>=  (fun is_eq ->
+            if is_eq
+            then let arr_ty = List.hd tys in
+                 let arr_size = LA.Const (pos, Num (string_of_int (List.length tys))) in
+                 R.ok (LA.ArrayType (pos, (arr_ty, arr_size)))
+            else type_error pos "All expressions must be of the same type in an Array")))
     
   (* Update structured expressions *)
   | LA.ArrayConstr (pos, b_expr, sup_expr) ->
-     R.bind (infer_type_expr ctx b_expr) (fun b_ty ->
-         R.bind (infer_type_expr ctx sup_expr) (fun sup_ty ->
-                 if is_expr_int_type ctx sup_expr
-                 then R.ok(LA.ArrayType (pos, (b_ty, sup_expr)))
-                 else type_error pos "Array cannot have non numeral type as its bounds"))
+     infer_type_expr ctx b_expr
+     >>=  (fun b_ty ->
+      infer_type_expr ctx sup_expr
+      >>= (fun sup_ty ->
+             if is_expr_int_type ctx sup_expr
+             then R.ok (LA.ArrayType (pos, (b_ty, sup_expr)))
+             else type_error pos "Array cannot have non numeral type as its bounds"))
   | LA.StructUpdate (pos, r, i_or_ls, e) ->
      if List.length i_or_ls != 1
      then type_error pos ("List of labels or indices for structure update is not supported") 
-     else (match List.hd i_or_ls with
-     | LA.Label (pos, l) ->  
-        R.bind(infer_type_expr ctx r) (fun r_ty ->
-            match r_ty with
-            | RecordType (_, flds) ->
-               (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
-                (match (List.assoc_opt l typed_fields) with
-                 | Some f_ty ->
-                    R.bind(infer_type_expr ctx e) (fun e_ty -> 
-                        R.bind(eq_lustre_type ctx f_ty e_ty) (fun is_eq ->
-                            if is_eq
-                            then R.ok r_ty
-                            else type_error pos ("Type mismatch. Type of record label " ^ l
-                                 ^ " is of type "
-                                 ^ string_of_tc_type f_ty
-                                 ^ " but the type of the expression is "
-                                 ^ string_of_tc_type e_ty)))
-                 | None -> type_error pos ("No field named " ^ l ^ "found in record type")))
-            | _ -> type_error pos ("Cannot do an update on non-record type "
-                                   ^ string_of_tc_type r_ty))
-     | _ -> type_error pos ("Only labels can be used for record expressions"
-                            ^ " but found index "
-                            ^ Lib.string_of_t LA.pp_print_label_or_index (List.hd i_or_ls)))  
+     else
+       (match List.hd i_or_ls with
+        | LA.Label (pos, l) ->  
+           infer_type_expr ctx r
+           >>= (function 
+                | RecordType (_, flds) as r_ty ->
+                   (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
+                    (match (List.assoc_opt l typed_fields) with
+                     | Some f_ty ->
+                        infer_type_expr ctx e
+                        >>= (fun e_ty -> 
+                         eq_lustre_type ctx f_ty e_ty
+                         >>= fun is_eq ->
+                         if is_eq
+                         then R.ok r_ty
+                         else type_error pos ("Type mismatch. Type of record label " ^ l
+                                              ^ " is of type "
+                                              ^ string_of_tc_type f_ty
+                                              ^ " but the type of the expression is "
+                                              ^ string_of_tc_type e_ty))
+                     | None -> type_error pos ("No field named " ^ l ^ "found in record type")))
+                | r_ty -> type_error pos ("Cannot do an update on non-record type "
+                                          ^ string_of_tc_type r_ty))
+        | _ -> type_error pos ("Only labels can be used for record expressions"
+                               ^ " but found index "
+                               ^ Lib.string_of_t LA.pp_print_label_or_index (List.hd i_or_ls)))  
   | LA.ArraySlice (pos, e1, (il, iu)) ->
      if is_expr_int_type ctx il && is_expr_int_type ctx iu
-     then R.bind (infer_type_expr ctx e1) (fun ty ->
-               match ty with
-               | ArrayType (_, (b_ty, s)) ->
-                  R.ok (LA.ArrayType (pos, (b_ty, LH.abs_diff pos il iu)))
-               | _ -> type_error pos ("Slicing can only be done on an type Array "
-                                       ^ "but found type "
-                                       ^ Lib.string_of_t LA.pp_print_lustre_type ty))
+     then infer_type_expr ctx e1
+          >>= (fun ty ->
+              match ty with
+              | ArrayType (_, (b_ty, s)) ->
+                 R.ok (LA.ArrayType (pos, (b_ty, LH.abs_diff pos il iu)))
+              | _ -> type_error pos ("Slicing can only be done on an type Array "
+                                     ^ "but found type "
+                                     ^ Lib.string_of_t LA.pp_print_lustre_type ty))
      else type_error pos ("Slicing should have integer types")
   | LA.ArrayIndex (pos, e, i) ->
      if is_expr_int_type ctx i
-     then R.bind (infer_type_expr ctx e) (fun ty ->
-              match ty with
-              | ArrayType (_, (b_ty, _)) -> R.ok b_ty
-              | _ -> type_error pos ("Indexing can only be done on an type Array "
-                                    ^ "but found type "
-                                    ^ Lib.string_of_t LA.pp_print_lustre_type ty))
+     then infer_type_expr ctx e
+          >>= (function
+               | ArrayType (_, (b_ty, _)) -> R.ok b_ty
+               | ty -> type_error pos ("Indexing can only be done on an type Array "
+                                       ^ "but found type "
+                                       ^ Lib.string_of_t LA.pp_print_lustre_type ty))
      else type_error pos ("Array Index should have integer types") 
   | LA.ArrayConcat (pos, arr1, arr2) ->
-     R.bind (infer_type_expr ctx arr1)(fun ty1 ->
-         match ty1 with
-         | ArrayType (_, (b_ty1, size1)) ->
-            R.bind(infer_type_expr ctx arr2)(fun ty2 ->
-                match ty2 with
-                | ArrayType (_, (b_ty2, size2)) ->
-                   R.bind(eq_lustre_type ctx b_ty1 b_ty2) (fun is_eq ->
-                       if is_eq && (is_expr_int_type ctx size1) && (is_expr_int_type ctx size2) 
-                       then R.ok (LA.ArrayType (pos, (b_ty1, LH.add_exp pos size1 size2)))
-                       else type_error pos ("Cannot concat array of two different types "
-                                           ^ string_of_tc_type ty1 ^ " and "
-                                           ^ string_of_tc_type ty2 ))
-                | _ -> type_error pos ("Cannot concat non-array type "
-                                      ^ string_of_tc_type ty2)) 
-         | _ -> type_error pos ("Cannot concat non-array type "
-                               ^ string_of_tc_type ty1))
+     infer_type_expr ctx arr1
+       >>= (function
+     | ArrayType (_, (b_ty1, size1)) as ty1 ->
+        infer_type_expr ctx arr2
+        >>= (function 
+            | ArrayType (_, (b_ty2, size2)) as ty2->
+               eq_lustre_type ctx b_ty1 b_ty2
+                 >>= (fun is_eq ->
+                if is_eq && (is_expr_int_type ctx size1) && (is_expr_int_type ctx size2) 
+                then R.ok (LA.ArrayType (pos, (b_ty1, LH.add_exp pos size1 size2)))
+                else type_error pos ("Cannot concat array of two different types "
+                                     ^ string_of_tc_type ty1 ^ " and "
+                                     ^ string_of_tc_type ty2 ))
+            | ty2 -> type_error pos ("Cannot concat non-array type "
+                                     ^ string_of_tc_type ty2)) 
+     | ty1  -> type_error pos ("Cannot concat non-array type "
+                            ^ string_of_tc_type ty1))
 
   (* Quantified expressions *)
   | LA.Quantifier (pos, _, qs, e) ->
-          let extn_ctx = List.fold_left union ctx
-                          (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
-          infer_type_expr extn_ctx e 
+     let extn_ctx = List.fold_left union ctx
+                      (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
+     infer_type_expr extn_ctx e 
 
   (* Clock operators *)
   | LA.When (_, e, _) -> infer_type_expr ctx e
   | LA.Current (_, e) -> infer_type_expr ctx e
   | LA.Condact (pos, c, _, node, args, defaults) ->
-     R.bind (check_type_expr ctx c (Bool pos)) (fun _ ->
-         R.bind (infer_type_expr ctx (Call (pos, node, args))) (fun r_ty ->
-             R.bind (R.seq (List.map (infer_type_expr ctx) defaults)) (fun d_tys -> 
-                 R.bind (eq_lustre_type ctx r_ty (TupleType (pos, d_tys)))(fun is_eq -> 
-                 if is_eq then R.ok r_ty
-                 else type_error pos "Defaults do not have the same type as node call"))))
+     check_type_expr ctx c (Bool pos)
+     >>= (fun _ ->
+      infer_type_expr ctx (Call (pos, node, args))
+      >>= (fun r_ty ->
+            R.seq (List.map (infer_type_expr ctx) defaults)
+            >>= (fun d_tys -> 
+             eq_lustre_type ctx r_ty (TupleType (pos, d_tys))
+             >>= (fun is_eq -> 
+                   if is_eq
+                   then R.ok r_ty
+                   else type_error pos "Defaults do not have the same type as node call"))))
   | LA.Activate (pos, node, cond, rcond, args) ->
-     R.bind (check_type_expr ctx cond (Bool pos)) (fun _ ->
-         infer_type_expr ctx (Call (pos, node, args)))
+     check_type_expr ctx cond (Bool pos)
+     >>= (fun _ ->
+      infer_type_expr ctx (Call (pos, node, args)))
   | LA.Merge (pos, i, mcases) ->
-     R.bind (infer_type_expr ctx (LA.Ident (pos, i))) (fun _ ->
-         let case_tys = List.map snd mcases |> List.map (infer_type_expr ctx) in
-         R.bind(R.seq case_tys) (fun tys ->
-             let main_ty = List.hd tys in
-             R.bind(R.seq (List.map (eq_lustre_type ctx main_ty) tys)) (fun isEqs -> 
-                 if
-                   List.fold_left (&&) true isEqs
-                 then R.ok main_ty
-                 else type_error pos ("All expressions in merge expected to be the same type "
-                                     ^ string_of_tc_type main_ty))))
+     infer_type_expr ctx (LA.Ident (pos, i))
+     >>= (fun _ ->
+      let case_tys = List.map snd mcases |> List.map (infer_type_expr ctx) in
+      R.seq case_tys
+      >>= (fun tys ->
+        let main_ty = List.hd tys in
+        R.seq (List.map (eq_lustre_type ctx main_ty) tys)
+        >>= (fun isEqs -> 
+          if List.fold_left (&&) true isEqs
+          then R.ok main_ty
+          else type_error pos ("All expressions in merge expected to be the same type "
+                               ^ string_of_tc_type main_ty))))
   | LA.RestartEvery (pos, node, args, cond) ->
-     R.bind(check_type_expr ctx cond (LA.Bool pos)) (fun _ ->
-         infer_type_expr ctx (LA.Call (pos, node, args)))
+     check_type_expr ctx cond (LA.Bool pos)
+     >>= (fun _ -> infer_type_expr ctx (LA.Call (pos, node, args)))
                                 
   (* Temporal operators *)
   | LA.Pre (pos, e) -> infer_type_expr ctx e
   | LA.Last (pos, i) -> infer_type_expr ctx (LA.Ident (pos, i))
   | LA.Fby (pos, e1, _, e2) ->
-     R.bind (infer_type_expr ctx e1) (fun ty1 ->
-         R.bind(infer_type_expr ctx e2)(fun ty2 ->
-             R.bind(eq_lustre_type ctx ty1 ty2)(fun is_eq ->
-                 if is_eq
-                 then R.ok ty1
-                 else type_error pos ("Both the expressions in Fby should be of the same type."
-                                     ^ "Found types " ^ string_of_tc_type ty1
-                                     ^ " and " ^ string_of_tc_type ty2))))
+     infer_type_expr ctx e1 >>= (fun ty1 ->
+      infer_type_expr ctx e2 >>= fun ty2 ->
+      eq_lustre_type ctx ty1 ty2
+      >>= fun is_eq ->
+      if is_eq
+      then R.ok ty1
+      else type_error pos ("Both the expressions in `Fby` should be of the same type."
+                           ^ "Found types " ^ string_of_tc_type ty1
+                           ^ " and " ^ string_of_tc_type ty2))
   | LA.Arrow (pos, e1, e2) ->
-     R.bind (infer_type_expr ctx e1) (fun ty1 ->
-         R.bind (infer_type_expr ctx e2) (fun ty2 ->
-             R.bind((eq_lustre_type ctx ty1 ty2)) (fun is_eq -> 
-                 if is_eq then R.ok ty1 else
-                   type_error pos
-                     ("Arrow types do not match "
-                      ^ string_of_tc_type ty1
-                      ^ " and " ^ string_of_tc_type ty2)))) 
-
+     infer_type_expr ctx e1 >>= (fun ty1 ->
+      infer_type_expr ctx e2 >>= fun ty2 ->
+      eq_lustre_type ctx ty1 ty2
+      >>= fun is_eq -> 
+      if is_eq then R.ok ty1 else
+        type_error pos
+          ("Arrow types do not match " ^ string_of_tc_type ty1
+           ^ " and " ^ string_of_tc_type ty2)) 
+    
   (* Node calls *)
   | LA.Call (pos, i, arg_exprs) ->
      Log.log L_debug "Inferring type for node call %a" LA.pp_print_ident i  
     ; let rec infer_type_node_args: tc_context -> LA.expr list -> tc_type tc_result
         = fun ctx args ->
-        R.bind (R.seq (List.map (infer_type_expr ctx) args)) (fun arg_tys ->
-            if List.length arg_tys = 1 then R.ok (List.hd arg_tys)
-            else R.ok (LA.TupleType (pos, arg_tys))) in
+        R.seq (List.map (infer_type_expr ctx) args)
+        >>= (fun arg_tys ->
+          if List.length arg_tys = 1 then R.ok (List.hd arg_tys)
+          else R.ok (LA.TupleType (pos, arg_tys))) in
       (try (match (lookup_ty ctx i) with
-           | TArr (_, exp_arg_tys, exp_ret_tys) ->
-              R.bind (infer_type_node_args ctx arg_exprs) (fun given_arg_tys ->
-                  R.bind (eq_lustre_type ctx exp_arg_tys given_arg_tys) (fun is_arg_ty_ok ->
+            | TArr (_, exp_arg_tys, exp_ret_tys) ->
+               infer_type_node_args ctx arg_exprs
+               >>= (fun given_arg_tys ->
+                eq_lustre_type ctx exp_arg_tys given_arg_tys
+                >>= (fun is_arg_ty_ok ->
                       if is_arg_ty_ok
                       then R.ok exp_ret_tys                         
                       else type_error pos ("Node arguments expected to have type "
                                            ^ string_of_tc_type exp_arg_tys
                                            ^ " but found type "
                                            ^ string_of_tc_type given_arg_tys)))
-           | ty -> type_error pos
-                     ("Expected node type to be a function type, but found type"
-                      ^ string_of_tc_type ty)) with
-      | Not_found -> type_error pos ("No node with name: " ^ i ^ " found"))  
-      
+            | ty -> type_error pos
+                      ("Expected node type to be a function type, but found type"
+                       ^ string_of_tc_type ty)) with
+       | Not_found -> type_error pos ("No node with name: " ^ i ^ " found"))  
   | LA.CallParam _ -> Lib.todo __LOC__
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
@@ -479,15 +511,15 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
   match expr with
   (* Identifiers *)
   | Ident (pos, i) as ident ->
-     R.bind (infer_type_expr ctx ident) (fun ty ->
-         R.bind (eq_lustre_type ctx ty exp_ty) (fun is_eq ->
-             if is_eq
-             then R.ok ()
-             else type_error pos ("Identifier " ^ i
-                                 ^ " does not match expected type "
-                                 ^ string_of_tc_type exp_ty
-                                 ^ " with infered type "
-                                 ^ string_of_tc_type ty)))
+     infer_type_expr ctx ident >>= fun ty ->
+     eq_lustre_type ctx ty exp_ty
+     >>= fun is_eq -> if is_eq
+                      then R.ok ()
+                      else type_error pos ("Identifier " ^ i
+                                           ^ " does not match expected type "
+                                           ^ string_of_tc_type exp_ty
+                                           ^ " with infered type "
+                                           ^ string_of_tc_type ty)
 
   | ModeRef (pos, ids) -> Lib.todo __LOC__
   | RecordProject (pos, expr, fld) -> check_type_record_proj pos ctx expr fld exp_ty
@@ -495,95 +527,99 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
 
   (* Operators *)
   | UnaryOp (pos, op, e) ->
-         R.bind (infer_type_expr ctx e) (fun arg_ty ->
-             R.bind (infer_type_unary_op ctx pos arg_ty op) (fun ty ->
-                 R.bind (eq_lustre_type ctx ty (TArr (pos, arg_ty, exp_ty))) (fun is_eq ->
-                     if is_eq
-                     then R.ok ()
-                     else type_error pos ("Cannot apply argument of type "
-                                     ^ string_of_tc_type arg_ty
-                                     ^ " to operator of type "
-                                     ^ string_of_tc_type ty))))
+     infer_type_expr ctx e
+     >>= fun arg_ty -> infer_type_unary_op ctx pos arg_ty op
+     >>= fun ty -> eq_lustre_type ctx ty (TArr (pos, arg_ty, exp_ty))
+     >>= fun is_eq -> if is_eq
+                      then R.ok ()
+                      else type_error pos ("Cannot apply argument of type "
+                                           ^ string_of_tc_type arg_ty
+                                           ^ " to operator of type "
+                                           ^ string_of_tc_type ty)
   | BinaryOp (pos, op, e1, e2) ->
-     R.bind (infer_type_expr ctx e1) (fun arg_ty1 ->
-         R.bind (infer_type_expr ctx e2) (fun arg_ty2 ->
-             R.bind (infer_type_binary_op ctx pos (arg_ty1, arg_ty2) op) (fun ty ->
-                 R.bind (eq_lustre_type ctx ty
-                           (TArr (pos, arg_ty1, TArr (pos, arg_ty2, exp_ty)))) (fun is_eq ->
-                     if is_eq 
-                     then R.ok ()
-                     else type_error pos (" Cannot apply arguments of type "
-                                          ^ string_of_tc_type arg_ty1
-                                          ^ " and type " ^ string_of_tc_type arg_ty2
-                                          ^ " to obtain type " ^ string_of_tc_type exp_ty
-                                          ^ " to operator of type " ^ string_of_tc_type ty)))))
+     infer_type_expr ctx e1
+     >>= fun arg_ty1 -> infer_type_expr ctx e2
+     >>= fun arg_ty2 -> infer_type_binary_op ctx pos (arg_ty1, arg_ty2) op
+     >>= fun ty -> eq_lustre_type ctx ty
+                     (LA.TArr (pos, arg_ty1, TArr (pos, arg_ty2, exp_ty)))
+     >>= fun is_eq -> if is_eq 
+                      then R.ok ()
+                      else type_error pos (" Cannot apply arguments of type "
+                                           ^ string_of_tc_type arg_ty1
+                                           ^ " and type " ^ string_of_tc_type arg_ty2
+                                           ^ " to obtain type " ^ string_of_tc_type exp_ty
+                                           ^ " to operator of type " ^ string_of_tc_type ty)
   | LA.TernaryOp (pos, op, con, e1, e2) ->
-     R.bind (infer_type_expr ctx con) (fun ty ->
-         match ty with
-         | Bool _ -> R.bind (infer_type_expr ctx e1) (fun ty1 ->
-                         R.bind (infer_type_expr ctx e2) (fun ty2 ->
-                             R.bind (eq_lustre_type ctx ty1 ty2)(fun is_eq ->
-                                 if is_eq
-                                 then R.ok ()
-                                 else type_error pos
-                                        ("Cannot unify type "
-                                         ^ string_of_tc_type ty1
-                                         ^ "with type "
-                                         ^ string_of_tc_type ty2))))
-         | _ -> type_error pos ("ITE condition expression "
-                               ^ "Expected: " ^ string_of_tc_type (Bool pos)
-                               ^ "Found: " ^ string_of_tc_type ty))
-  | NArityOp _ -> Lib.todo __LOC__          (* One hot expression is not supported *)    
+     infer_type_expr ctx con
+     >>= (function 
+          | Bool _ ->
+             infer_type_expr ctx e1
+             >>= fun ty1 ->
+             infer_type_expr ctx e2
+             >>= fun ty2 ->
+             eq_lustre_type ctx ty1 ty2
+             >>= fun is_eq ->
+             if is_eq
+             then R.ok ()
+             else type_error pos
+                    ("Cannot unify type " ^ string_of_tc_type ty1
+                     ^ "with type " ^ string_of_tc_type ty2)
+          | ty -> type_error pos ("ITE condition expression "
+                                  ^ "Expected: " ^ string_of_tc_type (Bool pos)
+                                  ^ "Found: " ^ string_of_tc_type ty))
+  | NArityOp _ -> Lib.todo __LOC__ (* One hot expression is not supported down stream*)
   | ConvOp (pos, cvop, e) as convop ->
-     R.bind (infer_type_expr ctx e) (fun e_ty ->
-         R.bind (infer_type_conv_op pos e_ty cvop) (fun cvop_ty ->
-             match cvop_ty with
-             | TArr (pos, _, ret_ty) ->
-                R.bind (eq_lustre_type ctx ret_ty exp_ty)(fun is_eq ->
-                    if is_eq
-                    then R.ok ()
-                    else type_error pos ("For expression " ^ Lib.string_of_t LA.pp_print_expr convop 
-                                         ^ " expected type " ^ string_of_tc_type exp_ty
-                                         ^ " but found type " ^ string_of_tc_type ret_ty))
-             | _ -> type_error pos ("Cannot apply argument of type "
-                                    ^ string_of_tc_type e_ty
-                                    ^ " to operator of type "
-                                    ^ string_of_tc_type cvop_ty)))
+     infer_type_expr ctx e
+     >>= fun e_ty -> infer_type_conv_op pos e_ty cvop
+     >>= (function
+          | TArr (pos, _, ret_ty) ->
+             eq_lustre_type ctx ret_ty exp_ty
+             >>= fun is_eq ->
+             if is_eq
+             then R.ok ()
+             else type_error pos ("For expression " ^ Lib.string_of_t LA.pp_print_expr convop 
+                                  ^ " expected type " ^ string_of_tc_type exp_ty
+                                  ^ " but found type " ^ string_of_tc_type ret_ty)
+          | cvop_ty -> type_error pos ("Cannot apply argument of type "
+                                 ^ string_of_tc_type e_ty
+                                 ^ " to operator of type "
+                                 ^ string_of_tc_type cvop_ty))
   | CompOp (pos, cop, e1, e2) ->
-     R.bind (infer_type_expr ctx e1) (fun arg_ty1 ->
-         R.bind (infer_type_expr ctx e2) (fun arg_ty2 ->
-             R.bind (eq_lustre_type ctx arg_ty1 arg_ty2) (fun is_eq ->
-                 if is_eq 
-                 then R.ok ()
-                 else type_error pos
-                        ("Cannot compare values of different types "
-                         ^ string_of_tc_type arg_ty1
-                         ^ " and " ^ string_of_tc_type arg_ty2))))
+     infer_type_expr ctx e1
+     >>= fun arg_ty1 -> infer_type_expr ctx e2
+     >>= fun arg_ty2 -> eq_lustre_type ctx arg_ty1 arg_ty2
+     >>= fun is_eq -> if is_eq 
+                      then R.ok ()
+                      else type_error pos
+                             ("Cannot compare values of different types "
+                              ^ string_of_tc_type arg_ty1
+                              ^ " and " ^ string_of_tc_type arg_ty2)
 
   (* Values/Constants *)
   | Const (pos, c) ->
      let cty = infer_type_const pos c in
-     R.bind (eq_lustre_type ctx cty exp_ty) (fun is_eq ->
-         if is_eq
-         then R.ok()
-         else type_error pos ("Cannot match expected type "
-                              ^ string_of_tc_type exp_ty ^
-                                " with type "
-                                ^ string_of_tc_type cty))
+     eq_lustre_type ctx cty exp_ty >>= fun is_eq ->
+     if is_eq
+     then R.ok()
+     else type_error pos ("Cannot match expected type "
+                          ^ string_of_tc_type exp_ty ^
+                            " with type "
+                            ^ string_of_tc_type cty)
 
   (* Structured expressions *)
   | RecordExpr (pos, _, flds) ->
      let (ids, es) = List.split flds in
      let mk_ty_ident p i t = (p, i, t) in    
-     R.bind (R.seq (List.map (infer_type_expr ctx) es)) (fun inf_tys ->
-         let inf_r_ty = LA.RecordType (pos, (List.map2 (mk_ty_ident pos) ids inf_tys)) in
-         R.bind (eq_lustre_type ctx exp_ty inf_r_ty) (fun is_eq ->
-             if is_eq then R.ok ()
-             else type_error pos
-                    ("RecordType mismatch. Expected "
-                     ^ string_of_tc_type exp_ty
-                     ^ " but found "
-                     ^ string_of_tc_type inf_r_ty)))
+     R.seq (List.map (infer_type_expr ctx) es)
+     >>= fun inf_tys ->
+     let inf_r_ty = LA.RecordType (pos, (List.map2 (mk_ty_ident pos) ids inf_tys)) in
+     eq_lustre_type ctx exp_ty inf_r_ty
+     >>= fun is_eq -> if is_eq then R.ok ()
+                      else type_error pos
+                             ("RecordType mismatch. Expected "
+                              ^ string_of_tc_type exp_ty
+                              ^ " but found "
+                              ^ string_of_tc_type inf_r_ty)
   | GroupExpr (pos, group_ty, es) ->
      (match group_ty with
       (* These should be tuple type  *)
@@ -600,100 +636,104 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
       (* This should be array type *)
       | ArrayExpr ->
          match exp_ty with
-          | ArrayType (_, (b_ty, _)) ->
-             R.seq_ (Lib.list_apply (List.map (check_type_expr ctx) es) b_ty)
-          | _ -> type_error pos ("Array type expected but found "
-                                 ^ string_of_tc_type exp_ty))
+         | ArrayType (_, (b_ty, _)) ->
+            R.seq_ (Lib.list_apply (List.map (check_type_expr ctx) es) b_ty)
+         | _ -> type_error pos ("Array type expected but found "
+                                ^ string_of_tc_type exp_ty))
 
   (* Update of structured expressions *)
   | StructUpdate (pos, r, i_or_ls, e) ->
      if List.length i_or_ls != 1
      then type_error pos ("List of labels or indices for structure update is not supported") 
      else (match List.hd  i_or_ls with
-     | LA.Label (pos, l) ->  
-        R.bind(infer_type_expr ctx r) (fun r_ty ->
-            match r_ty with
-            | RecordType (_, flds) ->
-               (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
-                (match (List.assoc_opt l typed_fields) with
-                 | Some ty -> check_type_expr ctx e ty 
-                 | None -> type_error pos ("No field named " ^ l ^ "found in record type")))
-            | _ -> type_error pos ("Cannot do an update on non-record type "
-                                   ^ string_of_tc_type r_ty))
-     | _ -> type_error pos ("Only label can be used for record expressions"
-                            ^ " but found index "
-                            ^ Lib.string_of_t LA.pp_print_label_or_index (List.hd i_or_ls)))
+           | LA.Label (pos, l) ->  
+              infer_type_expr ctx r
+              >>= (fun r_ty ->
+               match r_ty with
+               | RecordType (_, flds) ->
+                  (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
+                   (match (List.assoc_opt l typed_fields) with
+                    | Some ty -> check_type_expr ctx e ty 
+                    | None -> type_error pos ("No field named " ^ l ^ "found in record type")))
+               | _ -> type_error pos ("Cannot do an update on non-record type "
+                                      ^ string_of_tc_type r_ty))
+           | _ -> type_error pos ("Only a label can be used for record expressions"
+                                  ^ " but found index "
+                                  ^ Lib.string_of_t LA.pp_print_label_or_index (List.hd i_or_ls)))
   | ArrayConstr (pos, b_exp, sup_exp) ->
-     R.bind (infer_type_expr ctx b_exp) (fun b_ty ->
-         R.bind (infer_type_expr ctx sup_exp) (fun sup_ty ->
-             R.bind (eq_lustre_type ctx exp_ty (LA.ArrayType (pos, (b_ty, b_exp)))) (fun is_eq ->
-                 if is_eq
-                 then R.ok()
-                 else type_error pos ("Expecting array type "
-                                     ^ string_of_tc_type exp_ty
-                                     ^ " but found "
-                                     ^ string_of_tc_type (LA.ArrayType (pos, (b_ty, b_exp)))))))
+     infer_type_expr ctx b_exp
+     >>= fun b_ty -> infer_type_expr ctx sup_exp
+     >>= fun sup_ty ->
+                     let arr_ty = (LA.ArrayType (pos, (b_ty, b_exp))) in
+                     eq_lustre_type ctx exp_ty arr_ty
+                     >>= fun is_eq -> if is_eq
+                                      then R.ok ()
+                                      else type_error pos ("Expecting array type "
+                                                           ^ string_of_tc_type exp_ty
+                                                           ^ " but found "
+                                                           ^ string_of_tc_type arr_ty)
   | ArrayIndex (pos, e, idx) -> 
      if is_expr_int_type ctx idx
      then check_type_expr ctx e (ArrayType (pos, (exp_ty, (LA.Const (pos, Num "42")))))
+                          (* TODO: can also be a constant arithmetic expression *)
      else type_error pos ("Array index should have an integer type")
-
   | ArraySlice _ -> Lib.todo __LOC__
   | ArrayConcat _ -> Lib.todo __LOC__
 
   (* Quantified expressions *)
   | Quantifier (pos, _, qs, e) ->
      let extn_ctx = List.fold_left union ctx
-                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
+                      (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
      check_type_expr extn_ctx e exp_ty
 
   (* Clock operators *)
   | When (_, e, _) -> check_type_expr ctx e exp_ty
   | Current (_, e) -> check_type_expr ctx e exp_ty
   | Condact (pos, c, _, node, args, defaults) ->
-     R.bind (check_type_expr ctx c (Bool pos)) (fun _ ->
-         R.bind (check_type_expr ctx (Call (pos, node, args)) exp_ty) (fun _ ->
-             R.bind (R.seq (List.map (infer_type_expr ctx) defaults)) (fun d_tys -> 
-                 R.bind (eq_lustre_type ctx exp_ty (TupleType (pos, d_tys)))(fun is_eq -> 
-                     if is_eq then R.ok ()
-                     else type_error pos "Defaults do not have the same type as node call"))))
+     check_type_expr ctx c (Bool pos) >>= (fun _ ->
+      check_type_expr ctx (Call (pos, node, args)) exp_ty
+      >>= fun _ -> R.seq (List.map (infer_type_expr ctx) defaults)
+      >>= fun d_tys -> eq_lustre_type ctx exp_ty (TupleType (pos, d_tys))
+      >>= fun is_eq -> if is_eq then R.ok ()
+                       else type_error pos "Condact defaults do not have the same type as node call")
   | Activate (pos, node, cond, rcond, args) -> 
-     R.bind (check_type_expr ctx cond (Bool pos)) (fun _ ->
-         check_type_expr ctx (Call (pos, node, args)) exp_ty) 
+     check_type_expr ctx cond (Bool pos)
+     >>= fun _ -> check_type_expr ctx (Call (pos, node, args)) exp_ty 
   | Merge (pos, i, mcases) ->
-     R.bind (infer_type_expr ctx (LA.Ident (pos, i))) (fun _ ->
-         let checked_tys = List.map snd mcases |> List.map (fun e -> check_type_expr ctx e exp_ty) in
-         R.bind(R.seq checked_tys) (fun _ -> R.ok ()))
+     infer_type_expr ctx (LA.Ident (pos, i))
+     >>= fun _ -> R.seq_ (List.map (fun e -> check_type_expr ctx e exp_ty)
+                            (List.map snd mcases))
   | RestartEvery (pos, node, args, cond) ->
-     R.bind(check_type_expr ctx cond (LA.Bool pos)) (fun _ ->
-         check_type_expr ctx (LA.Call (pos, node, args)) exp_ty)
+     check_type_expr ctx cond (LA.Bool pos)
+     >>= fun _ -> check_type_expr ctx (LA.Call (pos, node, args)) exp_ty
 
   (* Temporal operators *)
   | Pre (pos, e) -> check_type_expr ctx e exp_ty
   | Last (pos, i) ->
-     R.bind (infer_type_expr ctx (LA.Ident (pos, i))) (fun ty ->
-         R.bind (eq_lustre_type ctx ty exp_ty) (fun is_eq ->
-             if is_eq
-             then R.ok ()
-             else type_error pos ("Indentifier " ^ i
-                                 ^ " does not match expected type "
-                                 ^ string_of_tc_type exp_ty
-                                 ^ " with infered type "
-                                 ^ string_of_tc_type ty)))
+     infer_type_expr ctx (LA.Ident (pos, i))
+     >>= fun ty -> eq_lustre_type ctx ty exp_ty
+     >>= (fun is_eq ->
+       if is_eq
+       then R.ok ()
+       else type_error pos ("Indentifier " ^ i
+                            ^ " does not match expected type "
+                            ^ string_of_tc_type exp_ty
+                            ^ " with infered type "
+                            ^ string_of_tc_type ty))
   | Fby (pos, e1, _, e2) ->
-     R.bind (check_type_expr ctx e1 exp_ty) (fun _ ->
-         R.bind (check_type_expr ctx e2 exp_ty) (fun _ ->
-             R.ok ()))
+     check_type_expr ctx e1 exp_ty
+     >>= fun _ -> check_type_expr ctx e2 exp_ty
   | Arrow (pos, e1, e2) ->
-     R.bind(infer_type_expr ctx e1) (fun ty1 ->
-         R.bind(check_type_expr ctx e2 ty1) (fun _ -> R.ok()))
+     infer_type_expr ctx e1
+     >>= fun ty1 ->  check_type_expr ctx e2 ty1
 
   (* Node calls *)
   | Call (pos, i, args) ->
-     R.bind (R.seq (List.map (infer_type_expr ctx) args)) (fun arg_tys ->
-         let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
-                      else TupleType (pos, arg_tys) in 
-         check_type_expr ctx (LA.Ident (pos, i)) (TArr (pos, arg_ty, exp_ty)))
+     R.seq (List.map (infer_type_expr ctx) args)
+     >>= fun arg_tys ->
+     let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
+                  else TupleType (pos, arg_tys) in 
+     check_type_expr ctx (LA.Ident (pos, i)) (TArr (pos, arg_ty, exp_ty))
   | CallParam _ -> Lib.todo __LOC__
 (** Type checks an expression and returns [ok] 
  * if the expected type is the given type [tc_type]  
@@ -707,38 +747,41 @@ and infer_type_unary_op: tc_context -> Lib.position -> tc_type -> LA.unary_opera
                 else type_error pos ("Cannot apply a bit value not operator "
                                      ^ "to a non-numeric value of type "
                                      ^ string_of_tc_type ty)
-                       
+              
   | LA.Uminus ->
-     R.bind(eq_lustre_type ctx ty (Int pos))(fun isInt ->
-         R.bind (eq_lustre_type ctx ty (Real pos)) (fun isReal ->
-             if (isInt || isReal)
-             then R.ok (LA.TArr (pos, ty, ty))
-             else type_error pos ("Unary minus cannot be applied to expression of type "
-                                  ^ string_of_tc_type ty)))
+     eq_lustre_type ctx ty (Int pos) >>= fun isInt ->
+     eq_lustre_type ctx ty (Real pos) >>= fun isReal ->
+     if (isInt || isReal)
+     then R.ok (LA.TArr (pos, ty, ty))
+     else type_error pos ("Unary minus cannot be applied to expression of type "
+                          ^ string_of_tc_type ty)
 (** Infers the unary type operators *)
 
 and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> bool tc_result
   = fun ctx pos ty1 ty2 ->
   let num_tys = [
-      LA.Int       pos
-    ; LA.UInt8     pos     
-    ; LA.UInt16    pos  
-    ; LA.UInt32    pos
-    ; LA.UInt64    pos
-    ; LA.Int8      pos
-    ; LA.Int16     pos
-    ; LA.Int32     pos
-    ; LA.Int64     pos
-    ; LA.IntRange  (pos, Const (pos, Num "1"), Const (pos, Num "1")) 
-    ; LA.Real      pos] in
+      LA.Int pos
+    ; LA.UInt8 pos     
+    ; LA.UInt16 pos  
+    ; LA.UInt32 pos
+    ; LA.UInt64 pos
+    ; LA.Int8 pos
+    ; LA.Int16 pos
+    ; LA.Int32 pos
+    ; LA.Int64 pos
+    ; LA.IntRange (pos, Const (pos, Num "1"), Const (pos, Num "1")) 
+    ; LA.Real pos] in
   let are_equal_types: tc_context -> tc_type -> tc_type -> tc_type -> bool tc_result
-    = fun ctx ty1 ty2 ty -> R.bind (eq_lustre_type ctx ty1 ty) (fun isTy1 ->
-      R.bind(eq_lustre_type ctx ty2 ty)(fun isTy2 ->
-          R.ok (isTy1 && isTy2))) in
+    = fun ctx ty1 ty2 ty ->
+    eq_lustre_type ctx ty1 ty
+    >>=  fun isTy1 -> eq_lustre_type ctx ty2 ty
+    >>= fun isTy2 ->  R.ok (isTy1 && isTy2) in
   R.seqM (||) false (List.map (are_equal_types ctx ty1 ty2) num_tys) 
 (** This is an ugly fix till we have polymorphic unification, may be qualified types? *)
   
-and infer_type_binary_op: tc_context -> Lib.position -> (tc_type * tc_type) -> LA.binary_operator -> tc_type tc_result
+and infer_type_binary_op: tc_context -> Lib.position
+                          -> (tc_type * tc_type) -> LA.binary_operator
+                          -> tc_type tc_result
   = fun ctx pos (ty1, ty2) ->
   function
   | LA.And | LA.Or | LA.Xor | LA.Impl ->
@@ -748,86 +791,90 @@ and infer_type_binary_op: tc_context -> Lib.position -> (tc_type * tc_type) -> L
   | LA. Minus | LA.Plus | LA.Times
     | LA.BVAnd | LA.BVOr | LA.BVShiftL | LA.BVShiftR
     | LA.IntDiv | LA.Div -> 
-                    R.bind(are_args_num ctx pos ty1 ty2) (fun is_num ->
-                      if is_num
-                      then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty2)))
-                      else type_error pos ("Both sides of the expression should be"
-                                           ^" isomorphic types but found types " ^ string_of_tc_type ty1
-                                           ^ " and " ^ string_of_tc_type ty2))
+     are_args_num ctx pos ty1 ty2 >>=
+       fun is_num ->
+       if is_num
+       then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty2)))
+       else type_error pos ("Both sides of the expression should be"
+                            ^" isomorphic types but found types " ^ string_of_tc_type ty1
+                            ^ " and " ^ string_of_tc_type ty2)
 (** TODO: There is some polymorphism going on here due 
  * to overloaded Plus/Times/Minus operations *)
 
-and infer_type_comp_op: tc_context -> Lib.position -> (tc_type * tc_type) -> LA.comparison_operator -> tc_type tc_result
+and infer_type_comp_op: tc_context -> Lib.position -> (tc_type * tc_type)
+                        -> LA.comparison_operator -> tc_type tc_result
   = fun ctx pos (ty1, ty2) ->
   function
-  | Neq  | Eq -> if is_type_num ty1 && is_type_num ty2
-                 then R.ok (LA.TArr (pos, ty1, TArr(pos, ty2, Bool pos)))
-                 else R.bind (eq_lustre_type ctx ty1 ty2) (fun isEq ->
-                          if isEq
-                          then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, Bool pos)))
-                          else type_error pos ("Both sides of the expression should be of"
-                              ^" type isomorphic type but found " ^ string_of_tc_type ty1
-                              ^ " and " ^ string_of_tc_type ty2))
+  | Neq  | Eq ->
+     if is_type_num ty1 && is_type_num ty2
+     then R.ok (LA.TArr (pos, ty1, TArr(pos, ty2, Bool pos)))
+     else eq_lustre_type ctx ty1 ty2
+          >>= fun isEq ->
+          if isEq
+          then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, Bool pos)))
+          else type_error pos ("Both sides of the expression should be of"
+                               ^ " type isomorphic type but found " ^ string_of_tc_type ty1
+                               ^ " and " ^ string_of_tc_type ty2)
   | Lte  | Lt  | Gte | Gt ->
-     R.bind(are_args_num ctx pos ty1 ty2) (fun is_num ->
-         if is_num
-         then R.ok (LA.TArr (pos, ty1, TArr(pos, ty2, Bool pos)))
-         else type_error pos ("Both sides of the expression should be of"
-                              ^ " type same numeral type but found " ^ string_of_tc_type ty1
-                              ^ " and " ^ string_of_tc_type ty2))
+     are_args_num ctx pos ty1 ty2
+     >>= fun is_num ->
+     if is_num
+     then R.ok (LA.TArr (pos, ty1, TArr(pos, ty2, Bool pos)))
+     else type_error pos ("Both sides of the expression should be of"
+                          ^ " type same numeral type but found " ^ string_of_tc_type ty1
+                          ^ " and " ^ string_of_tc_type ty2)
 (** Type of comparison operator is takes to values of same type 
  * and returns a [bool]  *)
                   
 and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index -> tc_type -> unit tc_result =
   fun pos ctx expr idx exp_ty -> 
-  R.bind(infer_type_expr ctx expr) (fun rec_ty ->
-         match rec_ty with
-         | RecordType (_, flds) ->
-            R.bind (try R.ok (List.find (fun (_, i, _) -> i = idx) flds) with
-            | Not_found -> type_error pos ("Cannot project field " ^ idx
-                                          ^ " from given record type "
-                                          ^ string_of_tc_type rec_ty)) (fun (_, _, fty) -> 
-                R.bind (eq_lustre_type ctx fty exp_ty) (fun is_eq ->
-                    if is_eq
-                    then R.ok ()
-                    else type_error pos ("Cannot match expected type "
-                                        ^ string_of_tc_type exp_ty
-                                        ^ " with infered type "
-                                        ^ string_of_tc_type fty)))
-         | _ -> type_error pos ("Cannot project field " ^ idx
-                               ^ " from a non record type "
-                               ^ string_of_tc_type rec_ty))       
+  infer_type_expr ctx expr
+  >>= function
+  | RecordType (_, flds) as rec_ty ->
+     (try R.ok (List.find (fun (_, i, _) -> i = idx) flds) with
+      | Not_found -> type_error pos ("Cannot project field " ^ idx
+                                     ^ " from given record type "
+                                     ^ string_of_tc_type rec_ty))
+     >>= fun (_, _, fty) -> eq_lustre_type ctx fty exp_ty
+     >>= fun is_eq ->
+     if is_eq then R.ok ()
+     else type_error pos ("Cannot match expected type "
+                          ^ string_of_tc_type exp_ty
+                          ^ " with infered type "
+                          ^ string_of_tc_type fty)
+  | rec_ty -> type_error pos ("Cannot project field " ^ idx
+                              ^ " from a non record type "
+                              ^ string_of_tc_type rec_ty)       
 
 and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_result =
   fun ctx const_decl exp_ty ->
   match const_decl with
   | FreeConst (pos, i, _) ->
      let inf_ty = (lookup_ty ctx i) in
-     if inf_ty != exp_ty
-     then type_error pos
-            ("Identifier constant "
-             ^ i
-             ^ " expected to have type " ^ string_of_tc_type inf_ty
-             ^ " but found type " ^ string_of_tc_type exp_ty)
-     else R.ok ()
-  | UntypedConst (pos, i, exp) ->
-     R.bind (infer_type_expr ctx exp) (fun ty ->
-         if exp_ty != ty
-         then type_error pos
-                ("Identifier constant "
-                 ^ i
-                 ^ " expected to have type " ^ string_of_tc_type exp_ty
-                 ^ " but found type " ^ string_of_tc_type ty)
-         else R.ok ())     
+     eq_lustre_type ctx inf_ty exp_ty
+     >>= (fun is_eq -> 
+       if is_eq then R.ok ()
+       else type_error pos
+              ("Identifier constant " ^ i
+               ^ " expected to have type " ^ string_of_tc_type inf_ty
+               ^ " but found type " ^ string_of_tc_type exp_ty))
+  | UntypedConst (pos, i, e) ->
+     infer_type_expr ctx e
+     >>= fun inf_ty -> eq_lustre_type ctx inf_ty exp_ty
+     >>= (fun is_eq -> 
+       if is_eq then R.ok ()
+       else type_error pos
+              ("Identifier constant " ^ i
+               ^ " expected to have type " ^ string_of_tc_type exp_ty
+               ^ " but found type " ^ string_of_tc_type inf_ty))
   | TypedConst (pos, i, exp, _) ->
-     R.bind (infer_type_expr ctx exp) (fun inf_ty ->
-         if exp_ty != inf_ty
-         then type_error pos
-                ("Identifier constant "
-                 ^ i
-                 ^ " expects type " ^ string_of_tc_type exp_ty
-                 ^ " but expression is of type " ^ string_of_tc_type inf_ty)
-         else R.ok ())  
+     infer_type_expr ctx exp
+     >>= fun inf_ty -> eq_lustre_type ctx inf_ty exp_ty
+     >>= fun is_eq -> if is_eq then R.ok () 
+                      else type_error pos
+                             ("Identifier constant " ^ i
+                              ^ " expects type " ^ string_of_tc_type exp_ty
+                              ^ " but expression is of type " ^ string_of_tc_type inf_ty)
 
 and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_result
   = fun ctx
@@ -842,8 +889,8 @@ and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_resul
     | LA.NodeVarDecl (pos, (_, v, ty, _)) ->
        if is_type_well_formed ctx ty then R.ok (add_ty ctx v ty)
        else type_error pos ("Node's local variable "
-                           ^ v
-                           ^ " type should be well formed") in
+                            ^ v
+                            ^ " type should be well formed") in
 
   Log.log L_debug "TC declaration node: %a {" LA.pp_print_ident node_name
   (* if the node is extern, we will not have any body to typecheck *)
@@ -864,34 +911,37 @@ and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_resul
       (* These are outputs of the node *)
       let ctx_plus_ops_and_ips = List.fold_left union ctx_plus_ips
                                    (List.map extract_ret_ctx output_vars) in
-      R.bind (R.seq (List.map (local_var_binding ctx_plus_ips) ldecls)) (fun local_var_ctxts ->
-          (* Local TC context is input vars + output vars + local const and var decls *)
-          let local_ctx = List.fold_left union ctx_plus_ops_and_ips local_var_ctxts in
-          Log.log L_debug "Local Typing Context {%a}" pp_print_tc_context local_ctx
-          (* Type check the node items now that we have all the local typing context *)
-          ; R.bind (R.seq_ (List.map (do_item local_ctx) items)) (fun _ -> 
-                R.ok (Log.log L_debug "TC declaration node %a done }" LA.pp_print_ident node_name))))
+      R.seq (List.map (local_var_binding ctx_plus_ips) ldecls)
+      >>= fun local_var_ctxts ->
+      (* Local TC context is input vars + output vars + local const and var decls *)
+      let local_ctx = List.fold_left union ctx_plus_ops_and_ips local_var_ctxts in
+      Log.log L_debug "Local Typing Context {%a}" pp_print_tc_context local_ctx
+      (* Type check the node items now that we have all the local typing context *)
+      ; R.seq_ (List.map (do_item local_ctx) items)
+        >>=  fun _ ->
+        R.ok (Log.log L_debug "TC declaration node %a done }"
+                LA.pp_print_ident node_name))
 
 and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
   function
   | LA.Assert (pos, e) ->
      Log.log L_debug "Checking assertion: %a" LA.pp_print_expr e
-    ; R.bind (check_type_expr ctx e (Bool pos)) (fun _ -> R.ok ())
+    ; check_type_expr ctx e (Bool pos)
   | LA.Equation (_, lhs, expr)  as eqn ->
      Log.log L_debug "Checking equation: %a" LA.pp_print_node_body eqn
     (* This is a special case where we have undeclared identifiers 
        as short hands for assigning values to arrays aka recursive technique *)
     ; let get_array_def_context: LA.struct_item -> tc_context = 
         function
-        | ArrayDef (pos, _, is) -> List.fold_left (fun c i -> add_ty c i (LA.Int pos)) empty_context is 
+        | ArrayDef (pos, _, is) ->
+           List.fold_left (fun c i -> add_ty c i (LA.Int pos)) empty_context is 
         | _ -> empty_context
       in
       let ctx_from_lhs: tc_context -> LA.eq_lhs -> tc_context
         = fun ctx (LA.StructDef (_, items)) ->
         List.fold_left union ctx (List.map get_array_def_context items) in
-      R.bind (infer_type_expr (ctx_from_lhs ctx lhs) expr) (fun ty ->
-          Log.log L_debug "Inferred type %a for expr: %a" LA.pp_print_lustre_type ty LA.pp_print_expr expr 
-          ; check_type_struct_def (ctx_from_lhs ctx lhs) lhs ty)
+      infer_type_expr (ctx_from_lhs ctx lhs) expr >>= fun ty ->
+      check_type_struct_def (ctx_from_lhs ctx lhs) lhs ty
   | LA.Automaton (pos, _, _, _) ->
      Log.log L_debug "Skipping Automation"
     ; R.ok ()
@@ -911,16 +961,14 @@ and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> unit tc_r
   match st with
   | SingleIdent (pos, i) ->
      let inf_ty = lookup_ty ctx i in
-     R.bind (eq_lustre_type ctx exp_ty inf_ty) (fun is_eq ->
-         if is_eq
-         then R.ok ()
-                   (*This is an ugly fix to try and see if the RHS was instead a function return call *)
-         else R.bind (eq_lustre_type ctx exp_ty (TupleType (pos,[inf_ty]))) (fun is_eq' ->
-                  if is_eq'
-                  then R.ok()
-                  else type_error pos ("Expected type " ^ string_of_tc_type exp_ty
-                                       ^ " for expression " ^ i
-                                       ^ " but found type " ^ string_of_tc_type inf_ty)))
+     eq_lustre_type ctx exp_ty inf_ty >>= fun is_eq ->
+     if is_eq then R.ok ()
+     (*This is an ugly fix to try and see if the RHS was instead a function return call *)
+     else eq_lustre_type ctx exp_ty (TupleType (pos,[inf_ty]))
+          >>= fun is_eq' ->  if is_eq' then R.ok()
+                             else type_error pos ("Expected type " ^ string_of_tc_type exp_ty
+                                                  ^ " for expression " ^ i
+                                                  ^ " but found type " ^ string_of_tc_type inf_ty)
   | ArrayDef (pos, base_e, idxs) ->
      let array_idx_expr =
        List.fold_left (fun e i -> LA.ArrayIndex (pos, e, i))
@@ -974,21 +1022,21 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
   let ret_ctx = List.fold_left union arg_ctx (List.map extract_ret_ctx rets) in
   let local_const_ctx = List.fold_left union ret_ctx (List.map extract_consts args) in
   (* get the local const var declarations into the context *)
-  R.bind (R.seq (List.map (extract_contract_eqn_context local_const_ctx) contract)) (fun ctxs -> 
-      let local_ctx = List.fold_left union local_const_ctx ctxs in
-      R.bind (check_type_contract local_ctx contract) (fun _ -> 
-          R.ok (Log.log L_debug "TC Contract Decl %a done }" LA.pp_print_ident cname)))
+  R.seq (List.map (extract_contract_eqn_context local_const_ctx) contract)
+  >>= fun ctxs ->
+  let local_ctx = List.fold_left union local_const_ctx ctxs in
+  check_type_contract local_ctx contract >>= fun _ -> 
+  R.ok (Log.log L_debug "TC Contract Decl %a done }" LA.pp_print_ident cname)
 
 and check_type_contract: tc_context -> LA.contract -> unit tc_result
-  = fun ctx eqns ->
-  R.seq_ (List.map (check_contract_node_eqn ctx) eqns)
+  = fun ctx eqns -> R.seq_ (List.map (check_contract_node_eqn ctx) eqns)
 
 and check_contract_node_eqn: tc_context -> LA.contract_node_equation -> unit tc_result
   = fun ctx eqn ->
   Log.log L_debug "checking contract with equation %a" LA.pp_print_contract_item eqn 
   ; match eqn with
   | GhostConst _
-  | GhostVar _ ->  R.ok () (* This is already checked while extracting ctx *)
+  | GhostVar _ ->  R.ok () (* These is already checked while extracting ctx *)
   | Assume (pos, _, _, e) -> check_type_expr ctx e (Bool pos)
   | Guarantee (pos, _, _, e) -> check_type_expr ctx e (Bool pos)
   | Mode (pos, _, reqs, ensures) ->
@@ -996,11 +1044,12 @@ and check_contract_node_eqn: tc_context -> LA.contract_node_equation -> unit tc_
                                (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
                (Bool pos)) 
   | ContractCall (pos, cname, args, rets) ->
-     R.bind (R.seq(List.map (infer_type_expr ctx) args))(fun ret_tys ->  
-         let ret_ty = if List.length ret_tys = 1
-                      then List.hd ret_tys
-                      else LA.TupleType (pos, ret_tys) in
-         check_type_expr ctx (LA.Call (pos, cname, args))(ret_ty)) 
+     R.seq(List.map (infer_type_expr ctx) args)
+     >>= fun ret_tys ->  
+     let ret_ty = if List.length ret_tys = 1
+                  then List.hd ret_tys
+                  else LA.TupleType (pos, ret_tys) in
+     check_type_expr ctx (LA.Call (pos, cname, args))(ret_ty) 
 
 and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
   = fun ctx ->
@@ -1025,8 +1074,8 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_contex
     LA.pp_print_ident nname
   ; if (member_ty ctx nname)
     then type_error pos ("Duplicate node detected with name: " ^ nname)
-    else R.bind (build_node_fun_ty pos ctx ip op) (fun fun_ty ->
-             R.ok (add_ty ctx nname fun_ty))
+    else build_node_fun_ty pos ctx ip op
+         >>= fun fun_ty -> R.ok (add_ty ctx nname fun_ty)
 (** computes the type signature of node or a function *)
 
 and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
@@ -1038,8 +1087,8 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
     LA.pp_print_ident cname
   ; if (member_ty ctx cname)
     then type_error pos ("Duplicate node detected with name: " ^ cname)
-    else R.bind (build_node_fun_ty pos ctx inputs outputs) (fun fun_ty ->
-             R.ok (add_ty ctx cname fun_ty))
+    else build_node_fun_ty pos ctx inputs outputs
+         >>= fun fun_ty -> R.ok (add_ty ctx cname fun_ty)
 
 and tc_context_of: tc_context -> LA.t -> tc_context tc_result
   = fun ctx ->
@@ -1054,49 +1103,59 @@ and tc_context_of: tc_context -> LA.t -> tc_context tc_result
     | _ -> R.ok ctx'
   in
   function
-    | [] -> R.ok ctx
-    | d :: tl ->
-       R.bind (tc_context_of' ctx d) (fun ctx' ->
-           R.bind (tc_context_of (union ctx' ctx) tl) (fun c -> 
-               R.ok c))
+  | [] -> R.ok ctx
+  | d :: tl ->
+     tc_context_of' ctx d
+     >>= fun ctx' -> tc_context_of (union ctx' ctx) tl
+     >>= fun c -> R.ok c
 (** Obtain a global typing context, get constants and function decls*)
 
 and build_type_context: tc_context -> LA.t -> tc_context tc_result
-  = fun ctx -> function
+  = fun ctx ->
+  function
   | [] -> R.ok ctx
   | TypeDecl (_, ty_decl) :: rest ->
-     R.bind (tc_ctx_of_ty_decl ctx ty_decl) (fun ctx' ->
-         build_type_context ctx' rest)
+     tc_ctx_of_ty_decl ctx ty_decl
+     >>= fun ctx' -> build_type_context ctx' rest
   | _ :: rest -> build_type_context ctx rest
-      
+(** Process top level type declarations and make a type context with 
+ * user types populated *)
+               
 and is_type_well_formed: tc_context -> tc_type -> bool
-  = fun ctx ty ->
-  match ty with
-  | LA.TArr (_, arg_ty, res_ty) -> is_type_well_formed ctx arg_ty
-                                 && is_type_well_formed ctx res_ty
-  | LA.RecordType (_, idTys) -> List.fold_left (&&) true
-                                  (List.map (fun (_, _, ty)
-                                             -> is_type_well_formed ctx ty) idTys)
-  | LA.ArrayType (_, (_, s)) -> is_expr_int_type ctx s
-                                && is_expr_of_conts ctx s
-  | LA.TupleType (_, tys) -> List.fold_left (&&) true
-                               (List.map (is_type_well_formed ctx) tys)
+  = fun ctx ->
+  function
+  | LA.TArr (_, arg_ty, res_ty) ->
+     is_type_well_formed ctx arg_ty && is_type_well_formed ctx res_ty
+  | LA.RecordType (_, idTys) ->
+     List.fold_left (&&) true
+       (List.map (fun (_, _, ty)
+                  -> is_type_well_formed ctx ty) idTys)
+  | LA.ArrayType (_, (_, s)) ->
+     is_expr_int_type ctx s && is_expr_of_conts ctx s
+  | LA.TupleType (_, tys) ->
+     List.fold_left (&&) true (List.map (is_type_well_formed ctx) tys)
   | _ -> true
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
-                   
+       
 and tc_ctx_const_decl: tc_context -> LA.const_decl -> tc_context tc_result = fun ctx ->
   function
   | LA.FreeConst (pos, i, ty) ->
      if (is_type_well_formed ctx ty)
-     then R.ok (add_ty ctx i ty)
+     then if member_ty ctx i
+          then type_error pos ("Duplicate occurance of constant " ^ i)
+          else R.ok (add_ty ctx i ty)
      else type_error pos "Constant should be of a well formed type"
-  | LA.UntypedConst (_, i, e) ->
-     R.bind (infer_type_expr ctx e) (fun ty -> 
-         R.ok (add_ty (add_const ctx i e ty) i ty))
+  | LA.UntypedConst (pos, i, e) ->
+     if member_ty ctx i
+     then type_error pos ("Duplicate occurance of constant " ^ i)
+     else infer_type_expr ctx e >>= fun ty -> 
+          R.ok (add_ty (add_const ctx i e ty) i ty)
   | LA.TypedConst (pos, i, expr, exp_ty) ->
-     R.bind (check_type_expr (add_ty ctx i exp_ty) expr exp_ty) (fun _ ->
-         R.ok (add_ty (add_const ctx i expr exp_ty) i exp_ty))
+     if member_ty ctx i
+     then type_error pos ("Duplicate occurance of constant " ^ i)
+     else check_type_expr (add_ty ctx i exp_ty) expr exp_ty
+          >>= fun _ -> R.ok (add_ty (add_const ctx i expr exp_ty) i exp_ty)
 (** Shadow the old binding with the new const decl *)
   
 and build_node_fun_ty: Lib.position -> tc_context
@@ -1145,24 +1204,24 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> bool tc_r
   | AbstractType (_, i1), AbstractType (_, i2) -> R.ok (i1 = i2)
   | TupleType (_, tys1), TupleType (_, tys2) ->
      if List.length tys1 = List.length tys2
-     then R.bind (R.seq (List.map2 (eq_lustre_type ctx) tys1 tys2)) (fun isEqs ->
-              R.ok (List.fold_left (&&) true isEqs))
+     then R.seq (List.map2 (eq_lustre_type ctx) tys1 tys2)
+          >>= fun isEqs ->  R.ok (List.fold_left (&&) true isEqs)
      else R.ok false
   | RecordType (_, tys1), RecordType (_, tys2) ->
-     R.bind (R.seq (List.map2 (eq_typed_ident ctx)
-                      (sort_typed_ident tys1)
-                      (sort_typed_ident tys2))) (fun isEqs ->
-        R.ok (List.fold_left (&&) true isEqs))
+     R.seq (List.map2 (eq_typed_ident ctx)
+              (sort_typed_ident tys1)
+              (sort_typed_ident tys2))
+     >>= fun isEqs -> R.ok (List.fold_left (&&) true isEqs)
   | ArrayType (pos1, arr1), ArrayType (pos2, arr2) -> eq_type_array ctx arr1 arr2 
   | EnumType (_, n1, is1), EnumType (_, n2, is2) ->
      R.ok (n1 = n2 && (List.fold_left (&&) true (List.map2 (=) (sort_idents is1) (sort_idents is2))))
 
   (* node/function type *)
   | TArr (_, arg_ty1, ret_ty1), TArr (_, arg_ty2, ret_ty2) ->
-     R.bind (eq_lustre_type ctx arg_ty1 arg_ty2) (fun is_eq_arg_ty ->
-         if is_eq_arg_ty
-         then eq_lustre_type ctx ret_ty1 ret_ty2
-         else R.ok false )
+     eq_lustre_type ctx arg_ty1 arg_ty2 >>= fun is_eq_arg_ty ->
+     if is_eq_arg_ty
+     then eq_lustre_type ctx ret_ty1 ret_ty2
+     else R.ok false
 
   (* special case for type synonyms *)
   | UserType (_, u), ty
@@ -1173,13 +1232,17 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> bool tc_r
      else R.ok false
   (* Another special case for tuple equality type *)
   | TupleType (_, tys), t
-    | t, TupleType (_, tys) -> if List.length tys = 1 then (eq_lustre_type ctx (List.hd tys) t) else R.ok false  
+    | t, TupleType (_, tys) ->
+     if List.length tys = 1
+     then (eq_lustre_type ctx (List.hd tys) t)
+     else R.ok false  
   | _, _ -> R.ok false
 
 and is_expr_int_type: tc_context -> LA.expr -> bool  = fun ctx e ->
   R.safe_unwrap false (
-      R.bind (infer_type_expr ctx e) (fun ty -> 
-          eq_lustre_type ctx ty (LA.Int (LH.pos_of_expr e))))
+      infer_type_expr ctx e
+      >>= fun ty -> eq_lustre_type ctx ty (LA.Int (LH.pos_of_expr e))
+    )
 (** Checks if the expr is of type Int. This will be useful 
  * in evaluating array sizes that we need to have as constant integers
  * while declaring the array type *)
@@ -1247,19 +1310,22 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
   Log.log L_debug ("===============================================\n"
                    ^^ "Phase 1: Building TC Global Context\n"
                    ^^"===============================================\n")
-  ; R.bind (build_type_context empty_context prg) (fun type_ctx ->
-        R.bind (tc_context_of type_ctx prg) (fun tc_ctx ->
-            Log.log L_debug ("===============================================\n"
-                             ^^ "Phase 1: Completed Building TC Global Context\n"
-                             ^^ "TC Context\n%a\n"
-                             ^^"===============================================\n")
-              pp_print_tc_context tc_ctx
-              ; scc prg
-                |> (type_check_decl_grps tc_ctx)
-                |> report_tc_result ))
-(** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
- *  a [Ok ()] if it succeeds or and [Error of String] if the typechecker fails*)
+  ;
+    build_type_context empty_context prg >>= fun type_ctx ->
+    tc_context_of type_ctx prg >>= fun tc_ctx ->
     
+    Log.log L_debug ("===============================================\n"
+                     ^^ "Phase 1: Completed Building TC Global Context\n"
+                     ^^ "TC Context\n%a\n"
+                     ^^"===============================================\n")
+      pp_print_tc_context tc_ctx
+    ;
+      scc prg
+      |> (type_check_decl_grps tc_ctx)
+      |> report_tc_result 
+           (** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
+            *  a [Ok ()] if it succeeds or and [Error of String] if the typechecker fails*)
+           
 (* 
    Local Variables:
    compile-command: "make -k -C .."
