@@ -39,7 +39,7 @@ let (>>=) = R.(>>=)
           
 (** Type alias for lustre type from LustreAst  *)
 type tc_type  = LA.lustre_type
-
+              
 (** String of the type to display in type errors *)
 let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
                                                   
@@ -71,6 +71,7 @@ module IMap = struct
 
   (** Pretty print value store *)
   let pp_print_vstore ppf = iter (pp_print_val_binding ppf)
+
 end
 
 let sort_typed_ident: LA.typed_ident list -> LA.typed_ident list = fun ty_idents ->
@@ -89,21 +90,35 @@ type const_store = (LA.expr * tc_type) IMap.t
 (** A Store of constant identifier and their (const) values with types. 
  *  The values of the associated identifiers should be evaluated to a 
  * Bool or an Int at constant propogation phase of type checking *)
-                 
-type tc_context = { ty_syns: ty_alias_store; ty_ctx: ty_store; vl_ctx: const_store}
-(** Type Checker context is a pair type store and a value store with identifier as its key *)
 
-let empty_context: tc_context = {ty_syns = IMap.empty; ty_ctx = IMap.empty; vl_ctx = IMap.empty}
+type ty_set = SI.t
+(** Pretty print declared types *)
+let pp_print_u_types ppf = SI.iter (fun i -> LA.pp_print_ident ppf i)
+            
+type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
+                  ; ty_ctx: ty_store        (* store of the types of identifiers *)
+                  ; vl_ctx: const_store     (* store of typed constants to its value*)
+                  ; u_types: ty_set         (* store of all declared user types *)
+                  }
+(** Type Checker context *)
+
+let empty_context: tc_context = { ty_syns = IMap.empty
+                                ; ty_ctx = IMap.empty
+                                ; vl_ctx = IMap.empty
+                                ; u_types = SI.empty}
 (** The empty context with no information *)
                              
 let pp_print_tc_context ppf ctx
   = Format.fprintf ppf
       ("TypeSynonyms={%a}\n"
        ^^ "TypeContext={%a}\n"
-       ^^ "ConstValueContext={%a}")
+       ^^ "ConstValueContext={%a}"
+       ^^ "DeclaredTypes={%a}")
       IMap.pp_print_ty_syns (ctx.ty_syns)
       IMap.pp_print_tymap (ctx.ty_ctx)
       IMap.pp_print_vstore (ctx.vl_ctx)
+      pp_print_u_types (ctx.u_types)
+  
 (** Pretty print the complete type checker context*)
   
 (**********************************************
@@ -119,6 +134,9 @@ let member_ty_syn: tc_context -> LA.ident -> bool
 let member_ty: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.ty_ctx)
 
+let member_u_types : tc_context -> LA.ident -> bool
+  = fun ctx i -> SI.mem i ctx.u_types
+  
 let member_val: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.vl_ctx)
 
@@ -141,7 +159,10 @@ let add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with ty_syns = IMap.add i ty (ctx.ty_syns)}
 
 let add_ty: tc_context -> LA.ident -> tc_type -> tc_context
-  = fun ctx i ty -> {ctx with ty_ctx=IMap.add i ty (ctx.ty_ctx)}
+  = fun ctx i ty -> {ctx with ty_ctx = IMap.add i ty (ctx.ty_ctx)}
+
+let add_ty_decl: tc_context -> LA.ident -> tc_context
+  = fun ctx i -> {ctx with u_types = SI.add i (ctx.u_types)}
 
 let remove_ty: tc_context -> LA.ident -> tc_context
   = fun ctx i -> {ctx with ty_ctx= IMap.remove i (ctx.ty_ctx)}
@@ -153,6 +174,7 @@ let union: tc_context -> tc_context -> tc_context
   = fun ctx1 ctx2 -> { ty_syns = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.ty_syns) (ctx2.ty_syns))
                      ; ty_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.ty_ctx) (ctx2.ty_ctx))
                      ; vl_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.vl_ctx) (ctx2.vl_ctx))
+                     ; u_types = SI.union ctx1.u_types ctx2.u_types 
                      }
 
 let singleton_ty: LA.ident -> tc_type -> tc_context
@@ -889,8 +911,8 @@ and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_resul
       ; tc_ctx_const_decl ctx const_decls 
     | LA.NodeVarDecl (pos, (_, v, ty, _)) ->
        if is_type_well_formed ctx ty then R.ok (add_ty ctx v ty)
-       else type_error pos ("Node's local variable "
-                            ^ v
+       else type_error pos ("Illformed type " ^ string_of_tc_type ty
+                            ^ ". Node's local variable " ^ v
                             ^ " type should be well formed") in
 
   Log.log L_debug "TC declaration node: %a {" LA.pp_print_ident node_name
@@ -1076,7 +1098,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
                 && (List.for_all (fun e -> not (member_val ctx e)) econsts)
              then 
              R.ok (
-                 List.fold_left union ctx
+                 List.fold_left union (add_ty_decl ctx ename)
                    ((List.map ((Lib.flip singleton_ty)
                                  (LA.UserType (pos, ename))) econsts)
                     @ Lib.list_apply ((List.map2 (Lib.flip singleton_const)
@@ -1085,7 +1107,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
              else
                type_error pos "Cannot redeclare constants or enums")
       | _ -> R.ok (add_ty_syn ctx i ty))
-  | LA.FreeType _ -> R.ok ctx
+  | LA.FreeType (_, i) -> R.ok (add_ty_decl ctx i)
 
 and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_context tc_result
   = fun pos ctx (nname, _, _ , ip, op,_ ,_ ,_) ->
@@ -1154,6 +1176,7 @@ and is_type_well_formed: tc_context -> tc_type -> bool
      is_expr_int_type ctx s && is_expr_of_conts ctx s
   | LA.TupleType (_, tys) ->
      List.fold_left (&&) true (List.map (is_type_well_formed ctx) tys)
+  | LA.UserType (_, i) -> member_ty_syn ctx i || member_u_types ctx i 
   | _ -> true
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
@@ -1165,7 +1188,8 @@ and tc_ctx_const_decl: tc_context -> LA.const_decl -> tc_context tc_result = fun
      then if member_ty ctx i
           then type_error pos ("Constant " ^ i ^ " is already declared.")
           else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty) i ty)
-     else type_error pos "Constant should be of a well formed type"
+     else type_error pos ("Illformed type " ^ string_of_tc_type ty ^
+                            ". Constant should be of a well formed type")
   | LA.UntypedConst (pos, i, e) ->
      if member_ty ctx i
      then type_error pos ("Duplicate occurance of constant " ^ i)

@@ -58,7 +58,7 @@ type m = int^5*h;
 -- Global constant declarations
 -- ------------------------------------------------------------
 
--- Free constants, must have a type
+-- Free constants, must have a type (declared later)
 const a1, a2, a3: a;
 
 -- Define constants without a type, will be inferred
@@ -82,3 +82,4 @@ const j = complex1 { re = -(3.0)/2.0; im = 3.0/2.0 };
 
 const c100:int = 1 + 1;
 const c101:real = 1.0 + 1.0;
+type a;
