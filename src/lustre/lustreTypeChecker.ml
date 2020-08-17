@@ -1072,6 +1072,9 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
           | None ->
              type_error pos "Necessary Enum name not found"
           | Some ename ->
+             if (List.for_all (fun e -> not (member_ty ctx e)) econsts)
+                && (List.for_all (fun e -> not (member_val ctx e)) econsts)
+             then 
              R.ok (
                  List.fold_left union ctx
                    ((List.map ((Lib.flip singleton_ty)
@@ -1079,7 +1082,8 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
                     @ Lib.list_apply ((List.map2 (Lib.flip singleton_const)
                          (List.map (fun i -> LA.Ident (pos, i)) econsts) econsts)) (LA.UserType (pos, ename)))
                )
-         )
+             else
+               type_error pos "Cannot redeclare constants or enums")
       | _ -> R.ok (add_ty_syn ctx i ty))
   | LA.FreeType _ -> R.ok ctx
 
@@ -1135,7 +1139,7 @@ and build_type_context: tc_context -> LA.t -> tc_context tc_result
      >>= fun ctx' -> build_type_context ctx' rest
   | _ :: rest -> build_type_context ctx rest
 (** Process top level type declarations and make a type context with 
- * user types populated *)
+ * user types, enums populated *)
                
 and is_type_well_formed: tc_context -> tc_type -> bool
   = fun ctx ->
@@ -1159,7 +1163,7 @@ and tc_ctx_const_decl: tc_context -> LA.const_decl -> tc_context tc_result = fun
   | LA.FreeConst (pos, i, ty) ->
      if (is_type_well_formed ctx ty)
      then if member_ty ctx i
-          then type_error pos ("Duplicate occurance of constant " ^ i)
+          then type_error pos ("Constant " ^ i ^ " is already declared.")
           else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty) i ty)
      else type_error pos "Constant should be of a well formed type"
   | LA.UntypedConst (pos, i, e) ->
@@ -1328,6 +1332,7 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
                    ^^"===============================================\n")
   ;
     build_type_context empty_context prg >>= fun type_ctx ->
+    (* circular check for types *)
     tc_context_of type_ctx prg >>= fun tc_ctx ->
     
     Log.log L_debug ("===============================================\n"
@@ -1339,8 +1344,8 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
       scc prg
       |> (type_check_decl_grps tc_ctx)
       |> report_tc_result 
-           (** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
-            *  a [Ok ()] if it succeeds or and [Error of String] if the typechecker fails*)
+(** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
+ *  a [Ok ()] if it succeeds or and [Error of String] if the typechecker fails*)
            
 (* 
    Local Variables:
