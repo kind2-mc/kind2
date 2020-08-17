@@ -647,6 +647,15 @@ and vars_of_clocl_expr: clock_expr -> iset = function
   | ClockNeg i -> SI.singleton i
   | ClockConstr (i1, i2) -> SI.of_list [i1; i2]
 
+let rec vars_of_struct_item: struct_item -> iset
+  = function
+  | SingleIdent (_, i) -> SI.singleton i
+  | TupleStructItem (pos, ts) -> SI.flatten (List.map vars_of_struct_item ts)  
+  | TupleSelection (_, i, _)
+    | FieldSelection (_, i, _)
+    | ArraySliceStructItem (_, i, _)
+  | ArrayDef (_, i, _) -> SI.singleton i 
+
 
 (** Return an ast that adds two expressions*)
 let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->

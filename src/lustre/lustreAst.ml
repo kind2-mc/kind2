@@ -169,7 +169,7 @@ and label_or_index =
 
 (* A declaration of a type *)
 type type_decl = 
-  | AliasType of position * ident * lustre_type  
+  | AliasType of position * ident * lustre_type
   | FreeType of position * ident
 
 (* A declaration of a clocked type *)

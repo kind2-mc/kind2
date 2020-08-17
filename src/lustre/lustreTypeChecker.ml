@@ -27,6 +27,7 @@
 module R = Res
 
 module LA = LustreAst
+module SI = LA.SI
 module LC = LustreContext
 module LH = LustreAstHelpers
 
@@ -962,13 +963,19 @@ and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> unit tc_r
   | SingleIdent (pos, i) ->
      let inf_ty = lookup_ty ctx i in
      eq_lustre_type ctx exp_ty inf_ty >>= fun is_eq ->
-     if is_eq then R.ok ()
-     (*This is an ugly fix to try and see if the RHS was instead a function return call *)
+     if is_eq then
+       if member_val ctx i
+       then type_error pos ( "Constant " ^ i ^ " cannot be re-defined")
+       else R.ok ()
+                 (*This is an ugly fix to try and see if the RHS was instead a function return call *)
      else eq_lustre_type ctx exp_ty (TupleType (pos,[inf_ty]))
-          >>= fun is_eq' ->  if is_eq' then R.ok()
-                             else type_error pos ("Expected type " ^ string_of_tc_type exp_ty
-                                                  ^ " for expression " ^ i
-                                                  ^ " but found type " ^ string_of_tc_type inf_ty)
+          >>= fun is_eq ->  if is_eq then
+                              if member_val ctx i
+                              then type_error pos ( "Constant " ^ i ^ " cannot be re-defined")
+                              else R.ok()
+                            else type_error pos ("Expected type " ^ string_of_tc_type exp_ty
+                                                 ^ " for expression " ^ i
+                                                 ^ " but found type " ^ string_of_tc_type inf_ty)
   | ArrayDef (pos, base_e, idxs) ->
      let array_idx_expr =
        List.fold_left (fun e i -> LA.ArrayIndex (pos, e, i))
@@ -986,7 +993,10 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
   (Log.log L_debug "Checking if structure definition: %a has type %a"
      (Lib.pp_print_list LA.pp_print_struct_item ",")
      lhss LA.pp_print_lustre_type exp_ty
-  ; match exp_ty with
+  (** check if the members of LHS are constants or enums before assignment *)
+  ; let lhs_vars = SI.flatten (List.map LH.vars_of_struct_item lhss) in
+   if (SI.for_all (fun i -> not (member_val ctx i)) lhs_vars)
+    then (match exp_ty with
     | TupleType (_, exp_ty_lst) ->
        if List.length lhss = List.length exp_ty_lst
        then R.seq_ (List.map2 (check_type_struct_item ctx) lhss exp_ty_lst)
@@ -1002,6 +1012,7 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
                                 ^ " on right hand side of the node equation")
            else let lhs = List.hd lhss in
                 check_type_struct_item ctx lhs exp_ty)
+  else type_error pos "Cannot reassign value to a constant")
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 
@@ -1061,9 +1072,14 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
           | None ->
              type_error pos "Necessary Enum name not found"
           | Some ename ->
-             R.ok (List.fold_left union ctx
-                     (List.map ((Lib.flip singleton_ty)
-                                  (LA.UserType (pos, ename))) econsts)))
+             R.ok (
+                 List.fold_left union ctx
+                   ((List.map ((Lib.flip singleton_ty)
+                                 (LA.UserType (pos, ename))) econsts)
+                    @ Lib.list_apply ((List.map2 (Lib.flip singleton_const)
+                         (List.map (fun i -> LA.Ident (pos, i)) econsts) econsts)) (LA.UserType (pos, ename)))
+               )
+         )
       | _ -> R.ok (add_ty_syn ctx i ty))
   | LA.FreeType _ -> R.ok ctx
 
@@ -1144,7 +1160,7 @@ and tc_ctx_const_decl: tc_context -> LA.const_decl -> tc_context tc_result = fun
      if (is_type_well_formed ctx ty)
      then if member_ty ctx i
           then type_error pos ("Duplicate occurance of constant " ^ i)
-          else R.ok (add_ty ctx i ty)
+          else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty) i ty)
      else type_error pos "Constant should be of a well formed type"
   | LA.UntypedConst (pos, i, e) ->
      if member_ty ctx i
@@ -1163,7 +1179,7 @@ and build_node_fun_ty: Lib.position -> tc_context
                        -> LA.clocked_typed_decl list -> tc_type tc_result
   = fun pos ctx args rets ->
   let fun_const_ctx = List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty)
-                      ctx (List.filter is_const_arg args |> List.map extract_ip_ty) in
+                        ctx (List.filter is_const_arg args |> List.map extract_ip_ty) in
   let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_const_ctx (List.map extract_ip_ty args) in   
   let ops = List.map snd (List.map extract_op_ty rets) in
   let ips = List.map snd (List.map extract_ip_ty args) in

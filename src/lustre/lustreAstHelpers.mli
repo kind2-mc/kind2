@@ -51,6 +51,8 @@ val replace_lasts : string list -> string -> SI.t -> expr -> expr * SI.t
 (** returns all the [ident] that appear in the expr ast*)
 val vars: expr -> SI.t
 
+val vars_of_struct_item: struct_item -> SI.t
+  
 (** Return an ast that adds two expressions*)
 val add_exp: Lib.position -> expr -> expr -> expr
 
