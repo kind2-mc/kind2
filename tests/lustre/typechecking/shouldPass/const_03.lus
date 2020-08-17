@@ -1,9 +1,0 @@
-
-const N2: int = N1 + 1;
-
-const N1: int = 1;
-
-node top(x: int) returns (y: int);
-let
-  y = x + N2;
-tel
