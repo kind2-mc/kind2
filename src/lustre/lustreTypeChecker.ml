@@ -90,7 +90,7 @@ type ty_store = tc_type IMap.t
 type const_store = (LA.expr * tc_type) IMap.t 
 (** A Store of constant identifier and their (const) values with types. 
  *  The values of the associated identifiers should be evaluated to a 
- * Bool or an Int at constant propogation phase of type checking *)
+ *  Bool or an Int at constant propogation phase of type checking *)
 
 type ty_set = SI.t
 (** Pretty print declared types *)
