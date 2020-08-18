@@ -1,0 +1,9 @@
+
+--type undeclared_type;
+
+type my_pair = [int, undeclared_type];
+
+node top(x: my_pair) returns (y: my_pair);
+let
+  y = x;
+tel

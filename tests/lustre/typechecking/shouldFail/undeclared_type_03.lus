@@ -1,0 +1,9 @@
+
+--type undeclared_type;
+
+type my_array = undeclared_type^3;
+
+node top(x: my_array) returns (y: my_array);
+let
+  y = x;
+tel
