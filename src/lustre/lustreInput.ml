@@ -37,7 +37,7 @@ exception NoMainNode of string
 
 (* The parser has succeeded and produced a semantic value.*)
 let success (v : LustreAst.t): LustreAst.t =
-  Log.log L_debug "Parsed :\n=========\n\n%a\n@." LA.pp_print_program v;
+  Log.log L_trace "Parsed :\n=========\n\n%a\n@." LA.pp_print_program v;
   v
 
 (* Generates the appropriate parser error message *)
@@ -110,7 +110,7 @@ let of_channel in_ch =
 
   (* If type checking is enabled then do this pass *)
   if not (Flags.no_tc ()) then
-    (Log.log L_note "Typechecking enabled.";
+    (Log.log L_note "(Experimental) Typechecking enabled.";
      (let tcRes = TC.type_check_program declarations in
       match tcRes with
       | TC.(Ok ()) -> Log.log L_note "No type errors found!";
