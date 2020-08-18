@@ -85,7 +85,8 @@ let is_vertex_tgt: edge -> vertex -> bool
   = fun (sv, tv) v -> v = tv
                     
 let find_edges_of_vertex: t -> vertex -> edges
-  = fun (vs, es) v -> ESet.filter (fun e -> is_vertex_tgt e v || is_vertex_src e v) es 
+  = fun (vs, es) v -> ESet.filter (fun e -> is_vertex_tgt e v
+                                            || is_vertex_src e v) es 
 
 let remove_vertex: t -> vertex -> t
   = fun (vs, es) v -> ( VSet.remove v vs
@@ -98,4 +99,9 @@ let remove_edge: t -> edge -> t
   = fun (vs, es) e -> (vs, ESet.remove e es) 
 (** Remove an edge from a graph *)                             
 
-
+let non_tgt_vertices: t -> vertex list
+  = fun (vs, es) ->
+  let vs' = VSet.elements vs in
+  List.filter (fun v -> ESet.for_all (fun e -> not (is_vertex_tgt e v)) es) vs'
+(** Returns a list of all vertices that have no incoming edge  *)
+          

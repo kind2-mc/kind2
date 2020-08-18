@@ -15,7 +15,7 @@
    permissions and limitations under the License. 
 
  *)
-(** Graph and graph traversals
+(** A poor person's graph and graph traversal implementations
    
    @author Apoorv Ingle *)
 
@@ -56,4 +56,3 @@ val remove_vertex: t -> vertex -> t
 
 val remove_edge: t -> edge -> t
 (** Remove an edge from a graph *)                             
-                                    
