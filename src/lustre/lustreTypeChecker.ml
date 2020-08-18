@@ -937,6 +937,10 @@ and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_resul
       Log.log L_trace "Local Typing Context {%a}" pp_print_tc_context local_ctx
       (* Type check the node items now that we have all the local typing context *)
       ; R.seq_ (List.map (do_item local_ctx) items)
+        >> (match contract with
+            | None -> R.ok ()
+            | Some c -> check_type_contract local_ctx c
+          )
         >> R.ok (Log.log L_trace "TC declaration node %a done }"
                    LA.pp_print_ident node_name))
 
