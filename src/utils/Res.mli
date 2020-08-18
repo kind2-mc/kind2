@@ -32,6 +32,9 @@ val bind : ('a, 'e) result -> ('a -> ('b, 'e) result) -> ('b, 'e) result
 val (>>=): ('a, 'e) result -> ('a -> ('b, 'e) result) -> ('b, 'e) result
 (** Infix version of [bind] *)
 
+val (>>): ('a, 'e) result -> ('c, 'e) result -> ('c, 'e) result
+(** Disregards the output of the first computation*)
+  
 val join : (('a, 'e) result, 'e) result -> ('a, 'e) result
 (** [join rr] is [r] if [rr] is [Ok r] and [rr] if [rr] is [Error _]. *)
 
@@ -46,6 +49,9 @@ val seq: ('a, 'e) result list -> ('a list, 'e) result
 (** sequences a [list] of [result] into a [result] of [list] 
  * basically errors out on first error or returns the whole value list *)
 
+val seq_chain: ('a -> 'b -> ('a, 'e) result) -> 'a -> 'b list -> ('a, 'e) result
+(** Chains the output of the head computation into the following tail computation while folding*)
+  
 val foldM: ('a -> 'b -> 'a) -> 'a -> ('b list, 'e) result -> ('a, 'e) result
 (** Folds a list under a [result] type *)
 
