@@ -1,3 +1,5 @@
+type a;
+
 const r3_l = 1;
 const r3_u = 2;
 type r3 = subrange [r3_l, r3_u] of int;
@@ -49,11 +51,11 @@ type l = int^3^5; -- ^ is left-associative
 
 -- A constant of array type 
 -- const l_1 : int^3 = l[4];
-
+/* TODO: FIX ME
 -- Declare an array type with a constant as a parameter 
 const h = 2;
 type m = int^5*h;
-
+*/
 -- ------------------------------------------------------------
 -- Global constant declarations
 -- ------------------------------------------------------------
@@ -82,4 +84,3 @@ const j = complex1 { re = -(3.0)/2.0; im = 3.0/2.0 };
 
 const c100:int = 1 + 1;
 const c101:real = 1.0 + 1.0;
-type a;

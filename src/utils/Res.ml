@@ -26,13 +26,15 @@ let ok v = Ok v
 let error e = Error e
 
 let bind r f = match r with Ok v -> f v | Error _ as e -> e
+
 let (>>=) = fun r f -> bind r f 
+
 let (>>) = fun r1 r2 -> bind r1 (fun _ -> r2)
-         
+
 let join = function Ok r -> r | Error _ as e -> e
 
 let map f = function Ok v -> Ok (f v) | Error _ as e -> e
-                                                      
+
 let rec seq: ('a, 'e) result list -> ('a list, 'e) result  =
   function
   | [] -> ok []
@@ -46,13 +48,15 @@ let rec seq_chain: ('a -> 'b -> ('a, 'e) result) -> 'a -> 'b list -> ('a, 'e) re
   | h :: t -> f e h >>= fun e' -> 
               seq_chain f e' t
 
-              
+let ifM: (bool, 'e) result -> ('a, 'e) result -> ('a, 'e) result -> ('a, 'e) result
+  = fun cond p1 p2 -> cond >>= (fun cond_true -> if cond_true then p1 else p2)
+
 let foldM: ('a -> 'b -> 'a) -> 'a -> ('b list, 'e) result -> ('a, 'e) result
   = fun f e l -> map (List.fold_left f e) l
 
 let seqM: ('a -> 'b -> 'a) -> 'a -> ('b, 'e) result list -> ('a, 'e) result
   = fun f e m -> foldM f e (seq m)  
-            
+
 let seq_: (unit, 'e) result list -> (unit, 'e) result  =
   fun m -> seqM (fun _ _ -> ()) () m
 
@@ -60,7 +64,7 @@ let safe_unwrap: 'a -> ('a, 'e) result -> 'a =
   fun d -> function
         | Ok v -> v
         | _ -> d
-         
+
 (** Unwraps a result. *)
 let unwrap = function
   | Ok arg -> arg

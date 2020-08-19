@@ -19,7 +19,10 @@
 (** A result for some computation. [Ok] or [Error] of [Format.formatter]*)
 type 'a res = ('a, Format.formatter -> unit) result
 
-            
+(** The following functions have been taken from  (future) 4.09 Stdlib.Result. 
+ * These 5 functions, [ok], [error], [bind], [join] and [map] should be removed 
+ * after the Stdlib upgrade. *)
+
 val ok : 'a -> ('a, 'e) result
 (** [ok v] is [Ok v]. *)
 
@@ -29,21 +32,17 @@ val error : 'e -> ('a, 'e) result
 val bind : ('a, 'e) result -> ('a -> ('b, 'e) result) -> ('b, 'e) result
 (** [bind r f] is [f v] if [r] is [Ok v] and [r] if [r] is [Error _]. *)
 
-val (>>=): ('a, 'e) result -> ('a -> ('b, 'e) result) -> ('b, 'e) result
-(** Infix version of [bind] *)
-
-val (>>): ('a, 'e) result -> ('c, 'e) result -> ('c, 'e) result
-(** Disregards the output of the first computation*)
-  
 val join : (('a, 'e) result, 'e) result -> ('a, 'e) result
 (** [join rr] is [r] if [rr] is [Ok r] and [rr] if [rr] is [Error _]. *)
 
 val map : ('a -> 'b) -> ('a, 'e) result -> ('b, 'e) result
 (** [map f r] is [Ok (f v)] if [r] is [Ok v] and [r] if [r] is [Error _]. *)
-  
-(** The following functions have been taken from  (future) 4.09 Stdlib.Result. 
- * These 4 functions, [ok], [error], [bind], [join] and [map] should be ported to 
- * the original library functions after the Stdlib upgrade. *)
+
+val (>>=): ('a, 'e) result -> ('a -> ('b, 'e) result) -> ('b, 'e) result
+(** Infix version of [bind] *)
+
+val (>>): ('a, 'e) result -> ('c, 'e) result -> ('c, 'e) result
+(** Disregards the output of the first computation*)
 
 val seq: ('a, 'e) result list -> ('a list, 'e) result  
 (** sequences a [list] of [result] into a [result] of [list] 
@@ -51,7 +50,7 @@ val seq: ('a, 'e) result list -> ('a list, 'e) result
 
 val seq_chain: ('a -> 'b -> ('a, 'e) result) -> 'a -> 'b list -> ('a, 'e) result
 (** Chains the output of the head computation into the following tail computation while folding*)
-  
+
 val foldM: ('a -> 'b -> 'a) -> 'a -> ('b list, 'e) result -> ('a, 'e) result
 (** Folds a list under a [result] type *)
 
@@ -61,6 +60,9 @@ val seqM: ('a -> 'b -> 'a) -> 'a -> ('b, 'e) result list -> ('a, 'e) result
 val seq_: (unit, 'e) result list -> (unit, 'e) result  
 (** sequences a [list] of [unit] into a [result] of [unit] 
  * errors out on first error or returns a unit *)
+
+val ifM: (bool, 'e) result -> ('a, 'e) result -> ('a, 'e) result -> ('a, 'e) result  
+(** This is an if .. then .. else lifted in monadic world *)
 
 (** Unwrap the result value and return the default value if it is an error*)
 val  safe_unwrap: 'a -> ('a, 'e) result -> 'a

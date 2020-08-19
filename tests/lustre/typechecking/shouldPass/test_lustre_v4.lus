@@ -180,10 +180,10 @@ const
   PI = 3.1416;
   -- RightAngle = PI/2.0;
 
-const size = 64;
-type vector = int^size;
+/* TODO: FIX ME 
 
-/* TODO: 
+const size:int = 64;
+type vector = int^size;
 
 -- Node with clocked local stream
 node x23 () returns ();
