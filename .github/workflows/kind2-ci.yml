@@ -54,11 +54,11 @@ jobs:
       run: opam exec make test
 
     - name: Create kind2 tarball
-      if: github.event_name == 'push' && github.base_ref == 'develop'
+      if: github.event_name == 'push' && github.ref == 'develop'
       run: tar -czvf kind2.tar.gz bin/kind2
 
     - name: Upload kind2 tarball
-      if: github.event_name == 'push' && github.base_ref == 'develop'
+      if: github.event_name == 'push' && github.ref == 'develop'
       uses: actions/upload-artifact@v2
       with:
         name: kind2-${{ matrix.os }}.tar.gz
