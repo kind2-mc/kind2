@@ -53,14 +53,10 @@ jobs:
     - name: Run regression tests
       run: opam exec make test
 
-    - name: Create kind2 tarball
-      if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-      run: tar -czvf kind2.tar.gz bin/kind2
-
-    - name: Upload kind2 tarball
+    - name: Upload kind2 artifact
       if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
       uses: actions/upload-artifact@v2
       with:
-        name: kind2-${{ matrix.os }}.tar.gz
-        path: kind2.tar.gz
+        name: kind2-${{ matrix.os }}
+        path: bin/kind2
 
