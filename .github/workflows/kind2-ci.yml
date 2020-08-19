@@ -1,0 +1,50 @@
+
+name: Kind2 CI
+
+on:
+  pull_request:
+    branches: [ develop ]
+  push:
+    branches: [ develop, ci-cd ]
+
+jobs:
+  kind2-build:
+    strategy:
+      matrix:
+        ocaml-version: [ 4.07.1 ]
+        os: [ ubuntu-20.04, macos-10.15 ]
+        include:
+          - os: macos-10.15
+            zmq_install: brew install zmq
+          - os: ubuntu-20.04
+            zmq_install: sudo apt-get install -y libzmq3-dev
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Cache opam repository
+      uses: actions/cache@v2
+      with:
+        path: ~/.opam
+        key: ${{ matrix.os }}-opam-${{ matrix.ocaml-version }}
+
+    - name: Set up OCaml ${{ matrix.ocaml-version }}
+      uses: avsm/setup-ocaml@v1
+      with:
+        ocaml-version: ${{ matrix.ocaml-version }}
+
+    - name: Install ZMQ library
+      run: ${{ matrix.zmq_install }}
+
+    - name: Install OCaml dependencies
+      run: opam install -y . --deps-only
+
+    - name: Build Kind2
+      run: opam exec make
+
+    - name: Run regression tests
+      run: opam exec make test
+
