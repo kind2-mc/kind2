@@ -237,17 +237,78 @@ let infer_type_const: Lib.position -> LA.constant -> tc_type
 let infer_type_conv_op: Lib.position -> tc_type -> LA.conversion_operator -> tc_type tc_result
   = fun pos ty ->
   function
-  | ToInt -> R.ok (LA.TArr (pos, ty, Int pos))
-  | ToReal -> R.ok (LA.TArr (pos, ty, Real pos))
-  | ToInt8 -> R.ok (LA.TArr (pos, ty, Int8 pos))
-  | ToInt16 -> R.ok (LA.TArr (pos, ty, Int16 pos))
-  | ToInt32 -> R.ok (LA.TArr (pos, ty, Int32 pos))
-  | ToInt64 -> R.ok (LA.TArr (pos, ty, Int64 pos))
-  | ToUInt8 -> R.ok (LA.TArr (pos, ty, UInt8 pos))
-  | ToUInt16 -> R.ok (LA.TArr (pos, ty, UInt16 pos))
-  | ToUInt32 -> R.ok (LA.TArr (pos, ty, UInt32 pos))
-  | ToUInt64 -> R.ok (LA.TArr (pos, ty, UInt64 pos))
-(** Converts from given type to the intended type *)
+  | ToInt ->
+     if is_type_num ty
+     then R.ok (LA.TArr (pos, ty, Int pos))
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (Int pos))
+  | ToReal ->
+     if is_type_num ty
+     then R.ok (LA.TArr (pos, ty, Real pos))
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (Real pos))
+  | ToInt8 ->
+     if is_type_num ty
+     then R.ok (LA.TArr (pos, ty, Int8 pos))
+     else type_error pos ("Cannot convert a non-number type "
+                                  ^ string_of_tc_type ty
+                                  ^ " to type "
+                                  ^ string_of_tc_type (Int8 pos))
+                    
+  | ToInt16 ->
+     if is_type_num ty
+     then R.ok (LA.TArr (pos, ty, Int16 pos))
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (Int16 pos))
+  | ToInt32 ->
+     if is_type_num ty
+     then R.ok (LA.TArr (pos, ty, Int32 pos))
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (Int32 pos))
+  | ToInt64 ->
+     if is_type_num ty
+     then R.ok (LA.TArr (pos, ty, Int64 pos))
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (Int64 pos))
+  | ToUInt8 ->
+     if is_type_num ty
+     then R.ok (LA.TArr (pos, ty, UInt8 pos))
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (UInt8 pos))
+  | ToUInt16 ->
+     if is_type_num ty
+     then R.ok (LA.TArr (pos, ty, UInt16 pos))
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (UInt16 pos))
+  | ToUInt32 ->
+     if is_type_num ty
+     then R.ok (LA.TArr (pos, ty, UInt32 pos))
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (UInt32 pos))
+  | ToUInt64 ->
+     if is_type_num ty
+     then R.ok (LA.TArr (pos, ty, UInt64 pos))
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (UInt64 pos))
+(** Converts from given type to the intended type aka casting *)
       
 let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   = fun ctx -> function
@@ -876,8 +937,8 @@ and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_resul
     | LA.NodeVarDecl (pos, (_, v, ty, _)) ->
        check_type_well_formed ctx ty
        >> R.ok (add_ty ctx v ty)
-      in
-   Log.log L_trace "TC declaration node: %a {" LA.pp_print_ident node_name
+  in
+  Log.log L_trace "TC declaration node: %a {" LA.pp_print_ident node_name
   (* if the node is extern, we will not have any body to typecheck *)
   ; if is_extern
     then R.ok ( Log.log L_trace "External Node, no body to type check."
@@ -903,9 +964,10 @@ and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_resul
       (* Type check the node items now that we have all the local typing context *)
       ; R.seq_ (List.map (do_item local_ctx) items)
         >> (match contract with
-            | None -> R.ok ()
-            | Some c -> check_type_contract local_ctx c
-          )
+             | None -> R.ok ()
+             | Some c ->
+                tc_ctx_of_contract ctx_plus_ops_and_ips c
+                >>= fun con_ctx -> check_type_contract con_ctx c)
         >> R.ok (Log.log L_trace "TC declaration node %a done }"
                    LA.pp_print_ident node_name))
 
@@ -1025,7 +1087,9 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
   >> R.ok (Log.log L_trace "TC Contract Decl %a done }" LA.pp_print_ident cname)
 
 and check_type_contract: tc_context -> LA.contract -> unit tc_result
-  = fun ctx eqns -> R.seq_ (List.map (check_contract_node_eqn ctx) eqns)
+  = fun ctx eqns ->
+  (* Build the type checker context *)
+  R.seq_ (List.map (check_contract_node_eqn ctx) eqns)
 
 and check_contract_node_eqn: tc_context -> LA.contract_node_equation -> unit tc_result
   = fun ctx eqn ->
@@ -1092,10 +1156,20 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_contex
          >>= fun fun_ty -> R.ok (add_ty ctx nname fun_ty)
 (** computes the type signature of node or a function *)
 
+and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_context tc_result
+  = fun ctx ->
+  function
+  | LA.GhostConst c -> tc_ctx_const_decl ctx c
+  | LA.GhostVar c -> tc_ctx_const_decl ctx c
+  | _ -> R.ok ctx
+                         
+and tc_ctx_of_contract: tc_context -> LA.contract -> tc_context tc_result
+  = fun ctx con -> R.seq_chain (tc_ctx_contract_node_eqn) ctx con
+                         
 and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
                                   -> LA.contract_node_decl
                                   -> tc_context tc_result
-  = fun pos ctx (cname, params, inputs, outputs, contrat) ->
+  = fun pos ctx (cname, params, inputs, outputs, contract) ->
   Log.log L_trace
     "Extracting typing context from contract declaration: %a"
     LA.pp_print_ident cname
@@ -1248,10 +1322,9 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> bool tc_r
   | _, _ -> R.ok false
 
 and is_expr_int_type: tc_context -> LA.expr -> bool  = fun ctx e ->
-  R.safe_unwrap false (
-      infer_type_expr ctx e
-      >>= fun ty -> eq_lustre_type ctx ty (LA.Int (LH.pos_of_expr e))
-    )
+  R.safe_unwrap false
+    (infer_type_expr ctx e
+      >>= fun ty -> eq_lustre_type ctx ty (LA.Int (LH.pos_of_expr e)))
 (** Checks if the expr is of type Int. This will be useful 
  * in evaluating array sizes that we need to have as constant integers
  * while declaring the array type *)
