@@ -1,0 +1,5 @@
+
+node top(x: bool) returns (y: int8);
+let
+  y = (int8 x);
+tel

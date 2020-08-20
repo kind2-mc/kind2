@@ -1,0 +1,7 @@
+
+type my_array = int^3;
+
+node top(x: my_array) returns (y: real);
+let
+  y = (real x);
+tel
