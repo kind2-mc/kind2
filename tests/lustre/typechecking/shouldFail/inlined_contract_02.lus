@@ -1,0 +1,10 @@
+
+node top(x: int) returns (y: int);
+(*@contract
+  guarantee y >= l; -- error: Unbound identifier l
+*)
+var l: int;
+let
+  l = x + 5;
+  y = l;
+tel
