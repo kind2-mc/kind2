@@ -395,13 +395,13 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                                ^ string_of_tc_type fty))
   | LA.BinaryOp (pos, bop, e1, e2) ->
      infer_type_binary_op ctx pos bop e1 e2
-            (* >>= function
-             * | TArr (_, arg_ty1, TArr (_, arg_ty2, res_ty)) ->
-             *    check_type_expr ctx e1 arg_ty1
-             *    >> check_type_expr ctx e2 arg_ty2
-             *    >> R.ok res_ty
-             * | fty -> type_error pos ("Unexpected binary operator type: "
-             *                          ^ string_of_tc_type fty))) *)
+     >>= (function
+          | TArr (_, arg_ty1, TArr (_, arg_ty2, res_ty)) ->
+             check_type_expr ctx e1 arg_ty1
+             >> check_type_expr ctx e2 arg_ty2
+             >> R.ok res_ty
+          | fty -> type_error pos ("Unexpected binary operator type: "
+                                   ^ string_of_tc_type fty))
   | LA.TernaryOp (pos, top, con, e1, e2) ->
      infer_type_expr ctx con
      >>= (function
@@ -504,6 +504,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                                      ^ Lib.string_of_t LA.pp_print_lustre_type ty))
      else type_error pos ("Slicing should have integer types")
   | LA.ArrayIndex (pos, e, i) ->
+     infer_type_expr ctx i >>= fun index_type ->
      if is_expr_int_type ctx i
      then infer_type_expr ctx e
           >>= (function
@@ -511,7 +512,9 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                | ty -> type_error pos ("Indexing can only be done on an type Array "
                                        ^ "but found type "
                                        ^ Lib.string_of_t LA.pp_print_lustre_type ty))
-     else type_error pos ("Array Index should have integer types") 
+     else type_error pos ("Array index should have an integer type "
+                          ^ " but found " ^ string_of_tc_type index_type)
+
   | LA.ArrayConcat (pos, arr1, arr2) ->
      infer_type_expr ctx arr1
      >>= (function
@@ -756,11 +759,13 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                                         ^ string_of_tc_type exp_ty
                                         ^ " but found "
                                         ^ string_of_tc_type arr_ty))
-  | ArrayIndex (pos, e, idx) -> 
+  | ArrayIndex (pos, e, idx) ->
+     infer_type_expr ctx idx >>= fun index_type -> 
      if is_expr_int_type ctx idx
      then check_type_expr ctx e (ArrayType (pos, (exp_ty, (LA.Const (pos, Num "42")))))
                           (* TODO: can also be a constant arithmetic expression *)
-     else type_error pos ("Array index should have an integer type")
+     else type_error pos ("Array index should have an integer type "
+                          ^ " but found " ^ string_of_tc_type index_type)
   | ArraySlice _ -> Lib.todo __LOC__
   | ArrayConcat _ -> Lib.todo __LOC__
 
