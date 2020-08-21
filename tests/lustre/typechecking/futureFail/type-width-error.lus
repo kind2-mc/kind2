@@ -1,0 +1,13 @@
+const w = 5;
+const n = 11;
+
+node f(x : bool) returns (b1 : bool^n);
+let
+  b1 = false ^ n;
+tel
+
+node b(x : bool) returns (xb : bool^w);
+let
+  --%PROPERTY xb[1] = false;
+  xb = f(x); -- should fail here
+tel

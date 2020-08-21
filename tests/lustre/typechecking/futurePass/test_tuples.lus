@@ -1,0 +1,19 @@
+node n1 (x: [int, real]) returns (y : [bool, int]);
+
+node g (x:int) returns (y:int);
+
+node n2 (x1: int; x2: real) returns (y1 : bool;  y1: int);
+
+type t = [int, real] -- type tuple
+(x, y) = (1,2.0) -- tuples
+
+z = (3, 5.3)
+
+(x, y) = n1(z): group ~ tuple
+
+x = g(5): int
+
+
+const A = [1,2,3] -- array
+
+(x,y) = [1,2] -- array
