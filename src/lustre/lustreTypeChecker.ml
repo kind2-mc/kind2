@@ -221,7 +221,31 @@ let is_type_num: tc_type -> bool = function
   | LA.IntRange _
   | LA.Real _ -> true
   | _ -> false
-  
+
+let is_type_unsigned_machine_int: tc_type -> bool = function
+  | LA.UInt8 _       
+  | LA.UInt16 _   
+  | LA.UInt32 _   
+  | LA.UInt64 _ -> true    
+  | _ -> false  
+
+let is_type_signed_machine_int: tc_type -> bool = function
+  | LA.Int8 _       
+  | LA.Int16 _   
+  | LA.Int32 _   
+  | LA.Int64 _ -> true    
+  | _ -> false  
+       
+let is_type_machine_int: tc_type -> bool = fun ty ->
+  is_type_signed_machine_int ty || is_type_unsigned_machine_int ty 
+
+let is_machine_type_of_associated_width: (tc_type * tc_type) -> bool = function
+  | LA.Int8 _, LA.UInt8 _       
+  | LA.Int16 _,LA.UInt16 _   
+  | LA.Int32 _, LA.UInt32 _   
+  | LA.Int64 _, LA.UInt64 _ -> true
+  | _ -> false    
+
   
 (**********************************************
  * Type inferring and type checking functions *
@@ -786,15 +810,15 @@ and infer_type_unary_op: tc_context -> Lib.position -> tc_type -> LA.unary_opera
   = fun ctx pos ty ->
   function
   | LA.Not -> R.ok (LA.TArr (pos, Bool pos, Bool pos))
-  | LA.BVNot -> if is_type_num ty then R.ok (LA.TArr (pos, ty, ty))
-                else type_error pos ("Cannot apply a bit value not operator "
-                                     ^ "to a non-numeric value of type "
+  | LA.BVNot -> if is_type_machine_int ty then R.ok (LA.TArr (pos, ty, ty))
+                else type_error pos ("Cannot apply the bit-value not operator "
+                                     ^ "to a non machine integer value of type "
                                      ^ string_of_tc_type ty)
               
   | LA.Uminus ->
      if (is_type_num ty)
      then R.ok (LA.TArr (pos, ty, ty))
-     else type_error pos ("Unary minus cannot be applied to expression of type "
+     else type_error pos ("Unary minus cannot be applied to non number expression of type "
                           ^ string_of_tc_type ty)
 (** Infers the unary type operators *)
 
@@ -828,16 +852,35 @@ and infer_type_binary_op: tc_context -> Lib.position
      R.ok (LA.TArr (pos, Bool pos, TArr(pos, Bool pos, Bool pos)))
   | LA.Mod -> 
      R.ok (LA.TArr (pos, Int pos, TArr(pos, Int pos, Int pos)))
-  | LA. Minus | LA.Plus | LA.Times
-    | LA.BVAnd | LA.BVOr | LA.BVShiftL | LA.BVShiftR
-    | LA.IntDiv | LA.Div -> 
+  | LA. Minus | LA.Plus | LA.Times | LA.Div
+    | LA.IntDiv -> 
      are_args_num ctx pos ty1 ty2 >>=
        fun is_num ->
        if is_num
        then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty2)))
-       else type_error pos ("Both sides of the expression should be"
+       else type_error pos ("Both sides of the operator should be"
                             ^" isomorphic types but found types " ^ string_of_tc_type ty1
                             ^ " and " ^ string_of_tc_type ty2)
+  | LA.BVAnd | LA.BVOr ->
+     R.ifM (eq_lustre_type ctx ty1 ty2)
+       (if is_type_machine_int ty1 && is_type_machine_int ty2
+        then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty2)))
+        else type_error pos ("arguments should be of type machine integer but"
+                             ^ " found types " ^ string_of_tc_type ty1
+                             ^ " and " ^ string_of_tc_type ty2))
+       (type_error pos ("Both sides of the operator should be"
+                        ^ " of the same type but found type "
+                        ^ string_of_tc_type ty1
+                        ^ " and " ^ string_of_tc_type ty2))
+  | LA.BVShiftL | LA.BVShiftR ->
+     if (is_type_signed_machine_int ty1)
+     then (if (is_type_unsigned_machine_int ty2 && is_machine_type_of_associated_width (ty1, ty2))
+           then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty1)))
+           else type_error pos ("First argument of shift operator should be of unsigned machine type "
+                                ^ "but found type " ^ string_of_tc_type ty1))
+     else type_error pos ("First argument of shift operator should be of signed machine type "
+                          ^ "but found type " ^ string_of_tc_type ty1 ) 
+    
 (** TODO: There is some polymorphism going on here due 
  * to overloaded Plus/Times/Minus operations *)
 
