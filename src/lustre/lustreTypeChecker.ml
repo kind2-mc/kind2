@@ -222,6 +222,19 @@ let is_type_num: tc_type -> bool = function
   | LA.Real _ -> true
   | _ -> false
 
+let is_type_int: tc_type -> bool = function
+    LA.Int _
+  | LA.UInt8 _       
+  | LA.UInt16 _   
+  | LA.UInt32 _   
+  | LA.UInt64 _  
+  | LA.Int8 _   
+  | LA.Int16 _    
+  | LA.Int32 _    
+  | LA.Int64 _    
+  | LA.IntRange _
+  | _ -> false
+
 let is_type_unsigned_machine_int: tc_type -> bool = function
   | LA.UInt8 _       
   | LA.UInt16 _   
@@ -243,7 +256,11 @@ let is_machine_type_of_associated_width: (tc_type * tc_type) -> bool = function
   | LA.Int8 _, LA.UInt8 _       
   | LA.Int16 _,LA.UInt16 _   
   | LA.Int32 _, LA.UInt32 _   
-  | LA.Int64 _, LA.UInt64 _ -> true
+  | LA.Int64 _, LA.UInt64 _
+  | LA.UInt8 _, LA.UInt8 _       
+  | LA.UInt16 _,LA.UInt16 _   
+  | LA.UInt32 _, LA.UInt32 _   
+  | LA.UInt64 _, LA.UInt64 _ -> true
   | _ -> false    
 
   
@@ -377,18 +394,14 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
       | fty -> type_error pos ("Unexpected unary operator type: "
                                ^ string_of_tc_type fty))
   | LA.BinaryOp (pos, bop, e1, e2) ->
-     infer_type_expr ctx e1
-     >>= (fun ty1 ->
-      infer_type_expr ctx e2
-      >>= (fun ty2 ->
-            infer_type_binary_op ctx pos (ty1, ty2) bop
-            >>= function
-            | TArr (_, arg_ty1, TArr (_, arg_ty2, res_ty)) ->
-               check_type_expr ctx e1 arg_ty1
-               >> check_type_expr ctx e2 arg_ty2
-               >> R.ok res_ty
-            | fty -> type_error pos ("Unexpected binary operator type: "
-                                     ^ string_of_tc_type fty)))
+     infer_type_binary_op ctx pos bop e1 e2
+            (* >>= function
+             * | TArr (_, arg_ty1, TArr (_, arg_ty2, res_ty)) ->
+             *    check_type_expr ctx e1 arg_ty1
+             *    >> check_type_expr ctx e2 arg_ty2
+             *    >> R.ok res_ty
+             * | fty -> type_error pos ("Unexpected binary operator type: "
+             *                          ^ string_of_tc_type fty))) *)
   | LA.TernaryOp (pos, top, con, e1, e2) ->
      infer_type_expr ctx con
      >>= (function
@@ -625,9 +638,9 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                                       ^ " to operator of type "
                                       ^ string_of_tc_type ty))
   | BinaryOp (pos, op, e1, e2) ->
-     infer_type_expr ctx e1
-     >>= fun arg_ty1 -> infer_type_expr ctx e2
-     >>= fun arg_ty2 -> infer_type_binary_op ctx pos (arg_ty1, arg_ty2) op
+     infer_type_expr ctx e1 >>= fun arg_ty1 -> 
+     infer_type_expr ctx e2 >>= fun arg_ty2 -> 
+     infer_type_binary_op ctx pos op e1 e2
      >>= fun ty -> R.guard_with (eq_lustre_type ctx ty
                             (LA.TArr (pos, arg_ty1, TArr (pos, arg_ty2, exp_ty))))
                      (type_error pos (" Cannot apply arguments of type "
@@ -844,43 +857,54 @@ and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> bool tc_re
 (** This is an ugly fix till we have polymorphic unification, may be qualified types? *)
   
 and infer_type_binary_op: tc_context -> Lib.position
-                          -> (tc_type * tc_type) -> LA.binary_operator
+                          -> LA.binary_operator -> LA.expr -> LA.expr
                           -> tc_type tc_result
-  = fun ctx pos (ty1, ty2) ->
-  function
+  = fun ctx pos op e1 e2 ->
+  infer_type_expr ctx e1 >>= fun ty1 ->
+  infer_type_expr ctx e2 >>= fun ty2 ->
+  match op with
   | LA.And | LA.Or | LA.Xor | LA.Impl ->
      R.ok (LA.TArr (pos, Bool pos, TArr(pos, Bool pos, Bool pos)))
   | LA.Mod -> 
      R.ok (LA.TArr (pos, Int pos, TArr(pos, Int pos, Int pos)))
-  | LA. Minus | LA.Plus | LA.Times | LA.Div
-    | LA.IntDiv -> 
+  | LA. Minus | LA.Plus | LA.Times | LA.Div -> 
      are_args_num ctx pos ty1 ty2 >>=
        fun is_num ->
        if is_num
        then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty2)))
-       else type_error pos ("Both sides of the operator should be"
+       else type_error pos ("Expected Both sides of the operator to be"
                             ^" isomorphic types but found types " ^ string_of_tc_type ty1
                             ^ " and " ^ string_of_tc_type ty2)
+  | LA.IntDiv ->
+     if is_type_int ty1 && is_type_int ty2
+     then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty2)))
+     else type_error pos ("Expected argument of type integer "
+                          ^ "but found types " ^ string_of_tc_type ty1
+                          ^ " and " ^ string_of_tc_type ty2)
   | LA.BVAnd | LA.BVOr ->
      R.ifM (eq_lustre_type ctx ty1 ty2)
        (if is_type_machine_int ty1 && is_type_machine_int ty2
         then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty2)))
-        else type_error pos ("arguments should be of type machine integer but"
-                             ^ " found types " ^ string_of_tc_type ty1
+        else type_error pos ("Expected arguments of type machine integer but "
+                             ^ "found types " ^ string_of_tc_type ty1
                              ^ " and " ^ string_of_tc_type ty2))
        (type_error pos ("Both sides of the operator should be"
                         ^ " of the same type but found type "
                         ^ string_of_tc_type ty1
                         ^ " and " ^ string_of_tc_type ty2))
   | LA.BVShiftL | LA.BVShiftR ->
-     if (is_type_signed_machine_int ty1)
-     then (if (is_type_unsigned_machine_int ty2 && is_machine_type_of_associated_width (ty1, ty2))
-           then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty1)))
-           else type_error pos ("First argument of shift operator should be of unsigned machine type "
+     if (is_type_signed_machine_int ty1 || is_type_unsigned_machine_int ty1)
+     then (if (is_type_unsigned_machine_int ty2
+               && is_machine_type_of_associated_width (ty1, ty2))
+                then if is_expr_of_conts ctx e2
+                     then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty1)))
+                     else type_error pos "Expected second argument of shift operator to be a constant"
+           else type_error pos ("Expected second argument of shift operator to be a constant "
+                                ^ "of type unsigned machine integer of the same width as first argument "
                                 ^ "but found type " ^ string_of_tc_type ty1))
-     else type_error pos ("First argument of shift operator should be of signed machine type "
+     else type_error pos ("Expected first argument of shift operator to be "
+                          ^ "of type signed or unsigned machine integer "
                           ^ "but found type " ^ string_of_tc_type ty1 ) 
-    
 (** TODO: There is some polymorphism going on here due 
  * to overloaded Plus/Times/Minus operations *)
 
