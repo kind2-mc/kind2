@@ -581,8 +581,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
   (* Identifiers *)
   | Ident (pos, i) as ident ->
      infer_type_expr ctx ident >>= fun ty ->
-     R.ifM (eq_lustre_type ctx ty exp_ty)
-       (R.ok ())
+     R.guard_with (eq_lustre_type ctx ty exp_ty)
        (type_error pos ("Identifier " ^ i
                         ^ " does not match expected type "
                         ^ string_of_tc_type exp_ty
@@ -596,8 +595,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
   | UnaryOp (pos, op, e) ->
      infer_type_expr ctx e
      >>= fun arg_ty -> infer_type_unary_op ctx pos arg_ty op
-     >>= fun ty -> R.ifM (eq_lustre_type ctx ty (TArr (pos, arg_ty, exp_ty)))
-                     (R.ok ())
+     >>= fun ty -> R.guard_with (eq_lustre_type ctx ty (TArr (pos, arg_ty, exp_ty)))
                      (type_error pos ("Cannot apply argument of type "
                                       ^ string_of_tc_type arg_ty
                                       ^ " to operator of type "
@@ -606,9 +604,8 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
      infer_type_expr ctx e1
      >>= fun arg_ty1 -> infer_type_expr ctx e2
      >>= fun arg_ty2 -> infer_type_binary_op ctx pos (arg_ty1, arg_ty2) op
-     >>= fun ty -> R.ifM (eq_lustre_type ctx ty
+     >>= fun ty -> R.guard_with (eq_lustre_type ctx ty
                             (LA.TArr (pos, arg_ty1, TArr (pos, arg_ty2, exp_ty))))
-                     (R.ok ())
                      (type_error pos (" Cannot apply arguments of type "
                                       ^ string_of_tc_type arg_ty1
                                       ^ " and type " ^ string_of_tc_type arg_ty2
@@ -620,8 +617,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
           | Bool _ ->
              infer_type_expr ctx e1
              >>= fun ty1 -> infer_type_expr ctx e2
-             >>= fun ty2 -> R.ifM (eq_lustre_type ctx ty1 ty2)
-                              (R.ok ())
+             >>= fun ty2 -> R.guard_with (eq_lustre_type ctx ty1 ty2)
                               (type_error pos
                                  ("Cannot unify type " ^ string_of_tc_type ty1
                                   ^ "with type " ^ string_of_tc_type ty2))
@@ -634,8 +630,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
      >>= fun e_ty -> infer_type_conv_op pos e_ty cvop
      >>= (function
           | TArr (pos, _, ret_ty) ->
-             R.ifM (eq_lustre_type ctx ret_ty exp_ty)
-               (R.ok ())
+             R.guard_with (eq_lustre_type ctx ret_ty exp_ty)
                (type_error pos ("For expression " ^ Lib.string_of_t LA.pp_print_expr convop 
                                 ^ " expected type " ^ string_of_tc_type exp_ty
                                 ^ " but found type " ^ string_of_tc_type ret_ty))
@@ -646,8 +641,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
   | CompOp (pos, cop, e1, e2) ->
      infer_type_expr ctx e1
      >>= fun arg_ty1 -> infer_type_expr ctx e2
-     >>= fun arg_ty2 -> R.ifM (eq_lustre_type ctx arg_ty1 arg_ty2)
-                          (R.ok ())
+     >>= fun arg_ty2 -> R.guard_with (eq_lustre_type ctx arg_ty1 arg_ty2)
                           (type_error pos
                              ("Cannot compare values of different types "
                               ^ string_of_tc_type arg_ty1
@@ -656,8 +650,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
   (* Values/Constants *)
   | Const (pos, c) ->
      let cty = infer_type_const pos c in
-     R.ifM (eq_lustre_type ctx cty exp_ty)
-       (R.ok())
+     R.guard_with (eq_lustre_type ctx cty exp_ty)
        (type_error pos ("Cannot match expected type "
                         ^ string_of_tc_type exp_ty ^
                           " with type "
@@ -670,8 +663,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
      R.seq (List.map (infer_type_expr ctx) es)
      >>= fun inf_tys ->
      let inf_r_ty = LA.RecordType (pos, (List.map2 (mk_ty_ident pos) ids inf_tys)) in
-     R.ifM (eq_lustre_type ctx exp_ty inf_r_ty)
-       (R.ok ())
+     R.guard_with (eq_lustre_type ctx exp_ty inf_r_ty)
        (type_error pos
           ("RecordType mismatch. Expected "
            ^ string_of_tc_type exp_ty
@@ -722,8 +714,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
      >>= fun b_ty -> infer_type_expr ctx sup_exp
      >>= fun sup_ty ->
                      let arr_ty = (LA.ArrayType (pos, (b_ty, b_exp))) in
-                     R.ifM (eq_lustre_type ctx exp_ty arr_ty)
-                       (R.ok ())
+                     R.guard_with (eq_lustre_type ctx exp_ty arr_ty)
                        (type_error pos ("Expecting array type "
                                         ^ string_of_tc_type exp_ty
                                         ^ " but found "
@@ -749,8 +740,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
      check_type_expr ctx c (Bool pos)
      >> check_type_expr ctx (Call (pos, node, args)) exp_ty
      >>  R.seq (List.map (infer_type_expr ctx) defaults)
-     >>= fun d_tys -> R.ifM (eq_lustre_type ctx exp_ty (TupleType (pos, d_tys)))
-                        (R.ok ())
+     >>= fun d_tys -> R.guard_with (eq_lustre_type ctx exp_ty (TupleType (pos, d_tys)))
                         (type_error pos "Condact defaults do not have the same type as node call")
   | Activate (pos, node, cond, rcond, args) -> 
      check_type_expr ctx cond (Bool pos)
@@ -767,8 +757,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
   | Pre (pos, e) -> check_type_expr ctx e exp_ty
   | Last (pos, i) ->
      infer_type_expr ctx (LA.Ident (pos, i))
-     >>= fun ty -> R.ifM (eq_lustre_type ctx ty exp_ty)
-                     (R.ok ())
+     >>= fun ty -> R.guard_with (eq_lustre_type ctx ty exp_ty)
                      (type_error pos ("Indentifier " ^ i
                                       ^ " does not match expected type "
                                       ^ string_of_tc_type exp_ty
@@ -885,8 +874,7 @@ and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index ->
                                      ^ " from given record type "
                                      ^ string_of_tc_type rec_ty))
      >>= fun (_, _, fty) ->
-     R.ifM (eq_lustre_type ctx fty exp_ty)
-       (R.ok ())
+     R.guard_with (eq_lustre_type ctx fty exp_ty)
        (type_error pos ("Cannot match expected type "
                         ^ string_of_tc_type exp_ty
                         ^ " with infered type "
@@ -900,8 +888,7 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
   match const_decl with
   | FreeConst (pos, i, _) ->
      let inf_ty = (lookup_ty ctx i) in
-     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
-       (R.ok ())
+     R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
        (type_error pos
               ("Identifier constant " ^ i
                ^ " expected to have type " ^ string_of_tc_type inf_ty
@@ -909,20 +896,18 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
   | UntypedConst (pos, i, e) ->
      infer_type_expr ctx e
      >>= fun inf_ty ->
-     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
-       (R.ok ())
+     R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
        (type_error pos
           ("Identifier constant " ^ i
            ^ " expected to have type " ^ string_of_tc_type exp_ty
            ^ " but found type " ^ string_of_tc_type inf_ty))
   | TypedConst (pos, i, exp, _) ->
      infer_type_expr ctx exp
-     >>= fun inf_ty -> R.ifM (eq_lustre_type ctx inf_ty exp_ty)
-                         (R.ok ())
+     >>= fun inf_ty -> R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
                          (type_error pos
-                             ("Identifier constant " ^ i
-                              ^ " expects type " ^ string_of_tc_type exp_ty
-                              ^ " but expression is of type " ^ string_of_tc_type inf_ty))
+                            ("Identifier constant " ^ i
+                             ^ " expects type " ^ string_of_tc_type exp_ty
+                             ^ " but expression is of type " ^ string_of_tc_type inf_ty))
 
 and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_result
   = fun ctx

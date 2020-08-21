@@ -51,6 +51,9 @@ let rec seq_chain: ('a -> 'b -> ('a, 'e) result) -> 'a -> 'b list -> ('a, 'e) re
 let ifM: (bool, 'e) result -> ('a, 'e) result -> ('a, 'e) result -> ('a, 'e) result
   = fun cond p1 p2 -> cond >>= (fun cond_true -> if cond_true then p1 else p2)
 
+let guard_with: (bool, 'e) result -> (unit, 'e) result -> (unit, 'e) result
+  = fun cond p -> cond >>= (fun cond_true -> if cond_true then ok () else p)
+                    
 let foldM: ('a -> 'b -> 'a) -> 'a -> ('b list, 'e) result -> ('a, 'e) result
   = fun f e l -> map (List.fold_left f e) l
 

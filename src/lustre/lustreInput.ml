@@ -111,8 +111,8 @@ let of_channel in_ch =
   (* If type checking is enabled then do this pass *)
   if not (Flags.no_tc ()) then
     (Log.log L_note "(Experimental) Typechecking enabled.";
-     (let tcRes = TC.type_check_program declarations in
-      match tcRes with
+     (let tc_res = TC.type_check_program declarations in
+      match tc_res with
       | TC.(Ok ()) -> Log.log L_note "No type errors found!";
                       (if Flags.only_tc () then exit 0);
       | TC.(Error (pos, err)) -> LC.fail_at_position pos err)) ;
