@@ -1197,7 +1197,7 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_contex
     "Extracting typing context from node declaration: %a"
     LA.pp_print_ident nname
   ; if (member_ty ctx nname)
-    then type_error pos ("Node " ^ nname ^ "is already declared.")
+    then type_error pos ("Node " ^ nname ^ " is already declared.")
     else build_node_fun_ty pos ctx ip op
          >>= fun fun_ty -> R.ok (add_ty ctx nname fun_ty)
 (** computes the type signature of node or a function *)
@@ -1207,6 +1207,10 @@ and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_cont
   function
   | LA.GhostConst c -> tc_ctx_const_decl ctx c
   | LA.GhostVar c -> tc_ctx_const_decl ctx c
+  | LA.Mode (pos, mname, _, _) ->
+     if (member_ty ctx mname)
+     then type_error pos ("Mode " ^ mname ^ " is already declared")
+     else R.ok (add_ty ctx mname (Bool pos)) 
   | _ -> R.ok ctx
                          
 and tc_ctx_of_contract: tc_context -> LA.contract -> tc_context tc_result
