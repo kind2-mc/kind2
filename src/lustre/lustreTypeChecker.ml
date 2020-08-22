@@ -395,13 +395,6 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                                ^ string_of_tc_type fty))
   | LA.BinaryOp (pos, bop, e1, e2) ->
      infer_type_binary_op ctx pos bop e1 e2
-     >>= (function
-          | TArr (_, arg_ty1, TArr (_, arg_ty2, res_ty)) ->
-             check_type_expr ctx e1 arg_ty1
-             >> check_type_expr ctx e2 arg_ty2
-             >> R.ok res_ty
-          | fty -> type_error pos ("Unexpected binary operator type: "
-                                   ^ string_of_tc_type fty))
   | LA.TernaryOp (pos, top, con, e1, e2) ->
      infer_type_expr ctx con
      >>= (function
@@ -640,17 +633,12 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                                       ^ string_of_tc_type arg_ty
                                       ^ " to operator of type "
                                       ^ string_of_tc_type ty))
-  | BinaryOp (pos, op, e1, e2) ->
-     infer_type_expr ctx e1 >>= fun arg_ty1 -> 
-     infer_type_expr ctx e2 >>= fun arg_ty2 -> 
-     infer_type_binary_op ctx pos op e1 e2
-     >>= fun ty -> R.guard_with (eq_lustre_type ctx ty
-                            (LA.TArr (pos, arg_ty1, TArr (pos, arg_ty2, exp_ty))))
-                     (type_error pos (" Cannot apply arguments of type "
-                                      ^ string_of_tc_type arg_ty1
-                                      ^ " and type " ^ string_of_tc_type arg_ty2
-                                      ^ " to obtain type " ^ string_of_tc_type exp_ty
-                                      ^ " to operator of type " ^ string_of_tc_type ty))
+  | BinaryOp (pos, op, e1, e2) -> 
+     infer_type_binary_op ctx pos op e1 e2 >>= fun inf_ty ->
+     R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
+       (type_error pos (" Cannot unify type "
+                        ^ string_of_tc_type exp_ty
+                        ^ " with infered type " ^ string_of_tc_type inf_ty))
   | LA.TernaryOp (pos, op, con, e1, e2) ->
      infer_type_expr ctx con
      >>= (function 
@@ -869,27 +857,42 @@ and infer_type_binary_op: tc_context -> Lib.position
   infer_type_expr ctx e2 >>= fun ty2 ->
   match op with
   | LA.And | LA.Or | LA.Xor | LA.Impl ->
-     R.ok (LA.TArr (pos, Bool pos, TArr(pos, Bool pos, Bool pos)))
-  | LA.Mod -> 
-     R.ok (LA.TArr (pos, Int pos, TArr(pos, Int pos, Int pos)))
+     R.ifM (eq_lustre_type ctx ty1 (Bool pos))
+       (R.ifM (eq_lustre_type ctx ty2 (Bool pos))
+          (R.ok (LA.Bool pos))
+          (type_error pos ("Expected second argument of operator to" 
+                           ^ " be of type bool but found type"
+                           ^ string_of_tc_type ty2)))
+       (type_error pos ("Expected first argument of operator to" 
+                           ^ " be of type bool but found type"
+                           ^ string_of_tc_type ty1))
+  | LA.Mod ->
+     R.ifM (eq_lustre_type ctx ty1 (Int pos))
+       (R.ifM (eq_lustre_type ctx ty2 (Int pos))
+          (R.ok (LA.Int pos))
+          (type_error pos ("Expected second argument of operator to" 
+                           ^ " be of type int but found type"
+                           ^ string_of_tc_type ty2)))
+       (type_error pos ("Expected first argument of operator to" 
+                           ^ " be of type int but found type"
+                           ^ string_of_tc_type ty1))
   | LA. Minus | LA.Plus | LA.Times | LA.Div -> 
-     are_args_num ctx pos ty1 ty2 >>=
-       fun is_num ->
-       if is_num
-       then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty2)))
-       else type_error pos ("Expected Both sides of the operator to be"
-                            ^" isomorphic types but found types " ^ string_of_tc_type ty1
-                            ^ " and " ^ string_of_tc_type ty2)
+     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
+     if is_num
+     then R.ok ty2
+     else type_error pos ("Expected arguments to be of same"
+                          ^" numeric type but found types " ^ string_of_tc_type ty1
+                          ^ " and " ^ string_of_tc_type ty2)
   | LA.IntDiv ->
      if is_type_int ty1 && is_type_int ty2
-     then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty2)))
-     else type_error pos ("Expected argument of type integer "
+     then R.ok (LA.Int pos)
+     else type_error pos ("Expected arguments of type integer "
                           ^ "but found types " ^ string_of_tc_type ty1
                           ^ " and " ^ string_of_tc_type ty2)
   | LA.BVAnd | LA.BVOr ->
      R.ifM (eq_lustre_type ctx ty1 ty2)
        (if is_type_machine_int ty1 && is_type_machine_int ty2
-        then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty2)))
+        then R.ok ty2
         else type_error pos ("Expected arguments of type machine integer but "
                              ^ "found types " ^ string_of_tc_type ty1
                              ^ " and " ^ string_of_tc_type ty2))
@@ -901,9 +904,9 @@ and infer_type_binary_op: tc_context -> Lib.position
      if (is_type_signed_machine_int ty1 || is_type_unsigned_machine_int ty1)
      then (if (is_type_unsigned_machine_int ty2
                && is_machine_type_of_associated_width (ty1, ty2))
-                then if is_expr_of_conts ctx e2
-                     then R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, ty1)))
-                     else type_error pos "Expected second argument of shift operator to be a constant"
+           then if is_expr_of_conts ctx e2
+                then R.ok ty1
+                else type_error pos "Expected second argument of shift operator to be a constant"
            else type_error pos ("Expected second argument of shift operator to be a constant "
                                 ^ "of type unsigned machine integer of the same width as first argument "
                                 ^ "but found type " ^ string_of_tc_type ty1))
@@ -1037,21 +1040,21 @@ and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
      Log.log L_trace "Checking equation: %a" LA.pp_print_node_body eqn
     (* This is a special case where we have undeclared identifiers 
        as short hands for assigning values to arrays aka recursive technique *)
-    ; let get_array_def_context: LA.struct_item -> tc_context = 
+     ; let get_array_def_context: LA.struct_item -> tc_context = 
         function
         | ArrayDef (pos, _, is) ->
            List.fold_left (fun c i -> add_ty c i (LA.Int pos)) empty_context is 
-        | _ -> empty_context
-      in
+        | _ -> empty_context in
       let ctx_from_lhs: tc_context -> LA.eq_lhs -> tc_context
         = fun ctx (LA.StructDef (_, items)) ->
         List.fold_left union ctx (List.map get_array_def_context items) in
-      infer_type_expr (ctx_from_lhs ctx lhs) expr >>= fun ty ->
+      let new_ctx = ctx_from_lhs ctx lhs in
+      Log.log L_trace "checking node equation lhs"
+      ; infer_type_expr new_ctx expr >>= fun ty ->
       Log.log L_trace "LHS has type %a" LA.pp_print_lustre_type ty
       ; check_type_struct_def (ctx_from_lhs ctx lhs) lhs ty
   | LA.Automaton (pos, _, _, _) ->
-     Log.log L_trace "Skipping Automation"
-    ; R.ok ()
+    R.ok (Log.log L_trace "Skipping Automation")
 
 and do_item: tc_context -> LA.node_item -> unit tc_result = fun ctx ->
   function
