@@ -31,8 +31,8 @@ val has_unguarded_pre : expr -> bool
 val has_pre_or_arrow : expr -> Lib.position option
 
 (** Returns true iff a contract mentions a `pre` or a `->`.
-Does not (cannot) check contract calls recursively, checks only inputs and
-outputs. *)
+    Does not (cannot) check contract calls recursively, checks only inputs and
+    outputs. *)
 val contract_has_pre_or_arrow : contract -> Lib.position option
 
 (** Checks whether a node local declaration has a `pre` or a `->`. *)
@@ -47,3 +47,14 @@ val node_item_has_pre_or_arrow : node_item -> Lib.position option
     the new AST expression and a set of identifers for which the last
     application was replaced. *)
 val replace_lasts : string list -> string -> SI.t -> expr -> expr * SI.t
+
+(** returns all the [ident] that appear in the expr ast*)
+val vars: expr -> SI.t
+
+val vars_of_struct_item: struct_item -> SI.t
+  
+(** Return an ast that adds two expressions*)
+val add_exp: Lib.position -> expr -> expr -> expr
+
+(** returns an ast which is the absolute difference of two expr ast*)
+val abs_diff: Lib.position -> expr -> expr -> expr

@@ -17,27 +17,8 @@
 *)
 
 open Lib
-          
+
 exception Parser_error
-
-module SI = Set.Make (Ident)
-          
-let error_at_position pos msg =
-  match Log.get_log_format () with
-  | Log.F_pt ->
-    Log.log L_error "Parser error at %a: %s" Lib.pp_print_position pos msg
-  | Log.F_xml -> Log.parse_log_xml L_error pos msg
-  | Log.F_json -> Log.parse_log_json L_error pos msg
-  | Log.F_relay -> ()
-
-
-let warn_at_position pos msg = 
-  match Log.get_log_format () with
-  | Log.F_pt ->
-    Log.log L_warn "Parser warning at %a: %s" Lib.pp_print_position pos msg
-  | Log.F_xml -> Log.parse_log_xml L_warn pos msg
-  | Log.F_json -> Log.parse_log_json L_warn pos msg
-  | Log.F_relay -> ()
 
 
 (* ********************************************************************** *)
@@ -48,6 +29,16 @@ let warn_at_position pos msg =
 (* An identifier *)
 type ident = string
 
+module SI = struct
+  include (Set.Make (struct
+               type t = ident
+               let compare = Stdlib.compare
+             end))
+  let flatten: t list -> t = fun sets ->
+    List.fold_left union empty sets
+end
+
+           
 type index = string
 
 let pp_print_ident = Format.pp_print_string
@@ -144,9 +135,9 @@ type expr =
   | Call of position * ident * expr list
   | CallParam of position * ident * lustre_type list * expr list
 
-
-(* A built-in type *)
+(** A Lustre type *)
 and lustre_type =
+  | TVar of position * ident
   | Bool of position
   | Int of position
   | UInt8 of position
@@ -165,19 +156,20 @@ and lustre_type =
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
   | EnumType of position * ident option * ident list
+  | TArr of position * lustre_type * lustre_type  
 
 
 (* A declaration of an unclocked type *)
-and typed_ident = Lib.position * ident * lustre_type
+and typed_ident = position * ident * lustre_type
 
 (* A record field or an array or tuple index *)
 and label_or_index = 
-  | Label of Lib.position * index
-  | Index of Lib.position * expr
+  | Label of position * index
+  | Index of position * expr
 
 (* A declaration of a type *)
 type type_decl = 
-  | AliasType of position * ident * lustre_type  
+  | AliasType of position * ident * lustre_type
   | FreeType of position * ident
 
 (* A declaration of a clocked type *)
@@ -636,69 +628,48 @@ and pp_print_field_assign ppf (i, e) =
 
 (* Pretty-print a Lustre type *)
 and pp_print_lustre_type ppf = function
-
+  | TVar (_, i) -> pp_print_ident ppf i
   | Bool pos -> Format.fprintf ppf "bool"
-
   | Int pos -> Format.fprintf ppf "int"
-
   | UInt8 pos -> Format.fprintf ppf "uint8"
-
   | UInt16 pos -> Format.fprintf ppf "uint16"
-
   | UInt32 pos -> Format.fprintf ppf "uint32"
-
   | UInt64 pos -> Format.fprintf ppf "uint64"
-
   | Int8 pos -> Format.fprintf ppf "int8"
-
   | Int16 pos -> Format.fprintf ppf "int16"
-
   | Int32 pos -> Format.fprintf ppf "int32"
-
   | Int64 pos -> Format.fprintf ppf "int64"
-
   | IntRange (pos, l, u) -> 
-
     Format.fprintf ppf 
       "subrange [%a,%a] of int" 
       pp_print_expr l
       pp_print_expr u
-
   | Real pos -> Format.fprintf ppf "real"
-
   | UserType (pos, s) -> 
-
     Format.fprintf ppf "%a" pp_print_ident s
-
   | AbstractType (pos, s) ->
-
     Format.fprintf ppf "%a" pp_print_ident s
-
   | TupleType (pos, l) -> 
-
     Format.fprintf ppf 
       "@[<hv 1>[%a]@]" 
       (pp_print_list pp_print_lustre_type ",@ ") l
-
   | RecordType (pos, l) -> 
-
     Format.fprintf ppf 
       "struct @[<hv 2>{ %a }@]" 
       (pp_print_list pp_print_typed_ident ";@ ") l
-
   | ArrayType (pos, (t, e)) -> 
-
     Format.fprintf ppf 
       "%a^%a" 
       pp_print_lustre_type t 
       pp_print_expr e
-
   | EnumType (pos, _, l) -> 
-
     Format.fprintf ppf 
       "enum @[<hv 2>{ %a }@]" 
       (pp_print_list Format.pp_print_string ",@ ") l
-
+  | TArr (pos, arg_ty, ret_ty) ->
+     Format.fprintf ppf "@[%a->@,%a@]"
+       pp_print_lustre_type arg_ty
+       pp_print_lustre_type ret_ty 
 
 (* Pretty-print a typed identifier *)
 and pp_print_typed_ident ppf (p, s, t) = 
@@ -903,7 +874,7 @@ let pp_print_eq_lhs ppf = function
       (pp_print_list pp_print_struct_item ",") l
   
 
-let rec pp_print_body ppf = function
+let rec pp_print_node_body ppf = function
 
   | Assert (pos, e) -> 
 
@@ -923,7 +894,7 @@ let rec pp_print_body ppf = function
 (* Pretty-print a node equation *)
 and pp_print_node_item ppf = function
   
-  | Body b -> pp_print_body ppf b
+  | Body b -> pp_print_node_body ppf b
 
   | AnnotMain true -> Format.fprintf ppf "--%%MAIN;"
 
@@ -956,7 +927,7 @@ and pp_print_state ppf =
     Format.fprintf ppf "state %s@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a@?" name
       (pp_print_auto_trans "unless") unless
       pp_print_node_local_decl locals
-      (pp_print_list pp_print_body "@ ") eqs
+      (pp_print_list pp_print_node_body "@ ") eqs
       (pp_print_auto_trans "until") until
 
 and pp_print_auto_trans kind ppf = function
@@ -1195,7 +1166,6 @@ let pp_print_program ppf p =
     "@[<v>%a@]" 
     (pp_print_list pp_print_declaration "@ ") 
     p
-
 
 (* 
    Local Variables:

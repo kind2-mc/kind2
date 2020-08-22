@@ -1,0 +1,20 @@
+node bounded_counter (const max: int) returns (t: int);
+let
+  t = 0 -> if pre t = max then 0 else pre t + 1;
+tel
+
+node mod3_counter (reset: bool) returns (c: int);
+let
+  c = (restart bounded_counter every reset)(3);
+tel
+
+node counter () returns (t: int);
+let
+  t = 0 -> pre t + 1;
+tel
+
+
+node test_node (reset: bool) returns (c:int);
+let
+  c = (restart counter every reset)();  
+tel;

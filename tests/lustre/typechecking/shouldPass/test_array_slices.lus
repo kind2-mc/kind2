@@ -1,0 +1,48 @@
+-- Node with array slices 
+/* TODO: 
+node x75 (a: int^5) returns (d1: int; a23: int^2);
+const A = [1, 2, 3, 4, 5, 6];
+var
+  b1 : int;
+  b2, b3: int^3;
+  b4 : int^1;
+  b5: int; 
+let
+  d1 = a[0];       -- type int   (translates to (a, (0, 0)))
+  a23 = a[2..3];   -- type int^1 (translates to (a, (2, 3)))
+  b1 = A[1];       -- type int   (translates to (a, (1, 1)))
+  b2 = A[2..4];    -- type int^2 (translates to (a, (2, 4)))
+  b3 = A[4..2];    -- type int^2 (translates to (a, (4, 2)))
+  b4 = A[2..2];    -- type int^1 (translates to (a, (2, 2)))
+  b5 = A[2..4][0]; -- type int   (translates to ((a, (2, 4)), (0, 0)))
+tel
+
+type T = int;
+
+-- Node with array slices and concatenations 
+node x76 (A: T^10^5) returns (B1: T^10^2; B2: T^2^4; B3: int^5 );
+let
+  B1 = A[1..4][1..2];
+  B2 = A[1..4, 1..2];
+  B3 = [1, 2, 3] | [4, 3];
+tel
+*/
+
+/* TODO: 
+-- Node using array slices and concatenations
+node EQ (const n: int; A, B: int^n) returns (equal: bool);
+var C, E: bool^n;
+let
+  equal = C[n-1];
+  C = [E[0]]|C[0..n-2] and E[1..n-1];
+  E = (A = B);
+tel
+
+-- Node using array slices and concatenations
+node DELAY (const n, default: int;X: int) returns (delayed: int);
+var window: int^n;
+let
+  delayed = window[n-1];
+  window = [X]|(default^(n-1) -> pre(window[0..n-2]));
+tel
+*/

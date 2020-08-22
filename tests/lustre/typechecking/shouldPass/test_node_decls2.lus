@@ -1,0 +1,4 @@
+node x74 (e1, e2, e3: int; f2: bool) returns (e: int^3; f: [int, bool, int]);
+let
+   e = [e1, e2, e3];
+tel

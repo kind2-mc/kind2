@@ -18,6 +18,11 @@
 
 open Format
 
+exception Unsupported of string
+
+(** function thunk for unimplimented features*)
+let todo = fun s -> raise (Unsupported s)
+                  
 (* ********************************************************************** *)
 (* Helper functions                                                       *)
 (* ********************************************************************** *)
@@ -49,7 +54,9 @@ let false_of_any _ = false
 let mk_dir dir =
   try Unix.mkdir dir 0o740 with Unix.Unix_error(Unix.EEXIST, _, _) -> ()
 
-                                                                    
+(* Flips the expected argument of the function *)
+let flip f = fun b a -> f a b 
+
 (* ********************************************************************** *)
 (* Arithmetic functions                                                   *)
 (* ********************************************************************** *)
@@ -57,7 +64,7 @@ let mk_dir dir =
 (* Compute [m * h + i] and make sure that the result does not overflow
    to a negtive number *)
 let safe_hash_interleave h m i = abs(i + (m * h) mod max_int)
-
+  
 (* ********************************************************************** *)
 (* List functions                                                         *)
 (* ********************************************************************** *)
@@ -397,6 +404,11 @@ let list_join equal l1 l2 =
     (* Call recursive function with initial accumulator *)
     | _ -> list_join' equal [] l1 l2
 
+let rec list_apply: ('a -> 'b) list -> 'a -> 'b list = fun fs arg ->
+  match fs with
+  | [] -> []
+  | f :: rest -> f arg :: (list_apply rest arg)  
+         
 
 (* ********************************************************************** *)
 (* Array functions                                                        *)
@@ -449,6 +461,9 @@ let pp_print_arrayi pp sep ppf array  =
   in
   let indices = list_init (fun i -> i) n in  
   List.iter print_element indices
+
+let pp_print_pair pp1 pp2 sep ppf (left, right) =
+  pp1 ppf left; fprintf ppf sep; pp2 ppf right 
   
 (* Pretty-print a list *)
 let rec pp_print_list pp sep ppf = function 

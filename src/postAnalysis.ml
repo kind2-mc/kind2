@@ -38,7 +38,7 @@ let last_result results scope =
   try
     Ok (Analysis.results_last scope results)
   with
-  | Not_found -> Err (
+  | Not_found -> Res.error (
     fun fmt ->
       Format.fprintf fmt "No result available for component %a."
         Scope.pp_print_scope scope
@@ -82,18 +82,18 @@ module RunTestGen: PostAnalysis = struct
     let top = TSys.scope_of_trans_sys sys in
 
     match param with
-    | Analysis.Interpreter _ -> Err (
+    | Analysis.Interpreter _ -> error (
       fun fmt ->
         Format.fprintf fmt
           "%t@ Test generation is not compatible with interpreter mode." (head sys)
     )
     (* Contract check, node must be abstract. *)
-    | Analysis.ContractCheck _ -> Err (
+    | Analysis.ContractCheck _ -> error (
       fun fmt ->
         Format.fprintf fmt
           "%t@ Cannot generate tests unless implementation is safe." (head sys)
     )
-    | Analysis.Refinement _ -> Err (
+    | Analysis.Refinement _ -> error (
       fun fmt ->
         Format.fprintf fmt
           "%t@ Component was not proven correct under its maximal abstraction."
@@ -101,7 +101,7 @@ module RunTestGen: PostAnalysis = struct
     )
     | Analysis.First _ ->
 
-      if TSys.all_props_proved sys |> not then Err (
+      if TSys.all_props_proved sys |> not then error (
         fun fmt ->
           Format.fprintf fmt
             "%t@ Component has not been proved safe." (head sys)
@@ -110,7 +110,7 @@ module RunTestGen: PostAnalysis = struct
           InputSystem.maximal_abstraction_for_testgen
             in_sys top Analysis.assumptions_empty
         with
-        | None -> Err (
+        | None -> error (
           fun fmt ->
             Format.fprintf fmt
               "System %a has no contracts, skipping test generation."
@@ -129,11 +129,11 @@ module RunTestGen: PostAnalysis = struct
       match TSys.get_mode_requires sys |> snd with
       | [] -> (
         match TSys.props_list_of_bound sys Num.zero with
-        | [] -> Err (
+        | [] -> error (
           fun fmt ->
             Format.fprintf fmt "%t@ Component has no contract." (head sys)
         )
-        | _ -> Err (
+        | _ -> error (
           fun fmt ->
             Format.fprintf fmt "%t@ Component has no modes." (head sys)
         )
@@ -190,7 +190,7 @@ module RunTestGen: PostAnalysis = struct
           Ok ()
         ) with e -> (
           TestGen.on_exit "T_T" ;
-          Err (
+          error (
             fun fmt ->
               Printexc.to_string e
               |> Format.fprintf fmt "during test generation:@ %s"
@@ -245,7 +245,7 @@ module RunContractGen: PostAnalysis = struct
     in
 
     ( match Flags.invgen_enabled () with
-      | [] -> Err (
+      | [] -> error (
         fun fmt -> Format.printf "No invariant generation technique enabled."
       )
       | teks -> Ok teks
@@ -273,7 +273,7 @@ module RunContractGen: PostAnalysis = struct
             in_sys_sliced param sys ;
           and_then () ;
           Ok ()
-        with e -> and_then () ; Err (
+        with e -> and_then () ; error (
           fun fmt ->
             Format.fprintf fmt "Could not run invariant generation:@ %s"
               (Printexc.to_string e)
@@ -288,7 +288,7 @@ module RunContractGen: PostAnalysis = struct
         LustreContractGen.generate_contracts
           in_sys_sliced param sys target (Names.contract_name top) ;
         Ok ()
-      ) with e -> Err (
+      ) with e -> error (
           fun fmt ->
             Format.fprintf fmt "Could not generate contract:@ %s"
               (Printexc.to_string e)
@@ -346,13 +346,13 @@ module RunInvLog: PostAnalysis = struct
     |> Res.chain (fun { Analysis.sys } ->
       (* Check all properties are valid. *)
       match TSys.get_split_properties sys with
-      | [], [], [] -> Err (
+      | [], [], [] -> error (
         fun fmt ->
           Format.fprintf fmt
             "No properties, no strengthening invariant to log."
       )
       | _, [], _ -> Ok sys
-      | _, invalid, _ -> Err (
+      | _, invalid, _ -> error (
         fun fmt ->
           let len = List.length invalid in
           Format.fprintf fmt
@@ -428,7 +428,7 @@ module RunInvLog: PostAnalysis = struct
           k_min (List.length invs_min) ;
         Ok (sys, k_min, invs_min)
       ) with
-      | CertifChecker.CouldNotProve blah -> Err(
+      | CertifChecker.CouldNotProve blah -> error(
         fun fmt ->
           (* Format.fprintf fmt
             "@[<v>Some necessary invariants cannot be translated \
@@ -438,7 +438,7 @@ module RunInvLog: PostAnalysis = struct
             "Some necessary invariants cannot be translated \
             back to lustre level."
       )
-      | e -> Err (
+      | e -> error (
         fun fmt -> Format.fprintf fmt
           "Could not minimize invariants:@ %s"
           (Printexc.to_string e)
@@ -448,7 +448,7 @@ module RunInvLog: PostAnalysis = struct
       try Ok (
         LustreContractGen.generate_contract_for
           in_sys param sys target invs (Names.inv_log_contract_name top)
-      ) with e -> Err (
+      ) with e -> error (
         fun fmt ->
           Format.fprintf fmt "Could not generate strengthening contract:@ %s"
             (Printexc.to_string e)
@@ -512,12 +512,12 @@ module RunInvPrint: PostAnalysis = struct
         invs_min ;
         Ok ()
       ) with
-      | CertifChecker.CouldNotProve err -> Err(
+      | CertifChecker.CouldNotProve err -> error(
         fun fmt ->
           Format.fprintf fmt
             "Could not minimize invariants:@ %a" (fun fmt () -> err fmt) ()
       )
-      | e -> Err (
+      | e -> error (
         fun fmt -> Format.fprintf fmt
           "Could not minimize invariants:@ %s"
           (Printexc.to_string e)
@@ -690,7 +690,7 @@ module RunIVC: PostAnalysis = struct
         Ok ()
       )
       with
-      | e -> Err (
+      | e -> error (
         fun fmt -> Format.fprintf fmt
           "An error occured:@ %s"
           (Printexc.to_string e)
@@ -787,7 +787,7 @@ let run_mcs_post_analysis in_sys param analyze sys =
     Ok ()
   )
   with
-  | e -> Err (
+  | e -> error (
     fun fmt -> Format.fprintf fmt
       "An error occured:@ %s"
       (Printexc.to_string e)
@@ -840,7 +840,7 @@ let run i_sys top analyze results =
                     i_sys (Analysis.param_clone param) analyze results
                 with
                 | Ok () -> ()
-                | Err err -> KEvent.log L_warn "@[<v>%t@]" err
+                | Error err -> KEvent.log L_warn "@[<v>%t@]" err
               ) ;
               KEvent.log_post_analysis_end ()
             with e ->
