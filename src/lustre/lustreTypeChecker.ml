@@ -232,7 +232,7 @@ let is_type_int: tc_type -> bool = function
   | LA.Int16 _    
   | LA.Int32 _    
   | LA.Int64 _    
-  | LA.IntRange _
+  | LA.IntRange _ -> true
   | _ -> false
 
 let is_type_unsigned_machine_int: tc_type -> bool = function
@@ -876,16 +876,27 @@ and infer_type_binary_op: tc_context -> Lib.position
        (type_error pos ("Expected first argument of operator to" 
                            ^ " be of type int but found type"
                            ^ string_of_tc_type ty1))
-  | LA. Minus | LA.Plus | LA.Times | LA.Div -> 
+  | LA. Minus | LA.Plus | LA.Times -> 
      are_args_num ctx pos ty1 ty2 >>= fun is_num ->
      if is_num
      then R.ok ty2
      else type_error pos ("Expected arguments to be of same"
                           ^" numeric type but found types " ^ string_of_tc_type ty1
                           ^ " and " ^ string_of_tc_type ty2)
+  | LA.Div ->
+     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
+     if is_num
+     then if (is_expr_term_zero e2)
+          then type_error pos ("Cannot divide by zero")
+          else R.ok ty2
+     else type_error pos ("Expected arguments to be of same"
+                          ^" numeric type but found types " ^ string_of_tc_type ty1
+                          ^ " and " ^ string_of_tc_type ty2)
   | LA.IntDiv ->
      if is_type_int ty1 && is_type_int ty2
-     then R.ok (LA.Int pos)
+     then if (is_expr_term_zero e2)
+          then type_error pos ("Cannot divide by zero")
+          else R.ok (LA.Int pos)
      else type_error pos ("Expected arguments of type integer "
                           ^ "but found types " ^ string_of_tc_type ty1
                           ^ " and " ^ string_of_tc_type ty2)
@@ -1393,6 +1404,13 @@ and is_expr_of_conts: tc_context -> LA.expr -> bool = fun ctx e ->
   List.fold_left (&&) true (List.map (member_val ctx) (LA.SI.elements (LH.vars e)))
 (** checks if all the variables in the expression are constants *)
 
+and is_expr_term_zero: LA.expr -> bool = function
+  | LA.Const (_, (Num "0"))
+    | LA.Const (_, (Dec "0.0")) -> true
+  (* TODO: use regex to check if it is of the format 0\.[0]* *)
+  | _ -> false
+                                                            
+  
 and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> bool tc_result =
   fun ctx (_, i1, ty1) (_, i2, ty2) -> eq_lustre_type ctx ty1 ty2
 (** Compute type equality for [LA.typed_ident] *)
