@@ -384,15 +384,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
 
   (* Operator applications *)
   | LA.UnaryOp (pos, op, e) ->
-     infer_type_expr ctx e
-     >>= (fun tye ->
-      infer_type_unary_op ctx pos tye op
-      >>= function
-      | TArr (_, arg_ty, res_ty) ->
-         (check_type_expr ctx e arg_ty)
-         >> R.ok res_ty
-      | fty -> type_error pos ("Unexpected unary operator type: "
-                               ^ string_of_tc_type fty))
+      infer_type_unary_op ctx pos e op
   | LA.BinaryOp (pos, bop, e1, e2) ->
      infer_type_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, con, e1, e2) ->
@@ -626,13 +618,12 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
 
   (* Operators *)
   | UnaryOp (pos, op, e) ->
-     infer_type_expr ctx e
-     >>= fun arg_ty -> infer_type_unary_op ctx pos arg_ty op
-     >>= fun ty -> R.guard_with (eq_lustre_type ctx ty (TArr (pos, arg_ty, exp_ty)))
-                     (type_error pos ("Cannot apply argument of type "
-                                      ^ string_of_tc_type arg_ty
-                                      ^ " to operator of type "
-                                      ^ string_of_tc_type ty))
+     infer_type_unary_op ctx pos e op
+     >>= fun inf_ty -> R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
+                     (type_error pos ("Cannot unify type "
+                                      ^ string_of_tc_type exp_ty
+                                      ^ " with inferred type "
+                                      ^ string_of_tc_type inf_ty))
   | BinaryOp (pos, op, e1, e2) -> 
      infer_type_binary_op ctx pos op e1 e2 >>= fun inf_ty ->
      R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
@@ -812,21 +803,28 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
  * if the expected type is the given type [tc_type]  
  * returns an [Error of string] otherwise *)
 
-and infer_type_unary_op: tc_context -> Lib.position -> tc_type -> LA.unary_operator -> tc_type tc_result
-  = fun ctx pos ty ->
-  function
-  | LA.Not -> R.ok (LA.TArr (pos, Bool pos, Bool pos))
-  | LA.BVNot -> if is_type_machine_int ty then R.ok (LA.TArr (pos, ty, ty))
-                else type_error pos ("Cannot apply the bit-value not operator "
-                                     ^ "to a non machine integer value of type "
-                                     ^ string_of_tc_type ty)
-              
+and infer_type_unary_op: tc_context -> Lib.position -> LA.expr -> LA.unary_operator -> tc_type tc_result
+  = fun ctx pos e op ->
+  infer_type_expr ctx e >>= fun ty -> 
+  match op with
+  | LA.Not ->
+     R.ifM (eq_lustre_type ctx ty (Bool pos))
+       (R.ok (LA.Bool pos))
+       (type_error pos ("Expected argument of type bool "
+                        ^ "but found type " ^ string_of_tc_type ty))
+  | LA.BVNot ->
+     if is_type_machine_int ty
+     then R.ok ty
+     else type_error pos ("Cannot apply the bit-value not operator "
+                          ^ "to a non machine integer value of type "
+                          ^ string_of_tc_type ty)
   | LA.Uminus ->
      if (is_type_num ty)
-     then R.ok (LA.TArr (pos, ty, ty))
-     else type_error pos ("Unary minus cannot be applied to non number expression of type "
+     then R.ok ty
+     else type_error pos ("Unary minus cannot be applied" 
+                          ^ "to non number expression of type "
                           ^ string_of_tc_type ty)
-(** Infers the unary type operators *)
+(** Infers type of unary operator application *)
 
 and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> bool tc_result
   = fun ctx pos ty1 ty2 ->
@@ -924,8 +922,7 @@ and infer_type_binary_op: tc_context -> Lib.position
      else type_error pos ("Expected first argument of shift operator to be "
                           ^ "of type signed or unsigned machine integer "
                           ^ "but found type " ^ string_of_tc_type ty1 ) 
-(** TODO: There is some polymorphism going on here due 
- * to overloaded Plus/Times/Minus operations *)
+(** infers the type of binary operators  *)
 
 and infer_type_comp_op: tc_context -> Lib.position -> (tc_type * tc_type)
                         -> LA.comparison_operator -> tc_type tc_result
