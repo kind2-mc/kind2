@@ -274,82 +274,6 @@ let infer_type_const: Lib.position -> LA.constant -> tc_type
   | Dec _ -> Real pos
   | _ -> Bool pos
 (** Infers type of constants *)
-
-let infer_type_conv_op: Lib.position -> tc_type -> LA.conversion_operator -> tc_type tc_result
-  = fun pos ty ->
-  function
-  | ToInt ->
-     if is_type_num ty
-     then R.ok (LA.TArr (pos, ty, Int pos))
-     else type_error pos ("Cannot convert a non-number type "
-                          ^ string_of_tc_type ty
-                          ^ " to type "
-                          ^ string_of_tc_type (Int pos))
-  | ToReal ->
-     if is_type_num ty
-     then R.ok (LA.TArr (pos, ty, Real pos))
-     else type_error pos ("Cannot convert a non-number type "
-                          ^ string_of_tc_type ty
-                          ^ " to type "
-                          ^ string_of_tc_type (Real pos))
-  | ToInt8 ->
-     if is_type_num ty
-     then R.ok (LA.TArr (pos, ty, Int8 pos))
-     else type_error pos ("Cannot convert a non-number type "
-                                  ^ string_of_tc_type ty
-                                  ^ " to type "
-                                  ^ string_of_tc_type (Int8 pos))
-                    
-  | ToInt16 ->
-     if is_type_num ty
-     then R.ok (LA.TArr (pos, ty, Int16 pos))
-     else type_error pos ("Cannot convert a non-number type "
-                          ^ string_of_tc_type ty
-                          ^ " to type "
-                          ^ string_of_tc_type (Int16 pos))
-  | ToInt32 ->
-     if is_type_num ty
-     then R.ok (LA.TArr (pos, ty, Int32 pos))
-     else type_error pos ("Cannot convert a non-number type "
-                          ^ string_of_tc_type ty
-                          ^ " to type "
-                          ^ string_of_tc_type (Int32 pos))
-  | ToInt64 ->
-     if is_type_num ty
-     then R.ok (LA.TArr (pos, ty, Int64 pos))
-     else type_error pos ("Cannot convert a non-number type "
-                          ^ string_of_tc_type ty
-                          ^ " to type "
-                          ^ string_of_tc_type (Int64 pos))
-  | ToUInt8 ->
-     if is_type_num ty
-     then R.ok (LA.TArr (pos, ty, UInt8 pos))
-     else type_error pos ("Cannot convert a non-number type "
-                          ^ string_of_tc_type ty
-                          ^ " to type "
-                          ^ string_of_tc_type (UInt8 pos))
-  | ToUInt16 ->
-     if is_type_num ty
-     then R.ok (LA.TArr (pos, ty, UInt16 pos))
-     else type_error pos ("Cannot convert a non-number type "
-                          ^ string_of_tc_type ty
-                          ^ " to type "
-                          ^ string_of_tc_type (UInt16 pos))
-  | ToUInt32 ->
-     if is_type_num ty
-     then R.ok (LA.TArr (pos, ty, UInt32 pos))
-     else type_error pos ("Cannot convert a non-number type "
-                          ^ string_of_tc_type ty
-                          ^ " to type "
-                          ^ string_of_tc_type (UInt32 pos))
-  | ToUInt64 ->
-     if is_type_num ty
-     then R.ok (LA.TArr (pos, ty, UInt64 pos))
-     else type_error pos ("Cannot convert a non-number type "
-                          ^ string_of_tc_type ty
-                          ^ " to type "
-                          ^ string_of_tc_type (UInt64 pos))
-(** Converts from given type to the intended type aka casting *)
       
 let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   = fun ctx -> function
@@ -398,25 +322,9 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                                       ^ string_of_tc_type c_ty))
   | LA.NArityOp _ -> Lib.todo __LOC__          (* One hot expression is not supported *)    
   | LA.ConvOp (pos, cop, e) ->
-     infer_type_expr ctx e
-     >>= (fun e_ty -> 
-      infer_type_conv_op pos e_ty cop
-      >>= (fun ty ->
-            match ty with
-            | TArr (_, arg_ty, res_ty) -> R.ok res_ty
-            | _ -> type_error pos ("Unexpected conversion operator type: "
-                                   ^ string_of_tc_type ty)))
+      infer_type_conv_op ctx pos e cop
   | LA.CompOp (pos, cop, e1, e2) ->
-     infer_type_expr ctx e1
-     >>= fun ty1 -> 
-     infer_type_expr ctx e2
-     >>= fun ty2 -> 
-     infer_type_comp_op ctx pos (ty1, ty2) cop
-     >>= (function
-          | TArr (_, _, TArr (_,arg_ty2, res_ty)) ->
-             R.ok res_ty
-          | fty -> type_error pos ("Unexpected comparison operator type: "
-                                   ^ string_of_tc_type fty))
+     infer_type_comp_op ctx pos e1 e2 cop
 
   (* Structured expressions *)
   | LA.RecordExpr (pos, _, flds) ->
@@ -644,27 +552,19 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                                   ^ "Expected: " ^ string_of_tc_type (Bool pos)
                                   ^ "Found: " ^ string_of_tc_type ty))
   | NArityOp _ -> Lib.todo __LOC__ (* One hot expression is not supported down stream*)
-  | ConvOp (pos, cvop, e) as convop ->
-     infer_type_expr ctx e
-     >>= fun e_ty -> infer_type_conv_op pos e_ty cvop
-     >>= (function
-          | TArr (pos, _, ret_ty) ->
-             R.guard_with (eq_lustre_type ctx ret_ty exp_ty)
-               (type_error pos ("For expression " ^ Lib.string_of_t LA.pp_print_expr convop 
-                                ^ " expected type " ^ string_of_tc_type exp_ty
-                                ^ " but found type " ^ string_of_tc_type ret_ty))
-          | cvop_ty -> type_error pos ("Cannot apply argument of type "
-                                       ^ string_of_tc_type e_ty
-                                       ^ " to operator of type "
-                                       ^ string_of_tc_type cvop_ty))
+  | ConvOp (pos, cvop, e) ->
+     infer_type_conv_op ctx pos e cvop >>= fun inf_ty ->
+     R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
+       (type_error pos ("Cannot unify expected type "
+                        ^ string_of_tc_type exp_ty
+                        ^ " with inferred type "
+                        ^ string_of_tc_type inf_ty))
   | CompOp (pos, cop, e1, e2) ->
-     infer_type_expr ctx e1
-     >>= fun arg_ty1 -> infer_type_expr ctx e2
-     >>= fun arg_ty2 -> R.guard_with (eq_lustre_type ctx arg_ty1 arg_ty2)
-                          (type_error pos
-                             ("Cannot compare values of different types "
-                              ^ string_of_tc_type arg_ty1
-                              ^ " and " ^ string_of_tc_type arg_ty2))
+     infer_type_comp_op ctx pos e1 e2 cop >>= fun inf_ty ->
+     R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
+       (type_error pos ("Cannot unify expected type "
+                        ^ string_of_tc_type exp_ty
+                        ^ " with type " ^ string_of_tc_type inf_ty))
 
   (* Values/Constants *)
   | Const (pos, c) ->
@@ -684,9 +584,9 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
      let inf_r_ty = LA.RecordType (pos, (List.map2 (mk_ty_ident pos) ids inf_tys)) in
      R.guard_with (eq_lustre_type ctx exp_ty inf_r_ty)
        (type_error pos
-          ("RecordType mismatch. Expected "
+          ("Cannot match expected type "
            ^ string_of_tc_type exp_ty
-           ^ " but found "
+           ^ " with type "
            ^ string_of_tc_type inf_r_ty))
   | GroupExpr (pos, group_ty, es) ->
      (match group_ty with
@@ -924,28 +824,105 @@ and infer_type_binary_op: tc_context -> Lib.position
                           ^ "but found type " ^ string_of_tc_type ty1 ) 
 (** infers the type of binary operators  *)
 
-and infer_type_comp_op: tc_context -> Lib.position -> (tc_type * tc_type)
+and infer_type_conv_op: tc_context -> Lib.position
+                        ->  LA.expr -> LA.conversion_operator
+                        -> tc_type tc_result
+  = fun ctx pos e op ->
+  infer_type_expr ctx e >>= fun ty ->
+  match op with
+  | ToInt ->
+     if is_type_num ty
+     then R.ok (LA.Int pos)
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (Int pos))
+  | ToReal ->
+     if is_type_num ty
+     then R.ok (LA.Real pos)
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (Real pos))
+  | ToInt8 ->
+     if is_type_num ty
+     then R.ok (LA.Int8 pos)
+     else type_error pos ("Cannot convert a non-number type "
+                                  ^ string_of_tc_type ty
+                                  ^ " to type "
+                                  ^ string_of_tc_type (Int8 pos))
+  | ToInt16 ->
+     if is_type_num ty
+     then R.ok (LA.Int16 pos)
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (Int16 pos))
+  | ToInt32 ->
+     if is_type_num ty
+     then R.ok (LA.Int32 pos)
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (Int32 pos))
+  | ToInt64 ->
+     if is_type_num ty
+     then R.ok (LA.Int64 pos)
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (Int64 pos))
+  | ToUInt8 ->
+     if is_type_num ty
+     then R.ok (LA.UInt8 pos)
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (UInt8 pos))
+  | ToUInt16 ->
+     if is_type_num ty
+     then R.ok (LA.UInt16 pos)
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (UInt16 pos))
+  | ToUInt32 ->
+     if is_type_num ty
+     then R.ok (LA.UInt32 pos)
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (UInt32 pos))
+  | ToUInt64 ->
+     if is_type_num ty
+     then R.ok (LA.UInt64 pos)
+     else type_error pos ("Cannot convert a non-number type "
+                          ^ string_of_tc_type ty
+                          ^ " to type "
+                          ^ string_of_tc_type (UInt64 pos))
+(** Converts from given type to the intended type aka casting *)
+    
+and infer_type_comp_op: tc_context -> Lib.position -> LA.expr -> LA.expr
                         -> LA.comparison_operator -> tc_type tc_result
-  = fun ctx pos (ty1, ty2) ->
-  function
+  = fun ctx pos e1 e2 op ->
+  infer_type_expr ctx e1 >>= fun ty1 ->
+  infer_type_expr ctx e2 >>= fun ty2 ->
+  match op with
   | Neq  | Eq ->
-     if is_type_num ty1 && is_type_num ty2
-     then R.ok (LA.TArr (pos, ty1, TArr(pos, ty2, Bool pos)))
-     else R.ifM (eq_lustre_type ctx ty1 ty2)
-            (R.ok (LA.TArr (pos, ty1, TArr(pos, ty1, Bool pos))))
-            (type_error pos ("Both sides of the expression should be of"
-                             ^ " type isomorphic type but found " ^ string_of_tc_type ty1
-                             ^ " and " ^ string_of_tc_type ty2))
+     R.ifM (eq_lustre_type ctx ty1 ty2)
+       (R.ok (LA.Bool pos))
+       (type_error pos ("Both sides of the expression expected to be"
+                        ^ " isomorphic types but found " ^ string_of_tc_type ty1
+                        ^ " and " ^ string_of_tc_type ty2))
   | Lte  | Lt  | Gte | Gt ->
      are_args_num ctx pos ty1 ty2
      >>= fun is_num ->
      if is_num
-     then R.ok (LA.TArr (pos, ty1, TArr(pos, ty2, Bool pos)))
+     then R.ok (LA.Bool pos)
      else type_error pos ("Both sides of the expression should be of"
                           ^ " type same numeral type but found " ^ string_of_tc_type ty1
                           ^ " and " ^ string_of_tc_type ty2)
-(** Type of comparison operator is takes to values of same type 
- * and returns a [bool]  *)
+(** infer the type of comparison operator application *)
                   
 and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index -> tc_type -> unit tc_result =
   fun pos ctx expr idx exp_ty -> 
@@ -1071,7 +1048,8 @@ and do_item: tc_context -> LA.node_item -> unit tc_result = fun ctx ->
      Log.log L_trace "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann
     ; R.ok ()
   | LA.AnnotProperty (_, _, e) as ann ->
-     Log.log L_trace "Checking Node Item (Annotation Property): %a (%a)" LA.pp_print_node_item ann LA.pp_print_expr e
+     Log.log L_trace "Checking Node Item (Annotation Property): %a (%a)"
+       LA.pp_print_node_item ann LA.pp_print_expr e
     ; check_type_expr ctx e (Bool (LH.pos_of_expr e))
   
 and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> unit tc_result
