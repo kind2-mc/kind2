@@ -1001,18 +1001,20 @@ and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_resul
       (* These are outputs of the node *)
       let ctx_plus_ops_and_ips = List.fold_left union ctx_plus_ips
                                    (List.map extract_ret_ctx output_vars) in
-      R.seq (List.map (local_var_binding ctx_plus_ips) ldecls)
-      >>= fun local_var_ctxts ->
-      (* Local TC context is input vars + output vars + local const and var decls *)
-      let local_ctx = List.fold_left union ctx_plus_ops_and_ips local_var_ctxts in
-      Log.log L_trace "Local Typing Context {%a}" pp_print_tc_context local_ctx
-      (* Type check the node items now that we have all the local typing context *)
-      ; R.seq_ (List.map (do_item local_ctx) items)
-        >> (match contract with
+      (* Type check the contract *)
+      (match contract with
              | None -> R.ok ()
              | Some c ->
                 tc_ctx_of_contract ctx_plus_ops_and_ips c
                 >>= fun con_ctx -> check_type_contract con_ctx c)
+      (* add local variable binding in the context *)
+      >> R.seq (List.map (local_var_binding ctx_plus_ips) ldecls)
+      >>= fun local_var_ctxts ->
+      (* Local TC context is input vars + output vars + local const + var decls *)
+      let local_ctx = List.fold_left union ctx_plus_ops_and_ips local_var_ctxts in
+      Log.log L_trace "Local Typing Context {%a}" pp_print_tc_context local_ctx
+      (* Type check the node items now that we have all the local typing context *)
+      ; R.seq_ (List.map (do_item local_ctx) items)
         >> R.ok (Log.log L_trace "TC declaration node %a done }"
                    LA.pp_print_ident node_name))
 
@@ -1109,7 +1111,7 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 
-and extract_contract_eqn_context: tc_context -> LA.contract_node_equation -> tc_context tc_result
+and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context tc_result
   = fun ctx -> function
   | GhostConst c -> tc_ctx_const_decl ctx c 
   | GhostVar c -> tc_ctx_const_decl ctx c
@@ -1126,7 +1128,7 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
   let ret_ctx = List.fold_left union arg_ctx (List.map extract_ret_ctx rets) in
   let local_const_ctx = List.fold_left union ret_ctx (List.map extract_consts args) in
   (* get the local const var declarations into the context *)
-  R.seq (List.map (extract_contract_eqn_context local_const_ctx) contract)
+  R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract)
   >>= fun ctxs ->
   let local_ctx = List.fold_left union local_const_ctx ctxs in
   check_type_contract local_ctx contract
@@ -1134,12 +1136,11 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
 
 and check_type_contract: tc_context -> LA.contract -> unit tc_result
   = fun ctx eqns ->
-  (* Build the type checker context *)
   R.seq_ (List.map (check_contract_node_eqn ctx) eqns)
 
 and check_contract_node_eqn: tc_context -> LA.contract_node_equation -> unit tc_result
   = fun ctx eqn ->
-  Log.log L_trace "checking contract with equation %a" LA.pp_print_contract_item eqn 
+  Log.log L_trace "checking contract equation: %a" LA.pp_print_contract_item eqn 
   ; match eqn with
   | GhostConst _
   | GhostVar _ ->  R.ok () (* These is already checked while extracting ctx *)
@@ -1150,7 +1151,7 @@ and check_contract_node_eqn: tc_context -> LA.contract_node_equation -> unit tc_
                                (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
                (Bool pos)) 
   | ContractCall (pos, cname, args, rets) ->
-     R.seq(List.map (infer_type_expr ctx) args)
+     R.seq(List.map (infer_type_expr ctx) rets)
      >>= fun ret_tys ->  
      let ret_ty = if List.length ret_tys = 1
                   then List.hd ret_tys
