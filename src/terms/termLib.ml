@@ -115,9 +115,8 @@ let remove_top_level_quantifier t =
 
 (* find the smallest encompassing logic of a sort *)
 let rec logic_of_sort ty =
-  let open Type in
   let open FeatureSet in
-  match node_of_type ty with
+  match Type.node_of_type ty with
   | Bool | Abstr _ -> empty
     
   | Int | IntRange _ -> singleton IA
