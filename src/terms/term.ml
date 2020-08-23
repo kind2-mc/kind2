@@ -787,7 +787,7 @@ let rec type_of_term t = match T.destruct t with
     )
 
   (* Return type of term *)
-  | T.Attr (t, _) -> type_of_term t
+  (* | T.Attr (t, _) -> type_of_term t *)
 
 
 (* Type checking disabled
@@ -1042,7 +1042,7 @@ let rec is_atom t = match T.destruct t with
                  | _ -> assert false)
 
              (* Annotated term *)
-             | T.Attr (t, _) -> (function _ -> is_atom t))
+             (* | T.Attr (t, _) -> (function _ -> is_atom t) *))
 
            e)
        l)
@@ -1054,7 +1054,7 @@ let rec is_atom t = match T.destruct t with
   | T.Var v -> Var.type_of_var v == Type.mk_bool ()
 
   (* Annotated term *)
-  | T.Attr (t, _) -> is_atom t
+  (* | T.Attr (t, _) -> is_atom t *)
 
 
 
@@ -1725,8 +1725,8 @@ let state_vars_of_term term  =
         List.fold_left 
           StateVar.StateVarSet.union 
           StateVar.StateVarSet.empty
-      | T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false))
+      (* | T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false)*))
     term
 
 
@@ -1741,8 +1741,8 @@ let vars_of_term term =
       | T.Const _ -> 
         (function [] -> Var.VarSet.empty | _ -> assert false)
       | T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
-      | T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false))
+      (*| T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false)*))
     term
 
 
@@ -1786,8 +1786,8 @@ let state_vars_at_offset_of_term i term =
         (function [] -> StateVar.StateVarSet.empty | _ -> assert false)
       | T.App _ -> 
         List.fold_left StateVar.StateVarSet.union StateVar.StateVarSet.empty
-      | T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false))
+      (* | T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false)*))
     term
 
 let indexes_of_state_var sv term =
@@ -1840,8 +1840,8 @@ let vars_at_offset_of_term i term =
         (function [] -> Var.VarSet.empty | _ -> assert false)
       | T.App _ -> 
         List.fold_left Var.VarSet.union Var.VarSet.empty
-      | T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false))
+      (*| T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false)*))
     term
 
 
@@ -1882,7 +1882,7 @@ let rec var_offsets_of_term expr =
       | T.App _ -> 
         (function l -> List.fold_left min_max_none (None, None) l)
 
-      | T.Attr _ -> (function [v] -> v | _ -> assert false))
+      (*| T.Attr _ -> (function [v] -> v | _ -> assert false)*))
     expr
 
 

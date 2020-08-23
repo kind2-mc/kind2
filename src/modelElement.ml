@@ -583,7 +583,6 @@ let rec find_vars t =
   | App (_, lst) ->
     List.map find_vars lst
     |> List.flatten
-  | Attr (t, _) -> find_vars t
 
 let sv_of_term t =
   find_vars t |> List.hd |> Var.state_var_of_state_var_instance

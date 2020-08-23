@@ -160,7 +160,7 @@ struct
           )
 
         (* Annotated term *)
-        | Term.T.Attr (t, _) -> var_term_of_smtexpr t
+        (* | Term.T.Attr (t, _) -> var_term_of_smtexpr t *)
 
         (* Already variables *)
         | Term.T.Var _ -> e

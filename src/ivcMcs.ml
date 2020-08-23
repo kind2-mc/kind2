@@ -1077,7 +1077,6 @@ let actlit_of_term t = match Term.destruct t with
     | Var _ -> assert false
     | Const s -> Symbol.uf_of_symbol s
     | App _ -> assert false
-    | Attr _ -> assert false
 
 let base_k sys b0 init_eq trans_eq prop_eq os_prop_eq k =
   let prop_eq = if k = 0 then os_prop_eq else prop_eq in
@@ -1625,7 +1624,7 @@ let block_down map actsvs s =
   |> at_least_one_true
   |> SMTSolver.assert_term map
 
-type unexplored_type = | Any | Min | Max
+type unexplored_type = Min | Max
 
 let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
   ?(stop_after=0) cont keep test =

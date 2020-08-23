@@ -462,9 +462,9 @@ and pp_print_term_node ?as_type safe pvar ppf t = match Term.T.destruct t with
 
     pp_print_app ?as_type safe pvar ppf (Symbol.node_of_symbol s) l
 
-  | Term.T.Attr (t, _) -> 
+  (* | Term.T.Attr (t, _) -> 
     
-    pp_print_term_node ?as_type safe pvar ppf t
+    pp_print_term_node ?as_type safe pvar ppf t *)
 
   | exception Invalid_argument ex -> (
 

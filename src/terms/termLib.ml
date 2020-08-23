@@ -158,7 +158,7 @@ let logic_of_flat fun_symbols t acc =
   let open FeatureSet in
   match t with
 
-  | Attr _ -> sup_logics acc
+  (* | Attr _ -> sup_logics acc *)
   
   | Var v -> Var.type_of_var v |> logic_of_sort |> union @@ sup_logics acc
 

@@ -38,8 +38,8 @@ type _ command_type =
   | NoRespCmd : no_response command_type
   | Cmd : decl_response command_type
   | CheckSatCmd : check_sat_response command_type
-  | GetValueCmd : get_value_response command_type
-  | GetUnsatCoreCmd : get_unsat_core_response command_type
+  (* | GetValueCmd : get_value_response command_type *)
+  (* | GetUnsatCoreCmd : get_unsat_core_response command_type *)
   | CustomCmd : int -> custom_response command_type
 
 
@@ -292,8 +292,8 @@ let get_any_response : type r. t -> int -> r command_type -> r =
     | Cmd -> get_command_response solver timeout
     | CheckSatCmd -> get_check_sat_response solver timeout
     | CustomCmd num_res -> get_custom_command_response num_res solver timeout
-    | GetUnsatCoreCmd -> assert false
-    | GetValueCmd -> assert false
+    (* | GetUnsatCoreCmd -> assert false *)
+    (* | GetValueCmd -> assert false *)
 
 
 (* Send the command to the solver instance *)

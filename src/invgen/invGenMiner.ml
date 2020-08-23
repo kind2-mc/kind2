@@ -182,7 +182,7 @@ end
 let filter_terms_with_unsupported_symbols candidates =
   let rec includes_unsupported_symbol term =
     match Term.destruct term with
-    | Term.T.Attr (t, _) -> includes_unsupported_symbol t
+    (* | Term.T.Attr (t, _) -> includes_unsupported_symbol t *)
     | Term.T.App (s, l) -> (
       match Symbol.node_of_symbol s with
       | `UF _
@@ -331,7 +331,7 @@ let mentions_var term = Term.vars_of_term term |> Var.VarSet.exists (
 
 (* Returns true if the term is a variable or a constant. *)
 let rec is_var_or_const term = match Term.destruct term with
-| Term.T.Attr (kid, _) -> is_var_or_const kid
+(* | Term.T.Attr (kid, _) -> is_var_or_const kid *)
 | Term.T.Var var -> (
   Var.is_state_var_instance var
 ) && (
@@ -344,7 +344,7 @@ let rec is_var_or_const term = match Term.destruct term with
 
 (* Returns true if the term is a variable. *)
 let rec is_var term = match Term.destruct term with
-| Term.T.Attr (kid, _) -> is_var kid
+(* | Term.T.Attr (kid, _) -> is_var kid *)
 | Term.T.Var var -> (
   Var.is_state_var_instance var
 ) && (
@@ -356,7 +356,7 @@ let rec is_var term = match Term.destruct term with
 
 (* Returns true if the term is a constant. *)
 let rec is_const term = match Term.destruct term with
-| Term.T.Attr (kid, _) -> is_const kid
+(* | Term.T.Attr (kid, _) -> is_const kid *)
 | Term.T.Const _ -> true
 | _ -> false
 
@@ -639,8 +639,8 @@ module IntRules = struct
         | `NUMERAL n -> Set.add term set, Set.add term constants
         | _ -> failwith "Constant of type int is not a numeral."
       )
-      | Term.T.Attr (term, _) ->
-        flat_rules two_state (Term.destruct term) (set, constants)
+      (* | Term.T.Attr (term, _) ->
+        flat_rules two_state (Term.destruct term) (set, constants)*)
       | Term.T.Var _ ->
         Set.add term set, constants
     )
@@ -742,8 +742,8 @@ module RealRules = struct
         | `DECIMAL n -> Set.add term set, Set.add term constants
         | _ -> failwith "Constant of type real is not a decimal."
       )
-      | Term.T.Attr (term, _) ->
-        flat_rules two_state (Term.destruct term) (set, constants)
+      (*| Term.T.Attr (term, _) ->
+        flat_rules two_state (Term.destruct term) (set, constants)*)
       | Term.T.Var _ ->
         Set.add term set, constants
     )

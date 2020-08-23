@@ -1200,8 +1200,8 @@ let stateful_vars_of_expr { E.expr_step } =
             SVS.empty 
             l)
 
-      | Term.T.Attr _ ->
-        (function | [s] -> s | _ -> assert false))
+      (* | Term.T.Attr _ ->
+        (function | [s] -> s | _ -> assert false)*))
 
     (expr_step :> Term.t)
 
