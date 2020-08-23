@@ -36,7 +36,7 @@ type expr = Term.t
 let is_true_expr e = e = Term.t_true
 
 (* A Lustre type is a type *)
-type lustre_type = Type.t
+(* type lustre_type = Type.t *)
 
 (* A typed Lustre expression *)
 type t = { 

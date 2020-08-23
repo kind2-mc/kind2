@@ -86,14 +86,14 @@ module SysMap = Sys.Hashtbl
 module Num = Numeral
 
 (* Term. *)
-type term = Term.t
+(* type term = Term.t *)
 (* A representative is just a term. *)
-type rep = term
+(* type rep = term *)
 
 (* Maps terms to something. *)
-type 'a map = 'a Map.t
+(* type 'a map = 'a Map.t *)
 (* Set of terms. *)
-type set = Set.t
+(* type set = Set.t *)
 
 (* Term formatter. *)
 let fmt_term = Term.pp_print_term

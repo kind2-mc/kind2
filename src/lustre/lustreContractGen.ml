@@ -36,7 +36,7 @@ module Sys = TransSys
 module Expr = LustreExpr
 module Node = LustreNode
 
-type term = Term.t
+(* type term = Term.t *)
 type term_set = TSet.t
 type 'a term_map = 'a TMap.t
 
@@ -365,7 +365,7 @@ module GhostInstance = struct
     (** System of the node where the represented variable is defined. *)
   }
 
-  type t = (context list * SVar.t)
+  (* type t = (context list * SVar.t) *)
 
   (** Returns a unique lustre name based on a context and a state var *)
   let get_name (context, svar) =

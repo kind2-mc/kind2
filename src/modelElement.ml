@@ -497,8 +497,6 @@ let core_diff (scmap1, mapping) (scmap2, _) =
   (scmap, mapping)
 
 
-type eqmap = (ts_equation list) ScMap.t
-
 let core_to_eqmap (scmap, mapping) =
   ScMap.map (List.map (fun a -> SyMap.find a mapping |> fst)) scmap
 

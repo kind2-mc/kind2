@@ -35,7 +35,7 @@ module Sys = TransSys
 module VHT = Var.VarHashtbl
 
 (** Types. *)
-type model = Model.t
+(* type model = Model.t *)
 
 (** Functions. *)
 let offset_of = Var.offset_of_state_var_instance
