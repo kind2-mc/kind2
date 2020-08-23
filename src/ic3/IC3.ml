@@ -83,7 +83,7 @@ exception Counterexample of C.t list
 exception Disproved of string
 
 (* Restart for other reason *)
-exception Restart
+(* exception Restart *)
 
 
 
@@ -2815,7 +2815,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
           )
 
         (* Restart for other reason *)
-        | Restart -> props
+        (* | Restart -> props *)
 
     in
 

@@ -18,7 +18,6 @@
 
 open Lib
 
-exception BVSizeError
 let division_by_zero = ref false
 
 (** Returns true iff a division by zero happened in a simplification since

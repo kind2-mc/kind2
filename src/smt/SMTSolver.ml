@@ -540,7 +540,7 @@ let partial_model_of_smt_model s smt_model =
 
 (* Raise when encountering an array variable to switch to get-model
    instead of get-value *)
-exception Var_is_array
+(* exception Var_is_array *)
 
 
 (* range as list of integers *)

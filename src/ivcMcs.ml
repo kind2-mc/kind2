@@ -1259,8 +1259,6 @@ let eq_of_actlit core ?(with_act=false) a =
       trans_opened=guard eq.trans_opened ; trans_closed=guard eq.trans_closed }
   else eq
 
-exception NotKInductive
-
 (** Implements the approximate algorithm (using Unsat Cores) *)
 let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes keep test =
 
@@ -1361,7 +1359,7 @@ let ivc_uc in_sys ?(approximate=false) sys props =
     let (_, test) = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
     Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation=true })
   ) with
-  | NotKInductive | CertifChecker.CouldNotProve _ ->
+  | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
     then (KEvent.log L_error "Cannot reprove properties." ;
           Error "Cannot reprove properties")
@@ -1406,7 +1404,7 @@ let must_set in_sys param analyze sys props =
     let (_, must) = must_set_ in_sys check_ts sys props enter_nodes keep test in
     Solution (props, core_to_loc_core in_sys (core_union keep must), { approximation = !timeout })
   ) with
-  | NotKInductive | CertifChecker.CouldNotProve _ ->
+  | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
     then (KEvent.log L_error "Cannot reprove properties." ;
           Error "Cannot reprove properties")
@@ -1559,7 +1557,7 @@ let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
     let test = ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
     Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation = !timeout })
   ) with
-  | CannotProve | NotKInductive | CertifChecker.CouldNotProve _ ->
+  | CannotProve | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
     then (KEvent.log L_error "Cannot reprove properties." ;
           Error "Cannot reprove properties")
@@ -1829,7 +1827,7 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
     let _ = umivc_ sys props k enter_nodes ~stop_after cont keep test in
     List.rev (!res)
   ) with
-  | CannotProve | NotKInductive | CertifChecker.CouldNotProve _ ->
+  | CannotProve | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
     then (KEvent.log L_error "Cannot reprove properties." ; [])
     else []
