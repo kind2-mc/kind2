@@ -19,6 +19,9 @@
    
    @author Apoorv Ingle *)
 
+exception IllegalGraphOperation
+exception CyclicGraphException
+
 type vertex = string
 (** the vertex name *)
 
@@ -64,8 +67,12 @@ type edges = ESet.t
 type t = vertices * edges
 (** A graph is a set of vertices and set of edges  *)
 
-let emp_g = (VSet.empty, ESet.empty)
+let empty = (VSet.empty, ESet.empty)
 (** An empty trivial graph contains no vertices and no edges *)
+
+let is_empty: t -> bool = fun  (vs, es) ->
+  VSet.is_empty vs 
+                                 
 
 let mk_edge: vertex -> vertex -> edge
   = fun v1 v2 -> (v1, v2)
@@ -75,7 +82,10 @@ let add_vertex: t -> vertex -> t
 (** add a vertex to a graph  *)
 
 let add_edge: t -> edge -> t
-  = fun (vs, es) e -> (vs,  ESet.add e es) 
+  = fun (vs, es) ((src, tgt) as e) ->
+  if VSet.mem src vs && VSet.mem tgt vs
+  then (vs,  ESet.add e es)
+  else raise IllegalGraphOperation
 (** add an edge to a graph  *)
 
 let is_vertex_src: edge -> vertex -> bool
@@ -105,3 +115,17 @@ let non_tgt_vertices: t -> vertex list
   List.filter (fun v -> ESet.for_all (fun e -> not (is_vertex_tgt e v)) es) vs'
 (** Returns a list of all vertices that have no incoming edge  *)
           
+
+let topological_sort: t -> vertex list = fun ((vs, es) as g) ->
+  let rec topological_sort_helper: t -> vertex list -> vertex list
+    = fun ((vs, es) as g) sorted_vs ->
+    let no_incoming_vs = non_tgt_vertices g in
+    (** graph is empty case *)
+    if List.length no_incoming_vs = 0
+    then if not (is_empty g)
+         then raise CyclicGraphException
+         else sorted_vs
+    else
+      let new_g = List.fold_left remove_vertex g no_incoming_vs in
+      topological_sort_helper new_g (sorted_vs @ no_incoming_vs) in
+  topological_sort_helper g []

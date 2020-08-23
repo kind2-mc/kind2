@@ -21,6 +21,12 @@
 
 (* TODO: Make this polymorphic in vertex type.
  * Have a functor Graph.Make similar to Set.Make  *)
+
+exception IllegalGraphOperation
+(** The exception raised when an illegal edge is added *)
+exception CyclicGraphException
+(** The exception raised when topological sort is tried on cyclic graph  *)
+        
 type vertex
 (** the vertex name *)
 
@@ -42,9 +48,12 @@ type edges
 type t
 (** the graph type  *)
 
-val emp_g: t
+val empty: t
 (** The empty graph  *)
 
+val is_empty: t -> bool
+(** Check if the graph is empty  *)
+  
 val add_vertex: t -> vertex -> t
 (** Add a vertex to a graph  *)
 
@@ -56,3 +65,6 @@ val remove_vertex: t -> vertex -> t
 
 val remove_edge: t -> edge -> t
 (** Remove an edge from a graph *)                             
+
+val topological_sort: t -> vertex list
+(** give a topological ordering of vertices *)
