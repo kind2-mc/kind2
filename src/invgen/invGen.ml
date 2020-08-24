@@ -313,7 +313,7 @@ module Make (Graph : GraphSig) : Out = struct
   Returns the new invariants for the system [sys]. *)
   let recv_and_update input_sys aparam top_sys sys_map sys =
 
-    let rec update_pruning_checkers sys_invs map =
+    let update_pruning_checkers sys_invs map =
       Scope.Map.fold (
         fun scope (os, ts) acc ->
           let this_sys = Sys.find_subsystem_of_scope top_sys scope in

@@ -540,7 +540,7 @@ let partial_model_of_smt_model s smt_model =
 
 
 (* range as list of integers *)
-let rec range (l, u) =
+let range (l, u) =
   let rec aux acc u =
     if u < l then acc
     else

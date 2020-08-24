@@ -1339,7 +1339,7 @@ let stateful_vars_of_node
 (* ********************************************************************** *)
 
 (* Pretty-print the source of a state variable *)
-let rec pp_print_state_var_source ppf = function
+let pp_print_state_var_source ppf = function
   | Input -> Format.fprintf ppf "input"
   | Oracle -> Format.fprintf ppf "oracle"
   | Output -> Format.fprintf ppf "output"

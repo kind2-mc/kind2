@@ -756,7 +756,7 @@ struct
 
 
   (* Pretty-print a flattened term *)
-  let rec pp_print_flat pp_symbol pp_var pp_sort ppf = function 
+  let pp_print_flat pp_symbol pp_var pp_sort ppf = function 
 
     | Var v -> Format.fprintf ppf "Var@ %a" pp_var v
 
@@ -793,7 +793,7 @@ struct
 
   (* [int_seq s n] returns a sequence of [n] integers starting with
      [s] *)
-  let rec int_seq s n = int_seq' [] (pred (s + n)) n
+  let int_seq s n = int_seq' [] (pred (s + n)) n
 
   (* ********************************************************************* *)
   (* Folding function                                                      *)
@@ -1773,7 +1773,7 @@ struct
     | _ -> assert false
 
 
-  let rec has_quantifier term =
+  let has_quantifier term =
 
     (* Add the subterms in reverse order to the instruction stack *)
     let rec push trees st = match trees with

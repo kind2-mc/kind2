@@ -990,7 +990,7 @@ let is_lambda_identity l =
 
 
 (* Is the term a Boolean atom? *)
-let rec is_atom t = match T.destruct t with 
+let is_atom t = match T.destruct t with 
 
   (* Function application *)
   | T.App (s, l) -> 
@@ -1691,7 +1691,7 @@ let bump_state i term =
 
 
 (* Apply function to term for instants 0..k *)
-let rec bump_and_apply_k f k term =
+let bump_and_apply_k f k term =
 
   let rec loop lbound ubound =
     if Numeral.(lbound > ubound) then ()
@@ -1846,7 +1846,7 @@ let vars_at_offset_of_term i term =
 
 
 (* Return minimal and maximal offsets of state variable instances in term *)
-let rec var_offsets_of_term expr = 
+let var_offsets_of_term expr = 
   
   let max_none e1 e2 = match e1, e2 with 
     | None, None -> None 

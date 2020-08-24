@@ -315,7 +315,7 @@ and minimize_expr ue lst typ expr =
 
 let tyof_lhs id_typ_map lhs =
   let A.StructDef (pos, items) = lhs in
-  let rec aux = function
+  let aux = function
   | A.SingleIdent (_,id) as e -> [e, IdMap.find id id_typ_map]
   | A.ArrayDef (pos,id,_) -> [A.SingleIdent (pos,id), IdMap.find id id_typ_map]
   | A.TupleStructItem _ | A.ArraySliceStructItem _ | A.FieldSelection _ | A.TupleSelection _

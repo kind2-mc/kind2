@@ -76,7 +76,7 @@ module Kindtype_node = struct
   let hash = Hashtbl.hash 
 
   (* Equality of types *)
-  let rec equal t1 t2 = match t1, t2 with 
+  let equal t1 t2 = match t1, t2 with 
     | Bool, Bool -> true
     | Bool, _ -> false
     | Int, Int -> true
@@ -407,21 +407,21 @@ let get_all_abstr_types () =
 (* ********************************************************************* *)
 
 
-let rec is_int { Hashcons.node = t } = match t with
+let is_int { Hashcons.node = t } = match t with
   | Int -> true 
   | Array (t, _) -> false (* is_int t *)
   | _-> false
 
-let rec is_int_range { Hashcons.node = t } = match t with
+let is_int_range { Hashcons.node = t } = match t with
   | IntRange (_,_,Range) -> true 
   | Array (t, _) -> false (* is_int_range t *)
   |  _ -> false
 
-let rec is_ubitvector { Hashcons.node = t } = match t with
+let is_ubitvector { Hashcons.node = t } = match t with
   | UBV _ -> true
   | _ -> false
 
-let rec is_bitvector { Hashcons.node = t } = match t with
+let is_bitvector { Hashcons.node = t } = match t with
   | BV _ -> true
   | _ -> false
 
@@ -430,48 +430,48 @@ let bitvectorsize { Hashcons.node = t } = match t with
   | BV n -> n
   | _ -> 0
   
-let rec is_uint8 { Hashcons.node = t } = match t with
+let is_uint8 { Hashcons.node = t } = match t with
   | UBV 8 -> true 
   | _-> false
 
-let rec is_uint16 { Hashcons.node = t } = match t with
+let is_uint16 { Hashcons.node = t } = match t with
   | UBV 16 -> true 
   | _-> false
 
-let rec is_uint32 { Hashcons.node = t } = match t with
+let is_uint32 { Hashcons.node = t } = match t with
   | UBV 32 -> true 
   | _-> false
 
-let rec is_uint64 { Hashcons.node = t } = match t with
+let is_uint64 { Hashcons.node = t } = match t with
   | UBV 64 -> true 
   | _-> false
 
-let rec is_int8 { Hashcons.node = t } = match t with
+let is_int8 { Hashcons.node = t } = match t with
   | BV 8 -> true 
   | _-> false
 
-let rec is_int16 { Hashcons.node = t } = match t with
+let is_int16 { Hashcons.node = t } = match t with
   | BV 16 -> true 
   | _-> false
 
-let rec is_int32 { Hashcons.node = t } = match t with
+let is_int32 { Hashcons.node = t } = match t with
   | BV 32 -> true 
   | _-> false
 
-let rec is_int64 { Hashcons.node = t } = match t with
+let is_int64 { Hashcons.node = t } = match t with
   | BV 64 -> true 
   | _-> false
 
-let rec is_enum { Hashcons.node = t } = match t with
+let is_enum { Hashcons.node = t } = match t with
   | IntRange (_,_,Enum) -> true 
   |  _ -> false
 
-let rec is_bool { Hashcons.node = t } = match t with
+let is_bool { Hashcons.node = t } = match t with
   | Bool -> true
   | Array (t, _) -> false (* is_bool t *)
   |  _ -> false
 
-let rec is_real { Hashcons.node = t } = match t with
+let is_real { Hashcons.node = t } = match t with
   | Real -> true
   | Array (t, _) -> false (* is_real t *)
   | _ -> false

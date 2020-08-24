@@ -206,7 +206,7 @@ let rec add_at_indexes l v arm =
     arm
   | _ -> assert false
 
-let rec map_to_array_model m =
+let map_to_array_model m =
   allocate_model (dimension_of_map m)
   |> MIL.fold add_at_indexes m
 

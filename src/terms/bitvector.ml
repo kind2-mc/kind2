@@ -28,7 +28,7 @@ let rec bvextract (m : int) (n : int) (b : t) : t =
       | m' -> (List.nth b_rev m') :: (bvextract (m' - 1) n b)
 
 (* Function that sign extends the input bitvector by m bits *)
-let rec bvsignext (m : int) (b : t) : t =
+let bvsignext (m : int) (b : t) : t =
   let sign = List.hd b in
     let rec repeat (m : int) (b : bool) : t =
       match m with
@@ -37,7 +37,7 @@ let rec bvsignext (m : int) (b : t) : t =
     in List.append (repeat m sign) b
 
 (* Function that concatenates the input bitvectors *)
-let rec bvconcat (b1 : t) (b2 : t) : t =
+let bvconcat (b1 : t) (b2 : t) : t =
   List.append b1 b2
 
 

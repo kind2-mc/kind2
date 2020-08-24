@@ -694,7 +694,7 @@ let node_path_of_subsystems
 (* *************************************************************** *)
 
 (* Pretty-print a value *)
-let rec pp_print_term ty ppf term =
+let pp_print_term ty ppf term =
 
   (* We expect values to be constants *)
   if Term.is_numeral term then 
@@ -2095,7 +2095,7 @@ let inverse_expr_map nodes =
   ) SVM.empty nodes
 
 
-let rec orig_of_oracle oracle_map sv =
+let orig_of_oracle oracle_map sv =
   try SVM.find sv oracle_map with Not_found -> [sv]
   (* try *)
   (*   let l = SVMap.find sv oracle_map in *)

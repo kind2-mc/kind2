@@ -485,7 +485,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   (* Node calls *)
   | LA.Call (pos, i, arg_exprs) ->
      Log.log L_trace "Inferring type for node call %a" LA.pp_print_ident i  
-    ; let rec infer_type_node_args: tc_context -> LA.expr list -> tc_type tc_result
+    ; let infer_type_node_args: tc_context -> LA.expr list -> tc_type tc_result
         = fun ctx args ->
         R.seq (List.map (infer_type_expr ctx) args)
         >>= (fun arg_tys ->

@@ -262,7 +262,7 @@ let check_2 sys solver candidate =
 
 (** Checks (3). Does multi-property reasoning on [props]. Returns the list of
     properties entailed by the candidate, and those falsified. *)
-let rec check_3 sys solver candidate props =
+let check_3 sys solver candidate props =
   (** Creating actlit for candidate, declaring it, extracting term. *)
   let candidate_actlit = fresh_actlit solver in
   (** Asserting implication. *)
@@ -366,7 +366,7 @@ let get_zero_cost_candidate context candidate =
 
 
 (** Runs C2I cnf version. *)
-let rec run context candidate = ()
+let run context candidate = ()
 
 
 

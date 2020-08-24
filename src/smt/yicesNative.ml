@@ -253,7 +253,7 @@ let get_check_sat_response solver timeout =
 
 
 (* Get n S-expressions from the solver *)
-let rec get_custom_command_result solver accum i =
+let get_custom_command_result solver accum i =
   (* Return response *)
   match parse_yices_output solver with
   

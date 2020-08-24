@@ -549,7 +549,7 @@ module RunIVC: PostAnalysis = struct
   let title = "inductive validity core"
   let is_active () = Flags.IVC.compute_ivc ()
 
-  let rec pp_print_properties fmt = function
+  let pp_print_properties fmt = function
   | [] -> ()
   | _::_::_ -> Format.fprintf fmt "all"
   | [{ Property.prop_name = n }] -> Format.fprintf fmt "%s" n

@@ -803,7 +803,7 @@ let uneval_eq_lhs ctx = function
 
 (* Return a trie of state variables from the left-hand side of an
    equation *)
-let rec eval_eq_lhs ctx pos = function
+let eval_eq_lhs ctx pos = function
 
   (* Empty list for node calls without returns *)
   | A.StructDef (pos, []) -> (D.empty, 0, ctx)

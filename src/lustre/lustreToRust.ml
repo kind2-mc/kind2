@@ -1923,7 +1923,7 @@ let oracle_to_rust target find_sub top =
   Format.printf "@.@." ; *)
 
   (* Appends two tries. *)
-  let rec append lhs rhs =
+  let append lhs rhs =
     (I.empty, 0)
     |> I.fold (
       fun _ svar (trie, cnt) -> I.add [I.TupleIndex cnt] svar trie, cnt + 1
