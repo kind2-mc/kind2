@@ -16,8 +16,6 @@
 
 *)
 
-open Lib
-
 type model = Model.t
 type term = Term.t
 type num = Numeral.t

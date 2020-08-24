@@ -17,7 +17,6 @@
 *)
 open Lib
 
-open YicesDriver
 include YicesDriver
 module Conv = SMTExpr.Converter(YicesDriver)
 open Conv 

@@ -16,8 +16,6 @@
 
 *)
 
-open Lib
-
 module A = Analysis
 module Sys = TransSys
 

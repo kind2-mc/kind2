@@ -16,8 +16,6 @@
 
 *)
 
-open Lib
-
 (* Abbreviations *)
 module I = LustreIdent
 module D = LustreIndex

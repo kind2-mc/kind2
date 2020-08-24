@@ -184,7 +184,7 @@ let logic_of_flat fun_symbols t acc =
      List.for_all (fun t -> Term.is_numeral t || Term.is_decimal t) l ->
      add LA (sup_logics acc)
 
-  | App (s, [n]) when Symbol.(s == s_abs) &&
+  | App (s, [n]) when s == s_abs &&
      (Term.is_numeral n || Term.is_decimal n) ->
      add LA (sup_logics acc)
 

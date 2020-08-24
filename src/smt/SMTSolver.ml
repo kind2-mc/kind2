@@ -17,7 +17,6 @@
 *)
 
 open Lib
-open SolverResponse
 
 
 exception Unknown

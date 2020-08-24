@@ -1863,7 +1863,7 @@ let rec var_offsets_of_term expr =
   in
       
   let min_max_none (l1, u1) (l2, u2) = 
-    Numeral.(min_none l1 l2, max_none u1 u2) 
+    (min_none l1 l2, max_none u1 u2) 
   in
 
   eval_t ~fail_on_quantifiers:false

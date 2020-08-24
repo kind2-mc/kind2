@@ -1,5 +1,4 @@
 open Format
-open Lib
 
 (* Constant bitvector *)
 type t = bool list

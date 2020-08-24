@@ -20,7 +20,6 @@
 (** TODO: optimize multi-property reset. See [reset_props_of]. *)
 
 
-open Lib
 
 (** |===| Shorthand for modules, types and functions. *)
 

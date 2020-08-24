@@ -17,7 +17,6 @@
 *)
 
 open Lib
-open SolverResponse
 
 (* An SMT expression is a term *)
 type t = Term.t

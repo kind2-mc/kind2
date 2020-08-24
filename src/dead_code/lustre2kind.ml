@@ -16,11 +16,6 @@
 
 *)
 
-open Lib
-
-
-
-
 (* 
    Local Variables:
    compile-command: "make -k -C .. lustre2kind"

@@ -22,10 +22,6 @@
     Also, not sure the way to deal with partial models makes that much sense.
     See [model_equal]. *)
 
-
-open Lib
-open Actlit
-
 (** |===| Shorthand for modules, types and functions. *)
 
 (** Modules. *)
