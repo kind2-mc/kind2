@@ -17,7 +17,6 @@
 *)
 
 module A = Analysis
-module Sys = TransSys
 
 (** Information used by the strategy module. *)
 type info = {

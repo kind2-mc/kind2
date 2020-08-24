@@ -68,7 +68,7 @@ let print_flags =
   Format.printf "@[<v>%a@]" (pp_print_list fmt_flag "@ ")
 
 
-module Make_Spec (Dummy:sig end) = struct
+module Make_Spec (_:sig end) = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
   let format_specs = ref []

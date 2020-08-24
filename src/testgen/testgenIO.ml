@@ -18,8 +18,6 @@
 
 open Lib
 
-module N = LustreNode
-
 type sys = TransSys.t
 (*
 type svar = StateVar.t

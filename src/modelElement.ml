@@ -62,7 +62,6 @@ module Equation = struct
     | n -> n
   let equal t1 t2 = compare t1 t2 = 0
 end
-module EqMap = Map.Make(Equation)
 module EqSet = Set.Make(Equation)
 
 let scmap_size c =

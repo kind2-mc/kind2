@@ -21,7 +21,6 @@ open Lib
 module Num = Numeral
 module Dec = Decimal
 module SVar = StateVar
-module SVS = SVar.StateVarSet
 module Set = Term.TermSet
 module Sys = TransSys
 

@@ -27,7 +27,6 @@
 module Candidate = C2ICandidate
 module Solver = SMTSolver
 module Sys = TransSys
-module VHT = Var.VarHashtbl
 
 (** Types. *)
 type model = Model.t

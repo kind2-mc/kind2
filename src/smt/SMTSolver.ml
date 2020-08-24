@@ -491,7 +491,6 @@ let eval_array_vars v smt_model =
 
 
 let model_of_smt_model s smt_model vars = 
-  let module S = (val s.solver_inst) in
 
   (* Create hash table with size matching the number of values *)
   let model = Var.VarHashtbl.create (List.length smt_model) in
@@ -515,8 +514,6 @@ let model_of_smt_model s smt_model vars =
   
 
 let partial_model_of_smt_model s smt_model =
-  
-  let module S = (val s.solver_inst) in
 
   (* Create hash table with size matching the number of values *)
   let model = Var.VarHashtbl.create (List.length smt_model) in
@@ -664,7 +661,6 @@ let get_var_values s state_var_indexes vars =
 
 (* Get model of the current context *)
 let get_model s =
-  let module S = (val s.solver_inst) in
   match 
     (* Get model in current context *)
     prof_get_model s ()

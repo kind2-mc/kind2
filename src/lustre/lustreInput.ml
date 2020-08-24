@@ -21,11 +21,9 @@ open Lexing
 open MenhirLib.General
    
 module LA = LustreAst
-module LI = LustreIdent
 module LN = LustreNode
 module LC = LustreContext
 module LD = LustreDeclarations
-module SS = SubSystem
 
 module LPI = LustreParser.Incremental
 module LL = LustreLexer          

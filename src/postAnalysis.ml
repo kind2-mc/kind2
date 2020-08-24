@@ -22,10 +22,8 @@ module TestGen = TestgenDF
 module Num = Numeral
 module TSys = TransSys
 module ISys = InputSystem
-module SVar = StateVar
 
 module SVS = StateVar.StateVarSet
-module SVM = StateVar.StateVarMap
 
 open Res
 

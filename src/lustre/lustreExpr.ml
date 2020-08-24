@@ -20,7 +20,6 @@ open Lib
 
 (* Abbreviations *)
 module I = LustreIdent
-module A = LustreAst
 
 module SVS = StateVar.StateVarSet
 module VS = Var.VarSet

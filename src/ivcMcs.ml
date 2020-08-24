@@ -19,7 +19,6 @@
 open ModelElement
 
 module TS = TransSys
-module SMT  : SolverDriver.S = GenericSMTLIBDriver
 module ScMap = Scope.Map
 module SVSet = StateVar.StateVarSet
 

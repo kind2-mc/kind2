@@ -29,8 +29,6 @@ module type GraphSig = InvGenGraph.Graph
 (* LSD module. *)
 module Lsd = LockStepDriver
 
-(* Term hash table. *)
-module Map = Term.TermHashtbl
 (* Term set. *)
 module Set = Term.TermSet
 

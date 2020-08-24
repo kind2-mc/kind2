@@ -21,12 +21,9 @@ open Lib
 
 module Num = Numeral
 
-module SMap = Scope.Map
-
 module SVar = StateVar
 module SvMap = SVar.StateVarMap
 module SvSet = SVar.StateVarSet
-module VSet = Var.VarSet
 
 module TSet = Term.TermSet
 module TMap = Term.TermMap

@@ -21,7 +21,6 @@ open Lib
 (* Abbreviations *)
 module I = LustreIdent
 module D = LustreIndex
-module A = LustreAst
 module E = LustreExpr
 module N = LustreNode
 module S = SubSystem

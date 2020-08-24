@@ -25,9 +25,6 @@
 (** |===| Shorthand for modules, types and functions. *)
 
 (** Modules. *)
-module Candidate = C2ICandidate
-module Solver = SMTSolver
-module Sys = TransSys
 module VHT = Var.VarHashtbl
 
 (** Types. *)

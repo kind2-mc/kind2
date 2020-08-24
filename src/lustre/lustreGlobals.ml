@@ -17,10 +17,7 @@
 *)
 
 (* Abbreviations *)
-module I = LustreIdent
-module D = LustreIndex
 module E = LustreExpr
-module N = LustreNode
 
 type t = 
 

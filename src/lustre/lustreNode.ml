@@ -54,7 +54,6 @@ module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
 module SVT = StateVar.StateVarHashtbl
 
-module ET = LustreExpr.LustreExprHashtbl
 (* Add a list of state variables to a set *)
 let add_to_svs set list = 
   List.fold_left (fun a e -> SVS.add e a) set list 
