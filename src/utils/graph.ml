@@ -15,117 +15,167 @@
    permissions and limitations under the License. 
 
  *)
-(** Graph and graph traversals
+(** A poor person's graph and graph traversal implementations
    
    @author Apoorv Ingle *)
 
-exception IllegalGraphOperation
-exception CyclicGraphException
+module type OrderedType = sig
+  type t
+  val compare: t -> t -> int
+end
+                        
+module type S = sig
+  exception IllegalGraphOperation
+  (** The exception raised when an illegal edge is added *)
+  exception CyclicGraphException
+  (** The exception raised when topological sort is tried on cyclic graph  *)
+  
+  type vertex
+  (** thevertex name *)
+    
+  type edge
+  (** edge is between two vertices *)
 
-type vertex = string
-(** the vertex name *)
+  val mk_edge: vertex -> vertex ->  edge   
+  (** make and edge from two vertices  *)
 
-let mk_vertex: string -> vertex
-  = fun v -> v
-(** make a vertex given the vertex name  *)
+  type vertices
+  (** Set of vertices *)
 
-module VSet = struct
-  include (Set.Make (struct
-               type t = vertex
-               let compare = Stdlib.compare
-             end))
-  let flatten: t list -> t = fun sets ->
-    List.fold_left union empty sets
-end 
-(** Set of vertices *)
+  type edges
+  (** Set of edges *)
 
-type edge = vertex * vertex
-(** edge is between two vertices *)
+  type t
+  (** the graph type  *)
 
-let mk_edge: vertex -> vertex -> edge
-  = fun s t -> (s, t)
-(** Make an edge given the source and the target vertices *)
+  val empty: t
+  (** The empty graph  *)
 
-module ESet = struct
-  include (Set.Make (struct
-               type t = edge
-               let compare (v11, v12) (v21, v22)
-                 = let c = Stdlib.compare v11 v21 in
-                   if c <> 0 then c else Stdlib.compare v21 v22
-             end))
-  let flatten: t list -> t = fun sets ->
-    List.fold_left union empty sets
-end 
-(** A set of vertices  *)
+  val is_empty: t -> bool
+  (** Check if the graph is empty  *)
+    
+  val add_vertex: t ->vertex -> t
+  (** Add avertex to a graph  *)
 
-type vertices = VSet.t
-(** type alias for set of vertices *)
+  val add_edge: t ->  edge -> t
+  (** Add an edge to a graph  *)
 
-type edges = ESet.t
-(** type alias for set of edges *)
-            
-type t = vertices * edges
-(** A graph is a set of vertices and set of edges  *)
+  val remove_vertex: t ->vertex -> t
+  (** Remove avertex from a graph *)                             
 
-let empty = (VSet.empty, ESet.empty)
-(** An empty trivial graph contains no vertices and no edges *)
+  val remove_edge: t -> edge -> t
+  (** Remove an edge from a graph *)                             
 
-let is_empty: t -> bool = fun  (vs, es) ->
-  VSet.is_empty vs 
-                                 
+  val topological_sort: t -> vertex list
+  (** give a topological ordering of vertices *)
+end
 
-let mk_edge: vertex -> vertex -> edge
-  = fun v1 v2 -> (v1, v2)
+module Make(Ord: OrderedType) = struct
+  exception IllegalGraphOperation
+  (** The exception raised when an illegal edge is added *)
+  exception CyclicGraphException
+  (** The exception raised when topological sort is tried on cyclic graph  *)
+  
+  type vertex = Ord.t
+  (** thevertex name *)
 
-let add_vertex: t -> vertex -> t
-  = fun (vs, es) v -> (VSet.add v vs,  es) 
-(** add a vertex to a graph  *)
+  type edge = vertex * vertex
+  (** edge is between two vertices *)
 
-let add_edge: t -> edge -> t
-  = fun (vs, es) ((src, tgt) as e) ->
-  if VSet.mem src vs && VSet.mem tgt vs
-  then (vs,  ESet.add e es)
-  else raise IllegalGraphOperation
-(** add an edge to a graph  *)
+  let mk_edge: vertex -> vertex ->  edge
+    = fun s t -> (s, t)
+  (** Make an edge given the source and the target vertices *)
 
-let is_vertex_src: edge -> vertex -> bool
-  = fun (sv, tv) v -> v = sv
+  module VSet = struct
+    include (Set.Make (struct
+                 type t = Ord.t
+                 let compare = Ord.compare
+               end))
+    let flatten: t list -> t = fun sets ->
+      List.fold_left union empty sets
+  end 
+  (** Set of vertices *)
 
-let is_vertex_tgt: edge -> vertex -> bool
-  = fun (sv, tv) v -> v = tv
-                    
-let find_edges_of_vertex: t -> vertex -> edges
-  = fun (vs, es) v -> ESet.filter (fun e -> is_vertex_tgt e v
-                                            || is_vertex_src e v) es 
+  module ESet = struct
+    include (Set.Make (struct
+                 type t = (Ord.t *  Ord.t)
+                 let compare (v11, v12) (v21, v22)
+                   = let c = Ord.compare v11 v21 in
+                     if c <> 0 then c else Ord.compare v21 v22
+               end))
+    let flatten: t list -> t = fun sets ->
+      List.fold_left union empty sets
+  end 
+  (** A set of vertices  *)
 
-let remove_vertex: t -> vertex -> t
-  = fun (vs, es) v -> ( VSet.remove v vs
-                      , ESet.filter
-                          (fun e -> not (is_vertex_tgt e v
-                                         || is_vertex_src e v)) es)
-(** Remove a vertex from a graph and the associated edges *)                             
+  type vertices = VSet.t
+  (** type alias for set of vertices *)
 
-let remove_edge: t -> edge -> t
-  = fun (vs, es) e -> (vs, ESet.remove e es) 
-(** Remove an edge from a graph *)                             
+  type  edges = ESet.t
+  (** type alias for set of  edges *)
+             
+  type  t = vertices * edges
+  (** A graph is a set of vertices and set of  edges  *)
 
-let non_tgt_vertices: t -> vertex list
-  = fun (vs, es) ->
-  let vs' = VSet.elements vs in
-  List.filter (fun v -> ESet.for_all (fun e -> not (is_vertex_tgt e v)) es) vs'
-(** Returns a list of all vertices that have no incoming edge  *)
-          
+  let empty = (VSet.empty, ESet.empty)
+  (** An empty trivial graph contains no vertices and no  edges *)
 
-let topological_sort: t -> vertex list = fun ((vs, es) as g) ->
-  let rec topological_sort_helper: t -> vertex list -> vertex list
-    = fun ((vs, es) as g) sorted_vs ->
-    let no_incoming_vs = non_tgt_vertices g in
-    (** graph is empty case *)
-    if List.length no_incoming_vs = 0
-    then if not (is_empty g)
-         then raise CyclicGraphException
-         else sorted_vs
-    else
-      let new_g = List.fold_left remove_vertex g no_incoming_vs in
-      topological_sort_helper new_g (sorted_vs @ no_incoming_vs) in
-  topological_sort_helper g []
+  let is_empty:  t -> bool = fun  (vs, es) ->
+    VSet.is_empty vs 
+
+  let mk_edge:vertex ->vertex ->  edge
+    = fun v1 v2 -> (v1, v2)
+
+  let add_vertex:  t ->vertex ->  t
+    = fun (vs, es) v -> (VSet.add v vs,  es) 
+  (** add avertex to a graph  *)
+
+  let add_edge:  t ->  edge ->  t
+    = fun (vs, es) ((src, tgt) as e) ->
+    if VSet.mem src vs && VSet.mem tgt vs
+    then (vs,  ESet.add e es)
+    else raise IllegalGraphOperation
+  (** add an  edge to a graph  *)
+
+  let is_vertex_src:  edge ->vertex -> bool
+    = fun (sv, tv) v -> v = sv
+
+  let is_vertex_tgt:  edge ->vertex -> bool
+    = fun (sv, tv) v -> v = tv
+                      
+  let find_edges_of_vertex:  t ->vertex ->  edges
+    = fun (vs, es) v -> ESet.filter (fun e -> is_vertex_tgt e v
+                                              || is_vertex_src e v) es 
+
+  let remove_vertex:  t ->vertex ->  t
+    = fun (vs, es) v -> ( VSet.remove v vs
+                        , ESet.filter
+                            (fun e -> not (is_vertex_tgt e v
+                                           || is_vertex_src e v)) es)
+  (** Remove a vertex from a graph and the associated  edges *)                             
+
+  let remove_edge:  t ->  edge ->  t
+    = fun (vs, es) e -> (vs, ESet.remove e es) 
+  (** Remove an  edge from a graph *)                             
+
+  let non_tgt_vertices:  t ->vertex list
+    = fun (vs, es) ->
+    let vs' = VSet.elements vs in
+    List.filter (fun v -> ESet.for_all (fun e -> not (is_vertex_tgt e v)) es) vs'
+  (** Returns a list of all vertices that have no incoming edge  *)
+    
+
+  let topological_sort:  t ->vertex list = fun ((vs, es) as g) ->
+    let rec topological_sort_helper:  t ->vertex list ->vertex list
+      = fun ((vs, es) as g) sorted_vs ->
+      let no_incoming_vs = non_tgt_vertices g in
+      (** graph is empty case *)
+      if List.length no_incoming_vs = 0
+      then if not (is_empty g)
+           then raise CyclicGraphException
+           else sorted_vs
+      else
+        let new_g = List.fold_left remove_vertex g no_incoming_vs in
+        topological_sort_helper new_g (sorted_vs @ no_incoming_vs) in
+    topological_sort_helper g []
+end

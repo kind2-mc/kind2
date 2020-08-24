@@ -144,15 +144,11 @@ let member_val: tc_context -> LA.ident -> bool
 
 let lookup_ty_syn: tc_context -> LA.ident -> tc_type
   = fun ctx i -> IMap.find i (ctx.ty_syns)
+(** picks out the type synonym from the context *)
 
-let lookup_ty: tc_context -> LA.ident -> tc_type
-  = fun ctx i -> let ty = IMap.find i (ctx.ty_ctx) in
-               match ty with
-               | LA.UserType (_, uid) ->
-                  if (member_ty_syn ctx uid)
-                  then (lookup_ty_syn ctx uid)
-                  else ty
-               | _ ->  ty
+let rec lookup_ty: tc_context -> LA.ident -> tc_type
+  = fun ctx i -> IMap.find i (ctx.ty_ctx)
+(** Picks out the type from the variable to type context map *)
 
 let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type)
   = fun ctx i -> IMap.find i (ctx.vl_ctx)
@@ -1243,7 +1239,7 @@ and tc_context_of: tc_context -> LA.t -> tc_context tc_result
   = fun ctx decls ->
   R.seq_chain (tc_context_of_declaration) ctx decls 
 (** Obtain a global typing context, get constants and function decls*)
-
+  
 and build_type_context: tc_context -> LA.t -> tc_context tc_result
   = fun ctx ->
   function

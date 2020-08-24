@@ -19,14 +19,16 @@
    
    @author Apoorv Ingle *)
 
-module G = Graph
-         
 open OUnit2
+
+module G = Graph.Make(struct
+               type t = LustreAst.ident
+               let compare = Stdlib.compare end)
    
 let empty_graph_is_empty = assert (G.is_empty G.empty)  
 
-let v0 = G.mk_vertex "0"
-let v1 = G.mk_vertex "1"
+let v0 = "0"
+let v1 = "1"
                          
 let singleton_g = G.add_vertex G.empty v0
 let dos_g = G.add_vertex singleton_g v1

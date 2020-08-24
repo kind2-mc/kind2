@@ -15,56 +15,59 @@
    permissions and limitations under the License. 
 
  *)
-(** A poor person's graph and graph traversal implementations
+(** A poor person's acyclic directred graph and its traversals
    
    @author Apoorv Ingle *)
 
-(* TODO: Make this polymorphic in vertex type.
- * Have a functor Graph.Make similar to Set.Make  *)
-
-exception IllegalGraphOperation
-(** The exception raised when an illegal edge is added *)
-exception CyclicGraphException
-(** The exception raised when topological sort is tried on cyclic graph  *)
+module type OrderedType = sig
+  type t
+  val compare: t -> t -> int
+end
         
-type vertex
-(** the vertex name *)
-
-val mk_vertex: string -> vertex
-(** makes a vertex *)
+module type S = sig 
+  exception IllegalGraphOperation
+  (** The exception raised when an illegal edge is added *)
+  exception CyclicGraphException
+  (** The exception raised when topological sort is tried on cyclic graph  *)
   
-type edge
-(** edge is between two vertices *)
+  type vertex
+  (** the vertex name *)
+    
+  type edge
+  (** edge is between two vertices *)
 
-val mk_edge: vertex -> vertex -> edge   
-(** make and edge from two vertices  *)
+  val mk_edge: vertex -> vertex -> edge   
+  (** make and edge from two vertices  *)
 
-type vertices
-(** Set of vertices *)
+  type vertices
+  (** Set of vertices *)
 
-type edges
-(** Set of edges *)
+  type edges
+  (** Set of edges *)
 
-type t
-(** the graph type  *)
+  type t
+  (** the graph type  *)
 
-val empty: t
-(** The empty graph  *)
+  val empty:  t
+  (** The empty graph  *)
 
-val is_empty: t -> bool
-(** Check if the graph is empty  *)
-  
-val add_vertex: t -> vertex -> t
-(** Add a vertex to a graph  *)
+  val is_empty:  t -> bool
+  (** Check if the graph is empty  *)
+    
+  val add_vertex:  t ->  vertex ->  t
+  (** Add a  vertex to a graph  *)
 
-val add_edge: t -> edge -> t
-(** Add an edge to a graph  *)
+  val add_edge:  t ->  edge ->  t
+  (** Add an edge to a graph  *)
 
-val remove_vertex: t -> vertex -> t
-(** Remove a vertex from a graph *)                             
+  val remove_vertex:  t ->  vertex ->  t
+  (** Remove a  vertex from a graph *)                             
 
-val remove_edge: t -> edge -> t
-(** Remove an edge from a graph *)                             
+  val remove_edge:  t ->  edge ->  t
+  (** Remove an edge from a graph *)                             
 
-val topological_sort: t -> vertex list
-(** give a topological ordering of vertices *)
+  val topological_sort:  t ->  vertex list
+  (** give a topological ordering of vertices *)
+end
+              
+module Make (Ord: OrderedType): S with type vertex = Ord.t
