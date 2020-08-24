@@ -181,7 +181,7 @@ let chain_list = function
 
   | h :: tl -> 
     
-    let rec chain_list (accum, last) curr = ([last; curr] :: accum, curr) in
+    let chain_list (accum, last) curr = ([last; curr] :: accum, curr) in
     List.rev (fst (List.fold_left chain_list ([], h) tl))
 
 
@@ -193,7 +193,7 @@ let chain_list_p = function
 
   | h :: tl ->
 
-    let rec chain_list' (accum, last) curr = ((last, curr) :: accum, curr) in
+    let chain_list' (accum, last) curr = ((last, curr) :: accum, curr) in
     List.rev (fst (List.fold_left chain_list' ([], h) tl))
 
 (* Return a list containing all values in the first list that are not

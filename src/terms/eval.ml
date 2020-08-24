@@ -82,7 +82,7 @@ let term_of_value = function
 
 
 (* Convert a term to a value *)
-let rec value_of_term term = match Term.destruct term with 
+let value_of_term term = match Term.destruct term with 
 
   (* Term is a constant *)
   | Term.T.Const s -> 

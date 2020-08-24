@@ -841,7 +841,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
           | _, _ -> iter_line f g s p (i+1) n
     in
 
-    let rec out_string s p n =
+    let out_string s p n =
       iter_line
         fmt_out_fun.Format.out_string
         out_newline

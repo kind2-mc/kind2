@@ -22,20 +22,13 @@
     Also, not sure the way to deal with partial models makes that much sense.
     See [model_equal]. *)
 
-
-open Lib
-open Actlit
-
 (** |===| Shorthand for modules, types and functions. *)
 
 (** Modules. *)
-module Candidate = C2ICandidate
-module Solver = SMTSolver
-module Sys = TransSys
 module VHT = Var.VarHashtbl
 
 (** Types. *)
-type model = Model.t
+(* type model = Model.t *)
 
 (** Functions. *)
 let offset_of = Var.offset_of_state_var_instance

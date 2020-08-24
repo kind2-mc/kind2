@@ -1443,9 +1443,7 @@ let call_outputs_of_node_call
         Some call_outputs
 
       (* No node call found *)
-      with Not_found -> None 
-
-module SVM = StateVar.StateVarMap
+      with Not_found -> None
 
 (* Add node input to context *)
 let add_node_input ?is_const ctx ident index_types =

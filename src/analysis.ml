@@ -156,7 +156,7 @@ let param_scope_is_abstract param scope =
   with Not_found -> false
 
 (* Abstraction of a property source. *)
-type prop_kind = | Contract | Subreq | Prop
+(* type prop_kind = | Contract | Subreq | Prop *)
 
 (* Creates a [result] from a [param], a [t] and an analysis time. *)
 let mk_result param sys time =

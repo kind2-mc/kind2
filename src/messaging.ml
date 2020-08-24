@@ -19,8 +19,6 @@
 (* #load "threads.cma" *) (* might be necessary if testing in toplevel *)
 
 open Lib
-open Zmq
-open Printf
 
 
 (******************************)

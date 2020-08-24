@@ -173,7 +173,7 @@ sig
     | Var of var
     | Const of symbol 
     | App of symbol * t list
-    | Attr of t * attr
+    (* | Attr of t * attr *)
 
   (** Comparison function on terms *)
   val compare : t -> t -> int

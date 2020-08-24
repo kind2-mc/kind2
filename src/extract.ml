@@ -105,8 +105,8 @@ let vars_of_term term =
 
           )
           
-        | Term.T.Attr (t, _) -> 
-          (function [s] -> s | _ -> assert false))
+        (* | Term.T.Attr (t, _) -> 
+          (function [s] -> s | _ -> assert false)*)) 
          
          term)
 
@@ -810,7 +810,7 @@ let extract uf_defs env term =
        [])
 
 
-    | Term.T.Attr (t, _) -> (accum, [t, env, polarity])
+    (*  | Term.T.Attr (t, _) -> (accum, [t, env, polarity]) *)
 
 
 
@@ -872,8 +872,8 @@ let extract uf_defs env term =
         | Term.T.Var _ 
         | Term.T.Const _ -> ([], Term.T.construct fterm)
 
-        | Term.T.Attr (t, _) -> 
-          match args with [(a, _)] -> (a, t) | _ -> assert false
+        (* | Term.T.Attr (t, _) -> 
+          match args with [(a, _)] -> (a, t) | _ -> assert false *)
 
     in
 

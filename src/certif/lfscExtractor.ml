@@ -16,8 +16,6 @@
 
 *)
 
-open Lib
-
 module HH = HString.HStringHashtbl
 module HS = HStringSExpr
 module D = GenericSMTLIBDriver

@@ -142,7 +142,7 @@ let pp_print_map_as_array as_type ppf m =
     let dim = MIL.choose m |> fst |> List.length in
     let current = Array.make dim 0 in
     let prev = Array.make dim 0 in
-    for i = 1 to dim do
+    for _ = 1 to dim do
       Format.fprintf ppf "[@[<hov 0>";
     done;
     let first = ref true in
@@ -156,7 +156,7 @@ let pp_print_map_as_array as_type ppf m =
         (* if !cpt <> !nopen then  Format.fprintf ppf ";"; *)
         if !cpt > 0 then Format.fprintf ppf ",@ "
         else if not !first then Format.fprintf ppf ",";
-        for i = 1 to !cpt do
+        for _ = 1 to !cpt do
           Format.fprintf ppf "@[<hov 0>[";
         done;
         let w = width_of_string (string_of_t pp_print_term v) in
@@ -170,7 +170,7 @@ let pp_print_map_as_array as_type ppf m =
           (val_width - w) "" (pp_print_value_term ty) v;
         first := false;
       ) m;
-    for i = 1 to dim do
+    for _ = 1 to dim do
       Format.fprintf ppf "]@]";
     done
 
@@ -206,7 +206,7 @@ let rec add_at_indexes l v arm =
     arm
   | _ -> assert false
 
-let rec map_to_array_model m =
+let map_to_array_model m =
   allocate_model (dimension_of_map m)
   |> MIL.fold add_at_indexes m
 

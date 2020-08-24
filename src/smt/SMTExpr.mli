@@ -20,8 +20,6 @@
 
     @author Alain Mebsout, Christoph Sticksel *)
 
-open SolverResponse
-
 (** {1 Sorts} *)
 
 (** An SMT sort is of type {!Type.t} *)

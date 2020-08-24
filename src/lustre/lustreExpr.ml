@@ -20,7 +20,6 @@ open Lib
 
 (* Abbreviations *)
 module I = LustreIdent
-module A = LustreAst
 
 module SVS = StateVar.StateVarSet
 module VS = Var.VarSet
@@ -36,7 +35,7 @@ type expr = Term.t
 let is_true_expr e = e = Term.t_true
 
 (* A Lustre type is a type *)
-type lustre_type = Type.t
+(* type lustre_type = Type.t *)
 
 (* A typed Lustre expression *)
 type t = { 
@@ -462,9 +461,9 @@ and pp_print_term_node ?as_type safe pvar ppf t = match Term.T.destruct t with
 
     pp_print_app ?as_type safe pvar ppf (Symbol.node_of_symbol s) l
 
-  | Term.T.Attr (t, _) -> 
+  (* | Term.T.Attr (t, _) -> 
     
-    pp_print_term_node ?as_type safe pvar ppf t
+    pp_print_term_node ?as_type safe pvar ppf t *)
 
   | exception Invalid_argument ex -> (
 

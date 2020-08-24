@@ -21,9 +21,6 @@ open Lib
 module P = Property
 module SVM = StateVar.StateVarMap
 module SVS = StateVar.StateVarSet
-module SVT = StateVar.StateVarHashtbl
-
-module TermMap = Term.TermHashtbl
 
 (* Offset of state variables in initial state constraint *)
 let init_base = Numeral.zero
@@ -802,9 +799,6 @@ struct
   let hash { scope } = Scope.hash scope
 
 end
-
-(* Set of transition systems *)
-module Set = Set.Make (T)
 
 (* Map of transition systems *)
 module Map = Map.Make (T)

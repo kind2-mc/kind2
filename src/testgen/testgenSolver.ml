@@ -35,7 +35,6 @@
   Note: [a0] is not really needed but is here for consistency.
 *)
 
-open Lib
 open Actlit
 
 module S = SMTSolver

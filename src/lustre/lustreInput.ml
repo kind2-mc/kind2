@@ -21,11 +21,9 @@ open Lexing
 open MenhirLib.General
    
 module LA = LustreAst
-module LI = LustreIdent
 module LN = LustreNode
 module LC = LustreContext
 module LD = LustreDeclarations
-module SS = SubSystem
 
 module LPI = LustreParser.Incremental
 module LL = LustreLexer          
@@ -113,9 +111,9 @@ let of_channel in_ch =
     (Log.log L_note "(Experimental) Typechecking enabled.";
      (let tc_res = TC.type_check_program declarations in
       match tc_res with
-      | TC.(Ok ()) -> Log.log L_note "No type errors found!";
+      | Ok () -> Log.log L_note "No type errors found!";
                       (if Flags.only_tc () then exit 0);
-      | TC.(Error (pos, err)) -> LC.fail_at_position pos err)) ;
+      | Error (pos, err) -> LC.fail_at_position pos err)) ;
   
   (* Simplify declarations to a list of nodes *)
   let nodes, globals = LD.declarations_to_nodes declarations in

@@ -16,7 +16,6 @@
 
 *)
 
-open Lib
 open LustreAst
 
 (** {1 Helpers} *)

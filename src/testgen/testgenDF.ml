@@ -24,7 +24,6 @@ module Solver = TestgenSolver
 module Tree = TestgenTree
 module TSys = TransSys
 module Num = Numeral
-module N = LustreNode
 
 module IO = TestgenIO
 

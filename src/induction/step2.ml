@@ -17,7 +17,6 @@
 *)
 
 open Lib
-open TermLib
 open Actlit
 
 module Smt = SMTSolver

@@ -101,7 +101,7 @@ sig
     | Var of var
     | Const of symbol
     | App of symbol * t list
-    | Attr of t * attr
+    (* | Attr of t * attr *)
 
   val compare : t -> t -> int
 
@@ -260,7 +260,7 @@ struct
     | Var of var
     | Const of symbol
     | App of symbol * t list
-    | Attr of t * attr
+    (* | Attr of t * attr *)
 
   (* Return property of term *)
   let hash_of_term { H.hkey = h } = h
@@ -568,7 +568,7 @@ struct
     | Var v -> ht_free_var v
     | Const c -> ht_leaf c
     | App (s, l) -> ht_node s l
-    | Attr (t, a) -> ht_annot t a 
+    (* | Attr (t, a) -> ht_annot t a *)
 
   (* ********************************************************************* *)
   (* Pretty-printing                                                       *)
@@ -756,7 +756,7 @@ struct
 
 
   (* Pretty-print a flattened term *)
-  let rec pp_print_flat pp_symbol pp_var pp_sort ppf = function 
+  let pp_print_flat pp_symbol pp_var pp_sort ppf = function 
 
     | Var v -> Format.fprintf ppf "Var@ %a" pp_var v
 
@@ -770,13 +770,13 @@ struct
         (pp_symbol ?arity:None) s 
         (pp_print_term_list pp_symbol pp_var pp_sort 0) l
 
-    | Attr (t, a) -> 
+    (* | Attr (t, a) -> 
 
       Format.fprintf 
         ppf 
         "Attr@ (%a,@ %a)" 
         (pp_print_term ~db:0) t 
-        T.pp_print_attr a
+        T.pp_print_attr a *)
 
   let pp_print_flat =
     pp_print_flat (fun ?arity -> T.pp_print_symbol) T.pp_print_var
@@ -793,7 +793,7 @@ struct
 
   (* [int_seq s n] returns a sequence of [n] integers starting with
      [s] *)
-  let rec int_seq s n = int_seq' [] (pred (s + n)) n
+  let int_seq s n = int_seq' [] (pred (s + n)) n
 
   (* ********************************************************************* *)
   (* Folding function                                                      *)
@@ -1773,7 +1773,7 @@ struct
     | _ -> assert false
 
 
-  let rec has_quantifier term =
+  let has_quantifier term =
 
     (* Add the subterms in reverse order to the instruction stack *)
     let rec push trees st = match trees with
