@@ -28,17 +28,21 @@ module GA = GraphAdapter
 
 let declarations = LI.ast_of_file "test_forward_ref.lus"
 
-let linear_decls = GA.sort_type_decls (LI.ast_of_file "test_forward_ref.lus")
-let circular_decls = GA.sort_type_decls (LI.ast_of_file "test_circular_decl_failure.lus")
+let linear_decls = LI.ast_of_file "test_forward_ref.lus"
+let sorted_linear_decls = fun _ -> GA.sort_type_decls linear_decls
+                          
+let circular_decls = LI.ast_of_file "test_circular_decl_failure.lus"
+let failure_circular_decls = fun _ ->  GA.sort_type_decls circular_decls
 
 
 let print_test = "sample graph" >::: [
       "print acyclic graph" >:: (fun _ -> Lib.pp_print_list (Lib.pp_print_pair LA.pp_print_ident LA.pp_print_program ":")
-                                            "\n" Format.std_formatter linear_decls; assert_string "1")
+                                            "\n" Format.std_formatter (sorted_linear_decls ())
+                                        ; assert_bool "blah" (List.length linear_decls = List.length (sorted_linear_decls())))
     ; "fail on cyclic graph" >:: (fun _ ->
-      assert_raises GA.G.CyclicGraphException
+      assert_raises Graph.CyclicGraphException
         (fun _ -> Lib.pp_print_list
                     (Lib.pp_print_pair LA.pp_print_ident LA.pp_print_program ":")
-                    "\n" Format.std_formatter circular_decls) )
+                    "\n" Format.std_formatter (failure_circular_decls ())) )
     ]
 let _ = run_test_tt_main print_test

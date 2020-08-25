@@ -16,8 +16,6 @@
 
  *)
 
-module G: Graph.S
-
 module LA = LustreAst
 
 val sort_type_decls: LA.t -> (LA.ident * LA.t) list

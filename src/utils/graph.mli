@@ -19,16 +19,17 @@
    
    @author Apoorv Ingle *)
 
+exception IllegalGraphOperation
+(** The exception raised when an illegal edge is added *)
+exception CyclicGraphException
+(** The exception raised when topological sort is tried on cyclic graph  *)
+
 module type OrderedType = sig
   type t
   val compare: t -> t -> int
 end
         
-module type S = sig 
-  exception IllegalGraphOperation
-  (** The exception raised when an illegal edge is added *)
-  exception CyclicGraphException
-  (** The exception raised when topological sort is tried on cyclic graph  *)
+module type S = sig
   
   type vertex
   (** The vertex type *)

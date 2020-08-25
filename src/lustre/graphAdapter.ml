@@ -26,8 +26,6 @@ module LA = LustreAst
 module G = Graph.Make(struct
                type t = LustreAst.ident * LA.t
                let compare (i1, _) (i2, _) = Stdlib.compare i1 i2 end)
-
-exception CyclicGraphException = G.CyclicGraphException
                                
 let rec mk_graph_type: LA.lustre_type -> G.t = function
   | TVar (_, i) -> G.singleton (i, [])
