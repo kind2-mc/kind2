@@ -1,0 +1,3 @@
+(tests
+  (names testGraphAdapter)
+  (libraries ounit2 kind2dev))

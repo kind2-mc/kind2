@@ -24,21 +24,33 @@ module type OrderedType = sig
   val compare: t -> t -> int
 end
                         
-module type S = sig
+module type S = sig 
   exception IllegalGraphOperation
   (** The exception raised when an illegal edge is added *)
   exception CyclicGraphException
   (** The exception raised when topological sort is tried on cyclic graph  *)
   
   type vertex
-  (** thevertex name *)
+  (** The vertex type *)
     
   type edge
-  (** edge is between two vertices *)
+  (** The edge type to represent line between two vertices *)
 
-  val mk_edge: vertex -> vertex ->  edge   
-  (** make and edge from two vertices  *)
+  val mk_edge: vertex -> vertex -> edge   
+  (** Make an [edge] from two vertices  *)
 
+  val get_source_vertex: edge -> vertex
+  (** Get the source [vertex] from an [edge] *)
+
+  val is_vertex_source: edge -> vertex -> bool
+  (** Checks if the [vertex] is the source [vertex] *)
+
+  val get_target_vertex: edge -> vertex
+  (** Get the target [vertex] from an [edge] *)
+
+  val is_vertex_target: edge -> vertex -> bool
+  (** Checks if the [vertex] is the target [vertex] *)
+    
   type vertices
   (** Set of vertices *)
 
@@ -46,46 +58,71 @@ module type S = sig
   (** Set of edges *)
 
   type t
-  (** the graph type  *)
+  (** The graph type  *)
 
-  val empty: t
+  val empty:  t
   (** The empty graph  *)
 
-  val is_empty: t -> bool
-  (** Check if the graph is empty  *)
+  val is_empty:  t -> bool
+  (** Check if the graph is empty *)
+
+  val singleton: vertex -> t
+  (** returns a singleton graph *)
     
-  val add_vertex: t ->vertex -> t
-  (** Add avertex to a graph  *)
+  val add_vertex:  t ->  vertex ->  t
+  (** Add a [vertex] to a graph  *)
 
-  val add_edge: t ->  edge -> t
-  (** Add an edge to a graph  *)
+  val add_edge:  t ->  edge ->  t
+  (** Add an [edge] to a graph  *)
 
-  val remove_vertex: t ->vertex -> t
-  (** Remove avertex from a graph *)                             
+  val remove_vertex:  t ->  vertex ->  t
+  (** Remove a [vertex] from a graph *)                             
 
-  val remove_edge: t -> edge -> t
-  (** Remove an edge from a graph *)                             
+  val remove_edge:  t ->  edge ->  t
+  (** Remove an [edge] from a graph *)                             
 
-  val topological_sort: t -> vertex list
-  (** give a topological ordering of vertices *)
+  val connect: t -> vertex -> t
+  (** Connect [vertex] to all the other vertices in the given graph *)
+    
+  val union: t -> t -> t
+  (** Unions two graphs *)
+    
+  val topological_sort:  t ->  vertex list
+  (** Computes a topological ordering of vertices 
+   *  or throws an [CyclicGraphException] if the graph is cyclic.
+   *  Implimentation is of this function is based on Kahn's algorithm *)
 end
 
-module Make(Ord: OrderedType) = struct
+module Make (Ord: OrderedType) = struct
   exception IllegalGraphOperation
   (** The exception raised when an illegal edge is added *)
   exception CyclicGraphException
   (** The exception raised when topological sort is tried on cyclic graph  *)
   
   type vertex = Ord.t
-  (** thevertex name *)
+  (** the vertex type *)
 
   type edge = vertex * vertex
-  (** edge is between two vertices *)
+  (** directed edge type is between two vertices source and target *)
 
   let mk_edge: vertex -> vertex ->  edge
     = fun s t -> (s, t)
   (** Make an edge given the source and the target vertices *)
 
+  let get_source_vertex: edge -> vertex = fst
+  (** Get the source vertex from an edge *)
+
+  let get_target_vertex: edge -> vertex = snd
+  (** Get the target vertex from an edge *)
+
+  let is_vertex_source: edge -> vertex -> bool = fun e v ->
+    get_source_vertex e = v
+  (** Checks if the [vertex] is the source [vertex] *)
+
+  let is_vertex_target: edge -> vertex -> bool = fun e v ->
+    get_target_vertex e = v
+  (** Checks if the [vertex] is the source [vertex] *)
+                                          
   module VSet = struct
     include (Set.Make (struct
                  type t = Ord.t
@@ -111,71 +148,94 @@ module Make(Ord: OrderedType) = struct
   type vertices = VSet.t
   (** type alias for set of vertices *)
 
-  type  edges = ESet.t
+  type edges = ESet.t
   (** type alias for set of  edges *)
              
-  type  t = vertices * edges
+  type t = vertices * edges
   (** A graph is a set of vertices and set of  edges  *)
+
+  let get_vertices: t -> vertices = fst
+
+  let get_edges: t -> edges = snd
 
   let empty = (VSet.empty, ESet.empty)
   (** An empty trivial graph contains no vertices and no  edges *)
 
-  let is_empty:  t -> bool = fun  (vs, es) ->
+  let is_empty: t -> bool = fun  (vs, es) ->
     VSet.is_empty vs 
+  (** Check if the graph is empty *)
 
-  let mk_edge:vertex ->vertex ->  edge
+  let singleton: vertex -> t = fun v ->
+    (VSet.singleton v, ESet.empty)
+  (** returns a singleton graph *)
+    
+  let mk_edge: vertex -> vertex -> edge
     = fun v1 v2 -> (v1, v2)
+  (** Make an edge from two vertices  *)
 
-  let add_vertex:  t ->vertex ->  t
+  let add_vertex: t -> vertex -> t
     = fun (vs, es) v -> (VSet.add v vs,  es) 
   (** add avertex to a graph  *)
 
-  let add_edge:  t ->  edge ->  t
+  let add_edge: t -> edge -> t
     = fun (vs, es) ((src, tgt) as e) ->
     if VSet.mem src vs && VSet.mem tgt vs
     then (vs,  ESet.add e es)
     else raise IllegalGraphOperation
   (** add an  edge to a graph  *)
+                    
+  let find_edges_of_vertex: t ->vertex -> edges
+    = fun (vs, es) v -> ESet.filter (fun e -> is_vertex_target e v
+                                              || is_vertex_source e v) es 
 
-  let is_vertex_src:  edge ->vertex -> bool
-    = fun (sv, tv) v -> v = sv
-
-  let is_vertex_tgt:  edge ->vertex -> bool
-    = fun (sv, tv) v -> v = tv
-                      
-  let find_edges_of_vertex:  t ->vertex ->  edges
-    = fun (vs, es) v -> ESet.filter (fun e -> is_vertex_tgt e v
-                                              || is_vertex_src e v) es 
-
-  let remove_vertex:  t ->vertex ->  t
+  let remove_vertex: t -> vertex -> t
     = fun (vs, es) v -> ( VSet.remove v vs
                         , ESet.filter
-                            (fun e -> not (is_vertex_tgt e v
-                                           || is_vertex_src e v)) es)
-  (** Remove a vertex from a graph and the associated  edges *)                             
+                            (fun e -> not (is_vertex_target e v
+                                           || is_vertex_source e v)) es)
+  (** Remove a [vertex] from a graph and its associated [edges] *)                             
 
   let remove_edge:  t ->  edge ->  t
     = fun (vs, es) e -> (vs, ESet.remove e es) 
-  (** Remove an  edge from a graph *)                             
+  (** Remove an [edge] from a graph *)                             
 
-  let non_tgt_vertices:  t ->vertex list
+  let non_target_vertices: t -> vertices
     = fun (vs, es) ->
-    let vs' = VSet.elements vs in
-    List.filter (fun v -> ESet.for_all (fun e -> not (is_vertex_tgt e v)) es) vs'
+    VSet.filter (fun v -> ESet.for_all (fun e -> not (is_vertex_target e v)) es) vs
   (** Returns a list of all vertices that have no incoming edge  *)
-    
 
-  let topological_sort:  t ->vertex list = fun ((vs, es) as g) ->
-    let rec topological_sort_helper:  t ->vertex list ->vertex list
+  let non_source_vertices: t -> vertices
+    = fun (vs, es) ->
+    VSet.filter (fun v -> ESet.for_all (fun e -> not (is_vertex_target e v)) es) vs
+  (** Returns a list of all vertices that have no outgoing edges  *)
+    
+  let connect: t -> vertex -> t = fun g v ->
+    ( VSet.add v (get_vertices g) 
+    , VSet.fold (fun v' es' -> ESet.add (mk_edge v v') es') (get_vertices g) (get_edges g))
+  (** Connect [vertex] to all the other vertices in the given graph *)
+
+  let union: t -> t -> t = fun (v1s, e1s) (v2s, e2s) ->
+    (VSet.union v1s v2s, ESet.union e1s e2s) 
+  (** Unions two graphs *)
+    
+  let reverse_topological_sort: t -> vertex list = fun ((vs, es) as g) ->
+    let rec r_topological_sort_helper: t -> vertex list -> vertex list
       = fun ((vs, es) as g) sorted_vs ->
-      let no_incoming_vs = non_tgt_vertices g in
+      let no_outgoing_vs = non_source_vertices g in
       (** graph is empty case *)
-      if List.length no_incoming_vs = 0
+      if VSet.is_empty no_outgoing_vs
       then if not (is_empty g)
            then raise CyclicGraphException
            else sorted_vs
       else
-        let new_g = List.fold_left remove_vertex g no_incoming_vs in
-        topological_sort_helper new_g (sorted_vs @ no_incoming_vs) in
-    topological_sort_helper g []
+        let new_g = VSet.fold (fun v g -> remove_vertex g v) no_outgoing_vs g in
+        r_topological_sort_helper new_g (sorted_vs @ VSet.elements no_outgoing_vs)
+    in r_topological_sort_helper g []
+  (** Computes a topological ordering of vertices 
+   *  or throws an [CyclicGraphException] if the graph is cyclic.
+   *  Implimentation is based on Kahn's algorithm 
+   * https://en.wikipedia.org/wiki/Topological_sorting *)
+
+  let topological_sort: t -> vertex list = fun g -> reverse_topological_sort g |> List.rev  
+
 end

@@ -38,7 +38,8 @@ let dos_cycle_g = G.add_edge dos_connected_g (G.mk_edge v1 v0)
 
 
 let basic_tests = "test suite for graph" >::: [
-      "sorted dos" >:: (fun _ -> assert_equal (G.topological_sort dos_connected_g) [v0;v1])
+      "sorted dos" >:: (fun _ -> assert_equal (G.topological_sort dos_connected_g) [v1;v0])
     ; "cyclic dos" >:: (fun _ -> assert_raises (G.CyclicGraphException) (fun _ -> G.topological_sort dos_cycle_g))
     ]
+
 let _ = run_test_tt_main basic_tests

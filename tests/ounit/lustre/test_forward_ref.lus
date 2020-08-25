@@ -1,0 +1,6 @@
+type t0 = t1;
+type t1 = t2;
+type t2 = int;
+
+const N2: t0 = 1;
+
