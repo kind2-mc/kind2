@@ -229,17 +229,9 @@ module Make (Ord: OrderedType) = struct
     = fun (vs, es) v -> ESet.filter (fun e -> is_vertex_in_edge e v) es 
 
   let remove_vertex: t -> vertex -> t
-    = fun ((vs, es) as g) v ->
-    Format.fprintf Format.std_formatter "\n======\ninital graph:\n %a\n" pp_print_graph g
-    ; let g' = (VSet.remove v vs
-               , ESet.filter (fun e -> not (is_vertex_in_edge e v)) es) in
-      Format.fprintf Format.std_formatter "\nafter removal of edges: %a
-                                           \ndue to vertex removal: %a
-                                           \n the graph:\n %a\n======\n"
-        pp_print_edges (find_edges_of_vertex g v)
-        pp_print_vertex v
-        pp_print_graph g'
-      ; g'
+    = fun (vs, es) v ->
+    (VSet.remove v vs
+    , ESet.filter (fun e -> not (is_vertex_in_edge e v)) es)
            
   (** Remove a [vertex] from a graph and its associated [edges] *)                             
 
@@ -273,13 +265,6 @@ module Make (Ord: OrderedType) = struct
     let rec r_topological_sort_helper: t -> vertex list -> vertex list
       = fun ((vs, es) as g) sorted_vs ->
       let no_outgoing_vs = non_source_vertices g in
-
-      Format.fprintf Format.std_formatter
-        "\n-----------\nGraph state:\n %a\nSorted vertices: %a\n new non source vertices: %a\n-------------\n"
-        pp_print_graph g
-        (Lib.pp_print_list pp_print_vertex ",") sorted_vs
-        pp_print_vertices no_outgoing_vs ;
-      
       (** graph is empty case *)
       if VSet.is_empty no_outgoing_vs
       then if not (is_empty g)
