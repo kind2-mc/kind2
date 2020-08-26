@@ -180,6 +180,8 @@ module IntegerHashtbl : Hashtbl.S with type key = int
   
 (** {1 Pretty-printing helpers} *)
 
+val pp_print_ignore: Format.formatter -> 'a -> unit
+  
 (** Pretty-print a pair. 
     it excepts two formatters and a separator and formats the pair
 *)     

@@ -23,9 +23,9 @@ open OUnit2
 
 module G = Graph.Make(struct
                type t = LustreAst.ident
-               let compare = Stdlib.compare end)
-   
-let empty_graph_is_empty = assert (G.is_empty G.empty)  
+               let compare = Stdlib.compare
+               let pp_print_t = LustreAst.pp_print_ident 
+             end)
 
 let v0 = "0"
 let v1 = "1"
@@ -36,10 +36,21 @@ let dos_g = G.add_vertex singleton_g v1
 let dos_connected_g = G.add_edge dos_g (G.mk_edge v0 v1)
 let dos_cycle_g = G.add_edge dos_connected_g (G.mk_edge v1 v0)
 
+let g_verts = List.fold_left (G.add_vertex) G.empty ["t0";"t1";"t2";"int"; "c"; "1"]
+let g = List.fold_left (G.add_edge) g_verts [G.mk_edge "t0" "t1"
+                                       ; G.mk_edge "t1" "t2"
+                                       ; G.mk_edge "t2" "int"
+                                       ; G.mk_edge "c" "t0" 
+                                       ; G.mk_edge "c" "1" ]
 
-let basic_tests = "test suite for graph" >::: [
-      "sorted dos" >:: (fun _ -> assert_equal (G.topological_sort dos_connected_g) [v1;v0])
-    ; "cyclic dos" >:: (fun _ -> assert_raises (Graph.CyclicGraphException) (fun _ -> G.topological_sort dos_cycle_g))
-    ]
+let basic_tests
+  = "test suite for graph" >:::
+      [ "empty graph" >:: (fun _-> assert_bool "Empty graph is empty" (G.is_empty G.empty))
+      ; "remove vertex to remove all edges" >::
+          (fun _ -> assert_bool "unexpected graph" (G.remove_vertex dos_g v0 |> G.is_point_graph))
+          
+      ; "sorted dos" >:: (fun _ -> assert_equal (G.topological_sort dos_connected_g) [v1;v0])
+      ; "cyclic dos" >:: (fun _ -> assert_raises (Graph.CyclicGraphException) (fun _ -> G.topological_sort dos_cycle_g))
+      ]
 
 let _ = run_test_tt_main basic_tests

@@ -27,6 +27,7 @@ exception CyclicGraphException
 module type OrderedType = sig
   type t
   val compare: t -> t -> int
+  val pp_print_t: Format.formatter -> t -> unit
 end
                         
 module type S = sig 
@@ -69,6 +70,9 @@ module type S = sig
 
   val singleton: vertex -> t
   (** returns a singleton graph *)
+
+  val is_singleton: t -> bool
+  (** returns true if the graph has only one vertex *)
     
   val add_vertex:  t ->  vertex ->  t
   (** Add a [vertex] to a graph  *)
@@ -84,7 +88,10 @@ module type S = sig
 
   val connect: t -> vertex -> t
   (** Connect [vertex] to all the other vertices in the given graph *)
-    
+
+  val is_point_graph: t -> bool
+  (** Returns true if the graph has no edges *)
+
   val union: t -> t -> t
   (** Unions two graphs *)
     
@@ -92,15 +99,35 @@ module type S = sig
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
    *  Implimentation is of this function is based on Kahn's algorithm *)
+
+  val pp_print_vertex: Format.formatter -> vertex -> unit
+  (** Pretty print a vertex *)
+
+  val pp_print_vertices: Format.formatter -> vertices -> unit
+
+  val pp_print_edge: Format.formatter -> edge -> unit
+
+  val pp_print_edges: Format.formatter -> edges -> unit
+
+  val pp_print_graph: Format.formatter -> t -> unit
+
 end
 
 module Make (Ord: OrderedType) = struct
   
   type vertex = Ord.t
   (** the vertex type *)
+  let pp_print_vertex: Format.formatter -> vertex -> unit = fun ppf v -> 
+    Ord.pp_print_t ppf v
+    
 
   type edge = vertex * vertex
   (** directed edge type is between two vertices source and target *)
+
+  let pp_print_edge: Format.formatter -> edge -> unit = fun ppf (s, t) ->
+    Format.fprintf ppf "%a -> %a"
+      pp_print_vertex s
+      pp_print_vertex t 
 
   let mk_edge: vertex -> vertex ->  edge
     = fun s t -> (s, t)
@@ -119,7 +146,10 @@ module Make (Ord: OrderedType) = struct
   let is_vertex_target: edge -> vertex -> bool = fun e v ->
     get_target_vertex e = v
   (** Checks if the [vertex] is the source [vertex] *)
-                                          
+
+  let is_vertex_in_edge: edge -> vertex -> bool = fun (s, t) v ->
+    Ord.compare v s = 0 || Ord.compare v t = 0
+    
   module VSet = struct
     include (Set.Make (struct
                  type t = Ord.t
@@ -135,7 +165,7 @@ module Make (Ord: OrderedType) = struct
                  type t = (Ord.t *  Ord.t)
                  let compare (v11, v12) (v21, v22)
                    = let c = Ord.compare v11 v21 in
-                     if c <> 0 then c else Ord.compare v21 v22
+                     if c <> 0 then c else Ord.compare v12 v22
                end))
     let flatten: t list -> t = fun sets ->
       List.fold_left union empty sets
@@ -145,12 +175,23 @@ module Make (Ord: OrderedType) = struct
   type vertices = VSet.t
   (** type alias for set of vertices *)
 
+  let pp_print_vertices: Format.formatter -> vertices -> unit = fun ppf vs ->
+    Lib.pp_print_list pp_print_vertex ", " ppf (VSet.elements vs)
+
   type edges = ESet.t
   (** type alias for set of  edges *)
+
+  let pp_print_edges: Format.formatter -> edges -> unit = fun ppf es ->
+    Lib.pp_print_list pp_print_edge ", " ppf (ESet.elements es)
              
   type t = vertices * edges
   (** A graph is a set of vertices and set of  edges  *)
 
+  let pp_print_graph: Format.formatter -> t -> unit = fun ppf (vs, es) ->
+    Format.fprintf ppf "Vertices: %a\nEdges: %a"
+      pp_print_vertices vs
+      pp_print_edges es
+         
   let get_vertices: t -> vertices = fst
 
   let get_edges: t -> edges = snd
@@ -165,6 +206,9 @@ module Make (Ord: OrderedType) = struct
   let singleton: vertex -> t = fun v ->
     (VSet.singleton v, ESet.empty)
   (** returns a singleton graph *)
+
+  let is_singleton: t -> bool = fun (vs, es) ->
+    VSet.cardinal vs = 1 && ESet.cardinal es = 0
     
   let mk_edge: vertex -> vertex -> edge
     = fun v1 v2 -> (v1, v2)
@@ -181,15 +225,22 @@ module Make (Ord: OrderedType) = struct
     else raise IllegalGraphOperation
   (** add an  edge to a graph  *)
                     
-  let find_edges_of_vertex: t ->vertex -> edges
-    = fun (vs, es) v -> ESet.filter (fun e -> is_vertex_target e v
-                                              || is_vertex_source e v) es 
+  let find_edges_of_vertex: t -> vertex -> edges
+    = fun (vs, es) v -> ESet.filter (fun e -> is_vertex_in_edge e v) es 
 
   let remove_vertex: t -> vertex -> t
-    = fun (vs, es) v -> ( VSet.remove v vs
-                        , ESet.filter
-                            (fun e -> not (is_vertex_target e v
-                                           || is_vertex_source e v)) es)
+    = fun ((vs, es) as g) v ->
+    Format.fprintf Format.std_formatter "\n======\ninital graph:\n %a\n" pp_print_graph g
+    ; let g' = (VSet.remove v vs
+               , ESet.filter (fun e -> not (is_vertex_in_edge e v)) es) in
+      Format.fprintf Format.std_formatter "\nafter removal of edges: %a
+                                           \ndue to vertex removal: %a
+                                           \n the graph:\n %a\n======\n"
+        pp_print_edges (find_edges_of_vertex g v)
+        pp_print_vertex v
+        pp_print_graph g'
+      ; g'
+           
   (** Remove a [vertex] from a graph and its associated [edges] *)                             
 
   let remove_edge:  t ->  edge ->  t
@@ -211,6 +262,9 @@ module Make (Ord: OrderedType) = struct
     , VSet.fold (fun v' es' -> ESet.add (mk_edge v v') es') (get_vertices g) (get_edges g))
   (** Connect [vertex] to all the other vertices in the given graph *)
 
+  let is_point_graph: t -> bool = fun (vs, es) ->
+    ESet.is_empty es
+    
   let union: t -> t -> t = fun (v1s, e1s) (v2s, e2s) ->
     (VSet.union v1s v2s, ESet.union e1s e2s) 
   (** Unions two graphs *)
@@ -219,13 +273,20 @@ module Make (Ord: OrderedType) = struct
     let rec r_topological_sort_helper: t -> vertex list -> vertex list
       = fun ((vs, es) as g) sorted_vs ->
       let no_outgoing_vs = non_source_vertices g in
+
+      Format.fprintf Format.std_formatter
+        "\n-----------\nGraph state:\n %a\nSorted vertices: %a\n new non source vertices: %a\n-------------\n"
+        pp_print_graph g
+        (Lib.pp_print_list pp_print_vertex ",") sorted_vs
+        pp_print_vertices no_outgoing_vs ;
+      
       (** graph is empty case *)
       if VSet.is_empty no_outgoing_vs
       then if not (is_empty g)
            then raise CyclicGraphException
            else sorted_vs
       else
-        let new_g = VSet.fold (fun v g -> remove_vertex g v) no_outgoing_vs g in
+        let new_g = VSet.fold (fun v g' -> remove_vertex g' v) no_outgoing_vs g in
         r_topological_sort_helper new_g (sorted_vs @ VSet.elements no_outgoing_vs)
     in r_topological_sort_helper g []
   (** Computes a topological ordering of vertices 
@@ -233,6 +294,6 @@ module Make (Ord: OrderedType) = struct
    *  Implimentation is based on Kahn's algorithm 
    * https://en.wikipedia.org/wiki/Topological_sorting *)
 
-  let topological_sort: t -> vertex list = fun g -> reverse_topological_sort g |> List.rev  
+  let topological_sort: t -> vertex list = fun g -> reverse_topological_sort g |> List.rev     
 
 end

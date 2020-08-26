@@ -27,6 +27,7 @@ exception CyclicGraphException
 module type OrderedType = sig
   type t
   val compare: t -> t -> int
+  val pp_print_t: Format.formatter -> t -> unit
 end
         
 module type S = sig
@@ -70,6 +71,9 @@ module type S = sig
   val singleton: vertex -> t
   (** returns a singleton graph *)
 
+  val is_singleton: t -> bool
+  (** returns true if the graph has only one vertex *)
+  
   val add_vertex: t ->  vertex ->  t
   (** Add a [vertex] to a graph  *)
 
@@ -84,6 +88,9 @@ module type S = sig
 
   val connect: t -> vertex -> t
   (** Connect [vertex] to all the other vertices in the given graph *)
+
+  val is_point_graph: t -> bool
+  (** Returns true if the graph has no edges *)
     
   val union: t -> t -> t
   (** Unions two graphs *)
@@ -92,6 +99,18 @@ module type S = sig
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
    *  Implimentation is of this function is based on Kahn's algorithm *)
+
+  val pp_print_vertex: Format.formatter -> vertex -> unit
+  (** Pretty print a vertex *)
+
+  val pp_print_vertices: Format.formatter -> vertices -> unit
+
+  val pp_print_edge: Format.formatter -> edge -> unit
+
+  val pp_print_edges: Format.formatter -> edges -> unit
+
+  val pp_print_graph: Format.formatter -> t -> unit
+    
 end
               
 module Make (Ord: OrderedType): S with type vertex = Ord.t

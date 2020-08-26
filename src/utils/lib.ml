@@ -449,6 +449,9 @@ module IntegerHashtbl =
 (* Generic pretty-printing                                                 *)
 (* ********************************************************************** *)
 
+let pp_print_ignore: Format.formatter -> 'a -> unit
+  = fun _ _ -> ()
+  
 (* Pretty-print an array *)
 let pp_print_arrayi pp sep ppf array  =
   let n = Array.length array in

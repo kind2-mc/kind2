@@ -17,6 +17,7 @@
  *)
 
 module LA = LustreAst
+module G: Graph.S
 
 val sort_type_decls: LA.t -> (LA.ident * LA.t) list
 (** Return a topological order of type declarations *)
@@ -24,3 +25,4 @@ val sort_type_decls: LA.t -> (LA.ident * LA.t) list
 val sort_decls: LA.t -> (LA.ident * LA.t) list
 (** Return a topological order of constant, node and contract declarations *)
                                
+val dependency_graph_decls: LA.t -> G.t

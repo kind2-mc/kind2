@@ -24,8 +24,10 @@
 module LA = LustreAst
 
 module G = Graph.Make(struct
-               type t = LustreAst.ident * LA.t
-               let compare (i1, _) (i2, _) = Stdlib.compare i1 i2 end)
+               type t = LustreAst.ident * LA.declaration list
+               let compare (i1, _) (i2, _) = Stdlib.compare i1 i2
+               let pp_print_t = Lib.pp_print_pair LA.pp_print_ident Lib.pp_print_ignore ""
+             end)
                                
 let rec mk_graph_type: LA.lustre_type -> G.t = function
   | TVar (_, i) -> G.singleton (i, [])
@@ -94,33 +96,39 @@ and mk_graph_expr: LA.expr -> G.t
    * | CallParam of position * ident * lustre_type list * expr list *)
   | _ -> Lib.todo __LOC__
 
-and mk_graph_type_decl: LA.type_decl -> G.t
-  = function
-  | FreeType (_, i) -> G.singleton (i, []) 
-  | AliasType (_, i, ty) -> G.connect (mk_graph_type ty) (i, [])
+and mk_graph_type_decl: Lib.position -> LA.type_decl -> G.t = fun pos ->
+  function
+  | FreeType (_, i) as ty -> G.singleton (i, [LA.TypeDecl (pos, ty)]) 
+  | AliasType (_, i, ety) as ty -> G.connect (mk_graph_type ety) (i, [LA.TypeDecl (pos, ty)])
 
 let mk_graph_const_decl: LA.const_decl -> G.t =
   function
   | FreeConst (_, i, _) -> G.singleton (i, [])
   | UntypedConst (_, i, e) -> G.connect (mk_graph_expr e) (i, [])  
-  | TypedConst (_, i, e, ty) -> G.connect (mk_graph_expr e) (i, [])
+  | TypedConst (_, i, e, ty) -> G.connect (G.union (mk_graph_type ty) (mk_graph_expr e)) (i, [])
                               
 let get_graph: LA.declaration -> G.t =
   function
-  | TypeDecl (_, tydecl) -> mk_graph_type_decl tydecl 
+  | TypeDecl (pos, tydecl) -> mk_graph_type_decl pos tydecl 
   | ConstDecl (_, cdecl) -> mk_graph_const_decl cdecl
   | NodeDecl _ -> Lib.todo __LOC__
   | FuncDecl _ -> Lib.todo __LOC__
   | ContractNodeDecl  _ -> Lib.todo __LOC__ 
   | NodeParamInst  _ -> Lib.todo __LOC__
 
-let sort_type_decls: LA.t -> (LA.ident * LA.t) list = fun decls ->
+let rec dependency_graph_decls: LA.t -> G.t
+  = fun decls -> 
+  List.fold_left G.union G.empty (List.map get_graph decls)
+                      
+and sort_type_decls: LA.t -> (LA.ident * LA.t) list = fun decls ->
   let is_type_or_const_decl: LA.declaration -> bool = fun d ->
     match d with
     | TypeDecl _
       | ConstDecl _ -> true
     | _ -> false in
   let type_or_const_decls = List.filter (is_type_or_const_decl) decls in
-  G.topological_sort (List.fold_left G.union G.empty (List.map get_graph type_or_const_decls))
+  let dg = dependency_graph_decls type_or_const_decls in
+  G.topological_sort (dg)                                   
 
+  
 and sort_decls: LA.t -> (LA.ident * LA.t) list = fun _ -> Lib.todo __LOC__
