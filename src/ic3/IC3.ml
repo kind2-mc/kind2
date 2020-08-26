@@ -2805,7 +2805,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 
             KEvent.log
               L_info
-              "Problem contains real valued variables, \
+              "Problem contains real or machine integer valued variables, \
                switching off approximate QE";
 
             Flags.IC3.set_qe `Z3;
@@ -3231,13 +3231,6 @@ let main input_sys aparam trans_sys =
 
   )
 
-  | `Boolector_SMTLIB -> (
-
-    (* See https://github.com/Boolector/boolector/issues/146 *)
-    raise (UnsupportedFeature
-         "Disabling IC3: Boolector is not compatible with current IC3 implementation.")
-
-  )
   | _ ->
     match Flags.IC3.abstr () with
     | `IA -> main_ic3 input_sys aparam trans_sys
