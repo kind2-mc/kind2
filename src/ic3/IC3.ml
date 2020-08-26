@@ -3015,8 +3015,8 @@ let main_ic3 input_sys aparam trans_sys =
   Stat.start_timer Stat.ic3_total_time;
 
   (* Determine logic for the SMT solver: add LIA for some clauses of IC3 *)
-  let logic =
-    let open TermLib.FeatureSet in
+  let logic = TransSys.get_logic trans_sys
+    (*let open TermLib.FeatureSet in
     match TransSys.get_logic trans_sys with
     | `Inferred fs when mem BV fs ->
         raise
@@ -3027,7 +3027,7 @@ let main_ic3 input_sys aparam trans_sys =
         `Inferred
           (TermLib.FeatureSet.add TermLib.IA
              (TermLib.FeatureSet.add TermLib.LA fs))
-    | l -> l
+    | l -> l*)
   in
 
   (* Create new solver instance *)
@@ -3228,6 +3228,14 @@ let main input_sys aparam trans_sys =
 
      | _ -> main_ic3 input_sys aparam trans_sys
     )
+
+  )
+
+  | `Boolector_SMTLIB -> (
+
+    (* See https://github.com/Boolector/boolector/issues/146 *)
+    raise (UnsupportedFeature
+         "Disabling IC3: Boolector is not compatible with current IC3 implementation.")
 
   )
   | _ ->
