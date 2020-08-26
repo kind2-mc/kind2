@@ -307,6 +307,10 @@ let bitvector_of_term t = match destruct t with
   | T.Const s when Symbol.is_ubitvector s -> 
       Symbol.ubitvector_of_symbol s
 
+  | T.Const s when Symbol.is_numeral s ->
+      Bitvector.num_to_ubv64 (Symbol.numeral_of_symbol s)
+  (* For Yices 1 native *)
+
   | _ -> invalid_arg "bitvector_of_term"
 
 

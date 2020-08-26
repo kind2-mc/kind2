@@ -2805,7 +2805,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 
             KEvent.log
               L_info
-              "Problem contains real valued variables, \
+              "Problem contains real or machine integer valued variables, \
                switching off approximate QE";
 
             Flags.IC3.set_qe `Z3;
@@ -3015,8 +3015,8 @@ let main_ic3 input_sys aparam trans_sys =
   Stat.start_timer Stat.ic3_total_time;
 
   (* Determine logic for the SMT solver: add LIA for some clauses of IC3 *)
-  let logic =
-    let open TermLib.FeatureSet in
+  let logic = TransSys.get_logic trans_sys
+    (*let open TermLib.FeatureSet in
     match TransSys.get_logic trans_sys with
     | `Inferred fs when mem BV fs ->
         raise
@@ -3027,7 +3027,7 @@ let main_ic3 input_sys aparam trans_sys =
         `Inferred
           (TermLib.FeatureSet.add TermLib.IA
              (TermLib.FeatureSet.add TermLib.LA fs))
-    | l -> l
+    | l -> l*)
   in
 
   (* Create new solver instance *)
@@ -3230,6 +3230,7 @@ let main input_sys aparam trans_sys =
     )
 
   )
+
   | _ ->
     match Flags.IC3.abstr () with
     | `IA -> main_ic3 input_sys aparam trans_sys
