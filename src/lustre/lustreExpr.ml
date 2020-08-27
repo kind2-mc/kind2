@@ -1696,7 +1696,7 @@ let type_of_uminus = function
   | t when Type.is_int t -> Type.t_int
   | t when Type.is_real t -> Type.t_real
   | t when Type.is_int_range t -> 
-    let (ubound, lbound) = Type.bounds_of_int_range t in
+    let (lbound, ubound) = Type.bounds_of_int_range t in
     Type.mk_int_range Numeral.(- ubound) Numeral.(- lbound)
   | t when Type.is_int8 t -> Type.t_bv 8
   | t when Type.is_int16 t -> Type.t_bv 16
