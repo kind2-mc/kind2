@@ -301,7 +301,9 @@ let mk_bool () = Hkindtype.hashcons ht Bool ()
 
 let mk_int () = Hkindtype.hashcons ht Int ()
 
-let mk_int_range l u = Hkindtype.hashcons ht (IntRange (l, u, Range)) ()
+let mk_int_range l u =
+  assert (Numeral.(l <= u));
+  Hkindtype.hashcons ht (IntRange (l, u, Range)) ()
 
 let mk_real () = Hkindtype.hashcons ht Real ()
 
