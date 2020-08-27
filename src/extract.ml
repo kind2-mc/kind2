@@ -705,6 +705,15 @@ let extract uf_defs env term =
           )
 
         (* Chainable Boolean atoms, to be regarded as a conjunction *)
+        | `BVSLT
+        | `BVSLE
+        | `BVSGT
+        | `BVSGE
+        | `BVULT
+        | `BVULE
+        | `BVUGT
+        | `BVUGE
+
         | `LEQ
         | `LT
         | `GEQ
