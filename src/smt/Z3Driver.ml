@@ -69,6 +69,7 @@ let string_of_logic l =
   let open TermLib in
   let open TermLib.FeatureSet in
   match l with
+  | `Inferred l when mem BV l && (mem IA l || mem RA l) -> "ALL"
   | `Inferred l when mem IA l && mem RA l ->
     if mem Q l then "AUFLIRA"
     else "QF_AUFLIRA"
