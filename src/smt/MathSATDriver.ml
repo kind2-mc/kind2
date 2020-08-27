@@ -37,7 +37,7 @@ let cmd_line logic timeout produce_assignments produce_proofs produce_cores
   in
   let timeout = Lib.min_option timeout_global timeout_local in
 
-  let base_cmd = [| mathsat_bin; "--smt2"; "-shallow_incrementality=True" |] in
+  let base_cmd = [| mathsat_bin; "-shallow_incrementality=true" ; "-allow_bool_function_args=true" |] in
   match timeout with
   | None -> base_cmd
   | Some timeout ->

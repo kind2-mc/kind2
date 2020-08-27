@@ -237,7 +237,7 @@ module Smt = struct
 
 
   (* MathSAT binary. *)
-  let mathsat_bin_default = "MathSAT"
+  let mathsat_bin_default = "mathsat"
   let mathsat_bin = ref mathsat_bin_default
   let _ = add_spec
     "--mathsat_bin"
