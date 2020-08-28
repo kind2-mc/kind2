@@ -46,35 +46,10 @@ type tc_type  = LA.lustre_type
 let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
                                                   
 (** Map for types with identifiers as keys *)
-module IMap = struct
-  (** everything that [Stdlib.Map] gives us  *)
-  include Map.Make(struct
-              type t = LA.ident
-              let compare i1 i2 = Stdlib.compare i1 i2
-            end)
-
-  (** Pretty print type synonyms*)
-  let pp_print_type_syn ppf = fun i ty -> 
-    Format.fprintf ppf "(%a:=%a), " LA.pp_print_ident i LA.pp_print_lustre_type ty
-
-  (** Pretty print type bindings*)
-  let pp_print_type_binding ppf = fun i ty -> 
-    Format.fprintf ppf "(%a:%a), " LA.pp_print_ident i LA.pp_print_lustre_type ty
-
-  (** Pretty print value bindings (used for constants)*)
-  let pp_print_val_binding ppf = fun i (v, ty) ->
-    Format.fprintf ppf "(%a:%a :-> %a), " LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v
-
-  (** Pretty print type context *)
-  let pp_print_ty_syns ppf = iter (pp_print_type_syn ppf)   
-
-  (** Pretty print type context *)
-  let pp_print_tymap ppf = iter (pp_print_type_binding ppf)   
-
-  (** Pretty print value store *)
-  let pp_print_vstore ppf = iter (pp_print_val_binding ppf)
-
-end
+module IMap = Map.Make(struct
+                  type t = LA.ident
+                  let compare i1 i2 = Stdlib.compare i1 i2
+                end)
 
 let sort_typed_ident: LA.typed_ident list -> LA.typed_ident list = fun ty_idents ->
   List.sort (fun (_,i1,_) (_,i2,_) -> Stdlib.compare i1 i2) ty_idents
@@ -94,9 +69,32 @@ type const_store = (LA.expr * tc_type) IMap.t
  *  Bool or an Int at constant propogation phase of type checking *)
 
 type ty_set = SI.t
+(** set of valid user type identifiers *)
+            
+(** Pretty print type synonyms*)
+let pp_print_type_syn ppf = fun i ty -> 
+  Format.fprintf ppf "(%a:=%a), " LA.pp_print_ident i LA.pp_print_lustre_type ty
+
+(** Pretty print type bindings*)
+let pp_print_type_binding ppf = fun i ty -> 
+  Format.fprintf ppf "(%a:%a), " LA.pp_print_ident i LA.pp_print_lustre_type ty
+
+(** Pretty print value bindings (used for constants)*)
+let pp_print_val_binding ppf = fun i (v, ty) ->
+  Format.fprintf ppf "(%a:%a :-> %a), " LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v
+
+(** Pretty print type context *)
+let pp_print_ty_syns ppf = IMap.iter (pp_print_type_syn ppf)   
+
+(** Pretty print type context *)
+let pp_print_tymap ppf = IMap.iter (pp_print_type_binding ppf)   
+
+(** Pretty print value store *)
+let pp_print_vstore ppf = IMap.iter (pp_print_val_binding ppf)
+
 (** Pretty print declared types *)
 let pp_print_u_types ppf = SI.iter (fun i -> LA.pp_print_ident ppf i)
-            
+                         
 type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
                   ; ty_ctx: ty_store        (* store of the types of identifiers *)
                   ; vl_ctx: const_store     (* store of typed constants to its value*)
@@ -110,16 +108,16 @@ let empty_context: tc_context = { ty_syns = IMap.empty
                                 ; vl_ctx = IMap.empty
                                 ; u_types = SI.empty }
 (** The empty context with no information *)
-                             
+                              
 let pp_print_tc_context ppf ctx
   = Format.fprintf ppf
       ("TypeSynonyms={%a}\n"
        ^^ "TypeContext={%a}\n"
        ^^ "ConstValueContext={%a}"
        ^^ "DeclaredTypes={%a}")
-      IMap.pp_print_ty_syns (ctx.ty_syns)
-      IMap.pp_print_tymap (ctx.ty_ctx)
-      IMap.pp_print_vstore (ctx.vl_ctx)
+      pp_print_ty_syns (ctx.ty_syns)
+      pp_print_tymap (ctx.ty_ctx)
+      pp_print_vstore (ctx.vl_ctx)
       pp_print_u_types (ctx.u_types)
   
 (** Pretty print the complete type checker context*)
@@ -148,7 +146,13 @@ let lookup_ty_syn: tc_context -> LA.ident -> tc_type
 (** picks out the type synonym from the context *)
 
 let lookup_ty: tc_context -> LA.ident -> tc_type
-  = fun ctx i -> IMap.find i (ctx.ty_ctx)
+  = fun ctx i -> let ty = IMap.find i (ctx.ty_ctx) in
+                 match ty with
+                 | LA.UserType (_, uid) ->
+                    if (member_ty_syn ctx uid)
+                    then (lookup_ty_syn ctx uid)
+                    else ty
+                 | _ ->  ty
 (** Picks out the type from the variable to type context map *)
 
 let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type)
