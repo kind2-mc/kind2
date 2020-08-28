@@ -26,21 +26,44 @@ open OUnit2
 
 module GA = GraphAdapter
 
-let linear_decls = LI.ast_of_file "test_forward_ref.lus"
-let sorted_linear_decls = fun _ -> GA.sort_type_decls linear_decls
-                          
-let circular_decls = LI.ast_of_file "test_circular_decl_failure.lus"
-let failure_circular_decls = fun _ ->  GA.sort_type_decls circular_decls
+let dp = Lib.dummy_pos
+let (>>=) = Res.(>>=)
+          
+let linear_decls = [
+    LA.TypeDecl (dp, LA.AliasType(dp, "t0", LA.UserType (dp, "t1")))
+  ; LA.TypeDecl (dp, LA.AliasType(dp, "t1", LA.UserType (dp, "t2")))
+  ; LA.TypeDecl (dp, LA.AliasType(dp, "t2", LA.Int dp))
+  ; LA.ConstDecl (dp, LA.TypedConst (dp, "c", LA.Const (dp, Num "1"), LA.UserType (dp, "t0")))
+  ]
+  
+let sorted_linear_decls = fun _ -> GA.sort_type_and_const_decls linear_decls
 
 
-let print_test = "sample graph" >::: [
-      "print acyclic graph" >:: (fun _ ->
-        (assert_bool "do not drop declarations"
-           (List.length linear_decls = List.length (sorted_linear_decls()))))
-    ; "fail on cyclic graph" >:: (fun _ ->
-      assert_raises Graph.CyclicGraphException
-        (fun _ -> Lib.pp_print_list
-                    (Lib.pp_print_pair LA.pp_print_ident LA.pp_print_program ":")
-                    "\n" Format.std_formatter (failure_circular_decls ())) )
-    ]
-let _ = run_test_tt_main print_test
+let tests_should_pass = [
+    "acyclic graph" >:: (fun _ ->
+      (assert_bool "do not drop declarations"
+         (Res.safe_unwrap false
+            (sorted_linear_decls() >>= (fun sdls -> Res.ok (List.length linear_decls = List.length sdls))))))
+  ]
+
+
+
+let circular_decls = [
+    LA.TypeDecl (dp, LA.AliasType(dp, "t0", LA.UserType (dp, "t1")))
+  ; LA.TypeDecl (dp, LA.AliasType(dp, "t1", LA.UserType (dp, "t2")))
+  ; LA.TypeDecl (dp, LA.AliasType(dp, "t2", LA.UserType (dp, "t0")))
+  ; LA.ConstDecl (dp, LA.TypedConst (dp, "c", LA.Const (dp, Num "1"), LA.UserType (dp, "t0")))  ]
+
+
+let failure_circular_decls = fun _ ->  GA.sort_type_and_const_decls circular_decls
+
+let tests_should_fail =  [
+    "cyclic graph" >:: (fun _ ->
+      assert_bool "gives Error"
+        (Res.safe_unwrap false
+           (match (failure_circular_decls ()) with 
+            | Ok _ -> Res.ok false
+            | Error _ -> Res.ok true)))
+  ]
+                      
+let _ = run_test_tt_main ("graph adapter tests" >::: tests_should_pass @ tests_should_fail)

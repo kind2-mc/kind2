@@ -29,7 +29,7 @@ module type OrderedType = sig
   val compare: t -> t -> int
   val pp_print_t: Format.formatter -> t -> unit
 end
-        
+
 module type S = sig
   
   type vertex
@@ -52,7 +52,7 @@ module type S = sig
 
   val is_vertex_target: edge -> vertex -> bool
   (** Checks if the [vertex] is the target [vertex] *)
-    
+
   type vertices
   (** Set of vertices *)
 
@@ -94,7 +94,9 @@ module type S = sig
     
   val union: t -> t -> t
   (** Unions two graphs *)
-    
+
+  val sub_graph: t -> vertices -> t    
+
   val topological_sort:  t ->  vertex list
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.

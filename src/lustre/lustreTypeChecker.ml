@@ -30,7 +30,8 @@ module LA = LustreAst
 module SI = LA.SI
 module LC = LustreContext
 module LH = LustreAstHelpers
-
+module GA = GraphAdapter
+                        
 (** Returns [Ok] if the type check/type inference runs fine 
  * or reports an error at position with the error *)
 type 'a tc_result = ('a, Lib.position * string) result
@@ -146,7 +147,7 @@ let lookup_ty_syn: tc_context -> LA.ident -> tc_type
   = fun ctx i -> IMap.find i (ctx.ty_syns)
 (** picks out the type synonym from the context *)
 
-let rec lookup_ty: tc_context -> LA.ident -> tc_type
+let lookup_ty: tc_context -> LA.ident -> tc_type
   = fun ctx i -> IMap.find i (ctx.ty_ctx)
 (** Picks out the type from the variable to type context map *)
 
@@ -1240,14 +1241,17 @@ and tc_context_of: tc_context -> LA.t -> tc_context tc_result
   R.seq_chain (tc_context_of_declaration) ctx decls 
 (** Obtain a global typing context, get constants and function decls*)
   
-and build_type_context: tc_context -> LA.t -> tc_context tc_result
+and build_type_and_const_context: tc_context -> LA.t -> tc_context tc_result
   = fun ctx ->
   function
   | [] -> R.ok ctx
   | TypeDecl (_, ty_decl) :: rest ->
      tc_ctx_of_ty_decl ctx ty_decl
-     >>= fun ctx' -> build_type_context ctx' rest
-  | _ :: rest -> build_type_context ctx rest
+     >>= fun ctx' -> build_type_and_const_context ctx' rest
+  | ConstDecl (_, const_decl) :: rest ->
+     tc_ctx_const_decl ctx const_decl
+     >>= fun ctx' -> build_type_and_const_context ctx' rest                   
+  | _ :: rest -> build_type_and_const_context ctx rest
 (** Process top level type declarations and make a type context with 
  * user types, enums populated *)
                
@@ -1446,10 +1450,12 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
   Log.log L_trace ("===============================================\n"
                    ^^ "Phase 1: Building TC Global Context\n"
                    ^^"===============================================\n")
-  ;
-    build_type_context empty_context prg >>= fun type_ctx ->
-    (* circular check for types *)
-    tc_context_of type_ctx prg >>= fun tc_ctx ->
+  (* circularity check and reordering for types and constants *)
+  ; GA.sort_type_and_const_decls prg >>= fun sorted_tys_consts ->
+    (* build the base context from the type and const decls *)
+    build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->
+    (* type check the nodes and contract decls using this base typing context  *)
+    tc_context_of global_ctx prg >>= fun tc_ctx ->
     
     Log.log L_trace ("===============================================\n"
                      ^^ "Phase 1: Completed Building TC Global Context\n"
