@@ -66,9 +66,12 @@ and mk_graph_expr: LA.expr -> G.t
   = function
   | LA.Ident (_, i) -> G.singleton i
   | LA.Const _ -> G.empty
-  | LA.UnaryOp _ -> Lib.todo __LOC__
-  | LA.BinaryOp _ ->Lib.todo __LOC__
+  | LA.RecordExpr (_, _, ty_ids) ->
+     List.fold_left G.union G.empty (List.map (fun ty_id -> mk_graph_expr (snd ty_id)) ty_ids)
+  | LA.UnaryOp (_, _, e) -> mk_graph_expr e
+  | LA.BinaryOp (_, _, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2) 
   | LA.TernaryOp _ -> Lib.todo __LOC__
+  | LA.RecordProject (_, e, _) -> mk_graph_expr e
   | _ -> Lib.todo __LOC__
   
 let mk_graph_const_decl: LA.const_decl -> G.t
@@ -125,17 +128,10 @@ let rec extract_decls: LA.declaration IMap.t -> LA.ident list -> LA.t graph_resu
                               
     
 and sort_type_and_const_decls: LA.t -> LA.t graph_result = fun decls ->
-  let is_type_or_const_decl: LA.declaration -> bool = fun d ->
-    match d with
-    | TypeDecl _
-      | ConstDecl _ -> true
-    | _ -> false in
-  (* 1. get all type and constant declarations  *)
-  let type_or_const_decls = List.filter (is_type_or_const_decl) decls in
   (* 2. make an id :-> decl map  *)
   let decl_map = mk_decl_map decls in
   (* build a dependency graph *)
-  let dg = dependency_graph_decls type_or_const_decls in
+  let dg = dependency_graph_decls decls in
   (* 3. try to sort it, raise an error if it is cyclic, or extract decls from the decl_map *)
   (try (R.ok (G.topological_sort dg)) with
    | Graph.CyclicGraphException ->

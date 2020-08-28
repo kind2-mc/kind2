@@ -1442,16 +1442,22 @@ let rec report_tc_result: unit tc_result list -> unit tc_result
  * The main function of the file that kicks off type checking flow  *
  ****************************************************************)  
 
+let is_type_or_const_decl: LA.declaration -> bool = fun d ->
+  match d with
+  | TypeDecl _
+    | ConstDecl _ -> true
+  | _ -> false
+                    
 let type_check_program: LA.t -> unit tc_result = fun prg ->
   Log.log L_trace ("===============================================\n"
                    ^^ "Phase 1: Building TC Global Context\n"
                    ^^"===============================================\n")
   (* circularity check and reordering for types and constants *)
-  ; GA.sort_type_and_const_decls prg >>= fun sorted_tys_consts ->
+  ; GA.sort_type_and_const_decls (List.filter is_type_or_const_decl prg) >>= fun sorted_tys_consts ->
     (* build the base context from the type and const decls *)
     build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->
     (* type check the nodes and contract decls using this base typing context  *)
-    tc_context_of global_ctx prg >>= fun tc_ctx ->
+    tc_context_of global_ctx (List.filter (fun d -> not (is_type_or_const_decl d)) prg) >>= fun tc_ctx ->
     
     Log.log L_trace ("===============================================\n"
                      ^^ "Phase 1: Completed Building TC Global Context\n"
