@@ -41,7 +41,7 @@ let graph_error err = Error (Lib.dummy_pos, err)
 let (>>=) = R.(>>=)                     
 
 let rec mk_graph_type: LA.lustre_type -> G.t = function
-  | TVar (_, i) -> G.singleton i
+  | TVar (_, i) -> G.singleton ("ty_"^ i)
   | Bool _
   | Int _
   | UInt8 _
@@ -55,8 +55,8 @@ let rec mk_graph_type: LA.lustre_type -> G.t = function
   | Real _
   | EnumType _ -> G.empty
   | IntRange (_, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2)
-  | UserType (_, i) -> G.singleton i
-  | AbstractType  (_, i) -> G.singleton i
+  | UserType (_, i) -> G.singleton ("ty_"^ i)
+  | AbstractType  (_, i) -> G.singleton ("ty_"^ i)
   | TupleType (_, tys) -> List.fold_left G.union G.empty (List.map (fun t -> mk_graph_type t) tys)
   | RecordType (_, ty_ids) -> List.fold_left G.union G.empty (List.map (fun (_, _, t) -> mk_graph_type t) ty_ids)
   | ArrayType (_, (ty, e)) -> G.union (mk_graph_type ty) (mk_graph_expr e)
@@ -71,6 +71,11 @@ and mk_graph_expr: LA.expr -> G.t
   | LA.UnaryOp (_, _, e) -> mk_graph_expr e
   | LA.BinaryOp (_, _, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2) 
   | LA.RecordProject (_, e, _) -> mk_graph_expr e
+  | LA.ArrayConstr (_, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2) 
+  | LA.ArraySlice (_, e1, (e2, e3)) -> G.union (G.union (mk_graph_expr e1) (mk_graph_expr e2)) (mk_graph_expr e3) 
+  | LA.ArrayIndex (_, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2)
+  | LA.ArrayConcat  (_, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2)
+  | LA.GroupExpr (_, _, es) -> List.fold_left G.union G.empty (List.map mk_graph_expr es)
   | _ -> Lib.todo __LOC__
   
 let mk_graph_const_decl: LA.const_decl -> G.t
@@ -82,8 +87,8 @@ let mk_graph_const_decl: LA.const_decl -> G.t
                                   
 let mk_graph_type_decl: LA.type_decl -> G.t
   = function
-  | FreeType (_, i) -> G.singleton i 
-  | AliasType (_, i, ty) -> G.connect (mk_graph_type ty) i
+  | FreeType (_, i) -> G.singleton ("ty_" ^ i) 
+  | AliasType (_, i, ty) -> G.connect (mk_graph_type ty) ("ty_" ^ i)
  
 let mk_graph: LA.declaration ->  G.t = function
   | TypeDecl (pos, tydecl) -> mk_graph_type_decl tydecl 
@@ -97,9 +102,9 @@ let rec mk_decl_map: LA.t -> LA.declaration IMap.t =
   function  
   | [] -> IMap.empty
   | (LA.TypeDecl (_, FreeType (_, i)) as tyd) :: decls ->
-     IMap.union (fun k v1 v2 -> Some v2) (IMap.singleton i tyd) (mk_decl_map decls)  
+     IMap.union (fun k v1 v2 -> Some v2) (IMap.singleton ("ty_"^i) tyd) (mk_decl_map decls)  
   | (LA.TypeDecl (_, AliasType (_, i, _)) as tyd) :: decls ->
-     IMap.union (fun k v1 v2 -> Some v2) (IMap.singleton i tyd) (mk_decl_map decls)
+     IMap.union (fun k v1 v2 -> Some v2) (IMap.singleton ("ty_"^i) tyd) (mk_decl_map decls)
   | (LA.ConstDecl (_, FreeConst (_, i, _)) as cnstd) :: decls ->
      IMap.union (fun k v1 v2 -> Some v2) (IMap.singleton i cnstd) (mk_decl_map decls)
   | (LA.ConstDecl (_, UntypedConst (_, i, _)) as cnstd) :: decls ->
