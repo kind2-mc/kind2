@@ -121,17 +121,24 @@ and  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) graph
   fun m ->
   function  
   | [] -> R.ok m 
-  | (LA.TypeDecl (pos, FreeType (_, i)) as tyd) :: decls
-    | (LA.TypeDecl (pos, AliasType (_, i, _)) as tyd) :: decls ->
-     check_and_add m pos ty_suffix i tyd decls
+
+  | (LA.TypeDecl (pos, FreeType (_, i)) as tydecl) :: decls
+    | (LA.TypeDecl (pos, AliasType (_, i, _)) as tydecl) :: decls ->
+     check_and_add m pos ty_suffix i tydecl decls
+
   | (LA.ConstDecl (pos, FreeConst (_, i, _)) as cnstd) :: decls
     | (LA.ConstDecl (pos, UntypedConst (_, i, _)) as cnstd) :: decls
     | (LA.ConstDecl (pos, TypedConst (_, i, _, _)) as cnstd) :: decls -> 
      check_and_add m pos const_suffix i cnstd decls
-  | NodeDecl _ :: _ -> Lib.todo __LOC__
-  | FuncDecl _ :: _-> Lib.todo __LOC__
-  | ContractNodeDecl _ :: _ -> Lib.todo __LOC__ 
-  | NodeParamInst _ :: _-> Lib.todo __LOC__
+
+  | (LA.NodeDecl (pos, (i, _, _, _, _, _, _, _)) as ndecl) :: decls
+    | (LA.FuncDecl (pos, (i, _, _, _, _, _, _, _)) as ndecl) :: decls ->
+     check_and_add m pos node_suffix i ndecl decls
+
+  | LA.ContractNodeDecl (pos, (i, _, _, _, _)) as cndecl :: decls ->
+     check_and_add m pos contract_suffix i cndecl decls
+
+  | LA.NodeParamInst _ :: _-> Lib.todo __LOC__
 
                       
 let dependency_graph_decls: LA.t -> G.t
@@ -148,11 +155,11 @@ let rec extract_decls: LA.declaration IMap.t -> LA.ident list -> LA.t graph_resu
                              >>= (fun ds -> R.ok (d :: ds)))
     
 and sort_type_and_const_decls: LA.t -> LA.t graph_result = fun decls ->
-  (* 2. make an id :-> decl map  *)
+  (* 1. make an id :-> decl map  *)
   mk_decl_map IMap.empty decls >>= fun decl_map ->
-  (* build a dependency graph *)
+  (* 2. build a dependency graph *)
   let dg = dependency_graph_decls decls in
-  (* 3. try to sort it, raise an error if it is cyclic, or extract decls from the decl_map *)
+  (* 3. try to sort it, raise an error if it is cyclic, or extract sorted decls from the decl_map *)
   (try (R.ok (G.topological_sort dg)) with
    | Graph.CyclicGraphException ->
       graph_error Lib.dummy_pos ("Cyclic dependency in declaration of types or constants detected"))
