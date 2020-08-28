@@ -1401,10 +1401,6 @@ and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type *
  * For now, we do not check the bounds for arrays. This introduces bugs similar to Issue #566. 
  *   https://github.com/kind2-mc/kind2/issues/566. 
  *   Backend should handle such cases as it can talk to a powerful solver. *)
-                                 
-let scc: LA.t -> LA.t list
-  = fun decls -> [decls]
-(** Compute the connected components for type checking *)
 
 let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
   = fun global_ctx
@@ -1436,10 +1432,10 @@ let type_check_decl_grps: tc_context -> LA.t list -> unit tc_result list
 (** Typecheck a list of independent groups using a global context*)
 
 let rec report_tc_result: unit tc_result list -> unit tc_result
-  = function
-  | [] -> R.ok () 
-  | Error (pos,err) :: _ -> LC.fail_at_position pos err
-  | Ok () :: tl -> report_tc_result tl
+  =  function
+     | [] -> R.ok () 
+     | Error (pos,err) :: _ -> LC.fail_at_position pos err
+     | Ok () :: tl -> report_tc_result tl
 (** Get the first error *)
 
 (****************************************************************
@@ -1462,10 +1458,13 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
                      ^^ "TC Context\n%a\n"
                      ^^"===============================================\n")
       pp_print_tc_context tc_ctx
-    ;
-      scc prg
-      |> (type_check_decl_grps tc_ctx)
-      |> report_tc_result 
+    ; let tc_res = (type_check_decl_grps tc_ctx [prg]) in
+      Log.log L_trace ("===============================================\n"
+                       ^^ "Phase 2: Type checking declaration Groups Done\n"
+                       ^^"===============================================\n")  
+      
+      ; report_tc_result tc_res 
+
 (** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
  *  a [Ok ()] if it succeeds or and [Error of String] if the typechecker fails*)
            

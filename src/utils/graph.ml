@@ -278,11 +278,11 @@ module Make (Ord: OrderedType) = struct
       = fun ((vs, es) as g) sorted_vs ->
       let no_outgoing_vs = non_source_vertices g in
 
-      (* Format.fprintf Format.std_formatter	
-       *   "\n-----------\nGraph state:\n %a\nSorted vertices: %a\n new non source vertices: %a\n-------------\n"	
-       *   pp_print_graph g	
-       *   (Lib.pp_print_list pp_print_vertex ",") sorted_vs	
-       *   pp_print_vertices no_outgoing_vs ; *)
+      Log.log L_trace
+        "-----------\nGraph state:\n %a\nSorted vertices: %a\n new non source vertices: %a\n-------------"	
+        pp_print_graph g	
+        (Lib.pp_print_list pp_print_vertex ",") sorted_vs	
+        pp_print_vertices no_outgoing_vs ;
       (** graph is empty case *)
       if VSet.is_empty no_outgoing_vs
       then if not (is_empty g)
@@ -297,6 +297,8 @@ module Make (Ord: OrderedType) = struct
    *  Implimentation is based on Kahn's algorithm 
    * https://en.wikipedia.org/wiki/Topological_sorting *)
 
-  let topological_sort: t -> vertex list = fun g -> reverse_topological_sort g |> List.rev     
+  let topological_sort: t -> vertex list = fun g ->
+    Log.log L_trace "Phase 1.1 Building graph\n---------\n"
+    ; reverse_topological_sort g |> List.rev     
 
 end
