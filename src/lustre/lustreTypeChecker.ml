@@ -1451,17 +1451,26 @@ let is_type_or_const_decl: LA.declaration -> bool = fun d ->
   | TypeDecl _
     | ConstDecl _ -> true
   | _ -> false
-                    
+
+let split_program: LA.t -> (LA.t * LA.t)
+  = List.fold_left
+      (fun (ds, ds') d ->
+        if is_type_or_const_decl d then (d::ds, ds')
+        else (ds, d::ds')) ([], [])  
+
 let type_check_program: LA.t -> unit tc_result = fun prg ->
   Log.log L_trace ("===============================================\n"
                    ^^ "Phase 1: Building TC Global Context\n"
                    ^^"===============================================\n")
-  (* circularity check and reordering for types and constants *)
-  ; GA.sort_type_and_const_decls (List.filter is_type_or_const_decl prg) >>= fun sorted_tys_consts ->
+  ; let (ty_and_const_decls, node_and_contract_decls) = split_program prg in
+    (* circularity check and reordering for types and constants *)
+    GA.sort_type_and_const_decls ty_and_const_decls >>= fun sorted_tys_consts ->
+    Log.log L_trace "Sorted consts and type decls:\n%a" LA.pp_print_program sorted_tys_consts
     (* build the base context from the type and const decls *)
-    build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->
+    ; build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->
+
     (* type check the nodes and contract decls using this base typing context  *)
-    tc_context_of global_ctx (List.filter (fun d -> not (is_type_or_const_decl d)) prg) >>= fun tc_ctx ->
+    tc_context_of global_ctx node_and_contract_decls >>= fun tc_ctx ->
     
     Log.log L_trace ("===============================================\n"
                      ^^ "Phase 1: Completed Building TC Global Context\n"

@@ -37,11 +37,17 @@ module IMap = Map.Make(struct
                 end)
 
 type 'a graph_result = ('a, Lib.position * string) result  
-let graph_error err = Error (Lib.dummy_pos, err)
+let graph_error pos err = Error (Lib.dummy_pos, err)
 let (>>=) = R.(>>=)                     
 
+let ty_suffix = "!TY!"
+let const_suffix = ""
+let node_suffix = ""
+let contract_suffix = ""
+                 
+          
 let rec mk_graph_type: LA.lustre_type -> G.t = function
-  | TVar (_, i) -> G.singleton ("ty_"^ i)
+  | TVar (_, i) -> G.singleton (ty_suffix ^ i)
   | Bool _
   | Int _
   | UInt8 _
@@ -55,8 +61,8 @@ let rec mk_graph_type: LA.lustre_type -> G.t = function
   | Real _
   | EnumType _ -> G.empty
   | IntRange (_, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2)
-  | UserType (_, i) -> G.singleton ("ty_"^ i)
-  | AbstractType  (_, i) -> G.singleton ("ty_"^ i)
+  | UserType (_, i) -> G.singleton (ty_suffix ^ i)
+  | AbstractType  (_, i) -> G.singleton (ty_suffix ^ i)
   | TupleType (_, tys) -> List.fold_left G.union G.empty (List.map (fun t -> mk_graph_type t) tys)
   | RecordType (_, ty_ids) -> List.fold_left G.union G.empty (List.map (fun (_, _, t) -> mk_graph_type t) ty_ids)
   | ArrayType (_, (ty, e)) -> G.union (mk_graph_type ty) (mk_graph_expr e)
@@ -80,15 +86,15 @@ and mk_graph_expr: LA.expr -> G.t
   
 let mk_graph_const_decl: LA.const_decl -> G.t
   = function
-  | FreeConst (_, i, _) -> G.singleton i
-  | UntypedConst (_, i, e) -> G.connect (mk_graph_expr e) i 
-  | TypedConst (_, i, e, ty) -> G.connect (G.union (mk_graph_expr e) (mk_graph_type ty)) i
+  | LA.FreeConst (_, i, ty) -> G.connect (mk_graph_type ty) i
+  | LA.UntypedConst (_, i, e) -> G.connect (mk_graph_expr e) i 
+  | LA.TypedConst (_, i, e, ty) -> G.connect (G.union (mk_graph_expr e) (mk_graph_type ty)) i
 
                                   
 let mk_graph_type_decl: LA.type_decl -> G.t
   = function
-  | FreeType (_, i) -> G.singleton ("ty_" ^ i) 
-  | AliasType (_, i, ty) -> G.connect (mk_graph_type ty) ("ty_" ^ i)
+  | FreeType (_, i) -> G.singleton (ty_suffix ^ i) 
+  | AliasType (_, i, ty) -> G.connect (mk_graph_type ty) (ty_suffix ^ i)
  
 let mk_graph: LA.declaration ->  G.t = function
   | TypeDecl (pos, tydecl) -> mk_graph_type_decl tydecl 
@@ -98,20 +104,31 @@ let mk_graph: LA.declaration ->  G.t = function
   | ContractNodeDecl  _ -> Lib.todo __LOC__ 
   | NodeParamInst  _ -> Lib.todo __LOC__
 
-let rec mk_decl_map: LA.t -> LA.declaration IMap.t =
+
+let add_decl: LA.declaration IMap.t -> LA.ident -> LA.declaration -> LA.declaration IMap.t
+  = fun m i ty -> IMap.add i ty m
+                      
+let rec check_and_add: LA.declaration IMap.t -> Lib.position
+                       -> string -> LA.ident -> LA.declaration -> LA.t -> (LA.declaration IMap.t) graph_result
+  = fun m pos suffix i tyd decls ->
+  if IMap.mem (suffix ^ i) m 
+  then graph_error pos ("Identifier " ^ i ^ "is already declared")
+  else let m' = add_decl m (suffix ^ i) tyd in  
+       mk_decl_map m' decls
+
+       
+and  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) graph_result =
+  fun m ->
   function  
-  | [] -> IMap.empty
-  | (LA.TypeDecl (_, FreeType (_, i)) as tyd) :: decls ->
-     IMap.union (fun k v1 v2 -> Some v2) (IMap.singleton ("ty_"^i) tyd) (mk_decl_map decls)  
-  | (LA.TypeDecl (_, AliasType (_, i, _)) as tyd) :: decls ->
-     IMap.union (fun k v1 v2 -> Some v2) (IMap.singleton ("ty_"^i) tyd) (mk_decl_map decls)
-  | (LA.ConstDecl (_, FreeConst (_, i, _)) as cnstd) :: decls ->
-     IMap.union (fun k v1 v2 -> Some v2) (IMap.singleton i cnstd) (mk_decl_map decls)
-  | (LA.ConstDecl (_, UntypedConst (_, i, _)) as cnstd) :: decls ->
-     IMap.union (fun k v1 v2 -> Some v2) (IMap.singleton i cnstd) (mk_decl_map decls)
-  | (LA.ConstDecl (_, TypedConst (_, i, e, ty)) as cnstd) :: decls ->
-     IMap.union (fun k v1 v2 -> Some v2) (IMap.singleton i cnstd) (mk_decl_map decls)
-  | NodeDecl _ :: _-> Lib.todo __LOC__
+  | [] -> R.ok m 
+  | (LA.TypeDecl (pos, FreeType (_, i)) as tyd) :: decls
+    | (LA.TypeDecl (pos, AliasType (_, i, _)) as tyd) :: decls ->
+     check_and_add m pos ty_suffix i tyd decls
+  | (LA.ConstDecl (pos, FreeConst (_, i, _)) as cnstd) :: decls
+    | (LA.ConstDecl (pos, UntypedConst (_, i, _)) as cnstd) :: decls
+    | (LA.ConstDecl (pos, TypedConst (_, i, _, _)) as cnstd) :: decls -> 
+     check_and_add m pos const_suffix i cnstd decls
+  | NodeDecl _ :: _ -> Lib.todo __LOC__
   | FuncDecl _ :: _-> Lib.todo __LOC__
   | ContractNodeDecl _ :: _ -> Lib.todo __LOC__ 
   | NodeParamInst _ :: _-> Lib.todo __LOC__
@@ -126,21 +143,22 @@ let rec extract_decls: LA.declaration IMap.t -> LA.ident list -> LA.t graph_resu
   function
   | [] -> R.ok []
   | i :: is -> (try (R.ok (IMap.find i decl_map)) with
-                | Not_found -> graph_error ("Identifier " ^ i ^ " is not defined."))
+                | Not_found -> graph_error Lib.dummy_pos ("Identifier " ^ i ^ " is not defined."))
                >>= (fun d -> (extract_decls decl_map is)
                              >>= (fun ds -> R.ok (d :: ds)))
-                              
     
 and sort_type_and_const_decls: LA.t -> LA.t graph_result = fun decls ->
   (* 2. make an id :-> decl map  *)
-  let decl_map = mk_decl_map decls in
+  mk_decl_map IMap.empty decls >>= fun decl_map ->
   (* build a dependency graph *)
   let dg = dependency_graph_decls decls in
   (* 3. try to sort it, raise an error if it is cyclic, or extract decls from the decl_map *)
   (try (R.ok (G.topological_sort dg)) with
    | Graph.CyclicGraphException ->
-      graph_error ("Cyclic dependency in declaration of types or constants detected"))
-  >>= fun sorted_ids -> extract_decls decl_map sorted_ids                          
+      graph_error Lib.dummy_pos ("Cyclic dependency in declaration of types or constants detected"))
+  >>= fun sorted_ids -> Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  sorted_ids;
+                          extract_decls decl_map sorted_ids                          
   
 and sort_decls: LA.t -> LA.t graph_result = fun _ -> Lib.todo __LOC__
+
 
