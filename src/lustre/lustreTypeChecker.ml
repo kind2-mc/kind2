@@ -1458,19 +1458,19 @@ let split_program: LA.t -> (LA.t * LA.t)
         if is_type_or_const_decl d then (d::ds, ds')
         else (ds, d::ds')) ([], [])  
 
-let type_check_program: LA.t -> unit tc_result = fun prg ->
+let type_check_program: LA.t -> LA.t tc_result = fun prg ->
   Log.log L_trace ("===============================================\n"
                    ^^ "Phase 1: Building TC Global Context\n"
                    ^^"===============================================\n")
   ; let (ty_and_const_decls, node_and_contract_decls) = split_program prg in
     (* circularity check and reordering for types and constants *)
-    GA.sort_type_and_const_decls ty_and_const_decls >>= fun sorted_tys_consts ->
+    GA.sort_decls ty_and_const_decls >>= fun sorted_tys_consts ->
     Log.log L_trace "Sorted consts and type decls:\n%a" LA.pp_print_program sorted_tys_consts
     (* build the base context from the type and const decls *)
     ; build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->
-
+      GA.sort_decls node_and_contract_decls >>= fun sorted_node_and_contract_decls ->
     (* type check the nodes and contract decls using this base typing context  *)
-    tc_context_of global_ctx node_and_contract_decls >>= fun tc_ctx ->
+    tc_context_of global_ctx sorted_node_and_contract_decls >>= fun tc_ctx ->
     
     Log.log L_trace ("===============================================\n"
                      ^^ "Phase 1: Completed Building TC Global Context\n"
@@ -1482,7 +1482,7 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
                        ^^ "Phase 2: Type checking declaration Groups Done\n"
                        ^^"===============================================\n")  
       
-      ; report_tc_result tc_res 
+      ; report_tc_result tc_res >> R.ok (sorted_tys_consts @ sorted_node_and_contract_decls) 
 
 (** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
  *  a [Ok ()] if it succeeds or and [Error of String] if the typechecker fails*)

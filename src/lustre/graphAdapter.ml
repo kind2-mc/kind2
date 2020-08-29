@@ -40,7 +40,7 @@ type 'a graph_result = ('a, Lib.position * string) result
 let graph_error pos err = Error (Lib.dummy_pos, err)
 let (>>=) = R.(>>=)                     
 
-let ty_suffix = "!TY!"
+let ty_suffix = "type "
 let const_suffix = ""
 let node_suffix = ""
 let contract_suffix = ""
@@ -95,13 +95,89 @@ let mk_graph_type_decl: LA.type_decl -> G.t
   = function
   | FreeType (_, i) -> G.singleton (ty_suffix ^ i) 
   | AliasType (_, i, ty) -> G.connect (mk_graph_type ty) (ty_suffix ^ i)
- 
+
+let rec mk_graph_contract_node_eqn: LA.contract_node_equation -> G.t
+  = function
+  | LA.ContractCall (_, i, _, _) -> G.singleton i
+  | LA.Assume (_, _, _, e) -> List.fold_left G.union G.empty (List.map G.singleton (get_node_call_from_expr e))
+  | LA.Guarantee (_, _, _, e) -> List.fold_left G.union G.empty (List.map G.singleton (get_node_call_from_expr e))
+  | _ -> G.empty
+
+and get_node_call_from_expr: LA.expr -> LA.ident list
+  = function
+  | Ident _ 
+  | ModeRef _ 
+  | RecordProject _ -> [] 
+  | TupleProject (_, e, _) -> get_node_call_from_expr e
+  (* Values *)
+  | LA.Const _ -> []
+  (* Operators *)
+  | LA.UnaryOp (_, _, e) -> get_node_call_from_expr e
+  | LA.BinaryOp (_, _, e1, e2) -> (get_node_call_from_expr e1)
+                                  @ (get_node_call_from_expr e2)
+  | LA.TernaryOp (_, _, e1, e2, e3) -> (get_node_call_from_expr e1)
+                                       @ (get_node_call_from_expr e2)
+                                       @ (get_node_call_from_expr e3)
+  | LA.NArityOp (_, _, es) -> List.flatten (List.map get_node_call_from_expr es)
+  | LA.ConvOp (_, _, e) -> get_node_call_from_expr e
+  | LA.CompOp (_, _, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  (* Structured expressions *)
+  | LA.RecordExpr (_, _, id_exprs) -> List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
+  | LA.GroupExpr (_, _, es) -> List.flatten (List.map get_node_call_from_expr es) 
+  (* Update of structured expressions *)
+  | LA.StructUpdate (_, _, _, e) -> get_node_call_from_expr e
+  | LA.ArrayConstr (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  | LA.ArraySlice (_, e1, (e2, e3)) -> (get_node_call_from_expr e1)
+                                       @ (get_node_call_from_expr e2)
+                                       @ (get_node_call_from_expr e3)
+  | LA.ArrayIndex (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  | LA.ArrayConcat (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  (* Quantified expressions *)
+  | LA.Quantifier (_, _, _, e) -> get_node_call_from_expr e 
+  (* Clock operators *)
+  | LA.When (_, e, _) -> get_node_call_from_expr e
+  | LA.Current (_, e) -> get_node_call_from_expr e
+  | LA.Condact (_, _,_, i, _, _) -> [i]
+  | LA.Activate (_, i, _, _, _) -> [i]
+  | LA.Merge (_, _, id_exprs) -> List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
+  | LA.RestartEvery (_, i, es, e1) -> i :: (List.flatten (List.map get_node_call_from_expr es)) @ get_node_call_from_expr e1
+  (* Temporal operators *)
+  | LA.Pre (_, e) -> get_node_call_from_expr e
+  | LA.Last _ -> []
+  | LA.Fby (_, e1, _, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  (* Node calls *)
+  | LA.Call (_, i, es) -> i :: List.flatten (List.map get_node_call_from_expr es)
+  | LA.CallParam _ -> []
+
+let mk_graph_contract_decl: LA.contract_node_decl -> G.t
+  = fun (_, _, _, _, c) ->
+  List.fold_left G.union G.empty (List.map mk_graph_contract_node_eqn c)
+       
+let extract_node_calls: LA.node_item list -> LA.ident list
+  = List.fold_left
+      (fun acc eqn -> (match eqn with
+                       | LA.Body bneq ->
+                          (match bneq with
+                           | LA.Assert (_, e) -> get_node_call_from_expr e
+                           | LA.Equation (_, _, e) -> get_node_call_from_expr e
+                           | LA.Automaton _ -> [])
+                       | _ -> []) @ acc) [] 
+       
+let mk_graph_node_decl: LA.node_decl -> G.t
+  = fun (i, _, _, _, _, _, nitems, contract_opt) ->
+  let cg = G.connect (match contract_opt with
+                      | None -> G.empty
+                      | Some c -> List.fold_left G.union G.empty (List.map mk_graph_contract_node_eqn c)) i in
+  let node_refs = extract_node_calls nitems in
+  List.fold_left (fun g nr -> G.union g (G.connect (G.singleton nr) i)) cg node_refs
+                          
 let mk_graph: LA.declaration ->  G.t = function
   | TypeDecl (pos, tydecl) -> mk_graph_type_decl tydecl 
   | ConstDecl (pos, cdecl) -> mk_graph_const_decl cdecl
-  | NodeDecl _ -> Lib.todo __LOC__
-  | FuncDecl _ -> Lib.todo __LOC__
-  | ContractNodeDecl  _ -> Lib.todo __LOC__ 
+  | NodeDecl (pos, ndecl) -> mk_graph_node_decl ndecl
+  | FuncDecl (pos, ndecl) -> mk_graph_node_decl ndecl
+  | ContractNodeDecl  (pos, cdecl) -> mk_graph_contract_decl cdecl
   | NodeParamInst  _ -> Lib.todo __LOC__
 
 
@@ -112,10 +188,10 @@ let rec check_and_add: LA.declaration IMap.t -> Lib.position
                        -> string -> LA.ident -> LA.declaration -> LA.t -> (LA.declaration IMap.t) graph_result
   = fun m pos suffix i tyd decls ->
   if IMap.mem (suffix ^ i) m 
-  then graph_error pos ("Identifier " ^ i ^ "is already declared")
+  then graph_error pos ("Identifier " ^ i ^ " is already declared")
   else let m' = add_decl m (suffix ^ i) tyd in  
        mk_decl_map m' decls
-
+(** reject program if identifier is already declared  *)
        
 and  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) graph_result =
   fun m ->
@@ -139,7 +215,7 @@ and  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) graph
      check_and_add m pos contract_suffix i cndecl decls
 
   | LA.NodeParamInst _ :: _-> Lib.todo __LOC__
-
+(** builds an id :-> decl map  *)
                       
 let dependency_graph_decls: LA.t -> G.t
   = fun decls ->
@@ -154,7 +230,7 @@ let rec extract_decls: LA.declaration IMap.t -> LA.ident list -> LA.t graph_resu
                >>= (fun d -> (extract_decls decl_map is)
                              >>= (fun ds -> R.ok (d :: ds)))
     
-and sort_type_and_const_decls: LA.t -> LA.t graph_result = fun decls ->
+and sort_decls: LA.t -> LA.t graph_result = fun decls ->
   (* 1. make an id :-> decl map  *)
   mk_decl_map IMap.empty decls >>= fun decl_map ->
   (* 2. build a dependency graph *)
@@ -165,7 +241,4 @@ and sort_type_and_const_decls: LA.t -> LA.t graph_result = fun decls ->
       graph_error Lib.dummy_pos ("Cyclic dependency in declaration of types or constants detected"))
   >>= fun sorted_ids -> Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  sorted_ids;
                           extract_decls decl_map sorted_ids                          
-  
-and sort_decls: LA.t -> LA.t graph_result = fun _ -> Lib.todo __LOC__
-
-
+ 

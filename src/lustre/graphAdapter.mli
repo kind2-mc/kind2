@@ -19,8 +19,5 @@
 module LA = LustreAst
 type 'a graph_result = ('a, Lib.position * string) result
                      
-val sort_type_and_const_decls: LA.t -> LA.t graph_result
-(** Return a topological order of type declarations *)
-
 val sort_decls: LA.t -> LA.t graph_result
-(** Return a topological order of node and contract declarations *)
+(** Returns a topological order of declarations *)

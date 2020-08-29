@@ -36,7 +36,7 @@ let linear_decls = [
   ; LA.ConstDecl (dp, LA.TypedConst (dp, "c", LA.Const (dp, Num "1"), LA.UserType (dp, "t0")))
   ]
   
-let sorted_linear_decls = fun _ -> GA.sort_type_and_const_decls linear_decls
+let sorted_linear_decls = fun _ -> GA.sort_decls linear_decls
 
 
 let tests_should_pass = [
@@ -55,7 +55,7 @@ let circular_decls = [
   ; LA.ConstDecl (dp, LA.TypedConst (dp, "c", LA.Const (dp, Num "1"), LA.UserType (dp, "t0")))  ]
 
 
-let failure_circular_decls = fun _ ->  GA.sort_type_and_const_decls circular_decls
+let failure_circular_decls = fun _ ->  GA.sort_decls circular_decls
 
 let tests_should_fail =  [
     "cyclic graph" >:: (fun _ ->
