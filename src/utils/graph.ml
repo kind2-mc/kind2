@@ -19,17 +19,18 @@
    
    @author Apoorv Ingle *)
 
-exception IllegalGraphOperation
-(** The exception raised when an illegal edge is added *)
-exception CyclicGraphException
-(** The exception raised when topological sort is tried on cyclic graph  *)
-
 module type OrderedType = sig
   type t
   val compare: t -> t -> int
   val pp_print_t: Format.formatter -> t -> unit
 end
                         
+exception IllegalGraphOperation
+(** The exception raised when an illegal edge is added *)
+exception CyclicGraphException of string list
+(** The exception raised when topological sort is tried on cyclic graph  *)
+
+
 module type S = sig 
   
   type vertex
@@ -286,7 +287,8 @@ module Make (Ord: OrderedType) = struct
       (** graph is empty case *)
       if VSet.is_empty no_outgoing_vs
       then if not (is_empty g)
-           then raise CyclicGraphException
+           then raise (CyclicGraphException
+                         (List.map (Lib.string_of_t pp_print_vertex) (VSet.elements vs)))
            else sorted_vs
       else
         let new_g = VSet.fold (fun v g' -> remove_vertex g' v) no_outgoing_vs g in

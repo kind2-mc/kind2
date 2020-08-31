@@ -23,8 +23,7 @@
   menhir
   num
   yojson
-  zmq
-  ounit2))
+  zmq))
 
 (using menhir 2.1)
 

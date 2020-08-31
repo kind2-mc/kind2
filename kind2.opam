@@ -22,7 +22,6 @@ depends: [
   "num"
   "yojson"
   "zmq"
-  "ounit2"
 ]
 build: [
   ["dune" "subst"] {pinned}

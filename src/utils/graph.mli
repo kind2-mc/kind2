@@ -21,7 +21,7 @@
 
 exception IllegalGraphOperation
 (** The exception raised when an illegal edge is added *)
-exception CyclicGraphException
+exception CyclicGraphException of string list
 (** The exception raised when topological sort is tried on cyclic graph  *)
 
 module type OrderedType = sig

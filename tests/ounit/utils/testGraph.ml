@@ -27,8 +27,8 @@ module G = Graph.Make(struct
                let pp_print_t = LustreAst.pp_print_ident 
              end)
 
-let v0 = "0"
-let v1 = "1"
+let v0 = "v0"
+let v1 = "v1"
                          
 let singleton_g = G.add_vertex G.empty v0
 let dos_g = G.add_vertex singleton_g v1
@@ -50,7 +50,9 @@ let basic_tests
           (fun _ -> assert_bool "unexpected graph" (G.remove_vertex dos_g v0 |> G.is_point_graph))
           
       ; "sorted dos" >:: (fun _ -> assert_equal (G.topological_sort dos_connected_g) [v1;v0])
-      ; "cyclic dos" >:: (fun _ -> assert_raises (Graph.CyclicGraphException) (fun _ -> G.topological_sort dos_cycle_g))
+      ; "cyclic dos" >:: (fun _ -> assert_raises
+                                     (Graph.CyclicGraphException [v0; v1])
+                                     (fun _ -> G.topological_sort dos_cycle_g))
       ]
 
 let _ = run_test_tt_main basic_tests

@@ -237,8 +237,10 @@ and sort_decls: LA.t -> LA.t graph_result = fun decls ->
   let dg = dependency_graph_decls decls in
   (* 3. try to sort it, raise an error if it is cyclic, or extract sorted decls from the decl_map *)
   (try (R.ok (G.topological_sort dg)) with
-   | Graph.CyclicGraphException ->
-      graph_error Lib.dummy_pos ("Cyclic dependency in declaration of types or constants detected"))
+   | Graph.CyclicGraphException ids ->
+      graph_error Lib.dummy_pos
+        ("Cyclic dependency detected in definition of identifiers: "
+  ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
   >>= fun sorted_ids -> Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  sorted_ids;
                           extract_decls decl_map sorted_ids                          
- 
+

@@ -1482,7 +1482,10 @@ let type_check_program: LA.t -> LA.t tc_result = fun prg ->
                        ^^ "Phase 2: Type checking declaration Groups Done\n"
                        ^^"===============================================\n")  
       
-      ; report_tc_result tc_res >> R.ok (sorted_tys_consts @ sorted_node_and_contract_decls) 
+      ; report_tc_result tc_res >>
+          (Log.log L_trace "Reordered Declarations:\n--------------\n%a "
+            LA.pp_print_program (sorted_tys_consts @ sorted_node_and_contract_decls) 
+            ; R.ok (sorted_tys_consts @ sorted_node_and_contract_decls)) 
 
 (** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
  *  a [Ok ()] if it succeeds or and [Error of String] if the typechecker fails*)
