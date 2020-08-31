@@ -1,0 +1,9 @@
+node top (_: bool) returns (OK: bool);
+var i : int;
+var j : uint16;
+let
+  i = 0 -> pre i + 1;
+  j = uint16 i;
+  OK = j >= (uint16 0);
+  --%PROPERTY OK;
+tel

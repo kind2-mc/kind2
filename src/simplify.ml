@@ -2205,6 +2205,14 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.bv_and
                                                   (Term.bitvector_of_term a)
                                                   (Term.bitvector_of_term b)))
+              | [x; y] -> let xn = term_of_nf x in
+                          let yn = term_of_nf y in
+                          let s = ("Op = BVAND\nFirst arg = ") ^ (Term.string_of_term xn) ^ 
+                                  ("\nSecond arg = ") ^ (Term.string_of_term yn) ^ 
+                                  ("\nType of first arg = ") ^ (Type.string_of_type_debug (Term.type_of_term xn)) ^
+                                  ("\nType of second arg = ") ^ (Type.string_of_type_debug (Term.type_of_term yn)) ^ "\n" in
+                          Format.print_string s;
+                          assert false
               | _ -> assert false)
           
           | `BVOR ->
@@ -2216,6 +2224,14 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.bv_or
                                                   (Term.bitvector_of_term a)
                                                   (Term.bitvector_of_term b)))
+              | [x; y] -> let xn = term_of_nf x in
+                          let yn = term_of_nf y in
+                          let s = ("Op = BVOR\nFirst arg = ") ^ (Term.string_of_term xn) ^ 
+                                  ("\nSecond arg = ") ^ (Term.string_of_term yn) ^ 
+                                  ("\nType of first arg = ") ^ (Type.string_of_type_debug (Term.type_of_term xn)) ^
+                                  ("\nType of second arg = ") ^ (Type.string_of_type_debug (Term.type_of_term yn)) ^ "\n" in
+                          Format.print_string s;
+                          assert false
               | _ -> assert false)
 
           | `BVNOT ->
@@ -2306,7 +2322,15 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.ubv_rem 
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
-              | _ -> assert false)
+              | [x; y] -> let xn = term_of_nf x in
+                          let yn = term_of_nf y in
+                          let s = ("Op = BVUREM\nFirst arg = ") ^ (Term.string_of_term xn) ^ 
+                                  ("\nSecond arg = ") ^ (Term.string_of_term yn) ^ 
+                                  ("\nType of first arg = ") ^ (Type.string_of_type_debug (Term.type_of_term xn)) ^
+                                  ("\nType of second arg = ") ^ (Type.string_of_type_debug (Term.type_of_term yn)) ^ "\n" in
+                          Format.print_string s;
+                          assert false
+              | _ ->  assert false)
 
           | `BVSREM ->
             (match args with
