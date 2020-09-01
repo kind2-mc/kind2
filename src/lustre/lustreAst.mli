@@ -65,6 +65,8 @@ type conversion_operator =
   | ToInt | ToReal
   | ToInt8 | ToInt16 | ToInt32 | ToInt64
   | ToUInt8 | ToUInt16 | ToUInt32 | ToUInt64
+  | UInt8ToInt | UInt16ToInt | UInt32ToInt | UInt64ToInt
+  | Int8ToInt | Int16ToInt | Int32ToInt | Int64ToInt
 
 type unary_operator =
   | Not | Uminus

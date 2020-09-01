@@ -610,6 +610,14 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `BVNEG
   | `TO_REAL
   | `TO_INT
+  | `UINT8_TO_INT
+  | `UINT16_TO_INT
+  | `UINT32_TO_INT
+  | `UINT64_TO_INT
+  | `INT8_TO_INT
+  | `INT16_TO_INT
+  | `INT32_TO_INT
+  | `INT64_TO_INT
   | `TO_UINT8
   | `TO_UINT16
   | `TO_UINT32
@@ -1774,6 +1782,246 @@ let type_of_to_int = function
 
 (* Conversion to integer *)
 let mk_to_int expr = mk_unary eval_to_int type_of_to_int expr 
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate conversion from uint8 to integer *)
+let eval_uint8_to_int expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_ubv8 s ->
+      Term.mk_num
+        (Bitvector.ubv8_to_num
+          (Symbol.ubitvector_of_symbol s))
+
+    | _ -> Term.mk_uint8_to_int expr
+    | exception Invalid_argument _ -> Term.mk_uint8_to_int expr
+
+
+(* Type of conversion from uint8 to integer *)
+let type_of_uint8_to_int = function
+  | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+  | t when Type.is_uint8 t -> Type.t_int
+  | _ -> raise Type_mismatch
+
+
+(* Conversion from uint8 to integer *)
+let mk_uint8_to_int expr = mk_unary eval_uint8_to_int type_of_uint8_to_int expr 
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate conversion from uint16 to integer *)
+let eval_uint16_to_int expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_ubv16 s ->
+      Term.mk_num
+        (Bitvector.ubv16_to_num
+          (Symbol.ubitvector_of_symbol s))
+
+    | _ -> Term.mk_uint16_to_int expr
+    | exception Invalid_argument _ -> Term.mk_uint16_to_int expr
+
+
+(* Type of conversion from uint16 to integer *)
+let type_of_uint16_to_int = function
+  | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+  | t when Type.is_uint16 t -> Type.t_int
+  | _ -> raise Type_mismatch
+
+
+(* Conversion from uint16 to integer *)
+let mk_uint16_to_int expr = mk_unary eval_uint16_to_int type_of_uint16_to_int expr 
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate conversion from uint32 to integer *)
+let eval_uint32_to_int expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_ubv32 s ->
+      Term.mk_num
+        (Bitvector.ubv32_to_num
+          (Symbol.ubitvector_of_symbol s))
+
+    | _ -> Term.mk_uint32_to_int expr
+    | exception Invalid_argument _ -> Term.mk_uint32_to_int expr
+
+
+(* Type of conversion from uint32 to integer *)
+let type_of_uint32_to_int = function
+  | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+  | t when Type.is_uint32 t -> Type.t_int
+  | _ -> raise Type_mismatch
+
+
+(* Conversion from uint32 to integer *)
+let mk_uint32_to_int expr = mk_unary eval_uint32_to_int type_of_uint32_to_int expr 
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate conversion from uint64 to integer *)
+let eval_uint64_to_int expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_ubv64 s ->
+      Term.mk_num
+        (Bitvector.ubv64_to_num
+          (Symbol.ubitvector_of_symbol s))
+
+    | _ -> Term.mk_uint64_to_int expr
+    | exception Invalid_argument _ -> Term.mk_uint64_to_int expr
+
+
+(* Type of conversion from uint64 to integer *)
+let type_of_uint64_to_int = function
+  | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+  | t when Type.is_uint64 t -> Type.t_int
+  | _ -> raise Type_mismatch
+
+
+(* Conversion from uint64 to integer *)
+let mk_uint64_to_int expr = mk_unary eval_uint64_to_int type_of_uint64_to_int expr 
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate conversion from int8 to integer *)
+let eval_int8_to_int expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_bv8 s ->
+      Term.mk_num
+        (Bitvector.bv8_to_num
+          (Symbol.bitvector_of_symbol s))
+
+    | _ -> Term.mk_int8_to_int expr
+    | exception Invalid_argument _ -> Term.mk_int8_to_int expr
+
+
+(* Type of conversion from int8 to integer *)
+let type_of_int8_to_int = function
+  | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+  | t when Type.is_int8 t -> Type.t_int
+  | _ -> raise Type_mismatch
+
+
+(* Conversion from int8 to integer *)
+let mk_int8_to_int expr = mk_unary eval_int8_to_int type_of_int8_to_int expr 
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate conversion from int16 to integer *)
+let eval_int16_to_int expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_bv16 s ->
+      Term.mk_num
+        (Bitvector.bv16_to_num
+          (Symbol.ubitvector_of_symbol s))
+
+    | _ -> Term.mk_int16_to_int expr
+    | exception Invalid_argument _ -> Term.mk_int16_to_int expr
+
+
+(* Type of conversion from int16 to integer *)
+let type_of_int16_to_int = function
+  | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+  | t when Type.is_int16 t -> Type.t_int
+  | _ -> raise Type_mismatch
+
+
+(* Conversion from int16 to integer *)
+let mk_int16_to_int expr = mk_unary eval_int16_to_int type_of_int16_to_int expr 
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate conversion from int32 to integer *)
+let eval_int32_to_int expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_bv32 s ->
+      Term.mk_num
+        (Bitvector.bv32_to_num
+          (Symbol.ubitvector_of_symbol s))
+
+    | _ -> Term.mk_int32_to_int expr
+    | exception Invalid_argument _ -> Term.mk_int32_to_int expr
+
+
+(* Type of conversion from int32 to integer *)
+let type_of_int32_to_int = function
+  | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+  | t when Type.is_int32 t -> Type.t_int
+  | _ -> raise Type_mismatch
+
+
+(* Conversion from int32 to integer *)
+let mk_int32_to_int expr = mk_unary eval_int32_to_int type_of_int32_to_int expr 
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate conversion from int64 to integer *)
+let eval_int64_to_int expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_bv64 s ->
+      Term.mk_num
+        (Bitvector.bv64_to_num
+          (Symbol.ubitvector_of_symbol s))
+
+    | _ -> Term.mk_int64_to_int expr
+    | exception Invalid_argument _ -> Term.mk_int64_to_int expr
+
+
+(* Type of conversion from int64 to integer *)
+let type_of_int64_to_int = function
+  | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+  | t when Type.is_int64 t -> Type.t_int
+  | _ -> raise Type_mismatch
+
+
+(* Conversion from int64 to integer *)
+let mk_int64_to_int expr = mk_unary eval_int64_to_int type_of_int64_to_int expr 
 
 
 (* ********************************************************************** *)

@@ -494,15 +494,6 @@ let ensure_symbol_qf_lira s =
   | `GT
   | `TO_REAL
   | `TO_INT
-  | `TO_UINT8
-  | `TO_UINT16
-  | `TO_UINT32
-  | `TO_UINT64
-  | `TO_INT8
-  | `TO_INT16
-  | `TO_INT32
-  | `TO_INT64
-  | `BV2NAT
   | `IS_INT
   | `UF _
     -> ()
@@ -541,6 +532,23 @@ let ensure_symbol_qf_lira s =
   | `BVEXTRACT _
   | `BVCONCAT
   | `BVSIGNEXT _
+  | `UINT8_TO_INT
+  | `UINT16_TO_INT
+  | `UINT32_TO_INT
+  | `UINT64_TO_INT
+  | `INT8_TO_INT
+  | `INT16_TO_INT
+  | `INT32_TO_INT
+  | `INT64_TO_INT
+  | `TO_UINT8
+  | `TO_UINT16
+  | `TO_UINT32
+  | `TO_UINT64
+  | `TO_INT8
+  | `TO_INT16
+  | `TO_INT32
+  | `TO_INT64
+  | `BV2NAT
   | `SELECT _
   | `STORE ->
     

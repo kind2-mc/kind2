@@ -178,6 +178,14 @@ let merge_branches transitions =
 %token BVNOT
 %token LSH
 %token RSH
+%token UINT8TOINT
+%token UINT16TOINT
+%token UINT32TOINT
+%token UINT64TOINT
+%token INT8TOINT
+%token INT16TOINT
+%token INT32TOINT
+%token INT64TOINT
 
 (* Tokens for clocks *)
 %token WHEN
@@ -225,6 +233,8 @@ let merge_branches transitions =
 %nonassoc LSH RSH
 %nonassoc PRE 
 %nonassoc INT REAL 
+%nonassoc UINT8TOINT UINT16TOINT UINT32TOINT UINT64TOINT 
+%nonassoc INT8TOINT INT16TOINT INT32TOINT INT64TOINT 
 %nonassoc NOT
 %nonassoc BVNOT 
 %left CARET 
@@ -808,6 +818,14 @@ pexpr(Q):
   | INT16; e = expr { A.ConvOp (mk_pos $startpos, A.ToInt16, e) }
   | INT32; e = expr { A.ConvOp (mk_pos $startpos, A.ToInt32, e) }
   | INT64; e = expr { A.ConvOp (mk_pos $startpos, A.ToInt64, e) }
+  | UINT8TOINT; e = expr { A.ConvOp (mk_pos $startpos, A.UInt8ToInt, e) }
+  | UINT16TOINT; e = expr { A.ConvOp (mk_pos $startpos, A.UInt16ToInt, e) }
+  | UINT32TOINT; e = expr { A.ConvOp (mk_pos $startpos, A.UInt32ToInt, e) }
+  | UINT64TOINT; e = expr { A.ConvOp (mk_pos $startpos, A.UInt64ToInt, e) }
+  | INT8TOINT; e = expr { A.ConvOp (mk_pos $startpos, A.Int8ToInt, e) }
+  | INT16TOINT; e = expr { A.ConvOp (mk_pos $startpos, A.Int16ToInt, e) }
+  | INT32TOINT; e = expr { A.ConvOp (mk_pos $startpos, A.Int32ToInt, e) }
+  | INT64TOINT; e = expr { A.ConvOp (mk_pos $startpos, A.Int64ToInt, e) }
 
   (* A parenthesized single expression *)
   | LPAREN; e = pexpr(Q); RPAREN { e } 

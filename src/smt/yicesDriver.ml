@@ -366,6 +366,15 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
 
+  | `UINT8_TO_INT -> assert false
+  | `UINT16_TO_INT -> assert false
+  | `UINT32_TO_INT -> assert false
+  | `UINT64_TO_INT -> assert false
+  | `INT8_TO_INT -> assert false
+  | `INT16_TO_INT -> assert false
+  | `INT32_TO_INT -> assert false
+  | `INT64_TO_INT -> assert false
+  
 
 (* Pretty-print a hashconsed symbol *)
 and pp_print_symbol ?arity ppf s =
