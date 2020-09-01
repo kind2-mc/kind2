@@ -19,9 +19,6 @@
   
   @author Apoorv Ingle *)
 
-(* TODO: Find strongly connected components, put them in a group *)
-(* TODO: This also checks if we have co-dependent types or values *)
-(* TODO: UserType if they are alias of any other type, then flatten them out *)
 (* TODO: Introduce GroupType which is like tuple type but has flattened cannonical structure*)
 
 module R = Res
