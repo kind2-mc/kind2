@@ -183,21 +183,12 @@ let singleton_ty: LA.ident -> tc_type -> tc_context
 let singleton_const: LA.ident -> LA.expr -> tc_type -> tc_context =
   fun i e ty -> add_const empty_context i e ty
 
-let extract_ip_ty: LA.const_clocked_typed_decl -> LA.ident * tc_type
-  = fun  (_, i, ty, _, _) -> (i, ty)
-
-let extract_op_ty: LA.clocked_typed_decl -> LA.ident * tc_type
-  = fun (_, i, ty, _) -> (i, ty)
-
-let is_const_arg: LA.const_clocked_typed_decl -> bool
-  = fun (_, _, _, _, is_const) -> is_const
-
 let extract_arg_ctx: LA.const_clocked_typed_decl -> tc_context
-  = fun input -> let (i, ty) = extract_ip_ty input in
+  = fun input -> let (i, ty) = LH.extract_ip_ty input in
                  singleton_ty i ty
 
 let extract_ret_ctx: LA.clocked_typed_decl -> tc_context
-  = fun op -> let (i, ty) = extract_op_ty op in
+  = fun op -> let (i, ty) = LH.extract_op_ty op in
               singleton_ty i ty
 
 let extract_consts: LA.const_clocked_typed_decl -> tc_context
@@ -205,62 +196,7 @@ let extract_consts: LA.const_clocked_typed_decl -> tc_context
   if is_const
   then singleton_const i (LA.Ident (pos, i)) ty
   else empty_context 
-
-let is_type_num: tc_type -> bool = function
-    LA.Int _
-  | LA.UInt8 _       
-  | LA.UInt16 _   
-  | LA.UInt32 _   
-  | LA.UInt64 _  
-  | LA.Int8 _   
-  | LA.Int16 _    
-  | LA.Int32 _    
-  | LA.Int64 _    
-  | LA.IntRange _
-  | LA.Real _ -> true
-  | _ -> false
-
-let is_type_int: tc_type -> bool = function
-    LA.Int _
-  | LA.UInt8 _       
-  | LA.UInt16 _   
-  | LA.UInt32 _   
-  | LA.UInt64 _  
-  | LA.Int8 _   
-  | LA.Int16 _    
-  | LA.Int32 _    
-  | LA.Int64 _    
-  | LA.IntRange _ -> true
-  | _ -> false
-
-let is_type_unsigned_machine_int: tc_type -> bool = function
-  | LA.UInt8 _       
-  | LA.UInt16 _   
-  | LA.UInt32 _   
-  | LA.UInt64 _ -> true    
-  | _ -> false  
-
-let is_type_signed_machine_int: tc_type -> bool = function
-  | LA.Int8 _       
-  | LA.Int16 _   
-  | LA.Int32 _   
-  | LA.Int64 _ -> true    
-  | _ -> false  
-       
-let is_type_machine_int: tc_type -> bool = fun ty ->
-  is_type_signed_machine_int ty || is_type_unsigned_machine_int ty 
-
-let is_machine_type_of_associated_width: (tc_type * tc_type) -> bool = function
-  | LA.Int8 _, LA.UInt8 _       
-  | LA.Int16 _,LA.UInt16 _   
-  | LA.Int32 _, LA.UInt32 _   
-  | LA.Int64 _, LA.UInt64 _
-  | LA.UInt8 _, LA.UInt8 _       
-  | LA.UInt16 _,LA.UInt16 _   
-  | LA.UInt32 _, LA.UInt32 _   
-  | LA.UInt64 _, LA.UInt64 _ -> true
-  | _ -> false    
-
+  
   
 (**********************************************
  * Type inferring and type checking functions *
@@ -722,13 +658,13 @@ and infer_type_unary_op: tc_context -> Lib.position -> LA.expr -> LA.unary_opera
        (type_error pos ("Expected argument of type bool "
                         ^ "but found type " ^ string_of_tc_type ty))
   | LA.BVNot ->
-     if is_type_machine_int ty
+     if LH.is_type_machine_int ty
      then R.ok ty
      else type_error pos ("Cannot apply the bit-value not operator "
                           ^ "to a non machine integer value of type "
                           ^ string_of_tc_type ty)
   | LA.Uminus ->
-     if (is_type_num ty)
+     if (LH.is_type_num ty)
      then R.ok ty
      else type_error pos ("Unary minus cannot be applied" 
                           ^ "to non number expression of type "
@@ -800,7 +736,7 @@ and infer_type_binary_op: tc_context -> Lib.position
                           ^" numeric type but found types " ^ string_of_tc_type ty1
                           ^ " and " ^ string_of_tc_type ty2)
   | LA.IntDiv ->
-     if is_type_int ty1 && is_type_int ty2
+     if LH.is_type_int ty1 && LH.is_type_int ty2
      then if (is_expr_term_zero e2)
           then type_error pos ("Cannot divide by zero")
           else R.ok (LA.Int pos)
@@ -809,7 +745,7 @@ and infer_type_binary_op: tc_context -> Lib.position
                           ^ " and " ^ string_of_tc_type ty2)
   | LA.BVAnd | LA.BVOr ->
      R.ifM (eq_lustre_type ctx ty1 ty2)
-       (if is_type_machine_int ty1 && is_type_machine_int ty2
+       (if LH.is_type_machine_int ty1 && LH.is_type_machine_int ty2
         then R.ok ty2
         else type_error pos ("Expected arguments of type machine integer but "
                              ^ "found types " ^ string_of_tc_type ty1
@@ -819,9 +755,9 @@ and infer_type_binary_op: tc_context -> Lib.position
                         ^ string_of_tc_type ty1
                         ^ " and " ^ string_of_tc_type ty2))
   | LA.BVShiftL | LA.BVShiftR ->
-     if (is_type_signed_machine_int ty1 || is_type_unsigned_machine_int ty1)
-     then (if (is_type_unsigned_machine_int ty2
-               && is_machine_type_of_associated_width (ty1, ty2))
+     if (LH.is_type_signed_machine_int ty1 || LH.is_type_unsigned_machine_int ty1)
+     then (if (LH.is_type_unsigned_machine_int ty2
+               && LH.is_machine_type_of_associated_width (ty1, ty2))
            then if is_expr_of_consts ctx e2
                 then R.ok ty1
                 else type_error pos "Expected second argument of shift operator to be a constant"
@@ -840,70 +776,70 @@ and infer_type_conv_op: tc_context -> Lib.position
   infer_type_expr ctx e >>= fun ty ->
   match op with
   | ToInt ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.Int pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (Int pos))
   | ToReal ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.Real pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (Real pos))
   | ToInt8 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.Int8 pos)
      else type_error pos ("Cannot convert a non-number type "
                                   ^ string_of_tc_type ty
                                   ^ " to type "
                                   ^ string_of_tc_type (Int8 pos))
   | ToInt16 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.Int16 pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (Int16 pos))
   | ToInt32 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.Int32 pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (Int32 pos))
   | ToInt64 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.Int64 pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (Int64 pos))
   | ToUInt8 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.UInt8 pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (UInt8 pos))
   | ToUInt16 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.UInt16 pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (UInt16 pos))
   | ToUInt32 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.UInt32 pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (UInt32 pos))
   | ToUInt64 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.UInt64 pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
@@ -1331,10 +1267,10 @@ and build_node_fun_ty: Lib.position -> tc_context
                        -> LA.clocked_typed_decl list -> tc_type tc_result
   = fun pos ctx args rets ->
   let fun_const_ctx = List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty)
-                        ctx (List.filter is_const_arg args |> List.map extract_ip_ty) in
-  let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_const_ctx (List.map extract_ip_ty args) in   
-  let ops = List.map snd (List.map extract_op_ty rets) in
-  let ips = List.map snd (List.map extract_ip_ty args) in
+                        ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in
+  let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_const_ctx (List.map LH.extract_ip_ty args) in   
+  let ops = List.map snd (List.map LH.extract_op_ty rets) in
+  let ips = List.map snd (List.map LH.extract_ip_ty args) in
   let ret_ty = if List.length ops = 1 then List.hd ops else LA.TupleType (pos, ops) in
   let arg_ty = if List.length ips = 1 then List.hd ips else LA.TupleType (pos, ips) in
   check_type_well_formed fun_ctx ret_ty

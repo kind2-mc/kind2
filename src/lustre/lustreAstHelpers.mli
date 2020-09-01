@@ -57,3 +57,21 @@ val add_exp: Lib.position -> expr -> expr -> expr
 
 (** returns an ast which is the absolute difference of two expr ast*)
 val abs_diff: Lib.position -> expr -> expr -> expr
+
+val extract_ip_ty: const_clocked_typed_decl -> ident * lustre_type                                                
+
+val extract_op_ty: clocked_typed_decl -> ident * lustre_type
+
+val is_const_arg: const_clocked_typed_decl -> bool
+
+val is_type_num: lustre_type -> bool
+
+val is_type_int: lustre_type -> bool
+
+val is_type_unsigned_machine_int: lustre_type -> bool
+
+val is_type_signed_machine_int: lustre_type -> bool
+
+val is_type_machine_int: lustre_type -> bool
+
+val is_machine_type_of_associated_width: (lustre_type * lustre_type) -> bool

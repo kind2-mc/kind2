@@ -661,3 +661,73 @@ let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
 
 (** returns an ast which is the absolute difference of two expr ast*)
 let abs_diff: Lib.position -> expr -> expr -> expr = fun pos e1 e2 -> Lib.todo __LOC__
+
+
+let extract_ip_ty: const_clocked_typed_decl -> ident * lustre_type
+  = fun  (_, i, ty, _, _) -> (i, ty)
+
+let extract_op_ty: clocked_typed_decl -> ident * lustre_type
+  = fun (_, i, ty, _) -> (i, ty)
+
+let is_const_arg: const_clocked_typed_decl -> bool
+  = fun (_, _, _, _, is_const) -> is_const
+                                                                        
+let is_type_num: lustre_type -> bool
+  = function
+    Int _
+  | UInt8 _       
+    | UInt16 _   
+    | UInt32 _   
+    | UInt64 _  
+    | Int8 _   
+    | Int16 _    
+    | Int32 _    
+    | Int64 _    
+    | IntRange _
+    | Real _ -> true
+  | _ -> false
+
+let is_type_int: lustre_type -> bool
+  = function
+    Int _
+  | UInt8 _       
+    | UInt16 _   
+    | UInt32 _   
+    | UInt64 _  
+    | Int8 _   
+    | Int16 _    
+    | Int32 _    
+    | Int64 _    
+    | IntRange _ -> true
+  | _ -> false
+
+let is_type_unsigned_machine_int: lustre_type -> bool
+  = function
+  | UInt8 _       
+    | UInt16 _   
+    | UInt32 _   
+    | UInt64 _ -> true    
+  | _ -> false  
+
+let is_type_signed_machine_int: lustre_type -> bool
+  = function
+  | Int8 _       
+    | Int16 _   
+    | Int32 _   
+    | Int64 _ -> true    
+  | _ -> false  
+       
+let is_type_machine_int: lustre_type -> bool = fun ty ->
+  is_type_signed_machine_int ty || is_type_unsigned_machine_int ty 
+
+let is_machine_type_of_associated_width: (lustre_type * lustre_type) -> bool
+  = function
+  | Int8 _, UInt8 _       
+    | Int16 _,UInt16 _   
+    | Int32 _, UInt32 _   
+    | Int64 _, UInt64 _
+    | UInt8 _, UInt8 _       
+    | UInt16 _,UInt16 _   
+    | UInt32 _, UInt32 _   
+    | UInt64 _, UInt64 _ -> true
+  | _ -> false    
