@@ -224,11 +224,11 @@ let rec used_inputs_expr inputs acc =
 
   | Ident (_, i) | Last (_, i) -> ISet.add i acc
 
-  | RecordProject (_, e, _) | ConvOp (_,_,e) | UnaryOp (_, _, e)
+  | TupleProject (_, e, _) | RecordProject (_, e, _) | ConvOp (_,_,e) | UnaryOp (_, _, e)
   | Current (_, e) | When (_, e, _) | Quantifier (_, _, _, e) ->
     used_inputs_expr inputs acc e
 
-  | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
   | ArrayConstr (_, e1, e2) | ArrayConcat (_, e1, e2) | ArrayIndex (_, e1, e2) ->
     used_inputs_expr inputs (used_inputs_expr inputs acc e2) e1
     

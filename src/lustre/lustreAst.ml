@@ -98,7 +98,7 @@ type expr =
   | Ident of position * ident
   | ModeRef of position * ident list
   | RecordProject of position * expr * index
-  | TupleProject of position * expr * expr
+  | TupleProject of position * expr * int
   (* Values *)
   | Const of position * constant
   (* Operators *)
@@ -480,7 +480,7 @@ let rec pp_print_expr ppf =
 
     | TupleProject (p, e, f) -> 
 
-      Format.fprintf ppf "%a%a.%%%a" ppos p pp_print_expr e pp_print_expr f
+      Format.fprintf ppf "%a%a.%%%a" ppos p pp_print_expr e Format.pp_print_int f
 
     | Const (p, True) -> ps p "true"
     | Const (p, False) -> ps p "false"

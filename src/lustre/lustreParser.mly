@@ -828,9 +828,9 @@ pexpr(Q):
   (* An array constructor (not quantified) *)
   | e1 = pexpr(Q); CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
-  (* An array slice or tuple projection (not quantified) *)
-  | e = pexpr(Q); DOTPERCENT; i = expr 
-    { A.TupleProject (mk_pos $startpos, e, i) }
+  (* Tuple projection (not quantified) *)
+  | e = pexpr(Q); DOTPERCENT; i = NUMERAL 
+    { A.TupleProject (mk_pos $startpos, e, (int_of_string i)) }
 
   (* An array slice (not quantified) *)
   | e = pexpr(Q); LSQBRACKET; s = array_slice; RSQBRACKET

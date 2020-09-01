@@ -288,8 +288,8 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
          if List.length tys = 1
          then R.ok (List.hd tys)
          else R.ok (LA.TupleType (pos, tys)))
-  | LA.RecordProject (pos, expr, fld) ->
-     (infer_type_expr ctx expr)
+  | LA.RecordProject (pos, e, fld) ->
+     (infer_type_expr ctx e)
      >>= (fun rec_ty ->
       match rec_ty with
       | LA.RecordType (_, flds) ->
@@ -299,7 +299,18 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
           | None -> type_error pos ("No field named " ^ fld ^ "found in record type")) 
       | _ -> type_error pos ("Cannot project field out of non record expression type "
                              ^ string_of_tc_type rec_ty))
-  | LA.TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
+  | LA.TupleProject (pos, e1, i) ->
+     infer_type_expr ctx e1 >>=
+       (function
+        | LA.TupleType (pos, tys) as ty->
+                if List.length tys < i
+                then type_error pos ("Field "
+                                     ^ string_of_int i
+                                     ^ " is out of bounds for tuple type "
+                                     ^ string_of_tc_type ty)
+                else R.ok (List.nth tys i)
+        | ty -> type_error pos ("Cannot project field out of non tuple type type "
+                               ^ string_of_tc_type ty))
 
   (* Values *)
   | LA.Const (pos, c) -> R.ok (infer_type_const pos c)
@@ -1402,8 +1413,7 @@ and is_expr_term_zero: LA.expr -> bool = function
     | LA.Const (_, (Dec "0.0")) -> true
   (* TODO: use regex to check if it is of the format 0\.[0]* *)
   | _ -> false
-                                                            
-  
+
 and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> bool tc_result =
   fun ctx (_, i1, ty1) (_, i2, ty2) -> eq_lustre_type ctx ty1 ty2
 (** Compute type equality for [LA.typed_ident] *)

@@ -133,7 +133,7 @@ and expr =
   | Ident of position * ident
   | ModeRef of position * ident list
   | RecordProject of position * expr * index
-  | TupleProject of position * expr * expr
+  | TupleProject of position * expr * int
   (* Values *)
   | Const of position * constant
   (* Operators *)

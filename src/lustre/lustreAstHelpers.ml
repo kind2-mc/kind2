@@ -65,9 +65,8 @@ let rec has_unguarded_pre ung = function
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
-  | Quantifier (_, _, _, e) -> has_unguarded_pre ung e
-
-  | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
+  | TupleProject (_, e, _) | Quantifier (_, _, _, e) -> has_unguarded_pre ung e
+  | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
   | CompOp (_, _, e1, e2) | ArrayConcat (_, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre ung e2 in
@@ -182,10 +181,10 @@ let rec has_pre_or_arrow = function
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
-  | Quantifier (_, _, _, e) ->
+  | TupleProject (_, e, _) | Quantifier (_, _, _, e) ->
     has_pre_or_arrow e
 
-  | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
   | ArrayConcat (_, e1, e2) | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  -> (
     match has_pre_or_arrow e1 with
     | None -> has_pre_or_arrow e2
@@ -257,10 +256,10 @@ let rec lasts_of_expr acc = function
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
-  | Quantifier (_, _, _, e) ->
+  | TupleProject (_, e, _) | Quantifier (_, _, _, e) ->
     lasts_of_expr acc e
 
-  | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
     | ArrayConcat (_, e1, e2) | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  ->
      lasts_of_expr (lasts_of_expr acc e1) e2
 
@@ -338,11 +337,10 @@ let rec replace_lasts allowed prefix acc ee = match ee with
     if e == e' then ee, acc
     else Quantifier (pos, q, vs, e'), acc'
 
-  | TupleProject (pos, e1, e2) ->
+  | TupleProject (pos, e1, i) ->
     let e1', acc' = replace_lasts allowed prefix acc e1 in
-    let e2', acc' = replace_lasts allowed prefix acc' e2 in
-    if e1 == e1' && e2 == e2' then ee, acc
-    else TupleProject (pos, e1', e2'), acc'
+    if e1 == e1' then ee, acc
+    else TupleProject (pos, e1', i), acc'
 
   | ArrayConstr (pos, e1, e2) ->
     let e1', acc' = replace_lasts allowed prefix acc e1 in
