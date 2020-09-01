@@ -1097,16 +1097,23 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
   
   (** check if the members of LHS are constants or enums before assignment *)
   ; let lhs_vars = SI.flatten (List.map LH.vars_of_struct_item lhss) in
-   if (SI.for_all (fun i -> not (member_val ctx i)) lhs_vars)
+    if (SI.for_all (fun i -> not (member_val ctx i)) lhs_vars)
     then (match exp_ty with
           | TupleType (_, exp_ty_lst) ->
              Log.log L_trace "Tuple Type: %a" LA.pp_print_lustre_type exp_ty
-            ; if List.length lhss = List.length exp_ty_lst
-              then R.seq_ (List.map2 (check_type_struct_item ctx) lhss exp_ty_lst)
-              else type_error pos ("Term structure on left hand side of the equation"
-                                   ^ " does not match expected type "
-                                   ^ Lib.string_of_t LA.pp_print_lustre_type exp_ty 
-                                   ^ " on right hand side of the node equation")
+            ; if List.length lhss = 1
+              (* Case 1. the LHS is just one identifier 
+               * so we have to check if the exp_type is the same as LHS *)
+              then check_type_struct_item ctx (List.hd lhss) exp_ty 
+              else (* Case 2. LHS is a compound statment *)
+                if List.length lhss = List.length exp_ty_lst
+                then R.seq_ (List.map2 (check_type_struct_item ctx) lhss exp_ty_lst)
+                else type_error pos ("Term structure on left "
+                                     ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss
+                                     ^" hand side of the equation"
+                                     ^ " does not match expected type "
+                                     ^ Lib.string_of_t LA.pp_print_lustre_type exp_ty 
+                                     ^ " on right hand side of the node equation")
           (* We are dealing with simple types, so lhs has to be a singleton list *)
           | _ -> Log.log L_trace "Simple Type: %a" LA.pp_print_lustre_type exp_ty
                ; if (List.length lhss != 1)
@@ -1116,7 +1123,7 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
                                       ^ " on right hand side of the node equation")
                  else let lhs = List.hd lhss in
                       check_type_struct_item ctx lhs exp_ty)
-  else type_error pos "Cannot reassign value to a constant or enum.")
+    else type_error pos "Cannot reassign value to a constant or enum.")
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 
