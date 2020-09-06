@@ -1337,11 +1337,7 @@ let pp_print_stream_xml get_source model clock ppf (index, state_var) =
       Format.pp_print_string ppf s
     | Type.IntRange (i, j, Type.Enum) ->
       let pp_print_enum_name ppf =
-        match Type.name_of_enum stream_type with
-        | Some n -> (
-          Format.fprintf ppf "enumName=\"%s\" " n
-        )
-        | None -> ()
+          Format.fprintf ppf "enumName=\"%s\" " (Type.name_of_enum stream_type)
       in
       Format.fprintf ppf "type=\"enum\"@ %tvalues=\"%a\""
         pp_print_enum_name (pp_print_list Format.pp_print_string ", ")
@@ -1630,11 +1626,7 @@ let rec pp_print_type_json field ppf stream_type =
       Format.fprintf ppf "\"%s\"" s
     in
     let pp_print_enum_name ppf =
-      match Type.name_of_enum stream_type with
-      | Some n -> (
-        Format.fprintf ppf "\"name\" : \"%s\",@," n
-      )
-      | None -> ()
+        Format.fprintf ppf "\"name\" : \"%s\",@," (Type.name_of_enum stream_type)
     in
     Format.fprintf ppf
         "\"%s\" : \"enum\",@,\

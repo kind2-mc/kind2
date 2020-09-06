@@ -1194,7 +1194,6 @@ let rec eval_node_equation inputs outputs locals ctx = function
       ) ctx equations
 
   | A.Automaton (pos, aname, states, _) as e ->
-
     let auto_outputs = defined_vars_eqs [e] in
     eval_automaton pos aname states auto_outputs inputs outputs locals ctx
 
@@ -2009,7 +2008,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
     (* Create enumerated datatype for states *)
     let states_enum =
       List.map (function A.State (_, s, _, _, _, _, _) -> s) states in
-    let states_type = A.EnumType (pos, None, states_enum) in
+    let states_type = A.EnumType (pos, name, states_enum) in
     (* Evaluate states type expression *)
     let states_ty = S.eval_ast_type ctx states_type in
     let bool_ty = S.eval_ast_type ctx (A.Bool pos) in

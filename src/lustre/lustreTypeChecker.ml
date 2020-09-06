@@ -143,7 +143,10 @@ let lookup_ty_syn: tc_context -> LA.ident -> tc_type
 (** picks out the type synonym from the context *)
 
 let lookup_ty: tc_context -> LA.ident -> tc_type
-  = fun ctx i -> let ty = IMap.find i (ctx.ty_ctx) in
+  = fun ctx i -> let ty =
+                   (try IMap.find i (ctx.ty_ctx) with
+                    | Not_found -> Log.log L_error "Could not find definition of identifer %a" LA.pp_print_ident i
+                                 ; raise Not_found) in
                  match ty with
                  | LA.UserType (_, uid) ->
                     if (member_ty_syn ctx uid)
@@ -232,7 +235,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
          let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
          (match (List.assoc_opt fld typed_fields) with
           | Some ty -> R.ok ty
-          | None -> type_error pos ("No field named " ^ fld ^ "found in record type")) 
+          | None -> type_error pos ("No field named " ^ fld ^ "  in record type.")) 
       | _ -> type_error pos ("Cannot project field out of non record expression type "
                              ^ string_of_tc_type rec_ty))
   | LA.TupleProject (pos, e1, i) ->
@@ -324,7 +327,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                                               ^ string_of_tc_type f_ty
                                               ^ " but the type of the expression is "
                                               ^ string_of_tc_type e_ty)))
-                     | None -> type_error pos ("No field named " ^ l ^ "found in record type")))
+                     | None -> type_error pos ("No field named " ^ l ^ " found in record type")))
                 | r_ty -> type_error pos ("Cannot do an update on non-record type "
                                           ^ string_of_tc_type r_ty))
         | _ -> type_error pos ("Only labels can be used for record expressions"
@@ -447,7 +450,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                                            ^ " but found type "
                                            ^ string_of_tc_type given_arg_tys)))
             | ty -> type_error pos
-                      ("Expected node type to be a function type, but found type"
+                      ("Expected node type to be a function type, but found type "
                        ^ string_of_tc_type ty)) with
        | Not_found -> type_error pos ("No node with name: " ^ i ^ " found"))  
   | LA.CallParam _ -> Lib.todo __LOC__
@@ -704,20 +707,20 @@ and infer_type_binary_op: tc_context -> Lib.position
        (R.ifM (eq_lustre_type ctx ty2 (Bool pos))
           (R.ok (LA.Bool pos))
           (type_error pos ("Expected second argument of operator to" 
-                           ^ " be of type bool but found type"
+                           ^ " be of type bool but found type "
                            ^ string_of_tc_type ty2)))
        (type_error pos ("Expected first argument of operator to" 
-                           ^ " be of type bool but found type"
+                           ^ " be of type bool but found type "
                            ^ string_of_tc_type ty1))
   | LA.Mod ->
      R.ifM (eq_lustre_type ctx ty1 (Int pos))
        (R.ifM (eq_lustre_type ctx ty2 (Int pos))
           (R.ok (LA.Int pos))
           (type_error pos ("Expected second argument of operator to" 
-                           ^ " be of type int but found type"
+                           ^ " be of type int but found type "
                            ^ string_of_tc_type ty2)))
        (type_error pos ("Expected first argument of operator to" 
-                           ^ " be of type int but found type"
+                           ^ " be of type int but found type "
                            ^ string_of_tc_type ty1))
   | LA. Minus | LA.Plus | LA.Times -> 
      are_args_num ctx pos ty1 ty2 >>= fun is_num ->
@@ -1147,11 +1150,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
   | LA.AliasType (pos, i, ty) ->
      check_type_well_formed ctx ty
        >> (match ty with
-      | LA.EnumType (pos, n, econsts) ->
-         (match n with
-          | None ->
-             type_error pos "Necessary Enum name not found"
-          | Some ename ->
+      | LA.EnumType (pos, ename, econsts) ->
              if (List.for_all (fun e -> not (member_ty ctx e)) econsts)
                 && (List.for_all (fun e -> not (member_val ctx e)) econsts)
              then
@@ -1170,7 +1169,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
                (* 3. Lift all the enum constants (terms) into the value store as constants *)
                          @ enum_const_bindings))
              else
-               type_error pos "Cannot redeclare constants or enums")
+               type_error pos "Cannot redeclare constants or enums"
       | _ -> check_type_well_formed ctx ty
              >> R.ok (add_ty_syn ctx i ty))
   | LA.FreeType (_, i) -> R.ok (add_ty_decl ctx i)

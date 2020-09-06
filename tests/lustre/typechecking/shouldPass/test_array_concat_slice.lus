@@ -1,0 +1,60 @@
+type y_t = { a: int; b: real };
+
+node x (i: int) returns (a, b, c: real)
+let
+ a = (real i);
+ b = (real i); 
+ c = (real i);
+tel
+
+node y (const a: bool) returns (b: int);
+
+-- Local constant declarations
+const c : int = 1; d = 2;
+
+-- Local variable declarations 
+var t : y_t;
+    n, o, p, r, e, f: int;
+    j, k: bool;
+    -- Must not clash with previously declared constant 
+    y_l: int;
+    m: real;
+    q: bool;
+    g, h, i: real;
+let
+
+  -- (Constant) stream definitions 
+  e = 1;
+  (f) = 2;
+
+  -- Main node annotation, semicolon is
+  --necessary,  can be anywhere in the node body 
+
+  --%MAIN;
+
+  -- Assignment to a list
+  g, h, i = x(c);
+
+  -- List can be in parentheses
+  (j, k, y_l, m) = (true, false, 1, 2.0);
+
+  -- Structural assignment from array
+  n, o, p = (1,1,1);
+
+  -- Structural assignment
+  -- [c, [A[0], A[1]]] = e;
+
+  -- Structural assignment to tuple 
+  q, r = (true, 5);
+
+  -- Assignment to array slices 
+  -- A[i..j] = e^(d-c);
+  -- B[i..j, k..l] = 3^(d-c)^(-c+d);
+
+  -- Assignment to record field
+  -- t.a = 5;
+  
+  -- Record construction
+  t = y_t { b = 2.0; a = 1 };
+
+tel.

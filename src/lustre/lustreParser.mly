@@ -314,11 +314,14 @@ type_decl:
 
   (* A type alias *)
   | TYPE; l = ident_list; EQUALS; t = lustre_type; SEMICOLON
-     { List.map (fun e -> match t with 
-                 | A.EnumType (p, _, cs) ->
-                    A.AliasType (mk_pos $startpos, e,
-                                 A.EnumType (p, Some e, cs))
-                 | _ -> A.AliasType (mk_pos $startpos, e, t)) l }
+     { List.map (fun e -> 
+                 A.AliasType (mk_pos $startpos, e, t)) l }
+
+  (* Definition of an enum type*)
+  | TYPE; l = ident_list; EQUALS; t = enum_type; SEMICOLON
+     { List.map (fun e ->
+           A.AliasType (mk_pos $startpos, e,
+                        A.EnumType (mk_pos $startpos, e, t))) l }
 
   (* A record type, can only be defined as alias *)
   | TYPE; l = ident_list; EQUALS; t = record_type; SEMICOLON
@@ -368,10 +371,6 @@ lustre_type:
 
   (* Array type (V6) *)
   | t = array_type { A.ArrayType (mk_pos $startpos, t) }
-
-  (* Enum type (V6) *)
-  | t = enum_type { A.EnumType (mk_pos $startpos, None, t) }
-
 
 (* A tuple type *)
 tuple_type:

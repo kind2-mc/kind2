@@ -657,10 +657,14 @@ let rec vars_of_struct_item: struct_item -> iset
 
 (** Return an ast that adds two expressions*)
 let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
-  Lib.todo __LOC__
+  BinaryOp (pos, Plus, e1, e2)
 
 (** returns an ast which is the absolute difference of two expr ast*)
-let abs_diff: Lib.position -> expr -> expr -> expr = fun pos e1 e2 -> Lib.todo __LOC__
+let abs_diff: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
+  TernaryOp (pos, Ite,
+             CompOp (pos, Gte, e1, e2)
+             , BinaryOp (pos, Minus, e1, e2)
+             , BinaryOp (pos, Minus, e2, e1))
 
 
 let extract_ip_ty: const_clocked_typed_decl -> ident * lustre_type

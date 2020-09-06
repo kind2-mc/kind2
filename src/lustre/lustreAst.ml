@@ -155,7 +155,7 @@ and lustre_type =
   | TupleType of position * lustre_type list
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
-  | EnumType of position * ident option * ident list
+  | EnumType of position * ident * ident list
   | TArr of position * lustre_type * lustre_type  
 
 
@@ -662,9 +662,10 @@ and pp_print_lustre_type ppf = function
       "%a^%a" 
       pp_print_lustre_type t 
       pp_print_expr e
-  | EnumType (pos, _, l) -> 
+  | EnumType (pos, n, l) -> 
     Format.fprintf ppf 
-      "enum @[<hv 2>{ %a }@]" 
+      "enum %a @[<hv 2>{ %a }@]"
+      pp_print_ident n
       (pp_print_list Format.pp_print_string ",@ ") l
   | TArr (pos, arg_ty, ret_ty) ->
      Format.fprintf ppf "@[%a->@,%a@]"

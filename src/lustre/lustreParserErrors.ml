@@ -10,111 +10,117 @@ let message =
         "Syntax Error!\n"
     | 1 ->
         "Syntax Error!\n"
-    | 71 ->
+    | 373 ->
         "Syntax Error!\n"
-    | 994 ->
+    | 995 ->
         "Syntax Error!\n"
     | 10 ->
         "Syntax Error!\n"
     | 12 ->
         "Syntax Error!\n"
-    | 389 ->
+    | 388 ->
+        "Syntax Error!\n"
+    | 378 ->
         "Syntax Error!\n"
     | 379 ->
         "Syntax Error!\n"
-    | 380 ->
+    | 381 ->
         "Syntax Error!\n"
     | 382 ->
         "Syntax Error!\n"
-    | 383 ->
+    | 376 ->
         "Syntax Error!\n"
-    | 377 ->
+    | 369 ->
         "Syntax Error!\n"
-    | 72 ->
+    | 370 ->
         "Syntax Error!\n"
-    | 391 ->
+    | 371 ->
         "Syntax Error!\n"
-    | 968 ->
+    | 390 ->
         "Syntax Error!\n"
-    | 408 ->
+    | 374 ->
         "Syntax Error!\n"
-    | 429 ->
-        "Syntax Error! Perhaps an ill-formed contract specification\n"
-    | 431 ->
+    | 392 ->
         "Syntax Error!\n"
+    | 969 ->
+        "Syntax Error!\n"
+    | 409 ->
+        "Syntax Error!\n"
+    | 430 ->
+        "Syntax Error! Perhaps an ill-formed contract specification.\n"
     | 432 ->
         "Syntax Error!\n"
-    | 428 ->
+    | 433 ->
         "Syntax Error!\n"
-    | 436 ->
+    | 429 ->
         "Syntax Error!\n"
     | 437 ->
         "Syntax Error!\n"
     | 438 ->
-        "Syntax Error! Perhaps a missing or incomplete `return` clause in node specification.\n"
-    | 450 ->
-        "Syntax Error! Perhaps a missing return statement\n"
-    | 453 ->
         "Syntax Error!\n"
+    | 439 ->
+        "Syntax Error! Perhaps a missing or incomplete `returns` clause in node specification.\n"
+    | 451 ->
+        "Syntax Error! Perhaps a missing `return` statement.\n"
     | 454 ->
         "Syntax Error!\n"
-    | 449 ->
+    | 455 ->
         "Syntax Error!\n"
-    | 458 ->
+    | 450 ->
+        "Syntax Error!\n"
+    | 459 ->
         "Syntax Error! Perhaps a missing/unbalanced parenthesis.\n"
-    | 788 ->
-        "Syntax Error!\n"
     | 789 ->
         "Syntax Error!\n"
-    | 791 ->
+    | 790 ->
         "Syntax Error!\n"
-    | 787 ->
+    | 792 ->
         "Syntax Error!\n"
-    | 460 ->
+    | 788 ->
         "Syntax Error!\n"
-    | 820 ->
-        "Syntax Error!\n"
-    | 873 ->
-        "Syntax Error!\n"
-    | 938 ->
-        "Syntax Error!\n"
-    | 874 ->
-        "Syntax Error!\n"
-    | 875 ->
-        "Syntax Error!\n"
-    | 878 ->
-        "Syntax Error!\n"
-    | 939 ->
-        "Syntax Error!\n"
-    | 940 ->
-        "Syntax Error!\n"
-    | 871 ->
-        "Syntax Error!\n"
-    | 963 ->
+    | 461 ->
         "Syntax Error!\n"
     | 821 ->
         "Syntax Error!\n"
-    | 828 ->
+    | 874 ->
+        "Syntax Error! Unexpected parenthesis found.\nArray indexing is done using square brackets e.g. `A[i]`\n"
+    | 939 ->
+        "Syntax Error!\n"
+    | 875 ->
+        "Syntax Error!\n"
+    | 876 ->
+        "Syntax Error!\n"
+    | 879 ->
+        "Syntax Error!\n"
+    | 940 ->
+        "Syntax Error!\n"
+    | 941 ->
+        "Syntax Error!\n"
+    | 872 ->
+        "Syntax Error!\n"
+    | 964 ->
+        "Syntax Error!\n"
+    | 822 ->
         "Syntax Error!\n"
     | 829 ->
         "Syntax Error!\n"
-    | 822 ->
-        "Syntax Error! Perhaps missing variable assignment for expression.\n"
+    | 830 ->
+        "Syntax Error!\n"
     | 823 ->
         "Syntax Error! Perhaps missing variable assignment for expression.\n"
-    | 825 ->
-        "Syntax Error!\n"
+    | 824 ->
+        "Syntax Error! Perhaps missing variable assignment for expression.\n"
     | 826 ->
         "Syntax Error!\n"
-    | 824 ->
+    | 827 ->
         "Syntax Error!\n"
-    | 831 ->
-        "Syntax Error!\n"
-    | 837 ->
-        "Syntax Error! Probably a missing delimiter such as a semicolon at the end of the statement.\n"
-    | 838 ->
+    | 825 ->
         "Syntax Error!\n"
     | 832 ->
+        "Syntax Error!\n"
+    | 838 ->
+        "Syntax Error! Probably a missing delimiter such as a semicolon at the end of the statement.\n"
+    | 839 ->
         "Syntax Error!\n"
     | 833 ->
         "Syntax Error!\n"
@@ -122,85 +128,85 @@ let message =
         "Syntax Error!\n"
     | 835 ->
         "Syntax Error!\n"
-    | 840 ->
-        "Syntax Error!\n"
-    | 842 ->
+    | 836 ->
         "Syntax Error!\n"
     | 841 ->
         "Syntax Error!\n"
-    | 844 ->
+    | 843 ->
         "Syntax Error!\n"
-    | 957 ->
-        "Syntax Error!\n"
-    | 851 ->
+    | 842 ->
         "Syntax Error!\n"
     | 845 ->
         "Syntax Error!\n"
-    | 848 ->
+    | 958 ->
+        "Syntax Error!\n"
+    | 852 ->
+        "Syntax Error!\n"
+    | 846 ->
         "Syntax Error!\n"
     | 849 ->
         "Syntax Error!\n"
-    | 853 ->
+    | 850 ->
         "Syntax Error!\n"
-    | 855 ->
-        "Syntax Error!\n"
-    | 860 ->
+    | 854 ->
         "Syntax Error!\n"
     | 856 ->
+        "Syntax Error!\n"
+    | 861 ->
         "Syntax Error!\n"
     | 857 ->
         "Syntax Error!\n"
     | 858 ->
         "Syntax Error!\n"
-    | 862 ->
+    | 859 ->
         "Syntax Error!\n"
     | 863 ->
         "Syntax Error!\n"
     | 864 ->
         "Syntax Error!\n"
-    | 866 ->
+    | 865 ->
         "Syntax Error!\n"
-    | 868 ->
+    | 867 ->
         "Syntax Error!\n"
-    | 881 ->
-        "Syntax Error!\n"
-    | 883 ->
+    | 869 ->
         "Syntax Error!\n"
     | 882 ->
         "Syntax Error!\n"
-    | 885 ->
-        "Syntax Error! Unexpected parenthesis found.\nArray indexing is done using square brackets e.g. `A[i]` \n"
+    | 884 ->
+        "Syntax Error!\n"
+    | 883 ->
+        "Syntax Error!\n"
     | 886 ->
-        "Syntax Error! Unexpected parenthesis.\nArray indexing is done using square brackets e.g. A[i]\n"
+        "Syntax Error! Unexpected parenthesis found.\nArray indexing is done using square brackets e.g. `A[i]` \n"
     | 887 ->
+        "Syntax Error! Unexpected parenthesis found.\nArray indexing is done using square brackets e.g. `A[i]`\n"
+    | 888 ->
         "Syntax Error!\n"
-    | 892 ->
+    | 893 ->
         "Syntax Error!\n"
-    | 926 ->
-        "Syntax Error! Perhaps an invalid symbol in assignment.\n"
     | 927 ->
-        "Syntax Error!\n"
-    | 895 ->
-        "Syntax Error!\n"
-    | 920 ->
-        "Syntax Error!\n"
-    | 921 ->
+        "Syntax Error! Perhaps an invalid symbol in assignment.\n"
+    | 928 ->
         "Syntax Error!\n"
     | 896 ->
         "Syntax Error!\n"
-    | 923 ->
+    | 921 ->
         "Syntax Error!\n"
-    | 918 ->
+    | 922 ->
         "Syntax Error!\n"
-    | 899 ->
+    | 897 ->
         "Syntax Error!\n"
-    | 901 ->
+    | 924 ->
+        "Syntax Error!\n"
+    | 919 ->
+        "Syntax Error!\n"
+    | 900 ->
         "Syntax Error!\n"
     | 902 ->
         "Syntax Error!\n"
-    | 916 ->
+    | 903 ->
         "Syntax Error!\n"
-    | 908 ->
+    | 917 ->
         "Syntax Error!\n"
     | 909 ->
         "Syntax Error!\n"
@@ -208,37 +214,37 @@ let message =
         "Syntax Error!\n"
     | 911 ->
         "Syntax Error!\n"
-    | 914 ->
+    | 912 ->
         "Syntax Error!\n"
-    | 903 ->
+    | 915 ->
         "Syntax Error!\n"
     | 904 ->
         "Syntax Error!\n"
-    | 906 ->
+    | 905 ->
         "Syntax Error!\n"
-    | 931 ->
-        "Syntax Error!\n"
-    | 943 ->
-        "Syntax Error!\n"
-    | 936 ->
-        "Syntax Error!\n"
-    | 894 ->
-        "Syntax Error!\n"
-    | 950 ->
-        "Syntax Error!\n"
-    | 953 ->
-        "Syntax Error!\n"
-    | 951 ->
-        "Syntax Error! Unexpected symbol found.\n"
-    | 889 ->
-        "Syntax Error!\n"
-    | 890 ->
+    | 907 ->
         "Syntax Error!\n"
     | 932 ->
         "Syntax Error!\n"
-    | 466 ->
+    | 944 ->
         "Syntax Error!\n"
-    | 702 ->
+    | 937 ->
+        "Syntax Error!\n"
+    | 895 ->
+        "Syntax Error!\n"
+    | 951 ->
+        "Syntax Error!\n"
+    | 954 ->
+        "Syntax Error!\n"
+    | 952 ->
+        "Syntax Error! Unexpected symbol found.\n"
+    | 890 ->
+        "Syntax Error!\n"
+    | 891 ->
+        "Syntax Error!\n"
+    | 933 ->
+        "Syntax Error!\n"
+    | 467 ->
         "Syntax Error!\n"
     | 703 ->
         "Syntax Error!\n"
@@ -248,25 +254,25 @@ let message =
         "Syntax Error!\n"
     | 706 ->
         "Syntax Error!\n"
-    | 538 ->
+    | 707 ->
         "Syntax Error!\n"
     | 539 ->
         "Syntax Error!\n"
-    | 933 ->
-        "Syntax Error!\n"
-    | 574 ->
-        "Syntax Error!\n"
-    | 535 ->
-        "Syntax Error!\n"
     | 540 ->
         "Syntax Error!\n"
-    | 541 ->
-        "Syntax Error! Perhaps a missing semicolon, a delimiter is expected. \n"
-    | 542 ->
+    | 934 ->
         "Syntax Error!\n"
+    | 575 ->
+        "Syntax Error!\n"
+    | 536 ->
+        "Syntax Error! Perhaps a missing assignment or comparison operator.\n"
+    | 541 ->
+        "Syntax Error!\n"
+    | 542 ->
+        "Syntax Error! Perhaps a missing semicolon, a delimiter is expected.\n"
     | 543 ->
         "Syntax Error!\n"
-    | 576 ->
+    | 544 ->
         "Syntax Error!\n"
     | 577 ->
         "Syntax Error!\n"
@@ -274,71 +280,71 @@ let message =
         "Syntax Error!\n"
     | 579 ->
         "Syntax Error!\n"
-    | 558 ->
+    | 580 ->
         "Syntax Error!\n"
     | 559 ->
         "Syntax Error!\n"
-    | 544 ->
+    | 560 ->
         "Syntax Error!\n"
     | 545 ->
         "Syntax Error!\n"
-    | 552 ->
+    | 546 ->
         "Syntax Error!\n"
     | 553 ->
         "Syntax Error!\n"
-    | 560 ->
+    | 554 ->
         "Syntax Error!\n"
     | 561 ->
         "Syntax Error!\n"
     | 562 ->
         "Syntax Error!\n"
     | 563 ->
-        "Syntax Error! Perhaps an invalid symbol in expression.\n"
+        "Syntax Error!\n"
     | 564 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps an invalid symbol in expression.\n"
     | 565 ->
-        "Syntax Error!\n"
-    | 523 ->
-        "Syntax Error!\n"
-    | 524 ->
-        "Syntax Error!\n"
-    | 546 ->
-        "Syntax Error!\n"
-    | 547 ->
-        "Syntax Error!\n"
-    | 554 ->
-        "Syntax Error!\n"
-    | 555 ->
-        "Syntax Error!\n"
-    | 580 ->
-        "Syntax Error!\n"
-    | 581 ->
         "Syntax Error!\n"
     | 566 ->
         "Syntax Error!\n"
-    | 567 ->
-        "Syntax Error! Perhaps a missing delimiter such as a semicolon at the end of the statement.\n"
-    | 568 ->
+    | 524 ->
         "Syntax Error!\n"
+    | 525 ->
+        "Syntax Error!\n"
+    | 547 ->
+        "Syntax Error!\n"
+    | 548 ->
+        "Syntax Error!\n"
+    | 555 ->
+        "Syntax Error!\n"
+    | 556 ->
+        "Syntax Error!\n"
+    | 581 ->
+        "Syntax Error!\n"
+    | 582 ->
+        "Syntax Error! Perhaps a missing statement delimiter such as a semicolon at the end of the statement.\n"
+    | 567 ->
+        "Syntax Error!\n"
+    | 568 ->
+        "Syntax Error! Perhaps a missing delimiter such as a semicolon at the end of the statement.\n"
     | 569 ->
         "Syntax Error!\n"
     | 570 ->
         "Syntax Error!\n"
     | 571 ->
         "Syntax Error!\n"
-    | 528 ->
+    | 572 ->
         "Syntax Error!\n"
-    | 530 ->
+    | 529 ->
         "Syntax Error!\n"
-    | 556 ->
+    | 531 ->
         "Syntax Error!\n"
     | 557 ->
         "Syntax Error!\n"
-    | 532 ->
+    | 558 ->
         "Syntax Error!\n"
     | 533 ->
         "Syntax Error!\n"
-    | 548 ->
+    | 534 ->
         "Syntax Error!\n"
     | 549 ->
         "Syntax Error!\n"
@@ -346,15 +352,15 @@ let message =
         "Syntax Error!\n"
     | 551 ->
         "Syntax Error!\n"
-    | 582 ->
+    | 552 ->
         "Syntax Error!\n"
     | 583 ->
         "Syntax Error!\n"
-    | 572 ->
+    | 584 ->
         "Syntax Error!\n"
     | 573 ->
         "Syntax Error!\n"
-    | 467 ->
+    | 574 ->
         "Syntax Error!\n"
     | 468 ->
         "Syntax Error!\n"
@@ -370,67 +376,67 @@ let message =
         "Syntax Error!\n"
     | 474 ->
         "Syntax Error!\n"
-    | 476 ->
+    | 475 ->
         "Syntax Error!\n"
     | 477 ->
         "Syntax Error!\n"
     | 478 ->
         "Syntax Error!\n"
-    | 701 ->
-        "Syntax Error! Perhaps a missing argument to `pre`\n"
-    | 480 ->
+    | 479 ->
         "Syntax Error!\n"
-    | 700 ->
-        "Syntax Error!\n"
+    | 702 ->
+        "Syntax Error! Perhaps a missing argument to `pre`.\n"
     | 481 ->
+        "Syntax Error!\n"
+    | 701 ->
         "Syntax Error!\n"
     | 482 ->
         "Syntax Error!\n"
     | 483 ->
         "Syntax Error!\n"
-    | 698 ->
-        "Syntax Error!\n"
     | 484 ->
+        "Syntax Error!\n"
+    | 699 ->
         "Syntax Error!\n"
     | 485 ->
         "Syntax Error!\n"
     | 486 ->
         "Syntax Error!\n"
-    | 694 ->
+    | 487 ->
         "Syntax Error!\n"
     | 695 ->
         "Syntax Error!\n"
     | 696 ->
         "Syntax Error!\n"
-    | 487 ->
-        "Syntax Error!\n"
-    | 593 ->
-        "Syntax Error!\n"
-    | 692 ->
-        "Syntax Error!\n"
-    | 594 ->
+    | 697 ->
         "Syntax Error!\n"
     | 488 ->
         "Syntax Error!\n"
-    | 683 ->
+    | 594 ->
         "Syntax Error!\n"
-    | 685 ->
+    | 693 ->
+        "Syntax Error!\n"
+    | 595 ->
+        "Syntax Error!\n"
+    | 489 ->
+        "Syntax Error!\n"
+    | 684 ->
         "Syntax Error!\n"
     | 686 ->
         "Syntax Error!\n"
-    | 682 ->
+    | 687 ->
         "Syntax Error!\n"
-    | 689 ->
+    | 683 ->
         "Syntax Error!\n"
     | 690 ->
         "Syntax Error!\n"
-    | 489 ->
+    | 691 ->
         "Syntax Error!\n"
     | 490 ->
         "Syntax Error!\n"
     | 491 ->
         "Syntax Error!\n"
-    | 629 ->
+    | 492 ->
         "Syntax Error!\n"
     | 630 ->
         "Syntax Error!\n"
@@ -438,9 +444,9 @@ let message =
         "Syntax Error!\n"
     | 632 ->
         "Syntax Error!\n"
-    | 634 ->
+    | 633 ->
         "Syntax Error!\n"
-    | 654 ->
+    | 635 ->
         "Syntax Error!\n"
     | 655 ->
         "Syntax Error!\n"
@@ -452,7 +458,7 @@ let message =
         "Syntax Error!\n"
     | 659 ->
         "Syntax Error!\n"
-    | 661 ->
+    | 660 ->
         "Syntax Error!\n"
     | 662 ->
         "Syntax Error!\n"
@@ -464,7 +470,7 @@ let message =
         "Syntax Error!\n"
     | 666 ->
         "Syntax Error!\n"
-    | 668 ->
+    | 667 ->
         "Syntax Error!\n"
     | 669 ->
         "Syntax Error!\n"
@@ -476,7 +482,7 @@ let message =
         "Syntax Error!\n"
     | 673 ->
         "Syntax Error!\n"
-    | 675 ->
+    | 674 ->
         "Syntax Error!\n"
     | 676 ->
         "Syntax Error!\n"
@@ -488,7 +494,7 @@ let message =
         "Syntax Error!\n"
     | 680 ->
         "Syntax Error!\n"
-    | 635 ->
+    | 681 ->
         "Syntax Error!\n"
     | 636 ->
         "Syntax Error!\n"
@@ -510,7 +516,7 @@ let message =
         "Syntax Error!\n"
     | 645 ->
         "Syntax Error!\n"
-    | 647 ->
+    | 646 ->
         "Syntax Error!\n"
     | 648 ->
         "Syntax Error!\n"
@@ -522,13 +528,13 @@ let message =
         "Syntax Error!\n"
     | 652 ->
         "Syntax Error!\n"
-    | 492 ->
-        "Syntax Error!\n"
-    | 627 ->
+    | 653 ->
         "Syntax Error!\n"
     | 493 ->
         "Syntax Error!\n"
-    | 495 ->
+    | 628 ->
+        "Syntax Error!\n"
+    | 494 ->
         "Syntax Error!\n"
     | 496 ->
         "Syntax Error!\n"
@@ -550,7 +556,7 @@ let message =
         "Syntax Error!\n"
     | 505 ->
         "Syntax Error!\n"
-    | 622 ->
+    | 506 ->
         "Syntax Error!\n"
     | 623 ->
         "Syntax Error!\n"
@@ -560,23 +566,23 @@ let message =
         "Syntax Error!\n"
     | 626 ->
         "Syntax Error!\n"
-    | 506 ->
+    | 627 ->
         "Syntax Error!\n"
     | 507 ->
         "Syntax Error!\n"
-    | 620 ->
-        "Syntax Error!\n"
     | 508 ->
+        "Syntax Error!\n"
+    | 621 ->
         "Syntax Error!\n"
     | 509 ->
         "Syntax Error!\n"
-    | 619 ->
-        "Syntax Error!\n"
     | 510 ->
+        "Syntax Error!\n"
+    | 620 ->
         "Syntax Error!\n"
     | 511 ->
         "Syntax Error!\n"
-    | 613 ->
+    | 512 ->
         "Syntax Error!\n"
     | 614 ->
         "Syntax Error!\n"
@@ -586,25 +592,25 @@ let message =
         "Syntax Error!\n"
     | 617 ->
         "Syntax Error!\n"
-    | 513 ->
+    | 618 ->
         "Syntax Error!\n"
     | 514 ->
         "Syntax Error!\n"
-    | 612 ->
+    | 515 ->
         "Syntax Error!\n"
-    | 516 ->
-        "Syntax Error!\n"
-    | 611 ->
+    | 613 ->
         "Syntax Error!\n"
     | 517 ->
         "Syntax Error!\n"
+    | 612 ->
+        "Syntax Error!\n"
     | 518 ->
         "Syntax Error!\n"
-    | 537 ->
+    | 519 ->
         "Syntax Error!\n"
-    | 584 ->
+    | 538 ->
         "Syntax Error!\n"
-    | 603 ->
+    | 585 ->
         "Syntax Error!\n"
     | 604 ->
         "Syntax Error!\n"
@@ -612,11 +618,11 @@ let message =
         "Syntax Error!\n"
     | 606 ->
         "Syntax Error!\n"
-    | 608 ->
+    | 607 ->
         "Syntax Error!\n"
     | 609 ->
         "Syntax Error!\n"
-    | 585 ->
+    | 610 ->
         "Syntax Error!\n"
     | 586 ->
         "Syntax Error!\n"
@@ -630,101 +636,101 @@ let message =
         "Syntax Error!\n"
     | 591 ->
         "Syntax Error!\n"
-    | 596 ->
+    | 592 ->
         "Syntax Error!\n"
     | 597 ->
         "Syntax Error!\n"
-    | 599 ->
+    | 598 ->
         "Syntax Error!\n"
-    | 601 ->
+    | 600 ->
+        "Syntax Error!\n"
+    | 602 ->
+        "Syntax Error!\n"
+    | 521 ->
         "Syntax Error!\n"
     | 520 ->
         "Syntax Error!\n"
-    | 519 ->
-        "Syntax Error!\n"
-    | 522 ->
-        "Syntax Error!\n"
-    | 461 ->
+    | 523 ->
         "Syntax Error!\n"
     | 462 ->
         "Syntax Error!\n"
     | 463 ->
+        "Syntax Error!\n"
+    | 464 ->
         "Syntax Error! Unexpected delimiter found, perhaps an added semicolon.\n"
-    | 707 ->
+    | 708 ->
         "Syntax Error!\n"
-    | 465 ->
-        "Syntax Error!\n"
-    | 709 ->
-        "Syntax Error!\n"
-    | 711 ->
+    | 466 ->
         "Syntax Error!\n"
     | 710 ->
         "Syntax Error!\n"
-    | 713 ->
+    | 712 ->
+        "Syntax Error!\n"
+    | 711 ->
         "Syntax Error!\n"
     | 714 ->
         "Syntax Error!\n"
     | 715 ->
-        "Syntax Error! Perhaps an extra added semicolon. Unexpected delimiter found.\n"
+        "Syntax Error!\n"
     | 716 ->
         "Syntax Error!\n"
     | 717 ->
         "Syntax Error!\n"
     | 718 ->
         "Syntax Error!\n"
-    | 720 ->
-        "Syntax Error!\n"
+    | 719 ->
+        "Syntax Error! Perhaps a missing statement delimiter such as a semicolon at the end of the statement.\n"
     | 721 ->
         "Syntax Error!\n"
     | 722 ->
         "Syntax Error!\n"
-    | 733 ->
-        "Syntax Error!\n"
     | 723 ->
         "Syntax Error!\n"
-    | 725 ->
+    | 734 ->
         "Syntax Error!\n"
     | 724 ->
         "Syntax Error!\n"
-    | 737 ->
+    | 726 ->
         "Syntax Error!\n"
-    | 728 ->
+    | 725 ->
         "Syntax Error!\n"
-    | 730 ->
+    | 738 ->
         "Syntax Error!\n"
     | 729 ->
         "Syntax Error!\n"
-    | 735 ->
+    | 731 ->
         "Syntax Error!\n"
-    | 739 ->
+    | 730 ->
+        "Syntax Error!\n"
+    | 736 ->
         "Syntax Error!\n"
     | 740 ->
         "Syntax Error!\n"
     | 741 ->
         "Syntax Error!\n"
+    | 742 ->
+        "Syntax Error!\n"
+    | 745 ->
+        "Syntax Error!\n"
     | 744 ->
-        "Syntax Error!\n"
-    | 743 ->
-        "Syntax Error!\n"
-    | 747 ->
         "Syntax Error!\n"
     | 748 ->
         "Syntax Error!\n"
     | 749 ->
         "Syntax Error!\n"
-    | 751 ->
+    | 750 ->
         "Syntax Error!\n"
-    | 753 ->
-        "Syntax Error!\n"
-    | 755 ->
+    | 752 ->
         "Syntax Error!\n"
     | 754 ->
         "Syntax Error!\n"
-    | 773 ->
+    | 756 ->
         "Syntax Error!\n"
-    | 780 ->
+    | 755 ->
         "Syntax Error!\n"
-    | 757 ->
+    | 774 ->
+        "Syntax Error!\n"
+    | 781 ->
         "Syntax Error!\n"
     | 758 ->
         "Syntax Error!\n"
@@ -732,7 +738,7 @@ let message =
         "Syntax Error!\n"
     | 760 ->
         "Syntax Error!\n"
-    | 762 ->
+    | 761 ->
         "Syntax Error!\n"
     | 763 ->
         "Syntax Error!\n"
@@ -740,19 +746,19 @@ let message =
         "Syntax Error!\n"
     | 765 ->
         "Syntax Error!\n"
-    | 767 ->
+    | 766 ->
+        "Syntax Error! Perhaps a missing statement delimiter such as a semicolon at the end of the statement.\n"
+    | 768 ->
+        "Syntax Error!\n"
+    | 770 ->
         "Syntax Error!\n"
     | 769 ->
         "Syntax Error!\n"
-    | 768 ->
-        "Syntax Error!\n"
-    | 782 ->
-        "Syntax Error!\n"
     | 783 ->
         "Syntax Error!\n"
-    | 815 ->
+    | 784 ->
         "Syntax Error!\n"
-    | 440 ->
+    | 816 ->
         "Syntax Error!\n"
     | 441 ->
         "Syntax Error!\n"
@@ -762,87 +768,87 @@ let message =
         "Syntax Error!\n"
     | 444 ->
         "Syntax Error!\n"
-    | 446 ->
+    | 445 ->
         "Syntax Error!\n"
     | 447 ->
         "Syntax Error!\n"
-    | 410 ->
+    | 448 ->
         "Syntax Error!\n"
-    | 412 ->
+    | 411 ->
         "Syntax Error!\n"
     | 413 ->
         "Syntax Error!\n"
-    | 417 ->
+    | 414 ->
         "Syntax Error!\n"
     | 418 ->
         "Syntax Error!\n"
-    | 414 ->
+    | 419 ->
         "Syntax Error!\n"
     | 415 ->
         "Syntax Error!\n"
-    | 424 ->
+    | 416 ->
         "Syntax Error!\n"
     | 425 ->
         "Syntax Error!\n"
-    | 420 ->
+    | 426 ->
         "Syntax Error!\n"
-    | 395 ->
+    | 421 ->
         "Syntax Error!\n"
     | 396 ->
         "Syntax Error!\n"
-    | 400 ->
+    | 397 ->
         "Syntax Error!\n"
     | 401 ->
         "Syntax Error!\n"
-    | 407 ->
+    | 402 ->
         "Syntax Error!\n"
-    | 969 ->
+    | 408 ->
         "Syntax Error!\n"
     | 970 ->
         "Syntax Error!\n"
     | 971 ->
         "Syntax Error!\n"
-    | 392 ->
+    | 972 ->
         "Syntax Error!\n"
-    | 973 ->
-        "Syntax Error!\n"
-    | 394 ->
-        "Syntax Error!\n"
-    | 976 ->
+    | 393 ->
         "Syntax Error!\n"
     | 974 ->
         "Syntax Error!\n"
-    | 978 ->
+    | 395 ->
+        "Syntax Error!\n"
+    | 977 ->
+        "Syntax Error!\n"
+    | 975 ->
         "Syntax Error!\n"
     | 979 ->
         "Syntax Error!\n"
-    | 981 ->
-        "Syntax Error! Perhaps a missing/unbalanced parenthesis in contract declaration.\n"
+    | 980 ->
+        "Syntax Error!\n"
     | 982 ->
         "Syntax Error!\n"
     | 983 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps a missing/unbalanced parenthesis in contract declaration.\n"
     | 984 ->
         "Syntax Error!\n"
     | 985 ->
         "Syntax Error!\n"
-    | 987 ->
-        "Syntax Error!\n"
     | 986 ->
         "Syntax Error!\n"
-    | 980 ->
+    | 988 ->
         "Syntax Error!\n"
-    | 794 ->
+    | 987 ->
         "Syntax Error!\n"
-    | 800 ->
+    | 981 ->
+        "Syntax Error!\n"
+    | 795 ->
         "Syntax Error!\n"
     | 801 ->
         "Syntax Error!\n"
     | 802 ->
         "Syntax Error!\n"
-    | 812 ->
+    | 803 ->
         "Syntax Error!\n"
-    | 804 ->
+    | 813 ->
         "Syntax Error!\n"
     | 805 ->
         "Syntax Error!\n"
@@ -850,257 +856,239 @@ let message =
         "Syntax Error!\n"
     | 807 ->
         "Syntax Error!\n"
-    | 809 ->
+    | 808 ->
         "Syntax Error!\n"
     | 810 ->
         "Syntax Error!\n"
-    | 796 ->
+    | 811 ->
         "Syntax Error!\n"
     | 797 ->
         "Syntax Error!\n"
-    | 998 ->
-        "Syntax Error!\n"
-    | 19 ->
-        "Syntax Error!\n"
-    | 365 ->
-        "Syntax Error!\n"
-    | 366 ->
-        "Syntax Error!\n"
-    | 367 ->
-        "Syntax Error!\n"
-    | 368 ->
-        "Syntax Error!\n"
-    | 369 ->
-        "Syntax Error!\n"
-    | 106 ->
-        "Syntax Error!\n"
-    | 107 ->
+    | 798 ->
         "Syntax Error!\n"
     | 999 ->
         "Syntax Error!\n"
-    | 117 ->
+    | 19 ->
         "Syntax Error!\n"
-    | 124 ->
+    | 357 ->
         "Syntax Error!\n"
-    | 125 ->
+    | 358 ->
         "Syntax Error!\n"
-    | 126 ->
+    | 359 ->
         "Syntax Error!\n"
-    | 119 ->
+    | 360 ->
+        "Syntax Error!\n"
+    | 361 ->
+        "Syntax Error!\n"
+    | 98 ->
+        "Syntax Error!\n"
+    | 99 ->
+        "Syntax Error!\n"
+    | 1000 ->
+        "Syntax Error!\n"
+    | 113 ->
         "Syntax Error!\n"
     | 120 ->
         "Syntax Error!\n"
     | 121 ->
         "Syntax Error!\n"
-    | 113 ->
+    | 122 ->
         "Syntax Error!\n"
-    | 108 ->
-        "Syntax Error! Possible diagnosis includes:\n1. A missing boolean operator in expression.\n2. Missing semicolon at the end of the statement.\n"
+    | 115 ->
+        "Syntax Error!\n"
+    | 116 ->
+        "Syntax Error!\n"
+    | 117 ->
+        "Syntax Error!\n"
     | 109 ->
         "Syntax Error!\n"
-    | 129 ->
+    | 100 ->
+        "Syntax Error! Possible diagnosis includes:\n1. A missing boolean operator in expression.\n2. Missing semicolon at the end of the statement.\n"
+    | 101 ->
         "Syntax Error!\n"
-    | 130 ->
+    | 125 ->
+        "Syntax Error!\n"
+    | 126 ->
+        "Syntax Error!\n"
+    | 141 ->
+        "Syntax Error! Possible diagnosis includes:\n1. A missing delimiter such as a semicolon at the end of the statement.\n2. Malformed arithmetic expression\n"
+    | 142 ->
+        "Syntax Error!\n"
+    | 143 ->
+        "Syntax Error!\n"
+    | 144 ->
+        "Syntax Error!\n"
+    | 145 ->
+        "Syntax Error!\n"
+    | 146 ->
+        "Syntax Error!\n"
+    | 127 ->
+        "Syntax Error!\n"
+    | 128 ->
+        "Syntax Error! Possible diagnosis includes:\n1. A missing delimiter such as a semicolon at the end of the statement.\n2. Malformed arithmetic expression\n"
+    | 135 ->
+        "Syntax Error! Possible diagnosis includes:\n1. A missing delimiter such as a semicolon at the end of the statement.\n2. Malformed arithmetic expression \n"
+    | 136 ->
+        "Syntax Error!\n"
+    | 147 ->
+        "Syntax Error!\n"
+    | 148 ->
         "Syntax Error!\n"
     | 149 ->
-        "Syntax Error! Possible diagnosis includes:\n1. A missing delimiter such as a semicolon at the end of the statement.\n2. Malformed arithmetic expression\n"
+        "Syntax Error!\n"
     | 150 ->
         "Syntax Error!\n"
     | 151 ->
         "Syntax Error!\n"
     | 152 ->
         "Syntax Error!\n"
-    | 153 ->
+    | 96 ->
         "Syntax Error!\n"
-    | 154 ->
+    | 97 ->
         "Syntax Error!\n"
-    | 131 ->
+    | 195 ->
         "Syntax Error!\n"
-    | 132 ->
-        "Syntax Error! Possible diagnosis includes:\n1. A missing delimiter such as a semicolon at the end of the statement.\n2. Malformed arithmetic expression\n"
-    | 143 ->
-        "Syntax Error! Possible diagnosis includes:\n1. A missing delimiter such as a semicolon at the end of the statement.\n2. Malformed arithmetic expression \n"
-    | 144 ->
+    | 196 ->
         "Syntax Error!\n"
-    | 155 ->
+    | 129 ->
         "Syntax Error!\n"
-    | 156 ->
-        "Syntax Error!\n"
-    | 157 ->
-        "Syntax Error!\n"
-    | 158 ->
-        "Syntax Error!\n"
-    | 159 ->
-        "Syntax Error!\n"
-    | 160 ->
-        "Syntax Error!\n"
-    | 104 ->
-        "Syntax Error!\n"
-    | 105 ->
-        "Syntax Error!\n"
-    | 203 ->
-        "Syntax Error!\n"
-    | 204 ->
-        "Syntax Error!\n"
-    | 133 ->
-        "Syntax Error!\n"
-    | 134 ->
+    | 130 ->
         "Syntax Error! Perhaps a missing delimiter such as a semicolon at the end of the statement.\n"
-    | 114 ->
+    | 110 ->
         "Syntax Error! Possible diagnosis includes:\n1. A missing delimiter such as a semicolon at the end of the statement.\n2. Malformed arithmetic expression\n"
-    | 173 ->
+    | 165 ->
         "Syntax Error! Possible diagnosis includes:\n1. A missing boolean operator in expression.\n2. Missing semicolon at the end of the statement.\n"
-    | 116 ->
+    | 112 ->
         "Syntax Error!\n"
-    | 177 ->
+    | 169 ->
         "Syntax Error!\n"
-    | 183 ->
+    | 175 ->
         "Syntax Error!\n"
-    | 181 ->
+    | 173 ->
         "Syntax Error!\n"
-    | 85 ->
+    | 77 ->
         "Syntax Error!\n"
-    | 243 ->
+    | 235 ->
         "Syntax Error! Perhaps a missing identifier in type.\n"
     | 17 ->
         "Syntax Error!\n"
     | 18 ->
         "Syntax Error!\n"
-    | 370 ->
+    | 362 ->
         "Syntax Error!\n"
-    | 371 ->
+    | 363 ->
         "Syntax Error!\n"
-    | 372 ->
+    | 364 ->
         "Syntax Error!\n"
-    | 373 ->
+    | 365 ->
         "Syntax Error!\n"
-    | 374 ->
+    | 366 ->
         "Syntax Error!\n"
-    | 197 ->
-        "Syntax Error!\n"
-    | 198 ->
-        "Syntax Error!\n"
-    | 61 ->
-        "Syntax Error!\n"
-    | 79 ->
-        "Syntax Error!\n"
-    | 80 ->
-        "Syntax Error!\n"
-    | 67 ->
-        "Syntax Error!\n"
-    | 68 ->
-        "Syntax Error!\n"
-    | 69 ->
-        "Syntax Error!\n"
-    | 186 ->
-        "Syntax Error!\n"
-    | 192 ->
-        "Syntax Error!\n"
-    | 193 ->
-        "Syntax Error!\n"
-    | 194 ->
+    | 189 ->
         "Syntax Error!\n"
     | 190 ->
         "Syntax Error!\n"
-    | 145 ->
+    | 61 ->
         "Syntax Error!\n"
-    | 146 ->
+    | 72 ->
         "Syntax Error!\n"
-    | 169 ->
+    | 73 ->
         "Syntax Error!\n"
-    | 170 ->
+    | 178 ->
         "Syntax Error!\n"
-    | 161 ->
+    | 184 ->
         "Syntax Error!\n"
-    | 162 ->
+    | 185 ->
         "Syntax Error!\n"
-    | 163 ->
-        "Syntax Error! Illegal expression for variable assignment.\nPerhaps a missing delimiter such as a semicolon.\n"
-    | 164 ->
-        "Syntax Error! Illegal expression for variable assignment.\n"
-    | 165 ->
-        "Syntax Error! Illegal expression for variable assignment\n"
-    | 166 ->
+    | 186 ->
         "Syntax Error!\n"
-    | 110 ->
-        "Syntax Error!\n"
-    | 135 ->
-        "Syntax Error!\n"
-    | 147 ->
-        "Syntax Error!\n"
-    | 148 ->
+    | 182 ->
         "Syntax Error!\n"
     | 137 ->
         "Syntax Error!\n"
     | 138 ->
         "Syntax Error!\n"
+    | 161 ->
+        "Syntax Error!\n"
+    | 162 ->
+        "Syntax Error!\n"
+    | 153 ->
+        "Syntax Error!\n"
+    | 154 ->
+        "Syntax Error!\n"
+    | 155 ->
+        "Syntax Error! Illegal expression for variable assignment or a missing delimiter such as a semicolon.\n"
+    | 156 ->
+        "Syntax Error! Illegal expression for variable assignment.\n"
+    | 157 ->
+        "Syntax Error! Illegal expression for variable assignment.\n"
+    | 158 ->
+        "Syntax Error!\n"
+    | 102 ->
+        "Syntax Error!\n"
+    | 104 ->
+        "Syntax Error!\n"
     | 139 ->
         "Syntax Error!\n"
     | 140 ->
         "Syntax Error!\n"
-    | 141 ->
+    | 106 ->
         "Syntax Error!\n"
-    | 142 ->
+    | 107 ->
         "Syntax Error!\n"
-    | 171 ->
+    | 131 ->
         "Syntax Error!\n"
-    | 172 ->
+    | 132 ->
         "Syntax Error!\n"
-    | 167 ->
+    | 133 ->
+        "Syntax Error!\n"
+    | 134 ->
+        "Syntax Error!\n"
+    | 163 ->
+        "Syntax Error!\n"
+    | 164 ->
         "Syntax Error! Perhaps a missing statement delimiter such as a semicolon at the end of the statement.\n"
-    | 168 ->
+    | 159 ->
+        "Syntax Error! Perhaps a missing statement delimiter such as a semicolon at the end of the statement.\n"
+    | 160 ->
         "Syntax Error!\n"
     | 20 ->
         "Syntax Error!\n"
-    | 364 ->
+    | 356 ->
         "Syntax Error!\n"
     | 21 ->
         "Syntax Error!\n"
-    | 363 ->
+    | 355 ->
         "Syntax Error!\n"
     | 22 ->
         "Syntax Error!\n"
-    | 362 ->
+    | 354 ->
         "Syntax Error!\n"
     | 23 ->
         "Syntax Error!\n"
-    | 361 ->
+    | 353 ->
         "Syntax Error!\n"
     | 25 ->
         "Syntax Error!\n"
-    | 360 ->
+    | 352 ->
         "Syntax Error!\n"
     | 26 ->
-        "Syntax Error! Perhaps a missing argument to `pre`.\n"
-    | 359 ->
+        "Syntax Error! Perhaps a missing argument to `pre`\n"
+    | 351 ->
         "Syntax Error! Perhaps a missing argument to `pre`\n"
     | 28 ->
         "Syntax Error! Perhaps a missing argument to `pre`\n"
-    | 358 ->
+    | 350 ->
         "Syntax Error!\n"
     | 29 ->
         "Syntax Error!\n"
-    | 357 ->
+    | 349 ->
         "Syntax Error!\n"
     | 30 ->
         "Syntax Error! Perhaps a missing constant in expression.\n"
-    | 345 ->
+    | 337 ->
         "Syntax Error!\n"
-    | 346 ->
-        "Syntax Error!\n"
-    | 349 ->
-        "Syntax Error!\n"
-    | 350 ->
-        "Syntax Error!\n"
-    | 351 ->
-        "Syntax Error!\n"
-    | 355 ->
-        "Syntax Error!\n"
-    | 31 ->
-        "Syntax Error!\n"
-    | 32 ->
-        "Syntax Error!\n"
-    | 33 ->
+    | 338 ->
         "Syntax Error!\n"
     | 341 ->
         "Syntax Error!\n"
@@ -1108,39 +1096,53 @@ let message =
         "Syntax Error!\n"
     | 343 ->
         "Syntax Error!\n"
-    | 34 ->
+    | 347 ->
         "Syntax Error!\n"
-    | 217 ->
+    | 31 ->
         "Syntax Error!\n"
-    | 339 ->
+    | 32 ->
         "Syntax Error!\n"
-    | 218 ->
-        "Syntax Error!\n"
-    | 35 ->
-        "Syntax Error!\n"
-    | 321 ->
-        "Syntax Error!\n"
-    | 322 ->
-        "Syntax Error! Perhaps a missing/unbalanced parenthesis.\n"
-    | 323 ->
-        "Syntax Error!\n"
-    | 325 ->
-        "Syntax Error!\n"
-    | 326 ->
-        "Syntax Error!\n"
-    | 330 ->
-        "Syntax Error!\n"
-    | 331 ->
-        "Syntax Error!\n"
-    | 327 ->
+    | 33 ->
         "Syntax Error!\n"
     | 333 ->
         "Syntax Error!\n"
-    | 320 ->
+    | 334 ->
         "Syntax Error!\n"
-    | 336 ->
+    | 335 ->
+        "Syntax Error!\n"
+    | 34 ->
+        "Syntax Error!\n"
+    | 209 ->
+        "Syntax Error!\n"
+    | 331 ->
+        "Syntax Error!\n"
+    | 210 ->
+        "Syntax Error!\n"
+    | 35 ->
+        "Syntax Error!\n"
+    | 313 ->
+        "Syntax Error!\n"
+    | 314 ->
+        "Syntax Error!\n"
+    | 315 ->
+        "Syntax Error!\n"
+    | 317 ->
+        "Syntax Error!\n"
+    | 318 ->
+        "Syntax Error!\n"
+    | 322 ->
+        "Syntax Error!\n"
+    | 323 ->
+        "Syntax Error!\n"
+    | 319 ->
+        "Syntax Error!\n"
+    | 325 ->
+        "Syntax Error!\n"
+    | 312 ->
+        "Syntax Error!\n"
+    | 328 ->
         "Syntax Error! Perhaps a missing/unbalanced parenthesis.\n"
-    | 337 ->
+    | 329 ->
         "Syntax Error!\n"
     | 36 ->
         "Syntax Error!\n"
@@ -1148,15 +1150,29 @@ let message =
         "Syntax Error!\n"
     | 38 ->
         "Syntax Error!\n"
-    | 267 ->
+    | 259 ->
         "Syntax Error!\n"
-    | 268 ->
+    | 260 ->
         "Syntax Error!\n"
-    | 269 ->
+    | 261 ->
         "Syntax Error!\n"
-    | 270 ->
+    | 262 ->
         "Syntax Error!\n"
-    | 272 ->
+    | 264 ->
+        "Syntax Error!\n"
+    | 284 ->
+        "Syntax Error!\n"
+    | 285 ->
+        "Syntax Error!\n"
+    | 286 ->
+        "Syntax Error!\n"
+    | 287 ->
+        "Syntax Error!\n"
+    | 288 ->
+        "Syntax Error!\n"
+    | 289 ->
+        "Syntax Error!\n"
+    | 291 ->
         "Syntax Error!\n"
     | 292 ->
         "Syntax Error!\n"
@@ -1168,7 +1184,7 @@ let message =
         "Syntax Error!\n"
     | 296 ->
         "Syntax Error!\n"
-    | 297 ->
+    | 298 ->
         "Syntax Error!\n"
     | 299 ->
         "Syntax Error!\n"
@@ -1180,7 +1196,7 @@ let message =
         "Syntax Error!\n"
     | 303 ->
         "Syntax Error!\n"
-    | 304 ->
+    | 305 ->
         "Syntax Error!\n"
     | 306 ->
         "Syntax Error!\n"
@@ -1192,27 +1208,27 @@ let message =
         "Syntax Error!\n"
     | 310 ->
         "Syntax Error!\n"
-    | 311 ->
+    | 265 ->
         "Syntax Error!\n"
-    | 313 ->
+    | 266 ->
         "Syntax Error!\n"
-    | 314 ->
+    | 267 ->
         "Syntax Error!\n"
-    | 315 ->
+    | 268 ->
         "Syntax Error!\n"
-    | 316 ->
+    | 269 ->
         "Syntax Error!\n"
-    | 317 ->
+    | 270 ->
         "Syntax Error!\n"
-    | 318 ->
+    | 271 ->
+        "Syntax Error!\n"
+    | 272 ->
         "Syntax Error!\n"
     | 273 ->
         "Syntax Error!\n"
     | 274 ->
         "Syntax Error!\n"
     | 275 ->
-        "Syntax Error!\n"
-    | 276 ->
         "Syntax Error!\n"
     | 277 ->
         "Syntax Error!\n"
@@ -1226,161 +1242,147 @@ let message =
         "Syntax Error!\n"
     | 282 ->
         "Syntax Error!\n"
-    | 283 ->
-        "Syntax Error!\n"
-    | 285 ->
-        "Syntax Error!\n"
-    | 286 ->
-        "Syntax Error!\n"
-    | 287 ->
-        "Syntax Error!\n"
-    | 288 ->
-        "Syntax Error!\n"
-    | 289 ->
-        "Syntax Error!\n"
-    | 290 ->
-        "Syntax Error!\n"
     | 39 ->
         "Syntax Error!\n"
-    | 265 ->
+    | 257 ->
         "Syntax Error!\n"
     | 40 ->
-        "Syntax Error! Perhaps a missing/unbalanced curly brace or parenthesis.\n"
+        "Syntax Error!\n"
     | 44 ->
         "Syntax Error!\n"
-    | 264 ->
+    | 256 ->
         "Syntax Error!\n"
     | 45 ->
         "Syntax Error!\n"
-    | 263 ->
+    | 255 ->
         "Syntax Error!\n"
     | 46 ->
         "Syntax Error!\n"
-    | 262 ->
+    | 254 ->
         "Syntax Error!\n"
     | 47 ->
         "Syntax Error!\n"
-    | 261 ->
+    | 253 ->
         "Syntax Error!\n"
     | 48 ->
         "Syntax Error! Missing delimiter, perhaps a missing semicolon at the end of statement.\n"
-    | 260 ->
+    | 252 ->
         "Syntax Error!\n"
     | 49 ->
         "Syntax Error! Missing delimiter, perhaps a missing semicolon at the end of statement.\n"
-    | 255 ->
+    | 247 ->
         "Syntax Error!\n"
-    | 256 ->
+    | 248 ->
         "Syntax Error! Perhaps a missing/unbalanced parenthesis.\n"
-    | 257 ->
-        "Syntax Error! Perhaps a missing parenthesis.\n"
-    | 258 ->
+    | 249 ->
+        "Syntax Error! Perhaps a missing/unbalanced parenthesis.\n"
+    | 250 ->
         "Syntax Error!\n"
-    | 259 ->
+    | 251 ->
         "Syntax Error!\n"
     | 50 ->
         "Syntax Error! Missing delimiter, perhaps a missing semicolon at the end of statement.\n"
     | 51 ->
         "Syntax Error!\n"
-    | 253 ->
+    | 245 ->
         "Syntax Error!\n"
     | 52 ->
         "Syntax Error!\n"
     | 53 ->
         "Syntax Error!\n"
-    | 245 ->
-        "Syntax Error!\n"
-    | 246 ->
-        "Syntax Error! Possible diagnosis includes:\n1. A missing colon between a variable and its type\n2. A missing semicolon separating variables\n3. A missing type for a variable\n4. Missing/unbalanced parenthesis\n"
-    | 59 ->
-        "Syntax Error! Possible diagnosis include:\n1. An extra colon between identifier and its type.\n2. Incorrect type specification.\n"
-    | 244 ->
-        "Syntax Error! Possible diagnosis includes:\n1. A missing colon between a variable and its type\n2. A missing semicolon separating variables\n3. A missing type for a variable\n4. Missing/unbalanced parenthesis\n"
-    | 55 ->
-        "Syntax Error!\n"
-    | 56 ->
-        "Syntax Error!\n"
-    | 251 ->
-        "Syntax Error!\n"
-    | 252 ->
-        "Syntax Error!\n"
-    | 86 ->
-        "Syntax Error! Perhaps a missing identifier in type.\n"
-    | 87 ->
-        "Syntax Error!\n"
     | 237 ->
         "Syntax Error!\n"
     | 238 ->
         "Syntax Error!\n"
-    | 239 ->
-        "Syntax Error!\n"
-    | 240 ->
-        "Syntax Error!\n"
-    | 241 ->
-        "Syntax Error!\n"
-    | 89 ->
-        "Syntax Error!\n"
-    | 90 ->
+    | 59 ->
         "Syntax Error!\n"
     | 236 ->
         "Syntax Error!\n"
-    | 92 ->
+    | 55 ->
         "Syntax Error!\n"
-    | 235 ->
+    | 56 ->
         "Syntax Error!\n"
-    | 93 ->
+    | 243 ->
+        "Syntax Error! Possible diagnosis includes:\n1. A missing colon between a variable and its type\n2. A missing semicolon separating variables\n3. A missing type for a variable\n4. Missing/unbalanced parenthesis\n"
+    | 244 ->
+        "Syntax Error! Possible diagnosis include:\n1. An extra colon between identifier and its type.\n2. Incorrect type specification.\n"
+    | 78 ->
         "Syntax Error!\n"
-    | 94 ->
-        "Syntax Error!\n"
-    | 207 ->
-        "Syntax Error!\n"
-    | 208 ->
-        "Syntax Error!\n"
-    | 227 ->
-        "Syntax Error!\n"
-    | 228 ->
+    | 79 ->
         "Syntax Error!\n"
     | 229 ->
         "Syntax Error!\n"
     | 230 ->
         "Syntax Error!\n"
+    | 231 ->
+        "Syntax Error!\n"
     | 232 ->
         "Syntax Error!\n"
     | 233 ->
         "Syntax Error!\n"
-    | 209 ->
+    | 81 ->
         "Syntax Error!\n"
-    | 210 ->
+    | 82 ->
         "Syntax Error!\n"
-    | 211 ->
+    | 228 ->
         "Syntax Error!\n"
-    | 212 ->
+    | 84 ->
         "Syntax Error!\n"
-    | 213 ->
+    | 227 ->
         "Syntax Error!\n"
-    | 214 ->
+    | 85 ->
         "Syntax Error!\n"
-    | 215 ->
+    | 86 ->
+        "Syntax Error!\n"
+    | 199 ->
+        "Syntax Error!\n"
+    | 200 ->
+        "Syntax Error!\n"
+    | 219 ->
         "Syntax Error!\n"
     | 220 ->
         "Syntax Error!\n"
     | 221 ->
         "Syntax Error!\n"
-    | 223 ->
+    | 222 ->
+        "Syntax Error!\n"
+    | 224 ->
         "Syntax Error!\n"
     | 225 ->
         "Syntax Error!\n"
+    | 201 ->
+        "Syntax Error!\n"
+    | 202 ->
+        "Syntax Error!\n"
+    | 203 ->
+        "Syntax Error!\n"
+    | 204 ->
+        "Syntax Error!\n"
+    | 205 ->
+        "Syntax Error!\n"
+    | 206 ->
+        "Syntax Error!\n"
+    | 207 ->
+        "Syntax Error!\n"
+    | 212 ->
+        "Syntax Error!\n"
+    | 213 ->
+        "Syntax Error!\n"
+    | 215 ->
+        "Syntax Error!\n"
+    | 217 ->
+        "Syntax Error!\n"
+    | 87 ->
+        "Syntax Error!\n"
+    | 90 ->
+        "Syntax Error!\n"
+    | 92 ->
+        "Syntax Error!\n"
+    | 93 ->
+        "Syntax Error!\n"
+    | 89 ->
+        "Syntax Error!\n"
     | 95 ->
-        "Syntax Error!\n"
-    | 98 ->
-        "Syntax Error!\n"
-    | 100 ->
-        "Syntax Error!\n"
-    | 101 ->
-        "Syntax Error!\n"
-    | 97 ->
-        "Syntax Error!\n"
-    | 103 ->
         "Syntax Error!\n"
     | _ ->
         raise Not_found
