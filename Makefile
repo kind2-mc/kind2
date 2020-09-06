@@ -9,7 +9,7 @@ LOCAL_USRDOCDIR=$(CURDIR)/doc/usr
 all: build
 
 build:
-	@dune build
+	@dune build src @install
 	@dune install --sections=bin --prefix . 2> /dev/null
 
 clean:
