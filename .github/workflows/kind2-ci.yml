@@ -17,11 +17,9 @@ jobs:
           - os: macos-10.15
             z3_install: brew install z3
             zmq_install: brew install zmq
-            ounit2_install: opam install ounit2
           - os: ubuntu-20.04
             z3_install: sudo apt-get install -y z3
             zmq_install: sudo apt-get install -y libzmq3-dev
-            ounit2_install: opam install ounit2
 
     runs-on: ${{ matrix.os }}
 
@@ -43,7 +41,7 @@ jobs:
     - name: Install ZMQ library
       run: ${{ matrix.zmq_install }}
 
-    - name: Install kind2 OCaml dependencies
+    - name: Install Kind2 OCaml dependencies
       run: opam install -y . --deps-only
 
     - name: Build Kind2
@@ -53,7 +51,7 @@ jobs:
       run: ${{ matrix.z3_install }}
 
     - name: Install unit test dependencies
-      run: ${{ matrix.ounit2_install }}
+      run: opam install ounit2
 
     - name: Run unit tests
       run: opam exec dune test
