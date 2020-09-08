@@ -1,0 +1,7 @@
+
+type my_record = struct {x: int; y: int};
+
+node top(x: my_record) returns (y: int);
+let
+  y = (int x);
+tel

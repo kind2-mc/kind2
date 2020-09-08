@@ -24,11 +24,8 @@ module HH = HString.HStringHashtbl
 module HS = HStringSExpr
 module D = GenericSMTLIBDriver
 
-module I = Ident
-
 let s_prime = HString.mk_hstring "prime"
 
-module Conv = SMTExpr.Converter(D)
 let conv = { D.smtlib_string_sexpr_conv with
              D.prime_symbol = Some s_prime }
 let conv_type_of_sexpr = conv.D.type_of_sexpr

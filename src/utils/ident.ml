@@ -37,6 +37,7 @@ open Lib
 *)
 
 (* Namespace to avoid clashes between reserved and user identifiers *)
+(*
 type namespace =
 
   (* Reserved identifier *)
@@ -44,6 +45,7 @@ type namespace =
 
   (* Identifier in user input *)
   | UserIdentifier
+*)
 
 module Ident = struct
 

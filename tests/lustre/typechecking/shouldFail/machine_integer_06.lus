@@ -1,0 +1,5 @@
+
+node top(x1, x2: uint8) returns (y: uint8);
+let
+   y = x1 lsh x2;
+tel

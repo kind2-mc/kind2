@@ -830,7 +830,7 @@ let move { sys ; d_count ; subs ; subs_len } =
 (* |===| Evaluation. *)
 
 
-type rating = int list list
+(* type rating = int list list *)
 
 let zero_rating_of = List.map ( List.map (fun _ -> 0) )
 

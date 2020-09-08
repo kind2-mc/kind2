@@ -628,7 +628,7 @@ let rec extract_trusts acc = let open HS in
   | Atom _ -> acc
   | List l -> extract_trusts_list acc l
                 
-and extract_trusts_list acc = let open HS in
+and extract_trusts_list acc =
   function
   | [] -> acc
   | x :: r -> extract_trusts_list (extract_trusts acc x) r 

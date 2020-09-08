@@ -54,7 +54,6 @@ module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
 module SVT = StateVar.StateVarHashtbl
 
-module ET = LustreExpr.LustreExprHashtbl
 (* Add a list of state variables to a set *)
 let add_to_svs set list = 
   List.fold_left (fun a e -> SVS.add e a) set list 
@@ -1200,8 +1199,8 @@ let stateful_vars_of_expr { E.expr_step } =
             SVS.empty 
             l)
 
-      | Term.T.Attr _ ->
-        (function | [s] -> s | _ -> assert false))
+      (* | Term.T.Attr _ ->
+        (function | [s] -> s | _ -> assert false)*))
 
     (expr_step :> Term.t)
 
@@ -1340,7 +1339,7 @@ let stateful_vars_of_node
 (* ********************************************************************** *)
 
 (* Pretty-print the source of a state variable *)
-let rec pp_print_state_var_source ppf = function
+let pp_print_state_var_source ppf = function
   | Input -> Format.fprintf ppf "input"
   | Oracle -> Format.fprintf ppf "oracle"
   | Output -> Format.fprintf ppf "output"

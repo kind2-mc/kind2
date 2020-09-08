@@ -519,7 +519,7 @@ match Term.destruct term with
     | _ -> Format.asprintf "Const %a" Symbol.pp_print_symbol sym |> failwith
   ) ;
   fmt_term_up svar_pref fmt next
-| Term.T.Attr (kid,_) -> fmt_term_down svar_pref [] fmt kid
+(* | Term.T.Attr (kid,_) -> fmt_term_down svar_pref [] fmt kid *)
 
 (* Goes up a continuation. Prints the strings it finds and calls
 [fmt_term_down] on terms. *)
@@ -1923,7 +1923,7 @@ let oracle_to_rust target find_sub top =
   Format.printf "@.@." ; *)
 
   (* Appends two tries. *)
-  let rec append lhs rhs =
+  let append lhs rhs =
     (I.empty, 0)
     |> I.fold (
       fun _ svar (trie, cnt) -> I.add [I.TupleIndex cnt] svar trie, cnt + 1

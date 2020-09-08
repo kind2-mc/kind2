@@ -20,9 +20,7 @@
 @author Ruoyu Zhang
 *)
 
-open Lib
 open Poly
-
 
 (* Utilities *)
 (* Print out a model. *)

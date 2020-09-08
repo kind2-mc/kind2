@@ -16,8 +16,6 @@
 
 *)
 
-open Lib
-
 (* Removed because too unsafe.
 
    (** Returns an actlit built from a string. Beware of name

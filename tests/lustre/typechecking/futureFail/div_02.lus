@@ -1,0 +1,5 @@
+
+node top(x: real) returns (y: real);
+let
+  y = x / 0.0;
+tel

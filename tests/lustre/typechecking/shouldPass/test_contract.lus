@@ -1,0 +1,15 @@
+contract countSpec(trigger: bool; val: int) returns (count: int ; error: bool) ;
+let
+  assume val >= 0;
+  var initVal: int = val -> pre(initVal);
+  var once: bool = trigger or (false -> pre once) ;
+  guarantee count >= 0 ;
+  mode still_zero (
+    require not once ;
+    ensure count = initVal ;
+  ) ;
+  mode gt (
+    require not ::still_zero ;
+    ensure count > 0 ;
+  ) ;
+tel

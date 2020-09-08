@@ -2087,6 +2087,7 @@ and eval_ast_type ctx = eval_ast_type_flatten false ctx
    optionally flattening/unrolling arrays if 'flatten_arrays' is true. *)
 and eval_ast_type_flatten flatten_arrays ctx = function
 
+  | A.TVar _ -> Lib.todo "Trying to flatten type Variable. Should not happen"
   (* Basic type bool, add to empty trie with empty index *)
   | A.Bool pos -> D.singleton D.empty_index Type.t_bool
 
@@ -2262,6 +2263,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
              a)
         element_type
         D.empty
+  | A.TArr _ -> Lib.todo "Trying to flatten function type. This should not happen"
 
 (*
 

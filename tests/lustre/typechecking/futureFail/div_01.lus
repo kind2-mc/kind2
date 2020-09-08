@@ -1,0 +1,5 @@
+
+node top(x: int) returns (y: int);
+let
+  y = x div 0;
+tel

@@ -16,8 +16,6 @@
 
 *)
 
-open Lib
-
 (* Translates the hash of a term into a string .*)
 let string_of_term term = string_of_int (Term.tag term)
 

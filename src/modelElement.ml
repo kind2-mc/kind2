@@ -62,7 +62,6 @@ module Equation = struct
     | n -> n
   let equal t1 t2 = compare t1 t2 = 0
 end
-module EqMap = Map.Make(Equation)
 module EqSet = Set.Make(Equation)
 
 let scmap_size c =
@@ -497,8 +496,6 @@ let core_diff (scmap1, mapping) (scmap2, _) =
   (scmap, mapping)
 
 
-type eqmap = (ts_equation list) ScMap.t
-
 let core_to_eqmap (scmap, mapping) =
   ScMap.map (List.map (fun a -> SyMap.find a mapping |> fst)) scmap
 
@@ -583,7 +580,6 @@ let rec find_vars t =
   | App (_, lst) ->
     List.map find_vars lst
     |> List.flatten
-  | Attr (t, _) -> find_vars t
 
 let sv_of_term t =
   find_vars t |> List.hd |> Var.state_var_of_state_var_instance

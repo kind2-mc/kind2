@@ -307,6 +307,10 @@ let bitvector_of_term t = match destruct t with
   | T.Const s when Symbol.is_ubitvector s -> 
       Symbol.ubitvector_of_symbol s
 
+  | T.Const s when Symbol.is_numeral s ->
+      Bitvector.num_to_ubv64 (Symbol.numeral_of_symbol s)
+  (* For Yices 1 native *)
+
   | _ -> invalid_arg "bitvector_of_term"
 
 
@@ -795,7 +799,7 @@ let rec type_of_term t = match T.destruct t with
     )
 
   (* Return type of term *)
-  | T.Attr (t, _) -> type_of_term t
+  (* | T.Attr (t, _) -> type_of_term t *)
 
 
 (* Type checking disabled
@@ -998,7 +1002,7 @@ let is_lambda_identity l =
 
 
 (* Is the term a Boolean atom? *)
-let rec is_atom t = match T.destruct t with 
+let is_atom t = match T.destruct t with 
 
   (* Function application *)
   | T.App (s, l) -> 
@@ -1050,7 +1054,7 @@ let rec is_atom t = match T.destruct t with
                  | _ -> assert false)
 
              (* Annotated term *)
-             | T.Attr (t, _) -> (function _ -> is_atom t))
+             (* | T.Attr (t, _) -> (function _ -> is_atom t) *))
 
            e)
        l)
@@ -1062,7 +1066,7 @@ let rec is_atom t = match T.destruct t with
   | T.Var v -> Var.type_of_var v == Type.mk_bool ()
 
   (* Annotated term *)
-  | T.Attr (t, _) -> is_atom t
+  (* | T.Attr (t, _) -> is_atom t *)
 
 
 
@@ -1723,7 +1727,7 @@ let bump_state i term =
 
 
 (* Apply function to term for instants 0..k *)
-let rec bump_and_apply_k f k term =
+let bump_and_apply_k f k term =
 
   let rec loop lbound ubound =
     if Numeral.(lbound > ubound) then ()
@@ -1757,8 +1761,8 @@ let state_vars_of_term term  =
         List.fold_left 
           StateVar.StateVarSet.union 
           StateVar.StateVarSet.empty
-      | T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false))
+      (* | T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false)*))
     term
 
 
@@ -1773,8 +1777,8 @@ let vars_of_term term =
       | T.Const _ -> 
         (function [] -> Var.VarSet.empty | _ -> assert false)
       | T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
-      | T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false))
+      (*| T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false)*))
     term
 
 
@@ -1818,8 +1822,8 @@ let state_vars_at_offset_of_term i term =
         (function [] -> StateVar.StateVarSet.empty | _ -> assert false)
       | T.App _ -> 
         List.fold_left StateVar.StateVarSet.union StateVar.StateVarSet.empty
-      | T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false))
+      (* | T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false)*))
     term
 
 let indexes_of_state_var sv term =
@@ -1872,13 +1876,13 @@ let vars_at_offset_of_term i term =
         (function [] -> Var.VarSet.empty | _ -> assert false)
       | T.App _ -> 
         List.fold_left Var.VarSet.union Var.VarSet.empty
-      | T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false))
+      (*| T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false)*))
     term
 
 
 (* Return minimal and maximal offsets of state variable instances in term *)
-let rec var_offsets_of_term expr = 
+let var_offsets_of_term expr = 
   
   let max_none e1 e2 = match e1, e2 with 
     | None, None -> None 
@@ -1895,7 +1899,7 @@ let rec var_offsets_of_term expr =
   in
       
   let min_max_none (l1, u1) (l2, u2) = 
-    Numeral.(min_none l1 l2, max_none u1 u2) 
+    (min_none l1 l2, max_none u1 u2) 
   in
 
   eval_t ~fail_on_quantifiers:false
@@ -1914,7 +1918,7 @@ let rec var_offsets_of_term expr =
       | T.App _ -> 
         (function l -> List.fold_left min_max_none (None, None) l)
 
-      | T.Attr _ -> (function [v] -> v | _ -> assert false))
+      (*| T.Attr _ -> (function [v] -> v | _ -> assert false)*))
     expr
 
 

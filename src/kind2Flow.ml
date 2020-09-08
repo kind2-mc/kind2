@@ -32,7 +32,6 @@ module C2I = C2I
 module Signals = TermLib.Signals
 
 open Lib
-open Res
 
 (* |===| Helpers. *)
 

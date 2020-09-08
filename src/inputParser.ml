@@ -123,8 +123,6 @@ open Yojson.Safe.Util
 
 type assignment_lhs = StateVar.t * int list
 
-module StringMap = Map.Make (String)
-module SVMap = StateVar.StateVarMap
 module LHS =
 struct
   type t = assignment_lhs

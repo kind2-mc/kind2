@@ -19,8 +19,7 @@
 open Lib
 
 module Ast = LustreAst
-module Expr = LustreExpr
-
+           
 let blah txt pos = Format.asprintf "%s at %a" txt pp_print_pos pos
 let blah_opt txt name pos =
   Format.asprintf "%s%t at %a"

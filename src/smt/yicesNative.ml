@@ -17,7 +17,6 @@
 *)
 open Lib
 
-open YicesDriver
 include YicesDriver
 module Conv = SMTExpr.Converter(YicesDriver)
 open Conv 
@@ -38,8 +37,8 @@ type _ command_type =
   | NoRespCmd : no_response command_type
   | Cmd : decl_response command_type
   | CheckSatCmd : check_sat_response command_type
-  | GetValueCmd : get_value_response command_type
-  | GetUnsatCoreCmd : get_unsat_core_response command_type
+  (* | GetValueCmd : get_value_response command_type *)
+  (* | GetUnsatCoreCmd : get_unsat_core_response command_type *)
   | CustomCmd : int -> custom_response command_type
 
 
@@ -254,7 +253,7 @@ let get_check_sat_response solver timeout =
 
 
 (* Get n S-expressions from the solver *)
-let rec get_custom_command_result solver accum i =
+let get_custom_command_result solver accum i =
   (* Return response *)
   match parse_yices_output solver with
   
@@ -292,8 +291,8 @@ let get_any_response : type r. t -> int -> r command_type -> r =
     | Cmd -> get_command_response solver timeout
     | CheckSatCmd -> get_check_sat_response solver timeout
     | CustomCmd num_res -> get_custom_command_response num_res solver timeout
-    | GetUnsatCoreCmd -> assert false
-    | GetValueCmd -> assert false
+    (* | GetUnsatCoreCmd -> assert false *)
+    (* | GetValueCmd -> assert false *)
 
 
 (* Send the command to the solver instance *)
@@ -1397,7 +1396,7 @@ module Create (P : SolverSig.Params) : SolverSig.Inst = struct
   let declare_fun = declare_fun solver
   let define_fun = define_fun solver
   let assert_expr = assert_removable_expr solver
-  let assert_soft_expr = failwith "Yices: assert-soft not available"
+  let assert_soft_expr _ _ = failwith "Yices: assert-soft not available"
 
   let push = push solver
   let pop = pop solver

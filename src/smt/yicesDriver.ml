@@ -100,20 +100,20 @@ and pp_print_type_node ppf = function
 
     | Type.UBV i ->
       begin match i with
-      | 8 -> Format.pp_print_string ppf "uint8"
-      | 16 -> Format.pp_print_string ppf "uint16"
-      | 32 -> Format.pp_print_string ppf "uint32"
-      | 64 -> Format.pp_print_string ppf "uint64"
+      | 8 -> Format.pp_print_string ppf "(bitvector 8)"
+      | 16 -> Format.pp_print_string ppf "(bitvector 16)"
+      | 32 -> Format.pp_print_string ppf "(bitvector 32)"
+      | 64 -> Format.pp_print_string ppf "(bitvector 64)"
       | _ -> raise 
       (Invalid_argument "pp_print_type_node: BV size not allowed")
       end
 
     | Type.BV i ->
       begin match i with
-      | 8 -> Format.pp_print_string ppf "int8"
-      | 16 -> Format.pp_print_string ppf "int16"
-      | 32 -> Format.pp_print_string ppf "int32"
-      | 64 -> Format.pp_print_string ppf "int64"
+      | 8 -> Format.pp_print_string ppf "(bitvector 8)"
+      | 16 -> Format.pp_print_string ppf "(bitvector 16)"
+      | 32 -> Format.pp_print_string ppf "(bitvector 32)"
+      | 64 -> Format.pp_print_string ppf "(bitvector 64)"
       | _ -> raise 
       (Invalid_argument "pp_print_type_node: BV size not allowed")
       end
@@ -124,14 +124,6 @@ and pp_print_type_node ppf = function
 
     | Type.Real -> Format.pp_print_string ppf "real"
     | Type.Abstr s -> Format.pp_print_string ppf s
-(*
-  | Type.BV i -> 
-
-    Format.fprintf
-      ppf 
-      "(bitvector %d)" 
-      i 
-*)
     | Type.Array (te, ti) -> 
       Format.fprintf
         ppf 

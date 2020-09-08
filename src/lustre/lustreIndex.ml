@@ -182,7 +182,7 @@ let equal_one_index a b = match a,b with
 
 
 (* Lexicographic comparison of lists of indexes *)
-let rec compare_indexes a b = match a, b with 
+let compare_indexes a b = match a, b with 
 
   (* Lists are equal *)
   | [], [] -> 0

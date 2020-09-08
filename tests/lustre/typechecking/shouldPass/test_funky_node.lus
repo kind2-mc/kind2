@@ -1,0 +1,88 @@
+node EDGE (X: bool) returns (Y: bool);
+let
+  Y = false -> X and not pre(X);
+tel
+
+
+node FALLING_EDGE (X: bool) returns (Y: bool);
+let
+  Y = EDGE(not X);
+tel
+
+node SWITCH1 (set, reset, init: bool) returns (level: bool);
+let
+  level = init -> if set then true else if reset then false else pre(level);
+  assert not (set and reset);
+tel
+
+
+node SWITCH (set, reset, init: bool) returns (level: bool);
+let
+  level = init -> if set and not pre(level) then true else if reset then false else pre(level);
+tel
+
+node x1 (X: bool; N: int) returns ();
+var
+  N1, PN, N2, N3, N4: int;
+let
+  N1 = 0 -> if X then pre N + 1 else pre N;
+  PN = 0 -> pre N;
+  N2 = if X then PN + 1 else PN;
+  N3 = if X then (0 -> pre N) + 1 else (0 -> pre N);
+  N4 = (0 -> pre N) + if X then 0 else 1;
+tel
+
+node x2 () returns (odds, mod10: int);
+var reset: bool;
+let
+  odds = COUNTER(0, 2, true, false);
+  mod10 = COUNTER(0, 1, true, reset);
+  reset = true -> pre(mod10) = 9;
+tel
+
+node integrator (F, STEP, init: real) returns (Y: real);
+let
+  Y = init -> pre(Y) + (((F + pre(F))*STEP)/2.0);
+tel
+
+/*
+node sincos (omega: real) returns(sin, cos: real);
+let
+  sin = omega * integrator(cos, 0.1, 0.0);
+  cos = omega * integrator(0.0 -> -pre(sin), 0.1, 1.0);
+tel
+*/
+/*
+node x3 (omega: real) returns (min, max: real);
+var s, c: real;
+let 
+  (s, c) = sincos(omega);
+  (min, max) = if s > c then (s, c) else (c, s);
+tel
+*/
+node STABLE (set: bool; delay: int) returns (level: bool);
+var count: int;
+let 
+  level = (count > 0);
+  count = if set then delay 
+          else if false -> pre(level) then pre(count) -1
+               else 0;
+tel
+
+node TIME_STABLE (set, second: bool; delay: int) returns (level: bool);
+var count: int;
+let
+  level = (count > 0);
+  count = if set then delay
+          else if second then 
+                 if false -> pre(level) then pre(count) - 1 
+                 else 0
+               else (0 -> pre(count));
+tel
+
+node COUNTER (init, incr: int; X, reset: bool) returns (N: int);
+var PN: int;
+let
+  PN = init -> pre N;
+  N = if reset then init else if X then PN + incr else PN;
+tel
