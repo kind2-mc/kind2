@@ -32,12 +32,21 @@ let cmd_line
   (let open TermLib in
    let open TermLib.FeatureSet in
    match logic with
-   | `Inferred l when mem NA l && Flags.Smt.check_sat_assume () ->
+   | `Inferred l when mem NA l && Flags.Smt.check_sat_assume () -> (
      Flags.Smt.set_check_sat_assume false;
      KEvent.log Lib.L_warn
        "In %a: Yices 2 does not support check-sat-assuming with non-linear models.@ \
         Disabling check_sat_assume."
        Lib.pp_print_kind_module (KEvent.get_module ())
+   )
+   | `Inferred l when mem BV l && (mem IA l || mem RA l) -> (
+     let msg =
+       Format.asprintf
+         "In %a: Yices 2 does not support programs with both integers/reals and machine integers"
+           Lib.pp_print_kind_module (KEvent.get_module ())
+     in
+     failwith msg
+   )
    | _ -> ()
   );
 

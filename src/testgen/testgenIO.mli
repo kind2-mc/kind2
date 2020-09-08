@@ -16,9 +16,6 @@
 
 *)
 
-open Lib
-
-
 (** Stores IO things to log testcases to xml. *)
 type _ t
 

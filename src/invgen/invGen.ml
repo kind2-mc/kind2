@@ -29,8 +29,6 @@ module type GraphSig = InvGenGraph.Graph
 (* LSD module. *)
 module Lsd = LockStepDriver
 
-(* Term hash table. *)
-module Map = Term.TermHashtbl
 (* Term set. *)
 module Set = Term.TermSet
 
@@ -86,14 +84,14 @@ module SysMap = Sys.Hashtbl
 module Num = Numeral
 
 (* Term. *)
-type term = Term.t
+(* type term = Term.t *)
 (* A representative is just a term. *)
-type rep = term
+(* type rep = term *)
 
 (* Maps terms to something. *)
-type 'a map = 'a Map.t
+(* type 'a map = 'a Map.t *)
 (* Set of terms. *)
-type set = Set.t
+(* type set = Set.t *)
 
 (* Term formatter. *)
 let fmt_term = Term.pp_print_term
@@ -315,7 +313,7 @@ module Make (Graph : GraphSig) : Out = struct
   Returns the new invariants for the system [sys]. *)
   let recv_and_update input_sys aparam top_sys sys_map sys =
 
-    let rec update_pruning_checkers sys_invs map =
+    let update_pruning_checkers sys_invs map =
       Scope.Map.fold (
         fun scope (os, ts) acc ->
           let this_sys = Sys.find_subsystem_of_scope top_sys scope in

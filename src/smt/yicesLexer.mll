@@ -17,7 +17,6 @@
 *)
 
 {
-  open Printf
   open Lexing
   open YicesParser
 

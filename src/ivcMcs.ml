@@ -19,7 +19,6 @@
 open ModelElement
 
 module TS = TransSys
-module SMT  : SolverDriver.S = GenericSMTLIBDriver
 module ScMap = Scope.Map
 module SVSet = StateVar.StateVarSet
 
@@ -131,6 +130,7 @@ let rand_functions = Hashtbl.create 10
 let previous_rands = Hashtbl.create 10
 
 let rec unannot_pos = function
+  | A.TVar (_, i) -> A.TVar (dpos, i)
   | A.Bool _ -> A.Bool dpos
   | A.Int _ -> A.Int dpos
   | A.UInt8 _ -> A.UInt8 dpos
@@ -151,7 +151,7 @@ let rec unannot_pos = function
     A.RecordType (dpos,List.map aux tids)
   | A.ArrayType (_,(t,e)) -> A.ArrayType (dpos,(unannot_pos t,e))
   | A.EnumType (_,id,ids) -> A.EnumType (dpos,id,ids)
-
+  | A.TArr (_, a_ty, r_ty) -> A.TArr (dpos, a_ty, r_ty)
 let rand_function_name_for _ ts =
   let ts = List.map unannot_pos ts in
   begin
@@ -315,7 +315,7 @@ and minimize_expr ue lst typ expr =
 
 let tyof_lhs id_typ_map lhs =
   let A.StructDef (pos, items) = lhs in
-  let rec aux = function
+  let aux = function
   | A.SingleIdent (_,id) as e -> [e, IdMap.find id id_typ_map]
   | A.ArrayDef (pos,id,_) -> [A.SingleIdent (pos,id), IdMap.find id id_typ_map]
   | A.TupleStructItem _ | A.ArraySliceStructItem _ | A.FieldSelection _ | A.TupleSelection _
@@ -1076,7 +1076,6 @@ let actlit_of_term t = match Term.destruct t with
     | Var _ -> assert false
     | Const s -> Symbol.uf_of_symbol s
     | App _ -> assert false
-    | Attr _ -> assert false
 
 let base_k sys b0 init_eq trans_eq prop_eq os_prop_eq k =
   let prop_eq = if k = 0 then os_prop_eq else prop_eq in
@@ -1258,8 +1257,6 @@ let eq_of_actlit core ?(with_act=false) a =
       trans_opened=guard eq.trans_opened ; trans_closed=guard eq.trans_closed }
   else eq
 
-exception NotKInductive
-
 (** Implements the approximate algorithm (using Unsat Cores) *)
 let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes keep test =
 
@@ -1360,7 +1357,7 @@ let ivc_uc in_sys ?(approximate=false) sys props =
     let (_, test) = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
     Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation=true })
   ) with
-  | NotKInductive | CertifChecker.CouldNotProve _ ->
+  | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
     then (KEvent.log L_error "Cannot reprove properties." ;
           Error "Cannot reprove properties")
@@ -1405,7 +1402,7 @@ let must_set in_sys param analyze sys props =
     let (_, must) = must_set_ in_sys check_ts sys props enter_nodes keep test in
     Solution (props, core_to_loc_core in_sys (core_union keep must), { approximation = !timeout })
   ) with
-  | NotKInductive | CertifChecker.CouldNotProve _ ->
+  | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
     then (KEvent.log L_error "Cannot reprove properties." ;
           Error "Cannot reprove properties")
@@ -1558,7 +1555,7 @@ let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
     let test = ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
     Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation = !timeout })
   ) with
-  | CannotProve | NotKInductive | CertifChecker.CouldNotProve _ ->
+  | CannotProve | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
     then (KEvent.log L_error "Cannot reprove properties." ;
           Error "Cannot reprove properties")
@@ -1626,7 +1623,7 @@ let block_down map actsvs s =
   |> at_least_one_true
   |> SMTSolver.assert_term map
 
-type unexplored_type = | Any | Min | Max
+type unexplored_type = Min | Max
 
 let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
   ?(stop_after=0) cont keep test =
@@ -1828,7 +1825,7 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
     let _ = umivc_ sys props k enter_nodes ~stop_after cont keep test in
     List.rev (!res)
   ) with
-  | CannotProve | NotKInductive | CertifChecker.CouldNotProve _ ->
+  | CannotProve | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
     then (KEvent.log L_error "Cannot reprove properties." ; [])
     else []

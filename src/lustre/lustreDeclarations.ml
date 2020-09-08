@@ -23,12 +23,10 @@ module A = LustreAst
 module H = LustreAstHelpers
          
 module I = LustreIdent
-module IT = LustreIdent.Hashtbl
 
 module D = LustreIndex
 
 module E = LustreExpr
-module ET = E.LustreExprHashtbl
 
 module N = LustreNode
 module Contract = LustreContract
@@ -39,7 +37,6 @@ module S = LustreSimplify
 module G = LustreGlobals
 
 module SVS = StateVar.StateVarSet
-module SVM = StateVar.StateVarMap
 module ISet = Set.Make (String)
 
 module Deps = LustreDependencies
@@ -806,7 +803,7 @@ let uneval_eq_lhs ctx = function
 
 (* Return a trie of state variables from the left-hand side of an
    equation *)
-let rec eval_eq_lhs ctx pos = function
+let eval_eq_lhs ctx pos = function
 
   (* Empty list for node calls without returns *)
   | A.StructDef (pos, []) -> (D.empty, 0, ctx)

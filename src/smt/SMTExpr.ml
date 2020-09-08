@@ -17,7 +17,6 @@
 *)
 
 open Lib
-open SolverResponse
 
 (* An SMT expression is a term *)
 type t = Term.t
@@ -88,7 +87,7 @@ struct
   (* ********************************************************************* *)
 
   (* Convert a type to an SMT sort : no conversion for yices *)
-  let rec smtsort_of_type t = Driver.interpr_type t
+  let smtsort_of_type t = Driver.interpr_type t
 
 
   (* Convert a variable to an SMT expression *)
@@ -104,7 +103,7 @@ struct
 
 
   (* Convert an SMT expression to a variable *)
-  let rec var_term_of_smtexpr e = 
+  let var_term_of_smtexpr e = 
 
     (* Keep bound variables untouched *)
     if Term.is_bound_var e then               
@@ -160,7 +159,7 @@ struct
           )
 
         (* Annotated term *)
-        | Term.T.Attr (t, _) -> var_term_of_smtexpr t
+        (* | Term.T.Attr (t, _) -> var_term_of_smtexpr t *)
 
         (* Already variables *)
         | Term.T.Var _ -> e

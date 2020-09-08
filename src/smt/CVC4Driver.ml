@@ -16,8 +16,6 @@
 
 *)
 
-open Lib
-
 include GenericSMTLIBDriver
 
 (* Configuration for CVC4 *)
@@ -29,8 +27,6 @@ let cmd_line
     produce_cores
     minimize_cores
     produce_interpolants =
-
-  let open TermLib in
   
   (* Path and name of CVC4 executable *)
   let cvc4_bin = Flags.Smt.cvc4_bin () in

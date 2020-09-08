@@ -21,9 +21,6 @@ open Lib
 module P = Property
 module SVM = StateVar.StateVarMap
 module SVS = StateVar.StateVarSet
-module SVT = StateVar.StateVarHashtbl
-
-module TermMap = Term.TermHashtbl
 
 (* Offset of state variables in initial state constraint *)
 let init_base = Numeral.zero
@@ -802,9 +799,6 @@ struct
   let hash { scope } = Scope.hash scope
 
 end
-
-(* Set of transition systems *)
-module Set = Set.Make (T)
 
 (* Map of transition systems *)
 module Map = Map.Make (T)
@@ -1693,15 +1687,6 @@ let mk_trans_sys
          |> TermLib.sup_logics)
 
   in
-
-  (match logic with
-  | `Inferred l when TermLib.FeatureSet.mem BV l -> (
-    match Flags.Smt.solver() with
-    | `Yices_SMTLIB | `Yices_native -> 
-      raise (Failure "Lustre files with machine integers cannot be used with Yices or Yices2 solvers")
-    | _ -> ()
-  )
-  | _ -> ());
 
   (* Increment start value of fresh instance identifier for next
      transition system *)

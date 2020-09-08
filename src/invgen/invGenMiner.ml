@@ -21,14 +21,13 @@ open Lib
 module Num = Numeral
 module Dec = Decimal
 module SVar = StateVar
-module SVS = SVar.StateVarSet
 module Set = Term.TermSet
 module Sys = TransSys
 
 type svar = SVar.t
 let fmt_svar = SVar.pp_print_state_var
 let fmt_term = Term.pp_print_term
-type svs = SVS.t
+(* type svs = SVS.t *)
 type set = Set.t
 type flat = Term.T.flat
 type sys = Sys.t
@@ -182,7 +181,7 @@ end
 let filter_terms_with_unsupported_symbols candidates =
   let rec includes_unsupported_symbol term =
     match Term.destruct term with
-    | Term.T.Attr (t, _) -> includes_unsupported_symbol t
+    (* | Term.T.Attr (t, _) -> includes_unsupported_symbol t *)
     | Term.T.App (s, l) -> (
       match Symbol.node_of_symbol s with
       | `UF _
@@ -330,8 +329,8 @@ let mentions_var term = Term.vars_of_term term |> Var.VarSet.exists (
 
 
 (* Returns true if the term is a variable or a constant. *)
-let rec is_var_or_const term = match Term.destruct term with
-| Term.T.Attr (kid, _) -> is_var_or_const kid
+let is_var_or_const term = match Term.destruct term with
+(* | Term.T.Attr (kid, _) -> is_var_or_const kid *)
 | Term.T.Var var -> (
   Var.is_state_var_instance var
 ) && (
@@ -343,8 +342,8 @@ let rec is_var_or_const term = match Term.destruct term with
 
 
 (* Returns true if the term is a variable. *)
-let rec is_var term = match Term.destruct term with
-| Term.T.Attr (kid, _) -> is_var kid
+let is_var term = match Term.destruct term with
+(* | Term.T.Attr (kid, _) -> is_var kid *)
 | Term.T.Var var -> (
   Var.is_state_var_instance var
 ) && (
@@ -355,8 +354,8 @@ let rec is_var term = match Term.destruct term with
 
 
 (* Returns true if the term is a constant. *)
-let rec is_const term = match Term.destruct term with
-| Term.T.Attr (kid, _) -> is_const kid
+let is_const term = match Term.destruct term with
+(* | Term.T.Attr (kid, _) -> is_const kid *)
 | Term.T.Const _ -> true
 | _ -> false
 
@@ -622,7 +621,7 @@ module IntRules = struct
 
   let post_svars _ (set, _) = (set, Set.empty)
 
-  let rec flat_rules two_state flat (set, constants) =
+  let flat_rules two_state flat (set, constants) =
     let term = to_term flat in
     match type_of term with
     | Type.Int
@@ -639,8 +638,8 @@ module IntRules = struct
         | `NUMERAL n -> Set.add term set, Set.add term constants
         | _ -> failwith "Constant of type int is not a numeral."
       )
-      | Term.T.Attr (term, _) ->
-        flat_rules two_state (Term.destruct term) (set, constants)
+      (* | Term.T.Attr (term, _) ->
+        flat_rules two_state (Term.destruct term) (set, constants)*)
       | Term.T.Var _ ->
         Set.add term set, constants
     )
@@ -726,7 +725,7 @@ module RealRules = struct
 
   let post_svars _ (set, _) = (set, Set.empty)
 
-  let rec flat_rules two_state flat (set, constants) =
+  let flat_rules two_state flat (set, constants) =
     let term = to_term flat in
     match type_of term with
     | Type.Real -> (
@@ -742,8 +741,8 @@ module RealRules = struct
         | `DECIMAL n -> Set.add term set, Set.add term constants
         | _ -> failwith "Constant of type real is not a decimal."
       )
-      | Term.T.Attr (term, _) ->
-        flat_rules two_state (Term.destruct term) (set, constants)
+      (*| Term.T.Attr (term, _) ->
+        flat_rules two_state (Term.destruct term) (set, constants)*)
       | Term.T.Var _ ->
         Set.add term set, constants
     )

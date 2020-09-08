@@ -1,0 +1,41 @@
+node example (in: int) returns (safe_tmp: bool) ;
+var tmp, in_pos, pre_tmp: bool ;
+let
+  in_pos = in >= 0 ;
+  tmp = (activate sum_ge_10 every in_pos)(in) ;
+  pre_tmp = false -> pre safe_tmp  ;
+  safe_tmp = merge( in_pos ; tmp ; pre_tmp when not in_pos ) ;
+tel
+
+
+type ABC = enum { V_A, V_B, V_C };
+
+
+node n_merge(x,w:int; c: ABC) returns (y:int);
+let
+  y =
+    merge c
+    (V_A -> x when V_A(c))
+    (V_B -> w + 1 when V_B(c))
+    (V_C -> x + w when V_C(c));
+tel
+
+
+node sum_ge_10 (const in: int) returns (out: bool) ;
+var sum: int ;
+let
+  sum = in + (0 -> pre sum) ;
+  out = sum >= 10 ;
+tel
+
+node merge_when_activate (in: int) returns (safe_tmp: bool) ;
+var in_pos, pre_tmp: bool;
+let
+  in_pos = in >= 0 ;
+  pre_tmp = false -> pre safe_tmp  ;
+  safe_tmp = merge(
+    in_pos ;
+    (activate sum_ge_10 every in_pos)(in) ;
+    pre_tmp when not in_pos
+  ) ;
+tel

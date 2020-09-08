@@ -1,0 +1,5 @@
+node f(const n: int; x : bool) returns (b1 : bool^n);
+let
+  --%PROPERTY b1[1] = false;     
+  b1 = false ^ n;
+tel

@@ -21,6 +21,10 @@
     @author Christoph Sticksel
 *)
 
+exception Unsupported of string
+(** thunk for an unimplimented function *)
+
+val todo: string -> 'a        
 (** {1 Helper functions} *)
 
 (** Identity function. *)
@@ -44,10 +48,11 @@ val true_of_any : 'a -> bool
 (** Return false *)
 val false_of_any : 'a -> bool
 
-(* Creates a directory if it does not already exist. *)
+(** Creates a directory if it does not already exist. *)
 val mk_dir : string -> unit
 
-
+(** Flips the expected argument of the function *)
+val flip: ('a -> 'b -> 'c) -> ('b -> 'a -> 'c)
 
 (** {1 Option types} *)
 
@@ -66,6 +71,7 @@ val min_option : float option -> float option -> float option
     [s2] is longer than [s1]. *)
 val string_starts_with : string -> string -> bool
 
+  
 (** {1 Integer functions} *)
 
 (** [safe_hash_interleave h m i] compute [m * h + i] and makes sure
@@ -156,6 +162,9 @@ val compare_pairs : ('a -> 'a -> int) -> ('b -> 'b -> int) -> 'a * 'b -> 'a * 'b
 (** Lexicographic comparison of lists *)
 val compare_lists : ('a -> 'a -> int) -> 'a list -> 'a list -> int 
 
+(** Apply a list of functions to a single argument. Kind of List.map but not really *)
+val list_apply: ('a -> 'b) list -> 'a -> 'b list
+  
 (** {1 Array functions} *)
 
 (** Returns the maximum element of a non-empty array *)
@@ -171,6 +180,13 @@ module IntegerHashtbl : Hashtbl.S with type key = int
   
 (** {1 Pretty-printing helpers} *)
 
+(** Pretty-print a pair. 
+    it excepts two formatters and a separator and formats the pair
+*)     
+val pp_print_pair: (Format.formatter -> 'a -> 'b) ->
+                   (Format.formatter -> 'c -> 'd) ->
+                   ('e, Format.formatter, unit) format -> Format.formatter -> 'a * 'c -> 'd
+     
 (** Pretty-print an array with given separator
  
  [pp_print_array elem_printer separator formatter array] calls,

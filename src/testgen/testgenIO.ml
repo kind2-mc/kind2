@@ -18,15 +18,15 @@
 
 open Lib
 
-module N = LustreNode
-
 type sys = TransSys.t
+(*
 type svar = StateVar.t
 type actlit = UfSymbol.t
 type term = Term.t
 type model = Model.t
 type values = (Term.t * Term.t) list
 type k = Numeral.t
+*)
 
 type file = Unix.file_descr
 

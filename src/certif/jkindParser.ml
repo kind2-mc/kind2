@@ -20,14 +20,11 @@ open Lib
 
 module Ids = ReservedIds
 
-module HH = HString.HStringHashtbl
 module HS = HStringSExpr
 module D = GenericSMTLIBDriver
-module TS = TransSys
 module SVMap = StateVar.StateVarMap
 module SVH = StateVar.StateVarHashtbl
 
-module Conv = SMTExpr.Converter(D)
 let conv = D.smtlib_string_sexpr_conv
 let conv_type_of_sexpr = conv.D.type_of_sexpr
 let conv_term_of_sexpr = conv.D.expr_of_string_sexpr conv

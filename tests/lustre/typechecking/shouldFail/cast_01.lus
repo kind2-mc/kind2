@@ -1,0 +1,5 @@
+
+node top(x: bool) returns (y: int);
+let
+  y = (int x);
+tel

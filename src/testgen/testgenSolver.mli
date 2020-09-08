@@ -35,8 +35,6 @@
   Note: [a0] is not really needed but is here for consistency.
 *)
 
-open Lib
-
 (* Stores the transition system, the solver, and the list of actlits. *)
 type t
 

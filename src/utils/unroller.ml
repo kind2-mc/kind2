@@ -16,9 +16,6 @@
 
 *)
 
-
-open Lib
-
 module Num = Numeral
 module Smt = SMTSolver
 

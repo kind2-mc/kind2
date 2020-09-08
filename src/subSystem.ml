@@ -16,8 +16,6 @@
 
 *)
 
-open Lib
-
 type 'a t = {
   (* Name of the system as a scope. *)
   scope: Scope.t ;
