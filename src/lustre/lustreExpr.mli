@@ -358,30 +358,6 @@ val has_indexes : t -> bool
 (** Return a conversion to an integer numeral. *)
 val mk_to_int : t -> t
 
-(** Return a conversion from uint8 to integer *)
-val mk_uint8_to_int : t -> t
-
-(** Return a conversion from uint16 to integer *)
-val mk_uint16_to_int : t -> t
-
-(** Return a conversion from uint32 to integer *)
-val mk_uint32_to_int : t -> t
-
-(** Return a conversion from uint64 to integer *)
-val mk_uint64_to_int : t -> t
-
-(** Return a conversion from int8 to integer *)
-val mk_int8_to_int : t -> t
-
-(** Return a conversion from int16 to integer *)
-val mk_int16_to_int : t -> t
-
-(** Return a conversion from int32 to integer *)
-val mk_int32_to_int : t -> t
-
-(** Return a conversion from int64 to integer *)
-val mk_int64_to_int : t -> t
-
 (** Return a conversion to an unsigned integer8 numeral. *)
 val mk_to_uint8 : t -> t
 

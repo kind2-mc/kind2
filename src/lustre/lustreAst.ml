@@ -59,8 +59,6 @@ type conversion_operator =
   | ToInt | ToReal
   | ToInt8 | ToInt16 | ToInt32 | ToInt64
   | ToUInt8 | ToUInt16 | ToUInt32 | ToUInt64
-  | UInt8ToInt | UInt16ToInt | UInt32ToInt | UInt64ToInt
-  | Int8ToInt | Int16ToInt | Int32ToInt | Int64ToInt
 
 type unary_operator =
   | Not | Uminus
@@ -490,14 +488,6 @@ let rec pp_print_expr ppf =
     | Const (p, Dec d) -> ps p d
 
     | ConvOp (p, ToInt, e) -> p1 p "int" e
-    | ConvOp (p, UInt8ToInt, e) -> p1 p "uint8_to_int" e
-    | ConvOp (p, UInt16ToInt, e) -> p1 p "uint16_to_int" e
-    | ConvOp (p, UInt32ToInt, e) -> p1 p "uint32_to_int" e
-    | ConvOp (p, UInt64ToInt, e) -> p1 p "uint64_to_int" e
-    | ConvOp (p, Int8ToInt, e) -> p1 p "int8_to_int" e
-    | ConvOp (p, Int16ToInt, e) -> p1 p "int16_to_int" e
-    | ConvOp (p, Int32ToInt, e) -> p1 p "int32_to_int" e
-    | ConvOp (p, Int64ToInt, e) -> p1 p "int64_to_int" e
     | ConvOp (p, ToUInt8, e) -> p1 p "uint8" e
     | ConvOp (p, ToUInt16, e) -> p1 p "uint16" e
     | ConvOp (p, ToUInt32, e) -> p1 p "uint32" e

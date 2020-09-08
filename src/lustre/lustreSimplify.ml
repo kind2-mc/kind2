@@ -208,16 +208,6 @@ let rec eval_ast_expr bounds ctx =
   (* Conversion to an integer number [int expr] *)
     | A.ConvOp (pos, A.ToInt, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int expr 
 
-  (* Conversion to an integer number [int expr] from machine integer types *)
-    | A.ConvOp (pos, A.UInt8ToInt, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_uint8_to_int expr
-    | A.ConvOp (pos, A.UInt16ToInt, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_uint16_to_int expr
-    | A.ConvOp (pos, A.UInt32ToInt, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_uint32_to_int expr
-    | A.ConvOp (pos, A.UInt64ToInt, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_uint64_to_int expr
-    | A.ConvOp (pos, A.Int8ToInt, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_int8_to_int expr
-    | A.ConvOp (pos, A.Int16ToInt, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_int16_to_int expr
-    | A.ConvOp (pos, A.Int32ToInt, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_int32_to_int expr
-    | A.ConvOp (pos, A.Int64ToInt, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_int64_to_int expr
-
   (* Conversion to unsigned fixed-width integer numbers [uint8-uint64 expr] *)
     | A.ConvOp (pos, A.ToUInt8, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_uint8 expr
     | A.ConvOp (pos, A.ToUInt16, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_uint16 expr

@@ -486,14 +486,6 @@ rule token = parse
   | "!" { BVNOT }
   | "lsh" { LSH } 
   | "rsh" { RSH }
-  | "uint8_to_int" { UINT8TOINT }
-  | "uint16_to_int" { UINT16TOINT }
-  | "uint32_to_int" { UINT32TOINT }
-  | "uint64_to_int" { UINT64TOINT }
-  | "int8_to_int" { INT8TOINT }
-  | "int16_to_int" { INT16TOINT }
-  | "int32_to_int" { INT32TOINT }
-  | "int64_to_int" { INT64TOINT }
 
   (* Decimal or numeral *)
   | decimal as p { DECIMAL p }
