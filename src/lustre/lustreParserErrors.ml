@@ -1295,7 +1295,7 @@ let message =
     | 238 ->
         "Syntax Error!\n"
     | 59 ->
-        "Syntax Error!\n"
+        "Syntax Error! Probable cause use of anonymous enum declaration as a type for a variable.\n"
     | 236 ->
         "Syntax Error!\n"
     | 55 ->

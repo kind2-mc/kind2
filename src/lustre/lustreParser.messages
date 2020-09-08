@@ -863,7 +863,7 @@ one_expr: FORALL LPAREN WEAKLY COLON XOR
 ## ident_list_pos COLON
 ##
 
-Syntax Error!
+Syntax Error! Probable cause use of anonymous enum declaration as a type for a variable.
 
 one_expr: FORALL LPAREN WEAKLY COMMA XOR
 ##
