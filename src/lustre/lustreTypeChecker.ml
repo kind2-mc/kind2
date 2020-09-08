@@ -811,7 +811,7 @@ and infer_type_binary_op: tc_context -> Lib.position
      if (is_type_signed_machine_int ty1 || is_type_unsigned_machine_int ty1)
      then (if (is_type_unsigned_machine_int ty2
                && is_machine_type_of_associated_width (ty1, ty2))
-           then if is_expr_of_conts ctx e2
+           then if is_expr_of_consts ctx e2
                 then R.ok ty1
                 else type_error pos "Expected second argument of shift operator to be a constant"
            else type_error pos ("Expected second argument of shift operator to be a constant "
@@ -1112,7 +1112,7 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
 and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context tc_result
   = fun ctx -> function
   | GhostConst c -> tc_ctx_const_decl ctx c 
-  | GhostVar c -> tc_ctx_const_decl ctx c
+  | GhostVar c -> tc_ctx_const_decl ~const_real:false ctx c
   | Assume (pos, _, _, e) -> R.ok ctx
   | Guarantee _ -> R.ok ctx
   | Mode (pos, name, _, _) -> R.ok (add_ty ctx name (Bool pos)) 
@@ -1156,6 +1156,33 @@ and check_contract_node_eqn: tc_context -> LA.contract_node_equation -> unit tc_
                   else LA.TupleType (pos, ret_tys) in
      check_type_expr ctx (LA.Call (pos, cname, args))(ret_ty) 
 
+and tc_ctx_const_decl
+  = fun ?const_real:(const_real=true) ctx ->
+  function
+  | LA.FreeConst (pos, i, ty) ->
+     check_type_well_formed ctx ty
+     >> if member_ty ctx i
+        then type_error pos ("Constant " ^ i ^ " is already declared.")
+        else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty) i ty)
+  | LA.UntypedConst (pos, i, e) ->
+     if member_ty ctx i
+     then type_error pos ("Constant " ^ i ^ " is already declared.")
+     else infer_type_expr ctx e >>= fun ty ->
+          (if const_real then
+          check_expr_of_consts ctx e 
+          else R.ok ()) >>
+                 R.ok (add_ty (add_const ctx i e ty) i ty)
+  | LA.TypedConst (pos, i, e, exp_ty) ->
+     if member_ty ctx i
+     then type_error pos ("Constant " ^ i ^ " is already declared.")
+     else check_type_expr (add_ty ctx i exp_ty) e exp_ty
+          >> (if const_real then
+               check_expr_of_consts ctx e 
+             else R.ok ())
+                  >> R.ok (add_ty (add_const ctx i e exp_ty) i exp_ty)
+(** Fail if a duplicate constant is detected  *)
+
+     
 and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
   = fun ctx ->
   function
@@ -1205,7 +1232,7 @@ and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_cont
   = fun ctx ->
   function
   | LA.GhostConst c -> tc_ctx_const_decl ctx c
-  | LA.GhostVar c -> tc_ctx_const_decl ctx c
+  | LA.GhostVar c -> tc_ctx_const_decl ~const_real:false ctx c
   | LA.Mode (pos, mname, _, _) ->
      if (member_ty ctx mname)
      then type_error pos ("Mode " ^ mname ^ " is already declared")
@@ -1227,7 +1254,7 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
     else build_node_fun_ty pos ctx inputs outputs
          >>= fun fun_ty -> R.ok (add_ty ctx cname fun_ty)
 
-and tc_context_of_declaration: tc_context -> LA.declaration -> tc_context tc_result
+and tc_ctx_of_declaration: tc_context -> LA.declaration -> tc_context tc_result
     = fun ctx' ->
     function
     | LA.ConstDecl (_, const_decl) -> tc_ctx_const_decl ctx' const_decl
@@ -1239,7 +1266,7 @@ and tc_context_of_declaration: tc_context -> LA.declaration -> tc_context tc_res
 
 and tc_context_of: tc_context -> LA.t -> tc_context tc_result
   = fun ctx decls ->
-  R.seq_chain (tc_context_of_declaration) ctx decls 
+  R.seq_chain (tc_ctx_of_declaration) ctx decls 
 (** Obtain a global typing context, get constants and function decls*)
   
 and build_type_and_const_context: tc_context -> LA.t -> tc_context tc_result
@@ -1266,7 +1293,7 @@ and check_type_well_formed: tc_context -> tc_type -> unit tc_result
        (R.seq_ (List.map (fun (_, _, ty)
                   -> check_type_well_formed ctx ty) idTys))
   | LA.ArrayType (pos, (b_ty, s)) ->
-     if is_expr_int_type ctx s && is_expr_of_conts ctx s
+     if is_expr_int_type ctx s && is_expr_of_consts ctx s
      then check_type_well_formed ctx b_ty
      else type_error pos ("Invalid expression in array bounds")
   | LA.TupleType (_, tys) ->
@@ -1277,25 +1304,6 @@ and check_type_well_formed: tc_context -> tc_type -> unit tc_result
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
        
-and tc_ctx_const_decl: tc_context -> LA.const_decl -> tc_context tc_result = fun ctx ->
-  function
-  | LA.FreeConst (pos, i, ty) ->
-     check_type_well_formed ctx ty
-     >> if member_ty ctx i
-          then type_error pos ("Constant " ^ i ^ " is already declared.")
-          else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty) i ty)
-  | LA.UntypedConst (pos, i, e) ->
-     if member_ty ctx i
-     then type_error pos ("Constant " ^ i ^ " is already declared.")
-     else infer_type_expr ctx e >>= fun ty -> 
-          R.ok (add_ty (add_const ctx i e ty) i ty)
-  | LA.TypedConst (pos, i, expr, exp_ty) ->
-     if member_ty ctx i
-     then type_error pos ("Constant " ^ i ^ " is already declared.")
-     else check_type_expr (add_ty ctx i exp_ty) expr exp_ty
-          >> R.ok (add_ty (add_const ctx i expr exp_ty) i exp_ty)
-(** Fail if a duplicate constant is detected  *)
-
 and build_node_fun_ty: Lib.position -> tc_context
                        -> LA.const_clocked_typed_decl list
                        -> LA.clocked_typed_decl list -> tc_type tc_result
@@ -1381,10 +1389,43 @@ and is_expr_int_type: tc_context -> LA.expr -> bool  = fun ctx e ->
  * in evaluating array sizes that we need to have as constant integers
  * while declaring the array type *)
 
-and is_expr_of_conts: tc_context -> LA.expr -> bool = fun ctx e ->
+and is_expr_of_consts: tc_context -> LA.expr -> bool = fun ctx e ->
   List.fold_left (&&) true (List.map (member_val ctx) (LA.SI.elements (LH.vars e)))
 (** checks if all the variables in the expression are constants *)
 
+and check_expr_of_consts: tc_context -> LA.expr -> unit tc_result = fun ctx e ->
+  match e with
+  | Ident (pos, i) -> if member_val ctx i
+                      then R.ok ()
+                      else type_error pos ("Expression " ^ i ^ " is not a constant")
+  | RecordProject (_, e, _) -> check_expr_of_consts ctx e
+  | TupleProject (_, e1, e2) -> check_expr_of_consts ctx e1 >> check_expr_of_consts ctx e2
+  (* Values *)
+  | Const _ -> R.ok ()
+  (* Operators *)
+  | UnaryOp (_, _, e) -> check_expr_of_consts ctx e
+  | BinaryOp (_, _, e1, e2) -> check_expr_of_consts ctx e1
+                               >> check_expr_of_consts ctx e2
+  | TernaryOp (_, _, e1, e2, e3) -> check_expr_of_consts ctx e1
+                                    >> check_expr_of_consts ctx e2
+                                    >> check_expr_of_consts ctx e3
+  | ConvOp (_, _, e) -> check_expr_of_consts ctx e
+  | CompOp (_, _, e1, e2) -> check_expr_of_consts ctx e1
+                               >> check_expr_of_consts ctx e2
+  (* Structured expressions *)
+  | RecordExpr (_, _, id_exprs) -> R.seq_ (List.map (fun (_, e) -> check_expr_of_consts ctx e) id_exprs)
+  | GroupExpr (_, _, es) -> R.seq_ (List.map (check_expr_of_consts ctx) es)
+  (* Update of structured expressions *)
+  | StructUpdate (_, e1, _, e2)
+    | ArrayConcat (_, e1, e2)
+    | ArrayConstr (_, e1, e2)  -> check_expr_of_consts ctx e1
+                                  >> check_expr_of_consts ctx e2
+  | ArraySlice (_, e, _) -> check_expr_of_consts ctx e
+  | ArrayIndex (_, e, _) -> check_expr_of_consts ctx e
+  | e -> type_error (LH.pos_of_expr e)
+           ("Expression " ^ (Lib.string_of_t LA.pp_print_expr e) ^ " is not a constant expression")  
+(** checks if all the variables in the expression are constants *)
+  
 and is_expr_term_zero: LA.expr -> bool = function
   | LA.Const (_, (Num "0"))
     | LA.Const (_, (Dec "0.0")) -> true
@@ -1403,6 +1444,7 @@ and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type *
  *   https://github.com/kind2-mc/kind2/issues/566. 
  *   Backend should handle such cases as it can talk to a powerful solver. *)
 
+                                 
 let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
   = fun global_ctx
   -> function

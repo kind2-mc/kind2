@@ -76,12 +76,18 @@ and mk_graph_expr: LA.expr -> G.t
      List.fold_left G.union G.empty (List.map (fun ty_id -> mk_graph_expr (snd ty_id)) ty_ids)
   | LA.UnaryOp (_, _, e) -> mk_graph_expr e
   | LA.BinaryOp (_, _, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2) 
+  | LA.TernaryOp (_, _, e1, e2, e3) -> G.union (mk_graph_expr e1)
+                                         (G.union (mk_graph_expr e2) (mk_graph_expr e3)) 
   | LA.RecordProject (_, e, _) -> mk_graph_expr e
   | LA.ArrayConstr (_, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2) 
   | LA.ArraySlice (_, e1, (e2, e3)) -> G.union (G.union (mk_graph_expr e1) (mk_graph_expr e2)) (mk_graph_expr e3) 
   | LA.ArrayIndex (_, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2)
   | LA.ArrayConcat  (_, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2)
   | LA.GroupExpr (_, _, es) -> List.fold_left G.union G.empty (List.map mk_graph_expr es)
+  | LA.Pre (_, e) -> mk_graph_expr e
+  | LA.Last (_, i) -> G.singleton i
+  | LA.Fby (_, e1, _, e2) ->  G.union (mk_graph_expr e1) (mk_graph_expr e2) 
+  | LA.Arrow (_, e1, e2) ->  G.union (mk_graph_expr e1) (mk_graph_expr e2) 
   | _ -> Lib.todo __LOC__
   
 let mk_graph_const_decl: LA.const_decl -> G.t
