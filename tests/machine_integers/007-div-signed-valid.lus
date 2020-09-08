@@ -1,0 +1,7 @@
+node top (reset: bool) returns (OK: bool);
+var i : int8;
+let
+  i = (int8 100) -> pre i div (int8 -2);
+  OK = i >= (int8 -128);
+  --%PROPERTY OK;
+tel

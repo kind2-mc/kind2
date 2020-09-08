@@ -1,0 +1,7 @@
+node top (reset: bool) returns (OK: bool);
+var i : int8;
+let
+  i = (int8 1) -> (pre i) lsh (uint8 1);
+  OK = (i >= (int8 0));
+  --%PROPERTY OK;
+tel

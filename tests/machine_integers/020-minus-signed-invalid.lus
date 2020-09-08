@@ -1,0 +1,7 @@
+node top (reset: bool) returns (OK: bool);
+var i : int16;
+let
+  i = (int16 30000) -> ((pre i) - (int16 655));
+  OK = (i > (int16 0));
+  --%PROPERTY OK;
+tel
