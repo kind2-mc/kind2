@@ -1974,7 +1974,7 @@ let eval_to_int8 expr =
 
     | Term.T.App (_, [ sub_expr ])
       when Term.is_negative_numeral expr ->
-        Term.mk_ubv
+        Term.mk_bv
           (Bitvector.num_to_bv8 (Numeral.neg (Term.numeral_of_term sub_expr)))
 
     | _ -> let tt = Term.type_of_term expr in
@@ -2018,7 +2018,7 @@ let eval_to_int16 expr =
 
     | Term.T.App (_, [ sub_expr ])
       when Term.is_negative_numeral expr ->
-        Term.mk_ubv
+        Term.mk_bv
           (Bitvector.num_to_bv16 (Numeral.neg (Term.numeral_of_term sub_expr)))
 
     | _ -> let tt = Term.type_of_term expr in
@@ -2063,7 +2063,7 @@ let eval_to_int32 expr =
 
     | Term.T.App (_, [ sub_expr ])
       when Term.is_negative_numeral expr ->
-        Term.mk_ubv
+        Term.mk_bv
           (Bitvector.num_to_bv32 (Numeral.neg (Term.numeral_of_term sub_expr)))
 
     | _ -> let tt = Term.type_of_term expr in
@@ -2110,7 +2110,7 @@ let eval_to_int64 expr =
 
     | Term.T.App (_, [ sub_expr ])
       when Term.is_negative_numeral expr ->
-        Term.mk_ubv
+        Term.mk_bv
           (Bitvector.num_to_bv64 (Numeral.neg (Term.numeral_of_term sub_expr)))
 
     | _ -> let tt = Term.type_of_term expr in

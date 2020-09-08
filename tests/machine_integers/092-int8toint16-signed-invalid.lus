@@ -1,0 +1,9 @@
+node top (reset: bool) returns (OK: bool);
+var i : int8;
+var j : int16;
+let
+  i = int8 (-100);
+  j = int16 i;
+  OK = j = int16 (4);
+  --%PROPERTY OK;
+tel

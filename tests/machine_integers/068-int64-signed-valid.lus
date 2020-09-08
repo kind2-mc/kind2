@@ -1,0 +1,9 @@
+node top (_: bool) returns (OK: bool);
+var i : int;
+var j : int64;
+let
+  i = 0 -> pre i + 1;
+  j = int64 i;
+  OK = j >= (int64 (-9223372036854775808));
+  --%PROPERTY OK;
+tel

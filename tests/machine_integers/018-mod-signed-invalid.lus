@@ -1,0 +1,10 @@
+node top (reset: bool) returns (OK: bool);
+var i1, i2, i3, i4 : int8;
+let
+  i1 = (int8 5) -> pre i1 mod (int8 3);
+  i2 = (int8 -5) -> pre i2 mod (int8 3);
+  i3 = (int8 5) -> pre i3 mod (int8 -3);
+  i4 = (int8 -5) -> pre i4 mod (int8 -3);
+  OK = not (i1 = (int8 2)) and not (i2 = (int8 -2)) and not (i3 = (int8 2)) and not (i4 = (int8 -2));
+  --%PROPERTY OK;
+tel
