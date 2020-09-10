@@ -2015,11 +2015,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `UINT8_TO_INT ->
 
             (match args with 
-            
+                        
             | [UBV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
-                  | 8 -> Num (Numeral.zero, 
-                    [Numeral.one, [Term.mk_num (Bitvector.ubv8_to_num (Term.bitvector_of_term b))]])
+                  | 8 -> Num (Bitvector.ubv8_to_num (Term.bitvector_of_term b), [])
                   | _ -> assert false)
             
             | [Num _ as a] -> a
@@ -2034,8 +2033,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             
             | [UBV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
-                  | 16 -> Num (Numeral.zero, 
-                    [Numeral.one, [Term.mk_num (Bitvector.ubv16_to_num (Term.bitvector_of_term b))]])
+                  | 16 -> Num (Bitvector.ubv16_to_num (Term.bitvector_of_term b), [])
                   | _ -> assert false)
             
             | [Num _ as a] -> a
@@ -2050,8 +2048,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             
             | [UBV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
-                  | 32 -> Num (Numeral.zero, 
-                    [Numeral.one, [Term.mk_num (Bitvector.ubv32_to_num (Term.bitvector_of_term b))]])
+                  | 32 -> Num (Bitvector.ubv32_to_num (Term.bitvector_of_term b), [])
                   | _ -> assert false)
             
             | [Num _ as a] -> a
@@ -2066,8 +2063,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             
             | [UBV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
-                  | 64 -> Num (Numeral.zero, 
-                    [Numeral.one, [Term.mk_num (Bitvector.ubv64_to_num (Term.bitvector_of_term b))]])
+                  | 64 -> Num (Bitvector.ubv64_to_num (Term.bitvector_of_term b), [])
                   | _ -> assert false)
             
             | [Num _ as a] -> a
@@ -2082,8 +2078,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             
             | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
-                  | 8 -> Num (Numeral.zero, 
-                    [Numeral.one, [Term.mk_num (Bitvector.bv8_to_num (Term.bitvector_of_term b))]])
+                  | 8 -> Num (Bitvector.bv8_to_num (Term.bitvector_of_term b), [])
                   | _ -> assert false)
             
             | [Num _ as a] -> a
@@ -2098,8 +2093,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             
             | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
-                  | 16 -> Num (Numeral.zero, 
-                    [Numeral.one, [Term.mk_num (Bitvector.bv16_to_num (Term.bitvector_of_term b))]])
+                  | 16 -> Num (Bitvector.bv16_to_num (Term.bitvector_of_term b), [])
                   | _ -> assert false)
             
             | [Num _ as a] -> a
@@ -2114,8 +2108,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             
             | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
-                  | 32 -> Num (Numeral.zero, 
-                    [Numeral.one, [Term.mk_num (Bitvector.bv32_to_num (Term.bitvector_of_term b))]])
+                  | 32 -> Num (Bitvector.bv32_to_num (Term.bitvector_of_term b), [])
                   | _ -> assert false)
             
             | [Num _ as a] -> a
@@ -2130,8 +2123,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             
             | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
-                  | 64 -> Num (Numeral.zero, 
-                    [Numeral.one, [Term.mk_num (Bitvector.bv64_to_num (Term.bitvector_of_term b))]])
+                  | 64 -> Num (Bitvector.bv64_to_num (Term.bitvector_of_term b), [])
                   | _ -> assert false)
             
             | [Num _ as a] -> a
