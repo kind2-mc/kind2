@@ -589,6 +589,8 @@ let smtlib_string_symbol_list =
    ("bvsle", Symbol.mk_symbol `BVSLE);
    ("bvsgt", Symbol.mk_symbol `BVSGT);
    ("bvsge", Symbol.mk_symbol `BVSGE);
+   ("bv2nat", Symbol.mk_symbol `BV2NAT);
+   ("bv2int", Symbol.mk_symbol `BV2NAT); 
 
    ("select", Symbol.mk_symbol
       (`SELECT (Type.mk_array Type.t_int Type.t_int))); (* placeholder *)

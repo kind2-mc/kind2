@@ -2278,29 +2278,37 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | _ -> assert false
             )
           
-          (*| `BV2NAT -> 
+          | `BV2NAT -> 
           
             (match args with
-              | [BV b] -> BV b
-              | [Num n] -> Num n
-              | _ -> assert false)*)
-
-           (* (match args with
               | [UBV b] -> let t = term_of_nf (UBV b) in
                            let tp = Term.type_of_term t in
                            let bv = Term.ubitvector_of_term t in
                             if (Type.is_uint8 tp) then 
-                              Num (Numeral.of_int (Bitvector.bv8_to_int bv))
+                              Num (Bitvector.ubv8_to_num bv, [])
                             else if (Type.is_uint16 tp) then 
-                              Num (Term.mk_num (Numeral.of_int (Bitvector.bv16_to_int bv)))
+                              Num (Bitvector.ubv16_to_num bv, [])
                             else if (Type.is_uint32 tp) then 
-                              Num (Term.mk_num (Numeral.of_int (Bitvector.bv32_to_int bv)))
+                              Num (Bitvector.ubv32_to_num bv, [])
                             else if (Type.is_uint64 tp) then 
-                              Num (Term.mk_num (Numeral.of_int (Bitvector.bv64_to_int bv)))
+                              Num (Bitvector.ubv64_to_num bv, [])
+                            else 
+                              assert false
+              | [BV b] -> let t = term_of_nf (BV b) in
+                           let tp = Term.type_of_term t in
+                           let bv = Term.bitvector_of_term t in
+                            if (Type.is_int8 tp) then 
+                              Num (Bitvector.ubv8_to_num bv, [])
+                            else if (Type.is_int16 tp) then 
+                              Num (Bitvector.ubv16_to_num bv, [])
+                            else if (Type.is_int32 tp) then 
+                              Num (Bitvector.ubv32_to_num bv, [])
+                            else if (Type.is_int64 tp) then 
+                              Num (Bitvector.ubv64_to_num bv, [])
                             else 
                               assert false
               | _ -> assert false
-              )*)
+            )
 
           (* Conversion to real is a monomial with polynomial
              subterms *)
@@ -2580,8 +2588,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `NUMERAL _
           | `DECIMAL _
           | `UBV _ 
-          | `BV _ 
-          | `BV2NAT -> assert false
+          | `BV _ -> assert false
           
       )
 
