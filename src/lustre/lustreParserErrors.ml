@@ -13,7 +13,7 @@ let message =
     | 373 ->
         "Syntax Error!\n"
     | 995 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps an illegal declaration for imported node or function.\n"
     | 10 ->
         "Syntax Error!\n"
     | 12 ->

@@ -13892,7 +13892,7 @@ main: TYPE WEAKLY SEMICOLON XOR
 ## decl
 ##
 
-Syntax Error!
+Syntax Error! Perhaps an illegal declaration for imported node or function.
 
 main: TYPE WEAKLY XOR
 ##

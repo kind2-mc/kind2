@@ -42,39 +42,39 @@ Success
 Error
 ------
 
-| File name                                 | Comment                                                                | Status      |
-| -----------------------------             | ----------                                                             | ------      |
-| `abstract_type.lus`                       | Free type COUNTER used as numeric type                                 | Fails at TC |
-| `array_node.lus`                          | Array assignment with implicit parameter & node call `(y[i] = n(a[i])` |             |
-| `automaton_ab.lus`                        | Automation is not supported                                            |             |
-| `bv-sh-exception.lus`                     | Expect a constant argument to rsh  operator                            | Fails at TC |
-| `check_type.lus`                          | Basic syntactic type check                                             | Fails at TC |
-| `circular_contracts.lus `                 | Contract declaration has circularity                                   | Fails at TC |
-| `circular_nodes.lus`                      | Node declaration has circularity                                       | Fails at TC |
-| `circular_types.lus`                      | Type declaration has circularity                                       | Fails at TC |
-| `cocospec_out_param.lus`                  |                                                                        |             |
-| `const_not_const.lus`                     |                                                                        |             |
-| `empty_range.lus`                         |                                                                        |             |
-| `function_no_arrow_in_body.lus`           |                                                                        |             |
-| `function_no_node_call.lus`               |                                                                        |             |
-| `function_no_pre_in_body.lus`             |                                                                        |             |
-| `function_no_stateful_contract.lus`       |                                                                        |             |
-| `function_stateful_contract_import.lus`   |                                                                        |             |
-| `imported_fun_no_body.lus`                |                                                                        |             |
-| `imported_node_no_body.lus`               |                                                                        |             |
-| `merge_enum.lus`                          |                                                                        |             |
-| `merge_enum1.lus`                         |                                                                        |             |
-| `merge_enum2.lus`                         |                                                                        |             |
-| `mode_reqs_by_idents_no_forward_ref.lus`  |                                                                        |             |
-| `mode_reqs_by_idents_no_self_ref.lus`     |                                                                        |             |
-| `no_contracts_in_contract.lus`            |                                                                        |             |
-| `test-func-sliced.lus`                    |                                                                        |             |
-| `test-nodes.lus`                          |                                                                        |             |
-| `test-type.lus`                           |                                                                        |             |
-| `undefined_local.lus`                     |                                                                        |             |
-| `unguarded_pre_in_contract.lus`           |                                                                        |             |
-| `unguarded_pre_in_contract_call.lus`      |                                                                        |             |
-| `unguarded_pre_node_call_in_contract.lus` |                                                                        |             |
+| File name                                 | Comment                                                                | Status  |
+| -----------------------------             | ----------                                                             | ------  |
+| `abstract_type.lus`                       | Free type COUNTER used as numeric type                                 | F at TC |
+| `array_node.lus`                          | Array assignment with implicit parameter & node call `(y[i] = n(a[i])` |         |
+| `automaton_ab.lus`                        | Automation is not supported                                            |         |
+| `bv-sh-exception.lus`                     | Expect a constant argument to rsh  operator                            | F at TC |
+| `check_type.lus`                          | Basic syntactic type check                                             | F at TC |
+| `circular_contracts.lus `                 | Contract declaration has circularity                                   | F at TC |
+| `circular_nodes.lus`                      | Node declaration has circularity                                       | F at TC |
+| `circular_types.lus`                      | Type declaration has circularity                                       | F at TC |
+| `cocospec_out_param.lus`                  | In parameters should be different than out parameters                  | F at TC |
+| `const_not_const.lus`                     | Constant decls should not have arrow                                   | F at TC |
+| `empty_range.lus`                         | Subrange is empty eg. `subrange [1,0] of int`                          | NA      |
+| `function_no_arrow_in_body.lus`           |                                                                        |         |
+| `function_no_node_call.lus`               |                                                                        |         |
+| `function_no_pre_in_body.lus`             |                                                                        |         |
+| `function_no_stateful_contract.lus`       |                                                                        |         |
+| `function_stateful_contract_import.lus`   |                                                                        |         |
+| `imported_fun_no_body.lus`                |                                                                        |         |
+| `imported_node_no_body.lus`               |                                                                        |         |
+| `merge_enum.lus`                          |                                                                        |         |
+| `merge_enum1.lus`                         |                                                                        |         |
+| `merge_enum2.lus`                         |                                                                        |         |
+| `mode_reqs_by_idents_no_forward_ref.lus`  |                                                                        |         |
+| `mode_reqs_by_idents_no_self_ref.lus`     |                                                                        |         |
+| `no_contracts_in_contract.lus`            |                                                                        |         |
+| `test-func-sliced.lus`                    |                                                                        |         |
+| `test-nodes.lus`                          |                                                                        |         |
+| `test-type.lus`                           |                                                                        |         |
+| `undefined_local.lus`                     |                                                                        |         |
+| `unguarded_pre_in_contract.lus`           |                                                                        |         |
+| `unguarded_pre_in_contract_call.lus`      |                                                                        |         |
+| `unguarded_pre_node_call_in_contract.lus` |                                                                        |         |
 
 Falsifiable
 -----------
