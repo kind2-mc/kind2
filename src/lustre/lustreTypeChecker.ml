@@ -960,8 +960,8 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
                              ^ " expects type " ^ string_of_tc_type exp_ty
                              ^ " but expression is of type " ^ string_of_tc_type inf_ty))
 
-and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_result
-  = fun ctx
+and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type -> unit tc_result
+  = fun pos ctx
         (node_name, is_extern, params, input_vars, output_vars, ldecls, items, contract)
         exp_ty ->
   let local_var_binding: tc_context -> LA.node_local_decl -> tc_context tc_result = fun ctx ->
@@ -980,11 +980,16 @@ and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_resul
     then R.ok ( Log.log L_trace "External Node, no body to type check."
               ; Log.log L_trace "TC declaration node %a done }" LA.pp_print_ident node_name)
     else (
-      Log.log L_trace "Params: %a (skipping)" LA.pp_print_node_param_list params
-    ; (* store the input constants passed in the input 
+      let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
+      let ret_ids = LA.SI.of_list (List.map (fun a -> LH.extract_op_ty a |> fst) output_vars) in
+      let common_ids = LA.SI.inter arg_ids ret_ids in
+      if (LA.SI.equal common_ids LA.SI.empty)
+      then
+           (Log.log L_trace "Params: %a (skipping)" LA.pp_print_node_param_list params
+     (* store the input constants passed in the input 
          also remove the node name from the context as we should not have recursive
          nodes *)
-      let ip_constants_ctx = List.fold_left union (remove_ty ctx node_name)
+      ; let ip_constants_ctx = List.fold_left union (remove_ty ctx node_name)
                                (List.map extract_consts input_vars) in
       (* These are inputs to the node *)
       let ctx_plus_ips = List.fold_left union ip_constants_ctx
@@ -1008,6 +1013,8 @@ and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_resul
       ; R.seq_ (List.map (do_item local_ctx) items)
         >> R.ok (Log.log L_trace "TC declaration node %a done }"
                    LA.pp_print_ident node_name))
+      else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
+              Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements common_ids)))
 
 and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
   function
@@ -1149,27 +1156,30 @@ and check_contract_node_eqn: tc_context -> LA.contract_node_equation -> unit tc_
                                  (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
                  (Bool pos)) 
     | ContractCall (pos, cname, args, rets) ->
-       R.seq(List.map (infer_type_expr ctx) rets)
-       >>= fun ret_tys ->  
-       let ret_ty = if List.length ret_tys = 1
-                    then List.hd ret_tys
-                    else LA.TupleType (pos, ret_tys) in
-<<<<<<< HEAD
-       check_type_expr ctx (LA.Call (pos, cname, args))(ret_ty) 
-=======
-       R.seq(List.map (infer_type_expr ctx) args) >>= fun arg_tys -> 
-       let arg_ty = if List.length arg_tys = 1
-                    then List.hd arg_tys
-                    else LA.TupleType (pos, arg_tys) in
-       let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
-       try let inf_ty = (lookup_contract_ty ctx cname) in
-           R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
-             (type_error pos ("Contract " ^ cname
-                              ^ " expected to have type " ^ string_of_tc_type exp_ty
-                              ^ " but found type " ^ string_of_tc_type inf_ty))
-       with
-       | Not_found -> type_error pos ("Undefined or not in scope contract name " ^ cname)
->>>>>>> - contract is now lookup in contract context which is different from typing context
+       let arg_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars args) in
+       let ret_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars rets) in
+       let common_ids = LA.SI.inter arg_ids ret_ids in
+       if (LA.SI.equal common_ids LA.SI.empty)
+       then 
+         R.seq(List.map (infer_type_expr ctx) rets)
+         >>= fun ret_tys ->  
+         let ret_ty = if List.length ret_tys = 1
+                      then List.hd ret_tys
+                      else LA.TupleType (pos, ret_tys) in
+         R.seq(List.map (infer_type_expr ctx) args) >>= fun arg_tys -> 
+         let arg_ty = if List.length arg_tys = 1
+                      then List.hd arg_tys
+                      else LA.TupleType (pos, arg_tys) in
+         let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
+         try let inf_ty = (lookup_contract_ty ctx cname) in
+             R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
+               (type_error pos ("Contract " ^ cname
+                                ^ " expected to have type " ^ string_of_tc_type exp_ty
+                                ^ " but found type " ^ string_of_tc_type inf_ty))
+         with
+         | Not_found -> type_error pos ("Undefined or not in scope contract name " ^ cname)
+       else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
+              Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements common_ids)) 
 
 and tc_ctx_const_decl
   = fun ?is_const:(const_real=true) ctx ->
@@ -1438,11 +1448,11 @@ let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
   (* skip over type declarations and const_decls*)
   | (LA.TypeDecl _ :: rest) 
     | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  
-  | LA.NodeDecl (_, ((i, _,_, _, _, _, _, _) as node_decl)) :: rest ->
-     (check_type_node_decl global_ctx node_decl (lookup_ty global_ctx i))
+  | LA.NodeDecl (pos, ((i, _,_, _, _, _, _, _) as node_decl)) :: rest ->
+     (check_type_node_decl pos global_ctx node_decl (lookup_ty global_ctx i))
      :: type_check_group global_ctx rest
-  | LA.FuncDecl (_, ((i, _,_, _, _, _, _, _) as node_decl)):: rest ->
-     (check_type_node_decl global_ctx node_decl (lookup_ty global_ctx i))
+  | LA.FuncDecl (pos, ((i, _,_, _, _, _, _, _) as node_decl)):: rest ->
+     (check_type_node_decl pos global_ctx node_decl (lookup_ty global_ctx i))
      :: type_check_group global_ctx rest
   | LA.ContractNodeDecl (_, ((i, _, _, _, _) as contract_decl)) :: rest ->
      (check_type_contract_decl global_ctx contract_decl)
@@ -1489,7 +1499,8 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
                    ^^"===============================================\n")
   ; let (ty_and_const_decls, node_and_contract_decls) = split_program prg in
     (* circularity check and reordering for types and constants *)
-    AD.sort_decls ty_and_const_decls >>= fun sorted_tys_consts ->
+    Log.log L_trace "Phase 1.1 Building graph for types and constant decls\n---------\n"
+    ; AD.sort_decls ty_and_const_decls >>= fun sorted_tys_consts ->
     Log.log L_trace "Sorted consts and type decls:\n%a" LA.pp_print_program sorted_tys_consts
     (* build the base context from the type and const decls *)
     ; build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->
