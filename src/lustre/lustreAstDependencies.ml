@@ -42,12 +42,12 @@ type 'a graph_result = ('a, Lib.position * string) result
 let graph_error pos err = Error (pos, err)
 let (>>=) = R.(>>=)                     
 
+(* Suffixes for declaration types *)
 let ty_suffix = "type "
 let const_suffix = ""
 let node_suffix = ""
-let contract_suffix = ""
-                 
-          
+let contract_suffix = "contract "
+
 let rec mk_graph_type: LA.lustre_type -> G.t = function
   | TVar (_, i) -> G.singleton (ty_suffix ^ i)
   | Bool _
@@ -94,9 +94,9 @@ and mk_graph_expr: LA.expr -> G.t
   
 let mk_graph_const_decl: LA.const_decl -> G.t
   = function
-  | LA.FreeConst (_, i, ty) -> G.connect (mk_graph_type ty) i
-  | LA.UntypedConst (_, i, e) -> G.connect (mk_graph_expr e) i 
-  | LA.TypedConst (_, i, e, ty) -> G.connect (G.union (mk_graph_expr e) (mk_graph_type ty)) i
+  | LA.FreeConst (_, i, ty) -> G.connect (mk_graph_type ty) (const_suffix ^ i)
+  | LA.UntypedConst (_, i, e) -> G.connect (mk_graph_expr e) (const_suffix ^ i) 
+  | LA.TypedConst (_, i, e, ty) -> G.connect (G.union (mk_graph_expr e) (mk_graph_type ty)) (const_suffix ^ i) 
 
                                   
 let mk_graph_type_decl: LA.type_decl -> G.t
@@ -106,7 +106,7 @@ let mk_graph_type_decl: LA.type_decl -> G.t
 
 let rec mk_graph_contract_node_eqn: LA.contract_node_equation -> G.t
   = function
-  | LA.ContractCall (_, i, _, _) -> G.singleton i
+  | LA.ContractCall (_, i, _, _) -> G.singleton (contract_suffix ^ i)
   | LA.Assume (_, _, _, e) -> List.fold_left G.union G.empty (List.map G.singleton (get_node_call_from_expr e))
   | LA.Guarantee (_, _, _, e) -> List.fold_left G.union G.empty (List.map G.singleton (get_node_call_from_expr e))
   | _ -> G.empty
@@ -145,17 +145,17 @@ and get_node_call_from_expr: LA.expr -> LA.ident list
   (* Clock operators *)
   | LA.When (_, e, _) -> get_node_call_from_expr e
   | LA.Current (_, e) -> get_node_call_from_expr e
-  | LA.Condact (_, _,_, i, _, _) -> [i]
-  | LA.Activate (_, i, _, _, _) -> [i]
+  | LA.Condact (_, _,_, i, _, _) -> [(node_suffix ^ i)]
+  | LA.Activate (_, i, _, _, _) -> [(node_suffix ^ i)]
   | LA.Merge (_, _, id_exprs) -> List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
-  | LA.RestartEvery (_, i, es, e1) -> i :: (List.flatten (List.map get_node_call_from_expr es)) @ get_node_call_from_expr e1
+  | LA.RestartEvery (_, i, es, e1) -> (node_suffix ^ i) :: (List.flatten (List.map get_node_call_from_expr es)) @ get_node_call_from_expr e1
   (* Temporal operators *)
   | LA.Pre (_, e) -> get_node_call_from_expr e
   | LA.Last _ -> []
   | LA.Fby (_, e1, _, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Node calls *)
-  | LA.Call (_, i, es) -> i :: List.flatten (List.map get_node_call_from_expr es)
+  | LA.Call (_, i, es) -> (node_suffix ^ i) :: List.flatten (List.map get_node_call_from_expr es)
   | LA.CallParam _ -> []
 
 let mk_graph_contract_decl: LA.contract_node_decl -> G.t
@@ -176,9 +176,9 @@ let mk_graph_node_decl: LA.node_decl -> G.t
   = fun (i, _, _, _, _, _, nitems, contract_opt) ->
   let cg = G.connect (match contract_opt with
                       | None -> G.empty
-                      | Some c -> List.fold_left G.union G.empty (List.map mk_graph_contract_node_eqn c)) i in
+                      | Some c -> List.fold_left G.union G.empty (List.map mk_graph_contract_node_eqn c)) (node_suffix^i) in
   let node_refs = extract_node_calls nitems in
-  List.fold_left (fun g nr -> G.union g (G.connect (G.singleton nr) i)) cg node_refs
+  List.fold_left (fun g nr -> G.union g (G.connect (G.singleton nr) (node_suffix ^ i))) cg node_refs
                           
 let mk_graph: LA.declaration ->  G.t = function
   | TypeDecl (pos, tydecl) -> mk_graph_type_decl tydecl 
@@ -190,7 +190,7 @@ let mk_graph: LA.declaration ->  G.t = function
 
 
 let add_decl: LA.declaration IMap.t -> LA.ident -> LA.declaration -> LA.declaration IMap.t
-  = fun m i ty -> IMap.add i ty m
+  = fun m i dec -> IMap.add i dec m
                       
 let rec check_and_add: LA.declaration IMap.t -> Lib.position
                        -> string -> LA.ident -> LA.declaration -> LA.t -> (LA.declaration IMap.t) graph_result
