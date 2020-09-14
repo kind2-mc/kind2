@@ -32,7 +32,6 @@ module C2I = C2I
 module Signals = TermLib.Signals
 
 open Lib
-open Res
 
 (* |===| Helpers. *)
 
@@ -501,6 +500,7 @@ let check_analysis_flags () =
     let show_msg_and_exit arg =
       KEvent.log L_fatal
         "Subproperty checking is not compatible with %s analysis." arg;
+      KEvent.terminate_log () ;
       exit ExitCodes.error
     in
     if Flags.modular () then
@@ -519,6 +519,7 @@ let run in_sys =
   (* Nothing's active. *)
   | [] ->
     KEvent.log L_fatal "Need at least one Kind 2 module active." ;
+    KEvent.terminate_log () ;
     exit ExitCodes.error
 
   (* Only the interpreter is active. *)
@@ -547,6 +548,7 @@ let run in_sys =
   (* Some modules, including the interpreter. *)
   | modules when List.mem `Interpreter modules ->
     KEvent.log L_fatal "Cannot run the interpreter with other processes." ;
+    KEvent.terminate_log () ;
     exit ExitCodes.error
 
   (* MCS is active. *)

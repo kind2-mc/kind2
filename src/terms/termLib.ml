@@ -115,9 +115,8 @@ let remove_top_level_quantifier t =
 
 (* find the smallest encompassing logic of a sort *)
 let rec logic_of_sort ty =
-  let open Type in
   let open FeatureSet in
-  match node_of_type ty with
+  match Type.node_of_type ty with
   | Bool | Abstr _ -> empty
     
   | Int | IntRange _ -> singleton IA
@@ -159,7 +158,7 @@ let logic_of_flat fun_symbols t acc =
   let open FeatureSet in
   match t with
 
-  | Attr _ -> sup_logics acc
+  (* | Attr _ -> sup_logics acc *)
   
   | Var v -> Var.type_of_var v |> logic_of_sort |> union @@ sup_logics acc
 
@@ -185,7 +184,7 @@ let logic_of_flat fun_symbols t acc =
      List.for_all (fun t -> Term.is_numeral t || Term.is_decimal t) l ->
      add LA (sup_logics acc)
 
-  | App (s, [n]) when Symbol.(s == s_abs) &&
+  | App (s, [n]) when s == s_abs &&
      (Term.is_numeral n || Term.is_decimal n) ->
      add LA (sup_logics acc)
 

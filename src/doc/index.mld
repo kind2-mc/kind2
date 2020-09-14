@@ -217,12 +217,7 @@ Source files live in subdirectory [SMTSolver]
 
 {2:howto_doc Documentation}
 
-Edit this file [doc/doc_into.txt] and add the module to one section above in, then add it to [kind2.odocl].
-
-{2:howto_dir Add a new subdirectory}
-
-To add a new subdirectory [feature] edit the [_tags] file to include the line {[<feature>: include]}
-
+To add a module, edit this file [src/doc/index.mld] and add it to one of the sections above.
 
 {1:indexes Indexes}
 

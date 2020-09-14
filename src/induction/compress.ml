@@ -345,7 +345,7 @@ let same_successors_blocked = ref []
 
 let same_successors_incr_k () = same_successors_blocked := []
 
-let rec instantiate_trans_succ var_uf_map i term = 
+let instantiate_trans_succ var_uf_map i term = 
 
   Term.map
     (fun _ t -> 
@@ -532,7 +532,7 @@ let same_predecessors_blocked = ref []
 
 let same_predecessors_incr_k () = same_predecessors_blocked := []
 
-let rec instantiate_trans_pred var_uf_map i term = 
+let instantiate_trans_pred var_uf_map i term = 
 
   Term.map
     (fun _ t -> 

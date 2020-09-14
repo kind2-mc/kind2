@@ -1,0 +1,30 @@
+
+--type undeclared_type;
+
+const N: undeclared_type;
+
+type my_record = struct { f1: int; f2: undeclared_type };
+
+type my_array = undeclared_type^3;
+
+type my_pair = [int, undeclared_type];
+
+contract topSpec(x: undeclared_type) returns (y: undeclared_type);
+let
+    guarantee x=y; 
+tel
+
+node imported g(x: undeclared_type) returns (y: undeclared_type);
+(*@contract
+  guarantee x=y;
+*)
+
+node top(x: undeclared_type) returns (y: undeclared_type);
+(*@contract
+  import topSpec(x) returns (y);
+*)
+  var v: undeclared_type;
+let
+    v = g(x);
+    y = v;
+tel

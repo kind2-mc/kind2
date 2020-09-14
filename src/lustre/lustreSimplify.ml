@@ -30,6 +30,7 @@ open Lib
 
 (* Abbreviations *)
 module A = LustreAst
+module H = LustreAstHelpers
 module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
@@ -441,7 +442,7 @@ let rec eval_ast_expr bounds ctx =
              
            let mk_local ctx expr' =
             let ((sv,_), _) as res = C.mk_local_for_expr ~original ~bounds pos ctx expr' in
-            let pos = A.pos_of_expr expr in
+            let pos = H.pos_of_expr expr in
             (*let is_a_def =
               try
                 not (StateVar.equal_state_vars (E.state_var_of_expr expr') sv)
@@ -1147,7 +1148,7 @@ let rec eval_ast_expr bounds ctx =
                let (state_var, _) , ctx = 
                  C.mk_local_for_expr ~bounds:[bound] pos ctx e in
                if not (StateVar.is_input state_var)
-               then N.add_state_var_def state_var (N.GeneratedEq (A.pos_of_expr expr, j)) ;
+               then N.add_state_var_def state_var (N.GeneratedEq (H.pos_of_expr expr, j)) ;
                let e' = E.mk_var state_var in
                D.add (D.ArrayVarIndex array_size :: j) e' a, ctx)
         expr'
@@ -1745,8 +1746,8 @@ and eval_node_call
             in
             N.set_state_var_instance state_var' pos ident state_var;
             let (pos', i') = try (match i with
-            | (ListIndex i)::indexes -> (A.pos_of_expr (List.nth ast i), indexes)
-            | indexes -> (A.pos_of_expr (List.hd ast)), indexes)
+            | (ListIndex i)::indexes -> (H.pos_of_expr (List.nth ast i), indexes)
+            | indexes -> (H.pos_of_expr (List.hd ast)), indexes)
             with _ -> (pos, i) in
             (*let is_a_def =
               try
@@ -2076,6 +2077,7 @@ and eval_ast_type ctx = eval_ast_type_flatten false ctx
    optionally flattening/unrolling arrays if 'flatten_arrays' is true. *)
 and eval_ast_type_flatten flatten_arrays ctx = function
 
+  | A.TVar _ -> Lib.todo "Trying to flatten type Variable. Should not happen"
   (* Basic type bool, add to empty trie with empty index *)
   | A.Bool pos -> D.singleton D.empty_index Type.t_bool
 
@@ -2251,6 +2253,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
              a)
         element_type
         D.empty
+  | A.TArr _ -> Lib.todo "Trying to flatten function type. This should not happen"
 
 (*
 

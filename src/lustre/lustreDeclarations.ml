@@ -20,14 +20,13 @@ open Lib
 open Lib.ReservedIds
 
 module A = LustreAst
-
+module H = LustreAstHelpers
+         
 module I = LustreIdent
-module IT = LustreIdent.Hashtbl
 
 module D = LustreIndex
 
 module E = LustreExpr
-module ET = E.LustreExprHashtbl
 
 module N = LustreNode
 module Contract = LustreContract
@@ -38,7 +37,6 @@ module S = LustreSimplify
 module G = LustreGlobals
 
 module SVS = StateVar.StateVarSet
-module SVM = StateVar.StateVarMap
 module ISet = Set.Make (String)
 
 module Deps = LustreDependencies
@@ -97,12 +95,12 @@ let fresh_automaton_name =
 let rec replace_lasts_branch allowed name acc = function
   | A.Target _ as t -> t, acc
   | A.TransIf (pos, e, br, None) as t ->
-    let e', acc = A.replace_lasts allowed name acc e in
+    let e', acc = H.replace_lasts allowed name acc e in
     let br', acc = replace_lasts_branch allowed name acc br in
     if e' == e && br' == br then t, acc
     else A.TransIf (pos, e', br', None), acc
   | A.TransIf (pos, e, br, Some br2) as t ->
-    let e', acc = A.replace_lasts allowed name acc e in
+    let e', acc = H.replace_lasts allowed name acc e in
     let br', acc = replace_lasts_branch allowed name acc br in
     let br2', acc = replace_lasts_branch allowed name acc br2 in
     if e' == e && br' == br && br2' = br2 then t, acc
@@ -120,11 +118,11 @@ let rec replace_lasts_state allowed name acc = function
     let until_tr, acc = replace_lasts_transition allowed name acc until_tr in
     let eqs, acc = List.fold_left (fun (eqs, acc) -> function
         | A.Assert (pos, e) as eq ->
-          let e', acc' = A.replace_lasts allowed name acc e in
+          let e', acc' = H.replace_lasts allowed name acc e in
           if e == e' then eq :: eqs, acc
           else A.Assert (pos, e') :: eqs, acc'
         | A.Equation (pos, lhs, e) as eq ->
-          let e', acc' = A.replace_lasts allowed name acc e in
+          let e', acc' = H.replace_lasts allowed name acc e in
           if e == e' then eq :: eqs, acc
           else A.Equation (pos, lhs, e') :: eqs, acc'
         | A.Automaton (pos, aname, states, returns) ->
@@ -805,7 +803,7 @@ let uneval_eq_lhs ctx = function
 
 (* Return a trie of state variables from the left-hand side of an
    equation *)
-let rec eval_eq_lhs ctx pos = function
+let eval_eq_lhs ctx pos = function
 
   (* Empty list for node calls without returns *)
   | A.StructDef (pos, []) -> (D.empty, 0, ctx)
@@ -1099,7 +1097,7 @@ let rec eval_node_equation inputs outputs locals ctx = function
   
   | A.Assert (pos, ast_expr) -> 
     (* report unguarded pre *)
-    let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
+    let ctx = C.set_guard_flag ctx (H.has_unguarded_pre ast_expr) in
 
     (* Evaluate Boolean expression and guard all pre operators *)
     let expr, ctx = 
@@ -1135,7 +1133,7 @@ let rec eval_node_equation inputs outputs locals ctx = function
     let lhs_bounds =
       List.fold_left (fun acc (i, sv) ->
           N.add_state_var_def sv
-            (N.ProperEq (A.pos_of_expr ast_expr, rm_array_var_index i)) ;
+            (N.ProperEq (H.pos_of_expr ast_expr, rm_array_var_index i)) ;
           List.fold_left (fun (acc, cpt) -> function
               | D.ArrayVarIndex b ->
                 if cpt < indexes then E.Bound b :: acc, succ cpt
@@ -1147,7 +1145,7 @@ let rec eval_node_equation inputs outputs locals ctx = function
       (* |> List.rev *) in
 
     (* report unguarded pre *)
-    let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
+    let ctx = C.set_guard_flag ctx (H.has_unguarded_pre ast_expr) in
 
     (* Evaluate expression on right-hand side in extended context *)
     let eq_rhs, ctx = S.eval_ast_expr lhs_bounds ctx ast_expr in
@@ -1243,7 +1241,7 @@ and eval_ghost_var
       )
     ) ;
 
-    if A.has_unguarded_pre expr then (
+    if H.has_unguarded_pre expr then (
       fail_or_warn
         pos
         "Illegal unguarded pre in ghost variable definition."
@@ -1310,7 +1308,7 @@ and eval_ghost_var
 (* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
 and eval_contract_item check ~typ scope (ctx, accum, count) (pos, iname, expr) =
   (* Check for unguarded pre-s. *)
-  if A.has_unguarded_pre expr then (
+  if H.has_unguarded_pre expr then (
     fail_or_warn pos "Illegal unguarded pre in contract item."
   ) ;
   (* Scope is created backwards. *)
@@ -1574,13 +1572,13 @@ and eval_node_contract_call
 
   (* Check for unguarded pre-s. *)
   in_params |> List.iter (
-    fun expr -> if A.has_unguarded_pre expr then (
+    fun expr -> if H.has_unguarded_pre expr then (
       fail_or_warn
         call_pos "Illegal unguarded pre in input parameters of contract call."
     )
   ) ;
   out_params |> List.iter (
-    fun expr -> if A.has_unguarded_pre expr then (
+    fun expr -> if H.has_unguarded_pre expr then (
       fail_or_warn
         call_pos "Illegal unguarded pre in output parameters of contract call."
     )
@@ -1752,7 +1750,7 @@ and eval_node_contract_call
     ) ; *)
   ( if C.get_node_function_flag ctx then (
     (* Format.printf "checking contract %s@.@." id ; *)
-    match A.contract_has_pre_or_arrow contract with
+    match H.contract_has_pre_or_arrow contract with
     | Some _ -> C.fail_at_position call_pos (
       Format.asprintf
         "@[<v>in contract of function %a@ \
@@ -2375,7 +2373,7 @@ and eval_node_items inputs outputs locals ctx = function
   (* Property annotation *)
   | A.AnnotProperty (pos, name_opt, ast_expr) :: tl -> 
     (* report unguarded pre *)
-    let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
+    let ctx = C.set_guard_flag ctx (H.has_unguarded_pre ast_expr) in
 
     (* Evaluate Boolean expression and guard all pre operators *)
     let expr, ctx = 
@@ -2682,18 +2680,18 @@ and declaration_to_context ctx = function
   ( locals
     |> List.iter (
       fun decl ->
-        A.node_local_decl_has_pre_or_arrow decl
+        H.node_local_decl_has_pre_or_arrow decl
         |> pre_or_arrow_fail "local declaration"
     ) ;
     items
     |> List.iter (
       fun item ->
-        A.node_item_has_pre_or_arrow item
+        H.node_item_has_pre_or_arrow item
         |> pre_or_arrow_fail "item"
     ) ;
     match contracts with
     | Some contract ->
-      A.contract_has_pre_or_arrow contract
+      H.contract_has_pre_or_arrow contract
       |> pre_or_arrow_fail "contract item"
     | None -> ()
   ) ;

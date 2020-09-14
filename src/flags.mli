@@ -186,6 +186,12 @@ type enable = Lib.kind_module list
 (** Only parse the Lustre program. No analysis is performed. *)
 val only_parse : unit -> bool
 
+(** Stop after Parsing and type checking the Lustre program. No analysis is performed. *)
+val only_tc : unit -> bool
+
+(** Skip the type checking phase for the lustre program. *)
+val no_tc : unit -> bool
+  
 (** The modules enabled. *)
 val enabled : unit -> enable
 

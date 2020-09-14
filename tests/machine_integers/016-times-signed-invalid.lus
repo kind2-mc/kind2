@@ -1,0 +1,7 @@
+node top (reset: bool) returns (OK: bool);
+var i : int32;
+let
+  i = (int32 1) -> pre i * (int32 2000);
+  OK = i > (int32 0);
+  --%PROPERTY OK;
+tel

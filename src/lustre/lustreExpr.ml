@@ -20,7 +20,6 @@ open Lib
 
 (* Abbreviations *)
 module I = LustreIdent
-module A = LustreAst
 
 module SVS = StateVar.StateVarSet
 module VS = Var.VarSet
@@ -36,7 +35,7 @@ type expr = Term.t
 let is_true_expr e = e = Term.t_true
 
 (* A Lustre type is a type *)
-type lustre_type = Type.t
+(* type lustre_type = Type.t *)
 
 (* A typed Lustre expression *)
 type t = { 
@@ -462,9 +461,9 @@ and pp_print_term_node ?as_type safe pvar ppf t = match Term.T.destruct t with
 
     pp_print_app ?as_type safe pvar ppf (Symbol.node_of_symbol s) l
 
-  | Term.T.Attr (t, _) -> 
+  (* | Term.T.Attr (t, _) -> 
     
-    pp_print_term_node ?as_type safe pvar ppf t
+    pp_print_term_node ?as_type safe pvar ppf t *)
 
   | exception Invalid_argument ex -> (
 
@@ -1697,7 +1696,7 @@ let type_of_uminus = function
   | t when Type.is_int t -> Type.t_int
   | t when Type.is_real t -> Type.t_real
   | t when Type.is_int_range t -> 
-    let (ubound, lbound) = Type.bounds_of_int_range t in
+    let (lbound, ubound) = Type.bounds_of_int_range t in
     Type.mk_int_range Numeral.(- ubound) Numeral.(- lbound)
   | t when Type.is_int8 t -> Type.t_bv 8
   | t when Type.is_int16 t -> Type.t_bv 16
@@ -1975,7 +1974,7 @@ let eval_to_int8 expr =
 
     | Term.T.App (_, [ sub_expr ])
       when Term.is_negative_numeral expr ->
-        Term.mk_ubv
+        Term.mk_bv
           (Bitvector.num_to_bv8 (Numeral.neg (Term.numeral_of_term sub_expr)))
 
     | _ -> let tt = Term.type_of_term expr in
@@ -2019,7 +2018,7 @@ let eval_to_int16 expr =
 
     | Term.T.App (_, [ sub_expr ])
       when Term.is_negative_numeral expr ->
-        Term.mk_ubv
+        Term.mk_bv
           (Bitvector.num_to_bv16 (Numeral.neg (Term.numeral_of_term sub_expr)))
 
     | _ -> let tt = Term.type_of_term expr in
@@ -2064,7 +2063,7 @@ let eval_to_int32 expr =
 
     | Term.T.App (_, [ sub_expr ])
       when Term.is_negative_numeral expr ->
-        Term.mk_ubv
+        Term.mk_bv
           (Bitvector.num_to_bv32 (Numeral.neg (Term.numeral_of_term sub_expr)))
 
     | _ -> let tt = Term.type_of_term expr in
@@ -2111,7 +2110,7 @@ let eval_to_int64 expr =
 
     | Term.T.App (_, [ sub_expr ])
       when Term.is_negative_numeral expr ->
-        Term.mk_ubv
+        Term.mk_bv
           (Bitvector.num_to_bv64 (Numeral.neg (Term.numeral_of_term sub_expr)))
 
     | _ -> let tt = Term.type_of_term expr in

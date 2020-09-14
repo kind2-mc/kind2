@@ -40,8 +40,6 @@
 
 open Lib
 
-module SI : Set.S with type elt = Ident.t
-
 (** Error while parsing *)
 exception Parser_error
 
@@ -49,6 +47,11 @@ exception Parser_error
 
 (** An identifier *)
 type ident = string
+
+module SI: sig
+  include (Set.S with type elt = ident)
+  val flatten: t list -> t
+end
 
 (** A single index *)
 type index = string
@@ -98,8 +101,34 @@ type group_expr =
   | TupleExpr (* Tuple expression *)
   | ArrayExpr (* Array expression *)
 
+(** A Lustre type *)
+type lustre_type =
+  | TVar of position * ident
+  | Bool of position
+  | Int of position
+  | UInt8 of position
+  | UInt16 of position
+  | UInt32 of position
+  | UInt64 of position
+  | Int8 of position
+  | Int16 of position
+  | Int32 of position
+  | Int64 of position
+  | IntRange of position * expr * expr
+  | Real of position
+  | UserType of position * ident
+  | AbstractType of position * ident
+  | TupleType of position * lustre_type list
+  | RecordType of position * typed_ident list
+  | ArrayType of position * (lustre_type * expr)
+  | EnumType of position * ident option * ident list
+  (** TArr is always constructed as TupleType -> TupleType
+   *  as we can have more than one arguments and return 
+   *  values  *)
+  | TArr of position * lustre_type * lustre_type
+  
 (** A Lustre expression *)
-type expr =
+and expr =
   (* Identifiers *)
   | Ident of position * ident
   | ModeRef of position * ident list
@@ -140,27 +169,6 @@ type expr =
   (* Node calls *)
   | Call of position * ident * expr list
   | CallParam of position * ident * lustre_type list * expr list
-
-(** A Lustre type *)
-and lustre_type =
-    Bool of position
-  | Int of position
-  | UInt8 of position
-  | UInt16 of position
-  | UInt32 of position
-  | UInt64 of position
-  | Int8 of position
-  | Int16 of position
-  | Int32 of position
-  | Int64 of position
-  | IntRange of position * expr * expr
-  | Real of position
-  | UserType of position * ident
-  | AbstractType of position * ident
-  | TupleType of position * lustre_type list
-  | RecordType of position * typed_ident list
-  | ArrayType of position * (lustre_type * expr)
-  | EnumType of position * ident option * ident list
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type
@@ -342,6 +350,7 @@ type t = declaration list
 (** {1 Pretty-printers} *)
 val pp_print_node_param_list : Format.formatter -> node_param list -> unit
 val pp_print_ident : Format.formatter -> ident -> unit
+val pp_print_label_or_index: Format.formatter -> label_or_index -> unit
 val pp_print_expr : Format.formatter -> expr -> unit
 val pp_print_array_slice : Format.formatter -> expr * expr -> unit
 val pp_print_field_assign : Format.formatter -> ident * expr -> unit
@@ -349,12 +358,12 @@ val pp_print_clock_expr : Format.formatter -> clock_expr -> unit
 val pp_print_lustre_type : Format.formatter -> lustre_type -> unit
 val pp_print_typed_ident : Format.formatter -> typed_ident -> unit
 val pp_print_clocked_typed_ident :
-  Format.formatter -> position * ident * lustre_type * clock_expr -> unit
+  Format.formatter -> Lib.position * ident * lustre_type * clock_expr -> unit
 val pp_print_const_clocked_typed_ident :
-  Format.formatter -> position * ident * lustre_type * clock_expr * bool -> unit
+  Format.formatter -> Lib.position * ident * lustre_type * clock_expr * bool -> unit
 val pp_print_type_decl : Format.formatter -> type_decl -> unit
 val pp_print_var_decl :
-  Format.formatter -> position * ident * lustre_type * clock_expr -> unit
+  Format.formatter -> Lib.position * ident * lustre_type * clock_expr -> unit
 val pp_print_const_decl : Format.formatter -> const_decl -> unit
 val pp_print_node_local_decl_var :
   Format.formatter -> node_local_decl -> unit
@@ -363,44 +372,13 @@ val pp_print_node_local_decl_const :
 val pp_print_node_local_decl :
   Format.formatter -> node_local_decl list -> unit
 val pp_print_struct_item : Format.formatter -> struct_item -> unit
+val pp_print_node_body: Format.formatter -> node_equation -> unit
 val pp_print_node_item : Format.formatter -> node_item -> unit
 val pp_print_declaration : Format.formatter -> declaration -> unit
 val pp_print_program : Format.formatter -> t -> unit
 
 val pp_print_contract_item : Format.formatter -> contract_node_equation -> unit
 val pp_print_contract_node_decl : Format.formatter -> contract_node_decl -> unit
-
-
-(** {1 Helpers} *)
-
-(** Returns the position of an expression *)
-val pos_of_expr : expr -> Lib.position
-
-(** Returns true if the expression has unguareded pre's *)
-val has_unguarded_pre : expr -> bool
-
-(** Returns true if the expression has a `pre` or a `->`. *)
-val has_pre_or_arrow : expr -> Lib.position option
-
-(** Returns true iff a contract mentions a `pre` or a `->`.
-
-Does not (cannot) check contract calls recursively, checks only inputs and
-outputs. *)
-val contract_has_pre_or_arrow : contract -> Lib.position option
-
-(** Checks whether a node local declaration has a `pre` or a `->`. *)
-val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
-
-(** Checks whether a node equation has a `pre` or a `->`. *)
-val node_item_has_pre_or_arrow : node_item -> Lib.position option
-
-(** [replace_lasts allowed prefix acc e] replaces [last x] expressions in AST
-    [e] by abstract identifiers prefixed with [prefix]. Only identifiers that
-    appear in the list [allowed] are allowed to appear under a last. It returns
-    the new AST expression and a set of identifers for which the last
-    application was replaced. *)
-val replace_lasts : string list -> string -> SI.t -> expr -> expr * SI.t
-
 
 (* 
    Local Variables:

@@ -18,7 +18,6 @@
 *)
 
   open Lexing
-  open Parsing
   open YicesResponse
  
   let parse_failure pos what =

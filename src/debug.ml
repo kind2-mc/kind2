@@ -16,8 +16,6 @@
 
 *)
 
-open Lib
-
 let dflags = Flags.debug ()
 
 let certif =     List.mem "all" dflags || List.mem "certif" dflags

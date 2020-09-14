@@ -476,14 +476,14 @@ let mk_clause_of_literals source literals =
 
 
 (* Copy clause with a fresh activation literal *)
-let rec copy_clause_block_prop ({ literals } as clause) =
+let copy_clause_block_prop ({ literals } as clause) =
   mk_clause_of_literals (CopyBlockProp clause) literals 
 
 (* Copy clause with a fresh activation literal *)
-let rec copy_clause_fwd_prop ({ literals } as clause) =
+let copy_clause_fwd_prop ({ literals } as clause) =
   mk_clause_of_literals (CopyFwdProp clause) literals 
 
-let rec copy_clause ({ literals } as clause) =
+let copy_clause ({ literals } as clause) =
   mk_clause_of_literals (Copy clause) literals 
 
 

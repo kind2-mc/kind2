@@ -1,0 +1,7 @@
+node top (_: bool) returns (OK: bool);
+var i : uint8;
+let
+  i = (uint8 1) -> pre i + (uint8 1);
+  OK = (i > (uint8 0)) or (i = (uint8 0));
+  --%PROPERTY OK;
+tel

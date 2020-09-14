@@ -1,0 +1,14 @@
+const n = 11;
+const w = 5;
+
+node y (const a: int) returns (b: int^n);
+let
+  b = a^n;       
+tel;
+
+node f(const x : int) returns (xb : int^true);
+var b: bool^5;
+let
+  --%PROPERTY b[1] = false;
+  b = false ^ x;
+tel;

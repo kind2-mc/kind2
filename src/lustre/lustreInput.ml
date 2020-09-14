@@ -21,22 +21,21 @@ open Lexing
 open MenhirLib.General
    
 module LA = LustreAst
-module LI = LustreIdent
 module LN = LustreNode
 module LC = LustreContext
 module LD = LustreDeclarations
-module SS = SubSystem
 
 module LPI = LustreParser.Incremental
 module LL = LustreLexer          
 module LPMI = LustreParser.MenhirInterpreter
 module LPE = LustreParserErrors
+module TC = LustreTypeChecker
 
 exception NoMainNode of string
-           
+
 (* The parser has succeeded and produced a semantic value.*)
 let success (v : LustreAst.t): LustreAst.t =
-  Log.log L_debug "Parsed :\n=========\n\n%a\n@." LustreAst.pp_print_program v;
+  Log.log L_trace "Parsed :\n=========\n\n%a\n@." LA.pp_print_program v;
   v
 
 (* Generates the appropriate parser error message *)
@@ -101,26 +100,36 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
     (parse lexbuf (LPI.main lexbuf.lex_curr_p))
   with
   | LustreLexer.Lexer_error err -> LC.fail_at_position (Lib.position_of_lexing lexbuf.lex_curr_p) err  
-         
+
 (* Parse from input channel *)
 let of_channel in_ch =
   (* Get declarations from channel. *)
   let declarations = ast_of_channel in_ch in
+
+  (* If type checking is enabled then do this pass *)
+  if not (Flags.no_tc ()) then
+    (Log.log L_note "(Experimental) Typechecking enabled.";
+     (let tc_res = TC.type_check_program declarations in
+      match tc_res with
+      | Ok () -> Log.log L_note "No type errors found!";
+                      (if Flags.only_tc () then exit 0);
+      | Error (pos, err) -> LC.fail_at_position pos err)) ;
+  
   (* Simplify declarations to a list of nodes *)
   let nodes, globals = LD.declarations_to_nodes declarations in
   (* Name of main node *)
   let main_node = 
     (* Command-line flag for main node given? *)
     match Flags.lus_main () with 
-      (* Use given identifier to choose main node *)
-      | Some s -> LustreIdent.mk_string_ident s
-      (* No main node name given on command-line *)
-      | None -> 
-        (try 
-           (* Find main node by annotation, or take last node as
+    (* Use given identifier to choose main node *)
+    | Some s -> LustreIdent.mk_string_ident s
+    (* No main node name given on command-line *)
+    | None -> 
+       (try 
+          (* Find main node by annotation, or take last node as
               main *)
-           LustreNode.find_main nodes 
-         (* No main node found
+          LustreNode.find_main nodes 
+        (* No main node found
             This only happens when there are no nodes in the input. *)
          with Not_found -> 
            raise (NoMainNode "No main node defined in input"))

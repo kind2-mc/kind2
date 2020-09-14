@@ -1,0 +1,20 @@
+node top (reset: bool) returns (OK : bool);
+var i81, i82 : uint8;
+var i161, i162 : uint16;
+var i321, i322 : uint32;
+var i641, i642 : uint64;
+let
+ i81 = (uint8 10) + (uint8 10);
+ i82 = (uint8 255) + (uint8 20);
+ i161 = (uint16 1000) + (uint16 1000);
+ i162 = (uint16 65535) + (uint16 20);
+ i321 = (uint32 100000) + (uint32 100000);
+ i322 = (uint32 4294967295) + (uint32 20);
+ i641 = (uint64 10000000000) + (uint64 10000000000);
+ i642 = (uint64 18446744073709551615) + (uint64 20);
+ OK = (i81 = (uint8 0)) and (i82 = (uint8 0)) and
+      (i161 = (uint16 0)) and (i162 = (uint16 0)) and 
+      (i321 = (uint32 0)) and (i322 = (uint32 0)) and 
+      (i641 = (uint64 0)) and (i642 = (uint64 0));
+ --%PROPERTY OK;
+tel

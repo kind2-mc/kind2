@@ -16,8 +16,6 @@
 
 *)
 
-open Lib
-
 exception UnsupportedFileFormat of string
 
 module S = SubSystem

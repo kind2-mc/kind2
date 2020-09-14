@@ -16,8 +16,6 @@
 
 *)
 
-open Lib
-
 module I = LustreIdent
 module ISet = I.Set
 module IMap = I.Hashtbl

@@ -1,0 +1,8 @@
+
+node top(x: int) returns (y: real);
+(*@contract
+  guarantee x=y;
+*)
+let
+  y = (real x);
+tel

@@ -18,7 +18,6 @@
 
 open Lib
 
-exception BVSizeError
 let division_by_zero = ref false
 
 (** Returns true iff a division by zero happened in a simplification since
@@ -795,7 +794,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVSIGNEXT _ , _ -> assert false 
     )    
 
-  | Term.T.Attr (t, _) -> t
+  (* | Term.T.Attr (t, _) -> t *)
 
 
 (* Negate all but the last term *)
@@ -2306,7 +2305,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.ubv_rem 
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
-              | _ -> assert false)
+              | _ ->  assert false)
 
           | `BVSREM ->
             (match args with
@@ -2451,7 +2450,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
       )
 
     (* Skip over attributed term *)
-    | Term.T.Attr _ -> match args with [a] -> a | _ -> assert false
+    (* | Term.T.Attr _ -> match args with [a] -> a | _ -> assert false *)
 
 
 (* ********************************************************************** *)

@@ -17,7 +17,6 @@
 *)
 
 open Lib
-open TermLib
 open Actlit
 
 (* Raised when the unrolling alone is unsat (with the bound). *)

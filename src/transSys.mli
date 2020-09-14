@@ -365,7 +365,7 @@ val map_cex_prop_to_subsystem : (Scope.t -> instance -> (StateVar.t * Model.valu
     {[ declare_vars_of_bounds
          (SMTSolver.declare_fun t) 
          (Numeral.succ u)
-         v  ]}. 
+         v  ]}
 
     Evaluating {!define_and_declare_of_bounds} is only needed once per
     solver instance, and only for the top level transition system. *)

@@ -1,0 +1,9 @@
+node top (reset: bool) returns (OK: bool);
+var i : uint8;
+var j : uint16;
+let
+  i = uint8 100;
+  j = uint16 i;
+  OK = j = uint16 50;
+  --%PROPERTY OK;
+tel
