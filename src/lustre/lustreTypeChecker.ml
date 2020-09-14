@@ -41,13 +41,42 @@ type tc_type  = LA.lustre_type
               
 (** String of the type to display in type errors *)
 let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
+
+
+(** Pretty print type synonyms*)
+let pp_print_type_syn ppf = fun (i, ty) -> 
+  Format.fprintf ppf "(%a:=%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
+
+(** Pretty print type bindings*)
+let pp_print_type_binding ppf = fun (i, ty) -> 
+  Format.fprintf ppf "(%a:%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
+
+(** Pretty print value bindings (used for constants)*)
+let pp_print_val_binding ppf = fun (i, (v, ty)) ->
+  Format.fprintf ppf "(%a:%a :-> %a)" LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v
+
                                                   
 (** Map for types with identifiers as keys *)
-module IMap = Map.Make(struct
-                  type t = LA.ident
-                  let compare i1 i2 = Stdlib.compare i1 i2
-                end)
+module IMap = struct
+  (** everything that [Stdlib.Map] gives us  *)
+  include Map.Make(struct
+              type t = LA.ident
+              let compare i1 i2 = Stdlib.compare i1 i2
+            end)
+  (** Pretty print type context *)
+  let pp_print_ty_syns: Format.formatter -> 'a t -> unit
+    = fun ppf m -> Lib.pp_print_list (pp_print_type_syn) ", " ppf (bindings m)
 
+  (** Pretty print type context *)
+  let pp_print_tymap: Format.formatter -> 'a t -> unit
+    = fun ppf m -> Lib.pp_print_list (pp_print_type_binding) ", " ppf (bindings m)
+
+  (** Pretty print value store *)
+  let pp_print_vstore: Format.formatter -> 'a t -> unit
+    = fun ppf m ->  Lib.pp_print_list (pp_print_val_binding) ", "  ppf (bindings m)
+                      
+end
+            
 let sort_typed_ident: LA.typed_ident list -> LA.typed_ident list = fun ty_idents ->
   List.sort (fun (_,i1,_) (_,i2,_) -> Stdlib.compare i1 i2) ty_idents
 
@@ -93,7 +122,8 @@ let pp_print_vstore ppf = IMap.iter (pp_print_val_binding ppf)
 let pp_print_u_types ppf = SI.iter (fun i -> LA.pp_print_ident ppf i)
                          
 type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
-                  ; ty_ctx: ty_store        (* store of the types of identifiers *)
+                  ; ty_ctx: ty_store        (* store of the types of identifiers and nodes*)
+                  ; contract_ctx: ty_store  (* store of the types of contracts*)
                   ; vl_ctx: const_store     (* store of typed constants to its value*)
                   ; u_types: ty_set         (* store of all declared user types,
                                                this is poor mans kind (type of type) context *)
@@ -102,6 +132,7 @@ type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings 
 
 let empty_context: tc_context = { ty_syns = IMap.empty
                                 ; ty_ctx = IMap.empty
+                                ; contract_ctx = IMap.empty
                                 ; vl_ctx = IMap.empty
                                 ; u_types = SI.empty }
 (** The empty context with no information *)
@@ -110,11 +141,13 @@ let pp_print_tc_context ppf ctx
   = Format.fprintf ppf
       ("TypeSynonyms={%a}\n"
        ^^ "TypeContext={%a}\n"
+       ^^ "ContractContext={%a}\n"
        ^^ "ConstValueContext={%a}"
        ^^ "DeclaredTypes={%a}")
-      pp_print_ty_syns (ctx.ty_syns)
-      pp_print_tymap (ctx.ty_ctx)
-      pp_print_vstore (ctx.vl_ctx)
+      IMap.pp_print_ty_syns (ctx.ty_syns)
+      IMap.pp_print_tymap (ctx.ty_ctx)
+      IMap.pp_print_tymap (ctx.contract_ctx)
+      IMap.pp_print_vstore (ctx.vl_ctx)
       pp_print_u_types (ctx.u_types)
   
 (** Pretty print the complete type checker context*)
@@ -132,6 +165,9 @@ let member_ty_syn: tc_context -> LA.ident -> bool
 let member_ty: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.ty_ctx)
 
+let member_contract: tc_context -> LA.ident -> bool
+  = fun ctx i -> IMap.mem i (ctx.contract_ctx)
+               
 let member_u_types : tc_context -> LA.ident -> bool
   = fun ctx i -> SI.mem i ctx.u_types
   
@@ -155,6 +191,9 @@ let lookup_ty: tc_context -> LA.ident -> tc_type
                  | _ ->  ty
 (** Picks out the type from the variable to type context map *)
 
+let lookup_contract_ty: tc_context -> LA.ident -> tc_type
+  = fun ctx i -> IMap.find i (ctx.contract_ctx)
+                          
 let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type)
   = fun ctx i -> IMap.find i (ctx.vl_ctx)
 
@@ -164,6 +203,9 @@ let add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
 let add_ty: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with ty_ctx = IMap.add i ty (ctx.ty_ctx)}
 
+let add_ty_contract: tc_context -> LA.ident -> tc_type -> tc_context
+  = fun ctx i ty -> {ctx with contract_ctx = IMap.add i ty (ctx.contract_ctx)}
+                  
 let add_ty_decl: tc_context -> LA.ident -> tc_context
   = fun ctx i -> {ctx with u_types = SI.add i (ctx.u_types)}
 
@@ -176,6 +218,7 @@ let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> tc_context
 let union: tc_context -> tc_context -> tc_context
   = fun ctx1 ctx2 -> { ty_syns = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.ty_syns) (ctx2.ty_syns))
                      ; ty_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.ty_ctx) (ctx2.ty_ctx))
+                     ; contract_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.contract_ctx) (ctx2.contract_ctx))
                      ; vl_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.vl_ctx) (ctx2.vl_ctx))
                      ; u_types = SI.union ctx1.u_types ctx2.u_types 
                      }
@@ -1111,7 +1154,22 @@ and check_contract_node_eqn: tc_context -> LA.contract_node_equation -> unit tc_
        let ret_ty = if List.length ret_tys = 1
                     then List.hd ret_tys
                     else LA.TupleType (pos, ret_tys) in
+<<<<<<< HEAD
        check_type_expr ctx (LA.Call (pos, cname, args))(ret_ty) 
+=======
+       R.seq(List.map (infer_type_expr ctx) args) >>= fun arg_tys -> 
+       let arg_ty = if List.length arg_tys = 1
+                    then List.hd arg_tys
+                    else LA.TupleType (pos, arg_tys) in
+       let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
+       try let inf_ty = (lookup_contract_ty ctx cname) in
+           R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
+             (type_error pos ("Contract " ^ cname
+                              ^ " expected to have type " ^ string_of_tc_type exp_ty
+                              ^ " but found type " ^ string_of_tc_type inf_ty))
+       with
+       | Not_found -> type_error pos ("Undefined or not in scope contract name " ^ cname)
+>>>>>>> - contract is now lookup in contract context which is different from typing context
 
 and tc_ctx_const_decl
   = fun ?is_const:(const_real=true) ctx ->
@@ -1206,10 +1264,10 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
   Log.log L_trace
     "Extracting typing context from contract declaration: %a"
     LA.pp_print_ident cname
-  ; if (member_ty ctx cname)
-    then type_error pos ("Node " ^ cname ^ " is already declared.")
+  ; if (member_contract ctx cname)
+    then type_error pos ("Contract " ^ cname ^ " is already declared.")
     else build_node_fun_ty pos ctx inputs outputs
-         >>= fun fun_ty -> R.ok (add_ty ctx cname fun_ty)
+         >>= fun fun_ty -> R.ok (add_ty_contract ctx cname fun_ty)
 
 and tc_ctx_of_declaration: tc_context -> LA.declaration -> tc_context tc_result
     = fun ctx' ->
@@ -1361,11 +1419,16 @@ and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> bool tc_re
 (** Compute type equality for [LA.typed_ident] *)
 
 and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type * LA.expr) -> bool tc_result
-  = fun ctx (ty1, e1) (ty2, e2) -> eq_lustre_type ctx ty1 ty2
+  = fun ctx (ty1, e1) (ty2, e2) ->
+  eq_lustre_type ctx ty1 ty2
 (** Compute equality for [LA.ArrayType]
  * For now, we do not check the bounds for arrays. This introduces bugs similar to Issue #566. 
  *   https://github.com/kind2-mc/kind2/issues/566. 
- *   Backend should handle such cases as it can talk to a powerful solver. *)
+ *   Backend should handle such cases as it can talk to a powerful solver. *)  
+  
+let scc: LA.t -> LA.t list
+  = fun decls -> [decls]
+(** Compute the connected components for type checking *)
 
                                  
 let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
