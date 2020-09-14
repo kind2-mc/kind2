@@ -7157,7 +7157,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR WEA
 ## VAR ident
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing type annotation for contract variable. 
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR XOR
 ##

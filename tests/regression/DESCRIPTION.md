@@ -60,11 +60,11 @@ Error
 | `function_no_pre_in_body.lus`             |                                                                        |         |
 | `function_no_stateful_contract.lus`       |                                                                        |         |
 | `function_stateful_contract_import.lus`   |                                                                        |         |
-| `imported_fun_no_body.lus`                |                                                                        |         |
-| `imported_node_no_body.lus`               |                                                                        |         |
-| `merge_enum.lus`                          |                                                                        |         |
-| `merge_enum1.lus`                         |                                                                        |         |
-| `merge_enum2.lus`                         |                                                                        |         |
+| `imported_fun_no_body.lus`                | Syntax error                                                           |         |
+| `imported_node_no_body.lus`               | Syntax error                                                           |         |
+| `merge_enum.lus`                          | Exhaustive match of merge on enums                                              |         |
+| `merge_enum1.lus`                         | Unique match for merge on enums                                                 |         |
+| `merge_enum2.lus`                         | Clock mismatch for merge on enums                                               |         |
 | `mode_reqs_by_idents_no_forward_ref.lus`  |                                                                        |         |
 | `mode_reqs_by_idents_no_self_ref.lus`     |                                                                        |         |
 | `no_contracts_in_contract.lus`            |                                                                        |         |

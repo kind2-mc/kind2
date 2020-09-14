@@ -511,7 +511,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                         ^ string_of_tc_type exp_ty
                         ^ " with infered type "
                         ^ string_of_tc_type ty))
-  | ModeRef (pos, ids) -> Lib.todo __LOC__
+  | ModeRef (pos, ids) -> check_type_expr ctx (LA.Ident (pos, List.nth ids (List.length ids - 1) )) exp_ty 
   | RecordProject (pos, expr, fld) -> check_type_record_proj pos ctx expr fld exp_ty
   | TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
 

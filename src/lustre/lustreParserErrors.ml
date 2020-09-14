@@ -671,7 +671,7 @@ let message =
     | 714 ->
         "Syntax Error!\n"
     | 715 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps a missing type annotation for contract variable. \n"
     | 716 ->
         "Syntax Error!\n"
     | 717 ->

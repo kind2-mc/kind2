@@ -47,6 +47,7 @@ let ty_suffix = "type "
 let const_suffix = ""
 let node_suffix = ""
 let contract_suffix = "contract "
+let mode_suffix = "mode "
 
 let rec mk_graph_type: LA.lustre_type -> G.t = function
   | TVar (_, i) -> G.singleton (ty_suffix ^ i)
@@ -109,6 +110,13 @@ let rec mk_graph_contract_node_eqn: LA.contract_node_equation -> G.t
   | LA.ContractCall (_, i, _, _) -> G.singleton (contract_suffix ^ i)
   | LA.Assume (_, _, _, e) -> List.fold_left G.union G.empty (List.map G.singleton (get_node_call_from_expr e))
   | LA.Guarantee (_, _, _, e) -> List.fold_left G.union G.empty (List.map G.singleton (get_node_call_from_expr e))
+  | LA.Mode (_, _, reqs, ensures) ->
+     let expr_sub_graphs
+       = List.map (fun (_, _, e) ->
+             List.fold_left G.union G.empty
+               (List.map G.singleton (get_node_call_from_expr e)))
+           (reqs @ ensures) in
+     List.fold_left G.union G.empty expr_sub_graphs
   | _ -> G.empty
 
 and get_node_call_from_expr: LA.expr -> LA.ident list
