@@ -2398,6 +2398,52 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.ubv_add
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
+              | [x; y] -> let xn = term_of_nf x in
+                          let yn = term_of_nf y in
+                          let xbv = Term.bitvector_of_term xn in
+                          let ybv = Term.bitvector_of_term yn in
+                          let xlen = Bitvector.length_of_bitvector xbv in
+                          let ylen = Bitvector.length_of_bitvector ybv in
+                          let xtype = Term.type_of_term xn in
+                          let ytype = Term.type_of_term xn in
+                          let xunum = 
+                            (match xlen with
+                            | 8 -> Bitvector.ubv8_to_num xbv
+                            | 16 -> Bitvector.ubv16_to_num xbv
+                            | 32 -> Bitvector.ubv32_to_num xbv
+                            | 64 -> Bitvector.ubv64_to_num xbv
+                            | _ -> assert false) in
+                          let xsnum = 
+                            (match xlen with
+                            | 8 -> Bitvector.bv8_to_num xbv
+                            | 16 -> Bitvector.bv16_to_num xbv
+                            | 32 -> Bitvector.bv32_to_num xbv
+                            | 64 -> Bitvector.bv64_to_num xbv
+                            | _ -> assert false) in                       
+                          let yunum = 
+                            (match ylen with
+                            | 8 -> Bitvector.ubv8_to_num ybv
+                            | 16 -> Bitvector.ubv16_to_num ybv
+                            | 32 -> Bitvector.ubv32_to_num ybv
+                            | 64 -> Bitvector.ubv64_to_num ybv
+                             | _ -> assert false) in
+                          let ysnum = 
+                            (match ylen with
+                            | 8 -> Bitvector.bv8_to_num ybv
+                            | 16 -> Bitvector.bv16_to_num ybv
+                            | 32 -> Bitvector.bv32_to_num ybv
+                            | 64 -> Bitvector.bv64_to_num ybv
+                            | _ -> assert false) in
+                          let s = ("Op = BVADD\nFirst arg = ") ^ (Term.string_of_term xn) ^ 
+                                  (" = ")  ^ (Numeral.string_of_numeral xunum) ^
+                                  (" (unsigned) = ") ^ (Numeral.string_of_numeral xsnum) ^
+                                  (" (signed)\nSecond arg = ") ^ (Term.string_of_term yn) ^ 
+                                  (" = ")  ^ (Numeral.string_of_numeral yunum) ^
+                                  (" (unsigned) = ") ^ (Numeral.string_of_numeral ysnum) ^
+                                  (" (signed)\nType of first arg = ") ^ (Type.string_of_type_debug xtype) ^
+                                  ("\nType of second arg = ") ^ (Type.string_of_type_debug ytype) ^ "\n" in
+                          Format.print_string s;
+                          assert false
               | _ -> assert false)
 
           | `BVSUB ->
@@ -2417,6 +2463,52 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.ubv_mult
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
+              | [x; y] -> let xn = term_of_nf x in
+                          let yn = term_of_nf y in
+                          let xbv = Term.bitvector_of_term xn in
+                          let ybv = Term.bitvector_of_term yn in
+                          let xlen = Bitvector.length_of_bitvector xbv in
+                          let ylen = Bitvector.length_of_bitvector ybv in
+                          let xtype = Term.type_of_term xn in
+                          let ytype = Term.type_of_term xn in
+                          let xunum = 
+                            (match xlen with
+                            | 8 -> Bitvector.ubv8_to_num xbv
+                            | 16 -> Bitvector.ubv16_to_num xbv
+                            | 32 -> Bitvector.ubv32_to_num xbv
+                            | 64 -> Bitvector.ubv64_to_num xbv
+                            | _ -> assert false) in
+                          let xsnum = 
+                            (match xlen with
+                            | 8 -> Bitvector.bv8_to_num xbv
+                            | 16 -> Bitvector.bv16_to_num xbv
+                            | 32 -> Bitvector.bv32_to_num xbv
+                            | 64 -> Bitvector.bv64_to_num xbv
+                            | _ -> assert false) in                       
+                          let yunum = 
+                            (match ylen with
+                            | 8 -> Bitvector.ubv8_to_num ybv
+                            | 16 -> Bitvector.ubv16_to_num ybv
+                            | 32 -> Bitvector.ubv32_to_num ybv
+                            | 64 -> Bitvector.ubv64_to_num ybv
+                             | _ -> assert false) in
+                          let ysnum = 
+                            (match ylen with
+                            | 8 -> Bitvector.bv8_to_num ybv
+                            | 16 -> Bitvector.bv16_to_num ybv
+                            | 32 -> Bitvector.bv32_to_num ybv
+                            | 64 -> Bitvector.bv64_to_num ybv
+                            | _ -> assert false) in
+                          let s = ("Op = BVMUL\nFirst arg = ") ^ (Term.string_of_term xn) ^ 
+                                  (" = ")  ^ (Numeral.string_of_numeral xunum) ^
+                                  (" (unsigned) = ") ^ (Numeral.string_of_numeral xsnum) ^
+                                  (" (signed)\nSecond arg = ") ^ (Term.string_of_term yn) ^ 
+                                  (" = ")  ^ (Numeral.string_of_numeral yunum) ^
+                                  (" (unsigned) = ") ^ (Numeral.string_of_numeral ysnum) ^
+                                  (" (signed)\nType of first arg = ") ^ (Type.string_of_type_debug xtype) ^
+                                  ("\nType of second arg = ") ^ (Type.string_of_type_debug ytype) ^ "\n" in
+                          Format.print_string s;
+                          assert false
               | _ -> assert false)
 
           | `BVUDIV ->

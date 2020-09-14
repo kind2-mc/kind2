@@ -1,8 +1,8 @@
 node top (reset: bool) returns (OK: bool);
-var i : uint32;
+var i : int32;
 var j : int;
 let
-  i = (uint32 1) -> pre i * (uint32 10);
+  i = (int32 1) -> pre i * (int32 10);
   j = int i;
   OK = (j >= 1);
   --%PROPERTY OK;
