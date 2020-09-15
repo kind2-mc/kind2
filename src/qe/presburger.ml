@@ -512,6 +512,30 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                (* Fail on conversion to integer *)
                | `TO_INT, _ -> raise Not_in_LIA
 
+               (* Fail on conversion from unsigned integer8 to integer *)
+               | `UINT8_TO_INT, _ -> raise Not_in_LIA
+        
+               (* Fail on conversion from unsigned integer16 to integer *)
+               | `UINT16_TO_INT, _ -> raise Not_in_LIA
+        
+               (* Fail on conversion from unsigned integer32 to integer *)
+               | `UINT32_TO_INT, _ -> raise Not_in_LIA
+              
+               (* Fail on conversion from unsigned integer64 to integer *)
+               | `UINT64_TO_INT, _ -> raise Not_in_LIA
+            
+               (* Fail on conversion from signed integer8 to integer *)
+               | `INT8_TO_INT, _ -> raise Not_in_LIA
+
+               (* Fail on conversion from signed integer16 to integer *)        
+               | `INT16_TO_INT, _ -> raise Not_in_LIA
+
+               (* Fail on conversion from signed integer32 to integer *)        
+               | `INT32_TO_INT, _ -> raise Not_in_LIA
+
+               (* Fail on conversion from signed integer64 to integer *)        
+               | `INT64_TO_INT, _ -> raise Not_in_LIA
+               
                (* Fail on conversion to unsigned integer8 *)
                | `TO_UINT8, _ -> raise Not_in_LIA
 

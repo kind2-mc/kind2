@@ -1,0 +1,9 @@
+node top (reset: bool) returns (OK: bool);
+var i : uint8;
+var j : int;
+let
+  i = (uint8 200) -> pre i + (uint8 1);
+  j = int i;
+  OK = (j >= 200);
+  --%PROPERTY OK;
+tel

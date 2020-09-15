@@ -640,6 +640,14 @@ let rec type_of_term t = match T.destruct t with
 
         (* Integer-valued functions *)
         | `TO_INT
+        | `UINT8_TO_INT
+        | `UINT16_TO_INT
+        | `UINT32_TO_INT
+        | `UINT64_TO_INT
+        | `INT8_TO_INT
+        | `INT16_TO_INT
+        | `INT32_TO_INT
+        | `INT64_TO_INT
         | `MOD
         | `ABS
         | `INTDIV
@@ -1405,6 +1413,30 @@ let mk_to_real t = mk_app_of_symbol_node `TO_REAL [t]
 
 (* Hashcons a unary conversion to an integer numeral *)
 let mk_to_int t = mk_app_of_symbol_node `TO_INT [t]
+
+(* Hashcons a unary conversion from uint8 to an integer numeral *)
+let mk_uint8_to_int t = mk_app_of_symbol_node `UINT8_TO_INT [t]
+
+(* Hashcons a unary conversion from uint16 to an integer numeral *)
+let mk_uint16_to_int t = mk_app_of_symbol_node `UINT16_TO_INT [t]
+
+(* Hashcons a unary conversion from uint32 to an integer numeral *)
+let mk_uint32_to_int t = mk_app_of_symbol_node `UINT32_TO_INT [t]
+
+(* Hashcons a unary conversion from uint64 to an integer numeral *)
+let mk_uint64_to_int t = mk_app_of_symbol_node `UINT64_TO_INT [t]
+
+(* Hashcons a unary conversion from int8 to an integer numeral *)
+let mk_int8_to_int t = mk_app_of_symbol_node `INT8_TO_INT [t]
+
+(* Hashcons a unary conversion from int16 to an integer numeral *)
+let mk_int16_to_int t = mk_app_of_symbol_node `INT16_TO_INT [t]
+
+(* Hashcons a unary conversion from int32 to an integer numeral *)
+let mk_int32_to_int t = mk_app_of_symbol_node `INT32_TO_INT [t]
+
+(* Hashcons a unary conversion from int64 to an integer numeral *)
+let mk_int64_to_int t = mk_app_of_symbol_node `INT64_TO_INT [t]
 
 (* Hashcons a unary conversion to an unsigned integer8 numeral *)
 let mk_to_uint8 t = mk_app_of_symbol_node `TO_UINT8 [t]

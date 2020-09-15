@@ -609,6 +609,14 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `BVNEG
   | `TO_REAL
   | `TO_INT
+  | `UINT8_TO_INT
+  | `UINT16_TO_INT
+  | `UINT32_TO_INT
+  | `UINT64_TO_INT
+  | `INT8_TO_INT
+  | `INT16_TO_INT
+  | `INT32_TO_INT
+  | `INT64_TO_INT
   | `TO_UINT8
   | `TO_UINT16
   | `TO_UINT32
@@ -1756,9 +1764,66 @@ let eval_to_int expr =
         (Numeral.of_big_int
            (Decimal.to_big_int
               (Symbol.decimal_of_symbol s)))
-
+    | Term.T.Const s when Symbol.is_ubv8 s ->
+      Term.mk_num
+        (Bitvector.ubv8_to_num
+          (Symbol.ubitvector_of_symbol s))
+    | Term.T.Const s when Symbol.is_ubv16 s ->
+      Term.mk_num
+        (Bitvector.ubv16_to_num
+          (Symbol.ubitvector_of_symbol s))
+    | Term.T.Const s when Symbol.is_ubv32 s ->
+      Term.mk_num
+        (Bitvector.ubv32_to_num
+          (Symbol.ubitvector_of_symbol s))
+    | Term.T.Const s when Symbol.is_ubv64 s ->
+      Term.mk_num
+        (Bitvector.ubv64_to_num
+          (Symbol.ubitvector_of_symbol s))
+    | Term.T.Const s when Symbol.is_bv8 s ->
+      Term.mk_num
+        (Bitvector.bv8_to_num
+          (Symbol.bitvector_of_symbol s))
+    | Term.T.Const s when Symbol.is_bv16 s ->
+      Term.mk_num
+        (Bitvector.bv16_to_num
+          (Symbol.ubitvector_of_symbol s))
+    | Term.T.Const s when Symbol.is_bv32 s ->
+      Term.mk_num
+        (Bitvector.bv32_to_num
+          (Symbol.ubitvector_of_symbol s))
+    | Term.T.Const s when Symbol.is_bv64 s ->
+      Term.mk_num
+        (Bitvector.bv64_to_num
+          (Symbol.ubitvector_of_symbol s))
+    | x when Type.is_uint8 (Term.type_of_term (Term.construct x)) -> Term.mk_uint8_to_int expr
+    | x when Type.is_uint16 (Term.type_of_term (Term.construct x)) -> Term.mk_uint16_to_int expr
+    | x when Type.is_uint32 (Term.type_of_term (Term.construct x)) ->  Term.mk_uint32_to_int expr
+    | x when Type.is_uint64 (Term.type_of_term (Term.construct x)) ->  Term.mk_uint64_to_int expr
+    | x when Type.is_int8 (Term.type_of_term (Term.construct x)) ->  Term.mk_int8_to_int expr
+    | x when Type.is_int16 (Term.type_of_term (Term.construct x)) ->  Term.mk_int16_to_int expr
+    | x when Type.is_int32 (Term.type_of_term (Term.construct x)) ->  Term.mk_int32_to_int expr
+    | x when Type.is_int64 (Term.type_of_term (Term.construct x)) ->  Term.mk_int64_to_int expr
     | _ -> Term.mk_to_int expr
-    | exception Invalid_argument _ -> Term.mk_to_int expr
+    | exception Invalid_argument _ -> 
+      if Type.is_uint8 (Term.type_of_term expr) then
+        Term.mk_uint8_to_int expr
+      else if Type.is_uint16 (Term.type_of_term expr) then
+        Term.mk_uint16_to_int expr
+      else if Type.is_uint32 (Term.type_of_term expr) then
+        Term.mk_uint32_to_int expr
+      else if Type.is_uint64 (Term.type_of_term expr) then
+        Term.mk_uint64_to_int expr
+      else if Type.is_int8 (Term.type_of_term expr) then
+        Term.mk_int8_to_int expr
+      else if Type.is_int16 (Term.type_of_term expr) then
+        Term.mk_int16_to_int expr
+      else if Type.is_int32 (Term.type_of_term expr) then
+        Term.mk_int32_to_int expr
+      else if Type.is_int64 (Term.type_of_term expr) then
+        Term.mk_int64_to_int expr
+      else
+        Term.mk_to_int expr
 
 
 (* Type of conversion to integer  
@@ -1768,6 +1833,8 @@ let eval_to_int expr =
 let type_of_to_int = function
   | t when Type.is_real t -> Type.t_int
   | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+  | t when Type.is_uint8 t || Type.is_uint16 t || Type.is_uint32 t || Type.is_uint64 t -> Type.t_int
+  | t when Type.is_int8 t || Type.is_int16 t || Type.is_int32 t || Type.is_int64 t -> Type.t_int
   | _ -> raise Type_mismatch
 
 
