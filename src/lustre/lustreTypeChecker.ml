@@ -1123,14 +1123,14 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
   Log.log L_trace "TC Contract decl: %a {" LA.pp_print_ident cname 
   (* build the appropriate local context *)
   ; let arg_ctx = List.fold_left union ctx (List.map extract_arg_ctx args) in
-  let ret_ctx = List.fold_left union arg_ctx (List.map extract_ret_ctx rets) in
-  let local_const_ctx = List.fold_left union ret_ctx (List.map extract_consts args) in
-  (* get the local const var declarations into the context *)
-  R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract)
-  >>= fun ctxs ->
-  let local_ctx = List.fold_left union local_const_ctx ctxs in
-  check_type_contract local_ctx contract
-  >> R.ok (Log.log L_trace "TC Contract Decl %a done }" LA.pp_print_ident cname)
+    let ret_ctx = List.fold_left union arg_ctx (List.map extract_ret_ctx rets) in
+    let local_const_ctx = List.fold_left union ret_ctx (List.map extract_consts args) in
+    (* get the local const var declarations into the context *)
+    R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract)
+    >>= fun ctxs ->
+    let local_ctx = List.fold_left union local_const_ctx ctxs in
+    check_type_contract local_ctx contract
+    >> R.ok (Log.log L_trace "TC Contract Decl %a done }" LA.pp_print_ident cname)
 
 and check_type_contract: tc_context -> LA.contract -> unit tc_result
   = fun ctx eqns ->
@@ -1140,21 +1140,21 @@ and check_contract_node_eqn: tc_context -> LA.contract_node_equation -> unit tc_
   = fun ctx eqn ->
   Log.log L_trace "checking contract equation: %a" LA.pp_print_contract_item eqn 
   ; match eqn with
-  | GhostConst _
-  | GhostVar _ ->  R.ok () (* These is already checked while extracting ctx *)
-  | Assume (pos, _, _, e) -> check_type_expr ctx e (Bool pos)
-  | Guarantee (pos, _, _, e) -> check_type_expr ctx e (Bool pos)
-  | Mode (pos, _, reqs, ensures) ->
-     R.seq_ (Lib.list_apply (List.map (check_type_expr ctx)
-                               (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
-               (Bool pos)) 
-  | ContractCall (pos, cname, args, rets) ->
-     R.seq(List.map (infer_type_expr ctx) rets)
-     >>= fun ret_tys ->  
-     let ret_ty = if List.length ret_tys = 1
-                  then List.hd ret_tys
-                  else LA.TupleType (pos, ret_tys) in
-     check_type_expr ctx (LA.Call (pos, cname, args))(ret_ty) 
+    | GhostConst _
+      | GhostVar _ ->  R.ok () (* These is already checked while extracting ctx *)
+    | Assume (pos, _, _, e) -> check_type_expr ctx e (Bool pos)
+    | Guarantee (pos, _, _, e) -> check_type_expr ctx e (Bool pos)
+    | Mode (pos, _, reqs, ensures) ->
+       R.seq_ (Lib.list_apply (List.map (check_type_expr ctx)
+                                 (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
+                 (Bool pos)) 
+    | ContractCall (pos, cname, args, rets) ->
+       R.seq(List.map (infer_type_expr ctx) rets)
+       >>= fun ret_tys ->  
+       let ret_ty = if List.length ret_tys = 1
+                    then List.hd ret_tys
+                    else LA.TupleType (pos, ret_tys) in
+       check_type_expr ctx (LA.Call (pos, cname, args))(ret_ty) 
 
 and tc_ctx_const_decl
   = fun ?const_real:(const_real=true) ctx ->
@@ -1169,17 +1169,21 @@ and tc_ctx_const_decl
      then type_error pos ("Constant " ^ i ^ " is already declared.")
      else infer_type_expr ctx e >>= fun ty ->
           (if const_real then
-          check_expr_of_consts ctx e 
-          else R.ok ()) >>
-                 R.ok (add_ty (add_const ctx i e ty) i ty)
+             if (is_expr_of_consts ctx e) 
+             then R.ok (add_ty (add_const ctx i e ty) i ty)
+             else type_error pos ("Expression " ^ Lib.string_of_t LA.pp_print_expr e ^ " is not a constant expression")
+           else R.ok(add_ty ctx i ty))
+          
   | LA.TypedConst (pos, i, e, exp_ty) ->
      if member_ty ctx i
      then type_error pos ("Constant " ^ i ^ " is already declared.")
      else check_type_expr (add_ty ctx i exp_ty) e exp_ty
           >> (if const_real then
-               check_expr_of_consts ctx e 
-             else R.ok ())
-                  >> R.ok (add_ty (add_const ctx i e exp_ty) i exp_ty)
+                if (is_expr_of_consts ctx e) 
+                then R.ok (add_ty (add_const ctx i e exp_ty) i exp_ty)
+                else type_error pos ("Expression " ^ Lib.string_of_t LA.pp_print_expr e ^ " is not a constant expression")
+              else R.ok(add_ty ctx i exp_ty))
+
 (** Fail if a duplicate constant is detected  *)
 
      
@@ -1391,39 +1395,6 @@ and is_expr_int_type: tc_context -> LA.expr -> bool  = fun ctx e ->
 
 and is_expr_of_consts: tc_context -> LA.expr -> bool = fun ctx e ->
   List.fold_left (&&) true (List.map (member_val ctx) (LA.SI.elements (LH.vars e)))
-(** checks if all the variables in the expression are constants *)
-
-and check_expr_of_consts: tc_context -> LA.expr -> unit tc_result = fun ctx e ->
-  match e with
-  | Ident (pos, i) -> if member_val ctx i
-                      then R.ok ()
-                      else type_error pos ("Expression " ^ i ^ " is not a constant")
-  | RecordProject (_, e, _) -> check_expr_of_consts ctx e
-  | TupleProject (_, e1, e2) -> check_expr_of_consts ctx e1 >> check_expr_of_consts ctx e2
-  (* Values *)
-  | Const _ -> R.ok ()
-  (* Operators *)
-  | UnaryOp (_, _, e) -> check_expr_of_consts ctx e
-  | BinaryOp (_, _, e1, e2) -> check_expr_of_consts ctx e1
-                               >> check_expr_of_consts ctx e2
-  | TernaryOp (_, _, e1, e2, e3) -> check_expr_of_consts ctx e1
-                                    >> check_expr_of_consts ctx e2
-                                    >> check_expr_of_consts ctx e3
-  | ConvOp (_, _, e) -> check_expr_of_consts ctx e
-  | CompOp (_, _, e1, e2) -> check_expr_of_consts ctx e1
-                               >> check_expr_of_consts ctx e2
-  (* Structured expressions *)
-  | RecordExpr (_, _, id_exprs) -> R.seq_ (List.map (fun (_, e) -> check_expr_of_consts ctx e) id_exprs)
-  | GroupExpr (_, _, es) -> R.seq_ (List.map (check_expr_of_consts ctx) es)
-  (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, e2)
-    | ArrayConcat (_, e1, e2)
-    | ArrayConstr (_, e1, e2)  -> check_expr_of_consts ctx e1
-                                  >> check_expr_of_consts ctx e2
-  | ArraySlice (_, e, _) -> check_expr_of_consts ctx e
-  | ArrayIndex (_, e, _) -> check_expr_of_consts ctx e
-  | e -> type_error (LH.pos_of_expr e)
-           ("Expression " ^ (Lib.string_of_t LA.pp_print_expr e) ^ " is not a constant expression")  
 (** checks if all the variables in the expression are constants *)
   
 and is_expr_term_zero: LA.expr -> bool = function
