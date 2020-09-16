@@ -5957,7 +5957,7 @@ main: FUNCTION WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN TYPE
 ## In state 786, spurious reduction of production node_decl -> ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) option(SEMICOLON) option(contract_spec) 
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing function definition body.
 
 main: FUNCTION WEAKLY XOR
 ##
@@ -12769,7 +12769,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_P_ANNOT XOR
 ## MAIN_P_ANNOT
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing semicolon at the end of the statement.
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART COLON TRUE SEMICOLON XOR
 ##
@@ -13920,7 +13920,7 @@ main: TYPE XOR
 ## TYPE
 ##
 
-Syntax Error!
+Syntax Error! Reserved terms cannot appear on left hand side of the equation.
 
 main: XOR
 ##

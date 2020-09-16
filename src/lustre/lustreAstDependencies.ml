@@ -177,7 +177,7 @@ let extract_node_calls: LA.node_item list -> LA.ident list
                           (match bneq with
                            | LA.Assert (_, e) -> get_node_call_from_expr e
                            | LA.Equation (_, _, e) -> get_node_call_from_expr e
-                           | LA.Automaton _ -> [])
+                           | LA.Automaton _ -> [] ) (* We do not support automation yet. *)
                        | _ -> []) @ acc) [] 
        
 let mk_graph_node_decl: LA.node_decl -> G.t
@@ -197,47 +197,69 @@ let mk_graph: LA.declaration ->  G.t = function
   | NodeParamInst  _ -> Lib.todo __LOC__
 
 
-let add_decl: LA.declaration IMap.t -> LA.ident -> LA.declaration -> LA.declaration IMap.t
+let add_decl: 'a IMap.t -> LA.ident -> 'a -> 'a IMap.t
   = fun m i dec -> IMap.add i dec m
                       
-let rec check_and_add: LA.declaration IMap.t -> Lib.position
-                       -> string -> LA.ident -> LA.declaration -> LA.t -> (LA.declaration IMap.t) graph_result
-  = fun m pos suffix i tyd decls ->
+let check_and_add: 'a IMap.t -> Lib.position
+                       -> string -> LA.ident -> 'a -> ('a IMap.t) graph_result
+  = fun m pos suffix i tyd ->
   if IMap.mem (suffix ^ i) m 
   then graph_error pos ("Identifier " ^ i ^ " is already declared")
-  else let m' = add_decl m (suffix ^ i) tyd in  
-       mk_decl_map m' decls
+  else R.ok (add_decl m (suffix ^ i) tyd)
 (** reject program if identifier is already declared  *)
        
-and  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) graph_result =
+let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) graph_result =
   fun m ->
   function  
   | [] -> R.ok m 
 
   | (LA.TypeDecl (pos, FreeType (_, i)) as tydecl) :: decls
     | (LA.TypeDecl (pos, AliasType (_, i, _)) as tydecl) :: decls ->
-     check_and_add m pos ty_suffix i tydecl decls
+     check_and_add m pos ty_suffix i tydecl >>= fun m' ->
+     mk_decl_map m' decls 
 
   | (LA.ConstDecl (pos, FreeConst (_, i, _)) as cnstd) :: decls
     | (LA.ConstDecl (pos, UntypedConst (_, i, _)) as cnstd) :: decls
     | (LA.ConstDecl (pos, TypedConst (_, i, _, _)) as cnstd) :: decls -> 
-     check_and_add m pos const_suffix i cnstd decls
+     check_and_add m pos const_suffix i cnstd  >>= fun m' ->
+     mk_decl_map m' decls 
 
   | (LA.NodeDecl (pos, (i, _, _, _, _, _, _, _)) as ndecl) :: decls
     | (LA.FuncDecl (pos, (i, _, _, _, _, _, _, _)) as ndecl) :: decls ->
-     check_and_add m pos node_suffix i ndecl decls
+     check_and_add m pos node_suffix i ndecl  >>= fun m' ->
+     mk_decl_map m' decls
 
   | LA.ContractNodeDecl (pos, (i, _, _, _, _)) as cndecl :: decls ->
-     check_and_add m pos contract_suffix i cndecl decls
+     check_and_add m pos contract_suffix i cndecl >>= fun m' ->
+     mk_decl_map m' decls
 
   | LA.NodeParamInst _ :: _-> Lib.todo __LOC__
 (** builds an id :-> decl map  *)
-                      
-let dependency_graph_decls: LA.t -> G.t
+
+let rec mk_contract_decl_map: LA.contract_node_equation IMap.t -> LA.contract -> (LA.contract_node_equation IMap.t) graph_result
+  = fun m ->
+  function
+  | [] -> R.ok m
+  | (LA.GhostConst c) as const :: rest ->
+     (match c with
+     | LA.FreeConst (pos, i, _) ->
+        check_and_add m pos const_suffix i const >>= fun m' ->
+        mk_contract_decl_map m' rest
+     | _ -> Lib.todo __LOC__)
+  | LA.GhostVar _ :: rest
+  | LA.Assume _ :: rest
+  | LA.Guarantee _ :: rest
+  | LA.Mode _ :: rest 
+  | LA.ContractCall _ :: rest ->  Lib.todo __LOC__                                                        
+            
+                            
+let mk_graph_decls: LA.t -> G.t
   = fun decls ->
   List.fold_left G.union G.empty (List.map mk_graph decls)
 
-let rec extract_decls: LA.declaration IMap.t -> LA.ident list -> LA.t graph_result
+let mk_graph_contract_decls: LA.contract -> G.t = fun _ -> G.empty
+  
+let rec extract_decls: 'a IMap.t -> LA.ident list -> ('a list) graph_result
   = fun decl_map ->
   function
   | [] -> R.ok []
@@ -246,18 +268,31 @@ let rec extract_decls: LA.declaration IMap.t -> LA.ident list -> LA.t graph_resu
                >>= (fun d -> (extract_decls decl_map is)
                              >>= (fun ds -> R.ok (d :: ds)))
     
-and sort_decls: LA.t -> LA.t graph_result = fun decls ->
+let sort_decls: ('a IMap.t -> 'a list -> 'a IMap.t graph_result)
+                -> ('a list -> G.t)
+                -> 'a list -> ('a list) graph_result
+  = fun mk_map mk_graph decls ->
   (* 1. make an id :-> decl map  *)
-  mk_decl_map IMap.empty decls >>= fun decl_map ->
+  mk_map IMap.empty decls >>= fun decl_map ->
   (* 2. build a dependency graph *)
-  let dg = dependency_graph_decls decls in
+  let dg = mk_graph decls in
   (* 3. try to sort it, raise an error if it is cyclic, or extract sorted decls from the decl_map *)
   (try (R.ok (G.topological_sort dg)) with
    | Graph.CyclicGraphException ids ->
       graph_error Lib.dummy_pos
         ("Cyclic dependency detected in definition of identifiers: "
+<<<<<<< HEAD:src/lustre/lustreAstDependencies.ml
   ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
   >>= fun sorted_ids -> let dependency_sorted_ids = List.rev sorted_ids in
                         Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  dependency_sorted_ids;
                           extract_decls decl_map dependency_sorted_ids
 
+=======
+         ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
+  >>= fun sorted_ids -> Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  sorted_ids;
+                        extract_decls decl_map sorted_ids                          
+                            
+let sort_declarations = sort_decls mk_decl_map mk_graph_decls
+(* where should this function be plugged in? *)
+let sort_contract_declarations = sort_decls mk_contract_decl_map mk_graph_contract_decls
+>>>>>>> - fixed some error messages to be more more descriptive:src/lustre/graphAdapter.ml

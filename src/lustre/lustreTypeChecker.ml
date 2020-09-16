@@ -511,7 +511,8 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                         ^ string_of_tc_type exp_ty
                         ^ " with infered type "
                         ^ string_of_tc_type ty))
-  | ModeRef (pos, ids) -> check_type_expr ctx (LA.Ident (pos, List.nth ids (List.length ids - 1) )) exp_ty 
+  (* We do not support mode ref paths yet *)
+  | ModeRef (pos, ids) -> check_type_expr ctx (LA.Ident (pos, List.nth ids (List.length ids - 1) )) exp_ty
   | RecordProject (pos, expr, fld) -> check_type_record_proj pos ctx expr fld exp_ty
   | TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
 
@@ -584,21 +585,25 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
       (* These should be tuple type  *)
       | ExprList
         | TupleExpr ->
-         (match exp_ty with
-          | TupleType (_, tys) ->
-             if List.length tys != List.length es
-             then type_error pos "Size of tuple does not match size of expression list"
-             else R.seq_ (List.map2 (check_type_expr ctx) es tys)
-          | _ -> type_error pos ("Expression list and Tuple list "
-                                 ^ "should be of type Tuple but found "
-                                 ^ string_of_tc_type exp_ty))
+         R.seq (List.map (infer_type_expr ctx) es) >>= fun inf_tys ->
+         let inf_ty = LA.TupleType (pos, inf_tys) in
+         (R.guard_with (eq_lustre_type ctx exp_ty inf_ty)
+            (type_error pos ("Expected type " ^ string_of_tc_type exp_ty
+                             ^ " but found " ^ string_of_tc_type inf_ty)))
       (* This should be array type *)
       | ArrayExpr ->
-         match exp_ty with
-         | ArrayType (_, (b_ty, _)) ->
-            R.seq_ (Lib.list_apply (List.map (check_type_expr ctx) es) b_ty)
-         | _ -> type_error pos ("Array type expected but found "
-                                ^ string_of_tc_type exp_ty))
+         R.seq (List.map (infer_type_expr ctx) es) >>= fun inf_tys ->
+         if List.length inf_tys < 1
+         then type_error pos ("Array expression cannot be empty")
+         else
+           let elty = List.hd inf_tys in
+           R.ifM (R.seqM (&&) true (List.map (eq_lustre_type ctx elty) inf_tys))
+             (let arr_ty = List.hd inf_tys in
+              let arr_size = LA.Const (pos, Num (string_of_int (List.length inf_tys))) in
+              (R.guard_with (eq_lustre_type ctx exp_ty (LA.ArrayType (pos, (arr_ty, arr_size))))
+                 (type_error pos ("Expected type " ^ string_of_tc_type exp_ty
+                                  ^ " but found " ^ string_of_tc_type arr_ty))))
+             (type_error pos "All expressions must be of the same type in an Array"))
 
   (* Update of structured expressions *)
   | StructUpdate (pos, r, i_or_ls, e) ->
@@ -619,6 +624,8 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
            | _ -> type_error pos ("Only a label can be used for record expressions"
                                   ^ " but found index "
                                   ^ Lib.string_of_t LA.pp_print_label_or_index (List.hd i_or_ls)))
+
+  (* Array constructor*)
   | ArrayConstr (pos, b_exp, sup_exp) ->
      infer_type_expr ctx b_exp
      >>= fun b_ty -> infer_type_expr ctx sup_exp
@@ -1120,7 +1127,7 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
   = fun ctx -> function
   | GhostConst c -> tc_ctx_const_decl ctx c
   | GhostVar c -> tc_ctx_const_decl ~is_const:false ctx c
-  | Assume (pos, _, _, e) -> R.ok ctx
+  | Assume _ -> R.ok ctx
   | Guarantee _ -> R.ok ctx
   | Mode (pos, name, _, _) -> R.ok (add_ty ctx name (Bool pos)) 
   | ContractCall _ -> R.ok ctx
@@ -1141,6 +1148,7 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
 
 and check_type_contract: tc_context -> LA.contract -> unit tc_result
   = fun ctx eqns ->
+  (* Build the dependency graph of contract equations *)
   R.seq_ (List.map (check_contract_node_eqn ctx) eqns)
 
 and check_contract_node_eqn: tc_context -> LA.contract_node_equation -> unit tc_result
@@ -1477,10 +1485,6 @@ let rec report_tc_result: unit tc_result list -> unit tc_result
      | Ok () :: tl -> report_tc_result tl
 (** Get the first error *)
 
-(****************************************************************
- * The main function of the file that kicks off type checking flow  *
- ****************************************************************)  
-
 let is_type_or_const_decl: LA.declaration -> bool = fun d ->
   match d with
   | TypeDecl _
@@ -1493,17 +1497,38 @@ let split_program: LA.t -> (LA.t * LA.t)
         if is_type_or_const_decl d then (d::ds, ds')
         else (ds, d::ds')) ([], [])  
 
+<<<<<<< HEAD
 let type_check_program: LA.t -> unit tc_result = fun prg ->
+=======
+(****************************************************************
+ * The main function of the file that kicks off type checking flow  *
+ ****************************************************************)  
+
+let type_check_program: LA.t -> LA.t tc_result = fun prg ->
+>>>>>>> - fixed some error messages to be more more descriptive
   Log.log L_trace ("===============================================\n"
                    ^^ "Phase 1: Building TC Global Context\n"
                    ^^"===============================================\n")
   ; let (ty_and_const_decls, node_and_contract_decls) = split_program prg in
     (* circularity check and reordering for types and constants *)
     Log.log L_trace "Phase 1.1 Building graph for types and constant decls\n---------\n"
+<<<<<<< HEAD
     ; AD.sort_decls ty_and_const_decls >>= fun sorted_tys_consts ->
+=======
+    ; GA.sort_declarations ty_and_const_decls >>= fun sorted_tys_consts ->
+>>>>>>> - fixed some error messages to be more more descriptive
     Log.log L_trace "Sorted consts and type decls:\n%a" LA.pp_print_program sorted_tys_consts
     (* build the base context from the type and const decls *)
     ; build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->
+<<<<<<< HEAD
+=======
+      Log.log L_trace "Phase 1.2 Building graph for contracts and node decls\n---------\n"
+<<<<<<< HEAD
+    ; AD.sort_decls node_and_contract_decls >>= fun sorted_node_and_contract_decls ->
+=======
+    ; GA.sort_declarations node_and_contract_decls >>= fun sorted_node_and_contract_decls ->
+>>>>>>> - fixed some error messages to be more more descriptive
+>>>>>>> - fixed some error messages to be more more descriptive
     (* type check the nodes and contract decls using this base typing context  *)
     tc_context_of global_ctx node_and_contract_decls >>= fun tc_ctx ->
     

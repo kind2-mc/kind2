@@ -3,7 +3,7 @@ function sincos(in: real) returns (sin: real; cos: real);
   const max = 1.0;
   const pi = 3.14;
   const tau = 2.0 * pi;
-  var min = - max;
+  var min:real = - max;
   assume in <= 0.0 or in >= 0.0;
   guarantee min <= sin and sin <= max;
 
@@ -17,6 +17,11 @@ function sincos(in: real) returns (sin: real; cos: real);
     ensure sin <= 0.0;
   );
 *)
+let
+   sin = in;
+   cos = in;
+tel
+
 node X (in: real) returns (OK: bool);
 var inn: real ;
 let
@@ -31,7 +36,7 @@ node id (in: real) returns (out: int);
   const max = 1.0;
   const pi = 3.14;
   const tau = 2.0 * pi;
-  var min = - max;
+  var min:real = - max;
   assume - tau <= in ;
 *)
 var inn: real ; ok: bool ;
@@ -48,4 +53,11 @@ function exp (x, y: real) returns (out: real);
    guarantee out >= id(out);
    guarantee out <= sin(out);
 *)
+let
+out = x + y;
+tel
+
 function sin(in: real) returns (out: int);
+let
+   out = (int in);
+tel

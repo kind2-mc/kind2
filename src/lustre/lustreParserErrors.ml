@@ -9,7 +9,7 @@ let message =
     | 0 ->
         "Syntax Error!\n"
     | 1 ->
-        "Syntax Error!\n"
+        "Syntax Error! Reserved terms cannot appear on left hand side of the equation.\n"
     | 373 ->
         "Syntax Error!\n"
     | 995 ->
@@ -149,7 +149,7 @@ let message =
     | 850 ->
         "Syntax Error!\n"
     | 854 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps a missing semicolon at the end of the statement.\n"
     | 856 ->
         "Syntax Error!\n"
     | 861 ->
@@ -817,7 +817,7 @@ let message =
     | 395 ->
         "Syntax Error!\n"
     | 977 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps a missing function definition body.\n"
     | 975 ->
         "Syntax Error!\n"
     | 979 ->
