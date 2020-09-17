@@ -19,8 +19,14 @@
 include GenericSMTLIBDriver
 
 (* Configuration for MathSAT *)
-let cmd_line logic timeout produce_assignments produce_proofs produce_cores
-    minimize_cores produce_interpolants =
+let cmd_line 
+    logic timeout 
+    produce_assignments 
+    produce_proofs 
+    produce_cores
+    minimize_cores 
+    produce_interpolants =
+
   (* Path and name of MathSAT executable *)
   let mathsat_bin = Flags.Smt.mathsat_bin () in
 
@@ -37,12 +43,22 @@ let cmd_line logic timeout produce_assignments produce_proofs produce_cores
   in
   let timeout = Lib.min_option timeout_global timeout_local in
 
+  let common_flags = [| "-shallow_incrementality=true";
+  "-allow_bool_function_args=true" |] in
+
   let base_cmd = [| mathsat_bin |] in
-      match timeout with
-      | None -> base_cmd
-      | Some timeout ->
-          let timeout = Format.sprintf "--time=%.0f" (timeout |> ceil) in
-          Array.append base_cmd [| timeout |]
+
+  let cmd =
+    match timeout with
+    | None -> base_cmd
+    | Some timeout ->
+      let timeout =
+        Format.sprintf "--tlimit=%.0f" ((1000.0 *. timeout) |> ceil)
+      in
+      Array.append base_cmd [|timeout|]
+  in
+
+  Array.concat [cmd; common_flags]
 
 (* Command to limit check-sat in MathSAT to run for the given numer of ms
    at most *)
@@ -54,7 +70,6 @@ let string_of_logic l =
   let open TermLib.FeatureSet in
   match l with
   | `Inferred fs ->
-        (* We add BV because Boolector does not support QF_UF logic *)
         GenericSMTLIBDriver.string_of_logic (`Inferred fs)
   | `None -> "ALL"
   | `SMTLogic s ->
