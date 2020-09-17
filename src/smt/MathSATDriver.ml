@@ -37,15 +37,12 @@ let cmd_line logic timeout produce_assignments produce_proofs produce_cores
   in
   let timeout = Lib.min_option timeout_global timeout_local in
 
-  let base_cmd = [| mathsat_bin; "-shallow_incrementality=true" ;
-                                 "-preprocessor.simplification=2"; 
-                                 "-allow_bool_function_args=true" ;
-                                 "-theory.bv.eager=true"   |] in
-  match timeout with
-  | None -> base_cmd
-  | Some timeout ->
-      let timeout = Format.sprintf "--time=%.0f" (timeout |> ceil) in
-      Array.append base_cmd [| timeout |]
+  let base_cmd = [| mathsat_bin |] in
+      match timeout with
+      | None -> base_cmd
+      | Some timeout ->
+          let timeout = Format.sprintf "--time=%.0f" (timeout |> ceil) in
+          Array.append base_cmd [| timeout |]
 
 (* Command to limit check-sat in MathSAT to run for the given numer of ms
    at most *)
