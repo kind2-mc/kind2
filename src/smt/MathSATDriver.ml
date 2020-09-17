@@ -44,7 +44,10 @@ let cmd_line
   let timeout = Lib.min_option timeout_global timeout_local in
 
   let common_flags = [| "-shallow_incrementality=true";
-  "-allow_bool_function_args=true" |] in
+                        "-allow_bool_function_args=true" ;
+                        "-preprocessor.simplification=2"; 
+                        "-theory.bv.eager=true"
+   |] in
 
   let base_cmd = [| mathsat_bin |] in
 
