@@ -117,6 +117,7 @@ module Smt = struct
 
   (* Active SMT solver. *)
   type solver = [
+    | `MathSAT_SMTLIB
     | `Boolector_SMTLIB
     | `Z3_SMTLIB
     | `CVC4_SMTLIB
@@ -125,6 +126,7 @@ module Smt = struct
     | `detect
   ]
   let solver_of_string = function
+    | "MathSAT" ->  `MathSAT_SMTLIB
     | "Boolector" -> `Boolector_SMTLIB
     | "Z3" -> `Z3_SMTLIB
     | "CVC4" -> `CVC4_SMTLIB
@@ -132,13 +134,14 @@ module Smt = struct
     | "Yices" -> `Yices_native
     | _ -> Arg.Bad "Bad value for --smt_solver" |> raise
   let string_of_solver = function
+    | `MathSAT_SMTLIB -> "MathSAT"
     | `Boolector_SMTLIB -> "Boolector"
     | `Z3_SMTLIB -> "Z3"
     | `CVC4_SMTLIB -> "CVC4"
     | `Yices_SMTLIB -> "Yices2"
     | `Yices_native -> "Yices"
     | `detect -> "detect"
-  let solver_values = "Z3, CVC4, Yices, Yices2, Boolector"
+  let solver_values = "Z3, CVC4, Yices, Yices2, Boolector, MathSAT"
   let solver_default = `detect
   let solver = ref solver_default
   let _ = add_spec
@@ -231,6 +234,21 @@ module Smt = struct
     )
   let set_short_names b = short_names := b
   let short_names () = !short_names
+
+
+  (* MathSAT binary. *)
+  let mathsat_bin_default = "mathsat"
+  let mathsat_bin = ref mathsat_bin_default
+  let _ = add_spec
+    "--mathsat_bin"
+    (Arg.Set_string mathsat_bin)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Executable of MathSAT solver@ Default: \"%s\"@]"
+        mathsat_bin_default
+    )
+  let set_mathsat_bin str = mathsat_bin := str
+  let mathsat_bin () = !mathsat_bin
 
   (* Boolector binary. *)
   let boolector_bin_default = "boolector"
@@ -345,6 +363,9 @@ module Smt = struct
   
   (* Check which SMT solver is available *)
   let check_smtsolver () = match solver () with
+    (* User chose MathSAT *)
+    | `MathSAT_SMTLIB ->
+      find_solver ~fail:true "MathSAT" (mathsat_bin ()) |> ignore
     (* User chose Boolector *)
     | `Boolector_SMTLIB ->
       find_solver ~fail:true "Boolector" (boolector_bin ()) |> ignore
@@ -387,7 +408,13 @@ module Smt = struct
         set_solver `Boolector_SMTLIB;
         set_boolector_bin exec;
       with Not_found ->
+      try
+        let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
+        set_solver `MathSAT_SMTLIB;
+        set_mathsat_bin exec;
+      with Not_found ->
         Log.log L_fatal "No SMT Solver found.";
+
         exit 2
 
   
@@ -3266,6 +3293,21 @@ let solver_dependant_actions () =
       )
     | None -> Log.log L_warn "Couldn't determine Boolector version"
   )
+  | `MathSAT_SMTLIB -> (
+    let cmd = Format.asprintf "%s -version" (Smt.mathsat_bin ()) in
+    match get_version true cmd with
+    | Some (major_rev, minor_rev, patch_rev) ->
+      if major_rev < 5 || (major_rev = 5 && (minor_rev < 5 || (minor_rev = 5 && patch_rev < 4)))  then (
+        if Smt.check_sat_assume () then (
+          Log.log L_warn "Detected MathSAT 5.5.3 or older: disabling check_sat_assume";
+          Smt.set_check_sat_assume false
+        )
+      ); if BmcKind.compress () then (
+          BmcKind.disable_compress () ;
+          Log.log L_warn "Detected MathSAT: disabling ind_compress"
+      )
+    | None -> Log.log L_warn "Couldn't determine MathSAT version"
+  ) 
   | `Z3_SMTLIB -> (
     let cmd = Format.asprintf "%s -version" (Smt.z3_bin ()) in
     match get_version false cmd with

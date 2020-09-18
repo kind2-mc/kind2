@@ -39,6 +39,7 @@ module BoolectorSMTLIB : SolverSig.S = SMTLIBSolver.Make (BoolectorDriver)
 module Z3SMTLIB : SolverSig.S = SMTLIBSolver.Make (Z3Driver)
 module CVC4SMTLIB : SolverSig.S = SMTLIBSolver.Make (CVC4Driver)
 module Yices2SMTLIB : SolverSig.S = SMTLIBSolver.Make (Yices2SMT2Driver)
+module MathSATSMTLIB : SolverSig.S = SMTLIBSolver.Make (MathSATDriver)
 
 (* SMT expression *)
 type expr = SMTExpr.t
@@ -154,6 +155,7 @@ let create_instance
   let fomodule =
     match kind with
     | `Boolector_SMTLIB -> (module BoolectorSMTLIB.Create(Params) : SolverSig.Inst)
+    | `MathSAT_SMTLIB -> (module MathSATSMTLIB.Create(Params) : SolverSig.Inst)
     | `Z3_SMTLIB -> (module Z3SMTLIB.Create(Params) : SolverSig.Inst)
     | `CVC4_SMTLIB -> (module CVC4SMTLIB.Create(Params) : SolverSig.Inst)
     | `Yices_SMTLIB ->  (module Yices2SMTLIB.Create(Params) : SolverSig.Inst)
