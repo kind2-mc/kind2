@@ -56,25 +56,6 @@ let cmd_line
     | None -> cmd
     | Some timeout ->
       let timeout =
-        Format.sprintf "--tlimit=%.0f" ((1000.0 *. timeout) |> ceil)
+        Format.sprintf "-timeout=%.0f" ((1000.0 *. timeout) |> ceil)
       in
       Array.append cmd [|timeout|]
-
-(* Command to limit check-sat in MathSAT to run for the given numer of ms
-   at most *)
-let check_sat_limited_cmd ms =
-  failwith "check-sat with timeout not implemented for MathSAT"
-
-let string_of_logic l =
-  let open TermLib in
-  let open TermLib.FeatureSet in
-  match l with
-  | `Inferred fs ->
-        GenericSMTLIBDriver.string_of_logic (`Inferred fs)
-  | `None -> "ALL"
-  | `SMTLogic s ->
-      if String.contains s 'S' then
-        failwith "MathSAT do not support Theory of Strings"
-      else s
-
-let pp_print_logic fmt l = Format.pp_print_string fmt (string_of_logic l)
