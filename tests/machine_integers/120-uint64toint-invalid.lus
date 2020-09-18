@@ -1,0 +1,9 @@
+node top (reset: bool) returns (OK: bool);
+var i : uint64;
+var j : int;
+let
+  i = (uint64 1) -> pre i lsh (uint64 4);
+  j = int i;
+  OK = (j >= 1);
+  --%PROPERTY OK;
+tel

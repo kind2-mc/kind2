@@ -67,6 +67,14 @@ type interpreted_symbol =
   | `GT                   (* Greater than relation (chainable) *)
   | `TO_REAL              (* Conversion to a floating-point decimal (unary) *)
   | `TO_INT               (* Conversion to an integer numeral (unary) *)
+  | `UINT8_TO_INT         (* Conversion from an unsigned integer 8 numeral to an integer *)
+  | `UINT16_TO_INT        (* Conversion from an unsigned integer 16 numeral to an integer *)
+  | `UINT32_TO_INT        (* Conversion from an unsigned integer 32 numeral to an integer *)
+  | `UINT64_TO_INT        (* Conversion from an unsigned integer 64 numeral to an integer *)
+  | `INT8_TO_INT          (* Conversion from a signed integer 8 numeral to an integer *)
+  | `INT16_TO_INT         (* Conversion from a signed integer 16 numeral to an integer *)
+  | `INT32_TO_INT         (* Conversion from a signed integer 32 numeral to an integer *)
+  | `INT64_TO_INT         (* Conversion from a signed integer 64 numeral to an integer *)
   | `TO_UINT8             (* Conversion to an unsigned integer8 numeral (unary) *)  
   | `TO_UINT16            (* Conversion to an unsigned integer16 numeral (unary) *)  
   | `TO_UINT32            (* Conversion to an unsigned integer32 numeral (unary) *)  
@@ -201,6 +209,14 @@ module Symbol_node = struct
     | `GT, `GT
     | `TO_REAL, `TO_REAL
     | `TO_INT, `TO_INT
+    | `UINT8_TO_INT, `UINT8_TO_INT
+    | `UINT16_TO_INT, `UINT16_TO_INT
+    | `UINT32_TO_INT, `UINT32_TO_INT
+    | `UINT64_TO_INT, `UINT64_TO_INT
+    | `INT8_TO_INT, `INT8_TO_INT
+    | `INT16_TO_INT, `INT16_TO_INT
+    | `INT32_TO_INT, `INT32_TO_INT
+    | `INT64_TO_INT, `INT64_TO_INT
     | `TO_UINT8, `TO_UINT8
     | `TO_UINT16, `TO_UINT16
     | `TO_UINT32, `TO_UINT32
@@ -268,6 +284,14 @@ module Symbol_node = struct
     | `GT, _
     | `TO_REAL, _
     | `TO_INT, _
+    | `UINT8_TO_INT, _
+    | `UINT16_TO_INT, _
+    | `UINT32_TO_INT, _
+    | `UINT64_TO_INT, _
+    | `INT8_TO_INT, _
+    | `INT16_TO_INT, _
+    | `INT32_TO_INT, _
+    | `INT64_TO_INT, _
     | `TO_UINT8, _    
     | `TO_UINT16, _ 
     | `TO_UINT32, _ 
@@ -429,6 +453,14 @@ let rec pp_print_symbol_node ppf = function
 
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
+  | `UINT8_TO_INT -> Format.pp_print_string ppf "bv2nat"
+  | `UINT16_TO_INT -> Format.pp_print_string ppf "bv2nat"
+  | `UINT32_TO_INT -> Format.pp_print_string ppf "bv2nat"
+  | `UINT64_TO_INT -> Format.pp_print_string ppf "bv2nat"
+  | `INT8_TO_INT -> Format.pp_print_string ppf "int8_to_int"
+  | `INT16_TO_INT -> Format.pp_print_string ppf "int16_to_int"
+  | `INT32_TO_INT -> Format.pp_print_string ppf "int32_to_int"
+  | `INT64_TO_INT -> Format.pp_print_string ppf "int64_to_int"
   | `TO_UINT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
   | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
   | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"

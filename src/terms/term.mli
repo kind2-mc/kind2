@@ -253,6 +253,30 @@ val mk_to_real : t -> t
 (** Create a conversion to an integer numeral *)
 val mk_to_int : t -> t
 
+(** Create a conversion from uint8 to an integer numeral *)
+val mk_uint8_to_int : t -> t
+
+(** Create a conversion from uint16 to an integer numeral *)
+val mk_uint16_to_int : t -> t
+
+(** Create a conversion from uint32 to an integer numeral *)
+val mk_uint32_to_int : t -> t
+
+(** Create a conversion from uint64 to an integer numeral *)
+val mk_uint64_to_int : t -> t
+
+(** Create a conversion from int8 to an integer numeral *)
+val mk_int8_to_int : t -> t
+
+(** Create a conversion from int16 to an integer numeral *)
+val mk_int16_to_int : t -> t
+
+(** Create a conversion from int32 to an integer numeral *)
+val mk_int32_to_int : t -> t
+
+(** Create a conversion from int64 to an integer numeral *)
+val mk_int64_to_int : t -> t
+
 (** Create a conversion to an unsigned integer8 numeral *)
 val mk_to_uint8 : t -> t
 

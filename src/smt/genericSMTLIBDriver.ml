@@ -589,6 +589,8 @@ let smtlib_string_symbol_list =
    ("bvsle", Symbol.mk_symbol `BVSLE);
    ("bvsgt", Symbol.mk_symbol `BVSGT);
    ("bvsge", Symbol.mk_symbol `BVSGE);
+   ("bv2nat", Symbol.mk_symbol `BV2NAT);
+   ("bv2int", Symbol.mk_symbol `BV2NAT); 
 
    ("select", Symbol.mk_symbol
       (`SELECT (Type.mk_array Type.t_int Type.t_int))); (* placeholder *)
@@ -656,6 +658,14 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
+  | `UINT8_TO_INT -> Format.pp_print_string ppf "bv2nat"
+  | `UINT16_TO_INT -> Format.pp_print_string ppf "bv2nat"
+  | `UINT32_TO_INT -> Format.pp_print_string ppf "bv2nat"
+  | `UINT64_TO_INT -> Format.pp_print_string ppf "bv2nat"
+  | `INT8_TO_INT -> Format.pp_print_string ppf "int8_to_int"
+  | `INT16_TO_INT -> Format.pp_print_string ppf "int16_to_int"
+  | `INT32_TO_INT -> Format.pp_print_string ppf "int32_to_int"
+  | `INT64_TO_INT -> Format.pp_print_string ppf "int64_to_int"
   | `TO_UINT8 -> Format.pp_print_string ppf "(_ int2bv 8)"
   | `TO_UINT16 -> Format.pp_print_string ppf "(_ int2bv 16)"
   | `TO_UINT32 -> Format.pp_print_string ppf "(_ int2bv 32)"
