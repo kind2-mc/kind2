@@ -3297,7 +3297,7 @@ let solver_dependant_actions () =
     let cmd = Format.asprintf "%s -version" (Smt.mathsat_bin ()) in
     match get_version true cmd with
     | Some (major_rev, minor_rev, patch_rev) ->
-      if major_rev < 5 || (major_rev = 5 && (minor_rev < 5 || patch_rev < 4))  then (
+      if major_rev < 5 || (major_rev = 5 && (minor_rev < 5 || (minor_rev = 5 && patch_rev < 4)))  then (
         if Smt.check_sat_assume () then (
           Log.log L_warn "Detected MathSAT 5.5.3 or older: disabling check_sat_assume";
           Smt.set_check_sat_assume false
