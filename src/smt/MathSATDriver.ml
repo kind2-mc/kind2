@@ -43,25 +43,22 @@ let cmd_line
   in
   let timeout = Lib.min_option timeout_global timeout_local in
 
-  let common_flags = [| "-shallow_incrementality=true";
-                        "-allow_bool_function_args=true" ;
-                        "-preprocessor.simplification=2"; 
-                        "-theory.bv.eager=true"
-   |] in
+  (* 
+    Disable common flags.
+    shallow_incrementality=true
+    allow_bool_function_args=true
+    preprocessor.simplification=2
+    theory.bv.eager=true
+   *)
 
-  let base_cmd = [| mathsat_bin |] in
-
-  let cmd =
+  let cmd = [| mathsat_bin |] in
     match timeout with
-    | None -> base_cmd
+    | None -> cmd
     | Some timeout ->
       let timeout =
         Format.sprintf "--tlimit=%.0f" ((1000.0 *. timeout) |> ceil)
       in
-      Array.append base_cmd [|timeout|]
-  in
-
-  Array.concat [cmd; common_flags]
+      Array.append cmd [|timeout|]
 
 (* Command to limit check-sat in MathSAT to run for the given numer of ms
    at most *)
