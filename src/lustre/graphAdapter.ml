@@ -242,7 +242,7 @@ and sort_decls: LA.t -> LA.t graph_result = fun decls ->
   (* 2. build a dependency graph *)
   let dg = dependency_graph_decls decls in
   (* 3. try to sort it, raise an error if it is cyclic, or extract sorted decls from the decl_map *)
-  (try (R.ok (G.topological_sort dg)) with
+  (try (R.ok (G.dependency_sort dg)) with
    | Graph.CyclicGraphException ids ->
       graph_error Lib.dummy_pos
         ("Cyclic dependency detected in definition of identifiers: "
