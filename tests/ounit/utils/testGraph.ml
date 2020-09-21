@@ -36,13 +36,6 @@ let dos_g = G.add_vertex singleton_g v1
 let dos_connected_g = G.add_edge dos_g (G.mk_edge v0 v1)
 let dos_cycle_g = G.add_edge dos_connected_g (G.mk_edge v1 v0)
 
-let g_verts = List.fold_left (G.add_vertex) G.empty ["t0";"t1";"t2";"int"; "c"; "1"]
-let g = List.fold_left (G.add_edge) g_verts [G.mk_edge "t0" "t1"
-                                       ; G.mk_edge "t1" "t2"
-                                       ; G.mk_edge "t2" "int"
-                                       ; G.mk_edge "c" "t0" 
-                                       ; G.mk_edge "c" "1" ]
-
 let basic_tests
   = "test suite for graph" >:::
       [ "empty graph" >:: (fun _-> assert_bool "Empty graph is empty" (G.is_empty G.empty))

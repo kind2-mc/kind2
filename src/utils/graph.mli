@@ -81,8 +81,7 @@ module type S = sig
   (** Add an [edge] to a graph  *)
 
   val remove_vertex: t ->  vertex ->  t
-  (** Remove a [vertex] from a graph *)                             
-
+  (** Remove the [vertex] and its associated [edges] from the graph *)
   val remove_edge: t ->  edge ->  t
   (** Remove an [edge] from a graph *)                             
 
