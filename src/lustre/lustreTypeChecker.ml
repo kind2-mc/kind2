@@ -1472,10 +1472,9 @@ and is_expr_of_consts: tc_context -> LA.expr -> bool = fun ctx e ->
 (** checks if all the variables in the expression are constants *)
   
 and is_expr_term_zero: LA.expr -> bool =
-  let zero_regex = Str.regexp "\\0\.[0]*\\" in function
-  | LA.Const (_, (Num n))
-    | LA.Const (_, (Dec n)) -> Str.string_match zero_regex n 0
-  (* TODO: use regex to check if it is of the format 0\.[0]* *)
+  function
+  | LA.Const (_, (Num n)) -> Str.string_match (Str.regexp "[0]+") n 0
+  | LA.Const (_, (Dec n)) -> Str.string_match (Str.regexp "[0]+[.][0]*") n 0
   | _ -> false
 
 and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> bool tc_result =
