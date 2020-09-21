@@ -52,8 +52,8 @@ Error
 | `circular_contracts.lus `                 | Contract declaration has circularity                                   | F at TC |
 | `circular_nodes.lus`                      | Node declaration has circularity                                       | F at TC |
 | `circular_types.lus`                      | Type declaration has circularity                                       | F at TC |
-| `cocospec_out_param.lus`**                | In parameters should be different than out parameters                  | F at TC |
-| `const_not_const.lus`**                   | Constant decls should not have arrow                                   | F at TC |
+| `cocospec_out_param.lus`                  | In parameters should be different than out parameters                  | F at TC |
+| `const_not_const.lus`                     | Constant decls should not have arrow                                   | F at TC |
 | `empty_range.lus`                         | Subrange is empty eg. `subrange [1,0] of int`                          | NA      |
 | `function_no_arrow_in_body.lus`**         |                                                                        |         |
 | `function_no_node_call.lus`**             |                                                                        |         |
