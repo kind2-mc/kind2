@@ -39,7 +39,7 @@ module IMap = Map.Make(struct
                 end)
 
 type 'a graph_result = ('a, Lib.position * string) result  
-let graph_error pos err = Error (Lib.dummy_pos, err)
+let graph_error pos err = Error (pos, err)
 let (>>=) = R.(>>=)                     
 
 let ty_suffix = "type "
