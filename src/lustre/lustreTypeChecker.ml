@@ -1542,6 +1542,8 @@ let split_program: LA.t -> (LA.t * LA.t)
         if is_type_or_const_decl d then (d::ds, ds')
         else (ds, d::ds')) ([], [])  
 
+let propogate_constants: tc_context -> LA.t -> tc_context tc_result = fun ctx _ -> R.ok ctx
+  
 (********************************************************************
  * The main function of the file that kicks off type checking flow  *
  ********************************************************************)

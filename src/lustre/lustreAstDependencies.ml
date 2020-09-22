@@ -281,18 +281,12 @@ let sort_decls: ('a IMap.t -> 'a list -> 'a IMap.t graph_result)
    | Graph.CyclicGraphException ids ->
       graph_error Lib.dummy_pos
         ("Cyclic dependency detected in definition of identifiers: "
-<<<<<<< HEAD:src/lustre/lustreAstDependencies.ml
   ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
   >>= fun sorted_ids -> let dependency_sorted_ids = List.rev sorted_ids in
                         Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  dependency_sorted_ids;
                           extract_decls decl_map dependency_sorted_ids
 
-=======
-         ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
-  >>= fun sorted_ids -> Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  sorted_ids;
-                        extract_decls decl_map sorted_ids                          
-                            
 let sort_declarations = sort_decls mk_decl_map mk_graph_decls
+
 (* where should this function be plugged in? *)
 let sort_contract_declarations = sort_decls mk_contract_decl_map mk_graph_contract_decls
->>>>>>> - fixed some error messages to be more more descriptive:src/lustre/graphAdapter.ml
