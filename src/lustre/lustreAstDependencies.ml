@@ -236,23 +236,28 @@ let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) g
   | LA.NodeParamInst _ :: _-> Lib.todo __LOC__
 (** builds an id :-> decl map  *)
 
-let rec mk_contract_decl_map: LA.contract_node_equation IMap.t -> LA.contract -> (LA.contract_node_equation IMap.t) graph_result
+let rec mk_contract_decl_map: LA.contract_node_equation IMap.t -> LA.contract
+                              -> (LA.contract_node_equation IMap.t) graph_result
   = fun m ->
   function
   | [] -> R.ok m
-  | (LA.GhostConst c) as const :: rest ->
-     (match c with
-     | LA.FreeConst (pos, i, _) ->
-        check_and_add m pos const_suffix i const >>= fun m' ->
-        mk_contract_decl_map m' rest
-     | _ -> Lib.todo __LOC__)
-  | LA.GhostVar _ :: rest
+
+  | (LA.GhostConst (FreeConst (pos, i, _)) as cnstd) :: decls
+    | (LA.GhostConst (UntypedConst (pos, i, _)) as cnstd) :: decls
+    | (LA.GhostConst (TypedConst (pos, i, _, _)) as cnstd) :: decls 
+
+    | (LA.GhostVar (FreeConst (pos, i, _)) as cnstd) :: decls
+    | (LA.GhostVar (UntypedConst (pos, i, _)) as cnstd) :: decls
+    | (LA.GhostVar (TypedConst (pos, i, _, _)) as cnstd) :: decls -> 
+     check_and_add m pos const_suffix i cnstd  >>= fun m' ->
+     mk_contract_decl_map m' decls 
+
   | LA.Assume _ :: rest
-  | LA.Guarantee _ :: rest
-  | LA.Mode _ :: rest 
-  | LA.ContractCall _ :: rest ->  Lib.todo __LOC__                                                        
-            
-                            
+    | LA.Guarantee _ :: rest
+    | LA.Mode _ :: rest 
+    | LA.ContractCall _ :: rest ->  Lib.todo __LOC__                                                        
+                                  
+                                  
 let mk_graph_decls: LA.t -> G.t
   = fun decls ->
   List.fold_left G.union G.empty (List.map mk_graph decls)
