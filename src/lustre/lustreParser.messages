@@ -13419,7 +13419,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET XOR
 ## list(node_local_decl) LET
 ##
 
-Syntax Error!
+Syntax Error! List of expressions cannot be on the left hand side of the equation. 
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON CONDACT
 ##
