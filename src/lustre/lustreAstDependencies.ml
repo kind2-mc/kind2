@@ -16,14 +16,16 @@
 
  *)
 
-(** Converts the graph 
-   
-   @author Apoorv Ingle *)
+(** Graph analysis on Lustre Ast Declarations  
+    Builds a dependency graph of the lustre declarations,
+    to detect circular dependencies and reject them and
+    re-orders node and contract declarations to resolve
+    forward references   
+
+   @author: Apoorv Ingle *)
 
 module R = Res
 module LA = LustreAst
-(* type payload = {k:LustreAst.ident; v:LA.declaration option}
- * let payload_compare p1 p2 = Stdlib.compare p1.k p2.k *)
                           
 module G = Graph.Make(struct
                type t = LA.ident
@@ -242,11 +244,12 @@ and sort_decls: LA.t -> LA.t graph_result = fun decls ->
   (* 2. build a dependency graph *)
   let dg = dependency_graph_decls decls in
   (* 3. try to sort it, raise an error if it is cyclic, or extract sorted decls from the decl_map *)
-  (try (R.ok (G.dependency_sort dg)) with
+  (try (R.ok (G.topological_sort dg)) with
    | Graph.CyclicGraphException ids ->
       graph_error Lib.dummy_pos
         ("Cyclic dependency detected in definition of identifiers: "
   ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
-  >>= fun sorted_ids -> Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  sorted_ids;
-                          extract_decls decl_map sorted_ids                          
+  >>= fun sorted_ids -> let dependency_sorted_ids = List.rev sorted_ids in
+                        Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  dependency_sorted_ids;
+                          extract_decls decl_map dependency_sorted_ids
 

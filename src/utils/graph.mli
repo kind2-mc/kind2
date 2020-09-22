@@ -100,9 +100,6 @@ module type S = sig
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
    *  Implimentation is of this function is based on Kahn's algorithm *)
-
-  val dependency_sort: t -> vertex list
-  (** sorts the vertices in the order of their dependency (aka inverse topological sort)*)
     
   val pp_print_vertex: Format.formatter -> vertex -> unit
   (** Pretty print a vertex *)

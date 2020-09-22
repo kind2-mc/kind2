@@ -103,9 +103,6 @@ module type S = sig
    *  or throws an [CyclicGraphException] if the graph is cyclic.
    *  Implimentation is of this function is based on Kahn's algorithm *)
 
-  val dependency_sort: t -> vertex list
-  (** sorts the vertices in the order of their dependency (aka inverse topological sort)*)
-
   val pp_print_vertex: Format.formatter -> vertex -> unit
   (** Pretty print a vertex *)
 
@@ -300,9 +297,5 @@ module Make (Ord: OrderedType) = struct
    *  or throws an [CyclicGraphException] if the graph is cyclic.
    *  Implimentation is based on Kahn's algorithm 
    * https://en.wikipedia.org/wiki/Topological_sorting *)
-
-  let dependency_sort: t -> vertex list = fun g ->
-    Log.log L_trace "\n---------\nDependency sort\n---------\n"
-    ; topological_sort g |> List.rev     
 
 end

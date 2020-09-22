@@ -16,6 +16,14 @@
 
  *)
 
+(** Graph analysis on Lustre Ast Declarations  
+    Builds a dependency graph of the lustre declarations,
+    to detect circular dependencies and reject them and
+    re-orders node and contract declarations to resolve
+    forward references   
+
+    @author: Apoorv Ingle *)
+
 module LA = LustreAst
 type 'a graph_result = ('a, Lib.position * string) result
                      

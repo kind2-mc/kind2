@@ -42,7 +42,7 @@ let basic_tests
       ; "remove vertex to remove all edges" >::
           (fun _ -> assert_bool "unexpected graph" (G.remove_vertex dos_g v0 |> G.is_point_graph))
           
-      ; "sorted dos" >:: (fun _ -> assert_equal (G.dependency_sort dos_connected_g) [v1;v0])
+      ; "sorted dos" >:: (fun _ -> assert_equal (G.topological_sort dos_connected_g) [v0;v1])
       ; "cyclic dos" >:: (fun _ -> assert_raises
                                      (Graph.CyclicGraphException [v0; v1])
                                      (fun _ -> G.topological_sort dos_cycle_g))

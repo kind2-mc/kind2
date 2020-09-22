@@ -27,7 +27,7 @@ module LA = LustreAst
 module SI = LA.SI
 module LC = LustreContext
 module LH = LustreAstHelpers
-module GA = GraphAdapter
+module AD = LustreAstDependencies
                         
 (** Returns [Ok] if the type check/type inference runs fine 
  * or reports an error at position with the error *)
@@ -1474,11 +1474,11 @@ let type_check_program: LA.t -> LA.t tc_result = fun prg ->
                    ^^"===============================================\n")
   ; let (ty_and_const_decls, node_and_contract_decls) = split_program prg in
     (* circularity check and reordering for types and constants *)
-    GA.sort_decls ty_and_const_decls >>= fun sorted_tys_consts ->
+    AD.sort_decls ty_and_const_decls >>= fun sorted_tys_consts ->
     Log.log L_trace "Sorted consts and type decls:\n%a" LA.pp_print_program sorted_tys_consts
     (* build the base context from the type and const decls *)
     ; build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->
-      GA.sort_decls node_and_contract_decls >>= fun sorted_node_and_contract_decls ->
+      AD.sort_decls node_and_contract_decls >>= fun sorted_node_and_contract_decls ->
     (* type check the nodes and contract decls using this base typing context  *)
     tc_context_of global_ctx sorted_node_and_contract_decls >>= fun tc_ctx ->
     

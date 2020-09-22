@@ -24,7 +24,7 @@ module LI = LustreInput
 module LA = LustreAst
 open OUnit2
 
-module GA = GraphAdapter
+module GA = LustreAstDependencies
 
 let dp = Lib.dummy_pos
 let (>>=) = Res.(>>=)
