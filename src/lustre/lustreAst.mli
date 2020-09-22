@@ -275,7 +275,7 @@ type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
 (* A contract call. *)
-type contract_call = position * ident * expr list * expr list
+type contract_call = position * ident * expr list * ident list
 
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =

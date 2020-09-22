@@ -474,7 +474,7 @@ mode_equation:
 contract_import:
   IMPORTCONTRACT ; n = ident ;
   LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
-  LPAREN ; out_params = separated_list(COMMA, qexpr) ; RPAREN ; SEMICOLON ; {
+  LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; {
     A.ContractCall (mk_pos $startpos, n, in_params, out_params)
   }
 

@@ -1208,12 +1208,12 @@ and tc_ctx_const_decl
        then type_error pos
               ("Output arguments to node cannot be contract arguments, but found "
                ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements intersect_in_illegal))
-       else 
-         let ret_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars rets) in
+       else
+         let ret_ids = LA.SI.of_list rets in
          let common_ids = LA.SI.inter arg_ids ret_ids in
          if (LA.SI.equal common_ids LA.SI.empty)
          then 
-           R.seq(List.map (infer_type_expr ctx) rets)
+           R.seq(List.map (infer_type_expr ctx) (List.map (fun i -> LA.Ident (pos, i)) rets))
            >>= fun ret_tys ->  
            let ret_ty = if List.length ret_tys = 1
                         then List.hd ret_tys

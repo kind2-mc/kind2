@@ -28,7 +28,7 @@ let
   inn = in ; 
   OK =
     exp(0.0 -> inn, 1.0 -> inn) > 0.0 or
-    sincos(0.0 -> inn + pre inn) + sincos(0.0 -> inn + pre inn) = (0.0, 0.0);
+    sincos(0.0 -> inn + pre inn) + sincos(0.0 -> inn + pre inn) = [0.0, 0.0];
 tel;
 
 node id (in: real) returns (out: int);

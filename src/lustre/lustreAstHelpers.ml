@@ -579,14 +579,9 @@ let contract_node_equation_has_pre_or_arrow = function
       List.map (fun (_, _, e) -> has_pre_or_arrow e) enss
       |> some_of_list
   )
-| ContractCall (_, _, ins, outs) ->
-  List.map has_pre_or_arrow ins
-  |> some_of_list
-  |> unwrap_or (
-    fun _ ->
-      List.map has_pre_or_arrow outs
-      |> some_of_list
-  )
+| ContractCall (_, _, ins, _) ->
+  some_of_list (List.map has_pre_or_arrow ins) 
+
 
 (** Checks whether a contract has a `pre` or a `->`.
 

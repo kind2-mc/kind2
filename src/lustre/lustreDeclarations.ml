@@ -1552,11 +1552,18 @@ let rec check_no_contract_in_node_calls ctx = function
  *)
 
 (* Evaluates contract calls. *)
-and eval_node_contract_call
+and eval_node_contract_call: I.Set.t ->
+C.t ->
+(Lib.position * string) list ->
+A.const_clocked_typed_decl list ->
+A.clocked_typed_decl list ->
+A.node_local_decl list ->
+bool ->
+Lib.position * string * LustreAst.expr list * LustreAst.ident list -> C.t = fun
   known ctx scope inputs outputs locals is_candidate (
     call_pos, id, in_params, out_params
   )
-=
+->
   let ident = I.mk_string_ident id in
 
   if I.Set.mem ident known then (
@@ -1574,12 +1581,6 @@ and eval_node_contract_call
     fun expr -> if H.has_unguarded_pre expr then (
       fail_or_warn
         call_pos "Illegal unguarded pre in input parameters of contract call."
-    )
-  ) ;
-  out_params |> List.iter (
-    fun expr -> if H.has_unguarded_pre expr then (
-      fail_or_warn
-        call_pos "Illegal unguarded pre in output parameters of contract call."
     )
   ) ;
 
@@ -1703,7 +1704,7 @@ and eval_node_contract_call
      everything. *)
   let ctx = try
       List.fold_left2 (
-        fun ctx expr (_, in_id, typ, _) ->
+        fun ctx expr (pos, in_id, typ, _) ->
           let expr, ctx = S.eval_ast_expr [] ctx expr in
 
           (* Fail if type mismatch. *)
@@ -1728,7 +1729,7 @@ and eval_node_contract_call
 
           C.add_expr_for_ident
             ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr
-      ) ctx out_params out_formals
+      ) ctx (List.map (fun i -> LustreAst.Ident (pos, i))out_params) out_formals
     with
     | Invalid_argument _ ->  C.fail_at_position call_pos (
         Format.asprintf
@@ -2460,7 +2461,7 @@ and parse_implicit_contract scope inputs outputs ctx file contract_name = try (
                 _, cont_out, cont_out_ty, _
               ) ->
                 ok && (node_out = cont_out),
-                (A.Ident (pos, node_out)) :: outs
+                (node_out) :: outs
             ) (ok, []) outputs cont_out
             |> fun (ok, outs) -> ok, List.rev outs
           in
