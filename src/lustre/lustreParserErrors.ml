@@ -41,7 +41,7 @@ let message =
     | 374 ->
         "Syntax Error!\n"
     | 392 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps a missing node name.\n"
     | 970 ->
         "Syntax Error!\n"
     | 409 ->
@@ -757,7 +757,7 @@ let message =
     | 770 ->
         "Syntax Error!\n"
     | 784 ->
-        "Syntax Error!\n"
+        "Syntax Error! Perhaps a unknown keyword. \n"
     | 785 ->
         "Syntax Error!\n"
     | 817 ->

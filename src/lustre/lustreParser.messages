@@ -6373,7 +6373,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_PSATBLOCK XOR
 ## CONTRACT_PSATBLOCK
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a unknown keyword. 
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK ASSUME STRING ASSERT
 ##
@@ -13713,7 +13713,7 @@ main: NODE XOR
 ## NODE
 ##
 
-Syntax Error!
+Syntax Error! Perhaps a missing node name.
 
 main: TYPE WEAKLY COMMA XOR
 ##
