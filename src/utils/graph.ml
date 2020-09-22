@@ -274,7 +274,7 @@ module Make (Ord: OrderedType) = struct
   (** Unions two graphs *)
     
   let topological_sort: t -> vertex list = fun ((vs, es) as g) ->
-    let rec r_topological_sort_helper: t -> vertex list -> vertex list
+    let rec topological_sort_helper: t -> vertex list -> vertex list
       = fun ((vs, es) as g) sorted_vs ->
       let no_outgoing_vs = non_source_vertices g in
 
@@ -291,8 +291,8 @@ module Make (Ord: OrderedType) = struct
            else sorted_vs
       else
         let new_g = VSet.fold (fun v g' -> remove_vertex g' v) no_outgoing_vs g in
-        r_topological_sort_helper new_g (sorted_vs @ VSet.elements no_outgoing_vs)
-    in r_topological_sort_helper g []
+        topological_sort_helper new_g (sorted_vs @ VSet.elements no_outgoing_vs)
+    in topological_sort_helper g []
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
    *  Implimentation is based on Kahn's algorithm 
