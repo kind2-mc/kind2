@@ -24,7 +24,7 @@ module LA = LustreAst
 type 'a tc_result = ('a, Lib.position * string) result
 (** The typechecking can either be [Ok] will be an [Error] with some helpful message *)
 
-val type_check_program: LA.t -> LA.t tc_result  
+val type_check_program: LA.t -> unit tc_result  
 (** Typecheck a complete program and return the result *)
 
 val report_tc_result: unit tc_result list -> unit tc_result

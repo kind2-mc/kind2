@@ -105,9 +105,8 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
 let of_channel in_ch =
   (* Get declarations from channel. *)
   let parsed_declarations = ast_of_channel in_ch in
-
-  (* optional type checker pass that may also rearrange 
-   * declarations to resolve forward references *)
+  
+  (* optional type checker pass that may also rearrange *) 
   let declarations = 
     if not (Flags.no_tc ())
     then

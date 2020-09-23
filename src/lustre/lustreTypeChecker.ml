@@ -1111,8 +1111,8 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
 
 and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context tc_result
   = fun ctx -> function
-  | GhostConst c -> tc_ctx_const_decl ctx c 
-  | GhostVar c -> tc_ctx_const_decl ~const_real:false ctx c
+  | GhostConst c -> tc_ctx_const_decl ctx c
+  | GhostVar c -> tc_ctx_const_decl ~is_const:false ctx c
   | Assume (pos, _, _, e) -> R.ok ctx
   | Guarantee _ -> R.ok ctx
   | Mode (pos, name, _, _) -> R.ok (add_ty ctx name (Bool pos)) 
@@ -1157,7 +1157,7 @@ and check_contract_node_eqn: tc_context -> LA.contract_node_equation -> unit tc_
        check_type_expr ctx (LA.Call (pos, cname, args))(ret_ty) 
 
 and tc_ctx_const_decl
-  = fun ?const_real:(const_real=true) ctx ->
+  = fun ?is_const:(const_real=true) ctx ->
   function
   | LA.FreeConst (pos, i, ty) ->
      check_type_well_formed ctx ty
@@ -1236,7 +1236,7 @@ and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_cont
   = fun ctx ->
   function
   | LA.GhostConst c -> tc_ctx_const_decl ctx c
-  | LA.GhostVar c -> tc_ctx_const_decl ~const_real:false ctx c
+  | LA.GhostVar c -> tc_ctx_const_decl ~is_const:false ctx c
   | LA.Mode (pos, mname, _, _) ->
      if (member_ty ctx mname)
      then type_error pos ("Mode " ^ mname ^ " is already declared")
@@ -1468,7 +1468,7 @@ let split_program: LA.t -> (LA.t * LA.t)
         if is_type_or_const_decl d then (d::ds, ds')
         else (ds, d::ds')) ([], [])  
 
-let type_check_program: LA.t -> LA.t tc_result = fun prg ->
+let type_check_program: LA.t -> unit tc_result = fun prg ->
   Log.log L_trace ("===============================================\n"
                    ^^ "Phase 1: Building TC Global Context\n"
                    ^^"===============================================\n")
@@ -1478,9 +1478,8 @@ let type_check_program: LA.t -> LA.t tc_result = fun prg ->
     Log.log L_trace "Sorted consts and type decls:\n%a" LA.pp_print_program sorted_tys_consts
     (* build the base context from the type and const decls *)
     ; build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->
-      AD.sort_decls node_and_contract_decls >>= fun sorted_node_and_contract_decls ->
     (* type check the nodes and contract decls using this base typing context  *)
-    tc_context_of global_ctx sorted_node_and_contract_decls >>= fun tc_ctx ->
+    tc_context_of global_ctx node_and_contract_decls >>= fun tc_ctx ->
     
     Log.log L_trace ("===============================================\n"
                      ^^ "Phase 1: Completed Building TC Global Context\n"
@@ -1492,11 +1491,7 @@ let type_check_program: LA.t -> LA.t tc_result = fun prg ->
                        ^^ "Phase 2: Type checking declaration Groups Done\n"
                        ^^"===============================================\n")  
       
-      ; report_tc_result tc_res >>
-          (Log.log L_trace "Reordered Declarations:\n--------------\n%a "
-            LA.pp_print_program (sorted_tys_consts @ sorted_node_and_contract_decls) 
-            ; R.ok (sorted_tys_consts @ sorted_node_and_contract_decls)) 
-
+      ; report_tc_result tc_res
 (** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
  *  a [Ok ()] if it succeeds or and [Error of String] if the typechecker fails*)
            
