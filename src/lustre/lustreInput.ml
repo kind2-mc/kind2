@@ -104,22 +104,20 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
 (* Parse from input channel *)
 let of_channel in_ch =
   (* Get declarations from channel. *)
-  let parsed_declarations = ast_of_channel in_ch in
+  let declarations = ast_of_channel in_ch in
   
-  (* optional type checker pass that may also rearrange *) 
-  let declarations = 
-    if not (Flags.no_tc ())
-    then
-      (Log.log L_note "(Experimental) Typechecking enabled."
-      ; match TC.type_check_program parsed_declarations with
-        | Ok ds -> Log.log L_note "No type errors found!"
-                 ; (if Flags.only_tc () then exit 0
-                    else ds)
-        | Error (pos, err) -> LC.fail_at_position pos err)
-    else parsed_declarations in
+  (* optional type checker pass*) 
+  if not (Flags.no_tc ())
+  then
+    (Log.log L_note "(Experimental) Typechecking enabled."
+    ; match TC.type_check_program declarations with
+      | Ok () -> Log.log L_note "No type errors found!"
+               ; (if Flags.only_tc () then exit 0)
+      | Error (pos, err) -> LC.fail_at_position pos err)
+  
   
   (* Simplify declarations to a list of nodes *)
-  let nodes, globals = LD.declarations_to_nodes declarations in
+  ; let nodes, globals = LD.declarations_to_nodes declarations in
   (* Name of main node *)
   let main_node = 
     (* Command-line flag for main node given? *)

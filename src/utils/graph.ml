@@ -173,7 +173,7 @@ module Make (Ord: OrderedType) = struct
     let flatten: t list -> t = fun sets ->
       List.fold_left union empty sets
   end 
-  (** A set of vertices  *)
+  (** A set of edges *)
 
   type vertices = VSet.t
   (** type alias for set of vertices *)
