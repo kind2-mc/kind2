@@ -1,0 +1,3 @@
+(tests
+  (names testAstDependencies)
+  (libraries ounit2 kind2dev))

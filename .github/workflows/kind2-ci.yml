@@ -41,7 +41,7 @@ jobs:
     - name: Install ZMQ library
       run: ${{ matrix.zmq_install }}
 
-    - name: Install OCaml dependencies
+    - name: Install Kind2 OCaml dependencies
       run: opam install -y . --deps-only
 
     - name: Build Kind2
@@ -49,6 +49,12 @@ jobs:
 
     - name: Install Z3
       run: ${{ matrix.z3_install }}
+
+    - name: Install unit test dependencies
+      run: opam install ounit2
+
+    - name: Run unit tests
+      run: opam exec dune test
 
     - name: Run regression tests
       run: opam exec make test
