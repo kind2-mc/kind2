@@ -42,6 +42,7 @@ type tc_type  = LA.lustre_type
 (** String of the type to display in type errors *)
 let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
 
+
 (** Pretty print type synonyms*)
 let pp_print_type_syn ppf = fun (i, ty) -> 
   Format.fprintf ppf "(%a:=%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
@@ -1174,6 +1175,34 @@ and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contr
                  (Bool pos)) 
     | ContractCall (pos, cname, args, rets) ->
        let arg_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars args) in
+<<<<<<< HEAD
+       let ret_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars rets) in
+       let common_ids = LA.SI.inter arg_ids ret_ids in
+       if (LA.SI.equal common_ids LA.SI.empty)
+       then 
+         R.seq(List.map (infer_type_expr ctx) rets)
+         >>= fun ret_tys ->  
+         let ret_ty = if List.length ret_tys = 1
+                      then List.hd ret_tys
+                      else LA.TupleType (pos, ret_tys) in
+         R.seq(List.map (infer_type_expr ctx) args) >>= fun arg_tys -> 
+         let arg_ty = if List.length arg_tys = 1
+                      then List.hd arg_tys
+                      else LA.TupleType (pos, arg_tys) in
+         let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
+         try let inf_ty = (lookup_contract_ty ctx cname) in
+             R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
+               (type_error pos ("Contract " ^ cname
+                                ^ " expected to have type " ^ string_of_tc_type exp_ty
+                                ^ " but found type " ^ string_of_tc_type inf_ty))
+         with
+         | Not_found -> type_error pos ("Undefined or not in scope contract name " ^ cname)
+       else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
+              Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements common_ids)) 
+
+and tc_ctx_const_decl
+  = fun ?is_const:(const_real=true) ctx ->
+=======
        let intersect_in_illegal = LA.SI.inter node_out_params arg_ids in
        if (not (LA.SI.is_empty intersect_in_illegal))
        then type_error pos
@@ -1204,8 +1233,9 @@ and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contr
          else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
                                 Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements common_ids)) 
 
-and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_context tc_result 
-  = fun ?is_const:(is_const=true) ctx ->
+and tc_ctx_const_decl: ?const_real: bool -> tc_context -> LA.const_decl -> tc_context tc_result 
+  = fun ?const_real:(const_real=true) ctx ->
+>>>>>>> out parameters of node cannot be inputs to contract
   function
   | LA.FreeConst (pos, i, ty) ->
      check_type_well_formed ctx ty
@@ -1216,7 +1246,7 @@ and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_cont
      if member_ty ctx i
      then type_error pos ("Constant " ^ i ^ " is already declared.")
      else infer_type_expr ctx e >>= fun ty ->
-          (if is_const then
+          (if const_real then
              if (is_expr_of_consts ctx e) 
              then R.ok (add_ty (add_const ctx i e ty) i ty)
              else type_error pos ("Expression " ^ Lib.string_of_t LA.pp_print_expr e ^ " is not a constant expression")
@@ -1226,7 +1256,7 @@ and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_cont
      if member_ty ctx i
      then type_error pos ("Constant " ^ i ^ " is already declared.")
      else check_type_expr (add_ty ctx i exp_ty) e exp_ty
-          >> (if is_const then
+          >> (if const_real then
                 if (is_expr_of_consts ctx e) 
                 then R.ok (add_ty (add_const ctx i e exp_ty) i exp_ty)
                 else type_error pos ("Expression " ^ Lib.string_of_t LA.pp_print_expr e ^ " is not a constant expression")
@@ -1525,7 +1555,7 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
   ; let (ty_and_const_decls, node_and_contract_decls) = split_program prg in
     (* circularity check and reordering for types and constants *)
     Log.log L_trace "Phase 1.1 Building graph for types and constant decls\n---------\n"
-    ; AD.sort_declarations ty_and_const_decls >>= fun sorted_tys_consts ->
+    ; AD.sort_decls ty_and_const_decls >>= fun sorted_tys_consts ->
     Log.log L_trace "Sorted consts and type decls:\n%a" LA.pp_print_program sorted_tys_consts
     (* build the base context from the type and const decls *)
     ; build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->
@@ -1537,7 +1567,6 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
                      ^^ "TC Context\n%a\n"
                      ^^"===============================================\n")
       pp_print_tc_context tc_ctx
-    
     ; let tc_res = (type_check_decl_grps tc_ctx [prg]) in
       Log.log L_trace ("===============================================\n"
                        ^^ "Phase 2: Type checking declaration Groups Done\n"
