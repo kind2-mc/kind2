@@ -1,0 +1,3 @@
+(tests
+  (names testGraph)
+  (libraries ounit2 kind2dev))

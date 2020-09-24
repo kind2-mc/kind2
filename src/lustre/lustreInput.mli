@@ -109,10 +109,10 @@ exception NoMainNode of string
 
 (** Parse from the file, return an input system for further slicing
     and refinement from analysis strategies. *)
-val of_file : string -> LustreNode.t SubSystem.t * LustreGlobals.t * LustreAst.declaration list
+val of_file : string -> LustreNode.t SubSystem.t * LustreGlobals.t * LustreAst.t
 
 (** Parse from the file, returns the AST. *)
-val ast_of_file : string -> LustreAst.declaration list
+val ast_of_file : string -> LustreAst.t
 
 (* 
    Local Variables:
