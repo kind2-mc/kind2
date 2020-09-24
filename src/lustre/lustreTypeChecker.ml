@@ -242,8 +242,138 @@ let extract_consts: LA.const_clocked_typed_decl -> tc_context
   if is_const
   then singleton_const i (LA.Ident (pos, i)) ty
   else empty_context 
+
+(*****************************************************
+ *       Evaluating and propogating  constants       *
+ *****************************************************)
+
+let rec is_normal_form: tc_context -> LA.expr -> bool = fun ctx ->
+  function
+  | Const _ -> true
+  | RecordExpr (_, _, id_exprs) -> List.for_all (fun (_, e) -> is_normal_form ctx e) id_exprs
+  | RecordProject (_, e, _)
+    | TupleProject (_, e, _) -> is_normal_form ctx e
+  | _ -> false
+(** is the expression in a normal form? *)
+
+let int_value_of_const: LA.expr -> int tc_result =
+  function
+  | LA.Const (pos, LA.Num n) -> R.ok (int_of_string n)
+  | e -> type_error (LH.pos_of_expr e)
+           ("Cannot evaluate non-int constant "
+            ^ Lib.string_of_t LA.pp_print_expr e
+            ^ " to an int.") 
+
+let bool_value_of_const: LA.expr -> bool tc_result =
+  function
+  | LA.Const (pos, LA.True) -> R.ok true
+  | LA.Const (pos, LA.False) -> R.ok false                             
+  | e -> type_error (LH.pos_of_expr e)
+           ("Cannot evaluate non-bool "
+            ^ Lib.string_of_t LA.pp_print_expr e
+            ^" constant to a bool.")
+
+       
+let rec eval_int_expr: tc_context -> LA.expr -> int tc_result = fun ctx ->
+  function
+  | LA.Ident (pos, i) -> let (const_expr, expr_type) = lookup_const ctx i in
+                         if is_normal_form ctx const_expr
+                         then int_value_of_const const_expr
+                         else (match const_expr with
+                               | LA.Ident (_, i') as e ->
+                                  if Stdlib.compare i i' = 0
+                                  then type_error pos ("Cannot evaluate a free int const "
+                                                       ^ i ^ ".")
+                                  else eval_int_expr ctx e 
+                               | _ -> eval_int_expr ctx const_expr) 
+  | LA.Const _ as c -> int_value_of_const c
+  | LA.BinaryOp (pos, bop, e1, e2) -> eval_int_binary_op ctx pos bop e1 e2
+  | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_int_ternary_op ctx pos top e1 e2 e3
+  | _ -> Lib.todo __LOC__
+(** try and evalutate expression to int, return error otherwise *)
+
+and eval_int_binary_op: tc_context -> Lib.position -> LA.binary_operator -> LA.expr -> LA.expr -> int tc_result =
+  fun ctx pos bop e1 e2 ->
+  eval_int_expr ctx e1 >>= fun v1 ->
+  eval_int_expr ctx e2 >>= fun v2 ->
+  match bop with
+  | Plus -> R.ok (v1 + v2)
+  | Times -> R.ok (v1 * v2)
+  | Minus -> R.ok (v1 - v2)
+  | IntDiv -> R.ok (v1 / v2)
+  | _ -> type_error pos ("Cannot evaluate non-int binary expression"
+                         ^ Lib.string_of_t LA.pp_print_expr (LA.BinaryOp (pos, bop, e1, e2))
+                         ^" to an int value")    
+(** try and evalutate binary op expression to int, return error otherwise *)
+
+and eval_int_ternary_op: tc_context -> Lib.position -> LA.ternary_operator
+                     -> LA.expr -> LA.expr -> LA.expr -> int tc_result
+  = fun ctx pos top b1 e1 e2 ->
+  eval_bool_expr ctx b1 >>= fun c ->
+  eval_int_expr ctx e1 >>= fun v1 ->
+  eval_int_expr ctx e2 >>= fun v2 ->
+  match top with
+  | LA.Ite -> if c then R.ok v1 else R.ok v2
+  | LA.With -> type_error pos "With operator is not supported"
+(** try and evalutate ternary op expression to int, return error otherwise *)  
+             
+and eval_bool_expr: tc_context -> LA.expr -> bool tc_result = fun ctx ->
+  function
+  | LA.Ident (pos, i) -> let (const_expr, expr_type) = lookup_const ctx i in
+                       if is_normal_form ctx const_expr
+                       then bool_value_of_const const_expr
+                       else (match const_expr with
+                               | LA.Ident (_, i') as e ->
+                                  if (Stdlib.compare i i' = 0)
+                                  then type_error pos ("Cannot evaluate a free bool const "
+                                                       ^ i ^ ".")
+                                  else eval_bool_expr ctx e 
+                               | _ ->  eval_bool_expr ctx const_expr)
+  | LA.Const _ as c -> bool_value_of_const c
+  | LA.BinaryOp (pos, bop, e1, e2) -> eval_bool_binary_op ctx pos bop e1 e2
+  | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_bool_ternary_op ctx pos top e1 e2 e3
+  | LA.CompOp (pos, cop, e1, e2) -> eval_comp_op ctx pos cop e1 e2
+  | _ -> Lib.todo __LOC__    
+(** try and evalutate expression to bool, return error otherwise *)
+
+and eval_bool_binary_op: tc_context -> Lib.position -> LA.binary_operator -> LA.expr -> LA.expr -> bool tc_result = 
+  fun ctx pos bop e1 e2 ->
+  eval_bool_expr ctx e1 >>= fun v1 ->
+  eval_bool_expr ctx e2 >>= fun v2 ->
+  match bop with
+  | And -> R.ok (v1 && v2) 
+  | Or -> R.ok (v1 || v2)
+  | Xor -> R.ok ((v1 && not v2) || (v2 && not v1))
+  | Impl -> R.ok (not v1 || v2)
+  | _ -> type_error pos ("Cannot evaluate non-bool binary expression"
+                         ^ Lib.string_of_t LA.pp_print_expr (LA.BinaryOp (pos, bop, e1, e2))
+                         ^" to a bool value")
+(** try and evalutate binary op expression to bool, return error otherwise *)
   
-  
+and eval_bool_ternary_op: tc_context -> Lib.position -> LA.ternary_operator
+                     -> LA.expr -> LA.expr -> LA.expr -> bool tc_result
+  = fun ctx pos top b1 e1 e2 ->
+  eval_bool_expr ctx b1 >>= fun c ->
+  eval_bool_expr ctx e1 >>= fun v1 ->
+  eval_bool_expr ctx e2 >>= fun v2 ->
+  match top with
+  | LA.Ite -> if c then R.ok v1 else R.ok v2
+  | LA.With -> type_error pos "With operator is not supported"
+(** try and evalutate ternary op expression to bool, return error otherwise *)
+
+and eval_comp_op: tc_context -> Lib.position -> LA.comparison_operator -> LA.expr -> LA.expr -> bool tc_result = 
+  fun ctx pos cop e1 e2 ->
+  eval_int_expr ctx e1 >>= fun v1 ->
+  eval_int_expr ctx e2 >>= fun v2 ->
+  match cop with
+  | Eq -> R.ok (v1 = v2)
+  | Neq -> R.ok (v1 <> v2)
+  | Lte -> R.ok (v1 <= v2)
+  | Lt -> R.ok (v1 < v2)
+  | Gte -> R.ok (v1 > v2)
+  | Gt -> R.ok (v1 >= v2)
+(** try and evalutate comparison op expression to bool, return error otherwise *)
+             
 (**********************************************
  * Type inferring and type checking functions *
  **********************************************)
@@ -1433,7 +1563,9 @@ and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> bool tc_re
 
 and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type * LA.expr) -> bool tc_result
   = fun ctx (ty1, e1) (ty2, e2) ->
-  eq_lustre_type ctx ty1 ty2
+  eq_lustre_type ctx ty1 ty2 >>
+    eval_int_expr ctx e1 >>= fun l1 ->
+    eval_int_expr ctx e2 >>= fun l2 -> if l1 = l2 then R.ok true else R.ok false  
 (** Compute equality for [LA.ArrayType]
  * For now, we do not check the bounds for arrays. This introduces bugs similar to Issue #566. 
  *   https://github.com/kind2-mc/kind2/issues/566. 
@@ -1472,14 +1604,11 @@ let type_check_decl_grps: tc_context -> LA.t list -> unit tc_result list
                        ^^"===============================================\n");  
   List.concat (List.map (type_check_group ctx) decls)               
 (** Typecheck a list of independent groups using a global context*)
+   
+let propogate_constants: tc_context -> LA.t -> LA.t = fun ctx decls -> decls
+(** Propogate constants for type checking purposes *)
 
-let rec report_tc_result: unit tc_result list -> unit tc_result
-  =  function
-     | [] -> R.ok () 
-     | Error (pos,err) :: _ -> LC.fail_at_position pos err
-     | Ok () :: tl -> report_tc_result tl
-(** Get the first error *)
-
+                    
 let is_type_or_const_decl: LA.declaration -> bool = fun d ->
   match d with
   | TypeDecl _
@@ -1491,8 +1620,14 @@ let split_program: LA.t -> (LA.t * LA.t)
       (fun (ds, ds') d ->
         if is_type_or_const_decl d then (d::ds, ds')
         else (ds, d::ds')) ([], [])  
+(** Splits program into type and constant decls and rest of the program *)
 
-let propogate_constants: tc_context -> LA.t -> tc_context tc_result = fun ctx _ -> R.ok ctx
+let rec report_tc_result: unit tc_result list -> unit tc_result
+  =  function
+     | [] -> R.ok () 
+     | Error (pos,err) :: _ -> LC.fail_at_position pos err
+     | Ok () :: tl -> report_tc_result tl
+(** Get the first error *)
   
 (********************************************************************
  * The main function of the file that kicks off type checking flow  *
