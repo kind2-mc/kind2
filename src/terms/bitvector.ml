@@ -350,7 +350,11 @@ let sbv_rem (bv1 : t) (bv2 : t) : t =
   else
     let num1 = bv_to_num' (Numeral.of_int (List.length bv1)) bv1 in
     let num2 = bv_to_num' (Numeral.of_int (List.length bv2)) bv2 in
-    let r = Numeral.rem num1 num2 in
+    let r = match (num1 < Numeral.zero, num2 < Numeral.zero) with
+    | false, false -> Numeral.rem num1 num2
+    | true, false -> Numeral.neg (Numeral.rem (Numeral.neg num1) num2)
+    | false, true -> Numeral.rem num1 (Numeral.neg num2)
+    | true, true -> Numeral.neg (Numeral.rem (Numeral.neg num1) (Numeral.neg num2)) in
     num_to_bv (Numeral.of_int (List.length bv1)) r
 
 let ubv_rem (bv1 : t) (bv2 : t) : t =
