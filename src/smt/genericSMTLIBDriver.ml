@@ -588,7 +588,6 @@ let smtlib_string_symbol_list =
    ("bvsgt", Symbol.mk_symbol `BVSGT);
    ("bvsge", Symbol.mk_symbol `BVSGE); 
    ("concat", Symbol.mk_symbol `BVCONCAT);
-   (*("(_ sign_extend %a)", Symbol.mk_symbol (`BVSIGNEXT _));*)
    ("select", Symbol.mk_symbol
       (`SELECT (Type.mk_array Type.t_int Type.t_int))); (* placeholder *)
    (* uninterpreted select *)
