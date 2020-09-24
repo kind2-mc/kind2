@@ -561,10 +561,6 @@ let smtlib_string_symbol_list =
    (">", Symbol.mk_symbol `GT);
    ("to_real", Symbol.mk_symbol `TO_REAL);
    ("to_int", Symbol.mk_symbol `TO_INT);
-   ("(_ int2bv 8)", Symbol.mk_symbol `TO_UINT8);
-   ("(_ int2bv 16)", Symbol.mk_symbol `TO_UINT16);
-   ("(_ int2bv 32)", Symbol.mk_symbol `TO_UINT32);
-   ("(_ int2bv 64)", Symbol.mk_symbol `TO_UINT64);
    ("bv2nat", Symbol.mk_symbol `BV2NAT);
    ("bv2int", Symbol.mk_symbol `BV2NAT);     
    ("is_int", Symbol.mk_symbol `IS_INT);
@@ -591,7 +587,6 @@ let smtlib_string_symbol_list =
    ("bvsle", Symbol.mk_symbol `BVSLE);
    ("bvsgt", Symbol.mk_symbol `BVSGT);
    ("bvsge", Symbol.mk_symbol `BVSGE); 
-   ("(_ extract 7 1)", Symbol.mk_symbol (`BVEXTRACT (Numeral.of_int 7, Numeral.of_int 1)));
    ("concat", Symbol.mk_symbol `BVCONCAT);
    (*("(_ sign_extend %a)", Symbol.mk_symbol (`BVSIGNEXT _));*)
    ("select", Symbol.mk_symbol
