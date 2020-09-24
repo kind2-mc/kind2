@@ -793,17 +793,13 @@ and infer_type_binary_op: tc_context -> Lib.position
   | LA.Div ->
      are_args_num ctx pos ty1 ty2 >>= fun is_num ->
      if is_num
-     then if (is_expr_term_zero e2)
-          then type_error pos ("Cannot divide by zero")
-          else R.ok ty2
+     then R.ok ty2
      else type_error pos ("Expected arguments to be of same"
                           ^" numeric type but found types " ^ string_of_tc_type ty1
                           ^ " and " ^ string_of_tc_type ty2)
   | LA.IntDiv ->
      if LH.is_type_int ty1 && LH.is_type_int ty2
-     then if (is_expr_term_zero e2)
-          then type_error pos ("Cannot divide by zero")
-          else R.ok (LA.Int pos)
+     then R.ok (LA.Int pos)
      else type_error pos ("Expected arguments of type integer "
                           ^ "but found types " ^ string_of_tc_type ty1
                           ^ " and " ^ string_of_tc_type ty2)
@@ -1175,34 +1171,6 @@ and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contr
                  (Bool pos)) 
     | ContractCall (pos, cname, args, rets) ->
        let arg_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars args) in
-<<<<<<< HEAD
-       let ret_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars rets) in
-       let common_ids = LA.SI.inter arg_ids ret_ids in
-       if (LA.SI.equal common_ids LA.SI.empty)
-       then 
-         R.seq(List.map (infer_type_expr ctx) rets)
-         >>= fun ret_tys ->  
-         let ret_ty = if List.length ret_tys = 1
-                      then List.hd ret_tys
-                      else LA.TupleType (pos, ret_tys) in
-         R.seq(List.map (infer_type_expr ctx) args) >>= fun arg_tys -> 
-         let arg_ty = if List.length arg_tys = 1
-                      then List.hd arg_tys
-                      else LA.TupleType (pos, arg_tys) in
-         let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
-         try let inf_ty = (lookup_contract_ty ctx cname) in
-             R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
-               (type_error pos ("Contract " ^ cname
-                                ^ " expected to have type " ^ string_of_tc_type exp_ty
-                                ^ " but found type " ^ string_of_tc_type inf_ty))
-         with
-         | Not_found -> type_error pos ("Undefined or not in scope contract name " ^ cname)
-       else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
-              Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements common_ids)) 
-
-and tc_ctx_const_decl
-  = fun ?is_const:(const_real=true) ctx ->
-=======
        let intersect_in_illegal = LA.SI.inter node_out_params arg_ids in
        if (not (LA.SI.is_empty intersect_in_illegal))
        then type_error pos
@@ -1233,9 +1201,8 @@ and tc_ctx_const_decl
          else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
                                 Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements common_ids)) 
 
-and tc_ctx_const_decl: ?const_real: bool -> tc_context -> LA.const_decl -> tc_context tc_result 
-  = fun ?const_real:(const_real=true) ctx ->
->>>>>>> out parameters of node cannot be inputs to contract
+and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_context tc_result 
+  = fun ?is_const:(is_const=true) ctx ->
   function
   | LA.FreeConst (pos, i, ty) ->
      check_type_well_formed ctx ty
@@ -1246,7 +1213,7 @@ and tc_ctx_const_decl: ?const_real: bool -> tc_context -> LA.const_decl -> tc_co
      if member_ty ctx i
      then type_error pos ("Constant " ^ i ^ " is already declared.")
      else infer_type_expr ctx e >>= fun ty ->
-          (if const_real then
+          (if is_const then
              if (is_expr_of_consts ctx e) 
              then R.ok (add_ty (add_const ctx i e ty) i ty)
              else type_error pos ("Expression " ^ Lib.string_of_t LA.pp_print_expr e ^ " is not a constant expression")
@@ -1256,7 +1223,7 @@ and tc_ctx_const_decl: ?const_real: bool -> tc_context -> LA.const_decl -> tc_co
      if member_ty ctx i
      then type_error pos ("Constant " ^ i ^ " is already declared.")
      else check_type_expr (add_ty ctx i exp_ty) e exp_ty
-          >> (if const_real then
+          >> (if is_const then
                 if (is_expr_of_consts ctx e) 
                 then R.ok (add_ty (add_const ctx i e exp_ty) i exp_ty)
                 else type_error pos ("Expression " ^ Lib.string_of_t LA.pp_print_expr e ^ " is not a constant expression")
@@ -1471,12 +1438,6 @@ and is_expr_of_consts: tc_context -> LA.expr -> bool = fun ctx e ->
   List.fold_left (&&) true (List.map (member_val ctx) (LA.SI.elements (LH.vars e)))
 (** checks if all the variables in the expression are constants *)
   
-and is_expr_term_zero: LA.expr -> bool =
-  function
-  | LA.Const (_, (Num n)) -> Str.string_match (Str.regexp "[0]+") n 0
-  | LA.Const (_, (Dec n)) -> Str.string_match (Str.regexp "[0]+[.][0]*") n 0
-  | _ -> false
-
 and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> bool tc_result =
   fun ctx (_, i1, ty1) (_, i2, ty2) -> eq_lustre_type ctx ty1 ty2
 (** Compute type equality for [LA.typed_ident] *)
@@ -1555,7 +1516,7 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
   ; let (ty_and_const_decls, node_and_contract_decls) = split_program prg in
     (* circularity check and reordering for types and constants *)
     Log.log L_trace "Phase 1.1 Building graph for types and constant decls\n---------\n"
-    ; AD.sort_decls ty_and_const_decls >>= fun sorted_tys_consts ->
+    ; AD.sort_declarations ty_and_const_decls >>= fun sorted_tys_consts ->
     Log.log L_trace "Sorted consts and type decls:\n%a" LA.pp_print_program sorted_tys_consts
     (* build the base context from the type and const decls *)
     ; build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->

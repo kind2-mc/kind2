@@ -1552,18 +1552,10 @@ let rec check_no_contract_in_node_calls ctx = function
  *)
 
 (* Evaluates contract calls. *)
-and eval_node_contract_call: I.Set.t ->
-C.t ->
-(Lib.position * string) list ->
-A.const_clocked_typed_decl list ->
-A.clocked_typed_decl list ->
-A.node_local_decl list ->
-bool ->
-Lib.position * string * LustreAst.expr list * LustreAst.ident list -> C.t = fun
+and eval_node_contract_call 
   known ctx scope inputs outputs locals is_candidate (
     call_pos, id, in_params, out_params
-  )
-->
+  ) = 
   let ident = I.mk_string_ident id in
 
   if I.Set.mem ident known then (

@@ -236,33 +236,9 @@ let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) g
   | LA.NodeParamInst _ :: _-> Lib.todo __LOC__
 (** builds an id :-> decl map  *)
 
-let rec mk_contract_decl_map: LA.contract_node_equation IMap.t -> LA.contract
-                              -> (LA.contract_node_equation IMap.t) graph_result
-  = fun m ->
-  function
-  | [] -> R.ok m
-
-  | (LA.GhostConst (FreeConst (pos, i, _)) as cnstd) :: decls
-    | (LA.GhostConst (UntypedConst (pos, i, _)) as cnstd) :: decls
-    | (LA.GhostConst (TypedConst (pos, i, _, _)) as cnstd) :: decls 
-
-    | (LA.GhostVar (FreeConst (pos, i, _)) as cnstd) :: decls
-    | (LA.GhostVar (UntypedConst (pos, i, _)) as cnstd) :: decls
-    | (LA.GhostVar (TypedConst (pos, i, _, _)) as cnstd) :: decls -> 
-     check_and_add m pos const_suffix i cnstd  >>= fun m' ->
-     mk_contract_decl_map m' decls 
-
-  | LA.Assume _ :: rest
-    | LA.Guarantee _ :: rest
-    | LA.Mode _ :: rest 
-    | LA.ContractCall _ :: rest ->  Lib.todo __LOC__                                                        
-                                  
-                                  
 let mk_graph_decls: LA.t -> G.t
   = fun decls ->
   List.fold_left G.union G.empty (List.map mk_graph decls)
-
-let mk_graph_contract_decls: LA.contract -> G.t = fun _ -> G.empty
   
 let rec extract_decls: 'a IMap.t -> LA.ident list -> ('a list) graph_result
   = fun decl_map ->
@@ -292,6 +268,3 @@ let sort_decls: ('a IMap.t -> 'a list -> 'a IMap.t graph_result)
                           extract_decls decl_map dependency_sorted_ids
 
 let sort_declarations = sort_decls mk_decl_map mk_graph_decls
-
-(* where should this function be plugged in? *)
-let sort_contract_declarations = sort_decls mk_contract_decl_map mk_graph_contract_decls
