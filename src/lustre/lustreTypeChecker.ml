@@ -273,7 +273,10 @@ let bool_value_of_const: LA.expr -> bool tc_result =
             ^ Lib.string_of_t LA.pp_print_expr e
             ^" constant to a bool.")
 
-       
+let lift_bool: bool -> LA.constant = function
+  | true -> LA.True
+  | false -> LA.False
+  
 let rec eval_int_expr: tc_context -> LA.expr -> int tc_result = fun ctx ->
   function
   | LA.Ident (pos, i) -> let (const_expr, expr_type) = lookup_const ctx i in
@@ -373,7 +376,33 @@ and eval_comp_op: tc_context -> Lib.position -> LA.comparison_operator -> LA.exp
   | Gte -> R.ok (v1 > v2)
   | Gt -> R.ok (v1 >= v2)
 (** try and evalutate comparison op expression to bool, return error otherwise *)
-             
+
+and simplify_expr: tc_context -> LA.expr -> LA.expr = fun ctx ->
+  function
+  | LA.Const _ as c -> c
+  | LA.Ident (pos, i) ->
+    let (const_expr, expr_type) = lookup_const ctx i in
+    (match const_expr with
+     | LA.Ident (_, i') as ident' ->
+        if Stdlib.compare i i' = 0
+        then ident' 
+        else simplify_expr ctx ident'
+     | e -> simplify_expr ctx const_expr)
+  | LA.BinaryOp (pos, bop, e1, e2) -> let e1' = simplify_expr ctx e1 in
+                                      let e2' = simplify_expr ctx e2 in
+                                      (match eval_int_binary_op ctx pos bop e1' e2' with
+                                       | Ok v -> LA.Const (pos, Num (string_of_int v))
+                                       | Error _ -> LA.BinaryOp (pos, bop, e1', e2'))                                  
+  | LA.CompOp (pos, cop, e1, e2) -> let e1' = simplify_expr ctx e1 in
+                                    let e2' = simplify_expr ctx e2 in
+                                    (match eval_comp_op ctx pos cop e1' e2' with
+                                     | Ok v -> LA.Const (pos, lift_bool v)
+                                     | Error _ -> LA.CompOp (pos, cop, e1', e2'))                                  
+  | LA.GroupExpr (pos, g, es) ->
+     (LA.GroupExpr (pos, g, List.map (fun e -> simplify_expr ctx e) es))
+  | LA.ArrayConstr (pos, e1, e2) -> LA.ArrayConstr (pos, simplify_expr ctx e1, simplify_expr ctx e2)
+  | e -> e
+        
 (**********************************************
  * Type inferring and type checking functions *
  **********************************************)
@@ -433,17 +462,19 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   | LA.BinaryOp (pos, bop, e1, e2) ->
      infer_type_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, con, e1, e2) ->
-     infer_type_expr ctx con
-     >>= (function
-          | Bool _ ->  (infer_type_expr ctx e1)
-                       >>= (fun e1_ty ->
-              check_type_expr ctx e1 e1_ty
-              >> R.ok e1_ty)
-          | c_ty  ->  type_error pos ("Expected a boolean expression but found "
-                                      ^ string_of_tc_type c_ty))
-  | LA.NArityOp _ -> Lib.todo __LOC__          (* One hot expression is not supported *)    
+     (match top with
+      | Ite -> 
+         infer_type_expr ctx con
+         >>= (function
+              | Bool _ -> infer_type_expr ctx e1 >>= fun e1_ty ->
+                          check_type_expr ctx e1 e1_ty
+                          >> R.ok e1_ty
+              | c_ty  ->  type_error pos ("Expected a boolean expression but found "
+                                          ^ string_of_tc_type c_ty))
+      | With -> type_error pos ("Unsupported operator With"))
+  | LA.NArityOp _ -> Lib.todo __LOC__  (* One hot expression is not supported *)    
   | LA.ConvOp (pos, cop, e) ->
-      infer_type_conv_op ctx pos e cop
+     infer_type_conv_op ctx pos e cop
   | LA.CompOp (pos, cop, e1, e2) ->
      infer_type_comp_op ctx pos e1 e2 cop
 
@@ -1605,9 +1636,25 @@ let type_check_decl_grps: tc_context -> LA.t list -> unit tc_result list
   List.concat (List.map (type_check_group ctx) decls)               
 (** Typecheck a list of independent groups using a global context*)
    
-let propogate_constants: tc_context -> LA.t -> LA.t = fun ctx decls -> decls
-(** Propogate constants for type checking purposes *)
+let substitute: tc_context -> LA.declaration -> (tc_context * LA.declaration) = fun ctx ->
+  function
+  | ConstDecl (pos, FreeConst _) as c -> (ctx, c)
+  | ConstDecl (pos, UntypedConst (pos', i, e)) ->
+     let e' = simplify_expr ctx e in 
+     (add_const ctx i e' (lookup_ty ctx i), ConstDecl (pos, UntypedConst (pos', i, e'))) 
+  | ConstDecl (pos, TypedConst (pos', i, e, ty)) ->
+     let e' = simplify_expr ctx e in 
+     (add_const ctx i e' ty, ConstDecl (pos, TypedConst (pos', i, e', ty)))
+  | e -> (ctx, e)
+(** Propogate constants post type checking into the AST and constant store*)
 
+let rec inline_constants: tc_context -> LA.t -> (tc_context * LA.t) = fun ctx ->
+  function
+  | [] -> (ctx, [])
+  | c :: rest ->
+     let (ctx', c') = substitute ctx c in
+     let (ctx'', decls) = inline_constants ctx' rest in
+     (ctx'', c'::decls)
                     
 let is_type_or_const_decl: LA.declaration -> bool = fun d ->
   match d with
@@ -1643,9 +1690,17 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
     ; AD.sort_declarations ty_and_const_decls >>= fun sorted_tys_consts ->
     Log.log L_trace "Sorted consts and type decls:\n%a" LA.pp_print_program sorted_tys_consts
     (* build the base context from the type and const decls *)
-    ; build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->
-    (* type check the nodes and contract decls using this base typing context  *)
-    tc_context_of global_ctx node_and_contract_decls >>= fun tc_ctx ->
+      ; build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->
+        Log.log L_trace ("===============================================\n"
+                         ^^ "Constant and type context \n"
+                         ^^ "TC Context\n%a\n"
+                         ^^"===============================================\n")
+          pp_print_tc_context global_ctx
+        ; Log.log L_trace ("Starting inlining constants") 
+        ; let (global_ctx', inlined_cs) = inline_constants global_ctx sorted_tys_consts in 
+          Log.log L_trace ( "Inlining constants done\n")
+          (* type check the nodes and contract decls using this base typing context  *)
+          ; tc_context_of global_ctx' node_and_contract_decls >>= fun tc_ctx ->
     
     Log.log L_trace ("===============================================\n"
                      ^^ "Phase 1: Completed Building TC Global Context\n"
