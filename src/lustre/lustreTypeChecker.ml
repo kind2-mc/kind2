@@ -256,8 +256,7 @@ let rec is_normal_form: tc_context -> LA.expr -> bool = fun ctx ->
 
 let int_value_of_const: LA.expr -> int tc_result =
   function
-  | LA.Const (pos, LA.Num n) -> Log.log L_trace "int_value_of_const: %s=%i" n (int_of_string n);
-                                  R.ok (int_of_string n)
+  | LA.Const (pos, LA.Num n) -> R.ok (int_of_string n)
   | e -> type_error (LH.pos_of_expr e)
            ("Cannot evaluate non-int constant "
             ^ Lib.string_of_t LA.pp_print_expr e
@@ -541,7 +540,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
      then infer_type_expr ctx e1
           >>= (fun ty ->
               match ty with
-              | ArrayType (_, (b_ty, s)) ->
+              | ArrayType (_, (b_ty, _)) ->
                  R.ok (LA.ArrayType (pos, (b_ty, LH.abs_diff pos il iu)))
               | _ -> type_error pos ("Slicing can only be done on an type Array "
                                      ^ "but found type "
@@ -798,13 +797,25 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
   | ArrayIndex (pos, e, idx) ->
      infer_type_expr ctx idx >>= fun index_type -> 
      if is_expr_int_type ctx idx
-     then check_type_expr ctx e (ArrayType (pos, (exp_ty, (LA.Const (pos, LA.False)))))
-                          (* TODO: Fix me! can also be a constant arithmetic expression *)
-     else type_error pos ("Array index should have an integer type "
-                          ^ " but found " ^ string_of_tc_type index_type)
-  | ArraySlice _ -> Lib.todo __LOC__
-  | ArrayConcat _ -> Lib.todo __LOC__
-
+     then infer_type_expr ctx e >>= fun inf_arr_ty ->
+          (match inf_arr_ty with
+           | ArrayType (_, (arr_b_ty, _)) ->
+              R.guard_with(eq_lustre_type ctx arr_b_ty exp_ty)
+                (type_error pos ("Exptected array of base type "
+                                 ^ string_of_tc_type exp_ty
+                                 ^ " but found type "
+                                 ^ string_of_tc_type arr_b_ty))
+           | _ -> type_error pos ("Expected an array type but found type " ^ string_of_tc_type inf_arr_ty))
+     else type_error pos ("Array index should have type int"
+                          ^ " but found type " ^ string_of_tc_type index_type)
+  | (ArraySlice _ as e)
+    | (ArrayConcat _ as e) ->
+     infer_type_expr ctx e >>= fun inf_ty ->
+     R.guard_with(eq_lustre_type ctx inf_ty exp_ty)
+       (type_error (LH.pos_of_expr e) ("Expected type "
+                                       ^ string_of_tc_type exp_ty
+                                       ^ " but found type "
+                                       ^ string_of_tc_type inf_ty))
   (* Quantified expressions *)
   | Quantifier (pos, _, qs, e) ->
      let extn_ctx = List.fold_left union ctx
@@ -1595,17 +1606,15 @@ and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type *
   = fun ctx (ty1, e1) (ty2, e2) ->
   (* eq_lustre_type ctx ty1 ty2 *)
   R.ifM (eq_lustre_type ctx ty1 ty2)
-    (Log.log L_trace "eq_type_array: %s^%a, %s^%a"
-       (string_of_tc_type ty1) LA.pp_print_expr e1
-       (string_of_tc_type ty2) LA.pp_print_expr e2 
-    ; match eval_int_expr ctx e1, eval_int_expr ctx e2 with
+    ( match eval_int_expr ctx e1, eval_int_expr ctx e2 with
      | Ok l1,  Ok l2  -> if l1 = l2 then R.ok true else R.ok false
      | Error _ , _ | _, Error _ -> R.ok true ) (* This fails if we have free constants *)
     (R.ok false)
-(** Compute equality for [LA.ArrayType]
- * For now, we do not check the bounds for arrays. This introduces bugs similar to Issue #566. 
- *   https://github.com/kind2-mc/kind2/issues/566. 
- *   Backend should handle such cases as it can talk to a powerful solver. *)  
+(* Compute equality for [LA.ArrayType].
+   If there are free constants in the size, the eval function will fail,
+   but we want to pass such cases, as there might be some
+   value assigment to the free constant that satisfies the type checker. 
+   Hence, silently return true with a leap of faith. *)         
   
 let scc: LA.t -> LA.t list
   = fun decls -> [decls]
@@ -1684,7 +1693,7 @@ let rec report_tc_result: unit tc_result list -> unit tc_result
 (********************************************************************
  * The main function of the file that kicks off type checking flow  *
  ********************************************************************)
-  
+                    
 let type_check_program: LA.t -> unit tc_result = fun prg ->
   Log.log L_trace ("===============================================\n"
                    ^^ "Phase 1: Building TC Global Context\n"
@@ -1710,13 +1719,14 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
                             ^^"\n===============================================\n")
             LA.pp_print_program inlined_cs
 
-          (* type check the nodes and contract decls using this base typing context  *)
+          (* gather the typing context from nodes/functions and contracts *)
           ; tc_context_of global_ctx' node_and_contract_decls >>= fun tc_ctx ->
             Log.log L_trace ("===============================================\n"
                              ^^ "Phase 1: Completed Building TC Global Context\n"
                              ^^ "TC Context\n%a\n"
                              ^^"===============================================\n")
               pp_print_tc_context tc_ctx
+            (* type check the nodes and contract decls using this base typing context  *)
             ; let tc_res = (type_check_decl_grps tc_ctx [prg]) in
               Log.log L_trace ("===============================================\n"
                                ^^ "Phase 2: Type checking declaration Groups Done\n"
