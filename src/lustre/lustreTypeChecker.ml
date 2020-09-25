@@ -51,7 +51,6 @@ module IMap = struct
             end)
 end
 
-
 (** Pretty print type synonyms*)
 let pp_print_type_syn ppf = fun (i, ty) -> 
   Format.fprintf ppf "(%a:=%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
@@ -64,7 +63,6 @@ let pp_print_type_binding ppf = fun (i, ty) ->
 let pp_print_val_binding ppf = fun (i, (v, ty)) ->
   Format.fprintf ppf "(%a:%a :-> %a)" LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v                
 
-            
 (** Pretty print type synonym context *)
 let pp_print_ty_syns: Format.formatter -> 'a IMap.t -> unit
   = fun ppf m -> Lib.pp_print_list (pp_print_type_syn) ", " ppf (IMap.bindings m)
@@ -258,7 +256,8 @@ let rec is_normal_form: tc_context -> LA.expr -> bool = fun ctx ->
 
 let int_value_of_const: LA.expr -> int tc_result =
   function
-  | LA.Const (pos, LA.Num n) -> R.ok (int_of_string n)
+  | LA.Const (pos, LA.Num n) -> Log.log L_trace "int_value_of_const: %s=%i" n (int_of_string n);
+                                  R.ok (int_of_string n)
   | e -> type_error (LH.pos_of_expr e)
            ("Cannot evaluate non-int constant "
             ^ Lib.string_of_t LA.pp_print_expr e
@@ -788,20 +787,19 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
 
   (* Array constructor*)
   | ArrayConstr (pos, b_exp, sup_exp) ->
-     infer_type_expr ctx b_exp
-     >>= fun b_ty -> infer_type_expr ctx sup_exp
-     >>= fun sup_ty ->
-                     let arr_ty = (LA.ArrayType (pos, (b_ty, b_exp))) in
-                     R.guard_with (eq_lustre_type ctx exp_ty arr_ty)
-                       (type_error pos ("Expecting array type "
-                                        ^ string_of_tc_type exp_ty
-                                        ^ " but found "
-                                        ^ string_of_tc_type arr_ty))
+     infer_type_expr ctx b_exp >>= fun b_ty ->
+     infer_type_expr ctx sup_exp >>= fun sup_ty ->
+     let arr_ty = (LA.ArrayType (pos, (b_ty, sup_exp))) in
+     R.guard_with (eq_lustre_type ctx exp_ty arr_ty)
+       (type_error pos ("Expecting array type "
+                        ^ string_of_tc_type exp_ty
+                        ^ " but found "
+                        ^ string_of_tc_type arr_ty))
   | ArrayIndex (pos, e, idx) ->
      infer_type_expr ctx idx >>= fun index_type -> 
      if is_expr_int_type ctx idx
-     then check_type_expr ctx e (ArrayType (pos, (exp_ty, (LA.Const (pos, Num "42")))))
-                          (* TODO: can also be a constant arithmetic expression *)
+     then check_type_expr ctx e (ArrayType (pos, (exp_ty, (LA.Const (pos, LA.False)))))
+                          (* TODO: Fix me! can also be a constant arithmetic expression *)
      else type_error pos ("Array index should have an integer type "
                           ^ " but found " ^ string_of_tc_type index_type)
   | ArraySlice _ -> Lib.todo __LOC__
@@ -1200,7 +1198,7 @@ and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
       let new_ctx = ctx_from_lhs ctx lhs in
       Log.log L_trace "checking node equation lhs"
       ; infer_type_expr new_ctx expr >>= fun ty ->
-      Log.log L_trace "LHS has type %a" LA.pp_print_lustre_type ty
+      Log.log L_trace "RHS has type %a" LA.pp_print_lustre_type ty
       ; check_type_struct_def (ctx_from_lhs ctx lhs) lhs ty
   | LA.Automaton (pos, _, _, _) ->
     R.ok (Log.log L_trace "Skipping Automation")
@@ -1234,7 +1232,8 @@ and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> unit tc_r
        List.fold_left (fun e i -> LA.ArrayIndex (pos, e, i))
          (LA.Ident (pos, base_e))
          (List.map (fun i -> LA.Ident (pos, i)) idxs) in
-     check_type_expr ctx array_idx_expr exp_ty
+     Log.log L_trace "checking for array_idx_expr: %a with type %s" LA.pp_print_expr array_idx_expr (string_of_tc_type exp_ty)
+     ; check_type_expr ctx array_idx_expr exp_ty
   | TupleStructItem _ -> Lib.todo __LOC__
   | TupleSelection _ -> Lib.todo __LOC__
   | FieldSelection _ -> Lib.todo __LOC__
@@ -1594,9 +1593,15 @@ and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> bool tc_re
 
 and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type * LA.expr) -> bool tc_result
   = fun ctx (ty1, e1) (ty2, e2) ->
-  eq_lustre_type ctx ty1 ty2 >>
-    eval_int_expr ctx e1 >>= fun l1 ->
-    eval_int_expr ctx e2 >>= fun l2 -> if l1 = l2 then R.ok true else R.ok false  
+  (* eq_lustre_type ctx ty1 ty2 *)
+  R.ifM (eq_lustre_type ctx ty1 ty2)
+    (Log.log L_trace "eq_type_array: %s^%a, %s^%a"
+       (string_of_tc_type ty1) LA.pp_print_expr e1
+       (string_of_tc_type ty2) LA.pp_print_expr e2 
+    ; match eval_int_expr ctx e1, eval_int_expr ctx e2 with
+     | Ok l1,  Ok l2  -> if l1 = l2 then R.ok true else R.ok false
+     | Error _ , _ | _, Error _ -> R.ok true ) (* This fails if we have free constants *)
+    (R.ok false)
 (** Compute equality for [LA.ArrayType]
  * For now, we do not check the bounds for arrays. This introduces bugs similar to Issue #566. 
  *   https://github.com/kind2-mc/kind2/issues/566. 
@@ -1688,31 +1693,36 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
     (* circularity check and reordering for types and constants *)
     Log.log L_trace "Phase 1.1 Building graph for types and constant decls\n---------\n"
     ; AD.sort_declarations ty_and_const_decls >>= fun sorted_tys_consts ->
-    Log.log L_trace "Sorted consts and type decls:\n%a" LA.pp_print_program sorted_tys_consts
-    (* build the base context from the type and const decls *)
+      Log.log L_trace "Sorted consts and type decls:\n%a" LA.pp_print_program sorted_tys_consts
+
+      (* build the base context from the type and const decls *)
       ; build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->
         Log.log L_trace ("===============================================\n"
                          ^^ "Constant and type context \n"
                          ^^ "TC Context\n%a\n"
                          ^^"===============================================\n")
           pp_print_tc_context global_ctx
-        ; Log.log L_trace ("Starting inlining constants") 
+
+        (* Inline constants in constant declarations *)
+        ; Log.log L_trace ("===============================================\nStarting inlining constants") 
         ; let (global_ctx', inlined_cs) = inline_constants global_ctx sorted_tys_consts in 
-          Log.log L_trace ( "Inlining constants done\n")
+          Log.log L_trace ( "Inlining constants done: \nConstant decls: %a"
+                            ^^"\n===============================================\n")
+            LA.pp_print_program inlined_cs
+
           (* type check the nodes and contract decls using this base typing context  *)
           ; tc_context_of global_ctx' node_and_contract_decls >>= fun tc_ctx ->
-    
-    Log.log L_trace ("===============================================\n"
-                     ^^ "Phase 1: Completed Building TC Global Context\n"
-                     ^^ "TC Context\n%a\n"
-                     ^^"===============================================\n")
-      pp_print_tc_context tc_ctx
-    ; let tc_res = (type_check_decl_grps tc_ctx [prg]) in
-      Log.log L_trace ("===============================================\n"
-                       ^^ "Phase 2: Type checking declaration Groups Done\n"
-                       ^^"===============================================\n")  
-      
-      ; report_tc_result tc_res
+            Log.log L_trace ("===============================================\n"
+                             ^^ "Phase 1: Completed Building TC Global Context\n"
+                             ^^ "TC Context\n%a\n"
+                             ^^"===============================================\n")
+              pp_print_tc_context tc_ctx
+            ; let tc_res = (type_check_decl_grps tc_ctx [prg]) in
+              Log.log L_trace ("===============================================\n"
+                               ^^ "Phase 2: Type checking declaration Groups Done\n"
+                               ^^"===============================================\n")  
+              
+              ; report_tc_result tc_res
 (** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
  *  a [Ok ()] if it succeeds or and [Error of String] if the typechecker fails*)
            

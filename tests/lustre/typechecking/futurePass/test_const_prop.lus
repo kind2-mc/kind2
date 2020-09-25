@@ -8,7 +8,9 @@ const t:int = t1; -- should inline to 1
 const t2 = c < t; -- should inline to false
 
 const arr = false ^ 3;
+const arr2 = (3+c) ^ 3; -- should inline to 4
 const f = arr[1]; -- should do nothing
 
-const t3 = (t, 3, true); -- should inline to (1, 3, true) 
+const t3 = (t, 3, true); -- should inline to (1, 3, true)
+const arr3 = [1, 1+1, t1+c, 5];
 const p = t3.%2; -- should inline to true
