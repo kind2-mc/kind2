@@ -35,12 +35,16 @@ type 'a tc_result = ('a, Lib.position * string) result
 
 let (>>=) = R.(>>=)
 let (>>) = R.(>>)
-          
+
+exception OutOfBounds of Lib.position
+         
 (** Type alias for lustre type from LustreAst  *)
 type tc_type  = LA.lustre_type
               
 (** String of the type to display in type errors *)
 let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
+
+let string_of_expr: LA.expr -> string = fun e -> Lib.string_of_t LA.pp_print_expr e
   
 (** Map for types with identifiers as keys *)
 module IMap = struct
@@ -259,7 +263,7 @@ let int_value_of_const: LA.expr -> int tc_result =
   | LA.Const (pos, LA.Num n) -> R.ok (int_of_string n)
   | e -> type_error (LH.pos_of_expr e)
            ("Cannot evaluate non-int constant "
-            ^ Lib.string_of_t LA.pp_print_expr e
+            ^ string_of_expr e
             ^ " to an int.") 
 
 let bool_value_of_const: LA.expr -> bool tc_result =
@@ -268,7 +272,7 @@ let bool_value_of_const: LA.expr -> bool tc_result =
   | LA.Const (pos, LA.False) -> R.ok false                             
   | e -> type_error (LH.pos_of_expr e)
            ("Cannot evaluate non-bool "
-            ^ Lib.string_of_t LA.pp_print_expr e
+            ^ string_of_expr e
             ^" constant to a bool.")
 
 let lift_bool: bool -> LA.constant = function
@@ -303,7 +307,7 @@ and eval_int_binary_op: tc_context -> Lib.position -> LA.binary_operator -> LA.e
   | Minus -> R.ok (v1 - v2)
   | IntDiv -> R.ok (v1 / v2)
   | _ -> type_error pos ("Cannot evaluate non-int binary expression"
-                         ^ Lib.string_of_t LA.pp_print_expr (LA.BinaryOp (pos, bop, e1, e2))
+                         ^ string_of_expr (LA.BinaryOp (pos, bop, e1, e2))
                          ^" to an int value")    
 (** try and evalutate binary op expression to int, return error otherwise *)
 
@@ -347,7 +351,7 @@ and eval_bool_binary_op: tc_context -> Lib.position -> LA.binary_operator -> LA.
   | Xor -> R.ok ((v1 && not v2) || (v2 && not v1))
   | Impl -> R.ok (not v1 || v2)
   | _ -> type_error pos ("Cannot evaluate non-bool binary expression"
-                         ^ Lib.string_of_t LA.pp_print_expr (LA.BinaryOp (pos, bop, e1, e2))
+                         ^ string_of_expr (LA.BinaryOp (pos, bop, e1, e2))
                          ^" to a bool value")
 (** try and evalutate binary op expression to bool, return error otherwise *)
   
@@ -375,32 +379,70 @@ and eval_comp_op: tc_context -> Lib.position -> LA.comparison_operator -> LA.exp
   | Gt -> R.ok (v1 >= v2)
 (** try and evalutate comparison op expression to bool, return error otherwise *)
 
+and simplify_array_index: tc_context -> Lib.position -> LA.expr -> LA.expr -> LA.expr
+  = fun ctx pos e1 e2 -> 
+  match (simplify_expr ctx e1) with
+  | LA.GroupExpr (pos, ArrayExpr, es) -> (match (eval_int_expr ctx e2) with
+                                          | Ok i -> if List.length es > i
+                                                    then List.nth es i
+                                                    else raise (OutOfBounds pos)
+                                          | Error _ -> LA.ArrayIndex (pos, e1, e2))
+  | _ -> ArrayIndex (pos, e1, e2)
+
+and simplify_tuple_proj: tc_context -> Lib.position -> LA.expr -> int -> LA.expr
+  = fun ctx pos e1 idx ->
+  match (simplify_expr ctx e1) with
+    | LA.GroupExpr (pos, _, es) -> if List.length es > idx
+                                           then List.nth es idx
+                                           else raise (OutOfBounds pos)
+    | e -> TupleProject (pos, e1, idx)
+ 
+         
+       
 and simplify_expr: tc_context -> LA.expr -> LA.expr = fun ctx ->
   function
   | LA.Const _ as c -> c
   | LA.Ident (pos, i) ->
-    let (const_expr, expr_type) = lookup_const ctx i in
-    (match const_expr with
-     | LA.Ident (_, i') as ident' ->
-        if Stdlib.compare i i' = 0
-        then ident' 
-        else simplify_expr ctx ident'
-     | e -> simplify_expr ctx const_expr)
-  | LA.BinaryOp (pos, bop, e1, e2) -> let e1' = simplify_expr ctx e1 in
-                                      let e2' = simplify_expr ctx e2 in
-                                      (match eval_int_binary_op ctx pos bop e1' e2' with
-                                       | Ok v -> LA.Const (pos, Num (string_of_int v))
-                                       | Error _ -> LA.BinaryOp (pos, bop, e1', e2'))                                  
-  | LA.CompOp (pos, cop, e1, e2) -> let e1' = simplify_expr ctx e1 in
-                                    let e2' = simplify_expr ctx e2 in
-                                    (match eval_comp_op ctx pos cop e1' e2' with
-                                     | Ok v -> LA.Const (pos, lift_bool v)
-                                     | Error _ -> LA.CompOp (pos, cop, e1', e2'))                                  
+     let (const_expr, _) = lookup_const ctx i in
+     (match const_expr with
+      | LA.Ident (_, i') as ident' ->
+         if Stdlib.compare i i' = 0 (* If This is a free constant *)
+         then ident' 
+         else simplify_expr ctx ident'
+      | _ -> simplify_expr ctx const_expr)
+  | LA.BinaryOp (pos, bop, e1, e2) as e->
+     let e1' = simplify_expr ctx e1 in
+     let e2' = simplify_expr ctx e2 in
+     (match (eval_int_binary_op ctx pos bop e1' e2') with
+      | Ok v -> LA.Const (pos, Num (string_of_int v))
+      | Error _ -> e)
+  | LA.CompOp (pos, cop, e1, e2) as e->
+     let e1' = simplify_expr ctx e1 in
+     let e2' = simplify_expr ctx e2 in
+     (match (eval_comp_op ctx pos cop e1' e2') with
+      | Ok v -> LA.Const (pos, lift_bool v)
+      | Error _ -> e)
   | LA.GroupExpr (pos, g, es) ->
-     (LA.GroupExpr (pos, g, List.map (fun e -> simplify_expr ctx e) es))
-  | LA.ArrayConstr (pos, e1, e2) -> LA.ArrayConstr (pos, simplify_expr ctx e1, simplify_expr ctx e2)
-  | e -> e
-        
+     let es' = List.map (fun e -> simplify_expr ctx e) es in 
+     LA.GroupExpr (pos, g, es')
+  | LA.RecordExpr (pos, i, fields) ->
+     let fields' = List.map (fun (f, e) -> (f, simplify_expr ctx e)) fields in
+     LA.RecordExpr (pos, i, fields')
+  | LA.ArrayConstr (pos, e1, e2) as e->
+     let e1' = simplify_expr ctx e1 in
+     (match (eval_int_expr ctx e2) with
+      | Ok size -> LA.GroupExpr (pos, LA.ArrayExpr, Lib.list_init (fun _ -> e1') size)
+      | Error _ -> e)
+  | LA.ArrayIndex (pos, e1, e2) -> simplify_array_index ctx pos e1 e2
+  | LA.ArrayConcat (pos, e1, e2) as e->
+     (match (simplify_expr ctx e1, simplify_expr ctx e2) with
+      | LA.GroupExpr (_, LA.ArrayExpr, es1), LA.GroupExpr (_, LA.ArrayExpr, es2) ->
+         LA.GroupExpr(pos, LA.ArrayExpr, es1 @ es2)
+      | _ -> e)
+  | LA.TupleProject (pos, e1, e2) -> simplify_tuple_proj ctx pos e1 e2  
+  | e -> Lib.todo (__LOC__ ^ (Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e)))
+(* Assumptions: These constants are arranged in dependency order *)
+       
 (**********************************************
  * Type inferring and type checking functions *
  **********************************************)
@@ -1376,7 +1418,7 @@ and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_cont
           (if is_const then
              if (is_expr_of_consts ctx e) 
              then R.ok (add_ty (add_const ctx i e ty) i ty)
-             else type_error pos ("Expression " ^ Lib.string_of_t LA.pp_print_expr e ^ " is not a constant expression")
+             else type_error pos ("Expression " ^ string_of_expr e ^ " is not a constant expression")
            else R.ok(add_ty ctx i ty))
           
   | LA.TypedConst (pos, i, e, exp_ty) ->
@@ -1386,9 +1428,8 @@ and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_cont
           >> (if is_const then
                 if (is_expr_of_consts ctx e) 
                 then R.ok (add_ty (add_const ctx i e exp_ty) i exp_ty)
-                else type_error pos ("Expression " ^ Lib.string_of_t LA.pp_print_expr e ^ " is not a constant expression")
+                else type_error pos ("Expression " ^ string_of_expr e ^ " is not a constant expression")
               else R.ok(add_ty ctx i exp_ty))
-
 (** Fail if a duplicate constant is detected  *)
 
      
@@ -1500,7 +1541,7 @@ and check_type_well_formed: tc_context -> tc_type -> unit tc_result
   | LA.ArrayType (pos, (b_ty, s)) ->
      if is_expr_int_type ctx s && is_expr_of_consts ctx s
      then check_type_well_formed ctx b_ty
-     else type_error pos ("Invalid expression in array bounds")
+     else type_error pos ("Invalid expression in array bounds.")
   | LA.TupleType (_, tys) ->
      R.seq_ (List.map (check_type_well_formed ctx) tys)
   | LA.UserType (pos, i) -> if (member_ty_syn ctx i || member_u_types ctx i)
@@ -1660,7 +1701,7 @@ let substitute: tc_context -> LA.declaration -> (tc_context * LA.declaration) = 
      let e' = simplify_expr ctx e in 
      (add_const ctx i e' ty, ConstDecl (pos, TypedConst (pos', i, e', ty)))
   | e -> (ctx, e)
-(** Propogate constants post type checking into the AST and constant store*)
+(** propogate constants post type checking into the AST and constant store*)
 
 let rec inline_constants: tc_context -> LA.t -> (tc_context * LA.t) = fun ctx ->
   function

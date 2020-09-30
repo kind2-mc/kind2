@@ -55,19 +55,19 @@ Error
 | `cocospec_out_param.lus`                  | In parameters should be different than out parameters                  | F at TC |
 | `const_not_const.lus`                     | Constant decls should not have arrow                                   | F at TC |
 | `empty_range.lus`                         | Subrange is empty eg. `subrange [1,0] of int`                          | NA      |
-| `function_no_arrow_in_body.lus`**         |                                                                        |         |
-| `function_no_node_call.lus`**             |                                                                        |         |
-| `function_no_pre_in_body.lus`**           |                                                                        |         |
-| `function_no_stateful_contract.lus`**     |                                                                        |         |
-| `function_stateful_contract_import.lus`** |                                                                        |         |
-| `imported_fun_no_body.lus`                | Syntax error                                                           |         |
-| `imported_node_no_body.lus`               | Syntax error                                                           |         |
+| `function_no_arrow_in_body.lus`           |                                                                        |         |
+| `function_no_node_call.lus`               |                                                                        |         |
+| `function_no_pre_in_body.lus`             |                                                                        |         |
+| `function_no_stateful_contract.lus`       |                                                                        |         |
+| `function_stateful_contract_import.lus`   |                                                                        |         |
+| `imported_fun_no_body.lus`                | Syntax error                                                           | NA      |
+| `imported_node_no_body.lus`               | Syntax error                                                           | NA      |
 | `merge_enum.lus`                          | Exhaustive match of merge on enums                                     |         |
 | `merge_enum1.lus`                         | Unique match for merge on enums                                        |         |
 | `merge_enum2.lus`                         | Clock mismatch for merge on enums                                      |         |
 | `mode_reqs_by_idents_no_forward_ref.lus`  |                                                                        | TODO    |
 | `mode_reqs_by_idents_no_self_ref.lus`     |                                                                        | TODO    |
-| `no_contracts_in_contract.lus`            |                                                                        |         |
+| `no_contracts_in_contract.lus`            |                                                                        | NA      |
 | `test-func-sliced.lus`                    |                                                                        | ????    |
 | `test-nodes.lus`                          |                                                                        | ????    |
 | `test-type.lus`                           |                                                                        | F at TC |
