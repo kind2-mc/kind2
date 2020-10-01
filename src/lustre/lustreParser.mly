@@ -21,7 +21,8 @@
 open Lib
 
 module A = LustreAst
-
+module LC = LustreContext
+          
 let mk_pos = position_of_lexing 
 
 
@@ -829,7 +830,9 @@ pexpr(Q):
 
   (* Tuple projection (not quantified) *)
   | e = pexpr(Q); DOTPERCENT; i = NUMERAL 
-    { A.TupleProject (mk_pos $startpos, e, (int_of_string i)) }
+  { let idx = try (int_of_string i) with
+              | _ -> LC.fail_at_position (mk_pos $startpos(i)) "Tuple projection index exceeds int range" in
+    A.TupleProject (mk_pos $startpos, e, idx) }
 
   (* An array slice (not quantified) *)
   | e = pexpr(Q); LSQBRACKET; s = array_slice; RSQBRACKET
@@ -1059,7 +1062,9 @@ pexpr(Q):
   (* A temporal operation *)
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
   | FBY LPAREN; e1 = pexpr(Q) COMMA; s = NUMERAL; COMMA; e2 = pexpr(Q) RPAREN
-    { A.Fby (mk_pos $startpos, e1, (int_of_string s), e2) }
+    { let idx = try (int_of_string s) with
+                | _ -> LC.fail_at_position (mk_pos $startpos(s)) "Fby argument exceeds int range" in
+      A.Fby (mk_pos $startpos, e1, idx, e2) }
 
   | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }
 
