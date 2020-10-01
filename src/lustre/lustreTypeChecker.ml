@@ -36,7 +36,7 @@ type 'a tc_result = ('a, Lib.position * string) result
 let (>>=) = R.(>>=)
 let (>>) = R.(>>)
 
-exception OutOfBounds of Lib.position
+exception OutOfBounds
          
 (** Type alias for lustre type from LustreAst  *)
 type tc_type  = LA.lustre_type
@@ -310,17 +310,6 @@ and eval_int_binary_op: tc_context -> Lib.position -> LA.binary_operator -> LA.e
                          ^ string_of_expr (LA.BinaryOp (pos, bop, e1, e2))
                          ^" to an int value")    
 (** try and evalutate binary op expression to int, return error otherwise *)
-
-and eval_int_ternary_op: tc_context -> Lib.position -> LA.ternary_operator
-                     -> LA.expr -> LA.expr -> LA.expr -> int tc_result
-  = fun ctx pos top b1 e1 e2 ->
-  eval_bool_expr ctx b1 >>= fun c ->
-  eval_int_expr ctx e1 >>= fun v1 ->
-  eval_int_expr ctx e2 >>= fun v2 ->
-  match top with
-  | LA.Ite -> if c then R.ok v1 else R.ok v2
-  | LA.With -> type_error pos "With operator is not supported"
-(** try and evalutate ternary op expression to int, return error otherwise *)  
              
 and eval_bool_expr: tc_context -> LA.expr -> bool tc_result = fun ctx ->
   function
@@ -366,6 +355,19 @@ and eval_bool_ternary_op: tc_context -> Lib.position -> LA.ternary_operator
   | LA.With -> type_error pos "With operator is not supported"
 (** try and evalutate ternary op expression to bool, return error otherwise *)
 
+and eval_int_ternary_op: tc_context -> Lib.position -> LA.ternary_operator
+                     -> LA.expr -> LA.expr -> LA.expr -> int tc_result
+  = fun ctx pos top b1 e1 e2 ->
+  match top with
+  | LA.Ite ->
+     eval_bool_expr ctx b1 >>= fun c ->
+     if c
+     then eval_int_expr ctx e1
+     else eval_int_expr ctx e2
+  | LA.With -> type_error pos "With operator is not supported"
+(** try and evalutate ternary op expression to int, return error otherwise *)
+
+             
 and eval_comp_op: tc_context -> Lib.position -> LA.comparison_operator -> LA.expr -> LA.expr -> bool tc_result = 
   fun ctx pos cop e1 e2 ->
   eval_int_expr ctx e1 >>= fun v1 ->
@@ -380,24 +382,31 @@ and eval_comp_op: tc_context -> Lib.position -> LA.comparison_operator -> LA.exp
 (** try and evalutate comparison op expression to bool, return error otherwise *)
 
 and simplify_array_index: tc_context -> Lib.position -> LA.expr -> LA.expr -> LA.expr
-  = fun ctx pos e1 e2 -> 
+  = fun ctx pos e1 idx -> 
   match (simplify_expr ctx e1) with
-  | LA.GroupExpr (pos, ArrayExpr, es) -> (match (eval_int_expr ctx e2) with
-                                          | Ok i -> if List.length es > i
-                                                    then List.nth es i
-                                                    else raise (OutOfBounds pos)
-                                          | Error _ -> LA.ArrayIndex (pos, e1, e2))
-  | _ -> ArrayIndex (pos, e1, e2)
+  | LA.GroupExpr (pos, ArrayExpr, es) ->
+     (match (eval_int_expr ctx idx) with
+      | Ok i -> if List.length es > i
+                then List.nth es i
+                else
+                  (Log.log L_fatal "Trying to access element out of bounds %a"
+                     Lib.pp_print_position pos
+                  ; raise OutOfBounds)
+      | Error _ -> LA.ArrayIndex (pos, e1, idx))
+  | _ -> ArrayIndex (pos, e1, idx)
+(** picks out the idx'th component of an array if it can *)
 
 and simplify_tuple_proj: tc_context -> Lib.position -> LA.expr -> int -> LA.expr
   = fun ctx pos e1 idx ->
   match (simplify_expr ctx e1) with
-    | LA.GroupExpr (pos, _, es) -> if List.length es > idx
-                                           then List.nth es idx
-                                           else raise (OutOfBounds pos)
-    | e -> TupleProject (pos, e1, idx)
- 
-         
+  | LA.GroupExpr (pos, _, es) ->
+     if List.length es > idx
+     then List.nth es idx
+     else (Log.log L_fatal "Trying to access element out of bounds %a"
+             Lib.pp_print_position pos
+          ; raise OutOfBounds)
+  | e -> TupleProject (pos, e1, idx)
+(** picks out the idx'th component of a tuple if it is possible *)
        
 and simplify_expr: tc_context -> LA.expr -> LA.expr = fun ctx ->
   function
@@ -416,6 +425,13 @@ and simplify_expr: tc_context -> LA.expr -> LA.expr = fun ctx ->
      (match (eval_int_binary_op ctx pos bop e1' e2') with
       | Ok v -> LA.Const (pos, Num (string_of_int v))
       | Error _ -> e)
+  | LA.TernaryOp (pos, top, cond, e1, e2) as e ->
+     (match top with
+     | Ite -> 
+        (match eval_bool_expr ctx cond with
+         | Ok v -> if v then simplify_expr ctx e1 else simplify_expr ctx e2 
+         | Error _ -> e)
+     | _ -> Lib.todo __LOC__)
   | LA.CompOp (pos, cop, e1, e2) as e->
      let e1' = simplify_expr ctx e1 in
      let e2' = simplify_expr ctx e2 in
@@ -441,7 +457,7 @@ and simplify_expr: tc_context -> LA.expr -> LA.expr = fun ctx ->
       | _ -> e)
   | LA.TupleProject (pos, e1, e2) -> simplify_tuple_proj ctx pos e1 e2  
   | e -> Lib.todo (__LOC__ ^ (Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e)))
-(* Assumptions: These constants are arranged in dependency order *)
+(* Assumptions: These constants are arranged in dependency order, all of the constants have been type checked *)
        
 (**********************************************
  * Type inferring and type checking functions *
@@ -580,11 +596,10 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   | LA.ArraySlice (pos, e1, (il, iu)) ->
      if is_expr_int_type ctx il && is_expr_int_type ctx iu
      then infer_type_expr ctx e1
-          >>= (fun ty ->
-              match ty with
-              | ArrayType (_, (b_ty, _)) ->
-                 R.ok (LA.ArrayType (pos, (b_ty, LH.abs_diff pos il iu)))
-              | _ -> type_error pos ("Slicing can only be done on an type Array "
+          >>= (function
+               | ArrayType (_, (b_ty, _)) ->
+                 R.ok (LA.ArrayType (pos, (b_ty, simplify_expr ctx (LH.abs_diff pos il iu))))
+              | ty -> type_error pos ("Slicing can only be done on an type Array "
                                      ^ "but found type "
                                      ^ Lib.string_of_t LA.pp_print_lustre_type ty))
      else type_error pos ("Slicing should have integer types")
@@ -610,7 +625,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                      R.ifM (R.seqM (&&) true [eq_lustre_type ctx b_ty1 b_ty2
                                             ; R.ok(is_expr_int_type ctx size1)
                                             ; R.ok(is_expr_int_type ctx size2)] )
-                       (R.ok (LA.ArrayType (pos, (b_ty1, LH.add_exp pos size1 size2))))
+                       (R.ok (LA.ArrayType (pos, (b_ty1, simplify_expr ctx (LH.add_exp pos size1 size2)))))
                        (type_error pos ("Cannot concat array of two different types "
                                         ^ string_of_tc_type ty1 ^ " and "
                                         ^ string_of_tc_type ty2 ))
