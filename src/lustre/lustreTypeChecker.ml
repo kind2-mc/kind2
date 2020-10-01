@@ -41,6 +41,15 @@ type tc_type  = LA.lustre_type
               
 (** String of the type to display in type errors *)
 let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
+  
+(** Map for types with identifiers as keys *)
+module IMap = struct
+  (** everything that [Stdlib.Map] gives us  *)
+  include Map.Make(struct
+              type t = LA.ident
+              let compare i1 i2 = Stdlib.compare i1 i2
+            end)
+end
 
 
 (** Pretty print type synonyms*)
@@ -53,30 +62,21 @@ let pp_print_type_binding ppf = fun (i, ty) ->
 
 (** Pretty print value bindings (used for constants)*)
 let pp_print_val_binding ppf = fun (i, (v, ty)) ->
-  Format.fprintf ppf "(%a:%a :-> %a)" LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v
+  Format.fprintf ppf "(%a:%a :-> %a)" LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v                
 
-                                                  
-(** Map for types with identifiers as keys *)
-module IMap = struct
-  (** everything that [Stdlib.Map] gives us  *)
-  include Map.Make(struct
-              type t = LA.ident
-              let compare i1 i2 = Stdlib.compare i1 i2
-            end)
-  (** Pretty print type context *)
-  let pp_print_ty_syns: Format.formatter -> 'a t -> unit
-    = fun ppf m -> Lib.pp_print_list (pp_print_type_syn) ", " ppf (bindings m)
-
-  (** Pretty print type context *)
-  let pp_print_tymap: Format.formatter -> 'a t -> unit
-    = fun ppf m -> Lib.pp_print_list (pp_print_type_binding) ", " ppf (bindings m)
-
-  (** Pretty print value store *)
-  let pp_print_vstore: Format.formatter -> 'a t -> unit
-    = fun ppf m ->  Lib.pp_print_list (pp_print_val_binding) ", "  ppf (bindings m)
-                      
-end
             
+(** Pretty print type synonym context *)
+let pp_print_ty_syns: Format.formatter -> 'a IMap.t -> unit
+  = fun ppf m -> Lib.pp_print_list (pp_print_type_syn) ", " ppf (IMap.bindings m)
+
+(** Pretty print type binding context *)
+let pp_print_tymap: Format.formatter -> 'a IMap.t -> unit
+  = fun ppf m -> Lib.pp_print_list (pp_print_type_binding) ", " ppf (IMap.bindings m)
+
+(** Pretty print constant value store *)
+let pp_print_vstore: Format.formatter -> 'a IMap.t -> unit
+  = fun ppf m ->  Lib.pp_print_list (pp_print_val_binding) ", "  ppf (IMap.bindings m)
+
 let sort_typed_ident: LA.typed_ident list -> LA.typed_ident list = fun ty_idents ->
   List.sort (fun (_,i1,_) (_,i2,_) -> Stdlib.compare i1 i2) ty_idents
 
@@ -147,11 +147,11 @@ let pp_print_tc_context ppf ctx
        ^^ "Contract Context={%a}\n"
        ^^ "Const Store={%a}"
        ^^ "Declared Types={%a}")
-      IMap.pp_print_ty_syns (ctx.ty_syns)
-      IMap.pp_print_tymap (ctx.ty_ctx)
-      IMap.pp_print_tymap (ctx.fun_ctx)
-      IMap.pp_print_tymap (ctx.contract_ctx)
-      IMap.pp_print_vstore (ctx.vl_ctx)
+      pp_print_ty_syns (ctx.ty_syns)
+      pp_print_tymap (ctx.ty_ctx)
+      pp_print_tymap (ctx.fun_ctx)
+      pp_print_tymap (ctx.contract_ctx)
+      pp_print_vstore (ctx.vl_ctx)
       pp_print_u_types (ctx.u_types)
   
 (** Pretty print the complete type checker context*)
