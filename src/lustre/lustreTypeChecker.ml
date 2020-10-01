@@ -1898,13 +1898,18 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
             
             (* gather the typing context from nodes/functions and contracts *)
             tc_context_of global_ctx' sorted_node_contract_decls >>= fun tc_ctx ->
+
             Log.log L_trace ("===============================================\n"
                              ^^ "Phase 1: Completed Building TC Global Context\n"
                              ^^ "TC Context\n%a\n"
                              ^^"===============================================\n")
               pp_print_tc_context tc_ctx
-            ; (* type check the nodes and contract decls using this base typing context  *)
-              let tc_res = (type_check_decl_grps tc_ctx [prg]) in
+
+           ; Log.log L_trace ("===============================================\n"
+                             ^^ "Phase 2: Type checking declaration Groups    \n"
+                             ^^"===============================================\n")  
+            (* type check the nodes and contract decls using this base typing context  *)
+            ; let tc_res = (type_check_decl_grps tc_ctx [sorted_node_contract_decls]) in
               Log.log L_trace ("===============================================\n"
                                ^^ "Phase 2: Type checking declaration Groups Done\n"
                                ^^"===============================================\n")                  

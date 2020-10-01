@@ -123,8 +123,8 @@ let rec mk_graph_contract_node_eqn: LA.contract_node_equation -> G.t
 
 and get_node_call_from_expr: LA.expr -> LA.ident list
   = function
-  | Ident _ 
-  | ModeRef _ 
+  | Ident _
+  | ModeRef _
   | RecordProject _ -> [] 
   | TupleProject (_, e, _) -> get_node_call_from_expr e
   (* Values *)
@@ -174,13 +174,14 @@ let mk_graph_contract_decl: LA.contract_node_decl -> G.t
        
 let extract_node_calls: LA.node_item list -> LA.ident list
   = List.fold_left
-      (fun acc eqn -> (match eqn with
-                       | LA.Body bneq ->
-                          (match bneq with
-                           | LA.Assert (_, e) -> get_node_call_from_expr e
-                           | LA.Equation (_, _, e) -> get_node_call_from_expr e
-                           | LA.Automaton _ -> [] ) (* We do not support automation yet. *)
-                       | _ -> []) @ acc) [] 
+      (fun acc eqn ->
+        (match eqn with
+         | LA.Body bneq ->
+            (match bneq with
+             | LA.Assert (_, e) -> get_node_call_from_expr e
+             | LA.Equation (_, _, e) -> get_node_call_from_expr e
+             | LA.Automaton _ -> [] ) (* We do not support automation yet. *)
+         | _ -> []) @ acc) [] 
        
 let mk_graph_node_decl: LA.node_decl -> G.t
   = fun (i, _, _, _, _, _, nitems, contract_opt) ->
@@ -189,15 +190,7 @@ let mk_graph_node_decl: LA.node_decl -> G.t
                       | Some c -> List.fold_left G.union G.empty (List.map mk_graph_contract_node_eqn c)) (node_suffix^i) in
   let node_refs = extract_node_calls nitems in
   List.fold_left (fun g nr -> G.union g (G.connect (G.singleton nr) (node_suffix ^ i))) cg node_refs
-                          
-let mk_graph: LA.declaration ->  G.t = function
-  | TypeDecl (pos, tydecl) -> mk_graph_type_decl tydecl 
-  | ConstDecl (pos, cdecl) -> mk_graph_const_decl cdecl
-  | NodeDecl (pos, ndecl) -> mk_graph_node_decl ndecl
-  | FuncDecl (pos, ndecl) -> mk_graph_node_decl ndecl
-  | ContractNodeDecl  (pos, cdecl) -> mk_graph_contract_decl cdecl
-  | NodeParamInst  _ -> Lib.todo __LOC__
-
+                         
 
 let add_decl: 'a IMap.t -> LA.ident -> 'a -> 'a IMap.t
   = fun m i dec -> IMap.add i dec m
@@ -238,9 +231,62 @@ let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) g
   | LA.NodeParamInst _ :: _-> Lib.todo __LOC__
 (** builds an id :-> decl map  *)
 
+let rec mk_contract_map: LA.contract_node_equation IMap.t -> LA.contract -> (LA.contract_node_equation IMap.t) graph_result
+  = fun m -> function
+  | [] -> R.ok m
+  | (LA.GhostConst (FreeConst (pos, i, _)) as cnstd) :: eqns
+  | (LA.GhostConst (UntypedConst (pos, i, _)) as cnstd) :: eqns
+  | (LA.GhostConst (TypedConst (pos, i, _, _)) as cnstd) :: eqns -> 
+     check_and_add m pos const_suffix i cnstd  >>= fun m' ->
+     mk_contract_map m' eqns 
+  | (LA.GhostVar (FreeConst (pos, i, _)) as cnstd) :: eqns
+  | (LA.GhostVar (UntypedConst (pos, i, _)) as cnstd) :: eqns
+  | (LA.GhostVar (TypedConst (pos, i, _, _)) as cnstd) :: eqns -> 
+     check_and_add m pos const_suffix i cnstd  >>= fun m' ->
+     mk_contract_map m' eqns 
+  | (LA.Assume (pos, name_opt, _, _) as eqn) :: eqns ->
+     let eqn_name =
+       (match name_opt with
+        | None -> "Assumption<" ^ Lib.string_of_t Lib.pp_print_position pos ^">"
+        | Some n -> n) in
+     check_and_add m pos const_suffix eqn_name eqn  >>= fun m' ->
+     mk_contract_map m' eqns 
+  | (LA.Guarantee (pos, name_opt, _, _) as eqn) :: eqns ->
+     let eqn_name =
+       (match name_opt with
+        | None -> "Gurantee<" ^ Lib.string_of_t Lib.pp_print_position pos ^">"
+        | Some n -> n) in
+     check_and_add m pos const_suffix eqn_name eqn  >>= fun m' ->
+     mk_contract_map m' eqns 
+  | LA.Mode (pos, i, _, _)  as eqn :: eqns ->
+     check_and_add m pos const_suffix i eqn  >>= fun m' ->
+     mk_contract_map m' eqns 
+  | LA.ContractCall _ :: eqns -> mk_contract_map m eqns
+
+             
 let mk_graph_decls: LA.t -> G.t
-  = fun decls ->
-  List.fold_left G.union G.empty (List.map mk_graph decls)
+  = let mk_graph: LA.declaration -> G.t = function
+      | TypeDecl (pos, tydecl) -> mk_graph_type_decl tydecl 
+      | ConstDecl (pos, cdecl) -> mk_graph_const_decl cdecl
+      | NodeDecl (pos, ndecl) -> mk_graph_node_decl ndecl
+      | FuncDecl (pos, ndecl) -> mk_graph_node_decl ndecl
+      | ContractNodeDecl  (pos, cdecl) -> mk_graph_contract_decl cdecl
+      | NodeParamInst  _ -> Lib.todo __LOC__ in
+    fun decls ->
+    List.fold_left G.union G.empty (List.map mk_graph decls)
+
+let mk_graph_contract_eqns: LA.contract -> G.t
+  = let mk_graph: LA.contract_node_equation -> G.t
+      = function
+      | LA.GhostConst _
+        | LA.GhostVar _
+        | LA.Assume _
+        | LA.Guarantee _
+        | LA.Mode _
+        | LA.ContractCall _ -> G.empty in 
+    fun eqns ->
+    List.fold_left G.union G.empty (List.map mk_graph eqns)
+  
   
 let rec extract_decls: 'a IMap.t -> LA.ident list -> ('a list) graph_result
   = fun decl_map ->
@@ -270,3 +316,6 @@ let sort_decls: ('a IMap.t -> 'a list -> 'a IMap.t graph_result)
                           extract_decls decl_map dependency_sorted_ids
 
 let sort_declarations = sort_decls mk_decl_map mk_graph_decls
+
+let sort_contract_equations = sort_decls mk_contract_map mk_graph_contract_eqns
+                                
