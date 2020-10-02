@@ -12,7 +12,7 @@ var v1: bool^(5*c);
 var v2: bool^(20);
 var v3: bool^5;
 let
-  y = x | x | x;
+  y = x | x;
   y = arr1;
   v2 = arr1;
   v1 = x | x | arr1 | arr0;

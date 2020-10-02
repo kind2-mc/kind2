@@ -412,13 +412,14 @@ and simplify_expr: tc_context -> LA.expr -> LA.expr = fun ctx ->
   function
   | LA.Const _ as c -> c
   | LA.Ident (pos, i) ->
-     let (const_expr, _) = lookup_const ctx i in
+     (try (let (const_expr, _) = lookup_const ctx i in
      (match const_expr with
       | LA.Ident (_, i') as ident' ->
          if Stdlib.compare i i' = 0 (* If This is a free constant *)
          then ident' 
          else simplify_expr ctx ident'
-      | _ -> simplify_expr ctx const_expr)
+      | _ -> simplify_expr ctx const_expr)) with
+     | Not_found -> LA.Ident (pos, i))
   | LA.BinaryOp (pos, bop, e1, e2) as e->
      let e1' = simplify_expr ctx e1 in
      let e2' = simplify_expr ctx e2 in
@@ -456,7 +457,7 @@ and simplify_expr: tc_context -> LA.expr -> LA.expr = fun ctx ->
          LA.GroupExpr(pos, LA.ArrayExpr, es1 @ es2)
       | _ -> e)
   | LA.TupleProject (pos, e1, e2) -> simplify_tuple_proj ctx pos e1 e2  
-  | e -> Lib.todo (__LOC__ ^ (Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e)))
+  | e -> e
 (* Assumptions: These constants are arranged in dependency order, all of the constants have been type checked *)
        
 (**********************************************
@@ -1705,7 +1706,15 @@ let type_check_decl_grps: tc_context -> LA.t list -> unit tc_result list
                        ^^"===============================================\n");  
   List.concat (List.map (type_check_group ctx) decls)               
 (** Typecheck a list of independent groups using a global context*)
-   
+
+  
+let inline_constants_of_node_equation: tc_context -> LA.node_equation -> LA.node_equation
+  = fun ctx ->
+  function
+  | (LA.Assert (pos, e)) -> (Assert (pos, simplify_expr ctx e))
+  | (LA.Equation (pos, lhs, e)) -> (LA.Equation (pos, lhs, simplify_expr ctx e))
+  | e -> e
+  
 let substitute: tc_context -> LA.declaration -> (tc_context * LA.declaration) = fun ctx ->
   function
   | ConstDecl (pos, FreeConst _) as c -> (ctx, c)
@@ -1715,6 +1724,20 @@ let substitute: tc_context -> LA.declaration -> (tc_context * LA.declaration) = 
   | ConstDecl (pos, TypedConst (pos', i, e, ty)) ->
      let e' = simplify_expr ctx e in 
      (add_const ctx i e' ty, ConstDecl (pos, TypedConst (pos', i, e', ty)))
+  | (LA.NodeDecl (pos, (i, imported, params, ips, ops, ldecls, items, contract))) ->
+     let rec inline_constants_of_node_items: tc_context -> LA.node_item list -> LA.node_item list 
+       = fun ctx
+       -> function
+       | [] -> []
+       | (Body b) :: items ->
+          (Body (inline_constants_of_node_equation ctx b))
+          :: inline_constants_of_node_items ctx items
+       | (AnnotProperty (pos, n, e)) :: items ->
+          (AnnotProperty (pos, n, simplify_expr ctx e))
+          :: inline_constants_of_node_items ctx items
+       | e -> e
+     in
+     ctx, (LA.NodeDecl (pos, (i, imported, params, ips, ops, ldecls, inline_constants_of_node_items ctx items, contract)))
   | e -> (ctx, e)
 (** propogate constants post type checking into the AST and constant store*)
 
@@ -1725,7 +1748,13 @@ let rec inline_constants: tc_context -> LA.t -> (tc_context * LA.t) = fun ctx ->
      let (ctx', c') = substitute ctx c in
      let (ctx'', decls) = inline_constants ctx' rest in
      (ctx'', c'::decls)
-                    
+     
+let rec inline_constants_in_node: tc_context -> LA.t -> LA.t =  fun ctx ->
+  function
+  | [] -> []
+  | d :: ds -> d :: inline_constants_in_node ctx ds  
+(** Inline constants in nodes *)
+
 let is_type_or_const_decl: LA.declaration -> bool = fun d ->
   match d with
   | TypeDecl _
@@ -1775,18 +1804,27 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
                             ^^"\n===============================================\n")
             LA.pp_print_program inlined_cs
 
-          (* gather the typing context from nodes/functions and contracts *)
-          ; tc_context_of global_ctx' node_and_contract_decls >>= fun tc_ctx ->
+          (* sort nodes and contract decls to make sure there are no recursive calls *)
+          ; AD.sort_declarations node_and_contract_decls >>= fun sorted_node_contract_decls -> 
+            
+            (* gather the typing context from nodes/functions and contracts *)
+            tc_context_of global_ctx' sorted_node_contract_decls >>= fun tc_ctx ->
             Log.log L_trace ("===============================================\n"
                              ^^ "Phase 1: Completed Building TC Global Context\n"
                              ^^ "TC Context\n%a\n"
                              ^^"===============================================\n")
               pp_print_tc_context tc_ctx
-            (* type check the nodes and contract decls using this base typing context  *)
-            ; let tc_res = (type_check_decl_grps tc_ctx [prg]) in
+            ; (* type check the nodes and contract decls using this base typing context  *)
+              let tc_res = (type_check_decl_grps tc_ctx [prg]) in
               Log.log L_trace ("===============================================\n"
                                ^^ "Phase 2: Type checking declaration Groups Done\n"
                                ^^"===============================================\n")  
+              (* inline constants in node body *)
+              ; let (_, sorted_node_contract_decls') = inline_constants global_ctx' sorted_node_contract_decls in
+                Log.log L_trace ("%a\n=============================================\n"
+                                 ^^ "Phase 3: Inline node constants done           \n"
+                                 ^^"===============================================\n")
+                LA.pp_print_program sorted_node_contract_decls'
               
               ; report_tc_result tc_res
 (** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
