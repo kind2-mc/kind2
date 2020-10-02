@@ -224,11 +224,11 @@ let rec used_inputs_expr inputs acc =
 
   | Ident (_, i) | Last (_, i) -> ISet.add i acc
 
-  | RecordProject (_, e, _) | ConvOp (_,_,e) | UnaryOp (_, _, e)
+  | TupleProject (_, e, _) | RecordProject (_, e, _) | ConvOp (_,_,e) | UnaryOp (_, _, e)
   | Current (_, e) | When (_, e, _) | Quantifier (_, _, _, e) ->
     used_inputs_expr inputs acc e
 
-  | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
   | ArrayConstr (_, e1, e2) | ArrayConcat (_, e1, e2) | ArrayIndex (_, e1, e2) ->
     used_inputs_expr inputs (used_inputs_expr inputs acc e2) e1
     
@@ -1194,7 +1194,6 @@ let rec eval_node_equation inputs outputs locals ctx = function
       ) ctx equations
 
   | A.Automaton (pos, aname, states, _) as e ->
-
     let auto_outputs = defined_vars_eqs [e] in
     eval_automaton pos aname states auto_outputs inputs outputs locals ctx
 
@@ -1553,11 +1552,10 @@ let rec check_no_contract_in_node_calls ctx = function
  *)
 
 (* Evaluates contract calls. *)
-and eval_node_contract_call
+and eval_node_contract_call 
   known ctx scope inputs outputs locals is_candidate (
     call_pos, id, in_params, out_params
-  )
-=
+  ) = 
   let ident = I.mk_string_ident id in
 
   if I.Set.mem ident known then (
@@ -1575,12 +1573,6 @@ and eval_node_contract_call
     fun expr -> if H.has_unguarded_pre expr then (
       fail_or_warn
         call_pos "Illegal unguarded pre in input parameters of contract call."
-    )
-  ) ;
-  out_params |> List.iter (
-    fun expr -> if H.has_unguarded_pre expr then (
-      fail_or_warn
-        call_pos "Illegal unguarded pre in output parameters of contract call."
     )
   ) ;
 
@@ -1704,7 +1696,7 @@ and eval_node_contract_call
      everything. *)
   let ctx = try
       List.fold_left2 (
-        fun ctx expr (_, in_id, typ, _) ->
+        fun ctx expr (pos, in_id, typ, _) ->
           let expr, ctx = S.eval_ast_expr [] ctx expr in
 
           (* Fail if type mismatch. *)
@@ -1729,7 +1721,7 @@ and eval_node_contract_call
 
           C.add_expr_for_ident
             ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr
-      ) ctx out_params out_formals
+      ) ctx (List.map (fun i -> LustreAst.Ident (pos, i))out_params) out_formals
     with
     | Invalid_argument _ ->  C.fail_at_position call_pos (
         Format.asprintf
@@ -2009,7 +2001,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
     (* Create enumerated datatype for states *)
     let states_enum =
       List.map (function A.State (_, s, _, _, _, _, _) -> s) states in
-    let states_type = A.EnumType (pos, None, states_enum) in
+    let states_type = A.EnumType (pos, name, states_enum) in
     (* Evaluate states type expression *)
     let states_ty = S.eval_ast_type ctx states_type in
     let bool_ty = S.eval_ast_type ctx (A.Bool pos) in
@@ -2461,7 +2453,7 @@ and parse_implicit_contract scope inputs outputs ctx file contract_name = try (
                 _, cont_out, cont_out_ty, _
               ) ->
                 ok && (node_out = cont_out),
-                (A.Ident (pos, node_out)) :: outs
+                (node_out) :: outs
             ) (ok, []) outputs cont_out
             |> fun (ok, outs) -> ok, List.rev outs
           in

@@ -95,7 +95,7 @@ val mk_array : t -> t -> t
 val mk_abstr : string -> t
 
 (** Return an enumerated datatype type *)
-val mk_enum : string option -> string list -> t
+val mk_enum : string -> string list -> t
 
 (** Import a type from a different instance into this hashcons table *)
 val import : t -> t 
@@ -212,7 +212,7 @@ val last_elem_type_of_array : t -> t
 val constructors_of_enum : t -> string list
 
 (** Return the name of an enumerated datatype encoded as int ranges *)
-val name_of_enum : t -> string option
+val name_of_enum : t -> string
 
 (** Return the constructor encoded by the numeral argument *)
 val get_constr_of_num : Numeral.t -> string

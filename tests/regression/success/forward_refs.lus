@@ -3,7 +3,7 @@ node one (in: two) returns (out: two) ;
   import two (in) returns (out) ;
 *)
 let
-  out = two(two -> pre in) ;
+  out = two(two_const -> pre in) ;
 tel
 
 node two (in: two) returns (out: two) ;
@@ -28,4 +28,4 @@ type one = { blah: two } ;
 
 type two = real ;
 
-const two = 0.0 ;
+const two_const = 0.0 ;

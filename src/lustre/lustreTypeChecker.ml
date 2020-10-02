@@ -41,12 +41,41 @@ type tc_type  = LA.lustre_type
               
 (** String of the type to display in type errors *)
 let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
-                                                  
+  
 (** Map for types with identifiers as keys *)
-module IMap = Map.Make(struct
-                  type t = LA.ident
-                  let compare i1 i2 = Stdlib.compare i1 i2
-                end)
+module IMap = struct
+  (** everything that [Stdlib.Map] gives us  *)
+  include Map.Make(struct
+              type t = LA.ident
+              let compare i1 i2 = Stdlib.compare i1 i2
+            end)
+end
+
+
+(** Pretty print type synonyms*)
+let pp_print_type_syn ppf = fun (i, ty) -> 
+  Format.fprintf ppf "(%a:=%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
+
+(** Pretty print type bindings*)
+let pp_print_type_binding ppf = fun (i, ty) -> 
+  Format.fprintf ppf "(%a:%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
+
+(** Pretty print value bindings (used for constants)*)
+let pp_print_val_binding ppf = fun (i, (v, ty)) ->
+  Format.fprintf ppf "(%a:%a :-> %a)" LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v                
+
+            
+(** Pretty print type synonym context *)
+let pp_print_ty_syns: Format.formatter -> 'a IMap.t -> unit
+  = fun ppf m -> Lib.pp_print_list (pp_print_type_syn) ", " ppf (IMap.bindings m)
+
+(** Pretty print type binding context *)
+let pp_print_tymap: Format.formatter -> 'a IMap.t -> unit
+  = fun ppf m -> Lib.pp_print_list (pp_print_type_binding) ", " ppf (IMap.bindings m)
+
+(** Pretty print constant value store *)
+let pp_print_vstore: Format.formatter -> 'a IMap.t -> unit
+  = fun ppf m ->  Lib.pp_print_list (pp_print_val_binding) ", "  ppf (IMap.bindings m)
 
 let sort_typed_ident: LA.typed_ident list -> LA.typed_ident list = fun ty_idents ->
   List.sort (fun (_,i1,_) (_,i2,_) -> Stdlib.compare i1 i2) ty_idents
@@ -93,7 +122,8 @@ let pp_print_vstore ppf = IMap.iter (pp_print_val_binding ppf)
 let pp_print_u_types ppf = SI.iter (fun i -> LA.pp_print_ident ppf i)
                          
 type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
-                  ; ty_ctx: ty_store        (* store of the types of identifiers *)
+                  ; ty_ctx: ty_store        (* store of the types of identifiers and nodes*)
+                  ; contract_ctx: ty_store  (* store of the types of contracts*)
                   ; vl_ctx: const_store     (* store of typed constants to its value*)
                   ; u_types: ty_set         (* store of all declared user types,
                                                this is poor mans kind (type of type) context *)
@@ -102,18 +132,21 @@ type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings 
 
 let empty_context: tc_context = { ty_syns = IMap.empty
                                 ; ty_ctx = IMap.empty
+                                ; contract_ctx = IMap.empty
                                 ; vl_ctx = IMap.empty
                                 ; u_types = SI.empty }
 (** The empty context with no information *)
                               
 let pp_print_tc_context ppf ctx
   = Format.fprintf ppf
-      ("TypeSynonyms={%a}\n"
-       ^^ "TypeContext={%a}\n"
-       ^^ "ConstValueContext={%a}"
-       ^^ "DeclaredTypes={%a}")
+      ("Type Synonyms={%a}\n"
+       ^^ "Type Context={%a}\n"
+       ^^ "Contract Context={%a}\n"
+       ^^ "Const Store={%a}"
+       ^^ "Declared Types={%a}")
       pp_print_ty_syns (ctx.ty_syns)
       pp_print_tymap (ctx.ty_ctx)
+      pp_print_tymap (ctx.contract_ctx)
       pp_print_vstore (ctx.vl_ctx)
       pp_print_u_types (ctx.u_types)
   
@@ -132,6 +165,9 @@ let member_ty_syn: tc_context -> LA.ident -> bool
 let member_ty: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.ty_ctx)
 
+let member_contract: tc_context -> LA.ident -> bool
+  = fun ctx i -> IMap.mem i (ctx.contract_ctx)
+               
 let member_u_types : tc_context -> LA.ident -> bool
   = fun ctx i -> SI.mem i ctx.u_types
   
@@ -143,7 +179,10 @@ let lookup_ty_syn: tc_context -> LA.ident -> tc_type
 (** picks out the type synonym from the context *)
 
 let lookup_ty: tc_context -> LA.ident -> tc_type
-  = fun ctx i -> let ty = IMap.find i (ctx.ty_ctx) in
+  = fun ctx i -> let ty =
+                   (try IMap.find i (ctx.ty_ctx) with
+                    | Not_found -> Log.log L_error "Could not find definition of identifer %a" LA.pp_print_ident i
+                                 ; raise Not_found) in
                  match ty with
                  | LA.UserType (_, uid) ->
                     if (member_ty_syn ctx uid)
@@ -152,6 +191,9 @@ let lookup_ty: tc_context -> LA.ident -> tc_type
                  | _ ->  ty
 (** Picks out the type from the variable to type context map *)
 
+let lookup_contract_ty: tc_context -> LA.ident -> tc_type
+  = fun ctx i -> IMap.find i (ctx.contract_ctx)
+                          
 let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type)
   = fun ctx i -> IMap.find i (ctx.vl_ctx)
 
@@ -161,6 +203,9 @@ let add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
 let add_ty: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with ty_ctx = IMap.add i ty (ctx.ty_ctx)}
 
+let add_ty_contract: tc_context -> LA.ident -> tc_type -> tc_context
+  = fun ctx i ty -> {ctx with contract_ctx = IMap.add i ty (ctx.contract_ctx)}
+                  
 let add_ty_decl: tc_context -> LA.ident -> tc_context
   = fun ctx i -> {ctx with u_types = SI.add i (ctx.u_types)}
 
@@ -173,6 +218,7 @@ let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> tc_context
 let union: tc_context -> tc_context -> tc_context
   = fun ctx1 ctx2 -> { ty_syns = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.ty_syns) (ctx2.ty_syns))
                      ; ty_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.ty_ctx) (ctx2.ty_ctx))
+                     ; contract_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.contract_ctx) (ctx2.contract_ctx))
                      ; vl_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.vl_ctx) (ctx2.vl_ctx))
                      ; u_types = SI.union ctx1.u_types ctx2.u_types 
                      }
@@ -183,21 +229,12 @@ let singleton_ty: LA.ident -> tc_type -> tc_context
 let singleton_const: LA.ident -> LA.expr -> tc_type -> tc_context =
   fun i e ty -> add_const empty_context i e ty
 
-let extract_ip_ty: LA.const_clocked_typed_decl -> LA.ident * tc_type
-  = fun  (_, i, ty, _, _) -> (i, ty)
-
-let extract_op_ty: LA.clocked_typed_decl -> LA.ident * tc_type
-  = fun (_, i, ty, _) -> (i, ty)
-
-let is_const_arg: LA.const_clocked_typed_decl -> bool
-  = fun (_, _, _, _, is_const) -> is_const
-
 let extract_arg_ctx: LA.const_clocked_typed_decl -> tc_context
-  = fun input -> let (i, ty) = extract_ip_ty input in
+  = fun input -> let (i, ty) = LH.extract_ip_ty input in
                  singleton_ty i ty
 
 let extract_ret_ctx: LA.clocked_typed_decl -> tc_context
-  = fun op -> let (i, ty) = extract_op_ty op in
+  = fun op -> let (i, ty) = LH.extract_op_ty op in
               singleton_ty i ty
 
 let extract_consts: LA.const_clocked_typed_decl -> tc_context
@@ -205,62 +242,7 @@ let extract_consts: LA.const_clocked_typed_decl -> tc_context
   if is_const
   then singleton_const i (LA.Ident (pos, i)) ty
   else empty_context 
-
-let is_type_num: tc_type -> bool = function
-    LA.Int _
-  | LA.UInt8 _       
-  | LA.UInt16 _   
-  | LA.UInt32 _   
-  | LA.UInt64 _  
-  | LA.Int8 _   
-  | LA.Int16 _    
-  | LA.Int32 _    
-  | LA.Int64 _    
-  | LA.IntRange _
-  | LA.Real _ -> true
-  | _ -> false
-
-let is_type_int: tc_type -> bool = function
-    LA.Int _
-  | LA.UInt8 _       
-  | LA.UInt16 _   
-  | LA.UInt32 _   
-  | LA.UInt64 _  
-  | LA.Int8 _   
-  | LA.Int16 _    
-  | LA.Int32 _    
-  | LA.Int64 _    
-  | LA.IntRange _ -> true
-  | _ -> false
-
-let is_type_unsigned_machine_int: tc_type -> bool = function
-  | LA.UInt8 _       
-  | LA.UInt16 _   
-  | LA.UInt32 _   
-  | LA.UInt64 _ -> true    
-  | _ -> false  
-
-let is_type_signed_machine_int: tc_type -> bool = function
-  | LA.Int8 _       
-  | LA.Int16 _   
-  | LA.Int32 _   
-  | LA.Int64 _ -> true    
-  | _ -> false  
-       
-let is_type_machine_int: tc_type -> bool = fun ty ->
-  is_type_signed_machine_int ty || is_type_unsigned_machine_int ty 
-
-let is_machine_type_of_associated_width: (tc_type * tc_type) -> bool = function
-  | LA.Int8 _, LA.UInt8 _       
-  | LA.Int16 _,LA.UInt16 _   
-  | LA.Int32 _, LA.UInt32 _   
-  | LA.Int64 _, LA.UInt64 _
-  | LA.UInt8 _, LA.UInt8 _       
-  | LA.UInt16 _,LA.UInt16 _   
-  | LA.UInt32 _, LA.UInt32 _   
-  | LA.UInt64 _, LA.UInt64 _ -> true
-  | _ -> false    
-
+  
   
 (**********************************************
  * Type inferring and type checking functions *
@@ -288,18 +270,29 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
          if List.length tys = 1
          then R.ok (List.hd tys)
          else R.ok (LA.TupleType (pos, tys)))
-  | LA.RecordProject (pos, expr, fld) ->
-     (infer_type_expr ctx expr)
+  | LA.RecordProject (pos, e, fld) ->
+     (infer_type_expr ctx e)
      >>= (fun rec_ty ->
       match rec_ty with
       | LA.RecordType (_, flds) ->
          let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
          (match (List.assoc_opt fld typed_fields) with
           | Some ty -> R.ok ty
-          | None -> type_error pos ("No field named " ^ fld ^ "found in record type")) 
+          | None -> type_error pos ("No field named " ^ fld ^ "  in record type.")) 
       | _ -> type_error pos ("Cannot project field out of non record expression type "
                              ^ string_of_tc_type rec_ty))
-  | LA.TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
+  | LA.TupleProject (pos, e1, i) ->
+     infer_type_expr ctx e1 >>=
+       (function
+        | LA.TupleType (pos, tys) as ty->
+                if List.length tys < i
+                then type_error pos ("Field "
+                                     ^ string_of_int i
+                                     ^ " is out of bounds for tuple type "
+                                     ^ string_of_tc_type ty)
+                else R.ok (List.nth tys i)
+        | ty -> type_error pos ("Cannot project field out of non tuple type type "
+                               ^ string_of_tc_type ty))
 
   (* Values *)
   | LA.Const (pos, c) -> R.ok (infer_type_const pos c)
@@ -377,7 +370,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                                               ^ string_of_tc_type f_ty
                                               ^ " but the type of the expression is "
                                               ^ string_of_tc_type e_ty)))
-                     | None -> type_error pos ("No field named " ^ l ^ "found in record type")))
+                     | None -> type_error pos ("No field named " ^ l ^ " found in record type")))
                 | r_ty -> type_error pos ("Cannot do an update on non-record type "
                                           ^ string_of_tc_type r_ty))
         | _ -> type_error pos ("Only labels can be used for record expressions"
@@ -500,7 +493,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                                            ^ " but found type "
                                            ^ string_of_tc_type given_arg_tys)))
             | ty -> type_error pos
-                      ("Expected node type to be a function type, but found type"
+                      ("Expected node type to be a function type, but found type "
                        ^ string_of_tc_type ty)) with
        | Not_found -> type_error pos ("No node with name: " ^ i ^ " found"))  
   | LA.CallParam _ -> Lib.todo __LOC__
@@ -518,7 +511,8 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                         ^ string_of_tc_type exp_ty
                         ^ " with infered type "
                         ^ string_of_tc_type ty))
-  | ModeRef (pos, ids) -> Lib.todo __LOC__
+  (* We do not support mode ref paths yet *)
+  | ModeRef (pos, ids) -> check_type_expr ctx (LA.Ident (pos, List.nth ids (List.length ids - 1) )) exp_ty
   | RecordProject (pos, expr, fld) -> check_type_record_proj pos ctx expr fld exp_ty
   | TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
 
@@ -591,21 +585,25 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
       (* These should be tuple type  *)
       | ExprList
         | TupleExpr ->
-         (match exp_ty with
-          | TupleType (_, tys) ->
-             if List.length tys != List.length es
-             then type_error pos "Size of tuple does not match size of expression list"
-             else R.seq_ (List.map2 (check_type_expr ctx) es tys)
-          | _ -> type_error pos ("Expression list and Tuple list "
-                                 ^ "should be of type Tuple but found "
-                                 ^ string_of_tc_type exp_ty))
+         R.seq (List.map (infer_type_expr ctx) es) >>= fun inf_tys ->
+         let inf_ty = LA.TupleType (pos, inf_tys) in
+         (R.guard_with (eq_lustre_type ctx exp_ty inf_ty)
+            (type_error pos ("Expected type " ^ string_of_tc_type exp_ty
+                             ^ " but found " ^ string_of_tc_type inf_ty)))
       (* This should be array type *)
       | ArrayExpr ->
-         match exp_ty with
-         | ArrayType (_, (b_ty, _)) ->
-            R.seq_ (Lib.list_apply (List.map (check_type_expr ctx) es) b_ty)
-         | _ -> type_error pos ("Array type expected but found "
-                                ^ string_of_tc_type exp_ty))
+         R.seq (List.map (infer_type_expr ctx) es) >>= fun inf_tys ->
+         if List.length inf_tys < 1
+         then type_error pos ("Array expression cannot be empty")
+         else
+           let elty = List.hd inf_tys in
+           R.ifM (R.seqM (&&) true (List.map (eq_lustre_type ctx elty) inf_tys))
+             (let arr_ty = List.hd inf_tys in
+              let arr_size = LA.Const (pos, Num (string_of_int (List.length inf_tys))) in
+              (R.guard_with (eq_lustre_type ctx exp_ty (LA.ArrayType (pos, (arr_ty, arr_size))))
+                 (type_error pos ("Expected type " ^ string_of_tc_type exp_ty
+                                  ^ " but found " ^ string_of_tc_type arr_ty))))
+             (type_error pos "All expressions must be of the same type in an Array"))
 
   (* Update of structured expressions *)
   | StructUpdate (pos, r, i_or_ls, e) ->
@@ -626,6 +624,8 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
            | _ -> type_error pos ("Only a label can be used for record expressions"
                                   ^ " but found index "
                                   ^ Lib.string_of_t LA.pp_print_label_or_index (List.hd i_or_ls)))
+
+  (* Array constructor*)
   | ArrayConstr (pos, b_exp, sup_exp) ->
      infer_type_expr ctx b_exp
      >>= fun b_ty -> infer_type_expr ctx sup_exp
@@ -711,13 +711,13 @@ and infer_type_unary_op: tc_context -> Lib.position -> LA.expr -> LA.unary_opera
        (type_error pos ("Expected argument of type bool "
                         ^ "but found type " ^ string_of_tc_type ty))
   | LA.BVNot ->
-     if is_type_machine_int ty
+     if LH.is_type_machine_int ty
      then R.ok ty
      else type_error pos ("Cannot apply the bit-value not operator "
                           ^ "to a non machine integer value of type "
                           ^ string_of_tc_type ty)
   | LA.Uminus ->
-     if (is_type_num ty)
+     if (LH.is_type_num ty)
      then R.ok ty
      else type_error pos ("Unary minus cannot be applied" 
                           ^ "to non number expression of type "
@@ -757,20 +757,20 @@ and infer_type_binary_op: tc_context -> Lib.position
        (R.ifM (eq_lustre_type ctx ty2 (Bool pos))
           (R.ok (LA.Bool pos))
           (type_error pos ("Expected second argument of operator to" 
-                           ^ " be of type bool but found type"
+                           ^ " be of type bool but found type "
                            ^ string_of_tc_type ty2)))
        (type_error pos ("Expected first argument of operator to" 
-                           ^ " be of type bool but found type"
+                           ^ " be of type bool but found type "
                            ^ string_of_tc_type ty1))
   | LA.Mod ->
      R.ifM (eq_lustre_type ctx ty1 (Int pos))
        (R.ifM (eq_lustre_type ctx ty2 (Int pos))
           (R.ok (LA.Int pos))
           (type_error pos ("Expected second argument of operator to" 
-                           ^ " be of type int but found type"
+                           ^ " be of type int but found type "
                            ^ string_of_tc_type ty2)))
        (type_error pos ("Expected first argument of operator to" 
-                           ^ " be of type int but found type"
+                           ^ " be of type int but found type "
                            ^ string_of_tc_type ty1))
   | LA. Minus | LA.Plus | LA.Times -> 
      are_args_num ctx pos ty1 ty2 >>= fun is_num ->
@@ -782,23 +782,19 @@ and infer_type_binary_op: tc_context -> Lib.position
   | LA.Div ->
      are_args_num ctx pos ty1 ty2 >>= fun is_num ->
      if is_num
-     then if (is_expr_term_zero e2)
-          then type_error pos ("Cannot divide by zero")
-          else R.ok ty2
+     then R.ok ty2
      else type_error pos ("Expected arguments to be of same"
                           ^" numeric type but found types " ^ string_of_tc_type ty1
                           ^ " and " ^ string_of_tc_type ty2)
   | LA.IntDiv ->
-     if is_type_int ty1 && is_type_int ty2
-     then if (is_expr_term_zero e2)
-          then type_error pos ("Cannot divide by zero")
-          else R.ok (LA.Int pos)
+     if LH.is_type_int ty1 && LH.is_type_int ty2
+     then R.ok (LA.Int pos)
      else type_error pos ("Expected arguments of type integer "
                           ^ "but found types " ^ string_of_tc_type ty1
                           ^ " and " ^ string_of_tc_type ty2)
   | LA.BVAnd | LA.BVOr ->
      R.ifM (eq_lustre_type ctx ty1 ty2)
-       (if is_type_machine_int ty1 && is_type_machine_int ty2
+       (if LH.is_type_machine_int ty1 && LH.is_type_machine_int ty2
         then R.ok ty2
         else type_error pos ("Expected arguments of type machine integer but "
                              ^ "found types " ^ string_of_tc_type ty1
@@ -808,9 +804,9 @@ and infer_type_binary_op: tc_context -> Lib.position
                         ^ string_of_tc_type ty1
                         ^ " and " ^ string_of_tc_type ty2))
   | LA.BVShiftL | LA.BVShiftR ->
-     if (is_type_signed_machine_int ty1 || is_type_unsigned_machine_int ty1)
-     then (if (is_type_unsigned_machine_int ty2
-               && is_machine_type_of_associated_width (ty1, ty2))
+     if (LH.is_type_signed_machine_int ty1 || LH.is_type_unsigned_machine_int ty1)
+     then (if (LH.is_type_unsigned_machine_int ty2
+               && LH.is_machine_type_of_associated_width (ty1, ty2))
            then if is_expr_of_consts ctx e2
                 then R.ok ty1
                 else type_error pos "Expected second argument of shift operator to be a constant"
@@ -829,70 +825,70 @@ and infer_type_conv_op: tc_context -> Lib.position
   infer_type_expr ctx e >>= fun ty ->
   match op with
   | ToInt ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.Int pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (Int pos))
   | ToReal ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.Real pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (Real pos))
   | ToInt8 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.Int8 pos)
      else type_error pos ("Cannot convert a non-number type "
                                   ^ string_of_tc_type ty
                                   ^ " to type "
                                   ^ string_of_tc_type (Int8 pos))
   | ToInt16 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.Int16 pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (Int16 pos))
   | ToInt32 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.Int32 pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (Int32 pos))
   | ToInt64 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.Int64 pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (Int64 pos))
   | ToUInt8 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.UInt8 pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (UInt8 pos))
   | ToUInt16 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.UInt16 pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (UInt16 pos))
   | ToUInt32 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.UInt32 pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
                           ^ " to type "
                           ^ string_of_tc_type (UInt32 pos))
   | ToUInt64 ->
-     if is_type_num ty
+     if LH.is_type_num ty
      then R.ok (LA.UInt64 pos)
      else type_error pos ("Cannot convert a non-number type "
                           ^ string_of_tc_type ty
@@ -967,8 +963,8 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
                              ^ " expects type " ^ string_of_tc_type exp_ty
                              ^ " but expression is of type " ^ string_of_tc_type inf_ty))
 
-and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_result
-  = fun ctx
+and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type -> unit tc_result
+  = fun pos ctx
         (node_name, is_extern, params, input_vars, output_vars, ldecls, items, contract)
         exp_ty ->
   let local_var_binding: tc_context -> LA.node_local_decl -> tc_context tc_result = fun ctx ->
@@ -987,11 +983,16 @@ and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_resul
     then R.ok ( Log.log L_trace "External Node, no body to type check."
               ; Log.log L_trace "TC declaration node %a done }" LA.pp_print_ident node_name)
     else (
-      Log.log L_trace "Params: %a (skipping)" LA.pp_print_node_param_list params
-    ; (* store the input constants passed in the input 
+      let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
+      let ret_ids = LA.SI.of_list (List.map (fun a -> LH.extract_op_ty a |> fst) output_vars) in
+      let common_ids = LA.SI.inter arg_ids ret_ids in
+      if (LA.SI.equal common_ids LA.SI.empty)
+      then
+           (Log.log L_trace "Params: %a (skipping)" LA.pp_print_node_param_list params
+     (* store the input constants passed in the input 
          also remove the node name from the context as we should not have recursive
          nodes *)
-      let ip_constants_ctx = List.fold_left union (remove_ty ctx node_name)
+      ; let ip_constants_ctx = List.fold_left union (remove_ty ctx node_name)
                                (List.map extract_consts input_vars) in
       (* These are inputs to the node *)
       let ctx_plus_ips = List.fold_left union ip_constants_ctx
@@ -1004,7 +1005,7 @@ and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_resul
              | None -> R.ok ()
              | Some c ->
                 tc_ctx_of_contract ctx_plus_ops_and_ips c
-                >>= fun con_ctx -> check_type_contract con_ctx c)
+                >>= fun con_ctx -> check_type_contract ~node_out_params:ret_ids con_ctx c)
       (* add local variable binding in the context *)
       >> R.seq (List.map (local_var_binding ctx_plus_ips) ldecls)
       >>= fun local_var_ctxts ->
@@ -1015,6 +1016,8 @@ and check_type_node_decl: tc_context -> LA.node_decl -> tc_type -> unit tc_resul
       ; R.seq_ (List.map (do_item local_ctx) items)
         >> R.ok (Log.log L_trace "TC declaration node %a done }"
                    LA.pp_print_ident node_name))
+      else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
+              Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements common_ids)))
 
 and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
   function
@@ -1086,16 +1089,23 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
   
   (** check if the members of LHS are constants or enums before assignment *)
   ; let lhs_vars = SI.flatten (List.map LH.vars_of_struct_item lhss) in
-   if (SI.for_all (fun i -> not (member_val ctx i)) lhs_vars)
+    if (SI.for_all (fun i -> not (member_val ctx i)) lhs_vars)
     then (match exp_ty with
           | TupleType (_, exp_ty_lst) ->
              Log.log L_trace "Tuple Type: %a" LA.pp_print_lustre_type exp_ty
-            ; if List.length lhss = List.length exp_ty_lst
-              then R.seq_ (List.map2 (check_type_struct_item ctx) lhss exp_ty_lst)
-              else type_error pos ("Term structure on left hand side of the equation"
-                                   ^ " does not match expected type "
-                                   ^ Lib.string_of_t LA.pp_print_lustre_type exp_ty 
-                                   ^ " on right hand side of the node equation")
+            ; if List.length lhss = 1
+              (* Case 1. the LHS is just one identifier 
+               * so we have to check if the exp_type is the same as LHS *)
+              then check_type_struct_item ctx (List.hd lhss) exp_ty 
+              else (* Case 2. LHS is a compound statment *)
+                if List.length lhss = List.length exp_ty_lst
+                then R.seq_ (List.map2 (check_type_struct_item ctx) lhss exp_ty_lst)
+                else type_error pos ("Term structure on left "
+                                     ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss
+                                     ^" hand side of the equation"
+                                     ^ " does not match expected type "
+                                     ^ Lib.string_of_t LA.pp_print_lustre_type exp_ty 
+                                     ^ " on right hand side of the node equation")
           (* We are dealing with simple types, so lhs has to be a singleton list *)
           | _ -> Log.log L_trace "Simple Type: %a" LA.pp_print_lustre_type exp_ty
                ; if (List.length lhss != 1)
@@ -1105,7 +1115,7 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
                                       ^ " on right hand side of the node equation")
                  else let lhs = List.hd lhss in
                       check_type_struct_item ctx lhs exp_ty)
-  else type_error pos "Cannot reassign value to a constant or enum.")
+    else type_error pos "Cannot reassign value to a constant or enum.")
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 
@@ -1113,13 +1123,13 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
   = fun ctx -> function
   | GhostConst c -> tc_ctx_const_decl ctx c
   | GhostVar c -> tc_ctx_const_decl ~is_const:false ctx c
-  | Assume (pos, _, _, e) -> R.ok ctx
+  | Assume _ -> R.ok ctx
   | Guarantee _ -> R.ok ctx
   | Mode (pos, name, _, _) -> R.ok (add_ty ctx name (Bool pos)) 
   | ContractCall _ -> R.ok ctx
   
-and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_result
-  = fun ctx (cname, params, args, rets, contract) ->
+and check_type_contract_decl: ?node_out_params: LA.SI.t -> tc_context -> LA.contract_node_decl -> unit tc_result
+  = fun ?node_out_params:(node_out_params = LA.SI.empty)ctx (cname, params, args, rets, contract) ->
   Log.log L_trace "TC Contract decl: %a {" LA.pp_print_ident cname 
   (* build the appropriate local context *)
   ; let arg_ctx = List.fold_left union ctx (List.map extract_arg_ctx args) in
@@ -1129,16 +1139,16 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
     R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract)
     >>= fun ctxs ->
     let local_ctx = List.fold_left union local_const_ctx ctxs in
-    check_type_contract local_ctx contract
+    check_type_contract ~node_out_params:node_out_params local_ctx contract
     >> R.ok (Log.log L_trace "TC Contract Decl %a done }" LA.pp_print_ident cname)
 
-and check_type_contract: tc_context -> LA.contract -> unit tc_result
-  = fun ctx eqns ->
-  R.seq_ (List.map (check_contract_node_eqn ctx) eqns)
+and check_type_contract: ?node_out_params: LA.SI.t -> tc_context -> LA.contract -> unit tc_result
+  = fun ?node_out_params:(node_out_params = LA.SI.empty) ctx eqns ->
+  R.seq_ (List.map (check_contract_node_eqn ~node_out_params:node_out_params ctx) eqns)
 
-and check_contract_node_eqn: tc_context -> LA.contract_node_equation -> unit tc_result
-  = fun ctx eqn ->
-  Log.log L_trace "checking contract equation: %a" LA.pp_print_contract_item eqn 
+and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contract_node_equation -> unit tc_result
+  = fun ?node_out_params:(node_out_params = LA.SI.empty) ctx eqn ->
+  Log.log L_trace "Checking contract equation: %a" LA.pp_print_contract_item eqn 
   ; match eqn with
     | GhostConst _
       | GhostVar _ ->  R.ok () (* These is already checked while extracting ctx *)
@@ -1149,15 +1159,39 @@ and check_contract_node_eqn: tc_context -> LA.contract_node_equation -> unit tc_
                                  (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
                  (Bool pos)) 
     | ContractCall (pos, cname, args, rets) ->
-       R.seq(List.map (infer_type_expr ctx) rets)
-       >>= fun ret_tys ->  
-       let ret_ty = if List.length ret_tys = 1
-                    then List.hd ret_tys
-                    else LA.TupleType (pos, ret_tys) in
-       check_type_expr ctx (LA.Call (pos, cname, args))(ret_ty) 
+       let arg_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars args) in
+       let intersect_in_illegal = LA.SI.inter node_out_params arg_ids in
+       if (not (LA.SI.is_empty intersect_in_illegal))
+       then type_error pos
+              ("Output arguments to node cannot be contract arguments, but found "
+               ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements intersect_in_illegal))
+       else
+         let ret_ids = LA.SI.of_list rets in
+         let common_ids = LA.SI.inter arg_ids ret_ids in
+         if (LA.SI.equal common_ids LA.SI.empty)
+         then 
+           R.seq(List.map (infer_type_expr ctx) (List.map (fun i -> LA.Ident (pos, i)) rets))
+           >>= fun ret_tys ->  
+           let ret_ty = if List.length ret_tys = 1
+                        then List.hd ret_tys
+                        else LA.TupleType (pos, ret_tys) in
+           R.seq(List.map (infer_type_expr ctx) args) >>= fun arg_tys -> 
+           let arg_ty = if List.length arg_tys = 1
+                        then List.hd arg_tys
+                        else LA.TupleType (pos, arg_tys) in
+           let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
+           try let inf_ty = (lookup_contract_ty ctx cname) in
+               R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
+                 (type_error pos ("Contract " ^ cname
+                                  ^ " expected to have type " ^ string_of_tc_type exp_ty
+                                  ^ " but found type " ^ string_of_tc_type inf_ty))
+           with
+           | Not_found -> type_error pos ("Undefined or not in scope contract name " ^ cname)
+         else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
+                                Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements common_ids)) 
 
-and tc_ctx_const_decl
-  = fun ?is_const:(const_real=true) ctx ->
+and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_context tc_result 
+  = fun ?is_const:(is_const=true) ctx ->
   function
   | LA.FreeConst (pos, i, ty) ->
      check_type_well_formed ctx ty
@@ -1168,7 +1202,7 @@ and tc_ctx_const_decl
      if member_ty ctx i
      then type_error pos ("Constant " ^ i ^ " is already declared.")
      else infer_type_expr ctx e >>= fun ty ->
-          (if const_real then
+          (if is_const then
              if (is_expr_of_consts ctx e) 
              then R.ok (add_ty (add_const ctx i e ty) i ty)
              else type_error pos ("Expression " ^ Lib.string_of_t LA.pp_print_expr e ^ " is not a constant expression")
@@ -1178,7 +1212,7 @@ and tc_ctx_const_decl
      if member_ty ctx i
      then type_error pos ("Constant " ^ i ^ " is already declared.")
      else check_type_expr (add_ty ctx i exp_ty) e exp_ty
-          >> (if const_real then
+          >> (if is_const then
                 if (is_expr_of_consts ctx e) 
                 then R.ok (add_ty (add_const ctx i e exp_ty) i exp_ty)
                 else type_error pos ("Expression " ^ Lib.string_of_t LA.pp_print_expr e ^ " is not a constant expression")
@@ -1193,11 +1227,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
   | LA.AliasType (pos, i, ty) ->
      check_type_well_formed ctx ty
        >> (match ty with
-      | LA.EnumType (pos, n, econsts) ->
-         (match n with
-          | None ->
-             type_error pos "Necessary Enum name not found"
-          | Some ename ->
+      | LA.EnumType (pos, ename, econsts) ->
              if (List.for_all (fun e -> not (member_ty ctx e)) econsts)
                 && (List.for_all (fun e -> not (member_val ctx e)) econsts)
              then
@@ -1216,7 +1246,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
                (* 3. Lift all the enum constants (terms) into the value store as constants *)
                          @ enum_const_bindings))
              else
-               type_error pos "Cannot redeclare constants or enums")
+               type_error pos "Cannot redeclare constants or enums"
       | _ -> check_type_well_formed ctx ty
              >> R.ok (add_ty_syn ctx i ty))
   | LA.FreeType (_, i) -> R.ok (add_ty_decl ctx i)
@@ -1253,10 +1283,10 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
   Log.log L_trace
     "Extracting typing context from contract declaration: %a"
     LA.pp_print_ident cname
-  ; if (member_ty ctx cname)
-    then type_error pos ("Node " ^ cname ^ " is already declared.")
+  ; if (member_contract ctx cname)
+    then type_error pos ("Contract " ^ cname ^ " is already declared.")
     else build_node_fun_ty pos ctx inputs outputs
-         >>= fun fun_ty -> R.ok (add_ty ctx cname fun_ty)
+         >>= fun fun_ty -> R.ok (add_ty_contract ctx cname fun_ty)
 
 and tc_ctx_of_declaration: tc_context -> LA.declaration -> tc_context tc_result
     = fun ctx' ->
@@ -1313,10 +1343,10 @@ and build_node_fun_ty: Lib.position -> tc_context
                        -> LA.clocked_typed_decl list -> tc_type tc_result
   = fun pos ctx args rets ->
   let fun_const_ctx = List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty)
-                        ctx (List.filter is_const_arg args |> List.map extract_ip_ty) in
-  let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_const_ctx (List.map extract_ip_ty args) in   
-  let ops = List.map snd (List.map extract_op_ty rets) in
-  let ips = List.map snd (List.map extract_ip_ty args) in
+                        ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in
+  let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_const_ctx (List.map LH.extract_ip_ty args) in   
+  let ops = List.map snd (List.map LH.extract_op_ty rets) in
+  let ips = List.map snd (List.map LH.extract_ip_ty args) in
   let ret_ty = if List.length ops = 1 then List.hd ops else LA.TupleType (pos, ops) in
   let arg_ty = if List.length ips = 1 then List.hd ips else LA.TupleType (pos, ips) in
   check_type_well_formed fun_ctx ret_ty
@@ -1397,23 +1427,21 @@ and is_expr_of_consts: tc_context -> LA.expr -> bool = fun ctx e ->
   List.fold_left (&&) true (List.map (member_val ctx) (LA.SI.elements (LH.vars e)))
 (** checks if all the variables in the expression are constants *)
   
-and is_expr_term_zero: LA.expr -> bool = function
-  | LA.Const (_, (Num "0"))
-    | LA.Const (_, (Dec "0.0")) -> true
-  (* TODO: use regex to check if it is of the format 0\.[0]* *)
-  | _ -> false
-                                                            
-  
 and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> bool tc_result =
   fun ctx (_, i1, ty1) (_, i2, ty2) -> eq_lustre_type ctx ty1 ty2
 (** Compute type equality for [LA.typed_ident] *)
 
 and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type * LA.expr) -> bool tc_result
-  = fun ctx (ty1, e1) (ty2, e2) -> eq_lustre_type ctx ty1 ty2
+  = fun ctx (ty1, e1) (ty2, e2) ->
+  eq_lustre_type ctx ty1 ty2
 (** Compute equality for [LA.ArrayType]
  * For now, we do not check the bounds for arrays. This introduces bugs similar to Issue #566. 
  *   https://github.com/kind2-mc/kind2/issues/566. 
- *   Backend should handle such cases as it can talk to a powerful solver. *)
+ *   Backend should handle such cases as it can talk to a powerful solver. *)  
+  
+let scc: LA.t -> LA.t list
+  = fun decls -> [decls]
+(** Compute the connected components for type checking *)
 
                                  
 let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
@@ -1423,11 +1451,11 @@ let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
   (* skip over type declarations and const_decls*)
   | (LA.TypeDecl _ :: rest) 
     | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  
-  | LA.NodeDecl (_, ((i, _,_, _, _, _, _, _) as node_decl)) :: rest ->
-     (check_type_node_decl global_ctx node_decl (lookup_ty global_ctx i))
+  | LA.NodeDecl (pos, ((i, _,_, _, _, _, _, _) as node_decl)) :: rest ->
+     (check_type_node_decl pos global_ctx node_decl (lookup_ty global_ctx i))
      :: type_check_group global_ctx rest
-  | LA.FuncDecl (_, ((i, _,_, _, _, _, _, _) as node_decl)):: rest ->
-     (check_type_node_decl global_ctx node_decl (lookup_ty global_ctx i))
+  | LA.FuncDecl (pos, ((i, _,_, _, _, _, _, _) as node_decl)):: rest ->
+     (check_type_node_decl pos global_ctx node_decl (lookup_ty global_ctx i))
      :: type_check_group global_ctx rest
   | LA.ContractNodeDecl (_, ((i, _, _, _, _) as contract_decl)) :: rest ->
      (check_type_contract_decl global_ctx contract_decl)
@@ -1452,10 +1480,6 @@ let rec report_tc_result: unit tc_result list -> unit tc_result
      | Ok () :: tl -> report_tc_result tl
 (** Get the first error *)
 
-(****************************************************************
- * The main function of the file that kicks off type checking flow  *
- ****************************************************************)  
-
 let is_type_or_const_decl: LA.declaration -> bool = fun d ->
   match d with
   | TypeDecl _
@@ -1468,13 +1492,20 @@ let split_program: LA.t -> (LA.t * LA.t)
         if is_type_or_const_decl d then (d::ds, ds')
         else (ds, d::ds')) ([], [])  
 
+let propogate_constants: tc_context -> LA.t -> tc_context tc_result = fun ctx _ -> R.ok ctx
+  
+(********************************************************************
+ * The main function of the file that kicks off type checking flow  *
+ ********************************************************************)
+  
 let type_check_program: LA.t -> unit tc_result = fun prg ->
   Log.log L_trace ("===============================================\n"
                    ^^ "Phase 1: Building TC Global Context\n"
                    ^^"===============================================\n")
   ; let (ty_and_const_decls, node_and_contract_decls) = split_program prg in
     (* circularity check and reordering for types and constants *)
-    AD.sort_decls ty_and_const_decls >>= fun sorted_tys_consts ->
+    Log.log L_trace "Phase 1.1 Building graph for types and constant decls\n---------\n"
+    ; AD.sort_declarations ty_and_const_decls >>= fun sorted_tys_consts ->
     Log.log L_trace "Sorted consts and type decls:\n%a" LA.pp_print_program sorted_tys_consts
     (* build the base context from the type and const decls *)
     ; build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->

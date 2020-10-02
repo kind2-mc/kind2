@@ -644,17 +644,14 @@ let rec eval_ast_expr bounds ctx =
       (D.RecordIndex field)
 
   (* Projection to a tuple or array field [expr.%field_expr] *)
-  | A.TupleProject (pos, expr, field_expr) -> 
-
-    (* Evaluate expression to an integer constant *)
-    let field = const_int_of_ast_expr ctx pos field_expr in
+  | A.TupleProject (pos, expr, field) -> 
 
     eval_ast_projection 
       bounds
       ctx
       pos
       expr
-      (D.TupleIndex (Numeral.to_int field))
+      (D.TupleIndex field)
 
   (* An expression list, flatten nested lists and add an index to
      each elements [(expr1, expr2)] *)

@@ -1,0 +1,7 @@
+node n (x, y: int) returns (p,q: int);
+(*@contract
+    guarantee p = q;
+*)
+let
+(p, q) = (x, y) + (y, x);
+tel
