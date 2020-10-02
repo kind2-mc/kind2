@@ -1,4 +1,4 @@
-function sincos(in: real) returns (sin: real; cos: real);
+function imported sincos(in: real) returns (sin: real; cos: real);
 (*@contract
   const max = 1.0;
   const pi = 3.14;
@@ -17,10 +17,6 @@ function sincos(in: real) returns (sin: real; cos: real);
     ensure sin <= 0.0;
   );
 *)
-let
-   sin = in;
-   cos = in;
-tel
 
 node X (in: real) returns (OK: bool);
 var inn: real ;
@@ -28,7 +24,7 @@ let
   inn = in ; 
   OK =
     exp(0.0 -> inn, 1.0 -> inn) > 0.0 or
-    sincos(0.0 -> inn + pre inn) + sincos(0.0 -> inn + pre inn) = [0.0, 0.0];
+    sincos(0.0 -> inn + pre inn) + sincos(0.0 -> inn + pre inn) = (0.0, 0.0);
 tel;
 
 node id (in: real) returns (out: int);
@@ -48,14 +44,11 @@ let
   --%MAIN ;
 tel;
 
-function exp (x, y: real) returns (out: real);
-(* -- contract
+function imported exp (x, y: real) returns (out: real);
+(* @contract
    guarantee out >= id(out);
    guarantee out <= sin(out);
 *)
-let
-out = x + y;
-tel
 
 function sin(in: real) returns (out: int);
 let
