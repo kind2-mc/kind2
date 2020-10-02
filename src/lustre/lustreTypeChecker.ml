@@ -123,7 +123,6 @@ let pp_print_u_types ppf = SI.iter (fun i -> LA.pp_print_ident ppf i)
                          
 type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
                   ; ty_ctx: ty_store        (* store of the types of identifiers and nodes*)
-                  ; fun_ctx: ty_store       (* store of the types of functions*)
                   ; contract_ctx: ty_store  (* store of the types of contracts*)
                   ; vl_ctx: const_store     (* store of typed constants to its value*)
                   ; u_types: ty_set         (* store of all declared user types,
@@ -133,7 +132,6 @@ type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings 
 
 let empty_context: tc_context = { ty_syns = IMap.empty
                                 ; ty_ctx = IMap.empty
-                                ; fun_ctx = IMap.empty
                                 ; contract_ctx = IMap.empty
                                 ; vl_ctx = IMap.empty
                                 ; u_types = SI.empty }
@@ -143,13 +141,11 @@ let pp_print_tc_context ppf ctx
   = Format.fprintf ppf
       ("Type Synonyms={%a}\n"
        ^^ "Type Context={%a}\n"
-       ^^ "Function Context={%a}\n"
        ^^ "Contract Context={%a}\n"
        ^^ "Const Store={%a}"
        ^^ "Declared Types={%a}")
       pp_print_ty_syns (ctx.ty_syns)
       pp_print_tymap (ctx.ty_ctx)
-      pp_print_tymap (ctx.fun_ctx)
       pp_print_tymap (ctx.contract_ctx)
       pp_print_vstore (ctx.vl_ctx)
       pp_print_u_types (ctx.u_types)
@@ -171,9 +167,6 @@ let member_ty: tc_context -> LA.ident -> bool
 
 let member_contract: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.contract_ctx)
-
-let member_function: tc_context -> LA.ident -> bool
-  = fun ctx i -> IMap.mem i (ctx.fun_ctx)
                
 let member_u_types : tc_context -> LA.ident -> bool
   = fun ctx i -> SI.mem i ctx.u_types
@@ -212,9 +205,6 @@ let add_ty: tc_context -> LA.ident -> tc_type -> tc_context
 
 let add_ty_contract: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with contract_ctx = IMap.add i ty (ctx.contract_ctx)}
-
-let add_ty_fun: tc_context -> LA.ident -> tc_type -> tc_context
-  = fun ctx i ty -> {ctx with fun_ctx = IMap.add i ty (ctx.fun_ctx)}
                   
 let add_ty_decl: tc_context -> LA.ident -> tc_context
   = fun ctx i -> {ctx with u_types = SI.add i (ctx.u_types)}
@@ -228,7 +218,6 @@ let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> tc_context
 let union: tc_context -> tc_context -> tc_context
   = fun ctx1 ctx2 -> { ty_syns = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.ty_syns) (ctx2.ty_syns))
                      ; ty_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.ty_ctx) (ctx2.ty_ctx))
-                     ; fun_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.fun_ctx) (ctx2.fun_ctx))
                      ; contract_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.contract_ctx) (ctx2.contract_ctx))
                      ; vl_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.vl_ctx) (ctx2.vl_ctx))
                      ; u_types = SI.union ctx1.u_types ctx2.u_types 
