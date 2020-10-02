@@ -1714,7 +1714,55 @@ let inline_constants_of_node_equation: tc_context -> LA.node_equation -> LA.node
   | (LA.Assert (pos, e)) -> (Assert (pos, simplify_expr ctx e))
   | (LA.Equation (pos, lhs, e)) -> (LA.Equation (pos, lhs, simplify_expr ctx e))
   | e -> e
-  
+
+let rec inline_constants_of_node_items: tc_context -> LA.node_item list -> LA.node_item list 
+  = fun ctx
+  -> function
+  | [] -> []
+  | (Body b) :: items ->
+     (Body (inline_constants_of_node_equation ctx b))
+     :: inline_constants_of_node_items ctx items
+  | (AnnotProperty (pos, n, e)) :: items ->
+     (AnnotProperty (pos, n, simplify_expr ctx e))
+     :: inline_constants_of_node_items ctx items
+  | e -> e
+
+let rec inline_constants_of_contract: tc_context -> LA.contract -> LA.contract =
+  fun ctx ->
+  function
+  | [] -> []
+  | (LA.GhostConst (FreeConst (pos, i, ty))) :: others ->
+     (LA.GhostConst (FreeConst (pos, i, ty)))
+     :: inline_constants_of_contract ctx others 
+  | (LA.GhostConst (UntypedConst (pos, i, e))) :: others ->
+     (LA.GhostConst (UntypedConst (pos, i, simplify_expr ctx e)))
+     :: inline_constants_of_contract ctx others 
+  | (LA.GhostConst (TypedConst (pos', i, e, ty))) :: others ->
+     (LA.GhostConst (TypedConst (pos', i, simplify_expr ctx e, ty)))
+     :: inline_constants_of_contract ctx others 
+  | (LA.GhostVar (FreeConst (pos, i, ty))) :: others ->
+     (LA.GhostVar (FreeConst (pos, i, ty)))
+     :: inline_constants_of_contract ctx others 
+  | (LA.GhostVar (UntypedConst (pos, i, e))) :: others ->
+     (LA.GhostVar (UntypedConst (pos, i, simplify_expr ctx e)))
+     :: inline_constants_of_contract ctx others 
+  | (LA.GhostVar (TypedConst (pos', i, e, ty))) :: others ->
+     (LA.GhostVar (TypedConst (pos', i, simplify_expr ctx e, ty)))
+     :: inline_constants_of_contract ctx others 
+  | (LA.Assume (pos, n, b, e)) :: others ->
+     (LA.Assume (pos, n, b, simplify_expr ctx e))
+     :: inline_constants_of_contract ctx others 
+  | (LA.Guarantee (pos, n, b, e)) :: others ->
+     (LA.Guarantee (pos, n, b, simplify_expr ctx e))
+     :: inline_constants_of_contract ctx others 
+  | (LA.Mode (pos, i, rs, es)) :: others ->
+     (LA.Mode (pos, i
+               , List.map (fun (p, s, e) -> (p, s, simplify_expr ctx e)) rs
+               , List.map (fun (p, s, e) -> (p, s, simplify_expr ctx e)) es))
+      :: inline_constants_of_contract ctx others
+   (* | (LA.ContractCall) :: others -> () :: inline_constants_of_contract ctx others  *)
+  | e -> e       
+
 let substitute: tc_context -> LA.declaration -> (tc_context * LA.declaration) = fun ctx ->
   function
   | ConstDecl (pos, FreeConst _) as c -> (ctx, c)
@@ -1725,19 +1773,11 @@ let substitute: tc_context -> LA.declaration -> (tc_context * LA.declaration) = 
      let e' = simplify_expr ctx e in 
      (add_const ctx i e' ty, ConstDecl (pos, TypedConst (pos', i, e', ty)))
   | (LA.NodeDecl (pos, (i, imported, params, ips, ops, ldecls, items, contract))) ->
-     let rec inline_constants_of_node_items: tc_context -> LA.node_item list -> LA.node_item list 
-       = fun ctx
-       -> function
-       | [] -> []
-       | (Body b) :: items ->
-          (Body (inline_constants_of_node_equation ctx b))
-          :: inline_constants_of_node_items ctx items
-       | (AnnotProperty (pos, n, e)) :: items ->
-          (AnnotProperty (pos, n, simplify_expr ctx e))
-          :: inline_constants_of_node_items ctx items
-       | e -> e
-     in
      ctx, (LA.NodeDecl (pos, (i, imported, params, ips, ops, ldecls, inline_constants_of_node_items ctx items, contract)))
+  | (LA.FuncDecl (pos, (i, imported, params, ips, ops, ldecls, items, contract))) ->
+     ctx, (LA.FuncDecl (pos, (i, imported, params, ips, ops, ldecls, inline_constants_of_node_items ctx items, contract)))
+  | (LA.ContractNodeDecl (pos, (i, params, ips, ops, contract))) ->
+     ctx, (LA.ContractNodeDecl (pos, (i, params, ips, ops, inline_constants_of_contract ctx contract)))
   | e -> (ctx, e)
 (** propogate constants post type checking into the AST and constant store*)
 
@@ -1821,12 +1861,13 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
                                ^^"===============================================\n")  
               (* inline constants in node body *)
               ; let (_, sorted_node_contract_decls') = inline_constants global_ctx' sorted_node_contract_decls in
-                Log.log L_trace ("%a\n=============================================\n"
+                Log.log L_trace ("%a\n%a\n=============================================\n"
                                  ^^ "Phase 3: Inline node constants done           \n"
                                  ^^"===============================================\n")
-                LA.pp_print_program sorted_node_contract_decls'
-              
-              ; report_tc_result tc_res
+                  LA.pp_print_program inlined_cs
+                  LA.pp_print_program sorted_node_contract_decls'
+                
+                ; report_tc_result tc_res
 (** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
  *  a [Ok ()] if it succeeds or and [Error of String] if the typechecker fails*)
            
