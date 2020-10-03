@@ -1464,7 +1464,7 @@ module IVC = struct
   let ivc_uc_timeout () = !ivc_uc_timeout
 
 
-  (*let ivc_disable_must_opt_default = false
+  let ivc_disable_must_opt_default = false
   let ivc_disable_must_opt = ref ivc_disable_must_opt_default
   let _ = add_spec
     "--ivc_disable_must_opt"
@@ -1478,8 +1478,8 @@ module IVC = struct
         "
         fmt_bool ivc_disable_must_opt_default
     )
-  let ivc_disable_must_opt () = !ivc_disable_must_opt*)
-  let ivc_disable_must_opt () = false
+  let ivc_disable_must_opt () = !ivc_disable_must_opt
+  (*let ivc_disable_must_opt () = false*)
 
 end
 
