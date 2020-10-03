@@ -606,7 +606,8 @@ module RunIVC: PostAnalysis = struct
 
               KEvent.log_with_tag L_warn Pretty.success_tag
                 (Format.asprintf "%s generated after %.3fs."
-                (if use_umivc || not (Flags.IVC.ivc_approximate ())
+                (if is_must_set then "MUST set"
+                else if use_umivc || not (Flags.IVC.ivc_approximate ())
                 then "Minimal IVC" else "Approximate minimal IVC") elapsed) ;
 
               let pt = ModelElement.pp_print_core_data in_sys param sys in
