@@ -181,16 +181,14 @@ let lookup_ty_syn: tc_context -> LA.ident -> tc_type
 (** picks out the type synonym from the context *)
 
 let lookup_ty: tc_context -> LA.ident -> tc_type
-  = fun ctx i -> let ty =
-                   (try IMap.find i (ctx.ty_ctx) with
-                    | Not_found -> Log.log L_error "Could not find definition of identifer %a" LA.pp_print_ident i
-                                 ; raise Not_found) in
-                 match ty with
-                 | LA.UserType (_, uid) ->
-                    if (member_ty_syn ctx uid)
-                    then (lookup_ty_syn ctx uid)
-                    else ty
-                 | _ ->  ty
+  = fun ctx i ->
+  let ty = IMap.find i (ctx.ty_ctx) in
+  match  ty with
+  | LA.UserType (_, uid) ->
+     if (member_ty_syn ctx uid)
+     then (lookup_ty_syn ctx uid)
+     else ty
+  | _ ->  ty
 (** Picks out the type from the variable to type context map *)
 
 let lookup_contract_ty: tc_context -> LA.ident -> tc_type
@@ -1291,7 +1289,9 @@ and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> unit tc_r
   = fun ctx st exp_ty ->
   match st with
   | SingleIdent (pos, i) ->
-     let inf_ty = lookup_ty ctx i in
+     (try (R.ok (lookup_ty ctx i)) with
+      | Not_found ->
+         type_error pos ("Could not find Identifier " ^ i)) >>= fun inf_ty ->  
      R.ifM (R.seqM (||) false [ eq_lustre_type ctx exp_ty inf_ty
                               ; eq_lustre_type ctx exp_ty (TupleType (pos,[inf_ty])) ])
        (if member_val ctx i
@@ -1633,10 +1633,13 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> bool tc_r
                       ; eq_lustre_type ctx ret_ty1 ret_ty2 ]
 
   (* special case for type synonyms *)
-  | UserType (_, u), ty
-    | ty, UserType (_, u) ->
+  | UserType (pos, u), ty
+    | ty, UserType (pos, u) ->
      if member_ty_syn ctx u
-     then let ty_alias  = lookup_ty_syn ctx u in 
+     then (try (R.ok (lookup_ty_syn ctx u)) with
+           | Not_found ->
+              type_error pos ("Cannot find definition of Identifier " ^ u))
+          >>= fun ty_alias ->
           eq_lustre_type ctx ty ty_alias
      else R.ok false
   (* Another special case for tuple equality type *)

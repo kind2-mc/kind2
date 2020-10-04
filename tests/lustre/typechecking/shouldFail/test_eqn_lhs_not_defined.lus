@@ -1,0 +1,80 @@
+type Command = enum {GO_DOWN, GO_UP};
+const THRESHOLD: real;
+const DELTA: real;
+const SENSOR_ERROR: real;
+
+node Abs(n: real) returns (r: real);
+let
+  r = if 0.0<=n then n else -n;
+tel
+node Min(a,b: real) returns (c: real);
+let
+  c = if a<=b then a else b;
+tel
+
+node TriplexVoter(alt1,alt2,alt3: real) returns (r: real);
+  var ad12,ad13,ad23: real;
+let
+  ad12 = Abs(alt1-alt2);
+  ad13 = Abs(alt1-alt3);
+  ad23 = Abs(alt2-alt3);
+  m = Min(ad12, Min(ad13, ad23));
+  r = if m=ad12 then (alt1+alt2)/2.0
+      else if m=ad13 then (alt1+alt3)/2.0
+      else (alt2+alt3)/2.0;
+tel
+
+contract ControllerSpec(alt1,alt2,alt3: real) returns (cmd: Command);
+let
+  var alt: real = TriplexVoter(alt1, alt2, alt3);
+  guarantee "A GO_DOWN command is issued if altitude is over THRESHOLD"
+    (alt > THRESHOLD) => cmd = GO_DOWN;
+tel
+
+node imported Controller(alt1,alt2,alt3: real) returns (cmd: Command);
+(*@contract
+  import ControllerSpec(alt1, alt2, alt3) returns (cmd);
+*)
+
+node imported Sensor(actual_alt: real) returns (sensor_alt: real);
+(*@contract
+  guarantee Abs(actual_alt-sensor_alt) <= SENSOR_ERROR;
+*)
+
+contract EnvSpec(cmd: Command) returns (alt: real);
+let
+  guarantee "G1: Altitude is zero initially"
+    (alt = 0.0) -> true;
+  guarantee "G2: Altitude is always greater than zero"
+    (alt >= 0.0);
+  guarantee "G3: After a GO_DOWN command, the drone descends"
+    true -> (pre cmd = GO_DOWN => alt < pre alt);
+  guarantee "G4: The drone do not descend more than DELTA units in one sampling frame" 
+    true -> (pre cmd = GO_DOWN => alt >= pre alt - DELTA);
+  guarantee "G5: After a GO_UP command, the drone ascends"
+    true -> (pre cmd = GO_UP => alt > pre alt);
+  guarantee "G6: The drone do not ascend more than DELTA units in one sampling frame"
+    true -> (pre cmd = GO_UP => alt <= pre alt + DELTA);
+tel
+node imported Env(cmd: Command) 
+  returns (alt: real);
+(*@contract
+  import EnvSpec(cmd) returns (alt);
+*)
+node SystemModel() returns (ok: bool);
+(*@contract
+  assume "A1: THRESHOLD is a positive amount" THRESHOLD>0.0;
+  assume "A2: DELTA is a positive amount" DELTA>0.0;
+  assume "A3: DELTA is smaller than THRESHOLD" DELTA<THRESHOLD;
+  assume "A4: SENSOR_ERROR is a non-negative amount" SENSOR_ERROR>=0.0;
+*)
+var cmd: Command;
+    alt,alt1,alt2,alt3: real;
+let
+  alt = Env(cmd);
+  alt1 = Sensor(alt);
+  alt2 = Sensor(alt);
+  alt3 = Sensor(alt);
+  cmd = Controller(alt1, alt2, alt3);
+  --%PROPERTY alt <= THRESHOLD + DELTA + SENSOR_ERROR;
+tel
