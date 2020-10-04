@@ -46,7 +46,7 @@ Error
 | -----------------------------             | ----------                                                             | ------   |
 | `abstract_type.lus`                       | Free type COUNTER used as numeric type                                 | F at TC  |
 | `array_node.lus`                          | Array assignment with implicit parameter & node call `(y[i] = n(a[i])` | ??????   |
-| `automaton_ab.lus`                        | Automaton is not supported                                             |          |
+| `automaton_ab.lus`                        | Automaton is not supported                                             | TODO     |
 | `bv-sh-exception.lus`                     | Expect a constant argument to rsh  operator                            | F at TC  |
 | `check_type.lus`                          | Basic syntactic type check                                             | F at TC  |
 | `circular_contracts.lus `                 | Contract declaration has circularity                                   | F at TC  |
@@ -55,26 +55,26 @@ Error
 | `cocospec_out_param.lus`                  | In parameters should be different than out parameters                  | F at TC  |
 | `const_not_const.lus`                     | Constant decls should not have arrow                                   | F at TC  |
 | `empty_range.lus`                         | Subrange is empty eg. `subrange [1,0] of int`                          | NA       |
-| `function_no_arrow_in_body.lus`           |                                                                        | NA       |
-| `function_no_node_call.lus`               |                                                                        | NA       |
-| `function_no_pre_in_body.lus`             |                                                                        | NA       |
-| `function_no_stateful_contract.lus`       |                                                                        | NA       |
-| `function_stateful_contract_import.lus`   |                                                                        | NA         |
+| `function_no_arrow_in_body.lus`           | Function State detection                                               | NA       |
+| `function_no_node_call.lus`               | Function State detection                                               | NA       |
+| `function_no_pre_in_body.lus`             | Function State detection                                               | NA       |
+| `function_no_stateful_contract.lus`       | Function State detection                                               | NA       |
+| `function_stateful_contract_import.lus`   | Function State detection                                               | NA       |
 | `imported_fun_no_body.lus`                | Syntax error                                                           | NA       |
 | `imported_node_no_body.lus`               | Syntax error                                                           | NA       |
-| `merge_enum.lus`                          | Exhaustive match of merge on enums                                     |          |
-| `merge_enum1.lus`                         | Unique match for merge on enums                                        |          |
-| `merge_enum2.lus`                         | Clock mismatch for merge on enums                                      |          |
+| `merge_enum.lus`                          | Exhaustive match of merge on enums                                     | NA       |
+| `merge_enum1.lus`                         | Unique match for merge on enums                                        | NA       |
+| `merge_enum2.lus`                         | Clock mismatch for merge on enums                                      | NA       |
 | `mode_reqs_by_idents_no_forward_ref.lus`  |                                                                        | TODO     |
 | `mode_reqs_by_idents_no_self_ref.lus`     |                                                                        | TODO     |
 | `no_contracts_in_contract.lus`            |                                                                        | NA       |
 | `test-func-sliced.lus`                    |                                                                        | Disabled |
 | `test-nodes.lus`                          |                                                                        | ????     |
 | `test-type.lus`                           |                                                                        | F at TC  |
-| `undefined_local.lus`                     | local variable is not defined before use                               |          |
-| `unguarded_pre_in_contract.lus`           |                                                                        |          |
-| `unguarded_pre_in_contract_call.lus`      |                                                                        |          |
-| `unguarded_pre_node_call_in_contract.lus` |                                                                        |          |
+| `undefined_local.lus`                     | local variable is not defined before use                               | NA       |
+| `unguarded_pre_in_contract.lus`           | Syntax check                                                           | NA       |
+| `unguarded_pre_in_contract_call.lus`      | Syntax check                                                           | NA       |
+| `unguarded_pre_node_call_in_contract.lus` | Syntax check                                                           | NA       |
 
 Falsifiable
 -----------
