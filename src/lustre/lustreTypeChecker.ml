@@ -281,20 +281,22 @@ let lift_bool: bool -> LA.constant = function
   
 let rec eval_int_expr: tc_context -> LA.expr -> int tc_result = fun ctx ->
   function
-  | LA.Ident (pos, i) -> let (const_expr, expr_type) = lookup_const ctx i in
-                         if is_normal_form ctx const_expr
-                         then int_value_of_const const_expr
-                         else (match const_expr with
-                               | LA.Ident (_, i') as e ->
-                                  if Stdlib.compare i i' = 0
-                                  then type_error pos ("Cannot evaluate a free int const "
-                                                       ^ i ^ ".")
-                                  else eval_int_expr ctx e 
-                               | _ -> eval_int_expr ctx const_expr) 
+  | LA.Ident (pos, i) ->
+     (try (let (const_expr, expr_type) = lookup_const ctx i in
+         if is_normal_form ctx const_expr
+         then int_value_of_const const_expr
+         else (match const_expr with
+               | LA.Ident (_, i') as e ->
+                  if Stdlib.compare i i' = 0
+                  then type_error pos ("Cannot evaluate a free int const "
+                                       ^ i ^ ".")
+                  else eval_int_expr ctx e 
+               | _ -> eval_int_expr ctx const_expr)) with
+    | Not_found -> type_error pos ("Not a constant identifier" ^ i))  
   | LA.Const _ as c -> int_value_of_const c
   | LA.BinaryOp (pos, bop, e1, e2) -> eval_int_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_int_ternary_op ctx pos top e1 e2 e3
-  | _ -> Lib.todo __LOC__
+  | e -> type_error (LH.pos_of_expr e) ("Cannot evaluate expression" ^ string_of_expr e)  
 (** try and evalutate expression to int, return error otherwise *)
 
 and eval_int_binary_op: tc_context -> Lib.position -> LA.binary_operator -> LA.expr -> LA.expr -> int tc_result =
@@ -313,21 +315,23 @@ and eval_int_binary_op: tc_context -> Lib.position -> LA.binary_operator -> LA.e
              
 and eval_bool_expr: tc_context -> LA.expr -> bool tc_result = fun ctx ->
   function
-  | LA.Ident (pos, i) -> let (const_expr, expr_type) = lookup_const ctx i in
-                       if is_normal_form ctx const_expr
-                       then bool_value_of_const const_expr
-                       else (match const_expr with
-                               | LA.Ident (_, i') as e ->
-                                  if (Stdlib.compare i i' = 0)
-                                  then type_error pos ("Cannot evaluate a free bool const "
-                                                       ^ i ^ ".")
-                                  else eval_bool_expr ctx e 
-                               | _ ->  eval_bool_expr ctx const_expr)
+  | LA.Ident (pos, i) ->
+     (try (let (const_expr, expr_type) = lookup_const ctx i in
+           if is_normal_form ctx const_expr
+           then bool_value_of_const const_expr
+           else (match const_expr with
+                 | LA.Ident (_, i') as e ->
+                    if (Stdlib.compare i i' = 0)
+                    then type_error pos ("Cannot evaluate a free bool const "
+                                         ^ i ^ ".")
+                    else eval_bool_expr ctx e 
+                 | _ ->  eval_bool_expr ctx const_expr)) with
+      | Not_found -> type_error pos ("Not a constant cannot evaluate identifier " ^ i))
   | LA.Const _ as c -> bool_value_of_const c
   | LA.BinaryOp (pos, bop, e1, e2) -> eval_bool_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_bool_ternary_op ctx pos top e1 e2 e3
   | LA.CompOp (pos, cop, e1, e2) -> eval_comp_op ctx pos cop e1 e2
-  | _ -> Lib.todo __LOC__    
+  | e -> type_error (LH.pos_of_expr e) ("Cannot evaluate expression" ^ string_of_expr e)  
 (** try and evalutate expression to bool, return error otherwise *)
 
 and eval_bool_binary_op: tc_context -> Lib.position -> LA.binary_operator -> LA.expr -> LA.expr -> bool tc_result = 
