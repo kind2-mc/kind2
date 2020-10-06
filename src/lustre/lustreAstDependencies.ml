@@ -20,7 +20,12 @@
     Builds a dependency graph of the lustre declarations,
     to detect circular dependencies and reject them and
     re-orders node and contract declarations to resolve
-    forward references   
+    forward references.
+
+    Note {Types of graph analysis}: There are three different kinds of graph dependency analysis done here.
+    1. Top level constants and type declarations (starts at [mk_graph_decls]) 
+    2. Between Nodes and contracts (starts at [mk_graph_decls])
+    3. TODO: Equations of nodes, Equations of contracts        
 
    @author: Apoorv Ingle *)
 
@@ -98,16 +103,15 @@ let rec mk_graph_type: LA.lustre_type -> (G.t * id_pos_map) = function
   | Int32 _
   | Int64 _
   | Real _
-  | EnumType _ -> (G.empty, IMap.empty)
-  | IntRange (_, e1, e2) -> let g1, pos_m1 = (mk_graph_expr e1) in
-                            let g2, pos_m2 = (mk_graph_expr e2) in
-                            (G.union g1 g2, union_pos pos_m1 pos_m2)
+  | EnumType _ -> empty_g_pos
+  | IntRange (_, e1, e2) -> union_g_pos (mk_graph_expr e1) (mk_graph_expr e2)
   | UserType (pos, i) -> singleton_g_pos ty_suffix i pos
   | AbstractType (pos, i) -> singleton_g_pos ty_suffix i pos
   | TupleType (pos, tys) -> List.fold_left union_g_pos empty_g_pos  (List.map (fun t -> mk_graph_type t) tys)
   | RecordType (pos, ty_ids) -> List.fold_left union_g_pos empty_g_pos (List.map (fun (_, _, t) -> mk_graph_type t) ty_ids)
   | ArrayType (_, (ty, e)) -> union_g_pos (mk_graph_type ty) (mk_graph_expr e)
   | TArr (_, aty, rty) -> union_g_pos (mk_graph_type aty) (mk_graph_type rty)
+(** This graph is useful for analyzing top level constant and type declarations *)
       
 and mk_graph_expr: LA.expr -> (G.t * id_pos_map)
   = function
@@ -133,7 +137,8 @@ and mk_graph_expr: LA.expr -> (G.t * id_pos_map)
   | LA.Arrow (_, e1, e2) ->  union_g_pos (mk_graph_expr e1) (mk_graph_expr e2)
   | LA.ModeRef (pos, ids) -> singleton_g_pos mode_suffix (List.nth ids (List.length ids - 1) ) pos 
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))  
-  
+(** This graph is useful for analyzing top level constant and type declarations *)
+       
 let mk_graph_const_decl: LA.const_decl -> (G.t * id_pos_map)
   = function
   | LA.FreeConst (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (const_suffix ^ i) pos
@@ -195,11 +200,16 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   (* Node calls *)
   | LA.Call (pos, i, es) -> (node_suffix ^ i, pos) :: List.flatten (List.map get_node_call_from_expr es)
   | LA.CallParam _ -> []
-
+(** Returns all the node calls from an expression *)
 
 let  mk_graph_contract_node_eqn: LA.contract_node_equation -> (G.t * id_pos_map)
   = function
-  | LA.ContractCall (pos, i, _, _) -> singleton_g_pos contract_suffix i pos
+  | LA.ContractCall (pos, i, es, _) ->
+     union_g_pos
+       (singleton_g_pos contract_suffix i pos)
+       (List.fold_left union_g_pos empty_g_pos
+          (List.map (fun (i, p) -> singleton_g_pos node_suffix i p)
+             (List.flatten (List.map get_node_call_from_expr es))))
   | LA.Assume (_, _, _, e) ->
      List.fold_left union_g_pos empty_g_pos
        (List.map (fun (i, p) -> singleton_g_pos node_suffix i p) (get_node_call_from_expr e))
@@ -220,12 +230,13 @@ let  mk_graph_contract_node_eqn: LA.contract_node_equation -> (G.t * id_pos_map)
      | TypedConst (pos, i, e, ty) ->
         List.fold_left union_g_pos empty_g_pos
           (List.map (fun (i, p) -> singleton_g_pos node_suffix i p) (get_node_call_from_expr e))
-
+(** This builds a graph with all the node call dependencies from the equations of the contract  *)
                     
 let mk_graph_contract_decl: Lib.position -> LA.contract_node_decl -> (G.t * id_pos_map)
   = fun pos (i , _, _, _, c) ->
   connect_g_pos (List.fold_left union_g_pos empty_g_pos (List.map mk_graph_contract_node_eqn c))
   (contract_suffix ^ i) pos
+(** This builds a graph with all the node call dependencies from the equations of the contract  *)
        
 let extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
   = List.fold_left
@@ -237,7 +248,8 @@ let extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
              | LA.Equation (_, _, e) -> get_node_call_from_expr e
              | LA.Automaton _ -> [] ) (* We do not support automation yet. *)
          | _ -> []) @ acc) [] 
-       
+(** Extracts all the node calls from a node item *)
+  
 let mk_graph_node_decl: Lib.position -> LA.node_decl -> (G.t * id_pos_map)
   = fun pos (i, _, _, _, _, _, nitems, contract_opt) ->
   let cg = connect_g_pos
@@ -248,7 +260,8 @@ let mk_graph_node_decl: Lib.position -> LA.node_decl -> (G.t * id_pos_map)
              (node_suffix^i) pos in
   let node_refs = extract_node_calls nitems in
   List.fold_left (fun g (nr, p) -> union_g_pos g (connect_g_pos (singleton_g_pos node_suffix nr p) i pos)) cg node_refs
-                         
+(** Builds a dependency graph between the node in question to node calls 
+ *  seen in the definition of the node and the inlined contract *)
 
 let add_decl: 'a IMap.t -> LA.ident -> 'a -> 'a IMap.t
   = fun m i dec -> IMap.add i dec m
@@ -289,6 +302,76 @@ let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) g
   | LA.NodeParamInst _ :: _-> Lib.todo __LOC__
 (** builds an id :-> decl map  *)
 
+             
+let mk_graph_decls: LA.t -> (G.t * id_pos_map) 
+  = let mk_graph: LA.declaration -> (G.t * id_pos_map) = function
+      | TypeDecl (pos, tydecl) -> mk_graph_type_decl tydecl 
+      | ConstDecl (pos, cdecl) -> mk_graph_const_decl cdecl
+      | NodeDecl (pos, ndecl) -> mk_graph_node_decl pos ndecl
+      | FuncDecl (pos, ndecl) -> mk_graph_node_decl pos ndecl
+      | ContractNodeDecl (pos, cdecl) -> mk_graph_contract_decl pos cdecl
+      | NodeParamInst  _ -> Lib.todo __LOC__ in
+    fun decls ->
+    List.fold_left union_g_pos empty_g_pos (List.map mk_graph decls)
+(** Builds a dependency graph for top-level types and constant defintions (for type 1 analysis) 
+   and nodes and contracts (for type 2 analysis)
+   Please see the Note {Types of graph analysis} for more information about different kinds of
+   dependency analysis  *)
+
+let mk_graph_contract_eqns: LA.contract -> (G.t * id_pos_map)
+  = let mk_graph: LA.contract_node_equation -> (G.t * id_pos_map)
+      = function
+      | LA.GhostConst c -> mk_graph_const_decl c
+        | LA.GhostVar c -> mk_graph_const_decl c
+        | LA.Assume _
+        | LA.Guarantee _
+        | LA.Mode _
+        | LA.ContractCall _ -> empty_g_pos in 
+    fun eqns ->
+    List.fold_left union_g_pos empty_g_pos (List.map mk_graph eqns)
+  
+let rec extract_decls: ('a IMap.t * id_pos_map) -> LA.ident list -> ('a list) graph_result
+  = fun (decl_map, i_pos_map) ->
+  function
+  | [] -> R.ok []
+  | i :: is -> (try (R.ok (IMap.find i decl_map)) with
+                | Not_found -> match (find_id_pos i_pos_map i) with
+                                   | None -> failwith ("Identifier " ^ i ^ " not found. This should not happen")
+                                   | Some p -> graph_error p ("Identifier " ^ i ^ " is not defined."))
+               >>= (fun d -> (extract_decls (decl_map, i_pos_map) is)
+                             >>= (fun ds -> R.ok (d :: ds)))
+(** Given a list of ids, finds the associated payload from the playload map *)
+             
+let sort_decls: ('a IMap.t -> 'a list -> 'a IMap.t graph_result)
+                -> ('a list -> (G.t * id_pos_map))
+                -> 'a list -> ('a list) graph_result
+  = fun mk_map mk_graph decls ->
+  (* 1. make an id :-> decl map  *)
+  mk_map IMap.empty decls >>= fun decl_map ->
+  (* 2. build a dependency graph *)
+  let (dg, pos_info) = mk_graph decls in
+  (* 3. try to sort it, raise an error if it is cyclic, or extract sorted decls from the decl_map *)
+  (try (R.ok (G.topological_sort dg)) with
+   | Graph.CyclicGraphException ids ->
+      if List.length ids > 1
+      then (match (find_id_pos pos_info (List.hd ids)) with
+            | None -> failwith ("Cyclic dependency found but Cannot find position for id: "
+                                ^ (List.hd ids) ^ " This should not happen!") 
+            | Some p -> graph_error p
+             ("Cyclic dependency detected in definition of identifiers: "
+              ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
+      else failwith "Cyclic dependency with no ids detected. This should not happen!")
+  >>= fun sorted_ids -> let dependency_sorted_ids = List.rev sorted_ids in
+                        Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  dependency_sorted_ids;
+                          extract_decls (decl_map, pos_info) dependency_sorted_ids
+(** Accepts a function to generate a declaration map, 
+    a function to generate the graph of the declarations,
+    runs a topological sort on the ids extracted from the map and then 
+    returns the sorted declarations (or an error if circular dependency is detected)  *)
+let sort_declarations = sort_decls mk_decl_map mk_graph_decls
+
+
+
 let rec mk_contract_map: LA.contract_node_equation IMap.t -> LA.contract -> (LA.contract_node_equation IMap.t) graph_result
   = fun m -> function
   | [] -> R.ok m
@@ -321,66 +404,5 @@ let rec mk_contract_map: LA.contract_node_equation IMap.t -> LA.contract -> (LA.
      mk_contract_map m' eqns 
   | LA.ContractCall _ :: eqns -> mk_contract_map m eqns
 
-             
-let mk_graph_decls: LA.t -> (G.t * id_pos_map) 
-  = let mk_graph: LA.declaration -> (G.t * id_pos_map) = function
-      | TypeDecl (pos, tydecl) -> mk_graph_type_decl tydecl 
-      | ConstDecl (pos, cdecl) -> mk_graph_const_decl cdecl
-      | NodeDecl (pos, ndecl) -> mk_graph_node_decl pos ndecl
-      | FuncDecl (pos, ndecl) -> mk_graph_node_decl pos ndecl
-      | ContractNodeDecl (pos, cdecl) -> mk_graph_contract_decl pos cdecl
-      | NodeParamInst  _ -> Lib.todo __LOC__ in
-    fun decls ->
-    List.fold_left union_g_pos empty_g_pos (List.map mk_graph decls)
-
-let mk_graph_contract_eqns: LA.contract -> (G.t * id_pos_map)
-  = let mk_graph: LA.contract_node_equation -> (G.t * id_pos_map)
-      = function
-      | LA.GhostConst c -> mk_graph_const_decl c
-        | LA.GhostVar c -> mk_graph_const_decl c
-        | LA.Assume _
-        | LA.Guarantee _
-        | LA.Mode _
-        | LA.ContractCall _ -> empty_g_pos in 
-    fun eqns ->
-    List.fold_left union_g_pos empty_g_pos (List.map mk_graph eqns)
-  
-  
-let rec extract_decls: ('a IMap.t * id_pos_map) -> LA.ident list -> ('a list) graph_result
-  = fun (decl_map, i_pos_map) ->
-  function
-  | [] -> R.ok []
-  | i :: is -> (try (R.ok (IMap.find i decl_map)) with
-                | Not_found -> match (find_id_pos i_pos_map i) with
-                                   | None -> failwith ("Identifier " ^ i ^ " not found. This should not happen")
-                                   | Some p -> graph_error p ("Identifier " ^ i ^ " is not defined."))
-               >>= (fun d -> (extract_decls (decl_map, i_pos_map) is)
-                             >>= (fun ds -> R.ok (d :: ds)))
-    
-let sort_decls: ('a IMap.t -> 'a list -> 'a IMap.t graph_result)
-                -> ('a list -> (G.t * id_pos_map))
-                -> 'a list -> ('a list) graph_result
-  = fun mk_map mk_graph decls ->
-  (* 1. make an id :-> decl map  *)
-  mk_map IMap.empty decls >>= fun decl_map ->
-  (* 2. build a dependency graph *)
-  let (dg, pos_info) = mk_graph decls in
-  (* 3. try to sort it, raise an error if it is cyclic, or extract sorted decls from the decl_map *)
-  (try (R.ok (G.topological_sort dg)) with
-   | Graph.CyclicGraphException ids ->
-      if List.length ids > 1
-      then (match (find_id_pos pos_info (List.hd ids)) with
-            | None -> failwith ("Cyclic dependency found but Cannot find position for id: "
-                                ^ (List.hd ids) ^ " This should not happen!") 
-            | Some p -> graph_error p
-             ("Cyclic dependency detected in definition of identifiers: "
-              ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
-      else failwith "Cyclic dependency with no ids detected. This should not happen!")
-  >>= fun sorted_ids -> let dependency_sorted_ids = List.rev sorted_ids in
-                        Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  dependency_sorted_ids;
-                          extract_decls (decl_map, pos_info) dependency_sorted_ids
-
-let sort_declarations = sort_decls mk_decl_map mk_graph_decls
-
-let sort_contract_equations = sort_decls mk_contract_map mk_graph_contract_eqns
+let analyze_contract_equations = sort_decls mk_contract_map mk_graph_contract_eqns
                                 
