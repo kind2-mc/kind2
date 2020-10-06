@@ -226,12 +226,14 @@ let extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
        
 let mk_graph_node_decl: Lib.position -> LA.node_decl -> (G.t * id_pos_map)
   = fun pos (i, _, _, _, _, _, nitems, contract_opt) ->
-  let cg = connect_g_pos (match contract_opt with
-                      | None -> empty_g_pos
-                      | Some c -> List.fold_left union_g_pos empty_g_pos
-                                    (List.map mk_graph_contract_node_eqn c)) (node_suffix^i) pos in
+  let cg = connect_g_pos
+             (match contract_opt with
+              | None -> empty_g_pos
+              | Some c -> List.fold_left union_g_pos empty_g_pos
+                            (List.map mk_graph_contract_node_eqn c))
+             (node_suffix^i) pos in
   let node_refs = extract_node_calls nitems in
-  List.fold_left (fun g (nr, p) -> union_g_pos g (singleton_g_pos node_suffix nr p)) cg node_refs
+  List.fold_left (fun g (nr, p) -> union_g_pos g (connect_g_pos (singleton_g_pos node_suffix nr p) i pos)) cg node_refs
                          
 
 let add_decl: 'a IMap.t -> LA.ident -> 'a -> 'a IMap.t
@@ -352,9 +354,14 @@ let sort_decls: ('a IMap.t -> 'a list -> 'a IMap.t graph_result)
   (* 3. try to sort it, raise an error if it is cyclic, or extract sorted decls from the decl_map *)
   (try (R.ok (G.topological_sort dg)) with
    | Graph.CyclicGraphException ids ->
-      graph_error Lib.dummy_pos
-        ("Cyclic dependency detected in definition of identifiers: "
-  ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
+      if List.length ids > 1
+      then (match (find_id_pos pos_info (List.hd ids)) with
+            | None -> failwith ("Cyclic dependency found but Cannot find position for id: "
+                                ^ (List.hd ids) ^ " This should not happen!") 
+            | Some p -> graph_error p
+             ("Cyclic dependency detected in definition of identifiers: "
+              ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
+      else failwith "Cyclic dependency with no ids detected. This should not happen!")
   >>= fun sorted_ids -> let dependency_sorted_ids = List.rev sorted_ids in
                         Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  dependency_sorted_ids;
                           extract_decls (decl_map, pos_info) dependency_sorted_ids

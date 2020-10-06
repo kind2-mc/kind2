@@ -1,4 +1,3 @@
-
 node mod_real(x, y: real;)returns( z: real );
 (*@contract
         assume abs_real(z) < abs_real(y);
@@ -9,5 +8,5 @@ tel
 
 node abs_real (x: real) returns(y:real);
 let
-y = if x >= 0.0 then mod_real(x) else -x;
+y = if x >= 0.0 then mod_real(x, x) else -x;
 tel
