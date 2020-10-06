@@ -176,26 +176,26 @@ let member_u_types : tc_context -> LA.ident -> bool
 let member_val: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.vl_ctx)
 
-let lookup_ty_syn: tc_context -> LA.ident -> tc_type
-  = fun ctx i -> IMap.find i (ctx.ty_syns)
+let lookup_ty_syn: tc_context -> LA.ident -> tc_type option 
+  = fun ctx i -> IMap.find_opt i (ctx.ty_syns)
 (** picks out the type synonym from the context *)
 
-let lookup_ty: tc_context -> LA.ident -> tc_type
+let lookup_ty: tc_context -> LA.ident -> tc_type option
   = fun ctx i ->
   let ty = IMap.find i (ctx.ty_ctx) in
-  match  ty with
+  match ty with
   | LA.UserType (_, uid) ->
-     if (member_ty_syn ctx uid)
-     then (lookup_ty_syn ctx uid)
-     else ty
-  | _ ->  ty
+     (match (lookup_ty_syn ctx uid) with
+     | None -> Some ty
+     | Some ty' -> Some ty') 
+  | _ ->  Some ty
 (** Picks out the type from the variable to type context map *)
 
-let lookup_contract_ty: tc_context -> LA.ident -> tc_type
-  = fun ctx i -> IMap.find i (ctx.contract_ctx)
+let lookup_contract_ty: tc_context -> LA.ident -> tc_type option
+  = fun ctx i -> IMap.find_opt i (ctx.contract_ctx)
                           
-let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type)
-  = fun ctx i -> IMap.find i (ctx.vl_ctx)
+let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type) option
+  = fun ctx i -> IMap.find_opt i (ctx.vl_ctx)
 
 let add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with ty_syns = IMap.add i ty (ctx.ty_syns)}
@@ -280,7 +280,8 @@ let lift_bool: bool -> LA.constant = function
 let rec eval_int_expr: tc_context -> LA.expr -> int tc_result = fun ctx ->
   function
   | LA.Ident (pos, i) ->
-     (try (let (const_expr, expr_type) = lookup_const ctx i in
+     (match (lookup_const ctx i) with
+      | Some (const_expr, expr_type) ->
          if is_normal_form ctx const_expr
          then int_value_of_const const_expr
          else (match const_expr with
@@ -289,8 +290,8 @@ let rec eval_int_expr: tc_context -> LA.expr -> int tc_result = fun ctx ->
                   then type_error pos ("Cannot evaluate a free int const "
                                        ^ i ^ ".")
                   else eval_int_expr ctx e 
-               | _ -> eval_int_expr ctx const_expr)) with
-    | Not_found -> type_error pos ("Not a constant identifier" ^ i))  
+               | _ -> eval_int_expr ctx const_expr)
+      | None -> type_error pos ("Not a constant identifier" ^ i))  
   | LA.Const _ as c -> int_value_of_const c
   | LA.BinaryOp (pos, bop, e1, e2) -> eval_int_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_int_ternary_op ctx pos top e1 e2 e3
@@ -314,17 +315,18 @@ and eval_int_binary_op: tc_context -> Lib.position -> LA.binary_operator -> LA.e
 and eval_bool_expr: tc_context -> LA.expr -> bool tc_result = fun ctx ->
   function
   | LA.Ident (pos, i) ->
-     (try (let (const_expr, expr_type) = lookup_const ctx i in
-           if is_normal_form ctx const_expr
-           then bool_value_of_const const_expr
-           else (match const_expr with
-                 | LA.Ident (_, i') as e ->
-                    if (Stdlib.compare i i' = 0)
-                    then type_error pos ("Cannot evaluate a free bool const "
-                                         ^ i ^ ".")
-                    else eval_bool_expr ctx e 
-                 | _ ->  eval_bool_expr ctx const_expr)) with
-      | Not_found -> type_error pos ("Not a constant cannot evaluate identifier " ^ i))
+     (match (lookup_const ctx i) with
+      | Some (const_expr, expr_type) ->
+         if is_normal_form ctx const_expr
+         then bool_value_of_const const_expr
+         else (match const_expr with
+               | LA.Ident (_, i') as e ->
+                  if (Stdlib.compare i i' = 0)
+                  then type_error pos ("Cannot evaluate a free bool const "
+                                       ^ i ^ ".")
+                  else eval_bool_expr ctx e 
+               | _ ->  eval_bool_expr ctx const_expr)
+      | None -> type_error pos ("Not a constant cannot evaluate identifier " ^ i))
   | LA.Const _ as c -> bool_value_of_const c
   | LA.BinaryOp (pos, bop, e1, e2) -> eval_bool_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_bool_ternary_op ctx pos top e1 e2 e3
@@ -414,14 +416,15 @@ and simplify_expr: tc_context -> LA.expr -> LA.expr = fun ctx ->
   function
   | LA.Const _ as c -> c
   | LA.Ident (pos, i) ->
-     (try (let (const_expr, _) = lookup_const ctx i in
-     (match const_expr with
-      | LA.Ident (_, i') as ident' ->
-         if Stdlib.compare i i' = 0 (* If This is a free constant *)
-         then ident' 
-         else simplify_expr ctx ident'
-      | _ -> simplify_expr ctx const_expr)) with
-     | Not_found -> LA.Ident (pos, i))
+     (match (lookup_const ctx i) with
+      | Some (const_expr, _) ->
+         (match const_expr with
+          | LA.Ident (_, i') as ident' ->
+             if Stdlib.compare i i' = 0 (* If This is a free constant *)
+             then ident' 
+             else simplify_expr ctx ident'
+          | _ -> simplify_expr ctx const_expr)
+      | None -> LA.Ident (pos, i))
   | LA.BinaryOp (pos, bop, e1, e2) as e->
      let e1' = simplify_expr ctx e1 in
      let e2' = simplify_expr ctx e2 in
@@ -477,12 +480,14 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   = fun ctx -> function
   (* Identifiers *)
   | LA.Ident (pos, i) ->
-     (try R.ok (lookup_ty ctx i) with
-      | Not_found -> type_error pos ("Unbound identifier: " ^ i)) 
+     (match (lookup_ty ctx i) with
+     | None -> type_error pos ("Unbound identifier: " ^ i) 
+     | Some ty -> R.ok ty) 
   | LA.ModeRef (pos, is) ->      
      let lookup_mode_ty ctx i =
-       (try R.ok (lookup_ty ctx i) with
-        | Not_found -> type_error pos ("Unbound identifier: " ^ i)) in
+       match (lookup_ty ctx i) with
+       | None -> type_error pos ("Unbound identifier: " ^ i)
+       | Some ty -> R.ok ty in
      (R.seq (List.map (lookup_mode_ty ctx) is))
      >>= (fun tys ->
          if List.length tys = 1
@@ -701,8 +706,8 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
         >>= (fun arg_tys ->
           if List.length arg_tys = 1 then R.ok (List.hd arg_tys)
           else R.ok (LA.TupleType (pos, arg_tys))) in
-      (try (match (lookup_ty ctx i) with
-            | TArr (_, exp_arg_tys, exp_ret_tys) ->
+      (match (lookup_ty ctx i) with
+            | Some (TArr (_, exp_arg_tys, exp_ret_tys)) ->
                infer_type_node_args ctx arg_exprs
                >>= (fun given_arg_tys ->
                 R.ifM (eq_lustre_type ctx exp_arg_tys given_arg_tys)
@@ -711,10 +716,10 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                                            ^ string_of_tc_type exp_arg_tys
                                            ^ " but found type "
                                            ^ string_of_tc_type given_arg_tys)))
-            | ty -> type_error pos
+            | Some ty -> type_error pos
                       ("Expected node type to be a function type, but found type "
-                       ^ string_of_tc_type ty)) with
-       | Not_found -> type_error pos ("No node with name: " ^ i ^ " found"))  
+                       ^ string_of_tc_type ty)
+            | None -> type_error pos ("No node with name: " ^ i ^ " found"))
   | LA.CallParam _ -> Lib.todo __LOC__
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
@@ -1171,12 +1176,13 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
   fun ctx const_decl exp_ty ->
   match const_decl with
   | FreeConst (pos, i, _) ->
-     let inf_ty = (lookup_ty ctx i) in
-     R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
+     (match (lookup_ty ctx i) with
+     | None -> failwith "Free constant should have an associated type"
+     | Some inf_ty -> R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
        (type_error pos
               ("Identifier constant " ^ i
                ^ " expected to have type " ^ string_of_tc_type inf_ty
-               ^ " but found type " ^ string_of_tc_type exp_ty))
+               ^ " but found type " ^ string_of_tc_type exp_ty)))
   | UntypedConst (pos, i, e) ->
      infer_type_expr ctx e
      >>= fun inf_ty ->
@@ -1289,9 +1295,10 @@ and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> unit tc_r
   = fun ctx st exp_ty ->
   match st with
   | SingleIdent (pos, i) ->
-     (try (R.ok (lookup_ty ctx i)) with
-      | Not_found ->
-         type_error pos ("Could not find Identifier " ^ i)) >>= fun inf_ty ->  
+     (match (lookup_ty ctx i) with
+      | None ->
+         type_error pos ("Could not find Identifier " ^ i)
+      | Some ty -> R.ok ty) >>= fun inf_ty ->  
      R.ifM (R.seqM (||) false [ eq_lustre_type ctx exp_ty inf_ty
                               ; eq_lustre_type ctx exp_ty (TupleType (pos,[inf_ty])) ])
        (if member_val ctx i
@@ -1413,15 +1420,17 @@ and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contr
                         then List.hd arg_tys
                         else LA.TupleType (pos, arg_tys) in
            let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
-           try let inf_ty = (lookup_contract_ty ctx cname) in
+           (match (lookup_contract_ty ctx cname) with
+            | Some inf_ty -> 
                R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
                  (type_error pos ("Contract " ^ cname
                                   ^ " expected to have type " ^ string_of_tc_type exp_ty
                                   ^ " but found type " ^ string_of_tc_type inf_ty))
-           with
-           | Not_found -> type_error pos ("Undefined or not in scope contract name " ^ cname)
-         else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
-                                Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements common_ids)) 
+            | None -> type_error pos ("Undefined or not in scope contract name " ^ cname))
+         else type_error pos ("Input and output parameters cannot have common identifers, "
+                              ^ "but found common parameters: "
+                              ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",")
+                                  (LA.SI.elements common_ids)) 
 
 and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_context tc_result 
   = fun ?is_const:(is_const=true) ctx ->
@@ -1636,9 +1645,10 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> bool tc_r
   | UserType (pos, u), ty
     | ty, UserType (pos, u) ->
      if member_ty_syn ctx u
-     then (try (R.ok (lookup_ty_syn ctx u)) with
-           | Not_found ->
-              type_error pos ("Cannot find definition of Identifier " ^ u))
+     then (match (lookup_ty_syn ctx u) with
+           | None ->
+              type_error pos ("Cannot find definition of Identifier " ^ u)
+           | Some ty -> R.ok ty)
           >>= fun ty_alias ->
           eq_lustre_type ctx ty ty_alias
      else R.ok false
@@ -1693,10 +1703,16 @@ let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
   | (LA.TypeDecl _ :: rest) 
     | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  
   | LA.NodeDecl (pos, ((i, _,_, _, _, _, _, _) as node_decl)) :: rest ->
-     (check_type_node_decl pos global_ctx node_decl (lookup_ty global_ctx i))
+     (check_type_node_decl pos global_ctx node_decl
+        (match (lookup_ty global_ctx i) with
+         | None -> failwith "Node type lookup failed. Should not happen"
+         | Some ty -> ty))
      :: type_check_group global_ctx rest
   | LA.FuncDecl (pos, ((i, _,_, _, _, _, _, _) as node_decl)):: rest ->
-     (check_type_node_decl pos global_ctx node_decl (lookup_ty global_ctx i))
+     (check_type_node_decl pos global_ctx node_decl
+        (match (lookup_ty global_ctx i) with
+         | None -> failwith "Function type lookup failed. Should not happen"
+         | Some ty -> ty))
      :: type_check_group global_ctx rest
   | LA.ContractNodeDecl (_, ((i, _, _, _, _) as contract_decl)) :: rest ->
      (check_type_contract_decl global_ctx contract_decl)
@@ -1774,8 +1790,13 @@ let substitute: tc_context -> LA.declaration -> (tc_context * LA.declaration) = 
   function
   | ConstDecl (pos, FreeConst _) as c -> (ctx, c)
   | ConstDecl (pos, UntypedConst (pos', i, e)) ->
-     let e' = simplify_expr ctx e in 
-     (add_const ctx i e' (lookup_ty ctx i), ConstDecl (pos, UntypedConst (pos', i, e'))) 
+     let e' = simplify_expr ctx e in
+     let ty =
+       (match (lookup_ty ctx i) with 
+       | None -> failwith "Cannot find constant type. Should not happen."
+       | Some ty ->  ty) in
+     ( add_const ctx i e' ty
+     , ConstDecl (pos, UntypedConst (pos', i, e'))) 
   | ConstDecl (pos, TypedConst (pos', i, e, ty)) ->
      let e' = simplify_expr ctx e in 
      (add_const ctx i e' ty, ConstDecl (pos, TypedConst (pos', i, e', ty)))
