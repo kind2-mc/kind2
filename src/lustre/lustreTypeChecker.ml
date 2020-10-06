@@ -1905,9 +1905,9 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
                              ^^"===============================================\n")
               pp_print_tc_context tc_ctx
 
-           ; Log.log L_trace ("===============================================\n"
-                             ^^ "Phase 2: Type checking declaration Groups    \n"
-                             ^^"===============================================\n")  
+            ; Log.log L_trace ("===============================================\n"
+                               ^^ "Phase 2: Type checking declaration Groups    \n"
+                               ^^"===============================================\n")  
             (* type check the nodes and contract decls using this base typing context  *)
             ; let tc_res = (type_check_decl_grps tc_ctx [sorted_node_contract_decls]) in
               Log.log L_trace ("===============================================\n"
