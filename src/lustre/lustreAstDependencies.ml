@@ -26,7 +26,8 @@
 
 module R = Res
 module LA = LustreAst
-                          
+module LH = LustreAstHelpers
+
 module G = Graph.Make(struct
                type t = LA.ident
                let compare = Stdlib.compare
@@ -129,8 +130,9 @@ and mk_graph_expr: LA.expr -> (G.t * id_pos_map)
   | LA.Pre (_, e) -> mk_graph_expr e
   | LA.Last (pos, i) -> singleton_g_pos "" i pos
   | LA.Fby (_, e1, _, e2) ->  union_g_pos (mk_graph_expr e1) (mk_graph_expr e2) 
-  | LA.Arrow (_, e1, e2) ->  union_g_pos (mk_graph_expr e1) (mk_graph_expr e2) 
-  | _ -> Lib.todo __LOC__
+  | LA.Arrow (_, e1, e2) ->  union_g_pos (mk_graph_expr e1) (mk_graph_expr e2)
+  | LA.ModeRef (pos, ids) -> singleton_g_pos mode_suffix (List.nth ids (List.length ids - 1) ) pos 
+  | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))  
   
 let mk_graph_const_decl: LA.const_decl -> (G.t * id_pos_map)
   = function
@@ -143,23 +145,8 @@ let mk_graph_type_decl: LA.type_decl -> (G.t * id_pos_map)
   = function
   | FreeType (pos, i) -> singleton_g_pos ty_suffix  i pos 
   | AliasType (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (ty_suffix ^ i) pos
-
-let rec mk_graph_contract_node_eqn: LA.contract_node_equation -> (G.t * id_pos_map)
-  = function
-  | LA.ContractCall (pos, i, _, _) -> singleton_g_pos contract_suffix i pos
-  | LA.Assume (_, _, _, e) ->
-     List.fold_left union_g_pos empty_g_pos
-       (List.map (fun (i, p) -> singleton_g_pos node_suffix i p) (get_node_call_from_expr e))
-  | LA.Guarantee (_, _, _, e) ->
-     List.fold_left union_g_pos empty_g_pos
-       (List.map (fun (i, p) -> singleton_g_pos node_suffix i p) (get_node_call_from_expr e))
-  | LA.Mode (_, _, reqs, ensures) ->
-     let calls_ps = List.map (fun (_,_, e) -> e) (reqs @ ensures) in
-     let sub_graphs = List.map (mk_graph_expr) calls_ps in
-     List.fold_left union_g_pos empty_g_pos sub_graphs
-  | _ -> empty_g_pos
-
-and get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
+                         
+let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   = function
   | Ident _
   | ModeRef _
@@ -209,9 +196,36 @@ and get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.Call (pos, i, es) -> (node_suffix ^ i, pos) :: List.flatten (List.map get_node_call_from_expr es)
   | LA.CallParam _ -> []
 
-let mk_graph_contract_decl: LA.contract_node_decl -> (G.t * id_pos_map)
-  = fun (_, _, _, _, c) ->
-  List.fold_left union_g_pos empty_g_pos (List.map mk_graph_contract_node_eqn c)
+
+let  mk_graph_contract_node_eqn: LA.contract_node_equation -> (G.t * id_pos_map)
+  = function
+  | LA.ContractCall (pos, i, _, _) -> singleton_g_pos contract_suffix i pos
+  | LA.Assume (_, _, _, e) ->
+     List.fold_left union_g_pos empty_g_pos
+       (List.map (fun (i, p) -> singleton_g_pos node_suffix i p) (get_node_call_from_expr e))
+  | LA.Guarantee (_, _, _, e) ->
+     List.fold_left union_g_pos empty_g_pos
+       (List.map (fun (i, p) -> singleton_g_pos node_suffix i p) (get_node_call_from_expr e))
+  | LA.Mode (pos, i, reqs, ensures) ->
+     let calls_ps = List.flatten (List.map (fun (_,_, e) -> get_node_call_from_expr e) (reqs @ ensures)) in
+     let sub_graphs = (List.map (fun (i, p) -> singleton_g_pos node_suffix i p) calls_ps) in
+     List.fold_left union_g_pos empty_g_pos sub_graphs
+  | LA.GhostConst c 
+    | LA.GhostVar c ->
+     match c with
+     | FreeConst _ -> empty_g_pos
+     | UntypedConst (pos, i, e) ->
+        List.fold_left union_g_pos empty_g_pos
+          (List.map (fun (i, p) -> singleton_g_pos node_suffix i p) (get_node_call_from_expr e))
+     | TypedConst (pos, i, e, ty) ->
+        List.fold_left union_g_pos empty_g_pos
+          (List.map (fun (i, p) -> singleton_g_pos node_suffix i p) (get_node_call_from_expr e))
+
+                    
+let mk_graph_contract_decl: Lib.position -> LA.contract_node_decl -> (G.t * id_pos_map)
+  = fun pos (i , _, _, _, c) ->
+  connect_g_pos (List.fold_left union_g_pos empty_g_pos (List.map mk_graph_contract_node_eqn c))
+  (contract_suffix ^ i) pos
        
 let extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
   = List.fold_left
@@ -314,7 +328,7 @@ let mk_graph_decls: LA.t -> (G.t * id_pos_map)
       | ConstDecl (pos, cdecl) -> mk_graph_const_decl cdecl
       | NodeDecl (pos, ndecl) -> mk_graph_node_decl pos ndecl
       | FuncDecl (pos, ndecl) -> mk_graph_node_decl pos ndecl
-      | ContractNodeDecl  (pos, cdecl) -> mk_graph_contract_decl cdecl
+      | ContractNodeDecl (pos, cdecl) -> mk_graph_contract_decl pos cdecl
       | NodeParamInst  _ -> Lib.todo __LOC__ in
     fun decls ->
     List.fold_left union_g_pos empty_g_pos (List.map mk_graph decls)
@@ -322,8 +336,8 @@ let mk_graph_decls: LA.t -> (G.t * id_pos_map)
 let mk_graph_contract_eqns: LA.contract -> (G.t * id_pos_map)
   = let mk_graph: LA.contract_node_equation -> (G.t * id_pos_map)
       = function
-      | LA.GhostConst _
-        | LA.GhostVar _
+      | LA.GhostConst c -> mk_graph_const_decl c
+        | LA.GhostVar c -> mk_graph_const_decl c
         | LA.Assume _
         | LA.Guarantee _
         | LA.Mode _
