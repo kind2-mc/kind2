@@ -231,7 +231,7 @@ let singleton_const: LA.ident -> LA.expr -> tc_type -> tc_context =
 
 let extract_arg_ctx: LA.const_clocked_typed_decl -> tc_context
   = fun input -> let (i, ty) = LH.extract_ip_ty input in
-                 singleton_ty i ty
+                 union (singleton_ty i ty) (singleton_const i (LA.Ident (Lib.dummy_pos, i)) ty)
 
 let extract_ret_ctx: LA.clocked_typed_decl -> tc_context
   = fun op -> let (i, ty) = LH.extract_op_ty op in
@@ -1355,7 +1355,10 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
                                       ^ " on right hand side of the node equation")
                  else let lhs = List.hd lhss in
                       check_type_struct_item ctx lhs exp_ty)
-    else type_error pos "Cannot reassign value to a constant or enum.")
+    else type_error pos ("Cannot re-assign value to a constant or enum but "
+                         ^ " found reassignmet to identifer(s): "
+                         ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
+                             (LA.SI.elements (SI.filter (fun e -> (member_val ctx e)) lhs_vars))))
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 
