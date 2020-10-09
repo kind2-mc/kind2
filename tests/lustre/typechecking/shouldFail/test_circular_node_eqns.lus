@@ -1,0 +1,7 @@
+node top(x: int) returns (y: int);
+var l: int;
+var p: int;
+let
+  l = p;
+  p = l;
+tel

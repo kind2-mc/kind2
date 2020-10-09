@@ -33,5 +33,5 @@ val sort_declarations: LA.t -> LA.t graph_result
 val analyze_circ_contract_equations: LA.contract -> unit graph_result
 (** Checks if there are circular dependencies in the contract equations *)
 
-val analyze_circ_node_equations: LA.node_equation list -> unit graph_result
+val analyze_circ_node_equations: LA.node_item list -> unit graph_result
 (** Checks if there are circular dependencies in node equations equations *)

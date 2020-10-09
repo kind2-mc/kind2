@@ -1269,7 +1269,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
            else type_error pos ("Argument to nodes cannot be LHS of an equation but found "
                   ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements overwite_node_args))
         (*  TODO: Check for circular dependencies between equations *)
-      
+        >> AD.analyze_circ_node_equations items      
         >> R.ok (Log.log L_trace "TC declaration node %a done }"
                    LA.pp_print_ident node_name))
       else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^

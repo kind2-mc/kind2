@@ -387,10 +387,14 @@ let sort_declarations = sort_decls mk_decl_map mk_graph_decls
 let rec mk_graph_expr2: LA.expr -> (G.t * id_pos_map)
   = function
   | LA.Ident (pos, i) -> singleton_g_pos "" i pos
+  | LA.ModeRef (pos, ids) -> singleton_g_pos mode_suffix (List.nth ids (List.length ids - 1) ) pos 
   | LA.Const _ -> empty_g_pos
-  | LA.RecordExpr (_, _, ty_ids) ->
-     List.fold_left union_g_pos empty_g_pos (List.map (fun ty_id -> mk_graph_expr2 (snd ty_id)) ty_ids)
-  | LA.UnaryOp (_, _, e) -> mk_graph_expr2 e
+
+  | LA.RecordExpr (pos, i, ty_ids) ->
+     List.fold_left union_g_pos (singleton_g_pos "" i pos) (List.map (fun ty_id -> mk_graph_expr2 (snd ty_id)) ty_ids)
+  | LA.StructUpdate (_, e1, _, e2) -> union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2) 
+  | LA.UnaryOp (_, _, e)
+    | LA.ConvOp (_, _, e) -> mk_graph_expr2 e
   | LA.BinaryOp (_, _, e1, e2) -> union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2) 
   | LA.CompOp (_, _, e1, e2) -> union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2) 
   | LA.TernaryOp (_, _, e1, e2, e3) -> union_g_pos (mk_graph_expr2 e1)
@@ -402,12 +406,19 @@ let rec mk_graph_expr2: LA.expr -> (G.t * id_pos_map)
   | LA.ArrayIndex (_, e1, e2) -> union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2)
   | LA.ArrayConcat  (_, e1, e2) -> union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2)
   | LA.GroupExpr (_, _, es) -> List.fold_left union_g_pos empty_g_pos (List.map mk_graph_expr2 es)
+  | LA.When (_, e, _) -> mk_graph_expr2 e
+  | LA.Current (_, e) -> mk_graph_expr2 e
+  | LA.Condact (p, _, _, _, e1s, e2s) -> List.fold_left union_g_pos empty_g_pos (List.map mk_graph_expr2 (e1s @ e2s))
+  | LA.Activate (p, _, _, _, es) -> List.fold_left union_g_pos empty_g_pos (List.map mk_graph_expr2 es)
+  | LA.Merge (p, _, cs) -> List.fold_left union_g_pos empty_g_pos (List.map (fun (_, e) -> mk_graph_expr2 e) cs) 
+  | LA.RestartEvery (p, _, es,_) -> List.fold_left union_g_pos empty_g_pos (List.map mk_graph_expr2 es)
+
   | LA.Pre (_, e) -> map_g_pos (fun v -> v ^ "_p") (mk_graph_expr2 e) 
   | LA.Last (pos, i) -> singleton_g_pos "" i pos
   | LA.Fby (_, e1, _, e2) ->  union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2) 
   | LA.Arrow (_, e1, e2) ->  union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2)
-  | LA.ModeRef (pos, ids) -> singleton_g_pos mode_suffix (List.nth ids (List.length ids - 1) ) pos 
-  | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))  
+  | LA.Call (_, _, es) -> List.fold_left union_g_pos empty_g_pos (List.map mk_graph_expr2 es)
+  | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
 (** This graph is useful for analyzing equations *)
 
 let mk_graph_const_decl2: LA.const_decl -> (G.t * id_pos_map)
@@ -431,41 +442,8 @@ let mk_graph_contract_eqns: LA.contract -> (G.t * id_pos_map)
         | LA.ContractCall _ -> empty_g_pos in 
     fun eqns ->
     List.fold_left union_g_pos empty_g_pos (List.map mk_graph eqns)
+
     
-(* let rec mk_contract_map: LA.contract_node_equation IMap.t -> LA.contract -> (LA.contract_node_equation IMap.t) graph_result
- *   = fun m ->
- *   function
- *   | [] -> R.ok m
- *   | (LA.GhostConst (FreeConst (pos, i, _)) as cnstd) :: eqns
- *     | (LA.GhostConst (UntypedConst (pos, i, _)) as cnstd) :: eqns
- *     | (LA.GhostConst (TypedConst (pos, i, _, _)) as cnstd) :: eqns -> 
- *      check_and_add m pos const_suffix i cnstd  >>= fun m' ->
- *      mk_contract_map m' eqns 
- *   | (LA.GhostVar (FreeConst (pos, i, _)) as cnstd) :: eqns
- *     | (LA.GhostVar (UntypedConst (pos, i, _)) as cnstd) :: eqns
- *     | (LA.GhostVar (TypedConst (pos, i, _, _)) as cnstd) :: eqns -> 
- *      check_and_add m pos const_suffix i cnstd  >>= fun m' ->
- *      mk_contract_map m' eqns 
- *   | (LA.Assume (pos, name_opt, _, _) as eqn) :: eqns ->
- *      let eqn_name =
- *        (match name_opt with
- *         | None -> "Assumption<" ^ Lib.string_of_t Lib.pp_print_position pos ^">"
- *         | Some n -> n) in
- *      check_and_add m pos const_suffix eqn_name eqn  >>= fun m' ->
- *      mk_contract_map m' eqns 
- *   | (LA.Guarantee (pos, name_opt, _, _) as eqn) :: eqns ->
- *      let eqn_name =
- *        (match name_opt with
- *         | None -> "Gurantee<" ^ Lib.string_of_t Lib.pp_print_position pos ^">"
- *         | Some n -> n) in
- *      check_and_add m pos const_suffix eqn_name eqn  >>= fun m' ->
- *      mk_contract_map m' eqns 
- *   | LA.Mode (pos, i, _, _)  as eqn :: eqns ->
- *      check_and_add m pos const_suffix i eqn  >>= fun m' ->
- *      mk_contract_map m' eqns 
- *   | LA.ContractCall _ :: eqns -> mk_contract_map m eqns *)
-(* Don't really need this *)
-                               
 let analyze_circ_contract_equations: LA.contract -> unit graph_result  = fun c ->
   let dg, pos_info = mk_graph_contract_eqns c in
   (try (R.ok (G.topological_sort dg)) with
@@ -481,6 +459,40 @@ let analyze_circ_contract_equations: LA.contract -> unit graph_result  = fun c -
   >> R.ok ()
 
 
-let analyze_circ_node_equations: LA.node_equation list -> unit graph_result = fun eqns -> 
-  R.ok ()
-                                        
+let mk_graph_eqn: LA.node_equation -> (G.t * id_pos_map) =
+  let handle_one_lhs: (G.t * id_pos_map) -> LA.struct_item -> (G.t * id_pos_map) = fun rhs_g lhs ->
+    match lhs with
+    | LA.SingleIdent (p, i) -> connect_g_pos rhs_g i p 
+    | LA.ArrayDef (p, i, is) -> empty_g_pos
+    (* I am not sure what to do in case of an arraydef so leaving it blank *)
+    (* None of these items below are supported at parsing level yet. *)
+    | LA.TupleStructItem (p, _)
+      | LA.TupleSelection (p, _, _)
+      | LA.FieldSelection (p, _, _)
+      | LA.ArraySliceStructItem (p, _, _)
+      ->  Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position p) in
+  function
+  | Equation (pos, (LA.StructDef (_, lhss)), e) ->
+     let rhs_g = mk_graph_expr2 e in
+     List.fold_left union_g_pos empty_g_pos (List.map (handle_one_lhs rhs_g) lhss)
+  | _ -> empty_g_pos
+  
+let rec mk_graph_node_items: LA.node_item list -> (G.t * id_pos_map) =
+  function
+  | [] -> empty_g_pos
+  | (Body eqn) :: items -> union_g_pos (mk_graph_eqn eqn) (mk_graph_node_items items) 
+  | _ :: items -> mk_graph_node_items items
+  
+let analyze_circ_node_equations: LA.node_item list -> unit graph_result = fun eqns -> 
+  let dg, pos_info = mk_graph_node_items eqns in
+  (try (R.ok (G.topological_sort dg)) with
+   | Graph.CyclicGraphException ids ->
+      if List.length ids > 1
+      then (match (find_id_pos pos_info (List.hd ids)) with
+            | None -> failwith ("Cyclic dependency found but Cannot find position for identifier "
+                                ^ (List.hd ids) ^ " This should not happen!") 
+            | Some p -> graph_error p
+                          ("Cyclic dependency detected in definition of identifiers: "
+                           ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
+      else failwith "Cyclic dependency with no ids detected. This should not happen!")
+  >> R.ok ()
