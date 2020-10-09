@@ -34,7 +34,7 @@ module type S = sig
   
   type vertex
   (** The vertex type *)
-    
+     
   type edge
   (** The edge type to represent line between two vertices *)
 
@@ -73,7 +73,7 @@ module type S = sig
 
   val is_singleton: t -> bool
   (** returns true if the graph has only one vertex *)
-  
+    
   val add_vertex: t ->  vertex ->  t
   (** Add a [vertex] to a graph  *)
 
@@ -82,6 +82,7 @@ module type S = sig
 
   val remove_vertex: t ->  vertex ->  t
   (** Remove the [vertex] and its associated [edges] from the graph *)
+
   val remove_edge: t ->  edge ->  t
   (** Remove an [edge] from a graph *)                             
 
@@ -95,6 +96,12 @@ module type S = sig
   (** Unions two graphs *)
 
   val sub_graph: t -> vertices -> t    
+  (** Gets a subgraph along with appropriate edges of given graph from a given set of vertices *)
+
+  val map: (vertex -> vertex) -> t -> t
+  (** Maps the [vertices] using the argument mapping, the structure should remain intact.
+     Caution: The callee function (or the programmer) is supposed to make sure 
+     it is not a surjective mapping to make sure that the graph structure is preserved. *)
 
   val topological_sort:  t ->  vertex list
   (** Computes a topological ordering of vertices 

@@ -97,7 +97,13 @@ module type S = sig
   (** Unions two graphs *)
 
   val sub_graph: t -> vertices -> t    
+  (** Gets a subgraph along with appropriate [edges] of given graph from a given set of [vertices] *)
 
+  val map: (vertex -> vertex) -> t -> t
+  (** Maps the [vertices] using the argument mapping, the structure should remain intact.
+     Caution: The callee function (or the programmer) is supposed to make sure 
+     it is not a surjective mapping to make sure that the graph structure is preserved. *)
+    
   val topological_sort:  t ->  vertex list
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
@@ -264,14 +270,24 @@ module Make (Ord: OrderedType) = struct
     ( vs
     , ESet.filter (fun (src, tgt) -> VSet.mem src vs && VSet.mem tgt vs)
         (get_edges g))
-  (** Gets a subgraph of given graph from a given set of vertices *)
+  (** Gets a subgraph with appropriate edges of given graph from a given set of vertices *)
                                           
   let is_point_graph: t -> bool = fun (vs, es) ->
     ESet.is_empty es
+  (** Returns true if the graph has no edges *)
     
   let union: t -> t -> t = fun (v1s, e1s) (v2s, e2s) ->
     (VSet.union v1s v2s, ESet.union e1s e2s) 
   (** Unions two graphs *)
+
+  let map: (vertex -> vertex) -> t -> t = fun f (vs, es) ->
+    let map_edge: (vertex -> vertex) -> edge -> edge = fun f (s, t) -> (f s, f t) in 
+    let vs' = VSet.map f vs in
+    let es' = ESet.map (map_edge f) es in
+    (vs', es')
+  (** Maps the [vertices] using the argument mapping, the structure should remain intact.
+     Caution: The callee function (or the programmer) is supposed to make sure 
+     it is not a surjective mapping to make sure that the graph structure is preserved. *)
     
   let topological_sort: t -> vertex list = fun ((vs, es) as g) ->
     let rec topological_sort_helper: t -> vertex list -> vertex list

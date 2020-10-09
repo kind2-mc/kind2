@@ -39,6 +39,7 @@ type 'a graph_result = ('a, Lib.position * string) result
 let graph_error pos err = Error (pos, err)
 
 let (>>=) = R.(>>=)                     
+let (>>) = R.(>>)                     
           
 module G = Graph.Make(struct
                type t = LA.ident
@@ -84,6 +85,13 @@ let empty_g_pos: (G.t * id_pos_map) = (G.empty, IMap.empty)
 let connect_g_pos: (G.t * id_pos_map) -> LA.ident -> Lib.position -> (G.t * id_pos_map) =
   fun (g, pos_m) i p -> (G.connect g i, add_pos pos_m i p)  
 
+let map_g_pos: (LA.ident -> LA.ident) -> (G.t * id_pos_map) -> (G.t * id_pos_map) =
+  fun f (g, pos_info) -> 
+     let pos_info' = List.fold_left (fun m (k, v) -> IMap.add k v m) IMap.empty
+                       (List.map (fun (k, v) -> (f k, v)) (IMap.bindings pos_info)) in
+     let g' = G.map f g in 
+     (g', pos_info') 
+                      
                       
 (* Suffixes for declaration types *)
 let ty_suffix = "type "
@@ -375,53 +383,104 @@ let sort_declarations = sort_decls mk_decl_map mk_graph_decls
 (**************************************************************
  * Type 3. Dependency Analysis of contract and node equations *
  **************************************************************)
+                      
+let rec mk_graph_expr2: LA.expr -> (G.t * id_pos_map)
+  = function
+  | LA.Ident (pos, i) -> singleton_g_pos "" i pos
+  | LA.Const _ -> empty_g_pos
+  | LA.RecordExpr (_, _, ty_ids) ->
+     List.fold_left union_g_pos empty_g_pos (List.map (fun ty_id -> mk_graph_expr2 (snd ty_id)) ty_ids)
+  | LA.UnaryOp (_, _, e) -> mk_graph_expr2 e
+  | LA.BinaryOp (_, _, e1, e2) -> union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2) 
+  | LA.CompOp (_, _, e1, e2) -> union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2) 
+  | LA.TernaryOp (_, _, e1, e2, e3) -> union_g_pos (mk_graph_expr2 e1)
+                                         (union_g_pos (mk_graph_expr2 e2) (mk_graph_expr2 e3)) 
+  | LA.RecordProject (_, e, _) -> mk_graph_expr2 e
+  | LA.TupleProject (_, e, _) -> mk_graph_expr2 e
+  | LA.ArrayConstr (_, e1, e2) -> union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2) 
+  | LA.ArraySlice (_, e1, (e2, e3)) -> union_g_pos (union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2)) (mk_graph_expr2 e3) 
+  | LA.ArrayIndex (_, e1, e2) -> union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2)
+  | LA.ArrayConcat  (_, e1, e2) -> union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2)
+  | LA.GroupExpr (_, _, es) -> List.fold_left union_g_pos empty_g_pos (List.map mk_graph_expr2 es)
+  | LA.Pre (_, e) -> map_g_pos (fun v -> v ^ "_p") (mk_graph_expr2 e) 
+  | LA.Last (pos, i) -> singleton_g_pos "" i pos
+  | LA.Fby (_, e1, _, e2) ->  union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2) 
+  | LA.Arrow (_, e1, e2) ->  union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2)
+  | LA.ModeRef (pos, ids) -> singleton_g_pos mode_suffix (List.nth ids (List.length ids - 1) ) pos 
+  | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))  
+(** This graph is useful for analyzing equations *)
 
+let mk_graph_const_decl2: LA.const_decl -> (G.t * id_pos_map)
+  = function
+  | LA.FreeConst (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (const_suffix ^ i) pos
+  | LA.UntypedConst (pos, i, e) -> connect_g_pos (mk_graph_expr2 e) (const_suffix ^ i) pos 
+  | LA.TypedConst (pos, i, e, ty) -> connect_g_pos (union_g_pos (mk_graph_expr2 e) (mk_graph_type ty)) (const_suffix ^ i) pos 
+
+       
 let mk_graph_contract_eqns: LA.contract -> (G.t * id_pos_map)
   = let mk_graph: LA.contract_node_equation -> (G.t * id_pos_map)
       = function
-      | LA.GhostConst c -> mk_graph_const_decl c
-      | LA.GhostVar c -> mk_graph_const_decl c
-      | LA.Assume _
+      | LA.GhostConst c -> mk_graph_const_decl2 c
+      | LA.GhostVar c -> mk_graph_const_decl2 c
+      | LA.Mode (pos, i, reqs, ens) ->
+         let g = List.fold_left (fun g e -> union_g_pos g (mk_graph_expr2 e))
+                   empty_g_pos (List.map (fun (_, _,  e) -> e) (reqs @ ens)) in
+         connect_g_pos g (mode_suffix ^ i) pos 
+      | LA.Assume _ 
         | LA.Guarantee _
-        | LA.Mode _
         | LA.ContractCall _ -> empty_g_pos in 
     fun eqns ->
     List.fold_left union_g_pos empty_g_pos (List.map mk_graph eqns)
     
-let rec mk_contract_map: LA.contract_node_equation IMap.t -> LA.contract -> (LA.contract_node_equation IMap.t) graph_result
-  = fun m ->
-  function
-  | [] -> R.ok m
-  | (LA.GhostConst (FreeConst (pos, i, _)) as cnstd) :: eqns
-    | (LA.GhostConst (UntypedConst (pos, i, _)) as cnstd) :: eqns
-    | (LA.GhostConst (TypedConst (pos, i, _, _)) as cnstd) :: eqns -> 
-     check_and_add m pos const_suffix i cnstd  >>= fun m' ->
-     mk_contract_map m' eqns 
-  | (LA.GhostVar (FreeConst (pos, i, _)) as cnstd) :: eqns
-    | (LA.GhostVar (UntypedConst (pos, i, _)) as cnstd) :: eqns
-    | (LA.GhostVar (TypedConst (pos, i, _, _)) as cnstd) :: eqns -> 
-     check_and_add m pos const_suffix i cnstd  >>= fun m' ->
-     mk_contract_map m' eqns 
-  | (LA.Assume (pos, name_opt, _, _) as eqn) :: eqns ->
-     let eqn_name =
-       (match name_opt with
-        | None -> "Assumption<" ^ Lib.string_of_t Lib.pp_print_position pos ^">"
-        | Some n -> n) in
-     check_and_add m pos const_suffix eqn_name eqn  >>= fun m' ->
-     mk_contract_map m' eqns 
-  | (LA.Guarantee (pos, name_opt, _, _) as eqn) :: eqns ->
-     let eqn_name =
-       (match name_opt with
-        | None -> "Gurantee<" ^ Lib.string_of_t Lib.pp_print_position pos ^">"
-        | Some n -> n) in
-     check_and_add m pos const_suffix eqn_name eqn  >>= fun m' ->
-     mk_contract_map m' eqns 
-  | LA.Mode (pos, i, _, _)  as eqn :: eqns ->
-     check_and_add m pos const_suffix i eqn  >>= fun m' ->
-     mk_contract_map m' eqns 
-  | LA.ContractCall _ :: eqns -> mk_contract_map m eqns
+(* let rec mk_contract_map: LA.contract_node_equation IMap.t -> LA.contract -> (LA.contract_node_equation IMap.t) graph_result
+ *   = fun m ->
+ *   function
+ *   | [] -> R.ok m
+ *   | (LA.GhostConst (FreeConst (pos, i, _)) as cnstd) :: eqns
+ *     | (LA.GhostConst (UntypedConst (pos, i, _)) as cnstd) :: eqns
+ *     | (LA.GhostConst (TypedConst (pos, i, _, _)) as cnstd) :: eqns -> 
+ *      check_and_add m pos const_suffix i cnstd  >>= fun m' ->
+ *      mk_contract_map m' eqns 
+ *   | (LA.GhostVar (FreeConst (pos, i, _)) as cnstd) :: eqns
+ *     | (LA.GhostVar (UntypedConst (pos, i, _)) as cnstd) :: eqns
+ *     | (LA.GhostVar (TypedConst (pos, i, _, _)) as cnstd) :: eqns -> 
+ *      check_and_add m pos const_suffix i cnstd  >>= fun m' ->
+ *      mk_contract_map m' eqns 
+ *   | (LA.Assume (pos, name_opt, _, _) as eqn) :: eqns ->
+ *      let eqn_name =
+ *        (match name_opt with
+ *         | None -> "Assumption<" ^ Lib.string_of_t Lib.pp_print_position pos ^">"
+ *         | Some n -> n) in
+ *      check_and_add m pos const_suffix eqn_name eqn  >>= fun m' ->
+ *      mk_contract_map m' eqns 
+ *   | (LA.Guarantee (pos, name_opt, _, _) as eqn) :: eqns ->
+ *      let eqn_name =
+ *        (match name_opt with
+ *         | None -> "Gurantee<" ^ Lib.string_of_t Lib.pp_print_position pos ^">"
+ *         | Some n -> n) in
+ *      check_and_add m pos const_suffix eqn_name eqn  >>= fun m' ->
+ *      mk_contract_map m' eqns 
+ *   | LA.Mode (pos, i, _, _)  as eqn :: eqns ->
+ *      check_and_add m pos const_suffix i eqn  >>= fun m' ->
+ *      mk_contract_map m' eqns 
+ *   | LA.ContractCall _ :: eqns -> mk_contract_map m eqns *)
+(* Don't really need this *)
+                               
+let analyze_circ_contract_equations: LA.contract -> unit graph_result  = fun c ->
+  let dg, pos_info = mk_graph_contract_eqns c in
+  (try (R.ok (G.topological_sort dg)) with
+   | Graph.CyclicGraphException ids ->
+      if List.length ids > 1
+      then (match (find_id_pos pos_info (List.hd ids)) with
+            | None -> failwith ("Cyclic dependency found but Cannot find position for identifier "
+                                ^ (List.hd ids) ^ " This should not happen!") 
+            | Some p -> graph_error p
+                          ("Cyclic dependency detected in definition of identifiers: "
+                           ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
+      else failwith "Cyclic dependency with no ids detected. This should not happen!")
+  >> R.ok ()
 
-let analyze_contract_equations = fun _ -> Lib.todo __LOC__
 
-let analyze_node_equations = fun _ -> Lib.todo __LOC__
+let analyze_circ_node_equations: LA.node_equation list -> unit graph_result = fun eqns -> 
+  R.ok ()
                                         

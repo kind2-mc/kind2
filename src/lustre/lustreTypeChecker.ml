@@ -1252,8 +1252,8 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
       (match contract with
              | None -> R.ok ()
              | Some c ->
-                tc_ctx_of_contract ctx_plus_ops_and_ips c
-                >>= fun con_ctx -> check_type_contract ~node_out_params:ret_ids con_ctx c)
+                tc_ctx_of_contract ctx_plus_ops_and_ips c >>= fun con_ctx ->
+                check_type_contract ~node_out_params:ret_ids con_ctx c)
       (* add local variable binding in the context *)
       >> R.seq (List.map (local_var_binding ctx_plus_ips) ldecls)
       >>= fun local_var_ctxts ->
@@ -1266,13 +1266,14 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
         >> let overwite_node_args = SI.inter arg_ids (SI.flatten (List.map LH.vars_lhs_of_eqn items)) in
            if ( overwite_node_args |> SI.is_empty)
            then R.ok ()
-           else type_error pos ("Input streams to nodes cannot be LHS of an equation but found "
-                                ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
-                                    (LA.SI.elements overwite_node_args))
-                >> R.ok (Log.log L_trace "TC declaration node %a done }"
-                           LA.pp_print_ident node_name))
-      else type_error pos ("Input and output streams cannot have same names, but found common identifiers: " ^
-                             Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements common_ids)))
+           else type_error pos ("Argument to nodes cannot be LHS of an equation but found "
+                  ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements overwite_node_args))
+        (*  TODO: Check for circular dependencies between equations *)
+      
+        >> R.ok (Log.log L_trace "TC declaration node %a done }"
+                   LA.pp_print_ident node_name))
+      else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
+              Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements common_ids)))
 
 and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
   function
@@ -1388,8 +1389,8 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
   | Assume _ -> R.ok ctx
   | Guarantee _ -> R.ok ctx
   | Mode (pos, name, _, _) -> R.ok (add_ty ctx name (Bool pos)) 
-  | ContractCall _ -> R.ok ctx
-  
+  | ContractCall _ -> R.ok ctx 
+
 and check_type_contract_decl: ?node_out_params: LA.SI.t -> tc_context -> LA.contract_node_decl -> unit tc_result
   = fun ?node_out_params:(node_out_params = LA.SI.empty) ctx (cname, params, args, rets, contract) ->
   Log.log L_trace "TC Contract decl: %a {" LA.pp_print_ident cname 
@@ -1407,6 +1408,8 @@ and check_type_contract_decl: ?node_out_params: LA.SI.t -> tc_context -> LA.cont
 and check_type_contract: ?node_out_params: LA.SI.t -> tc_context -> LA.contract -> unit tc_result
   = fun ?node_out_params:(node_out_params = LA.SI.empty) ctx eqns ->
   R.seq_ (List.map (check_contract_node_eqn ~node_out_params:node_out_params ctx) eqns)
+    (* TODO: Check for circular dependencies *)
+    >> AD.analyze_circ_contract_equations eqns
 
 and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contract_node_equation -> unit tc_result
   = fun ?node_out_params:(node_out_params = LA.SI.empty) ctx eqn ->
