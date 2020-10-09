@@ -483,16 +483,17 @@ let rec mk_graph_node_items: LA.node_item list -> (G.t * id_pos_map) =
   | (Body eqn) :: items -> union_g_pos (mk_graph_eqn eqn) (mk_graph_node_items items) 
   | _ :: items -> mk_graph_node_items items
   
-let analyze_circ_node_equations: LA.node_item list -> unit graph_result = fun eqns -> 
-  let dg, pos_info = mk_graph_node_items eqns in
-  (try (R.ok (G.topological_sort dg)) with
-   | Graph.CyclicGraphException ids ->
-      if List.length ids > 1
-      then (match (find_id_pos pos_info (List.hd ids)) with
-            | None -> failwith ("Cyclic dependency found but Cannot find position for identifier "
-                                ^ (List.hd ids) ^ " This should not happen!") 
-            | Some p -> graph_error p
-                          ("Cyclic dependency detected in definition of identifiers: "
-                           ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
-      else failwith "Cyclic dependency with no ids detected. This should not happen!")
-  >> R.ok ()
+let analyze_circ_node_equations: LA.node_item list -> unit graph_result = fun eqns ->
+  Log.log L_trace "Checking circularity in node equations"
+  ; let dg, pos_info = mk_graph_node_items eqns in
+    (try (R.ok (G.topological_sort dg)) with
+     | Graph.CyclicGraphException ids ->
+        if List.length ids > 1
+        then (match (find_id_pos pos_info (List.hd ids)) with
+              | None -> failwith ("Cyclic dependency found but Cannot find position for identifier "
+                                  ^ (List.hd ids) ^ " This should not happen!") 
+              | Some p -> graph_error p
+                            ("Cyclic dependency detected in definition of identifiers: "
+                             ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
+        else failwith "Cyclic dependency with no ids detected. This should not happen!")
+    >> R.ok ()
