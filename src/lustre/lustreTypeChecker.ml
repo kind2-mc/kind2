@@ -231,7 +231,7 @@ let singleton_const: LA.ident -> LA.expr -> tc_type -> tc_context =
 
 let extract_arg_ctx: LA.const_clocked_typed_decl -> tc_context
   = fun input -> let (i, ty) = LH.extract_ip_ty input in
-                 union (singleton_ty i ty) (singleton_const i (LA.Ident (Lib.dummy_pos, i)) ty)
+                 (singleton_ty i ty) 
 
 let extract_ret_ctx: LA.clocked_typed_decl -> tc_context
   = fun op -> let (i, ty) = LH.extract_op_ty op in
@@ -1250,10 +1250,16 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
       Log.log L_trace "Local Typing Context {%a}" pp_print_tc_context local_ctx
       (* Type check the node items now that we have all the local typing context *)
       ; R.seq_ (List.map (do_item local_ctx) items)
+      ; (* check that the LHS of the equations are not args to node *)
+        >> let overwite_node_args = SI.inter arg_ids (SI.flatten (List.map LH.vars_lhs_of_eqn items)) in
+           if ( overwite_node_args |> SI.is_empty)
+           then R.ok ()
+           else type_error pos ("Argument to nodes cannot be LHS of an equation but found "
+                  ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements overwite_node_args))
         >> R.ok (Log.log L_trace "TC declaration node %a done }"
                    LA.pp_print_ident node_name))
       else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
-              Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements common_ids)))
+              Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements common_ids)))
 
 and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
   function

@@ -634,21 +634,24 @@ let rec vars: expr -> iset = function
   | Call (_, i, es) -> SI.add i (SI.flatten (List.map vars es)) 
   | CallParam (_, i, _, es) -> SI.add i (SI.flatten (List.map vars es))
 and vars_of_ty_ids: typed_ident -> iset = fun (_, i, ty) -> SI.singleton i 
+
 and vars_of_clocl_expr: clock_expr -> iset = function
   | ClockTrue -> SI.empty
   | ClockPos i -> SI.singleton i
   | ClockNeg i -> SI.singleton i
   | ClockConstr (i1, i2) -> SI.of_list [i1; i2]
 
-let rec vars_of_struct_item: struct_item -> iset
-  = function
+let rec vars_of_struct_item: struct_item -> iset = function
   | SingleIdent (_, i) -> SI.singleton i
   | TupleStructItem (pos, ts) -> SI.flatten (List.map vars_of_struct_item ts)  
   | TupleSelection (_, i, _)
     | FieldSelection (_, i, _)
     | ArraySliceStructItem (_, i, _)
-  | ArrayDef (_, i, _) -> SI.singleton i 
+    | ArrayDef (_, i, _) -> SI.singleton i 
 
+let vars_lhs_of_eqn: node_item -> iset = function
+  | Body (Equation (_, StructDef (_, ss), _)) -> SI.flatten (List.map vars_of_struct_item ss)
+  | _ -> SI.empty
 
 (** Return an ast that adds two expressions*)
 let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
