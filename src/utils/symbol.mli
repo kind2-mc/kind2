@@ -39,7 +39,6 @@
     {- [`ITE] ternary: if-then-else}
     {- [`NUMERAL i] nullary: integer numeral}
     {- [`DECIMAL f] nullary: floating-point decimal}
-    {- [`UBV b] nullary: constant unsigned bitvector}
     {- [`BV b] nullary: consant bitvector}
     {- [`MINUS] variadic, left-associative: difference or a unary negation}
     {- [`PLUS] variadic, left-associative: sum}
@@ -123,8 +122,6 @@ type interpreted_symbol =
 
   | `NUMERAL of Numeral.t (** Infinite precision integer numeral (nullary) *)
   | `DECIMAL of Decimal.t  (** infinite precision floating-point decimal (nullary) *)
-
-  | `UBV of Bitvector.t   (** Constant unsigned bitvector *)
   | `BV of Bitvector.t    (** Constant bitvector *)
   
   | `MINUS                (** Difference or unary negation (left-associative) *)
@@ -317,21 +314,6 @@ val is_decimal : t -> bool
 (** Return true if the symbol is a bitvector *)
 val is_bitvector : t -> bool
 
-(** Return true if the symbol is an unsigned bitvector *)
-val is_ubitvector : t -> bool
-
-(** Return true if the symbol is an unsigned bitvector of size 8 *)
-val is_ubv8 : t -> bool
-
-(** Return true if the symbol is an unsigned bitvector of size 16 *)
-val is_ubv16 : t -> bool
-
-(** Return true if the symbol is an unsigned bitvector of size 32 *)
-val is_ubv32 : t -> bool
-
-(** Return true if the symbol is an unsigned bitvector of size 64 *)
-val is_ubv64 : t -> bool
-
 (** Return true if the symbol is a bitvector of size 8 *)
 val is_bv8 : t -> bool
 
@@ -389,9 +371,6 @@ val decimal_of_symbol : t -> Decimal.t
 
 (** Return the bitvector in a [`BV _] symbol *)
 val bitvector_of_symbol : t -> Bitvector.t
-
-(** Return the ubitvector in a [`UBV _] symbol *)
-val ubitvector_of_symbol : t -> Bitvector.t
 
 (** Return [true] for the [`TRUE] symbol and [false] for the [`FALSE]
     symbol *)

@@ -273,7 +273,7 @@ let equal_mod_input only_bv accum s1 s2 =
             let term_of_state s =
               let n =
                 if only_bv then
-                  Term.mk_ubv (Bitvector.num_to_ubv64 (aux s))
+                  Term.mk_bv (Bitvector.num_to_ubv64 (aux s))
                 else
                   Term.mk_num (aux s)
               in

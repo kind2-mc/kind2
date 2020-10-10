@@ -250,27 +250,8 @@ let is_bitvector t = match destruct t with
   (* Term is a bitvector constant *)
   | T.Const s when Symbol.is_bitvector s -> true
 
-  | T.Const s when Symbol.is_ubitvector s -> true
-
   | _ -> false
 
-
-(* Return true if the term is a signed bitvector constant *)
-let is_sbitvector t = match destruct t with
-
-  (* Term is a signed bitvector constant *)
-  | T.Const s when Symbol.is_bitvector s -> true
-
-  | _ -> false
-
-
-(* Return true if the term is an unsigned bitvector constant *)
-let is_ubitvector t = match destruct t with
-
-  (* Term is an unsigned bitvector constant *)
-  | T.Const s when Symbol.is_ubitvector s -> true
-
-  | _ -> false
 
 (* Return integer constant of a term *)
 let rec numeral_of_term t = match destruct t with 
@@ -304,36 +285,11 @@ let bitvector_of_term t = match destruct t with
   | T.Const s when Symbol.is_bitvector s -> 
       Symbol.bitvector_of_symbol s
 
-  | T.Const s when Symbol.is_ubitvector s -> 
-      Symbol.ubitvector_of_symbol s
-
-  | T.Const s when Symbol.is_numeral s ->
-      Bitvector.num_to_ubv64 (Symbol.numeral_of_symbol s)
+  (*| T.Const s when Symbol.is_numeral s ->
+      Bitvector.num_to_ubv64 (Symbol.numeral_of_symbol s)*)
   (* For Yices 1 native *)
 
   | _ -> invalid_arg "bitvector_of_term"
-
-
-(* Return signed bitvector constant of a term *)
-(* This function is to be used for terms before 
-   they are sent to the SMT solver. *)
-let sbitvector_of_term t = match destruct t with
-
-  (* Term is a signed bitvector constant *)
-  | T.Const s when Symbol.is_bitvector s -> Symbol.bitvector_of_symbol s
-
-  | _ -> invalid_arg "sbitvector_of_term"
-
-
-(* Return unsigned bitvector constant of a term *)
-(* This function is to be used for terms before 
-   they are sent to the SMT solver. *)
-let ubitvector_of_term t = match destruct t with
-
-  (* Term is an unsigned bitvector constant *)
-  | T.Const s when Symbol.is_ubitvector s -> Symbol.ubitvector_of_symbol s
-
-  | _ -> invalid_arg "ubitvector_of_term"
 
 
 (* Return decimal constant of a term *)
@@ -592,9 +548,6 @@ let rec type_of_term t = match T.destruct t with
         (* Real constant *)
         | `DECIMAL _ -> Type.mk_real ()
 
-        (* Unsigned bitvector constant *)
-        | `UBV b -> Type.mk_ubv (Bitvector.length_of_bitvector b)
-
         (* Bitvector constant *)
         | `BV b -> Type.mk_bv (Bitvector.length_of_bitvector b)
         
@@ -793,7 +746,6 @@ let rec type_of_term t = match T.destruct t with
         | `FALSE
         | `NUMERAL _
         | `DECIMAL _ 
-        | `UBV _ 
         | `BV _ -> assert false
 
     )
@@ -817,7 +769,6 @@ let type_check_app s a =
     | `FALSE
     | `NUMERAL _
     | `DECIMAL _
-    | `UBV _
     | `BV _
         when List.length a = 0 -> true
 
@@ -1209,9 +1160,6 @@ let mk_dec_of_float = function
     mk_minus [mk_const_of_symbol_node (`DECIMAL (decimal_of_float (-. f)))]
 *)
 
-
-(* Hashcons an unsigned bitvector *)
-let mk_ubv b = mk_const_of_symbol_node (`UBV b)
 
 (* Hashcons a bitvector *)
 let mk_bv b = mk_const_of_symbol_node (`BV b)

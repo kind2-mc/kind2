@@ -499,7 +499,6 @@ let ensure_symbol_qf_lira s =
 
   (* | `UF f when UfSymbol.arg_type_of_uf_symbol f = [] -> () *)
 
-  | `UBV _
   | `BV _ 
   | `INTDIV
   | `DIVISIBLE _

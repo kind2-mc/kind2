@@ -281,8 +281,6 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `NUMERAL i -> Numeral.pp_print_numeral ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal ppf f
-
-  | `UBV b -> Bitvector.pp_yices_print_bitvector_b ppf b
   | `BV b -> Bitvector.pp_yices_print_bitvector_b ppf b
 
   (* Special case for unary minus : print -a as (- 0 a) *)

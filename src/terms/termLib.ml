@@ -48,10 +48,10 @@ let default_of_type t =
     (* Fixed-width integers are zero by default *)
     | Type.UBV i ->
       begin match i with
-      | 8 -> Term.mk_ubv (Bitvector.repeat_bit false 8)
-      | 16 -> Term.mk_ubv (Bitvector.repeat_bit false 16)
-      | 32 -> Term.mk_ubv (Bitvector.repeat_bit false 32)
-      | 64 -> Term.mk_ubv (Bitvector.repeat_bit false 64)
+      | 8 -> Term.mk_bv (Bitvector.repeat_bit false 8)
+      | 16 -> Term.mk_bv (Bitvector.repeat_bit false 16)
+      | 32 -> Term.mk_bv (Bitvector.repeat_bit false 32)
+      | 64 -> Term.mk_bv (Bitvector.repeat_bit false 64)
       | _ -> raise (Invalid_argument "default_of_type: BV size not allowed")
       end
     | Type.BV i ->
@@ -171,7 +171,6 @@ let logic_of_flat fun_symbols t acc =
     else if Symbol.is_numeral s then add IA (sup_logics acc)
     else if Symbol.is_decimal s then add RA (sup_logics acc)
     else if Symbol.is_bitvector s then add BV (sup_logics acc)
-    else if Symbol.is_ubitvector s then add BV (sup_logics acc)
     else sup_logics acc
 
   | App (s, _) when Symbol.(s == s_plus || s == s_minus) ->

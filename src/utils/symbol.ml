@@ -47,11 +47,9 @@ type interpreted_symbol =
   | `DISTINCT             (* Pairwise distinct predicate (chainable) *)
   | `ITE                  (* If-then-else (ternary) *) 
 
-  | `NUMERAL of Numeral.t   (* Infinite precision integer numeral (nullary) *)
+  | `NUMERAL of Numeral.t (* Infinite precision integer numeral (nullary) *)
   | `DECIMAL of Decimal.t 
-                       (* Infinite precision floating-point decimal (nullary) *)
-
-  | `UBV of Bitvector.t   (* Constant unsigned bitvector *)
+                          (* Infinite precision floating-point decimal (nullary) *)
   | `BV of Bitvector.t    (* Constant bitvector *)
 
   | `MINUS                (* Difference or unary negation (left-associative) *)
@@ -171,7 +169,6 @@ module Symbol_node = struct
     | `DECIMAL d1, `DECIMAL d2 -> Decimal.equal d1 d2
     | `DIVISIBLE n1, `DIVISIBLE n2 -> Numeral.equal n1 n2
 
-    | `UBV i, `UBV j -> i = j
     | `BV i, `BV j -> i = j
 
     | `UF u1, `UF u2 -> UfSymbol.equal_uf_symbols u1 u2
@@ -180,7 +177,6 @@ module Symbol_node = struct
     | `DECIMAL _, _
     | `DIVISIBLE _, _
 
-    | `UBV _, _
     | `BV _, _
 
     | `UF _, _  -> false
@@ -435,7 +431,6 @@ let rec pp_print_symbol_node ppf = function
 
   | `NUMERAL i -> Numeral.pp_print_numeral ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
-  | `UBV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b
   | `BV b -> Bitvector.pp_smtlib_print_bitvector_b ppf b
 
   | `MINUS -> Format.pp_print_string ppf "-"
@@ -545,35 +540,6 @@ let is_bitvector = function
   | { Hashcons.node = `BV _ } -> true 
   | _ -> false
 
-(* Return true if the symbol is an unsigned bitvector *)
-let is_ubitvector = function
-  | { Hashcons.node = `UBV _ } -> true
-  | _ -> false
-
-(* Return true if the symbol is an unsigned bitvector of size 8 *)
-let is_ubv8 = function
-  | { Hashcons.node = `UBV n } -> 
-      if (Bitvector.length_of_bitvector n = 8) then true else false
-  | _ -> false
-
-(* Return true if the symbol is an unsigned bitvector of size 16 *)
-let is_ubv16 = function
-  | { Hashcons.node = `UBV n } -> 
-      if (Bitvector.length_of_bitvector n = 16) then true else false
-  | _ -> false
-
-(* Return true if the symbol is an unsigned bitvector of size 32 *)
-let is_ubv32 = function
-  | { Hashcons.node = `UBV n } -> 
-      if (Bitvector.length_of_bitvector n = 32) then true else false
-  | _ -> false
-
-(* Return true if the symbol is an unsigned bitvector of size 64 *)
-let is_ubv64 = function
-  | { Hashcons.node = `UBV n } -> 
-      if (Bitvector.length_of_bitvector n = 64) then true else false
-  | _ -> false
-
 (* Return true if the symbol is a bitvector of size 8 *)
 let is_bv8 = function
   | { Hashcons.node = `BV n } -> 
@@ -658,11 +624,6 @@ let decimal_of_symbol = function
 let bitvector_of_symbol =  function 
   | { Hashcons.node = `BV b } -> b 
   | _ -> raise (Invalid_argument "bitvector_of_symbol")
-
-(* Return the unsigned bitvector in a `UBV symbol *)
-let ubitvector_of_symbol = function
-  | { Hashcons.node = `UBV b } -> b
-  | _ -> raise (Invalid_argument "ubitvector_of_symbol")
 
 (* Return [true] for the [`TRUE] symbol and [false] for the [`FALSE]
     symbol *)

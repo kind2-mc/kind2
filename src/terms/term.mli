@@ -141,8 +141,6 @@ val mk_dec_of_float : float -> t
 
 
 (**@author Arjun Viswanathan*)
-(** Create a constant unsigned bitvector *)
-val mk_ubv : Bitvector.t -> t
 
 (** Create a constant bitvector *)
 val mk_bv : Bitvector.t -> t
@@ -533,20 +531,8 @@ val numeral_of_term : t -> Numeral.t
 (** Return bitvector constant of a term (sign-agnostic) *)
 val bitvector_of_term : t -> Bitvector.t
 
-(** Return signed bitvector constant of a term *)
-val sbitvector_of_term : t -> Bitvector.t
-
-(** Return unsigned bitvector constant of a term *)
-val ubitvector_of_term : t -> Bitvector.t
-
 (** Return true if the term is a (sign-agnostic) bitvector consant *)
 val is_bitvector : t -> bool
-
-(** Return true if the term is a signed bitvector constant *)
-val is_sbitvector : t -> bool
-
-(** Return true if the term is an unsigned bitvector constant *)
-val is_ubitvector : t -> bool
 
 (** Return true if the term is a decimal constant *)
 val is_decimal : t -> bool

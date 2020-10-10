@@ -295,20 +295,23 @@ let string_of_symbol = function
   | `NUMERAL n -> Numeral.string_of_numeral n
   | `DECIMAL d -> Decimal.string_of_decimal d
   | `XOR -> "xor"
-  | `UBV b ->
-          (match Bitvector.length_of_bitvector b with
-          | 8 -> "(uint8 " ^ (Numeral.string_of_numeral (Bitvector.ubv8_to_num b)) ^ ")"
-          | 16 -> "(uint16 " ^ (Numeral.string_of_numeral (Bitvector.ubv16_to_num b)) ^ ")"
-          | 32 -> "(uint32 " ^ (Numeral.string_of_numeral (Bitvector.ubv32_to_num b)) ^ ")"
-          | 64 -> "(uint64 " ^ (Numeral.string_of_numeral (Bitvector.ubv64_to_num b)) ^ ")"
-          | _ -> raise Type_mismatch)
-  | `BV b -> 
-          (match Bitvector.length_of_bitvector b with
-          | 8 -> "(int8 " ^ (Numeral.string_of_numeral (Bitvector.bv8_to_num b)) ^ ")"
-          | 16 -> "(int16 " ^ (Numeral.string_of_numeral (Bitvector.bv16_to_num b)) ^ ")"
-          | 32 -> "(int32 " ^ (Numeral.string_of_numeral (Bitvector.bv32_to_num b)) ^ ")"
-          | 64 -> "(int64 " ^ (Numeral.string_of_numeral (Bitvector.bv64_to_num b)) ^ ")"
-          | _ -> raise Type_mismatch)
+  | `BV b ->
+          if (Type.is_ubitvector (Term.type_of_term (Term.mk_bv b))) then
+            (match Bitvector.length_of_bitvector b with
+            | 8 -> "(uint8 " ^ (Numeral.string_of_numeral (Bitvector.ubv8_to_num b)) ^ ")"
+            | 16 -> "(uint16 " ^ (Numeral.string_of_numeral (Bitvector.ubv16_to_num b)) ^ ")"
+            | 32 -> "(uint32 " ^ (Numeral.string_of_numeral (Bitvector.ubv32_to_num b)) ^ ")"
+            | 64 -> "(uint64 " ^ (Numeral.string_of_numeral (Bitvector.ubv64_to_num b)) ^ ")"
+            | _ -> raise Type_mismatch)
+          else if (Type.is_ubitvector (Term.type_of_term (Term.mk_bv b))) then
+            (match Bitvector.length_of_bitvector b with
+            | 8 -> "(int8 " ^ (Numeral.string_of_numeral (Bitvector.bv8_to_num b)) ^ ")"
+            | 16 -> "(int16 " ^ (Numeral.string_of_numeral (Bitvector.bv16_to_num b)) ^ ")"
+            | 32 -> "(int32 " ^ (Numeral.string_of_numeral (Bitvector.bv32_to_num b)) ^ ")"
+            | 64 -> "(int64 " ^ (Numeral.string_of_numeral (Bitvector.bv64_to_num b)) ^ ")"
+            | _ -> raise Type_mismatch)
+          else
+            raise Type_mismatch
   | `MINUS -> "-"
   | `PLUS -> "+"
   | `TIMES -> "*"
@@ -595,7 +598,6 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `FALSE
   | `NUMERAL _
   | `DECIMAL _
-  | `UBV _
   | `BV _ 
   | `BV2NAT -> (function _ -> assert false)
 
@@ -1760,38 +1762,38 @@ let eval_to_int expr =
         (Numeral.of_big_int
            (Decimal.to_big_int
               (Symbol.decimal_of_symbol s)))
-    | Term.T.Const s when Symbol.is_ubv8 s ->
+    | Term.T.Const s when (Type.is_uint8 (Term.type_of_term (Term.mk_const s))) ->
       Term.mk_num
         (Bitvector.ubv8_to_num
-          (Symbol.ubitvector_of_symbol s))
-    | Term.T.Const s when Symbol.is_ubv16 s ->
+          (Symbol.bitvector_of_symbol s))
+    | Term.T.Const s when (Type.is_uint16 (Term.type_of_term (Term.mk_const s))) ->
       Term.mk_num
         (Bitvector.ubv16_to_num
-          (Symbol.ubitvector_of_symbol s))
-    | Term.T.Const s when Symbol.is_ubv32 s ->
+          (Symbol.bitvector_of_symbol s))
+    | Term.T.Const s when (Type.is_uint32 (Term.type_of_term (Term.mk_const s))) ->
       Term.mk_num
         (Bitvector.ubv32_to_num
-          (Symbol.ubitvector_of_symbol s))
-    | Term.T.Const s when Symbol.is_ubv64 s ->
+          (Symbol.bitvector_of_symbol s))
+    | Term.T.Const s when (Type.is_uint64 (Term.type_of_term (Term.mk_const s))) ->
       Term.mk_num
         (Bitvector.ubv64_to_num
-          (Symbol.ubitvector_of_symbol s))
-    | Term.T.Const s when Symbol.is_bv8 s ->
+          (Symbol.bitvector_of_symbol s))
+    | Term.T.Const s when (Type.is_int8 (Term.type_of_term (Term.mk_const s))) ->
       Term.mk_num
         (Bitvector.bv8_to_num
           (Symbol.bitvector_of_symbol s))
-    | Term.T.Const s when Symbol.is_bv16 s ->
+    | Term.T.Const s when (Type.is_uint16 (Term.type_of_term (Term.mk_const s))) ->
       Term.mk_num
         (Bitvector.bv16_to_num
-          (Symbol.ubitvector_of_symbol s))
-    | Term.T.Const s when Symbol.is_bv32 s ->
+          (Symbol.bitvector_of_symbol s))
+    | Term.T.Const s when (Type.is_uint32 (Term.type_of_term (Term.mk_const s))) ->
       Term.mk_num
         (Bitvector.bv32_to_num
-          (Symbol.ubitvector_of_symbol s))
-    | Term.T.Const s when Symbol.is_bv64 s ->
+          (Symbol.bitvector_of_symbol s))
+    | Term.T.Const s when (Type.is_uint64 (Term.type_of_term (Term.mk_const s))) ->
       Term.mk_num
         (Bitvector.bv64_to_num
-          (Symbol.ubitvector_of_symbol s))
+          (Symbol.bitvector_of_symbol s))
     | x when Type.is_uint8 (Term.type_of_term (Term.construct x)) -> Term.mk_uint8_to_int expr
     | x when Type.is_uint16 (Term.type_of_term (Term.construct x)) -> Term.mk_uint16_to_int expr
     | x when Type.is_uint32 (Term.type_of_term (Term.construct x)) ->  Term.mk_uint32_to_int expr
@@ -1848,11 +1850,11 @@ let eval_to_uint8 expr =
 
     | Term.T.Const c when Symbol.is_numeral c ->
 
-      Term.mk_ubv (Bitvector.num_to_ubv8 (Symbol.numeral_of_symbol c))
+      Term.mk_bv (Bitvector.num_to_ubv8 (Symbol.numeral_of_symbol c))
 
     | Term.T.App (_, [ sub_expr ])
       when Term.is_negative_numeral expr ->
-        Term.mk_ubv
+        Term.mk_bv
           (Bitvector.num_to_ubv8 (Numeral.neg (Term.numeral_of_term sub_expr)))
 
     | _ -> let tt = Term.type_of_term expr in
@@ -1892,11 +1894,11 @@ let eval_to_uint16 expr =
 
     | Term.T.Const c when Symbol.is_numeral c ->
 
-      Term.mk_ubv (Bitvector.num_to_ubv16 (Symbol.numeral_of_symbol c))
+      Term.mk_bv (Bitvector.num_to_ubv16 (Symbol.numeral_of_symbol c))
 
     | Term.T.App (_, [ sub_expr ])
       when Term.is_negative_numeral expr ->
-        Term.mk_ubv
+        Term.mk_bv
           (Bitvector.num_to_ubv16 (Numeral.neg (Term.numeral_of_term sub_expr)))
 
     | _ -> let tt = Term.type_of_term expr in
@@ -1906,7 +1908,7 @@ let eval_to_uint16 expr =
                         if (Type.is_uint16 tt) then
                           expr
                         else if (Type.is_uint8 tt) then
-                          Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 8)) expr
+                          Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit false 8)) expr
                         else
                           Term.mk_bvextract (Numeral.of_int 15) (Numeral.of_int 0) expr
                       else
@@ -1937,11 +1939,11 @@ let eval_to_uint32 expr =
 
     | Term.T.Const c when Symbol.is_numeral c ->
 
-      Term.mk_ubv (Bitvector.num_to_ubv32 (Symbol.numeral_of_symbol c))
+      Term.mk_bv (Bitvector.num_to_ubv32 (Symbol.numeral_of_symbol c))
 
     | Term.T.App (_, [ sub_expr ])
       when Term.is_negative_numeral expr ->
-        Term.mk_ubv
+        Term.mk_bv
           (Bitvector.num_to_ubv32 (Numeral.neg (Term.numeral_of_term sub_expr)))
 
     | _ -> let tt = Term.type_of_term expr in
@@ -1951,9 +1953,9 @@ let eval_to_uint32 expr =
               if (Type.is_uint32 tt) then
                 expr
               else if (Type.is_uint8 tt) then
-                Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 24)) expr
+                Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit false 24)) expr
               else if (Type.is_uint16 tt) then
-                Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 16)) expr
+                Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit false 16)) expr
               else
                 Term.mk_bvextract (Numeral.of_int 31) (Numeral.of_int 0) expr
                 (*let n = Term.mk_bv2nat expr in
@@ -1986,11 +1988,11 @@ let eval_to_uint64 expr =
 
     | Term.T.Const c when Symbol.is_numeral c ->
 
-      Term.mk_ubv (Bitvector.num_to_ubv64 (Symbol.numeral_of_symbol c))
+      Term.mk_bv (Bitvector.num_to_ubv64 (Symbol.numeral_of_symbol c))
 
     | Term.T.App (_, [ sub_expr ])
       when Term.is_negative_numeral expr ->
-        Term.mk_ubv
+        Term.mk_bv
           (Bitvector.num_to_ubv64 (Numeral.neg (Term.numeral_of_term sub_expr)))
 
     | _ -> let tt = Term.type_of_term expr in
@@ -2000,11 +2002,11 @@ let eval_to_uint64 expr =
               if (Type.is_uint64 tt) then
                 expr
               else if (Type.is_uint32 tt) then
-                Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 32)) expr
+                Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit false 32)) expr
               else if (Type.is_uint16 tt) then
-                Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 48)) expr
+                Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit false 48)) expr
               else
-                Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 56)) expr
+                Term.mk_bvconcat (Term.mk_bv (Bitvector.repeat_bit false 56)) expr
             else
               raise Type_mismatch
 

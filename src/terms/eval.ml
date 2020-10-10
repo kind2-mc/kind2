@@ -104,11 +104,8 @@ let value_of_term term = match Term.destruct term with
 
         (* Term is a constructor *)
 
-        (* Term is a signed bitvector *)
+        (* Term is a bitvector *)
         | `BV b -> ValTerm (Term.mk_bv b)
-
-        (* Term is an unsigned bitvector *)
-        | `UBV b -> ValTerm (Term.mk_ubv b)
 
         (* Uninterpreted constant *)
         | `UF u -> ValTerm term 
