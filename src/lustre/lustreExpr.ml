@@ -303,7 +303,7 @@ let string_of_symbol = function
             | 32 -> "(uint32 " ^ (Numeral.string_of_numeral (Bitvector.ubv32_to_num b)) ^ ")"
             | 64 -> "(uint64 " ^ (Numeral.string_of_numeral (Bitvector.ubv64_to_num b)) ^ ")"
             | _ -> raise Type_mismatch)
-          else if (Type.is_ubitvector (Term.type_of_term (Term.mk_bv b))) then
+          else if (Type.is_bitvector (Term.type_of_term (Term.mk_bv b))) then
             (match Bitvector.length_of_bitvector b with
             | 8 -> "(int8 " ^ (Numeral.string_of_numeral (Bitvector.bv8_to_num b)) ^ ")"
             | 16 -> "(int16 " ^ (Numeral.string_of_numeral (Bitvector.bv16_to_num b)) ^ ")"
