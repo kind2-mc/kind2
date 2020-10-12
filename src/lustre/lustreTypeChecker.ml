@@ -101,27 +101,27 @@ type ty_set = SI.t
             
 (** Pretty print type synonyms*)
 let pp_print_type_syn ppf = fun i ty -> 
-  Format.fprintf ppf "(%a:=%a), " LA.pp_print_ident i LA.pp_print_lustre_type ty
+  Format.fprintf ppf "(%a:=%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
 
 (** Pretty print type bindings*)
 let pp_print_type_binding ppf = fun i ty -> 
-  Format.fprintf ppf "(%a:%a), " LA.pp_print_ident i LA.pp_print_lustre_type ty
+  Format.fprintf ppf "(%a:%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
 
 (** Pretty print value bindings (used for constants)*)
 let pp_print_val_binding ppf = fun i (v, ty) ->
-  Format.fprintf ppf "(%a:%a :-> %a), " LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v
+  Format.fprintf ppf "(%a:%a :-> %a)" LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v
 
 (** Pretty print type context *)
-let pp_print_ty_syns ppf = IMap.iter (pp_print_type_syn ppf)   
+let pp_print_ty_syns ppf m = Lib.pp_print_list (fun ppf (i, ty) -> pp_print_type_syn ppf i ty)  ", " ppf (IMap.bindings m) 
 
 (** Pretty print type context *)
-let pp_print_tymap ppf = IMap.iter (pp_print_type_binding ppf)   
+let pp_print_tymap ppf m = Lib.pp_print_list (fun ppf (i, ty) -> pp_print_type_binding ppf i ty)  ", " ppf (IMap.bindings m)
 
 (** Pretty print value store *)
-let pp_print_vstore ppf = IMap.iter (pp_print_val_binding ppf)
+let pp_print_vstore ppf m = Lib.pp_print_list (fun ppf (i, (e, ty)) -> pp_print_val_binding ppf i (e, ty))  ", " ppf (IMap.bindings m)
 
 (** Pretty print declared types *)
-let pp_print_u_types ppf = SI.iter (fun i -> LA.pp_print_ident ppf i)
+let pp_print_u_types ppf m = Lib.pp_print_list LA.pp_print_ident ", " ppf (SI.elements m)
                          
 type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
                   ; ty_ctx: ty_store        (* store of the types of identifiers and nodes*)
@@ -130,7 +130,7 @@ type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings 
                   ; u_types: ty_set         (* store of all declared user types,
                                                this is poor mans kind (type of type) context *)
                   }
-(** Type Checker context *)
+(** The type Checker context *)
 
 let empty_context: tc_context = { ty_syns = IMap.empty
                                 ; ty_ctx = IMap.empty
@@ -144,7 +144,7 @@ let pp_print_tc_context ppf ctx
       ("Type Synonyms={%a}\n"
        ^^ "Type Context={%a}\n"
        ^^ "Contract Context={%a}\n"
-       ^^ "Const Store={%a}"
+       ^^ "Const Store={%a}\n"
        ^^ "Declared Types={%a}")
       pp_print_ty_syns (ctx.ty_syns)
       pp_print_tymap (ctx.ty_ctx)
@@ -176,20 +176,30 @@ let member_u_types : tc_context -> LA.ident -> bool
 let member_val: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.vl_ctx)
 
-let lookup_ty_syn: tc_context -> LA.ident -> tc_type option 
-  = fun ctx i -> IMap.find_opt i (ctx.ty_syns)
-(** picks out the type synonym from the context *)
+let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type option 
+  = fun ctx i ->
+  match (IMap.find_opt i (ctx.ty_syns)) with
+  | Some ty -> (match ty with
+               | LA.UserType (_, uid) ->
+                  if (Stdlib.compare uid i = 0)
+                  then Some ty
+                  else lookup_ty_syn ctx uid
+               | _ -> Some ty )
+  | None -> None
+(** picks out the type synonym from the context
+    If it is user type then chases it (recursively looks up) 
+    the actual type. This chasing is necessary to check type equality 
+    between user defined types. *)
 
 let lookup_ty: tc_context -> LA.ident -> tc_type option
   = fun ctx i ->
-  let ty = IMap.find i (ctx.ty_ctx) in
-  match ty with
-  | LA.UserType (_, uid) ->
-     (match (lookup_ty_syn ctx uid) with
-     | None -> Some ty
-     | Some ty' -> Some ty') 
-  | _ ->  Some ty
-(** Picks out the type from the variable to type context map *)
+  match (IMap.find_opt i (ctx.ty_ctx)) with
+  | Some ty -> (match ty with
+                | LA.UserType (_, uid) ->
+                   lookup_ty_syn ctx uid
+                | _ -> Some ty) 
+  | None ->  None
+(** Picks out the type of the identifier to type context map *)
 
 let lookup_contract_ty: tc_context -> LA.ident -> tc_type option
   = fun ctx i -> IMap.find_opt i (ctx.contract_ctx)
@@ -1158,10 +1168,11 @@ and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index ->
   infer_type_expr ctx expr
   >>= function
   | RecordType (_, flds) as rec_ty ->
-     (try R.ok (List.find (fun (_, i, _) -> i = idx) flds) with
-      | Not_found -> type_error pos ("Cannot project field " ^ idx
+     (match (List.find_opt (fun (_, i, _) -> i = idx) flds) with 
+      | None -> type_error pos ("Cannot project field " ^ idx
                                      ^ " from given record type "
-                                     ^ string_of_tc_type rec_ty))
+                                     ^ string_of_tc_type rec_ty)
+      | Some f -> R.ok f)
      >>= fun (_, _, fty) ->
      R.guard_with (eq_lustre_type ctx fty exp_ty)
        (type_error pos ("Cannot match expected type "
@@ -1222,7 +1233,8 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
       let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
       let ret_ids = LA.SI.of_list (List.map (fun a -> LH.extract_op_ty a |> fst) output_vars) in
       let common_ids = LA.SI.inter arg_ids ret_ids in
-      if (LA.SI.equal common_ids LA.SI.empty)
+
+      if (SI.is_empty common_ids)
       then
            (Log.log L_trace "Params: %a (skipping)" LA.pp_print_node_param_list params
      (* store the input constants passed in the input 
@@ -1236,6 +1248,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
       (* These are outputs of the node *)
       let ctx_plus_ops_and_ips = List.fold_left union ctx_plus_ips
                                    (List.map extract_ret_ctx output_vars) in
+      Log.log L_trace "Local Typing Context after extracting ips/ops/consts {%a}" pp_print_tc_context ctx_plus_ops_and_ips;
       (* Type check the contract *)
       (match contract with
              | None -> R.ok ()
@@ -1308,7 +1321,7 @@ and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> unit tc_r
      R.ifM (R.seqM (||) false [ eq_lustre_type ctx exp_ty inf_ty
                               ; eq_lustre_type ctx exp_ty (TupleType (pos,[inf_ty])) ])
        (if member_val ctx i
-        then type_error pos ( "Constant " ^ i ^ " cannot be re-defined")
+        then type_error pos ("Constant " ^ i ^ " cannot be re-defined")
         else R.ok ())
        (type_error pos ("Expected type " ^ string_of_tc_type exp_ty
                         ^ " for expression " ^ i
@@ -1378,7 +1391,7 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
   | ContractCall _ -> R.ok ctx
   
 and check_type_contract_decl: ?node_out_params: LA.SI.t -> tc_context -> LA.contract_node_decl -> unit tc_result
-  = fun ?node_out_params:(node_out_params = LA.SI.empty)ctx (cname, params, args, rets, contract) ->
+  = fun ?node_out_params:(node_out_params = LA.SI.empty) ctx (cname, params, args, rets, contract) ->
   Log.log L_trace "TC Contract decl: %a {" LA.pp_print_ident cname 
   (* build the appropriate local context *)
   ; let arg_ctx = List.fold_left union ctx (List.map extract_arg_ctx args) in
@@ -1490,7 +1503,8 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
                                            (LA.UserType (pos, ename)) in
                (* Adding enums into the typing context consists of 3 parts *)
                (* 1. add the enum type as a valid type in context*)
-               R.ok ( List.fold_left union (add_ty_decl ctx ename)
+               let ctx' = add_ty_syn ctx ename (LA.AbstractType (pos, ename)) in
+               R.ok (List.fold_left union (add_ty_decl ctx' ename)
                (* 2. Lift all enum constants (terms) with associated user type of enum name *)
                         (enum_type_bindings
                (* 3. Lift all the enum constants (terms) into the value store as constants *)
@@ -1895,16 +1909,8 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
               let tc_res = (type_check_decl_grps tc_ctx [prg]) in
               Log.log L_trace ("===============================================\n"
                                ^^ "Phase 2: Type checking declaration Groups Done\n"
-                               ^^"===============================================\n")  
-              (* inline constants in node body *)
-              ; let (_, sorted_node_contract_decls') = inline_constants global_ctx' sorted_node_contract_decls in
-                Log.log L_trace ("%a\n%a\n=============================================\n"
-                                 ^^ "Phase 3: Inline node constants done           \n"
-                                 ^^"===============================================\n")
-                  LA.pp_print_program inlined_cs
-                  LA.pp_print_program sorted_node_contract_decls'
-                
-                ; report_tc_result tc_res
+                               ^^"===============================================\n")                  
+              ; report_tc_result tc_res
 (** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
  *  a [Ok ()] if it succeeds or and [Error of String] if the typechecker fails*)
            
