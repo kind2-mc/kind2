@@ -1749,7 +1749,7 @@ let type_check_decl_grps: tc_context -> LA.t list -> unit tc_result list
   = fun ctx decls ->
       Log.log L_trace ("===============================================\n"
                        ^^ "Phase 2: Type checking declaration Groups\n"
-                       ^^"===============================================\n");  
+                       ^^"===============================================\n");
       List.concat (List.map (fun decl -> try (type_check_group ctx decl) with
                                          | Out_of_bounds (pos, err) -> [type_error pos err]) decls)               
 (** Typecheck a list of independent groups using a global context*)
@@ -1892,7 +1892,7 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
                             ^^"\n===============================================\n")
             LA.pp_print_program inlined_cs
 
-          (* sort nodes and contract decls to make sure there are no recursive calls *)
+          (* sort nodes and contract decls to make sure there are no recursive node/contract calls *)
           ; AD.sort_declarations node_and_contract_decls >>= fun sorted_node_contract_decls -> 
             
             (* gather the typing context from nodes/functions and contracts *)
@@ -1909,7 +1909,8 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
                                ^^"===============================================\n")                  
               ; report_tc_result tc_res
 (** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
- *  a [Ok ()] if it succeeds or and [Error of String] if the typechecker fails*)
+ *  a [Ok ()] if it succeeds or and [Error of (Lib.position * String)] 
+ * if the typechecking fails *)
            
 (* 
    Local Variables:
