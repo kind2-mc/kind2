@@ -36,7 +36,7 @@ type 'a tc_result = ('a, Lib.position * string) result
 let (>>=) = R.(>>=)
 let (>>) = R.(>>)
 
-exception OutOfBounds
+exception Out_of_bounds of (Lib.position * string) 
          
 (** Type alias for lustre type from LustreAst  *)
 type tc_type  = LA.lustre_type
@@ -158,9 +158,12 @@ let pp_print_tc_context ppf ctx
  * Helper functions for type checker workings *
  **********************************************)
 
-(** [typeError] returns an [Error] of [tc_result] *)
+(** [type_error] returns an [Error] of [tc_result] *)
 let type_error pos err = R.error (pos, "Type error: " ^ err)
 
+(** [type_error] returns an [Error] of [tc_result] *)
+let error pos err = R.error (pos, err)
+                       
 let member_ty_syn: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.ty_syns)
            
@@ -398,14 +401,12 @@ and eval_comp_op: tc_context -> Lib.position -> LA.comparison_operator -> LA.exp
 and simplify_array_index: tc_context -> Lib.position -> LA.expr -> LA.expr -> LA.expr
   = fun ctx pos e1 idx -> 
   match (simplify_expr ctx e1) with
-  | LA.GroupExpr (pos, ArrayExpr, es) ->
+  | LA.GroupExpr (_, ArrayExpr, es) ->
      (match (eval_int_expr ctx idx) with
       | Ok i -> if List.length es > i
                 then List.nth es i
                 else
-                  (Log.log L_fatal "Trying to access element out of bounds %a"
-                     Lib.pp_print_position pos
-                  ; raise OutOfBounds)
+                  (raise (Out_of_bounds (pos, "Array element access out of bounds.")))
       | Error _ -> LA.ArrayIndex (pos, e1, idx))
   | _ -> ArrayIndex (pos, e1, idx)
 (** picks out the idx'th component of an array if it can *)
@@ -413,13 +414,11 @@ and simplify_array_index: tc_context -> Lib.position -> LA.expr -> LA.expr -> LA
 and simplify_tuple_proj: tc_context -> Lib.position -> LA.expr -> int -> LA.expr
   = fun ctx pos e1 idx ->
   match (simplify_expr ctx e1) with
-  | LA.GroupExpr (pos, _, es) ->
+  | LA.GroupExpr (_, _, es) ->
      if List.length es > idx
      then List.nth es idx
-     else (Log.log L_fatal "Trying to access element out of bounds %a"
-             Lib.pp_print_position pos
-          ; raise OutOfBounds)
-  | e -> TupleProject (pos, e1, idx)
+     else (raise (Out_of_bounds (pos, "Tuple element access out of bounds.")))
+  | _ -> TupleProject (pos, e1, idx)
 (** picks out the idx'th component of a tuple if it is possible *)
        
 and simplify_expr: tc_context -> LA.expr -> LA.expr = fun ctx ->
@@ -1578,6 +1577,7 @@ and build_type_and_const_context: tc_context -> LA.t -> tc_context tc_result
      tc_ctx_const_decl ctx const_decl
      >>= fun ctx' -> build_type_and_const_context ctx' rest                   
   | _ :: rest -> build_type_and_const_context ctx rest
+  
 (** Process top level type declarations and make a type context with 
  * user types, enums populated *)
                
@@ -1750,7 +1750,8 @@ let type_check_decl_grps: tc_context -> LA.t list -> unit tc_result list
       Log.log L_trace ("===============================================\n"
                        ^^ "Phase 2: Type checking declaration Groups\n"
                        ^^"===============================================\n");  
-  List.concat (List.map (type_check_group ctx) decls)               
+      List.concat (List.map (fun decl -> try (type_check_group ctx decl) with
+                                         | Out_of_bounds (pos, err) -> [type_error pos err]) decls)               
 (** Typecheck a list of independent groups using a global context*)
 
   
@@ -1832,20 +1833,14 @@ let substitute: tc_context -> LA.declaration -> (tc_context * LA.declaration) = 
   | e -> (ctx, e)
 (** propogate constants post type checking into the AST and constant store*)
 
-let rec inline_constants: tc_context -> LA.t -> (tc_context * LA.t) = fun ctx ->
+let rec inline_constants: tc_context -> LA.t -> (tc_context * LA.t) tc_result = fun ctx ->
   function
-  | [] -> (ctx, [])
+  | [] -> R.ok (ctx, [])
   | c :: rest ->
      let (ctx', c') = substitute ctx c in
-     let (ctx'', decls) = inline_constants ctx' rest in
-     (ctx'', c'::decls)
+     inline_constants ctx' rest >>= fun (ctx'', decls) -> 
+     R.ok (ctx'', c'::decls)
      
-let rec inline_constants_in_node: tc_context -> LA.t -> LA.t =  fun ctx ->
-  function
-  | [] -> []
-  | d :: ds -> d :: inline_constants_in_node ctx ds  
-(** Inline constants in nodes *)
-
 let is_type_or_const_decl: LA.declaration -> bool = fun d ->
   match d with
   | TypeDecl _
@@ -1890,7 +1885,9 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
 
         (* Inline constants in constant declarations *)
         ; Log.log L_trace ("===============================================\nStarting inlining constants") 
-        ; let (global_ctx', inlined_cs) = inline_constants global_ctx sorted_tys_consts in 
+        ; (try (inline_constants global_ctx sorted_tys_consts) with
+          | Out_of_bounds (pos, err) -> error pos err) >>= fun (global_ctx', inlined_cs) ->  
+            
           Log.log L_trace ( "Inlining constants done: \nConstant decls: %a"
                             ^^"\n===============================================\n")
             LA.pp_print_program inlined_cs
