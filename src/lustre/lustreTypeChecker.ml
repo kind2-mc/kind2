@@ -1849,7 +1849,7 @@ let rec inline_constants: tc_context -> LA.t -> (tc_context * LA.t) tc_result = 
      inline_constants ctx' rest >>= fun (ctx'', decls) -> 
      R.ok (ctx'', c'::decls)
      
-let rec report_tc_result: unit tc_result list -> unit tc_result
+let report_tc_result: unit tc_result list -> unit tc_result
   =  R.seq_  
 (** Get the first error *)
   
