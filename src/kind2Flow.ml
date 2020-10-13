@@ -182,13 +182,13 @@ let status_of_exn process status = function
   | TimeoutWall -> (
     InvarManager.print_stats !latest_trans_sys ;
     KEvent.log_timeout true ;
-    status
+    ExitCodes.unknown
   )
   (* Catch CPU timeout. *)
   | TimeoutVirtual -> (
     InvarManager.print_stats !latest_trans_sys ;
     KEvent.log_timeout false ;
-    status
+    ExitCodes.unknown
   )
   (* Signal caught. *)
   | Signal s ->
