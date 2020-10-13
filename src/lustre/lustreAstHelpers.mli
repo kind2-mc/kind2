@@ -77,3 +77,7 @@ val is_type_signed_machine_int: lustre_type -> bool
 val is_type_machine_int: lustre_type -> bool
 
 val is_machine_type_of_associated_width: (lustre_type * lustre_type) -> bool
+
+val is_type_or_const_decl: declaration -> bool
+
+val split_program: declaration list -> (declaration list * declaration list)

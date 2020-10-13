@@ -25,13 +25,13 @@ module R = Res
 
 module LA = LustreAst
 module SI = LA.SI
-module LC = LustreContext
 module LH = LustreAstHelpers
 module AD = LustreAstDependencies
                         
 (** Returns [Ok] if the type check/type inference runs fine 
  * or reports an error at position with the error *)
 type 'a tc_result = ('a, Lib.position * string) result
+
 
 let (>>=) = R.(>>=)
 let (>>) = R.(>>)
@@ -132,7 +132,7 @@ type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings 
                   }
 (** The type Checker context *)
 
-let empty_context: tc_context = { ty_syns = IMap.empty
+let empty_tc_context: tc_context = { ty_syns = IMap.empty
                                 ; ty_ctx = IMap.empty
                                 ; contract_ctx = IMap.empty
                                 ; vl_ctx = IMap.empty
@@ -150,9 +150,12 @@ let pp_print_tc_context ppf ctx
       pp_print_tymap (ctx.ty_ctx)
       pp_print_tymap (ctx.contract_ctx)
       pp_print_vstore (ctx.vl_ctx)
-      pp_print_u_types (ctx.u_types)
-  
+      pp_print_u_types (ctx.u_types)  
 (** Pretty print the complete type checker context*)
+
+
+type tc_payload = tc_context 
+
   
 (**********************************************
  * Helper functions for type checker workings *
@@ -237,10 +240,10 @@ let union: tc_context -> tc_context -> tc_context
                      }
 
 let singleton_ty: LA.ident -> tc_type -> tc_context
-  = fun i ty -> add_ty empty_context i ty
+  = fun i ty -> add_ty empty_tc_context i ty
 
 let singleton_const: LA.ident -> LA.expr -> tc_type -> tc_context =
-  fun i e ty -> add_const empty_context i e ty
+  fun i e ty -> add_const empty_tc_context i e ty
 
 let extract_arg_ctx: LA.const_clocked_typed_decl -> tc_context
   = fun input -> let (i, ty) = LH.extract_ip_ty input in
@@ -254,7 +257,7 @@ let extract_consts: LA.const_clocked_typed_decl -> tc_context
   = fun (pos, i, ty, _, is_const) ->
   if is_const
   then singleton_const i (LA.Ident (pos, i)) ty
-  else empty_context 
+  else empty_tc_context 
 
 (*****************************************************
  *       Evaluating and propogating  constants       *
@@ -1288,8 +1291,8 @@ and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
      ; let get_array_def_context: LA.struct_item -> tc_context = 
         function
         | ArrayDef (pos, _, is) ->
-           List.fold_left (fun c i -> add_ty c i (LA.Int pos)) empty_context is 
-        | _ -> empty_context in
+           List.fold_left (fun c i -> add_ty c i (LA.Int pos)) empty_tc_context is 
+        | _ -> empty_tc_context in
       let ctx_from_lhs: tc_context -> LA.eq_lhs -> tc_context
         = fun ctx (LA.StructDef (_, items)) ->
         List.fold_left union ctx (List.map get_array_def_context items) in
@@ -1846,42 +1849,26 @@ let rec inline_constants: tc_context -> LA.t -> (tc_context * LA.t) tc_result = 
      inline_constants ctx' rest >>= fun (ctx'', decls) -> 
      R.ok (ctx'', c'::decls)
      
-let is_type_or_const_decl: LA.declaration -> bool = fun d ->
-  match d with
-  | TypeDecl _
-    | ConstDecl _ -> true
-  | _ -> false
-
-let split_program: LA.t -> (LA.t * LA.t)
-  = List.fold_left
-      (fun (ds, ds') d ->
-        if is_type_or_const_decl d then (d::ds, ds')
-        else (ds, d::ds')) ([], [])  
-(** Splits program into type and constant decls and rest of the program *)
-
 let rec report_tc_result: unit tc_result list -> unit tc_result
-  =  function
-     | [] -> R.ok () 
-     | Error (pos,err) :: _ -> LC.fail_at_position pos err
-     | Ok () :: tl -> report_tc_result tl
+  =  R.seq_  
 (** Get the first error *)
   
 (********************************************************************
  * The main function of the file that kicks off type checking flow  *
  ********************************************************************)
                     
-let type_check_program: LA.t -> unit tc_result = fun prg ->
+let type_check_program: tc_context -> LA.t -> tc_payload tc_result = fun ctx prg ->
   Log.log L_trace ("===============================================\n"
                    ^^ "Phase 1: Building TC Global Context\n"
                    ^^"===============================================\n")
-  ; let (ty_and_const_decls, node_and_contract_decls) = split_program prg in
+  ; let (ty_and_const_decls, node_and_contract_decls) = LH.split_program prg in
     (* circularity check and reordering for types and constants *)
     Log.log L_trace "Phase 1.1 Building graph for types and constant decls\n---------\n"
     ; AD.sort_declarations ty_and_const_decls >>= fun sorted_tys_consts ->
       Log.log L_trace "Sorted consts and type decls:\n%a" LA.pp_print_program sorted_tys_consts
 
       (* build the base context from the type and const decls *)
-      ; build_type_and_const_context empty_context sorted_tys_consts >>= fun global_ctx ->
+      ; build_type_and_const_context ctx sorted_tys_consts >>= fun global_ctx ->
         Log.log L_trace ("===============================================\n"
                          ^^ "Constant and type context \n"
                          ^^ "TC Context\n%a\n"
@@ -1913,14 +1900,12 @@ let type_check_program: LA.t -> unit tc_result = fun prg ->
                                ^^ "Phase 2: Type checking declaration Groups    \n"
                                ^^"===============================================\n")  
             (* type check the nodes and contract decls using this base typing context  *)
-            ; let tc_res = (type_check_decl_grps tc_ctx [sorted_node_contract_decls]) in
-              Log.log L_trace ("===============================================\n"
-                               ^^ "Phase 2: Type checking declaration Groups Done\n"
-                               ^^"===============================================\n")                  
-              ; report_tc_result tc_res
+            ; report_tc_result (type_check_decl_grps tc_ctx [sorted_node_contract_decls]) >>
+                (Log.log L_trace ("===============================================\n"
+                                  ^^ "Phase 2: Type checking declaration Groups Done\n"
+                                  ^^"===============================================\n") ;  R.ok tc_ctx)
 (** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
- *  a [Ok ()] if it succeeds or and [Error of (Lib.position * String)] 
- * if the typechecking fails *)
+ *  a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
            
 (* 
    Local Variables:

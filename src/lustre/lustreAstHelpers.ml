@@ -733,3 +733,18 @@ let is_machine_type_of_associated_width: (lustre_type * lustre_type) -> bool
     | UInt32 _, UInt32 _   
     | UInt64 _, UInt64 _ -> true
   | _ -> false    
+
+
+
+let is_type_or_const_decl: declaration -> bool = 
+  function
+  | TypeDecl _
+    | ConstDecl _ -> true
+  | _ -> false
+
+let split_program: declaration list -> (declaration list * declaration list)
+  = List.fold_left
+      (fun (ds, ds') d ->
+        if is_type_or_const_decl d then (d::ds, ds')
+        else (ds, d::ds')) ([], [])  
+(** Splits program into type and constant decls and rest of the program *)

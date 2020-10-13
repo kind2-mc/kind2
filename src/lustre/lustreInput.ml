@@ -21,6 +21,7 @@ open Lexing
 open MenhirLib.General
    
 module LA = LustreAst
+module LH = LustreAstHelpers
 module LN = LustreNode
 module LC = LustreContext
 module LD = LustreDeclarations
@@ -30,7 +31,11 @@ module LL = LustreLexer
 module LPMI = LustreParser.MenhirInterpreter
 module LPE = LustreParserErrors
 module TC = LustreTypeChecker
+module AD = LustreAstDependencies
 
+let (>>=) = Res.(>>=)
+let (>>) = Res.(>>)
+          
 exception NoMainNode of string
 
 (* The parser has succeeded and produced a semantic value.*)
@@ -105,19 +110,35 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
 let of_channel in_ch =
   (* Get declarations from channel. *)
   let declarations = ast_of_channel in_ch in
-  
-  (* optional type checker pass*) 
-  if not (Flags.no_tc ())
+
+  let declarations': LA.t =
+  (* optional type checking pass*) 
+  (if not (Flags.no_tc ())
   then
-    (Log.log L_note "(Experimental) Typechecking enabled."
-    ; match TC.type_check_program declarations with
-      | Ok () -> Log.log L_note "No type errors found!"
-               ; (if Flags.only_tc () then exit 0)
-      | Error (pos, err) -> LC.fail_at_position pos err)
-  
-  
+    let tc_res =  
+      (Log.log L_note "(Experimental) Typechecking enabled."
+    (* Step 0. Split program into top level const and type delcs and node/contract decls *)
+    ; let (const_type_decls, node_contract_src) = LH.split_program declarations in
+    (* Step 1. Dependency analysis on the top level declarations.  *)
+      AD.sort_declarations const_type_decls >>= fun sorted_const_type_decls ->
+
+      (* Step 2. Type check top level declarations *)
+      TC.type_check_program TC.empty_tc_context const_type_decls >>= fun ctx -> 
+
+      (* Step 3. Dependency analysis on nodes and contracts *)
+      AD.sort_declarations node_contract_src >>= fun sorted_node_contract_decls ->  
+
+      (* Step 4. type check nodes and contracts *)
+      TC.type_check_program ctx sorted_node_contract_decls >>
+        Res.ok (sorted_const_type_decls @ sorted_node_contract_decls)
+      (* Step 5. Inline constants *)) in
+    match tc_res with
+      | Ok d -> Log.log L_note "Type checking done"; d  
+      | Error (pos, err) -> LC.fail_at_position pos err
+   else declarations) in 
+  (if Flags.only_tc () then exit 0)
   (* Simplify declarations to a list of nodes *)
-  ; let nodes, globals = LD.declarations_to_nodes declarations in
+  ; let nodes, globals = LD.declarations_to_nodes declarations' in
   (* Name of main node *)
   let main_node = 
     (* Command-line flag for main node given? *)
