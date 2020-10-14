@@ -32,19 +32,16 @@ module AD = LustreAstDependencies
  * or reports an error at position with the error *)
 type 'a tc_result = ('a, Lib.position * string) result
 
-
 let (>>=) = R.(>>=)
 let (>>) = R.(>>)
-
-exception Out_of_bounds of (Lib.position * string) 
          
 (** Type alias for lustre type from LustreAst  *)
 type tc_type  = LA.lustre_type
+
+type constants_or_nodes = Constants_and_types | Nodes_and_contracts
               
 (** String of the type to display in type errors *)
 let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
-
-let string_of_expr: LA.expr -> string = fun e -> Lib.string_of_t LA.pp_print_expr e
   
 (** Map for types with identifiers as keys *)
 module IMap = struct
@@ -153,16 +150,12 @@ let pp_print_tc_context ppf ctx
       pp_print_u_types (ctx.u_types)  
 (** Pretty print the complete type checker context*)
 
-
-type tc_payload = tc_context 
-
-  
 (**********************************************
  * Helper functions for type checker workings *
  **********************************************)
 
-(** [type_error] returns an [Error] of [tc_result] *)
 let type_error pos err = R.error (pos, "Type error: " ^ err)
+(** [type_error] returns an [Error] of [tc_result] *)
 
 (** [type_error] returns an [Error] of [tc_result] *)
 let error pos err = R.error (pos, err)
@@ -259,9 +252,32 @@ let extract_consts: LA.const_clocked_typed_decl -> tc_context
   then singleton_const i (LA.Ident (pos, i)) ty
   else empty_tc_context 
 
-(*****************************************************
- *       Evaluating and propogating  constants       *
- *****************************************************)
+
+
+(********************************************************
+ *       Evaluating constants for type expressions      *
+ ********************************************************)
+         
+let int_value_of_const: LA.expr -> int tc_result =
+  function
+  | LA.Const (pos, LA.Num n) -> R.ok (int_of_string n)
+  | e -> type_error (LH.pos_of_expr e)
+           ("Cannot evaluate non-int constant "
+            ^ LA.string_of_expr e
+            ^ " to an int.") 
+
+let bool_value_of_const: LA.expr -> bool tc_result =
+  function
+  | LA.Const (pos, LA.True) -> R.ok true
+  | LA.Const (pos, LA.False) -> R.ok false                             
+  | e -> type_error (LH.pos_of_expr e)
+           ("Cannot evaluate non-bool "
+            ^ LA.string_of_expr e
+            ^" constant to a bool.")
+
+let lift_bool: bool -> LA.constant = function
+  | true -> LA.True
+  | false -> LA.False
 
 let rec is_normal_form: tc_context -> LA.expr -> bool = fun ctx ->
   function
@@ -271,28 +287,7 @@ let rec is_normal_form: tc_context -> LA.expr -> bool = fun ctx ->
     | TupleProject (_, e, _) -> is_normal_form ctx e
   | _ -> false
 (** is the expression in a normal form? *)
-
-let int_value_of_const: LA.expr -> int tc_result =
-  function
-  | LA.Const (pos, LA.Num n) -> R.ok (int_of_string n)
-  | e -> type_error (LH.pos_of_expr e)
-           ("Cannot evaluate non-int constant "
-            ^ string_of_expr e
-            ^ " to an int.") 
-
-let bool_value_of_const: LA.expr -> bool tc_result =
-  function
-  | LA.Const (pos, LA.True) -> R.ok true
-  | LA.Const (pos, LA.False) -> R.ok false                             
-  | e -> type_error (LH.pos_of_expr e)
-           ("Cannot evaluate non-bool "
-            ^ string_of_expr e
-            ^" constant to a bool.")
-
-let lift_bool: bool -> LA.constant = function
-  | true -> LA.True
-  | false -> LA.False
-  
+         
 let rec eval_int_expr: tc_context -> LA.expr -> int tc_result = fun ctx ->
   function
   | LA.Ident (pos, i) ->
@@ -311,10 +306,11 @@ let rec eval_int_expr: tc_context -> LA.expr -> int tc_result = fun ctx ->
   | LA.Const _ as c -> int_value_of_const c
   | LA.BinaryOp (pos, bop, e1, e2) -> eval_int_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_int_ternary_op ctx pos top e1 e2 e3
-  | e -> type_error (LH.pos_of_expr e) ("Cannot evaluate expression" ^ string_of_expr e)  
+  | e -> type_error (LH.pos_of_expr e) ("Cannot evaluate expression" ^ LA.string_of_expr e)  
 (** try and evalutate expression to int, return error otherwise *)
 
-and eval_int_binary_op: tc_context -> Lib.position -> LA.binary_operator -> LA.expr -> LA.expr -> int tc_result =
+and eval_int_binary_op: tc_context -> Lib.position -> LA.binary_operator
+                        -> LA.expr -> LA.expr -> int tc_result =
   fun ctx pos bop e1 e2 ->
   eval_int_expr ctx e1 >>= fun v1 ->
   eval_int_expr ctx e2 >>= fun v2 ->
@@ -324,7 +320,7 @@ and eval_int_binary_op: tc_context -> Lib.position -> LA.binary_operator -> LA.e
   | Minus -> R.ok (v1 - v2)
   | IntDiv -> R.ok (v1 / v2)
   | _ -> type_error pos ("Cannot evaluate non-int binary expression"
-                         ^ string_of_expr (LA.BinaryOp (pos, bop, e1, e2))
+                         ^ LA.string_of_expr (LA.BinaryOp (pos, bop, e1, e2))
                          ^" to an int value")    
 (** try and evalutate binary op expression to int, return error otherwise *)
              
@@ -347,10 +343,11 @@ and eval_bool_expr: tc_context -> LA.expr -> bool tc_result = fun ctx ->
   | LA.BinaryOp (pos, bop, e1, e2) -> eval_bool_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_bool_ternary_op ctx pos top e1 e2 e3
   | LA.CompOp (pos, cop, e1, e2) -> eval_comp_op ctx pos cop e1 e2
-  | e -> type_error (LH.pos_of_expr e) ("Cannot evaluate expression" ^ string_of_expr e)  
+  | e -> type_error (LH.pos_of_expr e) ("Cannot evaluate expression" ^ LA.string_of_expr e)  
 (** try and evalutate expression to bool, return error otherwise *)
 
-and eval_bool_binary_op: tc_context -> Lib.position -> LA.binary_operator -> LA.expr -> LA.expr -> bool tc_result = 
+and eval_bool_binary_op: tc_context -> Lib.position -> LA.binary_operator
+                         -> LA.expr -> LA.expr -> bool tc_result = 
   fun ctx pos bop e1 e2 ->
   eval_bool_expr ctx e1 >>= fun v1 ->
   eval_bool_expr ctx e2 >>= fun v2 ->
@@ -360,7 +357,7 @@ and eval_bool_binary_op: tc_context -> Lib.position -> LA.binary_operator -> LA.
   | Xor -> R.ok ((v1 && not v2) || (v2 && not v1))
   | Impl -> R.ok (not v1 || v2)
   | _ -> type_error pos ("Cannot evaluate non-bool binary expression"
-                         ^ string_of_expr (LA.BinaryOp (pos, bop, e1, e2))
+                         ^ LA.string_of_expr (LA.BinaryOp (pos, bop, e1, e2))
                          ^" to a bool value")
 (** try and evalutate binary op expression to bool, return error otherwise *)
   
@@ -388,7 +385,8 @@ and eval_int_ternary_op: tc_context -> Lib.position -> LA.ternary_operator
 (** try and evalutate ternary op expression to int, return error otherwise *)
 
              
-and eval_comp_op: tc_context -> Lib.position -> LA.comparison_operator -> LA.expr -> LA.expr -> bool tc_result = 
+and eval_comp_op: tc_context -> Lib.position -> LA.comparison_operator
+                  -> LA.expr -> LA.expr -> bool tc_result = 
   fun ctx pos cop e1 e2 ->
   eval_int_expr ctx e1 >>= fun v1 ->
   eval_int_expr ctx e2 >>= fun v2 ->
@@ -400,29 +398,6 @@ and eval_comp_op: tc_context -> Lib.position -> LA.comparison_operator -> LA.exp
   | Gte -> R.ok (v1 > v2)
   | Gt -> R.ok (v1 >= v2)
 (** try and evalutate comparison op expression to bool, return error otherwise *)
-
-and simplify_array_index: tc_context -> Lib.position -> LA.expr -> LA.expr -> LA.expr
-  = fun ctx pos e1 idx -> 
-  match (simplify_expr ctx e1) with
-  | LA.GroupExpr (_, ArrayExpr, es) ->
-     (match (eval_int_expr ctx idx) with
-      | Ok i -> if List.length es > i
-                then List.nth es i
-                else
-                  (raise (Out_of_bounds (pos, "Array element access out of bounds.")))
-      | Error _ -> LA.ArrayIndex (pos, e1, idx))
-  | _ -> ArrayIndex (pos, e1, idx)
-(** picks out the idx'th component of an array if it can *)
-
-and simplify_tuple_proj: tc_context -> Lib.position -> LA.expr -> int -> LA.expr
-  = fun ctx pos e1 idx ->
-  match (simplify_expr ctx e1) with
-  | LA.GroupExpr (_, _, es) ->
-     if List.length es > idx
-     then List.nth es idx
-     else (raise (Out_of_bounds (pos, "Tuple element access out of bounds.")))
-  | _ -> TupleProject (pos, e1, idx)
-(** picks out the idx'th component of a tuple if it is possible *)
        
 and simplify_expr: tc_context -> LA.expr -> LA.expr = fun ctx ->
   function
@@ -456,26 +431,37 @@ and simplify_expr: tc_context -> LA.expr -> LA.expr = fun ctx ->
      (match (eval_comp_op ctx pos cop e1' e2') with
       | Ok v -> LA.Const (pos, lift_bool v)
       | Error _ -> e)
-  | LA.GroupExpr (pos, g, es) ->
-     let es' = List.map (fun e -> simplify_expr ctx e) es in 
-     LA.GroupExpr (pos, g, es')
-  | LA.RecordExpr (pos, i, fields) ->
-     let fields' = List.map (fun (f, e) -> (f, simplify_expr ctx e)) fields in
-     LA.RecordExpr (pos, i, fields')
-  | LA.ArrayConstr (pos, e1, e2) as e->
-     let e1' = simplify_expr ctx e1 in
-     (match (eval_int_expr ctx e2) with
-      | Ok size -> LA.GroupExpr (pos, LA.ArrayExpr, Lib.list_init (fun _ -> e1') size)
-      | Error _ -> e)
-  | LA.ArrayIndex (pos, e1, e2) -> simplify_array_index ctx pos e1 e2
-  | LA.ArrayConcat (pos, e1, e2) as e->
-     (match (simplify_expr ctx e1, simplify_expr ctx e2) with
-      | LA.GroupExpr (_, LA.ArrayExpr, es1), LA.GroupExpr (_, LA.ArrayExpr, es2) ->
-         LA.GroupExpr(pos, LA.ArrayExpr, es1 @ es2)
-      | _ -> e)
-  | LA.TupleProject (pos, e1, e2) -> simplify_tuple_proj ctx pos e1 e2  
   | e -> e
-(* Assumptions: These constants are arranged in dependency order, all of the constants have been type checked *)
+(** Assumptions: These constants are arranged in dependency order, 
+    all of the constants have been type checked 
+    This function is used for simplifying expressions at type level only  *)
+
+let substitute: tc_context -> LA.declaration -> (tc_context * LA.declaration) = fun ctx ->
+  function
+  | ConstDecl (pos, FreeConst _) as c -> (ctx, c)
+  | ConstDecl (pos, UntypedConst (pos', i, e)) ->
+     let e' = simplify_expr ctx e in
+     let ty =
+       (match (lookup_ty ctx i) with 
+       | None -> failwith "Cannot find constant type. Should not happen."
+       | Some ty ->  ty) in
+     ( add_const ctx i e' ty
+     , ConstDecl (pos, UntypedConst (pos', i, e'))) 
+  | ConstDecl (pos, TypedConst (pos', i, e, ty)) ->
+     let e' = simplify_expr ctx e in 
+     (add_const ctx i e' ty, ConstDecl (pos, TypedConst (pos', i, e', ty)))
+  | e -> (ctx, e)
+(** propogate constants post type checking into the AST and constant store*)
+
+
+let rec inline_constants: tc_context -> LA.t -> tc_context * LA.t = fun ctx ->
+  function
+  | [] -> ctx, []
+  | c :: rest ->
+     let (ctx', c') = substitute ctx c in
+     let ctx'', decls = inline_constants ctx' rest in
+     ctx'', c'::decls
+(** Best effort at inlining constants *)  
        
 (**********************************************
  * Type inferring and type checking functions *
@@ -618,7 +604,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
      then infer_type_expr ctx e1
           >>= (function
                | ArrayType (_, (b_ty, _)) ->
-                 R.ok (LA.ArrayType (pos, (b_ty, simplify_expr ctx (LH.abs_diff pos il iu))))
+                 R.ok (LA.ArrayType (pos, (b_ty, (LH.abs_diff pos il iu))))
               | ty -> type_error pos ("Slicing can only be done on an type Array "
                                      ^ "but found type "
                                      ^ Lib.string_of_t LA.pp_print_lustre_type ty))
@@ -645,7 +631,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                      R.ifM (R.seqM (&&) true [eq_lustre_type ctx b_ty1 b_ty2
                                             ; R.ok(is_expr_int_type ctx size1)
                                             ; R.ok(is_expr_int_type ctx size2)] )
-                       (R.ok (LA.ArrayType (pos, (b_ty1, simplify_expr ctx (LH.add_exp pos size1 size2)))))
+                       (R.ok (LA.ArrayType (pos, (b_ty1, (LH.add_exp pos size1 size2)))))
                        (type_error pos ("Cannot concat array of two different types "
                                         ^ string_of_tc_type ty1 ^ " and "
                                         ^ string_of_tc_type ty2 ))
@@ -1476,7 +1462,7 @@ and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_cont
           (if is_const then
              if (is_expr_of_consts ctx e) 
              then R.ok (add_ty (add_const ctx i e ty) i ty)
-             else type_error pos ("Expression " ^ string_of_expr e ^ " is not a constant expression")
+             else type_error pos ("Expression " ^ LA.string_of_expr e ^ " is not a constant expression")
            else R.ok(add_ty ctx i ty))
           
   | LA.TypedConst (pos, i, e, exp_ty) ->
@@ -1486,7 +1472,7 @@ and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_cont
           >> (if is_const then
                 if (is_expr_of_consts ctx e) 
                 then R.ok (add_ty (add_const ctx i e exp_ty) i exp_ty)
-                else type_error pos ("Expression " ^ string_of_expr e ^ " is not a constant expression")
+                else type_error pos ("Expression " ^ LA.string_of_expr e ^ " is not a constant expression")
               else R.ok(add_ty ctx i exp_ty))
 (** Fail if a duplicate constant is detected  *)
 
@@ -1724,7 +1710,6 @@ and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type *
 let scc: LA.t -> LA.t list
   = fun decls -> [decls]
 (** Compute the connected components for type checking *)
-
                                  
 let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
   = fun global_ctx
@@ -1758,152 +1743,54 @@ let type_check_decl_grps: tc_context -> LA.t list -> unit tc_result list
       Log.log L_trace ("===============================================\n"
                        ^^ "Phase 2: Type checking declaration Groups\n"
                        ^^"===============================================\n");
-      List.concat (List.map (fun decl -> try (type_check_group ctx decl) with
-                                         | Out_of_bounds (pos, err) -> [type_error pos err]) decls)               
+      List.concat (List.map (fun decl -> type_check_group ctx decl) decls)               
 (** Typecheck a list of independent groups using a global context*)
 
   
-let inline_constants_of_node_equation: tc_context -> LA.node_equation -> LA.node_equation
-  = fun ctx ->
-  function
-  | (LA.Assert (pos, e)) -> (Assert (pos, simplify_expr ctx e))
-  | (LA.Equation (pos, lhs, e)) -> (LA.Equation (pos, lhs, simplify_expr ctx e))
-  | e -> e
-
-let rec inline_constants_of_node_items: tc_context -> LA.node_item list -> LA.node_item list 
-  = fun ctx
-  -> function
-  | [] -> []
-  | (Body b) :: items ->
-     (Body (inline_constants_of_node_equation ctx b))
-     :: inline_constants_of_node_items ctx items
-  | (AnnotProperty (pos, n, e)) :: items ->
-     (AnnotProperty (pos, n, simplify_expr ctx e))
-     :: inline_constants_of_node_items ctx items
-  | e -> e
-
-let rec inline_constants_of_contract: tc_context -> LA.contract -> LA.contract =
-  fun ctx ->
-  function
-  | [] -> []
-  | (LA.GhostConst (FreeConst (pos, i, ty))) :: others ->
-     (LA.GhostConst (FreeConst (pos, i, ty)))
-     :: inline_constants_of_contract ctx others 
-  | (LA.GhostConst (UntypedConst (pos, i, e))) :: others ->
-     (LA.GhostConst (UntypedConst (pos, i, simplify_expr ctx e)))
-     :: inline_constants_of_contract ctx others 
-  | (LA.GhostConst (TypedConst (pos', i, e, ty))) :: others ->
-     (LA.GhostConst (TypedConst (pos', i, simplify_expr ctx e, ty)))
-     :: inline_constants_of_contract ctx others 
-  | (LA.GhostVar (FreeConst (pos, i, ty))) :: others ->
-     (LA.GhostVar (FreeConst (pos, i, ty)))
-     :: inline_constants_of_contract ctx others 
-  | (LA.GhostVar (UntypedConst (pos, i, e))) :: others ->
-     (LA.GhostVar (UntypedConst (pos, i, simplify_expr ctx e)))
-     :: inline_constants_of_contract ctx others 
-  | (LA.GhostVar (TypedConst (pos', i, e, ty))) :: others ->
-     (LA.GhostVar (TypedConst (pos', i, simplify_expr ctx e, ty)))
-     :: inline_constants_of_contract ctx others 
-  | (LA.Assume (pos, n, b, e)) :: others ->
-     (LA.Assume (pos, n, b, simplify_expr ctx e))
-     :: inline_constants_of_contract ctx others 
-  | (LA.Guarantee (pos, n, b, e)) :: others ->
-     (LA.Guarantee (pos, n, b, simplify_expr ctx e))
-     :: inline_constants_of_contract ctx others 
-  | (LA.Mode (pos, i, rs, es)) :: others ->
-     (LA.Mode (pos, i
-               , List.map (fun (p, s, e) -> (p, s, simplify_expr ctx e)) rs
-               , List.map (fun (p, s, e) -> (p, s, simplify_expr ctx e)) es))
-      :: inline_constants_of_contract ctx others
-   (* | (LA.ContractCall) :: others -> () :: inline_constants_of_contract ctx others  *)
-  | e -> e       
-
-let substitute: tc_context -> LA.declaration -> (tc_context * LA.declaration) = fun ctx ->
-  function
-  | ConstDecl (pos, FreeConst _) as c -> (ctx, c)
-  | ConstDecl (pos, UntypedConst (pos', i, e)) ->
-     let e' = simplify_expr ctx e in
-     let ty =
-       (match (lookup_ty ctx i) with 
-       | None -> failwith "Cannot find constant type. Should not happen."
-       | Some ty ->  ty) in
-     ( add_const ctx i e' ty
-     , ConstDecl (pos, UntypedConst (pos', i, e'))) 
-  | ConstDecl (pos, TypedConst (pos', i, e, ty)) ->
-     let e' = simplify_expr ctx e in 
-     (add_const ctx i e' ty, ConstDecl (pos, TypedConst (pos', i, e', ty)))
-  | (LA.NodeDecl (pos, (i, imported, params, ips, ops, ldecls, items, contract))) ->
-     ctx, (LA.NodeDecl (pos, (i, imported, params, ips, ops, ldecls, inline_constants_of_node_items ctx items, contract)))
-  | (LA.FuncDecl (pos, (i, imported, params, ips, ops, ldecls, items, contract))) ->
-     ctx, (LA.FuncDecl (pos, (i, imported, params, ips, ops, ldecls, inline_constants_of_node_items ctx items, contract)))
-  | (LA.ContractNodeDecl (pos, (i, params, ips, ops, contract))) ->
-     ctx, (LA.ContractNodeDecl (pos, (i, params, ips, ops, inline_constants_of_contract ctx contract)))
-  | e -> (ctx, e)
-(** propogate constants post type checking into the AST and constant store*)
-
-let rec inline_constants: tc_context -> LA.t -> (tc_context * LA.t) tc_result = fun ctx ->
-  function
-  | [] -> R.ok (ctx, [])
-  | c :: rest ->
-     let (ctx', c') = substitute ctx c in
-     inline_constants ctx' rest >>= fun (ctx'', decls) -> 
-     R.ok (ctx'', c'::decls)
-     
 let report_tc_result: unit tc_result list -> unit tc_result
   =  R.seq_  
 (** Get the first error *)
   
-(********************************************************************
- * The main function of the file that kicks off type checking flow  *
- ********************************************************************)
-                    
-let type_check_program: tc_context -> LA.t -> tc_payload tc_result = fun ctx prg ->
-  Log.log L_trace ("===============================================\n"
-                   ^^ "Phase 1: Building TC Global Context\n"
-                   ^^"===============================================\n")
-  ; let (ty_and_const_decls, node_and_contract_decls) = LH.split_program prg in
-    (* circularity check and reordering for types and constants *)
-    Log.log L_trace "Phase 1.1 Building graph for types and constant decls\n---------\n"
-    ; AD.sort_declarations ty_and_const_decls >>= fun sorted_tys_consts ->
-      Log.log L_trace "Sorted consts and type decls:\n%a" LA.pp_print_program sorted_tys_consts
+(**************************************************************************************
+ * The main function of the file that kicks off type checking or type inference flow  *
+ ***************************************************************************************)
 
-      (* build the base context from the type and const decls *)
-      ; build_type_and_const_context ctx sorted_tys_consts >>= fun global_ctx ->
-        Log.log L_trace ("===============================================\n"
-                         ^^ "Constant and type context \n"
-                         ^^ "TC Context\n%a\n"
-                         ^^"===============================================\n")
-          pp_print_tc_context global_ctx
+let type_check_infer_program: constants_or_nodes -> tc_context -> LA.t -> tc_context tc_result
+  = fun c_or_n ctx prg ->
+  match c_or_n with
+  | Constants_and_types ->
+     (Log.log L_trace ("===============================================\n"
+                       ^^ "Building TC Global Context\n"
+                       ^^"===============================================\n")
+     (* Build base constant and type context *)
+     ; build_type_and_const_context ctx prg >>= fun global_ctx ->
+       (* Inline constants in constant declarations *)
+       Log.log L_trace ("===============================================\nStarting inlining constants") 
+       ; let (global_ctx', inlined_cs) = inline_constants global_ctx prg in
+         Log.log L_trace ("===============================================\n"
+                          ^^ "Constant and type context \n"
+                          ^^ "TC Context\n%a\n"
+                          ^^"===============================================\n")
+           pp_print_tc_context global_ctx'
+         ; R.ok global_ctx')
 
-        (* Inline constants in constant declarations *)
-        ; Log.log L_trace ("===============================================\nStarting inlining constants") 
-        ; (try (inline_constants global_ctx sorted_tys_consts) with
-          | Out_of_bounds (pos, err) -> error pos err) >>= fun (global_ctx', inlined_cs) ->  
-            
-          Log.log L_trace ( "Inlining constants done: \nConstant decls: %a"
-                            ^^"\n===============================================\n")
-            LA.pp_print_program inlined_cs
-
-          (* sort nodes and contract decls to make sure there are no recursive node/contract calls *)
-          ; AD.sort_declarations node_and_contract_decls >>= fun sorted_node_contract_decls -> 
-            
-            (* gather the typing context from nodes/functions and contracts *)
-            tc_context_of global_ctx' sorted_node_contract_decls >>= fun tc_ctx ->
-
-            Log.log L_trace ("===============================================\n"
-                             ^^ "Phase 1: Completed Building TC Global Context\n"
-                             ^^ "TC Context\n%a\n"
-                             ^^"===============================================\n")
-              pp_print_tc_context tc_ctx
-
-            ; Log.log L_trace ("===============================================\n"
-                               ^^ "Phase 2: Type checking declaration Groups    \n"
-                               ^^"===============================================\n")  
-            (* type check the nodes and contract decls using this base typing context  *)
-            ; report_tc_result (type_check_decl_grps tc_ctx [sorted_node_contract_decls]) >>
-                (Log.log L_trace ("===============================================\n"
-                                  ^^ "Phase 2: Type checking declaration Groups Done\n"
-                                  ^^"===============================================\n") ;  R.ok tc_ctx)
+  | Nodes_and_contracts ->
+     (* type check the nodes and contract decls using this base typing context  *)
+     Log.log L_trace ("===============================================\n"
+                      ^^ "Building node and contract Context\n"
+                      ^^"===============================================\n")
+    (* Build base constant and type context *)
+    ; tc_context_of ctx prg >>= fun global_ctx ->
+      (Log.log L_trace ("===============================================\n"
+                        ^^ "Type checking declaration Groups" 
+                        ^^ "with TC Context\n%a\n"
+                        ^^"===============================================\n")
+         pp_print_tc_context global_ctx
+      ; report_tc_result (type_check_decl_grps global_ctx [prg]) >>
+          (Log.log L_trace ("===============================================\n"
+                            ^^ "Type checking declaration Groups Done\n"
+                            ^^"===============================================\n")
+          ;  R.ok ctx))
 (** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
  *  a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
            

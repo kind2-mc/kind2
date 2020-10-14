@@ -1,0 +1,33 @@
+node a (x: int; B,A: arr^4) returns (y: int);
+var z:int
+let
+   y = pre x;
+   x = y;
+   
+   z = x;
+   A[i] = B[i] + 1;
+tel
+
+node b(x:int) returns (y: int);
+tel
+  y = pre x;
+let
+
+node c (x:int) returns (y: int);
+var av:int;
+var bv:int;
+(*@contract
+   assume y = x;    -- case 1. not allowed as assumption should not depend on current value of y 
+   assume x = a(y); -- case 2a. not allowed if a uses current value of y
+*)
+
+tel
+   av = a(bv); -- case 2b.
+   bv = b(av); -- case 2b.
+
+   x = pre("pre_y" + pre(a(y))); -- case 3. x' = (y + a(y)); normalizing (similar to SSA)  
+let
+
+x -> pre_y 
+
+

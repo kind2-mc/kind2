@@ -27,10 +27,19 @@ type 'a tc_result = ('a, Lib.position * string) result
 type tc_context
 (** Type Checker context *)
 
+type constants_or_nodes = Constants_and_types | Nodes_and_contracts
+
+val type_error: Lib.position -> string -> 'a tc_result 
+(** [type_error] returns an [Error] of [tc_result] *)
+   
 val empty_tc_context: tc_context
 (** Empty type context *)
-   
-val type_check_program: tc_context -> LA.t -> tc_context tc_result  
+
+val lookup_const: tc_context -> LA.ident -> (LA.expr * LA.lustre_type) option
+val lookup_ty: tc_context -> LA.ident -> LA.lustre_type option
+val add_const: tc_context -> LA.ident -> LA.expr -> LA.lustre_type -> tc_context
+  
+val type_check_infer_program: constants_or_nodes -> tc_context -> LA.t -> tc_context tc_result  
 (** Typecheck a complete program and return the result *)
 
 val report_tc_result: unit tc_result list -> unit tc_result

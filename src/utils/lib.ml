@@ -574,7 +574,6 @@ let string_of_t pp t =
   (* Return the buffer contents *)
   Buffer.contents buf
 
-
 (* Return the strings as a parenthesized and space separated list *)
 let paren_string_of_string_list list =
   string_of_t pp_print_paren_list list

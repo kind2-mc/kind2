@@ -31,6 +31,7 @@ module LL = LustreLexer
 module LPMI = LustreParser.MenhirInterpreter
 module LPE = LustreParserErrors
 module TC = LustreTypeChecker
+module IC = LustreAstInlineConstants
 module AD = LustreAstDependencies
 
 let (>>=) = Res.(>>=)
@@ -112,64 +113,76 @@ let of_channel in_ch =
   let declarations = ast_of_channel in_ch in
 
   let declarations': LA.t =
-  (* optional type checking pass*) 
-  (if not (Flags.no_tc ())
-  then
-    let tc_res =  
-      (Log.log L_note "(Experimental) Typechecking enabled."
-    (* Step 0. Split program into top level const and type delcs and node/contract decls *)
-    ; let (const_type_decls, node_contract_src) = LH.split_program declarations in
-    (* Step 1. Dependency analysis on the top level declarations.  *)
-      AD.sort_declarations const_type_decls >>= fun sorted_const_type_decls ->
+    (* optional type checking and reordering with dependency analysis pass*) 
+    if Flags.no_tc ()
+     then declarations
+     else 
+       let tc_res =  
+         (Log.log L_note "(Experimental) Typechecking enabled."
 
-      (* Step 2. Type check top level declarations *)
-      TC.type_check_program TC.empty_tc_context const_type_decls >>= fun ctx -> 
+         (* Step 0. Split program into top level const and type delcs, and node/contract decls *)
+         ; let (const_type_decls, node_contract_src) = LH.split_program declarations in
 
-      (* Step 3. Dependency analysis on nodes and contracts *)
-      AD.sort_declarations node_contract_src >>= fun sorted_node_contract_decls ->  
+           (* Step 1. Dependency analysis on the top level declarations.  *)
+           AD.sort_declarations const_type_decls >>= fun sorted_const_type_decls ->
 
-      (* Step 4. type check nodes and contracts *)
-      TC.type_check_program ctx sorted_node_contract_decls >>
-        Res.ok (sorted_const_type_decls @ sorted_node_contract_decls)
-      (* Step 5. Inline constants *)) in
-    match tc_res with
-      | Ok d -> Log.log L_note "Type checking done"; d  
-      | Error (pos, err) -> LC.fail_at_position pos err
-   else declarations) in 
+           (* Step 2. Type check top level declarations *)
+           TC.type_check_infer_program TC.Constants_and_types TC.empty_tc_context sorted_const_type_decls >>= fun ctx -> 
+
+           (* Step 3: Inline type toplevel decls *)
+           IC.inline_constants ctx sorted_const_type_decls >>= fun (inlined_ctx, const_inlined_type_and_consts) -> 
+
+           (* Step 4. Dependency analysis on nodes and contracts *)
+           AD.sort_declarations node_contract_src >>= fun sorted_node_contract_decls ->  
+
+           (* Step 5. type check nodes and contracts *)
+           TC.type_check_infer_program TC.Nodes_and_contracts inlined_ctx sorted_node_contract_decls >>
+             
+             (* Step 6. Inline constants in node equations *)
+             IC.inline_constants ctx sorted_node_contract_decls >>= fun (_, const_inlined_nodes_and_contracts) -> 
+           Res.ok (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts)
+         ) in
+       match tc_res with
+       | Ok d -> Log.log L_note "Type checking done"
+               ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_program d
+               ; d  
+       | Error (pos, err) -> LC.fail_at_position pos err in 
+
   (if Flags.only_tc () then exit 0)
+
   (* Simplify declarations to a list of nodes *)
   ; let nodes, globals = LD.declarations_to_nodes declarations' in
-  (* Name of main node *)
-  let main_node = 
-    (* Command-line flag for main node given? *)
-    match Flags.lus_main () with 
-    (* Use given identifier to choose main node *)
-    | Some s -> LustreIdent.mk_string_ident s
-    (* No main node name given on command-line *)
-    | None -> 
-       (try 
-          (* Find main node by annotation, or take last node as
+    (* Name of main node *)
+    let main_node = 
+      (* Command-line flag for main node given? *)
+      match Flags.lus_main () with 
+      (* Use given identifier to choose main node *)
+      | Some s -> LustreIdent.mk_string_ident s
+      (* No main node name given on command-line *)
+      | None -> 
+         (try 
+            (* Find main node by annotation, or take last node as
               main *)
-          LustreNode.find_main nodes 
-        (* No main node found
+            LustreNode.find_main nodes 
+          (* No main node found
             This only happens when there are no nodes in the input. *)
-         with Not_found -> 
-           raise (NoMainNode "No main node defined in input"))
-  in
-  (* Put main node at the head of the list of nodes *)
-  let nodes' = 
-    try 
-      (* Get main node by name and copy it at the head of the list of
+          with Not_found -> 
+            raise (NoMainNode "No main node defined in input"))
+    in
+    (* Put main node at the head of the list of nodes *)
+    let nodes' = 
+      try 
+        (* Get main node by name and copy it at the head of the list of
          nodes *)
-      LN.node_of_name main_node nodes :: nodes
-    with Not_found -> 
-      (* Node with name of main not found 
+        LN.node_of_name main_node nodes :: nodes
+      with Not_found -> 
+        (* Node with name of main not found 
          This can only happens when the name is passed as command-line
          argument *)
-      raise (NoMainNode "Main node not found in input")
-  in
-  (* Return a subsystem tree from the list of nodes *)
-  LN.subsystem_of_nodes nodes', globals, declarations
+        raise (NoMainNode "Main node not found in input")
+    in
+    (* Return a subsystem tree from the list of nodes *)
+    LN.subsystem_of_nodes nodes', globals, declarations
 
 (* Returns the AST from a file. *)
 let ast_of_file filename =

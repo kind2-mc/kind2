@@ -379,7 +379,7 @@ val pp_print_program : Format.formatter -> t -> unit
 
 val pp_print_contract_item : Format.formatter -> contract_node_equation -> unit
 val pp_print_contract_node_decl : Format.formatter -> contract_node_decl -> unit
-
+val string_of_expr: expr -> string
 (* 
    Local Variables:
    compile-command: "make -k -C .."
