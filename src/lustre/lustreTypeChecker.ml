@@ -1398,7 +1398,6 @@ and check_type_contract_decl: ?node_out_params: LA.SI.t -> tc_context -> LA.cont
 and check_type_contract: ?node_out_params: LA.SI.t -> tc_context -> LA.contract -> unit tc_result
   = fun ?node_out_params:(node_out_params = LA.SI.empty) ctx eqns ->
   R.seq_ (List.map (check_contract_node_eqn ~node_out_params:node_out_params ctx) eqns)
-    (* TODO: Check for circular dependencies *)
     >> AD.analyze_circ_contract_equations eqns
 
 and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contract_node_equation -> unit tc_result
@@ -1407,7 +1406,16 @@ and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contr
   ; match eqn with
     | GhostConst _
       | GhostVar _ ->  R.ok () (* These is already checked while extracting ctx *)
-    | Assume (pos, _, _, e) -> check_type_expr ctx e (Bool pos)
+    | Assume (pos, _, _, e) ->
+       check_type_expr ctx e (Bool pos) >>
+         let assume_vars_out_params = SI.inter node_out_params (SI.diff (LH.vars e) (LH.vars_in_pre e)) in
+         if SI.is_empty assume_vars_out_params
+         then R.ok ()
+         else type_error pos ("Contract assumption cannot depend on "
+                              ^ "current values of output parameters but found: "
+                              ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
+                                   (SI.elements assume_vars_out_params)))
+                             
     | Guarantee (pos, _, _, e) -> check_type_expr ctx e (Bool pos)
     | Mode (pos, _, reqs, ensures) ->
        R.seq_ (Lib.list_apply (List.map (check_type_expr ctx)

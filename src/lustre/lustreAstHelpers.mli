@@ -53,6 +53,8 @@ val vars: expr -> SI.t
 val vars_of_struct_item: struct_item -> SI.t
 
 val vars_lhs_of_eqn: node_item -> SI.t
+
+val vars_in_pre: expr -> SI.t
   
 (** Return an ast that adds two expressions*)
 val add_exp: Lib.position -> expr -> expr -> expr

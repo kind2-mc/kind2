@@ -3,9 +3,6 @@ var z:int
 let
    y = pre x;
    x = y;
-   
-   z = x;
-   A[i] = B[i] + 1;
 tel
 
 node b(x:int) returns (y: int);
@@ -27,7 +24,3 @@ tel
 
    x = pre("pre_y" + pre(a(y))); -- case 3. x' = (y + a(y)); normalizing (similar to SSA)  
 let
-
-x -> pre_y 
-
-

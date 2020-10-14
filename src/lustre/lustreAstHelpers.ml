@@ -653,6 +653,57 @@ let vars_lhs_of_eqn: node_item -> iset = function
   | Body (Equation (_, StructDef (_, ss), _)) -> SI.flatten (List.map vars_of_struct_item ss)
   | _ -> SI.empty
 
+
+let rec vars_in_pre: expr -> iset = function
+  | Ident _ 
+  | ModeRef _ -> SI.empty
+  | RecordProject (_, e, _) -> vars_in_pre e 
+  | TupleProject (_, e, _) -> vars_in_pre e
+  (* Values *)
+  | Const _ -> SI.empty
+
+  (* Operators *)
+  | UnaryOp (_,_,e) -> vars_in_pre e
+  | BinaryOp (_,_,e1, e2) -> vars_in_pre e1 |> SI.union (vars_in_pre e2)
+  | TernaryOp (_,_, e1, e2, e3) -> vars_in_pre e1 |> SI.union (vars_in_pre e2) |> SI.union (vars_in_pre e3) 
+  | NArityOp (_, _,es) -> SI.flatten (List.map vars_in_pre es)
+  | ConvOp  (_,_,e) -> vars_in_pre e
+  | CompOp (_,_,e1, e2) -> (vars_in_pre e1) |> SI.union (vars_in_pre e2)
+
+  (* Structured expressions *)
+  | RecordExpr (_, _, flds) -> SI.flatten (List.map vars_in_pre (snd (List.split flds)))
+  | GroupExpr (_, _, es) -> SI.flatten (List.map vars_in_pre es)
+
+  (* Update of structured expressions *)
+   | StructUpdate (_, e1, _, e2) -> SI.union (vars_in_pre e1) (vars_in_pre e2)
+   | ArrayConstr (_, e1, e2) -> SI.union (vars_in_pre e1) (vars_in_pre e2)
+   | ArrayIndex (_, e1, e2) -> SI.union (vars_in_pre e1) (vars_in_pre e2)
+   | ArraySlice (_, e1, (e2, e3)) -> SI.union (vars_in_pre e3) (SI.union (vars_in_pre e1) (vars_in_pre e2))
+   | ArrayConcat (_, e1, e2) -> SI.union (vars_in_pre e1) (vars_in_pre e2)
+
+   (* Quantified expressions *)
+   | Quantifier (_, _, qs, e) -> SI.diff (vars_in_pre e) (SI.flatten (List.map vars_of_ty_ids qs)) 
+
+   (* Clock operators *)
+  | When (_, e, clkE) -> SI.union (vars_in_pre e) (vars_of_clocl_expr clkE)
+  | Current  (_, e) -> vars_in_pre e
+  | Condact (_, e1, e2, i, es1, es2) ->
+     SI.add i (SI.flatten (vars_in_pre e1 :: vars_in_pre e2:: (List.map vars_in_pre es1) @ (List.map vars_in_pre es2)))
+  | Activate (_, _, e1, e2, es) -> SI.flatten (vars_in_pre e1 :: vars_in_pre e2 :: List.map vars_in_pre es)
+  | Merge (_, _, es) -> List.split es |> snd |> List.map vars_in_pre |> SI.flatten
+  | RestartEvery (_, i, es, e) -> SI.add i (SI.flatten (vars_in_pre e :: List.map vars_in_pre es)) 
+
+  (* Temporal operators *)
+  | Pre (_, e) -> vars e
+  | Last (_, i) -> SI.empty
+  | Fby (_, e1, _, e2) -> SI.union (vars_in_pre e1) (vars_in_pre e2)
+  | Arrow (_, e1, e2) ->  SI.union (vars_in_pre e1) (vars_in_pre e2)
+
+  (* Node calls *)
+  | Call (_, i, es) -> (SI.flatten (List.map vars_in_pre es)) 
+  | CallParam (_, i, _, es) -> (SI.flatten (List.map vars_in_pre es))
+
+  (** get all the variables except node class from an expression *)
 (** Return an ast that adds two expressions*)
 let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
   BinaryOp (pos, Plus, e1, e2)

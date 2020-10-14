@@ -1,0 +1,7 @@
+node c (x:int) returns (y: int);
+(*@contract
+   assume y = x;    -- case 1. not allowed as assumption should not depend on current value of y 
+*)
+let
+        y = 2 * x;
+tel;
