@@ -1722,7 +1722,7 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
     let is_camus = k >= n in
     let is_marco = k <= 0 in
 
-    enable_timeout_warnings := false ;
+    enable_timeout_warnings := is_camus ;
     if not is_marco then (
       KEvent.log L_info "Computing all MCS of cardinality smaller than %n..." k ;
       compute_all_mcs keep test k |>
