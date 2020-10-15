@@ -107,10 +107,13 @@ let pp_print_no_mcs_legacy prop sys =
 
 
 let timeout = ref false
+let enable_timeout_warnings = ref true
 
 let print_timeout_warning () =
-  timeout := true ;
-  KEvent.log L_warn "An analysis has timeout, the result might be approximate."
+  if !enable_timeout_warnings then (
+    timeout := true ;
+    KEvent.log L_warn "An analysis has timeout, the result might be approximate."
+  )
 
 let print_uc_error_note () =
   KEvent.log L_note "Cannot solve the UNSAT core..."
@@ -634,6 +637,7 @@ let lstmap_union scmap1 scmap2 =
 
 let generate_initial_cores in_sys sys enter_nodes cats =
   timeout := false ;
+  enable_timeout_warnings := true ;
   let full_loc_core = full_loc_core_for_sys in_sys sys ~only_top_level:(not enter_nodes) in
   let (test, keep) = separate_loc_core_by_category in_sys cats full_loc_core in
   (loc_core_to_new_core keep, loc_core_to_new_core test)
@@ -1503,9 +1507,11 @@ let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
 let ivc_must_bf_ must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   let prop_names = props_names props in
 
+  let timeout_bkp = !timeout in
   let (os_invs, must) =
     must_set_ in_sys ~os_invs:(Some os_invs) check_ts sys props enter_nodes keep test in
   must_cont must ;
+  timeout := timeout_bkp ;
   let keep = core_union keep must in
   let test = core_diff test must in
   let sys = remove_other_props sys prop_names in
@@ -1716,6 +1722,7 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
     let is_camus = k >= n in
     let is_marco = k <= 0 in
 
+    enable_timeout_warnings := false ;
     if not is_marco then (
       KEvent.log L_info "Computing all MCS of cardinality smaller than %n..." k ;
       compute_all_mcs keep test k |>
@@ -1725,6 +1732,7 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
           block_down (actsvs_of_core mua)
       )
     ) ;
+    enable_timeout_warnings := true ;
 
     (* ----- Part 2 : DETERMINING STRATEGY ----- *)
     let get_unexplored_auto =
@@ -1764,6 +1772,7 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
           )
         ) else (
           (* Implements grow(seed) using MCS computation *)
+          enable_timeout_warnings := false ;
           let mua = if typ = Max then seed
           else (
             compute_mcs (core_union keep seed) (core_diff test seed)
@@ -1772,6 +1781,7 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
           in
           (* Block down *)
           block_down (actsvs_of_core mua) ;
+          enable_timeout_warnings := true ;
           next acc
         )
     in
@@ -1786,8 +1796,10 @@ let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
   let prop_names = props_names props in
   let (sys', check_ts') = make_ts_analyzer sys in
 
+  let timeout_bkp = !timeout in
   let (os_invs, must) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
   must_cont must ;
+  timeout := timeout_bkp ;
   let keep = core_union keep must in
   let test = core_diff test must in
   let sys' = remove_other_props sys' prop_names in
