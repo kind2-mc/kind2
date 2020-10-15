@@ -1757,7 +1757,7 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
       | _, None -> acc
       | typ, Some actsvs ->
         let seed = filter_core_svs actsvs test in
-        if is_camus || check (core_union keep seed)
+        if (is_camus && not !timeout) || check (core_union keep seed)
         then (
           (* Implements shrink(seed) using UCBF *)
           let mivc = if typ = Min then seed else compute_mivc seed in
