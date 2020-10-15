@@ -1408,14 +1408,17 @@ and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contr
       | GhostVar _ ->  R.ok () (* These is already checked while extracting ctx *)
     | Assume (pos, _, _, e) ->
        check_type_expr ctx e (Bool pos) >>
-         let assume_vars_out_params = SI.inter node_out_params (SI.diff (LH.vars e) (LH.vars_in_pre e)) in
-         if SI.is_empty assume_vars_out_params
-         then R.ok ()
-         else type_error pos ("Contract assumption cannot depend on "
-                              ^ "current values of output parameters but found: "
-                              ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
-                                   (SI.elements assume_vars_out_params)))
-                             
+         (* Check if any of the out parameters of node's current value is used in assumption *)
+         let assume_vars_out_params = SI.inter node_out_params (LH.vars (LH.abstract_pre_subexpressions e)) in
+         Log.log L_trace "node_params: %a non pre vars of e: %a"
+           (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_params)
+           (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements (LH.vars (LH.abstract_pre_subexpressions e)))
+         ; R.guard_with (R.ok (SI.is_empty assume_vars_out_params))
+           (type_error pos ("Contract assumption cannot depend on "
+                            ^ "current values of output parameters but found: "
+                            ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
+                                 (SI.elements assume_vars_out_params))))
+         
     | Guarantee (pos, _, _, e) -> check_type_expr ctx e (Bool pos)
     | Mode (pos, _, reqs, ensures) ->
        R.seq_ (Lib.list_apply (List.map (check_type_expr ctx)

@@ -83,3 +83,5 @@ val is_machine_type_of_associated_width: (lustre_type * lustre_type) -> bool
 val is_type_or_const_decl: declaration -> bool
 
 val split_program: declaration list -> (declaration list * declaration list)
+
+val abstract_pre_subexpressions: expr -> expr

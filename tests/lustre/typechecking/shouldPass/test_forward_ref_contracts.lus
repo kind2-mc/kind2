@@ -1,7 +1,7 @@
 
 node mod_real(x, y: real;)returns( z: real );
 (*@contract
-        assume abs_real(z) < abs_real(y);
+        assume pre (abs_real(z)) < abs_real(y);
         guarantee abs_real(z) < abs_real(y); *)
 let
 tel

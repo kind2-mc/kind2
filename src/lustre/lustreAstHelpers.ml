@@ -703,7 +703,7 @@ let rec vars_in_pre: expr -> iset = function
   | Call (_, i, es) -> (SI.flatten (List.map vars_in_pre es)) 
   | CallParam (_, i, _, es) -> (SI.flatten (List.map vars_in_pre es))
 
-  (** get all the variables except node class from an expression *)
+(** get all the variables except node class from an expression *)
 (** Return an ast that adds two expressions*)
 let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
   BinaryOp (pos, Plus, e1, e2)
@@ -799,3 +799,96 @@ let split_program: declaration list -> (declaration list * declaration list)
         if is_type_or_const_decl d then (d::ds, ds')
         else (ds, d::ds')) ([], [])  
 (** Splits program into type and constant decls and rest of the program *)
+
+let rec abstract_pre_subexpressions: expr -> expr = function
+  | Ident _ 
+    | ModeRef _ as e -> e 
+  | RecordProject (p, e, i) -> RecordProject (p, abstract_pre_subexpressions e, i)  
+  | TupleProject (p, e, i) -> TupleProject (p, abstract_pre_subexpressions e, i)
+  (* Values *)
+  | Const _ as e -> e
+
+  (* Operators *)
+  | UnaryOp (p, op, e) -> UnaryOp (p, op, abstract_pre_subexpressions e)
+  | BinaryOp (p, op,e1, e2) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     BinaryOp (p, op, e1', e2') 
+  | TernaryOp (p, op, e1, e2, e3) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     let e3' = abstract_pre_subexpressions e3 in
+     TernaryOp (p, op, e1', e2', e3')
+  | NArityOp (p, op,es) -> NArityOp (p, op, List.map abstract_pre_subexpressions es) 
+  | ConvOp  (p, op, e) -> ConvOp (p, op, abstract_pre_subexpressions e)
+  | CompOp (p, op, e1, e2) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     CompOp (p, op, e1', e2')
+
+  (* Structured expressions *)
+  | RecordExpr (p, i, flds) -> RecordExpr (p, i, (List.map (fun (f, e) -> (f, abstract_pre_subexpressions e)) flds))
+  | GroupExpr (p, g, es) -> GroupExpr (p, g, List.map abstract_pre_subexpressions es)
+
+  (* Update of structured expressions *)
+  | StructUpdate (p, e1, i, e2) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     StructUpdate (p, e1', i, e2') 
+
+  | ArrayConstr (p, e1, e2) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     ArrayConstr (p, e1', e2') 
+
+  | ArrayConcat (p, e1, e2) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     ArrayConcat (p, e1', e2') 
+
+  | ArrayIndex (p, e1, e2) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     ArrayIndex (p, e1', e2') 
+
+  | ArraySlice (p, e1, (e2, e3)) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     let e3' = abstract_pre_subexpressions e3 in
+     ArraySlice (p, e1', (e2', e3'))
+
+  (* Quantified expressions *)
+  | Quantifier (p, q, qs, e) ->
+     Quantifier (p, q, qs, abstract_pre_subexpressions e)
+
+   (* Clock operators *)
+   | When (p, e, c) -> When (p, abstract_pre_subexpressions e, c) 
+   | Current  (p, e) -> Current  (p, abstract_pre_subexpressions e) 
+   | Condact (p, e1, e2, i, es1, es2) ->
+      Condact (p, abstract_pre_subexpressions e1
+               , abstract_pre_subexpressions e2
+               , i
+               , List.map abstract_pre_subexpressions es1
+               , List.map abstract_pre_subexpressions es2)
+   | Activate (p, i, e1, e2, es) ->
+      Activate(p, i
+               , abstract_pre_subexpressions e1
+               , abstract_pre_subexpressions e2
+               , List.map abstract_pre_subexpressions es)
+   | Merge (p, i, es) ->
+      Merge (p, i, List.map (fun (i, e) -> i, abstract_pre_subexpressions e) es)
+   | RestartEvery (p, i, es, e) ->
+      RestartEvery (p, i, List.map abstract_pre_subexpressions es, abstract_pre_subexpressions e)
+
+  (* Temporal operators *)
+  | Pre (p, e) -> Pre(p, Const (p, (Num "42")))
+  | Last _ as e -> e
+  | Fby (p, e1, i, e2) ->
+     Fby (p, abstract_pre_subexpressions e1, i, abstract_pre_subexpressions e2)
+  | Arrow (p, e1, e2) ->  Arrow (p, abstract_pre_subexpressions e1, abstract_pre_subexpressions e2)
+
+  (* Node calls *)
+  | Call (p, i, es) -> Call (p, i, List.map abstract_pre_subexpressions es) 
+  | CallParam (p, i, tys, es) -> CallParam (p, i, tys, List.map abstract_pre_subexpressions es) 
+                                   
+    

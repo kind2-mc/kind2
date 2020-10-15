@@ -1,0 +1,7 @@
+node c (x:int) returns (y: int);
+(*@contract
+   assume  x = pre y;    -- OK
+*)
+let
+        y = 2 * x;
+tel;
