@@ -1,0 +1,15 @@
+node a (x: int) returns (y: int);
+var p:int;
+var q:int;
+let
+   q = pre p;
+   p = q;
+tel
+
+node b (x: int) returns (y: int);
+var p: int;
+var q: int;
+let
+   q = pre p;
+   p = pre q;
+tel
