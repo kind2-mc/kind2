@@ -473,7 +473,7 @@ let mk_graph_eqn: LA.node_equation -> (G.t * id_pos_map) =
       ->  Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position p) in
   function
   | Equation (pos, (LA.StructDef (_, lhss)), e) ->
-     let rhs_g = mk_graph_expr2 e in
+     let rhs_g = mk_graph_expr2 (LH.abstract_pre_subexpressions e) in
      List.fold_left union_g_pos empty_g_pos (List.map (handle_one_lhs rhs_g) lhss)
   | _ -> empty_g_pos
   

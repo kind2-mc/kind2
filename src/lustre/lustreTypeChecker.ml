@@ -1253,11 +1253,10 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
           ; R.seq_ (List.map (do_item local_ctx) items)
             (* check that the LHS of the equations are not args to node *)
             >> let overwite_node_args = SI.inter arg_ids (SI.flatten (List.map LH.vars_lhs_of_eqn items)) in
-               if ( overwite_node_args |> SI.is_empty)
-               then R.ok ()
-               else type_error pos ("Argument to nodes cannot be LHS of an equation but found "
-                                    ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
-                                        (LA.SI.elements overwite_node_args))
+               (R.guard_with (R.ok (overwite_node_args |> SI.is_empty))
+                  (type_error pos ("Argument to nodes cannot be LHS of an equation but found "
+                                   ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
+                                       (LA.SI.elements overwite_node_args))))
                     (*  TODO: Check for circular dependencies between equations *)
                     >> AD.analyze_circ_node_equations items      
                     >> R.ok (Log.log L_trace "TC declaration node %a done }"
