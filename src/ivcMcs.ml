@@ -70,6 +70,9 @@ type mcs = (Property.t * counterexample) * loc_core * additional_info
 
 (* ---------- PRETTY PRINTING ---------- *)
 
+let is_ivc_approx (_,_, {approximation}) = approximation
+let is_mcs_approx (_,_, {approximation}) = approximation
+
 let ivc_to_print_data in_sys sys core_class time (_,loc_core,info) =
   let cpd = loc_core_to_print_data in_sys sys core_class time loc_core in
   attach_approx_to_print_data cpd info.approximation

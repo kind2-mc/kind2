@@ -62,6 +62,8 @@ val separate_ivc_by_category : 'a InputSystem.t -> ivc -> (ivc * ivc)
     a valid lustre program or a more concise and easily readable program. *)
 val minimize_lustre_ast : ?valid_lustre:bool -> 'a InputSystem.t -> ivc -> LustreAst.t -> LustreAst.t
 
+val is_ivc_approx : ivc -> bool
+
 (** [ivc_uc in_sys sys props] computes an approximation of a minimal inductive validity core
     for the input system [in_sys] and the transition system [sys]. Only properties [props] are considered.
     The optional parameter [approximate] determines whether the unsat core computed internally must be minimal or not
@@ -148,6 +150,8 @@ val complement_of_mcs : 'a InputSystem.t -> TransSys.t -> mcs -> mcs
     and the second one contains the remaining elements of [mcs].
     The parameters [in_sys] should be the same as the one used to generate [mcs]. *)
 val separate_mcs_by_category : 'a InputSystem.t -> mcs -> (mcs * mcs)
+
+val is_mcs_approx : mcs -> bool
 
 (** [mcs in_sys param analyze_func sys props all cont] computes a maximal unsafe abstraction
     for the input system [in_sys], the analysis parameter [param] and the transition system [sys].

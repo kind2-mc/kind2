@@ -606,8 +606,9 @@ module RunIVC: PostAnalysis = struct
 
               KEvent.log_with_tag L_warn Pretty.success_tag
                 (Format.asprintf "%s generated after %.3fs."
-                (if is_must_set then "MUST set"
-                else if use_umivc || not (Flags.IVC.ivc_approximate ())
+                (if is_must_set && (not (IvcMcs.is_ivc_approx ivc)) then "MUST set"
+                else if is_must_set then "Approximate MUST set"
+                else if not (IvcMcs.is_ivc_approx ivc)
                 then "Minimal IVC" else "Approximate minimal IVC") elapsed) ;
 
               let pt = ModelElement.pp_print_core_data in_sys param sys in
@@ -739,7 +740,8 @@ let run_mcs_post_analysis in_sys param analyze sys =
           time := ntime ;
 
           KEvent.log_with_tag L_warn Pretty.success_tag
-            (Format.asprintf "Minimal Cut Set generated after %.3fs." elapsed) ;
+            (Format.asprintf "%sMinimal Cut Set generated after %.3fs."
+            (if not (IvcMcs.is_mcs_approx mcs) then "" else "Approximate ") elapsed) ;
 
           let mua = IvcMcs.complement_of_mcs in_sys sys mcs in
 
