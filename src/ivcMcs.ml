@@ -1763,7 +1763,7 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
         if (is_camus && not !timeout) || check (core_union keep seed)
         then (
           (* Implements shrink(seed) using UCBF *)
-          let mivc = if typ = Min then seed else compute_mivc seed in
+          let mivc = if typ = Min && not !timeout then seed else compute_mivc seed in
           (* Save and Block up *)
           cont mivc ;
           let new_acc = mivc::acc in
@@ -1839,15 +1839,15 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
       cont ivc
     in
     let _ = umivc_ sys props k enter_nodes ~stop_after cont keep test in
-    List.rev (!res)
+    true(* TODO *), List.rev (!res)
   ) with
   | CannotProve | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
-    then (KEvent.log L_error "Cannot reprove properties." ; [])
-    else []
+    then (KEvent.log L_error "Cannot reprove properties." ; (false, []))
+    else (false, [])
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    []
+    (false, [])
 
 (* ---------- MINIMAL CORRECTION SETS ---------- *)
 
@@ -1864,7 +1864,6 @@ let mcs_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
   let initial_solution = match initial_solution with
   | None -> None
   | Some (({ Property.prop_name }, cex), loc_core, info) ->
-    if info.approximation then timeout := true ;
     Some (loc_core_to_filtered_core loc_core test, (prop_name, cex))
   in
 
@@ -1903,11 +1902,11 @@ let mcs in_sys param analyze sys props
     let _ =
       mcs_ in_sys check_ts sys props all enter_nodes ~initial_solution ~max_mcs_cardinality ~approx cont keep test
     in
-    List.rev (!res)
+    true(* TODO *), List.rev (!res)
   ) with
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    []
+    (false, [])
 
 let mcs_initial_analysis_ in_sys ?(os_invs=[]) check_ts sys enter_nodes
   ?(max_mcs_cardinality= -1) keep test =
@@ -1933,7 +1932,7 @@ let mcs_initial_analysis in_sys param analyze ?(max_mcs_cardinality= -1) sys =
     let res_to_mcs (test, (prop,cex)) =
       ((TS.property_of_name sys prop, cex),
         core_to_loc_core in_sys (core_union keep test),
-        { approximation = !timeout })
+        { approximation = true })
     in
 
     mcs_initial_analysis_ in_sys check_ts sys enter_nodes ~max_mcs_cardinality keep test

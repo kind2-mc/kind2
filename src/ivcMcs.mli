@@ -124,7 +124,9 @@ val ivc_ucbf :
     A value of -1 will compute all the MCSes,
     and in this case the first IVC found is guaranteed to have a minimal cardinality.
     If the optional parameter [use_must_set] is not None, a MUST set will be computed first and passed
-    to the given continuation. If [stop_after] is n > 0, the search will stop after n minimal IVCs being found. *)
+    to the given continuation. If [stop_after] is n > 0, the search will stop after n minimal IVCs being found.
+    This function returns a couple [(isComplete, ivcs)] with [isComplete] being a boolean that indicates whether
+    the solutions found cover all the real solutions or not (it might not be the case in case of a timeout). *)
 val umivc :
   'a InputSystem.t ->
   ?use_must_set:(ivc -> unit) option ->
@@ -135,7 +137,7 @@ val umivc :
   Property.t list ->
   int ->
   (ivc -> unit) ->
-  ivc list
+  bool * ivc list
 
 (** {1 Minimal Cut Sets} *)
 
@@ -160,7 +162,9 @@ val is_mcs_approx : mcs -> bool
     If the optional parameter [max_mcs_cardinality] is n >= 0, only MCSes of cardinality greater
     or equal to (total_number_of_model_elements - n) will be computed.
     If a global initial MCS analysis has been performed, its result should be passed in [initial_solution],
-    otherwise you can omit this parameter. *)
+    otherwise you can omit this parameter.
+    This function returns a couple [(isComplete, mcs)] with [isComplete] being a boolean that indicates whether
+    the solutions found cover all the real solutions or not (it might not be the case in case of a timeout). *)
 val mcs :
   'a InputSystem.t ->
   Analysis.param ->
@@ -172,7 +176,7 @@ val mcs :
   bool -> (* Compute them all? *)
   bool -> (* Approximate? *)
   (mcs -> unit) ->
-  mcs list
+  bool * mcs list
 
 val mcs_initial_analysis :
   'a InputSystem.t ->

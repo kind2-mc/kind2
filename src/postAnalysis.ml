@@ -673,17 +673,23 @@ module RunIVC: PostAnalysis = struct
             in
 
             let treat_and_return_lst = function
-              | IvcMcs.Solution e -> treat_ivc false e ; [e]
-              | _ -> [] in
-            let res = match (use_umivc, Flags.IVC.ivc_approximate ()) with
+              | IvcMcs.Solution e -> treat_ivc false e ; (false, [e])
+              | _ -> (false, []) in
+            let (complete, res) = match (use_umivc, Flags.IVC.ivc_approximate ()) with
               | (false, true) -> treat_and_return_lst (IvcMcs.ivc_uc in_sys ~approximate:false sys props)
               | (false, false) -> treat_and_return_lst (IvcMcs.ivc_ucbf in_sys ~use_must_set param analyze sys props)
               | (true, _) -> IvcMcs.umivc in_sys ~use_must_set ~stop_after param analyze sys props k (treat_ivc false)
             in
             if Flags.IVC.ivc_all ()
-            then
+            then (
               KEvent.log_with_tag L_note Pretty.note_tag
-                (Format.asprintf "Number of minimal IVCs found: %n" (List.length res))
+                (Format.asprintf "Number of minimal IVCs found: %n" (List.length res)) ;
+              KEvent.log_result
+                (fun fmt b -> if not b then Format.fprintf fmt "This enumeration might be incomplete (some IVCs might be missing).")
+                (fun fmt -> Format.fprintf fmt ",\n{\"objectType\":  \"modelSetEnumeration\", \"isComplete\": %b}")
+                (fun fmt -> Format.fprintf fmt "<ModelSetEnumeration isComplete=\"%b\" />\n")
+                complete
+            )
           end
         in
         List.iter treat_props props ;
@@ -774,14 +780,20 @@ let run_mcs_post_analysis in_sys param analyze sys =
 
         let mcs_all = Flags.MCS.mcs_all () in
         let approx = Flags.MCS.mcs_approximate () in
-        let res = IvcMcs.mcs in_sys param analyze sys props
+        let (complete, res) = IvcMcs.mcs in_sys param analyze sys props
           ~initial_solution ~max_mcs_cardinality mcs_all approx treat_mcs in
-        if Flags.MCS.mcs_all ()
-        then
+        if mcs_all
+        then (
           KEvent.log_with_tag L_note Pretty.note_tag
             (Format.asprintf "Number of MCS found%s: %n"
             (match props with [{prop_name}] -> " for property "^prop_name | _ -> "")
-            (List.length res))
+            (List.length res)) ;
+          KEvent.log_result
+            (fun fmt b -> if not b then Format.fprintf fmt "This enumeration might be incomplete (some MCS might be missing).")
+            (fun fmt -> Format.fprintf fmt ",\n{\"objectType\":  \"modelSetEnumeration\", \"isComplete\": %b}")
+            (fun fmt -> Format.fprintf fmt "<ModelSetEnumeration isComplete=\"%b\" />\n")
+            complete
+        )
       end
     in
     List.iter treat_props props ;
