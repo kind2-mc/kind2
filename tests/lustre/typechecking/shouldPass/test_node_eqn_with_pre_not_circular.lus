@@ -1,9 +1,11 @@
-node a (x: int) returns (y: int);
+node a (x: int) returns (y: int; z: int);
 var p:int;
 var q:int;
 let
    q = pre p;
    p = q;
+   y = pre z;
+   z = pre y;
 tel
 
 node b (x: int) returns (y: int);

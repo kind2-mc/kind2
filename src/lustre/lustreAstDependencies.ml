@@ -171,9 +171,10 @@ let mk_graph_type_decl: LA.type_decl -> (G.t * id_pos_map)
                             
 let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   = function
-  | Ident _
-    | ModeRef _
-    | RecordProject _ -> [] 
+  | Ident _ -> []
+  | ModeRef (pos, is) -> if List.length is = 1 then []
+                       else [(contract_suffix ^ List.hd is, pos)]  
+  | RecordProject (_, e, _)
   | TupleProject (_, e, _) -> get_node_call_from_expr e
   (* Values *)
   | LA.Const _ -> []
@@ -217,7 +218,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Node calls *)
   | LA.Call (pos, i, es) -> (node_suffix ^ i, pos) :: List.flatten (List.map get_node_call_from_expr es)
-  | LA.CallParam _ -> []
+  | LA.CallParam _ as e-> Lib.todo (__LOC__ ^ (Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e)))
 (** Returns all the node calls from an expression *)
 
 let  mk_graph_contract_node_eqn: LA.contract_node_equation -> (G.t * id_pos_map)
@@ -417,9 +418,11 @@ let rec mk_graph_expr2: LA.expr -> (G.t * id_pos_map)
   | LA.Last (pos, i) -> singleton_g_pos "" i pos
   | LA.Fby (_, e1, _, e2) ->  union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2) 
   | LA.Arrow (_, e1, e2) ->  union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2)
-  | LA.Call (_, _, es) -> List.fold_left union_g_pos empty_g_pos (List.map mk_graph_expr2 es) (* TODO Fix me to output *)
+  | LA.Call (_, _, es) -> List.fold_left union_g_pos empty_g_pos (List.map mk_graph_expr2 es)
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
-(** This graph is useful for analyzing equations *)
+(** This graph is useful for analyzing equations,
+    The generated graph would be useful only if the 
+    pre's are abstracted out first and then passed into this function using [LH.abstract_pre_subexpressions] *)
 
 let mk_graph_const_decl2: LA.const_decl -> (G.t * id_pos_map)
   = function
