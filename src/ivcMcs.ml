@@ -115,7 +115,7 @@ let enable_timeout_warnings = ref true
 let print_timeout_warning () =
   if !enable_timeout_warnings then (
     timeout := true ;
-    KEvent.log L_warn "An analysis has timeout, the result might be approximate."
+    KEvent.log L_warn "An analysis has timeout..."
   )
 
 let print_uc_error_note () =
@@ -1363,7 +1363,7 @@ let ivc_uc in_sys ?(approximate=false) sys props =
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
     let (_, test) = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
-    Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation=true })
+    Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation = true })
   ) with
   | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
@@ -1514,7 +1514,6 @@ let ivc_must_bf_ must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes k
   let (os_invs, must) =
     must_set_ in_sys ~os_invs:(Some os_invs) check_ts sys props enter_nodes keep test in
   must_cont must ;
-  timeout := timeout_bkp ;
   let keep = core_union keep must in
   let test = core_diff test must in
   let sys = remove_other_props sys prop_names in
@@ -1525,6 +1524,7 @@ let ivc_must_bf_ must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes k
     keep
   )
   else (
+    timeout := timeout_bkp ;
     KEvent.log L_info "MUST set is not a valid IVC. Minimizing with bruteforce..." ;
     ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test
     |> core_union must
@@ -1802,7 +1802,6 @@ let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
   let timeout_bkp = !timeout in
   let (os_invs, must) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
   must_cont must ;
-  timeout := timeout_bkp ;
   let keep = core_union keep must in
   let test = core_diff test must in
   let sys' = remove_other_props sys' prop_names in
@@ -1814,11 +1813,12 @@ let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
     [keep]
   )
   else (
+    timeout := timeout_bkp ;
     KEvent.log L_info "MUST set is not a valid IVC. Running UMIVC..." ;
     let post core = core_union core must in
     let cont core = core |> post |> cont in
     umivc_ in_sys ~os_invs make_ts_analyzer sys props k enter_nodes ~stop_after cont keep test
-    |> List.map post
+    |> fun (complete, ivcs) -> (complete, List.map post ivcs)
   )
 
 (** Implements the algorithm UMIVC. *)
@@ -1838,8 +1838,8 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
       res := ivc::(!res) ;
       cont ivc
     in
-    let _ = umivc_ sys props k enter_nodes ~stop_after cont keep test in
-    true(* TODO *), List.rev (!res)
+    let (complete, _) = umivc_ sys props k enter_nodes ~stop_after cont keep test in
+    complete, List.rev (!res)
   ) with
   | CannotProve | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
@@ -1902,7 +1902,7 @@ let mcs in_sys param analyze sys props
     let _ =
       mcs_ in_sys check_ts sys props all enter_nodes ~initial_solution ~max_mcs_cardinality ~approx cont keep test
     in
-    true(* TODO *), List.rev (!res)
+    (not !timeout), List.rev (!res)
   ) with
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
