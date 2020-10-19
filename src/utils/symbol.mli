@@ -300,6 +300,14 @@ val s_select : Type.t -> t
 (** array store symbol *)
 val s_store : t
 
+(** int -> machine int converters *)
+val s_to_uint8 : t
+
+val s_to_uint16 : t
+
+val s_to_uint32 : t
+
+val s_to_uint64 : t
 
 (** {1 Accessors functions} *)
 

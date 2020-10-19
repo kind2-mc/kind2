@@ -79,6 +79,12 @@ type expr_of_string_sexpr_conv =
     (* String constant for unary minus operator *) 
     s_minus : HString.t;
 
+    (* String constant for indexed (underscore) operator *)
+    s_index : HString.t;
+
+    (* String constant for int2bv operator *)
+    s_int2bv : HString.t;
+
     (* String constant for prime symbol if there is one *) 
     prime_symbol : HString.t option;
 
@@ -188,6 +194,8 @@ let gen_expr_of_string_sexpr'
        s_exists; 
        s_div; 
        s_minus;
+       s_index;
+       s_int2bv;
        prime_symbol;
        const_of_atom; 
        symbol_of_atom;
@@ -202,13 +210,6 @@ let gen_expr_of_string_sexpr'
 
       (* Cannot convert to an expression *)
       failwith "Invalid Nil in S-expression"
-
-
-    (* An list with a list as first element *)
-    | HStringSExpr.List (HStringSExpr.List _ :: _) -> 
-
-      (* Cannot convert to an expression *)
-      failwith "Invalid S-expression"
 
 
     (* A singleton list: treat as atom *)
@@ -390,6 +391,28 @@ let gen_expr_of_string_sexpr'
 
       )
 
+    | HStringSExpr.List
+        (HStringSExpr.List [HStringSExpr.Atom s1; HStringSExpr.Atom s2;
+                            HStringSExpr.Atom n;] :: tl)
+      when s1 == s_index && s2 = s_int2bv ->
+
+        (* parse arguments *)
+        let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
+
+        (match (int_of_string (HString.string_of_hstring n)) with
+        | 8 -> Term.mk_app Symbol.s_to_uint8 args
+        | 16 -> Term.mk_app Symbol.s_to_uint16 args
+        | 32 -> Term.mk_app Symbol.s_to_uint32 args
+        | 64 -> Term.mk_app Symbol.s_to_uint64 args
+        | _ -> failwith "Invalid S-expression")
+      
+      (*gen_expr_of_string_sexpr' conv bound_vars 
+        (HStringSExpr.List (HStringSExpr.Atom s1 :: tl))*)
+    (* A list with a list as first element *)
+    | HStringSExpr.List (HStringSExpr.List _ :: _) -> 
+
+      (* Cannot convert to an expression *)
+      failwith "Invalid S-expression"
 
 
 (* Convert a string S-expression to a lambda abstraction 
@@ -906,6 +929,8 @@ let smtlib_string_sexpr_conv =
     s_exists = HString.mk_hstring "exists";
     s_div = HString.mk_hstring "/";
     s_minus = HString.mk_hstring "-";
+    s_index = HString.mk_hstring "_";
+    s_int2bv = HString.mk_hstring "int2bv";
     s_define_fun = HString.mk_hstring "define-fun";
     s_declare_fun = HString.mk_hstring "declare-fun";
     prime_symbol = None;

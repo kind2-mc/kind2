@@ -776,6 +776,15 @@ let is_divisible = function
 
 let s_store = mk_symbol `STORE
 
+(* Constant integer -> machine integer operators *)
+let s_to_uint8 = mk_symbol `TO_UINT8
+
+let s_to_uint16 = mk_symbol `TO_UINT16
+
+let s_to_uint32 = mk_symbol `TO_UINT32
+
+let s_to_uint64 = mk_symbol `TO_UINT64
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
