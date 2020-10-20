@@ -70,6 +70,9 @@ type mcs = (Property.t * counterexample) * loc_core * additional_info
 
 (* ---------- PRETTY PRINTING ---------- *)
 
+let is_ivc_approx (_,_, {approximation}) = approximation
+let is_mcs_approx (_,_, {approximation}) = approximation
+
 let ivc_to_print_data in_sys sys core_class time (_,loc_core,info) =
   let cpd = loc_core_to_print_data in_sys sys core_class time loc_core in
   attach_approx_to_print_data cpd info.approximation
@@ -107,13 +110,10 @@ let pp_print_no_mcs_legacy prop sys =
 
 
 let timeout = ref false
-let enable_timeout_warnings = ref true
 
 let print_timeout_warning () =
-  if !enable_timeout_warnings then (
-    timeout := true ;
-    KEvent.log L_warn "An analysis has timeout, the result might be approximate."
-  )
+  timeout := true ;
+  KEvent.log L_warn "An analysis has timeout..."
 
 let print_uc_error_note () =
   KEvent.log L_note "Cannot solve the UNSAT core..."
@@ -637,7 +637,6 @@ let lstmap_union scmap1 scmap2 =
 
 let generate_initial_cores in_sys sys enter_nodes cats =
   timeout := false ;
-  enable_timeout_warnings := true ;
   let full_loc_core = full_loc_core_for_sys in_sys sys ~only_top_level:(not enter_nodes) in
   let (test, keep) = separate_loc_core_by_category in_sys cats full_loc_core in
   (loc_core_to_new_core keep, loc_core_to_new_core test)
@@ -1360,7 +1359,7 @@ let ivc_uc in_sys ?(approximate=false) sys props =
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
     let (_, test) = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
-    Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation=true })
+    Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation = true })
   ) with
   | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
@@ -1511,7 +1510,6 @@ let ivc_must_bf_ must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes k
   let (os_invs, must) =
     must_set_ in_sys ~os_invs:(Some os_invs) check_ts sys props enter_nodes keep test in
   must_cont must ;
-  timeout := timeout_bkp ;
   let keep = core_union keep must in
   let test = core_diff test must in
   let sys = remove_other_props sys prop_names in
@@ -1522,6 +1520,7 @@ let ivc_must_bf_ must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes k
     keep
   )
   else (
+    timeout := timeout_bkp ;
     KEvent.log L_info "MUST set is not a valid IVC. Minimizing with bruteforce..." ;
     ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test
     |> core_union must
@@ -1617,7 +1616,7 @@ let get_unexplored_max map actsvs =
   in
   aux n
 
-let block_up map _ s =
+let block_up map s =
   at_least_one_false s
   |> SMTSolver.assert_term map
 
@@ -1625,9 +1624,8 @@ let svs_diff svs1 svs2 =
   SVSet.diff (SVSet.of_list svs1) (SVSet.of_list svs2)
   |> SVSet.elements
 
-let block_down map actsvs s =
-  svs_diff actsvs s
-  |> at_least_one_true
+let block_down map s =
+  at_least_one_true s
   |> SMTSolver.assert_term map
 
 type unexplored_type = Min | Max
@@ -1646,8 +1644,8 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
   let eq_of_actlit = get_ts_equation_of_actlit (core_union keep test) in
   (* If test is empty, we can return *)
   let n = core_size test in
-  if not (are_props_safe props) then []
-  else if n = 0 then (cont test ; [test])
+  if not (are_props_safe props) then (true, [])
+  else if n = 0 then (cont test ; (true, [test]))
   else (
     (* Add actsvs to the CS transition system (at top level) *)
     let actsvs = actsvs_of_core test in
@@ -1664,11 +1662,11 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
     (*let get_unexplored () = get_unexplored map actsvs in*)
     let get_unexplored_min () = get_unexplored_min map actsvs in
     let get_unexplored_max () = get_unexplored_max map actsvs in
-    let block_up = block_up map actsvs in
-    let block_down = block_down map actsvs in
+    let block_up = block_up map in
+    let block_down = block_down map in
     let compute_mcs = compute_mcs check_ts_cs sys_cs prop_names enter_nodes in
     let compute_mcs k t = match compute_mcs k t with
-      | None -> assert false (* Should always be called on UNSAFE models *)
+      | None -> t
       | Some (r, _) -> r in
     let compute_all_mcs = compute_all_mcs check_ts_cs sys_cs prop_names enter_nodes in
     let compute_all_mcs k t max_mcs_cardinality =
@@ -1722,7 +1720,7 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
     let is_camus = k >= n in
     let is_marco = k <= 0 in
 
-    enable_timeout_warnings := is_camus ;
+    let timeout_bkp = !timeout in
     if not is_marco then (
       KEvent.log L_info "Computing all MCS of cardinality smaller than %n..." k ;
       compute_all_mcs keep test k |>
@@ -1732,7 +1730,8 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
           block_down (actsvs_of_core mua)
       )
     ) ;
-    enable_timeout_warnings := true ;
+    let is_camus = is_camus && not !timeout in
+    timeout := timeout_bkp ;
 
     (* ----- Part 2 : DETERMINING STRATEGY ----- *)
     let get_unexplored_auto =
@@ -1751,44 +1750,42 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
       )
     in
     (* ----- Part 3 : MARCO ----- *)
+    let approx = ref false in
     KEvent.log L_info "Phase 2: MARCO" ;
     let rec next acc =
       match get_unexplored_auto () with
       | _, None -> acc
       | typ, Some actsvs ->
         let seed = filter_core_svs actsvs test in
-        if (is_camus && not !timeout) || check (core_union keep seed)
+        if is_camus || check (core_union keep seed)
         then (
           (* Implements shrink(seed) using UCBF *)
-          let mivc = if typ = Min then seed else compute_mivc seed in
+          let mivc = if typ = Min && not !approx then seed else compute_mivc seed in
           (* Save and Block up *)
           cont mivc ;
           let new_acc = mivc::acc in
+          timeout := timeout_bkp ;
           if List.length new_acc = stop_after
-          then new_acc
+          then (approx := true ; new_acc)
           else (
             block_up (actsvs_of_core mivc) ;
             next new_acc
           )
         ) else (
+          approx := !approx || !timeout ; (* If the safety check failed, we cannot guarantee that solutions will be complete *)
           (* Implements grow(seed) using MCS computation *)
-          enable_timeout_warnings := false ;
-          let mua = if typ = Max then seed
-          else (
-            compute_mcs (core_union keep seed) (core_diff test seed)
-            |> core_diff test
-          )
-          in
+          let mcs = if typ = Max then (core_diff test seed)
+          else compute_mcs (core_union keep seed) (core_diff test seed) in
+          timeout := timeout_bkp ;
           (* Block down *)
-          block_down (actsvs_of_core mua) ;
-          enable_timeout_warnings := true ;
+          block_down (actsvs_of_core mcs) ;
           next acc
         )
     in
 
     let all_mivc = next [] in
     SMTSolver.delete_instance map ;
-    all_mivc
+    (not !approx, all_mivc)
   )
 
 let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
@@ -1799,7 +1796,6 @@ let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
   let timeout_bkp = !timeout in
   let (os_invs, must) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
   must_cont must ;
-  timeout := timeout_bkp ;
   let keep = core_union keep must in
   let test = core_diff test must in
   let sys' = remove_other_props sys' prop_names in
@@ -1808,14 +1804,15 @@ let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
   then (
     KEvent.log L_info "MUST set is a valid IVC." ;
     cont keep ;
-    [keep]
+    true, [keep]
   )
   else (
+    timeout := timeout_bkp ;
     KEvent.log L_info "MUST set is not a valid IVC. Running UMIVC..." ;
     let post core = core_union core must in
     let cont core = core |> post |> cont in
     umivc_ in_sys ~os_invs make_ts_analyzer sys props k enter_nodes ~stop_after cont keep test
-    |> List.map post
+    |> (fun (complete, ivcs) -> complete, List.map post ivcs)
   )
 
 (** Implements the algorithm UMIVC. *)
@@ -1835,16 +1832,16 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
       res := ivc::(!res) ;
       cont ivc
     in
-    let _ = umivc_ sys props k enter_nodes ~stop_after cont keep test in
-    List.rev (!res)
+    let (complete, _) = umivc_ sys props k enter_nodes ~stop_after cont keep test in
+    complete, List.rev (!res)
   ) with
   | CannotProve | CertifChecker.CouldNotProve _ ->
     if are_props_safe props
-    then (KEvent.log L_error "Cannot reprove properties." ; [])
-    else []
+    then (KEvent.log L_error "Cannot reprove properties." ; (false, []))
+    else (false, [])
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    []
+    (false, [])
 
 (* ---------- MINIMAL CORRECTION SETS ---------- *)
 
@@ -1861,7 +1858,6 @@ let mcs_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
   let initial_solution = match initial_solution with
   | None -> None
   | Some (({ Property.prop_name }, cex), loc_core, info) ->
-    if info.approximation then timeout := true ;
     Some (loc_core_to_filtered_core loc_core test, (prop_name, cex))
   in
 
@@ -1900,11 +1896,11 @@ let mcs in_sys param analyze sys props
     let _ =
       mcs_ in_sys check_ts sys props all enter_nodes ~initial_solution ~max_mcs_cardinality ~approx cont keep test
     in
-    List.rev (!res)
+    (not !timeout), List.rev (!res)
   ) with
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    []
+    (false, [])
 
 let mcs_initial_analysis_ in_sys ?(os_invs=[]) check_ts sys enter_nodes
   ?(max_mcs_cardinality= -1) keep test =
@@ -1930,7 +1926,7 @@ let mcs_initial_analysis in_sys param analyze ?(max_mcs_cardinality= -1) sys =
     let res_to_mcs (test, (prop,cex)) =
       ((TS.property_of_name sys prop, cex),
         core_to_loc_core in_sys (core_union keep test),
-        { approximation = !timeout })
+        { approximation = true })
     in
 
     mcs_initial_analysis_ in_sys check_ts sys enter_nodes ~max_mcs_cardinality keep test
