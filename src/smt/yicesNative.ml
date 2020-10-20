@@ -103,6 +103,7 @@ let smtlib_string_sexpr_conv =
        s_minus = HString.mk_hstring "-";
        s_index = HString.mk_hstring "_";
        s_int2bv = HString.mk_hstring "int2bv";
+       s_extract = HString.mk_hstring "extract";
        prime_symbol = None;
        s_define_fun = HString.mk_hstring "define-fun";
        s_declare_fun = HString.mk_hstring "declare-fun";

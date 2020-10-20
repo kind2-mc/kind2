@@ -300,6 +300,9 @@ val s_select : Type.t -> t
 (** array store symbol *)
 val s_store : t
 
+(**  Bit-vector extract operator *)
+val s_extract : Numeral.t -> Numeral.t -> t
+
 (** int -> machine int converters *)
 val s_to_uint8 : t
 

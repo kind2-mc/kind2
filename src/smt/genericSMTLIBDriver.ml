@@ -85,6 +85,9 @@ type expr_of_string_sexpr_conv =
     (* String constant for int2bv operator *)
     s_int2bv : HString.t;
 
+    (* String constant for bvextract operator *)
+    s_extract : HString.t;
+
     (* String constant for prime symbol if there is one *) 
     prime_symbol : HString.t option;
 
@@ -196,6 +199,7 @@ let gen_expr_of_string_sexpr'
        s_minus;
        s_index;
        s_int2bv;
+       s_extract;
        prime_symbol;
        const_of_atom; 
        symbol_of_atom;
@@ -391,6 +395,7 @@ let gen_expr_of_string_sexpr'
 
       )
 
+    (* Parse ((_ int2bv n) x) *)
     | HStringSExpr.List
         (HStringSExpr.List [HStringSExpr.Atom s1; HStringSExpr.Atom s2;
                             HStringSExpr.Atom n;] :: tl)
@@ -405,9 +410,22 @@ let gen_expr_of_string_sexpr'
         | 32 -> Term.mk_app Symbol.s_to_uint32 args
         | 64 -> Term.mk_app Symbol.s_to_uint64 args
         | _ -> failwith "Invalid S-expression")
-      
-      (*gen_expr_of_string_sexpr' conv bound_vars 
-        (HStringSExpr.List (HStringSExpr.Atom s1 :: tl))*)
+
+    (* Parse ((_ extract i j) x) *)
+    | HStringSExpr.List
+        (HStringSExpr.List [HStringSExpr.Atom s1; HStringSExpr.Atom s2;
+                            HStringSExpr.Atom i; HStringSExpr.Atom j;] :: tl)
+      when s1 == s_index && s2 = s_extract ->
+
+        (* parse indices *)
+        let i_n = Numeral.of_string (HString.string_of_hstring i) in
+        let j_n = Numeral.of_string (HString.string_of_hstring j) in
+        
+        (* parse arguments *)
+        let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
+
+        Term.mk_app (Symbol.s_extract i_n j_n) args
+
     (* A list with a list as first element *)
     | HStringSExpr.List (HStringSExpr.List _ :: _) -> 
 
@@ -931,6 +949,7 @@ let smtlib_string_sexpr_conv =
     s_minus = HString.mk_hstring "-";
     s_index = HString.mk_hstring "_";
     s_int2bv = HString.mk_hstring "int2bv";
+    s_extract = HString.mk_hstring "extract";
     s_define_fun = HString.mk_hstring "define-fun";
     s_declare_fun = HString.mk_hstring "declare-fun";
     prime_symbol = None;

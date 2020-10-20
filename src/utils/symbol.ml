@@ -776,6 +776,9 @@ let is_divisible = function
 
 let s_store = mk_symbol `STORE
 
+(* Bit-vector extract operator *)
+let s_extract i j = mk_symbol (`BVEXTRACT (i,j))
+
 (* Constant integer -> machine integer operators *)
 let s_to_uint8 = mk_symbol `TO_UINT8
 
