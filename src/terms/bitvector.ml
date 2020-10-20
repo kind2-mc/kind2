@@ -24,7 +24,7 @@ let one (len : int) : t =
   (repeat_bit false (len - 1)) @ [true]
 
 (* Bit-vector representing hexadecimal F - all bit's are 1 *)
-let F (len : int) : t =
+let f (len : int) : t =
   repeat_bit true len
 
 (* Function that extracts m down to n from the input bitvector *)

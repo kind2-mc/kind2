@@ -37,7 +37,7 @@ val zero : int -> t
 val one : int -> t
 
 (** Bit-vector representing hexadecimal F - all bit's are 1 *)
-val F : int -> t
+val f : int -> t
 
 (** Return bits m down to n from the input bitvector *)
 val bvextract : int -> int -> t -> t

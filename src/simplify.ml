@@ -626,7 +626,7 @@ let bv_sub args =
      let len = Bitvector.length_of_bitvector (List.hd args') in
      let x = List.hd args' in
      let y = List.fold_left (Bitvector.ubv_add) (Bitvector.zero len) (List.tl args') in
-     BV (Term.mk_bv (Bitvector.sbv_sub x y))
+     BV (Term.mk_bv (Bitvector.sbv_sub x y)))
 
 
 (* Find the product of a list of bit-vectors *)
@@ -634,7 +634,7 @@ let bv_mult args =
   let args'' = List.map term_of_nf args in
   let args' = List.map Term.bitvector_of_term args'' in
   let len = Bitvector.length_of_bitvector (List.hd args') in
-  let prod = List.fold_left (Bitvector.ubv_mul) (Bitvector.one len) args' in
+  let prod = List.fold_left (Bitvector.ubv_mult) (Bitvector.one len) args' in
   BV (Term.mk_bv prod)
 
 
