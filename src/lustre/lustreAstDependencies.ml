@@ -85,6 +85,9 @@ let empty_g_pos: (G.t * id_pos_map) = (G.empty, IMap.empty)
 let connect_g_pos: (G.t * id_pos_map) -> LA.ident -> Lib.position -> (G.t * id_pos_map) =
   fun (g, pos_m) i p -> (G.connect g i, add_pos pos_m i p)  
 
+let remove: (G.t * id_pos_map) -> LA.ident -> (G.t * id_pos_map) =
+  fun (g, pos_m) i -> (G.remove_vertex g i, pos_m)
+                      
 let map_g_pos: (LA.ident -> LA.ident) -> (G.t * id_pos_map) -> (G.t * id_pos_map) =
   fun f (g, pos_info) -> 
      let pos_info' = List.fold_left (fun m (k, v) -> IMap.add k v m) IMap.empty
@@ -404,7 +407,7 @@ let rec mk_graph_expr2: LA.expr -> (G.t * id_pos_map)
   | LA.TupleProject (_, e, _) -> mk_graph_expr2 e
   | LA.ArrayConstr (_, e1, e2) -> union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2) 
   | LA.ArraySlice (_, e1, (e2, e3)) -> union_g_pos (union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2)) (mk_graph_expr2 e3) 
-  | LA.ArrayIndex (_, e1, e2) -> union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2)
+  | LA.ArrayIndex (_, e1, e2) -> mk_graph_expr2 e1
   | LA.ArrayConcat  (_, e1, e2) -> union_g_pos (mk_graph_expr2 e1) (mk_graph_expr2 e2)
   | LA.GroupExpr (_, _, es) -> List.fold_left union_g_pos empty_g_pos (List.map mk_graph_expr2 es)
   | LA.When (_, e, _) -> mk_graph_expr2 e
@@ -466,9 +469,11 @@ let mk_graph_eqn: LA.node_equation -> (G.t * id_pos_map) =
   let handle_one_lhs: (G.t * id_pos_map) -> LA.struct_item -> (G.t * id_pos_map) = fun rhs_g lhs ->
     match lhs with
     | LA.SingleIdent (p, i) -> connect_g_pos rhs_g i p 
-    | LA.ArrayDef (p, i, is) -> empty_g_pos
-    (* I am not sure what to do in case of an arraydef so leaving it blank *)
-    (* None of these items below are supported at parsing level yet. *)
+    | LA.ArrayDef (p, arr, is) ->
+       let arr' = arr ^ "_" ^ (List.fold_left (fun acc i -> acc ^ "_" ^ i) "" is) in 
+    connect_g_pos (List.fold_left (fun g i -> remove g i) rhs_g is)  arr' p
+
+    (* None of these items below are supported at parsing yet. *)
     | LA.TupleStructItem (p, _)
       | LA.TupleSelection (p, _, _)
       | LA.FieldSelection (p, _, _)
@@ -486,10 +491,11 @@ let rec mk_graph_node_items: LA.node_item list -> (G.t * id_pos_map) =
   | (Body eqn) :: items -> union_g_pos (mk_graph_eqn eqn) (mk_graph_node_items items) 
   | _ :: items -> mk_graph_node_items items
   
-let analyze_circ_node_equations: LA.node_item list -> unit graph_result = fun eqns ->
+let analyze_circ_node_equations: LA.ident list -> LA.node_item list -> unit graph_result = fun consts eqns ->
   Log.log L_trace "Checking circularity in node equations"
   ; let dg, pos_info = mk_graph_node_items eqns in
-    (try (R.ok (G.topological_sort dg)) with
+    let dg' = List.fold_left (fun g i -> G.remove_vertex g i) dg consts in
+    (try (R.ok (G.topological_sort dg')) with
      | Graph.CyclicGraphException ids ->
         if List.length ids > 1
         then (match (find_id_pos pos_info (List.hd ids)) with

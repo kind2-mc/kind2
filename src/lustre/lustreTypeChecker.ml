@@ -50,6 +50,7 @@ module IMap = struct
               type t = LA.ident
               let compare i1 i2 = Stdlib.compare i1 i2
             end)
+  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
 end
 
 (** Pretty print type synonyms*)
@@ -126,6 +127,7 @@ type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings 
                   ; vl_ctx: const_store     (* store of typed constants to its value*)
                   ; u_types: ty_set         (* store of all declared user types,
                                                this is poor mans kind (type of type) context *)
+                  ; node_curr_input: SI.t IMap.t
                   }
 (** The type Checker context *)
 
@@ -133,7 +135,8 @@ let empty_tc_context: tc_context = { ty_syns = IMap.empty
                                 ; ty_ctx = IMap.empty
                                 ; contract_ctx = IMap.empty
                                 ; vl_ctx = IMap.empty
-                                ; u_types = SI.empty }
+                                ; u_types = SI.empty
+                                ; node_curr_input = IMap.empty }
 (** The empty context with no information *)
                               
 let pp_print_tc_context ppf ctx
@@ -229,7 +232,8 @@ let union: tc_context -> tc_context -> tc_context
                      ; ty_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.ty_ctx) (ctx2.ty_ctx))
                      ; contract_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.contract_ctx) (ctx2.contract_ctx))
                      ; vl_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.vl_ctx) (ctx2.vl_ctx))
-                     ; u_types = SI.union ctx1.u_types ctx2.u_types 
+                     ; u_types = SI.union ctx1.u_types ctx2.u_types
+                     ; node_curr_input = IMap.union (fun k v1 v2 -> Some v2) (ctx1.node_curr_input) (ctx2.node_curr_input) 
                      }
 
 let singleton_ty: LA.ident -> tc_type -> tc_context
@@ -1251,14 +1255,14 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
           Log.log L_trace "Local Typing Context {%a}" pp_print_tc_context local_ctx
           (* Type check the node items now that we have all the local typing context *)
           ; R.seq_ (List.map (do_item local_ctx) items)
-            (* check that the LHS of the equations are not args to node *)
+          (* check that the LHS of the equations are not args to node *)
             >> let overwite_node_args = SI.inter arg_ids (SI.flatten (List.map LH.vars_lhs_of_eqn items)) in
                (R.guard_with (R.ok (overwite_node_args |> SI.is_empty))
                   (type_error pos ("Argument to nodes cannot be LHS of an equation but found "
                                    ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
                                        (LA.SI.elements overwite_node_args))))
                     (*  TODO: Check for circular dependencies between equations *)
-                    >> AD.analyze_circ_node_equations items      
+                    >> AD.analyze_circ_node_equations (IMap.keys ctx.vl_ctx) items      
                     >> R.ok (Log.log L_trace "TC declaration node %a done }"
                                LA.pp_print_ident node_name))
       else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
@@ -1519,14 +1523,16 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
   | LA.FreeType (_, i) -> R.ok (add_ty_decl ctx i)
 
 and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_context tc_result
-  = fun pos ctx (nname, _, _ , ip, op,_ ,_ ,_) ->
+  = fun pos ctx (nname, _, _ , ip, op, _ ,_ ,_) ->
   Log.log L_trace
     "Extracting typing context from node declaration: %a"
     LA.pp_print_ident nname
   ; if (member_ty ctx nname)
     then type_error pos ("Node " ^ nname ^ " is already declared.")
-    else build_node_fun_ty pos ctx ip op
-         >>= fun fun_ty -> R.ok (add_ty ctx nname fun_ty)
+    else build_node_fun_ty pos ctx ip op >>= fun fun_ty ->
+         let ctx' = add_ty ctx nname fun_ty in
+         (* TODO: get the inputs current var usage *)
+         R.ok (ctx')                           
 (** computes the type signature of node or a function *)
 
 and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_context tc_result
