@@ -1906,7 +1906,7 @@ let eval_to_uint16 expr =
                         if (Type.is_uint16 tt) then
                           expr
                         else if (Type.is_uint8 tt) then
-                          Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 8)) expr
+                          Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero 8)) expr
                         else
                           Term.mk_bvextract (Numeral.of_int 15) (Numeral.of_int 0) expr
                       else
@@ -1951,9 +1951,9 @@ let eval_to_uint32 expr =
               if (Type.is_uint32 tt) then
                 expr
               else if (Type.is_uint8 tt) then
-                Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 24)) expr
+                Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero 24)) expr
               else if (Type.is_uint16 tt) then
-                Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 16)) expr
+                Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero 16)) expr
               else
                 Term.mk_bvextract (Numeral.of_int 31) (Numeral.of_int 0) expr
                 (*let n = Term.mk_bv2nat expr in
@@ -2000,11 +2000,11 @@ let eval_to_uint64 expr =
               if (Type.is_uint64 tt) then
                 expr
               else if (Type.is_uint32 tt) then
-                Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 32)) expr
+                Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero 32)) expr
               else if (Type.is_uint16 tt) then
-                Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 48)) expr
+                Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero 48)) expr
               else
-                Term.mk_bvconcat (Term.mk_ubv (Bitvector.repeat_bit false 56)) expr
+                Term.mk_bvconcat (Term.mk_ubv (Bitvector.zero 56)) expr
             else
               raise Type_mismatch
 

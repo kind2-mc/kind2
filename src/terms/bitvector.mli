@@ -30,8 +30,14 @@ type t
 (** Return the length of a bitvector as a numeral *)
 val length_of_bitvector : t -> int
 
-(** Return bitvector resulting from repeating input bit b, (input) n times *)
-val repeat_bit : bool -> int -> t
+(** Bit-vector representing decimal 0 *)
+val zero : int -> t
+
+(** Bit-vector representing decimal 1 *)
+val one : int -> t
+
+(** Bit-vector representing hexadecimal F - all bit's are 1 *)
+val F : int -> t
 
 (** Return bits m down to n from the input bitvector *)
 val bvextract : int -> int -> t -> t
