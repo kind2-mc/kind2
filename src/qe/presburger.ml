@@ -578,23 +578,26 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                | `MINUS, _
                | `DIVISIBLE _, _
 
+               | `BV _, _ 
                | `BVNEG, _
                | `BVADD, _ 
                | `BVSUB, _
-
-               | `UBV _, _
-               | `BV _, _ 
                | `BVMUL, _
-               | `BVSHL, _
+               | `UBV _, _
                | `BVUDIV, _
                | `BVSDIV, _
-               | `BVNOT, _
                | `BVUREM, _
                | `BVSREM, _
+               | `BVUDIV_I, _
+               | `BVSDIV_I, _
+               | `BVUREM_I, _
+               | `BVSREM_I, _
+               | `BVNOT, _
+               | `BVAND, _
                | `BVOR, _
+               | `BVSHL, _
                | `BVLSHR, _
                | `BVASHR, _
-               | `BVAND, _
 
                | `SELECT _, _
                | `STORE, _

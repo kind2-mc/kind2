@@ -376,23 +376,31 @@ let gen_expr_of_string_sexpr'
 
         in
 
-        (* parse arguments *)
-        let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
+        if (Symbol.is_z3_bv s) then
+          (failwith
+            (Format.sprintf 
+                       "Special non-SMTLIB symbol %s detected in QE"
+                       (Symbol.string_of_symbol s)))
+        else
+        (
+          (* parse arguments *)
+          let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
 
-        (* Add correct type to select *)
-        let s = match Symbol.node_of_symbol s, args with
-          | `SELECT _, [a; _] ->
-            Symbol.mk_symbol (`SELECT (Term.type_of_term a))
-          | _ -> s
-        in
+          (* Add correct type to select *)
+          let s = match Symbol.node_of_symbol s, args with
+            | `SELECT _, [a; _] ->
+              Symbol.mk_symbol (`SELECT (Term.type_of_term a))
+            | _ -> s
+          in
         
-        (* Create an application of the function symbol to the subterms *)
-        let t = Term.mk_app s args in
+          (* Create an application of the function symbol to the subterms *)
+          let t = Term.mk_app s args in
 
-        (* Convert (= 0 (mod t n)) to (t divisible n) *)
-        Term.mod_to_divisible t
-        (* |> Term.reinterpret_select *)
+          (* Convert (= 0 (mod t n)) to (t divisible n) *)
+          Term.mod_to_divisible t
+          (* |> Term.reinterpret_select *)
 
+        )
       )
 
     (* Parse ((_ int2bv n) x) *)
@@ -619,6 +627,10 @@ let smtlib_string_symbol_list =
    ("bvsdiv", Symbol.mk_symbol `BVSDIV);
    ("bvurem", Symbol.mk_symbol `BVUREM);
    ("bvsrem", Symbol.mk_symbol `BVSREM);
+   ("bvudiv_i", Symbol.mk_symbol `BVUDIV_I);
+   ("bvsdiv_i", Symbol.mk_symbol `BVSDIV_I);
+   ("bvurem_i", Symbol.mk_symbol `BVUREM_I);
+   ("bvsrem_i", Symbol.mk_symbol `BVSREM_I);
    ("bvshl", Symbol.mk_symbol `BVSHL);
    ("bvlshr", Symbol.mk_symbol `BVLSHR);
    ("bvashr", Symbol.mk_symbol `BVASHR);
@@ -652,7 +664,6 @@ let smtlib_reserved_word_list =
 (* Hashtable for hashconsed strings to function symbols *)
 let hstring_symbol_table = HString.HStringHashtbl.create 50 
 
-
 (* Populate hashtable with hashconsed strings and their symbol *)
 let _ = 
   List.iter
@@ -662,7 +673,6 @@ let _ =
         (HString.mk_hstring s)
         v)
     smtlib_string_symbol_list 
-
 
 (* Pretty-print a symbol *)
 let rec pp_print_symbol_node ?arity ppf = function 
@@ -735,6 +745,10 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVSDIV -> Format.pp_print_string ppf "bvsdiv"
   | `BVUREM -> Format.pp_print_string ppf "bvurem"
   | `BVSREM -> Format.pp_print_string ppf "bvsrem"
+  | `BVUDIV_I -> Format.pp_print_string ppf "bvudiv_i"
+  | `BVSDIV_I -> Format.pp_print_string ppf "bvsdiv_i"
+  | `BVUREM_I -> Format.pp_print_string ppf "bvurem_i"
+  | `BVSREM_I -> Format.pp_print_string ppf "bvsrem_i"
   | `BVSHL -> Format.pp_print_string ppf "bvshl"
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
   | `BVASHR -> Format.pp_print_string ppf "bvashr"

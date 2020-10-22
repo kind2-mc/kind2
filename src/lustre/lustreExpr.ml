@@ -345,6 +345,10 @@ let string_of_symbol = function
   | `BVSDIV -> "div"
   | `BVUREM -> "mod"
   | `BVSREM -> "mod"
+  | `BVUDIV_I -> "div"
+  | `BVSDIV_I -> "div"
+  | `BVUREM_I -> "mod"
+  | `BVSREM_I -> "mod"
   | `BVULT -> "<"
   | `BVULE -> "<="
   | `BVUGT -> ">"
@@ -664,6 +668,10 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `BVSDIV
     | `BVUREM
     | `BVSREM
+    | `BVUDIV_I
+    | `BVSDIV_I
+    | `BVUREM_I
+    | `BVSREM_I
     | `PLUS
     | `TIMES
     | `DIV
