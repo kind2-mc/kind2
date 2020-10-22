@@ -296,22 +296,12 @@ let string_of_symbol = function
   | `DECIMAL d -> Decimal.string_of_decimal d
   | `XOR -> "xor"
   | `BV b ->
-          if (Type.is_ubitvector (Term.type_of_term (Term.mk_bv b))) then
-            (match Bitvector.length_of_bitvector b with
-            | 8 -> "(uint8 " ^ (Numeral.string_of_numeral (Bitvector.ubv8_to_num b)) ^ ")"
-            | 16 -> "(uint16 " ^ (Numeral.string_of_numeral (Bitvector.ubv16_to_num b)) ^ ")"
-            | 32 -> "(uint32 " ^ (Numeral.string_of_numeral (Bitvector.ubv32_to_num b)) ^ ")"
-            | 64 -> "(uint64 " ^ (Numeral.string_of_numeral (Bitvector.ubv64_to_num b)) ^ ")"
-            | _ -> raise Type_mismatch)
-          else if (Type.is_bitvector (Term.type_of_term (Term.mk_bv b))) then
-            (match Bitvector.length_of_bitvector b with
-            | 8 -> "(int8 " ^ (Numeral.string_of_numeral (Bitvector.bv8_to_num b)) ^ ")"
-            | 16 -> "(int16 " ^ (Numeral.string_of_numeral (Bitvector.bv16_to_num b)) ^ ")"
-            | 32 -> "(int32 " ^ (Numeral.string_of_numeral (Bitvector.bv32_to_num b)) ^ ")"
-            | 64 -> "(int64 " ^ (Numeral.string_of_numeral (Bitvector.bv64_to_num b)) ^ ")"
-            | _ -> raise Type_mismatch)
-          else
-            raise Type_mismatch
+      (match Bitvector.length_of_bitvector b with
+        | 8 -> "(uint8 " ^ (Numeral.string_of_numeral (Bitvector.ubv8_to_num b)) ^ ")"
+        | 16 -> "(uint16 " ^ (Numeral.string_of_numeral (Bitvector.ubv16_to_num b)) ^ ")"
+        | 32 -> "(uint32 " ^ (Numeral.string_of_numeral (Bitvector.ubv32_to_num b)) ^ ")"
+        | 64 -> "(uint64 " ^ (Numeral.string_of_numeral (Bitvector.ubv64_to_num b)) ^ ")"
+        | _ -> raise Type_mismatch)
   | `MINUS -> "-"
   | `PLUS -> "+"
   | `TIMES -> "*"
@@ -368,6 +358,14 @@ let pp_print_symbol_as_type as_type ppf s =
   | Some ty, `NUMERAL n when Type.is_enum ty ->
      Type.get_constr_of_num n
      |> Format.pp_print_string ppf
+  | Some ty, `BV b when Type.is_bitvector ty ->
+     let s = (match Bitvector.length_of_bitvector b with
+      | 8 -> "(int8 " ^ (Numeral.string_of_numeral (Bitvector.bv8_to_num b)) ^ ")"
+      | 16 -> "(int16 " ^ (Numeral.string_of_numeral (Bitvector.bv16_to_num b)) ^ ")"
+      | 32 -> "(int32 " ^ (Numeral.string_of_numeral (Bitvector.bv32_to_num b)) ^ ")"
+      | 64 -> "(int64 " ^ (Numeral.string_of_numeral (Bitvector.bv64_to_num b)) ^ ")"
+      | _ -> raise Type_mismatch) in
+     Format.pp_print_string ppf s 
   | _ ->
      Format.pp_print_string ppf (string_of_symbol s) 
     
