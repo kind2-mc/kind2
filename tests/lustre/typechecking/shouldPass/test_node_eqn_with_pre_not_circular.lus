@@ -15,3 +15,19 @@ let
    q = pre p;
    p = pre q;
 tel
+
+
+node c (x:int) returns (y: int)
+var av: int;
+var bv: int;
+let
+av = d(bv);
+bv = d(av); -- this should not fail
+y = x;
+tel
+
+node d (x: int) returns (y: int)
+let
+y = pre x;
+tel
+

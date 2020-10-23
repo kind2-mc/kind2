@@ -108,6 +108,10 @@ module type S = sig
    *  or throws an [CyclicGraphException] if the graph is cyclic.
    *  Implimentation is of this function is based on Kahn's algorithm *)
     
+
+  val reachable: t -> vertex -> vertices
+  val to_vertex_list: vertices -> vertex list
+    
   val pp_print_vertex: Format.formatter -> vertex -> unit
   (** Pretty print a vertex *)
 

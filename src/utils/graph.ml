@@ -109,6 +109,11 @@ module type S = sig
    *  or throws an [CyclicGraphException] if the graph is cyclic.
    *  Implimentation is of this function is based on Kahn's algorithm *)
 
+
+  val reachable: t -> vertex -> vertices
+
+  val to_vertex_list: vertices -> vertex list
+    
   val pp_print_vertex: Format.formatter -> vertex -> unit
   (** Pretty print a vertex *)
 
@@ -247,6 +252,9 @@ module Make (Ord: OrderedType) = struct
     = fun (vs, es) e -> (vs, ESet.remove e es) 
   (** Remove an [edge] from a graph *)                             
 
+  let remove_edges: t -> edges -> t
+    = fun (vs, es) es' -> (vs, ESet.diff es es') 
+                      
   let non_target_vertices: t -> vertices
     = fun (vs, es) ->
     VSet.filter (fun v -> ESet.for_all (fun e -> not (is_vertex_target e v)) es) vs
@@ -314,4 +322,34 @@ module Make (Ord: OrderedType) = struct
    *  Implimentation is based on Kahn's algorithm 
    * https://en.wikipedia.org/wiki/Topological_sorting *)
 
+  let reachable: t -> vertex -> vertices =
+    fun ((vs, es) as g) origin_v ->
+    let rec reachable_from_aux: vertices -> vertex -> t -> vertices
+      = fun acc sv ((vs, es)  as g) ->
+      Log.log L_trace
+        "-----------\nGraph state:\n %a\naccumulated vertices: %a\n current vertex vertices: %a\n-------------"	
+        pp_print_graph g	
+        (Lib.pp_print_list pp_print_vertex ",") (VSet.elements acc)	
+        pp_print_vertex sv ;
+      if VSet.mem sv acc
+      then acc (* we have already visited this vertex so skip *)
+      else
+        (* get all edges that have sv as source *)
+        let new_edgs = (ESet.filter (Lib.flip is_vertex_source sv) es) in
+        let vs' = List.map (get_target_vertex) (ESet.elements new_edgs) in
+        (* Get the new vertices to be analysed  *)
+        let new_vs = (VSet.diff (VSet.of_list vs') acc) in
+        VSet.flatten (List.map (fun v ->
+                          VSet.add v (reachable_from_aux
+                                        (VSet.union acc (VSet.remove v new_vs))
+                                        v
+                                        (remove_edges g new_edgs))) (VSet.elements new_vs)) in  
+    if (VSet.mem origin_v vs) then
+      reachable_from_aux VSet.empty origin_v g 
+    else VSet.empty
+   (** Returns all the vertices rechable from the input vertex in the graph  *)
+
+  let to_vertex_list: vertices -> vertex list = VSet.elements
+    
+    
 end

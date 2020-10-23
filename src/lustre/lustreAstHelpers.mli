@@ -54,7 +54,7 @@ val vars_of_struct_item: struct_item -> SI.t
 
 val vars_lhs_of_eqn: node_item -> SI.t
 
-val vars_in_pre: expr -> SI.t
+val vars_of_ty_ids: typed_ident -> SI.t
   
 (** Return an ast that adds two expressions*)
 val add_exp: Lib.position -> expr -> expr -> expr
@@ -85,3 +85,5 @@ val is_type_or_const_decl: declaration -> bool
 val split_program: declaration list -> (declaration list * declaration list)
 
 val abstract_pre_subexpressions: expr -> expr
+
+val extract_node_equation: node_item -> (eq_lhs * expr) list

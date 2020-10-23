@@ -26,12 +26,19 @@
 
 module LA = LustreAst
 type 'a graph_result = ('a, Lib.position * string) result
-                     
+
+module IMap: sig
+  include (Map.S with type key = LA.ident)
+  val keys: 'a t -> key list
+end
+
 val sort_declarations: LA.t -> LA.t graph_result
 (** Returns a topological order of declarations *)
 
-val analyze_circ_contract_equations: LA.contract -> unit graph_result
+val analyze_circ_contract_equations: bool IMap.t -> LA.contract -> unit graph_result
 (** Checks if there are circular dependencies in the contract equations *)
 
-val analyze_circ_node_equations: LA.ident list -> LA.node_item list -> unit graph_result
+val analyze_circ_node_equations: bool IMap.t -> LA.ident list -> LA.node_item list -> unit graph_result
 (** Checks if there are circular dependencies in node equations equations *)
+
+val mk_node_call_summary: bool IMap.t -> LA.node_decl -> bool IMap.t

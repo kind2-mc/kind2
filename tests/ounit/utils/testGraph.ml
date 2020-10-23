@@ -46,6 +46,11 @@ let basic_tests
       ; "cyclic dos" >:: (fun _ -> assert_raises
                                      (Graph.CyclicGraphException [v0; v1])
                                      (fun _ -> G.topological_sort dos_cycle_g))
+      ; "reachable test1" >:: (fun _ -> assert_equal (
+                                            let g = G.to_vertex_list (G.reachable singleton_g v0) in
+                                            (Log.log L_debug "rechables %a" (Lib.pp_print_list LustreAst.pp_print_ident ",") g
+                                            ; g)) ([v0]) )
       ]
-
+ 
+  
 let _ = run_test_tt_main basic_tests
