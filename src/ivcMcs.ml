@@ -1880,6 +1880,7 @@ let mcs_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
 (* Compute one/all Maximal Unsafe Abstraction(s). *)
 let mcs in_sys param analyze sys props
   ?(initial_solution=None) ?(max_mcs_cardinality= -1) all approx cont =
+  let approx = approx && (not all) in
   try (
     let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
     let elements = (Flags.MCS.mcs_category ()) in
@@ -1896,7 +1897,7 @@ let mcs in_sys param analyze sys props
     let _ =
       mcs_ in_sys check_ts sys props all enter_nodes ~initial_solution ~max_mcs_cardinality ~approx cont keep test
     in
-    (not !timeout), List.rev (!res)
+    not (!timeout || approx), List.rev (!res)
   ) with
   | InitTransMismatch (i,t) ->
     KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
