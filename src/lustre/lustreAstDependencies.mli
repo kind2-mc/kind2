@@ -32,13 +32,16 @@ module IMap: sig
   val keys: 'a t -> key list
 end
 
+type node_summary = (int list) IMap.t
+
 val sort_declarations: LA.t -> LA.t graph_result
 (** Returns a topological order of declarations *)
 
-val analyze_circ_contract_equations: bool IMap.t -> LA.contract -> unit graph_result
+val analyze_circ_contract_equations: node_summary -> LA.contract -> unit graph_result
 (** Checks if there are circular dependencies in the contract equations *)
 
-val analyze_circ_node_equations: bool IMap.t -> LA.ident list -> LA.node_item list -> unit graph_result
+val analyze_circ_node_equations: node_summary -> LA.ident list -> LA.node_item list -> unit graph_result
 (** Checks if there are circular dependencies in node equations equations *)
 
-val mk_node_call_summary: bool IMap.t -> LA.node_decl -> bool IMap.t
+val mk_node_summary: node_summary -> LA.node_decl -> node_summary
+(** Generates a necessary node call summary that is required for inlining node calls for circularity check *)

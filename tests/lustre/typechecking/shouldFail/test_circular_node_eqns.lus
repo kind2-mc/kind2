@@ -1,7 +1,8 @@
-node top(x: int) returns (y: int);
+node top(x1, x2, x3: int) returns (y1, y2, y3: int);
 var l: int;
 var p: int;
 let
   l = p;
   p = l;
+  (y1, y2, y3) = (x1, x2, x3);
 tel

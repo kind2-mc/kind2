@@ -96,7 +96,10 @@ type const_store = (LA.expr * tc_type) IMap.t
 
 type ty_set = SI.t
 (** set of valid user type identifiers *)
-            
+
+type node_summary = AD.node_summary
+(** stores node call summaries  *)
+                      
 (** Pretty print type synonyms*)
 let pp_print_type_syn ppf = fun i ty -> 
   Format.fprintf ppf "(%a:=%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
@@ -123,7 +126,10 @@ let pp_print_u_types ppf m = Lib.pp_print_list LA.pp_print_ident ", " ppf (SI.el
 
 
 let pp_print_node_summary ppf m = Lib.pp_print_list (fun ppf (i, b) ->
-                                    Format.fprintf ppf "(%a:%a)" LA.pp_print_ident i Format.pp_print_bool b)  ", " ppf (AD.IMap.bindings m)
+                                      Format.fprintf ppf "(%a:%a)"
+                                        LA.pp_print_ident i
+                                        (Lib.pp_print_list Format.pp_print_int ", ") b)  ", "
+                                    ppf (AD.IMap.bindings m)
                            
 type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
                   ; ty_ctx: ty_store        (* store of the types of identifiers and nodes*)
@@ -131,7 +137,7 @@ type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings 
                   ; vl_ctx: const_store     (* store of typed constants to its value*)
                   ; u_types: ty_set         (* store of all declared user types,
                                                this is poor mans kind (type of type) context *)
-                  ; node_curr_input: bool AD.IMap.t
+                  ; node_summary_ctx: node_summary
                   }
 (** The type Checker context *)
 
@@ -141,7 +147,7 @@ let empty_tc_context: tc_context =
   ; contract_ctx = IMap.empty
   ; vl_ctx = IMap.empty
   ; u_types = SI.empty
-  ; node_curr_input = AD.IMap.empty }
+  ; node_summary_ctx = AD.IMap.empty }
 (** The empty context with no information *)
                               
 let pp_print_tc_context ppf ctx
@@ -157,7 +163,7 @@ let pp_print_tc_context ppf ctx
       pp_print_tymap (ctx.contract_ctx)
       pp_print_vstore (ctx.vl_ctx)
       pp_print_u_types (ctx.u_types)
-      pp_print_node_summary (ctx.node_curr_input)
+      pp_print_node_summary (ctx.node_summary_ctx)
   
 (** Pretty print the complete type checker context*)
 
@@ -241,7 +247,7 @@ let union: tc_context -> tc_context -> tc_context
                      ; contract_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.contract_ctx) (ctx2.contract_ctx))
                      ; vl_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.vl_ctx) (ctx2.vl_ctx))
                      ; u_types = SI.union ctx1.u_types ctx2.u_types
-                     ; node_curr_input = AD.IMap.union (fun k v1 v2 -> Some v2) (ctx1.node_curr_input) (ctx2.node_curr_input) 
+                     ; node_summary_ctx = AD.IMap.union (fun k v1 v2 -> Some v2) (ctx1.node_summary_ctx) (ctx2.node_summary_ctx) 
                      }
 
 let singleton_ty: LA.ident -> tc_type -> tc_context
@@ -1270,7 +1276,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
                                    ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
                                        (LA.SI.elements overwite_node_args))))
                (*  TODO: Check for circular dependencies between equations *)
-               >> AD.analyze_circ_node_equations (ctx.node_curr_input) (IMap.keys ctx.vl_ctx) items               
+               >> AD.analyze_circ_node_equations (ctx.node_summary_ctx) (IMap.keys ctx.vl_ctx) items               
                >> R.ok (Log.log L_trace "TC declaration node %a done }"
                           LA.pp_print_ident node_name))
       else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
@@ -1409,7 +1415,7 @@ and check_type_contract_decl: ?node_out_params: LA.SI.t -> tc_context -> LA.cont
 and check_type_contract: ?node_out_params: LA.SI.t -> tc_context -> LA.contract -> unit tc_result
   = fun ?node_out_params:(node_out_params = LA.SI.empty) ctx eqns ->
   R.seq_ (List.map (check_contract_node_eqn ~node_out_params:node_out_params ctx) eqns)
-    >> AD.analyze_circ_contract_equations ctx.node_curr_input eqns
+    >> AD.analyze_circ_contract_equations ctx.node_summary_ctx eqns
 
 and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contract_node_equation -> unit tc_result
   = fun ?node_out_params:(node_out_params = LA.SI.empty) ctx eqn ->
@@ -1531,7 +1537,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
   | LA.FreeType (_, i) -> R.ok (add_ty_decl ctx i)
 
 and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_context tc_result
-  = fun pos ctx ((nname, _, _ , ip, op, _ ,_ ,_) as n)->
+  = fun pos ctx ((nname, imported, _ , ip, op, _ ,_ ,_) as n)->
   Log.log L_trace
     "Extracting typing context from node declaration: %a"
     LA.pp_print_ident nname
@@ -1539,10 +1545,9 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_contex
     then type_error pos ("Node " ^ nname ^ " is already declared.")
     else build_node_fun_ty pos ctx ip op >>= fun fun_ty ->
          let ctx' = add_ty ctx nname fun_ty in
-         (* TODO: get the inputs current var usage *)
-         let ns = AD.mk_node_call_summary ctx.node_curr_input n in 
-         R.ok ({ ctx' with node_curr_input = AD.IMap.union (fun k v1 v2 -> Some v2) (ctx'.node_curr_input) ns})                           
-(** computes the type signature of node or a function *)
+         let ns = AD.mk_node_summary ctx.node_summary_ctx n in 
+         R.ok ({ ctx' with node_summary_ctx = AD.IMap.union (fun k v1 v2 -> Some v2) (ctx'.node_summary_ctx) ns})
+(** computes the type signature of node or a function and its node summary*)
 
 and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_context tc_result
   = fun ctx ->

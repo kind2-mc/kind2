@@ -56,6 +56,8 @@ module IMap = struct
 end
 
 type id_pos_map = (Lib.position list) IMap.t
+
+type node_summary = (int list) IMap.t
                 
 (** stores all the positions of the occurance of an id *)
                 
@@ -391,7 +393,7 @@ let sort_declarations = sort_decls mk_decl_map mk_graph_decls
  * Type 3. Dependency Analysis of contract equations and node equations *
  ************************************************************************)
 
-let rec vars_with_flattened_nodes: bool IMap.t -> LA.expr -> LA.SI.t = fun m ->
+let rec vars_with_flattened_nodes: (int list) IMap.t -> LA.expr -> LA.SI.t = fun m ->
   function
   | Ident (_ , i) -> SI.singleton i 
   | ModeRef _ -> SI.empty
@@ -445,14 +447,24 @@ let rec vars_with_flattened_nodes: bool IMap.t -> LA.expr -> LA.SI.t = fun m ->
 
   (* Node calls *)
   | Call (_, i, es) -> (match IMap.find_opt i m with
-                       | None -> failwith "cannot find node call summary. Should not happen"
-                       | Some b -> if b then (SI.flatten (List.map (vars_with_flattened_nodes m) es))
-                                   else SI.empty )
+                       | None -> failwith ("cannot find node call summary for "^ i ^". Should not happen")
+                       | Some idx ->
+                          if List.length idx = 0
+                          then SI.empty
+                          else (SI.flatten (List.map (vars_with_flattened_nodes m) es)))
   | CallParam (_, i, _, es) -> (SI.flatten (List.map (vars_with_flattened_nodes m) es))
 (** get all the variables except node names from an expression *)
-                      
-let mk_node_call_summary: bool IMap.t -> LA.node_decl -> bool IMap.t =
-  fun s (i, _, _, ips, ops, vars, items, _) ->
+
+let summarize_ip_vars: LA.ident list -> SI.t -> int list = fun ips critial_ips ->
+  (List.fold_left (fun (acc, nums) i -> if SI.mem i critial_ips
+                                       then (nums::acc, nums+1)
+                                       else (acc, nums+1)) ([], 0)) ips |> fst 
+    
+                             
+let mk_node_summary: node_summary -> LA.node_decl -> node_summary =
+  fun s (i, imported, _, ips, ops, vars, items, _) ->
+  if not imported
+  then 
   let op_vars = List.map (fun o -> LH.extract_op_ty o |> fst) ops in
   let ip_vars = List.map (fun o -> LH.extract_ip_ty o |> fst) ips in
   let node_equations = List.concat (List.map LH.extract_node_equation items) in
@@ -470,16 +482,18 @@ let mk_node_call_summary: bool IMap.t -> LA.node_decl -> bool IMap.t =
     (IMap.bindings node_equation_dependency_map)
   ; let mk_g = fun (lhs, vars) ->  G.connect (List.fold_left G.union G.empty (List.map G.singleton vars)) lhs in
     let g = List.fold_left G.union G.empty (List.map mk_g (IMap.bindings node_equation_dependency_map)) in
-    Log.log L_trace "node equation graph: %a" G.pp_print_graph g
+    Log.log L_trace "Node equation graph: %a" G.pp_print_graph g
     ; let vars_op_depends_on = List.concat (List.map (fun i -> G.to_vertex_list (G.reachable g i)) op_vars) in
-    Log.log L_trace "reachable vars: %a" (Lib.pp_print_list LA.pp_print_ident ", ") vars_op_depends_on
-    ; if (SI.is_empty (SI.inter (SI.of_list vars_op_depends_on) (SI.of_list ip_vars)))
-      then IMap.add i false s
-      else IMap.add i true s
-(** Computes the node call summary that returns the graph that maps the output stream of the node 
-    to the input stream of the node. *)
+      Log.log L_trace "Reachable vars: %a" (Lib.pp_print_list LA.pp_print_ident ", ") vars_op_depends_on
+      ; let critical_ips = SI.inter (SI.of_list vars_op_depends_on) (SI.of_list ip_vars) in
+        if (SI.is_empty critical_ips)
+        then IMap.add i [] s
+        else IMap.add i (summarize_ip_vars ip_vars critical_ips) s
+  else IMap.add i ((List.fold_left (fun (acc, num) _ -> (num::acc, num+1)) ([], 0) ips) |> fst) s
+   
+(** Computes the node call summary the node to the input stream of the node. *)
                       
-let rec mk_graph_expr2: bool IMap.t -> LA.expr -> (G.t * id_pos_map) = fun m ->
+let rec mk_graph_expr2: node_summary -> LA.expr -> (G.t * id_pos_map) = fun m ->
   function
   | LA.Ident (pos, i) -> singleton_g_pos "" i pos
   | LA.ModeRef (pos, ids) -> singleton_g_pos mode_suffix (List.nth ids (List.length ids - 1) ) pos 
@@ -508,27 +522,30 @@ let rec mk_graph_expr2: bool IMap.t -> LA.expr -> (G.t * id_pos_map) = fun m ->
   | LA.Merge (p, _, cs) -> List.fold_left union_g_pos empty_g_pos (List.map (fun (_, e) -> (mk_graph_expr2 m) e) cs) 
   | LA.RestartEvery (p, _, es,_) -> List.fold_left union_g_pos empty_g_pos (List.map (mk_graph_expr2 m) es)
 
-  | LA.Pre (_, e) -> map_g_pos (fun v -> v ^ "_p") (mk_graph_expr2 m e) 
+  | LA.Pre (_, e) -> map_g_pos (fun v -> v ^ "$p") (mk_graph_expr2 m e) 
   | LA.Last (pos, i) -> singleton_g_pos "" i pos
   | LA.Fby (_, e1, _, e2) ->  union_g_pos (mk_graph_expr2 m e1) (mk_graph_expr2 m e2) 
   | LA.Arrow (_, e1, e2) ->  union_g_pos (mk_graph_expr2 m e1) (mk_graph_expr2 m e2)
   | LA.Call (_, i, es) -> (match IMap.find_opt i m with
-                          | None -> failwith ("cannot find summary of node " ^ i ^ ". This should not happen.")
-                          | Some b -> if b then List.fold_left union_g_pos empty_g_pos (List.map (mk_graph_expr2 m) es)
-                                      else empty_g_pos)
+                          | None -> failwith ("Cannot find summary of node " ^ i ^ ". This should not happen.")
+                          | Some b -> if List.length b = 0
+                                      then empty_g_pos
+                                      else
+                                        let es' = List.map (List.nth es) b in 
+                                        List.fold_left union_g_pos empty_g_pos (List.map (mk_graph_expr2 m) es'))
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
 (** This graph is useful for analyzing equations,
     The generated graph would be useful only if the 
     pre's are abstracted out first and then passed into this function using [LH.abstract_pre_subexpressions] *)
 
-let mk_graph_const_decl2: bool IMap.t -> LA.const_decl -> (G.t * id_pos_map)
+let mk_graph_const_decl2: node_summary -> LA.const_decl -> (G.t * id_pos_map)
   = fun m -> function
   | LA.FreeConst (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (const_suffix ^ i) pos
   | LA.UntypedConst (pos, i, e) -> connect_g_pos (mk_graph_expr2 m e) (const_suffix ^ i) pos 
   | LA.TypedConst (pos, i, e, ty) -> connect_g_pos (union_g_pos (mk_graph_expr2 m e) (mk_graph_type ty)) (const_suffix ^ i) pos
 
        
-let mk_graph_contract_eqns: bool IMap.t -> LA.contract -> (G.t * id_pos_map)
+let mk_graph_contract_eqns: node_summary -> LA.contract -> (G.t * id_pos_map)
   = fun m -> let mk_graph: LA.contract_node_equation -> (G.t * id_pos_map)
       = function
       | LA.GhostConst c -> mk_graph_const_decl2 m c
@@ -544,7 +561,7 @@ let mk_graph_contract_eqns: bool IMap.t -> LA.contract -> (G.t * id_pos_map)
     List.fold_left union_g_pos empty_g_pos (List.map mk_graph eqns)
 
     
-let analyze_circ_contract_equations: bool IMap.t -> LA.contract -> unit graph_result  = fun m c ->
+let analyze_circ_contract_equations: node_summary -> LA.contract -> unit graph_result  = fun m c ->
   let dg, pos_info = mk_graph_contract_eqns m c in
   (try (R.ok (G.topological_sort dg)) with
    | Graph.CyclicGraphException ids ->
@@ -559,12 +576,12 @@ let analyze_circ_contract_equations: bool IMap.t -> LA.contract -> unit graph_re
   >> R.ok ()
 
 
-let mk_graph_eqn: bool IMap.t -> LA.node_equation -> (G.t * id_pos_map) =
+let mk_graph_eqn: node_summary -> LA.node_equation -> (G.t * id_pos_map) =
   let handle_one_lhs: (G.t * id_pos_map) -> LA.struct_item -> (G.t * id_pos_map) = fun rhs_g lhs ->
     match lhs with
     | LA.SingleIdent (p, i) -> connect_g_pos rhs_g i p 
     | LA.ArrayDef (p, arr, is) ->
-       let arr' = arr ^ "_" ^ (List.fold_left (fun acc i -> acc ^ "_" ^ i) "" is) in 
+       let arr' = arr ^ "$" ^ (List.fold_left (fun acc i -> acc ^ "$" ^ i) "" is) in 
     connect_g_pos (List.fold_left (fun g i -> remove g i) rhs_g is)  arr' p
 
     (* None of these items below are supported at parsing yet. *)
@@ -579,13 +596,13 @@ let mk_graph_eqn: bool IMap.t -> LA.node_equation -> (G.t * id_pos_map) =
      List.fold_left union_g_pos empty_g_pos (List.map (handle_one_lhs rhs_g) lhss)
   | _ -> empty_g_pos
   
-let rec mk_graph_node_items: bool IMap.t -> LA.node_item list -> (G.t * id_pos_map) =
+let rec mk_graph_node_items: node_summary -> LA.node_item list -> (G.t * id_pos_map) =
   fun m -> function
   | [] -> empty_g_pos
   | (Body eqn) :: items -> union_g_pos (mk_graph_eqn m eqn) (mk_graph_node_items m items) 
   | _ :: items -> mk_graph_node_items m items
   
-let analyze_circ_node_equations: bool IMap.t -> LA.ident list -> LA.node_item list -> unit graph_result =
+let analyze_circ_node_equations: node_summary -> LA.ident list -> LA.node_item list -> unit graph_result =
   fun m consts eqns ->
   Log.log L_trace "Checking circularity in node equations"
   ; let dg, pos_info = mk_graph_node_items m eqns in
