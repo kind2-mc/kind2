@@ -560,6 +560,12 @@ let mk_graph_contract_eqns: node_summary -> LA.contract -> (G.t * id_pos_map)
     fun eqns ->
     List.fold_left union_g_pos empty_g_pos (List.map mk_graph eqns)
 
+let expression_current_streams: node_summary -> LA.expr -> LA.ident list = 
+  fun ns e ->
+  let g = mk_graph_expr2 ns (LH.abstract_pre_subexpressions e) in
+  G.to_vertex_list (G.get_vertices (fst g))
+(** all the variables who's current value is used in the expression *)
+    
     
 let analyze_circ_contract_equations: node_summary -> LA.contract -> unit graph_result  = fun m c ->
   let dg, pos_info = mk_graph_contract_eqns m c in

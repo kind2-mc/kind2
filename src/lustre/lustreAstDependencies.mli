@@ -45,3 +45,6 @@ val analyze_circ_node_equations: node_summary -> LA.ident list -> LA.node_item l
 
 val mk_node_summary: node_summary -> LA.node_decl -> node_summary
 (** Generates a necessary node call summary that is required for inlining node calls for circularity check *)
+
+val expression_current_streams: node_summary -> LA.expr -> LA.ident list
+(** checks if the expression depends on the current value of the identifier *)

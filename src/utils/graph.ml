@@ -78,6 +78,12 @@ module type S = sig
   val add_vertex:  t ->  vertex ->  t
   (** Add a [vertex] to a graph  *)
 
+  val mem_vertex: t -> vertex -> bool
+  (** returns true if the vertex is in the graph *)
+
+  val get_vertices: t -> vertices
+  (** get all vertices in the graph *)
+    
   val add_edge:  t ->  edge ->  t
   (** Add an [edge] to a graph  *)
 
@@ -232,6 +238,9 @@ module Make (Ord: OrderedType) = struct
     = fun (vs, es) v -> (VSet.add v vs,  es) 
   (** add avertex to a graph  *)
 
+  let mem_vertex: t -> vertex -> bool
+    = fun (vs, es) v -> VSet.mem v vs
+    
   let add_edge: t -> edge -> t
     = fun (vs, es) (src, tgt) ->
     if VSet.mem src vs && VSet.mem tgt vs

@@ -98,7 +98,7 @@ type ty_set = SI.t
 (** set of valid user type identifiers *)
 
 type node_summary = AD.node_summary
-(** stores node call summaries  *)
+(** stores node call summaries *)
                       
 (** Pretty print type synonyms*)
 let pp_print_type_syn ppf = fun i ty -> 
@@ -130,14 +130,16 @@ let pp_print_node_summary ppf m = Lib.pp_print_list (fun ppf (i, b) ->
                                         LA.pp_print_ident i
                                         (Lib.pp_print_list Format.pp_print_int ", ") b)  ", "
                                     ppf (AD.IMap.bindings m)
-                           
+                                
 type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
                   ; ty_ctx: ty_store        (* store of the types of identifiers and nodes*)
                   ; contract_ctx: ty_store  (* store of the types of contracts*)
                   ; vl_ctx: const_store     (* store of typed constants to its value*)
                   ; u_types: ty_set         (* store of all declared user types,
                                                this is poor mans kind (type of type) context *)
-                  ; node_summary_ctx: node_summary
+                  ; node_summary_ctx
+                    : node_summary          (* stores the indices of input 
+                                               stream whose current value is used in the node call*)
                   }
 (** The type Checker context *)
 
@@ -149,7 +151,7 @@ let empty_tc_context: tc_context =
   ; u_types = SI.empty
   ; node_summary_ctx = AD.IMap.empty }
 (** The empty context with no information *)
-                              
+  
 let pp_print_tc_context ppf ctx
   = Format.fprintf ppf
       ("Type Synonyms={%a}\n"
@@ -157,14 +159,13 @@ let pp_print_tc_context ppf ctx
        ^^ "Contract Context={%a}\n"
        ^^ "Const Store={%a}\n"
        ^^ "Declared Types={%a}"
-       ^^ "Node Call summarys={%a}")
+       ^^ "Node Call Summary={%a}")
       pp_print_ty_syns (ctx.ty_syns)
       pp_print_tymap (ctx.ty_ctx)
       pp_print_tymap (ctx.contract_ctx)
       pp_print_vstore (ctx.vl_ctx)
       pp_print_u_types (ctx.u_types)
       pp_print_node_summary (ctx.node_summary_ctx)
-  
 (** Pretty print the complete type checker context*)
 
 (**********************************************
@@ -173,13 +174,10 @@ let pp_print_tc_context ppf ctx
 
 let type_error pos err = R.error (pos, "Type error: " ^ err)
 (** [type_error] returns an [Error] of [tc_result] *)
-
-(** [type_error] returns an [Error] of [tc_result] *)
-let error pos err = R.error (pos, err)
-                       
+                  
 let member_ty_syn: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.ty_syns)
-           
+               
 let member_ty: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.ty_ctx)
 
@@ -1425,8 +1423,9 @@ and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contr
       | GhostVar _ ->  R.ok () (* These is already checked while extracting ctx *)
     | Assume (pos, _, _, e) ->
        check_type_expr ctx e (Bool pos) >>
-         (* Check if any of the out parameters of node's current value is used in assumption *)
-         let assume_vars_out_params = SI.inter node_out_params (LH.vars (LH.abstract_pre_subexpressions e)) in
+         (* Check if any of the out stream vars of the node is being used at its current value is used in assumption *)
+         let assume_vars_out_params = SI.inter node_out_params
+                                        (LA.SI.of_list (AD.expression_current_streams ctx.node_summary_ctx e)) in
          Log.log L_trace "node_params: %a non pre vars of e: %a"
            (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_params)
            (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements (LH.vars (LH.abstract_pre_subexpressions e)))

@@ -1,6 +1,12 @@
+node a (x:int) returns (y:int)
+let
+   y = x;
+tel
+
+
 node c (x:int) returns (y: int);
 (*@contract
-   assume y = x + pre y;    -- case 1. not allowed as assumption should not depend on current value of y 
+   assume x = a(y);    -- case 1. not allowed as assumption should not depend on current value of y 
 *)
 let
         y = 2 * x;
