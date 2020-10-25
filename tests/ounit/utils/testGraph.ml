@@ -29,6 +29,7 @@ module G = Graph.Make(struct
 
 let v0 = "v0"
 let v1 = "v1"
+let v2 = "v2"
                          
 let singleton_g = G.add_vertex G.empty v0
 let dos_g = G.add_vertex singleton_g v1
@@ -36,21 +37,30 @@ let dos_g = G.add_vertex singleton_g v1
 let dos_connected_g = G.add_edge dos_g (G.mk_edge v0 v1)
 let dos_cycle_g = G.add_edge dos_connected_g (G.mk_edge v1 v0)
 
-let basic_tests
-  = "test suite for graph" >:::
-      [ "empty graph" >:: (fun _-> assert_bool "Empty graph is empty" (G.is_empty G.empty))
-      ; "remove vertex to remove all edges" >::
-          (fun _ -> assert_bool "unexpected graph" (G.remove_vertex dos_g v0 |> G.is_point_graph))
-          
-      ; "sorted dos" >:: (fun _ -> assert_equal (G.topological_sort dos_connected_g) [v0;v1])
-      ; "cyclic dos" >:: (fun _ -> assert_raises
-                                     (Graph.CyclicGraphException [v0; v1])
-                                     (fun _ -> G.topological_sort dos_cycle_g))
-      ; "reachable test1" >:: (fun _ -> assert_equal (
-                                            let g = G.to_vertex_list (G.reachable singleton_g v0) in
-                                            (Log.log L_debug "rechables %a" (Lib.pp_print_list LustreAst.pp_print_ident ",") g
-                                            ; g)) ([v0]) )
-      ]
- 
+let cycle_and_one_more = G.add_edge (G.add_vertex (dos_cycle_g) v2) (G.mk_edge v1 v2) 
+                
+let basic_tests =
+  [ "empty graph" >:: (fun _-> assert_bool "Empty graph is empty" (G.is_empty G.empty))
+  ; "remove vertex to remove all edges" >::
+      (fun _ -> assert_bool "unexpected graph" (G.remove_vertex dos_g v0 |> G.is_point_graph))
   
-let _ = run_test_tt_main basic_tests
+  ; "sorted dos" >:: (fun _ -> assert_equal [v0;v1] (G.topological_sort dos_connected_g))
+  ; "cyclic dos" >:: (fun _ -> assert_raises
+                                 (Graph.CyclicGraphException [v0; v1])
+                                 (fun _ -> G.topological_sort dos_cycle_g))
+  ]
+
+let rechability_tests =
+  [
+    "reachable singleton" >:: (fun _ ->
+      assert_equal [v0] (G.to_vertex_list (G.reachable singleton_g v0))
+        ~printer:(Lib.string_of_t (Format.pp_print_list Format.pp_print_string) ))
+  ; "reachable cycle graph" >:: (fun _ ->
+    assert_equal [v0;v1] (G.to_vertex_list (G.reachable dos_cycle_g v0))
+      ~printer:(Lib.string_of_t (Format.pp_print_list Format.pp_print_string) ))
+  ; "reachable cycle graph2" >:: (fun _ ->
+    assert_equal [v0;v1;v2] (G.to_vertex_list (G.reachable cycle_and_one_more v0))
+      ~printer:(Lib.string_of_t (Format.pp_print_list Format.pp_print_string)))
+  ]
+  
+let _ = run_test_tt_main ("test suite for graphs" >::: basic_tests @ rechability_tests) 

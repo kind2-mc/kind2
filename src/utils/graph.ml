@@ -333,32 +333,37 @@ module Make (Ord: OrderedType) = struct
 
   let reachable: t -> vertex -> vertices =
     fun ((vs, es) as g) origin_v ->
+
     let rec reachable_from_aux: vertices -> vertex -> t -> vertices
       = fun acc sv ((vs, es)  as g) ->
       Log.log L_trace
         "-----------\nGraph state:\n %a\naccumulated vertices: %a\n current vertex vertices: %a\n-------------"	
         pp_print_graph g	
         (Lib.pp_print_list pp_print_vertex ",") (VSet.elements acc)	
-        pp_print_vertex sv ;
-      if VSet.mem sv acc
-      then acc (* we have already visited this vertex so skip *)
-      else
-        (* get all edges that have sv as source *)
-        let new_edgs = (ESet.filter (Lib.flip is_vertex_source sv) es) in
-        let vs' = List.map (get_target_vertex) (ESet.elements new_edgs) in
-        (* Get the new vertices to be analysed  *)
-        let new_vs = (VSet.diff (VSet.of_list vs') acc) in
-        VSet.flatten (List.map (fun v ->
-                          VSet.add v (reachable_from_aux
-                                        (VSet.union acc (VSet.remove v new_vs))
-                                        v
-                                        (remove_edges g new_edgs))) (VSet.elements new_vs)) in  
+        pp_print_vertex sv
+      ; if VSet.mem sv acc
+        then acc (* we have already visited this vertex so skip *)
+        else
+          (* get all edges that have sv as source *)
+          let new_edgs = (ESet.filter (Lib.flip is_vertex_source sv) es) in
+          let vs' = List.map (get_target_vertex) (ESet.elements new_edgs) in
+          (* Get the new vertices to be analysed  *)
+          let new_vs = (VSet.diff (VSet.of_list vs') acc) in
+          VSet.flatten (List.map (fun v ->
+                            VSet.add v (reachable_from_aux
+                                          (VSet.union acc (VSet.remove v new_vs))
+                                          v
+                                          (remove_edges g new_edgs))) (VSet.elements new_vs)) in  
     if (VSet.mem origin_v vs) then
-      reachable_from_aux VSet.empty origin_v g 
+      let vs' = VSet.add origin_v (reachable_from_aux VSet.empty origin_v g) in
+      Log.log L_trace "cumulative reachable from %a are %a"
+        pp_print_vertex origin_v
+        pp_print_vertices vs'
+      ; vs'
     else VSet.empty
-   (** Returns all the vertices rechable from the input vertex in the graph  *)
+  (** Returns all the vertices rechable from the input vertex 
+      in the graph using iterative deepening method *)
 
   let to_vertex_list: vertices -> vertex list = VSet.elements
-    
-    
+  (** returns a list of vertex *)
 end
