@@ -1266,11 +1266,11 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
         >> let overwite_node_args = SI.inter arg_ids (SI.flatten (List.map LH.vars_lhs_of_eqn items)) in
            if ( overwite_node_args |> SI.is_empty)
            then R.ok ()
-           else type_error pos ("Argument to nodes cannot be LHS of an equation but found "
+           else type_error pos ("Input streams to nodes cannot be LHS of an equation but found "
                   ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements overwite_node_args))
         >> R.ok (Log.log L_trace "TC declaration node %a done }"
                    LA.pp_print_ident node_name))
-      else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
+      else type_error pos ("Input and output streams cannot have same names, but found common identifiers: " ^
               Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements common_ids)))
 
 and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
@@ -1448,7 +1448,7 @@ and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contr
                                   ^ " expected to have type " ^ string_of_tc_type exp_ty
                                   ^ " but found type " ^ string_of_tc_type inf_ty))
             | None -> type_error pos ("Undefined or not in scope contract name " ^ cname))
-         else type_error pos ("Input and output parameters cannot have common identifers, "
+         else type_error pos ("Input and output streams cannot have common identifers, "
                               ^ "but found common parameters: "
                               ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",")
                                   (LA.SI.elements common_ids)) 
