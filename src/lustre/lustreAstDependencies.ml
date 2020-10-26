@@ -79,9 +79,11 @@ and mk_graph_expr: LA.expr -> G.t
      List.fold_left G.union G.empty (List.map (fun ty_id -> mk_graph_expr (snd ty_id)) ty_ids)
   | LA.UnaryOp (_, _, e) -> mk_graph_expr e
   | LA.BinaryOp (_, _, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2) 
+  | LA.CompOp (_, _, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2) 
   | LA.TernaryOp (_, _, e1, e2, e3) -> G.union (mk_graph_expr e1)
                                          (G.union (mk_graph_expr e2) (mk_graph_expr e3)) 
   | LA.RecordProject (_, e, _) -> mk_graph_expr e
+  | LA.TupleProject (_, e, _) -> mk_graph_expr e
   | LA.ArrayConstr (_, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2) 
   | LA.ArraySlice (_, e1, (e2, e3)) -> G.union (G.union (mk_graph_expr e1) (mk_graph_expr e2)) (mk_graph_expr e3) 
   | LA.ArrayIndex (_, e1, e2) -> G.union (mk_graph_expr e1) (mk_graph_expr e2)
