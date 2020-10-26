@@ -1,0 +1,4 @@
+node n (x, y:int^3) returns (z: int^3);
+let
+z = x + y; -- this should fail
+tel.

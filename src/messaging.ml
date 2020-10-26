@@ -957,6 +957,10 @@ struct
               (* send any messages in outgoing queue *)
               worker_send_messages proc push_sock unconfirmed_invariants;
 
+              Zmq.Socket.close sub_sock;
+              Zmq.Socket.close push_sock;
+              Zmq.Context.terminate bg_ctx;
+
               Thread.exit ()
 
             )

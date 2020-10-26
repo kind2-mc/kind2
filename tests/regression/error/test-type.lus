@@ -55,12 +55,12 @@ const u: u = [ t, false, 0 ];
 -- const u1: u = [ t, 0, false ];
 
 -- Must fail: too many elements for tuple 
-const u2: u = [ t, false, 0, 2.0 ];
+const u2: u = (t, false, 0, 2.0);
 
 -- Must fail: not enough elements for tuple
 -- const u3: u = [ t ];
 
-const u4: u = [ t + t, false, 0];
+const u4: u = ( t, false, 0);
 
 -- Array constants
 const v: v = [ t, t, t ];

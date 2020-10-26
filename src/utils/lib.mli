@@ -179,10 +179,9 @@ module IntegerSet : Set.S with type elt = int
 module IntegerHashtbl : Hashtbl.S with type key = int
   
 (** {1 Pretty-printing helpers} *)
-
+  
 (** Pretty-print a pair. 
-    it excepts two formatters and a separator and formats the pair
-*)     
+    it excepts two formatters and a separator and formats the pair *)     
 val pp_print_pair: (Format.formatter -> 'a -> 'b) ->
                    (Format.formatter -> 'c -> 'd) ->
                    ('e, Format.formatter, unit) format -> Format.formatter -> 'a * 'c -> 'd

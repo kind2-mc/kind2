@@ -65,9 +65,8 @@ let rec has_unguarded_pre ung = function
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
-  | Quantifier (_, _, _, e) -> has_unguarded_pre ung e
-
-  | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
+  | TupleProject (_, e, _) | Quantifier (_, _, _, e) -> has_unguarded_pre ung e
+  | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
   | CompOp (_, _, e1, e2) | ArrayConcat (_, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre ung e2 in
@@ -182,10 +181,10 @@ let rec has_pre_or_arrow = function
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
-  | Quantifier (_, _, _, e) ->
+  | TupleProject (_, e, _) | Quantifier (_, _, _, e) ->
     has_pre_or_arrow e
 
-  | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
   | ArrayConcat (_, e1, e2) | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  -> (
     match has_pre_or_arrow e1 with
     | None -> has_pre_or_arrow e2
@@ -257,10 +256,10 @@ let rec lasts_of_expr acc = function
     
   | RecordProject (_, e, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
-  | Quantifier (_, _, _, e) ->
+  | TupleProject (_, e, _) | Quantifier (_, _, _, e) ->
     lasts_of_expr acc e
 
-  | TupleProject (_, e1, e2) | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) 
     | ArrayConcat (_, e1, e2) | ArrayIndex (_, e1, e2) | ArrayConstr (_, e1, e2)  ->
      lasts_of_expr (lasts_of_expr acc e1) e2
 
@@ -338,11 +337,10 @@ let rec replace_lasts allowed prefix acc ee = match ee with
     if e == e' then ee, acc
     else Quantifier (pos, q, vs, e'), acc'
 
-  | TupleProject (pos, e1, e2) ->
+  | TupleProject (pos, e1, i) ->
     let e1', acc' = replace_lasts allowed prefix acc e1 in
-    let e2', acc' = replace_lasts allowed prefix acc' e2 in
-    if e1 == e1' && e2 == e2' then ee, acc
-    else TupleProject (pos, e1', e2'), acc'
+    if e1 == e1' then ee, acc
+    else TupleProject (pos, e1', i), acc'
 
   | ArrayConstr (pos, e1, e2) ->
     let e1', acc' = replace_lasts allowed prefix acc e1 in
@@ -581,14 +579,9 @@ let contract_node_equation_has_pre_or_arrow = function
       List.map (fun (_, _, e) -> has_pre_or_arrow e) enss
       |> some_of_list
   )
-| ContractCall (_, _, ins, outs) ->
-  List.map has_pre_or_arrow ins
-  |> some_of_list
-  |> unwrap_or (
-    fun _ ->
-      List.map has_pre_or_arrow outs
-      |> some_of_list
-  )
+| ContractCall (_, _, ins, _) ->
+  some_of_list (List.map has_pre_or_arrow ins) 
+
 
 (** Checks whether a contract has a `pre` or a `->`.
 
@@ -641,25 +634,102 @@ let rec vars: expr -> iset = function
   | Call (_, i, es) -> SI.add i (SI.flatten (List.map vars es)) 
   | CallParam (_, i, _, es) -> SI.add i (SI.flatten (List.map vars es))
 and vars_of_ty_ids: typed_ident -> iset = fun (_, i, ty) -> SI.singleton i 
+
 and vars_of_clocl_expr: clock_expr -> iset = function
   | ClockTrue -> SI.empty
   | ClockPos i -> SI.singleton i
   | ClockNeg i -> SI.singleton i
   | ClockConstr (i1, i2) -> SI.of_list [i1; i2]
 
-let rec vars_of_struct_item: struct_item -> iset
-  = function
+let rec vars_of_struct_item: struct_item -> iset = function
   | SingleIdent (_, i) -> SI.singleton i
   | TupleStructItem (pos, ts) -> SI.flatten (List.map vars_of_struct_item ts)  
   | TupleSelection (_, i, _)
     | FieldSelection (_, i, _)
     | ArraySliceStructItem (_, i, _)
-  | ArrayDef (_, i, _) -> SI.singleton i 
+    | ArrayDef (_, i, _) -> SI.singleton i 
 
+let vars_lhs_of_eqn: node_item -> iset = function
+  | Body (Equation (_, StructDef (_, ss), _)) -> SI.flatten (List.map vars_of_struct_item ss)
+  | _ -> SI.empty
 
 (** Return an ast that adds two expressions*)
 let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
-  Lib.todo __LOC__
+  BinaryOp (pos, Plus, e1, e2)
 
 (** returns an ast which is the absolute difference of two expr ast*)
-let abs_diff: Lib.position -> expr -> expr -> expr = fun pos e1 e2 -> Lib.todo __LOC__
+let abs_diff: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
+  TernaryOp (pos, Ite,
+             CompOp (pos, Gte, e1, e2)
+             , BinaryOp (pos, Minus, e1, e2)
+             , BinaryOp (pos, Minus, e2, e1))
+
+
+let extract_ip_ty: const_clocked_typed_decl -> ident * lustre_type
+  = fun  (_, i, ty, _, _) -> (i, ty)
+
+let extract_op_ty: clocked_typed_decl -> ident * lustre_type
+  = fun (_, i, ty, _) -> (i, ty)
+
+let is_const_arg: const_clocked_typed_decl -> bool
+  = fun (_, _, _, _, is_const) -> is_const
+                                                                        
+let is_type_num: lustre_type -> bool
+  = function
+    Int _
+  | UInt8 _       
+    | UInt16 _   
+    | UInt32 _   
+    | UInt64 _  
+    | Int8 _   
+    | Int16 _    
+    | Int32 _    
+    | Int64 _    
+    | IntRange _
+    | Real _ -> true
+  | _ -> false
+
+let is_type_int: lustre_type -> bool
+  = function
+    Int _
+  | UInt8 _       
+    | UInt16 _   
+    | UInt32 _   
+    | UInt64 _  
+    | Int8 _   
+    | Int16 _    
+    | Int32 _    
+    | Int64 _    
+    | IntRange _ -> true
+  | _ -> false
+
+let is_type_unsigned_machine_int: lustre_type -> bool
+  = function
+  | UInt8 _       
+    | UInt16 _   
+    | UInt32 _   
+    | UInt64 _ -> true    
+  | _ -> false  
+
+let is_type_signed_machine_int: lustre_type -> bool
+  = function
+  | Int8 _       
+    | Int16 _   
+    | Int32 _   
+    | Int64 _ -> true    
+  | _ -> false  
+       
+let is_type_machine_int: lustre_type -> bool = fun ty ->
+  is_type_signed_machine_int ty || is_type_unsigned_machine_int ty 
+
+let is_machine_type_of_associated_width: (lustre_type * lustre_type) -> bool
+  = function
+  | Int8 _, UInt8 _       
+    | Int16 _,UInt16 _   
+    | Int32 _, UInt32 _   
+    | Int64 _, UInt64 _
+    | UInt8 _, UInt8 _       
+    | UInt16 _,UInt16 _   
+    | UInt32 _, UInt32 _   
+    | UInt64 _, UInt64 _ -> true
+  | _ -> false    

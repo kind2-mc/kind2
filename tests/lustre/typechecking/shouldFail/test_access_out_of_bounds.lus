@@ -1,0 +1,2 @@
+const arr = false^3;
+const e = arr[5]; -- should fail

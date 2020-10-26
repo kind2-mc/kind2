@@ -36,7 +36,7 @@ node my_node (in: int) returns (out: int) ;
 (*@contract
 
   const bound = 10 ;
-  var in_bounded = abs(in) < bound ;
+  var in_bounded: bool = abs(in) < bound ;
 
   assume in_bounded ;
   guarantee out >= - bound ;

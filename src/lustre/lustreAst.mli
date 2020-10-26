@@ -121,7 +121,7 @@ type lustre_type =
   | TupleType of position * lustre_type list
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
-  | EnumType of position * ident option * ident list
+  | EnumType of position * ident * ident list
   (** TArr is always constructed as TupleType -> TupleType
    *  as we can have more than one arguments and return 
    *  values  *)
@@ -133,7 +133,7 @@ and expr =
   | Ident of position * ident
   | ModeRef of position * ident list
   | RecordProject of position * expr * index
-  | TupleProject of position * expr * expr
+  | TupleProject of position * expr * int
   (* Values *)
   | Const of position * constant
   (* Operators *)
@@ -275,7 +275,7 @@ type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
 (* A contract call. *)
-type contract_call = position * ident * expr list * expr list
+type contract_call = position * ident * expr list * ident list
 
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =

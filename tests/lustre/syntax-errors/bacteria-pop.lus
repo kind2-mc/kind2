@@ -15,7 +15,7 @@ tel
 -- the beginning until that point
 node sofar( X : bool ) returns ( Y : bool );
 let
- Y = X -> (X and (pre Y))
+ Y = X -> (X and (pre Y));
 tel
 
 -------------------------------------------------------------------
@@ -44,7 +44,7 @@ let
    guarantee true -> hasHappened(true -> pre population < population)
                      and pre population < environmentCapacity
                      and population < environmentCapacity
-                     =>  sofar(true -> pre population < population);
+                     =>  sofar(true -> pre population < population)
  
    -- if the population descreases at some time, and both the previous population
    -- and the current population are larger than the capacity, then

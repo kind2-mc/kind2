@@ -21,7 +21,8 @@
 open Lib
 
 module A = LustreAst
-
+module LC = LustreContext
+          
 let mk_pos = position_of_lexing 
 
 
@@ -314,11 +315,14 @@ type_decl:
 
   (* A type alias *)
   | TYPE; l = ident_list; EQUALS; t = lustre_type; SEMICOLON
-     { List.map (fun e -> match t with 
-                 | A.EnumType (p, _, cs) ->
-                    A.AliasType (mk_pos $startpos, e,
-                                 A.EnumType (p, Some e, cs))
-                 | _ -> A.AliasType (mk_pos $startpos, e, t)) l }
+     { List.map (fun e -> 
+                 A.AliasType (mk_pos $startpos, e, t)) l }
+
+  (* Definition of an enum type*)
+  | TYPE; l = ident_list; EQUALS; t = enum_type; SEMICOLON
+     { List.map (fun e ->
+           A.AliasType (mk_pos $startpos, e,
+                        A.EnumType (mk_pos $startpos, e, t))) l }
 
   (* A record type, can only be defined as alias *)
   | TYPE; l = ident_list; EQUALS; t = record_type; SEMICOLON
@@ -368,10 +372,6 @@ lustre_type:
 
   (* Array type (V6) *)
   | t = array_type { A.ArrayType (mk_pos $startpos, t) }
-
-  (* Enum type (V6) *)
-  | t = enum_type { A.EnumType (mk_pos $startpos, None, t) }
-
 
 (* A tuple type *)
 tuple_type:
@@ -475,7 +475,7 @@ mode_equation:
 contract_import:
   IMPORTCONTRACT ; n = ident ;
   LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
-  LPAREN ; out_params = separated_list(COMMA, qexpr) ; RPAREN ; SEMICOLON ; {
+  LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; {
     A.ContractCall (mk_pos $startpos, n, in_params, out_params)
   }
 
@@ -828,9 +828,11 @@ pexpr(Q):
   (* An array constructor (not quantified) *)
   | e1 = pexpr(Q); CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
-  (* An array slice or tuple projection (not quantified) *)
-  | e = pexpr(Q); DOTPERCENT; i = expr 
-    { A.TupleProject (mk_pos $startpos, e, i) }
+  (* Tuple projection (not quantified) *)
+  | e = pexpr(Q); DOTPERCENT; i = NUMERAL 
+  { let idx = try (int_of_string i) with
+              | _ -> LC.fail_at_position (mk_pos $startpos(i)) "Tuple projection index exceeds int range" in
+    A.TupleProject (mk_pos $startpos, e, idx) }
 
   (* An array slice (not quantified) *)
   | e = pexpr(Q); LSQBRACKET; s = array_slice; RSQBRACKET
@@ -1060,7 +1062,9 @@ pexpr(Q):
   (* A temporal operation *)
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
   | FBY LPAREN; e1 = pexpr(Q) COMMA; s = NUMERAL; COMMA; e2 = pexpr(Q) RPAREN
-    { A.Fby (mk_pos $startpos, e1, (int_of_string s), e2) }
+    { let idx = try (int_of_string s) with
+                | _ -> LC.fail_at_position (mk_pos $startpos(s)) "Fby argument exceeds int range" in
+      A.Fby (mk_pos $startpos, e1, idx, e2) }
 
   | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }
 

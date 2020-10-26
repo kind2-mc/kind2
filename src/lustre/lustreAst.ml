@@ -98,7 +98,7 @@ type expr =
   | Ident of position * ident
   | ModeRef of position * ident list
   | RecordProject of position * expr * index
-  | TupleProject of position * expr * expr
+  | TupleProject of position * expr * int
   (* Values *)
   | Const of position * constant
   (* Operators *)
@@ -155,7 +155,7 @@ and lustre_type =
   | TupleType of position * lustre_type list
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
-  | EnumType of position * ident option * ident list
+  | EnumType of position * ident * ident list
   | TArr of position * lustre_type * lustre_type  
 
 
@@ -276,7 +276,7 @@ type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
 (* A contract call. *)
-type contract_call = position * ident * expr list * expr list
+type contract_call = position * ident * expr list * ident list
 
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =
@@ -480,7 +480,7 @@ let rec pp_print_expr ppf =
 
     | TupleProject (p, e, f) -> 
 
-      Format.fprintf ppf "%a%a.%%%a" ppos p pp_print_expr e pp_print_expr f
+      Format.fprintf ppf "%a%a.%%%a" ppos p pp_print_expr e Format.pp_print_int f
 
     | Const (p, True) -> ps p "true"
     | Const (p, False) -> ps p "false"
@@ -662,9 +662,10 @@ and pp_print_lustre_type ppf = function
       "%a^%a" 
       pp_print_lustre_type t 
       pp_print_expr e
-  | EnumType (pos, _, l) -> 
+  | EnumType (pos, n, l) -> 
     Format.fprintf ppf 
-      "enum @[<hv 2>{ %a }@]" 
+      "enum %a @[<hv 2>{ %a }@]"
+      pp_print_ident n
       (pp_print_list Format.pp_print_string ",@ ") l
   | TArr (pos, arg_ty, ret_ty) ->
      Format.fprintf ppf "@[%a->@,%a@]"
@@ -1049,7 +1050,7 @@ let pp_print_contract_call fmt (_, id, in_params, out_params) =
     fmt "@[<hov 2>import %a (@,%a@,) returns (@,%a@,) ;@]"
     pp_print_ident id
     (pp_print_list pp_print_expr ", ") in_params
-    (pp_print_list pp_print_expr ", ") out_params
+    (pp_print_list pp_print_ident ", ") out_params
 
 let all_empty = List.for_all (fun l -> l = [])
 

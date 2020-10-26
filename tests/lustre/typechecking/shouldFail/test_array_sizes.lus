@@ -1,0 +1,7 @@
+const n = 11;
+const w = 5;
+
+node fail(arr_w: int^w) returns (arr_n: int^n);
+let
+  arr_n = arr_w;
+tel
