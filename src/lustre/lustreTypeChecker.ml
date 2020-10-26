@@ -158,7 +158,7 @@ let pp_print_tc_context ppf ctx
        ^^ "Type Context={%a}\n"
        ^^ "Contract Context={%a}\n"
        ^^ "Const Store={%a}\n"
-       ^^ "Declared Types={%a}"
+       ^^ "Declared Types={%a}\n"
        ^^ "Node Call Summary={%a}")
       pp_print_ty_syns (ctx.ty_syns)
       pp_print_tymap (ctx.ty_ctx)
@@ -212,7 +212,7 @@ let lookup_ty: tc_context -> LA.ident -> tc_type option
                 | LA.UserType (_, uid) ->
                    lookup_ty_syn ctx uid
                 | _ -> Some ty) 
-  | None ->  None
+  | None -> None
 (** Picks out the type of the identifier to type context map *)
 
 let lookup_contract_ty: tc_context -> LA.ident -> tc_type option
@@ -1285,7 +1285,7 @@ and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
   | LA.Assert (pos, e) ->
      Log.log L_trace "Checking assertion: %a" LA.pp_print_expr e
     ; check_type_expr ctx e (Bool pos)
-  | LA.Equation (_, lhs, expr)  as eqn ->
+  | LA.Equation (_, lhs, e)  as eqn ->
      Log.log L_trace "Checking equation: %a" LA.pp_print_node_body eqn
     (* This is a special case where we have undeclared identifiers 
        as short hands for assigning values to arrays aka recursive technique *)
@@ -1298,9 +1298,10 @@ and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
         = fun ctx (LA.StructDef (_, items)) ->
         List.fold_left union ctx (List.map get_array_def_context items) in
       let new_ctx = ctx_from_lhs ctx lhs in
-      Log.log L_trace "checking node equation lhs"
-      ; infer_type_expr new_ctx expr >>= fun ty ->
-      Log.log L_trace "RHS has type %a" LA.pp_print_lustre_type ty
+      Log.log L_trace "Checking node equation lhs %a" LA.pp_print_eq_lhs lhs
+      ; Log.log L_trace "Infering type of expression: %a" LA.pp_print_expr e
+      ; infer_type_expr new_ctx e >>= fun ty ->
+      Log.log L_trace "RHS has type %a for lhs %a" LA.pp_print_lustre_type ty LA.pp_print_eq_lhs lhs
       ; check_type_struct_def (ctx_from_lhs ctx lhs) lhs ty
   | LA.Automaton (pos, _, _, _) ->
     R.ok (Log.log L_trace "Skipping Automation")
@@ -1533,7 +1534,9 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
                type_error pos "Cannot redeclare constants or enums"
       | _ -> check_type_well_formed ctx ty
              >> R.ok (add_ty_syn ctx i ty))
-  | LA.FreeType (_, i) -> R.ok (add_ty_decl ctx i)
+  | LA.FreeType (pos, i) ->
+     let ctx' = add_ty_syn ctx i (LA.AbstractType (pos, i)) in
+     R.ok (add_ty_decl ctx' i)
 
 and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_context tc_result
   = fun pos ctx ((nname, imported, _ , ip, op, _ ,_ ,_) as n)->

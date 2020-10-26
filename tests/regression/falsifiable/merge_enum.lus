@@ -19,8 +19,6 @@ let
         (A -> s when A(cl))
         (C -> (activate integr every cl = C)(e))
         (B -> s - 1 when B(cl));
-  
+  --%MAIN;  
   --%PROPERTY t1 <= s;
 tel
-
-  
