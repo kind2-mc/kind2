@@ -25,7 +25,9 @@
     Note {Types of dependency analysis}: There are three different kinds of graph dependency analysis done here.
     1. Top level constants and type declarations (starts at [mk_graph_decls]) 
     2. Between Nodes and contracts (starts at [mk_graph_decls])
-    3. TODO: Equations of nodes, Equations of contracts
+    3. Equations of nodes, Equations of contracts
+
+   TODO: This should module should supercede LustreDependencies when it hardens.     
 
    @author: Apoorv Ingle *)
 
