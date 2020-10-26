@@ -1229,56 +1229,57 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
        >> R.ok (add_ty ctx v ty)
   in
   Log.log L_trace "TC declaration node: %a {" LA.pp_print_ident node_name
-  (* if the node is extern, we will not have any body to typecheck *)
-  ; if is_extern
-    then R.ok ( Log.log L_trace "External Node, no body to type check."
-              ; Log.log L_trace "TC declaration node %a done }" LA.pp_print_ident node_name)
-    else (
-      let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
-      let ret_ids = LA.SI.of_list (List.map (fun a -> LH.extract_op_ty a |> fst) output_vars) in
-      let common_ids = LA.SI.inter arg_ids ret_ids in
 
-      if (SI.is_empty common_ids)
-      then
-        (Log.log L_trace "Params: %a (skipping)" LA.pp_print_node_param_list params
-        (* store the input constants passed in the input 
+  ; let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
+    let ret_ids = LA.SI.of_list (List.map (fun a -> LH.extract_op_ty a |> fst) output_vars) in
+    let common_ids = LA.SI.inter arg_ids ret_ids in
+
+    if (SI.is_empty common_ids)
+    then
+      (Log.log L_trace "Params: %a (skipping)" LA.pp_print_node_param_list params
+      (* store the input constants passed in the input 
          also remove the node name from the context as we should not have recursive
          nodes *)
-        ; let ip_constants_ctx = List.fold_left union (remove_ty ctx node_name)
-                                   (List.map extract_consts input_vars) in
-          (* These are inputs to the node *)
-          let ctx_plus_ips = List.fold_left union ip_constants_ctx
-                               (List.map extract_arg_ctx input_vars) in
-          (* These are outputs of the node *)
-          let ctx_plus_ops_and_ips = List.fold_left union ctx_plus_ips
-                                       (List.map extract_ret_ctx output_vars) in
-          Log.log L_trace "Local Typing Context after extracting ips/ops/consts {%a}" pp_print_tc_context ctx_plus_ops_and_ips;
-          (* Type check the contract *)
-          (match contract with
-           | None -> R.ok ()
-           | Some c ->
-              tc_ctx_of_contract ctx_plus_ops_and_ips c >>= fun con_ctx ->
-              check_type_contract ~node_out_params:ret_ids con_ctx c)
-          (* add local variable binding in the context *)
-          >> R.seq (List.map (local_var_binding ctx_plus_ips) ldecls)
-          >>= fun local_var_ctxts ->
-          (* Local TC context is input vars + output vars + local const + var decls *)
-          let local_ctx = List.fold_left union ctx_plus_ops_and_ips local_var_ctxts in
-          Log.log L_trace "Local Typing Context {%a}" pp_print_tc_context local_ctx
-          (* Type check the node items now that we have all the local typing context *)
-          ; R.seq_ (List.map (do_item local_ctx) items)
-            (* check that the LHS of the equations are not args to node *)
-            >> let overwite_node_args = SI.inter arg_ids (SI.flatten (List.map LH.vars_lhs_of_eqn items)) in
-               (R.guard_with (R.ok (overwite_node_args |> SI.is_empty))
-                  (type_error pos ("Argument to nodes cannot be LHS of an equation but found "
-                                   ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
-                                       (LA.SI.elements overwite_node_args))))
-               (*  TODO: Check for circular dependencies between equations *)
-               >> AD.analyze_circ_node_equations (ctx.node_summary_ctx) (IMap.keys ctx.vl_ctx) items               
-               >> R.ok (Log.log L_trace "TC declaration node %a done }"
-                          LA.pp_print_ident node_name))
-      else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
-                             Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements common_ids)))
+      ; let ip_constants_ctx = List.fold_left union (remove_ty ctx node_name)
+                                 (List.map extract_consts input_vars) in
+        (* These are inputs to the node *)
+        let ctx_plus_ips = List.fold_left union ip_constants_ctx
+                             (List.map extract_arg_ctx input_vars) in
+        (* These are outputs of the node *)
+        let ctx_plus_ops_and_ips = List.fold_left union ctx_plus_ips
+                                     (List.map extract_ret_ctx output_vars) in
+        Log.log L_trace "Local Typing Context after extracting ips/ops/consts {%a}" pp_print_tc_context ctx_plus_ops_and_ips;
+        (* Type check the contract *)
+        (match contract with
+         | None -> R.ok ()
+         | Some c ->
+            tc_ctx_of_contract ctx_plus_ops_and_ips c >>= fun con_ctx ->
+            check_type_contract ~node_out_params:ret_ids con_ctx c) >>
+          (* if the node is extern, we will not have any body to typecheck *)
+          if is_extern
+          then R.ok ( Log.log L_trace "External Node, no body to type check."
+                    ; Log.log L_trace "TC declaration node %a done }" LA.pp_print_ident node_name)
+          else (
+            (* add local variable binding in the context *)
+            R.seq (List.map (local_var_binding ctx_plus_ips) ldecls)
+            >>= fun local_var_ctxts ->
+            (* Local TC context is input vars + output vars + local const + var decls *)
+            let local_ctx = List.fold_left union ctx_plus_ops_and_ips local_var_ctxts in
+            Log.log L_trace "Local Typing Context {%a}" pp_print_tc_context local_ctx
+            (* Type check the node items now that we have all the local typing context *)
+            ; R.seq_ (List.map (do_item local_ctx) items)
+              (* check that the LHS of the equations are not args to node *)
+              >> let overwite_node_args = SI.inter arg_ids (SI.flatten (List.map LH.vars_lhs_of_eqn items)) in
+                 (R.guard_with (R.ok (overwite_node_args |> SI.is_empty))
+                    (type_error pos ("Argument to nodes cannot be LHS of an equation but found "
+                                     ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
+                                         (LA.SI.elements overwite_node_args))))
+                 (* Do circularity check on node equations *)
+                 >> AD.analyze_circ_node_equations (ctx.node_summary_ctx) (IMap.keys ctx.vl_ctx) items               
+                 >> R.ok (Log.log L_trace "TC declaration node %a done }"
+                            LA.pp_print_ident node_name)))
+    else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
+                           Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements common_ids))
 
 and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
   function
