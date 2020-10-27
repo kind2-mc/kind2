@@ -1426,8 +1426,9 @@ and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contr
     | Assume (pos, _, _, e) ->
        check_type_expr ctx e (Bool pos) >>
          (* Check if any of the out stream vars of the node is being used at its current value is used in assumption *)
-         let assume_vars_out_params = SI.inter node_out_params
-                                        (LA.SI.of_list (AD.expression_current_streams ctx.node_summary_ctx e)) in
+         let assume_vars_out_params =
+           SI.inter node_out_params
+             (LA.SI.of_list (AD.expression_current_streams ctx.node_summary_ctx e)) in
          Log.log L_trace "node_params: %a non pre vars of e: %a"
            (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_params)
            (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements (LH.vars (LH.abstract_pre_subexpressions e)))
@@ -1774,7 +1775,7 @@ let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
 let type_check_decl_grps: tc_context -> LA.t list -> unit tc_result list
   = fun ctx decls ->
       Log.log L_trace ("===============================================\n"
-                       ^^ "Phase 2: Type checking declaration Groups\n"
+                       ^^ "Phase: Type checking declaration Groups\n"
                        ^^"===============================================\n");
       List.concat (List.map (fun decl -> type_check_group ctx decl) decls)               
 (** Typecheck a list of independent groups using a global context*)

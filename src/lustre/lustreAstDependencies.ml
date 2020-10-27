@@ -458,10 +458,10 @@ let rec vars_with_flattened_nodes: (int list) IMap.t -> LA.expr -> LA.SI.t = fun
 (** get all the variables except node names from an expression *)
 
 let summarize_ip_vars: LA.ident list -> SI.t -> int list = fun ips critial_ips ->
-  (List.fold_left (fun (acc, nums) i -> if SI.mem i critial_ips
-                                       then (nums::acc, nums+1)
-                                       else (acc, nums+1)) ([], 0)) ips |> fst 
-    
+  (List.fold_left (fun (acc, nums) i ->
+       if SI.mem i critial_ips
+       then (nums::acc, nums+1)
+       else (acc, nums+1)) ([], 0)) ips |> fst 
                              
 let mk_node_summary: node_summary -> LA.node_decl -> node_summary =
   fun s (i, imported, _, ips, ops, vars, items, _) ->
@@ -491,8 +491,7 @@ let mk_node_summary: node_summary -> LA.node_decl -> node_summary =
         if (SI.is_empty critical_ips)
         then IMap.add i [] s
         else IMap.add i (summarize_ip_vars ip_vars critical_ips) s
-  else IMap.add i ((List.fold_left (fun (acc, num) _ -> (num::acc, num+1)) ([], 0) ips) |> fst) s
-   
+  else IMap.add i ((List.fold_left (fun (acc, num) _ -> (num::acc, num+1)) ([], 0) ips) |> fst) s   
 (** Computes the node call summary the node to the input stream of the node. *)
                       
 let rec mk_graph_expr2: node_summary -> LA.expr -> (G.t * id_pos_map) = fun m ->
@@ -528,17 +527,20 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (G.t * id_pos_map) = fun m ->
   | LA.Last (pos, i) -> singleton_g_pos "" i pos
   | LA.Fby (_, e1, _, e2) ->  union_g_pos (mk_graph_expr2 m e1) (mk_graph_expr2 m e2) 
   | LA.Arrow (_, e1, e2) ->  union_g_pos (mk_graph_expr2 m e1) (mk_graph_expr2 m e2)
-  | LA.Call (_, i, es) -> (match IMap.find_opt i m with
-                          | None -> failwith ("Cannot find summary of node " ^ i ^ ". This should not happen.")
-                          | Some b -> if List.length b = 0
-                                      then empty_g_pos
-                                      else
-                                        let es' = List.map (List.nth es) b in 
-                                        List.fold_left union_g_pos empty_g_pos (List.map (mk_graph_expr2 m) es'))
+  | LA.Call (_, i, es) ->
+     (match IMap.find_opt i m with
+      | None -> failwith ("Cannot find summary of node " ^ i ^ ". This should not happen.")
+      | Some b -> if List.length b = 0
+                  then empty_g_pos
+                  else
+                    let es' = List.map (List.nth es) b in 
+                    List.fold_left union_g_pos empty_g_pos (List.map (mk_graph_expr2 m) es'))
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
-(** This graph is useful for analyzing equations,
+(** This graph is useful for analyzing equations assuming that the nodes/contract call
+    recursive calling has been resolved already.
     The generated graph would be useful only if the 
-    pre's are abstracted out first and then passed into this function using [LH.abstract_pre_subexpressions] *)
+    pre's are abstracted out first and then passed into this 
+    function using [LH.abstract_pre_subexpressions] *)
 
 let mk_graph_const_decl2: node_summary -> LA.const_decl -> (G.t * id_pos_map)
   = fun m -> function
