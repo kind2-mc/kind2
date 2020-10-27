@@ -45,6 +45,8 @@ val silent_contracts_of : 'a t -> (Scope.t * string list) list
     order. *)
 val ordered_scopes_of : 'a t -> Scope.t list
 
+val analyzable_subsystems : 'a t -> 'a SubSystem.t list
+
 (** Returns the analysis param for [top] that abstracts all its abstractable
     subsystems if [top] has a contract. *)
 val maximal_abstraction_for_testgen :

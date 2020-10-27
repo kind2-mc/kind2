@@ -48,6 +48,11 @@ val next_analysis:
   (Scope.t * info) list ->
   A.param option
 
+(** Takes information about a (sub)system, and returns
+whether the subsystem is candidate for analysis
+*)
+val is_candidate_for_analysis : info -> bool
+
 (** Works almost the same as [next_analysis], but returns a single analysis
 parameter for a monolithic analysis. Only used for contract generation. *)
 val monolithic:
