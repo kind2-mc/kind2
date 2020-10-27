@@ -105,7 +105,7 @@ let get_params results subs_of_scope result =
   )
 
 let is_candidate_for_analysis { can_refine ; has_modes } =
-  has_modes || can_refine
+  (has_modes && Flags.Contracts.check_modes ()) || can_refine
 
 (* Returns an option of the parameter for the first analysis of a system. *)
 let first_param_of ass results all_nodes scope =
