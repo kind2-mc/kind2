@@ -139,8 +139,21 @@ let of_channel in_ch =
            TC.type_check_infer_program TC.Nodes_and_contracts inlined_ctx sorted_node_contract_decls >>
              
              (* Step 6. Inline constants in node equations *)
-             IC.inline_constants ctx sorted_node_contract_decls >>= fun (_, const_inlined_nodes_and_contracts) -> 
-           Res.ok (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts)
+             IC.inline_constants ctx sorted_node_contract_decls >>= fun (_, const_inlined_nodes_and_contracts) ->
+           
+           (* The last node in the original ordering should remain the last node after sorting 
+              as the user expects that to be the main node in the case where 
+              no explicit annotations are provided. The reason we do this is because 
+              it is difficut to make the topological sort stable *)
+           
+           (* reverse the list and find the name of the first node declaration from the original list *)
+           let last_node = LH.get_last_node_name (declarations) in
+           (match last_node with
+           | None -> Res.ok (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts)
+           | Some ln ->
+              Log.log L_trace "last node is: %a"  LA.pp_print_ident ln 
+             ; Res.ok (const_inlined_type_and_consts
+                                @ LH.move_node_to_last ln (const_inlined_nodes_and_contracts))) 
          ) in
        match tc_res with
        | Ok d -> Log.log L_note "Type checking done"
@@ -150,6 +163,7 @@ let of_channel in_ch =
 
   (if Flags.only_tc () then exit 0)
 
+  
   (* Simplify declarations to a list of nodes *)
   ; let nodes, globals = LD.declarations_to_nodes declarations' in
     (* Name of main node *)

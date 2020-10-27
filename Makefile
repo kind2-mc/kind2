@@ -32,7 +32,7 @@ kind2-doc:
 	@cp -rf $(DUNE_DOCDIR)/* $(LOCAL_DOCDIR)
 
 test:
-	@$(CURDIR)/tests/run.sh $(CURDIR)/tests/regression $(CURDIR)/bin/kind2 --timeout 42
+	@$(CURDIR)/tests/run.sh $(CURDIR)/tests/regression $(CURDIR)/bin/kind2 --timeout 42 --no_tc false
 
 uninstall:
 	@opam remove -y kind2
