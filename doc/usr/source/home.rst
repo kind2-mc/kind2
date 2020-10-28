@@ -226,7 +226,7 @@ move to the top-level directory of the repository, and run
 
 .. code-block:: none
 
-   dune build
+   dune build src @install
    dune install --sections=bin --prefix <DIR>
 
 to install the Kind 2 binary into ``<DIR>/bin``.
@@ -251,6 +251,17 @@ Alternatively, you can install all dependencies in your current switch by runnin
    opam install . --deps-only
    make
 
+For running the unit tests for front end, you can install ounit2 library using opam by running:
+
+.. code-block:: none
+
+   opam install ounit2
+
+To run the ounit tests, you can use the following dune command:
+
+.. code-block:: none
+
+   dune test
 
 Documentation
 -------------

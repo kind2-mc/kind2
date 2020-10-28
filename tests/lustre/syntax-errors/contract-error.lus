@@ -1,0 +1,12 @@
+contract bla_spec(in: real) returns (out: bool) ;
+let
+  guarantee out = (in > 0.0);
+tel
+
+node bli(in: real) returns (out: bool) ;
+(*@contract
+  import bla_spec (in) returns (out+out) ;
+*)
+let
+  out = in >= 0.0 ;
+tel

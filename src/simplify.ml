@@ -53,7 +53,6 @@ type t =
   | Dec of Decimal.t polynomial
   | Bool of Term.t 
   | Array of Term.t 
-  | UBV of Term.t
   | BV of Term.t
 
 let pp_print_monomial pp ppf ((c, t) : 'a monomial) = 
@@ -181,7 +180,6 @@ let term_of_nf = function
   | Dec p -> term_of_dec_polynomial p
   | Bool b -> b
   | Array b -> b
-  | UBV b -> b
   | BV b -> b
 
 
@@ -218,8 +216,8 @@ let is_constant = function
   | Num (_, [])
   | Dec (_, [])  -> true
   | Bool b when b == Term.t_true || b == Term.t_false -> true
-  | UBV _ | BV _ -> false (* Technically, this isn't right, but it doesn't 
-  matter in the contexts in which this function is called*)
+  | BV _ -> false (* Technically, this isn't right, but it doesn't 
+  matter in the contexts in which this function is called *)
   | Num _ | Dec _ | Bool _ | Array _ -> false
 
 
@@ -646,7 +644,7 @@ let flatten_bool_subterms s l =
       flatten_bool_subterms' symbol accum' tl
 
     (* Fail on non-boolean arguments *)
-    | (Num _ | Dec _ | Array _ | UBV _ | BV _ ) :: _ -> assert false
+    | (Num _ | Dec _ | Array _ | BV _ ) :: _ -> assert false
 
   in
 
@@ -817,7 +815,7 @@ let implies_to_or args =
     | [] -> assert false
     | [a] -> List.rev (a :: accum)
     | Bool h :: tl -> implies_to_or' (Bool (negate_nnf h) :: accum) tl
-    | (Num _ | Dec _ | Array _ | UBV _ | BV _ ) :: _ -> assert false
+    | (Num _ | Dec _ | Array _ | BV _ ) :: _ -> assert false
   in
 
   implies_to_or' [] args 
@@ -839,22 +837,6 @@ let subtract_and_normalize a b = match a, b with
   | _ -> assert false
 
 let relation_to_nf_bv rel = function
-  (* Relation must be binary *)
-  | [] 
-  | [_] -> assert false
-
-  (* Binary relation *)
-  | [a; b] -> (match (rel 
-                        (Term.bitvector_of_term (term_of_nf a)) 
-                        (Term.bitvector_of_term (term_of_nf b))) 
-               with
-    | true -> Bool Term.t_true
-    | false -> Bool Term.t_false)
-  
-  (* Arity greater than 2 *)
-  | _ -> assert false
-
-let relation_to_nf_ubv rel = function
   (* Relation must be binary *)
   | [] 
   | [_] -> assert false
@@ -1018,8 +1000,6 @@ let relation
 
     (* Relation must be between integers or reals *)
 
-    | UBV _ :: _ as args -> relation_to_nf_ubv rel_ubv args
-
     | BV _ :: _ as args -> relation_to_nf_bv rel_bv args
 
     | (Bool _ | Array _ ) :: _ -> assert false
@@ -1132,17 +1112,12 @@ let atom_of_term t =
 
     Array t
 
-  (* Term is of type signed bitvector *)
-  else if Type.is_bitvector tt then
+  (* Term is of type signed or unsigned bitvector *)
+  else if (Type.is_bitvector tt || Type.is_ubitvector tt) then
 
     BV t
 
-  (* Term is of type unsigned bitvector *)
-  else if Type.is_ubitvector tt then
-
-    UBV t
-    
-    (* Term is of some other type  *)
+  (* Term is of some other type  *)
   else (
 
     (* Not implemented *)
@@ -1325,16 +1300,15 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `TRUE -> Bool (Term.t_true)
           | `FALSE -> Bool (Term.t_false)
 
-          (* Unsigned bitvector *)
-          | `UBV b ->
-
-            let tubv = Term.mk_ubv b in 
-              UBV tubv
-
-          (* Signed bitvector *)
+          (* Bitvector - taking an unsigned interpretation *)
           | `BV b -> 
             
-            let tbv = Term.mk_bv b in
+            let tbv = Term.mk_ubv b in
+              BV tbv
+
+          | `UBV b -> 
+
+            let tbv = Term.mk_ubv b in
               BV tbv
 
           (* Constant with a definition *)
@@ -1720,8 +1694,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   (Bool term' :: tl)
 
               (* Not well-typed arguments *)
-              | Bool _ :: (Num _ | Dec _ | Array _ | UBV _ | BV _ ) :: _
-              | (Num _  | Dec _ | Array _ | UBV _ | BV _ ) :: _  -> assert false
+              | Bool _ :: (Num _ | Dec _ | Array _ | BV _ ) :: _
+              | (Num _  | Dec _ | Array _ | BV _ ) :: _  -> assert false
 
             )
 
@@ -2020,7 +1994,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
             (match args with 
                         
-            | [UBV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
+            | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
                   | 8 -> Num (Bitvector.ubv8_to_num (Term.bitvector_of_term b), [])
                   | _ -> assert false)
@@ -2035,7 +2009,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
             (match args with 
             
-            | [UBV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
+            | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
                   | 16 -> Num (Bitvector.ubv16_to_num (Term.bitvector_of_term b), [])
                   | _ -> assert false)
@@ -2050,7 +2024,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
             (match args with 
             
-            | [UBV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
+            | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
                   | 32 -> Num (Bitvector.ubv32_to_num (Term.bitvector_of_term b), [])
                   | _ -> assert false)
@@ -2065,7 +2039,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
             (match args with 
             
-            | [UBV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
+            | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
                   | 64 -> Num (Bitvector.ubv64_to_num (Term.bitvector_of_term b), [])
                   | _ -> assert false)
@@ -2141,11 +2115,11 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `TO_UINT8 -> 
 
             (match args with 
-              | [UBV b] -> let s = (Bitvector.length_of_bitvector (Term.ubitvector_of_term b)) in
+              | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
-                  | 8 -> UBV b
-                  | _ -> UBV (Term.mk_ubv (Bitvector.bvextract 7 0 (Term.ubitvector_of_term b))))
-              | [Num n] -> UBV (Term.mk_ubv 
+                  | 8 -> BV b
+                  | _ -> BV (Term.mk_ubv (Bitvector.bvextract 7 0 (Term.bitvector_of_term b))))
+              | [Num n] -> BV (Term.mk_ubv 
                                   (Bitvector.num_to_ubv8 
                                     (Term.numeral_of_term 
                                       (term_of_nf (Num n)))))
@@ -2157,12 +2131,12 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `TO_UINT16 -> 
 
             (match args with 
-              | [UBV b] -> let s = (Bitvector.length_of_bitvector (Term.ubitvector_of_term b)) in
+              | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
-                  | 8 -> UBV (Term.mk_ubv (Bitvector.bvsignext 8 (Term.ubitvector_of_term b)))
-                  | 16 -> UBV b
-                  | _ -> UBV (Term.mk_ubv (Bitvector.bvextract 15 0 (Term.ubitvector_of_term b))))
-              | [Num n] ->  UBV (Term.mk_ubv 
+                  | 8 -> BV (Term.mk_ubv (Bitvector.bvsignext 8 (Term.bitvector_of_term b)))
+                  | 16 -> BV b
+                  | _ -> BV (Term.mk_ubv (Bitvector.bvextract 15 0 (Term.bitvector_of_term b))))
+              | [Num n] ->  BV (Term.mk_ubv 
                                   (Bitvector.num_to_ubv16 
                                     (Term.numeral_of_term 
                                       (term_of_nf (Num n)))))
@@ -2174,13 +2148,13 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `TO_UINT32 -> 
           
             (match args with 
-              | [UBV b] -> let s = (Bitvector.length_of_bitvector (Term.ubitvector_of_term b)) in
+              | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
-                  | 8 -> UBV (Term.mk_ubv (Bitvector.bvsignext 24 (Term.ubitvector_of_term b)))
-                  | 16 -> UBV (Term.mk_ubv (Bitvector.bvsignext 16 (Term.ubitvector_of_term b)))
-                  | 32 -> UBV b
-                  | _ -> UBV (Term.mk_ubv (Bitvector.bvextract 31 0 (Term.ubitvector_of_term b))))
-              | [Num n] ->  UBV (Term.mk_ubv 
+                  | 8 -> BV (Term.mk_ubv (Bitvector.bvsignext 24 (Term.bitvector_of_term b)))
+                  | 16 -> BV (Term.mk_ubv (Bitvector.bvsignext 16 (Term.bitvector_of_term b)))
+                  | 32 -> BV b
+                  | _ -> BV (Term.mk_ubv (Bitvector.bvextract 31 0 (Term.bitvector_of_term b))))
+              | [Num n] ->  BV (Term.mk_ubv 
                                   (Bitvector.num_to_ubv32 
                                     (Term.numeral_of_term 
                                       (term_of_nf (Num n)))))
@@ -2192,13 +2166,13 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `TO_UINT64 -> 
           
             (match args with 
-              | [UBV b] -> let s = (Bitvector.length_of_bitvector (Term.ubitvector_of_term b)) in
+              | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
-                  | 8 -> UBV (Term.mk_ubv (Bitvector.bvsignext 56 (Term.ubitvector_of_term b)))
-                  | 16 -> UBV (Term.mk_ubv (Bitvector.bvsignext 48 (Term.ubitvector_of_term b)))
-                  | 32 -> UBV (Term.mk_ubv (Bitvector.bvsignext 32 (Term.ubitvector_of_term b)))
-                  | _ -> UBV b)
-              | [Num n] -> UBV (Term.mk_ubv 
+                  | 8 -> BV (Term.mk_ubv (Bitvector.bvsignext 56 (Term.bitvector_of_term b)))
+                  | 16 -> BV (Term.mk_ubv (Bitvector.bvsignext 48 (Term.bitvector_of_term b)))
+                  | 32 -> BV (Term.mk_ubv (Bitvector.bvsignext 32 (Term.bitvector_of_term b)))
+                  | _ -> BV b)
+              | [Num n] -> BV (Term.mk_ubv 
                                   (Bitvector.num_to_ubv64 
                                     (Term.numeral_of_term 
                                       (term_of_nf (Num n)))))
@@ -2213,8 +2187,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.bitvector_of_term b)) in
                   (match s with 
                   | 8 -> BV b
-                  | _ -> BV (Term.mk_bv (Bitvector.bvextract 7 0 (Term.bitvector_of_term b))))
-              | [Num n] -> BV (Term.mk_bv 
+                  | _ -> BV (Term.mk_ubv (Bitvector.bvextract 7 0 (Term.bitvector_of_term b))))
+              | [Num n] -> BV (Term.mk_ubv 
                                   (Bitvector.num_to_bv8 
                                     (Term.numeral_of_term 
                                       (term_of_nf (Num n)))))
@@ -2228,10 +2202,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             (match args with 
               | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.sbitvector_of_term b)) in
                   (match s with 
-                  | 8 -> BV (Term.mk_bv (Bitvector.bvsignext 8 (Term.sbitvector_of_term b)))
+                  | 8 -> BV (Term.mk_ubv (Bitvector.bvsignext 8 (Term.sbitvector_of_term b)))
                   | 16 -> BV b
-                  | _ -> BV (Term.mk_bv (Bitvector.bvextract 15 0 (Term.bitvector_of_term b))))
-              | [Num n] -> BV (Term.mk_bv 
+                  | _ -> BV (Term.mk_ubv (Bitvector.bvextract 15 0 (Term.bitvector_of_term b))))
+              | [Num n] -> BV (Term.mk_ubv 
                                   (Bitvector.num_to_bv16 
                                     (Term.numeral_of_term 
                                       (term_of_nf (Num n)))))
@@ -2245,11 +2219,11 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             (match args with 
               | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.sbitvector_of_term b)) in
                   (match s with 
-                  | 8 -> BV (Term.mk_bv (Bitvector.bvsignext 24 (Term.sbitvector_of_term b)))
-                  | 16 -> BV (Term.mk_bv (Bitvector.bvsignext 16 (Term.sbitvector_of_term b)))
+                  | 8 -> BV (Term.mk_ubv (Bitvector.bvsignext 24 (Term.sbitvector_of_term b)))
+                  | 16 -> BV (Term.mk_ubv (Bitvector.bvsignext 16 (Term.sbitvector_of_term b)))
                   | 32 -> BV b
-                  | _ -> BV (Term.mk_bv (Bitvector.bvextract 31 0 (Term.bitvector_of_term b))))
-              | [Num n] ->  BV (Term.mk_bv 
+                  | _ -> BV (Term.mk_ubv (Bitvector.bvextract 31 0 (Term.bitvector_of_term b))))
+              | [Num n] ->  BV (Term.mk_ubv 
                                   (Bitvector.num_to_bv32 
                                     (Term.numeral_of_term 
                                       (term_of_nf (Num n)))))
@@ -2263,11 +2237,11 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             (match args with 
               | [BV b] -> let s = (Bitvector.length_of_bitvector (Term.sbitvector_of_term b)) in
                   (match s with 
-                  | 8 -> BV (Term.mk_bv (Bitvector.bvsignext 56 (Term.sbitvector_of_term b)))
-                  | 16 -> BV (Term.mk_bv (Bitvector.bvsignext 48 (Term.sbitvector_of_term b)))
-                  | 32 -> BV (Term.mk_bv (Bitvector.bvsignext 32 (Term.sbitvector_of_term b)))
+                  | 8 -> BV (Term.mk_ubv (Bitvector.bvsignext 56 (Term.sbitvector_of_term b)))
+                  | 16 -> BV (Term.mk_ubv (Bitvector.bvsignext 48 (Term.sbitvector_of_term b)))
+                  | 32 -> BV (Term.mk_ubv (Bitvector.bvsignext 32 (Term.sbitvector_of_term b)))
                   | _ -> BV b)
-              | [Num n] ->  BV (Term.mk_bv 
+              | [Num n] ->  BV (Term.mk_ubv 
                                   (Bitvector.num_to_bv64 
                                     (Term.numeral_of_term 
                                       (term_of_nf (Num n)))))
@@ -2277,29 +2251,16 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BV2NAT -> 
           
             (match args with
-              | [UBV b] -> let t = term_of_nf (UBV b) in
-                           let tp = Term.type_of_term t in
-                           let bv = Term.ubitvector_of_term t in
-                            if (Type.is_uint8 tp) then 
-                              Num (Bitvector.ubv8_to_num bv, [])
-                            else if (Type.is_uint16 tp) then 
-                              Num (Bitvector.ubv16_to_num bv, [])
-                            else if (Type.is_uint32 tp) then 
-                              Num (Bitvector.ubv32_to_num bv, [])
-                            else if (Type.is_uint64 tp) then 
-                              Num (Bitvector.ubv64_to_num bv, [])
-                            else 
-                              assert false
               | [BV b] -> let t = term_of_nf (BV b) in
                            let tp = Term.type_of_term t in
                            let bv = Term.bitvector_of_term t in
-                            if (Type.is_int8 tp) then 
+                            if (Type.is_int8 tp || Type.is_uint8 tp) then 
                               Num (Bitvector.ubv8_to_num bv, [])
-                            else if (Type.is_int16 tp) then 
+                            else if (Type.is_int16 tp || Type.is_uint16 tp) then 
                               Num (Bitvector.ubv16_to_num bv, [])
-                            else if (Type.is_int32 tp) then 
+                            else if (Type.is_int32 tp || Type.is_uint32 tp) then 
                               Num (Bitvector.ubv32_to_num bv, [])
-                            else if (Type.is_int64 tp) then 
+                            else if (Type.is_int64 tp || Type.is_uint64 tp) then 
                               Num (Bitvector.ubv64_to_num bv, [])
                             else 
                               assert false
@@ -2338,10 +2299,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVAND ->
             (match args with
               | [] -> assert false
-              | [BV a; BV b] -> BV (Term.mk_bv (Bitvector.bv_and
-                                                  (Term.bitvector_of_term a)
-                                                  (Term.bitvector_of_term b)))
-              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.bv_and
+              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.bv_and
                                                   (Term.bitvector_of_term a)
                                                   (Term.bitvector_of_term b)))
               | _ -> assert false)
@@ -2349,10 +2307,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVOR ->
             (match args with
               | [] -> assert false
-              | [BV a; BV b] -> BV (Term.mk_bv (Bitvector.bv_or
-                                                  (Term.bitvector_of_term a)
-                                                  (Term.bitvector_of_term b)))
-              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.bv_or
+              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.bv_or
                                                   (Term.bitvector_of_term a)
                                                   (Term.bitvector_of_term b)))
               | _ -> assert false)
@@ -2360,54 +2315,46 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVNOT ->
             (match args with 
               | [] -> assert false 
-              | [BV a] -> BV (Term.mk_bv (Bitvector.bv_not 
+              | [BV a] -> BV (Term.mk_ubv (Bitvector.bv_not 
                                             (Term.bitvector_of_term a)))
-              | [UBV a] -> UBV (Term.mk_ubv (Bitvector.bv_not
-                                              (Term.bitvector_of_term a)))
               | _ -> assert false)
             
           | `BVSHL ->
             (match args with
               | [] -> assert false
-              | [BV a; UBV b] -> BV (Term.mk_bv (Bitvector.bv_lsh
+              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.bv_lsh
                                                   (Term.bitvector_of_term a)
                                                   (Term.bitvector_of_term b))) 
-              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.bv_lsh
-                                                    (Term.bitvector_of_term a)
-                                                    (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVLSHR ->
             (match args with
               | [] -> assert false
-              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.bv_rsh
+              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.bv_rsh
                                                   (Term.bitvector_of_term a)
-                                                  (Term.bitvector_of_term b)))
+                                                  (Term.bitvector_of_term b))) 
               | _ -> assert false)
 
           | `BVASHR ->
             (match args with
               | [] -> assert false
-              | [BV a; UBV b] -> BV (Term.mk_bv (Bitvector.bv_arsh
+              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.bv_arsh
                                                   (Term.bitvector_of_term a)
-                                                  (Term.bitvector_of_term b)))
+                                                  (Term.bitvector_of_term b))) 
               | _ -> assert false)
 
           | `BVADD ->
             (match args with
               | [] -> assert false
-              | [BV a; BV b] -> BV (Term.mk_bv (Bitvector.sbv_add
+              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.sbv_add
                                                   (Term.bitvector_of_term a)
                                                   (Term.bitvector_of_term b)))
-              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.ubv_add
-                                                      (Term.bitvector_of_term a)
-                                                      (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVSUB ->
             (match args with
               | [] -> assert false
-              | [BV a; BV b] -> BV (Term.mk_bv (Bitvector.sbv_sub
+              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.sbv_sub
                                                   (Term.bitvector_of_term a)
                                                   (Term.bitvector_of_term b)))
               | _ -> assert false)
@@ -2415,18 +2362,15 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVMUL ->
             (match args with
               | [] -> assert false
-              | [BV a; BV b] -> BV (Term.mk_bv (Bitvector.sbv_mult
+              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.sbv_mult
                                                   (Term.bitvector_of_term a)
                                                   (Term.bitvector_of_term b)))              
-              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.ubv_mult
-                                                      (Term.bitvector_of_term a)
-                                                      (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVUDIV ->
             (match args with
               | [] -> assert false
-              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.ubv_div
+              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.ubv_div
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
               | _ -> assert false)
@@ -2434,7 +2378,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVSDIV ->
             (match args with
               | [] -> assert false
-              | [BV a; BV b] -> BV (Term.mk_bv (Bitvector.sbv_div
+              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.sbv_div
                                               (Term.bitvector_of_term a)
                                               (Term.bitvector_of_term b)))
               | _ -> assert false)
@@ -2442,7 +2386,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVUREM ->
             (match args with
               | [] -> assert false
-              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.ubv_rem 
+              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.ubv_rem 
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
               | _ ->  assert false)
@@ -2450,7 +2394,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVSREM ->
             (match args with
               | [] -> assert false
-              | [BV a; BV b] -> BV (Term.mk_bv (Bitvector.sbv_rem 
+              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.sbv_rem 
                                                   (Term.bitvector_of_term a)
                                                   (Term.bitvector_of_term b)))
               | _ -> assert false)
@@ -2470,7 +2414,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVULT -> 
             (match args with
               | [] -> assert false
-              | [UBV a; UBV b] -> Bool (Term.mk_bool (Bitvector.ult
+              | [BV a; BV b] -> Bool (Term.mk_bool (Bitvector.ult
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
               | _ -> relation_lt
@@ -2480,7 +2424,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVULE -> 
             (match args with
               | [] -> assert false
-              | [UBV a; UBV b] -> Bool (Term.mk_bool (Bitvector.ulte
+              | [BV a; BV b] -> Bool (Term.mk_bool (Bitvector.ulte
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
               | _ -> relation_leq
@@ -2490,7 +2434,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVUGT ->           
             (match args with
               | [] -> assert false
-              | [UBV a; UBV b] -> Bool (Term.mk_bool (Bitvector.ugt
+              | [BV a; BV b] -> Bool (Term.mk_bool (Bitvector.ugt
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
               | _ -> relation_gt
@@ -2500,7 +2444,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVUGE -> 
             (match args with
               | [] -> assert false
-              | [UBV a; UBV b] -> Bool (Term.mk_bool (Bitvector.ugte
+              | [BV a; BV b] -> Bool (Term.mk_bool (Bitvector.ugte
                                                       (Term.bitvector_of_term a)
                                                       (Term.bitvector_of_term b)))
               | _ -> relation_geq
@@ -2550,44 +2494,34 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVNEG -> 
             (match args with
               | [] -> assert false
-              | [BV a] -> BV (Term.mk_bv (Bitvector.sbv_neg 
+              | [BV a] -> BV (Term.mk_ubv (Bitvector.sbv_neg 
                                             (Term.bitvector_of_term a)))
               | _ -> assert false)
 
           | `BVEXTRACT (i, j) -> 
             (match args with
               | [] -> assert false
-              | [BV b] -> BV (Term.mk_bv (Bitvector.bvextract 
+              | [BV b] -> BV (Term.mk_ubv (Bitvector.bvextract 
                                             (Numeral.to_int i) 
                                             (Numeral.to_int j) 
                                             (Term.bitvector_of_term b)))            
-              | [UBV b] -> UBV (Term.mk_ubv (Bitvector.bvextract 
-                                              (Numeral.to_int i) 
-                                              (Numeral.to_int j) 
-                                              (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVSIGNEXT i ->
             (match args with
               | [] -> assert false
-              | [BV b] -> BV (Term.mk_bv (Bitvector.bvsignext
+              | [BV b] -> BV (Term.mk_ubv (Bitvector.bvsignext
                                             (Numeral.to_int i)
                                             (Term.bitvector_of_term b)))
-              | [UBV b] -> UBV (Term.mk_ubv (Bitvector.bvsignext
-                                              (Numeral.to_int i)
-                                              (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           | `BVCONCAT -> 
             (match args with
               | [] -> assert false
               | [a] -> a
-              | [BV a; BV b] -> BV (Term.mk_bv (Bitvector.bvconcat 
+              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.bvconcat 
                                                   (Term.bitvector_of_term a) 
                                                   (Term.bitvector_of_term b)))
-              | [UBV a; UBV b] -> UBV (Term.mk_ubv (Bitvector.bvconcat
-                                                      (Term.bitvector_of_term a)
-                                                      (Term.bitvector_of_term b)))
               | _ -> assert false)
 
           (* Constant symbols *)

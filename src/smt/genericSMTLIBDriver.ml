@@ -610,10 +610,8 @@ let smtlib_string_symbol_list =
    (">", Symbol.mk_symbol `GT);
    ("to_real", Symbol.mk_symbol `TO_REAL);
    ("to_int", Symbol.mk_symbol `TO_INT);
-   ("(_ int2bv 8)", Symbol.mk_symbol `TO_UINT8);
-   ("(_ int2bv 16)", Symbol.mk_symbol `TO_UINT16);
-   ("(_ int2bv 32)", Symbol.mk_symbol `TO_UINT32);
-   ("(_ int2bv 64)", Symbol.mk_symbol `TO_UINT64);         
+   ("bv2nat", Symbol.mk_symbol `BV2NAT);
+   ("bv2int", Symbol.mk_symbol `BV2NAT);     
    ("is_int", Symbol.mk_symbol `IS_INT);
 
    ("bvnot", Symbol.mk_symbol `BVNOT);

@@ -1,0 +1,6 @@
+type t = [int, int, bool];
+
+node n2 (x, y: t) returns (z: [int, int, bool]);
+let
+z = x + y; -- this should fail, but doesn't
+tel.

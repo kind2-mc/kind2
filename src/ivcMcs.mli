@@ -62,6 +62,8 @@ val separate_ivc_by_category : 'a InputSystem.t -> ivc -> (ivc * ivc)
     a valid lustre program or a more concise and easily readable program. *)
 val minimize_lustre_ast : ?valid_lustre:bool -> 'a InputSystem.t -> ivc -> LustreAst.t -> LustreAst.t
 
+val is_ivc_approx : ivc -> bool
+
 (** [ivc_uc in_sys sys props] computes an approximation of a minimal inductive validity core
     for the input system [in_sys] and the transition system [sys]. Only properties [props] are considered.
     The optional parameter [approximate] determines whether the unsat core computed internally must be minimal or not
@@ -122,7 +124,9 @@ val ivc_ucbf :
     A value of -1 will compute all the MCSes,
     and in this case the first IVC found is guaranteed to have a minimal cardinality.
     If the optional parameter [use_must_set] is not None, a MUST set will be computed first and passed
-    to the given continuation. If [stop_after] is n > 0, the search will stop after n minimal IVCs being found. *)
+    to the given continuation. If [stop_after] is n > 0, the search will stop after n minimal IVCs being found.
+    This function returns a couple [(isComplete, ivcs)] with [isComplete] being a boolean that indicates whether
+    the solutions found cover all the real solutions or not (it might not be the case in case of a timeout). *)
 val umivc :
   'a InputSystem.t ->
   ?use_must_set:(ivc -> unit) option ->
@@ -133,7 +137,7 @@ val umivc :
   Property.t list ->
   int ->
   (ivc -> unit) ->
-  ivc list
+  bool * ivc list
 
 (** {1 Minimal Cut Sets} *)
 
@@ -149,6 +153,8 @@ val complement_of_mcs : 'a InputSystem.t -> TransSys.t -> mcs -> mcs
     The parameters [in_sys] should be the same as the one used to generate [mcs]. *)
 val separate_mcs_by_category : 'a InputSystem.t -> mcs -> (mcs * mcs)
 
+val is_mcs_approx : mcs -> bool
+
 (** [mcs in_sys param analyze_func sys props all cont] computes a maximal unsafe abstraction
     for the input system [in_sys], the analysis parameter [param] and the transition system [sys].
     Only properties [props] are considered. If [all] is true, all the MCSes will be computed.
@@ -156,7 +162,9 @@ val separate_mcs_by_category : 'a InputSystem.t -> mcs -> (mcs * mcs)
     If the optional parameter [max_mcs_cardinality] is n >= 0, only MCSes of cardinality greater
     or equal to (total_number_of_model_elements - n) will be computed.
     If a global initial MCS analysis has been performed, its result should be passed in [initial_solution],
-    otherwise you can omit this parameter. *)
+    otherwise you can omit this parameter.
+    This function returns a couple [(isComplete, mcs)] with [isComplete] being a boolean that indicates whether
+    the solutions found cover all the real solutions or not (it might not be the case in case of a timeout). *)
 val mcs :
   'a InputSystem.t ->
   Analysis.param ->
@@ -168,7 +176,7 @@ val mcs :
   bool -> (* Compute them all? *)
   bool -> (* Approximate? *)
   (mcs -> unit) ->
-  mcs list
+  bool * mcs list
 
 val mcs_initial_analysis :
   'a InputSystem.t ->

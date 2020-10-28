@@ -1,0 +1,6 @@
+type E = enum {A, B, C};
+
+node x (a: E) returns (b: enum {A, B, C});
+let
+a = b;
+tel.
