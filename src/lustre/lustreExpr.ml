@@ -1780,15 +1780,15 @@ let eval_to_int expr =
       Term.mk_num
         (Bitvector.bv8_to_num
           (Symbol.bitvector_of_symbol s))
-    | Term.T.Const s when (Type.is_uint16 (Term.type_of_term (Term.mk_const s))) ->
+    | Term.T.Const s when (Type.is_int16 (Term.type_of_term (Term.mk_const s))) ->
       Term.mk_num
         (Bitvector.bv16_to_num
           (Symbol.bitvector_of_symbol s))
-    | Term.T.Const s when (Type.is_uint32 (Term.type_of_term (Term.mk_const s))) ->
+    | Term.T.Const s when (Type.is_int32 (Term.type_of_term (Term.mk_const s))) ->
       Term.mk_num
         (Bitvector.bv32_to_num
           (Symbol.bitvector_of_symbol s))
-    | Term.T.Const s when (Type.is_uint64 (Term.type_of_term (Term.mk_const s))) ->
+    | Term.T.Const s when (Type.is_int64 (Term.type_of_term (Term.mk_const s))) ->
       Term.mk_num
         (Bitvector.bv64_to_num
           (Symbol.bitvector_of_symbol s))
