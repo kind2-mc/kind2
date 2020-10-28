@@ -145,8 +145,14 @@ let status_of_sys () = match ! latest_trans_sys with
   | Some sys -> status_of_trans_sys sys
 
 (** Exit status from an optional [results]. *)
-let status_of_results () =
-  match Anal.results_is_safe !all_results with
+let status_of_results in_sys =
+  let res =
+    let l1 = List.length (ISys.analyzable_subsystems in_sys) in
+    let l2 = Anal.results_size !all_results in
+    if l1 = l2 then Anal.results_is_safe !all_results
+    else None
+  in
+  match res with
   | None ->
     KEvent.log L_note "Result analysis: no safe result" ;
     (* Format.eprintf "NO_SAFE_RES@." ; *)
@@ -230,8 +236,8 @@ let status_of_exn_sys process sys_opt =
   status_of_sys () |> status_of_exn process
 
 (** Status corresponding to an exception based on some results. *)
-let status_of_exn_results process =
-  status_of_results () |> status_of_exn process
+let status_of_exn_results in_sys process =
+  status_of_results in_sys |> status_of_exn process
 
 (** Kill all kids violently. *)
 let slaughter_kids process sys =
@@ -297,9 +303,9 @@ let slaughter_kids process sys =
   Signals.set_sigalrm_timeout_from_flag ()
 
 (** Called after everything has been cleaned up. All kids dead etc. *)
-let post_clean_exit process exn =
+let post_clean_exit in_sys process exn =
   (* Exit status of process depends on exception. *)
-  let status = status_of_exn_results process exn in
+  let status = status_of_exn_results in_sys process exn in
   (* Close tags in XML output. *)
   KEvent.terminate_log () ;
   (* Kill all live solvers. *)
@@ -319,11 +325,11 @@ let post_clean_exit_mcs_analysis process exn =
   exit status
 
 (** Clean up before exit. *)
-let on_exit sys process exn =
+let on_exit in_sys sys process exn =
   try
     slaughter_kids process sys;
-    post_clean_exit process exn
-  with TimeoutWall -> post_clean_exit process TimeoutWall
+    post_clean_exit in_sys process exn
+  with TimeoutWall -> post_clean_exit in_sys process TimeoutWall
 
 
 (** Call cleanup function of process and exit.
@@ -559,7 +565,7 @@ let run in_sys =
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `Supervisor ;
-      KEvent.run_im msg_setup [] (on_exit None `Supervisor) |> ignore ;
+      KEvent.run_im msg_setup [] (on_exit in_sys None `Supervisor) |> ignore ;
       KEvent.log L_debug "Messaging initialized in supervisor." ;
 
       KEvent.set_module `MCS ;
@@ -583,8 +589,8 @@ let run in_sys =
       List.iter run_mcs params ;
       post_clean_exit_mcs_analysis `Supervisor Exit
     ) with
-    | TimeoutWall -> on_exit None `Supervisor TimeoutWall
-    | e -> on_exit None `Supervisor e
+    | TimeoutWall -> on_exit in_sys None `Supervisor TimeoutWall
+    | e -> on_exit in_sys None `Supervisor e
   ) 
 
   (* Some analysis modules. *)
@@ -642,7 +648,7 @@ let run in_sys =
     KEvent.set_module `Supervisor ;
     (* Initialize messaging for invariant manager, obtain a background thread.
     No kids yet. *)
-    KEvent.run_im msg_setup [] (on_exit None `Supervisor) |> ignore ;
+    KEvent.run_im msg_setup [] (on_exit in_sys None `Supervisor) |> ignore ;
     KEvent.log L_debug "Messaging initialized in supervisor." ;
 
     try (
@@ -675,10 +681,10 @@ let run in_sys =
       (* Logging the end of the run. *)
       |> KEvent.log_run_end ;
 
-      post_clean_exit `Supervisor Exit
+      post_clean_exit in_sys `Supervisor Exit
 
     ) with
-    | TimeoutWall -> on_exit None `Supervisor TimeoutWall
+    | TimeoutWall -> on_exit in_sys None `Supervisor TimeoutWall
     | e ->
       (* Get backtrace now, Printf changes it *)
       let backtrace = Printexc.get_raw_backtrace () in
@@ -689,7 +695,7 @@ let run in_sys =
           pp_print_kind_module `Supervisor
           print_backtrace backtrace;
 
-      on_exit None `Supervisor e
+      on_exit in_sys None `Supervisor e
 
 (* 
    Local Variables:

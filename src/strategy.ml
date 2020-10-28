@@ -104,6 +104,9 @@ let get_params results subs_of_scope result =
       Some (sub, abstraction)
   )
 
+let is_candidate_for_analysis { can_refine ; has_modes } =
+  (has_modes && Flags.Contracts.check_modes ()) || can_refine
+
 (* Returns an option of the parameter for the first analysis of a system. *)
 let first_param_of ass results all_nodes scope =
 
@@ -145,8 +148,7 @@ let first_param_of ass results all_nodes scope =
 
   let has_first_analysis =
     try (
-      let { can_refine ; has_modes } = List.assoc scope all_nodes in
-      has_modes || can_refine
+      is_candidate_for_analysis (List.assoc scope all_nodes)
     ) with Not_found ->
       Format.asprintf "Unreachable: could not find info of system %a"
         Scope.pp_print_scope scope

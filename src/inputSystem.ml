@@ -62,6 +62,27 @@ let ordered_scopes_of (type s) : s t -> Scope.t list = function
 
   | Horn subsystem -> assert false
 
+let analyzable_subsystems (type s) : s t -> s SubSystem.t list = function
+  | Lustre (subsystem, _, _) ->
+    if Flags.modular () then (
+      S.all_subsystems subsystem
+      |> List.filter (fun s ->
+        Strategy.is_candidate_for_analysis (S.strategy_info_of s))
+    ) else (
+      [subsystem]
+    )
+
+  | Native subsystem ->
+    if Flags.modular () then (
+      S.all_subsystems subsystem
+      |> List.filter (fun s ->
+        Strategy.is_candidate_for_analysis (S.strategy_info_of s))
+    ) else (
+      [subsystem]
+    )
+
+  | Horn subsystem -> assert false
+
 (* Uid generator for test generation params.
 
 /!\
