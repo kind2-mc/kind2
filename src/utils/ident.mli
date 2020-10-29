@@ -32,7 +32,10 @@ val equal : t -> t -> bool
 val compare : t -> t -> int
 
 (** Set of identifiers *)
-module IdentSet : Set.S with type elt = t
+module IdentSet : sig
+    include (Set.S with type elt = t)
+    val flatten: t list -> t
+end
 
 (** Map of identifiers *)
 module IdentMap : Map.S with type key = t

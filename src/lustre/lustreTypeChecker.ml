@@ -24,6 +24,7 @@
 module R = Res
 
 module LA = LustreAst
+module SI = Ident.IdentSet
 module LH = LustreAstHelpers
 module IC = LustreAstInlineConstants
 open TypeCheckerContext                        
@@ -799,9 +800,9 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
   in
   Log.log L_trace "TC declaration node: %a {" LA.pp_print_ident node_name
 
-  ; let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
-    let ret_ids = LA.SI.of_list (List.map (fun a -> LH.extract_op_ty a |> fst) output_vars) in
-    let common_ids = LA.SI.inter arg_ids ret_ids in
+  ; let arg_ids = SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
+    let ret_ids = SI.of_list (List.map (fun a -> LH.extract_op_ty a |> fst) output_vars) in
+    let common_ids = SI.inter arg_ids ret_ids in
 
     if (SI.is_empty common_ids)
     then
@@ -844,13 +845,13 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
                  (R.guard_with (R.ok (overwite_node_args |> SI.is_empty))
                     (type_error pos ("Argument to nodes cannot be LHS of an equation but found "
                                      ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
-                                         (LA.SI.elements overwite_node_args))))
+                                         (SI.elements overwite_node_args))))
+                 (* Do circularity check on node equations *)
+                 >> AD.analyze_circ_node_equations (ctx.node_summary_ctx) (IMap.keys ctx.vl_ctx) items               
                  >> R.ok (Log.log L_trace "TC declaration node %a done }"
                             LA.pp_print_ident node_name)))
-    else type_error pos ("Input and output parameters cannot have common identifers, 
-                          but found common parameters: " ^
-                           Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
-                             (LA.SI.elements common_ids))
+    else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
+                           Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements common_ids))
 
 and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
   function
@@ -956,7 +957,7 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
     else type_error pos ("Cannot reassign value to a constant or enum but "
                          ^ "found reassignment to identifer(s): "
                          ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
-                             (LA.SI.elements (SI.filter (fun e -> (member_val ctx e)) lhs_vars))))
+                             (SI.elements (SI.filter (fun e -> (member_val ctx e)) lhs_vars))))
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 
@@ -1014,16 +1015,16 @@ and check_contract_node_eqn: LA.SI.t -> tc_context -> LA.contract_node_equation 
         *   ; R.seq_ (List.map (fun (_, _, e) -> check_eqn_no_current_vals node_out_params ctx e) reqs))  *)
       
     | ContractCall (pos, cname, args, rets) ->
-       let arg_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars args) in
-       let intersect_in_illegal = LA.SI.inter node_out_params arg_ids in
-       if (not (LA.SI.is_empty intersect_in_illegal))
+       let arg_ids = List.fold_left (fun a s -> SI.union a s) SI.empty (List.map LH.vars args) in
+       let intersect_in_illegal = SI.inter node_out_params arg_ids in
+       if (not (SI.is_empty intersect_in_illegal))
        then type_error pos
               ("Output stream to node cannot be contract arguments, but found "
-               ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements intersect_in_illegal))
+               ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (SI.elements intersect_in_illegal))
        else
-         let ret_ids = LA.SI.of_list rets in
-         let common_ids = LA.SI.inter arg_ids ret_ids in
-         if (LA.SI.equal common_ids LA.SI.empty)
+         let ret_ids = SI.of_list rets in
+         let common_ids = SI.inter arg_ids ret_ids in
+         if (SI.equal common_ids SI.empty)
          then 
            R.seq(List.map (infer_type_expr ctx) (List.map (fun i -> LA.Ident (pos, i)) rets))
            >>= fun ret_tys ->  
@@ -1045,7 +1046,7 @@ and check_contract_node_eqn: LA.SI.t -> tc_context -> LA.contract_node_equation 
          else type_error pos ("Input and output streams cannot have common identifers, "
                               ^ "but found common parameters: "
                               ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",")
-                                  (LA.SI.elements common_ids)) 
+                                  (SI.elements common_ids)) 
 
 and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_context tc_result 
   = fun ?is_const:(is_const=true) ctx ->
@@ -1326,7 +1327,7 @@ and is_expr_int_type: tc_context -> LA.expr -> bool  = fun ctx e ->
  * while declaring the array type *)
 
 and is_expr_of_consts: tc_context -> LA.expr -> bool = fun ctx e ->
-  List.fold_left (&&) true (List.map (member_val ctx) (LA.SI.elements (LH.vars e)))
+  List.fold_left (&&) true (List.map (member_val ctx) (SI.elements (LH.vars e)))
 (** checks if all the variables in the expression are constants *)
   
 and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> bool tc_result =

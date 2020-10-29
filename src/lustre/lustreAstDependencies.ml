@@ -35,7 +35,7 @@
 module R = Res
 module LA = LustreAst
 module LH = LustreAstHelpers
-module SI = LA.SI
+module SI = Ident.IdentSet
 
 type 'a graph_result = ('a, Lib.position * string) result  
 
@@ -802,7 +802,7 @@ let sort_declarations: LA.t -> LA.t graph_result
  * Type 3. Dependency Analysis of contract equations and node equations *
  ************************************************************************)
 
-let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t = fun m ->
+let rec vars_with_flattened_nodes: (int list) IMap.t -> LA.expr -> SI.t = fun m ->
   function
   | Ident (_ , i) -> SI.singleton i 
   | ModeRef _ -> SI.empty
@@ -901,8 +901,8 @@ let mk_node_summary: node_summary -> LA.node_decl -> node_summary
   let ip_vars = List.map (fun o -> LH.extract_ip_ty o |> fst) ips in
   let node_equations = List.concat (List.map LH.extract_node_equation items) in
   let process_one_eqn = fun (LA.StructDef (_, lhss), e) ->
-    let lhs_vars = LA.SI.elements (LA.SI.flatten (List.map LH.vars_of_struct_item lhss)) in
-    let ms = List.map (Lib.flip IMap.singleton (LA.SI.elements (vars_with_flattened_nodes s e))) lhs_vars in
+    let lhs_vars = SI.elements (SI.flatten (List.map LH.vars_of_struct_item lhss)) in
+    let ms = List.map (Lib.flip IMap.singleton (SI.elements (vars_with_flattened_nodes s e))) lhs_vars in
     List.fold_left (IMap.union (fun k v1 v2 -> Some v2)) IMap.empty ms in
   
   let node_equation_dependency_map = List.fold_left (IMap.union (fun k v1 v2 -> Some v2)) IMap.empty

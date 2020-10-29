@@ -1,0 +1,6 @@
+include "to_include.lus"
+
+node n(x:int) returns (y:int)
+let
+ y = x;
+tel

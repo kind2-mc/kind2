@@ -1,0 +1,4 @@
+node m(x:int) returns (y:int)
+let
+ y = x;
+tel

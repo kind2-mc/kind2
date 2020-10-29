@@ -20,6 +20,7 @@
 
 open LustreAst
 
+module SI = Ident.IdentSet
 (** {1 Helpers} *)
 
 val pos_of_expr : expr -> Lib.position

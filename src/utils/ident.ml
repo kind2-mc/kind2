@@ -63,7 +63,11 @@ end
 
 include Ident
 
-module IdentSet = Set.Make (Ident)
+module IdentSet = struct
+  include Set.Make (Ident)
+  let flatten: t list -> t = fun sets ->
+    List.fold_left union empty sets
+end 
 
 module IdentMap = Map.Make (Ident)
 

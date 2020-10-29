@@ -38,7 +38,7 @@ module S = LustreSimplify
 module G = LustreGlobals
 
 module SVS = StateVar.StateVarSet
-module ISet = Set.Make (String)
+module ISet = Ident.IdentSet
 
 module Deps = LustreDependencies
 
@@ -1968,9 +1968,9 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
       List.fold_left (fun (states, lasts) s ->
           let s, lasts = replace_lasts_state allowed_l name lasts s in
           s :: states, lasts
-        ) ([], A.SI.empty) states in
+        ) ([], ISet.empty) states in
     let states = List.rev states in
-    let lasts = A.SI.elements lasts in
+    let lasts = ISet.elements lasts in
 
     (* Construct new inputs for the handler nodes for values of [last]
        applications on the base clock (i.e. outside the state) *)

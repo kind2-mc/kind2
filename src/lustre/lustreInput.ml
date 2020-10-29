@@ -30,6 +30,8 @@ module LPI = LustreParser.Incremental
 module LL = LustreLexer          
 module LPMI = LustreParser.MenhirInterpreter
 module LPE = LustreParserErrors
+
+module RN = LustreAstRenamer
 module TC = LustreTypeChecker
 module TCContext = TypeCheckerContext
 module IC = LustreAstInlineConstants
@@ -120,7 +122,6 @@ let of_channel in_ch =
      else 
        let tc_res =  
          (Log.log L_note "(Experimental) Typechecking enabled."
-
          (* Step 0. Split program into top level const and type delcs, and node/contract decls *)
          ; let (const_type_decls, node_contract_src) = LH.split_program declarations in
 

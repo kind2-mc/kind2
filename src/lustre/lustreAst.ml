@@ -28,16 +28,6 @@ exception Parser_error
 
 (* An identifier *)
 type ident = string
-
-module SI = struct
-  include (Set.Make (struct
-               type t = ident
-               let compare = Stdlib.compare
-             end))
-  let flatten: t list -> t = fun sets ->
-    List.fold_left union empty sets
-end
-
            
 type index = string
 

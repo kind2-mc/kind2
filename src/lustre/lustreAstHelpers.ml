@@ -19,8 +19,9 @@
 open Lib
 
 open LustreAst
-
-type iset = LustreAst.SI.t
+module SI = Ident.IdentSet
+          
+type iset = Ident.IdentSet.t
           
 let error_at_position pos msg =
   match Log.get_log_format () with

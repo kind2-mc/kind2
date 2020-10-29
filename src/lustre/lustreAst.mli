@@ -48,11 +48,6 @@ exception Parser_error
 (** An identifier *)
 type ident = string
 
-module SI: sig
-  include (Set.S with type elt = ident)
-  val flatten: t list -> t
-end
-
 (** A single index *)
 type index = string
 
