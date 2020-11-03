@@ -9,4 +9,5 @@ odoc compile --pkg=$lib_name index.mld
 # convert page-index.odoc to index.html and resolve links to other webpages
 odoc html ./page-index.odoc -I ../.kind2dev.objs/byte --output $html_path
 # replace all instances of kind2 with lib_name
-sed -i "s/kind2/$lib_name/g" $html_path/index.html
+sed "s/kind2/$lib_name/g" $html_path/index.html > $html_path/index.html_tmp
+mv $html_path/index.html_tmp $html_path/index.html
