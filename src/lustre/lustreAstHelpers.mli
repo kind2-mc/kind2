@@ -113,7 +113,6 @@ val get_last_node_name: declaration list -> ident option
 (** Gets the name of the last node declared in the file. *)
 
 val move_node_to_last: ident -> declaration list -> declaration list
-(** Moves the node with given name to the end of the list *)
 
 val sort_typed_ident: typed_ident list -> typed_ident list
 (** Sort typed identifiers  *)

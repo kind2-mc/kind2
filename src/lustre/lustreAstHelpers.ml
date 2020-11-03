@@ -973,7 +973,6 @@ let move_node_to_last: ident -> declaration list -> declaration list =
   | Some (mn, ds') -> ds' @ [mn]
   | None -> failwith ("Could not find main node " ^ n)
 
-
 let sort_typed_ident: typed_ident list -> typed_ident list = fun ty_idents ->
   List.sort (fun (_,i1,_) (_,i2,_) -> Stdlib.compare i1 i2) ty_idents
 (** Sort identifiers  *)

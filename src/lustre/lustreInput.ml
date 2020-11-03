@@ -31,7 +31,6 @@ module LL = LustreLexer
 module LPMI = LustreParser.MenhirInterpreter
 module LPE = LustreParserErrors
 
-module RN = LustreAstRenamer
 module TC = LustreTypeChecker
 module TCContext = TypeCheckerContext
 module IC = LustreAstInlineConstants

@@ -965,37 +965,50 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
   = fun ctx -> function
   | GhostConst c -> tc_ctx_const_decl ctx c
   | GhostVar c -> tc_ctx_const_decl ~is_const:false ctx c
-  | Assume _ -> R.ok ctx
-  | Guarantee _ -> R.ok ctx
-  | Mode (pos, name, _, _) -> R.ok (add_ty ctx name (Bool pos)) 
+  | LA.Mode (pos, mname, _, _) ->
+     if (member_ty ctx mname)
+     then type_error pos ("Mode " ^ mname ^ " is already declared")
+     else R.ok (add_ty ctx mname (Bool pos))
   | ContractCall (_, cc, _, _) ->
-     match (IMap.find_opt cc ctx.contract_export_ctx) with
-     | None -> failwith ("Cannot find exports for contract " ^ cc)
-     | Some m -> R.ok (List.fold_left (fun c (i, ty) -> add_ty c (cc ^ "::" ^ i) ty) ctx (IMap.bindings m)) 
+     let imported_mode_bindings =
+       (match (IMap.find_opt cc ctx.contract_export_ctx) with
+        | None -> failwith ("Cannot find exports for contract " ^ cc)
+        | Some m -> R.ok (List.fold_left (fun c (i, ty) -> add_ty c (cc ^ "::" ^ i) ty) ctx (IMap.bindings m))) in
+     Log.log L_trace "Adding imported modes to typing context: %a"
+       (Lib.pp_print_list (Lib.pp_print_pair LA.pp_print_ident LA.pp_print_lustre_type ":") ",") imported_mode_bindings 
+     ; R.ok (List.fold_left (fun c (i, ty) -> add_ty c i ty) ctx imported_mode_bindings)
+  | _ -> R.ok ctx
 
-and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_result
-  = fun ctx (cname, params, args, rets, contract) ->
-  let node_out_params = LA.SI.of_list (List.map (fun ret -> LH.extract_op_ty ret |> fst) rets) in
-  Log.log L_trace "TC Contract Decl: %a {" LA.pp_print_ident cname 
+  
+and check_type_contract_decl: ?node_out_params: SI.t -> tc_context -> LA.contract_node_decl -> unit tc_result
+  = fun ?node_out_params:(node_out_params = SI.empty) ctx (cname, params, args, rets, contract) ->
+  Log.log L_trace "TC Contract decl: %a {" LA.pp_print_ident cname 
   (* build the appropriate local context *)
   ; let arg_ctx = List.fold_left union ctx (List.map extract_arg_ctx args) in
     let ret_ctx = List.fold_left union arg_ctx (List.map extract_ret_ctx rets) in
     let local_const_ctx = List.fold_left union ret_ctx (List.map extract_consts args) in
     (* get the local const var declarations into the context *)
-    R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract)
+    R.seq (List.map (tc_ctx_contract_node_eqn local_const_ctx) contract)
     >>= fun ctxs ->
     let local_ctx = List.fold_left union local_const_ctx ctxs in
     Log.log L_trace "Local Typing Context {%a}" pp_print_tc_context local_ctx
     ; check_type_contract node_out_params local_ctx contract
       >> R.ok (Log.log L_trace "TC Contract Decl %a done }" LA.pp_print_ident cname)
 
-and check_type_contract: LA.SI.t -> tc_context -> LA.contract -> unit tc_result
-  = fun node_out_params ctx eqns ->
-  R.seq_ (List.map (check_contract_node_eqn node_out_params ctx) eqns)
-    (* >> AD.analyze_circ_contract_equations (get_node_summary ctx) eqns *)
-  
-and check_contract_node_eqn: LA.SI.t -> tc_context -> LA.contract_node_equation -> unit tc_result
-  = fun node_out_params ctx eqn ->
+and check_type_contract: ?node_out_params: SI.t -> tc_context -> LA.contract -> unit tc_result
+  = fun ?node_out_params:(node_out_params = SI.empty) ctx eqns ->
+  (* if there are imports bring the modes defined in the imports into scope *)
+  let cs = LH.get_contract_imports eqns in
+  let new_bindings = List.flatten (List.map (fun c -> match (IMap.find_opt c ctx.contract_modes_ctx) with
+                                         | None -> failwith ("cannot find imports for contract name" ^ c)
+                                         | Some bs -> bs) cs) in
+  let new_ctx = List.fold_left (fun c (i, ty) -> add_ty c i ty) ctx new_bindings in
+  Log.log L_trace "checking contract with local context: %a" pp_print_tc_context new_ctx
+  ; R.seq_ (List.map (check_contract_node_eqn ~node_out_params:node_out_params new_ctx) eqns)
+    >> AD.analyze_circ_contract_equations ctx.node_summary_ctx eqns
+
+and check_contract_node_eqn: ?node_out_params: SI.t -> tc_context -> LA.contract_node_equation -> unit tc_result
+  = fun ?node_out_params:(node_out_params = SI.empty) ctx eqn ->
   Log.log L_trace "Checking contract equation: %a" LA.pp_print_contract_item eqn 
   ; match eqn with
     | GhostConst _
@@ -1121,21 +1134,6 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_contex
     else build_node_fun_ty pos ctx ip op >>= fun fun_ty ->
          R.ok (add_ty ctx nname fun_ty)
 (** computes the type signature of node or a function and its node summary*)
-
-and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_context tc_result
-  = fun ctx ->
-  function
-  | LA.GhostConst c -> tc_ctx_const_decl ctx c
-  | LA.GhostVar c -> tc_ctx_const_decl ~is_const:false ctx c
-  | LA.Mode (pos, mname, _, _) ->
-     if (member_ty ctx mname)
-     then type_error pos ("Mode " ^ mname ^ " is already declared")
-     else R.ok (add_ty ctx mname (Bool pos))
-  | LA.ContractCall (p, cc, _, _) ->
-     (match (IMap.find_opt cc ctx.contract_export_ctx) with
-      | None -> type_error p ("Cannot find contract " ^ cc)
-      | Some m -> R.ok (List.fold_left (fun c (i, ty) -> add_ty c (cc ^ "::" ^ i) ty) ctx (IMap.bindings m))) 
-  | _ -> R.ok ctx
                          
 and tc_ctx_of_contract: tc_context -> LA.contract -> tc_context tc_result
   = fun ctx con -> R.seq_chain (tc_ctx_contract_node_eqn) ctx con
@@ -1184,8 +1182,16 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
   ; if (member_contract ctx cname)
     then type_error pos ("Contract " ^ cname ^ " is already declared.")
     else build_node_fun_ty pos ctx inputs outputs >>= fun fun_ty ->
-         extract_exports cname ctx contract >>= fun export_ctx  ->  
-         R.ok (add_ty_contract (union ctx export_ctx) cname fun_ty)
+         R.ok (add_ty_contract ctx cname fun_ty) >>= fun ctx ->
+         (* get all the modes defined in the contract with their scopes *)
+         let ms = LH.modes_defined_in contract in
+         let mode_bindings = List.map (fun m -> (("::" ^ cname ^ "::" ^ m),  (LA.Bool pos))) ms in
+         let imported_contracts = LH.get_contract_imports contract in
+         let imported_mode_bindings =
+           List.flatten (List.map (fun c -> match (IMap.find_opt c ctx.contract_modes_ctx) with
+                                            | None -> failwith ("cannot find imports for contract name" ^ c)
+                                            | Some bs -> bs) imported_contracts) in
+         R.ok ({ctx with  contract_modes_ctx = IMap.add cname (mode_bindings @ imported_mode_bindings) ctx.contract_modes_ctx})
 
 and tc_ctx_of_declaration: tc_context -> LA.declaration -> tc_context tc_result
     = fun ctx' ->
