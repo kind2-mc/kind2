@@ -15,6 +15,18 @@ let rec repeat_bit (b : bool) (n : int) : t =
  | 0 -> []
  | n -> b :: repeat_bit b (n - 1)
 
+(* Bit-vector representing decimal 0 *)
+let zero (len : int) : t = 
+  repeat_bit false len
+
+(* Bit-vector representing decimal 1 *)
+let one (len : int) : t = 
+  (repeat_bit false (len - 1)) @ [true]
+
+(* Bit-vector representing hexadecimal F - all bit's are 1 *)
+let f (len : int) : t =
+  repeat_bit true len
+
 (* Function that extracts m down to n from the input bitvector *)
 let rec bvextract (m : int) (n : int) (b : t) : t =
   let b_rev = (List.rev b) in
@@ -146,6 +158,7 @@ let ubv64_to_num = ubv_to_num' (Numeral.of_int 64)
 numeral fit into the range.For example, for 4-bit signed integers, 
 input -9, 16 (2^4), and output 7 *)
 let signed_modulo (n : Numeral.t) (range_size : Numeral.t) : Numeral.t = 
+  (* a range of n in signed integers runs from -n/2 to (n/2-1) *)
   let neg_lim = Numeral.neg (Numeral.div range_size (Numeral.of_int 2)) in
   let pos_lim = Numeral.sub (Numeral.div range_size (Numeral.of_int 2)) Numeral.one in 
     if (Numeral.lt n neg_lim) then

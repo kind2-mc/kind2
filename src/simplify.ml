@@ -606,6 +606,38 @@ let times = function
   | _ -> assert false
 
 
+(* Sum up a list of bit-vectors *)
+let bv_add args =
+  let args'' = List.map term_of_nf args in
+  let args' = List.map Term.bitvector_of_term args'' in
+  let len = Bitvector.length_of_bitvector (List.hd args') in
+  let sum = List.fold_left (Bitvector.ubv_add) (Bitvector.zero len) args' in
+  BV (Term.mk_bv sum)
+
+
+(* Subtract a list of bit-vectors *)
+let bv_sub args = 
+  if ((List.length args) = 1) then
+    (let bv = (Term.bitvector_of_term (term_of_nf (List.hd args))) in
+     BV (Term.mk_bv (Bitvector.sbv_neg bv)))
+  else
+    (let args'' = List.map term_of_nf args in
+     let args' = List.map Term.bitvector_of_term args'' in
+     let len = Bitvector.length_of_bitvector (List.hd args') in
+     let x = List.hd args' in
+     let y = List.fold_left (Bitvector.ubv_add) (Bitvector.zero len) (List.tl args') in
+     BV (Term.mk_bv (Bitvector.sbv_sub x y)))
+
+
+(* Find the product of a list of bit-vectors *)
+let bv_mult args =
+  let args'' = List.map term_of_nf args in
+  let args' = List.map Term.bitvector_of_term args'' in
+  let len = Bitvector.length_of_bitvector (List.hd args') in
+  let prod = List.fold_left (Bitvector.ubv_mult) (Bitvector.one len) args' in
+  BV (Term.mk_bv prod)
+
+
 (* Flatten nested associative Boolean operators by lifting the
    subterms of a nested operator as subterms of the top operator: 
    (a & (b & c)) becomes (a & b & c)
@@ -2342,26 +2374,17 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `BVADD ->
             (match args with
               | [] -> assert false
-              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.sbv_add
-                                                  (Term.bitvector_of_term a)
-                                                  (Term.bitvector_of_term b)))
-              | _ -> assert false)
+              | args -> bv_add args)
 
           | `BVSUB ->
             (match args with
               | [] -> assert false
-              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.sbv_sub
-                                                  (Term.bitvector_of_term a)
-                                                  (Term.bitvector_of_term b)))
-              | _ -> assert false)
+              | args -> bv_sub args)
 
           | `BVMUL ->
             (match args with
               | [] -> assert false
-              | [BV a; BV b] -> BV (Term.mk_ubv (Bitvector.sbv_mult
-                                                  (Term.bitvector_of_term a)
-                                                  (Term.bitvector_of_term b)))              
-              | _ -> assert false)
+              | args -> bv_mult args)
 
           | `BVUDIV ->
             (match args with
