@@ -588,12 +588,12 @@ let pp_print_decimal_approximation fmt dec =
           let delta = sub value appro in
           let alpha = div delta appro in
           let p = magnitude alpha in
+          let sr = if s >= 0 then "" else "-" in
           if p = 0 then
-            Format.pp_print_string fmt approx
+            Format.fprintf fmt "%s%s" sr approx
           else
-            let sr = if s >= 0 then '+' else '-' in
             let se = if (sign delta >= 0) = (s >= 0) then '+' else '-' in
-            Format.fprintf fmt "%c%s@{<black_b>%cf%d@}" sr approx se (-p)
+            Format.fprintf fmt "%s%s@{<black_b>%cf%d@}" sr approx se (-p)
       with _ -> (* Fallback *) pp_print_decimal fmt dec
                                  
 (* ********************************************************************** *)
