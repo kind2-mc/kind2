@@ -149,54 +149,51 @@ let of_channel in_ch =
            (* reverse the list and find the name of the first node declaration from the original list *)
            let last_node = LH.get_last_node_name (declarations) in
            (match last_node with
-           | None -> Res.ok (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts)
-           | Some ln ->
-              Log.log L_trace "last node is: %a"  LA.pp_print_ident ln 
-             ; Res.ok (const_inlined_type_and_consts
-                                @ LH.move_node_to_last ln (const_inlined_nodes_and_contracts))) 
+            | None -> Res.ok (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts)
+            | Some ln ->
+               Log.log L_trace "last node is: %a"  LA.pp_print_ident ln 
+              ; Res.ok (const_inlined_type_and_consts
+                        @ LH.move_node_to_last ln (const_inlined_nodes_and_contracts))) 
          ) in
        match tc_res with
        | Ok d -> Log.log L_note "Type checking done"
                ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_program d
-               ; d  
+               ;   (if Flags.only_tc () then exit 0); d  
        | Error (pos, err) -> LC.fail_at_position pos err in 
-
-  (if Flags.only_tc () then exit 0)
-
   
   (* Simplify declarations to a list of nodes *)
-  ; let nodes, globals = LD.declarations_to_nodes declarations' in
-    (* Name of main node *)
-    let main_node = 
-      (* Command-line flag for main node given? *)
-      match Flags.lus_main () with 
-      (* Use given identifier to choose main node *)
-      | Some s -> LustreIdent.mk_string_ident s
-      (* No main node name given on command-line *)
-      | None -> 
-         (try 
-            (* Find main node by annotation, or take last node as
+  let nodes, globals = LD.declarations_to_nodes declarations' in
+  (* Name of main node *)
+  let main_node = 
+    (* Command-line flag for main node given? *)
+    match Flags.lus_main () with 
+    (* Use given identifier to choose main node *)
+    | Some s -> LustreIdent.mk_string_ident s
+    (* No main node name given on command-line *)
+    | None -> 
+       (try 
+          (* Find main node by annotation, or take last node as
               main *)
-            LustreNode.find_main nodes 
-          (* No main node found
+          LustreNode.find_main nodes 
+        (* No main node found
             This only happens when there are no nodes in the input. *)
-          with Not_found -> 
-            raise (NoMainNode "No main node defined in input"))
-    in
-    (* Put main node at the head of the list of nodes *)
-    let nodes' = 
-      try 
-        (* Get main node by name and copy it at the head of the list of
+        with Not_found -> 
+          raise (NoMainNode "No main node defined in input"))
+  in
+  (* Put main node at the head of the list of nodes *)
+  let nodes' = 
+    try 
+      (* Get main node by name and copy it at the head of the list of
          nodes *)
-        LN.node_of_name main_node nodes :: nodes
-      with Not_found -> 
-        (* Node with name of main not found 
+      LN.node_of_name main_node nodes :: nodes
+    with Not_found -> 
+      (* Node with name of main not found 
          This can only happens when the name is passed as command-line
          argument *)
-        raise (NoMainNode "Main node not found in input")
-    in
-    (* Return a subsystem tree from the list of nodes *)
-    LN.subsystem_of_nodes nodes', globals, declarations
+      raise (NoMainNode "Main node not found in input")
+  in
+  (* Return a subsystem tree from the list of nodes *)
+  LN.subsystem_of_nodes nodes', globals, declarations
 
 (* Returns the AST from a file. *)
 let ast_of_file filename =

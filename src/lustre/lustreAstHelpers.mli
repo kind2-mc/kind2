@@ -91,5 +91,6 @@ val extract_node_equation: node_item -> (eq_lhs * expr) list
 val get_last_node_name: declaration list -> ident option
 
 val move_node_to_last: ident -> declaration list -> declaration list
-                                   
+
+val group_contract_eqns: contract -> (contract * contract * contract * contract)
                                           

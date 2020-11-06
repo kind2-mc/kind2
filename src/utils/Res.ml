@@ -67,7 +67,7 @@ let safe_unwrap: 'a -> ('a, 'e) result -> 'a =
   fun d -> function
         | Ok v -> v
         | _ -> d
-
+             
 (** Unwraps a result. *)
 let unwrap = function
   | Ok arg -> arg
