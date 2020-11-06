@@ -19,20 +19,14 @@
   
      @author Apoorv Ingle *)
 module LA = LustreAst
-module SI = LA.SI
 module LH = LustreAstHelpers          
-
+module QId = LustreAstIdent
+module QISet = QId.IdentSet
+             
 type tc_type  = LA.lustre_type
 (** Type alias for lustre type from LustreAst  *)
 
-module IMap = struct
-  (* everything that [Stdlib.Map] gives us  *)
-  include Map.Make(struct
-              type t = LA.ident
-              let compare i1 i2 = Stdlib.compare i1 i2
-            end)
-  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
-end
+module IMap = QId.IdentMap
 (** Map for types with identifiers as keys *)
 
 
@@ -47,7 +41,7 @@ type const_store = (LA.expr * tc_type) IMap.t
  *  The values of the associated identifiers should be evaluated to a 
  *  Bool or an Int at constant propogation phase of type checking *)
 
-type ty_set = SI.t
+type ty_set = QISet.t
 (** set of valid user type identifiers *)
 
 type contract_exports = (ty_store) IMap.t
@@ -69,7 +63,7 @@ let empty_tc_context: tc_context =
   ; ty_ctx = IMap.empty
   ; contract_ctx = IMap.empty
   ; vl_ctx = IMap.empty
-  ; u_types = SI.empty
+  ; u_types = QISet.empty
   ; contract_export_ctx = IMap.empty
   }
 (** The empty context with no information *)
@@ -91,7 +85,7 @@ let member_contract: tc_context -> LA.ident -> bool
 (** Checks if the contract name is previously seen   *)
 
 let member_u_types : tc_context -> LA.ident -> bool
-  = fun ctx i -> SI.mem i ctx.u_types
+  = fun ctx i -> QISet.mem i ctx.u_types
 (** Checks of the type identifier is a user defined type *)
 
 let member_val: tc_context -> LA.ident -> bool
@@ -144,7 +138,7 @@ let add_ty_contract: tc_context -> LA.ident -> tc_type -> tc_context
 (**  Add the type of the contract *)
 
 let add_ty_decl: tc_context -> LA.ident -> tc_context
-  = fun ctx i -> {ctx with u_types = SI.add i (ctx.u_types)}
+  = fun ctx i -> {ctx with u_types = QISet.add i (ctx.u_types)}
 (** Add a user declared type in the typing context *)
 
 let remove_ty: tc_context -> LA.ident -> tc_context
@@ -168,7 +162,7 @@ let union: tc_context -> tc_context -> tc_context
                      ; vl_ctx = (IMap.union (fun k v1 v2 -> Some v2)
                                    (ctx1.vl_ctx)
                                    (ctx2.vl_ctx))
-                     ; u_types = SI.union ctx1.u_types ctx2.u_types
+                     ; u_types = QISet.union ctx1.u_types ctx2.u_types
                      ; contract_export_ctx = (IMap.union (fun k v1 v2 -> Some v2)
                                                 (ctx1.contract_export_ctx)
                                                 (ctx2.contract_export_ctx))
@@ -232,8 +226,8 @@ let pp_print_vstore: Format.formatter -> const_store -> unit
   = fun  ppf m -> Lib.pp_print_list (fun ppf (i, (e, ty)) -> pp_print_val_binding ppf (i, (e, ty)))  ", " ppf (IMap.bindings m)
 (** Pretty print value store *)
 
-let pp_print_u_types: Format.formatter -> SI.t -> unit
-  = fun ppf m -> Lib.pp_print_list LA.pp_print_ident ", " ppf (SI.elements m)
+let pp_print_u_types: Format.formatter -> QISet.t -> unit
+  = fun ppf m -> Lib.pp_print_list LA.pp_print_ident ", " ppf (QISet.elements m)
 (** Pretty print declared user types *)
 
 let pp_print_contract_exports: Format.formatter -> contract_exports -> unit

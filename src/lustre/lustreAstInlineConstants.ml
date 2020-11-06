@@ -25,6 +25,7 @@ exception Out_of_bounds of (Lib.position * string)
 module TC = TypeCheckerContext
 module LA = LustreAst
 module LH = LustreAstHelpers
+module QId = LustreAstIdent
 
 module R = Res
 let (>>=) = R.(>>=)
@@ -78,10 +79,10 @@ let rec eval_int_expr: tc_context -> LA.expr -> int inline_result = fun ctx ->
                | LA.Ident (_, i') as e ->
                   if Stdlib.compare i i' = 0
                   then inline_error pos ("Cannot evaluate a free int const "
-                                       ^ i ^ ".")
+                                       ^ QId.to_string i ^ ".")
                   else eval_int_expr ctx e 
                | _ -> eval_int_expr ctx const_expr)
-      | None -> inline_error pos ("Not a constant identifier" ^ i))  
+      | None -> inline_error pos ("Not a constant identifier" ^ QId.to_string i))  
   | LA.Const _ as c -> int_value_of_const c
   | LA.BinaryOp (pos, bop, e1, e2) -> eval_int_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_int_ternary_op ctx pos top e1 e2 e3
@@ -114,10 +115,10 @@ and eval_bool_expr: tc_context -> LA.expr -> bool inline_result = fun ctx ->
                | LA.Ident (_, i') as e ->
                   if (Stdlib.compare i i' = 0)
                   then inline_error pos ("Cannot evaluate a free bool const "
-                                       ^ i ^ ".")
+                                       ^ QId.to_string i ^ ".")
                   else eval_bool_expr ctx e 
                | _ ->  eval_bool_expr ctx const_expr)
-      | None -> inline_error pos ("Not a constant cannot evaluate identifier " ^ i))
+      | None -> inline_error pos ("Not a constant cannot evaluate identifier " ^ QId.to_string i))
   | LA.Const _ as c -> bool_value_of_const c
   | LA.BinaryOp (pos, bop, e1, e2) -> eval_bool_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_bool_ternary_op ctx pos top e1 e2 e3

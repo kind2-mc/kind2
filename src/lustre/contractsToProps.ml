@@ -19,6 +19,7 @@
 open Lib
 
 module Ast = LustreAst
+module QId = LustreAstIdent
            
 let blah txt pos = Format.asprintf "%s at %a" txt pp_print_pos pos
 let blah_opt txt name pos =
@@ -78,7 +79,7 @@ let rec collect_contracts (locals, asserts, props) = function
               blah
                 (Format.sprintf "%s from mode %s"
                   (blah_opt "Ensure" e_name e_pos)
-                  name
+                  (QId.to_string name)
                 )
                 pos,
               reqs,

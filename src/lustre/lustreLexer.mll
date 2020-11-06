@@ -334,7 +334,10 @@ let keyword_table = mk_hashtbl [
    C syntax: alphanumeric characters including the underscore, starting 
    with a letter or the underscore *)
 let id = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
-         
+
+let qual_id = id (':' ':' id)*
+(* a qualified id is an id or id::qual_id *)
+                
 (* Keep these separated from alphabetic characters, otherwise a->b would 
    be one token *)
 let printable = ['+' '-' '*' '/' '>' '<' '=' ]+
@@ -497,12 +500,12 @@ rule token = parse
   | hex_dec2 as p { DECIMAL p }
 
   (* Keyword *)
-  | id as p {
+  | qual_id as p {
     try Hashtbl.find keyword_table p with Not_found -> (SYM p)
   }
 
   (* Identifier with quote, throw quote away *)
-  | '\'' (id as p) { QUOTSYM p }
+  | '\'' (qual_id as p) { QUOTSYM p }
 
   (* Whitespace *)
   | whitespace { token lexbuf }

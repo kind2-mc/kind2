@@ -19,10 +19,11 @@
 open Lib
 
 open LustreAst
-module SI = Ident.IdentSet
+module QId = LustreAstIdent
+module QISet = QId.IdentSet
           
-type iset = Ident.IdentSet.t
-          
+type qiset = QISet.t
+           
 let error_at_position pos msg =
   match Log.get_log_format () with
   | Log.F_pt ->
@@ -298,7 +299,7 @@ let rec lasts_of_expr acc = function
 
   | Pre (pos, e) -> lasts_of_expr acc e
                       
-  | Last (pos, i) -> SI.add i acc
+  | Last (pos, i) -> QISet.add i acc
 
   | Arrow (pos, e1, e2) ->
     lasts_of_expr (lasts_of_expr acc e1) e2
@@ -506,8 +507,8 @@ let rec replace_lasts allowed prefix acc ee = match ee with
     if not (List.mem i allowed) then
       error_at_position pos
         "Only visible variables in the node are allowed under last";
-    let acc = SI.add i acc in
-    Ident (pos, prefix ^ ".last." ^ i), acc
+    let acc = QISet.add i acc in
+    Ident (pos, QId.add_prefix (prefix ^ ".last.") i), acc
 
   | Arrow (pos, e1, e2) ->
     let e1', acc' = replace_lasts allowed prefix acc e1 in
@@ -593,66 +594,66 @@ let contract_has_pre_or_arrow l =
   |> some_of_list
 
 (** returns all identifiers from the [expr] ast*)
-let rec vars: expr -> iset = function
-  | Ident (_, i) -> SI.singleton i
-  | ModeRef (_, is) -> SI.of_list is
+let rec vars: expr -> qiset = function
+  | Ident (_, i) -> QISet.singleton  i
+  | ModeRef (_, is) -> QISet.singleton (QId.from_list (List.map QId.to_string is))
   | RecordProject (_, e, _) -> vars e 
   | TupleProject (_, e, _) -> vars e
   (* Values *)
-  | Const _ -> SI.empty
+  | Const _ -> QISet.empty
   (* Operators *)
   | UnaryOp (_,_,e) -> vars e
-  | BinaryOp (_,_,e1, e2) -> vars e1 |> SI.union (vars e2)
-  | TernaryOp (_,_, e1, e2, e3) -> vars e1 |> SI.union (vars e2) |> SI.union (vars e3) 
-  | NArityOp (_, _,es) -> SI.flatten (List.map vars es)
+  | BinaryOp (_,_,e1, e2) -> vars e1 |> QISet.union (vars e2)
+  | TernaryOp (_,_, e1, e2, e3) -> vars e1 |> QISet.union (vars e2) |> QISet.union (vars e3) 
+  | NArityOp (_, _,es) -> QISet.flatten (List.map vars es)
   | ConvOp  (_,_,e) -> vars e
-  | CompOp (_,_,e1, e2) -> (vars e1) |> SI.union (vars e2)
+  | CompOp (_,_,e1, e2) -> (vars e1) |> QISet.union (vars e2)
   (* Structured expressions *)
-  | RecordExpr (_, _, flds) -> SI.flatten (List.map vars (snd (List.split flds)))
-  | GroupExpr (_, _, es) -> SI.flatten (List.map vars es)
+  | RecordExpr (_, _, flds) -> QISet.flatten (List.map vars (snd (List.split flds)))
+  | GroupExpr (_, _, es) -> QISet.flatten (List.map vars es)
   (* Update of structured expressions *)
-   | StructUpdate (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
-   | ArrayConstr (_, e1, e2) -> SI.union (vars e1) (vars e2)
-   | ArrayIndex (_, e1, e2) -> SI.union (vars e1) (vars e2)
-   | ArraySlice (_, e1, (e2, e3)) -> SI.union (vars e3) (SI.union (vars e1) (vars e2))
-   | ArrayConcat (_, e1, e2) -> SI.union (vars e1) (vars e2)
+   | StructUpdate (_, e1, _, e2) -> QISet.union (vars e1) (vars e2)
+   | ArrayConstr (_, e1, e2) -> QISet.union (vars e1) (vars e2)
+   | ArrayIndex (_, e1, e2) -> QISet.union (vars e1) (vars e2)
+   | ArraySlice (_, e1, (e2, e3)) -> QISet.union (vars e3) (QISet.union (vars e1) (vars e2))
+   | ArrayConcat (_, e1, e2) -> QISet.union (vars e1) (vars e2)
   (* Quantified expressions *)
-   | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map vars_of_ty_ids qs)) 
+   | Quantifier (_, _, qs, e) -> QISet.diff (vars e) (QISet.of_list (List.map var_of_ty_id qs)) 
   (* Clock operators *)
-  | When (_, e, clkE) -> SI.union (vars e) (vars_of_clocl_expr clkE)
+  | When (_, e, clkE) -> QISet.union (vars e) (vars_of_clocl_expr clkE)
   | Current  (_, e) -> vars e
   | Condact (_, e1, e2, i, es1, es2) ->
-     SI.add i (SI.flatten (vars e1 :: vars e2:: (List.map vars es1) @ (List.map vars es2)))
-  | Activate (_, _, e1, e2, es) -> SI.flatten (vars e1 :: vars e2 :: List.map vars es)
-  | Merge (_, _, es) -> List.split es |> snd |> List.map vars |> SI.flatten
-  | RestartEvery (_, i, es, e) -> SI.add i (SI.flatten (vars e :: List.map vars es)) 
+     QISet.add i (QISet.flatten (vars e1 :: vars e2:: (List.map vars es1) @ (List.map vars es2)))
+  | Activate (_, _, e1, e2, es) -> QISet.flatten (vars e1 :: vars e2 :: List.map vars es)
+  | Merge (_, _, es) -> List.split es |> snd |> List.map vars |> QISet.flatten
+  | RestartEvery (_, i, es, e) -> QISet.add i (QISet.flatten (vars e :: List.map vars es)) 
   (* Temporal operators *)
   | Pre (_, e) -> vars e
-  | Last (_, i) -> SI.singleton i
-  | Fby (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
-  | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
+  | Last (_, i) -> QISet.singleton i
+  | Fby (_, e1, _, e2) -> QISet.union (vars e1) (vars e2)
+  | Arrow (_, e1, e2) ->  QISet.union (vars e1) (vars e2)
   (* Node calls *)
-  | Call (_, i, es) -> SI.add i (SI.flatten (List.map vars es)) 
-  | CallParam (_, i, _, es) -> SI.add i (SI.flatten (List.map vars es))
-and vars_of_ty_ids: typed_ident -> iset = fun (_, i, ty) -> SI.singleton i 
+  | Call (_, i, es) -> QISet.add i (QISet.flatten (List.map vars es)) 
+  | CallParam (_, i, _, es) -> QISet.add i (QISet.flatten (List.map vars es))
+and var_of_ty_id: typed_ident -> QId.t = fun (_, i, ty) -> i
 
-and vars_of_clocl_expr: clock_expr -> iset = function
-  | ClockTrue -> SI.empty
-  | ClockPos i -> SI.singleton i
-  | ClockNeg i -> SI.singleton i
-  | ClockConstr (i1, i2) -> SI.of_list [i1; i2]
+and vars_of_clocl_expr: clock_expr -> qiset = function
+  | ClockTrue -> QISet.empty
+  | ClockPos i -> QISet.singleton i
+  | ClockNeg i -> QISet.singleton i
+  | ClockConstr (i1, i2) -> QISet.of_list [i1; i2]
 
-let rec vars_of_struct_item: struct_item -> iset = function
-  | SingleIdent (_, i) -> SI.singleton i
-  | TupleStructItem (pos, ts) -> SI.flatten (List.map vars_of_struct_item ts)  
+let rec vars_of_struct_item: struct_item -> qiset = function
+  | SingleIdent (_, i) -> QISet.singleton i
+  | TupleStructItem (pos, ts) -> QISet.flatten (List.map vars_of_struct_item ts)  
   | TupleSelection (_, i, _)
     | FieldSelection (_, i, _)
     | ArraySliceStructItem (_, i, _)
-    | ArrayDef (_, i, _) -> SI.singleton i 
+    | ArrayDef (_, i, _) -> QISet.singleton i
 
-let vars_lhs_of_eqn: node_item -> iset = function
-  | Body (Equation (_, StructDef (_, ss), _)) -> SI.flatten (List.map vars_of_struct_item ss)
-  | _ -> SI.empty
+let vars_lhs_of_eqn: node_item -> qiset = function
+  | Body (Equation (_, StructDef (_, ss), _)) -> QISet.flatten (List.map vars_of_struct_item ss)
+  | _ -> QISet.empty
 
 
 let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
@@ -971,7 +972,7 @@ let move_node_to_last: ident -> declaration list -> declaration list =
   fun n ds ->
   match (remove_node_in_declarations n [] ds) with
   | Some (mn, ds') -> ds' @ [mn]
-  | None -> failwith ("Could not find main node " ^ n)
+  | None -> failwith ("Could not find main node " ^ QId.to_string n)
 
 let sort_typed_ident: typed_ident list -> typed_ident list = fun ty_idents ->
   List.sort (fun (_,i1,_) (_,i2,_) -> Stdlib.compare i1 i2) ty_idents
@@ -980,4 +981,3 @@ let sort_typed_ident: typed_ident list -> typed_ident list = fun ty_idents ->
 let sort_idents: ident list -> ident list = fun ids ->
   List.sort (fun i1 i2 -> Stdlib.compare i1 i2) ids
 (** sort typed identifiers *)
-      

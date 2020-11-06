@@ -39,14 +39,14 @@
     @author Christoph Sticksel *)
 
 open Lib
-
+module QId = LustreAstIdent
 (** Error while parsing *)
 exception Parser_error
 
 (** {1 Types} *)
 
 (** An identifier *)
-type ident = string
+type ident = QId.t
 
 (** A single index *)
 type index = string

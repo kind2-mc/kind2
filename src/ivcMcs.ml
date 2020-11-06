@@ -31,13 +31,9 @@ module PosSet = Set.Make(Position)
 
 module A = LustreAst
 module H = LustreAstHelpers
-
-module AstID = struct
-  type t = A.ident
-  let compare = compare
-end
-
-module IdMap = Map.Make(AstID)
+module QId = LustreAstIdent
+           
+module IdMap = Ident.IdentMap
 
 type 'a result =
 | Solution of 'a
@@ -125,7 +121,7 @@ let counter =
   (fun () -> last := !last + 1 ; !last)
 
 let dpos = Lib.dummy_pos
-let rand_fun_ident nb = "__rand"^(string_of_int nb)
+let rand_fun_ident nb = QId.from_string ("__rand"^(string_of_int nb))
 let new_rand_fun_ident () = rand_fun_ident (counter ())
 
 let max_nb_args = ref 0
@@ -168,7 +164,7 @@ let rand_function_name_for _ ts =
 let undef_expr pos_sv_map const_expr typ expr =
   let pos = H.pos_of_expr expr in
   match pos_sv_map with
-  | None -> A.Ident (pos, "_")
+  | None -> A.Ident (pos, QId.from_string "_")
   | Some pos_sv_map ->
     if const_expr then expr (* a call to __rand is not a valid constant expression *)
     else
@@ -200,11 +196,11 @@ let parametric_rand_node nb_outputs =
   let ts = aux "t" [] nb_outputs in
   let outs = aux "out" [] nb_outputs
   |> List.map2 (fun t out ->
-    dpos,out,A.UserType (dpos, t),A.ClockTrue) ts
+    dpos, QId.from_string out, A.UserType (dpos, QId.from_string t), A.ClockTrue) ts
   in
-  let ts = List.map (fun str -> A.TypeParam str) ts in
+  let ts = List.map (fun str -> A.TypeParam (QId.from_string str)) ts in
   A.NodeDecl (dpos,
-    (rand_fun_ident nb_outputs, true, ts, [dpos,"id",A.Int dpos,A.ClockTrue, false],
+    (rand_fun_ident nb_outputs, true, ts, [dpos, QId.from_string "id" ,A.Int dpos,A.ClockTrue, false],
     outs, [], [], None)
   )
 
@@ -215,14 +211,14 @@ let rand_node name ts =
     | n -> aux prefix ((prefix^(string_of_int (counter ())))::acc) (n-1)
   in
   let outs = aux "out" [] (List.length ts)
-  |> List.map2 (fun t out -> dpos,out,t,A.ClockTrue) ts
+  |> List.map2 (fun t out -> dpos,QId.from_string out, t , A.ClockTrue) ts
   in
   A.NodeDecl (dpos,
-    (name, true, [], [dpos,"id",A.Int dpos,A.ClockTrue, false],
+    (name, true, [], [dpos, QId.from_string "id", A.Int dpos, A.ClockTrue, false],
     outs, [], [], None)
   )
 
-let nodes_input_types = Hashtbl.create 10
+let nodes_input_types:(A.ident, A.lustre_type list) Hashtbl.t = Hashtbl.create 10
 let rec minimize_node_call_args ue lst expr =
   let minimize_arg ident i arg =
     match arg with
@@ -320,8 +316,8 @@ and minimize_expr ue lst typ expr =
 let tyof_lhs id_typ_map lhs =
   let A.StructDef (pos, items) = lhs in
   let aux = function
-  | A.SingleIdent (_,id) as e -> [e, IdMap.find id id_typ_map]
-  | A.ArrayDef (pos,id,_) -> [A.SingleIdent (pos,id), IdMap.find id id_typ_map]
+  | A.SingleIdent (_,id) as e -> [e, IdMap.find (QId.to_string id) id_typ_map]
+  | A.ArrayDef (pos,id,_) -> [A.SingleIdent (pos,id), IdMap.find (QId.to_string id) id_typ_map]
   | A.TupleStructItem _ | A.ArraySliceStructItem _ | A.FieldSelection _ | A.TupleSelection _
     -> assert false
   in
@@ -365,16 +361,16 @@ let minimize_node_local_decl ue lst = function
 
 let build_id_typ_map input output local =
   let add_input acc (_,id,t,_,_) =
-    IdMap.add id t acc
+    IdMap.add (QId.to_string id) t acc
   in
   let add_output acc (_,id,t,_) =
-    IdMap.add id t acc
+    IdMap.add (QId.to_string id) t acc
   in
   let add_local acc = function
   | A.NodeVarDecl (_,d) -> add_output acc d
   | A.NodeConstDecl (_, A.FreeConst (_,id,t))
   | A.NodeConstDecl (_, A.TypedConst (_,id,_,t)) ->
-    IdMap.add id t acc
+    IdMap.add (QId.to_string id) t acc
   | A.NodeConstDecl (_, A.UntypedConst _) ->
     acc (* It is a const anyway, it will not appear at lhs *)
   in
@@ -415,7 +411,7 @@ let minimize_node_decl ue loc_core
     (id, extern, tparams, inputs, outputs, locals, items, spec)
   in
   
-  let scope = (Scope.mk_scope [id]) in
+  let scope = (Scope.mk_scope (QId.to_list id)) in
   if List.exists (fun sc -> Scope.equal sc scope) (scopes_of_loc_core loc_core)
   then (
     get_model_elements_of_scope loc_core scope

@@ -20,7 +20,8 @@
      @author Apoorv Ingle *)
 
 module LA = LustreAst
-module SI = LA.SI
+module QId = LustreAstIdent
+module QISet = QId.IdentSet
           
 type tc_type  = LA.lustre_type
 (** Type alias for lustre type from LustreAst  *)
@@ -44,7 +45,7 @@ type const_store = (LA.expr * tc_type) IMap.t
  *  The values of the associated identifiers should be evaluated to a 
  *  Bool or an Int at constant propogation phase of type checking *)
 
-type ty_set = SI.t
+type ty_set = QISet.t
 (** set of valid user type identifiers *)
 
 type contract_exports = (ty_store) IMap.t
@@ -157,7 +158,7 @@ val pp_print_tymap: Format.formatter -> ty_store -> unit
 val pp_print_vstore: Format.formatter -> const_store -> unit
 (** Pretty print value store *)
 
-val pp_print_u_types: Format.formatter -> SI.t -> unit
+val pp_print_u_types: Format.formatter -> QISet.t -> unit
 (** Pretty print declared user types *)
 
 val pp_print_contract_exports: Format.formatter -> contract_exports -> unit

@@ -38,7 +38,11 @@ module IdentSet : sig
 end
 
 (** Map of identifiers *)
-module IdentMap : Map.S with type key = t
+module IdentMap : sig
+  include (Map.S with type key = t)
+  val keys: 'a t -> key list
+end
+                    
 
 (** Pretty-print an identifier *)
 val pp_print_ident : Format.formatter -> t -> unit

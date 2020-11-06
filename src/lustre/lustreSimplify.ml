@@ -37,6 +37,7 @@ module E = LustreExpr
 module N = LustreNode
 module C = LustreContext
 module Contract = LustreContract
+module QId = LustreAstIdent
 
 module Deps = LustreDependencies
 
@@ -134,16 +135,17 @@ let rec eval_ast_expr bounds ctx =
     eval_ident ctx pos ident
 
   (* Mode ref *)
-  | A.ModeRef (pos, p4th) -> (
+  | A.ModeRef (pos, mref) -> (
+    let mref_string = List.map QId.to_string mref in 
     let p4th =
-      match p4th with
+      match mref_string with
       | [] -> failwith "empty mode reference"
       | [_] -> (* Reference to own modes, append path. *)
-        List.rev_append (C.contract_scope_of ctx) p4th
+        List.rev_append (C.contract_scope_of ctx) mref_string
       | _ -> (
         match C.contract_scope_of ctx with
-        | _ :: tail -> List.rev_append tail p4th
-        | _ -> p4th
+        | _ :: tail -> List.rev_append tail mref_string
+        | _ -> mref_string
       )
     in
     let fail () =
@@ -155,12 +157,12 @@ let rec eval_ast_expr bounds ctx =
     in
     let rec find_mode = function
       | { Contract.path ; Contract.name ; Contract.requires } :: tail ->
-        if path = p4th then
-          requires
-          |> List.map (fun { Contract.svar } -> E.mk_var svar)
-          |> E.mk_and_n
-          |> D.singleton D.empty_index
-        else find_mode tail
+         if QId.to_string (QId.from_list path) = QId.to_string (QId.from_list p4th) then
+           requires
+           |> List.map (fun { Contract.svar } -> E.mk_var svar)
+           |> E.mk_and_n
+           |> D.singleton D.empty_index
+         else find_mode tail
       | [] -> fail ()
     in
 
@@ -494,7 +496,7 @@ let rec eval_ast_expr bounds ctx =
       if Type.is_bool clock_type then ["true"; "false"]
       else Type.constructors_of_enum clock_type
     in
-    let cases = List.map fst merge_cases in
+    let cases = List.map (fun i -> QId.to_string (fst i)) merge_cases in
     if List.sort String.compare cases <> List.sort String.compare cases_to_have
     then fail_at_position pos "Cases of merge must be exhaustive and unique";
     
@@ -503,7 +505,7 @@ let rec eval_ast_expr bounds ctx =
       | "true" -> A.Ident (pos, clock_ident)
       | "false" -> A.UnaryOp (pos, A.Not, A.Ident (pos, clock_ident))
       | _ ->
-        A.CompOp (pos, A.Eq, A.Ident (pos, clock_ident), A.Ident (pos, clock_value))
+        A.CompOp (pos, A.Eq, A.Ident (pos, clock_ident), A.Ident (pos, QId.from_string clock_value))
     in
 
     let cond_expr_clock_value clock_value = match clock_value with
@@ -518,9 +520,9 @@ let rec eval_ast_expr bounds ctx =
       | clock_value, A.When (pos, expr, case_clock) -> 
 
         (match case_clock with
-          | A.ClockPos c when clock_value = "true" && c = clock_ident -> ()
-          | A.ClockNeg c when clock_value = "false" && c = clock_ident -> ()
-          | A.ClockConstr (cs, c) when clock_value = cs && c = clock_ident -> ()
+          | A.ClockPos c when QId.equal clock_value (QId.from_string "true") && c = clock_ident -> ()
+          | A.ClockNeg c when QId.equal clock_value (QId.from_string "false") && c = clock_ident -> ()
+          | A.ClockConstr (cs, c) when QId.equal clock_value cs && c = clock_ident -> ()
           (* Clocks must be identical identifiers *)
           | _ -> fail_at_position pos "Clock mismatch for argument of merge");
 
@@ -533,14 +535,14 @@ let rec eval_ast_expr bounds ctx =
         (match case_clock with
 
           (* Compare high clock with merge clock by name *)
-          | A.Ident (_, c) when clock_value = "true" && c = clock_ident -> ()
+          | A.Ident (_, c) when QId.equal clock_value (QId.from_string "true") && QId.equal c clock_ident -> ()
 
           (* Compare low clock with merge clock by name *)
           | A.UnaryOp (_, A.Not, A.Ident (_, c))
-            when clock_value = "false" && c = clock_ident -> ()
+            when QId.equal clock_value (QId.from_string "false") && QId.equal c clock_ident -> ()
              
           | A.CompOp (_, A.Eq, A.Ident (_, c), A.Ident (_, cv))
-            when clock_value = cv && c = clock_ident -> ()
+            when QId.equal clock_value cv && QId.equal c clock_ident -> ()
              
           (* Clocks must be identical identifiers *)
           | _ -> fail_at_position pos "Clock mismatch for argument of merge");
@@ -550,7 +552,7 @@ let rec eval_ast_expr bounds ctx =
           bounds
           ctx
           pos
-          (I.mk_string_ident ident)
+          (I.mk_string_ident (QId.to_string ident))
           case_clock
           restart_clock
           args
@@ -564,8 +566,8 @@ let rec eval_ast_expr bounds ctx =
           bounds
           ctx
           pos
-          (I.mk_string_ident ident)
-          (cond_of_clock_value clock_value)
+          (I.mk_string_ident (QId.to_string ident))
+          (cond_of_clock_value (QId.to_string clock_value))
           (A.Const (pos, A.False))
           args
           None
@@ -582,7 +584,7 @@ let rec eval_ast_expr bounds ctx =
     let merge_cases_r, ctx =
       List.fold_left (fun (acc, ctx) ((case_value, _) as case) ->
           let e, ctx = eval_merge_case ctx case in
-          (cond_expr_clock_value case_value, e) :: acc, ctx
+          (cond_expr_clock_value (QId.to_string case_value), e) :: acc, ctx
         ) ([], ctx) merge_cases
     in
 
@@ -746,7 +748,7 @@ let rec eval_ast_expr bounds ctx =
   (* Record constructor [record_type {field1 = expr1; field2 = expr2; ...}] *)
   | A.RecordExpr (pos, record_type, expr_list) -> 
 
-    let record_ident = I.mk_string_ident record_type in
+    let record_ident = I.mk_string_ident (QId.to_string record_type) in
 
     (* Extract list of fields of record *)
     let record_indexes = 
@@ -775,7 +777,7 @@ let rec eval_ast_expr bounds ctx =
                accumulator trie *)
            (D.fold
               (fun j e t -> 
-                 D.add (D.RecordIndex i :: j) e t)
+                 D.add (D.RecordIndex (QId.to_string i) :: j) e t)
               expr'
               accum), 
            ctx)
@@ -1036,7 +1038,7 @@ let rec eval_ast_expr bounds ctx =
       bounds
       ctx
       pos
-      (I.mk_string_ident ident)
+      (I.mk_string_ident (QId.to_string ident))
       cond
       restart
       args
@@ -1049,7 +1051,7 @@ let rec eval_ast_expr bounds ctx =
       bounds
       ctx
       pos
-      (I.mk_string_ident ident)
+      (I.mk_string_ident (QId.to_string ident))
       (A.Const (dummy_pos, A.True))
       (A.Const (dummy_pos, A.False))
       args
@@ -1062,7 +1064,7 @@ let rec eval_ast_expr bounds ctx =
       bounds
       ctx
       pos
-      (I.mk_string_ident ident)
+      (I.mk_string_ident (QId.to_string ident))
       (A.Const (dummy_pos, A.True))
       cond
       args
@@ -1324,7 +1326,7 @@ and var_of_quant (ctx, vars) (pos, v, ast_type) =
   let vars, d  =
     D.fold
       (fun index index_type (vars, d) ->
-         let name = Format.sprintf "%s%s" v (D.string_of_index true index) in
+         let name = Format.sprintf "%s%s" (QId.to_string v) (D.string_of_index true index) in
          let var = Var.mk_free_var (HString.mk_hstring name) index_type in
          let ev = E.mk_free_var var in
          var :: vars, D.add index ev d)
@@ -1338,7 +1340,7 @@ and var_of_quant (ctx, vars) (pos, v, ast_type) =
     C.add_expr_for_ident
       ~shadow:true
       ctx
-      (I.mk_string_ident v)
+      (I.mk_string_ident (QId.to_string v))
       d
   in
 
@@ -1482,7 +1484,7 @@ and static_int_of_ast_expr ctx pos expr =
 (* Return the trie for the identifier *)
 and eval_ident ctx pos i =
 
-  let ident = I.mk_string_ident i in
+  let ident = I.mk_string_ident (QId.to_string i) in
 
   try 
 
@@ -1495,8 +1497,8 @@ and eval_ident ctx pos i =
   with Not_found ->
   try
     (* Might be a constructor *)
-    let ty = Type.enum_of_constr i in
-    D.singleton D.empty_index (E.mk_constr i ty), ctx
+    let ty = Type.enum_of_constr (QId.to_string i) in
+    D.singleton D.empty_index (E.mk_constr (QId.to_string i) ty), ctx
   with Not_found ->
   try
     (* Might be a free constant *)
@@ -2127,7 +2129,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
   (* Enum type needs to be constructed *)
   | A.EnumType (pos, enum_name, enum_elements) -> 
 
-    let ty = Type.mk_enum enum_name enum_elements in
+    let ty = Type.mk_enum (QId.to_string enum_name) (List.map QId.to_string enum_elements) in
       
     (* let ctx = List.fold_left (fun ctx c -> *)
     (*     C.add_expr_for_ident *)
@@ -2143,7 +2145,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
   (* User-defined type, look up type in defined types, return subtrie
      of starting with possibly indexed identifier *)
   | A.UserType (pos, ident) -> (
-    let ident = I.mk_string_ident ident in
+    let ident = I.mk_string_ident (QId.to_string ident) in
     try
       (* Find subtrie of types starting with identifier *)
       C.type_of_ident ctx ident
@@ -2158,7 +2160,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
    * There are abstract types in Type, but using an integer reference is able
    * to give better counterexamples. *)
   | A.AbstractType (pos, ident) ->
-      D.singleton [D.AbstractTypeIndex ident] Type.t_int
+      D.singleton [D.AbstractTypeIndex (QId.to_string ident)] Type.t_int
 
   (* Record type, return trie of indexes in record *)
   | A.RecordType (pos, record_fields) -> 
@@ -2175,7 +2177,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
          (* Take all indexes and their defined types and add index of record
             field to index of type and add to trie *)
          D.fold (fun j t a -> 
-             D.add (D.RecordIndex i :: j) t a
+             D.add (D.RecordIndex (QId.to_string i) :: j) t a
            ) expr a
       )
 

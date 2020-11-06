@@ -20,7 +20,8 @@ open Lib
 open LustreReporting
    
 module A = LustreAst
-
+module QId = LustreAstIdent
+           
 module I = LustreIdent
 module IT = LustreIdent.Hashtbl
 
@@ -513,7 +514,7 @@ let contract_node_decl_of_ident { contract_nodes } ident =
     
     (* Return contract node by name *)
     List.find
-      (function (_, (i, _, _, _, _)) -> i = ident)
+      (function (_, (i, _, _, _, _)) -> QId.equal i ident)
       contract_nodes
 
   (* Raise error again for more precise backtrace *)
@@ -532,7 +533,7 @@ let add_contract_node_decl_to_context
 
     (* Check if contract of with the same identifier exists *)
     List.exists
-      (function (_, (i, _, _, _, _)) -> i = ident)
+      (function (_, (i, _, _, _, _)) -> QId.equal i ident)
       contract_nodes
 
   then

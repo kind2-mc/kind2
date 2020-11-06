@@ -17,6 +17,7 @@
 *)
 
 open Lib
+module QId = LustreAstIdent
 
 exception Parser_error
 
@@ -27,11 +28,11 @@ exception Parser_error
 
 
 (* An identifier *)
-type ident = string
+type ident = QId.t
            
 type index = string
 
-let pp_print_ident = Format.pp_print_string
+let pp_print_ident = QId.pp_print_ident
 
 let pp_print_index = Format.pp_print_string
 
@@ -83,7 +84,7 @@ type group_expr =
   | ArrayExpr (* Array expression *)
 
 (** A Lustre expression *)
-type expr =
+and expr =
   (* Identifiers *)
   | Ident of position * ident
   | ModeRef of position * ident list
@@ -406,7 +407,7 @@ let rec pp_print_expr ppf =
 
   function
     
-    | Ident (p, id) -> Format.fprintf ppf "%a%a" ppos p pp_print_ident id
+    | Ident (p, id) -> Format.fprintf ppf "%a%a" ppos p LustreAstIdent.pp_print_ident id
 
     | ModeRef (p, ids) ->
       Format.fprintf ppf "%a::%a" ppos p (
@@ -549,7 +550,7 @@ let rec pp_print_expr ppf =
         "%acondact(%a,(restart %a every %a)(%a),%a)" 
         ppos p
         pp_print_expr e1
-        pp_print_ident n
+        LustreAstIdent.pp_print_ident n
         pp_print_expr er
         (pp_print_list pp_print_expr ",@ ") e2
         (pp_print_list pp_print_expr ",@ ") e3
@@ -558,7 +559,7 @@ let rec pp_print_expr ppf =
 
       Format.fprintf ppf
         "(activate (restart %a every %a) every %a) (%a)"
-        pp_print_ident i
+        LustreAstIdent.pp_print_ident i
         pp_print_expr r
         pp_print_expr c
         (pp_print_list pp_print_expr ",@ ") l 
@@ -576,13 +577,13 @@ let rec pp_print_expr ppf =
     | RestartEvery (p, i, l, c) ->
       Format.fprintf ppf
         "(restart %a every %a)(%a)"
-        pp_print_ident i
+        LustreAstIdent.pp_print_ident i
         pp_print_expr c
         (pp_print_list pp_print_expr ",@ ") l 
 
     | Pre (p, e) -> p1 p "pre" e
     | Last (p, id) ->
-      Format.fprintf ppf "last %a%a" ppos p pp_print_ident id
+      Format.fprintf ppf "last %a%a" ppos p LustreAstIdent.pp_print_ident id
     | Fby (p, e1, i, e2) -> 
 
       Format.fprintf ppf 
@@ -599,7 +600,7 @@ let rec pp_print_expr ppf =
       Format.fprintf ppf 
         "%a%a(%a)" 
         ppos p
-        pp_print_ident id
+        LustreAstIdent.pp_print_ident id
         (pp_print_list pp_print_expr ",@ ") l
 
     | CallParam (p, id, t, l) -> 
@@ -607,7 +608,7 @@ let rec pp_print_expr ppf =
       Format.fprintf ppf 
         "%a%a<<%a>>(%a)" 
         ppos p
-        pp_print_ident id
+        LustreAstIdent.pp_print_ident id
         (pp_print_list pp_print_lustre_type "@ ") t
         (pp_print_list pp_print_expr ",@ ") l
         
@@ -620,7 +621,7 @@ and pp_print_field_assign ppf (i, e) =
 
   Format.fprintf ppf 
     "@[<hv 2>%a =@ %a@]"
-    pp_print_index i
+    pp_print_ident i
     pp_print_expr e
 
 
@@ -644,9 +645,9 @@ and pp_print_lustre_type ppf = function
       pp_print_expr u
   | Real pos -> Format.fprintf ppf "real"
   | UserType (pos, s) -> 
-    Format.fprintf ppf "%a" pp_print_ident s
+    Format.fprintf ppf "%a" QId.pp_print_ident s
   | AbstractType (pos, s) ->
-    Format.fprintf ppf "%a" pp_print_ident s
+    Format.fprintf ppf "%a" QId.pp_print_ident s
   | TupleType (pos, l) -> 
     Format.fprintf ppf 
       "@[<hv 1>[%a]@]" 
@@ -664,7 +665,7 @@ and pp_print_lustre_type ppf = function
     Format.fprintf ppf 
       "enum %a @[<hv 2>{ %a }@]"
       pp_print_ident n
-      (pp_print_list Format.pp_print_string ",@ ") l
+      (pp_print_list pp_print_ident ",@ ") l
   | TArr (pos, arg_ty, ret_ty) ->
      Format.fprintf ppf "@[%a->@,%a@]"
        pp_print_lustre_type arg_ty
@@ -673,16 +674,16 @@ and pp_print_lustre_type ppf = function
 (* Pretty-print a typed identifier *)
 and pp_print_typed_ident ppf (p, s, t) = 
   Format.fprintf ppf 
-    "@[<hov 2>%s:@ %a@]" 
-    s 
+    "@[<hov 2>%a:@ %a@]" 
+    pp_print_ident s
     pp_print_lustre_type t
 
 
 (* Pretty-print a typed identifier *)
 and pp_print_typed_decl ppf (p, s, t) = 
   Format.fprintf ppf 
-    "@[<hov 2>%s:@ %a@]" 
-    s 
+    "@[<hov 2>%a:@ %a@]" 
+    pp_print_ident s
     pp_print_lustre_type t
 
 
@@ -907,11 +908,16 @@ and pp_print_node_item ppf = function
 
 
 and pp_print_automaton ppf name states returns =
-  Format.fprintf ppf "@[<hv 2>automaton %s@.%a@]returns %a;"
-    (match name with Some n -> n | None -> "")
-    pp_print_states states
-    pp_print_auto_returns returns
-
+  match name with
+  | Some n -> 
+     Format.fprintf ppf "@[<hv 2>automaton %a@.%a@]returns %a;"
+       pp_print_ident n
+       pp_print_states states
+       pp_print_auto_returns returns
+  | None -> 
+     Format.fprintf ppf "@[<hv 2>automaton @.%a@]returns %a;"
+       pp_print_states states
+       pp_print_auto_returns returns
 
 and pp_print_auto_returns ppf = function
   | Given l -> pp_print_list pp_print_ident "," ppf l
@@ -923,7 +929,8 @@ and pp_print_states ppf =
 
 and pp_print_state ppf =
   function State (_, name, init, locals, eqs, unless, until) ->
-    Format.fprintf ppf "state %s@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a@?" name
+    Format.fprintf ppf "state %a@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a@?"
+      pp_print_ident name
       (pp_print_auto_trans "unless") unless
       pp_print_node_local_decl locals
       (pp_print_list pp_print_node_body "@ ") eqs
@@ -935,8 +942,8 @@ and pp_print_auto_trans kind ppf = function
     Format.fprintf ppf "%s %a;@." kind pp_print_transition_branch br
 
 and pp_print_transition_branch ppf = function
-  | Target (TransRestart (_, (_, t))) -> Format.fprintf ppf "restart %s" t
-  | Target (TransResume (_, (_, t))) -> Format.fprintf ppf "resume %s" t
+  | Target (TransRestart (_, (_, t))) -> Format.fprintf ppf "restart %a" pp_print_ident t
+  | Target (TransResume (_, (_, t))) -> Format.fprintf ppf "resume %a" pp_print_ident t
   | TransIf (_, e, br, None) ->
     Format.fprintf ppf "if@ %a@ %a"
       pp_print_expr e
@@ -1046,9 +1053,9 @@ let pp_print_contract_mode ppf (_, id, reqs, enss) =
 let pp_print_contract_call fmt (_, id, in_params, out_params) =
   Format.fprintf
     fmt "@[<hov 2>import %a (@,%a@,) returns (@,%a@,) ;@]"
-    pp_print_ident id
+    QId.pp_print_ident id
     (pp_print_list pp_print_expr ", ") in_params
-    (pp_print_list pp_print_ident ", ") out_params
+    (pp_print_list QId.pp_print_ident ", ") out_params
 
 let all_empty = List.for_all (fun l -> l = [])
 

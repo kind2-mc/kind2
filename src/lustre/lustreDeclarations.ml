@@ -38,10 +38,9 @@ module S = LustreSimplify
 module G = LustreGlobals
 
 module SVS = StateVar.StateVarSet
-module ISet = Ident.IdentSet
 
 module Deps = LustreDependencies
-
+module QId = LustreAstIdent
 
 (*********************************************)
 (* Auxiliary functions for automata encoding *)
@@ -151,7 +150,7 @@ let type_of_last inputs outputs locals l =
                                A.TypedConst (_, i, _, ty))) ->
           if i = l then raise (Found_last_ty ty)
         | A.NodeConstDecl (_, A.UntypedConst (pos, i, e)) ->
-          fail_at_position pos ("Please add type of "^i)
+          fail_at_position pos ("Please add type of "^ QId.to_string i)
         | A.NodeVarDecl (_, (_, i, ty, _)) ->
           if i = l then raise (Found_last_ty ty)
       ) locals;
@@ -189,7 +188,7 @@ let rec defined_vars_struct_item locals acc = function
   | A.TupleSelection (_, i, _)
   | A.FieldSelection (_, i, _)
   | A.ArraySliceStructItem (_, i, _) ->
-    if in_locals i locals then acc else ISet.add i acc
+    if in_locals i locals then acc else QId.IdentSet.add i acc
   | A.TupleStructItem (_, l) ->
     List.fold_left (defined_vars_struct_item locals) acc l
 
@@ -201,7 +200,7 @@ let defined_vars_lhs locals acc = function
 let rec defined_vars_equation locals acc = function
   | A.Assert _ -> acc
   | A.Automaton (_, _, _, A.Given returns) ->
-    List.fold_left (fun acc i -> ISet.add i acc) acc returns
+    List.fold_left (fun acc i -> QId.IdentSet.add i acc) acc returns
   | A.Automaton (_, _, states, A.Inferred) ->
     List.fold_left (fun acc (A.State (_, _, _, l', eqs, _, _)) ->
         List.fold_left
@@ -211,8 +210,8 @@ let rec defined_vars_equation locals acc = function
   
 
 let defined_vars_eqs eqs =
-  List.fold_left (defined_vars_equation []) ISet.empty eqs
-  |> ISet.elements
+  List.fold_left (defined_vars_equation []) QId.IdentSet.empty eqs
+  |> QId.IdentSet.elements
 
 
 (* Collect inputs used in equaltions and automatons. This is to create
@@ -223,7 +222,7 @@ let rec used_inputs_expr inputs acc =
   function
   | Const _ | ModeRef _ -> acc
 
-  | Ident (_, i) | Last (_, i) -> ISet.add i acc
+  | Ident (_, i) | Last (_, i) -> QId.IdentSet.add i acc
 
   | TupleProject (_, e, _) | RecordProject (_, e, _) | ConvOp (_,_,e) | UnaryOp (_, _, e)
   | Current (_, e) | When (_, e, _) | Quantifier (_, _, _, e) ->
@@ -307,8 +306,8 @@ and used_inputs_eqs inputs acc eqs =
 (* Collect inputs used in equaltions and automatons. This is to create
    auxiliary nodes for states with a minimal number of inputs *)
 let used_inputs inputs eqs =
-  let u = used_inputs_eqs inputs ISet.empty eqs in
-  List.filter (fun (_, i, _, _, _) -> ISet.mem i u) inputs
+  let u = used_inputs_eqs inputs QId.IdentSet.empty eqs in
+  List.filter (fun (_, i, _, _, _) -> QId.IdentSet.mem i u) inputs
 
 
 (*************************************)
@@ -341,7 +340,7 @@ let eval_const_decl ?(ghost = false) ctx = function
   | A.FreeConst (pos, i, ty) ->
 
     (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident i in
+    let ident = I.mk_string_ident (QId.to_string i) in
 
     (* Evaluate type expression *)
     let tyd = S.eval_ast_type ctx ty in 
@@ -377,7 +376,7 @@ let eval_const_decl ?(ghost = false) ctx = function
   | A.TypedConst (pos, i, expr, _) as const_decl ->
 
     (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident i in
+    let ident = I.mk_string_ident (QId.to_string i) in
 
     if
       
@@ -476,7 +475,7 @@ let rec eval_node_inputs ctx = function
   | (pos, i, ast_type, A.ClockTrue, is_const) :: tl -> 
 
     (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident i in
+    let ident = I.mk_string_ident (QId.to_string i) in
 
     if 
       
@@ -523,7 +522,7 @@ let rec eval_node_outputs ?is_single ctx = function
   | (pos, i, ast_type, A.ClockTrue) :: tl -> 
 
     (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident i in
+    let ident = I.mk_string_ident (QId.to_string i) in
 
     if 
       
@@ -572,7 +571,7 @@ let rec eval_node_locals ?(ghost = false) ctx = function
        (
          
          (* Identifier of AST identifier *)
-         let ident = I.mk_string_ident i in
+         let ident = I.mk_string_ident (QId.to_string i) in
          
          try 
            C.expr_in_context ctx ident 
@@ -592,7 +591,7 @@ let rec eval_node_locals ?(ghost = false) ctx = function
   | A.NodeVarDecl (_, (pos, i, var_type, A.ClockTrue)) :: tl -> 
 
     (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident i in
+    let ident = I.mk_string_ident (QId.to_string i) in
 
     (* Evaluate type expression *)
     let index_types = S.eval_ast_type ctx var_type in
@@ -633,7 +632,7 @@ let eval_struct_item ctx pos = function
   | A.SingleIdent (pos, i) ->  
 
     (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident i in
+    let ident = I.mk_string_ident (QId.to_string i) in
 
     (* Get expression of identifier *)
     let res = 
@@ -650,14 +649,14 @@ let eval_struct_item ctx pos = function
           
           fail_at_position 
             pos 
-            ("Assignment to identifier not possible " ^ i)
+            ("Assignment to identifier not possible " ^ QId.to_string i)
 
         (* Identifier not declared *)
         | Not_found -> 
           
           fail_at_position 
             pos 
-            ("Assignment to undeclared identifier " ^ i)
+            ("Assignment to undeclared identifier " ^ QId.to_string i)
 
     in
 
@@ -668,7 +667,7 @@ let eval_struct_item ctx pos = function
   | A.ArrayDef (pos, i, l) -> 
     
     (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident i in
+    let ident = I.mk_string_ident (QId.to_string i) in
 
     (* Get expression of identifier *)
     let res = 
@@ -746,7 +745,7 @@ let eval_struct_item ctx pos = function
              C.add_expr_for_ident
                ~shadow:true
                ctx
-               (I.mk_string_ident v)
+               (I.mk_string_ident (QId.to_string v))
                (D.singleton D.empty_index expr)
            in
            (succ i, ctx))
@@ -783,7 +782,7 @@ let uneval_struct_item ctx = function
            let ctx = 
              C.remove_expr_for_ident
                ctx
-               (I.mk_string_ident v)
+               (I.mk_string_ident (QId.to_string v))
            in
            ctx)
         ctx
@@ -1223,7 +1222,7 @@ and eval_ghost_var
 
 
     (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident i in
+    let ident = I.mk_string_ident (QId.to_string i) in
 
     if (
       try 
@@ -1269,14 +1268,14 @@ and eval_ghost_var
 
       ) with
       | E.Type_mismatch -> fail_at_position pos (
-        Format.sprintf "Type mismatch in declaration of ghost variable %s" i
+        Format.sprintf "Type mismatch in declaration of ghost variable %s" (QId.to_string i)
       )
       (* Propagate unknown declarations to handle forward referencing. *)
       | Deps.Unknown_decl (_, _, _) as e -> raise e
       | e -> fail_at_position pos (
         Format.asprintf
           "unexpected error in treatment of ghost variable %s: %s"
-          i
+          (QId.to_string i)
           (Printexc.to_string e)
       )
     )
@@ -1527,10 +1526,10 @@ and eval_node_mode scope ctx is_candidate (pos, id, reqs, enss) =
   let ctx, enss, _ =
     enss |> List.fold_left (eval_contract_item None ~typ:N.Ensure scope) (ctx, [], 1) in
   let path =
-    scope |> List.fold_left (fun l (_, name) -> name :: l) [id]
+    scope |> List.fold_left (fun l (_, name) -> name :: l) (QId.to_list id)
   in
   (* Done. *)
-  Contract.mk_mode (I.mk_string_ident id) pos path reqs enss is_candidate
+  Contract.mk_mode (I.mk_string_ident (QId.to_string id)) pos path reqs enss is_candidate
   |> C.add_node_mode ctx
 
 
@@ -1557,7 +1556,7 @@ and eval_node_contract_call
   known ctx scope inputs outputs locals is_candidate (
     call_pos, id, in_params, out_params
   ) = 
-  let ident = I.mk_string_ident id in
+  let ident = I.mk_string_ident (QId.to_string id) in
 
   if I.Set.mem ident known then (
     Format.asprintf
@@ -1578,9 +1577,9 @@ and eval_node_contract_call
   ) ;
 
   (* Push scope for contract svars. *)
-  let svar_scope = (call_pos, id) :: scope in
+  let svar_scope = (call_pos, (QId.to_string id)) :: scope in
   (* Push scope for contract call. *)
-  let ctx = C.push_contract_scope ctx id in
+  let ctx = C.push_contract_scope ctx (QId.to_string id) in
   (* Retrieve contract node from context. *)
   let pos, (id, params, in_formals, out_formals, contract) =
     try C.contract_node_decl_of_ident ctx id
@@ -1634,7 +1633,7 @@ and eval_node_contract_call
             | E.Type_mismatch -> fail_at_position call_pos (
                 Format.asprintf
                   "type mismatch in import of contract %s for formal input %s"
-                  id in_id
+                  (QId.to_string id) (QId.to_string in_id)
               )
           ) ;
 
@@ -1679,7 +1678,7 @@ and eval_node_contract_call
           ) ;
 
           C.add_expr_for_ident
-            ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr
+            ~shadow:true ctx (LustreIdent.mk_string_ident (QId.to_string in_id)) expr
 
     ) ctx in_params in_formals
     with
@@ -1687,7 +1686,7 @@ and eval_node_contract_call
         Format.asprintf
           "arity mismatch for the input parameters of import of contract %s: \
            expected %d but got %d"
-          id
+          (QId.to_string id)
           (List.length in_formals)
           (List.length in_params)
       )
@@ -1716,19 +1715,19 @@ and eval_node_contract_call
             | E.Type_mismatch -> fail_at_position call_pos (
                 Format.asprintf
                   "type mismatch in import of contract %s for formal output %s"
-                  id in_id
+                  (QId.to_string id) (QId.to_string in_id)
               )
           ) ;
 
           C.add_expr_for_ident
-            ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr
+            ~shadow:true ctx (LustreIdent.mk_string_ident (QId.to_string in_id)) expr
       ) ctx (List.map (fun i -> LustreAst.Ident (pos, i))out_params) out_formals
     with
     | Invalid_argument _ ->  fail_at_position call_pos (
         Format.asprintf
           "arity mismatch for the output parameters of import of contract %s: \
            expected %d but got %d"
-          id
+          (QId.to_string id)
           (List.length in_formals)
           (List.length in_params)
       )
@@ -1754,7 +1753,7 @@ and eval_node_contract_call
           | Some id -> id
           | None -> assert false
         )
-        id
+        (QId.to_string id)
     )
     | None -> ()
   ) ) ;
@@ -1782,7 +1781,7 @@ and add_ghost inputs outputs locals ctx pos ident type_expr ast_expr expr =
       pos, (
         A.StructDef (
           pos,
-          [A.SingleIdent (pos, I.string_of_ident false ident)]
+          [A.SingleIdent (pos, QId.from_string (I.string_of_ident false ident))]
         )
       ),
       ast_expr
@@ -1955,7 +1954,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
 
     (* Create a new automaton name if anonymous *)
     let name = match aname with
-      | Some name -> name
+      | Some name -> QId.to_string name
       | None -> fresh_automaton_name []
     in
 
@@ -1968,19 +1967,19 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
       List.fold_left (fun (states, lasts) s ->
           let s, lasts = replace_lasts_state allowed_l name lasts s in
           s :: states, lasts
-        ) ([], ISet.empty) states in
+        ) ([], QId.IdentSet.empty) states in
     let states = List.rev states in
-    let lasts = ISet.elements lasts in
+    let lasts = (List.map QId.to_string (QId.IdentSet.elements lasts)) in
 
     (* Construct new inputs for the handler nodes for values of [last]
        applications on the base clock (i.e. outside the state) *)
     let lasts_inputs, lasts_args = List.map (fun l ->
         try
-          let i = name ^ ".last." ^ l in
+          let i = QId.from_string (name ^ ".last." ^ l) in
           (pos, i ,
-             type_of_last inputs outputs locals l,
+             type_of_last inputs outputs locals (QId.from_string l),
              A.ClockTrue, false),
-          (i, fun pos -> A.Last (pos, l)) (* Last replaced after parsing *)
+          (i, fun pos -> A.Last (pos, QId.from_string l)) (* Last replaced after parsing *)
         with Not_found ->
           fail_at_position pos ("Last type for "^l^" could not be inferred")
       ) lasts
@@ -2002,20 +2001,20 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
     (* Create enumerated datatype for states *)
     let states_enum =
       List.map (function A.State (_, s, _, _, _, _, _) -> s) states in
-    let states_type = A.EnumType (pos, name, states_enum) in
+    let states_type = A.EnumType (pos, QId.from_string name, states_enum) in
     (* Evaluate states type expression *)
     let states_ty = S.eval_ast_type ctx states_type in
     let bool_ty = S.eval_ast_type ctx (A.Bool pos) in
 
     (* look for automaton outputs in local variables and outputs *)
     let auto_outputs_dl = List.map (fun o ->
-        try List.find (fun (_, o', _, _) -> o = o') outputs
+        try List.find (fun (_, o', _, _) -> QId.equal o o') outputs
         with Not_found ->
           try List.iter (function
-              | A.NodeVarDecl (_, ((_, l, _, _) as ld)) when o = l ->
+              | A.NodeVarDecl (_, ((_, l, _, _) as ld)) when QId.equal o l ->
                 raise (Found_auto_out ld)
               | _ -> ()) locals;
-            fail_at_position pos ("Could not find automaton output "^o)
+            fail_at_position pos ("Could not find automaton output "^ QId.to_string o)
           with Found_auto_out ld -> ld
       ) auto_outputs in
 
@@ -2057,18 +2056,18 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
     in
     
     (* Node local variables used to encode the automaton *)
-    let i_state = String.concat "." [name; state_string] in
-    let i_restart = String.concat "." [name; restart_string] in
-    let i_state_selected = String.concat "." [name; state_selected_string] in
+    let i_state = QId.from_string (String.concat "." [name; state_string]) in
+    let i_restart = QId.from_string (String.concat "." [name; restart_string]) in
+    let i_state_selected = QId.from_string (String.concat "." [name; state_selected_string]) in
     let i_restart_selected =
-      String.concat "." [name; restart_selected_string] in
+     QId.from_string( String.concat "." [name; restart_selected_string]) in
     let i_state_selected_next =
-      String.concat "." [name; state_selected_next_string] in
+      QId.from_string (String.concat "." [name; state_selected_next_string]) in
     let i_restart_selected_next =
-      String.concat "." [name; restart_selected_next_string] in
+      QId.from_string(String.concat "." [name; restart_selected_next_string]) in
     (* Add them to the local variables of the current node *)
     let add_auto_local i ty ctx =
-      let ident = I.mk_string_ident i in
+      let ident = I.mk_string_ident (QId.to_string i) in
       C.add_node_local ctx ident pos ty
     in
     let ctx = ctx
@@ -2130,7 +2129,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
         state_c,
         (* activate handler every state = state_c restart every <restart> *)
         A.Activate
-          (pos, handler,
+          (pos, QId.from_string handler,
            (* clock *)
            A.CompOp (pos, A.Eq, A.Ident (pos, i_state), A.Ident (pos, state_c)),
            (* restart *)
@@ -2161,7 +2160,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
         (* activate unless every state_selected =
            state_c restart every restart_selected *)
         A.Activate
-          (pos, unless, 
+          (pos, QId.from_string unless, 
            (* clock *)
            A.CompOp (pos, A.Eq, A.Ident (pos, i_state_selected), A.Ident (pos, state_c)),
            (* restart *)
@@ -2230,7 +2229,7 @@ and encode_until_handler pos
       auto_outputs; other_vars; lasts_inputs;
       i_state_selected; i_restart_selected; node_inputs }
     state_c locals eqs until_tr ctx =
-  let stay = A.GroupExpr (pos, A.ExprList, [A.Ident (pos, state_c); A.Const (pos, A.False)]) in
+  let stay = A.GroupExpr (pos, A.ExprList, [A.Ident (pos, QId.from_string state_c); A.Const (pos, A.False)]) in
   let e = match until_tr with
     | None -> stay
     | Some (posb, br) -> encode_transition_branch posb state_c stay br
@@ -2342,8 +2341,8 @@ and encode_unless pos
 and encode_automaton_state info ctx = function
   | A.State (pos, state_c, _, locals, eqs, unless_tr, until_tr) ->
     let handler, ctx =
-      encode_until_handler pos info state_c locals eqs until_tr ctx in
-    let unless, ctx = encode_unless pos info state_c unless_tr ctx in
+      encode_until_handler pos info (QId.to_string state_c) locals eqs until_tr ctx in
+    let unless, ctx = encode_unless pos info (QId.to_string state_c) unless_tr ctx in
     ctx, (handler, unless)
 
 
@@ -2431,7 +2430,7 @@ and parse_implicit_contract scope inputs outputs ctx file contract_name = try (
       fun call -> function
       | A.ContractNodeDecl (
         pos, (id, _, cont_in, cont_out, _)
-      ) when id = contract_name -> (
+      ) when QId.equal id (QId.from_string contract_name) -> (
         (* Verify signatures match and construct call. *)
         try (
           let ok, ins =
@@ -2620,7 +2619,7 @@ and declaration_to_context ctx = function
   in
 
   (* Identifier of AST identifier *)
-  let ident = I.mk_string_ident i in
+  let ident = I.mk_string_ident (QId.to_string i) in
 
   (* Type t must not be declared *)
   if C.type_in_context ctx ident then fail_at_position pos (
@@ -2646,7 +2645,7 @@ and declaration_to_context ctx = function
 ) -> (
 
   (* Identifier of AST identifier *)
-  let ident = I.mk_string_ident i in
+  let ident = I.mk_string_ident (QId.to_string i) in
 
   (* Identifier must not be declared *)
   if C.node_in_context ctx ident then fail_at_position pos (
@@ -2726,7 +2725,7 @@ and declaration_to_context ctx = function
 ) -> (
 
   (* Identifier of AST identifier *)
-  let ident = I.mk_string_ident i in
+  let ident = I.mk_string_ident (QId.to_string i) in
 
   (* Identifier must not be declared *)
   if C.node_in_context ctx ident then fail_at_position pos (

@@ -35,7 +35,8 @@
 module R = Res
 module LA = LustreAst
 module LH = LustreAstHelpers
-module SI = Ident.IdentSet
+module QId = LustreAstIdent
+module QISet = QId.IdentSet
 
 type 'a graph_result = ('a, Lib.position * string) result  
 
@@ -45,18 +46,12 @@ let (>>=) = R.(>>=)
 let (>>) = R.(>>)                     
           
 module G = Graph.Make(struct
-               type t = LA.ident
-               let compare = Stdlib.compare
-               let pp_print_t = LA.pp_print_ident
+               type t = QId.t
+               let compare = QId.compare
+               let pp_print_t = QId.pp_print_ident
              end)
 
-module IMap = struct
-  include (Map.Make(struct
-               type t = LA.ident
-               let compare i1 i2 = Stdlib.compare i1 i2
-             end))
-  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)             
-end
+module IMap = QId.IdentMap
 
 module IntMap = struct
   include (Map.Make(struct
@@ -108,7 +103,6 @@ type dependency_analysis_data =
 (** The store for memoizing the lustre program dependencies  *)
 
 
-
 (** {1 Pretty Printing } *)
 let pp_print_node_summary ppf m =
   let pp_print_val ppf m =
@@ -146,7 +140,6 @@ let pp_print_id_pos ppf m =
     ppf (IMap.bindings m)
 
 
-
   
 let empty_node_summary: node_summary = IMap.empty
 
@@ -172,15 +165,15 @@ let union_pos: id_pos_map -> id_pos_map -> id_pos_map = fun m1 m2 ->
 let singleton_pos: LA.ident -> Lib.position -> id_pos_map = fun i p ->
   IMap.singleton i [p]
 
-let find_id_pos: id_pos_map -> LA.ident -> Lib.position option = fun m i ->
+let find_id_pos: id_pos_map -> QId.t -> Lib.position option = fun m i ->
   match (IMap.find_opt i m) with
   | None -> None
   | Some [] -> None
   | Some (p::ps) -> Some p 
                   
 let singleton_dependency_analysis_data: string -> LA.ident -> Lib.position -> dependency_analysis_data =
-  fun suffix i p -> { graph_data = G.singleton (suffix ^ i)
-                    ; id_pos_data = singleton_pos (suffix ^ i) p
+  fun suffix i p -> { graph_data = G.singleton (QId.from_string (suffix ^ QId.to_string i))
+                    ; id_pos_data = singleton_pos (QId.from_string (suffix ^ QId.to_string i)) p
                     ; csummary  = empty_contract_summary
                     ; nsummary = empty_node_summary } 
 
@@ -201,10 +194,10 @@ let remove: dependency_analysis_data -> LA.ident -> dependency_analysis_data =
                       
 let map_g_pos: (LA.ident -> LA.ident) -> dependency_analysis_data -> dependency_analysis_data =
   fun f ad -> 
-     let pos_info' = List.fold_left (fun m (k, v) -> IMap.add k v m) IMap.empty
-                       (List.map (fun (k, v) -> (f k, v)) (IMap.bindings ad.id_pos_data)) in
-     let g' = G.map f ad.graph_data in 
-     {ad with graph_data = g'; id_pos_data = pos_info'} 
+  let pos_info' = List.fold_left (fun m (k, v) -> IMap.add k v m) IMap.empty
+                    (List.map (fun (k, v) -> (f k, v)) (IMap.bindings ad.id_pos_data)) in
+  let g' = G.map f ad.graph_data in 
+  {ad with graph_data = g'; id_pos_data = pos_info'} 
                       
                       
 (* Suffixes for declaration types *)
@@ -265,10 +258,11 @@ and mk_graph_expr: LA.expr -> dependency_analysis_data
   | LA.Fby (_, e1, _, e2) ->  union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2) 
   | LA.Arrow (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2)
   | LA.ModeRef (pos, ids) ->
-     if List.length ids > 1 then
-       singleton_dependency_analysis_data "" (List.fold_left (^) contract_suffix (Lib.drop_last ids)) pos
+     let ids' = List.concat (List.map QId.to_list ids) in
+     if List.length ids' > 1 then
+       singleton_dependency_analysis_data contract_suffix (QId.from_string (List.hd ids')) pos
      else
-       singleton_dependency_analysis_data mode_suffix (List.hd ids) pos 
+       singleton_dependency_analysis_data mode_suffix (QId.from_string (List.hd (List.rev ids'))) pos 
   | LA.Call (_, _, es) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map mk_graph_expr es)
@@ -281,27 +275,29 @@ and mk_graph_expr: LA.expr -> dependency_analysis_data
        
 let mk_graph_const_decl: LA.const_decl -> dependency_analysis_data
   = function
-  | LA.FreeConst (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (const_suffix ^ i) pos
-  | LA.UntypedConst (pos, i, e) -> connect_g_pos (mk_graph_expr e) (const_suffix ^ i) pos 
-  | LA.TypedConst (pos, i, e, ty) -> connect_g_pos (union_dependency_analysis_data (mk_graph_expr e) (mk_graph_type ty)) (const_suffix ^ i) pos 
+  | LA.FreeConst (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (QId.add_prefix const_suffix i) pos
+  | LA.UntypedConst (pos, i, e) -> connect_g_pos (mk_graph_expr e) (QId.add_prefix const_suffix i) pos 
+  | LA.TypedConst (pos, i, e, ty) -> connect_g_pos
+                                       (union_dependency_analysis_data
+                                          (mk_graph_expr e) (mk_graph_type ty)) (QId.add_prefix const_suffix i) pos 
 
                                    
 let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
   = function
   | FreeType (pos, i) -> singleton_dependency_analysis_data ty_suffix  i pos 
-  | AliasType (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (ty_suffix ^ i) pos
+  | AliasType (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (QId.add_prefix ty_suffix i) pos
 
 (***********************************************************
  * Type 2: Dependency Analysis Between nodes and contracts *
  ***********************************************************)
                             
-let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
+let rec get_node_call_from_expr: LA.expr -> (QId.t * Lib.position) list
   = function
   | Ident _ -> []
   | ModeRef (pos, is) -> if List.length is = 1 then []
-                       else [(contract_suffix ^ List.hd is, pos)]  
+                         else [(QId.add_prefix contract_suffix (List.hd is), pos)]  
   | RecordProject (_, e, _)
-  | TupleProject (_, e, _) -> get_node_call_from_expr e
+    | TupleProject (_, e, _) -> get_node_call_from_expr e
   (* Values *)
   | LA.Const _ -> []
   (* Operators *)
@@ -330,12 +326,12 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   (* Clock operators *)
   | LA.When (_, e, _) -> get_node_call_from_expr e
   | LA.Current (_, e) -> get_node_call_from_expr e
-  | LA.Condact (pos, _,_, i, _, _) -> [(node_suffix ^ i, pos)]
-  | LA.Activate (pos, i, _, _, _) -> [(node_suffix ^ i, pos)]
+  | LA.Condact (pos, _,_, i, _, _) -> [(QId.add_prefix node_suffix i, pos)]
+  | LA.Activate (pos, i, _, _, _) -> [(QId.add_prefix node_suffix i, pos)]
   | LA.Merge (_, _, id_exprs) ->
      List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
   | LA.RestartEvery (pos, i, es, e1) ->
-     (node_suffix ^ i, pos)
+     (QId.add_prefix node_suffix i, pos)
      :: (List.flatten (List.map get_node_call_from_expr es)) @ get_node_call_from_expr e1
   (* Temporal operators *)
   | LA.Pre (_, e) -> get_node_call_from_expr e
@@ -343,7 +339,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.Fby (_, e1, _, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Node calls *)
-  | LA.Call (pos, i, es) -> (node_suffix ^ i, pos) :: List.flatten (List.map get_node_call_from_expr es)
+  | LA.Call (pos, i, es) -> (QId.add_prefix node_suffix i, pos) :: List.flatten (List.map get_node_call_from_expr es)
   | LA.CallParam _ as e-> Lib.todo (__LOC__ ^ (Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e)))
 (** Returns all the node calls from an expression *)
 
@@ -380,10 +376,10 @@ let  mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysi
 let mk_graph_contract_decl: Lib.position -> LA.contract_node_decl -> dependency_analysis_data
   = fun pos (i , _, _, _, c) ->
   connect_g_pos (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map mk_graph_contract_node_eqn c))
-    (contract_suffix ^ i) pos
+    (QId.add_prefix contract_suffix i) pos
 (** This builds a graph with all the node call dependencies from the equations of the contract  *)
   
-let extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
+let extract_node_calls: LA.node_item list -> (QId.t * Lib.position) list
   = List.fold_left
       (fun acc eqn ->
         (match eqn with
@@ -402,7 +398,7 @@ let mk_graph_node_decl: Lib.position -> LA.node_decl -> dependency_analysis_data
               | None -> empty_dependency_analysis_data
               | Some c -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
                             (List.map mk_graph_contract_node_eqn c))
-             (node_suffix^i) pos in
+             (QId.add_prefix node_suffix i) pos in
 
   let node_refs = extract_node_calls nitems in
   List.fold_left
@@ -417,15 +413,15 @@ let mk_graph_node_decl: Lib.position -> LA.node_decl -> dependency_analysis_data
  * Common infrastructure for type 1 and type 2 dependency analysis   *
  *********************************************************************)
 
-let add_decl: 'a IMap.t -> LA.ident -> 'a -> 'a IMap.t
+let add_decl: 'a IMap.t -> QId.t -> 'a -> 'a IMap.t
   = fun m i dec -> IMap.add i dec m
                  
 let check_and_add: 'a IMap.t -> Lib.position
                    -> string -> LA.ident -> 'a -> ('a IMap.t) graph_result
   = fun m pos suffix i tyd ->
-  if IMap.mem (suffix ^ i) m 
-  then graph_error pos ("Identifier " ^ i ^ " is already declared")
-  else R.ok (add_decl m (suffix ^ i) tyd)
+  if IMap.mem (QId.from_string (suffix ^ QId.to_string i)) m 
+  then graph_error pos ("Identifier " ^ QId.to_string i ^ " is already declared")
+  else R.ok (add_decl m (QId.from_string (suffix ^ QId.to_string i)) tyd)
 (** reject program if identifier is already declared  *)
   
 let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) graph_result =
@@ -471,15 +467,15 @@ let mk_graph_decls: LA.t -> dependency_analysis_data
    See Note {Types of dependency analysis} for more information about different kinds of
    dependency analysis  *)
     
-let rec extract_decls: ('a IMap.t * id_pos_map) -> LA.ident list -> ('a list) graph_result
+let rec extract_decls: ('a IMap.t * id_pos_map) -> QId.t list -> ('a list) graph_result
   = fun (decl_map, i_pos_map) ->
   function
   | [] -> R.ok []
   | i :: is ->
      (match (IMap.find_opt i decl_map) with
       | None -> (match (find_id_pos i_pos_map i) with
-                 | None -> failwith ("Identifier " ^ i ^ " not found. This should not happen")
-                 | Some p -> graph_error p ("Identifier " ^ i ^ " is not defined."))
+                 | None -> failwith ("Identifier " ^ QId.to_string i ^ " not found. This should not happen")
+                 | Some p -> graph_error p ("Identifier " ^ QId.to_string i ^ " is not defined."))
       | Some i' -> R.ok i') >>= fun d ->
      extract_decls (decl_map, i_pos_map) is >>= fun ds ->
      R.ok (d :: ds)
@@ -581,7 +577,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
   | LA.RestartEvery (p, _, es, _) ->
      [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.concat (List.map (mk_graph_expr2 m) es))]
   | LA.Pre (_, e) ->
-     List.map (map_g_pos (fun v -> v ^ "$p")) (mk_graph_expr2 m e) 
+     List.map (map_g_pos (fun v -> QId.add_suffix "$p" v)) (mk_graph_expr2 m e) 
   | LA.Last (pos, i) -> [singleton_dependency_analysis_data "" i pos]
   | LA.Fby (p, e1, _, e2)
     | LA.Arrow (p, e1, e2) ->
@@ -602,14 +598,13 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
      List.map2 (fun l r -> union_dependency_analysis_data l r ) e1_g e2_g
   | LA.Call (p, i, es) ->
      (match IMap.find_opt i m with
-      | None -> failwith ("Cannot find summary of node " ^ i ^ ". This should not happen.")
+      | None -> failwith ("Cannot find summary of node " ^ QId.to_string i ^ ". This should not happen.")
       | Some summary ->
          let sum_bds = IntMap.bindings summary in
          let ip_gs = List.concat (List.map (mk_graph_expr2 m) es) in
          List.map (fun (i, b) ->
              (List.fold_left union_dependency_analysis_data
                 empty_dependency_analysis_data (List.map (List.nth ip_gs) b))) sum_bds
-
      )
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
 (** This graph is useful for analyzing equations assuming that the nodes/contract call
@@ -626,7 +621,7 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
      connect_g_pos 
        (List.fold_left union_dependency_analysis_data ad
           (List.map (fun e -> mk_graph_expr (LH.abstract_pre_subexpressions e)) es))
-       (contract_suffix ^ i) pos
+       (QId.add_prefix contract_suffix i) pos
     
   | LA.Assume (_, _, _, e)
     | LA.Guarantee (_, _, _, e) -> mk_graph_expr (LH.abstract_pre_subexpressions e)
@@ -639,7 +634,7 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
                         ((LH.abstract_pre_subexpressions e)))
                     (reqs @ ensures)) in
      connect_g_pos mgs
-       (mode_suffix ^ i) pos
+       (QId.add_prefix mode_suffix i) pos
   | LA.GhostConst c 
     | LA.GhostVar c ->
      match c with
@@ -653,18 +648,18 @@ let mk_graph_const_decl2: node_summary -> LA.const_decl -> dependency_analysis_d
   = fun m ->
   function
   | LA.FreeConst (pos, i, ty) ->
-     connect_g_pos (mk_graph_type ty) (const_suffix ^ i) pos
+     connect_g_pos (mk_graph_type ty) (QId.add_prefix const_suffix i) pos
   | LA.UntypedConst (pos, i, e) ->
      connect_g_pos
        (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (mk_graph_expr2 m e))
-       (const_suffix ^ i) pos 
+       (QId.add_prefix const_suffix i) pos 
   | LA.TypedConst (pos, i, e, ty) ->
      connect_g_pos
        (union_dependency_analysis_data
           (List.fold_left
              union_dependency_analysis_data
              empty_dependency_analysis_data (mk_graph_expr2 m e))
-          (mk_graph_type ty)) (const_suffix ^ i) pos
+          (mk_graph_type ty)) (QId.add_prefix const_suffix i) pos
 
 
   
@@ -677,7 +672,7 @@ let mk_graph_contract_eqns: node_summary -> LA.contract -> dependency_analysis_d
     | LA.Mode (pos, i, reqs, ens) ->
        let g = List.fold_left (fun g e -> List.fold_left union_dependency_analysis_data g (mk_graph_expr2 m e))
                  empty_dependency_analysis_data (List.map (fun (_, _,  e) -> e) (reqs @ ens)) in
-       connect_g_pos g (mode_suffix ^ i) pos 
+       connect_g_pos g (QId.add_prefix mode_suffix i) pos 
     | LA.Assume _ 
       | LA.Guarantee _ -> empty_dependency_analysis_data 
     | LA.ContractCall (_, i, ip_exps, ops) -> empty_dependency_analysis_data 
@@ -693,21 +688,21 @@ let expression_current_streams: node_summary -> LA.expr -> LA.ident list =
                                       empty_dependency_analysis_data g).graph_data)
 (** all the variables who's current value is used in the expression *)
 
-let check_eqn_no_current_vals: LA.SI.t -> node_summary -> LA.expr -> unit graph_result
+let check_eqn_no_current_vals: QISet.t -> node_summary -> LA.expr -> unit graph_result
   = fun node_out_streams ns e -> 
   let assume_vars_out_streams =
-    SI.inter node_out_streams
-      (LA.SI.of_list (expression_current_streams ns e)) in
+    QISet.inter node_out_streams
+      (QISet.of_list (expression_current_streams ns e)) in
   Log.log L_trace "node_params: %a non pre vars of e: %a"
-    (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_streams)
+    (Lib.pp_print_list LA.pp_print_ident ", ") (QISet.elements node_out_streams)
     (Lib.pp_print_list LA.pp_print_ident ", ")
-    (SI.elements (LH.vars (LH.abstract_pre_subexpressions e)))
-  ; R.guard_with (R.ok (SI.is_empty assume_vars_out_streams))
+    (QISet.elements (LH.vars (LH.abstract_pre_subexpressions e)))
+  ; R.guard_with (R.ok (QISet.is_empty assume_vars_out_streams))
       (graph_error (LH.pos_of_expr e)
          ("Contract assumption or mode requirements cannot depend on "
           ^ "current values of output parameters but found: "
           ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
-               (SI.elements assume_vars_out_streams))))
+               (QISet.elements assume_vars_out_streams))))
 (** Make sure that no idents in the first argument occur in the expression *)
   
    
@@ -717,7 +712,7 @@ let mk_graph_contract_decl2
     ad
     (List.map (mk_graph_contract_node_eqn2 ad) c)
 
-let validate_contract_equation: LA.SI.t -> node_summary -> LA.contract_node_equation -> unit graph_result
+let validate_contract_equation: QISet.t -> node_summary -> LA.contract_node_equation -> unit graph_result
   = fun ids ns ->
   function
   | LA.Assume (_, _, _, e) ->
@@ -737,24 +732,24 @@ let sort_and_check_contract_eqns: dependency_analysis_data
   Log.log L_trace "Sorting contract equations for %a" LA.pp_print_ident i
   ; let ip_ids = List.map (fun ip -> LH.extract_ip_ty ip |> fst) ips in
     let op_ids = List.map (fun ip -> LH.extract_op_ty ip |> fst) ops in
-    let ids_to_skip = SI.of_list (ip_ids @ op_ids) in 
+    let ids_to_skip = QISet.of_list (ip_ids @ op_ids) in 
     let ad' = mk_graph_contract_decl2 ad pos decl in
     (try (R.ok (G.topological_sort ad'.graph_data)) with
      | Graph.CyclicGraphException ids ->
         if List.length ids > 1
-        then (match (find_id_pos ad'.id_pos_data (List.hd ids)) with
+        then (match (find_id_pos ad'.id_pos_data (QId.from_string (List.hd ids))) with
               | None ->
                  Log.log L_trace "Position map: %a" pp_print_id_pos ad'.id_pos_data
                  ; failwith ("Cyclic dependency found but Cannot find position for identifier "
                                   ^ (List.hd ids) ^ " This should not happen!") 
               | Some p -> graph_error p
                             ("Cyclic dependency detected in definition of identifiers: "
-                             ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
+                             ^ Lib.string_of_t (Lib.pp_print_list Format.pp_print_string ", ") ids))
         else failwith "Cyclic dependency with no ids detected. This should not happen!")
     >>= fun sorted_ids ->
 
-    let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) (List.rev sorted_ids) in
-    let (to_sort_eqns, assums_grantees) = split_contract_equations contract in
+    let equational_vars = List.filter (fun i -> not (QISet.mem i ids_to_skip)) (List.rev sorted_ids) in
+    let (to_sort_eqns, assums_grantees) = split_contract_eqations contract in
     mk_contract_eqn_map IMap.empty to_sort_eqns >>= fun eqn_map ->
 
     extract_decls (eqn_map, ad'.id_pos_data) equational_vars >>= fun contract' ->
@@ -762,7 +757,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
         LA.pp_print_ident i
         (Lib.pp_print_list LA.pp_print_contract_item "\n") contract'
 
-      ; R.seq_ (List.map (validate_contract_equation (SI.of_list op_ids) ad'.nsummary) contract) 
+      ; R.seq_ (List.map (validate_contract_equation (QISet.of_list op_ids) ad'.nsummary) contract) 
         >> R.ok(i, params , ips, ops, contract' @ assums_grantees)
 (** This function does two things: 
    1. Sort the contract equations according to their dependencies
@@ -782,12 +777,12 @@ let sort_declarations: LA.t -> LA.t graph_result
   (try (R.ok (G.topological_sort ad.graph_data)) with
    | Graph.CyclicGraphException ids ->
       if List.length ids > 1
-      then (match (find_id_pos ad.id_pos_data (List.hd ids)) with
+      then (match (find_id_pos ad.id_pos_data (QId.from_string (List.hd ids))) with
             | None -> failwith ("Cyclic dependency found but Cannot find position for identifier "
                                 ^ (List.hd ids) ^ " This should not happen!") 
             | Some p -> graph_error p
                           ("Cyclic dependency detected in definition of identifiers: "
-                           ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
+                           ^ Lib.string_of_t (Lib.pp_print_list Format.pp_print_string ", ") ids))
       else failwith "Cyclic dependency with no ids detected. This should not happen!") >>= fun sorted_ids ->
   let dependency_sorted_ids = List.rev sorted_ids in
   Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  dependency_sorted_ids
@@ -796,99 +791,101 @@ let sort_declarations: LA.t -> LA.t graph_result
     a function to generate the graph of the declarations,
     runs a topological sort on the ids extracted from the map and then 
     returns the sorted declarations (or an error if circular dependency is detected)  *)
+                        
+let sort_declarations decls =
+  sort_decls mk_decl_map mk_graph_decls decls
+(** Returns a topological order of declarations *)  
   
-
 (************************************************************************
  * Type 3. Dependency Analysis of contract equations and node equations *
  ************************************************************************)
 
-let rec vars_with_flattened_nodes: (int list) IMap.t -> LA.expr -> SI.t = fun m ->
+let rec vars_with_flattened_nodes: node_summary -> LA.expr -> QISet.t = fun m ->
   function
-  | Ident (_ , i) -> SI.singleton i 
-  | ModeRef _ -> SI.empty
+  | Ident (_ , i) -> QISet.singleton i 
+  | ModeRef _ -> QISet.empty
   | RecordProject (_, e, _) -> vars_with_flattened_nodes m e 
   | TupleProject (_, e, _) -> vars_with_flattened_nodes m e
   (* Values *)
-  | Const _ -> SI.empty
+  | Const _ -> QISet.empty
 
   (* Operators *)
   | UnaryOp (_,_,e) -> vars_with_flattened_nodes m e
   | BinaryOp (_,_,e1, e2) ->
      vars_with_flattened_nodes m e1
-     |> SI.union (vars_with_flattened_nodes m e2)
+     |> QISet.union (vars_with_flattened_nodes m e2)
   | TernaryOp (_,_, e1, e2, e3) ->
      vars_with_flattened_nodes m e1
-     |> SI.union (vars_with_flattened_nodes m e2)
-     |> SI.union (vars_with_flattened_nodes m e3) 
-  | NArityOp (_, _,es) -> SI.flatten (List.map (vars_with_flattened_nodes m) es)
+     |> QISet.union (vars_with_flattened_nodes m e2)
+     |> QISet.union (vars_with_flattened_nodes m e3) 
+  | NArityOp (_, _,es) -> QISet.flatten (List.map (vars_with_flattened_nodes m) es)
   | ConvOp  (_,_,e) -> vars_with_flattened_nodes m e
-  | CompOp (_,_,e1, e2) -> (vars_with_flattened_nodes m e1) |> SI.union (vars_with_flattened_nodes m e2)
+  | CompOp (_,_,e1, e2) -> (vars_with_flattened_nodes m e1) |> QISet.union (vars_with_flattened_nodes m e2)
 
   (* Structured expressions *)
   | RecordExpr (_, _, flds) ->
-     SI.flatten (List.map (vars_with_flattened_nodes m) (snd (List.split flds)))
+     QISet.flatten (List.map (vars_with_flattened_nodes m) (snd (List.split flds)))
   | GroupExpr (_, _, es) ->
-     SI.flatten (List.map (vars_with_flattened_nodes m) es)
+     QISet.flatten (List.map (vars_with_flattened_nodes m) es)
 
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) ->
-     SI.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
+     QISet.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
   | ArrayConstr (_, e1, e2) ->
-     SI.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
+     QISet.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
   | ArrayIndex (_, e1, e2) ->
-     SI.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
+     QISet.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
   | ArraySlice (_, e1, (e2, e3)) ->
-     SI.union (vars_with_flattened_nodes m e3)
-       (SI.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2))
+     QISet.union (vars_with_flattened_nodes m e3)
+       (QISet.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2))
   | ArrayConcat (_, e1, e2) ->
-     SI.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
+     QISet.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
 
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) ->
-     SI.diff (vars_with_flattened_nodes m e) (SI.flatten (List.map LH.vars_of_ty_ids qs)) 
+     QISet.diff (vars_with_flattened_nodes m e) (QISet.of_list (List.map LH.var_of_ty_id qs)) 
 
   (* Clock operators *)
   | When (_, e, clkE) -> vars_with_flattened_nodes m e
   | Current  (_, e) -> vars_with_flattened_nodes m e
   | Condact (_, e1, e2, i, es1, es2) ->
-     SI.add i (SI.flatten (vars_with_flattened_nodes m e1
+     QISet.add i (QISet.flatten (vars_with_flattened_nodes m e1
                            :: vars_with_flattened_nodes m e2
                            :: (List.map (vars_with_flattened_nodes m) es1) @
                              (List.map (vars_with_flattened_nodes m) es2)))
   | Activate (_, _, e1, e2, es) ->
-     SI.flatten (vars_with_flattened_nodes m e1
+     QISet.flatten (vars_with_flattened_nodes m e1
                  :: vars_with_flattened_nodes m e2
                  :: List.map (vars_with_flattened_nodes m)  es)
   | Merge (_, _, es) ->
      List.split es |> snd
-     |> List.map (vars_with_flattened_nodes m) |> SI.flatten
+     |> List.map (vars_with_flattened_nodes m) |> QISet.flatten
   | RestartEvery (_, i, es, e) ->
-     SI.add i (SI.flatten (vars_with_flattened_nodes m e
+     QISet.add i (QISet.flatten (vars_with_flattened_nodes m e
                            :: List.map (vars_with_flattened_nodes m) es)) 
-
   (* Temporal operators *)
-  | Pre (_, _) -> SI.empty
-  | Last (_, _) -> SI.empty
+  | Pre (_, _) -> QISet.empty
+  | Last (_, _) -> QISet.empty
   | Fby (_, e1, _, e2)
     | Arrow (_, e1, e2) ->
-     SI.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
+     QISet.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
 
   (* Node calls *)
   | Call (_, i, es) ->
      (match IMap.find_opt i m with
-      | None -> failwith ("cannot find node call summary for "^ i ^". Should not happen!")
+      | None -> failwith ("cannot find node call summary for "^ QId.to_string i ^". Should not happen!")
       | Some ns ->
          let sum_bds = IntMap.bindings ns in
          let es' = List.map (vars_with_flattened_nodes m) es in
-         SI.flatten (List.concat (List.map (fun (i, b) ->
+         QISet.flatten (List.concat (List.map (fun (i, b) ->
                                       List.map (List.nth es') b) sum_bds)))
-  | CallParam (_, i, _, es) -> (SI.flatten (List.map (vars_with_flattened_nodes m) es))
+  | CallParam (_, i, _, es) -> (QISet.flatten (List.map (vars_with_flattened_nodes m) es))
 (** get all the variables and flatten node calls using 
     the node summary for an expression *)
 
-let summarize_ip_vars: LA.ident list -> SI.t -> int list = fun ips critial_ips ->
+let summarize_ip_vars: QId.t list -> QISet.t -> int list = fun ips critial_ips ->
   (List.fold_left (fun (acc, nums) i ->
-       if SI.mem i critial_ips
+       if QISet.mem i critial_ips
        then (nums::acc, nums+1)
        else (acc, nums+1)) ([], 0)) ips |> fst 
 (** Helper function to generate a node summary *)
@@ -901,8 +898,8 @@ let mk_node_summary: node_summary -> LA.node_decl -> node_summary
   let ip_vars = List.map (fun o -> LH.extract_ip_ty o |> fst) ips in
   let node_equations = List.concat (List.map LH.extract_node_equation items) in
   let process_one_eqn = fun (LA.StructDef (_, lhss), e) ->
-    let lhs_vars = SI.elements (SI.flatten (List.map LH.vars_of_struct_item lhss)) in
-    let ms = List.map (Lib.flip IMap.singleton (SI.elements (vars_with_flattened_nodes s e))) lhs_vars in
+    let lhs_vars = QISet.elements (QISet.flatten (List.map LH.vars_of_struct_item lhss)) in
+    let ms = List.map (Lib.flip IMap.singleton (QISet.elements (vars_with_flattened_nodes s e))) lhs_vars in
     List.fold_left (IMap.union (fun k v1 v2 -> Some v2)) IMap.empty ms in
   
   let node_equation_dependency_map = List.fold_left (IMap.union (fun k v1 v2 -> Some v2)) IMap.empty
@@ -910,14 +907,14 @@ let mk_node_summary: node_summary -> LA.node_decl -> node_summary
 
   Log.log L_trace "Node equation dependency map for node %a {\n %a \n}"
     LA.pp_print_ident i
-    (Lib.pp_print_list (Lib.pp_print_pair (LA.pp_print_ident) (Lib.pp_print_list (LA.pp_print_ident) ", ") "->") "\n")
+    (Lib.pp_print_list (Lib.pp_print_pair (QId.pp_print_ident) (Lib.pp_print_list (QId.pp_print_ident) ", ") "->") "\n")
     (IMap.bindings node_equation_dependency_map)
   ; let mk_g = fun (lhs, vars) ->  G.connect (List.fold_left G.union G.empty (List.map G.singleton vars)) lhs in
     let g = List.fold_left G.union G.empty (List.map mk_g (IMap.bindings node_equation_dependency_map)) in
     Log.log L_trace "Node equation graph: %a" G.pp_print_graph g
     ; let vars_op_depends_on = List.map (fun i -> G.to_vertex_list (G.reachable g i)) op_vars in
 
-      let critical_ips = List.map (fun vs -> SI.inter (SI.of_list vs) (SI.of_list ip_vars)
+      let critical_ips = List.map (fun vs -> QISet.inter (QISet.of_list vs) (QISet.of_list ip_vars)
                                              |> summarize_ip_vars ip_vars)
                            vars_op_depends_on in
       let ns = (List.fold_left
@@ -950,8 +947,8 @@ let get_contract_exports: contract_summary -> LA.contract_node_equation -> LA.id
   | LA.Mode (_, i, _, _) -> [i]
   | LA.ContractCall (_, cc, _, _) ->
      (match (IMap.find_opt cc m) with
-     | Some ids -> List.map (fun i -> cc ^ "::" ^ i) ids
-     | None -> failwith ("Undeclared contract " ^ cc ^ ". Should not happen!"))  
+     | Some ids -> List.map (fun i -> QId.add_qualified_prefix (QId.to_string cc) i) ids
+     | None -> failwith ("Undeclared contract " ^ QId.to_string cc ^ ". Should not happen!"))  
  | _ -> []
 (** Traverses all the contract equations to make a contract export list. *)
 
@@ -966,8 +963,10 @@ let mk_graph_eqn: node_summary -> LA.node_equation -> dependency_analysis_data =
     match lhs with
     | LA.SingleIdent (p, i) -> connect_g_pos rhs_g i p 
     | LA.ArrayDef (p, arr, is) ->
-       let arr' = arr ^ "$" ^ (List.fold_left (fun acc i -> acc ^ "$" ^ i) "" is) in 
+       let arr' = QId.from_string
+                    ((QId.to_string arr) ^ "$" ^ (List.fold_left (fun acc i -> acc ^ "$" ^ QId.to_string i) "" is)) in 
        connect_g_pos (List.fold_left (fun g i -> remove g i) rhs_g is)  arr' p
+
     (* None of these items below are supported at parsing yet. *)
     | LA.TupleStructItem (p, _)
       | LA.TupleSelection (p, _, _)
@@ -1024,12 +1023,12 @@ let analyze_circ_node_equations: node_summary -> LA.node_item list -> unit graph
     (try (R.ok (G.topological_sort ad.graph_data)) with
      | Graph.CyclicGraphException ids ->
         if List.length ids > 1
-        then (match (find_id_pos ad.id_pos_data (List.hd ids)) with
+        then (match (find_id_pos ad.id_pos_data (QId.from_string (List.hd ids))) with
               | None -> failwith ("Cyclic dependency found but cannot find position for identifier "
                                   ^ (List.hd ids) ^ " This should not happen!") 
               | Some p -> graph_error p
                             ("Cyclic dependency detected in equations with identifiers: "
-                             ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
+                             ^ Lib.string_of_t (Lib.pp_print_list Format.pp_print_string ", ") ids))
         else failwith "Cyclic dependency with no ids detected. This should not happen!")
     >> R.ok ()
 (** Check for node equations, we need to flatten the node calls using [node_summary] generated *)
@@ -1045,7 +1044,7 @@ let check_node_equations: dependency_analysis_data
   >> match contract_opt with
      | None -> R.ok ndecl
      | Some c ->
-        sort_and_check_contract_eqns ad pos (contract_suffix ^ "inline$" ^ i, params, ips, ops, c) >>=
+        sort_and_check_contract_eqns ad pos (QId.add_prefix (contract_suffix ^ "inline$") i, params, ips, ops, c) >>=
           fun (_, _, _, _, c') -> R.ok (i, imported, params, ips, ops, locals, items, Some c')
 (** Check if node equations do not have circularity and also, if the node has a contract
     sort the contract equations. *)

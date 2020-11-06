@@ -22,7 +22,7 @@ open Lib
 open LustreReporting
    
 module A = LustreAst
-          
+
 let mk_pos = position_of_lexing 
 
 
@@ -786,7 +786,7 @@ pexpr(Q):
 
   (* A mode reference. *)
   | two_colons ; mode_ref = separated_nonempty_list(two_colons, ident) {
-    A.ModeRef (mk_pos $startpos, mode_ref)
+    A.ModeRef (mk_pos $startpos, mode_ref )
   }
 
   (* A propositional constant *)
@@ -844,7 +844,7 @@ pexpr(Q):
     
   (* A record field projection (not quantified) *)
   | s = pexpr(Q); DOT; t = ident 
-    { A.RecordProject (mk_pos $startpos, s, t) }
+    { A.RecordProject (mk_pos $startpos, s, QId.to_string t) }
 
   (* A record (not quantified) *)
   | t = ident; 
@@ -1051,7 +1051,7 @@ pexpr(Q):
     c = ident; SEMICOLON;
     pos = pexpr(Q); SEMICOLON;
     neg = pexpr(Q); RPAREN 
-    { A.Merge (mk_pos $startpos, c, ["true", pos; "false", neg]) }
+    { A.Merge (mk_pos $startpos, c, [QId.from_string "true", pos; QId.from_string "false", neg]) }
 
   (* N-way merge operator *)
   | MERGE; 
@@ -1127,8 +1127,8 @@ clock_expr:
   | TRUE { A.ClockTrue }
 
 merge_case_id:
-  | TRUE { "true" }
-  | FALSE { "false" }
+  | TRUE { QId.from_string "true" }
+  | FALSE { QId.from_string "false" }
   | c = ident { c }
 
 merge_case :
@@ -1141,17 +1141,17 @@ merge_case :
 (* An identifier *)
 ident:
   (* Contract tokens are not keywords. *)
-  | MODE { "mode" }
-  | ASSUME { "assume" }
-  | GUARANTEE { "guarantee" }
-  | REQUIRE { "require" }
-  | ENSURE { "ensure" }
-  | WEAKLY { "weakly" }
-  | s = SYM { s }
+  | MODE { QId.from_string "mode" }
+  | ASSUME { QId.from_string  "assume" }
+  | GUARANTEE { QId.from_string  "guarantee" }
+  | REQUIRE { QId.from_string  "require" }
+  | ENSURE { QId.from_string  "ensure" }
+  | WEAKLY { QId.from_string  "weakly" }
+  | s = SYM { QId.from_string  s }
 
 ident_or_quotident:
   | id = ident { id }
-  | s = QUOTSYM { s }
+  | s = QUOTSYM { QId.from_string s }
 
 (* An identifier with a type *)
 typed_ident: s = ident; COLON; t = lustre_type { (mk_pos $startpos, s, t) }
@@ -1303,7 +1303,7 @@ label_or_index:
 
   (* An index into a record *)
   | DOT; i = ident
-     { A.Label (mk_pos $startpos, i) } 
+     { A.Label (mk_pos $startpos, QId.to_string i) } 
 
   (* An index into an array with a variable or constant *)
   | LSQBRACKET; e = expr; RSQBRACKET

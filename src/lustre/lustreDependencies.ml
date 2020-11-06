@@ -20,6 +20,8 @@ module I = LustreIdent
 module ISet = I.Set
 module IMap = I.Hashtbl
 
+module QId = LustreAstIdent
+            
 module A = LustreAst
 
 (** Enum over declaration types. *)
@@ -116,24 +118,24 @@ let mem deps (key_type, key_ident) (val_type, val_ident) =
 (** Identifier corresponding to a declaration. *)
 let info_of_decl = function
 | A.TypeDecl (pos, A.AliasType (_, ident, _)) ->
-  pos, ident |> I.mk_string_ident, Type
+  pos, QId.to_string ident |> I.mk_string_ident, Type
 | A.TypeDecl (pos, A.FreeType (_, ident)) ->
-  pos, ident |> I.mk_string_ident, Type
+  pos, QId.to_string ident |> I.mk_string_ident, Type
 
 | A.ConstDecl (pos, A.FreeConst(_, ident, _)) ->
-  pos, ident |> I.mk_string_ident, Const
+  pos, QId.to_string ident |> I.mk_string_ident, Const
 | A.ConstDecl (pos, A.UntypedConst(_, ident, _)) ->
-  pos, ident |> I.mk_string_ident, Const
+  pos, QId.to_string ident |> I.mk_string_ident, Const
 | A.ConstDecl (pos, A.TypedConst(_, ident, _, _)) ->
-  pos, ident |> I.mk_string_ident, Const
+  pos, QId.to_string ident |> I.mk_string_ident, Const
 
 | A.NodeDecl (pos, (ident, _, _, _, _, _, _, _)) ->
-  pos, ident |> I.mk_string_ident, NodeOrFun
+  pos, QId.to_string ident |> I.mk_string_ident, NodeOrFun
 | A.FuncDecl (pos, (ident, _, _, _, _, _, _, _)) ->
-  pos, ident |> I.mk_string_ident, NodeOrFun
+  pos, QId.to_string ident |> I.mk_string_ident, NodeOrFun
 
 | A.ContractNodeDecl (pos, (ident, _, _, _, _)) ->
-  pos, ident |> I.mk_string_ident, Contract
+  pos, QId.to_string ident |> I.mk_string_ident, Contract
 
 | decl ->
   Format.asprintf
@@ -148,26 +150,26 @@ let insert_decl decl (f_type, f_ident) decls =
   let has_ident = match f_type with
     | NodeOrFun -> (
       function
-      | A.NodeDecl (_, (i, _, _, _, _, _, _, _)) -> i = ident
-      | A.FuncDecl (_, (i, _, _, _, _, _, _, _)) -> i = ident
+      | A.NodeDecl (_, (i, _, _, _, _, _, _, _)) -> QId.to_string i = ident
+      | A.FuncDecl (_, (i, _, _, _, _, _, _, _)) -> QId.to_string i = ident
       | _ -> false
     )
     | Type -> (
       function
-      | A.TypeDecl (_, A.AliasType(_, i, _)) -> i = ident
-      | A.TypeDecl (_, A.FreeType(_, i)) -> i = ident
+      | A.TypeDecl (_, A.AliasType(_, i, _)) -> QId.to_string i = ident
+      | A.TypeDecl (_, A.FreeType(_, i)) -> QId.to_string i = ident
       | _ -> false
     )
     | Contract -> (
       function
-      | A.ContractNodeDecl (_, (i, _, _, _, _)) -> i = ident
+      | A.ContractNodeDecl (_, (i, _, _, _, _)) -> QId.to_string i = ident
       | _ -> false
     )
     | Const -> (
       function
-      | A.ConstDecl (_, A.FreeConst(_, i, _)) -> i = ident
-      | A.ConstDecl (_, A.UntypedConst(_, i, _)) -> i = ident
-      | A.ConstDecl (_, A.TypedConst(_, i, _, _)) -> i = ident
+      | A.ConstDecl (_, A.FreeConst(_, i, _)) -> QId.to_string i = ident
+      | A.ConstDecl (_, A.UntypedConst(_, i, _)) -> QId.to_string i = ident
+      | A.ConstDecl (_, A.TypedConst(_, i, _, _)) -> QId.to_string i = ident
       | _ -> false
     )
   in

@@ -19,8 +19,9 @@
 (** Some helper functions on the surface level parsed AST *)
 
 open LustreAst
+module QId = LustreAstIdent
+module QISet = QId.IdentSet
 
-module SI = Ident.IdentSet
 (** {1 Helpers} *)
 
 val pos_of_expr : expr -> Lib.position
@@ -43,24 +44,24 @@ val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
 val node_item_has_pre_or_arrow : node_item -> Lib.position option
 (** Checks whether a node equation has a `pre` or a `->`. *)
 
-val replace_lasts : string list -> string -> SI.t -> expr -> expr * SI.t
+val replace_lasts : QId.t list -> string -> QISet.t -> expr -> expr * QISet.t
 (** [replace_lasts allowed prefix acc e] replaces [last x] expressions in AST
     [e] by abstract identifiers prefixed with [prefix]. Only identifiers that
     appear in the list [allowed] are allowed to appear under a last. It returns
     the new AST expression and a set of identifers for which the last
     application was replaced. *)
 
-val vars: expr -> SI.t
+val vars: expr -> QISet.t
 (** returns all the [ident] that appear in the expr ast*)
 
-val vars_of_struct_item: struct_item -> SI.t
+val vars_of_struct_item: struct_item -> QISet.t
 (** returns all variables that appear in a [struct_item]   *)
 
-val vars_lhs_of_eqn: node_item -> SI.t
+val vars_lhs_of_eqn: node_item -> QISet.t
 (** returns all the variables that appear in the lhs of the equation of the node body *)
 
-val vars_of_ty_ids: typed_ident -> SI.t
-(**  returns all the variables that occur in the expression of a typed identifier declaration *)
+val var_of_ty_id: typed_ident -> QId.t
+(**  returns the variables that occurs the typed identifier expression declaration *)
 
 val add_exp: Lib.position -> expr -> expr -> expr
 (** Return an AST that adds two expressions*)

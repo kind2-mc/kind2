@@ -69,7 +69,10 @@ module IdentSet = struct
     List.fold_left union empty sets
 end 
 
-module IdentMap = Map.Make (Ident)
+module IdentMap = struct
+  include Map.Make(Ident)
+  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)             
+end
 
 
 let pp_print_ident ppf i = Format.fprintf ppf "%s" i
