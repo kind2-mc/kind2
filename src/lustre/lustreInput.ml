@@ -138,8 +138,8 @@ let of_channel in_ch =
            (* Step 5. type check nodes and contracts *)
            TC.type_check_infer_program TC.Nodes_and_contracts inlined_ctx sorted_node_contract_decls >>
              
-             (* Step 6. Inline constants in node equations *)
-             IC.inline_constants ctx sorted_node_contract_decls >>= fun (_, const_inlined_nodes_and_contracts) ->
+           (* Step 6. Inline constants in node equations *)
+           IC.inline_constants ctx sorted_node_contract_decls >>= fun (_, const_inlined_nodes_and_contracts) ->
            
            (* The last node in the original ordering should remain the last node after sorting 
               as the user expects that to be the main node in the case where 
