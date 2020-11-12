@@ -5797,7 +5797,7 @@ main: CONST XOR
 ## CONST
 ##
 
-Syntax Error!
+Syntax Error! Incomplete constant declaration.
 
 main: CONTRACT WEAKLY LPARAMBRACKET RPARAMBRACKET XOR
 ##
@@ -13938,7 +13938,7 @@ main: TYPE XOR
 ## TYPE
 ##
 
-Syntax Error! Reserved terms cannot appear on left hand side of the equation.
+Syntax Error! Incomplete type declaration.
 
 main: XOR
 ##

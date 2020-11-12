@@ -9,7 +9,7 @@ let message =
     | 0 ->
         "Syntax Error!\n"
     | 1 ->
-        "Syntax Error! Reserved terms cannot appear on left hand side of the equation.\n"
+        "Syntax Error! Incomplete type declaration.\n"
     | 373 ->
         "Syntax Error! Perhaps an illegal expression in contract call.\n"
     | 996 ->
@@ -843,7 +843,7 @@ let message =
     | 982 ->
         "Syntax Error!\n"
     | 796 ->
-        "Syntax Error!\n"
+        "Syntax Error! Incomplete constant declaration.\n"
     | 802 ->
         "Syntax Error!\n"
     | 803 ->
