@@ -1,6 +1,7 @@
 const N: int;
 
 node top(x: int) returns (y: int);
+var z: int;
 let
   N = x;
 tel

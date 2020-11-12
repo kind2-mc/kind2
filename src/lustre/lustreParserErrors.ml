@@ -71,7 +71,7 @@ let message =
     | 459 ->
         "Syntax Error! Perhaps a missing/unbalanced parenthesis.\n"
     | 790 ->
-        "Syntax Error!\n"
+        "Syntax Error! Illegal name for a variable declaration.\n"
     | 791 ->
         "Syntax Error!\n"
     | 793 ->
@@ -81,7 +81,7 @@ let message =
     | 461 ->
         "Syntax Error!\n"
     | 822 ->
-        "Syntax Error! List of expressions cannot be on the left hand side of the equation. \n"
+        "Syntax Error! Illegal left hand side of the equation.\n"
     | 875 ->
         "Syntax Error! Unexpected parenthesis found.\nArray indexing is done using square brackets e.g. `A[i]`.\n"
     | 940 ->
