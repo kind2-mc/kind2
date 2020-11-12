@@ -890,4 +890,3 @@ let group_contract_eqns: contract -> (contract * contract * contract * contract)
       | Guarantee _ as g :: eqns -> group_contract_eqns_aux (ccalls, ghosts_vars_constants, ms, a_and_gs @ [g]) eqns 
       | Mode _ as m :: eqns ->  group_contract_eqns_aux (ccalls, ghosts_vars_constants, ms @ [m], a_and_gs) eqns in 
     group_contract_eqns_aux ([], [], [], [])  
-      
