@@ -414,71 +414,7 @@ and eval_comp_op: tc_context -> Lib.position -> LA.comparison_operator
   | Gte -> R.ok (v1 > v2)
   | Gt -> R.ok (v1 >= v2)
 (** try and evalutate comparison op expression to bool, return error otherwise *)
-       
-and simplify_expr: tc_context -> LA.expr -> LA.expr = fun ctx ->
-  function
-  | LA.Const _ as c -> c
-  | LA.Ident (pos, i) ->
-     (match (lookup_const ctx i) with
-      | Some (const_expr, _) ->
-         (match const_expr with
-          | LA.Ident (_, i') as ident' ->
-             if Stdlib.compare i i' = 0 (* If This is a free constant *)
-             then ident' 
-             else simplify_expr ctx ident'
-          | _ -> simplify_expr ctx const_expr)
-      | None -> LA.Ident (pos, i))
-  | LA.BinaryOp (pos, bop, e1, e2) as e->
-     let e1' = simplify_expr ctx e1 in
-     let e2' = simplify_expr ctx e2 in
-     (match (eval_int_binary_op ctx pos bop e1' e2') with
-      | Ok v -> LA.Const (pos, Num (string_of_int v))
-      | Error _ -> e)
-  | LA.TernaryOp (pos, top, cond, e1, e2) as e ->
-     (match top with
-     | Ite -> 
-        (match eval_bool_expr ctx cond with
-         | Ok v -> if v then simplify_expr ctx e1 else simplify_expr ctx e2 
-         | Error _ -> e)
-     | _ -> Lib.todo __LOC__)
-  | LA.CompOp (pos, cop, e1, e2) as e->
-     let e1' = simplify_expr ctx e1 in
-     let e2' = simplify_expr ctx e2 in
-     (match (eval_comp_op ctx pos cop e1' e2') with
-      | Ok v -> LA.Const (pos, lift_bool v)
-      | Error _ -> e)
-  | e -> e
-(** Assumptions: These constants are arranged in dependency order, 
-    all of the constants have been type checked 
-    This function is used for simplifying expressions at type level only  *)
 
-let substitute: tc_context -> LA.declaration -> (tc_context * LA.declaration) = fun ctx ->
-  function
-  | ConstDecl (pos, FreeConst _) as c -> (ctx, c)
-  | ConstDecl (pos, UntypedConst (pos', i, e)) ->
-     let e' = simplify_expr ctx e in
-     let ty =
-       (match (lookup_ty ctx i) with 
-       | None -> failwith "Cannot find constant type. Should not happen."
-       | Some ty ->  ty) in
-     ( add_const ctx i e' ty
-     , ConstDecl (pos, UntypedConst (pos', i, e'))) 
-  | ConstDecl (pos, TypedConst (pos', i, e, ty)) ->
-     let e' = simplify_expr ctx e in 
-     (add_const ctx i e' ty, ConstDecl (pos, TypedConst (pos', i, e', ty)))
-  | e -> (ctx, e)
-(** propogate constants post type checking into the AST and constant store*)
-
-
-let rec inline_constants: tc_context -> LA.t -> tc_context * LA.t = fun ctx ->
-  function
-  | [] -> ctx, []
-  | c :: rest ->
-     let (ctx', c') = substitute ctx c in
-     let ctx'', decls = inline_constants ctx' rest in
-     ctx'', c'::decls
-(** Best effort at inlining constants *)  
-       
 (**********************************************
  * Type inferring and type checking functions *
  **********************************************)
@@ -1799,14 +1735,14 @@ let type_check_infer_program: constants_or_nodes -> tc_context -> LA.t -> tc_con
      (* Build base constant and type context *)
      ; build_type_and_const_context ctx prg >>= fun global_ctx ->
        (* Inline constants in constant declarations *)
-       Log.log L_trace ("===============================================\nStarting inlining constants") 
-       ; let (global_ctx', inlined_cs) = inline_constants global_ctx prg in
-         Log.log L_trace ("===============================================\n"
-                          ^^ "Constant and type context \n"
-                          ^^ "TC Context\n%a\n"
-                          ^^"===============================================\n")
-           pp_print_tc_context global_ctx'
-         ; R.ok global_ctx')
+       (* Log.log L_trace ("===============================================\nStarting inlining constants") 
+        * ; let (global_ctx', inlined_cs) = inline_constants global_ctx prg in
+        *   Log.log L_trace ("===============================================\n"
+        *                    ^^ "Constant and type context \n"
+        *                    ^^ "TC Context\n%a\n"
+        *                    ^^"===============================================\n")
+        *     pp_print_tc_context global_ctx' *)
+         R.ok global_ctx)
 
   | Nodes_and_contracts ->
      (* type check the nodes and contract decls using this base typing context  *)

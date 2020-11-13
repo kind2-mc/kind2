@@ -415,8 +415,8 @@ let reorder_contract_eqns: LA.t -> LA.t graph_result = fun decls ->
   contracts and nodes are well ordered. *)
                         
 let sort_declarations decls =
-  sort_decls mk_decl_map mk_graph_decls decls >>= fun sorted_decls -> 
-  reorder_contract_eqns sorted_decls
+  sort_decls mk_decl_map mk_graph_decls decls(*  >>= fun sorted_decls -> 
+   * reorder_contract_eqns sorted_decls *)
   
 
 
