@@ -27,8 +27,6 @@ type 'a tc_result = ('a, Lib.position * string) result
 type tc_context
 (** Type Checker context *)
 
-type constants_or_nodes = Constants_and_types | Nodes_and_contracts
-
 val type_error: Lib.position -> string -> 'a tc_result 
 (** [type_error] returns an [Error] of [tc_result] *)
    

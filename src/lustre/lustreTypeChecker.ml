@@ -37,8 +37,6 @@ let (>>) = R.(>>)
          
 (** Type alias for lustre type from LustreAst  *)
 type tc_type  = LA.lustre_type
-
-type constants_or_nodes = Constants_and_types | Nodes_and_contracts
               
 (** String of the type to display in type errors *)
 let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
