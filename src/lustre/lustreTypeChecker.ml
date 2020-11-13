@@ -1734,15 +1734,7 @@ let type_check_infer_program: constants_or_nodes -> tc_context -> LA.t -> tc_con
                        ^^"===============================================\n")
      (* Build base constant and type context *)
      ; build_type_and_const_context ctx prg >>= fun global_ctx ->
-       (* Inline constants in constant declarations *)
-       (* Log.log L_trace ("===============================================\nStarting inlining constants") 
-        * ; let (global_ctx', inlined_cs) = inline_constants global_ctx prg in
-        *   Log.log L_trace ("===============================================\n"
-        *                    ^^ "Constant and type context \n"
-        *                    ^^ "TC Context\n%a\n"
-        *                    ^^"===============================================\n")
-        *     pp_print_tc_context global_ctx' *)
-         R.ok global_ctx)
+       R.ok global_ctx)
 
   | Nodes_and_contracts ->
      (* type check the nodes and contract decls using this base typing context  *)
