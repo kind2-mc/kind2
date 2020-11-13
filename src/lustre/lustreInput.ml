@@ -127,7 +127,7 @@ let of_channel in_ch =
            AD.sort_declarations const_type_decls >>= fun sorted_const_type_decls ->
 
            (* Step 2. Type check top level declarations *)
-           TC.type_check_infer_program TC.Constants_and_types TC.empty_tc_context sorted_const_type_decls >>= fun ctx -> 
+           TC.type_check_infer_globals  TC.empty_tc_context sorted_const_type_decls >>= fun ctx -> 
 
            (* Step 3: Inline type toplevel decls *)
            IC.inline_constants ctx sorted_const_type_decls >>= fun (inlined_ctx, const_inlined_type_and_consts) -> 
@@ -136,7 +136,7 @@ let of_channel in_ch =
            AD.sort_declarations node_contract_src >>= fun sorted_node_contract_decls ->  
 
            (* Step 5. type check nodes and contracts *)
-           TC.type_check_infer_program TC.Nodes_and_contracts inlined_ctx sorted_node_contract_decls >>
+           TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls >>
              
            (* Step 6. Inline constants in node equations *)
            IC.inline_constants ctx sorted_node_contract_decls >>= fun (_, const_inlined_nodes_and_contracts) ->

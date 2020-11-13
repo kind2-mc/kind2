@@ -1722,22 +1722,21 @@ let report_tc_result: unit tc_result list -> unit tc_result
 (** Get the first error *)
   
 (**************************************************************************************
- * The main function of the file that kicks off type checking or type inference flow  *
+ * The main functions of the file that kicks off type checking or type inference flow  *
  ***************************************************************************************)
-
-let type_check_infer_program: constants_or_nodes -> tc_context -> LA.t -> tc_context tc_result
-  = fun c_or_n ctx prg ->
-  match c_or_n with
-  | Constants_and_types ->
+   
+let type_check_infer_globals: tc_context -> LA.t -> tc_context tc_result
+  = fun ctx prg ->
      (Log.log L_trace ("===============================================\n"
                        ^^ "Building TC Global Context\n"
                        ^^"===============================================\n")
      (* Build base constant and type context *)
      ; build_type_and_const_context ctx prg >>= fun global_ctx ->
        R.ok global_ctx)
-
-  | Nodes_and_contracts ->
-     (* type check the nodes and contract decls using this base typing context  *)
+   
+let type_check_infer_nodes_and_contracts: tc_context -> LA.t -> tc_context tc_result
+  = fun ctx prg -> 
+(* type check the nodes and contract decls using this base typing context  *)
      Log.log L_trace ("===============================================\n"
                       ^^ "Building node and contract Context\n"
                       ^^"===============================================\n")
@@ -1753,8 +1752,6 @@ let type_check_infer_program: constants_or_nodes -> tc_context -> LA.t -> tc_con
                             ^^ "Type checking declaration Groups Done\n"
                             ^^"===============================================\n")
           ;  R.ok ctx))
-(** Typechecks the [LA.declaration list] or the lustre program Ast and returns 
- *  a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
            
 (* 
    Local Variables:

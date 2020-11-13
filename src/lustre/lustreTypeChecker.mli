@@ -36,12 +36,22 @@ val empty_tc_context: tc_context
 (** Empty type context *)
 
 val lookup_const: tc_context -> LA.ident -> (LA.expr * LA.lustre_type) option
-val lookup_ty: tc_context -> LA.ident -> LA.lustre_type option
-val add_const: tc_context -> LA.ident -> LA.expr -> LA.lustre_type -> tc_context
+(** lookup a constant from a typing context *)
   
-val type_check_infer_program: constants_or_nodes -> tc_context -> LA.t -> tc_context tc_result  
-(** Typecheck a complete program and return the result *)
+val lookup_ty: tc_context -> LA.ident -> LA.lustre_type option
+(** lookup a type of an identifier *)
+  
+val add_const: tc_context -> LA.ident -> LA.expr -> LA.lustre_type -> tc_context
+(** add a constant into the typing constant *)
+  
+val type_check_infer_globals: tc_context -> LA.t -> tc_context tc_result  
+(** Typechecks the toplevel globals i.e. constant decls and type decls. It returns 
+ *  a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
+val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> tc_context tc_result
+(** Typechecks and infers type for the nodes and contracts. It returns
+ *  a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
+  
 val report_tc_result: unit tc_result list -> unit tc_result
 (** Report whether everything is [Ok] or [NotOk] *)
 
