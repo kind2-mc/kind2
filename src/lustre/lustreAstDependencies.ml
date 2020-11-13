@@ -388,36 +388,10 @@ let sort_decls: ('a IMap.t -> 'a list -> 'a IMap.t graph_result)
     a function to generate the graph of the declarations,
     runs a topological sort on the ids extracted from the map and then 
     returns the sorted declarations (or an error if circular dependency is detected)  *)
-
-let reorder: LA.contract -> LA.contract graph_result = fun eqns -> R.ok eqns
-(** TODO: reordering may be a little tricky because of dependencies *)
-                                                                 
-let do_reordering: LA.contract_node_decl -> LA.contract_node_decl graph_result =
-  fun (i, params, ips, ops, contract) ->
-    let (ccalls, consts_vars, ms, ags) = LH.group_contract_eqns contract in
-    reorder ms >>= fun ms' ->
-    R.ok (i, params, ips, ops, (ccalls @ consts_vars @ ms' @ ags))
-(** In this reordering phase we do the following: 
-    1. All the imports on the top
-    2. Contract ghost variables and constants
-    3. Modes
-    4. Assumptions and guarantees
- *)
-                        
-let reorder_contract_eqns: LA.t -> LA.t graph_result = fun decls ->
-  let reorder_eqns: LA.declaration -> LA.declaration graph_result =
-    function
-    | LA.ContractNodeDecl (pos, cdecl) ->
-       do_reordering cdecl >>= fun cdecl' -> R.ok (LA.ContractNodeDecl (pos, cdecl))
-    | decl -> R.ok (decl) in
-  R.seq_chain (fun acc d -> reorder_eqns d >>= fun d' -> R.ok(d' :: acc)) [] decls
-(** It makes sense to order mode declarations only when we know that the 
-  contracts and nodes are well ordered. *)
                         
 let sort_declarations decls =
-  sort_decls mk_decl_map mk_graph_decls decls(*  >>= fun sorted_decls -> 
-   * reorder_contract_eqns sorted_decls *)
-  
+  sort_decls mk_decl_map mk_graph_decls decls
+(** Returns a topological order of declarations *)  
 
 
 (************************************************************************
