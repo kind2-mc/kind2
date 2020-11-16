@@ -755,10 +755,6 @@ let rec type_of_term t = match T.destruct t with
         | `BVSDIV
         | `BVUREM
         | `BVSREM
-        | `BVUDIV_I
-        | `BVSDIV_I
-        | `BVUREM_I
-        | `BVSREM_I
         | `BVSHL
         | `BVLSHR 
         | `BVASHR ->

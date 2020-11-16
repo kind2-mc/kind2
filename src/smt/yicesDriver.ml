@@ -358,10 +358,6 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
 
-  | `BVUDIV_I -> assert false
-  | `BVSDIV_I -> assert false
-  | `BVUREM_I -> assert false
-  | `BVSREM_I -> assert false
   | `UINT8_TO_INT -> assert false
   | `UINT16_TO_INT -> assert false
   | `UINT32_TO_INT -> assert false

@@ -781,10 +781,6 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVSDIV, _
       | `BVUREM, _
       | `BVSREM, _
-      | `BVUDIV_I, _
-      | `BVSDIV_I, _
-      | `BVUREM_I, _
-      | `BVSREM_I, _
       | `BVSHL, _
       | `BVLSHR, _
       | `BVASHR, _
@@ -2398,18 +2394,6 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                                                   (Term.bitvector_of_term a)
                                                   (Term.bitvector_of_term b)))
               | _ -> assert false)
-
-          | `BVUDIV_I ->
-            assert false
-          
-          | `BVSDIV_I ->
-            assert false
-
-          | `BVUREM_I ->
-            assert false
-
-          | `BVSREM_I ->
-            assert false
 
           | `BVULT -> 
             (match args with

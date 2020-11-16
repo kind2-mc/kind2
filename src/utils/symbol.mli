@@ -173,10 +173,6 @@ type interpreted_symbol =
   | `BVSDIV               (** Arithmetic integer signed division (binary) *)
   | `BVUREM               (** Arithmetic remainder (binary) *)
   | `BVSREM               (** Arithmetic signed remainder (binary) *)
-  | `BVUDIV_I             (** Arithmetic integer division (binary) with non-zero divisor (Z3) *)
-  | `BVSDIV_I             (** Arithmetic integer signed division (binary) with non-zero divisor (Z3) *)
-  | `BVUREM_I             (** Arithmetic remainder (binary) with non-zero divisor (Z3) *)
-  | `BVSREM_I             (** Arithmetic signed remainder (binary) with non-zero divisor (Z3) *)
   | `BVSHL                (** Logical shift left (binary) *)
   | `BVLSHR               (** Logical shift right (binary) *)
   | `BVASHR               (** Arithmetic shift right (binary) *)
@@ -382,9 +378,6 @@ val is_to_int32 : t -> bool
 
 (** Return true if the symbol is a toint64 *)
 val is_to_int64 : t -> bool
-
-(** Return true if the symbol is a Z3 special BV symbol *)
-val is_z3_bv : t -> bool
 
 (** Return true if the symbol is select from array  *)
 val is_select : t -> bool

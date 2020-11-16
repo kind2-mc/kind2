@@ -343,46 +343,48 @@ let gen_expr_of_string_sexpr'
         (* Symbol from string *)
         let s = 
 
-          try 
-
-            (* Map the string to an interpreted function symbol *)
-            symbol_of_atom h 
-
-          with 
-
-            (* Function symbol is uninterpreted *)
-            | Not_found -> 
-
-              (* Uninterpreted symbol from string *)
-              let u = 
-
-                try 
-
-                  UfSymbol.uf_symbol_of_string (HString.string_of_hstring h)
-
-                with Not_found -> 
-  
-                  (* Cannot convert to an expression *)
-                  failwith 
-                    (Format.sprintf 
-                       "Undeclared uninterpreted function symbol %s in \
-                        S-expression"
-                       (HString.string_of_hstring h))
-              in
-
-              (* Get the uninterpreted symbol of the string *)
-              Symbol.mk_symbol (`UF u)
-
-
-        in
-
-        if (Symbol.is_z3_bv s) then
-          (failwith
+          if ((HString.string_of_hstring h = "bvudiv_i") || 
+              (HString.string_of_hstring h = "bvsdiv_i") ||
+              (HString.string_of_hstring h = "bvurem_i") || 
+              (HString.string_of_hstring h = "bvsrem_i")) then
+            (failwith
             (Format.sprintf 
                        "Special non-SMTLIB symbol %s detected in QE"
-                       (Symbol.string_of_symbol s)))
-        else
-        (
+                       (HString.string_of_hstring h)))
+          else
+            try 
+
+              (* Map the string to an interpreted function symbol *)
+              symbol_of_atom h 
+
+            with 
+
+              (* Function symbol is uninterpreted *)
+              | Not_found -> 
+
+                (* Uninterpreted symbol from string *)
+                let u = 
+
+                  try 
+
+                    UfSymbol.uf_symbol_of_string (HString.string_of_hstring h)
+
+                  with Not_found -> 
+  
+                    (* Cannot convert to an expression *)
+                    failwith 
+                      (Format.sprintf 
+                        "Undeclared uninterpreted function symbol %s in \
+                          S-expression"
+                        (HString.string_of_hstring h))
+                in
+
+                (* Get the uninterpreted symbol of the string *)
+                Symbol.mk_symbol (`UF u)
+
+
+          in
+
           (* parse arguments *)
           let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
 
@@ -400,7 +402,6 @@ let gen_expr_of_string_sexpr'
           Term.mod_to_divisible t
           (* |> Term.reinterpret_select *)
 
-        )
       )
 
     (* Parse ((_ int2bv n) x) *)
@@ -625,10 +626,6 @@ let smtlib_string_symbol_list =
    ("bvsdiv", Symbol.mk_symbol `BVSDIV);
    ("bvurem", Symbol.mk_symbol `BVUREM);
    ("bvsrem", Symbol.mk_symbol `BVSREM);
-   ("bvudiv_i", Symbol.mk_symbol `BVUDIV_I);
-   ("bvsdiv_i", Symbol.mk_symbol `BVSDIV_I);
-   ("bvurem_i", Symbol.mk_symbol `BVUREM_I);
-   ("bvsrem_i", Symbol.mk_symbol `BVSREM_I);
    ("bvshl", Symbol.mk_symbol `BVSHL);
    ("bvlshr", Symbol.mk_symbol `BVLSHR);
    ("bvashr", Symbol.mk_symbol `BVASHR);
@@ -743,10 +740,6 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVSDIV -> Format.pp_print_string ppf "bvsdiv"
   | `BVUREM -> Format.pp_print_string ppf "bvurem"
   | `BVSREM -> Format.pp_print_string ppf "bvsrem"
-  | `BVUDIV_I -> Format.pp_print_string ppf "bvudiv_i"
-  | `BVSDIV_I -> Format.pp_print_string ppf "bvsdiv_i"
-  | `BVUREM_I -> Format.pp_print_string ppf "bvurem_i"
-  | `BVSREM_I -> Format.pp_print_string ppf "bvsrem_i"
   | `BVSHL -> Format.pp_print_string ppf "bvshl"
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
   | `BVASHR -> Format.pp_print_string ppf "bvashr"

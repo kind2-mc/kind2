@@ -520,10 +520,6 @@ let ensure_symbol_qf_lira s =
   | `BVSDIV
   | `BVUREM
   | `BVSREM
-  | `BVUDIV_I
-  | `BVSDIV_I
-  | `BVUREM_I
-  | `BVSREM_I
   | `BVSHL
   | `BVLSHR
   | `BVASHR

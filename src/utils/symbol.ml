@@ -100,10 +100,6 @@ type interpreted_symbol =
   | `BVSDIV               (* Arithmetic integer signed division (binary) *)
   | `BVUREM               (* Arithmetic remainder (binary) *)
   | `BVSREM               (* Arithmetic signed remainder (binary) *)
-  | `BVUDIV_I             (* Arithmetic integer division (binary) with non-zero divisor (Z3) *)
-  | `BVSDIV_I             (* Arithmetic integer signed division (binary) with non-zero divisor (Z3) *)
-  | `BVUREM_I             (* Arithmetic remainder (binary) with non-zero divisor (Z3) *)
-  | `BVSREM_I             (* Arithmetic signed remainder (binary) with non-zero divisor (Z3) *)
   | `BVSHL                (* Logical shift left (binary) *)
   | `BVLSHR               (* Logical shift right (binary) *)
   | `BVASHR               (* Arithmetic right shift (binary) *)
@@ -252,10 +248,6 @@ module Symbol_node = struct
     | `BVSDIV, `BVSDIV
     | `BVUREM, `BVUREM
     | `BVSREM, `BVSREM
-    | `BVUDIV_I, `BVUDIV_I
-    | `BVSDIV_I, `BVSDIV_I
-    | `BVUREM_I, `BVUREM_I
-    | `BVSREM_I, `BVSREM_I
     | `BVSHL, `BVSHL
     | `BVLSHR, `BVLSHR
     | `BVASHR, `BVASHR
@@ -327,10 +319,6 @@ module Symbol_node = struct
     | `BVSDIV, _
     | `BVUREM, _
     | `BVSREM, _
-    | `BVUDIV_I, _
-    | `BVSDIV_I, _
-    | `BVUREM_I, _
-    | `BVSREM_I, _
     | `BVSHL, _
     | `BVLSHR, _
     | `BVASHR, _
@@ -500,10 +488,6 @@ let rec pp_print_symbol_node ppf = function
   | `BVSDIV -> Format.pp_print_string ppf "bvsdiv"
   | `BVUREM -> Format.pp_print_string ppf "bvurem"
   | `BVSREM -> Format.pp_print_string ppf "bvsrem"
-  | `BVUDIV_I -> Format.pp_print_string ppf "bvudiv_i"
-  | `BVSDIV_I -> Format.pp_print_string ppf "bvsdiv_i"
-  | `BVUREM_I -> Format.pp_print_string ppf "bvurem_i"
-  | `BVSREM_I -> Format.pp_print_string ppf "bvsrem_i"
   | `BVSHL -> Format.pp_print_string ppf "bvshl"
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
   | `BVASHR -> Format.pp_print_string ppf "bvashr"
@@ -652,14 +636,6 @@ let is_to_int32 = function
 (* Return true if the symbol is a to_int64 *)
 let is_to_int64 = function
   | { Hashcons.node = `TO_INT64 } -> true
-  | _ -> false
-
-(* Return true if the symbol is a Z3 special BV symbol *)
-let is_z3_bv = function
-  | { Hashcons.node = `BVUDIV_I}
-  | { Hashcons.node = `BVSDIV_I}
-  | { Hashcons.node = `BVUREM_I}
-  | { Hashcons.node = `BVSREM_I} -> true
   | _ -> false
 
 (* Return true if the symbol is [`TRUE] or [`FALSE] *)
