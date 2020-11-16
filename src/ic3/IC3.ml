@@ -695,12 +695,17 @@ let extrapolate trans_sys state f g =
   (* Generalize term by quantifying over and eliminating primed
      variables *)
   let gen_term = 
-    QE.generalize 
-      trans_sys
-      (TransSys.uf_defs trans_sys) 
-      state
-      primed_vars
-      term 
+    try 
+      QE.generalize 
+        trans_sys
+        (TransSys.uf_defs trans_sys) 
+        state
+        primed_vars
+        term 
+    with 
+      GenericSMTLIBDriver.UnsupportedZ3Symbol s ->
+        let err = ("Disabling IC3: Special non-SMTLIB symbol " ^ s ^ " detected in QE.") in
+        raise (UnsupportedFeature err)
   in
 
   Stat.record_time Stat.ic3_generalize_time;

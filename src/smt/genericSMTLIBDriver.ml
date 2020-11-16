@@ -18,6 +18,7 @@
 
 open Lib
 
+exception UnsupportedZ3Symbol of string
 
 (* ********************************************************************** *)
 (* Dummy and default values                                               *)
@@ -347,10 +348,7 @@ let gen_expr_of_string_sexpr'
               (HString.string_of_hstring h = "bvsdiv_i") ||
               (HString.string_of_hstring h = "bvurem_i") || 
               (HString.string_of_hstring h = "bvsrem_i")) then
-            (failwith
-            (Format.sprintf 
-                       "Special non-SMTLIB symbol %s detected in QE"
-                       (HString.string_of_hstring h)))
+            (raise (UnsupportedZ3Symbol (HString.string_of_hstring h)))
           else
             try 
 
