@@ -25,14 +25,22 @@
     @author: Apoorv Ingle *)
 
 module LA = LustreAst
-type 'a graph_result = ('a, Lib.position * string) result
 
 module IMap: sig
   include (Map.S with type key = LA.ident)
   val keys: 'a t -> key list
 end
-
+          
+type 'a graph_result = ('a, Lib.position * string) result
+(** Result of the graph analysis procedures *)
+                     
 type node_summary = (int list) IMap.t
+(** The node summary contains the positions of the input streams of a node 
+    that are used in their current value. For example: if there 
+    is an equation `y = x + 1` where `x` is the input stream to the 
+    node `n(x:int, z:int)returns(y:int)`, the node summary will be
+    `(n:-> 0)` as the node `n` uses the current value of `x`.
+*)
 
 val sort_declarations: LA.t -> LA.t graph_result
 (** Returns a topological order of declarations *)

@@ -58,11 +58,11 @@ module IMap = struct
 end
 
 type id_pos_map = (Lib.position list) IMap.t
+(** stores all the positions of the occurance of an id *)
 
 type node_summary = (int list) IMap.t
-                
-(** stores all the positions of the occurance of an id *)
-                
+(** The node summary contains the positions of the input streams of a node that are used in their current value. *)
+                  
 let add_pos: id_pos_map -> LA.ident -> Lib.position -> id_pos_map = fun m i p ->
   IMap.update i
     (function
