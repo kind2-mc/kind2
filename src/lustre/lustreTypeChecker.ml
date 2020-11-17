@@ -24,249 +24,25 @@
 module R = Res
 
 module LA = LustreAst
-module SI = LA.SI
 module LH = LustreAstHelpers
-module AD = LustreAstDependencies
-                        
+open TypeCheckerContext                        
+
+
+type 'a tc_result = ('a, Lib.position * string) result
 (** Returns [Ok] if the type check/type inference runs fine 
  * or reports an error at position with the error *)
-type 'a tc_result = ('a, Lib.position * string) result
 
 let (>>=) = R.(>>=)
 let (>>) = R.(>>)
          
-(** Type alias for lustre type from LustreAst  *)
 type tc_type  = LA.lustre_type
+(** Type alias for lustre type from LustreAst  *)
               
-(** String of the type to display in type errors *)
 let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
+(** String of the type to display in type errors *)
   
-(** Map for types with identifiers as keys *)
-module IMap = struct
-  (** everything that [Stdlib.Map] gives us  *)
-  include Map.Make(struct
-              type t = LA.ident
-              let compare i1 i2 = Stdlib.compare i1 i2
-            end)
-  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
-end
-
-(** Pretty print type synonyms*)
-let pp_print_type_syn ppf = fun (i, ty) -> 
-  Format.fprintf ppf "(%a:=%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
-
-(** Pretty print type bindings*)
-let pp_print_type_binding ppf = fun (i, ty) -> 
-  Format.fprintf ppf "(%a:%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
-
-(** Pretty print value bindings (used for constants)*)
-let pp_print_val_binding ppf = fun (i, (v, ty)) ->
-  Format.fprintf ppf "(%a:%a :-> %a)" LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v                
-
-(** Pretty print type synonym context *)
-let pp_print_ty_syns: Format.formatter -> 'a IMap.t -> unit
-  = fun ppf m -> Lib.pp_print_list (pp_print_type_syn) ", " ppf (IMap.bindings m)
-
-(** Pretty print type binding context *)
-let pp_print_tymap: Format.formatter -> 'a IMap.t -> unit
-  = fun ppf m -> Lib.pp_print_list (pp_print_type_binding) ", " ppf (IMap.bindings m)
-
-(** Pretty print constant value store *)
-let pp_print_vstore: Format.formatter -> 'a IMap.t -> unit
-  = fun ppf m ->  Lib.pp_print_list (pp_print_val_binding) ", "  ppf (IMap.bindings m)
-
-let sort_typed_ident: LA.typed_ident list -> LA.typed_ident list = fun ty_idents ->
-  List.sort (fun (_,i1,_) (_,i2,_) -> Stdlib.compare i1 i2) ty_idents
-
-let sort_idents: LA.ident list -> LA.ident list = fun ids ->
-  List.sort (fun i1 i2 -> Stdlib.compare i1 i2) ids
-
-type ty_alias_store = tc_type IMap.t
-(** A store of type Aliases, i.e. for user defined types  *)
-
-type ty_store = tc_type IMap.t
-(** A store of identifier and their types*)
-
-type const_store = (LA.expr * tc_type) IMap.t 
-(** A Store of constant identifier and their (const) values with types. 
- *  The values of the associated identifiers should be evaluated to a 
- *  Bool or an Int at constant propogation phase of type checking *)
-
-type ty_set = SI.t
-(** set of valid user type identifiers *)
-
-type node_summary = AD.node_summary
-(** stores node call summaries *)
-                      
-(** Pretty print type synonyms*)
-let pp_print_type_syn ppf = fun i ty -> 
-  Format.fprintf ppf "(%a:=%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
-
-(** Pretty print type bindings*)
-let pp_print_type_binding ppf = fun i ty -> 
-  Format.fprintf ppf "(%a:%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
-
-(** Pretty print value bindings (used for constants)*)
-let pp_print_val_binding ppf = fun i (v, ty) ->
-  Format.fprintf ppf "(%a:%a :-> %a)" LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v
-
-(** Pretty print type context *)
-let pp_print_ty_syns ppf m = Lib.pp_print_list (fun ppf (i, ty) -> pp_print_type_syn ppf i ty)  ", " ppf (IMap.bindings m) 
-
-(** Pretty print type context *)
-let pp_print_tymap ppf m = Lib.pp_print_list (fun ppf (i, ty) -> pp_print_type_binding ppf i ty)  ", " ppf (IMap.bindings m)
-
-(** Pretty print value store *)
-let pp_print_vstore ppf m = Lib.pp_print_list (fun ppf (i, (e, ty)) -> pp_print_val_binding ppf i (e, ty))  ", " ppf (IMap.bindings m)
-
-(** Pretty print declared types *)
-let pp_print_u_types ppf m = Lib.pp_print_list LA.pp_print_ident ", " ppf (SI.elements m)
-
-
-let pp_print_node_summary ppf m = Lib.pp_print_list (fun ppf (i, b) ->
-                                      Format.fprintf ppf "(%a:%a)"
-                                        LA.pp_print_ident i
-                                        (Lib.pp_print_list Format.pp_print_int ", ") b)  ", "
-                                    ppf (AD.IMap.bindings m)
-                                
-type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
-                  ; ty_ctx: ty_store        (* store of the types of identifiers and nodes*)
-                  ; contract_ctx: ty_store  (* store of the types of contracts*)
-                  ; vl_ctx: const_store     (* store of typed constants to its value*)
-                  ; u_types: ty_set         (* store of all declared user types,
-                                               this is poor mans kind (type of type) context *)
-                  ; node_summary_ctx
-                    : node_summary          (* stores the indices of input 
-                                               stream whose current value is used in the node call*)
-                  }
-(** The type Checker context *)
-
-let empty_tc_context: tc_context =
-  { ty_syns = IMap.empty
-  ; ty_ctx = IMap.empty
-  ; contract_ctx = IMap.empty
-  ; vl_ctx = IMap.empty
-  ; u_types = SI.empty
-  ; node_summary_ctx = AD.IMap.empty }
-(** The empty context with no information *)
-  
-let pp_print_tc_context ppf ctx
-  = Format.fprintf ppf
-      ("Type Synonyms={%a}\n"
-       ^^ "Type Context={%a}\n"
-       ^^ "Contract Context={%a}\n"
-       ^^ "Const Store={%a}\n"
-       ^^ "Declared Types={%a}\n"
-       ^^ "Node Call Summary={%a}")
-      pp_print_ty_syns (ctx.ty_syns)
-      pp_print_tymap (ctx.ty_ctx)
-      pp_print_tymap (ctx.contract_ctx)
-      pp_print_vstore (ctx.vl_ctx)
-      pp_print_u_types (ctx.u_types)
-      pp_print_node_summary (ctx.node_summary_ctx)
-(** Pretty print the complete type checker context*)
-
-(**********************************************
- * Helper functions for type checker workings *
- **********************************************)
-
 let type_error pos err = R.error (pos, "Type error: " ^ err)
 (** [type_error] returns an [Error] of [tc_result] *)
-                  
-let member_ty_syn: tc_context -> LA.ident -> bool
-  = fun ctx i -> IMap.mem i (ctx.ty_syns)
-               
-let member_ty: tc_context -> LA.ident -> bool
-  = fun ctx i -> IMap.mem i (ctx.ty_ctx)
-
-let member_contract: tc_context -> LA.ident -> bool
-  = fun ctx i -> IMap.mem i (ctx.contract_ctx)
-               
-let member_u_types : tc_context -> LA.ident -> bool
-  = fun ctx i -> SI.mem i ctx.u_types
-  
-let member_val: tc_context -> LA.ident -> bool
-  = fun ctx i -> IMap.mem i (ctx.vl_ctx)
-
-let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type option 
-  = fun ctx i ->
-  match (IMap.find_opt i (ctx.ty_syns)) with
-  | Some ty -> (match ty with
-               | LA.UserType (_, uid) ->
-                  if (Stdlib.compare uid i = 0)
-                  then Some ty
-                  else lookup_ty_syn ctx uid
-               | _ -> Some ty )
-  | None -> None
-(** picks out the type synonym from the context
-    If it is user type then chases it (recursively looks up) 
-    the actual type. This chasing is necessary to check type equality 
-    between user defined types. *)
-
-let lookup_ty: tc_context -> LA.ident -> tc_type option
-  = fun ctx i ->
-  match (IMap.find_opt i (ctx.ty_ctx)) with
-  | Some ty -> (match ty with
-                | LA.UserType (_, uid) ->
-                   lookup_ty_syn ctx uid
-                | _ -> Some ty) 
-  | None -> None
-(** Picks out the type of the identifier to type context map *)
-
-let lookup_contract_ty: tc_context -> LA.ident -> tc_type option
-  = fun ctx i -> IMap.find_opt i (ctx.contract_ctx)
-                          
-let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type) option
-  = fun ctx i -> IMap.find_opt i (ctx.vl_ctx)
-
-let add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
-  = fun ctx i ty -> {ctx with ty_syns = IMap.add i ty (ctx.ty_syns)}
-
-let add_ty: tc_context -> LA.ident -> tc_type -> tc_context
-  = fun ctx i ty -> {ctx with ty_ctx = IMap.add i ty (ctx.ty_ctx)}
-
-let add_ty_contract: tc_context -> LA.ident -> tc_type -> tc_context
-  = fun ctx i ty -> {ctx with contract_ctx = IMap.add i ty (ctx.contract_ctx)}
-                  
-let add_ty_decl: tc_context -> LA.ident -> tc_context
-  = fun ctx i -> {ctx with u_types = SI.add i (ctx.u_types)}
-
-let remove_ty: tc_context -> LA.ident -> tc_context
-  = fun ctx i -> {ctx with ty_ctx= IMap.remove i (ctx.ty_ctx)}
-                  
-let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> tc_context
-  = fun ctx i e ty -> {ctx with vl_ctx = IMap.add i (e, ty) ctx.vl_ctx} 
-
-let union: tc_context -> tc_context -> tc_context
-  = fun ctx1 ctx2 -> { ty_syns = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.ty_syns) (ctx2.ty_syns))
-                     ; ty_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.ty_ctx) (ctx2.ty_ctx))
-                     ; contract_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.contract_ctx) (ctx2.contract_ctx))
-                     ; vl_ctx = (IMap.union (fun k v1 v2 -> Some v2) (ctx1.vl_ctx) (ctx2.vl_ctx))
-                     ; u_types = SI.union ctx1.u_types ctx2.u_types
-                     ; node_summary_ctx = AD.IMap.union (fun k v1 v2 -> Some v2) (ctx1.node_summary_ctx) (ctx2.node_summary_ctx) 
-                     }
-
-let singleton_ty: LA.ident -> tc_type -> tc_context
-  = fun i ty -> add_ty empty_tc_context i ty
-
-let singleton_const: LA.ident -> LA.expr -> tc_type -> tc_context =
-  fun i e ty -> add_const empty_tc_context i e ty
-
-let extract_arg_ctx: LA.const_clocked_typed_decl -> tc_context
-  = fun input -> let (i, ty) = LH.extract_ip_ty input in
-                 (singleton_ty i ty) 
-
-let extract_ret_ctx: LA.clocked_typed_decl -> tc_context
-  = fun op -> let (i, ty) = LH.extract_op_ty op in
-              singleton_ty i ty
-
-let extract_consts: LA.const_clocked_typed_decl -> tc_context
-  = fun (pos, i, ty, _, is_const) ->
-  if is_const
-  then singleton_const i (LA.Ident (pos, i)) ty
-  else empty_tc_context 
-
-
 
 (********************************************************
  *       Evaluating constants for type expressions      *
@@ -1209,11 +985,13 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
                                      ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
                                          (LA.SI.elements overwite_node_args))))
                  (* Do circularity check on node equations *)
-                 >> AD.analyze_circ_node_equations (ctx.node_summary_ctx) (IMap.keys ctx.vl_ctx) items               
+                 >> AD.analyze_circ_node_equations (get_node_summary ctx) (get_constant_ids ctx) items               
                  >> R.ok (Log.log L_trace "TC declaration node %a done }"
                             LA.pp_print_ident node_name)))
-    else type_error pos ("Input and output parameters cannot have common identifers, but found common parameters: " ^
-                           Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements common_ids))
+    else type_error pos ("Input and output parameters cannot have common identifers, 
+                          but found common parameters: " ^
+                           Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
+                             (LA.SI.elements common_ids))
 
 and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
   function
@@ -1349,7 +1127,7 @@ and check_type_contract_decl: ?node_out_params: LA.SI.t -> tc_context -> LA.cont
 and check_type_contract: ?node_out_params: LA.SI.t -> tc_context -> LA.contract -> unit tc_result
   = fun ?node_out_params:(node_out_params = LA.SI.empty) ctx eqns ->
   R.seq_ (List.map (check_contract_node_eqn ~node_out_params:node_out_params ctx) eqns)
-    >> AD.analyze_circ_contract_equations ctx.node_summary_ctx eqns
+    >> AD.analyze_circ_contract_equations (get_node_summary ctx) eqns
 
 and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contract_node_equation -> unit tc_result
   = fun ?node_out_params:(node_out_params = LA.SI.empty) ctx eqn ->
@@ -1362,7 +1140,7 @@ and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contr
          (* Check if any of the out stream vars of the node is being used at its current value is used in assumption *)
          let assume_vars_out_params =
            SI.inter node_out_params
-             (LA.SI.of_list (AD.expression_current_streams ctx.node_summary_ctx e)) in
+             (LA.SI.of_list (AD.expression_current_streams (get_node_summary ctx) e)) in
          Log.log L_trace "node_params: %a non pre vars of e: %a"
            (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_params)
            (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements (LH.vars (LH.abstract_pre_subexpressions e)))
@@ -1483,8 +1261,8 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_contex
     then type_error pos ("Node " ^ nname ^ " is already declared.")
     else build_node_fun_ty pos ctx ip op >>= fun fun_ty ->
          let ctx' = add_ty ctx nname fun_ty in
-         let ns = AD.mk_node_summary ctx.node_summary_ctx n in 
-         R.ok ({ ctx' with node_summary_ctx = AD.IMap.union (fun k v1 v2 -> Some v2) (ctx'.node_summary_ctx) ns})
+         let ns = AD.mk_node_summary (get_node_summary ctx') n in 
+         R.ok (add_node_summary ctx' ns)
 (** computes the type signature of node or a function and its node summary*)
 
 and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_context tc_result
@@ -1614,12 +1392,12 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> bool tc_r
      else R.ok false
   | RecordType (_, tys1), RecordType (_, tys2) ->
      R.seq (List.map2 (eq_typed_ident ctx)
-              (sort_typed_ident tys1)
-              (sort_typed_ident tys2))
+              (LH.sort_typed_ident tys1)
+              (LH.sort_typed_ident tys2))
      >>= fun isEqs -> R.ok (List.fold_left (&&) true isEqs)
   | ArrayType (pos1, arr1), ArrayType (pos2, arr2) -> eq_type_array ctx arr1 arr2 
   | EnumType (_, n1, is1), EnumType (_, n2, is2) ->
-     R.ok (n1 = n2 && (List.fold_left (&&) true (List.map2 (=) (sort_idents is1) (sort_idents is2))))
+     R.ok (n1 = n2 && (List.fold_left (&&) true (List.map2 (=) (LH.sort_idents is1) (LH.sort_idents is2))))
 
   (* node/function type *)
   | TArr (_, arg_ty1, ret_ty1), TArr (_, arg_ty2, ret_ty2) ->

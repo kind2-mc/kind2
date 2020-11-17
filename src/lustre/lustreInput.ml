@@ -31,6 +31,7 @@ module LL = LustreLexer
 module LPMI = LustreParser.MenhirInterpreter
 module LPE = LustreParserErrors
 module TC = LustreTypeChecker
+module TCContext = TypeCheckerContext
 module IC = LustreAstInlineConstants
 module AD = LustreAstDependencies
 
@@ -127,7 +128,7 @@ let of_channel in_ch =
            AD.sort_declarations const_type_decls >>= fun sorted_const_type_decls ->
 
            (* Step 2. Type check top level declarations *)
-           TC.type_check_infer_globals  TC.empty_tc_context sorted_const_type_decls >>= fun ctx -> 
+           TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls >>= fun ctx -> 
 
            (* Step 3: Inline type toplevel decls *)
            IC.inline_constants ctx sorted_const_type_decls >>= fun (inlined_ctx, const_inlined_type_and_consts) -> 

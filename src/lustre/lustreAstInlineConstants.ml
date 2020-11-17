@@ -22,7 +22,7 @@
 
 exception Out_of_bounds of (Lib.position * string) 
 
-module TC = LustreTypeChecker
+module TC = TypeCheckerContext
 module LA = LustreAst
 module LH = LustreAstHelpers
 
@@ -31,6 +31,7 @@ let (>>=) = R.(>>=)
 let (>>) = R.(>>)
 
 type tc_context = TC.tc_context
+
 type 'a inline_result = ('a, Lib.position * string) result
 
 let inline_error pos err = R.error (pos, "Error: " ^ err)

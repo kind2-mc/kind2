@@ -1,45 +1,34 @@
-node a (x1: int, x2: int) returns (y: int);
+node a (x1: int; x2: int) returns (y1: int; y2: int);
 var z:int;
 var z2:int;
 let
-   z = x;
+   z = x1;
    z2 = 3;
-   y = z + x + z2;
+   y1 = z + x1 + z2;
+   y2 = z2;
 tel
--- z -> {x}
--- {y} -> (b.{y} -> b.{x})
--- opt: ({y} -> {x})
 
-node b(x:int) returns (y: int);
-tel
-  y = x;
+node b(x1:int; x2:int) returns (y: int);
+var z1:int;
+var z2:int;
 let
-
--- y -> x
-
-node c (x:int) returns (y: int);
-var av:int;
-var bv:int;
-(*@contract
-   assume y = x;    -- case 1. not allowed as assumption should not depend on current value of y 
-   assume x = a(y + av); -- case 2a. not allowed if a uses current value of y
-   -- guarantee x = y;
-*)
-
+  (z1, z2) = a(y, x2); -- should fail
+  -- y = z2; -- should not fail
+  y = z1; -- should fail
 tel
-   av = a(bv); -- case 2b. (av-> (a.y -> a.z, a.z -> bv)
-                            av -> {a.y, a.z, a.bv}, a.y -> a.z, a.z -> a.bv
-                           )
-  -- av -> a'
-  -- a' -> bv
-                       (av -> graph (exp))
-   bv = b(av); -- case 2b.
-   -- bv -> b'
-   -- b' -> av
-   
-   x = pre("pre_y" + pre(a(y))); -- case 3. x' = (y + a(y)); normalizing (similar to SSA)  
-let
--- av -> a'
--- a' -> bv
--- bv -> b'
--- b' -> av
+
+-- node c (x:int) returns (y: int);
+-- var av:int;
+-- var bv:int;
+-- (*@contract
+--    assume y = x;    -- case 1. not allowed as assumption should not depend on current value of y 
+--    assume x = a(y + av); -- case 2a. not allowed if a uses current value of y
+-- *)
+
+-- tel
+--    av = a(bv); -- case 2b. (av-> (a.y -> a.z, a.z -> bv)
+--                             av -> {a.y, a.z, a.bv}, a.y -> a.z, a.z -> a.bv
+--                            )
+--    bv = b(av); -- case 2b.
+--    x = pre("pre_y" + pre(a(y))); -- case 3. x' = (y + a(y)); normalizing (similar to SSA)  
+-- let

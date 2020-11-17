@@ -665,7 +665,6 @@ let abs_diff: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
              , BinaryOp (pos, Minus, e2, e1))
 (** returns an ast which is the absolute difference of two expr ast*)
 
-
 let extract_ip_ty: const_clocked_typed_decl -> ident * lustre_type
   = fun  (_, i, ty, _, _) -> (i, ty)
 
@@ -890,3 +889,13 @@ let group_contract_eqns: contract -> (contract * contract * contract * contract)
       | Guarantee _ as g :: eqns -> group_contract_eqns_aux (ccalls, ghosts_vars_constants, ms, a_and_gs @ [g]) eqns 
       | Mode _ as m :: eqns ->  group_contract_eqns_aux (ccalls, ghosts_vars_constants, ms @ [m], a_and_gs) eqns in 
     group_contract_eqns_aux ([], [], [], [])  
+
+
+let sort_typed_ident: typed_ident list -> typed_ident list = fun ty_idents ->
+  List.sort (fun (_,i1,_) (_,i2,_) -> Stdlib.compare i1 i2) ty_idents
+(** Sort identifiers  *)
+
+let sort_idents: ident list -> ident list = fun ids ->
+  List.sort (fun i1 i2 -> Stdlib.compare i1 i2) ids
+(** sort typed identifiers *)
+      

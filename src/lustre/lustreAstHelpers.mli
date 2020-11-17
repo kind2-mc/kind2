@@ -115,3 +115,9 @@ val move_node_to_last: ident -> declaration list -> declaration list
 val group_contract_eqns: contract -> (contract * contract * contract * contract)
 (** Groups contract equations into four types of equations: contract calls, 
     ghost variables or constants, modes, and assumptions and guarantees *)
+
+val sort_typed_ident: typed_ident list -> typed_ident list
+(** Sort typed identifiers  *)
+
+val sort_idents: ident list -> ident list
+(** Sort identifiers  *)

@@ -20,8 +20,11 @@
   
     @author Apoorv Ingle *)
 
-module TC = LustreTypeChecker
+module TC = TypeCheckerContext
 module LA = LustreAst
-          
-val inline_constants: TC.tc_context -> LA.t -> (TC.tc_context * LA.t) TC.tc_result
+
+type 'a inline_result = ('a, Lib.position * string) result           
+(** Result of inlining a constant *)
+
+val inline_constants: TC.tc_context -> LA.t -> (TC.tc_context * LA.t) inline_result
 (** Best effort at inlining constants *)

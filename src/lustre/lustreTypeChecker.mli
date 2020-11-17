@@ -20,28 +20,14 @@
     @author Apoorv Ingle *)
 
 module LA = LustreAst
-
+open TypeCheckerContext
+         
 type 'a tc_result = ('a, Lib.position * string) result
 (** The typechecking can either be [Ok] will be an [Error] with some helpful message *)
 
-type tc_context
-(** Type Checker context *)
-
 val type_error: Lib.position -> string -> 'a tc_result 
 (** [type_error] returns an [Error] of [tc_result] *)
-   
-val empty_tc_context: tc_context
-(** Empty type context *)
-
-val lookup_const: tc_context -> LA.ident -> (LA.expr * LA.lustre_type) option
-(** lookup a constant from a typing context *)
-  
-val lookup_ty: tc_context -> LA.ident -> LA.lustre_type option
-(** lookup a type of an identifier *)
-  
-val add_const: tc_context -> LA.ident -> LA.expr -> LA.lustre_type -> tc_context
-(** add a constant into the typing constant *)
-  
+     
 val type_check_infer_globals: tc_context -> LA.t -> tc_context tc_result  
 (** Typechecks the toplevel globals i.e. constant decls and type decls. It returns 
  *  a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
