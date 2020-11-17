@@ -25,6 +25,7 @@ module R = Res
 
 module LA = LustreAst
 module LH = LustreAstHelpers
+module IC = LustreAstInlineConstants
 open TypeCheckerContext                        
 
 
@@ -78,117 +79,7 @@ let rec is_normal_form: tc_context -> LA.expr -> bool = fun ctx ->
   | _ -> false
 (** is the expression in a normal form? *)
          
-let rec eval_int_expr: tc_context -> LA.expr -> int tc_result = fun ctx ->
-  function
-  | LA.Ident (pos, i) ->
-     (match (lookup_const ctx i) with
-      | Some (const_expr, expr_type) ->
-         if is_normal_form ctx const_expr
-         then int_value_of_const const_expr
-         else (match const_expr with
-               | LA.Ident (_, i') as e ->
-                  if Stdlib.compare i i' = 0
-                  then type_error pos ("Cannot evaluate a free int const "
-                                       ^ i ^ ".")
-                  else eval_int_expr ctx e 
-               | _ -> eval_int_expr ctx const_expr)
-      | None -> type_error pos ("Not a constant identifier" ^ i))  
-  | LA.Const _ as c -> int_value_of_const c
-  | LA.BinaryOp (pos, bop, e1, e2) -> eval_int_binary_op ctx pos bop e1 e2
-  | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_int_ternary_op ctx pos top e1 e2 e3
-  | e -> type_error (LH.pos_of_expr e) ("Cannot evaluate expression" ^ LA.string_of_expr e)  
-(** try and evalutate expression to int, return error otherwise *)
-
-and eval_int_binary_op: tc_context -> Lib.position -> LA.binary_operator
-                        -> LA.expr -> LA.expr -> int tc_result =
-  fun ctx pos bop e1 e2 ->
-  eval_int_expr ctx e1 >>= fun v1 ->
-  eval_int_expr ctx e2 >>= fun v2 ->
-  match bop with
-  | Plus -> R.ok (v1 + v2)
-  | Times -> R.ok (v1 * v2)
-  | Minus -> R.ok (v1 - v2)
-  | IntDiv -> R.ok (v1 / v2)
-  | _ -> type_error pos ("Cannot evaluate non-int binary expression"
-                         ^ LA.string_of_expr (LA.BinaryOp (pos, bop, e1, e2))
-                         ^" to an int value")    
-(** try and evalutate binary op expression to int, return error otherwise *)
              
-and eval_bool_expr: tc_context -> LA.expr -> bool tc_result = fun ctx ->
-  function
-  | LA.Ident (pos, i) ->
-     (match (lookup_const ctx i) with
-      | Some (const_expr, expr_type) ->
-         if is_normal_form ctx const_expr
-         then bool_value_of_const const_expr
-         else (match const_expr with
-               | LA.Ident (_, i') as e ->
-                  if (Stdlib.compare i i' = 0)
-                  then type_error pos ("Cannot evaluate a free bool const "
-                                       ^ i ^ ".")
-                  else eval_bool_expr ctx e 
-               | _ ->  eval_bool_expr ctx const_expr)
-      | None -> type_error pos ("Not a constant cannot evaluate identifier " ^ i))
-  | LA.Const _ as c -> bool_value_of_const c
-  | LA.BinaryOp (pos, bop, e1, e2) -> eval_bool_binary_op ctx pos bop e1 e2
-  | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_bool_ternary_op ctx pos top e1 e2 e3
-  | LA.CompOp (pos, cop, e1, e2) -> eval_comp_op ctx pos cop e1 e2
-  | e -> type_error (LH.pos_of_expr e) ("Cannot evaluate expression" ^ LA.string_of_expr e)  
-(** try and evalutate expression to bool, return error otherwise *)
-
-and eval_bool_binary_op: tc_context -> Lib.position -> LA.binary_operator
-                         -> LA.expr -> LA.expr -> bool tc_result = 
-  fun ctx pos bop e1 e2 ->
-  eval_bool_expr ctx e1 >>= fun v1 ->
-  eval_bool_expr ctx e2 >>= fun v2 ->
-  match bop with
-  | And -> R.ok (v1 && v2) 
-  | Or -> R.ok (v1 || v2)
-  | Xor -> R.ok ((v1 && not v2) || (v2 && not v1))
-  | Impl -> R.ok (not v1 || v2)
-  | _ -> type_error pos ("Cannot evaluate non-bool binary expression"
-                         ^ LA.string_of_expr (LA.BinaryOp (pos, bop, e1, e2))
-                         ^" to a bool value")
-(** try and evalutate binary op expression to bool, return error otherwise *)
-  
-and eval_bool_ternary_op: tc_context -> Lib.position -> LA.ternary_operator
-                     -> LA.expr -> LA.expr -> LA.expr -> bool tc_result
-  = fun ctx pos top b1 e1 e2 ->
-  eval_bool_expr ctx b1 >>= fun c ->
-  eval_bool_expr ctx e1 >>= fun v1 ->
-  eval_bool_expr ctx e2 >>= fun v2 ->
-  match top with
-  | LA.Ite -> if c then R.ok v1 else R.ok v2
-  | LA.With -> type_error pos "With operator is not supported"
-(** try and evalutate ternary op expression to bool, return error otherwise *)
-
-and eval_int_ternary_op: tc_context -> Lib.position -> LA.ternary_operator
-                     -> LA.expr -> LA.expr -> LA.expr -> int tc_result
-  = fun ctx pos top b1 e1 e2 ->
-  match top with
-  | LA.Ite ->
-     eval_bool_expr ctx b1 >>= fun c ->
-     if c
-     then eval_int_expr ctx e1
-     else eval_int_expr ctx e2
-  | LA.With -> type_error pos "With operator is not supported"
-(** try and evalutate ternary op expression to int, return error otherwise *)
-
-             
-and eval_comp_op: tc_context -> Lib.position -> LA.comparison_operator
-                  -> LA.expr -> LA.expr -> bool tc_result = 
-  fun ctx pos cop e1 e2 ->
-  eval_int_expr ctx e1 >>= fun v1 ->
-  eval_int_expr ctx e2 >>= fun v2 ->
-  match cop with
-  | Eq -> R.ok (v1 = v2)
-  | Neq -> R.ok (v1 <> v2)
-  | Lte -> R.ok (v1 <= v2)
-  | Lt -> R.ok (v1 < v2)
-  | Gte -> R.ok (v1 > v2)
-  | Gt -> R.ok (v1 >= v2)
-(** try and evalutate comparison op expression to bool, return error otherwise *)
-
 (**********************************************
  * Type inferring and type checking functions *
  **********************************************)
@@ -1316,8 +1207,7 @@ and build_type_and_const_context: tc_context -> LA.t -> tc_context tc_result
   | ConstDecl (_, const_decl) :: rest ->
      tc_ctx_const_decl ctx const_decl
      >>= fun ctx' -> build_type_and_const_context ctx' rest                   
-  | _ :: rest -> build_type_and_const_context ctx rest
-  
+  | _ :: rest -> build_type_and_const_context ctx rest  
 (** Process top level type declarations and make a type context with 
  * user types, enums populated *)
                
@@ -1358,7 +1248,6 @@ and build_node_fun_ty: Lib.position -> tc_context
   >>  R.ok (LA.TArr (pos, arg_ty, ret_ty))
 (** Function type for nodes will be [TupleType ips] -> [TupleTy outputs]  *)
 
-(** Compute Equality for lustre types  *)
 and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> bool tc_result
   = fun ctx t1 t2 ->
   match (t1, t2) with
@@ -1422,6 +1311,7 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> bool tc_r
      then (eq_lustre_type ctx (List.hd tys) t)
      else R.ok false  
   | _, _ -> R.ok false
+(** Compute Equality for lustre types  *)
 
 and is_expr_int_type: tc_context -> LA.expr -> bool  = fun ctx e ->
   R.safe_unwrap false
@@ -1443,11 +1333,11 @@ and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type *
   = fun ctx (ty1, e1) (ty2, e2) ->
   (* eq_lustre_type ctx ty1 ty2 *)
   R.ifM (eq_lustre_type ctx ty1 ty2)
-    ( match eval_int_expr ctx e1, eval_int_expr ctx e2 with
+    ( match IC.eval_int_expr ctx e1, IC.eval_int_expr ctx e2 with
      | Ok l1,  Ok l2  -> if l1 = l2 then R.ok true else R.ok false
      | Error _ , _ | _, Error _ -> R.ok true ) (* This fails if we have free constants *)
     (R.ok false)
-(* Compute equality for [LA.ArrayType].
+(** Compute equality for [LA.ArrayType].
    If there are free constants in the size, the eval function will fail,
    but we want to pass such cases, as there might be some
    value assigment to the free constant that satisfies the type checker. 

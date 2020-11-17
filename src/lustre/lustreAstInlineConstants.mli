@@ -28,3 +28,6 @@ type 'a inline_result = ('a, Lib.position * string) result
 
 val inline_constants: TC.tc_context -> LA.t -> (TC.tc_context * LA.t) inline_result
 (** Best effort at inlining constants *)
+
+val eval_int_expr: TC.tc_context -> LA.expr -> int inline_result
+(** try to evaluate an expression to an int *)
