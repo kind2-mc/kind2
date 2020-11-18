@@ -14,7 +14,7 @@ Overall system architecture.
 
 {!modules:
   Log
-  Event
+  KEvent
 }
 
 {2:strategies Analysis and Strategies}
@@ -25,12 +25,15 @@ Overall system architecture.
   InvarManager
   PostAnalysis
   Kind2Flow
-  Kind2
 }
 
 {2:terms Terms }
 
 {!modules:
+  Decimal
+  Numeral
+  Hexadecimal
+  Bitvector
   Symbol
   Type
   UfSymbol
@@ -50,9 +53,11 @@ Overall system architecture.
   Scope
   InputSystem
   Property
+  Invs
   SubSystem
   TransSys
   Simplify
+  ModelElement
 }
 
 {2:engines Verification Engines}
@@ -64,6 +69,7 @@ Overall system architecture.
   Base
   Compress
   Step
+  Step2
 }
 
 {3:ic3 IC3}
@@ -117,7 +123,12 @@ Dependency graph of modules {%html: <img src="include/lustre-frontend.png"> %}
 {!modules:
   LustreLexer
   LustreParser
+  LustreParserErrors
   LustreAst
+  LustreAstHelpers
+  LustreAstDependencies
+  LustreDependencies
+  LustreTypeChecker
   LustreIdent
   LustreIndex
   LustreExpr
@@ -125,6 +136,7 @@ Dependency graph of modules {%html: <img src="include/lustre-frontend.png"> %}
   LustreContext
   LustreContract
   LustreDeclarations
+  LustreGlobals
   LustreSimplify
   LustreSlicing
   LustreTransSys
@@ -156,20 +168,37 @@ Source files live in subdirectory [SMTSolver]
 {3:smtlib SMTLIB Interface}
 
 {!modules:
-  CVC4Driver
   GenericSMTLIBDriver
-  MathSAT5Driver
+  CVC4Driver
+  BoolectorDriver
+  MathSATDriver
+  Yices2SMT2Driver
   Z3Driver
 }
 
 {3:yices Yices Interface}
 
 {!modules:
-  Yices2SMT2Driver
   YicesDriver
   YicesLexer
+  YicesParser
   YicesNative
   YicesResponse
+}
+
+{2:sexpr S-expressions}
+
+{!modules:
+  HStringSExpr
+  SExprBase
+  SExprLexer
+  StringSExpr
+}
+
+{2:ivcMcs Inductive Validity Cores / Minimal Cut Sets}
+
+{!modules:
+  IvcMcs
 }
 
 {2:compil Lustre to Rust}
@@ -185,9 +214,22 @@ Source files live in subdirectory [SMTSolver]
   TestgenIO
   TestgenModes
   TestgenSolver
-  TestgenStrategies
   TestgenTree
-  TestgenLib
+}
+
+{2:certif Proof certificates}
+
+{!modules:
+  Certificate
+  CertifChecker
+  Proof
+}
+
+{2:contractgen Contract Generation and Translation}
+
+{!modules:
+  LustreContractGen
+  ContractsToProps
 }
 
 {2:util Utilities}
@@ -196,21 +238,20 @@ Source files live in subdirectory [SMTSolver]
   Lib
   Res
   Debug
-  Decimal
+  FileId
   Hashcons
+  HashconsWeak
+  HashconsStrong
   HString
-  HStringSExpr
-  Kind2Config
   Messaging
-  Numeral
   Pretty
-  SExprBase
-  SExprLexer
   Stat
   TermLib
+  Graph
   Trie
   Version
   Unroller
+  JkindParser
 }
 
 {1:howto Howto}
