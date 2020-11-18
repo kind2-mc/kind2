@@ -18,6 +18,7 @@
 
 open Lib
 
+exception UnsupportedZ3Symbol of string
 
 (* ********************************************************************** *)
 (* Dummy and default values                                               *)
@@ -78,6 +79,15 @@ type expr_of_string_sexpr_conv =
 
     (* String constant for unary minus operator *) 
     s_minus : HString.t;
+
+    (* String constant for indexed (underscore) operator *)
+    s_index : HString.t;
+
+    (* String constant for int2bv operator *)
+    s_int2bv : HString.t;
+
+    (* String constant for bvextract operator *)
+    s_extract : HString.t;
 
     (* String constant for prime symbol if there is one *) 
     prime_symbol : HString.t option;
@@ -188,6 +198,9 @@ let gen_expr_of_string_sexpr'
        s_exists; 
        s_div; 
        s_minus;
+       s_index;
+       s_int2bv;
+       s_extract;
        prime_symbol;
        const_of_atom; 
        symbol_of_atom;
@@ -202,13 +215,6 @@ let gen_expr_of_string_sexpr'
 
       (* Cannot convert to an expression *)
       failwith "Invalid Nil in S-expression"
-
-
-    (* An list with a list as first element *)
-    | HStringSExpr.List (HStringSExpr.List _ :: _) -> 
-
-      (* Cannot convert to an expression *)
-      failwith "Invalid S-expression"
 
 
     (* A singleton list: treat as atom *)
@@ -338,58 +344,100 @@ let gen_expr_of_string_sexpr'
         (* Symbol from string *)
         let s = 
 
-          try 
+          if ((HString.string_of_hstring h = "bvudiv_i") || 
+              (HString.string_of_hstring h = "bvsdiv_i") ||
+              (HString.string_of_hstring h = "bvurem_i") || 
+              (HString.string_of_hstring h = "bvsrem_i")) then
+            (raise (UnsupportedZ3Symbol (HString.string_of_hstring h)))
+          else
+            try 
 
-            (* Map the string to an interpreted function symbol *)
-            symbol_of_atom h 
+              (* Map the string to an interpreted function symbol *)
+              symbol_of_atom h 
 
-          with 
+            with 
 
-            (* Function symbol is uninterpreted *)
-            | Not_found -> 
+              (* Function symbol is uninterpreted *)
+              | Not_found -> 
 
-              (* Uninterpreted symbol from string *)
-              let u = 
+                (* Uninterpreted symbol from string *)
+                let u = 
 
-                try 
+                  try 
 
-                  UfSymbol.uf_symbol_of_string (HString.string_of_hstring h)
+                    UfSymbol.uf_symbol_of_string (HString.string_of_hstring h)
 
-                with Not_found -> 
+                  with Not_found -> 
   
-                  (* Cannot convert to an expression *)
-                  failwith 
-                    (Format.sprintf 
-                       "Undeclared uninterpreted function symbol %s in \
-                        S-expression"
-                       (HString.string_of_hstring h))
-              in
+                    (* Cannot convert to an expression *)
+                    failwith 
+                      (Format.sprintf 
+                        "Undeclared uninterpreted function symbol %s in \
+                          S-expression"
+                        (HString.string_of_hstring h))
+                in
 
-              (* Get the uninterpreted symbol of the string *)
-              Symbol.mk_symbol (`UF u)
+                (* Get the uninterpreted symbol of the string *)
+                Symbol.mk_symbol (`UF u)
 
 
-        in
+          in
+
+          (* parse arguments *)
+          let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
+
+          (* Add correct type to select *)
+          let s = match Symbol.node_of_symbol s, args with
+            | `SELECT _, [a; _] ->
+              Symbol.mk_symbol (`SELECT (Term.type_of_term a))
+            | _ -> s
+          in
+        
+          (* Create an application of the function symbol to the subterms *)
+          let t = Term.mk_app s args in
+
+          (* Convert (= 0 (mod t n)) to (t divisible n) *)
+          Term.mod_to_divisible t
+          (* |> Term.reinterpret_select *)
+
+      )
+
+    (* Parse ((_ int2bv n) x) *)
+    | HStringSExpr.List
+        (HStringSExpr.List [HStringSExpr.Atom s1; HStringSExpr.Atom s2;
+                            HStringSExpr.Atom n;] :: tl)
+      when s1 == s_index && s2 = s_int2bv ->
 
         (* parse arguments *)
         let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
 
-        (* Add correct type to select *)
-        let s = match Symbol.node_of_symbol s, args with
-          | `SELECT _, [a; _] ->
-            Symbol.mk_symbol (`SELECT (Term.type_of_term a))
-          | _ -> s
-        in
+        (match (int_of_string (HString.string_of_hstring n)) with
+        | 8 -> Term.mk_app Symbol.s_to_uint8 args
+        | 16 -> Term.mk_app Symbol.s_to_uint16 args
+        | 32 -> Term.mk_app Symbol.s_to_uint32 args
+        | 64 -> Term.mk_app Symbol.s_to_uint64 args
+        | _ -> failwith "Invalid S-expression")
+
+    (* Parse ((_ extract i j) x) *)
+    | HStringSExpr.List
+        (HStringSExpr.List [HStringSExpr.Atom s1; HStringSExpr.Atom s2;
+                            HStringSExpr.Atom i; HStringSExpr.Atom j;] :: tl)
+      when s1 == s_index && s2 = s_extract ->
+
+        (* parse indices *)
+        let i_n = Numeral.of_string (HString.string_of_hstring i) in
+        let j_n = Numeral.of_string (HString.string_of_hstring j) in
         
-        (* Create an application of the function symbol to the subterms *)
-        let t = Term.mk_app s args in
+        (* parse arguments *)
+        let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
 
-        (* Convert (= 0 (mod t n)) to (t divisible n) *)
-        Term.mod_to_divisible t
-        (* |> Term.reinterpret_select *)
+        Term.mk_app (Symbol.s_extract i_n j_n) args
 
-      )
+    (* A list with a list as first element *)
+    | HStringSExpr.List (HStringSExpr.List _ :: _) -> 
 
+      (* Cannot convert to an expression *)
+      failwith "Invalid S-expression"
 
 
 (* Convert a string S-expression to a lambda abstraction 
@@ -586,8 +634,11 @@ let smtlib_string_symbol_list =
    ("bvslt", Symbol.mk_symbol `BVSLT);
    ("bvsle", Symbol.mk_symbol `BVSLE);
    ("bvsgt", Symbol.mk_symbol `BVSGT);
-   ("bvsge", Symbol.mk_symbol `BVSGE); 
+   ("bvsge", Symbol.mk_symbol `BVSGE);
+   ("bv2nat", Symbol.mk_symbol `BV2NAT);
+   ("bv2int", Symbol.mk_symbol `BV2NAT); 
    ("concat", Symbol.mk_symbol `BVCONCAT);
+
    ("select", Symbol.mk_symbol
       (`SELECT (Type.mk_array Type.t_int Type.t_int))); (* placeholder *)
    (* uninterpreted select *)
@@ -606,7 +657,6 @@ let smtlib_reserved_word_list =
 (* Hashtable for hashconsed strings to function symbols *)
 let hstring_symbol_table = HString.HStringHashtbl.create 50 
 
-
 (* Populate hashtable with hashconsed strings and their symbol *)
 let _ = 
   List.iter
@@ -616,7 +666,6 @@ let _ =
         (HString.mk_hstring s)
         v)
     smtlib_string_symbol_list 
-
 
 (* Pretty-print a symbol *)
 let rec pp_print_symbol_node ?arity ppf = function 
@@ -902,6 +951,9 @@ let smtlib_string_sexpr_conv =
     s_exists = HString.mk_hstring "exists";
     s_div = HString.mk_hstring "/";
     s_minus = HString.mk_hstring "-";
+    s_index = HString.mk_hstring "_";
+    s_int2bv = HString.mk_hstring "int2bv";
+    s_extract = HString.mk_hstring "extract";
     s_define_fun = HString.mk_hstring "define-fun";
     s_declare_fun = HString.mk_hstring "declare-fun";
     prime_symbol = None;
