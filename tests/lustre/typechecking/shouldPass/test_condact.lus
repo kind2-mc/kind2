@@ -19,10 +19,10 @@ tel
 -- Node with a condact call 
 node x71 (C: bool; x1, x2, x3: int; v1, v2, v3: int) returns (y1, y2, y3: int);
 let 
-  (y1, y2, y3) = condact(C, N7(x1, x2, x3), v1, v2, v3);
+  -- (y1, y2, y3) = condact(C, N7(x1, x2, x3), v1, v2, v3);
 
 -- Equivalent expression to condact call
-  (y1, y2, y3) = if C then current(N7(x1, x2, x3) when C) 
-                 else (v1, v2, v3) -> pre(y1, y2, z3);
+  -- (y1, y2, y3) = if C then current(N7(x1, x2, x3) when C) 
+  --                else (v1, v2, v3) -> pre(y1, y2, z3);
 
 tel

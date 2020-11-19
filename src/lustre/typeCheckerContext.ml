@@ -73,7 +73,7 @@ let empty_tc_context: tc_context =
   ; contract_ctx = IMap.empty
   ; vl_ctx = IMap.empty
   ; u_types = SI.empty
-  ; node_summary_ctx = AD.IMap.empty }
+  ; node_summary_ctx = AD.empty_node_summary }
 (** The empty context with no information *)
 
 (**********************************************
@@ -247,12 +247,6 @@ let pp_print_u_types: Format.formatter -> SI.t -> unit
 (** Pretty print declared user types *)
 
 
-let pp_print_node_summary ppf m = Lib.pp_print_list (fun ppf (i, b) ->
-                                      Format.fprintf ppf "(%a:%a)"
-                                        LA.pp_print_ident i
-                                        (Lib.pp_print_list Format.pp_print_int ", ") b)  ", "
-                                    ppf (AD.IMap.bindings m)
-(** Pretty print the node summary  *)
 
 let pp_print_tc_context ppf ctx
   = Format.fprintf ppf
@@ -267,6 +261,6 @@ let pp_print_tc_context ppf ctx
       pp_print_tymap (ctx.contract_ctx)
       pp_print_vstore (ctx.vl_ctx)
       pp_print_u_types (ctx.u_types)
-      pp_print_node_summary (ctx.node_summary_ctx)
+      AD.pp_print_node_summary (ctx.node_summary_ctx)
 (** Pretty print the complete type checker context*)
                                     

@@ -747,6 +747,105 @@ let split_program: declaration list -> (declaration list * declaration list)
         else (ds, d::ds')) ([], [])  
 (** Splits program into type and constant decls and rest of the program *)
 
+
+
+let rec replace_with_constants: expr -> expr =
+  let c p = Const(p, Num "42") in
+  function
+  | Ident(p, e) -> c p 
+    | ModeRef _ as e -> e 
+  | RecordProject (p, e, i) -> RecordProject (p, replace_with_constants e, i)  
+  | TupleProject (p, e, i) -> TupleProject (p, replace_with_constants e, i)
+  (* Values *)
+  | Const _ as e -> e
+
+  (* Operators *)
+  | UnaryOp (p, op, e) -> UnaryOp (p, op, replace_with_constants e)
+  | BinaryOp (p, op,e1, e2) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     BinaryOp (p, op, e1', e2') 
+  | TernaryOp (p, op, e1, e2, e3) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     let e3' = replace_with_constants e3 in
+     TernaryOp (p, op, e1', e2', e3')
+  | NArityOp (p, op,es) -> NArityOp (p, op, List.map replace_with_constants es) 
+  | ConvOp  (p, op, e) -> ConvOp (p, op, replace_with_constants e)
+  | CompOp (p, op, e1, e2) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     CompOp (p, op, e1', e2')
+
+  (* Structured expressions *)
+  | RecordExpr (p, i, flds) -> RecordExpr (p, i, (List.map (fun (f, e) -> (f, replace_with_constants e)) flds))
+  | GroupExpr (p, g, es) -> GroupExpr (p, g, List.map replace_with_constants es)
+
+  (* Update of structured expressions *)
+  | StructUpdate (p, e1, i, e2) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     StructUpdate (p, e1', i, e2') 
+
+  | ArrayConstr (p, e1, e2) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     ArrayConstr (p, e1', e2') 
+
+  | ArrayConcat (p, e1, e2) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     ArrayConcat (p, e1', e2') 
+
+  | ArrayIndex (p, e1, e2) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     ArrayIndex (p, e1', e2') 
+
+  | ArraySlice (p, e1, (e2, e3)) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     let e3' = replace_with_constants e3 in
+     ArraySlice (p, e1', (e2', e3'))
+
+  (* Quantified expressions *)
+  | Quantifier (p, q, qs, e) ->
+     Quantifier (p, q, qs, replace_with_constants e)
+
+   (* Clock operators *)
+   | When (p, e, c) -> When (p, replace_with_constants e, c) 
+   | Current  (p, e) -> Current  (p, replace_with_constants e) 
+   | Condact (p, e1, e2, i, es1, es2) ->
+      Condact (p, replace_with_constants e1
+               , replace_with_constants e2
+               , i
+               , List.map replace_with_constants es1
+               , List.map replace_with_constants es2)
+   | Activate (p, i, e1, e2, es) ->
+      Activate(p, i
+               , replace_with_constants e1
+               , replace_with_constants e2
+               , List.map replace_with_constants es)
+   | Merge (p, i, es) ->
+      Merge (p, i, List.map (fun (i, e) -> i, replace_with_constants e) es)
+   | RestartEvery (p, i, es, e) ->
+      RestartEvery (p, i, List.map replace_with_constants es, replace_with_constants e)
+
+  (* Temporal operators *)
+  | Pre (p, e) -> replace_with_constants e
+  | Last _ as e -> e
+  | Fby (p, e1, i, e2) ->
+     Fby (p, replace_with_constants e1, i, replace_with_constants e2)
+  | Arrow (p, e1, e2) ->  Arrow (p, replace_with_constants e1, replace_with_constants e2)
+
+  (* Node calls *)
+  | Call (p, i, es) -> Call (p, i, List.map replace_with_constants es) 
+  | CallParam (p, i, tys, es) -> CallParam (p, i, tys, List.map replace_with_constants es) 
+
+(** replaces all the identifiers with constants. This is structure preserving
+and is used inside abstract_pre_subexpressions *)
+
+  
 let rec abstract_pre_subexpressions: expr -> expr = function
   | Ident _ 
     | ModeRef _ as e -> e 
@@ -828,7 +927,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
       RestartEvery (p, i, List.map abstract_pre_subexpressions es, abstract_pre_subexpressions e)
 
   (* Temporal operators *)
-  | Pre (p, e) -> Pre(p, Const (p, (Num "42")))
+  | Pre (p, e) -> Pre(p, replace_with_constants e)
   | Last _ as e -> e
   | Fby (p, e1, i, e2) ->
      Fby (p, abstract_pre_subexpressions e1, i, abstract_pre_subexpressions e2)

@@ -89,6 +89,9 @@ module type S = sig
   val remove_vertex: t ->  vertex ->  t
   (** Remove the [vertex] and its associated [edges] from the graph *)
 
+  val remove_vertices: t -> vertex list -> t
+  (** Remove the [vertex list] and its associated [edges] from the graph *)
+
   val remove_edge: t ->  edge ->  t
   (** Remove an [edge] from a graph *)                             
 

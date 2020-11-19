@@ -90,6 +90,9 @@ module type S = sig
   val remove_vertex: t ->  vertex ->  t
   (** Remove the [vertex] and its associated [edges] from the graph *)
 
+  val remove_vertices: t -> vertex list -> t
+  (** Remove the [vertex list] and its associated [edges] from the graph *)
+
   val remove_edge:  t ->  edge ->  t
   (** Remove an [edge] from a graph *)                             
 
@@ -257,6 +260,10 @@ module Make (Ord: OrderedType) = struct
     , ESet.filter (fun e -> not (is_vertex_in_edge e v)) es)           
   (** Remove the [vertex] and its associated [edges] from the graph *)
 
+  let remove_vertices: t -> vertex list -> t
+    = fun g vs -> List.fold_left remove_vertex g vs 
+  (** Remove the [vertex list] and its associated [edges] from the graph *)
+    
   let remove_edge:  t ->  edge ->  t
     = fun (vs, es) e -> (vs, ESet.remove e es) 
   (** Remove an [edge] from a graph *)                             

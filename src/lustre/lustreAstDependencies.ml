@@ -57,12 +57,23 @@ module IMap = struct
   let keys: 'a t -> key list = fun m -> List.map fst (bindings m)             
 end
 
+module IntMap = struct
+  include (Map.Make(struct
+               type t = int
+               let compare i1 i2 = Stdlib.compare i1 i2
+             end))
+  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)             
+end
+            
 type id_pos_map = (Lib.position list) IMap.t
 (** stores all the positions of the occurance of an id *)
 
-type node_summary = (int list) IMap.t
-(** The node summary contains the positions of the input streams of a node that are used in their current value. *)
-                  
+type node_summary = ((int list) IntMap.t) IMap.t
+(** The node summary contains the positions of the input streams 
+    of a node that are used in their current value. *)
+
+let empty_node_summary: node_summary = IMap.empty
+                       
 let add_pos: id_pos_map -> LA.ident -> Lib.position -> id_pos_map = fun m i p ->
   IMap.update i
     (function
@@ -398,7 +409,7 @@ let sort_declarations decls =
  * Type 3. Dependency Analysis of contract equations and node equations *
  ************************************************************************)
 
-let rec vars_with_flattened_nodes: (int list) IMap.t -> LA.expr -> LA.SI.t = fun m ->
+let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t = fun m ->
   function
   | Ident (_ , i) -> SI.singleton i 
   | ModeRef _ -> SI.empty
@@ -452,11 +463,11 @@ let rec vars_with_flattened_nodes: (int list) IMap.t -> LA.expr -> LA.SI.t = fun
 
   (* Node calls *)
   | Call (_, i, es) -> (match IMap.find_opt i m with
-                       | None -> failwith ("cannot find node call summary for "^ i ^". Should not happen")
-                       | Some idx ->
-                          if List.length idx = 0
-                          then SI.empty
-                          else (SI.flatten (List.map (vars_with_flattened_nodes m) es)))
+                       | None -> failwith ("cannot find node call summary for "^ i ^". Should not happen!")
+                       | Some ns ->
+                          let sum_bds = IntMap.bindings ns in
+                          let es' = List.map (vars_with_flattened_nodes m) es in
+                          SI.flatten (List.concat (List.map (fun (i, b) -> List.map (List.nth es') b) sum_bds)))
   | CallParam (_, i, _, es) -> (SI.flatten (List.map (vars_with_flattened_nodes m) es))
 (** get all the variables except node names from an expression *)
 
@@ -488,56 +499,116 @@ let mk_node_summary: node_summary -> LA.node_decl -> node_summary =
   ; let mk_g = fun (lhs, vars) ->  G.connect (List.fold_left G.union G.empty (List.map G.singleton vars)) lhs in
     let g = List.fold_left G.union G.empty (List.map mk_g (IMap.bindings node_equation_dependency_map)) in
     Log.log L_trace "Node equation graph: %a" G.pp_print_graph g
-    ; let vars_op_depends_on = List.concat (List.map (fun i -> G.to_vertex_list (G.reachable g i)) op_vars) in
-      Log.log L_trace "Reachable vars: %a" (Lib.pp_print_list LA.pp_print_ident ", ") vars_op_depends_on
-      ; let critical_ips = SI.inter (SI.of_list vars_op_depends_on) (SI.of_list ip_vars) in
-        if (SI.is_empty critical_ips)
-        then IMap.add i [] s
-        else IMap.add i (summarize_ip_vars ip_vars critical_ips) s
-  else IMap.add i ((List.fold_left (fun (acc, num) _ -> (num::acc, num+1)) ([], 0) ips) |> fst) s   
-(** Computes the node call summary the node to the input stream of the node. *)
+    ; let vars_op_depends_on = List.map (fun i -> G.to_vertex_list (G.reachable g i)) op_vars in
+      (* Log.log L_trace "Reachable vars: %a" (Lib.pp_print_list LA.pp_print_ident ", ") vars_op_depends_on *)
+      let critical_ips = List.map (fun vs -> SI.inter (SI.of_list vs) (SI.of_list ip_vars)
+                                  |> summarize_ip_vars ip_vars) vars_op_depends_on in
+        let ns = (List.fold_left (fun (op_idx, m) cip -> (op_idx+1, IntMap.add op_idx cip m)) (0, IntMap.empty) critical_ips |> snd) in
+        IMap.add i ns s
+  else
+    let cricital_ips = (List.fold_left (fun (acc, num) _ -> (num::acc, num+1)) ([], 0) ips) |> fst in
+    IMap.add i ((List.fold_left (fun (op_idx, m) _ -> (op_idx+1, IntMap.add op_idx cricital_ips m)) (0, IntMap.empty) ops) |> snd) s   
+(** Computes the node call summary of the node to the input stream of the node. *)
                       
-let rec mk_graph_expr2: node_summary -> LA.expr -> (G.t * id_pos_map) = fun m ->
+let rec mk_graph_expr2: node_summary -> LA.expr -> (G.t * id_pos_map) list = fun m ->
   function
-  | LA.Ident (pos, i) -> singleton_g_pos "" i pos
-  | LA.ModeRef (pos, ids) -> singleton_g_pos mode_suffix (List.nth ids (List.length ids - 1) ) pos 
-  | LA.Const _ -> empty_g_pos
-
+  | LA.Ident (pos, i) -> [singleton_g_pos "" i pos]
+  | LA.ModeRef (pos, ids) -> [singleton_g_pos mode_suffix (List.nth ids (List.length ids - 1) ) pos] 
+  | LA.Const _ -> [empty_g_pos]
   | LA.RecordExpr (pos, i, ty_ids) ->
-     List.fold_left union_g_pos (singleton_g_pos "" i pos) (List.map (fun ty_id -> mk_graph_expr2 m (snd ty_id)) ty_ids)
-  | LA.StructUpdate (_, e1, _, e2) -> union_g_pos (mk_graph_expr2 m e1) (mk_graph_expr2 m e2) 
+     [List.fold_left union_g_pos
+       (singleton_g_pos "" i pos)
+       (List.concat (List.map (fun ty_id -> mk_graph_expr2 m (snd ty_id)) ty_ids))]
+  | LA.StructUpdate (_, e1, _, e2) ->
+     [List.fold_left union_g_pos empty_g_pos ((mk_graph_expr2 m e1) @ (mk_graph_expr2 m e2))] 
   | LA.UnaryOp (_, _, e)
     | LA.ConvOp (_, _, e) -> mk_graph_expr2 m e
-  | LA.BinaryOp (_, _, e1, e2) -> union_g_pos (mk_graph_expr2 m e1) (mk_graph_expr2 m e2) 
-  | LA.CompOp (_, _, e1, e2) -> union_g_pos (mk_graph_expr2 m e1) (mk_graph_expr2 m e2) 
-  | LA.TernaryOp (_, _, e1, e2, e3) -> union_g_pos (mk_graph_expr2 m e1)
-                                         (union_g_pos (mk_graph_expr2 m e2) (mk_graph_expr2 m e3)) 
-  | LA.RecordProject (_, e, _) -> mk_graph_expr2 m e
+  | LA.BinaryOp (_, _, e1, e2)
+  | LA.CompOp (_, _, e1, e2) ->
+     [List.fold_left union_g_pos empty_g_pos ((mk_graph_expr2 m e1) @ (mk_graph_expr2 m e2))] 
+  | LA.TernaryOp (p, _, e1, e2, e3) ->
+     let g1 =  List.fold_left union_g_pos empty_g_pos (mk_graph_expr2 m e1) in
+     let g2, g3 = (mk_graph_expr2 m e2), (mk_graph_expr2 m e3) in
+     if (List.length g3 != List.length g2) then
+       (Log.log L_trace ("e2: %a"
+                         ^^ "\ne3: %a"
+                         ^^ "\ng2 length %a: %a"
+                         ^^ "\ng3 length %a: %a")
+         LA.pp_print_expr e2
+         LA.pp_print_expr e3
+         Format.pp_print_int (List.length g2)
+         (Lib.pp_print_list G.pp_print_graph ", ") (List.map fst g2)
+         Format.pp_print_int (List.length g3)
+         (Lib.pp_print_list G.pp_print_graph ", ") (List.map fst g3)
+     ; Lib.todo __LOC__)
+     else
+       List.map (fun g -> union_g_pos g1 g)
+         (List.map2 (fun g g' -> union_g_pos g g') g2 g3)
+  | LA.RecordProject (_, e, _)
   | LA.TupleProject (_, e, _) -> mk_graph_expr2 m e
-  | LA.ArrayConstr (_, e1, e2) -> union_g_pos (mk_graph_expr2 m e1) (mk_graph_expr2 m e2) 
-  | LA.ArraySlice (_, e1, (e2, e3)) -> union_g_pos (union_g_pos (mk_graph_expr2 m e1) (mk_graph_expr2 m e2)) (mk_graph_expr2 m e3) 
+  | LA.ArrayConstr (_, e1, e2) ->
+     [List.fold_left union_g_pos empty_g_pos ((mk_graph_expr2 m e1) @ (mk_graph_expr2 m e2))] 
+  | LA.ArraySlice (_, e1, (e2, e3)) ->
+     [List.fold_left union_g_pos empty_g_pos
+       (( mk_graph_expr2 m e1)
+       @ ( mk_graph_expr2 m e2)
+       @ ( mk_graph_expr2 m e3)) ]
   | LA.ArrayIndex (_, e1, e2) -> mk_graph_expr2 m e1
-  | LA.ArrayConcat  (_, e1, e2) -> union_g_pos (mk_graph_expr2 m e1) (mk_graph_expr2 m e2)
-  | LA.GroupExpr (_, _, es) -> List.fold_left union_g_pos empty_g_pos (List.map (mk_graph_expr2 m) es)
+  | LA.ArrayConcat  (_, e1, e2) ->
+     [List.fold_left union_g_pos empty_g_pos ((mk_graph_expr2 m e1) @ (mk_graph_expr2 m e2))] 
+  | LA.GroupExpr (_, _, es) ->
+      (List.map (fun e -> List.fold_left union_g_pos empty_g_pos (mk_graph_expr2 m e)) es)
   | LA.When (_, e, _) -> mk_graph_expr2 m e
   | LA.Current (_, e) -> mk_graph_expr2 m e
-  | LA.Condact (p, _, _, _, e1s, e2s) -> List.fold_left union_g_pos empty_g_pos (List.map (mk_graph_expr2 m) (e1s @ e2s))
-  | LA.Activate (p, _, _, _, es) -> List.fold_left union_g_pos empty_g_pos (List.map (mk_graph_expr2 m) es)
-  | LA.Merge (p, _, cs) -> List.fold_left union_g_pos empty_g_pos (List.map (fun (_, e) -> (mk_graph_expr2 m) e) cs) 
-  | LA.RestartEvery (p, _, es,_) -> List.fold_left union_g_pos empty_g_pos (List.map (mk_graph_expr2 m) es)
-
-  | LA.Pre (_, e) -> map_g_pos (fun v -> v ^ "$p") (mk_graph_expr2 m e) 
-  | LA.Last (pos, i) -> singleton_g_pos "" i pos
-  | LA.Fby (_, e1, _, e2) ->  union_g_pos (mk_graph_expr2 m e1) (mk_graph_expr2 m e2) 
-  | LA.Arrow (_, e1, e2) ->  union_g_pos (mk_graph_expr2 m e1) (mk_graph_expr2 m e2)
-  | LA.Call (_, i, es) ->
+  | LA.Condact (_, _, _, _, e1s, e2s) ->
+     (* (List.map2 (fun g1 g2 -> union_g_pos g1 g2)
+      *    (mk_graph_expr2 m e2)
+      *    (mk_graph_expr2 m e3)) *)
+     [ List.fold_left union_g_pos empty_g_pos
+       (List.concat (List.map (mk_graph_expr2 m) (e1s @ e2s)))]
+  | LA.Activate (_, _, _, _, es) ->
+     [List.fold_left union_g_pos empty_g_pos
+       (List.concat (List.map (mk_graph_expr2 m) es))]
+  | LA.Merge (_, _, cs) ->
+     [List.fold_left union_g_pos empty_g_pos
+       (List.concat (List.map (fun (_, e) -> (mk_graph_expr2 m) e) cs))] 
+  | LA.RestartEvery (p, _, es, _) ->
+     [List.fold_left union_g_pos empty_g_pos (List.concat (List.map (mk_graph_expr2 m) es))]
+  | LA.Pre (_, e) ->
+     List.map (map_g_pos (fun v -> v ^ "$p")) (mk_graph_expr2 m e) 
+  | LA.Last (pos, i) -> [singleton_g_pos "" i pos]
+  | LA.Fby (p, e1, _, e2)
+    | LA.Arrow (p, e1, e2) ->
+     let e1_g, e2_g =  (mk_graph_expr2 m e1), (mk_graph_expr2 m e2) in 
+     if (List.length e1_g != List.length e2_g) then
+       (
+         Log.log L_trace ("LHS: %a\n"
+                          ^^ "LHS graphs : %a\n"
+                          ^^ " RHS: %a\n"
+                          ^^ " RHS: graphs %a\n") 
+           LA.pp_print_expr e1
+           (Lib.pp_print_list G.pp_print_graph ",") (List.map fst e1_g)
+           LA.pp_print_expr e2
+           (Lib.pp_print_list G.pp_print_graph ",") (List.map fst e2_g)
+       ; Lib.todo (__LOC__)
+       )
+     else 
+     List.map2 (fun l r -> union_g_pos l r ) e1_g e2_g
+  | LA.Call (p, i, es) ->
      (match IMap.find_opt i m with
       | None -> failwith ("Cannot find summary of node " ^ i ^ ". This should not happen.")
-      | Some b -> if List.length b = 0
-                  then empty_g_pos
-                  else
-                    let es' = List.map (List.nth es) b in 
-                    List.fold_left union_g_pos empty_g_pos (List.map (mk_graph_expr2 m) es'))
+      | Some summary ->
+         let sum_bds = IntMap.bindings summary in
+         let ip_gs = List.concat (List.map (mk_graph_expr2 m) es) in
+         List.map (fun (i, b) ->
+             (* We have to put these dummy values so that the
+                List.map2 in the callee functions don't blow up and we 
+                match up structure widths *)
+             if (List.length b = 0) then
+               (singleton_g_pos "" "42" p)
+             else (List.fold_left union_g_pos empty_g_pos (List.map (List.nth ip_gs) b))) sum_bds
+
+     )
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
 (** This graph is useful for analyzing equations assuming that the nodes/contract call
     recursive calling has been resolved already.
@@ -548,33 +619,39 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (G.t * id_pos_map) = fun m ->
 let mk_graph_const_decl2: node_summary -> LA.const_decl -> (G.t * id_pos_map)
   = fun m -> function
   | LA.FreeConst (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (const_suffix ^ i) pos
-  | LA.UntypedConst (pos, i, e) -> connect_g_pos (mk_graph_expr2 m e) (const_suffix ^ i) pos 
-  | LA.TypedConst (pos, i, e, ty) -> connect_g_pos (union_g_pos (mk_graph_expr2 m e) (mk_graph_type ty)) (const_suffix ^ i) pos
+  | LA.UntypedConst (pos, i, e) -> connect_g_pos
+                                     (List.fold_left union_g_pos empty_g_pos (mk_graph_expr2 m e))
+                                     (const_suffix ^ i) pos 
+  | LA.TypedConst (pos, i, e, ty) -> connect_g_pos
+                                       (union_g_pos (List.fold_left union_g_pos empty_g_pos (mk_graph_expr2 m e))
+                                          (mk_graph_type ty)) (const_suffix ^ i) pos
 
        
-let mk_graph_contract_eqns: node_summary -> LA.contract -> (G.t * id_pos_map)
-  = fun m -> let mk_graph: LA.contract_node_equation -> (G.t * id_pos_map)
+let mk_graph_contract_eqns: ?contract_arguments:LA.ident list -> node_summary -> LA.contract -> (G.t * id_pos_map)
+  = fun ?contract_arguments:(contract_arguments=[]) m ->
+  let mk_graph: LA.contract_node_equation -> (G.t * id_pos_map)
       = function
       | LA.GhostConst c -> mk_graph_const_decl2 m c
       | LA.GhostVar c -> mk_graph_const_decl2 m c
       | LA.Mode (pos, i, reqs, ens) ->
-         let g = List.fold_left (fun g e -> union_g_pos g (mk_graph_expr2 m e))
+         let g = List.fold_left (fun g e -> List.fold_left union_g_pos g (mk_graph_expr2 m e))
                    empty_g_pos (List.map (fun (_, _,  e) -> e) (reqs @ ens)) in
          connect_g_pos g (mode_suffix ^ i) pos 
       | LA.Assume _ 
-        | LA.Guarantee _
-        | LA.ContractCall _ -> empty_g_pos in 
+        | LA.Guarantee _ -> empty_g_pos 
+      | LA.ContractCall (_, i, ip_exps, ops) -> empty_g_pos 
+  in
     fun eqns ->
     List.fold_left union_g_pos empty_g_pos (List.map mk_graph eqns)
 
 let expression_current_streams: node_summary -> LA.expr -> LA.ident list = 
   fun ns e ->
   let g = mk_graph_expr2 ns (LH.abstract_pre_subexpressions e) in
-  G.to_vertex_list (G.get_vertices (fst g))
+  G.to_vertex_list (G.get_vertices (fst (List.fold_left union_g_pos empty_g_pos g)))
 (** all the variables who's current value is used in the expression *)
     
     
-let analyze_circ_contract_equations: node_summary -> LA.contract -> unit graph_result  = fun m c ->
+let analyze_circ_contract_equations: (* ?contract_arguments:LA.ident list ->  *)node_summary -> LA.contract -> unit graph_result  = fun (* ?contract_arguments:(contract_arguments = []) *) m c ->
   let dg, pos_info = mk_graph_contract_eqns m c in
   (try (R.ok (G.topological_sort dg)) with
    | Graph.CyclicGraphException ids ->
@@ -602,11 +679,58 @@ let mk_graph_eqn: node_summary -> LA.node_equation -> (G.t * id_pos_map) =
       | LA.TupleSelection (p, _, _)
       | LA.FieldSelection (p, _, _)
       | LA.ArraySliceStructItem (p, _, _)
-      ->  Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position p) in
+      ->  Lib.todo ("Parsing not supported" ^ __LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position p) in
   fun m -> function
-  | Equation (pos, (LA.StructDef (_, lhss)), e) ->
+  | Equation (pos, (LA.StructDef (p, lhss)), e) ->
+     (* We need to find the mapping of graphs from the lhs of the equation to the rhs of the equations 
+        This is a non trivial task as we do not have the necessary information
+        of the width of each of the lhs and rhs especially if it is just an identifier.
+
+        We will just repeat a trivial graph to fill up the mapping. 
+        This needs to have a smarter heuristic but I am not sure how to do it.
+       *)
      let rhs_g = mk_graph_expr2 m (LH.abstract_pre_subexpressions e) in
-     List.fold_left union_g_pos empty_g_pos (List.map (handle_one_lhs rhs_g) lhss)
+
+     if (List.length lhss > List.length rhs_g)
+     then
+       (
+         Log.log L_trace ("LHS: %a has size %i\n"
+                          ^^ " RHS: %a has size %i\n"
+                          ^^ " RHS abstracted: %a\n"
+                          ^^ " RHS: graphs %a\n") 
+           (Lib.pp_print_list LA.pp_print_struct_item ",") lhss
+           (List.length lhss)
+           (* (Lib.pp_print_list G.pp_print_graph ",") (List.map fst e1_g) *)
+           LA.pp_print_expr e
+           (List.length rhs_g)
+           LA.pp_print_expr (LH.abstract_pre_subexpressions e)
+           (Lib.pp_print_list G.pp_print_graph "||") (List.map fst rhs_g)
+       ; Lib.todo ( __LOC__
+                    ^ " LHS: " ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss) 
+                    ^ " RHS: " ^ (Lib.string_of_t LA.pp_print_expr e) 
+                    ^ Lib.string_of_t Lib.pp_print_pos p)
+       )
+     else if (List.length lhss < List.length rhs_g)
+     then
+       (
+         Log.log L_trace ("LHS: %a has size %i\n"
+                          ^^ " RHS: %a has size %i\n"
+                          ^^ " RHS abstracted: %a\n"
+                          ^^ " RHS: graphs %a\n") 
+           (Lib.pp_print_list LA.pp_print_struct_item ",") lhss
+           (List.length lhss)
+           (* (Lib.pp_print_list G.pp_print_graph ",") (List.map fst e1_g) *)
+           LA.pp_print_expr e
+           (List.length rhs_g)
+           LA.pp_print_expr (LH.abstract_pre_subexpressions e)
+           (Lib.pp_print_list G.pp_print_graph "||") (List.map fst rhs_g)
+       ; Lib.todo ( __LOC__
+                    ^ " LHS: " ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss) 
+                    ^ " RHS: " ^ (Lib.string_of_t LA.pp_print_expr e) 
+                    ^ Lib.string_of_t Lib.pp_print_pos p)
+       )
+     (* RHS and LHS should have same number of items and we can do a one to one mapping*)
+     else List.fold_left union_g_pos empty_g_pos (List.map2 (handle_one_lhs) rhs_g lhss)
   | _ -> empty_g_pos
   
 let rec mk_graph_node_items: node_summary -> LA.node_item list -> (G.t * id_pos_map) =
@@ -632,6 +756,17 @@ let analyze_circ_node_equations: node_summary -> LA.ident list -> LA.node_item l
         else failwith "Cyclic dependency with no ids detected. This should not happen!")
     >> R.ok ()
 
-
-
-         
+    
+let pp_print_node_summary ppf m =
+  let pp_print_val ppf m =
+    Lib.pp_print_list (fun ppf (i, b) ->
+        Format.fprintf ppf "(%a:%a)"
+          Format.pp_print_int i
+          (Lib.pp_print_list Format.pp_print_int ", ") b)  ", "
+      ppf (IntMap.bindings m) in
+  Lib.pp_print_list (fun ppf (i, b) ->
+      Format.fprintf ppf "(%a->%a)"
+        LA.pp_print_ident i
+        pp_print_val b
+    ) ", " ppf (IMap.bindings m)  
+(** Pretty print the node summary  *)

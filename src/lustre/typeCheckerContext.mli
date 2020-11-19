@@ -139,6 +139,3 @@ val get_constant_ids: tc_context -> LA.ident list
 
 val pp_print_tc_context: Format.formatter -> tc_context -> unit
 (** Pretty print the typing context  *)
-
-val pp_print_node_summary: Format.formatter -> node_summary -> unit
-(** Pretty print the node summary  *)
