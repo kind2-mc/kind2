@@ -84,6 +84,21 @@ let rec is_normal_form: tc_context -> LA.expr -> bool = fun ctx ->
  * Type inferring and type checking functions *
  **********************************************)
 
+let check_eqn_no_current_vals: LA.SI.t -> tc_context -> LA.expr -> unit tc_result
+  = fun node_out_params ctx e -> 
+  let assume_vars_out_params =
+    SI.inter node_out_params
+      (LA.SI.of_list (AD.expression_current_streams (get_node_summary ctx) e)) in
+  Log.log L_trace "node_params: %a non pre vars of e: %a"
+    (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_params)
+    (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements (LH.vars (LH.abstract_pre_subexpressions e)))
+  ; R.guard_with (R.ok (SI.is_empty assume_vars_out_params))
+      (type_error (LH.pos_of_expr e) ("Contract assumption or mode requirements cannot depend on "
+                       ^ "current values of output parameters but found: "
+                       ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
+                            (SI.elements assume_vars_out_params))))
+(* Make sure that no idents in the first argument occur in the expression *)
+       
 let infer_type_const: Lib.position -> LA.constant -> tc_type
   = fun pos -> function
   | Num _ -> Int pos
@@ -855,7 +870,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
          | None -> R.ok ()
          | Some c ->
             tc_ctx_of_contract ctx_plus_ops_and_ips c >>= fun con_ctx ->
-            check_type_contract ~node_out_params:ret_ids con_ctx c) >>
+            check_type_contract ret_ids con_ctx c) >>
           (* if the node is extern, we will not have any body to typecheck *)
           if is_extern
           then R.ok ( Log.log L_trace "External Node, no body to type check."
@@ -1001,8 +1016,9 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
   | Mode (pos, name, _, _) -> R.ok (add_ty ctx name (Bool pos)) 
   | ContractCall _ -> R.ok ctx 
 
-and check_type_contract_decl: ?node_out_params: LA.SI.t -> tc_context -> LA.contract_node_decl -> unit tc_result
-  = fun ?node_out_params:(node_out_params = LA.SI.empty) ctx (cname, params, args, rets, contract) ->
+and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_result
+  = fun ctx (cname, params, args, rets, contract) ->
+  let node_out_params = LA.SI.of_list (List.map (fun ret -> LH.extract_op_ty ret |> fst) rets) in
   Log.log L_trace "TC Contract decl: %a {" LA.pp_print_ident cname 
   (* build the appropriate local context *)
   ; let arg_ctx = List.fold_left union ctx (List.map extract_arg_ctx args) in
@@ -1012,16 +1028,16 @@ and check_type_contract_decl: ?node_out_params: LA.SI.t -> tc_context -> LA.cont
     R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract)
     >>= fun ctxs ->
     let local_ctx = List.fold_left union local_const_ctx ctxs in
-    check_type_contract ~node_out_params:node_out_params local_ctx contract
+    check_type_contract node_out_params local_ctx contract
     >> R.ok (Log.log L_trace "TC Contract Decl %a done }" LA.pp_print_ident cname)
 
-and check_type_contract: ?node_out_params: LA.SI.t -> tc_context -> LA.contract -> unit tc_result
-  = fun ?node_out_params:(node_out_params = LA.SI.empty) ctx eqns ->
-  R.seq_ (List.map (check_contract_node_eqn ~node_out_params:node_out_params ctx) eqns)
+and check_type_contract: LA.SI.t -> tc_context -> LA.contract -> unit tc_result
+  = fun node_out_params ctx eqns ->
+  R.seq_ (List.map (check_contract_node_eqn node_out_params ctx) eqns)
     >> AD.analyze_circ_contract_equations (get_node_summary ctx) eqns
-
-and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contract_node_equation -> unit tc_result
-  = fun ?node_out_params:(node_out_params = LA.SI.empty) ctx eqn ->
+  
+and check_contract_node_eqn: LA.SI.t -> tc_context -> LA.contract_node_equation -> unit tc_result
+  = fun node_out_params ctx eqn ->
   Log.log L_trace "Checking contract equation: %a" LA.pp_print_contract_item eqn 
   ; match eqn with
     | GhostConst _
@@ -1029,23 +1045,17 @@ and check_contract_node_eqn: ?node_out_params: LA.SI.t -> tc_context -> LA.contr
     | Assume (pos, _, _, e) ->
        check_type_expr ctx e (Bool pos) >>
          (* Check if any of the out stream vars of the node is being used at its current value is used in assumption *)
-         let assume_vars_out_params =
-           SI.inter node_out_params
-             (LA.SI.of_list (AD.expression_current_streams (get_node_summary ctx) e)) in
-         Log.log L_trace "node_params: %a non pre vars of e: %a"
-           (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_params)
-           (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements (LH.vars (LH.abstract_pre_subexpressions e)))
-         ; R.guard_with (R.ok (SI.is_empty assume_vars_out_params))
-           (type_error pos ("Contract assumption cannot depend on "
-                            ^ "current values of output parameters but found: "
-                            ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
-                                 (SI.elements assume_vars_out_params))))
+         check_eqn_no_current_vals node_out_params ctx e
          
     | Guarantee (pos, _, _, e) -> check_type_expr ctx e (Bool pos)
     | Mode (pos, _, reqs, ensures) ->
        R.seq_ (Lib.list_apply (List.map (check_type_expr ctx)
                                  (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
-                 (Bool pos)) 
+                 (Bool pos))
+       >>
+         (Log.log L_trace "Make sure mode requires do not use current value of output streams"
+         ; R.seq_ (List.map (fun (_, _, e) -> check_eqn_no_current_vals node_out_params ctx e) reqs)) 
+      
     | ContractCall (pos, cname, args, rets) ->
        let arg_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars args) in
        let intersect_in_illegal = LA.SI.inter node_out_params arg_ids in

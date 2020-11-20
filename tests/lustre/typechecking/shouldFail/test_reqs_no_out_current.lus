@@ -1,0 +1,16 @@
+-- Make sure requires does not use the current value of an output stream in the
+-- mode requires statment
+
+node a (x:bool) returns (y: bool);
+let
+   y = x;
+tel
+
+contract topSpec(x: int) returns (y: bool);
+let
+   mode m1
+   (require a(y););
+
+   mode m2
+   (require ::m1;);
+tel
