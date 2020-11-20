@@ -70,7 +70,7 @@ type id_pos_map = (Lib.position list) IMap.t
 
 type node_summary = ((int list) IntMap.t) IMap.t
 (** The node summary contains the positions of the input streams 
-    of a node that are used in their current value. *)
+    of a node that are used in their current value for each output stream. *)
 
 let empty_node_summary: node_summary = IMap.empty
                        

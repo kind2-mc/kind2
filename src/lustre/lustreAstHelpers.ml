@@ -974,22 +974,6 @@ let move_node_to_last: ident -> declaration list -> declaration list =
   | None -> failwith ("Could not find main node " ^ n)
 
 
-let group_contract_eqns: contract -> (contract * contract * contract * contract)
-  = let rec group_contract_eqns_aux: (contract * contract * contract * contract)
-                                 -> contract
-                                 -> (contract * contract * contract * contract)
-      = fun ((ccalls, ghosts_vars_constants, ms, a_and_gs) as acc) -> 
-      function
-      | [] -> acc
-      | ContractCall _ as c :: eqns -> group_contract_eqns_aux (ccalls @ [c], ghosts_vars_constants, ms, a_and_gs) eqns 
-      | GhostConst _ as g :: eqns  -> group_contract_eqns_aux (ccalls, ghosts_vars_constants @ [g], ms, a_and_gs) eqns 
-      | GhostVar _ as g :: eqns -> group_contract_eqns_aux (ccalls, ghosts_vars_constants @ [g], ms, a_and_gs) eqns 
-      | Assume _ as g  :: eqns  -> group_contract_eqns_aux (ccalls, ghosts_vars_constants, ms, a_and_gs @ [g])eqns 
-      | Guarantee _ as g :: eqns -> group_contract_eqns_aux (ccalls, ghosts_vars_constants, ms, a_and_gs @ [g]) eqns 
-      | Mode _ as m :: eqns ->  group_contract_eqns_aux (ccalls, ghosts_vars_constants, ms @ [m], a_and_gs) eqns in 
-    group_contract_eqns_aux ([], [], [], [])  
-
-
 let sort_typed_ident: typed_ident list -> typed_ident list = fun ty_idents ->
   List.sort (fun (_,i1,_) (_,i2,_) -> Stdlib.compare i1 i2) ty_idents
 (** Sort identifiers  *)
