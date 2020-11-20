@@ -618,40 +618,41 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (G.t * id_pos_map) list = fun
 
 let mk_graph_const_decl2: node_summary -> LA.const_decl -> (G.t * id_pos_map)
   = fun m -> function
-  | LA.FreeConst (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (const_suffix ^ i) pos
-  | LA.UntypedConst (pos, i, e) -> connect_g_pos
-                                     (List.fold_left union_g_pos empty_g_pos (mk_graph_expr2 m e))
-                                     (const_suffix ^ i) pos 
-  | LA.TypedConst (pos, i, e, ty) -> connect_g_pos
-                                       (union_g_pos (List.fold_left union_g_pos empty_g_pos (mk_graph_expr2 m e))
-                                          (mk_graph_type ty)) (const_suffix ^ i) pos
+          | LA.FreeConst (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (const_suffix ^ i) pos
+          | LA.UntypedConst (pos, i, e) -> connect_g_pos
+                                             (List.fold_left union_g_pos empty_g_pos (mk_graph_expr2 m e))
+                                             (const_suffix ^ i) pos 
+          | LA.TypedConst (pos, i, e, ty) -> connect_g_pos
+                                               (union_g_pos (List.fold_left union_g_pos empty_g_pos (mk_graph_expr2 m e))
+                                                  (mk_graph_type ty)) (const_suffix ^ i) pos
 
-       
-let mk_graph_contract_eqns: ?contract_arguments:LA.ident list -> node_summary -> LA.contract -> (G.t * id_pos_map)
-  = fun ?contract_arguments:(contract_arguments=[]) m ->
+                                           
+let mk_graph_contract_eqns: node_summary -> LA.contract -> (G.t * id_pos_map)
+  = fun  m ->
   let mk_graph: LA.contract_node_equation -> (G.t * id_pos_map)
-      = function
-      | LA.GhostConst c -> mk_graph_const_decl2 m c
-      | LA.GhostVar c -> mk_graph_const_decl2 m c
-      | LA.Mode (pos, i, reqs, ens) ->
-         let g = List.fold_left (fun g e -> List.fold_left union_g_pos g (mk_graph_expr2 m e))
-                   empty_g_pos (List.map (fun (_, _,  e) -> e) (reqs @ ens)) in
-         connect_g_pos g (mode_suffix ^ i) pos 
-      | LA.Assume _ 
-        | LA.Guarantee _ -> empty_g_pos 
-      | LA.ContractCall (_, i, ip_exps, ops) -> empty_g_pos 
+    = function
+    | LA.GhostConst c -> mk_graph_const_decl2 m c
+    | LA.GhostVar c -> mk_graph_const_decl2 m c
+    | LA.Mode (pos, i, reqs, ens) ->
+       let g = List.fold_left (fun g e -> List.fold_left union_g_pos g (mk_graph_expr2 m e))
+                 empty_g_pos (List.map (fun (_, _,  e) -> e) (reqs @ ens)) in
+       connect_g_pos g (mode_suffix ^ i) pos 
+    | LA.Assume _ 
+      | LA.Guarantee _ -> empty_g_pos 
+    | LA.ContractCall (_, i, ip_exps, ops) -> empty_g_pos 
   in
-    fun eqns ->
-    List.fold_left union_g_pos empty_g_pos (List.map mk_graph eqns)
+  fun eqns ->
+  List.fold_left union_g_pos empty_g_pos (List.map mk_graph eqns)
 
 let expression_current_streams: node_summary -> LA.expr -> LA.ident list = 
   fun ns e ->
   let g = mk_graph_expr2 ns (LH.abstract_pre_subexpressions e) in
   G.to_vertex_list (G.get_vertices (fst (List.fold_left union_g_pos empty_g_pos g)))
 (** all the variables who's current value is used in the expression *)
-    
-    
-let analyze_circ_contract_equations: (* ?contract_arguments:LA.ident list ->  *)node_summary -> LA.contract -> unit graph_result  = fun (* ?contract_arguments:(contract_arguments = []) *) m c ->
+  
+  
+let analyze_circ_contract_equations: node_summary -> LA.contract -> unit graph_result
+  = fun m c ->
   let dg, pos_info = mk_graph_contract_eqns m c in
   (try (R.ok (G.topological_sort dg)) with
    | Graph.CyclicGraphException ids ->
