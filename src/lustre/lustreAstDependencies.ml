@@ -170,7 +170,8 @@ and mk_graph_expr: LA.expr -> (G.t * id_pos_map)
   | LA.Last (pos, i) -> singleton_g_pos "" i pos
   | LA.Fby (_, e1, _, e2) ->  union_g_pos (mk_graph_expr e1) (mk_graph_expr e2) 
   | LA.Arrow (_, e1, e2) ->  union_g_pos (mk_graph_expr e1) (mk_graph_expr e2)
-  | LA.ModeRef (pos, ids) -> singleton_g_pos mode_suffix (List.nth ids (List.length ids - 1) ) pos 
+  | LA.ModeRef (pos, ids) -> singleton_g_pos mode_suffix (List.nth ids (List.length ids - 1) ) pos
+  | LA.Call (_, _, es) -> List.fold_left union_g_pos empty_g_pos (List.map mk_graph_expr es)
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))  
 (** This graph is useful for analyzing top level constant and type declarations *)
        
@@ -372,6 +373,106 @@ let rec extract_decls: ('a IMap.t * id_pos_map) -> LA.ident list -> ('a list) gr
                >>= (fun d -> (extract_decls (decl_map, i_pos_map) is)
                              >>= (fun ds -> R.ok (d :: ds)))
 (** Given a list of ids, finds the associated payload from the playload map *)
+
+let split_contract_eqations: LA.contract -> (LA.contract * LA.contract)
+  = let split_eqns: (LA.contract * LA.contract) -> LA.contract_node_equation -> (LA.contract * LA.contract)
+      = fun (ps, qs) ->
+      function
+      | (LA.Assume _ as e)
+        | (LA.Guarantee _ as e) -> (ps, e::qs)
+      | e -> e::ps, qs in
+    List.fold_left (split_eqns) ([],[])
+  
+             
+let rec mk_contract_eqn_map: LA.contract_node_equation IMap.t -> LA.contract -> (LA.contract_node_equation IMap.t) graph_result
+  = fun m ->
+  function
+  | [] -> R.ok m
+  | (LA.GhostConst (FreeConst (pos, i, _)) as gc) :: eqns
+    | (LA.GhostConst (UntypedConst (pos, i, _)) as gc) :: eqns
+    | (LA.GhostConst (TypedConst (pos, i, _, _)) as gc) :: eqns -> 
+     check_and_add m pos "" i gc >>= fun m' -> mk_contract_eqn_map m' eqns  
+  | (LA.GhostVar (FreeConst (pos, i, _)) as gc) :: eqns
+    | (LA.GhostVar (UntypedConst (pos, i, _)) as gc) :: eqns
+    | (LA.GhostVar (TypedConst (pos, i, _, _)) as gc) :: eqns -> 
+     check_and_add m pos "" i gc >>= fun m' -> mk_contract_eqn_map m' eqns  
+  | (LA.ContractCall (pos, i, _, _ ) as cc ) :: eqns -> 
+     check_and_add m pos contract_suffix i cc >>= fun m' -> mk_contract_eqn_map m' eqns  
+  | (LA.Mode (pos, i, _, _) as mode) :: eqns ->
+     check_and_add m pos mode_suffix i mode >>= fun m' -> mk_contract_eqn_map m' eqns  
+  | _ :: eqns -> mk_contract_eqn_map m eqns
+  (* | Assume of contract_assume
+   * | Guarantee of contract_guarantee*)
+
+
+let mk_graph_contract_node_eqn2: LA.contract_node_equation -> (G.t * id_pos_map)
+  = function
+  | LA.ContractCall (pos, i, es, _) ->
+     (* union_g_pos
+      *   (singleton_g_pos contract_suffix i pos) *)
+     connect_g_pos 
+       (List.fold_left union_g_pos empty_g_pos (List.map mk_graph_expr es))
+       (contract_suffix ^ i) pos
+    
+  | LA.Assume (_, _, _, e)
+  | LA.Guarantee (_, _, _, e) -> (mk_graph_expr e)
+  | LA.Mode (pos, i, reqs, ensures) ->
+     connect_g_pos
+       (List.fold_left union_g_pos empty_g_pos (List.map (fun (_,_, e) -> mk_graph_expr e) (reqs @ ensures)))
+       (mode_suffix ^ i) pos
+  | LA.GhostConst c 
+    | LA.GhostVar c ->
+     match c with
+     | FreeConst _ -> empty_g_pos
+     | UntypedConst (pos, i, e)
+     | TypedConst (pos, i, e, _) ->
+        connect_g_pos (mk_graph_expr e) i pos
+               
+let mk_graph_contract_decl2 
+  = fun pos (i , _, _, _, c) ->
+  List.fold_left union_g_pos empty_g_pos (List.map mk_graph_contract_node_eqn2 c)
+
+               
+let sort_contract_eqns: Lib.position -> LA.contract_node_decl -> LA.contract_node_decl graph_result
+  = fun pos ((i, params , ips, ops, contract) as decl)->
+  Log.log L_trace "Sorting contract equations for %a" LA.pp_print_ident i
+  ; let ip_ids = List.map (fun ip -> LH.extract_ip_ty ip |> fst) ips in
+    let op_ids = List.map (fun ip -> LH.extract_op_ty ip |> fst) ops in
+    let ids_to_skip = SI.of_list (ip_ids @ op_ids) in 
+    let (dg, pos_info) = mk_graph_contract_decl2 pos decl in
+    (try (R.ok (G.topological_sort dg)) with
+     | Graph.CyclicGraphException ids ->
+        if List.length ids > 1
+        then (match (find_id_pos pos_info (List.hd ids)) with
+              | None -> failwith ("Cyclic dependency found but Cannot find position for identifier "
+                                  ^ (List.hd ids) ^ " This should not happen!") 
+              | Some p -> graph_error p
+                            ("Cyclic dependency detected in definition of identifiers: "
+                             ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
+        else failwith "Cyclic dependency with no ids detected. This should not happen!")
+    >>= fun sorted_ids ->
+    let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) sorted_ids in
+    let (to_sort_eqns, assums_grantees) = split_contract_eqations contract in
+    mk_contract_eqn_map IMap.empty to_sort_eqns >>= fun eqn_map ->
+    Log.log L_trace "contract equation map %a"
+      (Lib.pp_print_list (Lib.pp_print_pair LA.pp_print_ident LA.pp_print_contract_item ":->") "\n") (IMap.bindings eqn_map)
+    ; extract_decls (eqn_map, pos_info) equational_vars >>= fun contract' ->
+      Log.log L_trace "equational vars: %a"
+        (Lib.pp_print_list LA.pp_print_ident ", ") equational_vars
+      ; R.ok(i, params , ips, ops, (List.rev contract') @ assums_grantees)
+      
+            
+let rec sort_equations: LA.t -> LA.t graph_result
+  = function
+  | (LA.TypeDecl _ as d) :: ds
+    | (LA.ConstDecl _ as d):: ds
+    | (LA.FuncDecl _ as d) :: ds
+    | (LA.NodeParamInst _ as d) :: ds -> sort_equations ds >>= fun ds' -> R.ok (d :: ds')
+  | (LA.NodeDecl _ as d) :: ds -> sort_equations ds >>= fun ds' -> R.ok (d :: ds')
+  | LA.ContractNodeDecl (pos, decl) :: ds ->
+     sort_contract_eqns pos decl >>= fun decl' ->
+     sort_equations ds >>= fun decls' -> R.ok (LA.ContractNodeDecl (pos, decl') :: decls' )  
+  | [] -> R.ok ([])
              
 let sort_decls: ('a IMap.t -> 'a list -> 'a IMap.t graph_result)
                 -> ('a list -> (G.t * id_pos_map))
@@ -401,7 +502,11 @@ let sort_decls: ('a IMap.t -> 'a list -> 'a IMap.t graph_result)
     returns the sorted declarations (or an error if circular dependency is detected)  *)
                         
 let sort_declarations decls =
-  sort_decls mk_decl_map mk_graph_decls decls
+  sort_decls mk_decl_map mk_graph_decls decls >>= fun sorted_decls ->
+
+  Log.log L_trace "sorting declarations done. Now sorting contract equations."
+  
+  ; sort_equations sorted_decls
 (** Returns a topological order of declarations *)  
 
 
@@ -617,14 +722,18 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (G.t * id_pos_map) list = fun
     function using [LH.abstract_pre_subexpressions] *)
 
 let mk_graph_const_decl2: node_summary -> LA.const_decl -> (G.t * id_pos_map)
-  = fun m -> function
-          | LA.FreeConst (pos, i, ty) -> connect_g_pos (mk_graph_type ty) (const_suffix ^ i) pos
-          | LA.UntypedConst (pos, i, e) -> connect_g_pos
-                                             (List.fold_left union_g_pos empty_g_pos (mk_graph_expr2 m e))
-                                             (const_suffix ^ i) pos 
-          | LA.TypedConst (pos, i, e, ty) -> connect_g_pos
-                                               (union_g_pos (List.fold_left union_g_pos empty_g_pos (mk_graph_expr2 m e))
-                                                  (mk_graph_type ty)) (const_suffix ^ i) pos
+  = fun m ->
+  function
+  | LA.FreeConst (pos, i, ty) ->
+     connect_g_pos (mk_graph_type ty) (const_suffix ^ i) pos
+  | LA.UntypedConst (pos, i, e) ->
+     connect_g_pos
+       (List.fold_left union_g_pos empty_g_pos (mk_graph_expr2 m e))
+       (const_suffix ^ i) pos 
+  | LA.TypedConst (pos, i, e, ty) ->
+     connect_g_pos
+       (union_g_pos (List.fold_left union_g_pos empty_g_pos (mk_graph_expr2 m e))
+          (mk_graph_type ty)) (const_suffix ^ i) pos
 
                                            
 let mk_graph_contract_eqns: node_summary -> LA.contract -> (G.t * id_pos_map)
