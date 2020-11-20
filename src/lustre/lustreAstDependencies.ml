@@ -672,8 +672,7 @@ let mk_graph_eqn: node_summary -> LA.node_equation -> (G.t * id_pos_map) =
     | LA.SingleIdent (p, i) -> connect_g_pos rhs_g i p 
     | LA.ArrayDef (p, arr, is) ->
        let arr' = arr ^ "$" ^ (List.fold_left (fun acc i -> acc ^ "$" ^ i) "" is) in 
-    connect_g_pos (List.fold_left (fun g i -> remove g i) rhs_g is)  arr' p
-
+       connect_g_pos (List.fold_left (fun g i -> remove g i) rhs_g is)  arr' p
     (* None of these items below are supported at parsing yet. *)
     | LA.TupleStructItem (p, _)
       | LA.TupleSelection (p, _, _)
@@ -681,57 +680,31 @@ let mk_graph_eqn: node_summary -> LA.node_equation -> (G.t * id_pos_map) =
       | LA.ArraySliceStructItem (p, _, _)
       ->  Lib.todo ("Parsing not supported" ^ __LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position p) in
   fun m -> function
-  | Equation (pos, (LA.StructDef (p, lhss)), e) ->
-     (* We need to find the mapping of graphs from the lhs of the equation to the rhs of the equations 
-        This is a non trivial task as we do not have the necessary information
-        of the width of each of the lhs and rhs especially if it is just an identifier.
-
-        We will just repeat a trivial graph to fill up the mapping. 
-        This needs to have a smarter heuristic but I am not sure how to do it.
-       *)
-     let rhs_g = mk_graph_expr2 m (LH.abstract_pre_subexpressions e) in
-
-     if (List.length lhss > List.length rhs_g)
-     then
-       (
-         Log.log L_trace ("LHS: %a has size %i\n"
-                          ^^ " RHS: %a has size %i\n"
-                          ^^ " RHS abstracted: %a\n"
-                          ^^ " RHS: graphs %a\n") 
-           (Lib.pp_print_list LA.pp_print_struct_item ",") lhss
-           (List.length lhss)
-           (* (Lib.pp_print_list G.pp_print_graph ",") (List.map fst e1_g) *)
-           LA.pp_print_expr e
-           (List.length rhs_g)
-           LA.pp_print_expr (LH.abstract_pre_subexpressions e)
-           (Lib.pp_print_list G.pp_print_graph "||") (List.map fst rhs_g)
-       ; Lib.todo ( __LOC__
-                    ^ " LHS: " ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss) 
-                    ^ " RHS: " ^ (Lib.string_of_t LA.pp_print_expr e) 
-                    ^ Lib.string_of_t Lib.pp_print_pos p)
-       )
-     else if (List.length lhss < List.length rhs_g)
-     then
-       (
-         Log.log L_trace ("LHS: %a has size %i\n"
-                          ^^ " RHS: %a has size %i\n"
-                          ^^ " RHS abstracted: %a\n"
-                          ^^ " RHS: graphs %a\n") 
-           (Lib.pp_print_list LA.pp_print_struct_item ",") lhss
-           (List.length lhss)
-           (* (Lib.pp_print_list G.pp_print_graph ",") (List.map fst e1_g) *)
-           LA.pp_print_expr e
-           (List.length rhs_g)
-           LA.pp_print_expr (LH.abstract_pre_subexpressions e)
-           (Lib.pp_print_list G.pp_print_graph "||") (List.map fst rhs_g)
-       ; Lib.todo ( __LOC__
-                    ^ " LHS: " ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss) 
-                    ^ " RHS: " ^ (Lib.string_of_t LA.pp_print_expr e) 
-                    ^ Lib.string_of_t Lib.pp_print_pos p)
-       )
-     (* RHS and LHS should have same number of items and we can do a one to one mapping*)
-     else List.fold_left union_g_pos empty_g_pos (List.map2 (handle_one_lhs) rhs_g lhss)
-  | _ -> empty_g_pos
+        | Equation (pos, (LA.StructDef (p, lhss)), e) ->
+           (* We need to find the mapping of graphs from the 
+              lhs of the equation to the rhs of the equations 
+              such that the width of each of the lhs and rhs 
+              especially if it is just an identifier.
+            *)
+           let rhs_g = mk_graph_expr2 m (LH.abstract_pre_subexpressions e) in
+           (* There are only three possible cases due to the 
+              way we have structures *)
+           (* Case 1: There is only 1 lhss and hence all 
+              elements in rhs depend on that single LHS *)
+           if (List.length lhss = 1)
+           then handle_one_lhs (List.fold_left union_g_pos empty_g_pos rhs_g) (List.hd lhss)
+           (* Case 1: There is only 1 rhs and hence all elements 
+              in lhs depend on that single RHS 
+              I am skeptical about this method, 
+              but we cannot do better unless we do some
+              assignment unfolding, that we cannot at this point. *)
+           else if (List.length rhs_g = 1)
+           then List.fold_left union_g_pos empty_g_pos
+                  (List.map (handle_one_lhs (List.hd rhs_g)) lhss)
+           (* Case 3: The happy case RHS and LHS should have same number 
+              of items and we can do a one to one mapping*)
+           else List.fold_left union_g_pos empty_g_pos (List.map2 (handle_one_lhs) rhs_g lhss)
+        | _ -> empty_g_pos
   
 let rec mk_graph_node_items: node_summary -> LA.node_item list -> (G.t * id_pos_map) =
   fun m -> function

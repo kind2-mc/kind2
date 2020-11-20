@@ -31,3 +31,21 @@ let
 y = pre x;
 tel
 
+node a1 (x1: int; x2: int) returns (y1: int; y2: int);
+var z:int;
+var z2:int;
+let
+   z = x1;
+   z2 = 3;
+   y1 = z + x1 + z2;
+   y2 = z2;
+tel
+
+node b1(x1:int; x2:int) returns (y: int);
+var z1:int;
+var z2:int;
+let
+  (z1, z2) = a1(y, x2);
+  y = z2; -- should not fail
+  -- y = z1; -- should fail
+tel
