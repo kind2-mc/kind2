@@ -243,7 +243,7 @@ let pp_print_contract_exports: Format.formatter -> contract_exports -> unit
       Format.fprintf ppf "(contract %a -> [%a])"
         LA.pp_print_ident i
         pp_print_tymap exm) ", " ppf (IMap.bindings m)
-               
+(** Pretty pring contract exports  *)
 
 let pp_print_tc_context ppf ctx
   = Format.fprintf ppf

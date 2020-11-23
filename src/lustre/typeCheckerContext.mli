@@ -15,21 +15,22 @@
    permissions and limitations under the License. 
 
  *)
-(** The type checker context use for typechecking the surface level language
+(** The type checker context used for typechecking the surface level language
   
      @author Apoorv Ingle *)
+
 module LA = LustreAst
 module SI = LA.SI
           
-(** Type alias for lustre type from LustreAst  *)
 type tc_type  = LA.lustre_type
+(** Type alias for lustre type from LustreAst  *)
 
-(** Map for types with identifiers as keys *)
 module IMap : sig
-  (** everything that [Stdlib.Map] gives us  *)
+  (* everything that [Stdlib.Map] gives us  *)
   include (Map.S with type key = LA.ident)
   val keys: 'a t -> key list
 end
+(** Map for types with identifiers as keys *)
 
 
 type ty_alias_store = tc_type IMap.t
@@ -83,7 +84,7 @@ val member_val: tc_context -> LA.ident -> bool
 (** Checks if the identifier is a constant  *)
 
 val lookup_ty_syn: tc_context -> LA.ident -> tc_type option 
-(** picks out the type synonym from the context
+(** Picks out the type synonym from the context
     If it is user type then chases it (recursively looks up) 
     the actual type. This chasing is necessary to check type equality 
     between user defined types. *)
@@ -98,13 +99,13 @@ val lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type) option
 (** Lookup a constant identifier *)
 
 val add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
-(** add a type synonym in the typing context *)
+(** Add a type synonym in the typing context *)
 
 val add_ty: tc_context -> LA.ident -> tc_type -> tc_context
 (** Add type binding into the typing context *)
 
 val add_ty_contract: tc_context -> LA.ident -> tc_type -> tc_context
-(**  Add the type of the contract *)
+(** Add the type of the contract *)
                   
 val add_ty_decl: tc_context -> LA.ident -> tc_context
 (** Add a user declared type in the typing context *)
@@ -136,7 +137,31 @@ val extract_consts: LA.const_clocked_typed_decl -> tc_context
 val get_constant_ids: tc_context -> LA.ident list
 (** Returns the constants declared in the typing context  *)
   
-(** {1 Pretty printers} *)
+(** {1 Pretty Printers} *)
 
+val pp_print_type_syn: Format.formatter -> (LA.ident * tc_type) -> unit
+(** Pretty print type synonyms*)
+                     
+val pp_print_type_binding: Format.formatter -> (LA.ident * tc_type) -> unit
+(** Pretty print type bindings*)  
+
+val pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type)) -> unit
+(** Pretty print value bindings (used for constants)*)
+
+val pp_print_ty_syns: Format.formatter -> ty_alias_store -> unit
+(** Pretty print type synonym context *)
+
+val pp_print_tymap: Format.formatter -> ty_store -> unit
+(** Pretty print type binding context *)
+               
+val pp_print_vstore: Format.formatter -> const_store -> unit
+(** Pretty print value store *)
+
+val pp_print_u_types: Format.formatter -> SI.t -> unit
+(** Pretty print declared user types *)
+
+val pp_print_contract_exports: Format.formatter -> contract_exports -> unit
+(** Pretty pring contract exports  *)
+  
 val pp_print_tc_context: Format.formatter -> tc_context -> unit
-(** Pretty print the typing context  *)
+(** Pretty print the complete type checker context*)
