@@ -253,7 +253,7 @@ and mk_graph_expr: LA.expr -> dependency_analysis_data
      if List.length ids > 1 then
        singleton_dependency_analysis_data "" (List.fold_left (^) contract_suffix (drop_last ids)) pos
      else
-       empty_dependency_analysis_data
+       singleton_dependency_analysis_data mode_suffix (List.hd ids) pos 
   | LA.Call (_, _, es) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map mk_graph_expr es)
