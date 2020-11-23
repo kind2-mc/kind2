@@ -196,6 +196,12 @@ let mode_suffix = "mode "
 (*****************************************************************************
  * Type 1: Dependency Analysis for top level type and constant declarations  *
  *****************************************************************************)
+
+let rec drop_last: 'a list -> 'a list
+  = function
+  | [] -> failwith "drop_last"
+  | [e] -> []
+  | e :: r -> e :: drop_last r
                 
 let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | TVar (pos, i) -> singleton_dependency_analysis_data ty_suffix i pos
@@ -244,7 +250,10 @@ and mk_graph_expr: LA.expr -> dependency_analysis_data
   | LA.Fby (_, e1, _, e2) ->  union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2) 
   | LA.Arrow (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2)
   | LA.ModeRef (pos, ids) ->
-     singleton_dependency_analysis_data mode_suffix (List.nth ids (List.length ids - 1) ) pos
+     if List.length ids > 1 then
+       singleton_dependency_analysis_data "" (List.fold_left (^) contract_suffix (drop_last ids)) pos
+     else
+       empty_dependency_analysis_data
   | LA.Call (_, _, es) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map mk_graph_expr es)

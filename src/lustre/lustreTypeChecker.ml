@@ -98,16 +98,15 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
      (match (lookup_ty ctx i) with
      | None -> type_error pos ("Unbound identifier: " ^ i) 
      | Some ty -> R.ok ty) 
-  | LA.ModeRef (pos, is) ->      
-     let lookup_mode_ty ctx i =
-       match (lookup_ty ctx i) with
-       | None -> type_error pos ("Unbound identifier: " ^ i)
-       | Some ty -> R.ok ty in
-     (R.seq (List.map (lookup_mode_ty ctx) is))
-     >>= (fun tys ->
-         if List.length tys = 1
-         then R.ok (List.hd tys)
-         else R.ok (LA.TupleType (pos, tys)))
+  | LA.ModeRef (pos, ids) ->      
+     let lookup_mode_ty ctx ids =
+       match ids with
+       | [] -> failwith ("empty mode name")
+       | h::r -> let i =  List.fold_left (fun acc i -> acc ^ "::" ^ i) h r in 
+                 match (lookup_ty ctx i) with
+                 | None -> type_error pos ("Unbound identifier: " ^ i)
+                 | Some ty -> R.ok ty in
+     lookup_mode_ty ctx ids
   | LA.RecordProject (pos, e, fld) ->
      (infer_type_expr ctx e)
      >>= (fun rec_ty ->
@@ -351,7 +350,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                         ^ " with infered type "
                         ^ string_of_tc_type ty))
   (* We do not support mode ref paths yet *)
-  | ModeRef (pos, ids) -> check_type_expr ctx (LA.Ident (pos, List.nth ids (List.length ids - 1) )) exp_ty
+  | ModeRef (pos, ids) -> check_type_expr ctx (LA.Ident (pos, List.fold_left (fun acc i -> acc ^ "::" ^ i) "" ids)) exp_ty
   | RecordProject (pos, expr, fld) -> check_type_record_proj pos ctx expr fld exp_ty
   | TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
 
@@ -855,7 +854,9 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
          | None -> R.ok ()
          | Some c ->
             tc_ctx_of_contract ctx_plus_ops_and_ips c >>= fun con_ctx ->
-            check_type_contract ret_ids con_ctx c) >>
+            Log.log L_trace "Checking node contract with context %a"
+              pp_print_tc_context con_ctx
+            ; check_type_contract ret_ids con_ctx c) >>
           (* if the node is extern, we will not have any body to typecheck *)
           if is_extern
           then R.ok ( Log.log L_trace "External Node, no body to type check."
@@ -997,12 +998,14 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
   | Assume _ -> R.ok ctx
   | Guarantee _ -> R.ok ctx
   | Mode (pos, name, _, _) -> R.ok (add_ty ctx name (Bool pos)) 
-  | ContractCall _ -> R.ok ctx 
+  | ContractCall (_, i, _, _) -> match (IMap.find_opt i ctx.contract_export_ctx) with
+                                 | None -> failwith ("Cannot find exports for contract "^ i)
+                                 | Some m -> R.ok (List.fold_left (fun c (i, ty) -> add_ty c i ty) ctx (IMap.bindings m)) 
 
 and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_result
   = fun ctx (cname, params, args, rets, contract) ->
   let node_out_params = LA.SI.of_list (List.map (fun ret -> LH.extract_op_ty ret |> fst) rets) in
-  Log.log L_trace "TC Contract decl: %a {" LA.pp_print_ident cname 
+  Log.log L_trace "TC Contract Decl: %a {" LA.pp_print_ident cname 
   (* build the appropriate local context *)
   ; let arg_ctx = List.fold_left union ctx (List.map extract_arg_ctx args) in
     let ret_ctx = List.fold_left union arg_ctx (List.map extract_ret_ctx rets) in
@@ -1145,9 +1148,6 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_contex
     then type_error pos ("Node " ^ nname ^ " is already declared.")
     else build_node_fun_ty pos ctx ip op >>= fun fun_ty ->
          R.ok (add_ty ctx nname fun_ty)
-         (* let ctx' = add_ty ctx nname fun_ty in
-          * let ns = AD.mk_node_summary (get_node_summary ctx') n in 
-          * R.ok (add_node_summary ctx' ns) *)
 (** computes the type signature of node or a function and its node summary*)
 
 and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_context tc_result
@@ -1158,12 +1158,50 @@ and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_cont
   | LA.Mode (pos, mname, _, _) ->
      if (member_ty ctx mname)
      then type_error pos ("Mode " ^ mname ^ " is already declared")
-     else R.ok (add_ty ctx mname (Bool pos)) 
+     else R.ok (add_ty ctx mname (Bool pos))
+  | LA.ContractCall (p, cc, _, _) ->
+     (match (IMap.find_opt cc ctx.contract_export_ctx) with
+      | None -> type_error p ("Cannot find contract " ^ cc)
+      | Some m -> R.ok (List.fold_left (fun c (i, ty) -> add_ty c (cc ^ "::" ^ i) ty) ctx (IMap.bindings m))) 
   | _ -> R.ok ctx
                          
 and tc_ctx_of_contract: tc_context -> LA.contract -> tc_context tc_result
   = fun ctx con -> R.seq_chain (tc_ctx_contract_node_eqn) ctx con
-                         
+
+and extract_exports: LA.ident -> tc_context -> LA.contract -> tc_context tc_result
+  = let exports_from_eqn: tc_context -> LA.contract_node_equation -> (LA.ident * tc_type) list tc_result
+      = fun ctx -> 
+      function
+      | LA.GhostConst (FreeConst (_, i, ty)) -> R.ok [(i, ty)]
+      | LA.GhostConst (UntypedConst (_, i, e)) ->
+         infer_type_expr ctx e >>= fun ty -> 
+         R.ok [(i, ty)]
+      | LA.GhostConst (TypedConst (_, i, _, ty)) ->
+         R.ok [(i, ty)]
+      | LA.GhostVar (FreeConst (_, i, ty)) -> R.ok [(i, ty)]
+      | LA.GhostVar (UntypedConst (_, i, e)) ->
+         infer_type_expr ctx e >>= fun ty -> R.ok [(i, ty)]
+      | LA.GhostVar (TypedConst (_, i, _, ty)) ->
+         R.ok [(i, ty)]
+      | LA.Mode (pos, mname, _, _) ->
+         if (member_ty ctx mname)
+         then type_error pos ("Mode " ^ mname ^ " is already declared")
+         else R.ok [(mname, (LA.Bool pos))] 
+      | LA.ContractCall (p, cc, _, _) ->
+         (match (IMap.find_opt cc ctx.contract_export_ctx) with
+         | None -> type_error p ("Cannot find contract " ^ cc)
+         | Some m -> R.ok (List.map (fun (k, v) -> (cc ^ "::" ^ k, v)) (IMap.bindings m)))
+      | _ -> R.ok [] in
+    fun cname ctx contract ->
+    (R.seq_chain
+       (fun (exp_acc, lctx) e ->
+         exports_from_eqn lctx e >>= fun id_tys ->
+         R.ok (List.fold_left
+           (fun (a, c) (i, ty) -> (IMap.add i ty a, add_ty c i ty))
+           (exp_acc, lctx) id_tys))
+       (IMap.empty, ctx) contract) >>=
+      fun (exports, _) -> R.ok {ctx with contract_export_ctx = IMap.add cname exports ctx.contract_export_ctx} 
+                 
 and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
                                   -> LA.contract_node_decl
                                   -> tc_context tc_result
@@ -1173,8 +1211,9 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
     LA.pp_print_ident cname
   ; if (member_contract ctx cname)
     then type_error pos ("Contract " ^ cname ^ " is already declared.")
-    else build_node_fun_ty pos ctx inputs outputs
-         >>= fun fun_ty -> R.ok (add_ty_contract ctx cname fun_ty)
+    else build_node_fun_ty pos ctx inputs outputs >>= fun fun_ty ->
+         extract_exports cname ctx contract >>= fun export_ctx  ->  
+         R.ok (add_ty_contract (union ctx export_ctx) cname fun_ty)
 
 and tc_ctx_of_declaration: tc_context -> LA.declaration -> tc_context tc_result
     = fun ctx' ->

@@ -50,15 +50,19 @@ type const_store = (LA.expr * tc_type) IMap.t
 type ty_set = SI.t
 (** set of valid user type identifiers *)
 
+type contract_exports = (ty_store) IMap.t
+(** Mapping for all the exports of the contract, modes and contract ghost const and vars *)
 
 type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
-                  ; ty_ctx: ty_store        (* store of the types of identifiers and nodes*)
-                  ; contract_ctx: ty_store  (* store of the types of contracts*)
-                  ; vl_ctx: const_store     (* store of typed constants to its value*)
+                  ; ty_ctx: ty_store        (* store of the types of identifiers and nodes *)
+                  ; contract_ctx: ty_store  (* store of the types of contracts *)
+                  ; vl_ctx: const_store     (* store of typed constants to its value *)
                   ; u_types: ty_set         (* store of all declared user types,
                                                this is poor mans kind (type of type) context *)
+                  ; contract_export_ctx:    (* stores all the export variables  of the contract *)
+                      contract_exports 
                   }
-(** The type Checker context *)
+(** The type checker global context *)
 
 let empty_tc_context: tc_context =
   { ty_syns = IMap.empty
@@ -66,6 +70,7 @@ let empty_tc_context: tc_context =
   ; contract_ctx = IMap.empty
   ; vl_ctx = IMap.empty
   ; u_types = SI.empty
+  ; contract_export_ctx = IMap.empty
   }
 (** The empty context with no information *)
 
@@ -164,6 +169,9 @@ let union: tc_context -> tc_context -> tc_context
                                    (ctx1.vl_ctx)
                                    (ctx2.vl_ctx))
                      ; u_types = SI.union ctx1.u_types ctx2.u_types
+                     ; contract_export_ctx = (IMap.union (fun k v1 v2 -> Some v2)
+                                                (ctx1.contract_export_ctx)
+                                                (ctx2.contract_export_ctx))
                      }
 (** Unions the two typing contexts *)
 
@@ -208,7 +216,8 @@ let pp_print_type_binding: Format.formatter -> (LA.ident * tc_type) -> unit
 (** Pretty print type bindings*)  
 
 let pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type)) -> unit
-  = fun ppf (i, (v, ty)) -> Format.fprintf ppf "(%a:%a :-> %a)" LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v
+  = fun ppf (i, (v, ty)) ->
+  Format.fprintf ppf "(%a:%a :-> %a)" LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v
 (** Pretty print value bindings (used for constants)*)
 
 let pp_print_ty_syns: Format.formatter -> ty_alias_store -> unit
@@ -227,7 +236,14 @@ let pp_print_u_types: Format.formatter -> SI.t -> unit
   = fun ppf m -> Lib.pp_print_list LA.pp_print_ident ", " ppf (SI.elements m)
 (** Pretty print declared user types *)
 
-
+let pp_print_contract_exports: Format.formatter -> contract_exports -> unit
+  = fun ppf m ->
+  Lib.pp_print_list
+    (fun ppf (i, exm) ->
+      Format.fprintf ppf "(contract %a -> [%a])"
+        LA.pp_print_ident i
+        pp_print_tymap exm) ", " ppf (IMap.bindings m)
+               
 
 let pp_print_tc_context ppf ctx
   = Format.fprintf ppf
@@ -235,11 +251,13 @@ let pp_print_tc_context ppf ctx
        ^^ "Type Context={%a}\n"
        ^^ "Contract Context={%a}\n"
        ^^ "Const Store={%a}\n"
-       ^^ "Declared Types={%a}\n")
+       ^^ "Declared Types={%a}\n"
+       ^^ "Contract exports={%a}\n")
       pp_print_ty_syns (ctx.ty_syns)
       pp_print_tymap (ctx.ty_ctx)
       pp_print_tymap (ctx.contract_ctx)
       pp_print_vstore (ctx.vl_ctx)
       pp_print_u_types (ctx.u_types)
+      pp_print_contract_exports (ctx.contract_export_ctx)
 (** Pretty print the complete type checker context*)
                                     

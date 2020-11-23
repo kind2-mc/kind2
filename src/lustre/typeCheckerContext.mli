@@ -32,22 +32,33 @@ module IMap : sig
 end
 
 
-type ty_alias_store
+type ty_alias_store = tc_type IMap.t
 (** A store of type Aliases, i.e. for user defined types  *)
 
-type ty_store
+type ty_store = tc_type IMap.t
 (** A store of identifier and their types*)
 
-type const_store
+type const_store = (LA.expr * tc_type) IMap.t 
 (** A Store of constant identifier and their (const) values with types. 
  *  The values of the associated identifiers should be evaluated to a 
  *  Bool or an Int at constant propogation phase of type checking *)
 
-type ty_set
+type ty_set = SI.t
 (** set of valid user type identifiers *)
 
-type tc_context
-(** The type Checker context *)
+type contract_exports = (ty_store) IMap.t
+(** Mapping for all the exports of the contract, modes and contract ghost const and vars *)
+   
+type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
+                  ; ty_ctx: ty_store        (* store of the types of identifiers and nodes *)
+                  ; contract_ctx: ty_store  (* store of the types of contracts *)
+                  ; vl_ctx: const_store     (* store of typed constants to its value *)
+                  ; u_types: ty_set         (* store of all declared user types,
+                                               this is poor mans kind (type of type) context *)
+                  ; contract_export_ctx:    (* stores all the export variables  of the contract *)
+                      contract_exports 
+                  }
+(** The type checker global context *)
 
 val empty_tc_context: tc_context
 (** An empty typing context *)
