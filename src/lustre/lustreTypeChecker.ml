@@ -890,8 +890,6 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
                     (type_error pos ("Argument to nodes cannot be LHS of an equation but found "
                                      ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
                                          (LA.SI.elements overwite_node_args))))
-                 (* Do circularity check on node equations *)
-                 >> AD.analyze_circ_node_equations (get_node_summary ctx) (get_constant_ids ctx) items               
                  >> R.ok (Log.log L_trace "TC declaration node %a done }"
                             LA.pp_print_ident node_name)))
     else type_error pos ("Input and output parameters cannot have common identifers, 
@@ -1034,7 +1032,7 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
 and check_type_contract: LA.SI.t -> tc_context -> LA.contract -> unit tc_result
   = fun node_out_params ctx eqns ->
   R.seq_ (List.map (check_contract_node_eqn node_out_params ctx) eqns)
-    >> AD.analyze_circ_contract_equations (get_node_summary ctx) eqns
+    (* >> AD.analyze_circ_contract_equations (get_node_summary ctx) eqns *)
   
 and check_contract_node_eqn: LA.SI.t -> tc_context -> LA.contract_node_equation -> unit tc_result
   = fun node_out_params ctx eqn ->

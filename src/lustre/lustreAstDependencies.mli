@@ -20,9 +20,12 @@
     Builds a dependency graph of the lustre declarations,
     to detect circular dependencies and reject them and
     re-orders node and contract declarations to resolve
-    forward references   
+    forward references. 
 
-    @author: Apoorv Ingle *)
+   It also reorders contract equations and checks if
+   node equations do not have circular dependencies. 
+   
+   @author: Apoorv Ingle *)
 
 module LA = LustreAst
 
