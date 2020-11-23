@@ -84,7 +84,10 @@ module type S = sig
 
   val get_vertices: t -> vertices
   (** get all vertices in the graph *)
-    
+
+  val to_vertex_list: vertices -> vertex list
+  (** Returns a list of vertex  *)
+
   val add_edge: t ->  edge ->  t
   (** Add an [edge] to a graph  *)
 
@@ -114,26 +117,34 @@ module type S = sig
      Caution: The callee function (or the programmer) is supposed to make sure 
      it is not a surjective mapping to make sure that the graph structure is preserved. *)
 
+  (** {1 Graph Traversals}  *)
+    
   val topological_sort:  t ->  vertex list
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
-   *  Implimentation is of this function is based on Kahn's algorithm *)
-    
+   *  Implimentation is of this function is based on Kahn's algorithm *)    
 
   val reachable: t -> vertex -> vertices
-  val to_vertex_list: vertices -> vertex list
+  (** Finds all the [vertices] that are rechable from the given [vertex] in a graph *)
+
+
+  (** {1 Pretty Printers}  *)
     
   val pp_print_vertex: Format.formatter -> vertex -> unit
   (** Pretty print a vertex *)
 
   val pp_print_vertices: Format.formatter -> vertices -> unit
+  (** Pretty print all the vertices  *)
 
   val pp_print_edge: Format.formatter -> edge -> unit
-
-  val pp_print_edges: Format.formatter -> edges -> unit
-
-  val pp_print_graph: Format.formatter -> t -> unit
+  (** Pretty print one [edge]  *)
     
+  val pp_print_edges: Format.formatter -> edges -> unit
+  (** Pretty print all the [edges]  *)
+    
+  val pp_print_graph: Format.formatter -> t -> unit
+  (** Pretty print the graph i.e. its [vertices] and its [edges]. *)
+
 end
 (** The Graph methods that this module supports. *)
               

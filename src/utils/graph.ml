@@ -15,7 +15,7 @@
    permissions and limitations under the License. 
 
  *)
-(** A poor person's acyclic directed graph and graph traversal implementations
+(** A poor person's acyclic directed graph and some graph traversal implementations
    
    @author Apoorv Ingle *)
 
@@ -27,6 +27,7 @@ end
                         
 exception IllegalGraphOperation
 (** The exception raised when an illegal edge is added *)
+
 exception CyclicGraphException of string list
 (** The exception raised when topological sort is tried on cyclic graph  *)
 
@@ -35,7 +36,7 @@ module type S = sig
   
   type vertex
   (** The vertex type *)
-    
+     
   type edge
   (** The edge type to represent line between two vertices *)
 
@@ -53,7 +54,7 @@ module type S = sig
 
   val is_vertex_target: edge -> vertex -> bool
   (** Checks if the [vertex] is the target [vertex] *)
-    
+
   type vertices
   (** Set of vertices *)
 
@@ -63,10 +64,10 @@ module type S = sig
   type t
   (** The graph type  *)
 
-  val empty:  t
+  val empty: t
   (** The empty graph  *)
 
-  val is_empty:  t -> bool
+  val is_empty: t -> bool
   (** Check if the graph is empty *)
 
   val singleton: vertex -> t
@@ -75,7 +76,7 @@ module type S = sig
   val is_singleton: t -> bool
   (** returns true if the graph has only one vertex *)
     
-  val add_vertex:  t ->  vertex ->  t
+  val add_vertex: t ->  vertex ->  t
   (** Add a [vertex] to a graph  *)
 
   val mem_vertex: t -> vertex -> bool
@@ -83,8 +84,11 @@ module type S = sig
 
   val get_vertices: t -> vertices
   (** get all vertices in the graph *)
-    
-  val add_edge:  t ->  edge ->  t
+
+  val to_vertex_list: vertices -> vertex list
+  (** Returns a list of vertex  *)
+
+  val add_edge: t ->  edge ->  t
   (** Add an [edge] to a graph  *)
 
   val remove_vertex: t ->  vertex ->  t
@@ -93,7 +97,7 @@ module type S = sig
   val remove_vertices: t -> vertex list -> t
   (** Remove the [vertex list] and its associated [edges] from the graph *)
 
-  val remove_edge:  t ->  edge ->  t
+  val remove_edge: t ->  edge ->  t
   (** Remove an [edge] from a graph *)                             
 
   val connect: t -> vertex -> t
@@ -101,38 +105,45 @@ module type S = sig
 
   val is_point_graph: t -> bool
   (** Returns true if the graph has no edges *)
-
+    
   val union: t -> t -> t
   (** Unions two graphs *)
 
   val sub_graph: t -> vertices -> t    
-  (** Gets a subgraph along with appropriate [edges] of given graph from a given set of [vertices] *)
+  (** Gets a subgraph along with appropriate edges of given graph from a given set of vertices *)
 
   val map: (vertex -> vertex) -> t -> t
   (** Maps the [vertices] using the argument mapping, the structure should remain intact.
      Caution: The callee function (or the programmer) is supposed to make sure 
      it is not a surjective mapping to make sure that the graph structure is preserved. *)
+
+  (** {1 Graph Traversals}  *)
     
   val topological_sort:  t ->  vertex list
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
-   *  Implimentation is of this function is based on Kahn's algorithm *)
-
+   *  Implimentation is of this function is based on Kahn's algorithm *)    
 
   val reachable: t -> vertex -> vertices
+  (** Finds all the [vertices] that are rechable from the given [vertex] in a graph *)
 
-  val to_vertex_list: vertices -> vertex list
+
+  (** {1 Pretty Printers}  *)
     
   val pp_print_vertex: Format.formatter -> vertex -> unit
   (** Pretty print a vertex *)
 
   val pp_print_vertices: Format.formatter -> vertices -> unit
+  (** Pretty print all the vertices  *)
 
   val pp_print_edge: Format.formatter -> edge -> unit
-
+  (** Pretty print one [edge]  *)
+    
   val pp_print_edges: Format.formatter -> edges -> unit
-
+  (** Pretty print all the [edges]  *)
+    
   val pp_print_graph: Format.formatter -> t -> unit
+  (** Pretty print the graph i.e. its [vertices] and its [edges]. *)
 
 end
 
