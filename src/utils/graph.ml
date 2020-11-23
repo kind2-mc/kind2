@@ -15,7 +15,7 @@
    permissions and limitations under the License. 
 
  *)
-(** A poor person's graph and graph traversal implementations
+(** A poor person's acyclic directed graph and graph traversal implementations
    
    @author Apoorv Ingle *)
 

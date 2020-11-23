@@ -15,12 +15,13 @@
    permissions and limitations under the License. 
 
  *)
-(** A poor person's acyclic directred graph and its topological sort
+(** A poor person's acyclic directed graph and some graph traversal implementations
    
    @author Apoorv Ingle *)
 
 exception IllegalGraphOperation
 (** The exception raised when an illegal edge is added *)
+
 exception CyclicGraphException of string list
 (** The exception raised when topological sort is tried on cyclic graph  *)
 
@@ -29,7 +30,8 @@ module type OrderedType = sig
   val compare: t -> t -> int
   val pp_print_t: Format.formatter -> t -> unit
 end
-
+(** The vertices should be have some ordering *)
+                        
 module type S = sig
   
   type vertex
@@ -133,5 +135,7 @@ module type S = sig
   val pp_print_graph: Format.formatter -> t -> unit
     
 end
+(** The Graph methods that this module supports. *)
               
 module Make (Ord: OrderedType): S with type vertex = Ord.t
+(**  Makes a graph module given an ordred type. *)

@@ -16,6 +16,8 @@
 
 *)
 
+(** Some helper functions on the surface level parsed AST *)
+
 open LustreAst
 
 (** {1 Helpers} *)

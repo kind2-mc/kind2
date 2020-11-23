@@ -30,7 +30,7 @@
 
    TODO: This should module should supercede LustreDependencies when it hardens.     
 
-   @author: Apoorv Ingle *)
+   @author Apoorv Ingle *)
 
 module R = Res
 module LA = LustreAst
