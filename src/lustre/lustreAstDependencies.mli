@@ -28,45 +28,11 @@
    @author: Apoorv Ingle *)
 
 module LA = LustreAst
-
-module IMap: sig
-  include (Map.S with type key = LA.ident)
-  val keys: 'a t -> key list
-end
-module IntMap: sig
-  include (Map.S with type key = int)
-  val keys: 'a t -> key list
-end
           
 type 'a graph_result = ('a, Lib.position * string) result
-(** Result of the graph analysis procedures *)
-                     
-type node_summary = ((int list) IntMap.t) IMap.t
-(** The node summary contains the positions of the input streams of a node 
-    that are used in their current value. For example: if there 
-    is an equation `y = x + 1` where `x` is the input stream to the 
-    node `n(x:int, z:int)returns(y:int)`, the node summary will be
-    `(n:-> 0)` as the node `n` uses the current value of `x`.
-*)
-val empty_node_summary: node_summary
-  
-val sort_declarations: LA.t -> LA.t graph_result
-(** Returns a topological order of declarations *)
-
-val analyze_circ_contract_equations: node_summary -> LA.contract -> unit graph_result
-(** Checks if there are circular dependencies in the contract equations *)
-
-val analyze_circ_node_equations: node_summary -> LA.ident list -> LA.node_item list -> unit graph_result
-(** Checks if there are circular dependencies in node equations equations *)
-
-val mk_node_summary: node_summary -> LA.node_decl -> node_summary
-(** Generates a necessary node call summary that is required for inlining node calls for circularity check *)
-
-val expression_current_streams: node_summary -> LA.expr -> LA.ident list
-(** checks if the expression depends on the current value of the identifier *)
-
-
-(** {1 Pretty printers} *)
-  
-val pp_print_node_summary: Format.formatter -> node_summary -> unit
-(** Pretty print the node summary  *)
+(** Result of the dependency analysis *)
+                       
+val sort_and_check_declarations: LA.t -> LA.t graph_result
+(** Returns a topological order of declarations, it also reorders contract equations
+    and makes sure that node equations are not circular. 
+ *)

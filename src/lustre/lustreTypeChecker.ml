@@ -104,7 +104,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
        | [] -> failwith ("empty mode name")
        | h::r -> let i =  List.fold_left (fun acc i -> acc ^ "::" ^ i) h r in 
                  match (lookup_ty ctx i) with
-                 | None -> type_error pos ("Unbound identifier: " ^ i)
+                 | None -> type_error pos ("Unbound mode identifier: " ^ i)
                  | Some ty -> R.ok ty in
      lookup_mode_ty ctx ids
   | LA.RecordProject (pos, e, fld) ->
@@ -349,8 +349,11 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                         ^ string_of_tc_type exp_ty
                         ^ " with infered type "
                         ^ string_of_tc_type ty))
-  (* We do not support mode ref paths yet *)
-  | ModeRef (pos, ids) -> check_type_expr ctx (LA.Ident (pos, List.fold_left (fun acc i -> acc ^ "::" ^ i) "" ids)) exp_ty
+  | ModeRef (pos, ids) ->
+     let id = (match ids with
+               | [] -> failwith ("empty mode name")
+               | h::r -> List.fold_left (fun acc i -> acc ^ "::" ^ i) h r) in
+     check_type_expr ctx (LA.Ident (pos, id)) exp_ty
   | RecordProject (pos, expr, fld) -> check_type_record_proj pos ctx expr fld exp_ty
   | TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
 
