@@ -19,7 +19,6 @@
   
      @author Apoorv Ingle *)
 module LA = LustreAst
-module AD = LustreAstDependencies
 module SI = LA.SI
           
 (** Type alias for lustre type from LustreAst  *)
@@ -46,9 +45,6 @@ type const_store
 
 type ty_set
 (** set of valid user type identifiers *)
-
-type node_summary
-(** stores node call summaries *)
 
 type tc_context
 (** The type Checker context *)
@@ -125,12 +121,6 @@ val extract_ret_ctx: LA.clocked_typed_decl -> tc_context
 
 val extract_consts: LA.const_clocked_typed_decl -> tc_context
 (** Extracts constants as a typing constant  *)
-
-val get_node_summary: tc_context -> AD.node_summary
-(** Retrives the node summary from the typechecker context *)
-
-val add_node_summary: tc_context -> AD.node_summary -> tc_context 
-(** Adds a node summary to the typechecker context *)
 
 val get_constant_ids: tc_context -> LA.ident list
 (** Returns the constants declared in the typing context  *)

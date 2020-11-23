@@ -19,7 +19,6 @@
   
      @author Apoorv Ingle *)
 module LA = LustreAst
-module AD = LustreAstDependencies
 module SI = LA.SI
 module LH = LustreAstHelpers          
 
@@ -51,9 +50,6 @@ type const_store = (LA.expr * tc_type) IMap.t
 type ty_set = SI.t
 (** set of valid user type identifiers *)
 
-type node_summary = AD.node_summary
-(** stores node call summaries *)
-
 
 type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
                   ; ty_ctx: ty_store        (* store of the types of identifiers and nodes*)
@@ -61,9 +57,6 @@ type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings 
                   ; vl_ctx: const_store     (* store of typed constants to its value*)
                   ; u_types: ty_set         (* store of all declared user types,
                                                this is poor mans kind (type of type) context *)
-                  ; node_summary_ctx
-                    : node_summary          (* stores the indices of input 
-                                               stream whose current value is used in the node call*)
                   }
 (** The type Checker context *)
 
@@ -73,7 +66,7 @@ let empty_tc_context: tc_context =
   ; contract_ctx = IMap.empty
   ; vl_ctx = IMap.empty
   ; u_types = SI.empty
-  ; node_summary_ctx = AD.empty_node_summary }
+  }
 (** The empty context with no information *)
 
 (**********************************************
@@ -171,9 +164,6 @@ let union: tc_context -> tc_context -> tc_context
                                    (ctx1.vl_ctx)
                                    (ctx2.vl_ctx))
                      ; u_types = SI.union ctx1.u_types ctx2.u_types
-                     ; node_summary_ctx = AD.IMap.union (fun k v1 v2 -> Some v2)
-                                            (ctx1.node_summary_ctx)
-                                            (ctx2.node_summary_ctx) 
                      }
 (** Unions the two typing contexts *)
 
@@ -202,15 +192,6 @@ let extract_consts: LA.const_clocked_typed_decl -> tc_context
   else empty_tc_context 
 (** Extracts constants as a typing constant  *)
   
-let get_node_summary: tc_context -> AD.node_summary
-  = fun ctx -> ctx.node_summary_ctx
-(** Retrives the node summary from the typechecker context *)
-
-let add_node_summary: tc_context -> AD.node_summary -> tc_context
-  = fun ctx ns -> {ctx with node_summary_ctx
-                             = AD.IMap.union (fun k v1 v2 -> Some v2) ctx.node_summary_ctx ns}
-(** Adds the node summary in the typechecker context *)
-
 let get_constant_ids: tc_context -> LA.ident list
   = fun ctx -> IMap.keys ctx.vl_ctx
 (** Returns the constants declared in the typing context  *)
@@ -254,13 +235,11 @@ let pp_print_tc_context ppf ctx
        ^^ "Type Context={%a}\n"
        ^^ "Contract Context={%a}\n"
        ^^ "Const Store={%a}\n"
-       ^^ "Declared Types={%a}\n"
-       ^^ "Node Call Summary={%a}")
+       ^^ "Declared Types={%a}\n")
       pp_print_ty_syns (ctx.ty_syns)
       pp_print_tymap (ctx.ty_ctx)
       pp_print_tymap (ctx.contract_ctx)
       pp_print_vstore (ctx.vl_ctx)
       pp_print_u_types (ctx.u_types)
-      AD.pp_print_node_summary (ctx.node_summary_ctx)
 (** Pretty print the complete type checker context*)
                                     

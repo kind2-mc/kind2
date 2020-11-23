@@ -738,7 +738,7 @@ let is_type_or_const_decl: declaration -> bool =
   function
   | TypeDecl _
     | ConstDecl _
-    | FuncDecl _ -> true
+    (* | FuncDecl _  *) -> true
   | _ -> false
 
 let split_program: declaration list -> (declaration list * declaration list)

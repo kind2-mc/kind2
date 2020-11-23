@@ -83,21 +83,6 @@ let rec is_normal_form: tc_context -> LA.expr -> bool = fun ctx ->
 (**********************************************
  * Type inferring and type checking functions *
  **********************************************)
-
-let check_eqn_no_current_vals: LA.SI.t -> tc_context -> LA.expr -> unit tc_result
-  = fun node_out_params ctx e -> 
-  let assume_vars_out_params =
-    SI.inter node_out_params
-      (LA.SI.of_list (AD.expression_current_streams (get_node_summary ctx) e)) in
-  Log.log L_trace "node_params: %a non pre vars of e: %a"
-    (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_params)
-    (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements (LH.vars (LH.abstract_pre_subexpressions e)))
-  ; R.guard_with (R.ok (SI.is_empty assume_vars_out_params))
-      (type_error (LH.pos_of_expr e) ("Contract assumption or mode requirements cannot depend on "
-                       ^ "current values of output parameters but found: "
-                       ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
-                            (SI.elements assume_vars_out_params))))
-(* Make sure that no idents in the first argument occur in the expression *)
        
 let infer_type_const: Lib.position -> LA.constant -> tc_type
   = fun pos -> function
@@ -1041,18 +1026,18 @@ and check_contract_node_eqn: LA.SI.t -> tc_context -> LA.contract_node_equation 
     | GhostConst _
       | GhostVar _ ->  R.ok () (* These is already checked while extracting ctx *)
     | Assume (pos, _, _, e) ->
-       check_type_expr ctx e (Bool pos) >>
+       check_type_expr ctx e (Bool pos)
          (* Check if any of the out stream vars of the node is being used at its current value is used in assumption *)
-         check_eqn_no_current_vals node_out_params ctx e
+         (* >> check_eqn_no_current_vals node_out_params ctx e *)
          
     | Guarantee (pos, _, _, e) -> check_type_expr ctx e (Bool pos)
     | Mode (pos, _, reqs, ensures) ->
        R.seq_ (Lib.list_apply (List.map (check_type_expr ctx)
                                  (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
                  (Bool pos))
-       >>
-         (Log.log L_trace "Make sure mode requires do not use current value of output streams"
-         ; R.seq_ (List.map (fun (_, _, e) -> check_eqn_no_current_vals node_out_params ctx e) reqs)) 
+       (* >>
+        *   (Log.log L_trace "Make sure mode requires do not use current value of output streams"
+        *   ; R.seq_ (List.map (fun (_, _, e) -> check_eqn_no_current_vals node_out_params ctx e) reqs))  *)
       
     | ContractCall (pos, cname, args, rets) ->
        let arg_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars args) in
@@ -1152,16 +1137,17 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
      R.ok (add_ty_decl ctx' i)
 
 and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_context tc_result
-  = fun pos ctx ((nname, imported, _ , ip, op, _ ,_ ,_) as n)->
+  = fun pos ctx (nname, imported, _ , ip, op, _ ,_ ,_)->
   Log.log L_trace
     "Extracting typing context from node declaration: %a"
     LA.pp_print_ident nname
   ; if (member_ty ctx nname)
     then type_error pos ("Node " ^ nname ^ " is already declared.")
     else build_node_fun_ty pos ctx ip op >>= fun fun_ty ->
-         let ctx' = add_ty ctx nname fun_ty in
-         let ns = AD.mk_node_summary (get_node_summary ctx') n in 
-         R.ok (add_node_summary ctx' ns)
+         R.ok (add_ty ctx nname fun_ty)
+         (* let ctx' = add_ty ctx nname fun_ty in
+          * let ns = AD.mk_node_summary (get_node_summary ctx') n in 
+          * R.ok (add_node_summary ctx' ns) *)
 (** computes the type signature of node or a function and its node summary*)
 
 and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_context tc_result
