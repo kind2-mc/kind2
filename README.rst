@@ -26,11 +26,11 @@ SMT-based automatic model checker for safety properties of Lustre programs.
 
 Kind 2 is a command-line tool. 
 It takes as input a Lustre file annotated with properties to be proven
-invariant (see :ref:`Lustre Input <2_input/1_lustre>`), and
+invariant (see `Lustre Input <https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html>`_), and
 outputs which of the properties are true for all inputs, as well as an input
 sequence for those properties that are falsified. To ease processing by
 external tools, Kind 2 can output its results in JSON and XML formats
-(see :ref:`JSON / XML Output <3_output/2_machine_readable>`).
+(see `JSON / XML Output <https://kind.cs.uiowa.edu/kind2_user_doc/3_output/2_machine_readable.html>`_).
 
 By default Kind 2 runs a process for bounded model checking (BMC), a process
 for k-induction, two processes for invariant generation, and a process for IC3
@@ -39,7 +39,7 @@ counterexamples to properties as well as properties proved invariant.
 
 The following command-line options control its operation
 (run ``kind2 --help`` for a full list).
-See :ref:`Techniques <1_techniques/1_techniques>` for configuration examples and
+See `Techniques <https://kind.cs.uiowa.edu/kind2_user_doc/1_techniques/1_techniques.html>`_ for configuration examples and
 more details on each technique.
 
 ``--enable {BMC|IND|INVGEN|INVGENOS|IC3}`` Select model checking engines
@@ -289,6 +289,28 @@ Documentation
 Documentation is available online in `HTML <http://kind.cs.uiowa.edu/kind2_user_doc/>`_
 or `PDF <http://kind.cs.uiowa.edu/kind2_user_doc/doc.pdf>`_ forms.
 
-.. include:: doc_requirements.rst
+In order to generate the documentation locally, you need:
+
+* A GNU version of ``sed`` (``gsed`` on OSX)
+* `Python v3.5 or later <https://www.python.org/downloads/>`_
+* `Sphinx <https://www.sphinx-doc.org/en/master/usage/installation.html>`_
+
+For HTML documentation, you additionally need:
+
+* `sphinx-press-theme <https://pypi.org/project/sphinx-press-theme/>`_
+
+For PDF documentation, you additionally need:
+
+* `latexmk <https://packages.ubuntu.com/xenial/latexmk>`_
+* `XeTeX <https://packages.debian.org/sid/texlive-xetex>`_
+* `lmodern <https://packages.debian.org/sid/lmodern>`_
+
+If you're on Debian/Ubuntu, assuming you have Python 3 installed,
+you can run the following:
+
+.. code-block:: bash
+
+    sudo apt-get install python3-sphinx latexmk texlive-xetex lmodern
+    pip3 install sphinx_press_theme
 
 See ``doc/usr/README.rst`` for more information.
