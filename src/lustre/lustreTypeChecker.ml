@@ -44,40 +44,6 @@ let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_
   
 let type_error pos err = R.error (pos, "Type error: " ^ err)
 (** [type_error] returns an [Error] of [tc_result] *)
-
-(********************************************************
- *       Evaluating constants for type expressions      *
- ********************************************************)
-         
-let int_value_of_const: LA.expr -> int tc_result =
-  function
-  | LA.Const (pos, LA.Num n) -> R.ok (int_of_string n)
-  | e -> type_error (LH.pos_of_expr e)
-           ("Cannot evaluate non-int constant "
-            ^ LA.string_of_expr e
-            ^ " to an int.") 
-
-let bool_value_of_const: LA.expr -> bool tc_result =
-  function
-  | LA.Const (pos, LA.True) -> R.ok true
-  | LA.Const (pos, LA.False) -> R.ok false                             
-  | e -> type_error (LH.pos_of_expr e)
-           ("Cannot evaluate non-bool "
-            ^ LA.string_of_expr e
-            ^" constant to a bool.")
-
-let lift_bool: bool -> LA.constant = function
-  | true -> LA.True
-  | false -> LA.False
-
-let rec is_normal_form: tc_context -> LA.expr -> bool = fun ctx ->
-  function
-  | Const _ -> true
-  | RecordExpr (_, _, id_exprs) -> List.for_all (fun (_, e) -> is_normal_form ctx e) id_exprs
-  | RecordProject (_, e, _)
-    | TupleProject (_, e, _) -> is_normal_form ctx e
-  | _ -> false
-(** is the expression in a normal form? *)
          
              
 (**********************************************

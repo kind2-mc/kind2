@@ -749,7 +749,6 @@ let split_program: declaration list -> (declaration list * declaration list)
 (** Splits program into type and constant decls and rest of the program *)
 
 
-
 let rec replace_with_constants: expr -> expr =
   let c p = Const(p, Num "42") in
   function
