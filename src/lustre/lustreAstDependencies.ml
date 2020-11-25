@@ -1058,9 +1058,11 @@ let rec sort_and_check_equations: dependency_analysis_data -> LA.t -> LA.t graph
     | (LA.ConstDecl _ as d):: ds
     | (LA.NodeParamInst _ as d) :: ds ->
      sort_and_check_equations ad ds >>= fun ds' -> R.ok (d :: ds')
-  
-  | LA.NodeDecl (pos, ndecl) :: ds
-    | LA.FuncDecl (pos, ndecl) :: ds ->
+  | LA.FuncDecl (pos, ndecl) :: ds ->
+     check_node_equations ad pos ndecl >>= fun ndecl' ->
+     sort_and_check_equations ad ds >>= fun ds' ->
+     R.ok (LA.FuncDecl (pos, ndecl') :: ds')
+  | LA.NodeDecl (pos, ndecl) :: ds ->
      check_node_equations ad pos ndecl >>= fun ndecl' ->
      sort_and_check_equations ad ds >>= fun ds' ->
      R.ok (LA.NodeDecl (pos, ndecl') :: ds')
