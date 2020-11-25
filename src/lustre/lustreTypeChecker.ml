@@ -967,9 +967,10 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
   | Assume _ -> R.ok ctx
   | Guarantee _ -> R.ok ctx
   | Mode (pos, name, _, _) -> R.ok (add_ty ctx name (Bool pos)) 
-  | ContractCall (_, i, _, _) -> match (IMap.find_opt i ctx.contract_export_ctx) with
-                                 | None -> failwith ("Cannot find exports for contract "^ i)
-                                 | Some m -> R.ok (List.fold_left (fun c (i, ty) -> add_ty c i ty) ctx (IMap.bindings m)) 
+  | ContractCall (_, cc, _, _) ->
+     match (IMap.find_opt cc ctx.contract_export_ctx) with
+     | None -> failwith ("Cannot find exports for contract " ^ cc)
+     | Some m -> R.ok (List.fold_left (fun c (i, ty) -> add_ty c (cc ^ "::" ^ i) ty) ctx (IMap.bindings m)) 
 
 and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_result
   = fun ctx (cname, params, args, rets, contract) ->
@@ -983,8 +984,9 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
     R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract)
     >>= fun ctxs ->
     let local_ctx = List.fold_left union local_const_ctx ctxs in
-    check_type_contract node_out_params local_ctx contract
-    >> R.ok (Log.log L_trace "TC Contract Decl %a done }" LA.pp_print_ident cname)
+    Log.log L_trace "Local Typing Context {%a}" pp_print_tc_context local_ctx
+    ; check_type_contract node_out_params local_ctx contract
+      >> R.ok (Log.log L_trace "TC Contract Decl %a done }" LA.pp_print_ident cname)
 
 and check_type_contract: LA.SI.t -> tc_context -> LA.contract -> unit tc_result
   = fun node_out_params ctx eqns ->

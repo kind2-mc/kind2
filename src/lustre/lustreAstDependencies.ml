@@ -1086,7 +1086,11 @@ let sort_and_check_declarations decls =
       pp_print_analysis_data analysis_data
 
     (* Step 3. Sort contract equations and check for node equation circularity *)
-    ; sort_and_check_equations analysis_data sorted_decls
+    ; sort_and_check_equations analysis_data sorted_decls >>= fun final_decls -> 
+      Log.log L_trace "Sorting equations done.
+                       \n============\n%a\n============\n"
+        LA.pp_print_program final_decls
+        ; R.ok final_decls
 (** Returns a topological order of declarations and also reorders contract equations 
     and checks for circularity of node equations *)  
 
