@@ -86,7 +86,7 @@ module Ident = struct
        Format.fprintf ppf "'%a'"
          Format.pp_print_string s
     | PIdent (p, s) ->
-       Format.fprintf ppf "'%a'::%a"
+       Format.fprintf ppf "%a::%a"
          Format.pp_print_string s
          pp_print_ident p
 

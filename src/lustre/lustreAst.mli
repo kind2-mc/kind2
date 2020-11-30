@@ -126,7 +126,7 @@ type lustre_type =
 and expr =
   (* Identifiers *)
   | Ident of position * ident
-  | ModeRef of position * ident list
+  | ModeRef of position * ident
   | RecordProject of position * expr * index
   | TupleProject of position * expr * int
   (* Values *)

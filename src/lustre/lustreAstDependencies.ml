@@ -258,7 +258,7 @@ and mk_graph_expr: LA.expr -> dependency_analysis_data
   | LA.Fby (_, e1, _, e2) ->  union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2) 
   | LA.Arrow (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2)
   | LA.ModeRef (pos, ids) ->
-     let ids' = List.concat (List.map QId.to_list ids) in
+     let ids' = QId.to_list ids in
      if List.length ids' > 1 then
        singleton_dependency_analysis_data contract_suffix (QId.from_string (List.hd ids')) pos
      else
@@ -294,8 +294,11 @@ let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
 let rec get_node_call_from_expr: LA.expr -> (QId.t * Lib.position) list
   = function
   | Ident _ -> []
-  | ModeRef (pos, is) -> if List.length is = 1 then []
-                         else [(QId.add_prefix contract_suffix (List.hd is), pos)]  
+  | ModeRef (pos, is) ->
+     let is' = QId.to_list is in
+     if List.length is' = 1
+     then []
+     else [(QId.add_prefix contract_suffix (QId.from_string (List.hd is')), pos)]  
   | RecordProject (_, e, _)
     | TupleProject (_, e, _) -> get_node_call_from_expr e
   (* Values *)
@@ -515,7 +518,10 @@ let rec mk_contract_eqn_map: LA.contract_node_equation IMap.t -> LA.contract -> 
 let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list = fun m ->
   function
   | LA.Ident (pos, i) -> [singleton_dependency_analysis_data "" i pos]
-  | LA.ModeRef (pos, ids) -> [singleton_dependency_analysis_data mode_suffix (List.nth ids (List.length ids - 1) ) pos] 
+  | LA.ModeRef (pos, ids) ->
+     let ids' = QId.to_list ids in
+     [singleton_dependency_analysis_data mode_suffix
+        (QId.from_string (List.nth ids' (List.length ids' - 1))) pos] 
   | LA.Const _ -> [empty_dependency_analysis_data]
   | LA.RecordExpr (pos, i, ty_ids) ->
      [List.fold_left union_dependency_analysis_data

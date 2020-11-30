@@ -136,16 +136,16 @@ let rec eval_ast_expr bounds ctx =
 
   (* Mode ref *)
   | A.ModeRef (pos, mref) -> (
-    let mref_string = List.map QId.to_string mref in 
+    let mref_string_list = QId.to_list mref in 
     let p4th =
-      match mref_string with
+      match mref_string_list with
       | [] -> failwith "empty mode reference"
       | [_] -> (* Reference to own modes, append path. *)
-        List.rev_append (C.contract_scope_of ctx) mref_string
+        List.rev_append (C.contract_scope_of ctx) mref_string_list
       | _ -> (
         match C.contract_scope_of ctx with
-        | _ :: tail -> List.rev_append tail mref_string
-        | _ -> mref_string
+        | _ :: tail -> List.rev_append tail mref_string_list
+        | _ -> mref_string_list
       )
     in
     let fail () =

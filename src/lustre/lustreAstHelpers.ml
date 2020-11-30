@@ -596,7 +596,7 @@ let contract_has_pre_or_arrow l =
 (** returns all identifiers from the [expr] ast*)
 let rec vars: expr -> qiset = function
   | Ident (_, i) -> QISet.singleton  i
-  | ModeRef (_, is) -> QISet.singleton (QId.from_list (List.map QId.to_string is))
+  | ModeRef (_, is) -> QISet.singleton is
   | RecordProject (_, e, _) -> vars e 
   | TupleProject (_, e, _) -> vars e
   (* Values *)

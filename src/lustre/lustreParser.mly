@@ -786,7 +786,7 @@ pexpr(Q):
 
   (* A mode reference. *)
   | two_colons ; mode_ref = separated_nonempty_list(two_colons, ident) {
-    A.ModeRef (mk_pos $startpos, mode_ref )
+    A.ModeRef (mk_pos $startpos, QId.from_list (List.concat (List.map QId.to_list mode_ref)))
   }
 
   (* A propositional constant *)

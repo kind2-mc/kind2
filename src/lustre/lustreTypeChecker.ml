@@ -65,17 +65,14 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   | LA.Ident (pos, i) ->
      (match (lookup_ty ctx i) with
       | None ->
-         Log.log L_trace "In context: %a" pp_print_tc_context ctx
-         ; type_error pos ("Unbound identifier: " ^ Lib.string_of_t QId.pp_print_ident i)
-              
+         type_error pos ("Unbound identifier: " ^ Lib.string_of_t QId.pp_print_ident i)
       | Some ty -> R.ok ty) 
-  | LA.ModeRef (pos, ids) ->      
+  | LA.ModeRef (pos, i) ->      
      let lookup_mode_ty ctx ids =
-       let i = QId.from_list (List.concat (List.map QI.to_list ids)) in
        match (lookup_ty ctx i) with
        | None -> type_error pos ("Unbound mode identifier: " ^ Lib.string_of_t QId.pp_print_ident i)
        | Some ty -> R.ok ty in
-     lookup_mode_ty ctx ids
+     lookup_mode_ty ctx i
   | LA.RecordProject (pos, e, fld) ->
      (infer_type_expr ctx e)
      >>= (fun rec_ty ->
@@ -318,9 +315,8 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                         ^ string_of_tc_type exp_ty
                         ^ " with infered type "
                         ^ string_of_tc_type ty))
-  | ModeRef (pos, ids) ->
-     let id' = QId.from_list (List.concat (List.map QId.to_list ids)) in
-     check_type_expr ctx (LA.Ident (pos, id')) exp_ty
+  | ModeRef (pos, id) ->
+     check_type_expr ctx (LA.Ident (pos, id)) exp_ty
   | RecordProject (pos, expr, fld) -> check_type_record_proj pos ctx expr fld exp_ty
   | TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
 

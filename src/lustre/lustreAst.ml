@@ -87,7 +87,7 @@ type group_expr =
 and expr =
   (* Identifiers *)
   | Ident of position * ident
-  | ModeRef of position * ident list
+  | ModeRef of position * ident
   | RecordProject of position * expr * index
   | TupleProject of position * expr * int
   (* Values *)
@@ -409,10 +409,9 @@ let rec pp_print_expr ppf =
     
     | Ident (p, id) -> Format.fprintf ppf "%a%a" ppos p LustreAstIdent.pp_print_ident id
 
-    | ModeRef (p, ids) ->
-      Format.fprintf ppf "%a::%a" ppos p (
-        pp_print_list pp_print_ident "::"
-      ) ids
+    | ModeRef (p, ids) -> 
+      Format.fprintf ppf "::%a%a" ppos p
+        QId.pp_print_ident ids
  
     | GroupExpr (p, ExprList, l) -> Format.fprintf ppf "%a@[<hv 1>(%a)@]" ppos p pl l
 
