@@ -37,11 +37,10 @@ module Ident = struct
 
   let rec compare: t -> t -> int = fun i1 i2 ->
     match i1, i2 with
-    | UIdent s1, UIdent s2 -> String.compare s1 s2
+    | UIdent s1, UIdent s2 -> Stdlib.compare s1 s2
     | PIdent (p1, s1), PIdent (p2, s2) ->
-       if (String.compare s1 s2 > 0) then 1
-       else if (String.compare s1 s2 < 0) then -1
-       else compare p1 p2 
+       if (Stdlib.compare s1 s2 = 0) then compare p1 p2
+       else Stdlib.compare s1 s2
     | PIdent _, UIdent _ -> 1
     | UIdent _, PIdent _ -> -1
                           
@@ -83,7 +82,7 @@ module Ident = struct
   let rec pp_print_ident ppf =
     function
     | UIdent s ->
-       Format.fprintf ppf "'%a'"
+       Format.fprintf ppf "%a"
          Format.pp_print_string s
     | PIdent (p, s) ->
        Format.fprintf ppf "%a::%a"

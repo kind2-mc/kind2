@@ -63,6 +63,9 @@ val get : 'a option -> 'a
 (** Return the min between two optional floats. Return None if both floats are None. *)
 val min_option : float option -> float option -> float option
 
+(** Maps a function over an optional value *)
+val map_option: ('a -> 'b) -> 'a option -> 'b option 
+  
 
 (** {1 Integer functions} *)
 

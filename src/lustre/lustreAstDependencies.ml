@@ -743,11 +743,13 @@ let sort_and_check_contract_eqns: dependency_analysis_data
     (try (R.ok (G.topological_sort ad'.graph_data)) with
      | Graph.CyclicGraphException ids ->
         if List.length ids > 1
-        then (match (find_id_pos ad'.id_pos_data (QId.from_string (List.hd ids))) with
+        then
+          let one_id = QId.from_string (List.hd ids) in
+          (match (find_id_pos ad'.id_pos_data one_id) with
               | None ->
                  Log.log L_trace "Position map: %a" pp_print_id_pos ad'.id_pos_data
-                 ; failwith ("Cyclic dependency found but Cannot find position for identifier "
-                                  ^ (List.hd ids) ^ " This should not happen!") 
+                 ; failwith ("Cyclic dependency found but cannot find position for identifier "
+                                  ^ (QId.to_string one_id) ^ " This should not happen!") 
               | Some p -> graph_error p
                             ("Cyclic dependency detected in definition of identifiers: "
                              ^ Lib.string_of_t (Lib.pp_print_list Format.pp_print_string ", ") ids))

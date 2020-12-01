@@ -622,6 +622,10 @@ let min_option f1 f2 = match f1, f2 with
   | Some f, None | None, Some f -> Some f
   | Some f1, Some f2 -> if f1 < f2 then Some f1 else Some f2
 
+let map_option f o = match o with
+  | None -> None
+  | Some v -> Some (f v)
+                      
 (* ********************************************************************** *)
 (* String                                                                 *)
 (* ********************************************************************** *)

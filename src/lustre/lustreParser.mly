@@ -288,19 +288,19 @@ const_decl_body:
 
      Separate rule for singleton list to avoid shift/reduce conflict *)
   | h = ident; COLON; t = lustre_type; SEMICOLON 
-    { [A.FreeConst (mk_pos $startpos, h, t)] } 
+    { [A.FreeConst (mk_pos $startpos, QId.from_string h, t)] } 
 
   (* Imported (free) constant *)
   | h = ident; COMMA; l = ident_list; COLON; t = lustre_type; SEMICOLON 
-    { List.map (function e -> A.FreeConst (mk_pos $startpos, e, t)) (h :: l) } 
+    { List.map (function e -> A.FreeConst (mk_pos $startpos, QId.from_string e, t)) (h :: l) } 
 
   (* Defined constant without a type *)
   | s = ident; EQUALS; e = expr; SEMICOLON 
-    { [A.UntypedConst (mk_pos $startpos, s, e)] }
+    { [A.UntypedConst (mk_pos $startpos, QId.from_string s, e)] }
 
   (* Defined constant with a type *)
   | c = typed_ident; EQUALS; e = expr; SEMICOLON 
-    { let (_, s, t) = c in [A.TypedConst (mk_pos $startpos, s, e, t)] }
+    { let (_, s, t) = c in [A.TypedConst (mk_pos $startpos, QId.from_string s, e, t)] }
 
 
 (* ********************************************************************** *)
@@ -311,25 +311,25 @@ type_decl:
 
   (* A free type *)
   | TYPE; l = ident_list; SEMICOLON 
-     { List.map (fun e -> A.FreeType (mk_pos $startpos, e)) l }
+     { List.map (fun e -> A.FreeType (mk_pos $startpos, QId.from_string e)) l }
 
   (* A type alias *)
   | TYPE; l = ident_list; EQUALS; t = lustre_type; SEMICOLON
      { List.map (fun e -> 
-                 A.AliasType (mk_pos $startpos, e, t)) l }
+                 A.AliasType (mk_pos $startpos, QId.from_string e, t)) l }
 
   (* Definition of an enum type*)
   | TYPE; l = ident_list; EQUALS; t = enum_type; SEMICOLON
      { List.map (fun e ->
-           A.AliasType (mk_pos $startpos, e,
-                        A.EnumType (mk_pos $startpos, e, t))) l }
+           A.AliasType (mk_pos $startpos, QId.from_string e,
+                        A.EnumType (mk_pos $startpos, QId.from_string e, t))) l }
 
   (* A record type, can only be defined as alias *)
   | TYPE; l = ident_list; EQUALS; t = record_type; SEMICOLON
      { List.map 
          (function e -> 
            A.AliasType (mk_pos $startpos, 
-                        e, 
+                        QId.from_string e, 
                         A.RecordType (mk_pos $startpos, t))) 
          l }
 
@@ -360,7 +360,7 @@ lustre_type:
     { A.IntRange (mk_pos $startpos, l, u)}
 
   (* User-defined type *)
-  | s = ident { A.UserType (mk_pos $startpos, s) }
+  | s = ident { A.UserType (mk_pos $startpos, QId.from_string s) }
 
   (* Tuple type *)
   | t = tuple_type { A.TupleType (mk_pos $startpos, t) } 
@@ -400,7 +400,7 @@ array_type:
 *)
 
 (* An enum type (V6) *)
-enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l } 
+enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { List.map QId.from_string l } 
 
 
 (* ********************************************************************** *)
@@ -416,7 +416,7 @@ node_decl:
   option(SEMICOLON);
   r = option(contract_spec)
   {
-    (n, p, List.flatten i, List.flatten o, r)
+    (QId.from_string n, p, List.flatten i, List.flatten o, r)
   }
 
 (* A node definition (locals + body). *)
@@ -434,15 +434,15 @@ contract_ghost_var:
   | VAR ;
     i = ident ; COLON ; t = lustre_type; EQUALS ; e = qexpr ;
     SEMICOLON 
-    { A.GhostVar (A.TypedConst (mk_pos $startpos, i, e, t)) }
+    { A.GhostVar (A.TypedConst (mk_pos $startpos, QId.from_string i, e, t)) }
 (*  | VAR ; i = ident ; EQUALS ; e = expr ; SEMICOLON 
     { A.GhostVar (A.UntypedConst (mk_pos $startpos, i, e)) } *)
 
 contract_ghost_const:
   | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = qexpr; SEMICOLON 
-    { A.GhostConst (A.TypedConst (mk_pos $startpos, i, e, t)) }
+    { A.GhostConst (A.TypedConst (mk_pos $startpos, QId.from_string i, e, t)) }
   | CONST; i = ident; EQUALS; e = qexpr; SEMICOLON 
-    { A.GhostConst (A.UntypedConst (mk_pos $startpos, i, e)) }
+    { A.GhostConst (A.UntypedConst (mk_pos $startpos, QId.from_string i, e)) }
 
 contract_assume:
   | ASSUME; name = option(STRING); e = qexpr; SEMICOLON
@@ -469,14 +469,14 @@ mode_equation:
   reqs = list(contract_require);
   enss = list(contract_ensure);
   RPAREN; SEMICOLON {
-    A.Mode (mk_pos $startpos, n, reqs, enss)
+    A.Mode (mk_pos $startpos, QId.from_string n, reqs, enss)
   }
 
 contract_import:
   IMPORTCONTRACT ; n = ident ;
   LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
   LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; {
-    A.ContractCall (mk_pos $startpos, n, in_params, out_params)
+    A.ContractCall (mk_pos $startpos, QId.from_string n, in_params, List.map QId.from_string out_params)
   }
 
 
@@ -506,7 +506,7 @@ contract_decl:
     TEL
     option(node_sep) 
 
-    { (n,
+    { (QId.from_string  n,
        p,
        List.flatten i,
        List.flatten o,
@@ -536,7 +536,7 @@ node_param_inst:
          (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, node_call_static_param); 
     SEMICOLON
         
-    { (n, s, p) } 
+    { (QId.from_string n, QId.from_string s, p) } 
 
 
 (* A node declaration is optionally terminated by a period or a semicolon *)
@@ -545,7 +545,7 @@ node_sep: DOT | SEMICOLON { }
 
 (* A static parameter is a type *)
 static_param:
-  | TYPE; t = ident { A.TypeParam t }
+  | TYPE; t = ident { A.TypeParam (QId.from_string t) }
 
 
 (* The static parameters of a node *)
@@ -634,19 +634,19 @@ node_equation:
   (* An automaton *)
   | AUTOMATON; i = option(ident); s = list(state);
     RETURNS; out = ident_list; SEMICOLON
-    { A.Automaton (mk_pos $startpos, i, s, A.Given out) }
+    { A.Automaton (mk_pos $startpos, Lib.map_option QId.from_string i, s, A.Given (List.map QId.from_string out)) }
 
   | AUTOMATON; i = option(ident); s = list(state);
     RETURNS DOTDOT SEMICOLON
-    { A.Automaton (mk_pos $startpos, i, s, A.Inferred) }
+    { A.Automaton (mk_pos $startpos, Lib.map_option QId.from_string i, s, A.Inferred) }
 
   | AUTOMATON; i = option(ident); s = nonempty_list(state)
-    { A.Automaton (mk_pos $startpos, i, s, A.Inferred) }
+    { A.Automaton (mk_pos $startpos, Lib.map_option QId.from_string i, s, A.Inferred) }
 
 
 state_decl:
-  | STATE; i = ident { i, false }
-  | INITIAL STATE; i = ident { i, true }
+  | STATE; i = ident { QId.from_string i, false }
+  | INITIAL STATE; i = ident { QId.from_string i, true }
 
 state:
   | ii = state_decl; option(COLON)
@@ -707,7 +707,7 @@ elsif_branch:
 
 target_state:
   | s = ident
-    { mk_pos $startpos, s }
+    { mk_pos $startpos, QId.from_string s }
 
 target:
   | RESTART; s = target_state
@@ -733,11 +733,11 @@ struct_item:
 
   (* Single identifier *)
   | s = ident
-      { A.SingleIdent (mk_pos $startpos, s) }
+      { A.SingleIdent (mk_pos $startpos, QId.from_string s) }
           
   (* Recursive array definition *)
   | s = ident; l = nonempty_list(index_var)
-     { A.ArrayDef (mk_pos $startpos, s, l)}
+     { A.ArrayDef (mk_pos $startpos, QId.from_string s, List.map QId.from_string l)}
 
 (*
   (* Filter array values *)
@@ -782,12 +782,14 @@ two_colons:
 pexpr(Q): 
   
   (* An identifier *)
-  | s = ident { A.Ident (mk_pos $startpos, s) } 
+  | s = ident { A.Ident (mk_pos $startpos, QId.from_string s) } 
 
   (* A mode reference. *)
   | two_colons ; mode_ref = separated_nonempty_list(two_colons, ident) {
-    A.ModeRef (mk_pos $startpos, QId.from_list (List.concat (List.map QId.to_list mode_ref)))
-  }
+    A.ModeRef (mk_pos $startpos,
+               QId.from_list (List.concat (List.map (fun i -> QId.to_list (QId.from_string i)) mode_ref)))
+    }
+  (* TODO: Fix this parsing nonsense. The problem is a::b is parsed as 'a::b' instead of 'a'::'b'*)
 
   (* A propositional constant *)
   | TRUE { A.Const (mk_pos $startpos, A.True) }
@@ -844,12 +846,12 @@ pexpr(Q):
     
   (* A record field projection (not quantified) *)
   | s = pexpr(Q); DOT; t = ident 
-    { A.RecordProject (mk_pos $startpos, s, QId.to_string t) }
+    { A.RecordProject (mk_pos $startpos, s, t) }
 
   (* A record (not quantified) *)
   | t = ident; 
     f = tlist(LCURLYBRACKET, SEMICOLON, RCURLYBRACKET, record_field_assign)
-    { A.RecordExpr (mk_pos $startpos, t, f) }
+    { A.RecordExpr (mk_pos $startpos, QId.from_string t, f) }
 
   (* An array concatenation *)
   | e1 = pexpr(Q); PIPE; e2 = pexpr(Q) { A.ArrayConcat (mk_pos $startpos, e1, e2) } 
@@ -939,7 +941,7 @@ pexpr(Q):
     d = pexpr_list(Q)
     RPAREN
     { let pos = mk_pos $startpos in
-      A.Condact (pos, e1, A.Const (pos, A.False), s, a, d) } 
+      A.Condact (pos, e1, A.Const (pos, A.False), QId.from_string s, a, d) } 
 
   (* condact call may have no return values and therefore no defaults *)
   | CONDACT 
@@ -950,7 +952,7 @@ pexpr(Q):
     RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Condact (pos, c, A.Const (pos, A.False), s, a, []) } 
+      A.Condact (pos, c, A.Const (pos, A.False), QId.from_string s, a, []) } 
 
   (* condact call with defaults and restart *)
   | CONDACT LPAREN;
@@ -962,7 +964,7 @@ pexpr(Q):
     d = pexpr_list(Q);
     RPAREN
     { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, s, a, d) } 
+      A.Condact (pos, c, r, QId.from_string s, a, d) } 
 
   (* condact call with no return values and restart *)
   | CONDACT ; LPAREN;
@@ -972,7 +974,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
     RPAREN
     { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, s, a, []) } 
+      A.Condact (pos, c, r, QId.from_string s, a, []) } 
 
   (* [(activate N every h initial default (d1, ..., dn)) (e1, ..., en)] 
      is an alias for [condact(h, N(e1, ..., en), d1, ,..., dn) ]*)
@@ -981,7 +983,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Condact (pos, c, A.Const (pos, A.False), s, a, d) }
+      A.Condact (pos, c, A.Const (pos, A.False), QId.from_string s, a, d) }
     
   (* activate operator without initial defaults
 
@@ -990,7 +992,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Activate (pos, s, c, A.Const (pos, A.False), a) }
+      A.Activate (pos, QId.from_string s, c, A.Const (pos, A.False), a) }
 
   (* activate restart *)
   | LPAREN; ACTIVATE;
@@ -1000,7 +1002,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, s, a, d) }
+      A.Condact (pos, c, r, QId.from_string s, a, d) }
     
   (* alternative syntax for activate restart *)
   | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q); 
@@ -1009,7 +1011,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, s, a, d) }
+      A.Condact (pos, c, r, QId.from_string s, a, d) }
     
   (* activate operator without initial defaults and restart
 
@@ -1020,7 +1022,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Activate (pos, s, c, r, a) }
+      A.Activate (pos, QId.from_string s, c, r, a) }
     
   (* alternative syntax of previous construct  *)
   | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q);
@@ -1028,7 +1030,7 @@ pexpr(Q):
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
-      A.Activate (pos, s, c, r, a) }
+      A.Activate (pos, QId.from_string s, c, r, a) }
 
     
   (* restart node call *)
@@ -1043,7 +1045,7 @@ pexpr(Q):
   | LPAREN; RESTART; s = ident; EVERY; c = pexpr(Q); RPAREN; 
     LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
-    { A.RestartEvery (mk_pos $startpos, s, a, c) }
+    { A.RestartEvery (mk_pos $startpos, QId.from_string s, a, c) }
     
         
   (* Binary merge operator *)
@@ -1051,13 +1053,14 @@ pexpr(Q):
     c = ident; SEMICOLON;
     pos = pexpr(Q); SEMICOLON;
     neg = pexpr(Q); RPAREN 
-    { A.Merge (mk_pos $startpos, c, [QId.from_string "true", pos; QId.from_string "false", neg]) }
+    { A.Merge (mk_pos $startpos, QId.from_string c,
+               [QId.from_string "true", pos; QId.from_string "false", neg]) }
 
   (* N-way merge operator *)
   | MERGE; 
     c = ident;
     l = nonempty_list(merge_case);
-    { A.Merge (mk_pos $startpos, c, l) }
+    { A.Merge (mk_pos $startpos, QId.from_string c, l) }
     
   (* A temporal operation *)
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
@@ -1068,7 +1071,7 @@ pexpr(Q):
 
   | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }
 
-  | LAST; i = ident_or_quotident { A.Last (mk_pos $startpos, i) }
+  | LAST; i = ident_or_quotident { A.Last (mk_pos $startpos, QId.from_string i) }
     
   (* A node or function call *)
   | e = node_call { e } 
@@ -1095,7 +1098,7 @@ node_call:
 
   (* Call a node without static parameters *)
   | s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN 
-    { A.Call (mk_pos $startpos, s, a) }
+    { A.Call (mk_pos $startpos, QId.from_string s, a) }
 
   (* Call a node with static parameters *)
   | s = ident; 
@@ -1104,7 +1107,7 @@ node_call:
     LPAREN; 
     a = separated_list(COMMA, expr); 
     RPAREN 
-    { A.CallParam (mk_pos $startpos, s, p, a) }
+    { A.CallParam (mk_pos $startpos, QId.from_string s, p, a) }
 
 
 (* An array slice *)
@@ -1113,26 +1116,26 @@ array_slice:
 
 
 (* An assignment to a record field *)
-record_field_assign: s = ident; EQUALS; e = expr { (s, e) } 
+record_field_assign: s = ident; EQUALS; e = expr { (QId.from_string s, e) } 
 
 
 (* ********************************************************************** *)
 
 
 clock_expr:
-  | c = ident { A.ClockPos c } 
-  | NOT; c = ident { A.ClockNeg c } 
-  | NOT; LPAREN; c = ident; RPAREN { A.ClockNeg c } 
-  | cs = ident; LPAREN; c = ident; RPAREN { A.ClockConstr (cs, c) } 
+  | c = ident { A.ClockPos (QId.from_string c) } 
+  | NOT; c = ident { A.ClockNeg (QId.from_string c) } 
+  | NOT; LPAREN; c = ident; RPAREN { A.ClockNeg (QId.from_string c) } 
+  | cs = ident; LPAREN; c = ident; RPAREN { A.ClockConstr (QId.from_string cs, QId.from_string c) } 
   | TRUE { A.ClockTrue }
 
 merge_case_id:
-  | TRUE { QId.from_string "true" }
-  | FALSE { QId.from_string "false" }
+  | TRUE { "true" }
+  | FALSE { "false" }
   | c = ident { c }
 
 merge_case :
-  | LPAREN; c = merge_case_id; ARROW; e = expr; RPAREN { c, e }
+  | LPAREN; c = merge_case_id; ARROW; e = expr; RPAREN { QId.from_string c, e }
 
     
 (* ********************************************************************** *)
@@ -1141,17 +1144,17 @@ merge_case :
 (* An identifier *)
 ident:
   (* Contract tokens are not keywords. *)
-  | MODE { QId.from_string "mode" }
-  | ASSUME { QId.from_string  "assume" }
-  | GUARANTEE { QId.from_string  "guarantee" }
-  | REQUIRE { QId.from_string  "require" }
-  | ENSURE { QId.from_string  "ensure" }
-  | WEAKLY { QId.from_string  "weakly" }
-  | s = SYM { QId.from_string  s }
+  | MODE { "mode" }
+  | ASSUME { "assume" }
+  | GUARANTEE { "guarantee" }
+  | REQUIRE { "require" }
+  | ENSURE { "ensure" }
+  | WEAKLY { "weakly" }
+  | s = SYM { s }
 
 ident_or_quotident:
   | id = ident { id }
-  | s = QUOTSYM { QId.from_string s }
+  | s = QUOTSYM { s }
 
 (* An identifier with a type *)
 typed_ident: s = ident; COLON; t = lustre_type { (mk_pos $startpos, s, t) }
@@ -1169,9 +1172,9 @@ lustre_type_list:
 
 (* A comma-separated list of identifiers with position information *)
 ident_list_pos :
-  | i = ident { [mk_pos $startpos, i] }
+  | i = ident { [mk_pos $startpos, QId.from_string i] }
   | i = ident; COMMA; l = ident_list_pos
-    { (mk_pos $startpos, i) :: l }
+    { (mk_pos $startpos, QId.from_string i) :: l }
 
 
 (* A list of comma-separated identifiers with a type *)
@@ -1303,7 +1306,7 @@ label_or_index:
 
   (* An index into a record *)
   | DOT; i = ident
-     { A.Label (mk_pos $startpos, QId.to_string i) } 
+     { A.Label (mk_pos $startpos, i) } 
 
   (* An index into an array with a variable or constant *)
   | LSQBRACKET; e = expr; RSQBRACKET
