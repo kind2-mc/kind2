@@ -586,12 +586,8 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
          let sum_bds = IntMap.bindings summary in
          let ip_gs = List.concat (List.map (mk_graph_expr2 m) es) in
          List.map (fun (i, b) ->
-             (* We have to put these dummy values so that the
-                List.map2 in the callee functions don't blow up and we 
-                match up structure widths *)
-             if (List.length b = 0) then
-               (singleton_dependency_analysis_data "" "42" p)
-             else (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (List.nth ip_gs) b))) sum_bds
+             (List.fold_left union_dependency_analysis_data
+                empty_dependency_analysis_data (List.map (List.nth ip_gs) b))) sum_bds
 
      )
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
