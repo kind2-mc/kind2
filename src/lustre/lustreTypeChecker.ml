@@ -1149,11 +1149,11 @@ and extract_exports: LA.ident -> tc_context -> LA.contract -> tc_context tc_resu
          if (member_ty ctx mname)
          then type_error pos ("Mode " ^ QId.to_string mname ^ " is already declared")
          else R.ok [(mname, (LA.Bool pos))] 
-      | LA.ContractCall (p, cc, _, _, _) ->
+      | LA.ContractCall (p, cc, _, _, cc') ->
          (match (IMap.find_opt cc ctx.contract_export_ctx) with
           | None -> type_error p ("Cannot find contract " ^ QId.to_string cc)
           | Some m ->
-             R.ok (List.map (fun (k, v) -> (QId.add_qualified_prefix (QId.to_string cc) k, v))
+             R.ok (List.map (fun (k, v) -> (QId.add_qualified_prefix (QId.to_string cc') k, v))
                      (IMap.bindings m)))
       | _ -> R.ok [] in
     fun cname ctx contract ->

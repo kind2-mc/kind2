@@ -84,6 +84,10 @@ module Ident = struct
        let pl = to_list qid in
        let p = List.rev (List.tl (List.rev pl)) |> from_list in
        Some p
+
+  let get_parent: t -> t option = function
+    | UIdent s -> None
+    | PIdent (p, s) -> Some (UIdent s)
        
   let rec pp_print_ident ppf =
     function

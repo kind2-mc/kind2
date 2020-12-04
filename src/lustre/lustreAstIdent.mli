@@ -57,6 +57,9 @@ val add_qualified_prefix: string -> t -> t
 
 val path: t -> t option
 (** Path of an identifier. It is None if it is in local scope *)
+
+val get_parent: t -> t option
+(** Gets the top most scope of the qualified identifier, None if the it is defined in the current scope *)
   
 module IdentSet: sig
     include (Set.S with type elt = t)

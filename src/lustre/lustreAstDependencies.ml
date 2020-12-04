@@ -622,8 +622,8 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
 
 let rec mk_graph_expr3: LA.expr -> dependency_analysis_data
   = function
-  | LA.Ident (pos, i) ->
-     (match QId.path i with
+  | LA.Ident (pos, i) -> 
+     (match QId.get_parent i with
       | None -> singleton_dependency_analysis_data "" i pos
       | Some p -> singleton_dependency_analysis_data contract_suffix p pos) 
   | LA.Const _ -> empty_dependency_analysis_data
