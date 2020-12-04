@@ -44,7 +44,6 @@ module Ident = struct
     | PIdent _, UIdent _ -> 1
     | UIdent _, PIdent _ -> -1
                           
-                          
   let rec to_list: t -> string list =
     function
     | UIdent s -> [s]
@@ -60,7 +59,6 @@ module Ident = struct
     function
     | UIdent s -> s
     | PIdent (p, s) -> s ^ "::" ^ to_string p
-
 
   let from_string: string -> t = fun s ->
     let ss = String.split_on_char ':' s |> List.filter (fun s -> s <> "") in
@@ -78,7 +76,15 @@ module Ident = struct
                      
   let add_qualified_prefix: string -> t -> t = fun p i ->
     PIdent (i, p)  
-      
+    
+  let path: t -> t option = function
+    | UIdent s ->
+       None
+    | qid ->
+       let pl = to_list qid in
+       let p = List.rev (List.tl (List.rev pl)) |> from_list in
+       Some p
+       
   let rec pp_print_ident ppf =
     function
     | UIdent s ->

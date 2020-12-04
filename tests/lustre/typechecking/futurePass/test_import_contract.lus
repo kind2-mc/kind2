@@ -1,7 +1,14 @@
-
 contract c(x:int) returns (y: int);
 let
     guarantee y = x;
+    mode m1(
+      require x < 2;
+    );
+    mode m2(
+      require x < 4;
+    );
+    var z:int = x;
+    var v:int = x+1;
 tel
 
 
@@ -9,7 +16,15 @@ node n(x: int) returns(y:int);
 (*@contract
   import c(1) returns(y) as c1;
   import c(2) returns(y) as c2;
+  import c(1) returns(y) as c;
+
   guarantee y = pre x;
+  -- we should be able to refer to
+  -- contract ghost consts/vars
+
+  guarantee c2::z = 1;
+  guarantee c1::v = 3;
+  guarantee c::v = 2;
 *)
 let
 y = pre x;

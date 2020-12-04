@@ -960,23 +960,26 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
  * should match the type of the right hand side expression *)
 
 and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context tc_result
-  = fun ctx -> function
+  = fun ctx ->
+  function
   | GhostConst c -> tc_ctx_const_decl ctx c
   | GhostVar c -> tc_ctx_const_decl ~is_const:false ctx c
   | LA.Mode (pos, mname, _, _) ->
      if (member_ty ctx mname)
      then type_error pos ("Mode " ^ QI.to_string mname ^ " is already declared")
      else R.ok (add_ty ctx mname (Bool pos))
-  | LA.ContractCall (_, cc, _, _, _) ->
+  | LA.ContractCall (_, cc, _, _, cc') ->
      let imported_mode_bindings =
        (match (IMap.find_opt cc ctx.contract_export_ctx) with
         | None -> failwith ("cannot find imports for contract name" ^ QI.to_string cc)
-        | Some bs -> List.fold_left (fun c (i, ty) ->
-                         add_ty c (QI.add_qualified_prefix (QI.to_string cc) i) ty) empty_tc_context (IMap.bindings bs)) in
-     Log.log L_trace "Adding imported modes to typing context: %a" pp_print_tc_context imported_mode_bindings 
+        | Some bs ->
+           List.fold_left (fun c (i, ty) ->
+               add_ty c (QI.add_qualified_prefix (QI.to_string cc') i) ty)
+             empty_tc_context (IMap.bindings bs)) in
+     Log.log L_trace "Adding imports context: %a" pp_print_tc_context imported_mode_bindings 
      ; R.ok (union ctx imported_mode_bindings)
   | _ -> R.ok ctx
-  
+       
 and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_result
   = fun ctx (cname, params, args, rets, contract) ->
   let node_out_params = QISet.of_list (List.map (fun ret -> LH.extract_op_ty ret |> fst) rets) in
@@ -1001,9 +1004,8 @@ and check_type_contract: QSI.t -> tc_context -> LA.contract -> unit tc_result
 
 and check_contract_node_eqn: QSI.t -> tc_context -> LA.contract_node_equation -> unit tc_result
   = fun node_out_params ctx eqn ->
-  Log.log L_trace "Checking contract equation: %a with ctx {%a}"
+  Log.log L_trace "Checking contract equation: %a"
     LA.pp_print_contract_item eqn
-    pp_print_tc_context ctx
   ; match eqn with
     | GhostConst _
       | GhostVar _ ->  R.ok () (* These are already checked while extracting ctx *)
@@ -1122,6 +1124,7 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_contex
   ; if (member_ty ctx nname)
     then type_error pos ("Node " ^ QI.to_string nname ^ " is already declared.")
     else build_node_fun_ty pos ctx ip op >>= fun fun_ty ->
+         Log.log L_trace "Built fun ty for %a " LA.pp_print_ident nname;
          R.ok (add_ty ctx nname fun_ty)
 (** computes the type signature of node or a function and its node summary*)
                          
@@ -1149,18 +1152,18 @@ and extract_exports: LA.ident -> tc_context -> LA.contract -> tc_context tc_resu
          else R.ok [(mname, (LA.Bool pos))] 
       | LA.ContractCall (p, cc, _, _, _) ->
          (match (IMap.find_opt cc ctx.contract_export_ctx) with
-         | None -> type_error p ("Cannot find contract " ^ QId.to_string cc)
-         | Some m ->
-            R.ok (List.map (fun (k, v) -> (QId.add_qualified_prefix (QId.to_string cc) k, v))
-                    (IMap.bindings m)))
+          | None -> type_error p ("Cannot find contract " ^ QId.to_string cc)
+          | Some m ->
+             R.ok (List.map (fun (k, v) -> (QId.add_qualified_prefix (QId.to_string cc) k, v))
+                     (IMap.bindings m)))
       | _ -> R.ok [] in
     fun cname ctx contract ->
     (R.seq_chain
        (fun (exp_acc, lctx) e ->
          exports_from_eqn lctx e >>= fun id_tys ->
          R.ok (List.fold_left
-           (fun (a, c) (i, ty) -> (IMap.add i ty a, add_ty c i ty))
-           (exp_acc, lctx) id_tys))
+                 (fun (a, c) (i, ty) -> (IMap.add i ty a, add_ty c i ty))
+                 (exp_acc, lctx) id_tys))
        (IMap.empty, ctx) contract) >>=
       fun (exports, _) -> R.ok {ctx with contract_export_ctx = IMap.add cname exports ctx.contract_export_ctx} 
                  
@@ -1229,10 +1232,12 @@ and check_type_well_formed: tc_context -> tc_type -> unit tc_result
        
 and build_node_fun_ty: Lib.position -> tc_context
                        -> LA.const_clocked_typed_decl list
-                       -> LA.clocked_typed_decl list -> tc_type tc_result
+                       -> LA.clocked_typed_decl list
+                       -> tc_type tc_result
   = fun pos ctx args rets ->
-  let fun_const_ctx = List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty)
-                        ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in
+  let fun_const_ctx =
+    List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty)
+      ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in
   let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_const_ctx
                   (List.map LH.extract_ip_ty args) in   
   let ops = List.map snd (List.map LH.extract_op_ty rets) in
@@ -1242,7 +1247,8 @@ and build_node_fun_ty: Lib.position -> tc_context
   check_type_well_formed fun_ctx ret_ty
   >> check_type_well_formed fun_ctx arg_ty
   >>  R.ok (LA.TArr (pos, arg_ty, ret_ty))
-(** Function type for nodes will be [TupleType ips] -> [TupleTy outputs]  *)
+(** Function type for nodes will be [TupleType ips] -> [TupleTy outputs]  
+    unless they take in/return only one stream *)
 
 and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> bool tc_result
   = fun ctx t1 t2 ->

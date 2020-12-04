@@ -54,6 +54,9 @@ val add_suffix: string -> t -> t
 
 val add_qualified_prefix: string -> t -> t
 (** increases the scope  *)
+
+val path: t -> t option
+(** Path of an identifier. It is None if it is in local scope *)
   
 module IdentSet: sig
     include (Set.S with type elt = t)

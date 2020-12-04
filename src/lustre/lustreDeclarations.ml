@@ -1554,7 +1554,7 @@ let rec check_no_contract_in_node_calls ctx = function
 (* Evaluates contract calls. *)
 and eval_node_contract_call 
   known ctx scope inputs outputs locals is_candidate (
-    call_pos, id, in_params, out_params, _
+    call_pos, id, in_params, out_params, id'
   ) = 
   let ident = I.mk_string_ident (QId.to_string id) in
 
@@ -1577,9 +1577,9 @@ and eval_node_contract_call
   ) ;
 
   (* Push scope for contract svars. *)
-  let svar_scope = (call_pos, (QId.to_string id)) :: scope in
+  let svar_scope = (call_pos, (QId.to_string id')) :: scope in
   (* Push scope for contract call. *)
-  let ctx = C.push_contract_scope ctx (QId.to_string id) in
+  let ctx = C.push_contract_scope ctx (QId.to_string id') in
   (* Retrieve contract node from context. *)
   let pos, (id, params, in_formals, out_formals, contract) =
     try C.contract_node_decl_of_ident ctx id
