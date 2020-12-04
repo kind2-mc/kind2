@@ -1554,7 +1554,7 @@ let rec check_no_contract_in_node_calls ctx = function
 (* Evaluates contract calls. *)
 and eval_node_contract_call 
   known ctx scope inputs outputs locals is_candidate (
-    call_pos, id, in_params, out_params
+    call_pos, id, in_params, out_params, _
   ) = 
   let ident = I.mk_string_ident (QId.to_string id) in
 
@@ -2458,7 +2458,7 @@ and parse_implicit_contract scope inputs outputs ctx file contract_name = try (
             |> fun (ok, outs) -> ok, List.rev outs
           in
           if ok then Some (
-            A.ContractCall (pos, id, ins, outs)
+            A.ContractCall (pos, id, ins, outs, id)
           ) else call
         ) with _ -> call
       )

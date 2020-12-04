@@ -89,7 +89,7 @@ let rec collect_contracts (locals, asserts, props) = function
       in
       locals, asserts, props
 
-    | Ast.ContractCall (pos,_,_,_) ->
+    | Ast.ContractCall (pos,_,_,_,_) ->
       Format.asprintf "\
         [contracts translator] %a: contract calls are unsupported\
       " pp_print_pos pos

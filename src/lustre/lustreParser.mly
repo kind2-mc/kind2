@@ -128,6 +128,7 @@ let merge_branches transitions =
 (* Contract annotations. *)
 %token CONTRACT
 %token IMPORTCONTRACT
+%token AS
 (* %token IMPORTMODE *)
 %token ASSUME
 %token GUARANTEE
@@ -473,12 +474,16 @@ mode_equation:
   }
 
 contract_import:
-  IMPORTCONTRACT ; n = ident ;
-  LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
-  LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; {
-    A.ContractCall (mk_pos $startpos, QId.from_string n, in_params, List.map QId.from_string out_params)
-  }
-
+  | IMPORTCONTRACT ; n = ident ;
+    LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
+    LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; SEMICOLON ; {
+    A.ContractCall (mk_pos $startpos, QId.from_string n, in_params, List.map QId.from_string out_params, QId.from_string n)
+    }
+  | IMPORTCONTRACT ; n = ident ;
+    LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
+    LPAREN ; out_params = separated_list(COMMA, ident) ; RPAREN ; AS ; n2 = ident ; SEMICOLON ; {
+    A.ContractCall (mk_pos $startpos, QId.from_string n, in_params, List.map QId.from_string out_params, QId.from_string n2)
+    }
 
 contract_item:
   | v = contract_ghost_var { v } 

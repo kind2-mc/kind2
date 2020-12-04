@@ -267,7 +267,7 @@ type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
 (* A contract call. *)
-type contract_call = position * ident * expr list * ident list
+type contract_call = position * ident * expr list * ident list * ident
 
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =
@@ -1049,12 +1049,13 @@ let pp_print_contract_mode ppf (_, id, reqs, enss) =
     (pp_print_list pp_print_contract_ensure "@ ") enss
     (cond_new_line ((reqs,enss) <> ([],[]))) ()
 
-let pp_print_contract_call fmt (_, id, in_params, out_params) =
+let pp_print_contract_call fmt (_, id, in_params, out_params, id') =
   Format.fprintf
-    fmt "@[<hov 2>import %a (@,%a@,) returns (@,%a@,) ;@]"
+    fmt "@[<hov 2>import %a (@,%a@,) returns (@,%a@,) as %a;@]"
     QId.pp_print_ident id
     (pp_print_list pp_print_expr ", ") in_params
     (pp_print_list QId.pp_print_ident ", ") out_params
+    QId.pp_print_ident id'
 
 let all_empty = List.for_all (fun l -> l = [])
 

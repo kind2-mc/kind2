@@ -967,7 +967,7 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
      if (member_ty ctx mname)
      then type_error pos ("Mode " ^ QI.to_string mname ^ " is already declared")
      else R.ok (add_ty ctx mname (Bool pos))
-  | LA.ContractCall (_, cc, _, _) ->
+  | LA.ContractCall (_, cc, _, _, _) ->
      let imported_mode_bindings =
        (match (IMap.find_opt cc ctx.contract_export_ctx) with
         | None -> failwith ("cannot find imports for contract name" ^ QI.to_string cc)
@@ -1015,7 +1015,7 @@ and check_contract_node_eqn: QSI.t -> tc_context -> LA.contract_node_equation ->
                                  (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
                  (Bool pos))
 
-    | ContractCall (pos, cname, args, rets) ->
+    | ContractCall (pos, cname, args, rets, _) ->
        let arg_ids = List.fold_left (fun a s -> QSI.union a s) QSI.empty (List.map LH.vars args) in
        let intersect_in_illegal = QSI.inter node_out_params arg_ids in
        if (not (QSI.is_empty intersect_in_illegal))
@@ -1147,7 +1147,7 @@ and extract_exports: LA.ident -> tc_context -> LA.contract -> tc_context tc_resu
          if (member_ty ctx mname)
          then type_error pos ("Mode " ^ QId.to_string mname ^ " is already declared")
          else R.ok [(mname, (LA.Bool pos))] 
-      | LA.ContractCall (p, cc, _, _) ->
+      | LA.ContractCall (p, cc, _, _, _) ->
          (match (IMap.find_opt cc ctx.contract_export_ctx) with
          | None -> type_error p ("Cannot find contract " ^ QId.to_string cc)
          | Some m ->

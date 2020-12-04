@@ -348,7 +348,7 @@ let rec get_node_call_from_expr: LA.expr -> (QId.t * Lib.position) list
 
 let  mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysis_data
   = function
-  | LA.ContractCall (pos, i, es, _) ->
+  | LA.ContractCall (pos, i, es, _, _) ->
      union_dependency_analysis_data
        (singleton_dependency_analysis_data contract_suffix i pos)
        (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
@@ -506,7 +506,7 @@ let rec mk_contract_eqn_map: LA.contract_node_equation IMap.t -> LA.contract -> 
     | (LA.GhostVar (UntypedConst (pos, i, _)) as gc) :: eqns
     | (LA.GhostVar (TypedConst (pos, i, _, _)) as gc) :: eqns -> 
      check_and_add m pos "" i gc >>= fun m' -> mk_contract_eqn_map m' eqns  
-  | (LA.ContractCall (pos, i, _, _ ) as cc ) :: eqns -> 
+  | (LA.ContractCall (pos, _, _, _, i) as cc ) :: eqns -> 
      check_and_add m pos contract_suffix i cc >>= fun m' -> mk_contract_eqn_map m' eqns  
   | (LA.Mode (pos, i, _, _) as mode) :: eqns ->
      check_and_add m pos mode_suffix i mode >>= fun m' -> mk_contract_eqn_map m' eqns  
@@ -623,7 +623,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
 let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_equation -> dependency_analysis_data
   = fun ad ->
   function
-  | LA.ContractCall (pos, i, es, _) ->
+  | LA.ContractCall (pos, _, es, _, i) ->
      connect_g_pos 
        (List.fold_left union_dependency_analysis_data ad
           (List.map (fun e -> mk_graph_expr (LH.abstract_pre_subexpressions e)) es))
@@ -681,7 +681,7 @@ let mk_graph_contract_eqns: node_summary -> LA.contract -> dependency_analysis_d
        connect_g_pos g (QId.add_prefix mode_suffix i) pos 
     | LA.Assume _ 
       | LA.Guarantee _ -> empty_dependency_analysis_data 
-    | LA.ContractCall (_, i, ip_exps, ops) -> empty_dependency_analysis_data 
+    | LA.ContractCall (_, i, ip_exps, ops, _) -> empty_dependency_analysis_data 
   in
   fun eqns ->
   List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map mk_graph eqns)
@@ -953,7 +953,7 @@ let get_contract_exports: contract_summary -> LA.contract_node_equation -> LA.id
     | LA.GhostVar (LA.UntypedConst (_, i, _))
     | LA.GhostVar (LA.TypedConst (_, i, _, _)) -> [i]
   | LA.Mode (_, i, _, _) -> [i]
-  | LA.ContractCall (_, cc, _, _) ->
+  | LA.ContractCall (_, cc, _, _, _) ->
      (match (IMap.find_opt cc m) with
      | Some ids -> List.map (fun i -> QId.add_qualified_prefix (QId.to_string cc) i) ids
      | None -> failwith ("Undeclared contract " ^ QId.to_string cc ^ ". Should not happen!"))  
