@@ -196,12 +196,6 @@ let mode_suffix = "mode "
 (*****************************************************************************
  * Type 1: Dependency Analysis for top level type and constant declarations  *
  *****************************************************************************)
-
-let rec drop_last: 'a list -> 'a list
-  = function
-  | [] -> failwith "drop_last"
-  | [e] -> []
-  | e :: r -> e :: drop_last r
                 
 let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | TVar (pos, i) -> singleton_dependency_analysis_data ty_suffix i pos
@@ -251,7 +245,7 @@ and mk_graph_expr: LA.expr -> dependency_analysis_data
   | LA.Arrow (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2)
   | LA.ModeRef (pos, ids) ->
      if List.length ids > 1 then
-       singleton_dependency_analysis_data "" (List.fold_left (^) contract_suffix (drop_last ids)) pos
+       singleton_dependency_analysis_data "" (List.fold_left (^) contract_suffix (Lib.drop_last ids)) pos
      else
        singleton_dependency_analysis_data mode_suffix (List.hd ids) pos 
   | LA.Call (_, _, es) ->
@@ -470,7 +464,7 @@ let rec extract_decls: ('a IMap.t * id_pos_map) -> LA.ident list -> ('a list) gr
      R.ok (d :: ds)
 (** Given a list of ids, finds the associated payload from the playload map *)
 
-let split_contract_eqations: LA.contract -> (LA.contract * LA.contract)
+let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
   = let split_eqns: (LA.contract * LA.contract) -> LA.contract_node_equation -> (LA.contract * LA.contract)
       = fun (ps, qs) ->
       function
@@ -743,7 +737,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
     >>= fun sorted_ids ->
 
     let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) (List.rev sorted_ids) in
-    let (to_sort_eqns, assums_grantees) = split_contract_eqations contract in
+    let (to_sort_eqns, assums_grantees) = split_contract_equations contract in
     mk_contract_eqn_map IMap.empty to_sort_eqns >>= fun eqn_map ->
 
     extract_decls (eqn_map, ad'.id_pos_data) equational_vars >>= fun contract' ->

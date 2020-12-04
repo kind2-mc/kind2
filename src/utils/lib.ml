@@ -408,7 +408,14 @@ let rec list_apply: ('a -> 'b) list -> 'a -> 'b list = fun fs arg ->
   match fs with
   | [] -> []
   | f :: rest -> f arg :: (list_apply rest arg)  
-         
+
+let rec drop_last: 'a list -> 'a list
+  = function
+  | [] -> failwith "drop_last"
+  | [e] -> []
+  | e :: r -> e :: drop_last r
+
+               
 
 (* ********************************************************************** *)
 (* Array functions                                                        *)
