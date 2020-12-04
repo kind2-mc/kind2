@@ -1,0 +1,23 @@
+contract c(x:int) returns (y: int);
+let
+    guarantee y = x;
+    mode m1(
+      require x < 2;
+    );
+    mode m2(
+      require x < 4;
+    );
+    var z:int = x;
+    var v:int = x+1;
+tel
+
+
+node n(x: int) returns(y:int);
+(*@contract
+  -- This should fail
+  import c(1) returns(y);
+  import c(2) returns(y);
+*)
+let
+y = pre x;
+tel

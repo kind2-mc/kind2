@@ -1079,7 +1079,6 @@ and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_cont
                 else type_error pos ("Expression " ^ LA.string_of_expr e ^ " is not a constant expression")
               else R.ok(add_ty ctx i exp_ty))
 (** Fail if a duplicate constant is detected  *)
-
      
 and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
   = fun ctx ->
@@ -1127,7 +1126,7 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_contex
          Log.log L_trace "Built fun ty for %a " LA.pp_print_ident nname;
          R.ok (add_ty ctx nname fun_ty)
 (** computes the type signature of node or a function and its node summary*)
-                         
+
 and tc_ctx_of_contract: tc_context -> LA.contract -> tc_context tc_result
   = fun ctx con -> R.seq_chain (tc_ctx_contract_eqn) ctx con
 

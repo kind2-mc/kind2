@@ -1,11 +1,5 @@
-contract b(x:int) returns (y:int);
-let
- var bx:int = x;
-tel;
-
 contract c(x:int) returns (y: int);
 let
-    import b(x)returns(y) as b1;
     guarantee y = x;
     mode m1(
       require x < 2;
@@ -31,7 +25,6 @@ node n(x: int) returns(y:int);
   guarantee c2::z = 1;
   guarantee c1::v = 3;
   guarantee c::v = 2;
-  guarantee c::b1::bx = 1;
 *)
 let
 y = pre x;
