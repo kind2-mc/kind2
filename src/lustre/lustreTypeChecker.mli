@@ -20,6 +20,7 @@
     @author Apoorv Ingle *)
 
 module LA = LustreAst
+
 open TypeCheckerContext
          
 type 'a tc_result = ('a, Lib.position * string) result

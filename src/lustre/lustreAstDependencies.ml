@@ -799,7 +799,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
     >>= fun sorted_ids ->
 
     let equational_vars = List.filter (fun i -> not (QISet.mem i ids_to_skip)) (List.rev sorted_ids) in
-    let (to_sort_eqns, assums_grantees) = split_contract_eqations contract in
+    let (to_sort_eqns, assums_grantees) = split_contract_equations contract in
     mk_contract_eqn_map IMap.empty to_sort_eqns >>= fun eqn_map ->
 
     extract_decls (eqn_map, ad'.id_pos_data) equational_vars >>= fun contract' ->
@@ -842,9 +842,6 @@ let sort_declarations: LA.t -> LA.t graph_result
     runs a topological sort on the ids extracted from the map and then 
     returns the sorted declarations (or an error if circular dependency is detected)  *)
                         
-let sort_declarations decls =
-  sort_decls mk_decl_map mk_graph_decls decls
-(** Returns a topological order of declarations *)  
   
 (************************************************************************
  * Type 3. Dependency Analysis of contract equations and node equations *

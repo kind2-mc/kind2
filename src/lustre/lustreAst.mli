@@ -38,8 +38,9 @@
 
     @author Christoph Sticksel *)
 
-open Lib
 module QId = LustreAstIdent
+open Lib
+
 (** Error while parsing *)
 exception Parser_error
 
