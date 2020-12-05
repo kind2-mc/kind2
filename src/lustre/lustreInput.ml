@@ -125,7 +125,7 @@ let of_channel in_ch =
          ; let (const_type_decls, node_contract_src) = LH.split_program declarations in
 
            (* Step 1. Dependency analysis on the top level declarations.  *)
-           AD.sort_and_check_declarations const_type_decls >>= fun sorted_const_type_decls ->
+           AD.sort_globals const_type_decls >>= fun sorted_const_type_decls ->
 
            (* Step 2. Type check top level declarations *)
            TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls >>= fun ctx -> 
@@ -134,7 +134,7 @@ let of_channel in_ch =
            IC.inline_constants ctx sorted_const_type_decls >>= fun (inlined_ctx, const_inlined_type_and_consts) -> 
 
            (* Step 4. Dependency analysis on nodes and contracts *)
-           AD.sort_and_check_declarations node_contract_src >>= fun sorted_node_contract_decls ->  
+           AD.sort_and_check_nodes_contracts node_contract_src >>= fun sorted_node_contract_decls ->  
 
            (* Step 5. type check nodes and contracts *)
            TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls >>

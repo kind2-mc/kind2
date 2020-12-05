@@ -21,16 +21,18 @@
     We build a dependency graph of the lustre declarations
     to detect circular dependencies and reject them. We also
     reorder node and contract declarations to resolve
-    forward references and backend cannot handle them.
+    forward references as backend cannot handle them.
 
-    Note {!Types of dependency analysis}: There are three different kinds of 
+    Note {!Types of dependency analysis}: There are two different kinds of 
     graph dependency analysis and sorting done here. 
 
-    1. Top level constants and type declarations and functions (starts at [mk_graph_decls]) 
+    1. Top level constants and type declarations (starts at [sort_globals])
+       We resolve all the forward references in this step.
 
-    2. Nodes and contracts (starts at [mk_graph_decls])
-
-    3. Sorting equations of contracts and cirular analysis of node equations 
+    2a. Nodes, functions and contracts (starts at [sort_and_check_nodes_contracts])
+        We resolve all the forward references in this step.
+    
+    2b. Sort contract equations and perform cirularity check of node equations. 
 
    TODO: This should module should supercede LustreDependencies when it hardens.     
 
@@ -40,8 +42,12 @@ module LA = LustreAst
           
 type 'a graph_result = ('a, Lib.position * string) result
 (** Result of the dependency analysis *)
-                       
-val sort_and_check_declarations: LA.t -> LA.t graph_result
-(** Returns a topological order of declarations, it also reorders contract equations
-    and makes sure that node equations are not circular. 
- *)
+
+val sort_globals: LA.t -> LA.t graph_result
+(** Returns a topological order to resolve forward references of globals. 
+    This step processes 1. type declarations, and 2. constant declarations *)  
+                     
+val sort_and_check_nodes_contracts: LA.t -> LA.t graph_result
+(** Returns a topological order of declarations to resolve all forward refernces.
+    It also reorders contract equations and checks for circularity of node equations.
+    This step processes 1. nodes, 2. contracts and 3. functions *)  
