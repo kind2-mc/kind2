@@ -1,8 +1,10 @@
-contract topSpec(x: int) returns (y: int);
+node n(x:int) returns (y:int);
 let
-   mode m1
-   (require ::m2;);
+        y = x;
+tel;
 
-   mode m2
-   (require ::m1;);
+contract c(x: int) returns (y: int);
+let
+   var v:int = c;
+   var c:int = n(v) + 1;
 tel
