@@ -51,16 +51,17 @@ module type Out = sig
 
   [main max_depth top_only modular two_state input_sys aparam sys]:
   
-  * [max_depth]: length of the invariant generation run
-  * [top_only]: run on top level only
-  * [modular]: triggers modular MINING
-  * [two_state]: generate two-state invariants
-  * the rest should be obvious. *)
+  - [max_depth]: length of the invariant generation run
+  - [top_only]: run on top level only
+  - [modular]: triggers modular MINING
+  - [two_state]: generate two-state invariants
+  - the rest should be obvious. *)
   val main :
     Numeral.t option -> bool -> bool -> bool -> 'a InputSystem.t ->
     Analysis.param -> TransSys.t -> (
       TransSys.t * Term.TermSet.t * Term.TermSet.t
     ) list
+
   (** Clean exit for the invariant generator. *)
   val exit : 'a -> unit
 end

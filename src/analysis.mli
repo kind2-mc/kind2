@@ -36,7 +36,7 @@
     generated transition system. The accumulated results are used by a
     strategey to decide the next steps.
 
-    **NB:** The [uid] stored in an [info] must be unique because it is
+    {e NB:} The [uid] stored in an [info] must be unique because it is
     used during transition system generation to avoid name clashes in
     UFs and svars.
 
@@ -47,12 +47,16 @@ val get_uid : unit -> int
 
 (** Type of scope-wise assumptions. *)
 type assumptions = Invs.t Scope.Map.t
+
 (** Empty assumptions. *)
 val assumptions_empty : assumptions
+
 (** Merges two assumptions. *)
 val assumptions_merge : assumptions -> assumptions -> assumptions
+
 (** Assumptions of a transition system. *)
 val assumptions_of_sys : TransSys.t -> assumptions
+
 (** Fold over assumptions. *)
 val assumptions_fold : (
   'a -> Scope.t -> Invs.t -> 'a
@@ -60,22 +64,22 @@ val assumptions_fold : (
 
 (** Information for the creation of a transition system *)
 type info = {
-  (** The top system for the analysis run *)
   top : Scope.t ;
+  (** The top system for the analysis run *)
 
-  (** UID for the analysis. *)
   uid : int ;
+  (** UID for the analysis. *)
 
+  abstraction_map : bool Scope.Map.t ;
   (** Systems flagged [true] are to be represented abstractly, those flagged
       [false] are to be represented by their implementation. *)
-  abstraction_map : bool Scope.Map.t ;
 
-  (** Properties that can be assumed invariant in subsystems *)
   assumptions : assumptions ;
+  (** Properties that can be assumed invariant in subsystems *)
 
-  (** Result of the previous analysis of the top system if this analysis is a
-      refinement. *)
   (* refinement_of : result option *)
+  (* Result of the previous analysis of the top system if this analysis is a
+     refinement. *)
 }
 
 (** Shrinks an abstraction map to the subsystems of a system. *)
@@ -83,35 +87,38 @@ val shrink_info_to_sys: info -> TransSys.t -> info
 
 (** Parameter of an analysis. *)
 type param =
-  (** Simulation of a system *)
   | Interpreter of info
-  (** Analysis of the contract of a system. *)
+  (** Simulation of a system *)
+
   | ContractCheck of info
-  (** First analysis of a system. *)
+  (** Analysis of the contract of a system. *)
+  
   | First of info
-  (** Refinement of a system. Store the result of the previous analysis. *)
+  (** First analysis of a system. *)
+
   | Refinement of info * result
+  (** Refinement of a system. Store the result of the previous analysis. *)
 
 (** Result of analysing a transistion system *)
 and result = {
-  (** Parameters of the analysis. *)
   param : param ;
+  (** Parameters of the analysis. *)
 
-  (** Runtime of the analysis. *)
   time : float ;
+  (** Runtime of the analysis. *)
 
-  (** System analyzed, contains property statuses and invariants. *)
   sys : TransSys.t ;
+  (** System analyzed, contains property statuses and invariants. *)
 
+  contract_valid : bool option ;
   (** [None] if system analyzed has not contracts,
       [Some true] if it does and they have been proved correct,
       [Some false] if it does and some are unknown / falsified. *)
-  contract_valid : bool option ;
 
+  requirements_valid : bool option ;
   (** [None] if system analyzed has not sub-requirements,
       [Some true] if it does and they have been proved correct,
       [Some false] if it does and some are unknown / falsified. *)
-  requirements_valid : bool option ;
 }
 
 

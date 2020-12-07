@@ -29,10 +29,8 @@ let fmt_term = Term.pp_print_term
 
 (** Stores invariants. *)
 type t = {
-  (** One-state invariants. *)
-  os: Cert.t TMap.t ;
-  (** Two-state invariants. *)
-  ts: Cert.t TMap.t ;
+  os: Cert.t TMap.t ; (** One-state invariants. *)
+  ts: Cert.t TMap.t ; (** Two-state invariants. *)
 }
 
 let copy { os ; ts } =
@@ -81,6 +79,7 @@ Removes it from two-state invariants if it was there. *)
 let add_os { os ; ts } inv cert =
   TMap.remove ts inv ;
   if TMap.mem os inv |> not then TMap.add os inv cert
+
 (** Adds a two-state invariant.
 
 Does not add it if it is already known as a one-state invariant. *)
@@ -98,6 +97,7 @@ let clear { os ; ts } =
 let get_os { os } = TMap.fold (
   fun inv _ acc -> Term.TermSet.add inv acc
 ) os Term.TermSet.empty
+
 (** The two-state invariants. *)
 let get_ts { ts } = TMap.fold (
   fun inv _ acc -> Term.TermSet.add inv acc

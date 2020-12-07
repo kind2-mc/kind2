@@ -43,27 +43,31 @@ val hash : ('a, 'b) hash_consed -> int
 
 type ('a, 'b) t
 
+(** [create n] creates an empty table of initial size [n]. The table
+      will grow as needed. *)
 val create : int -> ('a, 'b) t
-  (** [create n] creates an empty table of initial size [n]. The table
-      will grow as needed. *)  
+  
+(** Removes all elements from the table. *)
 val clear : ('a, 'b) t -> unit
-  (** Removes all elements from the table. *)
+
+(** [hashcons t n] hash-cons the value [n] using table [t] i.e. returns
+    any existing value in [t] equal to [n], if any; otherwise, allocates
+    a new one hash-consed value of node [n] and returns it. 
+    As a consequence the returned value is physically equal to
+    any equal value already hash-consed using table [t]. *)
 val hashcons : ('a, 'b) t -> 'a -> 'b -> ('a, 'b) hash_consed
-  (** [hashcons t n] hash-cons the value [n] using table [t] i.e. returns
-      any existing value in [t] equal to [n], if any; otherwise, allocates
-      a new one hash-consed value of node [n] and returns it. 
-      As a consequence the returned value is physically equal to
-      any equal value already hash-consed using table [t]. *)
+
+(** [iter f t] iterates [f] over all elements of [t]. *)
 val iter : (('a, 'b) hash_consed -> unit) -> ('a, 'b) t -> unit
-  (** [iter f t] iterates [f] over all elements of [t]. *)
-val fold : (('a, 'b) hash_consed -> 'c -> 'c) -> ('a, 'b) t -> 'c -> 'c
+
 (** [fold f t a] computes (f xN ... (f x2 (f x1 a))...), where x1
     ... xN are the elements of t. *)
+val fold : (('a, 'b) hash_consed -> 'c -> 'c) -> ('a, 'b) t -> 'c -> 'c
 
-val stats : ('a, 'b) t -> int * int * int * int * int * int
 (** Return statistics on the table.  The numbers are, in order:
     table length, number of entries, sum of bucket lengths,
     smallest bucket length, median bucket length, biggest bucket length. *)
+val stats : ('a, 'b) t -> int * int * int * int * int * int
 
 (** {1 Functorial interface} *) 
 

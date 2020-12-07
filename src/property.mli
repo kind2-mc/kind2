@@ -20,66 +20,66 @@
 (** Current status of a property *)
 type prop_status =
 
-  (** Status of property is unknown *)
   | PropUnknown
+  (** Status of property is unknown *)
 
-  (** Property is true for at least k steps *)
   | PropKTrue of int
+  (** Property is true for at least k steps *)
 
-  (** Property is true in all reachable states *)
   | PropInvariant of Certificate.t
+  (** Property is true in all reachable states *)
 
-  (** Property is false at some step *)
   | PropFalse of (StateVar.t * Model.value list) list
+  (** Property is false at some step *)
 
 
 
 (** A property of a transition system *)
 type t = {
-  (** Identifier for the property *)
   prop_name : string ;
+  (** Identifier for the property *)
 
-  (** Source of the property *)
   prop_source : prop_source ;
+  (** Source of the property *)
 
-  (** Term with variables at offsets [prop_base] and [prop_base - 1] *)
   prop_term : Term.t ;
+  (** Term with variables at offsets [prop_base] and [prop_base - 1] *)
 
-  (** Current status *)
   mutable prop_status : prop_status ;
+  (** Current status *)
 }
 
 
 (** Source of a property *)
 and prop_source =
 
-  (** Property is from an annotation *)
   | PropAnnot of Lib.position
+  (** Property is from an annotation *)
 
-  (** Property was generated, for example, from a subrange constraint *)
   | Generated of StateVar.t list
+  (** Property was generated, for example, from a subrange constraint *)
 
+  | Instantiated of Scope.t * t
   (** Property is an instance of a property in a called node.
 
      Reference the instantiated property by the [scope] of the subsystem and
      the name of the property *)
-  | Instantiated of Scope.t * t
 
+  | Assumption of Lib.position * string list
   (** Contract assumption that a caller has to prove. The list of state vars is
       the guarantees that proving the requirement yields. *)
-  | Assumption of Lib.position * string list
 
-  (** Contract guarantees. *)
   | Guarantee of (Lib.position * Scope.t)
+  (** Contract guarantees. *)
                  
-  (** Contract: at least one mode active. *)
   | GuaranteeOneModeActive of (Lib.position * Scope.t)
-                                
-  (** Contract: mode implication. *)
-  | GuaranteeModeImplication of (Lib.position * Scope.t)
+  (** Contract: at least one mode active. *)
 
-  (** User supplied candidate invariant *)
+  | GuaranteeModeImplication of (Lib.position * Scope.t)
+  (** Contract: mode implication. *)
+
   | Candidate of prop_source option
+  (** User supplied candidate invariant *)
 
 
 val copy : t -> t

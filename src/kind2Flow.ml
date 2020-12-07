@@ -37,8 +37,10 @@ open Lib
 
 (** Fold left on lists. *)
 let fold = List.fold_left
+
 (** Iterator on lists. *)
 let iter = List.iter
+
 (** TSys name formatter. *)
 let fmt_sys = TSys.pp_print_trans_sys_name
 

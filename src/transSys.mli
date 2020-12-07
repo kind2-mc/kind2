@@ -212,65 +212,65 @@ val copy : t -> t
 
 val mk_trans_sys :
 
-  (** Start value for fresh instance identifiers *)
+  (* Start value for fresh instance identifiers *)
   ?instance_var_id_start:int ->
   
-  (** Name of the transition system *)
+  (* Name of the transition system *)
   Scope.t ->
 
-  (** State variable for instance identifier *)
+  (* State variable for instance identifier *)
   StateVar.t option ->
 
-  (** State variable for init flag *)
+  (* State variable for init flag *)
   StateVar.t ->
 
-  (** Global state variables *)
+  (* Global state variables *)
   (StateVar.t * Term.t list) list ->
 
-  (** All state variables including globals and instance identifier *)
+  (* All state variables including globals and instance identifier *)
   StateVar.t list ->
 
-  (** indexes of state variables *)
+  (* indexes of state variables *)
   (LustreExpr.expr LustreExpr.bound_or_fixed list) StateVar.StateVarHashtbl.t ->
 
-  (** Global free constants *)
+  (* Global free constants *)
   Var.t list  -> 
 
-  (** Declarations of other function symbols *)
+  (* Declarations of other function symbols *)
   UfSymbol.t list  -> 
 
-  (** Predicate symbol for initial state constraint *)
+  (* Predicate symbol for initial state constraint *)
   UfSymbol.t -> 
 
-  (** Formal parameters of initial state constraint *)
+  (* Formal parameters of initial state constraint *)
   Var.t list -> 
 
-  (** Initial state constraint *)
+  (* Initial state constraint *)
   Term.t ->
 
-  (** Predicate symbol for transition relation *)
+  (* Predicate symbol for transition relation *)
   UfSymbol.t -> 
 
-  (** Formal parameters of transition relation *)
+  (* Formal parameters of transition relation *)
   Var.t list -> 
 
-  (** Transition relation *)
+  (* Transition relation *)
   Term.t ->
 
-  (** Subsystems and their instances *)
+  (* Subsystems and their instances *)
   (t * instance list) list ->
 
-  (** Properties *)
+  (* Properties *)
   Property.t list -> 
 
-  (** Assumption and mode requirements for this system (used by test
+  (* Assumption and mode requirements for this system (used by test
       generation). *)
   Term.t option * (Scope.t * Term.t) list ->
 
-  (** Invariants. *)
+  (* Invariants. *)
   Invs.t ->
 
-  (** Created transition system and next starting value for fresh
+  (* Created transition system and next starting value for fresh
       instance identifiers *)
   t * int
 

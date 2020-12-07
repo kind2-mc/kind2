@@ -20,12 +20,9 @@ module A = Analysis
 
 (** Information used by the strategy module. *)
 type info = {
-  (** Is the system refineable? ([extern] for lustre nodes.) *)
-  can_refine: bool ;
-  (** Does the system have a contract? *)
-  has_contract: bool ;
-  (** Does the system have modes? *)
-  has_modes: bool ;
+  can_refine: bool ;   (** Is the system refineable? ([extern] for lustre nodes.) *)
+  has_contract: bool ; (** Does the system have a contract? *)
+  has_modes: bool ;    (** Does the system have modes? *)
 }
 
 (* Merges two abstractions with the following semantics. First abstraction is
@@ -242,6 +239,7 @@ end
 module ModularStrategy : Strategy = struct
   (** Last transition system analyzed. *)
   let last_trans_sys = ref None
+  
   (** Assumptions corresponding to the last system analyzed. *)
   let last_assumptions () =
     match ! last_trans_sys with

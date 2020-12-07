@@ -36,13 +36,16 @@ type term = Term.t
 
 (** Deactivates an activation literal. *)
 let deactivate s actlit = actlit |> Term.mk_not |> Solver.assert_term s
+
 (** Updates the white, grey and black sets of models. *)
 let update_colors = C2Imodel.update_colors
+
 (** Declares a fresh actlit and returns its term. *)
 let fresh_actlit s =
   let actlit = Actlit.fresh_actlit () in
   Solver.declare_fun s actlit ;
   Actlit.term_of_actlit actlit
+
 (** Evaluation function from a system and a model. *)
 let eval sys model bump = (fun term ->
   Term.bump_state bump term
@@ -68,7 +71,7 @@ let stop () = Stat.c2i_stop_timers ()
 (** Clean exit. *)
 let on_exit _ =
   stop () ;
-  (** Outputing stats. *)
+  (* Outputing stats. *)
   print_stats ()
 
 (** Context maintained by the C2I CNF version. *)
@@ -97,7 +100,7 @@ let mk_solver sys init =
     (Flags.Smt.solver ())
   in
 
-  (** Variable declaration upper bound, predicate to assert. *)
+  (* Variable declaration upper bound, predicate to assert. *)
   let var_ub, pred =
     if init
     then Numeral.zero,
@@ -134,7 +137,7 @@ let mk_solver sys init =
     solver references (deletes previous solvers). *)
 let mk_solvers sys =
 
-  (** Creating solvers. *)
+  (* Creating solvers. *)
   let s1, s2, s3 =
     mk_solver sys true,
     mk_solver sys false,
@@ -161,20 +164,20 @@ let reset_solvers_of t =
 (** Creates a context. *)
 let mk_context sys props =
 
-  (** Extracting property terms. *)
+  (* Extracting property terms. *)
   let props =
     props |> List.map (fun name ->
       name, (Sys.property_of_name sys name).Property.prop_term
     )
   in
 
-  (** Creating solvers. *)
+  (* Creating solvers. *)
   let solver1, solver2, solver3 = mk_solvers sys in
 
-  (** Original model sets. *)
+  (* Original model sets. *)
   let white, grey, black = [], [], [] in
 
-  (** Returning context. *)
+  (* Returning context. *)
   { sys ; props ; white ; grey ; black ; solver1 ; solver2 ; solver3 }
 
 (** Resets a context with a new prop. Changes [prop] and resets [black].
@@ -195,7 +198,7 @@ let prop_term_of props = props |> List.map snd |> Term.mk_and
 
 (** Split a list of subcandidates based on the value they evaluate to. *)
 let split eval candidate =
-  (** Reverse candidate to preserve order in result. *)
+  (* Reverse candidate to preserve order in result. *)
   candidate |> List.rev
   |> List.fold_left (fun (ok, falsified) ((index, term) as sc) ->
     if eval term then sc :: ok, falsified else ok, index :: falsified
@@ -209,9 +212,9 @@ let step_zer = Numeral.pred step_one
     at [bump] when put in conjunction with [f candidate]. Returns a list of
     pairs models / index of sub-candidate falsified. *)
 let rec check_candidate sys solver bump f candidate falsifiable =
-  (** Creating actlit, declaring it, extracting term. *)
+  (* Creating actlit, declaring it, extracting term. *)
   let actlit = fresh_actlit solver in
-  (** Building implication and asserting it. *)
+  (* Building implication and asserting it. *)
   Term.mk_implies [
     actlit ; Term.mk_and [
       candidate |> List.map (
@@ -221,29 +224,29 @@ let rec check_candidate sys solver bump f candidate falsifiable =
     ]
   ] |> Solver.assert_term solver ;
 
-  (** Check sat. *)
+  (* Check sat. *)
   match
     Solver.check_sat_assuming solver
-      (** If sat. *)
+      (* If sat. *)
       ( fun _ ->
-        (** Deactivating actlit. *)
+        (* Deactivating actlit. *)
         deactivate solver actlit ;
         Some (Solver.get_model solver) )
-      (** If unsat. *)
+      (* If unsat. *)
       ( fun _ ->
-        (** Deactivating actlit. *)
+        (* Deactivating actlit. *)
         deactivate solver actlit ;
         None )
-      (** Single actlit. *)
+      (* Single actlit. *)
       [ actlit ]
   with
   | Some model ->
     let eval = eval sys model bump in
-    (** Separate indices of falsifiable sub-candidates. *)
+    (* Separate indices of falsifiable sub-candidates. *)
     let candidate, falsified = split eval candidate in
-    (** Check if termination was requested. *)
+    (* Check if termination was requested. *)
     KEvent.check_termination () ;
-    (** Update the falsifiable sub-candidates and recurse. *)
+    (* Update the falsifiable sub-candidates and recurse. *)
     (model, falsified) :: falsifiable
     |> check_candidate sys solver bump f candidate
   | None -> candidate, falsifiable
@@ -263,58 +266,58 @@ let check_2 sys solver candidate =
 (** Checks (3). Does multi-property reasoning on [props]. Returns the list of
     properties entailed by the candidate, and those falsified. *)
 let check_3 sys solver candidate props =
-  (** Creating actlit for candidate, declaring it, extracting term. *)
+  (* Creating actlit for candidate, declaring it, extracting term. *)
   let candidate_actlit = fresh_actlit solver in
-  (** Asserting implication. *)
+  (* Asserting implication. *)
   Term.mk_implies [
     candidate_actlit ;
     candidate |> List.map snd |> Term.mk_and |> Term.bump_state step_zer
   ] |> Solver.assert_term solver ;
 
-  (** Multi-property split on props. *)
+  (* Multi-property split on props. *)
   let rec loop props falsifiable =
-    (** Creating actlit, declaring it, extracting term. *)
+    (* Creating actlit, declaring it, extracting term. *)
     let actlit = fresh_actlit solver in
-    (** Extracting the conjunction of all properties. *)
+    (* Extracting the conjunction of all properties. *)
     let props_term = props |> prop_term_of in
-    (** Building implication and asserting it. *)
+    (* Building implication and asserting it. *)
     Term.mk_implies [
       actlit ; Term.mk_and [
         props_term |> Term.bump_state step_zer ;
         props_term |> Term.mk_not |> Term.bump_state step_one
       ]
     ] |> Solver.assert_term solver ;
-    (** Check sat. *)
+    (* Check sat. *)
     match
       Solver.check_sat_assuming solver
-        (** If sat. *)
+        (* If sat. *)
         ( fun _ ->
-          (** Deactivating actlit. *)
+          (* Deactivating actlit. *)
           deactivate solver actlit ;
           Some (Solver.get_model solver) )
-        (** If unsat. *)
+        (* If unsat. *)
         ( fun _ ->
-          (** Deactivating actlit. *)
+          (* Deactivating actlit. *)
           deactivate solver actlit ;
           None )
         [ candidate_actlit ; actlit ]
     with
     | Some model ->
       let eval = eval sys model step_one in
-      (** Separate indices of falsifiable sub-candidates. *)
+      (* Separate indices of falsifiable sub-candidates. *)
       let props, falsified = split eval props in
-      (** Check if termination was requested. *)
+      (* Check if termination was requested. *)
       KEvent.check_termination () ;
-      (** Update the falsifiable sub-candidates and recurse. *)
+      (* Update the falsifiable sub-candidates and recurse. *)
       (model, falsified) :: falsifiable |> loop props
     | None -> props, falsifiable
   in
 
-  (** Run loop. *)
+  (* Run loop. *)
   loop props [] |> fun res ->
-    (** Deactivate candidate actlit. *)
+    (* Deactivate candidate actlit. *)
     deactivate solver candidate_actlit ;
-    (** Done. *)
+    (* Done. *)
     res
 
 
@@ -324,9 +327,9 @@ let check_3 sys solver candidate props =
 let query_solvers { sys ; props ; solver1 ; solver2 ; solver3 } candidate =
   let _, candidate =
     Candidate.terms_of candidate
-    (** Reversing to have the right ordering after the fold left. *)
+    (* Reversing to have the right ordering after the fold left. *)
     |> List.rev
-    (** Indexing and constructing disjunction. *)
+    (* Indexing and constructing disjunction. *)
     |> List.fold_left (fun (index, l) terms ->
       index + 1, (index, Term.mk_or terms) :: l
     ) (0, [])
@@ -375,24 +378,24 @@ let main input_sys aparam sys =
 
   match Sys.get_split_properties sys with
   | _, _, [] ->
-    (** No properties to strengthen. *)
+    (* No properties to strengthen. *)
     ()
   | _, _, props ->
 
     (* Extracting property names. *)
     let props = List.map (fun p -> p.Property.prop_name) props in
 
-    (** Start timers. *)
+    (* Start timers. *)
     Stat.start_timer Stat.c2i_total_time ;
-    (** New candidate. *)
+    (* New candidate. *)
     let candidate = Candidate.mk sys in
-    (** Building context. *)
+    (* Building context. *)
     let context = mk_context sys props in
 
-    (** Running. *)
+    (* Running. *)
     run context candidate ;
 
-    (** Done. *)
+    (* Done. *)
     stop ()
 
 

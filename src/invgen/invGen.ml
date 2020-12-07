@@ -117,6 +117,7 @@ module type Out = sig
     Analysis.param -> Sys.t -> (
       Sys.t * Set.t * Set.t
     ) list
+
   (** Clean exit for the invariant generator. *)
   val exit : 'a -> unit
 end
@@ -170,9 +171,10 @@ module Make (Graph : GraphSig) : Out = struct
     no_more_lsd () ;
     exit 0
 
-  (** Prefix used for logging. *)
+  (** Prefix used for logging one state invariants. *)
   let pref = Format.sprintf "[%s Inv Gen]" Domain.name
-  (** Prefix used for logging. *)
+
+  (** Prefix used for logging two state invariants. *)
   let pref_s two_state =
     if two_state then Format.sprintf "[%s Inv Gen 2]" Domain.name
     else Format.sprintf "[%s Inv Gen 1]" Domain.name
@@ -466,7 +468,7 @@ module Make (Graph : GraphSig) : Out = struct
     in
 
     let one_state_running = Domain.is_os_running () in
-    (** Prunes known invariants and irrelevant ones. *)
+    (* Prunes known invariants and irrelevant ones. *)
     let prune =
       if two_state then (
         fun cand -> is_inv cand || (

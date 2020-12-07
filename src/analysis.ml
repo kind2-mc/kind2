@@ -51,22 +51,22 @@ let assumptions_fold f init ass =
 
 (** Information for the creation of a transition system *)
 type info = {
-  (** The top system for the analysis run *)
   top : Scope.t ;
+  (** The top system for the analysis run *)
 
-  (** UID for the analysis. *)
   uid : int ;
+  (** UID for the analysis. *)
 
+  abstraction_map : bool Scope.Map.t ;
   (** Systems flagged [true] are to be represented abstractly, those flagged
       [false] are to be represented by their implementation. *)
-  abstraction_map : bool Scope.Map.t ;
 
-  (** Properties that can be assumed invariant in subsystems *)
   assumptions : assumptions ;
+  (** Properties that can be assumed invariant in subsystems *)
 
-  (** Result of the previous analysis of the top system if this analysis is a
-      refinement. *)
   (* refinement_of : result option *)
+  (* Result of the previous analysis of the top system if this analysis is a
+      refinement. *)
 }
 
 (** Shrinks an abstraction map to the subsystems of a system. *)
@@ -95,24 +95,24 @@ type param =
 
 (** Result of analysing a transistion system *)
 and result = {
-  (** Parameters of the analysis. *)
   param : param ;
+  (** Parameters of the analysis. *)
 
-  (** Total time of the analysis. *)
   time: float ;
+  (** Total time of the analysis. *)
 
-  (** System analyzed, contains property statuses and invariants. *)
   sys : TransSys.t ;
+  (** System analyzed, contains property statuses and invariants. *)
 
+  contract_valid : bool option ;
   (** [None] if system analyzed has not contracts,
       [Some true] if it does and they have been proved correct,
       [Some false] if it does and some are unknown / falsified. *)
-  contract_valid : bool option ;
 
+  requirements_valid : bool option ;
   (** [None] if system analyzed has not sub-requirements,
       [Some true] if it does and they have been proved correct,
       [Some false] if it does and some are unknown / falsified. *)
-  requirements_valid : bool option ;
 }
 
 (* Clones an [info], only changes its [uid]. *)

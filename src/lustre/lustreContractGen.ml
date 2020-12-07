@@ -39,20 +39,25 @@ type 'a term_map = 'a TMap.t
 
 (** State variables of a term. *)
 let svars_of = Term.state_vars_of_term
+
 (** State variables of a term at [0]. *)
 let curr_svars_of = Term.state_vars_at_offset_of_term Num.zero
 
 (** List formatter. *)
 let fmt_list = pp_print_list
+
 (** State variable formatter. *)
 let fmt_svar = StateVar.pp_print_state_var
+
 (** Term formatter. *)
 let fmt_term = Term.pp_print_term
+
 (** (Lustre) expression formatter. *)
 let fmt_lus two_state fmt term =
   if two_state then Format.fprintf fmt "true -> (" ;
   Format.fprintf fmt "@[<hov 2>%a@]" (Expr.pp_print_term_as_expr false) term ;
   if two_state then Format.fprintf fmt ")"
+
 (** Node signature formatter. *)
 let fmt_sig fmt = Format.fprintf fmt "@[<hov>%a@]" Node.pp_print_node_signature
 
@@ -73,17 +78,21 @@ module Contract = struct
 
   (** Contract building and dependency tracing context. *)
   type dep = {
-    (** Original node, for dependency tracing. *)
     node: Node.t ;
+    (** Original node, for dependency tracing. *)
+
+    mutable cache: (bool * SvSet.t) option term_map ;
     (** Dependency tracing cache. Boolean indicates whether term can be traced
     to current version of the outputs ([None] if no svar). *)
-    mutable cache: (bool * SvSet.t) option term_map ;
-    (** Assumptions. *)
+
     ass: term_set ;
-    (** Guarantees. *)
+    (** Assumptions. *)
+
     gua: term_set ;
-    (** Modes: maps requires to lists of ensures. *)
+    (** Guarantees. *)
+
     modes: term_set term_map ;
+    (** Modes: maps requires to lists of ensures. *)
   }
 
   (** Returns [None] if term contains an oracle. Otherwise, returns true iff
@@ -253,6 +262,7 @@ module Contract = struct
   (** Two state prefix. *)
   let fmt_ts_pref fmt two_state =
     if two_state then Format.fprintf fmt "true -> ("
+
   (** Two state suffix. *)
   let fmt_ts_suff fmt two_state =
     if two_state then Format.fprintf fmt ")"
@@ -329,9 +339,11 @@ end
 
 (** Scope of a transition sys. *)
 let scope_of = Sys.scope_of_trans_sys
+
 (** Trans sys name formatter. *)
 let fmt_sys_name fmt sys =
   scope_of sys |> Scope.pp_print_scope fmt
+
 (** Name of a trans sys as a string. *)
 let sys_name sys =
   scope_of sys |> Scope.to_string
@@ -593,7 +605,7 @@ let generate_contract_for in_sys param sys path invs name =
      SvSet.fold (fun sv lst -> (cxt, sv) :: lst) locals [])
   in
 
-  (** Map to new state var names. *)
+  (* Map to new state var names. *)
   let sv_map =
     List.fold_left (
       fun map (cxt, svar) ->
@@ -716,7 +728,7 @@ let generate_contracts in_sys param sys path contract_name =
        SvSet.fold (fun sv lst -> (cxt, sv) :: lst) locals [])
     in
 
-    (** Map to new state var names. *)
+    (* Map to new state var names. *)
     let sv_map =
     List.fold_left (
       fun map (cxt, svar) ->

@@ -20,28 +20,31 @@
 module type PostAnalysis = sig
   (** Name of the treatment. (For xml logging.) *)
   val name: string
+
   (** Title of the treatment. (For plain text logging.) *)
   val title: string
+
   (** Indicates whether the module is active. *)
   val is_active: unit -> bool
+
   (** Performs the treatment.
 
   Note that the [param] passed is not exactly the one used for the analysis.
   The uid of the [param] was changed so that it is safe to use it to generate
   systems. (No name clashes.) *)
   val run:
-    (** Input system. *)
+    (* Input system. *)
     'a InputSystem.t ->
-    (** Analysis parameter. *)
+    (* Analysis parameter. *)
     Analysis.param ->
-    (** A function running an analysis with some modules. *)
+    (* A function running an analysis with some modules. *)
     (
       bool -> bool -> Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
       -> unit
     ) ->
-    (** Results for the current system. *)
+    (* Results for the current system. *)
     Analysis.results
-    (** Can fail. *)
+    (* Can fail. *)
     -> unit Res.res
 end
 
@@ -55,22 +58,22 @@ module RunIVC: PostAnalysis
 module RunMCS: PostAnalysis
 
  val run_mcs_post_analysis:
-    (** Input system. *)
+    (* Input system. *)
     'a InputSystem.t ->
-    (** Analysis parameter. *)
+    (* Analysis parameter. *)
     Analysis.param ->
-    (** A function running an analysis with some modules. *)
+    (* A function running an analysis with some modules. *)
     (
       bool -> bool -> Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
       -> unit
     ) ->
     TransSys.t
-    (** Can fail. *)
+    (* Can fail. *)
     -> unit Res.res
 
 (** Runs the post-analysis things on a system and its results. *)
 val run: 'a InputSystem.t -> Scope.t ->
-    (** A function running an analysis with some modules. *)
+    (* A function running an analysis with some modules. *)
     (
       bool -> bool -> Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
       -> unit

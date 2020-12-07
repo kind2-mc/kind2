@@ -32,8 +32,10 @@ module Lsd = LockStepDriver
 
 (** Term. *)
 type term = Term.t
+
 (** Maps terms to something. *)
 type 'a map = 'a Term.TermHashtbl.t
+
 (** Set of terms. *)
 type set = Term.TermSet.t
 
@@ -83,6 +85,7 @@ module type Graph = sig
 
   (** Formats a graph in dot format. Only the representatives will appear. *)
   val fmt_graph_dot : Format.formatter -> graph -> unit
+  
   (** Formats the eq classes of a graph in dot format. *)
   val fmt_graph_classes_dot : Format.formatter -> graph -> unit
 

@@ -46,9 +46,9 @@ let vht_add = VHT.add
     Argument [n] is the capacity new hash tables are created with. Should be
     the number of state variables in the system. *)
 let model_split n model =
-  (** Creating result hash tables. *)
+  (* Creating result hash tables. *)
   let m0, m1 = mk_vht n, mk_vht n in
-  (** Filling them with bindings. *)
+  (* Filling them with bindings. *)
   model |> VHT.iter (fun var va1 ->
     if is_const var then ( vht_add m0 var va1 ; vht_add m1 var va1 )
     else match offset_of var |> Numeral.to_int with
@@ -57,7 +57,7 @@ let model_split n model =
     | 1 -> let var = set_offset var Numeral.zero in vht_add m1 var va1
     | n -> Format.sprintf "unexpected offset of variable %d > 1" n |> failwith
   ) ;
-  (** Returning split models. *)
+  (* Returning split models. *)
   m0, m1
 
 (** Exception used by [model_equal] to break out of the iteration. *)
@@ -68,7 +68,7 @@ let model_equal lhs rhs =
   try
     lhs |> VHT.iter (fun var va1 ->
       try if (VHT.find rhs var) == va1 then () else raise Not_equal
-      (** [rhs] does not feature rhs. *)
+      (* [rhs] does not feature rhs. *)
       with Not_found -> raise Not_equal
     ) ;
     true
@@ -85,14 +85,14 @@ exception PropIsFalse
     In theory thanks to the cost function the intersetion between the new sets
     and the old ones is empty. *)
 let update_colors n white grey black nu_white nu_grey nu_black =
-  (** Updating white. *)
+  (* Updating white. *)
   let white =
     nu_white |> List.fold_left (fun white w ->
       (model_split n w |> fst) :: white
     ) white
   in
 
-  (** Updating black. *)
+  (* Updating black. *)
   let black =
     nu_black |> List.fold_left (fun black b ->
       (model_split n b |> fst) :: black
@@ -105,17 +105,17 @@ let update_colors n white grey black nu_white nu_grey nu_black =
 
     match contains m0 white, contains m1 black with
     | true, false ->
-      (** [m0] is white, so is [m1]. *)
+      (* [m0] is white, so is [m1]. *)
       m1 :: white, grey, black
     | false, true ->
-      (** [m1] is black, so is [m0]. Still adding to grey, because black
+      (* [m1] is black, so is [m0]. Still adding to grey, because black
           might be reset later. *)
       white, (m0, m1) :: grey, m0 :: black
     | false, false ->
-      (** None of the above, adding to grey. *)
+      (* None of the above, adding to grey. *)
       white, (m0, m1) :: grey, black
     | _ ->
-      (** Property is invalid. *)
+      (* Property is invalid. *)
       raise PropIsFalse
   ) (white, grey, black)
 

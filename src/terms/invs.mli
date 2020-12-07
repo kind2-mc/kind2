@@ -47,13 +47,16 @@ val filter : (bool -> Term.t -> Certificate.t -> bool) -> t -> t
 
 (** Adds a one-state invariant. *)
 val add_os : t -> Term.t -> Certificate.t -> unit
+
 (** Adds a two-state invariant. *)
 val add_ts : t -> Term.t -> Certificate.t -> unit
+
 (** Remove all the invariants. *)
 val clear : t -> unit
 
 (** The one-state invariants. *)
 val get_os : t -> Term.TermSet.t
+
 (** The two-state invariants. *)
 val get_ts : t -> Term.TermSet.t
 
@@ -63,7 +66,7 @@ val mem : t -> Term.t -> bool
 (** Returns [Some cert] if [term] is a known invariant, or [None] otherwise. *)
 val find : t -> Term.t -> Certificate.t option
 
-(** **Temporary.** Flattens some invariants into a list. *)
+(** {e Temporary.} Flattens some invariants into a list. *)
 val flatten : t -> (Term.t * Certificate.t) list
 
 (** Merges two collections of invariants (non-destructive). *)

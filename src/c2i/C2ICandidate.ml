@@ -128,18 +128,25 @@ above actually kind of accounts for arrays. *)
 module type SubCandidate = sig
   (** Name of the sub candidate module. *)
   val name: string
+
   (** Indicates whether the sub candidate can be move. *)
   val is_moveable: bool
+
   (** Type of the "coefficient" of the sub candidate. *)
   type value
+
   (** The zero for type [value]. *)
   val zero: value
+
   (** Equality over [value]. *)
   val equal: value -> value -> bool
+
   (** Stores the info about the sub candidate. *)
   type t
+
   (** Number of actoms in each sub cube of a sub candidate. *)
   val len: t -> int
+
   (** Creates a new, default sub candidate.
      [mk disj_count conj_count vars vals] creates a sub candidate for a DNF
      with [disj_count] disjuncts, each having [conj_count] atoms in the
@@ -151,13 +158,17 @@ module type SubCandidate = sig
      For bools for instance, a sub cube is just a conjunction of bool
      variables, and [con_count] is ignored. *)
   val mk: int -> int -> Term.t list -> value list -> t
+
   (** Resets a candidate. *)
   val reset: t -> t
+
   (** Moves a candidate. *)
   val move: t -> t
+
   (** [guided_move sc i j] moves the [j]^th atom of the [i]^th sub cube of a
       sub candidate [sc]. *)
   val guided_move: t -> int -> int -> t
+
   (** [to_term sub_candidate dnf] adds the atoms of each sub cube of the sub
       candidate to each cube of the input dnf.
 
