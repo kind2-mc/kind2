@@ -1422,7 +1422,7 @@ let type_check_infer_nodes_and_contracts: tc_context -> LA.t -> tc_context tc_re
                             ^^ "Type checking declaration Groups Done\n"
                             ^^"===============================================\n")
           ;  R.ok ctx))
-           
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

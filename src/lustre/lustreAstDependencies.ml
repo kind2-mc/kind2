@@ -892,13 +892,6 @@ let summarize_ip_vars: LA.ident list -> SI.t -> int list = fun ips critial_ips -
        then (nums::acc, nums+1)
        else (acc, nums+1)) ([], 0)) ips |> fst 
 (** Helper function to generate a node summary *)
-
-let mk_fun_summary: node_summary -> LA.node_decl -> node_summary
-  = fun s (i, imported, _, ips, ops, vars, _, _) ->
-  let cricital_ips = (List.fold_left (fun (acc, num) _ -> (num::acc, num+1)) ([], 0) ips) |> fst in
-  IMap.add i ((List.fold_left (fun (op_idx, m) _ -> (op_idx+1, IntMap.add op_idx cricital_ips m)) (0, IntMap.empty) ops) |> snd) s   
-(** Similar to node call summary but each output depends on all the inputs of the function. 
-    We do this as functions are not supposed to have any state in them.  *)
   
 let mk_node_summary: node_summary -> LA.node_decl -> node_summary
     = fun s (i, imported, _, ips, ops, vars, items, _) ->
@@ -1051,7 +1044,7 @@ let rec generate_summaries: dependency_analysis_data -> LA.t -> dependency_analy
   function
   | [] -> ad
   | LA.FuncDecl (_, ndecl) :: decls ->
-     let ns = mk_fun_summary ad.nsummary ndecl in
+     let ns = mk_node_summary ad.nsummary ndecl in
      generate_summaries {ad with nsummary = IMap.union (fun k v1 v2 -> Some v2) ad.nsummary ns} decls
   | LA.NodeDecl (_, ndecl) :: decls ->
      let ns = mk_node_summary ad.nsummary ndecl in
