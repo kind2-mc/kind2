@@ -161,7 +161,7 @@ type interpreted_symbol =
 
   | `DIVISIBLE of Numeral.t
                           (** Divisible by [n] (unary) *)
-(**@author Arjun Viswanathan*)
+(* @author Arjun Viswanathan*)
   | `BVNOT                (** Bit-wise negation (unary) *)
   | `BVNEG                (** Arithmetic negation (unary) *)
   | `BVAND                (** Bit-wise conjunction (binary) *)
@@ -191,8 +191,8 @@ type interpreted_symbol =
                           (** Sign extension of bitvector (unary) *)                        
 
 
-  (** Selection from array (binary) *)
-  | `SELECT of Type.t
+  
+  | `SELECT of Type.t     (** Selection from array (binary) *)
 
   | `STORE                (** Update of an array (ternary) *)
 
@@ -324,7 +324,7 @@ val is_numeral : t -> bool
 val is_decimal : t -> bool
 
 
-(**@author Arjun Viswanathan*)
+(* @author Arjun Viswanathan*)
 (** Return true if the symbol is a bitvector *)
 val is_bitvector : t -> bool
 

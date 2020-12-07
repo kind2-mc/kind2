@@ -24,14 +24,14 @@ Parsing of command line arguments
 
 {1 Workflow}
 
-Flags are separated based on the technique(s) they impact. *Global flags* are
+Flags are separated based on the technique(s) they impact. {e Global flags} are
 the ones that don't impact any technique, or impact all of them. Log flags,
 help flags, timeout flags... are global flags.
 
-{b NB:} when adding a boolean flag, make sure to parse its value with the
-`bool_of_string` function.
+{e NB:} when adding a boolean flag, make sure to parse its value with the
+[bool_of_string] function.
 
-{b Adding a new (non-global) flag to an existing module}
+{2 Adding a new (non-global) flag to an existing module}
 
 Adding a new flag impacts three pieces of code. The first is the body of the
 module you're adding the flag to. Generally speaking, adding a flag looks like
@@ -62,7 +62,7 @@ At this point your flag is integrated in the Kind 2 flags.
 To make it available to the rest of Kind 2, you need to modify the signature of
 the module you added the flag to
 - in this file, where the module is declared, and
-- in `flags.mli`.
+- in [flags.mli].
 
 The update to the signature is typically
 
@@ -109,13 +109,13 @@ module MyModule : sig
 end
 ]}
 
-You then need to add your module to the `module_map`, the association map
+You then need to add your module to the [module_map], the association map
 between module identifiers and modules. Make sure the identifier for your
 module is not used yet.
 
 You can now add modules following the instructions in the previous section.
 
-@author Christoph Sticksel, Adrien Champion **)
+@author Christoph Sticksel, Adrien Champion *)
 
 
 (** {1 Accessors for flags} *)
@@ -131,8 +131,10 @@ val input_file : unit -> string
 
 (** All lustre files in the cone of influence of the input file. *)
 val all_input_files : unit -> string list
+
 (** Clears the lustre files in the cone of influence of the input file. *)
 val clear_input_files : unit -> unit
+
 (** Adds a lustre file in the cone of influence of the input file.
 
     Returns false if the cone of influence already contains the file *)
@@ -296,6 +298,7 @@ module Smt : sig
 
   (** Forces SMT traces. *)
   val set_trace: bool -> unit
+  
   (** Write all SMT commands to files *)
   val trace : unit -> bool
 
@@ -597,6 +600,7 @@ module Invgen : sig
 
   (** Sets the max depth for invariant generation. *)
   val set_max_depth : int option -> unit
+  
   (** Gets the max depth for invariant generation. *)
   val max_depth : unit -> int option
 

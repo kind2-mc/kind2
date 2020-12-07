@@ -268,10 +268,11 @@ val bv_arsh : t -> t -> t
 
 
 (** {1 Pretty Printing} *)
+
 (** Pretty-print a constant bitvector in SMTLIB binary format *)
 val pp_smtlib_print_bitvector_b : Format.formatter -> t -> unit
 
-(* Pretty-print a bitvector in SMTLIB extended decimal format *)
+(** Pretty-print a bitvector in SMTLIB extended decimal format *)
 val pp_smtlib_print_bitvector_d : Format.formatter -> Numeral.t -> Numeral.t -> unit
 
 (** Pretty-print a constant bitvector in Yices' binary format *)
@@ -291,6 +292,7 @@ val pp_print_bitvector_x : Format.formatter -> t -> unit
 
 
 (** {1 Conversions} *)
+
 (** Convert a string to a bitvector
     Binary and hexadecimal notation is accepted as #b[01]+ and
     #x[0-9a-fA-F]+ as in the SMTLIB standard *)
@@ -305,6 +307,7 @@ val bool_of_hstring : HString.t -> bool
 
 
 (** {1 Infix Comparison Operators} *)
+
 (** Equality *)
 val ( = ) : t -> t -> bool
 
@@ -322,5 +325,6 @@ val ( >= ) : t -> t -> bool
 
 
 (** {1 Unused Functions} *)
+
 (** Return the first bit of input bitvector b *)
 val first_bit : t -> bool

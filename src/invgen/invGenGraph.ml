@@ -120,6 +120,7 @@ module type Graph = sig
 
   (** Formats a graph in dot format. Only the representatives will appear. *)
   val fmt_graph_dot : Format.formatter -> graph -> unit
+
   (** Formats the eq classes of a graph in dot format. *)
   val fmt_graph_classes_dot : Format.formatter -> graph -> unit
 
@@ -199,19 +200,22 @@ module Make (Dom: DomainSig) : Graph = struct
 
   (** Structure storing all the graph information. *)
   type graph = {
-    (** Maps representatives [t] to the set [{t_i}] of representatives such
-    that, for all models seen so far and for all [t_i]s, [In.cmp t t_i]. *)
     map_up: set map ;
     (** Maps representatives [t] to the set [{t_i}] of representatives such
-    that, for all models seen so far and for all [t_i]s, [In.cmp t_i t]. *)
+    that, for all models seen so far and for all [t_i]s, [In.cmp t t_i]. *)
+
     map_down: set map ;
+    (** Maps representatives [t] to the set [{t_i}] of representatives such
+    that, for all models seen so far and for all [t_i]s, [In.cmp t_i t]. *)
+
+    classes: set map ;
     (** Maps representatives [t] to the set of terms [{t_i}] they represent.
     That is, for all models seen so far and for all [t_i]s,
     [In.value_eq t t_i]. *)
-    classes: set map ;
+
+    values: Domain.t map ;
     (** Maps representatives to the value they evaluate to in the current
     model. Cleared between each iteration ([clear] not [reset]). *)
-    values: Domain.t map ;
   }
 
   (** Graph constructor. *)
@@ -1274,6 +1278,7 @@ module MakeEq (Dom: DomainSig) : Graph = struct
   (** Formats a graph in dot format. Only the representatives will appear. *)
   let fmt_graph_dot _ _ =
     KEvent.log L_fatal "Equality-graph formatting is unimplemented"
+
   (** Formats the eq classes of a graph in dot format. *)
   let fmt_graph_classes_dot fmt classes =
     Format.fprintf fmt
@@ -1370,7 +1375,7 @@ digraph mode_graph {
   let stabilize graph sys known base =
     let has_cex = Lsd.query_base base in
 
-    (** Splits a class and inserts it in the graph. Replaces the binding of
+    (* Splits a class and inserts it in the graph. Replaces the binding of
     [rep] in the graph if any. *)
     let split graph rep set eval =
       let val_map = ref [] in
@@ -1403,7 +1408,7 @@ digraph mode_graph {
       ) set
     in
 
-    (** Stabilizes a graph for a model. *)
+    (* Stabilizes a graph for a model. *)
     let model_stabilize graph eval =
       (* Don't modify the map when folding over it, that's undefined
       behavior. *)
@@ -1416,7 +1421,7 @@ digraph mode_graph {
       )
     in
 
-    (** Loops as long as the graph is unstable in base. *)
+    (* Loops as long as the graph is unstable in base. *)
     let rec loop () =
       match
         terms_of graph known |> has_cex

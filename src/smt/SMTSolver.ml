@@ -66,12 +66,15 @@ place so that we can kill everyone easily in case of unexpected shutdown.
 
 See [destroy_all]. *)
 let all_solvers = ref IntMap.empty
+
 (** Registers a solver. *)
 let add_solver ( { id } as solver ) =
   all_solvers := IntMap.add id solver !all_solvers
+
 (** Forgets a solver. *)
 let drop_solver { id } =
   all_solvers := IntMap.remove id !all_solvers
+
 (* Destroys a solver instance. *)
 let destroy s =
   let module S = (val s.solver_inst) in

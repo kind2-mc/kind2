@@ -450,9 +450,11 @@ Factored to avoid clashes. *)
 module Paths : sig
   (** Test generation files path. *)
   val testgen : string
+
   (** Test generation oracle path. *)
   val oracle : string
-  (** Rust generation path. *)
+
+  (** Rust generation path. *)  
   val implem : string
 end
 
@@ -461,27 +463,37 @@ module ReservedIds : sig
 
   (** New variables from abstraction. *)
   val abs_ident_string: string
+
   (** New oracle input. *)
   val oracle_ident_string: string
+
   (** Unique identifier for node instance. *)
   val instance_ident_string: string
+
   (** First instant flag. *)
   val init_flag_ident_string: string
+
   (** Observer for contract requirements. *)
   val all_req_ident_string: string
+
   (** Observer for contract ensures. *)
   val all_ens_ident_string: string
+
   (** New variables from node instance. *)
   val inst_ident_string: string
+
   (** Initial predicate. *)
   val init_uf_string: string
+
   (** Transition relation. *)
   val trans_uf_string: string
+
   (** New clock initialization flag. *)
   val index_ident_string: string
 
   (** Automaton state encoding. *)
   val state_string: string
+
   val restart_string: string
   val state_selected_string: string
   val restart_selected_string: string
@@ -492,10 +504,13 @@ module ReservedIds : sig
 
   (** Init flag string. *)
   val init_flag_string: string
+
   (** Abstraction depth input string. *)
   val depth_input_string: string
+
   (** Abstraction depth input string. *)
   val max_depth_input_string: string
+
   (** Suffix used for the name of the function encoding functional systems. *)
   val function_of_inputs: string
 
@@ -508,12 +523,16 @@ end
 module ExitCodes: sig
   (** Exit code for an unknown result. *)
   val unknown: int
+
   (** Exit code for an unsafe result. *)
   val unsafe: int
+
   (** Exit code for a safe result. *)
   val safe: int
+
   (** Exit code for an error. *)
   val error: int
+
   (** Exit status if kid caught a signal, the signal number is added to
   the value *)
   val kid_status: int
@@ -523,10 +542,13 @@ end
 module Names: sig
   (** Contract generation. *)
   val contract_gen_file : string
+
   (** Contract name for contract generation. *)
   val contract_name : string list -> string
+
   (** Invariant logging. *)
   val inv_log_file : string
+  
   (** Contract name for invariant logging. *)
   val inv_log_contract_name : string list -> string
 end

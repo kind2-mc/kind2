@@ -31,23 +31,18 @@
 
 (** A system parameterized by its actual source *)
 type 'a t = {
-  (** Name of the system as a scope *)
-  scope: Scope.t ;
+  
+  scope: Scope.t ;         (** Name of the system as a scope *)
 
-  (** Original input *)
-  source : 'a ;
+  source : 'a ;            (** Original input *)
+  
+  has_contract : bool ;    (** System can be abstracted to its contract *)
 
-  (** System can be abstracted to its contract *)
-  has_contract : bool ;
+  has_modes : bool ;       (** System has modes. *)
 
-  (** System has modes. *)
-  has_modes : bool ;
+  has_impl : bool ;        (** System can be refined to its implementation *)
 
-  (** System can be refined to its implementation *)
-  has_impl : bool ;
-
-  (** Sub-systems *)
-  subsystems : 'a t list ;
+  subsystems : 'a t list ; (** Sub-systems *)
 }
 
 (** Strategy info of a subsystem. *)

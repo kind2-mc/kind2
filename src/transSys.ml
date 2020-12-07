@@ -60,22 +60,23 @@ type t =
 
   { 
 
-    (* Scope of transition system *)
     scope: Scope.t;
+    (** Scope of transition system *)
 
-    (* State variable that becomes true in the first instant and false
-       again in the second and all following instants *)
     init_flag_state_var : StateVar.t;
+    (** State variable that becomes true in the first instant and false
+       again in the second and all following instants *)
 
-    (* State variable to be bound to a unique term for each
-       instance of the transition system *)
     instance_state_var : StateVar.t option;
+    (** State variable to be bound to a unique term for each
+       instance of the transition system *)
 
-    (* Assignments of unique terms to the instance variables of this
-       transition system and its subsystems *)
     instance_var_bindings : (Var.t * Term.t) list;
+    (** Assignments of unique terms to the instance variables of this
+       transition system and its subsystems *)
 
-    (* State variables of global scope, used for arrays. Each state
+    global_state_vars : (StateVar.t * Term.t list) list;
+    (** State variables of global scope, used for arrays. Each state
        variable has a list of upper bounds for its indexes. 
 
        To get all defined values, evaluate the instance state
@@ -83,62 +84,61 @@ type t =
        evaluate the uninterpreted function with the value of the
        instance variable as the first, and all indexes as following
        parameters. TODO: add this functionality to Eval. *)
-    global_state_vars : (StateVar.t * Term.t list) list;
 
-    (* List of global free constants *)
     global_consts : Var.t list;
+    (** List of global free constants *)
     
-    (* State variables in the scope of this transition system 
+    state_vars : StateVar.t list;
+    (** State variables in the scope of this transition system 
 
        Also contains [instance_state_var] unless it is None, but not
        state variables in [global_state_vars]. *)
-    state_vars : StateVar.t list;
 
-    (* register indexes of state variables for later use *)
     state_var_bounds : 
       (LustreExpr.expr LustreExpr.bound_or_fixed list)
         StateVar.StateVarHashtbl.t;
-    
-    (* Transition systems called by this system, and for each instance
+    (** register indexes of state variables for later use *)
+
+    subsystems : (t * instance list) list;
+    (** Transition systems called by this system, and for each instance
        additional information to map between state variables of the
        different scopes *)
-    subsystems : (t * instance list) list;
 
-    (* Other function declarations *)
     ufs : UfSymbol.t list;
+    (** Other function declarations *)
     
-    (* Logic fragment needed to express the transition system 
+    logic : TermLib.logic;
+    (** Logic fragment needed to express the transition system 
 
        TODO: Should this go somewhere more global? *)
-    logic : TermLib.logic;
 
-    (* Predicate symbol for initial state constraint *)
     init_uf_symbol : UfSymbol.t;
+    (** Predicate symbol for initial state constraint *)
 
-    (* Formal parameters of initial state constraint *)
     init_formals : Var.t list;
+    (** Formal parameters of initial state constraint *)
 
-    (* Initial state constraint. *)
     init : Term.t;
+    (** Initial state constraint. *)
 
-    (* Predicate symbol for transition relation *)
     trans_uf_symbol : UfSymbol.t;
+    (** Predicate symbol for transition relation *)
 
-    (* Formal parameters of transition relation *)
     trans_formals : Var.t list;
+    (** Formal parameters of transition relation *)
 
-    (* Transition relation. *)
     trans : Term.t;
+    (** Transition relation. *)
 
-    (* Properties to prove invariant for this transition system 
+    properties : Property.t list;
+    (** Properties to prove invariant for this transition system 
 
        Does not need to be mutable, because a Property.t is *)
-    properties : Property.t list;
 
+    mode_requires: Term.t option * (Scope.t * Term.t) list ;
     (** Requirements of global and non-global modes for this system (used by
         test generation).
         List of [(is_mode_global, mode_name, require_term)]. *)
-    mode_requires: Term.t option * (Scope.t * Term.t) list ;
 
     invariants : Invs.t ;
 

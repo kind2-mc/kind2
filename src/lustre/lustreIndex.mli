@@ -42,23 +42,23 @@
 (** An index element *)
 type one_index = 
 
-  (** Field name as index of a record *)
   | RecordIndex of string
+    (** Field name as index of a record *)
 
-  (** Integer literal as index of a tuple *)
   | TupleIndex of int
+    (** Integer literal as index of a tuple *)
 
-  (** Integer literal as index of a list *)
   | ListIndex of int
+    (** Integer literal as index of a list *)
 
-  (** Integer literal as index of an array *)
   | ArrayIntIndex of int
+    (** Integer literal as index of an array *)
 
-  (** Variable as index of an array of given size *)
   | ArrayVarIndex of LustreExpr.expr
+    (** Variable as index of an array of given size *)
 
-  (* Index to the representation field of an abstract type *)
   | AbstractTypeIndex of string
+    (* Index to the representation field of an abstract type *)
 
 (** A sequence of indexes *)
 type index = one_index list

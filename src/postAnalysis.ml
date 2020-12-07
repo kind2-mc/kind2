@@ -46,23 +46,26 @@ let last_result results scope =
 module type PostAnalysis = sig
   (** Name of the treatment. (For xml logging.) *)
   val name: string
+
   (** Title of the treatment. (For plain text logging.) *)
   val title: string
+
   (** Indicates whether the module is active. *)
   val is_active: unit -> bool
+
   (** Performs the treatment. *)
   val run:
-    (** Input system. *)
+    (* Input system. *)
     'a ISys.t ->
-    (** Analysis parameter. *)
+    (* Analysis parameter. *)
     Analysis.param ->
-    (** A function running an analysis with some modules. *)
+    (* A function running an analysis with some modules. *)
     (
       bool -> bool -> Lib.kind_module list -> 'a ISys.t -> Analysis.param -> TSys.t -> unit
     ) ->
-    (** Results for the current system. *)
+    (* Results for the current system. *)
     Analysis.results
-    (** Can fail. *)
+    (* Can fail. *)
     -> unit res
 end
 
@@ -71,10 +74,13 @@ Generates tests for a system if system's was proved correct under the maximal
 abstraction. *)
 module RunTestGen: PostAnalysis = struct
   let name = "testgen"
+
   let title = "test generation"
+
   (** Error head. *)
   let head sys fmt =
     Format.fprintf fmt "Not generating tests for component %a." fmt_sys sys
+
   (** Checks that system was proved with the maximal abstraction. *)
   let gen_param_and_check in_sys param sys =
     let top = TSys.scope_of_trans_sys sys in

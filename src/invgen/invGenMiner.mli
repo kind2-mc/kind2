@@ -25,14 +25,12 @@ end
 
 (** Bool candidate term miner. *)
 module Bool : CandGen
+
 (** Integer candidate term miner. *)
 module Int : CandGen
+
 (** Real candidate term miner. *)
 module Real : CandGen
-
-
-
-
 
 (* 
    Local Variables:
@@ -41,4 +39,3 @@ module Real : CandGen
    indent-tabs-mode: nil
    End: 
 *)
-

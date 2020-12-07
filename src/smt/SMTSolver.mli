@@ -130,7 +130,7 @@ val get_unsat_core_lits : t -> Term.t list
     continuation [t] is evaluated, and if the solver returns
     unsatisfiable, the continuation [f] is evaluated.
 
-    {b Important:} If a solver does not support check-sat with
+    {e Important:} If a solver does not support check-sat with
     assumptions, it will be simulated by checking satisfiability on a
     new context level with the literals asserted. This context is
     removed after the continuations have been evaluated, hence all
@@ -138,8 +138,8 @@ val get_unsat_core_lits : t -> Term.t list
     will be undone upon return from this function. Do not rely on
     context-modifying operations in the continuations being
     persistent, and keep the continuations as short as possible.
-    Moreover, any call to get_unsat_core_lits should be done INSIDE
-    the continutation if_unsat, and NOT in AFTER the call to check_sat_assuming.
+    Moreover, any call to [get_unsat_core_lits] should be done INSIDE
+    the continutation [if_unsat], and NOT in AFTER the call to [check_sat_assuming].
 
     The list [l] should contain only positive Boolean constants,
     although this is not enforced. If the solver does not support the

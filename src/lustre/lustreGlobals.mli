@@ -22,16 +22,13 @@
 
 (** *)
 type t = 
-
   { 
-
-    (** Free constants *)
     free_constants : (LustreIdent.t * Var.t LustreIndex.t) list;
+    (** Free constants *)
 
-    (** register bounds of state variables for later use *)
     state_var_bounds :
       (LustreExpr.expr LustreExpr.bound_or_fixed list)
         StateVar.StateVarHashtbl.t;
-
+    (** Register bounds of state variables for later use *)
   }
 

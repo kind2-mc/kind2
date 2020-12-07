@@ -130,7 +130,7 @@ val is_bool : t -> bool
 val is_int : t -> bool
 
 
-(**@author Arjun Viswanathan*)
+(* @author Arjun Viswanathan*)
 (** Return [true] if the type is an unsigned bitvector (integern) type *)
 val is_ubitvector : t -> bool
 

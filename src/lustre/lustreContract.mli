@@ -19,9 +19,10 @@
 
 (** Wraps a state variable for use in a contract. *)
 type svar = {
-  (** Position of the original expression. *)
   pos: Lib.position ;
+  (** Position of the original expression. *)
 
+  num: int ;
   (** Number given to it at parse time.
 
   If this svar is an assumption / a guarantee, it means it's the [num]
@@ -29,16 +30,15 @@ type svar = {
 
   If this svar is a require / an ensure, it means it's the [num] require
   / ensure of the mode it's from. *)
-  num: int ;
 
-  (** Optional name for an assume or a guarantee *)
   name: string option;
+  (** Optional name for an assume or a guarantee *)
   
-  (** Actual state variable. *)
   svar: StateVar.t ;
+  (** Actual state variable. *)
 
-  (** Succession of imports leading to this precise state variable. *)
   scope: (Lib.position * string) list ;
+  (** Succession of imports leading to this precise state variable. *)
 }
 
 (** Creates a [svar]. *)
@@ -54,20 +54,20 @@ placed between the trace and the [svar] position and number. *)
 val prop_name_of_svar : svar -> string -> string -> string
 
 (** Type of modes. *)
-type mode = {
-  (** Name of the mode. *)
-  name: LustreIdent.t ;
-  (** Position of the mode. *)
-  pos: Lib.position ;
-  (** Path of contract imports to this node. *)
-  path: string list ;
-  (** Requires of the mode. *)
-  requires: svar list ;
-  (** Ensures of the mode. *)
-  ensures: svar list ;
-  (** Is this mode a candidate?. *)
-  candidate: bool ;
+type mode = {  
+  name: LustreIdent.t ; (** Name of the mode. *)
+
+  pos: Lib.position ;   (** Position of the mode. *)
+  
+  path: string list ;   (** Path of contract imports to this node. *)
+  
+  requires: svar list ; (** Requires of the mode. *)
+  
+  ensures: svar list ;  (** Ensures of the mode. *)
+
+  candidate: bool ;     (** Is this mode a candidate?. *)
 }
+
 (** Creates a [mode]. *)
 val mk_mode:
   LustreIdent.t -> Lib.position -> string list ->
@@ -75,14 +75,17 @@ val mk_mode:
 
 (** Type of contracts. *)
 type t = {
-  (** Assumptions of the contract. *)
   assumes: svar list ;
-  (** State variable to model Sofar(/\ assumes) *)
+  (** Assumptions of the contract. *)
+
   sofar_assump: StateVar.t ;
-  (** Guarantees of the contract (boolean is the [candidate] flag). *)
+  (** State variable to model Sofar(/\ assumes) *)
+
   guarantees: (svar * bool) list ;
-  (** Modes of the contract. *)
+  (** Guarantees of the contract (boolean is the [candidate] flag). *)
+
   modes: mode list ;
+  (** Modes of the contract. *)
 }
 
 (** Creates a new contract from a set of assumes, a set of guarantess, and a
@@ -114,12 +117,16 @@ val pp_print_contract: bool -> Format.formatter -> t -> unit
 module ModeTrace: sig
   (** A mode tree: hierarchical organization of modes. *)
   type mode_tree
+
   (** Turns a list of mode paths into a mode tree. *)
   val mode_paths_to_tree: mode list -> mode_tree
+
   (** Turns a trace of lists of mode paths into a trace of trees. *)
   val mode_trace_to_tree: mode list list -> mode_tree list
+
   (** Formats a tree as a cex step in xml. *)
   val fmt_as_cex_step_xml: Format.formatter -> mode_tree -> unit
+  
   (** Formats a tree as a cex step in JSON *)
   val fmt_as_cex_step_json: Format.formatter -> mode_tree -> unit
 end

@@ -40,16 +40,22 @@ type sys = Sys.t
 module type RulesSig = sig
   (** Information produced by state variable rules. *)
   type svar_info
+
   (** Information produced by flat rules. *)
   type flat_info
+
   (** Complimentary set of candidates. *)
   val comp_set : sys -> set
+
   (** Applies the state variable rules. *)
   val svar_rules : bool -> svar list -> set -> set * svar_info
+
   (** Applies post svar treatment rules. *)
   val post_svars : bool -> (set * svar_info) -> set * flat_info
+
   (** Applies the flat term rules. *)
   val flat_rules : bool -> flat -> (set * flat_info) -> set * flat_info
+  
   (** Applies postprocessing rules. *)
   val post_rules : bool -> svar_info -> flat_info -> set -> set
 end
@@ -63,8 +69,10 @@ let bump = Term.bump_state
 
 (* Numeral zero. *)
 let zero = Num.zero
+
 (* Numeral one. *)
 let one = Num.one
+
 (* Numeral minus one. *)
 let m_one = Num.( ~- one )
 

@@ -52,6 +52,7 @@ let sys_name sys =
 
 (** Counter for actlit's uids. *)
 let actlit_uid = ref 0
+
 (** Maximal number of actlit created before solvers are reset. *)
 let max_actlit_count_before_reset = 50
 

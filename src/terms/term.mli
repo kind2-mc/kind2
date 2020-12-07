@@ -140,7 +140,7 @@ val mk_dec_of_float : float -> t
 *)
 
 
-(**@author Arjun Viswanathan*)
+(* @author Arjun Viswanathan*)
 (** Create a constant unsigned bitvector *)
 val mk_ubv : Bitvector.t -> t
 
