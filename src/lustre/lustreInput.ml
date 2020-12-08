@@ -21,6 +21,7 @@ open Lexing
 open MenhirLib.General
    
 module LA = LustreAst
+module LH = LustreAstHelpers
 module LN = LustreNode
 module LC = LustreContext
 module LD = LustreDeclarations
@@ -30,7 +31,13 @@ module LL = LustreLexer
 module LPMI = LustreParser.MenhirInterpreter
 module LPE = LustreParserErrors
 module TC = LustreTypeChecker
+module TCContext = TypeCheckerContext
+module IC = LustreAstInlineConstants
+module AD = LustreAstDependencies
 
+let (>>=) = Res.(>>=)
+let (>>) = Res.(>>)
+          
 exception NoMainNode of string
 
 (* The parser has succeeded and produced a semantic value.*)
@@ -105,19 +112,58 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
 let of_channel in_ch =
   (* Get declarations from channel. *)
   let declarations = ast_of_channel in_ch in
-  
-  (* optional type checker pass*) 
-  if not (Flags.no_tc ())
-  then
-    (Log.log L_note "(Experimental) Typechecking enabled."
-    ; match TC.type_check_program declarations with
-      | Ok () -> Log.log L_note "No type errors found!"
-               ; (if Flags.only_tc () then exit 0)
-      | Error (pos, err) -> LC.fail_at_position pos err)
-  
+
+  let declarations': LA.t =
+    (* optional type checking and reordering with dependency analysis pass*) 
+    if Flags.no_tc ()
+     then declarations
+     else 
+       let tc_res =  
+         (Log.log L_note "(Experimental) Typechecking enabled."
+
+         (* Step 0. Split program into top level const and type delcs, and node/contract decls *)
+         ; let (const_type_decls, node_contract_src) = LH.split_program declarations in
+
+           (* Step 1. Dependency analysis on the top level declarations.  *)
+           AD.sort_globals const_type_decls >>= fun sorted_const_type_decls ->
+
+           (* Step 2. Type check top level declarations *)
+           TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls >>= fun ctx -> 
+
+           (* Step 3: Inline type toplevel decls *)
+           IC.inline_constants ctx sorted_const_type_decls >>= fun (inlined_ctx, const_inlined_type_and_consts) -> 
+
+           (* Step 4. Dependency analysis on nodes and contracts *)
+           AD.sort_and_check_nodes_contracts node_contract_src >>= fun sorted_node_contract_decls ->  
+
+           (* Step 5. type check nodes and contracts *)
+           TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls >>
+             
+           (* Step 6. Inline constants in node equations *)
+           IC.inline_constants ctx sorted_node_contract_decls >>= fun (_, const_inlined_nodes_and_contracts) ->
+           
+           (* The last node in the original ordering should remain the last node after sorting 
+              as the user expects that to be the main node in the case where 
+              no explicit annotations are provided. The reason we do this is because 
+              it is difficut to make the topological sort stable *)
+           
+           (* reverse the list and find the name of the first node declaration from the original list *)
+           let last_node = LH.get_last_node_name (declarations) in
+           (match last_node with
+            | None -> Res.ok (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts)
+            | Some ln ->
+               Log.log L_trace "last node is: %a"  LA.pp_print_ident ln 
+              ; Res.ok (const_inlined_type_and_consts
+                        @ LH.move_node_to_last ln (const_inlined_nodes_and_contracts))) 
+         ) in
+       match tc_res with
+       | Ok d -> Log.log L_note "Type checking done"
+               ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_program d
+               ;   (if Flags.only_tc () then exit 0); d  
+       | Error (pos, err) -> LC.fail_at_position pos err in 
   
   (* Simplify declarations to a list of nodes *)
-  ; let nodes, globals = LD.declarations_to_nodes declarations in
+  let nodes, globals = LD.declarations_to_nodes declarations' in
   (* Name of main node *)
   let main_node = 
     (* Command-line flag for main node given? *)
@@ -132,8 +178,8 @@ let of_channel in_ch =
           LustreNode.find_main nodes 
         (* No main node found
             This only happens when there are no nodes in the input. *)
-         with Not_found -> 
-           raise (NoMainNode "No main node defined in input"))
+        with Not_found -> 
+          raise (NoMainNode "No main node defined in input"))
   in
   (* Put main node at the head of the list of nodes *)
   let nodes' = 

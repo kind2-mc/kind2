@@ -21,7 +21,7 @@ open Lib
 open LustreAst
 
 type iset = LustreAst.SI.t
-   
+          
 let error_at_position pos msg =
   match Log.get_log_format () with
   | Log.F_pt ->
@@ -653,17 +653,17 @@ let vars_lhs_of_eqn: node_item -> iset = function
   | Body (Equation (_, StructDef (_, ss), _)) -> SI.flatten (List.map vars_of_struct_item ss)
   | _ -> SI.empty
 
-(** Return an ast that adds two expressions*)
+
 let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
   BinaryOp (pos, Plus, e1, e2)
+(** Return an ast that adds two expressions*)
 
-(** returns an ast which is the absolute difference of two expr ast*)
 let abs_diff: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
   TernaryOp (pos, Ite,
              CompOp (pos, Gte, e1, e2)
              , BinaryOp (pos, Minus, e1, e2)
              , BinaryOp (pos, Minus, e2, e1))
-
+(** returns an ast which is the absolute difference of two expr ast*)
 
 let extract_ip_ty: const_clocked_typed_decl -> ident * lustre_type
   = fun  (_, i, ty, _, _) -> (i, ty)
@@ -732,4 +732,252 @@ let is_machine_type_of_associated_width: (lustre_type * lustre_type) -> bool
     | UInt16 _,UInt16 _   
     | UInt32 _, UInt32 _   
     | UInt64 _, UInt64 _ -> true
-  | _ -> false    
+  | _ -> false
+       
+let is_type_or_const_decl: declaration -> bool = 
+  function
+  | TypeDecl _
+    | ConstDecl _ -> true
+  | _ -> false
+
+let split_program: declaration list -> (declaration list * declaration list)
+  = List.fold_left
+      (fun (ds, ds') d ->
+        if is_type_or_const_decl d then (d::ds, ds')
+        else (ds, d::ds')) ([], [])  
+(** Splits program into type and constant decls and rest of the program *)
+
+
+let rec replace_with_constants: expr -> expr =
+  let c p = Const(p, Num "42") in
+  function
+  | Ident(p, e) -> c p 
+    | ModeRef _ as e -> e 
+  | RecordProject (p, e, i) -> RecordProject (p, replace_with_constants e, i)  
+  | TupleProject (p, e, i) -> TupleProject (p, replace_with_constants e, i)
+  (* Values *)
+  | Const _ as e -> e
+
+  (* Operators *)
+  | UnaryOp (p, op, e) -> UnaryOp (p, op, replace_with_constants e)
+  | BinaryOp (p, op,e1, e2) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     BinaryOp (p, op, e1', e2') 
+  | TernaryOp (p, op, e1, e2, e3) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     let e3' = replace_with_constants e3 in
+     TernaryOp (p, op, e1', e2', e3')
+  | NArityOp (p, op,es) -> NArityOp (p, op, List.map replace_with_constants es) 
+  | ConvOp  (p, op, e) -> ConvOp (p, op, replace_with_constants e)
+  | CompOp (p, op, e1, e2) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     CompOp (p, op, e1', e2')
+
+  (* Structured expressions *)
+  | RecordExpr (p, i, flds) -> RecordExpr (p, i, (List.map (fun (f, e) -> (f, replace_with_constants e)) flds))
+  | GroupExpr (p, g, es) -> GroupExpr (p, g, List.map replace_with_constants es)
+
+  (* Update of structured expressions *)
+  | StructUpdate (p, e1, i, e2) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     StructUpdate (p, e1', i, e2') 
+
+  | ArrayConstr (p, e1, e2) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     ArrayConstr (p, e1', e2') 
+
+  | ArrayConcat (p, e1, e2) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     ArrayConcat (p, e1', e2') 
+
+  | ArrayIndex (p, e1, e2) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     ArrayIndex (p, e1', e2') 
+
+  | ArraySlice (p, e1, (e2, e3)) ->
+     let e1' = replace_with_constants e1 in
+     let e2' = replace_with_constants e2 in
+     let e3' = replace_with_constants e3 in
+     ArraySlice (p, e1', (e2', e3'))
+
+  (* Quantified expressions *)
+  | Quantifier (p, q, qs, e) ->
+     Quantifier (p, q, qs, replace_with_constants e)
+
+   (* Clock operators *)
+   | When (p, e, c) -> When (p, replace_with_constants e, c) 
+   | Current  (p, e) -> Current  (p, replace_with_constants e) 
+   | Condact (p, e1, e2, i, es1, es2) ->
+      Condact (p, replace_with_constants e1
+               , replace_with_constants e2
+               , i
+               , List.map replace_with_constants es1
+               , List.map replace_with_constants es2)
+   | Activate (p, i, e1, e2, es) ->
+      Activate(p, i
+               , replace_with_constants e1
+               , replace_with_constants e2
+               , List.map replace_with_constants es)
+   | Merge (p, i, es) ->
+      Merge (p, i, List.map (fun (i, e) -> i, replace_with_constants e) es)
+   | RestartEvery (p, i, es, e) ->
+      RestartEvery (p, i, List.map replace_with_constants es, replace_with_constants e)
+
+  (* Temporal operators *)
+  | Pre (p, e) -> replace_with_constants e
+  | Last _ as e -> e
+  | Fby (p, e1, i, e2) ->
+     Fby (p, replace_with_constants e1, i, replace_with_constants e2)
+  | Arrow (p, e1, e2) ->  Arrow (p, replace_with_constants e1, replace_with_constants e2)
+
+  (* Node calls *)
+  | Call (p, i, es) -> Call (p, i, List.map replace_with_constants es) 
+  | CallParam (p, i, tys, es) -> CallParam (p, i, tys, List.map replace_with_constants es) 
+
+(** replaces all the identifiers with constants. This is structure preserving
+and is used inside abstract_pre_subexpressions *)
+
+  
+let rec abstract_pre_subexpressions: expr -> expr = function
+  | Ident _ 
+    | ModeRef _ as e -> e 
+  | RecordProject (p, e, i) -> RecordProject (p, abstract_pre_subexpressions e, i)  
+  | TupleProject (p, e, i) -> TupleProject (p, abstract_pre_subexpressions e, i)
+  (* Values *)
+  | Const _ as e -> e
+
+  (* Operators *)
+  | UnaryOp (p, op, e) -> UnaryOp (p, op, abstract_pre_subexpressions e)
+  | BinaryOp (p, op,e1, e2) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     BinaryOp (p, op, e1', e2') 
+  | TernaryOp (p, op, e1, e2, e3) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     let e3' = abstract_pre_subexpressions e3 in
+     TernaryOp (p, op, e1', e2', e3')
+  | NArityOp (p, op,es) -> NArityOp (p, op, List.map abstract_pre_subexpressions es) 
+  | ConvOp  (p, op, e) -> ConvOp (p, op, abstract_pre_subexpressions e)
+  | CompOp (p, op, e1, e2) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     CompOp (p, op, e1', e2')
+
+  (* Structured expressions *)
+  | RecordExpr (p, i, flds) -> RecordExpr (p, i, (List.map (fun (f, e) -> (f, abstract_pre_subexpressions e)) flds))
+  | GroupExpr (p, g, es) -> GroupExpr (p, g, List.map abstract_pre_subexpressions es)
+
+  (* Update of structured expressions *)
+  | StructUpdate (p, e1, i, e2) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     StructUpdate (p, e1', i, e2') 
+
+  | ArrayConstr (p, e1, e2) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     ArrayConstr (p, e1', e2') 
+
+  | ArrayConcat (p, e1, e2) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     ArrayConcat (p, e1', e2') 
+
+  | ArrayIndex (p, e1, e2) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     ArrayIndex (p, e1', e2') 
+
+  | ArraySlice (p, e1, (e2, e3)) ->
+     let e1' = abstract_pre_subexpressions e1 in
+     let e2' = abstract_pre_subexpressions e2 in
+     let e3' = abstract_pre_subexpressions e3 in
+     ArraySlice (p, e1', (e2', e3'))
+
+  (* Quantified expressions *)
+  | Quantifier (p, q, qs, e) ->
+     Quantifier (p, q, qs, abstract_pre_subexpressions e)
+
+   (* Clock operators *)
+   | When (p, e, c) -> When (p, abstract_pre_subexpressions e, c) 
+   | Current  (p, e) -> Current  (p, abstract_pre_subexpressions e) 
+   | Condact (p, e1, e2, i, es1, es2) ->
+      Condact (p, abstract_pre_subexpressions e1
+               , abstract_pre_subexpressions e2
+               , i
+               , List.map abstract_pre_subexpressions es1
+               , List.map abstract_pre_subexpressions es2)
+   | Activate (p, i, e1, e2, es) ->
+      Activate(p, i
+               , abstract_pre_subexpressions e1
+               , abstract_pre_subexpressions e2
+               , List.map abstract_pre_subexpressions es)
+   | Merge (p, i, es) ->
+      Merge (p, i, List.map (fun (i, e) -> i, abstract_pre_subexpressions e) es)
+   | RestartEvery (p, i, es, e) ->
+      RestartEvery (p, i, List.map abstract_pre_subexpressions es, abstract_pre_subexpressions e)
+
+  (* Temporal operators *)
+  | Pre (p, e) -> Pre(p, replace_with_constants e)
+  | Last _ as e -> e
+  | Fby (p, e1, i, e2) ->
+     Fby (p, abstract_pre_subexpressions e1, i, abstract_pre_subexpressions e2)
+  | Arrow (p, e1, e2) ->  Arrow (p, abstract_pre_subexpressions e1, abstract_pre_subexpressions e2)
+
+  (* Node calls *)
+  | Call (p, i, es) -> Call (p, i, List.map abstract_pre_subexpressions es) 
+  | CallParam (p, i, tys, es) -> CallParam (p, i, tys, List.map abstract_pre_subexpressions es) 
+                                   
+    
+let extract_node_equation: node_item -> (eq_lhs * expr) list =
+  function
+  | Body (Equation (_, lhs, expr)) -> [(lhs, expr)]
+  | _ -> []
+
+let get_last_node_name: declaration list -> ident option
+  = fun ds -> 
+  let rec get_first_node_name: declaration list -> ident option =
+    function
+    | [] -> None
+    | NodeDecl (_, (n, _, _, _, _, _, _, _)) :: rest -> Some n
+    | _ :: rest -> get_first_node_name rest
+  in get_first_node_name (List.rev ds)   
+
+let rec remove_node_in_declarations:
+          ident ->
+          declaration list ->
+          declaration list ->
+          (declaration * declaration list) option =
+  fun n pres ->
+  function
+  | [] -> None
+  | (NodeDecl (_, (n', _, _, _, _, _, _, _)) as mn) :: rest ->
+     if Stdlib.compare n' n = 0
+     then Some (mn, pres @ rest)
+     else remove_node_in_declarations n (pres @ [mn]) rest 
+  | d :: rest -> remove_node_in_declarations n (pres @ [d]) rest 
+  
+               
+let move_node_to_last: ident -> declaration list -> declaration list = 
+  fun n ds ->
+  match (remove_node_in_declarations n [] ds) with
+  | Some (mn, ds') -> ds' @ [mn]
+  | None -> failwith ("Could not find main node " ^ n)
+
+
+let sort_typed_ident: typed_ident list -> typed_ident list = fun ty_idents ->
+  List.sort (fun (_,i1,_) (_,i2,_) -> Stdlib.compare i1 i2) ty_idents
+(** Sort identifiers  *)
+
+let sort_idents: ident list -> ident list = fun ids ->
+  List.sort (fun i1 i2 -> Stdlib.compare i1 i2) ids
+(** sort typed identifiers *)
+      

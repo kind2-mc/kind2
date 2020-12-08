@@ -15,7 +15,7 @@
    permissions and limitations under the License. 
 
  *)
-(** A poor person's graph and graph traversal implementations
+(** A poor person's acyclic directed graph and some graph traversal implementations
    
    @author Apoorv Ingle *)
 
@@ -27,6 +27,7 @@ end
                         
 exception IllegalGraphOperation
 (** The exception raised when an illegal edge is added *)
+
 exception CyclicGraphException of string list
 (** The exception raised when topological sort is tried on cyclic graph  *)
 
@@ -35,7 +36,7 @@ module type S = sig
   
   type vertex
   (** The vertex type *)
-    
+     
   type edge
   (** The edge type to represent line between two vertices *)
 
@@ -53,7 +54,7 @@ module type S = sig
 
   val is_vertex_target: edge -> vertex -> bool
   (** Checks if the [vertex] is the target [vertex] *)
-    
+
   type vertices
   (** Set of vertices *)
 
@@ -63,10 +64,10 @@ module type S = sig
   type t
   (** The graph type  *)
 
-  val empty:  t
+  val empty: t
   (** The empty graph  *)
 
-  val is_empty:  t -> bool
+  val is_empty: t -> bool
   (** Check if the graph is empty *)
 
   val singleton: vertex -> t
@@ -75,16 +76,28 @@ module type S = sig
   val is_singleton: t -> bool
   (** returns true if the graph has only one vertex *)
     
-  val add_vertex:  t ->  vertex ->  t
+  val add_vertex: t ->  vertex ->  t
   (** Add a [vertex] to a graph  *)
 
-  val add_edge:  t ->  edge ->  t
+  val mem_vertex: t -> vertex -> bool
+  (** returns true if the vertex is in the graph *)
+
+  val get_vertices: t -> vertices
+  (** get all vertices in the graph *)
+
+  val to_vertex_list: vertices -> vertex list
+  (** Returns a list of vertex  *)
+
+  val add_edge: t ->  edge ->  t
   (** Add an [edge] to a graph  *)
 
   val remove_vertex: t ->  vertex ->  t
   (** Remove the [vertex] and its associated [edges] from the graph *)
 
-  val remove_edge:  t ->  edge ->  t
+  val remove_vertices: t -> vertex list -> t
+  (** Remove the [vertex list] and its associated [edges] from the graph *)
+
+  val remove_edge: t ->  edge ->  t
   (** Remove an [edge] from a graph *)                             
 
   val connect: t -> vertex -> t
@@ -92,27 +105,45 @@ module type S = sig
 
   val is_point_graph: t -> bool
   (** Returns true if the graph has no edges *)
-
+    
   val union: t -> t -> t
   (** Unions two graphs *)
 
   val sub_graph: t -> vertices -> t    
+  (** Gets a subgraph along with appropriate edges of given graph from a given set of vertices *)
 
+  val map: (vertex -> vertex) -> t -> t
+  (** Maps the [vertices] using the argument mapping, the structure should remain intact.
+     Caution: The callee function (or the programmer) is supposed to make sure 
+     it is not a surjective mapping to make sure that the graph structure is preserved. *)
+
+  (** {1 Graph Traversals}  *)
+    
   val topological_sort:  t ->  vertex list
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
-   *  Implimentation is of this function is based on Kahn's algorithm *)
+   *  Implimentation is of this function is based on Kahn's algorithm *)    
 
+  val reachable: t -> vertex -> vertices
+  (** Finds all the [vertices] that are rechable from the given [vertex] in a graph *)
+
+
+  (** {1 Pretty Printers}  *)
+    
   val pp_print_vertex: Format.formatter -> vertex -> unit
   (** Pretty print a vertex *)
 
   val pp_print_vertices: Format.formatter -> vertices -> unit
+  (** Pretty print all the vertices  *)
 
   val pp_print_edge: Format.formatter -> edge -> unit
-
+  (** Pretty print one [edge]  *)
+    
   val pp_print_edges: Format.formatter -> edges -> unit
-
+  (** Pretty print all the [edges]  *)
+    
   val pp_print_graph: Format.formatter -> t -> unit
+  (** Pretty print the graph i.e. its [vertices] and its [edges]. *)
 
 end
 
@@ -221,6 +252,9 @@ module Make (Ord: OrderedType) = struct
     = fun (vs, es) v -> (VSet.add v vs,  es) 
   (** add avertex to a graph  *)
 
+  let mem_vertex: t -> vertex -> bool
+    = fun (vs, es) v -> VSet.mem v vs
+    
   let add_edge: t -> edge -> t
     = fun (vs, es) (src, tgt) ->
     if VSet.mem src vs && VSet.mem tgt vs
@@ -237,10 +271,17 @@ module Make (Ord: OrderedType) = struct
     , ESet.filter (fun e -> not (is_vertex_in_edge e v)) es)           
   (** Remove the [vertex] and its associated [edges] from the graph *)
 
+  let remove_vertices: t -> vertex list -> t
+    = fun g vs -> List.fold_left remove_vertex g vs 
+  (** Remove the [vertex list] and its associated [edges] from the graph *)
+    
   let remove_edge:  t ->  edge ->  t
     = fun (vs, es) e -> (vs, ESet.remove e es) 
   (** Remove an [edge] from a graph *)                             
 
+  let remove_edges: t -> edges -> t
+    = fun (vs, es) es' -> (vs, ESet.diff es es') 
+                      
   let non_target_vertices: t -> vertices
     = fun (vs, es) ->
     VSet.filter (fun v -> ESet.for_all (fun e -> not (is_vertex_target e v)) es) vs
@@ -264,14 +305,24 @@ module Make (Ord: OrderedType) = struct
     ( vs
     , ESet.filter (fun (src, tgt) -> VSet.mem src vs && VSet.mem tgt vs)
         (get_edges g))
-  (** Gets a subgraph of given graph from a given set of vertices *)
+  (** Gets a subgraph with appropriate edges of given graph from a given set of vertices *)
                                           
   let is_point_graph: t -> bool = fun (vs, es) ->
     ESet.is_empty es
+  (** Returns true if the graph has no edges *)
     
   let union: t -> t -> t = fun (v1s, e1s) (v2s, e2s) ->
     (VSet.union v1s v2s, ESet.union e1s e2s) 
   (** Unions two graphs *)
+
+  let map: (vertex -> vertex) -> t -> t = fun f (vs, es) ->
+    let map_edge: (vertex -> vertex) -> edge -> edge = fun f (s, t) -> (f s, f t) in 
+    let vs' = VSet.map f vs in
+    let es' = ESet.map (map_edge f) es in
+    (vs', es')
+  (** Maps the [vertices] using the argument mapping, the structure should remain intact.
+     Caution: The callee function (or the programmer) is supposed to make sure 
+     it is not a surjective mapping to make sure that the graph structure is preserved. *)
     
   let topological_sort: t -> vertex list = fun ((vs, es) as g) ->
     let rec topological_sort_helper: t -> vertex list -> vertex list
@@ -283,7 +334,7 @@ module Make (Ord: OrderedType) = struct
         pp_print_graph g	
         (Lib.pp_print_list pp_print_vertex ",") sorted_vs	
         pp_print_vertices no_outgoing_vs ;
-      (** graph is empty case *)
+      (* graph is empty case *)
       if VSet.is_empty no_outgoing_vs
       then if not (is_empty g)
            then raise (CyclicGraphException
@@ -298,4 +349,39 @@ module Make (Ord: OrderedType) = struct
    *  Implimentation is based on Kahn's algorithm 
    * https://en.wikipedia.org/wiki/Topological_sorting *)
 
+  let reachable: t -> vertex -> vertices =
+    fun ((vs, es) as g) origin_v ->
+
+    let rec reachable_from_aux: vertices -> vertex -> t -> vertices
+      = fun acc sv ((vs, es)  as g) ->
+      Log.log L_trace
+        "-----------\nGraph state:\n %a\naccumulated vertices: %a\n current vertex vertices: %a\n-------------"	
+        pp_print_graph g	
+        (Lib.pp_print_list pp_print_vertex ",") (VSet.elements acc)	
+        pp_print_vertex sv
+      ; if VSet.mem sv acc
+        then acc (* we have already visited this vertex so skip *)
+        else
+          (* get all edges that have sv as source *)
+          let new_edgs = (ESet.filter (Lib.flip is_vertex_source sv) es) in
+          let vs' = List.map (get_target_vertex) (ESet.elements new_edgs) in
+          (* Get the new vertices to be analysed  *)
+          let new_vs = (VSet.diff (VSet.of_list vs') acc) in
+          VSet.flatten (List.map (fun v ->
+                            VSet.add v (reachable_from_aux
+                                          (VSet.union acc (VSet.remove v new_vs))
+                                          v
+                                          (remove_edges g new_edgs))) (VSet.elements new_vs)) in  
+    if (VSet.mem origin_v vs) then
+      let vs' = VSet.add origin_v (reachable_from_aux VSet.empty origin_v g) in
+      Log.log L_trace "cumulative reachable from %a are %a"
+        pp_print_vertex origin_v
+        pp_print_vertices vs'
+      ; vs'
+    else VSet.empty
+  (** Returns all the vertices rechable from the input vertex 
+      in the graph using iterative deepening method *)
+
+  let to_vertex_list: vertices -> vertex list = VSet.elements
+  (** returns a list of vertex *)
 end

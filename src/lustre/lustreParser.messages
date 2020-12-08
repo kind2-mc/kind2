@@ -5797,7 +5797,7 @@ main: CONST XOR
 ## CONST
 ##
 
-Syntax Error!
+Syntax Error! Incomplete constant declaration.
 
 main: CONTRACT WEAKLY LPARAMBRACKET RPARAMBRACKET XOR
 ##
@@ -13419,7 +13419,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET XOR
 ## list(node_local_decl) LET
 ##
 
-Syntax Error! List of expressions cannot be on the left hand side of the equation. 
+Syntax Error! Illegal left hand side of the equation.
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON CONDACT
 ##
@@ -13495,7 +13495,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN VAR XOR
 ## VAR
 ##
 
-Syntax Error!
+Syntax Error! Illegal name for a variable declaration.
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN XOR
 ##
@@ -13938,7 +13938,7 @@ main: TYPE XOR
 ## TYPE
 ##
 
-Syntax Error! Reserved terms cannot appear on left hand side of the equation.
+Syntax Error! Incomplete type declaration.
 
 main: XOR
 ##

@@ -1,0 +1,10 @@
+node n(x:int) returns (y:int);
+let
+        y = x;
+tel;
+
+contract c(x: int) returns (y: int);
+let
+   var v:int = c;
+   var c:int = n(v) + 1;
+tel

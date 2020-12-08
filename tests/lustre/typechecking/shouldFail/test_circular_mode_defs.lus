@@ -1,0 +1,8 @@
+contract topSpec(x: int) returns (y: int);
+let
+   mode m1
+   (require ::m2;);
+
+   mode m2
+   (require ::m1;);
+tel

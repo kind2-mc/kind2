@@ -1,0 +1,14 @@
+contract topSpec(x: int) returns (y: int);
+let
+    guarantee x=y;
+    assume n(x) = y; 
+tel
+
+
+node n (x: int) returns (y: int);
+(*@contract
+    import topSpec(x) returns (y);
+*)     
+let
+    x = y;
+tel;

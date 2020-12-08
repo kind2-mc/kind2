@@ -127,6 +127,7 @@ Dependency graph of modules {%html: <img src="include/lustre-frontend.png"> %}
   LustreAst
   LustreAstHelpers
   LustreAstDependencies
+  TypeCheckerContext
   LustreDependencies
   LustreTypeChecker
   LustreIdent

@@ -1,0 +1,14 @@
+node b (x:int) returns (y: int)
+var av: int;
+var bv: int;
+let
+av = a(bv);
+bv = a(av); -- this should fail
+y = x;
+tel
+
+node a (x: int) returns (y: int)
+let
+y = x;
+tel
+

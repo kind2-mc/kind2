@@ -408,7 +408,14 @@ let rec list_apply: ('a -> 'b) list -> 'a -> 'b list = fun fs arg ->
   match fs with
   | [] -> []
   | f :: rest -> f arg :: (list_apply rest arg)  
-         
+
+let rec drop_last: 'a list -> 'a list
+  = function
+  | [] -> failwith "drop_last"
+  | [e] -> []
+  | e :: r -> e :: drop_last r
+
+               
 
 (* ********************************************************************** *)
 (* Array functions                                                        *)
@@ -573,7 +580,6 @@ let string_of_t pp t =
   
   (* Return the buffer contents *)
   Buffer.contents buf
-
 
 (* Return the strings as a parenthesized and space separated list *)
 let paren_string_of_string_list list =

@@ -15,12 +15,13 @@
    permissions and limitations under the License. 
 
  *)
-(** A poor person's acyclic directred graph and its topological sort
+(** A poor person's acyclic directed graph and some graph traversal implementations
    
    @author Apoorv Ingle *)
 
 exception IllegalGraphOperation
 (** The exception raised when an illegal edge is added *)
+
 exception CyclicGraphException of string list
 (** The exception raised when topological sort is tried on cyclic graph  *)
 
@@ -29,12 +30,13 @@ module type OrderedType = sig
   val compare: t -> t -> int
   val pp_print_t: Format.formatter -> t -> unit
 end
-
+(** The vertices should be have some ordering *)
+                        
 module type S = sig
   
   type vertex
   (** The vertex type *)
-    
+     
   type edge
   (** The edge type to represent line between two vertices *)
 
@@ -73,15 +75,28 @@ module type S = sig
 
   val is_singleton: t -> bool
   (** returns true if the graph has only one vertex *)
-  
+    
   val add_vertex: t ->  vertex ->  t
   (** Add a [vertex] to a graph  *)
+
+  val mem_vertex: t -> vertex -> bool
+  (** returns true if the vertex is in the graph *)
+
+  val get_vertices: t -> vertices
+  (** get all vertices in the graph *)
+
+  val to_vertex_list: vertices -> vertex list
+  (** Returns a list of vertex  *)
 
   val add_edge: t ->  edge ->  t
   (** Add an [edge] to a graph  *)
 
   val remove_vertex: t ->  vertex ->  t
   (** Remove the [vertex] and its associated [edges] from the graph *)
+
+  val remove_vertices: t -> vertex list -> t
+  (** Remove the [vertex list] and its associated [edges] from the graph *)
+
   val remove_edge: t ->  edge ->  t
   (** Remove an [edge] from a graph *)                             
 
@@ -95,23 +110,43 @@ module type S = sig
   (** Unions two graphs *)
 
   val sub_graph: t -> vertices -> t    
+  (** Gets a subgraph along with appropriate edges of given graph from a given set of vertices *)
 
+  val map: (vertex -> vertex) -> t -> t
+  (** Maps the [vertices] using the argument mapping, the structure should remain intact.
+     Caution: The callee function (or the programmer) is supposed to make sure 
+     it is not a surjective mapping to make sure that the graph structure is preserved. *)
+
+  (** {1 Graph Traversals}  *)
+    
   val topological_sort:  t ->  vertex list
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
-   *  Implimentation is of this function is based on Kahn's algorithm *)
+   *  Implimentation is of this function is based on Kahn's algorithm *)    
+
+  val reachable: t -> vertex -> vertices
+  (** Finds all the [vertices] that are rechable from the given [vertex] in a graph *)
+
+
+  (** {1 Pretty Printers}  *)
     
   val pp_print_vertex: Format.formatter -> vertex -> unit
   (** Pretty print a vertex *)
 
   val pp_print_vertices: Format.formatter -> vertices -> unit
+  (** Pretty print all the vertices  *)
 
   val pp_print_edge: Format.formatter -> edge -> unit
-
-  val pp_print_edges: Format.formatter -> edges -> unit
-
-  val pp_print_graph: Format.formatter -> t -> unit
+  (** Pretty print one [edge]  *)
     
+  val pp_print_edges: Format.formatter -> edges -> unit
+  (** Pretty print all the [edges]  *)
+    
+  val pp_print_graph: Format.formatter -> t -> unit
+  (** Pretty print the graph i.e. its [vertices] and its [edges]. *)
+
 end
+(** The Graph methods that this module supports. *)
               
 module Make (Ord: OrderedType): S with type vertex = Ord.t
+(**  Makes a graph module given an ordred type. *)

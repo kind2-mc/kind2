@@ -20,20 +20,24 @@
     @author Apoorv Ingle *)
 
 module LA = LustreAst
-
+open TypeCheckerContext
+         
 type 'a tc_result = ('a, Lib.position * string) result
 (** The typechecking can either be [Ok] will be an [Error] with some helpful message *)
 
-type tc_context
-(** The type checker context *)
+val type_error: Lib.position -> string -> 'a tc_result 
+(** [type_error] returns an [Error] of [tc_result] *)
+     
+val type_check_infer_globals: tc_context -> LA.t -> tc_context tc_result  
+(** Typechecks the toplevel globals i.e. constant decls and type decls. It returns 
+    a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
-val empty_context: tc_context
-   
-val type_check_program: LA.t -> unit tc_result  
-(** Typecheck a complete program and return the result *)
-
+val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> tc_context tc_result
+(** Typechecks and infers type for the nodes and contracts. It returns
+    a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
+  
 val report_tc_result: unit tc_result list -> unit tc_result
-(** Report whether everything is [Ok] or [NotOk] *)
+(** Report whether everything is [Ok] or if there are any [Error]s *)
 
 (* 
    Local Variables:

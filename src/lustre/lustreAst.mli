@@ -372,6 +372,7 @@ val pp_print_node_local_decl_const :
 val pp_print_node_local_decl :
   Format.formatter -> node_local_decl list -> unit
 val pp_print_struct_item : Format.formatter -> struct_item -> unit
+val pp_print_eq_lhs: Format.formatter -> eq_lhs -> unit
 val pp_print_node_body: Format.formatter -> node_equation -> unit
 val pp_print_node_item : Format.formatter -> node_item -> unit
 val pp_print_declaration : Format.formatter -> declaration -> unit
@@ -379,7 +380,7 @@ val pp_print_program : Format.formatter -> t -> unit
 
 val pp_print_contract_item : Format.formatter -> contract_node_equation -> unit
 val pp_print_contract_node_decl : Format.formatter -> contract_node_decl -> unit
-
+val string_of_expr: expr -> string
 (* 
    Local Variables:
    compile-command: "make -k -C .."

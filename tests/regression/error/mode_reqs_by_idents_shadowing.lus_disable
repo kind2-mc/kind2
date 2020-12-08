@@ -45,7 +45,7 @@ node my_node (in: int ; in_pos: int) returns (out: int) ;
     ensure out = in ;
   ) ;
 
-  mode in_pos (
+  mode in_pos (  -- this should fail
     require in >= 0 ;
     ensure out >= 0 ;
     ensure true -> (

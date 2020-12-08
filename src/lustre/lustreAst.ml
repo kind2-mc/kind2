@@ -1168,6 +1168,8 @@ let pp_print_program ppf p =
     (pp_print_list pp_print_declaration "@ ") 
     p
 
+let string_of_expr e = string_of_t pp_print_expr e 
+    
 (* 
    Local Variables:
    compile-command: "make -k -C .."
