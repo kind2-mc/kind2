@@ -19,6 +19,8 @@
    
    @author Apoorv Ingle *)
 
+module QId = LustreAstIdent
+           
 open OUnit2
 
 module G = Graph.Make(struct
@@ -27,9 +29,9 @@ module G = Graph.Make(struct
                let pp_print_t = LustreAst.pp_print_ident 
              end)
 
-let v0 = "v0"
-let v1 = "v1"
-let v2 = "v2"
+let v0 = QId.from_string "v0"
+let v1 = QId.from_string "v1"
+let v2 = QId.from_string "v2"
                          
 let singleton_g = G.add_vertex G.empty v0
 let dos_g = G.add_vertex singleton_g v1
@@ -46,7 +48,7 @@ let basic_tests =
   
   ; "sorted dos" >:: (fun _ -> assert_equal [v0;v1] (G.topological_sort dos_connected_g))
   ; "cyclic dos" >:: (fun _ -> assert_raises
-                                 (Graph.CyclicGraphException [v0; v1])
+                                 (Graph.CyclicGraphException [QId.to_string v0; QId.to_string v1])
                                  (fun _ -> G.topological_sort dos_cycle_g))
   ]
 
@@ -54,13 +56,13 @@ let rechability_tests =
   [
     "reachable singleton" >:: (fun _ ->
       assert_equal [v0] (G.to_vertex_list (G.reachable singleton_g v0))
-        ~printer:(Lib.string_of_t (Format.pp_print_list Format.pp_print_string) ))
+        ~printer:(Lib.string_of_t (Format.pp_print_list QId.pp_print_ident) ))
   ; "reachable cycle graph" >:: (fun _ ->
     assert_equal [v0;v1] (G.to_vertex_list (G.reachable dos_cycle_g v0))
-      ~printer:(Lib.string_of_t (Format.pp_print_list Format.pp_print_string) ))
+      ~printer:(Lib.string_of_t (Format.pp_print_list QId.pp_print_ident) ))
   ; "reachable cycle graph2" >:: (fun _ ->
     assert_equal [v0;v1;v2] (G.to_vertex_list (G.reachable cycle_and_one_more v0))
-      ~printer:(Lib.string_of_t (Format.pp_print_list Format.pp_print_string)))
+      ~printer:(Lib.string_of_t (Format.pp_print_list QId.pp_print_ident)))
   ]
   
 let _ = run_test_tt_main ("test suite for graphs" >::: basic_tests @ rechability_tests) 
