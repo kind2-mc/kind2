@@ -925,7 +925,7 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
      LA.pp_print_lustre_type exp_ty
      pp_print_tc_context ctx
   
-  (** check if the members of LHS are constants or enums before assignment *)
+  (* check if the members of LHS are constants or enums before assignment *)
   ; let lhs_vars = SI.flatten (List.map LH.vars_of_struct_item lhss) in
     if (SI.for_all (fun i -> not (member_val ctx i)) lhs_vars)
     then (match exp_ty with

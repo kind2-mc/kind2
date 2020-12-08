@@ -334,7 +334,7 @@ module Make (Ord: OrderedType) = struct
         pp_print_graph g	
         (Lib.pp_print_list pp_print_vertex ",") sorted_vs	
         pp_print_vertices no_outgoing_vs ;
-      (** graph is empty case *)
+      (* graph is empty case *)
       if VSet.is_empty no_outgoing_vs
       then if not (is_empty g)
            then raise (CyclicGraphException
