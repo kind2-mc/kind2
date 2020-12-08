@@ -918,13 +918,24 @@ let mk_node_summary: node_summary -> LA.node_decl -> node_summary
     ; let vars_op_depends_on = List.map (fun i -> G.to_vertex_list (G.reachable g i)) op_vars in
 
       let critical_ips = List.map (fun vs -> SI.inter (SI.of_list vs) (SI.of_list ip_vars)
-                                  |> summarize_ip_vars ip_vars) vars_op_depends_on in
-        let ns = (List.fold_left (fun (op_idx, m) cip -> (op_idx+1, IntMap.add op_idx cip m)) (0, IntMap.empty) critical_ips |> snd) in
-        IMap.add i ns s
+                                             |> summarize_ip_vars ip_vars)
+                           vars_op_depends_on in
+      let ns = (List.fold_left
+                  (fun (op_idx, m) cip -> (op_idx+1, IntMap.add op_idx cip m))
+                  (0, IntMap.empty) critical_ips
+                |> snd) in
+      IMap.add i ns s
   else
-    let cricital_ips = (List.fold_left (fun (acc, num) _ -> (num::acc, num+1)) ([], 0) ips) |> fst in
-    IMap.add i ((List.fold_left (fun (op_idx, m) _ -> (op_idx+1, IntMap.add op_idx cricital_ips m)) (0, IntMap.empty) ops) |> snd) s   
-(** Computes the node call summary of the node to the input stream of the node. *)                      
+    IMap.add
+      i
+      ((List.fold_left (fun (op_idx, m) _ ->
+            (op_idx+1, IntMap.add op_idx [] m)) (0, IntMap.empty) ops) |> snd)
+      s
+(** Computes the node call summary of the node to the input stream of the node.
+    
+    For imported nodes and imported functions we assume that output streams do not depend on 
+    any of the input streams. This restriction is in place to avoid rejecting valid programs.
+ *)                      
 
 
 let get_contract_exports: contract_summary -> LA.contract_node_equation -> LA.ident list
