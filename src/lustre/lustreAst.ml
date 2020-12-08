@@ -321,15 +321,18 @@ type declaration =
 
 (* A Lustre program *)
 type t = declaration list
-(* TODO: This is not a module that contains a list of declarations. i.e 
+
+(* TODO: This is now a module that contains a list of declarations. i.e 
+
 package <package name>
 
-<list of imported packages>
+  <list of imported packages>
 
-<list of declarations>
+  <list of declarations>
 
 end
- *)
+
+*)
 
 (* ********************************************************************** *)
 (* Pretty-printing functions                                              *)

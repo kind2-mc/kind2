@@ -18,6 +18,7 @@
 (** The type checker context use for typechecking the surface level language
   
      @author Apoorv Ingle *)
+
 module LA = LustreAst
 module LH = LustreAstHelpers          
 module QId = LustreAstIdent
@@ -38,8 +39,8 @@ type ty_store = tc_type IMap.t
 
 type const_store = (LA.expr * tc_type) IMap.t 
 (** A Store of constant identifier and their (const) values with types. 
- *  The values of the associated identifiers should be evaluated to a 
- *  Bool or an Int at constant propogation phase of type checking *)
+    The values of the associated identifiers should be evaluated to a 
+    Bool or an Int at constant propogation phase of type checking *)
 
 type ty_set = QISet.t
 (** set of valid user type identifiers *)
