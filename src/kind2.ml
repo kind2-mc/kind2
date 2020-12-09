@@ -130,8 +130,9 @@ let main () =
   let Input input_sys = setup () in
 
   if Flags.only_parse () then (
-    KEvent.log L_note "No parse errors found!"; exit 0
-  );
+    KEvent.log L_note "No parse errors found!";
+    KEvent.terminate_log ();
+    exit 0 );
 
   (* Notify user of silent contract loading. *)
   (try
