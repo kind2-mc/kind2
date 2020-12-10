@@ -32,15 +32,17 @@ produce any results. Any other combination is sound (properties claimed to be
 invariant are indeed invariant) and counterexample-complete (a counterexample will be
 produced for each property that is not invariant, given enough time and resources).
 
-``--timeout_wall <int>`` (default ``0`` = none) -- Run for the given number of seconds of wall clock time
+``--timeout <int>`` (default ``0`` = none) -- Run for the given number of seconds of wall clock time
 
-``--timeout_virtual <int>`` (default ``0`` = none) -- Run for the given number of seconds of CPU time
+``--smt_solver {Boolector|CVC4|MathSAT|Yices|Yices2|Z3}`` (default ``Z3``\ ) -- Select SMT solver
 
-``--smtsolver {CVC4|Yices|Yices2|Z3}`` (default ``Z3``\ ) -- Select SMT solver
+``--boolector_bin <file>`` -- Executable for Boolector
 
 ``--cvc4_bin <file>`` -- Executable for CVC4
 
-``--yices_bin <file>`` -- Executable for Yices 1
+``--mathsat_bin <file>`` -- Executable for MathSAT 5
+
+``--yices_bin <file>`` -- Executable for Yices 1 (native input)
 
 ``--yices2_bin <file>`` -- Executable for Yices 2 (SMT input)
 
@@ -74,7 +76,11 @@ To run Kind 2 the following software must be installed on your computer:
 * `ZeroMQ (C library) 4.x or later <https://zeromq.org>`_\, and
 * a supported SMT solver
 
+  * `Boolector <https://boolector.github.io/>`_
+    (`5d18baa <https://github.com/Boolector/boolector/commit/5d18baa>`_ or later,
+    for inputs with only machine integers),
   * `CVC4 <http://cvc4.cs.stanford.edu/>`_\ ,
+  * `MathSAT 5 <http://mathsat.fbk.eu/index.html>`_\ ,
   * `Yices 2 <http://yices.csl.sri.com/>`_\ ,
   * `Yices 1 <http://yices.csl.sri.com/old/download-yices1-full.shtml>`_\ , or
   * `Z3 <https://github.com/Z3Prover/z3>`_ (presently recommended)
