@@ -22,7 +22,8 @@ open Lib
 open LustreReporting
    
 module A = LustreAst
-
+module QId = LustreAstIdent
+           
 let mk_pos = position_of_lexing 
 
 
