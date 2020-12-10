@@ -17,6 +17,7 @@
 *)
 
 open Lib
+open LustreReporting 
 
 (* Abbreviations *)
 module I = LustreIdent
@@ -24,7 +25,6 @@ module D = LustreIndex
 module E = LustreExpr
 module Contract = LustreContract
 module N = LustreNode
-module C = LustreContext
 
 module A = Analysis
 module S = SubSystem
@@ -268,7 +268,7 @@ let rec node_state_var_dependencies' init output_input_deps
          that are not visible in the origial source *)
       let str_path = describe_cycle node [] ((state_var, None) :: path) in
 
-      C.fail_no_position
+      fail_no_position
         (Format.asprintf
            "Circular dependency for %a in %a: @[<hov>%a@]@."
            (E.pp_print_lustre_var false) state_var

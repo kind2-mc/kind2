@@ -19,9 +19,9 @@
 
 %{
 open Lib
-
+open LustreReporting
+   
 module A = LustreAst
-module LC = LustreContext
           
 let mk_pos = position_of_lexing 
 
@@ -831,7 +831,7 @@ pexpr(Q):
   (* Tuple projection (not quantified) *)
   | e = pexpr(Q); DOTPERCENT; i = NUMERAL 
   { let idx = try (int_of_string i) with
-              | _ -> LC.fail_at_position (mk_pos $startpos(i)) "Tuple projection index exceeds int range" in
+              | _ -> fail_at_position (mk_pos $startpos(i)) "Tuple projection index exceeds int range" in
     A.TupleProject (mk_pos $startpos, e, idx) }
 
   (* An array slice (not quantified) *)
@@ -895,7 +895,7 @@ pexpr(Q):
     %prec prec_forall
     { let pos = mk_pos $startpos in
       if not q then
-        LustreContext.fail_at_position
+        fail_at_position
           pos "Quantifiers not allowed in this position";
       A.Quantifier (pos, A.Forall, List.flatten vars, e) }
   | EXISTS; q = Q;
@@ -903,7 +903,7 @@ pexpr(Q):
     %prec prec_exists
     { let pos = mk_pos $startpos in
       if not q then
-        LustreContext.fail_at_position
+        fail_at_position
           pos "Quantifiers not allowed in this position";
       A.Quantifier (pos, A.Exists, List.flatten vars, e) }
                                                                        
@@ -1063,7 +1063,7 @@ pexpr(Q):
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
   | FBY LPAREN; e1 = pexpr(Q) COMMA; s = NUMERAL; COMMA; e2 = pexpr(Q) RPAREN
     { let idx = try (int_of_string s) with
-                | _ -> LC.fail_at_position (mk_pos $startpos(s)) "Fby argument exceeds int range" in
+                | _ -> fail_at_position (mk_pos $startpos(s)) "Fby argument exceeds int range" in
       A.Fby (mk_pos $startpos, e1, idx, e2) }
 
   | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }

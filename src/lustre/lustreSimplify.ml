@@ -17,7 +17,7 @@
 *)
 
 open Lib
-
+open LustreReporting
 
 (* The main function {!declarations_to_nodes} iterates over the list
    of declarations obtained from parsing Lustre input and returns a
@@ -59,7 +59,7 @@ let select_from_arrayintindex pos bound_e index expr =
   if bound_e <> None && E.is_numeral (get bound_e) &&
      (E.numeral_of_expr (get bound_e) |> Numeral.to_int) > size
   then
-    C.fail_at_position pos
+    fail_at_position pos
       (Format.asprintf "Size of indexes on left of equation (%a) \
                         is larger than size on the right (%d)"
          (E.pp_print_expr false) (get bound_e)
@@ -147,7 +147,7 @@ let rec eval_ast_expr bounds ctx =
       )
     in
     let fail () =
-      C.fail_at_position pos (
+      fail_at_position pos (
         Format.asprintf
           "reference to unknown mode '::%a'"
           (pp_print_list Format.pp_print_string "::") p4th
@@ -372,7 +372,7 @@ let rec eval_ast_expr bounds ctx =
          then 
 
            (* Expression has array bounds *)
-           C.fail_at_position
+           fail_at_position
              pos
              "Extensional array equality not supported")
       expr;
@@ -409,7 +409,7 @@ let rec eval_ast_expr bounds ctx =
   | A.Last (pos, i)  -> 
     (* Translate to pre *)
     (if not (C.in_automaton ctx) then
-      C.warn_at_position pos "Not in a state, last was replaced by pre"
+      warn_at_position pos "Not in a state, last was replaced by pre"
     else ());
     eval_ast_expr bounds ctx (A.Pre (pos, A.Ident (pos, i)))
 
@@ -496,7 +496,7 @@ let rec eval_ast_expr bounds ctx =
     in
     let cases = List.map fst merge_cases in
     if List.sort String.compare cases <> List.sort String.compare cases_to_have
-    then C.fail_at_position pos "Cases of merge must be exhaustive and unique";
+    then fail_at_position pos "Cases of merge must be exhaustive and unique";
     
 
     let cond_of_clock_value clock_value = match clock_value with
@@ -522,7 +522,7 @@ let rec eval_ast_expr bounds ctx =
           | A.ClockNeg c when clock_value = "false" && c = clock_ident -> ()
           | A.ClockConstr (cs, c) when clock_value = cs && c = clock_ident -> ()
           (* Clocks must be identical identifiers *)
-          | _ -> C.fail_at_position pos "Clock mismatch for argument of merge");
+          | _ -> fail_at_position pos "Clock mismatch for argument of merge");
 
         (* Evaluate expression under [when] *)
           eval_ast_expr bounds ctx expr
@@ -543,7 +543,7 @@ let rec eval_ast_expr bounds ctx =
             when clock_value = cv && c = clock_ident -> ()
              
           (* Clocks must be identical identifiers *)
-          | _ -> C.fail_at_position pos "Clock mismatch for argument of merge");
+          | _ -> fail_at_position pos "Clock mismatch for argument of merge");
         
         (* Evaluate node call without defaults *)
         try_eval_node_call
@@ -614,13 +614,13 @@ let rec eval_ast_expr bounds ctx =
 
         | Invalid_argument _ ->
 
-          C.fail_at_position
+          fail_at_position
             pos
             "Index mismatch for expressions in merge" 
 
         | E.Type_mismatch ->
 
-          C.fail_at_position
+          fail_at_position
             pos
             "Type mismatch for expressions in merge" 
 
@@ -793,7 +793,7 @@ let rec eval_ast_expr bounds ctx =
 
     else
 
-      C.fail_at_position
+      fail_at_position
         pos
         "Type mismatch in record"
 
@@ -824,7 +824,7 @@ let rec eval_ast_expr bounds ctx =
 
         else
 
-          C.fail_at_position
+          fail_at_position
             pos
             (Format.asprintf "Invalid index %s for expression" index)
 
@@ -888,7 +888,7 @@ let rec eval_ast_expr bounds ctx =
 
               else
 
-                C.fail_at_position
+                fail_at_position
                   pos
                   "Invalid index for expression"
 
@@ -911,7 +911,7 @@ let rec eval_ast_expr bounds ctx =
 
               else
 
-                C.fail_at_position
+                fail_at_position
                   pos
                   "Invalid index for expression"
 
@@ -921,7 +921,7 @@ let rec eval_ast_expr bounds ctx =
             | D.AbstractTypeIndex _ :: _, _
             | [], _ ->
 
-              C.fail_at_position
+              fail_at_position
                 pos
                 "Invalid index for expression")
           end
@@ -1186,7 +1186,7 @@ let rec eval_ast_expr bounds ctx =
         (* if bound_e <> None && E.is_numeral (get bound_e) && E.is_numeral s && *)
         (*    Numeral.geq (E.numeral_of_expr (get bound_e)) (E.numeral_of_expr s) *)
         (* then *)
-        (*   C.fail_at_position pos *)
+        (*   fail_at_position pos *)
         (*     (Format.asprintf "Size of indexes on left of equation (%a) \ *)
         (*                       is larger than size on the right (%a)" *)
         (*     (E.pp_print_expr false) (get bound_e) *)
@@ -1216,7 +1216,7 @@ let rec eval_ast_expr bounds ctx =
 
         select_from_arrayintindex pos bound_e index expr'
 
-        (*   C.fail_at_position  *)
+        (*   fail_at_position  *)
         (*     pos *)
         (*     "Cannot use a constant array in a recursive definition" *)
 
@@ -1242,7 +1242,7 @@ let rec eval_ast_expr bounds ctx =
           expr'
 
       (* Other or no index *)
-        | [], _ -> C.fail_at_position pos "Selection not from an array"
+        | [], _ -> fail_at_position pos "Selection not from an array"
       in
 
       push expr', ctx
@@ -1251,7 +1251,7 @@ let rec eval_ast_expr bounds ctx =
   (* Array slice [A[i..j,k..l]] *)
   | A.ArraySlice (pos, _, _) -> 
 
-    C.fail_at_position pos "Array slices not implemented"
+    fail_at_position pos "Array slices not implemented"
 
   (* ****************************************************************** *)
   (* Not implemented                                                    *)
@@ -1262,52 +1262,52 @@ let rec eval_ast_expr bounds ctx =
   (* Concatenation of arrays [A|B] *)
   | A.ArrayConcat (pos, _, _) -> 
 
-    C.fail_at_position pos "Array concatenation not implemented"
+    fail_at_position pos "Array concatenation not implemented"
 
   (* Interpolation to base clock *)
   | A.Current (pos, A.When (_, _, _)) -> 
 
-    C.fail_at_position pos "Current expression not supported"
+    fail_at_position pos "Current expression not supported"
 
   (* Boolean at-most-one constaint *)
   | A.NArityOp (pos, A.OneHot, _) -> 
 
-    C.fail_at_position pos "One-hot expression not supported"
+    fail_at_position pos "One-hot expression not supported"
 
   (* Followed by operator *)
   | A.Fby (pos, _, _, _) -> 
 
-    C.fail_at_position pos "Fby operator not implemented" 
+    fail_at_position pos "Fby operator not implemented" 
 
   (* Projection on clock *)
   | A.When (pos, _, _) -> 
 
-    C.fail_at_position 
+    fail_at_position 
       pos
       "When expression must be the argument of a current operator"
 
   (* Interpolation to base clock *)
   | A.Current (pos, _) -> 
 
-    C.fail_at_position 
+    fail_at_position 
       pos
       "Current operator must have a when expression as argument"
 
   | A.Activate (pos, _, _, _, _) -> 
 
-    C.fail_at_position 
+    fail_at_position 
       pos
       "Activate operator only supported in merge"
 
   (* With operator for recursive node calls *)
   | A.TernaryOp (pos, A.With, _, _, _) -> 
 
-    C.fail_at_position pos "Recursive nodes not supported"
+    fail_at_position pos "Recursive nodes not supported"
 
   (* Node call to a parametric node *)
   | A.CallParam (pos, _, _, _) -> 
 
-    C.fail_at_position pos "Parametric nodes not supported" 
+    fail_at_position pos "Parametric nodes not supported" 
 
 
 
@@ -1387,12 +1387,12 @@ and const_int_of_ast_expr ctx pos expr =
 
        else
 
-         C.fail_at_position pos "Expression must be an integer")
+         fail_at_position pos "Expression must be an integer")
 
     (* Expression is not a constant integer *)
     | _ ->       
 
-      C.fail_at_position pos "Expression must be constant"
+      fail_at_position pos "Expression must be constant"
 
 
 (* Evaluate expression to an Boolean *)
@@ -1414,7 +1414,7 @@ and eval_bool_ast_expr bounds ctx pos expr =
     (* Expression is not Boolean or is indexed *)
     | _ -> 
 
-      C.fail_at_position pos "Expression is not of Boolean type")
+      fail_at_position pos "Expression is not of Boolean type")
 
 
 and eval_clock_ident ctx pos ident =
@@ -1435,7 +1435,7 @@ and eval_clock_ident ctx pos ident =
     (* Expression is not Boolean or is indexed *)
     | _ -> 
 
-      C.fail_at_position pos "Clock identifier is not Boolean or of \
+      fail_at_position pos "Clock identifier is not Boolean or of \
                               an enumerated datatype")
 
 
@@ -1476,7 +1476,7 @@ and static_int_of_ast_expr ctx pos expr =
     (* Expression is not a constant integer *)
     | _ ->       
 
-      C.fail_at_position pos "Expression must be constant"
+      fail_at_position pos "Expression must be constant"
 
 
 (* Return the trie for the identifier *)
@@ -1531,7 +1531,7 @@ and eval_unary_ast_expr bounds ctx pos mk expr =
 
     | E.Type_mismatch ->
 
-      C.fail_at_position
+      fail_at_position
         pos
         "Type mismatch for expression"
 
@@ -1578,7 +1578,7 @@ and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 =
 
       | Invalid_argument s ->
 
-        C.fail_at_position
+        fail_at_position
           pos
           (Format.asprintf
              "Index mismatch for expressions %a and %a" 
@@ -1587,7 +1587,7 @@ and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 =
 
       | E.Type_mismatch ->
 
-        C.fail_at_position
+        fail_at_position
           pos
           (Format.asprintf
              "Type mismatch for expressions %a and %a" 
@@ -1596,7 +1596,7 @@ and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 =
 
       | E.NonConstantShiftOperand ->
 
-        C.fail_at_position
+        fail_at_position
           pos
           (Format.asprintf
              "Second argument %a to shift operation 
@@ -1629,7 +1629,7 @@ and eval_ast_projection bounds ctx pos expr = function
 
      with Not_found ->
 
-       C.fail_at_position 
+       fail_at_position 
          pos
          (Format.asprintf 
             "Expression %a does not have index %a" 
@@ -1721,7 +1721,7 @@ and eval_node_call
       D.fold2
         (fun i state_var ({ E.expr_type } as expr) (accum, ctx) ->
           if E.has_indexes expr
-          then C.fail_at_position pos "Call with implicitely quantified index";
+          then fail_at_position pos "Call with implicitely quantified index";
           (* Expression must be of a subtype of input type *)
           if Type.check_type expr_type (StateVar.type_of_state_var state_var)
              &&
@@ -1772,9 +1772,9 @@ and eval_node_call
     (* Type checking error or one expression has more indexes *)
     with
     | Invalid_argument _ -> 
-      C.fail_at_position pos "Index mismatch for input parameters"
+      fail_at_position pos "Index mismatch for input parameters"
     | E.Type_mismatch -> 
-      C.fail_at_position pos "Type mismatch for input parameters"
+      fail_at_position pos "Type mismatch for input parameters"
   in
 
   (* Type check defaults against outputs, return state variable for
@@ -1814,12 +1814,12 @@ and eval_node_call
            D.iter2 (fun i sv { E.expr_type = t } -> 
                (* Type of default must match type of respective output *)
                if not (Type.check_type t (StateVar.type_of_state_var sv)) then
-                 C.fail_at_position pos
+                 fail_at_position pos
                    "Type mismatch between default arguments and outputs")
              node_outputs
              defaults'
          with Invalid_argument _ -> 
-           C.fail_at_position pos
+           fail_at_position pos
              "Number of default arguments must match number of outputs");
         (* Return state variable and changed context *)
         Some state_var, Some defaults', ctx
@@ -2117,7 +2117,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
     in
 
     if Numeral.lt const_ubound const_lbound then
-      C.fail_at_position pos
+      fail_at_position pos
         (Format.asprintf "Invalid range %a" A.pp_print_lustre_type t);
     
     (* Add to empty trie with empty index *)
@@ -2221,7 +2221,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
     let array_size = static_int_of_ast_expr ctx pos size_expr in
 
     if not (Flags.Arrays.var_size () || E.is_const_expr array_size) then
-      C.fail_at_position pos
+      fail_at_position pos
       (Format.asprintf "Size of array (%a) has to be constant."
          (E.pp_print_expr false) array_size);
     
