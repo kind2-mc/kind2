@@ -18,6 +18,7 @@
 
 open Lib
 open Lib.ReservedIds
+open LustreReporting
 
 module A = LustreAst
 module H = LustreAstHelpers
@@ -81,7 +82,7 @@ exception Found_last_ty of A.lustre_type
 
 let fail_or_warn =
   if Flags.lus_strict () then
-    C.fail_at_position else C.warn_at_position
+    fail_at_position else warn_at_position
 
 
 (* Create a new name for anonymous automata *)
@@ -150,7 +151,7 @@ let type_of_last inputs outputs locals l =
                                A.TypedConst (_, i, _, ty))) ->
           if i = l then raise (Found_last_ty ty)
         | A.NodeConstDecl (_, A.UntypedConst (pos, i, e)) ->
-          C.fail_at_position pos ("Please add type of "^i)
+          fail_at_position pos ("Please add type of "^i)
         | A.NodeVarDecl (_, (_, i, ty, _)) ->
           if i = l then raise (Found_last_ty ty)
       ) locals;
@@ -387,12 +388,12 @@ let eval_const_decl ?(ghost = false) ctx = function
          not ghost && C.expr_in_context ctx ident 
 
        (* Fail if reserved identifier used *)
-       with Invalid_argument e -> C.fail_at_position pos e)
+       with Invalid_argument e -> fail_at_position pos e)
 
     then
 
       (* Fail if identifier already declared *)
-      C.fail_at_position 
+      fail_at_position 
         pos 
         (Format.asprintf 
            "Identifier %a is redeclared as constant" 
@@ -438,7 +439,7 @@ let eval_const_decl ?(ghost = false) ctx = function
              ) type_expr' res
 
          with Invalid_argument _ | E.Type_mismatch ->
-           (C.fail_at_position
+           (fail_at_position
               pos
               "Type mismatch in constant declaration"))
 
@@ -449,7 +450,7 @@ let eval_const_decl ?(ghost = false) ctx = function
     D.iter
       (fun _ e ->
          if not (E.is_const e) then
-           C.fail_at_position
+           fail_at_position
              pos
              (Format.asprintf
                 "Invalid constant expression for %a"
@@ -482,11 +483,11 @@ let rec eval_node_inputs ctx = function
       try 
         C.expr_in_context ctx ident 
       with Invalid_argument e -> 
-        C.fail_at_position pos e
+        fail_at_position pos e
       
     then
       
-      C.fail_at_position 
+      fail_at_position 
         pos
         (Format.asprintf 
            "Node input %a already declared" 
@@ -509,7 +510,7 @@ let rec eval_node_inputs ctx = function
 
   | (pos, _, _, _, _) :: _ -> 
 
-    C.fail_at_position pos "Clocked node inputs not supported"
+    fail_at_position pos "Clocked node inputs not supported"
 
 
 (* Add all node inputs to contexts *)
@@ -529,11 +530,11 @@ let rec eval_node_outputs ?is_single ctx = function
       try 
         C.expr_in_context ctx ident 
       with Invalid_argument e -> 
-        C.fail_at_position pos e
+        fail_at_position pos e
       
     then
       
-      C.fail_at_position 
+      fail_at_position 
         pos
         (Format.asprintf 
            "Node output %a already declared" 
@@ -550,7 +551,7 @@ let rec eval_node_outputs ?is_single ctx = function
 
   | (pos, _, _, _) :: _ -> 
 
-    C.fail_at_position pos "Clocked node outputs not supported"
+    fail_at_position pos "Clocked node outputs not supported"
 
 
 (* Add all node local declarations to contexts *)
@@ -576,11 +577,11 @@ let rec eval_node_locals ?(ghost = false) ctx = function
          try 
            C.expr_in_context ctx ident 
          with Invalid_argument e -> 
-           C.fail_at_position pos e
+           fail_at_position pos e
              
        )) -> 
     
-    C.fail_at_position 
+    fail_at_position 
       pos
       (Format.asprintf 
          "Node local variable or constant %a already declared" 
@@ -605,7 +606,7 @@ let rec eval_node_locals ?(ghost = false) ctx = function
   (* Local variable not on the base clock *)
   |  A.NodeVarDecl (_, (pos, i, _, _)) :: _ -> 
 
-    C.fail_at_position 
+    fail_at_position 
       pos 
       (Format.asprintf 
          "Clocked node local variables not supported for %a" 
@@ -647,14 +648,14 @@ let eval_struct_item ctx pos = function
         (* Identifier cannot be assigned to *)
         | Invalid_argument _ -> 
           
-          C.fail_at_position 
+          fail_at_position 
             pos 
             ("Assignment to identifier not possible " ^ i)
 
         (* Identifier not declared *)
         | Not_found -> 
           
-          C.fail_at_position 
+          fail_at_position 
             pos 
             ("Assignment to undeclared identifier " ^ i)
 
@@ -682,14 +683,14 @@ let eval_struct_item ctx pos = function
         (* Identifier cannot be assigned to *)
         | Invalid_argument _ -> 
           
-          C.fail_at_position 
+          fail_at_position 
             pos 
             "Assignment to identifier not possible"
 
         (* Identifier not declared *)
         | Not_found -> 
           
-          C.fail_at_position 
+          fail_at_position 
             pos 
             "Assignment to undeclared identifier"
 
@@ -707,7 +708,7 @@ let eval_struct_item ctx pos = function
           |> List.filter (function D.ArrayVarIndex _ -> true | _ -> false)
           |> List.length in
         if d1 <> d2 then
-          C.fail_at_position pos "Index mismatch for array definition"
+          fail_at_position pos "Index mismatch for array definition"
     in
 
     (* let rec aux = function  *)
@@ -716,7 +717,7 @@ let eval_struct_item ctx pos = function
     (*     (function  *)
     (*       | D.ArrayVarIndex _ :: tl2 -> aux tl1 tl2 *)
     (*       | _ ->  *)
-    (*         C.fail_at_position  *)
+    (*         fail_at_position  *)
     (*           pos  *)
     (*           "Index mismatch for array") *)
     (* in *)
@@ -761,7 +762,7 @@ let eval_struct_item ctx pos = function
   | A.FieldSelection (pos, _, _) 
   | A.ArraySliceStructItem (pos, _, _) ->     
 
-    C.fail_at_position 
+    fail_at_position 
       pos 
       "Assignment not supported" 
 
@@ -857,7 +858,7 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
   | _, []
   | [], _ ->         
 
-    C.fail_at_position pos "Type mismatch in equation: indexes not of equal length"
+    fail_at_position pos "Type mismatch in equation: indexes not of equal length"
 
     (* All indexes consumed *)
   | ([], state_var) :: lhs_tl, 
@@ -977,7 +978,7 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
     else
 
-      C.fail_at_position pos "Type mismatch in equation: indexes do not match"
+      fail_at_position pos "Type mismatch in equation: indexes do not match"
 
   (* Tuple index on left-hand and array index on right-hand side *)
   | ((D.TupleIndex i :: lhs_index_tl, state_var) :: lhs_tl,
@@ -996,7 +997,7 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
     else
 
-      C.fail_at_position pos "Type mismatch in equation: indexes do not match"
+      fail_at_position pos "Type mismatch in equation: indexes do not match"
 
 
   (* Record index on left-hand and right-hand side *)
@@ -1018,7 +1019,7 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
     else
 
-      C.fail_at_position pos "Type mismatch in equation: record indexes do not match"
+      fail_at_position pos "Type mismatch in equation: record indexes do not match"
 
   (* Mismatched indexes on left-hand and right-hand sides *)
   | (D.RecordIndex _ :: _, _) :: _, (D.TupleIndex _ :: _, _) :: _
@@ -1058,7 +1059,7 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
   | (_ :: _, _) :: _, ([], _) :: _ 
   | ([], _) :: _, (_ :: _, _) :: _ ->
 
-    C.fail_at_position pos "Type mismatch in equation: head indexes do not match"
+    fail_at_position pos "Type mismatch in equation: head indexes do not match"
 
 
 (* Return a list of equations from a trie of state variables and a
@@ -1214,7 +1215,7 @@ and eval_ghost_var
   (* Declaration of a free variable *)
   | A.FreeConst (pos, _, _) ->
 
-    C.fail_at_position pos "Free ghost variables not supported"
+    fail_at_position pos "Free ghost variables not supported"
 
   (* Declaration of a typed or untyped variable *)
   | A.UntypedConst (pos, i, expr) 
@@ -1230,10 +1231,10 @@ and eval_ghost_var
         C.expr_in_context ctx ident && not is_postponed
       with Invalid_argument e ->
        (* Fail if reserved identifier used *)
-       C.fail_at_position pos e
+       fail_at_position pos e
     ) then (
       (* Fail if identifier already declared *)
-      C.fail_at_position pos (
+      fail_at_position pos (
         Format.asprintf 
           "Identifier %a is redeclared as ghost" 
           (I.pp_print_ident false) ident
@@ -1267,12 +1268,12 @@ and eval_ghost_var
         ctx
 
       ) with
-      | E.Type_mismatch -> C.fail_at_position pos (
+      | E.Type_mismatch -> fail_at_position pos (
         Format.sprintf "Type mismatch in declaration of ghost variable %s" i
       )
       (* Propagate unknown declarations to handle forward referencing. *)
       | Deps.Unknown_decl (_, _, _) as e -> raise e
-      | e -> C.fail_at_position pos (
+      | e -> fail_at_position pos (
         Format.asprintf
           "unexpected error in treatment of ghost variable %s: %s"
           i
@@ -1348,7 +1349,7 @@ and eval_contract_item check ~typ scope (ctx, accum, count) (pos, iname, expr) =
            a current output value (an output stream passed as an argument in a node call is not
            an error if only the previous value of the stream is used)
         *)
-        C.warn_at_position pos (
+        warn_at_position pos (
           Format.asprintf
             "@[<v>%s mentions output%s%s %a%s@]"
               desc s pref (
@@ -1400,7 +1401,7 @@ and check_node_and_contract_inputs call_pos ctx node_inputs = function
 
       with Not_found -> 
 
-        C.fail_at_position 
+        fail_at_position 
           call_pos 
           "Illegal contract call: node does not have input"
 
@@ -1410,14 +1411,14 @@ and check_node_and_contract_inputs call_pos ctx node_inputs = function
     (match node_input_clock with 
       | A.ClockTrue -> ()
       | _ -> 
-        C.fail_at_position 
+        fail_at_position 
           pos 
           "Clocked inputs not supported");
 
     (* Node input must be constant iff contract input is *)
     if contract_input_const <> node_input_const then 
 
-      C.fail_at_position 
+      fail_at_position 
         pos 
         "Illegal contract call: node does not have input";
 
@@ -1433,7 +1434,7 @@ and check_node_and_contract_inputs call_pos ctx node_inputs = function
 
      with Invalid_argument _ | E.Type_mismatch -> 
 
-       (C.fail_at_position
+       (fail_at_position
           pos
           "Type mismatch in constant declaration"));
 
@@ -1442,7 +1443,7 @@ and check_node_and_contract_inputs call_pos ctx node_inputs = function
 
   | (pos, _, _, _, _) :: tl -> 
 
-    C.fail_at_position 
+    fail_at_position 
       pos 
       "Clocked inputs not supported"
 
@@ -1476,7 +1477,7 @@ and check_node_and_contract_outputs call_pos ctx node_outputs = function
 
       with Not_found -> 
 
-        C.fail_at_position 
+        fail_at_position 
           call_pos 
           "Illegal contract call: node does not have output"
 
@@ -1486,7 +1487,7 @@ and check_node_and_contract_outputs call_pos ctx node_outputs = function
     (match node_output_clock with 
       | A.ClockTrue -> ()
       | _ -> 
-        C.fail_at_position 
+        fail_at_position 
           pos 
           "Clocked outputs not supported");
 
@@ -1501,7 +1502,7 @@ and check_node_and_contract_outputs call_pos ctx node_outputs = function
 
      with Invalid_argument _ | E.Type_mismatch -> 
 
-       (C.fail_at_position
+       (fail_at_position
           pos
           "Type mismatch in constant declaration"));
 
@@ -1510,7 +1511,7 @@ and check_node_and_contract_outputs call_pos ctx node_outputs = function
 
   | (pos, _, _, _) :: tl -> 
 
-    C.fail_at_position 
+    fail_at_position 
       pos 
       "Clocked outputs not supported"
 
@@ -1541,7 +1542,7 @@ let rec check_no_contract_in_node_calls ctx = function
 | { N.call_node_name ; N.call_pos } :: calls -> (
   match
     try C.node_of_name ctx call_node_name
-    with Not_found -> C.fail_at_position call_pos (
+    with Not_found -> fail_at_position call_pos (
       Format.asprintf "call to unknown node '%a'"
         (LustreIdent.pp_print_ident false) call_node_name
     )
@@ -1563,7 +1564,7 @@ and eval_node_contract_call
       "circular dependency between following contracts: @[<hov>%a@]"
       (pp_print_list (I.pp_print_ident false) ", ")
       (I.Set.elements known)
-    |> C.fail_at_position call_pos
+    |> fail_at_position call_pos
   ) ;
 
   let known = I.Set.add ident known in
@@ -1591,21 +1592,21 @@ and eval_node_contract_call
   (* Failing for unsupported features. *)
   ( match params with
     | [] -> ()
-    | _ -> C.fail_at_position pos (
+    | _ -> fail_at_position pos (
       "type parameters in contract node is not supported"
     )
   ) ;
   in_formals |> List.iter (
     function
     | pos, id, typ, A.ClockTrue, is_const -> () (* pos, id, typ, is_const *)
-    | _ -> C.fail_at_position pos (
+    | _ -> fail_at_position pos (
         "clocks in contract node signature are not supported"
       )
   ) ;
   out_formals |> List.iter (
     function
     | pos, id, typ, A.ClockTrue -> () (* pos, id, typ *)
-    | _ -> C.fail_at_position pos (
+    | _ -> fail_at_position pos (
         "clocks in contract node signature are not supported"
       )
   ) ;
@@ -1630,7 +1631,7 @@ and eval_node_contract_call
               ) expected expr
             with
             | Invalid_argument _
-            | E.Type_mismatch -> C.fail_at_position call_pos (
+            | E.Type_mismatch -> fail_at_position call_pos (
                 Format.asprintf
                   "type mismatch in import of contract %s for formal input %s"
                   id in_id
@@ -1661,7 +1662,7 @@ and eval_node_contract_call
                         ) ", "
                       )
                   in
-                  C.fail_at_position pos (
+                  fail_at_position pos (
                     Format.asprintf
                       "@[<v>input parameter in contract import%s mentions \
                        output%s %a%s@]"
@@ -1682,7 +1683,7 @@ and eval_node_contract_call
 
     ) ctx in_params in_formals
     with
-    | Invalid_argument _ ->  C.fail_at_position call_pos (
+    | Invalid_argument _ ->  fail_at_position call_pos (
         Format.asprintf
           "arity mismatch for the input parameters of import of contract %s: \
            expected %d but got %d"
@@ -1712,7 +1713,7 @@ and eval_node_contract_call
               ) expected expr
             with
             | Invalid_argument _
-            | E.Type_mismatch -> C.fail_at_position call_pos (
+            | E.Type_mismatch -> fail_at_position call_pos (
                 Format.asprintf
                   "type mismatch in import of contract %s for formal output %s"
                   id in_id
@@ -1723,7 +1724,7 @@ and eval_node_contract_call
             ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr
       ) ctx (List.map (fun i -> LustreAst.Ident (pos, i))out_params) out_formals
     with
-    | Invalid_argument _ ->  C.fail_at_position call_pos (
+    | Invalid_argument _ ->  fail_at_position call_pos (
         Format.asprintf
           "arity mismatch for the output parameters of import of contract %s: \
            expected %d but got %d"
@@ -1743,7 +1744,7 @@ and eval_node_contract_call
   ( if C.get_node_function_flag ctx then (
     (* Format.printf "checking contract %s@.@." id ; *)
     match H.contract_has_pre_or_arrow contract with
-    | Some _ -> C.fail_at_position call_pos (
+    | Some _ -> fail_at_position call_pos (
       Format.asprintf
         "@[<v>in contract of function %a@ \
         illegal import of stateful contract %s@ \
@@ -1876,7 +1877,7 @@ and eval_node_contract_spec
               pp_print_type s_type (I.pp_print_ident false) s_ident
               Scope.pp_print_scope sc
           in
-          C.fail_at_position s_pos msg
+          fail_at_position s_pos msg
       )
       | _ -> loop acc (List.length postponed) [] postponed
     )
@@ -1931,7 +1932,7 @@ and eval_node_contract_spec
             Illegal call to node '%a' in the cone of influence of this \
             contract: node %a has a contract.\
           " (I.pp_print_ident false) name (I.pp_print_ident false) name
-          |> C.fail_at_position pos
+          |> fail_at_position pos
       in
       let subs, known =
         calls |> List.fold_left (
@@ -1981,7 +1982,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
              A.ClockTrue, false),
           (i, fun pos -> A.Last (pos, l)) (* Last replaced after parsing *)
         with Not_found ->
-          C.fail_at_position pos ("Last type for "^l^" could not be inferred")
+          fail_at_position pos ("Last type for "^l^" could not be inferred")
       ) lasts
       |> List.split
     in
@@ -2014,7 +2015,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
               | A.NodeVarDecl (_, ((_, l, _, _) as ld)) when o = l ->
                 raise (Found_auto_out ld)
               | _ -> ()) locals;
-            C.fail_at_position pos ("Could not find automaton output "^o)
+            fail_at_position pos ("Could not find automaton output "^o)
           with Found_auto_out ld -> ld
       ) auto_outputs in
 
@@ -2049,10 +2050,10 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
       (* one initial state *)
       | [A.State (_, s, _, _, _, _, _)], _ -> s
       (* no states *)
-      | _, [] -> C.fail_at_position pos "No states in automaton"
+      | _, [] -> fail_at_position pos "No states in automaton"
       (* more thatn one initial state *)
       | _ :: _, _ ->
-        C.fail_at_position pos "More than one initial state in automaton"
+        fail_at_position pos "More than one initial state in automaton"
     in
     
     (* Node local variables used to encode the automaton *)
@@ -2250,7 +2251,7 @@ and encode_until_handler pos
 
   let ident = I.mk_string_ident name in
   (* Identifier must not be declared *)
-  if C.node_in_context (C.prev ctx) ident then C.fail_at_position pos (
+  if C.node_in_context (C.prev ctx) ident then fail_at_position pos (
     Format.asprintf 
       "Auxiliary node %a is redeclared" 
       (I.pp_print_ident false) ident
@@ -2314,7 +2315,7 @@ and encode_unless pos
 
   let ident = I.mk_string_ident name in
   (* Identifier must not be declared *)
-  if C.node_in_context (C.prev ctx) ident then C.fail_at_position pos (
+  if C.node_in_context (C.prev ctx) ident then fail_at_position pos (
     Format.asprintf 
       "Auxiliary node %a is redeclared" 
       (I.pp_print_ident false) ident
@@ -2378,7 +2379,7 @@ and eval_node_items inputs outputs locals ctx = function
     let name = match name_opt with
       | Some n -> (
         if C.prop_name_in_context ctx n then
-          C.fail_at_position pos
+          fail_at_position pos
             (Format.asprintf "Name '%s' already used by another property" n)
         else n
       )
@@ -2622,7 +2623,7 @@ and declaration_to_context ctx = function
   let ident = I.mk_string_ident i in
 
   (* Type t must not be declared *)
-  if C.type_in_context ctx ident then C.fail_at_position pos (
+  if C.type_in_context ctx ident then fail_at_position pos (
     Format.asprintf
       "Type %a is redeclared" (I.pp_print_ident false) ident
   ) ;
@@ -2648,14 +2649,14 @@ and declaration_to_context ctx = function
   let ident = I.mk_string_ident i in
 
   (* Identifier must not be declared *)
-  if C.node_in_context ctx ident then C.fail_at_position pos (
+  if C.node_in_context ctx ident then fail_at_position pos (
     Format.asprintf 
       "Function %a is redeclared" 
       (I.pp_print_ident false) ident
   ) ;
 
   let pre_or_arrow_fail desc = function
-    | Some illegal_pos -> C.fail_at_position pos (
+    | Some illegal_pos -> fail_at_position pos (
       Format.asprintf
         "@[<v>in declaration of function %a:@ \
         in %s at %a:@ \
@@ -2704,7 +2705,7 @@ and declaration_to_context ctx = function
     |> List.iter (
       fun { N.call_pos ; N.call_node_name } ->
         let node = C.node_of_name fun_ctx call_node_name in
-        if not node.N.is_function then C.fail_at_position call_pos (
+        if not node.N.is_function then fail_at_position call_pos (
           Format.asprintf
             "@[<v>in function %a@ \
             illegal call to node %a@ \
@@ -2728,7 +2729,7 @@ and declaration_to_context ctx = function
   let ident = I.mk_string_ident i in
 
   (* Identifier must not be declared *)
-  if C.node_in_context ctx ident then C.fail_at_position pos (
+  if C.node_in_context ctx ident then fail_at_position pos (
     Format.asprintf 
       "Node %a is redeclared" 
       (I.pp_print_ident false) ident
@@ -2787,7 +2788,7 @@ and declaration_to_context ctx = function
             (* Is the reference circular? *)
             if I.Set.mem ident called_deps then 
 
-              C.fail_at_position
+              fail_at_position
                 pos
                 (Format.asprintf 
                    "Circular dependecy between nodes %a and %a" 
@@ -2823,7 +2824,7 @@ and declaration_to_context ctx = function
 
      else
 
-       C.fail_at_position
+       fail_at_position
          pos
          (Format.asprintf 
             "Node or function %a is not defined" 
@@ -2844,7 +2845,7 @@ and declaration_to_context ctx = function
 
   (* Identifier must not be declared *)
   if C.node_or_function_in_context ctx ident then (
-    C.fail_at_position pos (
+    fail_at_position pos (
       Format.asprintf
          "Function %a is redeclared"
          (I.pp_print_ident false) ident
@@ -2887,7 +2888,7 @@ and declaration_to_context ctx = function
       allowed *)
    with C.Node_or_function_not_found (called_ident, pos) -> 
 
-       C.fail_at_position
+       fail_at_position
          pos
          (Format.asprintf 
             "Node or function %a is not defined" 
@@ -2901,10 +2902,10 @@ and declaration_to_context ctx = function
 (* Parametric node declaration *)
 | A.NodeParamInst (pos, _)
 | A.NodeDecl (pos, _) ->
-  C.fail_at_position pos "Parametric nodes are not supported"
+  fail_at_position pos "Parametric nodes are not supported"
 (* Parametric function declaration *)
 | A.FuncDecl (pos, _) ->
-  C.fail_at_position pos "Parametric functions are not supported"
+  fail_at_position pos "Parametric functions are not supported"
 
 (* Add declarations of program to context *)
 let rec declarations_to_context ctx = function
@@ -2975,7 +2976,7 @@ let main () =
         Lexing.lexeme_start_p lexbuf |> position_of_lexing 
       in
       
-      C.fail_at_position pos "Syntax error"
+      fail_at_position pos "Syntax error"
 
   in
 

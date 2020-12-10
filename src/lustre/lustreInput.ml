@@ -17,13 +17,13 @@
 *)
 
 open Lib
+open LustreReporting
 open Lexing
 open MenhirLib.General
    
 module LA = LustreAst
 module LH = LustreAstHelpers
 module LN = LustreNode
-module LC = LustreContext
 module LD = LustreDeclarations
 
 module LPI = LustreParser.Incremental
@@ -62,7 +62,7 @@ let build_parse_error_msg env =
 let fail env lexbuf =
   let emsg = build_parse_error_msg env in
   let pos = position_of_lexing lexbuf.lex_curr_p in
-  LC.fail_at_position pos emsg
+  fail_at_position pos emsg
 
 (* Incremental Parsing *)
 let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
@@ -81,7 +81,7 @@ let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
      fail env lexbuf
   | LPMI.Accepted v -> success v
   | LPMI.Rejected ->
-     LC.fail_no_position "Parser Error: Parser rejected the input."
+     fail_no_position "Parser Error: Parser rejected the input."
   
 
 (* Parses input channel to generate an AST *)
@@ -106,7 +106,7 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
   try
     (parse lexbuf (LPI.main lexbuf.lex_curr_p))
   with
-  | LustreLexer.Lexer_error err -> LC.fail_at_position (Lib.position_of_lexing lexbuf.lex_curr_p) err  
+  | LustreLexer.Lexer_error err -> fail_at_position (Lib.position_of_lexing lexbuf.lex_curr_p) err  
 
 (* Parse from input channel *)
 let of_channel in_ch =
@@ -160,7 +160,7 @@ let of_channel in_ch =
        | Ok d -> Log.log L_note "Type checking done"
                ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_program d
                ;   (if Flags.only_tc () then exit 0); d  
-       | Error (pos, err) -> LC.fail_at_position pos err in 
+       | Error (pos, err) -> fail_at_position pos err in 
   
   (* Simplify declarations to a list of nodes *)
   let nodes, globals = LD.declarations_to_nodes declarations' in
