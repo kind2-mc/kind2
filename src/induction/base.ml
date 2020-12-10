@@ -48,7 +48,7 @@ let shall_keep trans (s,_) =
   | _ -> true
 
 (* Check-sat and splits properties.. *)
-let split trans solver k falsifiable to_split actlits =
+let split trans solver k falsifiable to_split actlit =
 
   (* Function to run if sat. *)
   let if_sat _ =
@@ -74,7 +74,7 @@ let split trans solver k falsifiable to_split actlits =
     (* Splitting properties. *)
     let new_to_split, new_falsifiable =
       List.partition
-        ( fun (_, (_, term)) ->
+        ( fun (_, term) ->
           Term.bump_state k term |> eval )
         to_split
     in
@@ -93,17 +93,17 @@ let split trans solver k falsifiable to_split actlits =
   |> SMTSolver.trace_comment solver ;
 
   (* Check sat assuming with actlits. *)
-  SMTSolver.check_sat_assuming solver if_sat if_unsat actlits
+  SMTSolver.check_sat_assuming solver if_sat if_unsat [actlit]
 
 (* Splits its input list of properties between those that can be
    falsified and those that cannot after asserting the actlit
    implications. *)
-let split_closure trans solver k actlits to_split =
+let split_closure trans solver k to_split =
 
   let rec loop falsifiable list =
     (* Building negative term. *)
     let term =
-      list |> List.map (fun pair -> snd pair |> snd)
+      list |> List.map (fun pair -> snd pair)
       |> Term.mk_and |> Term.mk_not |> Term.bump_state k
     in
     (* Getting actlit for it. *)
@@ -118,10 +118,8 @@ let split_closure trans solver k actlits to_split =
     (* Asserting implication. *)
     Term.mk_implies [ actlit ; term ]
     |> SMTSolver.assert_term solver ;
-    (* All actlits. *)
-    let all_actlits = actlit :: actlits in
     (* Splitting. *)
-    match split trans solver k falsifiable list all_actlits with
+    match split trans solver k falsifiable list actlit with
     | None ->
       deactivate () ;
       list, falsifiable
@@ -139,7 +137,7 @@ let split_closure trans solver k actlits to_split =
    invariants and falsified properties. Assumes the solver is
    in the following state:
 
-   actlit(prop) => prop@i
+   prop@i
      for all 0 <= i <= k-2 and prop      in 'unknowns';
 
    invariant@i
@@ -170,10 +168,13 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
     Unroller.assert_new_invs_to solver k new_invs ;
 
   (* Assert all invariants, including new ones, at [k]. *)
-  TransSys.invars_of_bound
-    ~one_state_only:Numeral.(equal k zero) trans k
-  |> Term.mk_and
-  |> SMTSolver.assert_term solver ;
+  let all_invs =
+    TransSys.invars_of_bound
+      ~one_state_only:Numeral.(equal k zero) trans k
+    |> Term.mk_and
+  in
+  if (all_invs != Term.t_true) then
+    SMTSolver.assert_term solver all_invs;
 
   (* Cleaning unknowns by removing invariants and falsifieds. *)
   let nu_unknowns = unknowns |> List.filter (shall_keep trans) in
@@ -189,24 +190,11 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
     KEvent.progress k_int ;
     Stat.update_time Stat.bmc_total_time ;
 
-    (* Building the positive actlits and corresponding implications
-      at k-1. *)
-    let actlits, implications =
-      nu_unknowns
-      |> List.fold_left (
-        fun (actlits,implications) (_,(actlit, term)) ->
-          (* Appending prop actlit to the list of actlits. *)
-          actlit :: actlits,
-          (* Building the implication and appending. *)
-          ( Term.mk_implies
-            [ actlit ; Term.bump_state Numeral.(k-one) term ]
-          ) :: implications
-      ) ([], [])
-    in
-
     (* Asserting implications if k > 0. *)
     if Numeral.(k > zero) then
-      implications |> Term.mk_and |> SMTSolver.assert_term solver ;
+      nu_unknowns
+      |> List.map (fun (_, term) -> Term.bump_state Numeral.(k-one) term)
+      |> Term.mk_and |> SMTSolver.assert_term solver ;
 
     (* Filtering properties which are not known to be k-true at this step. *)
     let unknowns_at_k, k_true =
@@ -253,7 +241,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
 
         (* Splitting. *)
         let unfalsifiable, falsifiable =
-          split_closure trans solver k actlits unknowns_at_k
+          split_closure trans solver k unknowns_at_k
         in
 
         (* Broadcasting k-true properties. *)
@@ -291,8 +279,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
 
     (* Asserting transition relation for next iteration. *)
      TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans k_p_1
-    |> SMTSolver.assert_term solver
-    |> ignore ;
+    |> SMTSolver.assert_term solver ;
 
     (* Output statistics *)
     print_stats ();
@@ -326,15 +313,6 @@ let init input_sys aparam trans =
       (TransSys.get_logic trans) (Flags.Smt.solver ())
   in
 
-  (* Declaring positive actlits. *)
-  let unknowns =
-    unknowns |> List.map (fun (s, prop) ->
-      let actlit = fresh_actlit () in
-      SMTSolver.declare_fun solver actlit ;
-      (s, (term_of_actlit actlit, prop))
-    )
-  in
-
   (* Defining uf's and declaring variables. *)
   TransSys.define_and_declare_of_bounds
     trans
@@ -346,8 +324,7 @@ let init input_sys aparam trans =
   (* Asserting init. *)
   TransSys.init_of_bound
     (Some (SMTSolver.declare_fun solver)) trans Numeral.zero
-  |> SMTSolver.assert_term solver
-  |> ignore ;
+  |> SMTSolver.assert_term solver ;
 
   SMTSolver.trace_comment solver "Initial state satisfiability check." ;
 
