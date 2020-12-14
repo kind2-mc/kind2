@@ -59,10 +59,36 @@ jobs:
     - name: Run regression tests
       run: opam exec make test
 
-    - name: Upload kind2 artifact
-      if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-      uses: actions/upload-artifact@v2
-      with:
-        name: kind2-${{ matrix.os }}
-        path: bin/kind2
+    #- name: Upload kind2 artifact
+    #  if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    #  uses: actions/upload-artifact@v2
+    #  with:
+    #    name: kind2-${{ matrix.os }}
+    #    path: bin/kind2
 
+    - name: Create pre-release
+      id: create_prerelease
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: dev
+        release_name: Development Version
+        draft: false
+        prerelease: true
+        body: |
+          Binaries created from the develop branch after every push
+
+    - name: Create kind2 zip
+      run: |
+        zip --junk-paths kind2.zip ./bin/kind2
+
+    - name: Upload kind2 zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_prerelease.outputs.upload_url }}
+          asset_path: kind2.zip
+          asset_name: kind2-${{ matrix.os }}.zip
+          asset_content_type: application/zip
