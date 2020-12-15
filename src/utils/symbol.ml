@@ -788,6 +788,8 @@ let s_to_uint32 = mk_symbol `TO_UINT32
 
 let s_to_uint64 = mk_symbol `TO_UINT64
 
+let s_bvneg = mk_symbol `BVNEG
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

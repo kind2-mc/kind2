@@ -157,6 +157,30 @@ module Bool : Graph
 (** Graph of integers with less than or equal. *)
 module Int : Graph
 
+(** Graph of int8 with less than or equal. *)
+module Int8 : Graph
+
+(** Graph of int16 with less than or equal. *)
+module Int16 : Graph
+
+(** Graph of int32 with less than or equal. *)
+module Int32 : Graph
+
+(** Graph of int64 with less than or equal. *)
+module Int64 : Graph
+
+(** Graph of uint8 with less than or equal. *)
+module UInt8 : Graph
+
+(** Graph of uint16 with less than or equal. *)
+module UInt16 : Graph
+
+(** Graph of uint32 with less than or equal. *)
+module UInt32 : Graph
+
+(** Graph of uint64 with less than or equal. *)
+module UInt64 : Graph
+
 (** Graph of reals with less than or equal. *)
 module Real : Graph
 
@@ -168,6 +192,30 @@ module EqOnly : sig
 
   (** Graph of integers. *)
   module Int : Graph
+
+  (** Graph of int8s. *)
+  module Int8 : Graph
+
+  (** Graph of int16s. *)
+  module Int16 : Graph
+
+  (** Graph of int32s. *)
+  module Int32 : Graph
+
+  (** Graph of int64s. *)
+  module Int64 : Graph
+
+  (** Graph of uint8s. *)
+  module UInt8 : Graph
+
+  (** Graph of uint16s. *)
+  module UInt16 : Graph
+
+  (** Graph of uint32s. *)
+  module UInt32 : Graph
+
+  (** Graph of uint64s. *)
+  module UInt64 : Graph
 
   (** Graph of reals. *)
   module Real : Graph

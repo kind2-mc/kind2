@@ -79,12 +79,28 @@ let main_of_process = function
   | `INVGENOS -> renice () ; InvGen.main_bool false
   | `INVGENINT -> renice () ; InvGen.main_int true
   | `INVGENINTOS -> renice () ; InvGen.main_int false
+  | `INVGENINT8 -> renice () ; InvGen.main_int8 true
+  | `INVGENINT8OS -> renice () ; InvGen.main_int8 false
+  | `INVGENINT16 -> renice () ; InvGen.main_int16 true
+  | `INVGENINT16OS -> renice () ; InvGen.main_int16 false
+  | `INVGENINT32 -> renice () ; InvGen.main_int32 true
+  | `INVGENINT32OS -> renice () ; InvGen.main_int32 false
+  | `INVGENINT64 -> renice () ; InvGen.main_int64 true
+  | `INVGENINT64OS -> renice () ; InvGen.main_int64 false
+  | `INVGENUINT8 -> renice () ; InvGen.main_uint8 true
+  | `INVGENUINT8OS -> renice () ; InvGen.main_uint8 false
+  | `INVGENUINT16 -> renice () ; InvGen.main_uint16 true
+  | `INVGENUINT16OS -> renice () ; InvGen.main_uint16 false
+  | `INVGENUINT32 -> renice () ; InvGen.main_uint32 true
+  | `INVGENUINT32OS -> renice () ; InvGen.main_uint32 false
+  | `INVGENUINT64 -> renice () ; InvGen.main_uint64 true
+  | `INVGENUINT64OS -> renice () ; InvGen.main_uint64 false
   | `INVGENREAL -> renice () ; InvGen.main_real true
   | `INVGENREALOS -> renice () ; InvGen.main_real false
   | `C2I -> renice () ; C2I.main
   | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
   | `Supervisor -> InvarManager.main false false child_pids
-  | `MCS | `Parser | `Certif -> ( fun _ _ _ -> () )
+  | `INVGENMACH | `INVGENMACHOS | `MCS | `Parser | `Certif -> ( fun _ _ _ -> () )
 
 (** Cleanup function of the process *)
 let on_exit_of_process mdl =
@@ -97,12 +113,28 @@ let on_exit_of_process mdl =
     | `INVGENOS -> InvGen.exit None
     | `INVGENINT -> InvGen.exit None
     | `INVGENINTOS -> InvGen.exit None
+    | `INVGENINT8 -> InvGen.exit None
+    | `INVGENINT8OS -> InvGen.exit None
+    | `INVGENINT16 -> InvGen.exit None
+    | `INVGENINT16OS -> InvGen.exit None
+    | `INVGENINT32 -> InvGen.exit None
+    | `INVGENINT32OS -> InvGen.exit None
+    | `INVGENINT64 -> InvGen.exit None
+    | `INVGENINT64OS -> InvGen.exit None
+    | `INVGENUINT8 -> InvGen.exit None
+    | `INVGENUINT8OS -> InvGen.exit None
+    | `INVGENUINT16 -> InvGen.exit None
+    | `INVGENUINT16OS -> InvGen.exit None
+    | `INVGENUINT32 -> InvGen.exit None
+    | `INVGENUINT32OS -> InvGen.exit None
+    | `INVGENUINT64 -> InvGen.exit None
+    | `INVGENUINT64OS -> InvGen.exit None
     | `INVGENREAL -> InvGen.exit None
     | `INVGENREALOS -> InvGen.exit None
     | `C2I -> C2I.on_exit None
     | `Interpreter -> Interpreter.on_exit None
     | `Supervisor -> InvarManager.on_exit None
-    | `MCS | `Parser | `Certif -> ()
+    | `INVGENMACH | `INVGENMACHOS | `MCS | `Parser | `Certif -> ()
   ) ;
   SMTSolver.destroy_all ()
 
@@ -449,6 +481,37 @@ let run_process in_sys param sys messaging_setup process =
     (* Keep PID of child process and return. *)
     child_pids := (pid, process) :: !child_pids
 
+let process_invgen_mach_modules sys (modules: Lib.kind_module list) : Lib.kind_module list =
+  let invgenmach_modules, other_modules = modules |> List.partition (
+    function `INVGENMACH | `INVGENMACHOS -> true | _ -> false)
+  in
+  match invgenmach_modules with
+  | [] -> other_modules
+  | _ -> (
+    let open TermLib.FeatureSet in
+    match TransSys.get_logic sys with
+    | `Inferred fs when mem BV fs -> (
+      let other_modules =
+        if (List.mem `INVGENMACHOS invgenmach_modules) then
+          `INVGENINT8OS :: `INVGENINT16OS :: `INVGENINT32OS :: `INVGENINT64OS ::
+          `INVGENUINT8OS :: `INVGENUINT16OS :: `INVGENUINT32OS :: `INVGENUINT64OS
+          :: other_modules
+        else
+          other_modules
+       in
+       let other_modules =
+        if (List.mem `INVGENMACH invgenmach_modules) then
+          `INVGENINT8 :: `INVGENINT16 :: `INVGENINT32 :: `INVGENINT64 ::
+          `INVGENUINT8 :: `INVGENUINT16 :: `INVGENUINT32 :: `INVGENUINT64
+          :: other_modules
+        else
+          other_modules
+       in
+       other_modules
+    )
+    | _ -> other_modules
+  )
+
 (** Performs an analysis. *)
 let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
@@ -471,6 +534,8 @@ let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys
       KEvent.update_child_processes_list [] ;
       (* Get rid of messages from the previous analysis. *)
       KEvent.purge_im msg_setup ;
+
+      let modules = process_invgen_mach_modules sys modules in
 
       (* Start all child processes. *)
       modules |> List.iter (

@@ -25,6 +25,8 @@ type value =
   | ValBool of bool
   | ValNum of Numeral.t
   | ValDec of Decimal.t
+  | ValSBV of Bitvector.t
+  | ValUBV of Bitvector.t
   | ValTerm of Term.t
 
 val pp_print_value : Format.formatter -> value -> unit
@@ -40,6 +42,14 @@ val num_of_value : value -> Numeral.t
 (** Cast a value to a float, raise [Invalid_argument] if value is
     not a float *)
 val dec_of_value : value -> Decimal.t
+
+(** Cast a value to a signed bit-vector, raise [Invalid_argument] if value is
+    not a signed bit-vector *)
+val sbv_of_value : value -> Bitvector.t
+
+(** Cast a value to an unsigned bit-vector, raise [Invalid_argument] if value is
+    not an unsigned bit-vector *)
+val ubv_of_value : value -> Bitvector.t
 
 (** Cast a value to a term, raise [Invalid_argument] if value is
     unknown *)
