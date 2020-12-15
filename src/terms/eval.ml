@@ -23,7 +23,6 @@ type value =
   | ValBool of bool
   | ValNum of Numeral.t
   | ValDec of Decimal.t
-  | ValSBV of Bitvector.t
   | ValUBV of Bitvector.t
   | ValTerm of Term.t
 
@@ -35,7 +34,6 @@ let pp_print_value ppf =
     | ValBool false -> Format.fprintf ppf "false"
     | ValNum n -> Format.fprintf ppf "%a" Numeral.pp_print_numeral n
     | ValDec d -> Format.fprintf ppf "%a" Decimal.pp_print_decimal d
-    | ValSBV b -> Format.fprintf ppf "%a" Bitvector.pp_print_signed_machine_integer b
     | ValUBV b -> Format.fprintf ppf "%a" Bitvector.pp_print_unsigned_machine_integer b
     | ValTerm t -> Format.fprintf ppf "%a" Term.pp_print_term t
 
@@ -55,11 +53,6 @@ let bool_of_value = function
       (Format.asprintf
          "bool_of_value: value %a is numeric" 
          Numeral.pp_print_numeral n)
-  | ValSBV b ->
-    invalid_arg
-      (Format.asprintf
-         "bool_of_value: value %a is signed machine integer"
-         Bitvector.pp_print_signed_machine_integer b)
   | ValUBV b ->
     invalid_arg
       (Format.asprintf
@@ -79,10 +72,6 @@ let dec_of_value = function
   | ValDec b -> b
   | _ -> invalid_arg "dec_of_value"
 
-let sbv_of_value = function
-  | ValSBV b -> b
-  | _ -> invalid_arg "sbv_of_value"
-
 let ubv_of_value = function
   | ValUBV b -> b
   | _ -> invalid_arg "ubv_of_value"
@@ -99,7 +88,6 @@ let term_of_value = function
   | ValBool false -> Term.mk_false ()
   | ValNum n -> Term.mk_num n
   | ValDec d -> Term.mk_dec d
-  | ValSBV b -> Term.mk_bv b
   | ValUBV b -> Term.mk_bv b
   | ValTerm t -> t
 
@@ -127,11 +115,9 @@ let value_of_term term = match Term.destruct term with
 
         (* Term is a constructor *)
 
-        (* Term is a signed bitvector *)
-        | `BV b -> ValSBV b
-
         (* Term is an unsigned bitvector *)
         | `UBV b -> ValUBV b
+        | `BV b -> ValUBV b
 
         (* Uninterpreted constant *)
         | `UF u -> ValTerm term 
@@ -166,7 +152,7 @@ let value_of_term term = match Term.destruct term with
       (* Get symbol of constant *)
       match Symbol.node_of_symbol (Term.leaf_of_term c) with
 
-      | `BV b -> ValSBV (Bitvector.sbv_neg b)
+      | `BV b -> ValUBV (Bitvector.sbv_neg b)
 
       | _ -> assert false
 

@@ -178,7 +178,7 @@ module MakeSigned(M: MachineIntegerMiner) : MachineIntegerParam = struct
   let mk_cmp = Term.mk_bvsle
   let eval sys model term =
     Eval.eval_term (Sys.uf_defs sys) model term
-    |> Eval.sbv_of_value
+    |> Eval.ubv_of_value
   let mine = M.mine
 end
 
