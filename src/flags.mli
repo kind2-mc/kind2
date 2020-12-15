@@ -188,6 +188,9 @@ type enable = Lib.kind_module list
 (** Only parse the Lustre program. No analysis is performed. *)
 val only_parse : unit -> bool
 
+(** Provide AST info for language-servers. *)
+val lsp : unit -> bool
+
 (** Stop after Parsing and type checking the Lustre program. No analysis is performed. *)
 val only_tc : unit -> bool
 

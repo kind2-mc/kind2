@@ -2730,6 +2730,18 @@ module Global = struct
     )
   let only_parse () = !only_parse
 
+  (* LSP mode. *)
+  let lsp_default = false
+
+  let lsp = ref lsp_default
+
+  let _ =
+    add_spec "--lsp" (bool_arg lsp) (fun fmt ->
+        Format.fprintf fmt "Provide AST info for language-servers.@ Default: %a"
+          fmt_bool lsp_default)
+
+  let lsp () = !lsp
+
   (* Only typecheck mode. *)
   let only_tc_default = false
   let only_tc = ref only_tc_default
@@ -3153,6 +3165,7 @@ let include_dirs = Global.include_dirs
 let log_invs = Global.log_invs
 let print_invs = Global.print_invs
 let only_parse = Global.only_parse
+let lsp = Global.lsp
 let only_tc = Global.only_tc
 let no_tc = Global.no_tc            
 let enabled = Global.enabled

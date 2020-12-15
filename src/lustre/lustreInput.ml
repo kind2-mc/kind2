@@ -162,7 +162,10 @@ let of_channel in_ch =
          ; (if Flags.only_tc () then exit 0)
          ; d  
        | Error (pos, err) -> fail_at_position pos err in 
-  
+
+  (* Provide lsp info if option is enabled *)
+  if Flags.lsp () then LspInfo.print_ast_info declarations;
+
   (* Simplify declarations to a list of nodes *)
   let nodes, globals = LD.declarations_to_nodes declarations' in
   (* Name of main node *)
