@@ -74,6 +74,30 @@ module Bool : Domain
 (** Integer domain with less than or equal to. *)
 module Int : Domain
 
+(** Int8 domain with less than or equal to. *)
+module Int8 : Domain
+
+(** Int16 domain with less than or equal to. *)
+module Int16 : Domain
+
+(** Int32 domain with less than or equal to. *)
+module Int32 : Domain
+
+(** Int64 domain with less than or equal to. *)
+module Int64 : Domain
+
+(** UInt8 domain with less than or equal to. *)
+module UInt8 : Domain
+
+(** UInt16 domain with less than or equal to. *)
+module UInt16 : Domain
+
+(** UInt32 domain with less than or equal to. *)
+module UInt32 : Domain
+
+(** UInt64 domain with less than or equal to. *)
+module UInt64 : Domain
+
 (** Real domain with less than or equal to. *)
 module Real : Domain
 

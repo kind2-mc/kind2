@@ -1581,6 +1581,28 @@ let mk_minus_simplify t = match T.destruct t with
   | _ -> mk_minus [ t ]
 
 
+(* Negates a term by modifying the top node if it is a bvneg or an
+   machine integer constant. *)
+let mk_bvneg_simplify t = match T.destruct t with
+
+  | T.Const symb ->
+     ( match Symbol.node_of_symbol symb with
+
+       | `BV bv -> mk_bv (Bitvector.sbv_neg bv)
+
+       | _ -> mk_bvneg t )
+
+  | T.App (symb, kids) ->
+     ( match Symbol.node_of_symbol symb, kids with
+
+       (* Top symbol is a unary bvneg, removing it. *)
+       | `BVNEG, [term] -> term
+
+       | _ -> mk_bvneg t )
+
+  (* Top symbol is not a negation, then negate given term *)
+  | _ -> mk_bvneg t
+
 
 (* Negates a term by modifying the top node if it is a not, true,
    false, or an arithmetic inequality. *)

@@ -157,6 +157,126 @@ module Int: Domain = struct
   )
 end
 
+module type MachineIntegerParam = sig
+  val name: string
+  val fmt: Format.formatter -> Bitvector.t -> unit
+  val cmp: Bitvector.t -> Bitvector.t -> bool
+  val mk_cmp: Term.t list -> Term.t
+  val eval: Sys.t -> Model.t -> Term.t -> Bitvector.t
+  val mine: bool -> bool -> Sys.t -> (Sys.t * Set.t) list
+end
+
+module type MachineIntegerMiner = sig
+  val name: string
+  val mine: bool -> bool -> Sys.t -> (Sys.t * Set.t) list
+end
+
+module MakeSigned(M: MachineIntegerMiner) : MachineIntegerParam = struct
+  let name = M.name
+  let fmt = Bitvector.pp_print_signed_machine_integer
+  let cmp = Bitvector.lte
+  let mk_cmp = Term.mk_bvsle
+  let eval sys model term =
+    Eval.eval_term (Sys.uf_defs sys) model term
+    |> Eval.ubv_of_value
+  let mine = M.mine
+end
+
+module MakeUnsigned(M: MachineIntegerMiner) : MachineIntegerParam = struct
+  let name = M.name
+  let fmt = Bitvector.pp_print_unsigned_machine_integer
+  let cmp = Bitvector.ulte
+  let mk_cmp = Term.mk_bvule
+  let eval sys model term =
+    Eval.eval_term (Sys.uf_defs sys) model term
+    |> Eval.ubv_of_value
+  let mine = M.mine
+end
+
+(** Machine integer domain with less than or equal to. *)
+module MakeMachineInteger(M: MachineIntegerParam): Domain = struct
+  (* Evaluates a term to a bitvector. *)
+  let name = M.name
+  type t = Bitvector.t
+  let fmt = M.fmt
+  let eq = Bitvector.equal
+  let cmp = M.cmp
+  let mk_eq rep term = Term.mk_eq [ rep ; term ]
+  let mk_cmp lhs rhs = M.mk_cmp [ lhs ; rhs ]
+  let eval = M.eval
+  let mine top_only two_state param top_sys =
+    M.mine top_only two_state top_sys
+    |> List.filter (
+      fun (sys, _) ->
+        (sys == top_sys) || (
+          (not top_only) && (
+            TransSys.scope_of_trans_sys sys
+            |> Analysis.param_scope_is_abstract param
+            |> not
+          )
+        )
+    )
+  let first_rep_of terms =
+    let rep = Set.choose terms in
+    rep, Set.remove rep terms
+  let is_bot _ = false
+  let is_top _ = false
+  let is_os_running () = (
+    Flags.enabled () |> List.mem `INVGENMACHOS
+  ) && (
+    Flags.Contracts.contract_gen () |> not
+  )
+end
+
+module Int8Miner: MachineIntegerMiner = struct
+  let name = "Int8"
+  let mine = InvGenMiner.Int8.mine
+end
+
+module Int16Miner: MachineIntegerMiner = struct
+  let name = "Int16"
+  let mine = InvGenMiner.Int16.mine
+end
+
+module Int32Miner: MachineIntegerMiner = struct
+  let name = "Int32"
+  let mine = InvGenMiner.Int32.mine
+end
+
+module Int64Miner: MachineIntegerMiner = struct
+  let name = "Int64"
+  let mine = InvGenMiner.Int64.mine
+end
+
+module Int8: Domain = MakeMachineInteger(MakeSigned(Int8Miner))
+module Int16: Domain = MakeMachineInteger(MakeSigned(Int16Miner))
+module Int32: Domain = MakeMachineInteger(MakeSigned(Int32Miner))
+module Int64: Domain = MakeMachineInteger(MakeSigned(Int64Miner))
+
+module UInt8Miner: MachineIntegerMiner = struct
+  let name = "UInt8"
+  let mine = InvGenMiner.UInt8.mine
+end
+
+module UInt16Miner: MachineIntegerMiner = struct
+  let name = "UInt16"
+  let mine = InvGenMiner.UInt16.mine
+end
+
+module UInt32Miner: MachineIntegerMiner = struct
+  let name = "UInt32"
+  let mine = InvGenMiner.UInt32.mine
+end
+
+module UInt64Miner: MachineIntegerMiner = struct
+  let name = "UInt64"
+  let mine = InvGenMiner.UInt64.mine
+end
+
+module UInt8: Domain = MakeMachineInteger(MakeUnsigned(UInt8Miner))
+module UInt16: Domain = MakeMachineInteger(MakeUnsigned(UInt16Miner))
+module UInt32: Domain = MakeMachineInteger(MakeUnsigned(UInt32Miner))
+module UInt64: Domain = MakeMachineInteger(MakeUnsigned(UInt64Miner))
 
 (** Real domain with less than or equal to. *)
 module Real: Domain = struct

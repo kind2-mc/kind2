@@ -23,6 +23,7 @@ type value =
   | ValBool of bool
   | ValNum of Numeral.t
   | ValDec of Decimal.t
+  | ValUBV of Bitvector.t
   | ValTerm of Term.t
 
 
@@ -33,6 +34,7 @@ let pp_print_value ppf =
     | ValBool false -> Format.fprintf ppf "false"
     | ValNum n -> Format.fprintf ppf "%a" Numeral.pp_print_numeral n
     | ValDec d -> Format.fprintf ppf "%a" Decimal.pp_print_decimal d
+    | ValUBV b -> Format.fprintf ppf "%a" Bitvector.pp_print_unsigned_machine_integer b
     | ValTerm t -> Format.fprintf ppf "%a" Term.pp_print_term t
 
 
@@ -51,6 +53,11 @@ let bool_of_value = function
       (Format.asprintf
          "bool_of_value: value %a is numeric" 
          Numeral.pp_print_numeral n)
+  | ValUBV b ->
+    invalid_arg
+      (Format.asprintf
+         "bool_of_value: value %a is unsigned machine integer"
+          Bitvector.pp_print_unsigned_machine_integer b)
 
 (* Extract the integer value from the value of an expression *)
 let num_of_value = function 
@@ -65,6 +72,9 @@ let dec_of_value = function
   | ValDec b -> b
   | _ -> invalid_arg "dec_of_value"
 
+let ubv_of_value = function
+  | ValUBV b -> b
+  | _ -> invalid_arg "ubv_of_value"
 
 (* Check if the value is unknown *)
 let value_is_unknown = function 
@@ -78,6 +88,7 @@ let term_of_value = function
   | ValBool false -> Term.mk_false ()
   | ValNum n -> Term.mk_num n
   | ValDec d -> Term.mk_dec d
+  | ValUBV b -> Term.mk_bv b
   | ValTerm t -> t
 
 
@@ -104,11 +115,9 @@ let value_of_term term = match Term.destruct term with
 
         (* Term is a constructor *)
 
-        (* Term is a signed bitvector *)
-        | `BV b -> ValTerm (Term.mk_bv b)
-
         (* Term is an unsigned bitvector *)
-        | `UBV b -> ValTerm (Term.mk_ubv b)
+        | `UBV b -> ValUBV b
+        | `BV b -> ValUBV b
 
         (* Uninterpreted constant *)
         | `UF u -> ValTerm term 
@@ -134,7 +143,21 @@ let value_of_term term = match Term.destruct term with
 
         (* Term is not a constant *)
         | _ -> ValTerm term)
-                 
+
+  (* Term is a negative constant symbol *)
+  | Term.T.App (s, [c]) when s == Symbol.s_bvneg && Term.is_leaf c ->
+
+    (
+
+      (* Get symbol of constant *)
+      match Symbol.node_of_symbol (Term.leaf_of_term c) with
+
+      | `BV b -> ValUBV (Bitvector.sbv_neg b)
+
+      | _ -> assert false
+
+    )
+
   (* Term is not a constant *)
   | _ -> ValTerm term
 

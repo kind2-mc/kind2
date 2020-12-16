@@ -525,7 +525,7 @@ let eval term =
   Eval.eval_term [] empty_model term
   |> Eval.term_of_value
 
-let octagons oct3 f =
+let generic_octagons mk_plus mk_minus oct3 f =
   let rec octagons_3 terms terms set = match terms with
     | term :: tail ->
     (*   Format.printf "  oct 3 %a (%d)@."
@@ -534,8 +534,8 @@ let octagons oct3 f =
       List.map (fun term' -> [ term' ; term ]) terms
       |> List.fold_left (
         fun set terms ->
-          Set.add (Term.mk_plus terms |> f) set
-          |> Set.add (Term.mk_minus terms |> f)
+          Set.add (mk_plus terms |> f) set
+          |> Set.add (mk_minus terms |> f)
       ) set
       |> octagons_3 terms tail
     | [] -> set
@@ -547,9 +547,9 @@ let octagons oct3 f =
         (List.length tail) ; *)
       let terms = [ term ; term' ] in
       [
-        Term.mk_plus terms |> f ;
-        Term.mk_minus terms |> f ;
-        (* terms |> List.rev |> Term.mk_minus |> f *)
+        mk_plus terms |> f ;
+        mk_minus terms |> f ;
+        (* terms |> List.rev |> mk_minus |> f *)
       ]
       |> List.fold_left (
         fun set term -> Set.add term set
@@ -573,9 +573,9 @@ let octagons oct3 f =
   in
   loop
 
+let octagons = generic_octagons Term.mk_plus Term.mk_minus
 
-
-
+let octagons_bv = generic_octagons Term.mk_bvadd Term.mk_bvsub
 
 (** Integer rules. *)
 module IntRules = struct
@@ -680,9 +680,176 @@ end
 module Int = MakeCandGen (IntRules)
 
 
+module type MachineIntegerSig = sig
+  val length: int
+  val is_type: Type.t -> bool
+  val is_symbol: Symbol.t -> bool
+end
+
+(** Machine integer rules. *)
+module MachineIntegerRules(M: MachineIntegerSig) = struct
+  let comp_set _ = Set.empty
+
+  (* We'll extract the state var to create octagons. *)
+  type svar_info = unit
+
+  let svar_rules two_state svars set =
+    (* Format.printf "svars: @[<v>%a@]@.@."
+      (pp_print_list
+        (fun fmt svar ->
+          Format.fprintf fmt "%a (%a)"
+            fmt_svar svar
+            Type.pp_print_type_node (type_of_svar svar)
+        ) "@ "
+      ) svars ; *)
+    let svars, set =
+      svars |> List.fold_left (
+        fun (svars, set) svar ->
+        if M.is_type (SVar.type_of_state_var svar) then
+          if SVar.for_inv_gen svar then
+            (var_of svar) :: svars, set
+          else svars, set
+        else svars, set
+      ) ([], set)
+    in
+    (* Format.printf "loop: @[<v>%a@]@.@."
+      (pp_print_list
+        (fun fmt term ->
+          Format.fprintf fmt "%a (%a)"
+            fmt_term term
+            Type.pp_print_type_node (type_of term)
+        ) "@ "
+      ) svars ; *)
+    let set =
+      octagons_bv (Flags.Invgen.all_out ()) identity svars set
+    in
+    (* Format.printf "set: @[<v>%a@]@.@."
+      (pp_print_list fmt_term "@ ")
+      (Set.elements set) ; *)
+    set, ()
+
+  (* We're gonna use the flat info to store the constants found in the flat
+  terms. *)
+  type flat_info = set
+
+  let post_svars _ (set, _) = (set, Set.empty)
+
+  let flat_rules two_state flat (set, constants) =
+    let term = to_term flat in
+    if M.is_type (Term.type_of_term term) then
+      match flat with
+      | Term.T.App (sym, kids) ->
+        if (
+          Flags.Invgen.all_out ()
+        ) || (
+          kids |> List.for_all is_var_or_const
+        ) then Set.add term set, constants else set, constants
+      | Term.T.Const sym -> (
+        if M.is_symbol sym then
+          Set.add term set, Set.add term constants
+        else
+          failwith "Type of constant and term does not match"
+      )
+      (* | Term.T.Attr (term, _) ->
+        flat_rules two_state (Term.destruct term) (set, constants)*)
+      | Term.T.Var _ ->
+        Set.add term set, constants
+    else set, constants
+
+  let post_rules _ _ constants set =
+    let zero = Term.mk_bv (Bitvector.zero M.length) in
+    let one = Term.mk_bv (Bitvector.one M.length) in
+    let set =
+      Set.add zero set
+      |> Set.add one
+      |> octagons_bv true eval(
+        Set.add one constants |> Set.elements
+      )
+    in
+    let set =
+      Set.fold (
+        fun term set -> Set.add (Term.mk_bvneg_simplify term) set
+      ) set set
+    in
+    (* Format.printf "set: @[<v>%a@]@.@."
+      (pp_print_list fmt_term "@ ")
+      (Set.elements set) ; *)
+    set
 
 
+end
 
+module Int8M : MachineIntegerSig = struct
+  let length = 8
+  let is_type = Type.is_int8
+  let is_symbol = Symbol.is_bv8
+end
+
+module Int16M : MachineIntegerSig = struct
+  let length = 16
+  let is_type = Type.is_int16
+  let is_symbol = Symbol.is_bv16
+end
+
+module Int32M : MachineIntegerSig = struct
+  let length = 32
+  let is_type = Type.is_int32
+  let is_symbol = Symbol.is_bv32
+end
+
+module Int64M : MachineIntegerSig = struct
+  let length = 64
+  let is_type = Type.is_int64
+  let is_symbol = Symbol.is_bv64
+end
+
+module UInt8M : MachineIntegerSig = struct
+  let length = 8
+  let is_type = Type.is_uint8
+  let is_symbol = Symbol.is_ubv8
+end
+
+module UInt16M : MachineIntegerSig = struct
+  let length = 16
+  let is_type = Type.is_uint16
+  let is_symbol = Symbol.is_ubv16
+end
+
+module UInt32M : MachineIntegerSig = struct
+  let length = 32
+  let is_type = Type.is_uint32
+  let is_symbol = Symbol.is_ubv32
+end
+
+module UInt64M : MachineIntegerSig = struct
+  let length = 64
+  let is_type = Type.is_uint64
+  let is_symbol = Symbol.is_ubv64
+end
+
+(** Int8 candidate term miner. *)
+module Int8 = MakeCandGen (MachineIntegerRules(Int8M))
+
+(** Int16 candidate term miner. *)
+module Int16 = MakeCandGen (MachineIntegerRules(Int16M))
+
+(** Int32 candidate term miner. *)
+module Int32 = MakeCandGen (MachineIntegerRules(Int32M))
+
+(** Int64 candidate term miner. *)
+module Int64 = MakeCandGen (MachineIntegerRules(Int64M))
+
+(** UInt8 candidate term miner. *)
+module UInt8 = MakeCandGen (MachineIntegerRules(UInt8M))
+
+(** UInt16 candidate term miner. *)
+module UInt16 = MakeCandGen (MachineIntegerRules(UInt16M))
+
+(** UInt32 candidate term miner. *)
+module UInt32 = MakeCandGen (MachineIntegerRules(UInt32M))
+
+(** UInt64 candidate term miner. *)
+module UInt64 = MakeCandGen (MachineIntegerRules(UInt64M))
 
 (** Real rules. *)
 module RealRules = struct

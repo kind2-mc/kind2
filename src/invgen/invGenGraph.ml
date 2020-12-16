@@ -1456,6 +1456,30 @@ module Bool = Make( InvGenDomain.Bool )
 (** Graph of integers with less than or equal. *)
 module Int = Make( InvGenDomain.Int )
 
+(** Graph of int8 with less than or equal. *)
+module Int8 = Make ( InvGenDomain.Int8 )
+
+(** Graph of int16 with less than or equal. *)
+module Int16 = Make ( InvGenDomain.Int16 )
+
+(** Graph of int32 with less than or equal. *)
+module Int32 = Make ( InvGenDomain.Int32 )
+
+(** Graph of int64 with less than or equal. *)
+module Int64 = Make ( InvGenDomain.Int64 )
+
+(** Graph of uint8 with less than or equal. *)
+module UInt8 = Make ( InvGenDomain.UInt8 )
+
+(** Graph of uint16 with less than or equal. *)
+module UInt16 = Make ( InvGenDomain.UInt16 )
+
+(** Graph of uint32 with less than or equal. *)
+module UInt32 = Make ( InvGenDomain.UInt32 )
+
+(** Graph of uint64 with less than or equal. *)
+module UInt64 = Make ( InvGenDomain.UInt64 )
+
 (** Graph of reals with less than or equal. *)
 module Real = Make( InvGenDomain.Real )
 
@@ -1467,6 +1491,30 @@ module EqOnly = struct
 
   (** Graph of integers. *)
   module Int = MakeEq( InvGenDomain.Int )
+
+  (** Graph of Int8s. *)
+  module Int8 = MakeEq( InvGenDomain.Int8 )
+
+  (** Graph of Int16s. *)
+  module Int16 = MakeEq( InvGenDomain.Int16 )
+
+  (** Graph of Int32s. *)
+  module Int32 = MakeEq( InvGenDomain.Int32 )
+
+  (** Graph of Int64s. *)
+  module Int64 = MakeEq( InvGenDomain.Int64 )
+
+  (** Graph of Int8s. *)
+  module UInt8 = MakeEq( InvGenDomain.UInt8 )
+
+  (** Graph of UInt16s. *)
+  module UInt16 = MakeEq( InvGenDomain.UInt16 )
+
+  (** Graph of UInt32s. *)
+  module UInt32 = MakeEq( InvGenDomain.UInt32 )
+
+  (** Graph of UInt64s. *)
+  module UInt64 = MakeEq( InvGenDomain.UInt64 )
 
   (** Graph of reals. *)
   module Real = MakeEq( InvGenDomain.Real )

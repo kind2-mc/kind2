@@ -312,6 +312,8 @@ val s_to_uint32 : t
 
 val s_to_uint64 : t
 
+val s_bvneg : t
+
 (** {1 Accessors functions} *)
 
 (** Return the node of the hashconsed symbol *)

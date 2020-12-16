@@ -758,6 +758,30 @@ module BoolInvGen = Make(InvGenGraph.Bool)
 (** Integer invariant generation. *)
 module IntInvGen = Make(InvGenGraph.Int)
 
+(** Int8 invariant generation. *)
+module Int8InvGen = Make(InvGenGraph.Int8)
+
+(** Int16 invariant generation. *)
+module Int16InvGen = Make(InvGenGraph.Int16)
+
+(** Int32 invariant generation. *)
+module Int32InvGen = Make(InvGenGraph.Int32)
+
+(** Int64 invariant generation. *)
+module Int64InvGen = Make(InvGenGraph.Int64)
+
+(** UInt8 invariant generation. *)
+module UInt8InvGen = Make(InvGenGraph.UInt8)
+
+(** UInt16 invariant generation. *)
+module UInt16InvGen = Make(InvGenGraph.UInt16)
+
+(** UInt32 invariant generation. *)
+module UInt32InvGen = Make(InvGenGraph.UInt32)
+
+(** UInt64 invariant generation. *)
+module UInt64InvGen = Make(InvGenGraph.UInt64)
+
 (** Real invariant generation. *)
 module RealInvGen = Make(InvGenGraph.Real)
 
@@ -770,6 +794,30 @@ module EqOnly = struct
   (** Graph of integers. *)
   module IntInvGen = Make( InvGenGraph.EqOnly.Int )
 
+  (** Graph of int8s. *)
+  module Int8InvGen = Make( InvGenGraph.EqOnly.Int8 )
+
+  (** Graph of int16s. *)
+  module Int16InvGen = Make( InvGenGraph.EqOnly.Int16 )
+
+  (** Graph of int32s. *)
+  module Int32InvGen = Make( InvGenGraph.EqOnly.Int32 )
+
+  (** Graph of int64s. *)
+  module Int64InvGen = Make( InvGenGraph.EqOnly.Int64 )
+
+  (** Graph of uint8s. *)
+  module UInt8InvGen = Make( InvGenGraph.EqOnly.UInt8 )
+
+  (** Graph of uint16s. *)
+  module UInt16InvGen = Make( InvGenGraph.EqOnly.UInt16 )
+
+  (** Graph of uint32s. *)
+  module UInt32InvGen = Make( InvGenGraph.EqOnly.UInt32 )
+
+  (** Graph of uint64s. *)
+  module UInt64InvGen = Make( InvGenGraph.EqOnly.UInt64 )
+
   (** Graph of reals. *)
   module RealInvGen = Make( InvGenGraph.EqOnly.Real )
 
@@ -781,56 +829,62 @@ let max_depth () = match Flags.Invgen.max_depth () with
   | Some n -> Some Num.(of_int n)
   | None -> None
 
+let run_main eq_cond eq_main main two_state in_sys param sys =
+    (
+      if eq_cond () then eq_main else main
+    ) (
+      max_depth ()
+    ) (
+      Flags.Invgen.top_only ()
+    ) (
+      Flags.modular () |> not
+    ) two_state in_sys param sys
+    |> ignore ;
+    exit 0
+
 let main_bool two_state in_sys param sys =
-  (
-    if Flags.Invgen.bool_eq_only () then
-      EqOnly.BoolInvGen.main
-    else
-      BoolInvGen.main
-  ) (
-    max_depth ()
-  ) (
-    Flags.Invgen.top_only ()
-  ) (
-    Flags.modular () |> not
-  ) two_state in_sys param sys
-  |> ignore ;
-  exit 0
+  run_main Flags.Invgen.bool_eq_only EqOnly.BoolInvGen.main BoolInvGen.main
+           two_state in_sys param sys
 
 let main_int two_state in_sys param sys =
-  (
-    if Flags.Invgen.arith_eq_only () then
-      EqOnly.IntInvGen.main
-    else
-      IntInvGen.main
-  ) (
-    max_depth ()
-  ) (
-    Flags.Invgen.top_only ()
-  ) (
-    Flags.modular () |> not
-  ) two_state in_sys param sys
-  |> ignore ;
-  exit 0
+  run_main Flags.Invgen.arith_eq_only EqOnly.IntInvGen.main IntInvGen.main
+           two_state in_sys param sys
+
+let main_int8 two_state in_sys param sys =
+  run_main Flags.Invgen.arith_eq_only EqOnly.Int8InvGen.main Int8InvGen.main
+           two_state in_sys param sys
+
+let main_int16 two_state in_sys param sys =
+  run_main Flags.Invgen.arith_eq_only EqOnly.Int16InvGen.main Int16InvGen.main
+           two_state in_sys param sys
+
+let main_int32 two_state in_sys param sys =
+  run_main Flags.Invgen.arith_eq_only EqOnly.Int32InvGen.main Int32InvGen.main
+           two_state in_sys param sys
+
+let main_int64 two_state in_sys param sys =
+  run_main Flags.Invgen.arith_eq_only EqOnly.Int64InvGen.main Int64InvGen.main
+           two_state in_sys param sys
+
+let main_uint8 two_state in_sys param sys =
+  run_main Flags.Invgen.arith_eq_only EqOnly.UInt8InvGen.main UInt8InvGen.main
+           two_state in_sys param sys
+
+let main_uint16 two_state in_sys param sys =
+  run_main Flags.Invgen.arith_eq_only EqOnly.UInt16InvGen.main UInt16InvGen.main
+           two_state in_sys param sys
+
+let main_uint32 two_state in_sys param sys =
+  run_main Flags.Invgen.arith_eq_only EqOnly.UInt32InvGen.main UInt32InvGen.main
+           two_state in_sys param sys
+
+let main_uint64 two_state in_sys param sys =
+  run_main Flags.Invgen.arith_eq_only EqOnly.UInt64InvGen.main UInt64InvGen.main
+           two_state in_sys param sys
 
 let main_real two_state in_sys param sys =
-  (
-    if Flags.Invgen.arith_eq_only () then
-      EqOnly.RealInvGen.main
-    else
-      RealInvGen.main
-  ) (
-    max_depth ()
-  ) (
-    Flags.Invgen.top_only ()
-  ) (
-    Flags.modular () |> not
-  ) two_state in_sys param sys
-  |> ignore ;
-  exit 0
-
-
-
+  run_main Flags.Invgen.arith_eq_only EqOnly.RealInvGen.main RealInvGen.main
+           two_state in_sys param sys
 
 let exit _ =
   ( if Flags.Invgen.bool_eq_only () then

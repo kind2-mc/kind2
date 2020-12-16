@@ -762,6 +762,24 @@ type kind_module =
   | `INVGENOS
   | `INVGENINT
   | `INVGENINTOS
+  | `INVGENMACH
+  | `INVGENMACHOS
+  | `INVGENINT8
+  | `INVGENINT8OS
+  | `INVGENINT16
+  | `INVGENINT16OS
+  | `INVGENINT32
+  | `INVGENINT32OS
+  | `INVGENINT64
+  | `INVGENINT64OS
+  | `INVGENUINT8
+  | `INVGENUINT8OS
+  | `INVGENUINT16
+  | `INVGENUINT16OS
+  | `INVGENUINT32
+  | `INVGENUINT32OS
+  | `INVGENUINT64
+  | `INVGENUINT64OS
   | `INVGENREAL
   | `INVGENREALOS
   | `C2I
@@ -782,6 +800,24 @@ let pp_print_kind_module ppf = function
   | `INVGENOS -> fprintf ppf "one state invariant generator (bool)"
   | `INVGENINT -> fprintf ppf "two state invariant generator (int)"
   | `INVGENINTOS -> fprintf ppf "one state invariant generator (int)"
+  | `INVGENMACH -> fprintf ppf "two state invariant generator (mach int)"
+  | `INVGENMACHOS -> fprintf ppf "one state invariant generator (mach int)"
+  | `INVGENINT8 -> fprintf ppf "two state invariant generator (int8)"
+  | `INVGENINT8OS -> fprintf ppf "one state invariant generator (int8)"
+  | `INVGENINT16 -> fprintf ppf "two state invariant generator (int16)"
+  | `INVGENINT16OS -> fprintf ppf "one state invariant generator (int16)"
+  | `INVGENINT32 -> fprintf ppf "two state invariant generator (int32)"
+  | `INVGENINT32OS -> fprintf ppf "one state invariant generator (int32)"
+  | `INVGENINT64 -> fprintf ppf "two state invariant generator (int64)"
+  | `INVGENINT64OS -> fprintf ppf "one state invariant generator (int64)"
+  | `INVGENUINT8 -> fprintf ppf "two state invariant generator (uint8)"
+  | `INVGENUINT8OS -> fprintf ppf "one state invariant generator (uint8)"
+  | `INVGENUINT16 -> fprintf ppf "two state invariant generator (uint16)"
+  | `INVGENUINT16OS -> fprintf ppf "one state invariant generator (uint16)"
+  | `INVGENUINT32 -> fprintf ppf "two state invariant generator (uint32)"
+  | `INVGENUINT32OS -> fprintf ppf "one state invariant generator (uint32)"
+  | `INVGENUINT64 -> fprintf ppf "two state invariant generator (uint64)"
+  | `INVGENUINT64OS -> fprintf ppf "one state invariant generator (uint64)"
   | `INVGENREAL -> fprintf ppf "two state invariant generator (real)"
   | `INVGENREALOS -> fprintf ppf "one state invariant generator (real)"
   | `C2I -> fprintf ppf "c2i"
@@ -805,6 +841,24 @@ let short_name_of_kind_module = function
  | `INVGENOS -> "invgenos"
  | `INVGENINT -> "invgenintts"
  | `INVGENINTOS -> "invgenintos"
+ | `INVGENMACH -> "invgenmachts"
+ | `INVGENMACHOS -> "invgenmachos"
+ | `INVGENINT8 -> "invgenint8ts"
+ | `INVGENINT8OS -> "invgenint8os"
+ | `INVGENINT16 -> "invgenint16ts"
+ | `INVGENINT16OS -> "invgenint16os"
+ | `INVGENINT32 -> "invgenint32ts"
+ | `INVGENINT32OS -> "invgenint32os"
+ | `INVGENINT64 -> "invgenuint64ts"
+ | `INVGENINT64OS -> "invgenuint64os"
+ | `INVGENUINT8 -> "invgenuint8ts"
+ | `INVGENUINT8OS -> "invgenuint8os"
+ | `INVGENUINT16 -> "invgenuint16ts"
+ | `INVGENUINT16OS -> "invgenuint16os"
+ | `INVGENUINT32 -> "invgenuint32ts"
+ | `INVGENUINT32OS -> "invgenuint32os"
+ | `INVGENUINT64 -> "invgenuint64ts"
+ | `INVGENUINT64OS -> "invgenuint64os"
  | `INVGENREAL -> "invgenintts"
  | `INVGENREALOS -> "invgenintos"
  | `C2I -> "c2i"
@@ -825,6 +879,24 @@ let kind_module_of_string = function
   | "INVGENOS" -> `INVGENOS
   | "INVGENINT" -> `INVGENINT
   | "INVGENINTOS" -> `INVGENINTOS
+  | "INVGENMACH" -> `INVGENMACH
+  | "INVGENMACHOS" -> `INVGENMACHOS
+  | "INVGENINT8" -> `INVGENINT8
+  | "INVGENINT8OS" -> `INVGENINT8OS
+  | "INVGENINT16" -> `INVGENINT16
+  | "INVGENINT16OS" -> `INVGENINT16OS
+  | "INVGENINT32" -> `INVGENINT32
+  | "INVGENINT32OS" -> `INVGENINT32OS
+  | "INVGENINT64" -> `INVGENINT64
+  | "INVGENINT64OS" -> `INVGENINT64OS
+  | "INVGENUINT8" -> `INVGENUINT8
+  | "INVGENUINT8OS" -> `INVGENUINT8OS
+  | "INVGENUINT16" -> `INVGENUINT16
+  | "INVGENUINT16OS" -> `INVGENUINT16OS
+  | "INVGENUINT32" -> `INVGENUINT32
+  | "INVGENUINT32OS" -> `INVGENUINT32OS
+  | "INVGENUINT64" -> `INVGENUINT64
+  | "INVGENUINT64OS" -> `INVGENUINT64OS
   | "INVGENREAL" -> `INVGENREAL
   | "INVGENREALOS" -> `INVGENREALOS
   | "C2I" -> `C2I
@@ -848,6 +920,24 @@ let int_of_kind_module = function
   | `INVGENREAL -> 9
   | `INVGENREALOS -> 10
   | `C2I -> 11
+  | `INVGENINT8 -> 12
+  | `INVGENINT8OS -> 13
+  | `INVGENINT16 -> 14
+  | `INVGENINT16OS -> 15
+  | `INVGENINT32 -> 16
+  | `INVGENINT32OS -> 17
+  | `INVGENINT64 -> 18
+  | `INVGENINT64OS -> 19
+  | `INVGENUINT8 -> 20
+  | `INVGENUINT8OS -> 21
+  | `INVGENUINT16 -> 22
+  | `INVGENUINT16OS -> 23
+  | `INVGENUINT32 -> 24
+  | `INVGENUINT32OS -> 25
+  | `INVGENUINT64 -> 26
+  | `INVGENUINT64OS -> 27
+  | `INVGENMACH -> 28
+  | `INVGENMACHOS -> 29
 
 
 (* Timeouts *)
