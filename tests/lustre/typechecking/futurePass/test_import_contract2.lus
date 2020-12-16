@@ -1,0 +1,50 @@
+contract b(x:int) returns (y:int);
+let
+ var bx:int = x;
+tel;
+
+contract c1(x:int) returns (y: int);
+let
+    import b(x)returns(y) as b1;
+    guarantee y = x;
+    mode m1(
+      require x < 2;
+    );
+    mode m2(
+      require x < 4;
+    );
+    var z:int = x;
+    var v:int = x+1;
+tel
+
+contract c2 (x:int) returns (y: int);
+let
+    import b(x)returns(y) as b1;
+    guarantee y = x;
+    mode m1(
+      require x < 2;
+    );
+    mode m2(
+      require x < 4;
+    );
+    var z:int = x;
+    var v:int = x+1;
+tel
+
+
+node n(x: int) returns(y:int);
+(*@contract
+  import c1(1) returns(y);
+  import c2(2) returns(y);
+  -- import c(1) returns(y) as c;
+
+  guarantee y = pre x;
+  -- we should be able to refer to
+  -- contract ghost consts/vars
+
+  -- guarantee c2::z = 1;
+ --  guarantee c1::v = 3;
+*)
+let
+y = pre x;
+tel
