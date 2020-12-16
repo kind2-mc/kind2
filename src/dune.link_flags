@@ -1,0 +1,2 @@
+(:standard)
+;(:standard -ccopt -static -cclib -lstdc++ -cclib -lsodium)
