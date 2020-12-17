@@ -28,7 +28,9 @@ let mk_pos = position_of_lexing
 
 let rec add_else_branch b belse =
   match b with
-  | A.Target _ -> failwith "Cannot add else branch to unconditional target"
+  | A.Target (TransRestart (p, _))
+    | A.Target (TransResume (p, _)) ->
+     fail_at_position p  "Cannot add else branch to unconditional target"
   | A.TransIf (p, e, b1, None) -> A.TransIf (p, e, b1, Some belse)
   | A.TransIf (p, e, b1, Some b2) ->
      A.TransIf (p, e, b1, Some (add_else_branch b2 belse))
