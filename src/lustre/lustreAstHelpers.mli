@@ -98,6 +98,9 @@ val is_machine_type_of_associated_width: (lustre_type * lustre_type) -> bool
 val is_type_or_const_decl: declaration -> bool
 (** returns [true] if it is a type or a constant declaration  *)
 
+val flatten_group_types: lustre_type list -> lustre_type list
+(** Flatten group type structure  *)
+  
 val split_program: declaration list -> (declaration list * declaration list)
 (** Splits the program into two. First component are the type and constant declarations and
     Second component are the nodes, contract and function declarations. *)

@@ -149,6 +149,7 @@ let rec unannot_pos = function
   | A.UserType (_,id) -> A.UserType (dpos,id)
   | A.AbstractType (_, id) -> A.AbstractType (dpos,id)
   | A.TupleType (_,ts) -> A.TupleType (dpos, List.map unannot_pos ts)
+  | A.GroupType (_,ts) -> A.TupleType (dpos, List.map unannot_pos ts)
   | A.RecordType (_,tids) ->
     let aux (_,id,t) = (dpos,id,unannot_pos t) in
     A.RecordType (dpos,List.map aux tids)

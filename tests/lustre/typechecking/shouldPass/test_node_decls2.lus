@@ -1,0 +1,14 @@
+node n (i1: int; i2:int^2) returns (x:int; y:int^2)
+let
+  x = i1;
+  y = i2;
+tel
+
+
+node x74 (e1, e2, e3: int; f2: bool) returns (e: int^3; f: [int, bool, int]);
+var g: int^2;
+var h: int;
+let
+   e = [e1, e2, e3];
+   h, g = n(e1, [e1, e2]);
+tel
