@@ -8,6 +8,7 @@ on:
 
 jobs:
   kind2-static-bin:
+    if: github.repository == 'kind2-mc/kind2'
     strategy:
       matrix:
         os: [ ubuntu-20.04 ]
@@ -50,6 +51,7 @@ jobs:
         name: kind2-linux-static
 
   kind2-dynamic-bin:
+    if: github.repository == 'kind2-mc/kind2'
     strategy:
       matrix:
         ocaml-version: [ 4.11.1 ]
@@ -96,6 +98,7 @@ jobs:
         path: bin/kind2
 
   nightly-release:
+    if: github.repository == 'kind2-mc/kind2'
     strategy:
       matrix:
         os: [ ubuntu-20.04 ]
