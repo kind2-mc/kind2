@@ -9,7 +9,7 @@ clean:
 update:
 	# Generate the project README with CI links for Github
 	echo '.. DO NOT EDIT, see doc/usr/README.rst for details\n' > ../../README.rst
-	cat source/travis_links.rst >> ../../README.rst
+	cat source/ci_links.rst >> ../../README.rst
 	cat source/home.rst >> ../../README.rst
 	# Replace internal references with explicit ones to render README on Github
 	sed -E -i 's/:ref:`(.*)<(.*)>`/`\1<${doc_root}\2\.html>`_/g' ../../README.rst
