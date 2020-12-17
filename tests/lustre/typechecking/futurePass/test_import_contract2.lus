@@ -1,11 +1,13 @@
 contract c1(x:int) returns (y: int);
 let
     var z:int = x;
+    mode m1(require x=1;);
 tel
 
 contract c2 (x:int) returns (y: int);
 let
     var z:int = x+1;
+    mode m1(require x=2;);
 tel
 
 

@@ -1208,7 +1208,7 @@ let rec eval_node_equation inputs outputs locals ctx = function
    This function is shared between nodes and functions, each has a
    different way to deal with ghost variables. *)
 and eval_ghost_var
-  ?(no_defs = false) is_postponed inputs outputs locals ctx
+  ?(no_defs = false) as_id is_postponed inputs outputs locals ctx
 = function
 
   (* Declaration of a free variable *)
@@ -1222,7 +1222,8 @@ and eval_ghost_var
 
 
     (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident (QId.to_string i) in
+     let ident = I.mk_string_ident (QId.to_string
+                                      (QId.add_qualified_prefix (QId.to_string as_id) i)) in
 
     if (
       try 
@@ -1260,7 +1261,7 @@ and eval_ghost_var
 
         let ctx =
           eval_node_equation inputs outputs locals ctx (
-            A.Equation (pos, A.StructDef (pos, [A.SingleIdent (pos, i)]), expr)
+            A.Equation (pos, A.StructDef (pos, [A.SingleIdent (pos, QId.add_qualified_prefix (QId.to_string as_id) i)]), expr)
           )
         in
 
@@ -1577,9 +1578,9 @@ and eval_node_contract_call
   ) ;
 
   (* Push scope for contract svars. *)
-  let svar_scope = (call_pos, (QId.to_string as_id)) :: scope in
+  let svar_scope = (call_pos, (QId.to_string id)) :: scope in
   (* Push scope for contract call. *)
-  let ctx = C.push_contract_scope ctx (QId.to_string as_id) in
+  let ctx = C.push_contract_scope ctx (QId.to_string id) in
   (* Retrieve contract node from context. *)
   let pos, (id, params, in_formals, out_formals, contract) =
     try C.contract_node_decl_of_ident ctx id
@@ -1761,7 +1762,7 @@ and eval_node_contract_call
   (* Evaluate node as usual, it will merge with the current contract. *)
   let ctx =
     contract |> List.map (fun item -> item, is_candidate)
-    |> eval_node_contract_spec known ctx call_pos svar_scope
+    |> eval_node_contract_spec as_id known ctx call_pos svar_scope
       inputs outputs locals
   in
 
@@ -1790,7 +1791,7 @@ and add_ghost inputs outputs locals ctx pos ident type_expr ast_expr expr =
 
 (* Add all node contracts to contexts *)
 and eval_node_contract_item
-  known scope inputs outputs locals is_candidate is_postponed
+  as_id known scope inputs outputs locals is_candidate is_postponed
   (ctx, cpt_a, cpt_g)
 = function
 
@@ -1799,7 +1800,7 @@ and eval_node_contract_item
 
   (* Add ghost variables to context *)
   | A.GhostVar v ->
-    eval_ghost_var is_postponed inputs outputs locals ctx v, cpt_a, cpt_g
+    eval_ghost_var as_id is_postponed inputs outputs locals ctx v, cpt_a, cpt_g
 
   (* Evaluate assumption *)
   | A.Assume (pos, name, soft, expr) ->
@@ -1830,14 +1831,14 @@ and eval_node_contract_item
 
 (* Add all node contracts to contexts *)
 and eval_node_contract_spec
-  known ctx pos scope inputs outputs locals contract
+  as_id known ctx pos scope inputs outputs locals contract
 =
   (* Handles declarations, allows forward reference. *)
   let rec loop acc prev_postponed_size postponed = function
     | (head, is_candidate, is_postponed) :: tail -> (
       let acc, postponed =
         try
-          eval_node_contract_item
+          eval_node_contract_item as_id
             known scope inputs outputs locals
             is_candidate is_postponed acc head,
           postponed
@@ -1854,7 +1855,7 @@ and eval_node_contract_spec
         when prev_postponed_size = List.length postponed ->
       (
         try (* eval_node_contract_item is expected to fail with Deps.Unknown_decl *)
-          eval_node_contract_item
+          eval_node_contract_item as_id
             known scope inputs outputs locals
             is_candidate is_postponed acc head
         with
@@ -2573,7 +2574,7 @@ and eval_node_decl
       let ctx = C.push_scope ctx "contract" in
       (* Eval contracts. *)
       let ctx =
-        eval_node_contract_spec I.Set.empty ctx pos []
+        eval_node_contract_spec (QId.from_string "nodecontract$") I.Set.empty ctx pos []
           inputs outputs locals contract
       in
       let ctx = C.add_node_sofar_assumption ctx in
