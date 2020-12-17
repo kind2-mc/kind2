@@ -1,0 +1,23 @@
+-- ------------------------------------------------------------
+-- Automaton
+-- ------------------------------------------------------------
+
+node Aut (cond0 : bool; cond1 : bool; in : int) returns (o : int)
+let
+  automaton
+    initial state ST0: 
+    unless if cond0 restart ST1;
+    var k: int;
+    let
+     k = if in < 0 then -in else in;
+     o = k + 1;
+    tel
+    state ST1:
+    var k: int;
+    let
+      k = if in < 0 then in else -in;
+      o = -2 * (k + last o);
+    tel
+    until if cond1 resume ST0 ;
+ returns o;
+tel
