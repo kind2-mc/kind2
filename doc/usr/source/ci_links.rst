@@ -7,7 +7,6 @@
 .. |nbsp| unicode:: 0xA0
 
 .. list-table::
-   :widths: 30 30
+   :widths: 30
 
    * - Build status: |nbsp| |develop|
-
