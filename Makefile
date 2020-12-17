@@ -12,6 +12,10 @@ build:
 	@dune build src @install
 	@dune install --sections=bin --prefix . 2> /dev/null
 
+static:
+	@dune build src --profile=static @install
+	@dune install --sections=bin --prefix . 2> /dev/null
+
 clean:
 	@dune clean
 	@rm -rf $(LOCAL_BINDIR) $(LOCAL_DOCDIR)

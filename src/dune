@@ -2,7 +2,7 @@
  (public_name kind2)
  (libraries kind2dev)
  (modules kind2)
- (link_flags (:include dune.link_flags))
+ (link_flags (:include %{env:link_flags=dune.default_lflags}))
 )
 
 (library
