@@ -1004,29 +1004,6 @@ let mk_graph_eqn: node_summary -> LA.node_equation -> dependency_analysis_data g
               especially if it is just an identifier.
             *)
            let rhs_g = mk_graph_expr2 m (LH.abstract_pre_subexpressions e) in
-           (* There are only three possible cases due to the 
-              way we have structures *)
-           (* Case 1: There is only 1 lhss and hence all 
-              elements in rhs depend on that single LHS *)
-           (* if (List.length lhss = 1)
-            * then handle_one_lhs
-            *        (List.fold_left
-            *           union_dependency_analysis_data
-            *           empty_dependency_analysis_data
-            *           rhs_g)
-            *        (List.hd lhss)
-            * (\* Case 1: There is only 1 rhs and hence all elements 
-            *    in lhs depend on that single RHS 
-            *    I am skeptical about this method, 
-            *    but we cannot do better unless we do some
-            *    assignment unfolding, that we cannot at this point. *\)
-            * else if (List.length rhs_g = 1)
-            * then List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
-            *        (List.map (handle_one_lhs (List.hd rhs_g)) lhss)
-            * (\* Case 3: The happy case RHS and LHS should have same number 
-            *    of items and we can do a one to one mapping*\)
-            * else List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map2 (handle_one_lhs) rhs_g lhss) *)
-
            (Log.log L_trace "For lhss=%a: width RHS=%a, width LHS=%a"
                   (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss
                   Format.pp_print_int (List.length rhs_g)
