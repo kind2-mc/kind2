@@ -1170,6 +1170,10 @@ typed_ident: s = ident; COLON; t = lustre_type { (mk_pos $startpos, s, t) }
 ident_list:
   | l = separated_nonempty_list(COMMA, ident) { l }
 
+(* A comma-separated list of identifiers *)
+qual_ident_list:
+  | l = separated_nonempty_list(two_colons, ident) { l }
+          
 
 (* A comma-separated list of types *)
 lustre_type_list:
