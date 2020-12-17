@@ -1,0 +1,201 @@
+name: Nightly Build
+
+# Run the nightly build at 8 AM UTC / 2 AM Central
+on:
+  schedule:
+    - cron: "0 8 * * *"
+
+jobs:
+  kind2-static-bin:
+    if: github.repository == 'kind2-mc/kind2'
+    runs-on: ubuntu-latest
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+      with:
+        driver-opts: network=host
+
+    - name: Build and push to local registry
+      uses: docker/build-push-action@v2
+      with:
+        file: docker/Dockerfile.StaticBuild
+        context: ./
+        push: true
+        tags: localhost:5000/name/kind2:latest
+    
+    - name: Extract kind 2 binary
+      id: extract
+      uses: shrink/actions-docker-extract@v1
+      with:
+        image: localhost:5000/name/kind2:latest
+        path: /kind2
+
+    - name: Upload kind2 binary
+      uses: actions/upload-artifact@v2
+      with:
+        path: ${{ steps.extract.outputs.destination }}
+        name: linux-static
+
+
+  kind2-dynamic-bin:
+    if: github.repository == 'kind2-mc/kind2'
+    strategy:
+      matrix:
+        ocaml-version: [ 4.11.1 ]
+        os: [ ubuntu-18.04, macos-10.15 ]
+        include:
+          - os: macos-10.15
+            zmq_install: brew install zmq
+          - os: ubuntu-18.04
+            zmq_install: sudo apt-get install -y libzmq3-dev
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Cache opam repository
+      uses: actions/cache@v2
+      with:
+        path: ~/.opam
+        key: ${{ matrix.os }}-opam-${{ matrix.ocaml-version }}
+
+    - name: Set up OCaml ${{ matrix.ocaml-version }}
+      uses: avsm/setup-ocaml@v1
+      with:
+        ocaml-version: ${{ matrix.ocaml-version }}
+
+    - name: Install ZMQ library
+      run: ${{ matrix.zmq_install }}
+
+    - name: Install Kind2 OCaml dependencies
+      run: opam install -y . --deps-only
+
+    - name: Build Kind 2
+      run: opam exec make
+
+    - name: Strip binary
+      run: strip bin/kind2
+
+    - name: Upload Kind 2 binary
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ matrix.os }}
+        path: bin/kind2
+
+
+  get-release-info:
+    if: github.repository == 'kind2-mc/kind2'
+    runs-on: ubuntu-latest
+    needs: [kind2-static-bin, kind2-dynamic-bin]
+    outputs:
+      upload_url: ${{ steps.get_upload_url.outputs.url }}
+      asset_ids: ${{ steps.get_asset_ids.outputs.ids }}
+    steps:
+    - name: Get nightly pre-release
+      uses: octokit/request-action@v2.x
+      id: get_nightly_prerelease
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        route: GET /repos/:repository/releases/tags/nightly
+        repository: ${{ github.repository }}
+
+    - name: Get pre-release upload_url
+      id: get_upload_url
+      run: |
+        url=$(echo "$response" | jq -r '.upload_url')
+        echo "::set-output name=url::$url"
+      env:
+        response: ${{ steps.get_nightly_prerelease.outputs.data }}
+
+    - name: Get pre-release asset ids
+      id: get_asset_ids
+      run: |
+        ids=$(echo "$response" | jq -c '.assets | map(.id)')
+        echo "::set-output name=ids::$ids"
+      env:
+        response: ${{ steps.get_nightly_prerelease.outputs.data }}
+
+
+  delete-old-asset:
+    if: github.repository == 'kind2-mc/kind2' &&
+        needs.get-release-info.outputs.asset_ids != '[]'
+    runs-on: ubuntu-latest
+    needs: get-release-info
+    strategy:
+      matrix:
+        asset_id: ${{fromJson(needs.get-release-info.outputs.asset_ids)}}
+    steps:
+    - name: Remove asset
+      uses: octokit/request-action@v2.x
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        route: DELETE /repos/:repository/releases/assets/:asset_id
+        repository: ${{ github.repository }}
+        asset_id: ${{ matrix.asset_id }}
+
+
+  update-release-tag:
+    if: github.repository == 'kind2-mc/kind2' && !failure()
+    runs-on: ubuntu-latest
+    # It doesn't need delete-old-asset, but we force the dependency
+    # for consistency (in case previous job fails)
+    needs: [get-release-info, delete-old-asset]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Update nightly tag
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git tag -f nightly
+        git push --tags -f
+
+
+  upload-artifact:
+    if: github.repository == 'kind2-mc/kind2' && !failure()
+    runs-on: ubuntu-latest
+    # Actual dependencies: [get-release-info, delete-old-asset]
+    needs: [get-release-info, update-release-tag]
+    strategy:
+      matrix:
+        version: [linux-static, ubuntu-18.04, macos-10.15]
+
+    steps:
+    - name: Download binary
+      uses: actions/download-artifact@v2
+      with:
+        name: ${{ matrix.version }}
+    
+    - name: Create tar.gz file
+      id: create_tarball
+      run: |
+        chmod u+x kind2
+        date=$(date "+%Y-%m-%d")
+        tarball=kind2-$date-${{ matrix.version }}.tar.gz
+        tar -czf $tarball kind2
+        echo "::set-output name=filename::$tarball"
+    
+    - name: Upload artifact
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.get-release-info.outputs.upload_url }}
+        asset_path: ${{ steps.create_tarball.outputs.filename }}
+        asset_name: ${{ steps.create_tarball.outputs.filename }}
+        asset_content_type: application/gzip
