@@ -69,7 +69,7 @@ exclude_patterns = [
     '_build',
     'README.rst',
     'doc_requirements.rst',
-    'ci_links.rst'
+    'header.rst'
 ]
 
 # The name of the Pygments (syntax highlighting) style to use.
