@@ -110,7 +110,6 @@ type dependency_analysis_data =
 (** The store for memoizing the lustre program dependencies  *)
 
 
-
 (** {1 Pretty Printing } *)
 let pp_print_node_summary ppf m =
   let pp_print_val ppf m =
@@ -147,8 +146,7 @@ let pp_print_id_pos ppf m =
         (Lib.pp_print_list Lib.pp_print_position ", ") b)  ", "
     ppf (IMap.bindings m)
 
-
-
+(** {1 Helper functions } *)
   
 let empty_node_summary: node_summary = IMap.empty
 
@@ -216,6 +214,8 @@ let node_suffix = ""
 let contract_suffix = "contract "
 let mode_suffix = "mode "
 
+(** {1 Dependency Analysis functions } *)
+                
 (*****************************************************************************
  * Type 1: Dependency Analysis for top level type and constant declarations  *
  *****************************************************************************)
@@ -243,7 +243,7 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | ArrayType (_, (ty, e)) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr e)
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
 (** This graph is useful for analyzing top level constant and type declarations *)
-                        
+
 and mk_graph_expr: LA.expr -> dependency_analysis_data
   = function
   | LA.Ident (pos, i) -> singleton_dependency_analysis_data "" i pos
@@ -481,7 +481,7 @@ let rec extract_decls: ('a IMap.t * id_pos_map) -> LA.ident list -> ('a list) gr
   | i :: is ->
      (match (IMap.find_opt i decl_map) with
       | None -> (match (find_id_pos i_pos_map i) with
-                 | None -> fail_no_position ("Identifier " ^ i ^ " not found. This should not happen")
+                 | None -> graph_error Lib.dummy_pos ("Identifier " ^ i ^ " not found. This should not happen")
                  | Some p -> graph_error p ("Identifier " ^ i ^ " is not defined."))
       | Some i' -> R.ok i') >>= fun d ->
      extract_decls (decl_map, i_pos_map) is >>= fun ds ->
@@ -764,16 +764,15 @@ let sort_and_check_contract_eqns: dependency_analysis_data
      | Graph.CyclicGraphException ids ->
         if List.length ids > 1
         then (match (find_id_pos ad'.id_pos_data (List.hd ids)) with
-              | None ->
-                 Log.log L_trace "Position map: %a" pp_print_id_pos ad'.id_pos_data
-                 ; fail_no_position ("Cyclic dependency found but Cannot find position for identifier "
-                                  ^ (List.hd ids) ^ " This should not happen!") 
+              | None -> graph_error Lib.dummy_pos
+                          ("Cyclic dependency found but Cannot find position for identifier "
+                           ^ (List.hd ids) ^ " This should not happen!") 
               | Some p -> graph_error p
                             ("Cyclic dependency detected in definition of identifiers: "
                              ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
-        else fail_no_position "Cyclic dependency with no ids detected. This should not happen!")
-    >>= fun sorted_ids ->
+        else graph_error Lib.dummy_pos "Cyclic dependency with no ids detected. This should not happen!")
 
+    >>= fun sorted_ids ->
     let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) (List.rev sorted_ids) in
     let (to_sort_eqns, assums_grantees) = split_contract_equations contract in
     mk_contract_eqn_map IMap.empty to_sort_eqns >>= fun eqn_map ->
@@ -804,12 +803,14 @@ let sort_declarations: LA.t -> LA.t graph_result
    | Graph.CyclicGraphException ids ->
       if List.length ids > 1
       then (match (find_id_pos ad.id_pos_data (List.hd ids)) with
-            | None -> fail_no_position ("Cyclic dependency found but Cannot find position for identifier "
-                                ^ (List.hd ids) ^ " This should not happen!") 
+            | None -> graph_error Lib.dummy_pos
+                        ("Cyclic dependency found but Cannot find position for identifier "
+                         ^ (List.hd ids) ^ " This should not happen!") 
             | Some p -> graph_error p
                           ("Cyclic dependency detected in definition of identifiers: "
                            ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
-      else fail_no_position "Cyclic dependency with no ids detected. This should not happen!")
+      else graph_error Lib.dummy_pos
+             "Cyclic dependency with no ids detected. This should not happen!")
   >>= fun sorted_ids ->
   let dependency_sorted_ids = List.rev sorted_ids in
   Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  dependency_sorted_ids
@@ -983,8 +984,13 @@ let mk_contract_summary: contract_summary -> LA.contract_node_decl -> contract_s
   IMap.add i export_ids m 
 (** Make contract summary that is a list of all symbols that a contract exports *)
                                             
-let mk_graph_eqn: node_summary -> LA.node_equation -> dependency_analysis_data graph_result =
-  let handle_one_lhs: dependency_analysis_data -> LA.struct_item -> dependency_analysis_data = fun rhs_g lhs ->
+let mk_graph_eqn: node_summary
+                  -> LA.node_equation
+                  -> dependency_analysis_data graph_result =
+  let handle_one_lhs: dependency_analysis_data
+                      -> LA.struct_item
+                      -> dependency_analysis_data
+    = fun rhs_g lhs ->
     match lhs with
     | LA.SingleIdent (p, i) -> connect_g_pos rhs_g i p 
     | LA.ArrayDef (p, arr, is) ->
@@ -995,7 +1001,8 @@ let mk_graph_eqn: node_summary -> LA.node_equation -> dependency_analysis_data g
       | LA.TupleSelection (p, _, _)
       | LA.FieldSelection (p, _, _)
       | LA.ArraySliceStructItem (p, _, _)
-      ->  Lib.todo ("Parsing not supported" ^ __LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position p) in
+      ->  Lib.todo ("Parsing not supported" ^ __LOC__
+                    ^ " " ^ Lib.string_of_t Lib.pp_print_position p) in
   fun m -> function
         | Equation (pos, (LA.StructDef (p, lhss)), e) ->
            (* We need to find the mapping of graphs from the 
@@ -1005,19 +1012,19 @@ let mk_graph_eqn: node_summary -> LA.node_equation -> dependency_analysis_data g
             *)
            let rhs_g = mk_graph_expr2 m (LH.abstract_pre_subexpressions e) in
            (Log.log L_trace "For lhss=%a: width RHS=%a, width LHS=%a"
-                  (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss
-                  Format.pp_print_int (List.length rhs_g)
-                  Format.pp_print_int (List.length lhss)
-                  ;
+              (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss
+              Format.pp_print_int (List.length rhs_g)
+              Format.pp_print_int (List.length lhss)
+           ;
              if (List.length rhs_g = List.length lhss)
              then  (R.ok (List.fold_left union_dependency_analysis_data
-                        empty_dependency_analysis_data
-                        (List.map2 handle_one_lhs rhs_g lhss)))
-               else (graph_error pos ("Left hand side of the equation has width "
-                                 ^ Stdlib.string_of_int (List.length lhss)
-                                 ^ " and right hand side of the equation has width "
-                                 ^ Stdlib.string_of_int (List.length rhs_g)
-                                 ^ ". They should be of same width.")))
+                            empty_dependency_analysis_data
+                            (List.map2 handle_one_lhs rhs_g lhss)))
+             else (graph_error pos ("Left hand side of the equation has width "
+                                    ^ Stdlib.string_of_int (List.length lhss)
+                                    ^ " and right hand side of the equation has width "
+                                    ^ Stdlib.string_of_int (List.length rhs_g)
+                                    ^ ". They should be of same width.")))
         | _ -> R.ok (empty_dependency_analysis_data)
 (** Make a dependency graph from the equations. Each LHS has an edge that goes into its RHS definition. *)
              
@@ -1040,12 +1047,13 @@ let analyze_circ_node_equations: node_summary -> LA.node_item list -> unit graph
      | Graph.CyclicGraphException ids ->
         if List.length ids > 1
         then (match (find_id_pos ad.id_pos_data (List.hd ids)) with
-              | None -> fail_no_position ("Cyclic dependency found but cannot find position for identifier "
-                                  ^ (List.hd ids) ^ " This should not happen!") 
+              | None -> graph_error Lib.dummy_pos
+                          ("Cyclic dependency found but cannot find position for identifier "
+                           ^ (List.hd ids) ^ " This should not happen!") 
               | Some p -> graph_error p
                             ("Cyclic dependency detected in equations with identifiers: "
                              ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
-        else fail_no_position "Cyclic dependency with no ids detected. This should not happen!")
+        else graph_error Lib.dummy_pos "Cyclic dependency with no ids detected. This should not happen!")
     >> R.ok ()
 (** Check for node equations, we need to flatten the node calls using [node_summary] generated *)
     
