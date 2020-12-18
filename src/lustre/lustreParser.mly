@@ -788,14 +788,12 @@ two_colons:
 pexpr(Q): 
   
   (* An identifier *)
-  | s = ident { A.Ident (mk_pos $startpos, QId.from_string s) } 
+  | s = qual_ident_list { A.Ident (mk_pos $startpos, QId.from_list s) } 
 
   (* A mode reference. *)
-  | two_colons ; mode_ref = separated_nonempty_list(two_colons, ident) {
-    A.ModeRef (mk_pos $startpos,
-               QId.from_list (List.concat (List.map (fun i -> QId.to_list (QId.from_string i)) mode_ref)))
+  | two_colons ; mode_ref = qual_ident_list {
+    A.ModeRef (mk_pos $startpos, QId.from_list mode_ref)
     }
-  (* TODO: Fix this parsing nonsense. The problem is a::b is parsed as 'a::b' instead of 'a'::'b'*)
 
   (* A propositional constant *)
   | TRUE { A.Const (mk_pos $startpos, A.True) }

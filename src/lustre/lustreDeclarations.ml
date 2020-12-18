@@ -1260,9 +1260,15 @@ and eval_ghost_var
         let ctx = C.add_node_local ~ghost:true ctx ident pos type_expr in
 
         let ctx =
-          eval_node_equation inputs outputs locals ctx (
-            A.Equation (pos, A.StructDef (pos, [A.SingleIdent (pos, QId.add_qualified_prefix (QId.to_string as_id) i)]), expr)
-          )
+          eval_node_equation inputs outputs locals
+            ctx (
+              A.Equation (pos,
+                          A.StructDef
+                            (pos
+                            , [A.SingleIdent (pos, QId.add_qualified_prefix (QId.to_string as_id) i)]
+                            )
+                          , expr)
+            )
         in
 
         ctx

@@ -336,9 +336,6 @@ let keyword_table = mk_hashtbl [
    with a letter or the underscore *)
 let id = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
 
-(* let qual_id = id (':' ':' id)* *)
-(* a qualified id is an id or id::qual_id *)
-                
 (* Keep these separated from alphabetic characters, otherwise a->b would 
    be one token *)
 let printable = ['+' '-' '*' '/' '>' '<' '=' ]+
