@@ -519,28 +519,41 @@ let rec mk_contract_eqn_map: LA.contract_node_equation IMap.t -> LA.contract -> 
    * | Guarantee of contract_guarantee*)
               
 
-let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list = fun m ->
+let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list graph_result
+  = fun m ->
   function
-  | LA.Ident (pos, i) -> [singleton_dependency_analysis_data "" i pos]
-  | LA.ModeRef (pos, ids) -> [singleton_dependency_analysis_data mode_suffix (List.nth ids (List.length ids - 1) ) pos] 
-  | LA.Const _ -> [empty_dependency_analysis_data]
+  | LA.Ident (pos, i) -> R.ok [singleton_dependency_analysis_data "" i pos]
+  | LA.ModeRef (pos, ids) ->
+     R.ok [singleton_dependency_analysis_data mode_suffix (List.nth ids (List.length ids - 1) ) pos] 
+  | LA.Const _ ->
+     R.ok [empty_dependency_analysis_data]
 
   | LA.RecordExpr (pos, i, ty_ids) ->
-     [List.fold_left union_dependency_analysis_data
-        (singleton_dependency_analysis_data "" i pos)
-        (List.concat (List.map (fun ty_id -> mk_graph_expr2 m (snd ty_id)) ty_ids))]
+     R.seq (List.map (fun ty_id -> mk_graph_expr2 m (snd ty_id)) ty_ids) >>= fun gs -> 
+     R.ok [List.fold_left union_dependency_analysis_data
+             (singleton_dependency_analysis_data "" i pos)
+             (List.concat gs)]
   | LA.StructUpdate (_, e1, _, e2) ->
-     [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data ((mk_graph_expr2 m e1) @ (mk_graph_expr2 m e2))] 
-
+     mk_graph_expr2 m e1 >>= fun g1 ->
+     mk_graph_expr2 m e2 >>= fun g2 ->
+     R.ok [List.fold_left union_dependency_analysis_data
+             empty_dependency_analysis_data (g1 @ g2)] 
   | LA.UnaryOp (_, _, e)
     | LA.ConvOp (_, _, e) -> mk_graph_expr2 m e
   | LA.BinaryOp (_, _, e1, e2)
     | LA.CompOp (_, _, e1, e2) ->
-     [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data ((mk_graph_expr2 m e1) @ (mk_graph_expr2 m e2))] 
+     mk_graph_expr2 m e1 >>= fun g1 ->
+     mk_graph_expr2 m e2 >>= fun g2 ->
+     R.ok [List.fold_left union_dependency_analysis_data
+             empty_dependency_analysis_data (g1 @ g2)] 
+
   | LA.TernaryOp (p, _, e1, e2, e3) ->
-     let g1 =  List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (mk_graph_expr2 m e1) in
-     let g2, g3 = (mk_graph_expr2 m e2), (mk_graph_expr2 m e3) in
-     if (List.length g3 != List.length g2) then
+     (mk_graph_expr2 m e1) >>= fun g1 -> 
+     let g1 = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data g1 in
+     (mk_graph_expr2 m e2) >>= fun g2 ->
+     (mk_graph_expr2 m e3) >>= fun g3 ->
+     if (List.length g3 != List.length g2)
+     then
        (Log.log L_trace ("e2: %a"
                          ^^ "\ne3: %a"
                          ^^ "\ng2 length %a: %a"
@@ -551,87 +564,98 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
           (Lib.pp_print_list G.pp_print_graph ", ") (List.map (fun g -> g.graph_data) g2)
           Format.pp_print_int (List.length g3)
           (Lib.pp_print_list G.pp_print_graph ", ") (List.map (fun g -> g.graph_data) g3)
-       ; fail_at_position p "width of each branch is not the same.")
+       ; graph_error p "Width of each branch is not the same.")
      else
-       List.map (fun g -> union_dependency_analysis_data g1 g)
-         (List.map2 (fun g g' -> union_dependency_analysis_data g g') g2 g3)
+       R.ok (List.map (fun g -> union_dependency_analysis_data g1 g)
+               (List.map2 (fun g g' -> union_dependency_analysis_data g g') g2 g3))
   | LA.RecordProject (_, e, _)
     | LA.TupleProject (_, e, _) -> mk_graph_expr2 m e
   | LA.ArrayConstr (_, e1, e2) ->
-     [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data ((mk_graph_expr2 m e1) @ (mk_graph_expr2 m e2))] 
+     mk_graph_expr2 m e1 >>= fun g1 ->
+     mk_graph_expr2 m e2 >>= fun g2 -> 
+     R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (g1 @ g2)] 
   | LA.ArraySlice (_, e1, (e2, e3)) ->
-     [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
-        (( mk_graph_expr2 m e1)
-         @ ( mk_graph_expr2 m e2)
-         @ ( mk_graph_expr2 m e3)) ]
-  | LA.ArrayIndex (_, e1, e2) -> mk_graph_expr2 m e1
+     mk_graph_expr2 m e1 >>= fun g1 ->
+     mk_graph_expr2 m e2 >>= fun g2 ->
+     mk_graph_expr2 m e3 >>= fun g3 ->
+     R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
+             (g1 @ g2 @ g3) ]
+  | LA.ArrayIndex (_, e1, _) -> mk_graph_expr2 m e1
+
   | LA.ArrayConcat  (_, e1, e2) ->
-     [List.fold_left union_dependency_analysis_data
-        empty_dependency_analysis_data ((mk_graph_expr2 m e1) @ (mk_graph_expr2 m e2))] 
+     mk_graph_expr2 m e1 >>= fun g1 ->
+     mk_graph_expr2 m e2 >>= fun g2 -> 
+     R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (g1 @ g2)] 
   | LA.GroupExpr (_, ExprList, es) as e->
-     Log.log L_trace "this is an ExprList %a" LA.pp_print_expr e   
-    ; List.concat (List.map (mk_graph_expr2 m) es)
+     Log.log L_trace "This is an ExprList %a" LA.pp_print_expr e   
+    ; R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs -> R.ok (List.concat gs)
   | LA.GroupExpr (_, _, es) ->
-     [List.fold_left
-        union_dependency_analysis_data
-        empty_dependency_analysis_data
-        (List.concat (List.map (mk_graph_expr2 m) es))]
+     R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs ->
+     R.ok [List.fold_left
+             union_dependency_analysis_data
+             empty_dependency_analysis_data
+             (List.concat gs)]
 
   | LA.When (_, e, _) -> mk_graph_expr2 m e
   | LA.Current (_, e) -> mk_graph_expr2 m e
   | LA.Condact (pos, _, _, n, e1s, e2s) ->
      let node_call = LA.Call(pos, n, e1s) in
-     let gs = mk_graph_expr2 m node_call in
-     let default_gs = List.concat (List.map (mk_graph_expr2 m) e2s) in
+     mk_graph_expr2 m node_call >>= fun gs ->
+     R.seq (List.map (mk_graph_expr2 m) e2s) >>= fun d_gs -> 
+     let default_gs = List.concat d_gs in
      if List.length gs != List.length default_gs
-     then fail_at_position pos "In condact width of default values does not match width of node call"
-     else List.map2 union_dependency_analysis_data gs default_gs
+     then graph_error pos "In condact width of default values does not match width of node call"
+     else R.ok (List.map2 union_dependency_analysis_data gs default_gs)
   | LA.Activate (pos, n, _, _, es) ->
      let node_call = LA.Call(pos, n, es) in
      mk_graph_expr2 m node_call
   | LA.Merge (_, _, cs) ->
-     [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
-        (List.concat (List.map (fun (_, e) -> (mk_graph_expr2 m) e) cs))] 
+     R.seq (List.map (fun (_, e) -> (mk_graph_expr2 m) e) cs) >>= fun gs ->
+     R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
+        (List.concat gs)] 
   | LA.RestartEvery (p, n, es, _) ->
      let node_call = LA.Call(p, n, es) in
      mk_graph_expr2 m node_call
   | LA.Pre (_, e) ->
-     List.map (map_g_pos (fun v -> v ^ "$p")) (mk_graph_expr2 m e) 
-  | LA.Last (pos, i) -> [singleton_dependency_analysis_data "$last" i pos]
+     mk_graph_expr2 m e >>= fun g ->
+       R.ok (List.map (map_g_pos (fun v -> v ^ "$p")) g) 
+  | LA.Last (pos, i) -> R.ok [singleton_dependency_analysis_data "$last" i pos]
   | LA.Fby (p, e1, _, e2)
     | LA.Arrow (p, e1, e2) as e ->
-     let e1_g, e2_g =  (mk_graph_expr2 m e1), (mk_graph_expr2 m e2) in 
-     if (List.length e1_g != List.length e2_g) then
+     mk_graph_expr2 m e1 >>= fun g1 ->
+     mk_graph_expr2 m e2 >>= fun g2 ->
+     if (List.length g1 != List.length g2) then
        (
          Log.log L_trace ("LHS: %a\n"
                           ^^ "LHS graphs : %a\n"
                           ^^ " RHS: %a\n"
                           ^^ " RHS: graphs %a\n") 
            LA.pp_print_expr e1
-           (Lib.pp_print_list G.pp_print_graph ",") (List.map (fun g -> g.graph_data) e1_g)
+           (Lib.pp_print_list G.pp_print_graph ",") (List.map (fun g -> g.graph_data) g1)
            LA.pp_print_expr e2
-           (Lib.pp_print_list G.pp_print_graph ",") (List.map (fun g -> g.graph_data) e2_g)
-       ; fail_at_position p ("In expression " ^ (Lib.string_of_t LA.pp_print_expr e)  
+           (Lib.pp_print_list G.pp_print_graph ",") (List.map (fun g -> g.graph_data) g2)
+       ; graph_error p ("In expression " ^ (Lib.string_of_t LA.pp_print_expr e)  
                              ^ " width of right hand side is not equal to left hand side of arrow.")
        )
      else 
-       List.map2 (fun l r -> union_dependency_analysis_data l r ) e1_g e2_g
+       R.ok (List.map2 (fun l r -> union_dependency_analysis_data l r ) g1 g2)
 
   | LA.Call (p, i, es) ->
      (match IMap.find_opt i m with
-      | None -> fail_at_position p ("Cannot find summary of node " ^ i ^ ". This should not happen.")
+      | None -> graph_error p ("Cannot find summary of node " ^ i ^ ". This should not happen.")
       | Some summary ->
          let sum_bds = IntMap.bindings summary in
-         let ip_gs = List.concat (List.map (mk_graph_expr2 m) es) in
+         R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs ->
+         let ip_gs = List.concat gs in
          (* For each output stream, return the associated graph of the input expression 
             whose current value it depends on. If the output stream does not depend on 
             any input stream's current value, return an empty graph. *)
-         List.map (fun (i, b) ->
+         R.ok (List.map (fun (i, b) ->
              if List.length b = 0
              then empty_dependency_analysis_data
              else (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
                      (List.map (List.nth ip_gs) b))
-           ) sum_bds)
+           ) sum_bds))
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
 (** This graph is useful for analyzing equations assuming that the nodes/contract call
     recursive calling has been resolved already.
@@ -669,56 +693,57 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
        | TypedConst (pos, i, e, _) ->
         connect_g_pos (mk_graph_expr (LH.abstract_pre_subexpressions e)) i pos
        
-  
-let mk_graph_const_decl2: node_summary -> LA.const_decl -> dependency_analysis_data
+let mk_graph_const_decl2: node_summary -> LA.const_decl -> dependency_analysis_data graph_result
   = fun m ->
   function
   | LA.FreeConst (pos, i, ty) ->
-     connect_g_pos (mk_graph_type ty) (const_suffix ^ i) pos
+     R.ok (connect_g_pos (mk_graph_type ty) (const_suffix ^ i) pos)
   | LA.UntypedConst (pos, i, e) ->
-     connect_g_pos
-       (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (mk_graph_expr2 m e))
-       (const_suffix ^ i) pos 
+     (mk_graph_expr2 m e) >>= fun g -> 
+     R.ok (connect_g_pos
+             (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data g)
+             (const_suffix ^ i) pos) 
   | LA.TypedConst (pos, i, e, ty) ->
-     connect_g_pos
-       (union_dependency_analysis_data
-          (List.fold_left
-             union_dependency_analysis_data
-             empty_dependency_analysis_data (mk_graph_expr2 m e))
-          (mk_graph_type ty)) (const_suffix ^ i) pos
-
-
+     mk_graph_expr2 m e >>= fun g -> 
+     R.ok (connect_g_pos
+             (union_dependency_analysis_data
+                (List.fold_left
+                   union_dependency_analysis_data
+                   empty_dependency_analysis_data g)
+                (mk_graph_type ty)) (const_suffix ^ i) pos)
   
-let mk_graph_contract_eqns: node_summary -> LA.contract -> dependency_analysis_data
+let mk_graph_contract_eqns: node_summary -> LA.contract -> dependency_analysis_data graph_result
   = fun  m ->
-  let mk_graph: LA.contract_node_equation -> dependency_analysis_data
+  let mk_graph: LA.contract_node_equation -> dependency_analysis_data graph_result
     = function
     | LA.GhostConst c -> mk_graph_const_decl2 m c
     | LA.GhostVar c -> mk_graph_const_decl2 m c
     | LA.Mode (pos, i, reqs, ens) ->
-       let g = List.fold_left (fun g e -> List.fold_left union_dependency_analysis_data g (mk_graph_expr2 m e))
-                 empty_dependency_analysis_data (List.map (fun (_, _,  e) -> e) (reqs @ ens)) in
-       connect_g_pos g (mode_suffix ^ i) pos 
+       let es = List.map (fun (_, _,  e) -> e) (reqs @ ens) in
+       R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs ->
+       let g = List.fold_left union_dependency_analysis_data
+                 empty_dependency_analysis_data (List.concat gs) in 
+       R.ok (connect_g_pos g (mode_suffix ^ i) pos) 
     | LA.Assume _ 
-      | LA.Guarantee _ -> empty_dependency_analysis_data 
-    | LA.ContractCall (_, i, ip_exps, ops) -> empty_dependency_analysis_data 
+      | LA.Guarantee _ 
+      | LA.ContractCall _ -> R.ok empty_dependency_analysis_data 
   in
   fun eqns ->
-  List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map mk_graph eqns)
+  R.seq (List.map mk_graph eqns) >>= fun gs -> 
+  R.ok (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data gs) 
 
-let expression_current_streams: node_summary -> LA.expr -> LA.ident list = 
-  fun ns e ->
-  let g = mk_graph_expr2 ns (LH.abstract_pre_subexpressions e) in
-  G.to_vertex_list (G.get_vertices (List.fold_left
+let expression_current_streams: node_summary -> LA.expr -> LA.ident list graph_result
+  = fun ns e ->
+  mk_graph_expr2 ns (LH.abstract_pre_subexpressions e) >>= fun g ->
+  R.ok (G.to_vertex_list (G.get_vertices (List.fold_left
                                       union_dependency_analysis_data
-                                      empty_dependency_analysis_data g).graph_data)
+                                      empty_dependency_analysis_data g).graph_data))
 (** all the variables who's current value is used in the expression *)
 
 let check_eqn_no_current_vals: LA.SI.t -> node_summary -> LA.expr -> unit graph_result
   = fun node_out_streams ns e -> 
-  let assume_vars_out_streams =
-    SI.inter node_out_streams
-      (LA.SI.of_list (expression_current_streams ns e)) in
+  expression_current_streams ns e >>= fun s ->
+  R.ok (SI.inter node_out_streams (LA.SI.of_list s)) >>= fun assume_vars_out_streams -> 
   Log.log L_trace "node_params: %a non pre vars of e: %a"
     (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_streams)
     (Lib.pp_print_list LA.pp_print_ident ", ")
@@ -1010,7 +1035,7 @@ let mk_graph_eqn: node_summary
               such that the width of each of the lhs and rhs 
               especially if it is just an identifier.
             *)
-           let rhs_g = mk_graph_expr2 m (LH.abstract_pre_subexpressions e) in
+           mk_graph_expr2 m (LH.abstract_pre_subexpressions e) >>= fun rhs_g -> 
            (Log.log L_trace "For lhss=%a: width RHS=%a, width LHS=%a"
               (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss
               Format.pp_print_int (List.length rhs_g)
