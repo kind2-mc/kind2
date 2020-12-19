@@ -21,3 +21,8 @@ const t3:[int, int, bool] = {t, 3, true}; -- should inline to (1, 3, true)
 const arr3 = [1, 1+1, t1+c, 5]; -- inline all t's and simplify
 
 const p = t3.%1; -- should inline to 3
+
+node main(x:int) returns (y:int)
+let
+  y = x + t;
+tel
