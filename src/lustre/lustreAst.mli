@@ -119,13 +119,14 @@ type lustre_type =
   | UserType of position * ident
   | AbstractType of position * ident
   | TupleType of position * lustre_type list
+  | GroupType of position * lustre_type list
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
   | EnumType of position * ident * ident list
-  (** TArr is always constructed as TupleType -> TupleType
+  | TArr of position * lustre_type * lustre_type
+  (* TArr is always constructed as GroupType -> GroupType
    *  as we can have more than one arguments and return 
    *  values  *)
-  | TArr of position * lustre_type * lustre_type
   
 (** A Lustre expression *)
 and expr =

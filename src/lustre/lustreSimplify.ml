@@ -2213,7 +2213,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
       
     |> snd
 
-
+  | A.GroupType _ -> Lib.todo "Trying to flatten group type. Should not happen"
   (* Array type, return trie of indexes in tuple fields *)
   | A.ArrayType (pos, (type_expr, size_expr)) -> 
 

@@ -153,6 +153,7 @@ and lustre_type =
   | UserType of position * ident
   | AbstractType of position * ident
   | TupleType of position * lustre_type list
+  | GroupType of position * lustre_type list
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
   | EnumType of position * ident * ident list
@@ -652,6 +653,10 @@ and pp_print_lustre_type ppf = function
   | TupleType (pos, l) -> 
     Format.fprintf ppf 
       "@[<hv 1>[%a]@]" 
+      (pp_print_list pp_print_lustre_type ",@ ") l
+  | GroupType (pos, l) -> 
+    Format.fprintf ppf 
+      "@[<hv 1>(%a)@]" 
       (pp_print_list pp_print_lustre_type ",@ ") l
   | RecordType (pos, l) -> 
     Format.fprintf ppf 

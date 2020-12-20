@@ -740,6 +740,13 @@ let is_type_or_const_decl: declaration -> bool =
     | ConstDecl _ -> true
   | _ -> false
 
+let rec flatten_group_type: lustre_type -> lustre_type list = function
+  | GroupType (_, tys) -> List.concat (List.map flatten_group_type tys)
+  | ty -> [ty] 
+
+let flatten_group_types: lustre_type list -> lustre_type list
+  = fun tys -> List.concat (List.map flatten_group_type tys)
+       
 let split_program: declaration list -> (declaration list * declaration list)
   = List.fold_left
       (fun (ds, ds') d ->
