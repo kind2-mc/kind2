@@ -219,7 +219,7 @@ To build directly from sources you will also need the following software
 first:
 
 * OCaml 4.07 or later,
-* `Dune 2.2 or later <https://github.com/ocaml/dune>`_\,
+* `Dune 2.0 or later <https://github.com/ocaml/dune>`_\,
 * dune-build-info,
 * `OCaml bindings for ZMQ <https://github.com/issuu/ocaml-zmq>`_\,
 * `Yojson <https://github.com/ocaml-community/yojson>`_\,
