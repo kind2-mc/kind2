@@ -2807,6 +2807,18 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
         | Presburger.Not_in_LIA -> 
 
           (
+            let z3_is_available =
+              match Flags.Smt.solver () with
+              | `Z3_SMTLIB -> true
+              | _ -> (
+                try Lib.find_on_path (Flags.Smt.z3_bin ()) |> ignore; true
+                with Not_found -> false
+              )
+            in
+
+            if (not z3_is_available) then
+              raise (UnsupportedFeature
+              "Disabling IC3: Z3 is currently required for inputs with reals or machine integers.");
 
             KEvent.log
               L_info

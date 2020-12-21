@@ -143,10 +143,15 @@ The following comparison operations are all binary: ``>``, ``<``, ``>=``, ``<=``
    a : bool;
    a = (int8 -12) < (int8 12); --true
 
-Options
--------
+Limitations
+-----------
 
-Currently, the Yices2 SMT solver doesn't support logics that will allow for the usage of integers and machine integers together.  When using machine integers in Lustre, Kind2 will throw an error if it is called to use the Yices or Yices2 SMT solvers. To tell Kind2 to explicitly use a particular solver, call it with the option ``--smt_solver solver``, where solver can be 
-``CVC4`` or ``Z3``.
+Currently, only SMT solvers CVC4 and Z3 support logics that allows
+the usage of integers and machine integers together. To use any of
+the other supported SMT solvers, the Lustre input must contain only
+machine integers.
 
-IC3 is enabled by default in Kind2, and IC3 methods don't support theories which deal with machine integers, so IC3 must be disabled while using Kind2 with problems containing machine integers. This is done using the option ``--disable IC3``.
+When using machine integers, Z3 is required to run
+:ref:`IC3 <1_techniques/4_ic3>`. If Z3 is not available,
+Kind 2 runs with the IC3 model checking engine disabled.
+
