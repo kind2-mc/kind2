@@ -32,8 +32,9 @@ sequence for those properties that are falsified. To ease processing by
 external tools, Kind 2 can output its results in JSON and XML formats
 (see `JSON / XML Output <https://kind.cs.uiowa.edu/kind2_user_doc/3_output/2_machine_readable.html>`_).
 
-By default Kind 2 runs a process for bounded model checking (BMC), a process
-for k-induction, two processes for invariant generation, and a process for IC3
+By default Kind 2 runs a process for bounded model checking (BMC), two processes
+for k-induction (one for a fixed value of k=2, and other for increasing values of k),
+several processes for invariant generation, and a process for IC3
 in parallel on all properties simultaneously. It incrementally outputs
 counterexamples to properties as well as properties proved invariant.
 
@@ -42,15 +43,16 @@ The following command-line options control its operation
 See `Techniques <https://kind.cs.uiowa.edu/kind2_user_doc/1_techniques/1_techniques.html>`_ for configuration examples and
 more details on each technique.
 
-``--enable {BMC|IND|INVGEN|INVGENOS|IC3}`` Select model checking engines
+``--enable {BMC|IND|IND2|IC3|INVGEN|INVGENOS|...}`` Select model checking engines
 
-By default, all three model checking engines are run in parallel.
-Give any combination of ``--enable BMC``\ , ``--enable IND`` and
+By default, all four model checking engines are run in parallel.
+Give any combination of ``--enable BMC``\ , ``--enable IND``, ``--enable IND2`` and
 ``--enable IC3`` to select which engines to run. The option ``--enable BMC`` alone
-will not be able to prove properties valid, choosing ``--enable IND`` only will not
-produce any results. Any other combination is sound (properties claimed to be
-invariant are indeed invariant) and counterexample-complete (a counterexample will be
-produced for each property that is not invariant, given enough time and resources).
+will not be able to prove properties valid, choosing ``--enable IND`` or
+``--enable IND2`` only will not produce any results. Any other combination is sound
+(properties claimed to be invariant are indeed invariant) and counterexample-complete
+(a counterexample will be produced for each property that is not invariant,
+given enough time and resources).
 
 ``--timeout <int>`` (default ``0`` = none) -- Run for the given number of seconds of wall clock time
 
