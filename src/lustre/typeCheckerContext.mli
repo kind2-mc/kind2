@@ -50,16 +50,7 @@ type ty_set = SI.t
 type contract_exports = (ty_store) IMap.t
 (** Mapping for all the exports of the contract, modes and contract ghost const and vars *)
    
-type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
-                  ; ty_ctx: ty_store        (* store of the types of identifiers and nodes *)
-                  ; contract_ctx: ty_store  (* store of the types of contracts *)
-                  ; vl_ctx: const_store     (* store of typed constants to its value *)
-                  ; u_types: ty_set         (* store of all declared user types,
-                                               this is poor mans kind (type of type) context *)
-                  ; contract_export_ctx:    (* stores all the export variables  of the contract *)
-                      contract_exports 
-                  }
-(** The type checker global context *)
+type tc_context
 
 val empty_tc_context: tc_context
 (** An empty typing context *)
@@ -95,6 +86,9 @@ val lookup_ty: tc_context -> LA.ident -> tc_type option
 val lookup_contract_ty: tc_context -> LA.ident -> tc_type option
 (** Lookup a contract type  *)
                           
+val lookup_node_ty: tc_context -> LA.ident -> tc_type option
+(** Lookup a node type *)
+
 val lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type) option
 (** Lookup a constant identifier *)
 
@@ -104,6 +98,9 @@ val add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
 val add_ty: tc_context -> LA.ident -> tc_type -> tc_context
 (** Add type binding into the typing context *)
 
+val add_ty_node: tc_context -> LA.ident -> tc_type -> tc_context
+(** Add node/function type binding into the typing context *)
+  
 val add_ty_contract: tc_context -> LA.ident -> tc_type -> tc_context
 (** Add the type of the contract *)
                   
@@ -136,6 +133,12 @@ val extract_consts: LA.const_clocked_typed_decl -> tc_context
 
 val get_constant_ids: tc_context -> LA.ident list
 (** Returns the constants declared in the typing context  *)
+
+val lookup_contract_exports: tc_context -> LA.ident -> ty_store option
+(** lookup the symbols exported by the contract *)
+
+val add_contract_exports: tc_context -> LA.ident -> ty_store -> tc_context
+(** Add the symbols that the contracts *)
   
 (** {1 Pretty Printers} *)
 

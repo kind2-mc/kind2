@@ -1,0 +1,20 @@
+
+-- node y(x:int) returns (f:int);
+-- let
+--   f = x + 1;
+-- tel
+
+-- node f(x:int) returns (y:int);
+-- let
+--   y = x + 1;
+-- tel
+
+
+node y(a:int) returns (c:int);
+let
+  c = a + 1;
+tel
+node f(x:int) returns (y:int);
+let
+  y = y(x) + 1;
+tel

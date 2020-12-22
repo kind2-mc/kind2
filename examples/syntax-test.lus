@@ -141,7 +141,7 @@ const c : int = 1; d = 2;
 -- Local variable declarations 
 var t : y_t;
     e, f: int;
-    j, k: bool;
+    jb, k: bool;
     -- Must not clash with previously declared constant 
     y_l: int;
     m: real;
@@ -162,7 +162,7 @@ let
   -- g, h, i = x(c);
 
   -- List can be in parentheses
-  (j, k, y_l, m) = (true, false, 1, 2.0);
+  (jb, k, y_l, m) = (true, false, 1, 2.0);
 
 /* TODO:  
   -- Structural assignment from array
@@ -600,7 +600,7 @@ type complex = [real, real];
 node x22 () returns ();
 var x, y: complex;
 let
-  x = [0.0, 1.0];
+  x = {0.0, 1.0};
   y = x;
 tel;
 

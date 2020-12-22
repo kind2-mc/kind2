@@ -1,0 +1,17 @@
+node y (const a: bool) returns (b: int);
+let
+    b = if a then 1 else 2;
+tel.
+
+
+-- A record type 
+type t = { one: int; two: real; three: bool };
+
+-- Another node 
+node X(x: int) returns (y: int);
+var v: t;
+let 
+  v = t { one=0; two=1.0; three = true }; 
+  -- Nested and unguarded pres 
+  y = pre pre x + v.one;
+tel;
