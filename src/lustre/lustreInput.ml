@@ -157,9 +157,11 @@ let of_channel in_ch =
                         @ LH.move_node_to_last ln (const_inlined_nodes_and_contracts))) 
          ) in
        match tc_res with
-       | Ok d -> Log.log L_note "Type checking done"
-               ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_program d
-               ;   (if Flags.only_tc () then exit 0); d  
+       | Ok d ->
+          Log.log L_note "Type checking done"
+         ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_program d
+         ; (if Flags.only_tc () then exit 0)
+         ; d  
        | Error (pos, err) -> fail_at_position pos err in 
   
   (* Simplify declarations to a list of nodes *)

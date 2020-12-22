@@ -594,16 +594,18 @@ and infer_type_binary_op: tc_context -> Lib.position
                            ^ " be of type bool but found type "
                            ^ string_of_tc_type ty1))
   | LA.Mod ->
-     R.ifM (eq_lustre_type ctx ty1 (Int pos))
-       (R.ifM (eq_lustre_type ctx ty2 (Int pos))
-          (R.ok (LA.Int pos))
-          (type_error pos ("Expected second argument of operator to" 
+     if LH.is_type_int ty1 && LH.is_type_int ty2
+     then (R.ifM (eq_lustre_type ctx ty1 ty2)
+             (R.ok ty1)
+             (type_error pos ("Expected arguments to be of same"
+                          ^" numeric type but found types " ^ string_of_tc_type ty1
+                          ^ " and " ^ string_of_tc_type ty2)))
+     else (type_error pos ("Expected both arguments of operator to" 
                            ^ " be of type int but found type "
-                           ^ string_of_tc_type ty2)))
-       (type_error pos ("Expected first argument of operator to" 
-                           ^ " be of type int but found type "
-                           ^ string_of_tc_type ty1))
-  | LA. Minus | LA.Plus | LA.Times -> 
+                           ^ string_of_tc_type ty1
+                           ^ " and "
+                           ^ string_of_tc_type ty2))
+  | LA.Minus | LA.Plus | LA.Times -> 
      are_args_num ctx pos ty1 ty2 >>= fun is_num ->
      if is_num
      then R.ok ty2
@@ -619,7 +621,11 @@ and infer_type_binary_op: tc_context -> Lib.position
                           ^ " and " ^ string_of_tc_type ty2)
   | LA.IntDiv ->
      if LH.is_type_int ty1 && LH.is_type_int ty2
-     then R.ok (LA.Int pos)
+     then (R.ifM (eq_lustre_type ctx ty1 ty2)
+             (R.ok ty1)
+             (type_error pos ("Expected arguments to be of same"
+                          ^" numeric type but found types " ^ string_of_tc_type ty1
+                          ^ " and " ^ string_of_tc_type ty2)))
      else type_error pos ("Expected arguments of type integer "
                           ^ "but found types " ^ string_of_tc_type ty1
                           ^ " and " ^ string_of_tc_type ty2)
