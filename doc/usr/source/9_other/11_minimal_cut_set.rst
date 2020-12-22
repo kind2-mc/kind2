@@ -4,7 +4,7 @@ Minimal Cut Set
 ================
 
 The minimal cut set generation is a special mode where Kind 2 computes a minimal subset of
-the model elements (assumptions, guarantees, equations or node calls) whose no satisfaction leads to the violation of a property.
+the model elements (assumptions, guarantees, stateful equations, or node calls) whose no satisfaction leads to the violation of a property.
 
 To enable minimal cut set generation, run
 
@@ -18,12 +18,14 @@ Options
 * ``--mcs_category {annotations|node_calls|contracts|equations|assertions}`` (default: annotations) -- Consider only a specific category of elements, repeat option to consider multiple categories
 * ``--mcs_only_main_node <bool>`` (default ``false``\ ) -- Only elements of the main node are considered in the computation
 * ``--mcs_all <bool>`` (default ``false``\ ) -- Specify whether all the Minimal Cut Sets must be computed or just one
+* ``--mcs_approximate <bool>`` (default ``true``\ ) -- Compute a MCS which is minimal with respect to all the counterexamples of the same length that the first counterexample found. This solution can be considered an approximation of a *global* one. Ignored if ``--mcs_all`` is ``true``
 * ``--mcs_max_cardinality <int>`` (default ``-1``\ ) -- Only search for MCSs of cardinality lower or equal to this parameter. If ``-1``, all MCSs will be considered
 * ``--mcs_per_property <bool>`` (default ``true``\ ) -- If true, MCSs will be computed for each property separately
 * ``--print_mcs <bool>`` (default ``true``\ ) -- Print the minimal cut set computed
 * ``--print_mcs_complement <bool>`` (default ``false``\ ) -- Print the complement of the minimal cut set computed (this is equivalent to computing a Maximal Unsafe Abstraction)
 * ``--print_mcs_legacy <bool>`` (default ``false``\ ) -- Print the minimal cut set using the legacy format
 * ``--print_mcs_counterexample <bool>`` (default ``false``\ ) -- Print a counterexample for each MCS found (ignored if ``--print_mcs_legacy`` is true)
+* ``--mcs_per_property <bool>`` (default ``true``\ ) -- If true, MCSs will be computed for each property separately
 
 Example
 -------

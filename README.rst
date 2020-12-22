@@ -48,8 +48,9 @@ more details on each technique.
 By default, all four model checking engines are run in parallel.
 Give any combination of ``--enable BMC``\ , ``--enable IND``, ``--enable IND2`` and
 ``--enable IC3`` to select which engines to run. The option ``--enable BMC`` alone
-will not be able to prove properties valid, choosing ``--enable IND`` or
-``--enable IND2`` only will not produce any results. Any other combination is sound
+will not be able to prove properties valid, choosing ``--enable IND`` and
+``--enable IND2`` only (or either of the two alone) will not produce any results.
+Any other combination is sound
 (properties claimed to be invariant are indeed invariant) and counterexample-complete
 (a counterexample will be produced for each property that is not invariant,
 given enough time and resources).
