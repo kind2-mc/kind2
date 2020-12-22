@@ -1125,7 +1125,7 @@ let check_only_one_initial_state: LA.state list -> unit graph_result
     let pis = List.map (fun (LA.State (p, i, _, _, _, _, _)) -> (p, i)) ss in
     graph_error (fst (List.hd pis))
       ("Automaton cannot have more than one initial state but found states: "
-      ^ (Lib.string_of_t ((Lib.pp_print_list LA.pp_print_ident) ",") (List.map snd pis)))
+      ^ (Lib.string_of_t ((Lib.pp_print_list LA.pp_print_ident) ", ") (List.map snd pis)))
 
 let analyze_states: LA.state list -> unit graph_result
   = fun states -> 
@@ -1169,7 +1169,8 @@ let check_node_equations: dependency_analysis_data
                           -> LA.node_decl graph_result
   = fun ad pos ((i, imported, params, ips, ops, locals, items, contract_opt) as ndecl)->
   (if not imported then
-     analyze_circ_node_equations ad.nsummary items 
+     analyze_circ_node_equations ad.nsummary items
+     >> analyze_automatons ad.nsummary items 
    else R.ok())
   >> match contract_opt with
      | None -> R.ok ndecl
