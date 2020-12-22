@@ -676,8 +676,8 @@ let is_const_arg: const_clocked_typed_decl -> bool
                                                                         
 let is_type_num: lustre_type -> bool
   = function
-    Int _
-  | UInt8 _       
+  | Int _
+    | UInt8 _       
     | UInt16 _   
     | UInt32 _   
     | UInt64 _  
@@ -691,16 +691,16 @@ let is_type_num: lustre_type -> bool
 
 let is_type_int: lustre_type -> bool
   = function
-    Int _
-  | UInt8 _       
-    | UInt16 _   
-    | UInt32 _   
-    | UInt64 _  
-    | Int8 _   
-    | Int16 _    
-    | Int32 _    
-    | Int64 _    
-    | IntRange _ -> true
+  |  Int _
+     | UInt8 _       
+     | UInt16 _   
+     | UInt32 _   
+     | UInt64 _  
+     | Int8 _   
+     | Int16 _    
+     | Int32 _    
+     | Int64 _    
+     | IntRange _ -> true
   | _ -> false
 
 let is_type_unsigned_machine_int: lustre_type -> bool
