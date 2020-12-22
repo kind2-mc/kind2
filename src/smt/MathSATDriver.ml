@@ -27,6 +27,20 @@ let cmd_line
     minimize_cores 
     produce_interpolants =
 
+  (let open TermLib in
+    let open TermLib.FeatureSet in
+    match logic with
+    | `Inferred l when mem BV l && (mem IA l || mem RA l) -> (
+     let msg =
+       Format.asprintf
+         "In %a: MathSAT does not support programs with both integers/reals and machine integers"
+           Lib.pp_print_kind_module (KEvent.get_module ())
+     in
+     failwith msg
+   )
+   | _ -> ()
+  );
+
   (* Path and name of MathSAT executable *)
   let mathsat_bin = Flags.Smt.mathsat_bin () in
 
