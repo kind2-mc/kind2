@@ -930,7 +930,9 @@ and pp_print_states ppf =
 
 and pp_print_state ppf =
   function State (_, name, init, locals, eqs, unless, until) ->
-    Format.fprintf ppf "state %s@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a@?" name
+    Format.fprintf ppf "%sstate %s@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a@?"
+      (if init then "initial " else "")
+      name
       (pp_print_auto_trans "unless") unless
       pp_print_node_local_decl locals
       (pp_print_list pp_print_node_body "@ ") eqs

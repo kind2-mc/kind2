@@ -801,12 +801,7 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
                             ("Identifier constant " ^ i
                              ^ " expects type " ^ string_of_tc_type exp_ty
                              ^ " but expression is of type " ^ string_of_tc_type inf_ty))
-
-and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type -> unit tc_result
-  = fun pos ctx
-        (node_name, is_extern, params, input_vars, output_vars, ldecls, items, contract)
-        exp_ty ->
-  let local_var_binding: tc_context -> LA.node_local_decl -> tc_context tc_result = fun ctx ->
+and local_var_binding: tc_context -> LA.node_local_decl -> tc_context tc_result = fun ctx ->
     function
     | LA.NodeConstDecl (pos, const_decls) ->
        Log.log L_trace "Extracting typing context from const declaration: %a"
@@ -817,7 +812,11 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
          type_error pos ("Identifier " ^ v ^ " is already declared.")
        else check_type_well_formed ctx ty
             >> R.ok (add_ty ctx v ty)
-  in
+                     
+and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type -> unit tc_result
+  = fun pos ctx
+        (node_name, is_extern, params, input_vars, output_vars, ldecls, items, contract)
+        exp_ty ->
   Log.log L_trace "TC declaration node: %a {" LA.pp_print_ident node_name
 
   ; let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
@@ -911,10 +910,40 @@ and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
         LA.pp_print_eq_lhs lhs
         LA.pp_print_expr e
       ; infer_type_expr new_ctx e >>= fun ty ->
-        Log.log L_trace "RHS has type %a for lhs %a" LA.pp_print_lustre_type ty LA.pp_print_eq_lhs lhs
-        ; check_type_struct_def (ctx_from_lhs ctx lhs) lhs ty
-  | LA.Automaton (pos, _, _, _) ->
-     R.ok (Log.log L_trace "Skipping Automation")
+      Log.log L_trace "RHS has type %a for lhs %a" LA.pp_print_lustre_type ty LA.pp_print_eq_lhs lhs
+      ; check_type_struct_def (ctx_from_lhs ctx lhs) lhs ty
+  | LA.Automaton (pos, _, ss, _) ->
+      R.ok (Log.log L_trace "Checking Automation") >>
+       R.seq_ (List.map (check_type_state ctx) ss) 
+
+and check_type_transition_branch: tc_context -> LA.transition_branch -> unit tc_result
+  = fun ctx ->
+  function
+  | LA.TransIf (p, e, tb, tb_opt) ->
+     check_type_expr ctx e (Bool p)
+     >> check_type_transition_branch ctx tb
+     >> (match tb_opt with
+         | Some tb -> check_type_transition_branch ctx tb
+         | None -> R.ok()
+        )
+  | _ -> R.ok ()
+
+
+and check_type_state: tc_context -> LA.state -> unit tc_result = fun ctx ->
+  function
+  | LA.State (pos, sname, _, local_streams, eqns, trans1_opt, trans2_opt) ->
+     (* add the local variable bindings of the state into the  *)
+     R.seq (List.map (local_var_binding ctx) local_streams) >>= fun ctx' ->
+     let state_ctx = List.fold_left union ctx ctx' in 
+     (* check the equations *)
+     R.seq_ (List.map (do_node_eqn state_ctx) eqns)
+     >> (match trans1_opt with
+         | Some (_, tb) -> check_type_transition_branch ctx tb
+         | None -> R.ok ())
+     >> (match trans2_opt with
+         | Some (_, tb) -> check_type_transition_branch ctx tb
+         | None -> R.ok ())
+     >> R.ok ()
 
 and do_item: tc_context -> LA.node_item -> unit tc_result = fun ctx ->
   function

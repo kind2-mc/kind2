@@ -108,6 +108,9 @@ val split_program: declaration list -> (declaration list * declaration list)
 val abstract_pre_subexpressions: expr -> expr
 (** Abstracts out the pre expressions into a constant so that the built graph does not create a cycle.*)
 
+val extract_equation: node_item list -> node_equation list
+(** Extracts equation from the node item *)
+  
 val extract_node_equation: node_item -> (eq_lhs * expr) list
 (** Extracts out all the node equations as an associated list of rhs and lhs of the equation *)
 

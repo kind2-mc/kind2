@@ -943,7 +943,16 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   | Call (p, i, es) -> Call (p, i, List.map abstract_pre_subexpressions es) 
   | CallParam (p, i, tys, es) -> CallParam (p, i, tys, List.map abstract_pre_subexpressions es) 
                                    
-    
+
+
+let extract_equation: node_item list -> node_equation list
+  = let extract_equation_helper: node_item -> node_equation list
+      = function
+      | Body n -> [n]
+      | _ -> []
+    in fun items ->
+       List.concat (List.map extract_equation_helper items)
+                               
 let extract_node_equation: node_item -> (eq_lhs * expr) list =
   function
   | Body (Equation (_, lhs, expr)) -> [(lhs, expr)]
