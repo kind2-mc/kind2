@@ -56,6 +56,7 @@ type contract_exports = (ty_store) IMap.t
 type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings *)
                   ; ty_ctx: ty_store        (* store of the types of identifiers and nodes *)
                   ; contract_ctx: ty_store  (* store of the types of contracts *)
+                  ; node_ctx: ty_store      (* store of the types of nodes *)                  
                   ; vl_ctx: const_store     (* store of typed constants to its value *)
                   ; u_types: ty_set         (* store of all declared user types,
                                                this is poor mans kind (type of type) context *)
@@ -68,6 +69,7 @@ let empty_tc_context: tc_context =
   { ty_syns = IMap.empty
   ; ty_ctx = IMap.empty
   ; contract_ctx = IMap.empty
+  ; node_ctx = IMap.empty
   ; vl_ctx = IMap.empty
   ; u_types = SI.empty
   ; contract_export_ctx = IMap.empty
@@ -126,7 +128,11 @@ let lookup_ty: tc_context -> LA.ident -> tc_type option
 let lookup_contract_ty: tc_context -> LA.ident -> tc_type option
   = fun ctx i -> IMap.find_opt i (ctx.contract_ctx)
 (** Lookup a contract type  *)
-
+               
+let lookup_node_ty: tc_context -> LA.ident -> tc_type option
+  = fun ctx i -> IMap.find_opt i (ctx.node_ctx)
+(** Lookup a node type  *)
+               
 let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type) option
   = fun ctx i -> IMap.find_opt i (ctx.vl_ctx)
 (** Lookup a constant identifier *)
@@ -143,6 +149,10 @@ let add_ty_contract: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with contract_ctx = IMap.add i ty (ctx.contract_ctx)}
 (**  Add the type of the contract *)
 
+let add_ty_node: tc_context -> LA.ident -> tc_type -> tc_context
+  = fun ctx i ty -> {ctx with node_ctx = IMap.add i ty (ctx.node_ctx)}
+(**  Add the type of the contract *)
+                  
 let add_ty_decl: tc_context -> LA.ident -> tc_context
   = fun ctx i -> {ctx with u_types = SI.add i (ctx.u_types)}
 (** Add a user declared type in the typing context *)
@@ -165,6 +175,9 @@ let union: tc_context -> tc_context -> tc_context
                      ; contract_ctx = (IMap.union (fun k v1 v2 -> Some v2)
                                          (ctx1.contract_ctx)
                                          (ctx2.contract_ctx))
+                     ; node_ctx = (IMap.union (fun k v1 v2 -> Some v2)
+                                         (ctx1.node_ctx)
+                                         (ctx2.node_ctx))
                      ; vl_ctx = (IMap.union (fun k v1 v2 -> Some v2)
                                    (ctx1.vl_ctx)
                                    (ctx2.vl_ctx))
@@ -204,7 +217,14 @@ let get_constant_ids: tc_context -> LA.ident list
   = fun ctx -> IMap.keys ctx.vl_ctx
 (** Returns the constants declared in the typing context  *)
 
+let lookup_contract_exports: tc_context -> LA.ident -> ty_store option
+  = fun ctx i -> IMap.find_opt i (ctx.contract_export_ctx)
+(** Lookup a contract exports  *)
 
+let add_contract_exports: tc_context -> LA.ident -> ty_store -> tc_context
+  = fun ctx i exps -> {ctx with contract_export_ctx = IMap.add i exps  ctx.contract_export_ctx }
+(** Add the symbols that the contracts *)
+               
 (** {1 Pretty Printers}  *)
 
 let pp_print_type_syn: Format.formatter -> (LA.ident * tc_type) -> unit
@@ -245,16 +265,19 @@ let pp_print_contract_exports: Format.formatter -> contract_exports -> unit
         pp_print_tymap exm) ", " ppf (IMap.bindings m)
 (** Pretty pring contract exports  *)
 
-let pp_print_tc_context ppf ctx
-  = Format.fprintf ppf
+let pp_print_tc_context: Format.formatter -> tc_context -> unit
+  = fun ppf ctx -> 
+  Format.fprintf ppf
       ("Type Synonyms={%a}\n"
        ^^ "Type Context={%a}\n"
+       ^^ "Node Context={%a}\n"
        ^^ "Contract Context={%a}\n"
        ^^ "Const Store={%a}\n"
        ^^ "Declared Types={%a}\n"
        ^^ "Contract exports={%a}\n")
       pp_print_ty_syns (ctx.ty_syns)
       pp_print_tymap (ctx.ty_ctx)
+      pp_print_tymap (ctx.node_ctx)
       pp_print_tymap (ctx.contract_ctx)
       pp_print_vstore (ctx.vl_ctx)
       pp_print_u_types (ctx.u_types)

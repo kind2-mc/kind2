@@ -288,7 +288,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
         >>= (fun arg_tys ->
           if List.length arg_tys = 1 then R.ok (List.hd arg_tys)
           else R.ok (LA.GroupType (pos, arg_tys))) in
-      (match (lookup_ty ctx i) with
+      (match (lookup_node_ty ctx i) with
             | Some (TArr (_, exp_arg_tys, exp_ret_tys)) ->
                infer_type_node_args ctx arg_exprs
                >>= (fun given_arg_tys ->
@@ -516,11 +516,17 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
 
   (* Node calls *)
   | Call (pos, i, args) ->
-     R.seq (List.map (infer_type_expr ctx) args)
-     >>= fun arg_tys ->
+     R.seq (List.map (infer_type_expr ctx) args) >>= fun arg_tys ->
      let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
-                  else GroupType (pos, arg_tys) in 
-     check_type_expr ctx (LA.Ident (pos, i)) (TArr (pos, arg_ty, exp_ty))
+                  else GroupType (pos, arg_tys) in
+     (match (lookup_node_ty ctx i) with
+     | None -> type_error pos ("No node/function with name " ^ i ^ " found.")
+     | Some ty -> 
+        R.guard_with (eq_lustre_type ctx ty (LA.TArr (pos, arg_ty, exp_ty)))
+          (type_error pos ("Node type "
+                           ^ string_of_tc_type (TArr (pos, arg_ty, exp_ty))
+                           ^ "does not match expected type "
+                           ^ string_of_tc_type ty)))
   | CallParam _ -> Lib.todo __LOC__
 (** Type checks an expression and returns [ok] 
  * if the expected type is the given type [tc_type]  
@@ -801,8 +807,10 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
          LA.pp_print_const_decl const_decls
       ; tc_ctx_const_decl ctx const_decls 
     | LA.NodeVarDecl (pos, (_, v, ty, _)) ->
-       check_type_well_formed ctx ty
-       >> R.ok (add_ty ctx v ty)
+       if (member_ty ctx v) then
+         type_error pos ("Identifier " ^ v ^ " is already declared.")
+       else check_type_well_formed ctx ty
+            >> R.ok (add_ty ctx v ty)
   in
   Log.log L_trace "TC declaration node: %a {" LA.pp_print_ident node_name
 
@@ -810,7 +818,21 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
     let ret_ids = LA.SI.of_list (List.map (fun a -> LH.extract_op_ty a |> fst) output_vars) in
     let common_ids = LA.SI.inter arg_ids ret_ids in
 
-    if (SI.is_empty common_ids)
+    (* check if any of the arg ids or return ids already exist in the typing context.
+       Fail if they do. 
+       This is a strict no-shadowing policy put inplace to be in agreement with 
+       the old type checking flow. 
+       This behavior can be relaxed once the backend supports it.    
+     *)
+
+    R.seq_chain (fun _ i ->
+        (if (member_ty ctx i) then
+           type_error pos ("Identifier " ^ i
+                           ^ " is already declared.")
+         else R.ok()))
+      () (LA.SI.elements arg_ids @ LA.SI.elements ret_ids)
+    
+    >> if (SI.is_empty common_ids)
     then
       (Log.log L_trace "Params: %a (skipping)" LA.pp_print_node_param_list params
       (* store the input constants passed in the input 
@@ -824,7 +846,8 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
         (* These are outputs of the node *)
         let ctx_plus_ops_and_ips = List.fold_left union ctx_plus_ips
                                      (List.map extract_ret_ctx output_vars) in
-        Log.log L_trace "Local Typing Context after extracting ips/ops/consts {%a}" pp_print_tc_context ctx_plus_ops_and_ips;
+        Log.log L_trace "Local Typing Context after extracting ips/ops/consts {%a}"
+          pp_print_tc_context ctx_plus_ops_and_ips;
         (* Type check the contract *)
         (match contract with
          | None -> R.ok ()
@@ -843,7 +866,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
             >>= fun local_var_ctxts ->
             (* Local TC context is input vars + output vars + local const + var decls *)
             let local_ctx = List.fold_left union ctx_plus_ops_and_ips local_var_ctxts in
-            Log.log L_trace "Local Typing Context {%a}" pp_print_tc_context local_ctx
+            Log.log L_trace "Local Typing Context with local state: {%a}" pp_print_tc_context local_ctx
             (* Type check the node items now that we have all the local typing context *)
             ; R.seq_ (List.map (do_item local_ctx) items)
               (* check that the LHS of the equations are not args to node *)
@@ -852,8 +875,9 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type 
                     (type_error pos ("Argument to nodes cannot be LHS of an equation but found "
                                      ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
                                          (LA.SI.elements overwite_node_args))))
-                 >> R.ok (Log.log L_trace "TC declaration node %a done }"
-                            LA.pp_print_ident node_name)))
+                 >> (Log.log L_trace "TC declaration node %a done }"
+                       LA.pp_print_ident node_name
+                    ; R.ok ())))
     else type_error pos ("Input and output parameters cannot have common identifers, 
                           but found common parameters: " ^
                            Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
@@ -868,7 +892,7 @@ and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
      Log.log L_trace "Checking equation: %a" LA.pp_print_node_body eqn
     (* This is a special case where we have undeclared identifiers 
        as short hands for assigning values to arrays aka recursive technique *)
-     ; let get_array_def_context: LA.struct_item -> tc_context = 
+    ; let get_array_def_context: LA.struct_item -> tc_context = 
         function
         | ArrayDef (pos, _, is) ->
            List.fold_left (fun c i -> add_ty c i (LA.Int pos)) empty_tc_context is 
@@ -877,13 +901,14 @@ and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
         = fun ctx (LA.StructDef (_, items)) ->
         List.fold_left union ctx (List.map get_array_def_context items) in
       let new_ctx = ctx_from_lhs ctx lhs in
-      Log.log L_trace "Checking node equation lhs %a" LA.pp_print_eq_lhs lhs
-      ; Log.log L_trace "Infering type of expression: %a" LA.pp_print_expr e
+      Log.log L_trace "Checking node equation lhs=%a; rhs=%a"
+        LA.pp_print_eq_lhs lhs
+        LA.pp_print_expr e
       ; infer_type_expr new_ctx e >>= fun ty ->
-      Log.log L_trace "RHS has type %a for lhs %a" LA.pp_print_lustre_type ty LA.pp_print_eq_lhs lhs
-      ; check_type_struct_def (ctx_from_lhs ctx lhs) lhs ty
+        Log.log L_trace "RHS has type %a for lhs %a" LA.pp_print_lustre_type ty LA.pp_print_eq_lhs lhs
+        ; check_type_struct_def (ctx_from_lhs ctx lhs) lhs ty
   | LA.Automaton (pos, _, _, _) ->
-    R.ok (Log.log L_trace "Skipping Automation")
+     R.ok (Log.log L_trace "Skipping Automation")
 
 and do_item: tc_context -> LA.node_item -> unit tc_result = fun ctx ->
   function
@@ -905,7 +930,7 @@ and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> unit tc_r
          type_error pos ("Could not find Identifier " ^ i)
       | Some ty -> R.ok ty) >>= fun inf_ty ->  
      R.ifM (R.seqM (||) false [ eq_lustre_type ctx exp_ty inf_ty
-                              ; eq_lustre_type ctx exp_ty (TupleType (pos,[inf_ty])) ])
+                              ; eq_lustre_type ctx exp_ty (GroupType (pos,[inf_ty])) ])
        (if member_val ctx i
         then type_error pos ("Constant " ^ i ^ " cannot be re-defined")
         else R.ok ())
@@ -976,7 +1001,7 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
   | Guarantee _ -> R.ok ctx
   | Mode (pos, name, _, _) -> R.ok (add_ty ctx name (Bool pos)) 
   | ContractCall (_, cc, _, _) ->
-     match (IMap.find_opt cc ctx.contract_export_ctx) with
+     match (lookup_contract_exports ctx cc) with
      | None -> failwith ("Cannot find exports for contract " ^ cc)
      | Some m -> R.ok (List.fold_left (fun c (i, ty) -> add_ty c (cc ^ "::" ^ i) ty) ctx (IMap.bindings m)) 
 
@@ -1009,17 +1034,12 @@ and check_contract_node_eqn: LA.SI.t -> tc_context -> LA.contract_node_equation 
       | GhostVar _ ->  R.ok () (* These is already checked while extracting ctx *)
     | Assume (pos, _, _, e) ->
        check_type_expr ctx e (Bool pos)
-         (* Check if any of the out stream vars of the node is being used at its current value is used in assumption *)
-         (* >> check_eqn_no_current_vals node_out_params ctx e *)
          
     | Guarantee (pos, _, _, e) -> check_type_expr ctx e (Bool pos)
     | Mode (pos, _, reqs, ensures) ->
        R.seq_ (Lib.list_apply (List.map (check_type_expr ctx)
                                  (List.map (fun (_,_, e) -> e) (reqs @ ensures)))
                  (Bool pos))
-       (* >>
-        *   (Log.log L_trace "Make sure mode requires do not use current value of output streams"
-        *   ; R.seq_ (List.map (fun (_, _, e) -> check_eqn_no_current_vals node_out_params ctx e) reqs))  *)
       
     | ContractCall (pos, cname, args, rets) ->
        let arg_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars args) in
@@ -1126,7 +1146,7 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_contex
   ; if (member_ty ctx nname)
     then type_error pos ("Node " ^ nname ^ " is already declared.")
     else build_node_fun_ty pos ctx ip op >>= fun fun_ty ->
-         R.ok (add_ty ctx nname fun_ty)
+         R.ok (add_ty_node ctx nname fun_ty)
 (** computes the type signature of node or a function and its node summary*)
 
 and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_context tc_result
@@ -1139,7 +1159,7 @@ and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_cont
      then type_error pos ("Mode " ^ mname ^ " is already declared")
      else R.ok (add_ty ctx mname (Bool pos))
   | LA.ContractCall (p, cc, _, _) ->
-     (match (IMap.find_opt cc ctx.contract_export_ctx) with
+     (match (lookup_contract_exports ctx cc) with
       | None -> type_error p ("Cannot find contract " ^ cc)
       | Some m -> R.ok (List.fold_left (fun c (i, ty) -> add_ty c (cc ^ "::" ^ i) ty) ctx (IMap.bindings m))) 
   | _ -> R.ok ctx
@@ -1167,7 +1187,7 @@ and extract_exports: LA.ident -> tc_context -> LA.contract -> tc_context tc_resu
          then type_error pos ("Mode " ^ mname ^ " is already declared")
          else R.ok [(mname, (LA.Bool pos))] 
       | LA.ContractCall (p, cc, _, _) ->
-         (match (IMap.find_opt cc ctx.contract_export_ctx) with
+         (match (lookup_contract_exports ctx cc) with
          | None -> type_error p ("Cannot find contract " ^ cc)
          | Some m -> R.ok (List.map (fun (k, v) -> (cc ^ "::" ^ k, v)) (IMap.bindings m)))
       | _ -> R.ok [] in
@@ -1179,7 +1199,7 @@ and extract_exports: LA.ident -> tc_context -> LA.contract -> tc_context tc_resu
            (fun (a, c) (i, ty) -> (IMap.add i ty a, add_ty c i ty))
            (exp_acc, lctx) id_tys))
        (IMap.empty, ctx) contract) >>=
-      fun (exports, _) -> R.ok {ctx with contract_export_ctx = IMap.add cname exports ctx.contract_export_ctx} 
+      fun (exports, _) -> R.ok (add_contract_exports ctx cname exports)  
                  
 and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
                                   -> LA.contract_node_decl
@@ -1375,13 +1395,13 @@ let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
     | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  
   | LA.NodeDecl (pos, ((i, _,_, _, _, _, _, _) as node_decl)) :: rest ->
      (check_type_node_decl pos global_ctx node_decl
-        (match (lookup_ty global_ctx i) with
+        (match (lookup_node_ty global_ctx i) with
          | None -> failwith "Node type lookup failed. Should not happen"
          | Some ty -> ty))
      :: type_check_group global_ctx rest
   | LA.FuncDecl (pos, ((i, _,_, _, _, _, _, _) as node_decl)):: rest ->
      (check_type_node_decl pos global_ctx node_decl
-        (match (lookup_ty global_ctx i) with
+        (match (lookup_node_ty global_ctx i) with
          | None -> failwith "Function type lookup failed. Should not happen"
          | Some ty -> ty))
      :: type_check_group global_ctx rest

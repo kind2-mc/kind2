@@ -1,0 +1,8 @@
+type complex = [real, real];
+
+node x22 () returns ();
+var x, y: complex;
+let
+  x = [0.0, 1.0]; -- this fails as it is an array not a tuple
+  y = x;
+tel;
