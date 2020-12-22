@@ -619,7 +619,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
   | LA.Pre (_, e) ->
      mk_graph_expr2 m e >>= fun g ->
        R.ok (List.map (map_g_pos (fun v -> v ^ "$p")) g) 
-  | LA.Last (pos, i) -> R.ok [singleton_dependency_analysis_data "$last" i pos]
+  | LA.Last (pos, i) -> R.ok [singleton_dependency_analysis_data "last$" i pos]
   | LA.Fby (p, e1, _, e2)
     | LA.Arrow (p, e1, e2) as e ->
      mk_graph_expr2 m e1 >>= fun g1 ->
@@ -1064,25 +1064,6 @@ let rec mk_graph_node_items: node_summary -> LA.node_item list -> dependency_ana
   | _ :: items -> mk_graph_node_items m items
 (** Traverse all the node items to make a dependency graph  *)
 
-let analyze_automaton_states: node_summary -> LA.state -> unit graph_result =
-  fun m ->
-  function
-  | State (_, i, _, _, eqns, _, _) ->
-     R.seq (List.map (mk_graph_eqn m) eqns) >>= fun gs -> 
-     let ad = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data gs in
-     (try (R.ok (G.topological_sort ad.graph_data)) with
-      | Graph.CyclicGraphException ids ->
-         if List.length ids > 1
-         then (match (find_id_pos ad.id_pos_data (List.hd ids)) with
-               | None -> fail_no_position ("Cyclic dependency found but cannot find position for identifier "
-                                           ^ (List.hd ids) ^ " This should not happen!") 
-               | Some p -> graph_error p
-                             ("Cyclic dependency detected in equations with identifiers: "
-                              ^ Lib.string_of_t (Lib.pp_print_list Format.pp_print_string ", ") ids))
-         else fail_no_position "Cyclic dependency with no ids detected. This should not happen!")
-     >> R.ok ()
-
-
 let rec mk_state_map: LA.state IMap.t -> LA.state list -> (LA.state IMap.t) graph_result
   = fun m ->
   function
@@ -1134,11 +1115,30 @@ let analyze_states: LA.state list -> unit graph_result
   >> check_only_one_initial_state states
 (* Checks that the transition states are valid and there is atmost one initial state *)
 
-let rec analyze_automatons: node_summary -> LA.node_item list -> unit graph_result =
+let rec analyze_automaton_states: node_summary -> LA.state -> unit graph_result =
+  fun m ->
+  function
+  | State (_, i, _, _, eqns, _, _) ->
+     R.seq (List.map (mk_graph_eqn m) eqns) >>= fun gs -> 
+     let ad = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data gs in
+     (try (R.ok (G.topological_sort ad.graph_data)) with
+      | Graph.CyclicGraphException ids ->
+         if List.length ids > 1
+         then (match (find_id_pos ad.id_pos_data (List.hd ids)) with
+               | None -> fail_no_position ("Cyclic dependency found but cannot find position for identifier "
+                                           ^ (List.hd ids) ^ " This should not happen!") 
+               | Some p -> graph_error p
+                             ("Cyclic dependency detected in equations with identifiers: "
+                              ^ Lib.string_of_t (Lib.pp_print_list Format.pp_print_string ", ") ids))
+         else fail_no_position "Cyclic dependency with no ids detected. This should not happen!")
+     >> analyze_automatons m eqns 
+     >> R.ok ()
+  
+and analyze_automatons: node_summary -> LA.node_equation list -> unit graph_result =
   fun m ->
   function
   | [] -> R.ok ()
-  | (LA.Body (LA.Automaton (_, _, states, _))) :: items ->
+  | LA.Automaton (_, _, states, _) :: items ->
      (R.seq_ (List.map (analyze_automaton_states m) states))
      >> analyze_states states
      >> analyze_automatons m items
@@ -1170,7 +1170,7 @@ let check_node_equations: dependency_analysis_data
   = fun ad pos ((i, imported, params, ips, ops, locals, items, contract_opt) as ndecl)->
   (if not imported then
      analyze_circ_node_equations ad.nsummary items
-     >> analyze_automatons ad.nsummary items 
+     >> analyze_automatons ad.nsummary (LH.extract_equation items) 
    else R.ok())
   >> match contract_opt with
      | None -> R.ok ndecl
