@@ -1,7 +1,6 @@
 (lang dune 2.0)
 
 (name kind2)
-(version v1.3.0)
 
 (package
  (name kind2)
@@ -19,12 +18,13 @@
   (ocaml
    (>= 4.07))
   (dune
-   (and :build (>= 2.0)))
+   (>= 2.0))
   dune-build-info
   menhir
   num
   (odoc :with-doc)
   (ounit2 :with-test)
+  ;(z3 (and (<= 4.8.8-1) :with-test))
   yojson
   zmq))
 
