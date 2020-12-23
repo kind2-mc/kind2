@@ -86,7 +86,7 @@ Visit our `web interface <https://kind.cs.uiowa.edu/app/>`_ to try Kind 2 from y
 Download
 --------
 
-If you use a Linux or a MacOS computer, you can download an executable of the latest version 
+If you use a Linux or a macOS computer, you can download an executable of the latest version
 of Kind 2 from `here <https://github.com/kind2-mc/kind2/releases/latest/>`_\.
 First make sure though that you have the required software described next.
 
@@ -95,7 +95,7 @@ Required Software
 
 To run Kind 2 the following software must be installed on your computer:
 
-* Linux or Mac OS X
+* Linux or macOS
 * `ZeroMQ (C library) 4.x or later <https://zeromq.org>`_\, and
 * a supported SMT solver
 
