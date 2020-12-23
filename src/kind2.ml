@@ -112,6 +112,9 @@ let setup : unit -> any_input = fun () ->
   | LustreInput.NoMainNode msg ->
      KEvent.log L_fatal "Error reading input file '%s': %s" in_file msg ;
      KEvent.terminate_log () ; exit ExitCodes.error
+  | Sys_error msg ->
+     KEvent.log L_fatal "Error opening input file '%s': %s" in_file msg ;
+     KEvent.terminate_log () ; exit ExitCodes.error
   | e ->
      let backtrace = Printexc.get_raw_backtrace () in
      KEvent.log L_fatal "Error opening input file '%s':@ %s%a"
