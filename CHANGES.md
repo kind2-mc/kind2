@@ -5,12 +5,13 @@ New features:
 
 - Computation of [Inductive Validity Cores](https://kind.cs.uiowa.edu/kind2_user_doc/9_other/10_inductive_validity_core.html) and [Minimal Cut Sets](https://kind.cs.uiowa.edu/kind2_user_doc/9_other/11_minimal_cut_set.html).
 - Invariant generation for machine integers (engine names: INVGENMACH and INVGENMACHOS).
-- IC3 engine uses quantifier elimination over bit-vectors for reasoning about machine integers.
-  - It requires SMT solver Z3.
+- IC3 model checking engine for machine integers.
+  - The pre-image computation is based on quantifier elimination over bit-vectors.
+  - It requires SMT solver Z3 at this time.
 - Support for abstract types ([#594](https://github.com/kind2-mc/kind2/pull/594), thanks to Amos Robinson).
 - Support for SMT solvers Boolector and MathSAT.
   - It requires the develop version of Boolector at this time (commit 5d18baa and later).
-- New command-line option to only parse Lustre inputs (`--only_parse`).
+- New command-line option to only parse Lustre inputs (`--only_parse true`).
 
 Improvements:
 
@@ -22,10 +23,10 @@ Improvements:
 
 Changes:
 
-- Removed CZMQ sources and OCaml bindings for CZMQ from repository.
-  - Kind 2 now requires [ZMQ](https://zeromq.org/) 4.x or later installed on your system to run.
+- Removed CZMQ sources and OCaml bindings for CZMQ from the Kind 2 repository.
+  - Kind 2 now requires [ZMQ](https://zeromq.org/) 4.x or later to be installed on your system.
 - Replaced old build system with new one based on [dune](https://dune.build/) and [OPAM](https://opam.ocaml.org/).
-  - See [README](README.rst) file for new building requirements and installation instructions.
+  - See [README](README.rst) file for new requirements and installation instructions.
 
 
 # Kind 2 v1.2.0
