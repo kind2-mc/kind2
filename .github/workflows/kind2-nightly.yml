@@ -186,7 +186,7 @@ jobs:
       run: |
         chmod u+x kind2
         date=$(date "+%Y-%m-%d")
-        tarball=kind2-$date-${{ matrix.version }}.tar.gz
+        tarball=kind2-$date-${{ matrix.version }}-x86_64.tar.gz
         tar -czf $tarball kind2
         echo "::set-output name=filename::$tarball"
     
