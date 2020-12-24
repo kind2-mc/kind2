@@ -178,7 +178,6 @@ Using OPAM
 
 Start by installing `OPAM 2.x <https://opam.ocaml.org/>`_
 following the instructions on the website.
-
 If you want to build the development version of Kind 2
 that includes the most recent changes, as opposed to
 the latest release, then run
@@ -187,7 +186,7 @@ the latest release, then run
 
    opam pin add -n kind2 https://github.com/kind2-mc/kind2.git
 
-(You can always undo this change later with this command `opam unpin kind2`).
+(You can always undo this change later using this command ``opam unpin kind2``).
 
 Otherwise, skip the step above and run
 
