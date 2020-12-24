@@ -196,18 +196,31 @@ directly using dune.
 Using OPAM
 ^^^^^^^^^^
 
-Start by installing `OPAM 2.x <https://zeromq.org/download>`_
-following the instructions on the website. Then, run
+Start by installing `OPAM 2.x <https://opam.ocaml.org/>`_
+following the instructions on the website.
+
+If you want to build the development version of Kind 2
+that includes the most recent changes, as opposed to
+the latest release, then run
 
 .. code-block:: none
 
    opam pin add -n kind2 https://github.com/kind2-mc/kind2.git
+
+(You can always undo this change later with this command `opam unpin kind2`).
+
+Otherwise, skip the step above and run
+
+.. code-block:: none
+
    opam depext kind2
    opam install kind2
 
-The first command points OPAM to this GitHub repo to install Kind 2 binary.
-The second command installs the ZeroMQ C library using the default package
-manager for your OS (may require sudo permission). The third command installs ``kind2``. 
+The first command installs the ZeroMQ C library
+and any other external dependencies required using
+the default package manager for your OS
+(may require sudo permission).
+The second command builds and installs ``kind2``.
 By default, ``kind2`` will be installed into
 the bin directory of your current OPAM switch. Run
 
@@ -218,7 +231,8 @@ the bin directory of your current OPAM switch. Run
 to install the Kind 2 binary into ``<DIR>/bin``.
 This will also create directories ``<DIR>/doc`` and ``<DIR>/lib``.
 
-In alternative, you can clone https://github.com/kind2-mc/kind2.git, move to its top-level directory, and run
+In alternative, you can clone https://github.com/kind2-mc/kind2.git,
+move to its top-level directory, and run
 
 .. code-block:: none
 
