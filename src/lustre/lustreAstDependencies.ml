@@ -473,6 +473,16 @@ let mk_graph_decls: LA.t -> dependency_analysis_data
    and nodes and contracts (for type 2 analysis)
    See Note {Types of dependency analysis} for more information about different kinds of
    dependency analysis  *)
+
+let extract_decls_contract_eqns: ('a IMap.t * id_pos_map) -> LA.ident list -> ('a list) graph_result
+  = fun (decl_map, i_pos_map) ids ->
+  R.ok (List.concat (List.map (fun i -> match (IMap.find_opt i decl_map) with
+                     | None -> []
+                     | Some i' -> [i']) ids)) 
+(** Given a list of ids, finds the associated payload from the playload map.
+    It ignores ids that it cannot find as they may be globals. 
+ *)
+
     
 let rec extract_decls: ('a IMap.t * id_pos_map) -> LA.ident list -> ('a list) graph_result
   = fun (decl_map, i_pos_map) ->
@@ -515,8 +525,6 @@ let rec mk_contract_eqn_map: LA.contract_node_equation IMap.t -> LA.contract -> 
   | (LA.Mode (pos, i, _, _) as mode) :: eqns ->
      check_and_add m pos mode_suffix i mode >>= fun m' -> mk_contract_eqn_map m' eqns  
   | _ :: eqns -> mk_contract_eqn_map m eqns
-  (* | Assume of contract_assume
-   * | Guarantee of contract_guarantee*)
               
 
 let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list graph_result
@@ -801,8 +809,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
     let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) (List.rev sorted_ids) in
     let (to_sort_eqns, assums_grantees) = split_contract_equations contract in
     mk_contract_eqn_map IMap.empty to_sort_eqns >>= fun eqn_map ->
-
-    extract_decls (eqn_map, ad'.id_pos_data) equational_vars >>= fun contract' ->
+         extract_decls_contract_eqns (eqn_map, ad'.id_pos_data) equational_vars >>= fun contract' ->
       Log.log L_trace "sorted contract equations for contract %a %a"
         LA.pp_print_ident i
         (Lib.pp_print_list LA.pp_print_contract_item "\n") contract'
@@ -994,8 +1001,8 @@ let get_contract_exports: contract_summary -> LA.contract_node_equation -> LA.id
     | LA.GhostConst (LA.TypedConst (_, i, _, _))
     | LA.GhostVar (LA.FreeConst (_, i, _))
     | LA.GhostVar (LA.UntypedConst (_, i, _))
-    | LA.GhostVar (LA.TypedConst (_, i, _, _)) -> [i]
-  | LA.Mode (_, i, _, _) -> [i]
+    | LA.GhostVar (LA.TypedConst (_, i, _, _))
+    | LA.Mode (_, i, _, _) -> [i]
   | LA.ContractCall (_, cc, _, _) ->
      (match (IMap.find_opt cc m) with
      | Some ids -> List.map (fun i -> cc ^ "::" ^ i) ids
