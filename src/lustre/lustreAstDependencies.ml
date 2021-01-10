@@ -740,17 +740,18 @@ let mk_graph_contract_eqns: node_summary -> LA.contract -> dependency_analysis_d
   R.seq (List.map mk_graph eqns) >>= fun gs -> 
   R.ok (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data gs) 
 
-let expression_current_streams: node_summary -> LA.expr -> LA.ident list graph_result
-  = fun ns e ->
-  mk_graph_expr2 ns (LH.abstract_pre_subexpressions e) >>= fun g ->
-  R.ok (G.to_vertex_list (G.get_vertices (List.fold_left
-                                      union_dependency_analysis_data
-                                      empty_dependency_analysis_data g).graph_data))
+let expression_current_streams: dependency_analysis_data -> LA.expr -> LA.ident list graph_result
+  = fun ad e ->
+  let vs = LA.SI.elements (LH.vars (LH.abstract_pre_subexpressions e)) in
+  let rechable_vs = List.concat (List.map (fun v -> G.to_vertex_list (G.reachable ad.graph_data v)) vs) in
+  Log.log L_trace "Current Stream Usage: %a"
+    (Lib.pp_print_list G.pp_print_vertex ", ") rechable_vs 
+  ; R.ok rechable_vs
 (** all the variables who's current value is used in the expression *)
 
-let check_eqn_no_current_vals: LA.SI.t -> node_summary -> LA.expr -> unit graph_result
-  = fun node_out_streams ns e -> 
-  expression_current_streams ns e >>= fun s ->
+let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr -> unit graph_result
+  = fun node_out_streams ad e -> 
+  expression_current_streams ad e >>= fun s ->
   R.ok (SI.inter node_out_streams (LA.SI.of_list s)) >>= fun assume_vars_out_streams -> 
   Log.log L_trace "node_params: %a non pre vars of e: %a"
     (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_streams)
@@ -771,17 +772,17 @@ let mk_graph_contract_decl2
     ad
     (List.map (mk_graph_contract_node_eqn2 ad) c)
 
-let validate_contract_equation: LA.SI.t -> node_summary -> LA.contract_node_equation -> unit graph_result
-  = fun ids ns ->
+let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contract_node_equation -> unit graph_result
+  = fun ids ad ->
   function
   | LA.Assume (_, _, _, e) ->
-     check_eqn_no_current_vals ids ns e
+     check_eqn_no_current_vals ids ad e
   | LA.Mode (_, _, reqs, _) ->
      let req_es = List.map (fun (_, _, e) -> e) reqs in
-     R.seq_ (List.map (check_eqn_no_current_vals ids ns) req_es) 
+     R.seq_ (List.map (check_eqn_no_current_vals ids ad) req_es) 
   | _ -> R.ok()                             
-(* Check if any of the out stream vars of the node 
-   is being used at its current value is used in assumption or mode requires *)
+(** Check if any of the out stream vars of the node 
+   is being used at its current value in assumption or mode requires *)
 
 let sort_and_check_contract_eqns: dependency_analysis_data
                                   -> Lib.position
@@ -814,7 +815,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
         LA.pp_print_ident i
         (Lib.pp_print_list LA.pp_print_contract_item "\n") contract'
 
-      ; R.seq_ (List.map (validate_contract_equation (SI.of_list op_ids) ad'.nsummary) contract) 
+      ; R.seq_ (List.map (validate_contract_equation (SI.of_list op_ids) ad') contract) 
         >> R.ok(i, params , ips, ops, contract' @ assums_grantees)
 (** This function does two things: 
    1. Sort the contract equations according to their dependencies
