@@ -1295,8 +1295,17 @@ and check_type_well_formed: tc_context -> tc_type -> unit tc_result
      R.seq_ (List.map (check_type_well_formed ctx) tys)
   | LA.GroupType (_, tys) ->
      R.seq_ (List.map (check_type_well_formed ctx) tys)
-  | LA.UserType (pos, i) -> if (member_ty_syn ctx i || member_u_types ctx i)
-                          then R.ok () else type_error pos ("Undefined type " ^ i) 
+  | LA.UserType (pos, i) ->
+     if (member_ty_syn ctx i || member_u_types ctx i)
+     then R.ok () else type_error pos ("Undefined type " ^ i)
+  | LA.IntRange (pos, e1, e2) ->
+     if is_expr_int_type ctx e1 && is_expr_of_consts ctx e1
+     then if is_expr_int_type ctx e2 && is_expr_of_consts ctx e2
+          then R.ok ()
+          else type_error pos ("Range arguments should be of constant integers, but found: "
+                               ^ Lib.string_of_t LA.pp_print_expr e2)
+     else type_error pos ("Range arguments should be of constant integers, but found: "
+                          ^ Lib.string_of_t LA.pp_print_expr e1)
   | _ -> R.ok ()
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
