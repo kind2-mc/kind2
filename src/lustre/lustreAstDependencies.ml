@@ -438,11 +438,8 @@ let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) g
   function  
   | [] -> R.ok m 
 
-  | (LA.TypeDecl (pos, FreeType (_, i)) as tydecl) :: decls ->
-     check_and_add m pos ty_suffix i tydecl >>= fun m' ->
-     mk_decl_map m' decls 
-
-    | (LA.TypeDecl (pos, AliasType (_, i, ty)) as tydecl) :: decls ->
+  | (LA.TypeDecl (pos, FreeType (_, i)) as tydecl) :: decls
+    | (LA.TypeDecl (pos, AliasType (_, i, _)) as tydecl) :: decls ->
      check_and_add m pos ty_suffix i tydecl >>= fun m' ->
      mk_decl_map m' decls 
 
@@ -489,20 +486,6 @@ let extract_decls: ('a IMap.t * id_pos_map) -> LA.ident list -> ('a list) graph_
  *)
 
     
-(* let rec extract_decls: ('a IMap.t * id_pos_map) -> LA.ident list -> ('a list) graph_result
- *   = fun (decl_map, i_pos_map) ->
- *   function
- *   | [] -> R.ok []
- *   | i :: is ->
- *      (match (IMap.find_opt i decl_map) with
- *       | None -> (match (find_id_pos i_pos_map i) with
- *                  | None -> graph_error Lib.dummy_pos ("Identifier " ^ i ^ " not found. This should not happen")
- *                  | Some p -> graph_error p ("Identifier " ^ i ^ " is not defined."))
- *       | Some i' -> R.ok i') >>= fun d ->
- *      extract_decls (decl_map, i_pos_map) is >>= fun ds ->
- *      R.ok (d :: ds)
- * (\** Given a list of ids, finds the associated payload from the playload map *\) *)
-
 let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
   = let split_eqns: (LA.contract * LA.contract) -> LA.contract_node_equation -> (LA.contract * LA.contract)
       = fun (ps, qs) ->
