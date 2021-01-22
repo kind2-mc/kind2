@@ -232,8 +232,10 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
     | Int16 _
     | Int32 _
     | Int64 _
-    | Real _
-    | EnumType _ -> empty_dependency_analysis_data
+    | Real _ -> empty_dependency_analysis_data
+  | EnumType (pos, _, evals) ->
+     List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
+       (List.map (Lib.flip (singleton_dependency_analysis_data const_suffix) pos) evals)   
   | IntRange (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2)
   | UserType (pos, i) -> singleton_dependency_analysis_data ty_suffix i pos
   | AbstractType (pos, i) -> singleton_dependency_analysis_data ty_suffix i pos
@@ -474,7 +476,7 @@ let mk_graph_decls: LA.t -> dependency_analysis_data
    See Note {Types of dependency analysis} for more information about different kinds of
    dependency analysis  *)
 
-let extract_decls_contract_eqns: ('a IMap.t * id_pos_map) -> LA.ident list -> ('a list) graph_result
+let extract_decls: ('a IMap.t * id_pos_map) -> LA.ident list -> ('a list) graph_result
   = fun (decl_map, i_pos_map) ids ->
   R.ok (List.concat (List.map (fun i -> match (IMap.find_opt i decl_map) with
                      | None -> []
@@ -484,20 +486,6 @@ let extract_decls_contract_eqns: ('a IMap.t * id_pos_map) -> LA.ident list -> ('
  *)
 
     
-let rec extract_decls: ('a IMap.t * id_pos_map) -> LA.ident list -> ('a list) graph_result
-  = fun (decl_map, i_pos_map) ->
-  function
-  | [] -> R.ok []
-  | i :: is ->
-     (match (IMap.find_opt i decl_map) with
-      | None -> (match (find_id_pos i_pos_map i) with
-                 | None -> graph_error Lib.dummy_pos ("Identifier " ^ i ^ " not found. This should not happen")
-                 | Some p -> graph_error p ("Identifier " ^ i ^ " is not defined."))
-      | Some i' -> R.ok i') >>= fun d ->
-     extract_decls (decl_map, i_pos_map) is >>= fun ds ->
-     R.ok (d :: ds)
-(** Given a list of ids, finds the associated payload from the playload map *)
-
 let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
   = let split_eqns: (LA.contract * LA.contract) -> LA.contract_node_equation -> (LA.contract * LA.contract)
       = fun (ps, qs) ->
@@ -901,7 +889,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
     let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) (List.rev sorted_ids) in
     let (to_sort_eqns, assums_grantees) = split_contract_equations contract in
     mk_contract_eqn_map IMap.empty to_sort_eqns >>= fun eqn_map ->
-         extract_decls_contract_eqns (eqn_map, ad'.id_pos_data) equational_vars >>= fun contract' ->
+         extract_decls (eqn_map, ad'.id_pos_data) equational_vars >>= fun contract' ->
       Log.log L_trace "sorted contract equations for contract %a %a"
         LA.pp_print_ident i
         (Lib.pp_print_list LA.pp_print_contract_item "\n") contract'
