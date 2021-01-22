@@ -1,0 +1,19 @@
+node top (in:bool) returns (out:bool);
+(*@contract
+  var v2 : bool = false -> pre v1;
+  var v1 : bool = false;
+  guarantee true;
+*)
+let
+  out = in;
+tel
+
+node top2 (in:bool) returns (out:bool);
+(*@contract
+  var v2 : bool = false -> pre v1;
+  var v1 : bool = true -> v2;
+  guarantee true;
+*)
+let
+  out = in;
+tel
