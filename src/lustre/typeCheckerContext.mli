@@ -66,8 +66,11 @@ val member_ty: tc_context -> LA.ident -> bool
 (** Checks if the identifier is a typed identifier *)
 
 val member_contract: tc_context -> LA.ident -> bool
-(** Checks if the contract name is previously seen   *)
-               
+(** Checks if the contract name is in the context *)
+
+val member_node: tc_context -> LA.ident -> bool
+(** Checks if the node name is in the context *)
+  
 val member_u_types : tc_context -> LA.ident -> bool
 (** Checks of the type identifier is a user defined type *)
   

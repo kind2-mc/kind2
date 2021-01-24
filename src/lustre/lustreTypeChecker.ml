@@ -1195,9 +1195,9 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
 and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_context tc_result
   = fun pos ctx (nname, imported, _ , ip, op, _ ,_ ,_)->
   Log.log L_trace
-    "Extracting typing context from node declaration: %a"
+    "Extracting type of node declaration: %a"
     LA.pp_print_ident nname
-  ; if (member_ty ctx nname)
+  ; if (member_node ctx nname)
     then type_error pos ("Node " ^ nname ^ " is already declared.")
     else build_node_fun_ty pos ctx ip op >>= fun fun_ty ->
          R.ok (add_ty_node ctx nname fun_ty)
@@ -1260,7 +1260,7 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
                                   -> tc_context tc_result
   = fun pos ctx (cname, params, inputs, outputs, contract) ->
   Log.log L_trace
-    "Extracting typing context from contract declaration: %a"
+    "Extracting type of contract declaration: %a"
     LA.pp_print_ident cname
   ; if (member_contract ctx cname)
     then type_error pos ("Contract " ^ cname ^ " is already declared.")

@@ -90,7 +90,11 @@ let member_ty: tc_context -> LA.ident -> bool
                
 let member_contract: tc_context -> LA.ident -> bool
   = fun ctx i -> IMap.mem i (ctx.contract_ctx)
-(** Checks if the contract name is previously seen   *)
+(** Checks if the contract name is in the context *)
+
+let member_node: tc_context -> LA.ident -> bool
+  = fun ctx i -> IMap.mem i (ctx.node_ctx)
+(** Checks if the node name is in the context *)
 
 let member_u_types : tc_context -> LA.ident -> bool
   = fun ctx i -> SI.mem i ctx.u_types
