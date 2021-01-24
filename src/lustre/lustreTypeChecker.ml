@@ -63,7 +63,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   | LA.Ident (pos, i) ->
      (match (lookup_ty ctx i) with
      | None -> type_error pos ("Unbound identifier: " ^ i) 
-     | Some ty -> R.ok ty) 
+     | Some ty -> R.ok ty)
   | LA.ModeRef (pos, ids) ->      
      let lookup_mode_ty ctx ids =
        match ids with
@@ -74,26 +74,26 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                  | Some ty -> R.ok ty in
      lookup_mode_ty ctx ids
   | LA.RecordProject (pos, e, fld) ->
-     (infer_type_expr ctx e)
-     >>= (fun rec_ty ->
-      match rec_ty with
+     infer_type_expr ctx e >>= fun rec_ty ->
+     (match rec_ty with
       | LA.RecordType (_, flds) ->
          let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
          (match (List.assoc_opt fld typed_fields) with
-          | Some ty -> R.ok ty
-          | None -> type_error pos ("No field named " ^ fld ^ "  in record type.")) 
+          | Some ty -> R.ok (expand_type_syn ctx ty)
+          | None -> type_error pos ("No field named " ^ fld ^ "  in record type."))
       | _ -> type_error pos ("Cannot project field out of non record expression type "
                              ^ string_of_tc_type rec_ty))
+
   | LA.TupleProject (pos, e1, i) ->
      infer_type_expr ctx e1 >>=
        (function
-        | LA.TupleType (pos, tys) as ty->
+        | LA.TupleType (pos, tys) as ty ->
            if List.length tys <= i
            then type_error pos ("Field "
                                 ^ string_of_int i
                                 ^ " is out of bounds for tuple type "
                                 ^ string_of_tc_type ty)
-           else R.ok (List.nth tys i)
+           else R.ok (expand_type_syn ctx (List.nth tys i))
         | ty -> type_error pos ("Cannot project field out of non tuple type type "
                                 ^ string_of_tc_type ty))
 
