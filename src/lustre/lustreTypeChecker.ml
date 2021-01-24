@@ -63,7 +63,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   | LA.Ident (pos, i) ->
      (match (lookup_ty ctx i) with
      | None -> type_error pos ("Unbound identifier: " ^ i) 
-     | Some ty -> R.ok ty) 
+     | Some ty -> R.ok ty)
   | LA.ModeRef (pos, ids) ->      
      let lookup_mode_ty ctx ids =
        match ids with
@@ -74,26 +74,26 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                  | Some ty -> R.ok ty in
      lookup_mode_ty ctx ids
   | LA.RecordProject (pos, e, fld) ->
-     (infer_type_expr ctx e)
-     >>= (fun rec_ty ->
-      match rec_ty with
+     infer_type_expr ctx e >>= fun rec_ty ->
+     (match rec_ty with
       | LA.RecordType (_, flds) ->
          let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
          (match (List.assoc_opt fld typed_fields) with
-          | Some ty -> R.ok ty
-          | None -> type_error pos ("No field named " ^ fld ^ "  in record type.")) 
+          | Some ty -> R.ok (expand_type_syn ctx ty)
+          | None -> type_error pos ("No field named " ^ fld ^ "  in record type."))
       | _ -> type_error pos ("Cannot project field out of non record expression type "
                              ^ string_of_tc_type rec_ty))
+
   | LA.TupleProject (pos, e1, i) ->
      infer_type_expr ctx e1 >>=
        (function
-        | LA.TupleType (pos, tys) as ty->
+        | LA.TupleType (pos, tys) as ty ->
            if List.length tys <= i
            then type_error pos ("Field "
                                 ^ string_of_int i
                                 ^ " is out of bounds for tuple type "
                                 ^ string_of_tc_type ty)
-           else R.ok (List.nth tys i)
+           else R.ok (expand_type_syn ctx (List.nth tys i))
         | ty -> type_error pos ("Cannot project field out of non tuple type type "
                                 ^ string_of_tc_type ty))
 
@@ -1195,9 +1195,9 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
 and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_context tc_result
   = fun pos ctx (nname, imported, _ , ip, op, _ ,_ ,_)->
   Log.log L_trace
-    "Extracting typing context from node declaration: %a"
+    "Extracting type of node declaration: %a"
     LA.pp_print_ident nname
-  ; if (member_ty ctx nname)
+  ; if (member_node ctx nname)
     then type_error pos ("Node " ^ nname ^ " is already declared.")
     else build_node_fun_ty pos ctx ip op >>= fun fun_ty ->
          R.ok (add_ty_node ctx nname fun_ty)
@@ -1260,7 +1260,7 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
                                   -> tc_context tc_result
   = fun pos ctx (cname, params, inputs, outputs, contract) ->
   Log.log L_trace
-    "Extracting typing context from contract declaration: %a"
+    "Extracting type of contract declaration: %a"
     LA.pp_print_ident cname
   ; if (member_contract ctx cname)
     then type_error pos ("Contract " ^ cname ^ " is already declared.")

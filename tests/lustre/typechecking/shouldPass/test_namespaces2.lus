@@ -1,0 +1,12 @@
+
+type my_enum = enum { A, B };
+
+node N1(x:int) returns (y:int);
+let
+  y = A(x);
+tel
+
+node A(x: int) returns (y:int);
+let
+   y = x + 1;
+tel

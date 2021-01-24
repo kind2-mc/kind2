@@ -1,0 +1,2 @@
+type r1 = {f2: r2};
+type r2 = {f1: r1};

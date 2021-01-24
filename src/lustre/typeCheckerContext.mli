@@ -66,8 +66,11 @@ val member_ty: tc_context -> LA.ident -> bool
 (** Checks if the identifier is a typed identifier *)
 
 val member_contract: tc_context -> LA.ident -> bool
-(** Checks if the contract name is previously seen   *)
-               
+(** Checks if the contract name is in the context *)
+
+val member_node: tc_context -> LA.ident -> bool
+(** Checks if the node name is in the context *)
+  
 val member_u_types : tc_context -> LA.ident -> bool
 (** Checks of the type identifier is a user defined type *)
   
@@ -79,6 +82,9 @@ val lookup_ty_syn: tc_context -> LA.ident -> tc_type option
     If it is user type then chases it (recursively looks up) 
     the actual type. This chasing is necessary to check type equality 
     between user defined types. *)
+
+val expand_type_syn: tc_context -> tc_type -> tc_type
+(** Chases the type to its base form to resolve type synomyms *)
 
 val lookup_ty: tc_context -> LA.ident -> tc_type option
 (** Picks out the type of the identifier to type context map *)
