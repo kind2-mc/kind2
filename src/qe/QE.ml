@@ -626,7 +626,7 @@ let generalize trans_sys uf_defs model elim term =
         (* Return quantifier eliminated term *)
         (match ic3_qe with 
           | `Cooper -> assert false
-          | `Z3 
+          | `Z3 -> term'_int
           | `Z3_impl -> term'_bool @ term'_int
           | `Z3_impl2 -> 
 

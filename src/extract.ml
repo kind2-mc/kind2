@@ -826,84 +826,61 @@ let extract uf_defs env term =
 
   and extract_term_atom (bool, int) polarity env term = 
 
-    let extract_term_atom_node fterm args =
-
+    let rec extract_term_atom_node fterm =
       match fterm with 
+      (* Lift if-then-else *)
+      | Term.T.App (sym, args) when Symbol.node_of_symbol sym = `ITE -> (
+        match args with
+        | [p; t; f] -> (
+          (* Evaluate predicate to true or false *)
+          if
+            try
 
-        (* Lift if-then-else *)
-        | Term.T.App (sym, _) when Symbol.node_of_symbol sym = `ITE -> 
+              Eval.bool_of_value (eval_term p)
 
-          (
+            with Invalid_argument s ->
 
-            match args with 
+              Debug.extract
+                  "%s for@ %a@ evaluating@ %a"
+                  s
+                  Term.pp_print_term p
+                  Term.pp_print_term (Term.construct fterm);
 
-              | [(_, p); (t', t); (f', f)] -> 
+              assert false
 
-                (* Evaluate predicate to true or false *)
-                if 
+          then
 
-                  try 
-                    
-                    Eval.bool_of_value (eval_term p) 
+            let t', t = extract_term_atom_node (Term.T.destruct t) in
 
-                  with Invalid_argument s -> 
+            (* Extract from p and t, return left branch *)
+            ((p, env, true) :: t', t)
 
-                    Debug.extract
-                        "%s for@ %a@ evaluating@ %a"
-                        s
-                        Term.pp_print_term p
-                        Term.pp_print_term (Term.construct fterm);
+          else
 
-                    assert false
+            let f', f = extract_term_atom_node (Term.T.destruct f) in
 
-                then 
-
-                  (* Extract from p and t, return left branch *)
-                  ((p, env, true) :: t', t)
-
-                else 
-
-                  (* Extract from p and f, return right branch *)
-                  ((p, env, false) :: f', f)
-
-              (* if-then-else must be ternary *)
-              | _ -> assert false
-
-          )
-
-        (* Construct new term *)
-        | Term.T.App (sym, _) -> 
-
-          let (accum', args') = List.split args in 
-          (List.concat accum', Term.T.mk_app sym args')
-
-        (* Keep other terms *)
-        | Term.T.Var _ 
-        | Term.T.Const _ -> ([], Term.T.construct fterm)
-
-        (* | Term.T.Attr (t, _) -> 
-          match args with [(a, _)] -> (a, t) | _ -> assert false *)
-
+            (* Extract from p and f, return right branch *)
+            ((p, env, false) :: f', f)
+        )
+        (* if-then-else must be ternary *)
+        | _ -> assert false
+      )
+      (* Construct new term *)
+      | Term.T.App (sym, args) -> (
+        let (accum', args') =
+          args
+          |> List.map (fun t -> extract_term_atom_node (Term.T.destruct t))
+          |> List.split
+        in
+        (List.concat accum', Term.T.mk_app sym args')
+      )
+      (* Keep other terms *)
+      | Term.T.Var _
+      | Term.T.Const _ -> ([], Term.T.construct fterm)
     in
 
-    (* Lift ites from term *)
-    let stack', term' = 
-      (try 
-
-         Term.T.eval_t
-           extract_term_atom_node 
-           (Term.T.construct term)
-
-       with Invalid_argument s -> 
-
-         Debug.extract
-             "%s for@ %a"
-             s
-             Term.pp_print_term (Term.T.construct term);
-
-         assert false)
-
-
+    let stack', term' =
+      extract_term_atom_node term
     in
 
     Debug.extract

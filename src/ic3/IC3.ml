@@ -2825,7 +2825,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
               "Problem contains real or machine integer valued variables, \
                switching off approximate QE";
 
-            Flags.IC3.set_qe `Z3;
+            Flags.IC3.set_qe `Z3_impl;
 
             props
 
