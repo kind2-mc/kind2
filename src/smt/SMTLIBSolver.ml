@@ -247,9 +247,16 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
          HStringSExpr.Atom e ] when s == s_error -> 
       `Error (HString.string_of_hstring e)
 
-    (* Solver returned a list not starting with an error atom  *)
+    (* Solver returned a list starting with model (e.g. z3 4.8.9 and below) *)
     | HStringSExpr.List 
         (HStringSExpr.Atom s :: l) when s == s_model -> 
+
+      (* remove useless declarations/definitions from the model *)
+      List.filter (fun d -> not (ignore_model_item d)) l
+      |> get_model_response_of_sexpr' []
+
+    (* Solver returned a list not starting with an error or model atom *)
+    | HStringSExpr.List l ->
 
       (* remove useless declarations/definitions from the model *)
       List.filter (fun d -> not (ignore_model_item d)) l
