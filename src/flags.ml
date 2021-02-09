@@ -709,67 +709,6 @@ module IC3 = struct
     )
   let use_invgen () = !use_invgen
 
-  type qe = [
-    `Z3 | `Z3_impl | `Z3_impl2 | `Cooper
-  ]
-  let qe_of_string = function
-    | "Z3" -> `Z3
-    | "Z3-impl" -> `Z3_impl
-    | "Z3-impl2" -> `Z3_impl2
-    | "cooper" -> `Cooper
-    | _ -> raise (Arg.Bad "Bad value for --ic3_qe")
-  let string_of_qe = function
-    | `Z3 -> "Z3"
-    |  `Z3_impl -> "Z3-impl"
-    |  `Z3_impl2 -> "Z3-impl2"
-    | `Cooper -> "cooper"
-  let qe_values = [
-    `Z3 ; `Z3_impl ; `Z3_impl2 ; `Cooper
-  ] |> List.map string_of_qe |> String.concat ", "
-  let qe_default = `Cooper
-  let qe = ref qe_default
-  let _ = add_spec
-    "--ic3_qe"
-    (Arg.String (fun str -> qe := qe_of_string str))
-    (fun fmt ->
-      Format.fprintf fmt
-        "@[<v>\
-          where <string> can be %s@ \
-          Choose quantifier elimination algorithm@ \
-          Default: %s\
-        @]"
-        qe_values (string_of_qe qe_default)
-    )
-  let set_qe q = qe := q
-  let qe () = !qe
-
-  type extract = [ `First | `Vars ]
-  let extract_of_string = function
-    | "first" -> `First
-    | "vars" -> `Vars
-    | _ -> raise (Arg.Bad "Bad value for --ic3_extract")
-  let string_of_extract = function
-    | `First -> "first"
-    | `Vars -> "vars"
-  let extract_values = [
-    `First ; `Vars
-  ] |> List.map string_of_extract |> String.concat ", "
-  let extract_default = `First
-  let extract = ref extract_default
-  let _ = add_spec
-    "--ic3_extract"
-    (Arg.String (fun str -> extract := extract_of_string str))
-    (fun fmt ->
-      Format.fprintf fmt
-        "@[<v>\
-          where <string> can be %s@ \
-          Heuristics for extraction of implicant@ \
-          Default: %s\
-        @]"
-        extract_values (string_of_extract extract_default)
-    )
-  let extract () = !extract
-
   type abstr = [ `None | `IA ]
   let abstr_of_string = function
     | "None" -> `None
@@ -815,11 +754,73 @@ module QE = struct
       Quantifier elimination (QE) is a technique that, given some variables@ \
       `v_1`, ..., `v_n` and a quantifier-free formula `f`, returns a@ \
       quantifier-free formula equivalent to `(exists (v_1, ..., v_n) f)`.@ \
-      The QE implemented in Kind 2 does not support real arithmetic. If the@ \
-      solver used is z3, then z3's QE will be used instead of the internal@ \
-      one for systems with real variables.@ \
+      The QE method implemented in Kind 2 only supports integer arithmetic,
+      but not real or machine integer arithmetic. If the solver used is z3,@ \
+      then z3's QE will be used instead of the internal one@ \
+      for systems with real or machine integer variables.@ \
       IC3 (module \"ic3\") is the only Kind 2 technique that uses QE.\
     @]"
+
+  type qe_method = [
+    `Precise | `Impl | `Impl2 | `Cooper
+  ]
+  let qe_method_of_string = function
+    | "precise" -> `Precise
+    | "impl" -> `Impl
+    | "impl2" -> `Impl2
+    | "cooper" -> `Cooper
+    | _ -> raise (Arg.Bad "Bad value for --qe_method")
+  let string_of_qe_method = function
+    | `Precise -> "precise"
+    | `Impl -> "impl"
+    | `Impl2 -> "impl2"
+    | `Cooper -> "cooper"
+  let qe_method_values = [
+    `Precise ; `Impl ; `Impl2 ; `Cooper
+  ] |> List.map string_of_qe_method |> String.concat ", "
+  let qe_method_default = `Cooper
+  let qe_method = ref qe_method_default
+  let _ = add_spec
+    "--qe_method"
+    (Arg.String (fun str -> qe_method := qe_method_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          where <string> can be %s@ \
+          Choose quantifier elimination method@ \
+          Default: %s\
+        @]"
+        qe_method_values (string_of_qe_method qe_method_default)
+    )
+  let set_qe_method q = qe_method := q
+  let qe_method () = !qe_method
+
+  type extract = [ `First | `Vars ]
+  let extract_of_string = function
+    | "first" -> `First
+    | "vars" -> `Vars
+    | _ -> raise (Arg.Bad "Bad value for --qe_extract")
+  let string_of_extract = function
+    | `First -> "first"
+    | `Vars -> "vars"
+  let extract_values = [
+    `First ; `Vars
+  ] |> List.map string_of_extract |> String.concat ", "
+  let extract_default = `First
+  let extract = ref extract_default
+  let _ = add_spec
+    "--qe_extract"
+    (Arg.String (fun str -> extract := extract_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          where <string> can be %s@ \
+          Heuristics for extraction of implicant@ \
+          Default: %s\
+        @]"
+        extract_values (string_of_extract extract_default)
+    )
+  let extract () = !extract
 
   let order_var_by_elim_default = false
   let order_var_by_elim = ref order_var_by_elim_default

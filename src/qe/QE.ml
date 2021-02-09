@@ -580,11 +580,11 @@ let generalize trans_sys uf_defs model elim term =
     Term.pp_print_term 
     (Term.mk_and term'_bool);
 
-  let term' = let ic3_qe = Flags.IC3.qe () in match ic3_qe with 
+  let term' = let ic3_qe = Flags.QE.qe_method () in match ic3_qe with 
     
-    | `Z3
-    | `Z3_impl
-    | `Z3_impl2 ->
+    | `Precise
+    | `Impl
+    | `Impl2 ->
       
       (
 
@@ -593,10 +593,10 @@ let generalize trans_sys uf_defs model elim term =
         let qe_term = 
           match ic3_qe with 
             | `Cooper -> assert false
-            | `Z3 -> 
+            | `Precise -> 
               Conv.quantified_smtexpr_of_term true elim term
-            | `Z3_impl
-            | `Z3_impl2 -> 
+            | `Impl
+            | `Impl2 -> 
               Conv.quantified_smtexpr_of_term true elim extract_int
         in
         
@@ -626,9 +626,9 @@ let generalize trans_sys uf_defs model elim term =
         (* Return quantifier eliminated term *)
         (match ic3_qe with 
           | `Cooper -> assert false
-          | `Z3 -> term'_int
-          | `Z3_impl -> term'_bool @ term'_int
-          | `Z3_impl2 -> 
+          | `Precise -> term'_int
+          | `Impl -> term'_bool @ term'_int
+          | `Impl2 -> 
 
             (* Extract again from result *)
             let term''_int, term''_bool = 
