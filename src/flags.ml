@@ -151,7 +151,7 @@ module Smt = struct
       Format.fprintf fmt
         "@[<v>\
           where <string> can be %s@ \
-          Choose an SMT solver@ \
+          Set the main SMT solver@ \
           Default: %s\
         @]"
         solver_values
@@ -159,6 +159,38 @@ module Smt = struct
     )
   let set_solver s = solver := s
   let solver () = !solver
+
+  type qe_solver = [
+    | `Z3_SMTLIB
+    | `CVC4_SMTLIB
+    | `detect
+  ]
+  let qe_solver_of_string = function
+    | "Z3" -> `Z3_SMTLIB
+    | "CVC4" -> `CVC4_SMTLIB
+    | _ -> Arg.Bad "Bad value for --smt_qe_solver" |> raise
+  let string_of_qe_solver = function
+    | `Z3_SMTLIB -> "Z3"
+    | `CVC4_SMTLIB -> "CVC4"
+    | `detect -> "detect"
+  let qe_solver_values = "Z3, CVC4"
+  let qe_solver_default = `detect
+  let qe_solver = ref qe_solver_default
+  let _ = add_spec
+    "--smt_qe_solver"
+    (Arg.String (fun str -> qe_solver := qe_solver_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          where <string> can be %s@ \
+          Set the SMT solver used for quantifier elimination@ \
+          Default: %s\
+        @]"
+        qe_solver_values
+        (string_of_qe_solver qe_solver_default)
+    )
+  let set_qe_solver s = qe_solver := s
+  let qe_solver () = !qe_solver
 
   (* Active SMT logic. *)
   type logic = [
@@ -417,7 +449,36 @@ module Smt = struct
 
         exit 2
 
-  
+  let check_qe_solver () = match qe_solver () with
+    (* User chose Z3 *)
+    | `Z3_SMTLIB -> (
+      match solver () with
+      | `Z3_SMTLIB -> ()
+      | _ -> find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
+    )
+    (* User chose CVC4 *)
+    | `CVC4_SMTLIB -> (
+      match solver () with
+      | `CVC4_SMTLIB -> ()
+      | _ -> find_solver ~fail:true "CVC4" (cvc4_bin ()) |> ignore
+    )
+    | `detect ->
+      match solver () with
+      | `Z3_SMTLIB -> set_qe_solver `Z3_SMTLIB;
+      | _ ->
+        try
+          let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
+          set_qe_solver `Z3_SMTLIB;
+          set_z3_bin exec;
+        with Not_found ->
+        match solver () with
+        | `CVC4_SMTLIB -> set_qe_solver `CVC4_SMTLIB;
+        | _ ->
+          try
+            let exec = find_solver ~fail:false "CVC4" (cvc4_bin ()) in
+            set_qe_solver `CVC4_SMTLIB;
+            set_cvc4_bin exec;
+          with Not_found -> () (* Ẃe keep `detect to know no qe solver was found *)
 end
 
 
@@ -709,67 +770,6 @@ module IC3 = struct
     )
   let use_invgen () = !use_invgen
 
-  type qe = [
-    `Z3 | `Z3_impl | `Z3_impl2 | `Cooper
-  ]
-  let qe_of_string = function
-    | "Z3" -> `Z3
-    | "Z3-impl" -> `Z3_impl
-    | "Z3-impl2" -> `Z3_impl2
-    | "cooper" -> `Cooper
-    | _ -> raise (Arg.Bad "Bad value for --ic3_qe")
-  let string_of_qe = function
-    | `Z3 -> "Z3"
-    |  `Z3_impl -> "Z3-impl"
-    |  `Z3_impl2 -> "Z3-impl2"
-    | `Cooper -> "cooper"
-  let qe_values = [
-    `Z3 ; `Z3_impl ; `Z3_impl2 ; `Cooper
-  ] |> List.map string_of_qe |> String.concat ", "
-  let qe_default = `Cooper
-  let qe = ref qe_default
-  let _ = add_spec
-    "--ic3_qe"
-    (Arg.String (fun str -> qe := qe_of_string str))
-    (fun fmt ->
-      Format.fprintf fmt
-        "@[<v>\
-          where <string> can be %s@ \
-          Choose quantifier elimination algorithm@ \
-          Default: %s\
-        @]"
-        qe_values (string_of_qe qe_default)
-    )
-  let set_qe q = qe := q
-  let qe () = !qe
-
-  type extract = [ `First | `Vars ]
-  let extract_of_string = function
-    | "first" -> `First
-    | "vars" -> `Vars
-    | _ -> raise (Arg.Bad "Bad value for --ic3_extract")
-  let string_of_extract = function
-    | `First -> "first"
-    | `Vars -> "vars"
-  let extract_values = [
-    `First ; `Vars
-  ] |> List.map string_of_extract |> String.concat ", "
-  let extract_default = `First
-  let extract = ref extract_default
-  let _ = add_spec
-    "--ic3_extract"
-    (Arg.String (fun str -> extract := extract_of_string str))
-    (fun fmt ->
-      Format.fprintf fmt
-        "@[<v>\
-          where <string> can be %s@ \
-          Heuristics for extraction of implicant@ \
-          Default: %s\
-        @]"
-        extract_values (string_of_extract extract_default)
-    )
-  let extract () = !extract
-
   type abstr = [ `None | `IA ]
   let abstr_of_string = function
     | "None" -> `None
@@ -815,11 +815,73 @@ module QE = struct
       Quantifier elimination (QE) is a technique that, given some variables@ \
       `v_1`, ..., `v_n` and a quantifier-free formula `f`, returns a@ \
       quantifier-free formula equivalent to `(exists (v_1, ..., v_n) f)`.@ \
-      The QE implemented in Kind 2 does not support real arithmetic. If the@ \
-      solver used is z3, then z3's QE will be used instead of the internal@ \
-      one for systems with real variables.@ \
+      The QE method implemented in Kind 2 supports integer arithmetic,@ \
+      but not real or machine integer arithmetic. If the solver used is@ \
+      Z3 or CVC4 then the solver's QE will be used instead of the internal@ \
+      one for systems with real or machine integer variables.@ \
       IC3 (module \"ic3\") is the only Kind 2 technique that uses QE.\
     @]"
+
+  type qe_method = [
+    `Precise | `Impl | `Impl2 | `Cooper
+  ]
+  let qe_method_of_string = function
+    | "precise" -> `Precise
+    | "impl" -> `Impl
+    | "impl2" -> `Impl2
+    | "cooper" -> `Cooper
+    | _ -> raise (Arg.Bad "Bad value for --qe_method")
+  let string_of_qe_method = function
+    | `Precise -> "precise"
+    | `Impl -> "impl"
+    | `Impl2 -> "impl2"
+    | `Cooper -> "cooper"
+  let qe_method_values = [
+    `Precise ; `Impl ; `Impl2 ; `Cooper
+  ] |> List.map string_of_qe_method |> String.concat ", "
+  let qe_method_default = `Cooper
+  let qe_method = ref qe_method_default
+  let _ = add_spec
+    "--qe_method"
+    (Arg.String (fun str -> qe_method := qe_method_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          where <string> can be %s@ \
+          Choose quantifier elimination method@ \
+          Default: %s\
+        @]"
+        qe_method_values (string_of_qe_method qe_method_default)
+    )
+  let set_qe_method q = qe_method := q
+  let qe_method () = !qe_method
+
+  type extract = [ `First | `Vars ]
+  let extract_of_string = function
+    | "first" -> `First
+    | "vars" -> `Vars
+    | _ -> raise (Arg.Bad "Bad value for --qe_extract")
+  let string_of_extract = function
+    | `First -> "first"
+    | `Vars -> "vars"
+  let extract_values = [
+    `First ; `Vars
+  ] |> List.map string_of_extract |> String.concat ", "
+  let extract_default = `First
+  let extract = ref extract_default
+  let _ = add_spec
+    "--qe_extract"
+    (Arg.String (fun str -> extract := extract_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          where <string> can be %s@ \
+          Heuristics for extraction of implicant@ \
+          Default: %s\
+        @]"
+        extract_values (string_of_extract extract_default)
+    )
+  let extract () = !extract
 
   let order_var_by_elim_default = false
   let order_var_by_elim = ref order_var_by_elim_default
@@ -3267,7 +3329,7 @@ let parse_clas specs anon_action global_usage_msg =
     failwith "expected at least one argument, got zero"
 
 
-let solver_dependant_actions () =
+let solver_dependant_actions solver =
 
   let get_version with_patch cmd =
     let get_rev output idx =
@@ -3287,7 +3349,7 @@ let solver_dependant_actions () =
     with Not_found -> None
   in
 
-  match Smt.solver () with
+  match solver with
   | `Boolector_SMTLIB -> (
     let cmd = Format.asprintf "%s --version" (Smt.boolector_bin ()) in
     match get_version false cmd with
@@ -3535,6 +3597,8 @@ let parse_argv () =
   (* Check solver on path *)
   Smt.check_smtsolver ();
 
+  Smt.check_qe_solver ();
+
   (* Finalize the list of enabled module. *)
   Global.finalize_enabled ();
 
@@ -3543,7 +3607,14 @@ let parse_argv () =
 
   post_argv_parse_actions ();
   
-  solver_dependant_actions ();
+  solver_dependant_actions (Smt.solver ());
+
+  (match Smt.solver (), Smt.qe_solver () with
+  | `Z3_SMTLIB, `Z3_SMTLIB -> ()
+  | `CVC4_SMTLIB, `CVC4_SMTLIB -> ()
+  | _, `Z3_SMTLIB -> solver_dependant_actions `Z3_SMTLIB
+  | _, `CVC4_SMTLIB -> solver_dependant_actions `CVC4_SMTLIB
+  | _, _ -> ()) ;
 
   if IVC.compute_ivc () && BmcKind.compress () then (
     BmcKind.disable_compress () ;

@@ -122,7 +122,7 @@ let choose_term (bool_terms, int_terms) =
     | h :: tl as terms -> 
 
       (* Heuristic to choose terms *)
-      match Flags.IC3.extract () with 
+      match Flags.QE.extract () with 
 
         (* Always pick the first term *)
         | `First -> List.hd terms 
@@ -204,7 +204,7 @@ let extract uf_defs env term =
     | [] -> (Term.TermSet.elements bool, Term.TermSet.elements int)
 
     (* Extract from top element on stack *)
-    | (term, env, polarity) :: tl ->
+    | (term, polarity) :: tl ->
 
       (* Get polarities visited for term *)
       let polarities_visited =
@@ -221,7 +221,7 @@ let extract uf_defs env term =
 
         (* Obtain new accumulator and new terms to extract *)
         let accum', stack' =
-          try extract_term_flat accum polarity env (Term.T.destruct term)
+          try extract_term_flat accum polarity (Term.T.destruct term)
           with Invalid_argument _ -> accum, []
         in
 
@@ -235,7 +235,7 @@ let extract uf_defs env term =
         extract_term accum' (List.rev_append stack' tl)
 
 
-  and extract_term_flat ((bool, int) as accum) polarity env = function 
+  and extract_term_flat ((bool, int) as accum) polarity = function 
 
     (* Constant *)
     | Term.T.Const s -> 
@@ -300,7 +300,7 @@ let extract uf_defs env term =
           (* Extract from subterm with negated polarity *)
           (match l with 
             | [] -> assert false
-            | [t] -> (accum, [(t, env, not polarity)])
+            | [t] -> (accum, [(t, not polarity)])
             | _ -> assert false)
 
 
@@ -375,7 +375,7 @@ let extract uf_defs env term =
                 (* Extract with positive polarity if chosen term is
                      conclusion, otherwise with negative polarity *)
                 (accum,
-                 [(term', env, Term.equal term' c)])
+                 [(term', Term.equal term' c)])
 
           )
 
@@ -403,10 +403,10 @@ let extract uf_defs env term =
                    in original order *)
                 (accum,
                  (List.rev
-                    ((c, env, false) ::
+                    ((c, false) ::
                      (List.map 
                         (function e -> 
-                          (e, env, true))
+                          (e, true))
                         p))))
 
           )
@@ -416,7 +416,7 @@ let extract uf_defs env term =
         | `AND when polarity ->
 
           (* Extract from each conjunct *)
-          (accum, (List.map (function c -> (c, env, true)) l))
+          (accum, (List.map (function c -> (c, true)) l))
 
 
         (* Boolean conjunction to be false *)
@@ -456,7 +456,7 @@ let extract uf_defs env term =
             in
 
             (* Extract with negative polarity from chosen term *)
-            (accum, [(term', env, false)])
+            (accum, [(term', false)])
 
           )
 
@@ -497,7 +497,7 @@ let extract uf_defs env term =
             in
 
             (* Extract with positive polarity from chosen term *)
-            (accum, [(term', env, true)])
+            (accum, [(term', true)])
 
           )
 
@@ -505,7 +505,7 @@ let extract uf_defs env term =
         | `OR -> 
 
           (* Extract from each disjunct *)
-          (accum, (List.map (function c -> (c, env, false)) l))
+          (accum, (List.map (function c -> (c, false)) l))
 
         (* Boolean exclusive disjunction to be true *)
         | `XOR when polarity = true -> 
@@ -529,7 +529,7 @@ let extract uf_defs env term =
 
                 (* Both (a | b) and (~a | ~b) have to be true *)
                 (accum, 
-                 [(a_or_b, env, true); (not_a_or_not_b, env, true)])
+                 [(a_or_b, true); (not_a_or_not_b, true)])
 
               (* Do not suport other arities *)
               | _ -> assert false
@@ -559,7 +559,7 @@ let extract uf_defs env term =
 
                 (* Both (a & ~b) and (~a & b) have to be true *)
                 (accum, 
-                 [(a_and_not_b, env, false); (not_a_and_b, env, false)])
+                 [(a_and_not_b, false); (not_a_and_b, false)])
 
               (* Do not suport other arities *)
               | _ -> assert false
@@ -600,7 +600,7 @@ let extract uf_defs env term =
                          (* All arguments must be true *)
                          (accum, 
                           (List.map 
-                             (function c -> (c, env, true))
+                             (function c -> (c, true))
                              l))
 
                        else
@@ -608,7 +608,7 @@ let extract uf_defs env term =
                          (* All arguments must be false *)
                          (accum, 
                           (List.map 
-                             (function c -> (c, env, false))
+                             (function c -> (c, false))
                              l))
 
                      (* Equality to be false *)
@@ -619,13 +619,11 @@ let extract uf_defs env term =
                         [((List.find 
                              (function t -> Eval.bool_of_value (eval_term t)) 
                              l),
-                          env,
                           true);
                          ((List.find 
                              (function t -> 
                                not (Eval.bool_of_value (eval_term t)))
                              l),
-                          env,
                           false)])
 
                  )
@@ -641,7 +639,7 @@ let extract uf_defs env term =
                    (* Comparison of arity two *)
                    | [l; r] -> 
 
-                     extract_term_atom accum polarity env term 
+                     extract_term_atom accum polarity term 
 
 (*
                     (* Split equation into l <= r && l >= r and extract
@@ -662,8 +660,7 @@ let extract uf_defs env term =
 
                      (accum, 
                       [(Term.T.mk_app (Symbol.mk_symbol `AND) 
-                          (List.map (Term.T.mk_app (Symbol.mk_symbol s)) l'), 
-                        env, 
+                          (List.map (Term.T.mk_app (Symbol.mk_symbol s)) l'),
                         polarity)])
 
                  )
@@ -687,17 +684,17 @@ let extract uf_defs env term =
                 if Eval.bool_of_value (eval_term p) then
 
                   (* Extract from term for true and positive condition *)
-                  (accum, [(p, env, true); (t, env, polarity)])
+                  (accum, [(p, true); (t, polarity)])
 
                 (* Condition is false? *)
                 else
 
                   (* Extract from term for false and negative condition *)
-                  (accum, [(p, env, false); (f, env, polarity)])
+                  (accum, [(p, false); (f, polarity)])
 
               else
 
-                extract_term_atom accum polarity env term 
+                extract_term_atom accum polarity term 
 
             (* Non-ternary ite *)
             | _ -> assert false 
@@ -726,7 +723,7 @@ let extract uf_defs env term =
             | _ :: [] -> assert false 
 
             (* Comparison of arity two *)
-            | [_; _] -> extract_term_atom accum polarity env term 
+            | [_; _] -> extract_term_atom accum polarity term 
 
             (* Comparison of arity greater than two *)
             | l -> 
@@ -738,8 +735,7 @@ let extract uf_defs env term =
               (accum, 
                [(Term.T.mk_app 
                    (Symbol.mk_symbol `AND) 
-                   (List.map (Term.T.mk_app (Symbol.mk_symbol s)) l'), 
-                 env, 
+                   (List.map (Term.T.mk_app (Symbol.mk_symbol s)) l'),
                  polarity)])
 
           )
@@ -774,12 +770,12 @@ let extract uf_defs env term =
                  Term.pp_print_term (Term.construct term)
                  Term.pp_print_term term';
 
-             (accum, [term', env, polarity])
+             (accum, [term', polarity])
 
            with Not_found -> 
 
              (* Extract from subterms with undefined polarity *)
-             extract_term_atom accum polarity env term 
+             extract_term_atom accum polarity term 
 
           )
 
@@ -798,7 +794,7 @@ let extract uf_defs env term =
             | l -> 
 
               (* Extract from subterms with undefined polarity *)
-              extract_term_atom accum polarity env term 
+              extract_term_atom accum polarity term 
 
           )
 
@@ -824,7 +820,7 @@ let extract uf_defs env term =
 
 
 
-  and extract_term_atom (bool, int) polarity env term = 
+  and extract_term_atom (bool, int) polarity term = 
 
     let rec extract_term_atom_node fterm =
       match fterm with 
@@ -853,14 +849,14 @@ let extract uf_defs env term =
             let t', t = extract_term_atom_node (Term.T.destruct t) in
 
             (* Extract from p and t, return left branch *)
-            ((p, env, true) :: t', t)
+            ((p, true) :: t', t)
 
           else
 
             let f', f = extract_term_atom_node (Term.T.destruct f) in
 
             (* Extract from p and f, return right branch *)
-            ((p, env, false) :: f', f)
+            ((p, false) :: f', f)
         )
         (* if-then-else must be ternary *)
         | _ -> assert false
@@ -900,7 +896,7 @@ let extract uf_defs env term =
   let literals_bool, literals_int = 
     extract_term 
       (Term.TermSet.empty, Term.TermSet.empty)
-      [(term, env, true)] 
+      [(term, true)] 
   in
 
   (literals_bool, literals_int)

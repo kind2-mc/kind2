@@ -20,14 +20,17 @@ open Lib
 
 module VS = Var.VarSet
 
-(* We only use Z3 here, so we read and send SMTLIB2 commands *)
-module Conv = SMTExpr.Converter (Z3Driver)
-
 (* The current solver instance in use *)
 let solver_qe = ref None 
 
 (* The current solver instance in use *)
 let solver_check = ref None
+
+let get_qe_solver () =
+  match Flags.Smt.qe_solver () with
+  | `Z3_SMTLIB -> `Z3_SMTLIB
+  | `CVC4_SMTLIB -> `CVC4_SMTLIB
+  | _ -> failwith "No QE solver found"
 
 (* Get the current solver instance or create a new instance *)
 let get_solver_instance trans_sys = 
@@ -38,11 +41,11 @@ let get_solver_instance trans_sys =
     (* Need to create a new instance *)
     | None -> 
  
-      (* Create solver instance : only Z3 for the moment *)
+      (* Create solver instance *)
       let solver = SMTSolver.create_instance
           ~produce_assignments:true
           (TermLib.add_quantifiers (TransSys.get_logic trans_sys))
-          `Z3_SMTLIB
+          (get_qe_solver ())
       in
 
       SMTSolver.trace_comment 
@@ -179,33 +182,13 @@ let formula_of_model model =
   (* Create conjunctions of equations *)
   Term.mk_and 
     (List.map (function (v, e) -> Term.mk_eq [Term.mk_var v; e]) model)
-  
 
-let term_of_psummand = function 
-  | (c, Some v) -> Term.mk_times [Term.mk_num_of_int c; v]
-  | (c, None) -> Term.mk_num_of_int c
 
-let term_of_pterm = function 
-  | [] -> Term.mk_false ()
-  | l -> 
-    let l' =
-      match List.map term_of_psummand l with
-        | [] -> Term.mk_num_of_int 0 
-        | [t] -> t
-        | l -> Term.mk_plus l
-    in
-
-    Term.mk_gt [l'; Term.mk_num_of_int 0]
-
-let term_of_pformula = function 
-  | [] -> Term.mk_true ()
-  | [t] -> term_of_pterm t
-  | l -> Term.mk_and (List.map term_of_pterm l)
 
 (*
 let check_implication trans_sys prem_str conc_str prem conc = 
 
-  (* Get or create a Z3 instance to check the results *)
+  (* Get or create a solver instance to check the results *)
   let solver_check = get_checking_solver_instance trans_sys in
 
   (* Push context *)
@@ -222,17 +205,16 @@ let check_implication trans_sys prem_str conc_str prem conc =
        "(check-sat-using (then qe smt))" 
        solver_check 
    with
-     | `Unsat -> (debug qe "%s implies %s" prem_str conc_str end)
+     | `Unsat -> (Debug.qe "%s implies %s" prem_str conc_str)
      | `Sat -> failwith (prem_str ^ " does not imply " ^ conc_str)
      | _ -> failwith "Failed to check implication");
   
   
 (*
   (* Check if premise implies conclusion *)
-  (match CheckSolver.check_sat solver_check with 
-    | SMTExpr.Unsat -> (debug qe "%s implies %s" prem_str conc_str end)
-    | SMTExpr.Sat -> failwith (prem_str ^ " does not imply " ^ conc_str)
-    | _ -> failwith "Failed to check implication");
+  (match SMTSolver.check_sat solver_check with 
+    | false -> (Debug.qe "%s implies %s" prem_str conc_str)
+    | true -> failwith (prem_str ^ " does not imply " ^ conc_str));
 *)
 
   (* Pop context *)
@@ -513,6 +495,33 @@ let solve_eqs vars terms =
 
 let generalize trans_sys uf_defs model elim term =
 
+  let qe_method = Flags.QE.qe_method () in
+
+  (* Partition list of state variables into Boolean and integer variables *)
+  let elim_bool, elim_rest =
+    match qe_method with
+    | `Cooper -> (
+      List.partition
+        (fun v ->
+          match Type.node_of_type (Var.type_of_var v) with
+          | Type.Bool -> true
+          | Type.IntRange _
+          | Type.Int -> false
+          | _ -> raise Presburger.Not_in_LIA
+        )
+        elim
+    )
+    | _ -> (
+      List.partition
+        (fun v ->
+          match Type.node_of_type (Var.type_of_var v) with
+          | Type.Bool -> true
+          | _ -> false
+        )
+        elim
+    )
+  in
+
   Debug.qe
     "@[<hv>Generalizing@ @[<hv>%a@]@]@ for variables@ @[<hv>%a@]@."
     Term.pp_print_term term
@@ -528,51 +537,34 @@ let generalize trans_sys uf_defs model elim term =
   end;
 
   (* Extract active path from term and model *)
-  let extract_bool, extract_int = Extract.extract uf_defs model term in
+  let extract_bool, extract_rest = Extract.extract uf_defs model term in
 
   Debug.qe
     "@[<hv>Extracted term:@ @[<hv>%a@]@]@."
     (pp_print_list Term.pp_print_term "@ ")
-    extract_int;
+    extract_rest;
 
   Debug.qe
     "@[<hv>Extracted term Booleans:@ @[<hv>%a@]@]@."
     (pp_print_list Term.pp_print_term "@ ")
     extract_bool;
 
-  (* Partition list of state variables into Boolean and integer variables *)
-  let elim_bool, elim_int =
-    List.partition
-      (function v -> 
-        match Type.node_of_type (Var.type_of_var v) with 
-          | Type.Bool -> true
-          | Type.IntRange _
-          | Type.Int -> false
-          | Type.Real -> false
-          | _ -> false
-            (*(invalid_arg
-              ("Can only generalize terms with integer or Boolean " ^
-                  "state variables"))*)
-      )
-      elim
-  in
-  
   (* Eliminate from extracted Boolean conjunction *)
   let term'_bool = qe_bool elim_bool extract_bool in
 
-  let extract_int = Term.mk_and (solve_eqs elim_int extract_int) in
+  let extract_rest = Term.mk_and (solve_eqs elim_rest extract_rest) in
 
   Debug.qe
     "@[<hv>Extracted term simplified:@ @[<hv>%a@]@]@."
     Term.pp_print_term
-    extract_int;
+    extract_rest;
 (*
   check_implication 
     trans_sys
     "extract"
     "term"
     (SMTExpr.smtexpr_of_term 
-       (Term.mk_and [Term.mk_and extract_bool; extract_int]))
+       (Term.mk_and [Term.mk_and extract_bool; extract_rest]))
     (SMTExpr.smtexpr_of_term term);
 *)
   Debug.qe
@@ -580,66 +572,62 @@ let generalize trans_sys uf_defs model elim term =
     Term.pp_print_term 
     (Term.mk_and term'_bool);
 
-  let term' = let ic3_qe = Flags.IC3.qe () in match ic3_qe with 
+  let term' = match qe_method with
     
-    | `Z3
-    | `Z3_impl
-    | `Z3_impl2 ->
+    | `Precise
+    | `Impl
+    | `Impl2 ->
       
       (
+        let solver_qe = get_solver_instance trans_sys in
 
         (* Substitute fresh variables for terms to be eliminated and
            existentially quantify formula *)
-        let qe_term = 
-          match ic3_qe with 
+        let qe_term =
+          let module Conv = (val SMTSolver.converter solver_qe) in
+          match qe_method with
             | `Cooper -> assert false
-            | `Z3 -> 
+            | `Precise -> 
               Conv.quantified_smtexpr_of_term true elim term
-            | `Z3_impl
-            | `Z3_impl2 -> 
-              Conv.quantified_smtexpr_of_term true elim extract_int
+            | `Impl
+            | `Impl2 -> 
+              Conv.quantified_smtexpr_of_term true elim extract_rest
         in
-        
-        let solver_qe = get_solver_instance trans_sys in
 
-  (* SMTLIB commands for Z3
-     
-     (declare-fun y (Int) Int)
-     (assert (exists ((x Int)) (> x (y 0))))
-     (apply qe)
-     
-     Output:
-     
-     (goals (goal true :precision precise :depth 1) )
-     
-  *)
-        let term'_int = SMTSolver.get_qe_expr solver_qe qe_term in
+        let term'_rest = SMTSolver.get_qe_expr solver_qe qe_term in
 (*
         (* Check generalizations *)
         check_generalize 
           trans_sys
-          model 
+          (Model.to_list model |> List.map (fun (vr, vl) -> 
+             match vl with
+             | Model.Term t -> (vr, t)
+             | _ -> assert false)
+          )
           elim 
           term 
-          (Term.mk_and [Term.mk_and term'_bool; Term.mk_and term'_int]);
+          (Term.mk_and [Term.mk_and term'_bool; Term.mk_and term'_rest]);
 *)
         (* Return quantifier eliminated term *)
-        (match ic3_qe with 
+        (match qe_method with
           | `Cooper -> assert false
-          | `Z3 -> term'_int
-          | `Z3_impl -> term'_bool @ term'_int
-          | `Z3_impl2 -> 
+          | `Precise -> term'_rest
+          | `Impl -> term'_bool @ term'_rest
+          | `Impl2 -> 
 
             (* Extract again from result *)
-            let term''_int, term''_bool = 
-                Extract.extract uf_defs model (Term.mk_and term'_int) 
+            let term''_rest, term''_bool = 
+                Extract.extract uf_defs model (Term.mk_and term'_rest) 
             in
             
-            term'_bool @ [Term.mk_and term''_int; Term.mk_and term''_bool])
+            term'_bool @ [Term.mk_and term''_rest; Term.mk_and term''_bool])
         
       )
 
     | `Cooper ->
+
+      let elim_int = elim_rest in
+      let extract_int = extract_rest in
 
       if extract_int = Term.t_true then (
 
@@ -650,7 +638,6 @@ let generalize trans_sys uf_defs model elim term =
       else
 
       (
-
         (* Convert term to Presburger formula *)
         let cf = Presburger.to_presburger elim_int extract_int in
         

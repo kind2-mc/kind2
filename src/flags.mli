@@ -252,6 +252,18 @@ module Smt : sig
   (** Which SMT solver to use. *)
   val solver : unit -> solver
 
+  type qe_solver = [
+    | `Z3_SMTLIB
+    | `CVC4_SMTLIB
+    | `detect
+  ]
+
+  (** Set SMT solver for QE and executable *)
+  val set_qe_solver : qe_solver -> unit
+
+  (** Which SMT solver for QE to use. *)
+  val qe_solver : unit -> qe_solver
+
   (** Use check-sat with assumptions, or simulate with push/pop *)
   val check_sat_assume : unit -> bool
 
@@ -339,17 +351,6 @@ end
 (** {2 IC3 flags} *)
 module IC3 : sig
 
-  (** Algorithm usable for quantifier elimination in IC3. *)
-  type qe = [
-    `Z3 | `Z3_impl | `Z3_impl2 | `Cooper
-  ]
-
-  (** The QE algorithm IC3 should use. *)
-  val qe : unit -> qe
-
-  (** Sets [qe]. *)
-  val set_qe : qe -> unit
-
   (** Check inductiveness of blocking clauses. *)
   val check_inductive : unit -> bool
 
@@ -382,16 +383,26 @@ module IC3 : sig
 
   (** Abstraction mechanism IC3 should use. *)
   val abstr : unit -> abstr
-
-  (** Legal heuristics for extraction of implicants in IC3. *)
-  type extract = [ `First | `Vars ]
-
-  (** Heuristic for extraction of implicants in IC3. *)
-  val extract : unit -> extract
 end
 
 (** {2 QE flags} *)
 module QE : sig
+  (** Methods available for quantifier elimination. *)
+  type qe_method = [
+    `Precise | `Impl | `Impl2 | `Cooper
+  ]
+
+  (** The QE method used. *)
+  val qe_method : unit -> qe_method
+
+  (** Set [qe_method]. *)
+  val set_qe_method : qe_method -> unit
+
+  (** Supported heuristics for extraction of implicants. *)
+  type extract = [ `First | `Vars ]
+
+  (** Heuristic for extraction of implicants. *)
+  val extract : unit -> extract
 
   (** Order variables in polynomials by order of elimination **)
   val order_var_by_elim : unit -> bool
