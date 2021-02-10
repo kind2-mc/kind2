@@ -20,14 +20,17 @@ open Lib
 
 module VS = Var.VarSet
 
-(* We only use Z3 here, so we read and send SMTLIB2 commands *)
-module Conv = SMTExpr.Converter (Z3Driver)
-
 (* The current solver instance in use *)
 let solver_qe = ref None 
 
 (* The current solver instance in use *)
 let solver_check = ref None
+
+let get_qe_solver () =
+  match Flags.Smt.qe_solver () with
+  | `Z3_SMTLIB -> `Z3_SMTLIB
+  | `CVC4_SMTLIB -> `CVC4_SMTLIB
+  | _ -> failwith "No QE solver found"
 
 (* Get the current solver instance or create a new instance *)
 let get_solver_instance trans_sys = 
@@ -38,11 +41,11 @@ let get_solver_instance trans_sys =
     (* Need to create a new instance *)
     | None -> 
  
-      (* Create solver instance : only Z3 for the moment *)
+      (* Create solver instance *)
       let solver = SMTSolver.create_instance
           ~produce_assignments:true
           (TermLib.add_quantifiers (TransSys.get_logic trans_sys))
-          `Z3_SMTLIB
+          (get_qe_solver ())
       in
 
       SMTSolver.trace_comment 
@@ -205,7 +208,7 @@ let term_of_pformula = function
 (*
 let check_implication trans_sys prem_str conc_str prem conc = 
 
-  (* Get or create a Z3 instance to check the results *)
+  (* Get or create a solver instance to check the results *)
   let solver_check = get_checking_solver_instance trans_sys in
 
   (* Push context *)
@@ -587,10 +590,12 @@ let generalize trans_sys uf_defs model elim term =
     | `Impl2 ->
       
       (
+        let solver_qe = get_solver_instance trans_sys in
 
         (* Substitute fresh variables for terms to be eliminated and
            existentially quantify formula *)
-        let qe_term = 
+        let qe_term =
+          let module Conv = (val SMTSolver.converter solver_qe) in
           match ic3_qe with 
             | `Cooper -> assert false
             | `Precise -> 
@@ -599,20 +604,7 @@ let generalize trans_sys uf_defs model elim term =
             | `Impl2 -> 
               Conv.quantified_smtexpr_of_term true elim extract_int
         in
-        
-        let solver_qe = get_solver_instance trans_sys in
 
-  (* SMTLIB commands for Z3
-     
-     (declare-fun y (Int) Int)
-     (assert (exists ((x Int)) (> x (y 0))))
-     (apply qe)
-     
-     Output:
-     
-     (goals (goal true :precision precise :depth 1) )
-     
-  *)
         let term'_int = SMTSolver.get_qe_expr solver_qe qe_term in
 (*
         (* Check generalizations *)

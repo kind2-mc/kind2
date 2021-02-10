@@ -252,6 +252,18 @@ module Smt : sig
   (** Which SMT solver to use. *)
   val solver : unit -> solver
 
+  type qe_solver = [
+    | `Z3_SMTLIB
+    | `CVC4_SMTLIB
+    | `detect
+  ]
+
+  (** Set SMT solver for QE and executable *)
+  val set_qe_solver : qe_solver -> unit
+
+  (** Which SMT solver for QE to use. *)
+  val qe_solver : unit -> qe_solver
+
   (** Use check-sat with assumptions, or simulate with push/pop *)
   val check_sat_assume : unit -> bool
 

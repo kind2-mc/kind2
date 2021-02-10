@@ -2807,18 +2807,15 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
         | Presburger.Not_in_LIA -> 
 
           (
-            let z3_is_available =
-              match Flags.Smt.solver () with
-              | `Z3_SMTLIB -> true
-              | _ -> (
-                try Lib.find_on_path (Flags.Smt.z3_bin ()) |> ignore; true
-                with Not_found -> false
-              )
+            let qe_solver_is_available =
+              match Flags.Smt.qe_solver () with
+              | `detect -> false
+              | _ -> true
             in
 
-            if (not z3_is_available) then
+            if (not qe_solver_is_available) then
               raise (UnsupportedFeature
-              "Disabling IC3: Z3 is currently required for inputs with reals or machine integers.");
+              "Disabling IC3: Z3 or CVC4 is required for inputs with reals or machine integers.");
 
             KEvent.log
               L_info

@@ -151,7 +151,7 @@ module Smt = struct
       Format.fprintf fmt
         "@[<v>\
           where <string> can be %s@ \
-          Choose an SMT solver@ \
+          Set the main SMT solver@ \
           Default: %s\
         @]"
         solver_values
@@ -159,6 +159,38 @@ module Smt = struct
     )
   let set_solver s = solver := s
   let solver () = !solver
+
+  type qe_solver = [
+    | `Z3_SMTLIB
+    | `CVC4_SMTLIB
+    | `detect
+  ]
+  let qe_solver_of_string = function
+    | "Z3" -> `Z3_SMTLIB
+    | "CVC4" -> `CVC4_SMTLIB
+    | _ -> Arg.Bad "Bad value for --smt_qe_solver" |> raise
+  let string_of_qe_solver = function
+    | `Z3_SMTLIB -> "Z3"
+    | `CVC4_SMTLIB -> "CVC4"
+    | `detect -> "detect"
+  let qe_solver_values = "Z3, CVC4"
+  let qe_solver_default = `detect
+  let qe_solver = ref qe_solver_default
+  let _ = add_spec
+    "--smt_qe_solver"
+    (Arg.String (fun str -> qe_solver := qe_solver_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          where <string> can be %s@ \
+          Set the SMT solver for QE@ \
+          Default: %s\
+        @]"
+        qe_solver_values
+        (string_of_qe_solver qe_solver_default)
+    )
+  let set_qe_solver s = qe_solver := s
+  let qe_solver () = !qe_solver
 
   (* Active SMT logic. *)
   type logic = [
@@ -417,7 +449,36 @@ module Smt = struct
 
         exit 2
 
-  
+  let check_qe_solver () = match qe_solver () with
+    (* User chose Z3 *)
+    | `Z3_SMTLIB -> (
+      match solver () with
+      | `Z3_SMTLIB -> ()
+      | _ -> find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
+    )
+    (* User chose CVC4 *)
+    | `CVC4_SMTLIB -> (
+      match solver () with
+      | `CVC4_SMTLIB -> ()
+      | _ -> find_solver ~fail:true "CVC4" (cvc4_bin ()) |> ignore
+    )
+    | `detect ->
+      match solver () with
+      | `Z3_SMTLIB -> set_qe_solver `Z3_SMTLIB;
+      | _ ->
+        try
+          let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
+          set_qe_solver `Z3_SMTLIB;
+          set_z3_bin exec;
+        with Not_found ->
+        match solver () with
+        | `CVC4_SMTLIB -> set_qe_solver `CVC4_SMTLIB;
+        | _ ->
+          try
+            let exec = find_solver ~fail:false "CVC4" (cvc4_bin ()) in
+            set_qe_solver `CVC4_SMTLIB;
+            set_cvc4_bin exec;
+          with Not_found -> () (* Ẃe keep `detect to know no qe solver was found *)
 end
 
 
@@ -3268,7 +3329,7 @@ let parse_clas specs anon_action global_usage_msg =
     failwith "expected at least one argument, got zero"
 
 
-let solver_dependant_actions () =
+let solver_dependant_actions solver =
 
   let get_version with_patch cmd =
     let get_rev output idx =
@@ -3288,7 +3349,7 @@ let solver_dependant_actions () =
     with Not_found -> None
   in
 
-  match Smt.solver () with
+  match solver with
   | `Boolector_SMTLIB -> (
     let cmd = Format.asprintf "%s --version" (Smt.boolector_bin ()) in
     match get_version false cmd with
@@ -3536,6 +3597,8 @@ let parse_argv () =
   (* Check solver on path *)
   Smt.check_smtsolver ();
 
+  Smt.check_qe_solver ();
+
   (* Finalize the list of enabled module. *)
   Global.finalize_enabled ();
 
@@ -3544,7 +3607,14 @@ let parse_argv () =
 
   post_argv_parse_actions ();
   
-  solver_dependant_actions ();
+  solver_dependant_actions (Smt.solver ());
+
+  (match Smt.solver (), Smt.qe_solver () with
+  | `Z3_SMTLIB, `Z3_SMTLIB -> ()
+  | `CVC4_SMTLIB, `CVC4_SMTLIB -> ()
+  | _, `Z3_SMTLIB -> solver_dependant_actions `Z3_SMTLIB
+  | _, `CVC4_SMTLIB -> solver_dependant_actions `CVC4_SMTLIB
+  | _, _ -> ()) ;
 
   if IVC.compute_ivc () && BmcKind.compress () then (
     BmcKind.disable_compress () ;
