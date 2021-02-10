@@ -183,7 +183,7 @@ module Smt = struct
       Format.fprintf fmt
         "@[<v>\
           where <string> can be %s@ \
-          Set the SMT solver for QE@ \
+          Set the SMT solver used for quantifier elimination@ \
           Default: %s\
         @]"
         qe_solver_values
