@@ -815,10 +815,10 @@ module QE = struct
       Quantifier elimination (QE) is a technique that, given some variables@ \
       `v_1`, ..., `v_n` and a quantifier-free formula `f`, returns a@ \
       quantifier-free formula equivalent to `(exists (v_1, ..., v_n) f)`.@ \
-      The QE method implemented in Kind 2 only supports integer arithmetic,
-      but not real or machine integer arithmetic. If the solver used is z3,@ \
-      then z3's QE will be used instead of the internal one@ \
-      for systems with real or machine integer variables.@ \
+      The QE method implemented in Kind 2 supports integer arithmetic,@ \
+      but not real or machine integer arithmetic. If the solver used is@ \
+      Z3 or CVC4 then the solver's QE will be used instead of the internal@ \
+      one for systems with real or machine integer variables.@ \
       IC3 (module \"ic3\") is the only Kind 2 technique that uses QE.\
     @]"
 
