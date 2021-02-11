@@ -922,8 +922,9 @@ let declare_ufs { ufs } declare =
   List.iter declare ufs
 
 (* Declare other functions symbols *)
-let declare_selects declare =
-  List.iter declare (StateVar.get_select_ufs ())
+let declare_selects declare sys =
+  if TermLib.logic_allow_arrays (get_logic sys) then
+    List.iter declare (StateVar.get_select_ufs ())
   
 (* Define initial state predicate *)
 let define_init define { init_uf_symbol; init_formals; init } = 
@@ -943,7 +944,7 @@ let declare_sorts_ufs_const trans_sys declare declare_sort =
       | _ -> ());
 
   (* Declare monomorphized select symbols *)
-  if not (Flags.Arrays.smt ()) then declare_selects declare;
+  if not (Flags.Arrays.smt ()) then declare_selects declare trans_sys;
 
   (* Declare other functions of top system *)
   declare_ufs trans_sys declare;
@@ -989,7 +990,7 @@ let define_and_declare_of_bounds
       | _ -> ());
 
     (* Declare monomorphized select symbols *)
-  if not (Flags.Arrays.smt ()) then declare_selects declare;
+  if not (Flags.Arrays.smt ()) then declare_selects declare trans_sys;
 
   (* Declare other functions of top system *)
   declare_ufs trans_sys declare;
