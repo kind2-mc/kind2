@@ -186,7 +186,11 @@ let set_prop_invariant p cert =
 
       (* Fail if property was l-false for l <= k *)
       | PropFalse _ -> 
-        raise (Failure "set_prop_invariant") 
+        let msg =
+          Format.sprintf "Falsified property '%s' was proven invariant too!"
+            p.prop_name
+        in
+        failwith msg
 
 
 (* Mark property as k-false *)
@@ -204,16 +208,19 @@ let set_prop_false p cex =
 
       (* Fail if property was invariant *)
       | PropInvariant _ -> 
-        raise (Failure "prop_false")
+        let msg =
+          Format.sprintf "Property '%s' proven invariant was falsified too!"
+            p.prop_name
+        in
+        failwith msg
 
       (* Fail if property was l-true for l >= k *)
       | PropKTrue l when l > (length_of_cex cex) -> 
-        raise 
-          (Failure
-             (Format.sprintf
-                "set_prop_false: was %d-true before, now cex of length %d"
-                l
-                (length_of_cex cex)))
+        let msg =
+          Format.sprintf "Property '%s' proven %d-true before, now falsified with cex of length %d!"
+            p.prop_name l (length_of_cex cex)
+        in
+        failwith msg
 
       (* Mark property as false if it was l-true for l < k *)
       | PropKTrue _ -> PropFalse cex
@@ -251,8 +258,12 @@ let set_prop_ktrue p k =
       | PropFalse cex when (length_of_cex cex) > k -> p.prop_status
 
       (* Fail if property was l-false for l <= k *)
-      | PropFalse _ -> 
-        raise (Failure "set_prop_ktrue") 
+      | PropFalse cex ->
+        let msg =
+          Format.sprintf "Falsified property '%s' (l=%d) was proven %d-true too!"
+            p.prop_name (length_of_cex cex) k
+        in
+        failwith msg
 
 
 (* Mark property status *)

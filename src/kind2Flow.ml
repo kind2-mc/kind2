@@ -188,8 +188,7 @@ let status_of_results in_sys =
   in
   match res with
   | None ->
-    KEvent.log L_note "Result analysis: no safe result" ;
-    (* Format.eprintf "NO_SAFE_RES@." ; *)
+    KEvent.log L_note "Incomplete analysis result: Not all properties could be proven invariant" ;
     ExitCodes.unknown
   | Some true -> ExitCodes.safe
   | Some false -> ExitCodes.unsafe
@@ -365,6 +364,12 @@ let on_exit in_sys sys process exn =
     post_clean_exit in_sys process exn
   with TimeoutWall -> post_clean_exit in_sys process TimeoutWall
 
+(** Clean up before exit, for a MCS analysis. *)
+let on_exit_mcs_analysis in_sys sys process exn =
+  try
+    slaughter_kids process sys;
+    post_clean_exit_mcs_analysis process exn
+  with TimeoutWall -> post_clean_exit_mcs_analysis process TimeoutWall
 
 (** Call cleanup function of process and exit.
 Give the exception [exn] that was raised or [Exit] on normal termination. *)
@@ -656,8 +661,8 @@ let run in_sys =
       List.iter run_mcs params ;
       post_clean_exit_mcs_analysis `Supervisor Exit
     ) with
-    | TimeoutWall -> on_exit in_sys None `Supervisor TimeoutWall
-    | e -> on_exit in_sys None `Supervisor e
+    | TimeoutWall -> on_exit_mcs_analysis in_sys None `Supervisor TimeoutWall
+    | e -> on_exit_mcs_analysis in_sys None `Supervisor e
   ) 
 
   (* Some analysis modules. *)
