@@ -739,8 +739,13 @@ module Make (Graph : GraphSig) : Out = struct
 
     ) with
     | KEvent.Terminate -> exit ()
+    | Failure msg -> (
+      KEvent.log L_fatal "Caught failure in invariant generator: %s" msg ;
+      minisleep 0.5 ;
+      exit ()
+    )
     | e -> (
-      KEvent.log L_fatal "Caught exception %s" (Printexc.to_string e) ;
+      KEvent.log L_fatal "Caught exception in invariant generator: %s" (Printexc.to_string e) ;
       minisleep 0.5 ;
       exit ()
     )
