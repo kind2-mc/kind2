@@ -669,8 +669,7 @@ and pp_print_lustre_type ppf = function
       pp_print_expr e
   | EnumType (pos, n, l) -> 
     Format.fprintf ppf 
-      "enum %a @[<hv 2>{ %a }@]"
-      pp_print_ident n
+      "enum @[<hv 2>{ %a }@]"
       (pp_print_list Format.pp_print_string ",@ ") l
   | TArr (pos, arg_ty, ret_ty) ->
      Format.fprintf ppf "@[%a->@,%a@]"

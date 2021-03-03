@@ -254,8 +254,7 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
   | Type.IntRange (i, j, Type.Enum) -> 
      let cs = Type.constructors_of_enum t in
-     Format.fprintf ppf "enum %s {%a}"
-       (Type.name_of_enum t)
+     Format.fprintf ppf "enum {%a}"
        (pp_print_list Format.pp_print_string ", ") cs
 
   | Type.UBV i -> 
