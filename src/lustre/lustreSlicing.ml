@@ -592,6 +592,14 @@ let order_equations
     node_state_var_dependencies' init output_input_deps node [] state_vars
   in
 
+  let deps =
+    List.map
+     (fun (sv, deps) ->
+       (sv, SVM.fold (fun sv' _ acc -> SVS.add sv' acc) deps SVS.empty)
+     )
+     dependencies
+  in
+
   (* Order state variables by dependencies *)
   let state_vars_ordered = order_state_vars [] [] dependencies in
 
@@ -611,7 +619,7 @@ let order_equations
     output_input_dep_of_dependencies dependencies inputs outputs
   in
 
-  equations', output_input_dep
+  equations', deps, output_input_dep
 
           
 (* ********************************************************************** *)

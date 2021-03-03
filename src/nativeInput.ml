@@ -472,6 +472,7 @@ let of_channel in_ch =
             init_flag
             []
             state_vars
+            StateVar.StateVarSet.empty (* underapproximation *)
             (StateVar.StateVarHashtbl.create 7)
             []
             [] (* ufs *)
