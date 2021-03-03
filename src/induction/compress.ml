@@ -201,12 +201,16 @@ let init_equal_mod_input declare_fun trans_sys =
 
   new_function_symbol_name () ;
   
+  let unconstrained_inputs =
+    TransSys.unconstrained_inputs trans_sys
+  in
+
   let uf_distinct = 
     UfSymbol.mk_uf_symbol
       !equal_mod_input_string
       (List.fold_left 
          (fun a sv -> 
-            if not (StateVar.is_input sv) then 
+            if not (StateVar.StateVarSet.mem sv unconstrained_inputs) then
               StateVar.type_of_state_var sv :: a 
             else a)
          []
@@ -220,8 +224,8 @@ let init_equal_mod_input declare_fun trans_sys =
 
 
 (* States are equivalent if for each variable the variable is either
-   an input or the values are equal *)
-let equal_mod_input only_bv accum s1 s2 =
+   an unconstrained input or the values are equal *)
+let equal_mod_input only_bv unc_inputs accum s1 s2 =
 
   let uf_distinct = 
     UfSymbol.uf_symbol_of_string !equal_mod_input_string
@@ -236,9 +240,9 @@ let equal_mod_input only_bv accum s1 s2 =
         assert  
           (StateVar.equal_state_vars
              sv1 (Var.state_var_of_state_var_instance v2));
-        (* States are equivalent if state variable is an input or
+        (* States are equivalent if state variable is an unconstrained input or
            values are equal *)
-        StateVar.is_input sv1 || Model.equal_value val1 val2
+        StateVar.StateVarSet.mem sv1 unc_inputs || Model.equal_value val1 val2
       ) s1 s2 
 
   then 
@@ -284,8 +288,10 @@ let equal_mod_input only_bv accum s1 s2 =
                       (fun (v, _) a -> 
                          if 
                            not 
-                             (StateVar.is_input
-                                (Var.state_var_of_state_var_instance v))
+                             (StateVar.StateVarSet.mem
+                                (Var.state_var_of_state_var_instance v)
+                                unc_inputs
+                             )
                          then Term.mk_var v :: a else a) s []);
                  n]
             in              
@@ -311,8 +317,8 @@ let equal_mod_input only_bv accum s1 s2 =
                    
                    let sv1 = Var.state_var_of_state_var_instance v1 in
                    
-                   (* Skip input variables *)
-                   if not (StateVar.is_input sv1) then 
+                   (* Skip unconstrained input variables *)
+                   if not (StateVar.StateVarSet.mem sv1 unc_inputs) then
                      
                      (* Disequality between state variables at instants *)
                      Term.negate 
@@ -761,7 +767,11 @@ let check_and_block declare_fun trans_sys path =
 
     if Flags.BmcKind.compress_equal () then 
 
-      fold_pairs (equal_mod_input (only_bv trans_sys)) block_terms states
+      let unc_inputs =
+        TransSys.unconstrained_inputs trans_sys
+      in
+
+      fold_pairs (equal_mod_input (only_bv trans_sys) unc_inputs) block_terms states
 
     else 
 

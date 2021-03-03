@@ -2462,6 +2462,12 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       Var.mk_state_var_instance sv Numeral.one)
       state_vars in
 
+  let unconstrained_inputs =
+     StateVar.StateVarSet.union
+       (TS.unconstrained_inputs kind2_sys)
+       (TS.unconstrained_inputs jkind_sys)
+  in
+
   (* Symbol for initial predicate of new system *)
   let init_uf =
     UfSymbol.mk_uf_symbol
@@ -2525,6 +2531,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       init_flag
       []
       state_vars
+      unconstrained_inputs
       bounds
       []
       []

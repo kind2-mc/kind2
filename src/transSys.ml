@@ -94,6 +94,9 @@ type t =
        Also contains [instance_state_var] unless it is None, but not
        state variables in [global_state_vars]. *)
 
+    unconstrained_inputs: StateVar.StateVarSet.t;
+    (** Input variables whose value is not constrained by assumptions or asserts *)
+
     state_var_bounds : 
       (LustreExpr.expr LustreExpr.bound_or_fixed list)
         StateVar.StateVarHashtbl.t;
@@ -815,6 +818,9 @@ module Hashtbl = Hashtbl.Make (T)
 
 (* Return state variables of the transition system *)
 let state_vars { state_vars } = state_vars
+
+(* Return unconstrained inputs variables of a transition system *)
+let unconstrained_inputs { unconstrained_inputs } = unconstrained_inputs
 
 (* Add a global constant to a transition system *)
 let rec add_global_constant t v =
@@ -1559,8 +1565,9 @@ let mk_trans_sys
   init_flag_state_var
   global_state_vars
   state_vars
-    state_var_bounds
-    global_consts
+  unconstrained_inputs
+  state_var_bounds
+  global_consts
   ufs
   init_uf_symbol
   init_formals
@@ -1718,6 +1725,7 @@ let mk_trans_sys
       instance_var_bindings;
       global_state_vars;
       state_vars;
+      unconstrained_inputs;
       state_var_bounds;
       subsystems;
       global_consts;

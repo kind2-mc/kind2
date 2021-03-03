@@ -1996,20 +1996,53 @@ let rec trans_sys_of_node'
           
           (* Order initial state equations by dependency and
              generate terms *)
-          let init_terms, node_output_input_dep_init =
+          let init_terms, svar_dep_init, node_output_input_dep_init =
             S.order_equations true output_input_dep node
-              |> (fun (e, d) ->
+              |> (fun (e, sv_d, io_d) ->
                constraints_of_equations node
-                    true stateful_vars init_terms (List.rev e), d)
+                    true stateful_vars init_terms (List.rev e), sv_d, io_d)
           in
 
           (* Order transition relation equations by dependency and
              generate terms *)
-          let trans_terms, node_output_input_dep_trans =
+          let trans_terms, svar_dep_trans, node_output_input_dep_trans =
             S.order_equations false output_input_dep node
-              |> (fun (e, d) ->
+              |> (fun (e, sv_d, io_d) ->
                constraints_of_equations node
-                    false stateful_vars trans_terms (List.rev e), d)
+                    false stateful_vars trans_terms (List.rev e), sv_d, io_d)
+          in
+
+          (* We compute an overapproximation of the set of variables
+             whose value is constrained by an assumption or an assert
+             by collecting the variables in the cone of influence of
+             all assume and assert expressions
+          *)
+          let constrained_svars =
+            let roots = (* assume and assert state variables *)
+              List.map snd asserts |> SVS.of_list
+              |> fun roots' -> (
+                match contract with
+                | None -> roots'
+                | Some { C.sofar_assump } -> SVS.add sofar_assump roots'
+              )
+            in
+            List.rev_append svar_dep_init svar_dep_trans |>
+            List.fold_left
+              (fun svars (sv, deps) ->
+                if SVS.mem sv roots then SVS.union svars deps else svars
+              )
+              SVS.empty
+          in
+
+          (* This is currently used for path compression when the equivalence
+             relation is based on equal states modulo inputs.
+             TODO: Refine this set to consider only inputs _temporally_ constrained.
+             This should be enough to ensure existence of equal state successors.
+          *)
+          let unconstrained_inputs =
+            SVS.diff
+              (SVS.of_list (D.values inputs))
+              constrained_svars
           in
 
           (* ****************************************************** *)
@@ -2214,7 +2247,8 @@ let rec trans_sys_of_node'
               None (* instance_state_var *)
               init_flag
               [] (* global_state_vars *)
-              (signature_state_vars)
+              signature_state_vars
+              unconstrained_inputs
               globals.G.state_var_bounds
               global_consts
               ufs

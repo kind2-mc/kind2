@@ -31,9 +31,12 @@
     the equations of [n] ordered such that each equation comes after
     the equations defining the variables occurring on its right-hand.
 
-    Along with the list of equations return a map that for each output
-    identified by its position indicates which positions in the inputs
-    it depends on. The input parameter [d] must contain such a map for
+    Along with the list of equations, it returns a list and a map.
+    The list contains pairs consisting of a variable and a set of
+    variables the first variable depends on.
+    The map is such that for each output identified by its position
+    indicates which positions in the inputs it depends on.
+    The input parameter [d] must contain such a map for
     each called node.
 
     If the flag [i] is true, consider the equations for the inital
@@ -76,6 +79,7 @@ val order_equations : bool -> (
 ) list ->
 LustreNode.t ->
 LustreNode.equation list *
+(StateVar.t * StateVar.StateVarSet.t) list *
 LustreIndex.index list LustreIndex.t
 
 (** {1 Cone of influence reduction} *)

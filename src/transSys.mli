@@ -230,6 +230,9 @@ val mk_trans_sys :
   (* All state variables including globals and instance identifier *)
   StateVar.t list ->
 
+  (* Input variables whose value is not constrained by assumptions or asserts *)
+  StateVar.StateVarSet.t ->
+
   (* indexes of state variables *)
   (LustreExpr.expr LustreExpr.bound_or_fixed list) StateVar.StateVarHashtbl.t ->
 
@@ -372,6 +375,9 @@ val map_cex_prop_to_subsystem : (Scope.t -> instance -> (StateVar.t * Model.valu
 
 (** Return the state variables of a transition system *)
 val state_vars : t -> StateVar.t list
+
+(** Return unconstrained inputs variables of a transition system *)
+val unconstrained_inputs : t -> StateVar.StateVarSet.t
 
 (** Add a global constant to the transition system and all the subnodes *)
 val add_global_constant : t -> Var.t -> t
