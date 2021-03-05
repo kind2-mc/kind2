@@ -1,6 +1,7 @@
 (lang dune 2.0)
 
 (name kind2)
+(version v1.3.1)
 
 (package
  (name kind2)
@@ -24,7 +25,7 @@
   num
   (odoc :with-doc)
   (ounit2 :with-test)
-  ;(z3 (and (<= 4.8.8-1) :with-test))
+  (z3 (and (<= 4.8.8-1) :with-test))
   yojson
   zmq))
 
