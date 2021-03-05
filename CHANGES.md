@@ -1,4 +1,16 @@
 
+# Unreleased
+
+This release includes performance improvements and various fixes. Notably:
+
+- Fix soundness issue in path compression when there are temporal dependencies
+  between input values. (Thank you to M. Anthony Aiello for finding this bug).
+- Fix bug in extraction of an active path during IC3 generalization.
+- Improve IC3 performance over large models that contain reals or machine integers.
+- Fix issue reading models from the latest version of Z3 (4.8.10).
+  It caused a runtime error during IVC generation.
+
+
 # Kind 2 v1.3.0
 
 New features:
