@@ -24,7 +24,7 @@
   num
   (odoc :with-doc)
   (ounit2 :with-test)
-  (z3 (and (<= 4.8.8-1) :with-test))
+  (z3 (and (< 4.8.9) :with-test))
   yojson
   zmq))
 
