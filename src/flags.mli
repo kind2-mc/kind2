@@ -284,6 +284,12 @@ module Smt : sig
   (** Executable of Z3 solver *)
   val z3_bin : unit -> string
 
+  (** Whether Z3 qe-light strategy is used in addition to qe *)
+  val z3_qe_light : unit -> bool
+
+  (** Specify if Z3 qe-light strategy should be used in addition to qe *)
+  val set_z3_qe_light : bool -> unit
+
   (** Executable of CVC4 solver *)
   val cvc4_bin : unit -> string
 

@@ -310,6 +310,10 @@ module Smt = struct
   let set_z3_bin str = z3_bin := str
   let z3_bin () = ! z3_bin
 
+  let z3_qe_light = ref false
+  let set_z3_qe_light b = z3_qe_light := b
+  let z3_qe_light () = !z3_qe_light
+
   (* CVC4 binary. *)
   let cvc4_bin_default = "cvc4"
   let cvc4_bin = ref cvc4_bin_default
