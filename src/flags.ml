@@ -887,6 +887,21 @@ module QE = struct
     )
   let extract () = !extract
 
+  let ae_val_use_ctx_default = true
+  let ae_val_use_ctx = ref ae_val_use_ctx_default
+  let _ = add_spec
+    "--ae_val_use_ctx"
+    (bool_arg ae_val_use_ctx)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Use context (premises) in ae_val procedure@ \
+        Default: %a\
+      @]"
+      fmt_bool ae_val_use_ctx_default
+    )
+  let ae_val_use_ctx () = !ae_val_use_ctx
+
   let order_var_by_elim_default = false
   let order_var_by_elim = ref order_var_by_elim_default
   let _ = add_spec

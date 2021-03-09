@@ -26,6 +26,14 @@ let solver_qe = ref None
 (* The current solver instance in use *)
 let solver_check = ref None
 
+let initial_ubound = Numeral.zero
+
+let ubound = ref initial_ubound
+
+let get_ubound () = !ubound
+
+let set_ubound bound = ubound := bound
+
 let get_qe_solver () =
   match Flags.Smt.qe_solver () with
   | `Z3_SMTLIB -> `Z3_SMTLIB
@@ -51,10 +59,10 @@ let get_solver_instance trans_sys =
       SMTSolver.trace_comment 
         solver
         (Format.sprintf 
-           "Declaring state variables: %s"
+           "Declaring state variables: %s@."
            (string_of_t 
               (pp_print_list Var.pp_print_var ",@ ") 
-              (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)));
+              (TransSys.vars_of_bounds trans_sys Numeral.zero !ubound)));
       
       (* Defining uf's and declaring variables. *)
       TransSys.define_and_declare_of_bounds
@@ -62,7 +70,7 @@ let get_solver_instance trans_sys =
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
         (SMTSolver.declare_sort solver)
-        Numeral.zero Numeral.zero;
+        Numeral.zero !ubound;
       
       SMTSolver.trace_comment solver "Defining predicates";
 
@@ -133,7 +141,7 @@ let get_checking_solver_instance trans_sys =
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
         (SMTSolver.declare_sort solver)
-        Numeral.zero Numeral.zero;
+        Numeral.zero !ubound;
 
       (* Save instance *)
       solver_check := Some solver;
@@ -145,8 +153,10 @@ let get_checking_solver_instance trans_sys =
     | Some s -> s 
   
 
-(* Kill created solver instances *)
+(* Kill created solver instances and reset ubound *)
 let on_exit () = 
+
+  ubound := initial_ubound ;
 
   (* Delete solver instance if created *)
   (try 
@@ -694,6 +704,172 @@ let generalize trans_sys uf_defs model elim term =
 
   (* Return quantifier eliminated term *)
   term'
+
+
+type response = Valid of Term.t | Invalid of Term.t
+
+let ae_val_gen trans_sys premise elim conclusion =
+
+  (* Create new solver instance *)
+  let solver =
+    SMTSolver.create_instance
+      ~produce_assignments:true
+      (TransSys.get_logic trans_sys)
+      (Flags.Smt.solver ())
+  in
+
+  TransSys.define_and_declare_of_bounds
+    trans_sys
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
+    (SMTSolver.declare_sort solver)
+    Numeral.zero Numeral.one;
+
+  SMTSolver.assert_term solver premise ;
+
+  let rec loop valid_region =
+
+    if not (SMTSolver.check_sat solver) then (
+
+      Valid (Term.mk_or valid_region)
+
+    )
+
+    else (
+      SMTSolver.push solver;
+
+      SMTSolver.assert_term solver conclusion;
+
+      if not (SMTSolver.check_sat solver) then
+
+        Invalid (Term.mk_or valid_region)
+
+      else (
+
+        let m = SMTSolver.get_model solver in
+
+        let gen_term =
+          try
+            generalize
+              trans_sys
+              (TransSys.uf_defs trans_sys)
+              m
+              elim
+              conclusion
+          with Presburger.Not_in_LIA -> (
+
+            KEvent.log
+              L_info
+              "Problem contains real valued variables, \
+               switching off approximate QE";
+
+            Flags.QE.set_qe_method `Impl;
+
+            generalize
+              trans_sys
+              (TransSys.uf_defs trans_sys)
+              m
+              elim
+              conclusion
+          )
+        in
+
+        let projection = Term.mk_and gen_term in
+
+        (* Format.printf "MBP: %a@." Term.pp_print_term projection; *)
+
+        SMTSolver.pop solver;
+
+        SMTSolver.assert_term solver (Term.negate projection) ;
+
+        loop (projection :: valid_region)
+      )
+
+    )
+
+  in
+
+  let res = loop [] in
+
+  SMTSolver.delete_instance solver;
+
+  res
+
+
+let ae_val_prec trans_sys premise elim conclusion =
+
+  (* Create new solver instance *)
+  let solver =
+    SMTSolver.create_instance
+      (TermLib.add_quantifiers (TransSys.get_logic trans_sys))
+      (Flags.Smt.solver ())
+  in
+
+  TransSys.define_and_declare_of_bounds
+    trans_sys
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
+    (SMTSolver.declare_sort solver)
+    Numeral.zero Numeral.one;
+
+  SMTSolver.push solver;
+
+  SMTSolver.assert_term solver premise ;
+
+  let res =
+
+    if not (SMTSolver.check_sat solver) then (
+
+      Valid (Term.t_false)
+
+    )
+
+    else (
+
+      SMTSolver.assert_term solver conclusion;
+
+      if not (SMTSolver.check_sat solver) then
+
+        Invalid (Term.t_false)
+
+      else (
+
+        SMTSolver.pop solver;
+
+        let impl = Term.mk_implies [premise; conclusion] in
+
+        let ex_term = Term.mk_exists elim impl in
+
+        let term =
+          SMTSolver.get_qe_term solver ex_term
+          |> Term.mk_and
+        in
+
+        let simpl_term =
+          SMTSolver.simplify_term solver (Term.mk_and [premise; term])
+        in
+
+        SMTSolver.assert_term solver (Term.negate term) ;
+
+        if not (SMTSolver.check_sat solver) then
+          Valid simpl_term
+        else
+          Invalid simpl_term
+
+      )
+
+    )
+  in
+
+  SMTSolver.delete_instance solver;
+
+  res
+
+let ae_val trans_sys premise elim conclusion =
+  if Flags.QE.ae_val_use_ctx () then
+    ae_val_prec trans_sys premise elim conclusion
+  else
+    ae_val_gen trans_sys premise elim conclusion
 
 (* 
    Local Variables:

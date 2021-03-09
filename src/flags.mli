@@ -410,6 +410,9 @@ module QE : sig
   (** Heuristic for extraction of implicants. *)
   val extract : unit -> extract
 
+  (** Use context (premises) in ae_val procedure *)
+  val ae_val_use_ctx : unit -> bool
+
   (** Order variables in polynomials by order of elimination **)
   val order_var_by_elim : unit -> bool
 
