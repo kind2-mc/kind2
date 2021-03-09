@@ -559,7 +559,11 @@ let name_and_svs_of_node_call in_sys s args =
     else name
   in
   (* Retrieve number of inputs/outputs *)
-  let node = InputSystem.find_lustre_node (Scope.mk_scope [Ident.of_string name]) in_sys in
+  let node =
+    match InputSystem.get_lustre_node in_sys (Scope.mk_scope [Ident.of_string name]) with
+    | Some node -> node
+    | None -> assert false
+  in
   let nb_inputs = LustreIndex.cardinal (node.LustreNode.inputs) in
   let nb_oracles = List.length (node.LustreNode.oracles) in
   let nb_outputs = LustreIndex.cardinal (node.LustreNode.outputs) in

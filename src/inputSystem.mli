@@ -91,10 +91,9 @@ val slice_to_abstraction_and_property : 'a t -> Analysis.param -> TransSys.t -> 
 
 val retrieve_lustre_nodes : _ t -> LustreNode.t list
 
-(** Return the lustre node of the given scope 
-
-   Raise [Not_found] if there is no subsystem of that scope *)
-val find_lustre_node : Scope.t -> _ t -> LustreNode.t
+(** Return the lustre node associated to the given scope, or
+   [None] if there is no lustre node associated to that scope *)
+val get_lustre_node : _ t -> Scope.t -> LustreNode.t option
 
 val reconstruct_lustre_streams :
   _ t -> 
@@ -122,6 +121,11 @@ val compile_oracle_to_rust : _ t -> Scope.t -> string -> (
 
 (** Parameter for contract generation. *)
 val contract_gen_param : _ t -> (Analysis.param * (Scope.t -> LustreNode.t))
+
+(** Return the set of dependencies of each state variable for all systems *)
+val state_var_dependencies :
+  _ t ->
+  (StateVar.StateVarSet.t StateVar.StateVarMap.t) Scope.Map.t
 
 (* 
    Local Variables:

@@ -82,6 +82,20 @@ LustreNode.equation list *
 (StateVar.t * StateVar.StateVarSet.t) list *
 LustreIndex.index list LustreIndex.t
 
+(** Return the set of dependencies of each state variable
+
+    See [order_equations] for further details. *)
+val state_var_dependencies : bool -> (
+  LustreIdent.t * (
+    LustreIndex.index list LustreIndex.t *
+    LustreIndex.index list LustreIndex.t
+  )
+) list ->
+LustreNode.t ->
+(StateVar.t * StateVar.StateVarSet.t) list *
+LustreIndex.index list LustreIndex.t
+
+
 (** {1 Cone of influence reduction} *)
 
 
