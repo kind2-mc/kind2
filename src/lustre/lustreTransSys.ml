@@ -313,9 +313,15 @@ let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
 (* Builds the abstraction of a node given its contract.
 If the contract is [(a, g, {r_i, e_i})], then the abstraction is
 [ a => ( g and /\ {r_i => e_i} ) ]. *)
-let abstraction_of_contract { C.assumes ; C.sofar_assump ; C.guarantees ; C.modes } =
+let abstraction_of_contract assumption_assumed
+  { C.assumes ; C.sofar_assump ; C.guarantees ; C.modes } =
   (* LHS of the implication. *)
-  let lhs = if assumes <> [] then E.mk_var sofar_assump else E.t_true in
+  let lhs =
+    if (assumes <> [] && not assumption_assumed) then
+      E.mk_var sofar_assump
+    else
+      E.t_true
+  in
   (* Guarantee. *)
   let gua = guarantees |> List.map (fun ({ C.svar }, _) -> E.mk_var svar) in
   (* Adding mode implications to guarantees. *)
@@ -327,22 +333,29 @@ let abstraction_of_contract { C.assumes ; C.sofar_assump ; C.guarantees ; C.mode
   (* Building actual abstraction. *)
   |> E.mk_impl lhs
 
-(* The property corresponding to at least one mode of a contract being
-active. *)
+(* A one element list with the property corresponding to
+   at least one mode of a contract being active, or
+   the empty list if no mode is present *)
 let one_mode_active scope { C.modes } =
-  if modes = [] then failwith "one_mode_active asked on mode-less contract" ;
-  let first_mode = List.hd modes in
-  let pos = first_mode.C.pos in
-  let path = first_mode.C.path |> List.rev |> List.tl |> List.rev in
-  let name =
-    Format.asprintf "%a._one_mode_active"
-      (pp_print_list Format.pp_print_string ".") path
-  in
-  (* Disjunction of mode requirements. *)
-  modes |> List.map (fun { C.requires } -> conj_of requires) |> E.mk_or_n
-  (* Building property. *)
-  |> property_of_expr false name
-       P.PropUnknown (P.GuaranteeOneModeActive (pos, scope))
+  if modes = [] then
+    [] (* failwith "one_mode_active asked on mode-less contract" ; *)
+  else (
+    let first_mode = List.hd modes in
+    let pos = first_mode.C.pos in
+    let path = first_mode.C.path |> List.rev |> List.tl |> List.rev in
+    let name =
+      Format.asprintf "%a._one_mode_active"
+        (pp_print_list Format.pp_print_string ".") path
+    in
+    (* Disjunction of mode requirements. *)
+    let prop =
+      modes |> List.map (fun { C.requires } -> conj_of requires) |> E.mk_or_n
+      (* Building property. *)
+      |> property_of_expr false name
+          P.PropUnknown (P.GuaranteeOneModeActive (pos, scope))
+    in
+    [prop]
+  )
 
 
 
@@ -1820,15 +1833,19 @@ let rec trans_sys_of_node'
                 | _ -> false
               in
 
+              let include_assumption =
+                I.equal node_name top_name && not interpreter_mode
+              in
+
               (* Add requirements to invariants if node is the top node *)
               let contract_asserts, properties = 
-                if I.equal node_name top_name && not interpreter_mode then
+                if include_assumption then
                   (* Node is top, forcing contract assumption. *)
                   [ assumption_of_contract contract ],
                   (* Add property for completeness of modes if top node is
                     abstract. *)
                   if A.param_scope_is_abstract analysis_param scope then
-                    [ one_mode_active scope contract ]
+                    one_mode_active scope contract
                   else []
                 else
                   [], []
@@ -1837,7 +1854,7 @@ let rec trans_sys_of_node'
               (* Add mode implications to invariants if node is abstract,
                  otherwise add ensures as properties *)
               if A.param_scope_is_abstract analysis_param scope then
-                abstraction_of_contract contract :: contract_asserts,
+                abstraction_of_contract include_assumption contract :: contract_asserts,
                 properties 
               else
                 contract_asserts,

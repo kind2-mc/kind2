@@ -787,7 +787,8 @@ type kind_module =
   | `Supervisor
   | `Parser
   | `Certif
-  | `MCS  ]
+  | `MCS
+  | `CONTRACTCK ]
 
 
 (* Pretty-print the type of the process *)
@@ -826,6 +827,7 @@ let pp_print_kind_module ppf = function
   | `Parser -> fprintf ppf "parser"
   | `Certif -> Format.fprintf ppf "certificate"
   | `MCS -> Format.fprintf ppf "minimal cut set"
+  | `CONTRACTCK -> Format.fprintf ppf "contract checker"
 
 (* String representation of a process type *)
 let string_of_kind_module = string_of_t pp_print_kind_module
@@ -867,6 +869,7 @@ let short_name_of_kind_module = function
  | `Parser -> "parse"
  | `Certif -> "certif"
  | `MCS -> "mcs"
+ | `CONTRACTCK -> "contractck"
                 
 
 (* Process type of a string *)
@@ -904,6 +907,7 @@ let kind_module_of_string = function
 
 
 let int_of_kind_module = function
+  | `CONTRACTCK -> -6
   | `MCS -> -5
   | `Certif -> -4
   | `Parser -> -3
