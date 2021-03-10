@@ -260,7 +260,8 @@ let contract_check_params (type s) (input_system : s t) =
     |> List.filter (fun s -> not s.S.has_impl)
     |> List.map param_for_subsystem
   )
-  | Native _ | Horn _ -> []
+  | Native _ -> []
+  | Horn _ -> []
 
 let interpreter_param (type s) (input_system : s t) =
 
