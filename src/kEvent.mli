@@ -105,9 +105,14 @@ val log_run_end : Analysis.result list -> unit
     system [top] with abstraction [abs]. *)
 val log_analysis_start : TransSys.t -> Analysis.param -> unit
 
+(** Logs the start of an analysis.
+    Simplified version of [log_analysis_start]
+    that is used for contract checking *)
+val log_contractck_analysis_start : Scope.t -> unit
+
 (** Logs the end of an analysis.
-    [log_analysis_start result] logs the end of an analysis. *)
-val log_analysis_end : Analysis.result -> unit
+    [log_analysis_end] logs the end of an analysis. *)
+val log_analysis_end : unit -> unit
 
 (** Logs the start of a post-analysis treatment. Arguments:
 * name of the treatment (concise, for XML)

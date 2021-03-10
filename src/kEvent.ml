@@ -1235,7 +1235,7 @@ include ELog
 let realizability_pt level tag scope result =
   (ignore_or_fprintf level)
     !log_ppf
-    ("@[<hov>%t Contract of node %a proven %s after %.3fs.@.@.")
+    ("@[<hov>%t Node %a was proven %s after %.3fs.@]@.")
     tag
     Scope.pp_print_scope scope
     result
@@ -1245,11 +1245,9 @@ let realizability_xml level scope result =
   (ignore_or_fprintf level)
     !log_ppf
     ("@[<hv 2><RealizabilityCheck>@,\
-      <Node>%a</Node>@,\
       <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
       <Result>%s</Result>@;<0 -2>\
       </RealizabilityCheck>@]@.")
-    Scope.pp_print_scope scope
     (Stat.get_float Stat.analysis_time)
     result
 
@@ -1258,7 +1256,6 @@ let realizability_json level scope result =
     !log_ppf
     ",@.{@[<v 1>@,\
     \"objectType\" : \"realizabilityCheck\",@,\
-    \"node\" : \"%a\",@,\
     \"runtime\" : {\
       \"unit\" : \"sec\", \
       \"timeout\" : false, \
@@ -1267,7 +1264,6 @@ let realizability_json level scope result =
     \"result\" : \"%s\"\
     @]@.}@.\
   "
-  Scope.pp_print_scope scope
   (Stat.get_float Stat.analysis_time)
   result
 
@@ -1306,7 +1302,7 @@ let log_unknown_realizability level scope =
     (ignore_or_fprintf level)
       !log_ppf
       ("@[<hov>%t Could not determine whether the contract of \
-        %a is realizable or not after %.3fs.@.@.")
+        %a is realizable or not after %.3fs.@]@.")
       warning_tag
       Scope.pp_print_scope scope
       (Stat.get_float Stat.analysis_time)
@@ -1440,6 +1436,37 @@ let number_of_subsystem_assumptions info =
   ) Scope.Map.empty
   |> Scope.Map.bindings
 
+let log_contractck_analysis_start scope =
+  if Flags.log_level () <> L_off then (
+    match get_log_format () with
+    | F_pt -> (
+      Format.fprintf !log_ppf "\
+        @.@.%a@{<b>Checking@} contract of imported node @{<blue>%a@}@.@."
+        Pretty.print_double_line ()
+        Scope.pp_print_scope scope
+    )
+    | F_xml -> (
+      Format.fprintf !log_ppf "@.@.\
+          <AnalysisStart \
+            top=\"%a\"\
+          />@.@.\
+        "
+        Scope.pp_print_scope scope ;
+      analysis_start_not_closed := true
+    )
+    | F_json -> (
+      Format.fprintf !log_ppf "\
+          ,@.{@[<v 1>@,\
+          \"objectType\" : \"analysisStart\",@,\
+          \"top\" : \"%a\"\
+          @]@.}@.\
+        "
+        Scope.pp_print_scope scope ;
+      analysis_start_not_closed := true
+
+    )
+    | F_relay -> failwith "can only be called by supervisor"
+  )
 
 (* Logs the start of an analysis. *)
 let log_analysis_start sys param =
@@ -1511,7 +1538,7 @@ let log_analysis_start sys param =
 
 (** Logs the end of an analysis.
     [log_analysis_start result] logs the end of an analysis. *)
-let log_analysis_end result =
+let log_analysis_end () =
   if Flags.log_level () <> L_off then begin
     match get_log_format () with
     | F_pt -> ()

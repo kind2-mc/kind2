@@ -570,7 +570,7 @@ let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys
   ) ;
 
   (* Issue analysis end notification. *)
-  KEvent.log_analysis_end result ;
+  KEvent.log_analysis_end () ;
   (* Issue analysis outcome. *)
   KEvent.log L_info "Result: %a" Analysis.pp_print_result result
 
@@ -656,6 +656,9 @@ let run in_sys =
       | [] -> KEvent.log L_note "No imported nodes found, skipping contract check."
       | params -> (
         params |> List.iter (fun (param, has_contract) ->
+          let scope = (Analysis.info_of_param param).top in
+          KEvent.log_contractck_analysis_start scope ;
+          Stat.start_timer Stat.analysis_time ;
           let result =
             if not has_contract then
               ContractChecker.Realizable
@@ -668,7 +671,6 @@ let run in_sys =
               (*Format.printf "TS:@.%a@." (TSys.pp_print_subsystems true) sys;*)
               ContractChecker.realizability_check in_sys sys
           in
-          let scope = (Analysis.info_of_param param).top in
           match result with
           | Realizable ->
               KEvent.log_realizable L_warn scope;
@@ -676,6 +678,7 @@ let run in_sys =
               KEvent.log_unrealizable L_warn scope;
           | Unknown ->
               KEvent.log_unknown_realizability L_warn scope;
+          KEvent.log_analysis_end ()
         )
       ) ;
 
@@ -719,9 +722,7 @@ let run in_sys =
         PostAnalysis.run_mcs_post_analysis in_sys param
           (analyze msg_setup false) sys |> ignore ;
 
-        Stat.get_float Stat.analysis_time
-        |> Anal.mk_result param sys
-        |> KEvent.log_analysis_end
+        KEvent.log_analysis_end ()
       in
       List.iter run_mcs params ;
       post_clean_exit `Supervisor Exit
