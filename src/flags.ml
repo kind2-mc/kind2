@@ -310,6 +310,10 @@ module Smt = struct
   let set_z3_bin str = z3_bin := str
   let z3_bin () = ! z3_bin
 
+  let z3_qe_light = ref false
+  let set_z3_qe_light b = z3_qe_light := b
+  let z3_qe_light () = !z3_qe_light
+
   (* CVC4 binary. *)
   let cvc4_bin_default = "cvc4"
   let cvc4_bin = ref cvc4_bin_default
@@ -882,6 +886,21 @@ module QE = struct
         extract_values (string_of_extract extract_default)
     )
   let extract () = !extract
+
+  let ae_val_use_ctx_default = true
+  let ae_val_use_ctx = ref ae_val_use_ctx_default
+  let _ = add_spec
+    "--ae_val_use_ctx"
+    (bool_arg ae_val_use_ctx)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Use context (premises) in ae_val procedure@ \
+        Default: %a\
+      @]"
+      fmt_bool ae_val_use_ctx_default
+    )
+  let ae_val_use_ctx () = !ae_val_use_ctx
 
   let order_var_by_elim_default = false
   let order_var_by_elim = ref order_var_by_elim_default
@@ -2762,6 +2781,7 @@ module Global = struct
     | "C2I" -> `C2I
     | "interpreter" -> `Interpreter
     | "MCS" -> `MCS
+    | "CONTRACTCK" -> `CONTRACTCK
     | unexpected -> Arg.Bad (
       Format.sprintf "Unexpected value '%s' for flag --enable" unexpected
     ) |> raise
@@ -2782,6 +2802,7 @@ module Global = struct
     | `C2I -> "C2I"
     | `Interpreter -> "interpreter"
     | `MCS -> "MCS"
+    | `CONTRACTCK -> "CONTRACTCK"
   let string_of_enable = function
     | head :: tail -> (
       List.fold_left
@@ -2796,7 +2817,7 @@ module Global = struct
     `INVGENINT ; `INVGENINTOS ;
     `INVGENMACH ; `INVGENMACHOS ;
     `INVGENREAL ; `INVGENREALOS ;
-    `C2I ; `Interpreter ; `MCS
+    `C2I ; `Interpreter ; `MCS ; `CONTRACTCK
   ] |> List.map string_of_kind_module |> String.concat ", "
 
   let enable_default_init = []

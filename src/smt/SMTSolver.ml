@@ -1121,15 +1121,17 @@ let goals_to_terms solver = function
      (goals (goal true :precision precise :depth 1) )
 
 *)
-let get_qe_z3 simpl solver expr =
+let get_qe_z3 solver expr =
   (* Increment scope level *)
   push solver;
   (* Assert expression to eliminate quantifiers from *)
   assert_expr solver expr;
   (* Eliminate quantifiers *)
   let res =
-    (* Execute custom command (apply qe) *)
-    let arg = if simpl then "(and-then qe ctx-solver-simplify)" else "qe" in
+    (* Execute custom command *)
+    let arg =
+      if Flags.Smt.z3_qe_light () then "(and-then qe-light qe)" else "qe"
+    in
     match execute_custom_command solver "apply" [SMTExpr.ArgString arg] 1 with
     | `Custom r ->
        (* Take first goal as quantifier eliminated term *)
@@ -1150,21 +1152,50 @@ let get_qe_cvc4 solver expr =
   | r -> smt_error solver r
 
 
-let get_qe_expr ?(simpl = false) solver quantified_expr =
+let get_qe_expr solver quantified_expr =
 
   (* Quantifier elimination is not part of the SMTLIB standard.
      Until then, we handle each particular case here... *)
   match solver.solver_kind with
-  | `Z3_SMTLIB -> get_qe_z3 simpl solver quantified_expr
+  | `Z3_SMTLIB -> get_qe_z3 solver quantified_expr
   | `CVC4_SMTLIB -> get_qe_cvc4 solver quantified_expr
   | _ -> failwith "Quantifier elimination is not supported by SMT solver or \
                    implementation is not available"
 
 
-let get_qe_term ?(simpl = false) solver quantified_term =
+let get_qe_term solver quantified_term =
   let module S = (val solver.solver_inst) in
-  get_qe_expr ~simpl:simpl solver (S.Conv.smtexpr_of_term quantified_term)
+  get_qe_expr solver (S.Conv.smtexpr_of_term quantified_term)
 
+
+let simplify_z3 solver expr =
+  (* Increment scope level *)
+  push solver;
+  assert_expr solver expr;
+  let res =
+    (* Execute custom command *)
+    let arg = "ctx-solver-simplify" in
+    match execute_custom_command solver "apply" [SMTExpr.ArgString arg] 1 with
+    | `Custom r ->
+       (* Take first goal *)
+       goals_to_terms solver (List.hd r) |> Term.mk_and
+    | r -> smt_error solver r
+  in
+  (* Decrement scope level to remove assertion *)
+  pop solver;
+  res
+
+let simplify_expr solver expr =
+  let module S = (val solver.solver_inst) in
+  (* Simplify is not part of the SMTLIB standard.
+     Until then, we handle each particular case here... *)
+  match solver.solver_kind with
+  | `Z3_SMTLIB -> simplify_z3 solver expr
+  | _ ->  (S.Conv.term_of_smtexpr expr)
+
+let simplify_term solver term =
+  let module S = (val solver.solver_inst) in
+  simplify_expr solver (S.Conv.smtexpr_of_term term)
 
 (* 
    Local Variables:

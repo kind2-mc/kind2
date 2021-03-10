@@ -202,6 +202,12 @@ Source files live in subdirectory [SMTSolver]
   IvcMcs
 }
 
+{2:contractChecker Contract Checker}
+
+{!modules:
+  ContractChecker
+}
+
 {2:compil Lustre to Rust}
 
 {!modules:

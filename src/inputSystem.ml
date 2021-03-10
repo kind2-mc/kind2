@@ -23,6 +23,7 @@ module N = LustreNode
 
 module SVar = StateVar
 
+module SVS = SVar.StateVarSet
 module SVM = SVar.StateVarMap
 
 type _ t =
@@ -240,6 +241,28 @@ let mcs_params (type s) (input_system : s t) =
       [sub |> param_for_subsystem]
   | Horn _ -> raise (UnsupportedFileFormat "Horn")
 
+
+let contract_check_params (type s) (input_system : s t) =
+
+  let param_for_subsystem sub =
+    let scope = sub.S.scope in
+    (Analysis.ContractCheck {
+      Analysis.top = scope ;
+      Analysis.uid = Analysis.get_uid () ;
+      Analysis.abstraction_map = Scope.Map.singleton scope true; (* Default to false *)
+      Analysis.assumptions = Scope.Map.empty ;
+    }, sub.S.has_contract)
+  in
+
+  match input_system with
+  | Lustre (sub, _, _) -> (
+    S.all_subsystems sub
+    |> List.filter (fun s -> not s.S.has_impl)
+    |> List.map param_for_subsystem
+  )
+  | Native _ -> []
+  | Horn _ -> []
+
 let interpreter_param (type s) (input_system : s t) =
 
   let scope, abstraction_map =
@@ -277,14 +300,14 @@ let retrieve_lustre_nodes (type s) : s t -> LustreNode.t list =
   | Horn _ -> failwith "Unsupported input system: Horn"
   )
 
-let find_lustre_node (type s) : Scope.t -> s t -> LustreNode.t =
-  (fun scope -> function
-  | Lustre (subsystem, _, _) ->
-    let subsystem = S.find_subsystem subsystem scope in
-    subsystem.S.source
-  | Native _ -> failwith "Unsupported input system: Native"
-  | Horn _ -> failwith "Unsupported input system: Horn"
-  ) 
+let get_lustre_node (type s) (input_system : s t) scope =
+  match input_system with
+  | Lustre (sub, _, _) -> (
+    try Some (S.find_subsystem sub scope).S.source
+    with Not_found -> None
+  )
+  | Native _ -> None
+  | Horn _ -> None
 
 let pp_print_subsystems_debug (type s) : Format.formatter -> s t -> unit =
   (fun fmt in_sys ->
@@ -630,6 +653,62 @@ fun sys ->
     failwith "can't generate contracts from native input: unsupported"
   | Horn _ ->
     failwith "can't generate contracts from horn clause input: unsupported"
+
+let state_var_dependencies (type s):
+  s t -> (StateVar.StateVarSet.t StateVar.StateVarMap.t) Scope.Map.t =
+function
+  | Lustre (subsystem, _, _) -> (
+
+    S.all_subsystems subsystem
+    |> List.rev (* Process leaves first *)
+    |> List.fold_left (fun (map, deps) { S.scope ; S.source } ->
+
+      if Scope.Map.mem scope map then (map, deps)
+
+      else (
+
+        let init_node_deps, init_call_deps =
+          LustreSlicing.state_var_dependencies true deps source
+        in
+
+        let tras_node_deps, trans_call_deps =
+          LustreSlicing.state_var_dependencies false deps source
+        in
+
+        let sv_map =
+          List.fold_left
+            (fun sv_map (sv, deps) -> SVM.add sv deps sv_map)
+            SVM.empty
+            init_node_deps
+          |> (fun sv_map ->
+            List.fold_left
+              (fun sv_map (sv, deps) ->
+                SVM.update sv (function
+                  | None -> Some deps
+                  | Some deps' -> Some (SVS.union deps deps')
+                )
+                sv_map
+              )
+              sv_map
+              tras_node_deps
+          )
+        in
+
+        let node_name = source.LustreNode.name in
+
+        Scope.Map.add scope sv_map map,
+        (node_name, (init_call_deps, trans_call_deps)) :: deps
+
+      )
+    )
+    (Scope.Map.empty, [])
+    |> fst
+
+  )
+
+  | Native _ -> raise (UnsupportedFileFormat "Native")
+
+  | Horn _ -> raise (UnsupportedFileFormat "Horn")
 
 
 (* 

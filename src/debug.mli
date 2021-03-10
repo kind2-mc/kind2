@@ -47,6 +47,7 @@ val c2i : 'a t
 val ic3 : 'a t
 val compress : 'a t
 val native : 'a t
+val contractck : 'a t
 
 (* 
    Local Variables:

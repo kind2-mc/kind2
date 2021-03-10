@@ -1232,6 +1232,85 @@ include ELog
 (* Specialized logging functions                                          *)
 (* ********************************************************************** *)
 
+let realizability_pt level tag scope result =
+  (ignore_or_fprintf level)
+    !log_ppf
+    ("@[<hov>%t Node %a was proven %s after %.3fs.@]@.")
+    tag
+    Scope.pp_print_scope scope
+    result
+    (Stat.get_float Stat.analysis_time)
+
+let realizability_xml level scope result =
+  (ignore_or_fprintf level)
+    !log_ppf
+    ("@[<hv 2><RealizabilityCheck>@,\
+      <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
+      <Result>%s</Result>@;<0 -2>\
+      </RealizabilityCheck>@]@.")
+    (Stat.get_float Stat.analysis_time)
+    result
+
+let realizability_json level scope result =
+  (ignore_or_fprintf level)
+    !log_ppf
+    ",@.{@[<v 1>@,\
+    \"objectType\" : \"realizabilityCheck\",@,\
+    \"runtime\" : {\
+      \"unit\" : \"sec\", \
+      \"timeout\" : false, \
+      \"value\" : %.3f\
+    },@,\
+    \"result\" : \"%s\"\
+    @]@.}@.\
+  "
+  (Stat.get_float Stat.analysis_time)
+  result
+
+
+let log_realizable level scope =
+  (* Update time *)
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
+  let tag = success_tag in
+  let result = "realizable" in
+  match get_log_format () with
+  | F_pt -> realizability_pt level tag scope result
+  | F_xml -> realizability_xml level scope result
+  | F_json -> realizability_json level scope result
+  | F_relay -> ()
+
+let log_unrealizable level scope =
+  (* Update time *)
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
+  let tag = failure_tag in
+  let result = "unrealizable" in
+  match get_log_format () with
+  | F_pt -> realizability_pt level tag scope result
+  | F_xml -> realizability_xml level scope result
+  | F_json -> realizability_json level scope result
+  | F_relay -> ()
+
+let log_unknown_realizability level scope =
+  (* Update time *)
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
+  let result = "unknown" in
+  match get_log_format () with
+  | F_pt -> (
+    (ignore_or_fprintf level)
+      !log_ppf
+      ("@[<hov>%t Could not determine whether the contract of \
+        %a is realizable or not after %.3fs.@]@.")
+      warning_tag
+      Scope.pp_print_scope scope
+      (Stat.get_float Stat.analysis_time)
+  )
+  | F_xml -> realizability_xml level scope result
+  | F_json -> realizability_json level scope result
+  | F_relay -> ()
+
 (* Log a message with source and log level *)
 let log_proved mdl level trans_sys k prop =
   match get_log_format () with 
@@ -1357,6 +1436,37 @@ let number_of_subsystem_assumptions info =
   ) Scope.Map.empty
   |> Scope.Map.bindings
 
+let log_contractck_analysis_start scope =
+  if Flags.log_level () <> L_off then (
+    match get_log_format () with
+    | F_pt -> (
+      Format.fprintf !log_ppf "\
+        @.@.%a@{<b>Checking@} contract of imported node @{<blue>%a@}@.@."
+        Pretty.print_double_line ()
+        Scope.pp_print_scope scope
+    )
+    | F_xml -> (
+      Format.fprintf !log_ppf "@.@.\
+          <AnalysisStart \
+            top=\"%a\"\
+          />@.@.\
+        "
+        Scope.pp_print_scope scope ;
+      analysis_start_not_closed := true
+    )
+    | F_json -> (
+      Format.fprintf !log_ppf "\
+          ,@.{@[<v 1>@,\
+          \"objectType\" : \"analysisStart\",@,\
+          \"top\" : \"%a\"\
+          @]@.}@.\
+        "
+        Scope.pp_print_scope scope ;
+      analysis_start_not_closed := true
+
+    )
+    | F_relay -> failwith "can only be called by supervisor"
+  )
 
 (* Logs the start of an analysis. *)
 let log_analysis_start sys param =
@@ -1428,7 +1538,7 @@ let log_analysis_start sys param =
 
 (** Logs the end of an analysis.
     [log_analysis_start result] logs the end of an analysis. *)
-let log_analysis_end result =
+let log_analysis_end () =
   if Flags.log_level () <> L_off then begin
     match get_log_format () with
     | F_pt -> ()

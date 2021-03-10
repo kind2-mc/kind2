@@ -37,7 +37,7 @@ let c2i =        List.mem "all" dflags || List.mem "c2i" dflags
 let ic3 =        List.mem "all" dflags || List.mem "ic3" dflags
 let compress =   List.mem "all" dflags || List.mem "compress" dflags
 let native =     List.mem "all" dflags || List.mem "native" dflags
-
+let contractck = List.mem "all" dflags || List.mem "contractck" dflags
 
 let enabled_time = Unix.gettimeofday ()
 
@@ -80,6 +80,7 @@ let c2i fmt = printf c2i "c2i" fmt
 let ic3 fmt = printf ic3 "ic3" fmt
 let compress fmt = printf compress "compress" fmt
 let native fmt = printf native "native" fmt
+let contractck fmt = printf contractck "contractck" fmt
 
 
         

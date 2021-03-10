@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015-2018 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015-2020 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -24,6 +24,17 @@
     @author Daniel Larraz
 *)
 
+(** The functions in this module are stafeful. They reuse
+    the same solver instance and initial declarations unless
+    [on_exit] is called in between
+*)
+
+(** Set the upper bound used in the initial declaration of the variables *)
+val set_ubound : Numeral.t -> unit
+
+(** Get the upper bound used in the initial declaration of the variables *)
+val get_ubound : unit -> Numeral.t
+
 (** [generalize f m] evaluates the term [f] with the model [m] and
     returns a term [g] that is implied by the model [m] and that
     implies the term f with the post-state variables existentially
@@ -38,7 +49,15 @@
     
 *)
 val generalize : TransSys.t -> (UfSymbol.t * (Var.t list * Term.t)) list -> Model.t -> Var.t list -> Term.t -> Term.t list
- 
+
+type response = Valid of Term.t | Invalid of Term.t
+
+(** [ae_val s p v c] returns [Valid t] if (\forall vars(p). p => \exists v. c)
+    is valid, otherwise it returns [Invalid t]. In both cases, [t] is such that
+    (\forall vars(p). p => t <=> \exists v. c)
+*)
+val ae_val : TransSys.t -> Term.t -> Var.t list -> Term.t -> response
+
 (** Cleanup before exit *)
 val on_exit : unit -> unit
 

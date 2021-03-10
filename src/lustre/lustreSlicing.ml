@@ -567,16 +567,15 @@ let output_input_dep_of_dependencies dependencies inputs outputs =
     outputs
 
 
-(* Order equations of node topologically by their dependencies to have leaf
-   equations first, and set the map of outputs to the inputs they depend on *)
-let order_equations 
+let state_var_dependencies'
     init
     output_input_deps
-    ({ N.inputs; N.outputs; N.equations; N.calls } as node) = 
+    ({ N.outputs; N.equations ; N.calls } as node)
+    roots =
 
   (* Compute dependencies for state variables on the left-hand side of
      definitions, that is, in equations and node calls *)
-  let state_vars = 
+  let state_vars =
     (* State variables on the left-hand side of equations *)
     List.map (fun ((sv, _), _) -> (sv, [])) equations
     |> D.fold (fun _ sv a -> (sv, []) :: a) outputs
@@ -588,8 +587,43 @@ let order_equations
   in
 
   (* Compute dependencies of state variable *)
-  let dependencies = 
-    node_state_var_dependencies' init output_input_deps node [] state_vars
+  node_state_var_dependencies' init output_input_deps node roots state_vars
+
+
+let state_var_dependencies
+  init
+  output_input_deps
+  ({ N.inputs; N.locals ; N.outputs } as node) =
+
+  let dependencies =
+    state_var_dependencies' init output_input_deps node []
+  in
+
+  let deps =
+    List.map
+     (fun (sv, deps) ->
+       (sv, SVM.fold (fun sv' _ acc -> SVS.add sv' acc) deps SVS.empty)
+     )
+     dependencies
+  in
+
+  (* Dependency of output variables on input variables *)
+  let output_input_dep =
+    output_input_dep_of_dependencies dependencies inputs outputs
+  in
+
+  deps, output_input_dep
+
+
+(* Order equations of node topologically by their dependencies to have leaf
+   equations first, and set the map of outputs to the inputs they depend on *)
+let order_equations
+    init
+    output_input_deps
+    ({ N.inputs; N.outputs; N.equations; N.calls } as node) =
+
+  let dependencies =
+    state_var_dependencies' init output_input_deps node []
   in
 
   let deps =
