@@ -1629,6 +1629,13 @@ let mk_trans_sys
 
   in
 
+  (* Global consts must be added before logic detection *)
+  let state_vars =
+    List.rev_append
+      (List.rev_map Var.state_var_of_state_var_instance global_consts)
+      state_vars
+  in
+
   (* Logic fragment of transition system  *)
   let logic = match Flags.Smt.logic () with
 
@@ -1712,11 +1719,6 @@ let mk_trans_sys
       ) t
   ) subsystems ;
 
-  let state_vars =
-    List.rev_append
-      (List.rev_map Var.state_var_of_state_var_instance global_consts)
-      state_vars in
-  
   (* Transition system containing only the subsystems *)
   let trans_sys = 
     { scope;
