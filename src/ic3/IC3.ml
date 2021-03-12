@@ -3254,7 +3254,7 @@ let main input_sys aparam trans_sys =
         (fun ts ->
           if TransSys.get_function_symbols ts <> [] then
             raise (UnsupportedFeature
-              "Disabling IC3: system includes imported functions.")
+              "Disabling IC3: system model includes a partially defined function or an imported function.")
         )
         trans_sys;
       main_ic3 input_sys aparam trans_sys
