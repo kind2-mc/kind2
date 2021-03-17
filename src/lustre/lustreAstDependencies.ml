@@ -438,23 +438,23 @@ let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) g
   function  
   | [] -> R.ok m 
 
-  | (LA.TypeDecl (pos, FreeType (_, i)) as tydecl) :: decls
-    | (LA.TypeDecl (pos, AliasType (_, i, _)) as tydecl) :: decls ->
+  | (LA.TypeDecl (pos, _, FreeType (_, i)) as tydecl) :: decls
+    | (LA.TypeDecl (pos, _, AliasType (_, i, _)) as tydecl) :: decls ->
      check_and_add m pos ty_suffix i tydecl >>= fun m' ->
      mk_decl_map m' decls 
 
-  | (LA.ConstDecl (pos, FreeConst (_, i, _)) as cnstd) :: decls
-    | (LA.ConstDecl (pos, UntypedConst (_, i, _)) as cnstd) :: decls
-    | (LA.ConstDecl (pos, TypedConst (_, i, _, _)) as cnstd) :: decls -> 
+  | (LA.ConstDecl (pos, _, FreeConst (_, i, _)) as cnstd) :: decls
+    | (LA.ConstDecl (pos, _, UntypedConst (_, i, _)) as cnstd) :: decls
+    | (LA.ConstDecl (pos, _, TypedConst (_, i, _, _)) as cnstd) :: decls -> 
      check_and_add m pos const_suffix i cnstd  >>= fun m' ->
      mk_decl_map m' decls 
 
-  | (LA.NodeDecl (pos, (i, _, _, _, _, _, _, _)) as ndecl) :: decls
-    | (LA.FuncDecl (pos, (i, _, _, _, _, _, _, _)) as ndecl) :: decls ->
+  | (LA.NodeDecl (pos, _, (i, _, _, _, _, _, _, _)) as ndecl) :: decls
+    | (LA.FuncDecl (pos, _, (i, _, _, _, _, _, _, _)) as ndecl) :: decls ->
      check_and_add m pos node_suffix i ndecl  >>= fun m' ->
      mk_decl_map m' decls
 
-  | LA.ContractNodeDecl (pos, (i, _, _, _, _)) as cndecl :: decls ->
+  | LA.ContractNodeDecl (pos, _, (i, _, _, _, _)) as cndecl :: decls ->
      check_and_add m pos contract_suffix i cndecl >>= fun m' ->
      mk_decl_map m' decls
 
@@ -463,11 +463,11 @@ let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) g
                             
 let mk_graph_decls: LA.t -> dependency_analysis_data 
   = let mk_graph: LA.declaration -> dependency_analysis_data = function
-      | TypeDecl (pos, tydecl) -> mk_graph_type_decl tydecl 
-      | ConstDecl (pos, cdecl) -> mk_graph_const_decl cdecl
-      | NodeDecl (pos, ndecl) -> mk_graph_node_decl pos ndecl
-      | FuncDecl (pos, ndecl) -> mk_graph_node_decl pos ndecl
-      | ContractNodeDecl (pos, cdecl) -> mk_graph_contract_decl pos cdecl
+      | TypeDecl (_, _, tydecl) -> mk_graph_type_decl tydecl 
+      | ConstDecl (_, _, cdecl) -> mk_graph_const_decl cdecl
+      | NodeDecl (pos, _, ndecl) -> mk_graph_node_decl pos ndecl
+      | FuncDecl (pos, _, ndecl) -> mk_graph_node_decl pos ndecl
+      | ContractNodeDecl (pos, _, cdecl) -> mk_graph_contract_decl pos cdecl
       | NodeParamInst  _ -> Lib.todo __LOC__ in
     fun decls ->
     List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map mk_graph decls)
@@ -1187,13 +1187,13 @@ let rec generate_summaries: dependency_analysis_data -> LA.t -> dependency_analy
   = fun ad ->
   function
   | [] -> ad
-  | LA.FuncDecl (_, ndecl) :: decls ->
+  | LA.FuncDecl (_, _, ndecl) :: decls ->
      let ns = mk_node_summary ad.nsummary ndecl in
      generate_summaries {ad with nsummary = IMap.union (fun k v1 v2 -> Some v2) ad.nsummary ns} decls
-  | LA.NodeDecl (_, ndecl) :: decls ->
+  | LA.NodeDecl (_, _, ndecl) :: decls ->
      let ns = mk_node_summary ad.nsummary ndecl in
      generate_summaries {ad with nsummary = IMap.union (fun k v1 v2 -> Some v2) ad.nsummary ns} decls
-  | LA.ContractNodeDecl (_, cdecl) :: decls ->
+  | LA.ContractNodeDecl (_, _, cdecl) :: decls ->
      let cs = mk_contract_summary ad.csummary cdecl in
      generate_summaries {ad with csummary = IMap.union (fun k v1 v2 -> Some v2) ad.csummary cs } decls
   | _ :: decls -> generate_summaries ad decls
@@ -1203,18 +1203,18 @@ let rec generate_summaries: dependency_analysis_data -> LA.t -> dependency_analy
 let rec sort_and_check_equations: dependency_analysis_data -> LA.t -> LA.t graph_result = 
   fun ad ->
   function
-  | LA.FuncDecl (pos, ndecl) :: ds ->
-     check_node_equations ad pos ndecl >>= fun ndecl' ->
+  | LA.FuncDecl (spos, epos, ndecl) :: ds ->
+     check_node_equations ad spos ndecl >>= fun ndecl' ->
      sort_and_check_equations ad ds >>= fun ds' ->
-     R.ok (LA.FuncDecl (pos, ndecl') :: ds')
-  | LA.NodeDecl (pos, ndecl) :: ds ->
-     check_node_equations ad pos ndecl >>= fun ndecl' ->
+     R.ok (LA.FuncDecl (spos, epos, ndecl') :: ds')
+  | LA.NodeDecl (spos, epos, ndecl) :: ds ->
+     check_node_equations ad spos ndecl >>= fun ndecl' ->
      sort_and_check_equations ad ds >>= fun ds' ->
-     R.ok (LA.NodeDecl (pos, ndecl') :: ds')
-  | LA.ContractNodeDecl (pos, contract_body) :: ds ->
-     sort_and_check_contract_eqns ad pos contract_body >>= fun contract_body' ->
+     R.ok (LA.NodeDecl (spos, epos, ndecl') :: ds')
+  | LA.ContractNodeDecl (spos, epos, contract_body) :: ds ->
+     sort_and_check_contract_eqns ad spos contract_body >>= fun contract_body' ->
      sort_and_check_equations ad ds >>= fun decls' ->
-     R.ok (LA.ContractNodeDecl (pos, contract_body') :: decls' )  
+     R.ok (LA.ContractNodeDecl (spos, epos, contract_body') :: decls' )  
   | d :: ds -> sort_and_check_equations ad ds >>= fun ds' -> R.ok (d :: ds')
   | [] -> R.ok ([])
 (** Sort equations for contracts and check if node and function equations have circular dependencies  *)

@@ -2431,7 +2431,7 @@ and parse_implicit_contract scope inputs outputs ctx file contract_name = try (
     ast |> List.fold_left (
       fun call -> function
       | A.ContractNodeDecl (
-        pos, (id, _, cont_in, cont_out, _)
+        pos, _, (id, _, cont_in, cont_out, _)
       ) when id = contract_name -> (
         (* Verify signatures match and construct call. *)
         try (
@@ -2610,7 +2610,7 @@ and eval_node_decl
 (** Handle declaration and return context. *)
 and declaration_to_context ctx = function
 (* Declaration of a type as alias or free *)
-| A.TypeDecl (pos, type_rhs) ->
+| A.TypeDecl (pos, _, type_rhs) ->
 
   let (i, type_expr) = match type_rhs with
     (* Replace type aliases with their right-hand-side *)
@@ -2636,14 +2636,14 @@ and declaration_to_context ctx = function
   C.add_type_for_ident ctx ident res
 
 (* Declaration of a typed or untyped constant *)
-| A.ConstDecl (_, const_decl) ->
+| A.ConstDecl (_, _, const_decl) ->
 
   (* Add mapping of identifier to value to context *)
   eval_const_decl ctx const_decl
 
 (* Function declaration without parameters *)
 | A.FuncDecl (
-  pos, (i, ext, [], inputs, outputs, locals, items, contracts)
+  pos, _, (i, ext, [], inputs, outputs, locals, items, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)
@@ -2723,7 +2723,7 @@ and declaration_to_context ctx = function
 
 (* Node declaration without parameters *)
 | A.NodeDecl (
-  pos, (i, ext, [], inputs, outputs, locals, items, contracts)
+  pos, _, (i, ext, [], inputs, outputs, locals, items, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)
@@ -2832,7 +2832,7 @@ and declaration_to_context ctx = function
             (I.pp_print_ident false) called_ident)) *)
 
 (* Declaration of a contract node *)
-| A.ContractNodeDecl (pos, node_decl) ->
+| A.ContractNodeDecl (pos, _, node_decl) ->
 
   (* Add to context for later inlining *)
   C.add_contract_node_decl_to_context ctx (pos, node_decl)
@@ -2901,11 +2901,11 @@ and declaration_to_context ctx = function
 
 
 (* Parametric node declaration *)
-| A.NodeParamInst (pos, _)
-| A.NodeDecl (pos, _) ->
+| A.NodeParamInst (pos, _, _)
+| A.NodeDecl (pos, _, _) ->
   fail_at_position pos "Parametric nodes are not supported"
 (* Parametric function declaration *)
-| A.FuncDecl (pos, _) ->
+| A.FuncDecl (pos, _, _) ->
   fail_at_position pos "Parametric functions are not supported"
 
 (* Add declarations of program to context *)

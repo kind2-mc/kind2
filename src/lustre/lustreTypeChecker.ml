@@ -1271,10 +1271,10 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
 and tc_ctx_of_declaration: tc_context -> LA.declaration -> tc_context tc_result
     = fun ctx' ->
     function
-    | LA.ConstDecl (_, const_decl) -> tc_ctx_const_decl ctx' const_decl
-    | LA.NodeDecl (pos, node_decl) -> tc_ctx_of_node_decl pos ctx' node_decl
-    | LA.FuncDecl (pos, node_decl) -> tc_ctx_of_node_decl pos ctx' node_decl
-    | LA.ContractNodeDecl (pos, contract_decl) ->
+    | LA.ConstDecl (_, _, const_decl) -> tc_ctx_const_decl ctx' const_decl
+    | LA.NodeDecl (pos, _, node_decl) -> tc_ctx_of_node_decl pos ctx' node_decl
+    | LA.FuncDecl (pos, _, node_decl) -> tc_ctx_of_node_decl pos ctx' node_decl
+    | LA.ContractNodeDecl (pos, _, contract_decl) ->
        tc_ctx_of_contract_node_decl pos ctx' contract_decl
     | _ -> R.ok ctx'
 
@@ -1287,10 +1287,10 @@ and build_type_and_const_context: tc_context -> LA.t -> tc_context tc_result
   = fun ctx ->
   function
   | [] -> R.ok ctx
-  | TypeDecl (_, ty_decl) :: rest ->
+  | TypeDecl (_, _, ty_decl) :: rest ->
      tc_ctx_of_ty_decl ctx ty_decl
      >>= fun ctx' -> build_type_and_const_context ctx' rest
-  | ConstDecl (_, const_decl) :: rest ->
+  | ConstDecl (_, _, const_decl) :: rest ->
      tc_ctx_const_decl ctx const_decl
      >>= fun ctx' -> build_type_and_const_context ctx' rest                   
   | _ :: rest -> build_type_and_const_context ctx rest  
@@ -1456,19 +1456,19 @@ let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
   (* skip over type declarations and const_decls*)
   | (LA.TypeDecl _ :: rest) 
     | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  
-  | LA.NodeDecl (pos, ((i, _,_, _, _, _, _, _) as node_decl)) :: rest ->
+  | LA.NodeDecl (pos, _, ((i, _,_, _, _, _, _, _) as node_decl)) :: rest ->
      (check_type_node_decl pos global_ctx node_decl
         (match (lookup_node_ty global_ctx i) with
          | None -> failwith "Node type lookup failed. Should not happen"
          | Some ty -> ty))
      :: type_check_group global_ctx rest
-  | LA.FuncDecl (pos, ((i, _,_, _, _, _, _, _) as node_decl)):: rest ->
+  | LA.FuncDecl (pos, _, ((i, _,_, _, _, _, _, _) as node_decl)):: rest ->
      (check_type_node_decl pos global_ctx node_decl
         (match (lookup_node_ty global_ctx i) with
          | None -> failwith "Function type lookup failed. Should not happen"
          | Some ty -> ty))
      :: type_check_group global_ctx rest
-  | LA.ContractNodeDecl (_, ((i, _, _, _, _) as contract_decl)) :: rest ->
+  | LA.ContractNodeDecl (_, _, ((i, _, _, _, _) as contract_decl)) :: rest ->
      (check_type_contract_decl global_ctx contract_decl)
      :: type_check_group global_ctx rest
   | LA.NodeParamInst  _ :: rest -> Lib.todo __LOC__

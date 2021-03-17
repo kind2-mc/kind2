@@ -338,12 +338,12 @@ type node_param_inst = ident * ident * lustre_type list
 (** A declaration of a type, a constant, a node, a function or an
     instance of a parametric node *)
 type declaration =
-  | TypeDecl of position * type_decl
-  | ConstDecl of position * const_decl
-  | NodeDecl of position * node_decl
-  | FuncDecl of position * node_decl
-  | ContractNodeDecl of position * contract_node_decl
-  | NodeParamInst of position * node_param_inst
+  | TypeDecl of position * position * type_decl
+  | ConstDecl of position * position * const_decl
+  | NodeDecl of position * position * node_decl
+  | FuncDecl of position * position * node_decl
+  | ContractNodeDecl of position * position * contract_node_decl
+  | NodeParamInst of position * position * node_param_inst
 
 (** A Lustre program as a list of declarations *) 
 type t = declaration list

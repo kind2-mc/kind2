@@ -204,7 +204,7 @@ let parametric_rand_node nb_outputs =
     dpos,out,A.UserType (dpos, t),A.ClockTrue) ts
   in
   let ts = List.map (fun str -> A.TypeParam str) ts in
-  A.NodeDecl (dpos,
+  A.NodeDecl (dpos, dpos,
     (rand_fun_ident nb_outputs, true, ts, [dpos,"id",A.Int dpos,A.ClockTrue, false],
     outs, [], [], None)
   )
@@ -218,7 +218,7 @@ let rand_node name ts =
   let outs = aux "out" [] (List.length ts)
   |> List.map2 (fun t out -> dpos,out,t,A.ClockTrue) ts
   in
-  A.NodeDecl (dpos,
+  A.NodeDecl (dpos, dpos,
     (name, true, [], [dpos,"id",A.Int dpos,A.ClockTrue, false],
     outs, [], [], None)
   )
@@ -447,12 +447,12 @@ let minimize_contract_decl ue loc_core (id, tparams, inputs, outputs, body) =
   (id, tparams, inputs, outputs, body)
 
 let minimize_decl ue loc_core = function
-  | A.NodeDecl (p, ndecl) ->
-    A.NodeDecl (p, minimize_node_decl ue loc_core ndecl)
-  | A.FuncDecl (p, ndecl) ->
-    A.FuncDecl (p, minimize_node_decl ue loc_core ndecl)
-  | A.ContractNodeDecl (p, cdecl) ->
-    A.ContractNodeDecl (p, minimize_contract_decl ue loc_core cdecl)
+  | A.NodeDecl (spos, epos, ndecl) ->
+    A.NodeDecl (spos, epos, minimize_node_decl ue loc_core ndecl)
+  | A.FuncDecl (spos, epos, ndecl) ->
+    A.FuncDecl (spos, epos, minimize_node_decl ue loc_core ndecl)
+  | A.ContractNodeDecl (spos, epos, cdecl) ->
+    A.ContractNodeDecl (spos, epos, minimize_contract_decl ue loc_core cdecl)
   | decl -> decl 
 
 let fill_input_types_hashtbl ast =
@@ -461,7 +461,7 @@ let fill_input_types_hashtbl ast =
     Hashtbl.replace nodes_input_types id (List.map typ_of_input inputs) ;
   in
   let aux_decl = function
-  | A.NodeDecl (_, ndecl) | A.FuncDecl (_, ndecl) -> aux_node_decl ndecl
+  | A.NodeDecl (_, _, ndecl) | A.FuncDecl (_, _, ndecl) -> aux_node_decl ndecl
   | _ -> ()
   in
   List.iter aux_decl ast
