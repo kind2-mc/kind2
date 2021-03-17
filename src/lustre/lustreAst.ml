@@ -321,12 +321,12 @@ type node_param_inst = ident * ident * lustre_type list
   
 (* A declaration as parsed *)
 type declaration = 
-  | TypeDecl of position * type_decl
-  | ConstDecl of position * const_decl
-  | NodeDecl of position * node_decl
-  | FuncDecl of position * node_decl
-  | ContractNodeDecl of position * contract_node_decl
-  | NodeParamInst of position * node_param_inst
+  | TypeDecl of position * position * type_decl
+  | ConstDecl of position * position * const_decl
+  | NodeDecl of position * position * node_decl
+  | FuncDecl of position * position * node_decl
+  | ContractNodeDecl of position * position * contract_node_decl
+  | NodeParamInst of position * position * node_param_inst
 
 
 (* A Lustre program *)
@@ -1102,9 +1102,7 @@ let pp_print_contract_node_decl ppf (n,p,i,o,e)
        pp_print_contract e
 
 
-let pp_print_node_or_fun_decl is_fun ppf (
-  pos, (n, ext, p, i, o, l, e, r)
-) =
+let pp_print_node_or_fun_decl is_fun ppf (n, ext, p, i, o, l, e, r) =
     if e = [] then
       Format.fprintf ppf
         "@[<hv>@[<hv 2>%s%s %a%t@ \
@@ -1144,22 +1142,22 @@ let pp_print_node_or_fun_decl is_fun ppf (
 (* Pretty-print a declaration *)
 let pp_print_declaration ppf = function
 
-  | TypeDecl (pos, t) -> 
+  | TypeDecl (spos, epos, t) -> 
 
     Format.fprintf ppf "type %a;" pp_print_type_decl t
 
-  | ConstDecl (pos, c) -> pp_print_const_decl ppf c
+  | ConstDecl (spos, epos, c) -> pp_print_const_decl ppf c
 
-  | NodeDecl (pos, decl) ->
-    pp_print_node_or_fun_decl false ppf (pos, decl)
+  | NodeDecl (spos, epos, decl) ->
+    pp_print_node_or_fun_decl false ppf decl
 
-  | FuncDecl (pos, decl) ->
-    pp_print_node_or_fun_decl true ppf (pos, decl)
+  | FuncDecl (spos, epos, decl) ->
+    pp_print_node_or_fun_decl true ppf decl
 
-  | ContractNodeDecl (pos, decl) ->
+  | ContractNodeDecl (spos, epos, decl) ->
     pp_print_contract_node_decl ppf decl
 
-  | NodeParamInst (pos, (n, s, p)) -> 
+  | NodeParamInst (spos, epos, (n, s, p)) -> 
 
     Format.fprintf ppf
       "@[<hv>@[<hv 2>node %a =@ %a@[<hv 2><<%a>>@];@]" 

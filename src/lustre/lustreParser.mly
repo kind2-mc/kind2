@@ -250,31 +250,31 @@ main: p = list(decl) EOF { List.flatten p }
 (* A declaration is a type, a constant, a node or a function declaration *)
 decl:
   | d = const_decl { List.map 
-                       (function e -> A.ConstDecl (mk_pos $startpos, e)) 
+                       (function e -> A.ConstDecl (mk_pos $startpos, mk_pos $endpos, e)) 
                        d }
   | d = type_decl { List.map 
-                      (function e -> A.TypeDecl (mk_pos $startpos, e)) 
+                      (function e -> A.TypeDecl (mk_pos $startpos, mk_pos $endpos, e)) 
                       d }
   | NODE ; decl = node_decl ; def = node_def {
     let (n, p, i, o, r) = decl in
     let (l, e) = def in
-    [A.NodeDecl ( mk_pos $startpos, (n, false, p, i, o, l, e, r) )]
+    [A.NodeDecl ( mk_pos $startpos, mk_pos $endpos, (n, false, p, i, o, l, e, r) )]
   }
   | FUNCTION ; decl = node_decl ; def = node_def {
     let (n, p, i, o, r) = decl in
     let (l, e) = def in
-    [A.FuncDecl (mk_pos $startpos, (n, false, p, i, o, l, e, r))]
+    [A.FuncDecl (mk_pos $startpos, mk_pos $endpos, (n, false, p, i, o, l, e, r))]
   }
   | NODE ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
-    [A.NodeDecl ( mk_pos $startpos, (n, true, p, i, o, [], [], r) )]
+    [A.NodeDecl ( mk_pos $startpos, mk_pos $endpos, (n, true, p, i, o, [], [], r) )]
   }
   | FUNCTION ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
-    [A.FuncDecl (mk_pos $startpos, (n, true, p, i, o, [], [], r))]
+    [A.FuncDecl (mk_pos $startpos, mk_pos $endpos, (n, true, p, i, o, [], [], r))]
   }
-  | d = contract_decl { [A.ContractNodeDecl (mk_pos $startpos, d)] }
-  | d = node_param_inst { [A.NodeParamInst (mk_pos $startpos, d)] }
+  | d = contract_decl { [A.ContractNodeDecl (mk_pos $startpos, mk_pos $endpos, d)] }
+  | d = node_param_inst { [A.NodeParamInst (mk_pos $startpos, mk_pos $endpos, d)] }
 
 
 (* ********************************************************************** *)
