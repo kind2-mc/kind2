@@ -7,9 +7,7 @@ let lsp_component_json pos id =
      \"name\" : \"%s\",@,\
      \"file\" : \"%s\",@,\
      \"line\" : %d,@,\
-     \"column\" : %d\
-    }"
-    id file lnum cnum
+     \"column\" : %d@]@.}@." id file lnum cnum
 
 let print_ast_info declarations =
   List.iter

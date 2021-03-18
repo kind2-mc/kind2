@@ -895,34 +895,35 @@ let prop_attributes_json ppf trans_sys prop_name =
   in
 
   let print_attributes pos scope source =
-    let fname, lnum, cnum = file_row_col_of_pos pos in
+    let file, lnum, cnum = file_row_col_of_pos pos in
     Format.fprintf ppf
-      "\"scope\" : \"%s\",@,%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"%s\",@,"
-      (String.concat "." scope) pp_print_fname fname lnum cnum source
+      "\"scope\" : \"%s\",@,\
+       \"file\" : \"%s\",@,\
+       \"line\" : %d,@,\
+       \"column\" : %d,@,\
+       \"source\" : \"%s\",@,"
+      (String.concat "." scope) file lnum cnum source
   in
 
   let rec get_attributes = function
     | Property.PropAnnot pos ->
-        let fname, lnum, cnum = file_row_col_of_pos pos in
+        let file, lnum, cnum = file_row_col_of_pos pos in
         Format.fprintf ppf
-          "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"PropAnnot\",@,"
-          pp_print_fname fname lnum cnum
-    | Property.Instantiated (scope,prop) ->
+          "\"file\" : \"%s\",@,\
+           \"line\" : %d,@,\
+           \"column\" : %d,@,\
+           \"source\" : \"PropAnnot\",@,"
+          file lnum cnum
+    | Property.Instantiated (scope, prop) ->
         get_attributes prop.Property.prop_source
-    | Property.Assumption (pos, scope) -> print_attributes pos scope "Assumption"
+    | Property.Assumption (pos, scope) ->
+        print_attributes pos scope "Assumption"
     | Property.Guarantee (pos, scope) -> print_attributes pos scope "Guarantee"
-    | Property.GuaranteeOneModeActive (pos, scope) -> print_attributes pos scope "OneModeActive"
-    | Property.GuaranteeModeImplication (pos, scope) -> print_attributes pos scope "Ensure"
-    | Property.Generated (pos, _) -> (
-        match pos with
-        | None -> Format.fprintf ppf "\"source\" : \"Generated\",@,"
-        | Some pos ->
-          let fname, lnum, cnum = file_row_col_of_pos pos in
-          Format.fprintf ppf
-            "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Generated\",@,"
-            pp_print_fname fname lnum cnum
-    )
-    | Property.Candidate None -> ()
+    | Property.GuaranteeOneModeActive (pos, scope) ->
+        print_attributes pos scope "OneModeActive"
+    | Property.GuaranteeModeImplication (pos, scope) ->
+        print_attributes pos scope "Ensure"
+    | Property.Generated _ | Property.Candidate None -> ()
     | Property.Candidate (Some source) -> get_attributes source
   in
 
