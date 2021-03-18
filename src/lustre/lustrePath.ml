@@ -785,7 +785,18 @@ let pp_print_pos_pt ppf pos =
   (* Do not print anything for a dummy position *)
   if is_dummy_pos pos then () else 
 
-    Lib.pp_print_line_and_column ppf pos
+    (* Get file, line and column of position *)
+    let pos_file, pos_lnum, pos_cnum = 
+      file_row_col_of_pos pos
+    in
+    
+    (* Print attributes *)
+    Format.fprintf 
+      ppf
+      "[%a:%d:%d]"
+      pp_print_file_pt pos_file
+      pos_lnum
+      pos_cnum
 
 
 (* Output the name of the lustre variable and remove the automaton prefixes *)
