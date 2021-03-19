@@ -63,13 +63,23 @@ val log_proved : Lib.kind_module -> Lib.log_level -> TransSys.t -> int option ->
 (* Log a message with a tag, only in the plain text output *)
 val log_with_tag :  Lib.log_level -> (Format.formatter -> unit) -> string -> unit
 
-(** Log a realizable node contract *)
-val log_realizable : Lib.log_level -> Scope.t -> unit
+(** Log a realizable contract *)
+val log_realizable_contract : Lib.log_level -> Scope.t -> unit
 
-(** Log an unrealizable node contract *)
-val log_unrealizable : Lib.log_level -> Scope.t -> unit
+(** Log an unrealizable contract *)
+val log_unrealizable_contract : Lib.log_level -> Scope.t -> unit
 
+(** Log an unknown realizability result for a contract *)
 val log_unknown_realizability : Lib.log_level -> Scope.t -> unit
+
+(** Log a satisfiable contract *)
+val log_satisfiable_contract : Lib.log_level -> Scope.t -> unit
+
+(** Log a unsatisfiable contract *)
+val log_unsatisfiable_contract : Lib.log_level -> Scope.t -> unit
+
+(** Log an unknown satisfiability result for a contract *)
+val log_unknown_satisfiability : Lib.log_level -> Scope.t -> unit
 
 (*
 (** Log a counterexample for some properties

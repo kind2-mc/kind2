@@ -29,8 +29,21 @@ type realizability_result =
 
 (** Checks whether there exists an implementation that satisfies a given specification
 
-    [realizability_check i s] checks whether the contract represented by transition
-    system [s] is realizable or not. It assumes [s] was generated from the contract
-    of the subsystem in [i] which has the same scope than [s].
+    [check_contract_realizability i s] checks whether the contract represented by
+    transition system [s] is realizable or not. It assumes [s] was generated from
+    the contract of the subsystem in [i] which has the same scope than [s].
 *)
-val realizability_check: 'a InputSystem.t -> TransSys.t -> realizability_result
+val check_contract_realizability: 'a InputSystem.t -> TransSys.t -> realizability_result
+
+(** Result of a satisfiability check *)
+type satisfiability_result =
+  | Satisfiable
+  | Unsatisfiable
+  | Unknown
+
+(** Checks whether a given specification is satisfiable
+
+    [check_contract_satisfiability i s] checks whether the contract represented by
+    transition system [s] is satisfiable or not.
+*)
+val check_contract_satisfiability: TransSys.t -> satisfiability_result
