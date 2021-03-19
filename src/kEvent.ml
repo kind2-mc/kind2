@@ -1232,30 +1232,32 @@ include ELog
 (* Specialized logging functions                                          *)
 (* ********************************************************************** *)
 
-let realizability_pt level tag scope result =
+let contractck_pt level tag scope result =
   (ignore_or_fprintf level)
     !log_ppf
-    ("@[<hov>%t Node %a was proven %s after %.3fs.@]@.")
+    ("@[<hov>%t Contract of node %a was proven %s after %.3fs.@]@.@.")
     tag
     Scope.pp_print_scope scope
     result
     (Stat.get_float Stat.analysis_time)
 
-let realizability_xml level scope result =
+let contractck_xml level scope tag result =
   (ignore_or_fprintf level)
     !log_ppf
-    ("@[<hv 2><RealizabilityCheck>@,\
+    ("@[<hv 2><%s>@,\
       <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
       <Result>%s</Result>@;<0 -2>\
-      </RealizabilityCheck>@]@.")
+      </%s>@]@.")
+    tag
     (Stat.get_float Stat.analysis_time)
     result
+    tag
 
-let realizability_json level scope result =
+let contractck_json level scope ty result =
   (ignore_or_fprintf level)
     !log_ppf
     ",@.{@[<v 1>@,\
-    \"objectType\" : \"realizabilityCheck\",@,\
+    \"objectType\" : \"%s\",@,\
     \"runtime\" : {\
       \"unit\" : \"sec\", \
       \"timeout\" : false, \
@@ -1264,33 +1266,26 @@ let realizability_json level scope result =
     \"result\" : \"%s\"\
     @]@.}@.\
   "
+  ty
   (Stat.get_float Stat.analysis_time)
   result
 
 
-let log_realizable level scope =
+let log_realizability_result level scope tag result =
   (* Update time *)
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
-  let tag = success_tag in
-  let result = "realizable" in
   match get_log_format () with
-  | F_pt -> realizability_pt level tag scope result
-  | F_xml -> realizability_xml level scope result
-  | F_json -> realizability_json level scope result
+  | F_pt -> contractck_pt level tag scope result
+  | F_xml -> contractck_xml level scope "RealizabilityCheck" result
+  | F_json -> contractck_json level scope "realizabilityCheck" result
   | F_relay -> ()
 
-let log_unrealizable level scope =
-  (* Update time *)
-  Stat.update_time Stat.total_time ;
-  Stat.update_time Stat.analysis_time ;
-  let tag = failure_tag in
-  let result = "unrealizable" in
-  match get_log_format () with
-  | F_pt -> realizability_pt level tag scope result
-  | F_xml -> realizability_xml level scope result
-  | F_json -> realizability_json level scope result
-  | F_relay -> ()
+let log_realizable_contract level scope =
+  log_realizability_result level scope success_tag "realizable"
+
+let log_unrealizable_contract level scope =
+  log_realizability_result level scope failure_tag "unrealizable"
 
 let log_unknown_realizability level scope =
   (* Update time *)
@@ -1307,8 +1302,44 @@ let log_unknown_realizability level scope =
       Scope.pp_print_scope scope
       (Stat.get_float Stat.analysis_time)
   )
-  | F_xml -> realizability_xml level scope result
-  | F_json -> realizability_json level scope result
+  | F_xml -> contractck_xml level scope "RealizabilityCheck" result
+  | F_json -> contractck_json level scope "realizabilityCheck" result
+  | F_relay -> ()
+
+
+let log_satisfiability_result level scope tag result =
+  (* Update time *)
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
+  match get_log_format () with
+  | F_pt -> contractck_pt level tag scope result
+  | F_xml -> contractck_xml level scope "SatisfiabilityCheck" result
+  | F_json -> contractck_json level scope "SatisfiabilityCheck" result
+  | F_relay -> ()
+
+let log_satisfiable_contract level scope =
+  log_satisfiability_result level scope success_tag "satisfiable"
+
+let log_unsatisfiable_contract level scope =
+  log_satisfiability_result level scope failure_tag "unsatisfiable"
+
+let log_unknown_satisfiability level scope =
+  (* Update time *)
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
+  let result = "unknown" in
+  match get_log_format () with
+  | F_pt -> (
+    (ignore_or_fprintf level)
+      !log_ppf
+      ("@[<hov>%t Could not determine whether the contract of \
+        %a is satisfiable or not after %.3fs.@]@.")
+      warning_tag
+      Scope.pp_print_scope scope
+      (Stat.get_float Stat.analysis_time)
+  )
+  | F_xml -> contractck_xml level scope "SatisfiabilityCheck" result
+  | F_json -> contractck_json level scope "satisfiabilityCheck" result
   | F_relay -> ()
 
 (* Log a message with source and log level *)
@@ -1441,7 +1472,7 @@ let log_contractck_analysis_start scope =
     match get_log_format () with
     | F_pt -> (
       Format.fprintf !log_ppf "\
-        @.@.%a@{<b>Checking@} contract of imported node @{<blue>%a@}@.@."
+        @.%a@{<b>Checking@} contract of imported node @{<blue>%a@}@.@."
         Pretty.print_double_line ()
         Scope.pp_print_scope scope
     )

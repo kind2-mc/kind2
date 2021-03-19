@@ -657,27 +657,37 @@ let run in_sys =
       | params -> (
         params |> List.iter (fun (param, has_contract) ->
           let scope = (Analysis.info_of_param param).top in
+          (* Build trans sys and slicing info. *)
+          let sys, _ =
+            ISys.trans_sys_of_analysis
+              (*~preserve_sig:true ~slice_nodes:false*) in_sys param
+          in
+          (*Format.printf "TS:@.%a@." (TSys.pp_print_subsystems true) sys;*)
           KEvent.log_contractck_analysis_start scope ;
           Stat.start_timer Stat.analysis_time ;
           let result =
             if not has_contract then
               ContractChecker.Realizable
-            else 
-              (* Build trans sys and slicing info. *)
-              let sys, _ =
-                ISys.trans_sys_of_analysis
-                  (*~preserve_sig:true ~slice_nodes:false*) in_sys param
-              in
-              (*Format.printf "TS:@.%a@." (TSys.pp_print_subsystems true) sys;*)
-              ContractChecker.realizability_check in_sys sys
+            else
+              ContractChecker.check_contract_realizability in_sys sys
           in
           match result with
           | Realizable ->
-              KEvent.log_realizable L_warn scope;
-          | Unrealizable ->
-              KEvent.log_unrealizable L_warn scope;
+              KEvent.log_realizable_contract L_warn scope;
+          | Unrealizable -> (
+              KEvent.log_unrealizable_contract L_warn scope;
+
+              match ContractChecker.check_contract_satisfiability sys with
+              | Satisfiable ->
+                  KEvent.log_satisfiable_contract L_warn scope
+              | Unsatisfiable ->
+                  KEvent.log_unsatisfiable_contract L_warn scope
+              | Unknown ->
+                  KEvent.log_unknown_satisfiability L_warn scope
+          )
           | Unknown ->
               KEvent.log_unknown_realizability L_warn scope;
+
           KEvent.log_analysis_end ()
         )
       ) ;

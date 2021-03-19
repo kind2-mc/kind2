@@ -187,7 +187,17 @@ let compute_unsat_core sys context requirements ex_var_lst =
   SMTSolver.delete_instance solver
 
 
-let realizability_check in_sys sys =
+let compute_unsat_core_if_debugging sys context requirements ex_var_lst =
+  let debugging =
+    let dflags = Flags.debug () in
+    List.mem "all" dflags || List.mem "contractck" dflags
+  in
+  if debugging then
+    compute_unsat_core sys context requirements ex_var_lst
+
+
+let realizability_check
+  sys controllable_vars_at_0 vars_at_1 controllable_vars_at_1 =
   
   (* Solver for term simplification *)
   let solver =
@@ -203,29 +213,9 @@ let realizability_check in_sys sys =
     (SMTSolver.declare_sort solver)
     Numeral.zero Numeral.one;
 
-  (*Format.printf "%a@." InputSystem.pp_print_subsystems_debug in_sys;*)
   (*Format.printf "%a@." (TSys.pp_print_subsystems true) sys ;*)
 
   QE.set_ubound Numeral.one ;
-
-  let vars_at_1 =
-    TSys.vars_of_bounds ~with_init_flag:true sys Numeral.one Numeral.one
-    |> List.filter (fun v -> not (Var.is_const_state_var v))
-  in
-
-  let assumption_vars =
-    let avars = get_assumption_vars in_sys sys in
-    SVS.union avars (compute_assump_instance_vars in_sys sys avars)
-  in
-
-  let controllable_vars_at_1 =
-    vars_at_1
-    |> List.filter (fun v ->
-      let sv = Var.state_var_of_state_var_instance v in
-      not (StateVar.is_input sv) &&
-      not (SVS.mem sv assumption_vars)
-    )
-  in
 
   let free_of_controllable_vars_at_1, contains_controllable_vars_at_1 =
     let trans = TSys.trans_of_bound None sys Numeral.one in
@@ -245,19 +235,13 @@ let realizability_check in_sys sys =
     term_partition vars_at_1 free_of_controllable_vars_at_1
   in
 
-  let controllable_vars_at_0 =
-    TSys.vars_of_bounds ~with_init_flag:true sys Numeral.zero Numeral.zero
-    |> List.filter (fun v ->
-      not (Var.is_const_state_var v) &&
-      let sv = Var.state_var_of_state_var_instance v in
-      not (StateVar.is_input sv) &&
-      not (SVS.mem sv assumption_vars)
-    )
-  in
-
   let free_of_controllable_vars_at_0, contains_controllable_vars_at_0 =
     let init = TSys.init_of_bound None sys Numeral.zero in
     term_partition controllable_vars_at_0 (get_conjucts init)
+  in
+
+  let uncontrollable_varset_is_non_empty =
+    List.length controllable_vars_at_1 < List.length vars_at_1
   in
 
   let rec loop fp =
@@ -279,7 +263,7 @@ let realizability_check in_sys sys =
     | QE.Valid _ -> (
 
       Debug.contractck
-        "@[<hv>Computed invariant:@ @[<hv>%a@]@]@." Term.pp_print_term fp ;
+        "@[<hv>Computed fixpoint:@ @[<hv>%a@]@]@." Term.pp_print_term fp ;
 
       let premises' = Term.mk_and free_of_controllable_vars_at_0 in
 
@@ -304,7 +288,8 @@ let realizability_check in_sys sys =
           (get_conjucts fp) @ contains_controllable_vars_at_0
         in
 
-        compute_unsat_core sys context requirements controllable_vars_at_0;
+        compute_unsat_core_if_debugging
+          sys context requirements controllable_vars_at_0 ;
 
         Unrealizable
       )
@@ -315,40 +300,54 @@ let realizability_check in_sys sys =
       Debug.contractck
         "@[<hv>Valid region:@ @[<hv>%a@]@]@." Term.pp_print_term valid_region ;
 
-      let premises' = Term.mk_and (fp :: free_of_uncontrollable_vars_at_1) in
+      if uncontrollable_varset_is_non_empty then (
 
-      let neg_region = SMTSolver.simplify_term solver (Term.negate valid_region) in
+        let premises' = Term.mk_and (fp :: free_of_uncontrollable_vars_at_1) in
 
-      let conclusion' =
-        Term.mk_and (neg_region :: contains_uncontrollable_vars_at_1)
-      in
+        let neg_region = SMTSolver.simplify_term solver (Term.negate valid_region) in
 
-      let ae_val_reponse' = QE.ae_val sys premises' vars_at_1 conclusion' in
-
-      match ae_val_reponse' with
-      | QE.Valid _ -> (
-        Debug.contractck "@[<hv>Violating region: true@]@." ;
-
-        let context = Term.mk_and [premises'; conclusion'] in
-
-        let requirements =
-          (get_conjucts fp_at_1) @ contains_controllable_vars_at_1
+        let conclusion' =
+          Term.mk_and (neg_region :: contains_uncontrollable_vars_at_1)
         in
 
-        compute_unsat_core sys context requirements controllable_vars_at_1;
+        let ae_val_reponse' = QE.ae_val sys premises' vars_at_1 conclusion' in
 
-        Unrealizable
+        match ae_val_reponse' with
+        | QE.Valid _ -> (
+          Debug.contractck "@[<hv>Violating region: true@]@." ;
+
+          let context = Term.mk_and [premises'; conclusion'] in
+
+          let requirements =
+            (get_conjucts fp_at_1) @ contains_controllable_vars_at_1
+          in
+
+          compute_unsat_core_if_debugging
+            sys context requirements controllable_vars_at_1 ;
+
+          Unrealizable
+        )
+        | QE.Invalid violating_region -> (
+          Debug.contractck
+              "@[<hv>Violating region:@ @[<hv>%a@]@]@."
+              Term.pp_print_term violating_region ;
+
+          let fp' =
+            Term.mk_and [Term.negate violating_region; fp]
+            |> SMTSolver.simplify_term solver
+          in
+          loop fp'
+        )
+
       )
-      | QE.Invalid violating_region -> (
-        Debug.contractck
-            "@[<hv>Violating region:@ @[<hv>%a@]@]@."
-            Term.pp_print_term violating_region ;
+      else (
 
         let fp' =
-          Term.mk_and [Term.negate violating_region; fp]
+          Term.mk_and [valid_region; fp]
           |> SMTSolver.simplify_term solver
         in
         loop fp'
+
       )
     )
   in
@@ -358,3 +357,64 @@ let realizability_check in_sys sys =
   QE.on_exit () ;
 
   res
+
+
+let check_contract_realizability in_sys sys =
+
+  (*Format.printf "%a@." InputSystem.pp_print_subsystems_debug in_sys;*)
+
+  let vars_at_1 =
+    TSys.vars_of_bounds ~with_init_flag:true sys Numeral.one Numeral.one
+    |> List.filter (fun v -> not (Var.is_const_state_var v))
+  in
+
+  let assumption_vars =
+    let avars = get_assumption_vars in_sys sys in
+    SVS.union avars (compute_assump_instance_vars in_sys sys avars)
+  in
+
+  let controllable_vars_at_1 =
+    vars_at_1
+    |> List.filter (fun v ->
+      let sv = Var.state_var_of_state_var_instance v in
+      not (StateVar.is_input sv) &&
+      not (SVS.mem sv assumption_vars)
+    )
+  in
+
+  let controllable_vars_at_0 =
+    TSys.vars_of_bounds ~with_init_flag:true sys Numeral.zero Numeral.zero
+    |> List.filter (fun v ->
+      not (Var.is_const_state_var v) &&
+      let sv = Var.state_var_of_state_var_instance v in
+      not (StateVar.is_input sv) &&
+      not (SVS.mem sv assumption_vars)
+    )
+  in
+
+  realizability_check sys controllable_vars_at_0 vars_at_1 controllable_vars_at_1
+
+
+type satisfiability_result =
+  | Satisfiable
+  | Unsatisfiable
+  | Unknown
+
+let check_contract_satisfiability sys =
+
+  let vars_at_0 =
+    TSys.vars_of_bounds ~with_init_flag:true sys Numeral.zero Numeral.zero
+    |> List.filter (fun v -> not (Var.is_const_state_var v))
+  in
+
+  let vars_at_1 =
+    TSys.vars_of_bounds ~with_init_flag:true sys Numeral.one Numeral.one
+    |> List.filter (fun v -> not (Var.is_const_state_var v))
+  in
+
+  let res = realizability_check sys vars_at_0 vars_at_1 vars_at_1 in
+
+  match res with
+  | Realizable -> Satisfiable
+  | Unrealizable -> Unsatisfiable
+  | Unknown -> Unknown
