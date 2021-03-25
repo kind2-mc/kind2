@@ -312,24 +312,24 @@ let rec inline_constants_of_contract: TC.tc_context -> LA.contract -> LA.contrac
          
 let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declaration) = fun ctx ->
   function
-  | ConstDecl (spos, epos, FreeConst _) as c -> (ctx, c)
-  | ConstDecl (spos, epos, UntypedConst (pos', i, e)) ->
+  | ConstDecl (span, FreeConst _) as c -> (ctx, c)
+  | ConstDecl (span, UntypedConst (pos', i, e)) ->
      let e' = simplify_expr ctx e in
      let ty =
        (match (TC.lookup_ty ctx i) with 
        | None -> failwith "Cannot find constant type. Should not happen."
        | Some ty ->  ty) in
      (TC.add_const ctx i e' ty
-     , ConstDecl (spos, epos, UntypedConst (pos', i, e'))) 
-  | ConstDecl (spos, epos, TypedConst (pos', i, e, ty)) ->
+     , ConstDecl (span, UntypedConst (pos', i, e'))) 
+  | ConstDecl (span, TypedConst (pos', i, e, ty)) ->
      let e' = simplify_expr ctx e in 
-     (TC.add_const ctx i e' ty, ConstDecl (spos, epos, TypedConst (pos', i, e', ty)))
-  | (LA.NodeDecl (spos, epos, (i, imported, params, ips, ops, ldecls, items, contract))) ->
-     ctx, (LA.NodeDecl (spos, epos, (i, imported, params, ips, ops, ldecls, inline_constants_of_node_items ctx items, contract)))
-  | (LA.FuncDecl (spos, epos, (i, imported, params, ips, ops, ldecls, items, contract))) ->
-     ctx, (LA.FuncDecl (spos, epos, (i, imported, params, ips, ops, ldecls, inline_constants_of_node_items ctx items, contract)))
-  | (LA.ContractNodeDecl (spos, epos, (i, params, ips, ops, contract))) ->
-     ctx, (LA.ContractNodeDecl (spos, epos, (i, params, ips, ops, inline_constants_of_contract ctx contract)))
+     (TC.add_const ctx i e' ty, ConstDecl (span, TypedConst (pos', i, e', ty)))
+  | (LA.NodeDecl (span, (i, imported, params, ips, ops, ldecls, items, contract))) ->
+     ctx, (LA.NodeDecl (span, (i, imported, params, ips, ops, ldecls, inline_constants_of_node_items ctx items, contract)))
+  | (LA.FuncDecl (span, (i, imported, params, ips, ops, ldecls, items, contract))) ->
+     ctx, (LA.FuncDecl (span, (i, imported, params, ips, ops, ldecls, inline_constants_of_node_items ctx items, contract)))
+  | (LA.ContractNodeDecl (span, (i, params, ips, ops, contract))) ->
+     ctx, (LA.ContractNodeDecl (span, (i, params, ips, ops, inline_constants_of_contract ctx contract)))
   | e -> (ctx, e)
 (** propogate constants post type checking into the AST and constant store*)
 
