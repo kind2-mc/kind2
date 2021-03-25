@@ -318,15 +318,20 @@ type contract_node_decl =
 
 (* An instance of a parameterized node *)
 type node_param_inst = ident * ident * lustre_type list
-  
+
+type span = {
+  start_pos : position;
+  end_pos : position;
+}
+
 (* A declaration as parsed *)
 type declaration = 
-  | TypeDecl of position * position * type_decl
-  | ConstDecl of position * position * const_decl
-  | NodeDecl of position * position * node_decl
-  | FuncDecl of position * position * node_decl
-  | ContractNodeDecl of position * position * contract_node_decl
-  | NodeParamInst of position * position * node_param_inst
+  | TypeDecl of span * type_decl
+  | ConstDecl of span * const_decl
+  | NodeDecl of span * node_decl
+  | FuncDecl of span * node_decl
+  | ContractNodeDecl of span * contract_node_decl
+  | NodeParamInst of span * node_param_inst
 
 
 (* A Lustre program *)
@@ -1144,22 +1149,22 @@ let pp_print_node_or_fun_decl is_fun ppf (n, ext, p, i, o, l, e, r) =
 (* Pretty-print a declaration *)
 let pp_print_declaration ppf = function
 
-  | TypeDecl (spos, epos, t) -> 
+  | TypeDecl (_, t) -> 
 
     Format.fprintf ppf "type %a;" pp_print_type_decl t
 
-  | ConstDecl (spos, epos, c) -> pp_print_const_decl ppf c
+  | ConstDecl (_, c) -> pp_print_const_decl ppf c
 
-  | NodeDecl (spos, epos, decl) ->
+  | NodeDecl (_, decl) ->
     pp_print_node_or_fun_decl false ppf decl
 
-  | FuncDecl (spos, epos, decl) ->
+  | FuncDecl (_, decl) ->
     pp_print_node_or_fun_decl true ppf decl
 
-  | ContractNodeDecl (spos, epos, decl) ->
+  | ContractNodeDecl (_, decl) ->
     pp_print_contract_node_decl ppf decl
 
-  | NodeParamInst (spos, epos, (n, s, p)) -> 
+  | NodeParamInst (_, (n, s, p)) -> 
 
     Format.fprintf ppf
       "@[<hv>@[<hv 2>node %a =@ %a@[<hv 2><<%a>>@];@]" 
