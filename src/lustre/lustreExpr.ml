@@ -3445,6 +3445,19 @@ let var_of_array_select e =
   if not (Var.equal_vars v1 v2) then invalid_arg ("var_of_array_select");
   v1
 
+(* For an array select expression, get variable and list of indexes.
+ * XXX: We could implement var_of_array_select in terms of this, but this
+ * is stricter than var_of_array_select and will fail on different
+ * indexes in init vs step. Maybe that should be the case anyway? *)
+let indexes_and_var_of_array_select e =
+  let v1, ixes1 = Term.indexes_and_var_of_select e.expr_init in
+  let v2, ixes2 = Term.indexes_and_var_of_select e.expr_step in
+  if not (Var.equal_vars v1 v2) then
+    invalid_arg ("indexes_and_var_of_array_select.var");
+  if not (List.for_all2 Term.equal ixes1 ixes2) then
+    invalid_arg ("indexes_and_var_of_array_select.indexes");
+  (v1, ixes1)
+
 (* ********************************************************************** *)
 
 (* Apply let binding for state variable at current instant to

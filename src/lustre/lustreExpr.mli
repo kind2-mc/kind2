@@ -500,6 +500,9 @@ val is_select : t -> bool
 val is_select_array_var : t -> bool
 
 val var_of_array_select : t -> Var.t
+
+(* For an array select expression, get variable and list of indexes *)
+val indexes_and_var_of_array_select : t -> Var.t * expr list
   
 (** Store in an array *)
 val mk_store : t -> t -> t -> t

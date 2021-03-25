@@ -346,8 +346,10 @@ let rec eval_ast_expr bounds ctx =
 
   (* Arrow temporal operator [expr1 -> expr2] *)
   | A.Arrow (pos, expr1, expr2) -> 
-
-      eval_binary_ast_expr bounds ctx pos E.mk_arrow expr1 expr2 
+      let mk e1 e2 =
+        let e1', e2' = coalesce_array2 e1 e2 in
+        E.mk_arrow e1' e2'
+      in eval_binary_ast_expr bounds ctx pos mk expr1 expr2
 
   (* ****************************************************************** *)
   (* Other operators                                                    *)
@@ -427,17 +429,9 @@ let rec eval_ast_expr bounds ctx =
         (fun index expr' (accum, ctx) -> 
 
              let mk_lhs_term (sv, bounds) =
-               List.fold_left (fun (i, t) -> function
-                   | E.Bound b ->
-                     succ i,
-                     Term.mk_select t
-                       (Term.mk_var @@ E.var_of_expr @@ E.mk_index_var i)
-                   | E.Unbound v ->
-                     i, Term.mk_select t (E.unsafe_term_of_expr v)
-                   | _ -> assert false)
-                 (0, Var.mk_state_var_instance sv E.pre_offset |> Term.mk_var)
-                 bounds
-             |> snd
+               Var.mk_state_var_instance sv E.pre_offset |>
+               Term.mk_var |>
+               array_select_of_bounds_term bounds
              in
              
            let mk_local ctx expr' =
@@ -1965,6 +1959,37 @@ and eval_node_call
 (* ******************************************************************** *)
 (* Arrays helpers                                                       *)
 (* ******************************************************************** *)
+
+and array_select_of_bounds_term bounds e =
+  let (_, e) = List.fold_left (fun (i, t) -> function
+    | E.Bound _ ->
+        succ i, Term.mk_select t (Term.mk_var @@ E.var_of_expr @@ E.mk_index_var i)
+    | E.Unbound v ->
+        i, Term.mk_select t (E.unsafe_term_of_expr v)
+    | _ -> assert false)
+      (0, e) bounds
+  in e
+
+and array_select_of_indexes_expr indexes e =
+  let e = List.fold_left
+    (fun e i -> E.mk_select e (E.mk_index_var i)) e indexes
+  in e
+
+(* Try to make the types of two expressions line up.
+ * If one expression is an array but the other is not, then insert a 'select'
+ * around the array expression so that the two expressions both have similar types.
+ * This is used by mk_arrow for array expressions. *)
+and coalesce_array2 e1 e2 =
+  let t1 = E.type_of_lustre_expr e1
+  and t2 = E.type_of_lustre_expr e2 in
+  let i1 = List.length (Type.all_index_types_of_array t1)
+  and i2 = List.length (Type.all_index_types_of_array t2) in
+  if i1 > i2 then
+      array_select_of_indexes_expr (List.init (i1 - i2) (fun x -> x)) e1, e2
+  else if i2 > i1 then
+      e1, array_select_of_indexes_expr (List.init (i2 - i1) (fun x -> x)) e2
+  else
+      e1, e2
 
 (*
 

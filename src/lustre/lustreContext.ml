@@ -1051,9 +1051,10 @@ let fresh_state_var_for_expr
 
   else if reuse && E.is_select_array_var expr && present_bounds <> [] then
 
-      let v = E.var_of_array_select expr in
+      let (v, ixes) = E.indexes_and_var_of_array_select expr in
       let sv = Var.state_var_of_state_var_instance v in
-      (sv, present_bounds), ctx
+      let ixes' = List.map (fun i -> E.Unbound i) ixes in
+      (sv, ixes'), ctx
 
   else
 
