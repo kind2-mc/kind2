@@ -1278,12 +1278,12 @@ and tc_ctx_of_declaration: tc_context -> LA.declaration -> tc_context tc_result
        tc_ctx_of_contract_node_decl pos ctx' contract_decl
     | _ -> R.ok ctx'
 
-and tc_context_of: tc_context -> LA.t -> tc_context tc_result
+and tc_context_of: tc_context -> LA.declaration list -> tc_context tc_result
   = fun ctx decls ->
   R.seq_chain (tc_ctx_of_declaration) ctx decls 
 (** Obtain a global typing context, get constants and function decls*)
   
-and build_type_and_const_context: tc_context -> LA.t -> tc_context tc_result
+and build_type_and_const_context: tc_context -> LA.declaration list -> tc_context tc_result
   = fun ctx ->
   function
   | [] -> R.ok ctx
@@ -1449,7 +1449,7 @@ let scc: LA.t -> LA.t list
   = fun decls -> [decls]
 (** Compute the connected components for type checking *)
                                  
-let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
+let rec type_check_group: tc_context -> LA.declaration list ->  unit tc_result list
   = fun global_ctx
   -> function
   | [] -> [R.ok ()]
@@ -1476,7 +1476,7 @@ let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
  * the top most declaration should be able to access 
  * the types of all the forward referenced indentifiers from the context*)       
 
-let type_check_decl_grps: tc_context -> LA.t list -> unit tc_result list
+let type_check_decl_grps: tc_context -> LA.declaration list list -> unit tc_result list
   = fun ctx decls ->
       Log.log L_trace ("===============================================\n"
                        ^^ "Phase: Type checking declaration Groups\n"
@@ -1493,7 +1493,7 @@ let report_tc_result: unit tc_result list -> unit tc_result
  * The main functions of the file that kicks off type checking or type inference flow  *
  ***************************************************************************************)
    
-let type_check_infer_globals: tc_context -> LA.t -> tc_context tc_result
+let type_check_infer_globals: tc_context -> LA.declaration list -> tc_context tc_result
   = fun ctx prg ->
      (Log.log L_trace ("===============================================\n"
                        ^^ "Building TC Global Context\n"
@@ -1502,7 +1502,7 @@ let type_check_infer_globals: tc_context -> LA.t -> tc_context tc_result
      ; build_type_and_const_context ctx prg >>= fun global_ctx ->
        R.ok global_ctx)
    
-let type_check_infer_nodes_and_contracts: tc_context -> LA.t -> tc_context tc_result
+let type_check_infer_nodes_and_contracts: tc_context -> LA.declaration list -> tc_context tc_result
   = fun ctx prg -> 
 (* type check the nodes and contract decls using this base typing context  *)
      Log.log L_trace ("===============================================\n"

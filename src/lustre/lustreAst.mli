@@ -346,7 +346,10 @@ type declaration =
   | NodeParamInst of position * position * node_param_inst
 
 (** A Lustre program as a list of declarations *) 
-type t = declaration list
+type t = {
+  decls: declaration list;
+  file: string
+}
 
 (** {1 Pretty-printers} *)
 val pp_print_node_param_list : Format.formatter -> node_param list -> unit
@@ -377,6 +380,7 @@ val pp_print_eq_lhs: Format.formatter -> eq_lhs -> unit
 val pp_print_node_body: Format.formatter -> node_equation -> unit
 val pp_print_node_item : Format.formatter -> node_item -> unit
 val pp_print_declaration : Format.formatter -> declaration -> unit
+val pp_print_declaration_list : Format.formatter -> declaration list -> unit
 val pp_print_program : Format.formatter -> t -> unit
 
 val pp_print_contract_item : Format.formatter -> contract_node_equation -> unit

@@ -209,7 +209,7 @@ let translate ast target =
   fmt_declarations fmt ast
 
 let translate_file file target =
-  let ast = LustreInput.ast_of_file file in
+  let {Ast.decls = ast} = LustreInput.ast_of_file file in
   translate ast target
 
 (* 

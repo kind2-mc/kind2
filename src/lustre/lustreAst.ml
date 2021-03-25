@@ -330,7 +330,10 @@ type declaration =
 
 
 (* A Lustre program *)
-type t = declaration list
+type t = {
+  decls: declaration list;
+  file: string
+}
 
 
 (* ********************************************************************** *)
@@ -1164,9 +1167,14 @@ let pp_print_declaration ppf = function
       pp_print_ident n 
       (pp_print_list pp_print_lustre_type "@ ") p
 
-
+let pp_print_declaration_list ppf p =
+  Format.fprintf ppf
+    "@[<v>%a@]" 
+    (pp_print_list pp_print_declaration "@ ") 
+    p
+  
 let pp_print_program ppf p =
-
+  let {decls = p} = p in
   Format.fprintf ppf
     "@[<v>%a@]" 
     (pp_print_list pp_print_declaration "@ ") 

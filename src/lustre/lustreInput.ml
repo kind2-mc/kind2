@@ -104,16 +104,17 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
 
   (* Create lexing buffer and incrementally parse it*)
   try
-    (parse lexbuf (LPI.main lexbuf.lex_curr_p))
+    let program = (parse lexbuf (LPI.main lexbuf.lex_curr_p)) in
+    { decls = program.decls; file = input_source }
   with
   | LustreLexer.Lexer_error err -> fail_at_position (Lib.position_of_lexing lexbuf.lex_curr_p) err  
 
 (* Parse from input channel *)
 let of_channel in_ch =
   (* Get declarations from channel. *)
-  let declarations = ast_of_channel in_ch in
+  let { LA.decls = declarations; file = filename } = ast_of_channel in_ch in
 
-  let declarations': LA.t =
+  let declarations' =
     (* optional type checking and reordering with dependency analysis pass*) 
     if Flags.no_tc ()
      then declarations
@@ -159,7 +160,7 @@ let of_channel in_ch =
        match tc_res with
        | Ok d ->
           Log.log L_note "Type checking done"
-         ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_program d
+         ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_declaration_list d
          ; (if Flags.only_tc () then exit 0)
          ; d  
        | Error (pos, err) -> fail_at_position pos err in 
@@ -195,8 +196,9 @@ let of_channel in_ch =
          argument *)
       raise (NoMainNode "Main node not found in input")
   in
+  let program = { LA.decls = declarations; LA.file = filename } in
   (* Return a subsystem tree from the list of nodes *)
-  LN.subsystem_of_nodes nodes', globals, declarations
+  LN.subsystem_of_nodes nodes', globals, program
 
 (* Returns the AST from a file. *)
 let ast_of_file filename =

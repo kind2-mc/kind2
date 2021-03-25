@@ -28,11 +28,11 @@ type 'a tc_result = ('a, Lib.position * string) result
 val type_error: Lib.position -> string -> 'a tc_result 
 (** [type_error] returns an [Error] of [tc_result] *)
      
-val type_check_infer_globals: tc_context -> LA.t -> tc_context tc_result  
+val type_check_infer_globals: tc_context -> LA.declaration list -> tc_context tc_result  
 (** Typechecks the toplevel globals i.e. constant decls and type decls. It returns 
     a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
-val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> tc_context tc_result
+val type_check_infer_nodes_and_contracts: tc_context -> LA.declaration list -> tc_context tc_result
 (** Typechecks and infers type for the nodes and contracts. It returns
     a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
   

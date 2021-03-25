@@ -27,7 +27,7 @@ module SVS = SVar.StateVarSet
 module SVM = SVar.StateVarMap
 
 type _ t =
-| Lustre : (LustreNode.t S.t * LustreGlobals.t * LustreAst.declaration list) -> LustreNode.t t
+| Lustre : (LustreNode.t S.t * LustreGlobals.t * LustreAst.t) -> LustreNode.t t
 | Native : TransSys.t S.t -> TransSys.t t
 | Horn : unit S.t -> unit t
 

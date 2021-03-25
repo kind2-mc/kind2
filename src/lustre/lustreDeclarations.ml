@@ -2421,7 +2421,7 @@ and parse_implicit_contract scope inputs outputs ctx file contract_name = try (
     (try Filename.dirname (Flags.input_file ())
      with Failure _ -> Sys.getcwd ()) ;
 
-  let ast = LustreParser.main LustreLexer.token lexbuf in
+  let { A.decls = ast } = LustreParser.main LustreLexer.token lexbuf in
   (* Format.printf
     "contract: @[<v>%a@]@.@."
     (pp_print_list A.pp_print_declaration "@ ")  ast ; *)

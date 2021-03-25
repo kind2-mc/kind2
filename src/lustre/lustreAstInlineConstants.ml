@@ -334,7 +334,7 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
 (** propogate constants post type checking into the AST and constant store*)
 
 
-let rec inline_constants: tc_context -> LA.t -> (TC.tc_context * LA.t) inline_result = fun ctx ->
+let rec inline_constants: tc_context -> LA.declaration list -> (TC.tc_context * LA.declaration list) inline_result = fun ctx ->
   function
   | [] -> R.ok (ctx, [])
   | c :: rest ->

@@ -433,7 +433,7 @@ let check_and_add: 'a IMap.t -> Lib.position
   else R.ok (add_decl m (suffix ^ i) tyd)
 (** reject program if identifier is already declared  *)
   
-let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) graph_result =
+let rec  mk_decl_map: LA.declaration IMap.t -> LA.declaration list -> (LA.declaration IMap.t) graph_result =
   fun m ->
   function  
   | [] -> R.ok m 
@@ -461,7 +461,7 @@ let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) g
   | LA.NodeParamInst _ :: _-> Lib.todo __LOC__
 (** builds an id :-> decl map  *)
                             
-let mk_graph_decls: LA.t -> dependency_analysis_data 
+let mk_graph_decls: LA.declaration list -> dependency_analysis_data 
   = let mk_graph: LA.declaration -> dependency_analysis_data = function
       | TypeDecl (_, _, tydecl) -> mk_graph_type_decl tydecl 
       | ConstDecl (_, _, cdecl) -> mk_graph_const_decl cdecl
@@ -904,7 +904,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
       of the output streams. *)
 
 
-let sort_declarations: LA.t -> LA.t graph_result
+let sort_declarations: LA.declaration list -> LA.declaration list graph_result
   = fun decls ->
   (* 1. make an id :-> decl map  *)
   mk_decl_map IMap.empty decls >>= fun decl_map ->
@@ -1183,7 +1183,7 @@ let check_node_equations: dependency_analysis_data
 (** Check if node equations do not have circularity and also, if the node has a contract
     sort the contract equations. *)
     
-let rec generate_summaries: dependency_analysis_data -> LA.t -> dependency_analysis_data
+let rec generate_summaries: dependency_analysis_data -> LA.declaration list -> dependency_analysis_data
   = fun ad ->
   function
   | [] -> ad
@@ -1200,7 +1200,7 @@ let rec generate_summaries: dependency_analysis_data -> LA.t -> dependency_analy
 (** This function generates the node summary and contract summary data
     This function requires that the program does not have any forward references. *)
 
-let rec sort_and_check_equations: dependency_analysis_data -> LA.t -> LA.t graph_result = 
+let rec sort_and_check_equations: dependency_analysis_data -> LA.declaration list -> LA.declaration list graph_result = 
   fun ad ->
   function
   | LA.FuncDecl (spos, epos, ndecl) :: ds ->
@@ -1223,7 +1223,7 @@ let sort_globals decls =
   sort_declarations decls >>= fun sorted_decls -> 
   Log.log L_trace "Sorting types and constants declarations done.
                    \n============\n%a\n============\n"
-    LA.pp_print_program sorted_decls
+    LA.pp_print_declaration_list sorted_decls
   ; R.ok sorted_decls
 (** Returns a topological order to resolve forward references 
     of global constants and type definitions. *)  
@@ -1234,7 +1234,7 @@ let sort_and_check_nodes_contracts decls =
   sort_declarations decls >>= fun sorted_decls -> 
   Log.log L_trace "Sorting functions, nodes and contracts done.
                    \n============\n%a\n============\n"
-    LA.pp_print_program sorted_decls
+    LA.pp_print_declaration_list sorted_decls
 
   (* Step 2. Generate node and contract summaries *)
   ; let analysis_data = generate_summaries empty_dependency_analysis_data sorted_decls in
@@ -1246,7 +1246,7 @@ let sort_and_check_nodes_contracts decls =
     ; sort_and_check_equations analysis_data sorted_decls >>= fun final_decls -> 
       Log.log L_trace "Sorting equations done.
                        \n============\n%a\n============\n"
-        LA.pp_print_program final_decls
+        LA.pp_print_declaration_list final_decls
         ; R.ok final_decls
 (** Returns a topological order of declarations to resolve all forward refernce. 
     It also reorders contract equations and checks for circularity of node equations *)  
