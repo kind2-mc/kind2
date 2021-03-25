@@ -244,7 +244,7 @@ one_expr: e = expr EOF { e }
 
 
 (* A Lustre program is a list of declarations *)
-main: p = list(decl) EOF { List.flatten p }
+main: p = list(decl) EOF { { decls = List.flatten p; file = "" } }
 
 
 (* A declaration is a type, a constant, a node or a function declaration *)

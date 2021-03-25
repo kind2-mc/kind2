@@ -467,6 +467,7 @@ let fill_input_types_hashtbl ast =
   List.iter aux_decl ast
 
 let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,loc_core,_) ast =
+  let { A.decls = ast; A.file = filename } = ast in
   fill_input_types_hashtbl ast ;
   let undef_expr =
     if valid_lustre
@@ -497,11 +498,9 @@ let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,loc_core,_) ast =
     | n -> aux ((rand_node n)::acc) (nb-1)
   in
   aux minimized (!max_nb_args)*)
-  Hashtbl.fold (fun ts n acc ->
-    (rand_node n ts)::acc
-  )
-  rand_functions
-  minimized
+  let result = Hashtbl.fold
+    (fun ts n acc -> (rand_node n ts)::acc) rand_functions minimized in
+  { A.decls = result; A.file = filename }
 
 (* ---------- UTILITIES ---------- *)
 
