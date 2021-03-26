@@ -1653,8 +1653,43 @@ and try_eval_node_call bounds ctx pos ident cond restart args defaults =
 
     (* Evaluate call to node *)
     | Some node -> 
+        (* The LustreNode representation of node calls does not support
+         * calls that are quantified over array bounds, so instead expand
+         * node calls inside array definitions to explicit call for each
+         * index within the array bounds.
+         * This only works for arrays with a known, concrete bound. *)
+        let rec unroll_array_bounds sigma bounds' index_var ctx =
+          match bounds' with
+          | [] -> eval_node_call sigma bounds ctx pos ident node
+                                 cond restart args defaults
 
-      eval_node_call bounds ctx pos ident node cond restart args defaults 
+          (* Do the expansion for arrays of known size *)
+          | E.Bound b :: bounds'
+          when Term.is_numeral (E.unsafe_term_of_expr b) ->
+            let array_size = E.unsafe_term_of_expr b
+                          |> Term.numeral_of_term
+                          |> Numeral.to_int in
+            let index_varE = E.mk_index_var index_var in
+            let index_varV = E.var_of_expr  index_varE in
+            let rec unroll_indices i ctx =
+              let i'     = Numeral.of_int i in
+              (* Build a subsistution to replace index_var with index i *)
+              let sigma' = (index_varV, E.mk_int_expr i') :: sigma in
+              (* Perform remaining bounds for multi-dimensional arrays *)
+              let e, ctx = unroll_array_bounds sigma' bounds'
+                                               (succ index_var) ctx in
+              if succ i < array_size then
+                (* Compute calls for remaining indices [i+1..array_size) *)
+                let rest, ctx = unroll_indices (succ i) ctx in
+                let ite = E.mk_ite (E.mk_eq index_varE (E.mk_int i')) in
+                D.map2 (fun _k -> ite) e rest, ctx
+              else
+                e, ctx
+            in unroll_indices 0 ctx
+
+          | _ :: bounds' ->
+              unroll_array_bounds sigma bounds' (succ index_var) ctx
+        in unroll_array_bounds [] bounds 0 ctx
 
     (* No node of that name *)
     | None ->
@@ -1666,6 +1701,7 @@ and try_eval_node_call bounds ctx pos ident cond restart args defaults =
 
 (* Return a trie with the outputs of a node call *)
 and eval_node_call
+    sigma
     bounds
     ctx
     pos
@@ -1688,6 +1724,8 @@ and eval_node_call
       let expr', ctx = 
         (* Evaluate inputs as list *)
         let expr', ctx = eval_ast_expr bounds ctx (A.GroupExpr (dummy_pos, A.ExprList, ast)) in
+        (* Apply substitution to inputs for applying to array bounds *)
+        let expr' = D.map (E.apply_subst sigma) expr' in
         (* Return actual parameters and changed context if actual and formal
            parameters have the same indexes otherwise remove list index when
            expression is a singleton list *)
@@ -1715,7 +1753,8 @@ and eval_node_call
       D.fold2
         (fun i state_var ({ E.expr_type } as expr) (accum, ctx) ->
           if E.has_indexes expr
-          then fail_at_position pos "Call with implicitely quantified index";
+          then fail_at_position pos
+            "Not supported: node or function call for dynamically sized array.";
           (* Expression must be of a subtype of input type *)
           if Type.check_type expr_type (StateVar.type_of_state_var state_var)
              &&
