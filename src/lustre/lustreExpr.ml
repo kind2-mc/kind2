@@ -806,6 +806,11 @@ let pp_print_term_as_expr_mvar ?as_type safe map ppf expr =
     )
     ppf expr
 
+let pp_print_expr_bound_or_fixed ?as_type ppf = function
+  | Bound   e -> Format.fprintf ppf   "Bound %a" (pp_print_expr true) e
+  | Fixed   e -> Format.fprintf ppf   "Fixed %a" (pp_print_expr true) e
+  | Unbound e -> Format.fprintf ppf "Unbound %a" (pp_print_expr true) e
+
 (* Pretty-print a hashconsed term to the standard formatter *)
 let print_expr ?as_type safe =
   pp_print_expr ?as_type safe Format.std_formatter

@@ -1,0 +1,11 @@
+type percent = subrange [0, 100] of int;
+node test_subrange( 
+  input  : percent; 
+) returns (
+  output : percent^2;
+)
+let
+    output = [input, input -> pre (output[0])];
+    --%PROPERTY output[1] = (input -> pre input);
+tel
+

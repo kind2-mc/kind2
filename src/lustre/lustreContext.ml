@@ -1931,12 +1931,21 @@ let add_node_equation ctx pos state_var bounds indexes expr =
                | E.Unbound _ ->
                  if Type.is_array t then Type.elem_type_of_array t
                  else
-                   fail_at_position
+                   begin
+                   warn_at_position
                      pos
                      (Format.asprintf
-                        "Type mismatch in equation: %a and %a"
+                        "Internal error: state variable is not an array.@.\
+                        State variable should be an array, but has type %a@.\
+                        Expression has type %a@.\
+                        Bounds are [%a]"
                         (E.pp_print_lustre_type false) t
-                        (E.pp_print_lustre_type false) expr_type))
+                        (E.pp_print_lustre_type false) expr_type
+                        (pp_print_list E.pp_print_expr_bound_or_fixed ", ") bounds
+                     );
+                     t
+                   end
+                )
             (StateVar.type_of_state_var state_var)
             bounds
          )
@@ -1986,7 +1995,8 @@ let add_node_equation ctx pos state_var bounds indexes expr =
               note_at_position pos msg;
 
               (* Expanding type of state variable to int *)
-              StateVar.change_type_of_state_var state_var (Type.mk_int ());
+              StateVar.change_type_of_state_var state_var
+                (StateVar.type_of_state_var state_var |> Type.generalize );
 
               (* Add property to node *)
               add_node_property

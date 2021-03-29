@@ -172,6 +172,9 @@ val pp_print_term_as_expr_mvar :
   (string StateVar.StateVarMap.t) ->
   Format.formatter -> Term.t -> unit
 
+val pp_print_expr_bound_or_fixed :
+  ?as_type:Type.t ->
+    Format.formatter -> expr bound_or_fixed -> unit
 
 (** {1 Predicates} *)
 

@@ -187,6 +187,11 @@ let pp_print_state_var_node ppf (n, s) =
 let pp_print_state_var ppf { Hashcons.node = (n, s) } =
   pp_print_state_var_node ppf (n, s)
 
+let pp_print_state_var_with_type ppf ({ Hashcons.node = (n, s); Hashcons.prop = { var_type = t } } : t) : unit =
+  Format.fprintf ppf "%a (type %a)"
+    pp_print_state_var_node (n, s)
+    Type.pp_print_type t
+
 (* Return a string representation of a hashconsed state variable *)
 let string_of_state_var s = string_of_t pp_print_state_var s
 
