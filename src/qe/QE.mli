@@ -24,6 +24,8 @@
     @author Daniel Larraz
 *)
 
+exception QuantifiedTermFound of Term.t
+
 (** The functions in this module are stafeful. They reuse
     the same solver instance and initial declarations unless
     [on_exit] is called in between
