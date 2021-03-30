@@ -25,11 +25,12 @@ ENV PATH="/root/.opam/4.07.1/bin:${PATH}"
 
 # Retrieve Yices 2
 RUN wget -qq https://yices.csl.sri.com/releases/2.6.2/yices-2.6.2-x86_64-pc-linux-gnu-static-gmp.tar.gz \
- && tar xvf yices-2.6.2-x86_64-pc-linux-gnu-static-gmp.tar.gz
+ && tar xvf yices-2.6.2-x86_64-pc-linux-gnu-static-gmp.tar.gz && echo Success || true
 
 # Retrieve JKind and CVC4 (required for certification)
 RUN wget -qq https://github.com/loonwerks/jkind/releases/download/v4.3.0/jkind-4.3.0.zip && unzip jkind-4.3.0.zip \
- && wget -qq https://github.com/CVC4/CVC4/releases/download/1.8/cvc4-1.8-x86_64-linux-opt -O cvc4
+ && wget -qq https://github.com/CVC4/CVC4/releases/download/1.8/cvc4-1.8-x86_64-linux-opt -O cvc4 \
+ && echo Success || true
 
 # Command for DockerHub
 RUN if [ -n "${COMMIT}" ] ; then \
