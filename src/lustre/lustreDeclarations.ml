@@ -1181,7 +1181,7 @@ let rec eval_node_equation inputs outputs locals ctx = function
         fun ctx ((sv, b), e) ->
           (* Is [e] a state variable in the current state? *)
           let ctx =
-            if E.is_var e then (
+            if E.is_var e && b = [] then (
               let alias = E.state_var_of_expr e in
               (* Format.printf "%a is an alias for %a@.@."
                 StateVar.pp_print_state_var alias
