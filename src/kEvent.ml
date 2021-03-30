@@ -573,7 +573,14 @@ let prop_attributes_xml trans_sys prop_name =
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" source=\"PropAnnot\"%a"
         lnum cnum pp_print_fname fname
-    | Property.Generated _ -> ""
+    | Property.Generated (pos, _) -> (
+        match pos with
+        | None -> " source=\"Generated\""
+        | Some pos ->
+          let fname, lnum, cnum = file_row_col_of_pos pos in
+          Format.asprintf " line=\"%d\" column=\"%d\" source=\"Generated\"%a"
+          lnum cnum pp_print_fname fname
+    )
     | Property.Candidate None -> ""
     | Property.Candidate (Some source) -> get_attributes source
     | Property.Instantiated (scope,prop) ->
@@ -899,7 +906,14 @@ let prop_attributes_json ppf trans_sys prop_name =
     | Property.Guarantee (pos, scope) -> print_attributes pos scope "Guarantee"
     | Property.GuaranteeOneModeActive (pos, scope) -> print_attributes pos scope "OneModeActive"
     | Property.GuaranteeModeImplication (pos, scope) -> print_attributes pos scope "Ensure"
-    | Property.Generated _
+    | Property.Generated (pos, _) -> (
+        match pos with
+        | None -> Format.fprintf ppf "\"source\" : \"Generated\",@,"
+        | Some pos ->
+          let _, lnum, cnum = file_row_col_of_pos pos in
+          Format.fprintf ppf
+            "\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Generated\",@," lnum cnum
+    )
     | Property.Candidate None -> ()
     | Property.Candidate (Some source) -> get_attributes source
   in

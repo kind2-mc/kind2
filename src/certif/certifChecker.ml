@@ -2323,7 +2323,7 @@ let mk_prop_obs ~only_out lustre_vars kind2_sys =
   
   (* Conjunction of equalities between state varaibles *)
   ["Observational_Equivalence",
-   Property.Generated [],
+   Property.Generated (None, []),
    Term.mk_and eqs]
 
 
@@ -2355,7 +2355,7 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
         incr cpt;
         { Property.prop_name =
             "PROPERTY_Observational_Equivalence_" ^(string_of_int !cpt);
-          prop_source = Property.Generated [];
+          prop_source = Property.Generated (None, []);
           prop_term = eq;
           prop_status = Property.PropUnknown; }
       ) props_eqs in

@@ -1992,7 +1992,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
               (* Add property to node *)
               add_node_property
                 ctx
-                (Property.Generated [state_var]) 
+                (Property.Generated (None, [state_var]))
                 (Format.asprintf
                    "%a.bound" 
                    (E.pp_print_lustre_var false) 

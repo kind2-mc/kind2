@@ -56,7 +56,7 @@ and prop_source =
   | PropAnnot of Lib.position
   (** Property is from an annotation *)
 
-  | Generated of StateVar.t list
+  | Generated of Lib.position option * StateVar.t list
   (** Property was generated, for example, from a subrange constraint *)
 
   | Instantiated of Scope.t * t
