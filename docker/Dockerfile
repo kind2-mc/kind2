@@ -23,13 +23,20 @@ RUN wget -qq https://raw.githubusercontent.com/ocaml/opam/master/shell/install.s
 # Force to use opam version of ocamlc.
 ENV PATH="/root/.opam/4.07.1/bin:${PATH}"
 
+# Create directory for external tools (Yices 2, JKind, CVC4)
+RUN mkdir /tools
+
 # Retrieve Yices 2
 RUN wget -qq https://yices.csl.sri.com/releases/2.6.2/yices-2.6.2-x86_64-pc-linux-gnu-static-gmp.tar.gz \
- && tar xvf yices-2.6.2-x86_64-pc-linux-gnu-static-gmp.tar.gz && echo Success || true
+ && tar xvf yices-2.6.2-x86_64-pc-linux-gnu-static-gmp.tar.gz \
+ && cp /yices-2.6.2/bin/yices-smt2 /tools/ \
+ && echo Success || true
 
 # Retrieve JKind and CVC4 (required for certification)
 RUN wget -qq https://github.com/loonwerks/jkind/releases/download/v4.3.0/jkind-4.3.0.zip && unzip jkind-4.3.0.zip \
+ && cp /jkind/jkind /jkind/*.jar /tools/ \
  && wget -qq https://github.com/CVC4/CVC4/releases/download/1.8/cvc4-1.8-x86_64-linux-opt -O cvc4 \
+ && cp cvc4 /tools/ \
  && echo Success || true
 
 # Command for DockerHub
@@ -53,9 +60,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && adduser --disabled-password --gecos KIND2 kind2
 
-COPY --from=builder /yices-2.6.2/bin/yices-smt2 bin/
-COPY --from=builder /cvc4 /bin/
-COPY --from=builder /jkind/jkind /jkind/*.jar /bin/
+COPY --from=builder /tools /bin/
 COPY --from=builder /root/.opam/4.07.1/bin/kind2 /
 
 # Entry point.
