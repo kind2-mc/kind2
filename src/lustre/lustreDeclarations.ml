@@ -1179,8 +1179,9 @@ let rec eval_node_equation inputs outputs locals ctx = function
     (* Add equations for each index *)
       List.fold_left (
         fun ctx ((sv, b), e) ->
-          (* Is [e] a state variable in the current state? *)
+          (*
           let ctx =
+            (* Is [e] a state variable in the current state? *)
             if E.is_var e && b = [] then (
               let alias = E.state_var_of_expr e in
               (* Format.printf "%a is an alias for %a@.@."
@@ -1190,7 +1191,7 @@ let rec eval_node_equation inputs outputs locals ctx = function
                 fun node -> N.set_state_var_alias node alias sv
               )
             ) else ctx
-          in
+          in*)
           C.add_node_equation ctx pos sv b indexes e
       ) ctx equations
 

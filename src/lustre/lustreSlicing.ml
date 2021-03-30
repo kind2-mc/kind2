@@ -144,7 +144,7 @@ let rec describe_cycle node accum = function
      (* Skip oracles and calls *)
      | N.KLocal
      | N.Call
-     | N.Alias (_,_)
+     (*| N.Alias (_,_)*)
      | N.Oracle -> describe_cycle node accum tl
 
         (* State variable from abstraction *)

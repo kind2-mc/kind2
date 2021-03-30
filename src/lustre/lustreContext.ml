@@ -1586,8 +1586,8 @@ let trace_svars_of ctx expr = match ctx with
           | N.Local
           | N.KLocal
           | N.Ghost
-          | N.Call
-          | N.Alias (_,_) -> (
+          (* | N.Alias (_,_) *)
+          | N.Call -> (
             let svars =
               (* Do we have an equation for svar? *)
               match N.equation_of_svar node svar with

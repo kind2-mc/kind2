@@ -1255,7 +1255,7 @@ let pp_print_stream_ident_xml = pp_print_stream_ident_pt
 
 
 (* Pretty-print a property of a stream as XML attributes *)
-let rec pp_print_stream_prop_xml ppf = function 
+let pp_print_stream_prop_xml ppf = function 
 
   | N.Input -> Format.fprintf ppf "@ class=\"input\""
 
@@ -1263,7 +1263,7 @@ let rec pp_print_stream_prop_xml ppf = function
 
   | N.Local -> Format.fprintf ppf "@ class=\"local\""
 
-  | N.Alias (_, Some src) -> pp_print_stream_prop_xml ppf src
+  (*| N.Alias (_, Some src) -> pp_print_stream_prop_xml ppf src*)
 
   (* Any other streams should have been culled out *)
   | _ -> assert false 
@@ -1553,7 +1553,7 @@ let pp_print_stream_ident_json = pp_print_stream_ident_pt
 
 
 (* Pretty-print a property of a stream as JSON attributes *)
-let rec pp_print_stream_prop_json ppf = function
+let pp_print_stream_prop_json ppf = function
 
   | N.Input -> Format.fprintf ppf "\"class\" : \"input\",@,"
 
@@ -1561,7 +1561,7 @@ let rec pp_print_stream_prop_json ppf = function
 
   | N.Local -> Format.fprintf ppf "\"class\" : \"local\",@,"
 
-  | N.Alias (_, Some src) -> pp_print_stream_prop_json ppf src
+  (* | N.Alias (_, Some src) -> pp_print_stream_prop_json ppf src *)
 
   (* Any other streams should have been culled out *)
   | _ -> assert false

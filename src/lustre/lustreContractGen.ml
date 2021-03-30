@@ -119,8 +119,8 @@ module Contract = struct
       (* Found oracle , illegal invariant. *)
       | Some Node.Oracle -> None
 
-      | Some Node.Alias (_, source) ->
-         analyze_by_source known locals svar tail source
+      (* | Some Node.Alias (_, source) ->
+         analyze_by_source known locals svar tail source *)
 
       | _ -> (
         let locals = SvSet.add svar locals in
