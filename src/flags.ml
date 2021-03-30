@@ -2936,7 +2936,7 @@ module Global = struct
   let slice_nodes () = !slice_nodes
 
 
-  let check_subproperties_default = false
+  let check_subproperties_default = true
   let check_subproperties = ref check_subproperties_default
   let _ = add_spec
     "--check_subproperties"
@@ -2944,8 +2944,7 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Check properties of subnodes that are relevant for the analysis@ \
-          of the top node. Only available with monolithic analysis@ \
+          Check properties of subnodes in addition to properties of the main node@ \
           Default: %a\
         "
         fmt_bool check_subproperties_default

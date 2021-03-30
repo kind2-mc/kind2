@@ -575,20 +575,6 @@ let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys
   KEvent.log L_info "Result: %a" Analysis.pp_print_result result
 
 
-let check_analysis_flags () =
-  if Flags.check_subproperties () then (
-    let show_msg_and_exit arg =
-      KEvent.log L_fatal
-        "Subproperty checking is not compatible with %s analysis." arg;
-      KEvent.terminate_log () ;
-      exit ExitCodes.error
-    in
-    if Flags.modular () then
-      show_msg_and_exit "modular"
-    else if Flags.Contracts.compositional () then
-      show_msg_and_exit "compositional"
-  )
-
 let handle_exception in_sys process e =
   (* Get backtrace now, Printf changes it *)
   let backtrace = Printexc.get_raw_backtrace () in
@@ -710,8 +696,6 @@ let run in_sys =
   (* MCS is active. *)
   | modules when List.mem `MCS modules -> (
 
-    check_analysis_flags ();
-
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `Supervisor ;
@@ -747,8 +731,6 @@ let run in_sys =
   (* Some analysis modules. *)
   (* Some modules, not including the interpreter. *)
   | modules ->
-
-    check_analysis_flags ();
 
     KEvent.log L_info
       "@[<hov>Running in parallel mode: @[<v>- %a@]@]"

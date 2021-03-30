@@ -875,8 +875,10 @@ let rec ident_of_top = function
   | h :: tl -> ident_of_top tl
 
 
-(* Node has a contract if it has a global or at least one mode contract *)
-let has_contract { contract } = contract != None
+(* Node has a contract if it has at least one guarantee or one mode *)
+let has_contract = function
+| { contract = None } -> false
+| { contract = Some { C.guarantees;  C.modes } } -> guarantees != [] || modes != []
 
 let has_modes = function
 | { contract = None } -> false
