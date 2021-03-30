@@ -1135,6 +1135,22 @@ let rec pp_print_lustre_path_pt' ppf = function
      original order again. *)
   let locals_auto, locals = partition_locals_automaton is_visible locals in
   
+  let ghosts, locals =
+    locals
+    |> List.partition
+      (fun (_, sv) ->
+        try
+          match N.get_state_var_source node sv with
+          | N.Ghost -> true
+          | _ -> false
+        with Not_found -> false
+      )
+  in
+
+  let ident_witdth, val_width, ghosts' =
+    ghosts |> streams_to_values model ident_width val_width []
+  in
+
   let ident_width, val_width, locals' = 
     locals |> streams_to_values model ident_width val_width []
   in
@@ -1147,18 +1163,20 @@ let rec pp_print_lustre_path_pt' ppf = function
   in
 
   (* Sample inputs, outputs and locals on clock *)
-  let inputs', outputs', locals', locals_auto' = match clock with
-    | None -> inputs', outputs', locals', locals_auto'
+  let inputs', outputs', ghosts', locals', locals_auto' = match clock with
+    | None -> inputs', outputs', ghosts', locals', locals_auto'
     | Some c -> 
       sample_streams_on_clock c inputs',
       sample_streams_on_clock c outputs',
+      sample_streams_on_clock c ghosts',
       sample_streams_on_clock c locals',
       MS.map (sample_streams_on_clock c) locals_auto'
   in
-    
+  
   (* Pretty-print this node or function. *)
   Format.fprintf ppf "@[<v>\
       @{<b>%s@} @{<blue>%a@} (%a)@,  @[<v>\
+        %a\
         %a\
         %a\
         %a\
@@ -1174,6 +1192,7 @@ let rec pp_print_lustre_path_pt' ppf = function
     (pp_print_modes_section_pt ident_width val_width mode_ident) modes
     (pp_print_stream_section_pt ident_width val_width "Inputs") inputs'
     (pp_print_stream_section_pt ident_width val_width "Outputs") outputs'
+    (pp_print_stream_section_pt ident_width val_width "Ghosts") ghosts'
     (pp_print_stream_section_pt ident_width val_width "Locals") locals'
     (pp_print_stream_automata_pt ident_width val_width) locals_auto';
 
@@ -1262,6 +1281,8 @@ let pp_print_stream_prop_xml ppf = function
   | N.Output -> Format.fprintf ppf "@ class=\"output\""
 
   | N.Local -> Format.fprintf ppf "@ class=\"local\""
+
+  | N.Ghost -> Format.fprintf ppf "@ class=\"ghost\""
 
   (*| N.Alias (_, Some src) -> pp_print_stream_prop_xml ppf src*)
 

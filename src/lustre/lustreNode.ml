@@ -80,6 +80,9 @@ type state_var_source =
   (* Local ghost stream *)
   | Ghost
 
+  (* Invisble Kind 2 ghost stream *)
+  | KGhost
+
   (* Oracle input stream *)
   | Oracle
 
@@ -692,6 +695,7 @@ let pp_print_node_debug
       | (sv, KLocal) -> p sv "k-loc"
       | (sv, Call) -> p sv "cl"
       | (sv, Ghost) -> p sv "gh"
+      | (sv, KGhost) -> p sv "k-gh"
       | (sv, Oracle) -> p sv "or"
       (* | (sv, Alias (sub, _)) -> p sv (
         Format.asprintf "al(%a)"
@@ -1347,6 +1351,7 @@ let pp_print_state_var_source ppf = function
   | KLocal -> Format.fprintf ppf "invisible local"
   | Call -> Format.fprintf ppf "call"
   | Ghost -> Format.fprintf ppf "ghost"
+  | KGhost -> Format.fprintf ppf "invisble ghost"
   (* | Alias (sv, _) ->
     Format.fprintf ppf "alias(%a)" StateVar.pp_print_state_var sv *)
 
@@ -1403,13 +1408,14 @@ let state_var_is_visible node state_var =
   let visible_of_src = function
     (* Oracle inputs and abstracted streams are invisible *)
     | Call
-    | Ghost
     | Oracle
+    | KGhost
     | KLocal -> false
 
     (* Inputs, outputs and defined locals are visible *)
     | Input
     | Output
+    | Ghost
     | Local -> true
 
     (* (* Alias depends on source of alias. *)

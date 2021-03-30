@@ -110,6 +110,7 @@ type state_var_source =
 | KLocal  (** Kind 2 invisible local variable *)
 | Call    (** Tied to a node call. *)
 | Ghost   (** Declared ghost variable *)
+| KGhost  (** Kind 2 invisible ghost variable *)
 | Oracle  (** Generated non-deterministic input *)
 (*| Alias of
   StateVar.t * state_var_source option (** Alias for another state variable. *) *)

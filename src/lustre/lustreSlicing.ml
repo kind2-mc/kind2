@@ -142,6 +142,7 @@ let rec describe_cycle node accum = function
          tl
 
      (* Skip oracles and calls *)
+     | N.KGhost
      | N.KLocal
      | N.Call
      (*| N.Alias (_,_)*)
