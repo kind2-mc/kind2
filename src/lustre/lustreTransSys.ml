@@ -689,15 +689,12 @@ let call_terms_of_node_call mk_fresh_state_var globals
 
   (* Instantiate assumptions from contracts in this node. *)
   let node_props =
-    if Flags.Contracts.compositional () then
-      match contract with
-      | None -> node_props
-      | Some contract -> (
-        subrequirements_of_contract
-          call_pos (I.to_scope call_node_name) state_var_map_up contract
-      ) @ node_props
-    else
-      node_props
+    match contract with
+    | None -> node_props
+    | Some contract -> (
+      subrequirements_of_contract
+        call_pos (I.to_scope call_node_name) state_var_map_up contract
+    ) @ node_props
   in
 
   (* Return actual parameters of initial state constraint at bound in
