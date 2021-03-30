@@ -20,6 +20,8 @@ open Lib
 
 module VS = Var.VarSet
 
+exception QuantifiedTermFound of Term.t
+
 (* The current solver instance in use *)
 let solver_qe = ref None 
 
@@ -542,8 +544,7 @@ let generalize trans_sys uf_defs model elim term =
     Model.pp_print_model model;
 
   if Term.has_quantifier term then begin
-    KEvent.log L_fatal "Cannot generalize quantified terms.";
-    failwith "Cannot generalize quantified terms.";
+    raise (QuantifiedTermFound term)
   end;
 
   (* Extract active path from term and model *)

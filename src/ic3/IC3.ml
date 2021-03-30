@@ -702,8 +702,11 @@ let extrapolate trans_sys state f g =
         state
         primed_vars
         term 
-    with 
-      GenericSMTLIBDriver.UnsupportedZ3Symbol s ->
+    with
+    | QE.QuantifiedTermFound _ ->
+        let err = "Disabling IC3: Cannot generalize quantified terms." in
+        raise (UnsupportedFeature err)
+    | GenericSMTLIBDriver.UnsupportedZ3Symbol s ->
         let err = ("Disabling IC3: Special non-SMTLIB symbol " ^ s ^ " detected in QE.") in
         raise (UnsupportedFeature err)
   in
@@ -1018,7 +1021,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                   with Invalid_argument _ as e -> (
                     if List.exists (fun t -> Term.has_quantifier t) cti_gen then (
                       raise (UnsupportedFeature
-                        "Disabling IC3: system contains quantifiers or array streams.")
+                        "Disabling IC3: QE failed during generalization step.")
                     )
                     else
                       raise e
