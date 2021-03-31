@@ -1,0 +1,13 @@
+type U = subrange [0,2] of int;
+type T = subrange [-1,1] of int;
+
+node A(x: U) returns (y: U)
+let
+    y = x;
+tel
+
+node B(x: T) returns (z: T; y: U)
+let
+    y = x;
+    z = A(y);
+tel

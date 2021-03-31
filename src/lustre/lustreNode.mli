@@ -294,9 +294,9 @@ val find_main : t list -> LustreIdent.t
     Fail with [Invalid_argument "ident_of_top"] if list of nodes is empty *)
 val ident_of_top : t list -> LustreIdent.t 
 
-(** Return true if the node has a global or at least one mode
-    contract *)
-val has_contract : t -> bool
+(** Return true if the node has a contract with
+    at least one guarantee or one mode *)
+val has_effective_contract : t -> bool
 
 (** Return a tree-like subsystem hierarchy from a flat list of nodes,
     where the top node is at the head of the list. *)

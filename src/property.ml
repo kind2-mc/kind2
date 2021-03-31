@@ -61,7 +61,7 @@ and prop_source =
   | PropAnnot of position
 
   (* Property was generated, for example, from a subrange constraint *)
-  | Generated of StateVar.t list
+  | Generated of position option * StateVar.t list
 
   (* Property is an instance of a property in a called node.
 
@@ -111,7 +111,7 @@ let pp_print_prop_source ppf = function
   | PropAnnot pos ->
      Format.fprintf
        ppf "%a" pp_print_position pos
-  | Generated [] ->
+  | Generated (_, []) ->
      Format.fprintf ppf "generated"
   | Generated _ ->
      Format.fprintf ppf "subrange constraint"

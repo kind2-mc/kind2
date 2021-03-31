@@ -32,6 +32,7 @@ module ET = E.LustreExprHashtbl
 module C = LustreContract
 module N = LustreNode
 
+module SVM = StateVar.StateVarMap
 module SVT = StateVar.StateVarHashtbl
 module SVS = StateVar.StateVarSet
 
@@ -120,12 +121,16 @@ type t = {
      message and a position to raise an error with. *)
   definitions_allowed : (Lib.position * string) option;
 
+  (* saving inputs variables positions and their luster identifiers for error
+     reporting and creation of subrange checking properties *)
+  inputs_info : (StateVar.t * I.t * Lib.position) list;
+
   (* saving local variables positions and their luster identifiers for error
-     reporting *)
+     reporting and creation of subrange checking properties *)
   locals_info : (StateVar.t * I.t * Lib.position) list;
 
   (* saving output variables positions and their luster identifiers for error
-     reporting *)
+     reporting and creation of subrange checking properties *)
   outputs_info : (StateVar.t * I.t * Lib.position) list;
 
   (* Indicates there are unguarded pre's in the lustre code and we need to
@@ -136,7 +141,10 @@ type t = {
   in_automaton : bool;
 
   free_constants : (Var.t D.t) IT.t;
-  
+
+  (* Map from state variables whose type has changed
+     to its original integer type *)
+  original_int_type : Type.t SVM.t;
 }
 
 let pp_print_scope fmt { scope ; contract_scope } =
@@ -167,11 +175,13 @@ let mk_empty_context () =
       fresh_local_index = ref 0;
       fresh_oracle_index = ref 0;
       definitions_allowed = None;
+      inputs_info = [];
       locals_info = [];
       outputs_info = [];
       guard_pre = false;
       in_automaton = false;
       free_constants = IT.create 7;
+      original_int_type = SVM.empty;
     }
   in
   c
@@ -798,6 +808,8 @@ let prop_name_in_context ctx ident =
   | { node = Some ({ N.props }) } ->
     List.exists (fun (_, name, _) -> name = ident) props
 
+let original_int_type { original_int_type } svar =
+  SVM.find_opt svar original_int_type
 
 (* Add newly created variable to locals *)
 let add_state_var_to_locals = function 
@@ -1403,7 +1415,7 @@ let call_outputs_of_node_call
       with Not_found -> None
 
 (* Add node input to context *)
-let add_node_input ?is_const ctx ident index_types =
+let add_node_input ?is_const ctx ident pos index_types =
 
   match ctx with 
 
@@ -1432,6 +1444,12 @@ let add_node_input ?is_const ctx ident index_types =
                  (Some N.Input)
              in
              
+             (* Register input declarations positions for later *)
+             let ctx  =
+               { ctx with
+                 inputs_info = (state_var, ident, pos) :: ctx.inputs_info }
+             in
+
              (* Add expression to trie of identifier *)
              (D.add (D.ListIndex next_top_idx :: index) state_var accum, ctx))
              
@@ -1967,6 +1985,11 @@ let add_node_equation ctx pos state_var bounds indexes expr =
               when Type.is_int_range t &&
                    (Type.is_int s || Type.is_int_range s) -> 
 
+              ctx
+
+              (* Local analysis based on types misses cases.
+                 We introduce appropiate checks in lustreDeclarations.
+
               let (lbound, ubound) = Type.bounds_of_int_range t in
 
               (* Value of expression is in range of declared type: 
@@ -1992,12 +2015,12 @@ let add_node_equation ctx pos state_var bounds indexes expr =
               (* Add property to node *)
               add_node_property
                 ctx
-                (Property.Generated [state_var]) 
+                (Property.Generated (None, [state_var]))
                 (Format.asprintf
                    "%a.bound" 
                    (E.pp_print_lustre_var false) 
                    state_var)
-                range_expr
+                range_expr*)
 
             | t, s -> 
 
@@ -2010,27 +2033,30 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
       in
 
-      if 
+      let state_var_type = StateVar.type_of_state_var state_var in
+
+      let convert_type =
 
         (* State variable declared as integer, but type of expression
            inferred as integer range? *)
-        StateVar.type_of_state_var state_var |> Type.is_int &&
-        Type.is_int_range expr_type 
+        state_var_type |> Type.is_int && Type.is_int_range expr_type
 
+        (* TODO: accept this conversion and create the appropiate checks
+           in lustreDeclarations.
         ||
 
         (* State variable declared as integer range, but type of
            expression inferred as stricter integer range? *)
-        StateVar.type_of_state_var state_var |> Type.is_int_range &&
+        state_var_type |> Type.is_int_range &&
         Type.is_int_range expr_type &&
         (let l1, u1 = 
-           StateVar.type_of_state_var state_var
-           |> Type.bounds_of_int_range 
+           state_var_type |> Type.bounds_of_int_range
          in
          let l2, u2 = Type.bounds_of_int_range expr_type in
-         Numeral.(l1 < l2) && Numeral.(u1 > u2)) 
-        
-      then
+         Numeral.(l1 < l2) && Numeral.(u1 > u2)) *)
+      in
+
+      if convert_type then
 
         (* Change type of state variable to the stricter type of the
            expression to get a constraint on the values later
@@ -2045,9 +2071,15 @@ let add_node_equation ctx pos state_var bounds indexes expr =
       (* Return node with equation added *)
       match ctx with 
       | { node = None } -> assert false 
-      | { node = Some node } -> 
+      | { node = Some node; original_int_type } ->
+        { ctx with
 
-        { ctx with 
+          original_int_type =
+            if convert_type then
+              SVM.add state_var state_var_type original_int_type
+            else
+              original_int_type;
+
           node = Some { node with
                         N.equations = 
                           ((state_var, bounds), expr) :: equations } }
@@ -2222,7 +2254,24 @@ let check_vars_defined ctx =
   (* check_outputs_defined ctx; *)
   check_local_vars_defined ctx
   
-
+let position_of_state_variable ctx svar =
+  let eq (sv,_,_) =
+    StateVar.equal_state_vars sv svar
+  in
+  let { inputs_info } = ctx in
+  match List.find_opt eq inputs_info with
+  | Some (sv,_,pos) -> Some pos
+  | None -> (
+    let { outputs_info } = ctx in
+    match List.find_opt eq outputs_info with
+    | Some (sv,_,pos) -> Some pos
+    | None -> (
+      let { locals_info } = ctx in
+      match List.find_opt eq locals_info with
+      | Some (sv,_,pos) -> Some pos
+      | None -> None
+    )
+  )
 
 (* 
    Local Variables:

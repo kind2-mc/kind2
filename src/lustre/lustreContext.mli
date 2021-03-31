@@ -222,6 +222,10 @@ val node_in_context : t -> LustreIdent.t -> bool
 (** Return [true] if the identifier denotes a property in the context *)
 val prop_name_in_context : t -> string -> bool
 
+(** Return the original type of a state variable whose type has changed,
+    or [None] if the type of the state variable has not changed *)
+val original_int_type : t -> StateVar.t -> Type.t option
+
 val mk_state_var :
   ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> ?shadow:bool ->
   t -> Ident.t list -> LustreIdent.t -> LustreIndex.index -> Type.t ->
@@ -281,7 +285,8 @@ val call_outputs_of_node_call :
 
 (** Add node input to context *)
 val add_node_input :
-  ?is_const:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
+  ?is_const:bool -> t -> LustreIdent.t -> Lib.position ->
+  Type.t LustreIndex.t -> t
 
 (** Add node output to context *)
 val add_node_output :
@@ -353,6 +358,9 @@ val check_vars_defined : t -> unit
 
 (** Returns true if new definitions are allowed in the context *)
 val are_definitions_allowed : t -> bool
+
+(** Returns position associated with state variable *)
+val position_of_state_variable : t -> StateVar.t -> position option
 
 (* 
    Local Variables:
