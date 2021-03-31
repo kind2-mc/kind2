@@ -293,13 +293,13 @@ let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
       let prop_name =
         match name with
         | None -> (
-          Format.asprintf "%a%a.assume%a[%d]"
+          Format.asprintf "%a%a.assume%a"
             Scope.pp_print_scope scope pp_print_pos call_pos
-            pp_print_pos pos num
+            pp_print_pos pos
         )
         | Some n -> (
-          Format.asprintf "%a%a.%s[%d]"
-            Scope.pp_print_scope scope pp_print_pos call_pos n num
+          Format.asprintf "%a%a.%s"
+            Scope.pp_print_scope scope pp_print_pos call_pos n
         )
       in
       let prop_status = P.PropUnknown in
