@@ -502,6 +502,7 @@ let rec eval_node_inputs ctx = function
         ~is_const
         ctx
         ident
+        pos
         index_types
     in
 
@@ -1919,8 +1920,10 @@ and eval_node_contract_spec
       in
       let rec loop known = function
         | [] -> ()
-        | { N.name ; N.calls ; N.contract = None } :: tail ->
-          (* No contract, is ok. Preparing recursive call. *)
+        | ({ N.name ; N.calls ; N.is_extern } as node) :: tail when
+            is_extern || not (N.has_effective_contract node) ->
+          (* Imported node or node without an effective contract is ok.
+             Preparing recursive call. *)
           let known = I.Set.add name known in
           calls |> List.fold_left (
             fun acc { N.call_node_name = sub_name } -> 
@@ -2578,7 +2581,6 @@ and eval_node_decl
         eval_node_contract_spec I.Set.empty ctx pos []
           inputs outputs locals contract
       in
-      let ctx = C.add_node_sofar_assumption ctx in
       (* Remove scope for local declarations in contract *)
       C.pop_scope ctx
   in
@@ -2598,6 +2600,210 @@ and eval_node_decl
   
   (* Remove scope for local declarations in implementation *)
   let ctx = C.pop_scope ctx in
+
+  (* Add assumptions, guarantees, and properties to check the values of
+     state variables are in range of the declared type (subrange).
+     This must be run after input, output, ghost, and local variables
+     have been processed.
+
+     We group state variables based on the kind of constraint
+     used to check it. E.g. inputs go to [assume_svars] because
+     we use assumptions to check their bounds.
+  *)
+
+  let assume_svars, guarantee_svars, prop_svars =
+    match C.get_node ctx with
+    | None -> failwith "[eval_node_decl] No current node in context."
+    | Some ({ N.is_extern ; N.state_var_source_map } as node) -> (
+      let assume_svars, others =
+        StateVar.StateVarMap.filter
+          (fun sv src ->
+            let sv_type = StateVar.type_of_state_var sv in
+            (match src with
+             | N.Input | N.Output | N.Ghost | N.Local -> true
+             | _ -> false
+            ) &&
+            (
+              Type.is_int_range sv_type
+              ||
+              ((Type.is_array sv_type) &&
+               Type.is_int_range (Type.last_elem_type_of_array sv_type)
+              )
+            )
+          )
+          state_var_source_map
+        |> StateVar.StateVarMap.partition
+          (fun _ src -> match src with N.Input -> true | _ -> false)
+      in
+      let prop_svars, guarantee_svars =
+        if is_extern then
+          StateVar.StateVarMap.empty, others
+        else (
+          StateVar.StateVarMap.partition
+          (fun svar src ->
+            let converted =
+              match C.original_int_type ctx svar with
+              | None -> false
+              | Some ty when Type.is_int ty -> true
+              | _ -> assert false
+                    (* This should not happen if conversion from
+                       subrange type to subrange type is not enabled
+                       in LustreContext. *)
+            in
+            if converted then true
+            else
+              match src with
+            | N.Local -> true
+            | N.Output -> not (N.has_effective_contract node)
+            | _ -> false
+          )
+          others
+        )
+      in
+      StateVar.StateVarMap.bindings assume_svars |> List.map fst,
+      StateVar.StateVarMap.bindings guarantee_svars |> List.map fst,
+      StateVar.StateVarMap.bindings prop_svars |> List.map fst
+    )
+  in
+
+  let create_constraint_name svar =
+    Format.asprintf "%a._bounds" (E.pp_print_lustre_var false) svar
+  in
+
+  let create_range_expr svar =
+    let svar_type = StateVar.type_of_state_var svar in
+    if Type.is_array svar_type then (
+      let base_type = Type.last_elem_type_of_array svar_type in
+      let indices =
+        Type.all_index_types_of_array svar_type
+        |> List.map (fun ty -> ty, Var.mk_fresh_var Type.t_int)
+      in
+      let array_var = E.mk_var svar in
+      let select_term =
+        List.fold_left
+          (fun acc (_, iv) -> E.mk_select acc (E.mk_free_var iv))
+          array_var
+          indices
+      in
+      let lbound, ubound = Type.bounds_of_int_range base_type in
+      let ct =
+        (E.mk_and
+          (E.mk_lte (E.mk_int lbound) select_term)
+          (E.mk_lte select_term (E.mk_int ubound)))
+      in
+      let qct =
+        List.fold_left
+          (fun acc (ty, iv) ->
+             match Type.node_of_type ty with
+             | Type.IntRange (i, j, Type.Range) -> (
+               let bounds =
+                 E.mk_and
+                   (E.mk_lte (E.mk_int i) (E.mk_free_var iv))
+                   (E.mk_lt (E.mk_free_var iv) (E.mk_int j))
+               in
+               E.mk_forall [iv] (E.mk_impl bounds acc)
+             )
+             | _ ->
+               E.mk_forall [iv] acc)
+          ct
+          indices
+      in
+      qct
+    )
+    else (
+      let lbound, ubound = Type.bounds_of_int_range svar_type in
+      let lus_var = E.mk_var svar in
+      (* Value of state variable is in range of declared type:
+        lbound <= svar and svar <= ubound *)
+      (E.mk_and
+        (E.mk_lte (E.mk_int lbound) lus_var)
+        (E.mk_lte lus_var (E.mk_int ubound)))
+    )
+  in
+
+  let create_subrange_contract_constraint typ (ctx, acc, cpt) svar =
+    let range_expr = create_range_expr svar in
+    let pos =
+      match C.position_of_state_variable ctx svar with
+      | Some pos -> pos
+      | None -> assert false
+    in
+    let (loc_svar, _), ctx =
+      C.mk_local_for_expr ~reuse:false ~is_ghost:true pos ctx range_expr
+    in
+    let oname = Some (create_constraint_name svar) in
+    let contract_svar = Contract.mk_svar pos cpt oname loc_svar [] in
+    N.add_state_var_def loc_svar (N.ContractItem (pos, contract_svar, typ)) ;
+    ctx, contract_svar :: acc, cpt + 1
+  in
+
+  let create_subrange_constraints ctx =
+    (* Property constraints *)
+    let ctx =
+      List.fold_left
+        (fun ctx svar ->
+          let range_expr = create_range_expr svar in
+          let source =
+            match C.original_int_type ctx svar with
+            | Some _ -> Property.Candidate None
+            | None -> (
+              let pos =
+                match C.position_of_state_variable ctx svar with
+                | Some pos -> pos
+                | None -> assert false
+              in
+              Property.Generated (Some pos, [svar])
+            )
+          in
+          C.add_node_property
+            ctx
+            source
+            (create_constraint_name svar)
+            range_expr
+        )
+        ctx
+        prop_svars
+    in
+    let cpt_a, cpt_g =
+      match C.get_node ctx with
+      | None -> assert false
+      | Some { N.contract } -> (
+        match contract with
+        | None -> 1, 1
+        | Some { Contract.assumes ; Contract.guarantees } ->
+          1 + List.length assumes, 1 + List.length guarantees
+      )
+    in
+    (* Assume constraints *)
+    let ctx =
+      if assume_svars = [] then ctx
+      else (
+        let ctx, assumes, _ =
+          List.fold_left
+            (create_subrange_contract_constraint N.Assumption)
+            (ctx, [], cpt_a)
+            assume_svars
+        in
+        C.add_node_ass ctx assumes
+      )
+    in
+    (* Guarantee constraints *)
+    if guarantee_svars = [] then ctx
+    else (
+      let ctx, guarantees, _ =
+      List.fold_left
+        (create_subrange_contract_constraint N.Guarantee)
+        (ctx, [], cpt_g)
+        guarantee_svars
+      in
+      List.map (fun g -> g, false) guarantees
+      |> C.add_node_gua ctx
+    )
+  in
+
+  let ctx = create_subrange_constraints ctx in
+
+  let ctx = C.add_node_sofar_assumption ctx in
 
   (* Create node from current context and return *)
   ctx

@@ -876,7 +876,7 @@ let rec ident_of_top = function
 
 
 (* Node has a contract if it has at least one guarantee or one mode *)
-let has_contract = function
+let has_effective_contract = function
 | { contract = None } -> false
 | { contract = Some { C.guarantees;  C.modes } } -> guarantees != [] || modes != []
 
@@ -997,7 +997,7 @@ let rec subsystem_of_nodes' nodes accum = function
         let scope = [I.string_of_ident false top] in
 
         (* Does node have contracts? *)
-        let has_contract = has_contract node in 
+        let has_contract = has_effective_contract node in
 
         (* Does node have modes? *)
         let has_modes = has_modes node in
