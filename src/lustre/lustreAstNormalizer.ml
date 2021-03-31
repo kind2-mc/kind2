@@ -124,7 +124,7 @@ let normalize_list f list =
   in List.fold_left over_list ([], empty) list
 
 let rec normalize (decls:LustreAst.t) =
-  normalize_list normalize_declaration decls
+  normalize_list normalize_declaration decls |> Result.ok
 
 and normalize_declaration = function
   | NodeDecl (pos, decl) ->

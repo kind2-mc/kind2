@@ -34,6 +34,7 @@ module TC = LustreTypeChecker
 module TCContext = TypeCheckerContext
 module IC = LustreAstInlineConstants
 module AD = LustreAstDependencies
+(* module LAN = LustreAstNormalizer *)
 
 let (>>=) = Res.(>>=)
 let (>>) = Res.(>>)
@@ -141,6 +142,9 @@ let of_channel in_ch =
              
            (* Step 6. Inline constants in node equations *)
            IC.inline_constants ctx sorted_node_contract_decls >>= fun (_, const_inlined_nodes_and_contracts) ->
+
+           (* Step 7. Normalize AST: guard pres, abstract to locals where appropriate *)
+           (* LAN.normalize const_inlined_nodes_and_contracts >>= fun (ctx, ast) -> *)
            
            (* The last node in the original ordering should remain the last node after sorting 
               as the user expects that to be the main node in the case where 

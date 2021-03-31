@@ -66,4 +66,4 @@ type generated_identifiers = {
   oracles : LustreAst.ident list
 }
 
-val normalize : LustreAst.t -> LustreAst.t * generated_identifiers
+val normalize : LustreAst.t -> (LustreAst.t * generated_identifiers, Lib.position * string) result
