@@ -48,17 +48,11 @@
       pre expr => pre l
     where l = expr
 
-  3. Guards of the arrow operator that are not constant or identifiers
-    e.g.
-      expr1 -> expr2 => l1 -> expr2
-    where l1 = expr1
-
      @author Andrew Marmaduke *)
 
 open Lib
 
 module A = LustreAst
-module AH = LustreAstHelpers
 
 (** Map for types with identifiers as keys *)
 module IMap = struct
@@ -207,18 +201,36 @@ and normalize_equation = function
   | Automaton (pos, id, states, auto) ->
     A.Automaton (pos, id, states, auto), empty
 
-and normalize_expr ?guard = function
-  | Call (pos, id, exprs) ->
-    let generate_fresh_ids expr =
-      (* If [expr] is already an id then we don't create a fresh local *)
-      if expr_is_id expr then
-        expr, empty
-      else
-        let nexpr, gids1 = normalize_expr ?guard expr in
-        let iexpr, gids2 = mk_fresh_local nexpr in
-        iexpr, union gids1 gids2
-    in let nexprs, gids = normalize_list generate_fresh_ids exprs in
-    Call (pos, id, nexprs), gids
+and normalize_expr ?guard =
+  let generate_fresh_ids ?guard expr =
+    (* If [expr] is already an id then we don't create a fresh local *)
+    if expr_is_id expr then
+      expr, empty
+    else
+      let nexpr, gids1 = normalize_expr ?guard expr in
+      let iexpr, gids2 = mk_fresh_local nexpr in
+      iexpr, union gids1 gids2
+  in function
+  (* ************************************************************************ *)
+  (* Node calls                                                               *)
+  (* ************************************************************************ *)
+  | Call (pos, id, args) ->
+    let nargs, gids = normalize_list (generate_fresh_ids ?guard) args in
+    Call (pos, id, nargs), gids
+  | Condact (pos, cond, restart, id, args, defaults) ->
+    let ncond, gids1 = normalize_expr ?guard cond in
+    let nrestart, gids2 = normalize_expr ?guard restart in
+    let nargs, gids3 = normalize_list (generate_fresh_ids ?guard) args in
+    let ndefaults, gids4 = normalize_list (normalize_expr ?guard) defaults in
+    let gids = union (union gids1 gids2) (union gids3 gids4) in
+    Condact (pos, ncond, nrestart, id, nargs, ndefaults), gids
+  | RestartEvery (pos, id, args, cond) ->
+    let ncond, gids1 = normalize_expr ?guard cond in
+    let nargs, gids2 = normalize_list (generate_fresh_ids ?guard) args in
+    RestartEvery (pos, id, nargs, ncond), union gids1 gids2
+  (* ************************************************************************ *)
+  (* Guarding and abstracting pres                                            *)
+  (* ************************************************************************ *)
   | Arrow (pos, expr1, expr2) ->
     let nexpr1, gids1 = normalize_expr ?guard expr1 in
     let nexpr2, gids2 = normalize_expr ?guard:(Some nexpr1) expr2 in
@@ -231,13 +243,8 @@ and normalize_expr ?guard = function
           guard, gids, false
     in
     (* If [expr] is an id then we don't create a fresh local *)
-    let nexpr, gids2 = if expr_is_id expr then
-        expr, empty
-      else
-        let gexpr, gids1 = normalize_expr ?guard:(Some guard) expr in
-        let nexpr, gids2 = mk_fresh_local gexpr in
-        nexpr, union gids1 gids2
-    in let gids = union gids1 gids2 in
+    let nexpr, gids2 = generate_fresh_ids ?guard:(Some guard) expr in
+    let gids = union gids1 gids2 in
     if previously_guarded then Pre (pos, nexpr), gids
     else Arrow (Lib.dummy_pos, guard, Pre (pos, nexpr)), gids
   (* ************************************************************************ *)
@@ -316,13 +323,6 @@ and normalize_expr ?guard = function
   | Current (pos, expr) ->
     let nexpr, gids = normalize_expr ?guard expr in
     Current (pos, nexpr), gids
-  | Condact (pos, expr1, expr2, id, expr_list1, expr_list2) ->
-    let nexpr1, gids1 = normalize_expr ?guard expr1 in
-    let nexpr2, gids2 = normalize_expr ?guard expr2 in
-    let nexpr_list1, gids3 = normalize_list (normalize_expr ?guard) expr_list1 in
-    let nexpr_list2, gids4 = normalize_list (normalize_expr ?guard) expr_list2 in
-    let gids = union (union gids1 gids2) (union gids3 gids4) in
-    Condact (pos, nexpr1, nexpr2, id, nexpr_list1, nexpr_list2), gids
   | Activate (pos, id, expr1, expr2, expr_list) ->
     let nexpr1, gids1 = normalize_expr ?guard expr1 in
     let nexpr2, gids2 = normalize_expr ?guard expr2 in
@@ -336,10 +336,6 @@ and normalize_expr ?guard = function
     in 
     let nid_expr_list, gids = normalize_list (normalize' ?guard) id_expr_list in
     Merge (pos, id, nid_expr_list), gids
-  | RestartEvery (pos, id, expr_list, expr) ->
-    let nexpr, gids1 = normalize_expr ?guard expr in
-    let nexpr_list, gids2 = normalize_list (normalize_expr ?guard) expr_list in
-    RestartEvery (pos, id, nexpr_list, nexpr), union gids1 gids2
   | Last _ as expr -> expr, empty
   | Fby (pos, expr1, i, expr2) ->
     let nexpr1, gids1 = normalize_expr ?guard expr1 in

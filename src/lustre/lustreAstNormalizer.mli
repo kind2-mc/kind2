@@ -48,11 +48,6 @@
       pre expr => pre l
     where l = expr
 
-  3. Guards of the arrow operator that are not constant or identifiers
-    e.g.
-      expr1 -> expr2 => l1 -> expr2
-    where l1 = expr1
-
      @author Andrew Marmaduke *)
 
 module IMap : sig
