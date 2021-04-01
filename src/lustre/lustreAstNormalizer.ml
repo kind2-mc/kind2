@@ -55,9 +55,12 @@
 
      @author Andrew Marmaduke *)
 
+open Lib
+
 module A = LustreAst
 module AH = LustreAstHelpers
 
+(** Map for types with identifiers as keys *)
 module IMap = struct
   include Map.Make(struct
     type t = LustreAst.ident
@@ -65,12 +68,24 @@ module IMap = struct
   end)
   let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
 end
-(** Map for types with identifiers as keys *)
 
 type generated_identifiers = {
     locals : LustreAst.expr IMap.t;
     oracles : LustreAst.ident list
 }
+
+let pp_print_generated_identifiers ppf gids =
+  let locals_list = IMap.bindings gids.locals |> List.rev in
+  let pp_print_local = pp_print_pair
+    Format.pp_print_string
+    A.pp_print_expr
+    " = "
+  in
+  let pp_print_oracle = Format.pp_print_string in
+  Format.fprintf ppf "%a\n%a"
+    (pp_print_list pp_print_oracle "\n") gids.oracles
+    (pp_print_list pp_print_local "\n") locals_list
+
 
 (* [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref 0
@@ -92,7 +107,7 @@ let union ids1 ids2 =
     oracles = ids1.oracles @ ids2.oracles
   }
 
-let mk_fresh_local (expr:A.expr) =
+let mk_fresh_local expr =
   i := !i + 1;
   let prefix = string_of_int !i in
   let name = prefix ^ "_glocal" in
@@ -101,7 +116,7 @@ let mk_fresh_local (expr:A.expr) =
   let gids = { locals = glocal; oracles = [] } in
   nexpr, gids
 
-let mk_fresh_oracle =
+let mk_fresh_oracle () =
   i := !i + 1;
   let prefix = string_of_int !i in
   let name = prefix ^ "_oracle" in
@@ -124,7 +139,14 @@ let normalize_list f list =
   in List.fold_left over_list ([], empty) list
 
 let rec normalize (decls:LustreAst.t) =
-  normalize_list normalize_declaration decls |> Res.ok
+  let ast, gids = normalize_list normalize_declaration decls in
+  Log.log L_trace ("===============================================\n"
+    ^^ "Generated Identifiers:\n%a\n\n"
+    ^^ "Normalized lustre AST:\n%a\n"
+    ^^ "===============================================\n")
+    pp_print_generated_identifiers gids
+    A.pp_print_program ast;
+  Res.ok (ast, gids)
 
 and normalize_declaration = function
   | NodeDecl (pos, decl) ->
@@ -192,44 +214,137 @@ and normalize_expr ?guard = function
       if expr_is_id expr then
         expr, empty
       else
-        let pos = AH.pos_of_expr expr in
-        let iexpr, gids =
-          let guard, gids1 = match guard with
-            | Some guard -> guard, empty
-            | None -> mk_fresh_oracle
-          in
-          let nexpr, gids2 = normalize_expr ?guard:(Some guard) expr in
-          let gexpr = A.Arrow (pos, guard, nexpr) in
-          let iexpr, gids3 = mk_fresh_local gexpr in
-          iexpr, union (union gids1 gids2) gids3
-      in iexpr, gids
+        let nexpr, gids1 = normalize_expr ?guard expr in
+        let iexpr, gids2 = mk_fresh_local nexpr in
+        iexpr, union gids1 gids2
     in let nexprs, gids = normalize_list generate_fresh_ids exprs in
     Call (pos, id, nexprs), gids
   | Arrow (pos, expr1, expr2) ->
-    (* If [expr1] is an id or a constant then we don't create a fresh local *)
-    let nexpr1, gids1 = if expr_is_id expr1 || expr_is_const expr1 then
-        expr1, empty
-      else
-        let expr1', gids1 = normalize_expr ?guard expr1 in
-        let nexpr1, gids2 = mk_fresh_local expr1' in
-        nexpr1, union gids1 gids2
-    in
+    let nexpr1, gids1 = normalize_expr ?guard expr1 in
     let nexpr2, gids2 = normalize_expr ?guard:(Some nexpr1) expr2 in
     let gids = union gids1 gids2 in
     Arrow (pos, nexpr1, nexpr2), gids
   | Pre (pos, expr) ->
     let guard, gids1, previously_guarded = match guard with
       | Some guard -> guard, empty, true
-      | None -> let guard, gids = mk_fresh_oracle in
+      | None -> let guard, gids = mk_fresh_oracle () in
           guard, gids, false
     in
     (* If [expr] is an id then we don't create a fresh local *)
-    let nexpr, gids = if expr_is_id expr then
+    let nexpr, gids2 = if expr_is_id expr then
         expr, empty
       else
         let gexpr, gids1 = normalize_expr ?guard:(Some guard) expr in
         let nexpr, gids2 = mk_fresh_local gexpr in
         nexpr, union gids1 gids2
-    in if previously_guarded then Pre (pos, nexpr), gids
+    in let gids = union gids1 gids2 in
+    if previously_guarded then Pre (pos, nexpr), gids
     else Arrow (Lib.dummy_pos, guard, Pre (pos, nexpr)), gids
-  | expr -> normalize_expr ?guard expr
+  (* ************************************************************************ *)
+  (* The remaining expr kinds are all just structurally recursive             *)
+  (* ************************************************************************ *)
+  | Ident _ as expr -> expr, empty
+  | ModeRef _ as expr -> expr, empty
+  | RecordProject (pos, expr, i) ->
+    let nexpr, gids = normalize_expr ?guard expr in
+    RecordProject (pos, nexpr, i), gids
+  | TupleProject (pos, expr, i) ->
+    let nexpr, gids = normalize_expr ?guard expr in
+    TupleProject (pos, nexpr, i), gids
+  | Const _ as expr -> expr, empty
+  | UnaryOp (pos, op, expr) ->
+    let nexpr, gids = normalize_expr ?guard expr in
+    UnaryOp (pos, op, nexpr), gids
+  | BinaryOp (pos, op, expr1, expr2) ->
+    let nexpr1, gids1 = normalize_expr ?guard expr1 in
+    let nexpr2, gids2 = normalize_expr ?guard expr2 in
+    BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2
+  | TernaryOp (pos, op, expr1, expr2, expr3) ->
+    let nexpr1, gids1 = normalize_expr ?guard expr1 in
+    let nexpr2, gids2 = normalize_expr ?guard expr2 in
+    let nexpr3, gids3 = normalize_expr ?guard expr3 in
+    let gids = union (union gids1 gids2) gids3 in
+    TernaryOp (pos, op, nexpr1, nexpr2, nexpr3), gids
+  | NArityOp (pos, op, expr_list) ->
+    let nexpr_list, gids = normalize_list (normalize_expr ?guard) expr_list in
+    NArityOp (pos, op, nexpr_list), gids
+  | ConvOp (pos, op, expr) ->
+    let nexpr, gids = normalize_expr ?guard expr in
+    ConvOp (pos, op, nexpr), gids
+  | CompOp (pos, op, expr1, expr2) ->
+    let nexpr1, gids1 = normalize_expr ?guard expr1 in
+    let nexpr2, gids2 = normalize_expr ?guard expr2 in
+    CompOp (pos, op, nexpr1, nexpr2), union gids1 gids2
+  | RecordExpr (pos, id, id_expr_list) ->
+    let normalize' ?guard (id, expr) =
+      let nexpr, gids = normalize_expr ?guard expr in
+      (id, nexpr), gids
+    in 
+    let nid_expr_list, gids = normalize_list (normalize' ?guard) id_expr_list in
+    RecordExpr (pos, id, nid_expr_list), gids
+  | GroupExpr (pos, kind, expr_list) ->
+    let nexpr_list, gids = normalize_list (normalize_expr ?guard) expr_list in
+    GroupExpr (pos, kind, nexpr_list), gids
+  | StructUpdate (pos, expr1, i, expr2) ->
+    let nexpr1, gids1 = normalize_expr ?guard expr1 in
+    let nexpr2, gids2 = normalize_expr ?guard expr2 in
+    StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2
+  | ArrayConstr (pos, expr1, expr2) ->
+    let nexpr1, gids1 = normalize_expr ?guard expr1 in
+    let nexpr2, gids2 = normalize_expr ?guard expr2 in
+    ArrayConstr (pos, nexpr1, nexpr2), union gids1 gids2
+  | ArraySlice (pos, expr1, (expr2, expr3)) ->
+    let nexpr1, gids1 = normalize_expr ?guard expr1 in
+    let nexpr2, gids2 = normalize_expr ?guard expr2 in
+    let nexpr3, gids3 = normalize_expr ?guard expr3 in
+    let gids = union (union gids1 gids2) gids3 in
+    ArraySlice (pos, nexpr1, (nexpr2, nexpr3)), gids
+  | ArrayIndex (pos, expr1, expr2) ->
+    let nexpr1, gids1 = normalize_expr ?guard expr1 in
+    let nexpr2, gids2 = normalize_expr ?guard expr2 in
+    ArrayIndex (pos, nexpr1, nexpr2), union gids1 gids2
+  | ArrayConcat (pos, expr1, expr2) ->
+    let nexpr1, gids1 = normalize_expr ?guard expr1 in
+    let nexpr2, gids2 = normalize_expr ?guard expr2 in
+    ArrayConcat (pos, nexpr1, nexpr2), union gids1 gids2
+  | Quantifier (pos, kind, vars, expr) ->
+    let nexpr, gids = normalize_expr ?guard expr in
+    Quantifier (pos, kind, vars, nexpr), gids
+  | When (pos, expr, clock_expr) ->
+    let nexpr, gids = normalize_expr ?guard expr in
+    When (pos, nexpr, clock_expr), gids
+  | Current (pos, expr) ->
+    let nexpr, gids = normalize_expr ?guard expr in
+    Current (pos, nexpr), gids
+  | Condact (pos, expr1, expr2, id, expr_list1, expr_list2) ->
+    let nexpr1, gids1 = normalize_expr ?guard expr1 in
+    let nexpr2, gids2 = normalize_expr ?guard expr2 in
+    let nexpr_list1, gids3 = normalize_list (normalize_expr ?guard) expr_list1 in
+    let nexpr_list2, gids4 = normalize_list (normalize_expr ?guard) expr_list2 in
+    let gids = union (union gids1 gids2) (union gids3 gids4) in
+    Condact (pos, nexpr1, nexpr2, id, nexpr_list1, nexpr_list2), gids
+  | Activate (pos, id, expr1, expr2, expr_list) ->
+    let nexpr1, gids1 = normalize_expr ?guard expr1 in
+    let nexpr2, gids2 = normalize_expr ?guard expr2 in
+    let nexpr_list, gids3 = normalize_list (normalize_expr ?guard) expr_list in
+    let gids = union (union gids1 gids2) gids3 in
+    Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids
+  | Merge (pos, id, id_expr_list) ->
+    let normalize' ?guard (id, expr) =
+    let nexpr, gids = normalize_expr ?guard expr in
+      (id, nexpr), gids
+    in 
+    let nid_expr_list, gids = normalize_list (normalize' ?guard) id_expr_list in
+    Merge (pos, id, nid_expr_list), gids
+  | RestartEvery (pos, id, expr_list, expr) ->
+    let nexpr, gids1 = normalize_expr ?guard expr in
+    let nexpr_list, gids2 = normalize_list (normalize_expr ?guard) expr_list in
+    RestartEvery (pos, id, nexpr_list, nexpr), union gids1 gids2
+  | Last _ as expr -> expr, empty
+  | Fby (pos, expr1, i, expr2) ->
+    let nexpr1, gids1 = normalize_expr ?guard expr1 in
+    let nexpr2, gids2 = normalize_expr ?guard expr2 in
+    Fby (pos, nexpr1, i, nexpr2), union gids1 gids2
+  | CallParam (pos, id, type_list, expr_list) ->
+    let nexpr_list, gids = normalize_list (normalize_expr ?guard) expr_list in
+    CallParam (pos, id, type_list, nexpr_list), gids

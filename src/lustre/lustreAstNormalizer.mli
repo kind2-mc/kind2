@@ -67,3 +67,5 @@ type generated_identifiers = {
 }
 
 val normalize : LustreAst.t -> (LustreAst.t * generated_identifiers, Lib.position * string) result
+
+val pp_print_generated_identifiers : Format.formatter -> generated_identifiers -> unit
