@@ -1379,10 +1379,15 @@ let get_prop_status_all_unknown t =
     t.properties
 
 
-(** Returns true iff sys has at least one property. *)
-let has_properties = function
-| { properties = [] } -> false
-| _ -> true
+(** Returns true iff sys has at least one real (not candidate) property. *)
+let has_real_properties { properties } =
+  List.exists
+    (fun p ->
+      match p.P.prop_source with
+      | P.Candidate _ -> false
+      | _ -> true
+    )
+    properties
 
 let rec set_subsystem_properties t scope ps =
   let aux (t, instances) =

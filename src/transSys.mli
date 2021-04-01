@@ -542,8 +542,8 @@ val set_prop_unknown : t -> string -> unit
 (* Set the list of properties of a subsystem *)
 val set_subsystem_properties : t -> Scope.t -> Property.t list -> t
 
-(** Returns true iff sys has at least one property. *)
-val has_properties : t -> bool
+(** Returns true iff sys has at least one real (not candidate) property. *)
+val has_real_properties : t -> bool
 
 (** Return true if all properties which are not candidates are either valid or
     invalid *)

@@ -523,7 +523,7 @@ let process_invgen_mach_modules sys (modules: Lib.kind_module list) : Lib.kind_m
 let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
-  ( if TSys.has_properties sys |> not && not ignore_props then
+  ( if TSys.has_real_properties sys |> not && not ignore_props then
       KEvent.log L_note
         "System %a has no property, skipping verification step." fmt_sys sys
     else
