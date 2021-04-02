@@ -653,6 +653,7 @@
                     "enum": [
                         "Assumption",
                         "Guarantee",
+                        "Generated",
                         "OneModeActive",
                         "Ensure",
                         "PropAnnot"
