@@ -661,7 +661,9 @@ let call_terms_of_node_call mk_fresh_state_var globals
 
           (* Property is instantiated *)
           let prop_source =
-            P.Instantiated (I.to_scope call_node_name, p)
+            match p.P.prop_source with
+            | P.Candidate src -> P.Candidate src
+            | _ -> P.Instantiated (I.to_scope call_node_name, p)
           in
 
           (* Property status is unknown *)
