@@ -1550,7 +1550,7 @@ let pp_print_call_json ppf = function
 
     let pp_print_file_json ppf pos_file =
       if pos_file = "" then () else
-        Format.fprintf ppf "\"file\" : \"%s\",@," pos_file
+        Format.fprintf ppf ",@,\"file\" : \"%s\"" pos_file
     in
 
     (* Do not print anything for a dummy position *)
@@ -1563,7 +1563,7 @@ let pp_print_call_json ppf = function
 
       (* Print attributes *)
       Format.fprintf ppf
-        "%a\"line\" : %d,@,\"column\" : %d,@,"
+        "%a,@,\"line\" : %d,@,\"column\" : %d"
         pp_print_file_json pos_file
         pos_lnum
         pos_cnum
@@ -1852,10 +1852,11 @@ let rec pp_print_lustre_path_json' ppf = function
        "@,{@[<v 1>@,\
         \"blockType\" : \"%s\",@,\
         \"name\" : \"%a\"\
-        %a%a%a\
+        %a%a%a%a\
         @]@,}%s\
        "
        title (I.pp_print_ident false) name
+       pp_print_call_json trace
        pp_print_active_modes_json active_modes
        pp_print_streams_and_automata_json (node, model, call_conds)
        pp_print_subnodes_json subnodes

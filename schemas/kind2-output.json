@@ -600,6 +600,15 @@
                     "name": {
                         "type": "string"
                     },
+                    "file": {
+                        "type": "string"
+                    },
+                    "line": {
+                        "type": "integer"
+                    },
+                    "column": {
+                        "type": "integer"
+                    },
                     "activeModes": {
                         "$ref": "#/definitions/activeModes"
                     },
