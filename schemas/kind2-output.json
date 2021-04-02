@@ -643,6 +643,9 @@
                 "scope": {
                     "$ref": "#/definitions/scope"
                 },
+                "file": {
+                    "type": "string"
+                },
                 "line": {
                     "type": "integer"
                 },

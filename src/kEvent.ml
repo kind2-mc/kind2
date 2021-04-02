@@ -889,17 +889,24 @@ let pp_print_list_attrib pp ppf = function
 let prop_attributes_json ppf trans_sys prop_name =
   let prop = TransSys.property_of_name trans_sys prop_name in
 
+  let pp_print_fname ppf fname =
+    if fname = "" then () else
+    Format.fprintf ppf "\"file\" : \"%s\",@," fname
+  in
+
   let print_attributes pos scope source =
-    let _, lnum, cnum = file_row_col_of_pos pos in
+    let fname, lnum, cnum = file_row_col_of_pos pos in
     Format.fprintf ppf
-      "\"scope\" : \"%s\",@,\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"%s\",@,"
-      (String.concat "." scope) lnum cnum source
+      "\"scope\" : \"%s\",@,%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"%s\",@,"
+      (String.concat "." scope) pp_print_fname fname lnum cnum source
   in
 
   let rec get_attributes = function
     | Property.PropAnnot pos ->
-        let _, lnum, cnum = file_row_col_of_pos pos in
-        Format.fprintf ppf "\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"PropAnnot\",@," lnum cnum
+        let fname, lnum, cnum = file_row_col_of_pos pos in
+        Format.fprintf ppf
+          "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"PropAnnot\",@,"
+          pp_print_fname fname lnum cnum
     | Property.Instantiated (scope,prop) ->
         get_attributes prop.Property.prop_source
     | Property.Assumption (pos, scope) -> print_attributes pos scope "Assumption"
@@ -910,9 +917,10 @@ let prop_attributes_json ppf trans_sys prop_name =
         match pos with
         | None -> Format.fprintf ppf "\"source\" : \"Generated\",@,"
         | Some pos ->
-          let _, lnum, cnum = file_row_col_of_pos pos in
+          let fname, lnum, cnum = file_row_col_of_pos pos in
           Format.fprintf ppf
-            "\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Generated\",@," lnum cnum
+            "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Generated\",@,"
+            pp_print_fname fname lnum cnum
     )
     | Property.Candidate None -> ()
     | Property.Candidate (Some source) -> get_attributes source
