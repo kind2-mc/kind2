@@ -1189,6 +1189,16 @@ let pp_print_pos ppf (
       pos_lnum
       pos_cnum
 
+(** Pretty-print line and column *)
+let pp_print_line_and_column ppf { pos_lnum; pos_cnum } =
+
+  if pos_lnum >= 0 && pos_cnum >= 0 then
+
+    fprintf ppf "[l%dc%d]" pos_lnum pos_cnum
+
+  else
+
+    fprintf ppf "[unknown]"
 
 (* Convert a position from Lexing to a position *)
 let position_of_lexing 

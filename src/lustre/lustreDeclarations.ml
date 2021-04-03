@@ -1342,7 +1342,8 @@ and eval_contract_item check ~typ scope (ctx, accum, count) (pos, iname, expr) =
               (if List.length scope > 1 then "s" else "") (
                 pp_print_list (
                   fun fmt (pos, name) ->
-                    Format.fprintf fmt "%s%a" name pp_print_pos pos
+                    Format.fprintf fmt "%s%a"
+                      name pp_print_line_and_column pos
                 ) ", "
               )
         in
@@ -1660,7 +1661,8 @@ and eval_node_contract_call
                       |> Format.asprintf " (contract call trace: %a)" (
                         pp_print_list (
                           fun fmt (pos, name) ->
-                            Format.fprintf fmt "%s%a" name pp_print_pos pos
+                            Format.fprintf fmt "%s%a"
+                              name pp_print_line_and_column pos
                         ) ", "
                       )
                   in

@@ -431,6 +431,9 @@ val pp_print_position : Format.formatter -> position -> unit
 (** Pretty-print a position in a concise way *)
 val pp_print_pos : Format.formatter -> position -> unit
 
+(** Pretty-print line and column *)
+val pp_print_line_and_column : Format.formatter -> position -> unit
+
 (** Return the file, line and column of a position; fail with
     [Invalid_argument "file_row_col_of_pos"] if the position is a dummy
     position *)
