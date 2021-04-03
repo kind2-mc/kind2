@@ -23,7 +23,7 @@
 
 (* Raise parsing exception *)
 let fail_at_position_pt pos msg =
-  Log.log L_error "%a: Failure cause: @[<v>%s@] "
+  Log.log L_error "Parser error at %a: @[<v>%s@]"
     Lib.pp_print_position pos msg
 
 let fail_at_position pos msg =
@@ -37,7 +37,7 @@ let fail_at_position pos msg =
 
 
 let warn_at_position_pt level pos msg =
-  Log.log level "Parser warning at %a: %s" Lib.pp_print_position pos msg
+  Log.log level "Parser warning at %a: @[<v>%s@]" Lib.pp_print_position pos msg
 
 let warn_at_position pos msg =
   match Log.get_log_format () with
@@ -57,9 +57,9 @@ let note_at_position pos msg =
 
 (* Raise parsing exception *)
 let fail_no_position msg =
-  Log.log L_error "Parser error: %s" msg;
+  Log.log L_error "Parser error: @[<v>%s@]" msg;
   raise LustreAst.Parser_error
 
  
 (* Raise parsing exception *)
-let warn_no_position msg = Log.log L_warn "Parser warning: %s" msg
+let warn_no_position msg = Log.log L_warn "Parser warning: @[<v>%s@]" msg
