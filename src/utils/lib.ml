@@ -1183,7 +1183,7 @@ let position_of_lexing
   (* Colum number is relative to the beginning of the file *)
   { pos_fname = pos_fname; 
     pos_lnum = pos_lnum; 
-    pos_cnum = pos_cnum - pos_bol } 
+    pos_cnum = pos_cnum - pos_bol + 1}
 
 
 (* Return true if position is a dummy position *)
