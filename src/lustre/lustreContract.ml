@@ -130,12 +130,12 @@ let space_if_nonempty = function
 | _ -> (function ppf -> Format.fprintf ppf "@ ")
 
 let pp_print_svar fmt { pos ; num ; svar } =
-  Format.fprintf fmt "[%d] %a (%a)"
-    num pp_print_pos pos SVar.pp_print_state_var svar
+  Format.fprintf fmt "[%d] [%a] (%a)"
+    num pp_print_position pos SVar.pp_print_state_var svar
 
 let pp_print_mode safe fmt { name ; pos ; requires ; ensures } =
   Format.fprintf fmt "@[<v 2>mode %a (%a) (@ %a@ %a@ ) ;@]"
-    (I.pp_print_ident safe) name pp_print_pos pos (
+    (I.pp_print_ident safe) name pp_print_position pos (
       pp_print_list (
         fun fmt req ->
           Format.fprintf fmt "  require%a" pp_print_svar req

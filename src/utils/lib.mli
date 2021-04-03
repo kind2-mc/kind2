@@ -428,9 +428,6 @@ val is_dummy_pos : position -> bool
 (** Pretty-print a position *)
 val pp_print_position : Format.formatter -> position -> unit
 
-(** Pretty-print a position in a concise way *)
-val pp_print_pos : Format.formatter -> position -> unit
-
 (** Pretty-print line and column *)
 val pp_print_line_and_column : Format.formatter -> position -> unit
 
@@ -444,6 +441,9 @@ val pos_of_file_row_col : string * int * int -> position
 
 (** Convert a position of the lexer to a position *)
 val position_of_lexing : Lexing.position -> position
+
+(** set the filename in lexing buffer*)
+val set_lexer_filename: Lexing.lexbuf -> string -> unit
 
 (** Pretty print a backtrace *)
 val print_backtrace : Format.formatter -> Printexc.raw_backtrace -> unit
