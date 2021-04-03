@@ -16,29 +16,11 @@
 
 *)
 
-open Lib
-
 open LustreAst
+open LustreReporting
 
 type iset = LustreAst.SI.t
           
-let error_at_position pos msg =
-  match Log.get_log_format () with
-  | Log.F_pt ->
-    Log.log L_error "Parser error at %a: %s" Lib.pp_print_position pos msg
-  | Log.F_xml -> Log.parse_log_xml L_error pos msg
-  | Log.F_json -> Log.parse_log_json L_error pos msg
-  | Log.F_relay -> ()
-
-
-let warn_at_position pos msg = 
-  match Log.get_log_format () with
-  | Log.F_pt ->
-    Log.log L_warn "Parser warning at %a: %s" Lib.pp_print_position pos msg
-  | Log.F_xml -> Log.parse_log_xml L_warn pos msg
-  | Log.F_json -> Log.parse_log_json L_warn pos msg
-  | Log.F_relay -> ()
-
                  
 (***********)
 (* Helpers *)
@@ -126,7 +108,7 @@ let rec has_unguarded_pre ung = function
     if ung then begin
       (* Fail only if in strict mode *)
       let err_or_warn =
-        if Flags.lus_strict () then error_at_position else warn_at_position in
+        if Flags.lus_strict () then fail_at_position else warn_at_position in
 
       err_or_warn pos
         (Format.asprintf "@[<hov 2>Unguarded pre in expression@ %a@]"
@@ -503,7 +485,7 @@ let rec replace_lasts allowed prefix acc ee = match ee with
                       
   | Last (pos, i) ->
     if not (List.mem i allowed) then
-      error_at_position pos
+      fail_at_position pos
         "Only visible variables in the node are allowed under last";
     let acc = SI.add i acc in
     Ident (pos, prefix ^ ".last." ^ i), acc

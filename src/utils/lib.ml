@@ -1153,42 +1153,25 @@ let pp_print_position ppf (
 
     fprintf ppf "%s" pos_fname
 
-  else if pos_fname <> "" then
-
-    fprintf ppf "%s:%d:%d" pos_fname pos_lnum pos_cnum
-
   else
 
-    fprintf 
-      ppf
-      "@[<hv>line %d@ col. %d@]"
-      pos_lnum
-      pos_cnum
+    let fname =
+      if pos_fname = "" then "(stdin)" else pos_fname
+    in
+
+    fprintf ppf "%s:%d:%d" fname pos_lnum pos_cnum
 
 
-(* Pretty-print a position *)
-let pp_print_pos ppf (
-  { pos_fname; pos_lnum; pos_cnum } as pos
-) =
+(** Pretty-print line and column *)
+let pp_print_line_and_column ppf { pos_lnum; pos_cnum } =
 
-  if pos = dummy_pos then 
+  if pos_lnum >= 0 && pos_cnum >= 0 then
+
+    fprintf ppf "[l%dc%d]" pos_lnum pos_cnum
+
+  else
 
     fprintf ppf "[unknown]"
-
-  else if pos_lnum = 0 && pos_cnum = -1 then
-
-    fprintf ppf "%s" pos_fname
-
-  else
-
-    fprintf 
-      ppf
-      "[%tl%dc%d]"
-      (function ppf -> 
-        if pos_fname = "" then () else fprintf ppf "%s|" pos_fname)
-      pos_lnum
-      pos_cnum
-
 
 (* Convert a position from Lexing to a position *)
 let position_of_lexing 
@@ -1200,7 +1183,7 @@ let position_of_lexing
   (* Colum number is relative to the beginning of the file *)
   { pos_fname = pos_fname; 
     pos_lnum = pos_lnum; 
-    pos_cnum = pos_cnum - pos_bol } 
+    pos_cnum = pos_cnum - pos_bol + 1}
 
 
 (* Return true if position is a dummy position *)
@@ -1237,6 +1220,8 @@ let print_backtrace fmt bt =
 let pos_of_file_row_col (pos_fname, pos_lnum, pos_cnum) =
   { pos_fname; pos_lnum; pos_cnum }
 
+let set_lexer_filename lexbuf fname  =
+  lexbuf.Lexing.lex_curr_p <- {lexbuf.Lexing.lex_curr_p with pos_fname = fname}
 
 (* Split a string at its first dot. Raises {Not_found} if there are not dots *)
 let split_dot s =

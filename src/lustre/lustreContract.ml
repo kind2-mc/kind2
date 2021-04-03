@@ -35,29 +35,25 @@ let mk_svar pos num name svar scope = {
   pos ; num ; name ; svar ; scope
 }
 
-(* Quiet pretty printer for non dummy positions. *)
-let pprint_pos fmt pos =
-  let f,l,c = file_row_col_of_pos pos in
-  let f = if f = "" then "" else f ^ "|" in
-  Format.fprintf fmt "%sl%dc%d" f l c
-
 let prop_name_of_svar { pos ; num ; name = s; scope } kind name =
   match s with
   | Some n ->
     Format.asprintf "%a%s" (
       pp_print_list (
         fun fmt (pos, call) ->
-          Format.fprintf fmt "%s[%a]." call pprint_pos pos
+          Format.fprintf fmt "%s%a."
+            call Lib.pp_print_line_and_column pos
       ) ""
     ) scope n
     
   | None ->
-    Format.asprintf "%a%s%s[%a]" (
+    Format.asprintf "%a%s%s%a" (
       pp_print_list (
         fun fmt (pos, call) ->
-          Format.fprintf fmt "%s[%a]." call pprint_pos pos
+          Format.fprintf fmt "%s%a."
+            call Lib.pp_print_line_and_column pos
       ) ""
-    ) scope kind name pprint_pos pos
+    ) scope kind name Lib.pp_print_line_and_column pos
 
 
 type mode = {
@@ -134,12 +130,12 @@ let space_if_nonempty = function
 | _ -> (function ppf -> Format.fprintf ppf "@ ")
 
 let pp_print_svar fmt { pos ; num ; svar } =
-  Format.fprintf fmt "[%d] %a (%a)"
-    num pp_print_pos pos SVar.pp_print_state_var svar
+  Format.fprintf fmt "[%d] [%a] (%a)"
+    num pp_print_position pos SVar.pp_print_state_var svar
 
 let pp_print_mode safe fmt { name ; pos ; requires ; ensures } =
   Format.fprintf fmt "@[<v 2>mode %a (%a) (@ %a@ %a@ ) ;@]"
-    (I.pp_print_ident safe) name pp_print_pos pos (
+    (I.pp_print_ident safe) name pp_print_position pos (
       pp_print_list (
         fun fmt req ->
           Format.fprintf fmt "  require%a" pp_print_svar req

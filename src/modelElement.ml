@@ -112,7 +112,7 @@ type core_print_data = {
 let pp_print_locs_short =
   Lib.pp_print_list (
     fun fmt {pos} ->
-      Format.fprintf fmt "%a" Lib.pp_print_pos pos
+      Format.fprintf fmt "%a" Lib.pp_print_line_and_column pos
   ) ""
 
 (* The last position is the main one (the first one added) *)
@@ -224,7 +224,7 @@ let pp_print_core_data in_sys param sys fmt cpd =
   let print_elt elt =
     Format.fprintf fmt "%s @{<blue_b>%s@} at position %a@ "
       (format_name_for_pt elt.category) elt.name
-      Lib.pp_print_pos elt.position
+      Lib.pp_print_line_and_column elt.position
   in
   let print_node scope lst =
     Format.fprintf fmt "@{<b>Node@} @{<blue>%s@}@ " (Scope.to_string scope) ;

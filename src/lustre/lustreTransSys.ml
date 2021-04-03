@@ -154,32 +154,14 @@ let lift_term state_var_map term =
    the node call *)
 let lift_prop_name node_name pos prop_name =
 
-  (* Pretty-print a file position *)
-  let pp_print_file ppf pos_file = 
-
-    if pos_file = "" then () else
-      Format.fprintf ppf "%s" pos_file
-
-  in
-
   (* Pretty-print a position as attributes *)
   let pp_print_pos ppf pos = 
 
     (* Do not print anything for a dummy position *)
     if is_dummy_pos pos then () else 
 
-      (* Get file, line and column of position *)
-      let pos_file, pos_lnum, pos_cnum = 
-        file_row_col_of_pos pos
-      in
+      Lib.pp_print_line_and_column ppf pos
 
-      (* Print attributes *)
-      Format.fprintf 
-        ppf
-        "[%al%dc%d]"
-        pp_print_file pos_file
-        pos_lnum
-        pos_cnum
   in
 
 
@@ -294,12 +276,14 @@ let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
         match name with
         | None -> (
           Format.asprintf "%a%a.assume%a"
-            Scope.pp_print_scope scope pp_print_pos call_pos
-            pp_print_pos pos
+            Scope.pp_print_scope scope
+            pp_print_line_and_column call_pos
+            pp_print_line_and_column pos
         )
         | Some n -> (
           Format.asprintf "%a%a.%s"
-            Scope.pp_print_scope scope pp_print_pos call_pos n
+            Scope.pp_print_scope scope
+            pp_print_line_and_column call_pos n
         )
       in
       let prop_status = P.PropUnknown in

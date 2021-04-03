@@ -1342,7 +1342,8 @@ and eval_contract_item check ~typ scope (ctx, accum, count) (pos, iname, expr) =
               (if List.length scope > 1 then "s" else "") (
                 pp_print_list (
                   fun fmt (pos, name) ->
-                    Format.fprintf fmt "%s%a" name pp_print_pos pos
+                    Format.fprintf fmt "%s%a"
+                      name pp_print_line_and_column pos
                 ) ", "
               )
         in
@@ -1660,7 +1661,8 @@ and eval_node_contract_call
                       |> Format.asprintf " (contract call trace: %a)" (
                         pp_print_list (
                           fun fmt (pos, name) ->
-                            Format.fprintf fmt "%s%a" name pp_print_pos pos
+                            Format.fprintf fmt "%s%a"
+                              name pp_print_line_and_column pos
                         ) ", "
                       )
                   in
@@ -2744,16 +2746,15 @@ and eval_node_decl
         (fun ctx svar ->
           let range_expr = create_range_expr svar in
           let source =
+            let pos =
+              match C.position_of_state_variable ctx svar with
+              | Some pos -> pos
+              | None -> assert false
+            in
+            let src = Property.Generated (Some pos, [svar]) in
             match C.original_int_type ctx svar with
-            | Some _ -> Property.Candidate None
-            | None -> (
-              let pos =
-                match C.position_of_state_variable ctx svar with
-                | Some pos -> pos
-                | None -> assert false
-              in
-              Property.Generated (Some pos, [svar])
-            )
+            | Some _ -> Property.Candidate (Some src)
+            | None -> src
           in
           C.add_node_property
             ctx

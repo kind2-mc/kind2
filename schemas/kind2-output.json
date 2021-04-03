@@ -600,6 +600,15 @@
                     "name": {
                         "type": "string"
                     },
+                    "file": {
+                        "type": "string"
+                    },
+                    "line": {
+                        "type": "integer"
+                    },
+                    "column": {
+                        "type": "integer"
+                    },
                     "activeModes": {
                         "$ref": "#/definitions/activeModes"
                     },
@@ -634,6 +643,9 @@
                 "scope": {
                     "$ref": "#/definitions/scope"
                 },
+                "file": {
+                    "type": "string"
+                },
                 "line": {
                     "type": "integer"
                 },
@@ -644,6 +656,7 @@
                     "enum": [
                         "Assumption",
                         "Guarantee",
+                        "Generated",
                         "OneModeActive",
                         "Ensure",
                         "PropAnnot"

@@ -20,7 +20,7 @@ open Lib
 
 module Ast = LustreAst
            
-let blah txt pos = Format.asprintf "%s at %a" txt pp_print_pos pos
+let blah txt pos = Format.asprintf "%s at %a" txt pp_print_position pos
 let blah_opt txt name pos =
   Format.asprintf "%s%t at %a"
     txt
@@ -28,7 +28,7 @@ let blah_opt txt name pos =
       | None -> ()
       | Some name -> Format.fprintf fmt " (%s)" name
     )
-    pp_print_pos pos
+    pp_print_position pos
 
 let rec collect_contracts (locals, asserts, props) = function
 | head :: tail -> (
@@ -40,7 +40,7 @@ let rec collect_contracts (locals, asserts, props) = function
         | Ast.UntypedConst (pos,_,_) ->
           Format.asprintf "\
             [contracts translator] %a: untyped ghost consts are unsupported\
-          " pp_print_pos pos
+          " pp_print_position pos
           |> failwith
         | Ast.TypedConst (pos,id,expr,typ) -> pos, (id, expr, typ)
       in
@@ -54,7 +54,7 @@ let rec collect_contracts (locals, asserts, props) = function
         | Ast.UntypedConst (pos,_,_) ->
           Format.asprintf "\
             [contracts translator] %a: untyped ghost vars are unsupported\
-          " pp_print_pos pos
+          " pp_print_position pos
           |> failwith
         | Ast.TypedConst (pos,id,expr,typ) -> pos, (id, expr, typ)
       in
@@ -91,7 +91,7 @@ let rec collect_contracts (locals, asserts, props) = function
     | Ast.ContractCall (pos,_,_,_) ->
       Format.asprintf "\
         [contracts translator] %a: contract calls are unsupported\
-      " pp_print_pos pos
+      " pp_print_position pos
       |> failwith
   in
 
@@ -185,7 +185,7 @@ let rec fmt_declarations fmt = function
     | Ast.ContractNodeDecl (pos,_) ->
       Format.asprintf "\
         [contracts translator] %a: contract node declarations are unsupported\
-      " pp_print_pos pos
+      " pp_print_position pos
       |> failwith
 
     | Ast.NodeDecl (pos, (wan, _, two,tri,far,fiv,six,contract)) -> (
