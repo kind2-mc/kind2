@@ -53,12 +53,13 @@
 open Lib
 
 module A = LustreAst
+module AH = LustreAstHelpers
 
 (** Map for types with identifiers as keys *)
 module IMap = struct
   include Map.Make(struct
     type t = LustreAst.ident
-    let compare i1 i2 = Stdlib.compare i1 i2
+    let compare i1 i2 = String.compare i1 i2
   end)
   let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
 end
@@ -117,14 +118,6 @@ let mk_fresh_oracle () =
   let nexpr = A.Ident (Lib.dummy_pos, name) in
   let gids = { locals = IMap.empty; oracles = [name] } in
   nexpr, gids
-
-let expr_is_id : A.expr -> bool = function
-  | Ident (_, _) -> true
-  | _ -> false
-
-let expr_is_const : A.expr -> bool = function
-  | Const (_, _) -> true
-  | _ -> false
 
 let normalize_list f list =
   let over_list (nitems, gids) item =
@@ -198,13 +191,12 @@ and normalize_equation = function
   | Equation (pos, lhs, expr) ->
     let nexpr, gids = normalize_expr expr in
     Equation (pos, lhs, nexpr), gids
-  | Automaton (pos, id, states, auto) ->
-    A.Automaton (pos, id, states, auto), empty
+  | Automaton (pos, id, states, auto) -> Lib.todo __LOC__
 
 and normalize_expr ?guard =
   let generate_fresh_ids ?guard expr =
     (* If [expr] is already an id then we don't create a fresh local *)
-    if expr_is_id expr then
+    if AH.expr_is_id expr then
       expr, empty
     else
       let nexpr, gids1 = normalize_expr ?guard expr in

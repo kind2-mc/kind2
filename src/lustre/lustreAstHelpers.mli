@@ -22,6 +22,12 @@ open LustreAst
 
 (** {1 Helpers} *)
 
+val expr_is_id : expr -> bool
+(** Returns whether or not the expression is an Ident variant *)
+
+val expr_is_const : expr -> bool
+(** Returns whether or not the expression is a Const variant *)
+
 val pos_of_expr : expr -> Lib.position
 (** Returns the position of an expression *)
 
