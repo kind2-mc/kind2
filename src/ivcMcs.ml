@@ -125,6 +125,7 @@ let counter =
   (fun () -> last := !last + 1 ; !last)
 
 let dpos = Lib.dummy_pos
+let dspan = { A.start_pos = dpos; A.end_pos = dpos }
 let rand_fun_ident nb = "__rand"^(string_of_int nb)
 let new_rand_fun_ident () = rand_fun_ident (counter ())
 
@@ -204,7 +205,7 @@ let parametric_rand_node nb_outputs =
     dpos,out,A.UserType (dpos, t),A.ClockTrue) ts
   in
   let ts = List.map (fun str -> A.TypeParam str) ts in
-  A.NodeDecl (dpos,
+  A.NodeDecl (dspan,
     (rand_fun_ident nb_outputs, true, ts, [dpos,"id",A.Int dpos,A.ClockTrue, false],
     outs, [], [], None)
   )
@@ -218,7 +219,7 @@ let rand_node name ts =
   let outs = aux "out" [] (List.length ts)
   |> List.map2 (fun t out -> dpos,out,t,A.ClockTrue) ts
   in
-  A.NodeDecl (dpos,
+  A.NodeDecl (dspan,
     (name, true, [], [dpos,"id",A.Int dpos,A.ClockTrue, false],
     outs, [], [], None)
   )
@@ -447,12 +448,12 @@ let minimize_contract_decl ue loc_core (id, tparams, inputs, outputs, body) =
   (id, tparams, inputs, outputs, body)
 
 let minimize_decl ue loc_core = function
-  | A.NodeDecl (p, ndecl) ->
-    A.NodeDecl (p, minimize_node_decl ue loc_core ndecl)
-  | A.FuncDecl (p, ndecl) ->
-    A.FuncDecl (p, minimize_node_decl ue loc_core ndecl)
-  | A.ContractNodeDecl (p, cdecl) ->
-    A.ContractNodeDecl (p, minimize_contract_decl ue loc_core cdecl)
+  | A.NodeDecl (span, ndecl) ->
+    A.NodeDecl (span, minimize_node_decl ue loc_core ndecl)
+  | A.FuncDecl (span, ndecl) ->
+    A.FuncDecl (span, minimize_node_decl ue loc_core ndecl)
+  | A.ContractNodeDecl (span, cdecl) ->
+    A.ContractNodeDecl (span, minimize_contract_decl ue loc_core cdecl)
   | decl -> decl 
 
 let fill_input_types_hashtbl ast =

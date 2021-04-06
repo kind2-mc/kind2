@@ -27,13 +27,14 @@ open OUnit2
 module AD = LustreAstDependencies
 
 let dp = Lib.dummy_pos
+let dspan = { LA.start_pos = dp; LA.end_pos = dp }
 let (>>=) = Res.(>>=)
           
 let linear_decls = [
-    LA.TypeDecl (dp, LA.AliasType(dp, "t0", LA.UserType (dp, "t1")))
-  ; LA.TypeDecl (dp, LA.AliasType(dp, "t1", LA.UserType (dp, "t2")))
-  ; LA.TypeDecl (dp, LA.AliasType(dp, "t2", LA.Int dp))
-  ; LA.ConstDecl (dp, LA.TypedConst (dp, "c", LA.Const (dp, Num "1"), LA.UserType (dp, "t0")))
+    LA.TypeDecl (dspan, LA.AliasType(dp, "t0", LA.UserType (dp, "t1")))
+  ; LA.TypeDecl (dspan, LA.AliasType(dp, "t1", LA.UserType (dp, "t2")))
+  ; LA.TypeDecl (dspan, LA.AliasType(dp, "t2", LA.Int dp))
+  ; LA.ConstDecl (dspan, LA.TypedConst (dp, "c", LA.Const (dp, Num "1"), LA.UserType (dp, "t0")))
   ]
   
 let sorted_linear_decls = fun _ -> AD.sort_globals linear_decls
@@ -49,10 +50,10 @@ let tests_should_pass = [
 
 
 let circular_decls = [
-    LA.TypeDecl (dp, LA.AliasType(dp, "t0", LA.UserType (dp, "t1")))
-  ; LA.TypeDecl (dp, LA.AliasType(dp, "t1", LA.UserType (dp, "t2")))
-  ; LA.TypeDecl (dp, LA.AliasType(dp, "t2", LA.UserType (dp, "t0")))
-  ; LA.ConstDecl (dp, LA.TypedConst (dp, "c", LA.Const (dp, Num "1"), LA.UserType (dp, "t0")))  ]
+    LA.TypeDecl (dspan, LA.AliasType(dp, "t0", LA.UserType (dp, "t1")))
+  ; LA.TypeDecl (dspan, LA.AliasType(dp, "t1", LA.UserType (dp, "t2")))
+  ; LA.TypeDecl (dspan, LA.AliasType(dp, "t2", LA.UserType (dp, "t0")))
+  ; LA.ConstDecl (dspan, LA.TypedConst (dp, "c", LA.Const (dp, Num "1"), LA.UserType (dp, "t0")))  ]
 
 
 let failure_circular_decls = fun _ ->  AD.sort_globals circular_decls
