@@ -1171,14 +1171,7 @@ let pp_print_line_and_column ppf { pos_lnum; pos_cnum } =
 
   else
 
-    fprintf 
-      ppf
-      "[%t:%d:%d]"
-      (function ppf -> 
-        if pos_fname = "" then () else fprintf ppf "%s:" pos_fname)
-      pos_lnum
-      pos_cnum
-
+    fprintf ppf "[unknown]"
 
 (* Convert a position from Lexing to a position *)
 let position_of_lexing 

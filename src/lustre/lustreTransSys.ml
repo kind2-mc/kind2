@@ -162,13 +162,6 @@ let lift_prop_name node_name pos prop_name =
 
       Lib.pp_print_line_and_column ppf pos
 
-      (* Print attributes *)
-      Format.fprintf 
-        ppf
-        "[%a:%d:%d]"
-        pp_print_file pos_file
-        pos_lnum
-        pos_cnum
   in
 
 
