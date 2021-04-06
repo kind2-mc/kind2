@@ -195,8 +195,8 @@ and normalize_equation = function
 
 and normalize_expr ?guard =
   let generate_fresh_ids ?guard expr =
-    (* If [expr] is already an id then we don't create a fresh local *)
-    if AH.expr_is_id expr then
+    (* If [expr] is already an id or const then we don't create a fresh local *)
+    if AH.expr_is_id expr || AH.expr_is_const expr then
       expr, empty
     else
       let nexpr, gids1 = normalize_expr ?guard expr in
@@ -234,7 +234,6 @@ and normalize_expr ?guard =
       | None -> let guard, gids = mk_fresh_oracle () in
           guard, gids, false
     in
-    (* If [expr] is an id then we don't create a fresh local *)
     let nexpr, gids2 = generate_fresh_ids ?guard:(Some guard) expr in
     let gids = union gids1 gids2 in
     if previously_guarded then Pre (pos, nexpr), gids
