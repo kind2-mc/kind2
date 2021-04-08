@@ -33,7 +33,7 @@ The overall structure is as follows:
     {
       "var1": "24",
       "var2": false,
-      "var3": "0.5"
+      "var3": "1/2"
     }
   ]
 

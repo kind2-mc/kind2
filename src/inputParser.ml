@@ -22,7 +22,12 @@ open Lib
 (* typing errors *)
 exception Type_error of Type.t * string
 
-let divsep = Str.regexp "/"
+let decimal_of_string s =
+  match String.split_on_char '/' s with
+  | [s] -> Term.mk_dec (Decimal.of_string s)
+  | [s1; s2] ->
+    Decimal.(div (of_string s1) (of_string s2)) |> Term.mk_dec
+  | _ -> raise (Type_error (Type.mk_real (), s))
 
 (* Parse one value *)
 let value_of_str ty s =
@@ -36,13 +41,7 @@ let value_of_str ty s =
     )
     | Type.Int ->
       Term.mk_num (Numeral.of_string s)
-    | Type.Real -> (
-      match Str.split_delim divsep s with
-      | [s] -> Term.mk_dec (Decimal.of_string s)
-      | [s1; s2] ->
-        Decimal.(div (of_string s1) (of_string s2)) |> Term.mk_dec
-      | _ -> raise (Type_error (ty, s))
-    )
+    | Type.Real -> decimal_of_string s
     | Type.IntRange (l, u, Type.Range) -> (
       let n = Numeral.of_string s in
       if (Numeral.leq l n && Numeral.leq n u) then Term.mk_num n
@@ -261,10 +260,9 @@ let rec read_val scope name indexes arr_indexes json =
 
       | Real, `Float f -> [sv, string_of_float f |> Decimal.of_string |> Term.mk_dec]
       | Real, `Int i -> [sv, Decimal.of_int i |> Term.mk_dec]
-      | Real, `String str | Real, `Intlit str ->
-        [sv, Decimal.of_string str |> Term.mk_dec]
-
-      | _, `Int i                       when is_in_range_i i typ ->
+      | Real, `String str -> [sv, decimal_of_string str]
+      | Real, `Intlit str -> [sv, Decimal.of_string str |> Term.mk_dec]
+      | _, `Int i when is_in_range_i i typ ->
         [sv, Term.mk_num_of_int i]
       | _, `Intlit str | _, `String str when is_in_range (Numeral.of_string str) typ ->
         [sv, Numeral.of_string str |> Term.mk_num]
