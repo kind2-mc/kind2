@@ -26,6 +26,14 @@ type iset = LustreAst.SI.t
 (* Helpers *)
 (***********)
 
+let expr_is_id = function
+  | Ident (_, _) -> true
+  | _ -> false
+
+let expr_is_const = function
+  | Const (_, _) -> true
+  | _ -> false
+
 let pos_of_expr = function
   | Ident (pos , _) | ModeRef (pos , _ ) | RecordProject (pos , _ , _)
     | TupleProject (pos , _ , _) | StructUpdate (pos , _ , _ , _) | Const (pos, _)
