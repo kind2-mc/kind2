@@ -65,9 +65,11 @@ and prop_source =
      Reference the instantiated property by the [scope] of the subsystem and
      the name of the property *)
 
-  | Assumption of Lib.position * string list
-  (** Contract assumption that a caller has to prove. The list of state vars is
-      the guarantees that proving the requirement yields. *)
+  | Assumption of Lib.position * Scope.t * Term.t
+  (** Contract assumption that a caller has to prove.
+
+    The term is the associated SoFar expression used for guarding all properties
+    and invariants that were proved under the assumption *)
 
   | Guarantee of (Lib.position * Scope.t)
   (** Contract guarantees. *)

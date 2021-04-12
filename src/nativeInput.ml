@@ -277,7 +277,10 @@ let prop_source_of_sexpr prop_term = function
     let ppos = Lib.pos_of_file_row_col frc_pos in
     let p, scope =
       Lib.extract_scope_name (HString.string_of_hstring scopedprop) in
-    if c == s_assumption then Property.Assumption (ppos, scope)
+    if c == s_assumption then
+      (* TODO: Associate SoFar expression? *)
+      let sofar_term = Term.t_true in
+      Property.Assumption (ppos, scope, sofar_term)
     else if c == s_guarantee then Property.Guarantee (ppos, scope)
     else if c = s_guaranteeonemodeactive then
       Property.GuaranteeOneModeActive (ppos, scope)
