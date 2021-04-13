@@ -1119,6 +1119,13 @@ type position =
   { pos_fname : string; pos_lnum: int; pos_cnum: int }
 
 
+let equal_pos
+  { pos_fname = p1; pos_lnum = l1; pos_cnum = c1 }
+  { pos_fname = p2; pos_lnum = l2; pos_cnum = c2 } =
+
+  l1=l2 && c1=c2 && String.equal p1 p2
+
+
 (* Comparision on positions *)
 let compare_pos 
     { pos_fname = p1; pos_lnum = l1; pos_cnum = c1 }  

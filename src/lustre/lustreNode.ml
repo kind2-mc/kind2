@@ -1116,8 +1116,7 @@ let rec fold_node_calls_with_trans_sys'
              (* Find instance of this node call by position *)
              let instance = 
                List.find 
-                 (fun { TransSys.pos } -> 
-                    Lib.compare_pos pos call_pos = 0)
+                 (fun { TransSys.pos } -> Lib.equal_pos pos call_pos)
                  instances'
              in
 
@@ -1564,7 +1563,7 @@ let set_state_var_instance state_var pos node state_var' =
 
     (* Check if instance already known *)
     if List.exists (fun (p, n, sv) ->
-        Lib.compare_pos p pos = 0
+        Lib.equal_pos p pos
         && I.equal n node
         && StateVar.equal_state_vars sv state_var'
       ) instances then 
@@ -1609,10 +1608,10 @@ let state_var_defs_equal d1 d2 =
   | CallOutput (p1, i1), CallOutput (p2, i2)
   | ProperEq (p1, i1), ProperEq (p2, i2)
   | GeneratedEq (p1, i1), GeneratedEq (p2, i2) ->
-    (Lib.compare_pos p1 p2) = 0 && LustreIndex.equal_index i1 i2
+    (Lib.equal_pos p1 p2) && LustreIndex.equal_index i1 i2
   | ContractItem (p1, svar1, typ1), ContractItem (p2, svar2, typ2) ->
-    (Lib.compare_pos p1 p2) = 0 && typ1 = typ2 && StateVar.equal_state_vars svar1.svar svar2.svar
-  | Assertion p1, Assertion p2 -> (Lib.compare_pos p1 p2) = 0
+    (Lib.equal_pos p1 p2) && typ1 = typ2 && StateVar.equal_state_vars svar1.svar svar2.svar
+  | Assertion p1, Assertion p2 -> (Lib.equal_pos p1 p2)
   | _ -> false
 
 let add_state_var_def state_var def = 
