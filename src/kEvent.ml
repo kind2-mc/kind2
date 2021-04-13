@@ -585,7 +585,7 @@ let prop_attributes_xml trans_sys prop_name =
     | Property.Candidate (Some source) -> get_attributes source
     | Property.Instantiated (scope,prop) ->
         get_attributes prop.Property.prop_source
-    | Property.Assumption (pos, scope) ->
+    | Property.Assumption (pos, (scope, _)) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Assumption\"%a"
           lnum cnum (String.concat "." scope) pp_print_fname fname
@@ -909,7 +909,7 @@ let prop_attributes_json ppf trans_sys prop_name =
           pp_print_fname fname lnum cnum
     | Property.Instantiated (scope,prop) ->
         get_attributes prop.Property.prop_source
-    | Property.Assumption (pos, scope) -> print_attributes pos scope "Assumption"
+    | Property.Assumption (pos, (scope, _)) -> print_attributes pos scope "Assumption"
     | Property.Guarantee (pos, scope) -> print_attributes pos scope "Guarantee"
     | Property.GuaranteeOneModeActive (pos, scope) -> print_attributes pos scope "OneModeActive"
     | Property.GuaranteeModeImplication (pos, scope) -> print_attributes pos scope "Ensure"
@@ -1708,6 +1708,61 @@ let invariant scope term cert two_state =
   with Messaging.NotInitialized -> ()
 
 
+let check_sofar_invariance trans_sys pos =
+  match TransSys.get_sofar_term trans_sys pos with
+  | Some (sofar_term, is_invariant) when is_invariant -> (
+    let cert = (1, sofar_term) in
+    (* Add invariant to transtion system *)
+    Some (TransSys.add_invariant trans_sys sofar_term cert false)
+  )
+  | _ -> None
+
+
+(* Broadcast a property is invariant, and infer new invariants *)
+let prop_invariant trans_sys prop_name cert =
+
+  (* Update time in case we are not running in parallel mode *)
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
+
+  let mdl = get_module () in
+
+  log_proved mdl L_warn trans_sys None prop_name ;
+
+  (* Get property by name *)
+  let prop = TransSys.property_of_name trans_sys prop_name in
+  let status = Property.PropInvariant cert in
+
+  (* Update status of property in transition system *)
+  Property.set_prop_status prop status;
+
+  (* Add property as invariant to transtion system *)
+  TransSys.add_invariant trans_sys prop.prop_term cert false |> ignore ;
+
+  (try
+
+    (* Send status message *)
+    EventMessaging.send_relay_message (PropStatus (prop_name, status))
+
+  (* Don't fail if not initialized *)
+  with Messaging.NotInitialized -> () ) ;
+
+  match prop.Property.prop_source with
+  | Property.Assumption (_, (_, pos)) -> (
+    (* If property was proven invariant and it is a contract assumption
+       that a caller had to prove, check whether the other assumptions
+       have been proved invariant too. If so, set SoFar(assumptions)
+       invariant in transition system.
+
+       There is a similar check in [update_trans_sys_sub] that updates
+       the transition system in the other processes.
+    *)
+    match check_sofar_invariance trans_sys pos with
+    | None -> TSet.empty
+    | Some inv -> TSet.singleton inv
+  )
+  | _ -> TSet.empty
+
 
 (* Broadcast a property status *)
 let prop_status status input_sys analysis trans_sys prop =
@@ -2028,9 +2083,11 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
 
       (* Output proved property *)
       log_proved m L_warn trans_sys None p;
-          
-      (* Change property status in transition system *)
-      TransSys.set_prop_invariant trans_sys p cert;
+
+      (* Get property by name *)
+      let prop = TransSys.property_of_name trans_sys p in
+      (* Change property status (in transition system) *)
+      Property.set_prop_status prop s ;
 
       let term =
         TransSys.props_list_of_bound trans_sys Numeral.zero
@@ -2046,6 +2103,20 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
           |> insert_inv scope invars false
         with Not_found -> (* Skip if named property not found *)
           invars
+      in
+
+      let invars =
+        match prop.Property.prop_source with
+        | Property.Assumption (_, (_, pos)) -> (
+          (* If property is a contract assumption that a caller had to prove,
+             check whether the other assumptions have been proved invariant too.
+             If so, set SoFar(assumptions) invariant in transition system.
+          *)
+          match check_sofar_invariance trans_sys pos with
+          | Some inv -> insert_inv scope invars false inv
+          | None -> invars
+        )
+        | _ -> invars
       in
 
       (* Continue with property status added to accumulator *)

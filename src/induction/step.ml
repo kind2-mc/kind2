@@ -476,15 +476,18 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
     )
   in
   
-  (* Communicating confirmed properties. *)
-  confirmed_cert
-  |> List.iter (
-    fun (s, (_, _, cert)) ->
-      KEvent.prop_status
-        (Property.PropInvariant cert) input_sys aparam trans s ;
-      (* KEvent.log L_warn
+  (* Communicating confirmed properties,
+     and getting new inferred invariants *)
+  let new_invs =
+    List.fold_left
+      (fun acc (s, (_, _, cert)) ->
+        (* KEvent.log L_warn
         "%s: @[<v>%d, %a@]" s (fst cert) Term.pp_print_term (snd cert) ; *)
-  ) ;
+        KEvent.prop_invariant trans s cert |> Term.TermSet.union acc
+      )
+      (fst new_invs)
+      confirmed_cert, (snd new_invs)
+  in
 
   match unknowns', unfalsifiables with
   | [], [] ->

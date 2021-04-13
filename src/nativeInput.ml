@@ -233,7 +233,14 @@ let subsystems_of_sexpr = function
                     (HString.string_of_hstring name))
     in
 
-    let inst = { TransSys.pos = Lib.dummy_pos; map_down; map_up; guard_clock} in
+    let inst = {
+      TransSys.pos = Lib.dummy_pos;
+      map_down;
+      map_up;
+      guard_clock;
+      assumes = None
+    }
+    in
 
     (* assemble subsystem *)
     subsys, inst
@@ -277,7 +284,7 @@ let prop_source_of_sexpr prop_term = function
     let ppos = Lib.pos_of_file_row_col frc_pos in
     let p, scope =
       Lib.extract_scope_name (HString.string_of_hstring scopedprop) in
-    if c == s_assumption then Property.Assumption (ppos, scope)
+    if c == s_assumption then Property.Assumption (ppos, (scope, Lib.dummy_pos))
     else if c == s_guarantee then Property.Guarantee (ppos, scope)
     else if c = s_guaranteeonemodeactive then
       Property.GuaranteeOneModeActive (ppos, scope)
