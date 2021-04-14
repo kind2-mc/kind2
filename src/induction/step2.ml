@@ -301,11 +301,20 @@ let broadcast_if_safe ({ solver ; sys ; map } as ctx) unfalsifiable =
         false
     )
     | [] ->
-      (* All properties confirmed, broadcasting as invariant. *)
-      confirmed |> List.iter (
-        fun (prop, cert) ->
-          KEvent.prop_status (Prop.PropInvariant cert)
-            ctx.in_sys ctx.param sys prop
+      (* All properties confirmed, broadcasting as invariant,
+         and getting new inferred invariants
+      *)
+      let new_os_invs =
+        confirmed |> List.fold_left (
+          fun acc (prop, cert) ->
+            KEvent.prop_invariant sys prop cert |> Term.TermSet.union acc
+        )
+        Term.TermSet.empty
+      in
+      if not (Term.TermSet.is_empty new_os_invs) then (
+        let new_invariants = (new_os_invs, Term.TermSet.empty) in
+        (* Forcing to assert invs to [3], since upper-bound's exclusive. *)
+        Unroller.assert_new_invs_to solver Num.(succ two) new_invariants
       ) ;
       (* Removing from map and updating solver. *)
       let map =

@@ -2408,7 +2408,8 @@ let mk_inst init_flag sys formal_vars =
   [ { TransSys.pos = Lib.dummy_pos;
       map_down;
       map_up;
-      guard_clock = fun _ t -> t } ]
+      guard_clock = (fun _ t -> t);
+      assumes = None } ]
 
 
 let add_scope_and_register_bounds scope orig_tbl dest_tbl sv =

@@ -332,7 +332,7 @@ let tyof_lhs id_typ_map lhs =
 
 let minimize_node_eq id_typ_map ue lst = function
   | A.Assert (pos, expr) when
-    List.exists (fun p -> Lib.compare_pos p pos = 0) lst ->
+    List.exists (fun p -> Lib.equal_pos p pos) lst ->
     Some (A.Assert (pos, expr))
   | A.Assert _ -> None
   | A.Automaton _ as automaton -> Some automaton
@@ -391,11 +391,11 @@ let minimize_contract_node_eq ue lst cne =
   | A.GhostVar d -> [A.GhostVar (minimize_const_decl ue lst d)]
   | A.Assume (pos,_,_,_)
   | A.Guarantee (pos,_,_,_) ->
-    if List.exists (fun p -> Lib.compare_pos p pos = 0) lst
+    if List.exists (fun p -> Lib.equal_pos p pos) lst
     then [cne] else []
   | A.Mode (pos,id,req,ens) ->
     let ens = ens |> List.filter
-      (fun (pos,_,_) -> List.exists (fun p -> Lib.compare_pos p pos = 0) lst)
+      (fun (pos,_,_) -> List.exists (fun p -> Lib.equal_pos p pos) lst)
     in
     [A.Mode (pos,id,req,ens)]
 

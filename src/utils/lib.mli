@@ -418,6 +418,9 @@ type position
 (** Dummy position different from any valid position *)
 val dummy_pos : position
 
+(** [equal_pos p1 p2] is true if both positions are equal *)
+val equal_pos : position -> position -> bool
+
 (** Comparision on positions *)
 val compare_pos : position -> position -> int
 

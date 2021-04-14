@@ -287,7 +287,7 @@ let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
         )
       in
       let prop_status = P.PropUnknown in
-      let prop_source = P.Assumption (pos, scope) in
+      let prop_source = P.Assumption (pos, (scope, call_pos)) in
       { P.prop_name ;
         P.prop_source ;
         P.prop_term ;
@@ -473,13 +473,15 @@ let add_subsystem
     map_up
     map_down
     guard_clock
+    assumes
     subsystems =
 
   let instance =
     { TransSys.pos; 
       TransSys.map_up; 
       TransSys.map_down; 
-      TransSys.guard_clock }
+      TransSys.guard_clock;
+      TransSys.assumes }
   in
 
   (* Use recursive function with empty accumulator *)
@@ -664,13 +666,34 @@ let call_terms_of_node_call mk_fresh_state_var globals
   in
 
   (* Instantiate assumptions from contracts in this node. *)
-  let node_props =
+  let node_assume_props =
     match contract with
-    | None -> node_props
+    | None -> []
     | Some contract -> (
       subrequirements_of_contract
         call_pos (I.to_scope call_node_name) state_var_map_up contract
-    ) @ node_props
+    )
+  in
+
+  let node_props = node_assume_props @ node_props in
+
+  let node_assumes =
+    if node_assume_props = [] then None
+    else (
+      let assume_terms =
+        List.map (fun { P.prop_term } -> prop_term) node_assume_props
+      in
+      let sofar_term =
+        match contract with
+        | None -> assert false
+        | Some {C.sofar_assump} -> (
+          Var.mk_state_var_instance sofar_assump TransSys.prop_base
+          |> Term.mk_var
+          |> lift_term state_var_map_up
+        )
+      in
+      Some (assume_terms, sofar_term)
+    )
   in
 
   (* Return actual parameters of initial state constraint at bound in
@@ -738,6 +761,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
   state_var_map_down, 
   node_locals, 
   node_props, 
+  node_assumes,
   call_locals,
   init_call_term, 
   init_call_term_trans,
@@ -784,6 +808,7 @@ let rec constraints_of_node_calls
       state_var_map_down,
       node_locals,
       node_props,
+      node_assumes,
       _,
       init_term,
       _,
@@ -806,12 +831,11 @@ let rec constraints_of_node_calls
         call_pos
         state_var_map_up
         state_var_map_down
-
         (* No guarding necessary when instantiating term, because
            this node instance does not have an activation
            condition *)
         (fun _ t -> t)
-
+        node_assumes
         subsystems
     in
 
@@ -839,8 +863,8 @@ let rec constraints_of_node_calls
       with Not_found -> assert false
     in
 
-    let state_var_map_up, state_var_map_down, node_locals, node_props, _,
-        init_term, _, trans_term =
+    let state_var_map_up, state_var_map_down, node_locals, node_props,
+        node_assumes, _, init_term, _, trans_term =
       (* Create node call *)
       call_terms_of_node_call
         mk_fresh_state_var globals node_call node_locals node_props node_def
@@ -873,6 +897,7 @@ let rec constraints_of_node_calls
              [Var.mk_state_var_instance restart i |> Term.mk_var
               |> Term.mk_not;
               t])
+        node_assumes
         subsystems
     in
 
@@ -1003,7 +1028,8 @@ let rec constraints_of_node_calls
       state_var_map_up, 
       state_var_map_down, 
       node_locals, 
-      node_props, 
+      node_props,
+      node_assumes,
       call_locals,
       init_term, 
       init_term_trans, 
@@ -1258,6 +1284,7 @@ let rec constraints_of_node_calls
         state_var_map_up
         state_var_map_down
         guard_clock
+        node_assumes
         subsystems
     in
 

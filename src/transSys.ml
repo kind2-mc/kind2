@@ -54,6 +54,10 @@ type instance =
        clock of the node instance is false *)
     guard_clock : Numeral.t -> Term.t -> Term.t;
 
+    (* [None] if there is no assumption associated to the call. Otherwise,
+       [Some (l,s)] where [l] is the list of instantiated assume terms, and
+       [s] is SoFar(conjunction of instantiated assume terms) *)
+    assumes: (Term.t list * Term.t) option;
   }
 
 type t = 
@@ -776,6 +780,45 @@ let get_max_depth trans_sys =
   fold_subsystem_instances
     (fun _ _ a -> List.fold_left max 0 a |> succ)
     trans_sys
+
+let get_sofar_term trans_sys pos =
+
+  (* Find instance by position *)
+  let instance =
+    fold_subsystem_instances
+      (fun _ instances acc ->
+        let acc' =
+          match List.find_opt (fun v -> v <> None) acc with
+          | None -> None
+          | Some v -> v
+        in
+        match acc' with
+        | None -> (
+          List.find_opt
+            (fun (_, {pos = p}) -> equal_pos pos p)
+            instances
+        )
+        | _ -> acc'
+      )
+      trans_sys
+  in
+
+  match instance with
+  | None -> None (* No instance *)
+  | Some (_, {assumes}) -> (
+    match assumes with
+    | None -> None (* No assumptions *)
+    | Some (ass_terms, sofar_term) -> (
+      let is_invariant =
+        let { invariants } = trans_sys in
+        List.for_all
+          (fun t -> Invs.mem invariants t)
+          ass_terms
+      in
+      Some (sofar_term, is_invariant)
+    )
+  )
+
 
 (* **************************************************************** *)
 (* Set, Map, and Hash Table                                         *)

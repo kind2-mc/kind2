@@ -2036,7 +2036,7 @@ let get_pos_number hc lid pos =
   let find_in_cat cat =
     Hashtbl.iter (fun _ l ->
         List.iter (fun (p, n, c, _) ->
-            if Lib.compare_pos p pos = 0 then raise (Found (n, c)))
+            if Lib.equal_pos p pos then raise (Found (n, c)))
           l
       ) cat;
     raise Not_found

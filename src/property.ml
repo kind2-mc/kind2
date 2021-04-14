@@ -69,9 +69,11 @@ and prop_source =
      the name of the property *)
   | Instantiated of Scope.t * t
 
-  (* Contract assumption that a caller has to prove. The list of state vars is
-  the guarantees that proving the requirement yields. *)
-  | Assumption of position * string list
+  (* Contract assumption that a caller has to prove.
+
+     Reference the assumption by its position, the scope of the subsystem,
+     and the position of the node call *)
+  | Assumption of position * (Scope.t * position)
 
   (* Contract guarantees. *)
   | Guarantee of (position * Scope.t)
@@ -123,7 +125,7 @@ let pp_print_prop_source ppf = function
        "instantiated from %s"
               (String.concat "." scope)
 
-  | Assumption (_, scope) ->
+  | Assumption (_, (scope, _)) ->
     Format.fprintf ppf "assumption of %s" (String.concat "." scope)
   | Guarantee (_, scope) ->
     Format.fprintf ppf "guarantee (%a)" Scope.pp_print_scope scope

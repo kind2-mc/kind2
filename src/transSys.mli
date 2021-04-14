@@ -93,6 +93,10 @@ type instance =
         the term [c => t] where [c] is the clock of the subsystem
         instance. *)
 
+    assumes: (Term.t list * Term.t) option;
+    (** [None] if there is no assumption associated to the call. Otherwise,
+        [Some (l,s)] where [l] is the list of instantiated assume terms, and
+        [s] is SoFar(conjunction of instantiated assume terms) *)
   }
 
 (** Return [true] if scopes of transition systems are equal *)
@@ -341,6 +345,16 @@ val get_subsystem_instances : t -> (t * instance list) list
     in the subsystems of [t]. *)
 val find_subsystem_of_scope : t -> Scope.t -> t
 
+(** Get SoFar expression associated to a given node call (if any),
+    and its invariance status
+
+    [get_sofar_term t p] returns [None] if the subsystem instance identified
+    by position [p] does not exist or does not have assumptions. Otherwise,
+    it returns [Some (t,b)] where [t] corresponds to SoFar(conjunction of
+    instantiated assume terms), and [b] is true if the term has proven
+    invariant.
+*)
+val get_sofar_term: t -> Lib.position -> (Term.t * bool) option
 
 val get_max_depth : t -> int
 
