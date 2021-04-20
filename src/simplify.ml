@@ -1155,7 +1155,18 @@ let atom_of_term t =
     assert false )
 
 
-let select simplify_term_node default_of_var uf_defs model fterm = function
+let store = function
+ (* Arguments are array, index and value *)
+ | [a; i; v] ->
+
+  atom_of_term (
+    Term.mk_store (term_of_nf a) (term_of_nf i) (term_of_nf v))
+
+ (* Store is ternary *)
+ | _ -> assert false
+
+
+let select simplify_term_node model fterm = function
 
   (* Arguments are array and index *)
   | [a; i] ->
@@ -1196,7 +1207,7 @@ let select simplify_term_node default_of_var uf_defs model fterm = function
           (* Evaluate lambda abstraction with simplified
              indexes *)
           Term.eval_t
-            (simplify_term_node default_of_var uf_defs model)
+            simplify_term_node
             (Term.eval_lambda l i')
 
         (* or map *)
@@ -1222,7 +1233,7 @@ let select simplify_term_node default_of_var uf_defs model fterm = function
 
             (* Evaluate map with simplified indexes *)
             Term.eval_t
-              (simplify_term_node default_of_var uf_defs model)
+              simplify_term_node
               value
 
         (* Variable must not evaluate to a term *)
@@ -2053,27 +2064,14 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           (* Select from an array *)
           | `SELECT _ ->
 
-            select simplify_term_node default_of_var uf_defs model fterm args
+            select (simplify_term_node default_of_var uf_defs model) model fterm args
 
           (* array store *)
-          | `STORE ->
+          | `STORE -> store args
 
-
-            (match args with
-
-              (* Arguments are array, index and value *)
-             | [a; i; v] ->
-
-               atom_of_term (
-                 Term.mk_store (term_of_nf a) (term_of_nf i) (term_of_nf v))
-
-              (* Store is ternary *)
-              | _ -> assert false
-            )
-            
           | `UF _ when Symbol.is_select s ->
 
-            select simplify_term_node default_of_var uf_defs model fterm args
+            select (simplify_term_node default_of_var uf_defs model) model fterm args
 
           (* Function with a definition *)
           | `UF uf_symbol when List.mem_assq uf_symbol uf_defs ->
@@ -2387,6 +2385,707 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
     (* Skip over attributed term *)
     (* | Term.T.Attr _ -> match args with [a] -> a | _ -> assert false *)
 
+(* ********************************************************************** *)
+(* Functions used in {!remove_ite}                                        *)
+(* ********************************************************************** *)
+
+let boolean_ite p l r =
+  conjunction [ disjunction [negation [Bool p]; Bool l];
+                disjunction [Bool p; Bool r] ]
+
+let remove_boolean_ite = function
+
+  (* Choose left branch if predicate is true *)
+  | [Bool p; l; _] when p == Term.t_true -> l
+
+  (* Choose right branch if predicate is false *)
+  | [Bool p; _; r] when p == Term.t_false -> r
+
+  (* Evaluate to a Boolean *)
+  | [Bool p; Bool l; Bool r] -> boolean_ite p l r
+
+  (* Evaluate to an integer atom *)
+  | [Bool p; Num l; Num r] ->
+
+    (atom_of_term
+       (Term.mk_ite
+          p
+          (term_of_num_polynomial l)
+          (term_of_num_polynomial r)))
+
+  (* Evaluate to a real atom *)
+  | [Bool p; Dec l; Dec r] ->
+
+      (atom_of_term
+         (Term.mk_ite
+            p
+            (term_of_dec_polynomial l)
+            (term_of_dec_polynomial r)))
+
+  (* Not well-typed or wrong arity *)
+  | _ -> assert false
+
+
+(* Convert a term to a polynomial
+
+   This auxiliary function is polymorphic in the type of the monomial,
+   hence we need constructors and predicates. *)
+let polynomial_of_term'
+    is_constant_term
+    constant_of_term
+    is_zero
+    zero
+    one
+    t =
+
+  let rec monomials_of_args = function
+    | [] -> []
+    | h :: tl ->
+      if is_constant_term h then (
+        assert (is_zero (constant_of_term h));
+        monomials_of_args tl
+      )
+      else
+        match Term.destruct h with
+        | Term.T.App (s, c :: vl) -> (
+          assert (Symbol.node_of_symbol s = `TIMES);
+          if is_constant_term c then
+            (constant_of_term c, vl) :: monomials_of_args tl
+          else
+            (one, c :: vl) :: monomials_of_args tl
+        )
+        | Term.T.Var v -> (one, [Term.mk_var v]) :: monomials_of_args tl
+        | _ -> assert false
+  in
+
+  if is_constant_term t then
+    (constant_of_term t, [])
+  else
+    match Term.destruct t with
+    | Term.T.App (s, h :: args) -> (
+      match Symbol.node_of_symbol s with
+      | `PLUS -> (
+        if is_constant_term h then
+          (constant_of_term h, monomials_of_args args)
+        else
+          (zero, monomials_of_args (h::args))
+      )
+      | `TIMES -> (zero, monomials_of_args [t])
+      | _ -> assert false
+    )
+    | Term.T.Var v -> (zero, [(one, [Term.mk_var v])])
+    | _ -> assert false
+
+
+(* Convert a term to a polynomial *)
+let polynomial_of_term t =
+  (* Get type of term *)
+  let tt = Term.type_of_term t in
+
+  (* Term is of type integer *)
+  if Type.is_int tt || Type.is_int_range tt || Type.is_enum tt then
+
+    Num (polynomial_of_term'
+      Term.is_numeral
+      Term.numeral_of_term
+      (Numeral.equal Numeral.zero)
+      Numeral.zero
+      Numeral.one
+      t
+    )
+
+  (* Term is of type real *)
+  else if Type.is_real tt then
+
+    Dec (polynomial_of_term'
+      Term.is_decimal
+      Term.decimal_of_term
+      (Decimal.equal Decimal.zero)
+      Decimal.zero
+      Decimal.one
+      t
+    )
+
+  else
+
+    assert false
+
+(* Perform a tree traversal of `curr_ite` until reaching a polynomial.
+   If `ite_terms` is not empty, add polynomial to `polys` and call
+   {!combine_term_ite} with the first element of `ite_terms`.
+   Otherwise, apply operator `oper` to the found polynomial and
+   the polynomials contained in `polys`. Then, continue the search. *)
+let rec combine_term_ite oper curr_ite polys ite_terms =
+
+  let cmb_ite t =
+    if Term.is_ite t then
+      combine_term_ite oper t polys ite_terms
+    else
+      let polys' = (polynomial_of_term t) :: polys in
+      match ite_terms with
+      | [] -> term_of_nf (oper polys')
+      | h :: tl -> combine_term_ite oper h polys' tl
+  in
+
+  match Term.destruct curr_ite with
+  | Term.T.App (_, [p; l; r]) -> (
+    let l', r' = cmb_ite l, cmb_ite r in
+    (* Simplify if the two terms are the same. *)
+    if l' == r' then
+      l'
+    else
+      Term.mk_ite p l' r'
+  )
+  | _ -> assert false
+
+(* Combine all ite operators in `args` by multiplying branches and
+   applying operator `oper` to obtained polynomials *)
+let ite_arith oper args =
+
+  let ite_polys, other_polys = args |> List.partition (fun lit ->
+    match lit with
+    | Num (ct, [cf, [t]]) when Term.is_ite t ->
+      assert (ct == Numeral.zero); assert (cf == Numeral.one); true
+    | Dec (ct, [cf, [t]]) when Term.is_ite t ->
+      assert (ct == Decimal.zero); assert (cf == Decimal.one); true
+    | _ -> false
+  )
+  in
+
+  match ite_polys with
+  | [] -> oper other_polys
+
+  | Num (_, [_, [h]]) :: tl ->
+    let ite_terms = tl |> List.map (fun ite_poly ->
+      match ite_poly with
+      Num (_, [_, [t]]) -> t | _ -> assert false)
+    in
+    let ite = combine_term_ite oper h other_polys ite_terms in
+    Num (Numeral.zero, [Numeral.one, [ite]])
+
+  | Dec (_, [_, [h]]) :: tl ->
+    let ite_terms = tl |> List.map (fun ite_poly ->
+      match ite_poly with
+      Dec (_, [_, [t]]) -> t | _ -> assert false)
+    in
+    let ite = combine_term_ite oper h other_polys ite_terms in
+    Dec (Decimal.zero, [Decimal.one, [ite]])
+
+  | _ -> assert false
+
+
+let ite_divisible n = function
+
+  | [Num (ct, [cf, [t]])] when Term.is_ite t -> (
+
+    assert (ct == Numeral.zero); assert (cf == Numeral.one);
+
+    let rec apply_to_leaves curr_ite =
+
+      let aux_apply t =
+        if Term.is_ite t then apply_to_leaves t
+        else term_of_nf (divisible n [polynomial_of_term t])
+      in
+
+      match Term.destruct curr_ite with
+      | Term.T.App (_, [p; l; r]) -> (
+        let l', r' = aux_apply l, aux_apply r in
+        (* Simplify if the two terms are the same. *)
+        if l' == r' then
+          l'
+        else
+          term_of_nf (boolean_ite p l' r')
+      )
+      | _ -> assert false
+    in
+
+    Bool (apply_to_leaves t)
+  )
+
+  | args -> divisible n args
+
+
+(* Apply minus operator after combining all ite operators *)
+let ite_minus = function
+
+  (* Subtraction is not nullary  *)
+  | [] -> assert false
+
+  (* Unary integer/real minus: negate polynomial to (- c - p) *)
+  | [nf] -> ite_arith minus [nf]
+
+  (* Binary integer/real minus or higher arity: (h - s1 - ... - sn) reduce
+     to (h - (s1 + ... + sn) *)
+  | nf :: tl ->
+    ite_arith add [nf; ite_arith minus [ite_arith add tl]]
+
+(* Apply relation after combining all ite operators *)
+let rec combine_bool_ite ite_rel_to_nf' ite =
+
+  let cmb_ite t =
+    if Term.is_ite t then
+      combine_bool_ite ite_rel_to_nf' t
+    else
+      term_of_nf (ite_rel_to_nf' (polynomial_of_term t))
+  in
+
+  match Term.destruct ite with
+  | Term.T.App (_, [p; l; r]) -> (
+    let l', r' = cmb_ite l, cmb_ite r in
+    (* Simplify if the two terms are equal... *)
+    if l' == r' then
+      l'
+    (* ... or are constant *)
+    else if Term.is_bool l' && Term.is_bool r' then
+      if Term.bool_of_term l' then p
+      else Term.mk_not p
+    else
+      term_of_nf (boolean_ite p l' r')
+  )
+  | _ -> assert false
+
+
+(* Polymorphic function to construct relation between
+   polynomial `p` and zero (e.g. p <= 0, p = 0) *)
+let ite_rel_to_nf'
+    rel
+    mk_rel
+    zero
+    t_zero
+    p =
+
+  (* Polynomial has become constant, i.e. (a = a) -> (0 = 0) *)
+  if is_constant p then
+
+    (* Return true if constant is in the relation with zero,
+       otherwise false
+    *)
+    Bool (Term.mk_bool (rel p zero))
+
+  else
+
+    (* Simplify (a = b) to (a - b = 0) *)
+    Bool (mk_rel [term_of_nf p; t_zero])
+
+
+(* Normalize an binary relation by subtracting the right-hand side from the
+   left-hand side and evaluating to true or false if possible *)
+let ite_rel_to_nf
+    ite_rel_to_nf'
+    a b =
+
+  let p = ite_minus [a; b] in
+
+  match p with
+  | Num (ct, [cf, [t]]) when Term.is_ite t ->
+     assert (ct == Numeral.zero); assert (cf == Numeral.one);
+     Bool (combine_bool_ite ite_rel_to_nf' t)
+
+  | Dec (ct, [cf, [t]]) when Term.is_ite t ->
+     assert (ct == Decimal.zero); assert (cf == Decimal.one);
+     Bool (combine_bool_ite ite_rel_to_nf' t)
+
+  | _ ->
+    ite_rel_to_nf' p
+
+
+(* Return the corresponding relation, zero polynomial, and zero term
+   based on the type of the given integer (real) polynomial *)
+let numerical_rel_and_zero rel_num rel_dec = function
+  | Num _ ->
+
+    (* Compute relation between constant integer polynomials *)
+    let irel p q =
+      rel_num (const_of_num_polynomial p) (const_of_num_polynomial q)
+    in
+
+    (irel, Num (Numeral.zero, []), Term.mk_num Numeral.zero)
+
+  | Dec _ ->
+
+    (* Compute relation between constant real polynomials *)
+    let rrel p q =
+      rel_dec (const_of_dec_polynomial p) (const_of_dec_polynomial q)
+    in
+
+    (rrel, Dec (Decimal.zero, []), Term.mk_dec Decimal.zero)
+
+  (* Relation must be between integers or reals *)
+  | Bool _ | Array _ | BV _ -> assert false
+
+
+(* Normalize an n-ary relation by unchaining it into a conjunction of
+   binary relations, subtracting the right-hand side from the
+   left-hand side and evaluating to true or false if possible *)
+let ite_relation
+    remove_ite'
+    rel_num
+    rel_dec
+    mk_rel =
+
+  function
+
+    (* Relation must be at least binary *)
+    | []
+    | [_] -> assert false
+
+    (* Binary relation *)
+    | [a; b] ->
+
+      let rel, zero, t_zero =
+        numerical_rel_and_zero rel_num rel_dec a in
+
+      ite_rel_to_nf (ite_rel_to_nf' rel mk_rel zero t_zero) a b
+
+    (* Higher arity relation *)
+    | e :: _  as args ->
+
+      let rel, zero, t_zero =
+        numerical_rel_and_zero rel_num rel_dec e in
+
+      (* Convert list of n elements [e_1; ...; en] to list [(e_1, e_2);
+         ...; (e_n-1, e_n)] *)
+      let args_chain = chain_list_p args in
+
+      (* Simplify each binary relation *)
+      let args' =
+        List.map (fun (a, b) ->
+          ite_rel_to_nf (ite_rel_to_nf' rel mk_rel zero t_zero) a b
+        )
+        args_chain
+      in
+
+      (* Simplify conjunction of binary relations *)
+      Bool
+        (bool_of_nf
+           (remove_ite'
+              (Term.destruct
+                 (Term.mk_and (List.map term_of_nf args')))
+              args'))
+
+
+(* Normalize equality relation between normal forms *)
+let ite_rel_eq remove_ite' =
+
+  ite_relation
+    remove_ite'
+    Numeral.(=)
+    Decimal.(=)
+    Term.mk_eq
+
+(* Normalize less than or equal relation between normal forms *)
+let ite_rel_leq remove_ite' =
+
+  ite_relation
+    remove_ite'
+    Numeral.(<=)
+    Decimal.(<=)
+    Term.mk_leq
+
+(* Normalize less than relation between normal forms *)
+let ite_rel_lt remove_ite' =
+
+  ite_relation
+    remove_ite'
+    Numeral.(<)
+    Decimal.(<)
+    Term.mk_lt
+
+(* Normalize greater than or equal relation between normal forms *)
+let ite_rel_geq remove_ite' =
+
+  ite_relation
+    remove_ite'
+    Numeral.(>=)
+    Decimal.(>=)
+    Term.mk_geq
+
+(* Normalize greater than relation between normal forms *)
+let ite_rel_gt remove_ite' =
+
+  ite_relation
+    remove_ite'
+    Numeral.(>)
+    Decimal.(>)
+    Term.mk_gt
+
+(* Fail if normal form is not constant *)
+let const_nf name nf =
+  if is_constant nf then nf
+  else failwith ("Implementation not found for " ^ name ^ " in remove_ite")
+
+let rec remove_ite' fterm args =
+  match fterm with
+
+  | Term.T.Var v -> atom_of_term (Term.mk_var v)
+
+  (* Polynomial of a constant depends on symbol *)
+  | Term.T.Const s ->
+    (
+      (* Unhashcons constant symbol *)
+      match Symbol.node_of_symbol s with
+
+        (* Polynomial for a numeral is n *)
+        | `NUMERAL n -> Num (n, [])
+
+        (* Polynomial for a decimal is d *)
+        | `DECIMAL d -> Dec (d, [])
+
+        (* Propositional constant *)
+        | `TRUE -> Bool (Term.t_true)
+        | `FALSE -> Bool (Term.t_false)
+
+        (* Uninterpreted constant *)
+        | `UF u -> assert false
+
+        (* Fail in remaining cases, which are not constants *)
+        | _ -> assert false
+    )
+
+  (* Normal form of a function application depends on its symbol *)
+  | Term.T.App (s, _) ->
+    (
+      (* Unhashcons function symbol *)
+      match Symbol.node_of_symbol s with
+
+        (* Boolean negation *)
+        | `NOT -> negation args
+
+        (* Boolean conjunction *)
+        | `AND -> conjunction args
+
+        (* Boolean disjunction *)
+        | `OR -> disjunction args
+
+        (* Reduce implication to a disjunction *)
+        | `IMPLIES -> implication remove_ite' args
+
+        (* Reduce exclusive disjunction (a xor b) to disjunction of
+           conjunctions ((a & ~b) | (~a & b)) *)
+        | `XOR -> exclusive_disjunction remove_ite' args
+
+        (* Equation *)
+        | `EQ ->
+
+           (match args with
+
+              (* Nullary or unary equation *)
+              | []  -> assert false
+              | [_] -> assert false
+
+              (* Binary equivalence, reduce to (a & b) | (~a & ~b) *)
+              | [Bool a; Bool b] ->
+
+                binary_equivalence remove_ite' a b
+
+              (* Equation between integers or reals *)
+              | _ -> ite_rel_eq remove_ite' args
+           )
+
+        (* Relations *)
+        | `LEQ -> ite_rel_leq remove_ite' args
+        | `LT -> ite_rel_lt remove_ite' args
+
+        | `GEQ -> ite_rel_geq remove_ite' args
+
+        | `GT -> ite_rel_gt remove_ite' args
+
+        (* If-then-else *)
+        | `ITE -> remove_boolean_ite args
+
+        (* Divisibility predicate *)
+        | `DIVISIBLE n -> ite_divisible n args
+
+        (* N-ary addition *)
+        | `PLUS -> ite_arith add args
+
+        (* Unary minus or n-ary difference *)
+        | `MINUS -> ite_minus args
+
+        (* N-ary multiplication *)
+        | `TIMES -> ite_arith times args
+
+        (* Real division is a monomial with polynomial subterms *)
+        | `DIV -> real_division args (* |> const_nf "DIV" *)
+
+        (* Integer division is a monomial with polynomial subterms *)
+        | `INTDIV -> integer_division args (* |> const_nf "INTDIV" *)
+
+        (* Modulus is a monomial with polynomial subterms *)
+        | `MOD -> modulus args (* |> const_nf "MOD" *)
+
+        (* Absolute value is a monomial with polynomial subterms *)
+        | `ABS -> absolute_value args (* |> const_nf "ABS" *)
+
+        (* Conversion to integer is a monomial with polynomial
+           subterms *)
+        | `TO_INT -> to_int args (* |> const_nf "TO_INT" *)
+
+        | `UINT8_TO_INT -> ubv_to_int args
+
+        | `UINT16_TO_INT -> ubv_to_int args
+
+        | `UINT32_TO_INT -> ubv_to_int args
+
+        | `UINT64_TO_INT -> ubv_to_int args
+
+        | `INT8_TO_INT -> bv_to_int args
+
+        | `INT16_TO_INT -> bv_to_int args
+
+        | `INT32_TO_INT -> bv_to_int args
+
+        | `INT64_TO_INT -> bv_to_int args
+
+        (* Conversion to unsigned integer8 is a monomial with polynomial
+           subterms *)
+        | `TO_UINT8 -> to_uint8 args
+
+        (* Conversion to unsigned integer16 is a monomial with polynomial
+           subterms *)
+        | `TO_UINT16 -> to_uint16 args
+
+        (* Conversion to unsigned integer32 is a monomial with polynomial
+           subterms *)
+        | `TO_UINT32 -> to_uint32 args
+
+        (* Conversion to unsigned integer64 is a monomial with polynomial
+           subterms *)
+        | `TO_UINT64 -> to_uint64 args
+
+        (* Conversion to integer8 is a monomial with polynomial
+           subterms *)
+        | `TO_INT8 -> to_int8 args
+
+        (* Conversion to integer16 is a monomial with polynomial
+           subterms *)
+        | `TO_INT16 -> to_int16 args
+
+        (* Conversion to integer32 is a monomial with polynomial
+           subterms *)
+        | `TO_INT32 -> to_int32 args
+
+        (* Conversion to integer64 is a monomial with polynomial
+           subterms *)
+        | `TO_INT64 -> to_int64 args
+
+        | `BV2NAT -> bv2nat args
+
+        (* Conversion to real is a monomial with polynomial
+           subterms *)
+        | `TO_REAL -> to_real args (* |> const_nf "TO_REAL" *)
+
+        | `BVAND -> binary_bv_op Bitvector.bv_and args
+
+        | `BVOR -> binary_bv_op Bitvector.bv_or args
+
+        | `BVNOT -> unary_bv_op Bitvector.bv_not args
+
+        | `BVSHL -> binary_bv_op Bitvector.bv_lsh args
+
+        | `BVLSHR -> binary_bv_op Bitvector.bv_rsh args
+
+        | `BVASHR -> binary_bv_op Bitvector.bv_arsh args
+
+        | `BVADD -> bv_add args
+
+        | `BVSUB -> bv_sub args
+
+        | `BVMUL -> bv_mult args
+
+        | `BVUDIV -> binary_bv_op Bitvector.ubv_div args
+
+        | `BVSDIV -> binary_bv_op Bitvector.sbv_div args
+
+        | `BVUREM -> binary_bv_op Bitvector.ubv_rem args
+
+        | `BVSREM -> binary_bv_op Bitvector.sbv_rem args
+
+        | `BVULT ->
+
+          bv_relation
+            Bitvector.ult
+            (relation_lt remove_ite')
+            args
+
+        | `BVULE ->
+
+          bv_relation
+            Bitvector.ulte
+            (relation_leq remove_ite')
+            args
+
+        | `BVUGT ->
+
+          bv_relation
+            Bitvector.ugt
+            (relation_gt remove_ite')
+            args
+
+        | `BVUGE ->
+
+          bv_relation
+            Bitvector.ugte
+            (relation_geq remove_ite')
+            args
+
+        | `BVSLT ->
+
+          bv_relation
+            Bitvector.lt
+            (relation_lt remove_ite')
+            args
+
+        | `BVSLE ->
+
+          bv_relation
+            Bitvector.lte
+            (relation_leq remove_ite')
+            args
+
+        | `BVSGT ->
+
+          bv_relation
+            Bitvector.gt
+            (relation_gt remove_ite')
+            args
+
+        | `BVSGE ->
+
+          bv_relation
+            Bitvector.gte
+            (relation_geq remove_ite')
+            args
+
+        | `BVNEG -> unary_bv_op Bitvector.sbv_neg args
+
+        | `BVEXTRACT (i, j) -> bv_extract i j args
+
+        | `BVSIGNEXT i -> bv_signext i args
+
+        | `BVCONCAT -> bv_concat args
+
+        (* Coincidence of real with integer (not implemented) *)
+        | `IS_INT -> assert false
+
+        (* Distinct (not implemented) *)
+        | `DISTINCT -> assert false
+
+        (* Normal form for an uninterpreted function *)
+        | `UF u -> atom_of_term (Term.mk_uf u (List.map term_of_nf args))
+
+        (* Selec from an array *)
+        | `SELECT _ -> select remove_ite' (Var.VarHashtbl.create 0) fterm args
+
+        (* Array store *)
+        | `STORE -> store args
+
+        (* Constant symbols *)
+        | `TRUE | `FALSE | `NUMERAL _ | `DECIMAL _ | `BV _ | `UBV _ -> assert false
+    )
+
+  (* | Term.T.Attr _ -> match args with [a] -> a | _ -> assert false *)
+
 
 (* ********************************************************************** *)
 (* Top-level functions                                                    *)
@@ -2449,7 +3148,13 @@ let simplify_term uf_defs term =
     (Model.create 7) 
     term
 
-
+(* Simplify a term removing occurrences of ITE applications *)
+let remove_ite term =
+  let res =
+    term_of_nf
+      (Term.eval_t remove_ite' term)
+  in
+  res
 
 (*
 ;;
