@@ -1564,6 +1564,8 @@ let pp_print_stream_prop_json ppf = function
 
   | N.Local -> Format.fprintf ppf "\"class\" : \"local\",@,"
 
+  | N.Ghost -> Format.fprintf ppf "\"class\" : \"ghost\",@,"
+
   (* | N.Alias (_, Some src) -> pp_print_stream_prop_json ppf src *)
 
   (* Any other streams should have been culled out *)

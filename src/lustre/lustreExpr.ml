@@ -709,7 +709,7 @@ and pp_print_app ?as_type safe pvar ppf = function
       (function [p; l; r] ->
 
         Format.fprintf ppf
-          "if %a then %a else %a" 
+          "(if %a then %a else %a)"
           (pp_print_term_node safe pvar) p
           (pp_print_term_node ?as_type safe pvar) l
           (pp_print_term_node ?as_type safe pvar) r
