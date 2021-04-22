@@ -55,29 +55,30 @@ open Lib
 module A = LustreAst
 module AH = LustreAstHelpers
 
-(** Map for types with identifiers as keys *)
-module IMap = struct
+module StringMap = struct
   include Map.Make(struct
-    type t = LustreAst.ident
+    type t = string
     let compare i1 i2 = String.compare i1 i2
   end)
   let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
 end
 
 type generated_identifiers = {
-    locals : LustreAst.expr IMap.t;
-    oracles : LustreAst.ident list
+    locals : LustreAst.expr StringMap.t;
+    oracles : (LustreAst.ident * LustreAst.expr) list
 }
 
 let pp_print_generated_identifiers ppf gids =
-  let locals_list = IMap.bindings gids.locals |> List.rev in
+  let locals_list = StringMap.bindings gids.locals |> List.rev in
   let pp_print_local = pp_print_pair
     Format.pp_print_string
     A.pp_print_expr
     " = "
-  in
-  let pp_print_oracle = Format.pp_print_string in
-  Format.fprintf ppf "%a\n%a"
+  in let pp_print_oracle = pp_print_pair
+    Format.pp_print_string
+    LustreAst.pp_print_expr
+    ":"
+  in Format.fprintf ppf "%a\n%a"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_local "\n") locals_list
 
@@ -86,19 +87,19 @@ let pp_print_generated_identifiers ppf gids =
 let i = ref 0
 
 let empty = {
-    locals = IMap.empty;
+    locals = StringMap.empty;
     oracles = []
   }
 
-let union ids1 ids2 =
-  let f key id1 id2 = match key, id1, id2 with
-    | key, None, None -> None
-    | key, (Some v), None -> Some v
-    | key, None, (Some v) -> Some v
-    (* Identifiers are guaranteed to be unique making this branch impossible *)
-    | key, (Some v1), (Some v2) -> assert false
-  in {
-    locals = IMap.merge f ids1.locals ids2.locals;
+let union_keys key id1 id2 = match key, id1, id2 with
+  | key, None, None -> None
+  | key, (Some v), None -> Some v
+  | key, None, (Some v) -> Some v
+  (* Identifiers are guaranteed to be unique making this branch impossible *)
+  | key, (Some v1), (Some v2) -> assert false
+
+let union ids1 ids2 = {
+    locals = StringMap.merge union_keys ids1.locals ids2.locals;
     oracles = ids1.oracles @ ids2.oracles
   }
 
@@ -107,16 +108,16 @@ let mk_fresh_local expr =
   let prefix = string_of_int !i in
   let name = prefix ^ "_glocal" in
   let nexpr = A.Ident (Lib.dummy_pos, name) in
-  let glocal = IMap.singleton name expr in
+  let glocal = StringMap.singleton name expr in
   let gids = { locals = glocal; oracles = [] } in
   nexpr, gids
 
-let mk_fresh_oracle () =
+let mk_fresh_oracle ident =
   i := !i + 1;
   let prefix = string_of_int !i in
   let name = prefix ^ "_oracle" in
   let nexpr = A.Ident (Lib.dummy_pos, name) in
-  let gids = { locals = IMap.empty; oracles = [name] } in
+  let gids = { locals = StringMap.empty; oracles = [name, ident] } in
   nexpr, gids
 
 let normalize_list f list =
@@ -126,23 +127,34 @@ let normalize_list f list =
   in List.fold_left over_list ([], empty) list
 
 let rec normalize (decls:LustreAst.t) =
-  let ast, gids = normalize_list normalize_declaration decls in
+  let over_declarations (nitems, node_maps) item =
+    let (normal_item, node_map) = normalize_declaration item in
+    normal_item :: nitems, StringMap.merge union_keys node_map node_maps
+  in let ast, node_map = List.fold_left over_declarations ([], StringMap.empty) decls in
+  
   Log.log L_trace ("===============================================\n"
     ^^ "Generated Identifiers:\n%a\n\n"
     ^^ "Normalized lustre AST:\n%a\n"
     ^^ "===============================================\n")
-    pp_print_generated_identifiers gids
+    (pp_print_list
+      (pp_print_pair
+        Format.pp_print_string
+        pp_print_generated_identifiers
+        ":")
+      "\n")
+      (StringMap.bindings node_map)
     A.pp_print_program ast;
-  Res.ok (ast, gids)
+
+  Res.ok (ast, node_map)
 
 and normalize_declaration = function
   | NodeDecl (pos, decl) ->
-    let normal_decl, gids = normalize_node decl in
-    A.NodeDecl(pos, normal_decl), gids
+    let normal_decl, node_map = normalize_node decl in
+    A.NodeDecl(pos, normal_decl), node_map
   | FuncDecl (pos, decl) ->
-    let normal_decl, gids = normalize_node decl in
-    A.FuncDecl (pos, normal_decl), gids
-  | decl -> decl, empty
+    let normal_decl, node_map = normalize_node decl in
+    A.FuncDecl (pos, normal_decl), node_map
+  | decl -> decl, StringMap.empty
 
 and normalize_node
     (id, is_func, params, inputs, outputs, locals, items, contracts) =
@@ -153,7 +165,8 @@ and normalize_node
       (Some ncontracts), gids
     | None -> None, empty
   in let gids = union gids1 gids2 in
-  (id, is_func, params, inputs, outputs, locals, nitems, ncontracts), gids
+  let node_map = StringMap.singleton id gids in
+  (id, is_func, params, inputs, outputs, locals, nitems, ncontracts), node_map
 
 and normalize_item = function
   | Body equation ->
@@ -194,12 +207,12 @@ and normalize_equation = function
   | Automaton (pos, id, states, auto) -> Lib.todo __LOC__
 
 and normalize_expr ?guard =
-  let generate_fresh_ids ?guard expr =
+  let generate_fresh_ids expr =
     (* If [expr] is already an id or const then we don't create a fresh local *)
-    if AH.expr_is_id expr || AH.expr_is_const expr then
+    if AH.expr_is_id expr then
       expr, empty
     else
-      let nexpr, gids1 = normalize_expr ?guard expr in
+      let nexpr, gids1 = normalize_expr expr in
       let iexpr, gids2 = mk_fresh_local nexpr in
       iexpr, union gids1 gids2
   in function
@@ -207,18 +220,18 @@ and normalize_expr ?guard =
   (* Node calls                                                               *)
   (* ************************************************************************ *)
   | Call (pos, id, args) ->
-    let nargs, gids = normalize_list (generate_fresh_ids ?guard) args in
+    let nargs, gids = normalize_list generate_fresh_ids args in
     Call (pos, id, nargs), gids
   | Condact (pos, cond, restart, id, args, defaults) ->
     let ncond, gids1 = normalize_expr ?guard cond in
     let nrestart, gids2 = normalize_expr ?guard restart in
-    let nargs, gids3 = normalize_list (generate_fresh_ids ?guard) args in
+    let nargs, gids3 = normalize_list generate_fresh_ids args in
     let ndefaults, gids4 = normalize_list (normalize_expr ?guard) defaults in
     let gids = union (union gids1 gids2) (union gids3 gids4) in
     Condact (pos, ncond, nrestart, id, nargs, ndefaults), gids
   | RestartEvery (pos, id, args, cond) ->
     let ncond, gids1 = normalize_expr ?guard cond in
-    let nargs, gids2 = normalize_list (generate_fresh_ids ?guard) args in
+    let nargs, gids2 = normalize_list generate_fresh_ids args in
     RestartEvery (pos, id, nargs, ncond), union gids1 gids2
   (* ************************************************************************ *)
   (* Guarding and abstracting pres                                            *)
@@ -229,13 +242,12 @@ and normalize_expr ?guard =
     let gids = union gids1 gids2 in
     Arrow (pos, nexpr1, nexpr2), gids
   | Pre (pos, expr) ->
-    let guard, gids1, previously_guarded = match guard with
+    let nexpr, gids1 = generate_fresh_ids expr in
+    let guard, gids2, previously_guarded = match guard with
       | Some guard -> guard, empty, true
-      | None -> let guard, gids = mk_fresh_oracle () in
-          guard, gids, false
-    in
-    let nexpr, gids2 = generate_fresh_ids ?guard:(Some guard) expr in
-    let gids = union gids1 gids2 in
+      | None -> let guard, gids = mk_fresh_oracle nexpr in
+        guard, gids, false
+    in let gids = union gids1 gids2 in
     if previously_guarded then Pre (pos, nexpr), gids
     else Arrow (Lib.dummy_pos, guard, Pre (pos, nexpr)), gids
   (* ************************************************************************ *)

@@ -233,6 +233,12 @@ let pre_offset = Numeral.(pred cur_offset)
 (* Pretty-printing                                                        *)
 (* ********************************************************************** *)
 
+(** Pretty-print a bound or fixed annotation *)
+let pp_print_bound_or_fixed pp ppf = function
+  | Bound x -> pp ppf x
+  | Fixed x -> pp ppf x
+  | Unbound x -> pp ppf x
+
 (* Pretty-print a type as a Lustre type *)
 let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 

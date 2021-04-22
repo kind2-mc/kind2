@@ -50,17 +50,16 @@
 
      @author Andrew Marmaduke *)
 
-module IMap : sig
-  include (Map.S with type key = LustreAst.ident)
+module StringMap : sig
+  include (Map.S with type key = string)
   val keys: 'a t -> key list
 end
-(** Map for types with identifiers as keys *)
 
 type generated_identifiers = {
-  locals : LustreAst.expr IMap.t;
-  oracles : LustreAst.ident list
+  locals : LustreAst.expr StringMap.t;
+  oracles : (LustreAst.ident * LustreAst.expr) list
 }
 
-val normalize : LustreAst.t -> (LustreAst.t * generated_identifiers, Lib.position * string) result
+val normalize : LustreAst.t -> (LustreAst.t * generated_identifiers StringMap.t, Lib.position * string) result
 
 val pp_print_generated_identifiers : Format.formatter -> generated_identifiers -> unit

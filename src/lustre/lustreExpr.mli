@@ -133,6 +133,9 @@ val type_of_lustre_expr : t -> Type.t
     is [true].
 *)
 
+(** Pretty-print a bound or fixed annotation *)
+val pp_print_bound_or_fixed : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a bound_or_fixed -> unit
+
 (** Pretty-print a Lustre type *)
 val pp_print_lustre_type : bool -> Format.formatter -> Type.t -> unit 
 
