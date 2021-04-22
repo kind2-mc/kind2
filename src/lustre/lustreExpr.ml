@@ -3284,11 +3284,40 @@ let mk_arrow expr1 expr2 =
 
 
 (* Pre expression *)
-let mk_pre mk_abs_for_expr mk_lhs_term ctx unguarded
+(* We don't need to abstract the RHS because the AST normalization pass 
+  already has. *)
+let mk_pre mk_lhs_term ({ expr_init; expr_step; expr_type } as expr) =
+  if Term.equal expr_init expr_step then
+    match expr_init with
+    (* Expression is a constant not part of an unguarded pre expression *)
+    | t when (t == Term.t_true
+      || t == Term.t_false
+      || (Term.is_free_var t && Term.free_var_of_term t |> Var.is_const_state_var)
+      || (match Term.destruct t with
+        | Term.T.Const c1 when Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
+        | _ -> false))
+      -> expr
+    (* Expression is a variable at the current instant not part of an unguarded
+      pre expression *)
+    | t when Term.is_free_var t
+      && Term.free_var_of_term t |> Var.is_state_var_instance
+      && Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) = base_offset) ->
+      let pt = Term.bump_state Numeral.(- one) t in
+      { expr with expr_init = pt; expr_step = pt }
+    (* Expression is not a variable at the current instant or a constant:
+      abstract *)
+    (* AST Normalization makes this situation impossible *)
+    | _ -> assert false
+  (* Stream is of the form: a -> b, abstract*)
+  (* AST Normalization makes this situation impossible *)
+  else assert false
+
+
+let mk_pre_with_context mk_abs_for_expr mk_lhs_term ctx unguarded
     ({ expr_init; expr_step; expr_type } as expr) = 
 
   (* When simplifications fails, simply abstract with a new state variable,
-     i.e., create an internal new memory. *)
+      i.e., create an internal new memory. *)
   let abs_pre () =
     let expr_type = Type.generalize expr_type in
     let expr = { expr with expr_type } in
@@ -3303,33 +3332,33 @@ let mk_pre mk_abs_for_expr mk_lhs_term ctx unguarded
 
   (* Stream is the same in the initial state and step (e -> e) *)
   if not unguarded &&
-     Term.equal expr_init expr_step then
+      Term.equal expr_init expr_step then
     match expr_init with
     (* Expression is a constant not part of an unguarded pre expression *)
     | t when
         (t == Term.t_true ||
-         t == Term.t_false ||
-         (Term.is_free_var t &&
+          t == Term.t_false ||
+          (Term.is_free_var t &&
           Term.free_var_of_term t |> Var.is_const_state_var) ||
-           (match Term.destruct t with
+            (match Term.destruct t with
             | Term.T.Const c1 when
-                   Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
+                    Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
             | _ -> false)) ->
-       
-       expr, ctx
+        
+        expr, ctx
       
     (* Expression is a variable at the current instant not part of an unguarded
-       pre expression *)
+        pre expression *)
     | t when Term.is_free_var t &&
         Term.free_var_of_term t |> Var.is_state_var_instance &&
         Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) =
-                   base_offset) ->
+                    base_offset) ->
 
-       let pt = Term.bump_state Numeral.(- one) t in
-       { expr with expr_init = pt; expr_step = pt }, ctx
-       
+        let pt = Term.bump_state Numeral.(- one) t in
+        { expr with expr_init = pt; expr_step = pt }, ctx
+        
     (* Expression is not a variable at the current instant or a constant:
-       abstract *)
+        abstract *)
     | _ -> abs_pre ()
 
   else (* Stream is of the form: a -> b, abstract*)

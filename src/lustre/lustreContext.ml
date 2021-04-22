@@ -1727,7 +1727,7 @@ let add_node_sofar_assumption ctx =
 
          let pre_sofar, _ = (* Context should not be modified *)
            assert (not (guard_flag ctx));
-           E.mk_pre
+           E.mk_pre_with_context
              (* No abstraction should be necessary, see [mk_pre] *)
              (fun _ _ -> assert false) (fun _ -> assert false)
              ctx false (E.mk_var sofar_svar)
