@@ -334,7 +334,7 @@ and compile_ast_expr (cstate:compiler_state) (ctx:C.tc_context) (bounds:E.expr E
     let id = I.mk_string_ident ident in
     let sv = H.find map id |> X.values |> List.hd in
     let ty = C.lookup_ty ctx ident in
-    let is_const = C.lookup_const ctx ident |> Option.is_some in
+    let is_const = C.lookup_const ctx ident |> is_some in
     let is_enum_ctor = match ty with
     | Some (A.EnumType (_, _, ctors)) -> List.exists (fun x -> x == ident) ctors
     | _ -> false

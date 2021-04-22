@@ -617,6 +617,11 @@ let escape_xml_string s =
    if the option value is [None] *)
 let get = function None -> raise (Invalid_argument "get") | Some x -> x
 
+(** Check if an option has some content *)
+let is_some = function
+  | Some _ -> true
+  | None -> false
+
 let min_option f1 f2 = match f1, f2 with
   | None, None -> None
   | Some f, None | None, Some f -> Some f

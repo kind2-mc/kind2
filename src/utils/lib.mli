@@ -60,6 +60,9 @@ val flip: ('a -> 'b -> 'c) -> ('b -> 'a -> 'c)
     if the option value is [None] *)
 val get : 'a option -> 'a
 
+(** Check if an option has some content *)
+val is_some : 'a option -> bool
+
 (** Return the min between two optional floats. Return None if both floats are None. *)
 val min_option : float option -> float option -> float option
 
