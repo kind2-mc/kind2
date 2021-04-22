@@ -300,7 +300,7 @@ and compile_ast_type (ctx:C.tc_context) = function
       X.singleton X.empty_index ty
   | A.UserType (pos, ident) ->
     (* Type checker should guarantee a type synonym exists *)
-    let ty = C.lookup_ty_syn ctx ident |> Option.get in
+    let ty = C.lookup_ty_syn ctx ident |> get in
     compile_ast_type ctx ty
   | A.AbstractType (pos, ident) ->
     X.singleton [X.AbstractTypeIndex ident] Type.t_int
