@@ -862,7 +862,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
           "Clocked node local variable not supported for %a"
           A.pp_print_ident i)
       | _ -> None
-    in let locals_and_sources = List.filter_map over_locals locals in
+    in let locals_and_sources = list_filter_map over_locals locals in
     let split = fun (sv_list, svsm') (sv, svsm) ->
       sv :: sv_list, SVM.union (fun _ v _ -> Some v) svsm svsm'
     in List.fold_left split ([], state_var_source_map) locals_and_sources

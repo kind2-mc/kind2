@@ -159,6 +159,11 @@ val list_subset_uniq :  ('a -> 'a -> int) -> 'a list -> 'a list -> bool
     at each element are equal. *)
 val list_join : ('a -> 'a -> bool) -> ('a * 'b) list -> ('a * 'b list) list -> ('a * 'b list) list
 
+(** Apply a map over a list where if the output is None then the element
+    is dropped from the resulting list and if the output is Some value
+    then that value is added to the resulting list *)
+val list_filter_map : ('a -> 'b option) -> 'a list -> 'b list
+
 (** Lexicographic comparison of pairs *)
 val compare_pairs : ('a -> 'a -> int) -> ('b -> 'b -> int) -> 'a * 'b -> 'a * 'b -> int 
 

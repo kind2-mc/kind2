@@ -404,6 +404,22 @@ let list_join equal l1 l2 =
     (* Call recursive function with initial accumulator *)
     | _ -> list_join' equal [] l1 l2
 
+let list_filter_map f =
+  let rec rev_append l1 l2 =
+    match l1 with
+      [] -> l2
+    | a :: l -> rev_append l (a :: l2)
+  in
+  let rev l = rev_append l [] in
+  let rec aux accu = function
+    | [] -> rev accu
+    | x :: l ->
+        match f x with
+        | None -> aux accu l
+        | Some v -> aux (v :: accu) l
+  in
+  aux []
+
 let rec list_apply: ('a -> 'b) list -> 'a -> 'b list = fun fs arg ->
   match fs with
   | [] -> []
