@@ -93,9 +93,13 @@ val lustre_definitions_of_state_var : 'a t -> StateVar.t -> LustreNode.state_var
 
 val lustre_source_ast : 'a t -> LustreAst.t
 
+val pp_print_term_as_expr : _ t -> TransSys.t -> Format.formatter -> Term.t -> unit
+
 val slice_to_abstraction_and_property : 'a t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.value list) list -> Property.t -> TransSys.t * TransSys.instance list * (StateVar.t * Model.value list) list * Term.t * 'a t
 
 val retrieve_lustre_nodes : _ t -> LustreNode.t list
+
+val contain_partially_defined_system : _ t -> bool
 
 (** Return the lustre node associated to the given scope, or
    [None] if there is no lustre node associated to that scope *)

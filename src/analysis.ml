@@ -155,6 +155,10 @@ let param_scope_is_abstract param scope =
   (* Assume node to be concrete if not in map *)
   with Not_found -> false
 
+let no_system_is_abstract param =
+  let { abstraction_map } = info_of_param param in
+  abstraction_map |> Scope.Map.for_all (fun _ v -> not v)
+
 (* Abstraction of a property source. *)
 (* type prop_kind = | Contract | Subreq | Prop *)
 

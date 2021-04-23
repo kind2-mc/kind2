@@ -809,6 +809,15 @@ let equation_of_svar { equations } svar =
     equations |> List.find (fun ((svar',_),_) -> svar == svar')
   ) with Not_found -> None
 
+(** Returns [true] if the node is partially defined *)
+let partially_defined ({ outputs } as node) =
+  (D.values outputs)
+  |> List.exists (fun svar ->
+     match equation_of_svar node svar with
+     | Some _ -> false
+     | None -> true
+  )
+
 (** Returns the source of a state variable if any. *)
 let source_of_svar { state_var_source_map } svar =
   try Some (

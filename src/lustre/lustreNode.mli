@@ -321,6 +321,10 @@ val ordered_equations_of_node :
 (** Returns the equation for a state variable if any. *)
 val equation_of_svar : t -> StateVar.t -> equation option
 
+(** Returns [true] if the node is partially defined, that is,
+    there is an output without an equational definition *)
+val partially_defined : t -> bool
+
 (** Returns the equation for a state variable if any. *)
 val source_of_svar : t -> StateVar.t -> state_var_source option
 
