@@ -16,30 +16,29 @@
 
 *)
 
-(** Checking of realizability of contracts and other sanity checks over contracts
+(** Realizability Checker
 
     @author Daniel Larraz
 *)
 
-open Realizability
+(** Result of a realizability check *)
+type realizability_result =
+  | Realizable of Term.t (* Fixpoint *)
+  | Unrealizable
+  | Unknown
 
 (** Checks whether there exists an implementation that satisfies a given specification
 
-    [check_contract_realizability i s] checks whether the contract represented by
-    transition system [s] is realizable or not. It assumes [s] was generated from
-    the contract of the subsystem in [i] which has the same scope than [s].
+    [realizability_check s c0 v1 c1] checks whether the specification represented by
+    transition system [s] is realizable or not under the assumption that [c0] is
+    the list of controllable variables at offset 0, [v1] is the list of variables
+    at offset 1, [c1] is the list of variables at offset 1, and all terms in [s]
+    without controllable variables are assumed to hold.
 *)
-val check_contract_realizability: 'a InputSystem.t -> TransSys.t -> realizability_result
+val realizability_check :
+  TransSys.t ->
+  Var.t list ->
+  Var.t list ->
+  Var.t list ->
+  realizability_result
 
-(** Result of a satisfiability check *)
-type satisfiability_result =
-  | Satisfiable
-  | Unsatisfiable
-  | Unknown
-
-(** Checks whether a given specification is satisfiable
-
-    [check_contract_satisfiability i s] checks whether the contract represented by
-    transition system [s] is satisfiable or not.
-*)
-val check_contract_satisfiability: TransSys.t -> satisfiability_result

@@ -203,6 +203,118 @@ module RunTestGen: PostAnalysis = struct
     )
 end
 
+(** Assumption generation. *)
+module RunAssumptionGen: PostAnalysis = struct
+  let name = "assumptiongen"
+  let title = "assumption generation"
+  let is_active () = Flags.Contracts.assumption_gen ()
+  let run in_sys param analyze results =
+    let top = (Analysis.info_of_param param).Analysis.top in
+    last_result results top
+    |> Res.chain (fun { Analysis.sys } ->
+      (* Check all properties are valid. *)
+      match TSys.get_split_properties sys with
+      | [], [], [] -> error (
+        fun fmt ->
+          Format.fprintf fmt
+            "No properties, assumption generation disabled."
+      )
+      | _, [], _ -> error (
+        fun fmt ->
+          Format.fprintf fmt
+            "No invalid properties, assumption generation disabled."
+      )
+      | _, invalid, _ ->  (
+        let model_contains_assert =
+          ISys.retrieve_lustre_nodes in_sys
+          |> List.exists
+            (fun { LustreNode.asserts } -> asserts <> [])
+        in
+        if model_contains_assert then (
+          error (fun fmt ->
+            Format.fprintf fmt
+              "Assumption generation is not compatible \
+               with models that contain asserts."
+          )
+        )
+        else if ISys.contain_partially_defined_system in_sys then (
+          error (fun fmt ->
+            Format.fprintf fmt
+              "Assumption generation is currently not supported for \
+               models that contain partially defined nodes/functions."
+          )
+        )
+        else if Analysis.no_system_is_abstract param then (
+          let invalid = invalid |> List.map (fun p ->
+            match Property.get_prop_status p with
+            | Property.PropFalse cex ->
+              (p, (Property.length_of_cex cex) - 1)
+            | _ -> assert false)
+          in
+          Ok (sys, invalid)
+        )
+        else (
+          error (fun fmt ->
+            Format.fprintf fmt
+              "Assumption generation is currently not supported \
+               when abstract systems are present."
+          )
+        )
+      )
+    )
+    |> Res.chain (fun (sys, invalid) ->
+      try (
+        Flags.Smt.set_z3_qe_light true ;
+        let target = Flags.subdir_for top in
+        (* Create directories if they don't exist. *)
+        Flags.output_dir () |> mk_dir ;
+        mk_dir target ;
+        invalid |> List.iter (fun (p, k) ->
+          KEvent.log L_note "Analyzing %a..."
+            Property.pp_print_prop_quiet p;
+          let response =
+            let var_filters =
+              (if Flags.Contracts.assump_include_outputs () then
+                (fun in_sys scope vars ->
+                 vars
+                 |> Assumption.filter_non_input in_sys scope
+                 |> Assumption.filter_non_output in_sys scope
+                )
+              else
+                Assumption.filter_non_input
+              ),
+              Assumption.filter_non_input
+            in
+            Assumption.generate_assumption in_sys sys var_filters p
+          in
+          match response with
+          | Assumption.Unknown ->
+            let prop_name = p.Property.prop_name in
+            KEvent.log L_warn
+              "No assumption could be generated for property %s" prop_name
+          | Assumption.Failure ->
+            let prop_name = p.Property.prop_name in
+            KEvent.log L_warn
+              "No satisfiable assumption was found for property %s" prop_name
+          | Assumption.Success assump ->
+            let scope = TSys.scope_of_trans_sys sys in
+            KEvent.log L_note "Dumping assumption to `%s`..." target ;
+            Assumption.dump_contract_for_assumption
+              in_sys scope assump p target (Names.contract_name top) ;
+            KEvent.log L_note "Done with %a" Property.pp_print_prop_quiet p
+        );
+        Flags.Smt.set_z3_qe_light false ;
+        Ok ()
+      )
+      with e -> error (
+        Flags.Smt.set_z3_qe_light false ;
+        fun fmt ->
+          Format.fprintf fmt "Could not generate assumption:@ %s"
+            (Printexc.to_string e)
+      )
+    )
+end
+
 (** Contract generation.
 Generates contracts by running invariant generation techniques. *)
 module RunContractGen: PostAnalysis = struct
@@ -830,6 +942,7 @@ end
 (** List of post-analysis modules. *)
 let post_analysis = [
   (module RunTestGen: PostAnalysis) ;
+  (module RunAssumptionGen: PostAnalysis) ;
   (module RunContractGen: PostAnalysis) ;
   (module RunRustGen: PostAnalysis) ;
   (module RunInvLog: PostAnalysis) ;

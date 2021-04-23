@@ -300,6 +300,16 @@ let retrieve_lustre_nodes (type s) : s t -> LustreNode.t list =
   | Horn _ -> failwith "Unsupported input system: Horn"
   )
 
+
+let contain_partially_defined_system (type s) (in_sys : s t) =
+  match in_sys with
+  | Lustre _ -> (
+    retrieve_lustre_nodes in_sys
+    |> List.exists (fun node -> N.partially_defined node)
+  )
+  | Native _ -> failwith "Unsupported input system: Native"
+  | Horn _ -> failwith "Unsupported input system: Native"
+
 let get_lustre_node (type s) (input_system : s t) scope =
   match input_system with
   | Lustre (sub, _, _) -> (
@@ -462,6 +472,25 @@ fun sys vars ->
     )
     (reconstruct_lustre_streams sys vars)
     SVM.empty
+
+
+let pp_print_term_as_expr
+  (type s) (in_sys : s t) sys =
+  let var_map =
+    let aux_vars =
+      let usr_name =
+        assert (List.length LustreIdent.user_scope = 1) ;
+        List.hd LustreIdent.user_scope
+      in
+      List.filter
+        (fun sv ->
+          not ( List.mem usr_name (StateVar.scope_of_state_var sv) )
+        )
+        (TransSys.state_vars sys)
+    in
+    mk_state_var_to_lustre_name_map in_sys aux_vars
+  in
+  LustreExpr.pp_print_term_as_expr_mvar false var_map
 
 
 let is_lustre_input (type s) (input_system : s t) =

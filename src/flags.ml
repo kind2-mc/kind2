@@ -1057,6 +1057,40 @@ module Contracts = struct
     )
   let contract_gen_depth () = !contract_gen_depth
 
+
+  let assumption_gen_default = false
+  let assumption_gen = ref assumption_gen_default
+  let _ = add_spec
+    "--assumption_gen"
+    (bool_arg assumption_gen)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        For each falsified property, it looks for an assumption@ \
+        that blocks all possible violations of the property.@ \
+        Default: %a\
+      @]"
+      fmt_bool assumption_gen_default
+    )
+  let assumption_gen () = !assumption_gen
+
+  let assump_include_outputs_default = true
+  let assump_include_outputs = ref assump_include_outputs_default
+  let _ = add_spec
+    "--outputs_in_assumption"
+    (bool_arg assump_include_outputs)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Generated assumptions may include references@ \
+        to previous values of output streams.@ \
+        Default: %a\
+      @]"
+      fmt_bool assump_include_outputs_default
+    )
+  let assump_include_outputs () = !assump_include_outputs
+
+
   let refinement_default = true
   let refinement = ref refinement_default
   let _ = add_spec

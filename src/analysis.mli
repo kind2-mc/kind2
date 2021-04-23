@@ -122,10 +122,10 @@ and result = {
 }
 
 
-(* Clones an [info], only changes its [uid]. *)
+(** Clones an [info], only changes its [uid]. *)
 val info_clone : info -> info
 
-(* Clones a [param], only changes its [uid]. *)
+(** Clones a [param], only changes its [uid]. *)
 val param_clone : param -> param
 
 (** The info or a param. *)
@@ -137,6 +137,10 @@ val shrink_param_to_sys : param -> TransSys.t -> param
 (** Return [true] if a scope is flagged as abstract in the [abstraction_map] of
    a [param]. Default to [false] if the node is not in the map. *)
 val param_scope_is_abstract : param -> Scope.t -> bool
+
+(** Return [true] if no system is flagged abstract
+    in the [abstraction_map] of a [param]. *)
+val no_system_is_abstract : param -> bool
 
 (** Retrieve the assumptions of a [scope] from a [param]. *)
 val param_assumptions_of_scope : param -> Scope.t -> Invs.t

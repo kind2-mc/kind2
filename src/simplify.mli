@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015-2017 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015-2018 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -38,7 +38,10 @@
     the optional argument [~default_of_var] that returns the value to
     assign to the variable given as parameter.
 
-    @author Christoph Sticksel, Adrien Champion, Alain Mebsout, Arjun Viswanathan
+    @author Christoph Sticksel
+    @author Adrien Champion
+    @author Alain Mebsout
+    @author Daniel Larraz
 *)
 
 (** Returns true iff a division by zero happened in a simplification since
@@ -55,6 +58,9 @@ val simplify_term : (UfSymbol.t * (Var.t list * Term.t)) list -> Term.t -> Term.
     partially defined model. The defaults for variables must not be
     circular, otherwise the simplification will cycle. *)
 val simplify_term_model : ?default_of_var:(Var.t -> Term.t) -> (UfSymbol.t * (Var.t list * Term.t)) list -> Model.t -> Term.t -> Term.t
+
+(** Remove some ITE applications without introducing new symbols *)
+val remove_ite : Term.t -> Term.t
 
 (* 
    Local Variables:

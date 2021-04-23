@@ -443,6 +443,11 @@ module Contracts : sig
   (** Contract generation: max depth. *)
   val contract_gen_depth : unit -> int
 
+  (** Assumption generation. *)
+  val assumption_gen : unit -> bool
+
+  val assump_include_outputs : unit -> bool
+
   (** Activate refinement. *)
   val refinement : unit -> bool
 end
