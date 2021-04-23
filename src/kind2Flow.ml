@@ -653,12 +653,12 @@ let run in_sys =
           Stat.start_timer Stat.analysis_time ;
           let result =
             if not has_contract then
-              ContractChecker.Realizable
+              Realizability.Realizable Term.t_true
             else
               ContractChecker.check_contract_realizability in_sys sys
           in
           match result with
-          | Realizable ->
+          | Realizable _ ->
               KEvent.log_realizable_contract L_warn scope;
           | Unrealizable -> (
               KEvent.log_unrealizable_contract L_warn scope;
