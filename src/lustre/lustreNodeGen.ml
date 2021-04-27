@@ -268,11 +268,8 @@ let expand_tuple pos lhs rhs =
 
 
 let rec compile ctx (gids:LAN.generated_identifiers LAN.StringMap.t) (decls:LustreAst.declaration list) =
-  let over_decls cstate (decl:LustreAst.declaration) =
-    let compiled_decl = compile_declaration cstate gids ctx decl in
-    { nodes = cstate.nodes @ compiled_decl.nodes;
-      free_constants = cstate.free_constants @ compiled_decl.free_constants }
-  in let output = List.fold_left over_decls empty_compiler_state decls in
+  let over_decls cstate decl = compile_declaration cstate gids ctx decl in
+  let output = List.fold_left over_decls empty_compiler_state decls in
   output.nodes,
     { G.free_constants = output.free_constants;
       G.state_var_bounds = SVT.create 7}
@@ -1040,8 +1037,9 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
     oracle_state_var_map;
     state_var_expr_map;
     silent_contracts
-  } in { cstate with
-    nodes = node :: cstate.nodes
+  } in { 
+    nodes = node :: cstate.nodes;
+    free_constants = cstate.free_constants
   }
 
 and compile_const_decl cstate ctx = function
