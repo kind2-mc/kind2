@@ -329,21 +329,22 @@ and compile_ast_type (ctx:C.tc_context) = function
       (* Lib.todo "Trying to flatten function type. This should not happen" *)
 
 
-and compile_ast_expr (cstate:compiler_state) (ctx:C.tc_context) (bounds:E.expr E.bound_or_fixed list) map = 
+and compile_ast_expr (cstate:compiler_state) (ctx:C.tc_context) (bounds:E.expr E.bound_or_fixed list) map expr = 
   let rec compile_id_string ident =
     let id = I.mk_string_ident ident in
-    let sv = H.find map id |> X.values |> List.hd in
+    let sv = H.find map id in
     let ty = C.lookup_ty ctx ident in
     let is_const = C.lookup_const ctx ident |> is_some in
     let is_enum_ctor = match ty with
     | Some (A.EnumType (_, _, ctors)) -> List.exists (fun x -> x == ident) ctors
     | _ -> false
-    in match (is_const, is_enum_ctor) with
+    in let result = match (is_const, is_enum_ctor) with
     | (false, false) -> X.singleton X.empty_index (E.mk_var sv)
     | (true, false) -> Lib.todo __LOC__
     | (false, true) -> let ty = Type.enum_of_constr ident in
       X.singleton X.empty_index (E.mk_constr ident ty)
     | _ -> assert false
+    in result
 
   and compile_mode_reference bounds path' =
     Lib.todo __LOC__
@@ -430,7 +431,9 @@ and compile_ast_expr (cstate:compiler_state) (ctx:C.tc_context) (bounds:E.expr E
       ) called_node.outputs X.empty
     in X.map E.mk_var output_state_vars
 
-  in function
+  in
+  (* Format.eprintf "%a\n" A.pp_print_expr expr; *)
+  match expr with
   (* ****************************************************************** *)
   (* Identifiers                                                        *)
   (* ****************************************************************** *)
@@ -620,7 +623,7 @@ and compile_node_calls cstate ctx map =
         let state_var = match cond with
           | A.Ident (pos, id) ->
             let ident = I.mk_string_ident id
-            in H.find map ident |> X.values |> List.hd
+            in H.find map ident
           | _ -> assert false
         in let defaults' = match defaults with
           | Some [d] -> Some (compile_ast_expr cstate ctx [] map d)
@@ -636,7 +639,7 @@ and compile_node_calls cstate ctx map =
       else let state_var = match restart with
         | A.Ident (pos, id) ->
           let ident = I.mk_string_ident id
-          in H.find map ident |> X.values |> List.hd
+          in H.find map ident
         | _ -> assert false
       in Some state_var
     in let input_state_vars = node_inputs_of_exprs called_node.inputs args in
@@ -799,7 +802,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
             (Some N.Input)
             svsm
           in let result = X.add (X.ListIndex n :: index) state_var accum
-          in H.add ident_map ident result;
+          in H.add ident_map ident state_var;
           result, svsm
         in X.fold over_indices index_types (compiled_input, svsm)
       | _ -> fail_at_position pos "Clocked node inputs not supported"
@@ -829,7 +832,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
           and index' = if is_single then index
             else X.ListIndex n :: index
           in let result = X.add index' state_var accum
-          in H.add ident_map ident result;
+          in H.add ident_map ident state_var;
           result, svsm
         in X.fold over_indices index_types (compiled_output, svsm)
       | _ -> fail_at_position pos "Clocked node outputs not supported"
@@ -854,7 +857,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
             (Some N.Local)
             svsm
           in let result = X.add index state_var accum
-          in H.add ident_map ident result;
+          in H.add ident_map ident state_var;
           result, svsm
         in Some (X.fold over_indices index_types (X.empty, state_var_source_map))
       | A.NodeVarDecl (_, (pos, i, _, _)) -> fail_at_position pos
@@ -884,7 +887,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
         svsm
       in let result = X.singleton X.empty_index state_var in
       let equation = expand_tuple pos result nexpr in
-      H.add ident_map ident result;
+      H.add ident_map ident state_var;
       SVT.add svem state_var nexpr';
       result :: glocals, equation @ geqns, svsm, svem
     in List.fold_left over_generated_locals
@@ -899,7 +902,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       let (closed_sv, state_var_type) = match expr with
         | A.Ident (pos, id') ->
           let ident = I.mk_string_ident id' in
-          let closed_sv = H.find ident_map ident |> X.values |> List.hd in
+          let closed_sv = H.find ident_map ident in
           (Some closed_sv), StateVar.type_of_state_var closed_sv
         | A.Const (pos, v) -> None, (match v with
           | A.True | A.False -> Type.mk_bool ()
@@ -913,8 +916,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
         state_var_type
         (Some N.Oracle)
         svsm
-      in let result = X.singleton X.empty_index state_var in 
-      H.add ident_map oracle_ident result;
+      in H.add ident_map oracle_ident state_var;
       (match closed_sv with
         | Some sv -> SVT.add osvm state_var sv
         | None -> ());
@@ -941,8 +943,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
   in let props =
     let op (pos, name_opt, expr) =
       let id = extract_normalized expr |> I.mk_string_ident in
-      let sv_index = H.find ident_map id in
-      let sv = sv_index |> X.values |> List.hd in
+      let sv = H.find ident_map id in
       let name = match name_opt with
         | Some n -> n
         | None -> Format.asprintf "@[<h>%a@]" A.pp_print_expr expr
@@ -952,8 +953,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
   in let asserts =
     let op (pos, expr) =
       let id = extract_normalized expr |> I.mk_string_ident in
-      let sv_index = H.find ident_map id in
-      let sv = sv_index |> X.values |> List.hd in
+      let sv = H.find ident_map id in
       (pos, sv)
     in List.map op node_asserts
   (* ****************************************************************** *)
@@ -963,7 +963,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
     let compile_struct_item = fun struct_item -> match struct_item with
       | A.SingleIdent (pos, i) ->
         let ident = I.mk_string_ident i in
-        H.find ident_map ident, 0
+        X.singleton X.empty_index (H.find ident_map ident), 0
       | A.ArrayDef (pos, i, l) ->
         let ident = I.mk_string_ident i in
         let result = H.find ident_map ident in
@@ -971,7 +971,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
         (* TODO: Old code checks that result must have at least one element *)
         (* TODO: Old code suggets that shadowing can occur here *)
         let indexes = List.length l in
-        result, indexes
+        X.singleton X.empty_index result, indexes
       | A.TupleStructItem (pos, _)
       | A.TupleSelection (pos, _, _)
       | A.FieldSelection (pos, _, _)
