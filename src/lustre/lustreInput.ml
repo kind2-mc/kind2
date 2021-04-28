@@ -137,13 +137,13 @@ let of_channel in_ch =
           AD.sort_and_check_nodes_contracts node_contract_src >>= fun sorted_node_contract_decls ->  
 
           (* Step 5. type check nodes and contracts *)
-          TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls >>
-            
+          TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls >>= fun (global_ctx) ->
+
           (* Step 6. Inline constants in node equations *)
-          IC.inline_constants ctx sorted_node_contract_decls >>= fun (ctx, const_inlined_nodes_and_contracts) ->
+          IC.inline_constants global_ctx sorted_node_contract_decls >>= fun (inlined_global_ctx, const_inlined_nodes_and_contracts) ->
 
           (* Step 7. Normalize AST: guard pres, abstract to locals where appropriate *)
-          LAN.normalize ctx const_inlined_nodes_and_contracts >>= fun (normalized_nodes_and_contracts, generated_ids) ->
+          LAN.normalize inlined_global_ctx const_inlined_nodes_and_contracts >>= fun (normalized_nodes_and_contracts, generated_ids) ->
           
           (* The last node in the original ordering should remain the last node after sorting 
             as the user expects that to be the main node in the case where 
@@ -153,11 +153,11 @@ let of_channel in_ch =
           (* reverse the list and find the name of the first node declaration from the original list *)
           let last_node = LH.get_last_node_name (declarations) in
           (match last_node with
-          | None -> Res.ok (ctx, generated_ids, const_inlined_type_and_consts
+          | None -> Res.ok (inlined_global_ctx, generated_ids, const_inlined_type_and_consts
             @ normalized_nodes_and_contracts)
           | Some ln ->
               Log.log L_trace "last node is: %a"  LA.pp_print_ident ln 
-            ; Res.ok (ctx, generated_ids, const_inlined_type_and_consts
+            ; Res.ok (inlined_global_ctx, generated_ids, const_inlined_type_and_consts
                       @ LH.move_node_to_last ln (normalized_nodes_and_contracts))) 
         ) in
       let ctx, gids, decls = match tc_res with
