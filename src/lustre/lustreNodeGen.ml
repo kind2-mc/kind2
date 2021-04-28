@@ -601,161 +601,65 @@ and compile_ast_expr (cstate:compiler_state) (ctx:C.tc_context) (bounds:E.expr E
   | A.CallParam (pos, _, _, _) -> fail_at_position pos
     "Parametric nodes not supported" 
 
-and compile_node_calls cstate ctx map = 
-  let compile_node pos cstate map cond restart ident args defaults =
-    let called_node = N.node_of_name ident cstate.nodes in
-    let node_inputs_of_exprs inputs ast =
-      let cexpr = compile_ast_expr cstate ctx [] map
-        (A.GroupExpr (dummy_pos, A.ExprList, ast)) in
-      X.fold2 (fun i state_var expr accum -> X.add i state_var accum)
-        inputs
-        cexpr
-        X.empty
-    in let node_act_cond_of_expr outputs cond defaults =
-      let cond_test = match cond with
-        | A.Const (pos, A.True) -> true
-        | _ -> false
-      in if cond_test then None, None
-      else
-        let state_var = match cond with
-          | A.Ident (pos, id) ->
-            let ident = I.mk_string_ident id
-            in H.find map ident
-          | _ -> assert false
-        in let defaults' = match defaults with
-          | Some [d] -> Some (compile_ast_expr cstate ctx [] map d)
-          | Some d -> Some (compile_ast_expr cstate ctx [] map
-            (A.GroupExpr (dummy_pos, A.ExprList, d)))
-          | None -> None
-        in Some state_var, defaults'
-    in let restart_cond_of_expr restart =
-      let restart_test = match restart with
-        | A.Const (pos, A.False) -> true
-        | _ -> false
-      in if restart_test then None
-      else let state_var = match restart with
+and compile_node pos ctx cstate map outputs cond restart ident args defaults =
+  let called_node = N.node_of_name ident cstate.nodes in
+  let node_inputs_of_exprs inputs ast =
+    let input_keys = X.keys inputs in
+    let result = ast
+    |> List.map (fun e -> match e with
+      | A.Ident(pos, i) -> i
+      | _ -> assert false (* enforced by normalization step *))
+    |> List.map (fun i -> H.find map (I.mk_string_ident i))
+    |> List.rev
+    |> List.combine input_keys
+    |> List.fold_left (fun accum (i, sv) -> X.add i sv accum) X.empty
+    in result
+  in let node_act_cond_of_expr outputs cond defaults =
+    let cond_test = match cond with
+      | A.Const (pos, A.True) -> true
+      | _ -> false
+    in if cond_test then None, None
+    else
+      let state_var = match cond with
         | A.Ident (pos, id) ->
           let ident = I.mk_string_ident id
           in H.find map ident
         | _ -> assert false
-      in Some state_var
-    in let input_state_vars = node_inputs_of_exprs called_node.inputs args in
-    let act_state_var, defaults = node_act_cond_of_expr called_node.outputs cond defaults in
-    let restart_state_var = restart_cond_of_expr restart in
-    let cond_state_var = match act_state_var, restart_state_var with
-      | None, None -> []
-      | Some c, None -> [N.CActivate c]
-      | None, Some r -> [N.CRestart r]
-      | Some c, Some r -> [N.CActivate c; N.CRestart r]
-    in let node_call = {
-      N.call_pos = pos;
-      N.call_node_name = ident;
-      N.call_cond = cond_state_var;
-      N.call_inputs = input_state_vars;
-      N.call_oracles = called_node.oracles;
-      N.call_outputs = called_node.outputs;
-      N.call_defaults = defaults
-    }
-    in [node_call]
-
-  in function
-  | A.Ident (pos, ident) -> []
-  | A.ModeRef (pos, path) -> []
-  | A.Const (pos, x) -> []
-  | A.ConvOp (pos, conv, expr) -> compile_node_calls cstate ctx map expr
-  | A.UnaryOp (pos, op, expr) -> compile_node_calls cstate ctx map expr
-  | A.BinaryOp (pos, op, expr1, expr2) ->
-    let calls1 = compile_node_calls cstate ctx map expr1 in
-    let calls2 = compile_node_calls cstate ctx map expr2 in
-    calls1 @ calls2
-  | A.CompOp (pos, op, expr1, expr2) ->
-    let calls1 = compile_node_calls cstate ctx map expr1 in
-    let calls2 = compile_node_calls cstate ctx map expr2 in
-    calls1 @ calls2
-  | A.Arrow (pos, expr1, expr2) ->
-    let calls1 = compile_node_calls cstate ctx map expr1 in
-    let calls2 = compile_node_calls cstate ctx map expr2 in
-    calls1 @ calls2
-  | A.Quantifier (pos, quantifier, avars, expr) ->
-    compile_node_calls cstate ctx map expr
-  | A.TernaryOp (pos, A.Ite, expr1, expr2, expr3) ->
-    let calls1 = compile_node_calls cstate ctx map expr1 in
-    let calls2 = compile_node_calls cstate ctx map expr2 in
-    let calls3 = compile_node_calls cstate ctx map expr3 in
-    calls1 @ calls2 @ calls3
-  | A.Last (pos, i) -> []
-  | A.Pre (pos, expr) -> compile_node_calls cstate ctx map expr
-  | A.Merge (pos, clock_ident, merge_cases) ->
-    List.fold_left (fun x (i, expr) -> x @ compile_node_calls cstate ctx map expr)
-      [] merge_cases
-  | A.RecordProject (pos, expr, field) -> compile_node_calls cstate ctx map expr
-  | A.TupleProject (pos, expr, field) -> compile_node_calls cstate ctx map expr
-  | A.GroupExpr (pos, kind, expr_list) ->
-    List.fold_left (fun x expr -> x @ compile_node_calls cstate ctx map expr)
-      [] expr_list
-  | A.RecordExpr (pos, record_type, expr_list) -> 
-    List.fold_left (fun x (i, expr) -> x @ compile_node_calls cstate ctx map expr)
-      [] expr_list
-  | A.StructUpdate (pos, expr1, index, expr2) ->
-    let calls1 = compile_node_calls cstate ctx map expr1 in
-    let calls2 = compile_node_calls cstate ctx map expr2 in
-    calls1 @ calls2
-  | A.ArrayConstr (pos, expr, size_expr) ->
-    let calls1 = compile_node_calls cstate ctx map expr in
-    let calls2 = compile_node_calls cstate ctx map size_expr in
-    calls1 @ calls2
-  | A.ArrayIndex (pos, expr, i) ->
-    let calls1 = compile_node_calls cstate ctx map expr in
-    let calls2 = compile_node_calls cstate ctx map i in
-    calls1 @ calls2
-  (* ****************************************************************** *)
-  (* Node Calls                                                         *)
-  (* ****************************************************************** *)
-  | A.Condact (pos, cond, restart, ident, args, defaults) ->
-    let id = I.mk_string_ident ident in
-    compile_node pos cstate map cond restart id args (Some defaults)
-  | A.Call (pos, ident, args)
-  | A.RestartEvery (pos, ident, args, A.Const (_, A.False)) ->
-    let id = I.mk_string_ident ident in
-    let cond = A.Const (dummy_pos, A.True) in
-    let restart = A.Const (dummy_pos, A.False) in
-    compile_node pos cstate map cond restart id args None
-  | A.RestartEvery (pos, ident, args, restart) ->
-    let id = I.mk_string_ident ident in
-    let cond = A.Const (dummy_pos, A.True) in
-    compile_node pos cstate map cond restart id args None
-  (* ****************************************************************** *)
-  (* Not Implemented                                                    *)
-  (* ****************************************************************** *)
-  (* TODO below, roughly in order of importance and difficulty *)
-  | A.ArraySlice (pos, _, _) -> fail_at_position pos
-    "Array slices not implemented"
-  (* Concatenation of arrays [A|B] *)
-  | A.ArrayConcat (pos, _, _) -> fail_at_position pos
-    "Array concatenation not implemented"
-  (* Interpolation to base clock *)
-  | A.Current (pos, A.When (_, _, _)) -> fail_at_position pos
-    "Current expression not supported"
-  (* Boolean at-most-one constaint *)
-  | A.NArityOp (pos, A.OneHot, _) -> fail_at_position pos
-    "One-hot expression not supported"
-  (* Followed by operator *)
-  | A.Fby (pos, _, _, _) -> fail_at_position pos
-    "Fby operator not implemented" 
-  (* Projection on clock *)
-  | A.When (pos, _, _) -> fail_at_position pos
-    "When expression must be the argument of a current operator"
-  (* Interpolation to base clock *)
-  | A.Current (pos, _) -> fail_at_position pos
-    "Current operator must have a when expression as argument"
-  | A.Activate (pos, _, _, _, _) -> fail_at_position pos
-    "Activate operator only supported in merge"
-  (* With operator for recursive node calls *)
-  | A.TernaryOp (pos, A.With, _, _, _) -> fail_at_position pos
-    "Recursive nodes not supported"
-  (* Node call to a parametric node *)
-  | A.CallParam (pos, _, _, _) -> fail_at_position pos
-    "Parametric nodes not supported" 
+      in let defaults' = match defaults with
+        | Some [d] -> Some (compile_ast_expr cstate ctx [] map d)
+        | Some d -> Some (compile_ast_expr cstate ctx [] map
+          (A.GroupExpr (dummy_pos, A.ExprList, d)))
+        | None -> None
+      in Some state_var, defaults'
+  in let restart_cond_of_expr restart =
+    let restart_test = match restart with
+      | A.Const (pos, A.False) -> true
+      | _ -> false
+    in if restart_test then None
+    else let state_var = match restart with
+      | A.Ident (pos, id) ->
+        let ident = I.mk_string_ident id
+        in H.find map ident
+      | _ -> assert false
+    in Some state_var
+  in let input_state_vars = node_inputs_of_exprs called_node.inputs args in
+  let act_state_var, defaults = node_act_cond_of_expr called_node.outputs cond defaults in
+  let restart_state_var = restart_cond_of_expr restart in
+  let cond_state_var = match act_state_var, restart_state_var with
+    | None, None -> []
+    | Some c, None -> [N.CActivate c]
+    | None, Some r -> [N.CRestart r]
+    | Some c, Some r -> [N.CActivate c; N.CRestart r]
+  in let node_call = {
+    N.call_pos = pos;
+    N.call_node_name = ident;
+    N.call_cond = cond_state_var;
+    N.call_inputs = input_state_vars;
+    N.call_oracles = called_node.oracles;
+    N.call_outputs = outputs;
+    N.call_defaults = defaults
+  }
+  in node_call
 
   
 and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs locals items contracts =
@@ -867,10 +771,9 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       sv :: sv_list, SVM.union (fun _ v _ -> Some v) svsm svsm'
     in List.fold_left split ([], state_var_source_map) locals_and_sources
   (* ****************************************************************** *)
-  (* Generated Locals                                                   *)
+  (* Generated Locals for Pre Arguments                                 *)
   (* ****************************************************************** *)
   in let (glocals, gequations, state_var_source_map, state_var_expr_map) =
-    let generated_locals = LAN.StringMap.bindings gids.LAN.locals in
     let over_generated_locals (glocals, geqns, svsm, svem) (id, expr) =
       let ident = I.mk_string_ident id in
       let nexpr = compile_ast_expr cstate ctx [] ident_map expr in
@@ -889,7 +792,30 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       result :: glocals, equation @ geqns, svsm, svem
     in List.fold_left over_generated_locals
       ([], [], state_var_source_map, SVT.create 7)
-      generated_locals
+      gids.LAN.pre_args
+  (* ****************************************************************** *)
+  (* Generated Locals for Node Arguments                                *)
+  (* ****************************************************************** *)
+  in let (glocals, gequations, state_var_source_map, state_var_expr_map) =
+    let over_generated_locals (glocals, geqns, svsm, svem) (id, expr) =
+      let ident = I.mk_string_ident id in
+      let nexpr = compile_ast_expr cstate ctx [] ident_map expr in
+      let nexpr' = nexpr |> X.values |> List.hd in
+      let state_var, svsm = mk_state_var
+          (node_scope @ I.reserved_scope)
+          ident
+          X.empty_index
+          (E.type_of_lustre_expr nexpr')
+          (Some N.KLocal)
+          svsm
+      in let result = X.singleton X.empty_index state_var in
+      let equation = expand_tuple pos result nexpr in
+      H.add ident_map ident state_var;
+      SVT.add svem state_var nexpr';
+      result :: glocals, equation @ geqns, svsm, svem
+    in List.fold_left over_generated_locals
+      (glocals, gequations, state_var_source_map, state_var_expr_map)
+      gids.LAN.node_args
   (* ****************************************************************** *)
   (* Oracles                                                            *)
   (* ****************************************************************** *)
@@ -921,6 +847,53 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
     in List.fold_left over_oracles
       ([], state_var_source_map, SVT.create 7)
       gids.LAN.oracles
+  (* ****************************************************************** *)
+  (* Node Calls                                                         *)
+  (* ****************************************************************** *)
+  in let (calls, glocals, state_var_source_map) =
+    let over_calls = fun (calls, glocals, svsm) (pos, vars, cond, restart, ident, args, defaults) ->
+      let node_id = I.mk_string_ident ident in
+      let output_ast_types = (match C.lookup_node_ty ctx ident with
+        | Some (A.TArr (pos, _, output_types)) ->
+            (match output_types with
+            | A.GroupType (_, types) -> types
+            | t -> [t])
+        | _ -> assert false)
+      in 
+      let output_types = List.map (fun t -> compile_ast_type ctx t) output_ast_types in
+      let is_single = List.length output_types = 1 in
+      let local_map = H.create 7 in
+      let source_maps = H.create 7 in
+      let outputs =
+        let over_vars = fun (is_single) compiled_vars var ->
+          let n = X.top_max_index compiled_vars |> succ in
+          let var_id = I.mk_string_ident var in
+          let index_types = List.nth output_types n in
+          let over_indices = fun index index_type accum ->
+            let state_var, svsm' = mk_state_var
+              ~is_input:false
+              (node_scope @ I.reserved_scope)
+              var_id
+              index
+              index_type
+              (Some N.Call)
+              svsm
+            and index' = if is_single then index
+              else X.ListIndex n :: index
+            in let result = X.add index' state_var accum in
+            H.add local_map var_id state_var;
+            H.add ident_map var_id state_var;
+            H.add source_maps var_id svsm';
+            result
+          in X.fold over_indices index_types compiled_vars
+        in List.fold_left (over_vars is_single) X.empty vars
+      in let svsm' = H.fold (fun k v a -> SVM.union (fun _ v _ -> Some v) a v)
+        source_maps svsm
+      in let node_call = compile_node
+        pos ctx cstate ident_map outputs cond restart node_id args defaults
+      in let glocals' = H.fold (fun k v a -> (X.singleton X.empty_index v) :: a) local_map [] in 
+      node_call :: calls, glocals' @ glocals, svsm'
+    in List.fold_left over_calls ([], glocals, state_var_source_map) gids.calls
   (* ****************************************************************** *)
   (* Split node items into relevant categories                          *)
   (* ****************************************************************** *)
@@ -954,9 +927,9 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       (pos, sv)
     in List.map op node_asserts
   (* ****************************************************************** *)
-  (* Compile Equations and Node Calls                                   *)
+  (* Node Equations                                                     *)
   (* ****************************************************************** *)
-  in let (equations, calls) =
+  in let equations =
     let compile_struct_item = fun struct_item -> match struct_item with
       | A.SingleIdent (pos, i) ->
         let ident = I.mk_string_ident i in
@@ -975,7 +948,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       | A.ArraySliceStructItem (pos, _, _) ->
         fail_at_position pos "Assignment not supported"
 
-    in let over_equations = fun (eqns, calls) (pos, lhs, ast_expr) ->
+    in let over_equations = fun eqns (pos, lhs, ast_expr) ->
       let eq_lhs, indexes = match lhs with
         | A.StructDef (pos, []) -> (X.empty, 0)
         | A.StructDef (pos, [e]) -> compile_struct_item e
@@ -1006,16 +979,15 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
 
       in let eq_rhs = compile_ast_expr cstate ctx lhs_bounds ident_map ast_expr
       in let equations = expand_tuple pos eq_lhs eq_rhs in
-      let node_calls = compile_node_calls cstate ctx ident_map ast_expr in
       (* TODO: Old code tries to infer a more strict type here
         lustreContext 2040+ *)
-      (equations @ eqns, node_calls @ calls)
-    in List.fold_left over_equations ([], []) node_eqs
+      equations @ eqns
+    in List.fold_left over_equations [] node_eqs
   in let locals = locals @ glocals in
-  let equations = equations @ gequations
+  let equations = equations @ gequations in
   
   (* TODO: Not currently handling contracts *)
-  in let contract = None
+  let contract = None
   in let silent_contracts = []
 
   in let (node:N.t) = { name;

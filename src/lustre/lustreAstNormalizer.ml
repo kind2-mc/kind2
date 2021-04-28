@@ -76,9 +76,11 @@ module StringMap = struct
 end
 
 type generated_identifiers = {
-    locals : LustreAst.expr StringMap.t;
+    node_args : (string * LustreAst.expr) list;
+    pre_args : (string * LustreAst.expr) list;
     oracles : (LustreAst.ident * LustreAst.expr) list;
-    calls : ((string list) (* abstraction variables *)
+    calls : (Lib.position (* node call position *)
+      * (string list) (* abstraction variables *)
       * LustreAst.expr (* condition expression *)
       * LustreAst.expr (* restart expression *)
       * string (* node name *)
@@ -88,7 +90,6 @@ type generated_identifiers = {
 }
 
 let pp_print_generated_identifiers ppf gids =
-  let locals_list = StringMap.bindings gids.locals |> List.rev in
   let pp_print_local = pp_print_pair
     Format.pp_print_string
     A.pp_print_expr
@@ -97,19 +98,21 @@ let pp_print_generated_identifiers ppf gids =
     Format.pp_print_string
     LustreAst.pp_print_expr
     ":"
-  in let pp_print_call = (fun ppf (vars, cond, restart, ident, args, defaults) ->
+  in let pp_print_call = (fun ppf (pos, vars, cond, restart, ident, args, defaults) ->
     Format.fprintf ppf 
-    "%a = call(%a,(restart %a every %a)(%a),%a)"
-    (pp_print_list Format.pp_print_string ",@") vars
+      "%a: %a = call(%a,(restart %a every %a)(%a),%a)"
+      pp_print_position pos
+      (pp_print_list Format.pp_print_string ",@") vars
       A.pp_print_expr cond
       Format.pp_print_string ident
       A.pp_print_expr restart
       (pp_print_list A.pp_print_expr ",@ ") args
       (pp_print_option
         (pp_print_list A.pp_print_expr ",@ ")) defaults)
-  in Format.fprintf ppf "%a\n%a\n%a"
+  in Format.fprintf ppf "%a\n%a\n%a\n%a"
     (pp_print_list pp_print_oracle "\n") gids.oracles
-    (pp_print_list pp_print_local "\n") locals_list
+    (pp_print_list pp_print_local "\n") gids.pre_args
+    (pp_print_list pp_print_local "\n") gids.node_args
     (pp_print_list pp_print_call "\n") gids.calls
 
 
@@ -117,7 +120,8 @@ let pp_print_generated_identifiers ppf gids =
 let i = ref 0
 
 let empty = {
-    locals = StringMap.empty;
+    pre_args = [];
+    node_args = [];
     oracles = [];
     calls = [];
   }
@@ -130,7 +134,8 @@ let union_keys key id1 id2 = match key, id1, id2 with
   | key, (Some v1), (Some v2) -> assert false
 
 let union ids1 ids2 = {
-    locals = StringMap.merge union_keys ids1.locals ids2.locals;
+    pre_args = ids1.pre_args @ ids2.pre_args;
+    node_args = ids1.node_args @ ids2.node_args;
     oracles = ids1.oracles @ ids2.oracles;
     calls = ids1.calls @ ids2.calls
   }
@@ -138,13 +143,24 @@ let union ids1 ids2 = {
 let union_list ids =
   List.fold_left (fun x y -> union x y ) empty ids
 
-let mk_fresh_local expr =
+let mk_fresh_pre_local expr =
   i := !i + 1;
   let prefix = string_of_int !i in
   let name = prefix ^ "_glocal" in
   let nexpr = A.Ident (Lib.dummy_pos, name) in
-  let glocal = StringMap.singleton name expr in
-  let gids = { locals = glocal;
+  let gids = { pre_args = [(name, expr)];
+    node_args = [];
+    oracles = [];
+    calls = [] }
+  in nexpr, gids
+
+let mk_fresh_node_arg_local expr =
+  i := !i + 1;
+  let prefix = string_of_int !i in
+  let name = prefix ^ "_gklocal" in
+  let nexpr = A.Ident (Lib.dummy_pos, name) in
+  let gids = { pre_args = [];
+    node_args = [(name, expr)];
     oracles = [];
     calls = [] }
   in nexpr, gids
@@ -154,7 +170,8 @@ let mk_fresh_oracle ident =
   let prefix = string_of_int !i in
   let name = prefix ^ "_oracle" in
   let nexpr = A.Ident (Lib.dummy_pos, name) in
-  let gids = { locals = StringMap.empty;
+  let gids = { pre_args = [];
+    node_args = [];
     oracles = [name, ident];
     calls = [] }
   in nexpr, gids
@@ -162,10 +179,13 @@ let mk_fresh_oracle ident =
 let compute_node_arity ctx ident =
   let node_type = Ctx.lookup_node_ty ctx ident in
   match node_type with
-    | Some (A.GroupType ( _, list)) -> List.length list
-    | _ -> assert false (* Nodes must have a group type *)
+    | Some (A.TArr (_,  _, output_type)) ->
+      (match output_type with
+      | A.GroupType (_, list) -> List.length list
+      | _ -> 1)
+    | _ -> assert false (* Nodes must have TArr type *)
 
-let mk_fresh_call arity cond restart ident args defaults =
+let mk_fresh_call arity pos cond restart ident args defaults =
   let abstractions = List.init arity (fun x ->
     i := !i + 1;
     let prefix = string_of_int !i in
@@ -173,11 +193,11 @@ let mk_fresh_call arity cond restart ident args defaults =
   in let expr_list = List.map
     (fun name -> A.Ident (Lib.dummy_pos, name))
     abstractions
-  in let nexpr = if arity == 1 then 
-    List.hd expr_list
+  in let nexpr = if arity = 1 then List.hd expr_list
     else A.GroupExpr (Lib.dummy_pos, A.ExprList, expr_list) in
-  let call = (abstractions, cond, restart, ident, args, defaults) in
-  let gids = { locals = StringMap.empty;
+  let call = (pos, abstractions, cond, restart, ident, args, defaults) in
+  let gids = { pre_args = [];
+    node_args = [];
     oracles = [];
     calls = [call] }
   in nexpr, gids
@@ -269,13 +289,20 @@ and normalize_equation ctx = function
   | Automaton (pos, id, states, auto) -> Lib.todo __LOC__
 
 and normalize_expr ?guard ctx  =
-  let generate_fresh_ids ctx ?guard expr =
+  let abstract_node_arg ctx ?guard expr = 
+    if AH.expr_is_id expr then
+      expr, empty
+    else
+      let nexpr, gids1 = normalize_expr ctx ?guard expr in
+      let iexpr, gids2 = mk_fresh_node_arg_local nexpr in
+      iexpr, union gids1 gids2
+  in let abstract_pre_arg ctx ?guard expr = 
     (* If [expr] is already an id or const then we don't create a fresh local *)
     if AH.expr_is_id expr then
       expr, empty
     else
       let nexpr, gids1 = normalize_expr ctx ?guard expr in
-      let iexpr, gids2 = mk_fresh_local nexpr in
+      let iexpr, gids2 = mk_fresh_pre_local nexpr in
       iexpr, union gids1 gids2
   in function
   (* ************************************************************************ *)
@@ -285,24 +312,24 @@ and normalize_expr ?guard ctx  =
     let arity = compute_node_arity ctx id in
     let cond = A.Const (Lib.dummy_pos, A.True) in
     let restart =  A.Const (Lib.dummy_pos, A.False) in
-    let nargs, gids1 = normalize_list ctx (generate_fresh_ids ?guard) args in
-    let nexpr, gids2 = mk_fresh_call arity cond restart id nargs None in
+    let nargs, gids1 = normalize_list ctx (abstract_node_arg ?guard) args in
+    let nexpr, gids2 = mk_fresh_call arity pos cond restart id nargs None in
     nexpr, union gids1 gids2
   | Condact (pos, cond, restart, id, args, defaults) ->
     let arity = compute_node_arity ctx id in
     let ncond, gids1 = normalize_expr ?guard ctx cond in
     let nrestart, gids2 = normalize_expr ?guard ctx restart in
-    let nargs, gids3 = normalize_list ctx (generate_fresh_ids ?guard) args in
+    let nargs, gids3 = normalize_list ctx (abstract_node_arg ?guard) args in
     let ndefaults, gids4 = normalize_list ctx (normalize_expr ?guard) defaults in
-    let nexpr, gids5 = mk_fresh_call arity ncond nrestart id nargs (Some ndefaults) in
+    let nexpr, gids5 = mk_fresh_call arity pos ncond nrestart id nargs (Some ndefaults) in
     let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
     nexpr, gids
   | RestartEvery (pos, id, args, restart) ->
     let arity = compute_node_arity ctx id in
     let cond = A.Const (dummy_pos, A.True) in
     let nrestart, gids1 = normalize_expr ?guard ctx restart in
-    let nargs, gids2 = normalize_list ctx (generate_fresh_ids ?guard) args in
-    let nexpr, gids3 = mk_fresh_call arity cond nrestart id nargs None in
+    let nargs, gids2 = normalize_list ctx (abstract_node_arg ?guard) args in
+    let nexpr, gids3 = mk_fresh_call arity pos cond nrestart id nargs None in
     let gids = union_list [gids1; gids2; gids3] in
     nexpr, gids
   (* ************************************************************************ *)
@@ -314,7 +341,7 @@ and normalize_expr ?guard ctx  =
     let gids = union gids1 gids2 in
     Arrow (pos, nexpr1, nexpr2), gids
   | Pre (pos, expr) ->
-    let nexpr, gids1 = (generate_fresh_ids ctx ?guard) expr in
+    let nexpr, gids1 = (abstract_pre_arg ctx ?guard) expr in
     let guard, gids2, previously_guarded = match guard with
       | Some guard -> guard, empty, true
       | None -> let guard, gids = mk_fresh_oracle nexpr in
