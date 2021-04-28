@@ -57,7 +57,12 @@ end
 
 type generated_identifiers = {
   locals : LustreAst.expr StringMap.t;
-  oracles : (LustreAst.ident * LustreAst.expr) list
+  oracles : (LustreAst.ident * LustreAst.expr) list;
+  calls : (LustreAst.expr
+    * LustreAst.expr
+    * string
+    * (LustreAst.expr list)
+    * (LustreAst.expr list option)) StringMap.t
 }
 
 val normalize : LustreAst.t -> (LustreAst.t * generated_identifiers StringMap.t, Lib.position * string) result
