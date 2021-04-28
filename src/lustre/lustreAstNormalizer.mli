@@ -56,15 +56,19 @@ module StringMap : sig
 end
 
 type generated_identifiers = {
-  locals : LustreAst.expr StringMap.t;
-  oracles : (LustreAst.ident * LustreAst.expr) list;
-  calls : (LustreAst.expr
-    * LustreAst.expr
-    * string
-    * (LustreAst.expr list)
-    * (LustreAst.expr list option)) StringMap.t
+    locals : LustreAst.expr StringMap.t;
+    oracles : (LustreAst.ident * LustreAst.expr) list;
+    calls : ((string list) (* abstraction variables *)
+      * LustreAst.expr (* condition expression *)
+      * LustreAst.expr (* restart expression *)
+      * string (* node name *)
+      * (LustreAst.expr list) (* node arguments *)
+      * (LustreAst.expr list option)) (* node argument defaults *)
+      list
 }
 
-val normalize : LustreAst.t -> (LustreAst.t * generated_identifiers StringMap.t, Lib.position * string) result
+val normalize : TypeCheckerContext.tc_context
+  -> LustreAst.t
+  -> (LustreAst.t * generated_identifiers StringMap.t, Lib.position * string) result
 
 val pp_print_generated_identifiers : Format.formatter -> generated_identifiers -> unit

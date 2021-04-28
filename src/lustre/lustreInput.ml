@@ -143,7 +143,7 @@ let of_channel in_ch =
           IC.inline_constants ctx sorted_node_contract_decls >>= fun (ctx, const_inlined_nodes_and_contracts) ->
 
           (* Step 7. Normalize AST: guard pres, abstract to locals where appropriate *)
-          LAN.normalize const_inlined_nodes_and_contracts >>= fun (normalized_nodes_and_contracts, generated_ids) ->
+          LAN.normalize ctx const_inlined_nodes_and_contracts >>= fun (normalized_nodes_and_contracts, generated_ids) ->
           
           (* The last node in the original ordering should remain the last node after sorting 
             as the user expects that to be the main node in the case where 
