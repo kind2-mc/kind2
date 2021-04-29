@@ -909,7 +909,7 @@ let prop_attributes_json ppf trans_sys prop_name =
           pp_print_fname fname lnum cnum
     | Property.Instantiated (scope, prop) ->
         get_attributes prop.Property.prop_source
-    | Property.Assumption (pos, scope) -> print_attributes pos scope "Assumption"
+    | Property.Assumption (pos, (scope, _)) -> print_attributes pos scope "Assumption"
     | Property.Guarantee (pos, scope) -> print_attributes pos scope "Guarantee"
     | Property.GuaranteeOneModeActive (pos, scope) -> print_attributes pos scope "OneModeActive"
     | Property.GuaranteeModeImplication (pos, scope) -> print_attributes pos scope "Ensure"
