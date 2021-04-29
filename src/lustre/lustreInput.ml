@@ -212,8 +212,7 @@ let of_channel in_ch =
         (pp_print_pair
           (StateVar.pp_print_state_var)
           (pp_print_list
-            (LustreExpr.pp_print_bound_or_fixed
-              (LustreExpr.pp_print_expr true))
+            (LustreExpr.pp_print_bound_or_fixed)
             ";@ ")
           " = ")
         ";@ ")

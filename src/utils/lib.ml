@@ -405,14 +405,8 @@ let list_join equal l1 l2 =
     | _ -> list_join' equal [] l1 l2
 
 let list_filter_map f =
-  let rec rev_append l1 l2 =
-    match l1 with
-      [] -> l2
-    | a :: l -> rev_append l (a :: l2)
-  in
-  let rev l = rev_append l [] in
   let rec aux accu = function
-    | [] -> rev accu
+    | [] -> List.rev accu
     | x :: l ->
         match f x with
         | None -> aux accu l

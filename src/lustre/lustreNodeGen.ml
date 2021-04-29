@@ -382,15 +382,7 @@ and compile_ast_expr (cstate:compiler_state) (ctx:C.tc_context) (bounds:E.expr E
   and compile_pre bounds expr =
     let cexpr = compile_ast_expr cstate ctx bounds map expr in
     let over_indices index expr' accum =
-      let mk_lhs_term (sv, bounds) =
-        let over_bounds (i, t) = function
-          | E.Bound b -> succ i, Term.mk_select t
-            (Term.mk_var @@ E.var_of_expr @@ E.mk_index_var i)
-          | E.Unbound v -> i, Term.mk_select t v
-          | _ -> assert false
-        in let initial = (0, Var.mk_state_var_instance sv E.pre_offset |> Term.mk_var)
-        in List.fold_left over_bounds initial bounds |> snd
-      in let expr' = E.mk_pre mk_lhs_term expr' in
+      let expr' = E.mk_pre expr' in
       X.add index expr' accum
     in X.fold over_indices cexpr X.empty
 
@@ -418,15 +410,6 @@ and compile_ast_expr (cstate:compiler_state) (ctx:C.tc_context) (bounds:E.expr E
 
   and compile_array_index bounds expr i =
     Lib.todo __LOC__
-
-  and compile_node_call bounds map ident cond restart args defaults =
-    let called_node = N.node_of_name ident cstate.nodes in
-    let output_state_vars = X.fold (fun i sv accum ->
-          N.set_state_var_instance sv dummy_pos ident sv ;
-          N.add_state_var_def sv (N.CallOutput (dummy_pos, i)) ;
-          X.add i sv accum
-      ) called_node.outputs X.empty
-    in X.map E.mk_var output_state_vars
 
   in
   (* Format.eprintf "%a\n" A.pp_print_expr expr; *)
@@ -547,19 +530,11 @@ and compile_ast_expr (cstate:compiler_state) (ctx:C.tc_context) (bounds:E.expr E
   (* ****************************************************************** *)
   (* Node Calls                                                         *)
   (* ****************************************************************** *)
-  | A.Condact (pos, cond, restart, ident, args, defaults) ->
-    let id = I.mk_string_ident ident in
-    compile_node_call bounds map id cond restart args (Some defaults)
-  | A.Call (pos, ident, args)
-  | A.RestartEvery (pos, ident, args, A.Const (_, A.False)) ->
-    let id = I.mk_string_ident ident in
-    let cond = A.Const (dummy_pos, A.True) in
-    let restart = A.Const (dummy_pos, A.False) in
-    compile_node_call bounds map id cond restart args None
-  | A.RestartEvery (pos, ident, args, restart) ->
-    let id = I.mk_string_ident ident in
-    let cond = A.Const (dummy_pos, A.True) in
-    compile_node_call bounds map id cond restart args None
+  (* Node calls are abstracted to identifiers or group expressions by 
+    the normalizer, making these expressions impossible at this stage *)
+  | A.Condact (pos, cond, restart, ident, args, defaults) -> assert false
+  | A.Call (pos, ident, args) -> assert false
+  | A.RestartEvery (pos, ident, args, restart) -> assert false
   (* ****************************************************************** *)
   (* Array Operators                                                    *)
   (* ****************************************************************** *)

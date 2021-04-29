@@ -134,7 +134,7 @@ val type_of_lustre_expr : t -> Type.t
 *)
 
 (** Pretty-print a bound or fixed annotation *)
-val pp_print_bound_or_fixed : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a bound_or_fixed -> unit
+val pp_print_bound_or_fixed : Format.formatter -> expr bound_or_fixed -> unit
 
 (** Pretty-print a Lustre type *)
 val pp_print_lustre_type : bool -> Format.formatter -> Type.t -> unit 
@@ -475,9 +475,9 @@ val mk_gt : t -> t -> t
 (** Apply the followed by operator [->] to the two expressions. *)
 val mk_arrow : t -> t -> t
 
-(** [mk_pre f e] returns the expression [e] if it is a constant, and the
+(** [mk_pre e] returns the expression [e] if it is a constant, and the
     previous state variable if the expression is a current state variable. *)
-val mk_pre : ('a -> Term.t) -> t -> t
+val mk_pre : t -> t
 
 (** Apply the [pre] operator to the expression, abstract the
     expression to a fresh variable if it is not a variable at the

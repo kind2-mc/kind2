@@ -233,12 +233,6 @@ let pre_offset = Numeral.(pred cur_offset)
 (* Pretty-printing                                                        *)
 (* ********************************************************************** *)
 
-(** Pretty-print a bound or fixed annotation *)
-let pp_print_bound_or_fixed pp ppf = function
-  | Bound x -> pp ppf x
-  | Fixed x -> pp ppf x
-  | Unbound x -> pp ppf x
-
 (* Pretty-print a type as a Lustre type *)
 let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
@@ -835,7 +829,11 @@ let pp_print_lustre_expr safe ppf = function
       (pp_print_expr ~as_type:expr_type safe) expr_init
       (pp_print_expr ~as_type:expr_type safe) expr_step
 
-
+(** Pretty-print a bound or fixed annotation *)
+let pp_print_bound_or_fixed ppf = function
+  | Bound x -> (pp_print_expr true) ppf x
+  | Fixed x -> (pp_print_expr true) ppf x
+  | Unbound x -> (pp_print_expr true) ppf x
 
 (* ********************************************************************** *)
 (* Predicates                                                             *)
@@ -3286,7 +3284,7 @@ let mk_arrow expr1 expr2 =
 (* Pre expression *)
 (* We don't need to abstract the RHS because the AST normalization pass 
   already has. *)
-let mk_pre mk_lhs_term ({ expr_init; expr_step; expr_type } as expr) =
+let mk_pre ({ expr_init; expr_step; expr_type } as expr) =
   if Term.equal expr_init expr_step then
     match expr_init with
     (* Expression is a constant not part of an unguarded pre expression *)
