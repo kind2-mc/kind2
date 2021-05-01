@@ -1400,7 +1400,7 @@ module IVC = struct
       Format.fprintf fmt
         "\
           Compute an approximation (superset) of a MIVC.@ \
-          Ignored if --ivc_all is true.@ \
+          Ignored if --ivc_all or --ivc_must_set is true.@ \
           Default: %a\
         "
         fmt_bool ivc_approximate_default

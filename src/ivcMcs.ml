@@ -1374,13 +1374,13 @@ let ivc_uc in_sys ?(approximate=false) sys props =
 
 (* ---------- MUST SET ---------- *)
 
-let must_set_ in_sys ?(os_invs=None) check_ts sys props enter_nodes keep test =
+let must_set_ in_sys ?(uc_res=None) check_ts sys props enter_nodes keep test =
 
-  (* If os_invs is None,
+  (* If uc_res is None,
   we minimize using UC first and we retrieve the minimized invariants in the same time *)
   let (os_invs, reduced_test) =
-  match os_invs with
-  | Some os_invs -> (os_invs, test)
+  match uc_res with
+  | Some (os_invs, reduced_test) -> (os_invs, reduced_test)
   | None -> ivc_uc_ in_sys sys props enter_nodes keep test
   in
   let increased_keep = core_diff (core_union keep test) reduced_test in
@@ -1505,12 +1505,13 @@ let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   end
 
 (** Compute the MUST set and then call IVC_BF if needed *)
-let ivc_must_bf_ must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
+let ivc_must_bf_ test must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep reduced_test =
   let prop_names = props_names props in
 
   let timeout_bkp = !timeout in
   let (os_invs, must) =
-    must_set_ in_sys ~os_invs:(Some os_invs) check_ts sys props enter_nodes keep test in
+    let uc_res = Some (os_invs, reduced_test) in
+    must_set_ in_sys ~uc_res check_ts sys props enter_nodes keep test in
   must_cont must ;
   let keep = core_union keep must in
   let test = core_diff test must in
@@ -1528,27 +1529,6 @@ let ivc_must_bf_ must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes k
     |> core_union must
   )
 
-let ivc_bf in_sys ?(use_must_set=None) param analyze sys props =
-  try (
-    let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
-    let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
-    let ivc_bf_ = match use_must_set with
-    | Some f ->
-      (fun x -> (props, core_to_loc_core in_sys (core_union keep x), { approximation = !timeout }) |> f) |> ivc_must_bf_
-    | None -> ivc_bf_ in
-    let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
-    let test = ivc_bf_ in_sys check_ts sys props enter_nodes keep test in
-    Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation = !timeout })
-  ) with
-  | CannotProve ->
-    if are_props_safe props
-    then (KEvent.log L_error "Cannot reprove properties." ;
-          Error "Cannot reprove properties")
-    else NoSolution
-  | InitTransMismatch (i,t) ->
-    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    Error "Init and trans equations mismatch"
-
 (** Implements the algorithm 'Unsat Core, then bruteforce' *)
 let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
   try (
@@ -1556,10 +1536,11 @@ let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
     let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
     let ivc_bf_ = match use_must_set with
     | Some f ->
-      (fun x -> (props, core_to_loc_core in_sys (core_union keep x), { approximation = !timeout }) |> f) |> ivc_must_bf_
+      (fun x -> (props, core_to_loc_core in_sys (core_union keep x), { approximation = !timeout }) |> f)
+      |> ivc_must_bf_ test
     | None -> ivc_bf_ in
-    let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep test in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
+    let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep test in
     let test = ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
     Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation = !timeout })
   ) with

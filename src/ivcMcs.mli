@@ -75,20 +75,6 @@ val ivc_uc :
   Property.t list ->
   ivc result
 
-(** [ivc_bf in_sys param analyze_func sys props] computes a minimal inductive validity core
-    for the input system [in_sys], the analysis parameter [param] and the transition system [sys].
-    Only properties [props] are considered.
-    If the optional parameter [use_must_set] is not None, a MUST set will be computed first and passed
-    to the given continuation. *)
-val ivc_bf :
-  'a InputSystem.t ->
-  ?use_must_set:(ivc -> unit) option ->
-  Analysis.param ->
-  'a analyze_func ->
-  TransSys.t ->
-  Property.t list ->
-  ivc result
-
 (** [must_set in_sys param analyze_func sys props] computes the MUST set
     for the input system [in_sys], the analysis parameter [param] and the transition system [sys].
     Only properties [props] are considered. *)
