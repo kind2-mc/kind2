@@ -33,6 +33,8 @@
   pre operators are explicitly guarded in the AST by an oracle variable
   if they were originally unguarded
     e.g. pre expr => oracle -> pre expr
+  Note that oracles are _propagated_ in node calls. If a node `n1` has an oracle
+  and is called by another node `n2`, then `n2` will inherit a propagated oracle
 
   The following parts of the AST are abstracted by locals:
 
@@ -58,6 +60,11 @@
     (Note that there is no generated equality here, how the node call is
       referenced at the stage of a LustreNode is by the node_call record where
       the output holds the state variables produced by the node call)
+
+  4. Properties checked expression
+  5. Assertions checked expression
+  6. Condition of node calls (if it is not equivalent to true)
+  7. Restarts of node calls (if it is not a constant)
 
      @author Andrew Marmaduke *)
 
@@ -254,7 +261,7 @@ let rec normalize ctx (decls:LustreAst.t) =
       (StringMap.bindings node_map)
     A.pp_print_program ast;
 
-  Res.ok (ast, node_map)
+  Res.ok (List.rev ast, node_map)
 
 and normalize_declaration ctx map = function
   | NodeDecl (pos, decl) ->
@@ -363,9 +370,11 @@ and normalize_expr ?guard ctx map =
     nexpr, union gids1 gids2
   | Condact (pos, cond, restart, id, args, defaults) ->
     let arity = compute_node_arity ctx id in
-    let ncond, gids1 = normalize_expr ?guard ctx map cond in
-    let nrestart, gids2 = normalize_expr ?guard ctx map restart in
-    let nargs, gids3 = normalize_list ctx map (abstract_node_arg ?guard) args in
+    let ncond, gids1 = if AH.expr_is_true cond then cond, empty
+      else abstract_expr ?guard ctx map cond in
+    let nrestart, gids2 = if AH.expr_is_const restart then restart, empty
+      else abstract_expr ?guard ctx map restart
+    in let nargs, gids3 = normalize_list ctx map (abstract_node_arg ?guard) args in
     let ndefaults, gids4 = normalize_list ctx map (normalize_expr ?guard) defaults in
     let nexpr, gids5 = mk_fresh_call id map arity pos ncond nrestart id nargs (Some ndefaults) in
     let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
@@ -373,8 +382,9 @@ and normalize_expr ?guard ctx map =
   | RestartEvery (pos, id, args, restart) ->
     let arity = compute_node_arity ctx id in
     let cond = A.Const (dummy_pos, A.True) in
-    let nrestart, gids1 = normalize_expr ?guard ctx map restart in
-    let nargs, gids2 = normalize_list ctx map (abstract_node_arg ?guard) args in
+    let nrestart, gids1 = if AH.expr_is_const restart then restart, empty
+      else abstract_expr ?guard ctx map restart
+    in let nargs, gids2 = normalize_list ctx map (abstract_node_arg ?guard) args in
     let nexpr, gids3 = mk_fresh_call id map arity pos cond nrestart id nargs None in
     let gids = union_list [gids1; gids2; gids3] in
     nexpr, gids

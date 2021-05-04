@@ -28,6 +28,12 @@ val expr_is_id : expr -> bool
 val expr_is_const : expr -> bool
 (** Returns whether or not the expression is a Const variant *)
 
+val expr_is_true : expr -> bool
+(** Returns whether or not the expression is a Bool Const variant with the True value *)
+
+val expr_is_false : expr -> bool
+(** Returns whether or not the expression is a Bool Const variant with the False value *)
+
 val pos_of_expr : expr -> Lib.position
 (** Returns the position of an expression *)
 

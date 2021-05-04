@@ -114,22 +114,18 @@ let mk_state_var
   in
   state_var, state_var_source_map'
 
-(* The LustreAstNormalizer is expected to normalize specific expression
-  positions to an identifier (or leave it be if it is a constnat).
-  That assumption is made explicit by calling this function. *)
-let extract_normalized = function
-  | A.Ident (pos, ident) -> ident
-  | A.Const (pos, True) -> "true"
-  | A.Const (pos, False) -> "false"
-  | A.Const (pos, Num x) -> x
-  | A.Const (pos, Dec x) -> x
-  | _ -> assert false
-
 let mk_ident id = match String.split_on_char '_' id with
   | i :: id :: [] -> (match int_of_string_opt i with
     | Some i -> I.push_index (I.mk_string_ident id) i
     | None -> I.mk_string_ident id)
   | list -> I.mk_string_ident id
+
+(* The LustreAstNormalizer is expected to normalize specific expression
+  positions to an identifier (or leave it be if it is a constnat).
+  That assumption is made explicit by calling this function. *)
+let extract_normalized = function
+  | A.Ident (pos, ident) -> mk_ident ident
+  | _ -> assert false
 
 let mk_state_var_index ident = X.map (fun x -> E.mk_var x) ident
 
@@ -397,7 +393,7 @@ and compile_ast_expr
 
   and compile_pre bounds expr =
     let cexpr = compile_ast_expr cstate ctx bounds map expr in
-    let ident = extract_normalized expr |> mk_ident in
+    let ident = extract_normalized expr in
     let (sv, source) = H.find map ident in
     let over_indices index expr' accum =
       let expr' = E.mk_pre expr' in
@@ -629,12 +625,8 @@ and compile_node pos ctx cstate map oracles outputs cond restart ident args defa
       | _ -> false
     in if cond_test then None, None
     else
-      let state_var = match cond with
-        | A.Ident (pos, id) ->
-          let ident = mk_ident id
-          in H.find map ident |> fst
-        | _ -> assert false
-      in let defaults' = match defaults with
+      let state_var, _ = cond |> extract_normalized |> H.find map in
+      let defaults' = match defaults with
         | Some [d] -> Some (compile_ast_expr cstate ctx [] map d)
         | Some d -> Some (compile_ast_expr cstate ctx [] map
           (A.GroupExpr (dummy_pos, A.ExprList, d)))
@@ -645,11 +637,7 @@ and compile_node pos ctx cstate map oracles outputs cond restart ident args defa
       | A.Const (pos, A.False) -> true
       | _ -> false
     in if restart_test then None
-    else let state_var = match restart with
-      | A.Ident (pos, id) ->
-        let ident = mk_ident id
-        in H.find map ident |> fst
-      | _ -> assert false
+    else let state_var, _ = restart |> extract_normalized |> H.find map
     in Some state_var
   in let input_state_vars = node_inputs_of_exprs called_node.inputs args in
   let act_state_var, defaults = node_act_cond_of_expr called_node.outputs cond defaults in
@@ -1000,8 +988,10 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
   (* ****************************************************************** *)
   in let props =
     let op (pos, name_opt, expr) =
-      let id_str = extract_normalized expr in
-      let id = mk_ident id_str in
+      let id_str = match expr with
+        | A.Ident (_, id_str) -> id_str
+        | _ -> assert false (* must be abstracted *)
+      in let id = mk_ident id_str in
       let (sv, _) = H.find ident_map id in
       let name = match name_opt with
         | Some n -> n
@@ -1013,7 +1003,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
 
   in let asserts =
     let op (pos, expr) =
-      let id = extract_normalized expr |> mk_ident in
+      let id = extract_normalized expr in
       let (sv, _) = H.find ident_map id in
       N.add_state_var_def sv (N.Assertion pos);
       (pos, sv)
