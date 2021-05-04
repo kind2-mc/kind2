@@ -227,7 +227,8 @@ let of_channel in_ch =
       (pp_print_list LustreNode.pp_print_state_var_instances_debug ";@") nodes
       (pp_print_list LustreNode.pp_print_state_var_defs_debug ";@") nodes
       (pp_print_list StateVar.pp_print_state_var_debug ";@")
-        (nodes |> List.map (fun n -> LustreNode.get_all_state_vars n) |> List.flatten);
+        (nodes |> List.map (fun n -> LustreNode.get_all_state_vars n @ n.oracles)
+          |> List.flatten);
     (if Flags.only_tc () then exit 0);
     (* Return a subsystem tree from the list of nodes *)
     LN.subsystem_of_nodes nodes', globals, declarations

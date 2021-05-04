@@ -738,9 +738,9 @@ let pp_print_node_debug ppf
          oracle_state_var_map = [@[<hv>%a@]];@ \
          state_var_expr_map = [@[<hv>%a@]]; }@]"
 
+    (I.pp_print_ident false) name
     StateVar.pp_print_state_var instance
     StateVar.pp_print_state_var init_flag
-    (I.pp_print_ident false) name
     pp_print_state_var_trie_debug inputs
     (pp_print_list StateVar.pp_print_state_var ";@ ") oracles
     pp_print_state_var_trie_debug outputs

@@ -791,7 +791,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       let nexpr' = nexpr |> X.values |> List.hd in
       let is_const = E.is_const nexpr' in
       let state_var, svsm = mk_state_var
-        ?is_const:(Some is_const)
+        ~is_const
         (node_scope @ I.reserved_scope)
         ident
         X.empty_index
@@ -817,7 +817,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       let nexpr' = nexpr |> X.values |> List.hd in
       let is_const = E.is_const nexpr' in
       let state_var, svsm = mk_state_var
-        ?is_const:(Some is_const)
+        ~is_const
         (node_scope @ I.reserved_scope)
         ident
         X.empty_index
@@ -839,17 +839,20 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
   in let (oracles, state_var_source_map, oracle_state_var_map) =
     let over_oracles (oracles, svsm, osvm) (id, expr) =
       let oracle_ident = mk_ident id in
-      let (closed_sv, state_var_type) = match expr with
+      let (closed_sv, is_const, state_var_type) = match expr with
         | A.Ident (pos, id') ->
           let ident = mk_ident id' in
           let (closed_sv, _) = H.find ident_map ident in
-          (Some closed_sv), StateVar.type_of_state_var closed_sv
-        | A.Const (pos, v) -> None, (match v with
+          let is_const = StateVar.is_const closed_sv in
+          let sv_type = StateVar.type_of_state_var closed_sv in
+          (Some closed_sv), is_const, sv_type
+        | A.Const (pos, v) -> None, true, (match v with
           | A.True | A.False -> Type.mk_bool ()
           | A.Dec _ -> Type.mk_real ()
           | A.Num _ -> Type.mk_int ())
         | _ -> assert false
       in let state_var, svsm = mk_state_var
+        ~is_const:true
         (node_scope @ I.reserved_scope)
         oracle_ident
         X.empty_index
@@ -880,7 +883,10 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
         in existing_oracle_name = current_oracle_name)
         existing_oracles
       in let state_var_type = StateVar.type_of_state_var orc_state_var in
+      let is_const = StateVar.is_const orc_state_var in
       let state_var, svsm = mk_state_var
+        ~is_input:true
+        ~is_const
         (node_scope @ I.reserved_scope)
         oracle_ident
         X.empty_index
