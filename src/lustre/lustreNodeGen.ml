@@ -127,8 +127,6 @@ let extract_normalized = function
   | A.Ident (pos, ident) -> mk_ident ident
   | _ -> assert false
 
-let mk_state_var_index ident = X.map (fun x -> E.mk_var x) ident
-
 let add_state_var_bounds cstate sv bounds =
   SVT.add cstate.state_var_bounds sv bounds
   
@@ -970,7 +968,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
     in List.fold_left over_generated_locals
       (gequations, state_var_expr_map)
       gids.LAN.node_args
-    (* ****************************************************************** *)
+  (* ****************************************************************** *)
   (* Split node items into relevant categories                          *)
   (* ****************************************************************** *)
   in let (node_props, node_eqs, node_asserts, node_automations, is_main) = 
