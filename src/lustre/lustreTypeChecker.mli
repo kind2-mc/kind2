@@ -39,6 +39,11 @@ val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> tc_context tc_re
 val report_tc_result: unit tc_result list -> unit tc_result
 (** Report whether everything is [Ok] or if there are any [Error]s *)
 
+val local_var_binding: tc_context -> LA.node_local_decl -> tc_context tc_result
+
+val infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
+(** Infer type of Lustre expression given a typing context *)
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

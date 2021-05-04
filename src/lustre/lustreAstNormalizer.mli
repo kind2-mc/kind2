@@ -56,8 +56,8 @@ module StringMap : sig
 end
 
 type generated_identifiers = {
-    node_args : (string * LustreAst.expr) list;
-    locals : LustreAst.expr StringMap.t;
+    node_args : (string * LustreAst.lustre_type * LustreAst.expr) list;
+    locals : (LustreAst.lustre_type * LustreAst.expr) StringMap.t;
     oracles : (string * LustreAst.expr) list;
     propagated_oracles : (string * string) list;
     calls : (Lib.position (* node call position *)

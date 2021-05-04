@@ -66,6 +66,7 @@ open Lib
 module A = LustreAst
 module AH = LustreAstHelpers
 module Ctx = TypeCheckerContext
+module Chk = LustreTypeChecker
 
 module StringMap = struct
   include Map.Make(struct
@@ -76,8 +77,8 @@ module StringMap = struct
 end
 
 type generated_identifiers = {
-    node_args : (string * LustreAst.expr) list;
-    locals : LustreAst.expr StringMap.t;
+    node_args : (string * LustreAst.lustre_type * LustreAst.expr) list;
+    locals : (LustreAst.lustre_type * LustreAst.expr) StringMap.t;
     oracles : (string * LustreAst.expr) list;
     propagated_oracles : (string * string) list;
     calls : (Lib.position (* node call position *)
@@ -92,11 +93,12 @@ type generated_identifiers = {
 }
 
 let pp_print_generated_identifiers ppf gids =
-  let locals_list = StringMap.bindings gids.locals in
-  let pp_print_local = pp_print_pair
-    Format.pp_print_string
-    A.pp_print_expr
-    " = "
+  let locals_list = StringMap.bindings gids.locals 
+    |> List.map (fun (x, (y, z)) -> x, y, z)
+  in let pp_print_local ppf (id, ty, e) = Format.fprintf ppf "(%a, %a, %a)"
+    Format.pp_print_string id
+    LustreAst.pp_print_lustre_type ty
+    LustreAst.pp_print_expr e
   in let pp_print_oracle = pp_print_pair
     Format.pp_print_string
     LustreAst.pp_print_expr
@@ -148,25 +150,25 @@ let union ids1 ids2 = {
 let union_list ids =
   List.fold_left (fun x y -> union x y ) empty ids
 
-let mk_fresh_local pos expr =
+let mk_fresh_local pos expr_type expr =
   i := !i + 1;
   let prefix = string_of_int !i in
   let name = prefix ^ "_glocal" in
   let nexpr = A.Ident (pos, name) in
-  let gids = { locals = StringMap.singleton name expr;
+  let gids = { locals = StringMap.singleton name (expr_type, expr);
     node_args = [];
     oracles = [];
     propagated_oracles = [];
     calls = [] }
   in nexpr, gids
 
-let mk_fresh_node_arg_local pos expr =
+let mk_fresh_node_arg_local pos expr_type expr =
   i := !i + 1;
   let prefix = string_of_int !i in
   let name = prefix ^ "_gklocal" in
   let nexpr = A.Ident (pos, name) in
   let gids = { locals = StringMap.empty;
-    node_args = [(name, expr)];
+    node_args = [(name, expr_type, expr)];
     oracles = [];
     propagated_oracles = [];
     calls = [] }
@@ -192,6 +194,12 @@ let compute_node_arity ctx ident =
       | A.GroupType (_, list) -> List.length list
       | _ -> 1)
     | _ -> assert false (* Nodes must have TArr type *)
+
+let unwrap result = match result with
+  | Ok x -> x
+  | Error (p, s) -> 
+    Format.eprintf "%s\n" s;
+    assert false
 
 let mk_fresh_call id map arity pos cond restart ident args defaults =
   let abstractions = List.init arity (fun x ->
@@ -227,7 +235,7 @@ let normalize_list ctx map f list =
     normal_item :: nitems, union ids gids
   in List.fold_left over_list ([], empty) list
 
-let rec normalize (ctx:TypeCheckerContext.tc_context) (decls:LustreAst.t) =
+let rec normalize ctx (decls:LustreAst.t) =
   let over_declarations (nitems, node_maps) item =
     let (normal_item, node_map) = normalize_declaration ctx node_maps item in
     normal_item :: nitems, StringMap.merge union_keys node_map node_maps
@@ -259,7 +267,21 @@ and normalize_declaration ctx map = function
 
 and normalize_node ctx map
     (id, is_func, params, inputs, outputs, locals, items, contracts) =
-  let nitems, gids1 = normalize_list ctx map normalize_item items in
+  (* It would be better if the type checker was elaborating
+    (i.e. tracking the types associated with identifiers) so that
+    reconstructing types didn't require rebuilding contexts and retype
+    checking *)
+  let input_ctx = inputs
+    |> List.map Ctx.extract_arg_ctx
+    |> (List.fold_left Ctx.union ctx)
+  in let output_ctx = outputs
+    |> List.map Ctx.extract_ret_ctx
+    |> (List.fold_left Ctx.union ctx)
+  in let ctx = List.fold_left
+    (fun ctx local -> Chk.local_var_binding ctx local |> unwrap)
+    (Ctx.union (Ctx.union input_ctx output_ctx) ctx)
+    locals
+  in let nitems, gids1 = normalize_list ctx map normalize_item items in
   let ncontracts, gids2 = match contracts with
     | Some contracts ->
       let ncontracts, gids = normalize_list ctx map normalize_contract contracts in
@@ -313,8 +335,9 @@ and abstract_expr ctx map ?guard expr =
     expr, empty
   else
     let pos = AH.pos_of_expr expr in
+    let expr_type = Chk.infer_type_expr ctx expr |> unwrap in
     let nexpr, gids1 = normalize_expr ctx map ?guard expr in
-    let iexpr, gids2 = mk_fresh_local pos nexpr in
+    let iexpr, gids2 = mk_fresh_local pos expr_type nexpr in
     iexpr, union gids1 gids2
 
 and normalize_expr ?guard ctx map =
@@ -323,8 +346,9 @@ and normalize_expr ?guard ctx map =
       expr, empty
     else
       let pos = AH.pos_of_expr expr in
+      let expr_type = Chk.infer_type_expr ctx expr |> unwrap in
       let nexpr, gids1 = normalize_expr ?guard ctx map expr in
-      let iexpr, gids2 = mk_fresh_node_arg_local pos nexpr in
+      let iexpr, gids2 = mk_fresh_node_arg_local pos expr_type nexpr in
       iexpr, union gids1 gids2
   in function
   (* ************************************************************************ *)

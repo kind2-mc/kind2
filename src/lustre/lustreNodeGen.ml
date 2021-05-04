@@ -781,57 +781,53 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       sv :: sv_list, SVM.union (fun _ v _ -> Some v) svsm svsm'
     in List.fold_left split ([], state_var_source_map) locals_and_sources
   (* ****************************************************************** *)
-  (* Generated Locals                                                   *)
+  (* (State Variables for) Generated Locals                             *)
   (* ****************************************************************** *)
-  in let (glocals, gequations, state_var_source_map, state_var_expr_map) =
+  in let (glocals, state_var_source_map) =
     let locals_list = LAN.StringMap.bindings gids.LAN.locals in
-    let over_generated_locals (glocals, geqns, svsm, svem) (id, expr) =
+    let over_generated_locals (glocals, svsm) (id, (expr_type, expr)) =
       let ident = mk_ident id in
-      let nexpr = compile_ast_expr cstate ctx [] ident_map expr in
-      let nexpr' = nexpr |> X.values |> List.hd in
-      let is_const = E.is_const nexpr' in
+      let nexpr_type = compile_ast_type ctx expr_type in
+      let nexpr_type' = nexpr_type |> X.values |> List.hd in
+      let is_const = AH.expr_is_const expr in
       let state_var, svsm = mk_state_var
         ~is_const
         (node_scope @ I.reserved_scope)
         ident
         X.empty_index
-        (E.type_of_lustre_expr nexpr')
+        nexpr_type'
         None
         svsm
       in let result = X.singleton X.empty_index state_var in
-      let equation = expand_tuple pos result nexpr in
       H.add ident_map ident (state_var, None);
       add_state_var_bounds cstate state_var [];
-      SVT.add svem state_var nexpr';
-      result :: glocals, equation @ geqns, svsm, svem
+      result :: glocals, svsm
     in List.fold_left over_generated_locals
-      ([], [], state_var_source_map, SVT.create 7)
+      ([], state_var_source_map)
       locals_list
   (* ****************************************************************** *)
-  (* Generated Locals for Node Arguments                                *)
+  (* (State Variables for) Generated Locals for Node Arguments          *)
   (* ****************************************************************** *)
-  in let (glocals, gequations, state_var_source_map, state_var_expr_map) =
-    let over_generated_locals (glocals, geqns, svsm, svem) (id, expr) =
+  in let (glocals, state_var_source_map) =
+    let over_generated_locals (glocals, svsm) (id, expr_type, expr) =
       let ident = mk_ident id in
-      let nexpr = compile_ast_expr cstate ctx [] ident_map expr in
-      let nexpr' = nexpr |> X.values |> List.hd in
-      let is_const = E.is_const nexpr' in
+      let nexpr_type = compile_ast_type ctx expr_type in
+      let nexpr_type' = nexpr_type |> X.values |> List.hd in
+      let is_const = AH.expr_is_const expr in
       let state_var, svsm = mk_state_var
         ~is_const
         (node_scope @ I.reserved_scope)
         ident
         X.empty_index
-        (E.type_of_lustre_expr nexpr')
+        nexpr_type'
         (Some N.KLocal)
         svsm
       in let result = X.singleton X.empty_index state_var in
-      let equation = expand_tuple pos result nexpr in
       H.add ident_map ident (state_var, Some N.KLocal);
       add_state_var_bounds cstate state_var [];
-      SVT.add svem state_var nexpr';
-      result :: glocals, equation @ geqns, svsm, svem
+      result :: glocals, svsm
     in List.fold_left over_generated_locals
-      (glocals, gequations, state_var_source_map, state_var_expr_map)
+      (glocals, state_var_source_map)
       gids.LAN.node_args
   (* ****************************************************************** *)
   (* Oracles                                                            *)
@@ -952,6 +948,41 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       node_call :: calls, glocals' @ glocals, svsm'
     in List.fold_left over_calls ([], glocals, state_var_source_map) gids.calls
   (* ****************************************************************** *)
+  (* (Equations for) Generated Locals                                   *)
+  (* ****************************************************************** *)
+  in let (gequations, state_var_expr_map) =
+    let locals_list = LAN.StringMap.bindings gids.LAN.locals in
+    let over_generated_locals (geqns, svem) (id, (expr_type, expr)) =
+      let ident = mk_ident id in
+      let nexpr = compile_ast_expr cstate ctx [] ident_map expr in
+      let nexpr' = nexpr |> X.values |> List.hd in
+      let state_var, _ = H.find ident_map ident in
+      let result = X.singleton X.empty_index state_var in
+      let equation = expand_tuple pos result nexpr in
+      SVT.add svem state_var nexpr';
+      equation @ geqns, svem
+    in List.fold_left over_generated_locals
+      ([], SVT.create 7)
+      locals_list
+  (* ****************************************************************** *)
+  (* (Equations for) Generated Locals for Node Arguments                *)
+  (* ****************************************************************** *)
+  in let (gequations, state_var_expr_map) =
+    let over_generated_locals (geqns, svem) (id, _, expr) =
+      let ident = mk_ident id in
+      let nexpr = compile_ast_expr cstate ctx [] ident_map expr in
+      let nexpr' = nexpr |> X.values |> List.hd in
+      let state_var, _ = H.find ident_map ident in
+      let result = X.singleton X.empty_index state_var in
+      let equation = expand_tuple pos result nexpr in
+      H.add ident_map ident (state_var, Some N.KLocal);
+      add_state_var_bounds cstate state_var [];
+      SVT.add svem state_var nexpr';
+      equation @ geqns, svem
+    in List.fold_left over_generated_locals
+      (gequations, state_var_expr_map)
+      gids.LAN.node_args
+    (* ****************************************************************** *)
   (* Split node items into relevant categories                          *)
   (* ****************************************************************** *)
   in let (node_props, node_eqs, node_asserts, node_automations, is_main) = 
@@ -975,7 +1006,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       let name = match name_opt with
         | Some n -> n
         | None -> let abs = LAN.StringMap.find_opt id_str gids.LAN.locals in
-          let name = match abs with | Some e -> e | None -> expr in
+          let name = match abs with | Some (_, e) -> e | None -> expr in
             Format.asprintf "@[<h>%a@]" A.pp_print_expr name
       in sv, name, (Property.PropAnnot pos)
     in List.map op node_props
