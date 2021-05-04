@@ -240,7 +240,8 @@ let normalize_list ctx map f list =
   let over_list (nitems, gids) item =
     let (normal_item, ids) = f ctx map item in
     normal_item :: nitems, union ids gids
-  in List.fold_left over_list ([], empty) list
+  in let list, gids = List.fold_left over_list ([], empty) list in
+  List.rev list, gids
 
 let rec normalize ctx (decls:LustreAst.t) =
   let over_declarations (nitems, node_maps) item =
