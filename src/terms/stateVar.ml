@@ -165,6 +165,15 @@ let uf_symbols_map = UfSymbol.UfSymbolHashtbl.create 41
 (* Pretty-printing                                                       *)
 (* ********************************************************************* *)
 
+(* Pretty-print the property of a state variable *)
+let pp_print_state_var_prop ppf prop =
+  Format.fprintf ppf
+    "{var_type:%a; uf_symbol:%a; is_input:%b; is_const:%b; for_inv_gen:%b"
+    Type.pp_print_type prop.var_type
+    UfSymbol.pp_print_uf_symbol prop.uf_symbol
+    prop.is_input
+    prop.is_const
+    prop.for_inv_gen
 
 (* Pretty-print a scoped name of a state variable *)
 let pp_print_state_var_name ppf (n, s) =
@@ -186,6 +195,11 @@ let pp_print_state_var_node ppf (n, s) =
 (* Pretty-print a hashconsed state variable *)
 let pp_print_state_var ppf { Hashcons.node = (n, s) } =
   pp_print_state_var_node ppf (n, s)
+
+let pp_print_state_var_debug ppf state_var =
+  Format.fprintf ppf "node %a;prop %a\n"
+    (pp_print_state_var_name) state_var.Hashcons.node
+    (pp_print_state_var_prop) state_var.Hashcons.prop
 
 (* Return a string representation of a hashconsed state variable *)
 let string_of_state_var s = string_of_t pp_print_state_var s

@@ -201,6 +201,9 @@ let of_channel in_ch =
       ^^ "Free Constants: [@[<hv>%a@]];@ \n\n"
       ^^ "State Variable Bounds: [@[<hv>%a@]];@ \n\n"
       ^^ "Nodes: [@[<hv>%a@]];@ \n\n"
+      ^^ "State Var Instances: [@[<hv>%a@]];@ \n\n"
+      ^^ "State Var Definitions: [@[<hv>%a@]];@ \n\n"
+      ^^ "All State Variables: [@[<hv>%a@]];@ \n\n"
       ^^ "===============================================\n")
       (pp_print_list
         (pp_print_pair
@@ -220,7 +223,11 @@ let of_channel in_ch =
           (fun k v acc -> (k, v) :: acc)
           globals.state_var_bounds
           [])
-      (pp_print_list LustreNode.pp_print_node_debug ";@ ") nodes;
+      (pp_print_list LustreNode.pp_print_node_debug ";@ ") nodes
+      (pp_print_list LustreNode.pp_print_state_var_instances_debug ";@") nodes
+      (pp_print_list LustreNode.pp_print_state_var_defs_debug ";@") nodes
+      (pp_print_list StateVar.pp_print_state_var_debug ";@")
+        (nodes |> List.map (fun n -> LustreNode.get_all_state_vars n) |> List.flatten);
     (if Flags.only_tc () then exit 0);
     (* Return a subsystem tree from the list of nodes *)
     LN.subsystem_of_nodes nodes', globals, declarations

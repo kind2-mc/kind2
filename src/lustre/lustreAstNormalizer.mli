@@ -57,10 +57,12 @@ end
 
 type generated_identifiers = {
     node_args : (string * LustreAst.expr) list;
-    pre_args : (string * LustreAst.expr) list;
-    oracles : (LustreAst.ident * LustreAst.expr) list;
+    locals : LustreAst.expr StringMap.t;
+    oracles : (string * LustreAst.expr) list;
+    propagated_oracles : (string * string) list;
     calls : (Lib.position (* node call position *)
-      * (string list) (* abstraction variables *)
+      * (string list) (* oracle inputs *)
+      * (string list) (* abstracted inputs *)
       * LustreAst.expr (* condition expression *)
       * LustreAst.expr (* restart expression *)
       * string (* node name *)
