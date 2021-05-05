@@ -37,15 +37,24 @@ module SVT = StateVar.StateVarHashtbl
 
 module C = TypeCheckerContext
 
+module StringMap = struct
+  include Map.Make(struct
+    type t = string
+    let compare i1 i2 = String.compare i1 i2
+  end)
+  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
+end
 
 type compiler_state = {
   nodes : LustreNode.t list;
+  type_alias : Type.t LustreIndex.t StringMap.t;
   free_constants : (LustreIdent.t * Var.t LustreIndex.t) list;
   state_var_bounds : (E.expr E.bound_or_fixed list) StateVar.StateVarHashtbl.t;
 }
 
 let empty_compiler_state = { 
   nodes = [];
+  type_alias = StringMap.empty;
   free_constants = [];
   state_var_bounds = SVT.create 7;
 }
@@ -278,7 +287,7 @@ let rec compile ctx (gids:LAN.generated_identifiers LAN.StringMap.t) (decls:Lust
     { G.free_constants = output.free_constants;
       G.state_var_bounds = output.state_var_bounds}
 
-and compile_ast_type (ctx:C.tc_context) = function
+and compile_ast_type (ctx:C.tc_context) cstate = function
   | A.TVar _ -> Lib.todo __LOC__
   | A.Bool _ -> X.singleton X.empty_index Type.t_bool
   | A.Int _ -> X.singleton X.empty_index Type.t_int
@@ -300,22 +309,20 @@ and compile_ast_type (ctx:C.tc_context) = function
       let ty = Type.mk_enum enum_name enum_elements in
       X.singleton X.empty_index ty
   | A.UserType (pos, ident) ->
-    (* Type checker should guarantee a type synonym exists *)
-    let ty = C.lookup_ty_syn ctx ident |> get in
-    compile_ast_type ctx ty
+    StringMap.find ident cstate.type_alias
   | A.AbstractType (pos, ident) ->
     X.singleton [X.AbstractTypeIndex ident] Type.t_int
   | A.RecordType (pos, record_fields) ->
     let over_fields = fun a (_, i, t) ->
       let over_indices = fun j t a -> X.add (X.RecordIndex i :: j) t a in
-      let compiled_record_field_ty = compile_ast_type ctx t in
+      let compiled_record_field_ty = compile_ast_type ctx cstate t in
       X.fold over_indices compiled_record_field_ty a
     in
     List.fold_left over_fields X.empty record_fields
   | A.TupleType (pos, tuple_fields) ->
     let over_fields = fun (i, a) t ->
       let over_indices = fun j t a -> X.add (X.TupleIndex i :: j) t a in
-      let compiled_tuple_field_ty = compile_ast_type ctx t in
+      let compiled_tuple_field_ty = compile_ast_type ctx cstate t in
       succ i, X.fold over_indices compiled_tuple_field_ty a
     in
     List.fold_left over_fields (0, X.empty) tuple_fields |> snd
@@ -337,21 +344,18 @@ and compile_ast_expr
   (map:(StateVar.t * N.state_var_source option) LustreIdent.Hashtbl.t)
   expr = 
   
-  let rec compile_id_string ident =
-    let id = mk_ident ident in
-    let (sv, _) = H.find map id in
-    let ty = C.lookup_ty ctx ident in
-    let is_const = C.lookup_const ctx ident |> is_some in
-    let is_enum_ctor = match ty with
-    | Some (A.EnumType (_, _, ctors)) -> List.exists (fun x -> x == ident) ctors
-    | _ -> false
-    in let result = match (is_const, is_enum_ctor) with
-    | (false, false) -> X.singleton X.empty_index (E.mk_var sv)
-    | (true, false) -> Lib.todo __LOC__
-    | (false, true) -> let ty = Type.enum_of_constr ident in
-      X.singleton X.empty_index (E.mk_constr ident ty)
-    | _ -> assert false
-    in result
+  let rec compile_id_string id_str =
+    let ident = mk_ident id_str in
+    try
+      let _, var = List.find (fun (i, _) -> i = ident) cstate.free_constants in
+      X.map E.mk_free_var var
+    with Not_found ->
+    try 
+      let ty = Type.enum_of_constr id_str in
+      X.singleton X.empty_index (E.mk_constr id_str ty)
+    with Not_found ->
+      let (sv, _) = H.find map ident in
+      X.singleton X.empty_index (E.mk_var sv)
 
   and compile_mode_reference bounds path' =
     Lib.todo __LOC__
@@ -686,7 +690,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       | A.ClockTrue ->
         let n = X.top_max_index compiled_input |> succ in
         let ident = mk_ident i in
-        let index_types = compile_ast_type ctx ast_type in
+        let index_types = compile_ast_type ctx cstate ast_type in
         let over_indices = fun index index_type (accum, svsm) ->
           let state_var, svsm = mk_state_var
             ~is_input:true
@@ -715,7 +719,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       | A.ClockTrue ->
         let n = X.top_max_index compiled_output |> succ in
         let ident = mk_ident i in
-        let index_types = compile_ast_type ctx ast_type in
+        let index_types = compile_ast_type ctx cstate ast_type in
         let over_indices = fun index index_type (accum, svsm) ->
           let state_var, svsm = mk_state_var
             ~is_input:false
@@ -742,7 +746,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       match local with
       | A.NodeVarDecl (_, (pos, i, ast_type, A.ClockTrue)) ->
         let ident = mk_ident i
-        and index_types = compile_ast_type ctx ast_type in
+        and index_types = compile_ast_type ctx cstate ast_type in
         let over_indices = fun index index_type (accum, svsm) ->
           let state_var, svsm = mk_state_var
             ~is_input:false
@@ -773,7 +777,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
     let locals_list = LAN.StringMap.bindings gids.LAN.locals in
     let over_generated_locals (glocals, svsm) (id, (expr_type, expr)) =
       let ident = mk_ident id in
-      let nexpr_type = compile_ast_type ctx expr_type in
+      let nexpr_type = compile_ast_type ctx cstate expr_type in
       let nexpr_type' = nexpr_type |> X.values |> List.hd in
       let is_const = AH.expr_is_const expr in
       let state_var, svsm = mk_state_var
@@ -797,7 +801,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
   in let (glocals, state_var_source_map) =
     let over_generated_locals (glocals, svsm) (id, expr_type, expr) =
       let ident = mk_ident id in
-      let nexpr_type = compile_ast_type ctx expr_type in
+      let nexpr_type = compile_ast_type ctx cstate expr_type in
       let nexpr_type' = nexpr_type |> X.values |> List.hd in
       let is_const = AH.expr_is_const expr in
       let state_var, svsm = mk_state_var
@@ -895,8 +899,10 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
             | t -> [t])
         | _ -> assert false)
       in 
-      let output_types = List.map (fun t -> compile_ast_type ctx t) output_ast_types in
-      let is_single = List.length output_types = 1 in
+      let output_types = List.map
+        (fun t -> compile_ast_type ctx cstate t)
+        output_ast_types
+      in let is_single = List.length output_types = 1 in
       let local_map = H.create 7 in
       let source_maps = H.create 7 in
       let outputs =
@@ -961,7 +967,6 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       let state_var, _ = H.find ident_map ident in
       let result = X.singleton X.empty_index state_var in
       let equation = expand_tuple pos result nexpr in
-      H.add ident_map ident (state_var, Some N.KLocal);
       add_state_var_bounds cstate state_var [];
       SVT.add svem state_var nexpr';
       equation @ geqns, svem
@@ -1089,16 +1094,14 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
     oracle_state_var_map;
     state_var_expr_map;
     silent_contracts
-  } in { 
+  } in { cstate with
     nodes = node :: cstate.nodes;
-    free_constants = cstate.free_constants;
-    state_var_bounds = cstate.state_var_bounds
   }
 
 and compile_const_decl cstate ctx = function
   | A.FreeConst (pos, i, ty) ->
     let ident = mk_ident i in
-    let cty = compile_ast_type ctx ty in
+    let cty = compile_ast_type ctx cstate ty in
     let over_index = fun i ty vt ->
       let state_var, _ = mk_state_var
         ?is_input:(Some false)
@@ -1118,8 +1121,16 @@ and compile_const_decl cstate ctx = function
     Otherwise these other constants are used only for constant propagation *)
   | _ -> cstate
 
+and compile_type_decl ctx cstate = function
+  | A.AliasType (pos, ident, ltype) -> 
+    let t = compile_ast_type ctx cstate ltype in
+    let type_alias = StringMap.add ident t cstate.type_alias in
+    { cstate with
+      type_alias }
+  | A.FreeType (pos, ident) -> cstate
+
 and compile_declaration cstate gids ctx = function
-  | A.TypeDecl (pos, type_rhs) -> cstate
+  | A.TypeDecl (pos, type_rhs) -> compile_type_decl ctx cstate type_rhs
   | A.ConstDecl (pos, const_decl) -> compile_const_decl cstate ctx const_decl
   | A.FuncDecl (span, (i, ext, [], inputs, outputs, locals, items, contracts)) ->
     let pos = span.start_pos in

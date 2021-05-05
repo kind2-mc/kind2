@@ -247,7 +247,8 @@ let rec normalize ctx (decls:LustreAst.t) =
   let over_declarations (nitems, node_maps) item =
     let (normal_item, node_map) = normalize_declaration ctx node_maps item in
     normal_item :: nitems, StringMap.merge union_keys node_map node_maps
-  in let ast, node_map = List.fold_left over_declarations ([], StringMap.empty) decls in
+  in let ast, node_map = List.fold_left over_declarations ([], StringMap.empty) decls
+  in let ast = List.rev ast in
   
   Log.log L_trace ("===============================================\n"
     ^^ "Generated Identifiers:\n%a\n\n"
@@ -262,7 +263,7 @@ let rec normalize ctx (decls:LustreAst.t) =
       (StringMap.bindings node_map)
     A.pp_print_program ast;
 
-  Res.ok (List.rev ast, node_map)
+  Res.ok (ast, node_map)
 
 and normalize_declaration ctx map = function
   | NodeDecl (pos, decl) ->
