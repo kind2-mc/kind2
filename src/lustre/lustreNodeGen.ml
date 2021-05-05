@@ -610,7 +610,6 @@ and compile_node pos ctx cstate map oracles outputs cond restart ident args defa
       | A.Ident(p, i) -> (p, i)
       | _ -> assert false (* enforced by normalization step *))
     |> List.map (fun (p, i) -> p, H.find map (mk_ident i) |> fst)
-    |> List.rev
     |> List.combine input_keys
     |> List.fold_left
       (fun accum ((i, input_sv), (p, sv)) ->
