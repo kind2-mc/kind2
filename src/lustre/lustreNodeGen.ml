@@ -48,14 +48,16 @@ end
 type compiler_state = {
   nodes : LustreNode.t list;
   type_alias : Type.t LustreIndex.t StringMap.t;
-  free_constants : (LustreIdent.t * Var.t LustreIndex.t) list;
+  free_constants : Var.t LustreIndex.t StringMap.t;
+  other_constants : LustreAst.expr StringMap.t;
   state_var_bounds : (E.expr E.bound_or_fixed list) StateVar.StateVarHashtbl.t;
 }
 
 let empty_compiler_state = { 
   nodes = [];
   type_alias = StringMap.empty;
-  free_constants = [];
+  free_constants = StringMap.empty;
+  other_constants = StringMap.empty;
   state_var_bounds = SVT.create 7;
 }
 
@@ -138,7 +140,6 @@ let extract_normalized = function
 
 let add_state_var_bounds cstate sv bounds =
   SVT.add cstate.state_var_bounds sv bounds
-  
 
 (* Match bindings from a trie of state variables and bindings for a
   trie of expressions and produce a list of equations *)
@@ -283,8 +284,11 @@ let expand_tuple pos lhs rhs =
 let rec compile ctx (gids:LAN.generated_identifiers LAN.StringMap.t) (decls:LustreAst.declaration list) =
   let over_decls cstate decl = compile_declaration cstate gids ctx decl in
   let output = List.fold_left over_decls empty_compiler_state decls in
-  output.nodes,
-    { G.free_constants = output.free_constants;
+  let free_constants = output.free_constants
+    |> StringMap.bindings
+    |> List.map (fun (id, v) -> mk_ident id, v)
+  in output.nodes,
+    { G.free_constants = free_constants;
       G.state_var_bounds = output.state_var_bounds}
 
 and compile_ast_type (ctx:C.tc_context) cstate = function
@@ -344,11 +348,15 @@ and compile_ast_expr
   (map:(StateVar.t * N.state_var_source option) LustreIdent.Hashtbl.t)
   expr = 
   
-  let rec compile_id_string id_str =
+  let rec compile_id_string bounds id_str =
     let ident = mk_ident id_str in
     try
-      let _, var = List.find (fun (i, _) -> i = ident) cstate.free_constants in
+      let var = StringMap.find id_str cstate.free_constants in
       X.map E.mk_free_var var
+    with Not_found ->
+    try
+      let expr = StringMap.find id_str cstate.other_constants in
+      compile_ast_expr cstate ctx bounds map expr
     with Not_found ->
     try 
       let ty = Type.enum_of_constr id_str in
@@ -436,7 +444,7 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Identifiers                                                        *)
   (* ****************************************************************** *)
-  | A.Ident (pos, ident) -> compile_id_string ident
+  | A.Ident (pos, ident) -> compile_id_string bounds ident
   | A.ModeRef (pos, path) -> compile_mode_reference bounds path
   (* ****************************************************************** *)
   (* Constants                                                          *)
@@ -659,7 +667,6 @@ and compile_node pos ctx cstate map oracles outputs cond restart ident args defa
   }
   in node_call
 
-  
 and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs locals items contracts =
   let name = mk_ident i in
   let node_scope = name |> I.to_scope in
@@ -1115,10 +1122,12 @@ and compile_const_decl cstate ctx = function
       in let v = Var.mk_const_state_var state_var in
       X.add i v vt
     in let vt = X.fold over_index cty X.empty in
-    { cstate with free_constants = (ident, vt) :: cstate.free_constants }
+    { cstate with free_constants = StringMap.add i vt cstate.free_constants }
   (* TODO: Old code does some subtyping checks for Typed constants
     Otherwise these other constants are used only for constant propagation *)
-  | _ -> cstate
+  | A.UntypedConst (_, i, expr)
+  | A.TypedConst (_, i, expr, _) ->
+    { cstate with other_constants = StringMap.add i expr cstate.other_constants }
 
 and compile_type_decl ctx cstate = function
   | A.AliasType (pos, ident, ltype) -> 
