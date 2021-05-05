@@ -124,8 +124,8 @@ let mk_state_var
   state_var, state_var_source_map'
 
 let mk_ident id = match String.split_on_char '_' id with
-  | i :: id :: [] -> (match int_of_string_opt i with
-    | Some i -> I.push_index (I.mk_string_ident id) i
+  | i :: id' :: [] -> (match int_of_string_opt i with
+    | Some i -> I.push_index (I.mk_string_ident id') i
     | None -> I.mk_string_ident id)
   | list -> I.mk_string_ident id
 
