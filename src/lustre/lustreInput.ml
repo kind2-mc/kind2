@@ -155,23 +155,25 @@ let of_channel in_ch =
         ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_program d
         ; (c, g, d)
       | Error (pos, err) -> fail_at_position pos err in
-      LNG.compile ctx gids decls
-  in
-    (* The last node in the original ordering should remain the last node after sorting 
+      let nodes, globals = LNG.compile ctx gids decls in
+      (* The last node in the original ordering should remain the last node after sorting 
       as the user expects that to be the main node in the case where 
       no explicit annotations are provided. The reason we do this is because 
       it is difficut to make the topological sort stable *)
-    let last_node = LH.get_last_node_name (declarations) in
-    let nodes = match last_node with
-      | None -> nodes
-      | Some ln -> let ident = LustreIdent.mk_string_ident ln in
-        let n = LustreNode.node_of_name ident nodes in
-        let filtered = List.filter 
-          (fun x -> not (LustreIdent.equal x.LustreNode.name ident))
-          nodes
-      in filtered @ [n]
+      let last_node = LH.get_last_node_name (declarations) in
+      let nodes = match last_node with
+        | None -> nodes
+        | Some ln -> let ident = LustreIdent.mk_string_ident ln in
+          let n = LustreNode.node_of_name ident nodes in
+          let filtered = List.filter 
+            (fun x -> not (LustreIdent.equal x.LustreNode.name ident))
+            nodes
+          in filtered @ [n]
+      in nodes, globals
+  in
+    
     (* Name of main node *)
-    in let main_node = 
+    let main_node = 
       (* Command-line flag for main node given? *)
       match Flags.lus_main () with 
       (* Use given identifier to choose main node *)
