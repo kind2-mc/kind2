@@ -151,6 +151,15 @@ let of_channel in_ch =
         ) in
       let ctx, gids, decls = match tc_res with
       | Ok (c, g, d) ->
+        let unguarded_pre_warnings = LAN.get_warnings g in
+        let error_or_warn = if Flags.lus_strict ()
+          then fail_at_position
+          else warn_at_position
+        in List.iter (fun (p, e) -> error_or_warn p
+          (Format.asprintf
+            "@[<hov 2>Unguarded pre in expression@ %a@]"
+            LA.pp_print_expr e))
+          unguarded_pre_warnings;
         Log.log L_note "Type checking done"
         ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_program d
         ; (c, g, d)

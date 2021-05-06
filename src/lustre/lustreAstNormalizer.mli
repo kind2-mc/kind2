@@ -74,26 +74,27 @@ module StringMap : sig
 end
 
 type generated_identifiers = {
-    node_args : (string (* abstracted variable name *)
-      * bool (* whether the variable is constant *)
-      * LustreAst.lustre_type
-      * LustreAst.expr)
-      list;
-    locals : (bool (* whether the variable is ghost *)
-      * LustreAst.lustre_type
-      * LustreAst.expr)
-      StringMap.t;
-    oracles : (string * LustreAst.expr) list;
-    propagated_oracles : (string * string) list;
-    calls : (Lib.position (* node call position *)
-      * (string list) (* oracle inputs *)
-      * (string list) (* abstracted inputs *)
-      * LustreAst.expr (* condition expression *)
-      * LustreAst.expr (* restart expression *)
-      * string (* node name *)
-      * (LustreAst.expr list) (* node arguments *)
-      * (LustreAst.expr list option)) (* node argument defaults *)
-      list
+  node_args : (string (* abstracted variable name *)
+    * bool (* whether the variable is constant *)
+    * LustreAst.lustre_type
+    * LustreAst.expr)
+    list;
+  locals : (bool (* whether the variable is ghost *)
+    * LustreAst.lustre_type
+    * LustreAst.expr)
+    StringMap.t;
+  warnings : (Lib.position * LustreAst.expr) list;
+  oracles : (string * LustreAst.expr) list;
+  propagated_oracles : (string * string) list;
+  calls : (Lib.position (* node call position *)
+    * (string list) (* oracle inputs *)
+    * (string list) (* abstracted inputs *)
+    * LustreAst.expr (* condition expression *)
+    * LustreAst.expr (* restart expression *)
+    * string (* node name *)
+    * (LustreAst.expr list) (* node arguments *)
+    * (LustreAst.expr list option)) (* node argument defaults *)
+    list
 }
 
 val normalize : TypeCheckerContext.tc_context
@@ -101,3 +102,5 @@ val normalize : TypeCheckerContext.tc_context
   -> (LustreAst.t * generated_identifiers StringMap.t, Lib.position * string) result
 
 val pp_print_generated_identifiers : Format.formatter -> generated_identifiers -> unit
+
+val get_warnings : generated_identifiers StringMap.t -> (Lib.position * LustreAst.expr) list
