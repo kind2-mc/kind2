@@ -292,7 +292,7 @@ let rec compile ctx (gids:LAN.generated_identifiers LAN.StringMap.t) (decls:Lust
       G.state_var_bounds = output.state_var_bounds}
 
 and compile_ast_type (ctx:C.tc_context) cstate = function
-  | A.TVar _ -> Lib.todo __LOC__
+  | A.TVar _ -> assert false
   | A.Bool _ -> X.singleton X.empty_index Type.t_bool
   | A.Int _ -> X.singleton X.empty_index Type.t_int
   | A.UInt8 _ -> X.singleton X.empty_index (Type.t_ubv 8)
@@ -781,18 +781,16 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
   (* ****************************************************************** *)
   in let (glocals, state_var_source_map) =
     let locals_list = LAN.StringMap.bindings gids.LAN.locals in
-    let over_generated_locals (glocals, svsm) (id, (expr_type, expr)) =
+    let over_generated_locals (glocals, svsm) (id, (is_ghost, expr_type, expr)) =
       let ident = mk_ident id in
       let nexpr_type = compile_ast_type ctx cstate expr_type in
       let nexpr_type' = nexpr_type |> X.values |> List.hd in
-      let is_const = AH.expr_is_const expr in
       let state_var, svsm = mk_state_var
-        ~is_const
         (node_scope @ I.reserved_scope)
         ident
         X.empty_index
         nexpr_type'
-        None
+        (if is_ghost then Some N.KGhost else None)
         svsm
       in let result = X.singleton X.empty_index state_var in
       H.add ident_map ident (state_var, None);
@@ -805,11 +803,10 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
   (* (State Variables for) Generated Locals for Node Arguments          *)
   (* ****************************************************************** *)
   in let (glocals, state_var_source_map) =
-    let over_generated_locals (glocals, svsm) (id, expr_type, expr) =
+    let over_generated_locals (glocals, svsm) (id, is_const, expr_type, expr) =
       let ident = mk_ident id in
       let nexpr_type = compile_ast_type ctx cstate expr_type in
       let nexpr_type' = nexpr_type |> X.values |> List.hd in
-      let is_const = AH.expr_is_const expr in
       let state_var, svsm = mk_state_var
         ~is_const
         (node_scope @ I.reserved_scope)
@@ -950,7 +947,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
   (* ****************************************************************** *)
   in let (gequations, state_var_expr_map) =
     let locals_list = LAN.StringMap.bindings gids.LAN.locals in
-    let over_generated_locals (geqns, svem) (id, (expr_type, expr)) =
+    let over_generated_locals (geqns, svem) (id, (_, expr_type, expr)) =
       let ident = mk_ident id in
       let nexpr = compile_ast_expr cstate ctx [] ident_map expr in
       let nexpr' = nexpr |> X.values |> List.hd in
@@ -966,7 +963,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
   (* (Equations for) Generated Locals for Node Arguments                *)
   (* ****************************************************************** *)
   in let (gequations, state_var_expr_map) =
-    let over_generated_locals (geqns, svem) (id, _, expr) =
+    let over_generated_locals (geqns, svem) (id, _, _, expr) =
       let ident = mk_ident id in
       let nexpr = compile_ast_expr cstate ctx [] ident_map expr in
       let nexpr' = nexpr |> X.values |> List.hd in
@@ -1005,7 +1002,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       let name = match name_opt with
         | Some n -> n
         | None -> let abs = LAN.StringMap.find_opt id_str gids.LAN.locals in
-          let name = match abs with | Some (_, e) -> e | None -> expr in
+          let name = match abs with | Some (_, _, e) -> e | None -> expr in
             Format.asprintf "@[<h>%a@]" A.pp_print_expr name
       in sv, name, (Property.PropAnnot pos)
     in List.map op node_props
@@ -1129,17 +1126,23 @@ and compile_const_decl cstate ctx = function
   | A.TypedConst (_, i, expr, _) ->
     { cstate with other_constants = StringMap.add i expr cstate.other_constants }
 
-and compile_type_decl ctx cstate = function
-  | A.AliasType (pos, ident, ltype) -> 
+and compile_type_decl pos ctx cstate = function
+  | A.AliasType (_, ident, ltype) -> 
     let t = compile_ast_type ctx cstate ltype in
     let type_alias = StringMap.add ident t cstate.type_alias in
     { cstate with
       type_alias }
-  | A.FreeType (pos, ident) -> cstate
+  | A.FreeType (_, ident) ->
+    let t = compile_ast_type ctx cstate (A.AbstractType (pos, ident)) in
+    let type_alias = StringMap.add ident t cstate.type_alias in
+    { cstate with
+      type_alias }
 
 and compile_declaration cstate gids ctx = function
-  | A.TypeDecl (pos, type_rhs) -> compile_type_decl ctx cstate type_rhs
-  | A.ConstDecl (pos, const_decl) -> compile_const_decl cstate ctx const_decl
+  | A.TypeDecl ({A.start_pos = pos}, type_rhs) ->
+    compile_type_decl pos ctx cstate type_rhs
+  | A.ConstDecl (span, const_decl) ->
+    compile_const_decl cstate ctx const_decl
   | A.FuncDecl (span, (i, ext, [], inputs, outputs, locals, items, contracts)) ->
     let pos = span.start_pos in
     let gids = LAN.StringMap.find i gids in

@@ -33,6 +33,8 @@
   pre operators are explicitly guarded in the AST by an oracle variable
   if they were originally unguarded
     e.g. pre expr => oracle -> pre expr
+  Note that oracles are _propagated_ in node calls. If a node `n1` has an oracle
+  and is called by another node `n2`, then `n2` will inherit a propagated oracle
 
   The following parts of the AST are abstracted by locals:
 
@@ -48,6 +50,22 @@
       pre expr => pre l
     where l = expr
 
+  3. Node calls
+    e.g.
+      x1, ..., xn = ... op node_call(a, b, c) op ...
+      => x1, ..., xn = ... op (l1, ..., ln) op ...
+    where (l1, ..., ln) is a group (list) expression
+      and each li corresponds to an output of the node_call
+      If node_call has only one output, it is instead just an ident expression
+    (Note that there is no generated equality here, how the node call is
+      referenced at the stage of a LustreNode is by the node_call record where
+      the output holds the state variables produced by the node call)
+
+  4. Properties checked expression
+  5. Assertions checked expression
+  6. Condition of node calls (if it is not equivalent to true)
+  7. Restarts of node calls (if it is not a constant)
+
      @author Andrew Marmaduke *)
 
 module StringMap : sig
@@ -56,8 +74,15 @@ module StringMap : sig
 end
 
 type generated_identifiers = {
-    node_args : (string * LustreAst.lustre_type * LustreAst.expr) list;
-    locals : (LustreAst.lustre_type * LustreAst.expr) StringMap.t;
+    node_args : (string (* abstracted variable name *)
+      * bool (* whether the variable is constant *)
+      * LustreAst.lustre_type
+      * LustreAst.expr)
+      list;
+    locals : (bool (* whether the variable is ghost *)
+      * LustreAst.lustre_type
+      * LustreAst.expr)
+      StringMap.t;
     oracles : (string * LustreAst.expr) list;
     propagated_oracles : (string * string) list;
     calls : (Lib.position (* node call position *)

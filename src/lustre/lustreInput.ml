@@ -168,7 +168,7 @@ let of_channel in_ch =
           let filtered = List.filter 
             (fun x -> not (LustreIdent.equal x.LustreNode.name ident))
             nodes
-          in filtered @ [n]
+          in n :: filtered
       in nodes, globals
   in
     
