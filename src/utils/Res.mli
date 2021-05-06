@@ -74,15 +74,10 @@ val  safe_unwrap: 'a -> ('a, 'e) result -> 'a
 val unwrap : 'a res -> 'a
 
 (** Maps functions to [Ok] or [Err]. *)
-val map_res: ('a -> 'b) -> (
-  (Format.formatter -> unit) -> Format.formatter -> unit
-) -> 'a res -> 'b res
+val map_res: ('a -> 'b) -> ('c -> 'd) -> ('a, 'c) result -> ('b, 'd) result
 
-  
 (** Maps a function to a result if it's [Err]. *)
-val map_err: (
-  (Format.formatter -> unit) -> Format.formatter -> unit
-) -> 'a res -> 'a res
+val map_err: ('a -> 'b) -> ('c, 'a) result -> ('c, 'b) result
 
 (** Feeds a result to a function returning a result, propagates if argument's
 an error. *)

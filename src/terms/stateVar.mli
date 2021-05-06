@@ -158,6 +158,8 @@ val get_select_ufs : unit -> UfSymbol.t list
 (** Pretty-print a state variable *)
 val pp_print_state_var : Format.formatter -> t -> unit
 
+val pp_print_state_var_debug : Format.formatter -> t -> unit
+
 (** Return a string representation of a symbol *)
 val string_of_state_var : t -> string
 

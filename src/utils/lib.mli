@@ -60,6 +60,9 @@ val flip: ('a -> 'b -> 'c) -> ('b -> 'a -> 'c)
     if the option value is [None] *)
 val get : 'a option -> 'a
 
+(** Check if an option has some content *)
+val is_some : 'a option -> bool
+
 (** Return the min between two optional floats. Return None if both floats are None. *)
 val min_option : float option -> float option -> float option
 
@@ -155,6 +158,11 @@ val list_subset_uniq :  ('a -> 'a -> int) -> 'a list -> 'a list -> bool
     "list_join"] if the lists are not of identical length and the keys
     at each element are equal. *)
 val list_join : ('a -> 'a -> bool) -> ('a * 'b) list -> ('a * 'b list) list -> ('a * 'b list) list
+
+(** Apply a map over a list where if the output is None then the element
+    is dropped from the resulting list and if the output is Some value
+    then that value is added to the resulting list *)
+val list_filter_map : ('a -> 'b option) -> 'a list -> 'b list
 
 (** Lexicographic comparison of pairs *)
 val compare_pairs : ('a -> 'a -> int) -> ('b -> 'b -> int) -> 'a * 'b -> 'a * 'b -> int 

@@ -26,6 +26,7 @@ module LH = LustreAstHelpers
 module LN = LustreNode
 module LD = LustreDeclarations
 
+module LNG = LustreNodeGen
 module LPI = LustreParser.Incremental
 module LL = LustreLexer          
 module LPMI = LustreParser.MenhirInterpreter
@@ -34,7 +35,7 @@ module TC = LustreTypeChecker
 module TCContext = TypeCheckerContext
 module IC = LustreAstInlineConstants
 module AD = LustreAstDependencies
-(* module LAN = LustreAstNormalizer *)
+module LAN = LustreAstNormalizer
 
 let (>>=) = Res.(>>=)
 let (>>) = Res.(>>)
@@ -113,93 +114,129 @@ let of_channel in_ch =
   (* Get declarations from channel. *)
   let declarations = ast_of_channel in_ch in
 
-  let declarations': LA.t =
-    (* optional type checking and reordering with dependency analysis pass*) 
-    if Flags.no_tc ()
-     then declarations
-     else 
-       let tc_res =  
-         (Log.log L_note "(Experimental) Typechecking enabled."
+  let nodes, globals = if Flags.no_tc () then
+      (* Simplify declarations to a list of nodes *)
+      LD.declarations_to_nodes declarations
+    else 
+      let tc_res =  
+        (Log.log L_note "(Experimental) Typechecking enabled."
 
-         (* Step 0. Split program into top level const and type delcs, and node/contract decls *)
-         ; let (const_type_decls, node_contract_src) = LH.split_program declarations in
+        (* Step 0. Split program into top level const and type delcs, and node/contract decls *)
+        ; let (const_type_decls, node_contract_src) = LH.split_program declarations in
 
-           (* Step 1. Dependency analysis on the top level declarations.  *)
-           AD.sort_globals const_type_decls >>= fun sorted_const_type_decls ->
+          (* Step 1. Dependency analysis on the top level declarations.  *)
+          AD.sort_globals const_type_decls >>= fun sorted_const_type_decls ->
 
-           (* Step 2. Type check top level declarations *)
-           TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls >>= fun ctx -> 
+          (* Step 2. Type check top level declarations *)
+          TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls >>= fun ctx -> 
 
-           (* Step 3: Inline type toplevel decls *)
-           IC.inline_constants ctx sorted_const_type_decls >>= fun (inlined_ctx, const_inlined_type_and_consts) -> 
+          (* Step 3: Inline type toplevel decls *)
+          IC.inline_constants ctx sorted_const_type_decls >>= fun (inlined_ctx, const_inlined_type_and_consts) -> 
 
-           (* Step 4. Dependency analysis on nodes and contracts *)
-           AD.sort_and_check_nodes_contracts node_contract_src >>= fun sorted_node_contract_decls ->  
+          (* Step 4. Dependency analysis on nodes and contracts *)
+          AD.sort_and_check_nodes_contracts node_contract_src >>= fun sorted_node_contract_decls ->  
 
-           (* Step 5. type check nodes and contracts *)
-           TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls >>
-             
-           (* Step 6. Inline constants in node equations *)
-           IC.inline_constants ctx sorted_node_contract_decls >>= fun (_, const_inlined_nodes_and_contracts) ->
+          (* Step 5. type check nodes and contracts *)
+          TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls >>= fun (global_ctx) ->
 
-           (* Step 7. Normalize AST: guard pres, abstract to locals where appropriate *)
-           (* LAN.normalize const_inlined_nodes_and_contracts >>= fun (ctx, ast) -> *)
-           
-           (* The last node in the original ordering should remain the last node after sorting 
-              as the user expects that to be the main node in the case where 
-              no explicit annotations are provided. The reason we do this is because 
-              it is difficut to make the topological sort stable *)
-           
-           (* reverse the list and find the name of the first node declaration from the original list *)
-           let last_node = LH.get_last_node_name (declarations) in
-           (match last_node with
-            | None -> Res.ok (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts)
-            | Some ln ->
-               Log.log L_trace "last node is: %a"  LA.pp_print_ident ln 
-              ; Res.ok (const_inlined_type_and_consts
-                        @ LH.move_node_to_last ln (const_inlined_nodes_and_contracts))) 
-         ) in
-       match tc_res with
-       | Ok d ->
-          Log.log L_note "Type checking done"
-         ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_program d
-         ; (if Flags.only_tc () then exit 0)
-         ; d  
-       | Error (pos, err) -> fail_at_position pos err in 
-  
-  (* Simplify declarations to a list of nodes *)
-  let nodes, globals = LD.declarations_to_nodes declarations' in
-  (* Name of main node *)
-  let main_node = 
-    (* Command-line flag for main node given? *)
-    match Flags.lus_main () with 
-    (* Use given identifier to choose main node *)
-    | Some s -> LustreIdent.mk_string_ident s
-    (* No main node name given on command-line *)
-    | None -> 
-       (try 
-          (* Find main node by annotation, or take last node as
-              main *)
-          LustreNode.find_main nodes 
-        (* No main node found
-            This only happens when there are no nodes in the input. *)
-        with Not_found -> 
-          raise (NoMainNode "No main node defined in input"))
+          (* Step 6. Inline constants in node equations *)
+          IC.inline_constants global_ctx sorted_node_contract_decls >>= fun (inlined_global_ctx, const_inlined_nodes_and_contracts) ->
+
+          (* Step 7. Normalize AST: guard pres, abstract to locals where appropriate *)
+          LAN.normalize inlined_global_ctx const_inlined_nodes_and_contracts >>= fun (normalized_nodes_and_contracts, generated_ids) ->
+          
+          Res.ok (inlined_global_ctx,
+            generated_ids,
+            const_inlined_type_and_consts @ normalized_nodes_and_contracts)
+        ) in
+      let ctx, gids, decls = match tc_res with
+      | Ok (c, g, d) ->
+        Log.log L_note "Type checking done"
+        ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_program d
+        ; (c, g, d)
+      | Error (pos, err) -> fail_at_position pos err in
+      let nodes, globals = LNG.compile ctx gids decls in
+      (* The last node in the original ordering should remain the last node after sorting 
+      as the user expects that to be the main node in the case where 
+      no explicit annotations are provided. The reason we do this is because 
+      it is difficut to make the topological sort stable *)
+      let last_node = LH.get_last_node_name (declarations) in
+      let nodes = match last_node with
+        | None -> nodes
+        | Some ln -> let ident = LustreIdent.mk_string_ident ln in
+          let n = LustreNode.node_of_name ident nodes in
+          let filtered = List.filter 
+            (fun x -> not (LustreIdent.equal x.LustreNode.name ident))
+            nodes
+          in n :: filtered
+      in nodes, globals
   in
-  (* Put main node at the head of the list of nodes *)
-  let nodes' = 
-    try 
-      (* Get main node by name and copy it at the head of the list of
-         nodes *)
-      LN.node_of_name main_node nodes :: nodes
-    with Not_found -> 
-      (* Node with name of main not found 
-         This can only happens when the name is passed as command-line
-         argument *)
-      raise (NoMainNode "Main node not found in input")
-  in
-  (* Return a subsystem tree from the list of nodes *)
-  LN.subsystem_of_nodes nodes', globals, declarations
+    
+    (* Name of main node *)
+    let main_node = 
+      (* Command-line flag for main node given? *)
+      match Flags.lus_main () with 
+      (* Use given identifier to choose main node *)
+      | Some s -> LustreIdent.mk_string_ident s
+      (* No main node name given on command-line *)
+      | None -> 
+        (try 
+            (* Find main node by annotation, or take last node as
+                main *)
+            LustreNode.find_main nodes 
+          (* No main node found
+              This only happens when there are no nodes in the input. *)
+          with Not_found -> 
+            raise (NoMainNode "No main node defined in input"))
+    in
+    (* Put main node at the head of the list of nodes *)
+    let nodes' = 
+      try 
+        (* Get main node by name and copy it at the head of the list of
+          nodes *)
+        LN.node_of_name main_node nodes :: nodes
+      with Not_found -> 
+        (* Node with name of main not found 
+          This can only happens when the name is passed as command-line
+          argument *)
+        raise (NoMainNode "Main node not found in input")
+    in
+    Log.log L_trace ("===============================================\n"
+      ^^ "Free Constants: [@[<hv>%a@]];@ \n\n"
+      ^^ "State Variable Bounds: [@[<hv>%a@]];@ \n\n"
+      ^^ "Nodes: [@[<hv>%a@]];@ \n\n"
+      ^^ "State Var Instances: [@[<hv>%a@]];@ \n\n"
+      ^^ "State Var Definitions: [@[<hv>%a@]];@ \n\n"
+      ^^ "All State Variables: [@[<hv>%a@]];@ \n\n"
+      ^^ "===============================================\n")
+      (pp_print_list
+        (pp_print_pair
+          (LustreIdent.pp_print_ident true)
+          (LustreIndex.pp_print_index_trie true Var.pp_print_var)
+          " = ")
+        ";@ ") globals.free_constants
+      (pp_print_list
+        (pp_print_pair
+          (StateVar.pp_print_state_var)
+          (pp_print_list
+            (LustreExpr.pp_print_bound_or_fixed)
+            ";@ ")
+          " = ")
+        ";@ ")
+        (StateVar.StateVarHashtbl.fold
+          (fun k v acc -> (k, v) :: acc)
+          globals.state_var_bounds
+          [])
+      (pp_print_list LustreNode.pp_print_node_debug ";@ ") nodes
+      (pp_print_list LustreNode.pp_print_state_var_instances_debug ";@") nodes
+      (pp_print_list LustreNode.pp_print_state_var_defs_debug ";@") nodes
+      (pp_print_list StateVar.pp_print_state_var_debug ";@")
+        (nodes |> List.map (fun n -> LustreNode.get_all_state_vars n @ n.oracles)
+          |> List.flatten);
+    (if Flags.only_tc () then exit 0);
+    (* Return a subsystem tree from the list of nodes *)
+    LN.subsystem_of_nodes nodes', globals, declarations
+
 
 (* Returns the AST from a file. *)
 let ast_of_file filename =

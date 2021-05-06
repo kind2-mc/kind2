@@ -34,6 +34,14 @@ let expr_is_const = function
   | Const (_, _) -> true
   | _ -> false
 
+let expr_is_true = function
+  | Const (_, True) -> true
+  | _ -> false
+  
+let expr_is_false = function
+  | Const (_, False) -> true
+  | _ -> false
+
 let pos_of_expr = function
   | Ident (pos , _) | ModeRef (pos , _ ) | RecordProject (pos , _ , _)
     | TupleProject (pos , _ , _) | StructUpdate (pos , _ , _ , _) | Const (pos, _)
