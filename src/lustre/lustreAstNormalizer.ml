@@ -116,6 +116,7 @@ let get_warnings map = map
   |> StringMap.bindings
   |> List.map (fun (_, { warnings }) -> warnings)
   |> List.flatten
+  |> List.sort (fun (p1, _) (p2, _) -> compare_pos p1 p2)
 
 let pp_print_generated_identifiers ppf gids =
   let locals_list = StringMap.bindings gids.locals 
