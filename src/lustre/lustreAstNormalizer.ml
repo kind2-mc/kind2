@@ -93,6 +93,7 @@ type generated_identifiers = {
     * LustreAst.lustre_type
     * LustreAst.expr)
     StringMap.t;
+  warnings : (Lib.position * LustreAst.expr) list;
   oracles : (string * LustreAst.expr) list;
   propagated_oracles : (string * string) list;
   calls : (Lib.position (* node call position *)
@@ -110,6 +111,11 @@ type info = {
   context : Ctx.tc_context;
   node_is_input_const : (bool list) StringMap.t
 }
+
+let get_warnings map = map
+  |> StringMap.bindings
+  |> List.map (fun (_, { warnings }) -> warnings)
+  |> List.flatten
 
 let pp_print_generated_identifiers ppf gids =
   let locals_list = StringMap.bindings gids.locals 
@@ -156,6 +162,7 @@ let i = ref 0
 
 let empty = {
     locals = StringMap.empty;
+    warnings = [];
     node_args = [];
     oracles = [];
     propagated_oracles = [];
@@ -171,6 +178,7 @@ let union_keys key id1 id2 = match key, id1, id2 with
 
 let union ids1 ids2 = {
     locals = StringMap.merge union_keys ids1.locals ids2.locals;
+    warnings = ids1.warnings @ ids2.warnings;
     node_args = ids1.node_args @ ids2.node_args;
     oracles = ids1.oracles @ ids2.oracles;
     propagated_oracles = ids1.propagated_oracles @ ids2.propagated_oracles;
@@ -185,7 +193,8 @@ let mk_fresh_local pos is_ghost expr_type expr =
   let prefix = string_of_int !i in
   let name = prefix ^ "_glocal" in
   let nexpr = A.Ident (pos, name) in
-  let gids = {locals = StringMap.singleton name (is_ghost, expr_type, expr);
+  let gids = { locals = StringMap.singleton name (is_ghost, expr_type, expr);
+    warnings = [];
     node_args = [];
     oracles = [];
     propagated_oracles = [];
@@ -198,6 +207,7 @@ let mk_fresh_node_arg_local pos is_const expr_type expr =
   let name = prefix ^ "_gklocal" in
   let nexpr = A.Ident (pos, name) in
   let gids = { locals = StringMap.empty;
+    warnings = [];
     node_args = [(name, is_const, expr_type, expr)];
     oracles = [];
     propagated_oracles = [];
@@ -210,11 +220,20 @@ let mk_fresh_oracle expr =
   let name = prefix ^ "_oracle" in
   let nexpr = A.Ident (Lib.dummy_pos, name) in
   let gids = { locals = StringMap.empty;
+    warnings = [];
     node_args = [];
     oracles = [name, expr];
     propagated_oracles = [];
     calls = [] }
   in nexpr, gids
+
+let record_warning pos original =
+  { locals = StringMap.empty;
+    warnings = [(pos, original)];
+    node_args = [];
+    oracles = [];
+    propagated_oracles = [];
+    calls = [] }
 
 let compute_node_arity ctx ident =
   let node_type = Ctx.lookup_node_ty ctx ident in
@@ -247,6 +266,7 @@ let mk_fresh_call id map arity pos cond restart ident args defaults =
   in let oracle_args = List.map (fun (p, o) -> p) propagated_oracles
   in let call = (pos, oracle_args, abstractions, cond, restart, ident, args, defaults) in
   let gids = { locals = StringMap.empty;
+    warnings = [];
     node_args = [];
     oracles = [];
     propagated_oracles = propagated_oracles;
@@ -434,12 +454,13 @@ and normalize_expr ?guard info map =
     let nexpr2, gids2 = normalize_expr ?guard:(Some nexpr1) info map expr2 in
     let gids = union gids1 gids2 in
     Arrow (pos, nexpr1, nexpr2), gids
-  | Pre (pos, expr) ->
+  | Pre (pos, expr) as p ->
     let nexpr, gids1 = abstract_expr ?guard info map false expr in
     let guard, gids2, previously_guarded = match guard with
       | Some guard -> guard, empty, true
-      | None -> let guard, gids = mk_fresh_oracle nexpr in
-        guard, gids, false
+      | None -> let guard, gids1 = mk_fresh_oracle nexpr in
+        let gids2 = record_warning pos p in
+        guard, union gids1 gids2, false
     in let gids = union gids1 gids2 in
     if previously_guarded then Pre (pos, nexpr), gids
     else Arrow (Lib.dummy_pos, guard, Pre (pos, nexpr)), gids
