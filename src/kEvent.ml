@@ -889,9 +889,7 @@ let pp_print_list_attrib pp ppf = function
 let prop_attributes_json ppf trans_sys prop_name =
   let prop = TransSys.property_of_name trans_sys prop_name in
 
-  let pp_print_fname ppf fname =
-    if fname = "" then () else
-    Format.fprintf ppf "\"file\" : \"%s\",@," fname
+  let pp_print_fname ppf fname = Format.fprintf ppf "\"file\" : \"%s\",@," fname
   in
 
   let print_attributes pos scope source =
