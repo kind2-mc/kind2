@@ -88,6 +88,22 @@ let rec eval_int_expr: tc_context -> LA.expr -> int inline_result = fun ctx ->
   | e -> inline_error (LH.pos_of_expr e) ("Cannot evaluate expression" ^ LA.string_of_expr e)  
 (** try and evalutate expression to int, return error otherwise *)
 
+and eval_int_unary_op ctx pos op e1 =
+  eval_int_expr ctx e1 >>= fun v1 ->
+  match op with
+  | LA.Uminus -> R.ok (-v1)
+  | _ -> inline_error pos ("Cannot evaluate non-int unary expression"
+    ^ LA.string_of_expr (LA.UnaryOp (pos, op, e1))
+    ^ "to an int value")
+
+and eval_bool_unary_op ctx pos op e1 =
+  eval_bool_expr ctx e1 >>= fun v1 ->
+  match op with
+  | LA.Not -> R.ok (not v1)
+  | _ -> inline_error pos ("Cannot evaluate non-bool unary expression"
+    ^ LA.string_of_expr (LA.UnaryOp (pos, op, e1))
+    ^ "to a bool value")
+
 and eval_int_binary_op: tc_context -> Lib.position -> LA.binary_operator
                         -> LA.expr -> LA.expr -> int inline_result =
   fun ctx pos bop e1 e2 ->
@@ -214,6 +230,16 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
              else simplify_expr ctx ident'
           | _ -> simplify_expr ctx const_expr)
       | None -> LA.Ident (pos, i))
+  | LA.UnaryOp (pos, op, e1) as e ->
+    let e1' = simplify_expr ctx e1 in
+    (match op with
+    | LA.Uminus -> (match eval_int_unary_op ctx pos op e1' with
+      | Ok v -> LA.Const (pos, Num (string_of_int v))
+      | Error _ -> e)
+    | LA.Not -> (match eval_bool_unary_op ctx pos op e1' with
+      | Ok v -> if v then LA.Const(pos, True) else LA.Const (pos, False)
+      | Error _ -> e)
+    | _ -> e)
   | LA.BinaryOp (pos, bop, e1, e2) as e->
      let e1' = simplify_expr ctx e1 in
      let e2' = simplify_expr ctx e2 in
@@ -309,9 +335,22 @@ let rec inline_constants_of_contract: TC.tc_context -> LA.contract -> LA.contrac
       :: inline_constants_of_contract ctx others
    (* | (LA.ContractCall) :: others -> () :: inline_constants_of_contract ctx others  *)
   | e -> e 
-         
+
+let inline_constants_of_lustre_type ctx = function
+  | LA.IntRange (pos, lbound, ubound) ->
+    let lbound' = simplify_expr ctx lbound in
+    let ubound' = simplify_expr ctx ubound in
+    LA.IntRange (pos, lbound', ubound')
+  | ArrayType (pos, (ty, expr)) ->
+    let expr' = simplify_expr ctx expr in
+    ArrayType (pos, (ty, expr'))
+  | ty -> ty
+
 let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declaration) = fun ctx ->
   function
+  | TypeDecl (span, AliasType (pos, i, t)) ->
+    let t' = inline_constants_of_lustre_type ctx t in
+    ctx, LA.TypeDecl (span, AliasType (pos, i, t'))
   | ConstDecl (span, FreeConst _) as c -> (ctx, c)
   | ConstDecl (span, UntypedConst (pos', i, e)) ->
      let e' = simplify_expr ctx e in
