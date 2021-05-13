@@ -1,2 +1,2 @@
-(* Print parsing information about nodes and function *)
+(* Print parsing information about top level declarations *)
 val print_ast_info : LustreAst.declaration list -> unit
