@@ -133,6 +133,9 @@ val type_of_lustre_expr : t -> Type.t
     is [true].
 *)
 
+(** Pretty-print a bound or fixed annotation *)
+val pp_print_bound_or_fixed : Format.formatter -> expr bound_or_fixed -> unit
+
 (** Pretty-print a Lustre type *)
 val pp_print_lustre_type : bool -> Format.formatter -> Type.t -> unit 
 
@@ -472,11 +475,15 @@ val mk_gt : t -> t -> t
 (** Apply the followed by operator [->] to the two expressions. *)
 val mk_arrow : t -> t -> t
 
+(** [mk_pre e] returns the expression [e] if it is a constant, and the
+    previous state variable if the expression is a current state variable. *)
+val mk_pre : t -> t
+
 (** Apply the [pre] operator to the expression, abstract the
     expression to a fresh variable if it is not a variable at the
     current state.
 
-    [mk_pre f c b e] returns the expression [e] and context [c] unchanged if it
+    [mk_pre_with_context f c b e] returns the expression [e] and context [c] unchanged if it
     is a constant, and the previous state variable if the expression is a
     current state variable, again together with [c] unchanged.
 
@@ -488,7 +495,7 @@ val mk_arrow : t -> t -> t
 
     [b] is used to denote that we're in a context where there are unguarded
     pres and so we should always introduce fresh intermediate variables. *)
-val mk_pre : ('a -> t -> 'b * 'a) -> ('b -> Term.t) -> 'a -> bool -> t -> t * 'a
+val mk_pre_with_context : ('a -> t -> 'b * 'a) -> ('b -> Term.t) -> 'a -> bool -> t -> t * 'a
 
 (** Select from an array *)
 val mk_select : t -> t -> t

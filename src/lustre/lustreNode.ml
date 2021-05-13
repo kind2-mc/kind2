@@ -655,9 +655,9 @@ let pp_print_node_call_debug
     pp_print_state_var_trie_debug call_outputs
 
 
-let pp_print_node_debug
-    ppf 
+let pp_print_node_debug ppf 
     { name;
+      is_extern;
       instance;
       init_flag;
       inputs; 
@@ -671,19 +671,20 @@ let pp_print_node_debug
       contract;
       is_main;
       is_function;
-      state_var_source_map } = 
+      state_var_source_map;
+      oracle_state_var_map;
+      state_var_expr_map;
+      silent_contracts } = 
 
   let pp_print_equation = pp_print_node_equation false in
 
   let pp_print_prop ppf (state_var, name, source) = 
-
     Format.fprintf
       ppf
       "%a (%s, %a)"
       StateVar.pp_print_state_var state_var
       name
       Property.pp_print_prop_source source
-
   in
 
   let pp_print_state_var_source ppf = 
@@ -701,7 +702,20 @@ let pp_print_node_debug
         Format.asprintf "al(%a)"
           StateVar.pp_print_state_var sub
       )*)
+  in
 
+  let pp_print_oracle_state_var_map =
+    pp_print_pair
+      StateVar.pp_print_state_var
+      StateVar.pp_print_state_var
+      ":"
+  in
+
+  let pp_print_state_var_expr_map =
+    pp_print_pair
+      StateVar.pp_print_state_var
+      (LustreExpr.pp_print_lustre_expr true)
+      ":"
   in
 
   Format.fprintf 
@@ -720,11 +734,13 @@ let pp_print_node_debug
          contract =   [@[<hv>%a@]];@ \
          is_main =    @[<hv>%B@];@ \
          is_function =    @[<hv>%B@];@ \
-         source_map = [@[<hv>%a@]]; }@]"
+         state_var_source_map = [@[<hv>%a@]];@ \
+         oracle_state_var_map = [@[<hv>%a@]];@ \
+         state_var_expr_map = [@[<hv>%a@]]; }@]"
 
+    (I.pp_print_ident false) name
     StateVar.pp_print_state_var instance
     StateVar.pp_print_state_var init_flag
-    (I.pp_print_ident false) name
     pp_print_state_var_trie_debug inputs
     (pp_print_list StateVar.pp_print_state_var ";@ ") oracles
     pp_print_state_var_trie_debug outputs
@@ -740,8 +756,12 @@ let pp_print_node_debug
           (C.pp_print_contract false) contract) contract
     is_main
     is_function
-    (pp_print_list pp_print_state_var_source ";@ ") 
-    (SVM.bindings state_var_source_map)
+    (pp_print_list pp_print_state_var_source ";@ ")
+      (SVM.bindings state_var_source_map)
+    (pp_print_list pp_print_oracle_state_var_map ";@")
+      (SVT.fold (fun k v acc -> (k, v) :: acc) oracle_state_var_map [])
+    (pp_print_list pp_print_state_var_expr_map ";@")
+      (SVT.fold (fun k v acc -> (k, v) :: acc) state_var_expr_map [])
 
 
 (* ********************************************************************** *)

@@ -447,7 +447,7 @@ let rec eval_ast_expr bounds ctx =
             res
            in
            let expr', ctx =
-             E.mk_pre
+             E.mk_pre_with_context
               mk_local
               mk_lhs_term
               ctx

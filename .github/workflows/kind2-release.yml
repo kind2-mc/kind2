@@ -55,8 +55,10 @@ jobs:
         os: [ ubuntu-18.04, macos-10.15 ]
         include:
           - os: macos-10.15
+            pkg_update: brew update
             zmq_install: brew install zmq
           - os: ubuntu-18.04
+            pkg_update: sudo apt-get update -y
             zmq_install: sudo apt-get install -y libzmq3-dev
 
     runs-on: ${{ matrix.os }}
@@ -64,6 +66,9 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
+
+    - name: Update package information
+      run: ${{ matrix.pkg_update }}
 
     - name: Cache opam repository
       uses: actions/cache@v2

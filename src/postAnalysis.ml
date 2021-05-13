@@ -793,7 +793,10 @@ module RunIVC: PostAnalysis = struct
             let treat_and_return_lst = function
               | IvcMcs.Solution e -> treat_ivc false e ; (false, [e])
               | _ -> (false, []) in
-            let (complete, res) = match (use_umivc, Flags.IVC.ivc_approximate ()) with
+            let ivc_approximate =
+              Flags.IVC.ivc_approximate () && not (Flags.IVC.ivc_must_set ())
+            in
+            let (complete, res) = match (use_umivc, ivc_approximate) with
               | (false, true) -> treat_and_return_lst (IvcMcs.ivc_uc in_sys ~approximate:false sys props)
               | (false, false) -> treat_and_return_lst (IvcMcs.ivc_ucbf in_sys ~use_must_set param analyze sys props)
               | (true, _) -> IvcMcs.umivc in_sys ~use_must_set ~stop_after param analyze sys props k (treat_ivc false)

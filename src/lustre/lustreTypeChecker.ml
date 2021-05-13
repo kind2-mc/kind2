@@ -1523,7 +1523,7 @@ let type_check_infer_nodes_and_contracts: tc_context -> LA.t -> tc_context tc_re
           (Log.log L_trace ("===============================================\n"
                             ^^ "Type checking declaration Groups Done\n"
                             ^^"===============================================\n")
-          ;  R.ok ctx))
+          ; R.ok global_ctx))
 
 (* 
    Local Variables:

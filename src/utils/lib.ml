@@ -404,6 +404,16 @@ let list_join equal l1 l2 =
     (* Call recursive function with initial accumulator *)
     | _ -> list_join' equal [] l1 l2
 
+let list_filter_map f =
+  let rec aux accu = function
+    | [] -> List.rev accu
+    | x :: l ->
+        match f x with
+        | None -> aux accu l
+        | Some v -> aux (v :: accu) l
+  in
+  aux []
+
 let rec list_apply: ('a -> 'b) list -> 'a -> 'b list = fun fs arg ->
   match fs with
   | [] -> []
@@ -616,6 +626,11 @@ let escape_xml_string s =
 (* Return the value of an option type, raise [Invalid_argument "get"]
    if the option value is [None] *)
 let get = function None -> raise (Invalid_argument "get") | Some x -> x
+
+(** Check if an option has some content *)
+let is_some = function
+  | Some _ -> true
+  | None -> false
 
 let min_option f1 f2 = match f1, f2 with
   | None, None -> None

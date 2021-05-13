@@ -15,9 +15,11 @@ jobs:
         os: [ ubuntu-20.04, macos-10.15 ]
         include:
           - os: macos-10.15
+            pkg_update: brew update
             z3_install: brew install z3
             zmq_install: brew install zmq
           - os: ubuntu-20.04
+            pkg_update: sudo apt-get update -y
             z3_install: sudo apt-get install -y z3
             zmq_install: sudo apt-get install -y libzmq3-dev
 
@@ -26,6 +28,9 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
+
+    - name: Update package information
+      run: ${{ matrix.pkg_update }}
 
     - name: Cache opam repository
       uses: actions/cache@v2

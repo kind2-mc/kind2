@@ -1727,12 +1727,12 @@ let prop_invariant trans_sys prop_name cert =
 
   log_proved mdl L_warn trans_sys None prop_name ;
 
+  (* Update status of property (of all instances with name [prop_name]) *)
+  let status = Property.PropInvariant cert in
+  TransSys.set_prop_status trans_sys prop_name status;
+
   (* Get property by name *)
   let prop = TransSys.property_of_name trans_sys prop_name in
-  let status = Property.PropInvariant cert in
-
-  (* Update status of property in transition system *)
-  Property.set_prop_status prop status;
 
   (* Add property as invariant to transtion system *)
   TransSys.add_invariant trans_sys prop.prop_term cert false |> ignore ;
@@ -2082,10 +2082,8 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
       (* Output proved property *)
       log_proved m L_warn trans_sys None p;
 
-      (* Get property by name *)
-      let prop = TransSys.property_of_name trans_sys p in
-      (* Change property status (in transition system) *)
-      Property.set_prop_status prop s ;
+      (* Change property status (of all instances with name [p]) *)
+      TransSys.set_prop_invariant trans_sys p cert;
 
       let term =
         TransSys.props_list_of_bound trans_sys Numeral.zero
@@ -2104,6 +2102,8 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
       in
 
       let invars =
+        (* Get property by name *)
+        let prop = TransSys.property_of_name trans_sys p in
         match prop.Property.prop_source with
         | Property.Assumption (_, (_, pos)) -> (
           (* If property is a contract assumption that a caller had to prove,
