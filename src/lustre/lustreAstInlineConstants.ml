@@ -280,13 +280,65 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)
-         
+
+let inline_constants_of_lustre_type ctx = function
+  | LA.IntRange (pos, lbound, ubound) ->
+    let lbound' = simplify_expr ctx lbound in
+    let ubound' = simplify_expr ctx ubound in
+    LA.IntRange (pos, lbound', ubound')
+  | ArrayType (pos, (ty, expr)) ->
+    let expr' = simplify_expr ctx expr in
+    ArrayType (pos, (ty, expr'))
+  | ty -> ty
+
 let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.node_equation
   = fun ctx ->
   function
   | (LA.Assert (pos, e)) -> (Assert (pos, simplify_expr ctx e))
   | (LA.Equation (pos, lhs, e)) -> (LA.Equation (pos, lhs, simplify_expr ctx e))
   | e -> e
+
+let rec inline_constants_of_const_clocked_type_decl ctx = function
+  | [] -> []
+  | (pos, id, lustre_type, expr, is_const) :: t ->
+    let lustre_type' = inline_constants_of_lustre_type ctx lustre_type in
+    let t' = inline_constants_of_const_clocked_type_decl ctx t in
+    (pos, id, lustre_type', expr, is_const) :: t'
+
+let rec inline_constants_of_clocked_type_decl ctx = function
+  | [] -> []
+  | (pos, id, lustre_type, expr) :: t ->
+    let lustre_type' = inline_constants_of_lustre_type ctx lustre_type in
+    let t' = inline_constants_of_clocked_type_decl ctx t in
+    (pos, id, lustre_type', expr) :: t'
+
+let rec inline_constants_of_node_locals ctx = function
+  | [] -> ctx, []
+  | (LA.NodeConstDecl (_, (FreeConst _))) as c :: t ->
+    let ctx', t' = inline_constants_of_node_locals ctx t in
+    ctx', c :: t'
+  | (LA.NodeConstDecl (pos1, (UntypedConst (pos2, i, e)))) :: t ->
+    let e' = simplify_expr ctx e in
+    let ty =
+      (match (TC.lookup_ty ctx i) with 
+      | None -> failwith "Cannot find constant type. Should not happen."
+      | Some ty ->  ty) in
+    let ty' = inline_constants_of_lustre_type ctx ty in
+    let ctx = TC.add_const ctx i e' ty' in
+    let decl' = LA.NodeConstDecl (pos1, (UntypedConst (pos2, i, e'))) in
+    let ctx', t' = inline_constants_of_node_locals ctx t in
+    ctx', decl' :: t'
+  | (LA.NodeConstDecl (pos1, (LA.TypedConst (pos2, i, e, ty)))) :: t ->
+    let ty' = inline_constants_of_lustre_type ctx ty in
+    let e' = simplify_expr ctx e in
+    let ctx' = TC.add_const ctx i e' ty' in
+    let ctx'', t' = inline_constants_of_node_locals ctx' t in
+    let decl' = LA.NodeConstDecl (pos1, (TypedConst (pos2, i, e', ty'))) in
+    ctx'', decl' :: t'
+  | (LA.NodeVarDecl (pos, decl)) :: t ->
+    let decl' = inline_constants_of_clocked_type_decl ctx [decl] |> List.hd in
+    let ctx', t' = inline_constants_of_node_locals ctx t in
+    ctx', (LA.NodeVarDecl (pos, decl')) :: t'
 
 let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA.node_item list 
   = fun ctx
@@ -336,16 +388,6 @@ let rec inline_constants_of_contract: TC.tc_context -> LA.contract -> LA.contrac
    (* | (LA.ContractCall) :: others -> () :: inline_constants_of_contract ctx others  *)
   | e -> e 
 
-let inline_constants_of_lustre_type ctx = function
-  | LA.IntRange (pos, lbound, ubound) ->
-    let lbound' = simplify_expr ctx lbound in
-    let ubound' = simplify_expr ctx ubound in
-    LA.IntRange (pos, lbound', ubound')
-  | ArrayType (pos, (ty, expr)) ->
-    let expr' = simplify_expr ctx expr in
-    ArrayType (pos, (ty, expr'))
-  | ty -> ty
-
 let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declaration) = fun ctx ->
   function
   | TypeDecl (span, AliasType (pos, i, t)) ->
@@ -361,12 +403,21 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
      (TC.add_const ctx i e' ty
      , ConstDecl (span, UntypedConst (pos', i, e'))) 
   | ConstDecl (span, TypedConst (pos', i, e, ty)) ->
-     let e' = simplify_expr ctx e in 
-     (TC.add_const ctx i e' ty, ConstDecl (span, TypedConst (pos', i, e', ty)))
+    let ty' = inline_constants_of_lustre_type ctx ty in
+    let e' = simplify_expr ctx e in 
+    (TC.add_const ctx i e' ty', ConstDecl (span, TypedConst (pos', i, e', ty')))
   | (LA.NodeDecl (span, (i, imported, params, ips, ops, ldecls, items, contract))) ->
-     ctx, (LA.NodeDecl (span, (i, imported, params, ips, ops, ldecls, inline_constants_of_node_items ctx items, contract)))
+    let ips' = inline_constants_of_const_clocked_type_decl ctx ips in
+    let ops' = inline_constants_of_clocked_type_decl ctx ops in
+    let ctx', ldecls' = inline_constants_of_node_locals ctx ldecls in
+    let items' = inline_constants_of_node_items ctx' items in
+     ctx, (LA.NodeDecl (span, (i, imported, params, ips', ops', ldecls', items', contract)))
   | (LA.FuncDecl (span, (i, imported, params, ips, ops, ldecls, items, contract))) ->
-     ctx, (LA.FuncDecl (span, (i, imported, params, ips, ops, ldecls, inline_constants_of_node_items ctx items, contract)))
+    let ips' = inline_constants_of_const_clocked_type_decl ctx ips in
+    let ops' = inline_constants_of_clocked_type_decl ctx ops in
+    let ctx', ldecls' = inline_constants_of_node_locals ctx ldecls in
+    let items' = inline_constants_of_node_items ctx' items in
+     ctx, (LA.FuncDecl (span, (i, imported, params, ips', ops', ldecls', items', contract)))
   | (LA.ContractNodeDecl (span, (i, params, ips, ops, contract))) ->
      ctx, (LA.ContractNodeDecl (span, (i, params, ips, ops, inline_constants_of_contract ctx contract)))
   | e -> (ctx, e)
