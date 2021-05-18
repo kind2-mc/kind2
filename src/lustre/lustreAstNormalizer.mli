@@ -88,7 +88,7 @@ type generated_identifiers = {
   propagated_oracles : (string * string) list;
   calls : (Lib.position (* node call position *)
     * (string list) (* oracle inputs *)
-    * (string list) (* abstracted inputs *)
+    * string (* abstracted output *)
     * LustreAst.expr (* condition expression *)
     * LustreAst.expr (* restart expression *)
     * string (* node name *)

@@ -1172,7 +1172,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
   (* Node Calls                                                         *)
   (* ****************************************************************** *)
   in let (calls, glocals, state_var_source_map) =
-    let over_calls = fun (calls, glocals, svsm) (pos, oracles, vars, cond, restart, ident, args, defaults) ->
+    let over_calls = fun (calls, glocals, svsm) (pos, oracles, var, cond, restart, ident, args, defaults) ->
       let node_id = mk_ident ident in
       let called_node = N.node_of_name node_id cstate.nodes in
       let output_ast_types = (match C.lookup_node_ty ctx ident with
@@ -1189,31 +1189,24 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       let local_map = H.create 7 in
       let source_maps = H.create 7 in
       let outputs =
-        let over_vars = fun (is_single) compiled_vars (var, (i, sv)) ->
-          let n = X.top_max_index compiled_vars |> succ in
+        let over_vars = fun (is_single) i sv compiled_vars ->
           let var_id = mk_ident var in
-          let index_types = List.nth output_types n in
-          let over_indices = fun index index_type accum ->
-            let state_var, svsm' = mk_state_var
-              ~is_input:false
-              map
-              (node_scope @ I.reserved_scope)
-              var_id
-              index
-              index_type
-              (Some N.Call)
-              svsm
-            and index' = if is_single then index else X.ListIndex n :: index
-            in let result = X.add index' state_var accum in
-            H.add local_map var_id state_var;
-            H.add source_maps var_id svsm';
-            N.add_state_var_def state_var (N.CallOutput (pos, index'));
-            N.set_state_var_instance state_var pos node_id sv;
-            result
-          in X.fold over_indices index_types compiled_vars
-        in List.fold_left (over_vars is_single)
-          X.empty
-          (List.combine vars (X.bindings called_node.outputs))
+          let state_var, svsm' = mk_state_var
+            ~is_input:false
+            map
+            (node_scope @ I.reserved_scope)
+            var_id
+            i
+            (StateVar.type_of_state_var sv)
+            (Some N.Call)
+            svsm
+          in
+          H.add local_map var_id state_var;
+          H.add source_maps var_id svsm';
+          N.add_state_var_def state_var (N.CallOutput (pos, i));
+          N.set_state_var_instance state_var pos node_id sv;
+          X.add i state_var compiled_vars
+        in X.fold (over_vars is_single) called_node.outputs X.empty
       in let svsm' = H.fold (fun k v a -> SVM.union (fun _ v _ -> Some v) a v)
         source_maps svsm
       in let node_call = compile_node
@@ -1358,8 +1351,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       ) [] (X.bindings eq_lhs)
 
       in let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr
-      in
-      let equations = expand_tuple pos eq_lhs eq_rhs in
+      in let equations = expand_tuple pos eq_lhs eq_rhs in
       H.clear !map.array_index;
       (* TODO: Old code tries to infer a more strict type here
         lustreContext 2040+ *)

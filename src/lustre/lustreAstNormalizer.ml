@@ -98,7 +98,7 @@ type generated_identifiers = {
   propagated_oracles : (string * string) list;
   calls : (Lib.position (* node call position *)
     * (string list) (* oracle inputs *)
-    * (string list) (* abstracted inputs *)
+    * string (* abstracted output *)
     * LustreAst.expr (* condition expression *)
     * LustreAst.expr (* restart expression *)
     * string (* node name *)
@@ -130,11 +130,11 @@ let pp_print_generated_identifiers ppf gids =
     Format.pp_print_string
     LustreAst.pp_print_expr
     ":"
-  in let pp_print_call = (fun ppf (pos, vars, oracles, cond, restart, ident, args, defaults) ->
+  in let pp_print_call = (fun ppf (pos, oracles, output, cond, restart, ident, args, defaults) ->
     Format.fprintf ppf 
       "%a: %a = call(%a,(restart %a every %a)(%a;%a),%a)"
       pp_print_position pos
-      (pp_print_list Format.pp_print_string ",@") vars
+      Format.pp_print_string output
       A.pp_print_expr cond
       Format.pp_print_string ident
       A.pp_print_expr restart
@@ -236,25 +236,11 @@ let record_warning pos original =
     propagated_oracles = [];
     calls = [] }
 
-let compute_node_arity ctx ident =
-  let node_type = Ctx.lookup_node_ty ctx ident in
-  match node_type with
-    | Some (A.TArr (_,  _, output_type)) ->
-      (match output_type with
-      | A.GroupType (_, list) -> List.length list
-      | _ -> 1)
-    | _ -> assert false (* Nodes must have TArr type *)
-
-let mk_fresh_call id map arity pos cond restart args defaults =
-  let abstractions = List.init arity (fun x ->
-    i := !i + 1;
-    let prefix = string_of_int !i in
-    prefix ^ "_call")
-  in let expr_list = List.map
-    (fun name -> A.Ident (pos, name))
-    abstractions
-  in let nexpr = if arity = 1 then List.hd expr_list
-    else A.GroupExpr (pos, A.ExprList, expr_list)
+let mk_fresh_call id map pos cond restart args defaults =
+  i := !i + 1;
+  let prefix = string_of_int !i in
+  let name = prefix ^ "_call" in
+  let nexpr = A.Ident (pos, name)
   in let propagated_oracles = 
     let called_node = StringMap.find id map in
     let called_oracles = called_node.oracles |> List.map fst in
@@ -265,7 +251,7 @@ let mk_fresh_call id map arity pos cond restart args defaults =
       prefix ^ "_poracle", n))
       (called_oracles @ called_poracles)
   in let oracle_args = List.map (fun (p, o) -> p) propagated_oracles
-  in let call = (pos, oracle_args, abstractions, cond, restart, id, args, defaults) in
+  in let call = (pos, oracle_args, name, cond, restart, id, args, defaults) in
   let gids = { locals = StringMap.empty;
     warnings = [];
     node_args = [];
@@ -422,16 +408,14 @@ and normalize_expr ?guard info map =
   (* Node calls                                                               *)
   (* ************************************************************************ *)
   | Call (pos, id, args) ->
-    let arity = compute_node_arity info.context id in
     let cond = A.Const (Lib.dummy_pos, A.True) in
     let restart =  A.Const (Lib.dummy_pos, A.False) in
     let nargs, gids1 = normalize_list
       (fun (arg, is_const) -> abstract_node_arg ?guard is_const info map arg)
       (List.combine args (StringMap.find id info.node_is_input_const)) in
-    let nexpr, gids2 = mk_fresh_call id map arity pos cond restart nargs None in
+    let nexpr, gids2 = mk_fresh_call id map pos cond restart nargs None in
     nexpr, union gids1 gids2
   | Condact (pos, cond, restart, id, args, defaults) ->
-    let arity = compute_node_arity info.context id in
     let ncond, gids1 = if AH.expr_is_true cond then cond, empty
       else abstract_expr ?guard info map false cond in
     let nrestart, gids2 = if AH.expr_is_const restart then restart, empty
@@ -442,24 +426,22 @@ and normalize_expr ?guard info map =
     let ndefaults, gids4 = normalize_list
       (normalize_expr ?guard info map)
       defaults in
-    let nexpr, gids5 = mk_fresh_call id map arity pos ncond nrestart nargs (Some ndefaults) in
+    let nexpr, gids5 = mk_fresh_call id map pos ncond nrestart nargs (Some ndefaults) in
     let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
     nexpr, gids
   | RestartEvery (pos, id, args, restart) ->
-    let arity = compute_node_arity info.context id in
     let cond = A.Const (dummy_pos, A.True) in
     let nrestart, gids1 = if AH.expr_is_const restart then restart, empty
       else abstract_expr ?guard info map false restart
     in let nargs, gids2 = normalize_list
       (fun (arg, is_const) -> abstract_node_arg ?guard is_const info map arg)
       (List.combine args (StringMap.find id info.node_is_input_const)) in
-    let nexpr, gids3 = mk_fresh_call id map arity pos cond nrestart nargs None in
+    let nexpr, gids3 = mk_fresh_call id map pos cond nrestart nargs None in
     let gids = union_list [gids1; gids2; gids3] in
     nexpr, gids
   | Merge (pos, clock_id, cases) ->
     let normalize' info map ?guard = function
       | clock_value, A.Activate (pos, id, cond, restart, args) ->
-        let arity = List.length args in
         let ncond, gids1 = if AH.expr_is_true cond then cond, empty
           else abstract_expr ?guard info map false cond in
         let nrestart, gids2 = if AH.expr_is_const restart then restart, empty
@@ -467,11 +449,10 @@ and normalize_expr ?guard info map =
         let nargs, gids3 = normalize_list
           (fun (arg, is_const) -> abstract_node_arg ?guard is_const info map arg)
           (List.combine args (StringMap.find id info.node_is_input_const)) in
-        let nexpr, gids4 = mk_fresh_call id map arity pos ncond nrestart nargs None in
+        let nexpr, gids4 = mk_fresh_call id map pos ncond nrestart nargs None in
         let gids = union_list [gids1; gids2; gids3; gids4] in
         (clock_value, nexpr), gids
       | clock_value, A.Call (pos, id, args) ->
-        let arity = List.length args in
         let cond_expr = match clock_value with
           | "true" -> A.Ident (pos, clock_id)
           | "false" -> A.UnaryOp (pos, A.Not, A.Ident (pos, clock_id))
@@ -481,7 +462,7 @@ and normalize_expr ?guard info map =
         let nargs, gids2 = normalize_list
           (fun (arg, is_const) -> abstract_node_arg ?guard is_const info map arg)
           (List.combine args (StringMap.find id info.node_is_input_const)) in
-        let nexpr, gids3 = mk_fresh_call id map arity pos ncond restart nargs None in
+        let nexpr, gids3 = mk_fresh_call id map pos ncond restart nargs None in
         let gids = union_list [gids1; gids2; gids3] in
         (clock_value, nexpr), gids
       | clock_value, expr ->
