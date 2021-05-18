@@ -1060,7 +1060,7 @@ module Contracts = struct
 
   let assumption_gen_default = false
   let assumption_gen = ref assumption_gen_default
-  let _ = add_spec
+  (*let _ = add_spec
     "--assumption_gen"
     (bool_arg assumption_gen)
     (fun fmt ->
@@ -1071,12 +1071,12 @@ module Contracts = struct
         Default: %a\
       @]"
       fmt_bool assumption_gen_default
-    )
+    )*)
   let assumption_gen () = !assumption_gen
 
   let assump_include_outputs_default = true
   let assump_include_outputs = ref assump_include_outputs_default
-  let _ = add_spec
+  (*let _ = add_spec
     "--outputs_in_assumption"
     (bool_arg assump_include_outputs)
     (fun fmt ->
@@ -1087,7 +1087,7 @@ module Contracts = struct
         Default: %a\
       @]"
       fmt_bool assump_include_outputs_default
-    )
+    )*)
   let assump_include_outputs () = !assump_include_outputs
 
 
@@ -2990,7 +2990,8 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Check properties of subnodes in addition to properties of the main node@ \
+          Check properties of subnodes in addition to properties of the main node.@ \
+          Ignored if --modular is true@ \
           Default: %a\
         "
         fmt_bool check_subproperties_default
