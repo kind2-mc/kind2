@@ -115,7 +115,8 @@ let of_channel in_ch =
   let declarations = ast_of_channel in_ch in
 
   (* Provide lsp info if option is enabled *)
-  if Flags.lsp () then LspInfo.print_ast_info declarations;
+  if Flags.log_format_json () && Flags.lsp () then
+    LspInfo.print_ast_info declarations;
 
   let nodes, globals = if Flags.no_tc () then
       (* Simplify declarations to a list of nodes *)
