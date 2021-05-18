@@ -2978,7 +2978,8 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Check properties of subnodes in addition to properties of the main node@ \
+          Check properties of subnodes in addition to properties of the main node.@ \
+          Ignored if --modular is true@ \
           Default: %a\
         "
         fmt_bool check_subproperties_default

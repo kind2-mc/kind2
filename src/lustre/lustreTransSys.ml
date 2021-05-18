@@ -630,7 +630,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
   
   (* Instantiate all properties of the called node in this node *)
   let node_props =
-    if Flags.check_subproperties () then (
+    if Flags.check_subproperties () && not (Flags.modular ()) then (
       properties |> List.fold_left (
         fun a ({ P.prop_name = n; P.prop_term = t } as p) ->
 
