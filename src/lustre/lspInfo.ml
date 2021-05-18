@@ -36,8 +36,8 @@ let lsp_type_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
          \"startLine\" : %d,@,\
          \"startColumn\" : %d,@,\
          \"endLine\" : %d,@,\
-         \"endColumn\" : %d@]@.}@." id pp_print_fname_json file slnum scnum elnum
-        ecnum
+         \"endColumn\" : %d@]@.}@." id pp_print_fname_json file slnum scnum
+        elnum ecnum
 
 let lsp_const_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
   function
@@ -56,8 +56,8 @@ let lsp_const_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
          \"startLine\" : %d,@,\
          \"startColumn\" : %d,@,\
          \"endLine\" : %d,@,\
-         \"endColumn\" : %d@]@.}@." id pp_print_fname_json file slnum scnum elnum
-        ecnum
+         \"endColumn\" : %d@]@.}@." id pp_print_fname_json file slnum scnum
+        elnum ecnum
 
 let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
     (id, imported, _, _, _, _, _, _) =
@@ -109,7 +109,8 @@ let lsp_contract_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"startLine\" : %d,@,\
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
-     \"endColumn\" : %d@]@.}@." id pp_print_fname_json file slnum scnum elnum ecnum
+     \"endColumn\" : %d@]@.}@." id pp_print_fname_json file slnum scnum elnum
+    ecnum
 
 let print_ast_info declarations =
   List.iter
