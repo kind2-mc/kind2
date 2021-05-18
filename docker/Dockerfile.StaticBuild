@@ -12,7 +12,10 @@ COPY --chown=opam:opam . kind2-build/
 # Build Kind 2
 WORKDIR kind2-build
 
-RUN eval $(opam env) && opam install -y . --deps-only && \
+# Note: we use remote OPAM repo until local one is updated
+RUN eval $(opam env) && \
+    opam repo set-url default https://opam.ocaml.org && \
+    opam update && opam install -y . --deps-only && \
     make static && strip bin/kind2
 
 FROM alpine:latest
