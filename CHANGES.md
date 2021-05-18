@@ -1,4 +1,29 @@
 
+# Unreleased
+
+New features:
+
+- New option for checking contracts of imported nodes (see [documentation](https://kind.cs.uiowa.edu/kind2_user_doc/9_other/12_contract_check.html)).
+  - Current checks: realizability and satisfiability checking.
+
+Improvements:
+
+- Improve compositional reasoning about assumptions of called nodes.
+  - See issue [#736](https://github.com/kind2-mc/kind2/issues/736) for more details.
+- Print values of ghost variables in counterexamples.
+- Fix and update bounds checking feature for subrange streams.
+- Fix issue in MUST set generation when a single MIVC is computed.
+- Accept fractions in JSON input for interpreter.
+- Other bug fixes.
+
+Changes:
+
+- Always check node calls are safe, not only in compositional mode.
+- Set `check_subproperties` flag to true by default.
+  - Ignored if modular analysis is true.
+- Abstract call only if contract has at least one guarantee or one mode.
+
+
 # Kind 2 v1.3.1
 
 This release includes performance improvements and various fixes. Notably:
@@ -16,7 +41,8 @@ This release includes performance improvements and various fixes. Notably:
 New features:
 
 - Computation of [Inductive Validity Cores](https://kind.cs.uiowa.edu/kind2_user_doc/9_other/10_inductive_validity_core.html) and [Minimal Cut Sets](https://kind.cs.uiowa.edu/kind2_user_doc/9_other/11_minimal_cut_set.html).
-- Invariant generation for machine integers (engine names: INVGENMACH and INVGENMACHOS).
+- Invariant generation for machine integers.
+  - Engine names: INVGENMACH and INVGENMACHOS.
 - IC3 model checking engine for machine integers.
   - The pre-image computation is based on quantifier elimination over bit-vectors.
   - It requires SMT solver Z3 at this time.
