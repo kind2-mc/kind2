@@ -4,7 +4,8 @@ Inductive Validity Core
 =======================
 
 The inductive validity core generation is a post-analysis treatement that computes a minimal subset of
-the model elements (assumptions, guarantees, stateful equations, or node calls) that are sufficient to prove all properties.
+the model elements (assumptions, guarantees, stateful equations, or node calls) that are sufficient to
+prove all valid properties.
 
 To enable inductive validity core generation, run
 

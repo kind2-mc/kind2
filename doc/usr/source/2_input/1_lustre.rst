@@ -675,6 +675,8 @@ can be analyzed: first for mode exhaustiveness, and the body is checked against
 its contract, although it is only *partially* defined.
 Here, both will succeed.
 
+.. _2_input/1_lustre#imported:
+
 The ``imported`` keyword
 ----------------------------
 
