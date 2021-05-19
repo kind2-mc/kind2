@@ -37,6 +37,9 @@ val expr_is_false : expr -> bool
 val pos_of_expr : expr -> Lib.position
 (** Returns the position of an expression *)
 
+val substitute : string -> expr -> expr -> expr
+(** Subsitute the supplied identifier and expression into the last expression *)
+
 val has_unguarded_pre : expr -> bool
 (** Returns true if the expression has unguareded pre's *)
 

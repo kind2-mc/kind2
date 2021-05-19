@@ -632,6 +632,10 @@ let is_some = function
   | Some _ -> true
   | None -> false
 
+let join = function
+  | Some x -> x
+  | None -> None
+
 let min_option f1 f2 = match f1, f2 with
   | None, None -> None
   | Some f, None | None, Some f -> Some f

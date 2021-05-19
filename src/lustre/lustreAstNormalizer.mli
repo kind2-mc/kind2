@@ -79,21 +79,29 @@ type generated_identifiers = {
     * LustreAst.lustre_type
     * LustreAst.expr)
     list;
+  array_constructors :
+    (LustreAst.lustre_type
+    * LustreAst.expr
+    * LustreAst.expr)
+    StringMap.t;
   locals : (bool (* whether the variable is ghost *)
     * LustreAst.lustre_type
     * LustreAst.expr)
     StringMap.t;
   warnings : (Lib.position * LustreAst.expr) list;
-  oracles : (string * LustreAst.expr) list;
+  oracles : (string * LustreAst.lustre_type * LustreAst.expr) list;
   propagated_oracles : (string * string) list;
   calls : (Lib.position (* node call position *)
     * (string list) (* oracle inputs *)
-    * (string list) (* abstracted inputs *)
+    * string (* abstracted output *)
     * LustreAst.expr (* condition expression *)
     * LustreAst.expr (* restart expression *)
     * string (* node name *)
     * (LustreAst.expr list) (* node arguments *)
     * (LustreAst.expr list option)) (* node argument defaults *)
+    list;
+  equations : (LustreAst.eq_lhs
+    * LustreAst.expr)
     list
 }
 
