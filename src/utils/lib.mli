@@ -63,6 +63,9 @@ val get : 'a option -> 'a
 (** Check if an option has some content *)
 val is_some : 'a option -> bool
 
+val join : 'a option option -> 'a option
+(** Flatten a nested option *)
+
 (** Return the min between two optional floats. Return None if both floats are None. *)
 val min_option : float option -> float option -> float option
 
