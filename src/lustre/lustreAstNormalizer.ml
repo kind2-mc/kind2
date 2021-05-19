@@ -513,7 +513,7 @@ and normalize_expr ?guard info map =
   | Call (pos, id, args) as e ->
     let ivars = info.inductive_variables in
     let ivar = List.map (fun a -> expr_has_inductive_var ivars a) args in
-    let ivar = List.nth_opt ivar 0 |> Option.join in
+    let ivar = List.nth_opt ivar 0 |> join in
     if is_some ivar then
       let (var, size) = StringMap.choose ivars in
       let size = extract_array_size var size in
@@ -530,7 +530,7 @@ and normalize_expr ?guard info map =
   | Condact (pos, cond, restart, id, args, defaults) as e ->
     let ivars = info.inductive_variables in
     let ivar = List.map (fun a -> expr_has_inductive_var ivars a) args in
-    let ivar = List.nth_opt ivar 0 |> Option.join in
+    let ivar = List.nth_opt ivar 0 |> join in
     if is_some ivar then
       let (var, size) = StringMap.choose ivars in
       let size = extract_array_size var size in
@@ -553,7 +553,7 @@ and normalize_expr ?guard info map =
   | RestartEvery (pos, id, args, restart) as e ->
     let ivars = info.inductive_variables in
     let ivar = List.map (fun a -> expr_has_inductive_var ivars a) args in
-    let ivar = List.nth_opt ivar 0 |> Option.join in
+    let ivar = List.nth_opt ivar 0 |> join in
     if is_some ivar then
       let (var, size) = StringMap.choose ivars in
       let size = extract_array_size var size in
