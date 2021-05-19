@@ -286,14 +286,28 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)
 
-let inline_constants_of_lustre_type ctx = function
+let rec inline_constants_of_lustre_type ctx = function
   | LA.IntRange (pos, lbound, ubound) ->
     let lbound' = simplify_expr ctx lbound in
     let ubound' = simplify_expr ctx ubound in
     LA.IntRange (pos, lbound', ubound')
+  | LA.TupleType (pos, types) ->
+    let types' = List.map (fun t -> inline_constants_of_lustre_type ctx t) types in
+    LA.TupleType (pos, types')
+  | LA.GroupType (pos, types) ->
+    let types' = List.map (fun t -> inline_constants_of_lustre_type ctx t) types in
+    LA.GroupType (pos, types')
+  | LA.RecordType (pos, types) ->
+    let types' = List.map (fun (p, i, t) -> (p, i, inline_constants_of_lustre_type ctx t)) types in
+    LA.RecordType (pos, types')
   | ArrayType (pos, (ty, expr)) ->
+    let ty' = inline_constants_of_lustre_type ctx ty in
     let expr' = simplify_expr ctx expr in
-    ArrayType (pos, (ty, expr'))
+    ArrayType (pos, (ty', expr'))
+  | TArr (pos, ty1, ty2) ->
+    let ty1' = inline_constants_of_lustre_type ctx ty1 in
+    let ty2' = inline_constants_of_lustre_type ctx ty2 in
+    TArr (pos, ty1', ty2')
   | ty -> ty
 
 let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.node_equation
