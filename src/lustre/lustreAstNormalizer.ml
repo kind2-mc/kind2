@@ -389,17 +389,23 @@ and normalize_node info map
     (i.e. tracking the types associated with identifiers) so that
     reconstructing types didn't require rebuilding contexts and retype
     checking *)
+  let constants_ctx = inputs
+    |> List.map Ctx.extract_consts
+    |> (List.fold_left Ctx.union info.context) in
   let input_ctx = inputs
     |> List.map Ctx.extract_arg_ctx
     |> (List.fold_left Ctx.union info.context)
   in let output_ctx = outputs
     |> List.map Ctx.extract_ret_ctx
     |> (List.fold_left Ctx.union info.context)
+  in let ctx = Ctx.union
+    (Ctx.union constants_ctx info.context)
+    (Ctx.union input_ctx output_ctx)
   in let ctx = List.fold_left
     (fun ctx local -> Chk.local_var_binding ctx local
       |> Res.map_err (fun (_, s) -> fun ppf -> Format.pp_print_string ppf s)
       |> Res.unwrap)
-    (Ctx.union (Ctx.union input_ctx output_ctx) info.context)
+    ctx
     locals
   in let info = { info with context = ctx } in
   let nitems, gids1 = normalize_list (normalize_item info map) items in

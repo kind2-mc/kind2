@@ -62,6 +62,7 @@ type identifier_maps = {
   bounds : (LustreExpr.expr LustreExpr.bound_or_fixed list)
     StateVar.StateVarHashtbl.t;
   array_index : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
+  quant_vars : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
 }
 
 let pp_print_identifier_maps ppf maps =
@@ -102,6 +103,7 @@ let empty_identifier_maps () = {
   source = SVT.create 7;
   bounds = SVT.create 7;
   array_index = H.create 7;
+  quant_vars = H.create 7;
 }
 
 let empty_compiler_state () = { 
@@ -499,7 +501,10 @@ and compile_ast_expr
     try
       H.find !map.expr ident
     with Not_found ->
+    try
       H.find !map.array_index ident
+    with Not_found ->
+      H.find !map.quant_vars ident
 
 
   and compile_mode_reference bounds path' =
@@ -516,12 +521,27 @@ and compile_ast_expr
     X.map2 (fun _ -> mk) expr1 expr2
 
   and compile_quantifier bounds mk avars expr =
-    let vars_of_quant ctx avars = Lib.todo __LOC__ in
-    let ctx, vars = vars_of_quant ctx avars in
+    let var_of_quant vars (pos, v, ast_type) = 
+      let index_types = compile_ast_type cstate ctx map ast_type in
+      let vars, d = X.fold
+        (fun index index_type (vars, d) ->
+          let name = Format.sprintf "%s%s" v (X.string_of_index true index) in
+          let var = Var.mk_free_var (HString.mk_hstring name) index_type in
+          let ev = E.mk_free_var var in
+          var :: vars, X.add index ev d)
+        index_types
+        (vars, X.empty)
+      in
+      H.replace !map.quant_vars (mk_ident v) d;
+      vars
+    in let vars_of_quant avars = List.fold_left var_of_quant [] avars in
+    let vars = vars_of_quant avars in
     let bounds = bounds @
       List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
         vars in
-    compile_unary bounds (E.mk_forall vars) expr
+    let result = compile_unary bounds (E.mk_forall vars) expr in
+    H.clear !map.quant_vars;
+    result
 
   and compile_equality bounds polarity expr1 expr2 =
     let (mk_binary, mk_seq, const_expr) = match polarity with
