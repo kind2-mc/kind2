@@ -51,19 +51,22 @@ type compiler_state = {
   type_alias : Type.t LustreIndex.t StringMap.t;
   free_constants : Var.t LustreIndex.t StringMap.t;
   other_constants : LustreAst.expr StringMap.t;
-  state_var_bounds : (E.expr E.bound_or_fixed list) StateVar.StateVarHashtbl.t;
+  state_var_bounds : (LustreExpr.expr LustreExpr.bound_or_fixed list)
+    StateVar.StateVarHashtbl.t;
 }
 
 type identifier_maps = {
   state_var : StateVar.t LustreIdent.Hashtbl.t;
   expr : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
-  source : LustreNode.state_var_source option LustreIdent.Hashtbl.t;
-  bounds : LustreExpr.expr LustreExpr.bound_or_fixed list LustreIdent.Hashtbl.t;
+  source : LustreNode.state_var_source StateVar.StateVarHashtbl.t;
+  bounds : (LustreExpr.expr LustreExpr.bound_or_fixed list)
+    StateVar.StateVarHashtbl.t;
   array_index : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
 }
 
 let pp_print_identifier_maps ppf maps =
   let table_to_list h = H.fold (fun k v acc -> (k, v) :: acc) h []
+  in let map_to_list m = SVT.fold (fun k v acc -> (k, v) :: acc) m []
   in Format.fprintf ppf "{ state_var:%a;\n\n
     expr: %a;\n\n
     source:%a\n\n;
@@ -82,10 +85,10 @@ let pp_print_identifier_maps ppf maps =
     (table_to_list maps.expr)
     (pp_print_list
       (pp_print_pair
-        (I.pp_print_ident true)
-        (pp_print_option N.pp_print_state_var_source)
+        (StateVar.pp_print_state_var)
+        (N.pp_print_state_var_source)
         "=") ",\n")
-    (table_to_list maps.source)
+    (map_to_list maps.source)
     (pp_print_list
       (pp_print_pair
         (I.pp_print_ident true)
@@ -93,21 +96,22 @@ let pp_print_identifier_maps ppf maps =
         "=") ",\n")
     (table_to_list maps.array_index)
 
-let empty_identifier_maps = {
+let empty_identifier_maps () = {
   state_var = H.create 7;
   expr = H.create 7;
-  source = H.create 7;
-  bounds = H.create 7;
+  source = SVT.create 7;
+  bounds = SVT.create 7;
   array_index = H.create 7;
 }
 
-let empty_compiler_state = { 
+let empty_compiler_state () = { 
   nodes = [];
   type_alias = StringMap.empty;
   free_constants = StringMap.empty;
   other_constants = StringMap.empty;
   state_var_bounds = SVT.create 7;
 }
+
 
 let array_select_of_bounds_term bounds e =
   let (_, e) = List.fold_left (fun (i, t) -> function
@@ -176,8 +180,7 @@ let mk_state_var
     ident 
     index 
     state_var_type
-    source
-    state_var_source_map = 
+    source = 
   (* Concatenate identifier and indexes *)
   let state_var_name = mk_state_var_name ident index in
   (* For each index add a scope to the identifier to distinguish the
@@ -195,6 +198,7 @@ let mk_state_var
     x_y.z  [2]
   *)
   let flatten_scopes = X.mk_scope_for_index index in
+  
   (* Create or retrieve state variable *)
   let state_var =
   (* TODO check this *)
@@ -210,9 +214,6 @@ let mk_state_var
         state_var_name
         (scope @ flatten_scopes)
         state_var_type 
-  in let state_var_source_map' = match source with
-    | Some s -> SVM.add state_var s state_var_source_map
-    | None -> state_var_source_map
   in let compute_expr expr =
     if index = X.empty_index then
       X.singleton index expr
@@ -221,11 +222,13 @@ let mk_state_var
       X.add index expr t
     with Not_found -> X.singleton index expr
   in
-  H.replace !map.bounds ident (bounds_of_index index);
+  SVT.replace !map.bounds state_var (bounds_of_index index);
   H.replace !map.expr ident (compute_expr (E.mk_var state_var));
   H.replace !map.state_var ident state_var;
-  H.replace !map.source ident source;
-  state_var, state_var_source_map'
+  (match source with
+    | Some source -> SVT.replace !map.source state_var source;
+    | None -> ());
+  state_var
 
 let mk_ident id = match String.split_on_char '_' id with
   | i :: id' :: [] -> (match int_of_string_opt i with
@@ -237,7 +240,8 @@ let mk_ident id = match String.split_on_char '_' id with
   positions to an identifier (or leave it be if it is a constnat).
   That assumption is made explicit by calling this function. *)
 let extract_normalized = function
-  | A.Ident (pos, ident) -> mk_ident ident
+  | A.Ident (_, ident) -> mk_ident ident
+  | A.ArrayIndex (_, A.Ident (_, ident), _) -> mk_ident ident
   | _ -> assert false
 
 (* Match bindings from a trie of state variables and bindings for a
@@ -381,7 +385,7 @@ let expand_tuple pos lhs rhs =
 
 let rec compile ctx (gids:LAN.generated_identifiers LAN.StringMap.t) (decls:LustreAst.declaration list) =
   let over_decls cstate decl = compile_declaration cstate gids ctx decl in
-  let output = List.fold_left over_decls empty_compiler_state decls in
+  let output = List.fold_left over_decls (empty_compiler_state ()) decls in
   let free_constants = output.free_constants
     |> StringMap.bindings
     |> List.map (fun (id, v) -> mk_ident id, v)
@@ -392,6 +396,7 @@ let rec compile ctx (gids:LAN.generated_identifiers LAN.StringMap.t) (decls:Lust
 and compile_ast_type
   (cstate:compiler_state)
   (ctx:C.tc_context)
+  map
   = function
   | A.TVar _ -> assert false
   | A.Bool _ -> X.singleton X.empty_index Type.t_bool
@@ -427,14 +432,14 @@ and compile_ast_type
   | A.RecordType (pos, record_fields) ->
     let over_fields = fun a (_, i, t) ->
       let over_indices = fun j t a -> X.add (X.RecordIndex i :: j) t a in
-      let compiled_record_field_ty = compile_ast_type cstate ctx t in
+      let compiled_record_field_ty = compile_ast_type cstate ctx map t in
       X.fold over_indices compiled_record_field_ty a
     in
     List.fold_left over_fields X.empty record_fields
   | A.TupleType (pos, tuple_fields) ->
     let over_fields = fun (i, a) t ->
       let over_indices = fun j t a -> X.add (X.TupleIndex i :: j) t a in
-      let compiled_tuple_field_ty = compile_ast_type cstate ctx t in
+      let compiled_tuple_field_ty = compile_ast_type cstate ctx map t in
       succ i, X.fold over_indices compiled_tuple_field_ty a
     in
     List.fold_left over_fields (0, X.empty) tuple_fields |> snd
@@ -444,19 +449,27 @@ and compile_ast_type
     (* TODO: Should we check that array size is constant here or later?
       If the var_size flag is set, variable sized arrays are allowed
       otherwise we should fail and make sure they are constant *)
-    let empty_map = ref empty_identifier_maps in
-    let array_size' = compile_ast_expr cstate ctx [] empty_map size_expr in
+    let element_type = compile_ast_type cstate ctx map type_expr in
+    let array_size' = compile_ast_expr cstate ctx [] map size_expr in
     let array_size = (List.hd (X.values array_size')).expr_init in
-    let element_type = compile_ast_type cstate ctx type_expr in
     (* Old code does flattening here, but that flattening is only ever used
       once! And it is for a check, in lustreDeclarations line 423 *)
-    let over_element_type j t a = X.add
-      (j @ [X.ArrayVarIndex array_size])
-      (Type.mk_array t (if E.is_numeral array_size
-        then Type.mk_int_range Numeral.zero (E.numeral_of_expr array_size)
-        else Type.t_int))
-      a
-    in X.fold over_element_type element_type X.empty
+(*     if AH.expr_is_const size_expr then
+      let upper = E.numeral_of_expr array_size in
+      let result = ref X.empty in
+      for ix = 0 to (Numeral.to_int upper - 1) do
+        result := X.fold
+          (fun j t a -> X.add (j @ [X.ArrayIntIndex ix]) t a) element_type !result
+      done;
+      !result
+    else *)
+      let over_element_type j t a = X.add
+        (j @ [X.ArrayVarIndex array_size])
+        (Type.mk_array t (if E.is_numeral array_size
+          then Type.mk_int_range Numeral.zero (E.numeral_of_expr array_size)
+          else Type.t_int))
+        a
+      in X.fold over_element_type element_type X.empty
   | A.TArr _ -> assert false
       (* Lib.todo "Trying to flatten function type. This should not happen" *)
 
@@ -468,7 +481,7 @@ and compile_ast_expr
   map
   expr
   : LustreExpr.t LustreIndex.t = 
-  
+
   let rec compile_id_string bounds id_str =
     let ident = mk_ident id_str in
     try
@@ -487,6 +500,7 @@ and compile_ast_expr
       H.find !map.expr ident
     with Not_found ->
       H.find !map.array_index ident
+
 
   and compile_mode_reference bounds path' =
     Lib.todo __LOC__
@@ -528,7 +542,7 @@ and compile_ast_expr
     let cexpr = compile_ast_expr cstate ctx bounds map expr in
     let ident = extract_normalized expr in
     let sv = H.find !map.state_var ident in
-    let source = H.find !map.source ident in
+    let source = SVT.find_opt !map.source sv in
     let over_indices index expr' accum =
       let expr' = E.mk_pre expr' in
       let pos = AH.pos_of_expr expr in
@@ -658,22 +672,22 @@ and compile_ast_expr
     let array_size' = compile_ast_expr cstate ctx bounds map size_expr in
     let array_size = (array_size' |> X.values |> List.hd).expr_init in
     let cexpr = compile_ast_expr cstate ctx bounds map expr in
-    if Term.is_numeral (E.unsafe_term_of_expr array_size) then
+(*     let size_is_numeral = Term.is_numeral (E.unsafe_term_of_expr array_size) in
+    if size_is_numeral then
       let l_expr = array_size
         |> E.unsafe_term_of_expr
         |> Term.numeral_of_term
         |> Numeral.to_int
         |> list_init (fun _ -> expr)
       in let gexpr = A.GroupExpr (pos, A.ArrayExpr, l_expr) in
-      compile_ast_expr cstate ctx bounds map gexpr
-    else
-      cexpr
-      (*
-      let over_indices = fun j e a -> 
-        let e' = compile_ast_expr cstate ctx bounds map e in
-        X.add (X.ArrayVarIndex array_size :: j) e' a
+      let result = compile_ast_expr cstate ctx bounds map gexpr in
+      result
+    else *)
+      let over_indices = fun j (e:LustreExpr.t) a -> 
+        let e' = state_var_of_expr e |> E.mk_var
+        in X.add (X.ArrayVarIndex array_size :: j) e' a
       in let result = X.fold over_indices cexpr X.empty in
-      result *)
+      result
 
   and compile_array_index bounds expr i =
     let compiled_i = compile_ast_expr cstate ctx bounds map i in
@@ -726,7 +740,7 @@ and compile_ast_expr
     in push compiled_expr
 
   in
-  (* Format.eprintf "%a\n" A.pp_print_expr expr; *)
+(*   Format.eprintf "%a\n" A.pp_print_expr expr; *)
   match expr with
   (* ****************************************************************** *)
   (* Identifiers                                                        *)
@@ -953,7 +967,6 @@ and compile_node pos ctx cstate map oracles outputs cond restart ident args defa
 and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs locals items contracts =
   let name = mk_ident i in
   let node_scope = name |> I.to_scope in
-  let state_var_source_map = SVM.empty in
   let is_extern = ext in
   let instance =
     StateVar.mk_state_var
@@ -966,22 +979,23 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       (I.init_flag_ident |> I.string_of_ident false)
       (I.to_scope name @ I.reserved_scope)
       Type.t_bool
-  in let map = ref empty_identifier_maps
+  in let map = ref (empty_identifier_maps ()) in
+  let state_var_expr_map = SVT.create 7 in
   (* ****************************************************************** *)
   (* Node Inputs                                                        *)
   (* ****************************************************************** *)
-  in let (inputs, state_var_source_map) =
+  let inputs =
     (* TODO: The documentation on lustreNode says that a single argument
       node should have a non-list index (a singleton index), but the old
       node generation code does not seem to honor that *)
-    let over_inputs = fun (compiled_input, svsm) (pos, i, ast_type, clock, is_const) ->
+    let over_inputs = fun compiled_input (pos, i, ast_type, clock, is_const) ->
       match clock with
       | A.ClockTrue ->
         let n = X.top_max_index compiled_input |> succ in
         let ident = mk_ident i in
-        let index_types = compile_ast_type cstate ctx ast_type in
-        let over_indices = fun index index_type (accum, svsm) ->
-          let state_var, svsm = mk_state_var
+        let index_types = compile_ast_type cstate ctx map ast_type in
+        let over_indices = fun index index_type accum ->
+          let state_var = mk_state_var
             ~is_input:true
             ~is_const
             map
@@ -990,27 +1004,26 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
             index
             index_type
             (Some N.Input)
-            svsm
           in let result = X.add (X.ListIndex n :: index) state_var accum in
-          result, svsm
-        in X.fold over_indices index_types (compiled_input, svsm)
+          result
+        in X.fold over_indices index_types compiled_input
       | _ -> fail_at_position pos "Clocked node inputs not supported"
-    in List.fold_left over_inputs (X.empty, state_var_source_map) inputs
+    in List.fold_left over_inputs X.empty inputs
   (* ****************************************************************** *)
   (* Node Outputs                                                       *)
   (* ****************************************************************** *)
-  in let (outputs, state_var_source_map) =
+  in let outputs =
     (* TODO: The documentation on lustreNode does not state anything about
       the requirements for indices of outputs, yet the old code makes it
       a singleton index in the event there is only one index *)
-    let over_outputs = fun (is_single) (compiled_output, svsm) (pos, i, ast_type, clock) ->
+    let over_outputs = fun (is_single) compiled_output (pos, i, ast_type, clock) ->
       match clock with
       | A.ClockTrue ->
         let n = X.top_max_index compiled_output |> succ in
         let ident = mk_ident i in
-        let index_types = compile_ast_type cstate ctx ast_type in
-        let over_indices = fun index index_type (accum, svsm) ->
-          let state_var, svsm = mk_state_var
+        let index_types = compile_ast_type cstate ctx map ast_type in
+        let over_indices = fun index index_type accum ->
+          let state_var = mk_state_var
             ~is_input:false
             map
             (node_scope @ I.user_scope)
@@ -1018,26 +1031,24 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
             index
             index_type
             (Some N.Output)
-            svsm
           and index' = if is_single then index
             else X.ListIndex n :: index
-          in let result = X.add index' state_var accum in
-          result, svsm
-        in X.fold over_indices index_types (compiled_output, svsm)
+          in X.add index' state_var accum
+        in X.fold over_indices index_types compiled_output
       | _ -> fail_at_position pos "Clocked node outputs not supported"
     and is_single = List.length outputs = 1
-    in List.fold_left (over_outputs is_single) (X.empty, state_var_source_map) outputs
+    in List.fold_left (over_outputs is_single) X.empty outputs
   (* ****************************************************************** *)
   (* User Locals                                                        *)
   (* ****************************************************************** *)
-  in let (locals, state_var_source_map) =
+  in let locals =
     let over_locals = fun local ->
       match local with
       | A.NodeVarDecl (_, (pos, i, ast_type, A.ClockTrue)) ->
         let ident = mk_ident i
-        and index_types = compile_ast_type cstate ctx ast_type in
-        let over_indices = fun index index_type (accum, svsm) ->
-          let state_var, svsm = mk_state_var
+        and index_types = compile_ast_type cstate ctx map ast_type in
+        let over_indices = fun index index_type accum ->
+          let state_var = mk_state_var
             ~is_input:false
             map
             (node_scope @ "impl" :: I.user_scope)
@@ -1045,68 +1056,90 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
             index
             index_type
             (Some N.Local)
-            svsm
           in let result = X.add index state_var accum in
-          result, svsm
-        in Some (X.fold over_indices index_types (X.empty, state_var_source_map))
+          result
+        in Some (X.fold over_indices index_types X.empty)
       | A.NodeVarDecl (_, (pos, i, _, _)) -> fail_at_position pos
         (Format.asprintf
           "Clocked node local variable not supported for %a"
           A.pp_print_ident i)
       | _ -> None
-    in let locals_and_sources = list_filter_map over_locals locals in
-    let split = fun (sv_list, svsm') (sv, svsm) ->
-      sv :: sv_list, SVM.union (fun _ v _ -> Some v) svsm svsm'
-    in List.fold_left split ([], state_var_source_map) locals_and_sources
+    in list_filter_map over_locals locals
   (* ****************************************************************** *)
   (* (State Variables for) Generated Locals                             *)
   (* ****************************************************************** *)
-  in let (glocals, state_var_source_map) =
+  in let glocals =
     let locals_list = LAN.StringMap.bindings gids.LAN.locals in
-    let over_generated_locals (glocals, svsm) (id, (is_ghost, expr_type, expr)) =
+    let over_generated_locals glocals (id, (is_ghost, expr_type, expr)) =
       let ident = mk_ident id in
-      let nexpr_type = compile_ast_type cstate ctx expr_type in
-      let nexpr_type' = nexpr_type |> X.values |> List.hd in
-      let state_var, svsm = mk_state_var
-        map
-        (node_scope @ I.reserved_scope)
-        ident
-        X.empty_index
-        nexpr_type'
-        (if is_ghost then Some N.KGhost else None)
-        svsm
-      in let result = X.singleton X.empty_index state_var in
-      result :: glocals, svsm
-    in List.fold_left over_generated_locals
-      ([], state_var_source_map)
-      locals_list
+      let index_types = compile_ast_type cstate ctx map expr_type in
+      let over_indices = fun index index_type accum ->
+        let state_var = mk_state_var
+          map
+          (node_scope @ I.reserved_scope)
+          ident
+          index
+          index_type
+          (if is_ghost then Some N.KGhost else None)
+        in 
+        X.add index state_var accum
+      in let result = X.fold over_indices index_types X.empty in
+      result :: glocals
+    in List.fold_left over_generated_locals [] locals_list
   (* ****************************************************************** *)
   (* (State Variables for) Generated Locals for Node Arguments          *)
   (* ****************************************************************** *)
-  in let (glocals, state_var_source_map) =
-    let over_generated_locals (glocals, svsm) (id, is_const, expr_type, expr) =
+  in let glocals =
+    let over_generated_locals glocals (id, is_const, expr_type, expr) =
       let ident = mk_ident id in
-      let nexpr_type = compile_ast_type cstate ctx expr_type in
-      let nexpr_type' = nexpr_type |> X.values |> List.hd in
-      let state_var, svsm = mk_state_var
-        ~is_const
-        map
-        (node_scope @ I.reserved_scope)
-        ident
-        X.empty_index
-        nexpr_type'
-        (Some N.KLocal)
-        svsm
-      in let result = X.singleton X.empty_index state_var in
-      result :: glocals, svsm
-    in List.fold_left over_generated_locals
-      (glocals, state_var_source_map)
-      gids.LAN.node_args
+      let index_types = compile_ast_type cstate ctx map expr_type in
+      let over_indices = fun index index_type accum ->
+        let state_var = mk_state_var
+          ~is_const
+          map
+          (node_scope @ I.reserved_scope)
+          ident
+          index
+          index_type
+          (Some N.KLocal)
+        in X.add index state_var accum
+      in let result = X.fold over_indices index_types X.empty in
+      result :: glocals
+    in List.fold_left over_generated_locals glocals gids.LAN.node_args
+  (* ****************************************************************** *)
+  (* (State Variables for) Generated Locals for Array Constructors      *)
+  (* ****************************************************************** *)
+  in let glocals =
+    let array_ctor_list = LAN.StringMap.bindings gids.LAN.array_constructors in
+    let over_generated_locals glocals (id, (expr_type, expr, size_expr)) =
+      let pos = AH.pos_of_expr expr in
+      let ident = mk_ident id in
+      let index_types = compile_ast_type cstate ctx map expr_type in
+      let nsize_expr = compile_ast_expr cstate ctx [] map size_expr in
+      let size = (nsize_expr |> X.values |> List.hd).expr_init in
+      let is_numeral = Term.is_numeral (E.unsafe_term_of_expr size) in
+      let bound = if is_numeral then E.Fixed size else E.Bound size in
+        let over_indices = fun index index_type accum ->
+          (* let index = X.ArrayVarIndex size :: index in *)
+          let state_var = mk_state_var
+            map
+            (node_scope @ I.reserved_scope)
+            ident
+            index
+            index_type
+            None
+          in if not (StateVar.is_input state_var)
+            then N.add_state_var_def state_var (N.GeneratedEq (pos, index));
+          SVT.add !map.bounds state_var [bound];
+          X.add index state_var accum
+      in let result = X.fold over_indices index_types X.empty in
+      result :: glocals
+    in List.fold_left over_generated_locals glocals array_ctor_list
   (* ****************************************************************** *)
   (* Oracles                                                            *)
   (* ****************************************************************** *)
-  in let (oracles, state_var_source_map, oracle_state_var_map) =
-    let over_oracles (oracles, svsm, osvm) (id, expr) =
+  in let (oracles, oracle_state_var_map) =
+    let over_oracles (oracles, osvm) (id, expr) =
       let oracle_ident = mk_ident id in
       let (closed_sv, is_const, state_var_type) = match expr with
         | A.Ident (pos, id') ->
@@ -1120,7 +1153,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
           | A.Dec _ -> Type.mk_real ()
           | A.Num _ -> Type.mk_int ())
         | _ -> assert false
-      in let state_var, svsm = mk_state_var
+      in let state_var = mk_state_var
         ~is_const:true
         map
         (node_scope @ I.reserved_scope)
@@ -1128,23 +1161,20 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
         X.empty_index
         state_var_type
         (Some N.Oracle)
-        svsm
       in
       (match closed_sv with
         | Some sv -> SVT.add osvm state_var sv
         | None -> ());
-      state_var :: oracles, svsm, osvm
-    in List.fold_left over_oracles
-      ([], state_var_source_map, SVT.create 7)
-      gids.LAN.oracles
+      state_var :: oracles, osvm
+    in List.fold_left over_oracles ([], SVT.create 7) gids.LAN.oracles
   (* ****************************************************************** *)
   (* Propagated Oracles                                                 *)
   (* ****************************************************************** *)
-  in let (oracles, state_var_source_map) =
+  in let oracles=
     let existing_oracles = cstate.nodes
       |> List.map (fun n -> n.N.oracles) 
       |> List.flatten
-    in let over_propagated_oracles (oracles, svsm) (name, orc) =
+    in let over_propagated_oracles oracles (name, orc) =
       let oracle_ident = mk_ident name in
       let orc_state_var = List.find (fun o ->
         let existing_oracle_name = StateVar.name_of_state_var o
@@ -1153,7 +1183,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
         existing_oracles
       in let state_var_type = StateVar.type_of_state_var orc_state_var in
       let is_const = StateVar.is_const orc_state_var in
-      let state_var, svsm = mk_state_var
+      let state_var = mk_state_var
         ~is_input:true
         ~is_const
         map
@@ -1162,17 +1192,14 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
         X.empty_index
         state_var_type
         (Some N.Oracle)
-        svsm
       in 
-      state_var :: oracles, svsm
-    in List.fold_left over_propagated_oracles
-      (oracles, state_var_source_map)
-      gids.LAN.propagated_oracles
+      state_var :: oracles
+    in List.fold_left over_propagated_oracles oracles gids.LAN.propagated_oracles
   (* ****************************************************************** *)
   (* Node Calls                                                         *)
   (* ****************************************************************** *)
-  in let (calls, glocals, state_var_source_map) =
-    let over_calls = fun (calls, glocals, svsm) (pos, oracles, var, cond, restart, ident, args, defaults) ->
+  in let (calls, glocals) =
+    let over_calls = fun (calls, glocals) (pos, oracles, var, cond, restart, ident, args, defaults) ->
       let node_id = mk_ident ident in
       let called_node = N.node_of_name node_id cstate.nodes in
       let output_ast_types = (match C.lookup_node_ty ctx ident with
@@ -1183,15 +1210,14 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
         | _ -> assert false)
       in 
       let output_types = List.map
-        (fun t -> compile_ast_type cstate ctx t)
+        (fun t -> compile_ast_type cstate ctx map t)
         output_ast_types
       in let is_single = List.length output_types = 1 in
       let local_map = H.create 7 in
-      let source_maps = H.create 7 in
       let outputs =
         let over_vars = fun (is_single) i sv compiled_vars ->
           let var_id = mk_ident var in
-          let state_var, svsm' = mk_state_var
+          let state_var = mk_state_var
             ~is_input:false
             map
             (node_scope @ I.reserved_scope)
@@ -1199,61 +1225,22 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
             i
             (StateVar.type_of_state_var sv)
             (Some N.Call)
-            svsm
           in
           H.add local_map var_id state_var;
-          H.add source_maps var_id svsm';
           N.add_state_var_def state_var (N.CallOutput (pos, i));
           N.set_state_var_instance state_var pos node_id sv;
           X.add i state_var compiled_vars
         in X.fold (over_vars is_single) called_node.outputs X.empty
-      in let svsm' = H.fold (fun k v a -> SVM.union (fun _ v _ -> Some v) a v)
-        source_maps svsm
       in let node_call = compile_node
         pos ctx cstate map oracles outputs cond restart node_id args defaults
       in let glocals' = H.fold (fun k v a -> (X.singleton X.empty_index v) :: a) local_map [] in 
-      node_call :: calls, glocals' @ glocals, svsm'
-    in List.fold_left over_calls ([], glocals, state_var_source_map) gids.calls
+      node_call :: calls, glocals' @ glocals
+    in List.fold_left over_calls ([], glocals) gids.calls
   in
-  (* ****************************************************************** *)
-  (* (Equations for) Generated Locals                                   *)
-  (* ****************************************************************** *)
-  let (gequations, state_var_expr_map) =
-    let locals_list = LAN.StringMap.bindings gids.LAN.locals in
-    let over_generated_locals (geqns, svem) (id, (_, expr_type, expr)) =
-      let ident = mk_ident id in
-      let nexpr = compile_ast_expr cstate ctx [] map expr in
-      let nexpr' = nexpr |> X.values |> List.hd in
-      let state_var = H.find !map.state_var ident in
-      let expr = H.find !map.expr ident in
-      let result = X.map (fun e -> state_var_of_expr e) expr in
-      let equation = expand_tuple pos result nexpr in
-      SVT.add svem state_var nexpr';
-      equation @ geqns, svem
-    in List.fold_left over_generated_locals
-      ([], SVT.create 7)
-      locals_list
-  (* ****************************************************************** *)
-  (* (Equations for) Generated Locals for Node Arguments                *)
-  (* ****************************************************************** *)
-  in let (gequations, state_var_expr_map) =
-    let over_generated_locals (geqns, svem) (id, _, _, expr) =
-      let ident = mk_ident id in
-      let nexpr = compile_ast_expr cstate ctx [] map expr in
-      let nexpr' = nexpr |> X.values |> List.hd in
-      let state_var = H.find !map.state_var ident in
-      let expr = H.find !map.expr ident in
-      let result = X.map (fun e -> state_var_of_expr e) expr in
-      let equation = expand_tuple pos result nexpr in
-      SVT.add svem state_var nexpr';
-      equation @ geqns, svem
-    in List.fold_left over_generated_locals
-      (gequations, state_var_expr_map)
-      gids.LAN.node_args
   (* ****************************************************************** *)
   (* Split node items into relevant categories                          *)
   (* ****************************************************************** *)
-  in let (node_props, node_eqs, node_asserts, node_automations, is_main) = 
+  let (node_props, node_eqs, node_asserts, node_automations, is_main) = 
     let over_items = fun (props, eqs, asserts, autos, is_main) (item) ->
       match item with
       | A.Body e -> (match e with
@@ -1270,6 +1257,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
     let op (pos, name_opt, expr) =
       let id_str = match expr with
         | A.Ident (_, id_str) -> id_str
+        | A.ArrayIndex (_, A.Ident (_, id_str), _) -> id_str
         | _ -> assert false (* must be abstracted *)
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in
@@ -1289,39 +1277,88 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       (pos, sv)
     in List.map op node_asserts
   (* ****************************************************************** *)
+  (* Helpers for generated and user equations                           *)
+  (* ****************************************************************** *)
+  in let compile_struct_item = fun struct_item -> match struct_item with
+    | A.SingleIdent (pos, i) ->
+      let ident = mk_ident i in
+      let expr = H.find !map.expr ident in
+      let result = X.map (fun e -> state_var_of_expr e) expr in
+      result, 0
+    | A.ArrayDef (pos, i, l) ->
+      let ident = mk_ident i in
+      Format.print_string i;
+      let expr = H.find !map.expr ident in
+      let result = X.map (fun e -> state_var_of_expr e) expr in
+      (* TODO: Old code checks that array lengths between l and result match *)
+      (* TODO: Old code checks that result must have at least one element *)
+      (* TODO: Old code suggets that shadowing can occur here *)
+      let indexes = List.length l in
+      List.iteri (fun i v -> 
+        let ident = mk_ident v in
+        let expr = E.mk_index_var i in
+        let index = X.singleton X.empty_index expr in
+        H.add !map.array_index ident index;)
+        l;
+      result, indexes
+    | A.TupleStructItem (pos, _)
+    | A.TupleSelection (pos, _, _)
+    | A.FieldSelection (pos, _, _)
+    | A.ArraySliceStructItem (pos, _, _) ->
+      fail_at_position pos "Assignment not supported"
+
+  in let rm_array_var_index lst =
+      List.filter (function
+      | X.ArrayVarIndex _ -> false
+      | _ -> true
+      ) lst
+
+  in let gen_lhs_bounds is_generated eq_lhs expr indexes =
+    List.fold_left (fun acc (i, sv) ->
+      let result = List.fold_left (fun (acc, cpt) -> function
+        | X.ArrayVarIndex b -> if cpt < indexes
+          then E.Bound b :: acc, succ cpt
+          else acc, cpt
+        | X.ArrayIntIndex x -> 
+          let expr = (E.mk_int (Numeral.of_int x)).expr_init in
+          E.Fixed expr :: acc, succ cpt
+        | _ -> acc, cpt)
+        (acc, 0) i |> fst
+      in if not is_generated then N.add_state_var_def sv
+        (N.ProperEq (AH.pos_of_expr expr, rm_array_var_index i));
+      result
+    ) [] (X.bindings eq_lhs)
+  (* ****************************************************************** *)
+  (* Generated Equations                                                *)
+  (* ****************************************************************** *)
+  in let gequations =
+    let over_equations = fun eqns (lhs, ast_expr) ->
+      let eq_lhs, indexes = match lhs with
+        | A.StructDef (_, []) -> (X.empty, 0)
+        | A.StructDef (_, [e]) -> compile_struct_item e
+        | A.StructDef (_, l) ->
+          let construct_index i j e a = X.add (X.ListIndex i :: j) e a in
+          let over_items = fun (i, accum) e -> 
+            let t, _ = compile_struct_item e in
+              i + 1, X.fold (construct_index i) t accum
+          in let i, res = List.fold_left over_items (0, X.empty) l
+          in res, 0
+      in let lhs_bounds = gen_lhs_bounds true eq_lhs ast_expr indexes
+      in let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr
+      in let equations = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      List.iter (fun ((sv, _), e) -> SVT.add state_var_expr_map sv e) equations;
+      H.clear !map.array_index;
+      (* TODO: Old code tries to infer a more strict type here
+        lustreContext 2040+ *)
+      equations @ eqns
+    in List.fold_left over_equations [] gids.LAN.equations
+  (* ****************************************************************** *)
   (* Node Equations                                                     *)
   (* ****************************************************************** *)
   in 
-  (* Format.eprintf "map:\n\n%a\n\n" pp_print_identifier_maps !map; *)
+(*   Format.eprintf "map:\n\n%a\n\n" pp_print_identifier_maps !map; *)
   let equations =
-    let compile_struct_item = fun struct_item -> match struct_item with
-      | A.SingleIdent (pos, i) ->
-        let ident = mk_ident i in
-        let expr = H.find !map.expr ident in
-        let result = X.map (fun e -> state_var_of_expr e) expr in
-        result, 0
-      | A.ArrayDef (pos, i, l) ->
-        let ident = mk_ident i in
-        let expr = H.find !map.expr ident in
-        let result = X.map (fun e -> state_var_of_expr e) expr in
-        (* TODO: Old code checks that array lengths between l and result match *)
-        (* TODO: Old code checks that result must have at least one element *)
-        (* TODO: Old code suggets that shadowing can occur here *)
-        let indexes = List.length l in
-        List.iteri (fun i v -> 
-          let ident = mk_ident v in
-          let expr = E.mk_index_var i in
-          let index = X.singleton X.empty_index expr in
-          H.add !map.array_index ident index;)
-          l;
-        result, indexes
-      | A.TupleStructItem (pos, _)
-      | A.TupleSelection (pos, _, _)
-      | A.FieldSelection (pos, _, _)
-      | A.ArraySliceStructItem (pos, _, _) ->
-        fail_at_position pos "Assignment not supported"
-
-    in let over_equations = fun eqns (pos, lhs, ast_expr) ->
+    let over_equations = fun eqns (pos, lhs, ast_expr) ->
       let eq_lhs, indexes = match lhs with
         | A.StructDef (pos, []) -> (X.empty, 0)
         | A.StructDef (pos, [e]) -> compile_struct_item e
@@ -1332,24 +1369,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
               i + 1, X.fold (construct_index i) t accum
           in let i, res = List.fold_left over_items (0, X.empty) l
           in res, 0
-
-      in let rm_array_var_index lst =
-        List.filter (function
-        | X.ArrayVarIndex _ -> false
-        | _ -> true
-        ) lst
-
-      in let lhs_bounds = List.fold_left (fun acc (i, sv) ->
-        N.add_state_var_def sv (N.ProperEq (AH.pos_of_expr ast_expr, rm_array_var_index i));
-        List.fold_left (fun (acc, cpt) -> function
-            | X.ArrayVarIndex b -> if cpt < indexes
-              then E.Bound b :: acc, succ cpt
-              else acc, cpt
-            | _ -> acc, cpt
-          ) (acc, 0) i
-        |> fst
-      ) [] (X.bindings eq_lhs)
-
+      in let lhs_bounds = gen_lhs_bounds false eq_lhs ast_expr indexes
       in let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr
       in let equations = expand_tuple pos eq_lhs eq_rhs in
       H.clear !map.array_index;
@@ -1359,6 +1379,8 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
     in List.fold_left over_equations [] node_eqs
   in let locals = locals @ glocals in
   let equations = equations @ gequations in
+  let state_var_source_map = SVT.fold (fun k v a -> SVM.add k v a)
+    !map.source SVM.empty in
   
   (* TODO: Not currently handling contracts *)
   let contract = None
@@ -1385,24 +1407,25 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
     silent_contracts
   } in { cstate with
     nodes = node :: cstate.nodes;
+    state_var_bounds = !map.bounds;
   }
 
 and compile_const_decl cstate ctx = function
   | A.FreeConst (pos, i, ty) ->
     let ident = mk_ident i in
-    let cty = compile_ast_type cstate ctx ty in
+    let empty_map = ref (empty_identifier_maps ()) in
+    let cty = compile_ast_type cstate ctx empty_map ty in
     let over_index = fun i ty vt ->
-      let state_var, _ = mk_state_var
+      let state_var = mk_state_var
         ?is_input:(Some false)
         ?is_const:(Some true)
         ?for_inv_gen:(Some true)
-        (ref empty_identifier_maps)
+        empty_map
         I.user_scope
         ident
         i
         ty
         None
-        SVM.empty
       in let v = Var.mk_const_state_var state_var in
       X.add i v vt
     in let vt = X.fold over_index cty X.empty in
@@ -1414,13 +1437,15 @@ and compile_const_decl cstate ctx = function
     { cstate with other_constants = StringMap.add i expr cstate.other_constants }
 
 and compile_type_decl pos ctx cstate = function
-  | A.AliasType (_, ident, ltype) -> 
-    let t = compile_ast_type cstate ctx ltype in
+  | A.AliasType (_, ident, ltype) ->
+    let empty_map = ref (empty_identifier_maps ()) in
+    let t = compile_ast_type cstate ctx empty_map ltype in
     let type_alias = StringMap.add ident t cstate.type_alias in
     { cstate with
       type_alias }
   | A.FreeType (_, ident) ->
-    let t = compile_ast_type cstate ctx (A.AbstractType (pos, ident)) in
+    let empty_map = ref (empty_identifier_maps ()) in
+    let t = compile_ast_type cstate ctx empty_map (A.AbstractType (pos, ident)) in
     let type_alias = StringMap.add ident t cstate.type_alias in
     { cstate with
       type_alias }
