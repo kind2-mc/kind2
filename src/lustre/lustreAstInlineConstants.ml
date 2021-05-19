@@ -230,22 +230,24 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
              else simplify_expr ctx ident'
           | _ -> simplify_expr ctx const_expr)
       | None -> LA.Ident (pos, i))
-  | LA.UnaryOp (pos, op, e1) as e ->
+  | LA.UnaryOp (pos, op, e1) ->
     let e1' = simplify_expr ctx e1 in
+    let e' = LA.UnaryOp (pos, op, e1') in
     (match op with
     | LA.Uminus -> (match eval_int_unary_op ctx pos op e1' with
       | Ok v -> LA.Const (pos, Num (string_of_int v))
-      | Error _ -> e)
+      | Error _ -> e')
     | LA.Not -> (match eval_bool_unary_op ctx pos op e1' with
       | Ok v -> if v then LA.Const(pos, True) else LA.Const (pos, False)
-      | Error _ -> e)
-    | _ -> e)
-  | LA.BinaryOp (pos, bop, e1, e2) as e->
+      | Error _ -> e')
+    | _ -> e')
+  | LA.BinaryOp (pos, bop, e1, e2) ->
      let e1' = simplify_expr ctx e1 in
      let e2' = simplify_expr ctx e2 in
+     let e' = LA.BinaryOp (pos, bop, e1', e2') in
      (match (eval_int_binary_op ctx pos bop e1' e2') with
       | Ok v -> LA.Const (pos, Num (string_of_int v))
-      | Error _ -> e)
+      | Error _ -> e')
   | LA.TernaryOp (pos, top, cond, e1, e2) as e ->
      (match top with
      | Ite -> 
@@ -253,23 +255,26 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
          | Ok v -> if v then simplify_expr ctx e1 else simplify_expr ctx e2 
          | Error _ -> e)
      | _ -> Lib.todo __LOC__)
-  | LA.CompOp (pos, cop, e1, e2) as e->
+  | LA.CompOp (pos, cop, e1, e2) ->
      let e1' = simplify_expr ctx e1 in
      let e2' = simplify_expr ctx e2 in
+     let e' = LA.CompOp (pos, cop, e1', e2') in
      (match (eval_comp_op ctx pos cop e1' e2') with
       | Ok v -> LA.Const (pos, lift_bool v)
-      | Error _ -> e)
+      | Error _ -> e')
   | LA.GroupExpr (pos, g, es) ->
      let es' = List.map (fun e -> simplify_expr ctx e) es in 
      LA.GroupExpr (pos, g, es')
   | LA.RecordExpr (pos, i, fields) ->
      let fields' = List.map (fun (f, e) -> (f, simplify_expr ctx e)) fields in
      LA.RecordExpr (pos, i, fields')
-  | LA.ArrayConstr (pos, e1, e2) as e->
+  | LA.ArrayConstr (pos, e1, e2) ->
      let e1' = simplify_expr ctx e1 in
+     let e2' = simplify_expr ctx e2 in
+     let e' = LA.ArrayConstr (pos, e1', e2') in
      (match (eval_int_expr ctx e2) with
       | Ok size -> LA.GroupExpr (pos, LA.ArrayExpr, Lib.list_init (fun _ -> e1') size)
-      | Error _ -> e)
+      | Error _ -> e')
   | LA.ArrayIndex (pos, e1, e2) -> simplify_array_index ctx pos e1 e2
   | LA.ArrayConcat (pos, e1, e2) as e->
      (match (simplify_expr ctx e1, simplify_expr ctx e2) with
