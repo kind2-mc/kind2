@@ -89,7 +89,7 @@ type generated_identifiers = {
     * LustreAst.expr)
     StringMap.t;
   warnings : (Lib.position * LustreAst.expr) list;
-  oracles : (string * LustreAst.expr) list;
+  oracles : (string * LustreAst.lustre_type * LustreAst.expr) list;
   propagated_oracles : (string * string) list;
   calls : (Lib.position (* node call position *)
     * (string list) (* oracle inputs *)

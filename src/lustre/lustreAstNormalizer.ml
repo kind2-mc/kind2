@@ -99,7 +99,7 @@ type generated_identifiers = {
     * LustreAst.expr)
     StringMap.t;
   warnings : (Lib.position * LustreAst.expr) list;
-  oracles : (string * LustreAst.expr) list;
+  oracles : (string * LustreAst.lustre_type * LustreAst.expr) list;
   propagated_oracles : (string * string) list;
   calls : (Lib.position (* node call position *)
     * (string list) (* oracle inputs *)
@@ -147,10 +147,10 @@ let pp_print_generated_identifiers ppf gids =
     b
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
-  in let pp_print_oracle = pp_print_pair
-    Format.pp_print_string
-    LustreAst.pp_print_expr
-    ":"
+  in let pp_print_oracle ppf (id, ty, e) = Format.fprintf ppf "(%a, %a, %a)"
+    Format.pp_print_string id
+    LustreAst.pp_print_lustre_type ty
+    LustreAst.pp_print_expr e
   in let pp_print_call = (fun ppf (pos, oracles, output, cond, restart, ident, args, defaults) ->
     Format.fprintf ppf 
       "%a: %a = call(%a,(restart %a every %a)(%a;%a),%a)"
@@ -291,7 +291,7 @@ let mk_fresh_node_arg_local pos is_const ind_vars expr_type expr =
     equations = [(eq_lhs, expr)] }
   in nexpr, gids
 
-let mk_fresh_oracle expr =
+let mk_fresh_oracle expr_type expr =
   i := !i + 1;
   let prefix = string_of_int !i in
   let name = prefix ^ "_oracle" in
@@ -300,7 +300,7 @@ let mk_fresh_oracle expr =
     array_constructors = StringMap.empty;
     warnings = [];
     node_args = [];
-    oracles = [name, expr];
+    oracles = [name, expr_type, expr];
     propagated_oracles = [];
     calls = [];
     equations = [] }
@@ -323,7 +323,7 @@ let mk_fresh_call id map pos cond restart args defaults =
   let nexpr = A.Ident (pos, name)
   in let propagated_oracles = 
     let called_node = StringMap.find id map in
-    let called_oracles = called_node.oracles |> List.map fst in
+    let called_oracles = called_node.oracles |> List.map (fun (id, _, _) -> id) in
     let called_poracles = called_node.propagated_oracles |> List.map fst in
     List.map (fun n ->
       (i := !i + 1;
@@ -618,10 +618,17 @@ and normalize_expr ?guard info map =
     let expr = A.ArrayIndex (pos2, Pre (pos1, expr1), expr2) in
     normalize_expr ?guard info map expr
   | Pre (pos, expr) as p ->
+    let ivars = info.inductive_variables in
+    let ty = if expr_has_inductive_var ivars expr |> is_some then
+      (StringMap.choose_opt info.inductive_variables) |> get |> snd
+    else Chk.infer_type_expr info.context expr
+      |> Res.map_err (fun (_, s) -> fun ppf -> Format.pp_print_string ppf s)
+      |> Res.unwrap in
     let nexpr, gids1 = abstract_expr ?guard info map false expr in
     let guard, gids2, previously_guarded = match guard with
       | Some guard -> guard, empty, true
-      | None -> let guard, gids1 = mk_fresh_oracle nexpr in
+      | None ->
+        let guard, gids1 = mk_fresh_oracle ty nexpr in
         let gids2 = record_warning pos p in
         guard, union gids1 gids2, false
     in let gids = union gids1 gids2 in
