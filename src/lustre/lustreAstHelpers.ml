@@ -57,6 +57,63 @@ let pos_of_expr = function
     | CallParam (pos , _ , _ , _ )
     -> pos
 
+let rec substitute var t = function
+  | Ident (pos, i) as e -> if i = var then t else e
+  | ModeRef (_, _) as e -> e
+  | RecordProject (pos, e, idx) -> RecordProject (pos, substitute var t e, idx)
+  | TupleProject (pos, e, idx) -> TupleProject (pos, substitute var t e, idx)
+  | Const (_, _) as e -> e
+  | UnaryOp (pos, op, e) -> UnaryOp (pos, op, substitute var t e)
+  | BinaryOp (pos, op, e1, e2) ->
+    BinaryOp (pos, op, substitute var t e1, substitute var t e2)
+  | TernaryOp (pos, op, e1, e2, e3) ->
+    TernaryOp (pos, op, substitute var t e1, substitute var t e2, substitute var t e3)
+  | NArityOp (pos, op, expr_list) ->
+    NArityOp (pos, op, List.map (fun e -> substitute var t e) expr_list)
+  | ConvOp (pos, op, e) -> ConvOp (pos, op, substitute var t e)
+  | CompOp (pos, op, e1, e2) ->
+    CompOp (pos, op, substitute var t e1, substitute var t e2)
+  | RecordExpr (pos, ident, expr_list) ->
+    RecordExpr (pos, ident, List.map (fun (i, e) -> (i, substitute var t e)) expr_list)
+  | GroupExpr (pos, kind, expr_list) ->
+    GroupExpr (pos, kind, List.map (fun e -> substitute var t e) expr_list)
+  | StructUpdate (pos, e1, idx, e2) ->
+    StructUpdate (pos, substitute var t e1, idx, substitute var t e2)
+  | ArrayConstr (pos, e1, e2) ->
+    ArrayConstr (pos, substitute var t e1, substitute var t e2)
+  | ArraySlice (pos, e1, (e2, e3)) ->
+    ArraySlice (pos, substitute var t e1, (substitute var t e2, substitute var t e3))
+  | ArrayIndex (pos, e1, e2) ->
+    ArrayIndex (pos, substitute var t e1, substitute var t e2)
+  | ArrayConcat (pos, e1, e2) ->
+    ArrayConcat (pos, substitute var t e1, substitute var t e2)
+  | Quantifier (pos, kind, idents, e) ->
+    Quantifier (pos, kind, idents, substitute var t e)
+  | When (pos, e, clock) -> When (pos, substitute var t e, clock)
+  | Current (pos, e) -> Current (pos, substitute var t e)
+  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
+    let e1, e2 = substitute var t e1, substitute var t e2 in
+    let expr_list1 = List.map (fun e -> substitute var t e) expr_list1 in
+    let expr_list2 = List.map (fun e -> substitute var t e) expr_list2 in
+    Condact (pos, e1, e2, id, expr_list1, expr_list2)
+  | Activate (pos, ident, e1, e2, expr_list) ->
+    let e1, e2 = substitute var t e1, substitute var t e2 in
+    let expr_list = List.map (fun e -> substitute var t e) expr_list in
+    Activate (pos, ident, e1, e2, expr_list)
+  | Merge (pos, ident, expr_list) ->
+    Merge (pos, ident, List.map (fun (i, e) -> (i, substitute var t e)) expr_list)
+  | RestartEvery (pos, ident, expr_list, e) ->
+    let expr_list = List.map (fun e -> substitute var t e) expr_list in
+    let e = substitute var t e in
+    RestartEvery (pos, ident, expr_list, e)
+  | Pre (pos, e) -> Pre (pos, substitute var t e)
+  | Last (_, _) as e -> e
+  | Fby (pos, e1, i, e2) -> Fby (pos, substitute var t e1, i, substitute var t e2)
+  | Arrow (pos, e1, e2) -> Arrow (pos, substitute var t e1, substitute var t e2)
+  | Call (pos, id, expr_list) ->
+    Call (pos, id, List.map (fun e -> substitute var t e) expr_list)
+  | CallParam (pos, id, types, expr_list) ->
+    CallParam (pos, id, types, List.map (fun e -> substitute var t e) expr_list)
 
 let rec has_unguarded_pre ung = function
   | Const _ | Ident _ | ModeRef _ -> false
