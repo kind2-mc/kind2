@@ -9,9 +9,10 @@ New features:
 Improvements:
 
 - Improve compositional reasoning about assumptions of called nodes.
-  - See issue [#736](https://github.com/kind2-mc/kind2/issues/736) for more details.
+  - See issue [#736](https://github.com/kind2-mc/kind2/issues/736) for more details (thanks to Amos Robinson).
 - Print values of ghost variables in counterexamples.
 - Fix and update bounds checking feature for subrange streams.
+  Thanks to Aaron Carroll, Amos Robinson, and Vivian Ye-Ting Dang for their bug reports.
 - Fix issue in MUST set generation when a single MIVC is computed.
 - Accept fractions in JSON input for interpreter.
 - Other bug fixes.
