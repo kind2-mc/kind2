@@ -2771,7 +2771,8 @@ module Global = struct
 
   let _ =
     add_spec "--lsp" (bool_arg lsp) (fun fmt ->
-        Format.fprintf fmt "Provide AST info for language-servers.@ Default: %a"
+        Format.fprintf fmt
+          "Provide AST info for language-servers. Only in JSON output.@ Default: %a"
           fmt_bool lsp_default)
 
   let lsp () = !lsp
