@@ -12,7 +12,7 @@ Improvements:
   - See issue [#736](https://github.com/kind2-mc/kind2/issues/736) for more details (thanks to Amos Robinson).
 - Print values of ghost variables in counterexamples.
 - Fix and update bounds checking feature for subrange streams.
-  Thanks to Aaron Carroll, Amos Robinson, and Vivian Ye-Ting Dang for their bug reports.
+  - Thanks to Aaron Carroll, Amos Robinson, and Vivian Ye-Ting Dang for their bug reports.
 - Fix issue in MUST set generation when a single MIVC is computed.
 - Accept fractions in JSON input for interpreter.
 - Other bug fixes.
@@ -30,7 +30,8 @@ Changes:
 This release includes performance improvements and various fixes. Notably:
 
 - Fix soundness issue in path compression when there are temporal dependencies
-  between input values. (Thank you to M. Anthony Aiello for finding this bug).
+  between input values.
+  - Thank you to M. Anthony Aiello for finding this bug.
 - Fix bug in extraction of an active path during IC3 generalization.
 - Improve IC3 performance over large models that contain reals or machine integers.
 - Fix issue reading models from the latest version of Z3 (4.8.10).
