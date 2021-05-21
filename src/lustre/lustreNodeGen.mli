@@ -21,6 +21,7 @@
 
 val compile : TypeCheckerContext.tc_context
 -> LustreAstNormalizer.generated_identifiers LustreAstNormalizer.StringMap.t
+-> LustreAstNormalizer.generated_identifiers LustreAstNormalizer.StringMap.t
 -> LustreAst.declaration list
 -> LustreNode.t list * LustreGlobals.t
  

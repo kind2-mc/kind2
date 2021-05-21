@@ -106,11 +106,20 @@ val svars_of: t -> StateVar.StateVarSet.t
 (** Pretty prints a svar wrapper. *)
 val pp_print_svar: Format.formatter -> svar -> unit
 
+(** Pretty prints a svar wrapper for debugging. *)
+val pp_print_svar_debug: Format.formatter -> svar -> unit
+
 (** Pretty prints a mode. *)
 val pp_print_mode: bool -> Format.formatter -> mode -> unit
 
+(** Pretty prints a mode for debugging. *)
+val pp_print_mode_debug: bool -> Format.formatter -> mode -> unit
+
 (** Pretty prints a contract. *)
 val pp_print_contract: bool -> Format.formatter -> t -> unit
+
+(** Pretty prints a contract for debugging. *)
+val pp_print_contract_debug: bool -> Format.formatter -> t -> unit
 
 
 (** Mode traces as cex. *)
