@@ -1,13 +1,16 @@
-(lang dune 2.0)
+(lang dune 2.7)
 
 (name kind2)
-(version v1.4.0)
 
 (package
  (name kind2)
  (synopsis
    "Multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs")
- (description "Kind 2 is an open-source, multi-engine, SMT-based automatic model checker for safety properties of finite-state or infinite-state synchronous reactive systems expressed as in an extension of the Lustre language. In its basic configuration it takes as input a Lustre file annotated with properties to be proven invariant, and outputs for each property either a confirmation or a counterexample, i.e., a sequence inputs that falsifies the property. More advanced features include contract-based compositional verification, proof generation for proven properties, and contract-based test generation.")
+ (description "Kind 2 is an open-source, multi-engine, SMT-based automatic model checker for safety properties of finite-state
+or infinite-state synchronous reactive systems expressed as in an extension of the Lustre language.
+In its basic configuration it takes as input a Lustre file annotated with properties to be proven invariant,
+and outputs for each property either a confirmation or a counterexample, i.e., a sequence inputs that falsifies the property.
+More advanced features include contract-based compositional verification, proof generation for proven properties, and contract-based test generation.")
  (license Apache-2.0)
  (authors "The Kind 2 development team")
  (maintainers "Daniel Larraz <daniel-larraz@uiowa.edu>")
@@ -18,16 +21,19 @@
  (depends
   (ocaml
    (>= 4.07))
-  (dune
-   (>= 2.0))
+  dune
   dune-build-info
   menhir
   num
   (odoc :with-doc)
   (ounit2 :with-test)
-  (z3 (and (< 4.8.9) :with-test))
+  (z3
+   (and (< 4.8.9) :with-test))
   yojson
-  zmq))
+  (zmq
+   (>= 5.0.0))
+ )
+)
 
 (using menhir 2.0)
 
