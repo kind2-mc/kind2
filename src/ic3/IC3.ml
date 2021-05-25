@@ -2021,7 +2021,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates =
                   fun i ->
                     (* Certificate 1 inductive *)
                     let cert = (1, i) in
-                    TransSys.add_invariant trans_sys i cert |> ignore
+                    TransSys.add_invariant trans_sys i cert false |> ignore
                 ) inductive_terms ;
 
                 SMTSolver.trace_comment

@@ -2404,7 +2404,7 @@ let trans_sys_of_nodes
           TransSys.set_prop_invariant trans_sys name cert;
           (* Adding to invariants of the system. *)
           let t = TransSys.get_prop_term trans_sys name in
-          TransSys.add_invariant trans_sys t cert
+          TransSys.add_invariant trans_sys t cert false
           |> ignore
         
         | name, P.PropFalse cex -> (
