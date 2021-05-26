@@ -435,7 +435,16 @@ and compile_ast_type
   | A.UserType (pos, ident) ->
     StringMap.find ident cstate.type_alias
   | A.AbstractType (pos, ident) ->
-    X.singleton [X.AbstractTypeIndex ident] Type.t_int
+    (match StringMap.find_opt ident cstate.type_alias with
+      | Some candidate ->
+        (* The typechecker transforms enum types to abstract types (not sure why) 
+          here we check if the ident in fact names an enum type *)
+        let bindings = X.bindings candidate in
+        let (head_index, ty) = List.hd bindings in
+        if List.length bindings = 1 && head_index = X.empty_index && Type.is_enum ty then
+          candidate
+        else X.singleton [X.AbstractTypeIndex ident] Type.t_int
+      | None -> X.singleton [X.AbstractTypeIndex ident] Type.t_int)
   | A.RecordType (pos, record_fields) ->
     let over_fields = fun a (_, i, t) ->
       let over_indices = fun j t a -> X.add (X.RecordIndex i :: j) t a in
@@ -578,13 +587,16 @@ and compile_ast_expr
   and compile_pre bounds expr =
     let cexpr = compile_ast_expr cstate ctx bounds map expr in
     let ident = extract_normalized expr in
-    let sv = H.find !map.state_var ident in
-    let source = SVT.find_opt !map.source sv in
+    let sv_opt = H.find_opt !map.state_var ident in
     let over_indices index expr' accum =
       let expr' = E.mk_pre expr' in
       let pos = AH.pos_of_expr expr in
-      if not (StateVar.is_input sv) && source == None then
-        N.add_state_var_def sv (N.GeneratedEq (pos, index));
+      (match sv_opt with
+        | Some sv ->
+          let source = SVT.find_opt !map.source sv in
+          if not (StateVar.is_input sv) && source == None then
+            N.add_state_var_def sv (N.GeneratedEq (pos, index));
+        | None -> ());
       X.add index expr' accum
     in X.fold over_indices cexpr X.empty
 
@@ -1252,11 +1264,13 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
           in let result = X.add index state_var accum in
           result
         in Some (X.fold over_indices index_types X.empty)
+      | A.NodeConstDecl (pos, decl) ->
+        compile_const_decl ~ghost:true cstate ctx map decl |> ignore;
+        None
       | A.NodeVarDecl (_, (pos, i, _, _)) -> fail_at_position pos
         (Format.asprintf
           "Clocked node local variable not supported for %a"
           A.pp_print_ident i)
-      | _ -> None
     in list_filter_map over_locals locals
   (* ****************************************************************** *)
   (* (State Variables for) Generated Locals                             *)
@@ -1272,6 +1286,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
           (node_scope @ scope @ I.reserved_scope)
           ident
           index
+          (* (if Type.is_array index_type then index else X.empty_index) *)
           index_type
           (if is_ghost then Some N.KGhost else None)
         in 
@@ -1552,7 +1567,11 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
           in res, 0
       in let lhs_bounds = gen_lhs_bounds true eq_lhs ast_expr indexes
       in let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr
-      in let equations = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in
+      in
+(*       Format.eprintf "lhs: %a\n\n rhs: %a\n\n"
+        (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
+      let equations = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in 
       List.iter (fun ((sv, _), e) -> SVT.add state_var_expr_map sv e) equations;
       H.clear !map.array_index;
       (* TODO: Old code tries to infer a more strict type here
@@ -1578,7 +1597,11 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
           in res, 0
       in let lhs_bounds = gen_lhs_bounds false eq_lhs ast_expr indexes
       in let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr
-      in let equations = expand_tuple pos eq_lhs eq_rhs in
+      in
+(*       Format.eprintf "lhs: %a\n\n rhs: %a\n\n"
+        (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
+        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
+      let equations = expand_tuple pos eq_lhs eq_rhs in
       H.clear !map.array_index;
       (* TODO: Old code tries to infer a more strict type here
         lustreContext 2040+ *)
@@ -1690,7 +1713,9 @@ and compile_type_decl pos ctx cstate = function
     { cstate with
       type_alias }
 
-and compile_declaration cstate gids ctx = function
+and compile_declaration cstate gids ctx decl =
+(*   Format.eprintf "decl: %a\n\n" A.pp_print_declaration decl; *)
+  match decl with
   | A.TypeDecl ({A.start_pos = pos}, type_rhs) ->
     compile_type_decl pos ctx cstate type_rhs
   | A.ConstDecl (span, const_decl) ->

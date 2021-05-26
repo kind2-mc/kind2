@@ -241,6 +241,7 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
       | Ok v -> if v then LA.Const(pos, True) else LA.Const (pos, False)
       | Error _ -> e')
     | _ -> e')
+  | LA.Pre (pos, e1) -> LA.Pre (pos, simplify_expr ctx e1)
   | LA.BinaryOp (pos, bop, e1, e2) ->
      let e1' = simplify_expr ctx e1 in
      let e2' = simplify_expr ctx e2 in
