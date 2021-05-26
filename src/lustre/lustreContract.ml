@@ -133,9 +133,40 @@ let pp_print_svar fmt { pos ; num ; svar } =
   Format.fprintf fmt "[%d] [%a] (%a)"
     num pp_print_position pos SVar.pp_print_state_var svar
 
+let pp_print_svar_debug fmt { pos; num; name; svar; scope } =
+  Format.fprintf fmt "[%d] [%a] (name:%a) (scope:%a) (%a)"
+    num
+    pp_print_position pos
+    (pp_print_option Format.pp_print_string) name
+    SVar.pp_print_state_var svar
+    (pp_print_list
+      (pp_print_pair
+        pp_print_position
+        Format.pp_print_string
+        ":")
+    ",")
+    scope
+
 let pp_print_mode safe fmt { name ; pos ; requires ; ensures } =
   Format.fprintf fmt "@[<v 2>mode %a (%a) (@ %a@ %a@ ) ;@]"
     (I.pp_print_ident safe) name pp_print_position pos (
+      pp_print_list (
+        fun fmt req ->
+          Format.fprintf fmt "  require%a" pp_print_svar req
+      ) "@,"
+    ) requires (
+      pp_print_list (
+        fun fmt ens ->
+          Format.fprintf fmt "  ensure%a" pp_print_svar ens
+      ) "@,"
+    ) ensures
+
+let pp_print_mode_debug safe fmt { name; pos; path; requires; ensures; candidate } =
+  Format.fprintf fmt "@[<v 2>mode %a (candidate? %b) (%a) (path:%a) (@ %a@ %a@ ) ;@]"
+    (I.pp_print_ident safe) name
+    candidate
+    (pp_print_list Format.pp_print_string ",") path
+    pp_print_position pos (
       pp_print_list (
         fun fmt req ->
           Format.fprintf fmt "  require%a" pp_print_svar req
@@ -164,6 +195,23 @@ let pp_print_contract safe fmt { assumes ; guarantees ; modes } =
       ) "@ "
     ) modes
 
+let pp_print_contract_debug safe fmt { sofar_assump; assumes; guarantees; modes } =
+  Format.fprintf fmt "@[<v 2>(*@contract@ %a@ %a@ %a@ %a@]@ *)"
+  StateVar.pp_print_state_var_debug sofar_assump
+  (pp_print_list (
+      fun fmt ass ->
+        Format.fprintf fmt "  assume%a" pp_print_svar_debug ass
+    ) "@ "
+  ) assumes (
+    pp_print_list (
+      fun fmt (gua, _) ->
+        Format.fprintf fmt "  guarantee%a" pp_print_svar_debug gua
+    ) "@ "
+  ) guarantees (
+    pp_print_list (
+      fun fmt mode -> Format.fprintf fmt "  %a" (pp_print_mode_debug safe) mode
+    ) "@ "
+  ) modes
 
 (* This module contains the stuff allowing to construct a hierarchical version
 of a trace of mode paths. The goal is to construct a tree representing the

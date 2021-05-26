@@ -147,10 +147,10 @@ let of_channel in_ch =
           IC.inline_constants global_ctx sorted_node_contract_decls >>= fun (inlined_global_ctx, const_inlined_nodes_and_contracts) ->
 
           (* Step 7. Normalize AST: guard pres, abstract to locals where appropriate *)
-          LAN.normalize inlined_global_ctx const_inlined_nodes_and_contracts >>= fun (normalized_nodes_and_contracts, generated_ids) ->
+          LAN.normalize inlined_global_ctx const_inlined_nodes_and_contracts >>= fun (normalized_nodes_and_contracts, gids) ->
           
           Res.ok (inlined_global_ctx,
-            generated_ids,
+            gids,
             const_inlined_type_and_consts @ normalized_nodes_and_contracts)
         ) in
       let ctx, gids, decls = match tc_res with

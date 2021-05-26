@@ -85,8 +85,15 @@ type generated_identifiers = {
     * LustreAst.expr)
     StringMap.t;
   locals : (bool (* whether the variable is ghost *)
+    * string list (* scope *)
     * LustreAst.lustre_type
-    * LustreAst.expr)
+    * LustreAst.expr (* abstracted expression *)
+    * LustreAst.expr) (* original expression *)
+    StringMap.t;
+  contract_calls :
+    (Lib.position
+    * string list (* contract scope *)
+    * LustreAst.contract_node_decl)
     StringMap.t;
   warnings : (Lib.position * LustreAst.expr) list;
   oracles : (string * LustreAst.lustre_type * LustreAst.expr) list;
@@ -100,14 +107,17 @@ type generated_identifiers = {
     * (LustreAst.expr list) (* node arguments *)
     * (LustreAst.expr list option)) (* node argument defaults *)
     list;
-  equations : (LustreAst.eq_lhs
+  equations :
+    (string list (* contract scope  *)
+    * LustreAst.eq_lhs
     * LustreAst.expr)
-    list
+    list;
 }
 
 val normalize : TypeCheckerContext.tc_context
   -> LustreAst.t
-  -> (LustreAst.t * generated_identifiers StringMap.t, Lib.position * string) result
+  -> (LustreAst.t * generated_identifiers StringMap.t,
+      Lib.position * string) result
 
 val pp_print_generated_identifiers : Format.formatter -> generated_identifiers -> unit
 

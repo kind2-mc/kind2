@@ -753,7 +753,7 @@ let pp_print_node_debug ppf
       | None -> ()
       | Some contract ->
         Format.fprintf fmt "%a@ "
-          (C.pp_print_contract false) contract) contract
+          (C.pp_print_contract_debug false) contract) contract
     is_main
     is_function
     (pp_print_list pp_print_state_var_source ";@ ")
