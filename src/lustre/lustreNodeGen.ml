@@ -54,9 +54,6 @@ type compiler_state = {
   other_constants : LustreAst.expr StringMap.t;
   state_var_bounds : (LustreExpr.expr LustreExpr.bound_or_fixed list)
     StateVar.StateVarHashtbl.t;
-  contract_calls : (Lib.position
-    * LustreAst.contract_node_decl
-    * LAN.generated_identifiers) StringMap.t;
 }
 
 type identifier_maps = {
@@ -67,7 +64,8 @@ type identifier_maps = {
     StateVar.StateVarHashtbl.t;
   array_index : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
   quant_vars : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
-  modes : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
+  modes : LustreContract.mode list;
+  contract_scope : string list;
 }
 
 let pp_print_identifier_maps ppf maps =
@@ -109,7 +107,8 @@ let empty_identifier_maps () = {
   bounds = SVT.create 7;
   array_index = H.create 7;
   quant_vars = H.create 7;
-  modes = H.create 7;
+  modes = [];
+  contract_scope = [];
 }
 
 let empty_compiler_state () = { 
@@ -118,7 +117,6 @@ let empty_compiler_state () = {
   free_constants = StringMap.empty;
   other_constants = StringMap.empty;
   state_var_bounds = SVT.create 7;
-  contract_calls = StringMap.empty;
 }
 
 
@@ -392,8 +390,8 @@ let expand_tuple pos lhs rhs =
     (List.map (fun (i, e) -> (i, e)) (X.bindings lhs))
     (List.map (fun (i, e) -> (i, e)) (X.bindings rhs))
 
-let rec compile ctx ngids cgids decls =
-  let over_decls cstate decl = compile_declaration cstate ngids cgids ctx decl in
+let rec compile ctx gids decls =
+  let over_decls cstate decl = compile_declaration cstate gids ctx decl in
   let output = List.fold_left over_decls (empty_compiler_state ()) decls in
   let free_constants = output.free_constants
     |> StringMap.bindings
@@ -506,17 +504,28 @@ and compile_ast_expr
       X.singleton X.empty_index (E.mk_constr id_str ty)
     with Not_found ->
     try
-      H.find !map.expr ident
+      H.find !map.quant_vars ident
     with Not_found ->
     try
       H.find !map.array_index ident
     with Not_found ->
-      H.find !map.quant_vars ident
+      H.find !map.expr ident
 
-  and compile_mode_reference bounds path =
-    let path = List.fold_left (fun s a -> s ^ a) "" path in
-    let ident = mk_ident path in
-    H.find !map.modes ident
+  and compile_mode_reference bounds path' =
+    let rpath = List.rev path' in
+    let path' = (rpath |> List.tl |> List.rev)
+      @ !map.contract_scope
+      @ [(rpath |> List.hd)] in
+    let rec find_mode = function
+      | { C.path ; C.name ; C.requires } :: tail ->
+        if path = path' then
+          requires
+          |> List.map (fun { C.svar } -> E.mk_var svar)
+          |> E.mk_and_n
+          |> X.singleton X.empty_index
+        else find_mode tail
+      | [] -> assert false
+    in find_mode !map.modes
 
   and compile_unary bounds mk expr =
     (* TODO: Old code does a type check here *)
@@ -992,19 +1001,25 @@ and compile_node pos ctx cstate map oracles outputs cond restart ident args defa
   }
   in node_call
 
-and compile_contract cstate ctx map contract_scope node_scope contract =
+and compile_contract_variables cstate gids ctx map contract_scope node_scope contract = 
+  let compile_contract_item count scope kind pos name expr =
+    let ident = extract_normalized expr in
+    let state_var = H.find !map.state_var ident in
+    let contract_sv = C.mk_svar pos count name state_var scope in
+    N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
+    contract_sv
   (* ****************************************************************** *)
   (* Split contracts into relevant categories                           *)
   (* ****************************************************************** *)
-  let gconsts, gvars, assumes, guarantees, modes, contract_calls =
-    let over_items (consts, vars, assumes, guarantees, modes, calls) = function
-      | A.GhostConst c -> c :: consts, vars, assumes, guarantees, modes, calls
-      | A.GhostVar v -> consts, v :: vars, assumes, guarantees, modes, calls
-      | A.Assume a -> consts, vars, a :: assumes, guarantees, modes, calls
-      | A.Guarantee g -> consts, vars, assumes, g :: guarantees, modes, calls
-      | A.Mode m -> consts, vars, assumes, guarantees, m :: modes, calls
-      | A.ContractCall c -> consts, vars, assumes, guarantees, modes, c :: calls
-    in List.fold_left over_items ([], [], [], [], [], []) contract in
+  in let gconsts, gvars, modes, contract_calls =
+    let over_items (consts, vars, modes, calls) = function
+      | A.GhostConst c -> c :: consts, vars, modes, calls
+      | A.GhostVar v -> consts, v :: vars, modes, calls
+      | A.Assume a -> consts, vars, modes, calls
+      | A.Guarantee g -> consts, vars, modes, calls
+      | A.Mode m -> consts, vars, m :: modes, calls
+      | A.ContractCall c -> consts, vars, modes, c :: calls
+    in List.fold_left over_items ([], [], [], []) contract in
   (* ****************************************************************** *)
   (* Ghost Constants and Variables                                      *)
   (* ****************************************************************** *)
@@ -1023,7 +1038,7 @@ and compile_contract cstate ctx map contract_scope node_scope contract =
           let state_var = mk_state_var
             ~is_input:false
             map
-            (node_scope @ "contract" :: I.user_scope)
+            (node_scope @ contract_scope @ I.user_scope)
             ident
             index
             index_type
@@ -1040,7 +1055,7 @@ and compile_contract cstate ctx map contract_scope node_scope contract =
           let state_var = mk_state_var
             ~is_input:false
             map
-            (node_scope @ "contract" :: I.user_scope)
+            (node_scope @ contract_scope @ I.user_scope)
             ident
             index
             index_type
@@ -1053,28 +1068,6 @@ and compile_contract cstate ctx map contract_scope node_scope contract =
         ghost_local :: gvar_accum, (pos, eq_lhs, eq_rhs) :: eq_accum
     in List.fold_left over_vars ([], []) gvars
   (* ****************************************************************** *)
-  (* Contract Assumptions and Guarantees                                *)
-  (* ****************************************************************** *)
-  in let compile_contract_item count scope kind pos name expr =
-    let ident = extract_normalized expr in
-    let state_var = H.find !map.state_var ident in
-    let contract_sv = C.mk_svar pos count name state_var scope in
-    N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
-    contract_sv
-
-  in let assumes =
-    let over_assumes i (pos, name, soft, expr) =
-      let kind = if soft then N.WeakAssumption else N.Assumption in
-      compile_contract_item (i + 1) contract_scope kind pos name expr
-    in List.mapi over_assumes assumes
-
-  in let guarantees = 
-    let over_assumes i (pos, name, soft, expr) =
-      let kind = if soft then N.WeakGuarantee else N.Guarantee in
-      compile_contract_item (i + 1) contract_scope kind pos name expr
-    in List.mapi over_assumes guarantees
-      |> List.map (fun g -> g, false)
-  (* ****************************************************************** *)
   (* Contract Modes                                                     *)
   (* ****************************************************************** *)
   in let modes =
@@ -1085,42 +1078,53 @@ and compile_contract cstate ctx map contract_scope node_scope contract =
       let enss = List.mapi
         (fun i (p, n, e) -> compile_contract_item (i + 1) [] N.Ensure p n e)
         enss in
-      let path = contract_scope
-        |> List.fold_left (fun l (_, name) -> name :: l) [id] in
-      let ident = List.fold_left (fun s a -> s ^ a) "" path |> mk_ident in
-      let nexpr = reqs |> List.map (fun { C.svar } -> E.mk_var svar )
-        |> E.mk_and_n |> X.singleton X.empty_index in
-      H.replace !map.modes ident nexpr;
-      C.mk_mode (mk_ident id) pos path reqs enss false
+      let path = contract_scope @ [id] in
+      let mode = C.mk_mode (mk_ident id) pos path reqs enss false in
+      map := { !map with modes = mode :: !map.modes };
+      mode
     in List.map over_modes modes
   (* ****************************************************************** *)
   (* Contract Calls                                                     *)
   (* ****************************************************************** *)
-  in let (ghost_locals2, ghost_equations2, assumes2, guarantees2, modes2) =
-    let over_calls (gls, ges, ams, gs, ms) (call_pos, id, in_params, out_params) =
-      let svar_scope = (call_pos, id) :: contract_scope in
-      let pos, (id, params, in_formals, out_formals, contract), gids =
-        StringMap.find id cstate.contract_calls
+  in let (ghost_locals2, ghost_equations2, modes2) =
+    let over_calls (gls, ges, ms) (call_pos, id, in_params, out_params) =
+      let (pos, contract_scope, (id, _, in_formals, out_formals, contract)) =
+        LAN.StringMap.find id gids.LAN.contract_calls
       in
-      let glocals =
-        let locals_list = LAN.StringMap.bindings gids.LAN.locals in
-        let over_generated_locals glocals (id, (is_ghost, expr_type, expr, _)) =
-          let ident = mk_ident id in
-          let index_types = compile_ast_type cstate ctx map expr_type in
-          let over_indices = fun index index_type accum ->
-            let state_var = mk_state_var
-              map
-              (node_scope @ I.reserved_scope)
-              ident
-              index
-              index_type
-              (if is_ghost then Some N.KGhost else None)
-            in 
-            X.add index state_var accum
-          in let result = X.fold over_indices index_types X.empty in
-          result :: glocals
-        in List.fold_left over_generated_locals [] locals_list
-      in let subst expr id =
+      map := { !map with contract_scope };
+      let (gl, ge, m) = compile_contract_variables cstate gids ctx map contract_scope node_scope contract
+      in gl @ gls, ge @ ges, m @ ms
+    in List.fold_left over_calls ([], [], []) contract_calls
+  in ghost_locals @ ghost_locals2, ghost_equations @ ghost_equations2, modes @ modes2
+
+and compile_contract cstate gids ctx map contract_scope node_scope contract =
+  let compile_contract_item count scope kind pos name expr =
+    let ident = extract_normalized expr in
+    let state_var = H.find !map.state_var ident in
+    let contract_sv = C.mk_svar pos count name state_var scope in
+    N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
+    contract_sv
+  (* ****************************************************************** *)
+  (* Split contracts into relevant categories                           *)
+  (* ****************************************************************** *)
+  in let assumes, guarantees, modes, contract_calls =
+    let over_items (assumes, guarantees, modes, calls) = function
+      | A.GhostConst c -> assumes, guarantees, modes, calls
+      | A.GhostVar v ->  assumes, guarantees, modes, calls
+      | A.Assume a -> a :: assumes, guarantees, modes, calls
+      | A.Guarantee g -> assumes, g :: guarantees, modes, calls
+      | A.Mode m -> assumes, guarantees, m :: modes, calls
+      | A.ContractCall c -> assumes, guarantees, modes, c :: calls
+    in List.fold_left over_items ([], [], [], []) contract
+  (* ****************************************************************** *)
+  (* Contract Calls                                                     *)
+  (* ****************************************************************** *)
+  in let (assumes2, guarantees2) =
+    let over_calls (ams, gs) (call_pos, id, in_params, out_params) =
+      let (pos, _, (id, _, in_formals, out_formals, contract)) =
+        LAN.StringMap.find id gids.LAN.contract_calls
+      in let svar_scope = (call_pos, id) :: contract_scope in
+      let subst expr id =
         let expr = compile_ast_expr cstate ctx [] map expr in
         let ident = mk_ident id in
         H.replace !map.expr ident expr;
@@ -1130,15 +1134,28 @@ and compile_contract cstate ctx map contract_scope node_scope contract =
       let out_params = List.map (fun i -> A.Ident (pos, i)) out_params in
       List.iter2 subst in_params in_formals;
       List.iter2 subst out_params out_formals;
-      let (gl, ge, a, g, m) = compile_contract cstate ctx map svar_scope node_scope contract
-      in gl @ gls @ glocals, ge @ ges, a @ ams, g @ gs, m @ ms
-    in List.fold_left over_calls ([], [], [], [], []) contract_calls
+      let contract_scope = List.map (fun (_, i) -> i) svar_scope in
+      map := { !map with contract_scope };
+      let (a, g) = compile_contract cstate gids ctx map svar_scope node_scope contract
+      in a @ ams, g @ gs
+    in List.fold_left over_calls ([], []) contract_calls
+  (* ****************************************************************** *)
+  (* Contract Assumptions and Guarantees                                *)
+  (* ****************************************************************** *)
+  in let assumes =
+    let over_assumes i (pos, name, soft, expr) =
+      let kind = if soft then N.WeakAssumption else N.Assumption in
+      compile_contract_item (i + 1) contract_scope kind pos name expr
+    in List.mapi over_assumes assumes
 
-  in ghost_locals @ ghost_locals2,
-    ghost_equations @ ghost_equations2,
-    assumes @ assumes2,
-    guarantees @ guarantees2,
-    modes @ modes2
+  in let guarantees = 
+    let over_guarantees i (pos, name, soft, expr) =
+      let kind = if soft then N.WeakGuarantee else N.Guarantee in
+      compile_contract_item (i + 1) contract_scope kind pos name expr
+    in List.mapi over_guarantees guarantees
+      |> List.map (fun g -> g, false)
+  in assumes @ assumes2,
+    guarantees @ guarantees2
 
 and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs locals items contracts =
   let name = mk_ident i in
@@ -1246,13 +1263,13 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
   (* ****************************************************************** *)
   in let glocals =
     let locals_list = LAN.StringMap.bindings gids.LAN.locals in
-    let over_generated_locals glocals (id, (is_ghost, expr_type, expr, _)) =
+    let over_generated_locals glocals (id, (is_ghost, scope, expr_type, expr, _)) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map expr_type in
       let over_indices = fun index index_type accum ->
         let state_var = mk_state_var
           map
-          (node_scope @ I.reserved_scope)
+          (node_scope @ scope @ I.reserved_scope)
           ident
           index
           index_type
@@ -1311,6 +1328,13 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       in let result = X.fold over_indices index_types X.empty in
       result :: glocals
     in List.fold_left over_generated_locals glocals array_ctor_list
+  (* ****************************************************************** *)
+  (* Contract State Variables                                           *)
+  (* ****************************************************************** *)
+  in let (ghost_locals, ghost_equations, modes) =
+    match contracts with
+    | Some contracts -> compile_contract_variables cstate gids ctx map [] node_scope contracts
+    | None -> [], [], []
   (* ****************************************************************** *)
   (* Oracles                                                            *)
   (* ****************************************************************** *)
@@ -1413,12 +1437,12 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       node_call :: calls, glocals' @ glocals
     in List.fold_left over_calls ([], glocals) gids.calls
   (* ****************************************************************** *)
-  (* Contracts                                                          *)
+  (* Contract Conditions                                                *)
   (* ****************************************************************** *)
-  in let (ghost_locals, ghost_equations, assumes, guarantees, modes) =
+  in let (assumes, guarantees) =
     match contracts with
-    | Some contracts -> compile_contract cstate ctx map [] node_scope contracts
-    | None -> [], [], [], [], []
+    | Some contracts -> compile_contract cstate gids ctx map [] node_scope contracts
+    | None -> [], []
   (* ****************************************************************** *)
   (* Split node items into relevant categories                          *)
   (* ****************************************************************** *)
@@ -1446,7 +1470,7 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       let name = match name_opt with
         | Some n -> n
         | None -> let abs = LAN.StringMap.find_opt id_str gids.LAN.locals in
-          let name = match abs with | Some (_, _, _, e) -> e | None -> expr in
+          let name = match abs with | Some (_, _, _, _, e) -> e | None -> expr in
             Format.asprintf "@[<h>%a@]" A.pp_print_expr name
       in sv, name, (Property.PropAnnot pos)
     in List.map op node_props
@@ -1514,7 +1538,8 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
   (* Generated Equations                                                *)
   (* ****************************************************************** *)
   in let gequations =
-    let over_equations = fun eqns (lhs, ast_expr) ->
+    let over_equations = fun eqns (contract_scope, lhs, ast_expr) ->
+      map := { !map with contract_scope };
       let eq_lhs, indexes = match lhs with
         | A.StructDef (_, []) -> (X.empty, 0)
         | A.StructDef (_, [e]) -> compile_struct_item e
@@ -1665,7 +1690,7 @@ and compile_type_decl pos ctx cstate = function
     { cstate with
       type_alias }
 
-and compile_declaration cstate ngids cgids ctx = function
+and compile_declaration cstate gids ctx = function
   | A.TypeDecl ({A.start_pos = pos}, type_rhs) ->
     compile_type_decl pos ctx cstate type_rhs
   | A.ConstDecl (span, const_decl) ->
@@ -1673,17 +1698,16 @@ and compile_declaration cstate ngids cgids ctx = function
     compile_const_decl cstate ctx empty_map const_decl
   | A.FuncDecl (span, (i, ext, [], inputs, outputs, locals, items, contracts)) ->
     let pos = span.start_pos in
-    let gids = LAN.StringMap.find i ngids in
+    let gids = LAN.StringMap.find i gids in
     compile_node_decl gids true cstate ctx pos i ext inputs outputs locals items contracts
   | A.NodeDecl (span, (i, ext, [], inputs, outputs, locals, items, contracts)) ->
     let pos = span.start_pos in
-    let gids = LAN.StringMap.find i ngids in
+    let gids = LAN.StringMap.find i gids in
     compile_node_decl gids false cstate ctx pos i ext inputs outputs locals items contracts
-  | A.ContractNodeDecl (pos, (id, a, b, c, d)) ->
-    let gids = LAN.StringMap.find id cgids in
-    let contract_call = (pos.start_pos, (id, a, b, c, d), gids) in
-    { cstate with
-      contract_calls = StringMap.add id contract_call cstate.contract_calls }
+  (* All contract node declarations are recorded and normalized in gids,
+    this is necessary because each unique call to a contract node must be 
+    normalized independently *)
+  | A.ContractNodeDecl (pos, (id, a, b, c, d)) -> cstate
   | A.NodeParamInst (pos, _)
   | A.NodeDecl (pos, _) ->
     fail_at_position pos.start_pos "Parametric nodes are not supported"

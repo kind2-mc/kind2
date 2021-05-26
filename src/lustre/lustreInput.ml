@@ -147,16 +147,15 @@ let of_channel in_ch =
           IC.inline_constants global_ctx sorted_node_contract_decls >>= fun (inlined_global_ctx, const_inlined_nodes_and_contracts) ->
 
           (* Step 7. Normalize AST: guard pres, abstract to locals where appropriate *)
-          LAN.normalize inlined_global_ctx const_inlined_nodes_and_contracts >>= fun (normalized_nodes_and_contracts, node_gids, contract_gids) ->
+          LAN.normalize inlined_global_ctx const_inlined_nodes_and_contracts >>= fun (normalized_nodes_and_contracts, gids) ->
           
           Res.ok (inlined_global_ctx,
-            node_gids,
-            contract_gids,
+            gids,
             const_inlined_type_and_consts @ normalized_nodes_and_contracts)
         ) in
-      let ctx, ngids, cgids, decls = match tc_res with
-      | Ok (c, ng, cg, d) ->
-        let unguarded_pre_warnings = LAN.get_warnings ng @ LAN.get_warnings cg in
+      let ctx, gids, decls = match tc_res with
+      | Ok (c, g, d) ->
+        let unguarded_pre_warnings = LAN.get_warnings g in
         let error_or_warn = if Flags.lus_strict ()
           then fail_at_position
           else warn_at_position
@@ -167,9 +166,9 @@ let of_channel in_ch =
           unguarded_pre_warnings;
         Log.log L_note "Type checking done"
         ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_program d
-        ; (c, ng, cg, d)
+        ; (c, g, d)
       | Error (pos, err) -> fail_at_position pos err in
-      let nodes, globals = LNG.compile ctx ngids cgids decls in
+      let nodes, globals = LNG.compile ctx gids decls in
       (* The last node in the original ordering should remain the last node after sorting 
       as the user expects that to be the main node in the case where 
       no explicit annotations are provided. The reason we do this is because 
