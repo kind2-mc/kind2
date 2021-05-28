@@ -859,39 +859,31 @@ let node_call_of_svar { calls } svar =
 let scope_of_node { name } = name |> I.to_scope
 
     
-(* Return name of the first node annotated with --%MAIN.  Raise
-   [Not_found] if no node has a --%MAIN annotation or [Failure
-   "find_main" if more than one node has a --%MAIN annotation.
+(* Return name of all nodes annotated with --%MAIN.  Raise
+    [Not_found] if no node has a --%MAIN annotation.
+    If the processing mode does not support multiple main nodes,
+    then it is the caller's responsibility to ensure there is
+    only a single main node.
 *)
 let find_main nodes =
 
-  match 
-  
-    (* Iterate over nodes to find first node with --%MAIN
-       annotation, fail if second node with --%MAIN found *)
-    List.fold_left
-      (fun a { name; is_main } -> 
-         if is_main then
-           if a = None then Some name else 
-             raise
-               (Failure 
-                  "find_main: More than one --%MAIN annotation")
-         else
-           a)
-      None
-      nodes 
+  match
 
-  with 
+    (* Find all nodes with --%MAIN annotations *)
+    List.filter (fun { is_main } -> is_main ) nodes
+    |> List.map (fun { name } -> name)
+
+  with
 
     (* No node with --%MAIN annotiaon *)
-    | None -> 
+    | [] ->
 
       (* Return name of last node, fail if list of nodes empty *)
-      (match nodes with 
-        | [] -> raise Not_found 
-        | { name } :: _ -> name)
+      (match nodes with
+        | [] -> raise Not_found
+        | { name } :: _ -> [name])
 
-    | Some n -> n
+    | ids -> ids
 
 
 (* Return identifier of last node in list *)
@@ -1055,33 +1047,46 @@ let rec subsystem_of_nodes' nodes accum = function
 
 (* Return a subsystem from a list of nodes where the top node is at
    the head of the list. *)
-let subsystem_of_nodes = function
-
-  (* Head of list is top system *)
-  | { name } :: _ as nodes -> 
-
-    (* Create subsystems for all nodes *)
-    let all_subsystems = subsystem_of_nodes' nodes [] [name] in
-
-    (try 
-
-       (* Find subsystem of top node *)
-       List.find 
-         (fun (n, _) -> I.equal n name)
-         all_subsystems 
-
-       |> snd
-
-     (* Subsystem for node must have been created *)
-     with Not_found -> assert false)
-
-  (* Cannot have an empty list of nodes *)
-  | [] ->
-
-    raise
-      (Invalid_argument 
+let subsystem_of_nodes tops nodes =
+  let tops = match tops with
+    | _ :: _ -> tops
+    | [] -> (match nodes with
+      | { name } :: _ -> [name]
+      | [] -> raise
+      (Invalid_argument
          "subsystem_of_nodes: List of nodes is empty")
-          
+    ) in
+
+  (* Create subsystems for all nodes *)
+  let all_subsystems = subsystem_of_nodes' nodes [] tops in
+
+  let make_top = function
+    | [] -> assert false
+    | [subsystem] -> subsystem
+    (* If there are multiple main nodes, then create a synthetic main node
+       that includes all of the main nodes as subsystems. *)
+    | subsystems ->
+        let scope = ["<synthetic-top>"] in
+        let ident = I.mk_string_ident "<synthetic-top>" in
+      { SubSystem.scope = scope;
+        SubSystem.source = empty_node ident false;
+        SubSystem.has_contract = false;
+        SubSystem.has_modes = false;
+        SubSystem.has_impl = false;
+        SubSystem.subsystems }
+  in
+
+  (try
+
+     (* Find subsystem of top node *)
+     List.filter
+       (fun (n, _) -> List.exists (fun t -> I.equal n t) tops)
+       all_subsystems
+      |> List.map snd |> make_top
+
+   (* Subsystem for node must have been created *)
+   with Not_found -> assert false)
+
 
 (* Return list of topologically ordered list of nodes from subsystem.
    The top node is a the head of the list. *)
