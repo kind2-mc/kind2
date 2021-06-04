@@ -716,7 +716,11 @@ let exactly_k_true svs k =
   |> List.map (fun sv -> Term.mk_var (Var.mk_const_state_var sv))
   |> List.map (fun t -> Term.mk_ite t (Term.mk_num_of_int 1) (Term.mk_num_of_int 0))
   in
-  let sum = Term.mk_plus cptl in
+  let sum =
+    match cptl with
+    | [] -> Term.mk_num_of_int 0
+    | _ -> Term.mk_plus cptl
+  in
   Term.mk_eq [sum; Term.mk_num_of_int k]
 
 let at_most_k_true svs k =
@@ -724,7 +728,11 @@ let at_most_k_true svs k =
   |> List.map (fun sv -> Term.mk_var (Var.mk_const_state_var sv))
   |> List.map (fun t -> Term.mk_ite t (Term.mk_num_of_int 1) (Term.mk_num_of_int 0))
   in
-  let sum = Term.mk_plus cptl in
+  let sum =
+    match cptl with
+    | [] -> Term.mk_num_of_int 0
+    | _ -> Term.mk_plus cptl
+  in
   Term.mk_leq [sum; Term.mk_num_of_int k]
 
 let at_least_one_false svs =
