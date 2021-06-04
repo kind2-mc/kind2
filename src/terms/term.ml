@@ -1345,14 +1345,14 @@ let mk_bvsge = function
 
 (* Hashcons an addition *)
 let mk_plus = function
-  | [] -> mk_num_of_int 0
+  | [] -> invalid_arg "Term.mk_plus"
   | [a] -> a
   | a -> mk_app_of_symbol_node `PLUS a
 
 
 (* Hashcons a multiplication *)
 let mk_times = function
-  | [] -> mk_num_of_int 1
+  | [] -> invalid_arg "Term.mk_times"
   | [a] -> a
   | a -> mk_app_of_symbol_node `TIMES a
 
