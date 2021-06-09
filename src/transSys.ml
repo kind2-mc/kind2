@@ -1850,7 +1850,7 @@ let instantiate_term_cert_all_levels
       (Term.TermMap.singleton term cert, accum)
       
     (* At a system that is not the top system *)
-    | (trans_sys, { map_up; guard_clock }) :: tl -> 
+    | (({global_consts} as trans_sys), { map_up; guard_clock }) :: tl ->
 
       (* Instantiate term to this system *)
       let inst_term t =
@@ -1858,8 +1858,12 @@ let instantiate_term_cert_all_levels
           (fun sv -> 
              try SVM.find sv map_up with
                | Not_found ->
-                 Format.eprintf "Not found in map up %a@." StateVar.pp_print_state_var sv;
-                 assert false)
+                 if (StateVar.is_const sv && List.mem (Var.mk_const_state_var sv) global_consts) then
+                   sv
+                 else (
+                   Format.eprintf "Not found in map up %a@." StateVar.pp_print_state_var sv;
+                   assert false)
+          )
           t
         |> fun t ->
         (* let is_one_state = *)
