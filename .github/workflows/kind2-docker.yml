@@ -34,10 +34,16 @@ jobs:
         file: docker/Dockerfile
         tags: ${{ steps.meta.outputs.tag }}
     
-    - name: Update repo description
-      uses: peter-evans/dockerhub-description@v2
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-        repository: ${{ steps.meta.outputs.image }}
-        readme-filepath: ./docker/README.md
+    # Disabled because Docker Hub Personal Access Tokens are not currently accepted.
+    # See:
+    #   https://github.com/docker/hub-feedback/issues/1927
+    #   https://github.com/docker/hub-feedback/issues/1914
+    # Future support can be monitored here:
+    #   https://github.com/docker/roadmap/issues/115
+    #- name: Update repo description
+    #  uses: peter-evans/dockerhub-description@v2
+    #  with:
+    #    username: ${{ secrets.DOCKER_USERNAME }}
+    #    password: ${{ secrets.DOCKER_PASSWORD }}
+    #    repository: ${{ steps.meta.outputs.image }}
+    #    readme-filepath: ./docker/README.md
