@@ -3421,13 +3421,12 @@ let solver_dependant_actions solver =
   match solver with
   | `Boolector_SMTLIB -> (
     let cmd = Format.asprintf "%s --version" (Smt.boolector_bin ()) in
-    match get_version false cmd with
-    | Some (major_rev, minor_rev, _) ->
-      if major_rev < 3 then (
-        if Smt.check_sat_assume () then (
-          Log.log L_warn "Detected Boolector 2.4.1 or older: disabling check_sat_assume";
-          Smt.set_check_sat_assume false
-        )
+    match get_version true cmd with
+    | Some (major_rev, minor_rev, patch_rev) ->
+      if major_rev < 3 || (major_rev = 3 && (minor_rev < 2 || (minor_rev = 2 && patch_rev < 2))) then (
+        Log.log L_error "Kind 2 requires Boolector 3.2.2 or later. Found version: %d.%d.%d"
+          major_rev minor_rev patch_rev ;
+        exit 2
       )
     | None -> Log.log L_warn "Couldn't determine Boolector version"
   )

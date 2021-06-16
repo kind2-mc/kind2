@@ -79,9 +79,7 @@ To run Kind 2 the following software must be installed on your computer:
 * `ZeroMQ (C library) 4.x or later <https://zeromq.org>`_\, and
 * a supported SMT solver
 
-  * `Boolector <https://boolector.github.io/>`_
-    (`5d18baa <https://github.com/Boolector/boolector/commit/5d18baa>`_ or later,
-    for inputs with only machine integers),
+  * `Boolector <https://boolector.github.io/>`_ (for inputs with only machine integers),
   * `CVC4 <http://cvc4.cs.stanford.edu/>`_\ ,
   * `MathSAT 5 <http://mathsat.fbk.eu/index.html>`_\ ,
   * `Yices 2 <http://yices.csl.sri.com/>`_\ ,
@@ -235,7 +233,7 @@ To build directly from sources you will also need the following software
 first:
 
 * OCaml 4.07 or later,
-* `Dune 2.0 or later <https://github.com/ocaml/dune>`_\,
+* `Dune 2.7 or later <https://github.com/ocaml/dune>`_\,
 * dune-build-info,
 * `OCaml bindings for ZMQ <https://github.com/issuu/ocaml-zmq>`_\,
 * `Yojson <https://github.com/ocaml-community/yojson>`_\,
