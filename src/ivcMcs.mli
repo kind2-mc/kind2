@@ -49,11 +49,11 @@ type ivc
     The parameters [in_sys] and [sys] must be the same as the ones used to generate [ivc]. *)
 val complement_of_ivc : 'a InputSystem.t -> TransSys.t -> ivc -> ivc
 
-(** [separate_ivc_by_category in_sys ivc] separates [ivc] into two IVCs:
+(** [separate_ivc_by_category scope ivc] separates [ivc] into two IVCs:
     the first one only contains elements from the categories selected by the user,
     and the second one contains the remaining elements of [ivc].
-    The parameters [in_sys] should be the same as the one used to generate [ivc]. *)
-val separate_ivc_by_category : 'a InputSystem.t -> ivc -> (ivc * ivc)
+    The parameter [scope] should refer to the top-level system the [ivc] was generated from. *)
+val separate_ivc_by_category : Scope.t -> ivc -> (ivc * ivc)
 
 (** [minimize_lustre_ast in_sys ivc ast]
     minimizes the lustre AST [ast] according to the inductive validity core [ivc].
@@ -133,11 +133,11 @@ type mcs
     The parameters [in_sys] and [sys] must be the same as the ones used to generate [mcs]. *)
 val complement_of_mcs : 'a InputSystem.t -> TransSys.t -> mcs -> mcs
 
-(** [separate_mcs_by_category in_sys mcs] separates [mcs] into two MCSes:
+(** [separate_mcs_by_category scope mcs] separates [mcs] into two MCSes:
     the first one only contains elements from the categories selected by the user,
     and the second one contains the remaining elements of [mcs].
-    The parameters [in_sys] should be the same as the one used to generate [mcs]. *)
-val separate_mcs_by_category : 'a InputSystem.t -> mcs -> (mcs * mcs)
+    The parameter [scope] should refer to the top-level system the [mcs] was generated from. *)
+val separate_mcs_by_category : Scope.t -> mcs -> (mcs * mcs)
 
 val is_mcs_approx : mcs -> bool
 

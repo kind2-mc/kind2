@@ -33,13 +33,26 @@ type info = {
 }
 
 (** Takes some results and some information about (sub)systems, and returns
-the next analysis to perform, if any.
+the next monolithic analysis to perform, if any.
+The information it takes is
+
+- a list of the scopes of the main systems and their strategy info;
+- a list of all the scopes of all the systems and their strategy info.
+*)
+val next_monolithic_analysis:
+  A.results ->
+  (Scope.t * info) list ->
+  (Scope.t * info) list ->
+  A.param option
+
+(** Takes some results and some information about (sub)systems, and returns
+the next modular analysis to perform, if any.
 The information it takes is
 
 - a function which, given the scope of a system, returns the scope of its
   direct subsystems and its strategy info;
 - a list of all the scopes of all the systems and their strategy info. *)
-val next_analysis:
+val next_modular_analysis:
   A.results ->
   (Scope.t -> (Scope.t * info) list) ->
   (Scope.t * info) list ->
@@ -49,12 +62,6 @@ val next_analysis:
 whether the subsystem is candidate for analysis
 *)
 val is_candidate_for_analysis : info -> bool
-
-(** Works almost the same as [next_analysis], but returns a single analysis
-parameter for a monolithic analysis. Only used for contract generation. *)
-val monolithic:
-  (Scope.t * info) list -> A.param option
-
 
 
 (* 

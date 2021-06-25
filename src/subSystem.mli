@@ -52,10 +52,15 @@ val strategy_info_of: 'a t -> Strategy.info
     the head of the list *)
 val all_subsystems : 'a t -> 'a t list
 
+(** Return all subsystems of the list in topological order *)
+val all_subsystems_of_list : 'a t list -> 'a t list
+
 (** Return the subsystem of the given scope 
 
    Raise [Not_found] if there is no subsystem of that scope *)
 val find_subsystem : 'a t -> Scope.t -> 'a t
+
+val find_subsystem_of_list : 'a t list -> Scope.t -> 'a t
 
 (* 
    Local Variables:

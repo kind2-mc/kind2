@@ -2102,9 +2102,9 @@ let orig_of_oracle oracle_map sv =
   (* with Not_found -> [sv] *)
 
 
-let reconstruct_lustre_streams node state_vars =
+let reconstruct_lustre_streams subsystems state_vars =
 
-  let nodes = SubSystem.all_subsystems node
+  let nodes = SubSystem.all_subsystems_of_list subsystems
               |> List.map (fun {SubSystem.source} -> source) in
   
   (* mapback from abstract state variables to expressions *)

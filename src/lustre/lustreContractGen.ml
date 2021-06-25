@@ -349,10 +349,11 @@ let sys_name sys =
   scope_of sys |> Scope.to_string
 
 let get_node_of_sys in_sys sys =
+  let scope = scope_of sys in
   let _, node_of_scope =
-    InputSystem.contract_gen_param in_sys
+    InputSystem.contract_gen_param in_sys scope
   in
-  try scope_of sys |> node_of_scope with
+  try scope |> node_of_scope with
   | Not_found ->
     Format.asprintf "unknown system %a" fmt_sys_name sys
     |> failwith

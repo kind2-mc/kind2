@@ -92,6 +92,7 @@ let rec all_subsystems' accum = function
    of the list. *)
 let all_subsystems s = all_subsystems' [] [s]
 
+let all_subsystems_of_list l = all_subsystems' [] l
 
 (* Search depth-first for the subsystem in the list of subsystems, skip over
    systems already visited. *)
@@ -122,6 +123,8 @@ let rec find_subsystem' scope visited = function
 
    Raise [Not_found] if there is no subsystem of that scope. *)
 let find_subsystem subsystem scope = find_subsystem' scope [] [subsystem]
+
+let find_subsystem_of_list subsystems scope = find_subsystem' scope [] subsystems
 
 (* 
    Local Variables:

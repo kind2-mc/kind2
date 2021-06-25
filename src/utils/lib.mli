@@ -176,6 +176,7 @@ val compare_lists : ('a -> 'a -> int) -> 'a list -> 'a list -> int
 (** Apply a list of functions to a single argument. Kind of List.map but not really *)
 val list_apply: ('a -> 'b) list -> 'a -> 'b list
 
+val find_map : ('a -> 'b option) -> 'a list -> 'b option
 
 val drop_last: 'a list -> 'a list
 (** Returns the list with its last element dropped *)  

@@ -27,7 +27,8 @@ module SVS = SVar.StateVarSet
 module SVM = SVar.StateVarMap
 
 type _ t =
-| Lustre : (LustreNode.t S.t * LustreGlobals.t * LustreAst.declaration list) -> LustreNode.t t
+| Lustre : (LustreNode.t S.t list * LustreGlobals.t * LustreAst.declaration list) -> LustreNode.t t
+(* Lustre systems supports multiple entry points (main subsystems) *)
 | Native : TransSys.t S.t -> TransSys.t t
 | Horn : unit S.t -> unit t
 
@@ -41,8 +42,8 @@ let read_input_horn input_file = assert false
 
 let silent_contracts_of (type s) : s t -> (Scope.t * string list) list
 = function
-  | Lustre (subsystem, _, _) ->
-    S.all_subsystems subsystem
+  | Lustre (main_subs, _, _) ->
+    S.all_subsystems_of_list main_subs
     |> List.fold_left (
       fun acc { S.scope ; S.source = { N.silent_contracts } } ->
         (scope, silent_contracts) :: acc
@@ -53,8 +54,8 @@ let silent_contracts_of (type s) : s t -> (Scope.t * string list) list
   | Horn subsystem -> raise (UnsupportedFileFormat "Horn")
 
 let ordered_scopes_of (type s) : s t -> Scope.t list = function
-  | Lustre (subsystem, _, _) ->
-    S.all_subsystems subsystem
+  | Lustre (main_subs, _, _) ->
+    S.all_subsystems_of_list main_subs
     |> List.map (fun { S.scope } -> scope)
 
   | Native subsystem ->
@@ -64,23 +65,23 @@ let ordered_scopes_of (type s) : s t -> Scope.t list = function
   | Horn subsystem -> assert false
 
 let analyzable_subsystems (type s) : s t -> s SubSystem.t list = function
-  | Lustre (subsystem, _, _) ->
-    if Flags.modular () then (
-      S.all_subsystems subsystem
-      |> List.filter (fun s ->
-        Strategy.is_candidate_for_analysis (S.strategy_info_of s))
-    ) else (
-      [subsystem]
-    )
+  | Lustre (main_subs, _, _) ->
+    let subsystems' =
+      if Flags.modular () then S.all_subsystems_of_list main_subs
+      else main_subs
+    in
+    subsystems'
+    |> List.filter (fun s ->
+      Strategy.is_candidate_for_analysis (S.strategy_info_of s))
 
   | Native subsystem ->
-    if Flags.modular () then (
-      S.all_subsystems subsystem
-      |> List.filter (fun s ->
-        Strategy.is_candidate_for_analysis (S.strategy_info_of s))
-    ) else (
-      [subsystem]
-    )
+    let subsystems' =
+      if Flags.modular () then S.all_subsystems subsystem
+      else [subsystem]
+    in
+    subsystems'
+    |> List.filter (fun s ->
+      Strategy.is_candidate_for_analysis (S.strategy_info_of s))
 
   | Horn subsystem -> assert false
 
@@ -105,7 +106,7 @@ let get_testgen_uid () =
 let maximal_abstraction_for_testgen (type s)
 : s t -> Scope.t -> Analysis.assumptions -> Analysis.param option = function
 
-  | Lustre (subsystem, _, _) -> (fun top assumptions ->
+  | Lustre (main_subs, _, _) -> (fun top assumptions ->
 
     (* Collects all subsystems, abstracting them if possible. *)
     let rec collect map = function
@@ -136,7 +137,7 @@ let maximal_abstraction_for_testgen (type s)
     in
 
     match
-      S.all_subsystems subsystem |> get_abstraction_for_top
+      S.all_subsystems_of_list main_subs |> get_abstraction_for_top
     with
 
     (* Top is not abstractable. *)
@@ -160,40 +161,56 @@ let maximal_abstraction_for_testgen (type s)
 let next_analysis_of_strategy (type s)
 : s t -> 'a -> Analysis.param option = function
 
-  | Lustre (subsystem, _, _) -> (
+  | Lustre (main_subs, _, _) -> (
     fun results ->
-      let subs_of_scope scope =
-        let { S.subsystems } = S.find_subsystem subsystem scope in
-        subsystems
-        |> List.map (
-          fun ({ S.scope } as sub) ->
-            scope, S.strategy_info_of sub
-        )
+      let scope_and_strategy =
+        List.map (fun ({ S.scope } as sub) ->
+          scope, S.strategy_info_of sub)
       in
-      S.all_subsystems subsystem
-      |> List.map (
-        fun ({ S.scope } as sub) ->
-          scope, S.strategy_info_of sub
+      let all_syss =
+        scope_and_strategy (S.all_subsystems_of_list main_subs)
+      in
+      if Flags.modular () then (
+        let subs_of_scope scope =
+          let { S.subsystems } = S.find_subsystem_of_list main_subs scope in
+          subsystems
+          |> List.map (
+            fun ({ S.scope } as sub) ->
+              scope, S.strategy_info_of sub
+          )
+        in
+        Strategy.next_modular_analysis results subs_of_scope all_syss
       )
-      |> Strategy.next_analysis results subs_of_scope
+      else (
+        let main_syss = scope_and_strategy main_subs in
+        Strategy.next_monolithic_analysis results main_syss all_syss
+      )
   )
 
   | Native subsystem -> (
     fun results ->
-      let subs_of_scope scope =
-        let { S.subsystems } = S.find_subsystem subsystem scope in
-        subsystems
-        |> List.map (
-          fun ({ S.scope } as sub) ->
-            scope, S.strategy_info_of sub
-        )
+      let scope_and_strategy =
+        List.map (fun ({ S.scope } as sub) ->
+          scope, S.strategy_info_of sub)
       in
-      S.all_subsystems subsystem
-      |> List.map (
-        fun ({ S.scope } as sub) ->
-          scope, S.strategy_info_of sub
+      let all_syss =
+        scope_and_strategy (S.all_subsystems subsystem)
+      in
+      if Flags.modular () then (
+        let subs_of_scope scope =
+          let { S.subsystems } = S.find_subsystem subsystem scope in
+          subsystems
+          |> List.map (
+            fun ({ S.scope } as sub) ->
+              scope, S.strategy_info_of sub
+          )
+        in
+        Strategy.next_modular_analysis results subs_of_scope all_syss
       )
-      |> Strategy.next_analysis results subs_of_scope
+      else (
+        let main_syss = scope_and_strategy [subsystem] in
+        Strategy.next_monolithic_analysis results main_syss all_syss
+      )
   )
          
   | Horn subsystem -> (function _ -> assert false)
@@ -223,14 +240,14 @@ let mcs_params (type s) (input_system : s t) =
     }
   in
   match input_system with
-  | Lustre (sub, _, _) ->
+  | Lustre (main_subs, _, _) ->
     if Flags.modular ()
     then
-      S.all_subsystems sub
+      S.all_subsystems_of_list main_subs
       |> List.rev
       |> List.map param_for_subsystem
     else
-      [sub |> param_for_subsystem]
+      main_subs |> List.map param_for_subsystem
   | Native sub ->
     if Flags.modular ()
     then
@@ -255,8 +272,8 @@ let contract_check_params (type s) (input_system : s t) =
   in
 
   match input_system with
-  | Lustre (sub, _, _) -> (
-    S.all_subsystems sub
+  | Lustre (main_subs, _, _) -> (
+    S.all_subsystems_of_list main_subs
     |> List.filter (fun s -> not s.S.has_impl)
     |> List.map param_for_subsystem
   )
@@ -267,13 +284,25 @@ let interpreter_param (type s) (input_system : s t) =
 
   let scope, abstraction_map =
     match input_system with
-    | Lustre ({S.scope} as sub, _, _) -> (scope,
+    | Lustre (main_subs, _, _) ->
+      let {S.scope} as sub =
+        match main_subs with
+        | [sub] -> sub
+        | l ->
+          let msg =
+            let n = List.length l in
+            Format.asprintf
+              "interpreter only accepts one main subsystem, but found %d" n
+          in
+          failwith msg
+      in 
+      (scope,
       List.fold_left (
         fun abs_map ({ S.scope; S.has_impl }) ->
           Scope.Map.add scope (not has_impl) abs_map
         )
         Scope.Map.empty (S.all_subsystems sub)
-    )
+      )
     | Native ({S.scope} as sub) -> (scope,
       List.fold_left (
         fun abs_map ({ S.scope; S.has_impl }) ->
@@ -293,18 +322,26 @@ let interpreter_param (type s) (input_system : s t) =
 
 let retrieve_lustre_nodes (type s) : s t -> LustreNode.t list =
   (function
-  | Lustre (subsystem, _, _) -> 
-    let subsystems = S.all_subsystems subsystem in
+  | Lustre (main_subs, _, _) -> 
+    let subsystems = S.all_subsystems_of_list main_subs in
     List.map (fun sb -> sb.S.source) subsystems
   | Native _ -> failwith "Unsupported input system: Native"
   | Horn _ -> failwith "Unsupported input system: Horn"
   )
 
+let retrieve_lustre_nodes_of_scope (type s) : s t -> Scope.t -> LustreNode.t list =
+  (function
+  | Lustre (main_subs, _, _) -> (fun scope ->
+    S.find_subsystem_of_list main_subs scope |> N.nodes_of_subsystem
+    )
+  | Native _ -> failwith "Unsupported input system: Native"
+  | Horn _ -> failwith "Unsupported input system: Horn"
+  )
 
-let contain_partially_defined_system (type s) (in_sys : s t) =
+let contain_partially_defined_system (type s) (in_sys : s t) (top : Scope.t) =
   match in_sys with
   | Lustre _ -> (
-    retrieve_lustre_nodes in_sys
+    retrieve_lustre_nodes_of_scope in_sys top
     |> List.exists (fun node -> N.partially_defined node)
   )
   | Native _ -> failwith "Unsupported input system: Native"
@@ -312,8 +349,8 @@ let contain_partially_defined_system (type s) (in_sys : s t) =
 
 let get_lustre_node (type s) (input_system : s t) scope =
   match input_system with
-  | Lustre (sub, _, _) -> (
-    try Some (S.find_subsystem sub scope).S.source
+  | Lustre (main_subs, _, _) -> (
+    try Some (S.find_subsystem_of_list main_subs scope).S.source
     with Not_found -> None
   )
   | Native _ -> None
@@ -359,13 +396,13 @@ let trans_sys_of_analysis (type s) ?(preserve_sig = false)
 ?(slice_nodes = Flags.slice_nodes ())
 : s t -> Analysis.param -> TransSys.t * s t = function
 
-  | Lustre (subsystem, globals, ast) -> (
+  | Lustre (main_subs, globals, ast) -> (
     function analysis ->
       let t, s =
         LustreTransSys.trans_sys_of_nodes
-          ~preserve_sig ~slice_nodes globals subsystem analysis
+          ~preserve_sig ~slice_nodes globals main_subs analysis
       in
-      t, Lustre (s, globals, ast)
+      t, Lustre ([s], globals, ast)
     )
 
   | Native sub -> (fun _ -> sub.SubSystem.source, Native sub)
@@ -379,9 +416,13 @@ let pp_print_path_pt
 
   match input_system with 
 
-  | Lustre (subsystem, _, _) ->
+  | Lustre (main_subs, _, _) ->
+    let sub =
+      let scope = TransSys.scope_of_trans_sys trans_sys in
+      S.find_subsystem_of_list main_subs scope
+    in
     LustrePath.pp_print_path_pt
-      trans_sys instances subsystem first_is_init ppf model
+      trans_sys instances sub first_is_init ppf model
 
   | Native sub ->
     Format.eprintf "pp_print_path_pt not implemented for native input@.";
@@ -396,9 +437,13 @@ let pp_print_path_xml
 
   match input_system with 
 
-  | Lustre (subsystem, _, _) ->
+  | Lustre (main_subs, _, _) ->
+    let sub =
+      let scope = TransSys.scope_of_trans_sys trans_sys in
+      S.find_subsystem_of_list main_subs scope
+    in
     LustrePath.pp_print_path_xml
-      trans_sys instances subsystem first_is_init ppf model
+      trans_sys instances sub first_is_init ppf model
 
   | Native _ ->
     Format.eprintf "pp_print_path_xml not implemented for native input@.";
@@ -413,9 +458,13 @@ let pp_print_path_json
 
   match input_system with
 
-  | Lustre (subsystem, _, _) ->
+  | Lustre (main_subs, _, _) ->
+    let sub =
+      let scope = TransSys.scope_of_trans_sys trans_sys in
+      S.find_subsystem_of_list main_subs scope
+    in
     LustrePath.pp_print_path_json
-      trans_sys instances subsystem first_is_init ppf model
+      trans_sys instances sub first_is_init ppf model
 
   | Native _ ->
     Format.eprintf "pp_print_path_json not implemented for native input@.";
@@ -428,9 +477,13 @@ let pp_print_path_in_csv
 (type s) (input_system : s t) trans_sys instances first_is_init ppf model =
   match input_system with
 
-  | Lustre (subsystem, _, _) ->
+  | Lustre (main_subs, _, _) ->
+    let sub =
+      let scope = TransSys.scope_of_trans_sys trans_sys in
+      S.find_subsystem_of_list main_subs scope
+    in
     LustrePath.pp_print_path_in_csv
-      trans_sys instances subsystem first_is_init ppf model
+      trans_sys instances sub first_is_init ppf model
 
   | Native _ ->
     Format.eprintf "pp_print_path_in_csv not implemented for native input";
@@ -441,8 +494,8 @@ let pp_print_path_in_csv
 
 let reconstruct_lustre_streams (type s) (input_system : s t) state_vars =
   match input_system with 
-  | Lustre (subsystem, _, _) ->
-    LustrePath.reconstruct_lustre_streams subsystem state_vars
+  | Lustre (main_subs, _, _) ->
+    LustrePath.reconstruct_lustre_streams main_subs state_vars
   | Native _ -> assert false
   | Horn _ -> assert false
 
@@ -581,11 +634,13 @@ let slice_to_abstraction_and_property
     trans_sys, [], cex, prop
   in
 
+  let scope = TransSys.scope_of_trans_sys trans_sys' in
+
   (* Replace top system with subsystem for slicing. *)
   let analysis' =
     Analysis.First {
       (Analysis.info_of_param analysis)
-      with Analysis.top = TransSys.scope_of_trans_sys trans_sys'
+      with Analysis.top = scope
     }
   in
 
@@ -596,7 +651,7 @@ let slice_to_abstraction_and_property
     match input_sys with 
 
     (* Slice Lustre subnode to property term *)
-    | Lustre (subsystem, globals, ast) ->
+    | Lustre (main_subs, globals, ast) ->
 
       let vars = match prop'.Property.prop_source with
         | Property.Assumption _ ->
@@ -612,15 +667,16 @@ let slice_to_abstraction_and_property
       in
 
       let subsystem' =
+        let sub = S.find_subsystem_of_list main_subs scope in
         if is_prop'_instantiated then
           LustreSlicing.slice_to_abstraction
-            (Flags.slice_nodes ()) analysis' subsystem
+            (Flags.slice_nodes ()) analysis' sub
         else
           LustreSlicing.slice_to_abstraction_and_property
-            analysis' vars subsystem
+            analysis' vars sub
       in
 
-      Lustre (subsystem', globals, ast)
+      Lustre ([subsystem'], globals, ast)
 
     (* No slicing in native input *)
     | Native subsystem -> Native subsystem
@@ -637,10 +693,10 @@ let inval_arg s = invalid_arg (
 let compile_to_rust (type s): s t -> Scope.t -> string -> unit =
 fun sys top_scope target ->
   match sys with
-  | Lustre (sub, _, _) ->
+  | Lustre (main_subs, _, _) ->
     LustreToRust.implem_to_rust target (
-      fun scope -> (S.find_subsystem sub scope).S.source
-    ) sub.S.source
+      fun scope -> (S.find_subsystem_of_list main_subs scope).S.source
+    ) (S.find_subsystem_of_list main_subs top_scope).S.source
   | Native _ ->
     Format.printf "can't compile from native input: unsupported"
   | Horn _ ->
@@ -653,30 +709,33 @@ let compile_oracle_to_rust (type s): s t -> Scope.t -> string -> (
 ) =
 fun sys top_scope target ->
   match sys with
-  | Lustre (sub, _, _) ->
+  | Lustre (main_subs, _, _) ->
     LustreToRust.oracle_to_rust target (
-      fun scope -> (S.find_subsystem sub scope).S.source
-    ) sub.S.source
+      fun scope -> (S.find_subsystem_of_list main_subs scope).S.source
+    ) (S.find_subsystem_of_list main_subs top_scope).S.source
   | Native _ ->
     failwith "can't compile from native input: unsupported"
   | Horn _ ->
     failwith "can't compile from horn clause input: unsupported"
 
-let contract_gen_param (type s): s t -> (Analysis.param * (Scope.t -> N.t)) =
-fun sys ->
+let contract_gen_param (type s): s t -> Scope.t -> (Analysis.param * (Scope.t -> N.t)) =
+fun sys -> fun top ->
   match sys with
-  | Lustre (sub, _, _) -> (
+  | Lustre (main_subs, _, _) -> (
+    let scope_and_strategy =
+      List.map (fun ({ S.scope } as sub) ->
+        scope, S.strategy_info_of sub)
+    in
     match
-      S.all_subsystems sub
-      |> List.map (fun ({ S.scope } as sub) ->
-        scope, S.strategy_info_of sub
-      )
-      |> Strategy.monolithic
+      Strategy.next_monolithic_analysis
+        (Analysis.mk_results ())
+        [top, S.strategy_info_of (S.find_subsystem_of_list main_subs top)]
+        (scope_and_strategy (S.all_subsystems_of_list main_subs))
     with
     | None ->
       failwith "could not generate contract generation analysis parameter"
     | Some param ->
-      param, (fun scope -> (S.find_subsystem sub scope).S.source)
+      param, (fun scope -> (S.find_subsystem_of_list main_subs scope).S.source)
   )
   | Native _ ->
     failwith "can't generate contracts from native input: unsupported"
@@ -688,7 +747,7 @@ let state_var_dependencies (type s):
 function
   | Lustre (subsystem, _, _) -> (
 
-    S.all_subsystems subsystem
+    S.all_subsystems_of_list subsystem
     |> List.rev (* Process leaves first *)
     |> List.fold_left (fun (map, deps) { S.scope ; S.source } ->
 
