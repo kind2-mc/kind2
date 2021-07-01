@@ -283,11 +283,13 @@ val node_of_name : LustreIdent.t -> t list -> t
 (** Return true if a node of the given name exists in the a list of nodes *)
 val exists_node_of_name : LustreIdent.t -> t list -> bool 
 
-(** Return name of the first node annotated with --%MAIN.  Raise
-    [Not_found] if no node has a --%MAIN annotation or [Failure
-    "find_main"] if more than one node has a --%MAIN annotation.
+(** Return name of all nodes annotated with --%MAIN.  Raise
+    [Not_found] if no node has a --%MAIN annotation.
+    If the processing mode does not support multiple main nodes,
+    then it is the caller's responsibility to ensure there is
+    only a single main node.
 *)
-val find_main : t list -> LustreIdent.t
+val find_main : t list -> LustreIdent.t list
 
 (** Return the identifier of the top node
 
@@ -298,9 +300,13 @@ val ident_of_top : t list -> LustreIdent.t
     at least one guarantee or one mode *)
 val has_effective_contract : t -> bool
 
+(** Return a list of tree-like subsystem hierarchies from a flat list of nodes,
+    where the names of the top nodes are given as first argument. *)
+val subsystems_of_nodes : LustreIdent.t list -> t list -> t SubSystem.t list
+
 (** Return a tree-like subsystem hierarchy from a flat list of nodes,
-    where the top node is at the head of the list. *)
-val subsystem_of_nodes : t list -> t SubSystem.t
+    where the name of the top node is given as first argument. *)
+val subsystem_of_nodes : LustreIdent.t -> t list -> t SubSystem.t
 
 (** Return list of topologically ordered list of nodes from subsystem.
     The top node is the head of the list. *)

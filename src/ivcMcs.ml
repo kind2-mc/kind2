@@ -545,16 +545,15 @@ let props_term props =
 let extract_all_props_names sys =
   List.map (fun { Property.prop_name = n } -> n) (TS.get_properties sys)
 
-let separate_loc_core_by_category in_sys cats =
-  let main_scope = InputSystem.ordered_scopes_of in_sys |> List.hd in
-  filter_loc_core_by_categories main_scope cats
+let separate_loc_core_by_category scope cats =
+  filter_loc_core_by_categories scope cats
 
-let separate_ivc_by_category in_sys (props, core, info) =
-  let (core1, core2) = separate_loc_core_by_category in_sys (Flags.IVC.ivc_category ()) core
+let separate_ivc_by_category scope (props, core, info) =
+  let (core1, core2) = separate_loc_core_by_category scope (Flags.IVC.ivc_category ()) core
   in (props, core1, info), (props, core2, info)
 
-let separate_mcs_by_category in_sys (data, core, info) =
-  let (core1, core2) = separate_loc_core_by_category in_sys (Flags.MCS.mcs_category ()) core
+let separate_mcs_by_category scope (data, core, info) =
+  let (core1, core2) = separate_loc_core_by_category scope (Flags.MCS.mcs_category ()) core
   in (data, core1, info), (data, core2, info)
 
 let complement_of_ivc in_sys sys (props, core, info) =
@@ -640,7 +639,8 @@ let lstmap_union scmap1 scmap2 =
 let generate_initial_cores in_sys sys enter_nodes cats =
   timeout := false ;
   let full_loc_core = full_loc_core_for_sys in_sys sys ~only_top_level:(not enter_nodes) in
-  let (test, keep) = separate_loc_core_by_category in_sys cats full_loc_core in
+  let scope = TransSys.scope_of_trans_sys sys in
+  let (test, keep) = separate_loc_core_by_category scope cats full_loc_core in
   (loc_core_to_new_core keep, loc_core_to_new_core test)
 
 let pick_element_of_core core =

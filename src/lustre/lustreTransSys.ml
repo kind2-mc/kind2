@@ -2334,7 +2334,7 @@ let trans_sys_of_nodes
     ?(preserve_sig = false)
     ?(slice_nodes = true)
     globals
-    subsystem analysis_param
+    subsystems analysis_param
   =
 
   (* Prevent the garbage collector from running too often during the frontend
@@ -2356,8 +2356,7 @@ let trans_sys_of_nodes
     )
   );
 
-  (* TODO: Find top subsystem by name *)
-  let subsystem' = subsystem in
+  let subsystem' = SubSystem.find_subsystem_of_list subsystems top in
   
   let { SubSystem.source = { N.name = top_name } as node } as subsystem' =
     S.slice_to_abstraction

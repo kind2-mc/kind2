@@ -201,52 +201,47 @@ let first_analysis_of_contract_check ass top (
 *)
 
 
-(* Using modules is kind of useless here, however it compartments the code and
-maybe in the future will have functors building the strategies. *)
-
-module type Strategy = sig
-  val next_analysis:
-    A.results ->
-    (Scope.t -> (Scope.t * info) list) ->
-    (Scope.t * info) list ->
-    A.param option
-end
-
-module MonolithicStrategy : Strategy = struct
-  let next_analysis results subs_of_scope all_syss = match all_syss with
-    | [] -> failwith "[strategy] \
+let next_monolithic_analysis results main_syss = function
+  | [] -> failwith "[strategy] \
       no system to analyze (empty list of scopes)\
     "
-    | ( top, { can_refine } ) :: tail -> try (
-      match A.results_find top results with
-      | [] -> failwith "unreachable"
-      | [ {
-        A.param = A.ContractCheck info ;
-        A.contract_valid ;
-      } ] when Flags.Contracts.check_implem () ->
-        if can_refine then
-          (* Invariants generated during ContractCheck analysis are discarded.
-             They were generated assuming the contract! *)
-          let ass = A.assumptions_empty in
-          first_analysis_of_contract_check ass top info contract_valid
-        else None
-      (* Not the first analysis, done. *)
-      | _ -> None
-    ) with Not_found ->
-      first_param_of A.assumptions_empty results all_syss top
-end
+  | all_syss -> (
+    
+    let check_sys ( top, { can_refine } ) =
+      try (
+        match A.results_find top results with
+        | [] -> failwith "unreachable"
+        | [ {
+          A.param = A.ContractCheck info ;
+          A.contract_valid ;
+        } ] when Flags.Contracts.check_implem () ->
+          if can_refine then
+            (* Invariants generated during ContractCheck analysis are discarded.
+              They were generated assuming the contract! *)
+            let ass = A.assumptions_empty in
+            first_analysis_of_contract_check ass top info contract_valid
+          else None
+        (* Not the first analysis, done. *)
+        | _ -> None
+      ) with Not_found ->
+        first_param_of A.assumptions_empty results all_syss top
+    in
 
-module ModularStrategy : Strategy = struct
-  (** Last transition system analyzed. *)
-  let last_trans_sys = ref None
+    Lib.find_map check_sys main_syss
+
+  )
+
+
+(* Last transition system analyzed. *)
+let last_trans_sys = ref None
   
-  (** Assumptions corresponding to the last system analyzed. *)
-  let last_assumptions () =
-    match ! last_trans_sys with
-    | None -> A.assumptions_empty
-    | Some sys -> A.assumptions_of_sys sys
+(* Assumptions corresponding to the last system analyzed. *)
+let last_assumptions () =
+  match ! last_trans_sys with
+  | None -> A.assumptions_empty
+  | Some sys -> A.assumptions_of_sys sys
 
-  let next_analysis results subs_of_scope = function
+let next_modular_analysis results subs_of_scope = function
   | [] -> failwith "[strategy] \
     no system to analyze (empty list of scopes)\
   "
@@ -332,17 +327,6 @@ module ModularStrategy : Strategy = struct
     in
 
     go_down [] all_syss
-
-end
-
-let next_analysis results subs_of_scope all_syss = (
-  (* Calling the right function. *)
-  if Flags.modular () then ModularStrategy.next_analysis
-  else MonolithicStrategy.next_analysis
-) results subs_of_scope all_syss
-
-let monolithic =
-  MonolithicStrategy.next_analysis (Analysis.mk_results ()) (fun _ -> [])
 
 
 (* 

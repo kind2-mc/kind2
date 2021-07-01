@@ -186,11 +186,11 @@ let of_channel in_ch =
   in
     
     (* Name of main node *)
-    let main_node = 
+    let main_nodes =
       (* Command-line flag for main node given? *)
       match Flags.lus_main () with 
       (* Use given identifier to choose main node *)
-      | Some s -> LustreIdent.mk_string_ident s
+      | Some s -> [LustreIdent.mk_string_ident s]
       (* No main node name given on command-line *)
       | None -> 
         (try 
@@ -202,15 +202,13 @@ let of_channel in_ch =
           with Not_found -> 
             raise (NoMainNode "No main node defined in input"))
     in
-    (* Put main node at the head of the list of nodes *)
-    let nodes' = 
+    (* Check that main nodes all exist *)
+    let _ =
       try 
-        (* Get main node by name and copy it at the head of the list of
-          nodes *)
-        LN.node_of_name main_node nodes :: nodes
+        List.map (fun mn -> LN.node_of_name mn nodes) main_nodes
       with Not_found -> 
         (* Node with name of main not found 
-          This can only happens when the name is passed as command-line
+          This can only happen when the name is passed as command-line
           argument *)
         raise (NoMainNode "Main node not found in input")
     in
@@ -248,7 +246,7 @@ let of_channel in_ch =
           |> List.flatten);
     (if Flags.only_tc () then exit 0);
     (* Return a subsystem tree from the list of nodes *)
-    LN.subsystem_of_nodes nodes', globals, declarations
+    LN.subsystems_of_nodes main_nodes nodes, globals, declarations
 
 
 (* Returns the AST from a file. *)

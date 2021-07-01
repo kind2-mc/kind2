@@ -226,7 +226,7 @@ module RunAssumptionGen: PostAnalysis = struct
       )
       | _, invalid, _ ->  (
         let model_contains_assert =
-          ISys.retrieve_lustre_nodes in_sys
+          ISys.retrieve_lustre_nodes_of_scope in_sys top
           |> List.exists
             (fun { LustreNode.asserts } -> asserts <> [])
         in
@@ -237,7 +237,7 @@ module RunAssumptionGen: PostAnalysis = struct
                with models that contain asserts."
           )
         )
-        else if ISys.contain_partially_defined_system in_sys then (
+        else if ISys.contain_partially_defined_system in_sys top then (
           error (fun fmt ->
             Format.fprintf fmt
               "Assumption generation is currently not supported for \
@@ -480,7 +480,7 @@ module RunInvLog: PostAnalysis = struct
     |> Res.chain (fun sys ->
       (* Returns [false] iff term passed mentions node call svars. *)
       let _, node_of_scope =
-        InputSystem.contract_gen_param in_sys
+        InputSystem.contract_gen_param in_sys top
       in
       let node = node_of_scope top in
 (*       node.LustreNode.state_var_source_map
@@ -736,7 +736,7 @@ module RunIVC: PostAnalysis = struct
 
               if Flags.IVC.print_ivc ()
               then begin
-                let (filtered_ivc,_) = IvcMcs.separate_ivc_by_category in_sys ivc in
+                let (filtered_ivc,_) = IvcMcs.separate_ivc_by_category top ivc in
                 let cpd = IvcMcs.ivc_to_print_data in_sys sys
                   (if is_must_set then "must" else "ivc") (Some elapsed) filtered_ivc in
                 KEvent.log_result pt xml json cpd
@@ -745,7 +745,7 @@ module RunIVC: PostAnalysis = struct
               if Flags.IVC.print_ivc_compl ()
               then begin
                 let not_ivc = IvcMcs.complement_of_ivc in_sys sys ivc in
-                let (filtered_not_ivc,_) = IvcMcs.separate_ivc_by_category in_sys not_ivc in
+                let (filtered_not_ivc,_) = IvcMcs.separate_ivc_by_category top not_ivc in
                 let cpd = IvcMcs.ivc_to_print_data in_sys sys
                   (if is_must_set then "must complement" else "ivc complement")
                   (Some elapsed) filtered_not_ivc in
@@ -826,6 +826,7 @@ module RunIVC: PostAnalysis = struct
 end
 
 let run_mcs_post_analysis in_sys param analyze sys =
+  let scope = TSys.scope_of_trans_sys sys in
   try (
     let max_mcs_cardinality = Flags.MCS.mcs_max_cardinality () in
     let props =
@@ -884,14 +885,14 @@ let run_mcs_post_analysis in_sys param analyze sys =
 
             if Flags.MCS.print_mcs ()
             then begin
-              let (filtered_mcs,_) = IvcMcs.separate_mcs_by_category in_sys mcs in
+              let (filtered_mcs,_) = IvcMcs.separate_mcs_by_category scope mcs in
               let cpd = IvcMcs.mcs_to_print_data in_sys sys "mcs" (Some elapsed) filtered_mcs in
               KEvent.log_result pt xml json cpd
             end ;
 
             if Flags.MCS.print_mcs_compl ()
             then begin
-              let (filtered_mua,_) = IvcMcs.separate_mcs_by_category in_sys mua in
+              let (filtered_mua,_) = IvcMcs.separate_mcs_by_category scope mua in
               let cpd = IvcMcs.mcs_to_print_data in_sys sys "mcs complement"
                 (Some elapsed) filtered_mua in
               KEvent.log_result pt xml json cpd

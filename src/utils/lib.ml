@@ -419,6 +419,14 @@ let rec list_apply: ('a -> 'b) list -> 'a -> 'b list = fun fs arg ->
   | [] -> []
   | f :: rest -> f arg :: (list_apply rest arg)  
 
+let rec find_map f = function
+  | [] -> None
+  | h :: tl -> (
+    match f h with
+    | None -> find_map f tl
+    | v -> v
+  )
+
 let rec drop_last: 'a list -> 'a list
   = function
   | [] -> failwith "drop_last"

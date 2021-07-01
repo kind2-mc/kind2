@@ -1212,7 +1212,8 @@ let slice_to_abstraction'
   in
   
   (* Create subsystem from list of nodes *)
-  N.subsystem_of_nodes nodes'
+  let { N.name = top } = List.hd nodes in
+  N.subsystem_of_nodes top nodes'
 
 
 let no_slice {N.outputs ; N.locals ; N.contract; N.props } is_impl =
