@@ -349,6 +349,11 @@ let unknown_pt mdl level trans_sys prop =
       pp_print_kind_module_pt mdl
       (Stat.get_float Stat.analysis_time)
 
+
+let cex_id_counter =
+  let last = ref 0 in
+  (fun () -> last := !last + 1 ; !last)
+
 (* Pretty-print a counterexample *)
 let pp_print_counterexample_pt 
   level input_sys analysis trans_sys prop_name disproved ppf
@@ -370,11 +375,37 @@ let pp_print_counterexample_pt
       prop
   in
 
-  (* Output counterexample *)
-  Format.fprintf ppf 
-    "@{<red>Counterexample@}:@,  @[<v>%a@]"
-    (InputSystem.pp_print_path_pt input_sys trans_sys instances disproved)
-    (Model.path_of_list cex)
+  let print_cex ppf =
+    (* Output counterexample *)
+    Format.fprintf ppf
+      "@{<red>Counterexample@}:@,  @[<v>%a@]"
+      (InputSystem.pp_print_path_pt input_sys trans_sys instances disproved)
+      (Model.path_of_list cex)
+  in
+
+  if Flags.dump_cex () then (
+    let dirname =
+      Filename.concat (Flags.output_dir ()) "cex"
+    in
+    (* Create directories if they don't exist. *)
+    Flags.output_dir () |> mk_dir ; mk_dir dirname ;
+    let path =
+      let filename = Format.asprintf "%d.txt" (cex_id_counter ()) in
+      Filename.concat dirname filename
+    in
+    let out_channel = open_out path in
+    let fmt = Format.formatter_of_out_channel out_channel in
+    print_cex fmt ;
+    Format.pp_print_flush fmt ();
+    close_out out_channel ;
+    (ignore_or_fprintf level)
+      !log_ppf
+      ("@[<hov>%t Counterexample to @{<blue_b>%s@} written to '%s'@.")
+      note_tag prop_name path
+  )
+  else (
+    print_cex ppf
+  )
 )
 
 
