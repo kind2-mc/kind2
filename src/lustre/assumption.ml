@@ -288,9 +288,7 @@ let dump_assumption fmt { init ; trans } =
 
 let dump_contract_for_assumption in_sys scope assumption prop path contract_name =
 
-  let path =
-    Format.asprintf "%s/%s" path (generate_filename prop)
-  in
+  let path = Filename.concat path (generate_filename prop) in
 
   match ISys.get_lustre_node in_sys scope with
   | Some node -> (

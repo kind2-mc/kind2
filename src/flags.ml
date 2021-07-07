@@ -2707,6 +2707,21 @@ module Global = struct
   let print_invs () = ! print_invs
 
 
+  (* Dump counterexample to a file. *)
+  let dump_cex_default = false
+  let dump_cex = ref dump_cex_default
+  let _ = add_spec
+    "--dump_cex"
+    (bool_arg dump_cex)
+    (fun fmt ->
+      Format.fprintf fmt
+        "Dump counterexample to a file. Only in plain text output.@ \
+        Default: %b"
+        dump_cex_default
+    )
+  let dump_cex () = ! dump_cex
+
+
   (* Timeout. *)
   let timeout_wall_default = 0.
   let timeout_wall = ref timeout_wall_default
@@ -3200,6 +3215,7 @@ let output_dir = Global.output_dir
 let include_dirs = Global.include_dirs
 let log_invs = Global.log_invs
 let print_invs = Global.print_invs
+let dump_cex = Global.dump_cex
 let only_parse = Global.only_parse
 let lsp = Global.lsp
 let only_tc = Global.only_tc
