@@ -1473,6 +1473,17 @@ let rec pp_print_lustre_path_xml' ppf = function
        original order again. *)
     let locals_auto', locals' = partition_locals_automaton is_visible locals in
 
+    let ghosts', locals' =
+      locals'
+      |> List.partition
+        (fun (_, sv) ->
+          try
+            match N.get_state_var_source node sv with
+            | N.Ghost -> true
+            | _ -> false
+          with Not_found -> false
+        )
+    in
 
     (* Pretty-print this node *)
     Format.fprintf ppf "@,@[<hv 2>@[<hv 1><%s@ name=\"%a\"%a>@]"
@@ -1483,6 +1494,7 @@ let rec pp_print_lustre_path_xml' ppf = function
     pp_print_active_modes_xml ppf active_modes;
     List.iter (pp_print_stream_xml get_source model clock ppf) inputs';
     List.iter (pp_print_stream_xml get_source model clock ppf) outputs';
+    List.iter (pp_print_stream_xml get_source model clock ppf) ghosts';
     List.iter (pp_print_stream_xml get_source model clock ppf) locals';
     pp_print_automata_xml get_source model clock ppf locals_auto';
     pp_print_lustre_path_xml' ppf subnodes;
@@ -1787,9 +1799,22 @@ let pp_print_streams_and_automata_json ppf
      original order again. *)
   let locals_auto', locals' = partition_locals_automaton is_visible locals in
 
+  let ghosts', locals' =
+    locals'
+    |> List.partition
+      (fun (_, sv) ->
+        try
+          match N.get_state_var_source node sv with
+          | N.Ghost -> true
+          | _ -> false
+        with Not_found -> false
+      )
+  in
+
   let streams = []
     |> List.rev_append inputs'
     |> List.rev_append outputs'
+    |> List.rev_append ghosts'
     |> List.rev_append locals'
     |> List.rev
   in
