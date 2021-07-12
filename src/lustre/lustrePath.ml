@@ -534,10 +534,17 @@ let active_modes_to_strings =
   loop [] [] []
 
 
+let get_constants const_map scope =
+  match Scope.Map.find_opt scope const_map with
+  | None -> []
+  | Some l -> l
+
+  
 (* Reconstruct model for the instance given the models for the subnodes 
 
    Use with [TransSys.fold_subsystem_instances]. *)
-let node_path_of_instance 
+let node_path_of_instance
+    const_map
     first_is_init
     model_top
     ({
@@ -642,6 +649,16 @@ let node_path_of_instance
         ) active_modes
   ) ; *)
 
+  let constants =
+    (* Node constants + Global constants *)
+    List.rev_append
+      (get_constants const_map (N.scope_of_node node))
+      (get_constants const_map [])
+    |> List.map snd
+  in
+
+  List.iter (fun sv -> SVT.add model sv (SVT.find model_top sv)) constants ;
+
   (* Return path for subnode and its call trace *)
   (trace, Node (node, model, active_modes, call_conds, subnodes))
 
@@ -650,6 +667,7 @@ let node_path_of_instance
    mapping the model of the top node to model of the subnode instances,
    reconstructing the streams in the original input. *)
 let node_path_of_subsystems
+    globals
     first_is_init
     trans_sys
     instances
@@ -670,14 +688,51 @@ let node_path_of_subsystems
   (* Format.printf "folding@.@." ; *)
   (*Printexc.record_backtrace true ;*)
 
+  (* Map from scopes to constants (empty scope = global scope) *)
+  let const_map =
+    let constants =
+      List.fold_left (fun acc (_, vt) ->
+        let l =
+          (D.bindings vt)
+          |> List.map (fun (i,v) -> (i, Var.state_var_of_state_var_instance v))
+        in
+        List.rev_append l acc
+      ) [] globals.LustreGlobals.free_constants
+      |> List.rev
+    in
+    List.fold_left
+      (fun acc (i, sv) ->
+        let scope =
+          let scope_sv = StateVar.scope_of_state_var sv in
+          match scope_sv with
+          | [_] -> []
+            (* Use empty scope for global scope (scope with one id) *)
+          | _ -> [scope_sv |> List.hd]
+            (* Retrieve name of node from scope (first id) *)
+        in
+        Scope.Map.update
+          scope
+          (function
+          | None -> Some [(i,sv)]
+          | Some l -> Some ((i,sv) :: l)
+          )
+          acc
+      )
+      Scope.Map.empty
+      constants
+  in
+
   try
-    (* Create models for all subnodes *)
-    N.fold_node_calls_with_trans_sys
-      nodes
-      (node_path_of_instance first_is_init model)
-      (N.node_of_name (I.of_scope scope) nodes)
-      trans_sys'
-  with 
+    let r =
+      (* Create models for all subnodes *)
+      N.fold_node_calls_with_trans_sys
+        nodes
+        (node_path_of_instance const_map first_is_init model)
+        (N.node_of_name (I.of_scope scope) nodes)
+        trans_sys'
+    in
+    (r, const_map)
+  with
   | TimeoutWall -> raise TimeoutWall
   | e ->
     (* Get backtrace now, Printf changes it *)
@@ -1038,7 +1093,7 @@ let partition_locals_automaton is_visible locals =
 
 (* Output sequences of values for each stream of the nodes in the list
    and for all its called nodes *)
-let rec pp_print_lustre_path_pt' ppf = function
+let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 
 (* All nodes printed *)
 | [] -> ()
@@ -1144,10 +1199,27 @@ let rec pp_print_lustre_path_pt' ppf = function
       ) locals_auto (ident_width, val_width, MS.empty)
   in
 
+  let globals = if is_top then get_constants const_map [] else [] in
+
+  let constants =
+    let scope = LustreNode.scope_of_node node in
+    get_constants const_map scope
+  in
+
+  let ident_width, val_width, globals' =
+    globals |> streams_to_values model ident_width val_width []
+  in
+
+  let ident_width, val_width, constants' =
+    constants |> streams_to_values model ident_width val_width []
+  in
+
   (* Sample inputs, outputs and locals on clock *)
-  let inputs', outputs', ghosts', locals', locals_auto' = match clock with
-    | None -> inputs', outputs', ghosts', locals', locals_auto'
-    | Some c -> 
+  let globals', constants', inputs', outputs', ghosts', locals', locals_auto'  = match clock with
+    | None -> globals', constants', inputs', outputs', ghosts', locals', locals_auto'
+    | Some c ->
+      sample_streams_on_clock c globals',
+      sample_streams_on_clock c constants',
       sample_streams_on_clock c inputs',
       sample_streams_on_clock c outputs',
       sample_streams_on_clock c ghosts',
@@ -1164,6 +1236,8 @@ let rec pp_print_lustre_path_pt' ppf = function
         %a\
         %a\
         %a\
+        %a\
+        %a\
       @]\
     @,@]"
     title
@@ -1172,6 +1246,8 @@ let rec pp_print_lustre_path_pt' ppf = function
     (pp_print_list pp_print_call_pt " / ") 
     (List.rev trace)
     (pp_print_modes_section_pt ident_width val_width mode_ident) modes
+    (pp_print_stream_section_pt ident_width val_width "Global Constants") globals'
+    (pp_print_stream_section_pt ident_width val_width "Constants") constants'
     (pp_print_stream_section_pt ident_width val_width "Inputs") inputs'
     (pp_print_stream_section_pt ident_width val_width "Outputs") outputs'
     (pp_print_stream_section_pt ident_width val_width "Ghosts") ghosts'
@@ -1179,31 +1255,33 @@ let rec pp_print_lustre_path_pt' ppf = function
     (pp_print_stream_automata_pt ident_width val_width) locals_auto';
 
   (* Recurse depth-first to print subnodes *)
-  pp_print_lustre_path_pt' 
+  pp_print_lustre_path_pt'
+    false
+    const_map
     ppf
     (subnodes @ tl)
 
 | _ :: tl ->
   
-  pp_print_lustre_path_pt' ppf tl
+  pp_print_lustre_path_pt' false const_map ppf tl
 
   
 
 (* Output sequences of values for each stream of the node and for all
    its called nodes *)
-let pp_print_lustre_path_pt ppf lustre_path = 
+let pp_print_lustre_path_pt ppf (lustre_path, const_map) = 
 
   (* Delegate to recursive function *)
-  pp_print_lustre_path_pt' ppf [lustre_path]
+  pp_print_lustre_path_pt' true const_map ppf [lustre_path]
 
 
 (* Output a hierarchical model as plain text *)
 let pp_print_path_pt
-  trans_sys instances subsystems first_is_init ppf model
+  trans_sys instances globals subsystems first_is_init ppf model
   =
   (* Create the hierarchical model *)
   node_path_of_subsystems
-    first_is_init trans_sys instances model subsystems
+    globals first_is_init trans_sys instances model subsystems
   (* Output as plain text *)
   |> pp_print_lustre_path_pt ppf
 
@@ -1256,7 +1334,9 @@ let pp_print_stream_ident_xml = pp_print_stream_ident_pt
 
 
 (* Pretty-print a property of a stream as XML attributes *)
-let pp_print_stream_prop_xml ppf = function 
+let pp_print_stream_prop_xml node ppf state_var =
+
+  match N.get_state_var_source node state_var with
 
   | N.Input -> Format.fprintf ppf "@ class=\"input\""
 
@@ -1267,6 +1347,10 @@ let pp_print_stream_prop_xml ppf = function
   | N.Ghost -> Format.fprintf ppf "@ class=\"ghost\""
 
   (*| N.Alias (_, Some src) -> pp_print_stream_prop_xml ppf src*)
+
+  | exception Not_found when StateVar.is_const state_var ->
+
+    Format.fprintf ppf "@ class=\"constant\""
 
   (* Any other streams should have been culled out *)
   | _ -> assert false 
@@ -1305,7 +1389,7 @@ let pp_print_stream_values clock ty ppf l =
 
 
 (* Pretty-print a single stream *)
-let pp_print_stream_xml get_source model clock ppf (index, state_var) =
+let pp_print_stream_xml node model clock ppf (index, state_var) =
 
   let pp_print_type ppf stream_type =
     match (Type.node_of_type stream_type) with
@@ -1358,20 +1442,20 @@ let pp_print_stream_xml get_source model clock ppf (index, state_var) =
        %a@]@,</Stream>"
       pp_print_stream_ident_xml (index, state_var)
       pp_print_type stream_type
-      pp_print_stream_prop_xml (get_source state_var)
+      (pp_print_stream_prop_xml node) state_var
       (pp_print_stream_values clock stream_type) stream_values
 
   with Not_found -> assert false
 
 
-let pp_print_automaton_xml get_source model clock ppf name streams  =
+let pp_print_automaton_xml node model clock ppf name streams  =
   Format.fprintf ppf "@,@[<hv 2>@[<hv 1><Automaton@ name=\"%s\">@]" name;
-  List.iter (pp_print_stream_xml get_source model clock ppf) streams;
+  List.iter (pp_print_stream_xml node model clock ppf) streams;
   Format.fprintf ppf"@]@,</Automaton>"
     
 
-let pp_print_automata_xml get_source model clock ppf auto_map =
-  MS.iter (pp_print_automaton_xml get_source model clock ppf) auto_map
+let pp_print_automata_xml node model clock ppf auto_map =
+  MS.iter (pp_print_automaton_xml node model clock ppf) auto_map
 
 
 
@@ -1413,7 +1497,7 @@ let pp_print_active_modes_xml ppf = function
     )
 
 (* Output a list of node models. *)
-let rec pp_print_lustre_path_xml' ppf = function 
+let rec pp_print_lustre_path_xml' is_top const_map ppf = function 
 
   | [] -> ()
 
@@ -1424,10 +1508,7 @@ let rec pp_print_lustre_path_xml' ppf = function
     )
   ) :: tl when N.node_is_visible node ->
 
-    let
-      is_visible, get_source =
-      N.state_var_is_visible node, N.get_state_var_source node
-    in
+    let is_visible = N.state_var_is_visible node in
   
     let is_state, name =
       match N.node_is_state_handler node with
@@ -1485,6 +1566,13 @@ let rec pp_print_lustre_path_xml' ppf = function
         )
     in
 
+    let globals' = if is_top then get_constants const_map [] else [] in
+
+    let constants' =
+      let scope = LustreNode.scope_of_node node in
+      get_constants const_map scope
+    in
+
     (* Pretty-print this node *)
     Format.fprintf ppf "@,@[<hv 2>@[<hv 1><%s@ name=\"%a\"%a>@]"
       title
@@ -1492,38 +1580,40 @@ let rec pp_print_lustre_path_xml' ppf = function
       pp_print_call_xml trace;
 
     pp_print_active_modes_xml ppf active_modes;
-    List.iter (pp_print_stream_xml get_source model clock ppf) inputs';
-    List.iter (pp_print_stream_xml get_source model clock ppf) outputs';
-    List.iter (pp_print_stream_xml get_source model clock ppf) ghosts';
-    List.iter (pp_print_stream_xml get_source model clock ppf) locals';
-    pp_print_automata_xml get_source model clock ppf locals_auto';
-    pp_print_lustre_path_xml' ppf subnodes;
+    List.iter (pp_print_stream_xml node model clock ppf) globals';
+    List.iter (pp_print_stream_xml node model clock ppf) constants';
+    List.iter (pp_print_stream_xml node model clock ppf) inputs';
+    List.iter (pp_print_stream_xml node model clock ppf) outputs';
+    List.iter (pp_print_stream_xml node model clock ppf) ghosts';
+    List.iter (pp_print_stream_xml node model clock ppf) locals';
+    pp_print_automata_xml node model clock ppf locals_auto';
+    pp_print_lustre_path_xml' false const_map ppf subnodes;
     Format.fprintf ppf "@]@,</%s>" title;
 
     (* Continue *)
-    pp_print_lustre_path_xml' ppf tl
+    pp_print_lustre_path_xml' false const_map ppf tl
 
   | _ :: tl ->
     
     (* Continue *)
-    pp_print_lustre_path_xml' ppf tl
+    pp_print_lustre_path_xml' false const_map ppf tl
 
 
 (* Output sequences of values for each stream of the node and for all
    its called nodes *)
-let pp_print_lustre_path_xml ppf path = 
+let pp_print_lustre_path_xml ppf (path, const_map) = 
 
   (* Delegate to recursive function *)
-  pp_print_lustre_path_xml' ppf [path]
+  pp_print_lustre_path_xml' true const_map ppf [path]
 
 
 (* Ouptut a hierarchical model as XML *)
 let pp_print_path_xml
-  trans_sys instances subsystems first_is_init ppf model
+  trans_sys instances globals subsystems first_is_init ppf model
 =
   (* Create the hierarchical model *)
   node_path_of_subsystems
-    first_is_init trans_sys instances model subsystems
+    globals first_is_init trans_sys instances model subsystems
   (* Output as XML *)
   |> pp_print_lustre_path_xml ppf
 
@@ -1568,7 +1658,9 @@ let pp_print_stream_ident_json = pp_print_stream_ident_pt
 
 
 (* Pretty-print a property of a stream as JSON attributes *)
-let pp_print_stream_prop_json ppf = function
+let pp_print_stream_prop_json node ppf state_var =
+
+  match N.get_state_var_source node state_var with
 
   | N.Input -> Format.fprintf ppf "\"class\" : \"input\",@,"
 
@@ -1579,6 +1671,10 @@ let pp_print_stream_prop_json ppf = function
   | N.Ghost -> Format.fprintf ppf "\"class\" : \"ghost\",@,"
 
   (* | N.Alias (_, Some src) -> pp_print_stream_prop_json ppf src *)
+
+  | exception Not_found when StateVar.is_const state_var ->
+
+    Format.fprintf ppf "\"class\" : \"constant\",@,"
 
   (* Any other streams should have been culled out *)
   | _ -> assert false
@@ -1680,7 +1776,7 @@ let rec pp_print_type_json field ppf stream_type =
   )
 
 (* Pretty-print a single stream *)
-let pp_print_stream_json get_source model clock ppf (index, state_var) =
+let pp_print_stream_json node model clock ppf (index, state_var) =
   try
     let stream_values = SVT.find model state_var in
     let stream_type = StateVar.type_of_state_var state_var in
@@ -1694,7 +1790,7 @@ let pp_print_stream_json get_source model clock ppf (index, state_var) =
       "
       pp_print_stream_ident_json (index, state_var)
       (pp_print_type_json "type") stream_type
-      pp_print_stream_prop_json (get_source state_var)
+      (pp_print_stream_prop_json node) state_var
       (function ppf ->
          if stream_values = [] then
            Format.fprintf ppf " []"
@@ -1730,16 +1826,16 @@ let pp_print_active_modes_json ppf = function
         )
 
 
-let pp_print_streams_json get_source model clock ppf = function
+let pp_print_streams_json node model clock ppf = function
   | [] -> ()
   | streams ->
       Format.fprintf ppf ",@,\"streams\" :@,[@[<v 1>%a@]@,]"
         (pp_print_list
-          (pp_print_stream_json get_source model clock) ",")
+          (pp_print_stream_json node model clock) ",")
         streams
 
 
-let pp_print_automaton_json get_source model clock ppf (name, streams) =
+let pp_print_automaton_json node model clock ppf (name, streams) =
 
   Format.fprintf ppf
     "@,{@[<v 1>@,\
@@ -1747,25 +1843,22 @@ let pp_print_automaton_json get_source model clock ppf (name, streams) =
       %a\
      @]@,}\
     "
-    name (pp_print_streams_json get_source model clock) streams
+    name (pp_print_streams_json node model clock) streams
 
 
-let pp_print_automata_json get_source model clock ppf auto_map =
+let pp_print_automata_json node model clock ppf auto_map =
 
   if MS.is_empty auto_map then () else
     Format.fprintf ppf ",@,\"automata\" :@,[@[<v 1>%a@]@,]"
       (pp_print_list
-        (pp_print_automaton_json get_source model clock) ",")
+        (pp_print_automaton_json node model clock) ",")
       (MS.bindings auto_map)
 
 
-let pp_print_streams_and_automata_json ppf
+let pp_print_streams_and_automata_json is_top const_map ppf
   ({N.inputs; N.outputs; N.locals} as node, model, call_conds) =
 
-  let
-    is_visible, get_source =
-    N.state_var_is_visible node, N.get_state_var_source node
-  in
+  let is_visible = N.state_var_is_visible node in
 
   (* Boolean clock that indicates if the node is active for this particular
      call *)
@@ -1811,7 +1904,16 @@ let pp_print_streams_and_automata_json ppf
       )
   in
 
+  let globals' = if is_top then get_constants const_map [] else [] in
+
+  let constants' =
+    let scope = LustreNode.scope_of_node node in
+    get_constants const_map scope
+  in
+
   let streams = []
+    |> List.rev_append globals'
+    |> List.rev_append constants'
     |> List.rev_append inputs'
     |> List.rev_append outputs'
     |> List.rev_append ghosts'
@@ -1820,12 +1922,12 @@ let pp_print_streams_and_automata_json ppf
   in
 
   Format.fprintf ppf "%a%a"
-    (pp_print_streams_json get_source model clock) streams
-    (pp_print_automata_json get_source model clock) locals_auto'
+    (pp_print_streams_json node model clock) streams
+    (pp_print_automata_json node model clock) locals_auto'
 
 
 (* Output a list of node models. *)
-let rec pp_print_lustre_path_json' ppf = function
+let rec pp_print_lustre_path_json' is_top const_map ppf = function
 
   | [] -> ()
 
@@ -1851,7 +1953,7 @@ let rec pp_print_lustre_path_json' ppf = function
       | [] -> ()
       | subnodes ->
           Format.fprintf ppf ",@,\"subnodes\" :@,[@[<v 1>%a@]@,]"
-            pp_print_lustre_path_json' subnodes
+            (pp_print_lustre_path_json' false const_map) subnodes
     in
 
     let comma = if tl <> [] then "," else "" in
@@ -1867,35 +1969,35 @@ let rec pp_print_lustre_path_json' ppf = function
        title (I.pp_print_ident false) name
        pp_print_call_json trace
        pp_print_active_modes_json active_modes
-       pp_print_streams_and_automata_json (node, model, call_conds)
+       (pp_print_streams_and_automata_json is_top const_map) (node, model, call_conds)
        pp_print_subnodes_json subnodes
        comma;
 
     (* Continue *)
-    pp_print_lustre_path_json' ppf tl
+    pp_print_lustre_path_json' false const_map ppf tl
 
   | _ :: tl ->
 
     (* Continue *)
-    pp_print_lustre_path_json' ppf tl
+    pp_print_lustre_path_json' false const_map ppf tl
 
 
 (* Output sequences of values for each stream of the node and for all
    its called nodes *)
-let pp_print_lustre_path_json ppf path =
+let pp_print_lustre_path_json ppf (path, const_map) =
 
   (* Delegate to recursive function *)
   Format.fprintf ppf "@,[@[<v 1>%a@]@,]"
-    pp_print_lustre_path_json' [path]
+    (pp_print_lustre_path_json' true const_map) [path]
 
 
 (* Ouptut a hierarchical model as JSON *)
 let pp_print_path_json
-  trans_sys instances subsystems first_is_init ppf model
+  trans_sys instances globals subsystems first_is_init ppf model
 =
   (* Create the hierarchical model *)
   node_path_of_subsystems
-    first_is_init trans_sys instances model subsystems
+    globals first_is_init trans_sys instances model subsystems
   (* Output as JSON *)
   |> pp_print_lustre_path_json ppf
 
@@ -1923,7 +2025,7 @@ let pp_print_stream_csv model ppf (index, sv) =
 
 (* Outputs a sequence of values for the inputs of a node. *)
 let pp_print_lustre_path_in_csv ppf = function
-| trace, Node ( { N.inputs }, model, _, _, _ ) ->
+| (trace, Node ( { N.inputs }, model, _, _, _ )), _ ->
 
   (* Remove first dimension from index. *)
   let pop_head_index = function
@@ -1940,11 +2042,11 @@ let pp_print_lustre_path_in_csv ppf = function
 
 (* Outputs a model for the inputs of a system in CSV. *)
 let pp_print_path_in_csv
-  trans_sys instances subsystems first_is_init ppf model
+  trans_sys instances globals subsystems first_is_init ppf model
 =
   (* Create the hierarchical model. *)
   node_path_of_subsystems 
-    first_is_init trans_sys instances model subsystems
+    globals first_is_init trans_sys instances model subsystems
   (* Output as CSV. *)
   |> pp_print_lustre_path_in_csv ppf
 
