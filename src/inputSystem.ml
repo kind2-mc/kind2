@@ -416,13 +416,13 @@ let pp_print_path_pt
 
   match input_system with 
 
-  | Lustre (main_subs, _, _) ->
+  | Lustre (main_subs, globals, _) ->
     let sub =
       let scope = TransSys.scope_of_trans_sys trans_sys in
       S.find_subsystem_of_list main_subs scope
     in
     LustrePath.pp_print_path_pt
-      trans_sys instances sub first_is_init ppf model
+      trans_sys instances globals sub first_is_init ppf model
 
   | Native sub ->
     Format.eprintf "pp_print_path_pt not implemented for native input@.";
@@ -437,13 +437,13 @@ let pp_print_path_xml
 
   match input_system with 
 
-  | Lustre (main_subs, _, _) ->
+  | Lustre (main_subs, globals, _) ->
     let sub =
       let scope = TransSys.scope_of_trans_sys trans_sys in
       S.find_subsystem_of_list main_subs scope
     in
     LustrePath.pp_print_path_xml
-      trans_sys instances sub first_is_init ppf model
+      trans_sys instances globals sub first_is_init ppf model
 
   | Native _ ->
     Format.eprintf "pp_print_path_xml not implemented for native input@.";
@@ -458,13 +458,13 @@ let pp_print_path_json
 
   match input_system with
 
-  | Lustre (main_subs, _, _) ->
+  | Lustre (main_subs, globals, _) ->
     let sub =
       let scope = TransSys.scope_of_trans_sys trans_sys in
       S.find_subsystem_of_list main_subs scope
     in
     LustrePath.pp_print_path_json
-      trans_sys instances sub first_is_init ppf model
+      trans_sys instances globals sub first_is_init ppf model
 
   | Native _ ->
     Format.eprintf "pp_print_path_json not implemented for native input@.";
@@ -477,13 +477,13 @@ let pp_print_path_in_csv
 (type s) (input_system : s t) trans_sys instances first_is_init ppf model =
   match input_system with
 
-  | Lustre (main_subs, _, _) ->
+  | Lustre (main_subs, globals, _) ->
     let sub =
       let scope = TransSys.scope_of_trans_sys trans_sys in
       S.find_subsystem_of_list main_subs scope
     in
     LustrePath.pp_print_path_in_csv
-      trans_sys instances sub first_is_init ppf model
+      trans_sys instances globals sub first_is_init ppf model
 
   | Native _ ->
     Format.eprintf "pp_print_path_in_csv not implemented for native input";
