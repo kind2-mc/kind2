@@ -226,12 +226,13 @@ Boolean expression:
 
 Modes
 ~~~~~
+..
+   A mode ``(R,E)`` is a set of *requires* ``R`` and a set of *ensures* ``E``. Requires
+   have the same restrictions as assumptions: they cannot mention outputs of the
+   node they specify in the current state. Ensures, like guarantees, have no
+   restriction.
 
-A mode ``(R,E)`` is a set of *requires* ``R`` and a set of *ensures* ``E``. Requires
-have the same restrictions as assumptions: they cannot mention outputs of the
-node they specify in the current state. Ensures, like guarantees, have no
-restriction.
-
+A mode ``(R,E)`` is a set of *requires* ``R`` and a set of *ensures* ``E``.
 Modes are named to ease traceability and improve feedback. The general syntax
 is
 

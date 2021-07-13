@@ -1524,8 +1524,11 @@ and eval_node_mode scope ctx is_candidate (pos, id, reqs, enss) =
   (* Evaluate requires. *)
   let ctx, reqs, _ =
     reqs
-    |> List.fold_left (eval_contract_item (Some "require") ~typ:N.Require scope)
-       (ctx, [], 1) in
+    |> List.fold_left
+         (* (eval_contract_item (Some "require") ~typ:N.Require scope) *)
+         (eval_contract_item None ~typ:N.Require scope)
+         (ctx, [], 1)
+  in
   (* Evaluate ensures. *)
   let ctx, enss, _ =
     enss |> List.fold_left (eval_contract_item None ~typ:N.Ensure scope) (ctx, [], 1) in
