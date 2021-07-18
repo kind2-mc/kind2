@@ -549,15 +549,15 @@ let extract uf_defs env term =
                 
                 (* Construct term (a & ~b) *)
                 let a_and_not_b = 
-                  Term.mk_or [a; Term.negate b] 
+                  Term.mk_and [a; Term.negate b]
                 in
 
                 (* Construct term (~a & b) *)
                 let not_a_and_b =
-                  Term.mk_or [Term.negate a; b] 
+                  Term.mk_and [Term.negate a; b]
                 in
 
-                (* Both (a & ~b) and (~a & b) have to be true *)
+                (* Both (a & ~b) and (~a & b) have to be false *)
                 (accum, 
                  [(a_and_not_b, false); (not_a_and_b, false)])
 
