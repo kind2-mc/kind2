@@ -233,6 +233,9 @@ let status_of_exn process status = function
   )
   (* Signal caught. *)
   | Signal s ->
+    if s = Sys.sigint then (
+      InvarManager.print_stats !latest_trans_sys ;
+    ) ;
     KEvent.log_interruption s ;
     (* Return exit status and signal number. *)
     ExitCodes.kid_status + s
