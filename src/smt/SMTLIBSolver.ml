@@ -495,9 +495,6 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
   (* Execute a command and return the response *)
   let execute_command = send_command_and_trace Cmd
 
-  (* Execute a command without logging in the trace and return the response *)
-  let execute_command_no_trace = send_command Cmd
-
   (* Execute a command and do not parse a response *)
   let execute_command_no_response = send_command_and_trace NoRespCmd
 

@@ -56,8 +56,6 @@ let pp_print_decl fmt = function
 (** A dependency map from declarations to identifiers. *)
 type dep = ISet.t DeclMap.t
 
-(** Empty dependency map. *)
-let dep_empty : dep = DeclMap.create 3
 
 (** Adds a dependency in a dependency map. *)
 let dep_add dep decl ident =

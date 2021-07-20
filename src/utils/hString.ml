@@ -133,8 +133,10 @@ let pp_print_hstring ppf { Hashcons.node = n } = pp_print_string ppf n
 (* Pretty-print a hashconsed term to the standard formatter *)
 let print_hstring = pp_print_hstring Format.std_formatter 
 
+(*
 (* Pretty-print a term  to the standard formatter *)
 let print_string = pp_print_string Format.std_formatter 
+*)
 
 (* Return a string representation of a term *)
 let string_of_hstring { Hashcons.node = n } = n

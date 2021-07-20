@@ -280,12 +280,6 @@ let all_stats () =
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
 
-
-(* Kind module as string for plain text output *)
-let pt_string_of_kind_module =
-  Format.asprintf "%a" pp_print_kind_module
-
-
 (* Pretty-print kind module for plain text output *)
 let pp_print_kind_module_pt =
   pp_print_kind_module
@@ -295,12 +289,6 @@ let pp_print_kind_module_pt =
 let printf_pt mdl level fmt =
   (ignore_or_fprintf level)
     !log_ppf ("%a @[<hov>" ^^ fmt ^^ "@]@.@.") tag_of_level level
-
-
-(* Unconditional printing as plain text. *)
-let printf_pt_uncond mdl fmt =
-  Format.fprintf !log_ppf ("@[<hov>" ^^ fmt ^^ "@]@.@.@?")
-
 
 (* Output with a tag *)
 let tag_pt level tag str = 
@@ -536,7 +524,7 @@ let stat_pt mdl level stats =
        "@,")
     stats
 
-
+(*
 (* Output statistics section as plain text *)
 let progress_pt mdl level k =
 
@@ -545,6 +533,7 @@ let progress_pt mdl level k =
     "@[<v>@{<b>Progress by %a@}: %d@]@."
     pp_print_kind_module mdl
     k
+ *)
 
 (* Pretty-print a list of properties and their status *)
 let prop_status_pt level prop_status =
@@ -587,9 +576,6 @@ let prop_status_pt level prop_status =
 (* ********************************************************************** *)
 (* XML specific functions                                                 *)
 (* ********************************************************************** *)
-
-(* Level to class attribute of log tag *)
-let xml_cls_of_level = string_of_log_level
 
 let prop_attributes_xml trans_sys prop_name =
   let prop = TransSys.property_of_name trans_sys prop_name in
@@ -1417,9 +1403,6 @@ let log_with_tag level tag str =
     | F_xml -> ()
     | F_json -> ()
     | F_relay -> ()
-
-(* Warning issued if model reconstruction triggers a division by zero. *)
-let div_by_zero_text = "division by zero detected, model may be inconsistent"
 
 (* Log a message with source and log level *)
 let log_cex ?(wa_model=[]) disproved mdl level input_sys analysis trans_sys prop cex =

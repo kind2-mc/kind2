@@ -25,8 +25,6 @@ module Set = Term.TermSet
 module Sys = TransSys
 
 type svar = SVar.t
-let fmt_svar = SVar.pp_print_state_var
-let fmt_term = Term.pp_print_term
 (* type svs = SVS.t *)
 type set = Set.t
 type flat = Term.T.flat
@@ -165,11 +163,11 @@ let type_of term = Term.type_of_term term |> Type.node_of_type
 
 let type_of_svar svar = SVar.type_of_state_var svar |> Type.node_of_type
 
-
+(*
 (* The name of a transition system. *)
 let name_of_sys sys =
   TransSys.scope_of_trans_sys sys |> String.concat "/"
-
+*)
 
 
 (* |===| Functor stuff. *)
@@ -328,13 +326,6 @@ end
 
 
 (* |===| Helpers for term inspection. *)
-
-
-(* Returns true if the term mentions at least one non-constant variable. *)
-let mentions_var term = Term.vars_of_term term |> Var.VarSet.exists (
-  fun var -> not (Var.is_const_state_var var)
-)
-
 
 (* Returns true if the term is a variable or a constant. *)
 let is_var_or_const term = match Term.destruct term with

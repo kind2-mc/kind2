@@ -17,9 +17,9 @@
 
 *)
 
-  open Lexing
   open YicesResponse
  
+  (*
   let parse_failure pos what =
     (* Removed for menhir *)
     (* let pos = symbol_start_pos () in *)
@@ -27,6 +27,7 @@
       Printf.sprintf "YicesParser: failed to parse line %d char %d: %s"
                      pos.pos_lnum (pos.pos_cnum - pos.pos_bol) what in
     failwith msg
+  *)
 
 %}
 

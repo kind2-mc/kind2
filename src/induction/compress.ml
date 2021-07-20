@@ -101,7 +101,7 @@ let fold_pairs f accum l =
 
   fold_pairs' f accum l l
 
-
+(*
 (* Apply predicate on all unordered pairs in the list and return
    true iff the predicate is true on at least one pair
 
@@ -128,7 +128,7 @@ let exists_pair p l =
   in
 
   exists_pair' p l l
-
+*)
 
 let offset_of_vars m = 
 

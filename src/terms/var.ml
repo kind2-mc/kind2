@@ -208,7 +208,7 @@ let pp_print_var_node ppf = function
     Format.fprintf ppf "%a" HString.pp_print_hstring s
 
 (* Pretty-print a variable to the standard formatter *)
-let print_var_node = pp_print_var_node Format.std_formatter
+(* let print_var_node = pp_print_var_node Format.std_formatter *)
 
 (* Pretty-print a hashconsed variable *)
 let pp_print_var ppf { Hashcons.node = v } = pp_print_var_node ppf v

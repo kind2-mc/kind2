@@ -127,11 +127,6 @@ let rec yices_expr_of_string_sexpr = function
     GenericSMTLIBDriver.gen_expr_of_string_sexpr smtlib_string_sexpr_conv sexpr
 
 
-let yices_lambda_of_string_sexpr = 
-  GenericSMTLIBDriver.gen_expr_or_lambda_of_string_sexpr
-    smtlib_string_sexpr_conv
-
-
 let next_id solver =
   solver.solver_last_id
   |> YicesResponse.int_of_yices_id
@@ -254,7 +249,7 @@ let get_check_sat_response solver timeout =
   | _ ->
      failwith "Yices returned an unexpected response"
 
-
+(*
 (* Get n S-expressions from the solver *)
 let get_custom_command_result solver accum i =
   (* Return response *)
@@ -269,7 +264,7 @@ let get_custom_command_result solver accum i =
 
   | _ ->
     failwith "Yices get_custom_command_result got unexpected answer"
-
+*)
 
 (* Parse the solver response to a custom command *)
 let get_custom_command_response num_res solver timeout = 
@@ -327,7 +322,7 @@ let send_command
   (* Wait for response without timeout *)
   get_any_response solver timeout cmd_type
     
-
+(*
 let send_command_async 
       cmd_type
       { solver_stdin = solver_stdin }
@@ -350,7 +345,7 @@ let send_command_async
   (* Print newline and flush formatter *)
   Format.pp_print_newline solver_stdin_formatter ()
   (* don't wait *)
-
+*)
 
 
 (* Samme as above but additionnaly trace the co mmands and responses *)
@@ -368,7 +363,7 @@ let send_command_and_trace =
 
     res
 
-
+(*
 let send_command_and_trace_async =
   fun cmd_type solver command timeout -> 
 
@@ -377,13 +372,10 @@ let send_command_and_trace_async =
 
     (* Send the command to the solver and do not wait for the response *)
     send_command_async cmd_type solver command timeout
-      
+*) 
 
 (* Execute a command and return the response *)
 let execute_command = send_command_and_trace Cmd
-
-(* Execute a command without logging in the trace and return the response *)
-let execute_command_no_trace = send_command_async Cmd
 
 (* Execute a command and do not parse a response *)
 let execute_command_no_response = send_command_and_trace NoRespCmd
@@ -584,11 +576,7 @@ and ensure_term_qf_lira t =
   | Annot (t, _) -> ensure_term_qf_lira t
 
 let fail_when_arith solver t =
-  if solver.solver_config.solver_arith_only then ensure_term_qf_lira t
-
-
-let fail_symbol_when_arith solver s =
-  if solver.solver_config.solver_arith_only then ensure_symbol_qf_lira s    
+  if solver.solver_config.solver_arith_only then ensure_term_qf_lira t   
 
 let fail_declare_when_arith solver f arg_sorts res_sort =
     if solver.solver_config.solver_arith_only && arg_sorts <> [] then
@@ -665,6 +653,7 @@ let define_fun solver fun_symbol arg_vars res_sort defn =
   execute_command solver cmd 0
 
 
+(*
 (* Assert the expression *)
 let assert_expr solver expr = 
 
@@ -698,7 +687,7 @@ let assert_expr solver expr =
   
   (* Return result of command *)
   res
-
+*)
 
 (* Assert a removable expression, costly *)
 let assert_removable_expr ?id solver expr = 

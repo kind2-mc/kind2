@@ -806,10 +806,11 @@ let pp_print_term_as_expr_mvar ?as_type safe map ppf expr =
     )
     ppf expr
 
+(*
 (* Pretty-print a hashconsed term to the standard formatter *)
 let print_expr ?as_type safe =
   pp_print_expr ?as_type safe Format.std_formatter
-
+*)
 
 (* Pretty-print a typed Lustre expression *)
 let pp_print_lustre_expr safe ppf = function
@@ -944,12 +945,12 @@ let pre_var_of_state_var zero_offset state_var =
     state_var
     Numeral.(zero_offset |> pred)
 
-    
+(*    
 (* Term of instance of state variable at previous instant *)
 let pre_base_term_of_state_var zero_offset state_var = 
   pre_base_var_of_state_var zero_offset state_var
   |> Term.mk_var
-
+*)
 
 (* Term of instance of state variable at previous instant *)
 let base_term_of_state_var zero_offset state_var = 
@@ -1021,13 +1022,14 @@ let state_var_of_expr ({ expr_init; expr_step } as expr) =
     (* Fail if initial value is different from step value *)
     raise (Invalid_argument "state_var_of_expr")
 
+(*
 (* Return the free variable of a variable *)
 let var_of_expr { expr_init } = 
   try
     Term.free_var_of_term expr_init
   (* Fail if any of the above fails *)
   with Invalid_argument _ -> raise (Invalid_argument "var_of_expr")
-
+*)
 
 (* Return the free variable of a variable *)
 let var_of_expr { expr_init } = 
@@ -1352,7 +1354,7 @@ let type_of_bool_bool_bool = function
       | _ -> raise Type_mismatch)
   | _ -> raise Type_mismatch
 
-
+(*
 (* Type check for int -> int -> int *)
 let type_of_int_int_int = function 
 
@@ -1372,7 +1374,7 @@ let type_of_real_real_real = function
       | _ -> raise Type_mismatch)
     
   | _ -> raise Type_mismatch
-
+*)
 
 (* Best int subrange for some operator. *)
 let best_int_range is_div op t t' =
@@ -1555,7 +1557,7 @@ match t, t' with
   | t, t' when Type.is_int64 t && Type.is_uint64 t' -> Type.t_bv 64
   | _, _ -> raise Type_mismatch
 
-
+(*
 (* Type check for ubv -> ubv -> ubv *)
 let type_of_ubv_ubv_ubv t t' =
   match t, t' with 
@@ -1564,8 +1566,9 @@ let type_of_ubv_ubv_ubv t t' =
   | t, t' when Type.is_uint32 t && Type.is_uint32 t' -> Type.t_ubv 32
   | t, t' when Type.is_uint64 t && Type.is_uint64 t' -> Type.t_ubv 64
   | _, _ -> raise Type_mismatch
+*)
 
-
+(*
 (* Type check for bv -> bv -> bv *)
 let type_of_bv_bv_bv t t' =
   match t, t' with 
@@ -1574,7 +1577,7 @@ let type_of_bv_bv_bv t t' =
   | t, t' when Type.is_int32 t && Type.is_int32 t' -> Type.t_bv 32
   | t, t' when Type.is_int64 t && Type.is_int64 t' -> Type.t_bv 64
   | _, _ -> raise Type_mismatch
-
+*)
 
 (* Type check for 'a -> 'a -> bool *)
 let type_of_a_a_bool type1 type2 = 

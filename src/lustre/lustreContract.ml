@@ -123,12 +123,6 @@ let svars_of { assumes ; sofar_assump ; guarantees ; modes } =
   |> svars_of_plist guarantees
   |> svars_of_modes modes
 
-
-(* Output a space if list is not empty *)
-let space_if_nonempty = function
-| [] -> (function _ -> ())
-| _ -> (function ppf -> Format.fprintf ppf "@ ")
-
 let pp_print_svar fmt { pos ; num ; svar } =
   Format.fprintf fmt "[%d] [%a] (%a)"
     num pp_print_position pos SVar.pp_print_state_var svar

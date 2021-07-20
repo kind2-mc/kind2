@@ -780,6 +780,7 @@ let rec bitvector_of_string_x a i s =
 (* Conversions                                                            *)
 (* ********************************************************************** *)
 
+(*
 (* Convert an OCaml integer to an infinite-precision integer numeral *)
 let numeral_of_int i = HString.mk_hstring (Printf.sprintf "%i%!" i)
 
@@ -789,6 +790,7 @@ let num_zero = numeral_of_int 0
 (* Constant one *)
 let num_one = numeral_of_int 1
 
+
 (* Convert an OCaml float to an infinite-precision real decimal *)
 let decimal_of_float f = 
 
@@ -796,7 +798,8 @@ let decimal_of_float f =
     HString.mk_hstring (Printf.sprintf "%F0%!" f)
   else
     HString.mk_hstring (Printf.sprintf "%F%!" f)
-      
+
+
 (* Convert an infinite-precision integer numeral to an OCaml integer *)
 let int_of_numeral n = int_of_string (HString.string_of_hstring n)
 
@@ -806,6 +809,7 @@ let float_of_decimal d = float_of_string (HString.string_of_hstring d)
 (* Convert a bitvector to an integer *)
 let int_of_bitvector b = 
   List.fold_left (fun a b -> a lsl 1 + (if b then 1 else 0)) 0 b
+
 
 (* A sequence of digits without leading zero *)
 let numeral_of_string s = 
@@ -847,7 +851,7 @@ let decimal_of_string s =
     | Scanf.Scan_failure _
     | End_of_file
     | Failure _ -> raise (Invalid_argument "smtlib_decimal_of_string")
-
+*)
 
 (* Convert a sequence of binary digits to a constant bitvector *)
 let rec bitvector_of_string_b (a : t) (i : int) (s : string) : t = 
@@ -922,6 +926,7 @@ let bitvector_of_string s =
     | _ -> raise (Invalid_argument "bitvector_of_string")
 
 
+(*
 (* Cache for conversions of strings to numerals *)
 let hstring_numeral_cache = HString.HStringHashtbl.create 7
 
@@ -961,6 +966,7 @@ let decimal_of_hstring s =
 
       (* Return decimal *)
       n
+*)
 
 (* Cache for conversions of strings to bitvectors *)
 let hstring_bitvector_cache = HString.HStringHashtbl.create 7
@@ -982,11 +988,13 @@ let bitvector_of_hstring s =
       (* Return bitvector *)
       n
 
+(*
 (* Convert an infinite-precision integer numeral to a string *)
-let string_of_numeral s = HString.string_of_hstring s 
+let string_of_numeral s = HString.string_of_hstring s
 
 (* Convert an infinite-precision real decimal to a string *)
 let string_of_decimal s = HString.string_of_hstring s 
+*)
 
 (* Convert a hashconsed string to a Boolean value *)
 let bool_of_hstring s = bool_of_string (HString.string_of_hstring s) 

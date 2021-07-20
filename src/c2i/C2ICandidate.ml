@@ -850,6 +850,7 @@ let int_of_bool = function | false -> 0 | true -> 1
 let eval_term sys model term =
   Eval.eval_term (TransSys.uf_defs sys) model term |> Eval.bool_of_value
 
+(*
 (* Evaluation function. Evaluates a dnf [Term.t list list] and returns [0] for
    [false], [1] for [true].
    Only here for legacy. *)
@@ -865,6 +866,7 @@ let simple_eval sys dnf model =
     | [] -> false
   in
   eval_disj dnf |> int_of_bool
+*)
 
 (* Same as [simple_eval], but returns an updated version of [dnf_rating].
    Unchanged if [dnf] evaluates to [true], otherwise the weight of the atoms

@@ -1446,10 +1446,7 @@ and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type *
    but we want to pass such cases, as there might be some
    value assigment to the free constant that satisfies the type checker. 
    Hence, silently return true with a leap of faith. *)         
-  
-let scc: LA.t -> LA.t list
-  = fun decls -> [decls]
-(** Compute the connected components for type checking *)
+
                                  
 let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
   = fun global_ctx

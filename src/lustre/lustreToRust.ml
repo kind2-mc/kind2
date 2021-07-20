@@ -1865,7 +1865,7 @@ let to_rust oracle_info target find_sub top =
   (* Flush and close file writer. *)
   close_out out_channel
 
-
+(*
 let print_trie desc =
   Format.printf "%s: @[<v>%a@]@.@."
     desc
@@ -1876,6 +1876,7 @@ let print_trie desc =
           SVar.pp_print_state_var svar
       ) "@ "
     )
+*)
 
 let implem_to_rust = to_rust None
 

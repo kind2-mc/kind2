@@ -76,9 +76,10 @@ let incr_last ?(by = 1) ({ value } as item) =
 
   set_value (aux value) item
 
-
+(*
 (* Increment an integers statistics item *)
 let incr_float by ({ value } as item) = set_value (value +. by) item
+*)
 
 (* Append at the end of an integers statistics list *)
 let append elem ({ value } as item) = set_value (value @ [elem]) item

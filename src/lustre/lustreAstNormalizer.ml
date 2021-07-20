@@ -462,6 +462,7 @@ and normalize_node_contract info map cref (id, params, inputs, outputs, body) =
   let nbody, gids = normalize_contract info map body in
   (id, params, ninputs, noutputs, nbody), gids, StringMap.empty
 
+(*
 and normalize_const_declaration info map = function
   | A.UntypedConst (pos, id, expr) ->
     let nexpr, gids = normalize_expr ?guard:None false info map expr in
@@ -470,6 +471,7 @@ and normalize_const_declaration info map = function
     let nexpr, gids = normalize_expr ?guard:None false info map expr in
     A.TypedConst (pos, id, nexpr, ty), gids
   | e -> e, empty ()
+*)
 
 and normalize_ghost_declaration info map = function
   | A.UntypedConst (pos, id, expr) ->

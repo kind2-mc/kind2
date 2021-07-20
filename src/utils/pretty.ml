@@ -39,12 +39,11 @@ let print_double_line =
   let s = String.make vt_width '=' in
   fun fmt () -> fprintf fmt "%s@\n" s
 
-
+(*
 let print_title fmt s =
   printf "%a" print_double_line ();
   printf "* @{<b>%s@}@\n" s;
   printf "%a" print_line ()
-
 
 let rec print_list print sep fmt = function
   | [] -> ()
@@ -53,6 +52,7 @@ let rec print_list print sep fmt = function
     print fmt e;
     fprintf fmt sep;
     print_list print sep fmt l
+*)
 
 
 type style =

@@ -161,11 +161,7 @@ module Make (Ord: OrderedType) = struct
   let pp_print_edge: Format.formatter -> edge -> unit = fun ppf (s, t) ->
     Format.fprintf ppf "(%a) -> (%a)"
       pp_print_vertex s
-      pp_print_vertex t 
-
-  let mk_edge: vertex -> vertex ->  edge
-    = fun s t -> (s, t)
-  (** Make an edge given the source and the target vertices *)
+      pp_print_vertex t
 
   let get_source_vertex: edge -> vertex = fst
   (** Get the source vertex from an edge *)
@@ -201,8 +197,8 @@ module Make (Ord: OrderedType) = struct
                    = let c = Ord.compare v11 v21 in
                      if c <> 0 then c else Ord.compare v12 v22
                end))
-    let flatten: t list -> t = fun sets ->
-      List.fold_left union empty sets
+    (* let flatten: t list -> t = fun sets ->
+      List.fold_left union empty sets *)
   end 
   (** A set of edges *)
 
@@ -261,10 +257,12 @@ module Make (Ord: OrderedType) = struct
     then (vs,  ESet.add (src, tgt) es)
     else raise IllegalGraphOperation
   (** add an  edge to a graph  *)
-                    
+     
+  (*
   let find_edges_of_vertex: t -> vertex -> edges
     = fun (vs, es) v -> ESet.filter (fun e -> is_vertex_in_edge e v) es 
-                      
+  *)
+
   let remove_vertex: t -> vertex -> t
     = fun (vs, es) v ->
     (VSet.remove v vs
@@ -281,11 +279,13 @@ module Make (Ord: OrderedType) = struct
 
   let remove_edges: t -> edges -> t
     = fun (vs, es) es' -> (vs, ESet.diff es es') 
-                      
+  
+  (*
   let non_target_vertices: t -> vertices
     = fun (vs, es) ->
     VSet.filter (fun v -> ESet.for_all (fun e -> not (is_vertex_target e v)) es) vs
   (** Returns a list of all vertices that have no incoming edge  *)
+  *)
 
   let non_source_vertices: t -> vertices
     = fun (vs, es) ->

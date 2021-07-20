@@ -44,7 +44,6 @@ module StringMap = struct
     type t = string
     let compare i1 i2 = String.compare i1 i2
   end)
-  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
 end
 
 type compiler_state = {
@@ -68,6 +67,7 @@ type identifier_maps = {
   contract_scope : string list;
 }
 
+(*
 let pp_print_identifier_maps ppf maps =
   let table_to_list h = H.fold (fun k v acc -> (k, v) :: acc) h []
   in let map_to_list m = SVT.fold (fun k v acc -> (k, v) :: acc) m []
@@ -99,6 +99,7 @@ let pp_print_identifier_maps ppf maps =
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true))
         "=") ",\n")
     (table_to_list maps.array_index)
+*)
 
 let empty_identifier_maps () = {
   state_var = H.create 7;
@@ -119,7 +120,7 @@ let empty_compiler_state () = {
   state_var_bounds = SVT.create 7;
 }
 
-
+(*
 let array_select_of_bounds_term bounds e =
   let (_, e) = List.fold_left (fun (i, t) -> function
     | E.Bound _ ->
@@ -129,6 +130,7 @@ let array_select_of_bounds_term bounds e =
     | _ -> assert false)
       (0, e) bounds
   in e
+*)
 
 let array_select_of_indexes_expr indexes e =
   List.fold_left (fun e i -> E.mk_select e (E.mk_index_var i)) e indexes

@@ -106,7 +106,7 @@ let get_solver_instance trans_sys =
   
 
 
-
+(*
 (* Get the current solver instance or create a new instance *)
 let get_checking_solver_instance trans_sys = 
 
@@ -153,7 +153,7 @@ let get_checking_solver_instance trans_sys =
 
     (* Return existing instance *)
     | Some s -> s 
-  
+*)  
 
 (* Kill created solver instances and reset ubound *)
 let on_exit () = 
@@ -187,14 +187,14 @@ let on_exit () =
          "Error deleting solver_check: %s" 
          (Printexc.to_string e))
 
-
+(*
 (* Create a formula from the assignments in a model *)
 let formula_of_model model = 
 
   (* Create conjunctions of equations *)
   Term.mk_and 
     (List.map (function (v, e) -> Term.mk_eq [Term.mk_var v; e]) model)
-
+*)
 
 
 (*

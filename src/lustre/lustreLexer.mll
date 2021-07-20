@@ -1,4 +1,4 @@
-{
+{[@@@ocaml.warning "-32"]
 (* This file is part of the Kind 2 model checker.
 
    Copyright (c) 2015 by the Board of Trustees of the University of Iowa
@@ -22,20 +22,7 @@ open LustreParser
    
 exception Lexer_error of string
 
-(* XML or plain text warning.
-
-   Adrien: Relying on Event causes circular build. Factor in Lib, along with
-     context warnings? *)
-let print_warning fmt =
-  if Flags.log_format_xml () then
-    Format.printf ("@[<hov 2>\
-        <Log class=\"warn\" source=\"parse\">@,\
-          @[<hov>" ^^ fmt ^^ "@]\
-        @;<0 -2></Log>\
-      @]@.")
-  else
-    Format.printf ("%t @[<v>" ^^ fmt ^^ "@]@.") Pretty.warning_tag
-
+(*
 (* Pretty-print an array of integers *)
 let rec pp_print_int_array i ppf a = 
 
@@ -75,8 +62,9 @@ let pp_print_position ppf
     pos_lnum
     pos_bol
     pos_cnum
+  *)
 
-
+(*
 (* Pretty-print a lexing buffer *)
 let pp_print_lexbuf ppf     
   { Lexing.lex_buffer; 
@@ -114,7 +102,7 @@ let pp_print_lexbuf ppf
     (pp_print_int_array 0) lex_mem
     pp_print_position lex_start_p
     pp_print_position lex_curr_p
-
+  *)
 
   let char_for_backslash = function
     | 'n' -> '\010'

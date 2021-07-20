@@ -56,43 +56,27 @@ let get_cvc4_version () =
 
 (* LFSC symbols *)
 
-let s_and = H.mk_hstring "and"
-let s_or = H.mk_hstring "or"
-let s_not = H.mk_hstring "not"
-let s_impl = H.mk_hstring "impl"
 let s_iff = H.mk_hstring "iff"
-let s_ifte = H.mk_hstring "ifte"
-let s_xor = H.mk_hstring "xor"
 let s_true = H.mk_hstring "true"
-let s_false = H.mk_hstring "false"
 
 let s_formula = H.mk_hstring "formula"
 let s_th_holds = H.mk_hstring "th_holds"
-let s_holds = H.mk_hstring "holds"
 let s_truth = H.mk_hstring "truth"
 let s_trust = H.mk_hstring "trust"
 let s_trust_f = H.mk_hstring "trust_f"
 
-let s_sort = H.mk_hstring "sort"
 let s_term = H.mk_hstring "term"
-let s_let = H.mk_hstring "let"
-let s_flet = H.mk_hstring "flet"
+
 let s_eq = H.mk_hstring "="
 
-let s_Bool = H.mk_hstring "Bool"
 let s_p_app = H.mk_hstring "p_app"
 let s_apply = H.mk_hstring "apply"
-let s_cln = H.mk_hstring "cln"
 
 let s_check = H.mk_hstring "check"
 let s_ascr = H.mk_hstring ":"
-let s_PI = H.mk_hstring "!"
 let s_LAMBDA = H.mk_hstring "%"
-let s_lambda = H.mk_hstring "\\"
 let s_at = H.mk_hstring "@"
 let s_hole = H.mk_hstring "_"
-let s_define = H.mk_hstring "define"
-let s_opaque = H.mk_hstring "opaque"
 
 
 let s_unsat = H.mk_hstring "unsat"
@@ -184,11 +168,13 @@ let sigma_mpz () = [term_index (), HS.Atom s_mpz;]
 (* substitution from [(term index)] to the selected representation *)
 let sigma_tindex () = if mpz_proofs then sigma_mpz () else sigma_pindex ()
 
+(*
 (* Returns [true] if the LFSC expression is the type for indexes [(term
    index)] *)
 let is_term_index_type = function
   | HS.List [HS.Atom t; HS.Atom i] -> t == s_term && i == s_index ()
   | _ -> false
+*)
 
 (* Returns [true] if the argument is ["index"] *)
 let is_index_type i = i == (s_index ())
@@ -377,11 +363,12 @@ let print_proof ?(context=false) name fmt
 (* Parsing LFSC proofs from CVC4 *)
 (*********************************)
 
+(*
 (* Lexicographic comparison of hashconsed strings (used for sorting dummy
    arguments f%1, f%2, f%3, ...) *)
 let lex_comp h1 h2 =
   String.compare (H.string_of_hstring h1) (H.string_of_hstring h2)
-
+*)
 
 (* Same on bindings *)
 let lex_comp_b (_, i1, _) (_, i2, _) = Stdlib.compare i1 i2

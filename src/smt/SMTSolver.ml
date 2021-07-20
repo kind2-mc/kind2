@@ -148,7 +148,7 @@ let create_instance
     let produce_proofs = bool_of_bool_option produce_proofs
     let produce_cores = bool_of_bool_option produce_cores
     let minimize_cores = bool_of_bool_option minimize_cores
-    let produce_interpolants = bool_of_bool_option produce_interpolants
+    (*let produce_interpolants = bool_of_bool_option produce_interpolants*)
     let logic = l
     let id = id
   end
@@ -474,7 +474,7 @@ let model_of_smt_values conv_left type_left s smt_values =
   model
 
 
-let eval_array_vars v smt_model =
+(*let eval_array_vars v smt_model =
 
   let uf_sym = Var.unrolled_uf_of_state_var_instance v in
 
@@ -515,7 +515,7 @@ let model_of_smt_model s smt_model vars =
     )
     vars;
 
-  model
+  model*)
   
 
 let partial_model_of_smt_model s smt_model =

@@ -84,8 +84,6 @@ end
 
 (* Signature of modules for flags. *)
 module type FlagModule = sig
-  (* Identifier of the module. *)
-  val id: string
   (* Short description of the module. *)
   val desc: string
   (* Explanation of the module. *)
@@ -195,9 +193,6 @@ module Smt = struct
   (* Active SMT logic. *)
   type logic = [
     `None | `detect | `Logic of string
-  ]
-  let logic_values = [
-    `None ; `detect ; `Logic ("\"logic\"")
   ]
   let logic_of_string = function
     | "none" | "None" -> `None
@@ -1127,7 +1122,7 @@ module Certif = struct
 
   (* All the flag specification of this module. *)
   let all_specs = ref []
-  let add_specs specs = all_specs := List.rev_append specs !all_specs
+  (*let add_specs specs = all_specs := List.rev_append specs !all_specs*)
   let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
@@ -1194,7 +1189,6 @@ module Certif = struct
   let log_trust () = !log_trust
 
   type mink = [ `No | `Fwd | `Bwd | `Dicho | `FrontierDicho | `Auto]
-  let mink_values = [ `No; `Fwd; `Bwd; `Dicho; `FrontierDicho; `Auto]
   let mink_of_string = function
     | "no" -> `No
     | "fwd" -> `Fwd
@@ -1203,13 +1197,13 @@ module Certif = struct
     | "frontierdicho" -> `FrontierDicho
     | "auto" -> `Auto
     | _ -> raise (Arg.Bad "Bad value for --certif_mink")
-  let string_of_mink = function
+  (* let string_of_mink = function
     | `No -> "no"
     | `Fwd -> "fwd"
     | `Bwd -> "bwd"
     | `Dicho -> "dicho"
     | `FrontierDicho -> "frontierdicho"
-    | `Auto -> "auto"
+    | `Auto -> "auto"*)
   let mink_default = `Auto
   let mink = ref mink_default
   let _ = add_spec
@@ -1232,7 +1226,6 @@ module Certif = struct
 
 
   type mininvs = [ `Easy | `Medium | `MediumOnly | `Hard | `HardOnly ]
-  let mininvs_values = [ `Easy; `Medium; `MediumOnly; `Hard; `HardOnly ]
   let mininvs_of_string = function
     | "easy" -> `Easy
     | "medium" -> `Medium
@@ -1240,12 +1233,12 @@ module Certif = struct
     | "hard" -> `Hard
     | "hardonly" -> `HardOnly
     | _ -> raise (Arg.Bad "Bad value for --certif_mininvs")
-  let string_of_mininvs = function
+  (*let string_of_mininvs = function
     | `Easy -> "easy"
     | `Medium -> "medium"
     | `MediumOnly -> "mediumonly"
     | `Hard -> "hard"
-    | `HardOnly -> "hardonly"
+    | `HardOnly -> "hardonly"*)
   let mininvs_default = `Medium
   let mininvs = ref mininvs_default
   let _ = add_spec
@@ -1314,7 +1307,7 @@ module IVC = struct
 
   (* All the flag specification of this module. *)
   let all_specs = ref []
-  let add_specs specs = all_specs := List.rev_append specs !all_specs
+  (* let add_specs specs = all_specs := List.rev_append specs !all_specs *)
   let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
@@ -1617,7 +1610,7 @@ module MCS = struct
 
   (* All the flag specification of this module. *)
   let all_specs = ref []
-  let add_specs specs = all_specs := List.rev_append specs !all_specs
+  (* let add_specs specs = all_specs := List.rev_append specs !all_specs *)
   let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
@@ -1844,7 +1837,7 @@ module Arrays = struct
 
   (* All the flag specification of this module. *)
   let all_specs = ref []
-  let add_specs specs = all_specs := !all_specs @ specs
+  (* let add_specs specs = all_specs := !all_specs @ specs *)
   let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
@@ -2464,8 +2457,8 @@ module Global = struct
 
 
   (* Print help. *)
-  let help_requested_default = false
-  let help_requested = ref help_requested_default
+  (*let help_requested_default = false
+  let help_requested = ref help_requested_default*)
   let _ = add_specs [
     (
       "-h",
@@ -2526,10 +2519,10 @@ module Global = struct
 
 
   (* Main lustre node. *)
-  let lus_main_of_string s = Some s
+  (*let lus_main_of_string s = Some s
   let string_of_lus_main = function
     | None -> "(none)"
-    | Some s -> s
+    | Some s -> s*)
   let lus_main_default = None
 
   let lus_main = ref lus_main_default
@@ -2926,7 +2919,7 @@ module Global = struct
         enable_values
         (string_of_enable enable_default_after)
     )
-  let enable mdl = enabled := mdl :: !enabled
+  (* let enable mdl = enabled := mdl :: !enabled *)
   let enabled () = !enabled
 
   (* Returns the invariant generation techniques enabled. *)
@@ -2961,7 +2954,7 @@ module Global = struct
       "
       enable_values
     )
-  let disabled () = !disabled
+  (* let disabled () = !disabled *)
 
 
   (* Modular mode. *)

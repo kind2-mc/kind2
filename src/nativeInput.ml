@@ -35,7 +35,6 @@ let conv_term_of_sexpr = conv.D.expr_of_string_sexpr conv
 let s_define_node = HString.mk_hstring "define-node"
 let s_init = HString.mk_hstring "init"
 let s_trans = HString.mk_hstring "trans"
-let s_callers = HString.mk_hstring "callers"
 let s_subsystems = HString.mk_hstring "subsystems"
 let s_lambda = HString.mk_hstring "lambda"
 let s_opt_const = HString.mk_hstring ":const"

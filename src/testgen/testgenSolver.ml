@@ -52,7 +52,7 @@ type t = {
   mutable actlits: actlit list ;
 }
 
-let println = Format.printf "| %s@."
+(* let println = Format.printf "| %s@." *)
 
 (* Creates a new solver wrapper. The first actlit activates init@0. *)
 let mk sys =

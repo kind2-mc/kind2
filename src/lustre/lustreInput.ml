@@ -38,7 +38,6 @@ module AD = LustreAstDependencies
 module LAN = LustreAstNormalizer
 
 let (>>=) = Res.(>>=)
-let (>>) = Res.(>>)
           
 exception NoMainNode of string
 

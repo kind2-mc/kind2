@@ -365,10 +365,12 @@ let of_string s =
   | Some res -> N res
   | None -> of_decimal_string s
 
+(*
 (* Division symbol *)
 let s_div = HString.mk_hstring "/"
 
 let s_unimus = HString.mk_hstring "-"
+*)
 
 
 (* Convert an arbitrary large integer to a rational number *)

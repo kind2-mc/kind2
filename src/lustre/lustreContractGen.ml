@@ -19,8 +19,6 @@
 
 open Lib
 
-module Num = Numeral
-
 module SVar = StateVar
 module SvMap = SVar.StateVarMap
 module SvSet = SVar.StateVarSet
@@ -40,17 +38,8 @@ type 'a term_map = 'a TMap.t
 (** State variables of a term. *)
 let svars_of = Term.state_vars_of_term
 
-(** State variables of a term at [0]. *)
-let curr_svars_of = Term.state_vars_at_offset_of_term Num.zero
-
 (** List formatter. *)
 let fmt_list = pp_print_list
-
-(** State variable formatter. *)
-let fmt_svar = StateVar.pp_print_state_var
-
-(** Term formatter. *)
-let fmt_term = Term.pp_print_term
 
 (** (Lustre) expression formatter. *)
 let fmt_lus two_state fmt term =
@@ -60,14 +49,6 @@ let fmt_lus two_state fmt term =
 
 (** Node signature formatter. *)
 let fmt_sig fmt = Format.fprintf fmt "@[<hov>%a@]" Node.pp_print_node_signature
-
-(** Map over [option]. *)
-let omap f = function
-  | Some x -> Some (f x)
-  | None -> None
-
-(** Fold left over lists. *)
-let fold = List.fold_left
 
 (** Helper functions to analyze invariants and decide whether they qualify as
 Assumptions, guarantees, or modes.
@@ -224,7 +205,7 @@ module Contract = struct
 
 
   (** Removes tautologies and does a bit of pruning. *)
-  let simplify (
+  (*let simplify (
     { ass ; gua ; modes } as contract
   ) =
     Format.printf "ass:@." ;
@@ -244,7 +225,7 @@ module Contract = struct
         ) ;
     ) ;
     Format.printf "@." ;
-    contract
+    contract*)
 
   (** Splits some invariants into assumptions, guarantees, and modes.
   Second parameter is normal invariants, then invariant implications.
@@ -258,14 +239,6 @@ module Contract = struct
     ) invs (empty node, SvSet.empty)
 
   (* |===| Printing stuff. *)
-
-  (** Two state prefix. *)
-  let fmt_ts_pref fmt two_state =
-    if two_state then Format.fprintf fmt "true -> ("
-
-  (** Two state suffix. *)
-  let fmt_ts_suff fmt two_state =
-    if two_state then Format.fprintf fmt ")"
 
   (** Assumption formatter. *)
   let fmt_ass two_state f fmt term=

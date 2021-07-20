@@ -513,7 +513,7 @@ digraph mode_graph {
 
   See also [terms_of], used for the base instance (graph stabilization).
   This version produces a much larger number of terms. *)
-  let all_terms_of {map_up ; classes} known =
+  (*let all_terms_of {map_up ; classes} known =
     let cond_cons cand l = if known cand then l else cand :: l in
     (* let eqs =
       Map.fold (
@@ -551,7 +551,7 @@ digraph mode_graph {
             ) (Map.find classes rep')
             |> fst
         ) above acc
-    ) map_up []
+    ) map_up []*)
 
 
   (** Equalities coming from the equivalence classes of a graph. *)
@@ -615,13 +615,13 @@ digraph mode_graph {
     ) map_up acc
 
   (* Formats a chain. *)
-  let fmt_chain fmt =
+  (*let fmt_chain fmt =
     Format.fprintf fmt "[%a]" (
       pp_print_list
       (fun fmt (rep, value) ->
         Format.fprintf fmt "<%a, %a>" fmt_term rep Domain.fmt value)
       ", "
-    )
+    )*)
 
   (** Applies a function [f] to the value [key] is bound to in [map].
 

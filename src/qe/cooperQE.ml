@@ -50,7 +50,7 @@ let least_common_multiple (i1: Numeral.t) (i2: Numeral.t) : Numeral.t =
     | x, c when Numeral.(c = zero) -> x
     | i1, i2 -> Numeral.(abs (i1 * i2) / (greatest_common_divisor i1 i2))
 
-
+(*
 (* Compute the modulo of i1 divided by i2.
    It always returns positive number and smaller than i2. *)
 let modulo (i1: Numeral.t) (i2: Numeral.t) : Numeral.t =
@@ -58,7 +58,7 @@ let modulo (i1: Numeral.t) (i2: Numeral.t) : Numeral.t =
     Numeral.(i1 mod i2)
   else 
     Numeral.((i1 mod i2) + i2)
-
+*)
 
 (* Find the least common multiply of all the coefficients of the
    variable in the formula. Return zero if the formula does not occur
@@ -353,7 +353,7 @@ let eval_poly model (pt: poly) : Numeral.t =
     Numeral.zero
     pt
 
-
+(*
 (* Find the maximum poly in the poly list. *)
 let find_max_in_poly_list model (ptl: poly list) : poly =
   match ptl with
@@ -369,6 +369,7 @@ let find_max_in_poly_list model (ptl: poly list) : poly =
         else (
           pt1)
     ) pt ptl'
+*)
 
 (*
 (* FIXME *)
@@ -668,7 +669,7 @@ let find_divisible_lower_bound (c: Var.t -> Var.t -> int)
   (* Add the offset to the polynomial *)
   add_two_polys c [] pl [j, None]
 
-
+(*
 (* Return the first non-constant polynomial *)
 let rec find_general_poly (l: poly list) : poly =
 
@@ -680,7 +681,7 @@ let rec find_general_poly (l: poly list) : poly =
       
       (* Skip over constant polynomials *)
       if poly_is_constant pl then find_general_poly l' else pl
-
+*)
 
 (* Find a lower bound for the variable [v] to be eliminated in the
    Presburger formula [cf]. All occurrences of the variable [v] must

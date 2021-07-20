@@ -147,11 +147,6 @@ type t = {
   original_int_type : Type.t SVM.t;
 }
 
-let pp_print_scope fmt { scope ; contract_scope } =
-  Format.fprintf fmt "%a (%a)"
-    (pp_print_list Format.pp_print_string ", ") scope
-    (pp_print_list Format.pp_print_string ", ") contract_scope
-
 (* Create an initial empty context 
 
    This must be a function, because it contains a hash table, which is
@@ -2232,7 +2227,7 @@ let check_local_vars_defined ctx =
       ) ctx.locals_info
   | _ -> ()
 
-
+(*
 let check_output_defined ctx =
   match ctx.node with
   | Some { N.equations; N.is_extern = false } ->
@@ -2248,7 +2243,7 @@ let check_output_defined ctx =
                (I.pp_print_ident false) id)
       ) ctx.outputs_info
   | _ -> ()
-
+*)
 
 let check_vars_defined ctx =
   (* check_outputs_defined ctx; *)

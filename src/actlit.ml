@@ -17,22 +17,26 @@
 *)
 
 (* Translates the hash of a term into a string .*)
-let string_of_term term = string_of_int (Term.tag term)
+(* let string_of_term term = string_of_int (Term.tag term) *)
 
 (* Returns an actlit built from a string. Beware of name
    collisions. *)
 let actlit_of_string string =
   UfSymbol.mk_uf_symbol string [] (Type.mk_bool ())
 
+(*
 (* Creates a positive actlit as a UF. *)
 let generate_actlit term =
   String.concat "_" [ "actlit" ; string_of_term term ]
   |> actlit_of_string
+*)
 
+(*
 (* Creates a negative actlit as a UF. *)
 let generate_negative_actlit term =
   String.concat "_" [ "actlit" ; "negative" ; string_of_term term ]
   |> actlit_of_string
+*)
 
 let i = ref 0
 

@@ -360,7 +360,7 @@ let get_constrs_of_num n =
 
 let get_num_of_constr c = Hashtbl.find constr_nums c
 
-let get_enum_range_of_constrs cs = Hashtbl.find enums_table cs |> snd
+(* let get_enum_range_of_constrs cs = Hashtbl.find enums_table cs |> snd *)
 
 let get_enum_name_of_constrs cs = Hashtbl.find enums_table cs |> fst
 
