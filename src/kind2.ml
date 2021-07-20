@@ -35,6 +35,7 @@ let classify_input_stream: string -> string = fun in_file ->
 
 
 (* Setup everything and returns the input system. Setup includes:
+   - flag parsing,
    - debug setup,
    - log level setup,
    - smt solver setup,
@@ -44,6 +45,9 @@ let classify_input_stream: string -> string = fun in_file ->
    - parsing input file,
    - building input system. *)
 let setup : unit -> any_input = fun () ->
+
+  (* Parse command-line flags. *)
+  Flags.parse_argv () ;
 
   (* Formatter to write debug output to. *)
   (match Flags.debug_log () with
