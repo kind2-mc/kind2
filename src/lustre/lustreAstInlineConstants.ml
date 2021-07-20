@@ -28,7 +28,6 @@ module LH = LustreAstHelpers
 
 module R = Res
 let (>>=) = R.(>>=)
-let (>>) = R.(>>)
 
 type tc_context = TC.tc_context
 

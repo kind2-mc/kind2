@@ -62,7 +62,7 @@ let offset_of_index expr =
   let offset = Term.mk_minus [t; tv] in
   Simplify.simplify_term [] offset
 
-
+(*
 (* Take array indexes on an apparent cycle and checks if the sum of their
    offests is negative, i.e. for A[k-1], B[i], C[j-2] this checks that
    k-1-k + i-i + j-2-j < 0 *)
@@ -72,7 +72,7 @@ let sum_indexes_negative indexes =
     Term.mk_lt [Term.mk_plus offsets; Term.mk_num_of_int 0] in
   let neg_offset_val = Simplify.simplify_term [] neg_offset_test in
   Term.equal neg_offset_val Term.t_true
-
+*)
 
 (* Just sum the offsets (terms) and checks with a cheap operation if they can
    be deemed negative right away. *)
@@ -117,12 +117,6 @@ let has_cycle_path state_var path =
 let has_cycle state_var parents =
   try Some (List.find (has_cycle_path state_var) parents)
   with Not_found -> None
-
-
-let print_ind fmt = function
-  | None -> ()
-  | Some off -> Format.fprintf fmt "[%a]" Term.pp_print_term off
-
 
 (* Return a chain of variable names and node names that describe the
    cycle, in reverse order *)

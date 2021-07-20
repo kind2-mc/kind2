@@ -57,7 +57,7 @@ module IMap = struct
                type t = LA.ident
                let compare i1 i2 = Stdlib.compare i1 i2
              end))
-  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)             
+  (* let keys: 'a t -> key list = fun m -> List.map fst (bindings m) *)         
 end
 
 module IntMap = struct
@@ -65,7 +65,7 @@ module IntMap = struct
                type t = int
                let compare i1 i2 = Stdlib.compare i1 i2
              end))
-  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)             
+  (* let keys: 'a t -> key list = fun m -> List.map fst (bindings m) *)            
 end
             
 type id_pos_map = (Lib.position list) IMap.t
@@ -138,13 +138,14 @@ let pp_print_analysis_data ppf ad =
   pp_print_node_summary ad.nsummary
   pp_print_contract_summary ad.csummary
 
-
+(*
 let pp_print_id_pos ppf m =
   Lib.pp_print_list (fun ppf (i, b) ->
       Format.fprintf ppf "(%a :-> %a)"
         LA.pp_print_ident i
         (Lib.pp_print_list Lib.pp_print_position ", ") b)  ", "
     ppf (IMap.bindings m)
+*)
 
 (** {1 Helper functions } *)
   
@@ -782,7 +783,8 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
                union_dependency_analysis_data g (singleton_dependency_analysis_data "" v pos))
              ad effective_vars)
           i pos
-       
+
+(*
 let mk_graph_const_decl2: node_summary -> LA.const_decl -> dependency_analysis_data graph_result
   = fun m ->
   function
@@ -801,7 +803,8 @@ let mk_graph_const_decl2: node_summary -> LA.const_decl -> dependency_analysis_d
                    union_dependency_analysis_data
                    empty_dependency_analysis_data g)
                 (mk_graph_type ty)) (const_suffix ^ i) pos)
-  
+
+
 let mk_graph_contract_eqns: node_summary -> LA.contract -> dependency_analysis_data graph_result
   = fun  m ->
   let mk_graph: LA.contract_node_equation -> dependency_analysis_data graph_result
@@ -821,6 +824,7 @@ let mk_graph_contract_eqns: node_summary -> LA.contract -> dependency_analysis_d
   fun eqns ->
   R.seq (List.map mk_graph eqns) >>= fun gs -> 
   R.ok (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data gs) 
+*)
 
 let expression_current_streams: dependency_analysis_data -> LA.expr -> LA.ident list graph_result
   = fun ad e ->

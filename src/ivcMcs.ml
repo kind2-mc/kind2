@@ -193,6 +193,7 @@ let undef_expr pos_sv_map const_expr typ expr =
           in Hashtbl.replace previous_rands svs res ; res
       end
 
+(*
 let parametric_rand_node nb_outputs =
   let rec aux prefix acc nb =
     match nb with
@@ -209,6 +210,7 @@ let parametric_rand_node nb_outputs =
     (rand_fun_ident nb_outputs, true, ts, [dpos,"id",A.Int dpos,A.ClockTrue, false],
     outs, [], [], None)
   )
+*)
 
 let rand_node name ts =
   let rec aux prefix acc nb =
@@ -538,9 +540,6 @@ let props_names props =
 
 let props_terms props =
   List.map (fun { Property.prop_term = p } -> p) props
-
-let props_term props =
-  props_terms props |> Term.mk_and
 
 let extract_all_props_names sys =
   List.map (fun { Property.prop_name = n } -> n) (TS.get_properties sys)
@@ -1610,10 +1609,6 @@ let get_unexplored_max map actsvs =
 let block_up map s =
   at_least_one_false s
   |> SMTSolver.assert_term map
-
-let svs_diff svs1 svs2 =
-  SVSet.diff (SVSet.of_list svs1) (SVSet.of_list svs2)
-  |> SVSet.elements
 
 let block_down map s =
   at_least_one_true s

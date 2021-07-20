@@ -71,18 +71,17 @@ and t =
       
     } 
 
-
+(*
 (* Compare clauses by their lexicographically comparing their (sorted
    and duplicate-free lists of) literals *)
 let compare { literals = l1 } { literals = l2 } =
   compare_lists Term.compare l1 l2
-
     
 (* Clauses are equal if their (sorted and duplicate-free lists of)
    literals are equal *)
 let equal { literals = l1 } { literals = l2 } =
   List.length l1 = List.length l2 && List.for_all2 Term.equal l1 l2
-
+*)
 
 (* A trie of clauses *)
 module ClauseTrie = Trie.Make (Term)
@@ -102,7 +101,8 @@ let length_of_clause { literals } = List.length literals
 
 (* Return source of clause *)
 let source_of_clause { source } = source
-  
+
+(*
 (* Pretty-print the source of a clause *)
 let pp_print_source ppf = function
 
@@ -119,7 +119,7 @@ let pp_print_source ppf = function
   | CopyFwdProp { clause_id } -> Format.fprintf ppf "CopyFwdProp %d" clause_id
 
   | Copy { clause_id } -> Format.fprintf ppf "Copy %d" clause_id
-
+*)
     
 (* ********************************************************************** *)
 (* Activation literals                                                    *)
@@ -684,12 +684,7 @@ let tag_of_actlit_type = function
     
 (* Counters for activation literal groups *)
 let actlit_counts = ref []
-  
 
-(* Number of property sets considered *)
-let prop_set_count = ref (- 1)
-
-  
 
 (* Process term for type of type of activation literal *)
 let term_for_actlit_type term = function

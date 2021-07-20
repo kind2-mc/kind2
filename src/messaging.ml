@@ -344,7 +344,7 @@ struct
     Mutex.unlock queue.lock
 
 
-  
+  (*
   let push_front entry queue = 
     
     (* push to front of queue *)
@@ -353,6 +353,7 @@ struct
     queue.q <- entry :: queue.q;
     
     Mutex.unlock queue.lock
+  *)
       
   
   let dequeue queue =
@@ -759,7 +760,7 @@ struct
       Hashtbl.add (worker_status) (List.nth workers i) (Unix.time ());
     done
 
-
+  (*
   let wait_for_workers workers worker_status pub_sock pull_sock =
     (* wait for ready from all workers *)
     let rec wait_iter = function
@@ -799,6 +800,7 @@ struct
 
     wait_iter workers;
     update_worker_status workers worker_status
+    *)
 
 
   let im_check_workers_status workers worker_status pub_sock pull_sock =

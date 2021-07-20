@@ -138,12 +138,6 @@ let instance_ident = mk_string_ident instance_ident_string
 (* Identifier for first instant flag *)
 let init_flag_ident = mk_string_ident init_flag_ident_string
 
-(* Identifier for observer of contract requirements *)
-let all_req_ident = mk_string_ident all_req_ident_string
-
-(* Identifier for observer of contract ensures *)
-let all_ens_ident = mk_string_ident all_ens_ident_string
-
 (* Identifier for new variables from node instances *)
 let inst_ident = mk_string_ident inst_ident_string
 

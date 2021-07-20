@@ -34,6 +34,7 @@ type term = Term.t
 
 (** Functions. *)
 
+(*
 (** Deactivates an activation literal. *)
 let deactivate s actlit = actlit |> Term.mk_not |> Solver.assert_term s
 
@@ -52,10 +53,11 @@ let eval sys model bump = (fun term ->
   |> Eval.eval_term (Sys.uf_defs sys) model
   |> Eval.bool_of_value
 )
+*)
 
 
 (** Log prefix. *)
-let pref = "C2I(cnf) "
+(*let pref = "C2I(cnf) "*)
 
 
 (** Output statistics. *)
@@ -147,6 +149,7 @@ let mk_solvers sys =
   s1, s2, s3
 
 (** Resets the solvers of a context if enough actlits have been created. *)
+(*
 let reset_solvers_of t =
   if (Actlit.fresh_actlit_count () / 3) mod 20 = 0 then (
     (* Reset solvers. *)
@@ -155,6 +158,7 @@ let reset_solvers_of t =
     Actlit.reset_fresh_actlit_count () ;
     { t with solver1 ; solver2 ; solver3 }
   ) else t
+*)
 
 
 
@@ -180,6 +184,7 @@ let mk_context sys props =
   (* Returning context. *)
   { sys ; props ; white ; grey ; black ; solver1 ; solver2 ; solver3 }
 
+(*
 (** Resets a context with a new prop. Changes [prop] and resets [black].
     
     So actually, since we're (possibly) doing multi-property we could keep the
@@ -187,7 +192,7 @@ let mk_context sys props =
 let reset_props_of t props = { t with props ; black = [] }
 
 (** Resets the grey set of a context. *)
-let reset_grey_of t = { t with grey = [] }
+(*let reset_grey_of t = { t with grey = [] }*)
 
 (** Returns the conjunction of the properties from a context. *)
 let prop_term_of props = props |> List.map snd |> Term.mk_and
@@ -250,6 +255,7 @@ let rec check_candidate sys solver bump f candidate falsifiable =
     (model, falsified) :: falsifiable
     |> check_candidate sys solver bump f candidate
   | None -> candidate, falsifiable
+
 
 (** Checks (1). *)
 let check_1 sys solver candidate =
@@ -336,14 +342,7 @@ let query_solvers { sys ; props ; solver1 ; solver2 ; solver3 } candidate =
   in
   check_1 sys solver1 candidate,
   check_2 sys solver2 candidate,
-  check_3 sys solver3 candidate props
-
-(** Returns a zero-cost candidate for a context. *)
-let get_zero_cost_candidate context candidate =
-  failwith "unimplemented"
-
-
-
+  check_3 sys solver3 candidate props*)
 
   (* match ... with
   | (_, []), (_, []), ([], _) ->

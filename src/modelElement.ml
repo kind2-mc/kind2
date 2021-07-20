@@ -411,11 +411,6 @@ let get_ts_equation_of_actlit (_, mapping) actlit =
 let get_sv_of_actlit (_, mapping) actlit =
   SyMap.find actlit mapping |> snd
 
-let get_actlit_of_sv (_, mapping) sv =
-  SyMap.bindings mapping
-  |> List.filter (fun (a, (_, sv')) -> StateVar.equal_state_vars sv sv')
-  |> List.hd |> fst
-
 let core_size (scmap, _) = scmap_size scmap
 
 let scopes_of_core (scmap, _) =

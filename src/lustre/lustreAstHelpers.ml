@@ -304,7 +304,7 @@ let rec has_pre_or_arrow = function
 
   | Arrow (pos, e1, e2) -> Some pos
 
-
+(*
 (** Returns identifiers under a last operator *)
 let rec lasts_of_expr acc = function
   | Const _ | Ident _ | ModeRef _ -> acc
@@ -356,7 +356,7 @@ let rec lasts_of_expr acc = function
 
   | Arrow (pos, e1, e2) ->
     lasts_of_expr (lasts_of_expr acc e1) e2
-
+*)
 
 let rec replace_lasts allowed prefix acc ee = match ee with
   | Const _ | Ident _ | ModeRef _ ->

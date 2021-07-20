@@ -319,7 +319,7 @@ let check_frames solver prop_set clauses frames =
   check_frames' solver prop_set clauses frames 
 
 
-let order_terms terms term_tbl =
+(*let order_terms terms term_tbl =
 
   List.sort 
     (fun t1 t2 -> 
@@ -347,7 +347,7 @@ let incr_binding term term_tbl =
 
   in
 
-  Term.TermHashtbl.add term_tbl term (v+1)
+  Term.TermHashtbl.add term_tbl term (v+1)*)
 
 
 (* ************************************************************************ *)
@@ -2625,7 +2625,7 @@ let extract_cex_path solver trans_sys trace =
    TODO: Return the maximal R for which P & R & T |= P holds, where R
    contains the blocking clauses before a restart. Therefore we know
    that I |= R. *)
-let add_to_r1 clauses = []
+(* let add_to_r1 clauses = [] *)
 
 
 (* Helper function for restarts *)

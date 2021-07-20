@@ -439,7 +439,7 @@ let iter f =
 let select_prefix = "_select"
 
 (** @deprecated Not good with node calls, use {!encode_select_type} instead *)
-let encode_select_name sv =
+(*let encode_select_name sv =
   let sv_uf = uf_symbol_of_state_var sv in
   let ty = UfSymbol.res_type_of_uf_symbol sv_uf in
   assert (Type.is_array ty);
@@ -451,7 +451,7 @@ let encode_select_name sv =
     select_prefix ^ (*string_of_int (List.length ty_indexes) ^*) "_" ^
     (UfSymbol.string_of_uf_symbol sv_uf) (* ^ *)
     (* "@" ^ (Numeral.string_of_numeral off) *) in
-  UfSymbol.mk_uf_symbol name ty_args ty_elem
+  UfSymbol.mk_uf_symbol name ty_args ty_elem*)
 
 module TyH = Type.TypeHashtbl
 

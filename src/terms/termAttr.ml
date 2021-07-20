@@ -164,9 +164,11 @@ module SMTLIBPrinter : Printer =
       | Named (s, n) -> Format.fprintf ppf ":named@ %s%d" s n
       | FunDef -> Format.fprintf ppf ":fun-def"
 
+    (*
     (* Pretty-print an attribute to the standard formatter *)
     let print_attr_node = pp_print_attr_node Format.std_formatter 
-
+    *)
+    
     (* Pretty-print a hashconsed attribute *)
     let pp_print_attr ppf { Hashcons.node = v } = pp_print_attr_node ppf v
 
@@ -184,10 +186,12 @@ module YicesPrinter : Printer =
     let pp_print_attr_node ppf = function 
       (* Ignore attributes for yices *)
       | Named _ | FunDef -> ()
-                     
+    
+    (*
     (* Pretty-print an attribute to the standard formatter *)
     let print_attr_node = pp_print_attr_node Format.std_formatter 
-
+     *)
+     
     (* Pretty-print a hashconsed attribute *)
     let pp_print_attr ppf { Hashcons.node = v } = pp_print_attr_node ppf v
 

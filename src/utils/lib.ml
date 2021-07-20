@@ -456,7 +456,7 @@ module IntegerSet =
   (struct
     type t = int
     let compare = Stdlib.compare
-    let equal = (=)
+    (* let equal = (=) *)
    end)
   
   
@@ -1168,11 +1168,11 @@ let compare_pos
 (* A dummy position, different from any valid position *)
 let dummy_pos = { pos_fname = ""; pos_lnum = 0; pos_cnum = -1 }
 
-
+(*
 (* A dummy position in the specified file *)
 let dummy_pos_in_file fname = 
   { pos_fname = fname; pos_lnum = 0; pos_cnum = -1 }
-
+*)
 
 (* Pretty-print a position *)
 let pp_print_position ppf (

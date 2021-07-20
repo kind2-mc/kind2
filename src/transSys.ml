@@ -744,7 +744,7 @@ let fold_subsystem_instances f trans_sys =
 
   
 (* TODO: iterate over each instance of a subsystem *)
-let iter_subsystem_instances f trans_sys = assert false
+(* let iter_subsystem_instances f trans_sys = assert false *)
 
 
 (* Return the direct subsystems of a system *)
@@ -876,7 +876,7 @@ let rec add_global_constant t v =
   { t with subsystems ; global_consts ; state_vars }
 
 (* Return global state variables of the transition system *)
-let global_state_vars { global_state_vars } = global_state_vars
+(* let global_state_vars { global_state_vars } = global_state_vars *)
 
 
 (* Add instances of the [state_vars] at [ubound] to [accum] if
@@ -1175,7 +1175,7 @@ let uf_defs trans_sys =
      subsystems before *)
   |> List.rev
 
-
+(*
 (* Flatten the list of instances per subsystems ot a list of subsystem
    and instance pairs *)
 let flatten_instances subsystems =
@@ -1188,7 +1188,7 @@ let flatten_instances subsystems =
          i)
     []
     subsystems 
-
+*)
 
 
 let rec map_cex_prop_to_subsystem' 

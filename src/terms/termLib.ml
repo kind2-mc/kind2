@@ -248,7 +248,7 @@ let pp_print_features fmt l =
   if L.mem IA l || L.mem RA l then fprintf fmt "A"
 
 
-let string_of_features l = asprintf "%a" pp_print_features l
+(* let string_of_features l = asprintf "%a" pp_print_features l *)
 
 
 type logic = [ `None | `Inferred of features | `SMTLogic of string ]
@@ -384,6 +384,7 @@ module Signals = struct
       ignore_sig Sys.sigpipe
     )
 
+(*    
   (* Ignore all signals. *)
   let ignore_all_sigs () =
     ignore_sigalrm () ;
@@ -392,6 +393,7 @@ module Signals = struct
     ignore_sigterm () ;
     ignore_sigpipe () ;
     catch_break false
+*)
 
   (* Sets a handler for a signal. *)
   let set_sig s f =

@@ -1063,8 +1063,6 @@ let pp_print_contract_call fmt (_, id, in_params, out_params) =
     (pp_print_list pp_print_expr ", ") in_params
     (pp_print_list pp_print_ident ", ") out_params
 
-let all_empty = List.for_all (fun l -> l = [])
-
 let pp_print_contract_item fmt = function
   | GhostConst c -> pp_print_contract_ghost_const fmt c
   | GhostVar v -> pp_print_contract_ghost_var fmt v

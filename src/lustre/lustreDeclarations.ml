@@ -1374,7 +1374,7 @@ and eval_contract_item check ~typ scope (ctx, accum, count) (pos, iname, expr) =
 
 
 (* Fail if a contract node input is incompatible with a node input *)
-and check_node_and_contract_inputs call_pos ctx node_inputs = function 
+(*and check_node_and_contract_inputs call_pos ctx node_inputs = function 
 
   (* All contract inputs are consistent with node inputs *)
   | [] -> ()
@@ -1448,11 +1448,11 @@ and check_node_and_contract_inputs call_pos ctx node_inputs = function
 
     fail_at_position 
       pos 
-      "Clocked inputs not supported"
+      "Clocked inputs not supported"*)
 
 
 (* Fail if a contract node output is incompatible with a node output *)
-and check_node_and_contract_outputs call_pos ctx node_outputs = function 
+(*and check_node_and_contract_outputs call_pos ctx node_outputs = function 
 
   (* All contract outputs are consistent with node outputs *)
   | [] -> ()
@@ -1516,7 +1516,7 @@ and check_node_and_contract_outputs call_pos ctx node_outputs = function
 
     fail_at_position 
       pos 
-      "Clocked outputs not supported"
+      "Clocked outputs not supported"*)
 
 
 (* Evaluates a mode for a node. *)
@@ -1778,7 +1778,7 @@ and eval_node_contract_call
   
 
 (* Add declaration and equation for ghost stream *)
-and add_ghost inputs outputs locals ctx pos ident type_expr ast_expr expr = 
+(*and add_ghost inputs outputs locals ctx pos ident type_expr ast_expr expr = 
 
   (* Add local declaration for ghost stream *)
   let ctx = C.add_node_local ~ghost:true ctx ident pos type_expr in
@@ -1794,7 +1794,7 @@ and add_ghost inputs outputs locals ctx pos ident type_expr ast_expr expr =
       ),
       ast_expr
     )
-  )
+  )*)
 
 (* Add all node contracts to contexts *)
 and eval_node_contract_item

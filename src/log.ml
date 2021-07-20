@@ -94,12 +94,6 @@ let first_log_flag = ref true
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
 
-
-(* Pretty-print kind module for plain text output *)
-let pp_print_kind_module_pt =
-  pp_print_kind_module
-
-
 (* Output message as plain text *)
 let printf_pt mdl level fmt =
   (ignore_or_fprintf level)

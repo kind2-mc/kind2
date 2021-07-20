@@ -177,7 +177,7 @@ let psummand_contains_variable (v: Var.t) (ps: psummand) : bool =
       else 
         (false)
 
-
+(*
 (* Check if a presburger is a constant number. *)
 let psummand_is_constant (ps: psummand) : bool =
 
@@ -186,7 +186,7 @@ let psummand_is_constant (ps: psummand) : bool =
     | (_, None) -> true
       
     | (_, Some _) -> false
-
+*)
 
 (* Check if a poly is a constant. *)
 let poly_is_constant (pl: poly) : bool =
@@ -263,7 +263,7 @@ let cformula_contains_variable (v: Var.t) (cf: cformula) : bool =
     cf
 
       
-
+(*
 (* Add two presburger summands when they have the same variable.
    Notice that this function don't check if the variables are
    the same. It uses the variable in ps1 anyway. *)
@@ -277,7 +277,7 @@ let add_psummands (ps1: psummand) (ps2: psummand) : psummand =
       
     | _ -> 
       failwith "Trying to add two summands without the same variable."
-        
+*)
 
 (* Add two presburger terms.
    The arguments must be sorted before calling this function. 
@@ -340,7 +340,7 @@ let rec add_two_polys (c: Var.t -> Var.t -> int) (accum: poly) (pt1: poly) (pt2:
 
       )
         
-
+(*
 (* Add up a list of polynomials *)
 let add_poly_list (c: Var.t -> Var.t -> int) (ptl: poly list) : poly = 
 
@@ -352,7 +352,7 @@ let add_poly_list (c: Var.t -> Var.t -> int) (ptl: poly list) : poly =
     (* Take the head of the list as initial value and add the tail of
        the list *)
     | pt1 :: ptl' -> List.fold_left (add_two_polys c []) pt1 ptl'
-
+*)
 
 (* Multiply two presburger terms when at least one of them is constant. *)
 let multiply_two_polys (pt1: poly) (pt2: poly) : poly =
@@ -372,7 +372,7 @@ let multiply_two_polys (pt1: poly) (pt2: poly) : poly =
     | _ ->
       failwith "Can only multiply two polys when at least one of them is constant."
 
-
+(*
 (* Multiply up a list of presburger terms of at least one element. *)
 let multiply_poly_list (ptl: poly list) : poly =
 
@@ -384,7 +384,7 @@ let multiply_poly_list (ptl: poly list) : poly =
     (* Take the head of the list as initial value and multiply with
        the tail of the list *)
     | pt1 :: ptl' -> List.fold_left multiply_two_polys pt1 ptl'
-
+*)
 
 (* Comparison of variables: variables to be eliminated earlier are
    smaller, compare as Var.t if none is to be eliminated *)

@@ -120,9 +120,9 @@ exception CouldNotProve of (Format.formatter -> unit)
 (****************************)
 (* Global hconsed constants *)
 (****************************)
-let s_and = Symbol.mk_symbol `AND
+(*let s_and = Symbol.mk_symbol `AND
 let s_or = Symbol.mk_symbol `OR
-let s_not = Symbol.mk_symbol `NOT
+let s_not = Symbol.mk_symbol `NOT*)
 
 
 let ty_index_name = "index"
@@ -1328,7 +1328,7 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
 
 
 (* Populate the headers of the certificate *)
-let monolithic_header fmt description sys init_n prop_n trans_n phi_n k =
+(*let monolithic_header fmt description sys init_n prop_n trans_n phi_n k =
 
   (* Extract the logic of the system and add uninterpreted functions and
      integer arithmetic to it (because of implicit unrolling for state
@@ -1371,7 +1371,7 @@ let monolithic_header fmt description sys init_n prop_n trans_n phi_n k =
   fprintf fmt "(declare-sort FArray 2)@.";
   
   (* Add select functions *)
-  declare_selects fmt
+  declare_selects fmt*)
 
 
 (************************************************)
@@ -2311,7 +2311,7 @@ let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_var
    variables of Kind2 ([orig_kind2_vars]) and their computed jKind
    counterparts. The optional parameter [prime] controls if the resulting
    eqaulities should be on primed varaibles. *)
-let mk_prop_obs ~only_out lustre_vars kind2_sys =
+(*let mk_prop_obs ~only_out lustre_vars kind2_sys =
   
   let orig_kind2_vars = TS.state_vars kind2_sys in
 
@@ -2324,7 +2324,7 @@ let mk_prop_obs ~only_out lustre_vars kind2_sys =
   (* Conjunction of equalities between state varaibles *)
   ["Observational_Equivalence",
    Property.Generated (None, []),
-   Term.mk_and eqs]
+   Term.mk_and eqs]*)
 
 
 let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
@@ -2987,9 +2987,9 @@ let remove dirname =
 
 
 (* Temporary fix for proofs that contain dummy A0 input *)
-let fix_A0 final_lfsc =
+(*let fix_A0 final_lfsc =
   Sys.command ("sed -i '' 's/A0/truth/' " ^ final_lfsc)
-  |> ignore
+  |> ignore*)
 
 
 (* Generate all certificates in the directory given by {!Flags.certif_dir}. *)

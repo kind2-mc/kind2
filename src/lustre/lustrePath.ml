@@ -748,6 +748,7 @@ let node_path_of_subsystems
 (* Plain-text output                                               *)
 (* *************************************************************** *)
 
+(*
 (* Pretty-print a value *)
 let pp_print_term ty ppf term =
 
@@ -813,7 +814,7 @@ let pp_print_term ty ppf term =
     (* Fall back to pretty-print as lustre expression *)
     (LustreExpr.pp_print_expr false) ppf
       (LustreExpr.unsafe_expr_of_term term)
-
+*)
 
 let pp_print_value = Model.pp_print_value
 
@@ -1364,7 +1365,7 @@ let pp_print_stream_value ty ppf i show v =
       "@,@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@,@]</Value>"
       i (Model.pp_print_value_xml ~as_type:ty) v
 
-
+(*
 (* Print type of a stream in the current model *)
 let pp_print_type_of_svar model ppf state_var =
   (* Get type of identifier *)
@@ -1376,7 +1377,7 @@ let pp_print_type_of_svar model ppf state_var =
       (pp_print_list Format.pp_print_int " ^ ")
       (Model.dimension_of_map m |> List.rev)
   | _ -> E.pp_print_lustre_type false ppf stream_type
-  
+*)  
   
 let pp_print_stream_values clock ty ppf l =
   match clock with

@@ -197,9 +197,6 @@ val pre_is_unguarded : t -> bool
 (** Return true if the expression is constant *)
 val is_const_expr : expr -> bool
 
-(** Return true if the expression is constant *)
-val is_const : t -> bool
-
 (** {1 Conversions to terms} *)
 
 (** These offsets are different from the offsets in the transition

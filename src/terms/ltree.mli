@@ -273,9 +273,11 @@ sig
       rebuilding it bottom up *)
   val import_lambda : lambda -> lambda
 
+  (*
   (** Pretty-print a term *)
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
-    
+  *)
+  
   (** Pretty-print a term *)
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
 

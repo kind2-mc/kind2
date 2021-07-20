@@ -171,17 +171,10 @@ module Make (Graph : GraphSig) : Out = struct
     no_more_lsd () ;
     exit 0
 
-  (** Prefix used for logging one state invariants. *)
-  let pref = Format.sprintf "[%s Inv Gen]" Domain.name
-
   (** Prefix used for logging two state invariants. *)
   let pref_s two_state =
     if two_state then Format.sprintf "[%s Inv Gen 2]" Domain.name
     else Format.sprintf "[%s Inv Gen 1]" Domain.name
-
-  let mk_and_invar_certs invariants_certs =
-    let invs, certs = List.split invariants_certs in
-    Term.mk_and invs, Certificate.merge certs
 
   (* Instantiates [invariants] for all the systems calling [sys] and
   communicates them to the framework. Also adds invariants to relevant pruning

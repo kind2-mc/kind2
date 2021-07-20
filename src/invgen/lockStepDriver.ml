@@ -509,11 +509,13 @@ type pruning = {
 (** Returns the system associated with this pruner. *)
 let pruning_sys { sys } = sys
 
+(*
 (** Fresh actlit based on the uid counter in a pruning checker. *)
 let pruning_fresh_actlit pruning_checker =
   let fresh = fresh_actlit_of pruning_checker.actlit_uid in
   pruning_checker.actlit_uid <- 1 + pruning_checker.actlit_uid ;
   fresh
+*)
 
 (** Kills a pruning checker. *)
 let kill_pruning { solver } = Smt.delete_instance solver

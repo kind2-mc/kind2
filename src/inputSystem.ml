@@ -38,7 +38,7 @@ let translate_contracts_lustre = ContractsToProps.translate_file
 
 let read_input_native input_file = Native (NativeInput.of_file input_file)
 
-let read_input_horn input_file = assert false
+(*let read_input_horn input_file = assert false*)
 
 let silent_contracts_of (type s) : s t -> (Scope.t * string list) list
 = function
@@ -685,10 +685,6 @@ let slice_to_abstraction_and_property
     | Horn subsystem -> Horn subsystem
   )
 
-
-let inval_arg s = invalid_arg (
-  Format.sprintf "expected lustre input, got %s input" s
-)
 
 let compile_to_rust (type s): s t -> Scope.t -> string -> unit =
 fun sys top_scope target ->

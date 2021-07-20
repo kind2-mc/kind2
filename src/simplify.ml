@@ -55,24 +55,27 @@ type t =
   | Array of Term.t 
   | BV of Term.t
 
+(*
 let pp_print_monomial pp ppf ((c, t) : 'a monomial) = 
   Format.fprintf 
     ppf
     "%a * %a"
     pp c
     (pp_print_list Term.pp_print_term "@ *") t
+*)
 
+(*
 let pp_print_polynomial pp ppf (c, p) = 
   Format.fprintf ppf
     "%a + %a"
     pp c
     (pp_print_list (pp_print_monomial pp) "@ +")
     p
-  
+*)  
 
-let pp_print_int_polynomial = pp_print_polynomial Numeral.pp_print_numeral
+(* let pp_print_int_polynomial = pp_print_polynomial Numeral.pp_print_numeral *)
 
-let pp_print_dec_polynomial = pp_print_polynomial Decimal.pp_print_decimal
+(* let pp_print_dec_polynomial = pp_print_polynomial Decimal.pp_print_decimal *)
 
 
 
@@ -325,11 +328,11 @@ let const_multiply_monomial_list mult d m =
 let const_multiply_polynomial mult d (c, m) = 
   (mult d c, const_multiply_monomial_list mult d m)
 
-
+(*
 (* Multiply each monomial in the list with negative one *)
 let negate_monomial_list mult minus_one m = 
   const_multiply_monomial_list mult minus_one m
-
+*)
 
 (* Multiply polynomial with negative one *)
 let negate_polynomial mult minus_one p = 
@@ -446,15 +449,15 @@ let subtract_and_normalize_polynomials
 (* ********************************************************************** *)
 
 
-let add_num_monomial_lists = add_monomial_lists Numeral.(+) (Numeral.equal Numeral.zero)
+(* let add_num_monomial_lists = add_monomial_lists Numeral.(+) (Numeral.equal Numeral.zero) *)
 
 let add_num_polynomials = add_polynomials Numeral.(+) Numeral.zero (Numeral.equal Numeral.zero)
 
-let const_multiply_num_monomial_list = const_multiply_monomial_list Numeral.( * )
+(* let const_multiply_num_monomial_list = const_multiply_monomial_list Numeral.( * ) *)
 
-let const_multiply_num_polynomial = const_multiply_polynomial Numeral.( * )
+(* let const_multiply_num_polynomial = const_multiply_polynomial Numeral.( * ) *)
 
-let negate_num_monomial_list = negate_monomial_list Numeral.( * ) (Numeral.neg Numeral.one)
+(* let negate_num_monomial_list = negate_monomial_list Numeral.( * ) (Numeral.neg Numeral.one) *)
 
 let negate_num_polynomial = negate_polynomial Numeral.( * ) (Numeral.neg Numeral.one)
 
@@ -474,15 +477,15 @@ let subtract_and_normalize_num_polynomials =
 (* ********************************************************************** *)
 
 
-let add_dec_monomial_lists = add_monomial_lists Decimal.(+) (Decimal.equal Decimal.zero)
+(* let add_dec_monomial_lists = add_monomial_lists Decimal.(+) (Decimal.equal Decimal.zero) *)
 
 let add_dec_polynomials = add_polynomials Decimal.(+) Decimal.zero (Decimal.equal Decimal.zero)
 
-let const_multiply_dec_monomial_list = const_multiply_monomial_list Decimal.( * )
+(* let const_multiply_dec_monomial_list = const_multiply_monomial_list Decimal.( * ) *)
 
-let const_multiply_dec_polynomial = const_multiply_polynomial Decimal.( * )
+(* let const_multiply_dec_polynomial = const_multiply_polynomial Decimal.( * ) *)
 
-let negate_dec_monomial_list = negate_monomial_list Decimal.( * ) (Decimal.neg Decimal.one)
+(* let negate_dec_monomial_list = negate_monomial_list Decimal.( * ) (Decimal.neg Decimal.one) *)
 
 let negate_dec_polynomial = negate_polynomial Decimal.( * ) (Decimal.neg Decimal.one)
 
@@ -517,22 +520,23 @@ let add_dec args =
 
   add_dec_polynomials args'
 
-
+(*
 (* Multiply two integer polynomials *)
 let multiply_num p1 p2 = 
 
   let p1', p2' = num_polynomial_of_nf p1, num_polynomial_of_nf p2 in
 
   multiply_num_polynomials p1' p2'
+*)
 
-
+(*
 (* Multiply two real polynomials *)
 let multiply_dec p1 p2 = 
 
   let p1', p2' = dec_polynomial_of_nf p1, dec_polynomial_of_nf p2 in
 
   multiply_dec_polynomials p1' p2'
-
+*)
 
 (* Sum up a list of real or integer normal forms *)
 let add = function
@@ -2809,10 +2813,12 @@ let ite_rel_gt remove_ite' =
     Decimal.(>)
     Term.mk_gt
 
+(*
 (* Fail if normal form is not constant *)
 let const_nf name nf =
   if is_constant nf then nf
   else failwith ("Implementation not found for " ^ name ^ " in remove_ite")
+*)
 
 let rec remove_ite' fterm args =
   match fterm with

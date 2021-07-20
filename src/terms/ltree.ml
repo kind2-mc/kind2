@@ -265,8 +265,10 @@ struct
   (* Return property of term *)
   let hash_of_term { H.hkey = h } = h
 
+  (*
   (* Return property of term *)
   let prop_of_term { H.prop = p } = p
+  *)
 
   (* Hashconsed lambda abstraction *)
   module Lambda_node = 
@@ -754,7 +756,7 @@ struct
 
   let print_lambda ?db = pp_print_lambda ?db Format.std_formatter
 
-
+  (*
   (* Pretty-print a flattened term *)
   let pp_print_flat pp_symbol pp_var pp_sort ppf = function 
 
@@ -777,9 +779,12 @@ struct
         "Attr@ (%a,@ %a)" 
         (pp_print_term ~db:0) t 
         T.pp_print_attr a *)
+  *)
 
+  (*
   let pp_print_flat =
     pp_print_flat (fun ?arity -> T.pp_print_symbol) T.pp_print_var
+  *)
 
   (* ********************************************************************* *)
   (* Auxiliary functions                                                   *)
@@ -1322,6 +1327,7 @@ struct
           Ht.hashcons ht n' (prop_of_term_node n'))
       term
 
+  (*
   (* Bind free variables in a term and adjust de Bruijn indices *)
   let rec bump_and_bind b k = function 
 
@@ -1373,7 +1379,7 @@ struct
 
     (* Annotated term *)
     | { H.node = Annot (t, a) } -> ht_annot (bump_and_bind b k t) a
-
+  *)
   
   (* Bind a free variable in the term given an association list of
      variables to be bound and their position in a simultaneous
