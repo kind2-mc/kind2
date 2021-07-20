@@ -700,11 +700,10 @@ end
 val subdir_for : string list -> string
 
 
-(** {1 Parsing of the command line} 
+(** {1 Parsing of the command line} *)
 
-    Parsing of the command line arguments is performed when loading this
-    module.
-*)
+(** Parse the command line *)
+val parse_argv : unit -> unit
 
 (*
    Local Variables:

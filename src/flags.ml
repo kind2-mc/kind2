@@ -3699,10 +3699,6 @@ let parse_argv () =
   )
 
 
-(* Parsing command line arguments at load time *)
-let () = parse_argv ()
-
-
 (*
    Local Variables:
    compile-command: "make -C .. -k"

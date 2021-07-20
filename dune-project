@@ -27,8 +27,6 @@ More advanced features include contract-based compositional verification, proof 
   num
   (odoc :with-doc)
   (ounit2 :with-test)
-  (z3
-   (and (< 4.8.9) :with-test))
   yojson
   (zmq
    (>= 5.0.0))
