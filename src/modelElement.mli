@@ -109,6 +109,9 @@ val full_loc_core_for_sys :
 val filter_loc_core_by_categories :
   Scope.t (* Toplevel scope *) -> category list -> loc_core -> loc_core * loc_core
 
+(* Separate contract guarantees from the rest of the model elements *)
+val partition_loc_core_elts_by_guarantees : loc_core -> loc_core * loc_core
+
 (** {1 Pretty Printing} *)
 
 type core_print_data

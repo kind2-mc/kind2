@@ -846,3 +846,19 @@ let filter_loc_core_by_categories main_scope cats loc_core =
         elts
     ) loc_core in
   (ok, not_ok)
+
+let partition_loc_core_elts_by_guarantees loc_core =
+  let f = function
+    | ContractItem (_, _, LustreNode.WeakGuarantee)
+    | ContractItem (_, _, LustreNode.Guarantee) -> true
+    | _ -> false
+  in
+  ScMap.fold
+    (fun scope elts (lc_t, lc_f) ->
+      let elts_t, elts_f =
+        elts |> List.partition (fun (_,_,cat) -> f cat)
+      in
+      ScMap.add scope elts_t lc_t, ScMap.add scope elts_f lc_f
+    )
+    loc_core
+    (ScMap.empty, ScMap.empty)

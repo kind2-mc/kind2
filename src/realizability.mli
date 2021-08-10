@@ -21,10 +21,15 @@
     @author Daniel Larraz
 *)
 
+type 'a analyze_func =
+  Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+
+type unrealizable_result
+
 (** Result of a realizability check *)
 type realizability_result =
   | Realizable of Term.t (* Fixpoint *)
-  | Unrealizable
+  | Unrealizable of unrealizable_result
   | Unknown
 
 (** Checks whether there exists an implementation that satisfies a given specification
@@ -41,4 +46,17 @@ val realizability_check :
   Var.t list ->
   Var.t list ->
   realizability_result
+
+
+exception Trace_or_core_computation_failed of string
+
+val compute_unviable_trace_and_core :
+  'a analyze_func ->
+  'a InputSystem.t ->
+  Analysis.param ->
+  TransSys.t ->
+  Var.t list ->
+  Var.t list ->
+  unrealizable_result ->
+  ((StateVar.t * Model.value list) list * ModelElement.loc_core)
 

@@ -149,5 +149,5 @@ let check_contract_satisfiability sys =
 
   match res with
   | Realizable _ -> Satisfiable
-  | Unrealizable -> Unsatisfiable
+  | Unrealizable _ -> Unsatisfiable
   | Unknown -> Unknown

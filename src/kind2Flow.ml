@@ -656,7 +656,7 @@ let run in_sys =
           match result with
           | Realizable _ ->
               KEvent.log_realizable_contract L_warn scope;
-          | Unrealizable -> (
+          | Unrealizable _ -> (
               KEvent.log_unrealizable_contract L_warn scope;
 
               match ContractChecker.check_contract_satisfiability sys with

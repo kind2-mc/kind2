@@ -211,7 +211,7 @@ let generate_assumption in_sys sys var_filters prop =
 
     )
   )
-  | Unrealizable -> Failure
+  | Unrealizable _ -> Failure
   | Unknown -> Unknown
 
 
