@@ -1375,9 +1375,7 @@ let ivc_uc in_sys ?(approximate=false) sys props =
     then (KEvent.log L_error "Cannot reprove properties." ;
           Error "Cannot reprove properties")
     else NoSolution
-  | InitTransMismatch (i,t) ->
-    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    Error "Init and trans equations mismatch"
+
 
 (* ---------- MUST SET ---------- *)
 
@@ -1420,9 +1418,7 @@ let must_set in_sys param analyze sys props =
     then (KEvent.log L_error "Cannot reprove properties." ;
           Error "Cannot reprove properties")
     else NoSolution
-  | InitTransMismatch (i,t) ->
-    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    Error "Init and trans equations mismatch"
+
 
 (* ---------- IVC_BF ---------- *)
 
@@ -1556,9 +1552,7 @@ let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
     then (KEvent.log L_error "Cannot reprove properties." ;
           Error "Cannot reprove properties")
     else NoSolution
-  | InitTransMismatch (i,t) ->
-    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    Error "Init and trans equations mismatch"
+
 
 (* ---------- UMIVC ---------- *)
 
@@ -1825,9 +1819,7 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
     if are_props_safe props
     then (KEvent.log L_error "Cannot reprove properties." ; (false, []))
     else (false, [])
-  | InitTransMismatch (i,t) ->
-    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    (false, [])
+
 
 (* ---------- MINIMAL CORRECTION SETS ---------- *)
 
@@ -1867,27 +1859,23 @@ let mcs_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
 let mcs in_sys param analyze sys props
   ?(initial_solution=None) ?(max_mcs_cardinality= -1) all approx cont =
   let approx = approx && (not all) in
-  try (
-    let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
-    let elements = (Flags.MCS.mcs_category ()) in
-    let (keep, test) = generate_initial_cores in_sys sys enter_nodes elements in
-    let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
-    let res = ref [] in
-    let cont (test, (prop,cex)) =
-      let mcs = ((TS.property_of_name sys prop, cex),
-                 core_to_loc_core in_sys (core_union keep test),
-                 { approximation = !timeout || approx }) in
-      res := mcs::(!res) ;
-      cont mcs
-    in
-    let _ =
-      mcs_ in_sys check_ts sys props all enter_nodes ~initial_solution ~max_mcs_cardinality ~approx cont keep test
-    in
-    not (!timeout || approx), List.rev (!res)
-  ) with
-  | InitTransMismatch (i,t) ->
-    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    (false, [])
+  let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
+  let elements = (Flags.MCS.mcs_category ()) in
+  let (keep, test) = generate_initial_cores in_sys sys enter_nodes elements in
+  let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
+  let res = ref [] in
+  let cont (test, (prop,cex)) =
+    let mcs = ((TS.property_of_name sys prop, cex),
+               core_to_loc_core in_sys (core_union keep test),
+               { approximation = !timeout || approx }) in
+    res := mcs::(!res) ;
+    cont mcs
+  in
+  let _ =
+    mcs_ in_sys check_ts sys props all enter_nodes ~initial_solution ~max_mcs_cardinality ~approx cont keep test
+  in
+  not (!timeout || approx), List.rev (!res)
+
 
 let mcs_initial_analysis_ in_sys ?(os_invs=[]) check_ts sys enter_nodes
   ?(max_mcs_cardinality= -1) keep test =
@@ -1904,22 +1892,17 @@ let mcs_initial_analysis_ in_sys ?(os_invs=[]) check_ts sys enter_nodes
   |> List.map (fun (core, (p, cex)) -> (p, (core, (p, cex))))
 
 let mcs_initial_analysis in_sys param analyze ?(max_mcs_cardinality= -1) sys =
-  try (
-    let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
-    let elements = (Flags.MCS.mcs_category ()) in
-    let (keep, test) = generate_initial_cores in_sys sys enter_nodes elements in
-    let (sys, check_ts) = make_ts_analyzer in_sys ~stop_after_disprove:false ~no_copy:true param analyze sys in
+  let enter_nodes = Flags.MCS.mcs_only_main_node () |> not in
+  let elements = (Flags.MCS.mcs_category ()) in
+  let (keep, test) = generate_initial_cores in_sys sys enter_nodes elements in
+  let (sys, check_ts) = make_ts_analyzer in_sys ~stop_after_disprove:false ~no_copy:true param analyze sys in
 
-    let res_to_mcs (test, (prop,cex)) =
-      ((TS.property_of_name sys prop, cex),
-        core_to_loc_core in_sys (core_union keep test),
-        { approximation = true })
-    in
+  let res_to_mcs (test, (prop,cex)) =
+    ((TS.property_of_name sys prop, cex),
+      core_to_loc_core in_sys (core_union keep test),
+      { approximation = true })
+  in
 
-    mcs_initial_analysis_ in_sys check_ts sys enter_nodes ~max_mcs_cardinality keep test
-    |> List.map (fun (p, res) -> (TS.property_of_name sys p, res_to_mcs res))
-  ) with
-  | InitTransMismatch (i,t) ->
-    KEvent.log L_error "Init and trans equations mismatch (%i init %i trans)" i t ;
-    []
+  mcs_initial_analysis_ in_sys check_ts sys enter_nodes ~max_mcs_cardinality keep test
+  |> List.map (fun (p, res) -> (TS.property_of_name sys p, res_to_mcs res))
 

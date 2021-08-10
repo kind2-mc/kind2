@@ -728,7 +728,6 @@ let id_of_term in_sys t =
     try (SVSet.singleton (sv_of_term t), false)
     with _ -> (SVSet.empty, false)
 
-exception InitTransMismatch of int * int
 
 let rec deconstruct_conj t =
   match Term.destruct t with
@@ -759,16 +758,38 @@ let extract_toplevel_equations in_sys sys =
       TIdMap.add tid (o,c) acc
   ) TIdMap.empty
   in
-  let init_bindings = mk_map init |> TIdMap.bindings
-  and trans_bindings = mk_map trans |> TIdMap.bindings in
-  let init_n = List.length init_bindings
-  and trans_n = List.length trans_bindings in
-  if init_n <> trans_n then raise (InitTransMismatch (init_n, trans_n)) ;
-  List.map2 (fun (ki,(oi,ci)) (kt,(ot,ct)) ->
-    if TermId.compare ki kt <> 0
-    then raise (InitTransMismatch (init_n, trans_n)) ;
-    { init_opened=oi ; init_closed=ci ; trans_opened=ot ; trans_closed=ct }
-  ) init_bindings trans_bindings
+  let init_map = mk_map init in
+  let trans_map = mk_map trans in
+  TIdMap.merge
+    (fun k i t ->
+      match i, t with
+      | Some (oi,ci), Some (ot,ct) -> (
+        let eq =
+          { init_opened=oi ; init_closed=ci ;
+            trans_opened=ot ; trans_closed=ct }
+        in
+        Some eq
+      )
+      | Some (oi,ci), None -> (
+        let eq =
+          { init_opened=oi ; init_closed=ci ;
+            trans_opened=Term.t_true ; trans_closed=Term.t_true }
+        in
+        Some eq
+      )
+      | None, Some (ot,ct) -> (
+        let eq =
+          { init_opened=Term.t_true ; init_closed=Term.t_true ;
+            trans_opened=ot ; trans_closed=ct }
+        in
+        Some eq
+      )
+      | None, None -> assert false
+    )
+    init_map
+    trans_map
+  |> TIdMap.bindings |> List.map snd
+
 
 let full_loc_core_for_sys in_sys sys ~only_top_level =
   let treat_subnode acc sys =
