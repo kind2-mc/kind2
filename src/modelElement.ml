@@ -411,6 +411,34 @@ let get_ts_equation_of_actlit (_, mapping) actlit =
 let get_sv_of_actlit (_, mapping) actlit =
   SyMap.find actlit mapping |> snd
 
+
+let eq_of_actlit_sv core ?(with_act=false) actlit =
+  let eq = get_ts_equation_of_actlit core actlit in
+  if with_act
+  then
+    let sv = get_sv_of_actlit core actlit in
+    let guard t =
+      (* Term.mk_eq *)
+      Term.mk_implies [Term.mk_not (Term.mk_var (Var.mk_const_state_var sv)) ; t]
+    in
+    { init_opened=guard eq.init_opened ; init_closed=guard eq.init_closed ;
+      trans_opened=guard eq.trans_opened ; trans_closed=guard eq.trans_closed }
+  else eq
+
+
+let eq_of_actlit_uf core ?(with_act=false) a =
+  let eq = get_ts_equation_of_actlit core a in
+  if with_act
+  then
+    let guard t =
+      (* Term.mk_eq *)
+      Term.mk_implies [Actlit.term_of_actlit a ; t]
+    in
+    { init_opened=guard eq.init_opened ; init_closed=guard eq.init_closed ;
+      trans_opened=guard eq.trans_opened ; trans_closed=guard eq.trans_closed }
+  else eq
+
+
 let core_size (scmap, _) = scmap_size scmap
 
 let scopes_of_core (scmap, _) =

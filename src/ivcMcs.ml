@@ -649,19 +649,6 @@ let pick_element_of_core core =
 
 (* ---------- MCS COMPUTATION ---------- *)
 
-let eq_of_actlit core ?(with_act=false) actlit =
-  let eq = get_ts_equation_of_actlit core actlit in
-  if with_act
-  then
-    let sv = get_sv_of_actlit core actlit in
-    let guard t =
-      (* Term.mk_eq *)
-      Term.mk_implies [Term.mk_not (Term.mk_var (Var.mk_const_state_var sv)) ; t]
-    in
-    { init_opened=guard eq.init_opened ; init_closed=guard eq.init_closed ;
-      trans_opened=guard eq.trans_opened ; trans_closed=guard eq.trans_closed }
-  else eq
-
 let is_model_value_true = function
   | Model.Term t -> Term.equal t (Term.mk_true ())
   | _ -> false
@@ -745,7 +732,7 @@ let at_least_one_true svs =
   |> Term.mk_or
 
 let prepare_ts_for_cs_check sys enter_nodes init_consts keep test =
-  let eq_of_actlit = eq_of_actlit (core_union keep test) in
+  let eq_of_actlit = eq_of_actlit_sv (core_union keep test) in
   let main_scope = TS.scope_of_trans_sys sys in
   reset_ts enter_nodes sys ;
   let prepare_subsystem acc sys =
@@ -1258,17 +1245,6 @@ let check_k_inductive ?(approximate=false) sys enter_nodes core init_terms trans
     compute_unsat_core ~approximate:approximate
       sys enter_nodes core init_terms trans_terms 0 bmax t
 
-let eq_of_actlit core ?(with_act=false) a =
-  let eq = get_ts_equation_of_actlit core a in
-  if with_act
-  then
-    let guard t =
-      (* Term.mk_eq *)
-      Term.mk_implies [Actlit.term_of_actlit a ; t]
-    in
-    { init_opened=guard eq.init_opened ; init_closed=guard eq.init_closed ;
-      trans_opened=guard eq.trans_opened ; trans_closed=guard eq.trans_closed }
-  else eq
 
 (** Implements the approximate algorithm (using Unsat Cores) *)
 let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes keep test =
@@ -1284,7 +1260,7 @@ let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes keep test =
   KEvent.log L_info "One-step inductive property: %a" Term.pp_print_term os_prop ;
   KEvent.log L_info "Value of k: %n" k ;
 
-  let eq_of_actlit = eq_of_actlit (core_union keep test) in
+  let eq_of_actlit = eq_of_actlit_uf (core_union keep test) in
   (* Minimization *)
   (* If Z3 is used, we use the 'minimize cores' feature
     so we do not need to minimize them manually *)
