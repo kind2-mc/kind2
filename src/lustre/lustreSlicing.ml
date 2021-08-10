@@ -1146,9 +1146,11 @@ let root_and_leaves_of_contracts
     
   (* Slice starting with contracts *)
   let node_roots =
-    match roots node false with
+    (* Always include at least roots of contract *)
+    roots_of_contract contract
+    (*match roots node false with
       | None -> roots_of_contract contract
-      | Some r -> SVS.elements r
+      | Some r -> SVS.elements r*)
   in
 
   (* Do not consider anything below outputs *)
