@@ -694,6 +694,46 @@
             },
             "required": ["objectType", "trace"]
         },
+        "realizabilityCheck": {
+            "type": "object",
+            "properties": {
+                "objectType": {
+                    "const": "realizabilityCheck"
+                },
+                "runtime": {
+                    "$ref": "#/definitions/runtime"
+                },
+                "result": {
+                    "enum": ["realizable","unrealizable"]
+                },
+                "trace": {
+                    "$ref": "#/definitions/trace"
+                },
+                "core": {
+                    "$ref": "#/definitions/modelElementSet"
+                }
+            },
+            "required": [
+                "objectType", "runtime", "result"
+            ]
+        },
+        "satisfiabilityCheck": {
+            "type": "object",
+            "properties": {
+                "objectType": {
+                    "const": "satisfiabilityCheck"
+                },
+                "runtime": {
+                    "$ref": "#/definitions/runtime"
+                },
+                "result": {
+                    "enum": ["satisfiable","unsatisfiable"]
+                }
+            },
+            "required": [
+                "objectType", "runtime", "result"
+            ]
+        },
         "results": {
             "type": "array",
             "items": {
@@ -709,7 +749,9 @@
                    { "$ref": "#/definitions/noModelElementSet" },
                    { "$ref": "#/definitions/postAnalysisEnd" },
                    { "$ref": "#/definitions/property" },
-                   { "$ref": "#/definitions/execution" }
+                   { "$ref": "#/definitions/execution" },
+                   { "$ref": "#/definitions/realizabilityCheck" }
+                   { "$ref": "#/definitions/satisfiabilityCheck" }
                 ] 
             }
         }

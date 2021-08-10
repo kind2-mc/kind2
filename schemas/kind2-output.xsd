@@ -111,6 +111,21 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <xs:simpleType name="RealizabilityCheckResult">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="realizable"/>
+      <xs:enumeration value="unrealizable"/>
+      <xs:enumeration value="unknown"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="SatisfiabilityCheckResult">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="satisfiable"/>
+      <xs:enumeration value="unsatisfiable"/>
+      <xs:enumeration value="unknown"/>
+    </xs:restriction>
+  </xs:simpleType>
 
   <!-- |===| Complex types -->
 
@@ -365,6 +380,22 @@
     <xs:attribute name="property" type="xs:string" />
   </xs:complexType>
 
+  <xs:complexType name="RealizabilityCheckType">
+    <xs:sequence>
+      <xs:element name="Result" type="RealizabilityCheckResult" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Runtime" type="RuntimeType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Trace" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Core" type="ModelElementSetType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="SatisfiabilityCheckType">
+    <xs:sequence>
+      <xs:element name="Result" type="SatisfiabilityCheckResult" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Runtime" type="RuntimeType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
   <xs:complexType name="ResultsType">
     <xs:choice minOccurs="0" maxOccurs="unbounded">
       <xs:element name="Log" type="GenericLogType" minOccurs="1" maxOccurs="unbounded"/>
@@ -378,6 +409,8 @@
       <xs:element name="NoModelElementSet" type="NoModelElementSetType" minOccurs="0" maxOccurs="unbounded"/>
       <xs:element name="PostAnalysisEnd" type="AnalysisStopType" minOccurs="0" maxOccurs="unbounded"/>
       <xs:element name="Execution" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RealizabilityCheck" type="RealizabilityCheckType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="SatisfiabilityCheck" type="SatisfiabilityCheckType" minOccurs="0" maxOccurs="unbounded"/>
     </xs:choice>
     <xs:attribute name="enabled" type="xs:string"/>
     <xs:attribute name="timeout" type="xs:decimal"/>
