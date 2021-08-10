@@ -41,7 +41,7 @@ RUN eval $(opam env) && \
     opam update && opam install -y . --deps-only && \
     make && strip bin/kind2
 
-FROM ubuntu:20.04
+FROM ubuntu:21.04
 # Install runtime dependencies:
 # JRE (required by JKind)
 RUN apt-get update && apt-get install -y --no-install-recommends \
