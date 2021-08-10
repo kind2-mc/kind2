@@ -32,6 +32,8 @@ type realizability_result =
   | Unrealizable of unrealizable_result
   | Unknown
 
+val result_to_string : realizability_result -> string
+
 (** Checks whether there exists an implementation that satisfies a given specification
 
     [realizability_check s c0 v1 c1] checks whether the specification represented by

@@ -342,31 +342,53 @@ let cex_id_counter =
   let last = ref 0 in
   (fun () -> last := !last + 1 ; !last)
 
-(* Pretty-print a counterexample *)
-let pp_print_counterexample_pt 
-  level input_sys analysis trans_sys prop_name disproved ppf
-= function
-| [] -> ()
-| cex -> (
-  (* Get property by name *)
-  let prop =
-    TransSys.property_of_name trans_sys prop_name
-  in
 
-  (* Slice counterexample and transitions system to property *)
-  let trans_sys, instances, cex, prop_term, input_sys =
-    InputSystem.slice_to_abstraction_and_property
+let slice_trans_sys_and_cex_to_property
+  input_sys analysis trans_sys prop_name cex
+=
+  match prop_name with
+  | Some prop_name -> (
+    (* Get property by name *)
+    let prop =
+      TransSys.property_of_name trans_sys prop_name
+    in
+    let trans_sys, instances, cex, _, input_sys =
+      InputSystem.slice_to_abstraction_and_property
+        input_sys
+        analysis
+        trans_sys
+        cex
+        prop
+    in
+    trans_sys, instances, cex, input_sys
+  )
+  | None -> (
+    trans_sys, [], cex,
+    InputSystem.slice_to_abstraction
       input_sys
       analysis
       trans_sys
-      cex
-      prop
+  )
+
+
+(* Pretty-print a counterexample *)
+let pp_print_counterexample_pt 
+  ?(title = "Counterexample") level input_sys analysis trans_sys prop_name disproved ppf
+= function
+| [] -> ()
+| cex -> (
+
+  (* Slice counterexample and transitions system to property *)
+  let trans_sys, instances, cex, input_sys =
+    slice_trans_sys_and_cex_to_property
+      input_sys analysis trans_sys prop_name cex
   in
 
   let print_cex ppf =
     (* Output counterexample *)
     Format.fprintf ppf
-      "@{<red>Counterexample@}:@,  @[<v>%a@]"
+      "@{<red>%s@}:@,  @[<v>%a@]"
+      title
       (InputSystem.pp_print_path_pt input_sys trans_sys instances disproved)
       (Model.path_of_list cex)
   in
@@ -386,10 +408,18 @@ let pp_print_counterexample_pt
     print_cex fmt ;
     Format.pp_print_flush fmt ();
     close_out out_channel ;
-    (ignore_or_fprintf level)
-      !log_ppf
-      ("@[<hov>%t Counterexample to @{<blue_b>%s@} written to '%s'@.")
-      note_tag prop_name path
+    match prop_name with
+    | Some prop_name -> (
+      (ignore_or_fprintf level)
+        !log_ppf
+        ("@[<hov>%t %s to @{<blue_b>%s@} written to '%s'@.")
+        note_tag title prop_name path
+    )
+    | None ->
+      (ignore_or_fprintf level)
+        !log_ppf
+        ("@[<hov>%t %s written to '%s'@.")
+        note_tag title path
   )
   else (
     print_cex ppf
@@ -415,6 +445,7 @@ let execution_path_pt level input_sys analysis trans_sys path =
     ("@[<v>@{<b>Execution@}:@,\
       %a@]@.")
     (pp_print_path_pt input_sys analysis trans_sys true) path
+
 
 (* Output cex for a property as plain text *)
 let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disproved =
@@ -494,7 +525,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
            )
         )
         (pp_print_counterexample_pt
-           level input_sys analysis trans_sys prop disproved)
+           level input_sys analysis trans_sys (Some prop) disproved)
         cex ;
 
     (* Output warning if division by zero happened in simplification. *)
@@ -677,7 +708,8 @@ let unknown_xml mdl level trans_sys prop_name =
       pp_print_kind_module_xml_src mdl
 
 (* Pretty-print a counterexample *)
-let pp_print_counterexample_xml 
+let pp_print_counterexample_xml
+    ?(tag = "CounterExample")
     input_sys
     analysis
     trans_sys
@@ -692,24 +724,11 @@ let pp_print_counterexample_xml
     | cex -> 
 
       (
-
-        (* Get property by name *)
-        let prop =
-          TransSys.property_of_name trans_sys prop_name
-        in
-
         (* Slice counterexample and transitions system to property *)
-        let trans_sys', instances, cex', prop_term, input_sys' =
-          InputSystem.slice_to_abstraction_and_property
-            input_sys
-            analysis
-            trans_sys
-            cex
-            prop
+        let trans_sys', instances, cex', input_sys' =
+          slice_trans_sys_and_cex_to_property
+            input_sys analysis trans_sys prop_name cex
         in
-
-        let tag = "CounterExample" in
-
         try
           (* Output counterexample *)
           Format.fprintf ppf
@@ -809,7 +828,7 @@ let cex_xml
              wa_model
          )
       )
-      (pp_print_counterexample_xml input_sys analysis trans_sys prop_name disproved)
+      (pp_print_counterexample_xml input_sys analysis trans_sys (Some prop_name) disproved)
       cex ;
 
     (* Output warning if division by zero happened in simplification. *)
@@ -1012,6 +1031,7 @@ let unknown_json mdl level trans_sys prop =
 
 (* Pretty-print a counterexample *)
 let pp_print_counterexample_json
+    ?(object_name = "counterExample")
     input_sys
     analysis
     trans_sys
@@ -1026,26 +1046,17 @@ let pp_print_counterexample_json
     | cex ->
 
       (
-
-        (* Get property by name *)
-        let prop =
-          TransSys.property_of_name trans_sys prop_name
-        in
-
         (* Slice counterexample and transitions system to property *)
-        let trans_sys', instances, cex', prop_term, input_sys' =
-          InputSystem.slice_to_abstraction_and_property
-            input_sys
-            analysis
-            trans_sys
-            cex
-            prop
+        let trans_sys', instances, cex', input_sys' =
+          slice_trans_sys_and_cex_to_property
+            input_sys analysis trans_sys prop_name cex
         in
 
         try
           (* Output counterexample *)
           Format.fprintf ppf
-            "\"counterExample\" :%a"
+            "\"%s\" :%a"
+            object_name
             (InputSystem.pp_print_path_json input_sys' trans_sys' instances disproved)
             (Model.path_of_list cex')
         with TimeoutWall -> (
@@ -1119,7 +1130,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
              wa_model
          )
       )
-      (pp_print_counterexample_json input_sys analysis trans_sys prop disproved)
+      (pp_print_counterexample_json input_sys analysis trans_sys (Some prop) disproved)
       cex
       ;
 
@@ -1270,116 +1281,6 @@ include ELog
 (* ********************************************************************** *)
 (* Specialized logging functions                                          *)
 (* ********************************************************************** *)
-
-let contractck_pt level tag scope result =
-  (ignore_or_fprintf level)
-    !log_ppf
-    ("@[<hov>%t Contract of node %a was proven %s after %.3fs.@]@.@.")
-    tag
-    Scope.pp_print_scope scope
-    result
-    (Stat.get_float Stat.analysis_time)
-
-let contractck_xml level scope tag result =
-  (ignore_or_fprintf level)
-    !log_ppf
-    ("@[<hv 2><%s>@,\
-      <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
-      <Result>%s</Result>@;<0 -2>\
-      </%s>@]@.")
-    tag
-    (Stat.get_float Stat.analysis_time)
-    result
-    tag
-
-let contractck_json level scope ty result =
-  (ignore_or_fprintf level)
-    !log_ppf
-    ",@.{@[<v 1>@,\
-    \"objectType\" : \"%s\",@,\
-    \"runtime\" : {\
-      \"unit\" : \"sec\", \
-      \"timeout\" : false, \
-      \"value\" : %.3f\
-    },@,\
-    \"result\" : \"%s\"\
-    @]@.}@.\
-  "
-  ty
-  (Stat.get_float Stat.analysis_time)
-  result
-
-
-let log_realizability_result level scope tag result =
-  (* Update time *)
-  Stat.update_time Stat.total_time ;
-  Stat.update_time Stat.analysis_time ;
-  match get_log_format () with
-  | F_pt -> contractck_pt level tag scope result
-  | F_xml -> contractck_xml level scope "RealizabilityCheck" result
-  | F_json -> contractck_json level scope "realizabilityCheck" result
-  | F_relay -> ()
-
-let log_realizable_contract level scope =
-  log_realizability_result level scope success_tag "realizable"
-
-let log_unrealizable_contract level scope =
-  log_realizability_result level scope failure_tag "unrealizable"
-
-let log_unknown_realizability level scope =
-  (* Update time *)
-  Stat.update_time Stat.total_time ;
-  Stat.update_time Stat.analysis_time ;
-  let result = "unknown" in
-  match get_log_format () with
-  | F_pt -> (
-    (ignore_or_fprintf level)
-      !log_ppf
-      ("@[<hov>%t Could not determine whether the contract of \
-        %a is realizable or not after %.3fs.@]@.")
-      warning_tag
-      Scope.pp_print_scope scope
-      (Stat.get_float Stat.analysis_time)
-  )
-  | F_xml -> contractck_xml level scope "RealizabilityCheck" result
-  | F_json -> contractck_json level scope "realizabilityCheck" result
-  | F_relay -> ()
-
-
-let log_satisfiability_result level scope tag result =
-  (* Update time *)
-  Stat.update_time Stat.total_time ;
-  Stat.update_time Stat.analysis_time ;
-  match get_log_format () with
-  | F_pt -> contractck_pt level tag scope result
-  | F_xml -> contractck_xml level scope "SatisfiabilityCheck" result
-  | F_json -> contractck_json level scope "SatisfiabilityCheck" result
-  | F_relay -> ()
-
-let log_satisfiable_contract level scope =
-  log_satisfiability_result level scope success_tag "satisfiable"
-
-let log_unsatisfiable_contract level scope =
-  log_satisfiability_result level scope failure_tag "unsatisfiable"
-
-let log_unknown_satisfiability level scope =
-  (* Update time *)
-  Stat.update_time Stat.total_time ;
-  Stat.update_time Stat.analysis_time ;
-  let result = "unknown" in
-  match get_log_format () with
-  | F_pt -> (
-    (ignore_or_fprintf level)
-      !log_ppf
-      ("@[<hov>%t Could not determine whether the contract of \
-        %a is satisfiable or not after %.3fs.@]@.")
-      warning_tag
-      Scope.pp_print_scope scope
-      (Stat.get_float Stat.analysis_time)
-  )
-  | F_xml -> contractck_xml level scope "SatisfiabilityCheck" result
-  | F_json -> contractck_json level scope "satisfiabilityCheck" result
-  | F_relay -> ()
 
 (* Log a message with source and log level *)
 let log_proved mdl level trans_sys k prop =

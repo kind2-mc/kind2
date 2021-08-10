@@ -31,11 +31,48 @@ open Realizability
 *)
 val check_contract_realizability: 'a InputSystem.t -> TransSys.t -> realizability_result
 
+val compute_unviable_trace_and_core :
+  'a analyze_func ->
+  'a InputSystem.t ->
+  Analysis.param ->
+  TransSys.t ->
+  unrealizable_result ->
+  ((StateVar.t * Model.value list) list * ModelElement.loc_core)
+
+val pp_print_realizability_result_pt :
+  'a analyze_func ->
+  'a InputSystem.t ->
+  Analysis.param ->
+  TransSys.t ->
+  Format.formatter ->
+  realizability_result ->
+  unit
+
+val pp_print_realizability_result_json :
+  'a analyze_func ->
+  'a InputSystem.t ->
+  Analysis.param ->
+  TransSys.t ->
+  Format.formatter ->
+  realizability_result ->
+  unit
+
+val pp_print_realizability_result_xml :
+  'a analyze_func ->
+  'a InputSystem.t ->
+  Analysis.param ->
+  TransSys.t ->
+  Format.formatter ->
+  realizability_result ->
+  unit
+
 (** Result of a satisfiability check *)
 type satisfiability_result =
   | Satisfiable
   | Unsatisfiable
   | Unknown
+
+val satisfiability_result_to_string : satisfiability_result -> string
 
 (** Checks whether a given specification is satisfiable
 
@@ -43,3 +80,27 @@ type satisfiability_result =
     transition system [s] is satisfiable or not.
 *)
 val check_contract_satisfiability: TransSys.t -> satisfiability_result
+
+val pp_print_satisfiability_result_pt :
+  'a InputSystem.t ->
+  Analysis.param ->
+  TransSys.t ->
+  Format.formatter ->
+  satisfiability_result ->
+  unit
+
+val pp_print_satisfiability_result_json :
+  'a InputSystem.t ->
+  Analysis.param ->
+  TransSys.t ->
+  Format.formatter ->
+  satisfiability_result ->
+  unit
+
+val pp_print_satisfiability_result_xml :
+  'a InputSystem.t ->
+  Analysis.param ->
+  TransSys.t ->
+  Format.formatter ->
+  satisfiability_result ->
+  unit

@@ -36,6 +36,10 @@ type realizability_result =
   | Unrealizable of unrealizable_result
   | Unknown
 
+let result_to_string = function
+  | Realizable _ -> "realizable"
+  | Unrealizable _ -> "unrealizable"
+  | Unknown -> "unknown"
 
 let term_partition var_lst term_lst =
   let var_set = VS.of_list var_lst in

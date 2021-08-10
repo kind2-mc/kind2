@@ -553,6 +553,29 @@ let is_lustre_input (type s) (input_system : s t) =
   | Horn _ -> false
 
 
+let slice_to_abstraction
+(type s) (input_sys: s t) analysis trans_sys: s t =
+
+  let scope = TransSys.scope_of_trans_sys trans_sys in
+
+  (* Slicing is input-specific *)
+  match input_sys with 
+
+  (* Slice Lustre subnode to property term *)
+  | Lustre (main_subs, globals, ast) ->
+
+    let subsystem' =
+      let sub = S.find_subsystem_of_list main_subs scope in
+        LustreSlicing.slice_to_abstraction
+          (Flags.slice_nodes ()) analysis sub
+    in
+
+    Lustre ([subsystem'], globals, ast)
+
+  (* No slicing in native input *)
+  | _ -> input_sys
+
+
 let slice_to_abstraction_and_property
 (type s) (input_sys: s t) analysis trans_sys cex prop
 : TransSys.t * TransSys.instance list * (SVar.t * _) list * Term.t * s t = 
