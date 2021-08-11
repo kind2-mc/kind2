@@ -202,11 +202,11 @@ let print_mcs_counterexample in_sys param sys typ fmt (prop, cex) =
     then
       match typ with
       | `PT ->
-        KEvent.pp_print_counterexample_pt L_warn in_sys param sys prop true fmt cex
+        KEvent.pp_print_counterexample_pt L_warn in_sys param sys (Some prop) true fmt cex
       | `XML ->
-        KEvent.pp_print_counterexample_xml in_sys param sys prop true fmt cex
+        KEvent.pp_print_counterexample_xml in_sys param sys (Some prop) true fmt cex
       | `JSON ->
-        KEvent.pp_print_counterexample_json in_sys param sys prop true fmt cex
+        KEvent.pp_print_counterexample_json in_sys param sys (Some prop) true fmt cex
   with _ -> ()
 
 let format_name_for_pt str =
@@ -410,6 +410,34 @@ let get_ts_equation_of_actlit (_, mapping) actlit =
 
 let get_sv_of_actlit (_, mapping) actlit =
   SyMap.find actlit mapping |> snd
+
+
+let eq_of_actlit_sv core ?(with_act=false) actlit =
+  let eq = get_ts_equation_of_actlit core actlit in
+  if with_act
+  then
+    let sv = get_sv_of_actlit core actlit in
+    let guard t =
+      (* Term.mk_eq *)
+      Term.mk_implies [Term.mk_not (Term.mk_var (Var.mk_const_state_var sv)) ; t]
+    in
+    { init_opened=guard eq.init_opened ; init_closed=guard eq.init_closed ;
+      trans_opened=guard eq.trans_opened ; trans_closed=guard eq.trans_closed }
+  else eq
+
+
+let eq_of_actlit_uf core ?(with_act=false) a =
+  let eq = get_ts_equation_of_actlit core a in
+  if with_act
+  then
+    let guard t =
+      (* Term.mk_eq *)
+      Term.mk_implies [Actlit.term_of_actlit a ; t]
+    in
+    { init_opened=guard eq.init_opened ; init_closed=guard eq.init_closed ;
+      trans_opened=guard eq.trans_opened ; trans_closed=guard eq.trans_closed }
+  else eq
+
 
 let core_size (scmap, _) = scmap_size scmap
 
@@ -818,3 +846,19 @@ let filter_loc_core_by_categories main_scope cats loc_core =
         elts
     ) loc_core in
   (ok, not_ok)
+
+let partition_loc_core_elts_by_guarantees loc_core =
+  let f = function
+    | ContractItem (_, _, LustreNode.WeakGuarantee)
+    | ContractItem (_, _, LustreNode.Guarantee) -> true
+    | _ -> false
+  in
+  ScMap.fold
+    (fun scope elts (lc_t, lc_f) ->
+      let elts_t, elts_f =
+        elts |> List.partition (fun (_,_,cat) -> f cat)
+      in
+      ScMap.add scope elts_t lc_t, ScMap.add scope elts_f lc_f
+    )
+    loc_core
+    (ScMap.empty, ScMap.empty)

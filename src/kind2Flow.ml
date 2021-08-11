@@ -653,22 +653,35 @@ let run in_sys =
             else
               ContractChecker.check_contract_realizability in_sys sys
           in
+          (
+            try
+              Log.log_result
+                (ContractChecker.pp_print_realizability_result_pt
+                  (analyze msg_setup false false false) in_sys param sys)
+                (ContractChecker.pp_print_realizability_result_xml
+                  (analyze msg_setup false false false) in_sys param sys)
+                (ContractChecker.pp_print_realizability_result_json
+                  (analyze msg_setup false false false) in_sys param sys)
+                result
+            with Realizability.Trace_or_core_computation_failed msg ->
+              KEvent.log L_warn "%s" msg
+          ) ;
+          
           match result with
-          | Realizable _ ->
-              KEvent.log_realizable_contract L_warn scope;
-          | Unrealizable -> (
-              KEvent.log_unrealizable_contract L_warn scope;
-
-              match ContractChecker.check_contract_satisfiability sys with
-              | Satisfiable ->
-                  KEvent.log_satisfiable_contract L_warn scope
-              | Unsatisfiable ->
-                  KEvent.log_unsatisfiable_contract L_warn scope
-              | Unknown ->
-                  KEvent.log_unknown_satisfiability L_warn scope
+          | Unrealizable res -> (
+            let result =
+              ContractChecker.check_contract_satisfiability sys
+            in
+            Log.log_result
+              (ContractChecker.pp_print_satisfiability_result_pt
+                in_sys param sys)
+              (ContractChecker.pp_print_satisfiability_result_xml
+                in_sys param sys)
+              (ContractChecker.pp_print_satisfiability_result_json
+                in_sys param sys)
+              result ;
           )
-          | Unknown ->
-              KEvent.log_unknown_realizability L_warn scope;
+          | _ -> () ;
 
           KEvent.log_analysis_end ()
         )

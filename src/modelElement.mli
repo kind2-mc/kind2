@@ -50,6 +50,10 @@ val term_of_ts_eq : init:bool -> closed:bool -> ts_equation -> Term.t
 val get_actlits_of_scope : core -> Scope.t -> UfSymbol.t list
 val get_ts_equation_of_actlit : core -> UfSymbol.t -> ts_equation
 val get_sv_of_actlit : core -> UfSymbol.t -> StateVar.t
+
+val eq_of_actlit_sv : core -> ?with_act:bool -> UfSymbol.t -> ts_equation
+val eq_of_actlit_uf : core -> ?with_act:bool -> UfSymbol.t -> ts_equation
+
 (*val get_actlit_of_sv : core -> StateVar.t -> UfSymbol.t*)
 val core_size : core -> int
 val scopes_of_core : core -> Scope.t list
@@ -104,6 +108,9 @@ val full_loc_core_for_sys :
   'a InputSystem.t -> TransSys.t -> only_top_level:bool -> loc_core
 val filter_loc_core_by_categories :
   Scope.t (* Toplevel scope *) -> category list -> loc_core -> loc_core * loc_core
+
+(* Separate contract guarantees from the rest of the model elements *)
+val partition_loc_core_elts_by_guarantees : loc_core -> loc_core * loc_core
 
 (** {1 Pretty Printing} *)
 
