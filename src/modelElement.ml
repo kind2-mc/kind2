@@ -724,6 +724,10 @@ let is_model_element_in_categories (_,_,cat) is_main_node cats =
   -> [`CONTRACT_ITEM]
   | ContractItem (_, _, LustreNode.Guarantee) when not is_main_node
   -> [`CONTRACT_ITEM]
+  | ContractItem (_, _, LustreNode.Require) when not is_main_node
+  -> [`CONTRACT_ITEM]
+  | ContractItem (_, _, LustreNode.Ensure) when not is_main_node
+  -> [`CONTRACT_ITEM]
   | ContractItem (_, _, _) -> []
   | Equation _ -> [`EQUATION]
   | Assertion _ -> [`ASSERTION]
