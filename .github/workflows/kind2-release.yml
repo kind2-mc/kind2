@@ -28,8 +28,9 @@ jobs:
     - name: Build and push to local registry
       uses: docker/build-push-action@v2
       with:
-        file: docker/Dockerfile.StaticBuild
+        file: docker/Dockerfile
         context: ./
+        target: builder
         push: true
         tags: localhost:5000/name/kind2:latest
     
@@ -38,7 +39,7 @@ jobs:
       uses: shrink/actions-docker-extract@v1
       with:
         image: localhost:5000/name/kind2:latest
-        path: /kind2
+        path: /home/opam/kind2-build/bin/kind2
 
     - name: Upload kind2 binary
       uses: actions/upload-artifact@v2
