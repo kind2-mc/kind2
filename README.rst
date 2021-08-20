@@ -252,7 +252,7 @@ Direct Installation Using Dune
 To build directly from sources you will also need the following software 
 first:
 
-* OCaml 4.07 or later,
+* OCaml 4.09 or later,
 * `Dune 2.7 or later <https://github.com/ocaml/dune>`_\,
 * dune-build-info,
 * `OCaml bindings for ZMQ <https://github.com/issuu/ocaml-zmq>`_\,

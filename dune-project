@@ -20,7 +20,7 @@ More advanced features include contract-based compositional verification, proof 
  (documentation "https://kind.cs.uiowa.edu/kind2_user_doc")
  (depends
   (ocaml
-   (>= 4.07))
+   (>= 4.09))
   dune
   dune-build-info
   menhir
