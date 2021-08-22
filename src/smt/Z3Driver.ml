@@ -20,13 +20,13 @@ include GenericSMTLIBDriver
 
 (* Configuration for Z3 *)
 let cmd_line
-    logic
+    _ (* logic *)
     timeout
-    produce_assignments
-    produce_proofs
-    produce_cores
-    minimize_cores
-    produce_interpolants = 
+    _ (* produce_assignments *) 
+    _ (* produce_proofs *)
+    _ (* produce_cores *)
+    _ (* minimize_cores *) 
+    _ (* produce_interpolants *) = 
 
   (* Path and name of Z3 executable *)
   let z3_bin = Flags.Smt.z3_bin () in

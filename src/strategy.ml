@@ -105,7 +105,7 @@ let is_candidate_for_analysis { can_refine ; has_modes } =
   (has_modes && Flags.Contracts.check_modes ()) || can_refine
 
 (* Returns an option of the parameter for the first analysis of a system. *)
-let first_param_of ass results all_nodes scope =
+let [@ocaml.warning "-27"] first_param_of ass results all_nodes scope =
 
   let rec loop abstraction = function
     | (sys, { can_refine ; has_contract ; has_modes }) :: tail -> (
@@ -283,7 +283,7 @@ let next_modular_analysis results subs_of_scope = function
           | [ {
             A.param = A.ContractCheck info ;
             A.contract_valid ;
-            A.sys = trans_sys ;
+            (* A.sys = trans_sys ; *)
           } ] ->
             (* last_trans_sys := Some trans_sys ; *)
             (* ^^-- Invariants generated during ContractCheck analysis are discarded.
@@ -302,7 +302,7 @@ let next_modular_analysis results subs_of_scope = function
                 (* Format.printf "Cannot refine for %a@."
                   Scope.pp_print_scope sys ; *)
                 go_up prefix
-              | Some (sub, abs) -> (* Refinement found. *)
+              | Some (_, abs) -> (* Refinement found. *)
                 (* Format.printf "Refined %a for %a@."
                   Scope.pp_print_scope sub
                   Scope.pp_print_scope sys ; *)

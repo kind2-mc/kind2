@@ -47,7 +47,7 @@ type value =
 
 let equal_value v1 v2 = match v1, v2 with
   | Term t1, Term t2 -> Term.equal t1 t2
-  | Lambda l1, Lambda l2 -> assert false (* TODO *)
+  | Lambda _, Lambda _ -> assert false (* TODO *)
   | Map m1, Map m2 -> MIL.equal Term.equal m1 m2
   | _ -> false
 
@@ -200,7 +200,7 @@ let dimension_of_map m =
 let rec add_at_indexes l v arm =
   match l, arm with
   | [], ItemValue _ -> ItemValue v
-  | i :: l, ItemArray (s, a) ->
+  | i :: l, ItemArray (_, a) ->
     let new_a_i = add_at_indexes l v a.(i) in
     a.(i) <- new_a_i;
     arm
@@ -297,7 +297,7 @@ let pp_print_value_term_json as_type ppf t = match as_type with
 
 let rec pp_print_array_model_as_json as_type ppf _ it =
   match it with
-  | ItemArray (s, a) -> (
+  | ItemArray (_, a) -> (
     Format.fprintf ppf "[%a]"
       (pp_print_listi
         (pp_print_array_model_as_json as_type) ", ")

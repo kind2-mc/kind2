@@ -193,7 +193,7 @@ let result_is_all_proved { sys } =
   TransSys.get_prop_status_all_nocands sys |>
   List.for_all (function
     | _, Property.PropInvariant _ -> true
-    | name, st -> false
+    | _ -> false
   )
 
 (** Returns true if some properties in the system in a [result] have been

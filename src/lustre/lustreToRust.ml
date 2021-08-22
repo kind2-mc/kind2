@@ -451,7 +451,7 @@ match Term.destruct term with
     |> fmt_term_down svar_pref next fmt 
   (* Ternary. *)
   | `ITE -> (
-    let i, t, e = match kids with
+    let _, t, e = match kids with
       | [ t ; e ] -> kid, t, e
       | _ -> failwith "illegal ite"
     in
@@ -506,7 +506,7 @@ match Term.destruct term with
   | `TRUE
   | `FALSE -> Format.fprintf fmt "illegal" *)
 )
-| Term.T.App (sym, []) -> failwith "application with no kids"
+| Term.T.App (_, []) -> failwith "application with no kids"
 | Term.T.Var var ->
   fmt_var svar_pref fmt var ;
   fmt_term_up svar_pref fmt next
@@ -602,7 +602,7 @@ let order_equations init_or_expr inputs equations =
     (* Node call. *)
     | (
       Call (
-        _, { N.call_inputs ; N.call_outputs ; N.call_defaults }
+        _, { N.call_inputs ; N.call_defaults }
       ) as eq
     ) :: to_do ->
       if call_defaults != None then (
@@ -871,7 +871,7 @@ let oracle_doc_of_struct is_top fmt (
 
 (* Compiles a node to rust, writes it to a formatter. *)
 let node_to_rust oracle_info is_top fmt (
-  { N.name ; N.locals ; N.contract ; N.state_var_source_map } as node
+  { N.locals ; N.contract ; N.state_var_source_map } as node
 ) =
 
   (* Format.printf "node: %a@.@." (Id.pp_print_ident false) name ; *)
@@ -976,7 +976,7 @@ let node_to_rust oracle_info is_top fmt (
     ) ([], 0)
   in
   let equations =
-    equations |> List.fold_left (fun eqs ( ((svar, _), _) as eq ) ->
+    equations |> List.fold_left (fun eqs ( ((_ (* svar *), _), _) as eq ) ->
       (* if SVM.mem svar state_var_source_map
       then (Eq eq) :: eqs else eqs *)
       Eq eq :: eqs
@@ -1323,7 +1323,7 @@ let node_to_rust oracle_info is_top fmt (
             (SVar.name_of_state_var svar)
             (fmt_term svar_pref)
         | Call (
-          cnt, ({ N.call_node_name ; N.call_inputs ; N.call_outputs } as call)
+          cnt, ({ N.call_inputs ; N.call_outputs } as call)
         ) ->
           Format.fprintf fmt
             "\

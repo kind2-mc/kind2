@@ -95,13 +95,13 @@ let first_log_flag = ref true
 (* ********************************************************************** *)
 
 (* Output message as plain text *)
-let printf_pt mdl level fmt =
+let [@ocaml.warning "-27"] printf_pt mdl level fmt =
   (ignore_or_fprintf level)
     !log_ppf ("%a @[<hov>" ^^ fmt ^^ "@]@.@.") tag_of_level level
 
 
 (* Unconditional printing as plain text. *)
-let printf_pt_uncond mdl fmt =
+let [@ocaml.warning "-27"] printf_pt_uncond mdl fmt =
   Format.fprintf !log_ppf ("@[<hov>" ^^ fmt ^^ "@]@.@.")
 
 
@@ -149,7 +149,7 @@ let printf_xml_string mdl level s =
 let printf_xml mdl level fmt =
 
   Format.kfprintf
-    (function ppf ->
+    (function _ ->
       let s =
         Format.flush_str_formatter ()
         |> Lib.escape_xml_string
@@ -200,7 +200,7 @@ let printf_json_string mdl level s =
 let printf_json mdl level fmt =
 
   Format.kfprintf
-    (function ppf ->
+    (function _ ->
       let s =
         Format.flush_str_formatter ()
         |> Lib.escape_json_string

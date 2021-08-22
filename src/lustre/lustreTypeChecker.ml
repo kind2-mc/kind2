@@ -15,6 +15,9 @@
    permissions and limitations under the License. 
 
  *)
+
+[@@@ocaml.warning "-27"]
+
 (** Type checking the surface syntax of Lustre programs
   
   @author Apoorv Ingle *)

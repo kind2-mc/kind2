@@ -213,7 +213,7 @@ module Make (Graph : GraphSig) : Out = struct
       ) (0, [])
 
     | invars_certs -> invars_certs |> List.fold_left (
-      fun (cnt, invs) ( (invar, cert) as inv_c ) ->
+      fun (cnt, invs) ( inv_c ) ->
 
         (* All intermediary invariants and top level ones, obtained by
         instantiating invariant at all levels. *)
@@ -308,7 +308,7 @@ module Make (Graph : GraphSig) : Out = struct
   Returns the new invariants for the system [sys]. *)
   let recv_and_update input_sys aparam top_sys sys_map sys =
 
-    let update_pruning_checkers sys_invs map =
+    let [@ocaml.warning "-27"] update_pruning_checkers sys_invs map =
       Scope.Map.fold (
         fun scope (os, ts) acc ->
           let this_sys = Sys.find_subsystem_of_scope top_sys scope in

@@ -91,7 +91,7 @@ let fold_pairs f accum l =
       
       (match l with 
         | [] | [_] -> accum 
-        | h :: tl -> fold_pairs' f accum tl tl)
+        | _ :: tl -> fold_pairs' f accum tl tl)
       
     | h :: s :: tl -> 
       
@@ -754,7 +754,7 @@ let check_and_block declare_fun trans_sys path =
                   t))
               t)
          (List.sort 
-            (fun (sv1, p) (sv2, p) ->
+            (fun (sv1, _) (sv2, _) ->
                StateVar.compare_state_vars sv1 sv2)
             (Model.path_to_list path)))
   in

@@ -353,7 +353,7 @@ let create_function = function
   (* Not in a node or function *)
   | { ident_type_map; ident_expr_map; expr_abs_map } as ctx -> 
 
-    (function ident -> 
+    (function _ (* ident *) -> 
 
       (* Add empty function to context *)
       { ctx with 
@@ -412,7 +412,7 @@ let add_expr_for_ident ?(shadow = false) ({ident_expr_map} as ctx) ident expr =
 
 
 (* Add a binding of an identifier to an expression to context *)
-let add_expr_for_indexed_ident
+let [@ocaml.warning "-27"] add_expr_for_indexed_ident
     ?(shadow = false)
     ({ ident_expr_map } as ctx) 
     ident 
@@ -853,7 +853,7 @@ let mk_fresh_oracle
         | None -> raise (Invalid_argument "mk_fresh_oracle")
 
         (* Add to oracles *)
-        | Some { N.oracles } ->
+        | Some _ ->
 
           (* Create state variable for abstraction *)
           let state_var, ctx = 
@@ -892,7 +892,7 @@ let set_state_var_oracle ctx state_var oracle =
 (* Create a fresh state variable as an oracle input for the state variable *)
 let mk_fresh_oracle_for_state_var
     ?bounds
-    ({ state_var_oracle_map } as ctx) 
+    ctx 
     state_var =
 
   (* Create fresh oracle *)
@@ -924,7 +924,7 @@ let mk_fresh_oracle_for_state_var
    An unguarded pre is a previous state variable occuring in the
    initial state expression, since the arrow operator has been lifted
    to the top of the expression. *)
-let close_expr ?(bounds=[]) ?original pos ({ E.expr_init } as expr, ctx) =     
+let [@ocaml.warning "-27"] close_expr ?(bounds=[]) ?original pos ({ E.expr_init } as expr, ctx) =     
 
   (* Get variables in initial state term *)
   let init_vars = Term.vars_of_term (expr_init :> Term.t) in
@@ -1014,7 +1014,7 @@ let bounds_of_expr bounds ctx expr =
   in
   let i = ref (-1) in
   List.map (fun bnd -> incr i; match bnd with
-      | E.Bound b | E.Fixed b | E.Unbound b ->
+      | E.Bound _ | E.Fixed _ | E.Unbound _ ->
         let vi = match bnd with
           | E.Unbound e -> E.mk_of_expr e |> E.var_of_expr
           | _ -> E.mk_index_var !i |> E.var_of_expr
@@ -1042,8 +1042,7 @@ let fresh_state_var_for_expr
     bounds
     present_bounds
     present_bounds'
-    ({ expr_abs_map; 
-       fresh_local_index } as ctx)
+    ({ fresh_local_index } as ctx)
     after_mk
     expr
     expr_type
@@ -1217,7 +1216,7 @@ let mk_local_for_expr
     pos
     ({ node; 
        definitions_allowed } as ctx)
-    ({ E.expr_type } as expr) =
+    expr =
 
   match definitions_allowed with 
 
@@ -1351,7 +1350,7 @@ let call_outputs_of_node_call
 
         (* Find a call to the same node on the same clock with the same
            inputs in this node *)
-        let { N.call_node_name; N.call_outputs } = 
+        let { N.call_outputs } = 
 
           List.find
             (fun { N.call_cond = call_cond;
@@ -1466,7 +1465,7 @@ let add_node_output ?(is_single = false) ctx ident pos index_types =
 
     | { node = None } -> raise (Invalid_argument "add_node_output")
 
-    | { node = Some { N.outputs }; outputs_info } -> 
+    | { node = Some { N.outputs } } -> 
 
       (* Get next index at root of trie *)
       let next_top_idx = D.top_max_index outputs |> succ in
@@ -1524,7 +1523,7 @@ let add_node_local ?(ghost = false) ctx ident pos index_types =
 
     | { node = None } -> raise (Invalid_argument "add_node_local")
 
-    | { node = Some { N.locals }; locals_info } -> 
+    | { node = Some { N.locals } } -> 
 
       (* Create state variable for each stream *)
       let local, ctx = 
@@ -1865,7 +1864,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
         (* State variable defined by a node call? *)
         List.exists
-          (fun { N.call_node_name; N.call_outputs } -> 
+          (fun { N.call_outputs } -> 
              D.exists 
                (fun _ sv -> StateVar.equal_state_vars state_var sv)
                call_outputs)
@@ -1896,14 +1895,14 @@ let add_node_equation ctx pos state_var bounds indexes expr =
       (*   | [], _ -> assert false *)
       (* in *)
 
-      let expr, expr_type, bounds, indexes =
+      let expr, expr_type, bounds, _ (* indexes *) =
         if Type.is_array expr_type then
 
           (* When expression is of type array, add select operator around to
              fall back in a supported fragment *)
           let elty = Type.last_elem_type_of_array expr_type in
           let eitys = Type.all_index_types_of_array expr_type in
-          let expr, i = List.fold_left (fun (e, i) _ ->
+          let expr, _ = List.fold_left (fun (e, i) _ ->
               E.mk_select e (E.mk_index_var i), succ i
             ) (expr, indexes) eitys in
 
@@ -2081,7 +2080,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
 
 (* Add node call to context *)
-let add_node_call ctx pos ({ N.call_node_name; N.call_outputs } as node_call) =
+let add_node_call ctx pos ({ N.call_outputs } as node_call) =
   match ctx with 
     | { node = None } -> raise (Invalid_argument "add_node_call")
 
@@ -2111,7 +2110,7 @@ let add_node_call ctx pos ({ N.call_node_name; N.call_outputs } as node_call) =
 
           (* State variable defined by a node call? *)
           List.exists (
-            fun { N.call_node_name; N.call_outputs } -> D.exists (
+            fun { N.call_outputs } -> D.exists (
               fun _ sv -> StateVar.equal_state_vars state_var sv
             ) call_outputs
           ) calls
@@ -2134,7 +2133,7 @@ let node_of_context = function
     raise (Invalid_argument "node_of_context")
 
   (* Add abstractions to node and return *)
-  | { expr_abs_map; node = Some node } as ctx -> 
+  | { expr_abs_map; node = Some _ } as ctx -> 
     match
       (* Add equations from definitions to equations *)
       ET.fold
@@ -2255,15 +2254,15 @@ let position_of_state_variable ctx svar =
   in
   let { inputs_info } = ctx in
   match List.find_opt eq inputs_info with
-  | Some (sv,_,pos) -> Some pos
+  | Some (_,_,pos) -> Some pos
   | None -> (
     let { outputs_info } = ctx in
     match List.find_opt eq outputs_info with
-    | Some (sv,_,pos) -> Some pos
+    | Some (_,_,pos) -> Some pos
     | None -> (
       let { locals_info } = ctx in
       match List.find_opt eq locals_info with
-      | Some (sv,_,pos) -> Some pos
+      | Some (_,_,pos) -> Some pos
       | None -> None
     )
   )

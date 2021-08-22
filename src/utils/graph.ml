@@ -229,7 +229,7 @@ module Make (Ord: OrderedType) = struct
   let empty = (VSet.empty, ESet.empty)
   (** An empty trivial graph contains no vertices and no  edges *)
 
-  let is_empty: t -> bool = fun  (vs, es) ->
+  let is_empty: t -> bool = fun  (vs, _) ->
     VSet.is_empty vs 
   (** Check if the graph is empty *)
 
@@ -249,7 +249,7 @@ module Make (Ord: OrderedType) = struct
   (** add avertex to a graph  *)
 
   let mem_vertex: t -> vertex -> bool
-    = fun (vs, es) v -> VSet.mem v vs
+    = fun (vs, _) v -> VSet.mem v vs
     
   let add_edge: t -> edge -> t
     = fun (vs, es) (src, tgt) ->
@@ -307,7 +307,7 @@ module Make (Ord: OrderedType) = struct
         (get_edges g))
   (** Gets a subgraph with appropriate edges of given graph from a given set of vertices *)
                                           
-  let is_point_graph: t -> bool = fun (vs, es) ->
+  let is_point_graph: t -> bool = fun (_, es) ->
     ESet.is_empty es
   (** Returns true if the graph has no edges *)
     
@@ -324,9 +324,9 @@ module Make (Ord: OrderedType) = struct
      Caution: The callee function (or the programmer) is supposed to make sure 
      it is not a surjective mapping to make sure that the graph structure is preserved. *)
     
-  let topological_sort: t -> vertex list = fun ((vs, es) as g) ->
+  let topological_sort: t -> vertex list = fun g ->
     let rec topological_sort_helper: t -> vertex list -> vertex list
-      = fun ((vs, es) as g) sorted_vs ->
+      = fun ((vs, _) as g) sorted_vs ->
       let no_outgoing_vs = non_source_vertices g in
 
       Log.log L_trace
@@ -350,10 +350,10 @@ module Make (Ord: OrderedType) = struct
    * https://en.wikipedia.org/wiki/Topological_sorting *)
 
   let reachable: t -> vertex -> vertices =
-    fun ((vs, es) as g) origin_v ->
+    fun ((vs, _) as g) origin_v ->
 
     let rec reachable_from_aux: vertices -> vertex -> t -> vertices
-      = fun acc sv ((vs, es)  as g) ->
+      = fun acc sv ((_, es)  as g) ->
       Log.log L_trace
         "-----------\nGraph state:\n %a\naccumulated vertices: %a\n current vertex vertices: %a\n-------------"	
         pp_print_graph g	

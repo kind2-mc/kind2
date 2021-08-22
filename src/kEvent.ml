@@ -286,7 +286,7 @@ let pp_print_kind_module_pt =
 
 
 (* Output message as plain text *)
-let printf_pt mdl level fmt =
+let [@ocaml.warning "-27"] printf_pt mdl level fmt =
   (ignore_or_fprintf level)
     !log_ppf ("%a @[<hov>" ^^ fmt ^^ "@]@.@.") tag_of_level level
 
@@ -428,7 +428,7 @@ let pp_print_counterexample_pt
 
 
 (* Output execution path without slicing *)
-let pp_print_path_pt input_sys _ trans_sys init ppf path = 
+let [@ocaml.warning "-27"] pp_print_path_pt input_sys _ trans_sys init ppf path = 
 
   (* Output path *)
   Format.fprintf ppf 
@@ -631,7 +631,7 @@ let prop_attributes_xml trans_sys prop_name =
     )
     | Property.Candidate None -> ""
     | Property.Candidate (Some source) -> get_attributes source
-    | Property.Instantiated (scope,prop) ->
+    | Property.Instantiated (_, prop) ->
         get_attributes prop.Property.prop_source
     | Property.Assumption (pos, (scope, _)) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
@@ -667,7 +667,7 @@ let proved_xml mdl level trans_sys k prop_name =
 
     let comment =
       match prop.Property.prop_source with
-      | Property.GuaranteeOneModeActive (_, scope) ->
+      | Property.GuaranteeOneModeActive (_, _) ->
         Some "contract modes are exhaustive"
       | _ -> None
     in
@@ -744,7 +744,7 @@ let pp_print_counterexample_xml
 
 
 (* Output execution path without slicing *)
-let pp_print_path_xml input_sys analysis trans_sys init ppf path = 
+let [@ocaml.warning "-27"] pp_print_path_xml input_sys analysis trans_sys init ppf path = 
 
   (* Output path *)
   Format.fprintf ppf 
@@ -788,7 +788,7 @@ let cex_xml
 
     let comment =
       match prop.Property.prop_source with
-      | Property.GuaranteeOneModeActive (_, scope) -> (
+      | Property.GuaranteeOneModeActive (_, _) -> (
         match mdl with
         | `IND -> None
         | _ -> Some "contract has non-exhaustive modes"
@@ -871,7 +871,7 @@ let prop_status_xml level trans_sys prop_status =
 
   (* Filter unknown properties. *)
   prop_status
-  |> List.filter (fun (prop,status) ->
+  |> List.filter (fun (_, status) ->
     not (Property.prop_status_known status)
   ) |> (ignore_or_fprintf level)
     !log_ppf
@@ -943,7 +943,7 @@ let prop_attributes_json ppf trans_sys prop_name =
         Format.fprintf ppf
           "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"PropAnnot\",@,"
           pp_print_fname fname lnum cnum
-    | Property.Instantiated (scope,prop) ->
+    | Property.Instantiated (_, prop) ->
         get_attributes prop.Property.prop_source
     | Property.Assumption (pos, (scope, _)) -> print_attributes pos scope "Assumption"
     | Property.Guarantee (pos, scope) -> print_attributes pos scope "Guarantee"
@@ -1144,7 +1144,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
 
 
 (* Output execution path without slicing as JSON *)
-let execution_path_json level input_sys analysis trans_sys path =
+let [@ocaml.warning "-27"] execution_path_json level input_sys analysis trans_sys path =
 
   (ignore_or_fprintf level)
     !log_ppf
@@ -1162,7 +1162,7 @@ let prop_status_json level trans_sys prop_status =
 
   (* Filter unknown properties. *)
   let unknown_props = prop_status
-    |> List.filter (fun (prop,status) ->
+    |> List.filter (fun (_, status) ->
       not (Property.prop_status_known status)
     )
   in
@@ -1244,7 +1244,7 @@ let progress_json mdl level k =
 
 
 (* Send an event to the log *)
-let log (mdl : kind_module) (lvl : log_level) (msg : string) = 
+let [@ocaml.warning "-27"] log (mdl : kind_module) (lvl : log_level) (msg : string) = 
 
   try 
 
@@ -1260,7 +1260,7 @@ let log (mdl : kind_module) (lvl : log_level) (msg : string) =
 let printf_relay mdl level fmt = 
 
   Format.kfprintf 
-    (function ppf -> 
+    (function _ -> 
 
       let s = Format.flush_str_formatter () in
 
@@ -1326,7 +1326,7 @@ let log_step_cex mdl level input_sys analysis trans_sys prop cex =
 
 
 (* Log an exection path *)
-let log_execution_path mdl level input_sys analysis trans_sys path =
+let [@ocaml.warning "-27"] log_execution_path mdl level input_sys analysis trans_sys path =
 
   (match get_log_format () with 
     | F_pt -> execution_path_pt level input_sys analysis trans_sys path
@@ -1390,7 +1390,7 @@ let log_run_end results =
   | F_relay -> failwith "can only be called by supervisor"
 
 
-let split_abstract_and_concrete_systems sys info =
+let [@ocaml.warning "-27"] split_abstract_and_concrete_systems sys info =
   Scope.Map.fold (fun sys is_abstract (a,c) ->
     if is_abstract then sys :: a, c else a, sys :: c
   ) info.Analysis.abstraction_map ([],[])
@@ -1856,7 +1856,7 @@ let recv () =
              | _, EventMessaging.ControlMessage _ -> accum 
 
              (* Output log message *)
-             | mdl, 
+             | _, 
                EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
 
                let lines = Str.(split (regexp "\n") msg) in
@@ -1975,7 +1975,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
         tl'
 
     (* Property found unknown *)
-    | (_, PropStatus (p, Property.PropUnknown)) :: tl -> 
+    | (_, PropStatus (_, Property.PropUnknown)) :: tl -> 
 
       (* Continue without changes *)
       update_trans_sys' trans_sys invars prop_status tl
@@ -2062,7 +2062,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
 
       (* remove uninterresting first state for step counterexamples *)
       let cex = List.map (function
-          | (sv, []) as c -> c
+          | (_, []) as c -> c
           | (sv, _::vl) -> sv, vl) cex
       in
 

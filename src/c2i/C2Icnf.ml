@@ -368,12 +368,12 @@ let query_solvers { sys ; props ; solver1 ; solver2 ; solver3 } candidate =
 
 
 (** Runs C2I cnf version. *)
-let run context candidate = ()
+let [@ocaml.warning "-27"] run context candidate = ()
 
 
 
 (** Entry point. *)
-let main input_sys aparam sys =
+let [@ocaml.warning "-27"] main input_sys aparam sys =
 
   match Sys.get_split_properties sys with
   | _, _, [] ->

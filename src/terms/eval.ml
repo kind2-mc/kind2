@@ -120,7 +120,7 @@ let value_of_term term = match Term.destruct term with
         | `BV b -> ValUBV b
 
         (* Uninterpreted constant *)
-        | `UF u -> ValTerm term 
+        | `UF _ -> ValTerm term 
 
         (* Fail in remaining cases, which are not constants *)
         | _ -> assert false 

@@ -353,7 +353,7 @@ let minimize_item id_typ_map ue lst = function
     | Some eq -> [A.Body eq]
     end
 
-let minimize_const_decl ue lst = function
+let [@ocaml.warning "-27"] minimize_const_decl ue lst = function
   | A.UntypedConst (p,id,e) -> A.UntypedConst (p,id,e)
   | A.FreeConst (p,id,t) -> A.FreeConst (p,id,t)
   | A.TypedConst (p,id,e,t) ->
@@ -667,10 +667,9 @@ let get_counterexample_actsvs prop_names sys actsvs =
       | Property.PropFalse cex ->
         let svs = SVSet.of_list actsvs in
         cex
-        |> List.filter (fun (sv, values) -> SVSet.mem sv svs)
-        |> List.filter (fun (_, values) ->
-              is_model_value_true (List.hd values)
-            )
+        |> List.filter (fun (sv, values) ->
+          SVSet.mem sv svs && is_model_value_true (List.hd values)
+        )
         |> List.map fst
         |> (fun x -> Some (x, (p,cex)))
       | _ -> aux prop_names
@@ -686,10 +685,9 @@ let get_counterexamples_actsvs prop_names sys actsvs =
       | Property.PropFalse cex ->
         let svs = SVSet.of_list actsvs in
         cex
-        |> List.filter (fun (sv, values) -> SVSet.mem sv svs)
-        |> List.filter (fun (_, values) ->
-              is_model_value_true (List.hd values)
-            )
+        |> List.filter (fun (sv, values) ->
+          SVSet.mem sv svs && is_model_value_true (List.hd values)
+        )
         |> List.map fst
         |> (fun x -> (x, (p,cex))::(aux prop_names))
       | _ -> aux prop_names
@@ -772,7 +770,7 @@ let prepare_ts_for_cs_check sys enter_nodes init_consts keep test =
   TS.set_subsystem_equations sys (TS.scope_of_trans_sys sys) init_eq trans_eq
 
 
-let compute_cs_aux check_ts sys prop_names enter_nodes keep test k ?(exact_card=true) already_found =
+let [@ocaml.warning "-27"] compute_cs_aux check_ts sys prop_names enter_nodes keep test k ?(exact_card=true) already_found =
   let actsvs = actsvs_of_core test in
 
   let not_already_found =
@@ -940,7 +938,7 @@ let compute_local_cs sys prop_names enter_nodes cex keep test =
 
     let active_svs =
       List.combine actsvs actsv_terms
-      |> List.filter (fun (sv, t) -> eval t)
+      |> List.filter (fun (_, t) -> eval t)
       |> List.map fst
     in
 
@@ -1077,7 +1075,7 @@ let actlit_of_term t = match Term.destruct t with
     | Const s -> Symbol.uf_of_symbol s
     | App _ -> assert false
 
-let base_k sys b0 init_eq trans_eq prop_eq os_prop_eq k =
+let [@ocaml.warning "-27"] base_k sys b0 init_eq trans_eq prop_eq os_prop_eq k =
   let prop_eq = if k = 0 then os_prop_eq else prop_eq in
 
   let init_eq =
@@ -1247,7 +1245,7 @@ let check_k_inductive ?(approximate=false) sys enter_nodes core init_terms trans
 
 
 (** Implements the approximate algorithm (using Unsat Cores) *)
-let ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes keep test =
+let [@ocaml.warning "-27"] ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes keep test =
 
   let scope = TS.scope_of_trans_sys sys in
   let props = props_terms props in
@@ -1451,7 +1449,7 @@ let check_core check_ts sys prop_names enter_nodes core =
   check core
 
 (** Implements the bruteforce algorithm *)
-let ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
+let [@ocaml.warning "-27"] ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   let prop_names = props_names props in
   let sys = remove_other_props sys prop_names in
   let sys = add_as_candidate os_invs sys in
@@ -1799,7 +1797,7 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
 
 (* ---------- MINIMAL CORRECTION SETS ---------- *)
 
-let mcs_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
+let [@ocaml.warning "-27"] mcs_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
   ?(initial_solution=None) ?(max_mcs_cardinality= -1) ?(approx= false) cont keep test =
   let prop_names = props_names props in
   let sys = remove_other_props sys prop_names in
@@ -1811,7 +1809,7 @@ let mcs_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
 
   let initial_solution = match initial_solution with
   | None -> None
-  | Some (({ Property.prop_name }, cex), loc_core, info) ->
+  | Some (({ Property.prop_name }, cex), loc_core, _) ->
     Some (loc_core_to_filtered_core loc_core test, (prop_name, cex))
   in
 
@@ -1853,7 +1851,7 @@ let mcs in_sys param analyze sys props
   not (!timeout || approx), List.rev (!res)
 
 
-let mcs_initial_analysis_ in_sys ?(os_invs=[]) check_ts sys enter_nodes
+let [@ocaml.warning "-27"] mcs_initial_analysis_ in_sys ?(os_invs=[]) check_ts sys enter_nodes
   ?(max_mcs_cardinality= -1) keep test =
   let props = TS.get_real_properties sys in
   let prop_names = props_names props in

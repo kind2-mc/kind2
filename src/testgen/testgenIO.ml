@@ -228,7 +228,7 @@ let log_testcase (type s)
   if Flags.Testgen.graph_only () |> not then (
     (* |===| Logging testcase. *)
     (* Format.printf "    logging testcase@." ; *)
-    let name, path, tc_file = testcase_csv t in
+    let name, _, tc_file = testcase_csv t in
     let tc_fmt = fmt_of_file tc_file in
     (* Logging test case. *)
     cex_to_inputs_csv tc_fmt t.input_sys t.sys model k ;

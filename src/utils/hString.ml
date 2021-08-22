@@ -148,7 +148,7 @@ let string_of_hstring { Hashcons.node = n } = n
 
 
 (* Return an initialized property for the string *)
-let mk_prop s = ()
+let mk_prop _ = ()
 
 
 (* Return a hashconsed string *)

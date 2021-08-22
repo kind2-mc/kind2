@@ -252,7 +252,7 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
   | Type.Abstr s -> Format.pp_print_string ppf s
 
-  | Type.IntRange (i, j, Type.Enum) -> 
+  | Type.IntRange (_, _, Type.Enum) -> 
      let cs = Type.constructors_of_enum t in
      Format.fprintf ppf "enum {%a}"
        (pp_print_list Format.pp_print_string ", ") cs
@@ -277,7 +277,7 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
       (Invalid_argument "pp_print_lustre_type: BV size not allowed")
      end
 
-  | Type.Array (s, t) ->
+  | Type.Array (s, _) ->
 
     Format.fprintf ppf "array of %a" (pp_print_lustre_type safe) s
 
@@ -390,7 +390,7 @@ let pp_print_lustre_var_typed safe ppf state_var =
 
 
 (* Pretty-print a variable under [depth] pre operators *)
-let rec pp_print_var safe pvar ppf var =
+let [@ocaml.warning "-27"] rec pp_print_var safe pvar ppf var =
 
   (* Variable is at an instant *)
   if Var.is_state_var_instance var then 
@@ -466,7 +466,7 @@ and pp_print_term_node ?as_type safe pvar ppf t = match Term.T.destruct t with
     | Term.T.Forall l -> (
 
       match Term.T.node_of_lambda l with
-      Term.T.L (x,t) -> (
+      Term.T.L (_,t) -> (
 
         Format.fprintf ppf "@[<hv 1>forall@ @[<hv 1>(...)@ %a@]@]"
           (pp_print_term_node ?as_type safe pvar) t
@@ -474,7 +474,7 @@ and pp_print_term_node ?as_type safe pvar ppf t = match Term.T.destruct t with
       )
     )
 
-    | Term.T.BoundVar v -> Term.T.pp_print_term ppf t
+    | Term.T.BoundVar _ -> Term.T.pp_print_term ppf t
 
     | _ -> raise (Invalid_argument ex)
 
@@ -1001,7 +1001,7 @@ let pre_term_of_t zero_offset { expr_step } =
 
 
 (* Return the state variable of a variable *)
-let state_var_of_expr ({ expr_init; expr_step } as expr) = 
+let state_var_of_expr ({ expr_init } as expr) = 
 
   (* Initial value and step value must be identical *)
   if is_var expr || is_pre_var expr then
@@ -2256,7 +2256,7 @@ let mk_to_real expr = mk_unary eval_to_real type_of_to_real expr
    e1 and false -> false *)
 let eval_and = function 
   | t when t == Term.t_true -> (function expr2 -> expr2)
-  | t when t == Term.t_false -> (function expr2 -> Term.t_false)
+  | t when t == Term.t_false -> (function _ -> Term.t_false)
   | expr1 -> 
     (function 
       | t when t == Term.t_true -> expr1
@@ -2290,7 +2290,7 @@ let mk_and_n = function
    e1 or true -> true
    e1 or false -> e1 *)
 let eval_or = function 
-  | t when t == Term.t_true -> (function expr2 -> Term.t_true)
+  | t when t == Term.t_true -> (function _ -> Term.t_true)
   | t when t == Term.t_false -> (function expr2 -> expr2)
   | expr1 -> 
     (function 
@@ -2355,7 +2355,7 @@ let mk_xor expr1 expr2 = mk_binary eval_xor type_of_xor expr1 expr2
    e1 => false -> not e1 *)
 let eval_impl = function 
   | t when t == Term.t_true -> (function expr2 -> expr2)
-  | t when t == Term.t_false -> (function expr2 -> Term.t_true)
+  | t when t == Term.t_false -> (function _ -> Term.t_true)
   | expr1 -> 
     (function 
       | t when t == Term.t_true -> Term.t_true
@@ -3287,7 +3287,7 @@ let mk_arrow expr1 expr2 =
 (* Pre expression *)
 (* We don't need to abstract the RHS because the AST normalization pass 
   already has. *)
-let mk_pre ({ expr_init; expr_step; expr_type } as expr) =
+let mk_pre ({ expr_init; expr_step } as expr) =
   if Term.equal expr_init expr_step then
     match expr_init with
     (* Expression is a constant not part of an unguarded pre expression *)

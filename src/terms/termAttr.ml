@@ -183,7 +183,7 @@ module YicesPrinter : Printer =
   struct
 
     (* Pretty-print an attribute *)
-    let pp_print_attr_node ppf = function 
+    let pp_print_attr_node _ = function 
       (* Ignore attributes for yices *)
       | Named _ | FunDef -> ()
     

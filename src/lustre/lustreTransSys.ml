@@ -243,13 +243,13 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
   (* Creates properties for mode implications of a mode. *)
   let implications_of_modes modes acc =
     modes |> List.fold_left (
-      fun acc { C.name ; C.pos ; C.requires ; C.ensures ; C.candidate } ->
+      fun acc { C.name ; C.requires ; C.ensures ; C.candidate } ->
         let name = Format.asprintf "%a" (I.pp_print_ident true) name in
         (* LHS of the implication. *)
         let guard = conj_of requires in
         (* Generating one property per ensure. *)
         ensures |> List.fold_left (
-          fun acc ({ C.num ; C.pos ; C.svar } as sv) -> (
+          fun acc ({ C.pos ; C.svar } as sv) -> (
             E.mk_var svar |> E.mk_impl guard
             |> property_of_expr
               candidate
@@ -266,7 +266,7 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
 (* The assumptions of a contract as properties. *)
 let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
   assumes |> List.map (
-    fun { C.pos ; C.num ; C.name ; C.svar } ->
+    fun { C.pos ; C.name ; C.svar } ->
       let prop_term =
         Var.mk_state_var_instance svar TransSys.prop_base
         |> Term.mk_var
@@ -538,13 +538,9 @@ let call_terms_of_node_call mk_fresh_state_var globals
     { init_uf_symbol  ;
       trans_uf_symbol ;
       node = {
-        N.init_flag ;
-        N.instance  ;
         N.inputs    ;
         N.oracles   ;
         N.outputs   ;
-        N.locals    ;
-        N.props     ;
         N.contract  ;
       }               ;
       stateful_locals ;
@@ -1463,7 +1459,7 @@ let rec constraints_of_equations_wo_arrays node
       eq_bounds init stateful_vars terms (let_closure :: lets, lets_dependencies) tl
 
   (* Array state variable *)
-  | (((state_var, bounds), { E.expr_init; E.expr_step }) as eq) :: tl -> 
+  | (((_, bounds), _) as eq) :: tl -> 
 
     let other_eqs = try MBounds.find bounds eq_bounds with Not_found -> [] in
 
@@ -1522,7 +1518,7 @@ let constraints_of_arrays init terms eq_bounds =
 
     match List.rev quant_v with
     | [] -> term
-    | qvars -> Term.mk_forall ~fundef:(Flags.Arrays.recdef ()) quant_v term
+    | _ -> Term.mk_forall ~fundef:(Flags.Arrays.recdef ()) quant_v term
 
     in
   
@@ -1627,8 +1623,7 @@ let rec trans_sys_of_node'
     else
 
       (* Node to create a transition system for *)
-      let { N.instance;
-            N.init_flag;
+      let { N.init_flag;
             N.inputs;
             N.oracles;
             N.outputs;
@@ -2341,7 +2336,7 @@ let trans_sys_of_nodes
      operations *)
   Lib.set_liberal_gc ();
   
-  let { A.top; A.abstraction_map; A.assumptions } =
+  let { A.top } =
     A.info_of_param analysis_param
   in
   (* Make sure top level system is not abstract
@@ -2358,7 +2353,7 @@ let trans_sys_of_nodes
 
   let subsystem' = SubSystem.find_subsystem_of_list subsystems top in
   
-  let { SubSystem.source = { N.name = top_name } as node } as subsystem' =
+  let { SubSystem.source = { N.name = top_name } } as subsystem' =
     S.slice_to_abstraction
       ~preserve_sig slice_nodes analysis_param subsystem'
   in
@@ -2393,10 +2388,10 @@ let trans_sys_of_nodes
       (* The analysis that's going to run is a refinement. *)
       TransSys.get_prop_status_all_nocands result.A.sys
       |> List.iter (function
-        | name, P.PropUnknown -> (* Unknown is still unknown, do nothing. *)
+        | _, P.PropUnknown -> (* Unknown is still unknown, do nothing. *)
           ()
         
-        | name, (P.PropKTrue k as status) -> (* K-true is still k-true. *)
+        | name, (P.PropKTrue _ as status) -> (* K-true is still k-true. *)
           TransSys.set_prop_status trans_sys name status
         
         | name, P.PropInvariant cert -> (* Invariant is still invariant. *)

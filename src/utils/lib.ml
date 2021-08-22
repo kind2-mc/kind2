@@ -259,8 +259,8 @@ let list_inter_uniq cmp l1 l2 =
   let rec list_inter_uniq cmp accum l1 l2 = match l1, l2 with 
 
     (* One of the lists is empty: reverse accumulator and return *)
-    | [], l
-    | l, [] -> List.rev accum
+    | [], _
+    | _, [] -> List.rev accum
 
     (* First and second head elements are physically equal: add first
        head element to accumulator *)
@@ -275,7 +275,7 @@ let list_inter_uniq cmp l1 l2 =
     (* First head element is greater than or structurally but not
        physically equal to second: remove second head element from
        list *)
-    | h1 :: _, h2 :: tl ->
+    | _ :: _, _ :: tl ->
       list_inter_uniq cmp accum l1 tl
   in
 
@@ -290,7 +290,7 @@ let list_diff_uniq cmp l1 l2 =
   let rec list_diff_uniq cmp accum l1 l2 = match l1, l2 with 
 
     (* First list is empty: reverse accumulator and return *)
-    | [], l -> List.rev accum
+    | [], _ -> List.rev accum
 
     (* Second list is empty: reverse accumulator, append first list
        and return *)
@@ -308,7 +308,7 @@ let list_diff_uniq cmp l1 l2 =
 
     (* First head element is greater than second: remove first head
        element from list *)
-    | h1 :: _, h2 :: tl ->
+    | _ :: _, _ :: tl ->
       list_diff_uniq cmp accum l1 tl
   in
 
@@ -334,11 +334,11 @@ let rec list_subset_uniq cmp l1 l2 = match l1, l2 with
   | h1 :: tl1, h2 :: tl2 when h1 == h2 -> list_subset_uniq cmp tl1 tl2
 
   (* First head element is smaller than second: return false *)
-  | h1 :: tl, h2 :: _ when cmp h1 h2 < 0 -> false
+  | h1 :: _, h2 :: _ when cmp h1 h2 < 0 -> false
 
   (* First head element is greater than the second or structurally
      but not physically equal: remove first head element *)
-  | h1 :: _, h2 :: tl -> list_subset_uniq cmp l1 tl
+  | _ :: _, _ :: tl -> list_subset_uniq cmp l1 tl
 
 
 (* Lexicographic comparison of pairs *)
@@ -430,7 +430,7 @@ let rec find_map f = function
 let rec drop_last: 'a list -> 'a list
   = function
   | [] -> failwith "drop_last"
-  | [e] -> []
+  | [_] -> []
   | e :: r -> e :: drop_last r
 
                

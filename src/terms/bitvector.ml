@@ -543,7 +543,7 @@ let rec shift_left (bv : t) (n : Numeral.t) : t =
   else
     (match bv with
     | [] -> []
-    | h :: t -> shift_left 
+    | _ :: t -> shift_left 
                   (List.append t [false]) 
                   (Numeral.sub n Numeral.one))
 
@@ -1027,5 +1027,5 @@ let ( >= ) = gte
 (* Function that returns the first bit of bitvector b *)
 let first_bit (b : t) : bool =
   match b with
-  | h :: t -> h
+  | h :: _ -> h
   | _ -> raise NonStandardBVSize

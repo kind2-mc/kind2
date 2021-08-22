@@ -370,7 +370,7 @@ let rec collect_eqs vars (eqs, terms) = function
             v = e2, rewrite v to e1 in v = e2 to e1 = e2 *)
          let _, e' = 
            List.find
-             (fun (u, e') -> Var.equal_vars v u)
+             (fun (u, _) -> Var.equal_vars v u)
              eqs
          in
 

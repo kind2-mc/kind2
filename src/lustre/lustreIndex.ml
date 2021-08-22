@@ -53,12 +53,12 @@ let pp_print_one_index' db = function
   | false ->
     
     (function ppf -> function 
-       | RecordIndex i -> ()
+       | RecordIndex _ -> ()
        | TupleIndex i -> Format.fprintf ppf "(%d)" i
        | ListIndex i -> Format.fprintf ppf "{%d}" i
        | ArrayIntIndex i -> Format.fprintf ppf "[%d]" i
-       | ArrayVarIndex v -> () (* Format.fprintf ppf "[X%d(%a)]" db (E.pp_print_expr false) v ) *)
-       | AbstractTypeIndex i -> ())
+       | ArrayVarIndex _ -> () (* Format.fprintf ppf "[X%d(%a)]" db (E.pp_print_expr false) v ) *)
+       | AbstractTypeIndex _ -> ())
 
   | true ->
     
@@ -67,7 +67,7 @@ let pp_print_one_index' db = function
        | TupleIndex i -> Format.fprintf ppf "_%d" i
        | ListIndex i -> Format.fprintf ppf "_%d" i
        | ArrayIntIndex i -> Format.fprintf ppf "_%d" i
-       | ArrayVarIndex v ->  Format.fprintf ppf "_X%d" db
+       | ArrayVarIndex _ ->  Format.fprintf ppf "_X%d" db
        | AbstractTypeIndex i -> Format.fprintf ppf ".%s" i)
 
 

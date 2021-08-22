@@ -125,7 +125,7 @@ module Make (Ord: Map.OrderedType) = struct
     | _ :: _, Leaf _ -> false
 
     (* Return true if we have a leaf for an empty list of keys *)
-    | [], Leaf v -> true
+    | [], Leaf _ -> true
 
     (* Recurse to the sub-trie of the head element the keys *)
     | h :: tl, Node m -> try mem tl (M.find h m) with Not_found -> false
@@ -153,7 +153,7 @@ module Make (Ord: Map.OrderedType) = struct
     | _ :: _, Leaf _ -> false
 
     (* Return success if we have an empty list of keys *)
-    | [], t -> true
+    | [], _ -> true
 
     (* Recurse to the sub-trie of the head element the keys *)
     | h :: tl, Node m -> 
@@ -360,7 +360,7 @@ module Make (Ord: Map.OrderedType) = struct
 
   let bindings t = fold (fun k v a -> (k, v) :: a) t [] |> List.rev
 
-  let cardinal t = fold (fun k v a -> succ a) t 0
+  let cardinal t = fold (fun _ _ a -> succ a) t 0
 
   (* Return [true] if there is a key value pair in the trie for which
       the given predicate evaluates to [true] *)
@@ -502,10 +502,10 @@ module Make (Ord: Map.OrderedType) = struct
            instead of the polymorphic equality. *)
         let _ = 
           M.merge 
-            (fun k t1 t2 -> 
+            (fun _ t1 t2 -> 
                match t1, t2 with 
                  | None, None -> None
-                 | Some t1', Some t2' -> None
+                 | Some _, Some _ -> None
                  | _ -> raise (Invalid_argument "Trie.fold2"))
             m1
             m2

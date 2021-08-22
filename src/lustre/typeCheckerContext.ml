@@ -15,6 +15,9 @@
    permissions and limitations under the License. 
 
  *)
+
+[@@@ocaml.warning "-27"]
+ 
 (** The type checker context use for typechecking the surface level language
   
      @author Apoorv Ingle *)

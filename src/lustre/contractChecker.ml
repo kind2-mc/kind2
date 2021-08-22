@@ -325,8 +325,7 @@ let check_contract_satisfiability sys =
   | Unknown -> Unknown
 
 
-let pp_print_satisfiability_result_pt
-  in_sys param sys fmt result =
+let pp_print_satisfiability_result_pt param fmt result =
   (* Update time *)
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
@@ -357,8 +356,7 @@ let pp_print_satisfiability_result_pt
       (Stat.get_float Stat.analysis_time)
   )
 
-let pp_print_satisfiability_result_json
-  in_sys param sys fmt result =
+let pp_print_satisfiability_result_json fmt result =
   (* Update time *)
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
@@ -377,8 +375,7 @@ let pp_print_satisfiability_result_json
   (Stat.get_float Stat.analysis_time)
   (satisfiability_result_to_string result)
 
-let pp_print_satisfiability_result_xml
-  in_sys param sys fmt result =
+let pp_print_satisfiability_result_xml fmt result =
   let tag = "SatisfiabilityCheck" in
   (* Update time *)
   Stat.update_time Stat.total_time ;

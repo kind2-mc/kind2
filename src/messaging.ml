@@ -465,7 +465,7 @@ struct
 
         (match payload with 
 
-          | OutputMessage m -> 
+          | OutputMessage _ -> 
 
             enqueue 
               ((List.assoc sender workers), payload) 
@@ -589,7 +589,7 @@ struct
                   incoming_handled
 
               (* Workers do not resend messages *)
-              | Resend n -> ()
+              | Resend _ -> ()
 
             )
 
@@ -710,7 +710,7 @@ struct
     send_iter 0 (dequeue outgoing)
 
 
-  let worker_send_messages proc sock unconfirmed_invariants =
+  let [@ocaml.warning "-27"]  worker_send_messages proc sock unconfirmed_invariants =
     (* send up to 'message_burst_size' messages in worker's outgoing
        message queue *)
     let rec send_iter i outgoing_msg =
@@ -803,7 +803,7 @@ struct
     *)
 
 
-  let im_check_workers_status workers worker_status pub_sock pull_sock =
+  let [@ocaml.warning "-27"] im_check_workers_status workers worker_status pub_sock pull_sock =
     (* ensure that all workers have checked in within
        worker_time_threshold seconds *)
     let rec check_status workers need_ping =
@@ -828,7 +828,7 @@ struct
   (*  Threads                                                             *)
   (* ******************************************************************** *)
 
-  let im_thread (bg_ctx, pub_sock, pull_sock) workers on_exit =
+  let im_thread (_ (* bg_ctx *), pub_sock, pull_sock) workers on_exit =
 
     let invariant_id = ref 1 in
 

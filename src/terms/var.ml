@@ -398,7 +398,7 @@ let mk_fresh_var var_type =
 let set_offset_of_state_var_instance v i = match v with
 
   (* State variable instance *)
-  | { Hashcons.node = StateVarInstance (v, o) } -> 
+  | { Hashcons.node = StateVarInstance (v, _) } -> 
 
     (* Keep state variable and set offset *)
     mk_state_var_instance v i
@@ -470,7 +470,7 @@ let unrolled_uf_of_state_var_instance = function
 
       uf
 
-  | ({ Hashcons.node = FreeVar (h, ty) } as var) ->
+  | ({ Hashcons.node = FreeVar (_, ty) } as var) ->
 
     (* Creating a uf symbol for the variable. *)
     let uf =
@@ -508,7 +508,7 @@ let unrolled_uf_of_state_var_instance = function
 (* Declares constant variables as constant ufsymbols using the
     provided function. *)
 let rec declare_constant_vars declare = function
-  | ({ Hashcons.node = ConstStateVar sv } as var) :: tail ->
+  | ({ Hashcons.node = ConstStateVar _ } as var) :: tail ->
 
       (* Declaring the uf. *)
       declare (unrolled_uf_of_state_var_instance var) ;
@@ -524,7 +524,7 @@ let rec declare_constant_vars declare = function
     provided function. *)
 let rec declare_vars declare = function
 
-  | ({ Hashcons.node = StateVarInstance (v, o) } as var)
+  | ({ Hashcons.node = StateVarInstance (_, _) } as var)
     :: tail ->
      
      (* Declaring the uf. *)

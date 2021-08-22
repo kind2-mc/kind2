@@ -143,7 +143,7 @@ let jkind_var_of_lustre sys kind_sv (li, parents) =
       (* the var is the clock, always named ~clock in JKind *)
       "~clock"
 
-    | _, (_, _, [LustreNode.CActivate clock]) :: _
+    | _, (_, _, [LustreNode.CActivate _]) :: _
       when (* is_first_tick kind_sv || *) is_init sys li ->
       (* init variable *)
       "~init"
@@ -263,7 +263,7 @@ let rec parse acc = function
     parse { acc with jk_trans_lambda = Some lamb } r
 
   (* Ignore %init state variable *)
-  | HS.List (HS.Atom s :: HS.Atom i :: HS.List [] :: ty :: []) :: r
+  | HS.List (HS.Atom s :: HS.Atom i :: HS.List [] :: _ (* ty *) :: []) :: r
     when s == s_declare_fun &&
          i == s_pinit ->
     parse acc r

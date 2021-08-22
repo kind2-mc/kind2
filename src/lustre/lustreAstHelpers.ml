@@ -16,6 +16,8 @@
 
 *)
 
+[@@@ocaml.warning "-27"]
+
 open LustreAst
 open LustreReporting
 

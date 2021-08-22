@@ -16,6 +16,8 @@
 
 *)
 
+[@@@ocaml.warning "-27"]
+
 open Lib
 
 module Num = Numeral
@@ -626,7 +628,7 @@ module IntRules = struct
     | Type.Int
     | Type.IntRange _ -> (
       match flat with
-      | Term.T.App (sym, kids) ->
+      | Term.T.App (_, kids) ->
         if (
           Flags.Invgen.all_out ()
         ) || (
@@ -634,7 +636,7 @@ module IntRules = struct
         ) then Set.add term set, constants else set, constants
       | Term.T.Const sym -> (
         match Symbol.node_of_symbol sym with
-        | `NUMERAL n -> Set.add term set, Set.add term constants
+        | `NUMERAL _ -> Set.add term set, Set.add term constants
         | _ -> failwith "Constant of type int is not a numeral."
       )
       (* | Term.T.Attr (term, _) ->
@@ -729,7 +731,7 @@ module MachineIntegerRules(M: MachineIntegerSig) = struct
     let term = to_term flat in
     if M.is_type (Term.type_of_term term) then
       match flat with
-      | Term.T.App (sym, kids) ->
+      | Term.T.App (_, kids) ->
         if (
           Flags.Invgen.all_out ()
         ) || (
@@ -896,7 +898,7 @@ module RealRules = struct
     match type_of term with
     | Type.Real -> (
       match flat with
-      | Term.T.App (sym, kids) ->
+      | Term.T.App (_, kids) ->
         if (
           Flags.Invgen.all_out ()
         ) || (
@@ -904,7 +906,7 @@ module RealRules = struct
         ) then Set.add term set, constants else set, constants
       | Term.T.Const sym -> (
         match Symbol.node_of_symbol sym with
-        | `DECIMAL n -> Set.add term set, Set.add term constants
+        | `DECIMAL _ -> Set.add term set, Set.add term constants
         | _ -> failwith "Constant of type real is not a decimal."
       )
       (*| Term.T.Attr (term, _) ->

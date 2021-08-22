@@ -322,35 +322,35 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
 
   (* Parse the solver response to a command *)
-  let get_command_response solver timeout = 
+  let [@ocaml.warning "-27"] get_command_response solver timeout = 
 
     (* Return response *)
     response_of_sexpr (expr_of_solver_lexbuf solver)
 
 
   (* Parse the solver response to a check-sat command *)
-  let get_check_sat_response solver timeout = 
+  let [@ocaml.warning "-27"] get_check_sat_response solver timeout = 
 
     (* Return response *)
     check_sat_response_of_sexpr (expr_of_solver_lexbuf solver)
 
 
   (* Parse the solver response to a get-value command *)
-  let get_get_value_response solver timeout = 
+  let [@ocaml.warning "-27"] get_get_value_response solver timeout = 
 
     (* Return response *)
     get_value_response_of_sexpr (expr_of_solver_lexbuf solver)
 
 
   (* Parse the solver response to a get-model command *)
-  let get_get_model_response solver timeout = 
+  let [@ocaml.warning "-27"] get_get_model_response solver timeout = 
 
     (* Return response *)
     get_model_response_of_sexpr (expr_of_solver_lexbuf solver)
 
 
   (* Parse the solver response to a get-unsat-core command *)
-  let get_get_unsat_core_response solver timeout = 
+  let [@ocaml.warning "-27"] get_get_unsat_core_response solver timeout = 
 
     (* Return response *)
     get_unsat_core_response_of_sexpr (expr_of_solver_lexbuf solver)
@@ -372,7 +372,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
 
   (* Parse the solver response to a custom command *)
-  let get_custom_command_response num_res solver timeout = 
+  let [@ocaml.warning "-27"] get_custom_command_response num_res solver timeout = 
 
     (* Get response from solver *)
     let response = expr_of_solver_lexbuf solver in

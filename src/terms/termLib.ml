@@ -140,7 +140,7 @@ let at_most_one_non_num l =
   | [] -> true
   | t :: l when Term.is_numeral t || Term.is_decimal t ->
     aux found l
-  | t :: l ->
+  | _ :: l ->
     if found then raise Exit
     else aux true l
   in
@@ -180,7 +180,7 @@ let logic_of_flat fun_symbols t acc =
   | App (s, l) when s == Symbol.s_times && at_most_one_non_num l ->
     add LA (sup_logics acc)
 
-  | App (s, n :: l) when Symbol.(s == s_div || s == s_intdiv || s == s_mod) &&
+  | App (s, _ :: l) when Symbol.(s == s_div || s == s_intdiv || s == s_mod) &&
      List.for_all (fun t -> Term.is_numeral t || Term.is_decimal t) l ->
      add LA (sup_logics acc)
 

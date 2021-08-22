@@ -87,9 +87,9 @@ module Kindtype_node = struct
     | Real, Real -> true
     | Real, _ -> false
     | UBV i, UBV j -> i = j
-    | UBV i, _ -> false
+    | UBV _, _ -> false
     | BV i, BV j -> i = j
-    | BV i, _ -> false
+    | BV _, _ -> false
     | Array (i1, t1), Array (i2, t2) -> (i1 == i2) && (t1 == t2)
     | Array (_, _), _ -> false
     | Abstr s1, Abstr s2 -> s1 = s2
@@ -411,12 +411,12 @@ let get_all_abstr_types () =
 
 let is_int { Hashcons.node = t } = match t with
   | Int -> true 
-  | Array (t, _) -> false (* is_int t *)
+  | Array (_, _) -> false (* is_int t *)
   | _-> false
 
 let is_int_range { Hashcons.node = t } = match t with
   | IntRange (_,_,Range) -> true 
-  | Array (t, _) -> false (* is_int_range t *)
+  | Array (_, _) -> false (* is_int_range t *)
   |  _ -> false
 
 let is_ubitvector { Hashcons.node = t } = match t with
@@ -470,12 +470,12 @@ let is_enum { Hashcons.node = t } = match t with
 
 let is_bool { Hashcons.node = t } = match t with
   | Bool -> true
-  | Array (t, _) -> false (* is_bool t *)
+  | Array (_, _) -> false (* is_bool t *)
   |  _ -> false
 
 let is_real { Hashcons.node = t } = match t with
   | Real -> true
-  | Array (t, _) -> false (* is_real t *)
+  | Array (_, _) -> false (* is_real t *)
   | _ -> false
 
 
@@ -569,7 +569,7 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
 
     (* Array is a subtype of array if both index type and element type
        are subtype *)
-    | Array (i1, t1), Array (i2, t2) ->
+    | Array (i1, _), Array (i2, _) ->
       (check_type i1 i2) (* && (check_type t2 t1) *)
 
     (* No other subtype relationships *)

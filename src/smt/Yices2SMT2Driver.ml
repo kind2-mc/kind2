@@ -23,11 +23,11 @@ include GenericSMTLIBDriver
 let cmd_line
     logic
     timeout
-    produce_assignments
-    produce_proofs
-    produce_cores
-    minimize_cores
-    produce_interpolants = 
+    _ (* produce_assignments *) 
+    _ (* produce_proofs *)
+    _ (* produce_cores *)
+    _ (* minimize_cores *) 
+    _ (* produce_interpolants *) = 
 
   (let open TermLib in
    let open TermLib.FeatureSet in

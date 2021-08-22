@@ -356,7 +356,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
    same actlit. This makes backtracking easy since positive actlits
    are not overloaded. *)
 let split_closure
-  ((_,_,trans) as sys) solver k optimistic_actlits optimistic_terms to_split
+  ((_,_,_) as sys) solver k optimistic_actlits optimistic_terms to_split
 =
 
   let rec loop falsifiable list =
@@ -397,7 +397,7 @@ let split_closure
     let all_actlits =
       actlit_term :: (
         list |> List.fold_left (
-          fun l (_,(actlit, t)) -> actlit :: l
+          fun l (_,(actlit, _)) -> actlit :: l
         ) optimistic_actlits
       )
     in

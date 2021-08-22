@@ -431,7 +431,7 @@ with End_of_file | Scanf.Scan_failure _ -> false
 
 
 let concrete_to_mpz ty =
-  try List.find (fun (x,y) -> HS.equal ty x) (sigma_tindex ()) |> snd
+  try List.find (fun (x,_) -> HS.equal ty x) (sigma_tindex ()) |> snd
   with Not_found -> ty
 
 
@@ -464,7 +464,7 @@ let is_hyp_true = let open HS in function
 (* Apply a substitution top to bottom in an LFSC expression *)
 let rec apply_subst sigma sexp =
   let open HS in
-  try List.find (fun (s,v) -> HS.equal sexp s) sigma |> snd
+  try List.find (fun (s,_) -> HS.equal sexp s) sigma |> snd
   with Not_found ->
     match sexp with
     | List l ->

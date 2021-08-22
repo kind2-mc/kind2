@@ -107,7 +107,7 @@ let handle_events
   let messages = KEvent.recv () in
 
   (* Update transition system from messages *)
-  let new_invs, prop_status = 
+  let new_invs, _ = 
     KEvent.update_trans_sys input_sys aparam trans_sys messages 
   in
 
@@ -1407,7 +1407,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
 
                 Get clauses in R_i..R_k from [trace], R_i-1 is first frame
                 in [frames]. *)
-             let clauses_r_succ_i, actlits_p0_r_succ_i = 
+             let clauses_r_succ_i, _ (* actlits_p0_r_succ_i *) = 
                List.fold_left
                  (fun (ac, al) (_, r) ->
                    (F.values r) @ ac,
@@ -1511,7 +1511,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
 
 
                      List.iteri
-                       (fun i t ->
+                       (fun _ t ->
                          SMTSolver.assert_term
                            solver
                            (Term.mk_eq
@@ -1536,7 +1536,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                        term_tbl
                        (interpolants @ predicates)
                        []
-                       (List.rev (List.map (fun (f,s) -> s) trace))
+                       (List.rev (List.map (fun (_,s) -> s) trace))
 
                  )
 
@@ -1821,7 +1821,7 @@ let partition_fwd_prop
 
     
 (* Forward propagate clauses in all frames *)
-let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates = 
+let [@ocaml.warning "-27"] fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates = 
 
   let subsume_and_add a c =
 
@@ -2660,7 +2660,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
       with 
 
         (* All propertes are valid *)
-        | Success (k, ind_inv) -> 
+        | Success (_, ind_inv) -> 
 
           (
 
@@ -2771,7 +2771,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 
           )
 
-        | Disproved prop -> 
+        | Disproved _ -> 
 
           KEvent.log
             L_info 
@@ -3149,7 +3149,7 @@ let main_ic3 input_sys aparam trans_sys =
         (TransSys.init_of_bound None trans_sys Numeral.zero)
         ::
         List.map
-          (fun (s,t) -> t)
+          (fun (_,t) -> t)
           trans_sys_props
 
       | `None ->

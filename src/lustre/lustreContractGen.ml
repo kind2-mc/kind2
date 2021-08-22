@@ -373,7 +373,7 @@ module GhostInstance = struct
   (** Returns a unique lustre name based on a context stack and a state var *)
   let get_name_st (cxt_stack, svar) =
     match cxt_stack with
-    | cxt :: stack -> get_name (cxt, svar)
+    | cxt :: _ -> get_name (cxt, svar)
     | [] -> assert false
 
   (** Returns a ghost variable from a context and a state var *)
@@ -388,7 +388,7 @@ module GhostInstance = struct
   (** Returns a ghost variable from a context stack and a state var *)
   let mk_ghost_var_st cxt_stack sv =
     match cxt_stack with
-    | cxt :: stack -> mk_ghost_var cxt sv
+    | cxt :: _ -> mk_ghost_var cxt sv
     | [] -> assert false
 
   module IdSet = Set.Make(String)
@@ -463,7 +463,7 @@ module GhostInstance = struct
 
     let is_top_node_input svar = function
     | [] -> assert false
-    | [{call_inst; tsys}] ->
+    | [{tsys}] ->
       Node.source_of_svar (get_node tsys) svar = (Some Node.Input)
     | _ -> false
     in
@@ -546,7 +546,7 @@ let fmt_ghost_def fmt ((var, bounds), expr) =
   (Expr.pp_print_lustre_type true) (SVar.type_of_state_var var)
   (Expr.pp_print_lustre_expr true) expr
 
-let generate_contract_for in_sys param sys path invs name =
+let [@ocaml.warning "-27"] generate_contract_for in_sys param sys path invs name =
   let node = get_node_of_sys in_sys sys in
   let contract, locals =
     TSet.of_list invs |> Contract.build node
@@ -607,7 +607,7 @@ let generate_contract_for in_sys param sys path invs name =
 
   Format.fprintf fmt "@]@.tel@.@."
 
-let generate_contracts in_sys param sys path contract_name =
+let [@ocaml.warning "-27"] generate_contracts in_sys param sys path contract_name =
   KEvent.log_uncond "%d invariants@.@." (
     TransSys.invars_of_bound sys Numeral.zero |> List.length
   ) ;

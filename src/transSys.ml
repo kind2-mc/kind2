@@ -232,9 +232,6 @@ let pp_print_trans_sys_name fmt { scope } =
 let pp_print_trans_sys 
     ppf
     { scope;
-      instance_state_var;
-      instance_var_bindings;
-      global_state_vars;
       state_vars;
       ufs;
       init;
@@ -1200,10 +1197,9 @@ let rec map_cex_prop_to_subsystem'
   function
 
     | ({
-      P.prop_source = P.Instantiated (s, {
+      P.prop_source = P.Instantiated (_, {
         P.prop_source = P.Assumption _
-      } );
-      P.prop_term
+      } )
     } as p) ->
       (* Property is a requirement for a subnode. *)
       (trans_sys, instances, cex, p)

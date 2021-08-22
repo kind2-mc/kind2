@@ -293,7 +293,7 @@ let add_monomial_lists add is_zero l1 l2 =
       add_monomial_lists' ((c1, t1) :: accum) tl1 l2 
 
     (* Second term is smaller: add to accumulator first *)
-    | (_, t1) :: _, (c2, t2) :: tl2 -> 
+    | (_, _) :: _, (c2, t2) :: tl2 -> 
 
       add_monomial_lists' ((c2, t2) :: accum) l1 tl2 
 
@@ -397,7 +397,7 @@ let multiply_monomial_lists mult l1 l2 =
   
 
 (* Multiply two polynomials *)
-let multiply_polynomials mult is_zero zero (c1, m1) (c2, m2) = 
+let [@ocaml.warning "-27"] multiply_polynomials mult is_zero zero (c1, m1) (c2, m2) = 
 
   (* Return polynomial as
      ((ax + c) * (bx + d)) = (abxy + adx + bcx + cd) *)
@@ -418,7 +418,7 @@ let multiply_polynomials mult is_zero zero (c1, m1) (c2, m2) =
 
    Return the sign of the factor, [true] for positive and [false] for
    negative together with the normalized result *)
-let subtract_and_normalize_polynomials
+let [@ocaml.warning "-27"] subtract_and_normalize_polynomials
     add_polynomials negate_polynomial zero is_zero lt_zero p q =
 
   (* Subtract second polynomial from first *)
@@ -432,16 +432,16 @@ let subtract_and_normalize_polynomials
     | (c, []) when is_zero c -> true, r
 
     (* Constant is zero, first coefficient is negative *)
-    | (c, (h, _) :: tl) when is_zero c && lt_zero h -> false, negate_polynomial r
+    | (c, (h, _) :: _) when is_zero c && lt_zero h -> false, negate_polynomial r
 
     (* Constant is zero, first coefficient is not negative *)
-    | (c, (h, _) :: tl) when is_zero c -> true, r
+    | (c, (_, _) :: _) when is_zero c -> true, r
 
     (* Constant is not zero and negative *)
     | (c, _) when lt_zero c -> false, negate_polynomial r
 
     (* Constant is not zero and positive *)
-    | (c, _) -> true, r
+    | (_, _) -> true, r
 
 
 (* ********************************************************************** *)
@@ -966,7 +966,7 @@ let rec relation_to_nf
 
 
 (* Normalize an n-ary relation by unchaining *)
-let relation 
+let [@ocaml.warning "-27"] relation 
     simplify_term_node 
     rel_num
     rel'_num
@@ -2842,7 +2842,7 @@ let rec remove_ite' fterm args =
         | `FALSE -> Bool (Term.t_false)
 
         (* Uninterpreted constant *)
-        | `UF u -> assert false
+        | `UF _ -> assert false
 
         (* Fail in remaining cases, which are not constants *)
         | _ -> assert false

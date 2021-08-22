@@ -361,7 +361,7 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
 
                (* Fail on negations of other iformulas *)
 
-               | `NOT, [Formula cf] ->
+               | `NOT, [Formula _] ->
                  failwith "NOT only take one argument, and can only appear in the atom level."
 
                (* Fail on implication *)
@@ -568,7 +568,7 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
 
                (* Add uninterpreted function to polynomial as variable with
                   coefficient one *)
-               | `UF s, ags -> raise Not_in_LIA
+               | `UF _, _ -> raise Not_in_LIA
 
                (* Turn divisibility predicate into an iformula *)
                | `DIVISIBLE i, [Poly pl] ->

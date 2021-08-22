@@ -17,7 +17,7 @@
 *)
 
 
-let assert_context solver forall_vars premises =
+let assert_context solver premises =
   match SMTSolver.kind solver with
   | `CVC4_SMTLIB -> (
     SMTSolver.assert_term solver premises
@@ -32,7 +32,7 @@ let rec get_disjuncts term =
   | _ -> [term]
 
 
-let simplify_abduct solver forall_vars premises term =
+let simplify_abduct solver premises term =
 
   let term = Simplify.simplify_term [] term in
   if SMTSolver.kind solver = `CVC4_SMTLIB then
@@ -67,7 +67,7 @@ let abduce solver forall_vars premises conclusion =
 
   let forall_term = Term.mk_forall forall_vars impl in
 
-  assert_context solver forall_vars premises ;
+  assert_context solver premises ;
 
   let res =
     SMTSolver.get_qe_term solver forall_term
@@ -78,6 +78,6 @@ let abduce solver forall_vars premises conclusion =
   (* Debug.abduction "  Simplifying abductive..."; *)
 
   res
-  |> simplify_abduct solver forall_vars premises
+  |> simplify_abduct solver premises
   |> Simplify.remove_ite
 

@@ -119,7 +119,7 @@ let pp_print_locs_short =
 let last_position_of_locs locs =
   (List.hd (List.rev locs)).pos
 
-let print_data_of_loc_equation var_map (eq, locs, cat) =
+let print_data_of_loc_equation var_map (_, locs, cat) =
   if locs = []
   then None
   else
@@ -141,7 +141,7 @@ let print_data_of_loc_equation var_map (eq, locs, cat) =
           }
         with Not_found -> None
       )
-    | Assertion sv ->
+    | Assertion _ ->
       Some {
         name = Format.asprintf "assertion%a" pp_print_locs_short locs ;
         category = "Assertion" ;
@@ -345,11 +345,11 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
   ) ;
   Format.fprintf fmt "@]@.</ModelElementSet>@."
 
-let pp_print_no_solution sys clas ~unknown fmt prop =
+let [@ocaml.warning "-27"] pp_print_no_solution sys clas ~unknown fmt prop =
   Format.fprintf fmt "%s for property @{<blue_b>%s@}.@.@."
     (if unknown then "Unknown result" else "No solution") (prop.Property.prop_name)
 
-let pp_print_no_solution_json sys clas ~unknown fmt prop =
+let [@ocaml.warning "-27"] pp_print_no_solution_json sys clas ~unknown fmt prop =
   let assoc = [
     ("objectType", `String "noModelElementSet") ;
     ("class", `String clas) ;
@@ -359,7 +359,7 @@ let pp_print_no_solution_json sys clas ~unknown fmt prop =
   ] in
   pp_print_json fmt (`Assoc assoc)
 
-let pp_print_no_solution_xml sys clas ~unknown fmt prop =
+let [@ocaml.warning "-27"] pp_print_no_solution_xml sys clas ~unknown fmt prop =
   Format.fprintf fmt "<NoModelElementSet class=\"%s\" property=\"%s\">@.  @[<v>" clas prop.Property.prop_name ;
   Format.fprintf fmt "<Answer>%s</Answer>@ "
     (if unknown then "unknown" else "no_solution") ;
@@ -793,7 +793,7 @@ let extract_toplevel_equations in_sys sys =
   let init_map = mk_map init in
   let trans_map = mk_map trans in
   TIdMap.merge
-    (fun k i t ->
+    (fun _ i t ->
       match i, t with
       | Some (oi,ci), Some (ot,ct) -> (
         let eq =

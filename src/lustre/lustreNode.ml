@@ -657,7 +657,7 @@ let pp_print_node_call_debug
 
 let pp_print_node_debug ppf 
     { name;
-      is_extern;
+      (* is_extern; *)
       instance;
       init_flag;
       inputs; 
@@ -674,7 +674,7 @@ let pp_print_node_debug ppf
       state_var_source_map;
       oracle_state_var_map;
       state_var_expr_map;
-      silent_contracts } = 
+      (* silent_contracts *) } = 
 
   let pp_print_equation = pp_print_node_equation false in
 
@@ -893,7 +893,7 @@ let rec ident_of_top = function
 
   | [{ name }] -> name 
 
-  | h :: tl -> ident_of_top tl
+  | _ :: tl -> ident_of_top tl
 
 
 (* Node has a contract if it has at least one guarantee or one mode *)
@@ -1226,8 +1226,7 @@ let stateful_vars_of_prop (state_var, _, _) = SVS.singleton state_var
 
 (* Return all stateful variables from expressions in a node *)
 let stateful_vars_of_node
-    { name;
-      inputs; 
+    { inputs; 
       oracles; 
       outputs; 
       locals;
@@ -1515,9 +1514,7 @@ let state_var_is_local node state_var =
 
 
 (* Register state var as tied to a node call if not already registered. *)
-let set_state_var_node_call (
-  { state_var_source_map } as node
-) state_var =
+let set_state_var_node_call node state_var =
   set_state_var_source_if_undef node state_var Call
 
 (* Stream is identical to a stream in a node instance at position *)
