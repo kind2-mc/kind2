@@ -28,10 +28,10 @@ exception UnsupportedZ3Symbol of string
 let cmd_line _ _ _ _ _ _ _ = [| |]
 
 (* Dummy implementation *)
-let check_sat_limited_cmd ms = failwith "Not implemented"
+let check_sat_limited_cmd _ = failwith "Not implemented"
 
 (* Dummy implementation *)
-let check_sat_assuming_cmd ms = "check-sat-assuming"
+let check_sat_assuming_cmd _ = "check-sat-assuming"
 
 (* Dummy implementation *)
 let check_sat_assuming_supported () = Flags.Smt.check_sat_assume ()
@@ -204,8 +204,7 @@ let gen_expr_of_string_sexpr'
        prime_symbol;
        const_of_atom; 
        symbol_of_atom;
-       expr_of_string_sexpr;
-       expr_or_lambda_of_string_sexpr } as conv)
+       expr_of_string_sexpr } as conv)
     bound_vars =
 
   function 
@@ -668,7 +667,7 @@ let _ =
     smtlib_string_symbol_list 
 
 (* Pretty-print a symbol *)
-let rec pp_print_symbol_node ?arity ppf = function 
+let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function 
 
   | `TRUE -> Format.pp_print_string ppf "true"
   | `FALSE -> Format.pp_print_string ppf "false"

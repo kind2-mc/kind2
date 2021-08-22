@@ -182,7 +182,7 @@ let rec fmt_declarations fmt = function
 | dec :: tail -> (
   ( match dec with
 
-    | Ast.ContractNodeDecl ({Ast.start_pos = spos; Ast.end_pos = epos }, _) ->
+    | Ast.ContractNodeDecl ({Ast.start_pos = spos}, _) ->
       Format.asprintf "\
         [contracts translator] %a: contract node declarations are unsupported\
       " pp_print_position spos

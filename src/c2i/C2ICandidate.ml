@@ -360,7 +360,7 @@ module ToArithSC (Info : ArithSCInfo)
 
   let reset { vars ; vals ; pool } = {
     vars ;
-    vals = vals |> List.map (List.map (fun (lhs, rhs) ->
+    vals = vals |> List.map (List.map (fun (lhs, _) ->
       lhs |> List.map (fun _ -> zero),
       zero
     )) ;

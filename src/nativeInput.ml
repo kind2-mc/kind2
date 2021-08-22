@@ -281,7 +281,7 @@ let prop_source_of_sexpr prop_term = function
 
     let frc_pos = file_row_col_of_string (HString.string_of_hstring pos) in
     let ppos = Lib.pos_of_file_row_col frc_pos in
-    let p, scope =
+    let _, scope =
       Lib.extract_scope_name (HString.string_of_hstring scopedprop) in
     if c == s_assumption then Property.Assumption (ppos, (scope, Lib.dummy_pos))
     else if c == s_guarantee then Property.Guarantee (ppos, scope)
@@ -606,11 +606,13 @@ let pp_print_var ppf v =
   else Var.pp_print_var ppf v
 
 let pp_print_term ppf =
-  Term.T.pp_print_term_w (fun ?arity -> Symbol.pp_print_symbol)
+  Term.T.pp_print_term_w 
+    (fun [@ocaml.warning "-27"] ?arity -> Symbol.pp_print_symbol)
     pp_print_var Type.pp_print_type ppf
 
 let pp_print_lambda ppf =
-  Term.T.pp_print_lambda_w (fun ?arity -> Symbol.pp_print_symbol)
+  Term.T.pp_print_lambda_w
+    (fun [@ocaml.warning "-27"] ?arity -> Symbol.pp_print_symbol)
     pp_print_var Type.pp_print_type ppf
 
 

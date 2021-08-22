@@ -150,7 +150,7 @@ let type_of_last inputs outputs locals l =
         | A.NodeConstDecl (_, (A.FreeConst (_, i, ty) |
                                A.TypedConst (_, i, _, ty))) ->
           if i = l then raise (Found_last_ty ty)
-        | A.NodeConstDecl (_, A.UntypedConst (pos, i, e)) ->
+        | A.NodeConstDecl (_, A.UntypedConst (pos, i, _)) ->
           fail_at_position pos ("Please add type of "^i)
         | A.NodeVarDecl (_, (_, i, ty, _)) ->
           if i = l then raise (Found_last_ty ty)
@@ -266,9 +266,9 @@ let rec used_inputs_expr inputs acc =
   | Fby (_, e1, _, e2) ->
     used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2
 
-  | Pre (pos, e) -> used_inputs_expr inputs acc e
+  | Pre (_, e) -> used_inputs_expr inputs acc e
 
-  | Arrow (pos, e1, e2) ->
+  | Arrow (_, e1, e2) ->
     used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2
 
 let rec used_inputs_equation inputs acc = function
@@ -318,7 +318,7 @@ let used_inputs inputs eqs =
 
 (** Returns an option of the output state variables mentioned in the current
 state of a lustre expression. *)
-let contract_check_no_output ctx pos expr =
+let [@ocaml.warning "-27"] contract_check_no_output ctx pos expr =
   let outputs =
     LustreContext.outputs_of_current_node ctx
   in
@@ -338,7 +338,7 @@ let contract_check_no_output ctx pos expr =
 let eval_const_decl ?(ghost = false) ctx = function
 
   (* Declaration of a free constant *)
-  | A.FreeConst (pos, i, ty) ->
+  | A.FreeConst (_, i, ty) ->
 
     (* Identifier of AST identifier *)
     let ident = I.mk_string_ident i in
@@ -425,7 +425,7 @@ let eval_const_decl ?(ghost = false) ctx = function
            (* Check if type of expression is a subtype of the defined
               type at each index *)
            D.iter2
-             (fun _ def_type { E.expr_type; E.expr_init = e } ->
+             (fun _ def_type { E.expr_type; (* E.expr_init = e *) } ->
                 (* let e = (e :> Term.t) in *)
                 (* let open Type in *)
                 (* match node_of_type def_type with *)
@@ -614,7 +614,7 @@ let rec eval_node_locals ?(ghost = false) ctx = function
          A.pp_print_ident i)
 
   (* Local constant *)
-  | A.NodeConstDecl (pos, const_decl) :: tl -> 
+  | A.NodeConstDecl (_, const_decl) :: tl -> 
 
     (* Add mapping of identifier to value to context *)
     let ctx = eval_const_decl ~ghost ctx const_decl in
@@ -628,7 +628,7 @@ let rec eval_node_locals ?(ghost = false) ctx = function
 (* ********************************************************************** *)
 
 (* Return trie of state variables from a structural assignment *)
-let eval_struct_item ctx pos = function
+let [@ocaml.warning "-27"] eval_struct_item ctx pos = function
 
   (* Single identifier *)
   | A.SingleIdent (pos, i) ->  
@@ -771,7 +771,7 @@ let eval_struct_item ctx pos = function
 let uneval_struct_item ctx = function
 
   (* Remove index variables in recursive array definitions *)
-  | A.ArrayDef (pos, _, l) -> 
+  | A.ArrayDef (_, _, l) -> 
 
     (* Remove bindings for the running variables from the context in
        reverse order *)
@@ -800,15 +800,15 @@ let uneval_struct_item ctx = function
 let uneval_eq_lhs ctx = function
 
   (* Nothing added from structrural assignments *)
-  | A.StructDef (pos, l) -> List.fold_left uneval_struct_item ctx l
+  | A.StructDef (_, l) -> List.fold_left uneval_struct_item ctx l
 
 
 (* Return a trie of state variables from the left-hand side of an
    equation *)
-let eval_eq_lhs ctx pos = function
+let [@ocaml.warning "-27"] eval_eq_lhs ctx pos = function
 
   (* Empty list for node calls without returns *)
-  | A.StructDef (pos, []) -> (D.empty, 0, ctx)
+  | A.StructDef (_, []) -> (D.empty, 0, ctx)
 
   (* Single item *)
   | A.StructDef (pos, [e]) -> eval_struct_item ctx pos e 
@@ -884,7 +884,7 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
       (([], expr) :: rhs_tl)
 
   (* Array variable on left-hand side, fixed index on right-hand side *)
-  | (D.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl,
+  | (D.ArrayVarIndex _ :: lhs_index_tl, state_var) :: _,
     (D.ArrayIntIndex i :: rhs_index_tl, expr) :: rhs_tl -> 
 
     (* Recurse to produce equations with this index *)
@@ -983,7 +983,7 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
   (* Tuple index on left-hand and array index on right-hand side *)
   | ((D.TupleIndex i :: lhs_index_tl, state_var) :: lhs_tl,
-     (D.ArrayIntIndex j :: rhs_index_tl, expr) :: rhs_tl) ->
+     (D.ArrayIntIndex j :: _, expr) :: rhs_tl) ->
 
     (* Indexes are sorted, must match *)
     if i = j then 
@@ -1604,14 +1604,14 @@ and eval_node_contract_call
   ) ;
   in_formals |> List.iter (
     function
-    | pos, id, typ, A.ClockTrue, is_const -> () (* pos, id, typ, is_const *)
+    | _ (* pos *), _ (* id *), _ (* typ *), A.ClockTrue, _ (* is_const *) -> () (* pos, id, typ, is_const *)
     | _ -> fail_at_position pos (
         "clocks in contract node signature are not supported"
       )
   ) ;
   out_formals |> List.iter (
     function
-    | pos, id, typ, A.ClockTrue -> () (* pos, id, typ *)
+    | _ (* pos *), _ (* id *), _ (* typ *), A.ClockTrue -> () (* pos, id, typ *)
     | _ -> fail_at_position pos (
         "clocks in contract node signature are not supported"
       )
@@ -1704,7 +1704,7 @@ and eval_node_contract_call
      everything. *)
   let ctx = try
       List.fold_left2 (
-        fun ctx expr (pos, in_id, typ, _) ->
+        fun ctx expr (_, in_id, typ, _) ->
           let expr, ctx = S.eval_ast_expr [] ctx expr in
 
           (* Fail if type mismatch. *)
@@ -2417,7 +2417,7 @@ and eval_node_items inputs outputs locals ctx = function
 (** Try to parse a contract and add it as candidate to an optional contract.
 
 Failure's silent. *)
-and parse_implicit_contract scope inputs outputs ctx file contract_name = try (
+and [@ocaml.warning "-27"] parse_implicit_contract scope inputs outputs ctx file contract_name = try (
   let in_ch = open_in file in
 
   (* Create lexing buffer *)
@@ -2446,9 +2446,9 @@ and parse_implicit_contract scope inputs outputs ctx file contract_name = try (
           let ok, ins =
             List.fold_left2 (
               fun (ok, ins) (
-                pos, node_in, node_in_ty, _, _
+                pos, node_in,  _ (* node_in_ty *), _, _
               ) (
-                _, cont_in, cont_in_ty, _, _
+                _, cont_in, _ (* cont_in_ty *), _, _
               ) ->
                 ok && (node_in = cont_in),
                 (A.Ident (pos, node_in)) :: ins
@@ -2458,9 +2458,9 @@ and parse_implicit_contract scope inputs outputs ctx file contract_name = try (
           let ok, outs =
             List.fold_left2 (
               fun (ok, outs) (
-                pos, node_out, node_out_ty, _
+                _, node_out, _ (* node_out_ty *), _
               ) (
-                _, cont_out, cont_out_ty, _
+                _, cont_out, _ (* cont_out_ty *), _
               ) ->
                 ok && (node_out = cont_out),
                 (node_out) :: outs
@@ -2482,7 +2482,7 @@ and parse_implicit_contract scope inputs outputs ctx file contract_name = try (
     let ctx = C.pop_contract_scope ctx in
     ctx, call
   | None -> raise Not_found
-) with e -> (
+) with _ (* e *) -> (
   (* Printexc.to_string e
   |> Format.printf
     "[eval_node_decl] \
@@ -2846,7 +2846,7 @@ and declaration_to_context ctx = function
   C.add_type_for_ident ctx ident res
 
 (* Declaration of a typed or untyped constant *)
-| A.ConstDecl ({A.start_pos = pos}, const_decl) ->
+| A.ConstDecl (_, const_decl) ->
 
   (* Add mapping of identifier to value to context *)
   eval_const_decl ctx const_decl

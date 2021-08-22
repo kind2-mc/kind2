@@ -227,7 +227,7 @@ let realizability_check
 
       match ae_val_reponse' with
       | QE.Valid _ -> Realizable fp
-      | QE.Invalid valid_region -> (
+      | QE.Invalid _ (* valid_region *) -> (
         (*Debug.contractck
             "@[<hv>(INITIAL) Valid region:@ @[<hv>%a@]@]@."
             Term.pp_print_term valid_region ;*)

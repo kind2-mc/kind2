@@ -20,7 +20,7 @@ open Lib
 
 let on_exit () = ()
 
-let main transSys =
+let main _ =
   
   while true do minisleep 1. done
   (* while true do () done *)

@@ -15,6 +15,9 @@
    permissions and limitations under the License. 
 
  *)
+
+[@@@ocaml.warning "-27"]
+
 (** Normalize a Lustre AST to ease in translation to a transition system
 
   The two main requirements of this normalization are to:

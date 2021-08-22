@@ -171,12 +171,12 @@ let rec check_new_things new_stuff ({ solver ; sys ; map } as ctx) =
       check_new_things false ctx
     )
     (* Some properties changed status. *)
-    | props ->
+    | _ ->
 
       let map, new_stuff =
         map |> List.fold_left (
           (* Go through map and inspect property status. *)
-          fun (map, new_stuff) ( (name, (pos, prop)) as p ) ->
+          fun (map, new_stuff) ( (name, (pos, _)) as p ) ->
             match Sys.get_prop_status sys name with
             | Prop.PropFalse _ ->
               (* Deactivate actlits and remove from map. *)
@@ -248,7 +248,7 @@ let split { solver ; map } =
       match
         Smt.check_sat_assuming_and_get_term_values
           solver
-          (fun s term_values -> (* If sat. *)
+          (fun _ term_values -> (* If sat. *)
             (* Retrieve values. *)
             term_values |> List.fold_left (
               fun l (term, value) ->
@@ -287,7 +287,7 @@ let broadcast_if_safe ({ solver ; sys ; map } as ctx) unfalsifiable =
         match Sys.get_prop_status sys prop with
         | Prop.PropKTrue n when n >= 1 ->
           Some (2, Sys.get_prop_term sys prop)
-        | Prop.PropInvariant ((k, phi) as cert) ->
+        | Prop.PropInvariant ((k, _) as cert) ->
           if k <= 2 then Some cert
           else Some (2, Sys.get_prop_term sys prop)
         | _ -> None

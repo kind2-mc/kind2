@@ -200,7 +200,7 @@ let term_of_named t =  match node_of_term t with
 
 (* Return the name of a named term *)
 let name_of_named t =  match node_of_term t with
-  | T.Annot (t, a) when TermAttr.is_named a ->
+  | T.Annot (_, a) when TermAttr.is_named a ->
 
     (* Get name of term *)
     let (s, n) = TermAttr.named_of_attr a in
@@ -417,7 +417,7 @@ let rec bool_of_term t = match node_of_term t with
 let is_select t = match node_of_term t with
 
   (* Top symbol is a select operator *)
-  | T.Node (s, a :: _ ) -> Symbol.is_select s
+  | T.Node (s, _ :: _ ) -> Symbol.is_select s
                                  
   | _ -> false
 
@@ -669,7 +669,7 @@ let rec type_of_term t = match T.destruct t with
       
             
         (* Array-valued function *)
-        | `SELECT ty_array ->
+        | `SELECT _ (* ty_array *) ->
              
           (match l with
            | a :: _ -> Type.elem_type_of_array (type_of_term a)
@@ -683,10 +683,10 @@ let rec type_of_term t = match T.destruct t with
 
           | [a] -> (match (Type.node_of_type (type_of_term a)) with
 
-            | Type.BV b -> 
+            | Type.BV _ -> 
               (* Compute width of resulting bitvector *)
               Type.mk_bv ((Numeral.to_int j) - (Numeral.to_int i) + 1)
-            | Type.UBV b -> 
+            | Type.UBV _ -> 
               (* Compute width of resulting bitvector *)
               Type.mk_ubv ((Numeral.to_int j) - (Numeral.to_int i) + 1)
             | _ -> assert false)
@@ -1005,7 +1005,7 @@ let is_lambda_identity l =
 let is_atom t = match T.destruct t with 
 
   (* Function application *)
-  | T.App (s, l) -> 
+  | T.App (_, l) -> 
 
     (* Must be of Boolean type *)
     (type_of_term t == Type.mk_bool ()) &&
@@ -1017,7 +1017,7 @@ let is_atom t = match T.destruct t with
            (function 
 
              (* Function application *)
-             | T.App (s, l) as f -> 
+             | T.App (_, l) as f -> 
 
                (function r -> 
 
@@ -1819,7 +1819,7 @@ let select_symbols_of_term term =
 let select_terms term =
   eval_t ~fail_on_quantifiers:false
     (function 
-      | T.App (s, l) as t when Symbol.is_select s ->
+      | T.App (s, _) as t when Symbol.is_select s ->
         fun _ -> TermSet.singleton (construct t)
       | _ -> List.fold_left TermSet.union TermSet.empty)
     term
@@ -2141,7 +2141,7 @@ let partial_selects term =
     let acc = ref [] in
     map (fun db t ->
         match node_of_term t with
-        | T.Node (s, a :: il) when Symbol.is_select s && db <> 0 ->
+        | T.Node (s, _ :: il) when Symbol.is_select s && db <> 0 ->
           let ufs = Symbol.uf_of_symbol s in
           let ty = UfSymbol.res_type_of_uf_symbol ufs in
           let ty_il = List.tl (UfSymbol.arg_type_of_uf_symbol ufs) in
@@ -2152,7 +2152,7 @@ let partial_selects term =
           acc := inst_bvars partial_s_a_def :: !acc;
           t'
 
-        | T.Forall l | T.Exists l when !acc <> [] ->
+        | T.Forall _ | T.Exists _ when !acc <> [] ->
           let cstrs = !acc in
           acc := [];
           mk_and (t ::
@@ -2184,7 +2184,7 @@ let apply_subst sigma term =
   map (fun _ t ->
       match node_of_term t with
       | T.FreeVar v ->
-        (try List.find (fun (v', bt) -> Var.equal_vars v v') sigma |> snd
+        (try List.find (fun (v', _) -> Var.equal_vars v v') sigma |> snd
          with Not_found -> t)
       | _ -> t
     ) term

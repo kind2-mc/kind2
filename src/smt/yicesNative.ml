@@ -205,7 +205,7 @@ let get_yices_errmsg { solver_errlexbuf = errlb } =
 
   
 (* Parse the solver response to a command *)
-let get_command_response solver timeout = 
+let [@ocaml.warning "-27"] get_command_response solver timeout = 
 
   (* Return response *)
   match parse_yices_output solver with
@@ -225,7 +225,7 @@ let get_command_response solver timeout =
 
 
 (* Parse the solver response to a check-sat command *)
-let get_check_sat_response solver timeout = 
+let [@ocaml.warning "-27"] get_check_sat_response solver timeout = 
 
   (* Return response *)
   match parse_yices_output solver with
@@ -267,7 +267,7 @@ let get_custom_command_result solver accum i =
 *)
 
 (* Parse the solver response to a custom command *)
-let get_custom_command_response num_res solver timeout = 
+let [@ocaml.warning "-27"] get_custom_command_response num_res solver timeout = 
 (* Return response *)
   match parse_yices_output solver with
   
@@ -849,7 +849,7 @@ let check_sat_assuming solver exprs =
 
   (* We use retract feature of Yices to keep internal context *)
   fast_push solver 1;
-  let res = List.fold_left (fun acc expr ->
+  let res = List.fold_left (fun _ expr ->
       match Term.destruct expr with
         | Term.T.App (s, []) | Term.T.Const s when Symbol.is_uf s ->
           (* Register name of litterals for unsat core *)

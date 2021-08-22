@@ -747,12 +747,16 @@ struct
  
   
   let pp_print_term =
-    pp_print_term_w (fun ?arity -> T.pp_print_symbol) T.pp_print_var T.pp_print_sort
+    pp_print_term_w
+      (fun [@ocaml.warning "-27"] ?arity -> T.pp_print_symbol)
+      T.pp_print_var T.pp_print_sort
 
   let print_term ?db = pp_print_term ?db Format.std_formatter
 
   let pp_print_lambda =
-    pp_print_lambda_w (fun ?arity -> T.pp_print_symbol) T.pp_print_var T.pp_print_sort
+    pp_print_lambda_w
+      (fun [@ocaml.warning "-27"] ?arity -> T.pp_print_symbol)
+      T.pp_print_var T.pp_print_sort
 
   let print_lambda ?db = pp_print_lambda ?db Format.std_formatter
 
@@ -1204,7 +1208,7 @@ struct
         (FTree (db + (List.length n), l) :: FPop (List.length n) :: tl)
 
     (* The top element of the instruction stack is a symbol *)
-    | FNode (op, args) :: tl -> 
+    | FNode (op, _) :: tl -> 
 
       (
 
@@ -1316,7 +1320,7 @@ struct
           let n' = 
             match n with 
               | FreeVar v -> FreeVar (T.import_var v)
-              | BoundVar i -> n
+              | BoundVar _ -> n
               | Leaf s -> Leaf (T.import_symbol s)
               | Node (s, l) -> Node (T.import_symbol s, l)
               | Let (l, b) -> Let (import_lambda l, b)
@@ -1433,7 +1437,7 @@ struct
 
 
   (* Beta-evaluate a lambda expression *)
-  let eval_lambda ({ Hashcons.node = L (v, t) } as l) b = 
+  let eval_lambda ({ Hashcons.node = L (v, _) } as l) b = 
 
     if List.length v = List.length b then ht_let l b else 
       
@@ -1474,7 +1478,7 @@ struct
 
   (* Create a let binding of terms to variables, eliminate bindings to
      variables that do not occur in the term *)
-  let trim_let_domain 
+  let [@ocaml.warning "-27"] trim_let_domain 
       offset
       bvar_types 
       bvar_terms
@@ -1683,7 +1687,7 @@ struct
 
     (* Bound variable must not occur free at top level, but may occur
        when recursively evaluating a chain of let bindings *)
-    | { H.node = BoundVar i } as t -> t
+    | { H.node = BoundVar _ } as t -> t
 
     (* Constant *)
     | { H.node = Leaf s }

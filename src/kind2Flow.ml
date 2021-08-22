@@ -263,7 +263,7 @@ let status_of_exn process status = function
   )
 
 (** Status corresponding to an exception based on an optional system. *)
-let status_of_exn_sys process sys_opt =
+let status_of_exn_sys process =
   status_of_sys () |> status_of_exn process
 
 (** Status corresponding to an exception based on some results. *)
@@ -314,13 +314,13 @@ let slaughter_kids process sys =
       | Unix.Unix_error (Unix.EINTR, _, _) ->
         (* Ignoring exit code, whatever happened does not change the
         outcome of the analysis. *)
-        Signal 0 |> status_of_exn_sys process None |> ignore
+        Signal 0 |> status_of_exn_sys process |> ignore
 
       (* Exception in Unix.wait loop. *)
       | e ->
         (* Ignoring exit code, whatever happened does not change the outcome
         of the analysis. *)
-        status_of_exn_sys process None e |> ignore ;
+        status_of_exn_sys process e |> ignore ;
     ) ;
 
     if ! child_pids <> [] then
@@ -363,7 +363,7 @@ let on_exit_with_results in_sys sys process exn =
   with TimeoutWall -> post_clean_exit_with_results in_sys process TimeoutWall
 
 (** Clean up before exit, for a MCS analysis. *)
-let on_exit in_sys sys process exn =
+let on_exit sys process exn =
   try
     slaughter_kids process sys;
     post_clean_exit process exn
@@ -371,7 +371,7 @@ let on_exit in_sys sys process exn =
 
 (** Call cleanup function of process and exit.
 Give the exception [exn] that was raised or [Exit] on normal termination. *)
-let on_exit_child ?(alone=false) messaging_thread process exn =
+let [@ocaml.warning "-27"] on_exit_child ?(alone=false) messaging_thread process exn =
   (* Exit status of process depends on exception *)
   let status = status_of_exn process 0 exn in
   (* Call cleanup of process *)
@@ -571,7 +571,7 @@ let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys
   KEvent.log L_info "Result: %a" Analysis.pp_print_result result
 
 
-let handle_exception in_sys process e =
+let handle_exception process e =
   (* Get backtrace now, Printf changes it *)
   let backtrace = Printexc.get_raw_backtrace () in
 
@@ -631,7 +631,7 @@ let run in_sys =
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `CONTRACTCK ;
-      KEvent.run_im msg_setup [] (on_exit in_sys None `CONTRACTCK) |> ignore ;
+      KEvent.run_im msg_setup [] (on_exit None `CONTRACTCK) |> ignore ;
       KEvent.log L_debug "Messaging initialized in Contract Check." ;
 
       match ISys.contract_check_params in_sys with
@@ -668,17 +668,14 @@ let run in_sys =
           ) ;
           
           match result with
-          | Unrealizable res -> (
+          | Unrealizable _ -> (
             let result =
               ContractChecker.check_contract_satisfiability sys
             in
             Log.log_result
-              (ContractChecker.pp_print_satisfiability_result_pt
-                in_sys param sys)
-              (ContractChecker.pp_print_satisfiability_result_xml
-                in_sys param sys)
-              (ContractChecker.pp_print_satisfiability_result_json
-                in_sys param sys)
+              (ContractChecker.pp_print_satisfiability_result_pt param)
+              ContractChecker.pp_print_satisfiability_result_xml
+              ContractChecker.pp_print_satisfiability_result_json
               result ;
           )
           | _ -> () ;
@@ -689,10 +686,10 @@ let run in_sys =
 
       post_clean_exit `CONTRACTCK Exit
     ) with
-    | TimeoutWall -> on_exit in_sys None `CONTRACTCK TimeoutWall
+    | TimeoutWall -> on_exit None `CONTRACTCK TimeoutWall
     | e -> (
-      handle_exception in_sys `CONTRACTCK e;
-      on_exit in_sys None `CONTRACTCK e
+      handle_exception `CONTRACTCK e;
+      on_exit None `CONTRACTCK e
     )
   )
 
@@ -708,7 +705,7 @@ let run in_sys =
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `Supervisor ;
-      KEvent.run_im msg_setup [] (on_exit in_sys None `Supervisor) |> ignore ;
+      KEvent.run_im msg_setup [] (on_exit None `Supervisor) |> ignore ;
       KEvent.log L_debug "Messaging initialized in supervisor." ;
 
       KEvent.set_module `MCS ;
@@ -730,10 +727,10 @@ let run in_sys =
       List.iter run_mcs params ;
       post_clean_exit `Supervisor Exit
     ) with
-    | TimeoutWall -> on_exit in_sys None `Supervisor TimeoutWall
+    | TimeoutWall -> on_exit None `Supervisor TimeoutWall
     | e -> (
-      handle_exception in_sys `Supervisor e ;
-      on_exit in_sys None `Supervisor e
+      handle_exception `Supervisor e ;
+      on_exit None `Supervisor e
     )
   ) 
 
@@ -755,7 +752,7 @@ let run in_sys =
       | Some param ->
         (* Format.printf "param: %a@.@." (Analysis.pp_print_param true) param ; *)
         (* Build trans sys and slicing info. *)
-        let sys, in_sys_sliced =
+        let sys, _ (* in_sys_sliced *) =
           ISys.trans_sys_of_analysis in_sys param
         in
 
@@ -829,7 +826,7 @@ let run in_sys =
     ) with
     | TimeoutWall -> on_exit_with_results in_sys None `Supervisor TimeoutWall
     | e -> (
-      handle_exception in_sys `Supervisor e;
+      handle_exception `Supervisor e;
       on_exit_with_results in_sys None `Supervisor e
     )
 

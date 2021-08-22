@@ -312,7 +312,7 @@ let to_step_solver { solver ; sys ; k ; init_actlit } =
   solver, kp1
 
 (** Transforms a base checker into a step checker. *)
-let to_step ( { solver ; sys ; k ; init_actlit } as base_checker ) =
+let to_step ( { sys } as base_checker : base ) =
   let solver, k = to_step_solver base_checker in
   { solver ; sys ; k }
 
@@ -359,7 +359,7 @@ let query_step two_state step_checker candidates =
     (* Restarting solver if necessary. *)
     conditional_step_solver_reset step_checker ;
 
-    let { sys ; solver ; k } = step_checker in
+    let { solver ; k } = step_checker in
     let actlit = fresh_actlit () in
 
     Format.asprintf
@@ -398,7 +398,7 @@ let query_step two_state step_checker candidates =
       let minus_k = Num.(~- k) in
       Smt.check_sat_assuming_and_get_term_values solver (
         (* If sat, get values and remove falsified candidates. *)
-        fun solver term_values -> Some (
+        fun _ term_values -> Some (
           term_values |> List.fold_left (fun acc ->
             function
             | (cand, b_val) when b_val = Term.t_true ->
@@ -622,7 +622,7 @@ let query_pruning pruning_checker =
     let unfalsified_opt =
       let minus_k = Num.(~- k) in
       Smt.check_sat_assuming_and_get_term_values solver (
-        fun solver term_values -> Some (
+        fun _ term_values -> Some (
           term_values |> List.fold_left (
             fun (non_triv, rest) (cand, b_val) ->
               if b_val = Term.t_true then
@@ -647,7 +647,7 @@ let query_pruning pruning_checker =
       (non_trivial, candidates)
     | Some (non_triv :: non_trivs, rest) ->
       loop (non_triv :: non_trivial) (List.rev_append non_trivs rest)
-    | Some ([], rest) ->
+    | Some ([], _) ->
       KEvent.log L_fatal
         "[pruning] satisfiable instance but no falsifiable candidate" ;
       exit 2

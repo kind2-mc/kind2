@@ -19,8 +19,14 @@
 include GenericSMTLIBDriver
 
 (* Configuration for Boolector *)
-let cmd_line logic timeout produce_assignments produce_proofs produce_cores
-    minimize_cores produce_interpolants =
+let cmd_line
+    _ (* logic *)
+    timeout
+    _ (* produce_assignments *) 
+    _ (* produce_proofs *)
+    _ (* produce_cores *)
+    _ (* minimize_cores *) 
+    _ (* produce_interpolants *) =
   (* Path and name of Boolector executable *)
   let boolector_bin = Flags.Smt.boolector_bin () in
 
@@ -46,7 +52,7 @@ let cmd_line logic timeout produce_assignments produce_proofs produce_cores
 
 (* Command to limit check-sat in Z3 to run for the given numer of ms
    at most *)
-let check_sat_limited_cmd ms =
+let check_sat_limited_cmd _ =
   failwith "check-sat with timeout not implemented for Boolector"
 
 let string_of_logic l =

@@ -193,7 +193,7 @@ let poly_is_constant (pl: poly) : bool =
 
   match pl with
 
-    | [(i, None)] -> true
+    | [(_, None)] -> true
       
     | _ -> false
 
@@ -214,7 +214,7 @@ let get_coe_in_poly_obv (v: Var.t) (pl: poly) : Numeral.t =
 
   match pl with
 
-    | (i, Some v1) :: pl' ->
+    | (i, Some v1) :: _ ->
       
       if (Var.equal_vars v1 v) then i else Numeral.zero
 
@@ -246,10 +246,10 @@ let preAtom_contains_variable (v: Var.t) (pret: preAtom) : bool =
     | INEQ pl -> 
       Numeral.(get_coe_in_poly v pl <> zero)
 
-    | DIVISIBLE (i, pl) ->
+    | DIVISIBLE (_, pl) ->
       Numeral.(get_coe_in_poly v pl <> zero)
 
-    | INDIVISIBLE (i, pl) ->
+    | INDIVISIBLE (_, pl) ->
       Numeral.(get_coe_in_poly v pl <> zero)
 
 
@@ -303,7 +303,7 @@ let rec add_two_polys (c: Var.t -> Var.t -> int) (accum: poly) (pt1: poly) (pt2:
       List.rev_append accum pt1
 
     (* Take head monomials of both polynomials *)
-    | ((c1, v1) as ps1) :: tl1, ((c2, v2) as ps2) :: tl2 ->
+    | ((c1, v1) as ps1) :: tl1, ((c2, _) as ps2) :: tl2 ->
 
       (* Compare head monomials of both polynomials *)
       (match (compare_psummands c ps1 ps2) with

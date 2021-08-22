@@ -154,7 +154,7 @@ let rec eval_ast_expr bounds ctx =
       )
     in
     let rec find_mode = function
-      | { Contract.path ; Contract.name ; Contract.requires } :: tail ->
+      | { Contract.path ; Contract.requires } :: tail ->
         if path = p4th then
           requires
           |> List.map (fun { Contract.svar } -> E.mk_var svar)
@@ -186,20 +186,20 @@ let rec eval_ast_expr bounds ctx =
   (* ****************************************************************** *)
 
   (* Boolean constant true [true] *)
-  | A.Const (pos, A.True) -> eval_nullary_expr ctx pos E.t_true
+  | A.Const (_, A.True) -> eval_nullary_expr ctx E.t_true
 
   (* Boolean constant false [false] *)
-  | A.Const (pos, A.False) -> eval_nullary_expr ctx pos E.t_false
+  | A.Const (_, A.False) -> eval_nullary_expr ctx E.t_false
 
   (* Integer constant [d] *)
-  | A.Const (pos, A.Num d) -> 
+  | A.Const (_, A.Num d) -> 
 
-    eval_nullary_expr ctx pos (E.mk_int (Numeral.of_string d) )
+    eval_nullary_expr ctx (E.mk_int (Numeral.of_string d) )
 
   (* Real constant [f] *)
-  | A.Const (pos, A.Dec f) -> 
+  | A.Const (_, A.Dec f) -> 
 
-    eval_nullary_expr ctx pos (E.mk_real (Decimal.of_string f))
+    eval_nullary_expr ctx (E.mk_real (Decimal.of_string f))
 
   (* ****************************************************************** *)
   (* Unary operators                                                    *)
@@ -649,14 +649,14 @@ let rec eval_ast_expr bounds ctx =
 
   (* An expression list, flatten nested lists and add an index to
      each elements [(expr1, expr2)] *)
-  | A.GroupExpr (pos, A.ExprList, expr_list) -> 
+  | A.GroupExpr (_, A.ExprList, expr_list) -> 
 
     (* Flatten nested lists *)
     let rec flatten_expr_list accum = function 
 
       | [] -> List.rev accum
 
-      | A.GroupExpr (pos, A.ExprList, expr_list) :: tl -> 
+      | A.GroupExpr (_, A.ExprList, expr_list) :: tl -> 
         flatten_expr_list accum (expr_list @ tl)
 
       | expr :: tl -> flatten_expr_list (expr :: accum) tl
@@ -701,7 +701,7 @@ let rec eval_ast_expr bounds ctx =
     (res, ctx)
 
   (* Tuple constructor [{expr1, expr2, ...}] *)
-  | A.GroupExpr (pos, A.TupleExpr, expr_list) -> 
+  | A.GroupExpr (_, A.TupleExpr, expr_list) -> 
 
     let _, res, ctx = 
 
@@ -792,7 +792,7 @@ let rec eval_ast_expr bounds ctx =
         "Type mismatch in record"
 
   (* Update of a record, tuple or array at one index *)
-  | A.StructUpdate (pos, expr1, index, expr2) -> 
+  | A.StructUpdate (_, expr1, index, expr2) -> 
 
     (* Evaluate expressions *)
     let expr1', ctx = eval_ast_expr bounds ctx expr1 in
@@ -937,12 +937,12 @@ let rec eval_ast_expr bounds ctx =
          conditionnaly *)
     let rec mk_cond_indexes (acc, cpt) li ri =
         match li, ri with
-        | D.ArrayVarIndex v :: li', D.ArrayIntIndex vi :: ri' ->
+        | D.ArrayVarIndex _ :: li', D.ArrayIntIndex vi :: ri' ->
           let acc =
             E.mk_eq (E.mk_index_var cpt) (E.mk_int (Numeral.of_int vi)) :: acc
           in
           mk_cond_indexes (acc, cpt+1) li' ri'
-        | D.ArrayVarIndex v :: li', D.ArrayVarIndex vi :: ri' ->
+        | D.ArrayVarIndex _ :: li', D.ArrayVarIndex vi :: ri' ->
           let acc =
             E.mk_eq (E.mk_index_var cpt) (E.mk_of_expr vi) :: acc in
           mk_cond_indexes (acc, cpt+1) li' ri'
@@ -1067,7 +1067,7 @@ let rec eval_ast_expr bounds ctx =
   (* ****************************************************************** *)
 
   (* Array constructor [[expr1, expr2]] *)
-  | A.GroupExpr (pos, A.ArrayExpr, expr_list) -> 
+  | A.GroupExpr (_, A.ArrayExpr, expr_list) -> 
 
     let _, res, ctx = 
 
@@ -1173,7 +1173,7 @@ let rec eval_ast_expr bounds ctx =
       match D.choose expr' with 
 
       (* Projection from an array indexed by variable *)
-      | D.ArrayVarIndex s :: tl, v -> 
+      | D.ArrayVarIndex _ (* s *) :: _ (* tl *), v -> 
 
         (* type check with length of arrays when statically known *)
         (* Disabled because not precise enough *)
@@ -1206,7 +1206,7 @@ let rec eval_ast_expr bounds ctx =
 
 
       (* Projection from an array indexed by integers *)
-      | D.ArrayIntIndex _ :: tl, _ -> 
+      | D.ArrayIntIndex _ :: _, _ -> 
 
         select_from_arrayintindex pos bound_e index expr'
 
@@ -1310,7 +1310,7 @@ let rec eval_ast_expr bounds ctx =
 (* ******************************************************************** *)
 
 
-and var_of_quant (ctx, vars) (pos, v, ast_type) =
+and var_of_quant (ctx, vars) (_, v, ast_type) =
   (* Evaluate type expression *)
   let index_types = eval_ast_type ctx ast_type in
 
@@ -1500,7 +1500,7 @@ and eval_ident ctx pos i =
     Deps.Unknown_decl (Deps.Const, ident, pos) |> raise
 
 (* Return the constant inserted into an empty trie *)
-and eval_nullary_expr ctx pos expr =
+and eval_nullary_expr ctx expr =
 
   (* Add expression to trie with empty index *)
   let res = D.singleton D.empty_index expr in
@@ -1570,7 +1570,7 @@ and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 =
 
     with 
 
-      | Invalid_argument s ->
+      | Invalid_argument _ ->
 
         fail_at_position
           pos
@@ -1706,11 +1706,9 @@ and eval_node_call
     ctx
     pos
     ident
-    { N.name = node_name;
-      N.inputs = node_inputs; 
+    { N.inputs = node_inputs; 
       N.oracles = node_oracles;
-      N.outputs = node_outputs; 
-      N.props = node_props } 
+      N.outputs = node_outputs } 
     cond
     restart
     args
@@ -1844,7 +1842,7 @@ and eval_node_call
         (try 
            (* Iterate over state variables in outputs and expressions for their
               defaults *)
-           D.iter2 (fun i sv { E.expr_type = t } -> 
+           D.iter2 (fun _ sv { E.expr_type = t } -> 
                (* Type of default must match type of respective output *)
                if not (Type.check_type t (StateVar.type_of_state_var sv)) then
                  fail_at_position pos
@@ -2140,30 +2138,30 @@ and eval_ast_type_flatten flatten_arrays ctx = function
 
   | A.TVar _ -> Lib.todo "Trying to flatten type Variable. Should not happen"
   (* Basic type bool, add to empty trie with empty index *)
-  | A.Bool pos -> D.singleton D.empty_index Type.t_bool
+  | A.Bool _ -> D.singleton D.empty_index Type.t_bool
 
 
   (* Basic type integer, add to empty trie with empty index *)
-  | A.Int pos -> D.singleton D.empty_index Type.t_int
+  | A.Int _ -> D.singleton D.empty_index Type.t_int
 
-  | A.UInt8 pos -> D.singleton D.empty_index (Type.t_ubv 8)
+  | A.UInt8 _ -> D.singleton D.empty_index (Type.t_ubv 8)
 
-  | A.UInt16 pos -> D.singleton D.empty_index (Type.t_ubv 16)
+  | A.UInt16 _ -> D.singleton D.empty_index (Type.t_ubv 16)
 
-  | A.UInt32 pos -> D.singleton D.empty_index (Type.t_ubv 32)
+  | A.UInt32 _ -> D.singleton D.empty_index (Type.t_ubv 32)
 
-  | A.UInt64 pos -> D.singleton D.empty_index (Type.t_ubv 64)
+  | A.UInt64 _ -> D.singleton D.empty_index (Type.t_ubv 64)
 
-  | A.Int8 pos -> D.singleton D.empty_index (Type.t_bv 8)
+  | A.Int8 _ -> D.singleton D.empty_index (Type.t_bv 8)
 
-  | A.Int16 pos -> D.singleton D.empty_index (Type.t_bv 16)
+  | A.Int16 _ -> D.singleton D.empty_index (Type.t_bv 16)
 
-  | A.Int32 pos -> D.singleton D.empty_index (Type.t_bv 32)
+  | A.Int32 _ -> D.singleton D.empty_index (Type.t_bv 32)
 
-  | A.Int64 pos -> D.singleton D.empty_index (Type.t_bv 64)
+  | A.Int64 _ -> D.singleton D.empty_index (Type.t_bv 64)
 
   (* Basic type real, add to empty trie with empty index *)
-  | A.Real pos -> D.singleton D.empty_index Type.t_real
+  | A.Real _ -> D.singleton D.empty_index Type.t_real
 
 
   (* Integer range type, constructed from evaluated expressions for
@@ -2189,7 +2187,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
 
 
   (* Enum type needs to be constructed *)
-  | A.EnumType (pos, enum_name, enum_elements) -> 
+  | A.EnumType (_, enum_name, enum_elements) -> 
 
     let ty = Type.mk_enum enum_name enum_elements in
       
@@ -2221,11 +2219,11 @@ and eval_ast_type_flatten flatten_arrays ctx = function
    * so it cannot be used as a raw integer.
    * There are abstract types in Type, but using an integer reference is able
    * to give better counterexamples. *)
-  | A.AbstractType (pos, ident) ->
+  | A.AbstractType (_, ident) ->
       D.singleton [D.AbstractTypeIndex ident] Type.t_int
 
   (* Record type, return trie of indexes in record *)
-  | A.RecordType (pos, record_fields) -> 
+  | A.RecordType (_, record_fields) -> 
 
     (* Take all record fields *)
     List.fold_left
@@ -2249,7 +2247,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
       record_fields
 
   (* Tuple type, return trie of indexes in tuple fields *)
-  | A.TupleType (pos, tuple_fields) -> 
+  | A.TupleType (_, tuple_fields) -> 
 
     (* Take all tuple fields in order *)
     List.fold_left

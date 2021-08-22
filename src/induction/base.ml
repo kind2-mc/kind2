@@ -48,7 +48,7 @@ let shall_keep trans (s,_) =
   | _ -> true
 
 (* Check-sat and splits properties.. *)
-let split trans solver k falsifiable to_split actlit =
+let [@ocaml.warning "-27"] split trans solver k falsifiable to_split actlit =
 
   (* Function to run if sat. *)
   let if_sat _ =

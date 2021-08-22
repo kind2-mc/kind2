@@ -582,7 +582,7 @@ let extract uf_defs env term =
 
              (* Equality cannot be nullary *)
              | []  -> assert false
-             | h :: tl -> 
+             | h :: _ -> 
 
                (* Equality is between Boolean terms? *)
                if Term.type_of_term h == Type.t_bool then 
@@ -637,7 +637,7 @@ let extract uf_defs env term =
                    | _ :: [] -> assert false 
 
                    (* Comparison of arity two *)
-                   | [l; r] -> 
+                   | [_; _] -> 
 
                      extract_term_atom accum polarity term 
 
@@ -791,7 +791,7 @@ let extract uf_defs env term =
             | [] -> assert false 
 
             (* Term is an application to subterms *)
-            | l -> 
+            | _ -> 
 
               (* Extract from subterms with undefined polarity *)
               extract_term_atom accum polarity term 

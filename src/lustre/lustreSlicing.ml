@@ -88,19 +88,19 @@ let sum_offsets_negative offsets =
 let gather_offsets_on_cycles state_var parents =
   let rec gather_up_to big_acc small_acc sv parents =
     match parents with
-    | ((sv', Some off) as x) :: r when StateVar.equal_state_vars sv' sv ->
+    | ((sv', Some _) as x) :: r when StateVar.equal_state_vars sv' sv ->
       let big_acc = List.rev (x :: small_acc) :: big_acc in
       gather_up_to big_acc [] sv (List.rev_append small_acc r)
 
-    | (sv', None) :: r when StateVar.equal_state_vars sv' sv ->
+    | (sv', None) :: _ when StateVar.equal_state_vars sv' sv ->
       raise Exit
 
-    | ((_, Some off) as x) :: r -> gather_up_to big_acc (x :: small_acc) sv r
+    | ((_, Some _) as x) :: r -> gather_up_to big_acc (x :: small_acc) sv r
     | _ :: r -> gather_up_to big_acc small_acc sv r
     | [] -> big_acc
   in
   gather_up_to [] [] state_var parents
-  |> List.map (List.map (function | (sv, Some off) -> off | _ -> assert false))
+  |> List.map (List.map (function | (_, Some off) -> off | _ -> assert false))
 
 
 (* Checks if a variable contains a cycle in its dependencies. For apparent
@@ -122,7 +122,7 @@ let has_cycle state_var parents =
    cycle, in reverse order *)
 let rec describe_cycle node accum = function
 
-  | (state_var, ind) :: tl ->
+  | (state_var, _) :: tl ->
 
     (* Output state variable if visible, or node call *)
     (match N.get_state_var_source node state_var with
@@ -149,7 +149,7 @@ let rec describe_cycle node accum = function
          (* Find node call with state variable as output *)
          let { N.call_node_name } =
            List.find
-             (fun { N.call_node_name; N.call_outputs } -> 
+             (fun { N.call_outputs } -> 
                 D.exists (fun _ sv -> StateVar.equal_state_vars state_var sv)
                   call_outputs)
              node.N.calls 
@@ -171,8 +171,8 @@ let rec describe_cycle node accum = function
 
 (* Checks if the state variable appears in some accumulator [accum] or if there
    exists a cycle, then checks that this same variable is also on the cycle. *)
-let break_cycle accum parents state_var sv inds =
-  List.exists (fun (sv', inds') -> StateVar.equal_state_vars sv sv') accum
+let [@ocaml.warning "-27"] break_cycle accum parents state_var sv inds =
+  List.exists (fun (sv', _) -> StateVar.equal_state_vars sv sv') accum
   ||
   List.exists (fun path ->
       List.exists (fun (sv', _) -> StateVar.equal_state_vars state_var sv') path
@@ -203,7 +203,7 @@ let add_dep_to_parents sv indgrps parents =
 
 (* Strategy for merging dependencies on indexes of array accesses (we keep them
    all). *)
-let merge_deps sv oind1 oind2 = match oind1, oind2 with
+let [@ocaml.warning "-27"] merge_deps sv oind1 oind2 = match oind1, oind2 with
   | Some i1, Some i2 -> Some (i1 @ i2)
   | Some i, None | None, Some i -> Some i
   | _ -> None
@@ -245,7 +245,7 @@ let state_vars_of_bounds = state_vars_of_bounds SVS.empty
    backtracking over the children we explored and that's where the troubles
    start. *)
 let rec node_state_var_dependencies' init output_input_deps
-    ({ N.inputs; N.equations; N.calls } as node)
+    ({ N.equations; N.calls } as node)
     accum = function
 
   (* Return all calculated dependencies *)
@@ -288,7 +288,7 @@ let rec node_state_var_dependencies' init output_input_deps
         List.fold_left
 
           (* State variable depends on state variables in equation *)
-          (fun accum (((sv, bnds), expr)) ->
+          (fun accum (((_, bnds), expr)) ->
              (* Format.eprintf "Equation: %a@." *)
              (*   (N.pp_print_node_equation false) eq; *)
 
@@ -318,7 +318,7 @@ let rec node_state_var_dependencies' init output_input_deps
 
           (* Find node calls defining the state variable *)
           List.find_all
-            (fun { N.call_node_name; N.call_outputs } -> 
+            (fun { N.call_outputs } -> 
                D.exists 
                  (fun _ sv -> StateVar.equal_state_vars state_var sv)
                  call_outputs)
@@ -331,8 +331,7 @@ let rec node_state_var_dependencies' init output_input_deps
             (fun
               accum
               { N.call_node_name; 
-                N.call_inputs; 
-                N.call_oracles; 
+                N.call_inputs;
                 N.call_outputs; 
                 N.call_defaults;
                 N.call_cond } -> 
@@ -513,7 +512,7 @@ let output_input_dep_of_dependencies dependencies inputs outputs =
   (* Map trie of output state variables to trie of indexes *)
   D.mapi
 
-    (fun j output -> 
+    (fun _ output -> 
 
        (* State variables this state variables depends on *)
        let output_dep = 
@@ -576,7 +575,7 @@ let state_var_dependencies'
     |> D.fold (fun _ sv a -> (sv, []) :: a) outputs
     (* Add state variables capturing outputs of node calls *)
     |> (fun accum -> 
-        List.fold_left (fun a { N.call_node_name; N.call_outputs } -> 
+        List.fold_left (fun a { N.call_outputs } -> 
             D.fold (fun _ sv a -> (sv, []) :: a) call_outputs a
           ) accum calls)
   in
@@ -588,7 +587,7 @@ let state_var_dependencies'
 let state_var_dependencies
   init
   output_input_deps
-  ({ N.inputs; N.locals ; N.outputs } as node) =
+  ({ N.inputs; N.outputs } as node) =
 
   let dependencies =
     state_var_dependencies' init output_input_deps node []
@@ -615,7 +614,7 @@ let state_var_dependencies
 let order_equations
     init
     output_input_deps
-    ({ N.inputs; N.outputs; N.equations; N.calls } as node) =
+    ({ N.inputs; N.outputs; N.equations } as node) =
 
   let dependencies =
     state_var_dependencies' init output_input_deps node []
@@ -798,13 +797,10 @@ let rec slice_nodes
     (* Node is sliced to all equations *)
     | ([], 
        leaves, 
-       ({ N.name; 
-          N.inputs; 
-          N.oracles; 
+       ({ N.inputs; 
           N.outputs; 
-          N.locals; 
-          N.state_var_source_map } as node_sliced), 
-       node_unsliced) :: tl ->
+          N.locals } as node_sliced), 
+        _ (* node_unsliced *)) :: tl ->
       
       (* If this is the top node, slice away inputs and outputs *)
       let inputs', outputs' = 
@@ -935,7 +931,7 @@ let rec slice_nodes
 
             (fun
               (equations_in_coi, equations_not_in_coi, roots')
-              (((sv, _), expr) as eq) -> 
+              (((sv, _), _) as eq) -> 
 
               (* Equation defines variable? *)
               if StateVar.equal_state_vars state_var sv then
@@ -973,8 +969,7 @@ let rec slice_nodes
 
             (fun
               (calls_in_coi, calls_not_in_coi, roots')
-              ({ N.call_node_name; 
-                 N.call_outputs } as node_call) ->
+              ({ N.call_outputs } as node_call) ->
 
               if
 
@@ -1128,7 +1123,7 @@ let root_and_leaves_of_impl
 
 (* Slice a node to its contracts, starting from contracts, stopping at
    outputs *)
-let root_and_leaves_of_contracts
+let [@ocaml.warning "-27"] root_and_leaves_of_contracts
     is_top
     roots
     ({ N.outputs; 
@@ -1172,7 +1167,7 @@ let node_is_abstract analysis { N.name } =
    indicated by [abstraction_map]. Use the implementation if a node is
    not in the map. *)
 let root_and_leaves_of_abstraction_map 
-  is_top roots abstraction_map ({ N.name } as node)
+  is_top roots abstraction_map node
 =
   if node_is_abstract abstraction_map node
   then (* Node is to be abstract *)

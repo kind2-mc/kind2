@@ -15,6 +15,9 @@
    permissions and limitations under the License. 
 
 *)
+
+[@@@ocaml.warning "-27"]
+
 (** Translation of type checked AST to intermediate node model
   
   @author Andrew Marmaduke *)

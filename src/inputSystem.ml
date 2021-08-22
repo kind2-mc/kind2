@@ -49,9 +49,9 @@ let silent_contracts_of (type s) : s t -> (Scope.t * string list) list
         (scope, silent_contracts) :: acc
     ) []
 
-  | Native subsystem -> raise (UnsupportedFileFormat "Native")
+  | Native _ -> raise (UnsupportedFileFormat "Native")
 
-  | Horn subsystem -> raise (UnsupportedFileFormat "Horn")
+  | Horn _ -> raise (UnsupportedFileFormat "Horn")
 
 let ordered_scopes_of (type s) : s t -> Scope.t list = function
   | Lustre (main_subs, _, _) ->
@@ -62,7 +62,7 @@ let ordered_scopes_of (type s) : s t -> Scope.t list = function
     S.all_subsystems subsystem
     |> List.map (fun { S.scope } -> scope)
 
-  | Horn subsystem -> assert false
+  | Horn _ -> assert false
 
 let analyzable_subsystems (type s) : s t -> s SubSystem.t list = function
   | Lustre (main_subs, _, _) ->
@@ -83,7 +83,7 @@ let analyzable_subsystems (type s) : s t -> s SubSystem.t list = function
     |> List.filter (fun s ->
       Strategy.is_candidate_for_analysis (S.strategy_info_of s))
 
-  | Horn subsystem -> assert false
+  | Horn _ -> assert false
 
 (* Uid generator for test generation params.
 
@@ -155,8 +155,8 @@ let maximal_abstraction_for_testgen (type s)
 
   )
 
-  | Native subsystem -> assert false
-  | Horn subsystem -> assert false
+  | Native _ -> assert false
+  | Horn _ -> assert false
 
 let next_analysis_of_strategy (type s)
 : s t -> 'a -> Analysis.param option = function
@@ -213,7 +213,7 @@ let next_analysis_of_strategy (type s)
       )
   )
          
-  | Horn subsystem -> (function _ -> assert false)
+  | Horn _ -> (function _ -> assert false)
 
 
 let mcs_params (type s) (input_system : s t) =
@@ -424,7 +424,7 @@ let pp_print_path_pt
     LustrePath.pp_print_path_pt
       trans_sys instances globals sub first_is_init ppf model
 
-  | Native sub ->
+  | Native _ ->
     Format.eprintf "pp_print_path_pt not implemented for native input@.";
     ()
     (* assert false *)

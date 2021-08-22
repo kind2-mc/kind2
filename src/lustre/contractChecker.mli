@@ -82,25 +82,17 @@ val satisfiability_result_to_string : satisfiability_result -> string
 val check_contract_satisfiability: TransSys.t -> satisfiability_result
 
 val pp_print_satisfiability_result_pt :
-  'a InputSystem.t ->
   Analysis.param ->
-  TransSys.t ->
   Format.formatter ->
   satisfiability_result ->
   unit
 
 val pp_print_satisfiability_result_json :
-  'a InputSystem.t ->
-  Analysis.param ->
-  TransSys.t ->
   Format.formatter ->
   satisfiability_result ->
   unit
 
 val pp_print_satisfiability_result_xml :
-  'a InputSystem.t ->
-  Analysis.param ->
-  TransSys.t ->
   Format.formatter ->
   satisfiability_result ->
   unit

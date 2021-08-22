@@ -221,7 +221,7 @@ let rec substitute_definitions'
 
       (* Find equation for the variable *)
       let expr =
-        List.find (fun ((sv, _), def) -> 
+        List.find (fun ((sv, _), _) -> 
             (* Equation is for state variable? *)
             StateVar.equal_state_vars sv state_var
           ) equations
@@ -482,7 +482,7 @@ let active_modes_of_instances model_top instances = function
     | { C.requires = [] } as m ->
       (* No requires, always active. *)
       mode_trace |> List.map (fun active -> m :: active)
-    | { C.name ; C.requires = head :: tail } as m ->
+    | { C.requires = head :: tail } as m ->
       let head = trace_of_req head in
       let reqs_val =
         tail |> List.fold_left (
@@ -548,7 +548,7 @@ let node_path_of_instance
     first_is_init
     model_top
     ({
-      N.inputs; N.outputs; N.locals; N.equations; N.contract
+      N.inputs; N.outputs; N.locals; N.contract
     } as node)
     trans_sys
     instances
@@ -666,7 +666,7 @@ let node_path_of_instance
 (* Return a hierarchical model for the nodes from a flat model by
    mapping the model of the top node to model of the subnode instances,
    reconstructing the streams in the original input. *)
-let node_path_of_subsystems
+let [@ocaml.warning "-27"] node_path_of_subsystems
     globals
     first_is_init
     trans_sys
@@ -847,7 +847,7 @@ let pp_print_pos_pt ppf pos =
 (* Output the name of the lustre variable and remove the automaton prefixes *)
 let pp_print_lustre_var ppf state_var =
   match N.is_automaton_state_var state_var with
-  | Some (auto, name) -> Format.pp_print_string ppf name
+  | Some (_, name) -> Format.pp_print_string ppf name
   | None -> E.pp_print_lustre_var false ppf state_var
 
 
@@ -1125,7 +1125,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
   (* Remove first dimension from index *)
   let pop_head_index = function 
     | ([], sv) -> ([], sv)
-    | (h :: tl, sv) -> (tl, sv)
+    | (_ :: tl, sv) -> (tl, sv)
   in
 
   (* Boolean clock that indicates if the node is active for this particular
@@ -1152,7 +1152,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
   in
 
   let mode_ident = "Mode(s)" in
-  let ident_witdth, val_width, modes = match active_modes with
+  let _ (* ident_witdth *), val_width, modes = match active_modes with
     | None -> ident_width, val_width, None
     | Some modes ->
       let ident_width = max ident_width (String.length mode_ident) in
@@ -1185,7 +1185,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
       )
   in
 
-  let ident_witdth, val_width, ghosts' =
+  let _ (* ident_witdth *), val_width, ghosts' =
     ghosts |> streams_to_values model ident_width val_width []
   in
 
@@ -1423,14 +1423,14 @@ let pp_print_stream_xml node model clock ppf (index, state_var) =
       Format.pp_print_string ppf "type=\"real\""
     | Type.Abstr s ->
       Format.pp_print_string ppf s
-    | Type.IntRange (i, j, Type.Enum) ->
+    | Type.IntRange (_, _, Type.Enum) ->
       let pp_print_enum_name ppf =
           Format.fprintf ppf "enumName=\"%s\" " (Type.name_of_enum stream_type)
       in
       Format.fprintf ppf "type=\"enum\"@ %tvalues=\"%a\""
         pp_print_enum_name (pp_print_list Format.pp_print_string ", ")
         (Type.constructors_of_enum stream_type)
-    | Type.Array (s, t) ->
+    | Type.Array (_, _) ->
       Format.pp_print_string ppf "type=\"array\""
   in
 
@@ -1466,7 +1466,7 @@ let pp_print_active_modes_xml ppf = function
   Format.fprintf ppf
     "@,@[<v>%a@]"
     (pp_print_list
-      ( fun fmt (k, tree) ->
+      ( fun _ (k, tree) ->
         Format.fprintf ppf
           "\
             <ActiveModes instant=\"%d\">@   \
@@ -1530,7 +1530,7 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
     (* Remove first dimension from index *)
     let pop_head_index = function 
       | ([], sv) -> ([], sv)
-      | (h :: tl, sv) -> (tl, sv)
+      | (_ :: tl, sv) -> (tl, sv)
     in
 
     (* Remove index of position in input for printing *)
@@ -1700,7 +1700,7 @@ let pp_print_stream_values_json clock ty ppf l =
     let values_on_clock =
       List.mapi (fun i c -> (i, c)) c
       |> List.map2 (fun v (i, c) -> (i, v, c)) l
-      |> List.filter (fun (i, v, c) -> c)
+      |> List.filter (fun (_, _, c) -> c)
     in
       pp_print_list (fun ppf (i, v, _c) -> pp_print_stream_value_json ty ppf i v) "," ppf values_on_clock
 
@@ -1735,7 +1735,7 @@ let rec pp_print_type_json field ppf stream_type =
         field field
         Numeral.pp_print_numeral i Numeral.pp_print_numeral j
   )
-  | Type.IntRange (i, j, Type.Enum) -> (
+  | Type.IntRange (_, _, Type.Enum) -> (
     let pp_print_qstring ppf s =
       Format.fprintf ppf "\"%s\"" s
     in
@@ -1760,7 +1760,7 @@ let rec pp_print_type_json field ppf stream_type =
       Type.all_index_types_of_array stream_type |>
       List.map Type.node_of_type |>
       List.map (function
-        | Type.IntRange (i, j, Type.Range) ->
+        | Type.IntRange (_, j, Type.Range) ->
           Numeral.string_of_numeral j
         | _ -> "null"
       )
@@ -1808,7 +1808,7 @@ let pp_print_active_modes_json ppf = function
   | None | Some [] -> ()
   | Some mode_trace ->
       Format.fprintf ppf ",@,\"activeModes\" :@,[@[<v 1>%a@]@,]"
-        (pp_print_list (fun fmt (k, tree) ->
+        (pp_print_list (fun _ (k, tree) ->
           Format.fprintf ppf
             "@,{@[<v 1>@,\
               \"instant\" : %d,@,\
@@ -1868,7 +1868,7 @@ let pp_print_streams_and_automata_json is_top const_map ppf
   (* Remove first dimension from index *)
   let pop_head_index = function
     | ([], sv) -> ([], sv)
-    | (h :: tl, sv) -> (tl, sv)
+    | (_ :: tl, sv) -> (tl, sv)
   in
 
   (* Remove index of position in input for printing *)
@@ -2026,12 +2026,12 @@ let pp_print_stream_csv model ppf (index, sv) =
 
 (* Outputs a sequence of values for the inputs of a node. *)
 let pp_print_lustre_path_in_csv ppf = function
-| (trace, Node ( { N.inputs }, model, _, _, _ )), _ ->
+| (_, Node ( { N.inputs }, model, _, _, _ )), _ ->
 
   (* Remove first dimension from index. *)
   let pop_head_index = function
     | [], sv -> [], sv
-    | h :: tl, sv -> tl, sv
+    | _ :: tl, sv -> tl, sv
   in
 
   (* Remove index of position in input for printing. *)
@@ -2075,7 +2075,7 @@ let same_args abstr_map (inputs, defs) (inputs', defs') =
 
 let rec add_to_callpos abstr_map acc pos cond args calls =
   match calls with
-  | ((pos', nb', cond', args') as x) :: r ->
+  | ((pos', nb', _, args') as x) :: r ->
     let c_pos = Lib.compare_pos pos pos' in
 
     if c_pos = 0 then raise Exit; (* already in there, abort *)

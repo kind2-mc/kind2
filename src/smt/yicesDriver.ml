@@ -21,13 +21,13 @@ open Lib
 
 (* Configuration for Yices *)
 let cmd_line
-    logic
+    _ (* logic *)
     timeout
-    produce_assignments
-    produce_proofs
-    produce_cores
-    minimize_cores
-    produce_interpolants = 
+    _ (* produce_assignments *)
+    _ (* produce_proofs *)
+    _ (* produce_cores *)
+    _ (* minimize_cores *)
+    _ (* produce_interpolants *) = 
 
   (* Path and name of Yices executable *)
   let yices_bin = Flags.Smt.yices_bin () in
@@ -58,7 +58,7 @@ let cmd_line
 
 
 (* Command to limit check-sat to run for the given numer of ms at most *)
-let check_sat_limited_cmd ms =
+let check_sat_limited_cmd _ =
   failwith "Yices.check_sat_limited_cmd"
 
 
@@ -135,7 +135,7 @@ and pp_print_type_node ppf = function
 
 
 (* Pretty-print a logic identifier *)
-let pp_print_logic ppf l =  failwith "no logic selection in yices"
+let pp_print_logic _ _ =  failwith "no logic selection in yices"
 
 
 let rec interpr_type t = match Type.node_of_type t with
@@ -314,7 +314,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BV2NAT -> Format.pp_print_string ppf "bv2nat"
   | `IS_INT -> failwith "is_int not implemented for yices"
 
-  | `DIVISIBLE n ->
+  | `DIVISIBLE _ ->
     failwith "divisible not implemented for yices"
 
   | `BVNOT -> Format.pp_print_string ppf "bv-not"

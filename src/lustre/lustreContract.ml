@@ -35,7 +35,7 @@ let mk_svar pos num name svar scope = {
   pos ; num ; name ; svar ; scope
 }
 
-let prop_name_of_svar { pos ; num ; name = s; scope } kind name =
+let prop_name_of_svar { pos ; name = s; scope } kind name =
   match s with
   | Some n ->
     Format.asprintf "%a%s" (
@@ -330,7 +330,7 @@ module ModeTrace = struct
     in
 
     let rec pp_contract_modes ppf (Contract (name, modes, subs)) =
-      Format.fprintf fmt
+      Format.fprintf ppf
           "{@[<v 1>@,\
             \"contract\" : \"%s\",@,\
             \"modes\" :%a,@,\

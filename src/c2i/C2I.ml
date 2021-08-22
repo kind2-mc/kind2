@@ -151,7 +151,7 @@ type context = {
 
 (* Creates two solvers for the context. Initializes them and updates the
    solver references (deletes the previous solvers. *)
-let mk_solvers sys prop =
+let mk_solvers sys =
   (* Destroy all existing solvers. *)
   let solver1 =
     SMTSolver.create_instance
@@ -223,7 +223,7 @@ let mk_solvers sys prop =
 
 (* Initializes the solvers, creates the context. *)
 let mk_context sys prop =
-  let solver1, solver2, solver3 = mk_solvers sys prop in
+  let solver1, solver2, solver3 = mk_solvers sys in
   { sys ; prop ;
     k = 1;
     white = [] ; grey = [] ; black = [] ;
@@ -238,10 +238,10 @@ let reset_prop_of context prop =
 let reset_grey_of context = { context with grey = [] }
 
 (* Resets the solvers of a context every 20 checks. *)
-let reset_solvers_of ({ sys ; prop ; white ; grey ; black } as context) =
+let reset_solvers_of ({ sys } as context) =
   if (Actlit.fresh_actlit_count () / 3) mod 10 = 0 then (
     (* Reset solvers. *)
-    let solver1, solver2, solver3 = mk_solvers sys prop in
+    let solver1, solver2, solver3 = mk_solvers sys in
     (* Reset actlits. *)
     Actlit.reset_fresh_actlit_count () ;
     { context with solver1 ; solver2 ; solver3 }
@@ -617,7 +617,7 @@ let rec run in_sys param context_option candidate sys =
   (* No more properties, done. *)
   | _, _, [] -> ()
 
-  | _, _, prop :: tail -> ( match Property.get_prop_status prop with
+  | _, _, prop :: _ -> ( match Property.get_prop_status prop with
     | Property.PropInvariant _ | Property.PropFalse _ ->
       (* We don't care about this one .*)
       run in_sys param context_option candidate sys
@@ -653,7 +653,7 @@ let rec run in_sys param context_option candidate sys =
             ) str_inv cert false ;
 
             (* Communicating. *)
-            let new_invs, is_done =
+            let new_invs, _ (* is_done *) =
               KEvent.recv ()
               |> KEvent.update_trans_sys in_sys param sys
               |> fun (invs,props) ->

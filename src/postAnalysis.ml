@@ -208,7 +208,7 @@ module RunAssumptionGen: PostAnalysis = struct
   let name = "assumptiongen"
   let title = "assumption generation"
   let is_active () = Flags.Contracts.assumption_gen ()
-  let run in_sys param analyze results =
+  let run in_sys param _ results =
     let top = (Analysis.info_of_param param).Analysis.top in
     last_result results top
     |> Res.chain (fun { Analysis.sys } ->
@@ -269,7 +269,7 @@ module RunAssumptionGen: PostAnalysis = struct
         (* Create directories if they don't exist. *)
         Flags.output_dir () |> mk_dir ;
         mk_dir target ;
-        invalid |> List.iter (fun (p, k) ->
+        invalid |> List.iter (fun (p, _) ->
           KEvent.log L_note "Analyzing %a..."
             Property.pp_print_prop_quiet p;
           let response =
@@ -321,7 +321,7 @@ module RunContractGen: PostAnalysis = struct
   let name = "contractgen"
   let title = "contract generation"
   let is_active () = Flags.Contracts.contract_gen ()
-  let run in_sys param analyze results =
+  let run in_sys param analyze _ =
     let top = (Analysis.info_of_param param).Analysis.top in
     KEvent.log L_note
       "Contract generation is a very experimental feature:@ \
@@ -362,7 +362,8 @@ module RunContractGen: PostAnalysis = struct
 
     ( match Flags.invgen_enabled () with
       | [] -> error (
-        fun fmt -> Format.printf "No invariant generation technique enabled."
+        fun fmt ->
+          Format.fprintf fmt "No invariant generation technique enabled."
       )
       | teks -> Ok teks
     )
@@ -418,7 +419,7 @@ module RunRustGen: PostAnalysis = struct
   let name = "rustgen"
   let title = "rust generation"
   let is_active () = Flags.lus_compile ()
-  let run in_sys param _ results =
+  let run in_sys param _ _ =
     KEvent.log L_note
       "Compilation to Rust is still a rather experimental feature:@ \
       in particular, arrays are not supported." ;
@@ -544,7 +545,7 @@ module RunInvLog: PostAnalysis = struct
           k_min (List.length invs_min) ;
         Ok (sys, k_min, invs_min)
       ) with
-      | CertifChecker.CouldNotProve blah -> error(
+      | CertifChecker.CouldNotProve _ -> error(
         fun fmt ->
           (* Format.fprintf fmt
             "@[<v>Some necessary invariants cannot be translated \

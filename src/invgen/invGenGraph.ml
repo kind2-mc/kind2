@@ -275,7 +275,7 @@ module Make (Dom: DomainSig) : Graph = struct
   (** Total number of terms in the graph. *)
   let term_count { classes } =
     Map.fold (
-      fun rep cl4ss sum ->
+      fun _ (* rep *) cl4ss sum ->
         (* Format.printf "%a -> @[<v>%a@]@.@."
           fmt_term rep
           (pp_print_list fmt_term "@ ")
@@ -786,7 +786,7 @@ digraph mode_graph {
     let below = Map.find map_down rep in
 
     (* Greatest value in the chain. *)
-    let greatest_rep, greatest_val = List.hd chain in
+    let greatest_rep, _ (* greatest_val *) = List.hd chain in
 
     (* Break all links from [rep], except if rep is the top of the chain. These
     links will be used to update the kids of [rep] in the future. Remember that
@@ -1019,7 +1019,7 @@ digraph mode_graph {
 
   (** Stabilizes the equivalence classes.
   Stabilizes classes one by one to send relatively few candidates to lsd. *)
-  let stabilize_classes sys known stable_action query ({ classes } as graph) =
+  let [@ocaml.warning "-27"] stabilize_classes sys known stable_action query ({ classes } as graph) =
 
     let rec loop count reps_to_update =
 
@@ -1078,7 +1078,7 @@ digraph mode_graph {
 
   (** Stabilizes the relations. *)
   let rec stabilize_rels sys known query count (
-    { map_up ; classes } as graph
+    { map_up } as graph
   ) =
     (* Checking if we should terminate before doing anything. *)
     KEvent.check_termination () ;
@@ -1255,7 +1255,7 @@ module MakeEq (Dom: DomainSig) : Graph = struct
 
   (** Total number of terms in the graph. *)
   let term_count graph = Map.fold (
-    fun _ cl4ss sum -> sum + (Map.length graph) + 1
+    fun _ _ sum -> sum + (Map.length graph) + 1
   ) graph 0
 
   (** Total number of classes in the graph. *)
@@ -1397,7 +1397,7 @@ digraph mode_graph {
           try (
             let _, rep =
               ! val_map |> List.find (
-                fun (v, rep) -> Domain.eq v value
+                fun (v, _) -> Domain.eq v value
               )
             in
             add rep term

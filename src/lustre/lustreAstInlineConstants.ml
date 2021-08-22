@@ -38,7 +38,7 @@ let inline_error pos err = R.error (pos, "Error: " ^ err)
                       
 let int_value_of_const: LA.expr -> int inline_result =
   function
-  | LA.Const (pos, LA.Num n) -> R.ok (int_of_string n)
+  | LA.Const (_, LA.Num n) -> R.ok (int_of_string n)
   | e -> inline_error (LH.pos_of_expr e)
            ("Cannot evaluate non-int constant "
             ^ LA.string_of_expr e
@@ -46,8 +46,8 @@ let int_value_of_const: LA.expr -> int inline_result =
 
 let bool_value_of_const: LA.expr -> bool inline_result =
   function
-  | LA.Const (pos, LA.True) -> R.ok true
-  | LA.Const (pos, LA.False) -> R.ok false                             
+  | LA.Const (_, LA.True) -> R.ok true
+  | LA.Const (_, LA.False) -> R.ok false                             
   | e -> inline_error (LH.pos_of_expr e)
            ("Cannot evaluate non-bool "
             ^ LA.string_of_expr e
@@ -70,7 +70,7 @@ let rec eval_int_expr: tc_context -> LA.expr -> int inline_result = fun ctx ->
   function
   | LA.Ident (pos, i) ->
      (match (TC.lookup_const ctx i) with
-      | Some (const_expr, expr_type) ->
+      | Some (const_expr, _) ->
          if is_normal_form ctx const_expr
          then int_value_of_const const_expr
          else (match const_expr with
@@ -122,7 +122,7 @@ and eval_bool_expr: tc_context -> LA.expr -> bool inline_result = fun ctx ->
   function
   | LA.Ident (pos, i) ->
      (match (TC.lookup_const ctx i) with
-      | Some (const_expr, expr_type) ->
+      | Some (const_expr, _) ->
          if is_normal_form ctx const_expr
          then bool_value_of_const const_expr
          else (match const_expr with
@@ -179,7 +179,7 @@ and eval_int_ternary_op: tc_context -> Lib.position -> LA.ternary_operator
 (** try and evalutate ternary op expression to int, return error otherwise *)
 
              
-and eval_comp_op: tc_context -> Lib.position -> LA.comparison_operator
+and [@ocaml.warning "-27"] eval_comp_op: tc_context -> Lib.position -> LA.comparison_operator
                   -> LA.expr -> LA.expr -> bool inline_result = 
   fun ctx pos cop e1 e2 ->
   eval_int_expr ctx e1 >>= fun v1 ->
@@ -248,7 +248,7 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
      (match (eval_int_binary_op ctx pos bop e1' e2') with
       | Ok v -> LA.Const (pos, Num (string_of_int v))
       | Error _ -> e')
-  | LA.TernaryOp (pos, top, cond, e1, e2) as e ->
+  | LA.TernaryOp (_, top, cond, e1, e2) as e ->
      (match top with
      | Ite -> 
         (match eval_bool_expr ctx cond with
@@ -412,7 +412,7 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
   | TypeDecl (span, AliasType (pos, i, t)) ->
     let t' = inline_constants_of_lustre_type ctx t in
     ctx, LA.TypeDecl (span, AliasType (pos, i, t'))
-  | ConstDecl (span, FreeConst _) as c -> (ctx, c)
+  | ConstDecl (_, FreeConst _) as c -> (ctx, c)
   | ConstDecl (span, UntypedConst (pos', i, e)) ->
      let e' = simplify_expr ctx e in
      let ty =

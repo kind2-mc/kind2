@@ -3266,32 +3266,32 @@ let anon_action s =
     else raise (Arg.Bad ("More than one input file given: "^s))
 
 
-let arg_bool_of_string ((flag, _, desc) as tuple) s =
+let arg_bool_of_string tuple s =
   if List.mem s true_strings then true else
   if List.mem s false_strings then false else BadArg (
     Format.sprintf "expected bool but got \"%s\"" s,
     tuple
   ) |> raise
 
-let arg_int_of_string ((flag, _, desc) as tuple) s = try (
+let arg_int_of_string tuple s = try (
   int_of_string s
 ) with _ -> BadArg (
   Format.sprintf "expected int but got \"%s\"" s, tuple
 ) |> raise
 
-let arg_float_of_string ((flag, _, desc) as tuple) s = try (
+let arg_float_of_string tuple s = try (
   float_of_string s
 ) with _ -> BadArg (
   Format.sprintf "expected float but got \"%s\"" s, tuple
 ) |> raise
 
-let parse_clas specs anon_action global_usage_msg =
+let [@ocaml.warning "-27"] parse_clas specs anon_action global_usage_msg =
   match Array.to_list Sys.argv with
   | _ :: args ->
 
     (* Iterates over the specs to find the action for a CLA. *)
     let rec spec_loop clas flag = function
-      | ((flag', spec, desc) as tuple) :: _ when flag = flag' -> (
+      | ((flag', spec, _) as tuple) :: _ when flag = flag' -> (
         match spec with
         (* Unit specs, applying. *)
         | Arg.Unit f -> f () ; clas
@@ -3520,7 +3520,7 @@ let solver_dependant_actions solver =
   | `Yices_native -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
     match get_version false cmd with
-    | Some (major_rev, minor_rev, _) ->
+    | Some (major_rev, _, _) ->
       if major_rev > 1 then (
         Log.log L_error "Selected Yices 1 (native format), but found Yices 2 or later";
         exit 2

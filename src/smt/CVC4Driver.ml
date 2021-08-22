@@ -20,13 +20,13 @@ include GenericSMTLIBDriver
 
 (* Configuration for CVC4 *)
 let cmd_line
-    logic
+    _ (* logic *)
     timeout
-    produce_assignments
-    produce_proofs
-    produce_cores
-    minimize_cores
-    produce_interpolants =
+    _ (* produce_assignments *) 
+    _ (* produce_proofs *)
+    _ (* produce_cores *)
+    _ (* minimize_cores *) 
+    _ (* produce_interpolants *) =
   
   (* Path and name of CVC4 executable *)
   let cvc4_bin = Flags.Smt.cvc4_bin () in
@@ -117,7 +117,7 @@ let cvc4_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
     (* (define-fun c () Bool t) *)
     | HStringSExpr.List 
         [HStringSExpr.Atom s; (* define-fun *)
-         HStringSExpr.Atom i; (* identifier *)
+         HStringSExpr.Atom _; (* identifier *)
          HStringSExpr.List []; (* Parameters *)
          _; (* Result type *)
          t (* Expression *)

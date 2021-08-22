@@ -16,6 +16,8 @@
 
  *)
 
+[@@@ocaml.warning "-27"]
+
 (** Graph analysis on Lustre Ast Declarations  
     Builds a dependency graph of the lustre declarations,
     to detect circular dependencies and reject them and

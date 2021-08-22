@@ -127,7 +127,7 @@ let bool_of_int_option = function
 
 (* Create a new instance of an SMT solver, declare all currently created
    uninterpreted function symbols *)
-let create_instance
+let [@ocaml.warning "-27"] create_instance
     ?timeout
     ?produce_assignments
     ?produce_proofs
@@ -412,7 +412,7 @@ let values_of_smt_values conv_left type_left s smt_values =
     smt_values
 
 
-let model_of_smt_values conv_left type_left s smt_values = 
+let [@ocaml.warning "-27"] model_of_smt_values conv_left type_left s smt_values = 
   let module S = (val s.solver_inst) in
 
   (* Create hash table with size matching the number of values *)
@@ -518,7 +518,7 @@ let model_of_smt_model s smt_model vars =
   model*)
   
 
-let partial_model_of_smt_model s smt_model =
+let [@ocaml.warning "-27"] partial_model_of_smt_model s smt_model =
 
   (* Create hash table with size matching the number of values *)
   let model = Var.VarHashtbl.create (List.length smt_model) in
@@ -943,7 +943,7 @@ let create_proxy_constants_for_terms s terms =
 
   terms |> List.map (fun term ->
     match Term.destruct term with
-    | Term.T.Var v -> (term, term)
+    | Term.T.Var _ -> (term, term)
     | Term.T.Const s when Symbol.is_uf s -> (term, term)
     | _ -> (
       let type_expr = term |> Term.type_of_term in
@@ -1052,7 +1052,7 @@ let get_interpolants solver args =
            (GenericSMTLIBDriver.expr_of_string_sexpr sexpr)))
        (List.tl i)
 
-  | error_response -> []
+  | _ (* error_response *) -> []
 
 
 (* Static hashconsed strings *)
@@ -1065,7 +1065,7 @@ let rec conj_of_goal accum = function
   | [] -> List.rev accum
 
   (* Parameters ":precision" or ": depth" also mark end of goal list *)
-  | HStringSExpr.Atom a :: tl
+  | HStringSExpr.Atom a :: _
       when HString.sub a 0 1 = ":" -> List.rev accum
 
   (* Take first goal and convert to term, recurse for next goal in list *)
@@ -1083,7 +1083,7 @@ let goal_to_term = function
     conj_of_goal [] c
 
   (* Invalid S-expression as result *)
-  | e -> failwith "SMT solver returned unexpected result for goal"
+  | _ -> failwith "SMT solver returned unexpected result for goal"
 
 
 (* Extract the goal terms from a list of goals
