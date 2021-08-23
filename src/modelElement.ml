@@ -311,7 +311,7 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
   in
   pp_print_json fmt (`Assoc assoc)
 
-let pp_print_core_data_xml in_sys param sys fmt cpd =
+let pp_print_core_data_xml ?(tag="ModelElementSet") in_sys param sys fmt cpd =
   let fst = ref true in
   let print_node scope elts =
     if not !fst then Format.fprintf fmt "@ " else fst := false ;
@@ -326,8 +326,8 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
     List.iter print_elt elts ;
     Format.fprintf fmt "@]@ </Node>"
   in
-  Format.fprintf fmt "<ModelElementSet class=\"%s\" size=\"%i\"%s%s>@.  @[<v>"
-    cpd.core_class cpd.size
+  Format.fprintf fmt "<%s class=\"%s\" size=\"%i\"%s%s>@.  @[<v>"
+    tag cpd.core_class cpd.size
     (match cpd.property with None -> "" | Some n -> Format.asprintf " property=\"%s\"" n)
     (match cpd.approx with None -> "" | Some b -> Format.asprintf " approximate=\"%b\"" b) ;
   (
@@ -343,7 +343,7 @@ let pp_print_core_data_xml in_sys param sys fmt cpd =
       print_mcs_counterexample in_sys param sys `XML fmt (p, cex)
     | _, _ -> ()
   ) ;
-  Format.fprintf fmt "@]@.</ModelElementSet>@."
+  Format.fprintf fmt "@]@.</%s>@." tag
 
 let [@ocaml.warning "-27"] pp_print_no_solution sys clas ~unknown fmt prop =
   Format.fprintf fmt "%s for property @{<blue_b>%s@}.@.@."

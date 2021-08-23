@@ -145,7 +145,8 @@
                 "ivc",
                 "ivc complement",
                 "mcs",
-                "mcs complement"
+                "mcs complement",
+                "conflicting constraints"
             ]
         },
         "ivcSettings": {
@@ -706,10 +707,10 @@
                 "result": {
                     "enum": ["realizable","unrealizable"]
                 },
-                "trace": {
+                "deadlockingTrace": {
                     "$ref": "#/definitions/trace"
                 },
-                "core": {
+                "conflictingSet": {
                     "$ref": "#/definitions/modelElementSet"
                 }
             },

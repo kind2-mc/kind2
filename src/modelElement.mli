@@ -132,6 +132,7 @@ val pp_print_core_data :
   'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit
 
 val pp_print_core_data_xml :
+  ?tag:string ->
   'a InputSystem.t -> Analysis.param -> TransSys.t -> Format.formatter -> core_print_data -> unit
 
 val pp_print_core_data_json :
