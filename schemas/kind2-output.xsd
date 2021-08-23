@@ -101,6 +101,7 @@
       <xs:enumeration value="ivc complement"/>
       <xs:enumeration value="mcs"/>
       <xs:enumeration value="mcs complement"/>
+      <xs:enumeration value="conflicting constraints"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -384,8 +385,8 @@
     <xs:sequence>
       <xs:element name="Result" type="RealizabilityCheckResult" minOccurs="1" maxOccurs="1"/>
       <xs:element name="Runtime" type="RuntimeType" minOccurs="0" maxOccurs="1"/>
-      <xs:element name="Trace" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
-      <xs:element name="Core" type="ModelElementSetType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DeadlockingTrace" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ConflictingSet" type="ModelElementSetType" minOccurs="0" maxOccurs="1"/>
     </xs:sequence>
   </xs:complexType>
 

@@ -152,6 +152,7 @@ let compute_unviable_trace_and_core analyze in_sys param sys u_result =
     analyze in_sys param sys controllable_vars_at_0 controllable_vars_at_1 u_result
     
 
+let core_desc = "conflicting constraints"
 
 let pp_print_realizability_result_pt
   analyze in_sys param sys fmt result =
@@ -181,7 +182,7 @@ let pp_print_realizability_result_pt
         in
         Pretty.failure_tag, (fun fmt ->
           let cpd =
-            ME.loc_core_to_print_data in_sys sys "unrealizable core" None core
+            ME.loc_core_to_print_data in_sys sys core_desc None core
           in
           Format.fprintf
             fmt
@@ -223,14 +224,14 @@ let pp_print_realizability_result_json
       in
       (fun fmt ->
         let cpd =
-          ME.loc_core_to_print_data in_sys sys "unrealizable core" None core
+          ME.loc_core_to_print_data in_sys sys core_desc None core
         in
         Format.fprintf
         fmt
         ",@,%a,@,\
-        \"core\" : %a"
+        \"conflictingSet\" : %a"
         (KEvent.pp_print_counterexample_json
-          ~object_name:"trace" in_sys param sys None true)
+          ~object_name:"deadlockingTrace" in_sys param sys None true)
         trace
         (ME.pp_print_core_data_json in_sys param sys) cpd
       )
@@ -269,15 +270,15 @@ let pp_print_realizability_result_xml
       in
       (fun fmt ->
         let cpd =
-          ME.loc_core_to_print_data in_sys sys "unrealizable core" None core
+          ME.loc_core_to_print_data in_sys sys core_desc None core
         in
         Format.fprintf
         fmt
         "@,%a@,%a"
         (KEvent.pp_print_counterexample_xml
-          ~tag:"Trace" in_sys param sys None true)
+          ~tag:"DeadlockingTrace" in_sys param sys None true)
         trace
-        (ME.pp_print_core_data_xml in_sys param sys) cpd
+        (ME.pp_print_core_data_xml ~tag:"ConflictingSet" in_sys param sys) cpd
       )
     )
     | _ -> (fun _ -> ())
