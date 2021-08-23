@@ -1,4 +1,31 @@
 
+# Unreleased
+
+New features:
+
+- Print a deadlocking trace and a set of conflicting constraints when a contract is proven unrealizable.
+- Multiple nodes can be annotated as main nodes so that analysis results for common subnodes are shared in modular analysis.
+- New option to dump each counterexample to a file (`--dump_cex`).
+
+Improvements:
+
+- Require and ensure clauses of contract modes are eligible elements for IVCs and MCSs when the contracts category is selected.
+- Print values of (free) constants in counterexamples.
+- Print summary before terminating when CTRL-C is pressed.
+- Prevent invariant generation engine from crashing when processing global constants.
+- Fix handling of XOR operator in IC3.
+- Fix minor issues in IVC/MCS module.
+- Other bug fixes and enhancements.
+
+Changes:
+
+- Kind 2 now requires:
+  - OCaml 4.09 or later
+  - Dune 2.7 or later
+
+Thanks to M. Anthony Aiello and Amos Robinson for their suggestions and bug reports.
+
+
 # Kind 2 v1.4.0
 
 New features:
