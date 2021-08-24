@@ -1,5 +1,5 @@
 
-# Unreleased
+# Kind 2 v1.5.0
 
 New features:
 
