@@ -127,7 +127,8 @@ module Contract = struct
 
   (** Returns [None] if term contains an oracle. Otherwise, returns true iff
   term only contains input variables, along with the set of svars in the term. *)
-  let mentions_only_inputs ( { node ; cache } as dep ) term =
+  let mentions_only_inputs dep term =
+    let { node ; cache } = dep in
     try TMap.find term cache with Not_found -> (
       let res =
         try (

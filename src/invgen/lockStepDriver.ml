@@ -205,7 +205,8 @@ let conditional_base_solver_reset (
 )
 
 (** Adds invariants to a base checker. *)
-let base_add_invariants { solver ; k } ts invs =
+let base_add_invariants t ts invs =
+  let { solver ; k } = t in
   let eub = Num.succ k in (* Exclusive upper bound. *)
   invs |> (
     if ts then List.iter (Unroller.assert_1_to solver eub)
@@ -332,7 +333,8 @@ let conditional_step_solver_reset (
 
 
 (** Adds invariants to a step checker. *)
-let step_add_invariants { solver ; k } ts invs =
+let step_add_invariants t ts invs =
+  let { solver ; k } = t in
   let eub = Num.succ k in (* Exclusive upper bound. *)
   invs |> (
     if ts then List.iter (Unroller.assert_1_to solver eub)
@@ -578,7 +580,8 @@ let conditional_pruning_solver_reset (
 
 
 (** Adds invariants to a pruning checker. *)
-let pruning_add_invariants { solver } ts invs =
+let pruning_add_invariants t ts invs =
+  let { solver } = t in
   let eub = Num.(succ one) in (* Exclusive upper bound. *)
   invs |> (
     if ts then List.iter (Unroller.assert_1_to solver eub)

@@ -170,7 +170,8 @@ let depth_of { tree } = match tree with
 (*
   Pushes a node on top of the current one, activating a mode conjunction.
 *)
-let push ({ tree } as t) mode_conj = match tree with
+let push t mode_conj = let { tree } = t in
+  match tree with
 | Node (k, _, _, _) ->
   t.tree <- Node (Num.succ k, tree, mode_conj, [])
 | Top -> raise TopReached
@@ -185,7 +186,8 @@ let pop ({ tree } as t) = match tree with
 (*
   Updates the current mode.
 *)
-let update ({ tree } as t) mode_conj = match tree with
+let update t mode_conj = let { tree } = t in
+  match tree with
 | Node (k, kid, mode_conj', explored) ->
   t.tree <- Node (k, kid, mode_conj, mode_conj' :: explored)
 | Top  -> raise TopReached

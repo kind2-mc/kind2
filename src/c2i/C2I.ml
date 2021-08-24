@@ -402,7 +402,8 @@ let query_solvers { sys ; prop ; solver1 ; solver2 ; solver3 } candidate =
 exception PropIsFalse
 
 (* Updates the white, grey and black lists. *)
-let update_colors ({white ; grey ; black} as t) (check1, check2, check3) =
+let update_colors t (check1, check2, check3) =
+  let {white ; grey ; black} = t in
   Debug.c2i "Updating colors";
   let white = match check1 with
     | None -> white
@@ -454,7 +455,8 @@ let update_colors ({white ; grey ; black} as t) (check1, check2, check3) =
 let gamma = log 2.0
 
 (* Returns a candidate with a cost of zero. *)
-let zero_cost_candidate {white ; grey ; black} candidate =
+let zero_cost_candidate t candidate =
+  let {white ; grey ; black} = t in
   Debug.c2i "\
         |=====| generating zero cost candidate (%d white, %d grey, %d black)\
       " (List.length white) (List.length grey) (List.length black);

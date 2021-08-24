@@ -280,7 +280,8 @@ let split { solver ; map } =
 (* Checks if unfalsifiable properties are 1-true or more, and broadcasts them
   as invariants if they do. Also updates the solver accordingly by asserting
   invariant properties as invariants. *)
-let broadcast_if_safe ({ solver ; sys ; map } as ctx) unfalsifiable =
+let broadcast_if_safe ctx unfalsifiable =
+  let { solver ; sys ; map } = ctx in
   let rec loop confirmed = function
     | prop :: tail -> (
       let ok_cert =

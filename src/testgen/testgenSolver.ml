@@ -101,7 +101,8 @@ let comment { solver } = S.trace_comment solver
 
 (* Returns the actlit activating the [n]th first transition relations. Creates
    fresh actlits and unrolls if necessary. *)
-let nth_actlit_of ({ sys ; solver ; actlits } as t) n =
+let nth_actlit_of t n =
+  let { sys ; solver ; actlits } = t in
   let rec loop map_prefix cpt = function
     | actlit :: tail ->
       if Num.(cpt = n) then
