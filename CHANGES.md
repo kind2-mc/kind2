@@ -23,7 +23,8 @@ Changes:
   - OCaml 4.09 or later
   - Dune 2.7 or later
 
-Thanks to M. Anthony Aiello and Amos Robinson for their suggestions and bug reports.
+Thanks to M. Anthony Aiello, Andreas Katis, and
+Amos Robinson for their feedback and suggestions.
 
 
 # Kind 2 v1.4.0
