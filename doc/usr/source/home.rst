@@ -175,7 +175,8 @@ Using OPAM
 ^^^^^^^^^^
 
 Start by installing `OPAM 2.x <https://opam.ocaml.org/>`_
-following the instructions on the website.
+following the instructions on the website, and
+make sure OPAM has been initialized by running ``opam init``.
 If you want to build the development version of Kind 2
 that includes the most recent changes, as opposed to
 the latest release, then run
@@ -186,18 +187,30 @@ the latest release, then run
 
 (You can always undo this change later using this command ``opam unpin kind2``).
 
-Otherwise, skip the step above and run
+Otherwise, skip the step above and either run
+
+.. code-block:: none
+
+   opam install --update-invariant kind2
+
+if you have OPAM 2.1 or later installed on your system, or run
 
 .. code-block:: none
 
    opam depext kind2
-   opam install kind2
+   opam install --unlock-base kind2
 
-The first command installs the ZeroMQ C library
-and any other external dependencies required using
+if you have an older version of OPAM
+(you can run ``opam --version`` to check the version).
+
+This guides the installation of the ZeroMQ C library
+and any other required external dependencies using
 the default package manager for your OS
-(may require sudo permission).
-The second command builds and installs ``kind2``.
+(may ask sudo permission).
+It also builds and installs a compatible version
+of the OCaml compiler and libraries,
+and the ``kind2`` binary.
+
 By default, ``kind2`` will be installed into
 the bin directory of your current OPAM switch. Run
 
