@@ -49,6 +49,8 @@ let setup : unit -> any_input = fun () ->
   (* Parse command-line flags. *)
   Flags.parse_argv () ;
 
+  Debug.set_dflags (Flags.debug ()) ;
+
   (* Formatter to write debug output to. *)
   (match Flags.debug_log () with
     (* Write to stdout by default. *)

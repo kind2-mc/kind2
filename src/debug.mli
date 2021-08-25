@@ -25,6 +25,8 @@ type 'a t = ('a, Format.formatter, unit) format -> 'a
 (** Set the formatter for debugging *)
 val set_formatter : Format.formatter -> unit
 
+(** Set all debug flags based on input list *)
+val set_dflags : string list -> unit
 
 (** {3 Available debug functions } *)
 
@@ -47,7 +49,7 @@ val c2i : 'a t
 val ic3 : 'a t
 val compress : 'a t
 val native : 'a t
-val contractck : 'a t
+val realiz : 'a t
 
 (* 
    Local Variables:

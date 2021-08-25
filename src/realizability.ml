@@ -85,7 +85,7 @@ let compute_and_print_core solver terms =
     unsat_core_lits |> List.map (fun l -> List.assoc l actlit_term_map)
   in
 
-  Debug.contractck "@[<hv>Unsat core:@.@[<hv>%a@]@]@."
+  Debug.realiz "@[<hv>Unsat core:@.@[<hv>%a@]@]@."
     (Lib.pp_print_list Term.pp_print_term "@,") unsat_core_terms
 
 
@@ -214,7 +214,7 @@ let realizability_check
     match ae_val_reponse with
     | QE.Valid _ -> (
 
-      Debug.contractck
+      Debug.realiz
         "@[<hv>Computed fixpoint:@ @[<hv>%a@]@]@." Term.pp_print_term fp ;
 
       let premises' = Term.mk_and free_of_controllable_vars_at_0 in
@@ -228,7 +228,7 @@ let realizability_check
       match ae_val_reponse' with
       | QE.Valid _ -> Realizable fp
       | QE.Invalid _ (* valid_region *) -> (
-        (*Debug.contractck
+        (*Debug.realiz
             "@[<hv>(INITIAL) Valid region:@ @[<hv>%a@]@]@."
             Term.pp_print_term valid_region ;*)
 
@@ -251,7 +251,7 @@ let realizability_check
     )
     | QE.Invalid valid_region -> (
 
-      Debug.contractck
+      Debug.realiz
         "@[<hv>Valid region:@ @[<hv>%a@]@]@." Term.pp_print_term valid_region ;
 
       if uncontrollable_varset_is_non_empty then (
@@ -268,7 +268,7 @@ let realizability_check
 
         match ae_val_reponse' with
         | QE.Valid _ -> (
-          Debug.contractck "@[<hv>Violating region: true@]@." ;
+          Debug.realiz "@[<hv>Violating region: true@]@." ;
 
           (*
           let context = Term.mk_and [premises'; conclusion'] in
@@ -284,7 +284,7 @@ let realizability_check
           Unrealizable (InductiveCase fp1)
         )
         | QE.Invalid violating_region -> (
-          Debug.contractck
+          Debug.realiz
               "@[<hv>Violating region:@ @[<hv>%a@]@]@."
               Term.pp_print_term violating_region ;
 
