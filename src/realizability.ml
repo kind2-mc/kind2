@@ -327,18 +327,24 @@ let realizability_check
   (* Check initial state constraints *)
   let premises = Term.mk_and free_of_controllable_vars_at_0 in
   let conclusion = Term.mk_and contains_controllable_vars_at_0 in
-  match QE.ae_val sys premises controllable_vars_at_0 conclusion with
-  | QE.Valid r ->
-    if r == Term.t_false then (* Premises are inconsistent *)
-      Realizable Term.t_true
-    else (
-      QE.set_ubound Numeral.one ;
-      let res = loop (Term.t_true, Term.t_true)  Term.t_true in
-      QE.on_exit () ;
-      res
-    )
-  | QE.Invalid valid_region ->
-    Unrealizable (BaseCase valid_region)
+
+  QE.set_ubound Numeral.one ; (* Required when Flags.QE.ae_val_use_ctx is false *)
+
+  let res =
+    match QE.ae_val sys premises controllable_vars_at_0 conclusion with
+    | QE.Valid r ->
+      if r == Term.t_false then (* Premises are inconsistent *)
+        Realizable Term.t_true
+      else (
+        loop (Term.t_true, Term.t_true)  Term.t_true
+      )
+    | QE.Invalid valid_region ->
+      Unrealizable (BaseCase valid_region)
+  in
+
+  QE.on_exit () ; (* Required when Flags.QE.ae_val_use_ctx is false *)
+
+  res
 
 
 let get_contract_cores in_sys sys =
