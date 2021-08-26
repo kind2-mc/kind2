@@ -36,6 +36,7 @@ module TCContext = TypeCheckerContext
 module IC = LustreAstInlineConstants
 module AD = LustreAstDependencies
 module LAN = LustreAstNormalizer
+module LS = LustreSyntaxChecks
 
 let (>>=) = Res.(>>=)
           
@@ -139,13 +140,16 @@ let of_channel in_ch =
           (* Step 4. Dependency analysis on nodes and contracts *)
           AD.sort_and_check_nodes_contracts node_contract_src >>= fun sorted_node_contract_decls ->  
 
-          (* Step 5. type check nodes and contracts *)
+          (* Step 5. Local syntax checks on node and contract definitions  *)
+          LS.syntax_check sorted_node_contract_decls >>= fun sorted_node_contract_decls ->
+          
+          (* Step 6. type check nodes and contracts *)
           TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls >>= fun (global_ctx) ->
 
-          (* Step 6. Inline constants in node equations *)
+          (* Step 7. Inline constants in node equations *)
           IC.inline_constants global_ctx sorted_node_contract_decls >>= fun (inlined_global_ctx, const_inlined_nodes_and_contracts) ->
 
-          (* Step 7. Normalize AST: guard pres, abstract to locals where appropriate *)
+          (* Step 8. Normalize AST: guard pres, abstract to locals where appropriate *)
           LAN.normalize inlined_global_ctx const_inlined_nodes_and_contracts >>= fun (normalized_nodes_and_contracts, gids) ->
           
           Res.ok (inlined_global_ctx,
