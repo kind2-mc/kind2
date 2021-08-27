@@ -256,6 +256,18 @@ let extract_normalized = function
   | A.ArrayIndex (_, A.Ident (_, ident), _) -> mk_ident ident
   | _ -> assert false
 
+let flatten_list_indexes (e:E.t X.t) =
+  let over_indices k (indices, e) =
+    let rec flatten = function
+      | (X.ListIndex _) :: (ListIndex _) :: t -> flatten ((X.ListIndex k) :: t)
+      | h :: t -> h :: t
+      | [] -> []
+    in
+    (flatten indices, e)
+  in
+  let flattened = List.mapi over_indices (X.bindings e) in
+  List.fold_left (fun acc (idx, e) -> X.add idx e acc) X.empty flattened
+
 (* Match bindings from a trie of state variables and bindings for a
   trie of expressions and produce a list of equations *)
 let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with 
@@ -1570,12 +1582,14 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
               i + 1, X.fold (construct_index i) t accum
           in let i, res = List.fold_left over_items (0, X.empty) l
           in res, 0
-      in let lhs_bounds = gen_lhs_bounds true eq_lhs ast_expr indexes
-      in let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr
       in
+      let lhs_bounds = gen_lhs_bounds true eq_lhs ast_expr indexes in
+      let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr in
+      let eq_rhs = flatten_list_indexes eq_rhs in
 (*       Format.eprintf "lhs: %a\n\n rhs: %a\n\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
+      
       let equations = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in 
       List.iter (fun ((sv, _), e) -> SVT.add state_var_expr_map sv e) equations;
       H.clear !map.array_index;
@@ -1600,9 +1614,10 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
               i + 1, X.fold (construct_index i) t accum
           in let i, res = List.fold_left over_items (0, X.empty) l
           in res, 0
-      in let lhs_bounds = gen_lhs_bounds false eq_lhs ast_expr indexes
-      in let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr
       in
+      let lhs_bounds = gen_lhs_bounds false eq_lhs ast_expr indexes in
+      let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr in
+      let eq_rhs = flatten_list_indexes eq_rhs in
 (*       Format.eprintf "lhs: %a\n\n rhs: %a\n\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
