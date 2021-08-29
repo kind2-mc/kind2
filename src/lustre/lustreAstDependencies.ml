@@ -582,8 +582,7 @@ let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t = fun m ->
   (* Node calls *)
   | Call (p, i, es) ->
     (match IMap.find_opt i m with
-      | None -> SI.add i (es |> List.map (vars_with_flattened_nodes m) |> SI.flatten)
-        (* fail_at_position p ("cannot find node call summary for "^ i ^". Should not happen!") *)
+      | None -> assert false (* guaranteed by lustreSyntaxChecks *)
       | Some ns ->
          let sum_bds = IntMap.bindings ns in
          let es' = List.map (vars_with_flattened_nodes m) es in
@@ -736,8 +735,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
 
   | LA.Call (p, i, es) ->
      (match IMap.find_opt i m with
-      | None -> R.ok [empty_dependency_analysis_data]
-        (* graph_error p ("Cannot find summary of node " ^ i ^ ". This should not happen.") *)
+      | None -> assert false (* guaranteed by lustreSyntaxChecks *)
       | Some summary ->
          let sum_bds = IntMap.bindings summary in
          R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs ->
