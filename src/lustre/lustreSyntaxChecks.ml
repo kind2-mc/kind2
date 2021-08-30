@@ -89,14 +89,18 @@ let build_global_ctx (decls:LustreAst.t) =
   in
   List.fold_left over_decls (empty_ctx ()) decls
 
-let build_local_ctx ctx (decls:LustreAst.node_local_decl list) =
+let build_local_ctx ctx locals inputs outputs =
   let over_locals acc = function
     | LA.NodeConstDecl (_, FreeConst (_, i, _)) -> ctx_add_local acc i
     | NodeConstDecl (_, UntypedConst (_, i, _)) -> ctx_add_local acc i
     | NodeConstDecl (_, TypedConst (_, i, _, _)) -> ctx_add_local acc i
     | NodeVarDecl (_, (_, i, _, _)) -> ctx_add_local acc i
   in
-  List.fold_left over_locals ctx decls
+  let over_inputs acc (_, i, _, _, _) = ctx_add_local acc i in
+  let over_outputs acc (_, i, _, _) = ctx_add_local acc i in
+  let ctx = List.fold_left over_locals ctx locals in
+  let ctx = List.fold_left over_inputs ctx inputs in
+  List.fold_left over_outputs ctx outputs
 
 let locals_must_have_definitions locals items =
   let rec find_local_def_lhs id test = function
@@ -133,7 +137,7 @@ let locals_must_have_definitions locals items =
   in
   Res.seq (List.map over_locals locals)
 
-let node_calls_reference_existing_nodes ctx = function
+let no_dangling_node_calls ctx = function
   | LA.Condact (pos, _, _, i, _, _)
   | Activate (pos, i, _, _, _)
   | Call (pos, i, _) ->
@@ -146,16 +150,27 @@ let node_calls_reference_existing_nodes ctx = function
       (Format.asprintf "No node with name %s found." i))
   | _ -> Ok ()
 
+let no_dangling_identifiers ctx = function
+  | LA.Ident (pos, i) -> 
+    let check_consts = StringSet.find_opt i ctx.consts in
+    let check_locals = StringSet.find_opt i ctx.locals in
+    (match check_consts, check_locals with
+    | Some _, _ -> Ok ()
+    | _, Some _ -> Ok ()
+    | None, None -> syntax_error pos
+      (Format.asprintf "No identifier with name %s found." i))
+  | _ -> Ok ()
+
 let no_calls_to_node ctx = function
-| LA.Condact (pos, _, _, i, _, _)
-| Activate (pos, i, _, _, _)
-| Call (pos, i, _) ->
-  let check_nodes = StringSet.find_opt i ctx.nodes in
-  (match check_nodes with
-  | Some _ -> syntax_error pos
-    (Format.asprintf "Illegal call to node %s, functions can only call other functions, not nodes." i)
-  | None -> Ok ())
-| _ -> Ok ()
+  | LA.Condact (pos, _, _, i, _, _)
+  | Activate (pos, i, _, _, _)
+  | Call (pos, i, _) ->
+    let check_nodes = StringSet.find_opt i ctx.nodes in
+    (match check_nodes with
+    | Some _ -> syntax_error pos
+      (Format.asprintf "Illegal call to node %s, functions can only call other functions, not nodes." i)
+    | None -> Ok ())
+  | _ -> Ok ()
 
 let no_temporal_operator is_const expr =
   let decl_ctx = if is_const then "constant" else "function" in
@@ -178,7 +193,7 @@ and check_declaration ctx = function
     let check = match decl with
       | LA.FreeConst _ -> Ok ()
       | UntypedConst (_, _, e)
-      | TypedConst (_, _, e, _) -> check_const_expr_decl e
+      | TypedConst (_, _, e, _) -> check_const_expr_decl ctx e
     in
     check >> Ok (LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
@@ -186,28 +201,36 @@ and check_declaration ctx = function
   | ContractNodeDecl (span, decl) -> Ok (LA.ContractNodeDecl (span, decl))
   | NodeParamInst (span, inst) -> Ok (LA.NodeParamInst (span, inst))
 
-
-and check_const_expr_decl expr =
-  check_expr (no_temporal_operator true) expr
+and check_const_expr_decl ctx expr =
+  let composed_checks e =
+    (no_temporal_operator true e)
+      >> (no_dangling_identifiers ctx e)
+  in
+  check_expr composed_checks expr
 
 and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contracts) =
-  let ctx = build_local_ctx ctx locals in
+  let ctx = build_local_ctx ctx locals inputs outputs in
   let decl = LA.NodeDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contracts))
   in
+  let composed_items_checks e =
+    (no_dangling_node_calls ctx e)
+      >> (no_dangling_identifiers ctx e)
+  in
   (locals_must_have_definitions locals items)
-    >> (check_items (node_calls_reference_existing_nodes ctx) items)
+    >> (check_items composed_items_checks items)
     >> (Ok decl)
 
 and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contracts) =
-  let ctx = build_local_ctx ctx locals in
+  let ctx = build_local_ctx ctx locals inputs outputs in
   let decl = LA.FuncDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contracts))
   in
   let composed_items_checks e =
-    (node_calls_reference_existing_nodes ctx e)
+    (no_dangling_node_calls ctx e)
       >> (no_calls_to_node ctx e)
       >> (no_temporal_operator false e)
+      >> (no_dangling_identifiers ctx e)
   in
   (check_items composed_items_checks items)
     >> (Ok decl)
