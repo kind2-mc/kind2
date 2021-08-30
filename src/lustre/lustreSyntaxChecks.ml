@@ -48,7 +48,7 @@ let empty_ctx () = {
     functions = StringSet.empty;
     contracts = StringSet.empty;
     consts = StringSet.empty;
-    locals = StringSet.empty
+    locals = StringSet.empty;
   }
 
 let ctx_add_type ctx i = {
@@ -101,6 +101,15 @@ let build_local_ctx ctx locals inputs outputs =
   let ctx = List.fold_left over_locals ctx locals in
   let ctx = List.fold_left over_inputs ctx inputs in
   List.fold_left over_outputs ctx outputs
+
+let build_equation_ctx ctx = function
+  | LA.StructDef (_, items) ->
+    let over_items ctx = function
+      | LA.ArrayDef (_, _, ids)
+        -> List.fold_left ctx_add_local ctx ids
+      | _ -> ctx
+    in
+    List.fold_left over_items ctx items
 
 let locals_must_have_definitions locals items =
   let rec find_local_def_lhs id test = function
@@ -219,13 +228,13 @@ and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   let decl = LA.NodeDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contracts))
   in
-  let composed_items_checks e =
+  let composed_items_checks ctx e =
     (no_dangling_node_calls ctx e)
       >> (no_dangling_identifiers ctx e)
       >> (unsupported_expr e)
   in
   (locals_must_have_definitions locals items)
-    >> (check_items composed_items_checks items)
+    >> (check_items ctx composed_items_checks items)
     >> (Ok decl)
 
 and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contracts) =
@@ -233,25 +242,27 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   let decl = LA.FuncDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contracts))
   in
-  let composed_items_checks e =
+  let composed_items_checks ctx e =
     (no_dangling_node_calls ctx e)
       >> (no_calls_to_node ctx e)
       >> (no_temporal_operator false e)
       >> (no_dangling_identifiers ctx e)
       >> (unsupported_expr e)
   in
-  (check_items composed_items_checks items)
+  (check_items ctx composed_items_checks items)
     >> (Ok decl)
 
-and check_items f items =
-  let check_item f = function
-    | LA.Body (Assert (_, e))
-    | Body (Equation (_, _, e))
-    | AnnotProperty (_, _, e) -> check_expr f e
+and check_items ctx f items =
+  let check_item ctx f = function
+    | LA.Body (Equation (_, lhs, e)) ->
+      let ctx = build_equation_ctx ctx lhs in
+      check_expr (f ctx) e
+    | Body (Assert (_, e))
+    | AnnotProperty (_, _, e) -> check_expr (f ctx) e
     | Body (Automaton _) -> Ok ()
     | AnnotMain _ -> Ok ()
   in
-  Res.seqM (fun x _ -> x) () (List.map (check_item f) items)
+  Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)
 
 and check_expr f (expr:LustreAst.expr) =
   let check_list e = Res.seqM (fun x _ -> x) () (List.map (check_expr f) e) in
