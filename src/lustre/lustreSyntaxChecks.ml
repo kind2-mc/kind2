@@ -157,12 +157,14 @@ let no_calls_to_node ctx = function
   | None -> Ok ())
 | _ -> Ok ()
 
-let no_arrow_or_pre_expr is_const expr =
+let no_temporal_operator is_const expr =
   let decl_ctx = if is_const then "constant" else "function" in
   let template = Format.asprintf "Illegal %s in %s definition, %ss cannot have state" in
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (template "pre" decl_ctx decl_ctx)
   | Arrow (pos, _, _) -> syntax_error pos (template "arrow" decl_ctx decl_ctx)
+  | Last (pos, _) -> syntax_error pos (template "last" decl_ctx decl_ctx)
+  | Fby (pos, _, _, _) -> syntax_error pos (template "fby" decl_ctx decl_ctx)
   | _ -> Ok ()
 
 
@@ -172,11 +174,21 @@ let rec syntax_check (ast:LustreAst.t) =
 
 and check_declaration ctx = function
   | TypeDecl (span, decl) -> Ok (LA.TypeDecl (span, decl))
-  | ConstDecl (span, decl) -> Ok (LA.ConstDecl (span, decl))
+  | ConstDecl (span, decl) ->
+    let check = match decl with
+      | LA.FreeConst _ -> Ok ()
+      | UntypedConst (_, _, e)
+      | TypedConst (_, _, e, _) -> check_const_expr_decl e
+    in
+    check >> Ok (LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
   | FuncDecl (span, decl) -> check_func_decl ctx span decl
   | ContractNodeDecl (span, decl) -> Ok (LA.ContractNodeDecl (span, decl))
   | NodeParamInst (span, inst) -> Ok (LA.NodeParamInst (span, inst))
+
+
+and check_const_expr_decl expr =
+  check_expr (no_temporal_operator true) expr
 
 and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contracts) =
   let ctx = build_local_ctx ctx locals in
@@ -195,7 +207,7 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   let composed_items_checks e =
     (node_calls_reference_existing_nodes ctx e)
       >> (no_calls_to_node ctx e)
-      >> (no_arrow_or_pre_expr false e)
+      >> (no_temporal_operator false e)
   in
   (check_items composed_items_checks items)
     >> (Ok decl)
