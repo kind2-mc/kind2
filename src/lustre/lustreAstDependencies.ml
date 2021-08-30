@@ -338,8 +338,13 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   (* Clock operators *)
   | LA.When (_, e, _) -> get_node_call_from_expr e
   | LA.Current (_, e) -> get_node_call_from_expr e
-  | LA.Condact (pos, _,_, i, _, _) -> [(node_suffix ^ i, pos)]
-  | LA.Activate (pos, i, _, _, _) -> [(node_suffix ^ i, pos)]
+  | LA.Condact (pos, e1, e2, i, e3, e4) -> (node_suffix ^ i, pos)
+    :: (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+    @ (List.flatten (List.map get_node_call_from_expr e3))
+    @ (List.flatten (List.map get_node_call_from_expr e4))
+  | LA.Activate (pos, i, e1, e2, e3) -> (node_suffix ^ i, pos)
+    :: (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+    @ (List.flatten (List.map get_node_call_from_expr e3))
   | LA.Merge (_, _, id_exprs) ->
      List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
   | LA.RestartEvery (pos, i, es, e1) ->
@@ -576,8 +581,8 @@ let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t = fun m ->
 
   (* Node calls *)
   | Call (p, i, es) ->
-     (match IMap.find_opt i m with
-      | None -> fail_at_position p ("cannot find node call summary for "^ i ^". Should not happen!")
+    (match IMap.find_opt i m with
+      | None -> assert false (* guaranteed by lustreSyntaxChecks *)
       | Some ns ->
          let sum_bds = IntMap.bindings ns in
          let es' = List.map (vars_with_flattened_nodes m) es in
@@ -730,7 +735,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
 
   | LA.Call (p, i, es) ->
      (match IMap.find_opt i m with
-      | None -> graph_error p ("Cannot find summary of node " ^ i ^ ". This should not happen.")
+      | None -> assert false (* guaranteed by lustreSyntaxChecks *)
       | Some summary ->
          let sum_bds = IntMap.bindings summary in
          R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs ->

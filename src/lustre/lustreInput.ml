@@ -36,6 +36,7 @@ module TCContext = TypeCheckerContext
 module IC = LustreAstInlineConstants
 module AD = LustreAstDependencies
 module LAN = LustreAstNormalizer
+module LS = LustreSyntaxChecks
 
 let (>>=) = Res.(>>=)
           
@@ -122,30 +123,33 @@ let of_channel in_ch =
       LD.declarations_to_nodes declarations
     else 
       let tc_res =  
-        (Log.log L_note "(Experimental) Typechecking enabled."
+        (Log.log L_note "(Experimental) Typechecking enabled.";
 
-        (* Step 0. Split program into top level const and type delcs, and node/contract decls *)
-        ; let (const_type_decls, node_contract_src) = LH.split_program declarations in
+          (* Step 1. Basic syntax checks on declarations  *)
+          LS.syntax_check declarations >>= fun declarations ->
 
-          (* Step 1. Dependency analysis on the top level declarations.  *)
+          (* Step 2. Split program into top level const and type delcs, and node/contract decls *)
+          let (const_type_decls, node_contract_src) = LH.split_program declarations in
+
+          (* Step 3. Dependency analysis on the top level declarations.  *)
           AD.sort_globals const_type_decls >>= fun sorted_const_type_decls ->
 
-          (* Step 2. Type check top level declarations *)
+          (* Step 4. Type check top level declarations *)
           TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls >>= fun ctx -> 
 
-          (* Step 3: Inline type toplevel decls *)
+          (* Step 5: Inline type toplevel decls *)
           IC.inline_constants ctx sorted_const_type_decls >>= fun (inlined_ctx, const_inlined_type_and_consts) -> 
 
-          (* Step 4. Dependency analysis on nodes and contracts *)
+          (* Step 6. Dependency analysis on nodes and contracts *)
           AD.sort_and_check_nodes_contracts node_contract_src >>= fun sorted_node_contract_decls ->  
 
-          (* Step 5. type check nodes and contracts *)
+          (* Step 7. type check nodes and contracts *)
           TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls >>= fun (global_ctx) ->
 
-          (* Step 6. Inline constants in node equations *)
+          (* Step 8. Inline constants in node equations *)
           IC.inline_constants global_ctx sorted_node_contract_decls >>= fun (inlined_global_ctx, const_inlined_nodes_and_contracts) ->
 
-          (* Step 7. Normalize AST: guard pres, abstract to locals where appropriate *)
+          (* Step 9. Normalize AST: guard pres, abstract to locals where appropriate *)
           LAN.normalize inlined_global_ctx const_inlined_nodes_and_contracts >>= fun (normalized_nodes_and_contracts, gids) ->
           
           Res.ok (inlined_global_ctx,
