@@ -988,6 +988,7 @@ and compile_node pos ctx cstate map oracles outputs cond restart ident args defa
     let ast_group_expr = A.GroupExpr (dummy_pos, A.ExprList, ast) in
     let cexpr = compile_ast_expr cstate ctx [] map ast_group_expr in
     let over_indices i input_sv expr accum =
+(*       Format.eprintf "expr: %a\n\n" (E.pp_print_lustre_expr true) expr; *)
       let sv = state_var_of_expr expr in
       let i' = match i with | (X.ListIndex i)::idx -> idx | idx -> idx in 
       N.set_state_var_instance sv pos ident input_sv;
@@ -1445,11 +1446,8 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
             | A.GroupType (_, types) -> types
             | t -> [t])
         | _ -> assert false)
-      in 
-      let output_types = List.map
-        (fun t -> compile_ast_type cstate ctx map t)
-        output_ast_types
-      in let is_single = List.length output_types = 1 in
+      in
+      let is_single = List.length output_ast_types = 1 in
       let local_map = H.create 7 in
       let outputs =
         let over_vars = fun (is_single) i sv compiled_vars ->

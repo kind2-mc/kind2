@@ -193,15 +193,18 @@ and [@ocaml.warning "-27"] eval_comp_op: TC.tc_context -> Lib.position -> LA.com
 
 and simplify_array_index: TC.tc_context -> Lib.position -> LA.expr -> LA.expr -> LA.expr
   = fun ctx pos e1 idx -> 
-  match (simplify_expr ctx e1) with
+  let e1' = simplify_expr ctx e1 in
+  let idx' = simplify_expr ctx idx in
+  match e1' with
   | LA.GroupExpr (_, ArrayExpr, es) ->
      (match (eval_int_expr ctx idx) with
       | Ok i -> if List.length es > i
                 then List.nth es i
                 else
                   (raise (Out_of_bounds (pos, "Array element access out of bounds.")))
-      | Error _ -> LA.ArrayIndex (pos, e1, idx))
-  | _ -> ArrayIndex (pos, e1, idx)
+      | Error _ -> LA.ArrayIndex (pos, e1', idx'))
+  | _ ->
+    ArrayIndex (pos, e1', idx')
 (** picks out the idx'th component of an array if it can *)
 
 and simplify_tuple_proj: TC.tc_context -> Lib.position -> LA.expr -> int -> LA.expr
@@ -239,6 +242,10 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
       | Error _ -> e')
     | _ -> e')
   | LA.Pre (pos, e1) -> LA.Pre (pos, simplify_expr ctx e1)
+  | Arrow (pos, e1, e2) ->
+    let e1' = simplify_expr ctx e1 in
+    let e2' = simplify_expr ctx e2 in
+    Arrow (pos, e1', e2')
   | LA.BinaryOp (pos, bop, e1, e2) ->
      let e1' = simplify_expr ctx e1 in
      let e2' = simplify_expr ctx e2 in
@@ -246,12 +253,16 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
      (match (eval_int_binary_op ctx pos bop e1' e2') with
       | Ok v -> LA.Const (pos, Num (string_of_int v))
       | Error _ -> e')
-  | LA.TernaryOp (_, top, cond, e1, e2) as e ->
+  | LA.TernaryOp (pos, top, cond, e1, e2) ->
      (match top with
      | Ite -> 
         (match eval_bool_expr ctx cond with
          | Ok v -> if v then simplify_expr ctx e1 else simplify_expr ctx e2 
-         | Error _ -> e)
+         | Error _ ->
+          let cond' = simplify_expr ctx cond in
+          let e1' = simplify_expr ctx e1 in
+          let e2' = simplify_expr ctx e2 in
+            TernaryOp (pos, top, cond', e1', e2'))
      | _ -> Lib.todo __LOC__)
   | LA.CompOp (pos, cop, e1, e2) ->
      let e1' = simplify_expr ctx e1 in
@@ -270,9 +281,10 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
      let e1' = simplify_expr ctx e1 in
      let e2' = simplify_expr ctx e2 in
      let e' = LA.ArrayConstr (pos, e1', e2') in
-     (match (eval_int_expr ctx e2) with
+     e'
+     (* (match (eval_int_expr ctx e2) with
       | Ok size -> LA.GroupExpr (pos, LA.ArrayExpr, Lib.list_init (fun _ -> e1') size)
-      | Error _ -> e')
+      | Error _ -> e') *)
   | LA.ArrayIndex (pos, e1, e2) -> simplify_array_index ctx pos e1 e2
   | LA.ArrayConcat (pos, e1, e2) as e->
      (match (simplify_expr ctx e1, simplify_expr ctx e2) with
