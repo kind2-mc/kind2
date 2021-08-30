@@ -1530,7 +1530,6 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       result, 0
     | A.ArrayDef (pos, i, l) ->
       let ident = mk_ident i in
-      Format.print_string i;
       let expr = H.find !map.expr ident in
       let result = X.map (fun e -> state_var_of_expr e) expr in
       (* TODO: Old code checks that array lengths between l and result match *)

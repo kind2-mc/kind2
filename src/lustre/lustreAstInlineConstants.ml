@@ -280,6 +280,9 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
          LA.GroupExpr(pos, LA.ArrayExpr, es1 @ es2)
       | _ -> e)
   | LA.TupleProject (pos, e1, e2) -> simplify_tuple_proj ctx pos e1 e2  
+  | Call (pos, i, es) ->
+    let es' = List.map (fun e -> simplify_expr ctx e) es in
+    Call (pos, i, es')
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)
@@ -312,7 +315,8 @@ let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.n
   = fun ctx ->
   function
   | (LA.Assert (pos, e)) -> (Assert (pos, simplify_expr ctx e))
-  | (LA.Equation (pos, lhs, e)) -> (LA.Equation (pos, lhs, simplify_expr ctx e))
+  | (LA.Equation (pos, lhs, e)) ->
+    (LA.Equation (pos, lhs, simplify_expr ctx e))
   | e -> e
 
 let rec inline_constants_of_const_clocked_type_decl ctx = function
@@ -367,7 +371,8 @@ let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA
   | (AnnotProperty (pos, n, e)) :: items ->
      (AnnotProperty (pos, n, simplify_expr ctx e))
      :: inline_constants_of_node_items ctx items
-  | e -> e
+  | (AnnotMain b) :: items
+    -> (AnnotMain b) :: inline_constants_of_node_items ctx items
 
 let rec inline_constants_of_contract: TC.tc_context -> LA.contract -> LA.contract =
   fun ctx ->
