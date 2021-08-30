@@ -146,6 +146,26 @@ let node_calls_reference_existing_nodes ctx = function
       (Format.asprintf "No node with name %s found." i))
   | _ -> Ok ()
 
+let no_calls_to_node ctx = function
+| LA.Condact (pos, _, _, i, _, _)
+| Activate (pos, i, _, _, _)
+| Call (pos, i, _) ->
+  let check_nodes = StringSet.find_opt i ctx.nodes in
+  (match check_nodes with
+  | Some _ -> syntax_error pos
+    (Format.asprintf "Illegal call to node %s, functions can only call other functions, not nodes." i)
+  | None -> Ok ())
+| _ -> Ok ()
+
+let no_arrow_or_pre_expr is_const expr =
+  let decl_ctx = if is_const then "constant" else "function" in
+  let template = Format.asprintf "Illegal %s in %s definition, %ss cannot have state" in
+  match expr with
+  | LA.Pre (pos, _) -> syntax_error pos (template "pre" decl_ctx decl_ctx)
+  | Arrow (pos, _, _) -> syntax_error pos (template "arrow" decl_ctx decl_ctx)
+  | _ -> Ok ()
+
+
 let rec syntax_check (ast:LustreAst.t) =
   let ctx = build_global_ctx ast in
   Res.seq (List.map (check_declaration ctx) ast)
@@ -172,7 +192,12 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   let decl = LA.FuncDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contracts))
   in
-  (check_items (node_calls_reference_existing_nodes ctx) items)
+  let composed_items_checks e =
+    (node_calls_reference_existing_nodes ctx e)
+      >> (no_calls_to_node ctx e)
+      >> (no_arrow_or_pre_expr false e)
+  in
+  (check_items composed_items_checks items)
     >> (Ok decl)
 
 and check_items f items =
