@@ -99,9 +99,18 @@ let build_local_ctx ctx (decls:LustreAst.node_local_decl list) =
   List.fold_left over_locals ctx decls
 
 let locals_must_have_definitions locals items =
-  let find_local_def_lhs id test = function
-    | LA.SingleIdent (_, id') -> test || id = id'
-    | _ -> test
+  let rec find_local_def_lhs id test = function
+    | LA.SingleIdent (_, id')
+    | TupleSelection (_, id', _)
+    | FieldSelection (_, id', _)
+    | ArraySliceStructItem (_, id', _)
+    | ArrayDef (_, id', _)
+      -> test || id = id'
+    | TupleStructItem (_, items) ->
+      let test_items = items |> List.map (find_local_def_lhs id test)
+        |> List.fold_left (fun x y -> x || y) false
+      in
+      test || test_items
   in
   let find_local_def id = function
     | LA.Body eqn -> (match eqn with
