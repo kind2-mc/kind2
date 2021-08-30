@@ -182,6 +182,12 @@ let no_temporal_operator is_const expr =
   | Fby (pos, _, _, _) -> syntax_error pos (template "fby" decl_ctx decl_ctx)
   | _ -> Ok ()
 
+let unsupported_expr = function
+  | LA.When (pos, _, _) -> syntax_error pos
+    (Format.asprintf "Current and when expressions are not supported")
+  | LA.Current (pos, _) -> syntax_error pos
+      (Format.asprintf "Current expression is not supported")
+  | _ -> Ok ()
 
 let rec syntax_check (ast:LustreAst.t) =
   let ctx = build_global_ctx ast in
@@ -216,6 +222,7 @@ and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   let composed_items_checks e =
     (no_dangling_node_calls ctx e)
       >> (no_dangling_identifiers ctx e)
+      >> (unsupported_expr e)
   in
   (locals_must_have_definitions locals items)
     >> (check_items composed_items_checks items)
@@ -231,6 +238,7 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
       >> (no_calls_to_node ctx e)
       >> (no_temporal_operator false e)
       >> (no_dangling_identifiers ctx e)
+      >> (unsupported_expr e)
   in
   (check_items composed_items_checks items)
     >> (Ok decl)
