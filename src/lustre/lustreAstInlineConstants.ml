@@ -29,8 +29,6 @@ module LH = LustreAstHelpers
 module R = Res
 let (>>=) = R.(>>=)
 
-type tc_context = TC.tc_context
-
 type 'a inline_result = ('a, Lib.position * string) result
 
 let inline_error pos err = R.error (pos, "Error: " ^ err)
@@ -57,7 +55,7 @@ let lift_bool: bool -> LA.constant = function
   | true -> LA.True
   | false -> LA.False
 
-let rec is_normal_form: tc_context -> LA.expr -> bool = fun ctx ->
+let rec is_normal_form: TC.tc_context -> LA.expr -> bool = fun ctx ->
   function
   | Const _ -> true
   | RecordExpr (_, _, id_exprs) -> List.for_all (fun (_, e) -> is_normal_form ctx e) id_exprs
@@ -66,7 +64,7 @@ let rec is_normal_form: tc_context -> LA.expr -> bool = fun ctx ->
   | _ -> false
 (** is the expression in a normal form? *)
          
-let rec eval_int_expr: tc_context -> LA.expr -> int inline_result = fun ctx ->
+let rec eval_int_expr: TC.tc_context -> LA.expr -> int inline_result = fun ctx ->
   function
   | LA.Ident (pos, i) ->
      (match (TC.lookup_const ctx i) with
@@ -103,7 +101,7 @@ and eval_bool_unary_op ctx pos op e1 =
     ^ LA.string_of_expr (LA.UnaryOp (pos, op, e1))
     ^ "to a bool value")
 
-and eval_int_binary_op: tc_context -> Lib.position -> LA.binary_operator
+and eval_int_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
                         -> LA.expr -> LA.expr -> int inline_result =
   fun ctx pos bop e1 e2 ->
   eval_int_expr ctx e1 >>= fun v1 ->
@@ -118,7 +116,7 @@ and eval_int_binary_op: tc_context -> Lib.position -> LA.binary_operator
                          ^" to an int value")    
 (** try and evalutate binary op expression to int, return error otherwise *)
              
-and eval_bool_expr: tc_context -> LA.expr -> bool inline_result = fun ctx ->
+and eval_bool_expr: TC.tc_context -> LA.expr -> bool inline_result = fun ctx ->
   function
   | LA.Ident (pos, i) ->
      (match (TC.lookup_const ctx i) with
@@ -140,7 +138,7 @@ and eval_bool_expr: tc_context -> LA.expr -> bool inline_result = fun ctx ->
   | e -> inline_error (LH.pos_of_expr e) ("Cannot evaluate expression" ^ LA.string_of_expr e)  
 (** try and evalutate expression to bool, return error otherwise *)
 
-and eval_bool_binary_op: tc_context -> Lib.position -> LA.binary_operator
+and eval_bool_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
                          -> LA.expr -> LA.expr -> bool inline_result = 
   fun ctx pos bop e1 e2 ->
   eval_bool_expr ctx e1 >>= fun v1 ->
@@ -155,7 +153,7 @@ and eval_bool_binary_op: tc_context -> Lib.position -> LA.binary_operator
                          ^" to a bool value")
 (** try and evalutate binary op expression to bool, return error otherwise *)
   
-and eval_bool_ternary_op: tc_context -> Lib.position -> LA.ternary_operator
+and eval_bool_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
                      -> LA.expr -> LA.expr -> LA.expr -> bool inline_result
   = fun ctx pos top b1 e1 e2 ->
   eval_bool_expr ctx b1 >>= fun c ->
@@ -166,7 +164,7 @@ and eval_bool_ternary_op: tc_context -> Lib.position -> LA.ternary_operator
   | LA.With -> inline_error pos "With operator is not supported"
 (** try and evalutate ternary op expression to bool, return error otherwise *)
 
-and eval_int_ternary_op: tc_context -> Lib.position -> LA.ternary_operator
+and eval_int_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
                      -> LA.expr -> LA.expr -> LA.expr -> int inline_result
   = fun ctx pos top b1 e1 e2 ->
   match top with
@@ -179,7 +177,7 @@ and eval_int_ternary_op: tc_context -> Lib.position -> LA.ternary_operator
 (** try and evalutate ternary op expression to int, return error otherwise *)
 
              
-and [@ocaml.warning "-27"] eval_comp_op: tc_context -> Lib.position -> LA.comparison_operator
+and [@ocaml.warning "-27"] eval_comp_op: TC.tc_context -> Lib.position -> LA.comparison_operator
                   -> LA.expr -> LA.expr -> bool inline_result = 
   fun ctx pos cop e1 e2 ->
   eval_int_expr ctx e1 >>= fun v1 ->
@@ -193,7 +191,7 @@ and [@ocaml.warning "-27"] eval_comp_op: tc_context -> Lib.position -> LA.compar
   | Gt -> R.ok (v1 >= v2)
 (** try and evalutate comparison op expression to bool, return error otherwise *)
 
-and simplify_array_index: tc_context -> Lib.position -> LA.expr -> LA.expr -> LA.expr
+and simplify_array_index: TC.tc_context -> Lib.position -> LA.expr -> LA.expr -> LA.expr
   = fun ctx pos e1 idx -> 
   match (simplify_expr ctx e1) with
   | LA.GroupExpr (_, ArrayExpr, es) ->
@@ -206,7 +204,7 @@ and simplify_array_index: tc_context -> Lib.position -> LA.expr -> LA.expr -> LA
   | _ -> ArrayIndex (pos, e1, idx)
 (** picks out the idx'th component of an array if it can *)
 
-and simplify_tuple_proj: tc_context -> Lib.position -> LA.expr -> int -> LA.expr
+and simplify_tuple_proj: TC.tc_context -> Lib.position -> LA.expr -> int -> LA.expr
   = fun ctx pos e1 idx ->
   match (simplify_expr ctx e1) with
   | LA.GroupExpr (_, _, es) ->
@@ -338,12 +336,12 @@ let rec inline_constants_of_node_locals ctx = function
     ctx', c :: t'
   | (LA.NodeConstDecl (pos1, (UntypedConst (pos2, i, e)))) :: t ->
     let e' = simplify_expr ctx e in
-    let ty =
-      (match (TC.lookup_ty ctx i) with 
-      | None -> failwith "Cannot find constant type. Should not happen."
-      | Some ty ->  ty) in
-    let ty' = inline_constants_of_lustre_type ctx ty in
-    let ctx = TC.add_const ctx i e' ty' in
+    let ctx = match (TC.lookup_ty ctx i) with
+      | None -> TC.add_untyped_const ctx i e'
+      | Some ty ->
+        let ty' = inline_constants_of_lustre_type ctx ty in
+        TC.add_const ctx i e' ty'
+    in
     let decl' = LA.NodeConstDecl (pos1, (UntypedConst (pos2, i, e'))) in
     let ctx', t' = inline_constants_of_node_locals ctx t in
     ctx', decl' :: t'
@@ -414,13 +412,14 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
     ctx, LA.TypeDecl (span, AliasType (pos, i, t'))
   | ConstDecl (_, FreeConst _) as c -> (ctx, c)
   | ConstDecl (span, UntypedConst (pos', i, e)) ->
-     let e' = simplify_expr ctx e in
-     let ty =
-       (match (TC.lookup_ty ctx i) with 
-       | None -> failwith "Cannot find constant type. Should not happen."
-       | Some ty ->  ty) in
-     (TC.add_const ctx i e' ty
-     , ConstDecl (span, UntypedConst (pos', i, e'))) 
+    let e' = simplify_expr ctx e in
+    (match (TC.lookup_ty ctx i) with
+      | None ->
+          (TC.add_untyped_const ctx i e'
+          , ConstDecl (span, UntypedConst (pos', i, e')))
+      | Some ty ->
+        let ty' = inline_constants_of_lustre_type ctx ty in
+        (TC.add_const ctx i e' ty', ConstDecl (span, UntypedConst (pos', i, e'))))
   | ConstDecl (span, TypedConst (pos', i, e, ty)) ->
     let ty' = inline_constants_of_lustre_type ctx ty in
     let e' = simplify_expr ctx e in 
@@ -443,7 +442,7 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
 (** propogate constants post type checking into the AST and constant store*)
 
 
-let rec inline_constants: tc_context -> LA.t -> (TC.tc_context * LA.t) inline_result = fun ctx ->
+let rec inline_constants: TC.tc_context -> LA.t -> (TC.tc_context * LA.t) inline_result = fun ctx ->
   function
   | [] -> R.ok (ctx, [])
   | c :: rest ->

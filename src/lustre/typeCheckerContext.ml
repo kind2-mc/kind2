@@ -21,6 +21,7 @@
 (** The type checker context use for typechecking the surface level language
   
      @author Apoorv Ingle *)
+
 module LA = LustreAst
 module SI = LA.SI
 module LH = LustreAstHelpers          
@@ -45,7 +46,7 @@ type ty_alias_store = tc_type IMap.t
 type ty_store = tc_type IMap.t
 (** A store of identifier and their types*)
 
-type const_store = (LA.expr * tc_type) IMap.t 
+type const_store = (LA.expr * tc_type option) IMap.t 
 (** A Store of constant identifier and their (const) values with types. 
  *  The values of the associated identifiers should be evaluated to a 
  *  Bool or an Int at constant propogation phase of type checking *)
@@ -147,7 +148,7 @@ let lookup_node_ty: tc_context -> LA.ident -> tc_type option
   = fun ctx i -> IMap.find_opt i (ctx.node_ctx)
 (** Lookup a node type  *)
                
-let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type) option
+let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option) option
   = fun ctx i -> IMap.find_opt i (ctx.vl_ctx)
 (** Lookup a constant identifier *)
 
@@ -176,8 +177,11 @@ let remove_ty: tc_context -> LA.ident -> tc_context
 (** Removes a type binding  *)
 
 let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> tc_context
-  = fun ctx i e ty -> {ctx with vl_ctx = IMap.add i (e, ty) ctx.vl_ctx} 
+  = fun ctx i e ty -> {ctx with vl_ctx = IMap.add i (e, (Some ty)) ctx.vl_ctx} 
 (** Adds a constant variable along with its expression and type  *)
+
+let add_untyped_const : tc_context -> LA.ident -> LA.expr -> tc_context
+= fun ctx i e -> {ctx with vl_ctx = IMap.add i (e, None) ctx.vl_ctx} 
 
 let union: tc_context -> tc_context -> tc_context
   = fun ctx1 ctx2 -> { ty_syns = (IMap.union (fun k v1 v2 -> Some v2)
@@ -226,7 +230,7 @@ let extract_consts: LA.const_clocked_typed_decl -> tc_context
   then singleton_const i (LA.Ident (pos, i)) ty
   else empty_tc_context 
 (** Extracts constants as a typing constant  *)
-  
+
 let get_constant_ids: tc_context -> LA.ident list
   = fun ctx -> IMap.keys ctx.vl_ctx
 (** Returns the constants declared in the typing context  *)
@@ -249,9 +253,10 @@ let pp_print_type_binding: Format.formatter -> (LA.ident * tc_type) -> unit
   = fun ppf (i, ty) -> Format.fprintf ppf "(%a:%a)" LA.pp_print_ident i LA.pp_print_lustre_type ty
 (** Pretty print type bindings*)  
 
-let pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type)) -> unit
+let pp_print_val_binding: Format.formatter -> (LA.ident * (LA.expr * tc_type option)) -> unit
   = fun ppf (i, (v, ty)) ->
-  Format.fprintf ppf "(%a:%a :-> %a)" LA.pp_print_ident i LA.pp_print_lustre_type ty LA.pp_print_expr v
+  Format.fprintf ppf "(%a:%a :-> %a)"
+    LA.pp_print_ident i (Lib.pp_print_option LA.pp_print_lustre_type) ty LA.pp_print_expr v
 (** Pretty print value bindings (used for constants)*)
 
 let pp_print_ty_syns: Format.formatter -> ty_alias_store -> unit
@@ -263,7 +268,8 @@ let pp_print_tymap: Format.formatter -> ty_store -> unit
 (** Pretty print type binding context *)
                
 let pp_print_vstore: Format.formatter -> const_store -> unit
-  = fun  ppf m -> Lib.pp_print_list (fun ppf (i, (e, ty)) -> pp_print_val_binding ppf (i, (e, ty)))  ", " ppf (IMap.bindings m)
+  = fun  ppf m -> Lib.pp_print_list (fun ppf (i, (e, ty))
+    -> pp_print_val_binding ppf (i, (e, ty)))  ", " ppf (IMap.bindings m)
 (** Pretty print value store *)
 
 let pp_print_u_types: Format.formatter -> SI.t -> unit
