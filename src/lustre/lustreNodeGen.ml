@@ -476,8 +476,13 @@ and compile_ast_type
       succ i, X.fold over_indices compiled_tuple_field_ty a
     in
     List.fold_left over_fields (0, X.empty) tuple_fields |> snd
-  | A.GroupType _ -> assert false
-      (* Lib.todo "Trying to flatten group type. Should not happen" *)
+  | A.GroupType (_, types) -> 
+    let over_types (i, a) t =
+      let over_indices j t a = X.add (X.ListIndex i :: j) t a in
+      let compiled_type = compile_ast_type cstate ctx map t in
+      succ i, X.fold over_indices compiled_type a
+    in
+    List.fold_left over_types (0, X.empty) types |> snd
   | A.ArrayType (pos, (type_expr, size_expr)) ->
     (* TODO: Should we check that array size is constant here or later?
       If the var_size flag is set, variable sized arrays are allowed
