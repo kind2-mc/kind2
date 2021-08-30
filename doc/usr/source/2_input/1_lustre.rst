@@ -411,7 +411,7 @@ definition inside a ``when``.
    var in_pos: bool ; x: int ;
    let
      ...
-     in_pos = x >= 0 ;
+     in_pos = in >= 0 ;
      x = in when in_pos ;
      ...
    tel
