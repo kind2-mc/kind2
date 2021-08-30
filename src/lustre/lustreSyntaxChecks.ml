@@ -77,6 +77,9 @@ let ctx_add_local ctx i = {
 
 let build_global_ctx (decls:LustreAst.t) =
   let over_decls acc = function
+    | LA.TypeDecl (_, AliasType (_, i, (EnumType (_, _, variants)))) -> 
+      let ctx = List.fold_left ctx_add_consts acc variants in
+      ctx_add_type ctx i
     | LA.TypeDecl (_, AliasType (_, i, _)) -> ctx_add_type acc i
     | TypeDecl (_, FreeType (_, i)) -> ctx_add_type acc i
     | ConstDecl (_, FreeConst (_, i, _)) -> ctx_add_consts acc i
@@ -192,11 +195,49 @@ let no_temporal_operator is_const expr =
   | _ -> Ok ()
 
 let unsupported_expr = function
-  | LA.When (pos, _, _) -> syntax_error pos
-    (Format.asprintf "Current and when expressions are not supported")
   | LA.Current (pos, _) -> syntax_error pos
       (Format.asprintf "Current expression is not supported")
   | _ -> Ok ()
+
+let rec when_expr_only_supported_in_merge observer expr =
+  let r = when_expr_only_supported_in_merge in
+  let r_list obs e = Res.seqM (fun x _ -> x) () (List.map (r obs) e) in
+  match expr with
+  | LA.When (pos, _, _) -> 
+    if observer then Ok ()
+    else syntax_error pos
+      (Format.asprintf "When expressions only supported inside merges")
+  | Merge (_, _, e) -> 
+    r_list true (List.map (fun (_, x) -> x) e)
+  | Ident _ | Const _ | Last _ | ModeRef _ -> Ok ()
+  | RecordProject (_, e, _)
+  | TupleProject (_, e, _)
+  | UnaryOp (_, _, e)
+  | ConvOp (_, _, e)
+  | Pre (_, e)
+  | Current (_, e)
+  | Quantifier (_, _, _, e) -> r observer e
+  | BinaryOp (_, _, e1, e2) 
+  | StructUpdate (_, e1, _, e2)
+  | CompOp (_, _, e1, e2)
+  | Fby (_, e1, _, e2)
+  | Arrow (_, e1, e2)
+  | ArrayIndex (_, e1, e2)
+  | ArrayConcat (_, e1, e2)
+  | ArrayConstr (_, e1, e2) -> r observer e1 >> r observer e2
+  | TernaryOp (_, _, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3))
+    -> r observer e1 >> r observer e2 >> r observer e3
+  | NArityOp (_, _, e)
+  | GroupExpr (_, _, e)
+  | Call (_, _, e)
+  | CallParam (_, _, _, e) -> r_list observer e
+  | RecordExpr (_, _, e) -> r_list observer (List.map (fun (_, x) -> x) e)
+  | Condact (_, e1, e2, _, e3, e4 )
+    -> r observer e1 >> r observer e2 >> r_list observer e3 >> r_list observer e4
+  | Activate (_, _, e1, e2, e3)
+    -> r observer e1 >> r observer e2 >> r_list observer e3
+  | RestartEvery (_, _, e1, e2) -> r_list observer e1 >> r observer e2
 
 let rec syntax_check (ast:LustreAst.t) =
   let ctx = build_global_ctx ast in
@@ -257,6 +298,7 @@ and check_items ctx f items =
     | LA.Body (Equation (_, lhs, e)) ->
       let ctx = build_equation_ctx ctx lhs in
       check_expr (f ctx) e
+        >> (when_expr_only_supported_in_merge false e)
     | Body (Assert (_, e))
     | AnnotProperty (_, _, e) -> check_expr (f ctx) e
     | Body (Automaton _) -> Ok ()
