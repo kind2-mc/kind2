@@ -48,7 +48,7 @@ let empty_ctx () = {
     functions = StringSet.empty;
     contracts = StringSet.empty;
     consts = StringSet.empty;
-    locals = StringSet.empty
+    locals = StringSet.empty;
   }
 
 let ctx_add_type ctx i = {
@@ -77,6 +77,9 @@ let ctx_add_local ctx i = {
 
 let build_global_ctx (decls:LustreAst.t) =
   let over_decls acc = function
+    | LA.TypeDecl (_, AliasType (_, i, (EnumType (_, _, variants)))) -> 
+      let ctx = List.fold_left ctx_add_consts acc variants in
+      ctx_add_type ctx i
     | LA.TypeDecl (_, AliasType (_, i, _)) -> ctx_add_type acc i
     | TypeDecl (_, FreeType (_, i)) -> ctx_add_type acc i
     | ConstDecl (_, FreeConst (_, i, _)) -> ctx_add_consts acc i
@@ -89,14 +92,27 @@ let build_global_ctx (decls:LustreAst.t) =
   in
   List.fold_left over_decls (empty_ctx ()) decls
 
-let build_local_ctx ctx (decls:LustreAst.node_local_decl list) =
+let build_local_ctx ctx locals inputs outputs =
   let over_locals acc = function
     | LA.NodeConstDecl (_, FreeConst (_, i, _)) -> ctx_add_local acc i
     | NodeConstDecl (_, UntypedConst (_, i, _)) -> ctx_add_local acc i
     | NodeConstDecl (_, TypedConst (_, i, _, _)) -> ctx_add_local acc i
     | NodeVarDecl (_, (_, i, _, _)) -> ctx_add_local acc i
   in
-  List.fold_left over_locals ctx decls
+  let over_inputs acc (_, i, _, _, _) = ctx_add_local acc i in
+  let over_outputs acc (_, i, _, _) = ctx_add_local acc i in
+  let ctx = List.fold_left over_locals ctx locals in
+  let ctx = List.fold_left over_inputs ctx inputs in
+  List.fold_left over_outputs ctx outputs
+
+let build_equation_ctx ctx = function
+  | LA.StructDef (_, items) ->
+    let over_items ctx = function
+      | LA.ArrayDef (_, _, ids)
+        -> List.fold_left ctx_add_local ctx ids
+      | _ -> ctx
+    in
+    List.fold_left over_items ctx items
 
 let locals_must_have_definitions locals items =
   let rec find_local_def_lhs id test = function
@@ -133,7 +149,7 @@ let locals_must_have_definitions locals items =
   in
   Res.seq (List.map over_locals locals)
 
-let node_calls_reference_existing_nodes ctx = function
+let no_dangling_node_calls ctx = function
   | LA.Condact (pos, _, _, i, _, _)
   | Activate (pos, i, _, _, _)
   | Call (pos, i, _) ->
@@ -146,44 +162,149 @@ let node_calls_reference_existing_nodes ctx = function
       (Format.asprintf "No node with name %s found." i))
   | _ -> Ok ()
 
+let no_dangling_identifiers ctx = function
+  | LA.Ident (pos, i) -> 
+    let check_consts = StringSet.find_opt i ctx.consts in
+    let check_locals = StringSet.find_opt i ctx.locals in
+    (match check_consts, check_locals with
+    | Some _, _ -> Ok ()
+    | _, Some _ -> Ok ()
+    | None, None -> syntax_error pos
+      (Format.asprintf "No identifier with name %s found." i))
+  | _ -> Ok ()
+
+let no_calls_to_node ctx = function
+  | LA.Condact (pos, _, _, i, _, _)
+  | Activate (pos, i, _, _, _)
+  | Call (pos, i, _) ->
+    let check_nodes = StringSet.find_opt i ctx.nodes in
+    (match check_nodes with
+    | Some _ -> syntax_error pos
+      (Format.asprintf "Illegal call to node %s, functions can only call other functions, not nodes." i)
+    | None -> Ok ())
+  | _ -> Ok ()
+
+let no_temporal_operator is_const expr =
+  let decl_ctx = if is_const then "constant" else "function" in
+  let template = Format.asprintf "Illegal %s in %s definition, %ss cannot have state" in
+  match expr with
+  | LA.Pre (pos, _) -> syntax_error pos (template "pre" decl_ctx decl_ctx)
+  | Arrow (pos, _, _) -> syntax_error pos (template "arrow" decl_ctx decl_ctx)
+  | Last (pos, _) -> syntax_error pos (template "last" decl_ctx decl_ctx)
+  | Fby (pos, _, _, _) -> syntax_error pos (template "fby" decl_ctx decl_ctx)
+  | _ -> Ok ()
+
+let unsupported_expr = function
+  | LA.Current (pos, _) -> syntax_error pos
+      (Format.asprintf "Current expression is not supported")
+  | _ -> Ok ()
+
+let rec when_expr_only_supported_in_merge observer expr =
+  let r = when_expr_only_supported_in_merge in
+  let r_list obs e = Res.seqM (fun x _ -> x) () (List.map (r obs) e) in
+  match expr with
+  | LA.When (pos, _, _) -> 
+    if observer then Ok ()
+    else syntax_error pos
+      (Format.asprintf "When expressions only supported inside merges")
+  | Merge (_, _, e) -> 
+    r_list true (List.map (fun (_, x) -> x) e)
+  | Ident _ | Const _ | Last _ | ModeRef _ -> Ok ()
+  | RecordProject (_, e, _)
+  | TupleProject (_, e, _)
+  | UnaryOp (_, _, e)
+  | ConvOp (_, _, e)
+  | Pre (_, e)
+  | Current (_, e)
+  | Quantifier (_, _, _, e) -> r observer e
+  | BinaryOp (_, _, e1, e2) 
+  | StructUpdate (_, e1, _, e2)
+  | CompOp (_, _, e1, e2)
+  | Fby (_, e1, _, e2)
+  | Arrow (_, e1, e2)
+  | ArrayIndex (_, e1, e2)
+  | ArrayConcat (_, e1, e2)
+  | ArrayConstr (_, e1, e2) -> r observer e1 >> r observer e2
+  | TernaryOp (_, _, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3))
+    -> r observer e1 >> r observer e2 >> r observer e3
+  | NArityOp (_, _, e)
+  | GroupExpr (_, _, e)
+  | Call (_, _, e)
+  | CallParam (_, _, _, e) -> r_list observer e
+  | RecordExpr (_, _, e) -> r_list observer (List.map (fun (_, x) -> x) e)
+  | Condact (_, e1, e2, _, e3, e4 )
+    -> r observer e1 >> r observer e2 >> r_list observer e3 >> r_list observer e4
+  | Activate (_, _, e1, e2, e3)
+    -> r observer e1 >> r observer e2 >> r_list observer e3
+  | RestartEvery (_, _, e1, e2) -> r_list observer e1 >> r observer e2
+
 let rec syntax_check (ast:LustreAst.t) =
   let ctx = build_global_ctx ast in
   Res.seq (List.map (check_declaration ctx) ast)
 
 and check_declaration ctx = function
   | TypeDecl (span, decl) -> Ok (LA.TypeDecl (span, decl))
-  | ConstDecl (span, decl) -> Ok (LA.ConstDecl (span, decl))
+  | ConstDecl (span, decl) ->
+    let check = match decl with
+      | LA.FreeConst _ -> Ok ()
+      | UntypedConst (_, _, e)
+      | TypedConst (_, _, e, _) -> check_const_expr_decl ctx e
+    in
+    check >> Ok (LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
   | FuncDecl (span, decl) -> check_func_decl ctx span decl
   | ContractNodeDecl (span, decl) -> Ok (LA.ContractNodeDecl (span, decl))
   | NodeParamInst (span, inst) -> Ok (LA.NodeParamInst (span, inst))
 
+and check_const_expr_decl ctx expr =
+  let composed_checks e =
+    (no_temporal_operator true e)
+      >> (no_dangling_identifiers ctx e)
+  in
+  check_expr composed_checks expr
+
 and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contracts) =
-  let ctx = build_local_ctx ctx locals in
+  let ctx = build_local_ctx ctx locals inputs outputs in
   let decl = LA.NodeDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contracts))
   in
+  let composed_items_checks ctx e =
+    (no_dangling_node_calls ctx e)
+      >> (no_dangling_identifiers ctx e)
+      >> (unsupported_expr e)
+  in
   (locals_must_have_definitions locals items)
-    >> (check_items (node_calls_reference_existing_nodes ctx) items)
+    >> (check_items ctx composed_items_checks items)
     >> (Ok decl)
 
 and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contracts) =
-  let ctx = build_local_ctx ctx locals in
+  let ctx = build_local_ctx ctx locals inputs outputs in
   let decl = LA.FuncDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contracts))
   in
-  (check_items (node_calls_reference_existing_nodes ctx) items)
+  let composed_items_checks ctx e =
+    (no_dangling_node_calls ctx e)
+      >> (no_calls_to_node ctx e)
+      >> (no_temporal_operator false e)
+      >> (no_dangling_identifiers ctx e)
+      >> (unsupported_expr e)
+  in
+  (check_items ctx composed_items_checks items)
     >> (Ok decl)
 
-and check_items f items =
-  let check_item f = function
-    | LA.Body (Assert (_, e))
-    | Body (Equation (_, _, e))
-    | AnnotProperty (_, _, e) -> check_expr f e
+and check_items ctx f items =
+  let check_item ctx f = function
+    | LA.Body (Equation (_, lhs, e)) ->
+      let ctx = build_equation_ctx ctx lhs in
+      check_expr (f ctx) e
+        >> (when_expr_only_supported_in_merge false e)
+    | Body (Assert (_, e))
+    | AnnotProperty (_, _, e) -> check_expr (f ctx) e
     | Body (Automaton _) -> Ok ()
     | AnnotMain _ -> Ok ()
   in
-  Res.seqM (fun x _ -> x) () (List.map (check_item f) items)
+  Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)
 
 and check_expr f (expr:LustreAst.expr) =
   let check_list e = Res.seqM (fun x _ -> x) () (List.map (check_expr f) e) in

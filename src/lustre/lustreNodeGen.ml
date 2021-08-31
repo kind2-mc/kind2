@@ -476,8 +476,13 @@ and compile_ast_type
       succ i, X.fold over_indices compiled_tuple_field_ty a
     in
     List.fold_left over_fields (0, X.empty) tuple_fields |> snd
-  | A.GroupType _ -> assert false
-      (* Lib.todo "Trying to flatten group type. Should not happen" *)
+  | A.GroupType (_, types) -> 
+    let over_types (i, a) t =
+      let over_indices j t a = X.add (X.ListIndex i :: j) t a in
+      let compiled_type = compile_ast_type cstate ctx map t in
+      succ i, X.fold over_indices compiled_type a
+    in
+    List.fold_left over_types (0, X.empty) types |> snd
   | A.ArrayType (pos, (type_expr, size_expr)) ->
     (* TODO: Should we check that array size is constant here or later?
       If the var_size flag is set, variable sized arrays are allowed
@@ -983,6 +988,7 @@ and compile_node pos ctx cstate map oracles outputs cond restart ident args defa
     let ast_group_expr = A.GroupExpr (dummy_pos, A.ExprList, ast) in
     let cexpr = compile_ast_expr cstate ctx [] map ast_group_expr in
     let over_indices i input_sv expr accum =
+(*       Format.eprintf "expr: %a\n\n" (E.pp_print_lustre_expr true) expr; *)
       let sv = state_var_of_expr expr in
       let i' = match i with | (X.ListIndex i)::idx -> idx | idx -> idx in 
       N.set_state_var_instance sv pos ident input_sv;
@@ -1440,11 +1446,8 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
             | A.GroupType (_, types) -> types
             | t -> [t])
         | _ -> assert false)
-      in 
-      let output_types = List.map
-        (fun t -> compile_ast_type cstate ctx map t)
-        output_ast_types
-      in let is_single = List.length output_types = 1 in
+      in
+      let is_single = List.length output_ast_types = 1 in
       let local_map = H.create 7 in
       let outputs =
         let over_vars = fun (is_single) i sv compiled_vars ->
@@ -1525,7 +1528,6 @@ and compile_node_decl gids is_function cstate ctx pos i ext inputs outputs local
       result, 0
     | A.ArrayDef (pos, i, l) ->
       let ident = mk_ident i in
-      Format.print_string i;
       let expr = H.find !map.expr ident in
       let result = X.map (fun e -> state_var_of_expr e) expr in
       (* TODO: Old code checks that array lengths between l and result match *)
