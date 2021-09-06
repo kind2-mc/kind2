@@ -39,6 +39,7 @@ module LA = LustreAst
 module LH = LustreAstHelpers
 module SI = LA.SI
 
+open Lib
 open LustreReporting
           
 type 'a graph_result = ('a, Lib.position * string) result  
@@ -506,92 +507,127 @@ let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
         | (LA.Guarantee _ as e) -> (ps, e::qs)
       | e -> e::ps, qs in
     List.fold_left (split_eqns) ([],[])
-
     
-let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t = fun m ->
+let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t list = fun m ->
   function
-  | Ident (_ , i) -> SI.singleton i 
-  | ModeRef _ -> SI.empty
+  | Ident (_ , i) -> [SI.singleton i]
+  | ModeRef _ -> [SI.empty]
   | RecordProject (_, e, _) -> vars_with_flattened_nodes m e 
   | TupleProject (_, e, _) -> vars_with_flattened_nodes m e
   (* Values *)
-  | Const _ -> SI.empty
+  | Const _ -> [SI.empty]
 
   (* Operators *)
   | UnaryOp (_,_,e) -> vars_with_flattened_nodes m e
   | BinaryOp (_,_,e1, e2) ->
-     vars_with_flattened_nodes m e1
-     |> SI.union (vars_with_flattened_nodes m e2)
+    let e1' = vars_with_flattened_nodes m e1 in
+    let e2' = vars_with_flattened_nodes m e2 in
+    [SI.union (SI.flatten e1') (SI.flatten e2')]
   | TernaryOp (_,_, e1, e2, e3) ->
-     vars_with_flattened_nodes m e1
-     |> SI.union (vars_with_flattened_nodes m e2)
-     |> SI.union (vars_with_flattened_nodes m e3) 
-  | NArityOp (_, _,es) -> SI.flatten (List.map (vars_with_flattened_nodes m) es)
-  | ConvOp  (_,_,e) -> vars_with_flattened_nodes m e
-  | CompOp (_,_,e1, e2) -> (vars_with_flattened_nodes m e1) |> SI.union (vars_with_flattened_nodes m e2)
-
+    let e1' = vars_with_flattened_nodes m e1 in
+    let e2' = vars_with_flattened_nodes m e2 in
+    let e3' = vars_with_flattened_nodes m e3 in
+    [List.fold_left SI.union SI.empty (e1' @ e2' @ e3')]
+  | NArityOp (_, _,es) ->
+    let es' = List.map (vars_with_flattened_nodes m) es in
+    [es' |> List.flatten |> SI.flatten]
+  | ConvOp  (_,_,e) -> [SI.flatten (vars_with_flattened_nodes m e)]
+  | CompOp (_,_,e1, e2) ->
+    let e1' = vars_with_flattened_nodes m e1 in
+    let e2' = vars_with_flattened_nodes m e2 in
+    [SI.union (SI.flatten e1') (SI.flatten e2')]
   (* Structured expressions *)
   | RecordExpr (_, _, flds) ->
-     SI.flatten (List.map (vars_with_flattened_nodes m) (snd (List.split flds)))
+    let flds' = List.map (vars_with_flattened_nodes m) (snd (List.split flds)) in
+    [flds' |> List.flatten |> SI.flatten]
   | GroupExpr (_, _, es) ->
-     SI.flatten (List.map (vars_with_flattened_nodes m) es)
+    let es' = List.map (vars_with_flattened_nodes m) es in
+    [es' |> List.flatten |> SI.flatten]
 
   (* Update of structured expressions *)
   | StructUpdate (_, e1, _, e2) ->
-     SI.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
+    let e1' = vars_with_flattened_nodes m e1 in
+    let e2' = vars_with_flattened_nodes m e2 in
+    [SI.union (SI.flatten e1') (SI.flatten e2')]
   | ArrayConstr (_, e1, e2) ->
-     SI.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
+    let e1' = vars_with_flattened_nodes m e1 in
+    let e2' = vars_with_flattened_nodes m e2 in
+    [SI.union (SI.flatten e1') (SI.flatten e2')]
   | ArrayIndex (_, e1, e2) ->
-     SI.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
+    let e1' = vars_with_flattened_nodes m e1 in
+    let e2' = vars_with_flattened_nodes m e2 in
+    [SI.union (SI.flatten e1') (SI.flatten e2')]
   | ArraySlice (_, e1, (e2, e3)) ->
-     SI.union (vars_with_flattened_nodes m e3)
-       (SI.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2))
+    let e1' = vars_with_flattened_nodes m e1 in
+    let e2' = vars_with_flattened_nodes m e2 in
+    let e3' = vars_with_flattened_nodes m e3 in
+    [List.fold_left SI.union SI.empty (e1' @ e2' @ e3')]
   | ArrayConcat (_, e1, e2) ->
-     SI.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
+    let e1' = vars_with_flattened_nodes m e1 in
+    let e2' = vars_with_flattened_nodes m e2 in
+    [SI.union (SI.flatten e1') (SI.flatten e2')]
 
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) ->
-     SI.diff (vars_with_flattened_nodes m e) (SI.flatten (List.map LH.vars_of_ty_ids qs)) 
-
+    let e' = vars_with_flattened_nodes m e in
+    [SI.diff (SI.flatten e') (SI.flatten (List.map LH.vars_of_ty_ids qs))]
   (* Clock operators *)
-  | When (_, e, clkE) -> vars_with_flattened_nodes m e
-  | Current  (_, e) -> vars_with_flattened_nodes m e
+  | When (_, e, clkE) -> [SI.flatten (vars_with_flattened_nodes m e)]
+  | Current  (_, e) -> [SI.flatten (vars_with_flattened_nodes m e)]
   | Condact (_, e1, e2, i, es1, es2) ->
-     SI.add i (SI.flatten (vars_with_flattened_nodes m e1
-                           :: vars_with_flattened_nodes m e2
-                           :: (List.map (vars_with_flattened_nodes m) es1) @
-                             (List.map (vars_with_flattened_nodes m) es2)))
+    let e1' = SI.flatten (vars_with_flattened_nodes m e1) in
+    let e2' = SI.flatten (vars_with_flattened_nodes m e2) in
+    let es1' = List.flatten (List.map (vars_with_flattened_nodes m) es1) in
+    let es2' = List.flatten (List.map (vars_with_flattened_nodes m) es2) in
+     [SI.add i (SI.flatten (e1' :: e2' :: es1' @ es2'))]
   | Activate (_, _, e1, e2, es) ->
-     SI.flatten (vars_with_flattened_nodes m e1
-                 :: vars_with_flattened_nodes m e2
-                 :: List.map (vars_with_flattened_nodes m)  es)
+    let e1' = SI.flatten (vars_with_flattened_nodes m e1) in
+    let e2' = SI.flatten (vars_with_flattened_nodes m e2) in
+    let es' = List.flatten (List.map (vars_with_flattened_nodes m) es) in
+    [SI.flatten (e1' :: e2' :: es')]
   | Merge (_, _, es) ->
-     List.split es |> snd
-     |> List.map (vars_with_flattened_nodes m) |> SI.flatten
+    let es' = List.split es |> snd |> List.map (vars_with_flattened_nodes m) in
+    [es' |> List.flatten |> SI.flatten]
   | RestartEvery (_, i, es, e) ->
-     SI.add i (SI.flatten (vars_with_flattened_nodes m e
-                           :: List.map (vars_with_flattened_nodes m) es)) 
+    let e' = SI.flatten (vars_with_flattened_nodes m e) in
+    let es' = List.flatten (List.map (vars_with_flattened_nodes m) es) in
+    [SI.add i (SI.flatten (e' :: es'))]
 
   (* Temporal operators *)
-  | Pre (_, _) -> SI.empty
-  | Last (_, _) -> SI.empty
+  | Pre (_, _) -> [SI.empty]
+  | Last (_, _) -> [SI.empty]
   | Fby (_, e1, _, e2)
-    | Arrow (_, e1, e2) ->
-     SI.union (vars_with_flattened_nodes m e1) (vars_with_flattened_nodes m e2)
+  | Arrow (_, e1, e2) ->
+    let e1' = vars_with_flattened_nodes m e1 in
+    let e2' = vars_with_flattened_nodes m e2 in
+    [SI.union (SI.flatten e1') (SI.flatten e2')]
 
   (* Node calls *)
   | Call (p, i, es) ->
+(*     Format.eprintf "call expr: %a\n\n" (pp_print_list LA.pp_print_expr ";") es;
+    Format.eprintf "pos: %a, call: %a\n\n" Lib.pp_print_position p Format.pp_print_string i; *)
     (match IMap.find_opt i m with
       | None -> assert false (* guaranteed by lustreSyntaxChecks *)
       | Some ns ->
-         let sum_bds = IntMap.bindings ns in
-         let es' = List.map (vars_with_flattened_nodes m) es in
-         SI.flatten (List.concat (List.map (fun (i, b) ->
-                                      List.map (List.nth es') b) sum_bds)))
-  | CallParam (_, i, _, es) -> (SI.flatten (List.map (vars_with_flattened_nodes m) es))
+        let sum_bds = IntMap.bindings ns in
+        let es' = List.flatten (List.map (vars_with_flattened_nodes m) es) in
+(*         Format.eprintf "sum_bds: %a\n\n"
+        (pp_print_list
+          (pp_print_pair
+            Format.pp_print_int
+            (Lib.pp_print_list Format.pp_print_int ",")
+            ":")
+        ";")
+        sum_bds;
+        Format.eprintf "es': %a\n\n"
+          (pp_print_list Format.pp_print_string ",")
+          (LA.SI.fold (fun key x -> key :: x) (LA.SI.flatten es') []); *)
+        List.concat (List.map (fun (i, b) -> List.map (List.nth es') b) sum_bds))
+  | CallParam (_, i, _, es) ->
+    let es' = List.flatten (List.map (vars_with_flattened_nodes m) es) in
+    [SI.flatten es']
 (** get all the variables and flatten node calls using 
     the node summary for an expression *)
-
              
 let rec mk_contract_eqn_map: LA.contract_node_equation IMap.t -> LA.contract -> (LA.contract_node_equation IMap.t) graph_result
   = fun m ->
@@ -784,7 +820,8 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
      | FreeConst _ -> ad
      | UntypedConst (pos, i, e)
        | TypedConst (pos, i, e, _) ->
-        let effective_vars = LA.SI.elements (vars_with_flattened_nodes ad.nsummary (LH.abstract_pre_subexpressions e)) in
+        let vars = vars_with_flattened_nodes ad.nsummary (LH.abstract_pre_subexpressions e) in
+        let effective_vars = LA.SI.elements (SI.flatten vars) in
         connect_g_pos
           (List.fold_left (fun g v ->
                union_dependency_analysis_data g (singleton_dependency_analysis_data "" v pos))
@@ -835,7 +872,8 @@ let mk_graph_contract_eqns: node_summary -> LA.contract -> dependency_analysis_d
 
 let expression_current_streams: dependency_analysis_data -> LA.expr -> LA.ident list graph_result
   = fun ad e ->
-  let vs = LA.SI.elements (vars_with_flattened_nodes ad.nsummary (LH.abstract_pre_subexpressions e)) in
+  let vars = vars_with_flattened_nodes ad.nsummary (LH.abstract_pre_subexpressions e) in
+  let vs = LA.SI.elements (SI.flatten vars) in
   let rechable_vs = List.concat (List.map (fun v -> G.to_vertex_list (G.reachable ad.graph_data v)) vs) in
   Log.log L_trace "Current Stream Usage for %a: %a"
     (Lib.pp_print_list G.pp_print_vertex ", ") vs
@@ -968,7 +1006,8 @@ let mk_node_summary: node_summary -> LA.node_decl -> node_summary
   let node_equations = List.concat (List.map LH.extract_node_equation items) in
   let process_one_eqn = fun (LA.StructDef (_, lhss), e) ->
     let lhs_vars = LA.SI.elements (LA.SI.flatten (List.map LH.vars_of_struct_item lhss)) in
-    let ms = List.map (Lib.flip IMap.singleton (LA.SI.elements (vars_with_flattened_nodes s e))) lhs_vars in
+    let vars = SI.flatten (vars_with_flattened_nodes s e) in
+    let ms = List.map (Lib.flip IMap.singleton (LA.SI.elements vars)) lhs_vars in
     List.fold_left (IMap.union (fun k v1 v2 -> Some v2)) IMap.empty ms in
   
   let node_equation_dependency_map = List.fold_left (IMap.union (fun k v1 v2 -> Some v2)) IMap.empty

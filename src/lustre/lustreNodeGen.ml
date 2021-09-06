@@ -987,6 +987,7 @@ and compile_node pos ctx cstate map oracles outputs cond restart ident args defa
   in let node_inputs_of_exprs inputs ast =
     let ast_group_expr = A.GroupExpr (dummy_pos, A.ExprList, ast) in
     let cexpr = compile_ast_expr cstate ctx [] map ast_group_expr in
+    let cexpr = flatten_list_indexes cexpr in
     let over_indices i input_sv expr accum =
 (*       Format.eprintf "expr: %a\n\n" (E.pp_print_lustre_expr true) expr; *)
       let sv = state_var_of_expr expr in
