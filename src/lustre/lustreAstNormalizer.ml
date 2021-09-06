@@ -670,24 +670,25 @@ and expand_node_call expr var count =
   let array = List.init count (fun i -> AH.substitute var (mk_index i) expr) in
   A.GroupExpr (dpos, ArrayExpr, array)
 
- and combine_args_with_const info args flags =
-   let output_arity = List.map (fun e -> match e with
-     | A.Call (_, i, _) ->
-       (* This node type is guaranteed to exist by type checking *)
-       let node_type = Ctx.lookup_node_ty info.context i |> get in
-       (match node_type with
-       | TArr (_, _, GroupType (_, es)) -> List.length es
-       | _ -> 1)
-     | _ -> 1)
-     args
-   in
-   let over_args_arity (i, acc) (e, arity) =
-     if arity > 1 then
-       i + arity, (e, false) :: acc
-     else
-       succ i, (e, List.nth flags i) :: acc
-   in
-   List.fold_left over_args_arity (0, []) (List.combine args output_arity) |> snd
+and combine_args_with_const info args flags =
+  let output_arity = List.map (fun e -> match e with
+    | A.Call (_, i, _) ->
+      (* This node type is guaranteed to exist by type checking *)
+      let node_type = Ctx.lookup_node_ty info.context i |> get in
+      (match node_type with
+      | TArr (_, _, GroupType (_, es)) -> List.length es
+      | _ -> 1)
+    | _ -> 1)
+    args
+  in
+  let over_args_arity (i, acc) (e, arity) =
+    if arity > 1 then
+      i + arity, (e, false) :: acc
+    else
+      succ i, (e, List.nth flags i) :: acc
+  in
+  List.fold_left over_args_arity (0, []) (List.combine args output_arity)
+  |> snd |> List.rev
  
 and normalize_expr ?guard force info map =
   let abstract_node_arg ?guard force is_const info map expr =

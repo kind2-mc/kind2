@@ -297,10 +297,12 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                >>= (fun given_arg_tys ->
                 R.ifM (eq_lustre_type ctx exp_arg_tys given_arg_tys)
                   (R.ok exp_ret_tys)                         
-                  (type_error pos ("Node arguments expected to have type "
-                                           ^ string_of_tc_type exp_arg_tys
-                                           ^ " but found type "
-                                           ^ string_of_tc_type given_arg_tys)))
+                  (type_error pos (Format.asprintf
+                     "Node arguments at call %a expect to have type %s but found type %s"
+                     Lib.pp_print_position
+                     pos
+                     (string_of_tc_type exp_arg_tys)
+                     (string_of_tc_type given_arg_tys)) ))
             | Some ty -> type_error pos
                       ("Expected node type to be a function type, but found type "
                        ^ string_of_tc_type ty)

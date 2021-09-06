@@ -281,11 +281,12 @@ and mk_graph_expr: LA.expr -> dependency_analysis_data
   | LA.Call (_, _, es) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map mk_graph_expr es)
-  | e -> 
+  | _ -> empty_dependency_analysis_data
+(*   | e -> 
      Log.log L_trace "%a located at %a"
        LA.pp_print_expr e
        Lib.pp_print_position (LH.pos_of_expr e) 
-     ; Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))  
+     ; Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))   *)
 (** This graph is useful for analyzing top level constant and type declarations *)
        
 let mk_graph_const_decl: LA.const_decl -> dependency_analysis_data
