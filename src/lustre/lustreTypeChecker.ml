@@ -1323,13 +1323,21 @@ and check_type_well_formed: tc_context -> tc_type -> unit tc_result
      if (member_ty_syn ctx i || member_u_types ctx i)
      then R.ok () else type_error pos ("Undefined type " ^ i)
   | LA.IntRange (pos, e1, e2) ->
-     if is_expr_int_type ctx e1 && is_expr_of_consts ctx e1
-     then if is_expr_int_type ctx e2 && is_expr_of_consts ctx e2
-          then R.ok ()
-          else type_error pos ("Range arguments should be of constant integers, but found: "
-                               ^ Lib.string_of_t LA.pp_print_expr e2)
-     else type_error pos ("Range arguments should be of constant integers, but found: "
-                          ^ Lib.string_of_t LA.pp_print_expr e1)
+   if is_expr_int_type ctx e1 && is_expr_of_consts ctx e1 then
+      if is_expr_int_type ctx e2 && is_expr_of_consts ctx e2 then
+         let v1 = IC.eval_int_expr ctx e1 in
+         let v2 = IC.eval_int_expr ctx e2 in
+         v1 >>= fun v1 -> v2 >>= fun v2 ->
+            if v1 >= v2 then
+               type_error pos (Format.asprintf
+                  "Range can not be empty, but found range: [%i, %i]" v1 v2)
+            else Ok ()
+      else type_error pos
+         ("Range arguments should be of constant integers, but found: "
+            ^ Lib.string_of_t LA.pp_print_expr e2)
+   else type_error pos
+      ("Range arguments should be of constant integers, but found: "
+         ^ Lib.string_of_t LA.pp_print_expr e1)
   | _ -> R.ok ()
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
