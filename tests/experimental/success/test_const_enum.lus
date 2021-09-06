@@ -1,0 +1,9 @@
+
+type my_enum = enum { A, B, C };
+
+const my_const : my_enum = B;
+
+node top(x: my_enum) returns (y: bool);
+let
+  y = (x = my_const);
+tel

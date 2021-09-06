@@ -1,0 +1,8 @@
+const n = 5;
+const t = false;
+
+node f(x : bool) returns (b1 : bool^n);
+var b: bool^t; -- should fail here
+let
+  b1 = false ^ n;
+tel;

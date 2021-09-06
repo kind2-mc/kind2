@@ -1,0 +1,17 @@
+
+type my_record1 = struct { f1 : bool; };
+type my_record2 = struct { f2 : my_record1 ;};
+
+node imported top1 (in : my_record2) returns (out : bool);
+(*@contract
+  guarantee out = in.f2.f1;
+*)
+
+
+type my_tuple1 = [bool, [int, int]];
+type my_tuple2 = [my_tuple1, my_tuple1];
+
+node imported top2 (in : my_tuple2) returns (out : bool);
+(*@contract
+   guarantee out = in.%1.%0 and in.%0.%0; 
+*)

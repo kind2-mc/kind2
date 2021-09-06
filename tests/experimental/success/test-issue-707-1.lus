@@ -1,0 +1,12 @@
+type percent = subrange [0, 100] of int;
+node test_array2( 
+    theta_in: percent; 
+) returns (
+    result: bool;
+)
+var 
+    angles    : percent^3;
+let
+    angles = [theta_in, theta_in, theta_in] -> [theta_in, pre (angles[0]), pre (angles[1])];
+    result = false;
+tel

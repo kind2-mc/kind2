@@ -1,0 +1,10 @@
+
+const init_value: int = 1;
+
+node top(x:int) returns (y: int);
+(*@contract
+  guarantee y = (init_value -> pre y + x);
+*)
+let
+  y = init_value -> pre y + x;
+tel

@@ -1,0 +1,23 @@
+node one (in: two) returns (out: two) ;
+(*@contract
+  import two (in) returns (out) ;
+*)
+let
+  out = two(0.0 -> pre in) ;
+tel
+
+node two (in: two) returns (out: two) ;
+let
+  out = one(0.0 -> pre in) ;
+tel
+
+contract two (in: two) returns (out: real) ;
+let
+  assume in >= 0.0 ;
+  guarantee out >= 0.0 ;
+tel
+
+type one = { blah: two } ;
+
+type two = real ;
+

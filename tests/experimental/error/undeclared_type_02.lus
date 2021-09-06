@@ -1,0 +1,9 @@
+
+--type undeclared_type;
+
+type my_record = struct { f1: int; f2: undeclared_type };
+
+node top(x: my_record) returns (y: my_record);
+let
+  y = x;
+tel

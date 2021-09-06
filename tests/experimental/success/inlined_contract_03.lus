@@ -1,0 +1,9 @@
+
+node top(x: int) returns (y: int);
+(*@contract
+  var r: int = 5;
+  guarantee y >= (x + r);
+*)
+let
+  y = x + 10;
+tel

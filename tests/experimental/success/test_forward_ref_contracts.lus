@@ -1,0 +1,12 @@
+
+node mod_real(x, y: real;)returns( z: real );
+(*@contract
+        assume pre (abs_real(z)) < abs_real(y);
+        guarantee abs_real(z) < abs_real(y); *)
+let
+tel
+
+node abs_real (x: real) returns(y:real);
+let
+y = if x >= 0.0 then x else -x;
+tel

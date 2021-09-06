@@ -1,0 +1,8 @@
+node main() returns(OK:bool);
+var x, y: int;
+let
+  x = 3;
+  y = pre x;
+  OK = x = y ;
+  --%PROPERTY OK ;
+tel;

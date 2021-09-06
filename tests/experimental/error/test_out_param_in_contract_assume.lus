@@ -1,0 +1,13 @@
+node b (x:int) returns (y:int);
+let
+y = x;
+tel
+
+
+node a (x:int) returns (y:int)
+(*@contract
+ assume x = b(y); -- this should fail
+*)
+let
+ y = x;
+tel

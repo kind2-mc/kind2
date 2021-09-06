@@ -1,0 +1,11 @@
+type rat = {n: real; d: real};
+
+node x (r: rat) returns (ok: bool);
+var y: rat;
+var a: real;
+let
+  a = r.n * 2.1;
+  y = (r with .n = a);
+  ok = r.n > 0.0 => y.n > r.n;
+  --%PROPERTY ok;
+tel
