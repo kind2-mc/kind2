@@ -301,7 +301,8 @@ and check_items ctx f items =
         >> (when_expr_only_supported_in_merge false e)
     | Body (Assert (_, e))
     | AnnotProperty (_, _, e) -> check_expr ctx f e
-    | Body (Automaton _) -> Ok ()
+    | Body (Automaton (pos, _, _, _)) -> syntax_error pos
+      (Format.asprintf "Automaton DSL not supported in experimental frontend")
     | AnnotMain _ -> Ok ()
   in
   Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)
