@@ -258,11 +258,11 @@ and check_declaration ctx = function
   | NodeParamInst (span, inst) -> Ok (LA.NodeParamInst (span, inst))
 
 and check_const_expr_decl ctx expr =
-  let composed_checks e =
+  let composed_checks ctx e =
     (no_temporal_operator true e)
       >> (no_dangling_identifiers ctx e)
   in
-  check_expr composed_checks expr
+  check_expr ctx composed_checks expr
 
 and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contracts) =
   let ctx = build_local_ctx ctx locals inputs outputs in
@@ -297,28 +297,32 @@ and check_items ctx f items =
   let check_item ctx f = function
     | LA.Body (Equation (_, lhs, e)) ->
       let ctx = build_equation_ctx ctx lhs in
-      check_expr (f ctx) e
+      check_expr ctx f e
         >> (when_expr_only_supported_in_merge false e)
     | Body (Assert (_, e))
-    | AnnotProperty (_, _, e) -> check_expr (f ctx) e
-    | Body (Automaton _) -> Ok ()
+    | AnnotProperty (_, _, e) -> check_expr ctx f e
+    | Body (Automaton (pos, _, _, _)) -> syntax_error pos
+      (Format.asprintf "Automaton DSL not supported in experimental frontend")
     | AnnotMain _ -> Ok ()
   in
   Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)
 
-and check_expr f (expr:LustreAst.expr) =
-  let check_list e = Res.seqM (fun x _ -> x) () (List.map (check_expr f) e) in
-  let expr' = f expr in
+and check_expr ctx f (expr:LustreAst.expr) =
+  let check_list e = Res.seqM (fun x _ -> x) () (List.map (check_expr ctx f) e) in
+  let expr' = f ctx expr in
   let r = match expr with
     | LA.RecordProject (_, e, _)
     | TupleProject (_, e, _)
     | UnaryOp (_, _, e)
     | ConvOp (_, _, e)
-    | Quantifier (_, _, _, e)
     | When (_, e, _)
     | Current (_, e)
     | Pre (_, e)
-      -> check_expr f e
+      -> check_expr ctx f e
+    | Quantifier (_, _, vars, e) ->
+        let over_vars ctx (_, i, _) = ctx_add_local ctx i in
+        let ctx = List.fold_left over_vars ctx vars in
+        check_expr ctx f e
     | BinaryOp (_, _, e1, e2)
     | CompOp (_, _, e1, e2)
     | StructUpdate (_, e1, _, e2)
@@ -327,10 +331,10 @@ and check_expr f (expr:LustreAst.expr) =
     | ArrayConcat (_, e1, e2)
     | Fby (_, e1, _, e2)
     | Arrow (_, e1, e2)
-      -> (check_expr f e1) >> (check_expr f e2)
+      -> (check_expr ctx f e1) >> (check_expr ctx f e2)
     | TernaryOp (_, _, e1, e2, e3)
     | ArraySlice (_, e1, (e2, e3))
-      -> (check_expr f e1) >> (check_expr f e2) >> (check_expr f e3)
+      -> (check_expr ctx f e1) >> (check_expr ctx f e2) >> (check_expr ctx f e3)
     | NArityOp (_, _, e)
     | GroupExpr (_, _, e)
     | Call (_, _, e)
@@ -340,12 +344,12 @@ and check_expr f (expr:LustreAst.expr) =
     | Merge (_, _, e)
       -> let e = List.map (fun (_, e) -> e) e in check_list e
     | Condact (_, e1, e2, _, e3, e4)
-      -> (check_expr f e1) >> (check_expr f e2)
+      -> (check_expr ctx f e1) >> (check_expr ctx f e2)
         >> (check_list e3) >> (check_list e4)
     | Activate (_, _, e1, e2, e3)
-      -> (check_expr f e1) >> (check_expr f e2) >> (check_list e3)
+      -> (check_expr ctx f e1) >> (check_expr ctx f e2) >> (check_list e3)
     | RestartEvery (_, _, e1, e2)
-      -> (check_list e1) >> (check_expr f e2)
+      -> (check_list e1) >> (check_expr ctx f e2)
     | _ -> Ok ()
   in
   expr' >> r

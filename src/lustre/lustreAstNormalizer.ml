@@ -670,6 +670,26 @@ and expand_node_call expr var count =
   let array = List.init count (fun i -> AH.substitute var (mk_index i) expr) in
   A.GroupExpr (dpos, ArrayExpr, array)
 
+and combine_args_with_const info args flags =
+  let output_arity = List.map (fun e -> match e with
+    | A.Call (_, i, _) ->
+      (* This node type is guaranteed to exist by type checking *)
+      let node_type = Ctx.lookup_node_ty info.context i |> get in
+      (match node_type with
+      | TArr (_, _, GroupType (_, es)) -> List.length es
+      | _ -> 1)
+    | _ -> 1)
+    args
+  in
+  let over_args_arity (i, acc) (e, arity) =
+    if arity > 1 then
+      i + arity, (e, false) :: acc
+    else
+      succ i, (e, List.nth flags i) :: acc
+  in
+  List.fold_left over_args_arity (0, []) (List.combine args output_arity)
+  |> snd |> List.rev
+ 
 and normalize_expr ?guard force info map =
   let abstract_node_arg ?guard force is_const info map expr =
     if AH.expr_is_id expr && not force then
@@ -699,11 +719,13 @@ and normalize_expr ?guard force info map =
       let expr = expand_node_call e (get ivar) size in
       normalize_expr ?guard force info map expr
     else
+      let flags = StringMap.find id info.node_is_input_const in
       let cond = A.Const (Lib.dummy_pos, A.True) in
       let restart =  A.Const (Lib.dummy_pos, A.False) in
       let nargs, gids1 = normalize_list
         (fun (arg, is_const) -> abstract_node_arg ?guard:None force is_const info map arg)
-        (List.combine args (StringMap.find id info.node_is_input_const)) in
+        (combine_args_with_const info args flags)
+      in
       let nexpr, gids2 = mk_fresh_call id map pos cond restart nargs None in
       nexpr, union gids1 gids2
   | Condact (pos, cond, restart, id, args, defaults) as e ->
@@ -716,13 +738,15 @@ and normalize_expr ?guard force info map =
       let expr = expand_node_call e (get ivar) size in
       normalize_expr ?guard force info map expr
     else
+      let flags = StringMap.find id info.node_is_input_const in
       let ncond, gids1 = if AH.expr_is_true cond then cond, empty ()
         else abstract_expr ?guard true info map false cond in
       let nrestart, gids2 = if AH.expr_is_const restart then restart, empty ()
         else abstract_expr ?guard true info map false restart
       in let nargs, gids3 = normalize_list
         (fun (arg, is_const) -> abstract_node_arg ?guard:None force is_const info map arg)
-        (List.combine args (StringMap.find id info.node_is_input_const)) in
+        (combine_args_with_const info args flags)
+      in
       let ndefaults, gids4 = normalize_list
         (normalize_expr ?guard force info map)
         defaults in
@@ -739,29 +763,34 @@ and normalize_expr ?guard force info map =
       let expr = expand_node_call e (get ivar) size in
       normalize_expr ?guard force info map expr
     else
+      let flags = StringMap.find id info.node_is_input_const in
       let cond = A.Const (dummy_pos, A.True) in
       let nrestart, gids1 = if AH.expr_is_const restart then restart, empty ()
         else abstract_expr ?guard true info map false restart
       in let nargs, gids2 = normalize_list
         (fun (arg, is_const) -> abstract_node_arg ?guard:None force is_const info map arg)
-        (List.combine args (StringMap.find id info.node_is_input_const)) in
+        (combine_args_with_const info args flags)
+      in
       let nexpr, gids3 = mk_fresh_call id map pos cond nrestart nargs None in
       let gids = union_list [gids1; gids2; gids3] in
       nexpr, gids
   | Merge (pos, clock_id, cases) ->
     let normalize' info map ?guard = function
       | clock_value, A.Activate (pos, id, cond, restart, args) ->
+        let flags = StringMap.find id info.node_is_input_const in
         let ncond, gids1 = if AH.expr_is_true cond then cond, empty ()
           else abstract_expr ?guard force info map false cond in
         let nrestart, gids2 = if AH.expr_is_const restart then restart, empty ()
           else abstract_expr ?guard force info map false restart in
         let nargs, gids3 = normalize_list
           (fun (arg, is_const) -> abstract_node_arg ?guard:None force is_const info map arg)
-          (List.combine args (StringMap.find id info.node_is_input_const)) in
+          (combine_args_with_const info args flags)
+        in
         let nexpr, gids4 = mk_fresh_call id map pos ncond nrestart nargs None in
         let gids = union_list [gids1; gids2; gids3; gids4] in
         (clock_value, nexpr), gids
       | clock_value, A.Call (pos, id, args) ->
+        let flags = StringMap.find id info.node_is_input_const in
         let cond_expr = match clock_value with
           | "true" -> A.Ident (pos, clock_id)
           | "false" -> A.UnaryOp (pos, A.Not, A.Ident (pos, clock_id))
@@ -770,7 +799,8 @@ and normalize_expr ?guard force info map =
         let restart =  A.Const (Lib.dummy_pos, A.False) in
         let nargs, gids2 = normalize_list
           (fun (arg, is_const) -> abstract_node_arg ?guard:None force is_const info map arg)
-          (List.combine args (StringMap.find id info.node_is_input_const)) in
+          (combine_args_with_const info args flags)
+        in
         let nexpr, gids3 = mk_fresh_call id map pos ncond restart nargs None in
         let gids = union_list [gids1; gids2; gids3] in
         (clock_value, nexpr), gids
