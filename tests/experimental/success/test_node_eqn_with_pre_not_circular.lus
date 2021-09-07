@@ -1,0 +1,51 @@
+node a (x: int) returns (y: int; z: int);
+var p:int;
+var q:int;
+let
+   q = pre p;
+   p = q;
+   y = pre z;
+   z = pre y;
+tel
+
+node b (x: int) returns (y: int);
+var p: int;
+var q: int;
+let
+   q = pre p;
+   p = pre q;
+tel
+
+
+node c (x:int) returns (y: int)
+var av: int;
+var bv: int;
+let
+av = d(bv);
+bv = d(av); -- this should not fail
+y = x;
+tel
+
+node d (x: int) returns (y: int)
+let
+y = pre x;
+tel
+
+node a1 (x1: int; x2: int) returns (y1: int; y2: int);
+var z:int;
+var z2:int;
+let
+   z = x1;
+   z2 = 3;
+   y1 = z + x1 + z2;
+   y2 = z2;
+tel
+
+node b1(x1:int; x2:int) returns (y: int);
+var z1:int;
+var z2:int;
+let
+  (z1, z2) = a1(y, x2);
+  y = z2; -- should not fail
+  -- y = z1; -- should fail
+tel

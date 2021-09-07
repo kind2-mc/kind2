@@ -1,0 +1,8 @@
+-- Node with structural assignments 
+node x63 (e: [bool, [int, int]]) returns (c: bool; a, b: int; A: [int, int]);
+var ab: [int, int];
+let
+  c, ab = (e.%0, e.%1);
+  a = e.%1.%0; b = e.%1.%1;
+  A = e.%1;
+tel;

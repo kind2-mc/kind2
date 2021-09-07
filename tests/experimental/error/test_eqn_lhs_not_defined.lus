@@ -1,0 +1,25 @@
+type Command = enum {GO_DOWN, GO_UP};
+const THRESHOLD: real;
+const DELTA: real;
+const SENSOR_ERROR: real;
+
+node Abs(n: real) returns (r: real);
+let
+  r = if 0.0<=n then n else -n;
+tel
+node Min(a,b: real) returns (c: real);
+let
+  c = if a<=b then a else b;
+tel
+
+node TriplexVoter(alt1,alt2,alt3: real) returns (r: real);
+  var ad12,ad13,ad23: real;
+let
+  ad12 = Abs(alt1-alt2);
+  ad13 = Abs(alt1-alt3);
+  ad23 = Abs(alt2-alt3);
+  m = Min(ad12, Min(ad13, ad23));
+  r = if m=ad12 then (alt1+alt2)/2.0
+      else if m=ad13 then (alt1+alt3)/2.0
+      else (alt2+alt3)/2.0;
+tel

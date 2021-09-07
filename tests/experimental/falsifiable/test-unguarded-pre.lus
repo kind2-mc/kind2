@@ -1,0 +1,11 @@
+node X (i: int; j: real) returns (OK: bool);
+var a, b, d, e: int; c: real;
+let
+  a = pre i;
+  b = pre i;
+  c = pre j;
+  d = 1 -> 2 -> 3;
+  e = 0 -> pre i;
+  OK = a = b;
+  --%PROPERTY OK;
+tel

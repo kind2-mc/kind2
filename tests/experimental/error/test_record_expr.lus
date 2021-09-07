@@ -1,0 +1,20 @@
+-- Declare a record type
+type h = struct { one : int; two : bool };
+
+-- Declare a nested record type, keyword struct is optional in record
+-- type declaration
+type i2 = struct { a : int; b: bool };
+type i = { one: i2;  two : bool; };
+
+-- A constant of the type of the record, name of the record is
+-- required
+const i_const = i { one = i2 { a = 1; b = true }; two = true };
+
+-- A constant of type bool
+const i_two : bool = i_const.two;
+
+-- A constant of type i2
+const i_one : i2 = i_const.one;
+
+-- A constant of type int
+const i_one_a : int = i_one.c;

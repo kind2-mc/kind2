@@ -1,0 +1,16 @@
+node X(x: int) returns (y: int);
+let
+  assert (pre pre (x + 1) > 0);
+  --%PROPERTY 1 > x;
+  y = pre y;
+tel;
+
+
+node Y(a, b: real; clk: bool) returns (c: int);
+var d: int;
+let
+  c = condact(clk, X(0), 0);
+  d = X(0);
+  --%PROPERTY c > 0 or c <= 0;
+  --%MAIN ;
+tel;

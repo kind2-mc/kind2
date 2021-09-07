@@ -1,0 +1,5 @@
+node n(x,z:int) returns (y:int)
+var t: int;
+let
+(x, t, z) = (0 -> x, 0 -> t, x);
+tel;

@@ -1,0 +1,11 @@
+node top (reset: bool) returns (OK: bool);
+var i : uint8;
+var j : int8;
+var k : int32;
+let
+  i = (uint8 0) && (uint8 255);
+  j = (int8 127) || (int8 0);
+  k = !(int32 -1);
+  OK = (i = (uint8 0)) and (j = (int8 127)) and (k = (int32 0));
+  --%PROPERTY OK;
+tel

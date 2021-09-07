@@ -1,0 +1,91 @@
+type a;
+
+const r3_l = 1;
+const r3_u = 2;
+type r3 = subrange [r3_l, r3_u] of int;
+
+-- Declare an alias for the built-in type real
+type d = real;
+
+-- Declare an alias for a user-defined type
+type e = a;
+
+-- Declare a tuple type
+type f = [int, real, bool];
+
+-- Declare a nested tuple type
+type g = [d, [int, bool]];
+
+-- Declare a record type
+type h = struct { one : int; two : bool };
+
+-- Declare a nested record type, keyword struct is optional in record
+-- type declaration
+type i2 = struct { a : int; b: bool };
+type i = { one: i2;  two : bool; };
+
+-- A constant of the type of the record, name of the record is
+-- required
+const i = i { one = i2 { a = 1; b = true }; two = true };
+
+-- A constant of type bool
+const i_two : bool = i.two;
+
+-- A constant of type i2
+const i_one : i2 = i.one;
+
+-- A constant of type int
+-- const i_one_a : int = i_one.a;
+
+-- Enum type (V6) 
+type j = enum { st_init, st_step, st_stop };
+
+-- Declare an array type
+type k = int^5;
+
+-- Declare a nested array type 
+type l = int^3^5; -- ^ is left-associative
+
+-- A constant of a nested array type
+-- const l : l = 1^3^5;
+
+-- A constant of array type 
+-- const l_1 : int^3 = l[4];
+/* TODO: FIX ME
+-- Declare an array type with a constant as a parameter 
+const h = 2;
+type m = int^5*h;
+*/
+-- ------------------------------------------------------------
+-- Global constant declarations
+-- ------------------------------------------------------------
+
+-- Free constants, must have a type (declared later)
+const a1, a2, a3: a;
+
+-- Define constants without a type, will be inferred
+const b01 = 1;
+      pi = 3.14;
+
+-- Define constant with a type, will be checked 
+const c1 : bool = true;
+      c2 = 5;
+
+-- Use decimal or hexa-decimal notations for numerical constants
+
+const c3 = 0xA0f ;
+      c4 = .45e-45 ;
+      c5 = 0.2E+3 ;
+      c6 = 0x3.1f4p-5 ;
+
+type complex1 = { re: real; im: real };
+const j = complex1 { re = -(3.0)/2.0; im = 3.0/2.0 };
+
+
+const c100:int = 1 + 1;
+const c101:real = 1.0 + 1.0;
+
+node main () returns (x:int;)
+let
+  x = 0;
+tel

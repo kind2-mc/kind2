@@ -1,0 +1,56 @@
+function imported sincos(in: real) returns (sin: real; cos: real);
+(*@contract
+  const max = 1.0;
+  const pi = 3.14;
+  const tau = 2.0 * pi;
+  var min:real = - max;
+  assume in <= 0.0 or in >= 0.0;
+  guarantee min <= sin and sin <= max;
+
+  mode pos (
+    require 0.0 <= in and in <= tau;
+    ensure sin >= 0.0;
+  );
+
+  mode neg (
+    require - tau <= in and in <= 0.0;
+    ensure sin <= 0.0;
+  );
+*)
+
+node X (in: real) returns (OK: bool);
+var inn: real ;
+let
+  inn = in ; 
+  OK =
+    exp(0.0 -> inn, 1.0 -> inn) > 0.0 or
+    sincos(0.0 -> inn + pre inn) + sincos(0.0 -> inn + pre inn) = (0.0, 0.0);
+tel;
+
+node id (in: real) returns (out: int);
+(*@contract
+  const max = 1.0;
+  const pi = 3.14;
+  const tau = 2.0 * pi;
+  var min:real = - max;
+  assume - tau <= in ;
+*)
+var inn: real ; ok: bool ;
+let
+  out = (int in);
+  inn = in ;
+  ok = X(inn) ;
+  --%PROPERTY ok ;
+  --%MAIN ;
+tel;
+
+function imported exp (x, y: real) returns (out: real);
+(* @contract
+   guarantee out >= id(out);
+   guarantee out <= sin(out);
+*)
+
+function sin(in: real) returns (out: int);
+let
+   out = (int in);
+tel

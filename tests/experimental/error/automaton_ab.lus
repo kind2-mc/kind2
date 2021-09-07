@@ -1,0 +1,22 @@
+node ab () returns (ok:bool)
+var x : int;
+let
+  automaton move
+  state A :
+  unless x = 10 resume B 
+  (* PB: state of the automaton depends on the value of x which is defined by
+     the state itself *)
+  let
+   x = 0 -> last x + 1;
+  tel
+  (* until x = 10 resume B *)
+  state B :
+  let
+   x = 10 -> last x - 1;
+  tel
+  until x = 0 and ok resume A
+  returns x;
+  ok = true;
+  --%PROPERTY 0 <= x and x <= 9;
+  --%PROPERTY true -> x <> 9 or pre x <> 10;
+tel

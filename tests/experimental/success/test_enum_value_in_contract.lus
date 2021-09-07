@@ -1,0 +1,11 @@
+
+type my_enum = enum { A, B };
+
+node top(x:my_enum) returns (y: int);
+(*@contract
+  var g: bool = x = A;
+  guarantee g => y=0;
+*)
+let
+  y = if (x = A) then 0 else 1;
+tel

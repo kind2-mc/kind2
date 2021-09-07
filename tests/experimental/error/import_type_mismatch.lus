@@ -1,0 +1,15 @@
+
+type T = subrange [0,1] of int;
+
+contract spec(x:T) returns (y:T);
+let
+   guarantee y=x;
+tel;
+
+node main(x:int) returns (y:int);
+(*@contract
+  import spec(x) returns (y);
+*)
+let
+  y = x;
+tel

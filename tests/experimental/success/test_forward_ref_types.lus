@@ -1,0 +1,8 @@
+const N2: t;
+
+node top (x: t) returns (y: t);
+let
+  y = x;
+tel;
+
+type t = int;

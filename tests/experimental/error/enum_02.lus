@@ -1,0 +1,8 @@
+
+type my_enum1 = enum {A, B};
+type my_enum2 = enum {B, C}; -- error: B already declared
+
+node top(x: my_enum2) returns (y: my_enum1);
+let
+  y = if x=C then B else A;
+tel

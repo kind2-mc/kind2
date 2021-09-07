@@ -1,0 +1,17 @@
+type sub = subrange [0, 2] of int;
+node test (in : int)
+returns (out1 : sub; out2: real);
+let														  
+	out1 = 1;
+	out2 =  2.0;																											  		  																			
+tel
+
+node Top(in : int) returns (OK : bool);
+var
+	a : sub;
+	b : real;
+let
+	 --%MAIN ;
+	 (a,b) = test (in);										
+OK = a <=3;
+tel

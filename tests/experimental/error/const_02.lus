@@ -1,0 +1,8 @@
+
+const N: int;
+const N: bool; -- error: N already declared
+
+node top(x: int) returns (y: int);
+let
+  y = x + N;
+tel

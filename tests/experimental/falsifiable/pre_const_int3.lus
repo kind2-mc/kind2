@@ -1,0 +1,5 @@
+node main() returns(OK:bool);
+let
+  OK = pre 3 = pre 3 ;
+  --%PROPERTY OK ;
+tel;
