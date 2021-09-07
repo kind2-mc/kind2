@@ -423,7 +423,7 @@ rule token = parse
 
       (* Starting position in new file *)
       let zero_pos =
-        { Lexing.pos_fname = p ;
+        { Lexing.pos_fname = fname ;
           Lexing.pos_lnum = 1  ;
           Lexing.pos_bol = 0   ;
           Lexing.pos_cnum = 0  }
