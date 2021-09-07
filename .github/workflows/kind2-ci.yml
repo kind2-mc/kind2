@@ -29,8 +29,8 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Update package information
-      run: ${{ matrix.pkg_update }}
+    #- name: Update package information
+    #  run: ${{ matrix.pkg_update }}
 
     - name: Cache opam repository
       uses: actions/cache@v2
