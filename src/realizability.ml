@@ -281,7 +281,14 @@ let realizability_check
             sys context requirements controllable_vars_at_1 ;
           *)
 
-          Unrealizable (InductiveCase fp1)
+          let fp1' =
+            if (fst fp1) == Term.t_true then
+              (Term.t_false, valid_region)
+            else
+              fp1
+          in
+
+          Unrealizable (InductiveCase fp1')
         )
         | QE.Invalid violating_region -> (
           Debug.realiz
@@ -333,13 +340,19 @@ let realizability_check
   let res =
     match QE.ae_val sys premises controllable_vars_at_0 conclusion with
     | QE.Valid r ->
-      if r == Term.t_false then (* Premises are inconsistent *)
+      if r == Term.t_false then ( (* Premises are inconsistent *)
+        Debug.realiz
+        "@[<hv>Initial state premises are inconsistent@]@." ;
         Realizable Term.t_true
+      )
       else (
         loop (Term.t_true, Term.t_true)  Term.t_true
       )
-    | QE.Invalid valid_region ->
+    | QE.Invalid valid_region -> (
+      Debug.realiz
+        "@[<hv>Valid initial region:@ @[<hv>%a@]@]@." Term.pp_print_term valid_region ;
       Unrealizable (BaseCase valid_region)
+    )
   in
 
   QE.on_exit () ; (* Required when Flags.QE.ae_val_use_ctx is false *)
@@ -426,11 +439,12 @@ let compute_unviable_trace_and_core
 
         vr_w, cex, false, controllable_vars_at_1
 
+      | Property.PropKTrue _
       | Property.PropUnknown ->
         raise (Trace_or_core_computation_failed
           "Trace computation returned Unknown")
 
-      | _ -> assert false
+      | Property.PropInvariant _ -> assert false
     )
   in
 
@@ -487,7 +501,9 @@ let compute_unviable_trace_and_core
 
   SMTSolver.pop solver ;
 
-  let contr_assigns =
+  (* Assigments for all variables at offset 0 and
+     for uncontrollable variables at offset 1 *)
+  let all0_uncontr1_assigns =
     let ex_var_set = VS.of_list contr_vars in
     Model.to_list model
     |> List.filter (fun (v,_) -> VS.mem v ex_var_set |> not)
@@ -502,7 +518,11 @@ let compute_unviable_trace_and_core
     let actlits = ME.get_actlits_of_scope guarantee_core scope in
     List.iter (SMTSolver.declare_fun solver) actlits ;
     let requirements =
-      Term.mk_and (List.rev_append contr_assigns guarantee_term)
+      Term.mk_and
+        (List.rev_append
+          (List.rev_append other_term all0_uncontr1_assigns)
+          guarantee_term
+        )
     in
     SMTSolver.assert_term solver requirements ;
     let act_terms = List.map Actlit.term_of_actlit actlits in
