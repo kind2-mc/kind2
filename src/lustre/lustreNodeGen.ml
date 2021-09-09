@@ -319,7 +319,12 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
       && Numeral.(E.(numeral_of_expr b > numeral_of_expr br))
       then br
       else b
-    in expand_tuple' pos accum (E.Bound b :: bounds)
+    in
+    let expr_type = expr.E.expr_type in
+    let array_index_types = Type.all_index_types_of_array expr_type in
+    let over_index_types (e, i) _ = E.mk_select e (E.mk_index_var i), succ i in
+    let expr, _ = List.fold_left over_index_types (expr, 0) array_index_types in
+    expand_tuple' pos accum (E.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       ((rhs_index_tl, expr) :: rhs_tl)
   (* Tuple index on left-hand and right-hand side *)
@@ -1123,11 +1128,11 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   (* ****************************************************************** *)
   in let (ghost_locals2, ghost_equations2, modes2) =
     let over_calls (gls, ges, ms) (call_pos, id, in_params, out_params) =
-      let (pos, contract_scope, (id, _, in_formals, out_formals, contract)) =
+      let (pos, contract_scope, contract_eqns) =
         LAN.StringMap.find id gids.LAN.contract_calls
       in
       map := { !map with contract_scope };
-      let (gl, ge, m) = compile_contract_variables cstate gids ctx map contract_scope node_scope contract
+      let (gl, ge, m) = compile_contract_variables cstate gids ctx map contract_scope node_scope contract_eqns
       in gl @ gls, ge @ ges, m @ ms
     in List.fold_left over_calls ([], [], []) contract_calls
   in ghost_locals @ ghost_locals2, ghost_equations @ ghost_equations2, modes @ modes2
@@ -1156,10 +1161,10 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   (* ****************************************************************** *)
   in let (assumes2, guarantees2) =
     let over_calls (ams, gs) (call_pos, id, in_params, out_params) =
-      let (pos, _, (id, _, in_formals, out_formals, contract)) =
+      let (_, _, contract_eqns) =
         LAN.StringMap.find id gids.LAN.contract_calls
       in let svar_scope = (call_pos, id) :: contract_scope in
-      let subst expr id =
+(*       let subst expr id =
         let expr = compile_ast_expr cstate ctx [] map expr in
         let ident = mk_ident id in
         H.replace !map.expr ident expr;
@@ -1168,10 +1173,10 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
       let out_formals = List.map (fun (_, i, _, _) -> i) out_formals in
       let out_params = List.map (fun i -> A.Ident (pos, i)) out_params in
       List.iter2 subst in_params in_formals;
-      List.iter2 subst out_params out_formals;
+      List.iter2 subst out_params out_formals; *)
       let contract_scope = List.map (fun (_, i) -> i) svar_scope in
       map := { !map with contract_scope };
-      let (a, g) = compile_contract cstate gids ctx map svar_scope node_scope contract
+      let (a, g) = compile_contract cstate gids ctx map svar_scope node_scope contract_eqns
       in a @ ams, g @ gs
     in List.fold_left over_calls ([], []) contract_calls
   (* ****************************************************************** *)
