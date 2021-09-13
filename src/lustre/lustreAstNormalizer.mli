@@ -93,7 +93,7 @@ type generated_identifiers = {
   contract_calls :
     (Lib.position
     * string list (* contract scope *)
-    * LustreAst.contract_node_decl)
+    * LustreAst.contract_node_equation list)
     StringMap.t;
   warnings : (Lib.position * LustreAst.expr) list;
   oracles : (string * LustreAst.lustre_type * LustreAst.expr) list;
