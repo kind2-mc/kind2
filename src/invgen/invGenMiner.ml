@@ -16,8 +16,6 @@
 
 *)
 
-[@@@ocaml.warning "-27"]
-
 open Lib
 
 module Num = Numeral
@@ -48,16 +46,16 @@ module type RulesSig = sig
   val comp_set : sys -> set
 
   (** Applies the state variable rules. *)
-  val svar_rules : bool -> svar list -> set -> set * svar_info
+  val svar_rules : svar list -> set -> set * svar_info
 
   (** Applies post svar treatment rules. *)
-  val post_svars : bool -> (set * svar_info) -> set * flat_info
+  val post_svars : (set * svar_info) -> set * flat_info
 
   (** Applies the flat term rules. *)
-  val flat_rules : bool -> flat -> (set * flat_info) -> set * flat_info
+  val flat_rules : flat -> (set * flat_info) -> set * flat_info
   
   (** Applies postprocessing rules. *)
-  val post_rules : bool -> svar_info -> flat_info -> set -> set
+  val post_rules : svar_info -> flat_info -> set -> set
 end
 
 
@@ -207,10 +205,10 @@ module MakeCandGen (Rules: RulesSig) : CandGen = struct
 
   (* Mining function. *)
   let mine top_only two_state top_sys =
-    let svar_rules = Rules.svar_rules two_state in
-    let flat_rules = Rules.flat_rules two_state in
-    let post_svars = Rules.post_svars two_state in
-    let post_rules = Rules.post_rules two_state in
+    let svar_rules = Rules.svar_rules in
+    let flat_rules = Rules.flat_rules in
+    let post_svars = Rules.post_svars in
+    let post_rules = Rules.post_rules in
 
     (* Association list between systems and their candidate terms. *)
     let rec mk_sys_map result = function
@@ -462,7 +460,7 @@ module BoolRules = struct
 
   type svar_info = unit
 
-  let svar_rules two_state svars set = (
+  let svar_rules svars set = (
     svars |> List.fold_left (
       fun set svar ->
         if SVar.for_inv_gen svar |> not then set else (
@@ -480,9 +478,9 @@ module BoolRules = struct
 
   type flat_info = unit
 
-  let post_svars two_state (set, _) = set, ()
+  let post_svars (set, _) = set, ()
 
-  let flat_rules two_state flat (set, _) =
+  let flat_rules flat (set, _) =
     match to_term flat |> type_of with
     | Type.Bool -> (
       arith_op_synth flat set
@@ -493,7 +491,7 @@ module BoolRules = struct
     ), ()
     | _ -> set, ()
 
-  let post_rules two_state _  _ set =
+  let post_rules _  _ set =
     (
       if Flags.Invgen.all_out () then
         Set.fold (
@@ -580,7 +578,7 @@ module IntRules = struct
   (* We'll extract the state var to create octagons. *)
   type svar_info = unit
 
-  let svar_rules two_state svars set =
+  let svar_rules svars set =
     (* Format.printf "svars: @[<v>%a@]@.@."
       (pp_print_list
         (fun fmt svar ->
@@ -623,9 +621,9 @@ module IntRules = struct
   terms. *)
   type flat_info = set
 
-  let post_svars _ (set, _) = (set, Set.empty)
+  let post_svars (set, _) = (set, Set.empty)
 
-  let flat_rules two_state flat (set, constants) =
+  let flat_rules flat (set, constants) =
     let term = to_term flat in
     match type_of term with
     | Type.Int
@@ -643,13 +641,13 @@ module IntRules = struct
         | _ -> failwith "Constant of type int is not a numeral."
       )
       (* | Term.T.Attr (term, _) ->
-        flat_rules two_state (Term.destruct term) (set, constants)*)
+        flat_rules (Term.destruct term) (set, constants)*)
       | Term.T.Var _ ->
         Set.add term set, constants
     )
     | _ -> set, constants
 
-  let post_rules _ _ constants set =
+  let post_rules _ constants set =
     let zero, one = Term.mk_num zero, Term.mk_num one in
     let set =
       Set.add zero set
@@ -689,7 +687,7 @@ module MachineIntegerRules(M: MachineIntegerSig) = struct
   (* We'll extract the state var to create octagons. *)
   type svar_info = unit
 
-  let svar_rules two_state svars set =
+  let svar_rules svars set =
     (* Format.printf "svars: @[<v>%a@]@.@."
       (pp_print_list
         (fun fmt svar ->
@@ -728,9 +726,9 @@ module MachineIntegerRules(M: MachineIntegerSig) = struct
   terms. *)
   type flat_info = set
 
-  let post_svars _ (set, _) = (set, Set.empty)
+  let post_svars (set, _) = (set, Set.empty)
 
-  let flat_rules two_state flat (set, constants) =
+  let flat_rules flat (set, constants) =
     let term = to_term flat in
     if M.is_type (Term.type_of_term term) then
       match flat with
@@ -747,12 +745,12 @@ module MachineIntegerRules(M: MachineIntegerSig) = struct
           failwith "Type of constant and term does not match"
       )
       (* | Term.T.Attr (term, _) ->
-        flat_rules two_state (Term.destruct term) (set, constants)*)
+        flat_rules (Term.destruct term) (set, constants)*)
       | Term.T.Var _ ->
         Set.add term set, constants
     else set, constants
 
-  let post_rules _ _ constants set =
+  let post_rules _ constants set =
     let zero = Term.mk_bv (Bitvector.zero M.length) in
     let one = Term.mk_bv (Bitvector.one M.length) in
     let set =
@@ -854,7 +852,7 @@ module RealRules = struct
   (* We'll extract the state var to create octagons. *)
   type svar_info = unit
 
-  let svar_rules two_state svars set =
+  let svar_rules svars set =
     (* Format.printf "svars: @[<v>%a@]@.@."
       (pp_print_list
         (fun fmt svar ->
@@ -894,9 +892,9 @@ module RealRules = struct
   terms. *)
   type flat_info = set
 
-  let post_svars _ (set, _) = (set, Set.empty)
+  let post_svars (set, _) = (set, Set.empty)
 
-  let flat_rules two_state flat (set, constants) =
+  let flat_rules flat (set, constants) =
     let term = to_term flat in
     match type_of term with
     | Type.Real -> (
@@ -913,13 +911,13 @@ module RealRules = struct
         | _ -> failwith "Constant of type real is not a decimal."
       )
       (*| Term.T.Attr (term, _) ->
-        flat_rules two_state (Term.destruct term) (set, constants)*)
+        flat_rules (Term.destruct term) (set, constants)*)
       | Term.T.Var _ ->
         Set.add term set, constants
     )
     | _ -> set, constants
 
-  let post_rules _ _ constants set =
+  let post_rules _ constants set =
     let zero, one = Term.mk_dec Decimal.zero, Term.mk_dec Decimal.one in
     let set =
       Set.add zero set
