@@ -19,7 +19,7 @@
 module Ast = LustreAst
 
 let pp_print_fname_json ppf fname =
-  if fname = "" then () else Format.fprintf ppf "\"file\" : \"%s\"" fname
+  if fname = "" then () else Format.fprintf ppf "\"file\" : \"%s\",@," fname
 
 let lsp_type_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
   function
@@ -32,8 +32,7 @@ let lsp_type_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
          \"source\" : \"lsp\",@,\
          \"kind\" : \"typeDecl\",@,\
          \"name\" : \"%s\",@,\
-         %a,@,\
-         \"startLine\" : %d,@,\
+         %a\"startLine\" : %d,@,\
          \"startColumn\" : %d,@,\
          \"endLine\" : %d,@,\
          \"endColumn\" : %d@]@.}@." id pp_print_fname_json file slnum scnum
@@ -52,8 +51,7 @@ let lsp_const_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
          \"source\" : \"lsp\",@,\
          \"kind\" : \"constDecl\",@,\
          \"name\" : \"%s\",@,\
-         %a,@,\
-         \"startLine\" : %d,@,\
+         %a\"startLine\" : %d,@,\
          \"startColumn\" : %d,@,\
          \"endLine\" : %d,@,\
          \"endColumn\" : %d@]@.}@." id pp_print_fname_json file slnum scnum
@@ -70,8 +68,7 @@ let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"kind\" : \"node\",@,\
      \"name\" : \"%s\",@,\
      \"imported\" : \"%b\",@,\
-     %a,@,\
-     \"startLine\" : %d,@,\
+     %a\"startLine\" : %d,@,\
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
      \"endColumn\" : %d@]@.}@." id imported pp_print_fname_json file slnum scnum
@@ -88,8 +85,7 @@ let lsp_function_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"kind\" : \"function\",@,\
      \"name\" : \"%s\",@,\
      \"imported\" : \"%b\",@,\
-     %a,@,\
-     \"startLine\" : %d,@,\
+     %a\"startLine\" : %d,@,\
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
      \"endColumn\" : %d@]@.}@." id imported pp_print_fname_json file slnum scnum
@@ -105,8 +101,7 @@ let lsp_contract_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"source\" : \"lsp\",@,\
      \"kind\" : \"contract\",@,\
      \"name\" : \"%s\",@,\
-     %a,@,\
-     \"startLine\" : %d,@,\
+     %a\"startLine\" : %d,@,\
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
      \"endColumn\" : %d@]@.}@." id pp_print_fname_json file slnum scnum elnum
