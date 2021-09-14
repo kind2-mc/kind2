@@ -104,7 +104,6 @@ tel
 -- standing for no broacast
 type busVal = enum { none, valA, valB, valC } ;
 
-
 -- Simple scheduler
 node Scheduler ( const n : int ) returns ( turn : int ) ;
 (* @contract
@@ -139,7 +138,8 @@ let
 
   -- LastWrite remembers the last value that was written by each component, if
   -- any
-  var LastWrite : int^n = Array_Last(n, Accepted, Value, none) ;
+  -- Unused
+(*   var LastWrite : busVal^n = Array_Last(n, Accepted, Value, none) ; *)
 
   -- at most one broadcast request is accepted at any time
   guarantee "At most one accept"
@@ -168,11 +168,12 @@ let
   -- A repeated request by the same component cannot be denied 
   -- more than n times in a row.
   -- (This property is violated without the fairness assumptions on Turn)
-(*
+
   guarantee "Fair schedule" 
-    forall (:int) 0 <= j and j < n =>
+    forall (i:int) 0 <= i and i < n =>
       Duration(Request[i] and not Accepted[i]) <= n ;
 
+(*
   This guarantee currently triggers some bug in Kind 2. Excerpt of error message:
 
   <Error> Runtime failure in bounded model checking: SMT solver failed: line 277 column 33: unknown constant __C1

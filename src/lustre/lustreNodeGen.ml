@@ -1591,7 +1591,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* Generated Equations                                                *)
   (* ****************************************************************** *)
   in let gequations =
-    let over_equations = fun eqns (contract_scope, lhs, ast_expr) ->
+    let over_equations = fun eqns (qvars, contract_scope, lhs, ast_expr) ->
       map := { !map with contract_scope };
       let eq_lhs, indexes = match lhs with
         | A.StructDef (_, []) -> (X.empty, 0)
