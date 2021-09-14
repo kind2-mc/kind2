@@ -16,7 +16,6 @@
 
  *)
 
-[@@@ocaml.warning "-27"]
 
 (** Type checking the surface syntax of Lustre programs
   
@@ -113,9 +112,17 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
       | Ite -> 
          infer_type_expr ctx con
          >>= (function
-              | Bool _ -> infer_type_expr ctx e1 >>= fun e1_ty ->
-                          check_type_expr ctx e1 e1_ty
-                          >> R.ok e1_ty
+              | Bool _ ->
+                  infer_type_expr ctx e1 >>= fun e1_ty ->
+                  infer_type_expr ctx e2 >>= fun e2_ty ->
+                  eq_lustre_type ctx e1_ty e2_ty >>= fun eq_test ->
+                     if eq_test then R.ok e1_ty
+                     else type_error pos
+                        ("Expected equal types of each if-then-else branch but found:"
+                           ^ (string_of_tc_type e1_ty) ^
+                           "on the then-branch and"
+                           ^ (string_of_tc_type e2_ty) ^
+                           "on the else-branch")
               | c_ty  ->  type_error pos ("Expected a boolean expression but found "
                                           ^ string_of_tc_type c_ty))
       | With -> type_error pos ("Unsupported operator With"))
@@ -154,11 +161,9 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   | LA.ArrayConstr (pos, b_expr, sup_expr) ->
      infer_type_expr ctx b_expr
      >>=  (fun b_ty ->
-      infer_type_expr ctx sup_expr
-      >>= (fun sup_ty ->
-             if is_expr_int_type ctx sup_expr
-             then R.ok (LA.ArrayType (pos, (b_ty, sup_expr)))
-             else type_error pos "Array cannot have non numeral type as its bounds"))
+         if is_expr_int_type ctx sup_expr
+         then R.ok (LA.ArrayType (pos, (b_ty, sup_expr)))
+         else type_error pos "Array cannot have non numeral type as its bounds")
   | LA.StructUpdate (pos, r, i_or_ls, e) ->
      if List.length i_or_ls != 1
      then type_error pos ("List of labels or indices for structure update is not supported") 
@@ -228,7 +233,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                                     ^ string_of_tc_type ty1))
 
   (* Quantified expressions *)
-  | LA.Quantifier (pos, _, qs, e) ->
+  | LA.Quantifier (_, _, qs, e) ->
      let extn_ctx = List.fold_left union ctx
                       (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
      infer_type_expr extn_ctx e 
@@ -245,7 +250,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
        R.ifM (eq_lustre_type ctx r_ty (GroupType (pos, d_tys)))
          (R.ok r_ty)
          (type_error pos "Defaults do not have the same type as node call"))
-  | LA.Activate (pos, node, cond, rcond, args) ->
+  | LA.Activate (pos, node, cond, _, args) ->
      check_type_expr ctx cond (Bool pos)
      >> infer_type_expr ctx (Call (pos, node, args))
   | LA.Merge (pos, i, mcases) ->
@@ -263,7 +268,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
      >> infer_type_expr ctx (LA.Call (pos, node, args))
                                 
   (* Temporal operators *)
-  | LA.Pre (pos, e) -> infer_type_expr ctx e
+  | LA.Pre (_, e) -> infer_type_expr ctx e
   | LA.Last (pos, i) -> infer_type_expr ctx (LA.Ident (pos, i))
   | LA.Fby (pos, e1, _, e2) ->
      infer_type_expr ctx e1 >>= fun ty1 ->
@@ -326,7 +331,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                | h::r -> List.fold_left (fun acc i -> acc ^ "::" ^ i) h r) in
      check_type_expr ctx (LA.Ident (pos, id)) exp_ty
   | RecordProject (pos, expr, fld) -> check_type_record_proj pos ctx expr fld exp_ty
-  | TupleProject (pos, e1, e2) -> Lib.todo __LOC__ 
+  | TupleProject _ -> Lib.todo __LOC__ 
 
   (* Operators *)
   | UnaryOp (pos, op, e) ->
@@ -342,7 +347,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
        (type_error pos (" Cannot unify type "
                         ^ string_of_tc_type exp_ty
                         ^ " with infered type " ^ string_of_tc_type inf_ty))
-  | LA.TernaryOp (pos, op, con, e1, e2) ->
+  | LA.TernaryOp (pos, _, con, e1, e2) ->
      infer_type_expr ctx con
      >>= (function 
           | Bool _ ->
@@ -445,7 +450,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
   (* Array constructor*)
   | ArrayConstr (pos, b_exp, sup_exp) ->
      infer_type_expr ctx b_exp >>= fun b_ty ->
-     infer_type_expr ctx sup_exp >>= fun sup_ty ->
+     infer_type_expr ctx sup_exp >>= fun _ ->
      let arr_ty = (LA.ArrayType (pos, (b_ty, sup_exp))) in
      R.guard_with (eq_lustre_type ctx exp_ty arr_ty)
        (type_error pos ("Expecting array type "
@@ -475,7 +480,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                                        ^ " but found type "
                                        ^ string_of_tc_type inf_ty))
   (* Quantified expressions *)
-  | Quantifier (pos, _, qs, e) ->
+  | Quantifier (_, _, qs, e) ->
      let extn_ctx = List.fold_left union ctx
                       (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
      check_type_expr extn_ctx e exp_ty
@@ -489,7 +494,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
      >>  R.seq (List.map (infer_type_expr ctx) defaults)
      >>= fun d_tys -> R.guard_with (eq_lustre_type ctx exp_ty (GroupType (pos, d_tys)))
                         (type_error pos "Condact defaults do not have the same type as node call")
-  | Activate (pos, node, cond, rcond, args) -> 
+  | Activate (pos, node, cond, _, args) -> 
      check_type_expr ctx cond (Bool pos)
      >> check_type_expr ctx (Call (pos, node, args)) exp_ty 
   | Merge (pos, i, mcases) ->
@@ -501,7 +506,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
      >> check_type_expr ctx (LA.Call (pos, node, args)) exp_ty
 
   (* Temporal operators *)
-  | Pre (pos, e) -> check_type_expr ctx e exp_ty
+  | Pre (_, e) -> check_type_expr ctx e exp_ty
   | Last (pos, i) ->
      infer_type_expr ctx (LA.Ident (pos, i))
      >>= fun ty -> R.guard_with (eq_lustre_type ctx ty exp_ty)
@@ -510,10 +515,10 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                                       ^ string_of_tc_type exp_ty
                                       ^ " with infered type "
                                       ^ string_of_tc_type ty))
-  | Fby (pos, e1, _, e2) ->
+  | Fby (_, e1, _, e2) ->
      check_type_expr ctx e1 exp_ty
      >> check_type_expr ctx e2 exp_ty
-  | Arrow (pos, e1, e2) ->
+  | Arrow (_, e1, e2) ->
      infer_type_expr ctx e1
      >>= fun ty1 ->  check_type_expr ctx e2 ty1
 
@@ -806,7 +811,7 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
                              ^ " but expression is of type " ^ string_of_tc_type inf_ty))
 and local_var_binding: tc_context -> LA.node_local_decl -> tc_context tc_result = fun ctx ->
     function
-    | LA.NodeConstDecl (pos, const_decls) ->
+    | LA.NodeConstDecl (_, const_decls) ->
        Log.log L_trace "Extracting typing context from const declaration: %a"
          LA.pp_print_const_decl const_decls
       ; tc_ctx_const_decl ctx const_decls 
@@ -816,10 +821,10 @@ and local_var_binding: tc_context -> LA.node_local_decl -> tc_context tc_result 
        else check_type_well_formed ctx ty
             >> R.ok (add_ty ctx v ty)
                      
-and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_type -> unit tc_result
+and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> unit tc_result
   = fun pos ctx
         (node_name, is_extern, params, input_vars, output_vars, ldecls, items, contract)
-        exp_ty ->
+        ->
   Log.log L_trace "TC declaration node: %a {" LA.pp_print_ident node_name
 
   ; let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
@@ -915,7 +920,7 @@ and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
       ; infer_type_expr new_ctx e >>= fun ty ->
       Log.log L_trace "RHS has type %a for lhs %a" LA.pp_print_lustre_type ty LA.pp_print_eq_lhs lhs
       ; check_type_struct_def (ctx_from_lhs ctx lhs) lhs ty
-  | LA.Automaton (pos, _, ss, _) ->
+  | LA.Automaton (_, _, ss, _) ->
       R.ok (Log.log L_trace "Checking Automation") >>
        R.seq_ (List.map (check_type_state ctx) ss) 
 
@@ -934,7 +939,7 @@ and check_type_transition_branch: tc_context -> LA.transition_branch -> unit tc_
 
 and check_type_state: tc_context -> LA.state -> unit tc_result = fun ctx ->
   function
-  | LA.State (pos, sname, _, local_streams, eqns, trans1_opt, trans2_opt) ->
+  | LA.State (_, _, _, local_streams, eqns, trans1_opt, trans2_opt) ->
      (* add the local variable bindings of the state into the  *)
      R.seq (List.map (local_var_binding ctx) local_streams) >>= fun ctx' ->
      let state_ctx = List.fold_left union ctx ctx' in 
@@ -1044,7 +1049,7 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
      | Some m -> R.ok (List.fold_left (fun c (i, ty) -> add_ty c (cc ^ "::" ^ i) ty) ctx (IMap.bindings m)) 
 
 and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_result
-  = fun ctx (cname, params, args, rets, contract) ->
+  = fun ctx (cname, _, args, rets, contract) ->
   let node_out_params = LA.SI.of_list (List.map (fun ret -> LH.extract_op_ty ret |> fst) rets) in
   Log.log L_trace "TC Contract Decl: %a {" LA.pp_print_ident cname 
   (* build the appropriate local context *)
@@ -1153,8 +1158,8 @@ and tc_ctx_contract_var: tc_context -> LA.const_decl -> tc_context tc_result
      >> if member_ty ctx i
         then type_error pos ("Identifer " ^ i ^ " is already declared.")
         else R.ok (add_ty ctx i ty)
-  | LA.UntypedConst (pos, i, ty) -> type_error pos "Syntax prohibited by parser. This should not happen!"
-  | LA.TypedConst (pos, i, e, ty) ->
+  | LA.UntypedConst (pos, _, _) -> type_error pos "Syntax prohibited by parser. This should not happen!"
+  | LA.TypedConst (pos, i, _, ty) ->
      check_type_well_formed ctx ty
      >> if member_ty ctx i
         then type_error pos ("Identifier " ^ i ^ " is already declared.")
@@ -1165,7 +1170,7 @@ and tc_ctx_contract_var: tc_context -> LA.const_decl -> tc_context tc_result
 and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
   = fun ctx ->
   function
-  | LA.AliasType (pos, i, ty) ->
+  | LA.AliasType (_, i, ty) ->
      check_type_well_formed ctx ty
        >> (match ty with
       | LA.EnumType (pos, ename, econsts) ->
@@ -1196,7 +1201,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
      R.ok (add_ty_decl ctx' i)
 
 and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_context tc_result
-  = fun pos ctx (nname, imported, _ , ip, op, _ ,_ ,_)->
+  = fun pos ctx (nname, _, _ , ip, op, _ ,_ ,_)->
   Log.log L_trace
     "Extracting type of node declaration: %a"
     LA.pp_print_ident nname
@@ -1261,7 +1266,7 @@ and extract_exports: LA.ident -> tc_context -> LA.contract -> tc_context tc_resu
 and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
                                   -> LA.contract_node_decl
                                   -> tc_context tc_result
-  = fun pos ctx (cname, params, inputs, outputs, contract) ->
+  = fun pos ctx (cname, _, inputs, outputs, contract) ->
   Log.log L_trace
     "Extracting type of contract declaration: %a"
     LA.pp_print_ident cname
@@ -1399,7 +1404,7 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> bool tc_r
               (LH.sort_typed_ident tys1)
               (LH.sort_typed_ident tys2))
      >>= fun isEqs -> R.ok (List.fold_left (&&) true isEqs)
-  | ArrayType (pos1, arr1), ArrayType (pos2, arr2) -> eq_type_array ctx arr1 arr2 
+  | ArrayType (_, arr1), ArrayType (_, arr2) -> eq_type_array ctx arr1 arr2 
   | EnumType (_, n1, is1), EnumType (_, n2, is2) ->
      R.ok (n1 = n2 && (List.fold_left (&&) true (List.map2 (=) (LH.sort_idents is1) (LH.sort_idents is2))))
 
@@ -1441,7 +1446,7 @@ and is_expr_of_consts: tc_context -> LA.expr -> bool = fun ctx e ->
 (** checks if all the variables in the expression are constants *)
   
 and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> bool tc_result =
-  fun ctx (_, i1, ty1) (_, i2, ty2) -> eq_lustre_type ctx ty1 ty2
+  fun ctx (_, _, ty1) (_, _, ty2) -> eq_lustre_type ctx ty1 ty2
 (** Compute type equality for [LA.typed_ident] *)
 
 and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type * LA.expr) -> bool tc_result
@@ -1466,24 +1471,19 @@ let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
   (* skip over type declarations and const_decls*)
   | (LA.TypeDecl _ :: rest) 
     | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  
-  | LA.NodeDecl (span, ((i, _,_, _, _, _, _, _) as node_decl)) :: rest ->
+  | LA.NodeDecl (span, node_decl) :: rest ->
      let { LA.start_pos = pos } = span in
-     (check_type_node_decl pos global_ctx node_decl
-        (match (lookup_node_ty global_ctx i) with
-         | None -> failwith "Node type lookup failed. Should not happen"
-         | Some ty -> ty))
+     (check_type_node_decl pos global_ctx node_decl)
      :: type_check_group global_ctx rest
-  | LA.FuncDecl (span, ((i, _,_, _, _, _, _, _) as node_decl)):: rest ->
+  | LA.FuncDecl (span, node_decl):: rest ->
      let { LA.start_pos = pos } = span in
-     (check_type_node_decl pos global_ctx node_decl
-        (match (lookup_node_ty global_ctx i) with
-         | None -> failwith "Function type lookup failed. Should not happen"
-         | Some ty -> ty))
+     (check_type_node_decl pos global_ctx node_decl)
      :: type_check_group global_ctx rest
-  | LA.ContractNodeDecl (_, ((i, _, _, _, _) as contract_decl)) :: rest ->
+  | LA.ContractNodeDecl (_, contract_decl) :: rest ->
      (check_type_contract_decl global_ctx contract_decl)
      :: type_check_group global_ctx rest
-  | LA.NodeParamInst  _ :: rest -> Lib.todo __LOC__
+  | LA.NodeParamInst  _ :: rest ->
+      type_check_group global_ctx rest
 (** By this point, all the circularity should be resolved,
  * the top most declaration should be able to access 
  * the types of all the forward referenced indentifiers from the context*)       

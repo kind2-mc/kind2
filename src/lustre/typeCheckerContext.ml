@@ -15,8 +15,6 @@
    permissions and limitations under the License. 
 
  *)
-
-[@@@ocaml.warning "-27"]
  
 (** The type checker context use for typechecking the surface level language
   
@@ -126,7 +124,7 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type option
 let expand_type_syn: tc_context -> tc_type -> tc_type
   = fun ctx ->
   function
-  | UserType (pos, i) as ty->
+  | UserType (_, i) as ty->
      (match lookup_ty_syn ctx i with
       | None -> ty
       | Some ty' -> ty')
@@ -184,23 +182,23 @@ let add_untyped_const : tc_context -> LA.ident -> LA.expr -> tc_context
 = fun ctx i e -> {ctx with vl_ctx = IMap.add i (e, None) ctx.vl_ctx} 
 
 let union: tc_context -> tc_context -> tc_context
-  = fun ctx1 ctx2 -> { ty_syns = (IMap.union (fun k v1 v2 -> Some v2)
+  = fun ctx1 ctx2 -> { ty_syns = (IMap.union (fun _ _ v2 -> Some v2)
                                     (ctx1.ty_syns)
                                     (ctx2.ty_syns))
-                     ; ty_ctx = (IMap.union (fun k v1 v2 -> Some v2)
+                     ; ty_ctx = (IMap.union (fun _ _ v2 -> Some v2)
                                    (ctx1.ty_ctx)
                                    (ctx2.ty_ctx))
-                     ; contract_ctx = (IMap.union (fun k v1 v2 -> Some v2)
+                     ; contract_ctx = (IMap.union (fun _ _ v2 -> Some v2)
                                          (ctx1.contract_ctx)
                                          (ctx2.contract_ctx))
-                     ; node_ctx = (IMap.union (fun k v1 v2 -> Some v2)
+                     ; node_ctx = (IMap.union (fun _ _ v2 -> Some v2)
                                          (ctx1.node_ctx)
                                          (ctx2.node_ctx))
-                     ; vl_ctx = (IMap.union (fun k v1 v2 -> Some v2)
+                     ; vl_ctx = (IMap.union (fun _ _ v2 -> Some v2)
                                    (ctx1.vl_ctx)
                                    (ctx2.vl_ctx))
                      ; u_types = SI.union ctx1.u_types ctx2.u_types
-                     ; contract_export_ctx = (IMap.union (fun k v1 v2 -> Some v2)
+                     ; contract_export_ctx = (IMap.union (fun _ _ v2 -> Some v2)
                                                 (ctx1.contract_export_ctx)
                                                 (ctx2.contract_export_ctx))
                      }

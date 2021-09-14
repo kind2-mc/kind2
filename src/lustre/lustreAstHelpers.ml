@@ -16,8 +16,6 @@
 
 *)
 
-[@@@ocaml.warning "-27"]
-
 open LustreAst
 open LustreReporting
 
@@ -60,7 +58,7 @@ let pos_of_expr = function
     -> pos
 
 let rec substitute var t = function
-  | Ident (pos, i) as e -> if i = var then t else e
+  | Ident (_, i) as e -> if i = var then t else e
   | ModeRef (_, _) as e -> e
   | RecordProject (pos, e, idx) -> RecordProject (pos, substitute var t e, idx)
   | TupleProject (pos, e, idx) -> TupleProject (pos, substitute var t e, idx)
@@ -212,7 +210,7 @@ let rec has_unguarded_pre ung = function
 *)
   | Arrow (_, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
-    let u2 = has_unguarded_pre false e1 in
+    let u2 = has_unguarded_pre false e2 in
     u1 || u2
 
 let has_unguarded_pre e =
@@ -304,7 +302,7 @@ let rec has_pre_or_arrow = function
 
   | Pre (pos, _) | Last (pos, _) -> Some pos
 
-  | Arrow (pos, e1, e2) -> Some pos
+  | Arrow (pos, _, _) -> Some pos
 
 (*
 (** Returns identifiers under a last operator *)
@@ -453,10 +451,10 @@ let rec replace_lasts allowed prefix acc ee = match ee with
     let l' = List.rev l' in
     if try List.for_all2 (==) l l' with _ -> false then ee, acc
     else (match ee with
-        | GroupExpr (pos, g, l) -> GroupExpr (pos, g, l')
-        | NArityOp (pos, op, l) -> NArityOp (pos, op, l')
-        | Call (pos, n, l) -> Call (pos, n, l')
-        | CallParam (pos, n, t, l) -> CallParam (pos, n, t, l')
+        | GroupExpr (pos, g, _) -> GroupExpr (pos, g, l')
+        | NArityOp (pos, op, _) -> NArityOp (pos, op, l')
+        | Call (pos, n, _) -> Call (pos, n, l')
+        | CallParam (pos, n, t, _) -> CallParam (pos, n, t, l')
         | _ -> assert false
       ), acc'
 
@@ -479,8 +477,8 @@ let rec replace_lasts allowed prefix acc ee = match ee with
         ) ([], acc) l in
     let l' = List.rev l' in
     let e', acc' = replace_lasts allowed prefix acc' e in
-    if try e == e' && List.for_all2 (==) l l'  with _ -> false then ee, acc
-    else RestartEvery (pos, n, l', e'), acc
+    if try e == e' && List.for_all2 (==) l l'  with _ -> false then ee, acc'
+    else RestartEvery (pos, n, l', e'), acc'
 
   | Activate (pos, n, e, r, l) ->
     let l', acc' =
@@ -501,13 +499,13 @@ let rec replace_lasts allowed prefix acc ee = match ee with
           let e, acc = replace_lasts allowed prefix acc e in
           e :: l, acc
         ) ([], acc) l1 in
-    let l1' = List.rev l1 in
+    let l1' = List.rev l1' in
     let l2', acc' =
       List.fold_left (fun (l, acc) e ->
           let e, acc = replace_lasts allowed prefix acc e in
           e :: l, acc
         ) ([], acc') l2 in
-    let l2' = List.rev l2 in
+    let l2' = List.rev l2' in
     let e', acc' = replace_lasts allowed prefix acc' e in
     let r', acc' = replace_lasts allowed prefix acc' r in
     if try e == e' && r == r' &&
@@ -533,8 +531,8 @@ let rec replace_lasts allowed prefix acc ee = match ee with
           | Label _ as s -> s :: li, acc
           | Index (i, e) as s ->
             let e', acc' = replace_lasts allowed prefix acc e in
-            if e == e' then s :: li, acc
-            else Index (i, e') :: li, acc
+            if e == e' then s :: li, acc'
+            else Index (i, e') :: li, acc'
         ) ([], acc) li in
     let li' = List.rev li' in
     let e1', acc' = replace_lasts allowed prefix acc' e1 in
@@ -690,7 +688,7 @@ let rec vars: expr -> iset = function
   (* Node calls *)
   | Call (_, i, es) -> SI.add i (SI.flatten (List.map vars es)) 
   | CallParam (_, i, _, es) -> SI.add i (SI.flatten (List.map vars es))
-and vars_of_ty_ids: typed_ident -> iset = fun (_, i, ty) -> SI.singleton i 
+and vars_of_ty_ids: typed_ident -> iset = fun (_, i, _) -> SI.singleton i 
 
 and vars_of_clocl_expr: clock_expr -> iset = function
   | ClockTrue -> SI.empty
@@ -700,7 +698,7 @@ and vars_of_clocl_expr: clock_expr -> iset = function
 
 let rec vars_of_struct_item: struct_item -> iset = function
   | SingleIdent (_, i) -> SI.singleton i
-  | TupleStructItem (pos, ts) -> SI.flatten (List.map vars_of_struct_item ts)  
+  | TupleStructItem (_, ts) -> SI.flatten (List.map vars_of_struct_item ts)  
   | TupleSelection (_, i, _)
     | FieldSelection (_, i, _)
     | ArraySliceStructItem (_, i, _)
@@ -815,7 +813,7 @@ let split_program: declaration list -> (declaration list * declaration list)
 let rec replace_with_constants: expr -> expr =
   let c p = Const(p, Num "42") in
   function
-  | Ident(p, e) -> c p 
+  | Ident(p, _) -> c p 
     | ModeRef _ as e -> e 
   | RecordProject (p, e, i) -> RecordProject (p, replace_with_constants e, i)  
   | TupleProject (p, e, i) -> TupleProject (p, replace_with_constants e, i)
@@ -895,7 +893,7 @@ let rec replace_with_constants: expr -> expr =
       RestartEvery (p, i, List.map replace_with_constants es, replace_with_constants e)
 
   (* Temporal operators *)
-  | Pre (p, e) -> replace_with_constants e
+  | Pre (_, e) -> replace_with_constants e
   | Last _ as e -> e
   | Fby (p, e1, i, e2) ->
      Fby (p, replace_with_constants e1, i, replace_with_constants e2)
@@ -1020,7 +1018,7 @@ let get_last_node_name: declaration list -> ident option
   let rec get_first_node_name: declaration list -> ident option =
     function
     | [] -> None
-    | NodeDecl (_, (n, _, _, _, _, _, _, _)) :: rest -> Some n
+    | NodeDecl (_, (n, _, _, _, _, _, _, _)) :: _ -> Some n
     | _ :: rest -> get_first_node_name rest
   in get_first_node_name (List.rev ds)   
 

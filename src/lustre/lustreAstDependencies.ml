@@ -16,8 +16,6 @@
 
  *)
 
-[@@@ocaml.warning "-27"]
-
 (** Graph analysis on Lustre Ast Declarations  
     Builds a dependency graph of the lustre declarations,
     to detect circular dependencies and reject them and
@@ -171,7 +169,7 @@ let add_pos: id_pos_map -> LA.ident -> Lib.position -> id_pos_map = fun m i p ->
     m
 
 let union_pos: id_pos_map -> id_pos_map -> id_pos_map = fun m1 m2 ->
-  IMap.union (fun k v1 v2 -> Some (v1@v2)) m1 m2
+  IMap.union (fun _ v1 v2 -> Some (v1@v2)) m1 m2
 
 let singleton_pos: LA.ident -> Lib.position -> id_pos_map = fun i p ->
   IMap.singleton i [p]
@@ -180,7 +178,7 @@ let find_id_pos: id_pos_map -> LA.ident -> Lib.position option = fun m i ->
   match (IMap.find_opt i m) with
   | None -> None
   | Some [] -> None
-  | Some (p::ps) -> Some p 
+  | Some (p::_) -> Some p 
                   
 let singleton_dependency_analysis_data: string -> LA.ident -> Lib.position -> dependency_analysis_data =
   fun suffix i p -> { graph_data = G.singleton (suffix ^ i)
@@ -193,8 +191,8 @@ let union_dependency_analysis_data : dependency_analysis_data -> dependency_anal
       { graph_data = g2; id_pos_data = pos_m2; csummary = cs2; nsummary = ns2 }
   -> { graph_data = G.union g1 g2
      ; id_pos_data = union_pos pos_m1 pos_m2
-     ; csummary = IMap.union (fun k v1 v2 -> Some v2) cs1 cs2
-     ; nsummary = IMap.union (fun k v1 v2 -> Some v2) ns1 ns2 }
+     ; csummary = IMap.union (fun _ _ v2 -> Some v2) cs1 cs2
+     ; nsummary = IMap.union (fun _ _ v2 -> Some v2) ns1 ns2 }
 
 let connect_g_pos: dependency_analysis_data -> LA.ident -> Lib.position -> dependency_analysis_data =
   fun ad i p -> { ad with graph_data = G.connect ad.graph_data i
@@ -243,9 +241,9 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | IntRange (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2)
   | UserType (pos, i) -> singleton_dependency_analysis_data ty_suffix i pos
   | AbstractType (pos, i) -> singleton_dependency_analysis_data ty_suffix i pos
-  | TupleType (pos, tys) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data  (List.map (fun t -> mk_graph_type t) tys)
-  | GroupType (pos, tys) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data  (List.map (fun t -> mk_graph_type t) tys)
-  | RecordType (pos, ty_ids) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (fun (_, _, t) -> mk_graph_type t) ty_ids)
+  | TupleType (_, tys) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data  (List.map (fun t -> mk_graph_type t) tys)
+  | GroupType (_, tys) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data  (List.map (fun t -> mk_graph_type t) tys)
+  | RecordType (_, ty_ids) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (fun (_, _, t) -> mk_graph_type t) ty_ids)
   | ArrayType (_, (ty, e)) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr e)
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
 (** This graph is useful for analyzing top level constant and type declarations *)
@@ -376,7 +374,7 @@ let  mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysi
   | LA.Guarantee (_, _, _, e) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (fun (i, p) -> singleton_dependency_analysis_data node_suffix i p) (get_node_call_from_expr e))
-  | LA.Mode (pos, i, reqs, ensures) ->
+  | LA.Mode (_, _, reqs, ensures) ->
      let calls_ps = List.flatten (List.map (fun (_,_, e) -> get_node_call_from_expr e) (reqs @ ensures)) in
      let sub_graphs = (List.map (fun (i, p) -> singleton_dependency_analysis_data node_suffix i p) calls_ps) in
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data sub_graphs
@@ -384,10 +382,10 @@ let  mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysi
     | LA.GhostVar c ->
      match c with
      | FreeConst _ -> empty_dependency_analysis_data
-     | UntypedConst (pos, i, e) ->
+     | UntypedConst (_, _, e) ->
         List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
           (List.map (fun (i, p) -> singleton_dependency_analysis_data node_suffix i p) (get_node_call_from_expr e))
-     | TypedConst (pos, i, e, ty) ->
+     | TypedConst (_, _, e, _) ->
         List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
           (List.map (fun (i, p) -> singleton_dependency_analysis_data node_suffix i p) (get_node_call_from_expr e))
 (** This builds a graph with all the node call dependencies from the equations of the contract  *)
@@ -411,7 +409,7 @@ let extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
 (** Extracts all the node calls from a node item *)
   
 let mk_graph_node_decl: Lib.position -> LA.node_decl -> dependency_analysis_data
-  = fun pos (i, _, _, ips, ops, locals, nitems, contract_opt) ->    
+  = fun pos (i, _, _, _, _, _, nitems, contract_opt) ->    
   let cg = connect_g_pos
              (match contract_opt with
               | None -> empty_dependency_analysis_data
@@ -490,8 +488,8 @@ let mk_graph_decls: LA.t -> dependency_analysis_data
    See Note {Types of dependency analysis} for more information about different kinds of
    dependency analysis  *)
 
-let extract_decls: ('a IMap.t * id_pos_map) -> LA.ident list -> ('a list) graph_result
-  = fun (decl_map, i_pos_map) ids ->
+let extract_decls: 'a IMap.t -> LA.ident list -> ('a list) graph_result
+  = fun decl_map ids ->
   R.ok (List.concat (List.map (fun i -> match (IMap.find_opt i decl_map) with
                      | None -> []
                      | Some i' -> [i']) ids)) 
@@ -573,7 +571,7 @@ let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t list = fun
     let e' = vars_with_flattened_nodes m e in
     [SI.diff (SI.flatten e') (SI.flatten (List.map LH.vars_of_ty_ids qs))]
   (* Clock operators *)
-  | When (_, e, clkE) -> [SI.flatten (vars_with_flattened_nodes m e)]
+  | When (_, e, _) -> [SI.flatten (vars_with_flattened_nodes m e)]
   | Current  (_, e) -> [SI.flatten (vars_with_flattened_nodes m e)]
   | Condact (_, e1, e2, i, es1, es2) ->
     let e1' = SI.flatten (vars_with_flattened_nodes m e1) in
@@ -604,7 +602,7 @@ let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t list = fun
     [SI.union (SI.flatten e1') (SI.flatten e2')]
 
   (* Node calls *)
-  | Call (p, i, es) ->
+  | Call (_, i, es) ->
 (*     Format.eprintf "call expr: %a\n\n" (pp_print_list LA.pp_print_expr ";") es;
     Format.eprintf "pos: %a, call: %a\n\n" Lib.pp_print_position p Format.pp_print_string i; *)
     (match IMap.find_opt i m with
@@ -623,8 +621,8 @@ let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t list = fun
         Format.eprintf "es': %a\n\n"
           (pp_print_list Format.pp_print_string ",")
           (LA.SI.fold (fun key x -> key :: x) (LA.SI.flatten es') []); *)
-        List.concat (List.map (fun (i, b) -> List.map (List.nth es') b) sum_bds))
-  | CallParam (_, i, _, es) ->
+        List.concat (List.map (fun (_, b) -> List.map (List.nth es') b) sum_bds))
+  | CallParam (_, _, _, es) ->
     let es' = List.flatten (List.map (vars_with_flattened_nodes m) es) in
     [SI.flatten es']
 (** get all the variables and flatten node calls using 
@@ -770,7 +768,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
      else 
        R.ok (List.map2 (fun l r -> union_dependency_analysis_data l r ) g1 g2)
 
-  | LA.Call (p, i, es) ->
+  | LA.Call (_, i, es) ->
      (match IMap.find_opt i m with
       | None -> assert false (* guaranteed by lustreSyntaxChecks *)
       | Some summary ->
@@ -780,7 +778,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
          (* For each output stream, return the associated graph of the input expression 
             whose current value it depends on. If the output stream does not depend on 
             any input stream's current value, return an empty graph. *)
-         R.ok (List.map (fun (i, b) ->
+         R.ok (List.map (fun (_, b) ->
              if List.length b = 0
              then empty_dependency_analysis_data
              else (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
@@ -900,7 +898,7 @@ let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr ->
   
    
 let mk_graph_contract_decl2 
-  = fun ad pos (i , _, _, _, c) ->
+  = fun ad (_ , _, _, _, c) ->
   List.fold_left union_dependency_analysis_data
     ad
     (List.map (mk_graph_contract_node_eqn2 ad) c)
@@ -918,15 +916,14 @@ let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contra
    is being used at its current value in assumption or mode requires *)
 
 let sort_and_check_contract_eqns: dependency_analysis_data
-                                  -> Lib.position
                                   -> LA.contract_node_decl
                                   -> LA.contract_node_decl graph_result
-  = fun ad pos ((i, params , ips, ops, contract) as decl)->
+  = fun ad ((i, params , ips, ops, contract) as decl)->
   Log.log L_trace "Sorting contract equations for %a" LA.pp_print_ident i
   ; let ip_ids = List.map (fun ip -> LH.extract_ip_ty ip |> fst) ips in
     let op_ids = List.map (fun ip -> LH.extract_op_ty ip |> fst) ops in
     let ids_to_skip = SI.of_list (ip_ids @ op_ids) in 
-    let ad' = mk_graph_contract_decl2 ad pos decl in
+    let ad' = mk_graph_contract_decl2 ad decl in
     (try (R.ok (G.topological_sort ad'.graph_data)) with
      | Graph.CyclicGraphException ids ->
         if List.length ids > 1
@@ -943,7 +940,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
     let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) (List.rev sorted_ids) in
     let (to_sort_eqns, assums_grantees) = split_contract_equations contract in
     mk_contract_eqn_map IMap.empty to_sort_eqns >>= fun eqn_map ->
-         extract_decls (eqn_map, ad'.id_pos_data) equational_vars >>= fun contract' ->
+         extract_decls eqn_map equational_vars >>= fun contract' ->
       Log.log L_trace "sorted contract equations for contract %a %a"
         LA.pp_print_ident i
         (Lib.pp_print_list LA.pp_print_contract_item "\n") contract'
@@ -980,7 +977,7 @@ let sort_declarations: LA.t -> LA.t graph_result
   >>= fun sorted_ids ->
   let dependency_sorted_ids = List.rev sorted_ids in
   Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  dependency_sorted_ids
-  ; extract_decls (decl_map, ad.id_pos_data) dependency_sorted_ids
+  ; extract_decls decl_map dependency_sorted_ids
 (** Accepts a function to generate a declaration map, 
     a function to generate the graph of the declarations,
     runs a topological sort on the ids extracted from the map and then 
@@ -999,7 +996,7 @@ let summarize_ip_vars: LA.ident list -> SI.t -> int list = fun ips critial_ips -
 (** Helper function to generate a node summary *)
   
 let mk_node_summary: node_summary -> LA.node_decl -> node_summary
-    = fun s (i, imported, _, ips, ops, vars, items, _) ->
+    = fun s (i, imported, _, ips, ops, _, items, _) ->
   if not imported
   then 
   let op_vars = List.map (fun o -> LH.extract_op_ty o |> fst) ops in
@@ -1009,9 +1006,9 @@ let mk_node_summary: node_summary -> LA.node_decl -> node_summary
     let lhs_vars = LA.SI.elements (LA.SI.flatten (List.map LH.vars_of_struct_item lhss)) in
     let vars = SI.flatten (vars_with_flattened_nodes s e) in
     let ms = List.map (Lib.flip IMap.singleton (LA.SI.elements vars)) lhs_vars in
-    List.fold_left (IMap.union (fun k v1 v2 -> Some v2)) IMap.empty ms in
+    List.fold_left (IMap.union (fun _ _ v2 -> Some v2)) IMap.empty ms in
   
-  let node_equation_dependency_map = List.fold_left (IMap.union (fun k v1 v2 -> Some v2)) IMap.empty
+  let node_equation_dependency_map = List.fold_left (IMap.union (fun _ _ v2 -> Some v2)) IMap.empty
                                        (List.map process_one_eqn node_equations) in
 
   Log.log L_trace "Node equation dependency map for node %a {\n %a \n}"
@@ -1087,7 +1084,7 @@ let mk_graph_eqn: node_summary
       ->  Lib.todo ("Parsing not supported" ^ __LOC__
                     ^ " " ^ Lib.string_of_t Lib.pp_print_position p) in
   fun m -> function
-        | Equation (pos, (LA.StructDef (p, lhss)), e) ->
+        | Equation (pos, (LA.StructDef (_, lhss)), e) ->
            (* We need to find the mapping of graphs from the 
               lhs of the equation to the rhs of the equations 
               such that the width of each of the lhs and rhs 
@@ -1146,12 +1143,12 @@ let rec check_valid_transition_branch: LA.state IMap.t -> LA.transition_branch -
 let check_valid_state_transition: LA.state IMap.t -> LA.state -> unit graph_result
   = fun m ->
   function
-  | LA.State (pos, i, _, _, _, trans_opt1, trans_opt2) ->
+  | LA.State (_, _, _, _, _, trans_opt1, trans_opt2) ->
      (match trans_opt1 with
-     | Some (pos, branch) -> check_valid_transition_branch m branch
+     | Some (_, branch) -> check_valid_transition_branch m branch
      | None -> R.ok ())
     >>  (match trans_opt2 with
-     | Some (pos, branch) -> check_valid_transition_branch m branch
+     | Some (_, branch) -> check_valid_transition_branch m branch
      | None -> R.ok ())
 
 
@@ -1176,7 +1173,7 @@ let analyze_states: LA.state list -> unit graph_result
 let rec analyze_automaton_states: node_summary -> LA.state -> unit graph_result =
   fun m ->
   function
-  | State (_, i, _, _, eqns, _, _) ->
+  | State (_, _, _, _, eqns, _, _) ->
      R.seq (List.map (mk_graph_eqn m) eqns) >>= fun gs -> 
      let ad = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data gs in
      (try (R.ok (G.topological_sort ad.graph_data)) with
@@ -1222,10 +1219,9 @@ let analyze_circ_node_equations: node_summary -> LA.node_item list -> unit graph
 (** Check for node equations, we need to flatten the node calls using [node_summary] generated *)
     
 let check_node_equations: dependency_analysis_data
-                          -> Lib.position
                           -> LA.node_decl
                           -> LA.node_decl graph_result
-  = fun ad pos ((i, imported, params, ips, ops, locals, items, contract_opt) as ndecl)->
+  = fun ad ((i, imported, params, ips, ops, locals, items, contract_opt) as ndecl)->
   (if not imported then
      analyze_circ_node_equations ad.nsummary items
      >> analyze_automatons ad.nsummary (LH.extract_equation items) 
@@ -1233,7 +1229,7 @@ let check_node_equations: dependency_analysis_data
   >> match contract_opt with
      | None -> R.ok ndecl
      | Some c ->
-        sort_and_check_contract_eqns ad pos (contract_suffix ^ "inline$" ^ i, params, ips, ops, c) >>=
+        sort_and_check_contract_eqns ad (contract_suffix ^ "inline$" ^ i, params, ips, ops, c) >>=
           fun (_, _, _, _, c') -> R.ok (i, imported, params, ips, ops, locals, items, Some c')
 (** Check if node equations do not have circularity and also, if the node has a contract
     sort the contract equations. *)
@@ -1244,13 +1240,13 @@ let rec generate_summaries: dependency_analysis_data -> LA.t -> dependency_analy
   | [] -> ad
   | LA.FuncDecl (_, ndecl) :: decls ->
      let ns = mk_node_summary ad.nsummary ndecl in
-     generate_summaries {ad with nsummary = IMap.union (fun k v1 v2 -> Some v2) ad.nsummary ns} decls
+     generate_summaries {ad with nsummary = IMap.union (fun _ _ v2 -> Some v2) ad.nsummary ns} decls
   | LA.NodeDecl (_, ndecl) :: decls ->
      let ns = mk_node_summary ad.nsummary ndecl in
-     generate_summaries {ad with nsummary = IMap.union (fun k v1 v2 -> Some v2) ad.nsummary ns} decls
+     generate_summaries {ad with nsummary = IMap.union (fun _ _ v2 -> Some v2) ad.nsummary ns} decls
   | LA.ContractNodeDecl (_, cdecl) :: decls ->
      let cs = mk_contract_summary ad.csummary cdecl in
-     generate_summaries {ad with csummary = IMap.union (fun k v1 v2 -> Some v2) ad.csummary cs } decls
+     generate_summaries {ad with csummary = IMap.union (fun _ _ v2 -> Some v2) ad.csummary cs } decls
   | _ :: decls -> generate_summaries ad decls
 (** This function generates the node summary and contract summary data
     This function requires that the program does not have any forward references. *)
@@ -1259,18 +1255,15 @@ let rec sort_and_check_equations: dependency_analysis_data -> LA.t -> LA.t graph
   fun ad ->
   function
   | LA.FuncDecl (span, ndecl) :: ds ->
-    let {LA.start_pos = pos} = span in
-    check_node_equations ad pos ndecl >>= fun ndecl' ->
+    check_node_equations ad ndecl >>= fun ndecl' ->
     sort_and_check_equations ad ds >>= fun ds' ->
     R.ok (LA.FuncDecl (span, ndecl') :: ds')
   | LA.NodeDecl (span, ndecl) :: ds ->
-    let {LA.start_pos = pos} = span in
-    check_node_equations ad pos ndecl >>= fun ndecl' ->
+    check_node_equations ad ndecl >>= fun ndecl' ->
     sort_and_check_equations ad ds >>= fun ds' ->
     R.ok (LA.NodeDecl (span, ndecl') :: ds')
   | LA.ContractNodeDecl (span, contract_body) :: ds ->
-    let {LA.start_pos = pos} = span in
-    sort_and_check_contract_eqns ad pos contract_body >>= fun contract_body' ->
+    sort_and_check_contract_eqns ad contract_body >>= fun contract_body' ->
     sort_and_check_equations ad ds >>= fun decls' ->
     R.ok (LA.ContractNodeDecl (span, contract_body') :: decls' )  
   | d :: ds -> sort_and_check_equations ad ds >>= fun ds' -> R.ok (d :: ds')

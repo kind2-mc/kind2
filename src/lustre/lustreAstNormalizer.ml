@@ -16,8 +16,6 @@
 
  *)
 
-[@@@ocaml.warning "-27"]
-
 (** Normalize a Lustre AST to ease in translation to a transition system
 
   The two main requirements of this normalization are to:
@@ -204,20 +202,20 @@ let pp_print_generated_identifiers ppf gids =
 
 let compute_node_input_constant_mask decls =
   let over_decl map = function
-  | A.NodeDecl (pos, (id, _, _, inputs, _, _, _, _)) ->
+  | A.NodeDecl (_, (id, _, _, inputs, _, _, _, _)) ->
     let is_consts = List.map (fun (_, _, _, _, c) -> c) inputs in
     StringMap.add id is_consts map
-  | FuncDecl (pos, (id, _, _, inputs, _, _, _, _)) ->
+  | FuncDecl (_, (id, _, _, inputs, _, _, _, _)) ->
     let is_consts = List.map (fun (_, _, _, _, c) -> c) inputs in
     StringMap.add id is_consts map
-  | decl -> map
+  | _ -> map
   in List.fold_left over_decl StringMap.empty decls
 
 let collect_contract_node_decls decls =
   let over_decl map = function
-  | A.ContractNodeDecl (span, (id, params, inputs, outputs, equations)) ->
+  | A.ContractNodeDecl (_, (id, params, inputs, outputs, equations)) ->
     StringMap.add id (id, params, inputs, outputs, equations) map
-  | decl -> map
+  | _ -> map
   in List.fold_left over_decl StringMap.empty decls
 
 
@@ -241,11 +239,11 @@ let empty () = {
   }
 
 let union_keys key id1 id2 = match key, id1, id2 with
-  | key, None, None -> None
-  | key, (Some v), None -> Some v
-  | key, None, (Some v) -> Some v
+  | _, None, None -> None
+  | _, (Some v), None -> Some v
+  | _, None, (Some v) -> Some v
   (* Identifiers are guaranteed to be unique making this branch impossible *)
-  | key, (Some v1), (Some v2) -> assert false
+  | _, (Some _), (Some _) -> assert false
 
 let union ids1 ids2 = {
     locals = StringMap.merge union_keys ids1.locals ids2.locals;
@@ -270,13 +268,13 @@ let expr_has_inductive_var ind_vars expr =
   let ind_vars = List.filter (fun x -> A.SI.mem x vars) ind_vars in
   match ind_vars with
   | [] -> None
-  | h :: t -> Some h
+  | h :: _ -> Some h
 
 let new_contract_reference () =
   contract_ref := ! contract_ref + 1;
   string_of_int !contract_ref
 
-let extract_array_size expr = function
+let extract_array_size = function
   | A.ArrayType (_, (_, size)) -> (match size with
     | A.Const (_, Num x) -> int_of_string x
     | _ -> assert false)
@@ -386,7 +384,7 @@ let mk_fresh_call id map pos cond restart args defaults =
       let prefix = string_of_int !i in
       prefix ^ "_poracle", n))
       (called_oracles @ called_poracles)
-  in let oracle_args = List.map (fun (p, o) -> p) propagated_oracles
+  in let oracle_args = List.map (fun (p, _) -> p) propagated_oracles
   in let call = (pos, oracle_args, name, cond, restart, id, args, defaults) in
   let gids = { locals = StringMap.empty;
     array_constructors = StringMap.empty;
@@ -450,7 +448,7 @@ and normalize_declaration info map = function
   | ContractNodeDecl (_, _) -> None, StringMap.empty
   | decl -> Some decl, StringMap.empty
 
-and normalize_node_contract info map cref inputs outputs (id, params, ivars, ovars, body) =
+and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, body) =
   let contract_ref = cref in
   let ivars_names = List.map (fun (_, id, _, _, _) -> id) ivars in
   let ovars_names = List.map (fun (_, id, _, _) -> id) ovars in
@@ -559,7 +557,7 @@ and rename_ghost_variables info = function
   | GhostVar (TypedConst (_, id, _, _))) :: t ->
     let new_id = info.contract_ref ^ "_contract_" ^ id in
     (StringMap.singleton id new_id) :: rename_ghost_variables info t
-  | h :: t -> rename_ghost_variables info t
+  | _ :: t -> rename_ghost_variables info t
 
 and normalize_contract info map items =
   let gids = ref (empty ()) in
@@ -652,7 +650,7 @@ and normalize_equation info map = function
     Assert (pos, nexpr), gids
   | Equation (pos, lhs, expr) ->
     (* Need to track array indexes of the left hand side if there are any *)
-    let items = match lhs with | A.StructDef (pos, items) -> items in
+    let items = match lhs with | A.StructDef (_, items) -> items in
     let info = List.fold_left (fun info item -> match item with
       | A.ArrayDef (pos, v, is) ->
         let info = List.fold_left (fun info i -> { info with
@@ -671,7 +669,7 @@ and normalize_equation info map = function
     in
     let nexpr, gids = normalize_expr info map expr in
     Equation (pos, lhs, nexpr), gids
-  | Automaton (pos, id, states, auto) -> Lib.todo __LOC__
+  | Automaton _ -> Lib.todo __LOC__
 
 and rename_id info = function
   | A.Ident (pos, id) ->
@@ -745,8 +743,8 @@ and normalize_expr ?guard info map =
     let ivar = List.map (fun a -> expr_has_inductive_var ivars a) args in
     let ivar = List.nth_opt ivar 0 |> join in
     if is_some ivar then
-      let (var, size) = StringMap.choose ivars in
-      let size = extract_array_size var size in
+      let _, size = StringMap.choose ivars in
+      let size = extract_array_size size in
       let expr = expand_node_call e (get ivar) size in
       normalize_expr ?guard info map expr
     else
@@ -764,8 +762,8 @@ and normalize_expr ?guard info map =
     let ivar = List.map (fun a -> expr_has_inductive_var ivars a) args in
     let ivar = List.nth_opt ivar 0 |> join in
     if is_some ivar then
-      let (var, size) = StringMap.choose ivars in
-      let size = extract_array_size var size in
+      let _, size = StringMap.choose ivars in
+      let size = extract_array_size size in
       let expr = expand_node_call e (get ivar) size in
       normalize_expr ?guard info map expr
     else
@@ -789,8 +787,8 @@ and normalize_expr ?guard info map =
     let ivar = List.map (fun a -> expr_has_inductive_var ivars a) args in
     let ivar = List.nth_opt ivar 0 |> join in
     if is_some ivar then
-      let (var, size) = StringMap.choose ivars in
-      let size = extract_array_size var size in
+      let _, size = StringMap.choose ivars in
+      let size = extract_array_size size in
       let expr = expand_node_call e (get ivar) size in
       normalize_expr ?guard info map expr
     else
@@ -889,7 +887,7 @@ and normalize_expr ?guard info map =
   (* ************************************************************************ *)
   (* Variable renaming to ease handling contract scopes                       *)
   (* ************************************************************************ *)
-  | Ident (pos, id) as e -> rename_id info e, empty ()
+  | Ident _ as e -> rename_id info e, empty ()
   (* ************************************************************************ *)
   (* The remaining expr kinds are all just structurally recursive             *)
   (* ************************************************************************ *)
