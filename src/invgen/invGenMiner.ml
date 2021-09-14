@@ -519,7 +519,7 @@ let eval term =
   |> Eval.term_of_value
 
 let generic_octagons mk_plus mk_minus oct3 f =
-  let rec octagons_3 terms terms set = match terms with
+  let rec octagons_3 terms tail' set = match tail' with
     | term :: tail ->
     (*   Format.printf "  oct 3 %a (%d)@."
         fmt_term term
@@ -538,16 +538,19 @@ let generic_octagons mk_plus mk_minus oct3 f =
      (*  Format.printf "  oct 2 %a (%d)@."
         fmt_term term'
         (List.length tail) ; *)
-      let terms = [ term ; term' ] in
-      [
-        mk_plus terms |> f ;
-        mk_minus terms |> f ;
-        (* terms |> List.rev |> mk_minus |> f *)
-      ]
+      let oterms =
+        let pair = [ term ; term' ] in
+        [
+          mk_plus pair |> f ;
+          mk_minus pair |> f ;
+          (* pair |> List.rev |> mk_minus |> f *)
+        ]
+      in
+      oterms
       |> List.fold_left (
         fun set term -> Set.add term set
       ) set
-      |> (if oct3 then octagons_3 terms tail else identity)
+      |> (if oct3 then octagons_3 oterms tail else identity)
       |> octagons_2_3 term tail
     | [] -> set
   in
