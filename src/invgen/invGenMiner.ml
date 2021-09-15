@@ -527,6 +527,7 @@ let generic_octagons mk_plus mk_minus oct3 f =
         fun set terms ->
           Set.add (mk_plus terms |> f) set
           |> Set.add (mk_minus terms |> f)
+          |> Set.add (mk_minus (List.rev terms) |> f)
       ) set
       |> octagons_3 terms tail
     | [] -> set
@@ -541,7 +542,7 @@ let generic_octagons mk_plus mk_minus oct3 f =
         [
           mk_plus pair |> f ;
           mk_minus pair |> f ;
-          (* pair |> List.rev |> mk_minus |> f *)
+          pair |> List.rev |> mk_minus |> f
         ]
       in
       oterms
