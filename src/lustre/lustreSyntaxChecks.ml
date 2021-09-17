@@ -20,6 +20,7 @@
   @author Andrew Marmaduke *)
 
 module LA = LustreAst
+module LAH = LustreAstHelpers
 
 module StringSet = Set.Make(
   struct
@@ -34,8 +35,11 @@ type context = {
   nodes : StringSet.t;
   functions : StringSet.t;
   contracts : StringSet.t;
+  free_consts : StringSet.t;
   consts : StringSet.t;
-  locals : StringSet.t }
+  locals : StringSet.t;
+  quant_vars : StringSet.t;
+  array_indices : StringSet.t; }
 
 (* let (>>=) = Res.(>>=) *)
 let (>>) = Res.(>>)
@@ -47,8 +51,11 @@ let empty_ctx () = {
     nodes = StringSet.empty;
     functions = StringSet.empty;
     contracts = StringSet.empty;
+    free_consts = StringSet.empty;
     consts = StringSet.empty;
     locals = StringSet.empty;
+    quant_vars = StringSet.empty;
+    array_indices = StringSet.empty;
   }
 
 let ctx_add_type ctx i = {
@@ -67,7 +74,11 @@ let ctx_add_func ctx i = {
     ctx with functions = StringSet.add i ctx.functions
   }
 
-let ctx_add_consts ctx i = {
+let ctx_add_free_const ctx i = {
+    ctx with free_consts = StringSet.add i ctx.free_consts
+  }
+
+let ctx_add_const ctx i = {
     ctx with consts = StringSet.add i ctx.consts
   }
 
@@ -75,22 +86,43 @@ let ctx_add_local ctx i = {
     ctx with locals = StringSet.add i ctx.locals
   }
 
+let ctx_add_quant_var ctx i = {
+    ctx with quant_vars = StringSet.add i ctx.quant_vars
+  }
+
+let ctx_add_array_index ctx i = {
+    ctx with array_indices = StringSet.add i ctx.array_indices
+  }
+
+
 let build_global_ctx (decls:LustreAst.t) =
   let over_decls acc = function
     | LA.TypeDecl (_, AliasType (_, i, (EnumType (_, _, variants)))) -> 
-      let ctx = List.fold_left ctx_add_consts acc variants in
+      let ctx = List.fold_left ctx_add_const acc variants in
       ctx_add_type ctx i
     | LA.TypeDecl (_, AliasType (_, i, _)) -> ctx_add_type acc i
     | TypeDecl (_, FreeType (_, i)) -> ctx_add_type acc i
-    | ConstDecl (_, FreeConst (_, i, _)) -> ctx_add_consts acc i
-    | ConstDecl (_, UntypedConst (_, i, _)) -> ctx_add_consts acc i
-    | ConstDecl (_, TypedConst (_, i, _, _)) -> ctx_add_consts acc i
+    | ConstDecl (_, FreeConst (_, i, _)) -> ctx_add_free_const acc i
+    | ConstDecl (_, UntypedConst (_, i, _)) -> ctx_add_const acc i
+    | ConstDecl (_, TypedConst (_, i, _, _)) -> ctx_add_const acc i
     | NodeDecl (_, (i, _, _, _, _, _, _, _)) -> ctx_add_node acc i
     | FuncDecl (_, (i, _, _, _, _, _, _, _)) -> ctx_add_func acc i
     | ContractNodeDecl (_, (i, _, _, _, _)) -> ctx_add_contract acc i
     | _ -> acc
   in
   List.fold_left over_decls (empty_ctx ()) decls
+
+let build_contract_ctx ctx (eqns:LustreAst.contract) =
+  let over_eqns acc = function
+    | LA.GhostConst (FreeConst (_, i, _)) -> ctx_add_free_const acc i
+    | LA.GhostConst (UntypedConst (_, i, _)) -> ctx_add_const acc i
+    | LA.GhostConst (TypedConst (_, i, _, _)) -> ctx_add_const acc i
+    | LA.GhostVar (FreeConst (_, i, _)) -> ctx_add_free_const acc i
+    | LA.GhostVar (UntypedConst (_, i, _)) -> ctx_add_const acc i
+    | LA.GhostVar (TypedConst (_, i, _, _)) -> ctx_add_const acc i
+    | _ -> acc
+  in
+  List.fold_left over_eqns ctx eqns
 
 let build_local_ctx ctx locals inputs outputs =
   let over_locals acc = function
@@ -109,7 +141,7 @@ let build_equation_ctx ctx = function
   | LA.StructDef (_, items) ->
     let over_items ctx = function
       | LA.ArrayDef (_, _, ids)
-        -> List.fold_left ctx_add_local ctx ids
+        -> List.fold_left ctx_add_array_index ctx ids
       | _ -> ctx
     in
     List.fold_left over_items ctx items
@@ -164,13 +196,34 @@ let no_dangling_node_calls ctx = function
 
 let no_dangling_identifiers ctx = function
   | LA.Ident (pos, i) -> 
-    let check_consts = StringSet.find_opt i ctx.consts in
-    let check_locals = StringSet.find_opt i ctx.locals in
-    (match check_consts, check_locals with
-    | Some _, _ -> Ok ()
-    | _, Some _ -> Ok ()
-    | None, None -> syntax_error pos
-      (Format.asprintf "No identifier with name %s found." i))
+    let check_ids = [
+      StringSet.find_opt i ctx.consts;
+      StringSet.find_opt i ctx.free_consts;
+      StringSet.find_opt i ctx.locals;
+      StringSet.find_opt i ctx.quant_vars;
+      StringSet.find_opt i ctx.array_indices; ]
+    in
+    let check_ids = List.filter (function | Some _ -> true | None -> false) check_ids in
+    if List.length check_ids > 0 then Ok ()
+    else syntax_error pos
+      (Format.asprintf "No identifier with name %s found." i)
+  | _ -> Ok ()
+
+let no_array_index_or_quant_var_in_node_call ctx = function
+  | LA.Call (pos, i, args) ->
+    let vars = List.flatten (List.map (fun e -> LA.SI.elements (LAH.vars e)) args) in
+    let over_vars j = 
+      let found_index = StringSet.find_opt j ctx.array_indices in
+      let found_quant = StringSet.find_opt j ctx.quant_vars in
+      match (found_index, found_quant) with
+      | Some _, _ | _ , Some _ -> syntax_error pos
+        (Format.asprintf
+          "Identifier %s is either an inductive array index or a quantified variable and thus not allowed in an argument to the node call %s"
+           j i)
+      | _, _ -> Ok ()
+    in
+    let check = List.map over_vars vars in
+    List.fold_left (>>) (Ok ()) check
   | _ -> Ok ()
 
 let no_calls_to_node ctx = function
@@ -254,7 +307,7 @@ and check_declaration ctx = function
     check >> Ok (LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
   | FuncDecl (span, decl) -> check_func_decl ctx span decl
-  | ContractNodeDecl (span, decl) -> Ok (LA.ContractNodeDecl (span, decl))
+  | ContractNodeDecl (span, decl) -> check_contract_node_decl ctx span decl
   | NodeParamInst (span, inst) -> Ok (LA.NodeParamInst (span, inst))
 
 and check_const_expr_decl ctx expr =
@@ -264,24 +317,33 @@ and check_const_expr_decl ctx expr =
   in
   check_expr ctx composed_checks expr
 
-and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contracts) =
+and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
   let ctx = build_local_ctx ctx locals inputs outputs in
   let decl = LA.NodeDecl
-    (span, (id, ext, params, inputs, outputs, locals, items, contracts))
+    (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
   let composed_items_checks ctx e =
     (no_dangling_node_calls ctx e)
       >> (no_dangling_identifiers ctx e)
       >> (unsupported_expr e)
+      >> (no_array_index_or_quant_var_in_node_call ctx e)
+  in
+  let composed_contract_checks ctx e =
+    (unsupported_expr e)
+      >> (no_dangling_identifiers ctx e)
+      >> (no_array_index_or_quant_var_in_node_call ctx e)
   in
   (locals_must_have_definitions locals items)
     >> (check_items ctx composed_items_checks items)
+    >> (match contract with 
+    | Some c -> check_contract ctx composed_contract_checks c
+    | None -> Ok ())
     >> (Ok decl)
 
-and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contracts) =
+and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
   let ctx = build_local_ctx ctx locals inputs outputs in
   let decl = LA.FuncDecl
-    (span, (id, ext, params, inputs, outputs, locals, items, contracts))
+    (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
   let composed_items_checks ctx e =
     (no_dangling_node_calls ctx e)
@@ -289,8 +351,30 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
       >> (no_temporal_operator false e)
       >> (no_dangling_identifiers ctx e)
       >> (unsupported_expr e)
+      >> (no_array_index_or_quant_var_in_node_call ctx e)
+  in
+  let composed_contract_checks ctx e =
+    (unsupported_expr e)
+      >> (no_dangling_identifiers ctx e)
+      >> (no_array_index_or_quant_var_in_node_call ctx e)
   in
   (check_items ctx composed_items_checks items)
+    >> (match contract with
+      | Some c -> check_contract ctx composed_contract_checks c
+      | None -> Ok ())
+    >> (Ok decl)
+
+and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
+  let ctx = build_local_ctx ctx [] inputs outputs in
+  let decl = LA.ContractNodeDecl
+    (span, (id, params, inputs, outputs, contract))
+  in
+  let composed_contract_checks ctx e =
+    (unsupported_expr e)
+      >> (no_dangling_identifiers ctx e)
+      >> (no_array_index_or_quant_var_in_node_call ctx e)
+  in
+  (check_contract ctx composed_contract_checks contract)
     >> (Ok decl)
 
 and check_items ctx f items =
@@ -307,6 +391,21 @@ and check_items ctx f items =
   in
   Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)
 
+and check_contract ctx f contract =
+  let check_list e = Res.seqM (fun x _ -> x) () (List.map (check_expr ctx f) e) in
+  let ctx = build_contract_ctx ctx contract in
+  let check_contract_item ctx f = function
+    | LA.Assume (_, _, _, e) -> check_expr ctx f e
+    | Guarantee (_, _, _, e) -> check_expr ctx f e
+    | Mode (_, _, rs, gs) ->
+      let rs = List.map (fun (_, _, e) -> e) rs in
+      let gs = List.map (fun (_, _, e) -> e) gs in
+      check_list rs >> check_list gs
+    | GhostVar (UntypedConst (_, _, e)) -> check_expr ctx f e
+    | _ -> Ok ()
+  in
+  Res.seqM (fun x _ -> x) () (List.map (check_contract_item ctx f) contract)
+
 and check_expr ctx f (expr:LustreAst.expr) =
   let check_list e = Res.seqM (fun x _ -> x) () (List.map (check_expr ctx f) e) in
   let expr' = f ctx expr in
@@ -320,7 +419,7 @@ and check_expr ctx f (expr:LustreAst.expr) =
     | Pre (_, e)
       -> check_expr ctx f e
     | Quantifier (_, _, vars, e) ->
-        let over_vars ctx (_, i, _) = ctx_add_local ctx i in
+        let over_vars ctx (_, i, _) = ctx_add_quant_var ctx i in
         let ctx = List.fold_left over_vars ctx vars in
         check_expr ctx f e
     | BinaryOp (_, _, e1, e2)
