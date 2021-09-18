@@ -108,7 +108,7 @@ type generated_identifiers = {
     * (LustreAst.expr list option)) (* node argument defaults *)
     list;
     equations :
-    (string list (* quantified variables *)
+    (LustreAst.typed_ident list (* quantified variables *)
     * string list (* contract scope  *)
     * LustreAst.eq_lhs
     * LustreAst.expr)

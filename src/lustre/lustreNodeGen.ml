@@ -513,6 +513,23 @@ and compile_ast_type
   | A.TArr _ -> assert false
       (* Lib.todo "Trying to flatten function type. This should not happen" *)
 
+and vars_of_quant cstate ctx map avars =
+  let quant_vars = H.create 7 in
+  let var_of_quant vars (_, v, ast_type) = 
+    let index_types = compile_ast_type cstate ctx map ast_type in
+    let vars, d = X.fold
+      (fun index index_type (vars, d) ->
+        let name = Format.sprintf "%s%s" v (X.string_of_index true index) in
+        let var = Var.mk_free_var (HString.mk_hstring name) index_type in
+        let ev = E.mk_free_var var in
+        var :: vars, X.add index ev d)
+      index_types
+      (vars, X.empty)
+    in
+    H.replace quant_vars (mk_ident v) d;
+    vars
+  in
+  List.fold_left var_of_quant [] avars, quant_vars
 
 and compile_ast_expr
   (cstate:compiler_state)
@@ -571,24 +588,11 @@ and compile_ast_expr
     X.map2 (fun _ -> mk) expr1 expr2
 
   and compile_quantifier bounds mk avars expr =
-    let var_of_quant vars (_, v, ast_type) = 
-      let index_types = compile_ast_type cstate ctx map ast_type in
-      let vars, d = X.fold
-        (fun index index_type (vars, d) ->
-          let name = Format.sprintf "%s%s" v (X.string_of_index true index) in
-          let var = Var.mk_free_var (HString.mk_hstring name) index_type in
-          let ev = E.mk_free_var var in
-          var :: vars, X.add index ev d)
-        index_types
-        (vars, X.empty)
-      in
-      H.replace !map.quant_vars (mk_ident v) d;
-      vars
-    in let vars_of_quant avars = List.fold_left var_of_quant [] avars in
-    let vars = vars_of_quant avars in
+    let vars, quant_var_map = vars_of_quant cstate ctx map avars in
     let bounds = bounds @
       List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
         vars in
+    H.add_seq !map.quant_vars (H.to_seq quant_var_map);
     let result = compile_unary bounds (mk vars) expr in
     H.clear !map.quant_vars;
     result
@@ -1606,7 +1610,12 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           in res, 0
       in
       let lhs_bounds = gen_lhs_bounds true eq_lhs ast_expr indexes in
-      let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr in
+      let vars, quant_var_map = vars_of_quant cstate ctx map qvars in
+      let bounds = lhs_bounds @
+        List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
+          vars in
+      H.add_seq !map.quant_vars (H.to_seq quant_var_map);
+      let eq_rhs = compile_ast_expr cstate ctx bounds map ast_expr in
       let eq_rhs = flatten_list_indexes eq_rhs in
 (*       Format.eprintf "lhs: %a\n\n rhs: %a\n\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
@@ -1615,6 +1624,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       let equations = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in 
       List.iter (fun ((sv, _), e) -> SVT.add state_var_expr_map sv e) equations;
       H.clear !map.array_index;
+      H.clear !map.quant_vars;
       (* TODO: Old code tries to infer a more strict type here
         lustreContext 2040+ *)
       equations @ eqns

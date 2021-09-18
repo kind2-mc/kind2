@@ -119,7 +119,7 @@ type generated_identifiers = {
     * (LustreAst.expr list option)) (* node argument defaults *)
     list;
   equations :
-    (string list (* quantified variables *)
+    (LustreAst.typed_ident list (* quantified variables *)
     * string list (* contract scope  *)
     * LustreAst.eq_lhs
     * LustreAst.expr)
@@ -129,7 +129,7 @@ type generated_identifiers = {
 type info = {
   context : Ctx.tc_context;
   inductive_variables : LustreAst.lustre_type StringMap.t;
-  quantified_variables : string list;
+  quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) StringMap.t;
   contract_calls : LustreAst.contract_node_decl StringMap.t;
   contract_scope : string list;
@@ -963,10 +963,9 @@ and normalize_expr ?guard info map =
     let ctx = List.fold_left Ctx.union info.context
       (List.map (fun (_, i, ty) -> Ctx.singleton_ty i ty) vars)
     in
-    let var_names = List.map (fun (_, i, ty) -> i) vars in
     let info = { 
       info with context = ctx;
-        quantified_variables = info.quantified_variables @ var_names }
+        quantified_variables = info.quantified_variables @ vars }
     in
     let nexpr, gids = normalize_expr ?guard info map expr in
     Quantifier (pos, kind, vars, nexpr), gids
