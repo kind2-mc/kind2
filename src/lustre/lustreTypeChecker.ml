@@ -253,12 +253,13 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   | LA.Activate (pos, node, cond, _, args) ->
     check_type_expr ctx cond (Bool pos)
     >> infer_type_expr ctx (Call (pos, node, args))
-  | LA.Merge (pos, i, mcases) ->
-    infer_type_expr ctx (LA.Ident (pos, i))
-    >> let case_tys = List.map snd mcases |> List.map (infer_type_expr ctx) in
+  | LA.Merge (pos, i, mcases) as e ->
+    infer_type_expr ctx (LA.Ident (pos, i)) >>= fun ty ->
+      let case_tys = List.map snd mcases |> List.map (infer_type_expr ctx) in
       R.seq case_tys
       >>= fun tys ->
       let main_ty = List.hd tys in
+      (check_type_expr ctx e ty) >>
       R.ifM (R.seqM (&&) true (List.map (eq_lustre_type ctx main_ty) tys))
       (R.ok main_ty)
       (type_error pos ("All expressions in merge expected to be the same type "
@@ -497,12 +498,38 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
     check_type_expr ctx cond (Bool pos)
     >> check_type_expr ctx (Call (pos, node, args)) exp_ty 
   | Merge (pos, i, mcases) ->
-    infer_type_expr ctx (LA.Ident (pos, i)) >>= fun _ty ->
+    infer_type_expr ctx (LA.Ident (pos, i)) >>= fun ty ->
+    let mcases_ids, mcases_exprs = List.split mcases in
     let check_mcases = R.seq_
-      (List.map (fun e -> check_type_expr ctx e exp_ty) (List.map snd mcases))
+      (List.map (fun e -> check_type_expr ctx e exp_ty) mcases_exprs)
+    in
+    Format.eprintf "Type: %a\n\n" LA.pp_print_lustre_type ty;
+    Format.eprintf "Ctx: %a\n\n" pp_print_tc_context ctx;
+    let variants = List.map
+      (function LA.Ident (_, i) -> i | _ -> assert false)
+      (consts_of_type ty ctx)
+    in
+    Format.eprintf "Variants: %a\n\n" (Lib.pp_print_list Format.pp_print_string ",") variants;
+    let check_mcases_containment = R.seq_
+      (List.map (fun i ->
+          if not (List.mem i variants) then
+            type_error pos
+              ("Merge case " ^ i ^ " does not exist in type " ^ string_of_tc_type ty)
+          else Ok ())
+        mcases_ids)
+    in
+    let check_mcases_cover = R.seq_
+      (List.map (fun i ->
+          if not (List.mem i mcases_ids) then
+            type_error pos
+              ("Merge case " ^ i ^ " is missing from merge")
+          else Ok ())
+        variants)
     in
     (* TODO: Add exhaustiveness check *)
     check_mcases
+    >> check_mcases_containment
+    >> check_mcases_cover
   | RestartEvery (pos, node, args, cond) ->
     check_type_expr ctx cond (LA.Bool pos)
     >> check_type_expr ctx (LA.Call (pos, node, args)) exp_ty
@@ -512,7 +539,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
   | Last (pos, i) ->
     infer_type_expr ctx (LA.Ident (pos, i))
     >>= fun ty -> R.guard_with (eq_lustre_type ctx ty exp_ty)
-                    (type_error pos ("Indentifier " ^ i
+                    (type_error pos ("Identifier " ^ i
                                     ^ " does not match expected type "
                                     ^ string_of_tc_type exp_ty
                                     ^ " with infered type "
