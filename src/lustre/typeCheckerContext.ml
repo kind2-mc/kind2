@@ -38,6 +38,9 @@ end
 (** Map for types with identifiers as keys *)
 
 
+type enum_variants = LA.ident list IMap.t
+(** A store of the variants for defined enumeration types *)
+
 type ty_alias_store = tc_type IMap.t
 (** A store of type Aliases, i.e. for user defined types  *)
 
@@ -64,6 +67,7 @@ type tc_context = { ty_syns: ty_alias_store (* store of the type alias mappings 
                                                this is poor mans kind (type of type) context *)
                   ; contract_export_ctx:    (* stores all the export variables  of the contract *)
                       contract_exports 
+                  ; enum_vars:enum_variants
                   }
 (** The type checker global context *)
 
@@ -75,6 +79,7 @@ let empty_tc_context: tc_context =
   ; vl_ctx = IMap.empty
   ; u_types = SI.empty
   ; contract_export_ctx = IMap.empty
+  ; enum_vars = IMap.empty
   }
 (** The empty context with no information *)
 
@@ -150,6 +155,10 @@ let lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option) option
   = fun ctx i -> IMap.find_opt i (ctx.vl_ctx)
 (** Lookup a constant identifier *)
 
+let lookup_variants: tc_context -> LA.ident -> LA.ident list option
+  = fun ctx i -> IMap.find_opt i (ctx.enum_vars)
+(** Lookup the variants for an enumeration type name *)
+
 let add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
   = fun ctx i ty -> {ctx with ty_syns = IMap.add i ty (ctx.ty_syns)}
 (** add a type synonym in the typing context *)
@@ -170,6 +179,10 @@ let add_ty_decl: tc_context -> LA.ident -> tc_context
   = fun ctx i -> {ctx with u_types = SI.add i (ctx.u_types)}
 (** Add a user declared type in the typing context *)
 
+let add_enum_variants: tc_context -> LA.ident -> LA.ident list -> tc_context
+  = fun ctx i vs -> {ctx with enum_vars = IMap.add i vs (ctx.enum_vars) }
+(** Add an enumeration type and associated variants to the typing context *)
+
 let remove_ty: tc_context -> LA.ident -> tc_context
   = fun ctx i -> {ctx with ty_ctx= IMap.remove i (ctx.ty_ctx)}
 (** Removes a type binding  *)
@@ -183,24 +196,26 @@ let add_untyped_const : tc_context -> LA.ident -> LA.expr -> tc_context
 
 let union: tc_context -> tc_context -> tc_context
   = fun ctx1 ctx2 -> { ty_syns = (IMap.union (fun _ _ v2 -> Some v2)
-                                    (ctx1.ty_syns)
-                                    (ctx2.ty_syns))
-                     ; ty_ctx = (IMap.union (fun _ _ v2 -> Some v2)
-                                   (ctx1.ty_ctx)
-                                   (ctx2.ty_ctx))
-                     ; contract_ctx = (IMap.union (fun _ _ v2 -> Some v2)
-                                         (ctx1.contract_ctx)
-                                         (ctx2.contract_ctx))
-                     ; node_ctx = (IMap.union (fun _ _ v2 -> Some v2)
-                                         (ctx1.node_ctx)
-                                         (ctx2.node_ctx))
-                     ; vl_ctx = (IMap.union (fun _ _ v2 -> Some v2)
-                                   (ctx1.vl_ctx)
-                                   (ctx2.vl_ctx))
-                     ; u_types = SI.union ctx1.u_types ctx2.u_types
-                     ; contract_export_ctx = (IMap.union (fun _ _ v2 -> Some v2)
-                                                (ctx1.contract_export_ctx)
-                                                (ctx2.contract_export_ctx))
+                                  (ctx1.ty_syns)
+                                  (ctx2.ty_syns))
+                    ; ty_ctx = (IMap.union (fun _ _ v2 -> Some v2)
+                                  (ctx1.ty_ctx)
+                                  (ctx2.ty_ctx))
+                    ; contract_ctx = (IMap.union (fun _ _ v2 -> Some v2)
+                                        (ctx1.contract_ctx)
+                                        (ctx2.contract_ctx))
+                    ; node_ctx = (IMap.union (fun _ _ v2 -> Some v2)
+                                        (ctx1.node_ctx)
+                                        (ctx2.node_ctx))
+                    ; vl_ctx = (IMap.union (fun _ _ v2 -> Some v2)
+                                  (ctx1.vl_ctx)
+                                  (ctx2.vl_ctx))
+                    ; u_types = SI.union ctx1.u_types ctx2.u_types
+                    ; contract_export_ctx = (IMap.union (fun _ _ v2 -> Some v2)
+                                              (ctx1.contract_export_ctx)
+                                              (ctx2.contract_export_ctx))
+                    ; enum_vars = (IMap.union (fun _ _ v2 -> Some v2)
+                      (ctx1.enum_vars) (ctx2.enum_vars))
                      }
 (** Unions the two typing contexts *)
 
@@ -281,7 +296,17 @@ let pp_print_contract_exports: Format.formatter -> contract_exports -> unit
       Format.fprintf ppf "(contract %a -> [%a])"
         LA.pp_print_ident i
         pp_print_tymap exm) ", " ppf (IMap.bindings m)
-(** Pretty pring contract exports  *)
+(** Pretty print contract exports  *)
+
+let pp_print_enum_variants: Format.formatter -> enum_variants -> unit
+  = fun ppf m ->
+    Lib.pp_print_list
+    (fun ppf (i, exm) ->
+      Format.fprintf ppf "(enum %a -> [%a])"
+        LA.pp_print_ident i
+        (Lib.pp_print_list Format.pp_print_string ",") exm)
+          ", " ppf (IMap.bindings m)
+(** Pretty print enumeration types and their variants *)
 
 let pp_print_tc_context: Format.formatter -> tc_context -> unit
   = fun ppf ctx -> 
@@ -292,7 +317,8 @@ let pp_print_tc_context: Format.formatter -> tc_context -> unit
        ^^ "Contract Context={%a}\n"
        ^^ "Const Store={%a}\n"
        ^^ "Declared Types={%a}\n"
-       ^^ "Contract exports={%a}\n")
+       ^^ "Contract exports={%a}\n"
+       ^^ "Enumeration Variants={%a}\n")
       pp_print_ty_syns (ctx.ty_syns)
       pp_print_tymap (ctx.ty_ctx)
       pp_print_tymap (ctx.node_ctx)
@@ -300,5 +326,6 @@ let pp_print_tc_context: Format.formatter -> tc_context -> unit
       pp_print_vstore (ctx.vl_ctx)
       pp_print_u_types (ctx.u_types)
       pp_print_contract_exports (ctx.contract_export_ctx)
+      pp_print_enum_variants (ctx.enum_vars)
 (** Pretty print the complete type checker context*)
                                     
