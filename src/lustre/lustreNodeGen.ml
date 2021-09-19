@@ -1180,10 +1180,10 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   (* ****************************************************************** *)
   in let (assumes2, guarantees2) =
     let over_calls (ams, gs) (call_pos, id, _, _) =
-      let (_, _, contract_eqns) =
+      let (_, scope, contract_eqns) =
         LAN.StringMap.find id gids.LAN.contract_calls
       in
-      let svar_scope = (call_pos, id) :: contract_scope in
+      let svar_scope = (call_pos, List.hd scope) :: contract_scope in
 (*       let subst expr id =
         let expr = compile_ast_expr cstate ctx [] map expr in
         let ident = mk_ident id in

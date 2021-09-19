@@ -497,7 +497,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
     check_type_expr ctx cond (Bool pos)
     >> check_type_expr ctx (Call (pos, node, args)) exp_ty 
   | Merge (pos, i, mcases) ->
-    infer_type_expr ctx (LA.Ident (pos, i)) >>= fun ty ->
+    infer_type_expr ctx (LA.Ident (pos, i)) >>= fun _ty ->
     let check_mcases = R.seq_
       (List.map (fun e -> check_type_expr ctx e exp_ty) (List.map snd mcases))
     in
