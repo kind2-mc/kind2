@@ -20,8 +20,9 @@
   @author Andrew Marmaduke *)
 
 module LA = LustreAst
+module LAH = LustreAstHelpers
 
-module StringSet = Set.Make(
+module StringMap = Map.Make(
   struct
     let compare = String.compare
     type t = string
@@ -30,12 +31,15 @@ module StringSet = Set.Make(
 type 'a sc_result = ('a, Lib.position * string) result
 
 type context = {
-  types : StringSet.t;
-  nodes : StringSet.t;
-  functions : StringSet.t;
-  contracts : StringSet.t;
-  consts : StringSet.t;
-  locals : StringSet.t }
+  nodes : LustreAst.lustre_type option StringMap.t;
+  functions : LustreAst.lustre_type option StringMap.t;
+  contracts : LustreAst.lustre_type option StringMap.t;
+  free_consts : LustreAst.lustre_type option StringMap.t;
+  consts : LustreAst.lustre_type option StringMap.t;
+  locals : LustreAst.lustre_type option StringMap.t;
+  quant_vars : LustreAst.lustre_type option StringMap.t;
+  array_indices : LustreAst.lustre_type option StringMap.t;
+  symbolic_array_indices : LustreAst.lustre_type option StringMap.t; }
 
 (* let (>>=) = Res.(>>=) *)
 let (>>) = Res.(>>)
@@ -43,64 +47,91 @@ let (>>) = Res.(>>)
 let syntax_error pos msg = Error (pos, msg)
 
 let empty_ctx () = {
-    types = StringSet.empty;
-    nodes = StringSet.empty;
-    functions = StringSet.empty;
-    contracts = StringSet.empty;
-    consts = StringSet.empty;
-    locals = StringSet.empty;
+    nodes = StringMap.empty;
+    functions = StringMap.empty;
+    contracts = StringMap.empty;
+    free_consts = StringMap.empty;
+    consts = StringMap.empty;
+    locals = StringMap.empty;
+    quant_vars = StringMap.empty;
+    array_indices = StringMap.empty;
+    symbolic_array_indices = StringMap.empty;
   }
 
-let ctx_add_type ctx i = {
-    ctx with types = StringSet.add i ctx.types
+let ctx_add_node ctx i ty = {
+    ctx with nodes = StringMap.add i ty ctx.nodes
   }
 
-let ctx_add_node ctx i = {
-    ctx with nodes = StringSet.add i ctx.nodes
+let ctx_add_contract ctx i ty = {
+    ctx with contracts = StringMap.add i ty ctx.contracts
   }
 
-let ctx_add_contract ctx i = {
-    ctx with contracts = StringSet.add i ctx.contracts
+let ctx_add_func ctx i ty = {
+    ctx with functions = StringMap.add i ty ctx.functions
   }
 
-let ctx_add_func ctx i = {
-    ctx with functions = StringSet.add i ctx.functions
+let ctx_add_free_const ctx i ty = {
+    ctx with free_consts = StringMap.add i ty ctx.free_consts
   }
 
-let ctx_add_consts ctx i = {
-    ctx with consts = StringSet.add i ctx.consts
+let ctx_add_const ctx i ty = {
+    ctx with consts = StringMap.add i ty ctx.consts
   }
 
-let ctx_add_local ctx i = {
-    ctx with locals = StringSet.add i ctx.locals
+let ctx_add_local ctx i ty = {
+    ctx with locals = StringMap.add i ty ctx.locals
   }
+
+let ctx_add_quant_var ctx i ty = {
+    ctx with quant_vars = StringMap.add i ty ctx.quant_vars
+  }
+
+let ctx_add_array_index ctx i ty = {
+    ctx with array_indices = StringMap.add i ty ctx.array_indices
+  }
+
+let ctx_add_symbolic_array_index ctx i ty = {
+    ctx with symbolic_array_indices = StringMap.add i ty ctx.symbolic_array_indices
+  }
+
 
 let build_global_ctx (decls:LustreAst.t) =
   let over_decls acc = function
-    | LA.TypeDecl (_, AliasType (_, i, (EnumType (_, _, variants)))) -> 
-      let ctx = List.fold_left ctx_add_consts acc variants in
-      ctx_add_type ctx i
-    | LA.TypeDecl (_, AliasType (_, i, _)) -> ctx_add_type acc i
-    | TypeDecl (_, FreeType (_, i)) -> ctx_add_type acc i
-    | ConstDecl (_, FreeConst (_, i, _)) -> ctx_add_consts acc i
-    | ConstDecl (_, UntypedConst (_, i, _)) -> ctx_add_consts acc i
-    | ConstDecl (_, TypedConst (_, i, _, _)) -> ctx_add_consts acc i
-    | NodeDecl (_, (i, _, _, _, _, _, _, _)) -> ctx_add_node acc i
-    | FuncDecl (_, (i, _, _, _, _, _, _, _)) -> ctx_add_func acc i
-    | ContractNodeDecl (_, (i, _, _, _, _)) -> ctx_add_contract acc i
+    | LA.TypeDecl (_, AliasType (_, _, (EnumType (_, _, variants) as ty))) -> 
+      List.fold_left (fun a v -> ctx_add_const a v (Some ty)) acc variants
+    | ConstDecl (_, FreeConst (_, i, ty)) -> ctx_add_free_const acc i (Some ty)
+    | ConstDecl (_, UntypedConst (_, i, _)) -> ctx_add_const acc i None
+    | ConstDecl (_, TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
+    (* The types here can be constructed from the available information
+      but this type information is not needed for syntax checks for now *)
+    | NodeDecl (_, (i, _, _, _, _, _, _, _)) -> ctx_add_node acc i None
+    | FuncDecl (_, (i, _, _, _, _, _, _, _)) -> ctx_add_func acc i None
+    | ContractNodeDecl (_, (i, _, _, _, _)) -> ctx_add_contract acc i None
     | _ -> acc
   in
   List.fold_left over_decls (empty_ctx ()) decls
 
+let build_contract_ctx ctx (eqns:LustreAst.contract) =
+  let over_eqns acc = function
+    | LA.GhostConst (FreeConst (_, i, ty)) -> ctx_add_free_const acc i (Some ty)
+    | LA.GhostConst (UntypedConst (_, i, _)) -> ctx_add_const acc i None
+    | LA.GhostConst (TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
+    | LA.GhostVar (FreeConst (_, i, ty)) -> ctx_add_free_const acc i (Some ty)
+    | LA.GhostVar (UntypedConst (_, i, _)) -> ctx_add_const acc i None
+    | LA.GhostVar (TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
+    | _ -> acc
+  in
+  List.fold_left over_eqns ctx eqns
+
 let build_local_ctx ctx locals inputs outputs =
   let over_locals acc = function
-    | LA.NodeConstDecl (_, FreeConst (_, i, _)) -> ctx_add_local acc i
-    | NodeConstDecl (_, UntypedConst (_, i, _)) -> ctx_add_local acc i
-    | NodeConstDecl (_, TypedConst (_, i, _, _)) -> ctx_add_local acc i
-    | NodeVarDecl (_, (_, i, _, _)) -> ctx_add_local acc i
+    | LA.NodeConstDecl (_, FreeConst (_, i, ty)) -> ctx_add_local acc i (Some ty)
+    | NodeConstDecl (_, UntypedConst (_, i, _)) -> ctx_add_local acc i None
+    | NodeConstDecl (_, TypedConst (_, i, _, ty)) -> ctx_add_local acc i (Some ty)
+    | NodeVarDecl (_, (_, i, ty, _)) -> ctx_add_local acc i (Some ty)
   in
-  let over_inputs acc (_, i, _, _, _) = ctx_add_local acc i in
-  let over_outputs acc (_, i, _, _) = ctx_add_local acc i in
+  let over_inputs acc (_, i, ty, _, _) = ctx_add_local acc i (Some ty) in
+  let over_outputs acc (_, i, ty, _) = ctx_add_local acc i (Some ty) in
   let ctx = List.fold_left over_locals ctx locals in
   let ctx = List.fold_left over_inputs ctx inputs in
   List.fold_left over_outputs ctx outputs
@@ -108,8 +139,25 @@ let build_local_ctx ctx locals inputs outputs =
 let build_equation_ctx ctx = function
   | LA.StructDef (_, items) ->
     let over_items ctx = function
-      | LA.ArrayDef (_, _, ids)
-        -> List.fold_left ctx_add_local ctx ids
+      | LA.ArrayDef (_, i, indices) ->
+        let output_type_opt = StringMap.find_opt i ctx.locals |> Lib.join in
+        let is_symbolic = match output_type_opt with
+          | Some ty -> (match ty with
+            | ArrayType (_, (_, e)) ->
+              let vars = LAH.vars e in
+              let check_var e = StringMap.mem e ctx.free_consts
+                || StringMap.mem e ctx.locals
+              in
+              LA.SI.exists check_var vars
+            | _ -> false)
+          | None -> false
+        in
+        let over_indices acc id =
+          if is_symbolic
+          then ctx_add_symbolic_array_index acc id output_type_opt
+          else ctx_add_array_index acc id output_type_opt
+        in
+        List.fold_left over_indices ctx indices
       | _ -> ctx
     in
     List.fold_left over_items ctx items
@@ -153,35 +201,60 @@ let no_dangling_node_calls ctx = function
   | LA.Condact (pos, _, _, i, _, _)
   | Activate (pos, i, _, _, _)
   | Call (pos, i, _) ->
-    let check_nodes = StringSet.find_opt i ctx.nodes in
-    let check_funcs = StringSet.find_opt i ctx.functions in
+    let check_nodes = StringMap.mem i ctx.nodes in
+    let check_funcs = StringMap.mem i ctx.functions in
     (match check_nodes, check_funcs with
-    | Some _, _ -> Ok ()
-    | _, Some _ -> Ok ()
-    | None, None -> syntax_error pos
+    | true, _ -> Ok ()
+    | _, true -> Ok ()
+    | false, false -> syntax_error pos
       (Format.asprintf "No node with name %s found." i))
   | _ -> Ok ()
 
 let no_dangling_identifiers ctx = function
   | LA.Ident (pos, i) -> 
-    let check_consts = StringSet.find_opt i ctx.consts in
-    let check_locals = StringSet.find_opt i ctx.locals in
-    (match check_consts, check_locals with
-    | Some _, _ -> Ok ()
-    | _, Some _ -> Ok ()
-    | None, None -> syntax_error pos
-      (Format.asprintf "No identifier with name %s found." i))
+    let check_ids = [
+      StringMap.mem i ctx.consts;
+      StringMap.mem i ctx.free_consts;
+      StringMap.mem i ctx.locals;
+      StringMap.mem i ctx.quant_vars;
+      StringMap.mem i ctx.array_indices;
+      StringMap.mem i ctx.symbolic_array_indices; ]
+    in
+    let check_ids = List.filter (fun x -> x) check_ids in
+    if List.length check_ids > 0 then Ok ()
+    else syntax_error pos
+      (Format.asprintf "No identifier with name %s found." i)
+  | _ -> Ok ()
+
+let no_quant_var_or_symbolic_index_in_node_call ctx = function
+  | LA.Call (pos, i, args) ->
+    let vars = List.flatten (List.map (fun e -> LA.SI.elements (LAH.vars e)) args) in
+    let over_vars j = 
+      let found_quant = StringMap.mem j ctx.quant_vars in
+      let found_symbolic_index = StringMap.mem j ctx.symbolic_array_indices in
+      (match found_quant, found_symbolic_index with
+      | true, _ -> syntax_error pos (Format.asprintf
+        "Quantified variable %s is not allowed in an argument to the node call %s"
+        j i)
+      | _, true -> syntax_error pos (Format.asprintf
+        "Symbolic array index %s is not allowed in an argument to the node call %s"
+        j i)
+      | false, false -> Ok ())
+    in
+    let check = List.map over_vars vars in
+    List.fold_left (>>) (Ok ()) check
   | _ -> Ok ()
 
 let no_calls_to_node ctx = function
   | LA.Condact (pos, _, _, i, _, _)
   | Activate (pos, i, _, _, _)
   | Call (pos, i, _) ->
-    let check_nodes = StringSet.find_opt i ctx.nodes in
-    (match check_nodes with
-    | Some _ -> syntax_error pos
-      (Format.asprintf "Illegal call to node %s, functions can only call other functions, not nodes." i)
-    | None -> Ok ())
+    let check_nodes = StringMap.mem i ctx.nodes in
+    if check_nodes then
+      syntax_error pos (Format.asprintf
+        "Illegal call to node %s, functions can only call other functions, not nodes."
+        i)
+    else Ok ()
   | _ -> Ok ()
 
 let no_temporal_operator is_const expr =
@@ -254,7 +327,7 @@ and check_declaration ctx = function
     check >> Ok (LA.ConstDecl (span, decl))
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
   | FuncDecl (span, decl) -> check_func_decl ctx span decl
-  | ContractNodeDecl (span, decl) -> Ok (LA.ContractNodeDecl (span, decl))
+  | ContractNodeDecl (span, decl) -> check_contract_node_decl ctx span decl
   | NodeParamInst (span, inst) -> Ok (LA.NodeParamInst (span, inst))
 
 and check_const_expr_decl ctx expr =
@@ -264,24 +337,33 @@ and check_const_expr_decl ctx expr =
   in
   check_expr ctx composed_checks expr
 
-and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contracts) =
+and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
   let ctx = build_local_ctx ctx locals inputs outputs in
   let decl = LA.NodeDecl
-    (span, (id, ext, params, inputs, outputs, locals, items, contracts))
+    (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
   let composed_items_checks ctx e =
     (no_dangling_node_calls ctx e)
       >> (no_dangling_identifiers ctx e)
       >> (unsupported_expr e)
+      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
+  in
+  let composed_contract_checks ctx e =
+    (unsupported_expr e)
+      >> (no_dangling_identifiers ctx e)
+      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
   in
   (locals_must_have_definitions locals items)
     >> (check_items ctx composed_items_checks items)
+    >> (match contract with 
+    | Some c -> check_contract ctx composed_contract_checks c
+    | None -> Ok ())
     >> (Ok decl)
 
-and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contracts) =
+and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
   let ctx = build_local_ctx ctx locals inputs outputs in
   let decl = LA.FuncDecl
-    (span, (id, ext, params, inputs, outputs, locals, items, contracts))
+    (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
   let composed_items_checks ctx e =
     (no_dangling_node_calls ctx e)
@@ -289,8 +371,30 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
       >> (no_temporal_operator false e)
       >> (no_dangling_identifiers ctx e)
       >> (unsupported_expr e)
+      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
+  in
+  let composed_contract_checks ctx e =
+    (unsupported_expr e)
+      >> (no_dangling_identifiers ctx e)
+      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
   in
   (check_items ctx composed_items_checks items)
+    >> (match contract with
+      | Some c -> check_contract ctx composed_contract_checks c
+      | None -> Ok ())
+    >> (Ok decl)
+
+and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
+  let ctx = build_local_ctx ctx [] inputs outputs in
+  let decl = LA.ContractNodeDecl
+    (span, (id, params, inputs, outputs, contract))
+  in
+  let composed_contract_checks ctx e =
+    (unsupported_expr e)
+      >> (no_dangling_identifiers ctx e)
+      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
+  in
+  (check_contract ctx composed_contract_checks contract)
     >> (Ok decl)
 
 and check_items ctx f items =
@@ -307,6 +411,21 @@ and check_items ctx f items =
   in
   Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)
 
+and check_contract ctx f contract =
+  let ctx = build_contract_ctx ctx contract in
+  let check_list e = Res.seqM (fun x _ -> x) () (List.map (check_expr ctx f) e) in
+  let check_contract_item ctx f = function
+    | LA.Assume (_, _, _, e) -> check_expr ctx f e
+    | Guarantee (_, _, _, e) -> check_expr ctx f e
+    | Mode (_, _, rs, gs) ->
+      let rs = List.map (fun (_, _, e) -> e) rs in
+      let gs = List.map (fun (_, _, e) -> e) gs in
+      check_list rs >> check_list gs
+    | GhostVar (UntypedConst (_, _, e)) -> check_expr ctx f e
+    | _ -> Ok ()
+  in
+  Res.seqM (fun x _ -> x) () (List.map (check_contract_item ctx f) contract)
+
 and check_expr ctx f (expr:LustreAst.expr) =
   let check_list e = Res.seqM (fun x _ -> x) () (List.map (check_expr ctx f) e) in
   let expr' = f ctx expr in
@@ -320,7 +439,7 @@ and check_expr ctx f (expr:LustreAst.expr) =
     | Pre (_, e)
       -> check_expr ctx f e
     | Quantifier (_, _, vars, e) ->
-        let over_vars ctx (_, i, _) = ctx_add_local ctx i in
+        let over_vars ctx (_, i, ty) = ctx_add_quant_var ctx i (Some ty) in
         let ctx = List.fold_left over_vars ctx vars in
         check_expr ctx f e
     | BinaryOp (_, _, e1, e2)

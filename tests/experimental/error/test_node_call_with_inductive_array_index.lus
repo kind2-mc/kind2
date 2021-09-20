@@ -1,0 +1,12 @@
+
+
+node Since( X, Y : bool ) returns ( SinceXY : bool );
+let
+  SinceXY = X or (Y and (false -> pre SinceXY));
+tel
+
+node Array_Since(const n: int; X: bool^n; Y : bool ) returns ( SinceXY : bool^n );
+let
+  SinceXY[i] = Since(X[i], false) or (Y and (false -> pre SinceXY[i]));
+tel
+

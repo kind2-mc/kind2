@@ -119,7 +119,8 @@ type generated_identifiers = {
     * (LustreAst.expr list option)) (* node argument defaults *)
     list;
   equations :
-    (string list (* contract scope  *)
+    (LustreAst.typed_ident list (* quantified variables *)
+    * string list (* contract scope  *)
     * LustreAst.eq_lhs
     * LustreAst.expr)
     list;
@@ -128,6 +129,7 @@ type generated_identifiers = {
 type info = {
   context : Ctx.tc_context;
   inductive_variables : LustreAst.lustre_type StringMap.t;
+  quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) StringMap.t;
   contract_calls : LustreAst.contract_node_decl StringMap.t;
   contract_scope : string list;
@@ -306,7 +308,7 @@ let mk_fresh_local info pos is_ghost ind_vars expr_type expr oexpr =
     propagated_oracles = [];
     calls = []; 
     contract_calls = StringMap.empty;
-    equations = [(info.contract_scope, eq_lhs, expr)]; }
+    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in nexpr, gids
 
 let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
@@ -323,7 +325,7 @@ let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
     propagated_oracles = [];
     calls = []; 
     contract_calls = StringMap.empty;
-    equations = [(info.contract_scope, eq_lhs, expr)]; }
+    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in nexpr, gids
 
 let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
@@ -340,7 +342,7 @@ let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
     propagated_oracles = [];
     calls = [];
     contract_calls = StringMap.empty;
-    equations = [(info.contract_scope, eq_lhs, expr)]; }
+    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in nexpr, gids
 
 let mk_fresh_oracle expr_type expr =
@@ -407,6 +409,7 @@ let normalize_list f list =
 let rec normalize ctx (decls:LustreAst.t) =
   let info = { context = ctx;
     inductive_variables = StringMap.empty;
+    quantified_variables = [];
     node_is_input_const = compute_node_input_constant_mask decls;
     contract_calls = collect_contract_node_decls decls;
     contract_ref = "";
@@ -957,6 +960,13 @@ and normalize_expr ?guard info map =
     let nexpr2, gids2 = normalize_expr ?guard info map expr2 in
     ArrayConcat (pos, nexpr1, nexpr2), union gids1 gids2
   | Quantifier (pos, kind, vars, expr) ->
+    let ctx = List.fold_left Ctx.union info.context
+      (List.map (fun (_, i, ty) -> Ctx.singleton_ty i ty) vars)
+    in
+    let info = { 
+      info with context = ctx;
+        quantified_variables = info.quantified_variables @ vars }
+    in
     let nexpr, gids = normalize_expr ?guard info map expr in
     Quantifier (pos, kind, vars, nexpr), gids
   | When (pos, expr, clock_expr) ->
