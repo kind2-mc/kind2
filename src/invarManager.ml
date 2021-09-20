@@ -220,7 +220,7 @@ let rec loop
 
         KEvent.log L_info
           "<Done> @[<v>\
-            Reached analysis timeout (%1.f)@ \
+            Reached analysis timeout (%1.0f)@ \
             Waiting for children to terminate.
           @]" timeout_analysis ;
 

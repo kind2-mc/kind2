@@ -69,7 +69,7 @@ module type S = sig
   val subsume : 'a t -> key -> (key * 'a) list * 'a t
   val is_subsumed : 'a t -> key -> bool
   val pp_print_trie : (Format.formatter -> key * 'a -> unit) ->
-    ('b, Format.formatter, unit) format -> Format.formatter -> 'a t -> unit
+    (unit, Format.formatter, unit) format -> Format.formatter -> 'a t -> unit
 end
 
 module Make (Ord: Map.OrderedType) = struct

@@ -196,7 +196,7 @@ module type S = sig
       [f] for key and value pairs. Each binding is separated by the
       format string [s]. *)
   val pp_print_trie : (Format.formatter -> key * 'a -> unit) ->
-    ('b, Format.formatter, unit) format -> Format.formatter -> 'a t -> unit
+    (unit, Format.formatter, unit) format -> Format.formatter -> 'a t -> unit
     
 end
 
