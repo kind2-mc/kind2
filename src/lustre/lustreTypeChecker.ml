@@ -58,7 +58,43 @@ let infer_type_const: Lib.position -> LA.constant -> tc_type
   | Dec _ -> Real pos
   | _ -> Bool pos
 (** Infers type of constants *)
-      
+
+let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> string list -> unit tc_result
+  = fun ctx pos ty cases ->
+    match ty with
+    | AbstractType (_, enum_id) -> (match lookup_variants ctx enum_id with
+        | Some variants ->
+          let check_cases_containment = R.seq_
+            (List.map (fun i ->
+                if not (List.mem i variants) then
+                  type_error pos
+                    ("Merge case " ^ i ^ " does not exist in type " ^ string_of_tc_type ty)
+                else Ok ())
+              cases)
+          in
+          let check_cases_cover = R.seq_
+            (List.map (fun i ->
+                if not (List.mem i cases) then
+                  type_error pos
+                    ("Merge case " ^ i ^ " is missing from merge expression")
+                else Ok ())
+              variants)
+          in
+          let check_cases_unique = R.seq_
+            (List.map (fun i -> 
+              if List.length (List.filter (fun x -> String.compare i x == 0) cases) > 1 then
+                type_error pos
+                  ("Merge case " ^ i ^ " must be unique")
+              else Ok ())
+              variants)
+          in
+          check_cases_containment >> check_cases_cover >> check_cases_unique
+        | None -> type_error pos ("Identifier " ^ enum_id
+          ^ " is not an enumeration identifier, this should be impossible!"))
+    | Bool _ -> Ok () (* TODO: What checks should we do for a boolean merge? *)
+    | _ -> type_error pos ("Type " ^ string_of_tc_type ty ^
+      " must be an abstract type, this should be impossible!")
+
 let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   = fun ctx -> function
   (* Identifiers *)
@@ -254,8 +290,10 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
     check_type_expr ctx cond (Bool pos)
     >> infer_type_expr ctx (Call (pos, node, args))
   | LA.Merge (pos, i, mcases) ->
-    infer_type_expr ctx (LA.Ident (pos, i))
-    >> let case_tys = List.map snd mcases |> List.map (infer_type_expr ctx) in
+    infer_type_expr ctx (LA.Ident (pos, i)) >>= fun ty ->
+      let mcases_ids, mcases_exprs = List.split mcases in
+      let case_tys = mcases_exprs |> List.map (infer_type_expr ctx) in
+      check_merge_exhaustive ctx pos ty mcases_ids >>
       R.seq case_tys
       >>= fun tys ->
       let main_ty = List.hd tys in
@@ -497,12 +535,13 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
     check_type_expr ctx cond (Bool pos)
     >> check_type_expr ctx (Call (pos, node, args)) exp_ty 
   | Merge (pos, i, mcases) ->
-    infer_type_expr ctx (LA.Ident (pos, i)) >>= fun _ty ->
+    infer_type_expr ctx (LA.Ident (pos, i)) >>= fun ty ->
+    let mcases_ids, mcases_exprs = List.split mcases in
     let check_mcases = R.seq_
-      (List.map (fun e -> check_type_expr ctx e exp_ty) (List.map snd mcases))
+      (List.map (fun e -> check_type_expr ctx e exp_ty) mcases_exprs)
     in
-    (* TODO: Add exhaustiveness check *)
     check_mcases
+      >> check_merge_exhaustive ctx pos ty mcases_ids
   | RestartEvery (pos, node, args, cond) ->
     check_type_expr ctx cond (LA.Bool pos)
     >> check_type_expr ctx (LA.Call (pos, node, args)) exp_ty
@@ -512,7 +551,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
   | Last (pos, i) ->
     infer_type_expr ctx (LA.Ident (pos, i))
     >>= fun ty -> R.guard_with (eq_lustre_type ctx ty exp_ty)
-                    (type_error pos ("Indentifier " ^ i
+                    (type_error pos ("Identifier " ^ i
                                     ^ " does not match expected type "
                                     ^ string_of_tc_type exp_ty
                                     ^ " with infered type "
@@ -1185,13 +1224,15 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
               let enum_const_bindings = Lib.list_apply ((List.map2 (Lib.flip singleton_const)
                                                           (List.map mk_ident econsts) econsts))
                                           (LA.UserType (pos, ename)) in
-              (* Adding enums into the typing context consists of 3 parts *)
-              (* 1. add the enum type as a valid type in context*)
-              let ctx' = add_ty_syn ctx ename (LA.AbstractType (pos, ename)) in
-              R.ok (List.fold_left union (add_ty_decl ctx' ename)
-              (* 2. Lift all enum constants (terms) with associated user type of enum name *)
+              (* Adding enums into the typing context consists of 4 parts *)
+              (* 1. add the enum type and variants to the enum context *)
+              let ctx' = add_enum_variants ctx ename econsts in
+              (* 2. add the enum type as a valid type in context*)
+              let ctx'' = add_ty_syn ctx' ename (LA.AbstractType (pos, ename)) in
+              R.ok (List.fold_left union (add_ty_decl ctx'' ename)
+              (* 3. Lift all enum constants (terms) with associated user type of enum name *)
                       (enum_type_bindings
-              (* 3. Lift all the enum constants (terms) into the value store as constants *)
+              (* 4. Lift all the enum constants (terms) into the value store as constants *)
                         @ enum_const_bindings))
             else
               type_error pos "Cannot redeclare constants or enums"

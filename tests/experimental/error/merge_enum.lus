@@ -1,5 +1,7 @@
 type t = enum {A, B, C};
 
+const D : t = B;
+
 node integr (e: int) returns (s: int);
 let
   s = e + (0 -> pre s); 

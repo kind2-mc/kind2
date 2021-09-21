@@ -32,6 +32,8 @@ module IMap : sig
 end
 (** Map for types with identifiers as keys *)
 
+type enum_variants = LA.ident list IMap.t
+(** A store of the variants for defined enumeration types *)
 
 type ty_alias_store = tc_type IMap.t
 (** A store of type Aliases, i.e. for user defined types  *)
@@ -98,6 +100,9 @@ val lookup_node_ty: tc_context -> LA.ident -> tc_type option
 val lookup_const: tc_context -> LA.ident -> (LA.expr * tc_type option) option
 (** Lookup a constant identifier *)
 
+val lookup_variants: tc_context -> LA.ident -> LA.ident list option
+(** Lookup the variants for an enumeration type name *)
+
 val add_ty_syn: tc_context -> LA.ident -> tc_type -> tc_context
 (** Add a type synonym in the typing context *)
 
@@ -112,6 +117,9 @@ val add_ty_contract: tc_context -> LA.ident -> tc_type -> tc_context
                   
 val add_ty_decl: tc_context -> LA.ident -> tc_context
 (** Add a user declared type in the typing context *)
+
+val add_enum_variants: tc_context -> LA.ident -> LA.ident list -> tc_context
+(** Add an enumeration type and associated variants to the typing context *)
 
 val remove_ty: tc_context -> LA.ident -> tc_context
 (** Removes a type binding  *)
@@ -175,5 +183,8 @@ val pp_print_u_types: Format.formatter -> SI.t -> unit
 val pp_print_contract_exports: Format.formatter -> contract_exports -> unit
 (** Pretty pring contract exports  *)
   
+val pp_print_enum_variants: Format.formatter -> enum_variants -> unit
+(** Pretty print enumeration types and their variants *)
+
 val pp_print_tc_context: Format.formatter -> tc_context -> unit
 (** Pretty print the complete type checker context*)
