@@ -22,6 +22,12 @@
 module LA = LustreAst
 module LAH = LustreAstHelpers
 
+module StringSet = Set.Make(
+  struct
+    let compare = String.compare
+    type t = string
+  end)
+
 module StringMap = Map.Make(
   struct
     let compare = String.compare
@@ -37,7 +43,10 @@ type context = {
   functions : (LustreAst.lustre_type option
     * bool) (* true if function has a contract *)
     StringMap.t;
-  contracts : LustreAst.lustre_type option StringMap.t;
+  contracts : (LustreAst.lustre_type option
+    * bool
+    * StringSet.t) (* true if the contract node is (immediately) stateful *)
+    StringMap.t;
   free_consts : LustreAst.lustre_type option StringMap.t;
   consts : LustreAst.lustre_type option StringMap.t;
   locals : LustreAst.lustre_type option StringMap.t;
@@ -98,7 +107,6 @@ let ctx_add_symbolic_array_index ctx i ty = {
     ctx with symbolic_array_indices = StringMap.add i ty ctx.symbolic_array_indices
   }
 
-
 let build_global_ctx (decls:LustreAst.t) =
   let over_decls acc = function
     | LA.TypeDecl (_, AliasType (_, _, (EnumType (_, _, variants) as ty))) -> 
@@ -114,7 +122,17 @@ let build_global_ctx (decls:LustreAst.t) =
     | FuncDecl (_, (i, _, _, _, _, _, _, c)) -> 
       let c = match c with | Some _ -> true | None -> false in
       ctx_add_func acc i (None, c)
-    | ContractNodeDecl (_, (i, _, _, _, _)) -> ctx_add_contract acc i None
+    | ContractNodeDecl (_, (i, _, _, _, eqns)) ->
+      let is_stateful = match LAH.contract_has_pre_or_arrow eqns with
+        | Some _ -> true
+        | None -> false
+      in
+      let imports = List.fold_left (fun a e -> match e with
+        | LA.ContractCall (_, i, _, _) -> StringSet.add i a
+        | _ -> a)
+        StringSet.empty eqns
+      in
+      ctx_add_contract acc i (None, is_stateful, imports)
     | _ -> acc
   in
   List.fold_left over_decls (empty_ctx ()) decls
@@ -291,6 +309,27 @@ let no_temporal_operator is_const expr =
   | Fby (pos, _, _, _) -> syntax_error pos (template "fby" decl_ctx decl_ctx)
   | _ -> Ok ()
 
+let no_stateful_contract_imports ctx contract =
+  let rec check_import_stateful pos initial i =
+    match StringMap.find_opt i ctx.contracts with
+    | Some (_, stateful, imports) ->
+      if not stateful then
+        StringSet.fold (fun j a -> a >> (check_import_stateful pos initial j))
+          imports
+          (Ok ())
+      else syntax_error pos (Format.asprintf
+        "Illegal import of stateful contract %s. Functions can only be specified by stateless contracts"
+        initial)
+    | None -> Ok ()
+  in
+  let over_eqn acc = function
+    | LA.ContractCall (pos, i, _, _) ->
+      let check = check_import_stateful pos i i in
+      acc >> check
+    | _ -> acc
+  in
+  List.fold_left over_eqn (Ok ()) contract
+
 let unsupported_expr = function
   | LA.Current (pos, _) -> syntax_error pos
       (Format.asprintf "Current expression is not supported")
@@ -398,6 +437,7 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   (check_items ctx composed_items_checks items)
     >> (match contract with
       | Some c -> check_contract ctx common_contract_checks c
+        >> no_stateful_contract_imports ctx c
       | None -> Ok ())
     >> (Ok decl)
 
