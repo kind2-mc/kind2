@@ -31,8 +31,12 @@ module StringMap = Map.Make(
 type 'a sc_result = ('a, Lib.position * string) result
 
 type context = {
-  nodes : LustreAst.lustre_type option StringMap.t;
-  functions : LustreAst.lustre_type option StringMap.t;
+  nodes : (LustreAst.lustre_type option
+    * bool) (* true if node has a contract *)
+    StringMap.t;
+  functions : (LustreAst.lustre_type option
+    * bool) (* true if function has a contract *)
+    StringMap.t;
   contracts : LustreAst.lustre_type option StringMap.t;
   free_consts : LustreAst.lustre_type option StringMap.t;
   consts : LustreAst.lustre_type option StringMap.t;
@@ -104,8 +108,12 @@ let build_global_ctx (decls:LustreAst.t) =
     | ConstDecl (_, TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
     (* The types here can be constructed from the available information
       but this type information is not needed for syntax checks for now *)
-    | NodeDecl (_, (i, _, _, _, _, _, _, _)) -> ctx_add_node acc i None
-    | FuncDecl (_, (i, _, _, _, _, _, _, _)) -> ctx_add_func acc i None
+    | NodeDecl (_, (i, _, _, _, _, _, _, c)) ->
+      let c = match c with | Some _ -> true | None -> false in
+      ctx_add_node acc i (None, c)
+    | FuncDecl (_, (i, _, _, _, _, _, _, c)) -> 
+      let c = match c with | Some _ -> true | None -> false in
+      ctx_add_func acc i (None, c)
     | ContractNodeDecl (_, (i, _, _, _, _)) -> ctx_add_contract acc i None
     | _ -> acc
   in
@@ -257,6 +265,22 @@ let no_calls_to_node ctx = function
     else Ok ()
   | _ -> Ok ()
 
+let no_calls_to_nodes_with_contracts ctx = function
+  | LA.Condact (pos, _, _, i, _, _)
+  | Activate (pos, i, _, _, _)
+  | Call (pos, i, _) ->
+    let node_check = StringMap.find_opt i ctx.nodes in
+    let fn_check = StringMap.find_opt i ctx.functions in
+    (match node_check, fn_check with
+    | Some (_, true), _ -> syntax_error pos (Format.asprintf
+      "Illegal call to node '%s' in the cone of influence of this contract: node %s has a contract."
+      i i)
+    | _, Some (_, true) -> syntax_error pos (Format.asprintf
+      "Illegal call to function '%s' in the cone of influence of this contract: function %s has a contract."
+      i i)
+    | _ -> Ok ())
+  | _ -> Ok ()
+
 let no_temporal_operator is_const expr =
   let decl_ctx = if is_const then "constant" else "function" in
   let template = Format.asprintf "Illegal %s in %s definition, %ss cannot have state" in
@@ -337,26 +361,27 @@ and check_const_expr_decl ctx expr =
   in
   check_expr ctx composed_checks expr
 
+and common_node_equations_checks ctx e =
+  (unsupported_expr e)
+    >> (no_dangling_node_calls ctx e)
+    >> (no_dangling_identifiers ctx e)
+    >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
+
+and common_contract_checks ctx e =
+  (unsupported_expr e)
+    >> (no_dangling_identifiers ctx e)
+    >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
+    >> (no_calls_to_nodes_with_contracts ctx e)
+
 and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
   let ctx = build_local_ctx ctx locals inputs outputs in
   let decl = LA.NodeDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
-  let composed_items_checks ctx e =
-    (no_dangling_node_calls ctx e)
-      >> (no_dangling_identifiers ctx e)
-      >> (unsupported_expr e)
-      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
-  in
-  let composed_contract_checks ctx e =
-    (unsupported_expr e)
-      >> (no_dangling_identifiers ctx e)
-      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
-  in
   (locals_must_have_definitions locals items)
-    >> (check_items ctx composed_items_checks items)
+    >> (check_items ctx common_node_equations_checks items)
     >> (match contract with 
-    | Some c -> check_contract ctx composed_contract_checks c
+    | Some c -> check_contract ctx common_contract_checks c
     | None -> Ok ())
     >> (Ok decl)
 
@@ -366,21 +391,13 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
   let composed_items_checks ctx e =
-    (no_dangling_node_calls ctx e)
+    (common_node_equations_checks ctx e)
       >> (no_calls_to_node ctx e)
       >> (no_temporal_operator false e)
-      >> (no_dangling_identifiers ctx e)
-      >> (unsupported_expr e)
-      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
-  in
-  let composed_contract_checks ctx e =
-    (unsupported_expr e)
-      >> (no_dangling_identifiers ctx e)
-      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
   in
   (check_items ctx composed_items_checks items)
     >> (match contract with
-      | Some c -> check_contract ctx composed_contract_checks c
+      | Some c -> check_contract ctx common_contract_checks c
       | None -> Ok ())
     >> (Ok decl)
 
@@ -389,12 +406,7 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
   let decl = LA.ContractNodeDecl
     (span, (id, params, inputs, outputs, contract))
   in
-  let composed_contract_checks ctx e =
-    (unsupported_expr e)
-      >> (no_dangling_identifiers ctx e)
-      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
-  in
-  (check_contract ctx composed_contract_checks contract)
+  (check_contract ctx common_contract_checks contract)
     >> (Ok decl)
 
 and check_items ctx f items =
