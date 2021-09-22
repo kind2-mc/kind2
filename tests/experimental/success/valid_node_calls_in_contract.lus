@@ -1,0 +1,22 @@
+node g(x:int) returns (y:int);
+(*@contract
+  assume x>=0;
+*)
+let
+  y = x;
+tel
+
+node imported f(x:int) returns (y:int);
+(*@contract
+  guarantee y>0;
+*)
+
+node top(x:int) returns (z:int);
+(*@contract
+  assume x>=0;
+  guarantee g(x)+f(x)>=0;
+  guarantee g(x)+f(x)>z;
+*)
+let
+  z = g(x)+f(x)-1;
+tel
