@@ -22,6 +22,12 @@
 module LA = LustreAst
 module LAH = LustreAstHelpers
 
+module StringSet = Set.Make(
+  struct
+    let compare = String.compare
+    type t = string
+  end)
+
 module StringMap = Map.Make(
   struct
     let compare = String.compare
@@ -30,10 +36,21 @@ module StringMap = Map.Make(
 
 type 'a sc_result = ('a, Lib.position * string) result
 
+type node_data = {
+  has_contract: bool;
+  imported: bool;
+  contract_only_assumptive: bool;
+  contract_imports: StringSet.t }
+
+type contract_data = {
+  stateful: bool;
+  only_assumptive: bool;
+  imports: StringSet.t }
+
 type context = {
-  nodes : LustreAst.lustre_type option StringMap.t;
-  functions : LustreAst.lustre_type option StringMap.t;
-  contracts : LustreAst.lustre_type option StringMap.t;
+  nodes : node_data StringMap.t;
+  functions : node_data StringMap.t;
+  contracts : contract_data StringMap.t;
   free_consts : LustreAst.lustre_type option StringMap.t;
   consts : LustreAst.lustre_type option StringMap.t;
   locals : LustreAst.lustre_type option StringMap.t;
@@ -94,8 +111,22 @@ let ctx_add_symbolic_array_index ctx i ty = {
     ctx with symbolic_array_indices = StringMap.add i ty ctx.symbolic_array_indices
   }
 
-
 let build_global_ctx (decls:LustreAst.t) =
+  let get_imports = function
+    | Some eqns -> List.fold_left (fun a e -> match e with
+      | LA.ContractCall (_, i, _, _) -> StringSet.add i a
+      | _ -> a)
+      StringSet.empty eqns
+    | None -> StringSet.empty
+  in
+  let is_only_assumptive = function
+    | Some eqns -> List.fold_left (fun a e -> match e with
+      | LA.Guarantee _ -> false && a
+      | Mode _ -> false && a
+      | _ -> a)
+      true eqns
+    | None -> false
+  in
   let over_decls acc = function
     | LA.TypeDecl (_, AliasType (_, _, (EnumType (_, _, variants) as ty))) -> 
       List.fold_left (fun a v -> ctx_add_const a v (Some ty)) acc variants
@@ -104,9 +135,34 @@ let build_global_ctx (decls:LustreAst.t) =
     | ConstDecl (_, TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
     (* The types here can be constructed from the available information
       but this type information is not needed for syntax checks for now *)
-    | NodeDecl (_, (i, _, _, _, _, _, _, _)) -> ctx_add_node acc i None
-    | FuncDecl (_, (i, _, _, _, _, _, _, _)) -> ctx_add_func acc i None
-    | ContractNodeDecl (_, (i, _, _, _, _)) -> ctx_add_contract acc i None
+    | NodeDecl (_, (i, imported, _, _, _, _, _, c)) ->
+      let has_contract = match c with | Some _ -> true | None -> false in
+      let contract_only_assumptive = is_only_assumptive c in
+      let contract_imports = get_imports c in
+      let data = { has_contract; 
+        imported; 
+        contract_only_assumptive;
+        contract_imports }
+      in
+      ctx_add_node acc i data
+    | FuncDecl (_, (i, imported, _, _, _, _, _, c)) -> 
+      let has_contract = match c with | Some _ -> true | None -> false in
+      let contract_only_assumptive = is_only_assumptive c in
+      let contract_imports = get_imports c in
+      let data = { has_contract;
+        imported;
+        contract_only_assumptive;
+        contract_imports }
+      in
+      ctx_add_func acc i data
+    | ContractNodeDecl (_, (i, _, _, _, eqns)) ->
+      let stateful = match LAH.contract_has_pre_or_arrow eqns with
+        | Some _ -> true
+        | None -> false
+      in
+      let only_assumptive = is_only_assumptive (Some eqns) in
+      let imports = get_imports (Some eqns) in
+      ctx_add_contract acc i {stateful; imports; only_assumptive }
     | _ -> acc
   in
   List.fold_left over_decls (empty_ctx ()) decls
@@ -257,6 +313,52 @@ let no_calls_to_node ctx = function
     else Ok ()
   | _ -> Ok ()
 
+let no_calls_to_nodes_with_contracts_subject_to_refinement ctx expr =
+  let rec check_only_assumptive imports =
+    let over_imports i a = match StringMap.find_opt i ctx.contracts with
+      | Some { only_assumptive; imports } ->
+        a || only_assumptive || check_only_assumptive imports
+      | None -> a (* Situation is bogus regardless *)
+    in
+    StringSet.fold over_imports imports false
+  in
+  match expr with
+  | LA.Condact (pos, _, _, i, _, _)
+  | Activate (pos, i, _, _, _)
+  | Call (pos, i, _) ->
+    let node_check = StringMap.find_opt i ctx.nodes in
+    let fn_check = StringMap.find_opt i ctx.functions in
+    (match node_check, fn_check with
+    | Some { has_contract = true; 
+        imported = false;
+        contract_only_assumptive;
+        contract_imports }
+      , _
+      -> 
+      let only_assumptive = contract_only_assumptive
+        || check_only_assumptive contract_imports
+      in
+      if not only_assumptive then
+        syntax_error pos ("Illegal call to node '" ^ i
+          ^ "' in the cone of influence of this contract: node " ^ i
+          ^ " has a refinable contract.")
+      else Ok ()
+    | _, Some { has_contract = true; 
+        imported = false;
+        contract_only_assumptive;
+        contract_imports }
+      -> 
+      let only_assumptive = contract_only_assumptive
+        || check_only_assumptive contract_imports
+      in
+      if not only_assumptive then
+        syntax_error pos ("Illegal call to function '" ^ i
+        ^ "' in the cone of influence of this contract: function " ^ i
+        ^ " has a refinable contract.")
+      else Ok ()
+    | _ -> Ok ())
+  | _ -> Ok ()
+
 let no_temporal_operator is_const expr =
   let decl_ctx = if is_const then "constant" else "function" in
   let template = Format.asprintf "Illegal %s in %s definition, %ss cannot have state" in
@@ -266,6 +368,27 @@ let no_temporal_operator is_const expr =
   | Last (pos, _) -> syntax_error pos (template "last" decl_ctx decl_ctx)
   | Fby (pos, _, _, _) -> syntax_error pos (template "fby" decl_ctx decl_ctx)
   | _ -> Ok ()
+
+let no_stateful_contract_imports ctx contract =
+  let rec check_import_stateful pos initial i =
+    match StringMap.find_opt i ctx.contracts with
+    | Some { stateful; imports } ->
+      if not stateful then
+        StringSet.fold (fun j a -> a >> (check_import_stateful pos initial j))
+          imports
+          (Ok ())
+      else syntax_error pos (Format.asprintf
+        "Illegal import of stateful contract %s. Functions can only be specified by stateless contracts"
+        initial)
+    | None -> Ok ()
+  in
+  let over_eqn acc = function
+    | LA.ContractCall (pos, i, _, _) ->
+      let check = check_import_stateful pos i i in
+      acc >> check
+    | _ -> acc
+  in
+  List.fold_left over_eqn (Ok ()) contract
 
 let unsupported_expr = function
   | LA.Current (pos, _) -> syntax_error pos
@@ -337,26 +460,27 @@ and check_const_expr_decl ctx expr =
   in
   check_expr ctx composed_checks expr
 
+and common_node_equations_checks ctx e =
+  (unsupported_expr e)
+    >> (no_dangling_node_calls ctx e)
+    >> (no_dangling_identifiers ctx e)
+    >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
+
+and common_contract_checks ctx e =
+  (unsupported_expr e)
+    >> (no_dangling_identifiers ctx e)
+    >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
+    >> (no_calls_to_nodes_with_contracts_subject_to_refinement ctx e)
+
 and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
   let ctx = build_local_ctx ctx locals inputs outputs in
   let decl = LA.NodeDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
-  let composed_items_checks ctx e =
-    (no_dangling_node_calls ctx e)
-      >> (no_dangling_identifiers ctx e)
-      >> (unsupported_expr e)
-      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
-  in
-  let composed_contract_checks ctx e =
-    (unsupported_expr e)
-      >> (no_dangling_identifiers ctx e)
-      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
-  in
   (locals_must_have_definitions locals items)
-    >> (check_items ctx composed_items_checks items)
+    >> (check_items ctx common_node_equations_checks items)
     >> (match contract with 
-    | Some c -> check_contract ctx composed_contract_checks c
+    | Some c -> check_contract ctx common_contract_checks c
     | None -> Ok ())
     >> (Ok decl)
 
@@ -366,21 +490,14 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
   let composed_items_checks ctx e =
-    (no_dangling_node_calls ctx e)
+    (common_node_equations_checks ctx e)
       >> (no_calls_to_node ctx e)
       >> (no_temporal_operator false e)
-      >> (no_dangling_identifiers ctx e)
-      >> (unsupported_expr e)
-      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
-  in
-  let composed_contract_checks ctx e =
-    (unsupported_expr e)
-      >> (no_dangling_identifiers ctx e)
-      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
   in
   (check_items ctx composed_items_checks items)
     >> (match contract with
-      | Some c -> check_contract ctx composed_contract_checks c
+      | Some c -> check_contract ctx common_contract_checks c
+        >> no_stateful_contract_imports ctx c
       | None -> Ok ())
     >> (Ok decl)
 
@@ -389,12 +506,7 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
   let decl = LA.ContractNodeDecl
     (span, (id, params, inputs, outputs, contract))
   in
-  let composed_contract_checks ctx e =
-    (unsupported_expr e)
-      >> (no_dangling_identifiers ctx e)
-      >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
-  in
-  (check_contract ctx composed_contract_checks contract)
+  (check_contract ctx common_contract_checks contract)
     >> (Ok decl)
 
 and check_items ctx f items =
