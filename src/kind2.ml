@@ -138,7 +138,7 @@ let main () =
   (* Set everything up and produce input system. *)
   let Input input_sys = setup () in
 
-  if Flags.only_parse () then (
+  if Flags.only_parse () && Flags.old_frontend () then (
     KEvent.log L_note "No parse errors found!";
     KEvent.terminate_log ();
     exit 0 );

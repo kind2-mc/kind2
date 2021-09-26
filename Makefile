@@ -39,7 +39,7 @@ test:
 	@$(CURDIR)/tests/run.sh $(CURDIR)/tests/regression $(CURDIR)/bin/kind2 --timeout 42
 
 test_experimental:
-	@$(CURDIR)/tests/run.sh $(CURDIR)/tests/experimental $(CURDIR)/bin/kind2 --no_tc false --timeout 42
+	@$(CURDIR)/tests/run.sh $(CURDIR)/tests/experimental $(CURDIR)/bin/kind2 --old_frontend false --timeout 42
 
 uninstall:
 	@opam remove -y kind2
