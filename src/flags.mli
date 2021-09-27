@@ -194,12 +194,9 @@ val only_parse : unit -> bool
 (** Provide AST info for language-servers. *)
 val lsp : unit -> bool
 
-(** Stop after Parsing and type checking the Lustre program. No analysis is performed. *)
-val only_tc : unit -> bool
+(** Use the old frontend (disables typechecking). *)
+val old_frontend : unit -> bool
 
-(** Skip the type checking phase for the lustre program. *)
-val no_tc : unit -> bool
-  
 (** The modules enabled. *)
 val enabled : unit -> enable
 

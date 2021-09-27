@@ -118,7 +118,7 @@ let of_channel in_ch =
   if Flags.log_format_json () && Flags.lsp () then
     LspInfo.print_ast_info declarations;
 
-  let nodes, globals = if Flags.no_tc () then
+  let nodes, globals = if Flags.old_frontend () then
       (* Simplify declarations to a list of nodes *)
       LD.declarations_to_nodes declarations
     else 
@@ -187,34 +187,6 @@ let of_channel in_ch =
           in n :: filtered
       in nodes, globals
   in
-    
-    (* Name of main node *)
-    let main_nodes =
-      (* Command-line flag for main node given? *)
-      match Flags.lus_main () with 
-      (* Use given identifier to choose main node *)
-      | Some s -> [LustreIdent.mk_string_ident s]
-      (* No main node name given on command-line *)
-      | None -> 
-        (try 
-            (* Find main node by annotation, or take last node as
-                main *)
-            LustreNode.find_main nodes 
-          (* No main node found
-              This only happens when there are no nodes in the input. *)
-          with Not_found -> 
-            raise (NoMainNode "No main node defined in input"))
-    in
-    (* Check that main nodes all exist *)
-    let _ =
-      try 
-        List.map (fun mn -> LN.node_of_name mn nodes) main_nodes
-      with Not_found -> 
-        (* Node with name of main not found 
-          This can only happen when the name is passed as command-line
-          argument *)
-        raise (NoMainNode "Main node not found in input")
-    in
     Log.log L_trace ("===============================================\n"
       ^^ "Free Constants: [@[<hv>%a@]];@ \n\n"
       ^^ "State Variable Bounds: [@[<hv>%a@]];@ \n\n"
@@ -247,7 +219,35 @@ let of_channel in_ch =
       (pp_print_list StateVar.pp_print_state_var_debug ";@")
         (nodes |> List.map (fun n -> LustreNode.get_all_state_vars n @ n.oracles)
           |> List.flatten);
-    (if Flags.only_tc () then exit 0);
+
+    if Flags.only_parse () then (exit 0);
+    (* Name of main node *)
+    let main_nodes =
+      (* Command-line flag for main node given? *)
+      match Flags.lus_main () with 
+      (* Use given identifier to choose main node *)
+      | Some s -> [LustreIdent.mk_string_ident s]
+      (* No main node name given on command-line *)
+      | None -> 
+        (try 
+            (* Find main node by annotation, or take last node as
+                main *)
+            LustreNode.find_main nodes 
+          (* No main node found
+              This only happens when there are no nodes in the input. *)
+          with Not_found -> 
+            raise (NoMainNode "No main node defined in input"))
+    in
+    (* Check that main nodes all exist *)
+    let _ =
+      try 
+        List.map (fun mn -> LN.node_of_name mn nodes) main_nodes
+      with Not_found -> 
+        (* Node with name of main not found 
+          This can only happen when the name is passed as command-line
+          argument *)
+        raise (NoMainNode "Main node not found in input")
+    in
     (* Return a subsystem tree from the list of nodes *)
     LN.subsystems_of_nodes main_nodes nodes, globals, declarations
 
