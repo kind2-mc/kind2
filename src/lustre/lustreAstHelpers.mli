@@ -140,3 +140,14 @@ val sort_typed_ident: typed_ident list -> typed_ident list
 
 val sort_idents: ident list -> ident list
 (** Sort identifiers  *)
+
+val syn_expr_equal : int option -> expr -> expr -> (bool, unit) result
+(** Check syntactic equality o Lustre expressions (ignoring positions) up to a certain optional depth.
+    If the depth is reached, then [Error ()] is returned, otherwise [Ok false] if the
+    two expressions are unequal and [Ok true] if they are equal.
+    *)
+
+val syn_type_equal : int option -> lustre_type -> lustre_type -> (bool, unit) result
+(** Check syntactic equality of Lustre types (ignoring positions) up to a certain optional depth.
+    If the depth is reached, then [Error ()] is returned, otherwise [Ok false] if the
+    two expressions are unequal and [Ok true] if they are equal.*)
