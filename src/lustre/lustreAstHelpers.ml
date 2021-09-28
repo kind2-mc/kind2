@@ -1051,4 +1051,215 @@ let sort_typed_ident: typed_ident list -> typed_ident list = fun ty_idents ->
 let sort_idents: ident list -> ident list = fun ids ->
   List.sort (fun i1 i2 -> Stdlib.compare i1 i2) ids
 (** sort typed identifiers *)
-      
+
+let rec syn_expr_equal depth_limit x y : (bool, unit) result =
+  let (>>=) = Res.(>>=) in
+  let rec r depth x y =
+    let rlist xl yl = if List.length xl = List.length yl then
+        List.map2 (fun x y -> r (depth + 1) x y) xl yl
+      else [Ok (false)]
+    in
+    let join l = List.fold_left
+      (fun a x -> a >>= fun a -> x >>= fun x -> Ok (a && x))
+      (Ok (true))
+      l
+    in
+    if Lib.is_some depth_limit && depth > Lib.get depth_limit then Error ()
+    else match x, y with
+    | Ident (_, x), Ident (_, y) -> Ok (String.equal x y)
+    | ModeRef (_, x), ModeRef (_, y) ->
+      let t = if List.length x = List.length y then
+          List.fold_left2 (fun a x y -> a && String.equal x y) false x y
+        else false
+      in
+      Ok t
+    | RecordProject (_, xe, xi), RecordProject (_, ye, yi) ->
+      r (depth + 1) xe ye >>= fun e -> Ok (e && String.equal xi yi)
+    | TupleProject (_, xe, xi), TupleProject(_, ye, yi) ->
+      r (depth + 1) xe ye >>= fun e -> Ok (e && xi = yi)
+    | Const (_, True), Const(_, True) -> Ok (true)
+    | Const (_, False), Const (_, False) -> Ok (true)
+    | Const (_, Num x), Const (_, Num y) -> Ok (String.equal x y)
+    | Const (_, Dec x), Const (_, Dec y) -> Ok (String.equal x y)
+    | UnaryOp (_, xop, xe), UnaryOp (_, yop, ye) ->
+      r (depth + 1) xe ye >>= fun e -> Ok (e && xop = yop)
+    | BinaryOp (_, xop, xe1, xe2), BinaryOp (_, yop, ye1, ye2) ->
+      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      Ok (e1 && e2 && xop = yop)
+    | TernaryOp (_, xop, xe1, xe2, xe3), TernaryOp (_, yop, ye1, ye2, ye3) ->
+      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      r (depth + 1) xe3 ye3 >>= fun e3 ->
+      Ok (e1 && e2 && e3 && xop = yop)
+    | NArityOp (_, xop, xe), NArityOp(_, yop, ye) ->
+      rlist xe ye |> join >>= fun e -> Ok (e && xop = yop)
+    | ConvOp (_, xop, x), ConvOp (_, yop, y) ->
+      r (depth + 1) x y >>= fun e -> Ok (e && xop = yop)
+    | CompOp (_, xop, xe1, xe2), CompOp (_, yop, ye1, ye2) ->
+      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      Ok (e1 && e2 && xop = yop)
+    | RecordExpr (_, xi, x), RecordExpr (_, yi, y) ->
+      let (x1, x2), (y1, y2) = List.split x, List.split y in
+      rlist x2 y2 |> join >>= fun e ->
+      let t = List.length x1 = List.length y1
+        && List.fold_left2 (fun a x y -> a && String.equal x y) true x1 y1
+      in
+      Ok (e && t && String.equal xi yi)
+    | GroupExpr (_, xop, x), GroupExpr(_, yop, y) ->
+      rlist x y |> join >>= fun e -> Ok (e && xop = yop)
+    | StructUpdate (_, xe1, xl, xe2), StructUpdate (_, ye1, yl, ye2) ->
+      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      let l = if List.length xl = List.length yl then
+          List.map2 (fun x y -> match x, y with
+            | Label (_, xi), Label (_, yi) -> Ok (String.equal xi yi)
+            | Index (_, xe), Index (_, ye) -> r (depth + 1) xe ye
+            | _ -> Ok (false))
+          xl yl
+        else [Ok (false)]
+      in
+      l |> join >>= fun e3 ->
+      Ok (e1 && e2 && e3)
+    | ArrayConstr (_, xe1, xe2), ArrayConstr (_, ye1, ye2)
+    | ArrayIndex (_, xe1, xe2), ArrayIndex (_, ye1, ye2)
+    | ArrayConcat (_, xe1, xe2), ArrayConcat (_, ye1, ye2) ->
+      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      Ok (e1 && e2)
+    | ArraySlice (_, xe1, (xe2, xe3)), ArraySlice (_, ye1, (ye2, ye3)) ->
+      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      r (depth + 1) xe3 ye3 >>= fun e3 ->
+      Ok (e1 && e2 && e3)
+    | Quantifier (_, xq, xl, xe), Quantifier (_, yq, yl, ye) ->
+      r (depth + 1) xe ye >>= fun e ->
+      let l = if List.length xl = List.length yl then
+          List.map2 (fun (_, xi, xt) (_, yi, yt) ->
+            syn_type_equal depth_limit xt yt >>= fun t ->
+              Ok (t && String.equal xi yi))
+          xl yl
+        else [Ok (false)]
+      in
+      l |> join >>= fun l ->
+      Ok (e && l && xq = yq)
+    | When (_, x, ClockTrue), When (_, y, ClockTrue) -> r (depth + 1) x y
+    | When (_, x, ClockPos xi), When (_, y, ClockPos yi)
+    | When (_, x, ClockNeg xi), When (_, y, ClockNeg yi) ->
+      r (depth + 1) x y >>= fun e ->
+      Ok (e && String.equal xi yi)
+    | When (_, x, ClockConstr (i1, i2)), When (_, y, ClockConstr (j1, j2)) ->
+      r (depth + 1) x y >>= fun e ->
+      Ok (e && String.equal i1 j1 && String.equal i2 j2)
+    | Current (_, x), Current (_, y) -> r (depth + 1) x y
+    | Condact (_, xe1, xe2, xi, xl1, xl2), Condact (_, ye1, ye2, yi, yl1, yl2) ->
+      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      rlist xl1 yl1 |> join >>= fun l1 ->
+      rlist xl2 yl2 |> join >>= fun l2 ->
+      Ok (e1 && e2 && l1 && l2 && String.equal xi yi)
+    | Activate (_, xi, xe1, xe2, xl), Activate (_, yi, ye1, ye2, yl) ->
+      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      rlist xl yl |> join >>= fun l ->
+      Ok (e1 && e2 && l && String.equal xi yi)
+    | Merge (_, xi, xl), Merge (_, yi, yl) ->
+      let (x1, x2), (y1, y2) = List.split xl, List.split yl in
+      rlist x2 y2 |> join >>= fun e ->
+      let t = List.length x1 = List.length y1
+        && List.fold_left2 (fun a x y -> a && String.equal x y) true x1 y1
+      in
+      Ok (e && t && String.equal xi yi)
+    | RestartEvery (_, xi, xl, xe), RestartEvery (_, yi, yl, ye) ->
+      r (depth + 1) xe ye >>= fun e ->
+      rlist xl yl |> join >>= fun l ->
+      Ok (e && l && String.equal xi yi)
+    | Pre (_, x), Pre (_, y) -> r (depth + 1) x y
+    | Last (_, x), Last (_, y) -> Ok (String.equal x y)
+    | Fby (_, xe1, xi, xe2), Fby (_, ye1, yi, ye2) ->
+      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      Ok (e1 && e2 && xi = yi)
+    | Arrow (_, xe1, xe2), Arrow (_, ye1, ye2) ->
+      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      Ok (e1 && e2)
+    | Call (_, xi, xl), Call (_, yi, yl) ->
+      rlist xl yl |> join >>= fun l -> Ok (l && xi = yi)
+    | CallParam (_, xi, xtl, xel), CallParam (_, yi, ytl, yel) ->
+      rlist xel yel |> join >>= fun l ->
+      let t = if List.length xtl = List.length ytl then
+          List.map2 (syn_type_equal depth_limit) xtl ytl
+        else [Ok (false)]
+      in
+      join t >>= fun t ->
+      Ok (l && t && String.equal xi yi)
+    | _ -> Ok (false)
+  in
+  r 0 x y
+
+and syn_type_equal depth_limit x y : (bool, unit) result =
+  let (>>=) = Res.(>>=) in
+  let rec r depth x y =
+    let rlist xl yl = if List.length xl = List.length yl then
+        List.map2 (fun x y -> r (depth + 1) x y) xl yl
+      else [Ok (false)]
+    in
+    let join l = List.fold_left
+      (fun a x -> a >>= fun a -> x >>= fun x -> Ok (a && x))
+      (Ok (true))
+      l
+    in
+    if Lib.is_some depth_limit && depth > Lib.get depth_limit then Error ()
+    else match x, y with
+    | TVar (_, x), TVar (_, y) -> Ok (String.equal x y)
+    | Bool _, Bool _
+    | Int _, Int _
+    | UInt8 _, UInt8 _
+    | UInt16 _, UInt16 _
+    | UInt32 _, UInt32 _
+    | UInt64 _, UInt64 _
+    | Int8 _, Int8 _
+    | Int16 _, Int16 _
+    | Int32 _, Int32 _
+    | Int64 _, Int64 _
+    | Real _, Real _ ->
+      Ok (true)
+    | IntRange (_, xe1, xe2), IntRange (_, ye1, ye2) ->
+      syn_expr_equal depth_limit xe1 ye1 >>= fun e1 ->
+      syn_expr_equal depth_limit xe2 ye2 >>= fun e2 ->
+      Ok (e1 && e2)
+    | UserType (_, x), UserType (_, y)
+    | AbstractType (_, x), AbstractType (_, y) ->
+      Ok (String.equal x y)
+    | TupleType (_, xl), TupleType (_, yl)
+    | GroupType (_, xl), GroupType (_, yl) ->
+      rlist xl yl |> join
+    | RecordType (_, xl), RecordType (_, yl) ->
+      let t = if List.length xl = List.length yl then
+          List.map2 (fun (_, xi, xt) (_, yi, yt) ->
+            r (depth + 1) xt yt >>= fun t ->
+            Ok (t && String.equal xi yi))
+          xl yl
+        else [Ok (false)]
+      in
+      join t
+    | ArrayType (_, (xt, xe)), ArrayType (_, (yt, ye)) ->
+      r (depth + 1) xt yt >>= fun t ->
+      syn_expr_equal depth_limit xe ye >>= fun e ->
+      Ok (t && e)
+    | EnumType (_, xi, xl), EnumType (_, yi, yl) ->
+      let t = if List.length xl = List.length yl then
+          List.map2 String.equal xl yl
+          |> List.fold_left (&&) true
+        else false
+      in
+      Ok (t && String.equal xi yi)
+    | TArr (_, xt1, xt2), TArr (_, yt1, yt2) ->
+      r (depth + 1) xt1 yt1 >>= fun t1 ->
+      r (depth + 1) xt2 yt2 >>= fun t2 ->
+      Ok (t1 && t2)
+    | _ -> Ok (false)
+  in
+  r 0 x y

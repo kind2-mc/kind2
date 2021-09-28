@@ -76,6 +76,8 @@ module AH = LustreAstHelpers
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 
+let (>>=) = Res.(>>=)
+
 module StringMap = struct
   include Map.Make(struct
     type t = string
@@ -83,6 +85,56 @@ module StringMap = struct
   end)
   let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
 end
+
+module CallCache = struct
+  include Map.Make(struct
+    type t = string (* node name *)
+      * A.expr (* cond *)
+      * A.expr (* restart *)
+      * A.expr list (* arguments (which are already abstracted) *)
+      * A.expr list option (* defaults *)
+    let compare (xi, xc, xr, xa, xd) (yi, yc, yr, ya, yd) =
+      let compare_list x y = if List.length x = List.length y then
+          List.map2 (AH.syn_expr_equal (Some 6)) x y
+        else [Ok false]
+      in
+      let join l = List.fold_left
+        (fun a x -> a >>= fun a -> x >>= fun x -> Ok (a && x))
+        (Ok (true))
+        l
+      in
+      let i = String.equal xi yi in
+      let c = AH.syn_expr_equal (Some 6) xc yc in
+      let r = AH.syn_expr_equal (Some 6) xr yr in
+      let a = compare_list xa ya |> join in
+      let d = match xd, yd with
+        | Some xd, Some yd -> compare_list xd yd |> join
+        | None, None -> Ok true
+        | _ -> Ok false
+      in
+      match i, c, r, a, d with
+      | true, Ok true, Ok true, Ok true, Ok true -> 0
+      | _ -> 1
+  end)
+end
+
+module LocalCache = struct
+  include Map.Make(struct
+    type t = A.expr
+    let compare x y = match AH.syn_expr_equal (Some 6) x y with
+      | Ok true -> 0
+      | _ -> 1
+  end)
+end
+
+let call_cache = ref CallCache.empty
+let local_cache = ref LocalCache.empty
+let node_arg_cache = ref LocalCache.empty
+
+let clear_cache () =
+  call_cache := CallCache.empty;
+  local_cache := LocalCache.empty;
+  node_arg_cache := LocalCache.empty;
 
 type generated_identifiers = {
   node_args : (string (* abstracted variable name *)
@@ -293,6 +345,9 @@ let generalize_to_array_expr name ind_vars expr nexpr =
   in eq_lhs, nexpr
 
 let mk_fresh_local info pos is_ghost ind_vars expr_type expr oexpr =
+  match LocalCache.find_opt expr !local_cache with
+  | Some nexpr -> nexpr, empty ()
+  | None ->
   i := !i + 1;
   let prefix = string_of_int !i in
   let name = prefix ^ "_glocal" in
@@ -309,7 +364,9 @@ let mk_fresh_local info pos is_ghost ind_vars expr_type expr oexpr =
     calls = []; 
     contract_calls = StringMap.empty;
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
-  in nexpr, gids
+  in
+  local_cache := LocalCache.add expr nexpr !local_cache;
+  nexpr, gids
 
 let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
   i := !i + 1;
@@ -329,6 +386,9 @@ let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
   in nexpr, gids
 
 let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
+  match LocalCache.find_opt expr !node_arg_cache with
+  | Some nexpr -> nexpr, empty ()
+  | None ->
   i := !i + 1;
   let prefix = string_of_int !i in
   let name = prefix ^ "_gklocal" in
@@ -343,7 +403,9 @@ let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
     calls = [];
     contract_calls = StringMap.empty;
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
-  in nexpr, gids
+  in
+  node_arg_cache := LocalCache.add expr nexpr !node_arg_cache;
+  nexpr, gids
 
 let mk_fresh_oracle expr_type expr =
   i := !i + 1;
@@ -373,12 +435,20 @@ let record_warning pos original =
     equations = []; }
 
 let mk_fresh_call id map pos cond restart args defaults =
+  let called_node = StringMap.find id map in
+  let has_oracles = List.length called_node.oracles > 0 in
+  let check_cache = CallCache.find_opt
+    (id, cond, restart, args, defaults)
+    !call_cache
+  in
+  match check_cache, has_oracles with
+  | Some nexpr, false -> nexpr, empty ()
+  | _ ->
   i := !i + 1;
   let prefix = string_of_int !i in
   let name = prefix ^ "_call" in
-  let nexpr = A.Ident (pos, name)
-  in let propagated_oracles = 
-    let called_node = StringMap.find id map in
+  let nexpr = A.Ident (pos, name) in
+  let propagated_oracles = 
     let called_oracles = called_node.oracles |> List.map (fun (id, _, _) -> id) in
     let called_poracles = called_node.propagated_oracles |> List.map fst in
     List.map (fun n ->
@@ -386,8 +456,9 @@ let mk_fresh_call id map pos cond restart args defaults =
       let prefix = string_of_int !i in
       prefix ^ "_poracle", n))
       (called_oracles @ called_poracles)
-  in let oracle_args = List.map (fun (p, _) -> p) propagated_oracles
-  in let call = (pos, oracle_args, name, cond, restart, id, args, defaults) in
+  in
+  let oracle_args = List.map (fun (p, _) -> p) propagated_oracles in
+  let call = (pos, oracle_args, name, cond, restart, id, args, defaults) in
   let gids = { locals = StringMap.empty;
     array_constructors = StringMap.empty;
     warnings = [];
@@ -397,7 +468,9 @@ let mk_fresh_call id map pos cond restart args defaults =
     calls = [call];
     contract_calls = StringMap.empty;
     equations = []; }
-  in nexpr, gids
+  in
+  call_cache := CallCache.add (id, cond, restart, args, defaults) nexpr !call_cache;
+  nexpr, gids
 
 let normalize_list f list =
   let over_list (nitems, gids) item =
@@ -416,6 +489,7 @@ let rec normalize ctx (decls:LustreAst.t) =
     contract_scope = [];
     interpretation = StringMap.empty; }
   in let over_declarations (nitems, accum) item =
+    clear_cache ();
     let (normal_item, map) =
       normalize_declaration info accum item in
     (match normal_item with 
