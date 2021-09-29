@@ -584,3 +584,39 @@ and check_expr ctx f (expr:LustreAst.expr) =
     | _ -> Ok ()
   in
   expr' >> r
+
+let no_mismatched_clock is_bool e =
+  let ctx = empty_ctx () in
+  let check_when clock = function
+    | LA.When (pos, _, c) ->
+      let clocks_match = (match c, clock with
+        | ClockTrue, LA.ClockTrue -> true
+        | ClockPos i, ClockPos j -> String.equal i j
+        | ClockNeg i, ClockNeg j -> String.equal i j
+        | ClockConstr (i1, i2), ClockConstr (j1, j2) ->
+          String.equal i1 j1 && String.equal i2 j2
+        | _ -> false)
+      in
+      if not clocks_match then syntax_error pos
+        (Format.asprintf "Clock mismatch for argument of merge")
+      else Ok ()
+    | _ -> Ok ()
+  in
+  let check_merge = function
+    | LA.Merge (_, clock, exprs) ->
+      if not is_bool then
+        let case (i, e) = check_expr ctx
+          (fun _ -> check_when (ClockConstr (i, clock))) e
+        in
+        List.fold_left (>>) (Ok ()) (List.map case exprs)
+      else
+        let true_variant = List.nth_opt exprs 0 in
+        let false_variant = List.nth_opt exprs 1 in
+        (match true_variant, false_variant with
+        | Some (_, e1), Some (_, e2) ->
+          check_when (ClockPos clock) e1
+            >> check_when (ClockNeg clock) e2
+        | _ -> Ok ())
+    | _ -> Ok ()
+  in
+  check_expr ctx (fun _ -> check_merge) e

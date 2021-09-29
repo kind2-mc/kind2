@@ -28,6 +28,7 @@ module R = Res
 module LA = LustreAst
 module LH = LustreAstHelpers
 module IC = LustreAstInlineConstants
+module LSC = LustreSyntaxChecks
 open TypeCheckerContext                        
 
 
@@ -58,6 +59,12 @@ let infer_type_const: Lib.position -> LA.constant -> tc_type
   | Dec _ -> Real pos
   | _ -> Bool pos
 (** Infers type of constants *)
+
+let check_merge_clock: LA.expr -> LA.lustre_type -> unit tc_result = fun e ty ->
+  match ty with
+  | AbstractType (_, _) -> LSC.no_mismatched_clock false e
+  | Bool _ -> LSC.no_mismatched_clock true e
+  | _ -> Ok ()
 
 let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> string list -> unit tc_result
   = fun ctx pos ty cases ->
@@ -289,11 +296,12 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   | LA.Activate (pos, node, cond, _, args) ->
     check_type_expr ctx cond (Bool pos)
     >> infer_type_expr ctx (Call (pos, node, args))
-  | LA.Merge (pos, i, mcases) ->
+  | LA.Merge (pos, i, mcases) as e ->
     infer_type_expr ctx (LA.Ident (pos, i)) >>= fun ty ->
       let mcases_ids, mcases_exprs = List.split mcases in
       let case_tys = mcases_exprs |> List.map (infer_type_expr ctx) in
       check_merge_exhaustive ctx pos ty mcases_ids >>
+      check_merge_clock e ty >>
       R.seq case_tys
       >>= fun tys ->
       let main_ty = List.hd tys in
@@ -534,7 +542,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
   | Activate (pos, node, cond, _, args) -> 
     check_type_expr ctx cond (Bool pos)
     >> check_type_expr ctx (Call (pos, node, args)) exp_ty 
-  | Merge (pos, i, mcases) ->
+  | Merge (pos, i, mcases) as e ->
     infer_type_expr ctx (LA.Ident (pos, i)) >>= fun ty ->
     let mcases_ids, mcases_exprs = List.split mcases in
     let check_mcases = R.seq_
@@ -542,6 +550,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
     in
     check_mcases
       >> check_merge_exhaustive ctx pos ty mcases_ids
+      >> check_merge_clock e ty
   | RestartEvery (pos, node, args, cond) ->
     check_type_expr ctx cond (LA.Bool pos)
     >> check_type_expr ctx (LA.Call (pos, node, args)) exp_ty
