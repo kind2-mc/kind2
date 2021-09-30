@@ -979,7 +979,7 @@ and compile_ast_expr
     "Fby operator not implemented" 
   (* Projection on clock *)
   | A.When (pos, _, _) -> fail_at_position pos
-    "When expression must be the argument of a current operator"
+    "When expression must be the argument of a merge operator"
   (* Interpolation to base clock *)
   | A.Current (pos, _) -> fail_at_position pos
     "Current operator must have a when expression as argument"

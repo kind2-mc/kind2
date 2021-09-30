@@ -1278,7 +1278,7 @@ let rec eval_ast_expr bounds ctx =
 
     fail_at_position 
       pos
-      "When expression must be the argument of a current operator"
+      "When expression must be the argument of a merge operator"
 
   (* Interpolation to base clock *)
   | A.Current (pos, _) -> 
