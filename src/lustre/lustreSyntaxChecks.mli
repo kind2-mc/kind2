@@ -24,3 +24,10 @@ type 'a sc_result = ('a, Lib.position * string) result
 val syntax_error : Lib.position -> string -> 'a sc_result
     
 val syntax_check : LustreAst.t -> LustreAst.t sc_result
+
+val no_mismatched_clock : bool -> LustreAst.expr -> unit sc_result
+(** Conservative syntactic check of clock arguments for merge expressions.
+  To eventually be replaced with more general clock inference/checking.
+
+  Note: type information is needed for this check, causing this check to
+  be called in the lustreTypeChecker *)
