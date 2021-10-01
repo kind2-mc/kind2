@@ -1557,7 +1557,7 @@ let log_post_analysis_end () =
   | F_relay -> failwith "can only be called by supervisor"
 
 (* Terminate log output *)
-let terminate_log () = 
+let terminate_log () =
   log_analysis_end ();
   Log.terminate_log ()
 
