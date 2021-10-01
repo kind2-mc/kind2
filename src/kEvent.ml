@@ -1558,8 +1558,11 @@ let log_post_analysis_end () =
 
 (* Terminate log output *)
 let terminate_log () =
-  log_analysis_end ();
-  Log.terminate_log ()
+  match get_log_format () with
+  | F_relay -> ()
+  | _ ->
+      log_analysis_end ();
+      Log.terminate_log ()
 
 (** Logs a timeout. *)
 let log_timeout b =
