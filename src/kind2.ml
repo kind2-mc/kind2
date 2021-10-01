@@ -98,8 +98,16 @@ let setup : unit -> any_input = fun () ->
   try
     let input_system = 
       match Flags.input_format () with
-      | `Lustre -> KEvent.log L_debug "Lustre input detected";
-                   Input (InputSystem.read_input_lustre in_file)
+      | `Lustre -> (
+        KEvent.log L_debug "Lustre input detected";
+        match InputSystem.read_input_lustre (Flags.only_parse ()) in_file with
+        | Some in_sys -> Input in_sys
+        | None -> (
+            KEvent.log L_note "No parse errors found!";
+            KEvent.terminate_log ();
+            exit 0
+        )
+      )
                    
       | `Native -> KEvent.log L_debug "Native input detected";
                    Input (InputSystem.read_input_native in_file)
@@ -137,11 +145,6 @@ let main () =
 
   (* Set everything up and produce input system. *)
   let Input input_sys = setup () in
-
-  if Flags.only_parse () && Flags.old_frontend () then (
-    KEvent.log L_note "No parse errors found!";
-    KEvent.terminate_log ();
-    exit 0 );
 
   (* Notify user of silent contract loading. *)
   (try

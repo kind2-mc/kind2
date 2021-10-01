@@ -29,8 +29,13 @@ type _ t
 
 exception UnsupportedFileFormat of string
 
-(** Read input from file *)
-val read_input_lustre : string -> LustreNode.t t
+(** [read_input_lustre only_parse filename] read input from [filename]
+    and returns [None] if [only_parse] is true, or an input system
+    otherwise.
+
+    See {!LustreInput.of_file} for potential exceptions thrown by this function.
+*)
+val read_input_lustre : bool -> string -> LustreNode.t t option
 
 (** Translate lustre contracts to properties. *)
 val translate_contracts_lustre : string -> string -> unit

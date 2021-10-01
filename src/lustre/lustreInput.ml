@@ -199,7 +199,7 @@ let print_nodes_and_globals nodes globals =
 
 
 (* Parse from input channel *)
-let of_channel in_ch =
+let of_channel only_parse in_ch =
   (* Get declarations from channel. *)
   let declarations = ast_of_channel in_ch in
 
@@ -207,61 +207,69 @@ let of_channel in_ch =
   if Flags.log_format_json () && Flags.lsp () then
     LspInfo.print_ast_info declarations;
 
-  let nodes, globals =
+  if only_parse then (
     if Flags.old_frontend () then
-      (* Simplify declarations to a list of nodes *)
-      LD.declarations_to_nodes declarations
-    else 
-      let ctx, gids, decls = type_check declarations in
-      let nodes, globals = LNG.compile ctx gids decls in
-      (* The last node in the original ordering should remain the last node after sorting 
-      as the user expects that to be the main node in the case where 
-      no explicit annotations are provided. The reason we do this is because 
-      it is difficut to make the topological sort stable *)
-      let last_node = LH.get_last_node_name (declarations) in
-      let nodes = match last_node with
-      | None -> nodes
-      | Some ln -> let ident = LustreIdent.mk_string_ident ln in
-        let n = LustreNode.node_of_name ident nodes in
-        let filtered =
-          List.filter
-            (fun x -> not (LustreIdent.equal x.LustreNode.name ident))
-            nodes
+      let _ = LD.declarations_to_nodes declarations in None
+    else
+      let _ = type_check declarations in None
+  )
+  else (
+    let nodes, globals =
+      if Flags.old_frontend () then
+        (* Simplify declarations to a list of nodes *)
+        LD.declarations_to_nodes declarations
+      else
+        let ctx, gids, decls = type_check declarations in
+        let nodes, globals = LNG.compile ctx gids decls in
+        (* The last node in the original ordering should remain the last node after sorting
+        as the user expects that to be the main node in the case where
+        no explicit annotations are provided. The reason we do this is because
+        it is difficut to make the topological sort stable *)
+        let last_node = LH.get_last_node_name (declarations) in
+        let nodes = match last_node with
+        | None -> nodes
+        | Some ln -> let ident = LustreIdent.mk_string_ident ln in
+          let n = LustreNode.node_of_name ident nodes in
+          let filtered =
+            List.filter
+              (fun x -> not (LustreIdent.equal x.LustreNode.name ident))
+              nodes
+          in
+          n :: filtered
         in
-        n :: filtered
-      in
-      nodes, globals
-  in
-  print_nodes_and_globals nodes globals;
+        nodes, globals
+    in
 
-  if Flags.only_parse () then (exit 0);
-  (* Name of main node *)
-  let main_nodes =
-    (* Command-line flag for main node given? *)
-    match Flags.lus_main () with
-    (* Use given identifier to choose main node *)
-    | Some s -> [LustreIdent.mk_string_ident s]
-    (* No main node name given on command-line *)
-    | None -> (
-      try 
-        (* Find main node by annotation, or take last node as main *)
-        LustreNode.find_main nodes
+    print_nodes_and_globals nodes globals;
+
+    (* Name of main node *)
+    let main_nodes =
+      (* Command-line flag for main node given? *)
+      match Flags.lus_main () with
+      (* Use given identifier to choose main node *)
+      | Some s -> [LustreIdent.mk_string_ident s]
+      (* No main node name given on command-line *)
+      | None -> (
+        try
+          (* Find main node by annotation, or take last node as main *)
+          LustreNode.find_main nodes
+        with Not_found ->
+          (* No main node found
+            This only happens when there are no nodes in the input. *)
+          raise (NoMainNode "No main node defined in input"))
+    in
+    (* Check that main nodes all exist *)
+    let _ =
+      try
+        List.map (fun mn -> LN.node_of_name mn nodes) main_nodes
       with Not_found ->
-        (* No main node found
-           This only happens when there are no nodes in the input. *)
-        raise (NoMainNode "No main node defined in input"))
-  in
-  (* Check that main nodes all exist *)
-  let _ =
-    try
-      List.map (fun mn -> LN.node_of_name mn nodes) main_nodes
-    with Not_found ->
-      (* Node with name of main not found
-        This can only happen when the name is passed as command-line argument *)
-      raise (NoMainNode "Main node not found in input")
-  in
-  (* Return a subsystem tree from the list of nodes *)
-  LN.subsystems_of_nodes main_nodes nodes, globals, declarations
+        (* Node with name of main not found
+          This can only happen when the name is passed as command-line argument *)
+        raise (NoMainNode "Main node not found in input")
+    in
+    (* Return a subsystem tree from the list of nodes *)
+    Some (LN.subsystems_of_nodes main_nodes nodes, globals, declarations)
+  )
 
 
 (* Returns the AST from a file. *)
@@ -275,13 +283,13 @@ let ast_of_file filename =
 
 
 (* Open and parse from file *)
-let of_file filename =
+let of_file only_parse filename =
   (* Open the given file for reading *)
   let in_ch = match filename with
     | "" -> stdin
     | _ -> open_in filename
   in
-  of_channel in_ch
+  of_channel only_parse in_ch
 
 
 (* 

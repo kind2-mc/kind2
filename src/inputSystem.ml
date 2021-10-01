@@ -32,7 +32,10 @@ type _ t =
 | Native : TransSys.t S.t -> TransSys.t t
 | Horn : unit S.t -> unit t
 
-let read_input_lustre input_file = Lustre (LustreInput.of_file input_file)
+let read_input_lustre only_parse input_file =
+  match LustreInput.of_file only_parse input_file with
+  | Some in_sys -> Some (Lustre in_sys)
+  | None -> None
 
 let translate_contracts_lustre = ContractsToProps.translate_file
 

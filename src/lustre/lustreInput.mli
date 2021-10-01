@@ -107,11 +107,20 @@
 
 exception NoMainNode of string
 
-(** Parse from the file, return an input system for further slicing
-    and refinement from analysis strategies. *)
-val of_file : string -> LustreNode.t SubSystem.t list * LustreGlobals.t * LustreAst.t
+(** [of_file only_parse f] parse Lustre model from file [f], and
+    return [None] if [only_parse] is true, or an input system
+    otherwise.
 
-(** Parse from the file, returns the AST. *)
+    If a syntax or semantic error is detected, it triggers
+    a [Parser_error] exception. If [only_parse] is false, and
+    the Lustre model doesn't include a main node, it triggers a
+    {!NoMainNode} exception.
+*)
+val of_file :
+  bool -> string ->
+  (LustreNode.t SubSystem.t list * LustreGlobals.t * LustreAst.t) option
+
+(** Parse from the file, return the AST. *)
 val ast_of_file : string -> LustreAst.t
 
 (* 
