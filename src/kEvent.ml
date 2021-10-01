@@ -1558,17 +1558,8 @@ let log_post_analysis_end () =
 
 (* Terminate log output *)
 let terminate_log () = 
-  match get_log_format () with 
-    | F_pt -> Format.print_flush ()
-    | F_xml ->
-      log_analysis_end () ;
-      print_xml_trailer () ;
-      Format.print_flush ()
-    | F_json ->
-      log_analysis_end () ;
-      Format.fprintf !log_ppf "]@.";
-      Format.print_flush ()
-    | F_relay -> ()
+  log_analysis_end ();
+  Log.terminate_log ()
 
 (** Logs a timeout. *)
 let log_timeout b =

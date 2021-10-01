@@ -221,8 +221,8 @@ let of_channel in_ch =
           |> List.flatten);
 
     if Flags.only_parse () then (
-      KEvent.log L_note "No parse errors found!";
-      KEvent.terminate_log ();
+      Log.log L_note "No parse errors found!";
+      Log.terminate_log ();
       exit 0);
     (* Name of main node *)
     let main_nodes =

@@ -43,6 +43,7 @@ module type Sig = sig
   val printf_json : 'a m_log_printer
   val parse_log_xml : Lib.log_level -> Lib.position -> string -> unit
   val parse_log_json : Lib.log_level -> Lib.position -> string -> unit
+  val terminate_log : unit -> unit
 end
 
 
@@ -263,6 +264,17 @@ let set_relay_log () =
 
 
 let unset_relay_log () = log_format := !prev_log_format
+
+let terminate_log () =
+  match get_log_format () with
+  | F_pt -> Format.print_flush ()
+  | F_xml ->
+      print_xml_trailer ();
+      Format.print_flush ()
+  | F_json ->
+      Format.fprintf !log_ppf "]@.";
+      Format.print_flush ()
+  | F_relay -> ()
 
 module type SLog = sig
   val log : 'a log_printer

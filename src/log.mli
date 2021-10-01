@@ -84,6 +84,7 @@ module type Sig = sig
 
   val parse_log_json : Lib.log_level -> Lib.position -> string -> unit
 
+  val terminate_log : unit -> unit
 end
 
 (** Logging functions accessible directly *)
