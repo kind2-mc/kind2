@@ -220,7 +220,10 @@ let of_channel in_ch =
         (nodes |> List.map (fun n -> LustreNode.get_all_state_vars n @ n.oracles)
           |> List.flatten);
 
-    if Flags.only_parse () then (exit 0);
+    if Flags.only_parse () then (
+      KEvent.log L_note "No parse errors found!";
+      KEvent.terminate_log ();
+      exit 0);
     (* Name of main node *)
     let main_nodes =
       (* Command-line flag for main node given? *)
