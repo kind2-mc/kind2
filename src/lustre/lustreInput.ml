@@ -164,7 +164,7 @@ let type_check declarations =
 
 
 let print_nodes_and_globals nodes globals =
-  Log.log L_trace ("===============================================\n"
+  Debug.parse ("===============================================\n"
   ^^ "Free Constants: [@[<hv>%a@]];@ \n\n"
   ^^ "State Variable Bounds: [@[<hv>%a@]];@ \n\n"
   ^^ "Nodes: [@[<hv>%a@]];@ \n\n"
