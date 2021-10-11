@@ -1709,7 +1709,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       | None ->
         let name = create_constraint_name oid in
         let src = Property.Generated (Some pos, [sv]) in
-        let src = Property.Candidate (Some src) in
         a, ac, g, gc, (sv, name, src) :: p
       | _ -> assert false
     in

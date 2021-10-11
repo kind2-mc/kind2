@@ -1384,7 +1384,7 @@ and check_type_well_formed: tc_context -> tc_type -> unit tc_result
           let v1 = IC.eval_int_expr ctx e1 in
           let v2 = IC.eval_int_expr ctx e2 in
           v1 >>= fun v1 -> v2 >>= fun v2 ->
-            if v1 >= v2 then
+            if v1 > v2 then
                 type_error pos (Format.asprintf
                   "Range can not be empty, but found range: [%i, %i]" v1 v2)
             else Ok ()
