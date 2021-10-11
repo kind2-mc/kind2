@@ -57,8 +57,14 @@ let pos_of_expr = function
     | CallParam (pos , _ , _ , _ )
     -> pos
 
-let type_contains_subrange = function
+let rec type_contains_subrange = function
   | IntRange _ -> true
+  | TupleType (_, tys) | GroupType (_, tys) ->
+    List.fold_left (fun acc ty -> acc || type_contains_subrange ty) false tys
+  | RecordType (_, tys) ->
+    List.fold_left (fun acc (_, _, ty) -> acc || type_contains_subrange ty)
+      false tys
+  | ArrayType (_, (ty, _)) -> type_contains_subrange ty
   | _ -> false
 
 let rec substitute var t = function

@@ -411,12 +411,26 @@ let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
   node_arg_cache := LocalCache.add expr nexpr !node_arg_cache;
   nexpr, gids
 
-let mk_range_expr expr_type nexpr = match expr_type with
-  | A.IntRange (_, l, u) -> 
-    let l = A.CompOp (dpos, A.Lte, l, nexpr) in
-    let u = A.CompOp (dpos, A.Lte, nexpr, u) in
-    A.BinaryOp (dpos, A.And, l, u)
-  | _ -> assert false
+let mk_range_expr expr_type expr = 
+  let rec mk n expr_type expr = match expr_type with
+    | A.IntRange (_, l, u) -> 
+      let l = A.CompOp (dpos, A.Lte, l, expr) in
+      let u = A.CompOp (dpos, A.Lte, expr, u) in
+      A.BinaryOp (dpos, A.And, l, u)
+    | A.ArrayType (_, (ty, upper_bound)) ->
+      let id_str = "x" ^ (string_of_int n) in
+      let id = A.Ident (dpos, id_str) in
+      let expr = A.ArrayIndex (dpos, expr, id) in
+      let rexpr = mk (succ n) ty expr in
+      let l = A.CompOp (dpos, A.Lte, A.Const (dpos, A.Num "0"), id) in
+      let u = A.CompOp (dpos, A.Lt, id, upper_bound) in
+      let assumption = A.BinaryOp (dpos, A.And, l, u) in
+      let var = dpos, id_str, (A.Int dpos) in
+      let body = A.BinaryOp (dpos, A.Impl, assumption, rexpr) in
+      A.Quantifier (dpos, A.Forall, [var], body)
+    | _ -> assert false
+  in
+  mk 0 expr_type expr
 
 let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
   i := !i + 1;
@@ -612,10 +626,12 @@ and normalize_node info map
   (* Record subrange constraints on inputs, outputs, and locals *)
   let gids1 = inputs
     |> List.filter (fun (_, i, _, _, _) -> 
-      let ty = Ctx.lookup_ty info.context i |> get in
-      AH.type_contains_subrange ty)
+        let ty = Ctx.lookup_ty info.context i |> get in
+        let ty = Ctx.expand_nested_type_syn ctx ty in
+        AH.type_contains_subrange ty)
     |> List.fold_left (fun acc (p, i, _, _, _) ->
         let ty = Ctx.lookup_ty info.context i |> get in
+        let ty = Ctx.expand_nested_type_syn ctx ty in
         (* This inlining step will become unnecessary when the backend no
           longer demands constants in the integer range bounds *)
         let ty = AIC.inline_constants_of_lustre_type info.context ty in
@@ -626,11 +642,13 @@ and normalize_node info map
     |> List.filter (function
       | A.NodeVarDecl (_, (_, i, _, _)) -> 
         let ty = Ctx.lookup_ty info.context i |> get in
+        let ty = Ctx.expand_nested_type_syn ctx ty in
         AH.type_contains_subrange ty
       | _ -> false)
     |> List.fold_left (fun acc l -> match l with
       | A.NodeVarDecl (p, (_, i, _, _)) -> 
           let ty = Ctx.lookup_ty info.context i |> get in
+          let ty = Ctx.expand_nested_type_syn ctx ty in
           (* This inlining step will become unnecessary when the backend no
             longer demands constants in the integer range bounds *)
           let ty = AIC.inline_constants_of_lustre_type info.context ty in
@@ -640,15 +658,17 @@ and normalize_node info map
   in
   let gids3 = outputs
     |> List.filter (fun (_, i, _, _) -> 
-      let ty = Ctx.lookup_ty info.context i |> get in
-      AH.type_contains_subrange ty)
+        let ty = Ctx.lookup_ty info.context i |> get in
+        let ty = Ctx.expand_nested_type_syn ctx ty in
+        AH.type_contains_subrange ty)
     |> List.fold_left (fun acc (p, i, _, _) ->
-      let ty = Ctx.lookup_ty info.context i |> get in
-      (* This inlining step will become unnecessary when the backend no
-        longer demands constants in the integer range bounds *)
-      let ty = AIC.inline_constants_of_lustre_type info.context ty in
-      union acc (mk_fresh_subrange_constraint Output info p i ty))
-      (empty ())
+        let ty = Ctx.lookup_ty info.context i |> get in
+        let ty = Ctx.expand_nested_type_syn ctx ty in
+        (* This inlining step will become unnecessary when the backend no
+          longer demands constants in the integer range bounds *)
+        let ty = AIC.inline_constants_of_lustre_type info.context ty in
+        union acc (mk_fresh_subrange_constraint Output info p i ty))
+        (empty ())
   in
   (* Normalize equations and the contract *)
   let nitems, gids4 = normalize_list (normalize_item info map) items in
@@ -753,6 +773,7 @@ and normalize_contract info map items =
           | FreeConst (pos, i, _)
           | TypedConst (pos, i, _, _) ->
             let ty = Ctx.lookup_ty info.context i |> get in
+            let ty = Ctx.expand_nested_type_syn info.context ty in
             (* This inlining step will become unnecessary when the backend no
               longer demands constants in the integer range bounds *)
             let ty = AIC.inline_constants_of_lustre_type info.context ty in
