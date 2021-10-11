@@ -1,5 +1,0 @@
-(env
-  (static
-    (env-vars (link_flags dune.static_lflags))
-  )
-)

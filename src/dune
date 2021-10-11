@@ -2,8 +2,12 @@
  (public_name kind2)
  (libraries kind2dev)
  (modules kind2)
- (link_flags (:include %{env:link_flags=dune.default_lflags}))
+ (flags (:standard (:include linking-flags.sexp)))
 )
+
+(rule
+  (with-stdout-to linking-flags.sexp
+    (run ../scripts/gen-linking-flags.sh %{env:LINKING_MODE=dynamic} %{ocaml-config:system})))
 
 (library
  (name kind2dev)

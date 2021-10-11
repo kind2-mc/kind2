@@ -13,7 +13,7 @@ build:
 	@dune install --sections=bin --prefix . 2> /dev/null
 
 static:
-	@dune build src --profile=static @install
+	@LINKING_MODE=static dune build src @install
 	@dune install --sections=bin --prefix . 2> /dev/null
 
 clean:

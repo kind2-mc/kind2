@@ -17,11 +17,9 @@ jobs:
           - os: macos-10.15
             pkg_update: brew update
             z3_install: brew install z3
-            zmq_install: brew install zmq
           - os: ubuntu-20.04
             pkg_update: sudo apt-get update -y
             z3_install: sudo apt-get install -y z3
-            zmq_install: sudo apt-get install -y libzmq3-dev
 
     runs-on: ${{ matrix.os }}
 
@@ -42,9 +40,6 @@ jobs:
       uses: ocaml/setup-ocaml@v2
       with:
         ocaml-compiler: ${{ matrix.ocaml-version }}
-
-    - name: Install ZMQ library
-      run: ${{ matrix.zmq_install }}
 
     - name: Install Kind2 OCaml dependencies
       run: opam install -y . --deps-only
