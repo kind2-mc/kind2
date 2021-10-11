@@ -412,6 +412,10 @@ let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
   nexpr, gids
 
 let mk_range_expr expr_type expr = 
+  let mk_and tys =
+    List.fold_left (fun acc e -> A.BinaryOp (dpos, A.And, acc, e))
+      (A.Const (dpos, A.True)) tys
+  in
   let rec mk n expr_type expr = match expr_type with
     | A.IntRange (_, l, u) -> 
       let l = A.CompOp (dpos, A.Lte, l, expr) in
@@ -428,6 +432,16 @@ let mk_range_expr expr_type expr =
       let var = dpos, id_str, (A.Int dpos) in
       let body = A.BinaryOp (dpos, A.Impl, assumption, rexpr) in
       A.Quantifier (dpos, A.Forall, [var], body)
+    | TupleType (_, tys) ->
+      let mk_proj i = A.TupleProject (dpos, expr, i) in
+      let tys = List.filter (fun ty -> AH.type_contains_subrange ty) tys in
+      let tys = List.mapi (fun i ty -> mk n ty (mk_proj i)) tys in
+      mk_and tys
+    | RecordType (_, tys) ->
+      let mk_proj i = A.RecordProject (dpos, expr, i) in
+      let tys = List.filter (fun (_, _, ty) -> AH.type_contains_subrange ty) tys in
+      let tys = List.map (fun (_, i, ty) -> mk n ty (mk_proj i)) tys in
+      mk_and tys
     | _ -> assert false
   in
   mk 0 expr_type expr
