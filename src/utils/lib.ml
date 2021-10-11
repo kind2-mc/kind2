@@ -739,9 +739,13 @@ let output_on_level level = compare_levels level !log_level <= 0
 
 (* Return fprintf if level is is of higher or equal priority
    than current log level, otherwise return ifprintf *)
-let ignore_or_fprintf level = 
+let ignore_or_fprintf level =
   if output_on_level level then fprintf else ifprintf
 
+(* Return kfprintf if level is is of higher or equal priority
+   than current log level, otherwise return ikfprintf *)
+let ignore_or_kfprintf level =
+  if output_on_level level then kfprintf else ikfprintf
 
 (* ********************************************************************** *)
 (* Output target                                                          *)  

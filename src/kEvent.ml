@@ -1259,7 +1259,7 @@ let [@ocaml.warning "-27"] log (mdl : kind_module) (lvl : log_level) (msg : stri
 (* Send message to invariant manager *)
 let printf_relay mdl level fmt = 
 
-  Format.kfprintf 
+  (ignore_or_kfprintf level)
     (function _ -> 
 
       let s = Format.flush_str_formatter () in

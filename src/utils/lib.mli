@@ -336,6 +336,11 @@ val output_on_level : log_level -> bool
     than current log level, otherwise return Format.ifprintf *)
 val ignore_or_fprintf : log_level -> Format.formatter -> ('a, Format.formatter, unit) format -> 'a
 
+(** Return Format.kfprintf if level is is of higher or equal priority
+    than current log level, otherwise return Format.ikfprintf *)
+val ignore_or_kfprintf :
+  log_level -> (Format.formatter -> 'a) -> Format.formatter ->
+  ('b, Format.formatter, unit, 'a) format4 -> 'b
 
 (** {1 System functions} *)
 

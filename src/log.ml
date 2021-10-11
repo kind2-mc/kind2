@@ -148,7 +148,7 @@ let printf_xml_string mdl level s =
 
 let printf_xml mdl level fmt =
 
-  Format.kfprintf
+  (ignore_or_kfprintf level)
     (function _ ->
       let s =
         Format.flush_str_formatter ()
@@ -199,7 +199,7 @@ let printf_json_string mdl level s =
 (* Output message as JSON *)
 let printf_json mdl level fmt =
 
-  Format.kfprintf
+  (ignore_or_kfprintf level)
     (function _ ->
       let s =
         Format.flush_str_formatter ()
