@@ -73,6 +73,8 @@ module StringMap : sig
   val keys: 'a t -> key list
 end
 
+type source = Local | Input | Output | Ghost
+
 type generated_identifiers = {
   node_args : (string (* abstracted variable name *)
     * bool (* whether the variable is constant *)
@@ -107,7 +109,13 @@ type generated_identifiers = {
     * (LustreAst.expr list) (* node arguments *)
     * (LustreAst.expr list option)) (* node argument defaults *)
     list;
-    equations :
+  subrange_constraints : (source
+    * Lib.position
+    * string
+    * LustreAst.lustre_type
+    * LustreAst.expr)
+    list;
+  equations :
     (LustreAst.typed_ident list (* quantified variables *)
     * string list (* contract scope  *)
     * LustreAst.eq_lhs

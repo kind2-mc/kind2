@@ -80,6 +80,7 @@ let rec eval_int_expr: TC.tc_context -> LA.expr -> int inline_result = fun ctx -
                | _ -> eval_int_expr ctx const_expr)
       | None -> inline_error pos ("Not a constant identifier" ^ i))  
   | LA.Const _ as c -> int_value_of_const c
+  | LA.UnaryOp (pos, uop, e) -> eval_int_unary_op ctx pos uop e
   | LA.BinaryOp (pos, bop, e1, e2) -> eval_int_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_int_ternary_op ctx pos top e1 e2 e3
   | e -> inline_error (LH.pos_of_expr e) ("Cannot evaluate expression" ^ LA.string_of_expr e)  

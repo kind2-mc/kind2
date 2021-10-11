@@ -1343,6 +1343,26 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       result :: glocals
     in List.fold_left over_generated_locals [] locals_list
   (* ****************************************************************** *)
+  (* (State Variables for) Generated Subrange Constraints               *)
+  (* ****************************************************************** *)
+  in let glocals =
+    let over_generated_locals glocals (_, _, id, expr_type, _) =
+      let ident = mk_ident id in
+      let index_types = compile_ast_type cstate ctx map expr_type in
+      let over_indices = fun index index_type accum ->
+        let state_var = mk_state_var
+          map
+          (node_scope @ I.reserved_scope)
+          ident
+          index
+          index_type
+          (Some N.KGhost)
+        in
+        X.add index state_var accum
+      in let result = X.fold over_indices index_types X.empty in
+      result :: glocals
+    in List.fold_left over_generated_locals glocals gids.LAN.subrange_constraints
+  (* ****************************************************************** *)
   (* (State Variables for) Generated Locals for Node Arguments          *)
   (* ****************************************************************** *)
   in let glocals =
@@ -1660,6 +1680,47 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         lustreContext 2040+ *)
       equations @ eqns
     in List.fold_left over_equations [] (ghost_equations @ node_eqs)
+  (* ****************************************************************** *)
+  (* Generate Contract Constraints for Integer Subranges                *)
+  (* ****************************************************************** *)
+  in let (assumes, guarantees, props) =
+    let create_constraint_name svar =
+      Format.asprintf "%a._bounds" (E.pp_print_lustre_var false) svar
+    in
+    let over_subrange_constraints (a, ac, g, gc, p) (source, pos, id, _, _) =
+      let sv = H.find !map.state_var (mk_ident id) in
+      let effective_contract = List.length guarantees > 1 || List.length modes > 1 in
+      let constraint_kind = match source with
+        | LAN.Input -> Some N.Assumption
+        | Local -> if not ext then None else Some N.Guarantee
+        | Output -> if not ext && not effective_contract then
+            Some N.Guarantee else None
+        | Ghost -> Some N.Guarantee
+      in
+      match constraint_kind with
+      | Some N.Assumption ->
+        let oname = Some (create_constraint_name sv) in
+        let contract_sv = C.mk_svar pos ac oname sv [] in
+        N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
+        contract_sv :: a, ac + 1, g, gc, p
+      | Some N.Guarantee ->
+        let oname = Some (create_constraint_name sv) in
+        let contract_sv = C.mk_svar pos gc oname sv [] in
+        N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
+        a, ac, (contract_sv, false) :: g, gc + 1, p
+      | None ->
+        let name = create_constraint_name sv in
+        let src = Property.Generated (Some pos, [sv]) in
+        let src = Property.Candidate (Some src) in
+        a, ac, g, gc, (sv, name, src) :: p
+      | _ -> assert false
+    in
+    let (assumes, _, guarantees, _, props) = 
+      List.fold_left over_subrange_constraints
+      (assumes, List.length assumes, guarantees, List.length guarantees, props)
+      gids.LAN.subrange_constraints
+    in
+    assumes, guarantees, props
   (* ****************************************************************** *)
   (* Finalize Contracts and add Sofar assumption                        *)
   (* ****************************************************************** *)

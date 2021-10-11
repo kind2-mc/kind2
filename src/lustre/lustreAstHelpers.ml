@@ -57,6 +57,10 @@ let pos_of_expr = function
     | CallParam (pos , _ , _ , _ )
     -> pos
 
+let type_contains_subrange = function
+  | IntRange _ -> true
+  | _ -> false
+
 let rec substitute var t = function
   | Ident (_, i) as e -> if i = var then t else e
   | ModeRef (_, _) as e -> e
