@@ -1346,9 +1346,9 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* (State Variables for) Generated Subrange Constraints               *)
   (* ****************************************************************** *)
   in let glocals =
-    let over_generated_locals glocals (_, _, id, expr_type, _) =
+    let over_generated_locals glocals (_, _, id, _) =
       let ident = mk_ident id in
-      let index_types = compile_ast_type cstate ctx map expr_type in
+      let index_types = compile_ast_type cstate ctx map (A.Bool dummy_pos) in
       let over_indices = fun index index_type accum ->
         let state_var = mk_state_var
           map
@@ -1684,10 +1684,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* Generate Contract Constraints for Integer Subranges                *)
   (* ****************************************************************** *)
   in let (assumes, guarantees, props) =
-    let create_constraint_name svar =
-      Format.asprintf "%a._bounds" (E.pp_print_lustre_var false) svar
-    in
-    let over_subrange_constraints (a, ac, g, gc, p) (source, pos, id, _, _) =
+    let create_constraint_name id = Format.asprintf "%s._bounds" id in
+    let over_subrange_constraints (a, ac, g, gc, p) (source, pos, id, oid) =
       let sv = H.find !map.state_var (mk_ident id) in
       let effective_contract = List.length guarantees > 1 || List.length modes > 1 in
       let constraint_kind = match source with
@@ -1699,17 +1697,17 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       in
       match constraint_kind with
       | Some N.Assumption ->
-        let oname = Some (create_constraint_name sv) in
+        let oname = Some (create_constraint_name oid) in
         let contract_sv = C.mk_svar pos ac oname sv [] in
         N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
         contract_sv :: a, ac + 1, g, gc, p
       | Some N.Guarantee ->
-        let oname = Some (create_constraint_name sv) in
+        let oname = Some (create_constraint_name oid) in
         let contract_sv = C.mk_svar pos gc oname sv [] in
         N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
         a, ac, (contract_sv, false) :: g, gc + 1, p
       | None ->
-        let name = create_constraint_name sv in
+        let name = create_constraint_name oid in
         let src = Property.Generated (Some pos, [sv]) in
         let src = Property.Candidate (Some src) in
         a, ac, g, gc, (sv, name, src) :: p
@@ -1724,8 +1722,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   (* Finalize Contracts and add Sofar assumption                        *)
   (* ****************************************************************** *)
-  in let (contract, sofar_local, sofar_equation) = match contracts with
-    | Some _ -> 
+  in let (contract, sofar_local, sofar_equation) =
+    if List.length assumes > 0 || List.length guarantees > 0 then
       let sofar_assumption = mk_state_var
         ~is_input:false
         map
@@ -1738,13 +1736,13 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       let conj_of_assumes = assumes
         |> List.map (fun { C.svar } -> E.mk_var svar)
         |> E.mk_and_n
-        in
+      in
       let pre_sofar = E.mk_pre (E.mk_var sofar_assumption) in
       let expr = E.mk_arrow conj_of_assumes (E.mk_and conj_of_assumes pre_sofar) in
       let equation = (sofar_assumption, []), expr in
       let contract = C.mk assumes sofar_assumption guarantees modes in
       Some (contract), [sofar_local], [equation]
-    | None -> None, [], []
+    else None, [], []
   (* ****************************************************************** *)
   (* Finalize and build intermediate LustreNode                         *)
   (* ****************************************************************** *)

@@ -73,6 +73,7 @@ open Lib
 
 module A = LustreAst
 module AH = LustreAstHelpers
+module AIC = LustreAstInlineConstants
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 
@@ -174,9 +175,8 @@ type generated_identifiers = {
     list;
   subrange_constraints : (source
     * Lib.position
-    * string
-    * LustreAst.lustre_type
-    * LustreAst.expr)
+    * string (* Generated name for Range Expression *)
+    * string) (* Original name that is constrained *)
     list;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
@@ -248,18 +248,31 @@ let pp_print_generated_identifiers ppf gids =
       (pp_print_list Format.pp_print_string ",@ ") oracles
       (pp_print_option (pp_print_list A.pp_print_expr ",@")) defaults)
   in
+  let pp_print_source ppf source = Format.fprintf ppf (match source with
+    | Local -> "local"
+    | Input -> "input"
+    | Output -> "output"
+    | Ghost -> "ghost")
+  in
+  let pp_print_subrange_constraint ppf (source, pos, id, oid) =
+    Format.fprintf ppf "(%a, %a, %s, %s)"
+      pp_print_source source
+      Lib.pp_print_position pos
+      id oid
+  in
   let pp_print_contract_call ppf (ref, pos, scope, decl) = Format.fprintf ppf "%a := (%a, %a): %a"
     Format.pp_print_string ref
     pp_print_position pos
     (pp_print_list Format.pp_print_string "::") scope
     (pp_print_list A.pp_print_contract_item ";") decl
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n"
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_array_ctor "\n") array_ctor_list
     (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_node_arg "\n") gids.node_args
     (pp_print_list pp_print_call "\n") gids.calls
+    (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
 
 let compute_node_input_constant_mask decls =
@@ -405,15 +418,16 @@ let mk_range_expr expr_type nexpr = match expr_type with
     A.BinaryOp (dpos, A.And, l, u)
   | _ -> assert false
 
-let mk_fresh_subrange_constraint source info pos expr expr_type =
+let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
   i := !i + 1;
   let prefix = string_of_int !i in
   let name = prefix ^ "_subrange" in
+  let expr = A.Ident (pos, constrained_name) in
   let nexpr = A.Ident (pos, name) in
   let range_expr = mk_range_expr expr_type expr in
   let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_expr nexpr in
   let gids = { (empty ()) with
-    subrange_constraints = [(source, pos, name, expr_type, range_expr)];
+    subrange_constraints = [(source, pos, name, constrained_name)];
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_expr)]; }
   in
   gids
@@ -597,28 +611,43 @@ and normalize_node info map
   let info = { info with context = ctx } in
   (* Record subrange constraints on inputs, outputs, and locals *)
   let gids1 = inputs
-    |> List.filter (fun (_, _, t, _, _) -> AH.type_contains_subrange t)
-    |> List.fold_left (fun acc (p, i, t, _, _) ->
-        let expr = A.Ident (p, i) in
-        union acc (mk_fresh_subrange_constraint Input info p expr t))
+    |> List.filter (fun (_, i, _, _, _) -> 
+      let ty = Ctx.lookup_ty info.context i |> get in
+      AH.type_contains_subrange ty)
+    |> List.fold_left (fun acc (p, i, _, _, _) ->
+        let ty = Ctx.lookup_ty info.context i |> get in
+        (* This inlining step will become unnecessary when the backend no
+          longer demands constants in the integer range bounds *)
+        let ty = AIC.inline_constants_of_lustre_type info.context ty in
+        union acc (mk_fresh_subrange_constraint Input info p i ty))
         (empty ())
   in
   let gids2 = locals
     |> List.filter (function
-      | A.NodeVarDecl (_, (_, _, t, _)) -> AH.type_contains_subrange t
+      | A.NodeVarDecl (_, (_, i, _, _)) -> 
+        let ty = Ctx.lookup_ty info.context i |> get in
+        AH.type_contains_subrange ty
       | _ -> false)
     |> List.fold_left (fun acc l -> match l with
-      | A.NodeVarDecl (p, (_, i, t, _))
-        -> let expr = A.Ident (p, i) in
-          union acc (mk_fresh_subrange_constraint Local info p expr t)
+      | A.NodeVarDecl (p, (_, i, _, _)) -> 
+          let ty = Ctx.lookup_ty info.context i |> get in
+          (* This inlining step will become unnecessary when the backend no
+            longer demands constants in the integer range bounds *)
+          let ty = AIC.inline_constants_of_lustre_type info.context ty in
+          union acc (mk_fresh_subrange_constraint Local info p i ty)
       | _ -> assert false)
       (empty ())
   in
   let gids3 = outputs
-    |> List.filter (fun (_, _, t, _) -> AH.type_contains_subrange t)
-    |> List.fold_left (fun acc (p, i, t, _) ->
-      let expr = A.Ident (p, i) in
-      union acc (mk_fresh_subrange_constraint Output info p expr t))
+    |> List.filter (fun (_, i, _, _) -> 
+      let ty = Ctx.lookup_ty info.context i |> get in
+      AH.type_contains_subrange ty)
+    |> List.fold_left (fun acc (p, i, _, _) ->
+      let ty = Ctx.lookup_ty info.context i |> get in
+      (* This inlining step will become unnecessary when the backend no
+        longer demands constants in the integer range bounds *)
+      let ty = AIC.inline_constants_of_lustre_type info.context ty in
+      union acc (mk_fresh_subrange_constraint Output info p i ty))
       (empty ())
   in
   (* Normalize equations and the contract *)
@@ -719,18 +748,17 @@ and normalize_contract info map items =
         let ndecl, gids= normalize_ghost_declaration info map decl in
         GhostConst ndecl, gids, StringMap.empty
       | GhostVar decl ->
-        let gids1 = 
-          let pos, i, ty = (match decl with
-            | UntypedConst (pos, i, _) ->
-              let ty = Ctx.lookup_ty info.context i |> get in
-              pos, i, ty
-            | FreeConst (pos, i, ty)
-            | TypedConst (pos, i, _, ty) -> pos, i, ty)
-          in
-          let expr = A.Ident (pos, i) in
-          if AH.type_contains_subrange ty then
-            mk_fresh_subrange_constraint Ghost info pos expr ty
-          else empty ()
+        let gids1 = match decl with
+          | UntypedConst (pos, i, _)
+          | FreeConst (pos, i, _)
+          | TypedConst (pos, i, _, _) ->
+            let ty = Ctx.lookup_ty info.context i |> get in
+            (* This inlining step will become unnecessary when the backend no
+              longer demands constants in the integer range bounds *)
+            let ty = AIC.inline_constants_of_lustre_type info.context ty in
+            if AH.type_contains_subrange ty then
+              mk_fresh_subrange_constraint Ghost info pos i ty
+            else empty ()
         in
         let ndecl, gids2 = normalize_ghost_declaration info map decl in
         GhostVar ndecl, union gids1 gids2, StringMap.empty

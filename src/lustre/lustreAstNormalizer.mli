@@ -111,9 +111,8 @@ type generated_identifiers = {
     list;
   subrange_constraints : (source
     * Lib.position
-    * string
-    * LustreAst.lustre_type
-    * LustreAst.expr)
+    * string (* Generated name for Range Expression *)
+    * string) (* Original name that is constrained *)
     list;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
