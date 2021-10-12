@@ -1687,12 +1687,12 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     let create_constraint_name id = Format.asprintf "%s._bounds" id in
     let over_subrange_constraints (a, ac, g, gc, p) (source, pos, id, oid) =
       let sv = H.find !map.state_var (mk_ident id) in
-      let effective_contract = List.length guarantees > 1 || List.length modes > 1 in
+      let effective_contract = guarantees != [] || modes != [] in
       let constraint_kind = match source with
         | LAN.Input -> Some N.Assumption
-        | Local -> if not ext then None else Some N.Guarantee
+        | Local -> None
         | Output -> if not ext && not effective_contract then
-            Some N.Guarantee else None
+            None else Some N.Guarantee
         | Ghost -> Some N.Guarantee
       in
       match constraint_kind with
