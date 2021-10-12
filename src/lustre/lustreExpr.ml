@@ -463,16 +463,15 @@ and pp_print_term_node ?as_type safe pvar ppf t = match Term.T.destruct t with
   | exception Invalid_argument ex -> (
 
     match Term.T.node_of_t t with
-    | Term.T.Forall l -> (
+    | Term.T.Forall l -> (match Term.T.node_of_lambda l with
+      Term.T.L (_,t) -> (Format.fprintf ppf
+        "@[<hv 1>forall@ @[<hv 1>(...)@ %a@]@]"
+          (pp_print_term_node ?as_type safe pvar) t))
 
-      match Term.T.node_of_lambda l with
-      Term.T.L (_,t) -> (
-
-        Format.fprintf ppf "@[<hv 1>forall@ @[<hv 1>(...)@ %a@]@]"
-          (pp_print_term_node ?as_type safe pvar) t
-
-      )
-    )
+    | Term.T.Exists l -> (match Term.T.node_of_lambda l with
+      Term.T.L (_,t) -> (Format.fprintf ppf
+        "@[<hv 1>exists@ @[<hv 1>(...)@ %a@]@]"
+          (pp_print_term_node ?as_type safe pvar) t))
 
     | Term.T.BoundVar _ -> Term.T.pp_print_term ppf t
 
