@@ -134,7 +134,25 @@ let expand_type_syn: tc_context -> tc_type -> tc_type
       | None -> ty
       | Some ty' -> ty')
   | ty -> ty 
-(** Chases the type to its base form to resolve type synomyms *)
+(** Chases the type to its base form to resolve type synonyms *)
+
+let rec expand_nested_type_syn: tc_context -> tc_type -> tc_type
+  = fun ctx -> function
+  | UserType _ as ty -> expand_type_syn ctx ty
+  | TupleType (p, tys) ->
+    let tys = List.map (expand_nested_type_syn ctx) tys in
+    TupleType (p, tys)
+  | GroupType (p, tys) ->
+    let tys = List.map (expand_nested_type_syn ctx) tys in
+    GroupType (p, tys)
+  | RecordType (p, tys) ->
+    let tys = List.map (fun (p, i, t) -> p, i, expand_nested_type_syn ctx t) tys in
+    RecordType (p, tys)
+  | ArrayType (p, (ty, e)) ->
+    let ty = expand_nested_type_syn ctx ty in
+    ArrayType (p, (ty, e))
+  | ty -> ty
+(** Chases the type (and nested types) to its base form to resolve type synonyms *)
 
 let lookup_ty: tc_context -> LA.ident -> tc_type option
   = fun ctx i ->

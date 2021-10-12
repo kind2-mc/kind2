@@ -73,6 +73,7 @@ open Lib
 
 module A = LustreAst
 module AH = LustreAstHelpers
+module AIC = LustreAstInlineConstants
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 
@@ -136,6 +137,8 @@ let clear_cache () =
   local_cache := LocalCache.empty;
   node_arg_cache := LocalCache.empty;
 
+type source = Local | Input | Output | Ghost
+
 type generated_identifiers = {
   node_args : (string (* abstracted variable name *)
     * bool (* whether the variable is constant *)
@@ -169,6 +172,11 @@ type generated_identifiers = {
     * string (* node name *)
     * (LustreAst.expr list) (* node arguments *)
     * (LustreAst.expr list option)) (* node argument defaults *)
+    list;
+  subrange_constraints : (source
+    * Lib.position
+    * string (* Generated name for Range Expression *)
+    * string) (* Original name that is constrained *)
     list;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
@@ -240,18 +248,31 @@ let pp_print_generated_identifiers ppf gids =
       (pp_print_list Format.pp_print_string ",@ ") oracles
       (pp_print_option (pp_print_list A.pp_print_expr ",@")) defaults)
   in
+  let pp_print_source ppf source = Format.fprintf ppf (match source with
+    | Local -> "local"
+    | Input -> "input"
+    | Output -> "output"
+    | Ghost -> "ghost")
+  in
+  let pp_print_subrange_constraint ppf (source, pos, id, oid) =
+    Format.fprintf ppf "(%a, %a, %s, %s)"
+      pp_print_source source
+      Lib.pp_print_position pos
+      id oid
+  in
   let pp_print_contract_call ppf (ref, pos, scope, decl) = Format.fprintf ppf "%a := (%a, %a): %a"
     Format.pp_print_string ref
     pp_print_position pos
     (pp_print_list Format.pp_print_string "::") scope
     (pp_print_list A.pp_print_contract_item ";") decl
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n"
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_array_ctor "\n") array_ctor_list
     (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_node_arg "\n") gids.node_args
     (pp_print_list pp_print_call "\n") gids.calls
+    (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
 
 let compute_node_input_constant_mask decls =
@@ -289,6 +310,7 @@ let empty () = {
     propagated_oracles = [];
     calls = [];
     contract_calls = StringMap.empty;
+    subrange_constraints = [];
     equations = [];
   }
 
@@ -310,6 +332,7 @@ let union ids1 ids2 = {
     calls = ids1.calls @ ids2.calls;
     contract_calls = StringMap.merge union_keys
       ids1.contract_calls ids2.contract_calls;
+    subrange_constraints = ids1.subrange_constraints @ ids2.subrange_constraints;
     equations = ids1.equations @ ids2.equations;
   }
 
@@ -354,15 +377,8 @@ let mk_fresh_local info pos is_ghost ind_vars expr_type expr oexpr =
   let scope = info.contract_scope in
   let nexpr = A.Ident (pos, name) in
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
-  let gids = {
+  let gids = { (empty ()) with
     locals = StringMap.singleton name (is_ghost, scope, expr_type, expr, oexpr);
-    array_constructors = StringMap.empty;
-    warnings = [];
-    node_args = [];
-    oracles = [];
-    propagated_oracles = [];
-    calls = []; 
-    contract_calls = StringMap.empty;
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in
   local_cache := LocalCache.add expr nexpr !local_cache;
@@ -374,14 +390,8 @@ let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
   let name = prefix ^ "_varray" in
   let nexpr = A.Ident (pos, name) in
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
-  let gids = { locals = StringMap.empty;
+  let gids = { (empty ()) with
     array_constructors = StringMap.singleton name (expr_type, expr, size_expr);
-    warnings = [];
-    node_args = [];
-    oracles = [];
-    propagated_oracles = [];
-    calls = []; 
-    contract_calls = StringMap.empty;
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in nexpr, gids
 
@@ -394,45 +404,73 @@ let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
   let name = prefix ^ "_gklocal" in
   let nexpr = A.Ident (pos, name) in
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
-  let gids = { locals = StringMap.empty;
-    array_constructors = StringMap.empty;
-    warnings = [];
+  let gids = { (empty ()) with
     node_args = [(name, is_const, expr_type, expr)];
-    oracles = [];
-    propagated_oracles = [];
-    calls = [];
-    contract_calls = StringMap.empty;
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in
   node_arg_cache := LocalCache.add expr nexpr !node_arg_cache;
   nexpr, gids
+
+let mk_range_expr expr_type expr = 
+  let mk_and tys =
+    List.fold_left (fun acc e -> A.BinaryOp (dpos, A.And, acc, e))
+      (A.Const (dpos, A.True)) tys
+  in
+  let rec mk n expr_type expr = match expr_type with
+    | A.IntRange (_, l, u) -> 
+      let l = A.CompOp (dpos, A.Lte, l, expr) in
+      let u = A.CompOp (dpos, A.Lte, expr, u) in
+      A.BinaryOp (dpos, A.And, l, u)
+    | A.ArrayType (_, (ty, upper_bound)) ->
+      let id_str = "x" ^ (string_of_int n) in
+      let id = A.Ident (dpos, id_str) in
+      let expr = A.ArrayIndex (dpos, expr, id) in
+      let rexpr = mk (succ n) ty expr in
+      let l = A.CompOp (dpos, A.Lte, A.Const (dpos, A.Num "0"), id) in
+      let u = A.CompOp (dpos, A.Lt, id, upper_bound) in
+      let assumption = A.BinaryOp (dpos, A.And, l, u) in
+      let var = dpos, id_str, (A.Int dpos) in
+      let body = A.BinaryOp (dpos, A.Impl, assumption, rexpr) in
+      A.Quantifier (dpos, A.Forall, [var], body)
+    | TupleType (_, tys) ->
+      let mk_proj i = A.TupleProject (dpos, expr, i) in
+      let tys = List.filter (fun ty -> AH.type_contains_subrange ty) tys in
+      let tys = List.mapi (fun i ty -> mk n ty (mk_proj i)) tys in
+      mk_and tys
+    | RecordType (_, tys) ->
+      let mk_proj i = A.RecordProject (dpos, expr, i) in
+      let tys = List.filter (fun (_, _, ty) -> AH.type_contains_subrange ty) tys in
+      let tys = List.map (fun (_, i, ty) -> mk n ty (mk_proj i)) tys in
+      mk_and tys
+    | _ -> assert false
+  in
+  mk 0 expr_type expr
+
+let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
+  i := !i + 1;
+  let prefix = string_of_int !i in
+  let name = prefix ^ "_subrange" in
+  let expr = A.Ident (pos, constrained_name) in
+  let nexpr = A.Ident (pos, name) in
+  let range_expr = mk_range_expr expr_type expr in
+  let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_expr nexpr in
+  let gids = { (empty ()) with
+    subrange_constraints = [(source, pos, name, constrained_name)];
+    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_expr)]; }
+  in
+  gids
 
 let mk_fresh_oracle expr_type expr =
   i := !i + 1;
   let prefix = string_of_int !i in
   let name = prefix ^ "_oracle" in
   let nexpr = A.Ident (Lib.dummy_pos, name) in
-  let gids = { locals = StringMap.empty;
-    array_constructors = StringMap.empty;
-    warnings = [];
-    node_args = [];
-    oracles = [name, expr_type, expr];
-    propagated_oracles = [];
-    calls = [];
-    contract_calls = StringMap.empty;
-    equations = []; }
+  let gids = { (empty ()) with
+    oracles = [name, expr_type, expr]; }
   in nexpr, gids
 
 let record_warning pos original =
-  { locals = StringMap.empty;
-    array_constructors = StringMap.empty;
-    warnings = [(pos, original)];
-    node_args = [];
-    oracles = [];
-    propagated_oracles = [];
-    calls = [];
-    contract_calls = StringMap.empty;
-    equations = []; }
+  { (empty ()) with  warnings = [(pos, original)]; }
 
 let mk_fresh_call id map pos cond restart args defaults =
   let called_node = StringMap.find id map in
@@ -459,15 +497,9 @@ let mk_fresh_call id map pos cond restart args defaults =
   in
   let oracle_args = List.map (fun (p, _) -> p) propagated_oracles in
   let call = (pos, oracle_args, name, cond, restart, id, args, defaults) in
-  let gids = { locals = StringMap.empty;
-    array_constructors = StringMap.empty;
-    warnings = [];
-    node_args = [];
-    oracles = [];
+  let gids = { (empty ()) with
     propagated_oracles = propagated_oracles;
-    calls = [call];
-    contract_calls = StringMap.empty;
-    equations = []; }
+    calls = [call];}
   in
   call_cache := CallCache.add (id, cond, restart, args, defaults) nexpr !call_cache;
   nexpr, gids
@@ -579,28 +611,82 @@ and normalize_ghost_declaration info map = function
   | e -> e, empty ()
 
 and normalize_node info map
-    (id, is_func, params, inputs, outputs, locals, items, contracts) =
+    (id, is_extern, params, inputs, outputs, locals, items, contracts) =
+  (* Setup the typing context *)
   let constants_ctx = inputs
     |> List.map Ctx.extract_consts
-    |> (List.fold_left Ctx.union info.context) in
+    |> (List.fold_left Ctx.union info.context)
+  in
   let input_ctx = inputs
     |> List.map Ctx.extract_arg_ctx
     |> (List.fold_left Ctx.union info.context)
-  in let output_ctx = outputs
+  in
+  let output_ctx = outputs
     |> List.map Ctx.extract_ret_ctx
     |> (List.fold_left Ctx.union info.context)
-  in let ctx = Ctx.union
+  in
+  let ctx = Ctx.union
     (Ctx.union constants_ctx info.context)
     (Ctx.union input_ctx output_ctx)
-  in let ctx = List.fold_left
+  in
+  let ctx = List.fold_left
     (fun ctx local -> Chk.local_var_binding ctx local
       |> Res.map_err (fun (_, s) -> fun ppf -> Format.pp_print_string ppf s)
       |> Res.unwrap)
     ctx
     locals
-  in let info = { info with context = ctx } in
-  let nitems, gids1 = normalize_list (normalize_item info map) items in
-  let ncontracts, gids2 = match contracts with
+  in
+  let info = { info with context = ctx } in
+  (* Record subrange constraints on inputs, outputs, and locals *)
+  let gids1 = inputs
+    |> List.filter (fun (_, i, _, _, _) -> 
+        let ty = Ctx.lookup_ty info.context i |> get in
+        let ty = Ctx.expand_nested_type_syn ctx ty in
+        AH.type_contains_subrange ty)
+    |> List.fold_left (fun acc (p, i, _, _, _) ->
+        let ty = Ctx.lookup_ty info.context i |> get in
+        let ty = Ctx.expand_nested_type_syn ctx ty in
+        (* This inlining step will become unnecessary when the backend no
+          longer demands constants in the integer range bounds *)
+        let ty = AIC.inline_constants_of_lustre_type info.context ty in
+        union acc (mk_fresh_subrange_constraint Input info p i ty))
+        (empty ())
+  in
+  let gids2 = locals
+    |> List.filter (function
+      | A.NodeVarDecl (_, (_, i, _, _)) -> 
+        let ty = Ctx.lookup_ty info.context i |> get in
+        let ty = Ctx.expand_nested_type_syn ctx ty in
+        AH.type_contains_subrange ty
+      | _ -> false)
+    |> List.fold_left (fun acc l -> match l with
+      | A.NodeVarDecl (p, (_, i, _, _)) -> 
+          let ty = Ctx.lookup_ty info.context i |> get in
+          let ty = Ctx.expand_nested_type_syn ctx ty in
+          (* This inlining step will become unnecessary when the backend no
+            longer demands constants in the integer range bounds *)
+          let ty = AIC.inline_constants_of_lustre_type info.context ty in
+          union acc (mk_fresh_subrange_constraint Local info p i ty)
+      | _ -> assert false)
+      (empty ())
+  in
+  let gids3 = outputs
+    |> List.filter (fun (_, i, _, _) -> 
+        let ty = Ctx.lookup_ty info.context i |> get in
+        let ty = Ctx.expand_nested_type_syn ctx ty in
+        AH.type_contains_subrange ty)
+    |> List.fold_left (fun acc (p, i, _, _) ->
+        let ty = Ctx.lookup_ty info.context i |> get in
+        let ty = Ctx.expand_nested_type_syn ctx ty in
+        (* This inlining step will become unnecessary when the backend no
+          longer demands constants in the integer range bounds *)
+        let ty = AIC.inline_constants_of_lustre_type info.context ty in
+        union acc (mk_fresh_subrange_constraint Output info p i ty))
+        (empty ())
+  in
+  (* Normalize equations and the contract *)
+  let nitems, gids4 = normalize_list (normalize_item info map) items in
+  let ncontracts, gids5 = match contracts with
     | Some contracts ->
       let ctx = Chk.tc_ctx_of_contract info.context contracts
         |> Res.map_err (fun (_, s) -> fun ppf -> Format.pp_print_string ppf s)
@@ -611,9 +697,10 @@ and normalize_node info map
         contracts in
       (Some ncontracts), gids
     | None -> None, empty ()
-  in let gids = union gids1 gids2 in
+  in
+  let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
   let map = StringMap.singleton id gids in
-  (id, is_func, params, inputs, outputs, locals, nitems, ncontracts), map
+  (id, is_extern, params, inputs, outputs, locals, nitems, ncontracts), map
 
 and normalize_item info map = function
   | Body equation ->
@@ -695,8 +782,21 @@ and normalize_contract info map items =
         let ndecl, gids= normalize_ghost_declaration info map decl in
         GhostConst ndecl, gids, StringMap.empty
       | GhostVar decl ->
-        let ndecl, gids = normalize_ghost_declaration info map decl in
-        GhostVar ndecl, gids, StringMap.empty
+        let gids1 = match decl with
+          | UntypedConst (pos, i, _)
+          | FreeConst (pos, i, _)
+          | TypedConst (pos, i, _, _) ->
+            let ty = Ctx.lookup_ty info.context i |> get in
+            let ty = Ctx.expand_nested_type_syn info.context ty in
+            (* This inlining step will become unnecessary when the backend no
+              longer demands constants in the integer range bounds *)
+            let ty = AIC.inline_constants_of_lustre_type info.context ty in
+            if AH.type_contains_subrange ty then
+              mk_fresh_subrange_constraint Ghost info pos i ty
+            else empty ()
+        in
+        let ndecl, gids2 = normalize_ghost_declaration info map decl in
+        GhostVar ndecl, union gids1 gids2, StringMap.empty
     in
 (*     Format.eprintf "accum interp: %a\n\n"
       (pp_print_list

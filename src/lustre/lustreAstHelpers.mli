@@ -37,6 +37,9 @@ val expr_is_false : expr -> bool
 val pos_of_expr : expr -> Lib.position
 (** Returns the position of an expression *)
 
+val type_contains_subrange : lustre_type -> bool
+(** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
+
 val substitute : string -> expr -> expr -> expr
 (** Subsitute the supplied identifier and expression into the last expression *)
 

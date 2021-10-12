@@ -313,6 +313,10 @@ let no_calls_to_node ctx = function
     else Ok ()
   | _ -> Ok ()
 
+(* Note: this check is simpler if done after the contract imports have all been
+  resolved and combined (e.g. after a LustreNode has been constructed).
+  Therefore, it may make sense to move this check to that point instead of 
+  tracing through the imports early on in the LustreAST here *)
 let no_calls_to_nodes_with_contracts_subject_to_refinement ctx expr =
   let rec check_only_assumptive imports =
     let over_imports i a = match StringMap.find_opt i ctx.contracts with
