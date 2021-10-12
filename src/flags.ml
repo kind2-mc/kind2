@@ -2794,7 +2794,7 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Use the old frontend (disables typechecking).@ \
+          Use the old Lustre front-end.@ \
           Default: %a\
         "
         fmt_bool old_frontend_default

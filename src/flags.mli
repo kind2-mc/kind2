@@ -194,7 +194,7 @@ val only_parse : unit -> bool
 (** Provide AST info for language-servers. *)
 val lsp : unit -> bool
 
-(** Use the old frontend (disables typechecking). *)
+(** Use the old Lustre front-end. *)
 val old_frontend : unit -> bool
 
 (** The modules enabled. *)

@@ -112,7 +112,7 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
 
 let type_check declarations =
   let tc_res =
-    (Log.log L_note "(Experimental) Typechecking enabled.";
+    (Log.log L_note "(Experimental) New front-end enabled";
 
     (* Step 1. Basic syntax checks on declarations  *)
     LS.syntax_check declarations >>= fun declarations ->
@@ -157,7 +157,7 @@ let type_check declarations =
         "@[<hov 2>Unguarded pre in expression@ %a@]"
         LA.pp_print_expr e))
       unguarded_pre_warnings;
-    Log.log L_note "Type checking done"
+    Debug.parse "Type checking done"
     ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_program d
     ; (c, g, d)
   | Error (pos, err) -> fail_at_position pos err
