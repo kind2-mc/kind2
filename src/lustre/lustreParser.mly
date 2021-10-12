@@ -227,7 +227,8 @@ let merge_branches transitions =
 %left LT LTE EQUALS NEQ GTE GT
 %left PLUS MINUS
 %left MULT INTDIV MOD DIV
-%left BVAND BVOR
+%left BVOR
+%left BVAND
 %nonassoc LSH RSH
 %nonassoc PRE 
 %nonassoc INT REAL 
