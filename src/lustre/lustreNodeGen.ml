@@ -1722,7 +1722,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* Finalize Contracts and add Sofar assumption                        *)
   (* ****************************************************************** *)
   in let (contract, sofar_local, sofar_equation) =
-    if List.length assumes > 0 || List.length guarantees > 0 then
+    if assumes != [] || guarantees != [] then
       let sofar_assumption = mk_state_var
         ~is_input:false
         map
