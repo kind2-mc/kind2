@@ -1083,7 +1083,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   (* Ghost Constants and Variables                                      *)
   (* ****************************************************************** *)
   List.iter
-    (fun g -> g |> compile_const_decl ~ghost:true cstate ctx map |> ignore)
+    (fun g -> g |> compile_const_decl ~ghost:true cstate ctx map [] |> ignore)
     gconsts;
 
   let ghost_locals, ghost_equations =
@@ -1294,8 +1294,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   (* User Locals                                                        *)
   (* ****************************************************************** *)
-  in let locals =
-    let over_locals = fun local ->
+  in let locals, cstate =
+    let over_locals = fun (locals, cstate) local ->
       match local with
       | A.NodeVarDecl (_, (_, i, ast_type, A.ClockTrue)) ->
         let ident = mk_ident i
@@ -1311,15 +1311,16 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
             (Some N.Local)
           in let result = X.add index state_var accum in
           result
-        in Some (X.fold over_indices index_types X.empty)
+        in
+        (X.fold over_indices index_types X.empty) :: locals, cstate
       | A.NodeConstDecl (_, decl) ->
-        compile_const_decl ~ghost:true cstate ctx map decl |> ignore;
-        None
+        locals, compile_const_decl cstate ctx map (node_scope @ ["impl"]) decl
       | A.NodeVarDecl (_, (pos, i, _, _)) -> fail_at_position pos
         (Format.asprintf
           "Clocked node local variable not supported for %a"
           A.pp_print_ident i)
-    in list_filter_map over_locals locals
+    in
+    List.fold_left over_locals ([], cstate) locals
   (* ****************************************************************** *)
   (* (State Variables for) Generated Locals                             *)
   (* ****************************************************************** *)
@@ -1720,7 +1721,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     nodes = node :: cstate.nodes;
   }
 
-and compile_const_decl ?(ghost = false) cstate ctx map = function
+and compile_const_decl ?(ghost = false) cstate ctx map scope = function
   | A.FreeConst (_, i, ty) ->
     let ident = mk_ident i in
     let cty = compile_ast_type cstate ctx map ty in
@@ -1730,14 +1731,15 @@ and compile_const_decl ?(ghost = false) cstate ctx map = function
         ?is_const:(Some true)
         ?for_inv_gen:(Some true)
         map
-        I.user_scope
+        (scope @ I.user_scope)
         ident
         i
         ty
         None
       in let v = Var.mk_const_state_var state_var in
       X.add i v vt
-    in let vt = X.fold over_index cty X.empty in
+    in
+    let vt = X.fold over_index cty X.empty in
     if ghost then cstate
     else { cstate
       with free_constants = StringMap.add i vt cstate.free_constants }
@@ -1773,7 +1775,7 @@ and compile_declaration cstate gids ctx decl =
     compile_type_decl pos ctx cstate type_rhs
   | A.ConstDecl (_, const_decl) ->
     let empty_map = ref (empty_identifier_maps ()) in
-    compile_const_decl cstate ctx empty_map const_decl
+    compile_const_decl cstate ctx empty_map [] const_decl
   | A.FuncDecl (_, (i, ext, [], inputs, outputs, locals, items, contracts)) ->
     let gids = LAN.StringMap.find i gids in
     compile_node_decl gids true cstate ctx i ext inputs outputs locals items contracts
