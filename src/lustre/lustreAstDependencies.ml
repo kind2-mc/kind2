@@ -400,12 +400,13 @@ let extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
   = List.fold_left
       (fun acc eqn ->
         (match eqn with
-         | LA.Body bneq ->
-            (match bneq with
-             | LA.Assert (_, e) -> get_node_call_from_expr e
-             | LA.Equation (_, _, e) -> get_node_call_from_expr e
-             | LA.Automaton _ -> [] ) (* We do not support automation yet. *)
-         | _ -> []) @ acc) [] 
+          | LA.Body bneq ->
+              (match bneq with
+              | LA.Assert (_, e) -> get_node_call_from_expr e
+              | LA.Equation (_, _, e) -> get_node_call_from_expr e
+              | LA.Automaton _ -> [] ) (* We do not support automation yet. *)
+          | AnnotProperty (_, _, e) -> get_node_call_from_expr e
+          | _ -> []) @ acc) [] 
 (** Extracts all the node calls from a node item *)
   
 let mk_graph_node_decl: Lib.position -> LA.node_decl -> dependency_analysis_data
