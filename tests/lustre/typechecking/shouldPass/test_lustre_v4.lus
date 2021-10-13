@@ -38,7 +38,7 @@ let
   N1 = 0 -> if X then pre N + 1 else pre N;
   PN = 0 -> pre N;
   N2 = if X then PN + 1 else PN;
-  -- N3 = if X then ((0 -> pre N) + 1) else (0 -> pre N);
+  N3 = if X then (0 -> pre N) + 1 else (0 -> pre N);
   N4 = (0 -> pre N) + if X then 0 else 1;
 tel
 
@@ -118,7 +118,7 @@ tel
 
 -- Section 2
 
-/* TODO: 
+
 -- Two free types 
 type TIME, DAY;
 type DISPLAY = [TIME, DAY];
@@ -135,13 +135,13 @@ function imported ToMorrow (today: DAY) returns (tomorrow: DAY);
 node Timer (second: bool) returns (display: DISPLAY);
 var time: TIME; day: DAY; change_day: bool;
 let
-  display = [time, day];
+  display = {time, day};
   (time, change_day) = 
     (initial_time, false) -> if second then Increment_Time(pre time)
                              else pre(time, change_day);
   day = Mo -> if change_day then ToMorrow(pre day) else pre day;
 tel
-*/
+
 
 /* TODO
 const 
@@ -167,23 +167,23 @@ tel
 type T2 = int^3^5;
 type complex = [real, real];
 
-/*
+
 node x22 () returns ();
 var x, y: complex;
 let
-  x = [0.0, 1.0]; -- this is outrageously wrong! arrays and tuples have same syntax :(
+  x = {0.0, 1.0};
   y = x;
 tel;
-*/
+
 
 const 
   PI = 3.1416;
   -- RightAngle = PI/2.0;
 
-/* TODO: FIX ME 
-
 const size:int = 64;
 type vector = int^size;
+
+/* TODO:
 
 -- Node with clocked local stream
 node x23 () returns ();
@@ -208,10 +208,10 @@ let
 tel
 */
 
-/*
+
 node N (x, y: bool; const low, high: int) returns ();
 let tel;
-*/
+
 
 /* TODO: 
 

@@ -11,7 +11,7 @@ let message =
     | 1 ->
         "Syntax Error! Incomplete type declaration.\n"
     | 373 ->
-        "Syntax Error! Perhaps an illegal expression in contract call.\n"
+        "Syntax Error! Perhaps an illegal expression in contract instantiation.\n"
     | 996 ->
         "Syntax Error! Perhaps an illegal declaration for imported node or function.\n"
     | 10 ->

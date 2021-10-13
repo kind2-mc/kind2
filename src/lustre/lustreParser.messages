@@ -13923,7 +13923,7 @@ main: TYPE WEAKLY XOR
 ## ident
 ##
 
-Syntax Error! Perhaps an illegal expression in contract call.
+Syntax Error! Perhaps an illegal expression in contract instantiation.
 
 main: TYPE XOR
 ##
