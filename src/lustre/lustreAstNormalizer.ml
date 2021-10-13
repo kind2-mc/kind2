@@ -1033,7 +1033,7 @@ and normalize_expr ?guard info map =
       else Chk.infer_type_expr info.context expr
         |> Res.map_err (fun (_, s) -> fun ppf -> Format.pp_print_string ppf s)
         |> Res.unwrap in
-    let nexpr, gids1 = abstract_expr ?guard false info map false expr in
+    let nexpr, gids1 = abstract_expr ?guard:None false info map false expr in
     let guard, gids2, previously_guarded = match guard with
       | Some guard -> guard, empty (), true
       | None ->
