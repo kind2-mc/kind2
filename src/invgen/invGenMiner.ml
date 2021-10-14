@@ -112,6 +112,8 @@ let rec get_last = function
 | [] -> raise Not_found
 | _ :: t -> get_last t
 
+let flat_apply_warning_reported = ref false
+
 (* Applies something to all flat subterms of a term.
 
 Adds to the input set. *)
@@ -119,12 +121,16 @@ let flat_apply term work set =
   let set_ref = ref set in
   let memorize set' = set_ref := set' in
   (try
-    Term.eval_t ~fail_on_quantifiers:false (
+    Term.eval_t ~fail_on_quantifiers:true (
       fun flat_term _ -> work flat_term !set_ref |> memorize
     ) term ;
    with Invalid_argument _ ->
-     KEvent.log L_warn
-       "Cannot mine invariants in quantified terms"
+     (* Report warning once per miner instance *)
+     if not !flat_apply_warning_reported then (
+       KEvent.log L_warn
+         "Cannot mine invariants in quantified terms";
+       flat_apply_warning_reported := true
+     )
   );
   !set_ref
 
