@@ -685,13 +685,12 @@ and compile_ast_expr
     let cexpr2 = compile_ast_expr cstate ctx bounds map expr2 in
     let rec aux accum = function
       | [] -> List.rev accum
-      | A.Label (pos, index) :: tl ->
+      | A.Label (_, index) :: tl ->
         let accum' = X.RecordIndex index :: accum in
         if X.mem_prefix (List.rev accum') cexpr1 then
           aux accum' tl
-        else fail_at_position pos
-          (Format.asprintf "Invalid index %s for expression" index)
-      | A.Index (pos, index_expr) :: tl ->
+        else assert false (* guaranteed by type checker *)
+      | A.Index (_, index_expr) :: tl ->
         let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
         let index = (index_cexpr |> X.values |> List.hd).expr_init in
         let cexpr_sub = X.find_prefix accum cexpr1 in
@@ -702,10 +701,10 @@ and compile_ast_expr
               | X.ArrayVarIndex _ :: _, _
               | X.ArrayIntIndex _ :: _, _ -> X.ArrayIntIndex value
               | X.TupleIndex _ :: _,_ -> X.TupleIndex value
-              | _ -> fail_at_position pos "Invalid index for expression")
+              | _ -> assert false (* guaranteed by type checker *))
           else (match X.choose cexpr_sub with
             | X.ArrayVarIndex _ :: _, _ -> X.ArrayVarIndex index
-            | _ -> fail_at_position pos "Invalid index for expression" )
+            | _ -> assert false (* guaranteed by type checker *) )
         in aux (i :: accum) tl
     in
     let rec mk_cond_indexes (acc, cpt) li ri =

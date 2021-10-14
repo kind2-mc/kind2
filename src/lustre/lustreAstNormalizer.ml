@@ -532,7 +532,7 @@ let rec normalize ctx (decls:LustreAst.t) =
     ([], StringMap.empty) decls
   in let ast = List.rev ast in
   
-  Log.log L_trace ("===============================================\n"
+  Debug.parse ("===============================================\n"
     ^^ "Generated Identifiers:\n%a\n\n"
     ^^ "Normalized lustre AST:\n%a\n"
     ^^ "===============================================\n")
@@ -631,7 +631,7 @@ and normalize_node info map
   in
   let ctx = List.fold_left
     (fun ctx local -> Chk.local_var_binding ctx local
-      |> Res.map_err (fun (_, s) -> fun ppf -> Format.pp_print_string ppf s)
+      |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
       |> Res.unwrap)
     ctx
     locals
@@ -689,7 +689,7 @@ and normalize_node info map
   let ncontracts, gids5 = match contracts with
     | Some contracts ->
       let ctx = Chk.tc_ctx_of_contract info.context contracts
-        |> Res.map_err (fun (_, s) -> fun ppf -> Format.pp_print_string ppf s)
+        |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
         |> Res.unwrap in
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
@@ -865,7 +865,7 @@ and abstract_expr ?guard force info map is_ghost expr =
     let ty = if expr_has_inductive_var ivars expr |> is_some then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
     else Chk.infer_type_expr info.context expr
-      |> Res.map_err (fun (_, s) -> fun ppf -> Format.pp_print_string ppf s)
+      |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
       |> Res.unwrap in
     let nexpr, gids1 = normalize_expr ?guard info map expr in
     let iexpr, gids2 = mk_fresh_local info pos is_ghost ivars ty nexpr expr in
@@ -906,7 +906,7 @@ and normalize_expr ?guard info map =
       let ty = if expr_has_inductive_var ivars expr |> is_some then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
       else Chk.infer_type_expr info.context expr
-        |> Res.map_err (fun (_, s) -> fun ppf -> Format.pp_print_string ppf s)
+        |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
         |> Res.unwrap in
       let nexpr, gids1 = normalize_expr ?guard info map expr in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ivars ty nexpr in
@@ -1031,7 +1031,7 @@ and normalize_expr ?guard info map =
     let ty = if expr_has_inductive_var ivars expr |> is_some then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
       else Chk.infer_type_expr info.context expr
-        |> Res.map_err (fun (_, s) -> fun ppf -> Format.pp_print_string ppf s)
+        |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
         |> Res.unwrap in
     let nexpr, gids1 = abstract_expr ?guard:None false info map false expr in
     let guard, gids2, previously_guarded = match guard with
@@ -1055,7 +1055,7 @@ and normalize_expr ?guard info map =
     let ty = if expr_has_inductive_var ivars expr |> is_some then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
     else Chk.infer_type_expr info.context expr
-      |> Res.map_err (fun (_, s) -> fun ppf -> Format.pp_print_string ppf s)
+      |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
       |> Res.unwrap in
     let nexpr, gids1 = normalize_expr ?guard info map expr in
     let ivars = info.inductive_variables in

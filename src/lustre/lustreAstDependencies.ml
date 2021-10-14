@@ -37,7 +37,6 @@ module LA = LustreAst
 module LH = LustreAstHelpers
 module SI = LA.SI
 
-open Lib
 open LustreReporting
           
 type 'a graph_result = ('a, Lib.position * string) result  
@@ -683,7 +682,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
      (mk_graph_expr2 m e3) >>= fun g3 ->
      if (List.length g3 != List.length g2)
      then
-       (Log.log L_trace ("e2: %a"
+       (Debug.parse ("e2: %a"
                          ^^ "\ne3: %a"
                          ^^ "\ng2 length %a: %a"
                          ^^ "\ng3 length %a: %a")
@@ -715,9 +714,8 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
      mk_graph_expr2 m e1 >>= fun g1 ->
      mk_graph_expr2 m e2 >>= fun g2 -> 
      R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (g1 @ g2)] 
-  | LA.GroupExpr (_, ExprList, es) as e->
-     Log.log L_trace "This is an ExprList %a" LA.pp_print_expr e   
-    ; R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs -> R.ok (List.concat gs)
+  | LA.GroupExpr (_, ExprList, es) ->
+    R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs -> R.ok (List.concat gs)
   | LA.GroupExpr (_, _, es) ->
      R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs ->
      R.ok [List.fold_left
@@ -750,12 +748,12 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
        R.ok (List.map (map_g_pos (fun v -> v ^ "$p")) g) 
   | LA.Last (pos, i) -> R.ok [singleton_dependency_analysis_data "last$" i pos]
   | LA.Fby (p, e1, _, e2)
-    | LA.Arrow (p, e1, e2) as e ->
+  | LA.Arrow (p, e1, e2) as e ->
      mk_graph_expr2 m e1 >>= fun g1 ->
      mk_graph_expr2 m e2 >>= fun g2 ->
      if (List.length g1 != List.length g2) then
        (
-         Log.log L_trace ("LHS: %a\n"
+         Debug.parse ("LHS: %a\n"
                           ^^ "LHS graphs : %a\n"
                           ^^ " RHS: %a\n"
                           ^^ " RHS: graphs %a\n") 
@@ -875,7 +873,7 @@ let expression_current_streams: dependency_analysis_data -> LA.expr -> LA.ident 
   let vars = vars_with_flattened_nodes ad.nsummary (LH.abstract_pre_subexpressions e) in
   let vs = LA.SI.elements (SI.flatten vars) in
   let rechable_vs = List.concat (List.map (fun v -> G.to_vertex_list (G.reachable ad.graph_data v)) vs) in
-  Log.log L_trace "Current Stream Usage for %a: %a"
+  Debug.parse "Current Stream Usage for %a: %a"
     (Lib.pp_print_list G.pp_print_vertex ", ") vs
     (Lib.pp_print_list G.pp_print_vertex ", ") rechable_vs 
   ; R.ok rechable_vs
@@ -885,7 +883,7 @@ let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr ->
   = fun node_out_streams ad e -> 
   expression_current_streams ad e >>= fun s ->
   R.ok (SI.inter node_out_streams (LA.SI.of_list s)) >>= fun assume_vars_out_streams -> 
-  Log.log L_trace "node_params: %a non pre vars of e: %a"
+  Debug.parse "node_params: %a non pre vars of e: %a"
     (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_streams)
     (Lib.pp_print_list LA.pp_print_ident ", ")
     (SI.elements (LH.vars (LH.abstract_pre_subexpressions e)))
@@ -920,7 +918,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
                                   -> LA.contract_node_decl
                                   -> LA.contract_node_decl graph_result
   = fun ad ((i, params , ips, ops, contract) as decl)->
-  Log.log L_trace "Sorting contract equations for %a" LA.pp_print_ident i
+  Debug.parse "Sorting contract equations for %a" LA.pp_print_ident i
   ; let ip_ids = List.map (fun ip -> LH.extract_ip_ty ip |> fst) ips in
     let op_ids = List.map (fun ip -> LH.extract_op_ty ip |> fst) ops in
     let ids_to_skip = SI.of_list (ip_ids @ op_ids) in 
@@ -942,7 +940,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
     let (to_sort_eqns, assums_grantees) = split_contract_equations contract in
     mk_contract_eqn_map IMap.empty to_sort_eqns >>= fun eqn_map ->
          extract_decls eqn_map equational_vars >>= fun contract' ->
-      Log.log L_trace "sorted contract equations for contract %a %a"
+      Debug.parse "sorted contract equations for contract %a %a"
         LA.pp_print_ident i
         (Lib.pp_print_list LA.pp_print_contract_item "\n") contract'
 
@@ -977,7 +975,7 @@ let sort_declarations: LA.t -> LA.t graph_result
              "Cyclic dependency with no ids detected. This should not happen!")
   >>= fun sorted_ids ->
   let dependency_sorted_ids = List.rev sorted_ids in
-  Log.log L_trace "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  dependency_sorted_ids
+  Debug.parse "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  dependency_sorted_ids
   ; extract_decls decl_map dependency_sorted_ids
 (** Accepts a function to generate a declaration map, 
     a function to generate the graph of the declarations,
@@ -1012,13 +1010,13 @@ let mk_node_summary: node_summary -> LA.node_decl -> node_summary
   let node_equation_dependency_map = List.fold_left (IMap.union (fun _ _ v2 -> Some v2)) IMap.empty
                                        (List.map process_one_eqn node_equations) in
 
-  Log.log L_trace "Node equation dependency map for node %a {\n %a \n}"
+  Debug.parse "Node equation dependency map for node %a {\n %a \n}"
     LA.pp_print_ident i
     (Lib.pp_print_list (Lib.pp_print_pair (LA.pp_print_ident) (Lib.pp_print_list (LA.pp_print_ident) ", ") "->") "\n")
     (IMap.bindings node_equation_dependency_map)
   ; let mk_g = fun (lhs, vars) ->  G.connect (List.fold_left G.union G.empty (List.map G.singleton vars)) lhs in
     let g = List.fold_left G.union G.empty (List.map mk_g (IMap.bindings node_equation_dependency_map)) in
-    Log.log L_trace "Node equation graph: %a" G.pp_print_graph g
+    Debug.parse "Node equation graph: %a" G.pp_print_graph g
     ; let vars_op_depends_on = List.map (fun i -> G.to_vertex_list (G.reachable g i)) op_vars in
 
       let critical_ips = List.map (fun vs -> SI.inter (SI.of_list vs) (SI.of_list ip_vars)
@@ -1092,7 +1090,7 @@ let mk_graph_eqn: node_summary
               especially if it is just an identifier.
             *)
            mk_graph_expr2 m (LH.abstract_pre_subexpressions e) >>= fun rhs_g -> 
-           (Log.log L_trace "For lhss=%a: width RHS=%a, width LHS=%a"
+           (Debug.parse "For lhss=%a: width RHS=%a, width LHS=%a"
               (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss
               Format.pp_print_int (List.length rhs_g)
               Format.pp_print_int (List.length lhss)
@@ -1203,7 +1201,7 @@ and analyze_automatons: node_summary -> LA.node_equation list -> unit graph_resu
                 
 let analyze_circ_node_equations: node_summary -> LA.node_item list -> unit graph_result =
   fun m eqns ->
-  Log.log L_trace "Checking circularity in node equations"
+  Debug.parse "Checking circularity in node equations"
   ; mk_graph_node_items m eqns >>= fun ad ->
     (try (R.ok (G.topological_sort ad.graph_data)) with
      | Graph.CyclicGraphException ids ->
@@ -1273,7 +1271,7 @@ let rec sort_and_check_equations: dependency_analysis_data -> LA.t -> LA.t graph
 
 let sort_globals decls =
   sort_declarations decls >>= fun sorted_decls -> 
-  Log.log L_trace "Sorting types and constants declarations done.
+  Debug.parse "Sorting types and constants declarations done.
                    \n============\n%a\n============\n"
     LA.pp_print_program sorted_decls
   ; R.ok sorted_decls
@@ -1284,19 +1282,19 @@ let sort_and_check_nodes_contracts decls =
   (* Step 1. Sort the declarations according in their dependency order
      This rules out the cases where we have recursive node or contract definitions *)
   sort_declarations decls >>= fun sorted_decls -> 
-  Log.log L_trace "Sorting functions, nodes and contracts done.
+  Debug.parse "Sorting functions, nodes and contracts done.
                    \n============\n%a\n============\n"
     LA.pp_print_program sorted_decls
 
   (* Step 2. Generate node and contract summaries *)
   ; let analysis_data = generate_summaries empty_dependency_analysis_data sorted_decls in
-    Log.log L_trace "Generated contract and node summaries.
+    Debug.parse "Generated contract and node summaries.
                      \n============\n%a\n============\n"
       pp_print_analysis_data analysis_data
 
     (* Step 3. Sort contract equations and check for node equation circularity *)
     ; sort_and_check_equations analysis_data sorted_decls >>= fun final_decls -> 
-      Log.log L_trace "Sorting equations done.
+      Debug.parse "Sorting equations done.
                        \n============\n%a\n============\n"
         LA.pp_print_program final_decls
         ; R.ok final_decls

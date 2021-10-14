@@ -158,7 +158,7 @@ let type_check declarations =
         LA.pp_print_expr e))
       unguarded_pre_warnings;
     Debug.parse "Type checking done"
-    ; Log.log L_trace "========\n%a\n==========\n" LA.pp_print_program d
+    ; Debug.parse "========\n%a\n==========\n" LA.pp_print_program d
     ; (c, g, d)
   | Error (pos, err) -> fail_at_position pos err
 
