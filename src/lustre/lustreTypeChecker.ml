@@ -335,7 +335,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
      
   (* Node calls *)
   | LA.Call (pos, i, arg_exprs) ->
-    Log.log L_trace "Inferring type for node call %a" LA.pp_print_ident i  
+    Debug.parse "Inferring type for node call %a" LA.pp_print_ident i  
     ; let infer_type_node_args: tc_context -> LA.expr list -> tc_type tc_result
       = fun ctx args ->
       R.seq (List.map (infer_type_expr ctx) args)
@@ -862,7 +862,7 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
 and local_var_binding: tc_context -> LA.node_local_decl -> tc_context tc_result = fun ctx ->
     function
     | LA.NodeConstDecl (_, const_decls) ->
-      Log.log L_trace "Extracting typing context from const declaration: %a"
+      Debug.parse "Extracting typing context from const declaration: %a"
         LA.pp_print_const_decl const_decls
       ; tc_ctx_const_decl ctx const_decls 
     | LA.NodeVarDecl (pos, (_, v, ty, _)) ->
@@ -875,7 +875,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> unit tc_
   = fun pos ctx
         (node_name, is_extern, params, input_vars, output_vars, ldecls, items, contract)
         ->
-  Log.log L_trace "TC declaration node: %a {" LA.pp_print_ident node_name
+  Debug.parse "TC declaration node: %a {" LA.pp_print_ident node_name
 
   ; let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
     let ret_ids = LA.SI.of_list (List.map (fun a -> LH.extract_op_ty a |> fst) output_vars) in
@@ -897,7 +897,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> unit tc_
     
     >> if (SI.is_empty common_ids)
     then
-      (Log.log L_trace "Params: %a (skipping)" LA.pp_print_node_param_list params
+      (Debug.parse "Params: %a (skipping)" LA.pp_print_node_param_list params
       (* store the input constants passed in the input 
          also remove the node name from the context as we should not have recursive
          nodes *)
@@ -909,27 +909,27 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> unit tc_
         (* These are outputs of the node *)
         let ctx_plus_ops_and_ips = List.fold_left union ctx_plus_ips
                                     (List.map extract_ret_ctx output_vars) in
-        Log.log L_trace "Local Typing Context after extracting ips/ops/consts {%a}"
+        Debug.parse "Local Typing Context after extracting ips/ops/consts {%a}"
           pp_print_tc_context ctx_plus_ops_and_ips;
         (* Type check the contract *)
         (match contract with
          | None -> R.ok ()
          | Some c ->
             tc_ctx_of_contract ctx_plus_ops_and_ips c >>= fun con_ctx ->
-            Log.log L_trace "Checking node contract with context %a"
+            Debug.parse "Checking node contract with context %a"
               pp_print_tc_context con_ctx
             ; check_type_contract ret_ids con_ctx c) >>
           (* if the node is extern, we will not have any body to typecheck *)
           if is_extern
-          then R.ok ( Log.log L_trace "External Node, no body to type check."
-                    ; Log.log L_trace "TC declaration node %a done }" LA.pp_print_ident node_name)
+          then R.ok ( Debug.parse "External Node, no body to type check."
+                    ; Debug.parse "TC declaration node %a done }" LA.pp_print_ident node_name)
           else (
             (* add local variable binding in the context *)
             R.seq (List.map (local_var_binding ctx_plus_ips) ldecls)
             >>= fun local_var_ctxts ->
             (* Local TC context is input vars + output vars + local const + var decls *)
             let local_ctx = List.fold_left union ctx_plus_ops_and_ips local_var_ctxts in
-            Log.log L_trace "Local Typing Context with local state: {%a}" pp_print_tc_context local_ctx
+            Debug.parse "Local Typing Context with local state: {%a}" pp_print_tc_context local_ctx
             (* Type check the node items now that we have all the local typing context *)
             ; R.seq_ (List.map (do_item local_ctx) items)
               (* check that the LHS of the equations are not args to node *)
@@ -938,7 +938,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> unit tc_
                     (type_error pos ("Argument to nodes cannot be LHS of an equation but found "
                                     ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
                                       (LA.SI.elements overwite_node_args))))
-                 >> (Log.log L_trace "TC declaration node %a done }"
+                 >> (Debug.parse "TC declaration node %a done }"
                       LA.pp_print_ident node_name
                     ; R.ok ())))
     else type_error pos ("Input and output parameters cannot have common identifers, 
@@ -949,10 +949,10 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> unit tc_
 and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
   function
   | LA.Assert (pos, e) ->
-    Log.log L_trace "Checking assertion: %a" LA.pp_print_expr e
+    Debug.parse "Checking assertion: %a" LA.pp_print_expr e
     ; check_type_expr ctx e (Bool pos)
   | LA.Equation (_, lhs, e)  as eqn ->
-    Log.log L_trace "Checking equation: %a" LA.pp_print_node_body eqn
+    Debug.parse "Checking equation: %a" LA.pp_print_node_body eqn
     (* This is a special case where we have undeclared identifiers 
        as short hands for assigning values to arrays aka recursive technique *)
     ; let get_array_def_context: LA.struct_item -> tc_context = 
@@ -964,14 +964,14 @@ and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
         = fun ctx (LA.StructDef (_, items)) ->
         List.fold_left union ctx (List.map get_array_def_context items) in
       let new_ctx = ctx_from_lhs ctx lhs in
-      Log.log L_trace "Checking node equation lhs=%a; rhs=%a"
+      Debug.parse "Checking node equation lhs=%a; rhs=%a"
         LA.pp_print_eq_lhs lhs
         LA.pp_print_expr e
       ; infer_type_expr new_ctx e >>= fun ty ->
-      Log.log L_trace "RHS has type %a for lhs %a" LA.pp_print_lustre_type ty LA.pp_print_eq_lhs lhs
+      Debug.parse "RHS has type %a for lhs %a" LA.pp_print_lustre_type ty LA.pp_print_eq_lhs lhs
       ; check_type_struct_def (ctx_from_lhs ctx lhs) lhs ty
   | LA.Automaton (_, _, ss, _) ->
-      R.ok (Log.log L_trace "Checking Automation") >>
+      R.ok (Debug.parse "Checking Automation") >>
        R.seq_ (List.map (check_type_state ctx) ss) 
 
 and check_type_transition_branch: tc_context -> LA.transition_branch -> unit tc_result
@@ -1006,10 +1006,10 @@ and do_item: tc_context -> LA.node_item -> unit tc_result = fun ctx ->
   function
   | LA.Body eqn -> do_node_eqn ctx eqn
   | LA.AnnotMain _ as ann ->
-    Log.log L_trace "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann
+    Debug.parse "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann
     ; R.ok ()
   | LA.AnnotProperty (_, _, e) as ann ->
-    Log.log L_trace "Checking Node Item (Annotation Property): %a (%a)"
+    Debug.parse "Checking Node Item (Annotation Property): %a (%a)"
       LA.pp_print_node_item ann LA.pp_print_expr e
     ; check_type_expr ctx e (Bool (LH.pos_of_expr e))
   
@@ -1033,9 +1033,9 @@ and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> unit tc_r
     let array_idx_expr =
       List.fold_left (fun e i -> LA.ArrayIndex (pos, e, i))
         (LA.Ident (pos, base_e))
-        (List.map (fun i -> LA.Ident (pos, i)) idxs) in
-    Log.log L_trace "checking for array_idx_expr: %a with type %s" LA.pp_print_expr array_idx_expr (string_of_tc_type exp_ty)
-    ; check_type_expr ctx array_idx_expr exp_ty
+        (List.map (fun i -> LA.Ident (pos, i)) idxs)
+    in
+    check_type_expr ctx array_idx_expr exp_ty
   | TupleStructItem _ -> Lib.todo __LOC__
   | TupleSelection _ -> Lib.todo __LOC__
   | FieldSelection _ -> Lib.todo __LOC__
@@ -1044,7 +1044,7 @@ and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> unit tc_r
 and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
   = fun ctx (StructDef (pos, lhss)) exp_ty ->
   (* This is a structured type, and we would want the expected type exp_ty to be a tuple type *)
-  (Log.log L_trace "Checking if structure definition: %a has type %a \nwith local context %a"
+  (Debug.parse "Checking if structure definition: %a has type %a \nwith local context %a"
     (Lib.pp_print_list LA.pp_print_struct_item ",") lhss
     LA.pp_print_lustre_type exp_ty
     pp_print_tc_context ctx
@@ -1055,8 +1055,7 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
     then (match exp_ty with
           | GroupType (_, exp_ty_lst') ->
             let exp_ty_lst = LH.flatten_group_types exp_ty_lst' in
-            Log.log L_trace "GroupType Type: %a" LA.pp_print_lustre_type exp_ty
-            ; if List.length lhss = 1
+            if List.length lhss = 1
               (* Case 1. the LHS is just one identifier 
                * so we have to check if the exp_type is the same as LHS *)
               then check_type_struct_item ctx (List.hd lhss) exp_ty 
@@ -1070,8 +1069,7 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
                                     ^ Lib.string_of_t LA.pp_print_lustre_type exp_ty 
                                     ^ " on right hand side of the node equation")
           (* We are dealing with simple types, so lhs has to be a singleton list *)
-          | _ -> Log.log L_trace "Simple Type: %a" LA.pp_print_lustre_type exp_ty
-              ; if (List.length lhss != 1)
+          | _ -> if (List.length lhss != 1)
                 then type_error pos ("Term structure on left hand side of the equation"
                                       ^ " does not match expected type structure "
                                       ^ Lib.string_of_t LA.pp_print_lustre_type exp_ty 
@@ -1100,7 +1098,7 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
 and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_result
   = fun ctx (cname, _, args, rets, contract) ->
   let node_out_params = LA.SI.of_list (List.map (fun ret -> LH.extract_op_ty ret |> fst) rets) in
-  Log.log L_trace "TC Contract Decl: %a {" LA.pp_print_ident cname 
+  Debug.parse "TC Contract Decl: %a {" LA.pp_print_ident cname 
   (* build the appropriate local context *)
   ; let arg_ctx = List.fold_left union ctx (List.map extract_arg_ctx args) in
     let ret_ctx = List.fold_left union arg_ctx (List.map extract_ret_ctx rets) in
@@ -1109,9 +1107,9 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
     R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract)
     >>= fun ctxs ->
     let local_ctx = List.fold_left union local_const_ctx ctxs in
-    Log.log L_trace "Local Typing Context {%a}" pp_print_tc_context local_ctx
+    Debug.parse "Local Typing Context {%a}" pp_print_tc_context local_ctx
     ; check_type_contract node_out_params local_ctx contract
-      >> R.ok (Log.log L_trace "TC Contract Decl %a done }" LA.pp_print_ident cname)
+      >> R.ok (Debug.parse "TC Contract Decl %a done }" LA.pp_print_ident cname)
 
 and check_type_contract: LA.SI.t -> tc_context -> LA.contract -> unit tc_result
   = fun node_out_params ctx eqns ->
@@ -1119,7 +1117,7 @@ and check_type_contract: LA.SI.t -> tc_context -> LA.contract -> unit tc_result
 
 and check_contract_node_eqn: LA.SI.t -> tc_context -> LA.contract_node_equation -> unit tc_result
   = fun node_out_params ctx eqn ->
-  Log.log L_trace "Checking node's contract equation: %a" LA.pp_print_contract_item eqn
+  Debug.parse "Checking node's contract equation: %a" LA.pp_print_contract_item eqn
   ; match eqn with
     | GhostConst (FreeConst (_, _, exp_ty) as c) -> check_type_const_decl ctx c exp_ty
     | GhostConst (TypedConst (_, _, _, exp_ty) as c) -> check_type_const_decl ctx c exp_ty
@@ -1253,7 +1251,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
 
 and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_context tc_result
   = fun pos ctx (nname, _, _ , ip, op, _ ,_ ,_)->
-  Log.log L_trace
+  Debug.parse
     "Extracting type of node declaration: %a"
     LA.pp_print_ident nname
   ; if (member_node ctx nname)
@@ -1318,7 +1316,7 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
                                   -> LA.contract_node_decl
                                   -> tc_context tc_result
   = fun pos ctx (cname, _, inputs, outputs, contract) ->
-  Log.log L_trace
+  Debug.parse
     "Extracting type of contract declaration: %a"
     LA.pp_print_ident cname
   ; if (member_contract ctx cname)
@@ -1541,7 +1539,7 @@ let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
 
 let type_check_decl_grps: tc_context -> LA.t list -> unit tc_result list
   = fun ctx decls ->
-      Log.log L_trace ("===============================================\n"
+      Debug.parse ("===============================================\n"
                       ^^ "Phase: Type checking declaration Groups\n"
                       ^^"===============================================\n");
       List.concat (List.map (fun decl -> type_check_group ctx decl) decls)               
@@ -1558,7 +1556,7 @@ let report_tc_result: unit tc_result list -> unit tc_result
    
 let type_check_infer_globals: tc_context -> LA.t -> tc_context tc_result
   = fun ctx prg ->
-    (Log.log L_trace ("===============================================\n"
+    (Debug.parse ("===============================================\n"
                       ^^ "Building TC Global Context\n"
                       ^^"===============================================\n")
      (* Build base constant and type context *)
@@ -1568,18 +1566,18 @@ let type_check_infer_globals: tc_context -> LA.t -> tc_context tc_result
 let type_check_infer_nodes_and_contracts: tc_context -> LA.t -> tc_context tc_result
   = fun ctx prg -> 
 (* type check the nodes and contract decls using this base typing context  *)
-    Log.log L_trace ("===============================================\n"
+    Debug.parse ("===============================================\n"
                       ^^ "Building node and contract Context\n"
                       ^^"===============================================\n")
     (* Build base constant and type context *)
     ; tc_context_of ctx prg >>= fun global_ctx ->
-      (Log.log L_trace ("===============================================\n"
+      (Debug.parse ("===============================================\n"
                         ^^ "Type checking declaration Groups" 
                         ^^ "with TC Context\n%a\n"
                         ^^"===============================================\n")
          pp_print_tc_context global_ctx
       ; report_tc_result (type_check_decl_grps global_ctx [prg]) >>
-          (Log.log L_trace ("===============================================\n"
+          (Debug.parse ("===============================================\n"
                             ^^ "Type checking declaration Groups Done\n"
                             ^^"===============================================\n")
           ; R.ok global_ctx))

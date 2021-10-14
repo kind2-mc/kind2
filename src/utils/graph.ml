@@ -329,7 +329,7 @@ module Make (Ord: OrderedType) = struct
       = fun ((vs, _) as g) sorted_vs ->
       let no_outgoing_vs = non_source_vertices g in
 
-      Log.log L_trace
+      Debug.parse
         "-----------\nGraph state:\n %a\nSorted vertices: %a\n new non source vertices: %a\n-------------"	
         pp_print_graph g	
         (Lib.pp_print_list pp_print_vertex ",") sorted_vs	
@@ -354,7 +354,7 @@ module Make (Ord: OrderedType) = struct
 
     let rec reachable_from_aux: vertices -> vertex -> t -> vertices
       = fun acc sv ((_, es)  as g) ->
-      Log.log L_trace
+      Debug.parse
         "-----------\nGraph state:\n %a\naccumulated vertices: %a\n current vertex vertices: %a\n-------------"	
         pp_print_graph g	
         (Lib.pp_print_list pp_print_vertex ",") (VSet.elements acc)	
@@ -374,7 +374,7 @@ module Make (Ord: OrderedType) = struct
                                           (remove_edges g new_edgs))) (VSet.elements new_vs)) in  
     if (VSet.mem origin_v vs) then
       let vs' = VSet.add origin_v (reachable_from_aux VSet.empty origin_v g) in
-      Log.log L_trace "cumulative reachable from %a are %a"
+      Debug.parse "cumulative reachable from %a are %a"
         pp_print_vertex origin_v
         pp_print_vertices vs'
       ; vs'
