@@ -45,7 +45,7 @@ exception NoMainNode of string
 
 (* The parser has succeeded and produced a semantic value.*)
 let success (v : LustreAst.t): LustreAst.t =
-  Log.log L_trace "Parsed :\n=========\n\n%a\n@." LA.pp_print_program v;
+  Debug.parse "Parsed :\n=========\n\n%a\n@." LA.pp_print_program v;
   v
 
 (* Generates the appropriate parser error message *)
