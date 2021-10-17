@@ -437,7 +437,7 @@ let [@ocaml.warning "-27"] pp_print_path_pt input_sys _ trans_sys init ppf path 
     (Model.path_of_list path)
 
 
-(* Output execution path as XML *)
+(* Output execution path as plain text *)
 let execution_path_pt level input_sys analysis trans_sys path = 
 
   (ignore_or_fprintf level)
