@@ -657,7 +657,12 @@ let node_path_of_instance
     |> List.map snd
   in
 
-  List.iter (fun sv -> SVT.add model sv (SVT.find model_top sv)) constants ;
+  if SVT.length model_top = 0 then (
+    List.iter (fun sv -> SVT.add model sv []) constants
+  )
+  else (
+    List.iter (fun sv -> SVT.add model sv (SVT.find model_top sv)) constants
+  ) ;
 
   (* Return path for subnode and its call trace *)
   (trace, Node (node, model, active_modes, call_conds, subnodes))
