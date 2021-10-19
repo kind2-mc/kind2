@@ -1103,8 +1103,25 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
   ; let arg_ctx = List.fold_left union ctx (List.map extract_arg_ctx args) in
     let ret_ctx = List.fold_left union arg_ctx (List.map extract_ret_ctx rets) in
     let local_const_ctx = List.fold_left union ret_ctx (List.map extract_consts args) in
+    (* forbid subranges in the arguments or return types *)
+    R.seq (List.map (fun (pos, i, ty, _, _) -> 
+      let ty = expand_nested_type_syn arg_ctx ty in
+      if LH.type_contains_subrange ty then type_error pos
+        ("Argument " ^ i ^ " can not have type "
+        ^ Lib.string_of_t LA.pp_print_lustre_type ty
+        ^ ". Contract assumptions should be used instead.")
+      else Ok ())
+      args)
+    >> R.seq (List.map (fun (pos, i, ty, _) -> 
+      let ty = expand_nested_type_syn ret_ctx ty in
+      if LH.type_contains_subrange ty then type_error pos
+        ("Return " ^ i ^ " can not have type "
+        ^ Lib.string_of_t LA.pp_print_lustre_type ty
+        ^ ". Contract guarantees should be used instead.")
+      else Ok ())
+      rets)
     (* get the local const var declarations into the context *)
-    R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract)
+    >> R.seq (List.map (tc_ctx_contract_eqn local_const_ctx) contract)
     >>= fun ctxs ->
     let local_ctx = List.fold_left union local_const_ctx ctxs in
     Debug.parse "Local Typing Context {%a}" pp_print_tc_context local_ctx
