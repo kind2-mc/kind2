@@ -87,6 +87,13 @@ module StringMap = struct
   let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
 end
 
+module StringSet = struct
+  include Set.Make(struct
+    type t = string
+    let compare i1 i2 = String.compare i1 i2
+  end)
+end
+
 module CallCache = struct
   include Map.Make(struct
     type t = string (* node name *)
@@ -178,6 +185,7 @@ type generated_identifiers = {
     * string (* Generated name for Range Expression *)
     * string) (* Original name that is constrained *)
     list;
+  expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
     * string list (* contract scope  *)
@@ -195,6 +203,7 @@ type info = {
   contract_scope : string list;
   contract_ref : string;
   interpretation : string StringMap.t;
+  local_group_projection : int
 }
 
 let get_warnings map = map
@@ -311,6 +320,7 @@ let empty () = {
     calls = [];
     contract_calls = StringMap.empty;
     subrange_constraints = [];
+    expanded_variables = StringSet.empty;
     equations = [];
   }
 
@@ -333,6 +343,7 @@ let union ids1 ids2 = {
     contract_calls = StringMap.merge union_keys
       ids1.contract_calls ids2.contract_calls;
     subrange_constraints = ids1.subrange_constraints @ ids2.subrange_constraints;
+    expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
     equations = ids1.equations @ ids2.equations;
   }
 
@@ -472,7 +483,7 @@ let mk_fresh_oracle expr_type expr =
 let record_warning pos original =
   { (empty ()) with  warnings = [(pos, original)]; }
 
-let mk_fresh_call id map pos cond restart args defaults =
+let mk_fresh_call info id map pos cond restart args defaults =
   let called_node = StringMap.find id map in
   let has_oracles = List.length called_node.oracles > 0 in
   let check_cache = CallCache.find_opt
@@ -485,7 +496,10 @@ let mk_fresh_call id map pos cond restart args defaults =
   i := !i + 1;
   let prefix = string_of_int !i in
   let name = prefix ^ "_call" in
-  let nexpr = A.Ident (pos, name) in
+  let proj = if info.local_group_projection < 0 then ""
+    else (string_of_int info.local_group_projection) ^ "proj_"
+  in
+  let nexpr = A.Ident (pos, proj ^ name) in
   let propagated_oracles = 
     let called_oracles = called_node.oracles |> List.map (fun (id, _, _) -> id) in
     let called_poracles = called_node.propagated_oracles |> List.map fst in
@@ -519,7 +533,8 @@ let rec normalize ctx (decls:LustreAst.t) =
     contract_calls = collect_contract_node_decls decls;
     contract_ref = "";
     contract_scope = [];
-    interpretation = StringMap.empty; }
+    interpretation = StringMap.empty;
+    local_group_projection = -1 }
   in let over_declarations (nitems, accum) item =
     clear_cache ();
     let (normal_item, map) =
@@ -834,9 +849,11 @@ and normalize_equation info map = function
           context = Ctx.add_ty info.context i (A.Int pos); })
           info
           is
-        in let ty = match Ctx.lookup_ty info.context v with 
+        in
+        let ty = match Ctx.lookup_ty info.context v with 
           | Some t -> t | None -> assert false
-        in let ivars = List.fold_left (fun m i -> StringMap.add i ty m)
+        in
+        let ivars = List.fold_left (fun m i -> StringMap.add i ty m)
           StringMap.empty
           is
         in { info with inductive_variables = ivars}
@@ -844,8 +861,49 @@ and normalize_equation info map = function
       info
       items
     in
-    let nexpr, gids = normalize_expr info map expr in
-    Equation (pos, lhs, nexpr), gids
+    let lhs_arity = List.length items in
+    let rhs_arity = match expr with
+      | A.GroupExpr(_, A.ExprList, expr_list) -> List.length expr_list
+      | _ -> 1
+    in
+    let has_call = AH.expr_contains_call expr in
+    let has_inductive = Lib.is_some (StringMap.choose_opt info.inductive_variables) in
+    let (nexpr, gids1), expanded = (
+      if has_call && has_inductive && lhs_arity <> rhs_arity then
+        (match StringMap.choose_opt info.inductive_variables with
+        | Some (ivar, ty) ->
+          let size = extract_array_size ty in
+          let expanded_expr = expand_node_calls_in_place ivar size expr in
+          let exprs, gids = List.split (List.init lhs_arity
+            (fun i -> 
+              let info = { info with local_group_projection = i } in
+              normalize_expr info map expanded_expr))
+          in
+          let gids = List.fold_left (fun acc g -> union g acc) (empty ()) gids in
+        (A.GroupExpr (dpos, A.ExprList, exprs), gids), true
+        | None -> normalize_expr info map expr, false)
+      else if has_call && has_inductive && lhs_arity = rhs_arity then
+        let expanded_expr = List.fold_left
+          (fun acc (v, ty) -> 
+            let size = extract_array_size ty in
+            expand_node_calls_in_place v size acc)
+          expr
+          (StringMap.bindings info.inductive_variables)
+        in
+        normalize_expr info map expanded_expr, true
+      else normalize_expr info map expr, false)
+    in
+    let gids2 = if expanded then
+      let items = match lhs with | StructDef (_, items) -> items in
+      let ids = List.map (function
+        | A.SingleIdent (_, i) | ArrayDef (_, i, _) -> i
+        | _ -> assert false)
+        items
+      in
+      { (empty ()) with  expanded_variables = StringSet.of_list ids }
+      else empty ()
+    in
+    Equation (pos, lhs, nexpr), union gids1 gids2
   | Automaton _ -> Lib.todo __LOC__
 
 and rename_id info = function
@@ -915,71 +973,44 @@ and normalize_expr ?guard info map =
   (* ************************************************************************ *)
   (* Node calls                                                               *)
   (* ************************************************************************ *)
-  | Call (pos, id, args) as e ->
-    let ivars = info.inductive_variables in
-    let ivar = List.map (fun a -> expr_has_inductive_var ivars a) args in
-    let ivar = List.nth_opt ivar 0 |> join in
-    if is_some ivar then
-      let _, size = StringMap.choose ivars in
-      let size = extract_array_size size in
-      let expr = expand_node_call e (get ivar) size in
-      normalize_expr ?guard info map expr
-    else
-      let flags = StringMap.find id info.node_is_input_const in
-      let cond = A.Const (Lib.dummy_pos, A.True) in
-      let restart =  A.Const (Lib.dummy_pos, A.False) in
-      let nargs, gids1 = normalize_list
-        (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
-        (combine_args_with_const info args flags)
-      in
-      let nexpr, gids2 = mk_fresh_call id map pos cond restart nargs None in
-      nexpr, union gids1 gids2
-  | Condact (pos, cond, restart, id, args, defaults) as e ->
-    let ivars = info.inductive_variables in
-    let ivar = List.map (fun a -> expr_has_inductive_var ivars a) args in
-    let ivar = List.nth_opt ivar 0 |> join in
-    if is_some ivar then
-      let _, size = StringMap.choose ivars in
-      let size = extract_array_size size in
-      let expr = expand_node_call e (get ivar) size in
-      normalize_expr ?guard info map expr
-    else
-      let flags = StringMap.find id info.node_is_input_const in
-      let ncond, gids1 = if AH.expr_is_true cond then cond, empty ()
-        else abstract_expr ?guard true info map false cond in
-      let nrestart, gids2 = if AH.expr_is_const restart then restart, empty ()
-        else abstract_expr ?guard true info map false restart
-      in let nargs, gids3 = normalize_list
-        (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
-        (combine_args_with_const info args flags)
-      in
-      let ndefaults, gids4 = normalize_list
-        (normalize_expr ?guard info map)
-        defaults in
-      let nexpr, gids5 = mk_fresh_call id map pos ncond nrestart nargs (Some ndefaults) in
-      let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
-      nexpr, gids
-  | RestartEvery (pos, id, args, restart) as e ->
-    let ivars = info.inductive_variables in
-    let ivar = List.map (fun a -> expr_has_inductive_var ivars a) args in
-    let ivar = List.nth_opt ivar 0 |> join in
-    if is_some ivar then
-      let _, size = StringMap.choose ivars in
-      let size = extract_array_size size in
-      let expr = expand_node_call e (get ivar) size in
-      normalize_expr ?guard info map expr
-    else
-      let flags = StringMap.find id info.node_is_input_const in
-      let cond = A.Const (dummy_pos, A.True) in
-      let nrestart, gids1 = if AH.expr_is_const restart then restart, empty ()
-        else abstract_expr ?guard true info map false restart
-      in let nargs, gids2 = normalize_list
-        (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
-        (combine_args_with_const info args flags)
-      in
-      let nexpr, gids3 = mk_fresh_call id map pos cond nrestart nargs None in
-      let gids = union_list [gids1; gids2; gids3] in
-      nexpr, gids
+  | Call (pos, id, args) ->
+    let flags = StringMap.find id info.node_is_input_const in
+    let cond = A.Const (Lib.dummy_pos, A.True) in
+    let restart =  A.Const (Lib.dummy_pos, A.False) in
+    let nargs, gids1 = normalize_list
+      (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
+      (combine_args_with_const info args flags)
+    in
+    let nexpr, gids2 = mk_fresh_call info id map pos cond restart nargs None in
+    nexpr, union gids1 gids2
+  | Condact (pos, cond, restart, id, args, defaults) ->
+    let flags = StringMap.find id info.node_is_input_const in
+    let ncond, gids1 = if AH.expr_is_true cond then cond, empty ()
+      else abstract_expr ?guard true info map false cond in
+    let nrestart, gids2 = if AH.expr_is_const restart then restart, empty ()
+      else abstract_expr ?guard true info map false restart
+    in let nargs, gids3 = normalize_list
+      (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
+      (combine_args_with_const info args flags)
+    in
+    let ndefaults, gids4 = normalize_list
+      (normalize_expr ?guard info map)
+      defaults in
+    let nexpr, gids5 = mk_fresh_call info id map pos ncond nrestart nargs (Some ndefaults) in
+    let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
+    nexpr, gids
+  | RestartEvery (pos, id, args, restart) ->
+    let flags = StringMap.find id info.node_is_input_const in
+    let cond = A.Const (dummy_pos, A.True) in
+    let nrestart, gids1 = if AH.expr_is_const restart then restart, empty ()
+      else abstract_expr ?guard true info map false restart
+    in let nargs, gids2 = normalize_list
+      (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
+      (combine_args_with_const info args flags)
+    in
+    let nexpr, gids3 = mk_fresh_call info id map pos cond nrestart nargs None in
+    let gids = union_list [gids1; gids2; gids3] in
+    nexpr, gids
   | Merge (pos, clock_id, cases) ->
     let normalize' info map ?guard = function
       | clock_value, A.Activate (pos, id, cond, restart, args) ->
@@ -992,7 +1023,7 @@ and normalize_expr ?guard info map =
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
-        let nexpr, gids4 = mk_fresh_call id map pos ncond nrestart nargs None in
+        let nexpr, gids4 = mk_fresh_call info id map pos ncond nrestart nargs None in
         let gids = union_list [gids1; gids2; gids3; gids4] in
         (clock_value, nexpr), gids
       | clock_value, A.Call (pos, id, args) ->
@@ -1007,7 +1038,7 @@ and normalize_expr ?guard info map =
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
-        let nexpr, gids3 = mk_fresh_call id map pos ncond restart nargs None in
+        let nexpr, gids3 = mk_fresh_call info id map pos ncond restart nargs None in
         let gids = union_list [gids1; gids2; gids3] in
         (clock_value, nexpr), gids
       | clock_value, expr ->
@@ -1167,3 +1198,56 @@ and normalize_expr ?guard info map =
       (normalize_expr ?guard info map)
       expr_list in
     CallParam (pos, id, type_list, nexpr_list), gids
+
+and expand_node_calls_in_place var count expr =
+  let r = expand_node_calls_in_place var count in
+  match expr with
+  | A.RecordProject (p, e, i) -> A.RecordProject (p, r e, i)
+  | TupleProject (p, e, i) -> A.TupleProject (p, r e, i)
+  | UnaryOp (p, op, e) -> A.UnaryOp (p, op, r e)
+  | ConvOp (p, op, e) -> A.ConvOp (p, op, r e)
+  | Quantifier (p, k, ids, e) -> A.Quantifier (p, k, ids, r e)
+  | When (p, e, c) -> A.When (p, r e, c)
+  | Current (p, e) -> A.Current (p, r e)
+  | Pre (p, e) -> A.Pre (p, r e)
+  | BinaryOp (p, op, e1, e2) -> A.BinaryOp (p, op, r e1, r e2)
+  | CompOp (p, op, e1, e2) -> A.CompOp (p, op, r e1, r e2)
+  | StructUpdate (p, e1, u, e2) -> A.StructUpdate (p, r e1, u, r e2)
+  | ArrayConstr (p, e1, e2) -> A.ArrayConstr (p, r e1, r e2)
+  | ArrayIndex (p, e1, e2) -> A.ArrayIndex (p, r e1, r e2)
+  | ArrayConcat (p, e1, e2) -> A.ArrayConcat (p, r e1, r e2)
+  | Fby (p, e1, i, e2) -> A.Fby (p, r e1, i, r e2)
+  | Arrow (p, e1, e2) -> A.Arrow (p, r e1, r e2)
+  | TernaryOp (p, op, e1, e2, e3) -> A.TernaryOp (p, op, r e1, r e2, r e3)
+  | ArraySlice (p, e1, (e2, e3)) -> A.ArraySlice (p, r e1, (r e2, r e3))
+  | NArityOp (p, op, expr_list) ->
+    let expr_list = List.map (fun e -> r e) expr_list in
+    A.NArityOp (p, op, expr_list)
+  | GroupExpr (p, k, expr_list) ->
+    let expr_list = List.map (fun e -> r e) expr_list in
+    A.GroupExpr (p, k, expr_list)
+  | CallParam (p, n, t, expr_list) ->
+    let expr_list = List.map (fun e -> r e) expr_list in
+    A.CallParam (p, n, t, expr_list)
+  | RecordExpr (p, n, expr_list) ->
+    let expr_list = List.map (fun (i, e) -> (i, r e)) expr_list in
+    A.RecordExpr (p, n, expr_list)
+  | Merge (p, n, expr_list) ->
+    let expr_list = List.map (fun (i, e) -> (i, r e)) expr_list in
+    A.Merge (p, n, expr_list)
+  | Activate (p, n, e1, e2, expr_list) ->
+    let expr_list = List.map (fun e -> r e) expr_list in
+    A.Activate (p, n, r e1, r e2, expr_list)
+  | Call (p, n, expr_list) ->
+    let expr_list = List.map (fun e -> r e) expr_list in
+    expand_node_call (A.Call (p, n, expr_list)) var count
+  | Condact (p, e1, e2, id, expr_list1, expr_list2) ->
+    let expr_list1 = List.map (fun e -> r e) expr_list1 in
+    let expr_list2 = List.map (fun e -> r e) expr_list2 in
+    let e = A.Condact (p, r e1, r e2, id, expr_list1, expr_list2) in
+    expand_node_call e var count
+  | RestartEvery (p, id, expr_list, e) ->
+    let expr_list = List.map (fun e -> r e) expr_list in
+    let e = A.RestartEvery (p, id, expr_list, r e) in
+    expand_node_call e var count
+  | e -> e

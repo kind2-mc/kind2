@@ -1502,9 +1502,14 @@ and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type *
   = fun ctx (ty1, e1) (ty2, e2) ->
   (* eq_lustre_type ctx ty1 ty2 *)
   R.ifM (eq_lustre_type ctx ty1 ty2)
+    (* Are the array sizes equal numerals? *)
     ( match IC.eval_int_expr ctx e1, IC.eval_int_expr ctx e2 with
-      | Ok l1,  Ok l2  -> if l1 = l2 then R.ok true else R.ok false
-      | Error _ , _ | _, Error _ -> R.ok true ) (* This fails if we have free constants *)
+      | Ok l1,  Ok l2  -> R.ok (l1 = l2)
+      | Error _ , _ | _, Error _ ->
+        (* Are the array sizes syntactically identical? *)
+        match LH.syn_expr_equal None e1 e2 with
+        | Ok b -> R.ok b
+        | Error _ -> R.ok false) 
     (R.ok false)
 (** Compute equality for [LA.ArrayType].
    If there are free constants in the size, the eval function will fail,

@@ -73,6 +73,10 @@ module StringMap : sig
   val keys: 'a t -> key list
 end
 
+module StringSet : sig
+  include (Set.S with type elt = string)
+end
+
 type source = Local | Input | Output | Ghost
 
 type generated_identifiers = {
@@ -114,6 +118,7 @@ type generated_identifiers = {
     * string (* Generated name for Range Expression *)
     * string) (* Original name that is constrained *)
     list;
+  expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
     * string list (* contract scope  *)
