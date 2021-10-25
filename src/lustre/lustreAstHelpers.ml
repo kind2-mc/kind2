@@ -57,6 +57,29 @@ let pos_of_expr = function
     | CallParam (pos , _ , _ , _ )
     -> pos
 
+let rec expr_contains_call = function
+  | Ident (_, _) | ModeRef (_, _) | Const (_, _) | Last (_, _) -> false
+  | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
+  | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
+  | Current (_, e) | Pre (_, e)
+    -> expr_contains_call e
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, e2)
+  | ArrayConstr (_, e1, e2) | ArrayIndex (_, e1, e2) | ArrayConcat (_, e1, e2)
+  | Fby (_, e1, _, e2) | Arrow (_, e1, e2)
+    -> expr_contains_call e1 || expr_contains_call e2
+  | TernaryOp (_, _, e1, e2, e3) | ArraySlice (_, e1, (e2, e3))
+    -> expr_contains_call e1 || expr_contains_call e2 || expr_contains_call e3
+  | NArityOp (_, _, expr_list) | GroupExpr (_, _, expr_list)
+  | CallParam (_, _, _, expr_list)
+    -> List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
+  | RecordExpr (_, _, expr_list) | Merge (_, _, expr_list)
+    -> List.fold_left (fun acc (_, e) -> acc || expr_contains_call e) false expr_list
+  | Activate (_, _, e1, e2, expr_list) -> 
+    expr_contains_call e1 || expr_contains_call e2
+    || List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
+  | Call (_, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _)
+    -> true
+
 let rec type_contains_subrange = function
   | IntRange _ -> true
   | TupleType (_, tys) | GroupType (_, tys) ->

@@ -831,9 +831,9 @@ let pp_print_lustre_expr safe ppf = function
 
 (** Pretty-print a bound or fixed annotation *)
 let pp_print_bound_or_fixed ppf = function
-  | Bound x -> (pp_print_expr true) ppf x
-  | Fixed x -> (pp_print_expr true) ppf x
-  | Unbound x -> (pp_print_expr true) ppf x
+  | Bound x -> Format.fprintf ppf "@[<hv 1>(Bound %a)@]" (pp_print_expr true) x
+  | Fixed x -> Format.fprintf ppf "@[<hv 1>(Fixed %a)@]" (pp_print_expr true) x
+  | Unbound x -> Format.fprintf ppf "@[<hv 1>(Unbound %a)@]" (pp_print_expr true) x
 
 (* ********************************************************************** *)
 (* Predicates                                                             *)

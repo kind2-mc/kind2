@@ -37,6 +37,9 @@ val expr_is_false : expr -> bool
 val pos_of_expr : expr -> Lib.position
 (** Returns the position of an expression *)
 
+val expr_contains_call : expr -> bool
+(** Checks if the expression contains a call to a node *)
+
 val type_contains_subrange : lustre_type -> bool
 (** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
 
