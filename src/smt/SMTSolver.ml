@@ -1130,7 +1130,7 @@ let get_qe_z3 solver expr =
   let res =
     (* Execute custom command *)
     let arg =
-      if Flags.Smt.z3_qe_light () then "(and-then qe-light qe)" else "qe"
+      if Flags.Smt.z3_qe_light () then "(then qe-light qe2)" else "qe"
     in
     match execute_custom_command solver "apply" [SMTExpr.ArgString arg] 1 with
     | `Custom r ->
