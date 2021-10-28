@@ -2287,7 +2287,7 @@ let rec trans_sys_of_node'
               [I.string_of_ident false node_name]
               None (* instance_state_var *)
               init_flag
-              [] (* global_state_vars *)
+              (* [] *) (* global_state_vars *)
               signature_state_vars
               unconstrained_inputs
               globals.G.state_var_bounds

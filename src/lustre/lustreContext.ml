@@ -73,7 +73,7 @@ type t = {
   nodes : N.t list;
 
   (* Node and function dependencies. *)
-  deps : I.Set.t I.Map.t ;
+  (* deps : I.Set.t I.Map.t ; *)
 
   (* Dependencies. *)
   deps' : Deps.t ;
@@ -159,7 +159,7 @@ let mk_empty_context () =
       contract_scope = [];
       node = None;
       nodes = [];
-      deps = I.Map.empty;
+      (* deps = I.Map.empty; *)
       deps' = Deps.empty;
       contract_nodes = [];
       ident_type_map = IT.create 7;

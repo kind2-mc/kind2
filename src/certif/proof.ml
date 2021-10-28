@@ -224,7 +224,7 @@ let mk_empty_proof_context () = {
 (* The type of a proof returned by CVC4 *)
 type cvc4_proof = {
   proof_context : cvc4_proof_context;
-  mutable true_hyps : H.t list;
+  true_hyps : H.t list;
   proof_hyps : lfsc_decl list; 
   proof_type : lfsc_type;
   proof_term : lfsc_type;

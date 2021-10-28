@@ -13,8 +13,8 @@
  (name kind2dev)
  (libraries dune-build-info num str threads yojson zmq menhirLib)
  (modules
-  (:standard \ horn kind2 lustreChecker nusmv oldParser testgen testgenLib
-    testgenStrategies))
+  (:standard \ C2Icnf horn kind2 lustreChecker nusmv oldParser testgen testgenLib
+    testgenStrategies threadtest polltest))
  (modules_without_implementation solverSig)
  (wrapped false))
 
@@ -23,4 +23,4 @@
 (env
  (dev
   (flags
-   (:standard -warn-error -A -w A-4-9-29-40-41-42-44-48-67))))
+   (:standard -warn-error -A -w A-4-9-29-40-41-42-44-48-67-70))))
