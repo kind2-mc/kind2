@@ -2530,7 +2530,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       [obs_name]
       None
       init_flag
-      []
+      (* [] *)
       state_vars
       unconstrained_inputs
       bounds

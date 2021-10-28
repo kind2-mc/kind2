@@ -476,7 +476,7 @@ let of_channel in_ch =
             node_scope
             None
             init_flag
-            []
+            (* [] *)
             state_vars
             StateVar.StateVarSet.empty (* underapproximation *)
             (StateVar.StateVarHashtbl.create 7)

@@ -71,16 +71,16 @@ type t =
     (** State variable that becomes true in the first instant and false
        again in the second and all following instants *)
 
-    instance_state_var : StateVar.t option;
-    (** State variable to be bound to a unique term for each
+    (* instance_state_var : StateVar.t option; *)
+    (* * State variable to be bound to a unique term for each
        instance of the transition system *)
 
     instance_var_bindings : (Var.t * Term.t) list;
     (** Assignments of unique terms to the instance variables of this
        transition system and its subsystems *)
 
-    global_state_vars : (StateVar.t * Term.t list) list;
-    (** State variables of global scope, used for arrays. Each state
+    (* global_state_vars : (StateVar.t * Term.t list) list; *)
+    (* * State variables of global scope, used for arrays. Each state
        variable has a list of upper bounds for its indexes. 
 
        To get all defined values, evaluate the instance state
@@ -1607,7 +1607,7 @@ let mk_trans_sys
   scope
   instance_state_var
   init_flag_state_var
-  global_state_vars
+  (* global_state_vars *)
   state_vars
   unconstrained_inputs
   state_var_bounds
@@ -1766,10 +1766,10 @@ let mk_trans_sys
   (* Transition system containing only the subsystems *)
   let trans_sys = 
     { scope;
-      instance_state_var;
+      (* instance_state_var; *)
       init_flag_state_var;
       instance_var_bindings;
-      global_state_vars;
+      (* global_state_vars; *)
       state_vars;
       unconstrained_inputs;
       state_var_bounds;

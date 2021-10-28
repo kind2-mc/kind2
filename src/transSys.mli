@@ -229,7 +229,7 @@ val mk_trans_sys :
   StateVar.t ->
 
   (* Global state variables *)
-  (StateVar.t * Term.t list) list ->
+  (* (StateVar.t * Term.t list) list -> *)
 
   (* All state variables including globals and instance identifier *)
   StateVar.t list ->

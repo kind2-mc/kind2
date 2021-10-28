@@ -451,7 +451,7 @@ let of_channel in_ch =
       jkind_scope
       None
       jk_init_flag
-      []
+      (* [] *)
       allstatevars
       StateVar.StateVarSet.empty (* underapproximation *)
       (StateVar.StateVarHashtbl.create 3)
