@@ -29,7 +29,7 @@ More advanced features include contract-based compositional verification, proof 
   (ounit2 :with-test)
   yojson
   (zmq
-   (>= 5.0.0))
+   (and (>= 5.0.0) (< 5.1.4)))
  )
 )
 
