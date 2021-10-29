@@ -390,7 +390,7 @@ let pp_print_lustre_var_typed safe ppf state_var =
 
 
 (* Pretty-print a variable under [depth] pre operators *)
-let [@ocaml.warning "-27"] rec pp_print_var safe pvar ppf var =
+let rec pp_print_var pvar ppf var =
 
   (* Variable is at an instant *)
   if Var.is_state_var_instance var then 
@@ -446,7 +446,7 @@ let [@ocaml.warning "-27"] rec pp_print_var safe pvar ppf var =
 (* Pretty-print a term *)
 and pp_print_term_node ?as_type safe pvar ppf t = match Term.T.destruct t with
     
-  | Term.T.Var var -> pp_print_var safe pvar ppf var
+  | Term.T.Var var -> pp_print_var pvar ppf var
       
   | Term.T.Const s -> 
     

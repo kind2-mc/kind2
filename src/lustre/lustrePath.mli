@@ -22,26 +22,26 @@
 
 (** Output a counterexample as a Lustre execution in XML format *)
 val pp_print_path_xml :
-  TransSys.t -> TransSys.instance list ->
+  TransSys.t ->
   LustreGlobals.t -> LustreNode.t SubSystem.t -> bool ->
   Format.formatter -> Model.path -> unit
 
 (** Output a counterexample as a Lustre execution as plain text with
     pre-processing reverted *)
 val pp_print_path_pt :
-  TransSys.t -> TransSys.instance list ->
+  TransSys.t ->
   LustreGlobals.t -> LustreNode.t SubSystem.t -> bool ->
   Format.formatter -> Model.path -> unit
 
 (** Output a counterexample as a Lustre execution in JSON format *)
 val pp_print_path_json :
-  TransSys.t -> TransSys.instance list ->
+  TransSys.t ->
   LustreGlobals.t -> LustreNode.t SubSystem.t -> bool ->
   Format.formatter -> Model.path -> unit
 
 (** Outputs a model as a sequence of inputs in CSV. *)
 val pp_print_path_in_csv :
-  TransSys.t -> TransSys.instance list ->
+  TransSys.t ->
   LustreGlobals.t -> LustreNode.t SubSystem.t -> bool ->
   Format.formatter -> Model.path -> unit
 

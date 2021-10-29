@@ -345,11 +345,11 @@ let pp_print_core_data_xml ?(tag="ModelElementSet") in_sys param sys fmt cpd =
   ) ;
   Format.fprintf fmt "@]@.</%s>@." tag
 
-let [@ocaml.warning "-27"] pp_print_no_solution sys clas ~unknown fmt prop =
+let pp_print_no_solution ~unknown fmt prop =
   Format.fprintf fmt "%s for property @{<blue_b>%s@}.@.@."
     (if unknown then "Unknown result" else "No solution") (prop.Property.prop_name)
 
-let [@ocaml.warning "-27"] pp_print_no_solution_json sys clas ~unknown fmt prop =
+let pp_print_no_solution_json clas ~unknown fmt prop =
   let assoc = [
     ("objectType", `String "noModelElementSet") ;
     ("class", `String clas) ;
@@ -359,7 +359,7 @@ let [@ocaml.warning "-27"] pp_print_no_solution_json sys clas ~unknown fmt prop 
   ] in
   pp_print_json fmt (`Assoc assoc)
 
-let [@ocaml.warning "-27"] pp_print_no_solution_xml sys clas ~unknown fmt prop =
+let pp_print_no_solution_xml clas ~unknown fmt prop =
   Format.fprintf fmt "<NoModelElementSet class=\"%s\" property=\"%s\">@.  @[<v>" clas prop.Property.prop_name ;
   Format.fprintf fmt "<Answer>%s</Answer>@ "
     (if unknown then "unknown" else "no_solution") ;

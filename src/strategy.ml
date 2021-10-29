@@ -105,7 +105,7 @@ let is_candidate_for_analysis { can_refine ; has_modes } =
   (has_modes && Flags.Contracts.check_modes ()) || can_refine
 
 (* Returns an option of the parameter for the first analysis of a system. *)
-let [@ocaml.warning "-27"] first_param_of ass results all_nodes scope =
+let first_param_of ass _results all_nodes scope =
 
   let rec loop abstraction = function
     | (sys, { can_refine ; has_contract ; has_modes }) :: tail -> (

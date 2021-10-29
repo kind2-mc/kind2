@@ -353,7 +353,7 @@ let minimize_item id_typ_map ue lst = function
     | Some eq -> [A.Body eq]
     end
 
-let [@ocaml.warning "-27"] minimize_const_decl ue lst = function
+let minimize_const_decl _ue _lst = function
   | A.UntypedConst (p,id,e) -> A.UntypedConst (p,id,e)
   | A.FreeConst (p,id,t) -> A.FreeConst (p,id,t)
   | A.TypedConst (p,id,e,t) ->
@@ -770,7 +770,7 @@ let prepare_ts_for_cs_check sys enter_nodes init_consts keep test =
   TS.set_subsystem_equations sys (TS.scope_of_trans_sys sys) init_eq trans_eq
 
 
-let [@ocaml.warning "-27"] compute_cs_aux check_ts sys prop_names enter_nodes keep test k ?(exact_card=true) already_found =
+let compute_cs_aux check_ts sys enter_nodes keep test k ?(exact_card=true) already_found =
   let actsvs = actsvs_of_core test in
 
   let not_already_found =
@@ -795,7 +795,7 @@ let [@ocaml.warning "-27"] compute_cs_aux check_ts sys prop_names enter_nodes ke
 
 let compute_cs check_ts sys prop_names enter_nodes keep test k ?(exact_card=true) already_found =
   let (sys, actsvs) =
-    compute_cs_aux check_ts sys prop_names enter_nodes keep test k ~exact_card already_found in
+    compute_cs_aux check_ts sys enter_nodes keep test k ~exact_card already_found in
   match get_counterexample_actsvs prop_names sys actsvs with
   | None -> None
   | Some (actsvs, cex) ->
@@ -812,7 +812,7 @@ let compute_approx_mcs_for_each_prop check_ts sys prop_names enter_nodes
     else n
   in
   let (sys, actsvs) =
-    compute_cs_aux check_ts sys prop_names enter_nodes keep test n ~exact_card:false [] in
+    compute_cs_aux check_ts sys enter_nodes keep test n ~exact_card:false [] in
   get_counterexamples_actsvs prop_names sys actsvs
   |> List.map (fun(actsvs, cex) ->
     assert (List.length actsvs <= n) ;
@@ -1075,7 +1075,7 @@ let actlit_of_term t = match Term.destruct t with
     | Const s -> Symbol.uf_of_symbol s
     | App _ -> assert false
 
-let [@ocaml.warning "-27"] base_k sys b0 init_eq trans_eq prop_eq os_prop_eq k =
+let base_k b0 init_eq trans_eq prop_eq os_prop_eq k =
   let prop_eq = if k = 0 then os_prop_eq else prop_eq in
 
   let init_eq =
@@ -1096,11 +1096,11 @@ let [@ocaml.warning "-27"] base_k sys b0 init_eq trans_eq prop_eq os_prop_eq k =
 
   (b0 + k + 1, Term.mk_implies [Term.mk_and [init_eq ; trans_eq]; prop_eq])
 
-let base_until_k sys b0 init_eq trans_eq prop_eq os_prop_eq k =
+let base_until_k b0 init_eq trans_eq prop_eq os_prop_eq k =
   interval 0 k
   |> List.fold_left (
     fun (b0, base) i ->
-      let (b0, t) = base_k sys b0 init_eq trans_eq prop_eq os_prop_eq i in
+      let (b0, t) = base_k b0 init_eq trans_eq prop_eq os_prop_eq i in
       (b0, Term.mk_and [base; t])
   )
   (b0, Term.mk_true ())
@@ -1152,7 +1152,7 @@ let ind_k sys b0 trans_eq inv_eq os_inv_eq prop_eq k =
 let k_induction sys b0 init_eq trans_eq prop_eq os_prop_eq k =
 
   let (b0, ind, path_compress) = ind_k sys b0 trans_eq prop_eq os_prop_eq prop_eq k in
-  let (b0, base) = base_until_k sys b0 init_eq trans_eq prop_eq os_prop_eq k in
+  let (b0, base) = base_until_k b0 init_eq trans_eq prop_eq os_prop_eq k in
   (b0, Term.mk_and [base ; ind], path_compress)
 
 type core_result = NOT_OK | OK of core
@@ -1217,7 +1217,7 @@ let check_k_inductive ?(approximate=false) sys enter_nodes core init_terms trans
 
   if Flags.BmcKind.compress ()
   then
-    let (bmax, t) = base_until_k sys 0 init_eq trans_eq prop os_prop k in
+    let (bmax, t) = base_until_k 0 init_eq trans_eq prop os_prop k in
     let bmax = bmax-1 in
     let t = Term.mk_not t in
     let res_base =
@@ -1245,7 +1245,7 @@ let check_k_inductive ?(approximate=false) sys enter_nodes core init_terms trans
 
 
 (** Implements the approximate algorithm (using Unsat Cores) *)
-let [@ocaml.warning "-27"] ivc_uc_ in_sys ?(approximate=false) sys props enter_nodes keep test =
+let ivc_uc_ ?(approximate=false) sys props enter_nodes keep test =
 
   let scope = TS.scope_of_trans_sys sys in
   let props = props_terms props in
@@ -1341,7 +1341,7 @@ let ivc_uc in_sys ?(approximate=false) sys props =
   try (
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
-    let (_, test) = ivc_uc_ in_sys ~approximate:approximate sys props enter_nodes keep test in
+    let (_, test) = ivc_uc_ ~approximate:approximate sys props enter_nodes keep test in
     Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation = true })
   ) with
   | CertifChecker.CouldNotProve _ ->
@@ -1353,14 +1353,14 @@ let ivc_uc in_sys ?(approximate=false) sys props =
 
 (* ---------- MUST SET ---------- *)
 
-let must_set_ in_sys ?(uc_res=None) check_ts sys props enter_nodes keep test =
+let must_set_ ?(uc_res=None) check_ts sys props enter_nodes keep test =
 
   (* If uc_res is None,
   we minimize using UC first and we retrieve the minimized invariants in the same time *)
   let (os_invs, reduced_test) =
   match uc_res with
   | Some (os_invs, reduced_test) -> (os_invs, reduced_test)
-  | None -> ivc_uc_ in_sys sys props enter_nodes keep test
+  | None -> ivc_uc_ sys props enter_nodes keep test
   in
   let increased_keep = core_diff (core_union keep test) reduced_test in
 
@@ -1384,7 +1384,7 @@ let must_set in_sys param analyze sys props =
     let enter_nodes = Flags.IVC.ivc_only_main_node () |> not in
     let (keep, test) = generate_initial_cores in_sys sys enter_nodes (Flags.IVC.ivc_category ()) in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
-    let (_, must) = must_set_ in_sys check_ts sys props enter_nodes keep test in
+    let (_, must) = must_set_ check_ts sys props enter_nodes keep test in
     Solution (props, core_to_loc_core in_sys (core_union keep must), { approximation = !timeout })
   ) with
   | CertifChecker.CouldNotProve _ ->
@@ -1449,7 +1449,7 @@ let check_core check_ts sys prop_names enter_nodes core =
   check core
 
 (** Implements the bruteforce algorithm *)
-let [@ocaml.warning "-27"] ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep test =
+let ivc_bf_ ?(os_invs=[]) check_ts sys props enter_nodes keep test =
   let prop_names = props_names props in
   let sys = remove_other_props sys prop_names in
   let sys = add_as_candidate os_invs sys in
@@ -1482,13 +1482,13 @@ let [@ocaml.warning "-27"] ivc_bf_ in_sys ?(os_invs=[]) check_ts sys props enter
   end
 
 (** Compute the MUST set and then call IVC_BF if needed *)
-let ivc_must_bf_ test must_cont in_sys ?(os_invs=[]) check_ts sys props enter_nodes keep reduced_test =
+let ivc_must_bf_ test must_cont ?(os_invs=[]) check_ts sys props enter_nodes keep reduced_test =
   let prop_names = props_names props in
 
   let timeout_bkp = !timeout in
   let (os_invs, must) =
     let uc_res = Some (os_invs, reduced_test) in
-    must_set_ in_sys ~uc_res check_ts sys props enter_nodes keep test in
+    must_set_ ~uc_res check_ts sys props enter_nodes keep test in
   must_cont must ;
   let keep = core_union keep must in
   let test = core_diff test must in
@@ -1502,7 +1502,7 @@ let ivc_must_bf_ test must_cont in_sys ?(os_invs=[]) check_ts sys props enter_no
   else (
     timeout := timeout_bkp ;
     KEvent.log L_info "MUST set is not a valid IVC. Minimizing with bruteforce..." ;
-    ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test
+    ivc_bf_ ~os_invs check_ts sys props enter_nodes keep test
     |> core_union must
   )
 
@@ -1517,8 +1517,8 @@ let ivc_ucbf in_sys ?(use_must_set=None) param analyze sys props =
       |> ivc_must_bf_ test
     | None -> ivc_bf_ in
     let (sys, check_ts) = make_ts_analyzer in_sys param analyze sys in
-    let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep test in
-    let test = ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test in
+    let (os_invs, test) = ivc_uc_ sys props enter_nodes keep test in
+    let test = ivc_bf_ ~os_invs check_ts sys props enter_nodes keep test in
     Solution (props, core_to_loc_core in_sys (core_union keep test), { approximation = !timeout })
   ) with
   | CannotProve | CertifChecker.CouldNotProve _ ->
@@ -1584,7 +1584,7 @@ let block_down map s =
 
 type unexplored_type = Min | Max
 
-let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
+let umivc_ ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
   ?(stop_after=0) cont keep test =
   let prop_names = props_names props in
   (*let sys_original = sys in*)
@@ -1664,8 +1664,8 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
     (* Compute MIVC *)
     let compute_mivc core =
       (*check (core_union keep core) |> ignore ;*) (* Not needed because a check is done before *)
-      let (os_invs, test) = ivc_uc_ in_sys sys props enter_nodes keep core in
-      ivc_bf_ in_sys ~os_invs check_ts sys props enter_nodes keep test
+      let (os_invs, test) = ivc_uc_ sys props enter_nodes keep core in
+      ivc_bf_ ~os_invs check_ts sys props enter_nodes keep test
     in
 
     (* ----- Part 1 : CAMUS ----- *)
@@ -1742,13 +1742,13 @@ let umivc_ in_sys ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
     (not !approx, all_mivc)
   )
 
-let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
+let must_umivc_ must_cont make_ts_analyzer sys props k enter_nodes
   ?(stop_after=0) cont keep test =
   let prop_names = props_names props in
   let (sys', check_ts') = make_ts_analyzer sys in
 
   let timeout_bkp = !timeout in
-  let (os_invs, must) = must_set_ in_sys check_ts' sys' props enter_nodes keep test in
+  let (os_invs, must) = must_set_ check_ts' sys' props enter_nodes keep test in
   must_cont must ;
   let keep = core_union keep must in
   let test = core_diff test must in
@@ -1765,7 +1765,7 @@ let must_umivc_ must_cont in_sys make_ts_analyzer sys props k enter_nodes
     KEvent.log L_info "MUST set is not a valid IVC. Running UMIVC..." ;
     let post core = core_union core must in
     let cont core = core |> post |> cont in
-    umivc_ in_sys ~os_invs make_ts_analyzer sys props k enter_nodes ~stop_after cont keep test
+    umivc_ ~os_invs make_ts_analyzer sys props k enter_nodes ~stop_after cont keep test
     |> (fun (complete, ivcs) -> complete, List.map post ivcs)
   )
 
@@ -1778,8 +1778,8 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
     let umivc_ = match use_must_set with
       | Some f ->
         (fun x -> (props, core_to_loc_core in_sys (core_union keep x), { approximation = !timeout }) |> f)
-        |> (fun cont -> must_umivc_ cont in_sys make_ts_analyzer)
-      | None -> umivc_ in_sys make_ts_analyzer in
+        |> (fun cont -> must_umivc_ cont make_ts_analyzer)
+      | None -> umivc_ make_ts_analyzer in
     let res = ref [] in
     let cont test =
       let ivc = (props, core_to_loc_core in_sys (core_union keep test), { approximation = !timeout }) in
@@ -1797,7 +1797,7 @@ let umivc in_sys ?(use_must_set=None) ?(stop_after=0) param analyze sys props k 
 
 (* ---------- MINIMAL CORRECTION SETS ---------- *)
 
-let [@ocaml.warning "-27"] mcs_ in_sys ?(os_invs=[]) check_ts sys props all enter_nodes
+let mcs_ ?(os_invs=[]) check_ts sys props all enter_nodes
   ?(initial_solution=None) ?(max_mcs_cardinality= -1) ?(approx= false) cont keep test =
   let prop_names = props_names props in
   let sys = remove_other_props sys prop_names in
@@ -1846,12 +1846,12 @@ let mcs in_sys param analyze sys props
     cont mcs
   in
   let _ =
-    mcs_ in_sys check_ts sys props all enter_nodes ~initial_solution ~max_mcs_cardinality ~approx cont keep test
+    mcs_ check_ts sys props all enter_nodes ~initial_solution ~max_mcs_cardinality ~approx cont keep test
   in
   not (!timeout || approx), List.rev (!res)
 
 
-let [@ocaml.warning "-27"] mcs_initial_analysis_ in_sys ?(os_invs=[]) check_ts sys enter_nodes
+let mcs_initial_analysis_ ?(os_invs=[]) check_ts sys enter_nodes
   ?(max_mcs_cardinality= -1) keep test =
   let props = TS.get_real_properties sys in
   let prop_names = props_names props in
@@ -1877,6 +1877,6 @@ let mcs_initial_analysis in_sys param analyze ?(max_mcs_cardinality= -1) sys =
       { approximation = true })
   in
 
-  mcs_initial_analysis_ in_sys check_ts sys enter_nodes ~max_mcs_cardinality keep test
+  mcs_initial_analysis_ check_ts sys enter_nodes ~max_mcs_cardinality keep test
   |> List.map (fun (p, res) -> (TS.property_of_name sys p, res_to_mcs res))
 

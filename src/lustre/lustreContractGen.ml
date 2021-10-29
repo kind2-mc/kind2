@@ -547,7 +547,7 @@ let fmt_ghost_def fmt ((var, bounds), expr) =
   (Expr.pp_print_lustre_type true) (SVar.type_of_state_var var)
   (Expr.pp_print_lustre_expr true) expr
 
-let [@ocaml.warning "-27"] generate_contract_for in_sys param sys path invs name =
+let generate_contract_for in_sys sys path invs name =
   let node = get_node_of_sys in_sys sys in
   let contract, locals =
     TSet.of_list invs |> Contract.build node
@@ -608,7 +608,7 @@ let [@ocaml.warning "-27"] generate_contract_for in_sys param sys path invs name
 
   Format.fprintf fmt "@]@.tel@.@."
 
-let [@ocaml.warning "-27"] generate_contracts in_sys param sys path contract_name =
+let generate_contracts in_sys _param sys path contract_name =
   KEvent.log_uncond "%d invariants@.@." (
     TransSys.invars_of_bound sys Numeral.zero |> List.length
   ) ;

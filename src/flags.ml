@@ -3267,7 +3267,7 @@ let arg_float_of_string tuple s = try (
   Format.sprintf "expected float but got \"%s\"" s, tuple
 ) |> raise
 
-let [@ocaml.warning "-27"] parse_clas specs anon_action global_usage_msg =
+let parse_clas specs anon_action =
   match Array.to_list Sys.argv with
   | _ :: args ->
 
@@ -3640,7 +3640,7 @@ let post_argv_parse_actions () =
 
 let parse_argv () =
   (* CLAPing. *)
-  parse_clas (Global.all_kind2_specs ()) anon_action Global.usage_msg ;
+  parse_clas (Global.all_kind2_specs ()) anon_action ;
 
   (* Colors if flag is not false and not in xml or json mode *)
   let open Format in

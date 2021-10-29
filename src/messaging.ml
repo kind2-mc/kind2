@@ -710,7 +710,7 @@ struct
     send_iter 0 (dequeue outgoing)
 
 
-  let [@ocaml.warning "-27"]  worker_send_messages proc sock unconfirmed_invariants =
+  let worker_send_messages sock unconfirmed_invariants =
     (* send up to 'message_burst_size' messages in worker's outgoing
        message queue *)
     let rec send_iter i outgoing_msg =
@@ -803,7 +803,7 @@ struct
     *)
 
 
-  let [@ocaml.warning "-27"] im_check_workers_status workers worker_status pub_sock pull_sock =
+  let im_check_workers_status workers worker_status =
     (* ensure that all workers have checked in within
        worker_time_threshold seconds *)
     let rec check_status workers need_ping =
@@ -889,8 +889,7 @@ struct
         if worker_pids <> []
         then (
           (* Check on the workers. *)
-          im_check_workers_status
-            worker_pids worker_status pub_sock pull_sock ;
+          im_check_workers_status worker_pids worker_status ;
 
           (* Get any messages from workers. *)
           recv_messages
@@ -957,7 +956,7 @@ struct
             (
 
               (* send any messages in outgoing queue *)
-              worker_send_messages proc push_sock unconfirmed_invariants;
+              worker_send_messages push_sock unconfirmed_invariants;
 
               Zmq.Socket.close sub_sock;
               Zmq.Socket.close push_sock;
@@ -987,7 +986,7 @@ struct
                 );
 
               (* send any messages in outgoing queue *)
-              worker_send_messages proc push_sock unconfirmed_invariants;
+              worker_send_messages push_sock unconfirmed_invariants;
 
               (* resend any old unconfirmed invariants *)
               worker_resend_invariants unconfirmed_invariants;

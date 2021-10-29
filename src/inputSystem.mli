@@ -76,16 +76,16 @@ val trans_sys_of_analysis:
   ?preserve_sig:bool -> ?slice_nodes:bool -> 'a t -> Analysis.param -> TransSys.t * 'a t
 
 (** Output a path in the input system *)
-val pp_print_path_pt : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
+val pp_print_path_pt : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output a path in the input system *)
-val pp_print_path_xml : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
+val pp_print_path_xml : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output a path in the input system *)
-val pp_print_path_json : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
+val pp_print_path_json : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output a model as a sequnce of inputs in CSV. *)
-val pp_print_path_in_csv : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
+val pp_print_path_in_csv : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output all subsystems of the input system **)
 val pp_print_subsystems_debug: Format.formatter -> 'a t -> unit
