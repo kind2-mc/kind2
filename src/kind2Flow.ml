@@ -371,7 +371,7 @@ let on_exit sys process exn =
 
 (** Call cleanup function of process and exit.
 Give the exception [exn] that was raised or [Exit] on normal termination. *)
-let [@ocaml.warning "-27"] on_exit_child ?(alone=false) messaging_thread process exn =
+let on_exit_child ?(_alone=false) messaging_thread process exn =
   (* Exit status of process depends on exception *)
   let status = status_of_exn process 0 exn in
   (* Call cleanup of process *)

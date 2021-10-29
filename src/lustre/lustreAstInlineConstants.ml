@@ -135,7 +135,7 @@ and eval_bool_expr: TC.tc_context -> LA.expr -> bool inline_result = fun ctx ->
   | LA.Const _ as c -> bool_value_of_const c
   | LA.BinaryOp (pos, bop, e1, e2) -> eval_bool_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_bool_ternary_op ctx pos top e1 e2 e3
-  | LA.CompOp (pos, cop, e1, e2) -> eval_comp_op ctx pos cop e1 e2
+  | LA.CompOp (_, cop, e1, e2) -> eval_comp_op ctx cop e1 e2
   | e -> inline_error (LH.pos_of_expr e) ("Cannot evaluate expression" ^ LA.string_of_expr e)  
 (** try and evalutate expression to bool, return error otherwise *)
 
@@ -178,9 +178,9 @@ and eval_int_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
 (** try and evalutate ternary op expression to int, return error otherwise *)
 
              
-and [@ocaml.warning "-27"] eval_comp_op: TC.tc_context -> Lib.position -> LA.comparison_operator
+and eval_comp_op: TC.tc_context -> LA.comparison_operator
                   -> LA.expr -> LA.expr -> bool inline_result = 
-  fun ctx pos cop e1 e2 ->
+  fun ctx cop e1 e2 ->
   eval_int_expr ctx e1 >>= fun v1 ->
   eval_int_expr ctx e2 >>= fun v2 ->
   match cop with
@@ -269,7 +269,7 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
      let e1' = simplify_expr ctx e1 in
      let e2' = simplify_expr ctx e2 in
      let e' = LA.CompOp (pos, cop, e1', e2') in
-     (match (eval_comp_op ctx pos cop e1' e2') with
+     (match (eval_comp_op ctx cop e1' e2') with
       | Ok v -> LA.Const (pos, lift_bool v)
       | Error _ -> e')
   | LA.GroupExpr (pos, g, es) ->

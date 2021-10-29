@@ -48,7 +48,7 @@ let shall_keep trans (s,_) =
   | _ -> true
 
 (* Check-sat and splits properties.. *)
-let [@ocaml.warning "-27"] split trans solver k falsifiable to_split actlit =
+let split trans solver k to_split actlit =
 
   (* Function to run if sat. *)
   let if_sat _ =
@@ -119,7 +119,7 @@ let split_closure trans solver k to_split =
     Term.mk_implies [ actlit ; term ]
     |> SMTSolver.assert_term solver ;
     (* Splitting. *)
-    match split trans solver k falsifiable list actlit with
+    match split trans solver k list actlit with
     | None ->
       deactivate () ;
       list, falsifiable

@@ -95,13 +95,13 @@ let first_log_flag = ref true
 (* ********************************************************************** *)
 
 (* Output message as plain text *)
-let [@ocaml.warning "-27"] printf_pt mdl level fmt =
+let printf_pt level fmt =
   (ignore_or_fprintf level)
     !log_ppf ("%a @[<hov>" ^^ fmt ^^ "@]@.@.") tag_of_level level
 
 
 (* Unconditional printing as plain text. *)
-let [@ocaml.warning "-27"] printf_pt_uncond mdl fmt =
+let printf_pt_uncond fmt =
   Format.fprintf !log_ppf ("@[<hov>" ^^ fmt ^^ "@]@.@.")
 
 
@@ -286,7 +286,7 @@ module Make (R : sig val printf_relay : 'a m_log_printer end) : SLog = struct
     let mdl = get_module () in
 
     match !log_format with 
-    | F_pt -> printf_pt mdl level fmt
+    | F_pt -> printf_pt level fmt
     | F_xml -> printf_xml mdl level fmt
     | F_json -> printf_json mdl level fmt
     | F_relay -> R.printf_relay mdl level fmt
@@ -298,7 +298,7 @@ module Make (R : sig val printf_relay : 'a m_log_printer end) : SLog = struct
     let mdl = get_module () in
 
     match !log_format with 
-    | F_pt -> printf_pt_uncond mdl fmt
+    | F_pt -> printf_pt_uncond fmt
     | F_xml -> printf_xml mdl L_info fmt
     | F_json -> printf_json mdl L_info fmt
     | F_relay -> R.printf_relay mdl L_info fmt

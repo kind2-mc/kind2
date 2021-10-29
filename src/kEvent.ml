@@ -286,7 +286,7 @@ let pp_print_kind_module_pt =
 
 
 (* Output message as plain text *)
-let [@ocaml.warning "-27"] printf_pt mdl level fmt =
+let printf_pt level fmt =
   (ignore_or_fprintf level)
     !log_ppf ("%a @[<hov>" ^^ fmt ^^ "@]@.@.") tag_of_level level
 
@@ -379,7 +379,7 @@ let pp_print_counterexample_pt
 | cex -> (
 
   (* Slice counterexample and transitions system to property *)
-  let trans_sys, instances, cex, input_sys =
+  let trans_sys, _, cex, input_sys =
     slice_trans_sys_and_cex_to_property
       input_sys analysis trans_sys prop_name cex
   in
@@ -389,7 +389,7 @@ let pp_print_counterexample_pt
     Format.fprintf ppf
       "@{<red>%s@}:@,  @[<v>%a@]"
       title
-      (InputSystem.pp_print_path_pt input_sys trans_sys instances disproved)
+      (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
       (Model.path_of_list cex)
   in
 
@@ -428,23 +428,23 @@ let pp_print_counterexample_pt
 
 
 (* Output execution path without slicing *)
-let [@ocaml.warning "-27"] pp_print_path_pt input_sys _ trans_sys init ppf path = 
+let pp_print_path_pt input_sys trans_sys ppf path = 
 
   (* Output path *)
   Format.fprintf ppf 
     "%a"
-    (InputSystem.pp_print_path_pt input_sys trans_sys [] true)
+    (InputSystem.pp_print_path_pt input_sys trans_sys true)
     (Model.path_of_list path)
 
 
 (* Output execution path as plain text *)
-let execution_path_pt level input_sys analysis trans_sys path = 
+let execution_path_pt level input_sys trans_sys path = 
 
   (ignore_or_fprintf level)
     !log_ppf 
     ("@[<v>@{<b>Execution@}:@,\
       %a@]@.")
-    (pp_print_path_pt input_sys analysis trans_sys true) path
+    (pp_print_path_pt input_sys trans_sys) path
 
 
 (* Output cex for a property as plain text *)
@@ -531,7 +531,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
       div_by_zero_text prop
-      |> printf_pt mdl L_warn
+      |> printf_pt L_warn
         "%t @[<v> %a@]"
         warning_tag
         (pp_print_list Format.pp_print_string "@,")
@@ -725,7 +725,7 @@ let pp_print_counterexample_xml
 
       (
         (* Slice counterexample and transitions system to property *)
-        let trans_sys', instances, cex', input_sys' =
+        let trans_sys', _, cex', input_sys' =
           slice_trans_sys_and_cex_to_property
             input_sys analysis trans_sys prop_name cex
         in
@@ -734,7 +734,7 @@ let pp_print_counterexample_xml
           Format.fprintf ppf
             "@[<hv 2>\ <%s>%a@]@,</%s>"
             tag
-            (InputSystem.pp_print_path_xml input_sys' trans_sys' instances disproved)
+            (InputSystem.pp_print_path_xml input_sys' trans_sys' disproved)
             (Model.path_of_list cex')
             tag
         with TimeoutWall -> (
@@ -744,24 +744,24 @@ let pp_print_counterexample_xml
 
 
 (* Output execution path without slicing *)
-let [@ocaml.warning "-27"] pp_print_path_xml input_sys analysis trans_sys init ppf path = 
+let pp_print_path_xml input_sys trans_sys ppf path = 
 
   (* Output path *)
   Format.fprintf ppf 
     "%a"
-    (InputSystem.pp_print_path_xml input_sys trans_sys [] true)
+    (InputSystem.pp_print_path_xml input_sys trans_sys true)
     (Model.path_of_list path)
 
 
 (* Output execution path as XML *)
-let execution_path_xml level input_sys analysis trans_sys path = 
+let execution_path_xml level input_sys trans_sys path = 
 
   (ignore_or_fprintf level)
     !log_ppf 
     ("@[<hv 2><Execution>@,\
       %a@;<0 -2>\
       </Execution>@]@.")
-    (pp_print_path_xml input_sys analysis trans_sys true) path
+    (pp_print_path_xml input_sys trans_sys) path
   
 
 (* Output disproved property as XML *)
@@ -1047,7 +1047,7 @@ let pp_print_counterexample_json
 
       (
         (* Slice counterexample and transitions system to property *)
-        let trans_sys', instances, cex', input_sys' =
+        let trans_sys', _, cex', input_sys' =
           slice_trans_sys_and_cex_to_property
             input_sys analysis trans_sys prop_name cex
         in
@@ -1057,7 +1057,7 @@ let pp_print_counterexample_json
           Format.fprintf ppf
             "\"%s\" :%a"
             object_name
-            (InputSystem.pp_print_path_json input_sys' trans_sys' instances disproved)
+            (InputSystem.pp_print_path_json input_sys' trans_sys' disproved)
             (Model.path_of_list cex')
         with TimeoutWall -> (
           Format.fprintf ppf " []@.}@.";
@@ -1144,7 +1144,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
 
 
 (* Output execution path without slicing as JSON *)
-let [@ocaml.warning "-27"] execution_path_json level input_sys analysis trans_sys path =
+let execution_path_json level input_sys trans_sys path =
 
   (ignore_or_fprintf level)
     !log_ppf
@@ -1153,7 +1153,7 @@ let [@ocaml.warning "-27"] execution_path_json level input_sys analysis trans_sy
         \"trace\" :%a\
        @]@.}@.\
     "
-    (InputSystem.pp_print_path_json input_sys trans_sys [] true)
+    (InputSystem.pp_print_path_json input_sys trans_sys true)
     (Model.path_of_list path)
 
 
@@ -1326,12 +1326,12 @@ let log_step_cex mdl level input_sys analysis trans_sys prop cex =
 
 
 (* Log an exection path *)
-let [@ocaml.warning "-27"] log_execution_path mdl level input_sys analysis trans_sys path =
+let log_execution_path level input_sys trans_sys path =
 
   (match get_log_format () with 
-    | F_pt -> execution_path_pt level input_sys analysis trans_sys path
-    | F_xml -> execution_path_xml level input_sys analysis trans_sys path 
-    | F_json -> execution_path_json level input_sys analysis trans_sys path
+    | F_pt -> execution_path_pt level input_sys trans_sys path
+    | F_xml -> execution_path_xml level input_sys trans_sys path 
+    | F_json -> execution_path_json level input_sys trans_sys path
     | F_relay -> ())
 
 
@@ -1390,7 +1390,7 @@ let log_run_end results =
   | F_relay -> failwith "can only be called by supervisor"
 
 
-let [@ocaml.warning "-27"] split_abstract_and_concrete_systems sys info =
+let split_abstract_and_concrete_systems info =
   Scope.Map.fold (fun sys is_abstract (a,c) ->
     if is_abstract then sys :: a, c else a, sys :: c
   ) info.Analysis.abstraction_map ([],[])
@@ -1452,7 +1452,7 @@ let log_analysis_start sys param =
 
     | F_xml ->
       (* Splitting abstract and concrete systems. *)
-      let abstract, concrete = split_abstract_and_concrete_systems sys info in
+      let abstract, concrete = split_abstract_and_concrete_systems info in
       (* Counting the number of assumption for each subsystem. *)
       let assumption_count = number_of_subsystem_assumptions info in
       (* Opening [analysis] tag and printing info. *)
@@ -1479,7 +1479,7 @@ let log_analysis_start sys param =
         Format.fprintf fmt "\"%a\"" Scope.pp_print_scope scope
       in
       (* Splitting abstract and concrete systems. *)
-      let abstract, concrete = split_abstract_and_concrete_systems sys info in
+      let abstract, concrete = split_abstract_and_concrete_systems info in
       (* Counting the number of assumption for each subsystem. *)
       let assumption_count = number_of_subsystem_assumptions info in
       (* Opening [analysis] tag and printing info. *)
@@ -1762,15 +1762,13 @@ let step_cex input_sys analysis trans_sys prop cex =
 
 
 (* Broadcast a counterexample for some properties *)
-let execution_path trans_sys path = 
+let execution_path input_sys = 
 
   (* Update time in case we are not running in parallel mode *)
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
   
-  let mdl = get_module () in
-
-  log_execution_path mdl L_warn trans_sys path
+  log_execution_path L_warn input_sys
 
 
 (* Send progress indicator *)

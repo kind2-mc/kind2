@@ -22,7 +22,7 @@ val generate_contracts:
 
 (** Generates a contract for an input system for some terms. *)
 val generate_contract_for :
-  'a InputSystem.t -> Analysis.param -> TransSys.t -> string ->
+  'a InputSystem.t -> TransSys.t -> string ->
   Term.t list -> string -> unit
 
 

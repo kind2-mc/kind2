@@ -60,7 +60,7 @@ let rec assert_trans solver t i =
     
 
 (* Main entry point *)
-let main input_file input_sys aparam trans_sys =
+let main input_file input_sys _ trans_sys =
 
   KEvent.set_module `Interpreter;
 
@@ -249,7 +249,6 @@ let main input_file input_sys aparam trans_sys =
       (* Output execution path *)
       KEvent.execution_path
         input_sys
-        aparam
         trans_sys 
         (Model.path_to_list path)
 

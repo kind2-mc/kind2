@@ -183,7 +183,7 @@ val proved_wam : Certificate.t -> TransSys.t -> string -> unit
 val unknown_wam : TransSys.t -> string -> unit
 
 (** Broadcast an execution path *)
-val execution_path : 'a InputSystem.t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.value list) list -> unit
+val execution_path : 'a InputSystem.t -> TransSys.t -> (StateVar.t * Model.value list) list -> unit
 
 (** Broadcast a termination message *)
 val terminate : unit -> unit 
@@ -268,7 +268,7 @@ val exit : mthread -> unit
 
 
 val pp_print_path_pt :
-  'a InputSystem.t -> Analysis.param -> TransSys.t -> 'a ->
+  'a InputSystem.t -> TransSys.t ->
   Format.formatter -> (StateVar.t * Model.value list) list -> unit
 
 (* 

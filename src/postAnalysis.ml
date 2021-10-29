@@ -564,7 +564,7 @@ module RunInvLog: PostAnalysis = struct
     |> Res.chain (fun (sys, _, invs) ->
       try Ok (
         LustreContractGen.generate_contract_for
-          in_sys param sys target invs (Names.inv_log_contract_name top)
+          in_sys sys target invs (Names.inv_log_contract_name top)
       ) with e -> error (
         fun fmt ->
           Format.fprintf fmt "Could not generate strengthening contract:@ %s"
@@ -835,10 +835,10 @@ let run_mcs_post_analysis in_sys param analyze sys =
       then (
         let props = IvcMcs.mcs_initial_analysis in_sys param analyze ~max_mcs_cardinality sys in
         (* Print proved properties *)
-        let pt = ModelElement.pp_print_no_solution sys "mcs" in
-        let xml = ModelElement.pp_print_no_solution_xml sys "mcs" in
+        let pt = ModelElement.pp_print_no_solution in
+        let xml = ModelElement.pp_print_no_solution_xml "mcs" in
         let json ~unknown fmt = Format.fprintf fmt ",\n%a"
-          (ModelElement.pp_print_no_solution_json sys "mcs" ~unknown) in
+          (ModelElement.pp_print_no_solution_json "mcs" ~unknown) in
         let aux prop =
           match prop.Property.prop_status with
           | PropInvariant _ ->

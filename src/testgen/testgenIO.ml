@@ -170,7 +170,7 @@ let error_csv (type s) : s t -> string * string * Unix.file_descr
 (* Converts a model to the system's input values in csv. *)
 let cex_to_inputs_csv fmt in_sys sys cex k =
   Format.fprintf fmt "%a"
-    (InputSystem.pp_print_path_in_csv in_sys sys [] true)
+    (InputSystem.pp_print_path_in_csv in_sys sys true)
     (Model.path_from_model (TransSys.state_vars sys) cex k)
 
 (* Pretty printer for a testcase in xml. *)

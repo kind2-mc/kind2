@@ -671,11 +671,10 @@ let node_path_of_instance
 (* Return a hierarchical model for the nodes from a flat model by
    mapping the model of the top node to model of the subnode instances,
    reconstructing the streams in the original input. *)
-let [@ocaml.warning "-27"] node_path_of_subsystems
+let node_path_of_subsystems
     globals
     first_is_init
     trans_sys
-    instances
     model
     ({ S.scope } as subsystems) =
 
@@ -1283,11 +1282,11 @@ let pp_print_lustre_path_pt ppf (lustre_path, const_map) =
 
 (* Output a hierarchical model as plain text *)
 let pp_print_path_pt
-  trans_sys instances globals subsystems first_is_init ppf model
+  trans_sys globals subsystems first_is_init ppf model
   =
   (* Create the hierarchical model *)
   node_path_of_subsystems
-    globals first_is_init trans_sys instances model subsystems
+    globals first_is_init trans_sys model subsystems
   (* Output as plain text *)
   |> pp_print_lustre_path_pt ppf
 
@@ -1615,11 +1614,11 @@ let pp_print_lustre_path_xml ppf (path, const_map) =
 
 (* Ouptut a hierarchical model as XML *)
 let pp_print_path_xml
-  trans_sys instances globals subsystems first_is_init ppf model
+  trans_sys globals subsystems first_is_init ppf model
 =
   (* Create the hierarchical model *)
   node_path_of_subsystems
-    globals first_is_init trans_sys instances model subsystems
+    globals first_is_init trans_sys model subsystems
   (* Output as XML *)
   |> pp_print_lustre_path_xml ppf
 
@@ -1999,11 +1998,11 @@ let pp_print_lustre_path_json ppf (path, const_map) =
 
 (* Ouptut a hierarchical model as JSON *)
 let pp_print_path_json
-  trans_sys instances globals subsystems first_is_init ppf model
+  trans_sys globals subsystems first_is_init ppf model
 =
   (* Create the hierarchical model *)
   node_path_of_subsystems
-    globals first_is_init trans_sys instances model subsystems
+    globals first_is_init trans_sys model subsystems
   (* Output as JSON *)
   |> pp_print_lustre_path_json ppf
 
@@ -2048,11 +2047,11 @@ let pp_print_lustre_path_in_csv ppf = function
 
 (* Outputs a model for the inputs of a system in CSV. *)
 let pp_print_path_in_csv
-  trans_sys instances globals subsystems first_is_init ppf model
+  trans_sys globals subsystems first_is_init ppf model
 =
   (* Create the hierarchical model. *)
   node_path_of_subsystems 
-    globals first_is_init trans_sys instances model subsystems
+    globals first_is_init trans_sys model subsystems
   (* Output as CSV. *)
   |> pp_print_lustre_path_in_csv ppf
 
