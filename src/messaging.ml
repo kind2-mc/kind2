@@ -99,17 +99,20 @@ sig
 
   type ctx
 
-  type socket
+  type pub_socket
+  type pull_socket
+  type sub_socket
+  type push_socket
 
   type thread
 
-  val init_im : unit -> (ctx * socket * socket) * (string * string)
+  val init_im : unit -> (ctx * pub_socket * pull_socket) * (string * string)
 
-  val init_worker : Lib.kind_module -> string -> string -> ctx * socket * socket
+  val init_worker : Lib.kind_module -> string -> string -> ctx * sub_socket * push_socket
 
-  val run_im : ctx * socket * socket -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
+  val run_im : ctx * pub_socket * pull_socket -> (int * Lib.kind_module) list -> (exn -> unit) -> unit
 
-  val run_worker : ctx * socket * socket -> Lib.kind_module -> (exn -> unit) -> thread
+  val run_worker : ctx * sub_socket * push_socket -> Lib.kind_module -> (exn -> unit) -> thread
 
   val send_relay_message : relay_message -> unit
 
@@ -121,7 +124,7 @@ sig
     
   val update_child_processes_list : (int * Lib.kind_module) list -> unit
 
-  val purge_im_mailbox : ctx * socket * socket -> unit
+  val purge_im_mailbox : ctx * pub_socket * pull_socket -> unit
     
   val check_termination : unit -> bool
 
@@ -137,8 +140,14 @@ struct
   (* ZeroMQ context *)
   type ctx = Zmq.Context.t
 
-  (* ZeroMQ socket *)
-  type socket = [ `Pub | `Sub | `Push | `Pull ] Zmq.Socket.t
+  (* ZeroMQ sockets *)
+  type pub_socket = [ `Pub ] Zmq.Socket.t
+
+  type pull_socket = [ `Pull ] Zmq.Socket.t
+
+  type sub_socket = [ `Sub ] Zmq.Socket.t
+
+  type push_socket = [ `Push ] Zmq.Socket.t
 
   (* Background thread *)
   type thread = Thread.t
