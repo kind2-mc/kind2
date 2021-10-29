@@ -77,8 +77,11 @@ sig
   (** Messaging context *)
   type ctx
 
-  (** Socket *)
-  type socket
+  (** Sockets *)
+  type pub_socket
+  type pull_socket
+  type sub_socket
+  type push_socket
 
   (** Thread *)
   type thread
@@ -91,24 +94,24 @@ sig
       return argument must only be used by the parent process, the
       child processes must use the socket addresses in the second
       return argument. *)
-  val init_im : unit -> (ctx * socket * socket) * (string * string)
+  val init_im : unit -> (ctx * pub_socket * pull_socket) * (string * string)
 
   (** Create a messaging context and bind given ports for a worker
       process. Return a messaging context and a pair of sub and push
       sockets. *)
-  val init_worker : Lib.kind_module -> string -> string -> ctx * socket * socket
+  val init_worker : Lib.kind_module -> string -> string -> ctx * sub_socket * push_socket
 
   (** Start the background thread for the invariant manager, using the
       given context and sockets. The second parameter is a list of
       PIDs and the kind of worker processes to watch, the third
       argument is the function to call to handle exceptions. *)
-  val run_im : ctx * socket * socket -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
+  val run_im : ctx * pub_socket * pull_socket -> (int * Lib.kind_module) list -> (exn -> unit) -> unit
 
   (** Start the background thread for a worker process, using the
       given context and sockets. The second parameter is type of
       worker process, the third is the function to call to handle
       exceptions. *)
-  val run_worker : ctx * socket * socket -> Lib.kind_module -> (exn -> unit) -> thread
+  val run_worker : ctx * sub_socket * push_socket -> Lib.kind_module -> (exn -> unit) -> thread
 
   (** Broadcast a message to the worker processes *)
   val send_relay_message : relay_message -> unit
@@ -130,7 +133,7 @@ sig
   (** Purge the invariant manager mailbox.
     Should be called before calling update_child_processes_list
     in order to get rid of messages from the previous analysis. *)
-  val purge_im_mailbox : ctx * socket * socket -> unit
+  val purge_im_mailbox : ctx * pub_socket * pull_socket -> unit
 
   (** Returns true if a termination message was received. Does NOT
       modify received message in any way. *)
