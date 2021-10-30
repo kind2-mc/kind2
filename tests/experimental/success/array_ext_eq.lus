@@ -1,0 +1,11 @@
+
+node main(const n:int; A, B: int^n) returns (ok: bool);
+(*@contract
+  assume n > 1;
+*)
+var S: int^n;
+let
+  S[k] = if A = B then A[k] - B[k] else A[k] + B[k];
+  ok = S[0] = S[1];
+  --%PROPERTY A = B => ok;
+tel;

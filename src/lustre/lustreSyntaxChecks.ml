@@ -394,6 +394,11 @@ let no_stateful_contract_imports ctx contract =
   in
   List.fold_left over_eqn (Ok ()) contract
 
+let no_clock_inputs_or_outputs pos = function
+  | LA.ClockTrue -> Ok ()
+  | _ -> syntax_error pos
+    (Format.asprintf "Clocked inputs or outputs are not supported")
+
 let unsupported_expr = function
   | LA.Current (pos, _) -> syntax_error pos
       (Format.asprintf "Current expression is not supported")
@@ -476,6 +481,12 @@ and common_contract_checks ctx e =
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
     >> (no_calls_to_nodes_with_contracts_subject_to_refinement ctx e)
 
+and check_input_items (pos, _id, _ty, clock, _const) =
+  no_clock_inputs_or_outputs pos clock
+
+and check_output_items (pos, _id, _ty, clock) =
+  no_clock_inputs_or_outputs pos clock
+
 and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
   let ctx = build_local_ctx ctx locals inputs outputs in
   let decl = LA.NodeDecl
@@ -486,6 +497,8 @@ and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
     >> (match contract with 
     | Some c -> check_contract ctx common_contract_checks c
     | None -> Ok ())
+    >> (Res.seq_ (List.map check_input_items inputs))
+    >> (Res.seq_ (List.map check_output_items outputs))
     >> (Ok decl)
 
 and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
@@ -503,6 +516,8 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
       | Some c -> check_contract ctx common_contract_checks c
         >> no_stateful_contract_imports ctx c
       | None -> Ok ())
+    >> (Res.seq_ (List.map check_input_items inputs))
+    >> (Res.seq_ (List.map check_output_items outputs))
     >> (Ok decl)
 
 and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
@@ -511,6 +526,8 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
     (span, (id, params, inputs, outputs, contract))
   in
   (check_contract ctx common_contract_checks contract)
+    >> (Res.seq_ (List.map check_input_items inputs))
+    >> (Res.seq_ (List.map check_output_items outputs))
     >> (Ok decl)
 
 and check_items ctx f items =
