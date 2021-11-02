@@ -603,7 +603,7 @@ let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t list = fun
 
   (* Node calls *)
   | Call (_, i, es) ->
-(*     Format.eprintf "call expr: %a\n\n" (pp_print_list LA.pp_print_expr ";") es;
+(*     Format.eprintf "call expr: %a\n\n" (Lib.pp_print_list LA.pp_print_expr ";") es;
     Format.eprintf "pos: %a, call: %a\n\n" Lib.pp_print_position p Format.pp_print_string i; *)
     (match IMap.find_opt i m with
       | None -> assert false (* guaranteed by lustreSyntaxChecks *)
@@ -611,17 +611,23 @@ let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t list = fun
         let sum_bds = IntMap.bindings ns in
         let es' = List.flatten (List.map (vars_with_flattened_nodes m) es) in
 (*         Format.eprintf "sum_bds: %a\n\n"
-        (pp_print_list
-          (pp_print_pair
+        (Lib.pp_print_list
+          (Lib.pp_print_pair
             Format.pp_print_int
             (Lib.pp_print_list Format.pp_print_int ",")
             ":")
         ";")
         sum_bds;
         Format.eprintf "es': %a\n\n"
-          (pp_print_list Format.pp_print_string ",")
+          (Lib.pp_print_list Format.pp_print_string ",")
           (LA.SI.fold (fun key x -> key :: x) (LA.SI.flatten es') []); *)
-        List.concat (List.map (fun (_, b) -> List.map (List.nth es') b) sum_bds))
+        List.concat (List.map
+          (fun (_, b) -> List.map
+            (fun i -> match List.nth_opt es' i with
+              | Some x -> x
+              | None -> SI.empty)
+            b)
+          sum_bds))
   | CallParam (_, _, _, es) ->
     let es' = List.flatten (List.map (vars_with_flattened_nodes m) es) in
     [SI.flatten es']
