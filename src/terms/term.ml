@@ -569,7 +569,7 @@ let map = T.map
 
    TODO: handle IntRange type correctly 
 *)
-let rec type_of_term t = match T.destruct t with
+let rec type_of_term' t = match T.destruct t with
 
   (* Return declared type of variable *)
   | T.Var v -> Var.type_of_var v
@@ -672,7 +672,7 @@ let rec type_of_term t = match T.destruct t with
         | `SELECT _ (* ty_array *) ->
              
           (match l with
-           | a :: _ -> Type.elem_type_of_array (type_of_term a)
+           | a :: _ -> Type.elem_type_of_array (type_of_term' a)
            | _ -> assert false)
 
 
@@ -681,7 +681,7 @@ let rec type_of_term t = match T.destruct t with
           
           (match l with
 
-          | [a] -> (match (Type.node_of_type (type_of_term a)) with
+          | [a] -> (match (Type.node_of_type (type_of_term' a)) with
 
             | Type.BV _ -> 
               (* Compute width of resulting bitvector *)
@@ -702,8 +702,8 @@ let rec type_of_term t = match T.destruct t with
 
               (* Compute width of resulting bitvector *)
               (match 
-                  (Type.node_of_type (type_of_term a), 
-                   Type.node_of_type (type_of_term b))
+                  (Type.node_of_type (type_of_term' a), 
+                   Type.node_of_type (type_of_term' b))
                with
                  | Type.BV i, Type.BV j -> 
                     Type.mk_bv (i + j)
@@ -719,7 +719,7 @@ let rec type_of_term t = match T.destruct t with
           
             | [a] ->
               
-              (match Type.node_of_type (type_of_term a) with
+              (match Type.node_of_type (type_of_term' a) with
                 | Type.BV j -> Type.mk_bv ((Numeral.to_int i) + j)
                 | Type.UBV j -> Type.mk_ubv ((Numeral.to_int i) + j)
                 | _ -> assert false)
@@ -734,7 +734,7 @@ let rec type_of_term t = match T.destruct t with
           (match l with 
               
             (* Function must be at least binary *)
-            | a :: _ -> type_of_term a
+            | a :: _ -> type_of_term' a
             | _ -> assert false)
 
 
@@ -743,7 +743,7 @@ let rec type_of_term t = match T.destruct t with
           (match l with 
 
             (* Function must be unary *)
-            | [a] -> type_of_term a
+            | [a] -> type_of_term' a
             | _ -> assert false) 
 
         | `BVAND
@@ -762,7 +762,7 @@ let rec type_of_term t = match T.destruct t with
           (match l with
 
             (* Function must be binary *)
-            | a :: _ -> type_of_term a
+            | a :: _ -> type_of_term' a
             | _ -> assert false)
 
         | `STORE -> 
@@ -770,7 +770,7 @@ let rec type_of_term t = match T.destruct t with
           (match l with 
               
             (* Function must be ternary *)
-            | [a; _; _] -> type_of_term a
+            | [a; _; _] -> type_of_term' a
             | _ -> assert false)
 
 
@@ -780,7 +780,7 @@ let rec type_of_term t = match T.destruct t with
           (match l with 
 
             (* ite must be ternary *)
-            | [_; a; _] -> type_of_term a
+            | [_; a; _] -> type_of_term' a
             | _ ->
               (* Format.eprintf "%a@." pp_print_term t; *)
               assert false)
@@ -801,6 +801,10 @@ let rec type_of_term t = match T.destruct t with
   (* Return type of term *)
   (* | T.Attr (t, _) -> type_of_term t *)
 
+let type_of_term t =
+  match node_of_term t with
+  | T.Exists _ | T.Forall _ -> Type.t_bool
+  | _ -> type_of_term' t
 
 (* Type checking disabled
 
