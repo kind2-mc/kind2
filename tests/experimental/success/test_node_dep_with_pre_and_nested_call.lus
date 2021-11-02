@@ -1,0 +1,21 @@
+
+node test(X: bool) returns (Y: int) ;
+let
+  Y = Occurrences(pre_4(X) --and true
+  ) ;
+tel 
+
+-- Counts how many times X has occurred (i.e., been true) so far
+node Occurrences (X: bool) returns (O: int) ;
+  var preO: int ;
+let 
+  preO = 0 -> pre O ;
+  O = if X then preO + 1 else preO ;
+tel
+
+-- Returns false for the first four steps
+-- After that, it returns the value of X four instants before
+node pre_4(X: bool) returns (B4: bool) ;
+let
+  B4 = false -> pre (false -> pre (false -> pre (false -> pre X))) ;
+tel
