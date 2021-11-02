@@ -1853,7 +1853,8 @@ module Arrays = struct
         "@[<v>Use the builtin theory of arrays in solvers.@ Default: %a@]"
         fmt_bool smt_default
     )
-  let smt () = !smt
+    let set_smt f = smt := f
+    let smt () = !smt
 
   let inline_default = true
   let inline = ref inline_default

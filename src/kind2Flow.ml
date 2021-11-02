@@ -637,6 +637,7 @@ let run in_sys =
       match ISys.contract_check_params in_sys with
       | [] -> KEvent.log L_note "No imported nodes found, skipping contract check."
       | params -> (
+        Flags.Arrays.set_smt true ; (* Uninterpreted functions are not supported *)
         params |> List.iter (fun (param, has_contract) ->
           let scope = (Analysis.info_of_param param).top in
           (* Build trans sys and slicing info. *)

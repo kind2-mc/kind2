@@ -594,6 +594,8 @@ module Arrays : sig
   (** Use builtin theory of arrays in SMT solver *)
   val smt : unit -> bool
 
+  val set_smt : bool -> unit
+
   (** Inline arrays with fixed bounds *)
   val inline : unit -> bool
 
