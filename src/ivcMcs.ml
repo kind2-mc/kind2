@@ -170,7 +170,7 @@ let rand_function_name_for _ ts =
 let undef_expr pos_sv_map const_expr typ expr =
   let pos = H.pos_of_expr expr in
   match pos_sv_map with
-  | None -> A.Ident (pos, "_")
+  | None -> A.Ident (pos, HString.mk_hstring "_")
   | Some pos_sv_map ->
     if const_expr then expr (* a call to __rand is not a valid constant expression *)
     else

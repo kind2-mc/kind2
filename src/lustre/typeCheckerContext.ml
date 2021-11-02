@@ -322,7 +322,7 @@ let pp_print_enum_variants: Format.formatter -> enum_variants -> unit
     (fun ppf (i, exm) ->
       Format.fprintf ppf "(enum %a -> [%a])"
         LA.pp_print_ident i
-        (Lib.pp_print_list Format.pp_print_string ",") exm)
+        (Lib.pp_print_list HString.pp_print_hstring ",") exm)
           ", " ppf (IMap.bindings m)
 (** Pretty print enumeration types and their variants *)
 

@@ -17,6 +17,7 @@
 *)
 
 open Lib
+open HString
 
 exception Parser_error
 
@@ -27,7 +28,7 @@ exception Parser_error
 
 
 (* An identifier *)
-type ident = string
+type ident = HString.t
 
 module SI = struct
   include (Set.Make (struct
@@ -39,11 +40,11 @@ module SI = struct
 end
 
            
-type index = string
+type index = HString.t
 
-let pp_print_ident = Format.pp_print_string
+let pp_print_ident = HString.pp_print_hstring
 
-let pp_print_index = Format.pp_print_string
+let pp_print_index = HString.pp_print_hstring
 
 
 (* A clock expression *)
@@ -81,8 +82,8 @@ type comparison_operator =
 
 type constant =
   | True | False
-  | Num of string
-  | Dec of string
+  | Num of HString.t
+  | Dec of HString.t
 
 type quantifier =
   | Forall | Exists
@@ -251,7 +252,7 @@ and state =
 type node_item =
   | Body of node_equation
   | AnnotMain of bool
-  | AnnotProperty of position * string option * expr
+  | AnnotProperty of position * HString.t option * expr
 
 
 (* A contract ghost constant. *)
@@ -261,16 +262,16 @@ type contract_ghost_const = const_decl
 type contract_ghost_var = const_decl
 
 (* A contract assume. *)
-type contract_assume = position * string option * bool (* soft *) * expr
+type contract_assume = position * HString.t option * bool (* soft *) * expr
 
 (* A contract guarantee. *)
-type contract_guarantee = position * string option * bool (* soft *) * expr
+type contract_guarantee = position * HString.t option * bool (* soft *) * expr
 
 (* A contract requirement. *)
-type contract_require = position * string option * expr
+type contract_require = position * HString.t option * expr
 
 (* A contract ensure. *)
-type contract_ensure = position * string option * expr
+type contract_ensure = position * HString.t option * expr
 
 (* A contract mode. *)
 type contract_mode =
@@ -363,7 +364,7 @@ let rec pp_print_expr ppf =
   in
 
   (* Pretty-print a string *)
-  let ps p = Format.fprintf ppf "%a%s" ppos p in 
+  let ps p = Format.fprintf ppf "%a%a" ppos p HString.pp_print_hstring in 
 
   (* Pretty-print a unary operator *)
   let p1 p s e = 
@@ -488,8 +489,8 @@ let rec pp_print_expr ppf =
 
       Format.fprintf ppf "%a%a.%%%a" ppos p pp_print_expr e Format.pp_print_int f
 
-    | Const (p, True) -> ps p "true"
-    | Const (p, False) -> ps p "false"
+    | Const (p, True) -> ps p (HString.mk_hstring "true")
+    | Const (p, False) -> ps p (HString.mk_hstring "false")
     | Const (p, Num n) -> ps p n
     | Const (p, Dec d) -> ps p d
 
@@ -675,7 +676,7 @@ and pp_print_lustre_type ppf = function
   | EnumType (_, _, l) -> 
     Format.fprintf ppf 
       "enum @[<hv 2>{ %a }@]"
-      (pp_print_list Format.pp_print_string ",@ ") l
+      (pp_print_list HString.pp_print_hstring ",@ ") l
   | TArr (_, arg_ty, ret_ty) ->
      Format.fprintf ppf "@[%a->@,%a@]"
        pp_print_lustre_type arg_ty
@@ -684,16 +685,16 @@ and pp_print_lustre_type ppf = function
 (* Pretty-print a typed identifier *)
 and pp_print_typed_ident ppf (_, s, t) = 
   Format.fprintf ppf 
-    "@[<hov 2>%s:@ %a@]" 
-    s 
+    "@[<hov 2>%a:@ %a@]" 
+    HString.pp_print_hstring s
     pp_print_lustre_type t
 
 
 (* Pretty-print a typed identifier *)
 and pp_print_typed_decl ppf (_, s, t) = 
   Format.fprintf ppf 
-    "@[<hov 2>%s:@ %a@]" 
-    s 
+    "@[<hov 2>%a:@ %a@]" 
+    HString.pp_print_hstring s
     pp_print_lustre_type t
 
 
@@ -914,12 +915,16 @@ and pp_print_node_item ppf = function
     Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 
 
   | AnnotProperty (_, Some name, e) ->
-    Format.fprintf ppf "--%%PROPERTY \"%s\" %a;" name pp_print_expr e 
+    Format.fprintf ppf "--%%PROPERTY \"%a\" %a;"
+      HString.pp_print_hstring name
+      pp_print_expr e 
 
 
 and pp_print_automaton ppf name states returns =
-  Format.fprintf ppf "@[<hv 2>automaton %s@.%a@]returns %a;"
-    (match name with Some n -> n | None -> "")
+  Format.fprintf ppf "@[<hv 2>automaton %a@.%a@]returns %a;"
+    HString.pp_print_hstring (match name with
+      Some n -> n
+      | None -> HString.mk_hstring "")
     pp_print_states states
     pp_print_auto_returns returns
 
@@ -934,9 +939,9 @@ and pp_print_states ppf =
 
 and pp_print_state ppf =
   function State (_, name, init, locals, eqs, unless, until) ->
-    Format.fprintf ppf "%sstate %s@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a@?"
+    Format.fprintf ppf "%sstate %a@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a@?"
       (if init then "initial " else "")
-      name
+      HString.pp_print_hstring name
       (pp_print_auto_trans "unless") unless
       pp_print_node_local_decl locals
       (pp_print_list pp_print_node_body "@ ") eqs
@@ -948,8 +953,10 @@ and pp_print_auto_trans kind ppf = function
     Format.fprintf ppf "%s %a;@." kind pp_print_transition_branch br
 
 and pp_print_transition_branch ppf = function
-  | Target (TransRestart (_, (_, t))) -> Format.fprintf ppf "restart %s" t
-  | Target (TransResume (_, (_, t))) -> Format.fprintf ppf "resume %s" t
+  | Target (TransRestart (_, (_, t))) -> Format.fprintf ppf "restart %a"
+    HString.pp_print_hstring t
+  | Target (TransResume (_, (_, t))) -> Format.fprintf ppf "resume %a"
+    HString.pp_print_hstring t
   | TransIf (_, e, br, None) ->
     Format.fprintf ppf "if@ %a@ %a"
       pp_print_expr e
@@ -1016,7 +1023,9 @@ let pp_print_contract_assume ppf (_, n, s, e) =
     ppf
     "@[<hv 3>%sassume%s@ %a;@]"
     (if s then "weakly " else "")
-    (match n with None -> "" | Some s -> " \""^s^"\"")
+    (match n with None -> "" | Some s -> " \""
+      ^ (HString.string_of_hstring s)
+      ^ "\"")
     pp_print_expr e
 
 let pp_print_contract_guarantee ppf (_, n, s, e) =
@@ -1024,7 +1033,9 @@ let pp_print_contract_guarantee ppf (_, n, s, e) =
     ppf
     "@[<hv 3>%sguarantee%s@ %a;@]"
     (if s then "weakly " else "")
-    (match n with None -> "" | Some s -> " \""^s^"\"")
+    (match n with None -> "" | Some s -> " \""
+      ^ (HString.string_of_hstring s)
+      ^ "\"")
     pp_print_expr e
 
     
@@ -1032,14 +1043,18 @@ let pp_print_contract_require ppf (_, n, e) =
   Format.fprintf
     ppf
     "@[<hv 3>require%s@ %a;@]"
-    (match n with None -> "" | Some s -> " \""^s^"\"")
+    (match n with None -> "" | Some s -> " \""
+      ^ (HString.string_of_hstring s)
+      ^ "\"")
     pp_print_expr e
 
 let pp_print_contract_ensure ppf (_, n, e) =
   Format.fprintf
     ppf
     "@[<hv 3>ensure%s@ %a;@]"
-    (match n with None -> "" | Some s -> " \""^s^"\"")
+    (match n with None -> "" | Some s -> " \""
+      ^ (HString.string_of_hstring s)
+      ^ "\"")
     pp_print_expr e
 
 let cond_new_line b fmt () =
