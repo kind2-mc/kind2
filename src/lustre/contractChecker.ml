@@ -165,7 +165,7 @@ let pp_print_realizability_result_pt
     Format.fprintf 
       fmt
       "@[<hov>%t Could not determine whether the contract of \
-        %a is realizable or not after %.3fs.@]@."
+        %a is realizable or not after %.3fs.@]@.@."
       Pretty.warning_tag
       Scope.pp_print_scope scope
       (Stat.get_float Stat.analysis_time)

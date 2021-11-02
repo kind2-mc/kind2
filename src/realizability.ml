@@ -212,6 +212,7 @@ let realizability_check
     in
 
     match ae_val_reponse with
+    | QE.Unknown -> Unknown
     | QE.Valid _ -> (
 
       Debug.realiz
@@ -226,6 +227,7 @@ let realizability_check
       in
 
       match ae_val_reponse' with
+      | QE.Unknown -> Unknown
       | QE.Valid _ -> Realizable fp
       | QE.Invalid _ (* valid_region *) -> (
         (*Debug.realiz
@@ -267,6 +269,7 @@ let realizability_check
         let ae_val_reponse' = QE.ae_val sys premises' vars_at_1 conclusion' in
 
         match ae_val_reponse' with
+        | QE.Unknown -> Unknown
         | QE.Valid _ -> (
           Debug.realiz "@[<hv>Violating region: true@]@." ;
 
@@ -339,6 +342,7 @@ let realizability_check
 
   let res =
     match QE.ae_val sys premises controllable_vars_at_0 conclusion with
+    | QE.Unknown -> Unknown
     | QE.Valid r ->
       if r == Term.t_false then ( (* Premises are inconsistent *)
         Debug.realiz
