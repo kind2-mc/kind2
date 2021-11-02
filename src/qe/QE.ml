@@ -707,7 +707,7 @@ let generalize trans_sys uf_defs model elim term =
   term'
 
 
-type response = Valid of Term.t | Invalid of Term.t
+type response = Valid of Term.t | Invalid of Term.t | Unknown
 
 let ae_val_gen trans_sys premise elim conclusion =
 
@@ -846,11 +846,26 @@ let ae_val_prec trans_sys premise elim conclusion =
           |> Term.mk_and
         in
 
+        let neg_term =
+          try
+
+            Term.negate term
+
+          with Invalid_argument _ as e ->
+
+            if Term.has_quantifier term then
+              (* QE did not eliminate all quantifiers *)
+              raise (QuantifiedTermFound term)
+            else
+              raise e
+        in
+
         let simpl_term =
           SMTSolver.simplify_term solver (Term.mk_and [premise; term])
         in
 
-        SMTSolver.assert_term solver (Term.negate term) ;
+        (* Assert only after simplifying term since it modifies context *)
+        SMTSolver.assert_term solver neg_term ;
 
         if not (SMTSolver.check_sat solver) then
           Valid simpl_term
@@ -867,10 +882,13 @@ let ae_val_prec trans_sys premise elim conclusion =
   res
 
 let ae_val trans_sys premise elim conclusion =
-  if Flags.QE.ae_val_use_ctx () then
-    ae_val_prec trans_sys premise elim conclusion
-  else
-    ae_val_gen trans_sys premise elim conclusion
+  try
+    if Flags.QE.ae_val_use_ctx () then
+      ae_val_prec trans_sys premise elim conclusion
+    else
+      ae_val_gen trans_sys premise elim conclusion
+  with QuantifiedTermFound _ ->
+    Unknown
 
 (* 
    Local Variables:

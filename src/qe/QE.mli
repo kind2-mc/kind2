@@ -52,7 +52,7 @@ val get_ubound : unit -> Numeral.t
 *)
 val generalize : TransSys.t -> (UfSymbol.t * (Var.t list * Term.t)) list -> Model.t -> Var.t list -> Term.t -> Term.t list
 
-type response = Valid of Term.t | Invalid of Term.t
+type response = Valid of Term.t | Invalid of Term.t | Unknown
 
 (** [ae_val s p v c] returns [Valid t] if (\forall vars(p). p => \exists v. c)
     is valid, otherwise it returns [Invalid t]. In both cases, [t] is such that
