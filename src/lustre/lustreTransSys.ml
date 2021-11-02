@@ -35,6 +35,20 @@ module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
 module SCM = Scope.Map
 
+
+type settings = {
+  preserve_sig: bool;
+  slice_nodes: bool;
+  add_functional_constraints: bool;
+}
+
+let default_settings = {
+  preserve_sig = false ;
+  slice_nodes = true ;
+  add_functional_constraints = true ;
+}
+
+
 (* Hash map from node scopes to their index for fresh state variables.
    Used to make sure fresh state variables are indeed fresh after a restart,
    without risking to reach [MAXINT]. *)
@@ -1591,6 +1605,7 @@ let constraints_of_equations node init stateful_vars terms equations =
 
 
 let rec trans_sys_of_node'
+  options
   globals
   top_name
   analysis_param
@@ -1611,6 +1626,7 @@ let rec trans_sys_of_node'
 
       (* Continue with next transition systems *)
       trans_sys_of_node'
+        options
         globals
         top_name
         analysis_param
@@ -1737,6 +1753,7 @@ let rec trans_sys_of_node'
           (* Recurse to create transition system for called nodes,
              then return to this node *)
           trans_sys_of_node'
+            options
             globals
             top_name
             analysis_param
@@ -1763,7 +1780,9 @@ let rec trans_sys_of_node'
           `trans`. *)
           let function_ufs, function_constraints_at_0 =
 
-            if not is_function then [], [] else (
+            if not is_function || not options.add_functional_constraints then
+              [], []
+            else (
               let inputs = D.values inputs in
               let type_of = StateVar.type_of_state_var in
               let term_0_of svar =
@@ -2305,6 +2324,7 @@ let rec trans_sys_of_node'
               node_assumptions
           in
           trans_sys_of_node'
+            options
             globals
             top_name
             analysis_param
@@ -2326,8 +2346,7 @@ let rec trans_sys_of_node'
           
 
 let trans_sys_of_nodes
-    ?(preserve_sig = false)
-    ?(slice_nodes = true)
+    ?(options=default_settings)
     globals
     subsystems analysis_param
   =
@@ -2354,6 +2373,9 @@ let trans_sys_of_nodes
   let subsystem' = SubSystem.find_subsystem_of_list subsystems top in
   
   let { SubSystem.source = { N.name = top_name } } as subsystem' =
+    let preserve_sig, slice_nodes =
+      options.preserve_sig, options.slice_nodes
+    in
     S.slice_to_abstraction
       ~preserve_sig slice_nodes analysis_param subsystem'
   in
@@ -2367,6 +2389,7 @@ let trans_sys_of_nodes
 
       (* Create a transition system for each node *)
       trans_sys_of_node'
+        options
         globals
         top_name
         analysis_param

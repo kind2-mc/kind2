@@ -16,6 +16,14 @@
 
 *)
 
+type settings = {
+  preserve_sig: bool;
+  slice_nodes: bool;
+  add_functional_constraints: bool;
+}
+
+val default_settings: settings
+
 (** Convert a Lustre node to a transition system
 
 
@@ -230,9 +238,10 @@
 
 
 val trans_sys_of_nodes:
-  ?preserve_sig:bool ->
-  ?slice_nodes:bool -> LustreGlobals.t ->
-  LustreNode.t SubSystem.t list -> Analysis.param ->
+  ?options:settings ->
+  LustreGlobals.t ->
+  LustreNode.t SubSystem.t list ->
+  Analysis.param ->
   TransSys.t * LustreNode.t SubSystem.t
 
 

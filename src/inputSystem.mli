@@ -73,7 +73,10 @@ val contract_check_params : 'a t -> (Analysis.param * bool) list
 
 (** Return a transition system for an analysis run *)
 val trans_sys_of_analysis:
-  ?preserve_sig:bool -> ?slice_nodes:bool -> 'a t -> Analysis.param -> TransSys.t * 'a t
+  ?preserve_sig:bool ->
+  ?slice_nodes:bool ->
+  ?add_functional_constraints: bool ->
+  'a t -> Analysis.param -> TransSys.t * 'a t
 
 (** Output a path in the input system *)
 val pp_print_path_pt : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit

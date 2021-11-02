@@ -395,15 +395,25 @@ let lustre_source_ast (type s) (input_system : s t) =
 
 (* Return a transition system with [top] as the main system, sliced to
    abstractions and implementations as in [abstraction_map]. *)
-let trans_sys_of_analysis (type s) ?(preserve_sig = false)
+let trans_sys_of_analysis (type s)
+?(preserve_sig = false)
 ?(slice_nodes = Flags.slice_nodes ())
+?(add_functional_constraints = true)
 : s t -> Analysis.param -> TransSys.t * s t = function
 
   | Lustre (main_subs, globals, ast) -> (
     function analysis ->
       let t, s =
-        LustreTransSys.trans_sys_of_nodes
-          ~preserve_sig ~slice_nodes globals main_subs analysis
+        LustreTransSys.(
+          let options =
+            {
+              preserve_sig;
+              slice_nodes;
+              add_functional_constraints
+            }
+          in
+          trans_sys_of_nodes
+            ~options globals main_subs analysis)
       in
       t, Lustre ([s], globals, ast)
     )

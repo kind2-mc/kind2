@@ -642,7 +642,7 @@ let run in_sys =
           (* Build trans sys and slicing info. *)
           let sys, _ =
             ISys.trans_sys_of_analysis
-              (*~preserve_sig:true ~slice_nodes:false*) in_sys param
+              ~add_functional_constraints:false in_sys param
           in
           (*Format.printf "TS:@.%a@." (TSys.pp_print_subsystems true) sys;*)
           KEvent.log_contractck_analysis_start scope ;
