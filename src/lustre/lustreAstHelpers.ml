@@ -90,7 +90,7 @@ let rec type_contains_subrange = function
   | ArrayType (_, (ty, _)) -> type_contains_subrange ty
   | _ -> false
 
-let rec substitute var t = function
+let rec substitute (var:HString.t) t = function
   | Ident (_, i) as e -> if i = var then t else e
   | ModeRef (_, _) as e -> e
   | RecordProject (pos, e, idx) -> RecordProject (pos, substitute var t e, idx)
@@ -594,7 +594,7 @@ let rec replace_lasts allowed prefix acc ee = match ee with
       fail_at_position pos
         "Only visible variables in the node are allowed under last";
     let acc = SI.add i acc in
-    Ident (pos, prefix ^ ".last." ^ i), acc
+    Ident (pos, HString.mk_hstring (prefix ^ ".last." ^ HString.string_of_hstring i)), acc
 
   | Arrow (pos, e1, e2) ->
     let e1', acc' = replace_lasts allowed prefix acc e1 in
@@ -844,7 +844,7 @@ let split_program: declaration list -> (declaration list * declaration list)
 
 
 let rec replace_with_constants: expr -> expr =
-  let c p = Const(p, Num "42") in
+  let c p = Const(p, Num (HString.mk_hstring "42")) in
   function
   | Ident(p, _) -> c p 
     | ModeRef _ as e -> e 
@@ -1074,7 +1074,7 @@ let move_node_to_last: ident -> declaration list -> declaration list =
   fun n ds ->
   match (remove_node_in_declarations n [] ds) with
   | Some (mn, ds') -> ds' @ [mn]
-  | None -> failwith ("Could not find main node " ^ n)
+  | None -> failwith ("Could not find main node " ^ HString.string_of_hstring n)
 
 
 let sort_typed_ident: typed_ident list -> typed_ident list = fun ty_idents ->
@@ -1099,21 +1099,21 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
     in
     if Lib.is_some depth_limit && depth > Lib.get depth_limit then Error ()
     else match x, y with
-    | Ident (_, x), Ident (_, y) -> Ok (String.equal x y)
+    | Ident (_, x), Ident (_, y) -> Ok (HString.equal x y)
     | ModeRef (_, x), ModeRef (_, y) ->
       let t = if List.length x = List.length y then
-          List.fold_left2 (fun a x y -> a && String.equal x y) false x y
+          List.fold_left2 (fun a x y -> a && HString.equal x y) false x y
         else false
       in
       Ok t
     | RecordProject (_, xe, xi), RecordProject (_, ye, yi) ->
-      r (depth + 1) xe ye >>= fun e -> Ok (e && String.equal xi yi)
+      r (depth + 1) xe ye >>= fun e -> Ok (e && HString.equal xi yi)
     | TupleProject (_, xe, xi), TupleProject(_, ye, yi) ->
       r (depth + 1) xe ye >>= fun e -> Ok (e && xi = yi)
     | Const (_, True), Const(_, True) -> Ok (true)
     | Const (_, False), Const (_, False) -> Ok (true)
-    | Const (_, Num x), Const (_, Num y) -> Ok (String.equal x y)
-    | Const (_, Dec x), Const (_, Dec y) -> Ok (String.equal x y)
+    | Const (_, Num x), Const (_, Num y) -> Ok (HString.equal x y)
+    | Const (_, Dec x), Const (_, Dec y) -> Ok (HString.equal x y)
     | UnaryOp (_, xop, xe), UnaryOp (_, yop, ye) ->
       r (depth + 1) xe ye >>= fun e -> Ok (e && xop = yop)
     | BinaryOp (_, xop, xe1, xe2), BinaryOp (_, yop, ye1, ye2) ->
@@ -1137,9 +1137,9 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       let (x1, x2), (y1, y2) = List.split x, List.split y in
       rlist x2 y2 |> join >>= fun e ->
       let t = List.length x1 = List.length y1
-        && List.fold_left2 (fun a x y -> a && String.equal x y) true x1 y1
+        && List.fold_left2 (fun a x y -> a && HString.equal x y) true x1 y1
       in
-      Ok (e && t && String.equal xi yi)
+      Ok (e && t && HString.equal xi yi)
     | GroupExpr (_, xop, x), GroupExpr(_, yop, y) ->
       rlist x y |> join >>= fun e -> Ok (e && xop = yop)
     | StructUpdate (_, xe1, xl, xe2), StructUpdate (_, ye1, yl, ye2) ->
@@ -1147,7 +1147,7 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       let l = if List.length xl = List.length yl then
           List.map2 (fun x y -> match x, y with
-            | Label (_, xi), Label (_, yi) -> Ok (String.equal xi yi)
+            | Label (_, xi), Label (_, yi) -> Ok (HString.equal xi yi)
             | Index (_, xe), Index (_, ye) -> r (depth + 1) xe ye
             | _ -> Ok (false))
           xl yl
@@ -1171,7 +1171,7 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       let l = if List.length xl = List.length yl then
           List.map2 (fun (_, xi, xt) (_, yi, yt) ->
             syn_type_equal depth_limit xt yt >>= fun t ->
-              Ok (t && String.equal xi yi))
+              Ok (t && HString.equal xi yi))
           xl yl
         else [Ok (false)]
       in
@@ -1181,35 +1181,35 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
     | When (_, x, ClockPos xi), When (_, y, ClockPos yi)
     | When (_, x, ClockNeg xi), When (_, y, ClockNeg yi) ->
       r (depth + 1) x y >>= fun e ->
-      Ok (e && String.equal xi yi)
+      Ok (e && HString.equal xi yi)
     | When (_, x, ClockConstr (i1, i2)), When (_, y, ClockConstr (j1, j2)) ->
       r (depth + 1) x y >>= fun e ->
-      Ok (e && String.equal i1 j1 && String.equal i2 j2)
+      Ok (e && HString.equal i1 j1 && HString.equal i2 j2)
     | Current (_, x), Current (_, y) -> r (depth + 1) x y
     | Condact (_, xe1, xe2, xi, xl1, xl2), Condact (_, ye1, ye2, yi, yl1, yl2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       rlist xl1 yl1 |> join >>= fun l1 ->
       rlist xl2 yl2 |> join >>= fun l2 ->
-      Ok (e1 && e2 && l1 && l2 && String.equal xi yi)
+      Ok (e1 && e2 && l1 && l2 && HString.equal xi yi)
     | Activate (_, xi, xe1, xe2, xl), Activate (_, yi, ye1, ye2, yl) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       rlist xl yl |> join >>= fun l ->
-      Ok (e1 && e2 && l && String.equal xi yi)
+      Ok (e1 && e2 && l && HString.equal xi yi)
     | Merge (_, xi, xl), Merge (_, yi, yl) ->
       let (x1, x2), (y1, y2) = List.split xl, List.split yl in
       rlist x2 y2 |> join >>= fun e ->
       let t = List.length x1 = List.length y1
-        && List.fold_left2 (fun a x y -> a && String.equal x y) true x1 y1
+        && List.fold_left2 (fun a x y -> a && HString.equal x y) true x1 y1
       in
-      Ok (e && t && String.equal xi yi)
+      Ok (e && t && HString.equal xi yi)
     | RestartEvery (_, xi, xl, xe), RestartEvery (_, yi, yl, ye) ->
       r (depth + 1) xe ye >>= fun e ->
       rlist xl yl |> join >>= fun l ->
-      Ok (e && l && String.equal xi yi)
+      Ok (e && l && HString.equal xi yi)
     | Pre (_, x), Pre (_, y) -> r (depth + 1) x y
-    | Last (_, x), Last (_, y) -> Ok (String.equal x y)
+    | Last (_, x), Last (_, y) -> Ok (HString.equal x y)
     | Fby (_, xe1, xi, xe2), Fby (_, ye1, yi, ye2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
@@ -1227,7 +1227,7 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
         else [Ok (false)]
       in
       join t >>= fun t ->
-      Ok (l && t && String.equal xi yi)
+      Ok (l && t && HString.equal xi yi)
     | _ -> Ok (false)
   in
   r 0 x y
@@ -1246,7 +1246,7 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
     in
     if Lib.is_some depth_limit && depth > Lib.get depth_limit then Error ()
     else match x, y with
-    | TVar (_, x), TVar (_, y) -> Ok (String.equal x y)
+    | TVar (_, x), TVar (_, y) -> Ok (HString.equal x y)
     | Bool _, Bool _
     | Int _, Int _
     | UInt8 _, UInt8 _
@@ -1265,7 +1265,7 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       Ok (e1 && e2)
     | UserType (_, x), UserType (_, y)
     | AbstractType (_, x), AbstractType (_, y) ->
-      Ok (String.equal x y)
+      Ok (HString.equal x y)
     | TupleType (_, xl), TupleType (_, yl)
     | GroupType (_, xl), GroupType (_, yl) ->
       rlist xl yl |> join
@@ -1273,7 +1273,7 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       let t = if List.length xl = List.length yl then
           List.map2 (fun (_, xi, xt) (_, yi, yt) ->
             r (depth + 1) xt yt >>= fun t ->
-            Ok (t && String.equal xi yi))
+            Ok (t && HString.equal xi yi))
           xl yl
         else [Ok (false)]
       in
@@ -1284,11 +1284,11 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       Ok (t && e)
     | EnumType (_, xi, xl), EnumType (_, yi, yl) ->
       let t = if List.length xl = List.length yl then
-          List.map2 String.equal xl yl
+          List.map2 HString.equal xl yl
           |> List.fold_left (&&) true
         else false
       in
-      Ok (t && String.equal xi yi)
+      Ok (t && HString.equal xi yi)
     | TArr (_, xt1, xt2), TArr (_, yt1, yt2) ->
       r (depth + 1) xt1 yt1 >>= fun t1 ->
       r (depth + 1) xt2 yt2 >>= fun t2 ->

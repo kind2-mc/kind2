@@ -228,7 +228,7 @@ let of_channel only_parse in_ch =
         let last_node = LH.get_last_node_name (declarations) in
         let nodes = match last_node with
         | None -> nodes
-        | Some ln -> let ident = LustreIdent.mk_string_ident ln in
+        | Some ln -> let ident = LustreIdent.mk_string_ident (HString.string_of_hstring ln) in
           let n = LustreNode.node_of_name ident nodes in
           let filtered =
             List.filter

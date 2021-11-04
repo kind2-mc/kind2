@@ -76,6 +76,7 @@ val sub : t -> int -> int -> string
 val fill : t -> int -> int -> char -> t
 val blit : t -> int -> t -> int -> int -> t
 val concat : t -> t list -> t
+val concat2 : t -> t -> t
 val iter : (char -> unit) -> t -> unit
 val iteri : (int -> char -> unit) -> t -> unit
 val map : (char -> char) -> t -> t

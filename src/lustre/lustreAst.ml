@@ -17,7 +17,6 @@
 *)
 
 open Lib
-open HString
 
 exception Parser_error
 

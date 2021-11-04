@@ -135,6 +135,7 @@ let rec eval_ast_expr bounds ctx =
 
   (* Mode ref *)
   | A.ModeRef (pos, p4th) -> (
+    let p4th = List.map HString.string_of_hstring p4th in
     let p4th =
       match p4th with
       | [] -> failwith "empty mode reference"
@@ -194,12 +195,12 @@ let rec eval_ast_expr bounds ctx =
   (* Integer constant [d] *)
   | A.Const (_, A.Num d) -> 
 
-    eval_nullary_expr ctx (E.mk_int (Numeral.of_string d) )
+    eval_nullary_expr ctx (E.mk_int (d |> HString.string_of_hstring |> Numeral.of_string) )
 
   (* Real constant [f] *)
   | A.Const (_, A.Dec f) -> 
 
-    eval_nullary_expr ctx (E.mk_real (Decimal.of_string f))
+    eval_nullary_expr ctx (E.mk_real (f |> HString.string_of_hstring |> Decimal.of_string))
 
   (* ****************************************************************** *)
   (* Unary operators                                                    *)
@@ -480,6 +481,8 @@ let rec eval_ast_expr bounds ctx =
   | A.Merge
       (pos, clock_ident, merge_cases) ->
 
+    let merge_cases = List.map (fun (s, c) -> HString.string_of_hstring s, c) merge_cases in
+
     (* Evaluate expression for clock identifier *)
     let clock_expr, ctx = eval_clock_ident ctx pos clock_ident in 
     let clock_type = E.type_of_lustre_expr clock_expr in
@@ -488,7 +491,7 @@ let rec eval_ast_expr bounds ctx =
       if Type.is_bool clock_type then ["true"; "false"]
       else Type.constructors_of_enum clock_type
     in
-    let cases = List.map fst merge_cases in
+    let cases = merge_cases |> List.map fst in
     if List.sort String.compare cases <> List.sort String.compare cases_to_have
     then fail_at_position pos "Cases of merge must be exhaustive and unique";
     
@@ -497,7 +500,9 @@ let rec eval_ast_expr bounds ctx =
       | "true" -> A.Ident (pos, clock_ident)
       | "false" -> A.UnaryOp (pos, A.Not, A.Ident (pos, clock_ident))
       | _ ->
-        A.CompOp (pos, A.Eq, A.Ident (pos, clock_ident), A.Ident (pos, clock_value))
+        A.CompOp (pos, A.Eq,
+          A.Ident (pos, clock_ident),
+          A.Ident (pos, HString.mk_hstring clock_value))
     in
 
     let cond_expr_clock_value clock_value = match clock_value with
@@ -514,7 +519,7 @@ let rec eval_ast_expr bounds ctx =
         (match case_clock with
           | A.ClockPos c when clock_value = "true" && c = clock_ident -> ()
           | A.ClockNeg c when clock_value = "false" && c = clock_ident -> ()
-          | A.ClockConstr (cs, c) when clock_value = cs && c = clock_ident -> ()
+          | A.ClockConstr (cs, c) when clock_value = HString.string_of_hstring cs && c = clock_ident -> ()
           (* Clocks must be identical identifiers *)
           | _ -> fail_at_position pos "Clock mismatch for argument of merge");
 
@@ -534,7 +539,7 @@ let rec eval_ast_expr bounds ctx =
             when clock_value = "false" && c = clock_ident -> ()
              
           | A.CompOp (_, A.Eq, A.Ident (_, c), A.Ident (_, cv))
-            when clock_value = cv && c = clock_ident -> ()
+            when clock_value = HString.string_of_hstring cv && c = clock_ident -> ()
              
           (* Clocks must be identical identifiers *)
           | _ -> fail_at_position pos "Clock mismatch for argument of merge");
@@ -544,7 +549,7 @@ let rec eval_ast_expr bounds ctx =
           bounds
           ctx
           pos
-          (I.mk_string_ident ident)
+          (I.mk_string_ident (HString.string_of_hstring ident))
           case_clock
           restart_clock
           args
@@ -558,7 +563,7 @@ let rec eval_ast_expr bounds ctx =
           bounds
           ctx
           pos
-          (I.mk_string_ident ident)
+          (I.mk_string_ident (HString.string_of_hstring ident))
           (cond_of_clock_value clock_value)
           (A.Const (pos, A.False))
           args
@@ -635,7 +640,7 @@ let rec eval_ast_expr bounds ctx =
       ctx
       pos
       expr
-      (D.RecordIndex field)
+      (D.RecordIndex (HString.string_of_hstring field))
 
   (* Projection to a tuple or array field [expr.%field_expr] *)
   | A.TupleProject (pos, expr, field) -> 
@@ -740,7 +745,7 @@ let rec eval_ast_expr bounds ctx =
   (* Record constructor [record_type {field1 = expr1; field2 = expr2; ...}] *)
   | A.RecordExpr (pos, record_type, expr_list) -> 
 
-    let record_ident = I.mk_string_ident record_type in
+    let record_ident = I.mk_string_ident (HString.string_of_hstring record_type) in
 
     (* Extract list of fields of record *)
     let record_indexes = 
@@ -761,7 +766,7 @@ let rec eval_ast_expr bounds ctx =
 
       List.fold_left 
         (fun (accum, ctx) (i, expr) -> 
-
+            let i = HString.string_of_hstring i in
            (* Evaluate expression *)
              let expr', ctx = eval_ast_expr bounds ctx expr in
 
@@ -808,7 +813,7 @@ let rec eval_ast_expr bounds ctx =
       | A.Label (pos, index) :: tl -> 
 
         (* Add to accumulator *)
-        let accum' = D.RecordIndex index :: accum in
+        let accum' = D.RecordIndex (HString.string_of_hstring index) :: accum in
 
         (* Does expression to update have the index? *)
         if D.mem_prefix (List.rev accum') expr1' then 
@@ -820,7 +825,7 @@ let rec eval_ast_expr bounds ctx =
 
           fail_at_position
             pos
-            (Format.asprintf "Invalid index %s for expression" index)
+            (Format.asprintf "Invalid index %s for expression" (HString.string_of_hstring index))
 
       (* First index is an integer index *)
       | A.Index (pos, index_expr) :: tl -> 
@@ -1030,7 +1035,7 @@ let rec eval_ast_expr bounds ctx =
       bounds
       ctx
       pos
-      (I.mk_string_ident ident)
+      (I.mk_string_ident (HString.string_of_hstring ident))
       cond
       restart
       args
@@ -1043,7 +1048,7 @@ let rec eval_ast_expr bounds ctx =
       bounds
       ctx
       pos
-      (I.mk_string_ident ident)
+      (I.mk_string_ident (HString.string_of_hstring ident))
       (A.Const (dummy_pos, A.True))
       (A.Const (dummy_pos, A.False))
       args
@@ -1056,7 +1061,7 @@ let rec eval_ast_expr bounds ctx =
       bounds
       ctx
       pos
-      (I.mk_string_ident ident)
+      (I.mk_string_ident (HString.string_of_hstring ident))
       (A.Const (dummy_pos, A.True))
       cond
       args
@@ -1311,6 +1316,7 @@ let rec eval_ast_expr bounds ctx =
 
 
 and var_of_quant (ctx, vars) (_, v, ast_type) =
+  let v = HString.string_of_hstring v in
   (* Evaluate type expression *)
   let index_types = eval_ast_type ctx ast_type in
 
@@ -1475,7 +1481,7 @@ and static_int_of_ast_expr ctx pos expr =
 
 (* Return the trie for the identifier *)
 and eval_ident ctx pos i =
-
+  let i = HString.string_of_hstring i in
   let ident = I.mk_string_ident i in
 
   try 
@@ -2188,7 +2194,8 @@ and eval_ast_type_flatten flatten_arrays ctx = function
 
   (* Enum type needs to be constructed *)
   | A.EnumType (_, enum_name, enum_elements) -> 
-
+    let enum_name = HString.string_of_hstring enum_name in
+    let enum_elements = List.map HString.string_of_hstring enum_elements in
     let ty = Type.mk_enum enum_name enum_elements in
       
     (* let ctx = List.fold_left (fun ctx c -> *)
@@ -2205,7 +2212,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
   (* User-defined type, look up type in defined types, return subtrie
      of starting with possibly indexed identifier *)
   | A.UserType (pos, ident) -> (
-    let ident = I.mk_string_ident ident in
+    let ident = I.mk_string_ident (HString.string_of_hstring ident) in
     try
       (* Find subtrie of types starting with identifier *)
       C.type_of_ident ctx ident
@@ -2220,7 +2227,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
    * There are abstract types in Type, but using an integer reference is able
    * to give better counterexamples. *)
   | A.AbstractType (_, ident) ->
-      D.singleton [D.AbstractTypeIndex ident] Type.t_int
+      D.singleton [D.AbstractTypeIndex (HString.string_of_hstring ident)] Type.t_int
 
   (* Record type, return trie of indexes in record *)
   | A.RecordType (_, record_fields) -> 
@@ -2230,7 +2237,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
 
       (* Each index has a separate type *)
       (fun a (_, i, t) ->
-         
+         let i = HString.string_of_hstring i in
          (* Evaluate type expression for field to a trie *)
          let expr = eval_ast_type_flatten flatten_arrays ctx t in
 

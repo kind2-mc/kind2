@@ -31,11 +31,14 @@ let lsp_type_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
          \"objectType\" : \"lsp\",@,\
          \"source\" : \"lsp\",@,\
          \"kind\" : \"typeDecl\",@,\
-         \"name\" : \"%s\",@,\
+         \"name\" : \"%a\",@,\
          %a\"startLine\" : %d,@,\
          \"startColumn\" : %d,@,\
          \"endLine\" : %d,@,\
-         \"endColumn\" : %d@]@.}@." id pp_print_fname_json file slnum scnum
+         \"endColumn\" : %d@]@.}@."
+        HString.pp_print_hstring id
+        pp_print_fname_json file
+        slnum scnum
         elnum ecnum
 
 let lsp_const_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
@@ -50,11 +53,14 @@ let lsp_const_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
          \"objectType\" : \"lsp\",@,\
          \"source\" : \"lsp\",@,\
          \"kind\" : \"constDecl\",@,\
-         \"name\" : \"%s\",@,\
+         \"name\" : \"%a\",@,\
          %a\"startLine\" : %d,@,\
          \"startColumn\" : %d,@,\
          \"endLine\" : %d,@,\
-         \"endColumn\" : %d@]@.}@." id pp_print_fname_json file slnum scnum
+         \"endColumn\" : %d@]@.}@."
+        HString.pp_print_hstring id
+        pp_print_fname_json file
+        slnum scnum
         elnum ecnum
 
 let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
@@ -66,12 +72,14 @@ let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"objectType\" : \"lsp\",@,\
      \"source\" : \"lsp\",@,\
      \"kind\" : \"node\",@,\
-     \"name\" : \"%s\",@,\
+     \"name\" : \"%a\",@,\
      \"imported\" : \"%b\",@,\
      %a\"startLine\" : %d,@,\
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
-     \"endColumn\" : %d@]@.}@." id imported pp_print_fname_json file slnum scnum
+     \"endColumn\" : %d@]@.}@."
+    HString.pp_print_hstring id
+    imported pp_print_fname_json file slnum scnum
     elnum ecnum
 
 let lsp_function_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
@@ -83,12 +91,14 @@ let lsp_function_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"objectType\" : \"lsp\",@,\
      \"source\" : \"lsp\",@,\
      \"kind\" : \"function\",@,\
-     \"name\" : \"%s\",@,\
+     \"name\" : \"%a\",@,\
      \"imported\" : \"%b\",@,\
      %a\"startLine\" : %d,@,\
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
-     \"endColumn\" : %d@]@.}@." id imported pp_print_fname_json file slnum scnum
+     \"endColumn\" : %d@]@.}@."
+    HString.pp_print_hstring id
+    imported pp_print_fname_json file slnum scnum
     elnum ecnum
 
 let lsp_contract_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
@@ -100,11 +110,13 @@ let lsp_contract_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
      \"objectType\" : \"lsp\",@,\
      \"source\" : \"lsp\",@,\
      \"kind\" : \"contract\",@,\
-     \"name\" : \"%s\",@,\
+     \"name\" : \"%a\",@,\
      %a\"startLine\" : %d,@,\
      \"startColumn\" : %d,@,\
      \"endLine\" : %d,@,\
-     \"endColumn\" : %d@]@.}@." id pp_print_fname_json file slnum scnum elnum
+     \"endColumn\" : %d@]@.}@."
+    HString.pp_print_hstring id
+    pp_print_fname_json file slnum scnum elnum
     ecnum
 
 let print_ast_info declarations =

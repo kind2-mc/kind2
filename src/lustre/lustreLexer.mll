@@ -476,21 +476,21 @@ rule token = parse
   | "rsh" { RSH }
 
   (* Decimal or numeral *)
-  | decimal as p { DECIMAL p }
-  | exponent_decimal as p { DECIMAL p }
-  | numeral as p { NUMERAL p }
+  | decimal as p { DECIMAL (HString.mk_hstring p) }
+  | exponent_decimal as p { DECIMAL (HString.mk_hstring p) }
+  | numeral as p { NUMERAL (HString.mk_hstring p) }
 
-  | hex_num as p { NUMERAL p }
-  | hex_dec1 as p { DECIMAL p }
-  | hex_dec2 as p { DECIMAL p }
+  | hex_num as p { NUMERAL (HString.mk_hstring p) }
+  | hex_dec1 as p { DECIMAL (HString.mk_hstring p) }
+  | hex_dec2 as p { DECIMAL (HString.mk_hstring p) }
 
   (* Keyword *)
   | id as p {
-    try Hashtbl.find keyword_table p with Not_found -> (SYM p)
+    try Hashtbl.find keyword_table p with Not_found -> (SYM (HString.mk_hstring p))
   }
 
   (* Identifier with quote, throw quote away *)
-  | '\'' (id as p) { QUOTSYM p }
+  | '\'' (id as p) { QUOTSYM (HString.mk_hstring p) }
 
   (* Whitespace *)
   | whitespace { token lexbuf }
@@ -570,7 +570,7 @@ and return_at_eol t = parse
 
 and string = parse
   | "\""
-      { STRING (Buffer.contents string_buf) }
+      { STRING (HString.mk_hstring (Buffer.contents string_buf)) }
   | "\\" (_ as c)
       { Buffer.add_char string_buf (char_for_backslash c); string lexbuf }
   | newline

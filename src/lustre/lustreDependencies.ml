@@ -114,24 +114,24 @@ let mem deps (key_type, key_ident) (val_type, val_ident) =
 (** Identifier corresponding to a declaration. *)
 let info_of_decl = function
 | A.TypeDecl ({A.start_pos=pos}, A.AliasType (_, ident, _)) ->
-  pos, ident |> I.mk_string_ident, Type
+  pos, ident |> HString.string_of_hstring |> I.mk_string_ident, Type
 | A.TypeDecl ({A.start_pos=pos}, A.FreeType (_, ident)) ->
-  pos, ident |> I.mk_string_ident, Type
+  pos, ident |> HString.string_of_hstring |> I.mk_string_ident, Type
 
 | A.ConstDecl ({A.start_pos=pos}, A.FreeConst(_, ident, _)) ->
-  pos, ident |> I.mk_string_ident, Const
+  pos, ident |> HString.string_of_hstring |> I.mk_string_ident, Const
 | A.ConstDecl ({A.start_pos=pos}, A.UntypedConst(_, ident, _)) ->
-  pos, ident |> I.mk_string_ident, Const
+  pos, ident |> HString.string_of_hstring |> I.mk_string_ident, Const
 | A.ConstDecl ({A.start_pos=pos}, A.TypedConst(_, ident, _, _)) ->
-  pos, ident |> I.mk_string_ident, Const
+  pos, ident |> HString.string_of_hstring |> I.mk_string_ident, Const
 
 | A.NodeDecl ({A.start_pos=pos}, (ident, _, _, _, _, _, _, _)) ->
-  pos, ident |> I.mk_string_ident, NodeOrFun
+  pos, ident |> HString.string_of_hstring |> I.mk_string_ident, NodeOrFun
 | A.FuncDecl ({A.start_pos=pos}, (ident, _, _, _, _, _, _, _)) ->
-  pos, ident |> I.mk_string_ident, NodeOrFun
+  pos, ident |> HString.string_of_hstring |> I.mk_string_ident, NodeOrFun
 
 | A.ContractNodeDecl ({A.start_pos=pos}, (ident, _, _, _, _)) ->
-  pos, ident |> I.mk_string_ident, Contract
+  pos, ident |> HString.string_of_hstring |> I.mk_string_ident, Contract
 
 | decl ->
   Format.asprintf
@@ -142,7 +142,7 @@ let info_of_decl = function
 (** Inserts a declaration in a list of declarations, after the one with name
 [f_ident]. *)
 let insert_decl decl (f_type, f_ident) decls =
-  let ident = I.string_of_ident false f_ident in
+  let ident = HString.mk_hstring (I.string_of_ident false f_ident) in
   let has_ident = match f_type with
     | NodeOrFun -> (
       function

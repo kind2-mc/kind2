@@ -81,22 +81,22 @@ let (>>=) = Res.(>>=)
 
 module StringMap = struct
   include Map.Make(struct
-    type t = string
-    let compare i1 i2 = String.compare i1 i2
+    type t = HString.t
+    let compare i1 i2 = HString.compare i1 i2
   end)
   let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
 end
 
 module StringSet = struct
   include Set.Make(struct
-    type t = string
-    let compare i1 i2 = String.compare i1 i2
+    type t = HString.t
+    let compare i1 i2 = HString.compare i1 i2
   end)
 end
 
 module CallCache = struct
   include Map.Make(struct
-    type t = string (* node name *)
+    type t = A.ident (* node name *)
       * A.expr (* cond *)
       * A.expr (* restart *)
       * A.expr list (* arguments (which are already abstracted) *)
@@ -111,7 +111,7 @@ module CallCache = struct
         (Ok (true))
         l
       in
-      let i = String.equal xi yi in
+      let i = HString.equal xi yi in
       let c = AH.syn_expr_equal (Some 6) xc yc in
       let r = AH.syn_expr_equal (Some 6) xr yr in
       let a = compare_list xa ya |> join in
@@ -147,7 +147,7 @@ let clear_cache () =
 type source = Local | Input | Output | Ghost
 
 type generated_identifiers = {
-  node_args : (string (* abstracted variable name *)
+  node_args : (HString.t (* abstracted variable name *)
     * bool (* whether the variable is constant *)
     * LustreAst.lustre_type
     * LustreAst.expr)
@@ -158,37 +158,37 @@ type generated_identifiers = {
     * LustreAst.expr)
     StringMap.t;
   locals : (bool (* whether the variable is ghost *)
-    * string list (* scope *)
+    * HString.t list (* scope *)
     * LustreAst.lustre_type
     * LustreAst.expr (* abstracted expression *)
     * LustreAst.expr) (* original expression *)
     StringMap.t;
   contract_calls :
     (Lib.position
-    * string list (* contract scope *)
+    * HString.t list (* contract scope *)
     * LustreAst.contract_node_equation list)
     StringMap.t;
   warnings : (Lib.position * LustreAst.expr) list;
-  oracles : (string * LustreAst.lustre_type * LustreAst.expr) list;
-  propagated_oracles : (string * string) list;
+  oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
+  propagated_oracles : (HString.t * HString.t) list;
   calls : (Lib.position (* node call position *)
-    * (string list) (* oracle inputs *)
-    * string (* abstracted output *)
+    * (HString.t list) (* oracle inputs *)
+    * HString.t (* abstracted output *)
     * LustreAst.expr (* condition expression *)
     * LustreAst.expr (* restart expression *)
-    * string (* node name *)
+    * HString.t (* node name *)
     * (LustreAst.expr list) (* node arguments *)
     * (LustreAst.expr list option)) (* node argument defaults *)
     list;
   subrange_constraints : (source
     * Lib.position
-    * string (* Generated name for Range Expression *)
-    * string) (* Original name that is constrained *)
+    * HString.t (* Generated name for Range Expression *)
+    * HString.t) (* Original name that is constrained *)
     list;
   expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
-    * string list (* contract scope  *)
+    * HString.t list (* contract scope  *)
     * LustreAst.eq_lhs
     * LustreAst.expr)
     list;
@@ -200,9 +200,9 @@ type info = {
   quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) StringMap.t;
   contract_calls : LustreAst.contract_node_decl StringMap.t;
-  contract_scope : string list;
-  contract_ref : string;
-  interpretation : string StringMap.t;
+  contract_scope : HString.t list;
+  contract_ref : HString.t;
+  interpretation : HString.t StringMap.t;
   local_group_projection : int
 }
 
@@ -223,25 +223,25 @@ let pp_print_generated_identifiers ppf gids =
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
   in
   let pp_print_local ppf (id, b, ty, e) = Format.fprintf ppf "(%a, %b, %a, %a)"
-    Format.pp_print_string id
+    HString.pp_print_hstring id
     b
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
   in
   let pp_print_array_ctor ppf (id, ty, e, s) = Format.fprintf ppf "(%a, %a, %a, %a)"
-    Format.pp_print_string id
+    HString.pp_print_hstring id
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
     LustreAst.pp_print_expr s
   in
   let pp_print_node_arg ppf (id, b, ty, e) = Format.fprintf ppf "(%a, %b, %a, %a)"
-    Format.pp_print_string id
+    HString.pp_print_hstring id
     b
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
   in
   let pp_print_oracle ppf (id, ty, e) = Format.fprintf ppf "(%a, %a, %a)"
-    Format.pp_print_string id
+    HString.pp_print_hstring id
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
   in
@@ -249,12 +249,12 @@ let pp_print_generated_identifiers ppf gids =
     Format.fprintf ppf 
       "%a: %a = call(%a,(restart %a every %a)(%a;%a),%a)"
       pp_print_position pos
-      Format.pp_print_string output
+      HString.pp_print_hstring output
       A.pp_print_expr cond
-      Format.pp_print_string ident
+      HString.pp_print_hstring ident
       A.pp_print_expr restart
       (pp_print_list A.pp_print_expr ",@ ") args
-      (pp_print_list Format.pp_print_string ",@ ") oracles
+      (pp_print_list HString.pp_print_hstring ",@ ") oracles
       (pp_print_option (pp_print_list A.pp_print_expr ",@")) defaults)
   in
   let pp_print_source ppf source = Format.fprintf ppf (match source with
@@ -264,15 +264,16 @@ let pp_print_generated_identifiers ppf gids =
     | Ghost -> "ghost")
   in
   let pp_print_subrange_constraint ppf (source, pos, id, oid) =
-    Format.fprintf ppf "(%a, %a, %s, %s)"
+    Format.fprintf ppf "(%a, %a, %a, %a)"
       pp_print_source source
       Lib.pp_print_position pos
-      id oid
+      HString.pp_print_hstring id
+      HString.pp_print_hstring oid
   in
   let pp_print_contract_call ppf (ref, pos, scope, decl) = Format.fprintf ppf "%a := (%a, %a): %a"
-    Format.pp_print_string ref
+    HString.pp_print_hstring ref
     pp_print_position pos
-    (pp_print_list Format.pp_print_string "::") scope
+    (pp_print_list HString.pp_print_hstring "::") scope
     (pp_print_list A.pp_print_contract_item ";") decl
   in
   Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
@@ -360,11 +361,11 @@ let expr_has_inductive_var ind_vars expr =
 
 let new_contract_reference () =
   contract_ref := ! contract_ref + 1;
-  string_of_int !contract_ref
+  HString.mk_hstring (string_of_int !contract_ref)
 
 let extract_array_size = function
   | A.ArrayType (_, (_, size)) -> (match size with
-    | A.Const (_, Num x) -> int_of_string x
+    | A.Const (_, Num x) -> x |> HString.string_of_hstring |> int_of_string
     | _ -> assert false)
   | _ -> assert false
 
@@ -383,8 +384,8 @@ let mk_fresh_local info pos is_ghost ind_vars expr_type expr oexpr =
   | Some nexpr -> nexpr, empty ()
   | None ->
   i := !i + 1;
-  let prefix = string_of_int !i in
-  let name = prefix ^ "_glocal" in
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix (HString.mk_hstring "_glocal") in
   let scope = info.contract_scope in
   let nexpr = A.Ident (pos, name) in
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
@@ -397,8 +398,8 @@ let mk_fresh_local info pos is_ghost ind_vars expr_type expr oexpr =
 
 let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
   i := !i + 1;
-  let prefix = string_of_int !i in
-  let name = prefix ^ "_varray" in
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix (HString.mk_hstring "_varray") in
   let nexpr = A.Ident (pos, name) in
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
   let gids = { (empty ()) with
@@ -411,8 +412,8 @@ let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
   | Some nexpr -> nexpr, empty ()
   | None ->
   i := !i + 1;
-  let prefix = string_of_int !i in
-  let name = prefix ^ "_gklocal" in
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix (HString.mk_hstring "_gklocal") in
   let nexpr = A.Ident (pos, name) in
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
   let gids = { (empty ()) with
@@ -433,11 +434,11 @@ let mk_range_expr expr_type expr =
       let u = A.CompOp (dpos, A.Lte, expr, u) in
       A.BinaryOp (dpos, A.And, l, u)
     | A.ArrayType (_, (ty, upper_bound)) ->
-      let id_str = "x" ^ (string_of_int n) in
+      let id_str = HString.concat2 (HString.mk_hstring "x") (HString.mk_hstring (string_of_int n)) in
       let id = A.Ident (dpos, id_str) in
       let expr = A.ArrayIndex (dpos, expr, id) in
       let rexpr = mk (succ n) ty expr in
-      let l = A.CompOp (dpos, A.Lte, A.Const (dpos, A.Num "0"), id) in
+      let l = A.CompOp (dpos, A.Lte, A.Const (dpos, A.Num (HString.mk_hstring "0")), id) in
       let u = A.CompOp (dpos, A.Lt, id, upper_bound) in
       let assumption = A.BinaryOp (dpos, A.And, l, u) in
       let var = dpos, id_str, (A.Int dpos) in
@@ -459,8 +460,8 @@ let mk_range_expr expr_type expr =
 
 let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
   i := !i + 1;
-  let prefix = string_of_int !i in
-  let name = prefix ^ "_subrange" in
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix (HString.mk_hstring "_subrange") in
   let expr = A.Ident (pos, constrained_name) in
   let nexpr = A.Ident (pos, name) in
   let range_expr = mk_range_expr expr_type expr in
@@ -473,8 +474,8 @@ let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
 
 let mk_fresh_oracle expr_type expr =
   i := !i + 1;
-  let prefix = string_of_int !i in
-  let name = prefix ^ "_oracle" in
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix (HString.mk_hstring "_oracle") in
   let nexpr = A.Ident (Lib.dummy_pos, name) in
   let gids = { (empty ()) with
     oracles = [name, expr_type, expr]; }
@@ -494,19 +495,21 @@ let mk_fresh_call info id map pos cond restart args defaults =
   | Some nexpr, false -> nexpr, empty ()
   | _ ->
   i := !i + 1;
-  let prefix = string_of_int !i in
-  let name = prefix ^ "_call" in
-  let proj = if info.local_group_projection < 0 then ""
-    else (string_of_int info.local_group_projection) ^ "proj_"
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix  (HString.mk_hstring "_call") in
+  let proj = if info.local_group_projection < 0 then (HString.mk_hstring "")
+    else HString.concat2
+      (HString.mk_hstring (string_of_int info.local_group_projection))
+      (HString.mk_hstring "proj_")
   in
-  let nexpr = A.Ident (pos, proj ^ name) in
+  let nexpr = A.Ident (pos, HString.concat2 proj name) in
   let propagated_oracles = 
     let called_oracles = called_node.oracles |> List.map (fun (id, _, _) -> id) in
     let called_poracles = called_node.propagated_oracles |> List.map fst in
     List.map (fun n ->
       (i := !i + 1;
-      let prefix = string_of_int !i in
-      prefix ^ "_poracle", n))
+      let prefix = HString.mk_hstring (string_of_int !i) in
+      HString.concat2 prefix (HString.mk_hstring "_poracle"), n))
       (called_oracles @ called_poracles)
   in
   let oracle_args = List.map (fun (p, _) -> p) propagated_oracles in
@@ -531,7 +534,7 @@ let rec normalize ctx (decls:LustreAst.t) =
     quantified_variables = [];
     node_is_input_const = compute_node_input_constant_mask decls;
     contract_calls = collect_contract_node_decls decls;
-    contract_ref = "";
+    contract_ref = HString.mk_hstring "";
     contract_scope = [];
     interpretation = StringMap.empty;
     local_group_projection = -1 }
@@ -553,7 +556,7 @@ let rec normalize ctx (decls:LustreAst.t) =
     ^^ "===============================================\n")
     (pp_print_list
       (pp_print_pair
-        Format.pp_print_string
+        HString.pp_print_hstring
         pp_print_generated_identifiers
         ":")
       "\n")
@@ -726,15 +729,17 @@ and normalize_item info map = function
     let nexpr, gids = abstract_expr false info map false expr in
     AnnotProperty (pos, name, nexpr), gids
 
-and rename_ghost_variables info = function
+and rename_ghost_variables info contract =
+  let sep = HString.mk_hstring "_contract_" in
+  match contract with
   | [] -> [StringMap.empty]
   | (A.GhostConst (UntypedConst (_, id, _))
   | GhostConst (TypedConst (_, id, _, _))) :: t ->
-    let new_id = info.contract_ref ^ "_contract_" ^ id in
+    let new_id = HString.concat sep [info.contract_ref;id] in
     (StringMap.singleton id new_id) :: rename_ghost_variables info t
   | (A.GhostVar (UntypedConst (_, id, _))
   | GhostVar (TypedConst (_, id, _, _))) :: t ->
-    let new_id = info.contract_ref ^ "_contract_" ^ id in
+    let new_id = HString.concat sep [info.contract_ref;id] in
     (StringMap.singleton id new_id) :: rename_ghost_variables info t
   | _ :: t -> rename_ghost_variables info t
 
@@ -930,7 +935,7 @@ and abstract_expr ?guard force info map is_ghost expr =
     iexpr, union gids1 gids2
 
 and expand_node_call expr var count =
-  let mk_index i = A.Const (dpos, Num (string_of_int i)) in
+  let mk_index i = A.Const (dpos, Num (HString.mk_hstring (string_of_int i))) in
   let array = List.init count (fun i -> AH.substitute var (mk_index i) expr) in
   A.GroupExpr (dpos, ArrayExpr, array)
 
@@ -1028,7 +1033,7 @@ and normalize_expr ?guard info map =
         (clock_value, nexpr), gids
       | clock_value, A.Call (pos, id, args) ->
         let flags = StringMap.find id info.node_is_input_const in
-        let cond_expr = match clock_value with
+        let cond_expr = match HString.string_of_hstring clock_value with
           | "true" -> A.Ident (pos, clock_id)
           | "false" -> A.UnaryOp (pos, A.Not, A.Ident (pos, clock_id))
           | _ -> A.CompOp (pos, A.Eq, A.Ident (pos, clock_id), A.Ident (pos, clock_value))

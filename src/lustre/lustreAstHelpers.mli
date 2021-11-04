@@ -43,7 +43,7 @@ val expr_contains_call : expr -> bool
 val type_contains_subrange : lustre_type -> bool
 (** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
 
-val substitute : string -> expr -> expr -> expr
+val substitute : HString.t -> expr -> expr -> expr
 (** Subsitute the supplied identifier and expression into the last expression *)
 
 val has_unguarded_pre : expr -> bool
@@ -63,7 +63,7 @@ val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
 val node_item_has_pre_or_arrow : node_item -> Lib.position option
 (** Checks whether a node equation has a `pre` or a `->`. *)
 
-val replace_lasts : string list -> string -> SI.t -> expr -> expr * SI.t
+val replace_lasts : LustreAst.index list -> string -> SI.t -> expr -> expr * SI.t
 (** [replace_lasts allowed prefix acc e] replaces [last x] expressions in AST
     [e] by abstract identifiers prefixed with [prefix]. Only identifiers that
     appear in the list [allowed] are allowed to appear under a last. It returns
