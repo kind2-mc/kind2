@@ -127,7 +127,7 @@ struct
   type t = assignment_lhs
   let compare (a,b) (a',b') =
     match StateVar.compare_state_vars a a' with
-    | 0 -> Stdlib.compare b b'
+    | 0 -> Lib.compare_lists Int.compare b b'
     | i -> i
 end
 module LHSMap = Map.Make(LHS)
