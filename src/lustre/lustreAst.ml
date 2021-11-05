@@ -32,7 +32,7 @@ type ident = HString.t
 module SI = struct
   include (Set.Make (struct
                type t = ident
-               let compare = Stdlib.compare
+               let compare = HString.compare
              end))
   let flatten: t list -> t = fun sets ->
     List.fold_left union empty sets

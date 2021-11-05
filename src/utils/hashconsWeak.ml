@@ -23,7 +23,7 @@ type ('a, 'b) hash_consed =  {
   prop : 'b }
 
 (* Comparison based on tags *)
-let compare { tag = t1 } { tag = t2 } = Stdlib.compare t1 t2
+let compare { tag = t1 } { tag = t2 } = Int.compare t1 t2
 
 (* Equality based on tags *)
 let equal { tag = t1 } { tag = t2 } = t1 = t2
@@ -142,7 +142,7 @@ let hashcons t d p =
 let stats t =
   let len = Array.length t.table in
   let lens = Array.map Weak.length t.table in
-  Array.sort Stdlib.compare lens;
+  Array.sort Int.compare lens;
   let totlen = Array.fold_left ( + ) 0 lens in
   (len, count t, totlen, lens.(0), lens.(len/2), lens.(len-1))
 
@@ -314,7 +314,7 @@ struct
   let stats t =
     let len = Array.length t.table in
     let lens = Array.map Weak.length t.table in
-    Array.sort Stdlib.compare lens;
+    Array.sort Int.compare lens;
     let totlen = Array.fold_left ( + ) 0 lens in
     (len, count t, totlen, lens.(0), lens.(len/2), lens.(len-1))
       

@@ -1064,7 +1064,7 @@ let rec remove_node_in_declarations:
   function
   | [] -> None
   | (NodeDecl (_, (n', _, _, _, _, _, _, _)) as mn) :: rest ->
-     if Stdlib.compare n' n = 0
+     if HString.compare n' n = 0
      then Some (mn, pres @ rest)
      else remove_node_in_declarations n (pres @ [mn]) rest 
   | d :: rest -> remove_node_in_declarations n (pres @ [d]) rest 
@@ -1078,11 +1078,11 @@ let move_node_to_last: ident -> declaration list -> declaration list =
 
 
 let sort_typed_ident: typed_ident list -> typed_ident list = fun ty_idents ->
-  List.sort (fun (_,i1,_) (_,i2,_) -> Stdlib.compare i1 i2) ty_idents
+  List.sort (fun (_,i1,_) (_,i2,_) -> HString.compare i1 i2) ty_idents
 (** Sort identifiers  *)
 
 let sort_idents: ident list -> ident list = fun ids ->
-  List.sort (fun i1 i2 -> Stdlib.compare i1 i2) ids
+  List.sort (fun i1 i2 -> HString.compare i1 i2) ids
 (** sort typed identifiers *)
 
 let rec syn_expr_equal depth_limit x y : (bool, unit) result =
