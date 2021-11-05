@@ -178,7 +178,7 @@ val add_contract_node_decl_to_context :
 
 (** Return a contract node by its identifier *)
 val contract_node_decl_of_ident :
-  t -> string -> Lib.position * LustreAst.contract_node_decl
+  t -> HString.t -> Lib.position * LustreAst.contract_node_decl
 
 (** Return a context that raises an error when defining an
     expression.

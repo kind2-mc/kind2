@@ -46,7 +46,7 @@ exception Parser_error
 (** {1 Types} *)
 
 (** An identifier *)
-type ident = string
+type ident = HString.t
 
 module SI: sig
   include (Set.S with type elt = ident)
@@ -54,7 +54,7 @@ module SI: sig
 end
 
 (** A single index *)
-type index = string
+type index = HString.t
 
 (** A clock expression *)
 type clock_expr =
@@ -90,8 +90,8 @@ type comparison_operator =
 
 type constant =
   | True | False
-  | Num of string
-  | Dec of string
+  | Num of HString.t
+  | Dec of HString.t
 
 type quantifier =
   | Forall | Exists
@@ -251,7 +251,7 @@ and state =
 type node_item =
   | Body of node_equation
   | AnnotMain of bool
-  | AnnotProperty of position * string option * expr
+  | AnnotProperty of position * HString.t option * expr
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
@@ -260,16 +260,16 @@ type contract_ghost_const = const_decl
 type contract_ghost_var = const_decl
 
 (* A contract assume. *)
-type contract_assume = position * string option * bool (* soft *) * expr
+type contract_assume = position * HString.t option * bool (* soft *) * expr
 
 (* A contract guarantee. *)
-type contract_guarantee = position * string option * bool (* soft *) * expr
+type contract_guarantee = position * HString.t option * bool (* soft *) * expr
 
 (* A contract requirement. *)
-type contract_require = position * string option * expr
+type contract_require = position * HString.t option * expr
 
 (* A contract ensure. *)
-type contract_ensure = position * string option * expr
+type contract_ensure = position * HString.t option * expr
 
 (* A contract mode. *)
 type contract_mode =

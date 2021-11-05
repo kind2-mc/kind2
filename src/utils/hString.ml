@@ -198,6 +198,8 @@ let concat { Hashcons.node = n } l =
 
   mk_hstring (String.concat n (List.map string_of_hstring l))
 
+let concat2 a b = concat (mk_hstring "") [a;b]
+
 let iter f { Hashcons.node = n } = String.iter f n
 
 let iteri f { Hashcons.node = n } = String.iteri f n

@@ -42,8 +42,8 @@ module Ctx = TypeCheckerContext
 
 module StringMap = struct
   include Map.Make(struct
-    type t = string
-    let compare i1 i2 = String.compare i1 i2
+    type t = HString.t
+    let compare i1 i2 = HString.compare i1 i2
   end)
 end
 
@@ -65,7 +65,7 @@ type identifier_maps = {
   array_index : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
   quant_vars : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
   modes : LustreContract.mode list;
-  contract_scope : string list;
+  contract_scope : HString.t list;
 }
 
 (*
@@ -242,7 +242,9 @@ let mk_state_var
     | None -> ());
   if fresh then Some(state_var) else None
 
-let mk_ident id = match String.split_on_char '_' id with
+let mk_ident id =
+  let id = HString.string_of_hstring id in
+  match String.split_on_char '_' id with
   | i :: id' :: [] -> (match int_of_string_opt i with
     | Some i -> I.push_index (I.mk_string_ident id') i
     | None -> I.mk_string_ident id)
@@ -472,11 +474,15 @@ and compile_ast_type
       and that lbound < ubound *)
     let (lvalue, uvalue) = match (lbound, ubound) with
       | A.Const (_, Num x), A.Const (_, Num y) ->
+        let x = HString.string_of_hstring x in
+        let y = HString.string_of_hstring y in
         Numeral.of_string x, Numeral.of_string y
       | _ -> assert false
     in 
     X.singleton X.empty_index (Type.mk_int_range lvalue uvalue)
   | A.EnumType (_, enum_name, enum_elements) ->
+      let enum_name = HString.string_of_hstring enum_name in
+      let enum_elements = List.map HString.string_of_hstring enum_elements in
       let ty = Type.mk_enum enum_name enum_elements in
       X.singleton X.empty_index ty
   | A.UserType (_, ident) ->
@@ -486,14 +492,18 @@ and compile_ast_type
       | Some candidate ->
         (* The typechecker transforms enum types to abstract types (not sure why) 
           here we check if the ident in fact names an enum type *)
+        let ident = HString.string_of_hstring ident in
         let bindings = X.bindings candidate in
         let (head_index, ty) = List.hd bindings in
         if List.length bindings = 1 && head_index = X.empty_index && Type.is_enum ty then
           candidate
         else X.singleton [X.AbstractTypeIndex ident] Type.t_int
-      | None -> X.singleton [X.AbstractTypeIndex ident] Type.t_int)
+      | None ->
+        let ident = HString.string_of_hstring ident in
+        X.singleton [X.AbstractTypeIndex ident] Type.t_int)
   | A.RecordType (_, record_fields) ->
     let over_fields = fun a (_, i, t) ->
+      let i = HString.string_of_hstring i in
       let over_indices = fun j t a -> X.add (X.RecordIndex i :: j) t a in
       let compiled_record_field_ty = compile_ast_type cstate ctx map t in
       X.fold over_indices compiled_record_field_ty a
@@ -549,6 +559,7 @@ and compile_ast_type
       (* Lib.todo "Trying to flatten function type. This should not happen" *)
 
 and vars_of_quant cstate ctx map avars =
+  let avars = List.map (fun (p, s, ty) -> p, HString.string_of_hstring s, ty) avars in
   let quant_vars = H.create 7 in
   let var_of_quant vars (_, v, ast_type) = 
     let index_types = compile_ast_type cstate ctx map ast_type in
@@ -561,6 +572,7 @@ and vars_of_quant cstate ctx map avars =
       index_types
       (vars, X.empty)
     in
+    let v = HString.mk_hstring v in
     H.replace quant_vars (mk_ident v) d;
     vars
   in
@@ -585,6 +597,7 @@ and compile_ast_expr
       compile_ast_expr cstate ctx bounds map expr
     with Not_found ->
     try 
+      let id_str = HString.string_of_hstring id_str in
       let ty = Type.enum_of_constr id_str in
       X.singleton X.empty_index (E.mk_constr id_str ty)
     with Not_found ->
@@ -594,12 +607,14 @@ and compile_ast_expr
     try
       H.find !map.array_index ident
     with Not_found ->
+      let id_str = HString.string_of_hstring id_str in
       (match String.split_on_char '_' id_str with
       | proj :: id :: name :: [] -> (try
         let len = String.length proj in
         let proj = String.sub proj 0 (len - 4) in
         let proj = int_of_string proj in
-        let ident = mk_ident (id ^ "_" ^ name) in
+        let id_str = HString.mk_hstring (id ^ "_" ^ name) in
+        let ident = mk_ident id_str in
         let e = H.find !map.expr ident in
         let e = X.find [X.ListIndex proj] e in
         X.singleton X.empty_index e
@@ -607,9 +622,10 @@ and compile_ast_expr
       | _ -> H.find !map.expr ident)
 
   and compile_mode_reference path' =
+    let path' = List.map HString.string_of_hstring path' in
     let rpath = List.rev path' in
     let path' = (rpath |> List.tl |> List.rev)
-      @ !map.contract_scope
+      @ (List.map HString.string_of_hstring !map.contract_scope)
       @ [(rpath |> List.hd)] in
     let rec find_mode = function
       | { C.path ; C.requires } :: tail ->
@@ -674,6 +690,7 @@ and compile_ast_expr
     in X.fold over_indices cexpr X.empty
 
   and compile_merge bounds clock_ident merge_cases =
+    let merge_cases = List.map (fun (s, e) -> HString.string_of_hstring s, e) merge_cases in
     let clock_expr = compile_id_string bounds clock_ident |> X.values |> List.hd in
     let clock_type = E.type_of_lustre_expr clock_expr in
     let cond_expr_clock_value clock_value = match clock_value with
@@ -718,6 +735,7 @@ and compile_ast_expr
     List.fold_left over_exprs (0, X.empty) expr_list |> snd
   
   and compile_record_expr bounds expr_list =
+    let expr_list = List.map (fun (s, e) -> HString.string_of_hstring s, e) expr_list in
     let over_exprs = fun accum (i, expr) ->
       let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
       let over_expr = fun j e t -> X.add (X.RecordIndex i :: j) e t in
@@ -731,6 +749,7 @@ and compile_ast_expr
     let rec aux accum = function
       | [] -> List.rev accum
       | A.Label (_, index) :: tl ->
+        let index = HString.string_of_hstring index in
         let accum' = X.RecordIndex index :: accum in
         if X.mem_prefix (List.rev accum') cexpr1 then
           aux accum' tl
@@ -886,8 +905,10 @@ and compile_ast_expr
   | A.Const (_, A.True) -> X.singleton X.empty_index E.t_true
   | A.Const (_, A.False) -> X.singleton X.empty_index E.t_false
   | A.Const (_, A.Num d) ->
+    let d = HString.string_of_hstring d in
     X.singleton X.empty_index (E.mk_int (Numeral.of_string d))
   | A.Const (_, A.Dec f) ->
+    let f = HString.string_of_hstring f in
     X.singleton X.empty_index (E.mk_real (Decimal.of_string f))
   (* ****************************************************************** *)
   (* Unary Operators                                                    *)
@@ -972,6 +993,7 @@ and compile_ast_expr
   (* Tuple and Record Operators                                         *)
   (* ****************************************************************** *)
   | A.RecordProject (_, expr, field) ->
+    let field = HString.string_of_hstring field in
     compile_projection bounds expr (X.RecordIndex field)
   | A.TupleProject (_, expr, field) ->
     compile_projection bounds expr (X.TupleIndex field)
@@ -1106,10 +1128,15 @@ and compile_node pos ctx cstate map oracles outputs cond restart ident args defa
   }
   in node_call
 
-and compile_contract_variables cstate gids ctx map contract_scope node_scope contract = 
+and compile_contract_variables cstate gids ctx map contract_scope node_scope contract =
+  let contract_scope = List.map HString.string_of_hstring contract_scope in
   let compile_contract_item count scope kind pos name expr =
     let ident = extract_normalized expr in
     let state_var = H.find !map.state_var ident in
+    let name = match name with
+      | Some name -> Some (HString.string_of_hstring name)
+      | None -> None
+    in
     let contract_sv = C.mk_svar pos count name state_var scope in
     N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
     contract_sv
@@ -1181,13 +1208,14 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   (* ****************************************************************** *)
   in let modes =
     let over_modes (pos, id, reqs, enss) =
+      let id' = HString.string_of_hstring id in
       let reqs = List.mapi
         (fun i (p, n, e) -> compile_contract_item (i + 1) [] N.Require p n e)
         reqs in
       let enss = List.mapi
         (fun i (p, n, e) -> compile_contract_item (i + 1) [] N.Ensure p n e)
         enss in
-      let path = contract_scope @ [id] in
+      let path = contract_scope @ [id'] in
       let mode = C.mk_mode (mk_ident id) pos path reqs enss false in
       map := { !map with modes = mode :: !map.modes };
       mode
@@ -1208,8 +1236,13 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
 
 and compile_contract cstate gids ctx map contract_scope node_scope contract =
   let compile_contract_item count scope kind pos name expr =
+    let scope = List.map (fun (i, s) -> i, HString.string_of_hstring s) scope in
     let ident = extract_normalized expr in
     let state_var = H.find !map.state_var ident in
+    let name = match name with
+      | Some name -> Some (HString.string_of_hstring name)
+      | None -> None
+    in
     let contract_sv = C.mk_svar pos count name state_var scope in
     N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
     contract_sv
@@ -1390,6 +1423,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     let over_generated_locals glocals (id, (is_ghost, scope, expr_type, _, _)) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map expr_type in
+      let scope = List.map HString.string_of_hstring scope in
       let over_indices = fun index index_type accum ->
         let possible_state_var = mk_state_var
           map
@@ -1620,6 +1654,10 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   in let props =
     let op (pos, name_opt, expr) =
+      let name_opt = match name_opt with
+        | Some name -> Some (HString.string_of_hstring name)
+        | None -> None
+      in
       let id_str = match expr with
         | A.Ident (_, id_str) -> id_str
         | A.ArrayIndex (_, A.Ident (_, id_str), _) -> id_str
@@ -1782,6 +1820,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   in let (assumes, guarantees, props) =
     let create_constraint_name id = Format.asprintf "%s._bounds" id in
     let over_subrange_constraints (a, ac, g, gc, p) (source, pos, id, oid) =
+      let oid = HString.string_of_hstring oid in
       let sv = H.find !map.state_var (mk_ident id) in
       let effective_contract = guarantees != [] || modes != [] in
       let constraint_kind = match source with
@@ -1823,7 +1862,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         ~is_input:false
         map
         (node_scope @ I.reserved_scope)
-        (mk_ident ("sofar"))
+        (mk_ident (HString.mk_hstring "sofar"))
         X.empty_index
         Type.t_bool
         None)

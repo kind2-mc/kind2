@@ -69,18 +69,18 @@
      @author Andrew Marmaduke *)
 
 module StringMap : sig
-  include (Map.S with type key = string)
+  include (Map.S with type key = HString.t)
   val keys: 'a t -> key list
 end
 
 module StringSet : sig
-  include (Set.S with type elt = string)
+  include (Set.S with type elt = HString.t)
 end
 
 type source = Local | Input | Output | Ghost
 
 type generated_identifiers = {
-  node_args : (string (* abstracted variable name *)
+  node_args : (HString.t (* abstracted variable name *)
     * bool (* whether the variable is constant *)
     * LustreAst.lustre_type
     * LustreAst.expr)
@@ -91,37 +91,37 @@ type generated_identifiers = {
     * LustreAst.expr)
     StringMap.t;
   locals : (bool (* whether the variable is ghost *)
-    * string list (* scope *)
+    * HString.t list (* scope *)
     * LustreAst.lustre_type
     * LustreAst.expr (* abstracted expression *)
     * LustreAst.expr) (* original expression *)
     StringMap.t;
   contract_calls :
     (Lib.position
-    * string list (* contract scope *)
+    * HString.t list (* contract scope *)
     * LustreAst.contract_node_equation list)
     StringMap.t;
   warnings : (Lib.position * LustreAst.expr) list;
-  oracles : (string * LustreAst.lustre_type * LustreAst.expr) list;
-  propagated_oracles : (string * string) list;
+  oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
+  propagated_oracles : (HString.t * HString.t) list;
   calls : (Lib.position (* node call position *)
-    * (string list) (* oracle inputs *)
-    * string (* abstracted output *)
+    * (HString.t list) (* oracle inputs *)
+    * HString.t (* abstracted output *)
     * LustreAst.expr (* condition expression *)
     * LustreAst.expr (* restart expression *)
-    * string (* node name *)
+    * HString.t (* node name *)
     * (LustreAst.expr list) (* node arguments *)
     * (LustreAst.expr list option)) (* node argument defaults *)
     list;
   subrange_constraints : (source
     * Lib.position
-    * string (* Generated name for Range Expression *)
-    * string) (* Original name that is constrained *)
+    * HString.t (* Generated name for Range Expression *)
+    * HString.t) (* Original name that is constrained *)
     list;
   expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
-    * string list (* contract scope  *)
+    * HString.t list (* contract scope  *)
     * LustreAst.eq_lhs
     * LustreAst.expr)
     list;

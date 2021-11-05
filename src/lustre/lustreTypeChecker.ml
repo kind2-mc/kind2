@@ -66,7 +66,7 @@ let check_merge_clock: LA.expr -> LA.lustre_type -> unit tc_result = fun e ty ->
   | Bool _ -> LSC.no_mismatched_clock true e
   | _ -> Ok ()
 
-let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> string list -> unit tc_result
+let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HString.t list -> unit tc_result
   = fun ctx pos ty cases ->
     match ty with
     | AbstractType (_, enum_id) -> (match lookup_variants ctx enum_id with
@@ -75,7 +75,10 @@ let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> stri
             (List.map (fun i ->
                 if not (List.mem i variants) then
                   type_error pos
-                    ("Merge case " ^ i ^ " does not exist in type " ^ string_of_tc_type ty)
+                    ("Merge case "
+                      ^ (HString.string_of_hstring i)
+                      ^ " does not exist in type "
+                      ^ string_of_tc_type ty)
                 else Ok ())
               cases)
           in
@@ -83,20 +86,25 @@ let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> stri
             (List.map (fun i ->
                 if not (List.mem i cases) then
                   type_error pos
-                    ("Merge case " ^ i ^ " is missing from merge expression")
+                    ("Merge case "
+                      ^ (HString.string_of_hstring i)
+                      ^ " is missing from merge expression")
                 else Ok ())
               variants)
           in
           let check_cases_unique = R.seq_
             (List.map (fun i -> 
-              if List.length (List.filter (fun x -> String.compare i x == 0) cases) > 1 then
+              if List.length (List.filter (fun x -> HString.equal x i) cases) > 1 then
                 type_error pos
-                  ("Merge case " ^ i ^ " must be unique")
+                  ("Merge case "
+                    ^ (HString.string_of_hstring i)
+                    ^ " must be unique")
               else Ok ())
               variants)
           in
           check_cases_containment >> check_cases_cover >> check_cases_unique
-        | None -> type_error pos ("Identifier " ^ enum_id
+        | None -> type_error pos ("Identifier "
+          ^ (HString.string_of_hstring enum_id)
           ^ " is not an enumeration identifier, this should be impossible!"))
     | Bool _ -> Ok () (* TODO: What checks should we do for a boolean merge? *)
     | _ -> type_error pos ("Type " ^ string_of_tc_type ty ^
@@ -107,15 +115,16 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   (* Identifiers *)
   | LA.Ident (pos, i) ->
     (match (lookup_ty ctx i) with
-    | None -> type_error pos ("Unbound identifier: " ^ i) 
+    | None -> type_error pos ("Unbound identifier: " ^ (HString.string_of_hstring i)) 
     | Some ty -> R.ok ty)
   | LA.ModeRef (pos, ids) ->      
-    let lookup_mode_ty ctx ids =
+    let lookup_mode_ty ctx (ids:HString.t list) =
       match ids with
       | [] -> failwith ("empty mode name")
-      | h::r -> let i =  List.fold_left (fun acc i -> acc ^ "::" ^ i) h r in 
+      | rest -> let i = HString.concat (HString.mk_hstring "::") rest in 
                 match (lookup_ty ctx i) with
-                | None -> type_error pos ("Unbound mode identifier: " ^ i)
+                | None -> type_error pos ("Unbound mode identifier: "
+                  ^ (HString.string_of_hstring i))
                 | Some ty -> R.ok ty in
     lookup_mode_ty ctx ids
   | LA.RecordProject (pos, e, fld) ->
@@ -125,7 +134,9 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
         let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
         (match (List.assoc_opt fld typed_fields) with
         | Some ty -> R.ok (expand_type_syn ctx ty)
-        | None -> type_error pos ("No field named " ^ fld ^ "  in record type."))
+        | None -> type_error pos ("No field named "
+          ^ (HString.string_of_hstring fld)
+          ^ "  in record type."))
     | _ -> type_error pos ("Cannot project field out of non record expression type "
                             ^ string_of_tc_type rec_ty))
 
@@ -196,7 +207,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
         let elty = List.hd tys in
         R.ifM (R.seqM (&&) true (List.map (eq_lustre_type ctx elty) tys))
           (let arr_ty = List.hd tys in
-                let arr_size = LA.Const (pos, Num (string_of_int (List.length tys))) in
+                let arr_size = LA.Const (pos, Num (List.length tys |> string_of_int |> HString.mk_hstring)) in
                 R.ok (LA.ArrayType (pos, (arr_ty, arr_size))))
           (type_error pos "All expressions must be of the same type in an Array")))
     
@@ -223,12 +234,15 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
                       >>= (fun e_ty -> 
                         R.ifM (eq_lustre_type ctx f_ty e_ty)
                           (R.ok r_ty)
-                          (type_error pos ("Type mismatch. Type of record label " ^ l
+                          (type_error pos ("Type mismatch. Type of record label "
+                                            ^ (HString.string_of_hstring l)
                                             ^ " is of type "
                                             ^ string_of_tc_type f_ty
                                             ^ " but the type of the expression is "
                                             ^ string_of_tc_type e_ty)))
-                    | None -> type_error pos ("No field named " ^ l ^ " found in record type")))
+                    | None -> type_error pos ("No field named "
+                      ^ (HString.string_of_hstring l)
+                      ^ " found in record type")))
               | r_ty -> type_error pos ("Cannot do an update on non-record type "
                                         ^ string_of_tc_type r_ty))
       | _ -> type_error pos ("Only labels can be used for record expressions"
@@ -355,7 +369,9 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
           | Some ty -> type_error pos
                     ("Expected node type to be a function type, but found type "
                       ^ string_of_tc_type ty)
-          | None -> type_error pos ("No node with name: " ^ i ^ " found"))
+          | None -> type_error pos ("No node with name: "
+            ^ (HString.string_of_hstring i)
+            ^ " found"))
   | LA.CallParam _ -> Lib.todo __LOC__
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
@@ -366,7 +382,8 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
   | Ident (pos, i) as ident ->
     infer_type_expr ctx ident >>= fun ty ->
     R.guard_with (eq_lustre_type ctx ty exp_ty)
-      (type_error pos ("Identifier " ^ i
+      (type_error pos ("Identifier "
+                      ^ (HString.string_of_hstring i)
                       ^ " does not match expected type "
                       ^ string_of_tc_type exp_ty
                       ^ " with infered type "
@@ -374,7 +391,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
   | ModeRef (pos, ids) ->
     let id = (match ids with
               | [] -> failwith ("empty mode name")
-              | h::r -> List.fold_left (fun acc i -> acc ^ "::" ^ i) h r) in
+              | rest -> HString.concat (HString.mk_hstring "::") rest) in
     check_type_expr ctx (LA.Ident (pos, id)) exp_ty
   | RecordProject (pos, expr, fld) -> check_type_record_proj pos ctx expr fld exp_ty
   | TupleProject _ -> Lib.todo __LOC__ 
@@ -467,7 +484,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
           let elty = List.hd inf_tys in
           R.ifM (R.seqM (&&) true (List.map (eq_lustre_type ctx elty) inf_tys))
             (let arr_ty = List.hd inf_tys in
-            let arr_size = LA.Const (pos, Num (string_of_int (List.length inf_tys))) in
+            let arr_size = LA.Const (pos, Num (List.length inf_tys |> string_of_int |> HString.mk_hstring)) in
             (R.guard_with (eq_lustre_type ctx exp_ty (LA.ArrayType (pos, (arr_ty, arr_size))))
                 (type_error pos ("Expected type " ^ string_of_tc_type exp_ty
                                 ^ " but found " ^ string_of_tc_type arr_ty))))
@@ -486,7 +503,9 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
                 (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
                   (match (List.assoc_opt l typed_fields) with
                   | Some ty -> check_type_expr ctx e ty 
-                  | None -> type_error pos ("No field named " ^ l ^ "found in record type")))
+                  | None -> type_error pos ("No field named "
+                    ^ (HString.string_of_hstring l)
+                    ^ "found in record type")))
               | _ -> type_error pos ("Cannot do an update on non-record type "
                                     ^ string_of_tc_type r_ty))
           | _ -> type_error pos ("Only a label can be used for record expressions"
@@ -560,7 +579,8 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
   | Last (pos, i) ->
     infer_type_expr ctx (LA.Ident (pos, i))
     >>= fun ty -> R.guard_with (eq_lustre_type ctx ty exp_ty)
-                    (type_error pos ("Identifier " ^ i
+                    (type_error pos ("Identifier "
+                                    ^ (HString.string_of_hstring i)
                                     ^ " does not match expected type "
                                     ^ string_of_tc_type exp_ty
                                     ^ " with infered type "
@@ -578,7 +598,9 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
     let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
                 else GroupType (pos, arg_tys) in
     (match (lookup_node_ty ctx i) with
-    | None -> type_error pos ("No node/function with name " ^ i ^ " found.")
+    | None -> type_error pos ("No node/function with name "
+      ^ (HString.string_of_hstring i)
+      ^ " found.")
     | Some ty -> 
       R.guard_with (eq_lustre_type ctx ty (LA.TArr (pos, arg_ty, exp_ty)))
         (type_error pos ("Node type "
@@ -615,6 +637,7 @@ and infer_type_unary_op: tc_context -> Lib.position -> LA.expr -> LA.unary_opera
 
 and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> bool tc_result
   = fun ctx pos ty1 ty2 ->
+  let num1 = HString.mk_hstring "1" in
   let num_tys = [
       LA.Int pos
     ; LA.UInt8 pos
@@ -625,7 +648,7 @@ and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> bool tc_re
     ; LA.Int16 pos
     ; LA.Int32 pos
     ; LA.Int64 pos
-    ; LA.IntRange (pos, Const (pos, Num "1"), Const (pos, Num "1")) 
+    ; LA.IntRange (pos, Const (pos, Num num1), Const (pos, Num num1)) 
     ; LA.Real pos] in
   let are_equal_types: tc_context -> tc_type -> tc_type -> tc_type -> bool tc_result
     = fun ctx ty1 ty2 ty ->
@@ -819,7 +842,8 @@ and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index ->
   >>= function
   | RecordType (_, flds) as rec_ty ->
     (match (List.find_opt (fun (_, i, _) -> i = idx) flds) with 
-    | None -> type_error pos ("Cannot project field " ^ idx
+    | None -> type_error pos ("Cannot project field "
+                                    ^ (HString.string_of_hstring idx)
                                     ^ " from given record type "
                                     ^ string_of_tc_type rec_ty)
     | Some f -> R.ok f)
@@ -829,7 +853,8 @@ and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index ->
                       ^ string_of_tc_type exp_ty
                       ^ " with infered type "
                       ^ string_of_tc_type fty))
-  | rec_ty -> type_error pos ("Cannot project field " ^ idx
+  | rec_ty -> type_error pos ("Cannot project field "
+                              ^ (HString.string_of_hstring idx)
                               ^ " from a non record type "
                               ^ string_of_tc_type rec_ty)       
 
@@ -841,7 +866,8 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
     | None -> failwith "Free constant should have an associated type"
     | Some inf_ty -> R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
       (type_error pos
-            ("Identifier constant " ^ i
+            ("Identifier constant "
+              ^ (HString.string_of_hstring i)
               ^ " expected to have type " ^ string_of_tc_type inf_ty
               ^ " but found type " ^ string_of_tc_type exp_ty)))
   | UntypedConst (pos, i, e) ->
@@ -849,14 +875,16 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
     >>= fun inf_ty ->
     R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
       (type_error pos
-        ("Identifier constant " ^ i
+        ("Identifier constant "
+          ^ (HString.string_of_hstring i)
           ^ " expected to have type " ^ string_of_tc_type exp_ty
           ^ " but found type " ^ string_of_tc_type inf_ty))
   | TypedConst (pos, i, exp, _) ->
     infer_type_expr ctx exp
     >>= fun inf_ty -> R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
                         (type_error pos
-                          ("Identifier constant " ^ i
+                          ("Identifier constant "
+                            ^ (HString.string_of_hstring i)
                             ^ " expects type " ^ string_of_tc_type exp_ty
                             ^ " but expression is of type " ^ string_of_tc_type inf_ty))
 and local_var_binding: tc_context -> LA.node_local_decl -> tc_context tc_result = fun ctx ->
@@ -867,7 +895,9 @@ and local_var_binding: tc_context -> LA.node_local_decl -> tc_context tc_result 
       ; tc_ctx_const_decl ctx const_decls 
     | LA.NodeVarDecl (pos, (_, v, ty, _)) ->
       if (member_ty ctx v) then
-        type_error pos ("Identifier " ^ v ^ " is already declared.")
+        type_error pos ("Identifier "
+          ^ (HString.string_of_hstring v)
+          ^ " is already declared.")
       else check_type_well_formed ctx ty
           >> R.ok (add_ty ctx v ty)
                      
@@ -890,8 +920,9 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> unit tc_
 
     R.seq_chain (fun _ i ->
         (if (member_ty ctx i) then
-           type_error pos ("Identifier " ^ i
-                           ^ " is already declared.")
+           type_error pos ("Identifier "
+                          ^ (HString.string_of_hstring i)
+                          ^ " is already declared.")
          else R.ok()))
       () (LA.SI.elements arg_ids @ LA.SI.elements ret_ids)
     
@@ -1019,15 +1050,17 @@ and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> unit tc_r
   | SingleIdent (pos, i) ->
     (match (lookup_ty ctx i) with
     | None ->
-        type_error pos ("Could not find Identifier " ^ i)
+        type_error pos ("Could not find Identifier " ^ (HString.string_of_hstring i))
     | Some ty -> R.ok ty) >>= fun inf_ty ->  
     R.ifM (R.seqM (||) false [ eq_lustre_type ctx exp_ty inf_ty
                             ; eq_lustre_type ctx exp_ty (GroupType (pos,[inf_ty])) ])
       (if member_val ctx i
-      then type_error pos ("Constant " ^ i ^ " cannot be re-defined")
+      then type_error pos ("Constant "
+        ^ (HString.string_of_hstring i)
+        ^ " cannot be re-defined")
       else R.ok ())
       (type_error pos ("Expected type " ^ string_of_tc_type exp_ty
-                      ^ " for expression " ^ i
+                      ^ " for expression " ^ (HString.string_of_hstring i)
                       ^ " but found type " ^ string_of_tc_type inf_ty))
   | ArrayDef (pos, base_e, idxs) ->
     let array_idx_expr =
@@ -1092,8 +1125,12 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
   | Mode (pos, name, _, _) -> R.ok (add_ty ctx name (Bool pos)) 
   | ContractCall (_, cc, _, _) ->
     match (lookup_contract_exports ctx cc) with
-    | None -> failwith ("Cannot find exports for contract " ^ cc)
-    | Some m -> R.ok (List.fold_left (fun c (i, ty) -> add_ty c (cc ^ "::" ^ i) ty) ctx (IMap.bindings m)) 
+    | None -> failwith ("Cannot find exports for contract "
+      ^ (HString.string_of_hstring cc))
+    | Some m -> R.ok (List.fold_left
+      (fun c (i, ty) -> add_ty c (HString.concat (HString.mk_hstring "::") [cc;i]) ty)
+      ctx
+      (IMap.bindings m)) 
 
 and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_result
   = fun ctx (cname, _, args, rets, contract) ->
@@ -1107,7 +1144,7 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
     R.seq (List.map (fun (pos, i, ty, _, _) -> 
       let ty = expand_nested_type_syn arg_ctx ty in
       if LH.type_contains_subrange ty then type_error pos
-        ("Argument " ^ i ^ " can not have type "
+        ("Argument " ^ (HString.string_of_hstring i) ^ " can not have type "
         ^ Lib.string_of_t LA.pp_print_lustre_type ty
         ^ ". Contract assumptions should be used instead.")
       else Ok ())
@@ -1115,7 +1152,7 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
     >> R.seq (List.map (fun (pos, i, ty, _) -> 
       let ty = expand_nested_type_syn ret_ctx ty in
       if LH.type_contains_subrange ty then type_error pos
-        ("Return " ^ i ^ " can not have type "
+        ("Return " ^ (HString.string_of_hstring i) ^ " can not have type "
         ^ Lib.string_of_t LA.pp_print_lustre_type ty
         ^ ". Contract guarantees should be used instead.")
       else Ok ())
@@ -1176,10 +1213,12 @@ and check_contract_node_eqn: LA.SI.t -> tc_context -> LA.contract_node_equation 
           (match (lookup_contract_ty ctx cname) with
           | Some inf_ty -> 
               R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
-                (type_error pos ("Contract " ^ cname
+                (type_error pos ("Contract "
+                                ^ (HString.string_of_hstring cname)
                                 ^ " expected to have type " ^ string_of_tc_type exp_ty
                                 ^ " but found type " ^ string_of_tc_type inf_ty))
-          | None -> type_error pos ("Undefined or not in scope contract name " ^ cname))
+          | None -> type_error pos ("Undefined or not in scope contract name "
+            ^ (HString.string_of_hstring cname)))
         else type_error pos ("Input and output streams cannot have common identifers, "
                             ^ "but found common parameters: "
                             ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",")
@@ -1191,11 +1230,15 @@ and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_cont
   | LA.FreeConst (pos, i, ty) ->
     check_type_well_formed ctx ty
     >> if member_ty ctx i
-      then type_error pos ("Constant " ^ i ^ " is already declared.")
+      then type_error pos ("Constant "
+        ^ (HString.string_of_hstring i)
+        ^ " is already declared.")
       else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty) i ty)
   | LA.UntypedConst (pos, i, e) ->
     if member_ty ctx i
-    then type_error pos ("Constant " ^ i ^ " is already declared.")
+    then type_error pos ("Constant "
+      ^ (HString.string_of_hstring i)
+      ^ " is already declared.")
     else infer_type_expr ctx e >>= fun ty ->
         (if is_const then
             if (is_expr_of_consts ctx e) 
@@ -1205,7 +1248,9 @@ and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_cont
           
   | LA.TypedConst (pos, i, e, exp_ty) ->
     if member_ty ctx i
-    then type_error pos ("Constant " ^ i ^ " is already declared.")
+    then type_error pos ("Constant "
+      ^ (HString.string_of_hstring i)
+      ^ " is already declared.")
     else check_type_expr (add_ty ctx i exp_ty) e exp_ty
         >> (if is_const then
               if (is_expr_of_consts ctx e) 
@@ -1220,13 +1265,17 @@ and tc_ctx_contract_var: tc_context -> LA.const_decl -> tc_context tc_result
   | LA.FreeConst (pos, i, ty) ->
     check_type_well_formed ctx ty
     >> if member_ty ctx i
-      then type_error pos ("Identifer " ^ i ^ " is already declared.")
+      then type_error pos ("Identifer "
+        ^ (HString.string_of_hstring i)
+        ^ " is already declared.")
       else R.ok (add_ty ctx i ty)
   | LA.UntypedConst (pos, _, _) -> type_error pos "Syntax prohibited by parser. This should not happen!"
   | LA.TypedConst (pos, i, _, ty) ->
     check_type_well_formed ctx ty
     >> if member_ty ctx i
-      then type_error pos ("Identifier " ^ i ^ " is already declared.")
+      then type_error pos ("Identifier "
+        ^ (HString.string_of_hstring i)
+        ^ " is already declared.")
       else R.ok (add_ty ctx i ty)
 (** Adds the type of a contract variable in the typing context  *)
     
@@ -1272,7 +1321,9 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_contex
     "Extracting type of node declaration: %a"
     LA.pp_print_ident nname
   ; if (member_node ctx nname)
-    then type_error pos ("Node " ^ nname ^ " is already declared.")
+    then type_error pos ("Node "
+      ^ (HString.string_of_hstring nname)
+      ^ " is already declared.")
     else build_node_fun_ty pos ctx ip op >>= fun fun_ty ->
         R.ok (add_ty_node ctx nname fun_ty)
 (** computes the type signature of node or a function and its node summary*)
@@ -1284,12 +1335,17 @@ and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_cont
   | LA.GhostVar c -> tc_ctx_contract_var ctx c
   | LA.Mode (pos, mname, _, _) ->
     if (member_ty ctx mname)
-    then type_error pos ("Mode " ^ mname ^ " is already declared")
+    then type_error pos ("Mode "
+      ^ (HString.string_of_hstring mname)
+      ^ " is already declared")
     else R.ok (add_ty ctx mname (Bool pos))
   | LA.ContractCall (p, cc, _, _) ->
     (match (lookup_contract_exports ctx cc) with
-    | None -> type_error p ("Cannot find contract " ^ cc)
-    | Some m -> R.ok (List.fold_left (fun c (i, ty) -> add_ty c (cc ^ "::" ^ i) ty) ctx (IMap.bindings m))) 
+    | None -> type_error p ("Cannot find contract " ^ (HString.string_of_hstring cc))
+    | Some m -> R.ok (List.fold_left
+      (fun c (i, ty) -> add_ty c (HString.concat (HString.mk_hstring "::") [cc;i]) ty)
+      ctx
+      (IMap.bindings m))) 
   | _ -> R.ok ctx
                          
 and tc_ctx_of_contract: tc_context -> LA.contract -> tc_context tc_result
@@ -1312,12 +1368,14 @@ and extract_exports: LA.ident -> tc_context -> LA.contract -> tc_context tc_resu
         R.ok [(i, ty)]
       | LA.Mode (pos, mname, _, _) ->
         if (member_ty ctx mname)
-        then type_error pos ("Mode " ^ mname ^ " is already declared")
+        then type_error pos ("Mode " ^ (HString.string_of_hstring mname) ^ " is already declared")
         else R.ok [(mname, (LA.Bool pos))] 
       | LA.ContractCall (p, cc, _, _) ->
         (match (lookup_contract_exports ctx cc) with
-        | None -> type_error p ("Cannot find contract " ^ cc)
-        | Some m -> R.ok (List.map (fun (k, v) -> (cc ^ "::" ^ k, v)) (IMap.bindings m)))
+        | None -> type_error p ("Cannot find contract " ^ (HString.string_of_hstring cc))
+        | Some m -> R.ok (List.map
+          (fun (k, v) -> (HString.concat (HString.mk_hstring "::") [cc;k], v))
+          (IMap.bindings m)))
       | _ -> R.ok [] in
     fun cname ctx contract ->
     (R.seq_chain
@@ -1337,7 +1395,9 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
     "Extracting type of contract declaration: %a"
     LA.pp_print_ident cname
   ; if (member_contract ctx cname)
-    then type_error pos ("Contract " ^ cname ^ " is already declared.")
+    then type_error pos ("Contract "
+      ^ (HString.string_of_hstring cname)
+      ^ " is already declared.")
     else build_node_fun_ty pos ctx inputs outputs >>= fun fun_ty ->
         extract_exports cname ctx contract >>= fun export_ctx  ->  
         R.ok (add_ty_contract (union ctx export_ctx) cname fun_ty)
@@ -1392,7 +1452,7 @@ and check_type_well_formed: tc_context -> tc_type -> unit tc_result
     R.seq_ (List.map (check_type_well_formed ctx) tys)
   | LA.UserType (pos, i) ->
     if (member_ty_syn ctx i || member_u_types ctx i)
-    then R.ok () else type_error pos ("Undefined type " ^ i)
+    then R.ok () else type_error pos ("Undefined type " ^ (HString.string_of_hstring i))
   | LA.IntRange (pos, e1, e2) ->
     if is_expr_int_type ctx e1 && is_expr_of_consts ctx e1 then
       if is_expr_int_type ctx e2 && is_expr_of_consts ctx e2 then
@@ -1485,7 +1545,7 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> bool tc_r
       if member_ty_syn ctx u
       then (match (lookup_ty_syn ctx u) with
             | None ->
-              type_error pos ("Cannot find definition of Identifier " ^ u)
+              type_error pos ("Cannot find definition of Identifier " ^ (HString.string_of_hstring u))
             | Some ty -> R.ok ty)
           >>= fun ty_alias ->
           eq_lustre_type ctx ty ty_alias

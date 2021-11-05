@@ -26,7 +26,7 @@ let blah_opt txt name pos =
     txt
     (fun fmt -> match name with
       | None -> ()
-      | Some name -> Format.fprintf fmt " (%s)" name
+      | Some name -> Format.fprintf fmt " (%s)" (HString.string_of_hstring name)
     )
     pp_print_position pos
 
@@ -78,7 +78,7 @@ let rec collect_contracts (locals, asserts, props) = function
               blah
                 (Format.sprintf "%s from mode %s"
                   (blah_opt "Ensure" e_name e_pos)
-                  name
+                  (HString.string_of_hstring name)
                 )
                 pos,
               reqs,

@@ -36,7 +36,7 @@ type ('a, 'b) hash_consed =  {
   prop : 'b }
 
 (* Comparison based on tags *)
-let compare { tag = t1 } { tag = t2 } = Stdlib.compare t1 t2
+let compare { tag = t1 } { tag = t2 } = Int.compare t1 t2
 
 (* Equality based on tags *)
 let equal { tag = t1 } { tag = t2 } = t1 = t2
@@ -299,7 +299,7 @@ let stats t =
   let lens = Array.map (fun (_, b) -> Array.length b) t.table in
 
   (* Sort to find longest bucket *)
-  Array.sort Stdlib.compare lens;
+  Array.sort Int.compare lens;
 
   (* Sum up lengths of all buckets *)
   let totlen = Array.fold_left ( + ) 0 lens in
@@ -659,7 +659,7 @@ struct
     let lens = Array.map (fun (_, b) -> Array.length b) t.table in
     
     (* Sort to find longest bucket *)
-    Array.sort Stdlib.compare lens;
+    Array.sort Int.compare lens;
     
     (* Sum up lengths of all buckets *)
     let totlen = Array.fold_left ( + ) 0 lens in

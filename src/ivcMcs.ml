@@ -170,7 +170,7 @@ let rand_function_name_for _ ts =
 let undef_expr pos_sv_map const_expr typ expr =
   let pos = H.pos_of_expr expr in
   match pos_sv_map with
-  | None -> A.Ident (pos, "_")
+  | None -> A.Ident (pos, HString.mk_hstring "_")
   | Some pos_sv_map ->
     if const_expr then expr (* a call to __rand is not a valid constant expression *)
     else
@@ -181,7 +181,8 @@ let undef_expr pos_sv_map const_expr typ expr =
         let n = (List.length typ) in
         if n > !max_nb_args then max_nb_args := n ;
         A.Call(*Param*)
-          (pos, rand_function_name_for n typ, (*typ,*) [Const (dpos, Num (string_of_int i))])
+          (pos, HString.mk_hstring (rand_function_name_for n typ),
+            (*typ,*) [Const (dpos, Num (HString.mk_hstring (string_of_int i)))])
       end else begin
         try Hashtbl.find previous_rands svs
         with Not_found ->
@@ -189,7 +190,8 @@ let undef_expr pos_sv_map const_expr typ expr =
           let n = (List.length typ) in
           if n > !max_nb_args then max_nb_args := n ;
           let res = A.Call(*Param*)
-            (pos, rand_function_name_for n typ, (*typ,*) [Const (dpos, Num (string_of_int i))])
+            (pos, HString.mk_hstring (rand_function_name_for n typ),
+              (*typ,*) [Const (dpos, Num (HString.mk_hstring (string_of_int i)))])
           in Hashtbl.replace previous_rands svs res ; res
       end
 
@@ -219,10 +221,10 @@ let rand_node name ts =
     | n -> aux prefix ((prefix^(string_of_int (counter ())))::acc) (n-1)
   in
   let outs = aux "out" [] (List.length ts)
-  |> List.map2 (fun t out -> dpos,out,t,A.ClockTrue) ts
+  |> List.map2 (fun t out -> dpos,HString.mk_hstring out,t,A.ClockTrue) ts
   in
   A.NodeDecl (dspan,
-    (name, true, [], [dpos,"id",A.Int dpos,A.ClockTrue, false],
+    (name, true, [], [dpos,HString.mk_hstring "id",A.Int dpos,A.ClockTrue, false],
     outs, [], [], None)
   )
 
@@ -404,6 +406,7 @@ let minimize_contract_node_eq ue lst cne =
 let minimize_node_decl ue loc_core
   ((id, extern, tparams, inputs, outputs, locals, items, spec) as ndecl) =
 
+  let id' = HString.string_of_hstring id in
   let id_typ_map = build_id_typ_map inputs outputs locals in
 
   let minimize_with_lst lst =
@@ -419,7 +422,7 @@ let minimize_node_decl ue loc_core
     (id, extern, tparams, inputs, outputs, locals, items, spec)
   in
   
-  let scope = (Scope.mk_scope [id]) in
+  let scope = (Scope.mk_scope [id']) in
   if List.exists (fun sc -> Scope.equal sc scope) (scopes_of_loc_core loc_core)
   then (
     get_model_elements_of_scope loc_core scope
@@ -501,7 +504,7 @@ let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,loc_core,_) ast =
   in
   aux minimized (!max_nb_args)*)
   Hashtbl.fold (fun ts n acc ->
-    (rand_node n ts)::acc
+    (rand_node (HString.mk_hstring n) ts)::acc
   )
   rand_functions
   minimized

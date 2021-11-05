@@ -24,14 +24,14 @@ module LAH = LustreAstHelpers
 
 module StringSet = Set.Make(
   struct
-    let compare = String.compare
-    type t = string
+    let compare = HString.compare
+    type t = HString.t
   end)
 
 module StringMap = Map.Make(
   struct
-    let compare = String.compare
-    type t = string
+    let compare = HString.compare
+    type t = HString.t
   end)
 
 type 'a sc_result = ('a, Lib.position * string) result
@@ -249,7 +249,8 @@ let locals_must_have_definitions locals items =
       match test with
       | Some _ -> Ok ()
       | None -> syntax_error pos
-        (Format.asprintf "Local variable %s has no definition." id)
+        (Format.asprintf "Local variable %a has no definition."
+          HString.pp_print_hstring id)
   in
   Res.seq (List.map over_locals locals)
 
@@ -263,7 +264,8 @@ let no_dangling_node_calls ctx = function
     | true, _ -> Ok ()
     | _, true -> Ok ()
     | false, false -> syntax_error pos
-      (Format.asprintf "No node with name %s found." i))
+      (Format.asprintf "No node with name %a found."
+        HString.pp_print_hstring i))
   | _ -> Ok ()
 
 let no_dangling_identifiers ctx = function
@@ -279,7 +281,8 @@ let no_dangling_identifiers ctx = function
     let check_ids = List.filter (fun x -> x) check_ids in
     if List.length check_ids > 0 then Ok ()
     else syntax_error pos
-      (Format.asprintf "No identifier with name %s found." i)
+      (Format.asprintf "No identifier with name %a found."
+        HString.pp_print_hstring i)
   | _ -> Ok ()
 
 let no_quant_var_or_symbolic_index_in_node_call ctx = function
@@ -290,11 +293,11 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
       let found_symbolic_index = StringMap.mem j ctx.symbolic_array_indices in
       (match found_quant, found_symbolic_index with
       | true, _ -> syntax_error pos (Format.asprintf
-        "Quantified variable %s is not allowed in an argument to the node call %s"
-        j i)
+        "Quantified variable %a is not allowed in an argument to the node call %a"
+        HString.pp_print_hstring j HString.pp_print_hstring i)
       | _, true -> syntax_error pos (Format.asprintf
-        "Symbolic array index %s is not allowed in an argument to the node call %s"
-        j i)
+        "Symbolic array index %a is not allowed in an argument to the node call %a"
+        HString.pp_print_hstring j HString.pp_print_hstring i)
       | false, false -> Ok ())
     in
     let check = List.map over_vars vars in
@@ -308,8 +311,8 @@ let no_calls_to_node ctx = function
     let check_nodes = StringMap.mem i ctx.nodes in
     if check_nodes then
       syntax_error pos (Format.asprintf
-        "Illegal call to node %s, functions can only call other functions, not nodes."
-        i)
+        "Illegal call to node %a, functions can only call other functions, not nodes."
+        HString.pp_print_hstring i)
     else Ok ()
   | _ -> Ok ()
 
@@ -343,8 +346,10 @@ let no_calls_to_nodes_with_contracts_subject_to_refinement ctx expr =
         || check_only_assumptive contract_imports
       in
       if not only_assumptive then
-        syntax_error pos ("Illegal call to node '" ^ i
-          ^ "' in the cone of influence of this contract: node " ^ i
+        syntax_error pos ("Illegal call to node '"
+          ^ (HString.string_of_hstring i)
+          ^ "' in the cone of influence of this contract: node "
+          ^ (HString.string_of_hstring i)
           ^ " has a refinable contract.")
       else Ok ()
     | _, Some { has_contract = true; 
@@ -356,8 +361,10 @@ let no_calls_to_nodes_with_contracts_subject_to_refinement ctx expr =
         || check_only_assumptive contract_imports
       in
       if not only_assumptive then
-        syntax_error pos ("Illegal call to function '" ^ i
-        ^ "' in the cone of influence of this contract: function " ^ i
+        syntax_error pos ("Illegal call to function '"
+        ^ (HString.string_of_hstring i)
+        ^ "' in the cone of influence of this contract: function "
+        ^ (HString.string_of_hstring i)
         ^ " has a refinable contract.")
       else Ok ()
     | _ -> Ok ())
@@ -382,8 +389,8 @@ let no_stateful_contract_imports ctx contract =
           imports
           (Ok ())
       else syntax_error pos (Format.asprintf
-        "Illegal import of stateful contract %s. Functions can only be specified by stateless contracts"
-        initial)
+        "Illegal import of stateful contract %a. Functions can only be specified by stateless contracts"
+        HString.pp_print_hstring initial)
     | None -> Ok ()
   in
   let over_eqn acc = function
@@ -612,10 +619,10 @@ let no_mismatched_clock is_bool e =
     | LA.When (pos, _, c) ->
       let clocks_match = (match c, clock with
         | ClockTrue, LA.ClockTrue -> true
-        | ClockPos i, ClockPos j -> String.equal i j
-        | ClockNeg i, ClockNeg j -> String.equal i j
+        | ClockPos i, ClockPos j -> HString.equal i j
+        | ClockNeg i, ClockNeg j -> HString.equal i j
         | ClockConstr (i1, i2), ClockConstr (j1, j2) ->
-          String.equal i1 j1 && String.equal i2 j2
+          HString.equal i1 j1 && HString.equal i2 j2
         | _ -> false)
       in
       if not clocks_match then syntax_error pos

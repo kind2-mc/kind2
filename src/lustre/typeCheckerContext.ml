@@ -31,7 +31,7 @@ module IMap = struct
   (* everything that [Stdlib.Map] gives us  *)
   include Map.Make(struct
               type t = LA.ident
-              let compare i1 i2 = Stdlib.compare i1 i2
+              let compare i1 i2 = HString.compare i1 i2
             end)
   let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
 end
@@ -322,7 +322,7 @@ let pp_print_enum_variants: Format.formatter -> enum_variants -> unit
     (fun ppf (i, exm) ->
       Format.fprintf ppf "(enum %a -> [%a])"
         LA.pp_print_ident i
-        (Lib.pp_print_list Format.pp_print_string ",") exm)
+        (Lib.pp_print_list HString.pp_print_hstring ",") exm)
           ", " ppf (IMap.bindings m)
 (** Pretty print enumeration types and their variants *)
 

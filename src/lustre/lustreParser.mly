@@ -69,14 +69,14 @@ let merge_branches transitions =
 %token RCURLYBRACKET 
 
 (* Tokens for decimals and numerals *)
-%token <string>DECIMAL
-%token <string>NUMERAL
+%token <HString.t>DECIMAL
+%token <HString.t>NUMERAL
 
-%token <string>STRING
+%token <HString.t>STRING
 
 (* Identifier token *)
-%token <string>SYM 
-%token <string>QUOTSYM 
+%token <HString.t>SYM 
+%token <HString.t>QUOTSYM 
       
 (* Tokens for types *)
 %token TYPE
@@ -836,7 +836,7 @@ pexpr(Q):
 
   (* Tuple projection (not quantified) *)
   | e = pexpr(Q); DOTPERCENT; i = NUMERAL 
-  { let idx = try (int_of_string i) with
+  { let idx = try (int_of_string (HString.string_of_hstring i)) with
               | _ -> fail_at_position (mk_pos $startpos(i)) "Tuple projection index exceeds int range" in
     A.TupleProject (mk_pos $startpos, e, idx) }
 
@@ -1057,7 +1057,7 @@ pexpr(Q):
     c = ident; SEMICOLON;
     pos = pexpr(Q); SEMICOLON;
     neg = pexpr(Q); RPAREN 
-    { A.Merge (mk_pos $startpos, c, ["true", pos; "false", neg]) }
+    { A.Merge (mk_pos $startpos, c, [HString.mk_hstring "true", pos; HString.mk_hstring "false", neg]) }
 
   (* N-way merge operator *)
   | MERGE; 
@@ -1068,7 +1068,7 @@ pexpr(Q):
   (* A temporal operation *)
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
   | FBY LPAREN; e1 = pexpr(Q) COMMA; s = NUMERAL; COMMA; e2 = pexpr(Q) RPAREN
-    { let idx = try (int_of_string s) with
+    { let idx = try (int_of_string (HString.string_of_hstring s)) with
                 | _ -> fail_at_position (mk_pos $startpos(s)) "Fby argument exceeds int range" in
       A.Fby (mk_pos $startpos, e1, idx, e2) }
 
@@ -1133,8 +1133,8 @@ clock_expr:
   | TRUE { A.ClockTrue }
 
 merge_case_id:
-  | TRUE { "true" }
-  | FALSE { "false" }
+  | TRUE { HString.mk_hstring "true" }
+  | FALSE { HString.mk_hstring "false" }
   | c = ident { c }
 
 merge_case :
@@ -1143,16 +1143,15 @@ merge_case :
     
 (* ********************************************************************** *)
 
-
 (* An identifier *)
 ident:
   (* Contract tokens are not keywords. *)
-  | MODE { "mode" }
-  | ASSUME { "assume" }
-  | GUARANTEE { "guarantee" }
-  | REQUIRE { "require" }
-  | ENSURE { "ensure" }
-  | WEAKLY { "weakly" }
+  | MODE { HString.mk_hstring "mode" }
+  | ASSUME { HString.mk_hstring "assume" }
+  | GUARANTEE { HString.mk_hstring "guarantee" }
+  | REQUIRE { HString.mk_hstring "require" }
+  | ENSURE { HString.mk_hstring "ensure" }
+  | WEAKLY { HString.mk_hstring "weakly" }
   | s = SYM { s }
 
 ident_or_quotident:

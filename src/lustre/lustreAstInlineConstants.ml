@@ -36,7 +36,7 @@ let inline_error pos err = R.error (pos, "Error: " ^ err)
                       
 let int_value_of_const: LA.expr -> int inline_result =
   function
-  | LA.Const (_, LA.Num n) -> R.ok (int_of_string n)
+  | LA.Const (_, LA.Num n) -> R.ok (n |> HString.string_of_hstring |> int_of_string)
   | e -> inline_error (LH.pos_of_expr e)
            ("Cannot evaluate non-int constant "
             ^ LA.string_of_expr e
@@ -73,12 +73,12 @@ let rec eval_int_expr: TC.tc_context -> LA.expr -> int inline_result = fun ctx -
          then int_value_of_const const_expr
          else (match const_expr with
                | LA.Ident (_, i') as e ->
-                  if Stdlib.compare i i' = 0
+                  if HString.compare i i' = 0
                   then inline_error pos ("Cannot evaluate a free int const "
-                                       ^ i ^ ".")
+                                       ^ (HString.string_of_hstring i) ^ ".")
                   else eval_int_expr ctx e 
                | _ -> eval_int_expr ctx const_expr)
-      | None -> inline_error pos ("Not a constant identifier" ^ i))  
+      | None -> inline_error pos ("Not a constant identifier" ^ (HString.string_of_hstring i)))  
   | LA.Const _ as c -> int_value_of_const c
   | LA.UnaryOp (pos, uop, e) -> eval_int_unary_op ctx pos uop e
   | LA.BinaryOp (pos, bop, e1, e2) -> eval_int_binary_op ctx pos bop e1 e2
@@ -126,12 +126,12 @@ and eval_bool_expr: TC.tc_context -> LA.expr -> bool inline_result = fun ctx ->
          then bool_value_of_const const_expr
          else (match const_expr with
                | LA.Ident (_, i') as e ->
-                  if (Stdlib.compare i i' = 0)
+                  if (HString.compare i i' = 0)
                   then inline_error pos ("Cannot evaluate a free bool const "
-                                       ^ i ^ ".")
+                                       ^ (HString.string_of_hstring i) ^ ".")
                   else eval_bool_expr ctx e 
                | _ ->  eval_bool_expr ctx const_expr)
-      | None -> inline_error pos ("Not a constant cannot evaluate identifier " ^ i))
+      | None -> inline_error pos ("Not a constant cannot evaluate identifier " ^ (HString.string_of_hstring i)))
   | LA.Const _ as c -> bool_value_of_const c
   | LA.BinaryOp (pos, bop, e1, e2) -> eval_bool_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_bool_ternary_op ctx pos top e1 e2 e3
@@ -226,7 +226,7 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
       | Some (const_expr, _) ->
          (match const_expr with
           | LA.Ident (_, i') as ident' ->
-             if Stdlib.compare i i' = 0 (* If This is a free constant *)
+             if HString.compare i i' = 0 (* If This is a free constant *)
              then ident' 
              else simplify_expr ctx ident'
           | _ -> simplify_expr ctx const_expr)
@@ -236,7 +236,7 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
     let e' = LA.UnaryOp (pos, op, e1') in
     (match op with
     | LA.Uminus -> (match eval_int_unary_op ctx pos op e1' with
-      | Ok v -> LA.Const (pos, Num (string_of_int v))
+      | Ok v -> LA.Const (pos, Num (v |> string_of_int |> HString.mk_hstring))
       | Error _ -> e')
     | LA.Not -> (match eval_bool_unary_op ctx pos op e1' with
       | Ok v -> if v then LA.Const(pos, True) else LA.Const (pos, False)
@@ -252,7 +252,7 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
      let e2' = simplify_expr ctx e2 in
      let e' = LA.BinaryOp (pos, bop, e1', e2') in
      (match (eval_int_binary_op ctx pos bop e1' e2') with
-      | Ok v -> LA.Const (pos, Num (string_of_int v))
+      | Ok v -> LA.Const (pos, Num (v |> string_of_int |> HString.mk_hstring))
       | Error _ -> e')
   | LA.TernaryOp (pos, top, cond, e1, e2) ->
      (match top with
