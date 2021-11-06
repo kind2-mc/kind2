@@ -568,7 +568,7 @@ let sign = function
   | InfPos -> 1
   | InfNeg -> -1
   | Undef -> failwith "sign of undef"
-  | N (Num.Int n) -> Stdlib.compare n 0
+  | N (Num.Int n) -> Int.compare n 0
   | N (Num.Big_int n) -> Big_int.sign_big_int n
   | N (Num.Ratio r) -> Ratio.sign_ratio r
 

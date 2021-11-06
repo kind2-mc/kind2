@@ -27,14 +27,7 @@ let path_offset = Numeral.zero
 module MIL = Map.Make
     (struct
       type t = int list
-      let rec compare l1 l2 = match l1, l2 with
-        | [], [] -> 0
-        | [], _ -> -1
-        | _, [] -> 1
-        | x :: r1, y :: r2 ->
-          let c = Stdlib.compare x y in
-          if c <> 0 then c
-          else compare r1 r2
+      let compare = Lib.compare_lists Int.compare
     end)
 
 

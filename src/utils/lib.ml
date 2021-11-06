@@ -451,14 +451,7 @@ let array_max a =
 (* ********************************************************************** *)
 
 (* Set of integers *)
-module IntegerSet = 
-  Set.Make
-  (struct
-    type t = int
-    let compare = Stdlib.compare
-    (* let equal = (=) *)
-   end)
-  
+module IntegerSet = Set.Make (Int)
   
 (* Hashtable of integers *)
 module IntegerHashtbl =
@@ -720,7 +713,7 @@ let string_of_log_level = function
 
 (* Compare two levels *)
 let compare_levels l1 l2 = 
-  Stdlib.compare (int_of_log_level l1) (int_of_log_level l2)
+  Int.compare (int_of_log_level l1) (int_of_log_level l2)
 
 
 (* Current log level *)
@@ -1164,7 +1157,7 @@ let compare_pos
 
   compare_pairs 
     String.compare
-    (compare_pairs Stdlib.compare Stdlib.compare)
+    (compare_pairs Int.compare Int.compare)
     (p1, (l1, c1)) 
     (p2, (l2, c2)) 
 
