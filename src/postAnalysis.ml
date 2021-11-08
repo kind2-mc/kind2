@@ -208,6 +208,114 @@ module RunAssumptionGen: PostAnalysis = struct
   let name = "assumptiongen"
   let title = "assumption generation"
   let is_active () = Flags.Contracts.assumption_gen ()
+  let run in_sys param analyze results =
+    let top = (Analysis.info_of_param param).Analysis.top in
+    last_result results top
+    |> Res.chain (fun { Analysis.sys } ->
+      (* Check all properties are valid. *)
+      match TSys.get_split_properties sys with
+      | [], [], [] -> error (
+        fun fmt ->
+          Format.fprintf fmt
+            "No properties, assumption generation disabled."
+      )
+      | _, [], _ -> error (
+        fun fmt ->
+          Format.fprintf fmt
+            "No invalid properties, assumption generation disabled."
+      )
+      | _ -> Ok sys
+    )
+    |> Res.chain (fun sys ->
+      try (
+        Flags.Smt.set_z3_qe_light true ;
+        (* Create directories if they don't exist. *)
+        let output_dir = Flags.output_dir () in
+        mk_dir output_dir;
+        let response =
+          let one_state =
+            not (Flags.Contracts.two_state_assumption ())
+          in
+          Assumption.generate_assumption ~one_state analyze in_sys param sys
+        in
+        (match response with
+        | Assumption.Unknown ->
+          KEvent.log L_warn
+            "No assumption could be generated for invalid properties"
+        | Assumption.Failure ->
+          KEvent.log L_warn
+            "No satisfiable assumption was found for invalid properties"
+        | Assumption.Success assump ->
+          let contract_name = Names.contract_name top in
+          let path =
+            Filename.concat
+              output_dir (Format.sprintf "%s.lus" contract_name)
+          in
+          let scope = TSys.scope_of_trans_sys sys in
+          KEvent.log L_note "Dumping assumption to `%s`..." path ;
+          Assumption.dump_contract_for_assumption
+            in_sys scope assump path (Names.contract_name top) ;
+          KEvent.log L_note "Done"
+        ) ;
+        Flags.Smt.set_z3_qe_light false ;
+        Ok ()
+      )
+      with e -> error (
+        Flags.Smt.set_z3_qe_light false ;
+        fun fmt ->
+          Format.fprintf fmt "Could not generate assumption:@ %s"
+            (Printexc.to_string e)
+      )
+    )
+end
+
+(* 
+  Assumption generation post-analysis based on generate_assumption_vg
+module RunAssumptionGen: PostAnalysis = struct
+  let name = "assumptiongen"
+  let title = "assumption generation"
+  let is_active () = Flags.Contracts.assumption_gen ()
+
+  let generate_filename_from_prop prop =
+
+    let prop_name = prop.Property.prop_name in
+  
+    let rindex =
+      try Some (String.rindex prop_name '.') with Not_found -> None
+    in
+  
+    let prefix, name = match rindex with
+      | None -> "", prop_name
+      | Some i -> (
+        let len = String.length prop_name in
+        String.sub prop_name 0 (i+1),
+        String.sub prop_name (i+1) (len-i-1)
+      )
+    in
+  
+    let contains_invalid_char s invalid =
+      List.exists (fun c -> String.contains s c) invalid
+    in
+  
+    let invalid = [' '; '('; '>'; '<'; '='] in
+  
+    let rec get_line_and_column prop =
+      match prop.Property.prop_source with
+      | Property.PropAnnot pos ->
+        let _, l, c = file_row_col_of_pos pos in l, c
+      | Property.Instantiated (_, p) ->
+        get_line_and_column p
+      | _ -> failwith "unexpected property"
+    in
+  
+    if contains_invalid_char name invalid then (
+      let l, c = get_line_and_column prop in
+      Format.asprintf "%sl%dc%d.lus" prefix l c
+    )
+    else (
+      Format.asprintf "%s.lus" prop_name
+    )
+
   let run in_sys param _ results =
     let top = (Analysis.info_of_param param).Analysis.top in
     last_result results top
@@ -285,7 +393,7 @@ module RunAssumptionGen: PostAnalysis = struct
               ),
               Assumption.filter_non_input
             in
-            Assumption.generate_assumption in_sys sys var_filters p
+            Assumption.generate_assumption_vg in_sys sys var_filters p
           in
           match response with
           | Assumption.Unknown ->
@@ -297,10 +405,13 @@ module RunAssumptionGen: PostAnalysis = struct
             KEvent.log L_warn
               "No satisfiable assumption was found for property %s" prop_name
           | Assumption.Success assump ->
+            let path =
+              Filename.concat target (generate_filename_from_prop p)
+            in
             let scope = TSys.scope_of_trans_sys sys in
             KEvent.log L_note "Dumping assumption to `%s`..." target ;
             Assumption.dump_contract_for_assumption
-              in_sys scope assump p target (Names.contract_name top) ;
+              in_sys scope assump path (Names.contract_name top) ;
             KEvent.log L_note "Done with %a" Property.pp_print_prop_quiet p
         );
         Flags.Smt.set_z3_qe_light false ;
@@ -313,7 +424,8 @@ module RunAssumptionGen: PostAnalysis = struct
             (Printexc.to_string e)
       )
     )
-end
+end*)
+
 
 (** Contract generation.
 Generates contracts by running invariant generation techniques. *)

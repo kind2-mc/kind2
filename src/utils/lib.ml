@@ -173,6 +173,20 @@ let list_extract_nth l i =
   aux [] l i
 
 
+let rec list_remove_nth n = function
+  | [] -> []
+  | h :: tl ->
+    if n = 0 then tl
+    else h :: list_remove_nth (n - 1) tl
+
+
+let rec list_insert_at x n = function
+  | [] -> [x]
+  | h :: tl as l ->
+    if n = 0 then x :: l
+    else h :: list_insert_at x (n - 1) tl
+
+
 (* [chain_list \[e1; e2; ...\]] is \[\[e1; e2\]; \[e2; e3\]; ... \]]*)
 let chain_list = function 
 

@@ -24,9 +24,18 @@
 (* Computes a maximal solution for the logical abduction problem.
 
    [abduce s v p c] returns the result of computing QE(\forall v. p => c) with
+   SMT solver [s]. This function assumes all variables included in [p] and [c]
+   have been declared in current context of SMT solver [s].
+*)
+val abduce: SMTSolver.t -> Var.t list -> Term.t -> Term.t -> Term.t  
+
+
+(* Computes a maximal solution for the logical abduction problem.
+
+   [abduce s v p c] returns the result of computing QE(\forall v. p => c) with
    SMT solver [s] after applying some simplifications under the assumption that
    [p] holds. This function assumes all variables included in [p] and [c] have 
    been declared in current context of SMT solver [s].
 *)
-val abduce: SMTSolver.t -> Var.t list -> Term.t -> Term.t -> Term.t  
+val abduce_simpl: SMTSolver.t -> Var.t list -> Term.t -> Term.t -> Term.t  
 

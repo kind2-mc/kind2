@@ -120,6 +120,10 @@ val list_filter_nth : 'a list -> int list -> 'a list
 (** Remove and returns the nth element form a list *)
 val list_extract_nth : 'a list -> int -> 'a * 'a list
 
+val list_remove_nth : int -> 'a list-> 'a list
+
+val list_insert_at : 'a -> int -> 'a list -> 'a list
+
 (** [chain_list \[e1; e2; ...\]] is [\[\[e1; e2\]; \[e2; e3\]; ... \]] *)
 val chain_list : 'a list -> 'a list list 
 

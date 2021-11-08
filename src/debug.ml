@@ -37,6 +37,7 @@ let ic3 =        ref false
 let compress =   ref false
 let native =     ref false
 let realiz =     ref false
+let assump =     ref false
 
 
 let set_dflags dflags =
@@ -59,7 +60,8 @@ let set_dflags dflags =
    ic3 :=        List.mem "all" dflags || List.mem "ic3" dflags ;
    compress :=   List.mem "all" dflags || List.mem "compress" dflags ;
    native :=     List.mem "all" dflags || List.mem "native" dflags ;
-   realiz :=     List.mem "all" dflags || List.mem "realiz" dflags
+   realiz :=     List.mem "all" dflags || List.mem "realiz" dflags ;
+   assump :=     List.mem "all" dflags || List.mem "assump" dflags
 
 
 let enabled_time = Unix.gettimeofday ()
@@ -104,7 +106,7 @@ let ic3 fmt = printf !ic3 "ic3" fmt
 let compress fmt = printf !compress "compress" fmt
 let native fmt = printf !native "native" fmt
 let realiz fmt = printf !realiz "realiz" fmt
-
+let assump fmt = printf !assump "assump" fmt
 
         
 (* 

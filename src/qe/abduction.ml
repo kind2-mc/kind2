@@ -60,24 +60,59 @@ let simplify_abduct solver premises term =
     res
   )
 
-
 let abduce solver forall_vars premises conclusion =
 
   let impl = Term.mk_implies [premises; conclusion] in
 
-  let forall_term = Term.mk_forall forall_vars impl in
+  match forall_vars with
+  | [] -> (
 
-  assert_context solver premises ;
+    impl
+    |> SMTSolver.simplify_term solver
+    |> Simplify.remove_ite
 
-  let res =
+  ) 
+  | _ -> (
+
+    let forall_term = Term.mk_forall forall_vars impl in
+
     SMTSolver.get_qe_term solver forall_term
     |> Term.mk_and
     |> SMTSolver.simplify_term solver
-  in
+    |> Simplify.remove_ite
+    
+  )
 
-  (* Debug.abduction "  Simplifying abductive..."; *)
 
-  res
-  |> simplify_abduct solver premises
-  |> Simplify.remove_ite
+let abduce_simpl solver forall_vars premises conclusion =
+
+  let impl = Term.mk_implies [premises; conclusion] in
+
+  match forall_vars with
+  | [] -> (
+
+    impl
+    |> SMTSolver.simplify_term solver
+    |> simplify_abduct solver premises
+    |> Simplify.remove_ite
+
+  ) 
+  | _ -> (
+    
+    assert_context solver premises ;
+
+    let forall_term = Term.mk_forall forall_vars impl in
+
+    let res =
+      SMTSolver.get_qe_term solver forall_term
+      |> Term.mk_and
+      |> SMTSolver.simplify_term solver
+    in
+
+    (* Debug.abduction "  Simplifying abductive..."; *)
+
+    res
+    |> simplify_abduct solver premises
+    |> Simplify.remove_ite
+  )
 

@@ -449,7 +449,12 @@ module Contracts : sig
   (** Assumption generation. *)
   val assumption_gen : unit -> bool
 
-  val assump_include_outputs : unit -> bool
+  (* val assump_include_outputs : unit -> bool *)
+
+  val two_state_assumption: unit -> bool
+
+  (** Assumption generation: generalization iterations *)
+  val assumption_gen_iter : unit -> int
 
   (** Activate refinement. *)
   val refinement : unit -> bool

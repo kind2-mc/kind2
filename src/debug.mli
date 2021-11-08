@@ -50,6 +50,7 @@ val ic3 : 'a t
 val compress : 'a t
 val native : 'a t
 val realiz : 'a t
+val assump : 'a t 
 
 (* 
    Local Variables:
