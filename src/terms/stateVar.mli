@@ -124,6 +124,9 @@ val is_input : t -> bool
 (** Return true if the state variable is constant *)
 val is_const : t -> bool
 
+(** Set or unset flag that determines the state variable is constant *)
+val set_const : bool -> t -> unit
+
 (** Return true if state variable is to be used in invariant generation *)
 val for_inv_gen : t -> bool
 

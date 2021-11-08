@@ -69,15 +69,31 @@ type response =
     the given property valid (if any exists), [Failure] if none exists, or
     [Unknown] if some resource ran out.
 *)
-val generate_assumption:
+val generate_assumption_vg:
   'a InputSystem.t -> TransSys.t -> 'a pair_of_filters -> Property.t -> response
+
+type 'a analyze_func =
+  bool -> bool -> 
+  Lib.kind_module list ->
+  'a InputSystem.t ->
+  Analysis.param ->
+  TransSys.t ->
+  unit
+
+val generate_assumption:
+  ?one_state:bool ->
+  'a analyze_func ->
+  'a InputSystem.t ->
+  Analysis.param ->
+  TransSys.t ->
+  response
 
 (** Dump a given assumption as an assume of a CoCoSpec contract into a file
 .
-    [dump_assumption i s a p f c] receives an assumption [a] for Lustre node
-    [s] from input system [i] such that prevents the violation of property [p],
-    and dumps the assumption [a] as an assume of a contract [c] in file [f].
+    [dump_assumption i s a f c] receives an assumption [a] for Lustre node [s]
+    from input system [i], and dumps the assumption [a] as an assume of
+    a contract [c] in file [f].
 *)
 val dump_contract_for_assumption:
-  'a InputSystem.t -> Scope.t -> t -> Property.t -> string -> string -> unit
+  'a InputSystem.t -> Scope.t -> t -> string -> string -> unit
 
