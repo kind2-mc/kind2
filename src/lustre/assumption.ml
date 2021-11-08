@@ -900,7 +900,7 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
 
           match result with
           | Realizable _ -> Success { init=init'; trans=trans' }
-          | Unrealizable _ -> Failure
+          | Unrealizable _ -> Unknown
           | Unknown -> Unknown
 
         )

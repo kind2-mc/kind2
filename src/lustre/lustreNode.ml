@@ -830,7 +830,8 @@ let equation_of_svar { equations } svar =
   ) with Not_found -> None
 
 (** Returns [true] if the node is partially defined *)
-let partially_defined ({ outputs } as node) =
+let partially_defined ({ is_extern; outputs } as node) =
+  not is_extern &&
   (D.values outputs)
   |> List.exists (fun svar ->
      match equation_of_svar node svar with

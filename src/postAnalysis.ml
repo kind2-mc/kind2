@@ -203,6 +203,7 @@ module RunTestGen: PostAnalysis = struct
     )
 end
 
+
 (** Assumption generation. *)
 module RunAssumptionGen: PostAnalysis = struct
   let name = "assumptiongen"
@@ -224,7 +225,37 @@ module RunAssumptionGen: PostAnalysis = struct
           Format.fprintf fmt
             "No invalid properties, assumption generation disabled."
       )
-      | _ -> Ok sys
+      | _ -> (
+        let model_contains_assert =
+          ISys.retrieve_lustre_nodes_of_scope in_sys top
+          |> List.exists
+            (fun { LustreNode.asserts } -> asserts <> [])
+        in
+        if model_contains_assert then (
+          error (fun fmt ->
+            Format.fprintf fmt
+              "Assumption generation is not compatible \
+               with models that contain asserts."
+          )
+        )
+        else if ISys.contain_partially_defined_system in_sys top then (
+          error (fun fmt ->
+            Format.fprintf fmt
+              "Assumption generation is currently not supported for \
+               models that contain partially defined nodes/functions."
+          )
+        )
+        else if Analysis.no_system_is_abstract param then (
+          Ok sys
+        )
+        else (
+          error (fun fmt ->
+            Format.fprintf fmt
+              "Assumption generation is currently not supported when \
+               an imported node or an abstracted system is present."
+          )
+        )
+      )
     )
     |> Res.chain (fun sys ->
       try (
