@@ -106,6 +106,60 @@ let filter_non_output in_sys scope =
      |> not
     )
 
+
+let open_file_and_dump_header node path contract_name =
+
+  let out_channel = open_out path in
+  let fmt = Format.formatter_of_out_channel out_channel in
+
+  let fmt_sig fmt =
+    Format.fprintf fmt "@[<hov>%a@]" LustreNode.pp_print_node_signature
+  in
+
+  Format.fprintf fmt
+    "(* Automatically generated assumption *)@.contract %s %a@.let@[<v -1>@ "
+    contract_name fmt_sig node ;
+
+  (out_channel, fmt)
+
+
+let dump_footer fmt =
+  Format.fprintf fmt "@]@.tel@.@."
+
+
+let dump_assumption ?(prefix="assume") fmt { init ; trans } =
+
+  let pp_print_lustre_expr = LustreExpr.pp_print_term_as_expr false in
+
+  let trans' = Term.bump_state (Numeral.of_int (-1)) trans in
+
+  if (init == trans') then (
+    Format.fprintf fmt "@[<hov 2>%s@ %a;@]"
+      prefix pp_print_lustre_expr init
+  )
+  else (
+    Format.fprintf fmt "@[<hov 2>%s@ (%a)@ ->@ (%a);@]"
+      prefix pp_print_lustre_expr init pp_print_lustre_expr trans'
+  )
+
+
+let dump_contract_for_assumption in_sys scope assumption path contract_name =
+
+  match ISys.get_lustre_node in_sys scope with
+  | Some node -> (
+
+    let out_channel, fmt =
+      open_file_and_dump_header node path contract_name
+    in
+    dump_assumption fmt assumption;
+    dump_footer fmt;
+    close_out out_channel
+
+  )
+  | None ->
+    KEvent.log L_error "Assumption dump is only supported for Lustre models"
+
+
 let create_assumpion_init fmt_assump sys solver vars fp prop =
 
   let init = TSys.init_of_bound None sys Numeral.zero in
@@ -781,7 +835,7 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
 
         let init0 = if k=0 then Some init else init0 in
 
-        let init, trans =
+        let init', trans' =
           match const_inputs with
           | [] -> init, trans
           | _ -> 
@@ -789,7 +843,7 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
             trans |> Term.map_vars map_back_const_input
         in
 
-        let assump = { init; trans } in
+        let assump = { init=init'; trans=trans' } in
 
         Debug.assump "Generated new assumption candidate@." ;
 
@@ -800,8 +854,8 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
 
         let sys' =
           let (_, init_eq, trans_eq) = TSys.init_trans_open sys in
-          let init_eq = Term.mk_and [init_eq; init] in
-          let trans_eq = Term.mk_and [trans_eq; trans] in
+          let init_eq = Term.mk_and [init_eq; init'] in
+          let trans_eq = Term.mk_and [trans_eq; trans'] in
           TSys.set_subsystem_equations sys scope init_eq trans_eq
         in
 
@@ -812,7 +866,44 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
         Lib.set_log_level old_log_level;
 
         match TSys.get_split_properties sys' with
-        | _, [], [] -> Success { init; trans }
+        | _, [], [] -> (
+
+          KEvent.log L_note "Generated assumption:@,%a" (dump_assumption ~prefix:"") assump;
+
+          KEvent.log L_note "Checking assumption is realizable..." ;
+
+          List.iter (fun sv -> StateVar.set_const false sv) const_inputs;
+
+          let c_sys' =
+            let (_, init_eq, trans_eq) = TSys.init_trans_open c_sys in
+            let init_eq = Term.mk_and [init_eq; init] in
+            let trans_eq = Term.mk_and [trans_eq; trans] in
+            TSys.set_subsystem_equations c_sys scope init_eq trans_eq
+          in
+
+          let result =
+            let vars_at_0 =
+              TSys.vars_of_bounds ~with_init_flag:true c_sys' Numeral.zero Numeral.zero
+              |> List.filter (fun v -> not (Var.is_const_state_var v))
+            in
+            let vars_at_1 =
+              TSys.vars_of_bounds ~with_init_flag:true c_sys' Numeral.one Numeral.one
+              |> List.filter (fun v -> not (Var.is_const_state_var v))
+            in
+            let controllable_vars_at_0 = vars_at_0 in
+            let controllable_vars_at_1 = vars_at_1 in
+            realizability_check
+              c_sys' controllable_vars_at_0 vars_at_1 controllable_vars_at_1
+          in
+
+          List.iter (fun sv -> StateVar.set_const true sv) const_inputs;
+
+          match result with
+          | Realizable _ -> Success { init=init'; trans=trans' }
+          | Unrealizable _ -> Failure
+          | Unknown -> Unknown
+
+        )
         | _, [], _ -> Unknown
         | _, invalid, _ -> loop props init0 (get_min_k invalid)
 
@@ -904,57 +995,3 @@ let generate_assumption_vg in_sys sys var_filters prop =
   )
   | Unrealizable _ -> Failure
   | Unknown -> Unknown
-
-
-let open_file_and_dump_header node path contract_name =
-
-  let out_channel = open_out path in
-  let fmt = Format.formatter_of_out_channel out_channel in
-
-  let fmt_sig fmt =
-    Format.fprintf fmt "@[<hov>%a@]" LustreNode.pp_print_node_signature
-  in
-
-  Format.fprintf fmt
-    "(* Automatically generated assumption *)@.contract %s %a@.let@[<v -1>@ "
-    contract_name fmt_sig node ;
-
-  (out_channel, fmt)
-
-
-let dump_footer fmt =
-  Format.fprintf fmt "@]@.tel@.@."
-
-
-let dump_assumption fmt { init ; trans } =
-
-  let pp_print_lustre_expr = LustreExpr.pp_print_term_as_expr false in
-
-  let trans' = Term.bump_state (Numeral.of_int (-1)) trans in
-
-  if (init == trans') then (
-    Format.fprintf fmt "@[<hov 2>assume@ %a;@]"
-      pp_print_lustre_expr init
-  )
-  else (
-    Format.fprintf fmt "@[<hov 2>assume@ (%a)@ ->@ (%a);@]"
-      pp_print_lustre_expr init pp_print_lustre_expr trans'
-  )
-
-
-let dump_contract_for_assumption in_sys scope assumption path contract_name =
-
-  match ISys.get_lustre_node in_sys scope with
-  | Some node -> (
-
-    let out_channel, fmt =
-      open_file_and_dump_header node path contract_name
-    in
-    dump_assumption fmt assumption;
-    dump_footer fmt;
-    close_out out_channel
-
-  )
-  | None ->
-    KEvent.log L_error "Assumption dump is only supported for Lustre models"
-
