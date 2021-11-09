@@ -68,6 +68,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 {
+  background-image: url('../images/kind.png');
+  background-repeat: no-repeat;
+  padding-top: 4px;
+  padding-left: 75px;
   font-size: 36px;
   font-weight: 700;
 }
