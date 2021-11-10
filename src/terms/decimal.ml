@@ -180,12 +180,14 @@ let pp_print_decimal_as_lus_real fmt = function
       (Big_int.string_of_big_int rd)
 )
 
-(* Return a string representation of a decimal *)
+(* Return a Lustre string representation of a rational *)
+let string_of_decimal_lustre = string_of_t pp_print_decimal_as_lus_real
+
+(* Return an S-expression string representation of a rational *)
 let string_of_decimal_sexpr = string_of_t pp_print_decimal_sexpr
 
 (* Return a string representation of a decimal *)
 let string_of_decimal = string_of_t pp_print_decimal
-
 
 (* ********************************************************************** *)
 (* Conversions                                                            *)
