@@ -32,7 +32,7 @@ val pp_print_decimal : Format.formatter -> t -> unit
 (** Pretty-print a rational as an f64 (used by compilation to Rust) *)
 val pp_print_decimal_as_float : Format.formatter -> t -> unit
 
-(** Pretty-print a rational as an f64 (used by contract generation) *)
+(** Pretty-print a rational as a Lustre real *)
 val pp_print_decimal_as_lus_real: Format.formatter -> t -> unit
 
 (** Pretty-print a rational in scientific format with the error magnitude *)
@@ -48,6 +48,9 @@ val string_of_decimal : t -> string
 
 (** Return an S-expression string representation of a rational *)
 val string_of_decimal_sexpr : t -> string
+
+(** Return a Lustre string representation of a rational *)
+val string_of_decimal_lustre : t -> string
 
 (** {1 Conversions} *)
 

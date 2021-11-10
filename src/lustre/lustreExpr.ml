@@ -292,7 +292,7 @@ let string_of_symbol = function
   | `OR -> "or"
   | `EQ -> "="
   | `NUMERAL n -> Numeral.string_of_numeral n
-  | `DECIMAL d -> Decimal.string_of_decimal d
+  | `DECIMAL d -> Decimal.string_of_decimal_lustre d
   | `XOR -> "xor"
   | `UBV b ->
           (match Bitvector.length_of_bitvector b with
