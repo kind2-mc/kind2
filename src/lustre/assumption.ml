@@ -879,16 +879,16 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
         match TSys.get_split_properties sys' with
         | _, [], [] -> (
 
-          let in_scope =
-            satisfy_input_requirements in_sys param scope
-          in
+          if not one_state &&
+             not (satisfy_input_requirements in_sys param scope)
+          then
+            KEvent.log L_warn "Assumption may contain constraints over underspecified outputs"
+          ;
 
-          if in_scope then (
-            KEvent.log L_note "Generated assumption:@,%a"
-              (dump_assumption ~prefix:"") assump;
+          KEvent.log L_note "Generated assumption:@,%a"
+            (dump_assumption ~prefix:"") assump;
 
-            KEvent.log L_note "Checking assumption is realizable..."
-          ) ;
+          KEvent.log L_note "Checking assumption is realizable..." ;
 
           List.iter (fun sv -> StateVar.set_const false sv) const_inputs;
 
@@ -917,14 +917,7 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
           List.iter (fun sv -> StateVar.set_const true sv) const_inputs;
 
           match result with
-          | Realizable _ -> (
-            if not in_scope then (
-              KEvent.log L_note "Generated assumption:@,%a"
-                (dump_assumption ~prefix:"") assump
-            );
-
-            Success { init=init'; trans=trans' }
-          )
+          | Realizable _ -> Success { init=init'; trans=trans' }
           | Unrealizable _ -> Unknown
           | Unknown -> Unknown
 
