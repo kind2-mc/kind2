@@ -724,6 +724,17 @@ let generate_assumption_for_k_and_below one_state assump_svars sys props init0 k
   res
 
 
+let satisfy_input_requirements in_sys param top =
+  let model_contains_assert =
+    ISys.retrieve_lustre_nodes_of_scope in_sys top
+    |> List.exists
+      (fun { LustreNode.asserts } -> asserts <> [])
+  in
+  not model_contains_assert &&
+  not (ISys.contain_partially_defined_system in_sys top) &&
+  Analysis.no_system_is_abstract param
+
+
 let generate_assumption ?(one_state=false) analyze in_sys param sys =
 
   match TSys.get_split_properties sys with
@@ -868,7 +879,14 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
         match TSys.get_split_properties sys' with
         | _, [], [] -> (
 
-          KEvent.log L_note "Generated assumption:@,%a" (dump_assumption ~prefix:"") assump;
+          if not one_state &&
+             not (satisfy_input_requirements in_sys param scope)
+          then
+            KEvent.log L_warn "Assumption may contain constraints over underspecified outputs"
+          ;
+
+          KEvent.log L_note "Generated assumption:@,%a"
+            (dump_assumption ~prefix:"") assump;
 
           KEvent.log L_note "Checking assumption is realizable..." ;
 
