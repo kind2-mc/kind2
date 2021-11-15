@@ -54,13 +54,16 @@ let basic_tests =
 let rechability_tests =
   [
     "reachable singleton" >:: (fun _ ->
-      assert_equal [v0] (G.to_vertex_list (G.reachable singleton_g v0))
+      let memo = ref G.VMap.empty in
+      assert_equal [v0] (G.to_vertex_list (G.memoized_reachable memo singleton_g v0))
         ~printer:(Lib.string_of_t (Format.pp_print_list HString.pp_print_hstring) ))
   ; "reachable cycle graph" >:: (fun _ ->
-    assert_equal [v0;v1] (G.to_vertex_list (G.reachable dos_cycle_g v0))
+    let memo = ref G.VMap.empty in
+    assert_equal [v0;v1] (G.to_vertex_list (G.memoized_reachable memo dos_cycle_g v0))
       ~printer:(Lib.string_of_t (Format.pp_print_list HString.pp_print_hstring) ))
   ; "reachable cycle graph2" >:: (fun _ ->
-    assert_equal [v0;v1;v2] (G.to_vertex_list (G.reachable cycle_and_one_more v0))
+    let memo = ref G.VMap.empty in
+    assert_equal [v0;v1;v2] (G.to_vertex_list (G.memoized_reachable memo cycle_and_one_more v0))
       ~printer:(Lib.string_of_t (Format.pp_print_list HString.pp_print_hstring)))
   ]
   
