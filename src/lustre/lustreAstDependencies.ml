@@ -885,7 +885,11 @@ let expression_current_streams: dependency_analysis_data -> LA.expr -> LA.ident 
   = fun ad e ->
   let vars = vars_with_flattened_nodes ad.nsummary (LH.abstract_pre_subexpressions e) in
   let vs = LA.SI.elements (SI.flatten vars) in
-  let rechable_vs = List.concat (List.map (fun v -> G.to_vertex_list (G.reachable ad.graph_data v)) vs) in
+  let memo = ref G.VMap.empty in
+  let rechable_vs = List.concat (List.map
+    (fun v -> G.to_vertex_list (G.memoized_reachable memo ad.graph_data v))
+    vs)
+  in
   Debug.parse "Current Stream Usage for %a: %a"
     (Lib.pp_print_list G.pp_print_vertex ", ") vs
     (Lib.pp_print_list G.pp_print_vertex ", ") rechable_vs 
@@ -1013,35 +1017,40 @@ let mk_node_summary: node_summary -> LA.node_decl -> node_summary
     = fun s (i, imported, _, ips, ops, _, items, _) ->
   if not imported
   then 
-  let op_vars = List.map (fun o -> LH.extract_op_ty o |> fst) ops in
-  let ip_vars = List.map (fun o -> LH.extract_ip_ty o |> fst) ips in
-  let node_equations = List.concat (List.map LH.extract_node_equation items) in
-  let process_one_eqn = fun (LA.StructDef (_, lhss), e) ->
-    let lhs_vars = LA.SI.elements (LA.SI.flatten (List.map LH.vars_of_struct_item lhss)) in
-    let vars = SI.flatten (vars_with_flattened_nodes s e) in
-    let ms = List.map (Lib.flip IMap.singleton (LA.SI.elements vars)) lhs_vars in
-    List.fold_left (IMap.union (fun _ _ v2 -> Some v2)) IMap.empty ms in
-  
-  let node_equation_dependency_map = List.fold_left (IMap.union (fun _ _ v2 -> Some v2)) IMap.empty
-                                       (List.map process_one_eqn node_equations) in
+    let op_vars = List.map (fun o -> LH.extract_op_ty o |> fst) ops in
+    let ip_vars = List.map (fun o -> LH.extract_ip_ty o |> fst) ips in
+    let node_equations = List.concat (List.map LH.extract_node_equation items) in
+    let process_one_eqn = fun (LA.StructDef (_, lhss), e) ->
+      let lhs_vars = LA.SI.elements (LA.SI.flatten (List.map LH.vars_of_struct_item lhss)) in
+      let vars = SI.flatten (vars_with_flattened_nodes s e) in
+      let ms = List.map (Lib.flip IMap.singleton (LA.SI.elements vars)) lhs_vars in
+      List.fold_left (IMap.union (fun _ _ v2 -> Some v2)) IMap.empty ms
+    in
+    let node_equation_dependency_map = List.fold_left
+      (IMap.union (fun _ _ v2 -> Some v2)) IMap.empty
+      (List.map process_one_eqn node_equations)
+    in
 
-  Debug.parse "Node equation dependency map for node %a {\n %a \n}"
-    LA.pp_print_ident i
-    (Lib.pp_print_list (Lib.pp_print_pair (LA.pp_print_ident) (Lib.pp_print_list (LA.pp_print_ident) ", ") "->") "\n")
-    (IMap.bindings node_equation_dependency_map)
-  ; let mk_g = fun (lhs, vars) ->  G.connect (List.fold_left G.union G.empty (List.map G.singleton vars)) lhs in
+    Debug.parse "Node equation dependency map for node %a {\n %a \n}"
+      LA.pp_print_ident i
+      (Lib.pp_print_list (Lib.pp_print_pair (LA.pp_print_ident) (Lib.pp_print_list (LA.pp_print_ident) ", ") "->") "\n")
+      (IMap.bindings node_equation_dependency_map);
+    let mk_g = fun (lhs, vars) ->  G.connect (List.fold_left G.union G.empty (List.map G.singleton vars)) lhs in
     let g = List.fold_left G.union G.empty (List.map mk_g (IMap.bindings node_equation_dependency_map)) in
-    Debug.parse "Node equation graph: %a" G.pp_print_graph g
-    ; let vars_op_depends_on = List.map (fun i -> G.to_vertex_list (G.reachable g i)) op_vars in
 
-      let critical_ips = List.map (fun vs -> SI.inter (SI.of_list vs) (SI.of_list ip_vars)
-                                             |> summarize_ip_vars ip_vars)
-                           vars_op_depends_on in
-      let ns = (List.fold_left
-                  (fun (op_idx, m) cip -> (op_idx+1, IntMap.add op_idx cip m))
-                  (0, IntMap.empty) critical_ips
-                |> snd) in
-      IMap.add i ns s
+    Debug.parse "Node equation graph: %a" G.pp_print_graph g;
+    let memo = ref G.VMap.empty in
+    let vars_op_depends_on = List.map (fun i -> G.to_vertex_list (G.memoized_reachable memo g i)) op_vars in
+    let critical_ips = List.map
+      (fun vs -> SI.inter (SI.of_list vs) (SI.of_list ip_vars)
+      |> summarize_ip_vars ip_vars) vars_op_depends_on
+    in
+    let ns = (List.fold_left
+        (fun (op_idx, m) cip -> (op_idx+1, IntMap.add op_idx cip m))
+        (0, IntMap.empty) critical_ips
+      |> snd)
+    in
+    IMap.add i ns s
   else
     IMap.add
       i
@@ -1052,7 +1061,7 @@ let mk_node_summary: node_summary -> LA.node_decl -> node_summary
     
     For imported nodes and imported functions we assume that output streams do not depend on 
     any of the input streams. This restriction is in place to avoid rejecting valid programs.
- *)                      
+ *)
 
 
 let get_contract_exports: contract_summary -> LA.contract_node_equation -> LA.ident list
@@ -1316,7 +1325,7 @@ let sort_and_check_nodes_contracts decls =
       pp_print_analysis_data analysis_data
 
     (* Step 3. Sort contract equations and check for node equation circularity *)
-    ; sort_and_check_equations analysis_data sorted_decls >>= fun final_decls -> 
+    ; sort_and_check_equations analysis_data sorted_decls >>= fun final_decls ->
       Debug.parse "Sorting equations done.
                        \n============\n%a\n============\n"
         LA.pp_print_program final_decls

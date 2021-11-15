@@ -122,9 +122,13 @@ module type S = sig
   val topological_sort:  t ->  vertex list
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
-   *  Implimentation is of this function is based on Kahn's algorithm *)    
+   *  Implimentation is of this function is based on Kahn's algorithm *)
 
-  val reachable: t -> vertex -> vertices
+  module VMap : sig
+    include (Map.S with type key = vertex)
+  end
+
+  val memoized_reachable: vertices VMap.t ref -> t -> vertex -> vertices
   (** Finds all the [vertices] that are rechable from the given [vertex] in a graph *)
 
 
@@ -189,6 +193,13 @@ module Make (Ord: OrderedType) = struct
       List.fold_left union empty sets
   end 
   (** Set of vertices *)
+
+  module VMap = struct
+    include (Map.Make(struct
+      type t = vertex
+      let compare = Ord.compare
+    end))
+  end
 
   module ESet = struct
     include (Set.Make (struct
@@ -349,29 +360,38 @@ module Make (Ord: OrderedType) = struct
    *  Implimentation is based on Kahn's algorithm 
    * https://en.wikipedia.org/wiki/Topological_sorting *)
 
-  let reachable: t -> vertex -> vertices =
-    fun ((vs, _) as g) origin_v ->
+  let memoized_reachable: vertices VMap.t ref -> t -> vertex -> vertices =
+    fun memo ((vs, _) as g) origin_v ->
 
     let rec reachable_from_aux: vertices -> vertex -> t -> vertices
       = fun acc sv ((_, es)  as g) ->
-      Debug.parse
-        "-----------\nGraph state:\n %a\naccumulated vertices: %a\n current vertex vertices: %a\n-------------"	
-        pp_print_graph g	
-        (Lib.pp_print_list pp_print_vertex ",") (VSet.elements acc)	
-        pp_print_vertex sv
-      ; if VSet.mem sv acc
-        then acc (* we have already visited this vertex so skip *)
-        else
-          (* get all edges that have sv as source *)
-          let new_edgs = (ESet.filter (Lib.flip is_vertex_source sv) es) in
-          let vs' = List.map (get_target_vertex) (ESet.elements new_edgs) in
-          (* Get the new vertices to be analysed  *)
-          let new_vs = (VSet.diff (VSet.of_list vs') acc) in
-          VSet.flatten (List.map (fun v ->
-                            VSet.add v (reachable_from_aux
-                                          (VSet.union acc (VSet.remove v new_vs))
-                                          v
-                                          (remove_edges g new_edgs))) (VSet.elements new_vs)) in  
+      
+      match VMap.find_opt sv !memo with
+      | Some result -> result
+      | None ->
+        Debug.parse
+          "-----------\nGraph state:\n %a\naccumulated vertices: %a\n current vertex vertices: %a\n-------------"	
+          pp_print_graph g
+          (Lib.pp_print_list pp_print_vertex ",") (VSet.elements acc)
+          pp_print_vertex sv;
+
+        let result = if VSet.mem sv acc
+          then acc (* we have already visited this vertex so skip *)
+          else
+            (* get all edges that have sv as source *)
+            let new_edgs = (ESet.filter (Lib.flip is_vertex_source sv) es) in
+            let vs' = List.map (get_target_vertex) (ESet.elements new_edgs) in
+            (* Get the new vertices to be analysed  *)
+            let new_vs = (VSet.diff (VSet.of_list vs') acc) in
+            VSet.flatten (List.map (fun v -> VSet.add v
+              (reachable_from_aux
+                (VSet.union acc (VSet.remove v new_vs))
+                v
+                (remove_edges g new_edgs))) (VSet.elements new_vs))
+        in
+        memo := VMap.add sv result !memo;
+        result
+    in
     if (VSet.mem origin_v vs) then
       let vs' = VSet.add origin_v (reachable_from_aux VSet.empty origin_v g) in
       Debug.parse "cumulative reachable from %a are %a"

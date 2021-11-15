@@ -124,7 +124,11 @@ module type S = sig
    *  or throws an [CyclicGraphException] if the graph is cyclic.
    *  Implimentation is of this function is based on Kahn's algorithm *)    
 
-  val reachable: t -> vertex -> vertices
+  module VMap : sig
+    include (Map.S with type key = vertex)
+  end
+
+  val memoized_reachable: vertices VMap.t ref -> t -> vertex -> vertices
   (** Finds all the [vertices] that are rechable from the given [vertex] in a graph *)
 
 
