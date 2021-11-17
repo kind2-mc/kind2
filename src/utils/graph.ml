@@ -117,8 +117,11 @@ module type S = sig
      Caution: The callee function (or the programmer) is supposed to make sure 
      it is not a surjective mapping to make sure that the graph structure is preserved. *)
 
+  val non_target_vertices: t -> vertices
+  (** Returns a list of all vertices that have no incoming edge  *)
+
   (** {1 Graph Traversals}  *)
-    
+
   val topological_sort:  t ->  vertex list
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
@@ -290,13 +293,11 @@ module Make (Ord: OrderedType) = struct
 
   let remove_edges: t -> edges -> t
     = fun (vs, es) es' -> (vs, ESet.diff es es') 
-  
-  (*
+
   let non_target_vertices: t -> vertices
     = fun (vs, es) ->
     VSet.filter (fun v -> ESet.for_all (fun e -> not (is_vertex_target e v)) es) vs
   (** Returns a list of all vertices that have no incoming edge  *)
-  *)
 
   let non_source_vertices: t -> vertices
     = fun (vs, es) ->

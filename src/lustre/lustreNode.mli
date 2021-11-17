@@ -283,6 +283,9 @@ val node_of_name : LustreIdent.t -> t list -> t
 (** Return true if a node of the given name exists in the a list of nodes *)
 val exists_node_of_name : LustreIdent.t -> t list -> bool 
 
+(** Return all nodes with --%MAIN annotations *)
+val get_main_annotated_nodes : t list -> LustreIdent.t list
+
 (** Return name of all nodes annotated with --%MAIN.  Raise
     [Not_found] if no node has a --%MAIN annotation.
     If the processing mode does not support multiple main nodes,
