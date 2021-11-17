@@ -34,6 +34,8 @@ let rec collect_contracts (locals, asserts, props) = function
 | head :: tail -> (
   let triple = match head with
 
+    | Ast.AssumptionVars _ -> locals, asserts, props
+
     | Ast.GhostConst dec ->
       let pos, info = match dec with
         | Ast.FreeConst (pos,_,_)

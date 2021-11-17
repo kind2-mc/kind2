@@ -22,6 +22,7 @@ open Realizability
 module ISys = InputSystem
 module TSys = TransSys
 
+module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
 module VS = Var.VarSet
 
@@ -96,6 +97,11 @@ let get_output_svars in_sys scope =
   | Some { LustreNode.outputs } ->
     List.map snd (LustreIndex.bindings outputs)
   | None -> []
+
+let get_assumption_svars in_sys scope =
+  match ISys.get_lustre_node in_sys scope with
+  | Some { LustreNode.assumption_svars } -> assumption_svars
+  | None -> SVS.empty
 
 let filter_non_output in_sys scope =
   let output_svars = get_output_svars in_sys scope in
@@ -809,9 +815,16 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
     in
   
     let assump_svars =
+      let user_selection = get_assumption_svars in_sys scope in
       let input_svars, other_svars =
           TSys.state_vars c_sys
           |> List.partition (fun sv -> StateVar.is_input sv)
+      in
+      let input_svars =
+        if SVS.is_empty user_selection then
+          input_svars
+        else
+          List.filter (fun sv -> SVS.mem sv user_selection) input_svars
       in
       if one_state then
         [], input_svars
@@ -822,6 +835,12 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
           |> List.filter (fun sv ->
             List.exists (fun o -> StateVar.equal_state_vars o sv) in_sys_output_svars
           )
+        in
+        let output_svars =
+          if SVS.is_empty user_selection then
+            output_svars
+          else
+            List.filter (fun sv -> SVS.mem sv user_selection) output_svars
         in
         output_svars, input_svars
       )

@@ -278,6 +278,9 @@ type contract_mode =
 (* A contract call. *)
 type contract_call = position * ident * expr list * ident list
 
+(* Variables for assumption generation *)
+type contract_assump_vars = position * (position * HString.t) list
+
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =
   | GhostConst of contract_ghost_const
@@ -286,6 +289,7 @@ type contract_node_equation =
   | Guarantee of contract_guarantee
   | Mode of contract_mode
   | ContractCall of contract_call
+  | AssumptionVars of contract_assump_vars
 
 (* A contract is some ghost consts / var, and assumes guarantees and modes. *)
 type contract = contract_node_equation list

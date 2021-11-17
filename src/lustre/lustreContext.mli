@@ -326,6 +326,8 @@ val add_node_equation :
 (** Add node call to context *)
 val add_node_call : t -> Lib.position -> LustreNode.node_call -> t
 
+val add_assumption_variable: t -> (Lib.position * LustreIdent.t) -> t
+
 (** Mark node as main *)
 val set_node_main : t -> t
 

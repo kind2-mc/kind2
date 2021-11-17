@@ -817,6 +817,8 @@ and normalize_contract info map items =
         in
         let ndecl, gids2 = normalize_ghost_declaration info map decl in
         GhostVar ndecl, union gids1 gids2, StringMap.empty
+      | AssumptionVars decl ->
+        AssumptionVars decl, empty (), StringMap.empty
     in
 (*     Format.eprintf "accum interp: %a\n\n"
       (pp_print_list

@@ -1845,6 +1845,18 @@ and eval_node_contract_item
       known ctx scope inputs outputs locals is_candidate call,
     cpt_a, cpt_g
 
+  | A.AssumptionVars (_, vars) ->
+    let ctx =
+      List.fold_left
+        (fun ctx (pos, id) ->
+          let ident = I.mk_string_ident (HString.string_of_hstring id) in
+          C.add_assumption_variable ctx (pos, ident)
+        )
+        ctx
+        vars
+    in
+    ctx, cpt_a, cpt_g
+
 
 (* Add all node contracts to contexts *)
 and eval_node_contract_spec

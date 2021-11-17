@@ -368,6 +368,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
 
 let  mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysis_data
   = function
+  | LA.AssumptionVars _ -> empty_dependency_analysis_data
   | LA.ContractCall (pos, i, es, _) ->
      union_dependency_analysis_data
        (singleton_dependency_analysis_data contract_prefix i pos)
@@ -507,11 +508,16 @@ let extract_decls: 'a IMap.t -> LA.ident list -> ('a list) graph_result
     
 let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
   = let split_eqns: (LA.contract * LA.contract) -> LA.contract_node_equation -> (LA.contract * LA.contract)
-      = fun (ps, qs) ->
-      function
-      | (LA.Assume _ as e)
-        | (LA.Guarantee _ as e) -> (ps, e::qs)
-      | e -> e::ps, qs in
+      = fun (ps, qs) -> fun e ->
+      match e with
+      | LA.GhostConst _
+      | LA.GhostVar _
+      | LA.ContractCall _
+      | LA.Mode _ -> e::ps, qs
+      | LA.Guarantee _
+      | LA.Assume _
+      | LA.AssumptionVars _ -> ps, e::qs
+    in
     List.fold_left (split_eqns) ([],[])
     
 let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t list = fun m ->
@@ -657,7 +663,7 @@ let rec mk_contract_eqn_map: LA.contract_node_equation IMap.t -> LA.contract -> 
      check_and_add m pos contract_prefix i cc >>= fun m' -> mk_contract_eqn_map m' eqns  
   | (LA.Mode (pos, i, _, _) as mode) :: eqns ->
      check_and_add m pos mode_prefix i mode >>= fun m' -> mk_contract_eqn_map m' eqns  
-  | _ :: eqns -> mk_contract_eqn_map m eqns
+  | _ -> assert false
               
 
 let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list graph_result
@@ -807,6 +813,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list
 let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_equation -> dependency_analysis_data
   = fun ad ->
   function
+  | LA.AssumptionVars _ -> ad
   | LA.ContractCall (pos, i, es, _) ->
      connect_g_pos 
        (List.fold_left union_dependency_analysis_data ad
@@ -955,7 +962,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
 
     >>= fun sorted_ids ->
     let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) (List.rev sorted_ids) in
-    let (to_sort_eqns, assums_grantees) = split_contract_equations contract in
+    let (to_sort_eqns, rest) = split_contract_equations contract in
     mk_contract_eqn_map IMap.empty to_sort_eqns >>= fun eqn_map ->
          extract_decls eqn_map equational_vars >>= fun contract' ->
       Debug.parse "sorted contract equations for contract %a %a"
@@ -963,7 +970,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
         (Lib.pp_print_list LA.pp_print_contract_item "\n") contract'
 
       ; R.seq_ (List.map (validate_contract_equation (SI.of_list op_ids) ad') contract) 
-        >> R.ok(i, params , ips, ops, contract' @ assums_grantees)
+        >> R.ok(i, params , ips, ops, contract' @ rest)
 (** This function does two things: 
    1. Sort the contract equations according to their dependencies
       - The assumptions and guarantees are added to the bottom of the list as 

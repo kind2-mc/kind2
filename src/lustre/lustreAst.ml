@@ -279,6 +279,9 @@ type contract_mode =
 (* A contract call. *)
 type contract_call = position * ident * expr list * ident list
 
+(* Variables for assumption generation *)
+type contract_assump_vars = position * (position * HString.t) list
+
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =
   | GhostConst of contract_ghost_const
@@ -287,6 +290,7 @@ type contract_node_equation =
   | Guarantee of contract_guarantee
   | Mode of contract_mode
   | ContractCall of contract_call
+  | AssumptionVars of contract_assump_vars
 
 (* A contract is some ghost consts / var, and assumes guarantees and modes. *)
 type contract = contract_node_equation list
@@ -1077,6 +1081,12 @@ let pp_print_contract_call fmt (_, id, in_params, out_params) =
     (pp_print_list pp_print_expr ", ") in_params
     (pp_print_list pp_print_ident ", ") out_params
 
+let pp_print_contract_assump_vars fmt (_, vars) =
+  Format.fprintf
+    fmt "@[<hov 2>assumption-vars %a ;@]"
+    (pp_print_list pp_print_ident ", ")
+    (List.map (fun (_,v) -> v) vars)
+
 let pp_print_contract_item fmt = function
   | GhostConst c -> pp_print_contract_ghost_const fmt c
   | GhostVar v -> pp_print_contract_ghost_var fmt v
@@ -1084,6 +1094,7 @@ let pp_print_contract_item fmt = function
   | Guarantee g -> pp_print_contract_guarantee fmt g
   | Mode m -> pp_print_contract_mode fmt m
   | ContractCall call -> pp_print_contract_call fmt call
+  | AssumptionVars vars -> pp_print_contract_assump_vars fmt vars
 
 
 let pp_print_contract fmt contract =

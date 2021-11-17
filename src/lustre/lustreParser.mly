@@ -140,6 +140,7 @@ let merge_branches transitions =
 %token REQUIRE
 %token ENSURE
 %token WEAKLY
+%token ASSUMP_VARS
 
 (* Token for assertions *)
 %token ASSERT
@@ -485,6 +486,11 @@ contract_import:
     A.ContractCall (mk_pos $startpos, n, in_params, out_params)
   }
 
+assumption_vars:
+  ASSUMP_VARS ; ids = ident_list_pos; SEMICOLON
+  {
+    A.AssumptionVars (mk_pos $startpos, ids)
+  }
 
 contract_item:
   | v = contract_ghost_var { v } 
@@ -493,6 +499,7 @@ contract_item:
   | g = contract_guarantee { g }
   | m = mode_equation { m }
   | i = contract_import { i }
+  | a = assumption_vars { a }
 
 contract_in_block:
   | c = nonempty_list(contract_item) { c }

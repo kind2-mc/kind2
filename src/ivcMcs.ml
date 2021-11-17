@@ -402,6 +402,7 @@ let minimize_contract_node_eq ue lst cne =
       (fun (pos,_,_) -> List.exists (fun p -> Lib.equal_pos p pos) lst)
     in
     [A.Mode (pos,id,req,ens)]
+  | A.AssumptionVars _ -> [cne]
 
 let minimize_node_decl ue loc_core
   ((id, extern, tparams, inputs, outputs, locals, items, spec) as ndecl) =

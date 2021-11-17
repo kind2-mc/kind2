@@ -226,6 +226,8 @@ type t = {
   silent_contracts : string list ;
   (** Contracts that were silently loaded. *)
 
+  assumption_svars: StateVar.StateVarSet.t;
+
 }
 
 (** Instance of state vars as streams with their position *)
