@@ -40,8 +40,8 @@ let
 
   -- Non-variable property
   --%PROPERTY y > 0;
-tel; 
-
+  --%MAIN;
+tel;
 
 -- Another node 
 node X(x: int) returns (y: int);

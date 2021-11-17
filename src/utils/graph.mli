@@ -117,6 +117,9 @@ module type S = sig
      Caution: The callee function (or the programmer) is supposed to make sure 
      it is not a surjective mapping to make sure that the graph structure is preserved. *)
 
+  val non_target_vertices: t -> vertices
+  (** Returns a list of all vertices that have no incoming edge  *)
+
   (** {1 Graph Traversals}  *)
     
   val topological_sort:  t ->  vertex list

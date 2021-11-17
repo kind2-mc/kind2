@@ -130,7 +130,7 @@ let type_check declarations =
     IC.inline_constants ctx sorted_const_type_decls >>= fun (inlined_ctx, const_inlined_type_and_consts) ->
 
     (* Step 6. Dependency analysis on nodes and contracts *)
-    AD.sort_and_check_nodes_contracts node_contract_src >>= fun sorted_node_contract_decls ->
+    AD.sort_and_check_nodes_contracts node_contract_src >>= fun (sorted_node_contract_decls, toplevel_nodes) ->
 
     (* Step 7. type check nodes and contracts *)
     TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls >>= fun (global_ctx) ->
@@ -143,11 +143,12 @@ let type_check declarations =
 
     Res.ok (inlined_global_ctx,
       gids,
-      const_inlined_type_and_consts @ normalized_nodes_and_contracts)
+      const_inlined_type_and_consts @ normalized_nodes_and_contracts,
+      toplevel_nodes)
     )
   in
   match tc_res with
-  | Ok (c, g, d) ->
+  | Ok (c, g, d, toplevel) ->
     let unguarded_pre_warnings = LAN.get_warnings g in
     let error_or_warn = if Flags.lus_strict ()
       then fail_at_position
@@ -159,7 +160,7 @@ let type_check declarations =
       unguarded_pre_warnings;
     Debug.parse "Type checking done"
     ; Debug.parse "========\n%a\n==========\n" LA.pp_print_program d
-    ; (c, g, d)
+    ; (c, g, d, toplevel)
   | Error (pos, err) -> fail_at_position pos err
 
 
@@ -214,59 +215,50 @@ let of_channel only_parse in_ch =
       let _ = type_check declarations in None
   )
   else (
-    let nodes, globals =
+    let nodes, globals, main_nodes =
       if Flags.old_frontend () then
         (* Simplify declarations to a list of nodes *)
-        LD.declarations_to_nodes declarations
-      else
-        let ctx, gids, decls = type_check declarations in
-        let nodes, globals = LNG.compile ctx gids decls in
-        (* The last node in the original ordering should remain the last node after sorting
-        as the user expects that to be the main node in the case where
-        no explicit annotations are provided. The reason we do this is because
-        it is difficut to make the topological sort stable *)
-        let last_node = LH.get_last_node_name (declarations) in
-        let nodes = match last_node with
-        | None -> nodes
-        | Some ln -> let ident = LustreIdent.mk_string_ident (HString.string_of_hstring ln) in
-          let n = LustreNode.node_of_name ident nodes in
-          let filtered =
-            List.filter
-              (fun x -> not (LustreIdent.equal x.LustreNode.name ident))
-              nodes
-          in
-          n :: filtered
+        let nodes, globals = LD.declarations_to_nodes declarations in
+            (* Name of main node *)
+        let main_nodes =
+          (* Command-line flag for main node given? *)
+          match Flags.lus_main () with
+          (* Use given identifier to choose main node *)
+          | Some s -> [LustreIdent.mk_string_ident s]
+          (* No main node name given on command-line *)
+          | None -> (
+            try
+              (* Find main node by annotation, or take last node as main *)
+              LustreNode.find_main nodes
+            with Not_found ->
+              (* No main node found
+                This only happens when there are no nodes in the input. *)
+              raise (NoMainNode "No main node defined in input"))
         in
-        nodes, globals
+        (* Check that main nodes all exist *)
+        let _ =
+          try
+            List.map (fun mn -> LN.node_of_name mn nodes) main_nodes
+          with Not_found ->
+            (* Node with name of main not found
+              This can only happen when the name is passed as command-line argument *)
+            raise (NoMainNode "Main node not found in input")
+        in
+        nodes, globals, main_nodes
+      else
+        let ctx, gids, decls, toplevel_nodes = type_check declarations in
+        let nodes, globals = LNG.compile ctx gids decls in
+        let main_nodes = match Flags.lus_main () with
+          | Some s -> [LustreIdent.mk_string_ident s]
+          | None -> (match LustreNode.get_main_annotated_nodes nodes with
+            | h :: t -> h :: t
+            | [] -> toplevel_nodes |> List.map
+              (fun s -> s |> HString.string_of_hstring |> LustreIdent.mk_string_ident))
+        in
+        nodes, globals, main_nodes
     in
-
     print_nodes_and_globals nodes globals;
 
-    (* Name of main node *)
-    let main_nodes =
-      (* Command-line flag for main node given? *)
-      match Flags.lus_main () with
-      (* Use given identifier to choose main node *)
-      | Some s -> [LustreIdent.mk_string_ident s]
-      (* No main node name given on command-line *)
-      | None -> (
-        try
-          (* Find main node by annotation, or take last node as main *)
-          LustreNode.find_main nodes
-        with Not_found ->
-          (* No main node found
-            This only happens when there are no nodes in the input. *)
-          raise (NoMainNode "No main node defined in input"))
-    in
-    (* Check that main nodes all exist *)
-    let _ =
-      try
-        List.map (fun mn -> LN.node_of_name mn nodes) main_nodes
-      with Not_found ->
-        (* Node with name of main not found
-          This can only happen when the name is passed as command-line argument *)
-        raise (NoMainNode "Main node not found in input")
-    in
     (* Return a subsystem tree from the list of nodes *)
     Some (LN.subsystems_of_nodes main_nodes nodes, globals, declarations)
   )

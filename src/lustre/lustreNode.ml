@@ -859,7 +859,11 @@ let node_call_of_svar { calls } svar =
 (* Return the scope of the name of the node *)
 let scope_of_node { name } = name |> I.to_scope
 
-    
+(* Return all nodes with --%MAIN annotations *)
+let get_main_annotated_nodes nodes = nodes
+    |> List.filter (fun { is_main } -> is_main )
+    |> List.map (fun { name } -> name)
+
 (* Return name of all nodes annotated with --%MAIN.  Raise
     [Not_found] if no node has a --%MAIN annotation.
     If the processing mode does not support multiple main nodes,
@@ -867,25 +871,14 @@ let scope_of_node { name } = name |> I.to_scope
     only a single main node.
 *)
 let find_main nodes =
-
-  match
-
-    (* Find all nodes with --%MAIN annotations *)
-    List.filter (fun { is_main } -> is_main ) nodes
-    |> List.map (fun { name } -> name)
-
-  with
-
+  match (get_main_annotated_nodes nodes) with
     (* No node with --%MAIN annotiaon *)
     | [] ->
-
       (* Return name of last node, fail if list of nodes empty *)
       (match nodes with
         | [] -> raise Not_found
         | { name } :: _ -> [name])
-
     | ids -> ids
-
 
 (* Return identifier of last node in list *)
 let rec ident_of_top = function 
