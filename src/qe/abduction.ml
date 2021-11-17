@@ -32,6 +32,17 @@ let rec get_disjuncts term =
   | _ -> [term]
 
 
+let normalize_if_inconsistent solver premises term =
+  SMTSolver.push solver;
+  SMTSolver.assert_term solver premises;
+  SMTSolver.assert_term solver term;
+  let term' =
+    if SMTSolver.check_sat solver then term
+    else Term.t_false
+  in
+  SMTSolver.pop solver;
+  term'
+
 let simplify_abduct solver premises term =
 
   let term = Simplify.simplify_term [] term in
@@ -69,6 +80,7 @@ let abduce solver forall_vars premises conclusion =
 
     impl
     |> SMTSolver.simplify_term solver
+    |> normalize_if_inconsistent solver premises
     |> Simplify.remove_ite
 
   ) 
@@ -79,6 +91,7 @@ let abduce solver forall_vars premises conclusion =
     SMTSolver.get_qe_term solver forall_term
     |> Term.mk_and
     |> SMTSolver.simplify_term solver
+    |> normalize_if_inconsistent solver premises
     |> Simplify.remove_ite
     
   )

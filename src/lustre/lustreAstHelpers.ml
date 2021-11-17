@@ -668,7 +668,8 @@ let contract_node_equation_has_pre_or_arrow = function
       |> some_of_list
   )
 | ContractCall (_, _, ins, _) ->
-  some_of_list (List.map has_pre_or_arrow ins) 
+  some_of_list (List.map has_pre_or_arrow ins)
+| AssumptionVars _ -> None
 
 
 (** Checks whether a contract has a `pre` or a `->`.

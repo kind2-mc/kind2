@@ -1151,6 +1151,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
       | A.Guarantee _ -> consts, vars, modes, calls
       | A.Mode m -> consts, vars, m :: modes, calls
       | A.ContractCall c -> consts, vars, modes, c :: calls
+      | A.AssumptionVars _ -> consts, vars, modes, calls
     in List.fold_left over_items ([], [], [], []) contract in
   (* ****************************************************************** *)
   (* Ghost Constants and Variables                                      *)
@@ -1257,6 +1258,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
       | A.Guarantee g -> assumes, g :: guarantees, calls
       | A.Mode _ -> assumes, guarantees, calls
       | A.ContractCall c -> assumes, guarantees, c :: calls
+      | A.AssumptionVars _ -> assumes, guarantees, calls
     in List.fold_left over_items ([], [], []) contract
   (* ****************************************************************** *)
   (* Contract Calls                                                     *)
@@ -1300,7 +1302,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   in assumes @ assumes2,
     guarantees @ guarantees2
 
-and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals items contracts =
+and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals items contract =
   let name = mk_ident i in
   let node_scope = name |> I.to_scope in
   let is_extern = ext in
@@ -1521,8 +1523,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* Contract State Variables                                           *)
   (* ****************************************************************** *)
   in let (ghost_locals, ghost_equations, modes) =
-    match contracts with
-    | Some contracts -> compile_contract_variables cstate gids ctx map [] node_scope contracts
+    match contract with
+    | Some contract -> compile_contract_variables cstate gids ctx map [] node_scope contract
     | None -> [], [], []
   (* ****************************************************************** *)
   (* Oracles                                                            *)
@@ -1629,13 +1631,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       in let glocals' = H.fold (fun _ v a -> (X.singleton X.empty_index v) :: a) local_map [] in 
       node_call :: calls, glocals' @ glocals
     in List.fold_left over_calls ([], glocals) gids.calls
-  (* ****************************************************************** *)
-  (* Contract Conditions                                                *)
-  (* ****************************************************************** *)
-  in let (assumes, guarantees) =
-    match contracts with
-    | Some contracts -> compile_contract cstate gids ctx map [] node_scope contracts
-    | None -> [], []
   (* ****************************************************************** *)
   (* Split node items into relevant categories                          *)
   (* ****************************************************************** *)
@@ -1815,6 +1810,32 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       equations @ eqns
     in List.fold_left over_equations [] (ghost_equations @ node_eqs)
   (* ****************************************************************** *)
+  (* Contract Assumptions and Guarantees                                *)
+  (* ****************************************************************** *)
+  in let (assumes, guarantees) =
+    match contract with
+    | Some contract -> compile_contract cstate gids ctx map [] node_scope contract
+    | None -> [], []
+  (* ****************************************************************** *)
+  (* Collect Variables for Assumption Generation                        *)
+  (* ****************************************************************** *)
+  in let assumption_svars =
+    match contract with
+    | Some contract -> (
+      contract |> List.fold_left (fun acc decl ->
+        match decl with
+        | A.AssumptionVars (_, vars) ->
+          vars |> List.fold_left (fun acc' (_, id) ->
+            let sv = H.find !map.state_var (mk_ident id) in
+            SVS.add sv acc'
+          )
+          acc
+        | _ -> acc
+      ) 
+      SVS.empty
+    )
+    | None -> SVS.empty
+  (* ****************************************************************** *)
   (* Generate Contract Constraints for Integer Subranges                *)
   (* ****************************************************************** *)
   in let (assumes, guarantees, props) =
@@ -1908,7 +1929,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     state_var_source_map;
     oracle_state_var_map;
     state_var_expr_map;
-    silent_contracts
+    silent_contracts;
+    assumption_svars;
   } in { cstate with
     nodes = node :: cstate.nodes;
   }
@@ -1971,12 +1993,12 @@ and compile_declaration cstate gids ctx decl =
   | A.ConstDecl (_, const_decl) ->
     let empty_map = ref (empty_identifier_maps ()) in
     compile_const_decl cstate ctx empty_map [] const_decl
-  | A.FuncDecl (_, (i, ext, [], inputs, outputs, locals, items, contracts)) ->
+  | A.FuncDecl (_, (i, ext, [], inputs, outputs, locals, items, contract)) ->
     let gids = LAN.StringMap.find i gids in
-    compile_node_decl gids true cstate ctx i ext inputs outputs locals items contracts
-  | A.NodeDecl (_, (i, ext, [], inputs, outputs, locals, items, contracts)) ->
+    compile_node_decl gids true cstate ctx i ext inputs outputs locals items contract
+  | A.NodeDecl (_, (i, ext, [], inputs, outputs, locals, items, contract)) ->
     let gids = LAN.StringMap.find i gids in
-    compile_node_decl gids false cstate ctx i ext inputs outputs locals items contracts
+    compile_node_decl gids false cstate ctx i ext inputs outputs locals items contract
   (* All contract node declarations are recorded and normalized in gids,
     this is necessary because each unique call to a contract node must be 
     normalized independently *)

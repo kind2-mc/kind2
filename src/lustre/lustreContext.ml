@@ -2156,6 +2156,87 @@ let add_node_to_context ctx node_ctx =
   { ctx with prev = { node_ctx.prev with nodes = n :: node_ctx.prev.nodes } }
 
 
+let add_assumption_variable = function
+
+(* No node in context *)
+| { node = None } ->
+
+  (function _ ->
+    raise (Invalid_argument "add_uncontrollable_variable"))
+
+(* Get inputs from node in context *)
+| { node = Some ({ N.inputs; N.outputs; N.assumption_svars } as node) } as ctx ->
+
+  (function (pos, ident) ->
+
+    try
+
+      let expr = expr_of_ident ctx ident in
+
+      D.fold
+        (fun _ e ctx ->
+
+           (* Expression is a variable *)
+           if E.is_var e || E.is_const_var e then
+
+             (* Get state variable of expression *)
+             let state_var =
+               let v = E.var_of_expr e in (* Works for constant inputs too *)
+               Var.state_var_of_state_var_instance v
+             in
+
+             if
+
+               (* Find state variable in inputs *)
+               D.exists
+                 (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                 inputs
+
+               ||
+
+               (* Find state variable in inputs *)
+               D.exists
+                 (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                 outputs
+
+             then
+
+               let assumption_svars' =
+                 SVS.add state_var assumption_svars
+               in
+
+               { ctx with
+                 node = Some { node with N.assumption_svars = assumption_svars' } 
+               }
+
+             (* State variable is not a input variable *)
+             else
+
+              fail_at_position pos
+                (Format.asprintf "State variable '%a' is not an input or an output."
+                   (I.pp_print_ident false) ident)
+
+          (* Expression is not a variable *)
+          else
+
+            fail_at_position pos
+                (Format.asprintf "Identifier '%a' is not a variable."
+                   (I.pp_print_ident false) ident) )
+
+        expr
+        ctx
+
+
+    (* Identifier does not denote an expression *)
+    with Not_found ->
+
+      fail_at_position pos
+        (Format.asprintf "Identifier '%a' does not denote an expression."
+          (I.pp_print_ident false) ident)
+
+    )
+
+
 (* Mark node as main node *)
 let set_node_main ctx = match ctx with
 | { node = None } -> raise (Invalid_argument "set_node_main")

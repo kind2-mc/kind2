@@ -200,6 +200,7 @@ type t = {
   silent_contracts : string list ;
   (** Contracts that were silently loaded. *)
 
+  assumption_svars: SVS.t;
 }
 
 
@@ -233,6 +234,7 @@ let empty_node name is_extern = {
   oracle_state_var_map = SVT.create 17;
   state_var_expr_map = SVT.create 17;
   silent_contracts = [];
+  assumption_svars = SVS.empty
 }
 
 

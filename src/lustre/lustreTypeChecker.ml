@@ -949,7 +949,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> unit tc_
             tc_ctx_of_contract ctx_plus_ops_and_ips c >>= fun con_ctx ->
             Debug.parse "Checking node contract with context %a"
               pp_print_tc_context con_ctx
-            ; check_type_contract ret_ids con_ctx c) >>
+            ; check_type_contract (arg_ids, ret_ids) con_ctx c) >>
           (* if the node is extern, we will not have any body to typecheck *)
           if is_extern
           then R.ok ( Debug.parse "External Node, no body to type check."
@@ -1122,6 +1122,7 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
   | GhostVar c -> tc_ctx_contract_var ctx c
   | Assume _ -> R.ok ctx
   | Guarantee _ -> R.ok ctx
+  | AssumptionVars _ -> R.ok ctx
   | Mode (pos, name, _, _) -> R.ok (add_ty ctx name (Bool pos)) 
   | ContractCall (_, cc, _, _) ->
     match (lookup_contract_exports ctx cc) with
@@ -1134,7 +1135,8 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
 
 and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_result
   = fun ctx (cname, _, args, rets, contract) ->
-  let node_out_params = LA.SI.of_list (List.map (fun ret -> LH.extract_op_ty ret |> fst) rets) in
+  let arg_ids = LA.SI.of_list (List.map (fun arg -> LH.extract_ip_ty arg |> fst) args) in
+  let ret_ids = LA.SI.of_list (List.map (fun ret -> LH.extract_op_ty ret |> fst) rets) in
   Debug.parse "TC Contract Decl: %a {" LA.pp_print_ident cname 
   (* build the appropriate local context *)
   ; let arg_ctx = List.fold_left union ctx (List.map extract_arg_ctx args) in
@@ -1162,17 +1164,29 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
     >>= fun ctxs ->
     let local_ctx = List.fold_left union local_const_ctx ctxs in
     Debug.parse "Local Typing Context {%a}" pp_print_tc_context local_ctx
-    ; check_type_contract node_out_params local_ctx contract
+    ; check_type_contract (arg_ids, ret_ids) local_ctx contract
       >> R.ok (Debug.parse "TC Contract Decl %a done }" LA.pp_print_ident cname)
 
-and check_type_contract: LA.SI.t -> tc_context -> LA.contract -> unit tc_result
-  = fun node_out_params ctx eqns ->
-  R.seq_ (List.map (check_contract_node_eqn node_out_params ctx) eqns)
+and check_type_contract: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract -> unit tc_result
+  = fun node_params ctx eqns ->
+  R.seq_ (List.map (check_contract_node_eqn node_params ctx) eqns)
 
-and check_contract_node_eqn: LA.SI.t -> tc_context -> LA.contract_node_equation -> unit tc_result
-  = fun node_out_params ctx eqn ->
+and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_node_equation -> unit tc_result
+  = fun node_params ctx eqn ->
   Debug.parse "Checking node's contract equation: %a" LA.pp_print_contract_item eqn
   ; match eqn with
+    | AssumptionVars (_, ids) -> (
+      let (node_in_params, node_out_params) = node_params in
+      let io_params = LA.SI.union node_in_params node_out_params in
+      match List.find_opt (fun (_, id) -> LA.SI.mem id io_params |> not) ids with
+      | Some (pos, id) ->
+        type_error pos
+          (Format.asprintf
+            "Assumption variable must be either an input or an output variable, but found '%a'"
+            LA.pp_print_ident id
+          )
+      | None -> R.ok ()
+    )
     | GhostConst (FreeConst (_, _, exp_ty) as c) -> check_type_const_decl ctx c exp_ty
     | GhostConst (TypedConst (_, _, _, exp_ty) as c) -> check_type_const_decl ctx c exp_ty
     | GhostVar (FreeConst (_, _, exp_ty) as c) -> check_type_const_decl ctx c exp_ty
@@ -1190,6 +1204,7 @@ and check_contract_node_eqn: LA.SI.t -> tc_context -> LA.contract_node_equation 
       
     | ContractCall (pos, cname, args, rets) ->
       let arg_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars args) in
+      let node_out_params = snd node_params in
       let intersect_in_illegal = LA.SI.inter node_out_params arg_ids in
       if (not (LA.SI.is_empty intersect_in_illegal))
       then type_error pos

@@ -502,7 +502,7 @@ and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   (locals_must_have_definitions locals items)
     >> (check_items ctx common_node_equations_checks items)
     >> (match contract with 
-    | Some c -> check_contract ctx common_contract_checks c
+    | Some c -> check_contract false ctx common_contract_checks c
     | None -> Ok ())
     >> (Res.seq_ (List.map check_input_items inputs))
     >> (Res.seq_ (List.map check_output_items outputs))
@@ -520,7 +520,7 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   in
   (check_items ctx composed_items_checks items)
     >> (match contract with
-      | Some c -> check_contract ctx common_contract_checks c
+      | Some c -> check_contract false ctx common_contract_checks c
         >> no_stateful_contract_imports ctx c
       | None -> Ok ())
     >> (Res.seq_ (List.map check_input_items inputs))
@@ -532,7 +532,7 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
   let decl = LA.ContractNodeDecl
     (span, (id, params, inputs, outputs, contract))
   in
-  (check_contract ctx common_contract_checks contract)
+  (check_contract true ctx common_contract_checks contract)
     >> (Res.seq_ (List.map check_input_items inputs))
     >> (Res.seq_ (List.map check_output_items outputs))
     >> (Ok decl)
@@ -551,7 +551,7 @@ and check_items ctx f items =
   in
   Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)
 
-and check_contract ctx f contract =
+and check_contract is_contract_node ctx f contract =
   let ctx = build_contract_ctx ctx contract in
   let check_list e = Res.seqM (fun x _ -> x) () (List.map (check_expr ctx f) e) in
   let check_contract_item ctx f = function
@@ -562,6 +562,9 @@ and check_contract ctx f contract =
       let gs = List.map (fun (_, _, e) -> e) gs in
       check_list rs >> check_list gs
     | GhostVar (UntypedConst (_, _, e)) -> check_expr ctx f e
+    | AssumptionVars (pos, _) ->
+      if not is_contract_node then Ok ()
+      else syntax_error pos ("Assumption variables not supported in contract nodes")
     | _ -> Ok ()
   in
   Res.seqM (fun x _ -> x) () (List.map (check_contract_item ctx f) contract)
