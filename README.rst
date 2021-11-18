@@ -87,7 +87,7 @@ Download
 --------
 
 If you use a Linux or a macOS computer, you can download an executable of the latest version
-of Kind 2 from `here <https://github.com/kind2-mc/kind2/releases/latest/>`_\.
+of Kind 2 from `here <https://github.com/kind2-mc/kind2/releases/latest/>`__\.
 First make sure though that you have the required software described next.
 
 Required Software
@@ -105,6 +105,15 @@ To run Kind 2 the following software must be installed on your computer:
   * `Yices 2 <http://yices.csl.sri.com/>`_\ ,
   * `Yices 1 <http://yices.csl.sri.com/old/download-yices1-full.shtml>`_\ , or
   * `Z3 <https://github.com/Z3Prover/z3>`_ (presently recommended)
+
+VS Code Extension
+-----------------
+
+You can also install our `extension <https://marketplace.visualstudio.com/items?itemName=kind2-mc.vscode-kind2>`_
+for Visual Studio Code which provides support for Kind 2. The extension contains
+Linux and macOS binaries for Kind 2 and Z3 ready to use. Windows is also supported
+through WSL2 (see `here <https://github.com/kind2-mc/vscode-kind2#windows-advanced>`__
+for more details).
 
 Docker
 ------
