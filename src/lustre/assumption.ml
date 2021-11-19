@@ -526,7 +526,7 @@ let iso_decomp one_state abd_solver uf_solver assump_svars sv_to_ufs pred k abdu
             Lib.list_insert_at trans_at_i i pred_unrolling'
           )
           pred_unrolling
-          (List.rev (List.init (if one_state then k+1 else k) identity))
+          (List.init (if one_state then k+1 else k) identity)
         |> List.mapi (fun i t ->
           Term.bump_state (Numeral.of_int (- i)) t
         )
@@ -560,7 +560,7 @@ let iso_decomp one_state abd_solver uf_solver assump_svars sv_to_ufs pred k abdu
   loop pred 1
 
 
-let cart_decomp one_state abd_solver assump_svars sys init0 k system_unrolling abduct =
+let cart_decomp one_state abd_solver assump_svars sys k system_unrolling abduct =
 
   let uf_solver = create_solver_and_context sys k in
 
@@ -615,11 +615,6 @@ let cart_decomp one_state abd_solver assump_svars sys init0 k system_unrolling a
             (mk_forall_vars 1 env_svars k)
         in
         Abduction.abduce abd_solver forall_vars premises abduct
-        |> (fun init ->
-          match init0 with
-          | None -> init
-          | Some init0 -> Term.mk_and [init0; init]
-        )
         |> SMTSolver.simplify_term abd_solver
       in
     
@@ -650,84 +645,143 @@ let cart_decomp one_state abd_solver assump_svars sys init0 k system_unrolling a
   Success { init; trans}
 
 
-let generate_assumption_for_k_and_below one_state assump_svars sys props init0 k =
+type abduct_info =
+{
+  term: Term.t;
+  forall_varset: VS.t;
+  system_unrolling: Term.t list;
+}
+
+let no_abduct = {
+  term = Term.t_true;
+  forall_varset = VS.empty;
+  system_unrolling = [];
+}
+
+let get_length { system_unrolling } =
+  List.length system_unrolling
+
+
+let generate_assumption_for_k_and_below one_state assump_svars last_abduct sys props k =
 
   Debug.assump "Generating assumption for k=%d...@." k ;
 
   let abd_solver = create_solver_and_context sys k in
 
-  let num_k = Numeral.of_int k in
-
-  let system_unrolling =
-    let init = TSys.init_of_bound None sys Numeral.zero in
-    if k=0 then
-      init
-    else
-      Term.mk_and (init :: List.init k
-        (fun n ->
-          TSys.trans_of_bound None sys (Numeral.of_int (n+1))
-        ))
-      (*|> SMTSolver.simplify_term abd_solver*)
-  in
-
-  let props_from_0_to_k =
-    let props_conj =
-      props
-      |> List.map (fun { Property.prop_term } -> prop_term)
-      |> Term.mk_and
-    in
-    List.init (k+1) (fun n ->
-      Term.bump_state (Numeral.of_int n) props_conj)
+  let props_conj =
+    props
+    |> List.map (fun { Property.prop_term } -> prop_term)
     |> Term.mk_and
   in
 
-  let abduct =
-    let forall_vars =
-      let all_vars =
-        TSys.vars_of_bounds ~with_init_flag:true sys Numeral.zero num_k
+  let sys_svars, env_svars = assump_svars in
+
+  let compute_next_abduct { term; forall_varset; system_unrolling } =
+    let n = List.length system_unrolling in
+    let num_n = Numeral.of_int n in
+    let forall_varset =
+      let forall_varset =
+        if one_state || n=0 then
+          forall_varset
+        else
+          (* Remove outputs in (n-1) *)
+          List.fold_left
+            (fun set sv ->
+              let v = Var.mk_state_var_instance sv (Numeral.of_int (n-1)) in
+              VS.remove v set
+            )
+            forall_varset
+            sys_svars
       in
-      let sys_svars, env_svars = assump_svars in
-      (* Remove duplicates: all_vars contains one ocurrence of each constant per instant *)
-      VS.of_list all_vars
-      |> VS.elements
-      |> List.filter (fun v ->
-        let sv = Var.state_var_of_state_var_instance v in
-        let equal_to_sv = StateVar.equal_state_vars sv in
-        (* No input *)
-        (List.exists equal_to_sv env_svars |> not) 
-        &&
-        (
-         one_state
-         ||
-         (* No output in k *)
-         (List.exists equal_to_sv sys_svars |> not  
-          || 
-          Numeral.(equal (Var.offset_of_state_var_instance v) num_k)
-         )
+      let vars_at_n =
+        TSys.vars_of_bounds ~with_init_flag:true sys num_n num_n
+      in
+      List.fold_left
+        (fun set v ->
+          let keep =
+            let sv = Var.state_var_of_state_var_instance v in
+            let equal_to_sv = StateVar.equal_state_vars sv in
+            (* No input *)
+            (List.exists equal_to_sv env_svars |> not)
+            &&
+            (
+              one_state
+              ||
+              (* No output in n *)
+              (List.exists equal_to_sv sys_svars |> not
+               ||
+               Numeral.(equal (Var.offset_of_state_var_instance v) num_n)
+              )
+            )
+          in
+          if keep then VS.add v set else set
         )
-      )
+        forall_varset
+        vars_at_n
     in
-    Abduction.abduce abd_solver forall_vars system_unrolling props_from_0_to_k
-    |> SMTSolver.simplify_term abd_solver
+    let system_unrolling =
+      if n=0 then
+        let init = TSys.init_of_bound None sys Numeral.zero in
+        [init]
+      else
+        system_unrolling @ [TSys.trans_of_bound None sys num_n]
+    in
+    let abduct =
+      let forall_vars = VS.elements forall_varset in
+      let system_unrolling_term = Term.mk_and system_unrolling in
+      let props_at_n = Term.bump_state num_n props_conj in
+      Abduction.abduce
+        abd_solver forall_vars system_unrolling_term props_at_n
+    in
+    if abduct = Term.t_false then
+      { term=Term.t_false; forall_varset; system_unrolling }
+    else
+      let term =
+        Term.mk_and [term; abduct]
+        |> SMTSolver.simplify_term abd_solver
+      in
+      { term; forall_varset; system_unrolling }
   in
 
-  Debug.assump "@[<hv>Initial abduct:@ @[<hv>%a@]@]@." Term.pp_print_term abduct ;
+  let last_abduct =
+    let rec iterate n current_abduct =
+      if n <= 0 then
+        current_abduct
+      else
+        let new_abduct = compute_next_abduct current_abduct in
+        if new_abduct.term = Term.t_false then
+          new_abduct
+        else
+          iterate (n-1) new_abduct
+    in
+    let l = get_length last_abduct in
+    iterate (k+1-l) last_abduct
+  in
+
+  let abduct_term = last_abduct.term in
+
+  Debug.assump "@[<hv>Initial abduct:@ @[<hv>%a@]@]@."
+    Term.pp_print_term abduct_term ;
 
   let res =
-    if abduct = Term.t_false then
+    if abduct_term = Term.t_false then
       Failure
     else (
       if k=0 then
-        Success { init=abduct; trans=Term.t_true }
+        Success { init=abduct_term; trans=Term.t_true }
       else
+        let system_unrolling_term =
+          let { system_unrolling } = last_abduct in
+          Term.mk_and system_unrolling
+        in
         cart_decomp
-          one_state abd_solver assump_svars  sys init0 k system_unrolling abduct
+          one_state abd_solver assump_svars sys k system_unrolling_term abduct_term
     )
   in
 
   SMTSolver.delete_instance abd_solver ;
 
-  res
+  res, last_abduct
 
 
 let satisfy_input_requirements in_sys param top =
@@ -854,16 +908,15 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
         v
     in
 
-    let rec loop props init0 k =
+    let rec loop props last_abduct k =
       List.iter (fun sv -> StateVar.set_const false sv) const_inputs;
-      let res =
-        generate_assumption_for_k_and_below one_state assump_svars c_sys props init0 k
+      let res, last_abduct =
+        generate_assumption_for_k_and_below
+          one_state assump_svars last_abduct c_sys props k
       in
       List.iter (fun sv -> StateVar.set_const true sv) const_inputs;
       match res with
       | Success ({init; trans}) -> (
-
-        let init0 = if k=0 then Some init else init0 in
 
         let init', trans' =
           match const_inputs with
@@ -942,13 +995,13 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
 
         )
         | _, [], _ -> Unknown
-        | _, invalid, _ -> loop props init0 (get_min_k invalid)
+        | _, invalid, _ -> loop props last_abduct (get_min_k invalid)
 
       )
       | r -> r
     in
 
-    loop invalid None (get_min_k invalid)
+    loop invalid no_abduct (get_min_k invalid)
   )
 
 
