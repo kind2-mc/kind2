@@ -141,14 +141,14 @@ let rec interpret_program ty_ctx = function
   | [] -> empty_context
   | h :: t -> union (interpret_decl ty_ctx h) (interpret_program ty_ctx t)
 
-and interpret_contract node_id (ctx:context) ty_ctx eqns =
+and interpret_contract node_id ctx ty_ctx eqns =
   let ty_ctx = TC.tc_ctx_of_contract ty_ctx eqns
     |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
     |> Res.unwrap
   in
   List.fold_left (fun acc eqn ->
-      union acc (interpret_contract_eqn node_id ctx ty_ctx eqn))
-    empty_context
+      union acc (interpret_contract_eqn node_id acc ty_ctx eqn))
+    ctx
     eqns
 
 and interpret_contract_eqn node_id ctx ty_ctx = function
@@ -263,7 +263,23 @@ and interpret_eqn node_id ctx ty_ctx lhs rhs =
         let ty2 = interpret_expr_by_type node_id ctx ty_ctx ty1 p expr in
         let ty = restrict_type_by ty1 ty2 in
         add_type acc node_id id ty
-      | LA.ArrayDef (_, _, _) -> acc
+      | LA.ArrayDef (_, array, indices) ->
+        let array_type = Ctx.lookup_ty ty_ctx array |> get in
+        let array_type = Ctx.expand_nested_type_syn ty_ctx array_type in
+        let ty_ctx, ty1, sizes = List.fold_left (fun (acc, ty, sizes) idx ->
+            match ty with
+            | LA.ArrayType (_, (idx_ty, size)) -> 
+              Ctx.add_ty acc idx (Int dpos), idx_ty, size :: sizes
+            | _ -> assert false)
+          (ty_ctx, array_type, [])
+          indices
+        in
+        let ty2 = interpret_expr_by_type node_id ctx ty_ctx ty1 p expr in
+        let ty = restrict_type_by ty1 ty2 in
+        let ty = List.fold_left (fun acc size -> LA.ArrayType (dpos, (acc, size)))
+          ty sizes
+        in
+        add_type acc node_id array ty
       | _ -> assert false)
     ctx
     struct_items
@@ -340,10 +356,13 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
   in
   match f expr with
   | Some ty -> ty
-  | None -> (match expr with
+  | None ->
+    (match expr with
     | LA.Ident (_, id) -> (match (get_type ctx node_id id) with
-      | Some id_ty -> merge_types ty id_ty
-      | None -> ty)
+      | Some id_ty -> id_ty
+      | None -> 
+        let id_ty = Ctx.lookup_ty ty_ctx id |> get in
+        Ctx.expand_nested_type_syn ty_ctx id_ty)
     | Call _ | Condact _ | Activate _ | RestartEvery _ -> ty
     | TernaryOp (_, Ite, _, e1, e2) ->
       let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
@@ -359,14 +378,20 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
       (match parent_ty with
       | RecordType (_, idents) ->
-        let (_, _, ty) = List.find (fun (_, i, _) -> HString.equal i idx) idents in
-        ty
+        let (_, _, t) = List.find (fun (_, i, _) -> HString.equal i idx) idents in
+        t
       | _ -> assert false)
     | TupleProject (_, e, idx) ->
       let parent_ty = infer e in
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
       (match parent_ty with
       | TupleType (_, types) -> List.nth types idx
+      | _ -> assert false)
+    | ArrayIndex (_, e, _) ->
+      let parent_ty = infer e in
+      let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
+      (match parent_ty with
+      | ArrayType (_, (ty, _)) -> ty
       | _ -> assert false)
     | _ -> assert false)
 
@@ -380,9 +405,14 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     interpret_expr_by_type node_id ctx ty_ctx ty proj e
   in
   match expr with
-  | LA.Ident (_, id) -> (match get_type ctx node_id id with
-    | Some ty -> extract_bounds_from_type ty
-    | None -> None, None)
+  | LA.Ident (_, id) ->
+    (match get_type ctx node_id id with
+    | Some ty ->
+      extract_bounds_from_type ty
+    | None ->
+      let ty = Ctx.lookup_ty ty_ctx id |> get in
+      let ty = Ctx.expand_nested_type_syn ty_ctx ty in
+      extract_bounds_from_type ty)
   | ModeRef (_, _) -> assert false
   | RecordProject (_, e, p) -> (match infer e with
     | RecordType (_, nested) ->
