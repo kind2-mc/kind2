@@ -99,6 +99,32 @@ let rec merge_types a b = match a, b with
   | Int _ as t, IntRange _ -> t
   | t, _ -> t
 
+let rec restrict_type_by ty restrict = match ty, restrict with
+  | LA.ArrayType (_, (t1, e)), LA.ArrayType (_, (t2, _)) ->
+    let t = restrict_type_by t1 t2 in
+    LA.ArrayType (dpos, (t, e))
+  | RecordType (_, t1s), RecordType (_, t2s) ->
+    let ts = List.map2
+      (fun (p, i, t1) (_, _, t2) -> p, i, restrict_type_by t1 t2)
+      t1s t2s
+    in
+    LA.RecordType (dpos, ts)
+  | TupleType (_, t1s), TupleType (_, t2s) ->
+    let ts = List.map2 (fun t1 t2 -> restrict_type_by t1 t2) t1s t2s in
+    LA.TupleType (dpos, ts)
+  | IntRange (_, Const (_, Num l1), Const (_, Num r1)),
+    IntRange (_, Const (_, Num l2), Const (_, Num r2)) ->
+    let l1 = Numeral.of_string (HString.string_of_hstring l1) in
+    let l2 = Numeral.of_string (HString.string_of_hstring l2) in
+    let r1 = Numeral.of_string (HString.string_of_hstring r1) in
+    let r2 = Numeral.of_string (HString.string_of_hstring r2) in
+    let l = HString.mk_hstring (Numeral.string_of_numeral (Numeral.max l1 l2)) in
+    let r = HString.mk_hstring (Numeral.string_of_numeral (Numeral.min r1 r2)) in
+    IntRange (dpos, Const (dpos, Num l), Const (dpos, Num r))
+  | IntRange _ as t, Int _ -> t
+  | Int _, (IntRange _ as t) -> t
+  | t, _ -> t
+
 let rec arity_of_expr ty_ctx = function
   | LA.GroupExpr (_, ExprList, es) -> List.length es
   | TernaryOp (_, Ite, _, e, _) -> arity_of_expr ty_ctx e
@@ -149,8 +175,28 @@ and interpret_decl ty_ctx = function
   | ConstDecl _ -> empty_context
   | NodeDecl (_, decl)
   | FuncDecl (_, decl) -> interpret_node ty_ctx decl
-  | ContractNodeDecl _
+  | ContractNodeDecl (_, decl) -> interpret_contract_node ty_ctx decl
   | NodeParamInst _ -> empty_context
+
+and interpret_contract_node ty_ctx (id, _, ins, outs, contract) =
+  (* Setup the typing context *)
+  let constants_ctx = ins
+    |> List.map Ctx.extract_consts
+    |> (List.fold_left Ctx.union ty_ctx)
+  in
+  let input_ctx = ins
+    |> List.map Ctx.extract_arg_ctx
+    |> (List.fold_left Ctx.union ty_ctx)
+  in
+  let output_ctx = outs
+    |> List.map Ctx.extract_ret_ctx
+    |> (List.fold_left Ctx.union ty_ctx)
+  in
+  let ty_ctx = Ctx.union
+    (Ctx.union constants_ctx ty_ctx)
+    (Ctx.union input_ctx output_ctx)
+  in
+  interpret_contract id empty_context ty_ctx contract
 
 and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
   (* Setup the typing context *)
@@ -215,7 +261,7 @@ and interpret_eqn node_id ctx ty_ctx lhs rhs =
         let ty1 = Ctx.lookup_ty ty_ctx id |> get in
         let ty1 = Ctx.expand_nested_type_syn ty_ctx ty1 in
         let ty2 = interpret_expr_by_type node_id ctx ty_ctx ty1 p expr in
-        let ty = merge_types ty1 ty2 in
+        let ty = restrict_type_by ty1 ty2 in
         add_type acc node_id id ty
       | LA.ArrayDef (_, _, _) -> acc
       | _ -> assert false)
@@ -226,81 +272,48 @@ and interpret_eqn node_id ctx ty_ctx lhs rhs =
 and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
   match ty with
   | RecordType (_, ts) -> 
-    (match expr with
-    | Ident (_, id) -> (match (get_type ctx node_id id) with
-      | Some id_ty -> merge_types ty id_ty
-      | None -> ty)
-    | RecordExpr (_, _, es) ->
-      let emap = List.fold_left
-        (fun acc (id, e) -> IMap.add id e acc)
-        IMap.empty es
-      in
-      let ts = List.map (fun (p, i, t) ->
-          let e = IMap.find i emap in
-          p, i, interpret_expr_by_type node_id ctx ty_ctx t proj e)
-        ts
-      in
-      RecordType (dpos, ts)
-    | Call _ | Condact _ | Activate _ | RestartEvery _ -> ty
-    | TernaryOp (_, Ite, _, e1, e2) ->
-      let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
-      let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
-      merge_types t1 t2
-    | Pre (_, e) -> interpret_expr_by_type node_id ctx ty_ctx ty proj e
-    | Arrow (_, e1, e2) ->
-      let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
-      let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
-      merge_types t1 t2
-    | RecordProject _ | TupleProject _ | StructUpdate _ -> ty
-    | _ -> assert false)
-  | ArrayType (_, (t, s)) -> (match expr with
-    | Ident (_, id) -> (match (get_type ctx node_id id) with
-      | Some id_ty -> merge_types ty id_ty
-      | None -> ty)
-    | GroupExpr (_, ArrayExpr, es) ->
-      let t = List.fold_left (fun acc e ->
-          let t' = interpret_expr_by_type node_id ctx ty_ctx t proj e in
-          merge_types acc t')
-        t es
-      in
-      ArrayType (dpos, (t, s))
-    | ArrayConstr (_, e1, _) ->
-      let t = interpret_expr_by_type node_id ctx ty_ctx t proj e1 in
-      ArrayType (dpos, (t, s))
-    | Call _ | Condact _ | Activate _ | RestartEvery _ -> ty
-    | TernaryOp (_, Ite, _, e1, e2) ->
-      let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
-      let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
-      merge_types t1 t2
-    | Pre (_, e) -> interpret_expr_by_type node_id ctx ty_ctx ty proj e
-    | Arrow (_, e1, e2) ->
-      let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
-      let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
-      merge_types t1 t2
-    | RecordProject _ | TupleProject _ | StructUpdate _ -> ty
-    | _ -> assert false)
-  | TupleType (_, ts) -> (match expr with
-    | Ident (_, id) -> (match (get_type ctx node_id id) with
-      | Some id_ty -> merge_types ty id_ty
-      | None -> ty)
-    | GroupExpr (_, TupleExpr, es) ->
-      let ts = List.map2
-        (fun t e -> interpret_expr_by_type node_id ctx ty_ctx t proj e)
-        ts es
-      in
-      TupleType (dpos, ts)
-    | Call _ | Condact _ | Activate _ | RestartEvery _ -> ty
-    | TernaryOp (_, Ite, _, e1, e2) ->
-      let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
-      let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
-      merge_types t1 t2
-    | Pre (_, e) -> interpret_expr_by_type node_id ctx ty_ctx ty proj e
-    | Arrow (_, e1, e2) ->
-      let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
-      let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
-      merge_types t1 t2
-    | RecordProject _ | TupleProject _ | StructUpdate _ -> ty
-    | _ -> assert false)
+    let f = function
+      | LA.RecordExpr (_, _, es) ->
+        let emap = List.fold_left
+          (fun acc (id, e) -> IMap.add id e acc)
+          IMap.empty es
+        in
+        let ts = List.map (fun (p, i, t) ->
+            let e = IMap.find i emap in
+            p, i, interpret_expr_by_type node_id ctx ty_ctx t proj e)
+          ts
+        in
+        Some (LA.RecordType (dpos, ts))
+      | StructUpdate _ -> Some ty
+      | _ -> None
+    in
+    interpret_structured_expr f node_id ctx ty_ctx ty proj expr
+  | ArrayType (_, (t, s)) ->
+    let f = function
+      | LA.GroupExpr (_, ArrayExpr, es) ->
+        let t = List.fold_left (fun acc e ->
+            let t' = interpret_expr_by_type node_id ctx ty_ctx t proj e in
+            merge_types acc t')
+          t es
+        in
+        Some (LA.ArrayType (dpos, (t, s)))
+      | ArrayConstr (_, e1, _) ->
+        let t = interpret_expr_by_type node_id ctx ty_ctx t proj e1 in
+        Some (ArrayType (dpos, (t, s)))
+      | _ -> None
+    in
+    interpret_structured_expr f node_id ctx ty_ctx ty proj expr
+  | TupleType (_, ts) ->
+    let f = function
+      | LA.GroupExpr (_, TupleExpr, es) ->
+        let ts = List.map2
+          (fun t e -> interpret_expr_by_type node_id ctx ty_ctx t proj e)
+          ts es
+        in
+        Some (LA.TupleType (dpos, ts))
+      | _ -> None
+    in
+    interpret_structured_expr f node_id ctx ty_ctx ty proj expr
   | IntRange (_, Const (_, Num l1), Const (_, Num r1)) as t ->
     let l1 = Numeral.of_string (HString.string_of_hstring l1) in
     let r1 = Numeral.of_string (HString.string_of_hstring r1) in
@@ -316,6 +329,46 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
     | Some l, Some r -> subrange_from_bounds l r
     | _ -> LA.Int dpos)
   | t -> t
+
+and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
+  let infer e =
+    let ty = TC.infer_type_expr ty_ctx e
+      |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
+      |> Res.unwrap
+    in
+    Ctx.expand_nested_type_syn ty_ctx ty
+  in
+  match f expr with
+  | Some ty -> ty
+  | None -> (match expr with
+    | LA.Ident (_, id) -> (match (get_type ctx node_id id) with
+      | Some id_ty -> merge_types ty id_ty
+      | None -> ty)
+    | Call _ | Condact _ | Activate _ | RestartEvery _ -> ty
+    | TernaryOp (_, Ite, _, e1, e2) ->
+      let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
+      let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
+      merge_types t1 t2
+    | Pre (_, e) -> interpret_expr_by_type node_id ctx ty_ctx ty proj e
+    | Arrow (_, e1, e2) ->
+      let t1 = interpret_expr_by_type node_id ctx ty_ctx ty proj e1 in
+      let t2 = interpret_expr_by_type node_id ctx ty_ctx ty proj e2 in
+      merge_types t1 t2
+    | RecordProject (_, e, idx) ->
+      let parent_ty = infer e in
+      let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
+      (match parent_ty with
+      | RecordType (_, idents) ->
+        let (_, _, ty) = List.find (fun (_, i, _) -> HString.equal i idx) idents in
+        ty
+      | _ -> assert false)
+    | TupleProject (_, e, idx) ->
+      let parent_ty = infer e in
+      let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
+      (match parent_ty with
+      | TupleType (_, types) -> List.nth types idx
+      | _ -> assert false)
+    | _ -> assert false)
 
 and interpret_int_expr node_id ctx ty_ctx proj expr = 
   let infer e =
@@ -354,8 +407,6 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     interpret_int_unary_expr node_id ctx ty_ctx op proj e
   | BinaryOp (_, op, e1, e2) ->
     interpret_int_binary_expr node_id ctx ty_ctx proj op e1 e2
-  (* Either constant inlining removed the if-statement,
-    or we can't learn which branch to take yet*)
   | TernaryOp (_, Ite, _, e1, e2) ->
     interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
   | TernaryOp (_, With, _, _, _) -> assert false
@@ -435,7 +486,15 @@ and interpret_int_binary_expr node_id ctx ty_ctx proj op e1 e2 =
   | Minus -> template Numeral.(-)
   | Plus -> template Numeral.(+)
   | Times -> template Numeral.( * )
-  | IntDiv -> template Numeral.(/)
+  | IntDiv ->
+    (match l1, l2, r1, r2 with
+      | Some l1, Some l2, Some r1, Some r2 ->
+        let lmin = Numeral.min l1 l2 in
+        let lmax = Numeral.max l1 l2 in
+        let rmax = Numeral.max r1 r2 in
+        let rmin = Numeral.min r1 r2 in
+        Some (Numeral.(/) lmin rmax), Some (Numeral.(/) lmax rmin)
+      | _ -> None, None)
   | _ -> assert false)
 
 and interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2 =
