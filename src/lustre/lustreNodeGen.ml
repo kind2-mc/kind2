@@ -1446,7 +1446,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* (State Variables for) Generated Subrange Constraints               *)
   (* ****************************************************************** *)
   in let glocals =
-    let over_generated_locals glocals (_, _, id, _) =
+    let over_generated_locals glocals (_, _, _, id, _) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map (A.Bool dummy_pos) in
       let over_indices = fun index index_type accum ->
@@ -1840,7 +1840,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   in let (assumes, guarantees, props) =
     let create_constraint_name id = Format.asprintf "%s._bounds" id in
-    let over_subrange_constraints (a, ac, g, gc, p) (source, pos, id, oid) =
+    let over_subrange_constraints (a, ac, g, gc, p) (source, is_original, pos, id, oid) =
       let oid = HString.string_of_hstring oid in
       let sv = H.find !map.state_var (mk_ident id) in
       let effective_contract = guarantees != [] || modes != [] in
@@ -1865,6 +1865,9 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       | None ->
         let name = create_constraint_name oid in
         let src = Property.Generated (Some pos, [sv]) in
+        let src = if is_original then src
+          else Property.Candidate (Some src)
+        in
         a, ac, g, gc, (sv, name, src) :: p
       | _ -> assert false
     in

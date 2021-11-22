@@ -29,7 +29,7 @@ module LD = LustreDeclarations
 
 module LNG = LustreNodeGen
 module LPI = LustreParser.Incremental
-module LL = LustreLexer          
+module LL = LustreLexer
 module LPMI = LustreParser.MenhirInterpreter
 module LPE = LustreParserErrors
 module TC = LustreTypeChecker
@@ -38,6 +38,7 @@ module IC = LustreAstInlineConstants
 module AD = LustreAstDependencies
 module LAN = LustreAstNormalizer
 module LS = LustreSyntaxChecks
+module LIA = LustreAbstractInterpretation
 
 let (>>=) = Res.(>>=)
           
@@ -124,22 +125,31 @@ let type_check declarations =
     AD.sort_globals const_type_decls >>= fun sorted_const_type_decls ->
 
     (* Step 4. Type check top level declarations *)
-    TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls >>= fun ctx ->
+    TC.type_check_infer_globals TCContext.empty_tc_context sorted_const_type_decls
+      >>= fun ctx ->
 
     (* Step 5: Inline type toplevel decls *)
-    IC.inline_constants ctx sorted_const_type_decls >>= fun (inlined_ctx, const_inlined_type_and_consts) ->
+    IC.inline_constants ctx sorted_const_type_decls
+      >>= fun (inlined_ctx, const_inlined_type_and_consts) ->
 
     (* Step 6. Dependency analysis on nodes and contracts *)
-    AD.sort_and_check_nodes_contracts node_contract_src >>= fun (sorted_node_contract_decls, toplevel_nodes) ->
+    AD.sort_and_check_nodes_contracts node_contract_src
+      >>= fun (sorted_node_contract_decls, toplevel_nodes) ->
 
     (* Step 7. type check nodes and contracts *)
-    TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls >>= fun (global_ctx) ->
+    TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls
+      >>= fun global_ctx ->
 
     (* Step 8. Inline constants in node equations *)
-    IC.inline_constants global_ctx sorted_node_contract_decls >>= fun (inlined_global_ctx, const_inlined_nodes_and_contracts) ->
+    IC.inline_constants global_ctx sorted_node_contract_decls
+      >>= fun (inlined_global_ctx, const_inlined_nodes_and_contracts) ->
 
-    (* Step 9. Normalize AST: guard pres, abstract to locals where appropriate *)
-    LAN.normalize inlined_global_ctx const_inlined_nodes_and_contracts >>= fun (normalized_nodes_and_contracts, gids) ->
+    (* Step 9. Infer tighter subrange constraints with abstract interpretation *)
+    let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx const_inlined_nodes_and_contracts in
+    
+    (* Step 10. Normalize AST: guard pres, abstract to locals where appropriate *)
+    LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts
+      >>= fun (normalized_nodes_and_contracts, gids) ->
 
     Res.ok (inlined_global_ctx,
       gids,

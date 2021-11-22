@@ -74,6 +74,7 @@ open Lib
 module A = LustreAst
 module AH = LustreAstHelpers
 module AIC = LustreAstInlineConstants
+module AI = LustreAbstractInterpretation
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 
@@ -181,6 +182,7 @@ type generated_identifiers = {
     * (LustreAst.expr list option)) (* node argument defaults *)
     list;
   subrange_constraints : (source
+    * bool (* true if the type used for the subrange is the original type *)
     * Lib.position
     * HString.t (* Generated name for Range Expression *)
     * HString.t) (* Original name that is constrained *)
@@ -196,6 +198,7 @@ type generated_identifiers = {
 
 type info = {
   context : Ctx.tc_context;
+  abstract_interp_context : LustreAbstractInterpretation.context;
   inductive_variables : LustreAst.lustre_type StringMap.t;
   quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) StringMap.t;
@@ -263,9 +266,10 @@ let pp_print_generated_identifiers ppf gids =
     | Output -> "output"
     | Ghost -> "ghost")
   in
-  let pp_print_subrange_constraint ppf (source, pos, id, oid) =
-    Format.fprintf ppf "(%a, %a, %a, %a)"
+  let pp_print_subrange_constraint ppf (source, is_original, pos, id, oid) =
+    Format.fprintf ppf "(%a, %b, %a, %a, %a)"
       pp_print_source source
+      is_original
       Lib.pp_print_position pos
       HString.pp_print_hstring id
       HString.pp_print_hstring oid
@@ -458,7 +462,7 @@ let mk_range_expr expr_type expr =
   in
   mk 0 expr_type expr
 
-let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
+let mk_fresh_subrange_constraint source info pos constrained_name expr_type is_original =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring "_subrange") in
@@ -467,7 +471,7 @@ let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
   let range_expr = mk_range_expr expr_type expr in
   let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_expr nexpr in
   let gids = { (empty ()) with
-    subrange_constraints = [(source, pos, name, constrained_name)];
+    subrange_constraints = [(source, is_original, pos, name, constrained_name)];
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_expr)]; }
   in
   gids
@@ -521,6 +525,15 @@ let mk_fresh_call info id map pos cond restart args defaults =
   call_cache := CallCache.add (id, cond, restart, args, defaults) nexpr !call_cache;
   nexpr, gids
 
+let get_type_of_id info node_id id = 
+  match AI.get_type info.abstract_interp_context node_id id with
+  | Some ty -> ty, true
+  | None ->
+    let ty = Ctx.lookup_ty info.context id |> get in
+    let ty = Ctx.expand_nested_type_syn info.context ty in
+    ty, false
+
+
 let normalize_list f list =
   let over_list (nitems, gids) item =
     let (normal_item, ids) = f item in
@@ -528,8 +541,9 @@ let normalize_list f list =
   in let list, gids = List.fold_left over_list ([], empty ()) list in
   List.rev list, gids
 
-let rec normalize ctx (decls:LustreAst.t) =
+let rec normalize ctx ai_ctx (decls:LustreAst.t) =
   let info = { context = ctx;
+    abstract_interp_context = ai_ctx;
     inductive_variables = StringMap.empty;
     quantified_variables = [];
     node_is_input_const = compute_node_input_constant_mask decls;
@@ -603,7 +617,7 @@ and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, b
     interpretation = interp;
     contract_ref; }
   in
-  let nbody, gids = normalize_contract info map body in
+  let nbody, gids = normalize_contract info map id body in
   nbody, gids, StringMap.empty
 
 (*
@@ -629,7 +643,7 @@ and normalize_ghost_declaration info map = function
   | e -> e, empty ()
 
 and normalize_node info map
-    (id, is_extern, params, inputs, outputs, locals, items, contracts) =
+    (node_id, is_extern, params, inputs, outputs, locals, items, contracts) =
   (* Setup the typing context *)
   let constants_ctx = inputs
     |> List.map Ctx.extract_consts
@@ -657,51 +671,39 @@ and normalize_node info map
   let info = { info with context = ctx } in
   (* Record subrange constraints on inputs, outputs, and locals *)
   let gids1 = inputs
-    |> List.filter (fun (_, i, _, _, _) -> 
-        let ty = Ctx.lookup_ty info.context i |> get in
-        let ty = Ctx.expand_nested_type_syn ctx ty in
-        AH.type_contains_subrange ty)
-    |> List.fold_left (fun acc (p, i, _, _, _) ->
-        let ty = Ctx.lookup_ty info.context i |> get in
-        let ty = Ctx.expand_nested_type_syn ctx ty in
-        (* This inlining step will become unnecessary when the backend no
-          longer demands constants in the integer range bounds *)
-        let ty = AIC.inline_constants_of_lustre_type info.context ty in
-        union acc (mk_fresh_subrange_constraint Input info p i ty))
-        (empty ())
+    |> List.filter (fun (_, id, _, _, _) -> 
+      let ty, _ = get_type_of_id info node_id id in
+      AH.type_contains_subrange ty)
+    |> List.fold_left (fun acc (p, id, _, _, _) ->
+      let ty, is_original = get_type_of_id info node_id id in
+      let ty = AIC.inline_constants_of_lustre_type info.context ty in
+      union acc (mk_fresh_subrange_constraint Input info p id ty is_original))
+      (empty ())
   in
   let gids2 = locals
     |> List.filter (function
-      | A.NodeVarDecl (_, (_, i, _, _)) -> 
-        let ty = Ctx.lookup_ty info.context i |> get in
-        let ty = Ctx.expand_nested_type_syn ctx ty in
+      | A.NodeVarDecl (_, (_, id, _, _)) -> 
+        let ty, _ = get_type_of_id info node_id id in
         AH.type_contains_subrange ty
       | _ -> false)
     |> List.fold_left (fun acc l -> match l with
-      | A.NodeVarDecl (p, (_, i, _, _)) -> 
-          let ty = Ctx.lookup_ty info.context i |> get in
-          let ty = Ctx.expand_nested_type_syn ctx ty in
-          (* This inlining step will become unnecessary when the backend no
-            longer demands constants in the integer range bounds *)
-          let ty = AIC.inline_constants_of_lustre_type info.context ty in
-          union acc (mk_fresh_subrange_constraint Local info p i ty)
+      | A.NodeVarDecl (p, (_, id, _, _)) -> 
+        let ty, is_original = get_type_of_id info node_id id in
+        let ty = AIC.inline_constants_of_lustre_type info.context ty in
+        union acc (mk_fresh_subrange_constraint Local info p id ty is_original)
       | _ -> assert false)
       (empty ())
   in
   let gids3 = outputs
-    |> List.filter (fun (_, i, _, _) -> 
-        let ty = Ctx.lookup_ty info.context i |> get in
-        let ty = Ctx.expand_nested_type_syn ctx ty in
-        AH.type_contains_subrange ty)
-    |> List.fold_left (fun acc (p, i, _, _) ->
-        let ty = Ctx.lookup_ty info.context i |> get in
-        let ty = Ctx.expand_nested_type_syn ctx ty in
-        (* This inlining step will become unnecessary when the backend no
-          longer demands constants in the integer range bounds *)
-        let ty = AIC.inline_constants_of_lustre_type info.context ty in
-        union acc (mk_fresh_subrange_constraint Output info p i ty))
-        (empty ())
-  in
+    |> List.filter (fun (_, id, _, _) -> 
+      let ty, _ = get_type_of_id info node_id id in
+      AH.type_contains_subrange ty)
+    |> List.fold_left (fun acc (p, id, _, _) ->
+      let ty, is_original = get_type_of_id info node_id id in
+      let ty = AIC.inline_constants_of_lustre_type info.context ty in
+      union acc (mk_fresh_subrange_constraint Output info p id ty is_original))
+      (empty ())
+in
   (* Normalize equations and the contract *)
   let nitems, gids4 = normalize_list (normalize_item info map) items in
   let ncontracts, gids5 = match contracts with
@@ -711,14 +713,14 @@ and normalize_node info map
         |> Res.unwrap in
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
-      let ncontracts, gids = normalize_contract info map
+      let ncontracts, gids = normalize_contract info map node_id
         contracts in
       (Some ncontracts), gids
     | None -> None, empty ()
   in
   let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
-  let map = StringMap.singleton id gids in
-  (id, is_extern, params, inputs, outputs, locals, nitems, ncontracts), map
+  let map = StringMap.singleton node_id gids in
+  (node_id, is_extern, params, inputs, outputs, locals, nitems, ncontracts), map
 
 and normalize_item info map = function
   | Body equation ->
@@ -743,7 +745,7 @@ and rename_ghost_variables info contract =
     (StringMap.singleton id new_id) :: rename_ghost_variables info t
   | _ :: t -> rename_ghost_variables info t
 
-and normalize_contract info map items =
+and normalize_contract info map node_id items =
   let gids = ref (empty ()) in
   let result = ref [] in
   let ghost_interp = rename_ghost_variables info items in
@@ -806,13 +808,11 @@ and normalize_contract info map items =
           | UntypedConst (pos, i, _)
           | FreeConst (pos, i, _)
           | TypedConst (pos, i, _, _) ->
-            let ty = Ctx.lookup_ty info.context i |> get in
-            let ty = Ctx.expand_nested_type_syn info.context ty in
-            (* This inlining step will become unnecessary when the backend no
-              longer demands constants in the integer range bounds *)
+            let ty, is_original = get_type_of_id info node_id i in
             let ty = AIC.inline_constants_of_lustre_type info.context ty in
+            let new_id = StringMap.find i info.interpretation in
             if AH.type_contains_subrange ty then
-              mk_fresh_subrange_constraint Ghost info pos i ty
+              mk_fresh_subrange_constraint Ghost info pos new_id ty is_original
             else empty ()
         in
         let ndecl, gids2 = normalize_ghost_declaration info map decl in
