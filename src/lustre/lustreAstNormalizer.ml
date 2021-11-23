@@ -527,12 +527,11 @@ let mk_fresh_call info id map pos cond restart args defaults =
 
 let get_type_of_id info node_id id = 
   match AI.get_type info.abstract_interp_context node_id id with
-  | Some ty -> ty, true
+  | Some ty -> ty, false
   | None ->
     let ty = Ctx.lookup_ty info.context id |> get in
     let ty = Ctx.expand_nested_type_syn info.context ty in
-    ty, false
-
+    ty, true
 
 let normalize_list f list =
   let over_list (nitems, gids) item =

@@ -101,29 +101,37 @@ let rec merge_types a b = match a, b with
 
 let rec restrict_type_by ty restrict = match ty, restrict with
   | LA.ArrayType (_, (t1, e)), LA.ArrayType (_, (t2, _)) ->
-    let t = restrict_type_by t1 t2 in
-    LA.ArrayType (dpos, (t, e))
+    let t, is_restricted = restrict_type_by t1 t2 in
+    LA.ArrayType (dpos, (t, e)), is_restricted
   | RecordType (_, t1s), RecordType (_, t2s) ->
     let ts = List.map2
-      (fun (p, i, t1) (_, _, t2) -> p, i, restrict_type_by t1 t2)
+      (fun (p, i, t1) (_, _, t2) -> 
+        let t, is_restricted = restrict_type_by t1 t2 in
+        (p, i, t), is_restricted)
       t1s t2s
     in
-    LA.RecordType (dpos, ts)
+    let ts, is_restricted_list = List.split ts in
+    let is_restricted = List.fold_left (||) false is_restricted_list in
+    LA.RecordType (dpos, ts), is_restricted
   | TupleType (_, t1s), TupleType (_, t2s) ->
     let ts = List.map2 (fun t1 t2 -> restrict_type_by t1 t2) t1s t2s in
-    LA.TupleType (dpos, ts)
+    let ts, is_restricted_list = List.split ts in
+    let is_restricted = List.fold_left (||) false is_restricted_list in
+    LA.TupleType (dpos, ts), is_restricted
   | IntRange (_, Const (_, Num l1), Const (_, Num r1)),
     IntRange (_, Const (_, Num l2), Const (_, Num r2)) ->
     let l1 = Numeral.of_string (HString.string_of_hstring l1) in
     let l2 = Numeral.of_string (HString.string_of_hstring l2) in
     let r1 = Numeral.of_string (HString.string_of_hstring r1) in
     let r2 = Numeral.of_string (HString.string_of_hstring r2) in
-    let l = HString.mk_hstring (Numeral.string_of_numeral (Numeral.max l1 l2)) in
-    let r = HString.mk_hstring (Numeral.string_of_numeral (Numeral.min r1 r2)) in
-    IntRange (dpos, Const (dpos, Num l), Const (dpos, Num r))
-  | IntRange _ as t, Int _ -> t
-  | Int _, (IntRange _ as t) -> t
-  | t, _ -> t
+    let lnum, rnum = Numeral.max l1 l2, Numeral.min r1 r2 in
+    let l = HString.mk_hstring (Numeral.string_of_numeral lnum) in
+    let r = HString.mk_hstring (Numeral.string_of_numeral rnum) in
+    let is_restricted = not (Numeral.equal l1 lnum) || not (Numeral.equal r1 rnum) in
+    IntRange (dpos, Const (dpos, Num l), Const (dpos, Num r)), is_restricted
+  | IntRange _ as t, Int _ -> t, false
+  | Int _, (IntRange _ as t) -> t, true
+  | t, _ -> t, false
 
 let rec arity_of_expr ty_ctx = function
   | LA.GroupExpr (_, ExprList, es) -> List.length es
@@ -260,9 +268,15 @@ and interpret_eqn node_id ctx ty_ctx lhs rhs =
       | LA.SingleIdent (_, id) ->
         let ty1 = Ctx.lookup_ty ty_ctx id |> get in
         let ty1 = Ctx.expand_nested_type_syn ty_ctx ty1 in
-        let ty2 = interpret_expr_by_type node_id ctx ty_ctx ty1 p expr in
-        let ty = restrict_type_by ty1 ty2 in
-        add_type acc node_id id ty
+        let restrict_ty = interpret_expr_by_type node_id ctx ty_ctx ty1 p expr in
+        let ty, is_restricted = restrict_type_by ty1 restrict_ty in
+        Format.eprintf "id: %a@. ty1: %a@. restrict_ty: %a@."
+          HString.pp_print_hstring id
+          LA.pp_print_lustre_type ty1
+          LA.pp_print_lustre_type restrict_ty;
+        if is_restricted then
+          add_type acc node_id id ty
+        else acc
       | LA.ArrayDef (_, array, indices) ->
         let array_type = Ctx.lookup_ty ty_ctx array |> get in
         let array_type = Ctx.expand_nested_type_syn ty_ctx array_type in
@@ -274,12 +288,15 @@ and interpret_eqn node_id ctx ty_ctx lhs rhs =
           (ty_ctx, array_type, [])
           indices
         in
-        let ty2 = interpret_expr_by_type node_id ctx ty_ctx ty1 p expr in
-        let ty = restrict_type_by ty1 ty2 in
-        let ty = List.fold_left (fun acc size -> LA.ArrayType (dpos, (acc, size)))
+        let restrict_ty = interpret_expr_by_type node_id ctx ty_ctx ty1 p expr in
+        let ty, is_restricted = restrict_type_by ty1 restrict_ty in
+        let ty = List.fold_left
+          (fun acc size -> LA.ArrayType (dpos, (acc, size)))
           ty sizes
         in
-        add_type acc node_id array ty
+        if is_restricted then
+          add_type acc node_id array ty
+        else acc
       | _ -> assert false)
     ctx
     struct_items
