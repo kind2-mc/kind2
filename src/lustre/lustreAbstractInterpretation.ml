@@ -270,10 +270,6 @@ and interpret_eqn node_id ctx ty_ctx lhs rhs =
         let ty1 = Ctx.expand_nested_type_syn ty_ctx ty1 in
         let restrict_ty = interpret_expr_by_type node_id ctx ty_ctx ty1 p expr in
         let ty, is_restricted = restrict_type_by ty1 restrict_ty in
-        Format.eprintf "id: %a@. ty1: %a@. restrict_ty: %a@."
-          HString.pp_print_hstring id
-          LA.pp_print_lustre_type ty1
-          LA.pp_print_lustre_type restrict_ty;
         if is_restricted then
           add_type acc node_id id ty
         else acc
