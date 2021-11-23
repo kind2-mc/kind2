@@ -1,0 +1,48 @@
+
+
+node N1 (i: subrange [0, 1] of int) returns (o: int);
+let
+  o = i + i*2;
+  --%PROPERTY 0 <= o and o <= 3 ;
+  --%MAIN ;
+tel;
+
+type t1 = subrange [0, 1] of int;
+
+node N2 (i : t1^4) returns (o:int^4);
+let
+   o = i;
+   --%PROPERTY 0 <= o[2] and o[2] <= 1 ;
+   --%MAIN ;
+tel;
+
+type t2 = subrange [-1, 0] of int;
+type t3 = {n: t1; d: t2};
+type t4 = {n: int; d: int};
+
+node N3 (i: t3) returns (o: t4);
+let
+   o = i;
+   --%PROPERTY -1 <= o.d and o.d <= 0;
+   --%PROPERTY 0 <= o.n and o.n <= 1;
+   --%MAIN ;
+tel;
+
+node N4 (i: t1) returns (o: int);
+(*@contract
+    var v1 : int = i + 1;
+    var v2 : int = v1 * 2;
+    guarantee 1 <= v1 and v1 <= 2;
+    guarantee 2 <= v2 and v2 <= 4;
+*)
+let
+   o = i;
+   --%MAIN ;
+tel;
+
+node N5 (i : t1^4) returns (o:int^4);
+let
+   o[k] = i[k];
+   --%PROPERTY 0 <= o[2] and o[2] <= 1 ;
+   --%MAIN ;
+tel;

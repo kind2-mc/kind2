@@ -1446,7 +1446,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* (State Variables for) Generated Subrange Constraints               *)
   (* ****************************************************************** *)
   in let glocals =
-    let over_generated_locals glocals (_, _, id, _) =
+    let over_generated_locals glocals (_, _, _, id, _) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map (A.Bool dummy_pos) in
       let over_indices = fun index index_type accum ->
@@ -1839,8 +1839,17 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* Generate Contract Constraints for Integer Subranges                *)
   (* ****************************************************************** *)
   in let (assumes, guarantees, props) =
-    let create_constraint_name id = Format.asprintf "%s._bounds" id in
-    let over_subrange_constraints (a, ac, g, gc, p) (source, pos, id, oid) =
+    let create_constraint_name id = 
+      let components = String.split_on_char '_' id in
+      try 
+        let _ = int_of_string (List.nth components 0) in
+        (* This is a renamed contract variable, with #_contract_name format *)
+        let id = components |> List.tl |> List.tl |> String.concat "" in
+        Format.asprintf "%s._bounds" id
+      with _ ->
+        Format.asprintf "%s._bounds" id
+    in
+    let over_subrange_constraints (a, ac, g, gc, p) (source, is_original, pos, id, oid) =
       let oid = HString.string_of_hstring oid in
       let sv = H.find !map.state_var (mk_ident id) in
       let effective_contract = guarantees != [] || modes != [] in
@@ -1851,22 +1860,28 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
             None else Some N.Guarantee
         | Ghost -> Some N.Guarantee
       in
-      match constraint_kind with
-      | Some N.Assumption ->
-        let oname = Some (create_constraint_name oid) in
-        let contract_sv = C.mk_svar pos ac oname sv [] in
-        N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
-        contract_sv :: a, ac + 1, g, gc, p
-      | Some N.Guarantee ->
-        let oname = Some (create_constraint_name oid) in
-        let contract_sv = C.mk_svar pos gc oname sv [] in
-        N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
-        a, ac, (contract_sv, false) :: g, gc + 1, p
-      | None ->
+      if is_original then
+        match constraint_kind with
+        | Some N.Assumption ->
+          let oname = Some (create_constraint_name oid) in
+          let contract_sv = C.mk_svar pos ac oname sv [] in
+          N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
+          contract_sv :: a, ac + 1, g, gc, p
+        | Some N.Guarantee ->
+          let oname = Some (create_constraint_name oid) in
+          let contract_sv = C.mk_svar pos gc oname sv [] in
+          N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
+          a, ac, (contract_sv, false) :: g, gc + 1, p
+        | None ->
+          let name = create_constraint_name oid in
+          let src = Property.Generated (Some pos, [sv]) in
+          a, ac, g, gc, (sv, name, src) :: p
+        | _ -> assert false
+      else
         let name = create_constraint_name oid in
         let src = Property.Generated (Some pos, [sv]) in
+        let src = Property.Candidate (Some src) in
         a, ac, g, gc, (sv, name, src) :: p
-      | _ -> assert false
     in
     let (assumes, _, guarantees, _, props) = 
       List.fold_left over_subrange_constraints

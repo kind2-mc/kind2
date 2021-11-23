@@ -114,6 +114,7 @@ type generated_identifiers = {
     * (LustreAst.expr list option)) (* node argument defaults *)
     list;
   subrange_constraints : (source
+    * bool (* true if the type used for the subrange is the original type *)
     * Lib.position
     * HString.t (* Generated name for Range Expression *)
     * HString.t) (* Original name that is constrained *)
@@ -128,6 +129,7 @@ type generated_identifiers = {
 }
 
 val normalize : TypeCheckerContext.tc_context
+  -> LustreAbstractInterpretation.context
   -> LustreAst.t
   -> (LustreAst.t * generated_identifiers StringMap.t,
       Lib.position * string) result

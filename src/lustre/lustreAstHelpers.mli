@@ -40,6 +40,11 @@ val pos_of_expr : expr -> Lib.position
 val expr_contains_call : expr -> bool
 (** Checks if the expression contains a call to a node *)
 
+val type_arity : lustre_type -> int * int
+(** Returns the arity of a type, a function (TArr) has arity `(a, b)`
+    where `a` is the number of inputs and `b` is the number of outputs,
+    every other type has arity `(0, 0)` *)
+
 val type_contains_subrange : lustre_type -> bool
 (** Returns true if the lustre type expression contains an IntRange or if it is an IntRange *)
 

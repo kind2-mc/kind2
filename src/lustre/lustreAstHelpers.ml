@@ -57,6 +57,15 @@ let pos_of_expr = function
     | CallParam (pos , _ , _ , _ )
     -> pos
 
+let type_arity ty =
+  let inner_types = function
+    | GroupType (_, es) -> List.length es
+    | _ -> 1
+  in
+  match ty with
+  | TArr (_, a, b) -> (inner_types a, inner_types b)
+  | _ -> (0, 0)
+
 let rec expr_contains_call = function
   | Ident (_, _) | ModeRef (_, _) | Const (_, _) | Last (_, _) -> false
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
