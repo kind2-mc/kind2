@@ -117,6 +117,7 @@ You can now add modules following the instructions in the previous section.
 
 @author Christoph Sticksel, Adrien Champion *)
 
+exception Error
 
 (** {1 Accessors for flags} *)
 

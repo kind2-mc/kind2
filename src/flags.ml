@@ -21,6 +21,8 @@ open Lib
 
 (* Workflow: see [flags.mli]. *)
 
+exception Error
+
 (* Raised on unknown flag. Stores the unknown flag. *)
 exception UnknownFlag of string
 (* Raised on bad argument for existing flag. Stores an explanation, the flag
@@ -389,7 +391,7 @@ module Smt = struct
     try find_on_path bin with
     | Not_found when fail ->
       Log.log L_fatal "@[<v>%s executable %s not found.@]" name bin;
-      exit 2
+      raise Error
 
   
   (* Check which SMT solver is available *)
@@ -445,8 +447,7 @@ module Smt = struct
         set_mathsat_bin exec;
       with Not_found ->
         Log.log L_fatal "No SMT Solver found.";
-
-        exit 2
+        raise Error
 
   let check_qe_solver () = match qe_solver () with
     (* User chose Z3 *)
@@ -2410,7 +2411,7 @@ let print_module_info = function
             (fun fmt (key,_) -> Format.fprintf fmt "%s" key)
             ", "
           ) module_map ;
-        exit 2
+        raise Error
       )
     ) ;
     tl |> List.iter ( fun id ->
@@ -2425,7 +2426,7 @@ let print_module_info = function
             (fun fmt (key,_) -> Format.fprintf fmt "%s" key)
             ", "
           ) module_map ;
-        exit 2
+        raise Error
       )
     )
   ) ;
@@ -3383,7 +3384,7 @@ let parse_clas specs anon_action =
             Log.log L_error "Unknown flag '%s'" flag
           )
         );
-        exit 2
+        exit ExitCodes.error
       )
       | BadArg (error, spec) ->
         check_format_flags args;
@@ -3399,7 +3400,7 @@ let parse_clas specs anon_action =
             Log.log L_error "Error on flag '%s': %s" flag error
           )
         );
-        exit 2
+        exit ExitCodes.error
       | Arg.Bad expl ->
         check_format_flags args;
         (
@@ -3415,7 +3416,7 @@ let parse_clas specs anon_action =
             Log.log L_error "Bad argument: %s" expl
           )
         );
-        exit 2
+        exit ExitCodes.error
     )
 
   | [] ->
@@ -3450,7 +3451,7 @@ let solver_dependant_actions solver =
       if major_rev < 3 || (major_rev = 3 && (minor_rev < 2 || (minor_rev = 2 && patch_rev < 2))) then (
         Log.log L_error "Kind 2 requires Boolector 3.2.2 or later. Found version: %d.%d.%d"
           major_rev minor_rev patch_rev ;
-        exit 2
+        raise Error
       )
     | None -> Log.log L_warn "Couldn't determine Boolector version"
   )
@@ -3538,7 +3539,7 @@ let solver_dependant_actions solver =
     | Some (major_rev, _, _) ->
       if major_rev > 1 then (
         Log.log L_error "Selected Yices 1 (native format), but found Yices 2 or later";
-        exit 2
+        raise Error
       )
     | None -> Log.log L_warn "Couldn't determine Yices version"
   )
@@ -3683,6 +3684,8 @@ let parse_argv () =
     pp_set_tags !Lib.log_ppf true;
   end;
 
+  post_argv_parse_actions ();
+
   (* If any module info was requested, print it and exit. *)
   Global.help_of () |> List.rev |> print_module_info ;
 
@@ -3696,8 +3699,6 @@ let parse_argv () =
 
   IVC.finalize_ivc_elements ();
   MCS.finalize_mcs_elements ();
-
-  post_argv_parse_actions ();
   
   solver_dependant_actions (Smt.solver ());
 

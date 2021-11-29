@@ -47,7 +47,11 @@ let classify_input_stream: string -> string = fun in_file ->
 let setup : unit -> any_input = fun () ->
 
   (* Parse command-line flags. *)
-  Flags.parse_argv () ;
+  (try
+    Flags.parse_argv ()
+   with Flags.Error ->
+    KEvent.terminate_log () ; exit ExitCodes.error
+  );
 
   Debug.set_dflags (Flags.debug ()) ;
 
