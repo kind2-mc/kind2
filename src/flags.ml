@@ -1202,7 +1202,7 @@ module Certif = struct
     (bool_arg abstr)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Use absrtact type indexes in certificates and proofs .@ Default: %a@]"
+        "@[<v>Use abstract type indexes in certificates and proofs .@ Default: %a@]"
         fmt_bool abstr_default
     )
   let abstr () = !abstr

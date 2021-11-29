@@ -33,7 +33,7 @@ val generate_certificate : TransSys.t -> string -> unit
 
 (** Generate intermediate SMT-LIB 2 certificates in the directory given by
     {!Flags.certif_dir}. *)
-val generate_smt2_certificates : int -> 'a InputSystem.t -> TransSys.t -> unit
+val generate_smt2_certificates : 'a InputSystem.t -> TransSys.t -> unit
 
 
 (** Generate LFSC proofs in the directory given by {!Flags.certif_dir}. *)
