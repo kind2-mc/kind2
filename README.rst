@@ -95,8 +95,7 @@ Required Software
 
 To run Kind 2 the following software must be installed on your computer:
 
-* Linux or macOS
-* `ZeroMQ (C library) 4.x or later <https://zeromq.org>`_\, and
+* Linux or macOS, and
 * a supported SMT solver
 
   * `Boolector <https://boolector.github.io/>`_ (for inputs with only machine integers),

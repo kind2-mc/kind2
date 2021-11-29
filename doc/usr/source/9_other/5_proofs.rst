@@ -20,7 +20,7 @@ are not immune to errors.
 To mitigate this problem, Kind 2 accompanies its safety claims with a
 *certificate*\ , an artifact embodying a proof of the claim. The certificate can
 then be validated by a trusted *certificate/proof checker*\ , in our case the
-`LFSC checker <https://github.com/LFSC/LFSC-checker>`_.
+`LFSC checker <https://github.com/cvc5/LFSC>`_.
 
 Certification chain
 -------------------
@@ -62,10 +62,12 @@ is annotated with an invariance property stating that, at each step, the output
 
    node add_two (a, b : real) returns (c : real) ;
      var v : real;
+         P : bool;
    let
      v = a + b ; 
      c = 1.0 -> if (pre c) > v then (pre c) else v ;
-     --%PROPERTY (a > 0.0 and b > 0.0) => c > 0.0 ;
+     P = (a > 0.0 and b > 0.0) => c > 0.0 ;
+     --%PROPERTY P;
    tel
 
 Kind 2 offers the possibility to generate two types of certificates, SMT-LIB 2
@@ -128,36 +130,36 @@ For successful runs, the output of Kind 2 will contain:
 
 .. code-block:: none
 
-   Certificate minimization
-   Kept 0 (out of 1) invariants at bound 1 (down from 1)
-   Certificate checker was written in add_two.out/certificates.0/certificate.smt2
+   Post-analysis: certification
+
+   Certificate checker was written in add_two.lus.out/certif/certificate.smt2
    Generating frontend eq-observer with jKind ...
    Generating frontend certificate
    ...
-   Certificate minimization
-   Kept 0 (out of 4) invariants at bound 1 (down from 1)
-   Certificate checker was written in add_two.out/certificates.0/FECC.smt2
+   Certificate checker was written in add_two.lus.out/certif/FEC.kind2.out/certif/FECC.smt2
 
-The certificates are located in the directory ``add_two.out`` which has the
+The certificates are located in the directory ``add_two.lus.out/certif`` which has the
 following structure:
 
 .. code-block:: none
 
-   add_two.out/
-   |-- certificates.0
-       |-- FEC.kind2
-       |-- FECC.smt2
+   add_two.lus.out/certif
+   |-- certificate_checker
+   |-- certificate_prelude.smt2
+   |-- certificate.smt2
+   |-- FEC.kind2
+   |-- FEC.kind2.out/certif
        |-- FECC_checker
        |-- FECC_prelude.smt2
-       |-- certificate.smt2
-       |-- certificate_checker
-       |-- certificate_prelude.smt2
+       |-- FECC.smt2
        |-- jkind_sys.smt2
-       |-- jkind_sys_lfsc_trace.smt2
-       |-- kind2_sys.smt2
-       |-- observer.smt2
-       |-- observer_lfsc_trace.smt2
        |-- observer_sys.smt2
+   |-- jkind_sys_lfsc_trace.smt2
+   |-- jkind_sys.smt2
+   |-- kind2_sys.smt2
+   |-- observer_lfsc_trace.smt2
+   |-- observer.smt2
+
 
 In particular, it contains two scripts of interest: ``certificate_checker`` and
 ``FECC_checker``. They are meant to be run with the name of an SMT solver as
@@ -167,7 +169,7 @@ the second script checks that the *frontend certificate is valid*.
 
 .. code-block:: none
 
-   > add_two.out/certificates.0/certificate_checker z3
+   > add_two.lus.out/certif/certificate_checker z3
    Checking base case
    unsat
    Checking 1-inductive case
@@ -175,7 +177,7 @@ the second script checks that the *frontend certificate is valid*.
    Checking property subsumption
    unsat
 
-   > add_two.out/certificates.0/FECC_checker z3
+   > add_two.lus.out/certif/FEC.kind2.out/certif/FECC_checker z3
    Checking base case
    unsat
    Checking 1-inductive case
@@ -206,7 +208,7 @@ Successful runs emit outputs that contain lines such as:
    Certificate minimization
    Kept 0 (out of 4) invariants at bound 1 (down from 1)
    ...
-   Final LFSC proof written to add_two.out/add_two.lus.0.lfsc
+   Final LFSC proof written to add_two.lus.out/add_two.lus.0.lfsc
 
 The important one is the last message that indicate the file in which the proof
 was written. The directory produced by Kind 2 will have the following
@@ -214,7 +216,7 @@ structure:
 
 .. code-block:: none
 
-   add_two.out/
+   add_two.lus.out/
    |-- add_two.lus.0.lfsc
    |-- certificates.0
        |-- FEC.kind2
@@ -244,7 +246,7 @@ generated output, together with the correct signatures:
 
 .. code-block:: none
 
-   lfsc-checker path/to/lfsc/signatures/{sat,smt,th_base,th_int,th_real,kind}.plf add_two.out/add_two.lus.0.lfsc
+   lfsc-checker path/to/lfsc/signatures/{sat,smt,th_base,th_int,th_real,kind}.plf add_two.lus.out/add_two.lus.0.lfsc
 
 The return code for this command execution is ``0`` when everything was checked
 correctly. Two lines will be displayed when both the proof of invariance and
@@ -252,8 +254,8 @@ the proof of correct translation by the frontend are valid:
 
 .. code-block:: none
 
-   File add_two.out/add_two.lus.0.lfsc, line 198, character 17: Check successful
-   File add_two.out/add_two.lus.0.lfsc, line 628, character 18: Check successful
+   File add_two.lus.out/add_two.lus.0.lfsc, line 198, character 17: Check successful
+   File add_two.lus.out/add_two.lus.0.lfsc, line 628, character 18: Check successful
 
 In the case where only the invariance proof was produced and checked, the
 return code will still be ``0`` but only one ``Check successful`` will be in the
