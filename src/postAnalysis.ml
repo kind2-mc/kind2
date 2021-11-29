@@ -769,7 +769,7 @@ module RunCertif: PostAnalysis = struct
         ( if Flags.Certif.proof () then
             CertifChecker.generate_all_proofs uid in_sys sys
           else
-            CertifChecker.generate_smt2_certificates uid in_sys sys
+            CertifChecker.generate_smt2_certificates in_sys sys
         ) ;
         Ok ()
     )
