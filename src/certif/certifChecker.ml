@@ -133,9 +133,9 @@ let index_sym_of_int i =
   if abstr_index () then "%%" ^ string_of_int i
   else string_of_int i
     
-let index_of_int =
-  if not (abstr_index ()) then Term.mk_num_of_int
-  else fun i ->
+let index_of_int i =
+  if not (abstr_index ()) then Term.mk_num_of_int i
+  else
     Term.mk_uf
       (UfSymbol.mk_uf_symbol (index_sym_of_int i) [] (ty_index ()))
       []
@@ -188,13 +188,13 @@ let guard_two_state_term_list t v_at_0 =
 
   let guard_two_state_term t =
     if is_two_state t then
-      Term.mk_implies [Term.mk_gt [v_at_0; t0]; t]
+      Term.mk_implies
+        [Term.mk_eq [v_at_0; index_of_int 0] |> Term.mk_not; t]
     else t
   in
 
   match Term.node_of_term t with
-  | Term.T.Node (s, l) -> (
-    assert (Symbol.node_of_symbol s == `AND);
+  | Term.T.Node (s, l) when Symbol.node_of_symbol s == `AND -> (
     Term.mk_and (List.map guard_two_state_term l)
   )
   | _ -> guard_two_state_term t
@@ -1922,19 +1922,19 @@ let generate_certificate sys dirname =
 
     let obs_sys = sys in
 
-    let jkind_sys =
+    (*let jkind_sys =
       TransSys.find_subsystem_of_scope sys JkindParser.jkind_scope in
 
     let jkdef_filename = Filename.concat dirname jkind_defs_f in
     let jkdef_oc = open_out jkdef_filename in
     let fmt_jkdef = formatter_of_out_channel jkdef_oc in
     export_system_defs fmt_jkdef "JKind" jkind_sys;
-    close_out jkdef_oc;
+    close_out jkdef_oc;*)
 
     let obsdef_filename = Filename.concat dirname "observer_sys.smt2" in
     let obsdef_oc = open_out obsdef_filename in
     let fmt_obsdef = formatter_of_out_channel obsdef_oc in
-    export_system_defs fmt_obsdef ~recursive:false "Obs" obs_sys;
+    export_system_defs fmt_obsdef ~recursive:true "Obs" obs_sys;
     close_out obsdef_oc;
 
   end
@@ -2888,9 +2888,8 @@ let fecc_checker_script =
   "set -e\n" ^
   select_solver_script ^
   goto_cert_dir ^
-  "cat FECC_prelude.smt2 kind2_sys.smt2 jkind_sys.smt2 observer_sys.smt2 FECC.smt2 | $solver"
-
-      
+  (* "cat FECC_prelude.smt2 kind2_sys.smt2 jkind_sys.smt2 observer_sys.smt2 FECC.smt2 | $solver" *)
+  "cat FECC_prelude.smt2 observer_sys.smt2 FECC.smt2 | $solver"
 
 
 (*****************************************)
