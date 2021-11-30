@@ -1,3 +1,20 @@
+# Unreleased
+
+This release includes performance improvements and various fixes. Notably:
+
+- Improve performance of realizability checks with Z3.
+- Fix realizability check of imported functions.
+- Fix realizability check when `--ae_val_use_ctx` is false (bug introduced in v1.5.0).
+- Fix generation of tracing information when a contract is proven unrealizable.
+- Fix shape of generated invariant candidates when `--invgen_all_out` is true.
+- Fix generation of SMT-LIB 2 certificates.
+- Make Kind 2 compatible with the latest version (5.1.4) of the OCaml bindings for ZMQ.
+
+In addition, this version adds support for a new Visual Studio Code
+[extension](https://github.com/kind2-mc/vscode-kind2) for Kind 2.
+
+Thanks to Andreas Katis for his feedback and bug reports.
+
 
 # Kind 2 v1.5.0
 
