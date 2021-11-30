@@ -1056,7 +1056,7 @@ module Contracts = struct
 
   let assumption_gen_default = false
   let assumption_gen = ref assumption_gen_default
-  let _ = add_spec
+  (*let _ = add_spec
     "--assumption_gen"
     (bool_arg assumption_gen)
     (fun fmt ->
@@ -1067,7 +1067,7 @@ module Contracts = struct
         Default: %a\
       @]"
       fmt_bool assumption_gen_default
-    )
+    )*)
   let assumption_gen () = !assumption_gen
 
   (*let assump_include_outputs_default = true
@@ -1088,7 +1088,7 @@ module Contracts = struct
 
   let two_state_assumption_default = false
   let two_state_assumption = ref two_state_assumption_default
-  let _ = add_spec
+  (*let _ = add_spec
     "--two_state_assumption"
     (bool_arg two_state_assumption)
     (fun fmt ->
@@ -1099,12 +1099,12 @@ module Contracts = struct
         Default: %a\
       @]"
       fmt_bool two_state_assumption_default
-    )
+    )*)
   let two_state_assumption () = !two_state_assumption
 
   let assumption_gen_iter_default = 1
   let assumption_gen_iter = ref assumption_gen_iter_default
-  let _ = add_spec
+  (*let _ = add_spec
     "--assumption_gen_iter"
     (Arg.Int (fun n -> assumption_gen_iter := n))
     (fun fmt ->
@@ -1115,7 +1115,7 @@ module Contracts = struct
         Default: %d\
       @]"
       assumption_gen_iter_default
-    )
+    )*)
   let assumption_gen_iter () = !assumption_gen_iter
 
 
