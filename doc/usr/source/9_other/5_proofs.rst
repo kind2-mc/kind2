@@ -152,7 +152,6 @@ following structure:
        |-- FECC_checker
        |-- FECC_prelude.smt2
        |-- FECC.smt2
-       |-- jkind_sys.smt2
        |-- observer_sys.smt2
    |-- jkind_sys_lfsc_trace.smt2
    |-- jkind_sys.smt2
