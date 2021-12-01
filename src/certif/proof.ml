@@ -34,17 +34,21 @@ let set_margin fmt = pp_set_margin fmt (if compact then max_int else 80)
 
 
 (* disable the preprocessor and tell cvc4 to dump proofs *)
-let cvc4_proof_args =
-  if Flags.Certif.log_trust () then
-    (* Preprocessing holes as equivalences *)
-    " --lang smt2 --no-simplification --fewer-preprocessing-holes --dump-proof"
-  else
-    (* Disable if we don't care about holes because cvc4 is less likely to
-       crash *)
-    " --lang smt2 --no-simplification --dump-proof"
+let cvc4_proof_args () =
+  let args = ["--simplification=none"; "--dump-proof"; "--lang smt2"] in
+  let args =
+    if Flags.Certif.log_trust () then
+      (* Preprocessing holes as equivalences *)
+      "--fewer-preprocessing-holes" :: args
+    else
+      (* Disable if we don't care about holes because
+         cvc4 is less likely to crash *)
+      args
+  in
+  List.rev args
 
-let cvc4_proof_cmd =
-  Flags.Smt.cvc4_bin () ^ cvc4_proof_args
+let cvc4_proof_cmd () =
+  String.concat " " (Flags.Smt.cvc4_bin () :: cvc4_proof_args ())
 
 
 let get_cvc4_version () =
@@ -737,7 +741,8 @@ let proof_from_chan ctx in_ch =
 
 (* Call CVC4 in proof production mode on an SMT2 file an returns the proof *)
 let proof_from_file ctx f =
-  let cmd = cvc4_proof_cmd ^ " " ^ f in
+  let cmd = cvc4_proof_cmd () ^ " " ^ f in
+  (* Format.eprintf "CMD: %s@." cmd ; *)
   let ic, oc, err = Unix.open_process_full cmd (Unix.environment ()) in
   try
     let proof = proof_from_chan ctx ic in
@@ -816,7 +821,7 @@ let context_from_chan in_ch =
 (* Call CVC4 on a file that contains only tracing information and parse the
    dummy proof to extract the context (declarations and definitions). *)
 let context_from_file f =
-  let cmd = cvc4_proof_cmd ^ " " ^ f in
+  let cmd = cvc4_proof_cmd () ^ " " ^ f in
   let ic, oc, err = Unix.open_process_full cmd (Unix.environment ()) in
   try
     let ctx = context_from_chan ic in
