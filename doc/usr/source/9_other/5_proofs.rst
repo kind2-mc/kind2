@@ -198,16 +198,12 @@ Successful runs emit outputs that contain lines such as:
 
 .. code-block:: none
 
-   Certificate minimization
-   Kept 0 (out of 1) invariants at bound 1 (down from 1)
-   ...
+   Post-analysis: certification
+
    Generating frontend eq-observer with jKind ...
    Generating frontend proof
    ...
-   Certificate minimization
-   Kept 0 (out of 4) invariants at bound 1 (down from 1)
-   ...
-   Final LFSC proof written to add_two.lus.out/add_two.lus.0.lfsc
+   Final LFSC proof written to add_two.lus.out/add_two.lus.1.lfsc
 
 The important one is the last message that indicate the file in which the proof
 was written. The directory produced by Kind 2 will have the following
@@ -216,8 +212,8 @@ structure:
 .. code-block:: none
 
    add_two.lus.out/
-   |-- add_two.lus.0.lfsc
-   |-- certificates.0
+   |-- add_two.lus.1.lfsc
+   |-- certificates.1
        |-- FEC.kind2
        |-- base.smt2
        |-- frontend_base.smt2
@@ -245,7 +241,7 @@ generated output, together with the correct signatures:
 
 .. code-block:: none
 
-   lfsc-checker path/to/lfsc/signatures/{sat,smt,th_base,th_int,th_real,kind}.plf add_two.lus.out/add_two.lus.0.lfsc
+   lfsc-checker path/to/lfsc/signatures/{sat,smt,th_base,th_int,th_real,kind}.plf add_two.lus.out/add_two.lus.1.lfsc
 
 The return code for this command execution is ``0`` when everything was checked
 correctly. Two lines will be displayed when both the proof of invariance and
@@ -253,8 +249,8 @@ the proof of correct translation by the frontend are valid:
 
 .. code-block:: none
 
-   File add_two.lus.out/add_two.lus.0.lfsc, line 198, character 17: Check successful
-   File add_two.lus.out/add_two.lus.0.lfsc, line 628, character 18: Check successful
+   File add_two.lus.out/add_two.lus.1.lfsc, line 198, character 17: Check successful
+   File add_two.lus.out/add_two.lus.1.lfsc, line 628, character 18: Check successful
 
 In the case where only the invariance proof was produced and checked, the
 return code will still be ``0`` but only one ``Check successful`` will be in the
