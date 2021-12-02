@@ -1907,8 +1907,9 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   (* Finalize and build intermediate LustreNode                         *)
   (* ****************************************************************** *)
-  in let locals = sofar_local @ ghost_locals @ locals @ glocals in
-  let equations = sofar_equation @ equations @ gequations in
+  in let locals = sofar_local @ ghost_locals @ glocals @ locals in
+  let calls = List.rev calls in
+  let equations = List.rev (sofar_equation @ equations @ gequations) in
   let state_var_source_map = SVT.fold
     (fun k v a -> SVM.add k v a)
     !map.source SVM.empty in
