@@ -776,6 +776,12 @@ and normalize_contract info map node_id items =
         Mode (pos, name, nrequires, nensures), union gids1 gids2, StringMap.empty
       | ContractCall (pos, name, inputs, outputs) ->
         let ninputs, gids1 = normalize_list (abstract_expr false info map false) inputs in
+        let noutputs = List.map
+          (fun id -> match StringMap.find_opt id info.interpretation with
+            | Some new_id -> new_id
+            | None -> id)
+          outputs
+        in
         let ninputs = List.map (fun e -> 
           match e with
           | A.Ident (_, i) -> i
@@ -784,12 +790,13 @@ and normalize_contract info map node_id items =
         in
         let cref = new_contract_reference () in
         let info = { info with
-          contract_scope = name :: info.contract_scope;
-          contract_ref = cref;
-          } in
+            contract_scope = info.contract_scope @ [name];
+            contract_ref = cref;
+          }
+        in
         let called_node = StringMap.find name info.contract_calls in
         let normalized_call, gids2, interp = 
-          normalize_node_contract info map cref ninputs outputs called_node
+          normalize_node_contract info map cref ninputs noutputs called_node
         in
         let gids = union gids1 gids2 in
         let gids = { gids with

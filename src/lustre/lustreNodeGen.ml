@@ -624,9 +624,10 @@ and compile_ast_expr
   and compile_mode_reference path' =
     let path' = List.map HString.string_of_hstring path' in
     let rpath = List.rev path' in
-    let path' = (rpath |> List.tl |> List.rev)
-      @ (List.map HString.string_of_hstring !map.contract_scope)
-      @ [(rpath |> List.hd)] in
+    let path1 = (rpath |> List.tl |> List.rev) in
+    let path2 = List.map HString.string_of_hstring !map.contract_scope in
+    let path3 = [(rpath |> List.hd)] in
+    let path' = path2 @ path1 @ path3 in
     let rec find_mode = function
       | { C.path ; C.requires } :: tail ->
         if path = path' then
@@ -1269,16 +1270,6 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
         LAN.StringMap.find id gids.LAN.contract_calls
       in
       let svar_scope = (call_pos, List.hd scope) :: contract_scope in
-(*       let subst expr id =
-        let expr = compile_ast_expr cstate ctx [] map expr in
-        let ident = mk_ident id in
-        H.replace !map.expr ident expr;
-      in
-      let in_formals = List.map (fun (_, i, _, _, _) -> i) in_formals in
-      let out_formals = List.map (fun (_, i, _, _) -> i) out_formals in
-      let out_params = List.map (fun i -> A.Ident (pos, i)) out_params in
-      List.iter2 subst in_params in_formals;
-      List.iter2 subst out_params out_formals; *)
       let contract_scope = List.map (fun (_, i) -> i) svar_scope in
       map := { !map with contract_scope };
       let (a, g) = compile_contract cstate gids ctx map svar_scope node_scope contract_eqns
