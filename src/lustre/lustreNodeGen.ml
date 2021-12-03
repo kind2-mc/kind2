@@ -66,6 +66,8 @@ type identifier_maps = {
   quant_vars : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
   modes : LustreContract.mode list;
   contract_scope : HString.t list;
+  assume_count : int;
+  guarantee_count : int;
 }
 
 (*
@@ -111,6 +113,8 @@ let empty_identifier_maps () = {
   quant_vars = H.create 7;
   modes = [];
   contract_scope = [];
+  assume_count = 0;
+  guarantee_count = 0;
 }
 
 let empty_compiler_state () = { 
@@ -245,8 +249,10 @@ let mk_state_var
 let mk_ident id =
   let id = HString.string_of_hstring id in
   match String.split_on_char '_' id with
-  | i :: id' :: [] -> (match int_of_string_opt i with
-    | Some i -> I.push_index (I.mk_string_ident id') i
+  | i :: id' -> (match int_of_string_opt i with
+    | Some i -> 
+      let id' = String.concat "_" id' in
+      I.push_index (I.mk_string_ident id') i
     | None -> I.mk_string_ident id)
   | _ -> I.mk_string_ident id
 
@@ -1172,7 +1178,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
           let possible_state_var = mk_state_var
             ~is_input:false
             map
-            (node_scope @ contract_scope @ I.user_scope)
+            (node_scope @ "contract" :: I.user_scope)
             ident
             index
             index_type
@@ -1191,7 +1197,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
           let possible_state_var = mk_state_var
             ~is_input:false
             map
-            (node_scope @ contract_scope @ I.user_scope)
+            (node_scope @ "contract" :: I.user_scope)
             ident
             index
             index_type
@@ -1278,17 +1284,22 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   (* ****************************************************************** *)
   (* Contract Assumptions and Guarantees                                *)
   (* ****************************************************************** *)
-  in let assumes =
-    let over_assumes i (pos, name, soft, expr) =
+  in
+  let assumes =
+    let over_assumes (pos, name, soft, expr) =
+      let i = !map.assume_count in
+      map := {!map with assume_count = i + 1 };
       let kind = if soft then N.WeakAssumption else N.Assumption in
       compile_contract_item (i + 1) contract_scope kind pos name expr
-    in List.mapi over_assumes assumes
-
-  in let guarantees = 
-    let over_guarantees i (pos, name, soft, expr) =
+    in List.map over_assumes assumes
+  in
+  let guarantees = 
+    let over_guarantees (pos, name, soft, expr) =
+      let i = !map.guarantee_count in
+      map := {!map with guarantee_count = i + 1 };
       let kind = if soft then N.WeakGuarantee else N.Guarantee in
       compile_contract_item (i + 1) contract_scope kind pos name expr
-    in List.mapi over_guarantees guarantees
+    in List.map over_guarantees guarantees
       |> List.map (fun g -> g, false)
   in assumes @ assumes2,
     guarantees @ guarantees2
@@ -1303,12 +1314,14 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       (I.instance_ident |> I.string_of_ident false)
       (I.to_scope name @ I.reserved_scope)
       Type.t_int
-  in let init_flag = 
+  in
+  let init_flag = 
     StateVar.mk_state_var
       (I.init_flag_ident |> I.string_of_ident false)
       (I.to_scope name @ I.reserved_scope)
       Type.t_bool
-  in let map = ref (empty_identifier_maps ()) in
+  in
+  let map = ref (empty_identifier_maps ()) in
   let state_var_expr_map = SVT.create 7 in
   (* ****************************************************************** *)
   (* Node Inputs                                                        *)
@@ -1420,7 +1433,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       let over_indices = fun index index_type accum ->
         let possible_state_var = mk_state_var
           map
-          (node_scope @ scope @ I.reserved_scope)
+          (node_scope @ I.reserved_scope)
           ident
           index
           (* (if Type.is_array index_type then index else X.empty_index) *)
@@ -1893,7 +1906,20 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         X.empty_index
         Type.t_bool
         None)
-      in let sofar_local = X.singleton X.empty_index sofar_assumption in
+      in
+      let assumes = List.sort
+        (fun a b -> compare_pos (C.pos_of_svar a) (C.pos_of_svar b))
+        assumes
+      in
+      let guarantees = List.sort
+        (fun (a, _) (b, _) -> compare_pos (C.pos_of_svar a) (C.pos_of_svar b))
+        guarantees
+      in
+      let modes = List.sort
+        (fun {C.pos = a} {C.pos = b} -> compare_pos a b)
+        modes
+      in
+      let sofar_local = X.singleton X.empty_index sofar_assumption in
       let conj_of_assumes = assumes
         |> List.map (fun { C.svar } -> E.mk_var svar)
         |> E.mk_and_n

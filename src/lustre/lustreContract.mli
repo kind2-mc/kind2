@@ -46,6 +46,9 @@ val mk_svar :
   Lib.position -> int -> string option ->
   StateVar.t -> (Lib.position * string) list -> svar
 
+(** Returns the position of the svar *)
+val pos_of_svar : svar -> Lib.position
+
 (** Generates a property name.
 
 [prop_name_of_svar svar kind name] generates a property name with the trace

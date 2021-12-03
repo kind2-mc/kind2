@@ -826,22 +826,6 @@ and normalize_contract info map node_id items =
       | AssumptionVars decl ->
         AssumptionVars decl, empty (), StringMap.empty
     in
-(*     Format.eprintf "accum interp: %a\n\n"
-      (pp_print_list
-        (pp_print_pair
-          Format.pp_print_string
-          Format.pp_print_string
-          ":")
-        "\n")
-      (StringMap.bindings !interpretation);
-    Format.eprintf "new interp: %a\n\n"
-      (pp_print_list
-        (pp_print_pair
-          Format.pp_print_string
-          Format.pp_print_string
-          ":")
-        "\n")
-      (StringMap.bindings interpretation'); *)
     interpretation := StringMap.merge union_keys !interpretation interpretation';
     result := nitem :: !result;
     gids := union !gids gids';

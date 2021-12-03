@@ -35,6 +35,9 @@ let mk_svar pos num name svar scope = {
   pos ; num ; name ; svar ; scope
 }
 
+(** Returns the position of the svar *)
+let pos_of_svar { pos } = pos
+
 let prop_name_of_svar { pos ; name = s; scope } kind name =
   match s with
   | Some n ->
@@ -128,7 +131,7 @@ let pp_print_svar fmt { pos ; num ; svar } =
     num pp_print_position pos SVar.pp_print_state_var svar
 
 let pp_print_svar_debug fmt { pos; num; name; svar; scope } =
-  Format.fprintf fmt "[%d] [%a] (name:%a) (scope:%a) (%a)"
+  Format.fprintf fmt "[%d] [%a] (name:%a) (sv:%a) (scope:%a)"
     num
     pp_print_position pos
     (pp_print_option Format.pp_print_string) name
