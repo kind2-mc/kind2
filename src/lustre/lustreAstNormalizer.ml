@@ -95,55 +95,67 @@ module StringSet = struct
   end)
 end
 
-module CallCache = struct
-  include Map.Make(struct
-    type t = A.ident (* node name *)
-      * A.expr (* cond *)
-      * A.expr (* restart *)
-      * A.expr list (* arguments (which are already abstracted) *)
-      * A.expr list option (* defaults *)
-    let compare (xi, xc, xr, xa, xd) (yi, yc, yr, ya, yd) =
-      let compare_list x y = if List.length x = List.length y then
-          List.map2 (AH.syn_expr_equal (Some 6)) x y
-        else [Ok false]
-      in
-      let join l = List.fold_left
-        (fun a x -> a >>= fun a -> x >>= fun x -> Ok (a && x))
-        (Ok (true))
-        l
-      in
-      let i = HString.equal xi yi in
-      let c = AH.syn_expr_equal (Some 6) xc yc in
-      let r = AH.syn_expr_equal (Some 6) xr yr in
-      let a = compare_list xa ya |> join in
-      let d = match xd, yd with
-        | Some xd, Some yd -> compare_list xd yd |> join
-        | None, None -> Ok true
-        | _ -> Ok false
-      in
-      match i, c, r, a, d with
-      | true, Ok true, Ok true, Ok true, Ok true -> 0
-      | _ -> 1
-  end)
+module AstCallHash = struct
+  type t = A.ident (* node name *)
+    * A.expr (* cond *)
+    * A.expr (* restart *)
+    * A.expr list (* arguments (which are already abstracted) *)
+    * A.expr list option (* defaults *)
+  let equal (xi, xc, xr, xa, xd) (yi, yc, yr, ya, yd) =
+    let compare_list x y = if List.length x = List.length y then
+        List.map2 (AH.syn_expr_equal (Some 6)) x y
+      else [Ok false]
+    in
+    let join l = List.fold_left
+      (fun a x -> a >>= fun a -> x >>= fun x -> Ok (a && x))
+      (Ok (true))
+      l
+    in
+    let i = HString.equal xi yi in
+    let c = AH.syn_expr_equal (Some 6) xc yc in
+    let r = AH.syn_expr_equal (Some 6) xr yr in
+    let a = compare_list xa ya |> join in
+    let d = match xd, yd with
+      | Some xd, Some yd -> compare_list xd yd |> join
+      | None, None -> Ok true
+      | _ -> Ok false
+    in
+    match i, c, r, a, d with
+    | true, Ok true, Ok true, Ok true, Ok true -> true
+    | _ -> false
+
+  let hash (i, c, r, a, d) =
+    let c_hash = AH.hash (Some 6) c in
+    let r_hash = AH.hash (Some 6) r in
+    let a_hash = List.map (AH.hash (Some 6)) a in
+    let d_hash = match d with
+      | Some l -> List.map (AH.hash (Some 6)) l
+      | None -> [0]
+    in
+    Hashtbl.hash (HString.hash i, c_hash, r_hash, a_hash, d_hash)
 end
 
-module LocalCache = struct
-  include Map.Make(struct
-    type t = A.expr
-    let compare x y = match AH.syn_expr_equal (Some 6) x y with
-      | Ok true -> 0
-      | _ -> 1
-  end)
+module CallCache = Hashtbl.Make(AstCallHash)
+
+module AstExprHash = struct
+  type t = A.expr
+  let equal x y = (match AH.syn_expr_equal (Some 6) x y with
+    | Ok true -> true
+    | _ -> false)
+  
+  let hash = AH.hash (Some 6)
 end
 
-let call_cache = ref CallCache.empty
-let local_cache = ref LocalCache.empty
-let node_arg_cache = ref LocalCache.empty
+module LocalCache = Hashtbl.Make(AstExprHash)
+
+let call_cache = CallCache.create 20
+let local_cache = LocalCache.create 10
+let node_arg_cache = LocalCache.create 10
 
 let clear_cache () =
-  call_cache := CallCache.empty;
-  local_cache := LocalCache.empty;
-  node_arg_cache := LocalCache.empty;
+  CallCache.clear call_cache;
+  LocalCache.clear local_cache;
+  LocalCache.clear node_arg_cache;
 
 type source = Local | Input | Output | Ghost
 
@@ -384,7 +396,7 @@ let generalize_to_array_expr name ind_vars expr nexpr =
   in eq_lhs, nexpr
 
 let mk_fresh_local info pos is_ghost ind_vars expr_type expr oexpr =
-  match LocalCache.find_opt expr !local_cache with
+  match LocalCache.find_opt local_cache expr with
   | Some nexpr -> nexpr, empty ()
   | None ->
   i := !i + 1;
@@ -397,7 +409,7 @@ let mk_fresh_local info pos is_ghost ind_vars expr_type expr oexpr =
     locals = StringMap.singleton name (is_ghost, scope, expr_type, expr, oexpr);
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in
-  local_cache := LocalCache.add expr nexpr !local_cache;
+  LocalCache.add local_cache expr nexpr;
   nexpr, gids
 
 let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
@@ -412,7 +424,7 @@ let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
   in nexpr, gids
 
 let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
-  match LocalCache.find_opt expr !node_arg_cache with
+  match LocalCache.find_opt node_arg_cache expr with
   | Some nexpr -> nexpr, empty ()
   | None ->
   i := !i + 1;
@@ -424,7 +436,7 @@ let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
     node_args = [(name, is_const, expr_type, expr)];
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in
-  node_arg_cache := LocalCache.add expr nexpr !node_arg_cache;
+  LocalCache.add node_arg_cache expr nexpr;
   nexpr, gids
 
 let mk_range_expr expr_type expr = 
@@ -492,8 +504,8 @@ let mk_fresh_call info id map pos cond restart args defaults =
   let called_node = StringMap.find id map in
   let has_oracles = List.length called_node.oracles > 0 in
   let check_cache = CallCache.find_opt
+    call_cache
     (id, cond, restart, args, defaults)
-    !call_cache
   in
   match check_cache, has_oracles with
   | Some nexpr, false -> nexpr, empty ()
@@ -522,7 +534,7 @@ let mk_fresh_call info id map pos cond restart args defaults =
     propagated_oracles = propagated_oracles;
     calls = [call];}
   in
-  call_cache := CallCache.add (id, cond, restart, args, defaults) nexpr !call_cache;
+  CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
   nexpr, gids
 
 let get_type_of_id info node_id id = 

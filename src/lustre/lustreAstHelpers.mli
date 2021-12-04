@@ -162,3 +162,8 @@ val syn_type_equal : int option -> lustre_type -> lustre_type -> (bool, unit) re
 (** Check syntactic equality of Lustre types (ignoring positions) up to a certain optional depth.
     If the depth is reached, then [Error ()] is returned, otherwise [Ok false] if the
     two expressions are unequal and [Ok true] if they are equal.*)
+
+val hash : int option -> expr -> int
+(** Compute the hash of an AST expression to the given depth. After the depth limit is reached
+    the same hash value is assigned to every sub expression. This function does not include position
+    information in the hash. *)
