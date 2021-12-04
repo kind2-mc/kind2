@@ -65,7 +65,7 @@ type identifier_maps = {
   array_index : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
   quant_vars : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
   modes : LustreContract.mode list;
-  contract_scope : HString.t list;
+  contract_scope : (Lib.position * HString.t) list;
   assume_count : int;
   guarantee_count : int;
 }
@@ -631,7 +631,10 @@ and compile_ast_expr
     let path' = List.map HString.string_of_hstring path' in
     let rpath = List.rev path' in
     let path1 = (rpath |> List.tl |> List.rev) in
-    let path2 = List.map HString.string_of_hstring !map.contract_scope in
+    let path2 = List.map
+      (fun (_, s) -> HString.string_of_hstring s)
+      !map.contract_scope
+    in
     let path3 = [(rpath |> List.hd)] in
     let path' = path2 @ path1 @ path3 in
     let rec find_mode = function
@@ -1136,7 +1139,7 @@ and compile_node pos ctx cstate map oracles outputs cond restart ident args defa
   in node_call
 
 and compile_contract_variables cstate gids ctx map contract_scope node_scope contract =
-  let contract_scope = List.map HString.string_of_hstring contract_scope in
+  (* let contract_scope = List.map HString.string_of_hstring contract_scope in *)
   let compile_contract_item count scope kind pos name expr =
     let ident = extract_normalized expr in
     let state_var = H.find !map.state_var ident in
@@ -1217,12 +1220,17 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   in let modes =
     let over_modes (pos, id, reqs, enss) =
       let id' = HString.string_of_hstring id in
+      let contract_scope = List.map
+        (fun (p, s) -> (p, HString.string_of_hstring s))
+        contract_scope
+      in
       let reqs = List.mapi
-        (fun i (p, n, e) -> compile_contract_item (i + 1) [] N.Require p n e)
+        (fun i (p, n, e) -> compile_contract_item (i + 1) contract_scope N.Require p n e)
         reqs in
       let enss = List.mapi
-        (fun i (p, n, e) -> compile_contract_item (i + 1) [] N.Ensure p n e)
+        (fun i (p, n, e) -> compile_contract_item (i + 1) contract_scope N.Ensure p n e)
         enss in
+      let contract_scope = List.map (fun (_, i) -> i) contract_scope in
       let path = contract_scope @ [id'] in
       let mode = C.mk_mode (mk_ident id) pos path reqs enss false in
       map := { !map with modes = mode :: !map.modes };
@@ -1271,14 +1279,13 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   (* Contract Calls                                                     *)
   (* ****************************************************************** *)
   in let (assumes2, guarantees2) =
-    let over_calls (ams, gs) (call_pos, id, _, _) =
+    let over_calls (ams, gs) (_, id, _, _) =
       let (_, scope, contract_eqns) =
         LAN.StringMap.find id gids.LAN.contract_calls
       in
-      let svar_scope = (call_pos, List.hd scope) :: contract_scope in
-      let contract_scope = List.map (fun (_, i) -> i) svar_scope in
+      let contract_scope = (List.hd scope) :: contract_scope in
       map := { !map with contract_scope };
-      let (a, g) = compile_contract cstate gids ctx map svar_scope node_scope contract_eqns
+      let (a, g) = compile_contract cstate gids ctx map contract_scope node_scope contract_eqns
       in a @ ams, g @ gs
     in List.fold_left over_calls ([], []) contract_calls
   (* ****************************************************************** *)
@@ -1426,10 +1433,9 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   in let glocals =
     let locals_list = LAN.StringMap.bindings gids.LAN.locals in
-    let over_generated_locals glocals (id, (is_ghost, scope, expr_type, _, _)) =
+    let over_generated_locals glocals (id, (is_ghost, expr_type, _, _)) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map expr_type in
-      let scope = List.map HString.string_of_hstring scope in
       let over_indices = fun index index_type accum ->
         let possible_state_var = mk_state_var
           map
@@ -1666,7 +1672,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       let name = match name_opt with
         | Some n -> n
         | None -> let abs = LAN.StringMap.find_opt id_str gids.LAN.locals in
-          let name = match abs with | Some (_, _, _, _, e) -> e | None -> expr in
+          let name = match abs with | Some (_, _, _, e) -> e | None -> expr in
             Format.asprintf "@[<h>%a@]" A.pp_print_expr name
       in sv, name, (Property.PropAnnot pos)
     in List.map op node_props
@@ -1935,7 +1941,9 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   in let locals = sofar_local @ ghost_locals @ glocals @ locals in
   let calls = List.rev calls in
+  let props = List.rev props in
   let equations = List.rev (sofar_equation @ equations @ gequations) in
+  let asserts = List.sort (fun (p1, _) (p2, _) -> compare_pos p1 p2) asserts in
   let state_var_source_map = SVT.fold
     (fun k v a -> SVM.add k v a)
     !map.source SVM.empty in

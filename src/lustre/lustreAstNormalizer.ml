@@ -149,8 +149,8 @@ end
 module LocalCache = Hashtbl.Make(AstExprHash)
 
 let call_cache = CallCache.create 20
-let local_cache = LocalCache.create 10
-let node_arg_cache = LocalCache.create 10
+let local_cache = LocalCache.create 20
+let node_arg_cache = LocalCache.create 20
 
 let clear_cache () =
   CallCache.clear call_cache;
@@ -171,14 +171,13 @@ type generated_identifiers = {
     * LustreAst.expr)
     StringMap.t;
   locals : (bool (* whether the variable is ghost *)
-    * HString.t list (* scope *)
     * LustreAst.lustre_type
     * LustreAst.expr (* abstracted expression *)
     * LustreAst.expr) (* original expression *)
     StringMap.t;
   contract_calls :
     (Lib.position
-    * HString.t list (* contract scope *)
+    * (Lib.position * HString.t) list (* contract scope *)
     * LustreAst.contract_node_equation list)
     StringMap.t;
   warnings : (Lib.position * LustreAst.expr) list;
@@ -202,7 +201,7 @@ type generated_identifiers = {
   expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
-    * HString.t list (* contract scope  *)
+    * (Lib.position * HString.t) list (* contract scope  *)
     * LustreAst.eq_lhs
     * LustreAst.expr)
     list;
@@ -215,7 +214,7 @@ type info = {
   quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) StringMap.t;
   contract_calls : LustreAst.contract_node_decl StringMap.t;
-  contract_scope : HString.t list;
+  contract_scope : (Lib.position * HString.t) list;
   contract_ref : HString.t;
   interpretation : HString.t StringMap.t;
   local_group_projection : int
@@ -229,7 +228,7 @@ let get_warnings map = map
 
 let pp_print_generated_identifiers ppf gids =
   let locals_list = StringMap.bindings gids.locals 
-    |> List.map (fun (x, (y, _, z, w, _)) -> x, y, z, w)
+    |> List.map (fun (x, (y, z, w, _)) -> x, y, z, w)
   in
   let array_ctor_list = StringMap.bindings gids.array_constructors
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
@@ -289,7 +288,7 @@ let pp_print_generated_identifiers ppf gids =
   let pp_print_contract_call ppf (ref, pos, scope, decl) = Format.fprintf ppf "%a := (%a, %a): %a"
     HString.pp_print_hstring ref
     pp_print_position pos
-    (pp_print_list HString.pp_print_hstring "::") scope
+    (pp_print_list (pp_print_pair Lib.pp_print_position HString.pp_print_hstring ":") "::") scope
     (pp_print_list A.pp_print_contract_item ";") decl
   in
   Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
@@ -402,11 +401,10 @@ let mk_fresh_local info pos is_ghost ind_vars expr_type expr oexpr =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring "_glocal") in
-  let scope = info.contract_scope in
   let nexpr = A.Ident (pos, name) in
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
   let gids = { (empty ()) with
-    locals = StringMap.singleton name (is_ghost, scope, expr_type, expr, oexpr);
+    locals = StringMap.singleton name (is_ghost, expr_type, expr, oexpr);
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in
   LocalCache.add local_cache expr nexpr;
@@ -802,7 +800,7 @@ and normalize_contract info map node_id items =
         in
         let cref = new_contract_reference () in
         let info = { info with
-            contract_scope = info.contract_scope @ [name];
+            contract_scope = info.contract_scope @ [(pos, name)];
             contract_ref = cref;
           }
         in

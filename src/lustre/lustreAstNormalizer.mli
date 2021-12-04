@@ -91,14 +91,13 @@ type generated_identifiers = {
     * LustreAst.expr)
     StringMap.t;
   locals : (bool (* whether the variable is ghost *)
-    * HString.t list (* scope *)
     * LustreAst.lustre_type
     * LustreAst.expr (* abstracted expression *)
     * LustreAst.expr) (* original expression *)
     StringMap.t;
   contract_calls :
     (Lib.position
-    * HString.t list (* contract scope *)
+    * (Lib.position * HString.t) list (* contract scope *)
     * LustreAst.contract_node_equation list)
     StringMap.t;
   warnings : (Lib.position * LustreAst.expr) list;
@@ -122,7 +121,7 @@ type generated_identifiers = {
   expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
-    * HString.t list (* contract scope  *)
+    * (Lib.position * HString.t) list (* contract scope  *)
     * LustreAst.eq_lhs
     * LustreAst.expr)
     list;
