@@ -1306,3 +1306,143 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
     | _ -> Ok (false)
   in
   r 0 x y
+
+let hash depth_limit expr =
+  let rec r depth expr =
+    if Lib.is_some depth_limit && depth > Lib.get depth_limit then 
+      Hashtbl.hash (0, Lib.get depth_limit)
+    else match expr with
+      | Ident (_, x) -> Hashtbl.hash (1, HString.hash x)
+      | ModeRef (_, path) ->
+        let path_hash = List.map HString.hash path in
+        Hashtbl.hash (2, path_hash)
+      | RecordProject (_, e, i) ->
+        let e_hash = r (depth + 1) e in
+        Hashtbl.hash (3, e_hash, HString.hash i)
+      | TupleProject (_, e, i) ->
+        let e_hash = r (depth + 1) e in
+        Hashtbl.hash (4, e_hash, i)
+      | Const (_, True) -> Hashtbl.hash (5, 0)
+      | Const (_, False) -> Hashtbl.hash (5, 1)
+      | Const (_, Num x) -> Hashtbl.hash (5, 2, HString.hash x)
+      | Const (_, Dec x) -> Hashtbl.hash (5, 3, HString.hash x)
+      | UnaryOp (_, op, e) ->
+        let e_hash = r (depth + 1) e in
+        Hashtbl.hash (6, op, e_hash)
+      | BinaryOp (_, op, e1, e2) ->
+        let e1_hash = r (depth + 1) e1 in
+        let e2_hash = r (depth + 1) e2 in
+        Hashtbl.hash (7, op, e1_hash, e2_hash)
+      | TernaryOp (_, op, e1, e2, e3) ->
+        let e1_hash = r (depth + 1) e1 in
+        let e2_hash = r (depth + 1) e2 in
+        let e3_hash = r (depth + 1) e3 in
+        Hashtbl.hash (8, op, e1_hash, e2_hash, e3_hash)
+      | NArityOp (_, op, e) ->
+        let e_hash = List.map (r (depth + 1)) e in
+        Hashtbl.hash (9, op, e_hash)
+      | ConvOp (_, op, e) ->
+        let e_hash = r (depth + 1) e in
+        Hashtbl.hash (10, op, e_hash)
+      | CompOp (_, op, e1, e2) ->
+        let e1_hash = r (depth + 1) e1 in
+        let e2_hash = r (depth + 1) e2 in
+        Hashtbl.hash (11, op, e1_hash, e2_hash)
+      | RecordExpr (_, i, es) ->
+        let es_hash = List.map
+          (fun (i, e) ->
+            let e_hash = r (depth + 1) e in
+            (HString.hash i, e_hash))
+          es
+        in
+        Hashtbl.hash (12, HString.hash i, es_hash)
+      | GroupExpr (_, op, es) ->
+        let es_hash = List.map (r (depth + 1)) es in
+        Hashtbl.hash (13, op, es_hash)
+      | StructUpdate (_, e1, l, e2) ->
+        let e1_hash = r (depth + 1) e1 in
+        let e2_hash = r (depth + 1) e2 in
+        let l_hash = List.map (function
+          | Label (_, i) -> HString.hash i
+          | Index (_, e) -> r (depth + 1) e)
+          l
+        in
+        Hashtbl.hash (14, e1_hash, l_hash, e2_hash)
+      | ArrayConstr (_, e1, e2) ->
+        let e1_hash = r (depth + 1) e1 in
+        let e2_hash = r (depth + 1) e2 in
+        Hashtbl.hash (15, e1_hash, e2_hash)
+      | ArrayIndex (_, e1, e2) ->
+        let e1_hash = r (depth + 1) e1 in
+        let e2_hash = r (depth + 1) e2 in
+        Hashtbl.hash (16, e1_hash, e2_hash)
+      | ArrayConcat (_, e1, e2) ->
+        let e1_hash = r (depth + 1) e1 in
+        let e2_hash = r (depth + 1) e2 in
+        Hashtbl.hash (17, e1_hash, e2_hash)
+      | ArraySlice (_, e1, (e2, e3)) ->
+        let e1_hash = r (depth + 1) e1 in
+        let e2_hash = r (depth + 1) e2 in
+        let e3_hash = r (depth + 1) e3 in
+        Hashtbl.hash (18, e1_hash, e2_hash, e3_hash)
+      | Quantifier (_, e1, l, e2) ->
+        let e2_hash = r (depth + 1) e2 in
+        let l_hash = List.map (fun (_, i, _) -> HString.hash i) l in
+        Hashtbl.hash (19, e1, l_hash, e2_hash)
+      | When (_, e, ClockTrue) ->
+        let e_hash = r (depth + 1) e in
+        Hashtbl.hash (20, e_hash, ClockTrue)
+      | When (_, e, ClockPos i) ->
+        let e_hash = r (depth + 1) e in
+        Hashtbl.hash (20, e_hash, 0, HString.hash i)
+      | When (_, e, ClockNeg i) ->
+        let e_hash = r (depth + 1) e in
+        Hashtbl.hash (20, e_hash, 1, HString.hash i)
+      | When (_, e, ClockConstr (i1, i2)) ->
+        let e_hash = r (depth + 1) e in
+        Hashtbl.hash (20, e_hash, 0, HString.hash i1, HString.hash i2)
+      | Current (_, e) ->
+        let e_hash = r (depth + 1) e in
+        Hashtbl.hash (21, e_hash)
+      | Condact (_, e1, e2, i, l1, l2) ->
+        let e1_hash = r (depth + 1) e1 in
+        let e2_hash = r (depth + 1) e2 in
+        let l1_hash = List.map (r (depth + 1)) l1 in
+        let l2_hash = List.map (r (depth + 1)) l2 in
+        Hashtbl.hash (22, e1_hash, e2_hash, HString.hash i, l1_hash, l2_hash)
+      | Activate (_, i, e1, e2, l) ->
+        let e1_hash = r (depth + 1) e1 in
+        let e2_hash = r (depth + 1) e2 in
+        let l_hash = List.map (r (depth + 1)) l in
+        Hashtbl.hash (23, HString.hash i, e1_hash, e2_hash, l_hash)
+      | Merge (_, i, l) ->
+        let l_hash = List.map
+          (fun (i, e) -> let e_hash = r (depth + 1) e in
+            (HString.hash i, e_hash))
+          l
+        in
+        Hashtbl.hash (24, HString.hash i, l_hash)
+      | RestartEvery (_, i, l, e) ->
+        let l_hash = List.map (r (depth + 1)) l in
+        let e_hash = r (depth + 1) e in
+        Hashtbl.hash (25, HString.hash i, l_hash, e_hash)
+      | Pre (_, e) ->
+        let e_hash = r (depth + 1) e in
+        Hashtbl.hash (26, e_hash)
+      | Last (_, i) -> Hashtbl.hash (27, HString.hash i)
+      | Fby (_, e1, i, e2) ->
+        let e1_hash = r (depth + 1) e1 in
+        let e2_hash = r (depth + 1) e2 in
+        Hashtbl.hash (27, e1_hash,  i, e2_hash)
+      | Arrow (_, e1, e2) ->
+        let e1_hash = r (depth + 1) e1 in
+        let e2_hash = r (depth + 1) e2 in
+        Hashtbl.hash (28, e1_hash, e2_hash)
+      | Call (_, i, l) ->
+        let l_hash = List.map (r (depth + 1)) l in
+        Hashtbl.hash (29, HString.hash i, l_hash)
+      | CallParam (_, i, _, el) ->
+        let el_hash = List.map (r (depth + 1)) el in
+        Hashtbl.hash (30, HString.hash i, el_hash)
+  in
+  r 0 expr

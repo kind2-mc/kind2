@@ -1,0 +1,46 @@
+
+node H (u:bool) returns (v:bool);
+let
+   v = not u;
+tel;
+
+contract A (a:bool) returns (b:bool) ;
+let
+  assume a;
+  assume H(a);
+  guarantee not b;
+  mode Am (
+      require a;
+      ensure not b;
+  );
+tel
+
+contract B (x:bool) returns (y:bool) ;
+let
+  var v: bool = not (not x);
+
+  assume H(x);
+  import A (x) returns (y);
+  mode Bm (
+      require x;
+      require v;
+      require v;
+      ensure ::A::Am;
+  );
+tel
+
+contract C (n:bool) returns (m:bool);
+let
+    import B (n) returns (m);
+    import A (n) returns (m);
+tel
+
+node N (u:bool) returns (v:bool);
+(*@contract
+  var h1: bool = not u;
+  import C (h1) returns (v);
+  guarantee ::C::B::A::Am;
+*)
+let
+   v = u;
+tel;

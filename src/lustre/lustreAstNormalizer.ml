@@ -95,55 +95,67 @@ module StringSet = struct
   end)
 end
 
-module CallCache = struct
-  include Map.Make(struct
-    type t = A.ident (* node name *)
-      * A.expr (* cond *)
-      * A.expr (* restart *)
-      * A.expr list (* arguments (which are already abstracted) *)
-      * A.expr list option (* defaults *)
-    let compare (xi, xc, xr, xa, xd) (yi, yc, yr, ya, yd) =
-      let compare_list x y = if List.length x = List.length y then
-          List.map2 (AH.syn_expr_equal (Some 6)) x y
-        else [Ok false]
-      in
-      let join l = List.fold_left
-        (fun a x -> a >>= fun a -> x >>= fun x -> Ok (a && x))
-        (Ok (true))
-        l
-      in
-      let i = HString.equal xi yi in
-      let c = AH.syn_expr_equal (Some 6) xc yc in
-      let r = AH.syn_expr_equal (Some 6) xr yr in
-      let a = compare_list xa ya |> join in
-      let d = match xd, yd with
-        | Some xd, Some yd -> compare_list xd yd |> join
-        | None, None -> Ok true
-        | _ -> Ok false
-      in
-      match i, c, r, a, d with
-      | true, Ok true, Ok true, Ok true, Ok true -> 0
-      | _ -> 1
-  end)
+module AstCallHash = struct
+  type t = A.ident (* node name *)
+    * A.expr (* cond *)
+    * A.expr (* restart *)
+    * A.expr list (* arguments (which are already abstracted) *)
+    * A.expr list option (* defaults *)
+  let equal (xi, xc, xr, xa, xd) (yi, yc, yr, ya, yd) =
+    let compare_list x y = if List.length x = List.length y then
+        List.map2 (AH.syn_expr_equal (Some 6)) x y
+      else [Ok false]
+    in
+    let join l = List.fold_left
+      (fun a x -> a >>= fun a -> x >>= fun x -> Ok (a && x))
+      (Ok (true))
+      l
+    in
+    let i = HString.equal xi yi in
+    let c = AH.syn_expr_equal (Some 6) xc yc in
+    let r = AH.syn_expr_equal (Some 6) xr yr in
+    let a = compare_list xa ya |> join in
+    let d = match xd, yd with
+      | Some xd, Some yd -> compare_list xd yd |> join
+      | None, None -> Ok true
+      | _ -> Ok false
+    in
+    match i, c, r, a, d with
+    | true, Ok true, Ok true, Ok true, Ok true -> true
+    | _ -> false
+
+  let hash (i, c, r, a, d) =
+    let c_hash = AH.hash (Some 6) c in
+    let r_hash = AH.hash (Some 6) r in
+    let a_hash = List.map (AH.hash (Some 6)) a in
+    let d_hash = match d with
+      | Some l -> List.map (AH.hash (Some 6)) l
+      | None -> [0]
+    in
+    Hashtbl.hash (HString.hash i, c_hash, r_hash, a_hash, d_hash)
 end
 
-module LocalCache = struct
-  include Map.Make(struct
-    type t = A.expr
-    let compare x y = match AH.syn_expr_equal (Some 6) x y with
-      | Ok true -> 0
-      | _ -> 1
-  end)
+module CallCache = Hashtbl.Make(AstCallHash)
+
+module AstExprHash = struct
+  type t = A.expr
+  let equal x y = (match AH.syn_expr_equal (Some 6) x y with
+    | Ok true -> true
+    | _ -> false)
+  
+  let hash = AH.hash (Some 6)
 end
 
-let call_cache = ref CallCache.empty
-let local_cache = ref LocalCache.empty
-let node_arg_cache = ref LocalCache.empty
+module LocalCache = Hashtbl.Make(AstExprHash)
+
+let call_cache = CallCache.create 20
+let local_cache = LocalCache.create 20
+let node_arg_cache = LocalCache.create 20
 
 let clear_cache () =
-  call_cache := CallCache.empty;
-  local_cache := LocalCache.empty;
-  node_arg_cache := LocalCache.empty;
+  CallCache.clear call_cache;
+  LocalCache.clear local_cache;
+  LocalCache.clear node_arg_cache;
 
 type source = Local | Input | Output | Ghost
 
@@ -159,14 +171,13 @@ type generated_identifiers = {
     * LustreAst.expr)
     StringMap.t;
   locals : (bool (* whether the variable is ghost *)
-    * HString.t list (* scope *)
     * LustreAst.lustre_type
     * LustreAst.expr (* abstracted expression *)
     * LustreAst.expr) (* original expression *)
     StringMap.t;
   contract_calls :
     (Lib.position
-    * HString.t list (* contract scope *)
+    * (Lib.position * HString.t) list (* contract scope *)
     * LustreAst.contract_node_equation list)
     StringMap.t;
   warnings : (Lib.position * LustreAst.expr) list;
@@ -190,7 +201,7 @@ type generated_identifiers = {
   expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
-    * HString.t list (* contract scope  *)
+    * (Lib.position * HString.t) list (* contract scope  *)
     * LustreAst.eq_lhs
     * LustreAst.expr)
     list;
@@ -203,7 +214,7 @@ type info = {
   quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) StringMap.t;
   contract_calls : LustreAst.contract_node_decl StringMap.t;
-  contract_scope : HString.t list;
+  contract_scope : (Lib.position * HString.t) list;
   contract_ref : HString.t;
   interpretation : HString.t StringMap.t;
   local_group_projection : int
@@ -217,7 +228,7 @@ let get_warnings map = map
 
 let pp_print_generated_identifiers ppf gids =
   let locals_list = StringMap.bindings gids.locals 
-    |> List.map (fun (x, (y, _, z, w, _)) -> x, y, z, w)
+    |> List.map (fun (x, (y, z, w, _)) -> x, y, z, w)
   in
   let array_ctor_list = StringMap.bindings gids.array_constructors
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
@@ -277,7 +288,7 @@ let pp_print_generated_identifiers ppf gids =
   let pp_print_contract_call ppf (ref, pos, scope, decl) = Format.fprintf ppf "%a := (%a, %a): %a"
     HString.pp_print_hstring ref
     pp_print_position pos
-    (pp_print_list HString.pp_print_hstring "::") scope
+    (pp_print_list (pp_print_pair Lib.pp_print_position HString.pp_print_hstring ":") "::") scope
     (pp_print_list A.pp_print_contract_item ";") decl
   in
   Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
@@ -384,20 +395,19 @@ let generalize_to_array_expr name ind_vars expr nexpr =
   in eq_lhs, nexpr
 
 let mk_fresh_local info pos is_ghost ind_vars expr_type expr oexpr =
-  match LocalCache.find_opt expr !local_cache with
+  match LocalCache.find_opt local_cache expr with
   | Some nexpr -> nexpr, empty ()
   | None ->
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring "_glocal") in
-  let scope = info.contract_scope in
   let nexpr = A.Ident (pos, name) in
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
   let gids = { (empty ()) with
-    locals = StringMap.singleton name (is_ghost, scope, expr_type, expr, oexpr);
+    locals = StringMap.singleton name (is_ghost, expr_type, expr, oexpr);
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in
-  local_cache := LocalCache.add expr nexpr !local_cache;
+  LocalCache.add local_cache expr nexpr;
   nexpr, gids
 
 let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
@@ -412,7 +422,7 @@ let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
   in nexpr, gids
 
 let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
-  match LocalCache.find_opt expr !node_arg_cache with
+  match LocalCache.find_opt node_arg_cache expr with
   | Some nexpr -> nexpr, empty ()
   | None ->
   i := !i + 1;
@@ -424,7 +434,7 @@ let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
     node_args = [(name, is_const, expr_type, expr)];
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in
-  node_arg_cache := LocalCache.add expr nexpr !node_arg_cache;
+  LocalCache.add node_arg_cache expr nexpr;
   nexpr, gids
 
 let mk_range_expr expr_type expr = 
@@ -492,8 +502,8 @@ let mk_fresh_call info id map pos cond restart args defaults =
   let called_node = StringMap.find id map in
   let has_oracles = List.length called_node.oracles > 0 in
   let check_cache = CallCache.find_opt
+    call_cache
     (id, cond, restart, args, defaults)
-    !call_cache
   in
   match check_cache, has_oracles with
   | Some nexpr, false -> nexpr, empty ()
@@ -522,7 +532,7 @@ let mk_fresh_call info id map pos cond restart args defaults =
     propagated_oracles = propagated_oracles;
     calls = [call];}
   in
-  call_cache := CallCache.add (id, cond, restart, args, defaults) nexpr !call_cache;
+  CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
   nexpr, gids
 
 let get_type_of_id info node_id id = 
@@ -776,6 +786,12 @@ and normalize_contract info map node_id items =
         Mode (pos, name, nrequires, nensures), union gids1 gids2, StringMap.empty
       | ContractCall (pos, name, inputs, outputs) ->
         let ninputs, gids1 = normalize_list (abstract_expr false info map false) inputs in
+        let noutputs = List.map
+          (fun id -> match StringMap.find_opt id info.interpretation with
+            | Some new_id -> new_id
+            | None -> id)
+          outputs
+        in
         let ninputs = List.map (fun e -> 
           match e with
           | A.Ident (_, i) -> i
@@ -784,12 +800,13 @@ and normalize_contract info map node_id items =
         in
         let cref = new_contract_reference () in
         let info = { info with
-          contract_scope = name :: info.contract_scope;
-          contract_ref = cref;
-          } in
+            contract_scope = info.contract_scope @ [(pos, name)];
+            contract_ref = cref;
+          }
+        in
         let called_node = StringMap.find name info.contract_calls in
         let normalized_call, gids2, interp = 
-          normalize_node_contract info map cref ninputs outputs called_node
+          normalize_node_contract info map cref ninputs noutputs called_node
         in
         let gids = union gids1 gids2 in
         let gids = { gids with
@@ -819,22 +836,6 @@ and normalize_contract info map node_id items =
       | AssumptionVars decl ->
         AssumptionVars decl, empty (), StringMap.empty
     in
-(*     Format.eprintf "accum interp: %a\n\n"
-      (pp_print_list
-        (pp_print_pair
-          Format.pp_print_string
-          Format.pp_print_string
-          ":")
-        "\n")
-      (StringMap.bindings !interpretation);
-    Format.eprintf "new interp: %a\n\n"
-      (pp_print_list
-        (pp_print_pair
-          Format.pp_print_string
-          Format.pp_print_string
-          ":")
-        "\n")
-      (StringMap.bindings interpretation'); *)
     interpretation := StringMap.merge union_keys !interpretation interpretation';
     result := nitem :: !result;
     gids := union !gids gids';
