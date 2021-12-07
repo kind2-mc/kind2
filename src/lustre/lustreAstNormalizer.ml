@@ -103,7 +103,7 @@ module AstCallHash = struct
     * A.expr list option (* defaults *)
   let equal (xi, xc, xr, xa, xd) (yi, yc, yr, ya, yd) =
     let compare_list x y = if List.length x = List.length y then
-        List.map2 (AH.syn_expr_equal (Some 6)) x y
+        List.map2 (AH.syn_expr_equal None) x y
       else [Ok false]
     in
     let join l = List.fold_left
@@ -112,8 +112,8 @@ module AstCallHash = struct
       l
     in
     let i = HString.equal xi yi in
-    let c = AH.syn_expr_equal (Some 6) xc yc in
-    let r = AH.syn_expr_equal (Some 6) xr yr in
+    let c = AH.syn_expr_equal None xc yc in
+    let r = AH.syn_expr_equal None xr yr in
     let a = compare_list xa ya |> join in
     let d = match xd, yd with
       | Some xd, Some yd -> compare_list xd yd |> join
@@ -137,7 +137,7 @@ end
 
 module CallCache = Hashtbl.Make(AstCallHash)
 
-module AstExprHash = struct
+module LocalHash = struct
   type t = A.expr
   let equal x y = (match AH.syn_expr_equal (Some 6) x y with
     | Ok true -> true
@@ -146,16 +146,27 @@ module AstExprHash = struct
   let hash = AH.hash (Some 6)
 end
 
-module LocalCache = Hashtbl.Make(AstExprHash)
+module LocalCache = Hashtbl.Make(LocalHash)
+
+module NodeArgHash = struct
+  type t = A.expr
+  let equal x y = (match AH.syn_expr_equal None x y with
+    | Ok true -> true
+    | _ -> false)
+  
+  let hash = AH.hash (Some 6)
+end
+
+module NodeArgCache = Hashtbl.Make(NodeArgHash)
 
 let call_cache = CallCache.create 20
 let local_cache = LocalCache.create 20
-let node_arg_cache = LocalCache.create 20
+let node_arg_cache = NodeArgCache.create 20
 
 let clear_cache () =
   CallCache.clear call_cache;
   LocalCache.clear local_cache;
-  LocalCache.clear node_arg_cache;
+  NodeArgCache.clear node_arg_cache;
 
 type source = Local | Input | Output | Ghost
 
@@ -394,10 +405,10 @@ let generalize_to_array_expr name ind_vars expr nexpr =
       A.ArrayIndex (dpos, nexpr, A.Ident (dpos, List.hd ind_vars))
   in eq_lhs, nexpr
 
-let mk_fresh_local info pos is_ghost ind_vars expr_type expr oexpr =
-  match LocalCache.find_opt local_cache expr with
-  | Some nexpr -> nexpr, empty ()
-  | None ->
+let mk_fresh_local force info pos is_ghost ind_vars expr_type expr oexpr =
+  match (LocalCache.find_opt local_cache expr, force) with
+  | Some nexpr, false -> nexpr, empty ()
+  | _ ->
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring "_glocal") in
@@ -422,7 +433,7 @@ let mk_fresh_array_ctor info pos ind_vars expr_type expr size_expr =
   in nexpr, gids
 
 let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
-  match LocalCache.find_opt node_arg_cache expr with
+  match NodeArgCache.find_opt node_arg_cache expr with
   | Some nexpr -> nexpr, empty ()
   | None ->
   i := !i + 1;
@@ -434,7 +445,7 @@ let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
     node_args = [(name, is_const, expr_type, expr)];
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in
-  LocalCache.add node_arg_cache expr nexpr;
+  NodeArgCache.add node_arg_cache expr nexpr;
   nexpr, gids
 
 let mk_range_expr expr_type expr = 
@@ -933,7 +944,7 @@ and abstract_expr ?guard force info map is_ghost expr =
       |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
       |> Res.unwrap in
     let nexpr, gids1 = normalize_expr ?guard info map expr in
-    let iexpr, gids2 = mk_fresh_local info pos is_ghost ivars ty nexpr expr in
+    let iexpr, gids2 = mk_fresh_local force info pos is_ghost ivars ty nexpr expr in
     iexpr, union gids1 gids2
 
 and expand_node_call expr var count =
