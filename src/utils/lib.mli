@@ -201,11 +201,18 @@ module IntegerHashtbl : Hashtbl.S with type key = int
 (** {1 Pretty-printing helpers} *)
   
 (** Pretty-print a pair. 
-    it excepts two formatters and a separator and formats the pair *)     
+    it excepts two formatters and a separator and formats the pair *)
 val pp_print_pair: (Format.formatter -> 'a -> unit) ->
                    (Format.formatter -> 'c -> 'd) ->
                    (unit, Format.formatter, unit) format -> Format.formatter -> 'a * 'c -> 'd
-     
+
+(** Pretty-print a triple. 
+    it excepts three formatters and a separator and formats the triple *)
+val pp_print_triple: (Format.formatter -> 'a -> unit) ->
+    (Format.formatter -> 'b -> unit) ->
+    (Format.formatter -> 'c -> 'd) ->
+    (unit, Format.formatter, unit) format -> Format.formatter -> 'a * 'b * 'c -> 'd
+
 (** Pretty-print an array with given separator
  
  [pp_print_array elem_printer separator formatter array] calls,

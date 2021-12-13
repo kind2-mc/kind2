@@ -496,7 +496,10 @@ let pp_print_arrayi pp sep ppf array  =
 
 let pp_print_pair pp1 pp2 sep ppf (left, right) =
   pp1 ppf left; fprintf ppf sep; pp2 ppf right 
-  
+
+let pp_print_triple pp1 pp2 pp3 sep ppf (p1, p2, p3) =
+  pp1 ppf p1; fprintf ppf sep; pp2 ppf p2; fprintf ppf sep; pp3 ppf p3
+
 (* Pretty-print a list *)
 let rec pp_print_list pp sep ppf = function 
 

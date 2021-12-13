@@ -1095,7 +1095,7 @@ and normalize_expr ?guard info map =
         A.ArrayIndex (pos2, Pre (pos, expr1), expr2)
       | e -> Pre (pos, e)
     in if previously_guarded then nexpr', gids
-    else Arrow (Lib.dummy_pos, guard, nexpr'), gids
+    else Arrow (pos, guard, nexpr'), gids
   (* ************************************************************************ *)
   (* Misc. abstractions                                                       *)
   (* ************************************************************************ *)
