@@ -265,13 +265,13 @@ let of_channel only_parse in_ch =
             | [] -> toplevel_nodes |> List.map
               (fun s -> s |> HString.string_of_hstring |> LustreIdent.mk_string_ident))
         in
-        let nodes = List.map (fun ({ LustreNode.name } as n) ->
-            if List.exists (fun id -> LustreIdent.equal id name) main_nodes then
-              { n with is_main = true }
-            else n)
-          nodes
-        in
         nodes, globals, main_nodes
+    in
+    let nodes = List.map (fun ({ LustreNode.name } as n) ->
+        if List.exists (fun id -> LustreIdent.equal id name) main_nodes then
+          { n with is_main = true }
+        else n)
+      nodes
     in
     print_nodes_and_globals nodes globals;
 
