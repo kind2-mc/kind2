@@ -207,7 +207,7 @@ type generated_identifiers = {
     * bool (* true if the type used for the subrange is the original type *)
     * Lib.position
     * HString.t (* Generated name for Range Expression *)
-    * HString.t) (* Original name that is constrained *)
+    * LustreAst.expr) (* Computed ranged expr *)
     list;
   expanded_variables : StringSet.t;
   equations :
@@ -288,13 +288,13 @@ let pp_print_generated_identifiers ppf gids =
     | Output -> "output"
     | Ghost -> "ghost")
   in
-  let pp_print_subrange_constraint ppf (source, is_original, pos, id, oid) =
+  let pp_print_subrange_constraint ppf (source, is_original, pos, id, rexpr) =
     Format.fprintf ppf "(%a, %b, %a, %a, %a)"
       pp_print_source source
       is_original
       Lib.pp_print_position pos
       HString.pp_print_hstring id
-      HString.pp_print_hstring oid
+      A.pp_print_expr rexpr
   in
   let pp_print_contract_call ppf (ref, pos, scope, decl) = Format.fprintf ppf "%a := (%a, %a): %a"
     HString.pp_print_hstring ref
@@ -449,15 +449,11 @@ let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
   nexpr, gids
 
 let mk_range_expr expr_type expr = 
-  let mk_and tys =
-    List.fold_left (fun acc e -> A.BinaryOp (dpos, A.And, acc, e))
-      (A.Const (dpos, A.True)) tys
-  in
   let rec mk n expr_type expr = match expr_type with
     | A.IntRange (_, l, u) -> 
       let l = A.CompOp (dpos, A.Lte, l, expr) in
       let u = A.CompOp (dpos, A.Lte, expr, u) in
-      A.BinaryOp (dpos, A.And, l, u)
+      [A.BinaryOp (dpos, A.And, l, u)]
     | A.ArrayType (_, (ty, upper_bound)) ->
       let id_str = HString.concat2 (HString.mk_hstring "x") (HString.mk_hstring (string_of_int n)) in
       let id = A.Ident (dpos, id_str) in
@@ -467,35 +463,39 @@ let mk_range_expr expr_type expr =
       let u = A.CompOp (dpos, A.Lt, id, upper_bound) in
       let assumption = A.BinaryOp (dpos, A.And, l, u) in
       let var = dpos, id_str, (A.Int dpos) in
-      let body = A.BinaryOp (dpos, A.Impl, assumption, rexpr) in
-      A.Quantifier (dpos, A.Forall, [var], body)
+      let body = fun e -> A.BinaryOp (dpos, A.Impl, assumption, e) in
+      List.map (fun e -> A.Quantifier (dpos, A.Forall, [var], body e)) rexpr
     | TupleType (_, tys) ->
       let mk_proj i = A.TupleProject (dpos, expr, i) in
       let tys = List.filter (fun ty -> AH.type_contains_subrange ty) tys in
       let tys = List.mapi (fun i ty -> mk n ty (mk_proj i)) tys in
-      mk_and tys
+      List.fold_left (@) [] tys
     | RecordType (_, tys) ->
       let mk_proj i = A.RecordProject (dpos, expr, i) in
       let tys = List.filter (fun (_, _, ty) -> AH.type_contains_subrange ty) tys in
       let tys = List.map (fun (_, i, ty) -> mk n ty (mk_proj i)) tys in
-      mk_and tys
+      List.fold_left (@) [] tys
     | _ -> assert false
   in
   mk 0 expr_type expr
 
 let mk_fresh_subrange_constraint source info pos constrained_name expr_type is_original =
-  i := !i + 1;
-  let prefix = HString.mk_hstring (string_of_int !i) in
-  let name = HString.concat2 prefix (HString.mk_hstring "_subrange") in
   let expr = A.Ident (pos, constrained_name) in
-  let nexpr = A.Ident (pos, name) in
-  let range_expr = mk_range_expr expr_type expr in
-  let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_expr nexpr in
-  let gids = { (empty ()) with
-    subrange_constraints = [(source, is_original, pos, name, constrained_name)];
-    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_expr)]; }
+  let range_exprs = mk_range_expr expr_type expr in
+  let gids = List.map (fun range_expr ->
+    i := !i + 1;
+    let prefix = HString.mk_hstring (string_of_int !i) in
+    let name = HString.concat2 prefix (HString.mk_hstring "_subrange") in
+    let nexpr = A.Ident (pos, name) in
+    let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_expr nexpr in
+    let gids = { (empty ()) with
+      subrange_constraints = [(source, is_original, pos, name, range_expr)];
+      equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_expr)]; }
+    in
+    gids)
+    range_exprs
   in
-  gids
+  List.fold_left union (empty ()) gids
 
 let mk_fresh_oracle expr_type expr =
   i := !i + 1;

@@ -116,7 +116,7 @@ type generated_identifiers = {
     * bool (* true if the type used for the subrange is the original type *)
     * Lib.position
     * HString.t (* Generated name for Range Expression *)
-    * HString.t) (* Original name that is constrained *)
+    * LustreAst.expr) (* Computed ranged expr *)
     list;
   expanded_variables : StringSet.t;
   equations :
