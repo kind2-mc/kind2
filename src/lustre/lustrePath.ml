@@ -2128,11 +2128,11 @@ let register_callpos_for_nb abstr_map hc lid parents pos cond args =
 let pos_to_numbers abstr_map nodes =
   let hc = Hashtbl.create 43 in
 
-  (* let main_node = List.find (fun n -> n.LustreNode.is_main) nodes in *)
-  let main_node = List.hd nodes in
-
   let node_by_lid lid =
     List.find (fun n -> I.equal n.N.name lid) nodes in
+
+  (* let main_node = List.find (fun n -> n.LustreNode.is_main) nodes in *)
+  let main_nodes = LustreNode.get_main_annotated_nodes nodes in
 
   let rec fold parents node =
 
@@ -2157,15 +2157,16 @@ let pos_to_numbers abstr_map nodes =
       ) node.LustreNode.calls
   in
 
-  fold [] main_node;
-  
+  List.iter (fun main_node_id -> 
+      let main_node = node_by_lid main_node_id in
+      fold [] main_node)
+    main_nodes;
+
   hc
 
 exception Found of int * N.call_cond list
 
 let get_pos_number hc lid pos =
-  (* Format.eprintf "getpos : %a at %a@." (LustreIdent.pp_print_ident false) lid *)
-  (* Lib.pp_print_position pos; *)
 
   let find_in_cat cat =
     Hashtbl.iter (fun _ l ->

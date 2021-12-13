@@ -638,7 +638,9 @@ let pp_print_conds ppf = pp_print_list pp_print_cond ",@ " ppf
 
 let pp_print_node_call_debug 
     ppf
-    { call_node_name; 
+    { 
+      call_pos;
+      call_node_name; 
       call_cond; 
       call_inputs; 
       call_oracles; 
@@ -646,11 +648,13 @@ let pp_print_node_call_debug
 
   Format.fprintf
     ppf
-    "call %a { @[<hv>cond     = %a;@ \
+    "call %a { @[<hv>pos      = %a;@ \
+                     cond     = %a;@ \
                      inputs   = [@[<hv>%a@]];@ \
                      oracles  = [@[<hv>%a@]];@ \
                      outputs  = [@[<hv>%a@]]; }@]"
     (I.pp_print_ident false) call_node_name
+    pp_print_position call_pos
     pp_print_conds call_cond
     pp_print_state_var_trie_debug call_inputs
     (pp_print_list StateVar.pp_print_state_var ";@ ") call_oracles

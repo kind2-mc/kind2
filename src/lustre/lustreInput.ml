@@ -267,6 +267,12 @@ let of_channel only_parse in_ch =
         in
         nodes, globals, main_nodes
     in
+    let nodes = List.map (fun ({ LustreNode.name } as n) ->
+        if List.exists (fun id -> LustreIdent.equal id name) main_nodes then
+          { n with is_main = true }
+        else n)
+      nodes
+    in
     print_nodes_and_globals nodes globals;
 
     (* Return a subsystem tree from the list of nodes *)
