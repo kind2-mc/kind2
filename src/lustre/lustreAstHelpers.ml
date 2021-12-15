@@ -1446,3 +1446,71 @@ let hash depth_limit expr =
         Hashtbl.hash (30, HString.hash i, el_hash)
   in
   r 0 expr
+
+let rec rename_contract_vars = function
+  | Ident (p, i) as e ->
+    let components = String.split_on_char '_' (HString.string_of_hstring i) in
+    (try
+      (* Test that this name is an internal name *)
+      let _ = int_of_string (List.nth components 0) in
+      let _ = String.equal (List.nth components 1) "contract" in
+      (* This is a renamed contract variable, with #_contract_name format *)
+      let id = components |> List.tl |> List.tl |> String.concat "_" in
+      let id = HString.mk_hstring id in
+      Ident (p, id)
+    with _ -> e)
+  | ModeRef (_, _) as e -> e
+  | RecordProject (pos, e, idx) -> RecordProject (pos, rename_contract_vars e, idx)
+  | TupleProject (pos, e, idx) -> TupleProject (pos, rename_contract_vars e, idx)
+  | Const (_, _) as e -> e
+  | UnaryOp (pos, op, e) -> UnaryOp (pos, op, rename_contract_vars e)
+  | BinaryOp (pos, op, e1, e2) ->
+    BinaryOp (pos, op, rename_contract_vars e1, rename_contract_vars e2)
+  | TernaryOp (pos, op, e1, e2, e3) ->
+    TernaryOp (pos, op, rename_contract_vars e1, rename_contract_vars e2, rename_contract_vars e3)
+  | NArityOp (pos, op, expr_list) ->
+    NArityOp (pos, op, List.map (fun e -> rename_contract_vars e) expr_list)
+  | ConvOp (pos, op, e) -> ConvOp (pos, op, rename_contract_vars e)
+  | CompOp (pos, op, e1, e2) ->
+    CompOp (pos, op, rename_contract_vars e1, rename_contract_vars e2)
+  | RecordExpr (pos, ident, expr_list) ->
+    RecordExpr (pos, ident, List.map (fun (i, e) -> (i, rename_contract_vars e)) expr_list)
+  | GroupExpr (pos, kind, expr_list) ->
+    GroupExpr (pos, kind, List.map (fun e -> rename_contract_vars e) expr_list)
+  | StructUpdate (pos, e1, idx, e2) ->
+    StructUpdate (pos, rename_contract_vars e1, idx, rename_contract_vars e2)
+  | ArrayConstr (pos, e1, e2) ->
+    ArrayConstr (pos, rename_contract_vars e1, rename_contract_vars e2)
+  | ArraySlice (pos, e1, (e2, e3)) ->
+    ArraySlice (pos, rename_contract_vars e1, (rename_contract_vars e2, rename_contract_vars e3))
+  | ArrayIndex (pos, e1, e2) ->
+    ArrayIndex (pos, rename_contract_vars e1, rename_contract_vars e2)
+  | ArrayConcat (pos, e1, e2) ->
+    ArrayConcat (pos, rename_contract_vars e1, rename_contract_vars e2)
+  | Quantifier (pos, kind, idents, e) ->
+    Quantifier (pos, kind, idents, rename_contract_vars e)
+  | When (pos, e, clock) -> When (pos, rename_contract_vars e, clock)
+  | Current (pos, e) -> Current (pos, rename_contract_vars e)
+  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
+    let e1, e2 = rename_contract_vars e1, rename_contract_vars e2 in
+    let expr_list1 = List.map (fun e -> rename_contract_vars e) expr_list1 in
+    let expr_list2 = List.map (fun e -> rename_contract_vars e) expr_list2 in
+    Condact (pos, e1, e2, id, expr_list1, expr_list2)
+  | Activate (pos, ident, e1, e2, expr_list) ->
+    let e1, e2 = rename_contract_vars e1, rename_contract_vars e2 in
+    let expr_list = List.map (fun e -> rename_contract_vars e) expr_list in
+    Activate (pos, ident, e1, e2, expr_list)
+  | Merge (pos, ident, expr_list) ->
+    Merge (pos, ident, List.map (fun (i, e) -> (i, rename_contract_vars e)) expr_list)
+  | RestartEvery (pos, ident, expr_list, e) ->
+    let expr_list = List.map (fun e -> rename_contract_vars e) expr_list in
+    let e = rename_contract_vars e in
+    RestartEvery (pos, ident, expr_list, e)
+  | Pre (pos, e) -> Pre (pos, rename_contract_vars e)
+  | Last (_, _) as e -> e
+  | Fby (pos, e1, i, e2) -> Fby (pos, rename_contract_vars e1, i, rename_contract_vars e2)
+  | Arrow (pos, e1, e2) -> Arrow (pos, rename_contract_vars e1, rename_contract_vars e2)
+  | Call (pos, id, expr_list) ->
+    Call (pos, id, List.map (fun e -> rename_contract_vars e) expr_list)
+  | CallParam (pos, id, types, expr_list) ->
+    CallParam (pos, id, types, List.map (fun e -> rename_contract_vars e) expr_list)

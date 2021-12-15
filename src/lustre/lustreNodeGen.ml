@@ -1849,18 +1849,10 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* Generate Contract Constraints for Integer Subranges                *)
   (* ****************************************************************** *)
   in let (assumes, guarantees, props) =
-    let create_constraint_name id = 
-      let components = String.split_on_char '_' id in
-      try 
-        let _ = int_of_string (List.nth components 0) in
-        (* This is a renamed contract variable, with #_contract_name format *)
-        let id = components |> List.tl |> List.tl |> String.concat "" in
-        Format.asprintf "%s._bounds" id
-      with _ ->
-        Format.asprintf "%s._bounds" id
+    let create_constraint_name rexpr = 
+      Format.asprintf "@[<h>%a@]" A.pp_print_expr rexpr
     in
-    let over_subrange_constraints (a, ac, g, gc, p) (source, is_original, pos, id, oid) =
-      let oid = HString.string_of_hstring oid in
+    let over_subrange_constraints (a, ac, g, gc, p) (source, is_original, pos, id, rexpr) =
       let sv = H.find !map.state_var (mk_ident id) in
       let effective_contract = guarantees != [] || modes != [] in
       let constraint_kind = match source with
@@ -1873,22 +1865,22 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       if is_original then
         match constraint_kind with
         | Some N.Assumption ->
-          let oname = Some (create_constraint_name oid) in
-          let contract_sv = C.mk_svar pos ac oname sv [] in
+          let name = create_constraint_name rexpr in
+          let contract_sv = C.mk_svar pos ac (Some name) sv [] in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Assumption));
           contract_sv :: a, ac + 1, g, gc, p
         | Some N.Guarantee ->
-          let oname = Some (create_constraint_name oid) in
-          let contract_sv = C.mk_svar pos gc oname sv [] in
+          let name = create_constraint_name rexpr in
+          let contract_sv = C.mk_svar pos gc (Some name) sv [] in
           N.add_state_var_def sv (N.ContractItem (pos, contract_sv, N.Guarantee));
           a, ac, (contract_sv, false) :: g, gc + 1, p
         | None ->
-          let name = create_constraint_name oid in
+          let name = create_constraint_name rexpr in
           let src = Property.Generated (Some pos, [sv]) in
           a, ac, g, gc, (sv, name, src) :: p
         | _ -> assert false
       else
-        let name = create_constraint_name oid in
+        let name = create_constraint_name rexpr in
         let src = Property.Generated (Some pos, [sv]) in
         let src = Property.Candidate (Some src) in
         a, ac, g, gc, (sv, name, src) :: p
