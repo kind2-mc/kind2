@@ -167,3 +167,6 @@ val hash : int option -> expr -> int
 (** Compute the hash of an AST expression to the given depth. After the depth limit is reached
     the same hash value is assigned to every sub expression. This function does not include position
     information in the hash. *)
+
+val rename_contract_vars : expr -> expr
+(** Rename contract variables from internal names (with format #_contract_var) to syntax names *)

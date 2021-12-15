@@ -484,12 +484,13 @@ let mk_fresh_subrange_constraint source info pos constrained_name expr_type is_o
   let range_exprs = mk_range_expr expr_type expr in
   let gids = List.map (fun range_expr ->
     i := !i + 1;
+    let output_expr = AH.rename_contract_vars range_expr in
     let prefix = HString.mk_hstring (string_of_int !i) in
     let name = HString.concat2 prefix (HString.mk_hstring "_subrange") in
     let nexpr = A.Ident (pos, name) in
     let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty range_expr nexpr in
     let gids = { (empty ()) with
-      subrange_constraints = [(source, is_original, pos, name, range_expr)];
+      subrange_constraints = [(source, is_original, pos, name, output_expr)];
       equations = [(info.quantified_variables, info.contract_scope, eq_lhs, range_expr)]; }
     in
     gids)
