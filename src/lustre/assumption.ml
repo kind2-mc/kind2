@@ -516,6 +516,26 @@ let iso_decomp one_state abd_solver uf_solver assump_svars sv_to_ufs pred k abdu
                   |> not
               )
             in
+            let pred_unrolling' =
+              if one_state then
+                pred_unrolling'
+              else
+                let remove_env_svars_at_i1 term =
+                  let exists_vars =
+                    env_svars
+                    |> List.map (fun sv ->
+                      Var.mk_state_var_instance sv (Numeral.of_int (i+1))
+                    )
+                  in
+                  let exists_term =
+                    Term.mk_exists exists_vars term
+                  in
+                  SMTSolver.get_qe_term abd_solver exists_term
+                  |> Term.mk_and
+                  |> SMTSolver.simplify_term abd_solver
+                in
+                Lib.list_apply_at remove_env_svars_at_i1 (i+1) pred_unrolling'
+            in
             let pred_unrolling' = Lib.list_remove_nth i pred_unrolling' in
             let premises = Term.mk_and pred_unrolling' in
             let trans_at_i =
@@ -627,8 +647,6 @@ let cart_decomp one_state abd_solver assump_svars sys k system_unrolling abduct 
           Abduction.abduce abd_solver [] init abduct
           |> SMTSolver.simplify_term abd_solver
         in
-
-        Debug.assump "Generalized transition predicate@." ;
 
         Debug.assump "@[<hv>Transition abduct:@ @[<hv>%a@]@]@."
           Term.pp_print_term abduct ;
@@ -995,8 +1013,10 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
 
         )
         | _, [], _ -> Unknown
-        | _, invalid, _ -> loop props last_abduct (get_min_k invalid)
-
+        | _, invalid, _ ->
+          let k' = get_min_k invalid in
+          assert (k' > k);
+          loop props last_abduct k'
       )
       | r -> r
     in

@@ -186,6 +186,11 @@ let rec list_insert_at x n = function
     if n = 0 then x :: l
     else h :: list_insert_at x (n - 1) tl
 
+let rec list_apply_at f n = function
+  | [] -> []
+  | h :: tl ->
+    if n = 0 then f h :: tl
+    else h :: list_apply_at f (n - 1) tl
 
 (* [chain_list \[e1; e2; ...\]] is \[\[e1; e2\]; \[e2; e3\]; ... \]]*)
 let chain_list = function 

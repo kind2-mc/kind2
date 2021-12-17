@@ -124,6 +124,8 @@ val list_remove_nth : int -> 'a list-> 'a list
 
 val list_insert_at : 'a -> int -> 'a list -> 'a list
 
+val list_apply_at : ('a -> 'a) -> int -> 'a list -> 'a list
+
 (** [chain_list \[e1; e2; ...\]] is [\[\[e1; e2\]; \[e2; e3\]; ... \]] *)
 val chain_list : 'a list -> 'a list list 
 
