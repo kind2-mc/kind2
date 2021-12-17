@@ -969,7 +969,15 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
         match TSys.get_split_properties sys' with
         | _, [], [] -> (
 
-          if not one_state &&
+          let only_current_state { trans } =
+            one_state
+            ||
+            match Term.var_offsets_of_term trans with
+            | Some lo, Some up -> Numeral.(equal lo up && equal lo one)
+            | _ -> true
+          in
+
+          if not (only_current_state assump) &&
              not (satisfy_input_requirements in_sys param scope)
           then
             KEvent.log L_warn "Assumption may contain constraints over underspecified outputs"
@@ -978,39 +986,43 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
           KEvent.log L_note "Generated assumption:@,%a"
             (dump_assumption ~prefix:"") assump;
 
-          KEvent.log L_note "Checking assumption is realizable..." ;
+          if (only_current_state assump) then (
+            Success assump
+          )
+          else (
+            KEvent.log L_note "Checking assumption is realizable..." ;
 
-          List.iter (fun sv -> StateVar.set_const false sv) const_inputs;
+            List.iter (fun sv -> StateVar.set_const false sv) const_inputs;
 
-          let c_sys' =
-            let (_, init_eq, trans_eq) = TSys.init_trans_open c_sys in
-            let init_eq = Term.mk_and [init_eq; init] in
-            let trans_eq = Term.mk_and [trans_eq; trans] in
-            TSys.set_subsystem_equations c_sys scope init_eq trans_eq
-          in
-
-          let result =
-            let vars_at_0 =
-              TSys.vars_of_bounds ~with_init_flag:true c_sys' Numeral.zero Numeral.zero
-              |> List.filter (fun v -> not (Var.is_const_state_var v))
+            let c_sys' =
+              let (_, init_eq, trans_eq) = TSys.init_trans_open c_sys in
+              let init_eq = Term.mk_and [init_eq; init] in
+              let trans_eq = Term.mk_and [trans_eq; trans] in
+              TSys.set_subsystem_equations c_sys scope init_eq trans_eq
             in
-            let vars_at_1 =
-              TSys.vars_of_bounds ~with_init_flag:true c_sys' Numeral.one Numeral.one
-              |> List.filter (fun v -> not (Var.is_const_state_var v))
+
+            let result =
+              let vars_at_0 =
+                TSys.vars_of_bounds ~with_init_flag:true c_sys' Numeral.zero Numeral.zero
+                |> List.filter (fun v -> not (Var.is_const_state_var v))
+              in
+              let vars_at_1 =
+                TSys.vars_of_bounds ~with_init_flag:true c_sys' Numeral.one Numeral.one
+                |> List.filter (fun v -> not (Var.is_const_state_var v))
+              in
+              let controllable_vars_at_0 = vars_at_0 in
+              let controllable_vars_at_1 = vars_at_1 in
+              realizability_check
+                c_sys' controllable_vars_at_0 vars_at_1 controllable_vars_at_1
             in
-            let controllable_vars_at_0 = vars_at_0 in
-            let controllable_vars_at_1 = vars_at_1 in
-            realizability_check
-              c_sys' controllable_vars_at_0 vars_at_1 controllable_vars_at_1
-          in
 
-          List.iter (fun sv -> StateVar.set_const true sv) const_inputs;
+            List.iter (fun sv -> StateVar.set_const true sv) const_inputs;
 
-          match result with
-          | Realizable _ -> Success { init=init'; trans=trans' }
-          | Unrealizable _ -> Unknown
-          | Unknown -> Unknown
-
+            match result with
+            | Realizable _ -> Success { init=init'; trans=trans' }
+            | Unrealizable _ -> Unknown
+            | Unknown -> Unknown
+          )
         )
         | _, [], _ -> Unknown
         | _, invalid, _ ->
