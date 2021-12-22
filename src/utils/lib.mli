@@ -117,14 +117,21 @@ val list_indexes : 'a list -> 'a list -> int list
     positions [p1], [p2] etc. *)
 val list_filter_nth : 'a list -> int list -> 'a list
 
-(** Remove and returns the nth element form a list *)
+(** Remove and returns the nth element from a list *)
 val list_extract_nth : 'a list -> int -> 'a * 'a list
 
-val list_remove_nth : int -> 'a list-> 'a list
+(** Remove the nth element from a list *)
+val list_remove_nth : int -> 'a list -> 'a list
 
+(** Insert an element at a given position into a list *)
 val list_insert_at : 'a -> int -> 'a list -> 'a list
 
+(** Apply a function to the nth element of a list *)
 val list_apply_at : ('a -> 'a) -> int -> 'a list -> 'a list
+
+(* [list_slice l i k] returns a list containing the elements between
+   the [i]th and [k]th element of [l]*)
+val list_slice : 'a list -> int -> int -> 'a list
 
 (** [chain_list \[e1; e2; ...\]] is [\[\[e1; e2\]; \[e2; e3\]; ... \]] *)
 val chain_list : 'a list -> 'a list list 
