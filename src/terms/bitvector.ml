@@ -28,16 +28,8 @@ let f (len : int) : t =
   repeat_bit true len
 
 (* Function that extracts m down to n from the input bitvector *)
-let rec bvextract (m : int) (n : int) (b : t) : t =
-  let b_rev = (List.rev b) in
-    if (m < n) then 
-      raise NonStandardBVSize
-    else if (n != 0) then
-      raise NonStandardBVSize
-    else
-      match m with
-      | 0 -> [List.hd b_rev]
-      | m' -> (List.nth b_rev m') :: (bvextract (m' - 1) n b)
+let bvextract (m : int) (n : int) (b : t) : t =
+  Lib.list_slice (List.rev b) n m |> List.rev
 
 (* Function that sign extends the input bitvector by m bits *)
 let bvsignext (m : int) (b : t) : t =
