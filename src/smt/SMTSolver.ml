@@ -1185,12 +1185,23 @@ let simplify_z3 solver expr =
   pop solver;
   res
 
+
+let simplify_cvc4 solver expr =
+  let module S = (val solver.solver_inst) in
+
+  match execute_custom_command solver "simplify" [SMTExpr.ArgExpr expr] 1 with
+  | `Custom r -> S.Conv.term_of_smtexpr
+      (GenericSMTLIBDriver.expr_of_string_sexpr (List.hd r))
+  | r -> smt_error solver r
+
+
 let simplify_expr solver expr =
   let module S = (val solver.solver_inst) in
   (* Simplify is not part of the SMTLIB standard.
      Until then, we handle each particular case here... *)
   match solver.solver_kind with
   | `Z3_SMTLIB -> simplify_z3 solver expr
+  | `CVC4_SMTLIB -> simplify_cvc4 solver expr
   | _ ->  (S.Conv.term_of_smtexpr expr)
 
 let simplify_term solver term =
