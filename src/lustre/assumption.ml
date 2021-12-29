@@ -103,6 +103,15 @@ let get_assumption_svars in_sys scope =
   | Some { LustreNode.assumption_svars } -> assumption_svars
   | None -> SVS.empty
 
+let has_assumptions in_sys scope =
+  match ISys.get_lustre_node in_sys scope with
+  | Some { LustreNode.contract } -> (
+    match contract with
+    | Some { assumes } -> assumes <> []
+    | None -> false
+  )
+  | None -> false
+
 let filter_non_output in_sys scope =
   let output_svars = get_output_svars in_sys scope in
   List.filter
@@ -410,21 +419,23 @@ let iso_decomp one_state abd_solver uf_solver assump_svars sv_to_ufs pred k abdu
 
   let rec loop pred' iter =
     let term =
-      let l, o, c =
-        if one_state then (k+1, Numeral.zero, 0)
-        else (k, Numeral.one, 1)
-      in
-      List.init l (fun i ->
+      List.init (if one_state then k+1 else k) (fun i ->
         let sigma =
           SVM.fold
             (fun sv ufs acc ->
-              let v = Var.mk_state_var_instance sv o in
-              let uf =
-                match List.nth_opt ufs (i+c) with
-                | Some uf -> uf
-                | None -> assert false
+              let add o j m =
+                let v = Var.mk_state_var_instance sv (Numeral.of_int o) in
+                let uf =
+                  match List.nth_opt ufs j with
+                  | Some uf -> uf
+                  | None -> assert false
+                in
+                (v, Term.mk_uf uf []) :: m
               in
-              (v, Term.mk_uf uf []) :: acc
+              if one_state then
+                add 0 i acc
+              else
+                add 0 i (add 1 (i+1) acc)
             )
             sv_to_ufs
             []
@@ -438,6 +449,8 @@ let iso_decomp one_state abd_solver uf_solver assump_svars sv_to_ufs pred k abdu
       mk_forall_term
         ~disj:pred' false assump_svars one_state sv_to_ufs k abduct
     in
+
+    SMTSolver.trace_comment uf_solver (Format.sprintf "Looking for new assignments (k=%d)" k);
 
     SMTSolver.assert_term uf_solver qterm;
 
@@ -1068,7 +1081,14 @@ let generate_assumption_vg in_sys sys var_filters prop =
   in
 
   let result =
-    realizability_check
+    let include_invariants =
+      (* Assumes invariants were generated from a consistent (non-empty) system model,
+         like a full specified Lustre model with realizable assumptions (unrealizable
+         assumptions may introduce spurious invariants)
+      *)
+      not (has_assumptions in_sys scope)
+    in
+    realizability_check ~include_invariants
       sys' controllable_vars_at_0 vars_at_1 controllable_vars_at_1
   in
 

@@ -43,6 +43,7 @@ val result_to_string : realizability_result -> string
     without controllable variables are assumed to hold.
 *)
 val realizability_check :
+  ?include_invariants:bool ->
   TransSys.t ->
   Var.t list ->
   Var.t list ->
