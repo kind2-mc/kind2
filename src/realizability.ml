@@ -143,7 +143,7 @@ let compute_unsat_core_if_debugging sys context requirements ex_var_lst =
 *)
 
 
-let realizability_check
+let realizability_check ?(include_invariants=false)
   sys controllable_vars_at_0 vars_at_1 controllable_vars_at_1 =
   
   (* Solver for term simplification *)
@@ -164,16 +164,30 @@ let realizability_check
 
   (*Format.printf "%a@." (TSys.pp_print_subsystems true) sys ;*)
 
+  let uncontrollable_varset_is_non_empty =
+    List.length controllable_vars_at_1 < List.length vars_at_1
+  in
+
   let free_of_controllable_vars_at_1, contains_controllable_vars_at_1 =
     let trans =
-      let invars =
-        (TransSys.invars_of_bound sys ~one_state_only:true Numeral.zero)
-      in  
-      Term.mk_and
-        (TSys.trans_of_bound None sys Numeral.one :: invars)
+      if include_invariants then
+        let invars =
+          (TransSys.invars_of_bound sys ~one_state_only:true Numeral.zero)
+        in
+        Term.mk_and
+          (TSys.trans_of_bound None sys Numeral.one :: invars)
+      else
+        TSys.trans_of_bound None sys Numeral.one
     in
-    (*let trans = TSys.trans_of_bound None sys Numeral.one in*)
-    term_partition controllable_vars_at_1 (get_conjucts trans)
+    if uncontrollable_varset_is_non_empty then
+      (* term_partion assumes constraints over controllable variables contains
+         at least a controllable variable in the current state. This is the case
+         if the transition system is the direct translation of a Lustre model
+         since all constraints are introduced through the definition
+         and assertion of a boolean state variable *)
+      term_partition controllable_vars_at_1 (get_conjucts trans)
+    else
+      [], get_conjucts trans
   in
 
   (*Format.printf "U: %a@."
@@ -192,10 +206,6 @@ let realizability_check
   let free_of_controllable_vars_at_0, contains_controllable_vars_at_0 =
     let init = TSys.init_of_bound None sys Numeral.zero in
     term_partition controllable_vars_at_0 (get_conjucts init)
-  in
-
-  let uncontrollable_varset_is_non_empty =
-    List.length controllable_vars_at_1 < List.length vars_at_1
   in
 
   let rec loop fp1 fp =

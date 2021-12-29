@@ -103,6 +103,15 @@ let get_assumption_svars in_sys scope =
   | Some { LustreNode.assumption_svars } -> assumption_svars
   | None -> SVS.empty
 
+let has_assumptions in_sys scope =
+  match ISys.get_lustre_node in_sys scope with
+  | Some { LustreNode.contract } -> (
+    match contract with
+    | Some { assumes } -> assumes <> []
+    | None -> false
+  )
+  | None -> false
+
 let filter_non_output in_sys scope =
   let output_svars = get_output_svars in_sys scope in
   List.filter
@@ -1072,7 +1081,14 @@ let generate_assumption_vg in_sys sys var_filters prop =
   in
 
   let result =
-    realizability_check
+    let include_invariants =
+      (* Assumes invariants were generated from a consistent (non-empty) system model,
+         like a full specified Lustre model with realizable assumptions (unrealizable
+         assumptions may introduce spurious invariants)
+      *)
+      not (has_assumptions in_sys scope)
+    in
+    realizability_check ~include_invariants
       sys' controllable_vars_at_0 vars_at_1 controllable_vars_at_1
   in
 
