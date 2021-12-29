@@ -1951,7 +1951,48 @@ let instantiate_term_all_levels trans_sys offset scope term two_state =
       subsys, List.map fst t_subs) inter_c
 
 
-
+let enforce_constantness_via_equations sys =
+  let const_svars =
+    state_vars sys |> List.filter (fun sv -> StateVar.is_const sv)
+  in
+  let sys' =
+    match const_svars with
+    | [] -> sys
+    | _ -> (
+      List.iter (fun sv -> StateVar.set_const false sv) const_svars ;
+      let (_, init_eq, trans_eq) = init_trans_open sys in
+      let init_eq =
+        init_eq |> Term.map_vars (fun v ->
+          let sv = Var.state_var_of_state_var_instance v in
+          if List.mem sv const_svars then
+            Var.mk_state_var_instance sv Numeral.zero
+          else
+            v
+        )
+      in
+      let trans_eq =
+        trans_eq |> Term.map_vars (fun v ->
+          let sv = Var.state_var_of_state_var_instance v in
+          if List.mem sv const_svars then
+            Var.mk_state_var_instance sv Numeral.one
+          else
+            v
+        )
+      in
+      let trans_eq =
+        let eqs =
+          const_svars |> List.map (fun sv ->
+            let var_at_1 = Var.mk_state_var_instance sv Numeral.one in
+            let var_at_0 = Var.mk_state_var_instance sv Numeral.zero in
+            Term.mk_eq [Term.mk_var var_at_1; Term.mk_var var_at_0]
+          )
+        in
+        Term.mk_and (trans_eq :: eqs)
+      in
+      set_subsystem_equations sys (scope_of_trans_sys sys) init_eq trans_eq
+    )
+  in
+  sys', const_svars
 
 (* 
    Local Variables:

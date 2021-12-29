@@ -308,17 +308,21 @@ let satisfiability_result_to_string = function
 
 let check_contract_satisfiability sys =
 
+  let sys, const_svars =
+    TSys.enforce_constantness_via_equations sys
+  in
+
   let vars_at_0 =
     TSys.vars_of_bounds ~with_init_flag:true sys Numeral.zero Numeral.zero
-    |> List.filter (fun v -> not (Var.is_const_state_var v))
   in
 
   let vars_at_1 =
     TSys.vars_of_bounds ~with_init_flag:true sys Numeral.one Numeral.one
-    |> List.filter (fun v -> not (Var.is_const_state_var v))
   in
 
   let res = realizability_check sys vars_at_0 vars_at_1 vars_at_1 in
+
+  List.iter (fun sv -> StateVar.set_const true sv) const_svars ;
 
   match res with
   | Realizable _ -> Satisfiable

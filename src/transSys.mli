@@ -627,6 +627,12 @@ val instantiate_term_cert_all_levels: t -> Numeral.t -> Scope.t ->
   (t * (Term.t * Certificate.t) list) list
 
 
+(** Return a semantically equivalent system where constantness is enforced
+    by making the current value of a constant stream equal to its previous
+    value in the transition relation predicate, and the list of constant
+    variables that have been converted to a state variable *)
+val enforce_constantness_via_equations : t -> (t * StateVar.t list)
+
 
 (* 
    Local Variables:
