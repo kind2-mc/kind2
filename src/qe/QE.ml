@@ -806,6 +806,8 @@ let ae_val_prec trans_sys premise elim conclusion =
       (Flags.Smt.solver ())
   in
 
+  SMTSolver.trace_comment solver "AE-VAL query (precise)" ;
+
   TransSys.define_and_declare_of_bounds
     trans_sys
     (SMTSolver.define_fun solver)

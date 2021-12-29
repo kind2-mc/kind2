@@ -153,6 +153,8 @@ let realizability_check
       (Flags.Smt.solver ())
   in
 
+  SMTSolver.trace_comment solver "Realizability Check (term simplification)" ;
+
   TransSys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver)

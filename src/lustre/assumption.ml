@@ -439,6 +439,8 @@ let iso_decomp one_state abd_solver uf_solver assump_svars sv_to_ufs pred k abdu
         ~disj:pred' false assump_svars one_state sv_to_ufs k abduct
     in
 
+    SMTSolver.trace_comment uf_solver (Format.sprintf "Looking for new assignments (k=%d)" k);
+
     SMTSolver.assert_term uf_solver qterm;
 
     SMTSolver.push uf_solver;
