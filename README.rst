@@ -103,7 +103,13 @@ To run Kind 2 the following software must be installed on your computer:
   * `MathSAT 5 <http://mathsat.fbk.eu/index.html>`_\ ,
   * `Yices 2 <http://yices.csl.sri.com/>`_\ ,
   * `Yices 1 <http://yices.csl.sri.com/old/download-yices1-full.shtml>`_\ , or
-  * `Z3 <https://github.com/Z3Prover/z3>`_ (presently recommended)
+  * `Z3 <https://github.com/Z3Prover/z3>`_
+
+Z3 is the presently recommended SMT solver and the default option. For problems with
+only machine integers we recommend to use Boolector in combination with Z3:
+select Boolector as the main solver (``--smt_solver Boolector``) but
+make sure the Z3 binary is also accessible to Kind 2.
+
 
 VS Code Extension
 -----------------
