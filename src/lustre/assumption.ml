@@ -849,54 +849,14 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
   
     let scope = TSys.scope_of_trans_sys sys in
     
-    (* Constant input streams *)
-    let const_inputs =
-      TSys.state_vars sys
-      |> List.filter (fun sv -> StateVar.is_input sv && StateVar.is_const sv)
-    in
-  
-    (* To uniformly handle systems with constant inputs,
+    (* To uniformly handle systems with constant streams,
        we create a semantically equivalent system where
        constantness is enforced by making the current value 
-       of the input stream equal to the previous value in
-       the transition relation predicate.
+       of the constant stream equal to its previous value in
+       the transition relation predicate
     *)
-    let c_sys =
-      match const_inputs with
-      | [] -> sys
-      | _ -> (
-        List.iter (fun sv -> StateVar.set_const false sv) const_inputs ;
-        let (_, init_eq, trans_eq) = TSys.init_trans_open sys in
-        let init_eq =
-          init_eq |> Term.map_vars (fun v ->
-            let sv = Var.state_var_of_state_var_instance v in
-            if List.mem sv const_inputs then
-              Var.mk_state_var_instance sv Numeral.zero
-            else
-              v
-          )
-        in
-        let trans_eq =
-          trans_eq |> Term.map_vars (fun v ->
-            let sv = Var.state_var_of_state_var_instance v in
-            if List.mem sv const_inputs then
-              Var.mk_state_var_instance sv Numeral.one
-            else
-              v
-          )
-        in
-        let trans_eq =
-          let eqs =
-            const_inputs |> List.map (fun sv ->
-              let var_at_1 = Var.mk_state_var_instance sv Numeral.one in
-              let var_at_0 = Var.mk_state_var_instance sv Numeral.zero in
-              Term.mk_eq [Term.mk_var var_at_1; Term.mk_var var_at_0]
-            )
-          in
-          Term.mk_and (trans_eq :: eqs)
-        in
-        TSys.set_subsystem_equations sys scope init_eq trans_eq
-      )
+    let c_sys, const_svars =
+      TSys.enforce_constantness_via_equations sys
     in
   
     let assump_svars =
@@ -933,24 +893,24 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
 
     let map_back_const_input v =
       let sv = Var.state_var_of_state_var_instance v in
-      if List.mem sv const_inputs then
+      if List.mem sv const_svars then
         Var.mk_const_state_var sv
       else
         v
     in
 
     let rec loop props last_abduct k =
-      List.iter (fun sv -> StateVar.set_const false sv) const_inputs;
+      List.iter (fun sv -> StateVar.set_const false sv) const_svars;
       let res, last_abduct =
         generate_assumption_for_k_and_below
           one_state assump_svars last_abduct c_sys props k
       in
-      List.iter (fun sv -> StateVar.set_const true sv) const_inputs;
+      List.iter (fun sv -> StateVar.set_const true sv) const_svars;
       match res with
       | Success ({init; trans}) -> (
 
         let init', trans' =
-          match const_inputs with
+          match const_svars with
           | [] -> init, trans
           | _ -> 
             init |> Term.map_vars map_back_const_input,
@@ -1005,7 +965,7 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
           else (
             KEvent.log L_note "Checking assumption is realizable..." ;
 
-            List.iter (fun sv -> StateVar.set_const false sv) const_inputs;
+            List.iter (fun sv -> StateVar.set_const false sv) const_svars;
 
             let c_sys' =
               let (_, init_eq, trans_eq) = TSys.init_trans_open c_sys in
@@ -1017,11 +977,9 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
             let result =
               let vars_at_0 =
                 TSys.vars_of_bounds ~with_init_flag:true c_sys' Numeral.zero Numeral.zero
-                |> List.filter (fun v -> not (Var.is_const_state_var v))
               in
               let vars_at_1 =
                 TSys.vars_of_bounds ~with_init_flag:true c_sys' Numeral.one Numeral.one
-                |> List.filter (fun v -> not (Var.is_const_state_var v))
               in
               let controllable_vars_at_0 = vars_at_0 in
               let controllable_vars_at_1 = vars_at_1 in
@@ -1029,7 +987,7 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
                 c_sys' controllable_vars_at_0 vars_at_1 controllable_vars_at_1
             in
 
-            List.iter (fun sv -> StateVar.set_const true sv) const_inputs;
+            List.iter (fun sv -> StateVar.set_const true sv) const_svars;
 
             match result with
             | Realizable _ -> Success { init=init'; trans=trans' }
