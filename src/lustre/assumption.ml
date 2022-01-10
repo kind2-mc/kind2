@@ -291,7 +291,10 @@ let mk_equalities ?(no_prev = false) (sys_svars, env_svars) sv_to_ufs f i j =
         |> List.map (fun sv -> mk_equality sv_to_ufs f sv (i-1) (j-1))
         |> Term.mk_and
       in
-      Term.mk_and [sys_eqs; prev_env_eqs; env_eqs]
+      if sys_eqs = Term.t_true then
+        Term.mk_and [prev_env_eqs; env_eqs]
+      else
+        Term.mk_and [sys_eqs; prev_env_eqs; env_eqs]
     )
   )
 
@@ -311,7 +314,7 @@ let mk_forall_vars c svars last =
   |> List.rev
 
 
-let mk_forall_term ?disj init assump_svars one_state sv_to_ufs k abduct =
+let mk_forall_term ?disj ?(init_conds=Term.t_true) init assump_svars one_state sv_to_ufs k abduct =
   let mk_equalities' =
     mk_equalities ~no_prev:one_state assump_svars sv_to_ufs identity
   in
@@ -338,7 +341,7 @@ let mk_forall_term ?disj init assump_svars one_state sv_to_ufs k abduct =
       if init then
         mk_equalities' 0 0 :: (oterms' k 1)
       else
-        oterms' k 1
+        init_conds :: oterms' k 1
   in
   Term.mk_forall forall_vars
     (Term.mk_implies [Term.mk_and cterms; abduct])
@@ -373,7 +376,7 @@ let init_soln one_state solver assump_svars sv_to_ufs k system_unrolling abduct 
 
   (* Init predicate, transition relation predicate, and the latter
      without previous values of the environment variables *)
-  let init, trans, trans' =
+  let init, trans =
     let all_ufs =
       SVM.fold
         (fun _ ufs acc -> List.rev_append ufs acc)
@@ -398,12 +401,10 @@ let init_soln one_state solver assump_svars sv_to_ufs k system_unrolling abduct 
             |> Term.mk_or
           in
           let pred_at_1 = Term.bump_state Numeral.one pred_at_0 in
-          pred_at_0, pred_at_1, pred_at_1
+          pred_at_0, pred_at_1
         else
           mk_equalities' false 0 0,
           List.init k (fun j -> mk_equalities' false 1 (j+1))
-          |> Term.mk_or,
-          List.init k (fun j -> mk_equalities' true 1 (j+1))
           |> Term.mk_or
       )
       (fun _ -> assert false) (* If unsat. *)
@@ -412,12 +413,111 @@ let init_soln one_state solver assump_svars sv_to_ufs k system_unrolling abduct 
 
   SMTSolver.pop solver;
  
-  { init ; trans }, trans'
+  { init ; trans }
 
 
-let iso_decomp one_state abd_solver uf_solver assump_svars sv_to_ufs pred k abduct =
+exception UnknownResult
 
-  let rec loop pred' iter =
+let iso_decomp
+  one_state sys abd_solver uf_solver assump_svars sv_to_ufs pred init_conds k abduct
+=
+  let sys_svars, env_svars = assump_svars in
+  let all_forall_vars =
+    List.rev_append
+      (mk_forall_vars 0 sys_svars k |> List.rev)
+      (mk_forall_vars 0 env_svars (k+1))
+  in
+
+  let generalize_step_predicate pred_unrolling' init_conds' i =
+    let forall_vars =
+      all_forall_vars |> List.filter (fun v ->
+        let sv = Var.state_var_of_state_var_instance v in
+        let equal_to_sv = StateVar.equal_state_vars sv in
+        let offset = Var.offset_of_state_var_instance v in
+        if one_state then
+          Numeral.equal offset (Numeral.of_int i) |> not
+        else
+          ( Numeral.equal offset (Numeral.of_int i) ||
+            (
+              Numeral.equal offset (Numeral.of_int (i+1)) &&
+              List.exists equal_to_sv env_svars
+            )
+          )
+          |> not
+      )
+    in
+    let pred_unrolling' = Lib.list_remove_nth i pred_unrolling' in
+    let premises = Term.mk_and (init_conds' :: pred_unrolling') in
+    let trans_at_i =
+      SMTSolver.trace_comment abd_solver (Format.sprintf "Iter: %d" i);
+      Abduction.abduce abd_solver forall_vars premises abduct
+      |> SMTSolver.simplify_term abd_solver
+    in
+    Lib.list_insert_at trans_at_i i pred_unrolling'
+  in
+
+  let distribute_and_generalize pred_unrolling init_conds' =
+    let pred_unrolling, init_conds' =
+      if one_state then
+        pred_unrolling, init_conds'
+      else
+        List.fold_left
+          (fun (pred_unrolling', init_conds') i ->
+            let ae_val_reponse =
+              let controllable_vars =
+                List.map
+                  (fun sv ->
+                    Var.mk_state_var_instance sv Numeral.one
+                  )
+                  env_svars
+              in
+              let conclusion =
+                List.nth pred_unrolling' i
+                |> Term.bump_state (Numeral.of_int (- i))
+              in
+              QE.ae_val sys Term.t_true controllable_vars conclusion
+            in
+            match ae_val_reponse with
+            | QE.Unknown -> raise UnknownResult
+            | QE.Valid _ -> (pred_unrolling', init_conds')
+            | QE.Invalid conds -> (
+              let pred_unrolling', init_conds' =
+                if i=0 then (
+                  pred_unrolling',
+                  Term.mk_and [init_conds'; conds]
+                  |> SMTSolver.simplify_term abd_solver
+                )
+                else (
+                  let conds =
+                    conds |> Term.bump_state (Numeral.of_int i)
+                  in
+                  Lib.list_apply_at
+                    (fun p ->
+                      Term.mk_and [p; conds]
+                      |> SMTSolver.simplify_term abd_solver
+                    )
+                    (i-1)
+                    pred_unrolling',
+                  init_conds'
+                )
+              in
+              generalize_step_predicate pred_unrolling' init_conds' i,
+              init_conds'
+            )
+          )
+          (pred_unrolling, init_conds')
+          (List.init k identity |> List.rev)
+    in
+    pred_unrolling
+    |> List.mapi (fun i t ->
+      Term.bump_state (Numeral.of_int (- i)) t
+    )
+    |> Term.mk_and
+    |> SMTSolver.simplify_term abd_solver,
+    init_conds'
+  in
+
+  let rec loop pred' init_conds' iter =
     let term =
       List.init (if one_state then k+1 else k) (fun i ->
         let sigma =
@@ -447,7 +547,8 @@ let iso_decomp one_state abd_solver uf_solver assump_svars sv_to_ufs pred k abdu
 
     let qterm =
       mk_forall_term
-        ~disj:pred' false assump_svars one_state sv_to_ufs k abduct
+        ~disj:pred' ~init_conds:init_conds' false
+        assump_svars one_state sv_to_ufs k abduct
     in
 
     SMTSolver.trace_comment uf_solver (Format.sprintf "Looking for new assignments (k=%d)" k);
@@ -495,80 +596,37 @@ let iso_decomp one_state abd_solver uf_solver assump_svars sv_to_ufs pred k abdu
     SMTSolver.pop uf_solver;
 
     match res with
-    | None -> pred'
+    | None -> (
+      if iter=1 && not one_state then (
+        let pred_unrolling =
+          List.init k (fun i -> Term.bump_state (Numeral.of_int i) pred')
+        in
+        distribute_and_generalize pred_unrolling init_conds'
+      )
+      else
+        pred', init_conds'
+    )
     | Some sol -> (
-      let pred'' =
+      let pred'', init_conds'' =
         let pred_unrolling =
           let pred' = Term.mk_or [pred'; sol] in
           List.init
             (if one_state then k+1 else k)
             (fun i -> Term.bump_state (Numeral.of_int i) pred')
         in
-        let sys_svars, env_svars = assump_svars in
-        let all_forall_vars =
-          List.rev_append
-            (mk_forall_vars 0 sys_svars k |> List.rev)
-            (mk_forall_vars 0 env_svars (k+1))
+        let pred_unrolling =
+          List.fold_left
+            (fun pred_unrolling' i ->
+              generalize_step_predicate pred_unrolling' init_conds' i
+            )
+            pred_unrolling
+            (List.init (if one_state then k+1 else k) identity)
         in
-        List.fold_left
-          (fun pred_unrolling' i ->
-            let forall_vars =
-              all_forall_vars |> List.filter (fun v ->
-                let sv = Var.state_var_of_state_var_instance v in
-                let equal_to_sv = StateVar.equal_state_vars sv in
-                let offset = Var.offset_of_state_var_instance v in
-                if one_state then
-                  Numeral.equal offset (Numeral.of_int i) |> not
-                else
-                  ( Numeral.equal offset (Numeral.of_int i) ||
-                    (
-                      Numeral.equal offset (Numeral.of_int (i+1)) &&
-                      List.exists equal_to_sv env_svars
-                    )
-                  )
-                  |> not
-              )
-            in
-            let pred_unrolling' =
-              if one_state then
-                pred_unrolling'
-              else
-                let remove_env_svars_at_i1 term =
-                  let exists_vars =
-                    env_svars
-                    |> List.map (fun sv ->
-                      Var.mk_state_var_instance sv (Numeral.of_int (i+1))
-                    )
-                  in
-                  let exists_term =
-                    Term.mk_exists exists_vars term
-                  in
-                  SMTSolver.get_qe_term abd_solver exists_term
-                  |> Term.mk_and
-                  |> SMTSolver.simplify_term abd_solver
-                in
-                Lib.list_apply_at remove_env_svars_at_i1 (i+1) pred_unrolling'
-            in
-            let pred_unrolling' = Lib.list_remove_nth i pred_unrolling' in
-            let premises = Term.mk_and pred_unrolling' in
-            let trans_at_i =
-              SMTSolver.trace_comment abd_solver (Format.sprintf "Iter: %d" i);
-              Abduction.abduce abd_solver forall_vars premises abduct
-              |> SMTSolver.simplify_term abd_solver
-            in
-            Lib.list_insert_at trans_at_i i pred_unrolling'
-          )
-          pred_unrolling
-          (List.init (if one_state then k+1 else k) identity)
-        |> List.mapi (fun i t ->
-          Term.bump_state (Numeral.of_int (- i)) t
-        )
-        |> Term.mk_and
-        |> SMTSolver.simplify_term abd_solver
+        distribute_and_generalize pred_unrolling init_conds'
       in
 
       if (pred' == pred'') then (
-        pred''
+        pred'', init_conds''
       )
       else (
         if one_state then (
@@ -583,14 +641,14 @@ let iso_decomp one_state abd_solver uf_solver assump_svars sv_to_ufs pred k abdu
         let max_iters = Flags.Contracts.assumption_gen_iter () in 
 
         if (max_iters>0 && iter >= max_iters) then
-          pred''
+          pred'', init_conds''
         else
-          loop pred'' (iter+1)
+          loop pred'' init_conds'' (iter+1)
       )
     )
   in
 
-  loop pred 1
+  loop pred init_conds 1
 
 
 let cart_decomp one_state abd_solver assump_svars sys k system_unrolling abduct =
@@ -618,7 +676,7 @@ let cart_decomp one_state abd_solver assump_svars sys k system_unrolling abduct 
       (sys_svars @ env_svars)
   in
 
-  let ({init; trans} as assump, trans') =
+  let {init; trans} as assump =
     init_soln one_state uf_solver assump_svars sv_to_ufs k system_unrolling abduct
   in
 
@@ -626,54 +684,60 @@ let cart_decomp one_state abd_solver assump_svars sys k system_unrolling abduct 
 
   print_assump_debug assump;
 
-  let init, trans =
-    if one_state then (
-      let init =
-        iso_decomp
-          one_state abd_solver uf_solver assump_svars sv_to_ufs init k abduct
-      in
-      init, Term.bump_state Numeral.one init
-    )
-    else (
-      let init =
-        let premises =
-          Term.mk_and
-            (trans' :: 
-             List.init (k-1) 
-               (fun i -> Term.bump_state (Numeral.of_int (i+1)) trans)) 
+  try (
+    let init, trans =
+      if one_state then (
+        let init, _ =
+          iso_decomp
+            one_state sys abd_solver uf_solver assump_svars
+            sv_to_ufs init Term.t_true k abduct
         in
-        let forall_vars =
-          List.rev_append
-            (mk_forall_vars 0 sys_svars k |> List.rev)
-            (mk_forall_vars 1 env_svars k)
-        in
-        Abduction.abduce abd_solver forall_vars premises abduct
-        |> SMTSolver.simplify_term abd_solver
-      in
-    
-      Debug.assump "Generalized initial predicate@." ;
-    
-      print_init_debug init;
-    
-      let trans =
-        let abduct =
-          Abduction.abduce abd_solver [] init abduct
+        init, Term.bump_state Numeral.one init
+      )
+      else (
+        let init =
+          let premises =
+            Term.mk_and
+              (List.init k
+                (fun i -> Term.bump_state (Numeral.of_int i) trans))
+          in
+          let forall_vars =
+            List.rev_append
+              (mk_forall_vars 0 sys_svars k |> List.rev)
+              (mk_forall_vars 1 env_svars k)
+          in
+          Abduction.abduce abd_solver forall_vars premises abduct
           |> SMTSolver.simplify_term abd_solver
         in
 
-        Debug.assump "@[<hv>Transition abduct:@ @[<hv>%a@]@]@."
-          Term.pp_print_term abduct ;
+        Debug.assump "Generalized initial predicate@." ;
 
-        iso_decomp 
-          one_state abd_solver uf_solver assump_svars sv_to_ufs trans k abduct
-      in
-      init, trans
-    )
-  in
+        print_init_debug init;
 
-  SMTSolver.delete_instance uf_solver ;
-  
-  Success { init; trans}
+        let trans, init =
+          iso_decomp
+            one_state sys abd_solver uf_solver assump_svars
+            sv_to_ufs trans init k abduct
+        in
+
+        Debug.assump "Refined initial predicate@." ;
+
+        print_init_debug init;
+
+        init, trans
+      )
+    in
+
+    SMTSolver.delete_instance uf_solver ;
+
+    Success { init; trans}
+  )
+  with UnknownResult -> (
+
+    SMTSolver.delete_instance uf_solver ;
+
+    Unknown
+  )
 
 
 type abduct_info =
