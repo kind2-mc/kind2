@@ -179,15 +179,14 @@ let realizability_check ?(include_invariants=false)
       else
         TSys.trans_of_bound None sys Numeral.one
     in
-    if uncontrollable_varset_is_non_empty then
-      (* term_partion assumes constraints over controllable variables contains
-         at least a controllable variable in the current state. This is the case
-         if the transition system is the direct translation of a Lustre model
-         since all constraints are introduced through the definition
-         and assertion of a boolean state variable *)
-      term_partition controllable_vars_at_1 (get_conjucts trans)
-    else
-      [], get_conjucts trans
+    (* term_partion assumes constraints over controllable variables contains
+       at least a controllable variable in the current state. This is the case
+       if the transition system is the direct translation of a Lustre model
+       since all constraints are introduced through the definition
+       and assertion of a boolean state variable.
+       When invariants are included, the partitioning adds them to
+       the first part (free_of_controllable_vars_at_1) *)
+    term_partition controllable_vars_at_1 (get_conjucts trans)
   in
 
   (*Format.printf "U: %a@."
