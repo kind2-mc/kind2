@@ -1,0 +1,8 @@
+
+node N(in:bool) returns (out:bool);
+(*@contract
+  var A : bool = Undefined(cancel);
+*)
+let
+  in = out;
+tel
