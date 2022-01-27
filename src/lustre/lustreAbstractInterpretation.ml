@@ -224,6 +224,11 @@ and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
     (Ctx.union constants_ctx ty_ctx)
     (Ctx.union input_ctx output_ctx)
   in
+  let ctx = IMap.empty in
+  let contract_ctx = match contract with
+    | Some contract -> interpret_contract id ctx ty_ctx contract 
+    | None -> empty_context
+  in
   let ty_ctx = List.fold_left
     (fun ctx local -> TC.local_var_binding ctx local
       |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
@@ -231,7 +236,6 @@ and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
     ty_ctx
     locals
   in
-  let ctx = IMap.empty in
   let eqns = List.fold_left (fun acc -> function
     | LA.Body eqn -> (match eqn with
       | LA.Assert _ -> acc
@@ -241,10 +245,6 @@ and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
     | AnnotProperty _ -> acc)
     []
     items
-  in
-  let contract_ctx = match contract with
-    | Some contract -> interpret_contract id ctx ty_ctx contract 
-    | None -> empty_context
   in
   let eqn_ctx = List.fold_left (fun acc (lhs, rhs) ->
       let ctx = interpret_eqn id acc ty_ctx lhs rhs in
