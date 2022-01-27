@@ -1,0 +1,11 @@
+
+
+node N(in:bool) returns (out:bool);
+(*@contract
+  var A : bool = true;
+*)
+var A: bool;
+let
+  A = false;
+  out = in;
+tel;

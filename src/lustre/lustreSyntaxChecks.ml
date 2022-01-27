@@ -254,7 +254,7 @@ let locals_must_have_definitions locals items =
   in
   Res.seq (List.map over_locals locals)
 
-let no_dangling_node_calls ctx = function
+let no_dangling_calls ctx = function
   | LA.Condact (pos, _, _, i, _, _)
   | Activate (pos, i, _, _, _)
   | Call (pos, i, _) ->
@@ -264,7 +264,7 @@ let no_dangling_node_calls ctx = function
     | true, _ -> Ok ()
     | _, true -> Ok ()
     | false, false -> syntax_error pos
-      (Format.asprintf "No node with name %a found."
+      (Format.asprintf "Node or function '%a' is undefined."
         HString.pp_print_hstring i))
   | _ -> Ok ()
 
@@ -478,12 +478,13 @@ and check_const_expr_decl ctx expr =
 
 and common_node_equations_checks ctx e =
   (unsupported_expr e)
-    >> (no_dangling_node_calls ctx e)
+    >> (no_dangling_calls ctx e)
     >> (no_dangling_identifiers ctx e)
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
 
 and common_contract_checks ctx e =
   (unsupported_expr e)
+    >> (no_dangling_calls ctx e)
     >> (no_dangling_identifiers ctx e)
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
     >> (no_calls_to_nodes_with_contracts_subject_to_refinement ctx e)
@@ -562,6 +563,7 @@ and check_contract is_contract_node ctx f contract =
       let gs = List.map (fun (_, _, e) -> e) gs in
       check_list rs >> check_list gs
     | GhostVar (UntypedConst (_, _, e)) -> check_expr ctx f e
+    | GhostVar (TypedConst (_, _, e, _)) -> check_expr ctx f e
     | AssumptionVars (pos, _) ->
       if not is_contract_node then Ok ()
       else syntax_error pos ("Assumption variables not supported in contract nodes")

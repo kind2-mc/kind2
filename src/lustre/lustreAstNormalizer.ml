@@ -682,15 +682,8 @@ and normalize_node info map
     (Ctx.union constants_ctx info.context)
     (Ctx.union input_ctx output_ctx)
   in
-  let ctx = List.fold_left
-    (fun ctx local -> Chk.local_var_binding ctx local
-      |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
-      |> Res.unwrap)
-    ctx
-    locals
-  in
   let info = { info with context = ctx } in
-  (* Record subrange constraints on inputs, outputs, and locals *)
+  (* Record subrange constraints on inputs, outputs *)
   let gids1 = inputs
     |> List.filter (fun (_, id, _, _, _) -> 
       let ty, _ = get_type_of_id info node_id id in
@@ -701,7 +694,41 @@ and normalize_node info map
       union acc (mk_fresh_subrange_constraint Input info p id ty is_original))
       (empty ())
   in
-  let gids2 = locals
+  let gids2 = outputs
+    |> List.filter (fun (_, id, _, _) -> 
+      let ty, _ = get_type_of_id info node_id id in
+      AH.type_contains_subrange ty)
+    |> List.fold_left (fun acc (p, id, _, _) ->
+      let ty, is_original = get_type_of_id info node_id id in
+      let ty = AIC.inline_constants_of_lustre_type info.context ty in
+      union acc (mk_fresh_subrange_constraint Output info p id ty is_original))
+      (empty ())
+  in
+  (* We have to handle contracts before locals
+    Otherwise the typing contexts collide *)
+  let ncontracts, gids5 = match contracts with
+    | Some contracts ->
+      let ctx = Chk.tc_ctx_of_contract info.context contracts
+        |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
+        |> Res.unwrap in
+      let contract_ref = new_contract_reference () in
+      let info = { info with context = ctx; contract_ref } in
+      let ncontracts, gids = normalize_contract info map node_id
+        contracts in
+      (Some ncontracts), gids
+    | None -> None, empty ()
+  in
+  (* Record subrange constraints on locals
+    and finish setting up the typing context for the node body *)
+  let ctx = List.fold_left
+    (fun ctx local -> Chk.local_var_binding ctx local
+      |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
+      |> Res.unwrap)
+    ctx
+    locals
+  in
+  let info = { info with context = ctx } in
+  let gids3 = locals
     |> List.filter (function
       | A.NodeVarDecl (_, (_, id, _, _)) -> 
         let ty, _ = get_type_of_id info node_id id in
@@ -715,30 +742,8 @@ and normalize_node info map
       | _ -> assert false)
       (empty ())
   in
-  let gids3 = outputs
-    |> List.filter (fun (_, id, _, _) -> 
-      let ty, _ = get_type_of_id info node_id id in
-      AH.type_contains_subrange ty)
-    |> List.fold_left (fun acc (p, id, _, _) ->
-      let ty, is_original = get_type_of_id info node_id id in
-      let ty = AIC.inline_constants_of_lustre_type info.context ty in
-      union acc (mk_fresh_subrange_constraint Output info p id ty is_original))
-      (empty ())
-in
   (* Normalize equations and the contract *)
   let nitems, gids4 = normalize_list (normalize_item info map) items in
-  let ncontracts, gids5 = match contracts with
-    | Some contracts ->
-      let ctx = Chk.tc_ctx_of_contract info.context contracts
-        |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
-        |> Res.unwrap in
-      let contract_ref = new_contract_reference () in
-      let info = { info with context = ctx; contract_ref } in
-      let ncontracts, gids = normalize_contract info map node_id
-        contracts in
-      (Some ncontracts), gids
-    | None -> None, empty ()
-  in
   let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
   let map = StringMap.singleton node_id gids in
   (node_id, is_extern, params, inputs, outputs, locals, nitems, ncontracts), map
