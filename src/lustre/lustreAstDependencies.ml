@@ -616,8 +616,8 @@ let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t list = fun
 
   (* Node calls *)
   | Call (_, i, es) ->
-    Format.eprintf "call expr: %a\n\n" (Lib.pp_print_list LA.pp_print_expr ";") es;
-    Format.eprintf "call: %a\n\n" HString.pp_print_hstring i;
+    (* Format.eprintf "call expr: %a\n\n" (Lib.pp_print_list LA.pp_print_expr ";") es;
+    Format.eprintf "call: %a\n\n" HString.pp_print_hstring i; *)
     (match IMap.find_opt i m with
       | None -> assert false (* guaranteed by lustreSyntaxChecks *)
       | Some ns ->
