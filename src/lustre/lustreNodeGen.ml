@@ -188,14 +188,19 @@ let mk_state_var
     ?is_input
     ?is_const
     ?for_inv_gen
+    ?expr_ident
     map
     scope
-    ident 
+    sv_ident 
     index 
     state_var_type
     source = 
+  let expr_ident = match expr_ident with
+    | Some id -> id
+    | None -> sv_ident
+  in
   (* Concatenate identifier and indexes *)
-  let state_var_name = mk_state_var_name ident index in
+  let state_var_name = mk_state_var_name sv_ident index in
   (* For each index add a scope to the identifier to distinguish the
     flattened indexed identifier from unindexed identifiers
 
@@ -215,7 +220,7 @@ let mk_state_var
     if index = X.empty_index then
       X.singleton index expr
     else try
-      let t = H.find !map.expr ident in
+      let t = H.find !map.expr expr_ident in
       X.add index expr t
     with Not_found -> X.singleton index expr
   in
@@ -239,8 +244,8 @@ let mk_state_var
     state_var, true)
   in
   SVT.replace !map.bounds state_var (bounds_of_index index);
-  H.replace !map.expr ident (compute_expr (E.mk_var state_var));
-  H.replace !map.state_var ident state_var;
+  H.replace !map.expr expr_ident (compute_expr (E.mk_var state_var));
+  H.replace !map.state_var expr_ident state_var;
   (match source with
     | Some source -> SVT.replace !map.source state_var source;
     | None -> ());
@@ -1171,17 +1176,24 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
     gconsts;
 
   let ghost_locals, ghost_equations =
+    let extract_namespace name =
+      let name = HString.string_of_hstring name in
+      let parts = List.rev (String.split_on_char '_' name) in
+      (parts |> List.hd |> HString.mk_hstring |> mk_ident, List.tl parts)
+    in
     let over_vars (gvar_accum, eq_accum) = function
       | A.FreeConst (_, _, _) -> assert false
       | A.UntypedConst (_, id, expr) ->
-        let ident = mk_ident id in
+        let expr_ident = mk_ident id in
+        let (ident, contract_namespace) = extract_namespace id in
         let nexpr = compile_ast_expr cstate ctx [] map expr in
         let index_types = X.map (fun { E.expr_type } -> expr_type) nexpr in
         let over_indices = fun index index_type accum ->
           let possible_state_var = mk_state_var
             ~is_input:false
+            ~expr_ident:expr_ident
             map
-            (node_scope @ "contract" :: I.user_scope)
+            (node_scope @ contract_namespace @ I.user_scope)
             ident
             index
             index_type
@@ -1191,16 +1203,18 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
           | Some state_var -> X.add index state_var accum
           | None -> accum
         in let ghost_local = X.fold over_indices index_types X.empty in
-        H.replace !map.expr ident nexpr;
+        H.replace !map.expr expr_ident nexpr;
         ghost_local :: gvar_accum, eq_accum
       | A.TypedConst (pos, id, expr, expr_type) ->
-        let ident = mk_ident id in
+        let expr_ident = mk_ident id in
+        let (ident, contract_namespace) = extract_namespace id in
         let index_types = compile_ast_type cstate ctx map expr_type in
         let over_indices = fun index index_type accum ->
           let possible_state_var = mk_state_var
             ~is_input:false
+            ~expr_ident:expr_ident
             map
-            (node_scope @ "contract" :: I.user_scope)
+            (node_scope @ contract_namespace @ I.user_scope)
             ident
             index
             index_type
