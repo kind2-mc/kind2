@@ -34,7 +34,15 @@ module StringMap = Map.Make(
     type t = HString.t
   end)
 
-type 'a sc_result = ('a, Lib.position * string) result
+
+type error = [
+  | `SyntaxChecksError of Lib.position * string
+]
+
+let syntax_error pos msg = Error (`SyntaxChecksError (pos, msg))
+
+let (let*) = Result.bind
+let (>>) = fun a b -> let* _ = a in b
 
 type node_data = {
   has_contract: bool;
@@ -57,11 +65,6 @@ type context = {
   quant_vars : LustreAst.lustre_type option StringMap.t;
   array_indices : LustreAst.lustre_type option StringMap.t;
   symbolic_array_indices : LustreAst.lustre_type option StringMap.t; }
-
-(* let (>>=) = Res.(>>=) *)
-let (>>) = Res.(>>)
-
-let syntax_error pos msg = Error (pos, msg)
 
 let empty_ctx () = {
     nodes = StringMap.empty;

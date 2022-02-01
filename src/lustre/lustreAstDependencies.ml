@@ -38,13 +38,15 @@ module LH = LustreAstHelpers
 module SI = LA.SI
 
 open LustreReporting
-          
-type 'a graph_result = ('a, Lib.position * string) result  
 
-let graph_error pos err = Error (pos, err)
+type error = [
+  | `AstDependencyError of Lib.position * string
+]
 
-let (>>=) = R.(>>=)                     
-let (>>) = R.(>>)                     
+let graph_error pos err = Error (`AstDependencyError (pos, err))
+
+let (>>=) = R.(>>=)
+let (>>) = R.(>>)
           
 module G = Graph.Make(struct
                type t = LA.ident
@@ -442,14 +444,14 @@ let add_decl: 'a IMap.t -> LA.ident -> 'a -> 'a IMap.t
   = fun m i dec -> IMap.add i dec m
                  
 let check_and_add: 'a IMap.t -> Lib.position
-                   -> HString.t -> LA.ident -> 'a -> ('a IMap.t) graph_result
+                   -> HString.t -> LA.ident -> 'a -> (('a IMap.t), [> error]) result
   = fun m pos prefix i tyd ->
   if IMap.mem (HString.concat2 prefix i) m 
   then graph_error pos ("Identifier " ^ (HString.string_of_hstring i) ^ " is already declared")
   else R.ok (add_decl m (HString.concat2 prefix i) tyd)
 (** reject program if identifier is already declared  *)
   
-let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> (LA.declaration IMap.t) graph_result =
+let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> ((LA.declaration IMap.t), [> error]) result =
   fun m ->
   function  
   | [] -> R.ok m 
@@ -496,7 +498,7 @@ let mk_graph_decls: LA.t -> dependency_analysis_data
    See Note {Types of dependency analysis} for more information about different kinds of
    dependency analysis  *)
 
-let extract_decls: 'a IMap.t -> LA.ident list -> ('a list) graph_result
+let extract_decls: 'a IMap.t -> LA.ident list -> (('a list), [> error]) result
   = fun decl_map ids ->
   R.ok (List.concat (List.map (fun i -> match (IMap.find_opt i decl_map) with
                      | None -> []
@@ -647,7 +649,7 @@ let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t list = fun
 (** get all the variables and flatten node calls using 
     the node summary for an expression *)
              
-let rec mk_contract_eqn_map: LA.contract_node_equation IMap.t -> LA.contract -> (LA.contract_node_equation IMap.t) graph_result
+let rec mk_contract_eqn_map: LA.contract_node_equation IMap.t -> LA.contract -> ((LA.contract_node_equation IMap.t), [> error]) result
   = fun m ->
   function
   | [] -> R.ok m
@@ -666,7 +668,7 @@ let rec mk_contract_eqn_map: LA.contract_node_equation IMap.t -> LA.contract -> 
   | _ -> assert false
               
 
-let rec mk_graph_expr2: node_summary -> LA.expr -> dependency_analysis_data list graph_result
+let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data list, [> error]) result
   = fun m ->
   function
   | LA.Ident (pos, i) -> R.ok [singleton_dependency_analysis_data empty_hs i pos]
@@ -888,7 +890,7 @@ let mk_graph_contract_eqns: node_summary -> LA.contract -> dependency_analysis_d
   R.ok (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data gs) 
 *)
 
-let expression_current_streams: dependency_analysis_data -> LA.expr -> LA.ident list graph_result
+let expression_current_streams: dependency_analysis_data -> LA.expr -> (LA.ident list, [> error]) result
   = fun ad e ->
   let vars = vars_with_flattened_nodes ad.nsummary (LH.abstract_pre_subexpressions e) in
   let vs = LA.SI.elements (SI.flatten vars) in
@@ -903,7 +905,7 @@ let expression_current_streams: dependency_analysis_data -> LA.expr -> LA.ident 
   ; R.ok rechable_vs
 (** all the variables who's current value is used in the expression *)
 
-let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr -> unit graph_result
+let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr -> (unit, [> error]) result
   = fun node_out_streams ad e -> 
   expression_current_streams ad e >>= fun s ->
   R.ok (SI.inter node_out_streams (LA.SI.of_list s)) >>= fun assume_vars_out_streams -> 
@@ -926,7 +928,7 @@ let mk_graph_contract_decl2
     ad
     (List.map (mk_graph_contract_node_eqn2 ad) c)
 
-let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contract_node_equation -> unit graph_result
+let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contract_node_equation -> (unit, [> error]) result
   = fun ids ad ->
   function
   | LA.Assume (_, _, _, e) ->
@@ -940,7 +942,7 @@ let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contra
 
 let sort_and_check_contract_eqns: dependency_analysis_data
                                   -> LA.contract_node_decl
-                                  -> LA.contract_node_decl graph_result
+                                  -> (LA.contract_node_decl, [> error]) result
   = fun ad ((i, params , ips, ops, contract) as decl)->
   Debug.parse "Sorting contract equations for %a" LA.pp_print_ident i
   ; let ip_ids = List.map (fun ip -> LH.extract_ip_ty ip |> fst) ips in
@@ -979,7 +981,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
       of the output streams. *)
 
 
-let sort_declarations: LA.t -> (LA.t * LA.ident list) graph_result
+let sort_declarations: LA.t -> ((LA.t * LA.ident list), [> error]) result
   = fun decls ->
   (* 1. make an id :-> decl map  *)
   mk_decl_map IMap.empty decls >>= fun decl_map ->
@@ -1105,7 +1107,7 @@ let mk_contract_summary: contract_summary -> LA.contract_node_decl -> contract_s
                                             
 let mk_graph_eqn: node_summary
                   -> LA.node_equation
-                  -> dependency_analysis_data graph_result =
+                  -> (dependency_analysis_data, [> error]) result =
   let handle_one_lhs: dependency_analysis_data
                       -> LA.struct_item
                       -> dependency_analysis_data
@@ -1153,7 +1155,7 @@ let mk_graph_eqn: node_summary
         | _ -> R.ok (empty_dependency_analysis_data)
 (** Make a dependency graph from the equations. Each LHS has an edge that goes into its RHS definition. *)
              
-let rec mk_graph_node_items: node_summary -> LA.node_item list -> dependency_analysis_data graph_result =
+let rec mk_graph_node_items: node_summary -> LA.node_item list -> (dependency_analysis_data, [> error]) result =
   fun m -> function
   | [] -> R.ok empty_dependency_analysis_data
   | (Body eqn) :: items -> 
@@ -1164,14 +1166,14 @@ let rec mk_graph_node_items: node_summary -> LA.node_item list -> dependency_ana
   | _ :: items -> mk_graph_node_items m items
 (** Traverse all the node items to make a dependency graph  *)
 
-let rec mk_state_map: LA.state IMap.t -> LA.state list -> (LA.state IMap.t) graph_result
+let rec mk_state_map: LA.state IMap.t -> LA.state list -> ((LA.state IMap.t), [> error]) result
   = fun m ->
   function
   | [] -> R.ok m
   | LA.State (pos, i, _, _, _, _, _) as s :: ss ->
      check_and_add m pos empty_hs i s >>= fun m' -> mk_state_map m' ss        
 
-let rec check_valid_transition_branch: LA.state IMap.t -> LA.transition_branch -> unit graph_result
+let rec check_valid_transition_branch: LA.state IMap.t -> LA.transition_branch -> (unit, [> error]) result
   = fun m ->
   function
   | LA.Target (TransRestart (_, (pos, i)))
@@ -1185,7 +1187,7 @@ let rec check_valid_transition_branch: LA.state IMap.t -> LA.transition_branch -
          | Some b -> check_valid_transition_branch m b
          | None -> R.ok ())
 
-let check_valid_state_transition: LA.state IMap.t -> LA.state -> unit graph_result
+let check_valid_state_transition: LA.state IMap.t -> LA.state -> (unit, [> error]) result
   = fun m ->
   function
   | LA.State (_, _, _, _, _, trans_opt1, trans_opt2) ->
@@ -1197,7 +1199,7 @@ let check_valid_state_transition: LA.state IMap.t -> LA.state -> unit graph_resu
      | None -> R.ok ())
 
 
-let check_only_one_initial_state: LA.state list -> unit graph_result
+let check_only_one_initial_state: LA.state list -> (unit, [> error]) result
   = fun ss ->
   let initial_states = List.filter (fun (LA.State(_, _, b, _, _, _, _)) -> b) ss in
   if List.length initial_states <= 1
@@ -1208,14 +1210,14 @@ let check_only_one_initial_state: LA.state list -> unit graph_result
       ("Automaton cannot have more than one initial state but found states: "
       ^ (Lib.string_of_t ((Lib.pp_print_list LA.pp_print_ident) ", ") (List.map snd pis)))
 
-let analyze_states: LA.state list -> unit graph_result
+let analyze_states: LA.state list -> (unit, [> error]) result
   = fun states -> 
   mk_state_map IMap.empty states >>= fun state_map ->
   R.seq_ (List.map (check_valid_state_transition state_map) states)
   >> check_only_one_initial_state states
 (* Checks that the transition states are valid and there is atmost one initial state *)
 
-let rec analyze_automaton_states: node_summary -> LA.state -> unit graph_result =
+let rec analyze_automaton_states: node_summary -> LA.state -> (unit, [> error]) result =
   fun m ->
   function
   | State (_, _, _, _, eqns, _, _) ->
@@ -1235,7 +1237,7 @@ let rec analyze_automaton_states: node_summary -> LA.state -> unit graph_result 
      >> analyze_automatons m eqns 
      >> R.ok ()
   
-and analyze_automatons: node_summary -> LA.node_equation list -> unit graph_result =
+and analyze_automatons: node_summary -> LA.node_equation list -> (unit, [> error]) result =
   fun m ->
   function
   | [] -> R.ok ()
@@ -1246,7 +1248,7 @@ and analyze_automatons: node_summary -> LA.node_equation list -> unit graph_resu
   | _ :: items -> analyze_automatons m items
 (** checks all the automatons in the node *)
                 
-let analyze_circ_node_equations: node_summary -> LA.node_item list -> unit graph_result =
+let analyze_circ_node_equations: node_summary -> LA.node_item list -> (unit, [> error]) result =
   fun m eqns ->
   Debug.parse "Checking circularity in node equations"
   ; mk_graph_node_items m eqns >>= fun ad ->
@@ -1267,7 +1269,7 @@ let analyze_circ_node_equations: node_summary -> LA.node_item list -> unit graph
     
 let check_node_equations: dependency_analysis_data
                           -> LA.node_decl
-                          -> LA.node_decl graph_result
+                          -> (LA.node_decl, [> error]) result
   = fun ad ((i, imported, params, ips, ops, locals, items, contract_opt) as ndecl)->
   (if not imported then
      analyze_circ_node_equations ad.nsummary items
@@ -1298,7 +1300,7 @@ let rec generate_summaries: dependency_analysis_data -> LA.t -> dependency_analy
 (** This function generates the node summary and contract summary data
     This function requires that the program does not have any forward references. *)
 
-let rec sort_and_check_equations: dependency_analysis_data -> LA.t -> LA.t graph_result = 
+let rec sort_and_check_equations: dependency_analysis_data -> LA.t -> (LA.t, [> error]) result = 
   fun ad ->
   function
   | LA.FuncDecl (span, ndecl) :: ds ->

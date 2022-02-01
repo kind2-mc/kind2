@@ -29,12 +29,14 @@ module LH = LustreAstHelpers
 module R = Res
 let (>>=) = R.(>>=)
 
-type 'a inline_result = ('a, Lib.position * string) result
+type error = [
+  | `AstInlineConstantsError of Lib.position * string
+]
 
-let inline_error pos err = R.error (pos, "Error: " ^ err)
+let inline_error pos err = Error (`AstInlineConstantsError (pos, "Error: " ^ err))
 (** [type_error] returns an [Error] of [tc_result] *)
                       
-let int_value_of_const: LA.expr -> int inline_result =
+let int_value_of_const: LA.expr -> (int, [> error]) result =
   function
   | LA.Const (_, LA.Num n) -> R.ok (n |> HString.string_of_hstring |> int_of_string)
   | e -> inline_error (LH.pos_of_expr e)
@@ -42,7 +44,7 @@ let int_value_of_const: LA.expr -> int inline_result =
             ^ LA.string_of_expr e
             ^ " to an int.") 
 
-let bool_value_of_const: LA.expr -> bool inline_result =
+let bool_value_of_const: LA.expr -> (bool, [> error]) result =
   function
   | LA.Const (_, LA.True) -> R.ok true
   | LA.Const (_, LA.False) -> R.ok false                             
@@ -64,7 +66,7 @@ let rec is_normal_form: TC.tc_context -> LA.expr -> bool = fun ctx ->
   | _ -> false
 (** is the expression in a normal form? *)
          
-let rec eval_int_expr: TC.tc_context -> LA.expr -> int inline_result = fun ctx ->
+let rec eval_int_expr: TC.tc_context -> LA.expr -> (int, [> error]) result = fun ctx ->
   function
   | LA.Ident (pos, i) ->
      (match (TC.lookup_const ctx i) with
@@ -103,7 +105,7 @@ and eval_bool_unary_op ctx pos op e1 =
     ^ "to a bool value")
 
 and eval_int_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
-                        -> LA.expr -> LA.expr -> int inline_result =
+                        -> LA.expr -> LA.expr -> (int, [> error]) result =
   fun ctx pos bop e1 e2 ->
   eval_int_expr ctx e1 >>= fun v1 ->
   eval_int_expr ctx e2 >>= fun v2 ->
@@ -117,7 +119,7 @@ and eval_int_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
                          ^" to an int value")    
 (** try and evalutate binary op expression to int, return error otherwise *)
              
-and eval_bool_expr: TC.tc_context -> LA.expr -> bool inline_result = fun ctx ->
+and eval_bool_expr: TC.tc_context -> LA.expr -> (bool, [> error]) result = fun ctx ->
   function
   | LA.Ident (pos, i) ->
      (match (TC.lookup_const ctx i) with
@@ -140,7 +142,7 @@ and eval_bool_expr: TC.tc_context -> LA.expr -> bool inline_result = fun ctx ->
 (** try and evalutate expression to bool, return error otherwise *)
 
 and eval_bool_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
-                         -> LA.expr -> LA.expr -> bool inline_result = 
+                         -> LA.expr -> LA.expr -> (bool, [> error]) result = 
   fun ctx pos bop e1 e2 ->
   eval_bool_expr ctx e1 >>= fun v1 ->
   eval_bool_expr ctx e2 >>= fun v2 ->
@@ -155,7 +157,7 @@ and eval_bool_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
 (** try and evalutate binary op expression to bool, return error otherwise *)
   
 and eval_bool_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
-                     -> LA.expr -> LA.expr -> LA.expr -> bool inline_result
+                     -> LA.expr -> LA.expr -> LA.expr -> (bool, [> error]) result
   = fun ctx pos top b1 e1 e2 ->
   eval_bool_expr ctx b1 >>= fun c ->
   eval_bool_expr ctx e1 >>= fun v1 ->
@@ -166,7 +168,7 @@ and eval_bool_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
 (** try and evalutate ternary op expression to bool, return error otherwise *)
 
 and eval_int_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
-                     -> LA.expr -> LA.expr -> LA.expr -> int inline_result
+                     -> LA.expr -> LA.expr -> LA.expr -> (int, [> error]) result
   = fun ctx pos top b1 e1 e2 ->
   match top with
   | LA.Ite ->
@@ -179,7 +181,7 @@ and eval_int_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
 
              
 and eval_comp_op: TC.tc_context -> LA.comparison_operator
-                  -> LA.expr -> LA.expr -> bool inline_result = 
+                  -> LA.expr -> LA.expr -> (bool, [> error]) result = 
   fun ctx cop e1 e2 ->
   eval_int_expr ctx e1 >>= fun v1 ->
   eval_int_expr ctx e2 >>= fun v2 ->
@@ -460,7 +462,7 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
 (** propogate constants post type checking into the AST and constant store*)
 
 
-let rec inline_constants: TC.tc_context -> LA.t -> (TC.tc_context * LA.t) inline_result = fun ctx ->
+let rec inline_constants: TC.tc_context -> LA.t -> ((TC.tc_context * LA.t), [> error]) result = fun ctx ->
   function
   | [] -> R.ok (ctx, [])
   | c :: rest ->

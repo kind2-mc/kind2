@@ -29,12 +29,13 @@ module LA = LustreAst
 module LH = LustreAstHelpers
 module IC = LustreAstInlineConstants
 module LSC = LustreSyntaxChecks
-open TypeCheckerContext                        
+open TypeCheckerContext
 
-
-type 'a tc_result = ('a, Lib.position * string) result
-(** Returns [Ok] if the type check/type inference runs fine 
- * or reports an error at position with the error *)
+type error = [
+  | `TypeCheckerError of Lib.position * string
+  | `SyntaxChecksError of Lib.position * string
+  | `AstInlineConstantsError of Lib.position * string
+]
 
 let (>>=) = R.(>>=)
 let (>>) = R.(>>)
@@ -45,7 +46,7 @@ type tc_type  = LA.lustre_type
 let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
 (** String of the type to display in type errors *)
   
-let type_error pos err = R.error (pos, "Type error: " ^ err)
+let type_error pos err = Error (`TypeCheckerError (pos, "Type error: " ^ err))
 (** [type_error] returns an [Error] of [tc_result] *)
          
              
@@ -60,13 +61,13 @@ let infer_type_const: Lib.position -> LA.constant -> tc_type
   | _ -> Bool pos
 (** Infers type of constants *)
 
-let check_merge_clock: LA.expr -> LA.lustre_type -> unit tc_result = fun e ty ->
+let check_merge_clock: LA.expr -> LA.lustre_type -> (unit, [> error]) result = fun e ty ->
   match ty with
   | AbstractType (_, _) -> LSC.no_mismatched_clock false e
   | Bool _ -> LSC.no_mismatched_clock true e
   | _ -> Ok ()
 
-let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HString.t list -> unit tc_result
+let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HString.t list -> (unit, [> error]) result
   = fun ctx pos ty cases ->
     match ty with
     | AbstractType (_, enum_id) -> (match lookup_variants ctx enum_id with
@@ -110,7 +111,7 @@ let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HStr
     | _ -> type_error pos ("Type " ^ string_of_tc_type ty ^
       " must be an abstract type, this should be impossible!")
 
-let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
+let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
   = fun ctx -> function
   (* Identifiers *)
   | LA.Ident (pos, i) ->
@@ -188,7 +189,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
 
   (* Structured expressions *)
   | LA.RecordExpr (pos, _, flds) ->
-    let infer_field: tc_context -> (LA.ident * LA.expr) -> (LA.typed_ident) tc_result
+    let infer_field: tc_context -> (LA.ident * LA.expr) -> ((LA.typed_ident), [> error]) result
       = fun ctx (i, e) -> infer_type_expr ctx e
                           >>= fun ty -> R.ok (LH.pos_of_expr e, i, ty) 
     in R.seq (List.map (infer_field ctx) flds)
@@ -350,7 +351,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   (* Node calls *)
   | LA.Call (pos, i, arg_exprs) ->
     Debug.parse "Inferring type for node call %a" LA.pp_print_ident i  
-    ; let infer_type_node_args: tc_context -> LA.expr list -> tc_type tc_result
+    ; let infer_type_node_args: tc_context -> LA.expr list -> (tc_type, [> error]) result
       = fun ctx args ->
       R.seq (List.map (infer_type_expr ctx) args)
       >>= (fun arg_tys ->
@@ -375,7 +376,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> tc_type tc_result
   | LA.CallParam _ -> Lib.todo __LOC__
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
-and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
+and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) result
   = fun ctx expr exp_ty ->
   match expr with
   (* Identifiers *)
@@ -612,7 +613,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> unit tc_result
  * if the expected type is the given type [tc_type]  
  * returns an [Error of string] otherwise *)
 
-and infer_type_unary_op: tc_context -> Lib.position -> LA.expr -> LA.unary_operator -> tc_type tc_result
+and infer_type_unary_op: tc_context -> Lib.position -> LA.expr -> LA.unary_operator -> (tc_type, [> error]) result
   = fun ctx pos e op ->
   infer_type_expr ctx e >>= fun ty -> 
   match op with
@@ -635,7 +636,7 @@ and infer_type_unary_op: tc_context -> Lib.position -> LA.expr -> LA.unary_opera
                         ^ string_of_tc_type ty)
 (** Infers type of unary operator application *)
 
-and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> bool tc_result
+and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> (bool, [> error]) result
   = fun ctx pos ty1 ty2 ->
   let num1 = HString.mk_hstring "1" in
   let num_tys = [
@@ -650,7 +651,7 @@ and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> bool tc_re
     ; LA.Int64 pos
     ; LA.IntRange (pos, Const (pos, Num num1), Const (pos, Num num1)) 
     ; LA.Real pos] in
-  let are_equal_types: tc_context -> tc_type -> tc_type -> tc_type -> bool tc_result
+  let are_equal_types: tc_context -> tc_type -> tc_type -> tc_type -> (bool, [> error]) result
     = fun ctx ty1 ty2 ty ->
     R.seqM (&&) true [ eq_lustre_type ctx ty1 ty
                     ; eq_lustre_type ctx ty2 ty ] in
@@ -659,7 +660,7 @@ and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> bool tc_re
   
 and infer_type_binary_op: tc_context -> Lib.position
                           -> LA.binary_operator -> LA.expr -> LA.expr
-                          -> tc_type tc_result
+                          -> (tc_type, [> error]) result
   = fun ctx pos op e1 e2 ->
   infer_type_expr ctx e1 >>= fun ty1 ->
   infer_type_expr ctx e2 >>= fun ty2 ->
@@ -738,7 +739,7 @@ and infer_type_binary_op: tc_context -> Lib.position
 
 and infer_type_conv_op: tc_context -> Lib.position
                         ->  LA.expr -> LA.conversion_operator
-                        -> tc_type tc_result
+                        -> (tc_type, [> error]) result
   = fun ctx pos e op ->
   infer_type_expr ctx e >>= fun ty ->
   match op with
@@ -815,7 +816,7 @@ and infer_type_conv_op: tc_context -> Lib.position
 (** Converts from given type to the intended type aka casting *)
     
 and infer_type_comp_op: tc_context -> Lib.position -> LA.expr -> LA.expr
-                        -> LA.comparison_operator -> tc_type tc_result
+                        -> LA.comparison_operator -> (tc_type, [> error]) result
   = fun ctx pos e1 e2 op ->
   infer_type_expr ctx e1 >>= fun ty1 ->
   infer_type_expr ctx e2 >>= fun ty2 ->
@@ -836,7 +837,7 @@ and infer_type_comp_op: tc_context -> Lib.position -> LA.expr -> LA.expr
                         ^ " and " ^ string_of_tc_type ty2)
 (** infer the type of comparison operator application *)
                   
-and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index -> tc_type -> unit tc_result =
+and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index -> tc_type -> (unit, [> error]) result =
   fun pos ctx expr idx exp_ty -> 
   infer_type_expr ctx expr
   >>= function
@@ -858,7 +859,7 @@ and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index ->
                               ^ " from a non record type "
                               ^ string_of_tc_type rec_ty)       
 
-and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_result =
+and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> (unit, [> error]) result =
   fun ctx const_decl exp_ty ->
   match const_decl with
   | FreeConst (pos, i, _) ->
@@ -887,7 +888,7 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> unit tc_res
                             ^ (HString.string_of_hstring i)
                             ^ " expects type " ^ string_of_tc_type exp_ty
                             ^ " but expression is of type " ^ string_of_tc_type inf_ty))
-and local_var_binding: tc_context -> LA.node_local_decl -> tc_context tc_result = fun ctx ->
+and local_var_binding: tc_context -> LA.node_local_decl -> (tc_context, [> error]) result = fun ctx ->
     function
     | LA.NodeConstDecl (_, const_decls) ->
       Debug.parse "Extracting typing context from const declaration: %a"
@@ -901,7 +902,7 @@ and local_var_binding: tc_context -> LA.node_local_decl -> tc_context tc_result 
       else check_type_well_formed ctx ty
           >> R.ok (add_ty ctx v ty)
                      
-and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> unit tc_result
+and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [> error]) result
   = fun pos ctx
         (node_name, is_extern, params, input_vars, output_vars, ldecls, items, contract)
         ->
@@ -977,7 +978,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> unit tc_
                            Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
                              (LA.SI.elements common_ids))
 
-and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
+and do_node_eqn: tc_context -> LA.node_equation -> (unit, [> error]) result = fun ctx ->
   function
   | LA.Assert (pos, e) ->
     Debug.parse "Checking assertion: %a" LA.pp_print_expr e
@@ -1005,7 +1006,7 @@ and do_node_eqn: tc_context -> LA.node_equation -> unit tc_result = fun ctx ->
       R.ok (Debug.parse "Checking Automation") >>
        R.seq_ (List.map (check_type_state ctx) ss) 
 
-and check_type_transition_branch: tc_context -> LA.transition_branch -> unit tc_result
+and check_type_transition_branch: tc_context -> LA.transition_branch -> (unit, [> error]) result
   = fun ctx ->
   function
   | LA.TransIf (p, e, tb, tb_opt) ->
@@ -1017,7 +1018,7 @@ and check_type_transition_branch: tc_context -> LA.transition_branch -> unit tc_
   | _ -> R.ok ()
 
 
-and check_type_state: tc_context -> LA.state -> unit tc_result = fun ctx ->
+and check_type_state: tc_context -> LA.state -> (unit, [> error]) result = fun ctx ->
   function
   | LA.State (_, _, _, local_streams, eqns, trans1_opt, trans2_opt) ->
     (* add the local variable bindings of the state into the  *)
@@ -1033,7 +1034,7 @@ and check_type_state: tc_context -> LA.state -> unit tc_result = fun ctx ->
         | None -> R.ok ())
     >> R.ok ()
 
-and do_item: tc_context -> LA.node_item -> unit tc_result = fun ctx ->
+and do_item: tc_context -> LA.node_item -> (unit, [> error]) result = fun ctx ->
   function
   | LA.Body eqn -> do_node_eqn ctx eqn
   | LA.AnnotMain _ as ann ->
@@ -1044,7 +1045,7 @@ and do_item: tc_context -> LA.node_item -> unit tc_result = fun ctx ->
       LA.pp_print_node_item ann LA.pp_print_expr e
     ; check_type_expr ctx e (Bool (LH.pos_of_expr e))
   
-and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> unit tc_result
+and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> (unit, [> error]) result
   = fun ctx st exp_ty ->
   match st with
   | SingleIdent (pos, i) ->
@@ -1074,7 +1075,7 @@ and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> unit tc_r
   | FieldSelection _ -> Lib.todo __LOC__
   | ArraySliceStructItem _ -> Lib.todo __LOC__
 
-and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
+and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> (unit, [> error]) result
   = fun ctx (StructDef (pos, lhss)) exp_ty ->
   (* This is a structured type, and we would want the expected type exp_ty to be a tuple type *)
   (Debug.parse "Checking if structure definition: %a has type %a \nwith local context %a"
@@ -1116,7 +1117,7 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> unit tc_result
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 
-and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context tc_result
+and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> (tc_context, [> error]) result
   = fun ctx -> function
   | GhostConst c -> tc_ctx_const_decl ctx c
   | GhostVar c -> tc_ctx_contract_var ctx c
@@ -1133,7 +1134,7 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> tc_context t
       ctx
       (IMap.bindings m)) 
 
-and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_result
+and check_type_contract_decl: tc_context -> LA.contract_node_decl -> (unit, [> error]) result
   = fun ctx (cname, _, args, rets, contract) ->
   let arg_ids = LA.SI.of_list (List.map (fun arg -> LH.extract_ip_ty arg |> fst) args) in
   let ret_ids = LA.SI.of_list (List.map (fun ret -> LH.extract_op_ty ret |> fst) rets) in
@@ -1167,11 +1168,11 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> unit tc_res
     ; check_type_contract (arg_ids, ret_ids) local_ctx contract
       >> R.ok (Debug.parse "TC Contract Decl %a done }" LA.pp_print_ident cname)
 
-and check_type_contract: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract -> unit tc_result
+and check_type_contract: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract -> (unit, [> error]) result
   = fun node_params ctx eqns ->
   R.seq_ (List.map (check_contract_node_eqn node_params ctx) eqns)
 
-and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_node_equation -> unit tc_result
+and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_node_equation -> (unit, [> error]) result
   = fun node_params ctx eqn ->
   Debug.parse "Checking node's contract equation: %a" LA.pp_print_contract_item eqn
   ; match eqn with
@@ -1239,7 +1240,7 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
                             ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",")
                                 (LA.SI.elements common_ids)) 
 
-and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_context tc_result 
+and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> (tc_context, [> error]) result 
   = fun ?is_const:(is_const=true) ctx ->
   function
   | LA.FreeConst (pos, i, ty) ->
@@ -1274,7 +1275,7 @@ and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> tc_cont
             else R.ok(add_ty ctx i exp_ty))
 (** Fail if a duplicate constant is detected  *)
 
-and tc_ctx_contract_var: tc_context -> LA.const_decl -> tc_context tc_result 
+and tc_ctx_contract_var: tc_context -> LA.const_decl -> (tc_context, [> error]) result 
   = fun ctx ->
   function
   | LA.FreeConst (pos, i, ty) ->
@@ -1295,7 +1296,7 @@ and tc_ctx_contract_var: tc_context -> LA.const_decl -> tc_context tc_result
 (** Adds the type of a contract variable in the typing context  *)
     
      
-and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
+and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) result
   = fun ctx ->
   function
   | LA.AliasType (_, i, ty) ->
@@ -1330,7 +1331,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> tc_context tc_result
     let ctx' = add_ty_syn ctx i (LA.AbstractType (pos, i)) in
     R.ok (add_ty_decl ctx' i)
 
-and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_context tc_result
+and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_context, [> error]) result
   = fun pos ctx (nname, _, _ , ip, op, _ ,_ ,_)->
   Debug.parse
     "Extracting type of node declaration: %a"
@@ -1343,7 +1344,7 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> tc_contex
         R.ok (add_ty_node ctx nname fun_ty)
 (** computes the type signature of node or a function and its node summary*)
 
-and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_context tc_result
+and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> (tc_context, [> error]) result
   = fun ctx ->
   function
   | LA.GhostConst c -> tc_ctx_const_decl ctx c
@@ -1363,11 +1364,11 @@ and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> tc_cont
       (IMap.bindings m))) 
   | _ -> R.ok ctx
                          
-and tc_ctx_of_contract: tc_context -> LA.contract -> tc_context tc_result
+and tc_ctx_of_contract: tc_context -> LA.contract -> (tc_context, [> error]) result
   = fun ctx con -> R.seq_chain (tc_ctx_contract_node_eqn) ctx con
 
-and extract_exports: LA.ident -> tc_context -> LA.contract -> tc_context tc_result
-  = let exports_from_eqn: tc_context -> LA.contract_node_equation -> (LA.ident * tc_type) list tc_result
+and extract_exports: LA.ident -> tc_context -> LA.contract -> (tc_context, [> error]) result
+  = let exports_from_eqn: tc_context -> LA.contract_node_equation -> ((LA.ident * tc_type) list, [> error]) result
       = fun ctx -> 
       function
       | LA.GhostConst (FreeConst (_, i, ty)) -> R.ok [(i, ty)]
@@ -1404,7 +1405,7 @@ and extract_exports: LA.ident -> tc_context -> LA.contract -> tc_context tc_resu
                  
 and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
                                   -> LA.contract_node_decl
-                                  -> tc_context tc_result
+                                  -> (tc_context, [> error]) result
   = fun pos ctx (cname, _, inputs, outputs, contract) ->
   Debug.parse
     "Extracting type of contract declaration: %a"
@@ -1417,7 +1418,7 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
         extract_exports cname ctx contract >>= fun export_ctx  ->  
         R.ok (add_ty_contract (union ctx export_ctx) cname fun_ty)
 
-and tc_ctx_of_declaration: tc_context -> LA.declaration -> tc_context tc_result
+and tc_ctx_of_declaration: tc_context -> LA.declaration -> (tc_context, [> error]) result
     = fun ctx' ->
     function
     | LA.ConstDecl (_, const_decl) -> tc_ctx_const_decl ctx' const_decl
@@ -1429,16 +1430,16 @@ and tc_ctx_of_declaration: tc_context -> LA.declaration -> tc_context tc_result
       tc_ctx_of_contract_node_decl pos ctx' contract_decl
     | _ -> R.ok ctx'
 
-and tc_context_of: tc_context -> LA.t -> tc_context tc_result
+and tc_context_of: tc_context -> LA.t -> (tc_context, [> error]) result
   = fun ctx decls ->
   R.seq_chain (tc_ctx_of_declaration) ctx decls 
 (** Obtain a global typing context, get constants and function decls*)
   
-and build_type_and_const_context: tc_context -> LA.t -> tc_context tc_result
+and build_type_and_const_context (* : tc_context -> LA.t -> (tc_context, [> error]) result *)
   = fun ctx ->
   function
   | [] -> R.ok ctx
-  | TypeDecl (_, ty_decl) :: rest ->
+  | LA.TypeDecl (_, ty_decl) :: rest ->
     tc_ctx_of_ty_decl ctx ty_decl
     >>= fun ctx' -> build_type_and_const_context ctx' rest
   | ConstDecl (_, const_decl) :: rest ->
@@ -1448,7 +1449,7 @@ and build_type_and_const_context: tc_context -> LA.t -> tc_context tc_result
 (** Process top level type declarations and make a type context with 
  * user types, enums populated *)
                
-and check_type_well_formed: tc_context -> tc_type -> unit tc_result
+and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
   = fun ctx ->
   function
   | LA.TArr (_, arg_ty, res_ty) ->
@@ -1490,7 +1491,7 @@ and check_type_well_formed: tc_context -> tc_type -> unit tc_result
        
 and build_node_fun_ty: Lib.position -> tc_context
                        -> LA.const_clocked_typed_decl list
-                       -> LA.clocked_typed_decl list -> tc_type tc_result
+                       -> LA.clocked_typed_decl list -> (tc_type, [> error]) result
   = fun pos ctx args rets ->
   let fun_const_ctx = List.fold_left (fun ctx (i,ty) -> add_const ctx i (LA.Ident (pos,i)) ty)
                         ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in
@@ -1504,7 +1505,7 @@ and build_node_fun_ty: Lib.position -> tc_context
   >>  R.ok (LA.TArr (pos, arg_ty, ret_ty))
 (** Function type for nodes will be [TupleType ips] -> [TupleTy outputs]  *)
 
-and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> bool tc_result
+and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result
   = fun ctx t1 t2 ->
   match (t1, t2) with
   (* Type Variable *)
@@ -1586,11 +1587,11 @@ and is_expr_of_consts: tc_context -> LA.expr -> bool = fun ctx e ->
   List.fold_left (&&) true (List.map (member_val ctx) (LA.SI.elements (LH.vars e)))
 (** checks if all the variables in the expression are constants *)
   
-and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> bool tc_result =
+and eq_typed_ident: tc_context -> LA.typed_ident -> LA.typed_ident -> (bool, [> error]) result =
   fun ctx (_, _, ty1) (_, _, ty2) -> eq_lustre_type ctx ty1 ty2
 (** Compute type equality for [LA.typed_ident] *)
 
-and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type * LA.expr) -> bool tc_result
+and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type * LA.expr) -> (bool, [> error]) result
   = fun ctx (ty1, e1) (ty2, e2) ->
   (* eq_lustre_type ctx ty1 ty2 *)
   R.ifM (eq_lustre_type ctx ty1 ty2)
@@ -1610,7 +1611,7 @@ and eq_type_array: tc_context -> (LA.lustre_type * LA.expr) -> (LA.lustre_type *
    Hence, silently return true with a leap of faith. *)         
 
                                  
-let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
+let rec type_check_group: tc_context -> LA.t ->  (unit, [> error]) result list
   = fun global_ctx
   -> function
   | [] -> [R.ok ()]
@@ -1634,7 +1635,7 @@ let rec type_check_group: tc_context -> LA.t ->  unit tc_result list
  * the top most declaration should be able to access 
  * the types of all the forward referenced indentifiers from the context*)       
 
-let type_check_decl_grps: tc_context -> LA.t list -> unit tc_result list
+let type_check_decl_grps: tc_context -> LA.t list -> (unit, [> error]) result list
   = fun ctx decls ->
       Debug.parse ("===============================================\n"
                       ^^ "Phase: Type checking declaration Groups\n"
@@ -1642,16 +1643,11 @@ let type_check_decl_grps: tc_context -> LA.t list -> unit tc_result list
       List.concat (List.map (fun decl -> type_check_group ctx decl) decls)               
 (** Typecheck a list of independent groups using a global context*)
 
-  
-let report_tc_result: unit tc_result list -> unit tc_result
-  =  R.seq_  
-(** Get the first error *)
-  
 (**************************************************************************************
  * The main functions of the file that kicks off type checking or type inference flow  *
  ***************************************************************************************)
-   
-let type_check_infer_globals: tc_context -> LA.t -> tc_context tc_result
+
+let type_check_infer_globals: tc_context -> LA.t -> (tc_context, [> error]) result
   = fun ctx prg ->
     (Debug.parse ("===============================================\n"
                       ^^ "Building TC Global Context\n"
@@ -1660,7 +1656,7 @@ let type_check_infer_globals: tc_context -> LA.t -> tc_context tc_result
     ; build_type_and_const_context ctx prg >>= fun global_ctx ->
       R.ok global_ctx)
    
-let type_check_infer_nodes_and_contracts: tc_context -> LA.t -> tc_context tc_result
+let type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context, [> error]) result
   = fun ctx prg -> 
 (* type check the nodes and contract decls using this base typing context  *)
     Debug.parse ("===============================================\n"
@@ -1673,7 +1669,7 @@ let type_check_infer_nodes_and_contracts: tc_context -> LA.t -> tc_context tc_re
                         ^^ "with TC Context\n%a\n"
                         ^^"===============================================\n")
          pp_print_tc_context global_ctx
-      ; report_tc_result (type_check_decl_grps global_ctx [prg]) >>
+      ; R.seq_ (type_check_decl_grps global_ctx [prg]) >>
           (Debug.parse ("===============================================\n"
                             ^^ "Type checking declaration Groups Done\n"
                             ^^"===============================================\n")

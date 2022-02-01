@@ -15,22 +15,19 @@
    permissions and limitations under the License. 
 
  *)
-(** Check various syntactic properties that do not depend on type information
+(** Handle all error variants produced by the Lustre frontend
   
   @author Andrew Marmaduke *)
 
+open Lib
 
 type error = [
-  | `SyntaxChecksError of Lib.position * string
+  | `AstDependencyError of (position * string)
+  | `AstInlineConstantsError of (position * string)
+  | `AstNormalizerError of (position * string)
+  | `SyntaxChecksError of (position * string)
+  | `TypeCheckerError of (position * string)
 ]
 
-val syntax_error : Lib.position -> string -> ('a, [> error]) result
-
-val syntax_check : LustreAst.t -> (LustreAst.t, [> error]) result
-
-val no_mismatched_clock : bool -> LustreAst.expr -> (unit, [> error]) result
-(** Conservative syntactic check of clock arguments for merge expressions.
-  To eventually be replaced with more general clock inference/checking.
-
-  Note: type information is needed for this check, causing this check to
-  be called in the lustreTypeChecker *)
+val error_position : [< error] -> position
+val error_message : [< error] -> string
