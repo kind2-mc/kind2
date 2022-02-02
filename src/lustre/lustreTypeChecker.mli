@@ -25,7 +25,7 @@ open TypeCheckerContext
 type error = [
   | `TypeCheckerError of Lib.position * string
   | `SyntaxChecksError of Lib.position * string
-  | `AstInlineConstantsError of Lib.position * string
+  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
 ]
 
 val type_error: Lib.position -> string -> ('a, [> error]) result 

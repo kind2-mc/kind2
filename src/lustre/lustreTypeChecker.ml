@@ -34,7 +34,7 @@ open TypeCheckerContext
 type error = [
   | `TypeCheckerError of Lib.position * string
   | `SyntaxChecksError of Lib.position * string
-  | `AstInlineConstantsError of Lib.position * string
+  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
 ]
 
 let (>>=) = R.(>>=)

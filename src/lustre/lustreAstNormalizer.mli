@@ -128,7 +128,7 @@ type generated_identifiers = {
 }
 
 type error = [
-  | `AstNormalizerError of Lib.position * string
+  | `LustreAstNormalizerError
 ]
 
 val normalize : TypeCheckerContext.tc_context

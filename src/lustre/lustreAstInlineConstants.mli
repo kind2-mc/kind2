@@ -23,9 +23,26 @@
 module TC = TypeCheckerContext
 module LA = LustreAst
 
+type error_kind = Unknown of string
+  | FreeIntIdentifier of HString.t
+  | ConstantMustBeInt of LA.expr
+  | UnaryMustBeInt of LA.expr
+  | BinaryMustBeInt of LA.expr
+  | FreeBoolIdentifier of HString.t
+  | ConstantMustBeBool of LA.expr
+  | UnaryMustBeBool of LA.expr
+  | BinaryMustBeBool of LA.expr
+  | IdentifierMustBeConstant of HString.t
+  | UnableToEvaluate of LA.expr
+  | WidthOperatorUnsupported
+  | OutOfBounds of string
+
 type error = [
-  | `AstInlineConstantsError of Lib.position * string
+  | `LustreAstInlineConstantsError of Lib.position * error_kind
 ]
+
+val error_message: error_kind -> string
+(** Returns an message describing the error kind *)
 
 val inline_constants: TC.tc_context -> LA.t -> ((TC.tc_context * LA.t), [> error]) result
 (** Best effort at inlining constants *)

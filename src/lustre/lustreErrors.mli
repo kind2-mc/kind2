@@ -22,9 +22,9 @@
 open Lib
 
 type error = [
-  | `LustreAstDependenciesError of (position * LustreAstDependencies.error_kind)
-  | `AstInlineConstantsError of (position * string)
-  | `AstNormalizerError of (position * string)
+  | `LustreAstDependenciesError of position * LustreAstDependencies.error_kind
+  | `LustreAstInlineConstantsError of position * LustreAstInlineConstants.error_kind
+  | `LustreAstNormalizerError
   | `SyntaxChecksError of (position * string)
   | `TypeCheckerError of (position * string)
 ]

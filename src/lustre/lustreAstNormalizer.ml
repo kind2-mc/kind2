@@ -79,7 +79,7 @@ module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 
 type error = [
-  | `AstNormalizerError of Lib.position * string
+  | `LustreAstNormalizerError
 ]
 
 let (>>=) = Res.(>>=)
