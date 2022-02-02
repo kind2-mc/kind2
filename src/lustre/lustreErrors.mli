@@ -25,7 +25,7 @@ type error = [
   | `LustreAstDependenciesError of position * LustreAstDependencies.error_kind
   | `LustreAstInlineConstantsError of position * LustreAstInlineConstants.error_kind
   | `LustreAstNormalizerError
-  | `SyntaxChecksError of (position * string)
+  | `LustreSyntaxChecksError of position * LustreSyntaxChecks.error_kind
   | `TypeCheckerError of (position * string)
 ]
 

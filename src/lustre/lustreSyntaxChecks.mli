@@ -19,12 +19,27 @@
   
   @author Andrew Marmaduke *)
 
+type error_kind = Unknown of string
+  | UndefinedLocal of HString.t
+  | UndefinedNode of HString.t
+  | DanglingIdentifier of HString.t
+  | QuantifiedVariableInNodeArgument of HString.t * HString.t
+  | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
+  | NodeCallInFunction of HString.t
+  | NodeCallInRefinableContract of string * HString.t
+  | IllegalTemporalOperator of string * string
+  | IllegalImportOfStatefulContract of HString.t
+  | UnsupportedClockedInputOrOutput
+  | UnsupportedExpression of LustreAst.expr
+  | WhenExpressionOutsideMerge
+  | AssumptionVariablesInContractNode
+  | ClockMismatchInMerge
 
 type error = [
-  | `SyntaxChecksError of Lib.position * string
+  | `LustreSyntaxChecksError of Lib.position * error_kind
 ]
 
-val syntax_error : Lib.position -> string -> ('a, [> error]) result
+val error_message : error_kind -> string
 
 val syntax_check : LustreAst.t -> (LustreAst.t, [> error]) result
 

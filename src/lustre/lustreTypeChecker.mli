@@ -24,7 +24,7 @@ open TypeCheckerContext
 
 type error = [
   | `TypeCheckerError of Lib.position * string
-  | `SyntaxChecksError of Lib.position * string
+  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
 ]
 
