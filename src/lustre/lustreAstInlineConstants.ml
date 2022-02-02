@@ -29,27 +29,62 @@ module LH = LustreAstHelpers
 module R = Res
 let (>>=) = R.(>>=)
 
-type 'a inline_result = ('a, Lib.position * string) result
+type error_kind = Unknown of string
+  | FreeIntIdentifier of HString.t
+  | ConstantMustBeInt of LA.expr
+  | UnaryMustBeInt of LA.expr
+  | BinaryMustBeInt of LA.expr
+  | FreeBoolIdentifier of HString.t
+  | ConstantMustBeBool of LA.expr
+  | UnaryMustBeBool of LA.expr
+  | BinaryMustBeBool of LA.expr
+  | IdentifierMustBeConstant of HString.t
+  | UnableToEvaluate of LA.expr
+  | WidthOperatorUnsupported
+  | OutOfBounds of string
 
-let inline_error pos err = R.error (pos, "Error: " ^ err)
+type error = [
+  | `LustreAstInlineConstantsError of Lib.position * error_kind
+]
+
+let error_message kind = match kind with
+  | Unknown s -> s
+  | FreeIntIdentifier i -> "Cannot evalute free constant "
+    ^ (HString.string_of_hstring i) ^ " to an int constant"
+  | ConstantMustBeInt e -> "Cannot evaluate non-int constant "
+    ^ LA.string_of_expr e ^ " to an int constant"
+  | UnaryMustBeInt e -> "Cannot evaluate non-int unary expression "
+    ^ LA.string_of_expr e ^ " to an int constant"
+  | BinaryMustBeInt e -> "Cannot evalutae non-int binary expression "
+    ^ LA.string_of_expr e ^ " to an int constant"
+  | FreeBoolIdentifier i ->  "Cannot evalute free constant "
+    ^ (HString.string_of_hstring i) ^ " to a bool constant"
+  | ConstantMustBeBool e -> "Cannot evaluate non-bool"
+    ^ LA.string_of_expr e ^ " to a bool constant"
+  | UnaryMustBeBool e -> "Cannot evaluate non-bool unary expression "
+    ^ LA.string_of_expr e ^ " to a bool constant"
+  | BinaryMustBeBool e -> "Cannot evaluate non-bool binary expression "
+    ^ LA.string_of_expr e ^ " to a bool constant"
+  | IdentifierMustBeConstant i -> "Not a constant identifier "
+    ^ (HString.string_of_hstring i)
+  | UnableToEvaluate e -> "Cannot evaluate expression " ^ LA.string_of_expr e
+  | WidthOperatorUnsupported -> "Width operator is not supported"
+  | OutOfBounds s -> s
+
+
+let inline_error pos kind = Error (`LustreAstInlineConstantsError (pos, kind))
 (** [type_error] returns an [Error] of [tc_result] *)
                       
-let int_value_of_const: LA.expr -> int inline_result =
+let int_value_of_const: LA.expr -> (int, [> error]) result =
   function
   | LA.Const (_, LA.Num n) -> R.ok (n |> HString.string_of_hstring |> int_of_string)
-  | e -> inline_error (LH.pos_of_expr e)
-           ("Cannot evaluate non-int constant "
-            ^ LA.string_of_expr e
-            ^ " to an int.") 
+  | e -> inline_error (LH.pos_of_expr e) (ConstantMustBeInt e) 
 
-let bool_value_of_const: LA.expr -> bool inline_result =
+let bool_value_of_const: LA.expr -> (bool, [> error]) result =
   function
   | LA.Const (_, LA.True) -> R.ok true
   | LA.Const (_, LA.False) -> R.ok false                             
-  | e -> inline_error (LH.pos_of_expr e)
-           ("Cannot evaluate non-bool "
-            ^ LA.string_of_expr e
-            ^" constant to a bool.")
+  | e -> inline_error (LH.pos_of_expr e) (ConstantMustBeBool e)
 
 let lift_bool: bool -> LA.constant = function
   | true -> LA.True
@@ -64,7 +99,7 @@ let rec is_normal_form: TC.tc_context -> LA.expr -> bool = fun ctx ->
   | _ -> false
 (** is the expression in a normal form? *)
          
-let rec eval_int_expr: TC.tc_context -> LA.expr -> int inline_result = fun ctx ->
+let rec eval_int_expr: TC.tc_context -> LA.expr -> (int, [> error]) result = fun ctx ->
   function
   | LA.Ident (pos, i) ->
      (match (TC.lookup_const ctx i) with
@@ -74,36 +109,31 @@ let rec eval_int_expr: TC.tc_context -> LA.expr -> int inline_result = fun ctx -
          else (match const_expr with
                | LA.Ident (_, i') as e ->
                   if HString.compare i i' = 0
-                  then inline_error pos ("Cannot evaluate a free int const "
-                                       ^ (HString.string_of_hstring i) ^ ".")
+                  then inline_error pos (FreeIntIdentifier i)
                   else eval_int_expr ctx e 
                | _ -> eval_int_expr ctx const_expr)
-      | None -> inline_error pos ("Not a constant identifier" ^ (HString.string_of_hstring i)))  
+      | None -> inline_error pos (IdentifierMustBeConstant i))
   | LA.Const _ as c -> int_value_of_const c
   | LA.UnaryOp (pos, uop, e) -> eval_int_unary_op ctx pos uop e
   | LA.BinaryOp (pos, bop, e1, e2) -> eval_int_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_int_ternary_op ctx pos top e1 e2 e3
-  | e -> inline_error (LH.pos_of_expr e) ("Cannot evaluate expression" ^ LA.string_of_expr e)  
+  | e -> inline_error (LH.pos_of_expr e) (UnableToEvaluate e)  
 (** try and evalutate expression to int, return error otherwise *)
 
 and eval_int_unary_op ctx pos op e1 =
   eval_int_expr ctx e1 >>= fun v1 ->
   match op with
   | LA.Uminus -> R.ok (-v1)
-  | _ -> inline_error pos ("Cannot evaluate non-int unary expression"
-    ^ LA.string_of_expr (LA.UnaryOp (pos, op, e1))
-    ^ "to an int value")
+  | _ -> inline_error pos (UnaryMustBeInt (LA.UnaryOp (pos, op, e1)))
 
 and eval_bool_unary_op ctx pos op e1 =
   eval_bool_expr ctx e1 >>= fun v1 ->
   match op with
   | LA.Not -> R.ok (not v1)
-  | _ -> inline_error pos ("Cannot evaluate non-bool unary expression"
-    ^ LA.string_of_expr (LA.UnaryOp (pos, op, e1))
-    ^ "to a bool value")
+  | _ -> inline_error pos (UnaryMustBeBool (LA.UnaryOp (pos, op, e1)))
 
 and eval_int_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
-                        -> LA.expr -> LA.expr -> int inline_result =
+                        -> LA.expr -> LA.expr -> (int, [> error]) result =
   fun ctx pos bop e1 e2 ->
   eval_int_expr ctx e1 >>= fun v1 ->
   eval_int_expr ctx e2 >>= fun v2 ->
@@ -112,12 +142,10 @@ and eval_int_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
   | Times -> R.ok (v1 * v2)
   | Minus -> R.ok (v1 - v2)
   | IntDiv -> R.ok (v1 / v2)
-  | _ -> inline_error pos ("Cannot evaluate non-int binary expression"
-                         ^ LA.string_of_expr (LA.BinaryOp (pos, bop, e1, e2))
-                         ^" to an int value")    
+  | _ -> inline_error pos (BinaryMustBeInt (LA.BinaryOp (pos, bop, e1, e2)))
 (** try and evalutate binary op expression to int, return error otherwise *)
              
-and eval_bool_expr: TC.tc_context -> LA.expr -> bool inline_result = fun ctx ->
+and eval_bool_expr: TC.tc_context -> LA.expr -> (bool, [> error]) result = fun ctx ->
   function
   | LA.Ident (pos, i) ->
      (match (TC.lookup_const ctx i) with
@@ -127,20 +155,19 @@ and eval_bool_expr: TC.tc_context -> LA.expr -> bool inline_result = fun ctx ->
          else (match const_expr with
                | LA.Ident (_, i') as e ->
                   if (HString.compare i i' = 0)
-                  then inline_error pos ("Cannot evaluate a free bool const "
-                                       ^ (HString.string_of_hstring i) ^ ".")
+                  then inline_error pos (FreeBoolIdentifier i)
                   else eval_bool_expr ctx e 
                | _ ->  eval_bool_expr ctx const_expr)
-      | None -> inline_error pos ("Not a constant cannot evaluate identifier " ^ (HString.string_of_hstring i)))
+      | None -> inline_error pos (IdentifierMustBeConstant i))
   | LA.Const _ as c -> bool_value_of_const c
   | LA.BinaryOp (pos, bop, e1, e2) -> eval_bool_binary_op ctx pos bop e1 e2
   | LA.TernaryOp (pos, top, e1, e2, e3) -> eval_bool_ternary_op ctx pos top e1 e2 e3
   | LA.CompOp (_, cop, e1, e2) -> eval_comp_op ctx cop e1 e2
-  | e -> inline_error (LH.pos_of_expr e) ("Cannot evaluate expression" ^ LA.string_of_expr e)  
+  | e -> inline_error (LH.pos_of_expr e) (UnableToEvaluate e)  
 (** try and evalutate expression to bool, return error otherwise *)
 
 and eval_bool_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
-                         -> LA.expr -> LA.expr -> bool inline_result = 
+                         -> LA.expr -> LA.expr -> (bool, [> error]) result = 
   fun ctx pos bop e1 e2 ->
   eval_bool_expr ctx e1 >>= fun v1 ->
   eval_bool_expr ctx e2 >>= fun v2 ->
@@ -149,24 +176,22 @@ and eval_bool_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
   | Or -> R.ok (v1 || v2)
   | Xor -> R.ok ((v1 && not v2) || (v2 && not v1))
   | Impl -> R.ok (not v1 || v2)
-  | _ -> inline_error pos ("Cannot evaluate non-bool binary expression"
-                         ^ LA.string_of_expr (LA.BinaryOp (pos, bop, e1, e2))
-                         ^" to a bool value")
+  | _ -> inline_error pos (BinaryMustBeBool (LA.BinaryOp (pos, bop, e1, e2)))
 (** try and evalutate binary op expression to bool, return error otherwise *)
   
 and eval_bool_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
-                     -> LA.expr -> LA.expr -> LA.expr -> bool inline_result
+                     -> LA.expr -> LA.expr -> LA.expr -> (bool, [> error]) result
   = fun ctx pos top b1 e1 e2 ->
   eval_bool_expr ctx b1 >>= fun c ->
   eval_bool_expr ctx e1 >>= fun v1 ->
   eval_bool_expr ctx e2 >>= fun v2 ->
   match top with
   | LA.Ite -> if c then R.ok v1 else R.ok v2
-  | LA.With -> inline_error pos "With operator is not supported"
+  | LA.With -> inline_error pos WidthOperatorUnsupported
 (** try and evalutate ternary op expression to bool, return error otherwise *)
 
 and eval_int_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
-                     -> LA.expr -> LA.expr -> LA.expr -> int inline_result
+                     -> LA.expr -> LA.expr -> LA.expr -> (int, [> error]) result
   = fun ctx pos top b1 e1 e2 ->
   match top with
   | LA.Ite ->
@@ -174,12 +199,12 @@ and eval_int_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
      if c
      then eval_int_expr ctx e1
      else eval_int_expr ctx e2
-  | LA.With -> inline_error pos "With operator is not supported"
+  | LA.With -> inline_error pos WidthOperatorUnsupported
 (** try and evalutate ternary op expression to int, return error otherwise *)
 
              
 and eval_comp_op: TC.tc_context -> LA.comparison_operator
-                  -> LA.expr -> LA.expr -> bool inline_result = 
+                  -> LA.expr -> LA.expr -> (bool, [> error]) result = 
   fun ctx cop e1 e2 ->
   eval_int_expr ctx e1 >>= fun v1 ->
   eval_int_expr ctx e2 >>= fun v2 ->
@@ -460,12 +485,12 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
 (** propogate constants post type checking into the AST and constant store*)
 
 
-let rec inline_constants: TC.tc_context -> LA.t -> (TC.tc_context * LA.t) inline_result = fun ctx ->
+let rec inline_constants: TC.tc_context -> LA.t -> ((TC.tc_context * LA.t), [> error]) result = fun ctx ->
   function
   | [] -> R.ok (ctx, [])
   | c :: rest ->
      (try R.ok (substitute ctx c) with
-      | Out_of_bounds (pos, err) -> inline_error pos err) >>= fun (ctx', c') ->
+      | Out_of_bounds (pos, err) -> inline_error pos (OutOfBounds err)) >>= fun (ctx', c') ->
      inline_constants ctx' rest >>= fun (ctx'', decls) -> 
      R.ok (ctx'', c'::decls)
 (** Best effort at inlining constants *)

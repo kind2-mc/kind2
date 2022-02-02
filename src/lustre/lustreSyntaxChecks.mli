@@ -19,13 +19,31 @@
   
   @author Andrew Marmaduke *)
 
-type 'a sc_result = ('a, Lib.position * string) result
+type error_kind = Unknown of string
+  | UndefinedLocal of HString.t
+  | UndefinedNode of HString.t
+  | DanglingIdentifier of HString.t
+  | QuantifiedVariableInNodeArgument of HString.t * HString.t
+  | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
+  | NodeCallInFunction of HString.t
+  | NodeCallInRefinableContract of string * HString.t
+  | IllegalTemporalOperator of string * string
+  | IllegalImportOfStatefulContract of HString.t
+  | UnsupportedClockedInputOrOutput
+  | UnsupportedExpression of LustreAst.expr
+  | WhenExpressionOutsideMerge
+  | AssumptionVariablesInContractNode
+  | ClockMismatchInMerge
 
-val syntax_error : Lib.position -> string -> 'a sc_result
-    
-val syntax_check : LustreAst.t -> LustreAst.t sc_result
+type error = [
+  | `LustreSyntaxChecksError of Lib.position * error_kind
+]
 
-val no_mismatched_clock : bool -> LustreAst.expr -> unit sc_result
+val error_message : error_kind -> string
+
+val syntax_check : LustreAst.t -> (LustreAst.t, [> error]) result
+
+val no_mismatched_clock : bool -> LustreAst.expr -> (unit, [> error]) result
 (** Conservative syntactic check of clock arguments for merge expressions.
   To eventually be replaced with more general clock inference/checking.
 

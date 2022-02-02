@@ -34,7 +34,60 @@ module StringMap = Map.Make(
     type t = HString.t
   end)
 
-type 'a sc_result = ('a, Lib.position * string) result
+
+type error_kind = Unknown of string
+  | UndefinedLocal of HString.t
+  | UndefinedNode of HString.t
+  | DanglingIdentifier of HString.t
+  | QuantifiedVariableInNodeArgument of HString.t * HString.t
+  | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
+  | NodeCallInFunction of HString.t
+  | NodeCallInRefinableContract of string * HString.t
+  | IllegalTemporalOperator of string * string
+  | IllegalImportOfStatefulContract of HString.t
+  | UnsupportedClockedInputOrOutput
+  | UnsupportedExpression of LA.expr
+  | WhenExpressionOutsideMerge
+  | AssumptionVariablesInContractNode
+  | ClockMismatchInMerge
+
+type error = [
+  | `LustreSyntaxChecksError of Lib.position * error_kind
+]
+
+let error_message kind = match kind with
+  | Unknown s -> s
+  | UndefinedLocal id -> "Local variable "
+    ^ HString.string_of_hstring id ^ " has no definition"
+  | UndefinedNode id -> "Node or function '"
+    ^ HString.string_of_hstring id ^ "' is undefined"
+  | DanglingIdentifier id -> "No identifier with name "
+    ^ HString.string_of_hstring id ^ " found"
+  | QuantifiedVariableInNodeArgument (var, node) -> "Quantified variable "
+    ^ HString.string_of_hstring var ^ " is not allowed in an argument to the node call "
+    ^ HString.string_of_hstring node
+  | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index "
+    ^ HString.string_of_hstring idx ^ " is not allowed in an argument to the node call "
+    ^ HString.string_of_hstring node
+  | NodeCallInFunction node -> "Illegal call to node "
+    ^ HString.string_of_hstring node ^ ", functions can only call other functions, node nodes"
+  | NodeCallInRefinableContract (kind, node) -> "Illegal call to " ^ kind ^ " '"
+    ^ HString.string_of_hstring node ^ "' in the cone of influence of this contract: " ^ kind ^ " "
+    ^ HString.string_of_hstring node ^ " has a refinable contract"
+  | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in " ^ variant ^ " definition, "
+    ^ variant ^ "s cannot have state"
+  | IllegalImportOfStatefulContract contract -> "Illegal import of stateful contract "
+    ^ HString.string_of_hstring contract ^ ". Functions can only be specified by stateless contracts"
+  | UnsupportedClockedInputOrOutput -> "Clocked inputs or outputs are not supported"
+  | UnsupportedExpression e -> "The expression " ^ LA.string_of_expr e ^ " is not supported"
+  | WhenExpressionOutsideMerge -> "When expressions only supported inside merges"
+  | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
+  | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
+
+let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
+
+let (let*) = Result.bind
+let (>>) = fun a b -> let* _ = a in b
 
 type node_data = {
   has_contract: bool;
@@ -57,11 +110,6 @@ type context = {
   quant_vars : LustreAst.lustre_type option StringMap.t;
   array_indices : LustreAst.lustre_type option StringMap.t;
   symbolic_array_indices : LustreAst.lustre_type option StringMap.t; }
-
-(* let (>>=) = Res.(>>=) *)
-let (>>) = Res.(>>)
-
-let syntax_error pos msg = Error (pos, msg)
 
 let empty_ctx () = {
     nodes = StringMap.empty;
@@ -248,9 +296,7 @@ let locals_must_have_definitions locals items =
       let test = List.find_opt (fun item -> find_local_def id item) items in
       match test with
       | Some _ -> Ok ()
-      | None -> syntax_error pos
-        (Format.asprintf "Local variable %a has no definition."
-          HString.pp_print_hstring id)
+      | None -> syntax_error pos (UndefinedLocal id)
   in
   Res.seq (List.map over_locals locals)
 
@@ -263,9 +309,7 @@ let no_dangling_calls ctx = function
     (match check_nodes, check_funcs with
     | true, _ -> Ok ()
     | _, true -> Ok ()
-    | false, false -> syntax_error pos
-      (Format.asprintf "Node or function '%a' is undefined."
-        HString.pp_print_hstring i))
+    | false, false -> syntax_error pos (UndefinedNode i))
   | _ -> Ok ()
 
 let no_dangling_identifiers ctx = function
@@ -280,9 +324,7 @@ let no_dangling_identifiers ctx = function
     in
     let check_ids = List.filter (fun x -> x) check_ids in
     if List.length check_ids > 0 then Ok ()
-    else syntax_error pos
-      (Format.asprintf "No identifier with name %a found."
-        HString.pp_print_hstring i)
+    else syntax_error pos (DanglingIdentifier i)
   | _ -> Ok ()
 
 let no_quant_var_or_symbolic_index_in_node_call ctx = function
@@ -292,12 +334,8 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
       let found_quant = StringMap.mem j ctx.quant_vars in
       let found_symbolic_index = StringMap.mem j ctx.symbolic_array_indices in
       (match found_quant, found_symbolic_index with
-      | true, _ -> syntax_error pos (Format.asprintf
-        "Quantified variable %a is not allowed in an argument to the node call %a"
-        HString.pp_print_hstring j HString.pp_print_hstring i)
-      | _, true -> syntax_error pos (Format.asprintf
-        "Symbolic array index %a is not allowed in an argument to the node call %a"
-        HString.pp_print_hstring j HString.pp_print_hstring i)
+      | true, _ -> syntax_error pos (QuantifiedVariableInNodeArgument (j, i))
+      | _, true -> syntax_error pos (SymbolicArrayIndexInNodeArgument (j, i))
       | false, false -> Ok ())
     in
     let check = List.map over_vars vars in
@@ -309,10 +347,7 @@ let no_calls_to_node ctx = function
   | Activate (pos, i, _, _, _)
   | Call (pos, i, _) ->
     let check_nodes = StringMap.mem i ctx.nodes in
-    if check_nodes then
-      syntax_error pos (Format.asprintf
-        "Illegal call to node %a, functions can only call other functions, not nodes."
-        HString.pp_print_hstring i)
+    if check_nodes then syntax_error pos (NodeCallInFunction i)
     else Ok ()
   | _ -> Ok ()
 
@@ -346,11 +381,7 @@ let no_calls_to_nodes_with_contracts_subject_to_refinement ctx expr =
         || check_only_assumptive contract_imports
       in
       if not only_assumptive then
-        syntax_error pos ("Illegal call to node '"
-          ^ (HString.string_of_hstring i)
-          ^ "' in the cone of influence of this contract: node "
-          ^ (HString.string_of_hstring i)
-          ^ " has a refinable contract.")
+        syntax_error pos (NodeCallInRefinableContract ("node", i))
       else Ok ()
     | _, Some { has_contract = true; 
         imported = false;
@@ -361,23 +392,18 @@ let no_calls_to_nodes_with_contracts_subject_to_refinement ctx expr =
         || check_only_assumptive contract_imports
       in
       if not only_assumptive then
-        syntax_error pos ("Illegal call to function '"
-        ^ (HString.string_of_hstring i)
-        ^ "' in the cone of influence of this contract: function "
-        ^ (HString.string_of_hstring i)
-        ^ " has a refinable contract.")
+        syntax_error pos (NodeCallInRefinableContract ("function", i))
       else Ok ()
     | _ -> Ok ())
   | _ -> Ok ()
 
 let no_temporal_operator is_const expr =
   let decl_ctx = if is_const then "constant" else "function" in
-  let template = Format.asprintf "Illegal %s in %s definition, %ss cannot have state" in
   match expr with
-  | LA.Pre (pos, _) -> syntax_error pos (template "pre" decl_ctx decl_ctx)
-  | Arrow (pos, _, _) -> syntax_error pos (template "arrow" decl_ctx decl_ctx)
-  | Last (pos, _) -> syntax_error pos (template "last" decl_ctx decl_ctx)
-  | Fby (pos, _, _, _) -> syntax_error pos (template "fby" decl_ctx decl_ctx)
+  | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
+  | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
+  | Last (pos, _) -> syntax_error pos (IllegalTemporalOperator ("last", decl_ctx))
+  | Fby (pos, _, _, _) -> syntax_error pos (IllegalTemporalOperator ("fby", decl_ctx))
   | _ -> Ok ()
 
 let no_stateful_contract_imports ctx contract =
@@ -388,9 +414,7 @@ let no_stateful_contract_imports ctx contract =
         StringSet.fold (fun j a -> a >> (check_import_stateful pos initial j))
           imports
           (Ok ())
-      else syntax_error pos (Format.asprintf
-        "Illegal import of stateful contract %a. Functions can only be specified by stateless contracts"
-        HString.pp_print_hstring initial)
+      else syntax_error pos (IllegalImportOfStatefulContract initial)
     | None -> Ok ()
   in
   let over_eqn acc = function
@@ -403,12 +427,10 @@ let no_stateful_contract_imports ctx contract =
 
 let no_clock_inputs_or_outputs pos = function
   | LA.ClockTrue -> Ok ()
-  | _ -> syntax_error pos
-    (Format.asprintf "Clocked inputs or outputs are not supported")
+  | _ -> syntax_error pos UnsupportedClockedInputOrOutput
 
 let unsupported_expr = function
-  | LA.Current (pos, _) -> syntax_error pos
-      (Format.asprintf "Current expression is not supported")
+  | LA.Current (pos, _) as e -> syntax_error pos (UnsupportedExpression e)
   | _ -> Ok ()
 
 let rec when_expr_only_supported_in_merge observer expr =
@@ -417,8 +439,7 @@ let rec when_expr_only_supported_in_merge observer expr =
   match expr with
   | LA.When (pos, _, _) -> 
     if observer then Ok ()
-    else syntax_error pos
-      (Format.asprintf "When expressions only supported inside merges")
+    else syntax_error pos WhenExpressionOutsideMerge
   | Merge (_, _, e) -> 
     r_list true (List.map (fun (_, x) -> x) e)
   | Ident _ | Const _ | Last _ | ModeRef _ -> Ok ()
@@ -546,8 +567,7 @@ and check_items ctx f items =
         >> (when_expr_only_supported_in_merge false e)
     | Body (Assert (_, e))
     | AnnotProperty (_, _, e) -> check_expr ctx f e
-    | Body (Automaton (pos, _, _, _)) -> syntax_error pos
-      (Format.asprintf "Automaton DSL not supported in experimental frontend")
+    | Body (Automaton (pos, _, _, _)) -> syntax_error pos (Unknown "Automaton DSL not supported in experimental frontend")
     | AnnotMain _ -> Ok ()
   in
   Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)
@@ -566,7 +586,7 @@ and check_contract is_contract_node ctx f contract =
     | GhostVar (TypedConst (_, _, e, _)) -> check_expr ctx f e
     | AssumptionVars (pos, _) ->
       if not is_contract_node then Ok ()
-      else syntax_error pos ("Assumption variables not supported in contract nodes")
+      else syntax_error pos AssumptionVariablesInContractNode
     | _ -> Ok ()
   in
   Res.seqM (fun x _ -> x) () (List.map (check_contract_item ctx f) contract)
@@ -630,8 +650,7 @@ let no_mismatched_clock is_bool e =
           HString.equal i1 j1 && HString.equal i2 j2
         | _ -> false)
       in
-      if not clocks_match then syntax_error pos
-        (Format.asprintf "Clock mismatch for argument of merge")
+      if not clocks_match then syntax_error pos ClockMismatchInMerge
       else Ok ()
     | _ -> Ok ()
   in

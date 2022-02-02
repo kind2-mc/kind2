@@ -39,15 +39,26 @@
    @author Apoorv Ingle *)
 
 module LA = LustreAst
-          
-type 'a graph_result = ('a, Lib.position * string) result
-(** Result of the dependency analysis *)
 
-val sort_globals: LA.t -> LA.t graph_result
+type error_kind = Unknown of string
+  | IdentifierRedeclared of HString.t
+  | WidthLengthsUnequal of LA.expr * LA.expr
+  | EquationWidthsUnequal
+  | ContractDependencyOnCurrentOutput of LA.SI.t
+  | CyclicDependency of HString.t list
+
+type error = [
+  | `LustreAstDependenciesError of Lib.position * error_kind
+]
+
+val error_message: error_kind -> string
+(** Returns an message describing the error kind *)
+
+val sort_globals: LA.t -> (LA.t, [> error]) result
 (** Returns a topological order to resolve forward references of globals. 
     This step processes 1. type declarations, and 2. constant declarations *)  
                      
-val sort_and_check_nodes_contracts: LA.t -> (LA.t * LA.ident list) graph_result
+val sort_and_check_nodes_contracts: LA.t -> ((LA.t * LA.ident list), [> error]) result
 (** Returns a topological order of declarations to resolve all forward refernces,
     with a list of toplevel nodes.
     It also reorders contract equations and checks for circularity of node equations.

@@ -39,6 +39,7 @@ module AD = LustreAstDependencies
 module LAN = LustreAstNormalizer
 module LS = LustreSyntaxChecks
 module LIA = LustreAbstractInterpretation
+module LE = LustreErrors
 
 let (>>=) = Res.(>>=)
           
@@ -171,7 +172,7 @@ let type_check declarations =
     Debug.parse "Type checking done"
     ; Debug.parse "========\n%a\n==========\n" LA.pp_print_program d
     ; (c, g, d, toplevel)
-  | Error (pos, err) -> fail_at_position pos err
+  | Error e -> fail_at_position (LE.error_position e) (LE.error_message e)
 
 
 let print_nodes_and_globals nodes globals =

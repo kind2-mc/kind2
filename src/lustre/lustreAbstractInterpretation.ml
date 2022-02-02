@@ -25,6 +25,10 @@ module LAH = LustreAstHelpers
 module Ctx = TypeCheckerContext
 module TC = LustreTypeChecker
 
+let unwrap result = match result with
+  | Ok r -> r
+  | Error _ -> assert false
+
 module IMap = struct
   (* everything that [Stdlib.Map] gives us  *)
   include Map.Make(struct
@@ -150,9 +154,7 @@ let rec interpret_program ty_ctx = function
   | h :: t -> union (interpret_decl ty_ctx h) (interpret_program ty_ctx t)
 
 and interpret_contract node_id ctx ty_ctx eqns =
-  let ty_ctx = TC.tc_ctx_of_contract ty_ctx eqns
-    |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
-    |> Res.unwrap
+  let ty_ctx = TC.tc_ctx_of_contract ty_ctx eqns |> unwrap
   in
   List.fold_left (fun acc eqn ->
       union acc (interpret_contract_eqn node_id acc ty_ctx eqn))
@@ -168,9 +170,7 @@ and interpret_contract_eqn node_id ctx ty_ctx = function
 and interpret_ghost_var node_id ctx ty_ctx = function
   | LA.FreeConst _ -> empty_context
   | UntypedConst (_, id, expr) ->
-    let ty = TC.infer_type_expr ty_ctx expr
-      |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
-      |> Res.unwrap
+    let ty = TC.infer_type_expr ty_ctx expr |> unwrap
     in
     let ty = interpret_expr_by_type node_id ctx ty_ctx ty 0 expr in
     add_type ctx node_id id ty
@@ -230,9 +230,7 @@ and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
     | None -> empty_context
   in
   let ty_ctx = List.fold_left
-    (fun ctx local -> TC.local_var_binding ctx local
-      |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
-      |> Res.unwrap)
+    (fun ctx local -> TC.local_var_binding ctx local |> unwrap)
     ty_ctx
     locals
   in
@@ -361,9 +359,7 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
 
 and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
   let infer e =
-    let ty = TC.infer_type_expr ty_ctx e
-      |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
-      |> Res.unwrap
+    let ty = TC.infer_type_expr ty_ctx e |> unwrap
     in
     Ctx.expand_nested_type_syn ty_ctx ty
   in
@@ -410,9 +406,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
 
 and interpret_int_expr node_id ctx ty_ctx proj expr = 
   let infer e =
-    let ty = TC.infer_type_expr ty_ctx e
-      |> Res.map_err (fun (_, s) -> fun _ -> Debug.parse "%s" s)
-      |> Res.unwrap
+    let ty = TC.infer_type_expr ty_ctx e |> unwrap
     in
     let ty = Ctx.expand_nested_type_syn ty_ctx ty in
     interpret_expr_by_type node_id ctx ty_ctx ty proj e

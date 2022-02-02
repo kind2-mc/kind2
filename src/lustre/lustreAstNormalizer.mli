@@ -127,11 +127,15 @@ type generated_identifiers = {
     list;
 }
 
+type error = [
+  | `LustreAstNormalizerError
+]
+
 val normalize : TypeCheckerContext.tc_context
   -> LustreAbstractInterpretation.context
   -> LustreAst.t
   -> (LustreAst.t * generated_identifiers StringMap.t,
-      Lib.position * string) result
+      [> error]) result
 
 val pp_print_generated_identifiers : Format.formatter -> generated_identifiers -> unit
 

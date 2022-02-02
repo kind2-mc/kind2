@@ -23,14 +23,32 @@
 module TC = TypeCheckerContext
 module LA = LustreAst
 
-type 'a inline_result = ('a, Lib.position * string) result           
-(** Result of inlining a constant *)
+type error_kind = Unknown of string
+  | FreeIntIdentifier of HString.t
+  | ConstantMustBeInt of LA.expr
+  | UnaryMustBeInt of LA.expr
+  | BinaryMustBeInt of LA.expr
+  | FreeBoolIdentifier of HString.t
+  | ConstantMustBeBool of LA.expr
+  | UnaryMustBeBool of LA.expr
+  | BinaryMustBeBool of LA.expr
+  | IdentifierMustBeConstant of HString.t
+  | UnableToEvaluate of LA.expr
+  | WidthOperatorUnsupported
+  | OutOfBounds of string
 
-val inline_constants: TC.tc_context -> LA.t -> (TC.tc_context * LA.t) inline_result
+type error = [
+  | `LustreAstInlineConstantsError of Lib.position * error_kind
+]
+
+val error_message: error_kind -> string
+(** Returns an message describing the error kind *)
+
+val inline_constants: TC.tc_context -> LA.t -> ((TC.tc_context * LA.t), [> error]) result
 (** Best effort at inlining constants *)
 
 val inline_constants_of_lustre_type: TC.tc_context -> LA.lustre_type -> LA.lustre_type
 (** Best effort at inlining constants in a lustre type *)
 
-val eval_int_expr: TC.tc_context -> LA.expr -> int inline_result
+val eval_int_expr: TC.tc_context -> LA.expr -> (int, [> error]) result
 (** try to evaluate an expression to an int *)
