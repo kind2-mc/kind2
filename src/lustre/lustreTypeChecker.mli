@@ -22,13 +22,73 @@
 module LA = LustreAst
 open TypeCheckerContext
 
+type error_kind = Unknown of string
+  | Impossible of string
+  | MergeCaseExtraneous of HString.t * tc_type
+  | MergeCaseMissing of HString.t
+  | MergeCaseNotUnique of HString.t
+  | UnboundedIdentifier of HString.t
+  | UnboundedModeReference of HString.t
+  | MissingRecordField of HString.t
+  | IlltypedRecordProjection of tc_type
+  | MissingTupleField of int * tc_type
+  | IlltypedTupleProjection of tc_type
+  | UnequalIteBranchTypes of tc_type * tc_type
+  | ExpectedBooleanExpression of tc_type
+  | Unsupported of string
+  | UnequalArrayExpressionType
+  | ExpectedNumeralArrayBound
+  | TypeMismatchOfRecordLabel of HString.t * tc_type * tc_type
+  | IlltypedRecordUpdate of tc_type
+  | ExpectedLabel of LA.expr
+  | IlltypedArraySlice of tc_type
+  | ExpectedIntegerTypeForSlice
+  | IlltypedArrayIndex of tc_type
+  | ExpectedIntegerTypeForArrayIndex of tc_type
+  | IlltypedArrayConcat of bool * tc_type * tc_type option
+  | IlltypedDefaults
+  | IlltypedMerge of tc_type
+  | IlltypedFby of tc_type * tc_type
+  | IlltypedArrow of tc_type * tc_type
+  | IlltypedCall of tc_type * tc_type
+  | ExpectedFunctionType of tc_type
+  | IlltypedIdentifier of HString.t * tc_type * tc_type
+  | UnificationFailed of tc_type * tc_type
+  | ExpectedType of tc_type * tc_type
+  | EmptyArrayExpression
+  | ExpectedArrayType of tc_type
+  | MismatchedNodeType of HString.t * tc_type * tc_type
+  | IlltypedBitNot of tc_type
+  | IlltypedUnaryMinus of tc_type
+  | ExpectedIntegerTypes of tc_type * tc_type
+  | ExpectedMachineIntegerTypes of tc_type * tc_type
+  | ExpectedBitShiftConstant
+  | ExpectedBitShiftConstantOfSameWidth of tc_type
+  | ExpectedBitShiftMachineIntegerType of tc_type
+  | InvalidConversion of tc_type * tc_type
+  | NodeArgumentsAreOnLHS of ty_set
+  | NodeInputOutputShareIdentifier of ty_set
+  | MismatchOfEquationType of LA.struct_item list option * tc_type
+  | DisallowedReassignment of ty_set
+  | DisallowedSubrangeInContractReturn of bool * HString.t * tc_type
+  | AssumptionMustBeInputOrOutput of HString.t
+  | ContractOutputContainsContractArguments of ty_set
+  | Redeclaration of HString.t
+  | ExpectedConstant of LA.expr
+  | ArrayBoundsInvalidExpression
+  | Undefined of HString.t
+  | EmptySubrange of int * int
+  | SubrangeArgumentMustBeConstantInteger of LA.expr
+
 type error = [
-  | `TypeCheckerError of Lib.position * string
+  | `LustreTypeCheckerError of Lib.position * error_kind
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
 ]
 
-val type_error: Lib.position -> string -> ('a, [> error]) result 
+val error_message: error_kind -> string
+
+val type_error: Lib.position -> error_kind -> ('a, [> error]) result 
 (** [type_error] returns an [Error] of [tc_result] *)
      
 val type_check_infer_globals: tc_context -> LA.t -> (tc_context, [> error]) result  

@@ -23,7 +23,7 @@ type error = [
   | `LustreAstInlineConstantsError of position * LustreAstInlineConstants.error_kind
   | `LustreAstNormalizerError
   | `LustreSyntaxChecksError of position * LustreSyntaxChecks.error_kind
-  | `TypeCheckerError of (position * string)
+  | `LustreTypeCheckerError of (position * LustreTypeChecker.error_kind)
 ]
 
 
@@ -32,11 +32,11 @@ let error_position error = match error with
   | `LustreAstInlineConstantsError (pos, _) -> pos
   | `LustreAstNormalizerError -> assert false
   | `LustreSyntaxChecksError (pos, _) -> pos
-  | `TypeCheckerError (pos, _) -> pos
+  | `LustreTypeCheckerError (pos, _) -> pos
 
 let error_message error = match error with
 | `LustreAstDependenciesError (_, kind) -> LustreAstDependencies.error_message kind
 | `LustreAstInlineConstantsError (_, kind) -> LustreAstInlineConstants.error_message kind
 | `LustreAstNormalizerError -> assert false
 | `LustreSyntaxChecksError (_, kind) -> LustreSyntaxChecks.error_message kind
-| `TypeCheckerError (_, msg) -> msg
+| `LustreTypeCheckerError (_, kind) -> LustreTypeChecker.error_message kind

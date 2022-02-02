@@ -31,30 +31,175 @@ module IC = LustreAstInlineConstants
 module LSC = LustreSyntaxChecks
 open TypeCheckerContext
 
+type tc_type  = LA.lustre_type
+(** Type alias for lustre type from LustreAst  *)
+
+let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
+(** String of the type to display in type errors *)
+
+type error_kind = Unknown of string
+  | Impossible of string
+  | MergeCaseExtraneous of HString.t * tc_type
+  | MergeCaseMissing of HString.t
+  | MergeCaseNotUnique of HString.t
+  | UnboundedIdentifier of HString.t
+  | UnboundedModeReference of HString.t
+  | MissingRecordField of HString.t
+  | IlltypedRecordProjection of tc_type
+  | MissingTupleField of int * tc_type
+  | IlltypedTupleProjection of tc_type
+  | UnequalIteBranchTypes of tc_type * tc_type
+  | ExpectedBooleanExpression of tc_type
+  | Unsupported of string
+  | UnequalArrayExpressionType
+  | ExpectedNumeralArrayBound
+  | TypeMismatchOfRecordLabel of HString.t * tc_type * tc_type
+  | IlltypedRecordUpdate of tc_type
+  | ExpectedLabel of LA.expr
+  | IlltypedArraySlice of tc_type
+  | ExpectedIntegerTypeForSlice
+  | IlltypedArrayIndex of tc_type
+  | ExpectedIntegerTypeForArrayIndex of tc_type
+  | IlltypedArrayConcat of bool * tc_type * tc_type option
+  | IlltypedDefaults
+  | IlltypedMerge of tc_type
+  | IlltypedFby of tc_type * tc_type
+  | IlltypedArrow of tc_type * tc_type
+  | IlltypedCall of tc_type * tc_type
+  | ExpectedFunctionType of tc_type
+  | IlltypedIdentifier of HString.t * tc_type * tc_type
+  | UnificationFailed of tc_type * tc_type
+  | ExpectedType of tc_type * tc_type
+  | EmptyArrayExpression
+  | ExpectedArrayType of tc_type
+  | MismatchedNodeType of HString.t * tc_type * tc_type
+  | IlltypedBitNot of tc_type
+  | IlltypedUnaryMinus of tc_type
+  | ExpectedIntegerTypes of tc_type * tc_type
+  | ExpectedMachineIntegerTypes of tc_type * tc_type
+  | ExpectedBitShiftConstant
+  | ExpectedBitShiftConstantOfSameWidth of tc_type
+  | ExpectedBitShiftMachineIntegerType of tc_type
+  | InvalidConversion of tc_type * tc_type
+  | NodeArgumentsAreOnLHS of ty_set
+  | NodeInputOutputShareIdentifier of ty_set
+  | MismatchOfEquationType of LA.struct_item list option * tc_type
+  | DisallowedReassignment of ty_set
+  | DisallowedSubrangeInContractReturn of bool * HString.t * tc_type
+  | AssumptionMustBeInputOrOutput of HString.t
+  | ContractOutputContainsContractArguments of ty_set
+  | Redeclaration of HString.t
+  | ExpectedConstant of LA.expr
+  | ArrayBoundsInvalidExpression
+  | Undefined of HString.t
+  | EmptySubrange of int * int
+  | SubrangeArgumentMustBeConstantInteger of LA.expr
+
 type error = [
-  | `TypeCheckerError of Lib.position * string
+  | `LustreTypeCheckerError of Lib.position * error_kind
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
 ]
 
+let error_message kind = match kind with
+  | Unknown s -> s
+  | Impossible s -> "This should be impossible! " ^ s
+  | MergeCaseExtraneous (case, ty) -> "Merge case " ^ HString.string_of_hstring case ^ " does not exist in type " ^ string_of_tc_type ty
+  | MergeCaseMissing case -> "Merge case " ^ HString.string_of_hstring case ^ " is missing from merge expression"
+  | MergeCaseNotUnique case -> "Merge case " ^ HString.string_of_hstring case ^ " must be unique"
+  | UnboundedIdentifier id -> "Unbounded identifier: " ^ HString.string_of_hstring id
+  | UnboundedModeReference id -> "Unbounded mode reference: " ^ HString.string_of_hstring id
+  | MissingRecordField id -> "No field name " ^ HString.string_of_hstring id ^ " in record type"
+  | IlltypedRecordProjection ty -> "Cannot project field out of non record expression type " ^ string_of_tc_type ty
+  | MissingTupleField (id, ty) -> "Field " ^ string_of_int id ^ " is out of bounds for tuple type " ^ string_of_tc_type ty
+  | IlltypedTupleProjection ty -> "Cannot project field out of non tuple type " ^ string_of_tc_type ty
+  | UnequalIteBranchTypes (ty1, ty2) -> "Expected equal types of each if-then-else branch but found: "
+    ^ string_of_tc_type ty1 ^ " on the then-branch and " ^ string_of_tc_type ty2 ^ " on the the else-branch"
+  | ExpectedBooleanExpression ty -> "Expected a boolean expression but bound " ^ string_of_tc_type ty
+  | Unsupported s -> "Unsupported: " ^ s
+  | UnequalArrayExpressionType -> "All expressions must be of the same type in an Array"
+  | ExpectedNumeralArrayBound -> "Array cannot have non numeral type as its bounds"
+  | TypeMismatchOfRecordLabel (label, ty1, ty2) -> "Type mismatch. Type of record label " ^ (HString.string_of_hstring label)
+    ^ " is of type " ^ string_of_tc_type ty1 ^ " but the type of the expression is " ^ string_of_tc_type ty2
+  | IlltypedRecordUpdate ty -> "Cannot do an update on non-record type " ^ string_of_tc_type ty
+  | ExpectedLabel e -> "Only labels can be used for record expressions but found " ^ LA.string_of_expr e
+  | IlltypedArraySlice ty -> "Slicing can only be done on an array type but found " ^ string_of_tc_type ty
+  | ExpectedIntegerTypeForSlice -> "Slicing should have integer types"
+  | IlltypedArrayIndex ty -> "Indexing can only be done on an array type but found " ^ string_of_tc_type ty
+  | ExpectedIntegerTypeForArrayIndex ty -> "Array index should have an integer type but found " ^ string_of_tc_type ty
+  | IlltypedArrayConcat (both_array_types, ty1, ty2) -> "Cannot concat "
+    ^ (match both_array_types with
+      | true -> "array of two different types" ^ string_of_tc_type ty1
+        ^ (match ty2 with | Some ty2 -> " and " ^ string_of_tc_type ty2 | None -> "")
+      | false -> "non-array type " ^ string_of_tc_type ty1)
+  | IlltypedDefaults -> "Defaults do not have the same type as node call"
+  | IlltypedMerge ty -> "All expressions in merge expected to be the same type " ^ string_of_tc_type ty
+  | IlltypedFby (ty1, ty2) -> "Both the expressions in `Fby` should be of the same type."
+    ^ "Found types " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
+  | IlltypedArrow (ty1, ty2) -> "Arrow types do not match " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
+  | IlltypedCall (ty1, ty2) -> "Node arguments at call expect to have type "
+    ^ string_of_tc_type ty1 ^ " but found type " ^ string_of_tc_type ty2
+  | ExpectedFunctionType ty -> "Expected node type to be a function type, but found type " ^ string_of_tc_type ty
+  | IlltypedIdentifier (id, ty1, ty2) -> "Identifier: " ^ HString.string_of_hstring id
+    ^ " does not match expected type " ^ string_of_tc_type ty1 ^ " with inferred type " ^ string_of_tc_type ty2
+  | UnificationFailed (ty1, ty2) -> "Cannot unify type" ^ string_of_tc_type ty1
+    ^ " with inferred type " ^ string_of_tc_type ty2
+  | ExpectedType (ty1, ty2) -> "Expected type " ^ string_of_tc_type ty1 ^ " but found type " ^ string_of_tc_type ty2
+  | EmptyArrayExpression -> "Array expression cannot be empty"
+  | ExpectedArrayType ty -> "Expected an array type but found type " ^ string_of_tc_type ty
+  | MismatchedNodeType (id, ty1, ty2) -> "Node " ^ HString.string_of_hstring id ^ " of type " ^ string_of_tc_type ty1
+    ^ " does not match expected type " ^ string_of_tc_type ty2
+  | IlltypedBitNot ty -> "Cannot apply the bit-value not operator to a non machine integer value of type "
+    ^ string_of_tc_type ty
+  | IlltypedUnaryMinus ty -> "Unary minus cannot be applied to non number expression of type " ^ string_of_tc_type ty
+  | ExpectedIntegerTypes (ty1, ty2) -> "Expected both arguments of operator to be of type int but found "
+    ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
+  | ExpectedMachineIntegerTypes (ty1, ty2) -> "Expected both arguments of operator to be of machine integer type but found "
+    ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
+  | ExpectedBitShiftConstant -> "Expected argument of shift operator to be a constant"
+  | ExpectedBitShiftConstantOfSameWidth ty -> "Expected second argument of shit opperator to be a constant of type "
+    ^ "unsigned machine integer of the same width as first argument but found type " ^ string_of_tc_type ty
+  | ExpectedBitShiftMachineIntegerType ty -> "Expected first argument of shit operator to be of type signed "
+    ^ "or unsigned machien integer but found type " ^ string_of_tc_type ty
+  | InvalidConversion (ty1, ty2) -> "Cannot convert a non-number type " ^ string_of_tc_type ty1 ^ " to type " ^ string_of_tc_type ty2
+  | NodeArgumentsAreOnLHS set -> "Argument to nodes cannot be LHS of an equation but found "
+    ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements set)
+  | NodeInputOutputShareIdentifier set -> "Input and output parameters cannot have common identifiers, "
+    ^ "but found common parameters: " ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements set)
+  | MismatchOfEquationType (items, ty) -> "Term structure on left hand side of the equation "
+    ^ (match items with
+      | Some items -> Lib.string_of_t (Lib.pp_print_list LA.pp_print_struct_item ", ") items
+      | None -> "")
+    ^ " does noit match expected type " ^ string_of_tc_type ty ^ " on right hand side of the node equation"
+  | DisallowedReassignment vars -> "Cannot reassign value to a constant or enum but found reassignment to identifier(s): "
+    ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements vars)
+  | DisallowedSubrangeInContractReturn (kind, id, ty) -> (match kind with | true -> "Argument" | false -> "Return")
+    ^ HString.string_of_hstring id ^ " can not have type "
+    ^ string_of_tc_type ty ^ ". Contract " ^ (match kind with | true -> "assumptions" | false -> "guarantees")
+    ^ " should be used instead"
+  | AssumptionMustBeInputOrOutput id -> "Assumption variable must be either an input or an output variable, "
+    ^ "but found '" ^ HString.string_of_hstring id ^ "'"
+  | ContractOutputContainsContractArguments set -> "Output stream of node cannot be contract arguments, but found "
+    ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements set)
+  | Redeclaration id -> HString.string_of_hstring id ^ " is already declared"
+  | ExpectedConstant e -> "Expression " ^ LA.string_of_expr e ^ " is not a constant expression"
+  | ArrayBoundsInvalidExpression -> "Invalid expression in array bounds"
+  | Undefined id -> HString.string_of_hstring id ^ " is undefined"
+  | EmptySubrange (v1, v2) -> "Range can not be empty, but found range: ["
+    ^ string_of_int v1 ^ ", " ^ string_of_int v2 ^ "]"
+  | SubrangeArgumentMustBeConstantInteger e -> "Range arguments should be of constant integers, but found: "
+    ^ Lib.string_of_t LA.pp_print_expr e
+
 let (>>=) = R.(>>=)
 let (>>) = R.(>>)
-         
-type tc_type  = LA.lustre_type
-(** Type alias for lustre type from LustreAst  *)
-              
-let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
-(** String of the type to display in type errors *)
-  
-let type_error pos err = Error (`TypeCheckerError (pos, "Type error: " ^ err))
+
+let type_error pos kind = Error (`LustreTypeCheckerError (pos, kind))
 (** [type_error] returns an [Error] of [tc_result] *)
-         
-             
+
 (**********************************************
  * Type inferring and type checking functions *
  **********************************************)
-       
-let infer_type_const: Lib.position -> LA.constant -> tc_type
+ let infer_type_const: Lib.position -> LA.constant -> tc_type
   = fun pos -> function
   | Num _ -> Int pos
   | Dec _ -> Real pos
@@ -75,48 +220,38 @@ let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HStr
           let check_cases_containment = R.seq_
             (List.map (fun i ->
                 if not (List.mem i variants) then
-                  type_error pos
-                    ("Merge case "
-                      ^ (HString.string_of_hstring i)
-                      ^ " does not exist in type "
-                      ^ string_of_tc_type ty)
+                  type_error pos (MergeCaseExtraneous (i, ty))
                 else Ok ())
               cases)
           in
           let check_cases_cover = R.seq_
             (List.map (fun i ->
                 if not (List.mem i cases) then
-                  type_error pos
-                    ("Merge case "
-                      ^ (HString.string_of_hstring i)
-                      ^ " is missing from merge expression")
+                  type_error pos (MergeCaseMissing i)
                 else Ok ())
               variants)
           in
           let check_cases_unique = R.seq_
             (List.map (fun i -> 
               if List.length (List.filter (fun x -> HString.equal x i) cases) > 1 then
-                type_error pos
-                  ("Merge case "
-                    ^ (HString.string_of_hstring i)
-                    ^ " must be unique")
+                type_error pos (MergeCaseNotUnique i)
               else Ok ())
               variants)
           in
           check_cases_containment >> check_cases_cover >> check_cases_unique
-        | None -> type_error pos ("Identifier "
+        | None -> type_error pos (Impossible ("Identifier "
           ^ (HString.string_of_hstring enum_id)
-          ^ " is not an enumeration identifier, this should be impossible!"))
+          ^ " is not an enumeration identifier")))
     | Bool _ -> Ok () (* TODO: What checks should we do for a boolean merge? *)
-    | _ -> type_error pos ("Type " ^ string_of_tc_type ty ^
-      " must be an abstract type, this should be impossible!")
+    | _ -> type_error pos (Impossible ("Type " ^ string_of_tc_type ty ^
+      " must be an abstract type"))
 
 let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
   = fun ctx -> function
   (* Identifiers *)
   | LA.Ident (pos, i) ->
     (match (lookup_ty ctx i) with
-    | None -> type_error pos ("Unbound identifier: " ^ (HString.string_of_hstring i)) 
+    | None -> type_error pos (UnboundedIdentifier i) 
     | Some ty -> R.ok ty)
   | LA.ModeRef (pos, ids) ->      
     let lookup_mode_ty ctx (ids:HString.t list) =
@@ -124,8 +259,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       | [] -> failwith ("empty mode name")
       | rest -> let i = HString.concat (HString.mk_hstring "::") rest in 
                 match (lookup_ty ctx i) with
-                | None -> type_error pos ("Unbound mode identifier: "
-                  ^ (HString.string_of_hstring i))
+                | None -> type_error pos (UnboundedModeReference i)
                 | Some ty -> R.ok ty in
     lookup_mode_ty ctx ids
   | LA.RecordProject (pos, e, fld) ->
@@ -135,24 +269,17 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
         let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
         (match (List.assoc_opt fld typed_fields) with
         | Some ty -> R.ok (expand_type_syn ctx ty)
-        | None -> type_error pos ("No field named "
-          ^ (HString.string_of_hstring fld)
-          ^ "  in record type."))
-    | _ -> type_error pos ("Cannot project field out of non record expression type "
-                            ^ string_of_tc_type rec_ty))
+        | None -> type_error pos (MissingRecordField fld))
+    | _ -> type_error pos (IlltypedRecordProjection rec_ty))
 
   | LA.TupleProject (pos, e1, i) ->
     infer_type_expr ctx e1 >>=
       (function
       | LA.TupleType (pos, tys) as ty ->
           if List.length tys <= i
-          then type_error pos ("Field "
-                              ^ string_of_int i
-                              ^ " is out of bounds for tuple type "
-                              ^ string_of_tc_type ty)
+          then type_error pos (MissingTupleField (i, ty))
           else R.ok (expand_type_syn ctx (List.nth tys i))
-      | ty -> type_error pos ("Cannot project field out of non tuple type type "
-                              ^ string_of_tc_type ty))
+      | ty -> type_error pos (IlltypedTupleProjection ty))
 
   (* Values *)
   | LA.Const (pos, c) -> R.ok (infer_type_const pos c)
@@ -172,15 +299,9 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                 infer_type_expr ctx e2 >>= fun e2_ty ->
                 eq_lustre_type ctx e1_ty e2_ty >>= fun eq_test ->
                     if eq_test then R.ok e1_ty
-                    else type_error pos
-                      ("Expected equal types of each if-then-else branch but found:"
-                          ^ (string_of_tc_type e1_ty) ^
-                          "on the then-branch and"
-                          ^ (string_of_tc_type e2_ty) ^
-                          "on the else-branch")
-            | c_ty  ->  type_error pos ("Expected a boolean expression but found "
-                                        ^ string_of_tc_type c_ty))
-      | With -> type_error pos ("Unsupported operator With"))
+                    else type_error pos (UnequalIteBranchTypes (e1_ty, e2_ty))
+            | c_ty  ->  type_error pos  (ExpectedBooleanExpression c_ty))
+      | With -> type_error pos (Unsupported ("operator With")))
   | LA.NArityOp _ -> Lib.todo __LOC__  (* One hot expression is not supported *)    
   | LA.ConvOp (pos, cop, e) ->
     infer_type_conv_op ctx pos e cop
@@ -210,7 +331,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
           (let arr_ty = List.hd tys in
                 let arr_size = LA.Const (pos, Num (List.length tys |> string_of_int |> HString.mk_hstring)) in
                 R.ok (LA.ArrayType (pos, (arr_ty, arr_size))))
-          (type_error pos "All expressions must be of the same type in an Array")))
+          (type_error pos UnequalArrayExpressionType)))
     
   (* Update structured expressions *)
   | LA.ArrayConstr (pos, b_expr, sup_expr) ->
@@ -218,10 +339,10 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     >>=  (fun b_ty ->
         if is_expr_int_type ctx sup_expr
         then R.ok (LA.ArrayType (pos, (b_ty, sup_expr)))
-        else type_error pos "Array cannot have non numeral type as its bounds")
+        else type_error pos ExpectedNumeralArrayBound)
   | LA.StructUpdate (pos, r, i_or_ls, e) ->
     if List.length i_or_ls != 1
-    then type_error pos ("List of labels or indices for structure update is not supported") 
+    then type_error pos (Unsupported ("List of labels or indices for structure update is not supported"))
     else
       (match List.hd i_or_ls with
       | LA.Label (pos, l) ->  
@@ -235,41 +356,26 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                       >>= (fun e_ty -> 
                         R.ifM (eq_lustre_type ctx f_ty e_ty)
                           (R.ok r_ty)
-                          (type_error pos ("Type mismatch. Type of record label "
-                                            ^ (HString.string_of_hstring l)
-                                            ^ " is of type "
-                                            ^ string_of_tc_type f_ty
-                                            ^ " but the type of the expression is "
-                                            ^ string_of_tc_type e_ty)))
-                    | None -> type_error pos ("No field named "
-                      ^ (HString.string_of_hstring l)
-                      ^ " found in record type")))
-              | r_ty -> type_error pos ("Cannot do an update on non-record type "
-                                        ^ string_of_tc_type r_ty))
-      | _ -> type_error pos ("Only labels can be used for record expressions"
-                              ^ " but found index "
-                              ^ Lib.string_of_t LA.pp_print_label_or_index (List.hd i_or_ls)))  
+                          (type_error pos (TypeMismatchOfRecordLabel (l, f_ty, e_ty))))
+                    | None -> type_error pos (MissingRecordField l)))
+              | r_ty -> type_error pos (IlltypedRecordUpdate r_ty))
+      | LA.Index (_, e) -> type_error pos (ExpectedLabel e))
   | LA.ArraySlice (pos, e1, (il, iu)) ->
     if is_expr_int_type ctx il && is_expr_int_type ctx iu
     then infer_type_expr ctx e1
         >>= (function
               | ArrayType (_, (b_ty, _)) ->
                 R.ok (LA.ArrayType (pos, (b_ty, (LH.abs_diff pos il iu))))
-            | ty -> type_error pos ("Slicing can only be done on an type Array "
-                                    ^ "but found type "
-                                    ^ Lib.string_of_t LA.pp_print_lustre_type ty))
-    else type_error pos ("Slicing should have integer types")
+            | ty -> type_error pos (IlltypedArraySlice ty))
+    else type_error pos ExpectedIntegerTypeForSlice
   | LA.ArrayIndex (pos, e, i) ->
     infer_type_expr ctx i >>= fun index_type ->
     if is_expr_int_type ctx i
     then infer_type_expr ctx e
         >>= (function
               | ArrayType (_, (b_ty, _)) -> R.ok b_ty
-              | ty -> type_error pos ("Indexing can only be done on an type Array "
-                                      ^ "but found type "
-                                      ^ Lib.string_of_t LA.pp_print_lustre_type ty))
-    else type_error pos ("Array index should have an integer type "
-                        ^ " but found " ^ string_of_tc_type index_type)
+              | ty -> type_error pos (IlltypedArrayIndex ty))
+    else type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
 
   | LA.ArrayConcat (pos, arr1, arr2) ->
     infer_type_expr ctx arr1
@@ -282,13 +388,9 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                                           ; R.ok(is_expr_int_type ctx size1)
                                           ; R.ok(is_expr_int_type ctx size2)] )
                       (R.ok (LA.ArrayType (pos, (b_ty1, (LH.add_exp pos size1 size2)))))
-                      (type_error pos ("Cannot concat array of two different types "
-                                      ^ string_of_tc_type ty1 ^ " and "
-                                      ^ string_of_tc_type ty2 ))
-                | ty2 -> type_error pos ("Cannot concat non-array type "
-                                          ^ string_of_tc_type ty2)) 
-        | ty1  -> type_error pos ("Cannot concat non-array type "
-                                  ^ string_of_tc_type ty1))
+                      (type_error pos (IlltypedArrayConcat (true, ty1, Some ty2)))
+                | ty2 -> type_error pos (IlltypedArrayConcat (false, ty2, None)))
+        | ty1  -> type_error pos (IlltypedArrayConcat (false, ty1, None)))
 
   (* Quantified expressions *)
   | LA.Quantifier (_, _, qs, e) ->
@@ -307,7 +409,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     >>= (fun d_tys -> 
       R.ifM (eq_lustre_type ctx r_ty (GroupType (pos, d_tys)))
         (R.ok r_ty)
-        (type_error pos "Defaults do not have the same type as node call"))
+        (type_error pos IlltypedDefaults))
   | LA.Activate (pos, node, cond, _, args) ->
     check_type_expr ctx cond (Bool pos)
     >> infer_type_expr ctx (Call (pos, node, args))
@@ -322,8 +424,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       let main_ty = List.hd tys in
       R.ifM (R.seqM (&&) true (List.map (eq_lustre_type ctx main_ty) tys))
       (R.ok main_ty)
-      (type_error pos ("All expressions in merge expected to be the same type "
-                            ^ string_of_tc_type main_ty))
+      (type_error pos (IlltypedMerge main_ty))
   | LA.RestartEvery (pos, node, args, cond) ->
     check_type_expr ctx cond (LA.Bool pos)
     >> infer_type_expr ctx (LA.Call (pos, node, args))
@@ -336,17 +437,13 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     infer_type_expr ctx e2 >>= fun ty2 ->
     R.ifM (eq_lustre_type ctx ty1 ty2)
       (R.ok ty1)
-      (type_error pos ("Both the expressions in `Fby` should be of the same type."
-                        ^ "Found types " ^ string_of_tc_type ty1
-                        ^ " and " ^ string_of_tc_type ty2))
+      (type_error pos (IlltypedFby (ty1, ty2)))
   | LA.Arrow (pos, e1, e2) ->
     infer_type_expr ctx e1 >>= fun ty1 ->
     infer_type_expr ctx e2 >>= fun ty2 ->
     R.ifM (eq_lustre_type ctx ty1 ty2)
       (R.ok ty1)
-      (type_error pos
-        ("Arrow types do not match " ^ string_of_tc_type ty1
-          ^ " and " ^ string_of_tc_type ty2)) 
+      (type_error pos (IlltypedArrow (ty1, ty2)))
      
   (* Node calls *)
   | LA.Call (pos, i, arg_exprs) ->
@@ -363,16 +460,12 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
               >>= (fun given_arg_tys ->
               R.ifM (eq_lustre_type ctx exp_arg_tys given_arg_tys)
                 (R.ok exp_ret_tys)                         
-                (type_error pos (Format.asprintf
-                    "Node arguments at call expect to have type %s but found type %s"
-                    (string_of_tc_type exp_arg_tys)
-                    (string_of_tc_type given_arg_tys)) ))
-          | Some ty -> type_error pos
-                    ("Expected node type to be a function type, but found type "
-                      ^ string_of_tc_type ty)
-          | None -> type_error pos ("No node with name: "
+                (type_error pos (IlltypedCall (exp_arg_tys, given_arg_tys))))
+          | Some ty -> type_error pos (ExpectedFunctionType ty)
+          | None -> assert false)
+(*           | None -> type_error pos ("No node with name: "
             ^ (HString.string_of_hstring i)
-            ^ " found"))
+            ^ " found")) *)
   | LA.CallParam _ -> Lib.todo __LOC__
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
@@ -383,12 +476,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
   | Ident (pos, i) as ident ->
     infer_type_expr ctx ident >>= fun ty ->
     R.guard_with (eq_lustre_type ctx ty exp_ty)
-      (type_error pos ("Identifier "
-                      ^ (HString.string_of_hstring i)
-                      ^ " does not match expected type "
-                      ^ string_of_tc_type exp_ty
-                      ^ " with infered type "
-                      ^ string_of_tc_type ty))
+      (type_error pos (IlltypedIdentifier (i, exp_ty, ty)))
   | ModeRef (pos, ids) ->
     let id = (match ids with
               | [] -> failwith ("empty mode name")
@@ -400,17 +488,10 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
   (* Operators *)
   | UnaryOp (pos, op, e) ->
     infer_type_unary_op ctx pos e op
-    >>= fun inf_ty -> R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
-                    (type_error pos ("Cannot unify type "
-                                    ^ string_of_tc_type exp_ty
-                                    ^ " with inferred type "
-                                    ^ string_of_tc_type inf_ty))
+    >>= fun inf_ty -> R.guard_with (eq_lustre_type ctx inf_ty exp_ty) (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | BinaryOp (pos, op, e1, e2) -> 
     infer_type_binary_op ctx pos op e1 e2 >>= fun inf_ty ->
-    R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
-      (type_error pos (" Cannot unify type "
-                      ^ string_of_tc_type exp_ty
-                      ^ " with infered type " ^ string_of_tc_type inf_ty))
+    R.guard_with (eq_lustre_type ctx inf_ty exp_ty) (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | LA.TernaryOp (pos, _, con, e1, e2) ->
     infer_type_expr ctx con
     >>= (function 
@@ -418,35 +499,23 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
             infer_type_expr ctx e1
             >>= fun ty1 -> infer_type_expr ctx e2
             >>= fun ty2 -> R.guard_with (eq_lustre_type ctx ty1 ty2)
-                            (type_error pos
-                                ("Cannot unify type " ^ string_of_tc_type ty1
-                                ^ "with type " ^ string_of_tc_type ty2))
-        | ty -> type_error pos ("ITE condition expression "
-                                ^ "Expected: " ^ string_of_tc_type (Bool pos)
-                                ^ "Found: " ^ string_of_tc_type ty))
+                            (type_error pos (UnificationFailed (ty1, ty2)))
+        | ty -> type_error pos (ExpectedType ((Bool pos), ty)))
   | NArityOp _ -> Lib.todo __LOC__ (* One hot expression is not supported down stream*)
   | ConvOp (pos, cvop, e) ->
     infer_type_conv_op ctx pos e cvop >>= fun inf_ty ->
     R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
-      (type_error pos ("Cannot unify expected type "
-                      ^ string_of_tc_type exp_ty
-                      ^ " with inferred type "
-                      ^ string_of_tc_type inf_ty))
+      (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | CompOp (pos, cop, e1, e2) ->
     infer_type_comp_op ctx pos e1 e2 cop >>= fun inf_ty ->
     R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
-      (type_error pos ("Cannot unify expected type "
-                      ^ string_of_tc_type exp_ty
-                      ^ " with type " ^ string_of_tc_type inf_ty))
+      (type_error pos (UnificationFailed (exp_ty, inf_ty)))
 
   (* Values/Constants *)
   | Const (pos, c) ->
     let cty = infer_type_const pos c in
     R.guard_with (eq_lustre_type ctx cty exp_ty)
-      (type_error pos ("Cannot match expected type "
-                      ^ string_of_tc_type exp_ty ^
-                        " with type "
-                        ^ string_of_tc_type cty))
+      (type_error pos (UnificationFailed (exp_ty, cty)))
 
   (* Structured expressions *)
   | RecordExpr (pos, _, flds) ->
@@ -456,11 +525,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
     >>= fun inf_tys ->
     let inf_r_ty = LA.RecordType (pos, (List.map2 (mk_ty_ident pos) ids inf_tys)) in
     R.guard_with (eq_lustre_type ctx exp_ty inf_r_ty)
-      (type_error pos
-        ("Cannot match expected type "
-          ^ string_of_tc_type exp_ty
-          ^ " with type "
-          ^ string_of_tc_type inf_r_ty))
+      (type_error pos (UnificationFailed (exp_ty, inf_r_ty)))
   | GroupExpr (pos, group_ty, es) ->
     (match group_ty with
     (* These should be tuple type  *)
@@ -468,33 +533,30 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
         R.seq (List.map (infer_type_expr ctx) es) >>= fun inf_tys ->
         let inf_ty = LA.GroupType (pos, inf_tys) in
         (R.guard_with (eq_lustre_type ctx exp_ty inf_ty)
-          (type_error pos ("Expected type " ^ string_of_tc_type exp_ty
-                            ^ " but found " ^ string_of_tc_type inf_ty)))
+          (type_error pos (ExpectedType (exp_ty, inf_ty))))
       | TupleExpr ->
         R.seq (List.map (infer_type_expr ctx) es) >>= fun inf_tys ->
         let inf_ty = LA.TupleType (pos, inf_tys) in
         (R.guard_with (eq_lustre_type ctx exp_ty inf_ty)
-          (type_error pos ("Expected type " ^ string_of_tc_type exp_ty
-                            ^ " but found " ^ string_of_tc_type inf_ty)))
+          (type_error pos (ExpectedType (exp_ty, inf_ty))))
     (* This should be array type *)
     | ArrayExpr ->
         R.seq (List.map (infer_type_expr ctx) es) >>= fun inf_tys ->
         if List.length inf_tys < 1
-        then type_error pos ("Array expression cannot be empty")
+        then type_error pos EmptyArrayExpression
         else
           let elty = List.hd inf_tys in
           R.ifM (R.seqM (&&) true (List.map (eq_lustre_type ctx elty) inf_tys))
             (let arr_ty = List.hd inf_tys in
             let arr_size = LA.Const (pos, Num (List.length inf_tys |> string_of_int |> HString.mk_hstring)) in
             (R.guard_with (eq_lustre_type ctx exp_ty (LA.ArrayType (pos, (arr_ty, arr_size))))
-                (type_error pos ("Expected type " ^ string_of_tc_type exp_ty
-                                ^ " but found " ^ string_of_tc_type arr_ty))))
-            (type_error pos "All expressions must be of the same type in an Array"))
+                (type_error pos (ExpectedType (exp_ty, arr_ty)))))
+            (type_error pos UnequalArrayExpressionType))
 
   (* Update of structured expressions *)
   | StructUpdate (pos, r, i_or_ls, e) ->
     if List.length i_or_ls != 1
-    then type_error pos ("List of labels or indices for structure update is not supported") 
+    then type_error pos (Unsupported ("List of labels or indices for structure update is not supported"))
     else (match List.hd  i_or_ls with
           | LA.Label (pos, l) ->  
             infer_type_expr ctx r
@@ -504,14 +566,9 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
                 (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
                   (match (List.assoc_opt l typed_fields) with
                   | Some ty -> check_type_expr ctx e ty 
-                  | None -> type_error pos ("No field named "
-                    ^ (HString.string_of_hstring l)
-                    ^ "found in record type")))
-              | _ -> type_error pos ("Cannot do an update on non-record type "
-                                    ^ string_of_tc_type r_ty))
-          | _ -> type_error pos ("Only a label can be used for record expressions"
-                                ^ " but found index "
-                                ^ Lib.string_of_t LA.pp_print_label_or_index (List.hd i_or_ls)))
+                  | None -> type_error pos (MissingRecordField l)))
+              | _ -> type_error pos (IlltypedRecordUpdate r_ty))
+          | LA.Index (_, e) -> type_error pos (ExpectedLabel e))
 
   (* Array constructor*)
   | ArrayConstr (pos, b_exp, sup_exp) ->
@@ -519,10 +576,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
     infer_type_expr ctx sup_exp >>= fun _ ->
     let arr_ty = (LA.ArrayType (pos, (b_ty, sup_exp))) in
     R.guard_with (eq_lustre_type ctx exp_ty arr_ty)
-      (type_error pos ("Expecting array type "
-                      ^ string_of_tc_type exp_ty
-                      ^ " but found "
-                      ^ string_of_tc_type arr_ty))
+      (type_error pos (ExpectedType (exp_ty, arr_ty)))
   | ArrayIndex (pos, e, idx) ->
     infer_type_expr ctx idx >>= fun index_type -> 
     if is_expr_int_type ctx idx
@@ -530,20 +584,14 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
         (match inf_arr_ty with
           | ArrayType (_, (arr_b_ty, _)) ->
             R.guard_with(eq_lustre_type ctx arr_b_ty exp_ty)
-              (type_error pos ("Exptected array of base type "
-                                ^ string_of_tc_type exp_ty
-                                ^ " but found type "
-                                ^ string_of_tc_type arr_b_ty))
-          | _ -> type_error pos ("Expected an array type but found type " ^ string_of_tc_type inf_arr_ty))
-    else type_error pos ("Array index should have type int"
-                        ^ " but found type " ^ string_of_tc_type index_type)
+              (type_error pos (ExpectedType (exp_ty, arr_b_ty)))
+          | _ -> type_error pos (ExpectedArrayType inf_arr_ty))
+    else type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
   | (ArraySlice _ as e) | (ArrayConcat _ as e) ->
     infer_type_expr ctx e >>= fun inf_ty ->
     R.guard_with(eq_lustre_type ctx inf_ty exp_ty)
-      (type_error (LH.pos_of_expr e) ("Expected type "
-                                      ^ string_of_tc_type exp_ty
-                                      ^ " but found type "
-                                      ^ string_of_tc_type inf_ty))
+      (type_error (LH.pos_of_expr e) (ExpectedType (exp_ty, inf_ty)))
+
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) ->
     let extn_ctx = List.fold_left union ctx
@@ -558,7 +606,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
     >> check_type_expr ctx (Call (pos, node, args)) exp_ty
     >>  R.seq (List.map (infer_type_expr ctx) defaults)
     >>= fun d_tys -> R.guard_with (eq_lustre_type ctx exp_ty (GroupType (pos, d_tys)))
-                      (type_error pos "Condact defaults do not have the same type as node call")
+                      (type_error pos IlltypedDefaults)
   | Activate (pos, node, cond, _, args) -> 
     check_type_expr ctx cond (Bool pos)
     >> check_type_expr ctx (Call (pos, node, args)) exp_ty 
@@ -580,12 +628,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
   | Last (pos, i) ->
     infer_type_expr ctx (LA.Ident (pos, i))
     >>= fun ty -> R.guard_with (eq_lustre_type ctx ty exp_ty)
-                    (type_error pos ("Identifier "
-                                    ^ (HString.string_of_hstring i)
-                                    ^ " does not match expected type "
-                                    ^ string_of_tc_type exp_ty
-                                    ^ " with infered type "
-                                    ^ string_of_tc_type ty))
+                    (type_error pos (IlltypedIdentifier (i, exp_ty, ty)))
   | Fby (_, e1, _, e2) ->
     check_type_expr ctx e1 exp_ty
     >> check_type_expr ctx e2 exp_ty
@@ -599,15 +642,12 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
     let arg_ty = if List.length arg_tys = 1 then List.hd arg_tys
                 else GroupType (pos, arg_tys) in
     (match (lookup_node_ty ctx i) with
-    | None -> type_error pos ("No node/function with name "
+    | None -> type_error pos (Impossible ("No node/function with name "
       ^ (HString.string_of_hstring i)
-      ^ " found.")
+      ^ " found."))
     | Some ty -> 
       R.guard_with (eq_lustre_type ctx ty (LA.TArr (pos, arg_ty, exp_ty)))
-        (type_error pos ("Node type "
-                          ^ string_of_tc_type (TArr (pos, arg_ty, exp_ty))
-                          ^ "does not match expected type "
-                          ^ string_of_tc_type ty)))
+        (type_error pos (MismatchedNodeType (i, (TArr (pos, arg_ty, exp_ty)), ty))))
   | CallParam _ -> Lib.todo __LOC__
 (** Type checks an expression and returns [ok] 
  * if the expected type is the given type [tc_type]  
@@ -620,20 +660,15 @@ and infer_type_unary_op: tc_context -> Lib.position -> LA.expr -> LA.unary_opera
   | LA.Not ->
     R.ifM (eq_lustre_type ctx ty (Bool pos))
       (R.ok (LA.Bool pos))
-      (type_error pos ("Expected argument of type bool "
-                      ^ "but found type " ^ string_of_tc_type ty))
+      (type_error pos (ExpectedType (LA.Bool pos, ty)))
   | LA.BVNot ->
     if LH.is_type_machine_int ty
     then R.ok ty
-    else type_error pos ("Cannot apply the bit-value not operator "
-                        ^ "to a non machine integer value of type "
-                        ^ string_of_tc_type ty)
+    else type_error pos (IlltypedBitNot ty)
   | LA.Uminus ->
     if (LH.is_type_num ty)
     then R.ok ty
-    else type_error pos ("Unary minus cannot be applied" 
-                        ^ "to non number expression of type "
-                        ^ string_of_tc_type ty)
+    else type_error pos (IlltypedUnaryMinus ty)
 (** Infers type of unary operator application *)
 
 and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> (bool, [> error]) result
@@ -669,72 +704,45 @@ and infer_type_binary_op: tc_context -> Lib.position
     R.ifM (eq_lustre_type ctx ty1 (Bool pos))
       (R.ifM (eq_lustre_type ctx ty2 (Bool pos))
         (R.ok (LA.Bool pos))
-        (type_error pos ("Expected second argument of operator to" 
-                          ^ " be of type bool but found type "
-                          ^ string_of_tc_type ty2)))
-      (type_error pos ("Expected first argument of operator to" 
-                          ^ " be of type bool but found type "
-                          ^ string_of_tc_type ty1))
+        (type_error pos (ExpectedType ((LA.Bool pos), ty2))))
+      (type_error pos (ExpectedType ((LA.Bool pos), ty1)))
   | LA.Mod ->
     if LH.is_type_int ty1 && LH.is_type_int ty2
     then (R.ifM (eq_lustre_type ctx ty1 ty2)
             (R.ok ty1)
-            (type_error pos ("Expected arguments to be of same"
-                        ^" numeric type but found types " ^ string_of_tc_type ty1
-                        ^ " and " ^ string_of_tc_type ty2)))
-    else (type_error pos ("Expected both arguments of operator to" 
-                          ^ " be of type int but found type "
-                          ^ string_of_tc_type ty1
-                          ^ " and "
-                          ^ string_of_tc_type ty2))
+            (type_error pos (UnificationFailed (ty1, ty2))))
+    else (type_error pos (ExpectedIntegerTypes (ty1, ty2)))
   | LA.Minus | LA.Plus | LA.Times -> 
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
     if is_num
     then R.ok ty2
-    else type_error pos ("Expected arguments to be of same"
-                        ^" numeric type but found types " ^ string_of_tc_type ty1
-                        ^ " and " ^ string_of_tc_type ty2)
+    else type_error pos (UnificationFailed (ty1, ty2))
   | LA.Div ->
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
     if is_num
     then R.ok ty2
-    else type_error pos ("Expected arguments to be of same"
-                        ^" numeric type but found types " ^ string_of_tc_type ty1
-                        ^ " and " ^ string_of_tc_type ty2)
+    else type_error pos (ExpectedIntegerTypes (ty1, ty2))
   | LA.IntDiv ->
     if LH.is_type_int ty1 && LH.is_type_int ty2
     then (R.ifM (eq_lustre_type ctx ty1 ty2)
             (R.ok ty1)
-            (type_error pos ("Expected arguments to be of same"
-                        ^" numeric type but found types " ^ string_of_tc_type ty1
-                        ^ " and " ^ string_of_tc_type ty2)))
-    else type_error pos ("Expected arguments of type integer "
-                        ^ "but found types " ^ string_of_tc_type ty1
-                        ^ " and " ^ string_of_tc_type ty2)
+            (type_error pos (UnificationFailed (ty1, ty2))))
+    else type_error pos (ExpectedIntegerTypes (ty1, ty2))
   | LA.BVAnd | LA.BVOr ->
     R.ifM (eq_lustre_type ctx ty1 ty2)
       (if LH.is_type_machine_int ty1 && LH.is_type_machine_int ty2
       then R.ok ty2
-      else type_error pos ("Expected arguments of type machine integer but "
-                            ^ "found types " ^ string_of_tc_type ty1
-                            ^ " and " ^ string_of_tc_type ty2))
-      (type_error pos ("Both sides of the operator should be"
-                      ^ " of the same type but found type "
-                      ^ string_of_tc_type ty1
-                      ^ " and " ^ string_of_tc_type ty2))
+      else type_error pos (ExpectedMachineIntegerTypes (ty1, ty2)))
+      (type_error pos (UnificationFailed (ty1, ty2)))
   | LA.BVShiftL | LA.BVShiftR ->
     if (LH.is_type_signed_machine_int ty1 || LH.is_type_unsigned_machine_int ty1)
     then (if (LH.is_type_unsigned_machine_int ty2
               && LH.is_machine_type_of_associated_width (ty1, ty2))
           then if is_expr_of_consts ctx e2
               then R.ok ty1
-              else type_error pos "Expected second argument of shift operator to be a constant"
-          else type_error pos ("Expected second argument of shift operator to be a constant "
-                              ^ "of type unsigned machine integer of the same width as first argument "
-                              ^ "but found type " ^ string_of_tc_type ty1))
-    else type_error pos ("Expected first argument of shift operator to be "
-                        ^ "of type signed or unsigned machine integer "
-                        ^ "but found type " ^ string_of_tc_type ty1 ) 
+              else type_error pos ExpectedBitShiftConstant
+          else type_error pos (ExpectedBitShiftConstantOfSameWidth ty1))
+    else type_error pos (ExpectedBitShiftMachineIntegerType ty1)
 (** infers the type of binary operators  *)
 
 and infer_type_conv_op: tc_context -> Lib.position
@@ -746,73 +754,43 @@ and infer_type_conv_op: tc_context -> Lib.position
   | ToInt ->
     if LH.is_type_num ty
     then R.ok (LA.Int pos)
-    else type_error pos ("Cannot convert a non-number type "
-                        ^ string_of_tc_type ty
-                        ^ " to type "
-                        ^ string_of_tc_type (Int pos))
+    else type_error pos (InvalidConversion (ty, (Int pos)))
   | ToReal ->
     if LH.is_type_num ty
     then R.ok (LA.Real pos)
-    else type_error pos ("Cannot convert a non-number type "
-                        ^ string_of_tc_type ty
-                        ^ " to type "
-                        ^ string_of_tc_type (Real pos))
+    else type_error pos (InvalidConversion (ty, (Real pos)))
   | ToInt8 ->
     if LH.is_type_num ty
     then R.ok (LA.Int8 pos)
-    else type_error pos ("Cannot convert a non-number type "
-                                ^ string_of_tc_type ty
-                                ^ " to type "
-                                ^ string_of_tc_type (Int8 pos))
+    else type_error pos (InvalidConversion (ty, (Int8 pos)))
   | ToInt16 ->
     if LH.is_type_num ty
     then R.ok (LA.Int16 pos)
-    else type_error pos ("Cannot convert a non-number type "
-                        ^ string_of_tc_type ty
-                        ^ " to type "
-                        ^ string_of_tc_type (Int16 pos))
+    else type_error pos (InvalidConversion (ty, (Int16 pos)))
   | ToInt32 ->
     if LH.is_type_num ty
     then R.ok (LA.Int32 pos)
-    else type_error pos ("Cannot convert a non-number type "
-                        ^ string_of_tc_type ty
-                        ^ " to type "
-                        ^ string_of_tc_type (Int32 pos))
+    else type_error pos (InvalidConversion (ty, (Int32 pos)))
   | ToInt64 ->
     if LH.is_type_num ty
     then R.ok (LA.Int64 pos)
-    else type_error pos ("Cannot convert a non-number type "
-                        ^ string_of_tc_type ty
-                        ^ " to type "
-                        ^ string_of_tc_type (Int64 pos))
+    else type_error pos (InvalidConversion (ty, (Int64 pos)))
   | ToUInt8 ->
     if LH.is_type_num ty
     then R.ok (LA.UInt8 pos)
-    else type_error pos ("Cannot convert a non-number type "
-                        ^ string_of_tc_type ty
-                        ^ " to type "
-                        ^ string_of_tc_type (UInt8 pos))
+    else type_error pos (InvalidConversion (ty, (UInt8 pos)))
   | ToUInt16 ->
     if LH.is_type_num ty
     then R.ok (LA.UInt16 pos)
-    else type_error pos ("Cannot convert a non-number type "
-                        ^ string_of_tc_type ty
-                        ^ " to type "
-                        ^ string_of_tc_type (UInt16 pos))
+    else type_error pos (InvalidConversion (ty, (UInt16 pos)))
   | ToUInt32 ->
     if LH.is_type_num ty
     then R.ok (LA.UInt32 pos)
-    else type_error pos ("Cannot convert a non-number type "
-                        ^ string_of_tc_type ty
-                        ^ " to type "
-                        ^ string_of_tc_type (UInt32 pos))
+    else type_error pos (InvalidConversion (ty, (UInt32 pos)))
   | ToUInt64 ->
     if LH.is_type_num ty
     then R.ok (LA.UInt64 pos)
-    else type_error pos ("Cannot convert a non-number type "
-                        ^ string_of_tc_type ty
-                        ^ " to type "
-                        ^ string_of_tc_type (UInt64 pos))
+    else type_error pos (InvalidConversion (ty, (UInt64 pos)))
 (** Converts from given type to the intended type aka casting *)
     
 and infer_type_comp_op: tc_context -> Lib.position -> LA.expr -> LA.expr
@@ -824,40 +802,27 @@ and infer_type_comp_op: tc_context -> Lib.position -> LA.expr -> LA.expr
   | Neq  | Eq ->
     R.ifM (eq_lustre_type ctx ty1 ty2)
       (R.ok (LA.Bool pos))
-      (type_error pos ("Both sides of the expression expected to be"
-                      ^ " isomorphic types but found " ^ string_of_tc_type ty1
-                      ^ " and " ^ string_of_tc_type ty2))
+      (type_error pos (UnificationFailed (ty1, ty2)))
   | Lte  | Lt  | Gte | Gt ->
     are_args_num ctx pos ty1 ty2
     >>= fun is_num ->
     if is_num
     then R.ok (LA.Bool pos)
-    else type_error pos ("Both sides of the expression should be of"
-                        ^ " type same numeral type but found " ^ string_of_tc_type ty1
-                        ^ " and " ^ string_of_tc_type ty2)
+    else type_error pos (ExpectedIntegerTypes (ty1, ty2))
 (** infer the type of comparison operator application *)
                   
 and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index -> tc_type -> (unit, [> error]) result =
   fun pos ctx expr idx exp_ty -> 
   infer_type_expr ctx expr
   >>= function
-  | RecordType (_, flds) as rec_ty ->
+  | RecordType (_, flds) ->
     (match (List.find_opt (fun (_, i, _) -> i = idx) flds) with 
-    | None -> type_error pos ("Cannot project field "
-                                    ^ (HString.string_of_hstring idx)
-                                    ^ " from given record type "
-                                    ^ string_of_tc_type rec_ty)
+    | None -> type_error pos (MissingRecordField idx)
     | Some f -> R.ok f)
     >>= fun (_, _, fty) ->
     R.guard_with (eq_lustre_type ctx fty exp_ty)
-      (type_error pos ("Cannot match expected type "
-                      ^ string_of_tc_type exp_ty
-                      ^ " with infered type "
-                      ^ string_of_tc_type fty))
-  | rec_ty -> type_error pos ("Cannot project field "
-                              ^ (HString.string_of_hstring idx)
-                              ^ " from a non record type "
-                              ^ string_of_tc_type rec_ty)       
+      (type_error pos (UnificationFailed (exp_ty, fty)))
+  | rec_ty -> type_error pos (IlltypedRecordProjection rec_ty)
 
 and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> (unit, [> error]) result =
   fun ctx const_decl exp_ty ->
@@ -866,28 +831,16 @@ and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> (unit, [> e
     (match (lookup_ty ctx i) with
     | None -> failwith "Free constant should have an associated type"
     | Some inf_ty -> R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
-      (type_error pos
-            ("Identifier constant "
-              ^ (HString.string_of_hstring i)
-              ^ " expected to have type " ^ string_of_tc_type inf_ty
-              ^ " but found type " ^ string_of_tc_type exp_ty)))
+      (type_error pos (IlltypedIdentifier (i, inf_ty, exp_ty))))
   | UntypedConst (pos, i, e) ->
     infer_type_expr ctx e
     >>= fun inf_ty ->
     R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
-      (type_error pos
-        ("Identifier constant "
-          ^ (HString.string_of_hstring i)
-          ^ " expected to have type " ^ string_of_tc_type exp_ty
-          ^ " but found type " ^ string_of_tc_type inf_ty))
+      (type_error pos (IlltypedIdentifier (i, exp_ty, inf_ty)))
   | TypedConst (pos, i, exp, _) ->
     infer_type_expr ctx exp
     >>= fun inf_ty -> R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
-                        (type_error pos
-                          ("Identifier constant "
-                            ^ (HString.string_of_hstring i)
-                            ^ " expects type " ^ string_of_tc_type exp_ty
-                            ^ " but expression is of type " ^ string_of_tc_type inf_ty))
+                        (type_error pos (IlltypedIdentifier (i, exp_ty, inf_ty)))
 and local_var_binding: tc_context -> LA.node_local_decl -> (tc_context, [> error]) result = fun ctx ->
     function
     | LA.NodeConstDecl (_, const_decls) ->
@@ -896,9 +849,9 @@ and local_var_binding: tc_context -> LA.node_local_decl -> (tc_context, [> error
       ; tc_ctx_const_decl ctx const_decls 
     | LA.NodeVarDecl (pos, (_, v, ty, _)) ->
       if (member_ty ctx v) then
-        type_error pos ("Identifier "
+        type_error pos (Impossible ("Identifier "
           ^ (HString.string_of_hstring v)
-          ^ " is already declared.")
+          ^ " is already declared."))
       else check_type_well_formed ctx ty
           >> R.ok (add_ty ctx v ty)
                      
@@ -921,9 +874,9 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
 
     R.seq_chain (fun _ i ->
         (if (member_ty ctx i) then
-           type_error pos ("Identifier "
+           type_error pos (Impossible ("Identifier "
                           ^ (HString.string_of_hstring i)
-                          ^ " is already declared.")
+                          ^ " is already declared."))
          else R.ok()))
       () (LA.SI.elements arg_ids @ LA.SI.elements ret_ids)
     
@@ -967,16 +920,11 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
               (* check that the LHS of the equations are not args to node *)
               >> let overwite_node_args = SI.inter arg_ids (SI.flatten (List.map LH.vars_lhs_of_eqn items)) in
                  (R.guard_with (R.ok (overwite_node_args |> SI.is_empty))
-                    (type_error pos ("Argument to nodes cannot be LHS of an equation but found "
-                                    ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
-                                      (LA.SI.elements overwite_node_args))))
+                    (type_error pos (NodeArgumentsAreOnLHS overwite_node_args)))
                  >> (Debug.parse "TC declaration node %a done }"
                       LA.pp_print_ident node_name
                     ; R.ok ())))
-    else type_error pos ("Input and output parameters cannot have common identifers, 
-                          but found common parameters: " ^
-                           Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
-                             (LA.SI.elements common_ids))
+    else type_error pos (NodeInputOutputShareIdentifier common_ids)
 
 and do_node_eqn: tc_context -> LA.node_equation -> (unit, [> error]) result = fun ctx ->
   function
@@ -1051,18 +999,16 @@ and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> (unit, [>
   | SingleIdent (pos, i) ->
     (match (lookup_ty ctx i) with
     | None ->
-        type_error pos ("Could not find Identifier " ^ (HString.string_of_hstring i))
+        type_error pos (Impossible ("Could not find Identifier " ^ (HString.string_of_hstring i)))
     | Some ty -> R.ok ty) >>= fun inf_ty ->  
     R.ifM (R.seqM (||) false [ eq_lustre_type ctx exp_ty inf_ty
                             ; eq_lustre_type ctx exp_ty (GroupType (pos,[inf_ty])) ])
       (if member_val ctx i
-      then type_error pos ("Constant "
+      then type_error pos (Impossible ("Constant "
         ^ (HString.string_of_hstring i)
-        ^ " cannot be re-defined")
+        ^ " cannot be re-defined"))
       else R.ok ())
-      (type_error pos ("Expected type " ^ string_of_tc_type exp_ty
-                      ^ " for expression " ^ (HString.string_of_hstring i)
-                      ^ " but found type " ^ string_of_tc_type inf_ty))
+      (type_error pos (ExpectedType (exp_ty, inf_ty)))
   | ArrayDef (pos, base_e, idxs) ->
     let array_idx_expr =
       List.fold_left (fun e i -> LA.ArrayIndex (pos, e, i))
@@ -1096,24 +1042,13 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> (unit, [> error
               else (* Case 2. LHS is a compound statment *)
                 if List.length lhss = List.length exp_ty_lst
                 then R.seq_ (List.map2 (check_type_struct_item ctx) lhss exp_ty_lst)
-                else type_error pos ("Term structure on left"
-                                    ^" hand side of the equation "
-                                    ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss
-                                    ^ " does not match expected type "
-                                    ^ Lib.string_of_t LA.pp_print_lustre_type exp_ty 
-                                    ^ " on right hand side of the node equation")
+                else type_error pos (MismatchOfEquationType (Some lhss, exp_ty))
           (* We are dealing with simple types, so lhs has to be a singleton list *)
           | _ -> if (List.length lhss != 1)
-                then type_error pos ("Term structure on left hand side of the equation"
-                                      ^ " does not match expected type structure "
-                                      ^ Lib.string_of_t LA.pp_print_lustre_type exp_ty 
-                                      ^ " on right hand side of the node equation")
+                then type_error pos (MismatchOfEquationType (None, exp_ty))
                 else let lhs = List.hd lhss in
                     check_type_struct_item ctx lhs exp_ty)
-    else type_error pos ("Cannot reassign value to a constant or enum but "
-                         ^ "found reassignment to identifer(s): "
-                         ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
-                          (LA.SI.elements (SI.filter (fun e -> (member_val ctx e)) lhs_vars))))
+    else type_error pos (DisallowedReassignment (SI.filter (fun e -> (member_val ctx e)) lhs_vars)))
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 
@@ -1146,18 +1081,12 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> (unit, [> e
     (* forbid subranges in the arguments or return types *)
     R.seq (List.map (fun (pos, i, ty, _, _) -> 
       let ty = expand_nested_type_syn arg_ctx ty in
-      if LH.type_contains_subrange ty then type_error pos
-        ("Argument " ^ (HString.string_of_hstring i) ^ " can not have type "
-        ^ Lib.string_of_t LA.pp_print_lustre_type ty
-        ^ ". Contract assumptions should be used instead.")
+      if LH.type_contains_subrange ty then type_error pos (DisallowedSubrangeInContractReturn (true, i, ty))
       else Ok ())
       args)
     >> R.seq (List.map (fun (pos, i, ty, _) -> 
       let ty = expand_nested_type_syn ret_ctx ty in
-      if LH.type_contains_subrange ty then type_error pos
-        ("Return " ^ (HString.string_of_hstring i) ^ " can not have type "
-        ^ Lib.string_of_t LA.pp_print_lustre_type ty
-        ^ ". Contract guarantees should be used instead.")
+      if LH.type_contains_subrange ty then type_error pos (DisallowedSubrangeInContractReturn (false, i, ty))
       else Ok ())
       rets)
     (* get the local const var declarations into the context *)
@@ -1181,11 +1110,7 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
       let io_params = LA.SI.union node_in_params node_out_params in
       match List.find_opt (fun (_, id) -> LA.SI.mem id io_params |> not) ids with
       | Some (pos, id) ->
-        type_error pos
-          (Format.asprintf
-            "Assumption variable must be either an input or an output variable, but found '%a'"
-            LA.pp_print_ident id
-          )
+        type_error pos (AssumptionMustBeInputOrOutput id)
       | None -> R.ok ()
     )
     | GhostConst (FreeConst (_, _, exp_ty) as c) -> check_type_const_decl ctx c exp_ty
@@ -1208,9 +1133,7 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
       let node_out_params = snd node_params in
       let intersect_in_illegal = LA.SI.inter node_out_params arg_ids in
       if (not (LA.SI.is_empty intersect_in_illegal))
-      then type_error pos
-            ("Output stream to node cannot be contract arguments, but found "
-              ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements intersect_in_illegal))
+      then type_error pos (ContractOutputContainsContractArguments intersect_in_illegal)
       else
         let ret_ids = LA.SI.of_list rets in
         let common_ids = LA.SI.inter arg_ids ret_ids in
@@ -1229,16 +1152,10 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
           (match (lookup_contract_ty ctx cname) with
           | Some inf_ty -> 
               R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
-                (type_error pos ("Contract "
-                                ^ (HString.string_of_hstring cname)
-                                ^ " expected to have type " ^ string_of_tc_type exp_ty
-                                ^ " but found type " ^ string_of_tc_type inf_ty))
-          | None -> type_error pos ("Undefined or not in scope contract name "
-            ^ (HString.string_of_hstring cname)))
-        else type_error pos ("Input and output streams cannot have common identifers, "
-                            ^ "but found common parameters: "
-                            ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",")
-                                (LA.SI.elements common_ids)) 
+                (type_error pos (MismatchedNodeType (cname, exp_ty, inf_ty)))
+          | None -> type_error pos (Impossible ("Undefined or not in scope contract name "
+            ^ (HString.string_of_hstring cname))))
+        else type_error pos (NodeInputOutputShareIdentifier common_ids)
 
 and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> (tc_context, [> error]) result 
   = fun ?is_const:(is_const=true) ctx ->
@@ -1246,32 +1163,26 @@ and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> (tc_con
   | LA.FreeConst (pos, i, ty) ->
     check_type_well_formed ctx ty
     >> if member_ty ctx i
-      then type_error pos ("Constant "
-        ^ (HString.string_of_hstring i)
-        ^ " is already declared.")
+      then type_error pos (Redeclaration i)
       else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty) i ty)
   | LA.UntypedConst (pos, i, e) ->
     if member_ty ctx i
-    then type_error pos ("Constant "
-      ^ (HString.string_of_hstring i)
-      ^ " is already declared.")
+    then type_error pos (Redeclaration i)
     else infer_type_expr ctx e >>= fun ty ->
         (if is_const then
             if (is_expr_of_consts ctx e) 
             then R.ok (add_ty (add_const ctx i e ty) i ty)
-            else type_error pos ("Expression " ^ LA.string_of_expr e ^ " is not a constant expression")
+            else type_error pos (ExpectedConstant e)
           else R.ok(add_ty ctx i ty))
           
   | LA.TypedConst (pos, i, e, exp_ty) ->
     if member_ty ctx i
-    then type_error pos ("Constant "
-      ^ (HString.string_of_hstring i)
-      ^ " is already declared.")
+    then type_error pos (Redeclaration i)
     else check_type_expr (add_ty ctx i exp_ty) e exp_ty
         >> (if is_const then
               if (is_expr_of_consts ctx e) 
               then R.ok (add_ty (add_const ctx i e exp_ty) i exp_ty)
-              else type_error pos ("Expression " ^ LA.string_of_expr e ^ " is not a constant expression")
+              else type_error pos (ExpectedConstant e)
             else R.ok(add_ty ctx i exp_ty))
 (** Fail if a duplicate constant is detected  *)
 
@@ -1281,17 +1192,13 @@ and tc_ctx_contract_var: tc_context -> LA.const_decl -> (tc_context, [> error]) 
   | LA.FreeConst (pos, i, ty) ->
     check_type_well_formed ctx ty
     >> if member_ty ctx i
-      then type_error pos ("Identifer "
-        ^ (HString.string_of_hstring i)
-        ^ " is already declared.")
+      then type_error pos (Redeclaration i)
       else R.ok (add_ty ctx i ty)
-  | LA.UntypedConst (pos, _, _) -> type_error pos "Syntax prohibited by parser. This should not happen!"
+  | LA.UntypedConst (pos, _, _) -> type_error pos (Impossible "Syntax prohibited by parser")
   | LA.TypedConst (pos, i, _, ty) ->
     check_type_well_formed ctx ty
     >> if member_ty ctx i
-      then type_error pos ("Identifier "
-        ^ (HString.string_of_hstring i)
-        ^ " is already declared.")
+      then type_error pos (Redeclaration i)
       else R.ok (add_ty ctx i ty)
 (** Adds the type of a contract variable in the typing context  *)
     
@@ -1324,7 +1231,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
               (* 4. Lift all the enum constants (terms) into the value store as constants *)
                         @ enum_const_bindings))
             else
-              type_error pos "Cannot redeclare constants or enums"
+              type_error pos (Redeclaration (HString.mk_hstring "Enum or constant"))
     | _ -> check_type_well_formed ctx ty
             >> R.ok (add_ty_syn ctx i ty))
   | LA.FreeType (pos, i) ->
@@ -1337,9 +1244,7 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_conte
     "Extracting type of node declaration: %a"
     LA.pp_print_ident nname
   ; if (member_node ctx nname)
-    then type_error pos ("Node "
-      ^ (HString.string_of_hstring nname)
-      ^ " is already declared.")
+    then type_error pos (Redeclaration nname)
     else build_node_fun_ty pos ctx ip op >>= fun fun_ty ->
         R.ok (add_ty_node ctx nname fun_ty)
 (** computes the type signature of node or a function and its node summary*)
@@ -1351,13 +1256,11 @@ and tc_ctx_contract_node_eqn: tc_context -> LA.contract_node_equation -> (tc_con
   | LA.GhostVar c -> tc_ctx_contract_var ctx c
   | LA.Mode (pos, mname, _, _) ->
     if (member_ty ctx mname)
-    then type_error pos ("Mode "
-      ^ (HString.string_of_hstring mname)
-      ^ " is already declared")
+    then type_error pos (Redeclaration mname)
     else R.ok (add_ty ctx mname (Bool pos))
   | LA.ContractCall (p, cc, _, _) ->
     (match (lookup_contract_exports ctx cc) with
-    | None -> type_error p ("Cannot find contract " ^ (HString.string_of_hstring cc))
+    | None -> type_error p (Impossible ("Cannot find contract " ^ (HString.string_of_hstring cc)))
     | Some m -> R.ok (List.fold_left
       (fun c (i, ty) -> add_ty c (HString.concat (HString.mk_hstring "::") [cc;i]) ty)
       ctx
@@ -1384,11 +1287,11 @@ and extract_exports: LA.ident -> tc_context -> LA.contract -> (tc_context, [> er
         R.ok [(i, ty)]
       | LA.Mode (pos, mname, _, _) ->
         if (member_ty ctx mname)
-        then type_error pos ("Mode " ^ (HString.string_of_hstring mname) ^ " is already declared")
+        then type_error pos (Redeclaration mname)
         else R.ok [(mname, (LA.Bool pos))] 
       | LA.ContractCall (p, cc, _, _) ->
         (match (lookup_contract_exports ctx cc) with
-        | None -> type_error p ("Cannot find contract " ^ (HString.string_of_hstring cc))
+        | None -> type_error p (Impossible ("Cannot find contract " ^ (HString.string_of_hstring cc)))
         | Some m -> R.ok (List.map
           (fun (k, v) -> (HString.concat (HString.mk_hstring "::") [cc;k], v))
           (IMap.bindings m)))
@@ -1411,9 +1314,7 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
     "Extracting type of contract declaration: %a"
     LA.pp_print_ident cname
   ; if (member_contract ctx cname)
-    then type_error pos ("Contract "
-      ^ (HString.string_of_hstring cname)
-      ^ " is already declared.")
+    then type_error pos (Redeclaration cname)
     else build_node_fun_ty pos ctx inputs outputs >>= fun fun_ty ->
         extract_exports cname ctx contract >>= fun export_ctx  ->  
         R.ok (add_ty_contract (union ctx export_ctx) cname fun_ty)
@@ -1461,14 +1362,14 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
   | LA.ArrayType (pos, (b_ty, s)) ->
     if is_expr_int_type ctx s && is_expr_of_consts ctx s
     then check_type_well_formed ctx b_ty
-    else type_error pos ("Invalid expression in array bounds.")
+    else type_error pos ArrayBoundsInvalidExpression
   | LA.TupleType (_, tys) ->
     R.seq_ (List.map (check_type_well_formed ctx) tys)
   | LA.GroupType (_, tys) ->
     R.seq_ (List.map (check_type_well_formed ctx) tys)
   | LA.UserType (pos, i) ->
     if (member_ty_syn ctx i || member_u_types ctx i)
-    then R.ok () else type_error pos ("Undefined type " ^ (HString.string_of_hstring i))
+    then R.ok () else type_error pos (Undefined i)
   | LA.IntRange (pos, e1, e2) ->
     if is_expr_int_type ctx e1 && is_expr_of_consts ctx e1 then
       if is_expr_int_type ctx e2 && is_expr_of_consts ctx e2 then
@@ -1476,15 +1377,10 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
           let v2 = IC.eval_int_expr ctx e2 in
           v1 >>= fun v1 -> v2 >>= fun v2 ->
             if v1 > v2 then
-                type_error pos (Format.asprintf
-                  "Range can not be empty, but found range: [%i, %i]" v1 v2)
+                type_error pos (EmptySubrange (v1, v2))
             else Ok ()
-      else type_error pos
-          ("Range arguments should be of constant integers, but found: "
-            ^ Lib.string_of_t LA.pp_print_expr e2)
-    else type_error pos
-      ("Range arguments should be of constant integers, but found: "
-          ^ Lib.string_of_t LA.pp_print_expr e1)
+      else type_error pos (SubrangeArgumentMustBeConstantInteger e2)
+    else type_error pos (SubrangeArgumentMustBeConstantInteger e1)
   | _ -> R.ok ()
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
@@ -1561,7 +1457,7 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
       if member_ty_syn ctx u
       then (match (lookup_ty_syn ctx u) with
             | None ->
-              type_error pos ("Cannot find definition of Identifier " ^ (HString.string_of_hstring u))
+              type_error pos (Impossible ("Cannot find definition of Identifier " ^ (HString.string_of_hstring u)))
             | Some ty -> R.ok ty)
           >>= fun ty_alias ->
           eq_lustre_type ctx ty ty_alias

@@ -26,7 +26,7 @@ type error = [
   | `LustreAstInlineConstantsError of position * LustreAstInlineConstants.error_kind
   | `LustreAstNormalizerError
   | `LustreSyntaxChecksError of position * LustreSyntaxChecks.error_kind
-  | `TypeCheckerError of (position * string)
+  | `LustreTypeCheckerError of (position * LustreTypeChecker.error_kind)
 ]
 
 val error_position : [< error] -> position
