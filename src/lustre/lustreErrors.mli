@@ -22,7 +22,7 @@
 open Lib
 
 type error = [
-  | `AstDependencyError of (position * string)
+  | `LustreAstDependenciesError of (position * LustreAstDependencies.error_kind)
   | `AstInlineConstantsError of (position * string)
   | `AstNormalizerError of (position * string)
   | `SyntaxChecksError of (position * string)

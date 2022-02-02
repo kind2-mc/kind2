@@ -19,7 +19,7 @@
 open Lib
 
 type error = [
-  | `AstDependencyError of (position * string)
+  | `LustreAstDependenciesError of (position * LustreAstDependencies.error_kind)
   | `AstInlineConstantsError of (position * string)
   | `AstNormalizerError of (position * string)
   | `SyntaxChecksError of (position * string)
@@ -27,14 +27,14 @@ type error = [
 ]
 
 let error_position error = match error with
-  | `AstDependencyError (pos, _) -> pos
+  | `LustreAstDependenciesError (pos, _) -> pos
   | `AstInlineConstantsError (pos, _) -> pos
   | `AstNormalizerError (pos, _) -> pos
   | `SyntaxChecksError (pos, _) -> pos
   | `TypeCheckerError (pos, _) -> pos
 
 let error_message error = match error with
-| `AstDependencyError (_, msg) -> msg
+| `LustreAstDependenciesError (_, kind) -> LustreAstDependencies.error_message kind
 | `AstInlineConstantsError (_, msg) -> msg
 | `AstNormalizerError (_, msg) -> msg
 | `SyntaxChecksError (_, msg) -> msg

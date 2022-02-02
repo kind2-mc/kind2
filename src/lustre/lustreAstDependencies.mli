@@ -40,9 +40,19 @@
 
 module LA = LustreAst
 
+type error_kind = Unknown of string
+  | IdentifierRedeclared of HString.t
+  | WidthLengthsUnequal of LA.expr * LA.expr
+  | EquationWidthsUnequal
+  | ContractDependencyOnCurrentOutput of LA.SI.t
+  | CyclicDependency of HString.t list
+
 type error = [
-  | `AstDependencyError of Lib.position * string
+  | `LustreAstDependenciesError of Lib.position * error_kind
 ]
+
+val error_message: error_kind -> string
+(** Returns an message describing the error kind *)
 
 val sort_globals: LA.t -> (LA.t, [> error]) result
 (** Returns a topological order to resolve forward references of globals. 

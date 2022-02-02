@@ -83,6 +83,9 @@ type error = [
 ]
 
 let (>>=) = Res.(>>=)
+let unwrap result = match result with
+  | Ok r -> r
+  | Error _ -> assert false
 
 module StringMap = struct
   include Map.Make(struct
@@ -712,8 +715,7 @@ and normalize_node info map
     Otherwise the typing contexts collide *)
   let ncontracts, gids5 = match contracts with
     | Some contracts ->
-      let ctx = Chk.tc_ctx_of_contract info.context contracts
-        |> (Result.value ~default:(assert false))
+      let ctx = Chk.tc_ctx_of_contract info.context contracts |> unwrap
       in
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
@@ -725,8 +727,7 @@ and normalize_node info map
   (* Record subrange constraints on locals
     and finish setting up the typing context for the node body *)
   let ctx = List.fold_left
-    (fun ctx local -> Chk.local_var_binding ctx local
-      |> (Result.value ~default:(assert false)))
+    (fun ctx local -> Chk.local_var_binding ctx local |> unwrap)
     ctx
     locals
   in
@@ -949,8 +950,7 @@ and abstract_expr ?guard force info map is_ghost expr =
     let pos = AH.pos_of_expr expr in
     let ty = if expr_has_inductive_var ivars expr |> is_some then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
-    else Chk.infer_type_expr info.context expr
-      |> (Result.value ~default:(assert false))
+    else Chk.infer_type_expr info.context expr |> unwrap
     in
     let nexpr, gids1 = normalize_expr ?guard info map expr in
     let iexpr, gids2 = mk_fresh_local force info pos is_ghost ivars ty nexpr expr in
@@ -990,8 +990,7 @@ and normalize_expr ?guard info map =
       let pos = AH.pos_of_expr expr in
       let ty = if expr_has_inductive_var ivars expr |> is_some then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
-      else Chk.infer_type_expr info.context expr
-        |> (Result.value ~default:(assert false))
+      else Chk.infer_type_expr info.context expr |> unwrap
       in
       let nexpr, gids1 = normalize_expr ?guard info map expr in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ivars ty nexpr in
@@ -1088,8 +1087,7 @@ and normalize_expr ?guard info map =
     let ivars = info.inductive_variables in
     let ty = if expr_has_inductive_var ivars expr |> is_some then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
-      else Chk.infer_type_expr info.context expr
-        |> (Result.value ~default:(assert false))
+      else Chk.infer_type_expr info.context expr |> unwrap
       in
     let nexpr, gids1 = abstract_expr ?guard:None false info map false expr in
     let guard, gids2, previously_guarded = match guard with
@@ -1112,8 +1110,7 @@ and normalize_expr ?guard info map =
     let ivars = info.inductive_variables in
     let ty = if expr_has_inductive_var ivars expr |> is_some then
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
-    else Chk.infer_type_expr info.context expr
-      |> (Result.value ~default:(assert false))
+    else Chk.infer_type_expr info.context expr |> unwrap
     in
     let nexpr, gids1 = normalize_expr ?guard info map expr in
     let ivars = info.inductive_variables in

@@ -37,13 +37,31 @@ module LA = LustreAst
 module LH = LustreAstHelpers
 module SI = LA.SI
 
-open LustreReporting
+type error_kind = Unknown of string
+  | IdentifierRedeclared of HString.t
+  | WidthLengthsUnequal of LA.expr * LA.expr
+  | EquationWidthsUnequal
+  | ContractDependencyOnCurrentOutput of SI.t
+  | CyclicDependency of HString.t list
+
+let error_message error = match error with
+  | Unknown s -> s
+  | IdentifierRedeclared i -> "Identifier " ^ (HString.string_of_hstring i) ^ " is already declared"
+  | WidthLengthsUnequal (l, r) -> "Width lengths are not equal for expressions: "
+    ^ (Lib.string_of_t LA.pp_print_expr l) ^ " and "
+    ^ (Lib.string_of_t LA.pp_print_expr r)
+  | EquationWidthsUnequal -> "Width lengths of equation are not equal"
+  | ContractDependencyOnCurrentOutput ids -> "Contract assumption or mode requirements cannot depend on "
+    ^ "current values of output parameters but found: "
+    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements ids))
+  | CyclicDependency ids -> "Cyclic dependency detected in definition of identifiers: "
+    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids)
 
 type error = [
-  | `AstDependencyError of Lib.position * string
+  | `LustreAstDependenciesError of Lib.position * error_kind
 ]
 
-let graph_error pos err = Error (`AstDependencyError (pos, err))
+let graph_error pos kind = Error (`LustreAstDependenciesError (pos, kind))
 
 let (>>=) = R.(>>=)
 let (>>) = R.(>>)
@@ -447,7 +465,7 @@ let check_and_add: 'a IMap.t -> Lib.position
                    -> HString.t -> LA.ident -> 'a -> (('a IMap.t), [> error]) result
   = fun m pos prefix i tyd ->
   if IMap.mem (HString.concat2 prefix i) m 
-  then graph_error pos ("Identifier " ^ (HString.string_of_hstring i) ^ " is already declared")
+  then graph_error pos (IdentifierRedeclared i)
   else R.ok (add_decl m (HString.concat2 prefix i) tyd)
 (** reject program if identifier is already declared  *)
   
@@ -713,7 +731,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
           (Lib.pp_print_list G.pp_print_graph ", ") (List.map (fun g -> g.graph_data) g2)
           Format.pp_print_int (List.length g3)
           (Lib.pp_print_list G.pp_print_graph ", ") (List.map (fun g -> g.graph_data) g3)
-       ; graph_error p "Width of each branch is not the same.")
+       ; graph_error p (WidthLengthsUnequal (e2, e3)))
      else
        R.ok (List.map (fun g -> union_dependency_analysis_data g1 g)
                (List.map2 (fun g g' -> union_dependency_analysis_data g g') g2 g3))
@@ -752,7 +770,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      R.seq (List.map (mk_graph_expr2 m) e2s) >>= fun d_gs -> 
      let default_gs = List.concat d_gs in
      if List.length gs != List.length default_gs
-     then graph_error pos "In condact width of default values does not match width of node call"
+     then graph_error pos (WidthLengthsUnequal (node_call, LA.GroupExpr (Lib.dummy_pos, LA.ExprList, e2s)))
      else R.ok (List.map2 union_dependency_analysis_data gs default_gs)
   | LA.Activate (pos, n, _, _, es) ->
      let node_call = LA.Call(pos, n, es) in
@@ -769,7 +787,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
        R.ok (List.map (map_g_pos (fun v -> HString.concat2 v (HString.mk_hstring "$p"))) g) 
   | LA.Last (pos, i) -> R.ok [singleton_dependency_analysis_data (HString.mk_hstring "last$") i pos]
   | LA.Fby (p, e1, _, e2)
-  | LA.Arrow (p, e1, e2) as e ->
+  | LA.Arrow (p, e1, e2) ->
      mk_graph_expr2 m e1 >>= fun g1 ->
      mk_graph_expr2 m e2 >>= fun g2 ->
      if (List.length g1 != List.length g2) then
@@ -782,8 +800,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
            (Lib.pp_print_list G.pp_print_graph ",") (List.map (fun g -> g.graph_data) g1)
            LA.pp_print_expr e2
            (Lib.pp_print_list G.pp_print_graph ",") (List.map (fun g -> g.graph_data) g2)
-       ; graph_error p ("In expression " ^ (Lib.string_of_t LA.pp_print_expr e)  
-                             ^ " width of right hand side is not equal to left hand side of arrow.")
+       ; graph_error p (WidthLengthsUnequal (e1, e2))
        )
      else 
        R.ok (List.map2 (fun l r -> union_dependency_analysis_data l r ) g1 g2)
@@ -915,10 +932,7 @@ let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr ->
     (SI.elements (LH.vars (LH.abstract_pre_subexpressions e)))
   ; R.guard_with (R.ok (SI.is_empty assume_vars_out_streams))
       (graph_error (LH.pos_of_expr e)
-         ("Contract assumption or mode requirements cannot depend on "
-          ^ "current values of output parameters but found: "
-          ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ")
-               (SI.elements assume_vars_out_streams))))
+        (ContractDependencyOnCurrentOutput assume_vars_out_streams))
 (** Make sure that no idents in the first argument occur in the expression *)
   
    
@@ -954,13 +968,13 @@ let sort_and_check_contract_eqns: dependency_analysis_data
         let ids = List.map HString.mk_hstring ids in
         if List.length ids > 1
         then (match (find_id_pos ad'.id_pos_data (List.hd ids)) with
-              | None -> graph_error Lib.dummy_pos
+(*               | None -> graph_error Lib.dummy_pos
                           ("Cyclic dependency found but Cannot find position for identifier "
-                           ^ (HString.string_of_hstring (List.hd ids)) ^ " This should not happen!") 
-              | Some p -> graph_error p
-                            ("Cyclic dependency detected in definition of identifiers: "
-                             ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
-        else graph_error Lib.dummy_pos "Cyclic dependency with no ids detected. This should not happen!")
+                           ^ (HString.string_of_hstring (List.hd ids)) ^ " This should not happen!")  *)
+              | None -> assert false (* LustreSyntaxChecks should guarantee this is impossible *)
+              | Some p -> graph_error p (CyclicDependency ids))
+        (* else graph_error Lib.dummy_pos "Cyclic dependency with no ids detected. This should not happen!") *)
+        else assert false) (* LustreSyntaxChecks should guarantee this is impossible *)
 
     >>= fun sorted_ids ->
     let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) (List.rev sorted_ids) in
@@ -993,14 +1007,14 @@ let sort_declarations: LA.t -> ((LA.t * LA.ident list), [> error]) result
       let ids = List.map HString.mk_hstring ids in
       if List.length ids > 1
       then (match (find_id_pos ad.id_pos_data (List.hd ids)) with
-            | None -> graph_error Lib.dummy_pos
+(*             | None -> graph_error Lib.dummy_pos
                         ("Cyclic dependency found but Cannot find position for identifier "
-                         ^ (HString.string_of_hstring (List.hd ids)) ^ " This should not happen!") 
-            | Some p -> graph_error p
-                          ("Cyclic dependency detected in definition of identifiers: "
-                           ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
-      else graph_error Lib.dummy_pos
-             "Cyclic dependency with no ids detected. This should not happen!")
+                         ^ (HString.string_of_hstring (List.hd ids)) ^ " This should not happen!")  *)
+            | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
+            | Some p -> graph_error p (CyclicDependency ids))
+(*       else graph_error Lib.dummy_pos
+             "Cyclic dependency with no ids detected. This should not happen!") *)
+      else assert false) (* SyntaxChecks should guarantee this is impossible *)
   >>= fun sorted_ids ->
   let dependency_sorted_ids = List.rev sorted_ids in
   let is_contract_node node_name =
@@ -1147,11 +1161,7 @@ let mk_graph_eqn: node_summary
              then  (R.ok (List.fold_left union_dependency_analysis_data
                             empty_dependency_analysis_data
                             (List.map2 handle_one_lhs rhs_g lhss)))
-             else (graph_error pos ("Left hand side of the equation has width "
-                                    ^ Stdlib.string_of_int (List.length lhss)
-                                    ^ " and right hand side of the equation has width "
-                                    ^ Stdlib.string_of_int (List.length rhs_g)
-                                    ^ ". They should be of same width.")))
+             else (graph_error pos EquationWidthsUnequal))
         | _ -> R.ok (empty_dependency_analysis_data)
 (** Make a dependency graph from the equations. Each LHS has an edge that goes into its RHS definition. *)
              
@@ -1180,7 +1190,7 @@ let rec check_valid_transition_branch: LA.state IMap.t -> LA.transition_branch -
     | LA.Target (TransResume (_, (pos, i))) ->
      if (IMap.mem i m)
      then R.ok()
-     else graph_error pos ("In Automaton Cannot find target transition branch " ^ HString.string_of_hstring i)
+     else graph_error pos (Unknown ("In Automaton Cannot find target transition branch " ^ HString.string_of_hstring i))
   | TransIf (_, _, b, b_opt) ->
      check_valid_transition_branch m b
      >> (match b_opt with
@@ -1207,8 +1217,8 @@ let check_only_one_initial_state: LA.state list -> (unit, [> error]) result
   else
     let pis = List.map (fun (LA.State (p, i, _, _, _, _, _)) -> (p, i)) ss in
     graph_error (fst (List.hd pis))
-      ("Automaton cannot have more than one initial state but found states: "
-      ^ (Lib.string_of_t ((Lib.pp_print_list LA.pp_print_ident) ", ") (List.map snd pis)))
+      (Unknown ("Automaton cannot have more than one initial state but found states: "
+        ^ (Lib.string_of_t ((Lib.pp_print_list LA.pp_print_ident) ", ") (List.map snd pis))))
 
 let analyze_states: LA.state list -> (unit, [> error]) result
   = fun states -> 
@@ -1228,12 +1238,12 @@ let rec analyze_automaton_states: node_summary -> LA.state -> (unit, [> error]) 
         let ids = List.map HString.mk_hstring ids in
         if List.length ids > 1
         then (match (find_id_pos ad.id_pos_data (List.hd ids)) with
-              | None -> fail_no_position ("Cyclic dependency found but cannot find position for identifier "
-                                          ^ (HString.string_of_hstring (List.hd ids)) ^ " This should not happen!") 
-              | Some p -> graph_error p
-                            ("Cyclic dependency detected in equations with identifiers: "
-                            ^ Lib.string_of_t (Lib.pp_print_list HString.pp_print_hstring ", ") ids))
-        else fail_no_position "Cyclic dependency with no ids detected. This should not happen!")
+(*               | None -> fail_no_position ("Cyclic dependency found but cannot find position for identifier "
+                                          ^ (HString.string_of_hstring (List.hd ids)) ^ " This should not happen!")  *)
+              | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
+              | Some p -> graph_error p (CyclicDependency ids))
+        (* else fail_no_position "Cyclic dependency with no ids detected. This should not happen!") *)
+        else assert false) (* SyntaxChecks should guarantee this is impossible *)
      >> analyze_automatons m eqns 
      >> R.ok ()
   
@@ -1257,13 +1267,13 @@ let analyze_circ_node_equations: node_summary -> LA.node_item list -> (unit, [> 
         let ids = List.map HString.mk_hstring ids in
         if List.length ids > 1
         then (match (find_id_pos ad.id_pos_data (List.hd ids)) with
-              | None -> graph_error Lib.dummy_pos
+(*               | None -> graph_error Lib.dummy_pos
                           ("Cyclic dependency found but cannot find position for identifier "
-                           ^ (HString.string_of_hstring (List.hd ids)) ^ " This should not happen!") 
-              | Some p -> graph_error p
-                            ("Cyclic dependency detected in equations with identifiers: "
-                             ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids))
-        else graph_error Lib.dummy_pos "Cyclic dependency with no ids detected. This should not happen!")
+                           ^ (HString.string_of_hstring (List.hd ids)) ^ " This should not happen!")  *)
+              | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
+              | Some p -> graph_error p (CyclicDependency ids))
+(*         else graph_error Lib.dummy_pos "Cyclic dependency with no ids detected. This should not happen!") *)
+        else assert false) (* SyntaxChecks should guarantee this is impossible *)
     >> R.ok ()
 (** Check for node equations, we need to flatten the node calls using [node_summary] generated *)
     
