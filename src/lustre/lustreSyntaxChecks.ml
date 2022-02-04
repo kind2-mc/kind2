@@ -46,8 +46,11 @@ type error_kind = Unknown of string
   | IllegalTemporalOperator of string * string
   | IllegalImportOfStatefulContract of HString.t
   | UnsupportedClockedInputOrOutput
-  | UnsupportedExpression of LA.expr
-  | WhenExpressionOutsideMerge
+  | UnsupportedClockedLocal of HString.t
+  | UnsupportedExpression of LustreAst.expr
+  | UnsupportedOutsideMerge of LustreAst.expr
+  | UnsupportedParametricDeclaration
+  | UnsupportedAssignment
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
 
@@ -79,8 +82,11 @@ let error_message kind = match kind with
   | IllegalImportOfStatefulContract contract -> "Illegal import of stateful contract "
     ^ HString.string_of_hstring contract ^ ". Functions can only be specified by stateless contracts"
   | UnsupportedClockedInputOrOutput -> "Clocked inputs or outputs are not supported"
+  | UnsupportedClockedLocal id -> "Clocked node local variable not supported for " ^ HString.string_of_hstring id
   | UnsupportedExpression e -> "The expression " ^ LA.string_of_expr e ^ " is not supported"
-  | WhenExpressionOutsideMerge -> "When expressions only supported inside merges"
+  | UnsupportedOutsideMerge e -> "The expression " ^ LA.string_of_expr e ^ " is only supported inside a merge"
+  | UnsupportedParametricDeclaration -> "Parametric nodes and functions are not supported"
+  | UnsupportedAssignment -> "Assignment not supported"
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
 
@@ -430,16 +436,22 @@ let no_clock_inputs_or_outputs pos = function
   | _ -> syntax_error pos UnsupportedClockedInputOrOutput
 
 let unsupported_expr = function
+  | LA.ArraySlice (pos, _, _) as e -> syntax_error pos (UnsupportedExpression e)
+  | LA.ArrayConcat (pos, _, _) as e -> syntax_error pos (UnsupportedExpression e)
   | LA.Current (pos, _) as e -> syntax_error pos (UnsupportedExpression e)
+  | LA.NArityOp (pos, LA.OneHot, _) as e -> syntax_error pos (UnsupportedExpression e)
+  | LA.Fby (pos, _, _, _) as e -> syntax_error pos (UnsupportedExpression e)
+  | LA.TernaryOp (pos, LA.With, _, _, _) as e -> syntax_error pos (UnsupportedExpression e)
+  | LA.CallParam (pos, _, _, _) as e -> syntax_error pos (UnsupportedExpression e)
   | _ -> Ok ()
 
-let rec when_expr_only_supported_in_merge observer expr =
-  let r = when_expr_only_supported_in_merge in
+let rec expr_only_supported_in_merge observer expr =
+  let r = expr_only_supported_in_merge in
   let r_list obs e = Res.seqM (fun x _ -> x) () (List.map (r obs) e) in
   match expr with
-  | LA.When (pos, _, _) -> 
+  | LA.When (pos, _, _) as e -> 
     if observer then Ok ()
-    else syntax_error pos WhenExpressionOutsideMerge
+    else syntax_error pos (UnsupportedOutsideMerge e)
   | Merge (_, _, e) -> 
     r_list true (List.map (fun (_, x) -> x) e)
   | Ident _ | Const _ | Last _ | ModeRef _ -> Ok ()
@@ -468,9 +480,14 @@ let rec when_expr_only_supported_in_merge observer expr =
   | RecordExpr (_, _, e) -> r_list observer (List.map (fun (_, x) -> x) e)
   | Condact (_, e1, e2, _, e3, e4 )
     -> r observer e1 >> r observer e2 >> r_list observer e3 >> r_list observer e4
-  | Activate (_, _, e1, e2, e3)
-    -> r observer e1 >> r observer e2 >> r_list observer e3
+  | Activate (pos, _, _, _, _) as e ->
+    if observer then Ok ()
+    else syntax_error pos (UnsupportedOutsideMerge e)
   | RestartEvery (_, _, e1, e2) -> r_list observer e1 >> r observer e2
+
+let parametric_nodes_unsupported pos params =
+  if List.length params == 0 then Ok ()
+  else syntax_error pos (UnsupportedParametricDeclaration)
 
 let rec syntax_check (ast:LustreAst.t) =
   let ctx = build_global_ctx ast in
@@ -488,7 +505,7 @@ and check_declaration ctx = function
   | NodeDecl (span, decl) -> check_node_decl ctx span decl
   | FuncDecl (span, decl) -> check_func_decl ctx span decl
   | ContractNodeDecl (span, decl) -> check_contract_node_decl ctx span decl
-  | NodeParamInst (span, inst) -> Ok (LA.NodeParamInst (span, inst))
+  | NodeParamInst (span, _) -> syntax_error span.start_pos UnsupportedParametricDeclaration
 
 and check_const_expr_decl ctx expr =
   let composed_checks ctx e =
@@ -516,18 +533,25 @@ and check_input_items (pos, _id, _ty, clock, _const) =
 and check_output_items (pos, _id, _ty, clock) =
   no_clock_inputs_or_outputs pos clock
 
+and check_local_items local = match local with
+  | LA.NodeConstDecl _ -> Ok ()
+  | NodeVarDecl (_, (_, _, _, LA.ClockTrue)) -> Ok ()
+  | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
+
 and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
   let ctx = build_local_ctx ctx locals inputs outputs in
   let decl = LA.NodeDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
-  (locals_must_have_definitions locals items)
+  (parametric_nodes_unsupported span.start_pos params)
+  >> (locals_must_have_definitions locals items)
     >> (check_items ctx common_node_equations_checks items)
     >> (match contract with 
     | Some c -> check_contract false ctx common_contract_checks c
     | None -> Ok ())
     >> (Res.seq_ (List.map check_input_items inputs))
     >> (Res.seq_ (List.map check_output_items outputs))
+    >> (Res.seq_ (List.map check_local_items locals))
     >> (Ok decl)
 
 and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
@@ -540,13 +564,15 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
       >> (no_calls_to_node ctx e)
       >> (no_temporal_operator false e)
   in
-  (check_items ctx composed_items_checks items)
+  (parametric_nodes_unsupported span.start_pos params)
+  >> (check_items ctx composed_items_checks items)
     >> (match contract with
       | Some c -> check_contract false ctx common_contract_checks c
         >> no_stateful_contract_imports ctx c
       | None -> Ok ())
     >> (Res.seq_ (List.map check_input_items inputs))
     >> (Res.seq_ (List.map check_output_items outputs))
+    >> (Res.seq_ (List.map check_local_items locals))
     >> (Ok decl)
 
 and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
@@ -563,14 +589,28 @@ and check_items ctx f items =
   let check_item ctx f = function
     | LA.Body (Equation (_, lhs, e)) ->
       let ctx = build_equation_ctx ctx lhs in
-      check_expr ctx f e
-        >> (when_expr_only_supported_in_merge false e)
+      let StructDef (_, struct_items) = lhs in
+      check_struct_items ctx struct_items
+        >> check_expr ctx f e
+        >> (expr_only_supported_in_merge false e)
     | Body (Assert (_, e))
     | AnnotProperty (_, _, e) -> check_expr ctx f e
     | Body (Automaton (pos, _, _, _)) -> syntax_error pos (Unknown "Automaton DSL not supported in experimental frontend")
     | AnnotMain _ -> Ok ()
   in
   Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)
+
+and check_struct_items ctx items =
+  let r items = check_struct_items ctx items in
+  match items with
+  | [] -> Ok ()
+  | (LA.SingleIdent _) :: tail -> r tail
+  | (ArrayDef _) :: tail -> r tail
+  | (TupleStructItem (pos, _)) :: _
+  | (TupleSelection (pos, _, _)) :: _
+  | (FieldSelection (pos, _, _)) :: _
+  | (ArraySliceStructItem (pos, _, _)) :: _
+    -> syntax_error pos UnsupportedAssignment
 
 and check_contract is_contract_node ctx f contract =
   let ctx = build_contract_ctx ctx contract in
