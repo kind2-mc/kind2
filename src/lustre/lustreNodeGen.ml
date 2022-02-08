@@ -303,8 +303,9 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   | [], [] -> accum
   (* Indexes are not of equal length *)
   | _, []
-  | [], _ -> fail_at_position pos
-    "Type mismatch in equation: indexes not of equal length"
+  | [], _ ->
+    internal_error pos "Type mismatch in equation: indexes not of equal length";
+    assert false
     (* All indexes consumed *)
   | ([], state_var) :: lhs_tl, 
     ([], expr) :: rhs_tl -> 
@@ -365,8 +366,9 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       expand_tuple' pos accum bounds
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((rhs_index_tl, expr) :: rhs_tl)
-    else fail_at_position pos
-      "Type mismatch in equation: indexes do not match"
+    else (
+      internal_error pos "Type mismatch in equation: indexes do not match";
+      assert false)
   | ((X.ArrayIntIndex i :: lhs_index_tl, state_var) :: lhs_tl,
     (X.ArrayIntIndex j :: rhs_index_tl, expr) :: rhs_tl) -> 
     (* Indexes are sorted, must match *)
@@ -375,8 +377,8 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       expand_tuple' pos accum (E.Fixed n :: bounds)
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((rhs_index_tl, expr) :: rhs_tl)
-    else fail_at_position pos
-      "Type mismatch in equation: indexes do not match"
+    else (internal_error pos "Type mismatch in equation: indexes do not match";
+      assert false)
   (* Tuple index on left-hand and array index on right-hand side *)
   | ((X.TupleIndex i :: lhs_index_tl, state_var) :: lhs_tl,
     (X.ArrayIntIndex j :: _, expr) :: rhs_tl) ->
@@ -386,8 +388,8 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       expand_tuple' pos accum bounds
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((lhs_index_tl, expr) :: rhs_tl)
-    else fail_at_position pos
-      "Type mismatch in equation: indexes do not match"
+    else (internal_error pos "Type mismatch in equation: indexes do not match";
+      assert false)
   (* Record index on left-hand and right-hand side *)
   | (X.RecordIndex i :: lhs_index_tl, state_var) :: lhs_tl,
     (X.RecordIndex j :: rhs_index_tl, expr) :: rhs_tl
@@ -399,9 +401,8 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       expand_tuple' pos accum bounds
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((rhs_index_tl, expr) :: rhs_tl)
-    else
-      fail_at_position pos
-        "Type mismatch in equation: record indexes do not match"
+    else (internal_error pos "Type mismatch in equation: record indexes do not match";
+      assert false)
   (* Mismatched indexes on left-hand and right-hand sides *)
   | (X.RecordIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.RecordIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
@@ -438,8 +439,9 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
 
   | (_ :: _, _) :: _, ([], _) :: _ 
-  | ([], _) :: _, (_ :: _, _) :: _ -> fail_at_position pos
-    "Type mismatch in equation: head indexes do not match"
+  | ([], _) :: _, (_ :: _, _) :: _ ->
+    (internal_error pos "Type mismatch in equation: head indexes do not match";
+      assert false)
 
 (* Return a list of equations from a trie of state variables and a
   trie of expressions *)
@@ -1333,7 +1335,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     (* TODO: The documentation on lustreNode says that a single argument
       node should have a non-list index (a singleton index), but the old
       node generation code does not seem to honor that *)
-    let over_inputs = fun compiled_input (pos, i, ast_type, clock, is_const) ->
+    let over_inputs = fun compiled_input (_pos, i, ast_type, clock, is_const) ->
       match clock with
       | A.ClockTrue ->
         let n = X.top_max_index compiled_input |> succ in
