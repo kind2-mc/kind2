@@ -21,6 +21,9 @@
 
  *)
 
+val internal_error: Lib.position -> string -> unit
+(** Output an error message; [assert false] is assumed to be used after each call as internal errors are only bugs *)
+
 val fail_at_position_pt: Lib.position -> string -> unit
 (** Ouput a fail message  *)
 

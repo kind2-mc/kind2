@@ -303,8 +303,9 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   | [], [] -> accum
   (* Indexes are not of equal length *)
   | _, []
-  | [], _ -> fail_at_position pos
-    "Type mismatch in equation: indexes not of equal length"
+  | [], _ ->
+    internal_error pos "Type mismatch in equation: indexes not of equal length";
+    assert false
     (* All indexes consumed *)
   | ([], state_var) :: lhs_tl, 
     ([], expr) :: rhs_tl -> 
@@ -365,8 +366,9 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       expand_tuple' pos accum bounds
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((rhs_index_tl, expr) :: rhs_tl)
-    else fail_at_position pos
-      "Type mismatch in equation: indexes do not match"
+    else (
+      internal_error pos "Type mismatch in equation: indexes do not match";
+      assert false)
   | ((X.ArrayIntIndex i :: lhs_index_tl, state_var) :: lhs_tl,
     (X.ArrayIntIndex j :: rhs_index_tl, expr) :: rhs_tl) -> 
     (* Indexes are sorted, must match *)
@@ -375,8 +377,8 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       expand_tuple' pos accum (E.Fixed n :: bounds)
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((rhs_index_tl, expr) :: rhs_tl)
-    else fail_at_position pos
-      "Type mismatch in equation: indexes do not match"
+    else (internal_error pos "Type mismatch in equation: indexes do not match";
+      assert false)
   (* Tuple index on left-hand and array index on right-hand side *)
   | ((X.TupleIndex i :: lhs_index_tl, state_var) :: lhs_tl,
     (X.ArrayIntIndex j :: _, expr) :: rhs_tl) ->
@@ -386,8 +388,8 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       expand_tuple' pos accum bounds
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((lhs_index_tl, expr) :: rhs_tl)
-    else fail_at_position pos
-      "Type mismatch in equation: indexes do not match"
+    else (internal_error pos "Type mismatch in equation: indexes do not match";
+      assert false)
   (* Record index on left-hand and right-hand side *)
   | (X.RecordIndex i :: lhs_index_tl, state_var) :: lhs_tl,
     (X.RecordIndex j :: rhs_index_tl, expr) :: rhs_tl
@@ -399,9 +401,8 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       expand_tuple' pos accum bounds
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((rhs_index_tl, expr) :: rhs_tl)
-    else
-      fail_at_position pos
-        "Type mismatch in equation: record indexes do not match"
+    else (internal_error pos "Type mismatch in equation: record indexes do not match";
+      assert false)
   (* Mismatched indexes on left-hand and right-hand sides *)
   | (X.RecordIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.RecordIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
@@ -438,8 +439,9 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   | (X.AbstractTypeIndex _ :: _, _) :: _, (X.ArrayVarIndex _ :: _, _) :: _
 
   | (_ :: _, _) :: _, ([], _) :: _ 
-  | ([], _) :: _, (_ :: _, _) :: _ -> fail_at_position pos
-    "Type mismatch in equation: head indexes do not match"
+  | ([], _) :: _, (_ :: _, _) :: _ ->
+    (internal_error pos "Type mismatch in equation: head indexes do not match";
+      assert false)
 
 (* Return a list of equations from a trie of state variables and a
   trie of expressions *)
@@ -1045,35 +1047,17 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Not Implemented                                                    *)
   (* ****************************************************************** *)
-  (* TODO below, roughly in order of importance and difficulty *)
-  | A.ArraySlice (pos, _, _) -> fail_at_position pos
-    "Array slices not implemented"
-  (* Concatenation of arrays [A|B] *)
-  | A.ArrayConcat (pos, _, _) -> fail_at_position pos
-    "Array concatenation not implemented"
-  (* Interpolation to base clock *)
-  | A.Current (pos, A.When (_, _, _)) -> fail_at_position pos
-    "Current expression not supported"
-  (* Boolean at-most-one constaint *)
-  | A.NArityOp (pos, A.OneHot, _) -> fail_at_position pos
-    "One-hot expression not supported"
-  (* Followed by operator *)
-  | A.Fby (pos, _, _, _) -> fail_at_position pos
-    "Fby operator not implemented" 
-  (* Projection on clock *)
-  | A.When (pos, _, _) -> fail_at_position pos
-    "When expression must be the argument of a merge operator"
-  (* Interpolation to base clock *)
-  | A.Current (pos, _) -> fail_at_position pos
-    "Current operator must have a when expression as argument"
-  | A.Activate (pos, _, _, _, _) -> fail_at_position pos
-    "Activate operator only supported in merge"
-  (* With operator for recursive node calls *)
-  | A.TernaryOp (pos, A.With, _, _, _) -> fail_at_position pos
-    "Recursive nodes not supported"
-  (* Node call to a parametric node *)
-  | A.CallParam (pos, _, _, _) -> fail_at_position pos
-    "Parametric nodes not supported" 
+  (* LustreSyntaxChecks handles these expressions on the first pass,
+    making these expressions impossible at this stage *)
+  | A.ArraySlice _ -> assert false
+  | A.ArrayConcat _ -> assert false
+  | A.Current _ -> assert false
+  | A.NArityOp _ -> assert false
+  | A.Fby _ -> assert false
+  | A.When _ -> assert false
+  | A.Activate _ -> assert false
+  | A.TernaryOp _ -> assert false
+  | A.CallParam _ -> assert false
 
 and compile_node pos ctx cstate map oracles outputs cond restart ident args defaults =
   let called_node = N.node_of_name ident cstate.nodes in
@@ -1351,7 +1335,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     (* TODO: The documentation on lustreNode says that a single argument
       node should have a non-list index (a singleton index), but the old
       node generation code does not seem to honor that *)
-    let over_inputs = fun compiled_input (pos, i, ast_type, clock, is_const) ->
+    let over_inputs = fun compiled_input (_pos, i, ast_type, clock, is_const) ->
       match clock with
       | A.ClockTrue ->
         let n = X.top_max_index compiled_input |> succ in
@@ -1374,7 +1358,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           | Some state_var -> X.add (X.ListIndex n :: index) state_var accum
           | None -> accum
         in X.fold over_indices index_types compiled_input
-      | _ -> fail_at_position pos "Clocked node inputs not supported"
+      | _ -> assert false (* Guaranteed by LustreSyntaxChecks *)
     in List.fold_left over_inputs X.empty inputs
   (* ****************************************************************** *)
   (* Node Outputs                                                       *)
@@ -1383,7 +1367,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     (* TODO: The documentation on lustreNode does not state anything about
       the requirements for indices of outputs, yet the old code makes it
       a singleton index in the event there is only one index *)
-    let over_outputs = fun (is_single) compiled_output (pos, i, ast_type, clock) ->
+    let over_outputs = fun (is_single) compiled_output (_, i, ast_type, clock) ->
       match clock with
       | A.ClockTrue ->
         let n = X.top_max_index compiled_output |> succ in
@@ -1405,7 +1389,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           | Some state_var -> X.add index' state_var accum
           | None -> accum
         in X.fold over_indices index_types compiled_output
-      | _ -> fail_at_position pos "Clocked node outputs not supported"
+      | _ -> assert false (* Guaranteed by LustreSyntaxChecks *)
     and is_single = List.length outputs = 1
     in List.fold_left (over_outputs is_single) X.empty outputs
   (* ****************************************************************** *)
@@ -1436,10 +1420,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         (X.fold over_indices index_types X.empty) :: locals, cstate
       | A.NodeConstDecl (_, decl) ->
         locals, compile_const_decl cstate ctx map (node_scope @ ["impl"]) decl
-      | A.NodeVarDecl (_, (pos, i, _, _)) -> fail_at_position pos
-        (Format.asprintf
-          "Clocked node local variable not supported for %a"
-          A.pp_print_ident i)
+      | A.NodeVarDecl _ -> assert false (* guaranteed by LustreSyntaxChecks *)
     in
     List.fold_left over_locals ([], cstate) locals
   (* ****************************************************************** *)
@@ -1722,11 +1703,11 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         H.add !map.array_index ident index;)
         l;
       result, indexes
-    | A.TupleStructItem (pos, _)
-    | A.TupleSelection (pos, _, _)
-    | A.FieldSelection (pos, _, _)
-    | A.ArraySliceStructItem (pos, _, _) ->
-      fail_at_position pos "Assignment not supported"
+    | A.TupleStructItem _
+    | A.TupleSelection _
+    | A.FieldSelection _
+    | A.ArraySliceStructItem _ ->
+      assert false (* guaranteed by LustreSyntaxChecks *)
 
   in let rm_array_var_index lst =
       List.filter (function
@@ -2050,8 +2031,5 @@ and compile_declaration cstate gids ctx decl =
     this is necessary because each unique call to a contract node must be 
     normalized independently *)
   | A.ContractNodeDecl _ -> cstate
-  | A.NodeParamInst (pos, _)
-  | A.NodeDecl (pos, _) ->
-    fail_at_position pos.start_pos "Parametric nodes are not supported"
-  | A.FuncDecl (pos, _) ->
-    fail_at_position pos.start_pos "Parametric functions are not supported"
+  (* guaranteed by LustreSyntaxChecks *)
+  | A.NodeParamInst _ | A.NodeDecl _ | A.FuncDecl _ -> assert false

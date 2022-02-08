@@ -21,6 +21,9 @@
 
  *)
 
+let internal_error pos msg = 
+  Log.log L_error "Internal error at %a: @[<v>%s@]" Lib.pp_print_position pos msg
+
 (* Raise parsing exception *)
 let fail_at_position_pt pos msg =
   Log.log L_error "Parser error at %a: @[<v>%s@]"

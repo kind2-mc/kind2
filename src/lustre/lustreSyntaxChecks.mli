@@ -30,8 +30,11 @@ type error_kind = Unknown of string
   | IllegalTemporalOperator of string * string
   | IllegalImportOfStatefulContract of HString.t
   | UnsupportedClockedInputOrOutput
+  | UnsupportedClockedLocal of HString.t
   | UnsupportedExpression of LustreAst.expr
-  | WhenExpressionOutsideMerge
+  | UnsupportedOutsideMerge of LustreAst.expr
+  | UnsupportedParametricDeclaration
+  | UnsupportedAssignment
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
 
