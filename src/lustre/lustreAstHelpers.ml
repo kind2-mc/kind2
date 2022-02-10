@@ -657,7 +657,6 @@ let node_item_has_pre_or_arrow = function
   |> unwrap_or (fun _ -> has_pre_or_arrow e)
 | AnnotMain _ -> None
 | AnnotProperty (_, _, e) -> has_pre_or_arrow e
-| Body (Automaton _) -> assert false
 
 (** Checks whether a contract node equation has a `pre` or a `->`.
 

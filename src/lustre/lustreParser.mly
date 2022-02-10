@@ -29,23 +29,6 @@ let mk_span start_pos end_pos =
   { A.start_pos = mk_pos start_pos;
     A.end_pos = mk_pos end_pos }
 
-let rec add_else_branch b belse =
-  match b with
-  | A.Target (TransRestart (p, _))
-    | A.Target (TransResume (p, _)) ->
-     fail_at_position p  "Cannot add else branch to unconditional target"
-  | A.TransIf (p, e, b1, None) -> A.TransIf (p, e, b1, Some belse)
-  | A.TransIf (p, e, b1, Some b2) ->
-     A.TransIf (p, e, b1, Some (add_else_branch b2 belse))
-     
-           
-let merge_branches transitions =
-  List.fold_right (fun (p, b) acc ->
-      match acc, b with
-      | None, _ -> Some (p, b)
-      | Some (_, b2), b1 -> Some (p, add_else_branch b1 b2)
-    ) transitions None
-  
 %}
 
 (* Special characters *)
@@ -196,15 +179,6 @@ let merge_branches transitions =
 %token EVERY
 %token RESTART
 %token MERGE
-
-(* Tokens for automata *)
-%token AUTOMATON
-%token STATE
-%token UNLESS
-%token UNTIL
-%token RESUME
-%token ELSIF
-%token END
 
 (* Tokens for temporal operators *)
 %token PRE
@@ -643,91 +617,6 @@ node_equation:
      the left-hand side, an expression on the right *)
   | l = left_side; EQUALS; e = expr; SEMICOLON
     { A.Equation (mk_pos $startpos, l, e) }
-
-  (* An automaton *)
-  | AUTOMATON; i = option(ident); s = list(state);
-    RETURNS; out = ident_list; SEMICOLON
-    { A.Automaton (mk_pos $startpos, i, s, A.Given out) }
-
-  | AUTOMATON; i = option(ident); s = list(state);
-    RETURNS DOTDOT SEMICOLON
-    { A.Automaton (mk_pos $startpos, i, s, A.Inferred) }
-
-  | AUTOMATON; i = option(ident); s = nonempty_list(state)
-    { A.Automaton (mk_pos $startpos, i, s, A.Inferred) }
-
-
-state_decl:
-  | STATE; i = ident { i, false }
-  | INITIAL STATE; i = ident { i, true }
-
-state:
-  | ii = state_decl; option(COLON)
-    us = unless_transitions;
-    l = list(node_local_decl);
-    LET;
-    e = list(node_equation);
-    TEL;
-    ul = until_transitions
-    { let i, init = ii in
-      A.State (mk_pos $startpos, i, init, List.flatten l, e,
-               merge_branches us, merge_branches ul) }
-
-  | ii = state_decl; option(COLON)
-    us = unless_transitions;
-    ul = until_transitions
-    { let i, init = ii in
-      A.State (mk_pos $startpos, i, init, [], [],
-               merge_branches us, merge_branches ul) }
-
-
-unless_transitions:
-  | { [] }
-  | UNLESS; b = transition_branch; u = unless_transitions
-    { (mk_pos $startpos, b) :: u }
-
-
-until_transitions:
-  | { [] }
-  | UNTIL; b = transition_branch; u = until_transitions
-    { (mk_pos $startpos, b) :: u }
-
-
-transition_branch:
-  | b = branch; option(SEMICOLON)
-    { b }
-  | e = expr; t = target; option(SEMICOLON)
-    { A.TransIf (mk_pos $startpos, e, A.Target t, None) }
-  | IF; e = expr; t = target; option(SEMICOLON)
-    { A.TransIf (mk_pos $startpos, e, A.Target t, None) }
-
-
-branch:
-  | t = target
-    { A.Target t }
-  | IF; e = expr; b = branch; END
-    { A.TransIf (mk_pos $startpos, e, b, None) }
-  | IF; e = expr; b = branch; b2 = elsif_branch; END
-    { A.TransIf (mk_pos $startpos, e, b, Some b2) }
-    
-elsif_branch:
-  | ELSE; b = branch
-    { b } 
-  | ELSIF; e = expr; b = branch
-    { A.TransIf (mk_pos $startpos, e, b, None) }
-  | ELSIF; e = expr; b = branch; b2 = elsif_branch
-    { A.TransIf (mk_pos $startpos, e, b, Some b2) }
-
-target_state:
-  | s = ident
-    { mk_pos $startpos, s }
-
-target:
-  | RESTART; s = target_state
-    { A.TransRestart (mk_pos $startpos, s) }
-
-  | RESUME; s = target_state
-    { A.TransResume (mk_pos $startpos, s) }
 
 left_side:
 

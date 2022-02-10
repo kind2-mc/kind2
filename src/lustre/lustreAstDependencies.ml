@@ -430,8 +430,7 @@ let extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
           | LA.Body bneq ->
               (match bneq with
               | LA.Assert (_, e) -> get_node_call_from_expr e
-              | LA.Equation (_, _, e) -> get_node_call_from_expr e
-              | LA.Automaton _ -> [] ) (* We do not support automation yet. *)
+              | LA.Equation (_, _, e) -> get_node_call_from_expr e)
           | AnnotProperty (_, _, e) -> get_node_call_from_expr e
           | _ -> []) @ acc) [] 
 (** Extracts all the node calls from a node item *)
@@ -1176,88 +1175,6 @@ let rec mk_graph_node_items: node_summary -> LA.node_item list -> (dependency_an
   | _ :: items -> mk_graph_node_items m items
 (** Traverse all the node items to make a dependency graph  *)
 
-let rec mk_state_map: LA.state IMap.t -> LA.state list -> ((LA.state IMap.t), [> error]) result
-  = fun m ->
-  function
-  | [] -> R.ok m
-  | LA.State (pos, i, _, _, _, _, _) as s :: ss ->
-     check_and_add m pos empty_hs i s >>= fun m' -> mk_state_map m' ss        
-
-let rec check_valid_transition_branch: LA.state IMap.t -> LA.transition_branch -> (unit, [> error]) result
-  = fun m ->
-  function
-  | LA.Target (TransRestart (_, (pos, i)))
-    | LA.Target (TransResume (_, (pos, i))) ->
-     if (IMap.mem i m)
-     then R.ok()
-     else graph_error pos (Unknown ("In Automaton Cannot find target transition branch " ^ HString.string_of_hstring i))
-  | TransIf (_, _, b, b_opt) ->
-     check_valid_transition_branch m b
-     >> (match b_opt with
-         | Some b -> check_valid_transition_branch m b
-         | None -> R.ok ())
-
-let check_valid_state_transition: LA.state IMap.t -> LA.state -> (unit, [> error]) result
-  = fun m ->
-  function
-  | LA.State (_, _, _, _, _, trans_opt1, trans_opt2) ->
-     (match trans_opt1 with
-     | Some (_, branch) -> check_valid_transition_branch m branch
-     | None -> R.ok ())
-    >>  (match trans_opt2 with
-     | Some (_, branch) -> check_valid_transition_branch m branch
-     | None -> R.ok ())
-
-
-let check_only_one_initial_state: LA.state list -> (unit, [> error]) result
-  = fun ss ->
-  let initial_states = List.filter (fun (LA.State(_, _, b, _, _, _, _)) -> b) ss in
-  if List.length initial_states <= 1
-  then R.ok ()
-  else
-    let pis = List.map (fun (LA.State (p, i, _, _, _, _, _)) -> (p, i)) ss in
-    graph_error (fst (List.hd pis))
-      (Unknown ("Automaton cannot have more than one initial state but found states: "
-        ^ (Lib.string_of_t ((Lib.pp_print_list LA.pp_print_ident) ", ") (List.map snd pis))))
-
-let analyze_states: LA.state list -> (unit, [> error]) result
-  = fun states -> 
-  mk_state_map IMap.empty states >>= fun state_map ->
-  R.seq_ (List.map (check_valid_state_transition state_map) states)
-  >> check_only_one_initial_state states
-(* Checks that the transition states are valid and there is atmost one initial state *)
-
-let rec analyze_automaton_states: node_summary -> LA.state -> (unit, [> error]) result =
-  fun m ->
-  function
-  | State (_, _, _, _, eqns, _, _) ->
-     R.seq (List.map (mk_graph_eqn m) eqns) >>= fun gs -> 
-     let ad = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data gs in
-     (try (R.ok (G.topological_sort ad.graph_data)) with
-      | Graph.CyclicGraphException ids ->
-        let ids = List.map HString.mk_hstring ids in
-        if List.length ids > 1
-        then (match (find_id_pos ad.id_pos_data (List.hd ids)) with
-(*               | None -> fail_no_position ("Cyclic dependency found but cannot find position for identifier "
-                                          ^ (HString.string_of_hstring (List.hd ids)) ^ " This should not happen!")  *)
-              | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
-              | Some p -> graph_error p (CyclicDependency ids))
-        (* else fail_no_position "Cyclic dependency with no ids detected. This should not happen!") *)
-        else assert false) (* SyntaxChecks should guarantee this is impossible *)
-     >> analyze_automatons m eqns 
-     >> R.ok ()
-  
-and analyze_automatons: node_summary -> LA.node_equation list -> (unit, [> error]) result =
-  fun m ->
-  function
-  | [] -> R.ok ()
-  | LA.Automaton (_, _, states, _) :: items ->
-     (R.seq_ (List.map (analyze_automaton_states m) states))
-     >> analyze_states states
-     >> analyze_automatons m items
-  | _ :: items -> analyze_automatons m items
-(** checks all the automatons in the node *)
-                
 let analyze_circ_node_equations: node_summary -> LA.node_item list -> (unit, [> error]) result =
   fun m eqns ->
   Debug.parse "Checking circularity in node equations"
@@ -1283,7 +1200,6 @@ let check_node_equations: dependency_analysis_data
   = fun ad ((i, imported, params, ips, ops, locals, items, contract_opt) as ndecl)->
   (if not imported then
      analyze_circ_node_equations ad.nsummary items
-     >> analyze_automatons ad.nsummary (LH.extract_equation items) 
    else R.ok())
   >> match contract_opt with
      | None -> R.ok ndecl

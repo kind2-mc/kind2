@@ -291,8 +291,7 @@ let locals_must_have_definitions locals items =
       | LA.Assert _ -> false
       | LA.Equation (_, lhs, _) -> (match lhs with
         | LA.StructDef (_, vars)
-          -> List.fold_left (find_local_def_lhs id) false vars)
-      | LA.Automaton _ -> false)
+          -> List.fold_left (find_local_def_lhs id) false vars))
     | LA.AnnotMain _ -> false
     | LA.AnnotProperty _ -> false
   in
@@ -595,7 +594,6 @@ and check_items ctx f items =
         >> (expr_only_supported_in_merge false e)
     | Body (Assert (_, e))
     | AnnotProperty (_, _, e) -> check_expr ctx f e
-    | Body (Automaton (pos, _, _, _)) -> syntax_error pos (Unknown "Automaton DSL not supported in experimental frontend")
     | AnnotMain _ -> Ok ()
   in
   Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)

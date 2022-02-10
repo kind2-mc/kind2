@@ -932,7 +932,6 @@ and normalize_equation info map = function
       else empty ()
     in
     Equation (pos, lhs, nexpr), union gids1 gids2
-  | Automaton _ -> Lib.todo __LOC__
 
 and rename_id info = function
   | A.Ident (pos, id) ->

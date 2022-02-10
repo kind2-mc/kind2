@@ -219,40 +219,16 @@ type struct_item =
 type eq_lhs =
   | StructDef of position * struct_item list
 
-type transition_to =
-  | TransRestart of position * (position * ident)
-  | TransResume of position * (position * ident)
-
-type transition_branch =
-  | Target of transition_to
-  | TransIf of position * expr *
-               transition_branch * transition_branch option
-  
-type automaton_transition = position * transition_branch
-
-type auto_returns = Given of ident list | Inferred
-
 (* An equation or assertion in the node body *)
 type node_equation =
   | Assert of position * expr
-  | Equation of position * eq_lhs * expr 
-  | Automaton of position * ident option * state list * auto_returns
-
-
-and state =
-  | State of position * ident * bool *
-             node_local_decl list *
-             node_equation list *
-             automaton_transition option *
-             automaton_transition option
-
+  | Equation of position * eq_lhs * expr
 
 (* An item in a node declaration *)
 type node_item =
   | Body of node_equation
   | AnnotMain of bool
   | AnnotProperty of position * HString.t option * expr
-
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
@@ -901,9 +877,6 @@ let rec pp_print_node_body ppf = function
       pp_print_eq_lhs lhs
       pp_print_expr e
 
-  | Automaton (_, name, states, returns) ->
-    pp_print_automaton ppf name states returns
-
 
 (* Pretty-print a node equation *)
 and pp_print_node_item ppf = function
@@ -921,54 +894,6 @@ and pp_print_node_item ppf = function
     Format.fprintf ppf "--%%PROPERTY \"%a\" %a;"
       HString.pp_print_hstring name
       pp_print_expr e 
-
-
-and pp_print_automaton ppf name states returns =
-  Format.fprintf ppf "@[<hv 2>automaton %a@.%a@]returns %a;"
-    HString.pp_print_hstring (match name with
-      Some n -> n
-      | None -> HString.mk_hstring "")
-    pp_print_states states
-    pp_print_auto_returns returns
-
-
-and pp_print_auto_returns ppf = function
-  | Given l -> pp_print_list pp_print_ident "," ppf l
-  | Inferred -> Format.fprintf ppf ".."
-
-and pp_print_states ppf =
-  pp_print_list pp_print_state "@." ppf
-
-
-and pp_print_state ppf =
-  function State (_, name, init, locals, eqs, unless, until) ->
-    Format.fprintf ppf "%sstate %a@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a@?"
-      (if init then "initial " else "")
-      HString.pp_print_hstring name
-      (pp_print_auto_trans "unless") unless
-      pp_print_node_local_decl locals
-      (pp_print_list pp_print_node_body "@ ") eqs
-      (pp_print_auto_trans "until") until
-
-and pp_print_auto_trans kind ppf = function
-  | None -> ()
-  | Some (_, br) ->
-    Format.fprintf ppf "%s %a;@." kind pp_print_transition_branch br
-
-and pp_print_transition_branch ppf = function
-  | Target (TransRestart (_, (_, t))) -> Format.fprintf ppf "restart %a"
-    HString.pp_print_hstring t
-  | Target (TransResume (_, (_, t))) -> Format.fprintf ppf "resume %a"
-    HString.pp_print_hstring t
-  | TransIf (_, e, br, None) ->
-    Format.fprintf ppf "if@ %a@ %a"
-      pp_print_expr e
-      pp_print_transition_branch br
-  | TransIf (_, e, br, Some br2) ->
-    Format.fprintf ppf "if@ %a@ %a@ else@ %a@ end"
-      pp_print_expr e
-      pp_print_transition_branch br
-      pp_print_transition_branch br2
 
 
 let pp_print_contract_ghost_const ppf = function 

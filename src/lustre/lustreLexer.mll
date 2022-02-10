@@ -289,15 +289,6 @@ let keyword_table = mk_hashtbl [
   "restart", RESTART ;
   "merge", MERGE ;
 
-  (* Automata *)
-  "automaton", AUTOMATON;
-  "state", STATE;
-  "unless", UNLESS;
-  "until", UNTIL;
-  "resume", RESUME;
-  "elsif", ELSIF;
-  "end", END;
-  
   (* Temporal operators *)
   "pre", PRE ;
   "last", LAST ;

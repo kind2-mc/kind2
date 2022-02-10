@@ -237,8 +237,7 @@ and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
   let eqns = List.fold_left (fun acc -> function
     | LA.Body eqn -> (match eqn with
       | LA.Assert _ -> acc
-      | Equation (_, lhs, rhs) -> (lhs, rhs) :: acc
-      | Automaton _ -> acc)
+      | Equation (_, lhs, rhs) -> (lhs, rhs) :: acc)
     | AnnotMain _ -> acc
     | AnnotProperty _ -> acc)
     []

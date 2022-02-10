@@ -339,7 +339,6 @@ let minimize_node_eq id_typ_map ue lst = function
     List.exists (fun p -> Lib.equal_pos p pos) lst ->
     Some (A.Assert (pos, expr))
   | A.Assert _ -> None
-  | A.Automaton _ as automaton -> Some automaton
   | A.Equation (pos, lhs, expr) ->
     let (novarindex_lhs, typ) = tyof_lhs id_typ_map lhs in
     let (b, expr) = minimize_expr (ue false) lst typ expr in
