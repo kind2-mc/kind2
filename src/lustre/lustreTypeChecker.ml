@@ -431,7 +431,6 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                                 
   (* Temporal operators *)
   | LA.Pre (_, e) -> infer_type_expr ctx e
-  | LA.Last (pos, i) -> infer_type_expr ctx (LA.Ident (pos, i))
   | LA.Fby (pos, e1, _, e2) ->
     infer_type_expr ctx e1 >>= fun ty1 ->
     infer_type_expr ctx e2 >>= fun ty2 ->
@@ -625,10 +624,6 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
 
   (* Temporal operators *)
   | Pre (_, e) -> check_type_expr ctx e exp_ty
-  | Last (pos, i) ->
-    infer_type_expr ctx (LA.Ident (pos, i))
-    >>= fun ty -> R.guard_with (eq_lustre_type ctx ty exp_ty)
-                    (type_error pos (IlltypedIdentifier (i, exp_ty, ty)))
   | Fby (_, e1, _, e2) ->
     check_type_expr ctx e1 exp_ty
     >> check_type_expr ctx e2 exp_ty
@@ -950,37 +945,6 @@ and do_node_eqn: tc_context -> LA.node_equation -> (unit, [> error]) result = fu
       ; infer_type_expr new_ctx e >>= fun ty ->
       Debug.parse "RHS has type %a for lhs %a" LA.pp_print_lustre_type ty LA.pp_print_eq_lhs lhs
       ; check_type_struct_def (ctx_from_lhs ctx lhs) lhs ty
-  | LA.Automaton (_, _, ss, _) ->
-      R.ok (Debug.parse "Checking Automation") >>
-       R.seq_ (List.map (check_type_state ctx) ss) 
-
-and check_type_transition_branch: tc_context -> LA.transition_branch -> (unit, [> error]) result
-  = fun ctx ->
-  function
-  | LA.TransIf (p, e, tb, tb_opt) ->
-    check_type_expr ctx e (Bool p)
-    >> check_type_transition_branch ctx tb
-    >> (match tb_opt with
-      | Some tb -> check_type_transition_branch ctx tb
-      | None -> R.ok())
-  | _ -> R.ok ()
-
-
-and check_type_state: tc_context -> LA.state -> (unit, [> error]) result = fun ctx ->
-  function
-  | LA.State (_, _, _, local_streams, eqns, trans1_opt, trans2_opt) ->
-    (* add the local variable bindings of the state into the  *)
-    R.seq (List.map (local_var_binding ctx) local_streams) >>= fun ctx' ->
-    let state_ctx = List.fold_left union ctx ctx' in 
-    (* check the equations *)
-    R.seq_ (List.map (do_node_eqn state_ctx) eqns)
-    >> (match trans1_opt with
-        | Some (_, tb) -> check_type_transition_branch ctx tb
-        | None -> R.ok ())
-    >> (match trans2_opt with
-        | Some (_, tb) -> check_type_transition_branch ctx tb
-        | None -> R.ok ())
-    >> R.ok ()
 
 and do_item: tc_context -> LA.node_item -> (unit, [> error]) result = fun ctx ->
   function

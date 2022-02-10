@@ -237,8 +237,7 @@ and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
   let eqns = List.fold_left (fun acc -> function
     | LA.Body eqn -> (match eqn with
       | LA.Assert _ -> acc
-      | Equation (_, lhs, rhs) -> (lhs, rhs) :: acc
-      | Automaton _ -> acc)
+      | Equation (_, lhs, rhs) -> (lhs, rhs) :: acc)
     | AnnotMain _ -> acc
     | AnnotProperty _ -> acc)
     []
@@ -475,7 +474,6 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
     extract_bounds_from_type output_ty
   | Merge _ -> None, None
   | Pre (_, e) -> interpret_int_expr node_id ctx ty_ctx proj e
-  | Last _
   | Fby _ -> assert false
   | Arrow (_, e1, e2) -> interpret_int_branch_expr node_id ctx ty_ctx proj e1 e2
   | CallParam _ -> assert false

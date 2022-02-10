@@ -932,7 +932,6 @@ and normalize_equation info map = function
       else empty ()
     in
     Equation (pos, lhs, nexpr), union gids1 gids2
-  | Automaton _ -> Lib.todo __LOC__
 
 and rename_id info = function
   | A.Ident (pos, id) ->
@@ -1212,7 +1211,6 @@ and normalize_expr ?guard info map =
       expr_list in
     let gids = union (union gids1 gids2) gids3 in
     Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids
-  | Last _ as expr -> expr, empty ()
   | Fby (pos, expr1, i, expr2) ->
     let nexpr1, gids1 = normalize_expr ?guard info map expr1 in
     let nexpr2, gids2 = normalize_expr ?guard info map expr2 in

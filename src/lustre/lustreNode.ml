@@ -1448,20 +1448,6 @@ let state_var_is_visible node state_var =
   let r = Str.regexp r in
   not (Str.string_match r s 0)  
 
-
-let is_automaton_state_var sv =
-  let open Lib.ReservedIds in
-  let s = StateVar.name_of_state_var sv in
-  let r = Format.sprintf "\\([^\\.]*\\)\\.\\(%s\\|%s\\)$"
-      state_string restart_string
-  in
-  let r = Str.regexp r in
-  if Str.string_match r s 0 then
-    try Some (Str.matched_group 1 s, Str.matched_group 2 s)
-    with Not_found -> None
-  else None
-    
-
 let node_is_visible node =
   let open Lib.ReservedIds in
   let r = Format.sprintf ".*\\.\\(%s\\)\\." unless_string in

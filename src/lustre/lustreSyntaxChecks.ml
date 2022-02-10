@@ -291,8 +291,7 @@ let locals_must_have_definitions locals items =
       | LA.Assert _ -> false
       | LA.Equation (_, lhs, _) -> (match lhs with
         | LA.StructDef (_, vars)
-          -> List.fold_left (find_local_def_lhs id) false vars)
-      | LA.Automaton _ -> false)
+          -> List.fold_left (find_local_def_lhs id) false vars))
     | LA.AnnotMain _ -> false
     | LA.AnnotProperty _ -> false
   in
@@ -408,7 +407,6 @@ let no_temporal_operator is_const expr =
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
-  | Last (pos, _) -> syntax_error pos (IllegalTemporalOperator ("last", decl_ctx))
   | Fby (pos, _, _, _) -> syntax_error pos (IllegalTemporalOperator ("fby", decl_ctx))
   | _ -> Ok ()
 
@@ -454,7 +452,7 @@ let rec expr_only_supported_in_merge observer expr =
     else syntax_error pos (UnsupportedOutsideMerge e)
   | Merge (_, _, e) -> 
     r_list true (List.map (fun (_, x) -> x) e)
-  | Ident _ | Const _ | Last _ | ModeRef _ -> Ok ()
+  | Ident _ | Const _ | ModeRef _ -> Ok ()
   | RecordProject (_, e, _)
   | TupleProject (_, e, _)
   | UnaryOp (_, _, e)
@@ -595,7 +593,6 @@ and check_items ctx f items =
         >> (expr_only_supported_in_merge false e)
     | Body (Assert (_, e))
     | AnnotProperty (_, _, e) -> check_expr ctx f e
-    | Body (Automaton (pos, _, _, _)) -> syntax_error pos (Unknown "Automaton DSL not supported in experimental frontend")
     | AnnotMain _ -> Ok ()
   in
   Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)

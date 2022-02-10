@@ -11,8 +11,6 @@ Success
 | `abstract_type.lus`                 |                                       |             |
 | `array-const.lus`                   |                                       |             |
 | `array.lus`                         |                                       |             |
-| `autoN.lus`                         |                                       |             |
-| `automata_counter.lus`              |                                       |             |
 | `block_annot_syntax.lus`            |                                       |             |
 | `bv-logical.lus`                    |                                       |             |
 | `const_to_non_const.lus`            |                                       |             |
@@ -26,7 +24,6 @@ Success
 | `merge_enum1.lus`                   |                                       |             |
 | `mode_reqs_by_idents.lus`           |                                       |             |
 | `mode_reqs_by_idents_shadowing.lus` | type checker does not implement paths | Fails in TC |
-| `pingpong.lus`                      |                                       |             |
 | `pre_const.lus`                     |                                       |             |
 | `record.lus`                        |                                       |             |
 | `record2.lus`                       |                                       |             |
@@ -46,7 +43,6 @@ Error
 | -----------------------------             | ----------                                                             | ------   |
 | `abstract_type.lus`                       | Free type COUNTER used as numeric type                                 | F at TC  |
 | `array_node.lus`                          | Array assignment with implicit parameter & node call `(y[i] = n(a[i])` | ??????   |
-| `automaton_ab.lus`                        | Automaton is not supported                                             | TODO     |
 | `bv-sh-exception.lus`                     | Expect a constant argument to rsh  operator                            | F at TC  |
 | `check_type.lus`                          | Basic syntactic type check                                             | F at TC  |
 | `circular_contracts.lus `                 | Contract declaration has circularity                                   | F at TC  |

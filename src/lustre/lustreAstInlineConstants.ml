@@ -355,7 +355,6 @@ let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.n
   | (LA.Assert (pos, e)) -> (Assert (pos, simplify_expr ctx e))
   | (LA.Equation (pos, lhs, e)) ->
     (LA.Equation (pos, lhs, simplify_expr ctx e))
-  | e -> e
 
 let rec inline_constants_of_const_clocked_type_decl ctx = function
   | [] -> []

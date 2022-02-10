@@ -240,7 +240,7 @@ let rec minimize_node_call_args ue lst expr =
   in
   let rec aux expr =
     match expr with
-    | A.Const _ | A.Ident _ | A.ModeRef _ | A.Last _
+    | A.Const _ | A.Ident _ | A.ModeRef _
     -> expr
     | A.Call (pos, ident, args) ->
       A.Call (pos, ident, List.mapi (minimize_arg ident) args)
@@ -281,7 +281,7 @@ and ast_contains p ast =
   let rec aux ast =
     if p ast then true
     else match ast with
-    | A.Const _ | A.Ident _ | A.ModeRef _ | A.Last _
+    | A.Const _ | A.Ident _ | A.ModeRef _
       -> false
     | A.Call (_, _, args) | A.CallParam (_, _, _, args) ->
       List.map aux args
@@ -339,7 +339,6 @@ let minimize_node_eq id_typ_map ue lst = function
     List.exists (fun p -> Lib.equal_pos p pos) lst ->
     Some (A.Assert (pos, expr))
   | A.Assert _ -> None
-  | A.Automaton _ as automaton -> Some automaton
   | A.Equation (pos, lhs, expr) ->
     let (novarindex_lhs, typ) = tyof_lhs id_typ_map lhs in
     let (b, expr) = minimize_expr (ue false) lst typ expr in

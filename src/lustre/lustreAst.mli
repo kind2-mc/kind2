@@ -164,7 +164,6 @@ and expr =
   | RestartEvery of position * ident * expr list * expr
   (* Temporal operators *)
   | Pre of position * expr
-  | Last of position * ident
   | Fby of position * expr * int * expr
   | Arrow of position * expr * expr
   (* Node calls *)
@@ -221,31 +220,10 @@ type struct_item =
 type eq_lhs = 
   | StructDef of position * struct_item list
 
-type transition_to =
-  | TransRestart of position * (position * ident)
-  | TransResume of position * (position * ident)
-
-type transition_branch =
-  | Target of transition_to
-  | TransIf of position * expr *
-               transition_branch * transition_branch option
-  
-type automaton_transition = position * transition_branch
-
-type auto_returns = Given of ident list | Inferred
-
 (** An equation or assertion in the node body *)
 type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr 
-  | Automaton of position * ident option * state list * auto_returns
-
-and state =
-  | State of position * ident * bool *
-             node_local_decl list *
-             node_equation list *
-             automaton_transition option *
-             automaton_transition option
 
 (** An item in a node declaration *)
 type node_item =
