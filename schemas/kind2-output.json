@@ -575,21 +575,6 @@
             },
             "required": ["name", "type", "class", "instantValues"]
         },
-        "automatonStreams": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string"
-                },
-                "streams" : {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/streamValues"
-                    }
-                }
-            },
-            "required": ["name"]
-        },
         "trace": {
             "type": "array",
             "items": {
@@ -617,12 +602,6 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/definitions/streamValues"
-                        }
-                    },
-                    "automata": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "#/definitions/automatonStreams"
                         }
                     },
                     "subnodes": {
@@ -751,7 +730,7 @@
                    { "$ref": "#/definitions/postAnalysisEnd" },
                    { "$ref": "#/definitions/property" },
                    { "$ref": "#/definitions/execution" },
-                   { "$ref": "#/definitions/realizabilityCheck" }
+                   { "$ref": "#/definitions/realizabilityCheck" },
                    { "$ref": "#/definitions/satisfiabilityCheck" }
                 ] 
             }

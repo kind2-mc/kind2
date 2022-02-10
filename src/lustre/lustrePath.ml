@@ -850,9 +850,7 @@ let pp_print_pos_pt ppf pos =
 
 (* Output the name of the lustre variable and remove the automaton prefixes *)
 let pp_print_lustre_var ppf state_var =
-  match N.is_automaton_state_var state_var with
-  | Some (_, name) -> Format.pp_print_string ppf name
-  | None -> E.pp_print_lustre_var false ppf state_var
+  E.pp_print_lustre_var false ppf state_var
 
 
 (* Output the identifier of an indexed stream *)
@@ -1086,14 +1084,10 @@ let pp_print_stream_automata_pt ident_width val_width ppf auto_map =
 let partition_locals_automaton is_visible locals =
   let locals = List.map D.bindings locals |> List.flatten in
   List.fold_left (fun (auto_map, others) (i, sv) ->
-      match N.is_automaton_state_var sv with
-      | Some (auto, _) ->
-        let l = try MS.find auto auto_map with Not_found -> [] in
-        MS.add auto ((i, sv) :: l) auto_map, others
-      | None when is_visible sv -> auto_map, (i, sv) :: others
-      | None -> auto_map, others
+      match is_visible sv with
+      | true -> auto_map, (i, sv) :: others
+      | false -> auto_map, others
     ) (MS.empty, []) locals
-
 
 
 (* Output sequences of values for each stream of the nodes in the list

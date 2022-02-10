@@ -142,7 +142,7 @@ The list of properties of an ``AnalysisStart`` object are:
    ``k``, ``integer``, "The value of ``k`` in a k-inductive proof, if any."
    ``trueFor``, ``integer``, "The largest value of ``k`` for which the property was proved to be true, if any."
    ``answer``, ``object``, "The ``source`` of the answer, and the result ``value`` of the check. The result can be ``valid``, ``falsifiable``, or ``unknown``."
-   ``counterExample``, ``object``, "Counterexample to the property satisfaction (only available when ``answer`` is ``falsifiable``). It describes a sequence of values for each stream, and automaton, that leads the system to the violation of the property. It also gives the list of contract modes that are active at each step, if any."
+   ``counterExample``, ``object``, "Counterexample to the property satisfaction (only available when ``answer`` is ``falsifiable``). It describes a sequence of values for each stream that leads the system to the violation of the property. It also gives the list of contract modes that are active at each step, if any."
 
 .. _Stat Object:
 
@@ -343,8 +343,8 @@ A ``Property`` element contains one ``Answer`` element, which includes the resul
 If the result is ``valid``, or ``falsifiable``, it also contains a ``Runtime`` element, which reports
 the runtime of the analysis (in seconds), and whether the timeout expired or not.
 If the result is ``valid``, a ``K`` element gives the value of ``k`` for which the property was proved valid.
-If the result is ``falsifiable``, a ``Counterexample`` element describes a sequence of values for each stream,
-and automaton, that leads the system to the violation of the property.
+If the result is ``falsifiable``, a ``Counterexample`` element describes a sequence of values for each stream
+that leads the system to the violation of the property.
 It also gives the list of contract modes that are active at each step, if any.
 If the result is ``unknown``, the ``Property`` element may contain a ``TrueFor`` element
 specifying the largest value of ``k`` for which the property was proved to be true.

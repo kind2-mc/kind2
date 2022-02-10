@@ -51,16 +51,6 @@ val reset_guard_flag : t -> t
 code, and we need to guard them. *)
 val guard_flag : t -> bool
 
-(** Sets the flag indicating we are evaluating an automaton. *)
-val set_in_automaton : t -> bool -> t
-
-(** Resets the flag indicating we are evaluating an automaton. *)
-val reset_in_automaton : t -> t
-
-(** The value of the flag indicating we are evaluating an automaton. *)
-val in_automaton : t -> bool
-
-
 (** Add scope to context
 
     The scopes are added to the name of the node to create scope for

@@ -16,13 +16,8 @@
 
 *)
 
-[@@@ocaml.warninig "-32"]
-[@@@ocaml.warninig "-33"]
-[@@@ocaml.warninig "-38"]
-[@@@ocaml.warninig "-69"]
 
 open Lib
-open Lib.ReservedIds
 open LustreReporting
 
 module A = LustreAst
@@ -43,193 +38,13 @@ module S = LustreSimplify
 module G = LustreGlobals
 
 module SVS = StateVar.StateVarSet
-module ISet = Set.Make (String)
 
 module Deps = LustreDependencies
-
-
-(*********************************************)
-(* Auxiliary functions for automata encoding *)
-(*********************************************)
-
-(* Useful information for encoding automata *)
-type automaton_info = {
-  (* Name of the automaton *)
-  auto_name : string;
-
-  (* Inputs of the node in which the automaton appears *)
-  node_inputs : A.const_clocked_typed_decl list;
-
-  (* Outputs of the automaton (declared with returns) *)
-  auto_outputs : A.clocked_typed_decl list;
-
-  (* Other node variables *)
-  other_vars : A.const_clocked_typed_decl list;
-
-  (* Memories for [last] expressions, passed as inputs to the automaton
-     states *)
-  lasts_inputs : A.const_clocked_typed_decl list;
-
-  (* Enumerated datatype to represent states *)
-  states_lustre_type : A.lustre_type;
-
-  (* Local variables used to encode the internal state of the automaton *)
-  i_state_selected : A.ident;
-  i_restart_selected : A.ident;
-  i_state : A.ident;
-  i_restart : A.ident;
-}
-
-
-exception Found_auto_out of A.clocked_typed_decl
-exception Found_last_ty of A.lustre_type
 
 
 let fail_or_warn =
   if Flags.lus_strict () then
     fail_at_position else warn_at_position
-
-
-
-let type_of_last inputs outputs locals l =
-  try
-    List.iter (fun (_, i, ty, _, _) ->
-        if i = l then raise (Found_last_ty ty)
-      ) inputs;
-    List.iter (fun (_, i, ty, _) ->
-        if i = l then raise (Found_last_ty ty)
-      ) outputs;
-    List.iter (function
-        | A.NodeConstDecl (_, (A.FreeConst (_, i, ty) |
-                               A.TypedConst (_, i, _, ty))) ->
-          if i = l then raise (Found_last_ty ty)
-        | A.NodeConstDecl (_, A.UntypedConst (pos, i, _)) ->
-          fail_at_position pos ("Please add type of " ^ HString.string_of_hstring i)
-        | A.NodeVarDecl (_, (_, i, ty, _)) ->
-          if i = l then raise (Found_last_ty ty)
-      ) locals;
-    raise Not_found
-  with Found_last_ty ty -> ty
-
-
-let allowed_lasts inputs outputs locals =
-  List.map (fun (_, i, _, _, _) -> i) inputs
-  @ List.map (fun (_, i, _, _) -> i) outputs
-  @ List.map (function
-      | A.NodeConstDecl (_,
-                         (A.FreeConst (_, i, _) |
-                          A.TypedConst (_, i, _, _) |
-                          A.UntypedConst (_, i, _))) -> i
-      | A.NodeVarDecl (_, (_, i, _, _)) -> i
-    ) locals
-
-
-(* Infer defined streams of an automaton *)
-
-
-let in_locals i' locals = List.exists (function
-    | A.NodeConstDecl (_,
-                       (A.FreeConst (_, i, _) |
-                        A.TypedConst (_, i, _, _) |
-                        A.UntypedConst (_, i, _)))
-    | A.NodeVarDecl (_, (_, i, _, _)) -> i = i'
-  ) locals
-  
-
-let rec defined_vars_struct_item locals acc = function
-  | A.SingleIdent (_, i)
-  | A.ArrayDef (_, i, _)
-  | A.TupleSelection (_, i, _)
-  | A.FieldSelection (_, i, _)
-  | A.ArraySliceStructItem (_, i, _) ->
-    if in_locals i locals then acc else ISet.add (HString.string_of_hstring i) acc
-  | A.TupleStructItem (_, l) ->
-    List.fold_left (defined_vars_struct_item locals) acc l
-
-let defined_vars_lhs locals acc = function
-  | A.StructDef (_, l) ->
-    List.fold_left (defined_vars_struct_item locals) acc l
-
-
-let rec defined_vars_equation locals acc = function
-  | A.Assert _ -> acc
-  | A.Equation (_, lhs, _) -> defined_vars_lhs locals acc lhs
-  
-
-let defined_vars_eqs eqs =
-  List.fold_left (defined_vars_equation []) ISet.empty eqs
-  |> ISet.elements
-
-
-(* Collect inputs used in equaltions and automatons. This is to create
-   auxiliary nodes for states with a minimal number of inputs *)
-  
-let rec used_inputs_expr inputs acc =
-  let open A in
-  function
-  | Const _ | ModeRef _ -> acc
-
-  | Ident (_, i) | Last (_, i) -> ISet.add (HString.string_of_hstring i) acc
-
-  | TupleProject (_, e, _) | RecordProject (_, e, _) | ConvOp (_,_,e) | UnaryOp (_, _, e)
-  | Current (_, e) | When (_, e, _) | Quantifier (_, _, _, e) ->
-    used_inputs_expr inputs acc e
-
-  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
-  | ArrayConstr (_, e1, e2) | ArrayConcat (_, e1, e2) | ArrayIndex (_, e1, e2) ->
-    used_inputs_expr inputs (used_inputs_expr inputs acc e2) e1
-    
-  | TernaryOp (_, _, e1, e2, e3) | ArraySlice (_, e1, (e2, e3)) ->
-    used_inputs_expr inputs
-      (used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2) e3
-  
-  | GroupExpr (_, _, l) | NArityOp (_, _, l)
-  | Call (_, _, l) | CallParam (_, _, _, l) ->
-    List.fold_left (used_inputs_expr inputs) acc l
-
-  | Merge (_, _, l) ->
-    List.fold_left (fun acc (_, e) -> used_inputs_expr inputs acc e) acc l
-
-  | RestartEvery (_, _, l, e) ->
-    List.fold_left (used_inputs_expr inputs) acc (e :: l)
-
-  | Activate (_, _, e, r, l) ->
-    List.fold_left (used_inputs_expr inputs) acc (e :: r :: l)
-
-  | Condact (_, e, r, _, l1, l2) ->
-    List.fold_left (used_inputs_expr inputs) acc (e :: r :: l1 @ l2)
-
-  | RecordExpr (_, _, ie) ->
-    List.fold_left (fun acc (_, e) -> used_inputs_expr inputs acc e) acc ie
-
-  | StructUpdate (_, e1, li, e2) ->
-    let acc = used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2 in
-    List.fold_left (fun acc -> function
-        | Label _ -> acc
-        | Index (_, e) -> used_inputs_expr inputs acc e
-      ) acc li
-    
-  | Fby (_, e1, _, e2) ->
-    used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2
-
-  | Pre (_, e) -> used_inputs_expr inputs acc e
-
-  | Arrow (_, e1, e2) ->
-    used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2
-
-let rec used_inputs_equation inputs acc = function
-  | A.Assert (_, e) | A.Equation (_, _, e) -> used_inputs_expr inputs acc e
-
-and used_inputs_eqs inputs acc eqs =
-  List.fold_left (used_inputs_equation inputs) acc eqs
-
-
-(* Collect inputs used in equaltions and automatons. This is to create
-   auxiliary nodes for states with a minimal number of inputs *)
-let used_inputs inputs eqs =
-  let u = used_inputs_eqs inputs ISet.empty eqs in
-  List.filter (fun (_, i, _, _, _) -> ISet.mem i u) inputs
-
 
 (*************************************)
 (* Auxiliary functions for contracts *)

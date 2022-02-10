@@ -235,21 +235,6 @@ let rec has_unguarded_pre ung = function
 
   | Last _ -> false
 
-  (* TODO: Only report unguarded lasts contained in automaton states
-     that are activable at the initial state *)
-(*
-  | Last (pos, _) as p ->
-    if ung then begin
-      (* Fail only if in strict mode *)
-      let err_or_warn =
-        if Flags.lus_strict () then error_at_position else warn_at_position in
-
-      err_or_warn pos
-        (Format.asprintf "@[<hov 2>Unguarded pre in expression@ %a@]"
-           pp_print_expr p)
-    end;
-    ung
-*)
   | Arrow (_, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre false e2 in
