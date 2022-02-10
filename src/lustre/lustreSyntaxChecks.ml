@@ -407,7 +407,6 @@ let no_temporal_operator is_const expr =
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
-  | Last (pos, _) -> syntax_error pos (IllegalTemporalOperator ("last", decl_ctx))
   | Fby (pos, _, _, _) -> syntax_error pos (IllegalTemporalOperator ("fby", decl_ctx))
   | _ -> Ok ()
 
@@ -453,7 +452,7 @@ let rec expr_only_supported_in_merge observer expr =
     else syntax_error pos (UnsupportedOutsideMerge e)
   | Merge (_, _, e) -> 
     r_list true (List.map (fun (_, x) -> x) e)
-  | Ident _ | Const _ | Last _ | ModeRef _ -> Ok ()
+  | Ident _ | Const _ | ModeRef _ -> Ok ()
   | RecordProject (_, e, _)
   | TupleProject (_, e, _)
   | UnaryOp (_, _, e)

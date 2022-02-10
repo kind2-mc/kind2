@@ -1001,8 +1001,6 @@ and compile_ast_expr
     compile_equality bounds false expr1 expr2
   | A.TernaryOp (_, A.Ite, expr1, expr2, expr3) ->
     compile_ite bounds expr1 expr2 expr3
-  | A.Last (pos, i) ->
-    compile_ast_expr cstate ctx bounds map (A.Pre (pos, A.Ident (pos, i)))
   | A.Pre (_, expr) -> compile_pre bounds expr
   | A.Merge (_, clock_ident, merge_cases) ->
     compile_merge bounds clock_ident merge_cases

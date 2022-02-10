@@ -291,7 +291,6 @@ let keyword_table = mk_hashtbl [
 
   (* Temporal operators *)
   "pre", PRE ;
-  "last", LAST ;
   "fby", FBY ;
 
   (* |===| Block annotation contract stuff. *)
@@ -480,9 +479,6 @@ rule token = parse
   | id as p {
     try Hashtbl.find keyword_table p with Not_found -> (SYM (HString.mk_hstring p))
   }
-
-  (* Identifier with quote, throw quote away *)
-  | '\'' (id as p) { QUOTSYM (HString.mk_hstring p) }
 
   (* Whitespace *)
   | whitespace { token lexbuf }

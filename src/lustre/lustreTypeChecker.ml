@@ -431,7 +431,6 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                                 
   (* Temporal operators *)
   | LA.Pre (_, e) -> infer_type_expr ctx e
-  | LA.Last (pos, i) -> infer_type_expr ctx (LA.Ident (pos, i))
   | LA.Fby (pos, e1, _, e2) ->
     infer_type_expr ctx e1 >>= fun ty1 ->
     infer_type_expr ctx e2 >>= fun ty2 ->
@@ -625,10 +624,6 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
 
   (* Temporal operators *)
   | Pre (_, e) -> check_type_expr ctx e exp_ty
-  | Last (pos, i) ->
-    infer_type_expr ctx (LA.Ident (pos, i))
-    >>= fun ty -> R.guard_with (eq_lustre_type ctx ty exp_ty)
-                    (type_error pos (IlltypedIdentifier (i, exp_ty, ty)))
   | Fby (_, e1, _, e2) ->
     check_type_expr ctx e1 exp_ty
     >> check_type_expr ctx e2 exp_ty

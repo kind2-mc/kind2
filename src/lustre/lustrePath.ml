@@ -31,8 +31,6 @@ module SVT = StateVar.StateVarHashtbl
 module SVM = StateVar.StateVarMap
 module SVS = StateVar.StateVarSet
 
-module MS = Map.Make (String)
-
 (* Model for a node and its subnodes *)
 type t =
   Node of
@@ -848,7 +846,7 @@ let pp_print_pos_pt ppf pos =
     Lib.pp_print_line_and_column ppf pos
 
 
-(* Output the name of the lustre variable and remove the automaton prefixes *)
+(* Output the name of the lustre variable *)
 let pp_print_lustre_var ppf state_var =
   E.pp_print_lustre_var false ppf state_var
 
@@ -1059,35 +1057,14 @@ let pp_print_modes_section_pt ident_width val_width mode_ident ppf = function
       (pp_print_list (pp_print_stream_string_pt ident_width val_width "") "@,") 
       vals
 
-
-
-(* Output state variables and their sequences of values under a
-   header, or output nothing if the list is empty *)
-let pp_print_stream_automaton_pt ident_width val_width auto ppf = function 
-  | [] -> ()
-  | l -> 
-    Format.fprintf
-      ppf
-      "== @{<b>Automaton@} @{<blue>%s@} ==@,\
-       %a@,"
-      auto
-      (pp_print_list (pp_print_stream_pt ident_width val_width) "@,") 
-      l
-
-let pp_print_stream_automata_pt ident_width val_width ppf auto_map =
-  MS.iter (fun auto streams ->
-      pp_print_stream_automaton_pt ident_width val_width auto ppf streams
-    ) auto_map
-
-
-(* Partition variables depending on their belonging to an automaton *)
-let partition_locals_automaton is_visible locals =
+(* Filter local variables on visibility *)
+let filter_locals is_visible locals =
   let locals = List.map D.bindings locals |> List.flatten in
-  List.fold_left (fun (auto_map, others) (i, sv) ->
+  List.fold_left (fun acc (i, sv) ->
       match is_visible sv with
-      | true -> auto_map, (i, sv) :: others
-      | false -> auto_map, others
-    ) (MS.empty, []) locals
+      | true -> (i, sv) :: acc
+      | false -> acc
+    ) [] locals
 
 
 (* Output sequences of values for each stream of the nodes in the list
@@ -1167,9 +1144,9 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
      as a list 
 
      The list of locals is the reversed from the original input in the node,
-     with fold_left in partition_locals_automaton here we get it in the
+     with fold_left in filter_locals here we get it in the
      original order again. *)
-  let locals_auto, locals = partition_locals_automaton is_visible locals in
+  let locals = filter_locals is_visible locals in
   
   let ghosts, locals =
     locals
@@ -1191,13 +1168,6 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
     locals |> streams_to_values model ident_width val_width []
   in
 
-  let ident_width, val_width, locals_auto' =
-    MS.fold (fun auto streams (w, v, ls) ->
-        let w, v, s = streams_to_values model w v [] streams in
-        w, v, MS.add auto s ls
-      ) locals_auto (ident_width, val_width, MS.empty)
-  in
-
   let globals = if is_top then get_constants const_map [] else [] in
 
   let constants =
@@ -1214,22 +1184,20 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
   in
 
   (* Sample inputs, outputs and locals on clock *)
-  let globals', constants', inputs', outputs', ghosts', locals', locals_auto'  = match clock with
-    | None -> globals', constants', inputs', outputs', ghosts', locals', locals_auto'
+  let globals', constants', inputs', outputs', ghosts', locals'  = match clock with
+    | None -> globals', constants', inputs', outputs', ghosts', locals'
     | Some c ->
       sample_streams_on_clock c globals',
       sample_streams_on_clock c constants',
       sample_streams_on_clock c inputs',
       sample_streams_on_clock c outputs',
       sample_streams_on_clock c ghosts',
-      sample_streams_on_clock c locals',
-      MS.map (sample_streams_on_clock c) locals_auto'
+      sample_streams_on_clock c locals'
   in
   
   (* Pretty-print this node or function. *)
   Format.fprintf ppf "@[<v>\
       @{<b>%s@} @{<blue>%a@} (%a)@,  @[<v>\
-        %a\
         %a\
         %a\
         %a\
@@ -1250,8 +1218,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
     (pp_print_stream_section_pt ident_width val_width "Inputs") inputs'
     (pp_print_stream_section_pt ident_width val_width "Outputs") outputs'
     (pp_print_stream_section_pt ident_width val_width "Ghosts") ghosts'
-    (pp_print_stream_section_pt ident_width val_width "Locals") locals'
-    (pp_print_stream_automata_pt ident_width val_width) locals_auto';
+    (pp_print_stream_section_pt ident_width val_width "Locals") locals';
 
   (* Recurse depth-first to print subnodes *)
   pp_print_lustre_path_pt'
@@ -1447,17 +1414,6 @@ let pp_print_stream_xml node model clock ppf (index, state_var) =
   with Not_found -> assert false
 
 
-let pp_print_automaton_xml node model clock ppf name streams  =
-  Format.fprintf ppf "@,@[<hv 2>@[<hv 1><Automaton@ name=\"%s\">@]" name;
-  List.iter (pp_print_stream_xml node model clock ppf) streams;
-  Format.fprintf ppf"@]@,</Automaton>"
-    
-
-let pp_print_automata_xml node model clock ppf auto_map =
-  MS.iter (pp_print_automaton_xml node model clock ppf) auto_map
-
-
-
 let pp_print_active_modes_xml ppf = function
 | None | Some [] -> ()
 | Some mode_trace ->
@@ -1549,9 +1505,9 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
        as a list 
 
        The list of locals is the reversed from the original input in the node,
-       with fold_left in partition_locals_automaton here we get it in the
+       with fold_left in filter_locals here we get it in the
        original order again. *)
-    let locals_auto', locals' = partition_locals_automaton is_visible locals in
+    let locals' = filter_locals is_visible locals in
 
     let ghosts', locals' =
       locals'
@@ -1585,7 +1541,6 @@ let rec pp_print_lustre_path_xml' is_top const_map ppf = function
     List.iter (pp_print_stream_xml node model clock ppf) outputs';
     List.iter (pp_print_stream_xml node model clock ppf) ghosts';
     List.iter (pp_print_stream_xml node model clock ppf) locals';
-    pp_print_automata_xml node model clock ppf locals_auto';
     pp_print_lustre_path_xml' false const_map ppf subnodes;
     Format.fprintf ppf "@]@,</%s>" title;
 
@@ -1833,28 +1788,7 @@ let pp_print_streams_json node model clock ppf = function
           (pp_print_stream_json node model clock) ",")
         streams
 
-
-let pp_print_automaton_json node model clock ppf (name, streams) =
-
-  Format.fprintf ppf
-    "@,{@[<v 1>@,\
-      \"name\" : \"%s\"\
-      %a\
-     @]@,}\
-    "
-    name (pp_print_streams_json node model clock) streams
-
-
-let pp_print_automata_json node model clock ppf auto_map =
-
-  if MS.is_empty auto_map then () else
-    Format.fprintf ppf ",@,\"automata\" :@,[@[<v 1>%a@]@,]"
-      (pp_print_list
-        (pp_print_automaton_json node model clock) ",")
-      (MS.bindings auto_map)
-
-
-let pp_print_streams_and_automata_json is_top const_map ppf
+let pp_print_streams_json is_top const_map ppf
   ({N.inputs; N.outputs; N.locals} as node, model, call_conds) =
 
   let is_visible = N.state_var_is_visible node in
@@ -1887,9 +1821,9 @@ let pp_print_streams_and_automata_json is_top const_map ppf
      as a list
 
      The list of locals is the reversed from the original input in the node,
-     with fold_left in partition_locals_automaton here we get it in the
+     with fold_left in partition_locals here we get it in the
      original order again. *)
-  let locals_auto', locals' = partition_locals_automaton is_visible locals in
+  let locals' = filter_locals is_visible locals in
 
   let ghosts', locals' =
     locals'
@@ -1920,9 +1854,8 @@ let pp_print_streams_and_automata_json is_top const_map ppf
     |> List.rev
   in
 
-  Format.fprintf ppf "%a%a"
+  Format.fprintf ppf "%a"
     (pp_print_streams_json node model clock) streams
-    (pp_print_automata_json node model clock) locals_auto'
 
 
 (* Output a list of node models. *)
@@ -1968,7 +1901,7 @@ let rec pp_print_lustre_path_json' is_top const_map ppf = function
        title (I.pp_print_ident false) name
        pp_print_call_json trace
        pp_print_active_modes_json active_modes
-       (pp_print_streams_and_automata_json is_top const_map) (node, model, call_conds)
+       (pp_print_streams_json is_top const_map) (node, model, call_conds)
        pp_print_subnodes_json subnodes
        comma;
 

@@ -128,7 +128,6 @@ type expr =
   | RestartEvery of position * ident * expr list * expr
   (* Temporal operators *)
   | Pre of position * expr
-  | Last of position * ident
   | Fby of position * expr * int * expr
   | Arrow of position * expr * expr
   (* Node calls *)
@@ -569,8 +568,6 @@ let rec pp_print_expr ppf =
         (pp_print_list pp_print_expr ",@ ") l 
 
     | Pre (p, e) -> p1 p "pre" e
-    | Last (p, id) ->
-      Format.fprintf ppf "last %a%a" ppos p pp_print_ident id
     | Fby (p, e1, i, e2) -> 
 
       Format.fprintf ppf 

@@ -52,7 +52,7 @@ let pos_of_expr = function
     | Quantifier (pos, _, _, _)
     | When (pos , _ , _) | Current (pos , _) | Condact (pos , _ , _ , _ , _, _)
     | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
-    | Last (pos , _) | RestartEvery (pos, _, _, _)
+    | RestartEvery (pos, _, _, _)
     | Fby (pos , _ , _ , _) | Arrow (pos , _ , _) | Call (pos , _ , _ )
     | CallParam (pos , _ , _ , _ )
     -> pos
@@ -67,7 +67,7 @@ let type_arity ty =
   | _ -> (0, 0)
 
 let rec expr_contains_call = function
-  | Ident (_, _) | ModeRef (_, _) | Const (_, _) | Last (_, _) -> false
+  | Ident (_, _) | ModeRef (_, _) | Const (_, _) -> false
   | RecordProject (_, e, _) | TupleProject (_, e, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
   | Current (_, e) | Pre (_, e)
@@ -149,7 +149,6 @@ let rec substitute (var:HString.t) t = function
     let e = substitute var t e in
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, substitute var t e)
-  | Last (_, _) as e -> e
   | Fby (pos, e1, i, e2) -> Fby (pos, substitute var t e1, i, substitute var t e2)
   | Arrow (pos, e1, e2) -> Arrow (pos, substitute var t e1, substitute var t e2)
   | Call (pos, id, expr_list) ->
@@ -232,8 +231,6 @@ let rec has_unguarded_pre ung = function
 
     let u = has_unguarded_pre true e in
     ung || u
-
-  | Last _ -> false
 
   | Arrow (_, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
@@ -327,7 +324,7 @@ let rec has_pre_or_arrow = function
     has_pre_or_arrow e1
     |> unwrap_or (fun _ -> has_pre_or_arrow e2)
 
-  | Pre (pos, _) | Last (pos, _) -> Some pos
+  | Pre (pos, _) -> Some pos
 
   | Arrow (pos, _, _) -> Some pos
 
@@ -582,13 +579,6 @@ let rec replace_lasts allowed prefix acc ee = match ee with
   | Pre (pos, e) ->
     let e', acc' = replace_lasts allowed prefix acc e in
     if e == e' then ee, acc else Pre (pos, e'), acc'
-                      
-  | Last (pos, i) ->
-    if not (List.mem i allowed) then
-      fail_at_position pos
-        "Only visible variables in the node are allowed under last";
-    let acc = SI.add i acc in
-    Ident (pos, HString.mk_hstring (prefix ^ ".last." ^ HString.string_of_hstring i)), acc
 
   | Arrow (pos, e1, e2) ->
     let e1', acc' = replace_lasts allowed prefix acc e1 in
@@ -709,7 +699,6 @@ let rec vars: expr -> iset = function
   | RestartEvery (_, i, es, e) -> SI.add i (SI.flatten (vars e :: List.map vars es)) 
   (* Temporal operators *)
   | Pre (_, e) -> vars e
-  | Last (_, i) -> SI.singleton i
   | Fby (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
   (* Node calls *)
@@ -921,7 +910,6 @@ let rec replace_with_constants: expr -> expr =
 
   (* Temporal operators *)
   | Pre (_, e) -> replace_with_constants e
-  | Last _ as e -> e
   | Fby (p, e1, i, e2) ->
      Fby (p, replace_with_constants e1, i, replace_with_constants e2)
   | Arrow (p, e1, e2) ->  Arrow (p, replace_with_constants e1, replace_with_constants e2)
@@ -1016,7 +1004,6 @@ let rec abstract_pre_subexpressions: expr -> expr = function
 
   (* Temporal operators *)
   | Pre (p, e) -> Pre(p, replace_with_constants e)
-  | Last _ as e -> e
   | Fby (p, e1, i, e2) ->
      Fby (p, abstract_pre_subexpressions e1, i, abstract_pre_subexpressions e2)
   | Arrow (p, e1, e2) ->  Arrow (p, abstract_pre_subexpressions e1, abstract_pre_subexpressions e2)
@@ -1203,7 +1190,6 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       rlist xl yl |> join >>= fun l ->
       Ok (e && l && HString.equal xi yi)
     | Pre (_, x), Pre (_, y) -> r (depth + 1) x y
-    | Last (_, x), Last (_, y) -> Ok (HString.equal x y)
     | Fby (_, xe1, xi, xe2), Fby (_, ye1, yi, ye2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
@@ -1413,7 +1399,6 @@ let hash depth_limit expr =
       | Pre (_, e) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (26, e_hash)
-      | Last (_, i) -> Hashtbl.hash (27, HString.hash i)
       | Fby (_, e1, i, e2) ->
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
@@ -1491,7 +1476,6 @@ let rec rename_contract_vars = function
     let e = rename_contract_vars e in
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, rename_contract_vars e)
-  | Last (_, _) as e -> e
   | Fby (pos, e1, i, e2) -> Fby (pos, rename_contract_vars e1, i, rename_contract_vars e2)
   | Arrow (pos, e1, e2) -> Arrow (pos, rename_contract_vars e1, rename_contract_vars e2)
   | Call (pos, id, expr_list) ->

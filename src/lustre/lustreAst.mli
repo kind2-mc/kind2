@@ -164,7 +164,6 @@ and expr =
   | RestartEvery of position * ident * expr list * expr
   (* Temporal operators *)
   | Pre of position * expr
-  | Last of position * ident
   | Fby of position * expr * int * expr
   | Arrow of position * expr * expr
   (* Node calls *)

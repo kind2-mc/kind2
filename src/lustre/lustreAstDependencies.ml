@@ -288,7 +288,6 @@ and mk_graph_expr: LA.expr -> dependency_analysis_data
   | LA.ArrayConcat  (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2)
   | LA.GroupExpr (_, _, es) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map mk_graph_expr es)
   | LA.Pre (_, e) -> mk_graph_expr e
-  | LA.Last (pos, i) -> singleton_dependency_analysis_data empty_hs i pos
   | LA.Fby (_, e1, _, e2) ->  union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2) 
   | LA.Arrow (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2)
   | LA.ModeRef (pos, ids) ->
@@ -378,7 +377,6 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
      :: (List.flatten (List.map get_node_call_from_expr es)) @ get_node_call_from_expr e1
   (* Temporal operators *)
   | LA.Pre (_, e) -> get_node_call_from_expr e
-  | LA.Last _ -> []
   | LA.Fby (_, e1, _, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Node calls *)
@@ -626,7 +624,6 @@ let rec vars_with_flattened_nodes: node_summary -> LA.expr -> LA.SI.t list = fun
 
   (* Temporal operators *)
   | Pre (_, _) -> [SI.empty]
-  | Last (_, _) -> [SI.empty]
   | Fby (_, e1, _, e2)
   | Arrow (_, e1, e2) ->
     let e1' = vars_with_flattened_nodes m e1 in
@@ -784,7 +781,6 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
   | LA.Pre (_, e) ->
      mk_graph_expr2 m e >>= fun g ->
        R.ok (List.map (map_g_pos (fun v -> HString.concat2 v (HString.mk_hstring "$p"))) g) 
-  | LA.Last (pos, i) -> R.ok [singleton_dependency_analysis_data (HString.mk_hstring "last$") i pos]
   | LA.Fby (p, e1, _, e2)
   | LA.Arrow (p, e1, e2) ->
      mk_graph_expr2 m e1 >>= fun g1 ->

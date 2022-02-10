@@ -1951,7 +1951,7 @@ and eval_node_decl
      to inputs *)
   let ctx = eval_node_locals ctx locals in
 
-  (* Parse equations, assertions, properties, automata, etc. *)
+  (* Parse equations, assertions, properties, etc. *)
   let ctx =
     eval_node_items inputs outputs locals ctx items in
 

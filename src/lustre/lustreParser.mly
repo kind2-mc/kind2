@@ -58,8 +58,7 @@ let mk_span start_pos end_pos =
 %token <HString.t>STRING
 
 (* Identifier token *)
-%token <HString.t>SYM 
-%token <HString.t>QUOTSYM 
+%token <HString.t>SYM
       
 (* Tokens for types *)
 %token TYPE
@@ -182,7 +181,6 @@ let mk_span start_pos end_pos =
 
 (* Tokens for temporal operators *)
 %token PRE
-%token LAST
 %token FBY
 %token ARROW
     
@@ -970,8 +968,6 @@ pexpr(Q):
 
   | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }
 
-  | LAST; i = ident_or_quotident { A.Last (mk_pos $startpos, i) }
-    
   (* A node or function call *)
   | e = node_call { e } 
 
@@ -1049,10 +1045,6 @@ ident:
   | ENSURE { HString.mk_hstring "ensure" }
   | WEAKLY { HString.mk_hstring "weakly" }
   | s = SYM { s }
-
-ident_or_quotident:
-  | id = ident { id }
-  | s = QUOTSYM { s }
 
 (* An identifier with a type *)
 typed_ident: s = ident; COLON; t = lustre_type { (mk_pos $startpos, s, t) }
