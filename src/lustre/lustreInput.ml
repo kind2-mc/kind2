@@ -39,10 +39,21 @@ module AD = LustreAstDependencies
 module LAN = LustreAstNormalizer
 module LS = LustreSyntaxChecks
 module LIA = LustreAbstractInterpretation
-module LE = LustreErrors
 
+type error = [
+  | `LustreAstDependenciesError of Lib.position * LustreAstDependencies.error_kind
+  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
+  | `LustreAstNormalizerError
+  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
+  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
+  | `LustreInputOnlyParse
+  | `LustreUnguardedPreError of Lib.position * LustreAst.expr
+]
+
+let (let*) = Res.(>>=)
 let (>>=) = Res.(>>=)
-          
+let (>>) = Res.(>>)
+
 exception NoMainNode of string
 
 (* The parser has succeeded and produced a semantic value.*)
@@ -161,18 +172,23 @@ let type_check declarations =
   match tc_res with
   | Ok (c, g, d, toplevel) ->
     let unguarded_pre_warnings = LAN.get_warnings g in
-    let error_or_warn = if Flags.lus_strict ()
-      then fail_at_position
-      else warn_at_position
-    in List.iter (fun (p, e) -> error_or_warn p
-      (Format.asprintf
-        "@[<hov 2>Unguarded pre in expression@ %a@]"
-        LA.pp_print_expr e))
-      unguarded_pre_warnings;
-    Debug.parse "Type checking done"
-    ; Debug.parse "========\n%a\n==========\n" LA.pp_print_program d
-    ; (c, g, d, toplevel)
-  | Error e -> fail_at_position (LE.error_position e) (LE.error_message e)
+    let warnings = List.map (fun (p, e) -> 
+        if Flags.lus_strict () then
+          Error (`LustreUnguardedPreError (p, e))
+        else
+          let warn_message = (Format.asprintf
+            "@[<hov 2>Unguarded pre in expression@ %a@]"
+            LA.pp_print_expr e)
+          in
+          warn_at_position p warn_message;
+          Ok ())
+      unguarded_pre_warnings
+    in
+    let warning = List.fold_left (>>) (Ok ()) warnings in
+    Debug.parse "Type checking done";
+    Debug.parse "========\n%a\n==========\n" LA.pp_print_program d;
+    warning >> Ok (c, g, d, toplevel)
+  | Error e -> Error e(* fail_at_position (LE.error_position e) (LE.error_message e) *)
 
 
 let print_nodes_and_globals nodes globals =
@@ -221,12 +237,13 @@ let of_channel only_parse in_ch =
 
   if only_parse then (
     if Flags.old_frontend () then
-      let _ = LD.declarations_to_nodes declarations in None
+      let _ = LD.declarations_to_nodes declarations in Error `LustreInputOnlyParse
     else
-      let _ = type_check declarations in None
-  )
+      match type_check declarations with
+      | Ok _ -> Error `LustreInputOnlyParse
+      | Error e -> Error e)
   else (
-    let nodes, globals, main_nodes =
+    let result =
       if Flags.old_frontend () then
         (* Simplify declarations to a list of nodes *)
         let nodes, globals = LD.declarations_to_nodes declarations in
@@ -255,9 +272,9 @@ let of_channel only_parse in_ch =
               This can only happen when the name is passed as command-line argument *)
             raise (NoMainNode "Main node not found in input")
         in
-        nodes, globals, main_nodes
+        Ok (nodes, globals, main_nodes)
       else
-        let ctx, gids, decls, toplevel_nodes = type_check declarations in
+        let* (ctx, gids, decls, toplevel_nodes) = type_check declarations in
         let nodes, globals = LNG.compile ctx gids decls in
         let main_nodes = match Flags.lus_main () with
           | Some s -> [LustreIdent.mk_string_ident s]
@@ -266,19 +283,22 @@ let of_channel only_parse in_ch =
             | [] -> toplevel_nodes |> List.map
               (fun s -> s |> HString.string_of_hstring |> LustreIdent.mk_string_ident))
         in
-        nodes, globals, main_nodes
+        Ok (nodes, globals, main_nodes)
     in
-    let nodes = List.map (fun ({ LustreNode.name } as n) ->
-        if List.exists (fun id -> LustreIdent.equal id name) main_nodes then
-          { n with is_main = true }
-        else n)
-      nodes
-    in
-    print_nodes_and_globals nodes globals;
 
-    (* Return a subsystem tree from the list of nodes *)
-    Some (LN.subsystems_of_nodes main_nodes nodes, globals, declarations)
-  )
+    match result with
+    | Ok (nodes, globals, main_nodes) ->
+      let nodes = List.map (fun ({ LustreNode.name } as n) ->
+          if List.exists (fun id -> LustreIdent.equal id name) main_nodes then
+            { n with is_main = true }
+          else n)
+        nodes
+      in
+      print_nodes_and_globals nodes globals;
+
+      (* Return a subsystem tree from the list of nodes *)
+      Ok (LN.subsystems_of_nodes main_nodes nodes, globals, declarations)
+    | Error e -> Error e)
 
 
 (* Returns the AST from a file. *)
