@@ -114,6 +114,7 @@ type error = [
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
+  | `LustreParserError of Lib.position * string
 ]
 
 (** [of_file only_parse f] parse Lustre model from file [f], and
@@ -130,7 +131,7 @@ val of_file :
   ((LustreNode.t SubSystem.t list * LustreGlobals.t * LustreAst.t) option, [> error]) result
 
 (** Parse from the file, return the AST. *)
-val ast_of_file : string -> LustreAst.t
+val ast_of_file : string -> (LustreAst.t, [> error]) result
 
 (* 
    Local Variables:

@@ -26,6 +26,7 @@ type error = [
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
+  | `LustreParserError of Lib.position * string
 ]
 
 val error_position : [< error] -> Lib.position

@@ -47,6 +47,7 @@ type error = [
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
+  | `LustreParserError of Lib.position * string
 ]
 
 let (let*) = Res.(>>=)
@@ -77,7 +78,7 @@ let build_parse_error_msg env =
 let fail env lexbuf =
   let emsg = build_parse_error_msg env in
   let pos = position_of_lexing lexbuf.lex_curr_p in
-  fail_at_position pos emsg
+  Error (`LustreParserError (pos, emsg))
 
 (* Incremental Parsing *)
 let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
@@ -94,13 +95,13 @@ let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
      parse lexbuf chkpnt
   | LPMI.HandlingError env ->
      fail env lexbuf
-  | LPMI.Accepted v -> success v
+  | LPMI.Accepted v -> Ok (success v)
   | LPMI.Rejected ->
-     fail_no_position "Parser Error: Parser rejected the input."
+    Error (`LustreParserError (Lib.dummy_pos, "Parser Error: Parser rejected the input."))
   
 
 (* Parses input channel to generate an AST *)
-let ast_of_channel(in_ch: in_channel): LustreAst.t =
+let ast_of_channel(in_ch: in_channel) =
 
   let input_source = Flags.input_file () in
   (* Create lexing buffer *)
@@ -120,7 +121,9 @@ let ast_of_channel(in_ch: in_channel): LustreAst.t =
   try
     (parse lexbuf (LPI.main lexbuf.lex_curr_p))
   with
-  | LustreLexer.Lexer_error err -> fail_at_position (Lib.position_of_lexing lexbuf.lex_curr_p) err  
+  | LustreLexer.Lexer_error err ->
+    let pos = (Lib.position_of_lexing lexbuf.lex_curr_p) in
+    Error (`LustreParserError (pos, err))
 
 let type_check declarations =
   let tc_res =
@@ -228,7 +231,7 @@ let print_nodes_and_globals nodes globals =
 (* Parse from input channel *)
 let of_channel old_frontend only_parse in_ch =
   (* Get declarations from channel. *)
-  let declarations = ast_of_channel in_ch in
+  let* declarations = ast_of_channel in_ch in
 
   (* Provide lsp info if option is enabled *)
   if Flags.log_format_json () && Flags.lsp () then
