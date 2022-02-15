@@ -1059,14 +1059,14 @@ end
 
 (** List of post-analysis modules. *)
 let post_analysis = [
-  (module RunTestGen: PostAnalysis) ;
-  (module RunAssumptionGen: PostAnalysis) ;
-  (module RunContractGen: PostAnalysis) ;
-  (module RunRustGen: PostAnalysis) ;
-  (module RunInvLog: PostAnalysis) ;
   (module RunInvPrint: PostAnalysis) ;
-  (module RunCertif: PostAnalysis) ;
+  (module RunInvLog: PostAnalysis) ;
   (module RunIVC: PostAnalysis) ;
+  (module RunCertif: PostAnalysis) ;
+  (module RunContractGen: PostAnalysis) ;
+  (module RunTestGen: PostAnalysis) ;
+  (module RunRustGen: PostAnalysis) ;
+  (module RunAssumptionGen: PostAnalysis) ;
   (module RunMCS: PostAnalysis) ;
 ]
 
