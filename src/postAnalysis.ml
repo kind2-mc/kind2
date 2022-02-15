@@ -1074,6 +1074,17 @@ let post_analysis = [
 
 Stops analysis time count. *)
 let run i_sys top analyze results =
+  let log_exn e =
+    match e with
+    | Failure msg -> (
+      KEvent.log L_fatal "Failure: %s" msg
+    )
+    | _ -> (
+      KEvent.log L_fatal
+        "Caught %s in post-analysis treatment."
+        (Printexc.to_string e)
+    )
+  in
   Stat.record_time Stat.analysis_time ;
   let post () = Stat.unpause_time Stat.analysis_time in
   try (
@@ -1094,18 +1105,15 @@ let run i_sys top analyze results =
               ) ;
               KEvent.log_post_analysis_end ()
             with e ->
+              (* Notify exception and move to next post-analysis *)
+              log_exn e;
               KEvent.log_post_analysis_end () ;
-              raise e
           ) ;
           (* Kill all solvers just in case. *)
           SMTSolver.destroy_all ()
         )
     )
-  ) with e -> (
-      KEvent.log L_fatal
-        "Caught %s in post-analysis treatment."
-        (Printexc.to_string e)
-  ) ;
+  ) with e -> ( log_exn e ) ;
   post () ;
   SMTSolver.destroy_all ()
 
