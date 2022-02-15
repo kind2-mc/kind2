@@ -851,10 +851,12 @@ let filter_loc_core_by_categories main_scope cats loc_core =
     ) loc_core in
   (ok, not_ok)
 
-let partition_loc_core_elts_by_guarantees loc_core =
+let partition_loc_core_elts_by_guarantees_and_mode_elts loc_core =
   let f = function
     | ContractItem (_, _, LustreNode.WeakGuarantee)
-    | ContractItem (_, _, LustreNode.Guarantee) -> true
+    | ContractItem (_, _, LustreNode.Guarantee)
+    | ContractItem (_, _, LustreNode.Require)
+    | ContractItem (_, _, LustreNode.Ensure) -> true
     | _ -> false
   in
   ScMap.fold

@@ -379,10 +379,13 @@ let get_contract_cores in_sys sys =
   let full_loc_core =
     ME.full_loc_core_for_sys in_sys sys ~only_top_level:true
   in
-  let guarantee_core, other_core =
-    ME.partition_loc_core_elts_by_guarantees full_loc_core
+  (* We need to include mode requires too since 
+     they may constraint current values of outputs
+  *)
+  let guarantee_mode_elt_core, other_core =
+    ME.partition_loc_core_elts_by_guarantees_and_mode_elts full_loc_core
   in
-  ME.loc_core_to_new_core guarantee_core,
+  ME.loc_core_to_new_core guarantee_mode_elt_core,
   ME.loc_core_to_new_core other_core
 
 
@@ -483,6 +486,8 @@ let compute_unviable_trace_and_core
       (TSys.get_logic sys)
       (Flags.Smt.solver ())
   in
+
+  SMTSolver.trace_comment solver "Computing set of conflicting guarantees and ensures" ;
 
   TransSys.define_and_declare_of_bounds
     sys
