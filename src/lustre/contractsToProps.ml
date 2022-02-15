@@ -19,6 +19,7 @@
 open Lib
 
 module Ast = LustreAst
+module LE = LustreErrors
            
 let blah txt pos = Format.asprintf "%s at %a" txt pp_print_position pos
 let blah_opt txt name pos =
@@ -211,8 +212,9 @@ let translate ast target =
   fmt_declarations fmt ast
 
 let translate_file file target =
-  let ast = LustreInput.ast_of_file file in
-  translate ast target
+  match LustreInput.ast_of_file file with
+  | Ok ast -> translate ast target
+  | Error e -> LustreReporting.fail_at_position_pt (LE.error_position e) (LE.error_message e)
 
 (* 
    Local Variables:

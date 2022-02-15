@@ -1,7 +1,7 @@
 -- Illegal temporal contract for function.
 function blah ( in: int ) returns ( out: int ) ;
 (*@contract
-  guarantee out = 0 -> pre in ;
+  guarantee out = (0 -> pre in) ;
 *)
 let
   out = in ;

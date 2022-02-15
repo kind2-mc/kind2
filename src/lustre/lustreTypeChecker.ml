@@ -142,7 +142,7 @@ let error_message kind = match kind with
   | ExpectedFunctionType ty -> "Expected node type to be a function type, but found type " ^ string_of_tc_type ty
   | IlltypedIdentifier (id, ty1, ty2) -> "Identifier: " ^ HString.string_of_hstring id
     ^ " does not match expected type " ^ string_of_tc_type ty1 ^ " with inferred type " ^ string_of_tc_type ty2
-  | UnificationFailed (ty1, ty2) -> "Cannot unify type" ^ string_of_tc_type ty1
+  | UnificationFailed (ty1, ty2) -> "Cannot unify type " ^ string_of_tc_type ty1
     ^ " with inferred type " ^ string_of_tc_type ty2
   | ExpectedType (ty1, ty2) -> "Expected type " ^ string_of_tc_type ty1 ^ " but found type " ^ string_of_tc_type ty2
   | EmptyArrayExpression -> "Array expression cannot be empty"
@@ -160,7 +160,7 @@ let error_message kind = match kind with
   | ExpectedBitShiftConstantOfSameWidth ty -> "Expected second argument of shit opperator to be a constant of type "
     ^ "unsigned machine integer of the same width as first argument but found type " ^ string_of_tc_type ty
   | ExpectedBitShiftMachineIntegerType ty -> "Expected first argument of shit operator to be of type signed "
-    ^ "or unsigned machien integer but found type " ^ string_of_tc_type ty
+    ^ "or unsigned machine integer but found type " ^ string_of_tc_type ty
   | InvalidConversion (ty1, ty2) -> "Cannot convert a non-number type " ^ string_of_tc_type ty1 ^ " to type " ^ string_of_tc_type ty2
   | NodeArgumentsAreOnLHS set -> "Argument to nodes cannot be LHS of an equation but found "
     ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements set)
@@ -173,7 +173,7 @@ let error_message kind = match kind with
     ^ " does noit match expected type " ^ string_of_tc_type ty ^ " on right hand side of the node equation"
   | DisallowedReassignment vars -> "Cannot reassign value to a constant or enum but found reassignment to identifier(s): "
     ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements vars)
-  | DisallowedSubrangeInContractReturn (kind, id, ty) -> (match kind with | true -> "Argument" | false -> "Return")
+  | DisallowedSubrangeInContractReturn (kind, id, ty) -> (match kind with | true -> "Argument " | false -> "Return ")
     ^ HString.string_of_hstring id ^ " can not have type "
     ^ string_of_tc_type ty ^ ". Contract " ^ (match kind with | true -> "assumptions" | false -> "guarantees")
     ^ " should be used instead"

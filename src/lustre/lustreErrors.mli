@@ -19,15 +19,15 @@
   
   @author Andrew Marmaduke *)
 
-open Lib
-
 type error = [
-  | `LustreAstDependenciesError of position * LustreAstDependencies.error_kind
-  | `LustreAstInlineConstantsError of position * LustreAstInlineConstants.error_kind
+  | `LustreAstDependenciesError of Lib.position * LustreAstDependencies.error_kind
+  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
   | `LustreAstNormalizerError
-  | `LustreSyntaxChecksError of position * LustreSyntaxChecks.error_kind
-  | `LustreTypeCheckerError of (position * LustreTypeChecker.error_kind)
+  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
+  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
+  | `LustreUnguardedPreError of Lib.position * LustreAst.expr
+  | `LustreParserError of Lib.position * string
 ]
 
-val error_position : [< error] -> position
+val error_position : [< error] -> Lib.position
 val error_message : [< error] -> string
