@@ -46,7 +46,6 @@ type error = [
   | `LustreAstNormalizerError
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
-  | `LustreInputOnlyParse
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
 ]
 
@@ -237,10 +236,10 @@ let of_channel old_frontend only_parse in_ch =
 
   if only_parse then (
     if old_frontend then
-      let _ = LD.declarations_to_nodes declarations in Error `LustreInputOnlyParse
+      let _ = LD.declarations_to_nodes declarations in Ok None
     else
       match type_check declarations with
-      | Ok _ -> Error `LustreInputOnlyParse
+      | Ok _ -> Ok None
       | Error e -> Error e)
   else (
     let result =
@@ -297,7 +296,7 @@ let of_channel old_frontend only_parse in_ch =
       print_nodes_and_globals nodes globals;
 
       (* Return a subsystem tree from the list of nodes *)
-      Ok (LN.subsystems_of_nodes main_nodes nodes, globals, declarations)
+      Ok (Some (LN.subsystems_of_nodes main_nodes nodes, globals, declarations))
     | Error e -> Error e)
 
 

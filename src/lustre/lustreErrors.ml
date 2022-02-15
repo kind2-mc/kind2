@@ -24,7 +24,6 @@ type error = [
   | `LustreAstNormalizerError
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
-  | `LustreInputOnlyParse
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
 ]
 
@@ -35,7 +34,6 @@ let error_position error = match error with
   | `LustreAstNormalizerError -> assert false
   | `LustreSyntaxChecksError (pos, _) -> pos
   | `LustreTypeCheckerError (pos, _) -> pos
-  | `LustreInputOnlyParse -> Lib.dummy_pos
   | `LustreUnguardedPreError (pos, _) -> pos
 
 let error_message error = match error with
@@ -44,5 +42,4 @@ let error_message error = match error with
 | `LustreAstNormalizerError -> assert false
 | `LustreSyntaxChecksError (_, kind) -> LustreSyntaxChecks.error_message kind
 | `LustreTypeCheckerError (_, kind) -> LustreTypeChecker.error_message kind
-| `LustreInputOnlyParse -> "TODO"
 | `LustreUnguardedPreError (_, e) -> (Format.asprintf "@[<hov 2>Unguarded pre in expression@ %a@]" LA.pp_print_expr e)

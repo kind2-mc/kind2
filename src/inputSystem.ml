@@ -36,8 +36,8 @@ type _ t =
 
 let read_input_lustre only_parse input_file =
   match LustreInput.of_file only_parse input_file with
-  | Ok in_sys -> Some (Lustre in_sys)
-  | Error `LustreInputOnlyParse -> None
+  | Ok (Some in_sys) -> Some (Lustre in_sys)
+  | Ok None -> None
   | Error e -> R.fail_at_position (E.error_position e) (E.error_message e)
 
 let translate_contracts_lustre = ContractsToProps.translate_file

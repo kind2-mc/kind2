@@ -113,7 +113,6 @@ type error = [
   | `LustreAstNormalizerError
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
-  | `LustreInputOnlyParse
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
 ]
 
@@ -128,7 +127,7 @@ type error = [
 *)
 val of_file :
   ?old_frontend:bool -> bool -> string ->
-  ((LustreNode.t SubSystem.t list * LustreGlobals.t * LustreAst.t), [> error]) result
+  ((LustreNode.t SubSystem.t list * LustreGlobals.t * LustreAst.t) option, [> error]) result
 
 (** Parse from the file, return the AST. *)
 val ast_of_file : string -> LustreAst.t

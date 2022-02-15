@@ -25,7 +25,6 @@ type error = [
   | `LustreAstNormalizerError
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
-  | `LustreInputOnlyParse
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
 ]
 
