@@ -1,5 +1,8 @@
 
-(dirs lustreSyntaxChecks lustreTypeChecker lustreAstDependencies)
+(dirs lustreSyntaxChecks
+  lustreTypeChecker
+  lustreAstDependencies
+  lustreParser)
 
 (tests
   (names testAstDependencies testLustreFrontend)

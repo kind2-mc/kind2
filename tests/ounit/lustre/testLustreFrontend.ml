@@ -27,6 +27,24 @@ let load_file file = LustreInput.of_file ?old_frontend:(Some false) true file
 let mk_test label fn = label >:: (fun _ -> assert_bool "expected error" (fn ()))
 
 (* *************************************************************************** *)
+(*                           Lustre Parser Checks                              *)
+(* *************************************************************************** *)
+let _ = run_test_tt_main ("frontend LustreParser error tests" >::: [
+  mk_test "test imported function without body" (fun () ->
+    match load_file "./lustreParser/imported_fun_no_body.lus" with
+    | Error (`LustreParserError  _) -> true
+    | _ -> false);
+  mk_test "test imported node without body" (fun () ->
+    match load_file "./lustreParser/imported_node_no_body.lus" with
+    | Error (`LustreParserError  _) -> true
+    | _ -> false);
+  mk_test "test mode reqs by idents no self ref" (fun () ->
+    match load_file "./lustreParser/mode_reqs_by_idents_no_self_ref.lus" with
+    | Error (`LustreParserError  _) -> true
+    | _ -> false);
+])
+
+(* *************************************************************************** *)
 (*                           Lustre Syntax Checks                              *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
