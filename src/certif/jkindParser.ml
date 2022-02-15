@@ -68,11 +68,11 @@ let jkind_options = [
 
 
 (* Create command line to call JKind *)
-let jkind_command_line file =
+let jkind_command_line file errors =
   let jkind = Flags.Certif.jkind_bin () in
   let file_red =
     (* if Debug.mode "fec" then [file] *)
-    (* else *) [file; ">/dev/null"] in
+    (* else *) [file; ">/dev/null 2>"; errors] in
   String.concat " " (jkind :: jkind_options @ file_red)
 
 
@@ -481,13 +481,24 @@ let get_jkind_transsys file =
 
   Debug.certif "Temporary file %s" tmp;
   
+  let errors = Filename.temp_file base ".errors" in
+
+  Debug.certif "Temporary file with error messages %s" errors;
+
   (* Run JKind on temporary copy *)
-  let cmd = jkind_command_line tmp in
+  let cmd = jkind_command_line tmp errors in
 
   Debug.certif "JKind command line: %s" cmd;
 
-  if Sys.command cmd <> 0 then
-    failwith "JKind execution failed";
+  if Sys.command cmd <> 0 then (
+    let messages =
+      let ch = open_in errors in
+      let s = really_input_string ch (in_channel_length ch) in
+      close_in ch;
+      s
+    in
+    failwith (Format.asprintf "JKind execution failed:@ %s" messages)
+  );
 
   (* open dump file and parse *)
   let dump_file = tmp ^ ".bmc.smt2" in
