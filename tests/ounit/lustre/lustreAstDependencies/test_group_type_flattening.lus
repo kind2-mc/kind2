@@ -7,8 +7,7 @@ tel
 
 
 node x74 (e1, e2, e3: int; f2: bool) returns (e: int^3; f: [int, bool, int]);
-var g: [int, int];
-var h, i, j, k: int;
+var h, i, j: int;
 let
    e = [e1, e2, e3];
    h,i,j = (n(e1, [e1, e2]), n(e1, [e1, e2]));

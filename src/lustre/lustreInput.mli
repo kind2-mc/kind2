@@ -127,7 +127,7 @@ type error = [
     {!NoMainNode} exception.
 *)
 val of_file :
-  bool -> string ->
+  ?old_frontend:bool -> bool -> string ->
   ((LustreNode.t SubSystem.t list * LustreGlobals.t * LustreAst.t), [> error]) result
 
 (** Parse from the file, return the AST. *)

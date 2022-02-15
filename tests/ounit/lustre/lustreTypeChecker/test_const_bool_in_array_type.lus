@@ -4,5 +4,6 @@ const t = false;
 node f(x : bool) returns (b1 : bool^n);
 var b: bool^t; -- should fail here
 let
+  b = false;
   b1 = false ^ n;
 tel;

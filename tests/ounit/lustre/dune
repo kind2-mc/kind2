@@ -1,3 +1,7 @@
+
+(dirs lustreSyntaxChecks lustreTypeChecker lustreAstDependencies)
+
 (tests
-  (names testAstDependencies)
+  (names testAstDependencies testLustreFrontend)
   (libraries ounit2 kind2dev))
+

@@ -227,7 +227,7 @@ let print_nodes_and_globals nodes globals =
 
 
 (* Parse from input channel *)
-let of_channel only_parse in_ch =
+let of_channel old_frontend only_parse in_ch =
   (* Get declarations from channel. *)
   let declarations = ast_of_channel in_ch in
 
@@ -236,7 +236,7 @@ let of_channel only_parse in_ch =
     LspInfo.print_ast_info declarations;
 
   if only_parse then (
-    if Flags.old_frontend () then
+    if old_frontend then
       let _ = LD.declarations_to_nodes declarations in Error `LustreInputOnlyParse
     else
       match type_check declarations with
@@ -244,7 +244,7 @@ let of_channel only_parse in_ch =
       | Error e -> Error e)
   else (
     let result =
-      if Flags.old_frontend () then
+      if old_frontend then
         (* Simplify declarations to a list of nodes *)
         let nodes, globals = LD.declarations_to_nodes declarations in
             (* Name of main node *)
@@ -312,13 +312,13 @@ let ast_of_file filename =
 
 
 (* Open and parse from file *)
-let of_file only_parse filename =
+let of_file ?(old_frontend = Flags.old_frontend ()) only_parse filename =
   (* Open the given file for reading *)
   let in_ch = match filename with
     | "" -> stdin
     | _ -> open_in filename
   in
-  of_channel only_parse in_ch
+  of_channel old_frontend only_parse in_ch
 
 
 (* 
