@@ -2139,9 +2139,9 @@ let generate_certificate sys dirname =
   Stat.record_time Stat.certif_gen_time;
 
   (* Show which file contains the certificate *)
-  printf "Certificate checker was written in @{<b>%s@}@." certificate_filename
-
-
+  KEvent.log L_note
+    "Certificate checker was written in @{<b>%s@}"
+    certificate_filename
 
 (*****************************************)
 (* Certificates for frontend translation *)
@@ -2627,7 +2627,7 @@ let generate_frontend_obs node kind2_sys dirname =
   (* Time statistics *)
   Stat.start_timer Stat.certif_frontend_time;
 
-  printf "Generating frontend eq-observer with jKind ...@.";
+  KEvent.log L_note "Generating frontend eq-observer with jKind...";
 
   (* Call jKind and get back its internal transition system for the same
      file *)
@@ -2926,10 +2926,10 @@ let generate_smt2_certificates input sys =
         generate_frontend_obs input sys dirname |> ignore;
         true
       with Failure s ->
-        KEvent.log L_warn "%s@ No frontend observer." s;
+        KEvent.log L_warn "%s@.(No frontend observer)" s;
         false
     else begin
-      printf "No certificate for frontend@.";
+      KEvent.log L_warn "No certificate for frontend";
       false
     end
   in
@@ -2952,7 +2952,7 @@ let generate_smt2_certificates input sys =
   (* Recursive call *)
   if not (is_fec sys) && call_frontend && gen_frontend then begin
 
-    printf "@{<b>Generating frontend certificate@}@.";
+    KEvent.log L_note "@{<b>Generating frontend certificate@}";
     let cmd_l =
       Array.to_list Sys.argv
       |> List.filter (fun s -> s <> (Flags.input_file ()))
@@ -2970,7 +2970,7 @@ let generate_smt2_certificates input sys =
     | 0 | 20 -> ()
     | c ->
       KEvent.log L_warn
-        "Failed to generate frontend certificate (return code %d)@." c
+        "Failed to generate frontend certificate (return code %d)" c
   end  
 
 
@@ -3059,7 +3059,7 @@ let generate_all_proofs uid input sys =
 
       if gen_frontend then begin
 
-        printf "@{<b>Generating frontend proof@}@.";
+        KEvent.log L_note "@{<b>Generating frontend proof@}";
         let cmd_l =
           Array.to_list Sys.argv
           |> List.filter (fun s -> s <> (Flags.input_file ()))
@@ -3079,7 +3079,7 @@ let generate_all_proofs uid input sys =
 
           | c ->
             KEvent.log L_warn
-              "Failed to generate frontend proof (return code %d)@." c;
+              "Failed to generate frontend proof (return code %d)" c;
             file_copy inv_lfsc final_lfsc;
             if Sys.file_exists trust_lfsc then file_copy trust_lfsc final_trust;
 
@@ -3092,9 +3092,9 @@ let generate_all_proofs uid input sys =
       end;
 
       (* fix_A0 final_lfsc; *) (* temporary *)
-      printf "Final @{<green>LFSC proof@} written to @{<b>%s@}@." final_lfsc;
+      KEvent.log L_note "Final @{<green>LFSC proof@} written to @{<b>%s@}" final_lfsc;
       if Sys.file_exists final_trust then 
-        printf "Some trusted assumptions remain to be proven in @{<b>%s@}@."
+        KEvent.log L_warn "Some trusted assumptions remain to be proven in @{<b>%s@}"
           final_trust;
     end;
   end
