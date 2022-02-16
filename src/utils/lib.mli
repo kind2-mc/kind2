@@ -612,14 +612,8 @@ end
 
 (** File names. *)
 module Names: sig
-  (** Contract generation. *)
-  val contract_gen_file : string
-
   (** Contract name for contract generation. *)
   val contract_name : string list -> string
-
-  (** Invariant logging. *)
-  val inv_log_file : string
   
   (** Contract name for invariant logging. *)
   val inv_log_contract_name : string list -> string

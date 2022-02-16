@@ -156,9 +156,6 @@ val include_dirs : unit -> string list
 type real_precision = [`Rational | `Float]
 val real_precision : unit -> real_precision
 
-(** Minimizes and logs invariants as contracts. *)
-val log_invs : unit -> bool
-
 (** Prints invariants **)
 val print_invs : unit -> bool
 
@@ -200,9 +197,6 @@ val old_frontend : unit -> bool
 
 (** The modules enabled. *)
 val enabled : unit -> enable
-
-(** Returns the invariant generation techniques currently enabled. *)
-val invgen_enabled : unit -> enable
 
 (** Manually disables a module. *)
 val disable : Lib.kind_module -> unit
@@ -439,13 +433,6 @@ module Contracts : sig
 
   (** Check modes. *)
   val check_implem : unit -> bool
-
-
-  (** Contract generation. *)
-  val contract_gen : unit -> bool
-
-  (** Contract generation: max depth. *)
-  val contract_gen_depth : unit -> int
 
   (** Assumption generation. *)
   val assumption_gen : unit -> bool

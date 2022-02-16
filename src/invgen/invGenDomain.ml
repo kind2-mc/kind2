@@ -112,8 +112,6 @@ module Bool: Domain = struct
   let is_top term = term = Term.t_true
   let is_os_running () = (
     Flags.enabled () |> List.mem `INVGENOS
-  ) && (
-    Flags.Contracts.contract_gen () |> not
   )
 end
 
@@ -152,8 +150,6 @@ module Int: Domain = struct
   let is_top _ = false
   let is_os_running () = (
     Flags.enabled () |> List.mem `INVGENINTOS
-  ) && (
-    Flags.Contracts.contract_gen () |> not
   )
 end
 
@@ -223,8 +219,6 @@ module MakeMachineInteger(M: MachineIntegerParam): Domain = struct
   let is_top _ = false
   let is_os_running () = (
     Flags.enabled () |> List.mem `INVGENMACHOS
-  ) && (
-    Flags.Contracts.contract_gen () |> not
   )
 end
 
@@ -312,8 +306,6 @@ module Real: Domain = struct
   let is_top _ = false
   let is_os_running () = (
     Flags.enabled () |> List.mem `INVGENREALOS
-  ) && (
-    Flags.Contracts.contract_gen () |> not
   )
 end
 

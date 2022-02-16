@@ -1015,45 +1015,6 @@ module Contracts = struct
     )
   let check_implem () = !check_implem
 
-  let contract_gen_default = false
-  let contract_gen = ref contract_gen_default
-  let _ = add_spec
-    "--contract_gen"
-    (bool_arg contract_gen)
-    (fun fmt ->
-      Format.fprintf fmt
-      "@[<v>\
-        Uses invariant generation to infer contracts for a lustre system.@ \
-        Providing contracts, properties and assertion helps but is not@ \
-        mandatory. Contracts will be written to the folder specified by@ \
-        --output_dir.@ \
-        (Kind 2 will actually try to use invariants logged in previous runs@ \
-        automatically, even if they are not explicitely imported.)@ \
-        See also --contract_gen_depth and --contract_gen_fine_grain.@ \
-        Default: %a\
-      @]"
-      fmt_bool contract_gen_default
-    )
-  let contract_gen () = !contract_gen
-
-  let contract_gen_depth_default = 7
-  let contract_gen_depth = ref contract_gen_depth_default
-  let _ = add_spec
-    "--contract_gen_depth"
-    (Arg.Int (fun n -> contract_gen_depth := n))
-    (fun fmt ->
-      Format.fprintf fmt
-      "@[<v>\
-        Controls the depth of exploration used to generate contracts.@ \
-        Note that invariant generation is expected to go faster as it@ \
-        unrolls (explores) the system.@ \
-        Default: %d\
-      @]"
-      contract_gen_depth_default
-    )
-  let contract_gen_depth () = !contract_gen_depth
-
-
   let assumption_gen_default = false
   let assumption_gen = ref assumption_gen_default
   let _ = add_spec
@@ -2704,21 +2665,6 @@ module Global = struct
   let real_precision () = !real_precision
 
 
-  (* Log invariants. *)
-  let log_invs_default = false
-  let log_invs = ref log_invs_default
-  let _ = add_spec
-    "--log_invs"
-    (bool_arg log_invs)
-    (fun fmt ->
-      Format.fprintf fmt
-        "Logs strengthening invariants as contracts after minimization.@ \
-        Default: %b"
-        log_invs_default
-    )
-  let log_invs () = ! log_invs
-
-
   (* Print invariants. *)
   let print_invs_default = false
   let print_invs = ref print_invs_default
@@ -2938,20 +2884,6 @@ module Global = struct
     )
   (* let enable mdl = enabled := mdl :: !enabled *)
   let enabled () = !enabled
-
-  (* Returns the invariant generation techniques enabled. *)
-  let invgen_enabled () = enabled () |> List.filter (
-    function
-    | `INVGEN
-    | `INVGENOS
-    | `INVGENINT
-    | `INVGENINTOS
-    | `INVGENMACH
-    | `INVGENMACHOS
-    | `INVGENREAL
-    | `INVGENREALOS -> true
-    | _ -> false
-  )
 
   (* Modules disabled. *)
   let _ = add_spec
@@ -3223,14 +3155,12 @@ type real_precision = Global.real_precision
 
 let output_dir = Global.output_dir
 let include_dirs = Global.include_dirs
-let log_invs = Global.log_invs
 let print_invs = Global.print_invs
 let dump_cex = Global.dump_cex
 let only_parse = Global.only_parse
 let lsp = Global.lsp
 let old_frontend = Global.old_frontend
 let enabled = Global.enabled
-let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable
 let lus_strict = Global.lus_strict
 let modular = Global.modular
