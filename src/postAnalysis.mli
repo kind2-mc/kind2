@@ -51,7 +51,6 @@ end
 module RunTestGen: PostAnalysis
 module RunContractGen: PostAnalysis
 module RunRustGen: PostAnalysis
-module RunInvLog: PostAnalysis
 module RunInvPrint: PostAnalysis
 module RunCertif: PostAnalysis
 module RunIVC: PostAnalysis
