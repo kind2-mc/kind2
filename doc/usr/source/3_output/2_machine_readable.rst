@@ -195,7 +195,6 @@ The post-analyses currently available are :ref:`9_other/3_test_generation` (``te
 :ref:`9_other/5_proofs` (``certification``),
 :ref:`9_other/6_contract_generation` (``contractgen``),
 :ref:`9_other/4_rust_compilation` (``rustgen``),
-:ref:`9_other/7_invariant_logging` (``invlog``),
 :ref:`9_other/9_invariant_printing` (``invprint``), and
 :ref:`9_other/10_inductive_validity_core` (``ivc``).
 
@@ -386,7 +385,6 @@ The post-analyses currently available are :ref:`9_other/3_test_generation` (``te
 :ref:`9_other/5_proofs` (``certification``),
 :ref:`9_other/6_contract_generation` (``contractgen``),
 :ref:`9_other/4_rust_compilation` (``rustgen``),
-:ref:`9_other/7_invariant_logging` (``invlog``),
 :ref:`9_other/9_invariant_printing` (``invprint``), and
 :ref:`9_other/10_inductive_validity_core` (``ivc``).
 

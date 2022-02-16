@@ -36,7 +36,6 @@ Table of Contents
     9_other/4_rust_compilation
     9_other/5_proofs
     9_other/6_contract_generation
-    9_other/7_invariant_logging
     9_other/9_invariant_printing
     9_other/8_interpreter
     9_other/10_inductive_validity_core
