@@ -1027,8 +1027,6 @@ module Contracts = struct
         Providing contracts, properties and assertion helps but is not@ \
         mandatory. Contracts will be written to the folder specified by@ \
         --output_dir.@ \
-        (Kind 2 will actually try to use invariants logged in previous runs@ \
-        automatically, even if they are not explicitely imported.)@ \
         See also --contract_gen_depth and --contract_gen_fine_grain.@ \
         Default: %a\
       @]"

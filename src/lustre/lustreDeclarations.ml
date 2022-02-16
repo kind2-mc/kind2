@@ -1765,83 +1765,6 @@ and eval_node_items inputs outputs locals ctx = function
     eval_node_items inputs outputs locals ctx tl
 
 
-(** Try to parse a contract and add it as candidate to an optional contract.
-
-Failure's silent. *)
-and [@ocaml.warning "-27"] parse_implicit_contract scope inputs outputs ctx file contract_name = try (
-  let in_ch = open_in file in
-
-  (* Create lexing buffer *)
-  let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
-
-  (* Initialize lexing buffer with channel *)
-  LustreLexer.lexbuf_init 
-    in_ch
-    (try Filename.dirname (Flags.input_file ())
-     with Failure _ -> Sys.getcwd ()) ;
-
-  let ast = LustreParser.main LustreLexer.token lexbuf in
-  (* Format.printf
-    "contract: @[<v>%a@]@.@."
-    (pp_print_list A.pp_print_declaration "@ ")  ast ; *)
-
-  let call =
-    (* Find the contract and build the call. *)
-    ast |> List.fold_left (
-      fun call -> function
-      | A.ContractNodeDecl (
-        {A.start_pos = pos}, (id, _, cont_in, cont_out, _)
-      ) when id = contract_name -> (
-        (* Verify signatures match and construct call. *)
-        try (
-          let ok, ins =
-            List.fold_left2 (
-              fun (ok, ins) (
-                pos, node_in,  _ (* node_in_ty *), _, _
-              ) (
-                _, cont_in, _ (* cont_in_ty *), _, _
-              ) ->
-                ok && (node_in = cont_in),
-                (A.Ident (pos, node_in)) :: ins
-            ) (true, []) inputs cont_in
-            |> fun (ok, ins) -> ok, List.rev ins
-          in
-          let ok, outs =
-            List.fold_left2 (
-              fun (ok, outs) (
-                _, node_out, _ (* node_out_ty *), _
-              ) (
-                _, cont_out, _ (* cont_out_ty *), _
-              ) ->
-                ok && (node_out = cont_out),
-                (node_out) :: outs
-            ) (ok, []) outputs cont_out
-            |> fun (ok, outs) -> ok, List.rev outs
-          in
-          if ok then Some (
-            A.ContractCall (pos, id, ins, outs)
-          ) else call
-        ) with _ -> call
-      )
-      | _ -> call
-    ) None
-  in
-  match call with
-  | Some _ ->
-    let ctx = C.push_contract_scope ctx (HString.string_of_hstring contract_name) in
-    let ctx = List.fold_left declaration_to_context ctx ast in
-    let ctx = C.pop_contract_scope ctx in
-    ctx, call
-  | None -> raise Not_found
-) with _ (* e *) -> (
-  (* Printexc.to_string e
-  |> Format.printf
-    "[eval_node_decl] \
-    @[<v>Could not load Kind 2 contract from `%s`:@ %s@]@.@." file ; *)
-  ctx, None
-)
-
-
 (* Add declarations of node to context *)
 and eval_node_decl
   ctx pos inputs outputs locals items contract_spec
@@ -1860,14 +1783,6 @@ and eval_node_decl
 
   (* |===| Contract stuff. *)
 
-  (* Try to find a contract previously dumped by Kind 2. *)
-  let scope =
-    match C.current_node_name ctx with
-    | Some name -> I.to_scope name
-    | None -> failwith "[eval_node_decl] No current node in context."
-  in
-  let dir = Flags.subdir_for scope in
-
   (* Setting candidate flag for explicit contract. *)
   let contract_spec =
     match contract_spec with
@@ -1875,54 +1790,6 @@ and eval_node_decl
     | Some spec -> Some (
       spec |> List.map (fun item -> item, false)
     )
-  in
-
-  (* Augments an optional contract with a candidate declaration. *)
-  let augment_contract contract decl =
-    match contract with
-    | Some contract -> Some ( (decl, true) :: contract )
-    | None -> Some [ decl, true ]
-  in
-
-  (* Attempt to parse invariants logged in previous runs. *)
-  let ctx, contract_spec =
-    let target = Filename.concat dir Names.inv_log_file in
-    match
-      Names.inv_log_contract_name scope
-      |> HString.mk_hstring
-      |> parse_implicit_contract scope inputs outputs ctx target
-    with
-    | ctx, None -> ctx, contract_spec
-    | ctx, Some call ->
-      let ctx =
-        C.current_node_map ctx (
-          fun ({ N.silent_contracts } as node) -> {
-            node with N.silent_contracts = target :: silent_contracts
-          }
-        )
-      in
-      ctx, augment_contract contract_spec call
-  in
-
-
-  (* Attempt to parse contract logged in previous runs. *)
-  let ctx, contract_spec =
-    let target = Filename.concat dir Names.contract_gen_file in
-    match
-      Names.contract_name scope
-      |> HString.mk_hstring
-      |> parse_implicit_contract scope inputs outputs ctx target
-    with
-    | ctx, None -> ctx, contract_spec
-    | ctx, Some call ->
-      let ctx =
-        C.current_node_map ctx (
-          fun ({ N.silent_contracts } as node) -> {
-            node with N.silent_contracts = target :: silent_contracts
-          }
-        )
-      in
-      ctx, augment_contract contract_spec call
   in
 
   (* Parse contracts and add to context *)

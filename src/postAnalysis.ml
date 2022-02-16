@@ -23,8 +23,6 @@ module Num = Numeral
 module TSys = TransSys
 module ISys = InputSystem
 
-module SVS = StateVar.StateVarSet
-
 open Res
 
 
@@ -551,147 +549,6 @@ module RunRustGen: PostAnalysis = struct
     Ok ()
 end
 
-(** Invariant log.
-Minimizes and logs invariants used in the proof. *)
-module RunInvLog: PostAnalysis = struct
-  let name = "invlog"
-  let title = "invariant logging"
-
-
-  let is_active () = Flags.log_invs ()
-  let run in_sys param _ results =
-    KEvent.log L_note "\
-    In some cases, invariant logging can fail because it is not able to@ \
-    translate the invariants found by Kind 2 internally back to Lustre level.\
-    " ;
-    let top = (Analysis.info_of_param param).Analysis.top in
-    let target = Flags.subdir_for top in
-    (* Create directories if they don't exist. *)
-    Flags.output_dir () |> mk_dir ;
-    mk_dir target ;
-    let target =
-      Format.asprintf "%s/%s" target Names.inv_log_file
-    in
-    last_result results top
-    |> Res.chain (fun { Analysis.sys } ->
-      (* Check all properties are valid. *)
-      match TSys.get_split_properties sys with
-      | [], [], [] -> error (
-        fun fmt ->
-          Format.fprintf fmt
-            "No properties, no strengthening invariant to log."
-      )
-      | _, [], _ -> Ok sys
-      | _, invalid, _ -> error (
-        fun fmt ->
-          let len = List.length invalid in
-          Format.fprintf fmt
-            "Not logging invariants: \
-            %d invalid propert%s, system is unsafe."
-            len (if len = 1 then "y" else "ies")
-      )
-    )
-    |> Res.chain (fun sys ->
-      (* Returns [false] iff term passed mentions node call svars. *)
-      let _, node_of_scope =
-        InputSystem.contract_gen_param in_sys top
-      in
-      let node = node_of_scope top in
-(*       node.LustreNode.state_var_source_map
-      |> StateVar.StateVarMap.bindings
-      |> Format.printf "node's svars: @[<v>%a@]@.@."
-        (pp_print_list
-          (fun fmt (svar, source) ->
-            Format.fprintf fmt "%a -> %a"
-              SVar.pp_print_state_var svar
-              LustreNode.pp_print_state_var_source source ;
-            if source = LustreNode.Call then
-              LustreNode.get_state_var_instances svar
-              |> Format.fprintf fmt "@     -> @[<v>%a@]"
-                (pp_print_list
-                  (fun fmt (_,_,sv) -> StateVar.pp_print_state_var fmt sv)
-                  "@ "
-                )
-          ) "@ "
-        ) ;
-      node.LustreNode.equations
-      |> Format.printf "node's equations: @[<v>%a@]@.@."
-        (pp_print_list
-          (fun fmt eq ->
-            Format.fprintf fmt "%a"
-              (LustreNode.pp_print_node_equation false) eq
-          ) "@ "
-        ) ; *)
-      let nice_invariants term =
-        Term.state_vars_of_term term
-        |> SVS.exists (
-          fun svar -> try (
-            match
-              StateVar.StateVarMap.find
-                svar node.LustreNode.state_var_source_map
-            with
-            | LustreNode.Call ->
-              Format.printf "discarding %a@.  %a -> call@.@."
-                Term.pp_print_term term
-                StateVar.pp_print_state_var svar ;
-              true
-            | _ -> false
-          ) with Not_found ->
-            (* Format.printf "discarding %a@.  %a -> not found@.@."
-              Term.pp_print_term term
-              StateVar.pp_print_state_var svar ; *)
-            true
-        )
-        |> not
-      in
-      try (
-        let k_min, invs_min =
-          CertifChecker.minimize_invariants sys None (Some nice_invariants)
-        in
-        KEvent.log_uncond
-          "Minimization result: \
-            @[<v>\
-              all properties valid by %d-induction@ \
-              using %d invariant(s)\
-            @]\
-          "
-          k_min (List.length invs_min) ;
-        Ok (sys, k_min, invs_min)
-      ) with
-      | CertifChecker.CouldNotProve _ -> error(
-        fun fmt ->
-          (* Format.fprintf fmt
-            "@[<v>Some necessary invariants cannot be translated \
-            back to lustre level.@ %s@]"
-            (Printexc.to_string e) *)
-          Format.fprintf fmt
-            "Some necessary invariants cannot be translated \
-            back to lustre level."
-      )
-      | e -> error (
-        fun fmt -> Format.fprintf fmt
-          "Could not minimize invariants:@ %s"
-          (Printexc.to_string e)
-      )
-    )
-    |> Res.chain (fun (sys, _, invs) ->
-      try Ok (
-        LustreContractGen.generate_contract_for
-          in_sys sys target invs (Names.inv_log_contract_name top)
-      ) with e -> error (
-        fun fmt ->
-          Format.fprintf fmt "Could not generate strengthening contract:@ %s"
-            (Printexc.to_string e)
-      )
-    )
-    |> Res.map (
-      fun () ->
-        KEvent.log_uncond
-          "Done logging strengthening invariants to@ `%s`."
-          target
-    )
-end
-
 (** Invariant print.
 Prints invariants used in the proof. *)
 module RunInvPrint: PostAnalysis = struct
@@ -1060,7 +917,6 @@ end
 (** List of post-analysis modules. *)
 let post_analysis = [
   (module RunInvPrint: PostAnalysis) ;
-  (module RunInvLog: PostAnalysis) ;
   (module RunIVC: PostAnalysis) ;
   (module RunCertif: PostAnalysis) ;
   (module RunContractGen: PostAnalysis) ;
