@@ -108,6 +108,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/test_node_call_with_inductive_array_index.lus" with
     | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInNodeArgument _)) -> true
     | _ -> false);
+  mk_test "test temporal operator in function contract" (fun () ->
+    match load_file "./lustreSyntaxChecks/function_no_stateful_contract.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -200,6 +204,10 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     | _ -> false);
   mk_test "test constant redeclared" (fun () ->
     match load_file "./lustreAstDependencies/const_02.lus" with
+    | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
+    | _ -> false);
+  mk_test "test local shadows output" (fun () ->
+    match load_file "./lustreAstDependencies/local_shadows_output.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
 ])
@@ -375,5 +383,9 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test undefined 4" (fun () ->
     match load_file "./lustreTypeChecker/undeclared_type_01.lus" with
     | Error (`LustreTypeCheckerError (_, Undefined _)) -> true
+    | _ -> false);
+  mk_test "test local shadowing global" (fun () ->
+    match load_file "./lustreTypeChecker/test_shadowing.lus" with
+    | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
     | _ -> false);
 ])
