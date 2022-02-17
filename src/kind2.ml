@@ -150,23 +150,6 @@ let main () =
   (* Set everything up and produce input system. *)
   let Input input_sys = setup () in
 
-  (* Notify user of silent contract loading. *)
-  (try
-     InputSystem.silent_contracts_of input_sys
-     |> List.iter (
-       function
-       | (_, []) -> ()
-       | (scope,contracts) ->
-         KEvent.log L_note "Silent contract%s loaded for system %a: @[<v>%a@]"
-           (if 1 < List.length contracts then "s" else "")
-           Scope.pp_print_scope scope
-           (pp_print_list Format.pp_print_string "@ ") contracts
-     )
-   with (InputSystem.UnsupportedFileFormat ff) ->
-     KEvent.log L_warn
-       "Loading of silent contracts is not supported for %s files" ff
-  );
-
   (* Not launching if we're just translating contracts. *)
   match Flags.Contracts.translate_contracts () with
   | Some target -> (

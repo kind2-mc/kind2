@@ -65,53 +65,8 @@ treatment are:
 +---------------------+-----------------------------------------------+----------------------------------------+
 | contract generation |                                               | experimental                           |
 +---------------------+-----------------------------------------------+----------------------------------------+
-| invariant logging   | last analysis proved the system safe          |                                        |
-+---------------------+-----------------------------------------------+----------------------------------------+
 | invariant printing  |                                               |                                        |
 +---------------------+-----------------------------------------------+----------------------------------------+
 | inductive validity  | last analysis proved the system safe          |                                        |
 | core generation     |                                               |                                        |
 +---------------------+-----------------------------------------------+----------------------------------------+
-
-Silent Contract Loading
-^^^^^^^^^^^^^^^^^^^^^^^
-
-Two of the treatments mentioned above end up, if successful, generating a
-contract for the current node: invariant logging and contract generation. The
-natural way to benefit from these contracts is to import them explicitly in the original system.
-
-If you do not import these contracts however, *silent contract loading* will
-still try to take advantage of them. That is, contracts logged by Kind 2 in
-previous runs will be loaded as *candidate properties*. A candidate property
-is similar to a normal property except that it is allowed to be falsifiable.
-That is, falsification of a candidate property does not impact the safety of
-the system under analysis.
-
-Note that if you change the signature of the system, silent contract loading
-may fail. This failure is silent, and simply results in Kind 2 analyzing the
-system without any candidates.
-
-..
-
-   **NB**: for silent contract loading to work, it needs to be able to find
-   the contracts. In practice, Kind 2 will look in the *output directory*
-   specified by ``--output_dir``, the default being ``<input_file>.out/``.
-
-   Kind 2 writes the contracts resulting from invariant logging and contract
-   generation in the output directory, in a sub-directory named after the
-   system the contract is for.
-
-   As a result, running ``kind2 --log_invs on --lus_main top example.lus`` will
-   log invariants in ``example.lus.out/top/kind2_strengthening.lus``.
-   Running the same command again will cause Kind 2 to silently load this
-   contract as candidates.
-
-   If one changes the output directory though, for instance by running
-   ``kind2 --output_dir out --log_invs on --lus_main top example.lus``, then
-   silent contract loading will not find the contracts written to
-   ``example.lus.out/top`` because it will look in ``out/top``.
-
-   Running ``kind2 --output_dir out --log_invs on --lus_main top example.lus``
-   two times however results in Kind 2 silently loading the contract generated
-   during the first analysis in ``out/top`` on the second run.
-

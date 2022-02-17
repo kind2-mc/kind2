@@ -43,9 +43,6 @@ val translate_contracts_lustre : string -> string -> unit
 (** Read native input from file *)
 val read_input_native : string -> TransSys.t t
 
-(** Returns the silent contract associated to each system. *)
-val silent_contracts_of : 'a t -> (Scope.t * string list) list
-
 (** Returns the scopes of all the systems in an input systems, in topological
     order. *)
 val ordered_scopes_of : 'a t -> Scope.t list
