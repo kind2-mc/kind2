@@ -197,9 +197,6 @@ type t = {
 
   state_var_expr_map : LustreExpr.t SVT.t;
 
-  silent_contracts : string list ;
-  (** Contracts that were silently loaded. *)
-
   assumption_svars: SVS.t;
 }
 
@@ -233,7 +230,6 @@ let empty_node name is_extern = {
   state_var_source_map = SVM.empty;
   oracle_state_var_map = SVT.create 17;
   state_var_expr_map = SVT.create 17;
-  silent_contracts = [];
   assumption_svars = SVS.empty
 }
 
@@ -679,8 +675,7 @@ let pp_print_node_debug ppf
       is_function;
       state_var_source_map;
       oracle_state_var_map;
-      state_var_expr_map;
-      (* silent_contracts *) } = 
+      state_var_expr_map; } = 
 
   let pp_print_equation = pp_print_node_equation false in
 

@@ -1933,10 +1933,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     !map.source SVM.empty in
   let var_bounds = SVT.fold (fun k v a -> (k, v) :: a) !map.bounds [] in
   List.iter (fun (k, v) -> SVT.add cstate.state_var_bounds k v) var_bounds;
-  (* TODO: Not handling silent contracts *)
-  let silent_contracts = []
 
-  in let (node:N.t) = { name;
+  let (node:N.t) = { name;
     is_extern;
     instance;
     init_flag;
@@ -1954,7 +1952,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     state_var_source_map;
     oracle_state_var_map;
     state_var_expr_map;
-    silent_contracts;
     assumption_svars;
   } in { cstate with
     nodes = node :: cstate.nodes;
