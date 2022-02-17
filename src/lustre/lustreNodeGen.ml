@@ -457,7 +457,7 @@ let rec compile ctx gids decls =
   let free_constants = output.free_constants
     |> StringMap.bindings
     |> List.map (fun (id, v) -> mk_ident id, v)
-  in output.nodes,
+  in (List.rev output.nodes),
     { G.free_constants = free_constants;
       G.state_var_bounds = output.state_var_bounds}
 
