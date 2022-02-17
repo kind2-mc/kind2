@@ -403,7 +403,7 @@ let no_calls_to_nodes_with_contracts_subject_to_refinement ctx expr =
   | _ -> Ok ()
 
 let no_temporal_operator is_const expr =
-  let decl_ctx = if is_const then "constant" else "function" in
+  let decl_ctx = if is_const then "constant" else "function or function contract" in
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
@@ -566,6 +566,7 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   >> (check_items ctx composed_items_checks items)
     >> (match contract with
       | Some c -> check_contract false ctx common_contract_checks c
+        >> (check_contract false ctx (fun _ -> no_temporal_operator false) c)
         >> no_stateful_contract_imports ctx c
       | None -> Ok ())
     >> (Res.seq_ (List.map check_input_items inputs))

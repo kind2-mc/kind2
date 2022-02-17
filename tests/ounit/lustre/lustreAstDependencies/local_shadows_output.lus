@@ -1,0 +1,6 @@
+
+node top(x: int) returns (y:int);
+var y: int;
+let
+    y = 1;
+tel

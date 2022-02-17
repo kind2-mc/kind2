@@ -843,10 +843,7 @@ and local_var_binding: tc_context -> LA.node_local_decl -> (tc_context, [> error
         LA.pp_print_const_decl const_decls
       ; tc_ctx_const_decl ctx const_decls 
     | LA.NodeVarDecl (pos, (_, v, ty, _)) ->
-      if (member_ty ctx v) then
-        type_error pos (Impossible ("Identifier "
-          ^ (HString.string_of_hstring v)
-          ^ " is already declared."))
+      if (member_ty ctx v) then type_error pos (Redeclaration v)
       else check_type_well_formed ctx ty
           >> R.ok (add_ty ctx v ty)
                      
@@ -869,9 +866,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
 
     R.seq_chain (fun _ i ->
         (if (member_ty ctx i) then
-           type_error pos (Impossible ("Identifier "
-                          ^ (HString.string_of_hstring i)
-                          ^ " is already declared."))
+           type_error pos (Redeclaration i)
          else R.ok()))
       () (LA.SI.elements arg_ids @ LA.SI.elements ret_ids)
     

@@ -63,6 +63,7 @@ type error = [
 
 let graph_error pos kind = Error (`LustreAstDependenciesError (pos, kind))
 
+let (let*) = R.(>>=)
 let (>>=) = R.(>>=)
 let (>>) = R.(>>)
           
@@ -1195,7 +1196,22 @@ let check_node_equations: dependency_analysis_data
                           -> (LA.node_decl, [> error]) result
   = fun ad ((i, imported, params, ips, ops, locals, items, contract_opt) as ndecl)->
   (if not imported then
-     analyze_circ_node_equations ad.nsummary items
+    let add m pos i = check_and_add m pos (HString.mk_hstring "") i () in
+    let eqn_map = IMap.empty in
+    let eqn_map = List.fold_left (fun acc (_, i, _, _, _) -> IMap.add i () acc) eqn_map ips in
+    let eqn_map = List.fold_left (fun acc (_, i, _, _) -> IMap.add i () acc) eqn_map ops in
+    let eqn_map = List.fold_left (fun acc local -> 
+      let* m = acc in
+      match local with
+      | LA.NodeConstDecl (_, decl) -> (match decl with
+        | FreeConst (p, i, _) -> add m p i
+        | UntypedConst (p, i, _) -> add m p i
+        | TypedConst (p, i, _, _) -> add m p i) 
+      | NodeVarDecl (_, (p, i, _, _)) -> add m p i)
+      (Ok eqn_map)
+      locals
+    in
+    eqn_map >> analyze_circ_node_equations ad.nsummary items
    else R.ok())
   >> match contract_opt with
      | None -> R.ok ndecl

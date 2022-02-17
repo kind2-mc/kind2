@@ -1,4 +1,4 @@
-type t = { one: int; two: real; three: bool };
+(* type t = { one: int; two: real; three: bool };
 
 node Z(x: bool) returns (y: t);
 let
@@ -32,7 +32,7 @@ let
   (flag, value) = if x > 0 then nodecall(x) else (true, 0);
   --%MAIN;
   --%PROPERTY y > 0;
-tel; 
+tel;  *)
 
 
 node V(x: int) returns (y: int^3);
@@ -47,7 +47,7 @@ let
   y = y_3[0];
 tel;
 
-
+(* 
 node U0(x: int) returns (y: int);
 let y = pre x + 1; tel;
 
@@ -67,3 +67,4 @@ let
   --%MAIN;
   --%PROPERTY x > 0; 
 tel;
+ *)
