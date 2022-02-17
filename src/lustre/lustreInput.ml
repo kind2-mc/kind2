@@ -126,9 +126,7 @@ let ast_of_channel(in_ch: in_channel) =
     Error (`LustreParserError (pos, err))
 
 let type_check declarations =
-  let tc_res =
-    (Log.log L_note "(Experimental) New front-end enabled";
-
+  let tc_res = (
     (* Step 1. Basic syntax checks on declarations  *)
     LS.syntax_check declarations >>= fun declarations ->
 

@@ -1,8 +1,0 @@
-node top (reset: bool) returns (OK: bool);
-var i,j : uint8;
-let
-  j = uint8 1;
-  i = (uint8 1) rsh j;
-  OK = i > (uint8 0);
-  --%PROPERTY OK;
-tel

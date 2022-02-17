@@ -1,8 +1,0 @@
-node test1 () returns (ok: bool);
-var x, y: bool;
-let
-  x = pre true;
-  y = pre true;
-  ok = true -> (x = y);
-  --%PROPERTY ok;
-tel

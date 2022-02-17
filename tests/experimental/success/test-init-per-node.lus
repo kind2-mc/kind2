@@ -1,9 +1,0 @@
-node X () returns (out: bool);
-let 
-  out = true;
-tel;
-
-node Y () returns (out: bool);
-let
-  out = condact(false -> true, X(), false);
-tel
