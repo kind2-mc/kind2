@@ -147,6 +147,10 @@ let rec arity_of_expr ty_ctx = function
     let node_ty = Ctx.lookup_node_ty ty_ctx id |> get in
     let (_, o) = LAH.type_arity node_ty in
     o
+  | Pre (_, e) -> arity_of_expr ty_ctx e
+  | Arrow (_, e, _) -> arity_of_expr ty_ctx e
+  | RecordProject (_, e, _) -> arity_of_expr ty_ctx e
+  | TupleProject (_, e, _) -> arity_of_expr ty_ctx e
   | _ -> 1
 
 let rec interpret_program ty_ctx = function
