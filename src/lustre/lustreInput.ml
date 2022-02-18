@@ -265,15 +265,6 @@ let of_channel old_frontend only_parse in_ch =
                 This only happens when there are no nodes in the input. *)
               raise (NoMainNode "No main node defined in input"))
         in
-        (* Check that main nodes all exist *)
-        let _ =
-          try
-            List.map (fun mn -> LN.node_of_name mn nodes) main_nodes
-          with Not_found ->
-            (* Node with name of main not found
-              This can only happen when the name is passed as command-line argument *)
-            raise (NoMainNode "Main node not found in input")
-        in
         Ok (nodes, globals, main_nodes)
       else
         let* (ctx, gids, decls, toplevel_nodes) = type_check declarations in
@@ -290,6 +281,16 @@ let of_channel old_frontend only_parse in_ch =
 
     match result with
     | Ok (nodes, globals, main_nodes) ->
+      (* Check that main nodes all exist *)
+      main_nodes |> List.iter (fun mn ->
+        if not (LN.exists_node_of_name mn nodes) then
+          (* This can only happen when the name is passed as command-line argument *)
+          let msg =
+            Format.asprintf "Main node '%a' not found in input"
+              (LustreIdent.pp_print_ident false) mn
+          in
+          raise (NoMainNode msg)
+      ) ;
       let nodes = List.map (fun ({ LustreNode.name } as n) ->
           if List.exists (fun id -> LustreIdent.equal id name) main_nodes then
             { n with is_main = true }
