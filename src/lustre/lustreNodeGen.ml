@@ -1160,8 +1160,12 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   let ghost_locals, ghost_equations =
     let extract_namespace name =
       let name = HString.string_of_hstring name in
-      let parts = List.rev (String.split_on_char '_' name) in
-      (parts |> List.hd |> HString.mk_hstring |> mk_ident, List.tl parts)
+      let parts = String.split_on_char '_' name in
+      match parts with
+      | ref :: prefix :: tail ->
+        let id = String.concat "_" tail in
+        (id |> HString.mk_hstring |> mk_ident, [prefix; ref])
+      | _ -> assert false
     in
     let over_vars (gvar_accum, eq_accum) = function
       | A.FreeConst (_, _, _) -> assert false
@@ -1887,7 +1891,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* Finalize Contracts and add Sofar assumption                        *)
   (* ****************************************************************** *)
   in let (contract, sofar_local, sofar_equation) =
-    if assumes != [] || guarantees != [] then
+    if assumes != [] || guarantees != [] || modes != [] then
       let sofar_assumption = get (mk_state_var
         ~is_input:false
         map

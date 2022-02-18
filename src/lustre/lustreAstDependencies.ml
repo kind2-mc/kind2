@@ -43,6 +43,7 @@ type error_kind = Unknown of string
   | EquationWidthsUnequal
   | ContractDependencyOnCurrentOutput of SI.t
   | CyclicDependency of HString.t list
+  | NoToplevelNodes
 
 let error_message error = match error with
   | Unknown s -> s
@@ -56,6 +57,7 @@ let error_message error = match error with
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements ids))
   | CyclicDependency ids -> "Cyclic dependency detected in definition of identifiers: "
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids)
+  | NoToplevelNodes -> "No node defined in input model"
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind
@@ -1022,7 +1024,7 @@ let sort_declarations: LA.t -> ((LA.t * LA.ident list), [> error]) result
     |> List.filter (fun s -> not (is_contract_node s))
   in
   Debug.parse "sorted ids: %a" (Lib.pp_print_list LA.pp_print_ident ",")  dependency_sorted_ids;
-  extract_decls decl_map dependency_sorted_ids >>= fun sorted_decls ->
+  let* sorted_decls = extract_decls decl_map dependency_sorted_ids in
   R.ok (sorted_decls, toplevel_nodes)
 (** Accepts a function to generate a declaration map, 
     a function to generate the graph of the declarations,
@@ -1258,34 +1260,38 @@ let rec sort_and_check_equations: dependency_analysis_data -> LA.t -> (LA.t, [> 
 (** Sort equations for contracts and check if node and function equations have circular dependencies  *)
 
 let sort_globals decls =
-  sort_declarations decls >>= fun (sorted_decls, _) -> 
+  let* (sorted_decls, _) = sort_declarations decls in
   Debug.parse "Sorting types and constants declarations done.
-                   \n============\n%a\n============\n"
-    LA.pp_print_program sorted_decls
-  ; R.ok sorted_decls
+    \n============\n%a\n============\n"
+    LA.pp_print_program sorted_decls;
+  R.ok sorted_decls
 (** Returns a topological order to resolve forward references 
     of global constants and type definitions. *)  
 
 let sort_and_check_nodes_contracts decls =
   (* Step 1. Sort the declarations according in their dependency order
      This rules out the cases where we have recursive node or contract definitions *)
-  sort_declarations decls >>= fun (sorted_decls, toplevel_nodes) -> 
+  let* (sorted_decls, toplevel_nodes) = sort_declarations decls in
   Debug.parse "Sorting functions, nodes and contracts done.
-                   \n============\n%a\n============\n"
-    LA.pp_print_program sorted_decls
+    \n============\n%a\n============\n"
+    LA.pp_print_program sorted_decls;
 
   (* Step 2. Generate node and contract summaries *)
-  ; let analysis_data = generate_summaries empty_dependency_analysis_data sorted_decls in
-    Debug.parse "Generated contract and node summaries.
-                     \n============\n%a\n============\n"
-      pp_print_analysis_data analysis_data
+  let analysis_data = generate_summaries empty_dependency_analysis_data sorted_decls in
+  Debug.parse "Generated contract and node summaries.
+    \n============\n%a\n============\n"
+    pp_print_analysis_data analysis_data;
 
     (* Step 3. Sort contract equations and check for node equation circularity *)
-    ; sort_and_check_equations analysis_data sorted_decls >>= fun final_decls ->
-      Debug.parse "Sorting equations done.
-                       \n============\n%a\n============\n"
-        LA.pp_print_program final_decls
-        ; R.ok (final_decls, toplevel_nodes)
+  let* final_decls = sort_and_check_equations analysis_data sorted_decls in
+  Debug.parse "Sorting equations done.
+    \n============\n%a\n============\n"
+    LA.pp_print_program final_decls;
+  
+  if List.length toplevel_nodes == 0 then
+    R.error (`LustreAstDependenciesError (Lib.dummy_pos, NoToplevelNodes))
+  else
+    R.ok (final_decls, toplevel_nodes)
 (** Returns a topological order of declarations to resolve all forward refernce. 
     It also reorders contract equations and checks for circularity of node equations *)  
 
