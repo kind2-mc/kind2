@@ -210,6 +210,10 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/local_shadows_output.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
+  mk_test "test no nodes" (fun () ->
+    match load_file "./lustreAstDependencies/no_nodes.lus" with
+    | Error (`LustreAstDependenciesError (_, NoToplevelNodes)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
