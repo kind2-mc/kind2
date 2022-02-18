@@ -47,12 +47,7 @@ jobs:
     - name: Install unit test dependencies
       run: opam install ounit2
 
-    - name: Run unit tests
-      run: |
-        opam exec dune build tests
-        opam exec dune test
-
-    - name: Run regression tests
+    - name: Run ounit and regression tests
       run: opam exec make test
 
     - name: Upload kind2 artifact

@@ -156,7 +156,7 @@ function run_in {
 function run_all {
 
   echo
-  echo "|===| Running normal tests."
+  echo "|===| Running regression tests."
   echo -e "| > \033[1m$basic_k2_cmd\033[0m"
   echo "|"
   run_in "$test_dir" "$basic_k2_cmd"
