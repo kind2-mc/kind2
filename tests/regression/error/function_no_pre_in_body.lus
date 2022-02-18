@@ -1,5 +1,0 @@
--- Illegal `pre` in function.
-function blah ( in: int ) returns ( out: int ) ;
-let
-  out = pre in ;
-tel

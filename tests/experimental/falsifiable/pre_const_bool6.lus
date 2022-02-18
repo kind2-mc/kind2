@@ -1,5 +1,0 @@
-node main(x: bool) returns(OK:bool);
-let
-  OK = pre x = pre x;
-  --%PROPERTY OK;
-tel;

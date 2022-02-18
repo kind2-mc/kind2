@@ -18,3 +18,12 @@ let
   OK = b > 1;
   --%PROPERTY OK;
 tel
+
+node Z () returns ();
+var
+  b1,  b2: int;
+let
+  b1 = Y(0,  true);  
+  b2 = Y(1,  true);
+  --%PROPERTY (b1 > 0 and b2 < 0);
+tel;

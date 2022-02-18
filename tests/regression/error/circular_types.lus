@@ -1,3 +1,0 @@
-type one = { blah: two } ;
-
-type two = one ;

@@ -2818,7 +2818,7 @@ module Global = struct
   let lsp () = !lsp
 
   (* Use the old frontend *)
-  let old_frontend_default = true
+  let old_frontend_default = false
   let old_frontend = ref old_frontend_default
   let _ = add_spec
     "--old_frontend"

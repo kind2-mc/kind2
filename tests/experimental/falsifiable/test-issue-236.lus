@@ -1,4 +1,0 @@
-node X (OK: bool) returns ();
-let
-  --%PROPERTY OK;
-tel

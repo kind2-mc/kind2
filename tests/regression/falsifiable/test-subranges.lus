@@ -44,4 +44,5 @@ var e: int;
 let
   e = Z(i, j);
   --%PROPERTY e > 0;
+  --%MAIN;
 tel

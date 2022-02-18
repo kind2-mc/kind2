@@ -1,7 +1,0 @@
-node bla (in: int) returns (out: int) ;
-var sliced: int ;
-let
-  assert sliced > in - 2 ;
-  out = 0 -> 3 + pre in ;
-  --%PROPERTY out >= 0 ;
-tel

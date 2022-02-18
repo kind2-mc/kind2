@@ -1,8 +1,0 @@
-node main3() returns(OK:bool);
-var x :  bool;
-let
-  x = false;
-  OK = pre x = pre x;
-  --%PROPERTY OK;
-
-tel;
