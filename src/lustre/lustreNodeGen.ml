@@ -909,7 +909,7 @@ and compile_ast_expr
     in push compiled_expr
 
   in
-(*   Format.eprintf "%a\n" A.pp_print_expr expr; *)
+(*   Format.eprintf "%a@." A.pp_print_expr expr; *)
   match expr with
   (* ****************************************************************** *)
   (* Identifiers                                                        *)
@@ -1793,7 +1793,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       let lhs_bounds = gen_lhs_bounds false eq_lhs ast_expr indexes in
       let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr in
       let eq_rhs = flatten_list_indexes eq_rhs in
-(*       Format.eprintf "lhs: %a\n\n rhs: %a\n\n"
+(*       Format.eprintf "lhs: %a@.rhs: %a@.@."
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
       let equations = expand_tuple pos eq_lhs eq_rhs in
