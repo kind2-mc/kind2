@@ -243,7 +243,7 @@ and simplify_tuple_proj: TC.tc_context -> Lib.position -> LA.expr -> int -> LA.e
   | _ -> TupleProject (pos, e1, idx)
 (** picks out the idx'th component of a tuple if it is possible *)
        
-and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
+and simplify_expr ?(is_guarded = false) ctx =
   function
   | LA.Const _ as c -> c
   | LA.Ident (pos, i) ->
@@ -253,11 +253,11 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
           | LA.Ident (_, i') as ident' ->
              if HString.compare i i' = 0 (* If This is a free constant *)
              then ident' 
-             else simplify_expr ctx ident'
-          | _ -> simplify_expr ctx const_expr)
+             else simplify_expr ~is_guarded ctx ident'
+          | _ -> simplify_expr ~is_guarded ctx const_expr)
       | None -> LA.Ident (pos, i))
   | LA.UnaryOp (pos, op, e1) ->
-    let e1' = simplify_expr ctx e1 in
+    let e1' = simplify_expr ~is_guarded ctx e1 in
     let e' = LA.UnaryOp (pos, op, e1') in
     (match op with
     | LA.Uminus -> (match eval_int_unary_op ctx pos op e1' with
@@ -267,14 +267,17 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
       | Ok v -> if v then LA.Const(pos, True) else LA.Const (pos, False)
       | Error _ -> e')
     | _ -> e')
-  | LA.Pre (pos, e1) -> LA.Pre (pos, simplify_expr ctx e1)
+  | LA.Pre (pos, e) ->
+    let e' = simplify_expr ~is_guarded:false ctx e in
+    if is_guarded && LH.expr_is_const e' then e'
+    else Pre (pos, e')
   | Arrow (pos, e1, e2) ->
-    let e1' = simplify_expr ctx e1 in
-    let e2' = simplify_expr ctx e2 in
+    let e1' = simplify_expr ~is_guarded ctx e1 in
+    let e2' = simplify_expr ~is_guarded:true ctx e2 in
     Arrow (pos, e1', e2')
   | LA.BinaryOp (pos, bop, e1, e2) ->
-     let e1' = simplify_expr ctx e1 in
-     let e2' = simplify_expr ctx e2 in
+     let e1' = simplify_expr ~is_guarded ctx e1 in
+     let e2' = simplify_expr ~is_guarded ctx e2 in
      let e' = LA.BinaryOp (pos, bop, e1', e2') in
      (match (eval_int_binary_op ctx pos bop e1' e2') with
       | Ok v -> LA.Const (pos, Num (v |> string_of_int |> HString.mk_hstring))
@@ -283,29 +286,30 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
      (match top with
      | Ite -> 
         (match eval_bool_expr ctx cond with
-         | Ok v -> if v then simplify_expr ctx e1 else simplify_expr ctx e2 
-         | Error _ ->
-          let cond' = simplify_expr ctx cond in
-          let e1' = simplify_expr ctx e1 in
-          let e2' = simplify_expr ctx e2 in
+        | Ok v -> if v then simplify_expr ~is_guarded ctx e1
+          else simplify_expr ~is_guarded ctx e2 
+        | Error _ ->
+          let cond' = simplify_expr ~is_guarded ctx cond in
+          let e1' = simplify_expr ~is_guarded ctx e1 in
+          let e2' = simplify_expr ~is_guarded ctx e2 in
             TernaryOp (pos, top, cond', e1', e2'))
      | _ -> Lib.todo __LOC__)
   | LA.CompOp (pos, cop, e1, e2) ->
-     let e1' = simplify_expr ctx e1 in
-     let e2' = simplify_expr ctx e2 in
+     let e1' = simplify_expr ~is_guarded ctx e1 in
+     let e2' = simplify_expr ~is_guarded ctx e2 in
      let e' = LA.CompOp (pos, cop, e1', e2') in
      (match (eval_comp_op ctx cop e1' e2') with
       | Ok v -> LA.Const (pos, lift_bool v)
       | Error _ -> e')
   | LA.GroupExpr (pos, g, es) ->
-     let es' = List.map (fun e -> simplify_expr ctx e) es in 
+     let es' = List.map (fun e -> simplify_expr ~is_guarded ctx e) es in 
      LA.GroupExpr (pos, g, es')
   | LA.RecordExpr (pos, i, fields) ->
-     let fields' = List.map (fun (f, e) -> (f, simplify_expr ctx e)) fields in
+     let fields' = List.map (fun (f, e) -> (f, simplify_expr ~is_guarded ctx e)) fields in
      LA.RecordExpr (pos, i, fields')
   | LA.ArrayConstr (pos, e1, e2) ->
-     let e1' = simplify_expr ctx e1 in
-     let e2' = simplify_expr ctx e2 in
+     let e1' = simplify_expr ~is_guarded ctx e1 in
+     let e2' = simplify_expr ~is_guarded ctx e2 in
      let e' = LA.ArrayConstr (pos, e1', e2') in
      e'
      (* (match (eval_int_expr ctx e2) with
@@ -313,13 +317,13 @@ and simplify_expr: TC.tc_context -> LA.expr -> LA.expr = fun ctx ->
       | Error _ -> e') *)
   | LA.ArrayIndex (pos, e1, e2) -> simplify_array_index ctx pos e1 e2
   | LA.ArrayConcat (pos, e1, e2) as e->
-     (match (simplify_expr ctx e1, simplify_expr ctx e2) with
+     (match (simplify_expr ~is_guarded ctx e1, simplify_expr ~is_guarded ctx e2) with
       | LA.GroupExpr (_, LA.ArrayExpr, es1), LA.GroupExpr (_, LA.ArrayExpr, es2) ->
          LA.GroupExpr(pos, LA.ArrayExpr, es1 @ es2)
       | _ -> e)
   | LA.TupleProject (pos, e1, e2) -> simplify_tuple_proj ctx pos e1 e2  
   | Call (pos, i, es) ->
-    let es' = List.map (fun e -> simplify_expr ctx e) es in
+    let es' = List.map (fun e -> simplify_expr ~is_guarded:false ctx e) es in
     Call (pos, i, es')
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
