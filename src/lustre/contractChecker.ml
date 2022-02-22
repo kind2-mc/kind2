@@ -148,7 +148,7 @@ let compute_unviable_trace_and_core analyze in_sys param sys u_result =
     compute_controllable_vars in_sys sys vars_at_1
   in
 
-  Realizability.compute_unviable_trace_and_core
+  Realizability.compute_deadlocking_trace_and_conflict
     analyze in_sys param sys controllable_vars_at_0 controllable_vars_at_1 u_result
     
 

@@ -409,24 +409,32 @@ let get_contract_terms init sys guarantee_core other_core =
     let o_term = aux false init o_core in
     g_term, o_term
   in
+  let offset = if init then Numeral.zero else Numeral.one in
   terms_of init guarantee_core other_core
   |> fun (guarantee_sc, other_sc) ->
     (ScMap.find scope guarantee_sc
-     |> List.map (fun t -> Term.bump_state Numeral.one t),
+     |> List.map (fun t -> Term.bump_state offset t),
      ScMap.find scope other_sc
-     |> List.map (fun t -> Term.bump_state Numeral.one t)
+     |> List.map (fun t -> Term.bump_state offset t)
     )
 
 
-exception Trace_or_core_computation_failed of string
+exception Trace_or_conflict_computation_failed of string
 
-let compute_unviable_trace_and_core
+let get_var_values_at_offset solver sys offset =
+  (* Get variables values at offset 0 (base) or 1 (!base) *)
+  SMTSolver.get_var_values
+    solver
+    (TransSys.get_state_var_bounds sys)
+    (TransSys.vars_of_bounds sys offset offset)
+
+let compute_deadlocking_trace_and_conflict
   analyze in_sys param sys controllable_vars_at_0 controllable_vars_at_1 u_result =
 
-  let vr, cex, is_base, contr_vars =
+  let vr, cex, is_base, offset, contr_vars =
     match u_result with
 
-    | BaseCase vr -> vr, [], true, controllable_vars_at_0
+    | BaseCase vr -> vr, [], true, Numeral.zero, controllable_vars_at_0
 
     | InductiveCase (vr_wo, vr_w) -> (
 
@@ -455,11 +463,11 @@ let compute_unviable_trace_and_core
       match TSys.get_prop_status sys prop_name with
       | Property.PropFalse cex ->
 
-        vr_w, cex, false, controllable_vars_at_1
+        vr_w, cex, false, Numeral.one, controllable_vars_at_1
 
       | Property.PropKTrue _
       | Property.PropUnknown ->
-        raise (Trace_or_core_computation_failed
+        raise (Trace_or_conflict_computation_failed
           "Trace computation returned Unknown")
 
       | Property.PropInvariant _ -> assert false
@@ -487,22 +495,21 @@ let compute_unviable_trace_and_core
       (Flags.Smt.solver ())
   in
 
-  SMTSolver.trace_comment solver "Computing set of conflicting guarantees and ensures" ;
+  SMTSolver.trace_comment solver
+    "Computing set of conflicting guarantees and mode elements" ;
 
   TransSys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
-    Numeral.zero Numeral.one;
+    Numeral.zero offset;
 
-  let guarantee_core, other_core = get_contract_cores in_sys sys in
+  let guarantee_mode_elts_core, other_core = get_contract_cores in_sys sys in
 
-  let guarantee_term, other_term =
-    get_contract_terms is_base sys guarantee_core other_core
+  let guarantee_mode_elts_term, other_term =
+    get_contract_terms is_base sys guarantee_mode_elts_core other_core
   in
-
-  SMTSolver.push solver ;
 
   let context =
     let neg_vr =
@@ -517,13 +524,16 @@ let compute_unviable_trace_and_core
 
   assert (SMTSolver.check_sat solver) ;
 
-  let model = SMTSolver.get_model solver in
+  let model =
+    (* Make sure only transition system variables are included *)
+    get_var_values_at_offset solver sys offset
+  in
 
-  SMTSolver.pop solver ;
-
-  (* Assigments for all variables at offset 0 and
-     for uncontrollable variables at offset 1 *)
-  let all0_uncontr1_assigns =
+  (*
+    Assignments for all uncontrollable variables
+    either of offset 0 (base) or offset 1 (!base)
+  *)
+  let uncontr_assigns =
     let ex_var_set = VS.of_list contr_vars in
     Model.to_list model
     |> List.filter (fun (v,_) -> VS.mem v ex_var_set |> not)
@@ -535,14 +545,11 @@ let compute_unviable_trace_and_core
 
   let unsat_core_lits =
     let scope = TransSys.scope_of_trans_sys sys in
-    let actlits = ME.get_actlits_of_scope guarantee_core scope in
+    let actlits = ME.get_actlits_of_scope guarantee_mode_elts_core scope in
     List.iter (SMTSolver.declare_fun solver) actlits ;
     let requirements =
       Term.mk_and
-        (List.rev_append
-          (List.rev_append other_term all0_uncontr1_assigns)
-          guarantee_term
-        )
+      (List.rev_append uncontr_assigns guarantee_mode_elts_term)
     in
     SMTSolver.assert_term solver requirements ;
     let act_terms = List.map Actlit.term_of_actlit actlits in
@@ -552,7 +559,7 @@ let compute_unviable_trace_and_core
       act_terms
   in
 
-  let unrealizable_core =
+  let conflict_set =
     let actlits =
       let actlit_of_term t =
         match Term.destruct t with
@@ -561,7 +568,7 @@ let compute_unviable_trace_and_core
       in
       List.map actlit_of_term unsat_core_lits
     in
-    let core = ME.filter_core actlits guarantee_core in
+    let core = ME.filter_core actlits guarantee_mode_elts_core in
     ME.core_to_loc_core in_sys core
   in
 
@@ -585,7 +592,7 @@ let compute_unviable_trace_and_core
 
     assert (SMTSolver.check_sat solver) ;
 
-    let m = SMTSolver.get_model solver in
+    let m = get_var_values_at_offset solver sys offset in
 
     match cex with
     | [] -> (
@@ -610,5 +617,5 @@ let compute_unviable_trace_and_core
 
   SMTSolver.delete_instance solver ;
 
-  cex', unrealizable_core
+  cex', conflict_set
 

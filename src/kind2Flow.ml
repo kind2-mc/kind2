@@ -664,7 +664,7 @@ let run in_sys =
                 (ContractChecker.pp_print_realizability_result_json
                   (analyze msg_setup false false false) in_sys param sys)
                 result
-            with Realizability.Trace_or_core_computation_failed msg ->
+            with Realizability.Trace_or_conflict_computation_failed msg ->
               KEvent.log L_warn "%s" msg
           ) ;
           

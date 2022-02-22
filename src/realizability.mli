@@ -51,9 +51,9 @@ val realizability_check :
   realizability_result
 
 
-exception Trace_or_core_computation_failed of string
+exception Trace_or_conflict_computation_failed of string
 
-val compute_unviable_trace_and_core :
+val compute_deadlocking_trace_and_conflict :
   'a analyze_func ->
   'a InputSystem.t ->
   Analysis.param ->
