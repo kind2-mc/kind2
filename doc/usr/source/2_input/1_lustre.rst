@@ -22,7 +22,7 @@ or, use a ``check`` statement:
 
 where ``<name>`` is an identifier for the property and ``<bool_expr>`` is a Boolean Lustre expression.
 
-Without modular reasoning active, Kind 2 only analyzes the properties of what it calls the *top node*. By default, the top node is the last node in the file. To force a node to be the top node, add
+Without modular reasoning active, Kind 2 only analyzes the properties of what it calls the *top node*s. By default, any node that is not depended on by another node (i.e. called by that node) is a top node. Alternatively, nodes can be marked as *main node*s by doing the following:
 
 .. code-block:: none
 
@@ -30,16 +30,18 @@ Without modular reasoning active, Kind 2 only analyzes the properties of what it
 
 to the body of that node.
 
-You can also specify the top node in the command line arguments, with
+You can also specify the main node in the command line arguments, with
 
 .. code-block:: none
 
    kind2 --lustre_main <node_name> ...
 
+Main nodes specified by the command line option override main nodes annotated in the source code. If any main nodes exist then only main nodes are analyzed (top nodes are not).
+
 Example
 ^^^^^^^
 
-The following example declares two nodes ``greycounter`` and ``intcounter``\ , as well as an *observer* node ``top`` that calls these nodes and verifies that their outputs are the same. The node ``top`` is annotated with ``--%MAIN ;`` which makes it the *top node* (redundant here because it is the last node). The line ``--%PROPERTY OK;`` means we want to verify that the Boolean stream ``OK`` is always true.
+The following example declares two nodes ``greycounter`` and ``intcounter``\ , as well as an *observer* node ``top`` that calls these nodes and verifies that their outputs are the same. The node ``top`` is annotated with ``--%MAIN ;`` which makes it a *main node*. The line ``--%PROPERTY OK;`` means we want to verify that the Boolean stream ``OK`` is always true.
 
 .. code-block:: none
 
