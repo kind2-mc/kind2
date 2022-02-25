@@ -1,0 +1,14 @@
+node top(x: int) returns (y,z: int);
+let
+   y, z = f(x);
+   check y>=0 and y >= x and z>=0;
+tel
+
+node imported f(x:int) returns (y,z:int);
+(*@contract
+  var g1: bool = y >= 0;
+  var g2: bool = y >= x;
+  guarantee "G1" g1;
+  guarantee "G2" g2;
+  guarantee "G3" g1 and g2 and z>=0;
+*)

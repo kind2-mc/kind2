@@ -166,6 +166,20 @@ end
 
 module NodeArgCache = Hashtbl.Make(NodeArgHash)
 
+let force_fresh = true
+  (*
+  As of today, this flag should be true when the condition below holds
+  (IVC, MCS and CONTRACTCK use modelElement which assumes it is the case)
+  The flag is always set to true because it is safe to do so and in this way
+  we don't need to worry about keeping the condition up-to-date:
+
+  Flags.IVC.compute_ivc () ||
+  (match Flags.enabled () with
+   | modules when List.mem `MCS modules -> true
+   | modules when List.mem `CONTRACTCK modules -> true
+   | _ -> false
+  )*)
+
 let call_cache = CallCache.create 20
 let local_cache = LocalCache.create 20
 let node_arg_cache = NodeArgCache.create 20
@@ -789,10 +803,10 @@ and normalize_contract info map node_id items =
     let item = List.nth items j in
     let nitem, gids', interpretation' = match item with
       | Assume (pos, name, soft, expr) ->
-        let nexpr, gids = abstract_expr false info map true expr in
+        let nexpr, gids = abstract_expr force_fresh info map true expr in
         A.Assume (pos, name, soft, nexpr), gids, StringMap.empty
       | Guarantee (pos, name, soft, expr) -> 
-        let nexpr, gids = abstract_expr false info map true expr in
+        let nexpr, gids = abstract_expr force_fresh info map true expr in
         Guarantee (pos, name, soft, nexpr), gids, StringMap.empty
       | Mode (pos, name, requires, ensures) ->
 (*         let new_name = info.contract_ref ^ "_contract_" ^ name in
