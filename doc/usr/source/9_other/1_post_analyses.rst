@@ -10,7 +10,6 @@ directly related to verification. The current post-analysis treatments available
 * compilation to Rust,
 * test generation,
 * contract generation,
-* invariant logging,
 * invariant printing, and
 * inductive validity core generation
 
