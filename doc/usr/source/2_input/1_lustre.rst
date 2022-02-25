@@ -22,7 +22,9 @@ or, use a ``check`` statement:
 
 where ``<name>`` is an identifier for the property and ``<bool_expr>`` is a Boolean Lustre expression.
 
-Without modular reasoning active, Kind 2 only analyzes the properties of what it calls the *top node*s. By default, any node that is not depended on by another node (i.e. called by that node) is a top node. Alternatively, nodes can be marked as *main node*s by doing the following:
+Without modular reasoning active, Kind 2 only analyzes the properties of what it calls the *top nodes*.
+By default, any node that is not depended on by another node (i.e. called by that node) is a top node.
+Alternatively, nodes can be marked as *main nodes* by doing the following:
 
 .. code-block:: none
 
