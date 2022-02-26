@@ -235,6 +235,9 @@ let of_channel old_frontend only_parse in_ch =
   if Flags.log_format_json () && Flags.lsp () then
     LspInfo.print_ast_info declarations;
 
+  if old_frontend then
+    Log.log L_note "Old front-end enabled" ;
+
   if only_parse then (
     if old_frontend then
       let _ = LD.declarations_to_nodes declarations in Ok None

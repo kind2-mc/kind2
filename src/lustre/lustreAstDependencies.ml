@@ -52,7 +52,7 @@ let error_message error = match error with
     ^ (Lib.string_of_t LA.pp_print_expr l) ^ " and "
     ^ (Lib.string_of_t LA.pp_print_expr r)
   | EquationWidthsUnequal -> "Width lengths of equation are not equal"
-  | ContractDependencyOnCurrentOutput ids -> "Contract assumption or mode requirements cannot depend on "
+  | ContractDependencyOnCurrentOutput ids -> "Contract assumption cannot depend on "
     ^ "current values of output parameters but found: "
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements ids))
   | CyclicDependency ids -> "Cyclic dependency detected in definition of identifiers: "
@@ -945,9 +945,9 @@ let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contra
   function
   | LA.Assume (_, _, _, e) ->
      check_eqn_no_current_vals ids ad e
-  | LA.Mode (_, _, reqs, _) ->
+  (* | LA.Mode (_, _, reqs, _) ->
      let req_es = List.map (fun (_, _, e) -> e) reqs in
-     R.seq_ (List.map (check_eqn_no_current_vals ids ad) req_es) 
+     R.seq_ (List.map (check_eqn_no_current_vals ids ad) req_es) *)
   | _ -> R.ok()                             
 (** Check if any of the out stream vars of the node 
    is being used at its current value in assumption or mode requires *)
