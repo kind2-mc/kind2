@@ -138,18 +138,8 @@ let check_contract_realizability in_sys sys =
 
 
 let compute_unviable_trace_and_core analyze in_sys param sys u_result =
-
-  let vars_at_1 =
-    TSys.vars_of_bounds ~with_init_flag:true sys Numeral.one Numeral.one
-    |> List.filter (fun v -> not (Var.is_const_state_var v))
-  in
-
-  let controllable_vars_at_0, controllable_vars_at_1 =
-    compute_controllable_vars in_sys sys vars_at_1
-  in
-
   Realizability.compute_deadlocking_trace_and_conflict
-    analyze in_sys param sys controllable_vars_at_0 controllable_vars_at_1 u_result
+    analyze in_sys param sys u_result
     
 
 let core_desc = "conflicting constraints"
@@ -205,8 +195,8 @@ let pp_print_realizability_result_pt
       Scope.pp_print_scope scope
       (Realizability.result_to_string result)
       (Stat.get_float Stat.analysis_time)
-      pp_print_trace_and_core
-    
+      pp_print_trace_and_core ;
+    Format.pp_print_flush fmt ()
   )
 
 
