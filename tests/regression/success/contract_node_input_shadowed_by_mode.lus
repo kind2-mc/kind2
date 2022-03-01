@@ -1,0 +1,18 @@
+
+contract BrakeModeCon (max: bool)
+returns () ;
+let
+  mode max (
+    require true ;
+    ensure true ;
+  ) ;
+tel
+
+node BrakeMode (max: bool) 
+returns (out: bool) ;
+(*@contract import
+  BrakeModeCon(max) returns () ;
+*)
+let 
+  out = max;
+tel
