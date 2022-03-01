@@ -158,7 +158,7 @@ let rec interpret_program ty_ctx = function
   | h :: t -> union (interpret_decl ty_ctx h) (interpret_program ty_ctx t)
 
 and interpret_contract node_id ctx ty_ctx eqns =
-  let ty_ctx = TC.tc_ctx_of_contract ty_ctx eqns |> unwrap
+  let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx eqns |> unwrap
   in
   List.fold_left (fun acc eqn ->
       union acc (interpret_contract_eqn node_id acc ty_ctx eqn))
