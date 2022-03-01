@@ -421,6 +421,14 @@ let get_contract_terms init sys guarantee_core other_core =
 
 exception Trace_or_conflict_computation_failed of string
 
+let get_and_declare_actlits solver sys core =
+  let actlits =
+    let scope = TransSys.scope_of_trans_sys sys in
+    ME.get_actlits_of_scope core scope
+  in
+  List.iter (SMTSolver.declare_fun solver) actlits ;
+  actlits
+
 let get_var_values_at_offset solver sys offset =
   (* Get variables values at offset 0 (base) or 1 (!base) *)
   SMTSolver.get_var_values
@@ -428,13 +436,107 @@ let get_var_values_at_offset solver sys offset =
     (TransSys.get_state_var_bounds sys)
     (TransSys.vars_of_bounds sys offset offset)
 
-let compute_deadlocking_trace_and_conflict
-  analyze in_sys param sys controllable_vars_at_0 controllable_vars_at_1 u_result =
+let check_sat_and_get_minimal_unsat_core_lits solver act_terms =
+  let rec minimize tested rest =
+    match tested, rest with
+    | [], [] -> assert false
+    | [], [_] -> rest
+    | _, [] -> tested
+    | _, h :: tl -> (
+      let res =
+        SMTSolver.check_sat_assuming_ab solver
+          (fun _ -> (* Sat *) ())
+          (fun _ -> (* Unsat *)
+           let core' = SMTSolver.get_unsat_core_lits solver in
+           Lib.list_subtract core' tested
+          )
+          (tested @ tl)
+      in
+      match res with
+      | Sat _  -> minimize (h :: tested) tl
+      | Unsat core' -> minimize tested core'
+    )
+  in
+  let core =
+    SMTSolver.check_sat_assuming solver
+      (fun _ -> assert false)
+      (fun _ -> SMTSolver.get_unsat_core_lits solver)
+      act_terms
+  in
+  match Flags.Smt.solver () with
+  | `Z3_SMTLIB -> core (* Unsat core is minimal *)
+  | _ -> minimize [] core
 
-  let vr, cex, is_base, offset, contr_vars =
+let build_conflict_set in_sys unsat_core_lits core =
+  let actlits =
+    let actlit_of_term t =
+      match Term.destruct t with
+      | Const s -> Symbol.uf_of_symbol s
+      | _ -> assert false
+    in
+    List.map actlit_of_term unsat_core_lits
+  in
+  let core' = ME.filter_core actlits core in
+  ME.core_to_loc_core in_sys core'
+
+let build_countertrace cex m =
+  match cex with
+  | [] -> (
+    Model.to_list m |> List.map (fun (v, vl) ->
+      Var.state_var_of_state_var_instance v, [vl]
+    )
+  )
+  | _ -> (
+    cex |> List.map (fun (sv, values) ->
+      let v = Var.mk_state_var_instance sv Numeral.one in
+      match Var.VarHashtbl.find_opt m v with
+      | Some vl -> (
+        (* let t = Var.type_of_var v in
+        Format.printf "VAR: %a = %a@."
+          Var.pp_print_var v (Model.pp_print_value ~as_type:t) vl; *)
+        sv, List.rev (vl :: (List.rev values))
+      )
+      | None -> assert false
+    )
+  )
+
+
+let compute_deadlocking_trace_max_smt_impl solver sys cex offset act_terms =
+  List.iter
+    (fun a ->
+      SMTSolver.assert_soft_term solver a 1
+    )
+    act_terms
+  ;
+
+  assert (SMTSolver.check_sat solver) ;
+
+  let model = get_var_values_at_offset solver sys offset in
+
+  build_countertrace cex model
+
+
+let compute_deadlocking_trace_mus_impl solver sys cex offset minimal_unsat_core =
+  (* Drop one activation literal from minimal unsat core, assert the rest to
+     satisfy the maximum number of constraints in the core
+  *)
+  let actlits = List.tl (List.rev minimal_unsat_core) in
+  SMTSolver.assert_term solver (Term.mk_and actlits);
+
+  assert (SMTSolver.check_sat solver) ;
+
+  let model = get_var_values_at_offset solver sys offset in
+
+  build_countertrace cex model
+
+
+let compute_deadlocking_trace_and_conflict
+  analyze in_sys param sys u_result =
+
+  let vr, cex, is_base, offset =
     match u_result with
 
-    | BaseCase vr -> vr, [], true, Numeral.zero, controllable_vars_at_0
+    | BaseCase vr -> vr, [], true, Numeral.zero
 
     | InductiveCase (vr_wo, vr_w) -> (
 
@@ -463,7 +565,7 @@ let compute_deadlocking_trace_and_conflict
       match TSys.get_prop_status sys prop_name with
       | Property.PropFalse cex ->
 
-        vr_w, cex, false, Numeral.one, controllable_vars_at_1
+        vr_w, cex, false, Numeral.one
 
       | Property.PropKTrue _
       | Property.PropUnknown ->
@@ -511,111 +613,39 @@ let compute_deadlocking_trace_and_conflict
     get_contract_terms is_base sys guarantee_mode_elts_core other_core
   in
 
-  let context =
+  let actlits =
+    get_and_declare_actlits solver sys guarantee_mode_elts_core
+  in
+  let act_terms = List.map Actlit.term_of_actlit actlits in
+
+  let constraints =
     let neg_vr =
       SMTSolver.simplify_term solver (Term.negate vr)
     in
-
     Term.mk_and
-      (neg_vr :: (List.rev_append cex_assigns other_term))
+      (neg_vr :: (cex_assigns @ guarantee_mode_elts_term @ other_term))
   in
 
-  SMTSolver.assert_term solver context ;
-
-  assert (SMTSolver.check_sat solver) ;
-
-  let model =
-    (* Make sure only transition system variables are included *)
-    get_var_values_at_offset solver sys offset
-  in
-
-  (*
-    Assignments for all uncontrollable variables
-    either of offset 0 (base) or offset 1 (!base)
-  *)
-  let uncontr_assigns =
-    let ex_var_set = VS.of_list contr_vars in
-    Model.to_list model
-    |> List.filter (fun (v,_) -> VS.mem v ex_var_set |> not)
-    |> List.map (fun (v, vl) ->
-      match vl with
-      | Model.Term e -> Term.mk_eq [Term.mk_var v; e]
-      | _ -> assert false)
-  in
+  SMTSolver.assert_term solver constraints ;
 
   let unsat_core_lits =
-    let scope = TransSys.scope_of_trans_sys sys in
-    let actlits = ME.get_actlits_of_scope guarantee_mode_elts_core scope in
-    List.iter (SMTSolver.declare_fun solver) actlits ;
-    let requirements =
-      Term.mk_and
-      (List.rev_append uncontr_assigns guarantee_mode_elts_term)
-    in
-    SMTSolver.assert_term solver requirements ;
-    let act_terms = List.map Actlit.term_of_actlit actlits in
-    SMTSolver.check_sat_assuming solver
-      (fun _ -> assert false)
-      (fun _ -> SMTSolver.get_unsat_core_lits solver)
-      act_terms
+    check_sat_and_get_minimal_unsat_core_lits solver act_terms
   in
 
   let conflict_set =
-    let actlits =
-      let actlit_of_term t =
-        match Term.destruct t with
-        | Const s -> Symbol.uf_of_symbol s
-        | _ -> assert false
-      in
-      List.map actlit_of_term unsat_core_lits
-    in
-    let core = ME.filter_core actlits guarantee_mode_elts_core in
-    ME.core_to_loc_core in_sys core
+    build_conflict_set in_sys unsat_core_lits guarantee_mode_elts_core
   in
 
   let cex' =
-    let actlits =
-      let z3_used =
-        match Flags.Smt.solver () with
-        | `Z3_SMTLIB -> true (* Unsat core is minimal *)
-        | _ -> false
-      in
-      if z3_used then
-        (* Drop one activation literal from unsat core, assert the rest to
-           satisfy the maximum number of constraints
-        *)
-        List.tl (List.rev unsat_core_lits)
-      else
-        []
-    in
-
-    SMTSolver.assert_term solver (Term.mk_and actlits);
-
-    assert (SMTSolver.check_sat solver) ;
-
-    let m = get_var_values_at_offset solver sys offset in
-
-    match cex with
-    | [] -> (
-      Model.to_list m |> List.map (fun (v, vl) ->
-        Var.state_var_of_state_var_instance v, [vl]
-      )
+    match Flags.Smt.solver () with
+    | `Z3_SMTLIB -> (
+      compute_deadlocking_trace_max_smt_impl solver sys cex offset act_terms
     )
     | _ -> (
-      cex |> List.map (fun (sv, values) ->
-        let v = Var.mk_state_var_instance sv Numeral.one in
-        match Var.VarHashtbl.find_opt m v with
-        | Some vl -> (
-          (* let t = Var.type_of_var v in
-          Format.printf "VAR: %a = %a@."
-            Var.pp_print_var v (Model.pp_print_value ~as_type:t) vl; *)
-          sv, List.rev (vl :: (List.rev values))
-        )
-        | None -> assert false
-      )
+      compute_deadlocking_trace_mus_impl solver sys cex offset unsat_core_lits
     )
   in
 
   SMTSolver.delete_instance solver ;
 
   cex', conflict_set
-

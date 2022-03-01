@@ -668,6 +668,7 @@ let run in_sys =
               KEvent.log L_warn "%s" msg
           ) ;
           
+          Stat.start_timer Stat.analysis_time ;
           match result with
           | Unrealizable _ -> (
             let result =
