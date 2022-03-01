@@ -516,9 +516,11 @@ let compute_deadlocking_trace_max_smt_impl solver sys cex offset act_terms =
   build_countertrace cex model
 
 
-let compute_deadlocking_trace_mus_impl solver sys cex offset =
-  let actlits = [] in
-
+let compute_deadlocking_trace_mus_impl solver sys cex offset minimal_unsat_core =
+  (* Drop one activation literal from minimal unsat core, assert the rest to
+     satisfy the maximum number of constraints in the core
+  *)
+  let actlits = List.tl (List.rev minimal_unsat_core) in
   SMTSolver.assert_term solver (Term.mk_and actlits);
 
   assert (SMTSolver.check_sat solver) ;
@@ -640,7 +642,7 @@ let compute_deadlocking_trace_and_conflict
       compute_deadlocking_trace_max_smt_impl solver sys cex offset act_terms
     )
     | _ -> (
-      compute_deadlocking_trace_mus_impl solver sys cex offset
+      compute_deadlocking_trace_mus_impl solver sys cex offset unsat_core_lits
     )
   in
 
