@@ -1,3 +1,7 @@
+# Before editing this file, run [make update] to add new auto-generated
+# comments for all error states. Once you are done, run [make strip] to
+# strip away the auto-generated comments and reduce the size of the file.
+
 one_expr: BVNOT TRUE WEAKLY
 
 Syntax Error!

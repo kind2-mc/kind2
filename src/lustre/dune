@@ -34,6 +34,8 @@
 ;; This rule implements the completeness check. It checks that every error
 ;; state listed in the auto-generated file "lustreParser.auto.messages"
 ;; is also listed in the file "lustreParser.messages".
+;; If this rule fails to execute, run [make complete] in this directory to
+;; add missing sentences and remove obsolete ones.
 
 (rule
   (with-stdout-to lustreParser.check
