@@ -1,0 +1,36 @@
+# Makefile based on Menhir's calc-syntax-errors demo
+
+# [make update] updates the file [lustreParser.messages] with new auto-generated
+# comments for all error states. It is used before editing [lustreParser.messages]
+.PHONY: update
+update:
+	@ cp -f lustreParser.messages /tmp/lustreParser.messages.bak
+	@ menhir lustreParser.mly \
+	    --update-errors lustreParser.messages \
+	    > /tmp/lustreParser.updated
+	@ mv /tmp/lustreParser.updated lustreParser.messages
+
+# [make strip] strips away the auto-generated comments found in the file
+# lustreParser.messages. It is typically used after [make update], which
+# creates many such comments.
+.PHONY: strip
+strip:
+	@sed -i"" "/^##/d" lustreParser.messages
+	@echo "Stripped auto-generated comments"
+
+# [make complete] is used when the completeness check fails, that is, when
+# there exist error states that are not reached by any of the sentences in
+# the file lustreParser.messages. [make complete] adds the missing sentences
+# (with dummy error messages) to this file, so that the completeness check
+# succeeds. It is then up to the programmer to study these sentences and
+# replace the dummy messages with suitable messages.
+.PHONY: complete
+complete:
+	@ menhir lustreParser.mly \
+	    --list-errors \
+	    > /tmp/lustreParser.auto.messages
+	@ menhir lustreParser.mly \
+	    --merge-errors /tmp/lustreParser.auto.messages \
+	    --merge-errors lustreParser.messages \
+	    > /tmp/lustreParser.merged
+	@ mv /tmp/lustreParser.merged lustreParser.messages
