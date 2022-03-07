@@ -1,8 +1,3 @@
-type Command = enum {GO_DOWN, GO_UP};
-const THRESHOLD: real;
-const DELTA: real;
-const SENSOR_ERROR: real;
-
 node Abs(n: real) returns (r: real);
 let
   r = if 0.0<=n then n else -n;

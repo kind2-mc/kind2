@@ -134,7 +134,7 @@ let error_message kind = match kind with
       | false -> "non-array type " ^ string_of_tc_type ty1)
   | IlltypedDefaults -> "Defaults do not have the same type as node call"
   | IlltypedMerge ty -> "All expressions in merge expected to be the same type " ^ string_of_tc_type ty
-  | IlltypedFby (ty1, ty2) -> "Both the expressions in `Fby` should be of the same type."
+  | IlltypedFby (ty1, ty2) -> "Both the expressions in Fby should be of the same type."
     ^ "Found types " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | IlltypedArrow (ty1, ty2) -> "Arrow types do not match " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | IlltypedCall (ty1, ty2) -> "Node arguments at call expect to have type "

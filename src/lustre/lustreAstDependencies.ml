@@ -47,10 +47,10 @@ type error_kind = Unknown of string
 
 let error_message error = match error with
   | Unknown s -> s
-  | IdentifierRedeclared i -> "Identifier " ^ (HString.string_of_hstring i) ^ " is already declared"
-  | WidthLengthsUnequal (l, r) -> "Width lengths are not equal for expressions: "
-    ^ (Lib.string_of_t LA.pp_print_expr l) ^ " and "
-    ^ (Lib.string_of_t LA.pp_print_expr r)
+  | IdentifierRedeclared i -> "Identifier '" ^ (HString.string_of_hstring i) ^ "' is already declared"
+  | WidthLengthsUnequal (l, r) -> "Width lengths are not equal for expressions: '"
+    ^ (Lib.string_of_t LA.pp_print_expr l) ^ "' and '"
+    ^ (Lib.string_of_t LA.pp_print_expr r) ^ "'"
   | EquationWidthsUnequal -> "Width lengths of equation are not equal"
   | ContractDependencyOnCurrentOutput ids -> "Contract assumption cannot depend on "
     ^ "current values of output parameters but found: "
