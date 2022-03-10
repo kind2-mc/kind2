@@ -65,7 +65,7 @@ let success (v : LustreAst.t): LustreAst.t =
 let build_parse_error_msg env =
   match LPMI.stack env with
   | lazy Nil -> None, "Syntax Error!"
-  | lazy (Cons (LPMI.Element (state, _, p, _), _)) ->
+  | lazy (Cons (LPMI.Element (state, _, _, p), _)) ->
     let pstate = LPMI.number state in
     let error_msg =
       try (LPE.message pstate)
