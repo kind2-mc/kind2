@@ -1048,6 +1048,7 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
               let controllable_vars_at_0 = vars_at_0 in
               let controllable_vars_at_1 = vars_at_1 in
               realizability_check
+                Term.vars_of_term (* It doesn't matter since all variables are controllable *)
                 c_sys' controllable_vars_at_0 vars_at_1 controllable_vars_at_1
             in
 
@@ -1111,6 +1112,7 @@ let generate_assumption_vg in_sys sys var_filters prop =
       not (has_assumptions in_sys scope)
     in
     realizability_check ~include_invariants
+      Term.vars_of_term (* It doesn't matter since all variables are controllable *)
       sys' controllable_vars_at_0 vars_at_1 controllable_vars_at_1
   in
 

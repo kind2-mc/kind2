@@ -140,7 +140,7 @@ val param_scope_is_abstract : param -> Scope.t -> bool
 
 (** Return [true] if no system is flagged abstract
     in the [abstraction_map] of a [param]. *)
-val no_system_is_abstract : param -> bool
+val no_system_is_abstract : ?include_top:bool -> param -> bool
 
 (** Retrieve the assumptions of a [scope] from a [param]. *)
 val param_assumptions_of_scope : param -> Scope.t -> Invs.t

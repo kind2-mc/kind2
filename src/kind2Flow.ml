@@ -625,6 +625,36 @@ let run in_sys =
   (* Only the contract checker is active.*)
   | [m] when m = `CONTRACTCK -> (
 
+    let satisfy_input_requirements in_sys param =
+      (* Required for correct computation of assumption variables and term partition.
+         It also avoids classifying a contract realizable or satisfiable when
+         existence of a value for a (underspecified) output of a called node depends on
+         values beyond the node's interface.
+      *)
+      let top = (Analysis.info_of_param param).top in
+      let model_contains_assert =
+        ISys.retrieve_lustre_nodes_of_scope in_sys top
+        |> List.exists
+          (fun { LustreNode.asserts } -> asserts <> [])
+      in
+      if model_contains_assert then (
+        KEvent.log L_warn "Calls to nodes with asserts are not supported." ;
+        false
+      )
+      else if ISys.contain_partially_defined_system in_sys top then (
+        KEvent.log L_warn
+          "Calls to nodes with partially defined outputs are not supported." ;
+        false
+      )
+      else if Analysis.no_system_is_abstract ~include_top:false param then (
+        true
+      )
+      else (
+        KEvent.log L_warn "Calls to imported nodes are not supported." ;
+        false
+      )
+    in
+
     (* If Z3 is used for contract checking, use qe-light strategy *)
     Flags.Smt.set_z3_qe_light true ;
 
@@ -652,7 +682,10 @@ let run in_sys =
             if not has_contract then
               Realizability.Realizable Term.t_true
             else
-              ContractChecker.check_contract_realizability in_sys sys
+              if satisfy_input_requirements in_sys param then
+                ContractChecker.check_contract_realizability in_sys sys
+              else
+                Realizability.Unknown
           in
           (
             try

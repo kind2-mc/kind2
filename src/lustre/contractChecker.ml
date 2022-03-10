@@ -24,9 +24,11 @@ module TSys = TransSys
 module LN = LustreNode
 module LC = LustreContract
 module ME = ModelElement
+module VS = Var.VarSet
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
+module UFM = UfSymbol.UfSymbolMap
 
 
 let get_assumption_vars in_sys sys =
@@ -71,27 +73,49 @@ let compute_input_system_svars in_sys sys =
   )
   | None -> assert false
 
+
+let get_node_calls in_sys sys =
+  let scope = TSys.scope_of_trans_sys sys in
+  match ISys.get_lustre_node in_sys scope with
+  | Some { LN.calls } -> calls
+  | None -> assert false
+
+
 let compute_assump_instance_vars in_sys sys assumption_vars =
   let in_sys_svars = compute_input_system_svars in_sys sys in
+  let node_calls = get_node_calls in_sys sys in
   let instances =
     TSys.get_subsystem_instances sys |> List.map snd |> List.concat
   in
   List.fold_left
-    (fun acc_vars { TSys.map_down } ->
-      let call_vars =
-        SVM.fold (fun sv _ acc -> SVS.add sv acc) map_down SVS.empty
+    (fun acc_vars { TSys.pos; TSys.map_down } ->
+      let r =
+        List.find_opt
+          (fun { LN.call_pos } -> Lib.equal_pos pos call_pos)
+          node_calls
       in
-      let sys_svars, trans_svars =
-        call_vars |> SVS.partition (fun sv -> SVS.mem sv in_sys_svars)
-      in
-      if SVS.subset sys_svars assumption_vars then
-        SVS.union acc_vars trans_svars
-      else
-        acc_vars
+      match r with
+      | Some { LN.call_outputs } -> (
+        let call_outputs =
+          List.map snd (LustreIndex.bindings call_outputs) |> SVS.of_list
+        in
+        if SVS.inter call_outputs assumption_vars |> SVS.is_empty then
+          acc_vars
+        else (
+          let call_vars =
+            SVM.fold (fun sv _ acc -> SVS.add sv acc) map_down SVS.empty
+          in
+          let trans_svars =
+            call_vars
+            |> SVS.filter (fun sv -> SVS.mem sv in_sys_svars |> not)
+          in
+          SVS.union acc_vars trans_svars
+        )
+      )
+      | None -> assert false
     )
     SVS.empty
     instances
-
 
 let compute_controllable_vars in_sys sys vars_at_1 =
   let assumption_vars =
@@ -134,7 +158,49 @@ let check_contract_realizability in_sys sys =
     compute_controllable_vars in_sys sys vars_at_1
   in
 
-  realizability_check sys controllable_vars_at_0 vars_at_1 controllable_vars_at_1
+  let call_output_args =
+    let instances =
+      TSys.get_subsystem_instances sys |> List.map fst
+    in
+    List.fold_left
+      (fun acc called_sys ->
+        let scope = TSys.scope_of_trans_sys called_sys in
+        let init_uf_symbol = TSys.init_uf_symbol called_sys in
+        let trans_uf_symbol = TSys.trans_uf_symbol called_sys in
+        match ISys.get_lustre_node in_sys scope with
+        | None -> assert false
+        | Some { LN.inputs; LN.oracles; LN.outputs } -> (
+          let nb_inputs = LustreIndex.cardinal inputs in
+          let nb_oracles = List.length oracles in
+          let nb_outputs = LustreIndex.cardinal outputs in
+          UFM.add init_uf_symbol (nb_inputs+nb_oracles, nb_outputs) acc
+          |> UFM.add trans_uf_symbol (nb_inputs+nb_oracles, nb_outputs)
+        )
+      )
+      UFM.empty
+      instances
+  in
+
+  let vars_of_term term =
+    match Term.destruct term with
+    | Term.T.App (s, args) when
+      (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
+      -> ( (* Case of a node call *)
+      let ufs = Symbol.uf_of_symbol s in
+      match UFM.find_opt ufs call_output_args with
+      | None -> Term.vars_of_term term
+      | Some (s, k) -> (
+        Lib.list_slice args s (s+k-1)
+        |> List.fold_left
+          (fun acc t -> VS.union acc (Term.vars_of_term t))
+          VS.empty
+      )
+    )
+    | _ -> Term.vars_of_term term
+  in
+
+  realizability_check
+    vars_of_term sys controllable_vars_at_0 vars_at_1 controllable_vars_at_1
 
 
 let compute_unviable_trace_and_core analyze in_sys param sys u_result =
@@ -310,7 +376,11 @@ let check_contract_satisfiability sys =
     TSys.vars_of_bounds ~with_init_flag:true sys Numeral.one Numeral.one
   in
 
-  let res = realizability_check sys vars_at_0 vars_at_1 vars_at_1 in
+  let res =
+    realizability_check
+      Term.vars_of_term (* It doesn't matter since all variables are controllable *)
+      sys vars_at_0 vars_at_1 vars_at_1
+  in
 
   List.iter (fun sv -> StateVar.set_const true sv) const_svars ;
 
