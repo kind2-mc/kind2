@@ -64,21 +64,23 @@ let success (v : LustreAst.t): LustreAst.t =
 (* Generates the appropriate parser error message *)
 let build_parse_error_msg env =
   match LPMI.stack env with
-  | lazy Nil -> "Syntax Error!"
-  | lazy (Cons (LPMI.Element (state, _, _, _), _)) ->
+  | lazy Nil -> None, "Syntax Error!"
+  | lazy (Cons (LPMI.Element (state, _, p, _), _)) ->
     let pstate = LPMI.number state in
     let error_msg =
       try (LPE.message pstate)
       with Not_found -> "Syntax Error!"
     in
     Log.log L_debug "(Parser Error State: %d)" pstate;
-    error_msg
-                                     
+    Some p, error_msg
 
 (* Raises the [Parser_error] exception with appropriate position and error message *)
 let fail env lexbuf =
-  let emsg = build_parse_error_msg env in
-  let pos = position_of_lexing lexbuf.lex_curr_p in
+  let pos, emsg = build_parse_error_msg env in
+  let pos = match pos with
+    | Some p -> position_of_lexing p
+    | None -> position_of_lexing lexbuf.lex_curr_p
+  in
   Error (`LustreParserError (pos, emsg))
 
 (* Incremental Parsing *)
