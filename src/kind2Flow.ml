@@ -625,6 +625,18 @@ let run in_sys =
   (* Only the contract checker is active.*)
   | [m] when m = `CONTRACTCK -> (
 
+    let check_solver_is_supported () =
+      match Flags.Smt.solver () with
+      | `Z3_SMTLIB | `CVC4_SMTLIB -> ()
+      | _ -> (
+        KEvent.log L_fatal "Contract checking requires Z3 or CVC4." ;
+        KEvent.terminate_log () ;
+        exit ExitCodes.error
+      )
+    in
+
+    check_solver_is_supported () ;
+
     let satisfy_input_requirements in_sys param =
       (* Required for correct computation of assumption variables and term partition.
          It also avoids classifying a contract realizable or satisfiable when
