@@ -76,6 +76,7 @@ type error_kind = Unknown of string
   | IlltypedBitNot of tc_type
   | IlltypedUnaryMinus of tc_type
   | ExpectedIntegerTypes of tc_type * tc_type
+  | ExpectedNumeralTypes of tc_type * tc_type
   | ExpectedMachineIntegerTypes of tc_type * tc_type
   | ExpectedBitShiftConstant
   | ExpectedBitShiftConstantOfSameWidth of tc_type
@@ -152,7 +153,9 @@ let error_message kind = match kind with
   | IlltypedBitNot ty -> "Cannot apply the bit-value not operator to a non machine integer value of type "
     ^ string_of_tc_type ty
   | IlltypedUnaryMinus ty -> "Unary minus cannot be applied to non number expression of type " ^ string_of_tc_type ty
-  | ExpectedIntegerTypes (ty1, ty2) -> "Expected both arguments of operator to be of type int but found "
+  | ExpectedIntegerTypes (ty1, ty2) -> "Expected both arguments of operator to be of same integer type but found "
+    ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
+  | ExpectedNumeralTypes (ty1, ty2) -> "Expected both arguments of operator to be of same integer type (or type real) but found "
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | ExpectedMachineIntegerTypes (ty1, ty2) -> "Expected both arguments of operator to be of machine integer type but found "
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
@@ -711,12 +714,12 @@ and infer_type_binary_op: tc_context -> Lib.position
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
     if is_num
     then R.ok ty2
-    else type_error pos (ExpectedIntegerTypes (ty1, ty2))
+    else type_error pos (ExpectedNumeralTypes (ty1, ty2))
   | LA.Div ->
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
     if is_num
     then R.ok ty2
-    else type_error pos (ExpectedIntegerTypes (ty1, ty2))
+    else type_error pos (ExpectedNumeralTypes (ty1, ty2))
   | LA.IntDiv ->
     if LH.is_type_int ty1 && LH.is_type_int ty2
     then (R.ifM (eq_lustre_type ctx ty1 ty2)
