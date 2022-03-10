@@ -712,17 +712,25 @@ and vars_of_clocl_expr: clock_expr -> iset = function
   | ClockNeg i -> SI.singleton i
   | ClockConstr (i1, i2) -> SI.of_list [i1; i2]
 
-let rec vars_of_struct_item: struct_item -> iset = function
+let rec vars_of_struct_item_with_pos = function
+  | SingleIdent (p, i) -> [(p, i)]
+  | TupleStructItem (_, ts) -> List.flatten (List.map vars_of_struct_item_with_pos ts)  
+  | TupleSelection (p, i, _)
+  | FieldSelection (p, i, _)
+  | ArraySliceStructItem (p, i, _)
+  | ArrayDef (p, i, _) -> [(p, i)]
+
+let rec vars_of_struct_item = function
   | SingleIdent (_, i) -> SI.singleton i
   | TupleStructItem (_, ts) -> SI.flatten (List.map vars_of_struct_item ts)  
   | TupleSelection (_, i, _)
-    | FieldSelection (_, i, _)
-    | ArraySliceStructItem (_, i, _)
-    | ArrayDef (_, i, _) -> SI.singleton i 
+  | FieldSelection (_, i, _)
+  | ArraySliceStructItem (_, i, _)
+  | ArrayDef (_, i, _) -> SI.singleton i
 
-let vars_lhs_of_eqn: node_item -> iset = function
-  | Body (Equation (_, StructDef (_, ss), _)) -> SI.flatten (List.map vars_of_struct_item ss)
-  | _ -> SI.empty
+let vars_lhs_of_eqn_with_pos = function
+  | Body (Equation (_, StructDef (_, ss), _)) -> List.flatten (List.map vars_of_struct_item_with_pos ss)
+  | _ -> []
 
 
 let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
