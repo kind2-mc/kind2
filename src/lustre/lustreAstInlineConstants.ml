@@ -311,10 +311,9 @@ and simplify_expr ?(is_guarded = false) ctx =
      let e1' = simplify_expr ~is_guarded ctx e1 in
      let e2' = simplify_expr ~is_guarded ctx e2 in
      let e' = LA.ArrayConstr (pos, e1', e2') in
-     e'
-     (* (match (eval_int_expr ctx e2) with
+     (match (eval_int_expr ctx e2) with
       | Ok size -> LA.GroupExpr (pos, LA.ArrayExpr, Lib.list_init (fun _ -> e1') size)
-      | Error _ -> e') *)
+      | Error _ -> e')
   | LA.ArrayIndex (pos, e1, e2) -> simplify_array_index ctx pos e1 e2
   | LA.ArrayConcat (pos, e1, e2) as e->
      (match (simplify_expr ~is_guarded ctx e1, simplify_expr ~is_guarded ctx e2) with

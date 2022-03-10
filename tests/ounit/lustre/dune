@@ -2,7 +2,8 @@
 (dirs lustreSyntaxChecks
   lustreTypeChecker
   lustreAstDependencies
-  lustreParser)
+  lustreParser
+  lustreAstInlineConstants)
 
 (tests
   (names testAstDependencies testLustreFrontend)
