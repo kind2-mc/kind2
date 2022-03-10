@@ -711,7 +711,7 @@ and infer_type_binary_op: tc_context -> Lib.position
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
     if is_num
     then R.ok ty2
-    else type_error pos (UnificationFailed (ty1, ty2))
+    else type_error pos (ExpectedIntegerTypes (ty1, ty2))
   | LA.Div ->
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
     if is_num
