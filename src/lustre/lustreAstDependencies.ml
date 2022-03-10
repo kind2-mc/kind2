@@ -1288,7 +1288,7 @@ let sort_and_check_nodes_contracts decls =
     \n============\n%a\n============\n"
     LA.pp_print_program final_decls;
   
-  if List.length toplevel_nodes == 0 then
+  if List.length toplevel_nodes == 0 && not (Flags.only_parse ()) then
     R.error (`LustreAstDependenciesError (Lib.dummy_pos, NoToplevelNodes))
   else
     R.ok (final_decls, toplevel_nodes)
