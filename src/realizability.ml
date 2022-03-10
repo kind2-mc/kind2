@@ -535,6 +535,22 @@ let compute_deadlocking_trace_mus_impl solver sys cex offset minimal_unsat_core 
 let compute_deadlocking_trace_and_conflict
   analyze in_sys param sys u_result =
 
+  let sys =
+    let scope = (Analysis.info_of_param param).top in
+    match InputSystem.get_lustre_node in_sys scope with
+    | None -> sys
+    | Some { LustreNode.is_function } ->
+      if is_function then (
+        (* Recompute transition system adding functional constraints *)
+        let sys, _ =
+          InputSystem.trans_sys_of_analysis
+            ~add_functional_constraints:true in_sys param
+        in
+        sys
+      )
+      else sys
+  in
+
   let vr, cex, is_base, offset =
     match u_result with
 
