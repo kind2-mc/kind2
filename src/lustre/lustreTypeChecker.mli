@@ -61,7 +61,7 @@ type error_kind = Unknown of string
   | IlltypedBitNot of tc_type
   | IlltypedUnaryMinus of tc_type
   | ExpectedIntegerTypes of tc_type * tc_type
-  | ExpectedNumeralTypes of tc_type * tc_type
+  | ExpectedNumberTypes of tc_type * tc_type
   | ExpectedMachineIntegerTypes of tc_type * tc_type
   | ExpectedBitShiftConstant
   | ExpectedBitShiftConstantOfSameWidth of tc_type
