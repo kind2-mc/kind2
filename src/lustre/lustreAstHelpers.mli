@@ -78,11 +78,14 @@ val replace_lasts : LustreAst.index list -> string -> SI.t -> expr -> expr * SI.
 val vars: expr -> SI.t
 (** returns all the [ident] that appear in the expr ast*)
 
-val vars_of_struct_item: struct_item -> SI.t
-(** returns all variables that appear in a [struct_item]   *)
+val vars_of_struct_item_with_pos: struct_item -> (Lib.position * index) list
+(** returns all variables that appear in a [struct_item] with associated positions *)
 
-val vars_lhs_of_eqn: node_item -> SI.t
-(** returns all the variables that appear in the lhs of the equation of the node body *)
+val vars_of_struct_item: struct_item -> SI.t
+(** returns all variables that appear in a [struct_item] *)
+
+val vars_lhs_of_eqn_with_pos: node_item -> (Lib.position * index) list
+(** returns all the variables that appear in the lhs of the equation of the node body with associated positions *)
 
 val vars_of_ty_ids: typed_ident -> SI.t
 (**  returns all the variables that occur in the expression of a typed identifier declaration *)

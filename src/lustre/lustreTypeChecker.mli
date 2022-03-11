@@ -61,12 +61,13 @@ type error_kind = Unknown of string
   | IlltypedBitNot of tc_type
   | IlltypedUnaryMinus of tc_type
   | ExpectedIntegerTypes of tc_type * tc_type
+  | ExpectedNumberTypes of tc_type * tc_type
   | ExpectedMachineIntegerTypes of tc_type * tc_type
   | ExpectedBitShiftConstant
   | ExpectedBitShiftConstantOfSameWidth of tc_type
   | ExpectedBitShiftMachineIntegerType of tc_type
   | InvalidConversion of tc_type * tc_type
-  | NodeArgumentsAreOnLHS of ty_set
+  | NodeArgumentOnLHS of HString.t
   | NodeInputOutputShareIdentifier of ty_set
   | MismatchOfEquationType of LA.struct_item list option * tc_type
   | DisallowedReassignment of ty_set

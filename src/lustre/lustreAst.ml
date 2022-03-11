@@ -325,10 +325,10 @@ type t = declaration list
 (* Pretty-print a clock expression *)
 let pp_print_clock_expr ppf = function
   | ClockTrue -> ()
-  | ClockPos s -> Format.fprintf ppf "@ when %a" pp_print_ident s
-  | ClockNeg s -> Format.fprintf ppf "@ when not %a" pp_print_ident s
+  | ClockPos s -> Format.fprintf ppf "when %a" pp_print_ident s
+  | ClockNeg s -> Format.fprintf ppf "when not %a" pp_print_ident s
   | ClockConstr (s, c) ->
-    Format.fprintf ppf "@ when %a(%a)" pp_print_ident c pp_print_ident s
+    Format.fprintf ppf "when %a(%a)" pp_print_ident c pp_print_ident s
 
 
 (* Pretty-print a Lustre expression *)
@@ -524,12 +524,17 @@ let rec pp_print_expr ppf =
     | CompOp (p, Gt, e1, e2) -> p2 p ">" e1 e2
 
     | When (p, e1, e2) ->
-      Format.fprintf ppf "%a %a when %a"
+      Format.fprintf ppf "%a%a %a"
         ppos p
         pp_print_expr e1
         pp_print_clock_expr e2
 
-    | Current (p, e) -> p1 p "current" e
+    | Current (p, e) ->
+      Format.fprintf ppf "@[<hv 2>%a%s(%a)@]" 
+      ppos p 
+      "current"
+      pp_print_expr e
+
     | Condact (p, e1, er, n, e2, e3) -> 
   
       Format.fprintf ppf 
@@ -581,8 +586,8 @@ let rec pp_print_expr ppf =
 
     | Call (p, id, l) ->
 
-      Format.fprintf ppf 
-        "%a%a(%a)" 
+      Format.fprintf ppf
+        "%a%a(%a)"
         ppos p
         pp_print_ident id
         (pp_print_list pp_print_expr ",@ ") l

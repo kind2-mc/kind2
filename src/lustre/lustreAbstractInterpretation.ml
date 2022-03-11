@@ -525,7 +525,7 @@ and interpret_int_binary_expr node_id ctx ty_ctx proj op e1 e2 =
   | Minus -> template Numeral.(-)
   | Plus -> template Numeral.(+)
   | Times -> template Numeral.( * )
-  | IntDiv ->
+  | IntDiv | Div ->
     (match l1, l2, r1, r2 with
       | Some l1, Some l2, Some r1, Some r2 ->
         let lmin = Numeral.min l1 l2 in
