@@ -166,12 +166,18 @@ let parse_log_xml level pos msg =
     if fname = "" then () else
     Format.fprintf ppf " file=\"%s\"" fname
   in
-  let file, lnum, cnum = file_row_col_of_pos pos in
+  let pp_print_line_col ppf pos =
+    try
+      let lnum, cnum = row_col_of_pos pos in
+      Format.fprintf ppf " line=\"%d\" column=\"%d\"" lnum cnum
+    with Invalid_argument _ -> ()
+  in
+  let file = file_of_pos pos in
   (ignore_or_fprintf level)
     !log_ppf
-    "@[<hv 2><Log class=\"%a\" source=\"parse\" line=\"%d\" column=\"%d\"%a>\
+    "@[<hv 2><Log class=\"%a\" source=\"parse\"%a%a>\
     @,@[<hov>%s@]@;<0 -2></Log>@]@."
-    pp_print_level_xml_cls level lnum cnum pp_print_fname file
+    pp_print_level_xml_cls level pp_print_line_col pos pp_print_fname file
     (Lib.escape_xml_string msg)
 
 
@@ -216,7 +222,14 @@ let parse_log_json level pos msg =
     if fname = "" then () else
     Format.fprintf ppf "\"file\" : \"%s\",@," fname
   in
-  let file, lnum, cnum = file_row_col_of_pos pos in
+  let pp_print_line_col ppf pos =
+    try
+      let lnum, cnum = row_col_of_pos pos in
+      Format.fprintf ppf
+        "\"line\" : %d,@,\"column\" : %d,@," lnum cnum
+    with Invalid_argument _ -> ()
+  in
+  let file = file_of_pos pos in
   (ignore_or_fprintf level)
     !log_ppf
     ( (if !first_log_flag then
@@ -229,15 +242,14 @@ let parse_log_json level pos msg =
        \"level\" : \"%s\",@,\
        \"source\" : \"parse\",@,\
        %a\
-       \"line\" : %d,@,\
-       \"column\" : %d,@,\
+       %a\
        \"value\" : @[<h>\"%s\"@]\
        @]@.}@.\
       "
     )
     (string_of_log_level level)
     pp_print_fname file
-    lnum cnum (Lib.escape_json_string msg)
+    pp_print_line_col pos (Lib.escape_json_string msg)
 
 
 (*****************************************************************)

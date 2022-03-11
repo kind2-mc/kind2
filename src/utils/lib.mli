@@ -482,6 +482,14 @@ val pp_print_line_and_column : Format.formatter -> position -> unit
     position *)
 val file_row_col_of_pos : position -> string * int * int
 
+(** Return the file of a position *)
+val file_of_pos : position -> string
+
+(** Return the line and column of a position; fail with
+    [Invalid_argument "file_row_col_of_pos"] if the position is a dummy
+    position *)
+val row_col_of_pos : position -> int * int
+
 (** Inverse of {!file_row_col_of_pos} *)
 val pos_of_file_row_col : string * int * int -> position
 
