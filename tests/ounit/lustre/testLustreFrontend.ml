@@ -378,21 +378,21 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/type-grammer.lus" with
     | Error (`LustreTypeCheckerError (_, ArrayBoundsInvalidExpression)) -> true
     | _ -> false);
-  mk_test "test undefined" (fun () ->
+  mk_test "test undeclared" (fun () ->
     match load_file "./lustreTypeChecker/undeclared_type_04.lus" with
-    | Error (`LustreTypeCheckerError (_, Undefined _)) -> true
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
-  mk_test "test undefined 2" (fun () ->
+  mk_test "test undeclared 2" (fun () ->
     match load_file "./lustreTypeChecker/undeclared_type_03.lus" with
-    | Error (`LustreTypeCheckerError (_, Undefined _)) -> true
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
-  mk_test "test undefined 3" (fun () ->
+  mk_test "test undeclared 3" (fun () ->
     match load_file "./lustreTypeChecker/undeclared_type_02.lus" with
-    | Error (`LustreTypeCheckerError (_, Undefined _)) -> true
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
-  mk_test "test undefined 4" (fun () ->
+  mk_test "test undeclared 4" (fun () ->
     match load_file "./lustreTypeChecker/undeclared_type_01.lus" with
-    | Error (`LustreTypeCheckerError (_, Undefined _)) -> true
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
   mk_test "test local shadowing global" (fun () ->
     match load_file "./lustreTypeChecker/test_shadowing.lus" with

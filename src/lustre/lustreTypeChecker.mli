@@ -77,7 +77,7 @@ type error_kind = Unknown of string
   | Redeclaration of HString.t
   | ExpectedConstant of LA.expr
   | ArrayBoundsInvalidExpression
-  | Undefined of HString.t
+  | UndeclaredType of HString.t
   | EmptySubrange of int * int
   | SubrangeArgumentMustBeConstantInteger of LA.expr
 
