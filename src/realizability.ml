@@ -41,10 +41,10 @@ let result_to_string = function
   | Unrealizable _ -> "unrealizable"
   | Unknown -> "unknown"
 
-let term_partition var_lst term_lst =
+let term_partition vars_of_term var_lst term_lst =
   let var_set = VS.of_list var_lst in
   term_lst |> List.partition (fun c ->
-    VS.inter (Term.vars_of_term c) var_set
+    VS.inter (vars_of_term c) var_set
     |> VS.is_empty
   )
 
@@ -143,9 +143,11 @@ let compute_unsat_core_if_debugging sys context requirements ex_var_lst =
 *)
 
 
-let realizability_check ?(include_invariants=false)
+let realizability_check ?(include_invariants=false) vars_of_term
   sys controllable_vars_at_0 vars_at_1 controllable_vars_at_1 =
   
+  let term_partition = term_partition vars_of_term in
+
   (* Solver for term simplification *)
   let solver =
     SMTSolver.create_instance
@@ -532,6 +534,22 @@ let compute_deadlocking_trace_mus_impl solver sys cex offset minimal_unsat_core 
 
 let compute_deadlocking_trace_and_conflict
   analyze in_sys param sys u_result =
+
+  let sys =
+    let scope = (Analysis.info_of_param param).top in
+    match InputSystem.get_lustre_node in_sys scope with
+    | None -> sys
+    | Some { LustreNode.is_function } ->
+      if is_function then (
+        (* Recompute transition system adding functional constraints *)
+        let sys, _ =
+          InputSystem.trans_sys_of_analysis
+            ~add_functional_constraints:true in_sys param
+        in
+        sys
+      )
+      else sys
+  in
 
   let vr, cex, is_base, offset =
     match u_result with

@@ -256,10 +256,17 @@ let contract_check_params (type s) (input_system : s t) =
 
   let param_for_subsystem sub =
     let scope = sub.S.scope in
+    let subsystems = sub.S.subsystems in
     (Analysis.ContractCheck {
       Analysis.top = scope ;
       Analysis.uid = Analysis.get_uid () ;
-      Analysis.abstraction_map = Scope.Map.singleton scope true; (* Default to false *)
+      Analysis.abstraction_map =
+        List.fold_left
+          (fun acc { S.scope; S.has_impl } ->
+            Scope.Map.add scope (not has_impl) acc
+          )
+          (Scope.Map.singleton scope true)
+          subsystems;
       Analysis.assumptions = Scope.Map.empty ;
     }, sub.S.has_contract)
   in
