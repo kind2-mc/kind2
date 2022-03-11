@@ -43,7 +43,6 @@ type error_kind = Unknown of string
   | EquationWidthsUnequal
   | ContractDependencyOnCurrentOutput of SI.t
   | CyclicDependency of HString.t list
-  | NoToplevelNodes
 
 let error_message error = match error with
   | Unknown s -> s
@@ -57,7 +56,6 @@ let error_message error = match error with
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements ids))
   | CyclicDependency ids -> "Cyclic dependency detected in definition of identifiers: "
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids)
-  | NoToplevelNodes -> "No node defined in input model"
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind
@@ -1288,10 +1286,7 @@ let sort_and_check_nodes_contracts decls =
     \n============\n%a\n============\n"
     LA.pp_print_program final_decls;
   
-  if List.length toplevel_nodes == 0 && not (Flags.only_parse ()) then
-    R.error (`LustreAstDependenciesError (Lib.dummy_pos, NoToplevelNodes))
-  else
-    R.ok (final_decls, toplevel_nodes)
+  R.ok (final_decls, toplevel_nodes)
 (** Returns a topological order of declarations to resolve all forward refernce. 
     It also reorders contract equations and checks for circularity of node equations *)  
 

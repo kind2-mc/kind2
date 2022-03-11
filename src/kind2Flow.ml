@@ -677,7 +677,7 @@ let run in_sys =
       KEvent.log L_debug "Messaging initialized in Contract Check." ;
 
       match ISys.contract_check_params in_sys with
-      | [] -> KEvent.log L_note "No imported nodes found, skipping contract check."
+      | [] -> KEvent.log L_note "No imported nodes found, skipping contract checking."
       | params -> (
         Flags.Arrays.set_smt true ; (* Uninterpreted functions are not supported *)
         params |> List.iter (fun (param, has_contract) ->
@@ -771,7 +771,10 @@ let run in_sys =
 
         KEvent.log_analysis_end ()
       in
-      List.iter run_mcs params ;
+      (match params with
+       | [] -> (KEvent.log L_note "No analyzable nodes found, skipping MCS analysis.")
+       | _ -> List.iter run_mcs params
+      ) ;
       post_clean_exit `Supervisor Exit
     ) with
     | TimeoutWall -> on_exit None `Supervisor TimeoutWall
@@ -841,6 +844,12 @@ let run in_sys =
     try (
       (* Run everything. *)
       loop () ;
+
+      if Analysis.results_is_empty (!all_results) &&
+         InputSystem.analyzable_subsystems in_sys = []
+      then
+        KEvent.log L_note "No analyzable nodes found, skipping analysis." ;
+
       let results =
         ! all_results |> Analysis.results_clean
       in

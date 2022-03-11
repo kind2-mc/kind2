@@ -1270,7 +1270,19 @@ let file_row_col_of_pos = function
 
   (* Return tuple of filename, line and column *)
   | { pos_fname; pos_lnum; pos_cnum } -> (pos_fname, pos_lnum, pos_cnum)
-                                       
+
+(* Return the file of a position *)
+let file_of_pos { pos_fname } = pos_fname
+
+(* Return the line and column of a position; fail if the
+   position is a dummy position *)
+let row_col_of_pos = function
+
+  (* Fail if position is a dummy position *)
+  | p when is_dummy_pos p -> raise (Invalid_argument "row_col_of_pos")
+
+  (* Return tuple of line and column *)
+  | { pos_lnum; pos_cnum } -> (pos_lnum, pos_cnum)
 
 let print_backtrace fmt bt =
   match Printexc.backtrace_slots bt with

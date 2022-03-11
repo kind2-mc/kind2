@@ -275,10 +275,15 @@ let of_channel old_frontend only_parse in_ch =
         let nodes, globals = LNG.compile ctx gids decls in
         let main_nodes = match Flags.lus_main () with
           | Some s -> [LustreIdent.mk_string_ident s]
-          | None -> (match LustreNode.get_main_annotated_nodes nodes with
+          | None -> (
+            match LustreNode.get_main_annotated_nodes nodes with
             | h :: t -> h :: t
-            | [] -> toplevel_nodes |> List.map
-              (fun s -> s |> HString.string_of_hstring |> LustreIdent.mk_string_ident))
+            | [] ->
+              match toplevel_nodes with
+              | [] -> raise (NoMainNode "No node defined in input model")
+              | _ -> toplevel_nodes |> List.map (fun s ->
+                s |> HString.string_of_hstring |> LustreIdent.mk_string_ident)
+          )
         in
         Ok (nodes, globals, main_nodes)
     in

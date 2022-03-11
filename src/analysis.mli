@@ -192,6 +192,8 @@ val results_length : results -> int
     some were falsified. *)
 val results_is_safe : results -> bool option
 
+val results_is_empty : results -> bool
+
 (** Cleans the results by removing nodes that don't have any property or
 contract. *)
 val results_clean : results -> results

@@ -46,7 +46,6 @@ type error_kind = Unknown of string
   | EquationWidthsUnequal
   | ContractDependencyOnCurrentOutput of LA.SI.t
   | CyclicDependency of HString.t list
-  | NoToplevelNodes
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind
