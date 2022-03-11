@@ -92,7 +92,7 @@ type error_kind = Unknown of string
   | Redeclaration of HString.t
   | ExpectedConstant of LA.expr
   | ArrayBoundsInvalidExpression
-  | Undefined of HString.t
+  | UndeclaredType of HString.t
   | EmptySubrange of int * int
   | SubrangeArgumentMustBeConstantInteger of LA.expr
 
@@ -110,7 +110,7 @@ let error_message kind = match kind with
   | MergeCaseNotUnique case -> "Merge case " ^ HString.string_of_hstring case ^ " must be unique"
   | UnboundedIdentifier id -> "Unbounded identifier: " ^ HString.string_of_hstring id
   | UnboundedModeReference id -> "Unbounded mode reference: " ^ HString.string_of_hstring id
-  | MissingRecordField id -> "No field name " ^ HString.string_of_hstring id ^ " in record type"
+  | MissingRecordField id -> "No field name '" ^ HString.string_of_hstring id ^ "' in record type"
   | IlltypedRecordProjection ty -> "Cannot project field out of non record expression type " ^ string_of_tc_type ty
   | MissingTupleField (id, ty) -> "Field " ^ string_of_int id ^ " is out of bounds for tuple type " ^ string_of_tc_type ty
   | IlltypedTupleProjection ty -> "Cannot project field out of non tuple type " ^ string_of_tc_type ty
@@ -120,8 +120,8 @@ let error_message kind = match kind with
   | Unsupported s -> "Unsupported: " ^ s
   | UnequalArrayExpressionType -> "All expressions must be of the same type in an Array"
   | ExpectedNumeralArrayBound -> "Array cannot have non numeral type as its bounds"
-  | TypeMismatchOfRecordLabel (label, ty1, ty2) -> "Type mismatch. Type of record label " ^ (HString.string_of_hstring label)
-    ^ " is of type " ^ string_of_tc_type ty1 ^ " but the type of the expression is " ^ string_of_tc_type ty2
+  | TypeMismatchOfRecordLabel (label, ty1, ty2) -> "Type mismatch. Type of record label '" ^ (HString.string_of_hstring label)
+    ^ "' is of type " ^ string_of_tc_type ty1 ^ " but the type of the expression is " ^ string_of_tc_type ty2
   | IlltypedRecordUpdate ty -> "Cannot do an update on non-record type " ^ string_of_tc_type ty
   | ExpectedLabel e -> "Only labels can be used for record expressions but found " ^ LA.string_of_expr e
   | IlltypedArraySlice ty -> "Slicing can only be done on an array type but found " ^ string_of_tc_type ty
@@ -148,7 +148,7 @@ let error_message kind = match kind with
   | ExpectedType (ty1, ty2) -> "Expected type " ^ string_of_tc_type ty1 ^ " but found type " ^ string_of_tc_type ty2
   | EmptyArrayExpression -> "Array expression cannot be empty"
   | ExpectedArrayType ty -> "Expected an array type but found type " ^ string_of_tc_type ty
-  | MismatchedNodeType (id, ty1, ty2) -> "Node " ^ HString.string_of_hstring id ^ " of type " ^ string_of_tc_type ty1
+  | MismatchedNodeType (id, ty1, ty2) -> "Node '" ^ HString.string_of_hstring id ^ "' of type " ^ string_of_tc_type ty1
     ^ " does not match expected type " ^ string_of_tc_type ty2
   | IlltypedBitNot ty -> "Cannot apply the bit-value not operator to a non machine integer value of type "
     ^ string_of_tc_type ty
@@ -175,18 +175,18 @@ let error_message kind = match kind with
     ^ " does noit match expected type " ^ string_of_tc_type ty ^ " on right hand side of the node equation"
   | DisallowedReassignment vars -> "Cannot reassign value to a constant or enum but found reassignment to identifier(s): "
     ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements vars)
-  | DisallowedSubrangeInContractReturn (kind, id, ty) -> (match kind with | true -> "Argument " | false -> "Return ")
-    ^ HString.string_of_hstring id ^ " can not have type "
+  | DisallowedSubrangeInContractReturn (kind, id, ty) -> (match kind with | true -> "Argument '" | false -> "Return '")
+    ^ HString.string_of_hstring id ^ "' can not have type "
     ^ string_of_tc_type ty ^ ". Contract " ^ (match kind with | true -> "assumptions" | false -> "guarantees")
     ^ " should be used instead"
   | AssumptionMustBeInputOrOutput id -> "Assumption variable must be either an input or an output variable, "
     ^ "but found '" ^ HString.string_of_hstring id ^ "'"
-  | ContractOutputContainsContractArguments set -> "Output stream of node cannot be contract arguments, but found "
+  | ContractOutputContainsContractArguments set -> "Output stream of node cannot be contract arguments, but found: "
     ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements set)
   | Redeclaration id -> HString.string_of_hstring id ^ " is already declared"
   | ExpectedConstant e -> "Expression " ^ LA.string_of_expr e ^ " is not a constant expression"
   | ArrayBoundsInvalidExpression -> "Invalid expression in array bounds"
-  | Undefined id -> HString.string_of_hstring id ^ " is undefined"
+  | UndeclaredType id -> HString.string_of_hstring id ^ " is undeclared"
   | EmptySubrange (v1, v2) -> "Range can not be empty, but found range: ["
     ^ string_of_int v1 ^ ", " ^ string_of_int v2 ^ "]"
   | SubrangeArgumentMustBeConstantInteger e -> "Range arguments should be of constant integers, but found: "
@@ -1198,7 +1198,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
               (* 4. Lift all the enum constants (terms) into the value store as constants *)
                         @ enum_const_bindings))
             else
-              type_error pos (Redeclaration (HString.mk_hstring "Enum or constant"))
+              type_error pos (Redeclaration (HString.mk_hstring "Enum value or constant"))
     | _ -> check_type_well_formed ctx ty
             >> R.ok (add_ty_syn ctx i ty))
   | LA.FreeType (pos, i) ->
@@ -1336,7 +1336,7 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
     R.seq_ (List.map (check_type_well_formed ctx) tys)
   | LA.UserType (pos, i) ->
     if (member_ty_syn ctx i || member_u_types ctx i)
-    then R.ok () else type_error pos (Undefined i)
+    then R.ok () else type_error pos (UndeclaredType i)
   | LA.IntRange (pos, e1, e2) ->
     if is_expr_int_type ctx e1 && is_expr_of_consts ctx e1 then
       if is_expr_int_type ctx e2 && is_expr_of_consts ctx e2 then
