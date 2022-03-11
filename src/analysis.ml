@@ -269,6 +269,8 @@ let results_is_safe results = Scope.Map.fold (fun _ -> function
   | [] -> assert false
 ) results (Some true)
 
+let results_is_empty results = Scope.Map.is_empty results
+
 (** Cleans the results by removing nodes that don't have any property or
 contract. *)
 let results_clean = Scope.Map.filter (

@@ -234,21 +234,29 @@ let mcs_params (type s) (input_system : s t) =
   in
   match input_system with
   | Lustre (main_subs, _, _) ->
-    if Flags.modular ()
-    then
-      S.all_subsystems_of_list main_subs
-      |> List.rev
-      |> List.map param_for_subsystem
-    else
-      main_subs |> List.map param_for_subsystem
+    let subs =
+      if Flags.modular ()
+      then
+        S.all_subsystems_of_list main_subs
+        |> List.rev
+      else
+        main_subs
+    in
+    subs
+    |> List.filter (fun { S.has_impl } -> has_impl)
+    |> List.map param_for_subsystem
   | Native sub ->
-    if Flags.modular ()
-    then
-      S.all_subsystems sub
-      |> List.rev
-      |> List.map param_for_subsystem
-    else
-      [sub |> param_for_subsystem]
+    let subs =
+      if Flags.modular ()
+      then
+        S.all_subsystems sub
+        |> List.rev
+      else
+        [sub]
+    in
+    subs
+    |> List.filter (fun { S.has_impl } -> has_impl)
+    |> List.map param_for_subsystem
   | Horn _ -> raise (UnsupportedFileFormat "Horn")
 
 
