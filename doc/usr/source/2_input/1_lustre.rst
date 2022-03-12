@@ -81,15 +81,21 @@ Kind 2 produces the following on standard output when run with the default optio
 
 .. code-block:: none
 
-   kind2 v0.8.0
+   kind2 v1.5.1
 
-   <Success> Property OK is valid by inductive step after 0.182s.
+   ==============================================================
+   Analyzing top
+     with First top: 'top'
+                subsystems
+                  | concrete: intcounter, greycounter
 
-   status of trans sys
-   ------------------------------------------------------------------------------
-   Summary_of_properties:
+   <Success> Property OK is valid by inductive step after 0.065s.
 
-   OK: valid
+   --------------------------------------------------------------
+   Summary of properties:
+   --------------------------------------------------------------
+   OK: valid (at 5)
+   ==============================================================
 
 We can see here that the property ``OK`` has been proven valid for the system (by *k*\ -induction).
 
@@ -277,7 +283,7 @@ formal parameters to the actual ones of the import.
 When importing contract ``c`` in the contract of node ``n``\ , it is **illegal** to
 mention an output of ``n`` in the actual input parameters of the import of ``c``.
 The reason is that the distinction between inputs and outputs lets Kind 2 check
-that the assumptions and mode requirements make sense, *i.e.* do not mention
+that the assumptions requirements make sense, *i.e.* do not mention
 outputs of ``n`` in the current state.
 
 The general syntax is
@@ -371,8 +377,7 @@ then ``::<path>::m`` is exactly the same as
 
 * is a Lustre expression of type ``bool`` just like any other Boolean expression. 
   It can appear under a ``pre``\ , be used in a node call or a contract import, *etc.*
-* is only legal **after** the mode item itself. That is, no
-  forward/self-references are allowed.
+* is only legal **outside** the mode item itself. That is, no self-references are allowed.
 
 An interesting use-case for mode references is that of checking properties over
 the specification itself. One may want to do so to make sure the specification
