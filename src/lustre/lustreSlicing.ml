@@ -1207,11 +1207,12 @@ let slice_to_abstraction'
   N.subsystem_of_nodes top nodes'
 
 
-let no_slice {N.outputs ; N.locals ; N.contract; N.props } is_impl =
+let no_slice {N.inputs; N.outputs ; N.locals ; N.contract; N.props } is_impl =
   let vars =
     if is_impl then
       (roots_of_contract contract |> SVS.of_list)
       |> SVS.union (roots_of_props props |> SVS.of_list)
+      |> SVS.union (D.values inputs |> SVS.of_list)
       |> SVS.union (D.values outputs |> SVS.of_list)
       |> SVS.union (
         List.concat (List.map D.values locals) |> SVS.of_list
