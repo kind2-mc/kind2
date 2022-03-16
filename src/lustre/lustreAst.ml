@@ -1010,7 +1010,7 @@ let pp_print_contract_call fmt (_, id, in_params, out_params) =
 
 let pp_print_contract_assump_vars fmt (_, vars) =
   Format.fprintf
-    fmt "@[<hov 2>assumption-vars %a ;@]"
+    fmt "@[<hov 2>assumption_vars %a ;@]"
     (pp_print_list pp_print_ident ", ")
     (List.map (fun (_,v) -> v) vars)
 

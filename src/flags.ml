@@ -1109,7 +1109,7 @@ module Contracts = struct
     (fun fmt ->
       Format.fprintf fmt
       "@[<v>\
-        Controls the number of iterations used for the generalization of
+        Controls the number of iterations used for the generalization of@ \
         the assumption candidate.@ \
         Default: %d\
       @]"
