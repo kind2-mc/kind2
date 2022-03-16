@@ -564,6 +564,7 @@ module BmcKind = struct
     )
 
   let disable_compress () = compress := false
+  let set_compress b = compress := b
   
   let compress () = !compress
 
