@@ -344,6 +344,8 @@ module BmcKind : sig
   (** Compress inductive counterexample. *)
   val compress : unit -> bool
 
+  val set_compress : bool -> unit
+
   (** Compress inductive counterexample when states are equal modulo inputs. *)
   val compress_equal : unit -> bool
 

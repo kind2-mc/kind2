@@ -2152,9 +2152,9 @@ let add_assumption_variable = function
 | { node = None } ->
 
   (function _ ->
-    raise (Invalid_argument "add_uncontrollable_variable"))
+    raise (Invalid_argument "add_assumption_variable"))
 
-(* Get inputs from node in context *)
+(* Get inputs and outputs from node in context *)
 | { node = Some ({ N.inputs; N.outputs; N.assumption_svars } as node) } as ctx ->
 
   (function (pos, ident) ->
@@ -2184,7 +2184,7 @@ let add_assumption_variable = function
 
                ||
 
-               (* Find state variable in inputs *)
+               (* Find state variable in outputs *)
                D.exists
                  (fun _ sv -> StateVar.equal_state_vars state_var sv)
                  outputs
@@ -2199,7 +2199,7 @@ let add_assumption_variable = function
                  node = Some { node with N.assumption_svars = assumption_svars' } 
                }
 
-             (* State variable is not a input variable *)
+             (* State variable is not a input or output variable *)
              else
 
               fail_at_position pos

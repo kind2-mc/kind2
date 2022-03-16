@@ -228,6 +228,11 @@ module RunAssumptionGen: PostAnalysis = struct
     |> Res.chain (fun sys ->
       try (
         Flags.Smt.set_z3_qe_light true ;
+
+        (* Disable compression. Alternatively, make sure unconstrained_inputs is updated
+           when generated assumption is added to transition system *)
+        Flags.BmcKind.set_compress false;
+
         (* Create directories if they don't exist. *)
         let output_dir = Flags.output_dir () in
         mk_dir output_dir;
