@@ -376,7 +376,7 @@ let init_soln one_state solver assump_svars sv_to_ufs k system_unrolling abduct 
 
   (* Init predicate, transition relation predicate, and the latter
      without previous values of the environment variables *)
-  let init, trans =
+  let soln =
     let all_ufs =
       SVM.fold
         (fun _ ufs acc -> List.rev_append ufs acc)
@@ -401,19 +401,22 @@ let init_soln one_state solver assump_svars sv_to_ufs k system_unrolling abduct 
             |> Term.mk_or
           in
           let pred_at_1 = Term.bump_state Numeral.one pred_at_0 in
-          pred_at_0, pred_at_1
+          Some { init=pred_at_0; trans=pred_at_1 }
         else
-          mk_equalities' false 0 0,
-          List.init k (fun j -> mk_equalities' false 1 (j+1))
-          |> Term.mk_or
+          let init = mk_equalities' false 0 0 in
+          let trans =
+            List.init k (fun j -> mk_equalities' false 1 (j+1))
+            |> Term.mk_or
+          in
+          Some { init; trans }
       )
-      (fun _ -> assert false) (* If unsat. *)
+      (fun _ -> None) (* If unsat. *)
       all_ufs
   in
 
   SMTSolver.pop solver;
  
-  { init ; trans }
+  soln
 
 
 exception UnknownResult
@@ -676,67 +679,75 @@ let cart_decomp one_state abd_solver assump_svars sys k system_unrolling abduct 
       (sys_svars @ env_svars)
   in
 
-  let {init; trans} as assump =
-    init_soln one_state uf_solver assump_svars sv_to_ufs k system_unrolling abduct
+  let decomp {init; trans} =
+    if one_state then (
+      let init, _ =
+        iso_decomp
+          one_state sys abd_solver uf_solver assump_svars
+          sv_to_ufs init Term.t_true k abduct
+      in
+      init, Term.bump_state Numeral.one init
+    )
+    else (
+      let init =
+        let premises =
+          Term.mk_and
+            (List.init k
+              (fun i -> Term.bump_state (Numeral.of_int i) trans))
+        in
+        let forall_vars =
+          List.rev_append
+            (mk_forall_vars 0 sys_svars k |> List.rev)
+            (mk_forall_vars 1 env_svars k)
+        in
+        Abduction.abduce abd_solver forall_vars premises abduct
+        |> SMTSolver.simplify_term abd_solver
+      in
+
+      Debug.assump "Generalized initial predicate@." ;
+
+      print_init_debug init;
+
+      let trans, init =
+        iso_decomp
+          one_state sys abd_solver uf_solver assump_svars
+          sv_to_ufs trans init k abduct
+      in
+
+      Debug.assump "Refined initial predicate@." ;
+
+      print_init_debug init;
+
+      init, trans
+    )
   in
 
-  Debug.assump "Generated initial solution@." ;
+  let soln =
+    init_soln
+      one_state uf_solver assump_svars sv_to_ufs k system_unrolling abduct
+  in
 
-  print_assump_debug assump;
+  match soln with
+  | None -> Failure
+  | Some assump -> (
 
-  try (
-    let init, trans =
-      if one_state then (
-        let init, _ =
-          iso_decomp
-            one_state sys abd_solver uf_solver assump_svars
-            sv_to_ufs init Term.t_true k abduct
-        in
-        init, Term.bump_state Numeral.one init
-      )
-      else (
-        let init =
-          let premises =
-            Term.mk_and
-              (List.init k
-                (fun i -> Term.bump_state (Numeral.of_int i) trans))
-          in
-          let forall_vars =
-            List.rev_append
-              (mk_forall_vars 0 sys_svars k |> List.rev)
-              (mk_forall_vars 1 env_svars k)
-          in
-          Abduction.abduce abd_solver forall_vars premises abduct
-          |> SMTSolver.simplify_term abd_solver
-        in
+    Debug.assump "Generated initial solution@." ;
 
-        Debug.assump "Generalized initial predicate@." ;
+    print_assump_debug assump;
 
-        print_init_debug init;
+    try (
+      let init, trans = decomp assump in
 
-        let trans, init =
-          iso_decomp
-            one_state sys abd_solver uf_solver assump_svars
-            sv_to_ufs trans init k abduct
-        in
+      SMTSolver.delete_instance uf_solver ;
 
-        Debug.assump "Refined initial predicate@." ;
+      Success { init; trans }
+    )
+    with UnknownResult -> (
 
-        print_init_debug init;
+      SMTSolver.delete_instance uf_solver ;
 
-        init, trans
-      )
-    in
-
-    SMTSolver.delete_instance uf_solver ;
-
-    Success { init; trans}
-  )
-  with UnknownResult -> (
-
-    SMTSolver.delete_instance uf_solver ;
-
-    Unknown
+      Unknown
+    )
   )
 
 
