@@ -1034,7 +1034,13 @@ let generate_assumption ?(one_state=false) analyze in_sys param sys =
           KEvent.log L_note "Generated assumption:@,%a"
             (dump_assumption ~prefix:"") assump;
 
-          if (only_current_state assump) then (
+          let no_previous_temporal_assumption =
+            (* We approximate the result for now.
+               TODO: Allow previous assumptions with only current values *)
+            not (has_assumptions in_sys scope)
+          in
+
+          if (only_current_state assump && no_previous_temporal_assumption) then (
             Success assump
           )
           else (
