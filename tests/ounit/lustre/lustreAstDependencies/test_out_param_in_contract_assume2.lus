@@ -1,0 +1,12 @@
+
+node imported f(x,z: int) returns (y: int);
+(*@contract
+    guarantee y>x+z;
+*)
+
+node imported top(x: int) returns (y: int);
+(*@contract
+    var g: int = f(x, y);
+    assume g>0;
+    guarantee y>g;
+*)
