@@ -836,7 +836,8 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
        (HString.concat2 contract_prefix i) pos
     
   | LA.Assume (_, _, _, e)
-    | LA.Guarantee (_, _, _, e) -> union_dependency_analysis_data ad (mk_graph_expr (LH.abstract_pre_subexpressions e))
+  | LA.Guarantee (_, _, _, e) ->
+    union_dependency_analysis_data ad (mk_graph_expr (LH.abstract_pre_subexpressions e))
   | LA.Mode (pos, i, reqs, ensures) ->
      let mgs = List.fold_left
                  union_dependency_analysis_data
@@ -848,18 +849,20 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
      connect_g_pos mgs
        (HString.concat2 mode_prefix i) pos
   | LA.GhostConst c 
-    | LA.GhostVar c ->
-     match c with
-     | FreeConst _ -> ad
-     | UntypedConst (pos, i, e)
-       | TypedConst (pos, i, e, _) ->
-        let vars = vars_with_flattened_nodes ad.nsummary (LH.abstract_pre_subexpressions e) in
-        let effective_vars = LA.SI.elements (SI.flatten vars) in
-        connect_g_pos
-          (List.fold_left (fun g v ->
-               union_dependency_analysis_data g (singleton_dependency_analysis_data empty_hs v pos))
-             ad effective_vars)
-          i pos
+  | LA.GhostVar c ->
+    match c with
+    | FreeConst _ -> ad
+    | UntypedConst (pos, i, e)
+    | TypedConst (pos, i, e, _) ->
+      let e = LH.abstract_pre_subexpressions e in
+      let vars = vars_with_flattened_nodes ad.nsummary e in
+      let vars = SI.union (SI.flatten vars) (LH.vars e) in
+      let effective_vars = LA.SI.elements vars in
+      connect_g_pos
+        (List.fold_left (fun g v ->
+              union_dependency_analysis_data g (singleton_dependency_analysis_data empty_hs v pos))
+            ad effective_vars)
+        i pos
 
 (*
 let mk_graph_const_decl2: node_summary -> LA.const_decl -> dependency_analysis_data graph_result
@@ -908,27 +911,27 @@ let expression_current_streams: dependency_analysis_data -> LA.expr -> (LA.ident
   let vars = vars_with_flattened_nodes ad.nsummary (LH.abstract_pre_subexpressions e) in
   let vs = LA.SI.elements (SI.flatten vars) in
   let memo = ref G.VMap.empty in
-  let rechable_vs = List.concat (List.map
+  let reachable_vs = List.concat (List.map
     (fun v -> G.to_vertex_list (G.memoized_reachable memo ad.graph_data v))
     vs)
   in
   Debug.parse "Current Stream Usage for %a: %a"
     (Lib.pp_print_list G.pp_print_vertex ", ") vs
-    (Lib.pp_print_list G.pp_print_vertex ", ") rechable_vs 
-  ; R.ok rechable_vs
+    (Lib.pp_print_list G.pp_print_vertex ", ") reachable_vs;
+  R.ok reachable_vs
 (** all the variables who's current value is used in the expression *)
 
 let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr -> (unit, [> error]) result
   = fun node_out_streams ad e -> 
-  expression_current_streams ad e >>= fun s ->
-  R.ok (SI.inter node_out_streams (LA.SI.of_list s)) >>= fun assume_vars_out_streams -> 
+  let* s = expression_current_streams ad e in
+  let assume_vars_out_streams = SI.inter node_out_streams (LA.SI.of_list s) in
   Debug.parse "node_params: %a non pre vars of e: %a"
     (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_streams)
     (Lib.pp_print_list LA.pp_print_ident ", ")
-    (SI.elements (LH.vars (LH.abstract_pre_subexpressions e)))
-  ; R.guard_with (R.ok (SI.is_empty assume_vars_out_streams))
-      (graph_error (LH.pos_of_expr e)
-        (ContractDependencyOnCurrentOutput assume_vars_out_streams))
+    (SI.elements (LH.vars (LH.abstract_pre_subexpressions e)));
+  R.guard_with (R.ok (SI.is_empty assume_vars_out_streams))
+    (graph_error (LH.pos_of_expr e)
+      (ContractDependencyOnCurrentOutput assume_vars_out_streams))
 (** Make sure that no idents in the first argument occur in the expression *)
   
    
@@ -953,36 +956,30 @@ let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contra
 let sort_and_check_contract_eqns: dependency_analysis_data
                                   -> LA.contract_node_decl
                                   -> (LA.contract_node_decl, [> error]) result
-  = fun ad ((i, params , ips, ops, contract) as decl)->
-  Debug.parse "Sorting contract equations for %a" LA.pp_print_ident i
-  ; let ip_ids = List.map (fun ip -> LH.extract_ip_ty ip |> fst) ips in
-    let op_ids = List.map (fun ip -> LH.extract_op_ty ip |> fst) ops in
-    let ids_to_skip = SI.of_list (ip_ids @ op_ids) in 
-    let ad' = mk_graph_contract_decl2 ad decl in
-    (try (R.ok (G.topological_sort ad'.graph_data)) with
-     | Graph.CyclicGraphException ids ->
-        let ids = List.map HString.mk_hstring ids in
-        if List.length ids > 1
-        then (match (find_id_pos ad'.id_pos_data (List.hd ids)) with
-(*               | None -> graph_error Lib.dummy_pos
-                          ("Cyclic dependency found but Cannot find position for identifier "
-                           ^ (HString.string_of_hstring (List.hd ids)) ^ " This should not happen!")  *)
-              | None -> assert false (* LustreSyntaxChecks should guarantee this is impossible *)
-              | Some p -> graph_error p (CyclicDependency ids))
-        (* else graph_error Lib.dummy_pos "Cyclic dependency with no ids detected. This should not happen!") *)
-        else assert false) (* LustreSyntaxChecks should guarantee this is impossible *)
-
-    >>= fun sorted_ids ->
-    let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) (List.rev sorted_ids) in
-    let (to_sort_eqns, rest) = split_contract_equations contract in
-    mk_contract_eqn_map IMap.empty to_sort_eqns >>= fun eqn_map ->
-         extract_decls eqn_map equational_vars >>= fun contract' ->
-      Debug.parse "sorted contract equations for contract %a %a"
-        LA.pp_print_ident i
-        (Lib.pp_print_list LA.pp_print_contract_item "\n") contract'
-
-      ; R.seq_ (List.map (validate_contract_equation (SI.of_list op_ids) ad') contract) 
-        >> R.ok(i, params , ips, ops, contract' @ rest)
+  = fun ad ((i, params , ips, ops, contract) as decl) ->
+  Debug.parse "Sorting contract equations for %a" LA.pp_print_ident i;
+  let ip_ids = List.map (fun ip -> LH.extract_ip_ty ip |> fst) ips in
+  let op_ids = List.map (fun ip -> LH.extract_op_ty ip |> fst) ops in
+  let ids_to_skip = SI.of_list (ip_ids @ op_ids) in 
+  let ad' = mk_graph_contract_decl2 ad decl in
+  let* sorted_ids = (try (R.ok (G.topological_sort ad'.graph_data)) with
+    | Graph.CyclicGraphException ids ->
+      let ids = List.map HString.mk_hstring ids in
+      if List.length ids > 1
+      then (match (find_id_pos ad'.id_pos_data (List.hd ids)) with
+            | None -> assert false (* LustreSyntaxChecks should guarantee this is impossible *)
+            | Some p -> graph_error p (CyclicDependency ids))
+      else assert false) (* LustreSyntaxChecks should guarantee this is impossible *)
+  in
+  let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) (List.rev sorted_ids) in
+  let (to_sort_eqns, rest) = split_contract_equations contract in
+  let* eqn_map = mk_contract_eqn_map IMap.empty to_sort_eqns in
+  let* contract' = extract_decls eqn_map equational_vars in
+  Debug.parse "sorted contract equations for contract %a %a"
+    LA.pp_print_ident i
+    (Lib.pp_print_list LA.pp_print_contract_item "\n") contract';
+  R.seq_ (List.map (validate_contract_equation (SI.of_list op_ids) ad') contract) 
+    >> R.ok(i, params , ips, ops, contract' @ rest)
 (** This function does two things: 
    1. Sort the contract equations according to their dependencies
       - The assumptions and guarantees are added to the bottom of the list as 
