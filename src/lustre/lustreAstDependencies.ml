@@ -88,7 +88,14 @@ module IntMap = struct
              end))
   (* let keys: 'a t -> key list = fun m -> List.map fst (bindings m) *)            
 end
-            
+
+module StringSet = struct
+  include Set.Make(struct
+    type t = HString.t
+    let compare i1 i2 = HString.compare i1 i2
+  end)
+end
+
 type id_pos_map = (Lib.position list) IMap.t
 (** stores all the positions of the occurance of an id *)
 
@@ -127,6 +134,7 @@ type dependency_analysis_data =
   ; id_pos_data: id_pos_map    (* Where do the Id's appear*)
   ; csummary: contract_summary (* What symbols does the contract export *)
   ; nsummary: node_summary     (* Node summaries  *)
+  ; imported: StringSet.t
   }
 (** The store for memoizing the lustre program dependencies  *)
 
@@ -179,6 +187,7 @@ let empty_dependency_analysis_data =
   ; id_pos_data = IMap.empty
   ; csummary = empty_contract_summary
   ; nsummary = empty_node_summary
+  ; imported = StringSet.empty
   }
   
 let add_pos: id_pos_map -> LA.ident -> Lib.position -> id_pos_map = fun m i p ->
@@ -200,19 +209,21 @@ let find_id_pos: id_pos_map -> LA.ident -> Lib.position option = fun m i ->
   | Some [] -> None
   | Some (p::_) -> Some p 
                   
-let singleton_dependency_analysis_data: HString.t -> LA.ident -> Lib.position -> dependency_analysis_data =
-  fun prefix i p -> { graph_data = G.singleton (HString.concat2 prefix i)
-                    ; id_pos_data = singleton_pos (HString.concat2 prefix i) p
-                    ; csummary  = empty_contract_summary
-                    ; nsummary = empty_node_summary } 
+let singleton_dependency_analysis_data prefix id p =
+  { graph_data = G.singleton (HString.concat2 prefix id)
+  ; id_pos_data = singleton_pos (HString.concat2 prefix id) p
+  ; csummary  = empty_contract_summary
+  ; nsummary = empty_node_summary
+  ; imported = StringSet.empty }
 
 let union_dependency_analysis_data : dependency_analysis_data -> dependency_analysis_data -> dependency_analysis_data = 
-  fun { graph_data = g1; id_pos_data = pos_m1; csummary = cs1; nsummary = ns1 }
-      { graph_data = g2; id_pos_data = pos_m2; csummary = cs2; nsummary = ns2 }
+  fun { graph_data = g1; id_pos_data = pos_m1; csummary = cs1; nsummary = ns1; imported = i1 }
+      { graph_data = g2; id_pos_data = pos_m2; csummary = cs2; nsummary = ns2; imported = i2 }
   -> { graph_data = G.union g1 g2
      ; id_pos_data = union_pos pos_m1 pos_m2
      ; csummary = IMap.union (fun _ _ v2 -> Some v2) cs1 cs2
-     ; nsummary = IMap.union (fun _ _ v2 -> Some v2) ns1 ns2 }
+     ; nsummary = IMap.union (fun _ _ v2 -> Some v2) ns1 ns2
+     ; imported = StringSet.union i1 i2 }
 
 let connect_g_pos: dependency_analysis_data -> LA.ident -> Lib.position -> dependency_analysis_data =
   fun ad i p -> { ad with graph_data = G.connect ad.graph_data i
@@ -824,6 +835,53 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
     pre's are abstracted out first and then passed into this 
     function using [LH.abstract_pre_subexpressions] *)
 
+let rec vars_of_imported_call_args ad obs = 
+  let r = vars_of_imported_call_args ad in
+  function
+  | LA.Ident (_, i) -> if obs then SI.singleton i else SI.empty
+  | ModeRef (_, is) -> if obs then SI.of_list is else SI.empty
+  | RecordProject (_, e, _) -> r obs e 
+  | TupleProject (_, e, _) -> r obs e
+  (* Values *)
+  | Const _ -> SI.empty
+  (* Operators *)
+  | UnaryOp (_,_,e) -> r obs e
+  | BinaryOp (_,_,e1, e2) -> r obs e1 |> SI.union (r obs e2)
+  | TernaryOp (_,_, e1, e2, e3) -> r obs e1 |> SI.union (r obs e2) |> SI.union (r obs e3) 
+  | NArityOp (_, _,es) -> SI.flatten (List.map (r obs) es)
+  | ConvOp  (_,_,e) -> r obs e
+  | CompOp (_,_,e1, e2) -> (r obs e1) |> SI.union (r obs e2)
+  (* Structured expressions *)
+  | RecordExpr (_, _, flds) -> SI.flatten (List.map (r obs) (snd (List.split flds)))
+  | GroupExpr (_, _, es) -> SI.flatten (List.map (r obs) es)
+  (* Update of structured expressions *)
+  | StructUpdate (_, e1, _, e2) -> SI.union (r obs e1) (r obs e2)
+  | ArrayConstr (_, e1, e2) -> SI.union (r obs e1) (r obs e2)
+  | ArrayIndex (_, e1, e2) -> SI.union (r obs e1) (r obs e2)
+  | ArraySlice (_, e1, (e2, e3)) -> SI.union (r obs e3) (SI.union (r obs e1) (r obs e2))
+  | ArrayConcat (_, e1, e2) -> SI.union (r obs e1) (r obs e2)
+  (* Quantified expressions *)
+  | Quantifier (_, _, qs, e) -> SI.diff (r obs e) (SI.flatten (List.map LH.vars_of_ty_ids qs)) 
+  (* Clock operators *)
+  | When (_, e, _) -> r obs e
+  | Current  (_, e) -> r obs e
+  | Condact (_, e1, e2, i, es1, es2) ->
+    let obs = StringSet.mem i ad.imported in
+    SI.flatten (r obs e1 :: r obs e2:: (List.map (r obs) es1) @ (List.map (r obs) es2))
+  | Activate (_, _, e1, e2, es) -> SI.flatten (r obs e1 :: r obs e2 :: List.map (r obs) es)
+  | Merge (_, _, es) -> List.split es |> snd |> List.map (r obs) |> SI.flatten
+  | RestartEvery (_, i, es, e) ->
+    let obs = StringSet.mem i ad.imported in
+    SI.flatten (r obs e :: List.map (r obs) es)
+  (* Temporal operators *)
+  | Pre (_, e) -> r obs e
+  | Fby (_, e1, _, e2) -> SI.union (r obs e1) (r obs e2)
+  | Arrow (_, e1, e2) ->  SI.union (r obs e1) (r obs e2)
+  (* Node calls *)
+  | Call (_, i, es) ->
+    let obs = StringSet.mem i ad.imported in
+    SI.flatten (List.map (r obs) es)
+  | CallParam (_, _, _, es) -> SI.flatten (List.map (r obs) es)
 
 let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_equation -> dependency_analysis_data
   = fun ad ->
@@ -856,7 +914,7 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
     | TypedConst (pos, i, e, _) ->
       let e = LH.abstract_pre_subexpressions e in
       let vars = vars_with_flattened_nodes ad.nsummary e in
-      let vars = SI.union (SI.flatten vars) (LH.vars e) in
+      let vars = SI.union (SI.flatten vars) (vars_of_imported_call_args ad false e) in
       let effective_vars = LA.SI.elements vars in
       connect_g_pos
         (List.fold_left (fun g v ->
@@ -1222,15 +1280,19 @@ let rec generate_summaries: dependency_analysis_data -> LA.t -> dependency_analy
   = fun ad ->
   function
   | [] -> ad
-  | LA.FuncDecl (_, ndecl) :: decls ->
-     let ns = mk_node_summary ad.nsummary ndecl in
-     generate_summaries {ad with nsummary = IMap.union (fun _ _ v2 -> Some v2) ad.nsummary ns} decls
+  | LA.FuncDecl (_, ndecl) :: decls
   | LA.NodeDecl (_, ndecl) :: decls ->
-     let ns = mk_node_summary ad.nsummary ndecl in
-     generate_summaries {ad with nsummary = IMap.union (fun _ _ v2 -> Some v2) ad.nsummary ns} decls
+    let ns = mk_node_summary ad.nsummary ndecl in
+    let (id, imported, _, _, _, _, _, _) = ndecl in
+    let imported_update = if imported then StringSet.singleton id else StringSet.empty in
+    let ad = {ad with 
+      nsummary = IMap.union (fun _ _ v2 -> Some v2) ad.nsummary ns;
+      imported = StringSet.union ad.imported imported_update }
+    in
+    generate_summaries ad decls
   | LA.ContractNodeDecl (_, cdecl) :: decls ->
-     let cs = mk_contract_summary ad.csummary cdecl in
-     generate_summaries {ad with csummary = IMap.union (fun _ _ v2 -> Some v2) ad.csummary cs } decls
+    let cs = mk_contract_summary ad.csummary cdecl in
+    generate_summaries {ad with csummary = IMap.union (fun _ _ v2 -> Some v2) ad.csummary cs } decls
   | _ :: decls -> generate_summaries ad decls
 (** This function generates the node summary and contract summary data
     This function requires that the program does not have any forward references. *)
