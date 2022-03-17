@@ -55,7 +55,7 @@ let error_message error = match error with
     ^ "current values of output parameters but found: "
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements ids))
   | CyclicDependency ids -> "Cyclic dependency detected in definition of identifiers: "
-    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids)
+    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident " -> ") ids)
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind

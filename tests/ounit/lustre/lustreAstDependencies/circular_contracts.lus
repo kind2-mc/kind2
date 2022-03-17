@@ -8,7 +8,7 @@ tel
 
 node two (in: two) returns (out: two) ;
 let
-  out = one(0.0 -> pre in) ;
+  out = 0.0 -> pre in ;
 tel
 
 contract blah (in: two) returns (out: real) ;
