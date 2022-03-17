@@ -449,12 +449,10 @@ let rec expr_only_supported_in_merge observer expr =
   let r = expr_only_supported_in_merge in
   let r_list obs e = Res.seqM (fun x _ -> x) () (List.map (r obs) e) in
   match expr with
-  | LA.When (pos, _, _) as e -> 
-    if observer then Ok ()
-    else syntax_error pos (UnsupportedWhen e)
+  | LA.When (pos, _, _) as e -> syntax_error pos (UnsupportedWhen e)
   | Merge (_, _, e) -> 
     Res.seq_ (List.map (fun (_, e) -> match e with
-      | LA.When (_, e, _) | e -> r false e)
+      | LA.When (_, e, _) | e -> r true e)
       e)
   | Ident _ | Const _ | ModeRef _ -> Ok ()
   | RecordProject (_, e, _)
