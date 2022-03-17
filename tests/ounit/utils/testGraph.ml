@@ -45,10 +45,9 @@ let basic_tests =
       (fun _ -> assert_bool "unexpected graph" (G.remove_vertex dos_g v0 |> G.is_point_graph))
   
   ; "sorted dos" >:: (fun _ -> assert_equal [v0;v1] (G.topological_sort dos_connected_g))
-  ; "cyclic dos" >:: (fun _ -> assert_raises
-                                 (Graph.CyclicGraphException
-                                  [HString.string_of_hstring v0; HString.string_of_hstring v1])
-                                 (fun _ -> G.topological_sort dos_cycle_g))
+  ; "cyclic dos" >:: (fun _ -> assert_bool "Cyclic graph is cyclic" (
+    try let _ = G.topological_sort dos_cycle_g in false
+    with Graph.CyclicGraphException _ -> true))
   ]
 
 let rechability_tests =
