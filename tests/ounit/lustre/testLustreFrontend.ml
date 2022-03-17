@@ -64,7 +64,7 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     | _ -> false);
   mk_test "test unsupported expr outside merge" (fun () ->
     match load_file "./lustreSyntaxChecks/clocks.lus" with
-    | Error (`LustreSyntaxChecksError (_, UnsupportedOutsideMerge _)) -> true
+    | Error (`LustreSyntaxChecksError (_, UnsupportedWhen _)) -> true
     | _ -> false);
   mk_test "test temporal op in const" (fun () ->
     match load_file "./lustreSyntaxChecks/const_not_const.lus" with
