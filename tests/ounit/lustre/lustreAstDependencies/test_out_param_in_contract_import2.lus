@@ -1,0 +1,18 @@
+
+
+node imported f(x,z: int) returns (y: int);
+(*@contract
+    guarantee y>x+z;
+*)
+
+contract C1(x: int) returns (y: int);
+let
+    assume x>0;
+tel
+
+node imported top(x: int) returns (y: int);
+(*@contract
+    var g: int = f(x, y);
+    import C1(y) returns (y);
+    guarantee y>g;
+*)
