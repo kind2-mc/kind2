@@ -372,7 +372,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test expected type 3" (fun () ->
     match load_file "./lustreTypeChecker/test-type.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | Error (`LustreTypeCheckerError (_, UnequalArrayExpressionType)) -> true
     | _ -> false);
   mk_test "test invalid array bounds 2" (fun () ->
     match load_file "./lustreTypeChecker/type-grammer.lus" with

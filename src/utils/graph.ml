@@ -301,7 +301,7 @@ module Make (Ord: OrderedType) = struct
 
   let non_source_vertices: t -> vertices
     = fun (vs, es) ->
-    VSet.filter (fun v -> ESet.for_all (fun e -> not (is_vertex_target e v)) es) vs
+    VSet.filter (fun v -> ESet.for_all (fun e -> not (is_vertex_source e v)) es) vs
   (** Returns a list of all vertices that have no outgoing edges  *)
     
   let connect: t -> vertex -> t = fun g v ->
@@ -340,24 +340,24 @@ module Make (Ord: OrderedType) = struct
     let rec find_cycle ((_, edges) as g) current seen =
       if List.mem current seen then seen
       else
-        let current_edges = ESet.filter (fun e -> is_vertex_in_edge e current) edges in
+        let current_edges = ESet.filter (fun e -> is_vertex_source e current) edges in
         let (_, next) = ESet.choose current_edges in
         find_cycle g next (current :: seen)
     in
 
     let rec topological_sort_helper: t -> vertex list -> vertex list
-      = fun ((vs, _) as g) sorted_vs ->
+      = fun ((_, es) as g) sorted_vs ->
       let no_outgoing_vs = non_source_vertices g in
 
       Debug.parse
         "-----------\nGraph state:\n %a\nSorted vertices: %a\n new non source vertices: %a\n-------------"	
         pp_print_graph g
-        (Lib.pp_print_list pp_print_vertex ",") sorted_vs	
+        (Lib.pp_print_list pp_print_vertex ",") sorted_vs
         pp_print_vertices no_outgoing_vs ;
       (* graph is empty case *)
       if VSet.is_empty no_outgoing_vs then
         if not (is_empty g) then
-          let head = VSet.choose vs in
+          let (head, _) = ESet.choose es in
           let cycle = head :: (find_cycle g head []) in
           raise (CyclicGraphException
             (List.map (Lib.string_of_t pp_print_vertex) cycle))
