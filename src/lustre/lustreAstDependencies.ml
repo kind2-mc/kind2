@@ -987,6 +987,8 @@ let expression_current_streams: dependency_analysis_data -> LA.expr -> (LA.ident
 let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr -> (unit, [> error]) result
   = fun node_out_streams ad e -> 
   let* s = expression_current_streams ad e in
+  let imported_arg_vars = vars_of_imported_call_args ad false e in
+  let s = s @ (imported_arg_vars |> SI.to_seq  |> List.of_seq) in
   let assume_vars_out_streams = SI.inter node_out_streams (LA.SI.of_list s) in
   Debug.parse "node_params: %a non pre vars of e: %a"
     (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_streams)

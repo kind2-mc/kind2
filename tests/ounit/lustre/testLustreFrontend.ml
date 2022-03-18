@@ -208,6 +208,10 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/test_out_param_in_contract_assume2.lus" with
     | Error (`LustreAstDependenciesError (_, ContractDependencyOnCurrentOutput _)) -> true
     | _ -> false);
+  mk_test "test output in contract assume 5" (fun () ->
+    match load_file "./lustreAstDependencies/test_out_param_in_contract_assume3.lus" with
+    | Error (`LustreAstDependenciesError (_, ContractDependencyOnCurrentOutput _)) -> true
+    | _ -> false);
   mk_test "test cycle in type synonym" (fun () ->
     match load_file "./lustreAstDependencies/type_synomym_cycle.lus" with
     | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
