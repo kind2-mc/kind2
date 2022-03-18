@@ -971,7 +971,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
         | None -> assert false (* LustreSyntaxChecks should guarantee this is impossible *)
         | Some p -> graph_error p (CyclicDependency ids))
   in
-  let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) (List.rev sorted_ids) in
+  let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) sorted_ids in
   let (to_sort_eqns, rest) = split_contract_equations contract in
   let* eqn_map = mk_contract_eqn_map IMap.empty to_sort_eqns in
   let* contract' = extract_decls eqn_map equational_vars in
@@ -1002,7 +1002,7 @@ let sort_declarations: LA.t -> ((LA.t * LA.ident list), [> error]) result
         | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
         | Some p -> graph_error p (CyclicDependency ids))
   >>= fun sorted_ids ->
-  let dependency_sorted_ids = List.rev sorted_ids in
+  let dependency_sorted_ids = sorted_ids in
   let is_contract_node node_name =
     try String.equal (HString.sub node_name 0 9) "contract "
     with _ -> false
