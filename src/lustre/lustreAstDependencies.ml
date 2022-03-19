@@ -55,7 +55,7 @@ let error_message error = match error with
     ^ "current values of output parameters but found: "
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements ids))
   | CyclicDependency ids -> "Cyclic dependency detected in definition of identifiers: "
-    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids)
+    ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident " -> ") ids)
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind
@@ -269,36 +269,41 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
 (** This graph is useful for analyzing top level constant and type declarations *)
 
-and mk_graph_expr: LA.expr -> dependency_analysis_data
+and mk_graph_expr ?(only_modes = false)
   = function
-  | LA.Ident (pos, i) -> singleton_dependency_analysis_data empty_hs i pos
+  | LA.Ident (pos, i) -> 
+    if only_modes then empty_dependency_analysis_data
+    else singleton_dependency_analysis_data empty_hs i pos
   | LA.Const _ -> empty_dependency_analysis_data
   | LA.RecordExpr (_, _, ty_ids) ->
-     List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (fun ty_id -> mk_graph_expr (snd ty_id)) ty_ids)
-  | LA.UnaryOp (_, _, e) -> mk_graph_expr e
-  | LA.ConvOp (_, _, e) -> mk_graph_expr e
-  | LA.BinaryOp (_, _, e1, e2) -> union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2) 
-  | LA.CompOp (_, _, e1, e2) -> union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2) 
-  | LA.TernaryOp (_, _, e1, e2, e3) -> union_dependency_analysis_data (mk_graph_expr e1)
-                                         (union_dependency_analysis_data (mk_graph_expr e2) (mk_graph_expr e3)) 
-  | LA.RecordProject (_, e, _) -> mk_graph_expr e
-  | LA.TupleProject (_, e, _) -> mk_graph_expr e
-  | LA.ArrayConstr (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2) 
-  | LA.ArraySlice (_, e1, (e2, e3)) -> union_dependency_analysis_data (union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2)) (mk_graph_expr e3) 
-  | LA.ArrayIndex (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2)
-  | LA.ArrayConcat  (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2)
-  | LA.GroupExpr (_, _, es) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map mk_graph_expr es)
-  | LA.Pre (_, e) -> mk_graph_expr e
-  | LA.Fby (_, e1, _, e2) ->  union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2) 
-  | LA.Arrow (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr e1) (mk_graph_expr e2)
+     List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (fun ty_id -> mk_graph_expr ~only_modes (snd ty_id)) ty_ids)
+  | LA.UnaryOp (_, _, e) -> mk_graph_expr ~only_modes e
+  | LA.ConvOp (_, _, e) -> mk_graph_expr ~only_modes e
+  | LA.BinaryOp (_, _, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2) 
+  | LA.CompOp (_, _, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2) 
+  | LA.TernaryOp (_, _, e1, e2, e3) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1)
+                                         (union_dependency_analysis_data (mk_graph_expr ~only_modes e2) (mk_graph_expr ~only_modes e3)) 
+  | LA.RecordProject (_, e, _) -> mk_graph_expr ~only_modes e
+  | LA.TupleProject (_, e, _) -> mk_graph_expr ~only_modes e
+  | LA.ArrayConstr (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2) 
+  | LA.ArraySlice (_, e1, (e2, e3)) -> union_dependency_analysis_data (union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)) (mk_graph_expr ~only_modes e3) 
+  | LA.ArrayIndex (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
+  | LA.ArrayConcat  (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
+  | LA.GroupExpr (_, _, es) ->
+    List.fold_left union_dependency_analysis_data
+      empty_dependency_analysis_data
+      (List.map (mk_graph_expr ~only_modes) es)
+  | LA.Pre (_, e) -> mk_graph_expr ~only_modes e
+  | LA.Fby (_, e1, _, e2) ->  union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2) 
+  | LA.Arrow (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
   | LA.ModeRef (pos, ids) ->
-     if List.length ids > 1 then
-       singleton_dependency_analysis_data empty_hs (List.fold_left HString.concat2 contract_prefix (Lib.drop_last ids)) pos
-     else
-       singleton_dependency_analysis_data mode_prefix (List.hd ids) pos 
+    if List.length ids > 1 then
+      singleton_dependency_analysis_data empty_hs (List.fold_left HString.concat2 contract_prefix (Lib.drop_last ids)) pos
+    else
+      singleton_dependency_analysis_data mode_prefix (List.hd ids) pos 
   | LA.Call (_, _, es) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
-       (List.map mk_graph_expr es)
+       (List.map (mk_graph_expr ~only_modes) es)
   | _ -> empty_dependency_analysis_data
 (*   | e -> 
      Log.log L_trace "%a located at %a"
@@ -332,8 +337,9 @@ let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
 let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   = function
   | Ident _ -> []
-  | ModeRef (pos, is) -> if List.length is = 1 then []
-                       else [(HString.concat2 contract_prefix (List.hd is), pos)]  
+  | ModeRef (pos, ids) ->
+    if List.length ids = 1 then []
+    else [(HString.concat2 contract_prefix (List.hd ids), pos)]  
   | RecordProject (_, e, _)
   | TupleProject (_, e, _) -> get_node_call_from_expr e
   (* Values *)
@@ -385,7 +391,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.CallParam _ as e-> Lib.todo (__LOC__ ^ (Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e)))
 (** Returns all the node calls from an expression *)
 
-let  mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysis_data
+let mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysis_data
   = function
   | LA.AssumptionVars _ -> empty_dependency_analysis_data
   | LA.ContractCall (pos, i, es, _) ->
@@ -830,23 +836,22 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
   function
   | LA.AssumptionVars _ -> ad
   | LA.ContractCall (pos, i, es, _) ->
-     connect_g_pos 
-       (List.fold_left union_dependency_analysis_data ad
-          (List.map (fun e -> mk_graph_expr (LH.abstract_pre_subexpressions e)) es))
-       (HString.concat2 contract_prefix i) pos
-    
+    connect_g_pos 
+      (List.fold_left union_dependency_analysis_data ad
+        (List.map (fun e -> mk_graph_expr (LH.abstract_pre_subexpressions e)) es))
+      (HString.concat2 contract_prefix i) pos
   | LA.Assume (_, _, _, e)
     | LA.Guarantee (_, _, _, e) -> union_dependency_analysis_data ad (mk_graph_expr (LH.abstract_pre_subexpressions e))
   | LA.Mode (pos, i, reqs, ensures) ->
-     let mgs = List.fold_left
-                 union_dependency_analysis_data
-                 ad
-                 (List.map (fun (_,_, e) ->
-                      mk_graph_expr
-                        ((LH.abstract_pre_subexpressions e)))
-                    (reqs @ ensures)) in
-     connect_g_pos mgs
-       (HString.concat2 mode_prefix i) pos
+    let mgs = List.fold_left
+      union_dependency_analysis_data
+      ad
+      (List.map (fun (_, _, e) ->
+          mk_graph_expr ~only_modes:true
+            ((LH.abstract_pre_subexpressions e)))
+        (reqs @ ensures))
+    in
+    connect_g_pos mgs (HString.concat2 mode_prefix i) pos
   | LA.GhostConst c 
     | LA.GhostVar c ->
      match c with
@@ -953,36 +958,28 @@ let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contra
 let sort_and_check_contract_eqns: dependency_analysis_data
                                   -> LA.contract_node_decl
                                   -> (LA.contract_node_decl, [> error]) result
-  = fun ad ((i, params , ips, ops, contract) as decl)->
-  Debug.parse "Sorting contract equations for %a" LA.pp_print_ident i
-  ; let ip_ids = List.map (fun ip -> LH.extract_ip_ty ip |> fst) ips in
-    let op_ids = List.map (fun ip -> LH.extract_op_ty ip |> fst) ops in
-    let ids_to_skip = SI.of_list (ip_ids @ op_ids) in 
-    let ad' = mk_graph_contract_decl2 ad decl in
-    (try (R.ok (G.topological_sort ad'.graph_data)) with
-     | Graph.CyclicGraphException ids ->
-        let ids = List.map HString.mk_hstring ids in
-        if List.length ids > 1
-        then (match (find_id_pos ad'.id_pos_data (List.hd ids)) with
-(*               | None -> graph_error Lib.dummy_pos
-                          ("Cyclic dependency found but Cannot find position for identifier "
-                           ^ (HString.string_of_hstring (List.hd ids)) ^ " This should not happen!")  *)
-              | None -> assert false (* LustreSyntaxChecks should guarantee this is impossible *)
-              | Some p -> graph_error p (CyclicDependency ids))
-        (* else graph_error Lib.dummy_pos "Cyclic dependency with no ids detected. This should not happen!") *)
-        else assert false) (* LustreSyntaxChecks should guarantee this is impossible *)
-
-    >>= fun sorted_ids ->
-    let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) (List.rev sorted_ids) in
-    let (to_sort_eqns, rest) = split_contract_equations contract in
-    mk_contract_eqn_map IMap.empty to_sort_eqns >>= fun eqn_map ->
-         extract_decls eqn_map equational_vars >>= fun contract' ->
-      Debug.parse "sorted contract equations for contract %a %a"
-        LA.pp_print_ident i
-        (Lib.pp_print_list LA.pp_print_contract_item "\n") contract'
-
-      ; R.seq_ (List.map (validate_contract_equation (SI.of_list op_ids) ad') contract) 
-        >> R.ok(i, params , ips, ops, contract' @ rest)
+  = fun ad ((i, params , ips, ops, contract) as decl) ->
+  Debug.parse "Sorting contract equations for %a" LA.pp_print_ident i;
+  let ip_ids = List.map (fun ip -> LH.extract_ip_ty ip |> fst) ips in
+  let op_ids = List.map (fun ip -> LH.extract_op_ty ip |> fst) ops in
+  let ids_to_skip = SI.of_list (ip_ids @ op_ids) in 
+  let ad' = mk_graph_contract_decl2 ad decl in
+  let* sorted_ids = (try (R.ok (G.topological_sort ad'.graph_data)) with
+    | Graph.CyclicGraphException ids ->
+      let ids = List.map HString.mk_hstring ids in
+      match (find_id_pos ad'.id_pos_data (List.hd ids)) with
+        | None -> assert false (* LustreSyntaxChecks should guarantee this is impossible *)
+        | Some p -> graph_error p (CyclicDependency ids))
+  in
+  let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) sorted_ids in
+  let (to_sort_eqns, rest) = split_contract_equations contract in
+  let* eqn_map = mk_contract_eqn_map IMap.empty to_sort_eqns in
+  let* contract' = extract_decls eqn_map equational_vars in
+  Debug.parse "sorted contract equations for contract %a %a"
+    LA.pp_print_ident i
+    (Lib.pp_print_list LA.pp_print_contract_item "\n") contract';
+  R.seq_ (List.map (validate_contract_equation (SI.of_list op_ids) ad') contract) 
+    >> R.ok(i, params , ips, ops, contract' @ rest)
 (** This function does two things: 
    1. Sort the contract equations according to their dependencies
       - The assumptions and guarantees are added to the bottom of the list as 
@@ -1001,18 +998,11 @@ let sort_declarations: LA.t -> ((LA.t * LA.ident list), [> error]) result
   (try (R.ok (G.topological_sort ad.graph_data)) with
    | Graph.CyclicGraphException ids ->
       let ids = List.map HString.mk_hstring ids in
-      if List.length ids > 1
-      then (match (find_id_pos ad.id_pos_data (List.hd ids)) with
-(*             | None -> graph_error Lib.dummy_pos
-                        ("Cyclic dependency found but Cannot find position for identifier "
-                         ^ (HString.string_of_hstring (List.hd ids)) ^ " This should not happen!")  *)
-            | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
-            | Some p -> graph_error p (CyclicDependency ids))
-(*       else graph_error Lib.dummy_pos
-             "Cyclic dependency with no ids detected. This should not happen!") *)
-      else assert false) (* SyntaxChecks should guarantee this is impossible *)
+      match (find_id_pos ad.id_pos_data (List.hd ids)) with
+        | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
+        | Some p -> graph_error p (CyclicDependency ids))
   >>= fun sorted_ids ->
-  let dependency_sorted_ids = List.rev sorted_ids in
+  let dependency_sorted_ids = sorted_ids in
   let is_contract_node node_name =
     try String.equal (HString.sub node_name 0 9) "contract "
     with _ -> false
@@ -1179,15 +1169,9 @@ let analyze_circ_node_equations: node_summary -> LA.node_item list -> (unit, [> 
     (try (R.ok (G.topological_sort ad.graph_data)) with
      | Graph.CyclicGraphException ids ->
         let ids = List.map HString.mk_hstring ids in
-        if List.length ids > 1
-        then (match (find_id_pos ad.id_pos_data (List.hd ids)) with
-(*               | None -> graph_error Lib.dummy_pos
-                          ("Cyclic dependency found but cannot find position for identifier "
-                           ^ (HString.string_of_hstring (List.hd ids)) ^ " This should not happen!")  *)
-              | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
-              | Some p -> graph_error p (CyclicDependency ids))
-(*         else graph_error Lib.dummy_pos "Cyclic dependency with no ids detected. This should not happen!") *)
-        else assert false) (* SyntaxChecks should guarantee this is impossible *)
+        match (find_id_pos ad.id_pos_data (List.hd ids)) with
+          | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
+          | Some p -> graph_error p (CyclicDependency ids))
     >> R.ok ()
 (** Check for node equations, we need to flatten the node calls using [node_summary] generated *)
     
