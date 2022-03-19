@@ -274,10 +274,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/cast_05.lus" with
     | Error (`LustreTypeCheckerError (_, InvalidConversion _)) -> true
     | _ -> false);
-  mk_test "test output contains contract args" (fun () ->
-    match load_file "./lustreTypeChecker/cocospec_out_param.lus" with
-    | Error (`LustreTypeCheckerError (_, ContractOutputContainsContractArguments _)) -> true
-    | _ -> false);
   mk_test "test constant reassigned" (fun () ->
     match load_file "./lustreTypeChecker/const_01.lus" with
     | Error (`LustreTypeCheckerError (_, DisallowedReassignment _)) -> true
