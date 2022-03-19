@@ -49,6 +49,7 @@ type error_kind = Unknown of string
   | UnsupportedClockedLocal of HString.t
   | UnsupportedExpression of LustreAst.expr
   | UnsupportedOutsideMerge of LustreAst.expr
+  | UnsupportedWhen of LustreAst.expr
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
   | AssumptionVariablesInContractNode
@@ -85,6 +86,7 @@ let error_message kind = match kind with
   | UnsupportedClockedLocal id -> "Clocked node local variable not supported for '" ^ HString.string_of_hstring id ^ "'"
   | UnsupportedExpression e -> "The expression '" ^ LA.string_of_expr e ^ "' is not supported"
   | UnsupportedOutsideMerge e -> "The expression '" ^ LA.string_of_expr e ^ "' is only supported inside a merge"
+  | UnsupportedWhen e -> "The `when` expression '" ^ LA.string_of_expr e ^ "' can only be the top most expression of a merge case"
   | UnsupportedParametricDeclaration -> "Parametric nodes and functions are not supported"
   | UnsupportedAssignment -> "Assignment not supported"
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
@@ -447,11 +449,11 @@ let rec expr_only_supported_in_merge observer expr =
   let r = expr_only_supported_in_merge in
   let r_list obs e = Res.seqM (fun x _ -> x) () (List.map (r obs) e) in
   match expr with
-  | LA.When (pos, _, _) as e -> 
-    if observer then Ok ()
-    else syntax_error pos (UnsupportedOutsideMerge e)
+  | LA.When (pos, _, _) as e -> syntax_error pos (UnsupportedWhen e)
   | Merge (_, _, e) -> 
-    r_list true (List.map (fun (_, x) -> x) e)
+    Res.seq_ (List.map (fun (_, e) -> match e with
+      | LA.When (_, e, _) | e -> r true e)
+      e)
   | Ident _ | Const _ | ModeRef _ -> Ok ()
   | RecordProject (_, e, _)
   | TupleProject (_, e, _)
