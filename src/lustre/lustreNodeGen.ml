@@ -181,7 +181,7 @@ let bounds_of_index index =
   List.fold_left (fun acc -> function
       | X.ArrayVarIndex b -> E.Bound b :: acc
       | X.ArrayIntIndex i ->
-        E.Fixed (E.mk_int_expr (Numeral.of_int i)) :: acc
+        E.Fixed (E.mk_int_expr (Numeral.of_int (i + 1))) :: acc
       | _ -> acc
     ) [] index
 
@@ -212,7 +212,6 @@ let mk_state_var
 
     The following indexed identifiers are all flattened to x_y_z, but
     we can distinguish them by their scopes:
-
     x_y_z  [] 
     x.y.z  [2;2]
     x.y_z  [4]
@@ -1845,7 +1844,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
       let equations = expand_tuple pos eq_lhs eq_rhs in
-(*       Format.eprintf "\nequations: %a\n"
+      (* Format.eprintf "\nequations: %a\n"
         (pp_print_list
           (pp_print_pair
             (pp_print_pair
