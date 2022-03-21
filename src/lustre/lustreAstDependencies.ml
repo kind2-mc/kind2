@@ -51,7 +51,7 @@ let error_message error = match error with
     ^ (Lib.string_of_t LA.pp_print_expr l) ^ "' and '"
     ^ (Lib.string_of_t LA.pp_print_expr r) ^ "'"
   | EquationWidthsUnequal -> "Width lengths of equation are not equal"
-  | ContractDependencyOnCurrentOutput ids -> "Contract assumption cannot depend on "
+  | ContractDependencyOnCurrentOutput ids -> "Contract assumption or import argument cannot depend on "
     ^ "current values of output parameters but found: "
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements ids))
   | CyclicDependency ids -> "Cyclic dependency detected in definition of identifiers: "
@@ -947,7 +947,9 @@ let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contra
   = fun ids ad ->
   function
   | LA.Assume (_, _, _, e) ->
-     check_eqn_no_current_vals ids ad e
+    check_eqn_no_current_vals ids ad e
+  | LA.ContractCall (_, _, es, _ ) ->
+    R.seq_ (List.map (fun e -> check_eqn_no_current_vals ids ad e) es)
   (* | LA.Mode (_, _, reqs, _) ->
      let req_es = List.map (fun (_, _, e) -> e) reqs in
      R.seq_ (List.map (check_eqn_no_current_vals ids ad) req_es) *)
@@ -1070,15 +1072,18 @@ let mk_node_summary: node_summary -> LA.node_decl -> node_summary
     in
     IMap.add i ns s
   else
-    IMap.add
-      i
-      ((List.fold_left (fun (op_idx, m) _ ->
-            (op_idx+1, IntMap.add op_idx [] m)) (0, IntMap.empty) ops) |> snd)
+    let cricital_ips = (List.fold_left (fun (acc, num) _ -> (num::acc, num+1)) ([], 0) ips) |> fst in
+    IMap.add i
+      ((List.fold_left
+        (fun (op_idx, m) _ -> (op_idx+1, IntMap.add op_idx cricital_ips m))
+        (0, IntMap.empty)
+        ops)
+      |> snd)
       s
 (** Computes the node call summary of the node to the input stream of the node.
     
-    For imported nodes and imported functions we assume that output streams do not depend on 
-    any of the input streams. This restriction is in place to avoid rejecting valid programs.
+    For imported nodes and imported functions we assume that output streams depend on 
+    every input stream.
  *)
 
 

@@ -73,7 +73,6 @@ type error_kind = Unknown of string
   | DisallowedReassignment of ty_set
   | DisallowedSubrangeInContractReturn of bool * HString.t * tc_type
   | AssumptionMustBeInputOrOutput of HString.t
-  | ContractOutputContainsContractArguments of ty_set
   | Redeclaration of HString.t
   | ExpectedConstant of LA.expr
   | ArrayBoundsInvalidExpression

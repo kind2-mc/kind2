@@ -715,6 +715,7 @@ is used.
 In a modular analysis, ``imported`` nodes will not be analyzed, although if their
 contract has modes they will be checked for exhaustiveness, consistently with
 the usual Kind 2 contract workflow.
+Every output of an imported node is assumed to depend on every input.
 
 Partially defined nodes VS ``imported``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

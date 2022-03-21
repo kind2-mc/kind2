@@ -184,6 +184,26 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/test_fail_to_assign_node_inputs.lus" with
     | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
     | _ -> false);
+  mk_test "test output in contract assume 4" (fun () ->
+    match load_file "./lustreAstDependencies/test_out_param_in_contract_assume2.lus" with
+    | Error (`LustreAstDependenciesError (_, ContractDependencyOnCurrentOutput _)) -> true
+    | _ -> false);
+  mk_test "test output in contract assume 5" (fun () ->
+    match load_file "./lustreAstDependencies/test_out_param_in_contract_assume3.lus" with
+    | Error (`LustreAstDependenciesError (_, ContractDependencyOnCurrentOutput _)) -> true
+    | _ -> false);
+  mk_test "test output in contract import" (fun () ->
+    match load_file "./lustreAstDependencies/test_out_param_in_contract_import.lus" with
+    | Error (`LustreAstDependenciesError (_, ContractDependencyOnCurrentOutput _)) -> true
+    | _ -> false);
+  mk_test "test output in contract import 2" (fun () ->
+    match load_file "./lustreAstDependencies/test_out_param_in_contract_import2.lus" with
+    | Error (`LustreAstDependenciesError (_, ContractDependencyOnCurrentOutput _)) -> true
+    | _ -> false);
+  mk_test "test output contains contract args" (fun () ->
+    match load_file "./lustreAstDependencies/cocospec_out_param.lus" with
+    | Error (`LustreAstDependenciesError (_, ContractDependencyOnCurrentOutput _)) -> true
+    | _ -> false);
   mk_test "test node equations unequal width after flattening" (fun () ->
     match load_file "./lustreAstDependencies/test_group_type_flattening.lus" with
     | Error (`LustreAstDependenciesError (_, EquationWidthsUnequal)) -> true
@@ -253,10 +273,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test non-number (array type) cast to real" (fun () ->
     match load_file "./lustreTypeChecker/cast_05.lus" with
     | Error (`LustreTypeCheckerError (_, InvalidConversion _)) -> true
-    | _ -> false);
-  mk_test "test output contains contract args" (fun () ->
-    match load_file "./lustreTypeChecker/cocospec_out_param.lus" with
-    | Error (`LustreTypeCheckerError (_, ContractOutputContainsContractArguments _)) -> true
     | _ -> false);
   mk_test "test constant reassigned" (fun () ->
     match load_file "./lustreTypeChecker/const_01.lus" with

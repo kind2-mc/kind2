@@ -88,7 +88,6 @@ type error_kind = Unknown of string
   | DisallowedReassignment of ty_set
   | DisallowedSubrangeInContractReturn of bool * HString.t * tc_type
   | AssumptionMustBeInputOrOutput of HString.t
-  | ContractOutputContainsContractArguments of ty_set
   | Redeclaration of HString.t
   | ExpectedConstant of LA.expr
   | ArrayBoundsInvalidExpression
@@ -181,8 +180,6 @@ let error_message kind = match kind with
     ^ " should be used instead"
   | AssumptionMustBeInputOrOutput id -> "Assumption variable must be either an input or an output variable, "
     ^ "but found '" ^ HString.string_of_hstring id ^ "'"
-  | ContractOutputContainsContractArguments set -> "Output stream of node cannot be contract arguments, but found: "
-    ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ",") (LA.SI.elements set)
   | Redeclaration id -> HString.string_of_hstring id ^ " is already declared"
   | ExpectedConstant e -> "Expression " ^ LA.string_of_expr e ^ " is not a constant expression"
   | ArrayBoundsInvalidExpression -> "Invalid expression in array bounds"
@@ -1097,32 +1094,30 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
       
     | ContractCall (pos, cname, args, rets) ->
       let arg_ids = List.fold_left (fun a s -> LA.SI.union a s) LA.SI.empty (List.map LH.vars args) in
-      let node_out_params = snd node_params in
-      let intersect_in_illegal = LA.SI.inter node_out_params arg_ids in
-      if (not (LA.SI.is_empty intersect_in_illegal))
-      then type_error pos (ContractOutputContainsContractArguments intersect_in_illegal)
-      else
-        let ret_ids = LA.SI.of_list rets in
-        let common_ids = LA.SI.inter arg_ids ret_ids in
-        if (LA.SI.equal common_ids LA.SI.empty)
-        then 
-          R.seq(List.map (infer_type_expr ctx) (List.map (fun i -> LA.Ident (pos, i)) rets))
-          >>= fun ret_tys ->  
-          let ret_ty = if List.length ret_tys = 1
-                      then List.hd ret_tys
-                      else LA.GroupType (pos, ret_tys) in
-          R.seq(List.map (infer_type_expr ctx) args) >>= fun arg_tys -> 
-          let arg_ty = if List.length arg_tys = 1
-                      then List.hd arg_tys
-                      else LA.GroupType (pos, arg_tys) in
-          let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
-          (match (lookup_contract_ty ctx cname) with
-          | Some inf_ty -> 
-              R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
-                (type_error pos (MismatchedNodeType (cname, exp_ty, inf_ty)))
-          | None -> type_error pos (Impossible ("Undefined or not in scope contract name "
-            ^ (HString.string_of_hstring cname))))
-        else type_error pos (NodeInputOutputShareIdentifier common_ids)
+      let ret_ids = LA.SI.of_list rets in
+      let common_ids = LA.SI.inter arg_ids ret_ids in
+      if (LA.SI.equal common_ids LA.SI.empty)
+      then 
+        let* ret_tys = R.seq (List.map (infer_type_expr ctx)
+          (List.map (fun i -> LA.Ident (pos, i)) rets))
+        in
+        let ret_ty = if List.length ret_tys = 1
+          then List.hd ret_tys
+          else LA.GroupType (pos, ret_tys)
+        in
+        let* arg_tys = R.seq(List.map (infer_type_expr ctx) args) in
+        let arg_ty = if List.length arg_tys = 1
+          then List.hd arg_tys
+          else LA.GroupType (pos, arg_tys)
+        in
+        let exp_ty = LA.TArr (pos, arg_ty, ret_ty) in
+        (match (lookup_contract_ty ctx cname) with
+        | Some inf_ty -> 
+            R.guard_with (eq_lustre_type ctx inf_ty exp_ty)
+              (type_error pos (MismatchedNodeType (cname, exp_ty, inf_ty)))
+        | None -> type_error pos (Impossible ("Undefined or not in scope contract name "
+          ^ (HString.string_of_hstring cname))))
+      else type_error pos (NodeInputOutputShareIdentifier common_ids)
 
 and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> (tc_context, [> error]) result 
   = fun ?is_const:(is_const=true) ctx ->
