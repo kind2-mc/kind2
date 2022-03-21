@@ -715,6 +715,7 @@ is used.
 In a modular analysis, ``imported`` nodes will not be analyzed, although if their
 contract has modes they will be checked for exhaustiveness, consistently with
 the usual Kind 2 contract workflow.
+Every output of an imported node is assumed to depend on every input.
 
 Partially defined nodes VS ``imported``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -750,7 +751,7 @@ Benefits
 ^^^^^^^^
 
 Functions are interesting in the model-checking context of Kind 2 mainly as
-a mean to make an abstraction more precise. A realistic use-case is when one
+a mean to make an abstraction more precise. A realistic use-caseimported is when one
 wants to abstract non-linear expressions. While the simple expression ``x*y``
 seems harmless, at SMT-level it means bringing in the theory of non-linear
 arithmetic.
