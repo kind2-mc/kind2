@@ -812,7 +812,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
       | None -> assert false (* guaranteed by lustreSyntaxChecks *)
       | Some summary ->
          let sum_bds = IntMap.bindings summary in
-         R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs ->
+         let* gs = R.seq (List.map (mk_graph_expr2 m) es) in
          let ip_gs = List.concat gs in
          (* For each output stream, return the associated graph of the input expression 
             whose current value it depends on. If the output stream does not depend on 
@@ -820,8 +820,14 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
          R.ok (List.map (fun (_, b) ->
              if List.length b = 0
              then empty_dependency_analysis_data
-             else (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
-                     (List.map (List.nth ip_gs) b))
+             else
+              List.fold_left
+                union_dependency_analysis_data
+                empty_dependency_analysis_data
+                (List.map (fun idx -> match List.nth_opt ip_gs idx with
+                  | Some data -> data
+                  | None -> empty_dependency_analysis_data)
+                  b)
            ) sum_bds))
   | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
 (** This graph is useful for analyzing equations assuming that the nodes/contract call
