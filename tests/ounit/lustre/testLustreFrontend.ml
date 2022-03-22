@@ -410,4 +410,8 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/test_shadowing.lus" with
     | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
     | _ -> false);
+  mk_test "test arity incorrect node call" (fun () ->
+    match load_file "./lustreTypeChecker/arity_incorrect_node_call.lus" with
+    | Error (`LustreTypeCheckerError (_, IlltypedCall _)) -> true
+    | _ -> false);
 ])

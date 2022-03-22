@@ -1,0 +1,39 @@
+
+const N: int = 10;
+
+node TrafficLight( S: int; Button: bool )
+returns ( Red, Yellow, Green, Walk, DontWalk: bool );
+var Phase, prePhase: int;
+let
+  prePhase = 0 -> pre Phase;
+  -- we improve on the previous implementation by ignoring the button
+  -- unless the traffic light was in the Green phase a cycle ago
+  Phase    = if Button and prePhase = 0 then
+               1
+             else if 0 < prePhase and prePhase < N then
+               prePhase + 1
+             else
+               0;
+
+  Green    = Phase = 0;
+  Yellow   = Phase = 1;
+  Red      = Phase > 1;
+
+  Walk     = Phase > 2 and Phase < N;
+  DontWalk = not Walk;
+  --%MAIN;
+tel
+
+node ReqTrafficLight( Button : bool )
+returns (R1: bool);
+
+var  CarsAllowed, Red, Yellow, Green, Walk, DontWalk : bool;
+let
+  (Red, Yellow, Green, Walk, DontWalk) = TrafficLight(Button);
+
+  CarsAllowed = Green or Yellow;
+
+  R1 = true;
+-- %MAIN;
+--%PROPERTY R1;
+tel
