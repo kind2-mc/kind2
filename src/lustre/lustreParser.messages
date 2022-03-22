@@ -2486,8 +2486,8 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET WEAKLY XOR
 
-Syntax Error! Unexpected parenthesis found.
-Array indexing is done using square brackets e.g. `A[i]`.
+Syntax Error!
+An identifier has been recognized. At this point, a definition is expected.
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET XOR
 
