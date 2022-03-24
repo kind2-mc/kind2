@@ -323,7 +323,6 @@ let rec expand_tuple' pos accum bounds lhs rhs =
         [(lhs_index_tl, state_var)]
         [([], indexed_expr)]
       in
-      Format.eprintf "lhs_tl len: %i@." (List.length lhs_tl);
       if List.length lhs_tl == 0 then accum
       else expand_tuple' pos accum bounds lhs_tl (([], expr) :: rhs_tl)
     else

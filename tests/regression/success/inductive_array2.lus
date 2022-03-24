@@ -1,0 +1,10 @@
+
+node f(x:int) returns (y:int);
+let
+    y = x + 1;
+tel
+
+node top() returns (A: int^5);
+let
+    A[i] = if i=0 then 0 else f(A[i-1]);
+tel
