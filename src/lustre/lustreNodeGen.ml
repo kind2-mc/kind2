@@ -942,7 +942,7 @@ and compile_ast_expr
             X.fold (fun j -> X.add (top :: j)) e acc
           | _ -> assert false
         in X.fold over_expr expr X.empty
-      | _ -> assert false
+      | [], e -> X.singleton X.empty_index (E.mk_select e index)
     in push compiled_expr
 
   in

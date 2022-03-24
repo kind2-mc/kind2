@@ -908,10 +908,15 @@ and normalize_equation info map = function
       | A.GroupExpr(_, A.ExprList, expr_list) -> List.length expr_list
       | _ -> 1
     in
-    let has_call = AH.expr_contains_call expr in
-    let has_inductive = Lib.is_some (StringMap.choose_opt info.inductive_variables) in
+    let vars_of_calls = AH.vars_of_node_calls expr in
+    let has_inductive = vars_of_calls
+      |> A.SI.to_seq
+      |> Seq.fold_left
+        (fun acc v -> acc || StringMap.mem v info.inductive_variables)
+        false
+    in
     let (nexpr, gids1), expanded = (
-      if has_call && has_inductive && lhs_arity <> rhs_arity then
+      if has_inductive && lhs_arity <> rhs_arity then
         (match StringMap.choose_opt info.inductive_variables with
         | Some (ivar, ty) ->
           let size = extract_array_size ty in
@@ -924,7 +929,7 @@ and normalize_equation info map = function
           let gids = List.fold_left (fun acc g -> union g acc) (empty ()) gids in
         (A.GroupExpr (dpos, A.ExprList, exprs), gids), true
         | None -> normalize_expr info map expr, false)
-      else if has_call && has_inductive && lhs_arity = rhs_arity then
+      else if has_inductive && lhs_arity = rhs_arity then
         let expanded_expr = List.fold_left
           (fun acc (v, ty) -> 
             let size = extract_array_size ty in

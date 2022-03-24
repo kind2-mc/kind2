@@ -1,0 +1,11 @@
+
+node Array_CountTrue( const n : int ; B : bool^n ) returns ( C : int ) ;
+let
+  C = 0;
+tel
+
+node Bus( const n : int; Request: bool^n; Turn : int )
+returns ( Accepted : bool^n ) ;
+let
+  Accepted[i] = Turn = i or Array_CountTrue(n, Request) = 1;
+tel
