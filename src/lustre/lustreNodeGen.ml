@@ -308,7 +308,12 @@ let rec expand_tuple' pos accum bounds lhs rhs =
   (* Only array indexes may be left at head of indexes *)
   | (X.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl,
     ([], expr) :: rhs_tl ->
-    expand_tuple' pos accum (E.Bound b :: bounds)
+    let expr_type = E.type_of_lustre_expr expr in
+    let bounds = if Type.is_array expr_type
+      then bounds
+      else (E.Bound b :: bounds)
+    in
+    expand_tuple' pos accum bounds
       ((lhs_index_tl, state_var) :: lhs_tl)
       (([], expr) :: rhs_tl)
   | (X.ArrayIntIndex _ :: _, _) :: _, [] -> accum
