@@ -275,14 +275,19 @@ and mk_graph_expr ?(only_modes = false)
     if only_modes then empty_dependency_analysis_data
     else singleton_dependency_analysis_data empty_hs i pos
   | LA.Const _ -> empty_dependency_analysis_data
-  | LA.RecordExpr (_, _, ty_ids) ->
-     List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (fun ty_id -> mk_graph_expr ~only_modes (snd ty_id)) ty_ids)
+  | LA.RecordExpr (pos, r, ty_ids) ->
+    union_dependency_analysis_data
+      (singleton_dependency_analysis_data ty_prefix r pos)
+      (List.fold_left union_dependency_analysis_data
+        empty_dependency_analysis_data
+        (List.map (fun ty_id -> mk_graph_expr ~only_modes (snd ty_id)) ty_ids))
   | LA.UnaryOp (_, _, e) -> mk_graph_expr ~only_modes e
   | LA.ConvOp (_, _, e) -> mk_graph_expr ~only_modes e
   | LA.BinaryOp (_, _, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2) 
   | LA.CompOp (_, _, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2) 
-  | LA.TernaryOp (_, _, e1, e2, e3) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1)
-                                         (union_dependency_analysis_data (mk_graph_expr ~only_modes e2) (mk_graph_expr ~only_modes e3)) 
+  | LA.TernaryOp (_, _, e1, e2, e3) ->
+    union_dependency_analysis_data (mk_graph_expr ~only_modes e1)
+      (union_dependency_analysis_data (mk_graph_expr ~only_modes e2) (mk_graph_expr ~only_modes e3)) 
   | LA.RecordProject (_, e, _) -> mk_graph_expr ~only_modes e
   | LA.TupleProject (_, e, _) -> mk_graph_expr ~only_modes e
   | LA.ArrayConstr (_, e1, e2) -> union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2) 
