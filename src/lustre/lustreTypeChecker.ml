@@ -872,10 +872,8 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
   >> if (SI.is_empty common_ids)
   then
     (Debug.parse "Params: %a (skipping)" LA.pp_print_node_param_list params;
-    (* store the input constants passed in the input 
-        also remove the node name from the context as we should not have recursive
-        nodes *)
-    let ip_constants_ctx = List.fold_left union (remove_ty ctx node_name)
+    (* store the input constants passed in the input *)
+    let ip_constants_ctx = List.fold_left union ctx
       (List.map extract_consts input_vars)
     in
     (* These are inputs to the node *)
@@ -1496,10 +1494,10 @@ let rec type_check_group: tc_context -> LA.t ->  (unit, [> error]) result list
 
 let type_check_decl_grps: tc_context -> LA.t list -> (unit, [> error]) result list
   = fun ctx decls ->
-      Debug.parse ("===============================================\n"
-                      ^^ "Phase: Type checking declaration Groups\n"
-                      ^^"===============================================\n");
-      List.concat (List.map (fun decl -> type_check_group ctx decl) decls)               
+    Debug.parse ("@.===============================================@."
+      ^^ "Phase: Type checking declaration Groups@."
+      ^^"===============================================@.");
+    List.concat (List.map (fun decl -> type_check_group ctx decl) decls)
 (** Typecheck a list of independent groups using a global context*)
 
 (**************************************************************************************
@@ -1508,31 +1506,31 @@ let type_check_decl_grps: tc_context -> LA.t list -> (unit, [> error]) result li
 
 let type_check_infer_globals: tc_context -> LA.t -> (tc_context, [> error]) result
   = fun ctx prg ->
-    Debug.parse ("===============================================\n"
-      ^^ "Building TC Global Context\n"
-      ^^"===============================================\n");
+    Debug.parse ("@.===============================================@."
+      ^^ "Building TC Global Context@."
+      ^^"===============================================@.");
     (* Build base constant and type context *)
     let* global_ctx = build_type_and_const_context ctx prg in
     R.ok global_ctx
 
 let type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context, [> error]) result
   = fun ctx prg -> 
-(* type check the nodes and contract decls using this base typing context  *)
-    Debug.parse ("===============================================\n"
-                      ^^ "Building node and contract Context\n"
-                      ^^"===============================================\n")
-    (* Build base constant and type context *)
-    ; tc_context_of ctx prg >>= fun global_ctx ->
-      (Debug.parse ("===============================================\n"
-                        ^^ "Type checking declaration Groups" 
-                        ^^ "with TC Context\n%a\n"
-                        ^^"===============================================\n")
-         pp_print_tc_context global_ctx
-      ; R.seq_ (type_check_decl_grps global_ctx [prg]) >>
-          (Debug.parse ("===============================================\n"
-                            ^^ "Type checking declaration Groups Done\n"
-                            ^^"===============================================\n")
-          ; R.ok global_ctx))
+  (* type check the nodes and contract decls using this base typing context  *)
+  Debug.parse ("@.===============================================@."
+    ^^ "Building node and contract Context@."
+    ^^"===============================================@.");
+  (* Build base constant and type context *)
+  let* global_ctx = tc_context_of ctx prg in
+  Debug.parse ("@.===============================================@."
+    ^^ "Type checking declaration Groups@." 
+    ^^ "with TC Context@.%a@."
+    ^^"===============================================@.")
+    pp_print_tc_context global_ctx;
+  let checked_decls = R.seq_ (type_check_decl_grps global_ctx [prg]) in
+  Debug.parse ("@.===============================================@."
+    ^^ "Type checking declaration Groups Done@."
+    ^^"===============================================@.");
+  checked_decls >> R.ok global_ctx
 
 (* 
    Local Variables:
