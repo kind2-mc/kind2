@@ -75,6 +75,9 @@ val replace_lasts : LustreAst.index list -> string -> SI.t -> expr -> expr * SI.
     the new AST expression and a set of identifers for which the last
     application was replaced. *)
 
+val vars_of_node_calls: expr -> SI.t
+(** returns all identifiers from the [expr] ast that are inside node calls *)
+
 val vars: expr -> SI.t
 (** returns all the [ident] that appear in the expr ast*)
 

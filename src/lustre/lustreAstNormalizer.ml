@@ -908,14 +908,19 @@ and normalize_equation info map = function
       | A.GroupExpr(_, A.ExprList, expr_list) -> List.length expr_list
       | _ -> 1
     in
-    let has_call = AH.expr_contains_call expr in
-    let has_inductive = Lib.is_some (StringMap.choose_opt info.inductive_variables) in
+    let vars_of_calls = AH.vars_of_node_calls expr in
+    let has_inductive = vars_of_calls
+      |> A.SI.to_seq
+      |> Seq.fold_left
+        (fun acc v -> acc || StringMap.mem v info.inductive_variables)
+        false
+    in
     let (nexpr, gids1), expanded = (
-      if has_call && has_inductive && lhs_arity <> rhs_arity then
+      if has_inductive && lhs_arity <> rhs_arity then
         (match StringMap.choose_opt info.inductive_variables with
         | Some (ivar, ty) ->
           let size = extract_array_size ty in
-          let expanded_expr = expand_node_calls_in_place ivar size expr in
+          let expanded_expr = expand_node_calls_in_place info ivar size expr in
           let exprs, gids = List.split (List.init lhs_arity
             (fun i -> 
               let info = { info with local_group_projection = i } in
@@ -924,11 +929,11 @@ and normalize_equation info map = function
           let gids = List.fold_left (fun acc g -> union g acc) (empty ()) gids in
         (A.GroupExpr (dpos, A.ExprList, exprs), gids), true
         | None -> normalize_expr info map expr, false)
-      else if has_call && has_inductive && lhs_arity = rhs_arity then
+      else if has_inductive && lhs_arity = rhs_arity then
         let expanded_expr = List.fold_left
           (fun acc (v, ty) -> 
             let size = extract_array_size ty in
-            expand_node_calls_in_place v size acc)
+            expand_node_calls_in_place info v size acc)
           expr
           (StringMap.bindings info.inductive_variables)
         in
@@ -969,10 +974,20 @@ and abstract_expr ?guard force info map is_ghost expr =
     let iexpr, gids2 = mk_fresh_local force info pos is_ghost ivars ty nexpr expr in
     iexpr, union gids1 gids2
 
-and expand_node_call expr var count =
+and expand_node_call info expr var count =
+  let ty = Chk.infer_type_expr info.context expr |> unwrap in
   let mk_index i = A.Const (dpos, Num (HString.mk_hstring (string_of_int i))) in
-  let array = List.init count (fun i -> AH.substitute var (mk_index i) expr) in
-  A.GroupExpr (dpos, ArrayExpr, array)
+  let expr_array = List.init count (fun i -> AH.substitute var (mk_index i) expr) in
+  match ty with
+  | A.ArrayType _ -> A.GroupExpr (dpos, ArrayExpr, expr_array)
+  | _ -> List.fold_left
+    (fun acc (i, e) ->
+      let pos = Lib.dummy_pos in
+      let i = HString.mk_hstring (Int.to_string i) in
+      let cond = A.CompOp (pos, A.Eq, A.Ident (pos, var), A.Const (pos, A.Num i)) in
+      A.TernaryOp (pos, A.Ite, cond, e, acc))
+    (List.nth expr_array 0)
+    (List.tl (List.init count (fun i -> i, List.nth expr_array i)))
 
 and combine_args_with_const info args flags =
   let output_arity = List.map (fun e -> match e with
@@ -1235,8 +1250,8 @@ and normalize_expr ?guard info map =
       expr_list in
     CallParam (pos, id, type_list, nexpr_list), gids
 
-and expand_node_calls_in_place var count expr =
-  let r = expand_node_calls_in_place var count in
+and expand_node_calls_in_place info var count expr =
+  let r = expand_node_calls_in_place info var count in
   match expr with
   | A.RecordProject (p, e, i) -> A.RecordProject (p, r e, i)
   | TupleProject (p, e, i) -> A.TupleProject (p, r e, i)
@@ -1276,14 +1291,14 @@ and expand_node_calls_in_place var count expr =
     A.Activate (p, n, r e1, r e2, expr_list)
   | Call (p, n, expr_list) ->
     let expr_list = List.map (fun e -> r e) expr_list in
-    expand_node_call (A.Call (p, n, expr_list)) var count
+    expand_node_call info (A.Call (p, n, expr_list)) var count
   | Condact (p, e1, e2, id, expr_list1, expr_list2) ->
     let expr_list1 = List.map (fun e -> r e) expr_list1 in
     let expr_list2 = List.map (fun e -> r e) expr_list2 in
     let e = A.Condact (p, r e1, r e2, id, expr_list1, expr_list2) in
-    expand_node_call e var count
+    expand_node_call info e var count
   | RestartEvery (p, id, expr_list, e) ->
     let expr_list = List.map (fun e -> r e) expr_list in
     let e = A.RestartEvery (p, id, expr_list, r e) in
-    expand_node_call e var count
+    expand_node_call info e var count
   | e -> e

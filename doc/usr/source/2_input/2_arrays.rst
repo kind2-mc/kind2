@@ -438,35 +438,27 @@ Limitations
 ^^^^^^^^^^^
 
 One major limitation that is present in the arrays of Kind 2 is that one cannot
-have node calls in inductive array definitions whose parameters are array
-selections.
+have node calls in inductive array definitions whose parameters contain unbounded
+array indices.
 
 For instance, it is currently not possible to write the following in Kind 2
-where ``A`` and ``B`` are array and ``some_node`` takes values as inputs.
+where ``A`` and ``B`` are arrays, ``n`` is a symbolic constant,
+and ``some_node`` takes values as inputs.
 
 .. code-block:: none
 
    node some_node (x: int) returns (y: int);
    ...
 
-   A, B: int^4;
+   A, B: int^n;
    ...
 
    A[i] = some_node(B[i]);
 
-This limitation exists only for technical implementation reasons.
-A workaround for the moment is to redefine an homorphic extension of the node
-and use that instead.
+Another limitation is that quantified variables cannot appear in the parameters
+of a node call.
+These limitation exists only for technical implementation reasons.
 
-.. code-block:: none
-
-   node some_node (const n: int; x: int^n) returns (y: int^n);
-   ...
-
-   A, B: int^4;
-   ...
-
-   A = some_node(4, B);
 
 Command line options
 ^^^^^^^^^^^^^^^^^^^^
