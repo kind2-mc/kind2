@@ -300,7 +300,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test inlined contract 2" (fun () ->
     match load_file "./lustreTypeChecker/inlined_contract_02.lus" with
-    | Error (`LustreTypeCheckerError (_, UnboundedIdentifier _)) -> true
+    | Error (`LustreTypeCheckerError (_, UnboundIdentifier _)) -> true
     | _ -> false);
   mk_test "test int div 1" (fun () ->
     match load_file "./lustreTypeChecker/intdiv_01.lus" with

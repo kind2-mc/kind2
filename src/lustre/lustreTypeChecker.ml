@@ -42,8 +42,8 @@ type error_kind = Unknown of string
   | MergeCaseExtraneous of HString.t * tc_type
   | MergeCaseMissing of HString.t
   | MergeCaseNotUnique of HString.t
-  | UnboundedIdentifier of HString.t
-  | UnboundedModeReference of HString.t
+  | UnboundIdentifier of HString.t
+  | UnboundModeReference of HString.t
   | MissingRecordField of HString.t
   | IlltypedRecordProjection of tc_type
   | MissingTupleField of int * tc_type
@@ -107,8 +107,8 @@ let error_message kind = match kind with
   | MergeCaseExtraneous (case, ty) -> "Merge case " ^ HString.string_of_hstring case ^ " does not exist in type " ^ string_of_tc_type ty
   | MergeCaseMissing case -> "Merge case " ^ HString.string_of_hstring case ^ " is missing from merge expression"
   | MergeCaseNotUnique case -> "Merge case " ^ HString.string_of_hstring case ^ " must be unique"
-  | UnboundedIdentifier id -> "Unbounded identifier: " ^ HString.string_of_hstring id
-  | UnboundedModeReference id -> "Unbounded mode reference: " ^ HString.string_of_hstring id
+  | UnboundIdentifier id -> "Unbound identifier: " ^ HString.string_of_hstring id
+  | UnboundModeReference id -> "Unbound mode reference: " ^ HString.string_of_hstring id
   | MissingRecordField id -> "No field name '" ^ HString.string_of_hstring id ^ "' in record type"
   | IlltypedRecordProjection ty -> "Cannot project field out of non record expression type " ^ string_of_tc_type ty
   | MissingTupleField (id, ty) -> "Field " ^ string_of_int id ^ " is out of bounds for tuple type " ^ string_of_tc_type ty
@@ -251,7 +251,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
   (* Identifiers *)
   | LA.Ident (pos, i) ->
     (match (lookup_ty ctx i) with
-    | None -> type_error pos (UnboundedIdentifier i) 
+    | None -> type_error pos (UnboundIdentifier i) 
     | Some ty -> R.ok ty)
   | LA.ModeRef (pos, ids) ->      
     let lookup_mode_ty ctx (ids:HString.t list) =
@@ -259,7 +259,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       | [] -> failwith ("empty mode name")
       | rest -> let i = HString.concat (HString.mk_hstring "::") rest in 
                 match (lookup_ty ctx i) with
-                | None -> type_error pos (UnboundedModeReference i)
+                | None -> type_error pos (UnboundModeReference i)
                 | Some ty -> R.ok ty in
     lookup_mode_ty ctx ids
   | LA.RecordProject (pos, e, fld) ->
@@ -872,10 +872,8 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
   >> if (SI.is_empty common_ids)
   then
     (Debug.parse "Params: %a (skipping)" LA.pp_print_node_param_list params;
-    (* store the input constants passed in the input 
-        also remove the node name from the context as we should not have recursive
-        nodes *)
-    let ip_constants_ctx = List.fold_left union (remove_ty ctx node_name)
+    (* store the input constants passed in the input *)
+    let ip_constants_ctx = List.fold_left union ctx
       (List.map extract_consts input_vars)
     in
     (* These are inputs to the node *)
@@ -1169,33 +1167,34 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
   = fun ctx ->
   function
   | LA.AliasType (_, i, ty) ->
-    check_type_well_formed ctx ty
-      >> (match ty with
-    | LA.EnumType (pos, ename, econsts) ->
-            if (List.for_all (fun e -> not (member_ty ctx e)) econsts)
-              && (List.for_all (fun e -> not (member_val ctx e)) econsts)
-            then
-              let mk_ident = fun i -> LA.Ident (pos, i) in
-              let enum_type_bindings = List.map ((Lib.flip singleton_ty) 
-                                                  (LA.UserType (pos, ename)))
-                                        econsts in
-              let enum_const_bindings = Lib.list_apply ((List.map2 (Lib.flip singleton_const)
-                                                          (List.map mk_ident econsts) econsts))
-                                          (LA.UserType (pos, ename)) in
-              (* Adding enums into the typing context consists of 4 parts *)
-              (* 1. add the enum type and variants to the enum context *)
-              let ctx' = add_enum_variants ctx ename econsts in
-              (* 2. add the enum type as a valid type in context*)
-              let ctx'' = add_ty_syn ctx' ename (LA.AbstractType (pos, ename)) in
-              R.ok (List.fold_left union (add_ty_decl ctx'' ename)
-              (* 3. Lift all enum constants (terms) with associated user type of enum name *)
-                      (enum_type_bindings
-              (* 4. Lift all the enum constants (terms) into the value store as constants *)
-                        @ enum_const_bindings))
-            else
-              type_error pos (Redeclaration (HString.mk_hstring "Enum value or constant"))
-    | _ -> check_type_well_formed ctx ty
-            >> R.ok (add_ty_syn ctx i ty))
+    check_type_well_formed ctx ty >> (match ty with
+      | LA.EnumType (pos, ename, econsts) ->
+        if (List.for_all (fun e -> not (member_ty ctx e)) econsts)
+          && (List.for_all (fun e -> not (member_val ctx e)) econsts)
+        then
+          let mk_ident = fun i -> LA.Ident (pos, i) in
+          let enum_type_bindings = List.map
+            ((Lib.flip singleton_ty) (LA.UserType (pos, ename)))
+            econsts
+          in
+          let enum_const_bindings = Lib.list_apply
+            ((List.map2 (Lib.flip singleton_const) (List.map mk_ident econsts) econsts))
+            (LA.UserType (pos, ename))
+          in
+          (* Adding enums into the typing context consists of 4 parts *)
+          (* 1. add the enum type and variants to the enum context *)
+          let ctx' = add_enum_variants ctx ename econsts in
+          (* 2. add the enum type as a valid type in context*)
+          let ctx'' = add_ty_syn ctx' ename (LA.AbstractType (pos, ename)) in
+          R.ok (List.fold_left union (add_ty_decl ctx'' ename)
+          (* 3. Lift all enum constants (terms) with associated user type of enum name *)
+            (enum_type_bindings
+          (* 4. Lift all the enum constants (terms) into the value store as constants *)
+            @ enum_const_bindings))
+        else
+          type_error pos (Redeclaration (HString.mk_hstring "Enum value or constant"))
+      | _ -> check_type_well_formed ctx ty
+        >> R.ok (add_ty_syn ctx i ty))
   | LA.FreeType (pos, i) ->
     let ctx' = add_ty_syn ctx i (LA.AbstractType (pos, i)) in
     R.ok (add_ty_decl ctx' i)
@@ -1495,10 +1494,10 @@ let rec type_check_group: tc_context -> LA.t ->  (unit, [> error]) result list
 
 let type_check_decl_grps: tc_context -> LA.t list -> (unit, [> error]) result list
   = fun ctx decls ->
-      Debug.parse ("===============================================\n"
-                      ^^ "Phase: Type checking declaration Groups\n"
-                      ^^"===============================================\n");
-      List.concat (List.map (fun decl -> type_check_group ctx decl) decls)               
+    Debug.parse ("@.===============================================@."
+      ^^ "Phase: Type checking declaration Groups@."
+      ^^"===============================================@.");
+    List.concat (List.map (fun decl -> type_check_group ctx decl) decls)
 (** Typecheck a list of independent groups using a global context*)
 
 (**************************************************************************************
@@ -1507,31 +1506,31 @@ let type_check_decl_grps: tc_context -> LA.t list -> (unit, [> error]) result li
 
 let type_check_infer_globals: tc_context -> LA.t -> (tc_context, [> error]) result
   = fun ctx prg ->
-    (Debug.parse ("===============================================\n"
-                      ^^ "Building TC Global Context\n"
-                      ^^"===============================================\n")
-     (* Build base constant and type context *)
-    ; build_type_and_const_context ctx prg >>= fun global_ctx ->
-      R.ok global_ctx)
-   
+    Debug.parse ("@.===============================================@."
+      ^^ "Building TC Global Context@."
+      ^^"===============================================@.");
+    (* Build base constant and type context *)
+    let* global_ctx = build_type_and_const_context ctx prg in
+    R.ok global_ctx
+
 let type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context, [> error]) result
   = fun ctx prg -> 
-(* type check the nodes and contract decls using this base typing context  *)
-    Debug.parse ("===============================================\n"
-                      ^^ "Building node and contract Context\n"
-                      ^^"===============================================\n")
-    (* Build base constant and type context *)
-    ; tc_context_of ctx prg >>= fun global_ctx ->
-      (Debug.parse ("===============================================\n"
-                        ^^ "Type checking declaration Groups" 
-                        ^^ "with TC Context\n%a\n"
-                        ^^"===============================================\n")
-         pp_print_tc_context global_ctx
-      ; R.seq_ (type_check_decl_grps global_ctx [prg]) >>
-          (Debug.parse ("===============================================\n"
-                            ^^ "Type checking declaration Groups Done\n"
-                            ^^"===============================================\n")
-          ; R.ok global_ctx))
+  (* type check the nodes and contract decls using this base typing context  *)
+  Debug.parse ("@.===============================================@."
+    ^^ "Building node and contract Context@."
+    ^^"===============================================@.");
+  (* Build base constant and type context *)
+  let* global_ctx = tc_context_of ctx prg in
+  Debug.parse ("@.===============================================@."
+    ^^ "Type checking declaration Groups@." 
+    ^^ "with TC Context@.%a@."
+    ^^"===============================================@.")
+    pp_print_tc_context global_ctx;
+  let checked_decls = R.seq_ (type_check_decl_grps global_ctx [prg]) in
+  Debug.parse ("@.===============================================@."
+    ^^ "Type checking declaration Groups Done@."
+    ^^"===============================================@.");
+  checked_decls >> R.ok global_ctx
 
 (* 
    Local Variables:

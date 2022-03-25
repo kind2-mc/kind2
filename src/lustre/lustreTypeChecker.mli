@@ -27,8 +27,8 @@ type error_kind = Unknown of string
   | MergeCaseExtraneous of HString.t * tc_type
   | MergeCaseMissing of HString.t
   | MergeCaseNotUnique of HString.t
-  | UnboundedIdentifier of HString.t
-  | UnboundedModeReference of HString.t
+  | UnboundIdentifier of HString.t
+  | UnboundModeReference of HString.t
   | MissingRecordField of HString.t
   | IlltypedRecordProjection of tc_type
   | MissingTupleField of int * tc_type
