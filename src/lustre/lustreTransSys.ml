@@ -1951,8 +1951,13 @@ let rec trans_sys_of_node'
                This is currently done in lustreDeclarations and lustreContext.
             *)
             let subrange_state_vars =
-              List.rev_append undefined_outputs oracles
-              |> List.filter (fun state_var ->
+              let svars =
+                if A.param_scope_is_abstract analysis_param scope then
+                  oracles
+                else
+                  List.rev_append undefined_outputs oracles
+              in
+              svars |> List.filter (fun state_var ->
                 let state_var_type = StateVar.type_of_state_var state_var in
                 if Type.is_array state_var_type then
                   let base_type = Type.last_elem_type_of_array state_var_type in
