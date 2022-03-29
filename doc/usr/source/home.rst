@@ -110,7 +110,7 @@ Retrieving / updating the image
 
 `Install docker <https://www.docker.com/products/docker>`_ and then run
 
-.. code-block:: console
+.. code-block:: bash
 
    docker pull kind2/kind2:dev
 
@@ -118,7 +118,7 @@ Docker will retrieve the *layers* corresponding to the latest version of the
 Kind 2 repository, ``develop`` version. If you are interested in the latest
 release, run
 
-.. code-block:: console
+.. code-block:: bash
 
    docker pull kind2/kind2
 
@@ -134,7 +134,7 @@ To run Kind 2 on a file on your system, it is recommended to mount the folder
 in which this file is as a `volume <https://docs.docker.com/engine/tutorials/dockervolumes/#/mount-a-host-directory-as-a-data-volume>`_.
 In practice, run
 
-.. code-block:: console
+.. code-block:: bash
 
    docker run -v <absolute_path_to_folder>:/lus kind2/kind2:dev <options> /lus/<your_file>
 
@@ -166,7 +166,7 @@ In the ``docker`` directory at the top level of the Kind 2 repository,
 there is a ``Dockerfile`` you can use to
 build your own Kind 2 image. To do so, just run
 
-.. code-block:: console
+.. code-block:: bash
 
    docker build -t kind2-local -f ./docker/Dockerfile .
 
@@ -195,7 +195,7 @@ If you want to build the development version of Kind 2
 that includes the most recent changes, as opposed to
 the latest release, then run
 
-.. code-block:: console
+.. code-block:: bash
 
    opam pin add -n kind2 https://github.com/kind2-mc/kind2.git
 
@@ -203,13 +203,13 @@ the latest release, then run
 
 Otherwise, skip the step above and either run
 
-.. code-block:: console
+.. code-block:: bash
 
    opam install --update-invariant kind2
 
 if you have OPAM 2.1 or later installed on your system, or run
 
-.. code-block:: console
+.. code-block:: bash
 
    opam depext kind2
    opam install --unlock-base kind2
@@ -231,7 +231,7 @@ Other options using OPAM
 By default, ``kind2`` will be installed into
 the bin directory of your current OPAM switch. Run
 
-.. code-block:: console
+.. code-block:: bash
 
    opam install kind2 --destdir=<DIR>
 
@@ -241,7 +241,7 @@ This will also create directories ``<DIR>/doc`` and ``<DIR>/lib``.
 In alternative, you can clone https://github.com/kind2-mc/kind2.git,
 move to its top-level directory, and run
 
-.. code-block:: console
+.. code-block:: bash
 
    make install
 
@@ -249,7 +249,7 @@ to have OPAM install ``kind2`` and its dependencies.
 
 Note that z3 is available in OPAM so it is possible to install it too with OPAM by running:
 
-.. code-block:: console
+.. code-block:: bash
 
    opam install z3
 
@@ -274,7 +274,7 @@ First install this software on your system using your preferred method.
 Then clone the `Kind 2 git repository <https://github.com/kind2-mc/kind2>`_, 
 move to the top-level directory of the repository, and run
 
-.. code-block:: console
+.. code-block:: bash
 
    dune build src @install
    dune install --sections=bin --prefix <DIR>
@@ -289,27 +289,27 @@ Development
 
 With OPAM 2.x you can create a local switch which will install all dependencies automatically.
 
-.. code-block:: console
+.. code-block:: bash
 
    opam switch create .
    make
 
 Alternatively, you can install all dependencies in your current switch by running:
 
-.. code-block:: console
+.. code-block:: bash
 
    opam install . --deps-only
    make
 
 For running the unit tests for front end, you can install ounit2 library using opam by running:
 
-.. code-block:: console
+.. code-block:: bash
 
    opam install ounit2
 
 To run the ounit tests, you can use the following dune command:
 
-.. code-block:: console
+.. code-block:: bash
 
    dune test
 
