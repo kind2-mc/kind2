@@ -1,0 +1,119 @@
+
+type element_type  = int;
+
+const no_element : element_type = -1;
+
+type index_type    = int;
+
+const no_index : index_type = -1;
+
+type sequence_type = struct {
+    first_index : index_type;
+    last_index  : index_type;
+};
+
+const empty_sequence : sequence_type = sequence_type {
+    first_index = no_index;
+    last_index  = no_index;
+};
+
+type message_kind = enum {
+    none,
+    mission_command,
+    automation_response,
+    unique_automation_response,
+    task_complete,
+    error_response
+};
+
+type id_type = int;
+
+const no_id : id_type = -1;
+
+type route_type = sequence_type;
+
+const no_route : route_type = empty_sequence;
+
+type waypoint_type = element_type;
+
+const no_waypoint : waypoint_type = no_element;
+
+type message = struct {
+    kind     : message_kind;
+    id       : id_type;
+    ref      : id_type;
+    route    : route_type;
+    waypoint : waypoint_type;
+};
+
+const no_message : message = message {
+    kind     = none;
+    id       = no_id;
+    ref      = no_id;
+    route    = no_route;
+    waypoint = no_waypoint;
+};
+
+node uxas() returns (
+    in_msg : message;
+    last_nonempty_msg_id : id_type;
+    pb_msg : message;
+    arv_msg : message;
+    wm_msg : message;
+    task_msg : message;);
+let
+    in_msg = no_message;
+    last_nonempty_msg_id =  in_msg.id;
+    pb_msg   = no_message;
+    arv_msg  = no_message;
+    wm_msg   = no_message;
+    task_msg = no_message;
+tel;
+
+node uxas_env() returns ();
+var
+    in_msg : message;
+    last_nonempty_msg_id : id_type;
+    pb_msg : message;
+    arv_msg : message;
+    wm_msg : message;
+    task_msg : message;
+const
+    free_msg1, free_msg2 : message;
+let
+    (in_msg,
+     last_nonempty_msg_id,
+     pb_msg,
+     arv_msg,
+     wm_msg,
+     task_msg) = uxas();
+
+    check "E8.
+      Input mission command messages were always previously output.\n  "
+    (
+        in_msg.kind = mission_command and
+        in_msg      = free_msg1
+    ) => (
+        wm_msg = free_msg1
+    );
+tel;
+
+node uxas_env_antecedents() returns ();
+var
+    in_msg : message;
+    last_nonempty_msg_id : id_type;
+    pb_msg : message;
+    arv_msg : message;
+    wm_msg : message;
+    task_msg : message;
+const
+    free_msg1, free_msg2 : message;
+let
+    (in_msg,
+     last_nonempty_msg_id,
+     pb_msg,
+     arv_msg,
+     wm_msg,
+     task_msg) = uxas();
+tel;
+
