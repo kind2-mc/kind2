@@ -10,7 +10,7 @@
 ;; performed first.
 
 (rule
-  (deps lustreParser.check)
+  (deps lustreParser.check only-errors.sh)
   (action (with-stdout-to lustreParserErrors.ml
     (run sh ./only-errors.sh menhir
       %{dep:lustreParser.mly}
@@ -38,10 +38,12 @@
 ;; add missing sentences and remove obsolete ones.
 
 (rule
-  (with-stdout-to lustreParser.check
-  (run sh ./only-errors.sh menhir
-    %{dep:lustreParser.mly}
-    --compare-errors %{dep:lustreParser.auto.messages}
-    --compare-errors %{dep:lustreParser.messages}
+  (deps only-errors.sh)
+  (action (with-stdout-to lustreParser.check
+    (run sh ./only-errors.sh menhir
+      %{dep:lustreParser.mly}
+      --compare-errors %{dep:lustreParser.auto.messages}
+      --compare-errors %{dep:lustreParser.messages}
+    )
   ))
 )
