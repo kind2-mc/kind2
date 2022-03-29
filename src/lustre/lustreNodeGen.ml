@@ -50,7 +50,7 @@ end
 type compiler_state = {
   nodes : LustreNode.t list;
   type_alias : Type.t LustreIndex.t StringMap.t;
-  free_constants : Var.t LustreIndex.t StringMap.t;
+  free_constants : (HString.t option * HString.t * Var.t LustreIndex.t) list;
   other_constants : LustreAst.expr StringMap.t;
   state_var_bounds : (LustreExpr.expr LustreExpr.bound_or_fixed list)
     StateVar.StateVarHashtbl.t;
@@ -66,6 +66,7 @@ type identifier_maps = {
   quant_vars : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
   modes : LustreContract.mode list;
   contract_scope : (Lib.position * HString.t) list;
+  node_name : HString.t option;
   assume_count : int;
   guarantee_count : int;
 }
@@ -104,7 +105,7 @@ let pp_print_identifier_maps ppf maps =
     (table_to_list maps.array_index)
 *)
 
-let empty_identifier_maps () = {
+let empty_identifier_maps node_name = {
   state_var = H.create 7;
   expr = H.create 7;
   source = SVT.create 7;
@@ -113,6 +114,7 @@ let empty_identifier_maps () = {
   quant_vars = H.create 7;
   modes = [];
   contract_scope = [];
+  node_name = node_name;
   assume_count = 0;
   guarantee_count = 0;
 }
@@ -120,7 +122,7 @@ let empty_identifier_maps () = {
 let empty_compiler_state () = { 
   nodes = [];
   type_alias = StringMap.empty;
-  free_constants = StringMap.empty;
+  free_constants = [];
   other_constants = StringMap.empty;
   state_var_bounds = SVT.create 7;
 }
@@ -497,8 +499,7 @@ let rec compile ctx gids decls =
   let over_decls cstate decl = compile_declaration cstate gids ctx decl in
   let output = List.fold_left over_decls (empty_compiler_state ()) decls in
   let free_constants = output.free_constants
-    |> StringMap.bindings
-    |> List.map (fun (id, v) -> mk_ident id, v)
+    |> List.map (fun (_, id, v) -> mk_ident id, v)
   in output.nodes,
     { G.free_constants = free_constants;
       G.state_var_bounds = output.state_var_bounds}
@@ -643,7 +644,12 @@ and compile_ast_expr
   let rec compile_id_string bounds id_str =
     let ident = mk_ident id_str in
     try
-      let var = StringMap.find id_str cstate.free_constants in
+      let (_, _, var) = List.find (fun (n, i, _) -> match (n, !map.node_name) with
+        | Some n, Some n' -> n = n' && i = id_str
+        | None, _ -> i = id_str
+        | _ -> false)
+        cstate.free_constants
+      in
       X.map E.mk_free_var var
     with Not_found ->
     try
@@ -1374,7 +1380,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       (I.to_scope name @ I.reserved_scope)
       Type.t_bool
   in
-  let map = ref (empty_identifier_maps ()) in
+  let map = ref (empty_identifier_maps (Some i)) in
   let state_var_expr_map = SVT.create 7 in
   (* ****************************************************************** *)
   (* Node Inputs                                                        *)
@@ -2036,7 +2042,7 @@ and compile_const_decl ?(ghost = false) cstate ctx map scope = function
     let vt = X.fold over_index cty X.empty in
     if ghost then cstate
     else { cstate
-      with free_constants = StringMap.add i vt cstate.free_constants }
+      with free_constants = (!map.node_name, i, vt) :: cstate.free_constants }
   (* TODO: Old code does some subtyping checks for Typed constants
     Otherwise these other constants are used only for constant propagation *)
   | A.UntypedConst (_, id, expr)
@@ -2050,13 +2056,13 @@ and compile_const_decl ?(ghost = false) cstate ctx map scope = function
 
 and compile_type_decl pos ctx cstate = function
   | A.AliasType (_, ident, ltype) ->
-    let empty_map = ref (empty_identifier_maps ()) in
+    let empty_map = ref (empty_identifier_maps None) in
     let t = compile_ast_type cstate ctx empty_map ltype in
     let type_alias = StringMap.add ident t cstate.type_alias in
     { cstate with
       type_alias }
   | A.FreeType (_, ident) ->
-    let empty_map = ref (empty_identifier_maps ()) in
+    let empty_map = ref (empty_identifier_maps None) in
     let t = compile_ast_type cstate ctx empty_map (A.AbstractType (pos, ident)) in
     let type_alias = StringMap.add ident t cstate.type_alias in
     { cstate with
@@ -2068,7 +2074,7 @@ and compile_declaration cstate gids ctx decl =
   | A.TypeDecl ({A.start_pos = pos}, type_rhs) ->
     compile_type_decl pos ctx cstate type_rhs
   | A.ConstDecl (_, const_decl) ->
-    let empty_map = ref (empty_identifier_maps ()) in
+    let empty_map = ref (empty_identifier_maps None) in
     compile_const_decl cstate ctx empty_map [] const_decl
   | A.FuncDecl (_, (i, ext, [], inputs, outputs, locals, items, contract)) ->
     let gids = LAN.StringMap.find i gids in
