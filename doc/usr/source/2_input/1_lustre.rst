@@ -203,7 +203,7 @@ Assumptions
 ~~~~~~~~~~~
 
 An assumption over a node ``n`` is a constraint one must respect in order to use
-``n`` legally. It cannot mention the outputs of ``n`` in the current state, but
+``n`` legally. It cannot depend on outputs of ``n`` in the current state, but
 referring to outputs under a ``pre`` is fine.
 
 The idea is that it does not make sense to ask the caller to respect some
@@ -223,7 +223,7 @@ Guarantees
 ~~~~~~~~~~
 
 Unlike assumptions, guarantees do not have any restrictions on the streams
-they can mention. They typically mention the outputs in the current state since
+they can depend on. They typically mention the outputs in the current state since
 they express the behavior of the node they specified under the assumptions of
 this node.
 
@@ -275,22 +275,25 @@ Imports
 A contract import *merges* the current contract with the one imported. That
 is, if the current contract is ``(A,G,M)`` and we import ``(A',G',M')``\ , the
 resulting contract is ``(A U A', G U G', M U M')`` where ``U`` is set union.
+However, each contract import introduces its own namespace to avoid
+name collisions.
 
 When importing a contract, it is necessary to specify how the instantiation of
 the contract is performed. This defines a mapping from the input (output)
 formal parameters to the actual ones of the import.
 
-When importing contract ``c`` in the contract of node ``n``\ , it is **illegal** to
-mention an output of ``n`` in the actual input parameters of the import of ``c``.
+When importing contract ``c`` in the contract of node ``n``\ ,
+the actual input parameters of the import of ``c`` cannot depend on
+outputs of ``n`` in the current state.
 The reason is that the distinction between inputs and outputs lets Kind 2 check
-that the assumptions requirements make sense, *i.e.* do not mention
+that the assumptions requirements make sense, *i.e.* do not depend on
 outputs of ``n`` in the current state.
 
 The general syntax is
 
 .. code-block:: none
 
-   import <id> ( <expr>,* ) returns ( <expr>,* ) ;
+   import <id> ( <expr>,* <expr> ) returns ( <id>,* <id> ) ;
 
 For instance:
 
@@ -378,6 +381,7 @@ then ``::<path>::m`` is exactly the same as
 * is a Lustre expression of type ``bool`` just like any other Boolean expression. 
   It can appear under a ``pre``\ , be used in a node call or a contract import, *etc.*
 * is only legal **outside** the mode item itself. That is, no self-references are allowed.
+  Forward references are allowed.
 
 An interesting use-case for mode references is that of checking properties over
 the specification itself. One may want to do so to make sure the specification
@@ -623,8 +627,8 @@ Enumerated data types in Lustre
 
 .. code-block:: none
 
-   type t = enum { A, B, C };
-   node n (x : enum { C1, C2 }, ...) ...
+   type my_enum = enum { A, B, C };
+   node n (x : my_enum, ...) ...
 
 Enumerated datatypes are encoded as subranges so that solvers handle arithmetic
 constraints only. This also allows to use the already present quantifier
@@ -716,6 +720,12 @@ In a modular analysis, ``imported`` nodes will not be analyzed, although if thei
 contract has modes they will be checked for exhaustiveness, consistently with
 the usual Kind 2 contract workflow.
 Every output of an imported node is assumed to depend on every input.
+This may lead Kind 2 to detect circular dependencies which does not exist
+in an _actual_ system, and thus reject an input model.
+To make Kind 2 accept such model, the imported node must be refined
+by decomposing it into smaller subnodes and specifying the dependencies
+among them.
+
 
 Partially defined nodes VS ``imported``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
