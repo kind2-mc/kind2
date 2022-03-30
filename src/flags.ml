@@ -384,6 +384,10 @@ module Smt = struct
     trace_dir := Filename.concat s "smt_trace"
   let trace_dir () = !trace_dir
 
+  let trace_subdir = ref ""
+  let set_trace_subdir s =
+    trace_subdir := s
+  let trace_subdir () = !trace_subdir
 
 
   let find_solver ~fail name bin =

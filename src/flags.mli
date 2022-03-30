@@ -326,6 +326,12 @@ module Smt : sig
 
   (** Path to the smt trace directory. *)
   val trace_dir : unit -> string
+
+  (** Name of subdirectory within the smt trace directory. *)
+  val trace_subdir : unit -> string
+
+  val set_trace_subdir : string -> unit
+
 end
 
 

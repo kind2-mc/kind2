@@ -799,7 +799,7 @@ let run in_sys =
     let msg_setup = KEvent.setup () in
 
     (* Runs the next analysis, if any. *)
-    let rec loop () =
+    let rec loop ac () =
       match ISys.next_analysis_of_strategy in_sys !all_results with
       
       | Some param ->
@@ -819,11 +819,26 @@ let run in_sys =
             ) !all_results
           | _ -> ()
         ) ;
+
+        (* Update analysis iteration counter (for smt tracing) *)
+        let ac =
+          match !latest_trans_sys with
+          | Some old when TSys.equal_scope old sys -> ac + 1
+          | _ -> 1
+        in
+        let subdir =
+          let top = (Analysis.info_of_param param).top in
+          Format.asprintf "%a.%d"
+            (LustreIdent.pp_print_ident true)
+            (LustreIdent.of_scope top) ac
+        in
+        Flags.Smt.set_trace_subdir subdir;
+
         latest_trans_sys := Some sys ;
         (* Analyze... *)
         analyze msg_setup true false false modules in_sys param sys ;
         (* ...and loop. *)
-        loop ()
+        loop ac ()
 
       | None -> (
         ( match !latest_trans_sys with
@@ -846,7 +861,10 @@ let run in_sys =
 
     try (
       (* Run everything. *)
-      loop () ;
+      loop 1 () ;
+
+      (* Reset smt_trace subdirectory name *)
+      Flags.Smt.set_trace_subdir "";
 
       if Analysis.results_is_empty (!all_results) &&
          InputSystem.analyzable_subsystems in_sys = []
