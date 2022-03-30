@@ -60,6 +60,8 @@ val compute_deadlocking_trace_and_conflict :
   'a InputSystem.t ->
   Analysis.param ->
   TransSys.t ->
+  Var.t list ->
+  Var.t list ->
   unrealizable_result ->
   ((StateVar.t * Model.value list) list * ModelElement.loc_core)
 

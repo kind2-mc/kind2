@@ -716,14 +716,17 @@ let run in_sys =
           Stat.start_timer Stat.analysis_time ;
           match result with
           | Unrealizable _ -> (
-            let result =
-              ContractChecker.check_contract_satisfiability sys
-            in
-            Log.log_result
-              (ContractChecker.pp_print_satisfiability_result_pt param)
-              ContractChecker.pp_print_satisfiability_result_xml
-              ContractChecker.pp_print_satisfiability_result_json
-              result ;
+            if Flags.Contracts.check_contract_is_sat () then (
+              KEvent.log L_note "Checking satisfiability of contract..." ;
+              let result =
+                ContractChecker.check_contract_satisfiability sys
+              in
+              Log.log_result
+                (ContractChecker.pp_print_satisfiability_result_pt param)
+                ContractChecker.pp_print_satisfiability_result_xml
+                ContractChecker.pp_print_satisfiability_result_json
+                result ;
+            )
           )
           | _ -> () ;
 

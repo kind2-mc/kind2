@@ -438,6 +438,28 @@ let get_var_values_at_offset solver sys offset =
     (TransSys.get_state_var_bounds sys)
     (TransSys.vars_of_bounds sys offset offset)
 
+let filter_and_mk_assign model pred =
+  Model.to_list model
+  |> List.filter pred
+  |> List.map (fun (v, vl) ->
+    match vl with
+    | Model.Term e -> Term.mk_eq [Term.mk_var v; e]
+    | _ -> assert false)
+  |> Term.mk_and
+
+let mk_assign_uncontr model contr_vars =
+  let var_set = VS.of_list contr_vars in
+  filter_and_mk_assign
+    model
+    (fun (v,_) -> VS.mem v var_set |> not)
+
+let mk_assign_offset model offset =
+  filter_and_mk_assign
+    model
+    (fun (v,_) ->
+      Var.is_const_state_var v ||
+      Numeral.(equal (Var.offset_of_state_var_instance v) offset))
+
 let check_sat_and_get_minimal_unsat_core_lits solver act_terms =
   let rec minimize tested rest =
     match tested, rest with
@@ -515,7 +537,7 @@ let compute_deadlocking_trace_max_smt_impl solver sys cex offset act_terms =
 
   let model = get_var_values_at_offset solver sys offset in
 
-  build_countertrace cex model
+  model, build_countertrace cex model
 
 
 let compute_deadlocking_trace_mus_impl solver sys cex offset minimal_unsat_core =
@@ -529,11 +551,99 @@ let compute_deadlocking_trace_mus_impl solver sys cex offset minimal_unsat_core 
 
   let model = get_var_values_at_offset solver sys offset in
 
-  build_countertrace cex model
+  model, build_countertrace cex model
+
+(*
+let compute_independent_conflict_and_deadlocking_trace
+  solver in_sys sys cex offset act_terms guarantee_mode_elts_core
+=
+  let unsat_core_lits =
+    check_sat_and_get_minimal_unsat_core_lits solver act_terms
+  in
+
+  let conflict_set =
+    build_conflict_set in_sys unsat_core_lits guarantee_mode_elts_core
+  in
+
+  let _, cex' =
+    match Flags.Smt.solver () with
+    | `Z3_SMTLIB -> (
+      compute_deadlocking_trace_max_smt_impl solver sys cex offset act_terms
+    )
+    | _ -> (
+      compute_deadlocking_trace_mus_impl solver sys cex offset unsat_core_lits
+    )
+  in
+
+  cex', conflict_set
+*)
+
+let compute_dependent_conflict_and_deadlocking_trace
+  solver in_sys sys cex offset act_terms guarantee_mode_elts_core contr_vars
+=
+  match Flags.Smt.solver () with
+  | `Z3_SMTLIB -> (
+    SMTSolver.push solver ;
+
+    let model, cex' =
+      compute_deadlocking_trace_max_smt_impl solver sys cex offset act_terms
+    in
+
+    let assign_term = mk_assign_offset model offset in
+
+    SMTSolver.pop solver ;
+
+    SMTSolver.assert_term solver assign_term ;
+
+    let unsat_core_lits =
+      check_sat_and_get_minimal_unsat_core_lits solver act_terms
+    in
+
+    let conflict_set =
+      build_conflict_set in_sys unsat_core_lits guarantee_mode_elts_core
+    in
+
+    cex', conflict_set
+  )
+  | _ -> (
+    assert (SMTSolver.check_sat solver) ;
+
+    let model = get_var_values_at_offset solver sys offset in
+
+    (*
+      Assignments for all uncontrollable variables
+      either of offset 0 (base) or offset 1 (not base)
+    *)
+    let uncontr_assign = mk_assign_uncontr model contr_vars in
+
+    SMTSolver.assert_term solver uncontr_assign ;
+
+    let unsat_core_lits =
+      check_sat_and_get_minimal_unsat_core_lits solver act_terms
+    in
+
+    let model', cex' =
+      compute_deadlocking_trace_mus_impl solver sys cex offset unsat_core_lits
+    in
+
+    let assign = mk_assign_offset model' offset in
+
+    SMTSolver.assert_term solver assign ;
+
+    let unsat_core_lits =
+      check_sat_and_get_minimal_unsat_core_lits solver act_terms
+    in
+
+    let conflict_set =
+      build_conflict_set in_sys unsat_core_lits guarantee_mode_elts_core
+    in
+
+    cex', conflict_set
+  )
 
 
 let compute_deadlocking_trace_and_conflict
-  analyze in_sys param sys u_result =
+  analyze in_sys param sys controllable_vars_at_0 controllable_vars_at_1 u_result =
 
   let sys =
     let scope = (Analysis.info_of_param param).top in
@@ -551,10 +661,10 @@ let compute_deadlocking_trace_and_conflict
       else sys
   in
 
-  let vr, cex, is_base, offset =
+  let vr, cex, is_base, offset, contr_vars =
     match u_result with
 
-    | BaseCase vr -> vr, [], true, Numeral.zero
+    | BaseCase vr -> vr, [], true, Numeral.zero, controllable_vars_at_0
 
     | InductiveCase (vr_wo, vr_w) -> (
 
@@ -583,7 +693,7 @@ let compute_deadlocking_trace_and_conflict
       match TSys.get_prop_status sys prop_name with
       | Property.PropFalse cex ->
 
-        vr_w, cex, false, Numeral.one
+        vr_w, cex, false, Numeral.one, controllable_vars_at_1
 
       | Property.PropKTrue _
       | Property.PropUnknown ->
@@ -631,10 +741,12 @@ let compute_deadlocking_trace_and_conflict
     get_contract_terms is_base sys guarantee_mode_elts_core other_core
   in
 
-  let actlits =
-    get_and_declare_actlits solver sys guarantee_mode_elts_core
+  let act_terms =
+    let actlits =
+      get_and_declare_actlits solver sys guarantee_mode_elts_core
+    in
+    List.map Actlit.term_of_actlit actlits
   in
-  let act_terms = List.map Actlit.term_of_actlit actlits in
 
   let constraints =
     let neg_vr =
@@ -646,22 +758,15 @@ let compute_deadlocking_trace_and_conflict
 
   SMTSolver.assert_term solver constraints ;
 
-  let unsat_core_lits =
-    check_sat_and_get_minimal_unsat_core_lits solver act_terms
-  in
+  (*let cex', conflict_set =
+    compute_independent_conflict_and_deadlocking_trace
+      solver in_sys sys cex offset act_terms guarantee_mode_elts_core
+  in*)
 
-  let conflict_set =
-    build_conflict_set in_sys unsat_core_lits guarantee_mode_elts_core
-  in
-
-  let cex' =
-    match Flags.Smt.solver () with
-    | `Z3_SMTLIB -> (
-      compute_deadlocking_trace_max_smt_impl solver sys cex offset act_terms
-    )
-    | _ -> (
-      compute_deadlocking_trace_mus_impl solver sys cex offset unsat_core_lits
-    )
+  let cex', conflict_set =
+    compute_dependent_conflict_and_deadlocking_trace
+      solver in_sys sys cex offset act_terms
+      guarantee_mode_elts_core contr_vars
   in
 
   SMTSolver.delete_instance solver ;
