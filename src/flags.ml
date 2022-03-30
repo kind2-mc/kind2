@@ -1133,10 +1133,43 @@ module Contracts = struct
     )
   let refinement () = !refinement
 
+
+  let print_deadlock_default = true
+  let print_deadlock = ref print_deadlock_default
+  let _ = add_spec
+    "--print_deadlock"
+    (bool_arg print_deadlock)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Print a deadlocking trace and a conflict when@ \
+        a contract is proven unrealizable@ \
+        Default: %a\
+      @]"
+      fmt_bool print_deadlock_default
+    )
+  let print_deadlock () = !print_deadlock
+
+
+  let check_contract_is_sat_default = true
+  let check_contract_is_sat = ref check_contract_is_sat_default
+let _ = add_spec
+    "--check_contract_is_sat"
+    (bool_arg check_contract_is_sat)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Check whether a contract proven unrealizable is satisfiable@ \
+        Default: %a\
+      @]"
+      fmt_bool print_deadlock_default
+    )
+  let check_contract_is_sat () = !check_contract_is_sat
+
 end
 
 
-(* Contracts flags. *)
+(* Certificates and proofs flags. *)
 module Certif = struct
 
   include Make_Spec (struct end)

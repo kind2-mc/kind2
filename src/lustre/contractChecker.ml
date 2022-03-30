@@ -226,6 +226,17 @@ let pp_print_realizability_result_pt
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
   let scope = (Analysis.info_of_param param).top in
+
+  let print_not_unknown_result tag =
+    Format.fprintf
+      fmt
+      "@[<hov>%t Contract of node %a was proven %s after %.3fs.@]@.@."
+      tag
+      Scope.pp_print_scope scope
+      (Realizability.result_to_string result)
+      (Stat.get_float Stat.analysis_time) ;
+  in
+
   match result with
   | Unknown -> (
     Format.fprintf 
@@ -236,44 +247,35 @@ let pp_print_realizability_result_pt
       Scope.pp_print_scope scope
       (Stat.get_float Stat.analysis_time)
   )
-  | _ -> (
-    let tag, pp_print_trace_and_core =
-      match result with
-      | Realizable _ ->
-        Pretty.success_tag, (fun _ -> ())
-      | Unrealizable u_res -> (
-        let trace, core =
-          compute_unviable_trace_and_core
-            analyze in_sys param sys u_res
-        in
-        Pretty.failure_tag, (fun fmt ->
-          let cpd =
-            ME.loc_core_to_print_data in_sys sys core_desc None core
-          in
-          Format.fprintf
-            fmt
-            "@[<v>%a@]@."
-            (KEvent.pp_print_counterexample_pt
-              ~title:"Deadlocking trace" L_warn in_sys param sys None true)
-            trace ;
-          Format.fprintf
-            fmt
-            "%a"
-            (ME.pp_print_core_data in_sys param sys) cpd
-        )
-      )
-      | _ -> assert false 
-    in
-    Format.fprintf 
-      fmt
-      "@[<hov>%t Contract of node %a was proven %s after %.3fs.@]@.@.%t"
-      tag
-      Scope.pp_print_scope scope
-      (Realizability.result_to_string result)
-      (Stat.get_float Stat.analysis_time)
-      pp_print_trace_and_core ;
-    Format.pp_print_flush fmt ()
-  )
+  | Realizable _ ->
+    print_not_unknown_result Pretty.success_tag
+
+  | Unrealizable u_res ->
+    print_not_unknown_result Pretty.failure_tag ;
+
+    if Flags.Contracts.print_deadlock () then (
+      KEvent.log L_note "Computing deadlocking trace and conflict..." ;
+      let trace, core =
+        compute_unviable_trace_and_core
+          analyze in_sys param sys u_res
+      in
+      let cpd =
+        ME.loc_core_to_print_data in_sys sys core_desc None core
+      in
+      Format.fprintf
+        fmt
+        "@[<v>%a@]@."
+        (KEvent.pp_print_counterexample_pt
+          ~title:"Deadlocking trace" L_warn in_sys param sys None true)
+        trace ;
+
+      Format.fprintf
+        fmt
+        "%a"
+        (ME.pp_print_core_data in_sys param sys) cpd ;
+
+      Format.pp_print_flush fmt ()
+    )
 
 
 let pp_print_realizability_result_json
@@ -284,23 +286,26 @@ let pp_print_realizability_result_json
   let pp_print_trace_and_core =
     match result with
     | Unrealizable u_res -> (
-      let trace, core =
-        compute_unviable_trace_and_core
-          analyze in_sys param sys u_res
-      in
-      (fun fmt ->
-        let cpd =
-          ME.loc_core_to_print_data in_sys sys core_desc None core
+      if Flags.Contracts.print_deadlock () then (
+        let trace, core =
+          compute_unviable_trace_and_core
+            analyze in_sys param sys u_res
         in
-        Format.fprintf
-        fmt
-        ",@,%a,@,\
-        \"conflictingSet\" : %a"
-        (KEvent.pp_print_counterexample_json
-          ~object_name:"deadlockingTrace" in_sys param sys None true)
-        trace
-        (ME.pp_print_core_data_json in_sys param sys) cpd
+        (fun fmt ->
+          let cpd =
+            ME.loc_core_to_print_data in_sys sys core_desc None core
+          in
+          Format.fprintf
+          fmt
+          ",@,%a,@,\
+          \"conflictingSet\" : %a"
+          (KEvent.pp_print_counterexample_json
+            ~object_name:"deadlockingTrace" in_sys param sys None true)
+          trace
+          (ME.pp_print_core_data_json in_sys param sys) cpd
+        )
       )
+      else (fun _ -> ())
     )
     | _ -> (fun _ -> ())
   in
@@ -330,22 +335,25 @@ let pp_print_realizability_result_xml
   let pp_print_trace_and_core =
     match result with
     | Unrealizable u_res -> (
-      let trace, core =
-        compute_unviable_trace_and_core
-          analyze in_sys param sys u_res
-      in
-      (fun fmt ->
-        let cpd =
-          ME.loc_core_to_print_data in_sys sys core_desc None core
+      if Flags.Contracts.print_deadlock () then (
+        let trace, core =
+          compute_unviable_trace_and_core
+            analyze in_sys param sys u_res
         in
-        Format.fprintf
-        fmt
-        "@,%a@,%a"
-        (KEvent.pp_print_counterexample_xml
-          ~tag:"DeadlockingTrace" in_sys param sys None true)
-        trace
-        (ME.pp_print_core_data_xml ~tag:"ConflictingSet" in_sys param sys) cpd
+        (fun fmt ->
+          let cpd =
+            ME.loc_core_to_print_data in_sys sys core_desc None core
+          in
+          Format.fprintf
+          fmt
+          "@,%a@,%a"
+          (KEvent.pp_print_counterexample_xml
+            ~tag:"DeadlockingTrace" in_sys param sys None true)
+          trace
+          (ME.pp_print_core_data_xml ~tag:"ConflictingSet" in_sys param sys) cpd
+        )
       )
+      else (fun _ -> ())
     )
     | _ -> (fun _ -> ())
   in

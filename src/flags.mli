@@ -461,6 +461,12 @@ module Contracts : sig
 
   (** Activate refinement. *)
   val refinement : unit -> bool
+
+  (** Print deadlocking trace and a conflict *)
+  val print_deadlock : unit -> bool
+
+  (** Check whether a unrealizable contract is satisfiable *)
+  val check_contract_is_sat : unit -> bool
 end
 
 
