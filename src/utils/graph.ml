@@ -346,7 +346,7 @@ module Make (Ord: OrderedType) = struct
     in
 
     let rec topological_sort_helper: t -> vertex list -> vertex list
-      = fun ((_, es) as g) sorted_vs ->
+      = fun ((vs, _) as g) sorted_vs ->
       let no_outgoing_vs = non_source_vertices g in
 
       Debug.parse
@@ -357,7 +357,8 @@ module Make (Ord: OrderedType) = struct
       (* graph is empty case *)
       if VSet.is_empty no_outgoing_vs then
         if not (is_empty g) then
-          let (head, _) = ESet.choose es in
+          let no_incoming_vs = non_target_vertices g in
+          let head = VSet.choose (VSet.diff vs no_incoming_vs) in
           let cycle = head :: (find_cycle g head []) in
           raise (CyclicGraphException
             (List.map (Lib.string_of_t pp_print_vertex) cycle))
