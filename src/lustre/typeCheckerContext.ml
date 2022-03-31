@@ -138,7 +138,8 @@ let expand_type_syn: tc_context -> tc_type -> tc_type
 
 let rec expand_nested_type_syn: tc_context -> tc_type -> tc_type
   = fun ctx -> function
-  | UserType _ as ty -> expand_type_syn ctx ty
+  | UserType _ as ty -> 
+    expand_nested_type_syn ctx (expand_type_syn ctx ty)
   | TupleType (p, tys) ->
     let tys = List.map (expand_nested_type_syn ctx) tys in
     TupleType (p, tys)

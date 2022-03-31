@@ -46,3 +46,27 @@ let
    --%PROPERTY 0 <= o[2] and o[2] <= 1 ;
    --%MAIN ;
 tel;
+
+type S = subrange [1,2] of int;
+type tr1 = struct { s: S};
+type tr2 = struct { r: tr1; x: S};
+type ta = tr2^3;
+type tt = [tr2,int];
+
+node N6(e: tr2) returns (z: tt);
+let
+  z = {e, e.x};
+   --%MAIN ;
+tel
+
+node N7(e: tr2) returns (z: ta);
+let
+  z = [e, e, e];
+   --%MAIN ;
+tel
+
+node N8(e: tr2) returns (z: tr2);
+let
+  z = e;
+   --%MAIN ;
+tel
