@@ -263,7 +263,8 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                 | Some ty -> R.ok ty in
     lookup_mode_ty ctx ids
   | LA.RecordProject (pos, e, fld) ->
-    infer_type_expr ctx e >>= fun rec_ty ->
+    let* rec_ty = infer_type_expr ctx e in
+    let rec_ty = expand_type_syn ctx rec_ty in
     (match rec_ty with
     | LA.RecordType (_, flds) ->
         let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
@@ -273,13 +274,14 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     | _ -> type_error pos (IlltypedRecordProjection rec_ty))
 
   | LA.TupleProject (pos, e1, i) ->
-    infer_type_expr ctx e1 >>=
-      (function
-      | LA.TupleType (pos, tys) as ty ->
-          if List.length tys <= i
-          then type_error pos (MissingTupleField (i, ty))
-          else R.ok (expand_type_syn ctx (List.nth tys i))
-      | ty -> type_error pos (IlltypedTupleProjection ty))
+    let* tup_ty = infer_type_expr ctx e1 in
+    let tup_ty = expand_type_syn ctx tup_ty in
+    (match tup_ty with
+    | LA.TupleType (pos, tys) as ty ->
+        if List.length tys <= i
+        then type_error pos (MissingTupleField (i, ty))
+        else R.ok (expand_type_syn ctx (List.nth tys i))
+    | ty -> type_error pos (IlltypedTupleProjection ty))
 
   (* Values *)
   | LA.Const (pos, c) -> R.ok (infer_type_const pos c)
@@ -369,7 +371,8 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
             | ty -> type_error pos (IlltypedArraySlice ty))
     else type_error pos ExpectedIntegerTypeForSlice
   | LA.ArrayIndex (pos, e, i) ->
-    infer_type_expr ctx i >>= fun index_type ->
+    let* index_type =  infer_type_expr ctx i in
+    let index_type = expand_type_syn ctx index_type in
     if is_expr_int_type ctx i
     then infer_type_expr ctx e
         >>= (function
