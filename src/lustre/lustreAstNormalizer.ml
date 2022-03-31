@@ -469,8 +469,10 @@ let mk_fresh_node_arg_local info pos is_const ind_vars expr_type expr =
   NodeArgCache.add node_arg_cache expr nexpr;
   nexpr, gids
 
-let mk_range_expr expr_type expr = 
-  let rec mk n expr_type expr = match expr_type with
+let mk_range_expr info expr_type expr = 
+  let rec mk n expr_type expr = 
+    let expr_type = Ctx.expand_nested_type_syn info.context expr_type in
+    match expr_type with
     | A.IntRange (_, l, u) -> 
       let l = A.CompOp (dpos, A.Lte, l, expr) in
       let u = A.CompOp (dpos, A.Lte, expr, u) in
@@ -502,7 +504,7 @@ let mk_range_expr expr_type expr =
 
 let mk_fresh_subrange_constraint source info pos constrained_name expr_type is_original =
   let expr = A.Ident (pos, constrained_name) in
-  let range_exprs = mk_range_expr expr_type expr in
+  let range_exprs = mk_range_expr info expr_type expr in
   let gids = List.map (fun range_expr ->
     i := !i + 1;
     let output_expr = AH.rename_contract_vars range_expr in
