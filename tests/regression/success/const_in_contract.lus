@@ -1,0 +1,14 @@
+node id_bool(x: bool) returns (out: bool)
+let
+  out = x;
+tel
+
+const ok: bool = true;
+node x(in: bool) returns (out: bool);
+(*@contract
+  guarantee id_bool(ok);
+*)
+let
+  out = in;
+  --%PROPERTY id_bool(ok);
+tel
