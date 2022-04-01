@@ -1433,6 +1433,7 @@ module ReservedIds = struct
   let all_req_ident_string = "all_req"
   let all_ens_ident_string = "all_ens"
   let inst_ident_string = "inst"
+  let eq_inputs_ident_string = "eq_inputs"
   let init_uf_string = "__node_init"
   let trans_uf_string = "__node_trans"
   let index_ident_string = "__index"
