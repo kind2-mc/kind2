@@ -48,6 +48,12 @@ let is_unknown trans (s,_) =
   | Property.PropFalse _ -> false
   | _ -> true
 
+(* Returns true if the input property is invariant *)
+let is_invariant trans (s,_) =
+  match TransSys.get_prop_status trans s with
+  | Property.PropInvariant _ -> true
+  | _ -> false
+
 (* Removes proved and disproved properties from a list of
    properties. *)
 let clean_unknowns trans = List.filter (is_unknown trans)
@@ -96,20 +102,38 @@ let clean_properties trans unknowns unfalsifiables =
             (* Only confirmed properties, base is above k so we loop. *)
             loop (List.rev_append confirmed' confirmed) tail
 
-         | ([], confirmed', unfls_k') ->
+         | ([], [], unfls_k') ->
             (* No disproved or confirmed properties. No need to loop
              since base has not been above this k yet. *)
             (
-              (* Unfalsifiable properties confirmed by base. *)
-              List.rev_append confirmed' confirmed,
-              (* Unknown properties are the same as before after
-                 clean. *)
+              (* Properties confirmed by base for a smaller k still hold. *)
+              confirmed,
+              (* Unknown properties are the same as before after clean. *)
               unknowns',
               (* Unfalsifiable properties. Reversed to restore the
                  inverse order. *)
               List.rev ((k,unfls_k') :: tail)
             )
 
+         | ([], _, _) ->
+           (* No disproved properties, but not all properties confirmed.
+            This may happen after refinement in compositional verification.
+            Base has not been above this k yet, but some properties were
+            proven k-true in a previous analysis.
+            *)
+           let unfls_k' =
+             (* Only discard properties known as proved *)
+             unfls_k |> List.filter (fun p -> is_invariant trans p |> not)
+           in
+           (
+             (* Properties confirmed by base for a smaller k still hold. *)
+             confirmed,
+             (* Unknown properties are the same as before after clean. *)
+             unknowns',
+             (* Unfalsifiable properties. Reversed to restore the
+                inverse order. *)
+             List.rev ((k,unfls_k') :: tail)
+           )
          | (_, _, _) ->
             (* Some properties are disproved. All unfalsifiable
              properties in tail should be backtracked, as well as
