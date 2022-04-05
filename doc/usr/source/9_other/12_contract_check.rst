@@ -16,8 +16,9 @@ To check the contracts of imported nodes, run
 
   kind2 --enable CONTRACTCK <lustre_file>
 
-If Kind 2 is able to prove some contract *unrealizable*,
-it will show a deadlocking trace such that
+If Kind 2 is able to prove some contract *unrealizable*
+and the ``--print_deadlock`` flag is true,
+Kind 2 will show a deadlocking trace such that
 all states except the last one satisfy the contract constraints.
 If the trace only has one state, the state shows input values
 such that no initial state values satisfy the contract constraints
@@ -29,7 +30,7 @@ the last state.
 Kind 2 will also show a set of conflicting constraints for the
 last state in the trace.
 
-In addition, Kind 2 will check
+When the ``--check_contract_is_sat`` flag is true, Kind 2 will also check
 whether the unrealizable contract is at least satisfiable, i.e.,
 it is possible to construct a component such that for
 *at least* one input sequence allowed by the contract assumptions,
