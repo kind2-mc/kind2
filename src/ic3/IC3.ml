@@ -3256,8 +3256,11 @@ let main input_sys aparam trans_sys =
         ~include_top:true
         (fun ts ->
           if TransSys.get_function_symbols ts <> [] then
+            (* System includes an abstract function: a partially defined function,
+              an imported function, a function abstracted by its contract,...
+            *)
             raise (UnsupportedFeature
-              "Disabling IC3: system model includes a partially defined function or an imported function.")
+              "Disabling IC3: system includes an abstract function.")
         )
         trans_sys;
       main_ic3 input_sys aparam trans_sys

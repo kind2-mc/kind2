@@ -403,7 +403,7 @@ let lustre_source_ast (type s) (input_system : s t) =
 let trans_sys_of_analysis (type s)
 ?(preserve_sig = false)
 ?(slice_nodes = Flags.slice_nodes ())
-?(add_functional_constraints = true)
+?(add_functional_constraints = Flags.Contracts.enforce_func_congruence ())
 : s t -> Analysis.param -> TransSys.t * s t = function
 
   | Lustre (main_subs, globals, ast) -> (

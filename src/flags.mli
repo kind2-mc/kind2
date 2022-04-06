@@ -468,6 +468,9 @@ module Contracts : sig
   (** Activate refinement. *)
   val refinement : unit -> bool
 
+  (** Enforce functional congruence on abstract functions *)
+  val enforce_func_congruence : unit -> bool
+
   (** Print deadlocking trace and a conflict *)
   val print_deadlock : unit -> bool
 

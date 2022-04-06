@@ -1137,6 +1137,23 @@ module Contracts = struct
     )
   let refinement () = !refinement
 
+  let enforce_func_congruence_default = false
+  let enforce_func_congruence = ref enforce_func_congruence_default
+  let _ = add_spec
+    "--enforce_func_congruence"
+    (bool_arg enforce_func_congruence)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Add constraints to ensure imported functions,@ \
+        partially defined functions, and functions abstracted by@ \
+        their contracts behave as mathematical functions:@ \
+        given the same inputs the functions provide the same outputs@ \
+        Default: %a\
+      @]"
+      fmt_bool enforce_func_congruence_default
+    )
+  let enforce_func_congruence () = !enforce_func_congruence
 
   let print_deadlock_default = true
   let print_deadlock = ref print_deadlock_default
