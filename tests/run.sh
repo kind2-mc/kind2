@@ -37,7 +37,7 @@ contract_dir="${test_dir}/contracts"
 shift
 k2_args="$@"
 
-basic_k2_cmd="$k2_args --color false --check_subproperties true --check_sat_assume false"
+basic_k2_cmd="$k2_args --color false --check_subproperties true --check_sat_assume false --enforce_func_congruence true"
 contract_k2_cmd="$basic_k2_cmd --modular true --compositional true"
 
 success_code="20"
