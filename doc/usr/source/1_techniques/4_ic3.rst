@@ -9,12 +9,15 @@ IC3
 
    kind2 --enable IC3 <file>
 
-The challenge when lifting IC3 to infinite state systems is the pre-image computation. If the input problem is in linear integer arithmetic, Kind 2 performs a fast approximate quantifier elimination. Otherwise, the quantifier elimination is delegated to an SMT solver, which is at this time only possible with Z3.
+The challenge when lifting IC3 to infinite state systems is the pre-image computation. If the input problem is in linear integer arithmetic, Kind 2 performs a fast approximate quantifier elimination. Otherwise, the quantifier elimination is delegated to an SMT solver, which is at this time only possible with Z3 or CVC4.
 
 Options
 ^^^^^^^
 
-``--ic3_qe {cooper|Z3}`` (default ``cooper``\ ) -- select the quantifier elimination strategy: ``cooper`` (default) for the built-in approximate method, ``Z3`` to delegate to the SMT solver. If the problem is not in linear integer arithmetic, ``cooper`` falls back to ``Z3``.
+``--qe_method {precise|impl|cooper}`` (default ``cooper``\ ) -- select the quantifier elimination strategy: ``cooper`` (default) for the built-in approximate method, ``precise`` or ``impl`` to delegate to the SMT solver.
+The ``precise`` strategy computes the exact pre-image, which is an expensive operation.
+The ``impl`` strategy under-approximates the result by computing an conjunctive implicant first.
+If the problem is not in linear integer arithmetic, ``cooper`` falls back to ``impl``.
 
 ``--ic3_check_inductive <bool>`` (default ``true``\ ) -- Check if a blocking clause is inductive and communicate it as an invariant to concurrent verification engines. 
 
