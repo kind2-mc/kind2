@@ -222,9 +222,13 @@ and check_array_index ctx eqns visited id indices expr =
       | Some (indices', expr, proj) ->
         let expr = if indices' = [] then expr
           else List.fold_left
-          (fun acc (i, e) -> AH.substitute i e acc)
+          (fun acc ((i, i'), e) ->
+            let e = if i = i' then e
+              else AH.substitute i (A.Ident (Lib.dummy_pos, i')) e
+            in
+            AH.substitute i' e acc)
           expr
-          (List.combine indices' indexes)
+          (List.combine (List.combine indices indices') indexes)
         in
         let expr = AIC.simplify_expr ctx expr in
         let visited = StringSet.add id' visited in
