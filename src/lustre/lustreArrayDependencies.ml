@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2020 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2022 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -30,7 +30,13 @@ module StringMap = struct
     type t = HString.t
     let compare i1 i2 = HString.compare i1 i2
   end)
-  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
+end
+
+module StringSet = struct
+  include Set.Make(struct
+    type t = HString.t
+    let compare i1 i2 = HString.compare i1 i2
+  end)
 end
 
 type error_kind = Unknown of string
@@ -102,7 +108,9 @@ let rec check_inductive_array_dependencies ctx = function
 and check_node_decl ctx decl =
   let (_, _, _, inputs, outputs, locals, items, _) = decl in
   let array_eqns = process_items items in
-    (* Setup the typing context *)
+  if StringMap.is_empty array_eqns then Ok ()
+  else
+  (* Setup the typing context *)
   let constants_ctx = inputs
     |> List.map Ctx.extract_consts
     |> (List.fold_left Ctx.union ctx)
@@ -124,15 +132,15 @@ and check_node_decl ctx decl =
     ctx
     locals
   in
-  let checked = List.map (fun id ->
-    let (indices, expr, proj) = StringMap.find id array_eqns in
-    check_array_equation ctx array_eqns id indices expr proj)
-    (StringMap.keys array_eqns)
+  let checked = StringMap.fold (fun id (indices, expr, proj) acc ->
+    check_array_equation ctx array_eqns StringSet.empty id indices expr proj :: acc)
+    array_eqns
+    []
   in
   Res.seq_ checked
 
-and check_array_equation ctx eqns id indices expr proj =
-  let r expr = check_array_equation ctx eqns id indices expr proj in
+and check_array_equation ctx eqns visited id indices expr proj =
+  let r expr = check_array_equation ctx eqns visited id indices expr proj in
   match expr with
   (* Identifiers *)
   | A.Ident _ -> Ok ()
@@ -158,14 +166,14 @@ and check_array_equation ctx eqns id indices expr proj =
   | ArrayConstr (_, e1, e2) -> r e1 >> r e2
   | ArraySlice (_, e1, (e2, e3)) -> r e1 >> r e2 >> r e3
   | ArrayIndex _ as e ->
-    check_array_index ctx eqns id indices e
+    check_array_index ctx eqns visited id indices e
   | ArrayConcat (_, e1, e2) -> r e1 >> r e2
   (* Quantified expressions *)
   | Quantifier (_, _, vars, e) ->
     let ctx = List.fold_left Ctx.union ctx
       (List.map (fun (_, i, ty) -> Ctx.singleton_ty i ty) vars)
     in
-    check_array_equation ctx eqns id indices e proj
+    check_array_equation ctx eqns visited id indices e proj
   (* Clock operators *)
   | When (_, e, _) -> r e
   | Current (_, e) -> r e
@@ -188,7 +196,7 @@ and check_array_equation ctx eqns id indices expr proj =
   | Call (_, _, es) -> es |> (List.map r) |> Res.seq_
   | CallParam (_, _, _, es) -> es |> (List.map r) |> Res.seq_
 
-and check_array_index ctx eqns id indices expr =
+and check_array_index ctx eqns visited id indices expr =
   let exprs = extract_indexes expr in
   let (head, indexes) = (List.hd exprs, List.tl exprs) in
   match head with
@@ -199,7 +207,9 @@ and check_array_index ctx eqns id indices expr =
         (List.combine indices indexes)
       in
       Res.seq_ checked
-    else (match StringMap.find_opt id' eqns with
+    else (
+      if StringSet.mem id' visited then Ok ()
+      else match StringMap.find_opt id' eqns with
       | Some (indices, expr, proj) ->
         let expr = List.fold_left
           (fun acc (i, e) -> AH.substitute i e acc)
@@ -207,10 +217,11 @@ and check_array_index ctx eqns id indices expr =
           (List.combine indices indexes)
         in
         let expr = AIC.simplify_expr ctx expr in
-        check_array_equation ctx eqns id indices expr proj
+        let visited = StringSet.add id' visited in
+        check_array_equation ctx eqns visited id indices expr proj
       | None -> Ok ())
   | Arrow (_, _, e2) ->
-    check_array_index ctx eqns id indices e2
+    check_array_index ctx eqns visited id indices e2
   | Pre _ -> Ok ()
   | e -> let vars = AH.vars e in
     if A.SI.mem id vars then
@@ -231,22 +242,3 @@ and index_expr_is_smaller ctx index expr =
     in
     if value >= 0 then mk_error pos (ExprNotSmaller expr)
     else Ok ()
-  (* match expr with
-  | A.BinaryOp (p, Minus, Ident (_, id), e) as expr ->
-    let* value = (match AIC.eval_int_expr ctx e with
-      | Ok e -> Ok e
-      | Error _ -> mk_error p (ComplicatedExpr expr))
-    in
-    if id != index then mk_error p (ExprWithWrongIndex (index, expr))
-    else if value <= 0 then mk_error p (ExprNotSmaller expr)
-    else Ok ()
-  | BinaryOp (p, Plus, e, Ident (_, id)) as expr ->
-    let* value = (match AIC.eval_int_expr ctx e with
-      | Ok e -> Ok e
-      | Error _ -> mk_error p (ComplicatedExpr expr))
-    in
-    if id != index then mk_error p (ExprWithWrongIndex (index, expr))
-    else if value >= 0 then mk_error p (ExprNotSmaller expr)
-    else Ok ()
-  | Ident (p, _) as expr -> mk_error p (ExprNotSmaller expr)
-  | e -> mk_error (AH.pos_of_expr e) (ComplicatedExpr e) *)

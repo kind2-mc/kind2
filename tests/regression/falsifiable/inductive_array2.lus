@@ -1,0 +1,9 @@
+const N = 5;
+
+node arrays3(y:int) returns (A,B,C: int^N);
+let
+  A[k] = B[k+1] + y;
+  B[k] = C[k-1] - 2;
+  C[k] = ( A[k-1] + B[k] ) * k ;
+  --%PROPERTY C[0]>=A[0];
+tel
