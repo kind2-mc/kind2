@@ -125,6 +125,32 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
 ])
 
 (* *************************************************************************** *)
+(*                   Lustre Ast Inline Constants Checks                        *)
+(* *************************************************************************** *)
+let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
+  mk_test "test invalid inductive array def 1" (fun () ->
+    match load_file "./lustreArrayDependencies/inductive_array1.lus" with
+    | Error (`LustreArrayDependencies  (_, ExprNotSmaller _)) -> true
+    | _ -> false);
+  mk_test "test invalid inductive array def 2" (fun () ->
+    match load_file "./lustreArrayDependencies/inductive_array2.lus" with
+    | Error (`LustreArrayDependencies  (_, ExprNotSmaller _)) -> true
+    | _ -> false);
+  mk_test "test invalid inductive array def 3" (fun () ->
+    match load_file "./lustreArrayDependencies/inductive_array3.lus" with
+    | Error (`LustreArrayDependencies  (_, ExprMissingIndex _)) -> true
+    | _ -> false);
+  mk_test "test invalid inductive array def 4" (fun () ->
+    match load_file "./lustreArrayDependencies/inductive_array4.lus" with
+    | Error (`LustreArrayDependencies  (_, ExprNotSmaller _)) -> true
+    | _ -> false);
+  mk_test "test invalid inductive array def 5" (fun () ->
+    match load_file "./lustreArrayDependencies/inductive_array5.lus" with
+    | Error (`LustreArrayDependencies  (_, ExprMissingIndex _)) -> true
+    | _ -> false);
+])
+
+(* *************************************************************************** *)
 (*                      Lustre Ast Dependencies Checks                         *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [

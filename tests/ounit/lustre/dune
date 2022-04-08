@@ -3,7 +3,8 @@
   lustreTypeChecker
   lustreAstDependencies
   lustreParser
-  lustreAstInlineConstants)
+  lustreAstInlineConstants
+  lustreArrayDependencies)
 
 (tests
   (names testAstDependencies testLustreFrontend)

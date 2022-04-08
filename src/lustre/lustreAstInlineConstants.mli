@@ -52,3 +52,6 @@ val inline_constants_of_lustre_type: TC.tc_context -> LA.lustre_type -> LA.lustr
 
 val eval_int_expr: TC.tc_context -> LA.expr -> (int, [> error]) result
 (** try to evaluate an expression to an int *)
+
+val simplify_expr: ?is_guarded:bool -> TC.tc_context -> LA.expr -> LA.expr
+(** Best effort at inlining constants in a lustre expr *)

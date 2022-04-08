@@ -1,0 +1,5 @@
+
+node top(const n: int) returns (A: int^n);
+let
+  A[i] = if i = 0 then 0 else A[0];
+tel
