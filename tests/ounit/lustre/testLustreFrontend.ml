@@ -148,6 +148,10 @@ let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
     match load_file "./lustreArrayDependencies/inductive_array5.lus" with
     | Error (`LustreArrayDependencies  (_, ExprMissingIndex _)) -> true
     | _ -> false);
+  mk_test "test invalid inductive array def 6" (fun () ->
+    match load_file "./lustreArrayDependencies/inductive_array6.lus" with
+    | Error (`LustreArrayDependencies  (_, ExprNotSmaller _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

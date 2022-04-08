@@ -20,9 +20,9 @@
     @author Andrew Marmaduke *)
 
 type error_kind = Unknown of string
-  | ComplicatedExpr of LustreAst.expr
-  | ExprNotSmaller of LustreAst.expr
-  | ExprMissingIndex of HString.t * LustreAst.expr
+  | ComplicatedExpr of HString.t * LustreAst.expr
+  | ExprNotSmaller of HString.t * LustreAst.expr
+  | ExprMissingIndex of HString.t * HString.t * LustreAst.expr
 
 val error_message: error_kind -> string
 (** Returns an message describing the error kind *)

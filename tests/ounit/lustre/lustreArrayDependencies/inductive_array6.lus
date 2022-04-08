@@ -1,0 +1,8 @@
+
+
+node top() returns (A,C,B:int^3);
+let
+  C[i] = if i=0 then 0 else B[i];
+  A = C;
+  B[i] = if i=0 then 0 else A[i];
+tel

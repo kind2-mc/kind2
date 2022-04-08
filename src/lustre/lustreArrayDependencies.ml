@@ -25,37 +25,29 @@ module AIC = LustreAstInlineConstants
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 
-module StringMap = struct
-  include Map.Make(struct
-    type t = HString.t
-    let compare i1 i2 = HString.compare i1 i2
-  end)
-end
-
-module StringSet = struct
-  include Set.Make(struct
-    type t = HString.t
-    let compare i1 i2 = HString.compare i1 i2
-  end)
-end
+module StringMap = HString.HStringMap
+module StringSet = HString.HStringSet
 
 type error_kind = Unknown of string
-  | ComplicatedExpr of LustreAst.expr
-  | ExprNotSmaller of LustreAst.expr
-  | ExprMissingIndex of HString.t * LustreAst.expr
+  | ComplicatedExpr of HString.t * LustreAst.expr
+  | ExprNotSmaller of HString.t * LustreAst.expr
+  | ExprMissingIndex of HString.t * HString.t * LustreAst.expr
 
 let error_message = function
   | Unknown e -> e
-  | ComplicatedExpr e -> "The expression '"
+  | ComplicatedExpr (id, e) -> "The expression '"
     ^ (Lib.string_of_t A.pp_print_expr e)
-    ^ "' is too complicated for simple syntactic well-foundedness of inductive arrays"
-  | ExprNotSmaller e -> "The index expression '"
+    ^ "' is too complicated in definition of inductive array '"
+    ^ (HString.string_of_hstring id) ^ "'"
+  | ExprNotSmaller (id, e) -> "The index expression '"
     ^ (Lib.string_of_t A.pp_print_expr e)
-    ^ "' is not strictly smaller"
-  | ExprMissingIndex (i, e) -> "The index expression '"
+    ^ "' is not strictly smaller in definition of inductive array '"
+    ^ (HString.string_of_hstring id) ^ "'"
+  | ExprMissingIndex (id, i, e) -> "The index expression '"
     ^ (Lib.string_of_t A.pp_print_expr e)
     ^ "' must contain the index variable '"
-    ^ (HString.string_of_hstring i) ^ "'"
+    ^ (HString.string_of_hstring i) ^ "' in definition of inductive array '"
+    ^ (HString.string_of_hstring id) ^ "'"
 
 
 type error = [
@@ -73,22 +65,28 @@ let unwrap result = match result with
   | Ok r -> r
   | Error _ -> assert false
 
-let rec process_items = function
+let rec process_items ctx = function
   | (A.Body eqn :: tail) ->
-    union (process_equation eqn) (process_items tail)
-  | _ :: tail -> process_items tail
+    union (process_equation ctx eqn) (process_items ctx tail)
+  | _ :: tail -> process_items ctx tail
   | [] -> StringMap.empty
 
-and process_equation = function
+and process_equation ctx = function
   | A.Equation (_, A.StructDef (_, lhs), expr) ->
-    process_lhs 0 expr lhs
+    process_lhs ctx 0 expr lhs
   | _ -> StringMap.empty
 
-and process_lhs proj expr = function
+and process_lhs ctx proj expr = function
   | (A.ArrayDef (_, id, indices) :: tail) ->
     let entry = StringMap.singleton id (indices, expr, proj) in
-    union entry (process_lhs (proj + 1) expr tail)
-  | _ :: tail -> process_lhs (proj + 1) expr tail
+    union entry (process_lhs ctx (proj + 1) expr tail)
+  | (A.SingleIdent (_, id) :: tail) ->
+    let entry = (match Ctx.lookup_ty ctx id with
+      | Some (ArrayType _) -> StringMap.singleton id ([], expr, proj)
+      | Some _ | None -> StringMap.empty)
+    in
+    union entry (process_lhs ctx (proj + 1) expr tail)
+  | _ :: tail -> process_lhs ctx (proj + 1) expr tail
   | [] -> StringMap.empty
 
 let rec extract_indexes expr = List.rev
@@ -107,9 +105,6 @@ let rec check_inductive_array_dependencies ctx = function
 
 and check_node_decl ctx decl =
   let (_, _, _, inputs, outputs, locals, items, _) = decl in
-  let array_eqns = process_items items in
-  if StringMap.is_empty array_eqns then Ok ()
-  else
   (* Setup the typing context *)
   let constants_ctx = inputs
     |> List.map Ctx.extract_consts
@@ -132,8 +127,13 @@ and check_node_decl ctx decl =
     ctx
     locals
   in
+  let array_eqns = process_items ctx items in
   let checked = StringMap.fold (fun id (indices, expr, proj) acc ->
-    check_array_equation ctx array_eqns StringSet.empty id indices expr proj :: acc)
+    let checked = if indices = [] then Ok ()
+      else
+      check_array_equation ctx array_eqns StringSet.empty id indices expr proj
+    in
+    checked :: acc)
     array_eqns
     []
   in
@@ -143,7 +143,13 @@ and check_array_equation ctx eqns visited id indices expr proj =
   let r expr = check_array_equation ctx eqns visited id indices expr proj in
   match expr with
   (* Identifiers *)
-  | A.Ident _ -> Ok ()
+  | A.Ident (pos, id') as e ->
+    if id = id' then
+      let e = A.ArrayIndex (Lib.dummy_pos, e,
+        Ident (Lib.dummy_pos, HString.mk_hstring "i"))
+      in
+      mk_error pos (ExprNotSmaller (id, e))
+    else Ok ()
   | ModeRef _ -> Ok ()
   | RecordProject (_, e, _) -> r e
   | TupleProject (_, e, _) -> r e
@@ -202,43 +208,47 @@ and check_array_index ctx eqns visited id indices expr =
   match head with
   | A.Ident (_, id') ->
     if id = id' then
-      let checked = List.map
-        (fun (i, e) -> index_expr_is_smaller ctx i e)
-        (List.combine indices indexes)
-      in
-      Res.seq_ checked
+      if indices = [] then
+        mk_error (AH.pos_of_expr head) (ExprNotSmaller (id, head))
+      else
+        let checked = List.map
+          (fun (i, e) -> index_expr_is_smaller ctx id i e)
+          (List.combine indices indexes)
+        in
+        Res.seq_ checked
     else (
       if StringSet.mem id' visited then Ok ()
       else match StringMap.find_opt id' eqns with
-      | Some (indices, expr, proj) ->
-        let expr = List.fold_left
+      | Some (indices', expr, proj) ->
+        let expr = if indices' = [] then expr
+          else List.fold_left
           (fun acc (i, e) -> AH.substitute i e acc)
           expr
-          (List.combine indices indexes)
+          (List.combine indices' indexes)
         in
         let expr = AIC.simplify_expr ctx expr in
         let visited = StringSet.add id' visited in
-        check_array_equation ctx eqns visited id indices expr proj
+        check_array_equation ctx eqns visited id indices' expr proj
       | None -> Ok ())
   | Arrow (_, _, e2) ->
     check_array_index ctx eqns visited id indices e2
   | Pre _ -> Ok ()
   | e -> let vars = AH.vars e in
     if A.SI.mem id vars then
-      mk_error (AH.pos_of_expr e) (ComplicatedExpr e)
+      mk_error (AH.pos_of_expr e) (ComplicatedExpr (id, e))
     else Ok ()
 
-and index_expr_is_smaller ctx index expr =
+and index_expr_is_smaller ctx id index expr =
   let pos = AH.pos_of_expr expr in
   let zero = A.Const (Lib.dummy_pos, Num (HString.mk_hstring "0")) in
   let vars = AH.vars expr in
   if not (A.SI.mem index vars) then
-    mk_error pos (ExprMissingIndex (index, expr))
+    mk_error pos (ExprMissingIndex (id, index, expr))
   else
     let expr' = AH.substitute index zero expr in
     let* value = (match AIC.eval_int_expr ctx expr' with
       | Ok e -> Ok e
-      | Error _ -> mk_error pos (ComplicatedExpr expr))
+      | Error _ -> mk_error pos (ComplicatedExpr (id, expr)))
     in
-    if value >= 0 then mk_error pos (ExprNotSmaller expr)
+    if value >= 0 then mk_error pos (ExprNotSmaller (id, expr))
     else Ok ()
