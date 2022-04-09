@@ -59,7 +59,7 @@ val sort_globals: LA.t -> (LA.t, [> error]) result
     This step processes 1. type declarations, and 2. constant declarations *)  
                      
 val sort_and_check_nodes_contracts: LA.t -> ((LA.t * LA.ident list), [> error]) result
-(** Returns a topological order of declarations to resolve all forward refernces,
+(** Returns a topological order of declarations to resolve all forward references,
     with a list of toplevel nodes.
     It also reorders contract equations and checks for circularity of node equations.
     This step processes 1. nodes, 2. contracts and 3. functions *)  

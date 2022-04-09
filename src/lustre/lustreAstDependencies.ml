@@ -108,9 +108,9 @@ type node_summary = ((int list) IntMap.t) IMap.t
     we would substitute the indices with the actual call parameters
     during the circularity analysis for equations.
 
-    For functions and imported nodes we make a conservative assumption
-    that each output stream is dependent on the current values 
-    of all the arguments.
+    For functions and imported nodes we assume that
+    output streams do not depend on any of the input streams.
+    This restriction is in place to avoid rejecting valid programs.
     
     We generate the node summary entry by doing a rechablility analysis 
     for each of the output streams equations. 
@@ -995,7 +995,7 @@ let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contra
      R.seq_ (List.map (check_eqn_no_current_vals ids ad) req_es) *)
   | _ -> R.ok()                             
 (** Check if any of the out stream vars of the node 
-   is being used at its current value in assumption or mode requires *)
+   is being used at its current value in assumption *)
 
 let sort_and_check_contract_eqns: dependency_analysis_data
                                   -> LA.contract_node_decl
@@ -1026,7 +1026,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
    1. Sort the contract equations according to their dependencies
       - The assumptions and guarantees are added to the bottom of the list as 
         no other contract equation can depend on it. 
-   2. Ensures the assumptions and requires in each mode does not use the current value
+   2. Ensures the assumptions do not use the current value
       of the output streams. *)
 
 
@@ -1126,8 +1126,8 @@ let mk_node_summary: bool -> node_summary -> LA.node_decl -> node_summary
       s
 (** Computes the node call summary of the node to the input stream of the node.
     
-    For imported nodes and imported functions we assume that output streams depend on 
-    every input stream.
+    For imported nodes and imported functions we assume that output streams do not depend on
+    any of the input streams. This restriction is in place to avoid rejecting valid programs.
  *)
 
 
