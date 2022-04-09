@@ -719,12 +719,6 @@ is used.
 In a modular analysis, ``imported`` nodes will not be analyzed, although if their
 contract has modes they will be checked for exhaustiveness, consistently with
 the usual Kind 2 contract workflow.
-Every output of an imported node is assumed to depend on every input.
-This may lead Kind 2 to detect circular dependencies which does not exist
-in an _actual_ system, and thus reject an input model.
-To make Kind 2 accept such model, the imported node must be refined
-by decomposing it into smaller subnodes and specifying the dependencies
-among them.
 
 
 Partially defined nodes VS ``imported``

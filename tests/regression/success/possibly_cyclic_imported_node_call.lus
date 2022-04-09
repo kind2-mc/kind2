@@ -1,0 +1,7 @@
+
+node imported f(x,z: int) returns (y: int);
+
+node top(x: int) returns (y: int);
+let
+  y = f(x, y);
+tel
