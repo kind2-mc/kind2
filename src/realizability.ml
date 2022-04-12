@@ -650,7 +650,7 @@ let compute_deadlocking_trace_and_conflict
     match InputSystem.get_lustre_node in_sys scope with
     | None -> sys
     | Some { LustreNode.is_function } ->
-      if is_function then (
+      if is_function && Flags.Contracts.enforce_func_congruence () then (
         (* Recompute transition system adding functional constraints *)
         let sys, _ =
           InputSystem.trans_sys_of_analysis

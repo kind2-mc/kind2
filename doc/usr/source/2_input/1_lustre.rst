@@ -743,13 +743,25 @@ Functions
 Kind 2 supports the ``function`` keyword which is used just like the ``node`` one
 but has slightly different semantics. Like the name suggests, the output(s) of
 a ``function`` should be a *non-temporal* combination of its inputs. That is, a
-function cannot the ``->``\ , ``pre``\ , ``merge``\ , ``when``\ , ``condact``\ , or ``activate``
-operators. A function is also not allowed to call a node, only other functions.
+function cannot depend on the ``->``\ , ``pre``\ , ``merge``\ , ``when``\ ,
+``condact``\ , or ``activate`` operators.
+A function is also not allowed to call a node, only other functions.
 In Lustre terms, functions are stateless.
 
-In Kind 2, these retrictions extend to the contract attached to the function,
-if any. Note that besides the ones mentioned here, no additional restrictions
+In Kind 2, these restrictions extend to the contract attached to the function,
+if any. Note that besides the ones mentioned above, no additional restrictions
 are enforced on functions compared to nodes.
+In particular, functional congruence is not enforced on
+partially defined functions, imported functions, and
+functions abstracted by their contracts. That is,
+Kind 2 might return a counterexample where two calls to an abstract function
+with the same input values provide different output values.
+To prevent this kind of counterexamples from happening, Kind 2 offers an option
+called ``--enforce_func_congruence`` which enforces
+abstract functions to behave as mathematical functions.
+The downside of using this option is that the IC3 engine is forced to
+shut down because its current implementation cannot reason about
+the resulting system.
 
 Benefits
 ^^^^^^^^
