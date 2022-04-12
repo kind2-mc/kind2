@@ -225,8 +225,6 @@ val lus_compile : unit -> bool
 (** Colored output. *)
 val color : unit -> bool
 
-(** Use weak hash-consing. *)
-val weakhcons : unit -> bool
 
 (** {2 SMT solver flags} *)
 module Smt : sig
