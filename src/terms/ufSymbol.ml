@@ -23,11 +23,7 @@ open Lib
 (* Types and hash-consing                                                *)
 (* ********************************************************************* *)
 
-
-(* Using strong (as opposed to weak) hash-consing because the table is used for
-   memoization *)
-module H = HashconsStrong
-
+module H = Hashcons
 
 (* Uninterpreted symbol to be hash-consed *)
 type uf_symbol = string 
@@ -87,6 +83,8 @@ module Huf_symbol = H.Make (Uf_symbol_node)
 (* Storage for uninterpreted function symbols *)
 let ht = Huf_symbol.create 251
 
+(* We keep a copy of all UF symbols to prevent GC from collecting them *)
+let uf_symbs = ref []
 
 (* ********************************************************************* *)
 (* Hashtables, maps and sets                                             *)
@@ -224,10 +222,13 @@ let mk_uf_symbol s a r =
   with Not_found  -> 
     
     (* Hashcons uninterpreted symbol *)
-    Huf_symbol.hashcons 
-      ht
-      s
-      { uf_arg_type = a; uf_res_type = r }
+    let s =
+      Huf_symbol.hashcons
+        ht
+        s
+        { uf_arg_type = a; uf_res_type = r }
+    in
+    uf_symbs := s :: !uf_symbs; s
 
 
 (* Import an uninterpreted symbol from a different instance into the

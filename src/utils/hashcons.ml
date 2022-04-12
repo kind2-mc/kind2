@@ -53,16 +53,7 @@ module type HSig = sig
   module Make(H : HashedType) : (S with type key = H.t and type prop = H.prop)
 end
 
-
-
-let selected =
-  if Flags.weakhcons () then
-    (module HashconsWeak : HSig)
-  else
-    (module HashconsStrong : HSig)
-
-
-include (val (selected))
+include (val (module HashconsWeak : HSig))
 
   
 (* 
