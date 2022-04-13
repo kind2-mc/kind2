@@ -637,45 +637,30 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
 
   (* Node calls *)
   | Call (_, i, es) ->
-    (* Format.eprintf "call expr: %a\n\n" (Lib.pp_print_list LA.pp_print_expr ";") es;
-    Format.eprintf "call: %a\n\n" HString.pp_print_hstring i; *)
+    (* Format.eprintf "call expr: %a @." (Lib.pp_print_list LA.pp_print_expr ";") es;
+    Format.eprintf "call: %a @." HString.pp_print_hstring i; *)
     let arg_vars = List.map r es in
     (* guaranteed not to throw an exception by lustreSyntaxChecks *)
-    let node_map = (IMap.find i m) |> IntMap.bindings in
-    let dependent_args = List.filter_map
-      (fun (i, o) -> if List.mem proj o then Some i else None)
-      node_map
-    in
-    List.fold_left (fun acc idx ->
-        match List.nth_opt arg_vars idx with
-        | Some v -> SI.union acc v
-        (* If the provided file is not arity-correct then ignore those vars *)
-        | None -> acc)
-      SI.empty
-      dependent_args
-    (* (match IMap.find_opt i m with
-      | None -> assert false (* guaranteed by lustreSyntaxChecks *)
-      | Some ns ->
-        let sum_bds = IntMap.bindings ns in
-        let es' = List.flatten (List.map (r) es) in
-(*         Format.eprintf "sum_bds: %a\n\n"
-        (Lib.pp_print_list
-          (Lib.pp_print_pair
-            Format.pp_print_int
-            (Lib.pp_print_list Format.pp_print_int ",")
-            ":")
-        ";")
-        sum_bds;
-        Format.eprintf "es': %a\n\n"
-          (Lib.pp_print_list Format.pp_print_string ",")
-          (LA.SI.fold (fun key x -> key :: x) (LA.SI.flatten es') []); *)
-        List.concat (List.map
-          (fun (_, b) -> List.map
-            (fun i -> match List.nth_opt es' i with
-              | Some x -> x
-              | None -> SI.empty)
-            b)
-          sum_bds)) *)
+    let node_map = IMap.find i m in
+    (match IntMap.find_opt proj node_map with
+      | Some dep_args ->
+        (* Format.eprintf "dependent_args: %a @."
+          (Lib.pp_print_list Format.pp_print_int ",")
+          dep_args; *)
+        let result = List.fold_left (fun acc idx ->
+            match List.nth_opt arg_vars idx with
+            | Some v -> SI.union acc v
+            (* If the provided file is not arity-correct then ignore those vars *)
+            | None -> acc)
+          SI.empty
+          dep_args
+        in
+        (* Format.eprintf "result: %a @."
+          (Lib.pp_print_list HString.pp_print_hstring ",")
+          (SI.elements result); *)
+        result
+      | None -> SI.empty)
+
   | CallParam (_, _, _, es) -> es |> (List.map r) |> SI.flatten
 (** get all the variables and flatten node calls using 
     the node summary for an expression *)
@@ -945,7 +930,6 @@ let expression_current_streams: dependency_analysis_data -> LA.expr -> (LA.ident
 let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr -> (unit, [> error]) result
   = fun node_out_streams ad e -> 
   let* s = expression_current_streams ad e in
-  Format.eprintf "s: %a @." (Lib.pp_print_list HString.pp_print_hstring ",") s;
   let* assume_vars_out_streams = R.ok (SI.inter node_out_streams (LA.SI.of_list s)) in
   Debug.parse "node_params: %a non pre vars of e: %a"
     (Lib.pp_print_list LA.pp_print_ident ", ") (SI.elements node_out_streams)
@@ -1060,15 +1044,13 @@ let mk_node_summary: bool -> node_summary -> LA.node_decl -> node_summary
     let op_vars = List.map (fun o -> LH.extract_op_ty o |> fst) ops in
     let ip_vars = List.map (fun o -> LH.extract_ip_ty o |> fst) ips in
     let node_equations = List.concat (List.map LH.extract_node_equation items) in
-    let process_one_eqn = fun (LA.StructDef (_, lhss), e) ->
-      let lhs_vars = LA.SI.elements (LA.SI.flatten (List.map LH.vars_of_struct_item lhss)) in
-      let vars = List.fold_left (fun acc i ->
-          let vars = vars_with_flattened_nodes s i e in
-          SI.union vars acc)
-        SI.empty
-        (List.mapi (fun i _ -> i) lhs_vars)
+    let process_one_eqn = fun (LA.StructDef (_, lhs), e) ->
+      let ms = List.mapi (fun idx item -> 
+          let lhs_var = SI.choose (LH.vars_of_struct_item item) in
+          let vars = vars_with_flattened_nodes s idx e in
+          IMap.singleton lhs_var (SI.elements vars))
+        lhs
       in
-      let ms = List.map (Lib.flip IMap.singleton (LA.SI.elements vars)) lhs_vars in
       List.fold_left (IMap.union (fun _ _ v2 -> Some v2)) IMap.empty ms
     in
     let node_equation_dependency_map = List.fold_left
