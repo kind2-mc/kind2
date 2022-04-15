@@ -556,7 +556,7 @@ and compile_ast_type
       | None ->
         let ident = HString.string_of_hstring ident in
         X.singleton [X.AbstractTypeIndex ident] Type.t_int)
-  | A.RecordType (_, record_fields) ->
+  | A.RecordType (_, _, record_fields) ->
     let over_fields = fun a (_, i, t) ->
       let i = HString.string_of_hstring i in
       let over_indices = fun j t a -> X.add (X.RecordIndex i :: j) t a in

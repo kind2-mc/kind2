@@ -518,7 +518,7 @@ let mk_range_expr ctx expr_type expr =
       let tys = List.filter (fun ty -> AH.type_contains_subrange ty) tys in
       let tys = List.mapi (fun i ty -> mk ctx n ty (mk_proj i)) tys in
       List.fold_left (@) [] tys
-    | RecordType (_, tys) ->
+    | RecordType (_, _, tys) ->
       let mk_proj i = A.RecordProject (dpos, expr, i) in
       let tys = List.filter (fun (_, _, ty) -> AH.type_contains_subrange ty) tys in
       let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in

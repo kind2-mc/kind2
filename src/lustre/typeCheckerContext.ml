@@ -146,9 +146,9 @@ let rec expand_nested_type_syn: tc_context -> tc_type -> tc_type
   | GroupType (p, tys) ->
     let tys = List.map (expand_nested_type_syn ctx) tys in
     GroupType (p, tys)
-  | RecordType (p, tys) ->
+  | RecordType (p, name, tys) ->
     let tys = List.map (fun (p, i, t) -> p, i, expand_nested_type_syn ctx t) tys in
-    RecordType (p, tys)
+    RecordType (p, name, tys)
   | ArrayType (p, (ty, e)) ->
     let ty = expand_nested_type_syn ctx ty in
     ArrayType (p, (ty, e))

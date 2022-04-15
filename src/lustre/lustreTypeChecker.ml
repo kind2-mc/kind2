@@ -266,7 +266,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     let* rec_ty = infer_type_expr ctx e in
     let rec_ty = expand_type_syn ctx rec_ty in
     (match rec_ty with
-    | LA.RecordType (_, flds) ->
+    | LA.RecordType (_, _, flds) ->
         let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
         (match (List.assoc_opt fld typed_fields) with
         | Some ty -> R.ok (expand_type_syn ctx ty)
@@ -311,13 +311,13 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     infer_type_comp_op ctx pos e1 e2 cop
 
   (* Structured expressions *)
-  | LA.RecordExpr (pos, _, flds) ->
+  | LA.RecordExpr (pos, name, flds) ->
     let infer_field ctx (i, e) =
       let* ty = infer_type_expr ctx e in
       R.ok (LH.pos_of_expr e, i, ty) 
     in 
     let* fld_tys = R.seq (List.map (infer_field ctx) flds) in
-    R.ok (LA.RecordType (pos, fld_tys))
+    R.ok (LA.RecordType (pos, name, fld_tys))
   | LA.GroupExpr (pos, struct_type, exprs) ->
     (match struct_type with
     | LA.ExprList ->
@@ -351,7 +351,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       | LA.Label (pos, l) ->  
           infer_type_expr ctx r
           >>= (function 
-              | RecordType (_, flds) as r_ty ->
+              | RecordType (_, _, flds) as r_ty ->
                   (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
                   (match (List.assoc_opt l typed_fields) with
                     | Some f_ty ->
@@ -521,11 +521,11 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
       (type_error pos (UnificationFailed (exp_ty, cty)))
 
   (* Structured expressions *)
-  | RecordExpr (pos, _, flds) ->
+  | RecordExpr (pos, name, flds) ->
     let (ids, es) = List.split flds in
     let mk_ty_ident p i t = (p, i, t) in
     let* inf_tys = R.seq (List.map (infer_type_expr ctx) es) in
-    let inf_r_ty = LA.RecordType (pos, (List.map2 (mk_ty_ident pos) ids inf_tys)) in
+    let inf_r_ty = LA.RecordType (pos, name, (List.map2 (mk_ty_ident pos) ids inf_tys)) in
     R.guard_with (eq_lustre_type ctx exp_ty inf_r_ty)
       (type_error pos (UnificationFailed (exp_ty, inf_r_ty)))
   | GroupExpr (pos, group_ty, es) ->
@@ -564,7 +564,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
             infer_type_expr ctx r
             >>= (fun r_ty ->
               match r_ty with
-              | RecordType (_, flds) ->
+              | RecordType (_, _, flds) ->
                 (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
                   (match (List.assoc_opt l typed_fields) with
                   | Some ty -> check_type_expr ctx e ty 
@@ -813,7 +813,7 @@ and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index ->
   fun pos ctx expr idx exp_ty -> 
   infer_type_expr ctx expr
   >>= function
-  | RecordType (_, flds) ->
+  | RecordType (_, _, flds) ->
     (match (List.find_opt (fun (_, i, _) -> i = idx) flds) with 
     | None -> type_error pos (MissingRecordField idx)
     | Some f -> R.ok f)
@@ -1332,7 +1332,7 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
   | LA.TArr (_, arg_ty, res_ty) ->
     check_type_well_formed ctx arg_ty
     >> check_type_well_formed ctx res_ty
-  | LA.RecordType (_, idTys) ->
+  | LA.RecordType (_, _, idTys) ->
       (R.seq_ (List.map (fun (_, _, ty)
                 -> check_type_well_formed ctx ty) idTys))
   | LA.ArrayType (pos, (b_ty, s)) ->
@@ -1414,12 +1414,12 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
     if List.length ftys1 = List.length ftys2
     then (R.seqM (&&) true (List.map2 (eq_lustre_type ctx) ftys1 ftys2))
     else R.ok false
-  | RecordType (_, tys1), RecordType (_, tys2) ->
+  | RecordType (_, n1, tys1), RecordType (_, n2, tys2) ->
     let* isEqs = R.seq (List.map2 (eq_typed_ident ctx)
       (LH.sort_typed_ident tys1)
       (LH.sort_typed_ident tys2))
     in
-    R.ok (List.fold_left (&&) true isEqs)
+    R.ok (List.fold_left (&&) true isEqs && n1 == n2)
   | ArrayType (_, arr1), ArrayType (_, arr2) -> eq_type_array ctx arr1 arr2 
   | EnumType (_, n1, is1), EnumType (_, n2, is2) ->
     R.ok (n1 = n2 && (List.fold_left (&&) true (List.map2 (=) (LH.sort_idents is1) (LH.sort_idents is2))))

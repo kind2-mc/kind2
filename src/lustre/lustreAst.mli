@@ -120,7 +120,7 @@ type lustre_type =
   | AbstractType of position * ident
   | TupleType of position * lustre_type list
   | GroupType of position * lustre_type list
-  | RecordType of position * typed_ident list
+  | RecordType of position * ident * typed_ident list
   | ArrayType of position * (lustre_type * expr)
   | EnumType of position * ident * ident list
   | TArr of position * lustre_type * lustre_type
