@@ -1,0 +1,8 @@
+type my_record = struct {x: int; y: bool};
+
+type my_record2 = struct {r: bool; t: int};
+
+node top() returns (r: my_record);
+let
+r = my_record2 { x=1; y=true} ;
+tel

@@ -414,4 +414,8 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/arity_incorrect_node_call.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedCall _)) -> true
     | _ -> false);
+  mk_test "test nominal record type equality" (fun () ->
+    match load_file "./lustreTypeChecker/record_type_nominal_eq.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | _ -> false);
 ])
