@@ -266,7 +266,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     let* rec_ty = infer_type_expr ctx e in
     let rec_ty = expand_type_syn ctx rec_ty in
     (match rec_ty with
-    | LA.RecordType (_, flds) ->
+    | LA.RecordType (_, _, flds) ->
         let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
         (match (List.assoc_opt fld typed_fields) with
         | Some ty -> R.ok (expand_type_syn ctx ty)
@@ -311,13 +311,14 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     infer_type_comp_op ctx pos e1 e2 cop
 
   (* Structured expressions *)
-  | LA.RecordExpr (pos, _, flds) ->
-    let infer_field: tc_context -> (LA.ident * LA.expr) -> ((LA.typed_ident), [> error]) result
-      = fun ctx (i, e) -> infer_type_expr ctx e
-                          >>= fun ty -> R.ok (LH.pos_of_expr e, i, ty) 
-    in R.seq (List.map (infer_field ctx) flds)
-      >>=  (fun fld_tys -> R.ok (LA.RecordType (pos, fld_tys)))    
-  | LA.GroupExpr (pos, struct_type, exprs)  ->
+  | LA.RecordExpr (pos, name, flds) ->
+    let infer_field ctx (i, e) =
+      let* ty = infer_type_expr ctx e in
+      R.ok (LH.pos_of_expr e, i, ty) 
+    in 
+    let* fld_tys = R.seq (List.map (infer_field ctx) flds) in
+    R.ok (LA.RecordType (pos, name, fld_tys))
+  | LA.GroupExpr (pos, struct_type, exprs) ->
     (match struct_type with
     | LA.ExprList ->
         R.seq (List.map (infer_type_expr ctx) exprs)
@@ -350,7 +351,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
       | LA.Label (pos, l) ->  
           infer_type_expr ctx r
           >>= (function 
-              | RecordType (_, flds) as r_ty ->
+              | RecordType (_, _, flds) as r_ty ->
                   (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
                   (match (List.assoc_opt l typed_fields) with
                     | Some f_ty ->
@@ -520,12 +521,11 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
       (type_error pos (UnificationFailed (exp_ty, cty)))
 
   (* Structured expressions *)
-  | RecordExpr (pos, _, flds) ->
+  | RecordExpr (pos, name, flds) ->
     let (ids, es) = List.split flds in
-    let mk_ty_ident p i t = (p, i, t) in    
-    R.seq (List.map (infer_type_expr ctx) es)
-    >>= fun inf_tys ->
-    let inf_r_ty = LA.RecordType (pos, (List.map2 (mk_ty_ident pos) ids inf_tys)) in
+    let mk_ty_ident p i t = (p, i, t) in
+    let* inf_tys = R.seq (List.map (infer_type_expr ctx) es) in
+    let inf_r_ty = LA.RecordType (pos, name, (List.map2 (mk_ty_ident pos) ids inf_tys)) in
     R.guard_with (eq_lustre_type ctx exp_ty inf_r_ty)
       (type_error pos (UnificationFailed (exp_ty, inf_r_ty)))
   | GroupExpr (pos, group_ty, es) ->
@@ -564,7 +564,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
             infer_type_expr ctx r
             >>= (fun r_ty ->
               match r_ty with
-              | RecordType (_, flds) ->
+              | RecordType (_, _, flds) ->
                 (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
                   (match (List.assoc_opt l typed_fields) with
                   | Some ty -> check_type_expr ctx e ty 
@@ -813,7 +813,7 @@ and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index ->
   fun pos ctx expr idx exp_ty -> 
   infer_type_expr ctx expr
   >>= function
-  | RecordType (_, flds) ->
+  | RecordType (_, _, flds) ->
     (match (List.find_opt (fun (_, i, _) -> i = idx) flds) with 
     | None -> type_error pos (MissingRecordField idx)
     | Some f -> R.ok f)
@@ -925,27 +925,28 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
 and do_node_eqn: tc_context -> LA.node_equation -> (unit, [> error]) result = fun ctx ->
   function
   | LA.Assert (pos, e) ->
-    Debug.parse "Checking assertion: %a" LA.pp_print_expr e
-    ; check_type_expr ctx e (Bool pos)
+    Debug.parse "Checking assertion: %a" LA.pp_print_expr e;
+    check_type_expr ctx e (Bool pos)
   | LA.Equation (_, lhs, e)  as eqn ->
-    Debug.parse "Checking equation: %a" LA.pp_print_node_body eqn
+    Debug.parse "Checking equation: %a" LA.pp_print_node_body eqn;
     (* This is a special case where we have undeclared identifiers 
        as short hands for assigning values to arrays aka recursive technique *)
-    ; let get_array_def_context: LA.struct_item -> tc_context = 
-        function
-        | ArrayDef (pos, _, is) ->
-          List.fold_left (fun c i -> add_ty c i (LA.Int pos)) empty_tc_context is 
-        | _ -> empty_tc_context in
-      let ctx_from_lhs: tc_context -> LA.eq_lhs -> tc_context
-        = fun ctx (LA.StructDef (_, items)) ->
-        List.fold_left union ctx (List.map get_array_def_context items) in
-      let new_ctx = ctx_from_lhs ctx lhs in
-      Debug.parse "Checking node equation lhs=%a; rhs=%a"
-        LA.pp_print_eq_lhs lhs
-        LA.pp_print_expr e
-      ; infer_type_expr new_ctx e >>= fun ty ->
-      Debug.parse "RHS has type %a for lhs %a" LA.pp_print_lustre_type ty LA.pp_print_eq_lhs lhs
-      ; check_type_struct_def (ctx_from_lhs ctx lhs) lhs ty
+    let get_array_def_context: LA.struct_item -> tc_context = 
+      function
+      | ArrayDef (pos, _, is) ->
+        List.fold_left (fun c i -> add_ty c i (LA.Int pos)) empty_tc_context is 
+      | _ -> empty_tc_context
+    in
+    let ctx_from_lhs ctx (LA.StructDef (_, items)) =
+      List.fold_left union ctx (List.map get_array_def_context items)
+    in
+    let new_ctx = ctx_from_lhs ctx lhs in
+    Debug.parse "Checking node equation lhs=%a; rhs=%a"
+      LA.pp_print_eq_lhs lhs
+      LA.pp_print_expr e;
+    let* ty = infer_type_expr new_ctx e in
+    Debug.parse "RHS has type %a for lhs %a" LA.pp_print_lustre_type ty LA.pp_print_eq_lhs lhs;
+    check_type_struct_def new_ctx lhs ty
 
 and do_item: tc_context -> LA.node_item -> (unit, [> error]) result = fun ctx ->
   function
@@ -962,18 +963,30 @@ and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> (unit, [>
   = fun ctx st exp_ty ->
   match st with
   | SingleIdent (pos, i) ->
-    (match (lookup_ty ctx i) with
-    | None ->
-        type_error pos (Impossible ("Could not find Identifier " ^ (HString.string_of_hstring i)))
-    | Some ty -> R.ok ty) >>= fun inf_ty ->  
-    R.ifM (R.seqM (||) false [ eq_lustre_type ctx exp_ty inf_ty
+    let* inf_ty = (match (lookup_ty ctx i) with
+      | None -> type_error pos
+        (Impossible ("Could not find Identifier " ^ (HString.string_of_hstring i)))
+      | Some ty -> R.ok ty)
+    in
+    let* inferred_is_expected1 = eq_lustre_type ctx exp_ty inf_ty in
+    let* inferred_is_expected2 = eq_lustre_type ctx exp_ty (GroupType (pos, [inf_ty])) in
+    if inferred_is_expected1 || inferred_is_expected2 then
+      if member_val ctx i then 
+        type_error pos (Impossible ("Constant "
+          ^ (HString.string_of_hstring i)
+          ^ " cannot be re-defined"))
+        else R.ok ()
+    else
+      type_error pos (ExpectedType (exp_ty, inf_ty))
+
+    (* R.ifM (R.seqM (||) false [ eq_lustre_type ctx exp_ty inf_ty
                             ; eq_lustre_type ctx exp_ty (GroupType (pos,[inf_ty])) ])
       (if member_val ctx i
       then type_error pos (Impossible ("Constant "
         ^ (HString.string_of_hstring i)
         ^ " cannot be re-defined"))
       else R.ok ())
-      (type_error pos (ExpectedType (exp_ty, inf_ty)))
+      (type_error pos (ExpectedType (exp_ty, inf_ty))) *)
   | ArrayDef (pos, base_e, idxs) ->
     let array_idx_expr =
       List.fold_left (fun e i -> LA.ArrayIndex (pos, e, i))
@@ -992,28 +1005,28 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> (unit, [> error
   (Debug.parse "Checking if structure definition: %a has type %a \nwith local context %a"
     (Lib.pp_print_list LA.pp_print_struct_item ",") lhss
     LA.pp_print_lustre_type exp_ty
-    pp_print_tc_context ctx
+    pp_print_tc_context ctx;
   
   (* check if the members of LHS are constants or enums before assignment *)
-  ; let lhs_vars = SI.flatten (List.map LH.vars_of_struct_item lhss) in
-    if (SI.for_all (fun i -> not (member_val ctx i)) lhs_vars)
-    then (match exp_ty with
-          | GroupType (_, exp_ty_lst') ->
-            let exp_ty_lst = LH.flatten_group_types exp_ty_lst' in
-            if List.length lhss = 1
-              (* Case 1. the LHS is just one identifier 
-               * so we have to check if the exp_type is the same as LHS *)
-              then check_type_struct_item ctx (List.hd lhss) exp_ty 
-              else (* Case 2. LHS is a compound statment *)
-                if List.length lhss = List.length exp_ty_lst
-                then R.seq_ (List.map2 (check_type_struct_item ctx) lhss exp_ty_lst)
-                else type_error pos (MismatchOfEquationType (Some lhss, exp_ty))
-          (* We are dealing with simple types, so lhs has to be a singleton list *)
-          | _ -> if (List.length lhss != 1)
-                then type_error pos (MismatchOfEquationType (None, exp_ty))
-                else let lhs = List.hd lhss in
-                    check_type_struct_item ctx lhs exp_ty)
-    else type_error pos (DisallowedReassignment (SI.filter (fun e -> (member_val ctx e)) lhs_vars)))
+  let lhs_vars = SI.flatten (List.map LH.vars_of_struct_item lhss) in
+  if (SI.for_all (fun i -> not (member_val ctx i)) lhs_vars)
+  then (match exp_ty with
+    | GroupType (_, exp_ty_lst') ->
+      let exp_ty_lst = LH.flatten_group_types exp_ty_lst' in
+      if List.length lhss = 1
+        (* Case 1. the LHS is just one identifier 
+          * so we have to check if the exp_type is the same as LHS *)
+        then check_type_struct_item ctx (List.hd lhss) exp_ty 
+        else (* Case 2. LHS is a compound statment *)
+          if List.length lhss = List.length exp_ty_lst
+          then R.seq_ (List.map2 (check_type_struct_item ctx) lhss exp_ty_lst)
+          else type_error pos (MismatchOfEquationType (Some lhss, exp_ty))
+    (* We are dealing with simple types, so lhs has to be a singleton list *)
+    | _ -> if (List.length lhss != 1)
+          then type_error pos (MismatchOfEquationType (None, exp_ty))
+          else let lhs = List.hd lhss in
+              check_type_struct_item ctx lhs exp_ty)
+  else type_error pos (DisallowedReassignment (SI.filter (fun e -> (member_val ctx e)) lhs_vars)))
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 
@@ -1196,8 +1209,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
             @ enum_const_bindings))
         else
           type_error pos (Redeclaration (HString.mk_hstring "Enum value or constant"))
-      | _ -> check_type_well_formed ctx ty
-        >> R.ok (add_ty_syn ctx i ty))
+      | _ -> R.ok (add_ty_syn ctx i ty))
   | LA.FreeType (pos, i) ->
     let ctx' = add_ty_syn ctx i (LA.AbstractType (pos, i)) in
     R.ok (add_ty_decl ctx' i)
@@ -1305,11 +1317,11 @@ and build_type_and_const_context (* : tc_context -> LA.t -> (tc_context, [> erro
   function
   | [] -> R.ok ctx
   | LA.TypeDecl (_, ty_decl) :: rest ->
-    tc_ctx_of_ty_decl ctx ty_decl
-    >>= fun ctx' -> build_type_and_const_context ctx' rest
+    let* ctx' = tc_ctx_of_ty_decl ctx ty_decl in
+    build_type_and_const_context ctx' rest
   | ConstDecl (_, const_decl) :: rest ->
-    tc_ctx_const_decl ctx const_decl
-    >>= fun ctx' -> build_type_and_const_context ctx' rest                   
+    let* ctx' = tc_ctx_const_decl ctx const_decl in
+    build_type_and_const_context ctx' rest                   
   | _ :: rest -> build_type_and_const_context ctx rest  
 (** Process top level type declarations and make a type context with 
  * user types, enums populated *)
@@ -1320,7 +1332,7 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
   | LA.TArr (_, arg_ty, res_ty) ->
     check_type_well_formed ctx arg_ty
     >> check_type_well_formed ctx res_ty
-  | LA.RecordType (_, idTys) ->
+  | LA.RecordType (_, _, idTys) ->
       (R.seq_ (List.map (fun (_, _, ty)
                 -> check_type_well_formed ctx ty) idTys))
   | LA.ArrayType (pos, (b_ty, s)) ->
@@ -1401,11 +1413,13 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
     let (ftys1, ftys2) = LH.flatten_group_types tys1, LH.flatten_group_types tys2 in 
     if List.length ftys1 = List.length ftys2
     then (R.seqM (&&) true (List.map2 (eq_lustre_type ctx) ftys1 ftys2))
-    else R.ok false  | RecordType (_, tys1), RecordType (_, tys2) ->
-    R.seq (List.map2 (eq_typed_ident ctx)
-            (LH.sort_typed_ident tys1)
-            (LH.sort_typed_ident tys2))
-    >>= fun isEqs -> R.ok (List.fold_left (&&) true isEqs)
+    else R.ok false
+  | RecordType (_, n1, tys1), RecordType (_, n2, tys2) ->
+    let* isEqs = R.seq (List.map2 (eq_typed_ident ctx)
+      (LH.sort_typed_ident tys1)
+      (LH.sort_typed_ident tys2))
+    in
+    R.ok (List.fold_left (&&) true isEqs && n1 == n2)
   | ArrayType (_, arr1), ArrayType (_, arr2) -> eq_type_array ctx arr1 arr2 
   | EnumType (_, n1, is1), EnumType (_, n2, is2) ->
     R.ok (n1 = n2 && (List.fold_left (&&) true (List.map2 (=) (LH.sort_idents is1) (LH.sort_idents is2))))
@@ -1417,21 +1431,22 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
 
   (* special case for type synonyms *)
   | UserType (pos, u), ty
-    | ty, UserType (pos, u) ->
-      if member_ty_syn ctx u
-      then (match (lookup_ty_syn ctx u) with
-            | None ->
-              type_error pos (Impossible ("Cannot find definition of Identifier " ^ (HString.string_of_hstring u)))
-            | Some ty -> R.ok ty)
-          >>= fun ty_alias ->
-          eq_lustre_type ctx ty ty_alias
-      else R.ok false
+  | ty, UserType (pos, u) ->
+    if member_ty_syn ctx u then
+      let* ty_alias = (match (lookup_ty_syn ctx u) with
+        | None -> type_error pos
+          (Impossible ("Cannot find definition of Identifier "
+            ^ (HString.string_of_hstring u)))
+        | Some ty -> R.ok ty)
+      in
+      eq_lustre_type ctx ty ty_alias
+    else R.ok false
   (* Another special case for GroupType equality *)
   | GroupType (_, tys), t
-    | t, GroupType (_, tys) ->
-      if List.length tys = 1
-      then (eq_lustre_type ctx (List.hd tys) t)
-      else R.ok false  
+  | t, GroupType (_, tys) ->
+    if List.length tys = 1
+    then (eq_lustre_type ctx (List.hd tys) t)
+    else R.ok false  
   | _, _ -> R.ok false
 (** Compute Equality for lustre types  *)
 
@@ -1477,7 +1492,7 @@ let rec type_check_group: tc_context -> LA.t ->  (unit, [> error]) result list
   | [] -> [R.ok ()]
   (* skip over type declarations and const_decls*)
   | (LA.TypeDecl _ :: rest) 
-    | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  
+  | LA.ConstDecl _ :: rest -> type_check_group global_ctx rest  
   | LA.NodeDecl (span, node_decl) :: rest ->
     let { LA.start_pos = pos } = span in
     (check_type_node_decl pos global_ctx node_decl)

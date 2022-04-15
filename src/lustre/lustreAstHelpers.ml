@@ -20,8 +20,9 @@ open LustreAst
 open LustreReporting
 
 type iset = LustreAst.SI.t
-          
-                 
+
+let (let*) = Res.(>>=)
+
 (***********)
 (* Helpers *)
 (***********)
@@ -93,7 +94,7 @@ let rec type_contains_subrange = function
   | IntRange _ -> true
   | TupleType (_, tys) | GroupType (_, tys) ->
     List.fold_left (fun acc ty -> acc || type_contains_subrange ty) false tys
-  | RecordType (_, tys) ->
+  | RecordType (_, _, tys) ->
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_subrange ty)
       false tys
   | ArrayType (_, (ty, _)) -> type_contains_subrange ty
@@ -1304,15 +1305,15 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
     | TupleType (_, xl), TupleType (_, yl)
     | GroupType (_, xl), GroupType (_, yl) ->
       rlist xl yl |> join
-    | RecordType (_, xl), RecordType (_, yl) ->
+    | RecordType (_, xn, xl), RecordType (_, yn, yl) ->
       let t = if List.length xl = List.length yl then
           List.map2 (fun (_, xi, xt) (_, yi, yt) ->
-            r (depth + 1) xt yt >>= fun t ->
+            let* t = r (depth + 1) xt yt in
             Ok (t && HString.equal xi yi))
           xl yl
         else [Ok (false)]
       in
-      join t
+      join (Ok (xn = yn) :: t)
     | ArrayType (_, (xt, xe)), ArrayType (_, (yt, ye)) ->
       r (depth + 1) xt yt >>= fun t ->
       syn_expr_equal depth_limit xe ye >>= fun e ->

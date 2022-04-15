@@ -309,7 +309,7 @@ type_decl:
          (function e -> 
            A.AliasType (mk_pos $startpos, 
                         e, 
-                        A.RecordType (mk_pos $startpos, t))) 
+                        A.RecordType (mk_pos $startpos, e, t))) 
          l }
 
 

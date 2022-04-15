@@ -81,12 +81,12 @@ let rec merge_types a b = match a, b with
   | LA.ArrayType (_, (t1, e)), LA.ArrayType (_, (t2, _)) ->
     let t = merge_types t1 t2 in
     LA.ArrayType (dpos, (t, e))
-  | RecordType (_, t1s), RecordType (_, t2s) ->
+  | RecordType (_, name, t1s), RecordType (_, _, t2s) ->
     let ts = List.map2
       (fun (p, i, t1) (_, _, t2) -> p, i, merge_types t1 t2)
       t1s t2s
     in
-    LA.RecordType (dpos, ts)
+    LA.RecordType (dpos, name, ts)
   | TupleType (_, t1s), TupleType (_, t2s) ->
     let ts = List.map2 (fun t1 t2 -> merge_types t1 t2) t1s t2s in
     LA.TupleType (dpos, ts)
@@ -107,7 +107,7 @@ let rec restrict_type_by ty restrict = match ty, restrict with
   | LA.ArrayType (_, (t1, e)), LA.ArrayType (_, (t2, _)) ->
     let t, is_restricted = restrict_type_by t1 t2 in
     LA.ArrayType (dpos, (t, e)), is_restricted
-  | RecordType (_, t1s), RecordType (_, t2s) ->
+  | RecordType (_, name, t1s), RecordType (_, _, t2s) ->
     let ts = List.map2
       (fun (p, i, t1) (_, _, t2) -> 
         let t, is_restricted = restrict_type_by t1 t2 in
@@ -116,7 +116,7 @@ let rec restrict_type_by ty restrict = match ty, restrict with
     in
     let ts, is_restricted_list = List.split ts in
     let is_restricted = List.fold_left (||) false is_restricted_list in
-    LA.RecordType (dpos, ts), is_restricted
+    LA.RecordType (dpos, name, ts), is_restricted
   | TupleType (_, t1s), TupleType (_, t2s) ->
     let ts = List.map2 (fun t1 t2 -> restrict_type_by t1 t2) t1s t2s in
     let ts, is_restricted_list = List.split ts in
@@ -301,7 +301,7 @@ and interpret_eqn node_id ctx ty_ctx lhs rhs =
 
 and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
   match ty with
-  | RecordType (_, ts) -> 
+  | RecordType (_, name, ts) -> 
     let f = function
       | LA.RecordExpr (_, _, es) ->
         let emap = List.fold_left
@@ -313,7 +313,7 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
             p, i, interpret_expr_by_type node_id ctx ty_ctx t proj e)
           ts
         in
-        Some (LA.RecordType (dpos, ts))
+        Some (LA.RecordType (dpos, name, ts))
       | StructUpdate _ -> Some ty
       | _ -> None
     in
@@ -389,7 +389,7 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
       let parent_ty = infer e in
       let parent_ty = interpret_expr_by_type node_id ctx ty_ctx parent_ty proj e in
       (match parent_ty with
-      | RecordType (_, idents) ->
+      | RecordType (_, _, idents) ->
         let (_, _, t) = List.find (fun (_, i, _) -> HString.equal i idx) idents in
         t
       | _ -> assert false)
@@ -411,7 +411,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   let infer e =
     let ty = TC.infer_type_expr ty_ctx e |> unwrap
     in
-    let ty = Ctx.expand_nested_type_syn ty_ctx ty in
+    let ty = Ctx.expand_nested_type_syn ty_ctx ty in 
     interpret_expr_by_type node_id ctx ty_ctx ty proj e
   in
   match expr with
@@ -425,7 +425,7 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
       extract_bounds_from_type ty)
   | ModeRef (_, _) -> assert false
   | RecordProject (_, e, p) -> (match infer e with
-    | RecordType (_, nested) ->
+    | RecordType (_, _, nested) ->
       let (_, _, ty) = List.find (fun (_, id, _) -> HString.equal id p) nested in
       extract_bounds_from_type ty
     | _ -> assert false)

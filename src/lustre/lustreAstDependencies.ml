@@ -287,7 +287,7 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | AbstractType (pos, i) -> singleton_dependency_analysis_data ty_prefix i pos
   | TupleType (_, tys) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data  (List.map (fun t -> mk_graph_type t) tys)
   | GroupType (_, tys) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data  (List.map (fun t -> mk_graph_type t) tys)
-  | RecordType (_, ty_ids) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (fun (_, _, t) -> mk_graph_type t) ty_ids)
+  | RecordType (_, _, ty_ids) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (fun (_, _, t) -> mk_graph_type t) ty_ids)
   | ArrayType (_, (ty, e)) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr e)
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
 (** This graph is useful for analyzing top level constant and type declarations *)

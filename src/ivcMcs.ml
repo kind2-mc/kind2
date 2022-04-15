@@ -151,9 +151,9 @@ let rec unannot_pos = function
   | A.AbstractType (_, id) -> A.AbstractType (dpos,id)
   | A.TupleType (_,ts) -> A.TupleType (dpos, List.map unannot_pos ts)
   | A.GroupType (_,ts) -> A.GroupType (dpos, List.map unannot_pos ts)
-  | A.RecordType (_,tids) ->
+  | A.RecordType (_, name, tids) ->
     let aux (_,id,t) = (dpos,id,unannot_pos t) in
-    A.RecordType (dpos,List.map aux tids)
+    A.RecordType (dpos, name, List.map aux tids)
   | A.ArrayType (_,(t,e)) -> A.ArrayType (dpos,(unannot_pos t,e))
   | A.EnumType (_,id,ids) -> A.EnumType (dpos,id,ids)
   | A.TArr (_, a_ty, r_ty) -> A.TArr (dpos, a_ty, r_ty)

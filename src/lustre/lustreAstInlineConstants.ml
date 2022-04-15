@@ -339,9 +339,9 @@ let rec inline_constants_of_lustre_type ctx = function
   | LA.GroupType (pos, types) ->
     let types' = List.map (fun t -> inline_constants_of_lustre_type ctx t) types in
     LA.GroupType (pos, types')
-  | LA.RecordType (pos, types) ->
+  | LA.RecordType (pos, name, types) ->
     let types' = List.map (fun (p, i, t) -> (p, i, inline_constants_of_lustre_type ctx t)) types in
-    LA.RecordType (pos, types')
+    LA.RecordType (pos, name, types')
   | ArrayType (pos, (ty, expr)) ->
     let ty' = inline_constants_of_lustre_type ctx ty in
     let expr' = simplify_expr ctx expr in

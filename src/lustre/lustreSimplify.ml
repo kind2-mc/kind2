@@ -2222,7 +2222,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
       D.singleton [D.AbstractTypeIndex (HString.string_of_hstring ident)] Type.t_int
 
   (* Record type, return trie of indexes in record *)
-  | A.RecordType (_, record_fields) -> 
+  | A.RecordType (_, _, record_fields) -> 
 
     (* Take all record fields *)
     List.fold_left

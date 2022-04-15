@@ -16,17 +16,17 @@ let
    --%MAIN ;
 tel;
 
-type t2 = subrange [-1, 0] of int;
-type t3 = {n: t1; d: t2};
-type t4 = {n: int; d: int};
+-- type t2 = subrange [-1, 0] of int;
+-- type t3 = {n: t1; d: t2};
+-- type t4 = {n: int; d: int};
 
-node N3 (i: t3) returns (o: t4);
-let
-   o = i;
-   --%PROPERTY -1 <= o.d and o.d <= 0;
-   --%PROPERTY 0 <= o.n and o.n <= 1;
-   --%MAIN ;
-tel;
+-- node N3 (i: t3) returns (o: t4);
+-- let
+--    o = i;
+--    --%PROPERTY -1 <= o.d and o.d <= 0;
+--    --%PROPERTY 0 <= o.n and o.n <= 1;
+--    --%MAIN ;
+-- tel;
 
 node N4 (i: t1) returns (o: int);
 (*@contract
