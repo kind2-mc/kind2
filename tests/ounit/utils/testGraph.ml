@@ -47,7 +47,7 @@ let basic_tests =
   ; "sorted dos" >:: (fun _ -> assert_equal [v1;v0] (G.topological_sort dos_connected_g))
   ; "cyclic dos" >:: (fun _ -> assert_bool "Cyclic graph is cyclic" (
     try let _ = G.topological_sort dos_cycle_g in false
-    with Graph.CyclicGraphException _ -> true))
+    with G.CyclicGraphException _ -> true))
   ]
 
 let rechability_tests =
