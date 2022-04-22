@@ -1,0 +1,11 @@
+type my_record = struct {
+  A: int^3;
+};
+
+node top() returns (r: my_record);
+var C,B:int^3;
+let
+  C[i] = if i=0 then 0 else B[i];
+  r = my_record { A=C; };
+  B[i] = if i=0 then 0 else r.A[i];
+tel
