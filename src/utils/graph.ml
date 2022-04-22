@@ -28,10 +28,6 @@ end
 exception IllegalGraphOperation
 (** The exception raised when an illegal edge is added *)
 
-exception CyclicGraphException of string list
-(** The exception raised when topological sort is tried on cyclic graph  *)
-
-
 module type S = sig 
   
   type vertex
@@ -122,6 +118,8 @@ module type S = sig
 
   val non_target_vertices: t -> vertices
   (** Returns a list of all vertices that have no incoming edge  *)
+
+  exception CyclicGraphException of vertex list
 
   (** {1 Graph Traversals}  *)
 
@@ -342,7 +340,9 @@ module Make (Ord: OrderedType) = struct
   (** Maps the [vertices] using the argument mapping, the structure should remain intact.
      Caution: The callee function (or the programmer) is supposed to make sure 
      it is not a surjective mapping to make sure that the graph structure is preserved. *)
-    
+
+  exception CyclicGraphException of vertex list
+
   let topological_sort: t -> vertex list = fun g ->
     let rec find_cycle ((_, edges) as g) current seen =
       if List.mem current seen then seen
@@ -367,8 +367,7 @@ module Make (Ord: OrderedType) = struct
           let no_incoming_vs = non_target_vertices g in
           let head = VSet.choose (VSet.diff vs no_incoming_vs) in
           let cycle = List.rev (find_cycle g head []) @ [head] in
-          raise (CyclicGraphException
-            (List.map (Lib.string_of_t pp_print_vertex) cycle))
+          raise (CyclicGraphException cycle)
         else sorted_vs
       else
         let new_g = VSet.fold (fun v g' -> remove_vertex g' v) no_outgoing_vs g in

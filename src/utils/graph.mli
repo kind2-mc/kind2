@@ -22,9 +22,6 @@
 exception IllegalGraphOperation
 (** The exception raised when an illegal edge is added *)
 
-exception CyclicGraphException of string list
-(** The exception raised when topological sort is tried on cyclic graph  *)
-
 module type OrderedType = sig
   type t
   val compare: t -> t -> int
@@ -123,8 +120,11 @@ module type S = sig
   val non_target_vertices: t -> vertices
   (** Returns a list of all vertices that have no incoming edge  *)
 
+  exception CyclicGraphException of vertex list
+  (** The exception raised when topological sort is tried on cyclic graph  *)
+
   (** {1 Graph Traversals}  *)
-    
+
   val topological_sort:  t ->  vertex list
   (** Computes a topological ordering of vertices 
    *  or throws an [CyclicGraphException] if the graph is cyclic.
