@@ -20,9 +20,9 @@
     @author Andrew Marmaduke *)
 
 type error_kind = Unknown of string
-  | ComplicatedExpr of HString.t * LustreAst.expr
-  | ExprNotSmaller of HString.t * LustreAst.expr
-  | ExprMissingIndex of HString.t * HString.t * LustreAst.expr
+  | ComplicatedExpr of LustreAst.expr
+  | ExprMissingIndex of HString.t * LustreAst.expr
+  | Cycle of HString.t list
 
 val error_message: error_kind -> string
 (** Returns an message describing the error kind *)
@@ -32,5 +32,6 @@ type error = [
 ]
 
 val check_inductive_array_dependencies: TypeCheckerContext.tc_context
+  -> LustreAstDependencies.node_summary
   -> LustreAst.t
   -> (unit, [> error]) result

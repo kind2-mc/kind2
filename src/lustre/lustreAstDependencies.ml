@@ -1295,7 +1295,7 @@ let sort_and_check_nodes_contracts decls =
     \n============\n%a\n============\n"
     LA.pp_print_program final_decls;
   
-  R.ok (final_decls, toplevel_nodes)
+  R.ok (final_decls, toplevel_nodes, analysis_data.nsummary)
 (** Returns a topological order of declarations to resolve all forward refernce. 
     It also reorders contract equations and checks for circularity of node equations *)  
 

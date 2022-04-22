@@ -112,6 +112,9 @@ module type S = sig
   val sub_graph: t -> vertices -> t    
   (** Gets a subgraph along with appropriate edges of given graph from a given set of vertices *)
 
+  val children: t -> vertex -> vertex list
+  (** Gets the immediate children of a vertex, those reachable by one edge *)
+
   val map: (vertex -> vertex) -> t -> t
   (** Maps the [vertices] using the argument mapping, the structure should remain intact.
      Caution: The callee function (or the programmer) is supposed to make sure 

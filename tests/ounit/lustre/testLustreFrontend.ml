@@ -130,11 +130,11 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
 let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
   mk_test "test invalid inductive array def 1" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array1.lus" with
-    | Error (`LustreArrayDependencies  (_, ExprNotSmaller _)) -> true
+    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
     | _ -> false);
   mk_test "test invalid inductive array def 2" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array2.lus" with
-    | Error (`LustreArrayDependencies  (_, ExprNotSmaller _)) -> true
+    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
     | _ -> false);
   mk_test "test invalid inductive array def 3" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array3.lus" with
@@ -142,7 +142,7 @@ let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
     | _ -> false);
   mk_test "test invalid inductive array def 4" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array4.lus" with
-    | Error (`LustreArrayDependencies  (_, ExprNotSmaller _)) -> true
+    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
     | _ -> false);
   mk_test "test invalid inductive array def 5" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array5.lus" with
@@ -150,7 +150,7 @@ let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
     | _ -> false);
   mk_test "test invalid inductive array def 6" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array6.lus" with
-    | Error (`LustreArrayDependencies  (_, ExprNotSmaller _)) -> true
+    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
     | _ -> false);
 ])
 
