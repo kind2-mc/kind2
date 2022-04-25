@@ -655,7 +655,7 @@ let pp_print_prop_source sys ppf = function
 let pp_print_property sys ppf {Property.prop_name; prop_source; prop_term} = 
   Format.fprintf 
     ppf
-    "@[<hv 1>(%s@ %a@ %a)@]"
+    "@[<hv 1>(\"%s\"@ %a@ %a)@]"
     prop_name
     pp_print_term prop_term
     (pp_print_prop_source sys) prop_source
