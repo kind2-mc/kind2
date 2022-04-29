@@ -83,39 +83,39 @@ let unwrap result = match result with
 
 let rec process_items ctx ns = function
   | (A.Body eqn :: tail) ->
-    let* (eqn_graph, eqn_pos_map) = process_equation ctx ns eqn in
-    let* (tail_graph, tail_pos_map) = process_items ctx ns tail in
+    let* (eqn_graph, eqn_pos_map, eqn_count) = process_equation ctx ns eqn in
+    let* (tail_graph, tail_pos_map, tail_count) = process_items ctx ns tail in
     let graph = union eqn_graph tail_graph in
     let map = StringMap.union (fun _ x _ -> Some x) eqn_pos_map tail_pos_map in
-    R.ok (graph, map)
+    R.ok (graph, map, eqn_count + tail_count)
   | _ :: tail -> process_items ctx ns tail
-  | [] -> R.ok (G.empty, StringMap.empty)
+  | [] -> R.ok (G.empty, StringMap.empty, 0)
 
 and process_equation ctx ns = function
   | A.Equation (_, A.StructDef (_, lhs), expr) ->
     process_lhs ctx ns 0 expr lhs
-  | _ -> R.ok (G.empty, StringMap.empty)
+  | _ -> R.ok (G.empty, StringMap.empty, 0)
 
 and process_lhs ctx ns proj expr = function
   | (A.ArrayDef (pos, id, indices) :: tail) ->
     (* TODO: how to handle multiple indices, substitute 0 for all of them? *)
     let* expr_graph = process_expr (Some (List.hd indices)) ctx ns proj None expr in
     let expr_graph = G.connect expr_graph (id, 0) in
-    let* (tail_graph, tail_pos_map) = process_lhs ctx ns (proj + 1) expr tail in
+    let* (tail_graph, tail_pos_map, count) = process_lhs ctx ns (proj + 1) expr tail in
     let graph = union expr_graph tail_graph in
     let map = StringMap.singleton id pos in
     let map = StringMap.union (fun _ x _ -> Some x) map tail_pos_map in
-    R.ok (graph, map)
+    R.ok (graph, map, count + 1)
   | (A.SingleIdent (pos, id) :: tail) ->
     let* expr_graph = process_expr None ctx ns proj None expr in
     let expr_graph = G.connect expr_graph (id, 0) in
-    let* (tail_graph, tail_pos_map)  = process_lhs ctx ns (proj + 1) expr tail in
+    let* (tail_graph, tail_pos_map, count)  = process_lhs ctx ns (proj + 1) expr tail in
     let graph = union expr_graph tail_graph in
     let map = StringMap.singleton id pos in
     let map = StringMap.union (fun _ x _ -> Some x) map tail_pos_map in
-    R.ok (graph, map)
+    R.ok (graph, map, count)
   | _ :: tail -> process_lhs ctx ns (proj + 1) expr tail
-  | [] -> R.ok (G.empty, StringMap.empty)
+  | [] -> R.ok (G.empty, StringMap.empty, 0)
 
 and process_expr ind_var ctx ns proj idx expr =
   let r expr = process_expr ind_var ctx ns proj idx expr in
@@ -242,10 +242,10 @@ and check_node_decl ctx ns decl =
     ctx
     locals
   in
-  let* (graph, pos_map) = process_items ctx ns items in
+  let* (graph, pos_map, count) = process_items ctx ns items in
+  let graph = add_offset_edges count graph in
   let graph = add_wellfounded_edges graph in
-  let graph = add_offset_edges graph in
-  (* Format.eprintf "Inductive arrays graph: %a@." G.pp_print_graph graph; *)
+  Format.eprintf "Inductive arrays graph: %a@." G.pp_print_graph graph;
   let* _ = (try (Res.ok (G.topological_sort graph)) with
     | G.CyclicGraphException ids ->
       let (id, _) = List.hd ids in
@@ -256,7 +256,7 @@ and check_node_decl ctx ns decl =
           (match idx with
             | 0 -> HString.mk_hstring ""
             | x -> if x > 0 then HString.mk_hstring "+" 
-              else HString.mk_hstring "-");
+              else HString.mk_hstring "");
           (if idx = 0 then HString.mk_hstring ""
             else HString.mk_hstring (string_of_int idx));
           HString.mk_hstring "]"])
@@ -294,7 +294,7 @@ and add_wellfounded_edges graph =
   let edges = List.map mk_edges parts in
   List.fold_left union graph edges
 
-and add_offset_edges graph =
+and add_offset_edges n graph =
   let vertices = G.get_vertices graph |> G.to_vertex_list in
   let non_zero_vertices = List.filter (fun (_, idx) -> idx != 0) vertices in
   let mk_edges ((id, idx) as v) =
@@ -305,4 +305,18 @@ and add_offset_edges graph =
     (* Format.eprintf "graph: %a@." G.pp_print_graph graph; *)
     graph
   in
-  List.fold_left (fun acc v -> union acc (mk_edges v)) graph non_zero_vertices
+  let get_new_vertices graph old =
+    let vertices = G.get_vertices graph |> G.to_vertex_list in
+    List.filter (fun v -> not (List.mem v old)) vertices
+  in
+  let rec loop n vertices graph =
+    if n <= 0 then graph
+    else
+    let new_edges = List.fold_left
+      (fun acc v -> union acc (mk_edges v))
+      G.empty 
+      vertices
+    in
+    loop (n - 1) (get_new_vertices new_edges vertices) (union new_edges graph)
+  in
+  loop n non_zero_vertices graph

@@ -156,6 +156,10 @@ let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
     match load_file "./lustreArrayDependencies/inductive_array7.lus" with
     | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
     | _ -> false);
+  mk_test "test invalid inductive array def 8" (fun () ->
+    match load_file "./lustreArrayDependencies/inductive_array8.lus" with
+    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
