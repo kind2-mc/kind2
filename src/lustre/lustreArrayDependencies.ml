@@ -30,16 +30,18 @@ module Chk = LustreTypeChecker
 module StringMap = HString.HStringMap
 
 module G = Graph.Make(struct
-  type t = A.ident * int
+  type t = A.ident * int list
 
   let compare (id1, idx1) (id2, idx2) =
     match HString.compare id1 id2 with
-    | 0 -> idx1 - idx2
+    | 0 -> 
+      let lexiographic_order = List.map (fun (i, j) -> i - j) (List.combine idx1 idx2) in
+      List.hd (List.filter (fun i -> i != 0) lexiographic_order)
     | x -> x
 
   let pp_print_t = Lib.pp_print_pair
     (A.pp_print_ident)
-    (Format.pp_print_int)
+    (Lib.pp_print_list Format.pp_print_int " ")
     " "
 end)
 
@@ -98,17 +100,18 @@ and process_equation ctx ns = function
 
 and process_lhs ctx ns proj expr = function
   | (A.ArrayDef (pos, id, indices) :: tail) ->
+    let zero_list = List.map (fun _ -> 0) indices in
     (* TODO: how to handle multiple indices, substitute 0 for all of them? *)
-    let* expr_graph = process_expr (Some (List.hd indices)) ctx ns proj None expr in
-    let expr_graph = G.connect expr_graph (id, 0) in
+    let* expr_graph = process_expr (Some indices) ctx ns proj [] expr in
+    let expr_graph = G.connect expr_graph (id, zero_list) in
     let* (tail_graph, tail_pos_map, count) = process_lhs ctx ns (proj + 1) expr tail in
     let graph = union expr_graph tail_graph in
     let map = StringMap.singleton id pos in
     let map = StringMap.union (fun _ x _ -> Some x) map tail_pos_map in
     R.ok (graph, map, count + 1)
   | (A.SingleIdent (pos, id) :: tail) ->
-    let* expr_graph = process_expr None ctx ns proj None expr in
-    let expr_graph = G.connect expr_graph (id, 0) in
+    let* expr_graph = process_expr None ctx ns proj [] expr in
+    let expr_graph = G.connect expr_graph (id, 0 :: []) in
     let* (tail_graph, tail_pos_map, count)  = process_lhs ctx ns (proj + 1) expr tail in
     let graph = union expr_graph tail_graph in
     let map = StringMap.singleton id pos in
@@ -117,14 +120,12 @@ and process_lhs ctx ns proj expr = function
   | _ :: tail -> process_lhs ctx ns (proj + 1) expr tail
   | [] -> R.ok (G.empty, StringMap.empty, 0)
 
-and process_expr ind_var ctx ns proj idx expr =
-  let r expr = process_expr ind_var ctx ns proj idx expr in
+and process_expr ind_vars ctx ns proj indices expr =
+  let r expr = process_expr ind_vars ctx ns proj indices expr in
   match expr with
   (* Identifiers *)
   | A.Ident (_, id) ->
-    let idx = match idx with Some idx -> idx | None -> 0 in
-    let graph = G.singleton (id, idx) in
-    R.ok graph
+    R.ok (G.singleton (id, indices))
   | ModeRef _ -> empty_
   | RecordProject (_, e, _) -> r e
   | TupleProject (_, e, _) -> r e
@@ -154,15 +155,17 @@ and process_expr ind_var ctx ns proj idx expr =
   | ArraySlice (_, e1, (e2, e3)) ->
     union_ (union_ (r e1) (r e2)) (r e3)
   | ArrayIndex (p, e, idx) ->
-    (match ind_var with
-    | Some ind_var' ->
-      let idx' = AH.substitute ind_var' zero idx in
+    (match ind_vars with
+    | Some ind_vars' ->
+      let ind_var = List.hd ind_vars' in
+      let idx' = AH.substitute ind_var zero idx in
       (match AIC.eval_int_expr ctx idx' with
       | Ok idx' ->
         let idx_vars = AH.vars idx in
-        if A.SI.mem ind_var' idx_vars then
-          process_expr ind_var ctx ns proj (Some idx') e
-        else mk_error p (ExprMissingIndex (ind_var', idx))
+        if A.SI.cardinal idx_vars = 1 && A.SI.mem ind_var idx_vars then
+          let ind_vars = Some (List.tl ind_vars') in
+          process_expr ind_vars ctx ns proj (idx' :: indices) e
+        else mk_error p (ExprMissingIndex (ind_var, idx))
       | Error _ -> mk_error p (ComplicatedExpr idx))
     | None -> r e)
   | ArrayConcat (_, e1, e2) -> union_ (r e1) (r e2)
@@ -170,7 +173,7 @@ and process_expr ind_var ctx ns proj idx expr =
   | Quantifier (_, _, vars, e) ->
     let* graph = r e in
     let graph = List.fold_left
-      (fun acc (_, id, _) -> G.remove_vertex acc (id, 0))
+      (fun acc (_, id, _) -> G.remove_vertex acc (id, 0 :: []))
       graph
       vars
     in
@@ -243,42 +246,37 @@ and check_node_decl ctx ns decl =
     locals
   in
   let* (graph, pos_map, count) = process_items ctx ns items in
-  let graph = add_offset_edges count graph in
-  let graph = add_wellfounded_edges graph in
+  let graph = add_offset_edges 0 count graph in
+  let graph = add_wellfounded_edges 0 graph in
   Format.eprintf "Inductive arrays graph: %a@." G.pp_print_graph graph;
   let* _ = (try (Res.ok (G.topological_sort graph)) with
     | G.CyclicGraphException ids ->
       let (id, _) = List.hd ids in
       let pos = StringMap.find id pos_map in
-      let ids = List.map (fun (id, idx) ->
-        HString.concat (HString.mk_hstring "") [id;
-          HString.mk_hstring "[i";
-          (match idx with
-            | 0 -> HString.mk_hstring ""
-            | x -> if x > 0 then HString.mk_hstring "+" 
-              else HString.mk_hstring "");
-          (if idx = 0 then HString.mk_hstring ""
-            else HString.mk_hstring (string_of_int idx));
-          HString.mk_hstring "]"])
+      let ids = List.map (fun (id, _idx) ->
+        HString.concat (HString.mk_hstring "") [id])
         ids
       in
       mk_error pos (Cycle ids))
   in
   R.ok ()
 
-and add_wellfounded_edges graph =
+and add_wellfounded_edges idx graph =
   let vertices = G.get_vertices graph |> G.to_vertex_list in
   let rec partition_by_id vertices =
     if vertices = [] then []
     else
-      let (id, idx) = List.hd vertices in
+      let (id, indices) = List.hd vertices in
       let vertices = List.tl vertices in
       let (id_vertices, other) = List.partition 
         (fun (id', _) -> HString.equal id id')
         vertices
       in
-      let id_verts = (id, idx) :: id_vertices in
-      let id_verts = List.sort (fun (_, i1) (_, i2) -> i2 - i1) id_verts in
+      let id_verts = (id, indices) :: id_vertices in
+      let id_verts = List.sort (fun (_, i1) (_, i2) -> 
+        List.nth i2 idx - List.nth i1 idx)
+        id_verts 
+      in
       [id_verts] @ partition_by_id other
   in
   let rec mk_edges vertices =
@@ -294,7 +292,7 @@ and add_wellfounded_edges graph =
   let edges = List.map mk_edges parts in
   List.fold_left union graph edges
 
-and add_offset_edges n graph =
+and add_offset_edges idx count graph =
   let vertices = G.get_vertices graph |> G.to_vertex_list in
   let non_zero_vertices = List.filter (fun (_, idx) -> idx != 0) vertices in
   let mk_edges ((id, idx) as v) =
