@@ -343,7 +343,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
           mk_bounds (Type.elem_type_of_array ty) acc
         else acc
       in
-      let bounds' = mk_bounds state_var_type [] in
+      let bounds' = List.rev (mk_bounds state_var_type []) in
       expand_tuple' pos accum (bounds' @ bounds)
         (([], state_var) :: lhs_tl)
         (([], expr) :: rhs_tl)
