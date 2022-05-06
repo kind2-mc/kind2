@@ -334,10 +334,17 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       else expand_tuple' pos accum bounds lhs_tl (([], expr) :: rhs_tl)
     else
       let state_var_type = StateVar.type_of_state_var state_var in
-      let index_type = Type.index_type_of_array state_var_type in
-      let (_, u) = Type.bounds_of_int_range index_type in
-      let uexpr = E.mk_int_expr u in
-      expand_tuple' pos accum (E.Bound uexpr :: bounds)
+      let rec mk_bounds ty acc =
+        if Type.is_array ty then
+          let index_type = Type.index_type_of_array ty in
+          let (_, u) = Type.bounds_of_int_range index_type in
+          let uexpr = E.mk_int_expr u in
+          let acc = E.Bound uexpr :: acc in
+          mk_bounds (Type.elem_type_of_array ty) acc
+        else acc
+      in
+      let bounds' = List.rev (mk_bounds state_var_type []) in
+      expand_tuple' pos accum (bounds' @ bounds)
         (([], state_var) :: lhs_tl)
         (([], expr) :: rhs_tl)
   (* Array variable on left-hand side, fixed index on right-hand side *)
@@ -1816,7 +1823,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       H.add_seq !map.quant_vars (H.to_seq quant_var_map);
       let eq_rhs = compile_ast_expr cstate ctx bounds map ast_expr in
       let eq_rhs = flatten_list_indexes eq_rhs in
-(*       Format.eprintf "lhs: %a\n\n rhs: %a\n\n"
+      (* Format.eprintf "lhs: %a\n\n rhs: %a\n\n"
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
       
