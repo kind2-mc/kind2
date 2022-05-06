@@ -243,14 +243,14 @@ and simplify_tuple_proj: TC.tc_context -> Lib.position -> LA.expr -> int -> LA.e
   | _ -> TupleProject (pos, e1, idx)
 (** picks out the idx'th component of a tuple if it is possible *)
 
-and push_pre is_guarded pos =
-  let r e = push_pre is_guarded pos e in
+and push_pre pos =
+  let r e = push_pre pos e in
   function
   | LA.Ident _ as e -> LA.Pre (pos, e)
   | ModeRef _ as e -> LA.Pre (pos, e)
   | RecordProject (p, e, i) -> RecordProject (p, r e, i)
   | TupleProject (p, e, i) -> TupleProject (p, r e, i)
-  | Const _ as e -> if is_guarded then e else Pre (pos, e)
+  | Const _ as e -> e
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
   | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
@@ -308,7 +308,8 @@ and simplify_expr ?(is_guarded = false) ctx =
     | _ -> e')
   | LA.Pre (pos, e) ->
     let e' = simplify_expr ~is_guarded:false ctx e in
-    push_pre is_guarded pos e'
+    if is_guarded then push_pre pos e'
+    else Pre (pos, e')
   | Arrow (pos, e1, e2) ->
     let e1' = simplify_expr ~is_guarded ctx e1 in
     let e2' = simplify_expr ~is_guarded:true ctx e2 in
