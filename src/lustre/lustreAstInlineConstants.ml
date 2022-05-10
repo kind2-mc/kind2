@@ -306,9 +306,12 @@ and simplify_expr ?(is_guarded = false) ctx =
       | Ok v -> if v then LA.Const(pos, True) else LA.Const (pos, False)
       | Error _ -> e')
     | _ -> e')
+  | LA.Pre (_, (Const _ as c)) as e ->
+    if is_guarded then c else e
   | LA.Pre (pos, e) ->
     let e' = simplify_expr ~is_guarded:false ctx e in
-    if is_guarded then push_pre pos e'
+    if is_guarded && Flags.lus_push_pre () then 
+      push_pre pos e'
     else Pre (pos, e')
   | Arrow (pos, e1, e2) ->
     let e1' = simplify_expr ~is_guarded ctx e1 in
