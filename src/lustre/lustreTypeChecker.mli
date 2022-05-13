@@ -106,6 +106,9 @@ val local_var_binding: tc_context -> LA.node_local_decl -> (tc_context, [> error
 val infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 
+val eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result
+(** Check if two lustre types are equal *)
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

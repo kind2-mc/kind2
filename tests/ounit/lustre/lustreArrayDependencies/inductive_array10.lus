@@ -1,0 +1,7 @@
+
+node top(const n: int) returns (A: int^n^n; B: int^n^n; C: int^n^n);
+let
+  A[k][j] = B[k+1][j+2] + 1;
+  B[k][j] = C[k-1][j-2] - 2;
+  C[k][j] = A[k][j] + k;
+tel

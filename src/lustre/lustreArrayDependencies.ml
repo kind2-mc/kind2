@@ -91,6 +91,10 @@ let unwrap result = match result with
   | Ok r -> r
   | Error _ -> assert false
 
+let rec expr_index_layers = function
+  | A.ArrayIndex (_, e, _) -> 1 + expr_index_layers e
+  | _ -> 0
+
 let rec process_items ctx ns = function
   | (A.Body eqn :: tail) ->
     let* (eqn_graph, eqn_pos_map, eqn_count, eqn_len) = process_equation ctx ns eqn in
@@ -109,8 +113,7 @@ and process_equation ctx ns = function
 and process_lhs ctx ns proj expr = function
   | (A.ArrayDef (pos, id, indices) :: tail) ->
     let zero_list = List.map (fun _ -> 0) indices in
-    (* TODO: how to handle multiple indices, substitute 0 for all of them? *)
-    let* expr_graph = process_expr (Some indices) ctx ns proj [] expr in
+    let* expr_graph = process_expr (Some (List.rev indices)) ctx ns proj [] expr in
     let expr_graph = G.connect expr_graph (id, zero_list) in
     let* (tail_graph, tail_pos_map, count, len) = process_lhs ctx ns (proj + 1) expr tail in
     let graph = union expr_graph tail_graph in
@@ -163,19 +166,26 @@ and process_expr ind_vars ctx ns proj indices expr =
   | ArraySlice (_, e1, (e2, e3)) ->
     union_ (union_ (r e1) (r e2)) (r e3)
   | ArrayIndex (p, e, idx) ->
-    (match ind_vars with
-    | Some ind_vars' ->
-      let ind_var = List.hd ind_vars' in
-      let idx' = AH.substitute ind_var zero idx in
-      (match AIC.eval_int_expr ctx idx' with
-      | Ok idx' ->
-        let idx_vars = AH.vars idx in
-        if A.SI.cardinal idx_vars = 1 && A.SI.mem ind_var idx_vars then
-          let ind_vars = Some (List.tl ind_vars') in
-          process_expr ind_vars ctx ns proj (idx' :: indices) e
-        else mk_error p (ExprMissingIndex (ind_var, idx))
-      | Error _ -> mk_error p (ComplicatedExpr idx))
-    | None -> r e)
+    let n = match ind_vars with
+      | Some iv -> List.length iv
+      | None -> 0
+    in
+    let index_layers = expr_index_layers e + 1 in
+    if n = index_layers then
+      (match ind_vars with
+      | Some ind_vars' ->
+        let ind_var = List.hd ind_vars' in
+        let idx' = AH.substitute ind_var zero idx in
+        (match AIC.eval_int_expr ctx idx' with
+        | Ok idx' ->
+          let idx_vars = AH.vars idx in
+          if A.SI.cardinal idx_vars = 1 && A.SI.mem ind_var idx_vars then
+            let ind_vars = Some (List.tl ind_vars') in
+            process_expr ind_vars ctx ns proj (idx' :: indices) e
+          else mk_error p (ExprMissingIndex (ind_var, idx))
+        | Error _ -> mk_error p (ComplicatedExpr idx))
+      | None -> r e)
+    else r e
   | ArrayConcat (_, e1, e2) -> union_ (r e1) (r e2)
   (* Quantified expressions *)
   | Quantifier (_, _, vars, e) ->
@@ -254,18 +264,13 @@ and check_node_decl ctx ns decl =
     locals
   in
   let* (graph, pos_map, count, idx_len) = process_items ctx ns items in
-  let rec loop_offsets n graph =
-    if n = 0 then G.empty else
-    let inner = add_offset_edges (n - 1) count graph in
-    G.union (loop_offsets (n - 1) graph) inner
-  in
-  Format.eprintf "Initial graph: %a@." G.pp_print_graph graph;
+  (* Format.eprintf "Initial graph: %a@." G.pp_print_graph graph; *)
   let graph = add_init_edges idx_len graph in
-  Format.eprintf "After inits: %a@." G.pp_print_graph graph;
-  let graph = loop_offsets idx_len graph in
-  Format.eprintf "After offsets: %a@." G.pp_print_graph graph;
+  (* Format.eprintf "After inits: %a@." G.pp_print_graph graph; *)
+  let graph = add_offset_edges count graph  in
+  (* Format.eprintf "After offsets: %a@." G.pp_print_graph graph; *)
   let graph = add_wellfounded_edges idx_len graph in
-  Format.eprintf "After wellfounded: %a@." G.pp_print_graph graph;
+  (* Format.eprintf "After wellfounded: %a@." G.pp_print_graph graph; *)
   let* _ = (try (Res.ok (G.topological_sort graph)) with
     | G.CyclicGraphException ids ->
       let (id, _) = List.hd ids in
@@ -310,34 +315,28 @@ and add_wellfounded_edges idx_len graph =
     union graph (mk_edges vertices)
   in
   let parts = partition_by_id vertices in
-  (* Format.eprintf "parts: %a @." (Lib.pp_print_list (Lib.pp_print_list G.pp_print_vertex " ") ";") parts; *)
   let edges = List.map mk_edges parts in
   List.fold_left union graph edges
 
-and add_offset_edges idx count graph =
+and add_offset_edges count graph =
   let vertices = G.get_vertices graph |> G.to_vertex_list in
   let non_zero_vertices = List.filter
-    (fun (_, idxs) -> match (List.nth_opt idxs idx) with
-      | Some x -> x != 0
-      | None -> false)
+    (fun (_, idxs) -> List.fold_left (&&) true (List.map (fun i -> i != 0) idxs))
     vertices
   in
   let mk_edges ((id, offsets) as v) =
-    match (List.nth_opt offsets idx) with
-    | None -> G.empty
-    | Some offsets_idx ->
-      let nhbd = G.children graph
-        (id, List.mapi (fun i e -> if i = idx then 0 else e) offsets)
-      in
-      let nhbd_offset = List.map
-        (fun (id', offsets') -> (id', 
-          List.mapi (fun i e -> if i = idx then e + offsets_idx else e) offsets'))
-        nhbd
-      in
-      let graph = List.fold_left G.add_vertex G.empty nhbd_offset in
-      let graph = G.connect graph v in
-      (* Format.eprintf "graph: %a@." G.pp_print_graph graph; *)
-      graph
+    let offsets_len = List.length offsets in
+    let nhbd = G.children graph
+      (id, List.mapi (fun _ _ -> 0) offsets)
+    in
+    let nhbd_offset = List.map
+      (fun (id', offsets') -> (id', 
+        List.mapi (fun i e -> if i < offsets_len then e + (List.nth offsets i) else e) offsets'))
+      nhbd
+    in
+    let graph = List.fold_left G.add_vertex G.empty nhbd_offset in
+    let graph = G.connect graph v in
+    graph
   in
   let get_new_vertices graph old =
     let vertices = G.get_vertices graph |> G.to_vertex_list in
