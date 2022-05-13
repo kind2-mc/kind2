@@ -95,6 +95,7 @@ let rec expr_index_layers = function
   | A.ArrayIndex (_, e, _) -> 1 + expr_index_layers e
   | _ -> 0
 
+(** TODO: node summaries need offset information *)
 let rec process_items ctx ns = function
   | (A.Body eqn :: tail) ->
     let* (eqn_graph, eqn_pos_map, eqn_count, eqn_len) = process_equation ctx ns eqn in
@@ -285,6 +286,18 @@ and check_node_decl ctx ns decl =
   in
   R.ok ()
 
+(*
+  Wellfounded edges prevent larger indexes from being valid.
+
+  For example, the equation A[i] = A[i+1] should be rejected, this equation gives us
+  A 0 -> A 1, A 1 -> A 2
+
+  after the init pass and the offset pass, the wellfounded pass will create a new edge
+  from every node to every other node whose index value is smaller, thus we get new edges:
+  A 2 -> A 1, A 1 -> A 0
+
+  which leads to a cycle
+*)
 and add_wellfounded_edges idx_len graph =
   let vertices = G.get_vertices graph |> G.to_vertex_list in
   let vertices = List.filter
@@ -318,6 +331,26 @@ and add_wellfounded_edges idx_len graph =
   let edges = List.map mk_edges parts in
   List.fold_left union graph edges
 
+(*
+  Adding offset edges recursively adds new edges of an equation at a given instanation
+  count number of times.
+
+  For example, given
+  A 0 0 -> A -1 -2, B 0 -1
+
+  the first iteration gives the edges:
+  A -1 -2 -> A -2 -4, B -1 -3
+
+  the second iteration gives the edges:
+  A -2 -4 -> A -3 -6, B -2 -5
+
+  and so on and so forth, for every equation
+  Each iteration uses the immediate children of the zeroth node
+
+  At the moment `count` is intialized to the number of equations in a node, it has
+  not been proven that this is a sufficient number of iterations to find all possible
+  cycles.
+*)
 and add_offset_edges count graph =
   let vertices = G.get_vertices graph |> G.to_vertex_list in
   let non_zero_vertices = List.filter
@@ -354,6 +387,14 @@ and add_offset_edges count graph =
   in
   loop count non_zero_vertices graph
 
+(*
+  Some edges are created that do not contain all indexes up to the max length.
+  For instance, A[i] = B[i][8] + k and B[i][j] = B[i-1][j-1] gives us:
+  A 0 -> B 0, B 0 0 -> B -1 -1, A 0 -> k
+
+  This helper function adds fully zero indexed variants to the initial nodes, giving:
+  A 0 -> A 0 0, B 0 -> B 0 0, k -> k 0 0
+*)
 and add_init_edges idx_len graph =
   let vertices = G.get_vertices graph |> G.to_vertex_list in
   let sub_length_vertices = List.filter
