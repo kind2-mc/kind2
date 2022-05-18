@@ -1,3 +1,41 @@
+# Unreleased
+
+New features:
+
+- A new implementation of Kind 2's language front-end with:
+  - Support for forward references to nodes and modes in contracts.
+  - Individual namespaces for imported contracts.
+  - Enhanced type checking of composite data types.
+
+  Internally, the new implementation follows a multi-pass approach more strictly.
+  This should facilitate the extensibility and maintenance of the new front-end.
+  Although we strongly encourage users to use the new front-end,
+  the old front-end can still be enabled for now by passing
+  `--old_frontend true` to Kind 2.
+
+Improvements:
+
+- Fix issue where the inductive step check could incorrectly declare a property
+  k-inductive after a contract has been refined in compositional verification.
+- Fix bug in minimization of set of invariants.
+- Fix XML and JSON output produced by the certificate generation post-analysis.
+- Include various updates and fixes to the realizability and
+  satisfiability checks of contracts. Now there is a flag to (de)activate
+  the computation of a deadlocking trace, `--print_deadlock`, and a flag to
+  (de)activate the satisfiability check of an unrealizable contract,
+  `--check_contract_is_sat`.
+
+Changes:
+
+- New default behavior: if no node is marked as a main node,
+  Kind 2 considers _all_ the top nodes for analysis.
+- Functional congruence is only enforced on abstract functions when
+  the flag `--enforce_func_congruence` is true (default: false).
+- Make Kind 2 compatible with recent versions of Menhir (20211230 and later).
+- Remove two experimental post-analyses: invariant logging and silent contract loading.
+- Remove support for automata.
+
+
 # Kind 2 v1.5.1
 
 This release includes performance improvements and various fixes. Notably:
