@@ -1,4 +1,4 @@
-# Unreleased
+# Kind 2 v1.6.0
 
 New features:
 
