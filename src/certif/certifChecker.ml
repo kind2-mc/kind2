@@ -539,7 +539,7 @@ exception Reduce_cont of (unit -> Term.t list * Term.t list)
    - Returns a subset of invs_acts which preserves inductiveness otherwise.
 *)
 let rec trim
-    solver invs_acts prev_props_act prop'act neg_prop'act trans_acts =
+  solver uinvs_acc invs_acts prev_props_act prop'act neg_prop'act trans_acts =
 
   let if_sat _ =
     (* this should not happen because we've already performed the inductive
@@ -553,9 +553,10 @@ let rec trim
        modify the solver state before calling the continuation *)
     let uc = SMTSolver.get_unsat_core_lits solver in
 
-    (* Identify the useful invariants with the unsat core *)    
-    let uinvs_acts =
-      List.filter (fun (a, _) -> List.exists (Term.equal a) uc) invs_acts in
+    (* Identify the useful invariants with the unsat core *)
+    let uinvs_acts, invs_acts =
+      List.partition (fun (a, _) -> List.exists (Term.equal a) uc) invs_acts
+    in
 
     Debug.certif "[Fixpoint] extracted %d useful invariants"
       (List.length uinvs_acts);
@@ -573,7 +574,7 @@ let rec trim
     let neg_new_prop' = Term.mk_not new_prop' in
     let neg_new_prop'act = actlitify solver neg_new_prop' in
 
-    (* let acc = uinvs' @ acc in *)
+    let uinvs_acc = uinvs' @ uinvs_acc in
 
     (* Check preservation of invariants by k-steps *)
     SMTSolver.check_sat_assuming solver
@@ -583,8 +584,8 @@ let rec trim
          Debug.certif
            "[Fixpoint] could not verify inductiveness";
 
-         trim solver
-           invs_acts new_prop_act new_prop'act neg_new_prop'act trans_acts)
+         trim solver uinvs_acc invs_acts
+           new_prop_act new_prop'act neg_new_prop'act trans_acts)
       
       (fun _ ->
          (* UNSAT: return accumulated invariants *)
@@ -593,7 +594,7 @@ let rec trim
 
          (* Return useful invariants (identified by their activation
             literals) *)
-         uinvs')
+         uinvs_acc)
 
       (trans_acts @ new_prop_acts @ [neg_new_prop'act])
   in
@@ -694,7 +695,7 @@ let rec check_ind_and_trim ~just_check_ind sys k prop invs_terms
        | _ ->
          (* Otherwise complete the fixpoint in the continuation *)
          trim solver
-           invs_acts prev_props_act prop'act neg_prop'act trans_acts, must
+           [] invs_acts prev_props_act prop'act neg_prop'act trans_acts, must
      in
 
      if just_check_ind then raise (Reduce_cont cont)

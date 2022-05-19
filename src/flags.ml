@@ -3112,6 +3112,23 @@ module Global = struct
     )
   let lus_strict () = !lus_strict || (lus_compile ())
 
+  (* Reject unguarded pre's in Lustre file. *)
+  let lus_push_pre_default = false
+  let lus_push_pre = ref lus_push_pre_default
+  let _ = add_spec
+    "--lus_push_pre"
+    (bool_arg lus_push_pre)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Optional transformation of pre expressions to push them@ \
+          deeper into the AST, e.g. `pre (x + y)` becomes `pre x + pre y`@ \
+          Default: %a\
+        "
+        fmt_bool lus_push_pre_default
+    )
+  let lus_push_pre () = !lus_push_pre
+
   (* Active debug sections. *)
   let debug_default = []
   let debug_ref = ref debug_default
@@ -3270,6 +3287,7 @@ let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable
 let lus_strict = Global.lus_strict
+let lus_push_pre = Global.lus_push_pre
 let modular = Global.modular
 let slice_nodes = Global.slice_nodes
 let check_subproperties = Global.check_subproperties

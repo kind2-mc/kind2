@@ -51,8 +51,9 @@ jobs:
   kind2-macos-bin:
     if: github.repository == 'kind2-mc/kind2'
     strategy:
-      matrix:
-        ocaml-version: [ 4.12.0 ]
+      matrix: # Single configuration
+        ocaml-version: [ 4.14.0 ]
+        # Only matrix variables can be used at runs-on
         os: [ macos-10.15 ]
 
     runs-on: ${{ matrix.os }}
@@ -61,10 +62,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up OCaml ${{ matrix.ocaml-version }}
+    - name: Set up OCaml ${{ matrix.ocaml-version }}+flambda
       uses: ocaml/setup-ocaml@v2
       with:
-        ocaml-compiler: ${{ matrix.ocaml-version }}
+        ocaml-compiler: ocaml-variants.${{ matrix.ocaml-version }}+options,ocaml-option-flambda
 
     - name: Install Kind2 OCaml dependencies
       run: opam install -y . --deps-only

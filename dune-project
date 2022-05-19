@@ -23,7 +23,9 @@ More advanced features include contract-based compositional verification, proof 
    (>= 4.09))
   dune
   dune-build-info
-  menhir
+  (menhir
+   (>= 20180523)) ; Required by dune when the infer option is used
+                  ; See issue: https://github.com/ocaml/dune/issues/1392
   num
   (odoc :with-doc)
   (ounit2 :with-test)

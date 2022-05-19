@@ -36,7 +36,7 @@ kind2-doc:
 	@cp -rf $(DUNE_DOCDIR)/* $(LOCAL_DOCDIR)
 
 test: build
-	@dune build tests @runtest
+	@dune build @runtest
 	@$(CURDIR)/tests/run.sh $(CURDIR)/tests/regression $(CURDIR)/bin/kind2 --timeout 42
 
 uninstall:
