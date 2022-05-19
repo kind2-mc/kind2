@@ -1,11 +1,11 @@
 
-(dirs lustreSyntaxChecks
-  lustreTypeChecker
-  lustreAstDependencies
-  lustreParser
-  lustreAstInlineConstants)
-
 (tests
   (names testAstDependencies testLustreFrontend)
+  (deps
+   (glob_files lustreParser/*.lus)
+   (glob_files lustreAstInlineConstants/*.lus)
+   (glob_files lustreSyntaxChecks/*.lus)
+   (glob_files lustreAstDependencies/*.lus)
+   (glob_files lustreTypeChecker/*.lus)
+  )
   (libraries ounit2 kind2dev))
-
