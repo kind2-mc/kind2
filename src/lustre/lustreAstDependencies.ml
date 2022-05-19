@@ -971,8 +971,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
   let ids_to_skip = SI.of_list (ip_ids @ op_ids) in 
   let ad' = mk_graph_contract_decl2 ad decl in
   let* sorted_ids = (try (R.ok (G.topological_sort ad'.graph_data)) with
-    | Graph.CyclicGraphException ids ->
-      let ids = List.map HString.mk_hstring ids in
+    | G.CyclicGraphException ids ->
       match (find_id_pos ad'.id_pos_data (List.hd ids)) with
         | None -> assert false (* LustreSyntaxChecks should guarantee this is impossible *)
         | Some p -> graph_error p (CyclicDependency ids))
@@ -1002,8 +1001,7 @@ let sort_declarations: LA.t -> ((LA.t * LA.ident list), [> error]) result
   let ad = mk_graph_decls decls in
   (* 3. try to sort it, raise an error if it is cyclic, or extract sorted decls from the decl_map *)
   let* sorted_ids = (try (R.ok (G.topological_sort ad.graph_data)) with
-   | Graph.CyclicGraphException ids ->
-      let ids = List.map HString.mk_hstring ids in
+   | G.CyclicGraphException ids ->
       match (find_id_pos ad.id_pos_data (List.hd ids)) with
         | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
         | Some p -> graph_error p (CyclicDependency ids))
@@ -1182,8 +1180,7 @@ let analyze_circ_node_equations: node_summary -> LA.node_item list -> (unit, [> 
   Debug.parse "Checking circularity in node equations";
   let* ad = mk_graph_node_items m eqns in
   (try (R.ok (G.topological_sort ad.graph_data)) with
-    | Graph.CyclicGraphException ids ->
-      let ids = List.map HString.mk_hstring ids in
+    | G.CyclicGraphException ids ->
       match (find_id_pos ad.id_pos_data (List.hd ids)) with
         | None -> assert false (* SyntaxChecks should guarantee this is impossible *)
         | Some p -> graph_error p (CyclicDependency ids))
@@ -1295,7 +1292,7 @@ let sort_and_check_nodes_contracts decls =
     \n============\n%a\n============\n"
     LA.pp_print_program final_decls;
   
-  R.ok (final_decls, toplevel_nodes)
+  R.ok (final_decls, toplevel_nodes, analysis_data.nsummary)
 (** Returns a topological order of declarations to resolve all forward refernce. 
     It also reorders contract equations and checks for circularity of node equations *)  
 
