@@ -125,9 +125,9 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
 ])
 
 (* *************************************************************************** *)
-(*                   Lustre Ast Inline Constants Checks                        *)
+(*                   Lustre Ast Array Dependencies Checks                      *)
 (* *************************************************************************** *)
-let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
+(*let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
   mk_test "test invalid inductive array def 1" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array1.lus" with
     | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
@@ -172,7 +172,7 @@ let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
     match load_file "./lustreArrayDependencies/inductive_array11.lus" with
     | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
     | _ -> false);
-])
+])*)
 
 (* *************************************************************************** *)
 (*                      Lustre Ast Dependencies Checks                         *)
