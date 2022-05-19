@@ -1003,15 +1003,15 @@ and rename_id info = function
 
 and abstract_expr ?guard force info map is_ghost expr = 
   let ivars = info.inductive_variables in
-  if should_not_abstract info force expr then
-    rename_id info expr, empty ()
+  let pos = AH.pos_of_expr expr in
+  let ty = if expr_has_inductive_var ivars expr |> is_some then
+    (StringMap.choose_opt info.inductive_variables) |> get |> snd
+  else Chk.infer_type_expr info.context expr |> unwrap
+  in
+  let nexpr, gids1 = normalize_expr ?guard info map expr in
+  if should_not_abstract info force nexpr then
+    nexpr, gids1
   else
-    let pos = AH.pos_of_expr expr in
-    let ty = if expr_has_inductive_var ivars expr |> is_some then
-      (StringMap.choose_opt info.inductive_variables) |> get |> snd
-    else Chk.infer_type_expr info.context expr |> unwrap
-    in
-    let nexpr, gids1 = normalize_expr ?guard info map expr in
     let iexpr, gids2 = mk_fresh_local force info pos is_ghost ivars ty nexpr expr in
     iexpr, union gids1 gids2
 
@@ -1149,9 +1149,9 @@ and normalize_expr ?guard info map =
     let nexpr2, gids2 = normalize_expr ?guard:(Some nexpr1) info map expr2 in
     let gids = union gids1 gids2 in
     Arrow (pos, nexpr1, nexpr2), gids
-  | Pre (pos1, ArrayIndex (pos2, expr1, expr2)) ->
+  (* | Pre (pos1, ArrayIndex (pos2, expr1, expr2)) ->
     let expr = A.ArrayIndex (pos2, Pre (pos1, expr1), expr2) in
-    normalize_expr ?guard info map expr
+    normalize_expr ?guard info map expr *)
   | Pre (pos, expr) as p ->
     let ivars = info.inductive_variables in
     let ty = if expr_has_inductive_var ivars expr |> is_some then
@@ -1165,12 +1165,14 @@ and normalize_expr ?guard info map =
         let guard, gids1 = mk_fresh_oracle ty nexpr in
         let gids2 = record_warning pos p in
         guard, union gids1 gids2, false
-    in let gids = union gids1 gids2 in
+    in
+    let gids = union gids1 gids2 in
     let nexpr' = match nexpr with
       | A.ArrayIndex (pos2, expr1, expr2) ->
         A.ArrayIndex (pos2, Pre (pos, expr1), expr2)
       | e -> Pre (pos, e)
-    in if previously_guarded then nexpr', gids
+    in
+    if previously_guarded then nexpr', gids
     else Arrow (pos, guard, nexpr'), gids
   (* ************************************************************************ *)
   (* Misc. abstractions                                                       *)

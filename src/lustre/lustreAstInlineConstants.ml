@@ -242,7 +242,46 @@ and simplify_tuple_proj: TC.tc_context -> Lib.position -> LA.expr -> int -> LA.e
      else (raise (Out_of_bounds (pos, "Tuple element access out of bounds.")))
   | _ -> TupleProject (pos, e1, idx)
 (** picks out the idx'th component of a tuple if it is possible *)
-       
+
+and push_pre is_guarded pos =
+  let r e = push_pre is_guarded pos e in
+  function
+  | LA.Ident _ as e -> LA.Pre (pos, e)
+  | ModeRef _ as e -> LA.Pre (pos, e)
+  | RecordProject (p, e, i) -> RecordProject (p, r e, i)
+  | TupleProject (p, e, i) -> TupleProject (p, r e, i)
+  | Const _ as e -> if is_guarded then e else Pre (pos, e)
+  | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
+  | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
+  | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
+  | TernaryOp (_, With, _, _, _) as e -> LA.Pre (pos, e)
+  | NArityOp _ as e -> LA.Pre (pos, e)
+  | ConvOp (p, op, e) -> ConvOp (p, op, r e)
+  | CompOp (p, op, e1, e2) -> CompOp (p, op, r e1, r e2)
+  | RecordExpr (p, i, es) ->
+    let es' = List.map (fun (i, e) -> (i, r e)) es in
+    RecordExpr (p, i, es')
+  | GroupExpr (p, op, es) ->
+    let es' = List.map (fun e -> r e) es in
+    GroupExpr (p, op, es')
+  | StructUpdate (p, e1, l, e2) -> StructUpdate (p, r e1, l, r e2)
+  | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, e2)
+  | ArrayIndex (p, e1, e2) -> ArrayIndex (p, r e1, e2)
+  | ArrayConcat (p, e1, e2) -> ArrayConcat (p, r e1, r e2)
+  | ArraySlice (p, e1, (e2, e3)) -> ArraySlice (p, r e1, (e2, e3))
+  | Quantifier (p, e1, l, e2) -> Quantifier (p, e1, l, r e2)
+  | When _ as e -> LA.Pre (pos, e)
+  | Current _ as e -> LA.Pre (pos, e)
+  | Condact _ as e -> LA.Pre (pos, e)
+  | Activate _ as e -> LA.Pre (pos, e)
+  | Merge _ as e -> LA.Pre (pos, e)
+  | RestartEvery _ as e -> LA.Pre (pos, e)
+  | Pre _ as e -> LA.Pre (pos, e)
+  | Fby _ as e -> LA.Pre (pos, e)
+  | Arrow _ as e -> LA.Pre (pos, e)
+  | Call _ as e -> LA.Pre (pos, e)
+  | CallParam _ as e -> LA.Pre (pos, e)
+
 and simplify_expr ?(is_guarded = false) ctx =
   function
   | LA.Const _ as c -> c
@@ -269,7 +308,8 @@ and simplify_expr ?(is_guarded = false) ctx =
     | _ -> e')
   | LA.Pre (pos, e) ->
     let e' = simplify_expr ~is_guarded:false ctx e in
-    if is_guarded && LH.expr_is_const e' then e'
+    if Flags.lus_push_pre () then 
+      push_pre is_guarded pos e'
     else Pre (pos, e')
   | Arrow (pos, e1, e2) ->
     let e1' = simplify_expr ~is_guarded ctx e1 in

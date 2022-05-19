@@ -194,6 +194,7 @@ let mk_state_var
     ?is_const
     ?for_inv_gen
     ?expr_ident
+    ?(force_return = false)
     map
     scope
     sv_ident 
@@ -251,7 +252,7 @@ let mk_state_var
   (match source with
     | Some source -> SVT.replace !map.source state_var source;
     | None -> ());
-  if fresh then Some(state_var) else None
+  if fresh || force_return then Some(state_var) else None
 
 let mk_ident id =
   let id = HString.string_of_hstring id in
@@ -1559,7 +1560,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   (* (State Variables for) Generated Locals for Array Constructors      *)
   (* ****************************************************************** *)
-  in let glocals =
+  in
+  let glocals =
     let array_ctor_list = LAN.StringMap.bindings gids.LAN.array_constructors in
     let over_generated_locals glocals (id, (expr_type, expr, size_expr)) =
       let pos = AH.pos_of_expr expr in
@@ -1586,20 +1588,53 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
             SVT.add !map.bounds state_var [bound];
             X.add index state_var accum
           | None -> accum
-      in let result = X.fold over_indices index_types X.empty in
+      in
+      let result = X.fold over_indices index_types X.empty in
       result :: glocals
-    in List.fold_left over_generated_locals glocals array_ctor_list
+    in
+    List.fold_left over_generated_locals glocals array_ctor_list
+  (* ****************************************************************** *)
+  (* (State Variables for) Node Calls, to put in the map for oracles    *)
+  (* ****************************************************************** *)
+  in
+  let () =
+    let over_calls = fun () (_, _, var, _, _, ident, _, _) ->
+      let node_id = mk_ident ident in
+      let called_node = N.node_of_name node_id cstate.nodes in
+      let _outputs =
+        let over_vars = fun index sv compiled_vars ->
+          let var_id = mk_ident var in
+          let possible_state_var = mk_state_var
+            ~is_input:false
+            map
+            (node_scope @ I.reserved_scope)
+            var_id
+            index
+            (StateVar.type_of_state_var sv)
+            (Some N.Call)
+          in
+          match possible_state_var with
+          | Some state_var -> X.add index state_var compiled_vars
+          | None -> compiled_vars
+        in
+        X.fold over_vars called_node.outputs X.empty
+      in
+      ()
+    in
+    List.fold_left over_calls () gids.calls
   (* ****************************************************************** *)
   (* Contract State Variables                                           *)
   (* ****************************************************************** *)
-  in let (ghost_locals, ghost_equations, modes) =
+  in
+  let (ghost_locals, ghost_equations, modes) =
     match contract with
     | Some contract -> compile_contract_variables cstate gids ctx map [] node_scope contract
     | None -> [], [], []
   (* ****************************************************************** *)
   (* Oracles                                                            *)
   (* ****************************************************************** *)
-  in let (oracles, oracle_state_var_map) =
+  in
+  let (oracles, oracle_state_var_map) =
     let over_oracles (oracles, osvm) (id, expr_type, expr) =
       let oracle_ident = mk_ident id in
       let closed_sv = match expr with
@@ -1609,7 +1644,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           Some closed_sv
         | A.Const (_, _) -> None
         | _ -> assert false
-      in let index_types = compile_ast_type cstate ctx map expr_type in
+      in
+      let index_types = compile_ast_type cstate ctx map expr_type in
       let over_indices = fun index index_type accum ->
         let possible_state_var = mk_state_var
           ~is_const:true
@@ -1628,13 +1664,16 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           | None -> ());
           X.add index state_var accum
         | None -> accum
-      in let result = X.fold over_indices index_types X.empty in
+      in
+      let result = X.fold over_indices index_types X.empty in
       (X.values result) @ oracles, osvm
-    in List.fold_left over_oracles ([], SVT.create 7) gids.LAN.oracles
+    in
+    List.fold_left over_oracles ([], SVT.create 7) gids.LAN.oracles
   (* ****************************************************************** *)
   (* Propagated Oracles                                                 *)
   (* ****************************************************************** *)
-  in let oracles =
+  in
+  let oracles =
     let existing_oracles = cstate.nodes
       |> List.map (fun n -> n.N.oracles) 
       |> List.flatten
@@ -1645,7 +1684,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         and current_oracle_name = mk_state_var_name (mk_ident orc) X.empty_index
         in existing_oracle_name = current_oracle_name)
         existing_oracles
-      in let state_var_type = StateVar.type_of_state_var orc_state_var in
+      in
+      let state_var_type = StateVar.type_of_state_var orc_state_var in
       let is_const = StateVar.is_const orc_state_var in
       let possible_state_var = mk_state_var
         ~is_input:true
@@ -1664,7 +1704,9 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   (* Node Calls                                                         *)
   (* ****************************************************************** *)
-  in let (calls, glocals) =
+  in
+  let (calls, glocals) =
+    let seen_calls = ref SVS.empty in
     let over_calls = fun (calls, glocals) (pos, oracles, var, cond, restart, ident, args, defaults) ->
       let node_id = mk_ident ident in
       let called_node = N.node_of_name node_id cstate.nodes in
@@ -1680,6 +1722,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         let over_vars = fun index sv compiled_vars ->
           let var_id = mk_ident var in
           let possible_state_var = mk_state_var
+            ~force_return:true
             ~is_input:false
             map
             (node_scope @ I.reserved_scope)
@@ -1690,18 +1733,27 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           in
           match possible_state_var with
           | Some state_var ->
-            H.add local_map var_id state_var;
-            N.add_state_var_def state_var (N.CallOutput (pos, index));
-            N.set_state_var_instance state_var pos node_id sv;
-            X.add index state_var compiled_vars
+            let result = if SVS.mem state_var !seen_calls then
+              compiled_vars
+            else (
+              H.add local_map var_id state_var;
+              N.add_state_var_def state_var (N.CallOutput (pos, index));
+              N.set_state_var_instance state_var pos node_id sv;
+              X.add index state_var compiled_vars)
+            in
+            seen_calls := SVS.add state_var !seen_calls;
+            result
           | None -> compiled_vars
         in
         X.fold over_vars called_node.outputs X.empty
-      in let node_call = compile_node
+      in
+      let node_call = compile_node
         pos ctx cstate map oracles outputs cond restart node_id args defaults
-      in let glocals' = H.fold (fun _ v a -> (X.singleton X.empty_index v) :: a) local_map [] in 
+      in
+      let glocals' = H.fold (fun _ v a -> (X.singleton X.empty_index v) :: a) local_map [] in 
       node_call :: calls, glocals' @ glocals
-    in List.fold_left over_calls ([], glocals) gids.calls
+    in
+    List.fold_left over_calls ([], glocals) gids.calls
   (* ****************************************************************** *)
   (* Split node items into relevant categories                          *)
   (* ****************************************************************** *)
