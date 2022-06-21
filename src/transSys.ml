@@ -557,6 +557,8 @@ let equal_scope { scope = s1 } { scope = s2 } = Scope.equal s1 s2
 let compare_scope { scope = s1 } { scope = s2 } = Scope.compare s1 s2
 
 
+let set_logic t logic = { t with logic }
+
 (* Return the logic fragment needed to express the transition system *)
 let get_logic t = t.logic
 

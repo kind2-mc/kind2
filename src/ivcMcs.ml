@@ -732,6 +732,13 @@ let at_least_one_true svs =
   |> List.map (fun sv -> Term.mk_var (Var.mk_const_state_var sv))
   |> Term.mk_or
 
+let get_logic_with_IA sys =
+  match TS.get_logic sys with
+  | `Inferred features -> (
+    `Inferred (TermLib.FeatureSet.add TermLib.IA features)
+  )
+  | l -> l (* Rely on original logic *)
+
 let prepare_ts_for_cs_check sys enter_nodes init_consts keep test =
   let eq_of_actlit = eq_of_actlit_sv (core_union keep test) in
   let main_scope = TS.scope_of_trans_sys sys in
@@ -770,6 +777,7 @@ let prepare_ts_for_cs_check sys enter_nodes init_consts keep test =
   let init_eq =
     Term.mk_and (List.rev_append init_consts [init_eq])
   in
+  let sys = TS.set_logic sys (get_logic_with_IA sys) in
   TS.set_subsystem_equations sys (TS.scope_of_trans_sys sys) init_eq trans_eq
 
 
