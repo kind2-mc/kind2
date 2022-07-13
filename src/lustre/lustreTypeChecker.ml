@@ -1415,15 +1415,23 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
     then (R.seqM (&&) true (List.map2 (eq_lustre_type ctx) ftys1 ftys2))
     else R.ok false
   | RecordType (_, n1, tys1), RecordType (_, n2, tys2) ->
-    let* isEqs = R.seq (List.map2 (eq_typed_ident ctx)
-      (LH.sort_typed_ident tys1)
-      (LH.sort_typed_ident tys2))
-    in
-    R.ok (List.fold_left (&&) true isEqs && n1 == n2)
+    if List.length tys1 = List.length tys2
+    then (
+      let* isEqs = R.seq (List.map2 (eq_typed_ident ctx)
+        (LH.sort_typed_ident tys1)
+        (LH.sort_typed_ident tys2))
+      in
+      R.ok (List.fold_left (&&) true isEqs && n1 == n2)
+    )
+    else R.ok false
   | ArrayType (_, arr1), ArrayType (_, arr2) -> eq_type_array ctx arr1 arr2 
   | EnumType (_, n1, is1), EnumType (_, n2, is2) ->
-    R.ok (n1 = n2 && (List.fold_left (&&) true (List.map2 (=) (LH.sort_idents is1) (LH.sort_idents is2))))
-
+    if List.length is1 = List.length is2
+    then
+      R.ok (n1 = n2 &&
+        (List.fold_left (&&) true (List.map2 (=) (LH.sort_idents is1) (LH.sort_idents is2))))
+    else
+      R.ok false
   (* node/function type *)
   | TArr (_, arg_ty1, ret_ty1), TArr (_, arg_ty2, ret_ty2) ->
     R.seqM (&&) true [ eq_lustre_type ctx arg_ty1 arg_ty2
