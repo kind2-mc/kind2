@@ -1894,42 +1894,48 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
 (*   Format.eprintf "map:\n\n%a\n\n" pp_print_identifier_maps !map; *)
   let equations =
     let over_equations = fun eqns (pos, lhs, ast_expr) ->
-      let eq_lhs, indexes = match lhs with
-        | A.StructDef (_, []) -> (X.empty, 0)
-        | A.StructDef (_, [e]) -> compile_struct_item e
-        | A.StructDef (_, l) ->
-          let construct_index = fun i j e a -> X.add (X.ListIndex i :: j) e a in
-          let over_items = fun (i, accum) e -> 
-            let t, _ = compile_struct_item e in
-              i + 1, X.fold (construct_index i) t accum
-          in
-          let _, res = List.fold_left over_items (0, X.empty) l
-          in res, 0
-      in
-      let lhs_bounds = gen_lhs_bounds false eq_lhs ast_expr indexes in
-      let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr in
-      let eq_rhs = flatten_list_indexes eq_rhs in
-      (* Format.eprintf "lhs: %a@.rhs: %a@.@."
-        (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
-        (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
-      let equations = expand_tuple pos eq_lhs eq_rhs in
-      (* Format.eprintf "\nequations: %a\n"
-        (pp_print_list
-          (pp_print_pair
+      match lhs with
+      | A.StructDef (_, []) -> eqns
+      | _ -> (
+        let eq_lhs, indexes = match lhs with
+          | A.StructDef (_, []) -> assert false (* (X.empty, 0) *)
+          | A.StructDef (_, [e]) -> compile_struct_item e
+          | A.StructDef (_, l) ->
+            let construct_index =
+              fun i j e a -> X.add (X.ListIndex i :: j) e a
+            in
+            let over_items = fun (i, accum) e ->
+              let t, _ = compile_struct_item e in
+                i + 1, X.fold (construct_index i) t accum
+            in
+            let _, res = List.fold_left over_items (0, X.empty) l
+            in res, 0
+        in
+        let lhs_bounds = gen_lhs_bounds false eq_lhs ast_expr indexes in
+        let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr in
+        let eq_rhs = flatten_list_indexes eq_rhs in
+        (* Format.eprintf "lhs: %a@.rhs: %a@.@."
+          (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
+          (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
+        let equations = expand_tuple pos eq_lhs eq_rhs in
+        (* Format.eprintf "\nequations: %a\n"
+          (pp_print_list
             (pp_print_pair
-              StateVar.pp_print_state_var
-              (pp_print_list
-                E.pp_print_bound_or_fixed
-                " / ")
+              (pp_print_pair
+                StateVar.pp_print_state_var
+                (pp_print_list
+                  E.pp_print_bound_or_fixed
+                  " / ")
+                " : ")
+              (E.pp_print_lustre_expr true)
               " : ")
-            (E.pp_print_lustre_expr true)
-            " : ")
-          " ; ")
-        equations; *)
-      H.clear !map.array_index;
-      (* TODO: Old code tries to infer a more strict type here
-        lustreContext 2040+ *)
-      equations @ eqns
+            " ; ")
+          equations; *)
+        H.clear !map.array_index;
+        (* TODO: Old code tries to infer a more strict type here
+          lustreContext 2040+ *)
+        equations @ eqns
+      )
     in List.fold_left over_equations [] (ghost_equations @ node_eqs)
   (* ****************************************************************** *)
   (* Contract Assumptions and Guarantees                                *)
