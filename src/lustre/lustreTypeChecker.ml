@@ -163,7 +163,7 @@ let error_message kind = match kind with
     ^ "unsigned machine integer of the same width as first argument but found type " ^ string_of_tc_type ty
   | ExpectedBitShiftMachineIntegerType ty -> "Expected first argument of shit operator to be of type signed "
     ^ "or unsigned machine integer but found type " ^ string_of_tc_type ty
-  | InvalidConversion (ty1, ty2) -> "Cannot convert a non-number type " ^ string_of_tc_type ty1 ^ " to type " ^ string_of_tc_type ty2
+  | InvalidConversion (ty1, ty2) -> "Cannot convert type " ^ string_of_tc_type ty1 ^ " to type " ^ string_of_tc_type ty2
   | NodeArgumentOnLHS v -> "Input '" ^ HString.string_of_hstring v ^ "' can not be defined"
   | NodeInputOutputShareIdentifier set -> "Input and output parameters cannot have common identifiers, "
     ^ "but found common parameters: " ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements set)
@@ -705,7 +705,7 @@ and infer_type_binary_op: tc_context -> Lib.position
         (type_error pos (ExpectedType ((LA.Bool pos), ty2))))
       (type_error pos (ExpectedType ((LA.Bool pos), ty1)))
   | LA.Mod ->
-    if LH.is_type_int ty1 && LH.is_type_int ty2
+    if LH.is_type_int_or_machine_int ty1 && LH.is_type_int_or_machine_int ty2
     then (R.ifM (eq_lustre_type ctx ty1 ty2)
             (R.ok ty1)
             (type_error pos (UnificationFailed (ty1, ty2))))
@@ -721,7 +721,7 @@ and infer_type_binary_op: tc_context -> Lib.position
     then R.ok ty2
     else type_error pos (ExpectedNumberTypes (ty1, ty2))
   | LA.IntDiv ->
-    if LH.is_type_int ty1 && LH.is_type_int ty2
+    if LH.is_type_int_or_machine_int ty1 && LH.is_type_int_or_machine_int ty2
     then (R.ifM (eq_lustre_type ctx ty1 ty2)
             (R.ok ty1)
             (type_error pos (UnificationFailed (ty1, ty2))))
@@ -754,39 +754,39 @@ and infer_type_conv_op: tc_context -> Lib.position
     then R.ok (LA.Int pos)
     else type_error pos (InvalidConversion (ty, (Int pos)))
   | ToReal ->
-    if LH.is_type_num ty
+    if LH.is_type_real_or_int ty
     then R.ok (LA.Real pos)
     else type_error pos (InvalidConversion (ty, (Real pos)))
   | ToInt8 ->
-    if LH.is_type_num ty
+    if LH.is_type_signed_machine_int ty || LH.is_type_int ty
     then R.ok (LA.Int8 pos)
     else type_error pos (InvalidConversion (ty, (Int8 pos)))
   | ToInt16 ->
-    if LH.is_type_num ty
+    if LH.is_type_signed_machine_int ty || LH.is_type_int ty
     then R.ok (LA.Int16 pos)
     else type_error pos (InvalidConversion (ty, (Int16 pos)))
   | ToInt32 ->
-    if LH.is_type_num ty
+    if LH.is_type_signed_machine_int ty || LH.is_type_int ty
     then R.ok (LA.Int32 pos)
     else type_error pos (InvalidConversion (ty, (Int32 pos)))
   | ToInt64 ->
-    if LH.is_type_num ty
+    if LH.is_type_signed_machine_int ty || LH.is_type_int ty
     then R.ok (LA.Int64 pos)
     else type_error pos (InvalidConversion (ty, (Int64 pos)))
   | ToUInt8 ->
-    if LH.is_type_num ty
+    if LH.is_type_unsigned_machine_int ty || LH.is_type_int ty
     then R.ok (LA.UInt8 pos)
     else type_error pos (InvalidConversion (ty, (UInt8 pos)))
   | ToUInt16 ->
-    if LH.is_type_num ty
+    if LH.is_type_unsigned_machine_int ty || LH.is_type_int ty
     then R.ok (LA.UInt16 pos)
     else type_error pos (InvalidConversion (ty, (UInt16 pos)))
   | ToUInt32 ->
-    if LH.is_type_num ty
+    if LH.is_type_unsigned_machine_int ty || LH.is_type_int ty
     then R.ok (LA.UInt32 pos)
     else type_error pos (InvalidConversion (ty, (UInt32 pos)))
   | ToUInt64 ->
-    if LH.is_type_num ty
+    if LH.is_type_unsigned_machine_int ty || LH.is_type_int ty
     then R.ok (LA.UInt64 pos)
     else type_error pos (InvalidConversion (ty, (UInt64 pos)))
 (** Converts from given type to the intended type aka casting *)

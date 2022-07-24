@@ -818,6 +818,19 @@ let is_type_num: lustre_type -> bool
 
 let is_type_int: lustre_type -> bool
   = function
+  | Int _
+  | IntRange _ -> true
+  | _ -> false
+
+let is_type_real_or_int: lustre_type -> bool
+  = function
+  | Real _
+  | Int _
+  | IntRange _ -> true
+  | _ -> false
+
+let is_type_int_or_machine_int: lustre_type -> bool
+  = function
   |  Int _
      | UInt8 _       
      | UInt16 _   
