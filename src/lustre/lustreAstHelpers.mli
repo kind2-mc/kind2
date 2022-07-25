@@ -109,10 +109,16 @@ val is_const_arg: const_clocked_typed_decl -> bool
 (** Returns [true] if the node input stream is a constant  *)
 
 val is_type_num: lustre_type -> bool
-(** returns [true] if the type is a number type i.e. Int, Real, IntRange. *)
-  
+(** returns [true] if the type is a number type i.e. Int, Real, IntRange, or Machine Integer *)
+
 val is_type_int: lustre_type -> bool
-(** returns [true] if the type is an integer type i.e. Int, Machine Integers or an IntRange *)
+(** returns [true] if the type is an integer type, i.e. Int, or IntRange *)
+
+val is_type_real_or_int: lustre_type -> bool
+(** returns [true] if the type is a real or integer type, i.e, Real, Int, or IntRange *)
+
+val is_type_int_or_machine_int: lustre_type -> bool
+(** returns [true] if the type is an integer type or machine int, i.e. Int, IntRange, or Machine Integer *)
 
 val is_type_unsigned_machine_int: lustre_type -> bool
 (** returns [true] if the type is an unsigned machine int. i.e. UInt, UInt32 etc.  *)
