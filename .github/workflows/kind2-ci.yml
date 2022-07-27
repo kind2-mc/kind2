@@ -12,9 +12,9 @@ jobs:
     strategy:
       matrix:
         ocaml-version: [ 4.09.1 ]
-        os: [ ubuntu-20.04, macos-10.15 ]
+        os: [ ubuntu-20.04, macos-11 ]
         include:
-          - os: macos-10.15
+          - os: macos-11
             pkg_update: brew update
             z3_install: brew install z3
           - os: ubuntu-20.04
