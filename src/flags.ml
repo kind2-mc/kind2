@@ -3484,8 +3484,8 @@ let solver_dependant_actions solver =
       int_of_string (Str.matched_group idx output)
     in
     let version_re =
-      if with_patch then Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)\\.\\([0-9]\\)"
-      else Str.regexp "\\([0-9]\\)\\.\\([0-9]\\)"
+      if with_patch then Str.regexp "\\([0-9]+\\)\\.\\([0-9]+\\)\\.\\([0-9]+\\)"
+      else Str.regexp "\\([0-9]+\\)\\.\\([0-9]+\\)"
     in
     let output = syscall cmd in
     try
