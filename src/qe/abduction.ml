@@ -19,7 +19,7 @@
 
 let assert_context solver premises =
   match SMTSolver.kind solver with
-  | `CVC4_SMTLIB -> (
+  | `cvc5_SMTLIB -> (
     SMTSolver.assert_term solver premises
   )
   | _ -> ()
@@ -46,7 +46,7 @@ let normalize_if_inconsistent solver premises term =
 let simplify_abduct solver premises term =
 
   let term = Simplify.simplify_term [] term in
-  if SMTSolver.kind solver = `CVC4_SMTLIB then
+  if SMTSolver.kind solver = `cvc5_SMTLIB then
     (* We have already taken into account the context in assert_context *)
     term
   else (

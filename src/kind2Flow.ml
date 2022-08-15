@@ -627,9 +627,9 @@ let run in_sys =
 
     let check_solver_is_supported () =
       match Flags.Smt.solver () with
-      | `Z3_SMTLIB | `CVC4_SMTLIB -> ()
+      | `Z3_SMTLIB | `cvc5_SMTLIB -> ()
       | _ -> (
-        KEvent.log L_fatal "Contract checking requires Z3 or CVC4." ;
+        KEvent.log L_fatal "Contract checking requires Z3 or cvc5." ;
         KEvent.terminate_log () ;
         exit ExitCodes.error
       )

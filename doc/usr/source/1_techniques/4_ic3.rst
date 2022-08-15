@@ -9,7 +9,7 @@ IC3
 
    kind2 --enable IC3 <file>
 
-The challenge when lifting IC3 to infinite state systems is the pre-image computation. If the input problem is in linear integer arithmetic, Kind 2 performs a fast approximate quantifier elimination. Otherwise, the quantifier elimination is delegated to an SMT solver, which is at this time only possible with Z3 or CVC4.
+The challenge when lifting IC3 to infinite state systems is the pre-image computation. If the input problem is in linear integer arithmetic, Kind 2 performs a fast approximate quantifier elimination. Otherwise, the quantifier elimination is delegated to an SMT solver, which is at this time only possible with Z3 or cvc5.
 
 Options
 ^^^^^^^

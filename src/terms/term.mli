@@ -699,7 +699,7 @@ val convert_select : t -> t
 (** Use fresh function symbols to encode partial select applications and add
     constraint that [forall i, fresh a i = select a i], returns the modified
     term and the list of new fresh symbols to declare. This is only useful when
-    using the fun-rec option of CVC4, it does nothing otherwise. *)
+    using the fun-rec option of cvc5, it does nothing otherwise. *)
 val partial_selects : t -> t * UfSymbol.t list
 
 (** Inverse transformation of [!convert_select] *)

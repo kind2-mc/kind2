@@ -478,7 +478,7 @@ Option             Description
 ===============    ===========
 --smt_arrays       Use the builtin theory of arrays in solvers
 --inline_arrays    Instantiate quantifiers over array bounds in case they are statically known
---arrays_rec       Define recursive functions for arrays (for CVC4)
+--arrays_rec       Define recursive functions for arrays (for cvc5)
 ===============    ===========
 
 The default encoding will use quantified formulas for inductive definitions and
@@ -496,7 +496,7 @@ we will generate internally the constraint
 
    *∀ k: int. 0 <= k < 6 => (select A k) = x*
 
-These form of constraint are handled in an efficient way by CVC4 (thanks to
+These form of constraint are handled in an efficient way by cvc5 (thanks to
 finite model finding).
 
 ``--smt_arrays``
@@ -513,7 +513,7 @@ better performances.
 
 By default, Kind 2 will generate problems with quantifiers for arrays which
 should be useful for problems with large arrays. This option tells Kind 2 to
-instantiate these quantifiers when it can reasonably do so. Only CVC4 has a
+instantiate these quantifiers when it can reasonably do so. Only cvc5 has a
 good support for this kind of quantification so you may want to use this option
 with the other solvers.
 
@@ -532,5 +532,5 @@ will now be encoded by the constraint
 ``--arrays_rec``
 ~~~~~~~~~~~~~~~~~~~~
 
-This uses a special kind of encoding to tell CVC4 to treat quantified
+This uses a special kind of encoding to tell cvc5 to treat quantified
 definitions of some uninterpreted functions as recursive definitions.

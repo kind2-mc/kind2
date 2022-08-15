@@ -33,26 +33,26 @@ let set_margin fmt = pp_set_margin fmt (if compact then max_int else 80)
 
 
 
-(* disable the preprocessor and tell cvc4 to dump proofs *)
-let cvc4_proof_args () =
-  let args = ["--simplification=none"; "--dump-proof"; "--lang smt2"] in
+(* disable the preprocessor and tell cvc5 to dump proofs *)
+let cvc5_proof_args () =
+  let args = ["--lang=smt2"; "--simplification=none"; "--dump-proofs"; "--proof-format=lfsc"] in
   let args =
     if Flags.Certif.log_trust () then
       (* Preprocessing holes as equivalences *)
       "--fewer-preprocessing-holes" :: args
     else
       (* Disable if we don't care about holes because
-         cvc4 is less likely to crash *)
+         cvc5 is less likely to crash *)
       args
   in
   List.rev args
 
-let cvc4_proof_cmd () =
-  String.concat " " (Flags.Smt.cvc4_bin () :: cvc4_proof_args ())
+let cvc5_proof_cmd () =
+  String.concat " " (Flags.Smt.cvc5_bin () :: cvc5_proof_args ())
 
 
-let get_cvc4_version () =
-  let cmd = Flags.Smt.cvc4_bin () ^ " --version" in
+let get_cvc5_version () =
+  let cmd = Flags.Smt.cvc5_bin () ^ " --version" in
   let s = syscall cmd in
   let n = String.index s '\n' in
   let start = 8 in
@@ -97,7 +97,7 @@ let abstr_ind_of_logic = let open TermLib in
   | `Inferred fs ->
     if FeatureSet.mem RA fs then
       if FeatureSet.mem IA fs then
-        failwith "CVC4 cannot generate proofs for systems with both \
+        failwith "cvc5 cannot generate proofs for systems with both \
                   integer and real variables"
       else true
     else false
@@ -212,7 +212,7 @@ let equal_def d1 d2 =
 (* add args if needed *)
   
 (* Type of contexts for proofs *)
-type cvc4_proof_context = {
+type cvc5_proof_context = {
   lfsc_decls : lfsc_decl list;
   lfsc_defs : lfsc_def list;
   fun_defs_args : (H.t * int * lfsc_type) list HH.t;
@@ -225,9 +225,9 @@ let mk_empty_proof_context () = {
   fun_defs_args = HH.create 17;
 }
 
-(* The type of a proof returned by CVC4 *)
-type cvc4_proof = {
-  proof_context : cvc4_proof_context;
+(* The type of a proof returned by cvc5 *)
+type cvc5_proof = {
+  proof_context : cvc5_proof_context;
   true_hyps : H.t list;
   proof_hyps : lfsc_decl list; 
   proof_type : lfsc_type;
@@ -364,7 +364,7 @@ let print_proof ?(context=false) name fmt
 
 
 (*********************************)
-(* Parsing LFSC proofs from CVC4 *)
+(* Parsing LFSC proofs from cvc5 *)
 (*********************************)
 
 (*
@@ -574,7 +574,7 @@ let rec definition_artifact_rec ctx = let open HS in function
     end
   | _ -> None
 
-(* Identifies definition artifacts introduces to trace inling of CVC4 terms at
+(* Identifies definition artifacts introduces to trace inling of cvc5 terms at
    the LFSC level. For example, [(th_holds (@ let38 P1%1(iff (p_app (apply _ _
    P1%def P1%1)) (p_app (apply _ _ top.usr.OK P1%1)))))] is an articfact for
    the definition of pymbol [P1]. *)
@@ -663,7 +663,7 @@ let log_trusted ~frontend dirname =
 (* Parsing proof terms *)
 (***********************)
 
-(* Parse a proof from CVC4, returns a [!cvc_proof] object *)
+(* Parse a proof from cvc5, returns a [!cvc_proof] object *)
 let rec parse_proof acc = let open HS in function
 
   | List [Atom lam; Atom b; ty; r] when lam == s_LAMBDA ->
@@ -702,7 +702,7 @@ let rec parse_proof acc = let open HS in function
                 (HS.pp_print_sexpr_indent 0) s)
 
 
-(* Parse a proof from CVC4 from one that start with [(check ...]. *)
+(* Parse a proof from cvc5 from one that start with [(check ...]. *)
 let parse_proof_check ctx = let open HS in function
   | List [Atom check; proof] when check == s_check ->
     parse_proof (mk_empty_proof ctx) proof
@@ -712,7 +712,7 @@ let parse_proof_check ctx = let open HS in function
 
 
 
-(* Parse a proof from CVC4 from a channel. CVC4 returns the proof after
+(* Parse a proof from cvc5 from a channel. cvc5 returns the proof after
    displaying [unsat] on the channel. *)
 let proof_from_chan ctx in_ch =
 
@@ -739,9 +739,9 @@ let proof_from_chan ctx in_ch =
 
 
 
-(* Call CVC4 in proof production mode on an SMT2 file an returns the proof *)
+(* Call cvc5 in proof production mode on an SMT2 file an returns the proof *)
 let proof_from_file ctx f =
-  let cmd = cvc4_proof_cmd () ^ " " ^ f in
+  let cmd = cvc5_proof_cmd () ^ " " ^ f in
   (* Format.eprintf "CMD: %s@." cmd ; *)
   let ic, oc, err = Unix.open_process_full cmd (Unix.environment ()) in
   try
@@ -749,11 +749,11 @@ let proof_from_file ctx f =
     ignore(Unix.close_process_full (ic, oc, err));
     proof
   with Failure _ as e ->
-    KEvent.log L_fatal "Could not parse CVC4 proof.";
+    KEvent.log L_fatal "Could not parse cvc5 proof.";
     (match Unix.close_process_full (ic, oc, err) with
      | Unix.WEXITED 0 -> ()
      | Unix.WSIGNALED i | Unix.WSTOPPED  i | Unix.WEXITED i ->
-       KEvent.log L_fatal "CVC4 crashed with exit code %d." i);
+       KEvent.log L_fatal "cvc5 crashed with exit code %d." i);
     raise e
 
 
@@ -792,7 +792,7 @@ let parse_context_dummy = let open HS in function
 
 (* Parse a context from a channel. The goal is trivial because the file
    contains "(assert false)" but we care about the hypotheses to recontruct the
-   LFSC definitions inlined by CVC4. *)
+   LFSC definitions inlined by cvc5. *)
 let context_from_chan in_ch =
 
   let lexbuf = Lexing.from_channel in_ch in
@@ -818,10 +818,10 @@ let context_from_chan in_ch =
 
 
 
-(* Call CVC4 on a file that contains only tracing information and parse the
+(* Call cvc5 on a file that contains only tracing information and parse the
    dummy proof to extract the context (declarations and definitions). *)
 let context_from_file f =
-  let cmd = cvc4_proof_cmd () ^ " " ^ f in
+  let cmd = cvc5_proof_cmd () ^ " " ^ f in
   let ic, oc, err = Unix.open_process_full cmd (Unix.environment ()) in
   try
     let ctx = context_from_chan ic in
@@ -829,11 +829,11 @@ let context_from_file f =
     ignore(Unix.close_process_full (ic, oc, err));
     ctx
   with Failure _ as e ->
-    KEvent.log L_fatal "Could not parse CVC4 context.";
+    KEvent.log L_fatal "Could not parse cvc5 context.";
     (match Unix.close_process_full (ic, oc, err) with
      | Unix.WEXITED 0 -> ()
      | Unix.WSIGNALED i | Unix.WSTOPPED  i | Unix.WEXITED i ->
-       KEvent.log L_fatal "CVC4 crashed with exit code %d." i);
+       KEvent.log L_fatal "cvc5 crashed with exit code %d." i);
     raise e
 
 (* Merge two contexts *)
@@ -851,15 +851,15 @@ let merge_contexts ctx1 ctx2 =
 
 
 let context_from_file f =
-  Stat.start_timer Stat.certif_cvc4_time;
+  Stat.start_timer Stat.certif_cvc5_time;
   let c = context_from_file f in
-  Stat.record_time Stat.certif_cvc4_time;
+  Stat.record_time Stat.certif_cvc5_time;
   c
   
 let proof_from_file f =
-  Stat.start_timer Stat.certif_cvc4_time;
+  Stat.start_timer Stat.certif_cvc5_time;
   let p = proof_from_file f in
-  Stat.record_time Stat.certif_cvc4_time;
+  Stat.record_time Stat.certif_cvc5_time;
   p
   
 
@@ -1009,11 +1009,11 @@ let generate_inv_proof inv =
      ;; from original problem %s\n\
      ;;------------------------------------------------------------------\n@."
     Version.package_name Version.version
-    (get_cvc4_version ())
+    (get_cvc5_version ())
     (Flags.input_file ());
 
   
-  Debug.certif "Extracting LFSC contexts from CVC4 proofs";
+  Debug.certif "Extracting LFSC contexts from cvc5 proofs";
   
   let ctx_k2 = context_from_file inv.for_system.smt2_lfsc_trace_file in
   fprintf proof_fmt ";; System generated by Kind 2\n@.%a\n@."
@@ -1027,7 +1027,7 @@ let generate_inv_proof inv =
             |> merge_contexts ctx_k2
   in
   
-  Debug.certif "Extracting LFSC proof of base case from CVC4";
+  Debug.certif "Extracting LFSC proof of base case from cvc5";
   let base_proof = proof_from_file ctx inv.base in
   fprintf proof_fmt ";; Additional symbols@.%a@."
     (print_delta_context ctx) base_proof.proof_context;
@@ -1035,7 +1035,7 @@ let generate_inv_proof inv =
     (print_proof s_base) base_proof;
 
   Debug.certif
-    "Extracting LFSC proof of inductive case from CVC4";
+    "Extracting LFSC proof of inductive case from cvc5";
   let induction_proof = proof_from_file ctx inv.induction in
   fprintf proof_fmt ";; Additional symbols@.%a@."
     (print_delta_context ctx) induction_proof.proof_context;
@@ -1043,7 +1043,7 @@ let generate_inv_proof inv =
     (print_proof s_induction) induction_proof;
 
   Debug.certif
-    "Extracting LFSC proof of implication from CVC4";
+    "Extracting LFSC proof of implication from cvc5";
   let implication_proof = proof_from_file ctx inv.implication in
   fprintf proof_fmt ";; Additional symbols@.%a@."
     (print_delta_context ctx) implication_proof.proof_context;
@@ -1079,7 +1079,7 @@ let generate_frontend_proof inv =
      ;; (depends on proof.lfsc)\n\
      ;;------------------------------------------------------------------\n@."
     Version.package_name Version.version
-    (get_cvc4_version ()) ;
+    (get_cvc5_version ()) ;
 
 
   let ctx_jk = context_from_file inv.jkind_system.smt2_lfsc_trace_file in
@@ -1103,7 +1103,7 @@ let generate_frontend_proof inv =
   in
   
   Debug.certif
-    "Extracting LFSC frontend proof of base case from CVC4";
+    "Extracting LFSC frontend proof of base case from cvc5";
   let base_proof = proof_from_file ctx inv.base in
   fprintf proof_fmt ";; Additional symbols@.%a@."
     (print_delta_context ctx) base_proof.proof_context;
@@ -1111,7 +1111,7 @@ let generate_frontend_proof inv =
     (print_proof obs_base) base_proof;
 
   Debug.certif
-    "Extracting LFSC frontend proof of inductive case from CVC4";
+    "Extracting LFSC frontend proof of inductive case from cvc5";
   let induction_proof = proof_from_file ctx inv.induction in
   fprintf proof_fmt ";; Additional symbols@.%a@."
     (print_delta_context ctx) induction_proof.proof_context;
@@ -1119,7 +1119,7 @@ let generate_frontend_proof inv =
     (print_proof obs_induction) induction_proof;
 
   Debug.certif
-    "Extracting LFSC frontend proof of implication from CVC4";
+    "Extracting LFSC frontend proof of implication from cvc5";
   let implication_proof = proof_from_file ctx inv.implication in
   fprintf proof_fmt ";; Additional symbols@.%a@."
     (print_delta_context ctx) implication_proof.proof_context;

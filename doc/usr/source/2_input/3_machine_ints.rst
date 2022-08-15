@@ -146,7 +146,7 @@ The following comparison operations are all binary: ``>``, ``<``, ``>=``, ``<=``
 Limitations
 -----------
 
-Currently, only SMT solvers CVC4 and Z3 support logics that allows
+Currently, only SMT solvers cvc5 and Z3 support logics that allows
 the usage of integers and machine integers together. To use any of
 the other supported SMT solvers, the Lustre input must contain only
 machine integers.

@@ -30,8 +30,8 @@ generates two sorts of safety certificates, in the form of SMT-LIB 2 scripts:
 one certifying the faithfulness of the translation from the Lustre input model
 to the internal encoding, and another one certifying the invariance of the
 input properties for the internal encoding of the input system. These
-certificates are checked by CVC4, then turned into LFSC proof objects by
-collecting CVC4's own proofs and assembling them to form an overall proof that
+certificates are checked by cvc5, then turned into LFSC proof objects by
+collecting cvc5's own proofs and assembling them to form an overall proof that
 can be efficiently verified by the LFSC proof checker.
 
 
@@ -83,8 +83,8 @@ installed on his machine (together with a suitable version of Java).
 SMT-LIB 2 certificates do not require anything additional excepted for an SMT
 solver to check the certificates.
 
-LFSC proofs production require a proof producing version of CVC4 (the binary
-can be specified with ``--cvc4_bin``), and the LFSC checker to be compiled for
+LFSC proofs production require a proof producing version of cvc5 (the binary
+can be specified with ``--cvc5_bin``), and the LFSC checker to be compiled for
 the final proof checking phase.
 
 LFSC checker
@@ -264,14 +264,14 @@ consists in only a pair :math:`(k, \phi)` where :math:`\phi` is a *k*\ -inductiv
 system which implies the original properties. SMT-LIB 2 certificates are in
 fact scripts whose check make sure that :math:`\phi` implies P and is *k*\ -inductive. The
 LFSC proof is a formal proof that P is invariant in the system, using
-sub-proofs of validity (unsatisfiability) returned by CVC4.
+sub-proofs of validity (unsatisfiability) returned by cvc5.
 
 LFSC signature
 --------------
 
 A proof system is formally defined in LFSC through *signatures*, which contain
 a definition of the system's language together with axioms and proof rules.
-The proof system used by CVC4 is defined over a number of signatures, which are
+The proof system used by cvc5 is defined over a number of signatures, which are
 included in its source code distribution. Those relevant to this work include
 signatures for propositional logic and resolution (``sat.plf``); first-order
 terms and formulas, with rules for CNF conversion and abstraction to
@@ -279,7 +279,7 @@ propositional logic (``smt.plf``); equality over uninterpreted functions
 (``th_base.plf``); and real and integer linear arithmetic (``th_int.plf`` and
 ``th_real.plf``).
 
-CVC4's proof system is extended with an additional signature (``kind.plf``) for
+cvc5's proof system is extended with an additional signature (``kind.plf``) for
 *k*\ -inductive reasoning, invariance and safety.  This signature also specifies
 the encoding for state variables, initial states, transition relations, and
 property predicates.  State variables are encoded as functions from natural
@@ -315,7 +315,7 @@ can be derived only when invariant(I,T,P) is derivable and the observational
 equivalence between (I,T,P) and (I',T',P') is provable (judgment woe). Self
 contained proofs of safety follow the sketch depicted below, where Smt stands
 for an unsatisfiability rule whose proof tree is obtained, with minor changes,
-from a proof produced by CVC4.
+from a proof produced by cvc5.
 
 
 .. figure:: ./proofsketch.png
