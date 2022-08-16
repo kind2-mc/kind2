@@ -201,7 +201,7 @@ let rec parse_smt2 acc (others, asserts) = function
   (* Fail on push / pop *)
   | HS.List (HS.Atom p :: _) :: _
     when p == s_push || p == s_pop  ->
-    failwith ((HString.string_of_hstring p)^" not supported for cvc4 proofs")
+    failwith ((HString.string_of_hstring p)^" not supported for cvc5 proofs")
 
   (* stop on exit or end of file *)
   | [] ->

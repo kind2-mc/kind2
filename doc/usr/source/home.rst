@@ -37,11 +37,11 @@ given enough time and resources).
 
 ``--timeout <int>`` (default ``0`` = none) -- Run for the given number of seconds of wall clock time
 
-``--smt_solver {Boolector|CVC4|MathSAT|Yices|Yices2|Z3}`` (default ``Z3``\ ) -- Select SMT solver
+``--smt_solver {Boolector|cvc5|MathSAT|Yices|Yices2|Z3}`` (default ``Z3``\ ) -- Select SMT solver
 
 ``--boolector_bin <file>`` -- Executable for Boolector
 
-``--cvc4_bin <file>`` -- Executable for CVC4
+``--cvc5_bin <file>`` -- Executable for cvc5
 
 ``--mathsat_bin <file>`` -- Executable for MathSAT 5
 
@@ -79,7 +79,7 @@ To run Kind 2 the following software must be installed on your computer:
 * a supported SMT solver
 
   * `Boolector <https://boolector.github.io/>`_ (for inputs with only machine integers),
-  * `CVC4 <http://cvc4.cs.stanford.edu/>`_\ ,
+  * `cvc5 <https://cvc5.github.io/>`_\ ,
   * `MathSAT 5 <http://mathsat.fbk.eu/index.html>`_\ ,
   * `Yices 2 <http://yices.csl.sri.com/>`_\ ,
   * `Yices 1 <http://yices.csl.sri.com/old/download-yices1-full.shtml>`_\ , or
@@ -175,7 +175,7 @@ free to call it whatever you want.
 
 Note that building your own local Kind 2 image **does require access to the
 Internet**. This is because of the packages the build process needs to
-retrieve, as well as for downloading the z3 and cvc4 solvers.
+retrieve, as well as for downloading the z3 and cvc5 solvers.
 
 Building and installing
 -----------------------

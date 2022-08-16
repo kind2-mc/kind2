@@ -256,7 +256,7 @@ let rec split_cmp acc cmp = function
     let ci = Term.mk_app cmp [a; b] in
     split_cmp (ci :: acc) cmp l
 
-(* Preprocessing of terms for proof producing version of CVC4 *)
+(* Preprocessing of terms for proof producing version of cvc5 *)
 let preproc term =
   Term.map (fun _ t -> match Term.node_of_term t with
       | Term.T.Node (cmp, (_::_::_::_ as l)) ->
@@ -325,7 +325,7 @@ let define_fun ?(trace_lfsc_defs=false) fmt fun_symbol arg_vars res_sort defn =
 
   if trace_lfsc_defs then begin
 
-    fprintf fmt ";; Tracing artifact for CVC4 and LFSC proofs\n";
+    fprintf fmt ";; Tracing artifact for cvc5 and LFSC proofs\n";
     
     let fs = UfSymbol.string_of_uf_symbol fun_symbol in
     let fun_def_sy = fs ^ "%def" in
@@ -1493,7 +1493,7 @@ let s_define_pred ?(trace_lfsc_defs=false) fmt fun_symbol args defn =
 
   if trace_lfsc_defs then begin
 
-    fprintf fmt ";; Tracing artifact for CVC4 and LFSC proofs\n";
+    fprintf fmt ";; Tracing artifact for cvc5 and LFSC proofs\n";
     
     let fun_def_sy = fun_symbol ^ "%def" in
     fprintf fmt "(declare-fun %s %s Bool)\n" fun_def_sy
@@ -1806,7 +1806,7 @@ let generate_split_certificates sys dirname =
     dirname kind2_defs_f names_kind2 sys "Kind2";
 
   export_system ~trace_lfsc_defs:true
-    (* "System constructed by Kind 2 (tracing info for CVC4/LFSC)" *)
+    (* "System constructed by Kind 2 (tracing info for cvc5/LFSC)" *)
     dirname kind2_defs_lfsc_f names_kind2 sys "Kind2";
 
   let kind2_defs_path = Filename.concat dirname kind2_defs_f in
@@ -2704,7 +2704,7 @@ let generate_frontend_obs node kind2_sys dirname =
     dirname jkind_defs_f names_jkind jkind_sys "JKind";
 
   export_system ~trace_lfsc_defs:true
-    (* "System constructed by JKind (tracing info for CVC4/LFSC)" *)
+    (* "System constructed by JKind (tracing info for cvc5/LFSC)" *)
     dirname jkind_defs_lfsc_f names_jkind jkind_sys "JKind";
 
   let jkind_defs_path = Filename.concat dirname jkind_defs_f in
@@ -2854,7 +2854,7 @@ let generate_frontend_certificates sys dirname =
 
 
 let z3_cmd = "z3 -smt2 -in"
-let cvc4_cmd = "cvc4 --incremental --lang smt2"
+let cvc5_cmd = "cvc5 --incremental --lang=smt2"
 let yices2_cmd = "yices-smt2 --incremental"
 
 let goto_cert_dir="cd $(dirname \"$(which \"$0\")\")\n"
@@ -2865,7 +2865,7 @@ let select_solver_script =
     z3)
         solver=\"%s\"
         ;;
-    cvc4)
+    cvc5)
         solver=\"%s\"
         ;;
     yices2)
@@ -2875,7 +2875,7 @@ let select_solver_script =
         solver=\"$1\"
         ;;
     esac\n"
-  z3_cmd cvc4_cmd yices2_cmd
+  z3_cmd cvc5_cmd yices2_cmd
 
 let certificate_checker_script =
   "#!/bin/sh\n" ^

@@ -27,13 +27,13 @@ RUN wget -qq https://yices.csl.sri.com/releases/2.6.2/yices-2.6.2-x86_64-pc-linu
  && rm -rf yices-* \
  && echo Success || true
 
-# Retrieve JKind and CVC4 (required for certification)
+# Retrieve JKind and cvc5 (required for certification)
 RUN wget -qq https://github.com/loonwerks/jkind/releases/download/v4.4.2/jkind-4.4.2.zip && unzip jkind-4.4.2.zip \
  && cp ./jkind/jkind ./jkind/*.jar /bin/ \
  && rm -rf jkind* \
- && wget -qq https://github.com/CVC4/CVC4/releases/download/1.8/cvc4-1.8-x86_64-linux-opt -O cvc4 \
- && mv cvc4 /bin/ \
- && chmod a+x /bin/cvc4 \
+ && wget -qq https://github.com/cvc5/cvc5/releases/latest/download/cvc5-Linux -O cvc5 \
+ && mv cvc5 /bin/ \
+ && chmod a+x /bin/cvc5 \
  && echo Success || true
 
 # Install Z3 and Java (required by JKind)

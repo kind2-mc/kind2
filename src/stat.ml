@@ -714,8 +714,8 @@ let certif_min_time =
 let certif_frontend_time = 
   empty_item "frontend time" 0.
 
-let certif_cvc4_time = 
-  empty_item "CVC4 proof-gen time" 0.
+let certif_cvc5_time = 
+  empty_item "cvc5 proof-gen time" 0.
 
 let certif_k =
   empty_item "k" (-1)
@@ -741,7 +741,7 @@ let certif_stats =
     I certif_size;
     I certif_old_k;
     I certif_old_size;
-    F certif_cvc4_time;
+    F certif_cvc5_time;
   ] 
 
 (* Stop and record all times *)

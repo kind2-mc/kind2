@@ -2817,7 +2817,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 
             if (not qe_solver_is_available) then
               raise (UnsupportedFeature
-              "Disabling IC3: Z3 or CVC4 is required for inputs with reals or machine integers.");
+              "Disabling IC3: Z3 or cvc5 is required for inputs with reals or machine integers.");
 
             KEvent.log
               L_info

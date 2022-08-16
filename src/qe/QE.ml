@@ -39,7 +39,7 @@ let set_ubound bound = ubound := bound
 let get_qe_solver () =
   match Flags.Smt.qe_solver () with
   | `Z3_SMTLIB -> `Z3_SMTLIB
-  | `CVC4_SMTLIB -> `CVC4_SMTLIB
+  | `cvc5_SMTLIB -> `cvc5_SMTLIB
   | _ -> failwith "No QE solver found"
 
 (* Get the current solver instance or create a new instance *)

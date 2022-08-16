@@ -19,11 +19,11 @@
 #########################################################################
 
 
-# Small script to run CVC4 with proof production, extract the goal from the
+# Small script to run cvc5 with proof production, extract the goal from the
 # proof tree and check the equivalence with the original smt2 file using Z3.
 #
-# run it like this: cvc4_lfsc_check file.smt2
-# change the paths CVC4, Z3, LFSCEX to the correct ones
+# run it like this: cvc5_lfsc_check file.smt2
+# change the paths cvc5, Z3, LFSCEX to the correct ones
 
 # default values
 
@@ -35,7 +35,7 @@ TIMEOUT=""
 TOCODE=@TOCODE@
 
 # binaries
-CVC4="cvc4"
+CVC5="cvc5"
 Z3="z3"
 LFSCEX="lfsc-extractor"
 
@@ -53,8 +53,8 @@ do
             TIMEOUT="timeout $2"
             shift
             ;;
-        -cvc4|--cvc4)
-            CVC4="$2"
+        -cvc5|--cvc5)
+            CVC5="$2"
             shift
             ;;
         -s|--solver)
@@ -67,7 +67,7 @@ do
             ;;
         *)
             echo "Unknown option $1"
-            echo "Usage $(basename $0) [-t <timeout>] [-cvc4 <cvc4_binary>] [-solver <solver_binary>] [-l <lfsc-extractor>] file.smt2"
+            echo "Usage $(basename $0) [-t <timeout>] [-cvc5 <cvc5_binary>] [-solver <solver_binary>] [-l <lfsc-extractor>] file.smt2"
             exit 1
             ;;
     esac
@@ -99,8 +99,8 @@ function print_end () {
     echo -e "${!color}[$text]${NC}"
 }
 
-echo "Running cvc4 with proofs on $1"
-$TIMEOUT $CVC4 --proof --check-proofs --dump-proof $1 > $lfsc_tmp
+echo "Running cvc5 with proofs on $1"
+$TIMEOUT $CVC5 --proof --check-proofs --dump-proof $1 > $lfsc_tmp
 RET=$?
 
 SAT=$(grep -q "^sat" $lfsc_tmp; echo $?)
@@ -115,7 +115,7 @@ case $RET in
         print_end GREEN OK
         ;;
     $TOCODE)
-        print_end YELLOW CVC4_TIMEOUT
+        print_end YELLOW CVC5_TIMEOUT
         exit $RET
         ;;
     *)

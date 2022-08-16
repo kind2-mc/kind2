@@ -120,7 +120,7 @@ module Smt = struct
     | `MathSAT_SMTLIB
     | `Boolector_SMTLIB
     | `Z3_SMTLIB
-    | `CVC4_SMTLIB
+    | `cvc5_SMTLIB
     | `Yices_SMTLIB
     | `Yices_native
     | `detect
@@ -129,7 +129,7 @@ module Smt = struct
     | "MathSAT" ->  `MathSAT_SMTLIB
     | "Boolector" -> `Boolector_SMTLIB
     | "Z3" -> `Z3_SMTLIB
-    | "CVC4" -> `CVC4_SMTLIB
+    | "cvc5" -> `cvc5_SMTLIB
     | "Yices2" -> `Yices_SMTLIB
     | "Yices" -> `Yices_native
     | _ -> Arg.Bad "Bad value for --smt_solver" |> raise
@@ -137,11 +137,11 @@ module Smt = struct
     | `MathSAT_SMTLIB -> "MathSAT"
     | `Boolector_SMTLIB -> "Boolector"
     | `Z3_SMTLIB -> "Z3"
-    | `CVC4_SMTLIB -> "CVC4"
+    | `cvc5_SMTLIB -> "cvc5"
     | `Yices_SMTLIB -> "Yices2"
     | `Yices_native -> "Yices"
     | `detect -> "detect"
-  let solver_values = "Z3, CVC4, Yices, Yices2, Boolector, MathSAT"
+  let solver_values = "Z3, cvc5, Yices, Yices2, Boolector, MathSAT"
   let solver_default = `detect
   let solver = ref solver_default
   let _ = add_spec
@@ -162,18 +162,18 @@ module Smt = struct
 
   type qe_solver = [
     | `Z3_SMTLIB
-    | `CVC4_SMTLIB
+    | `cvc5_SMTLIB
     | `detect
   ]
   let qe_solver_of_string = function
     | "Z3" -> `Z3_SMTLIB
-    | "CVC4" -> `CVC4_SMTLIB
+    | "cvc5" -> `cvc5_SMTLIB
     | _ -> Arg.Bad "Bad value for --smt_qe_solver" |> raise
   let string_of_qe_solver = function
     | `Z3_SMTLIB -> "Z3"
-    | `CVC4_SMTLIB -> "CVC4"
+    | `cvc5_SMTLIB -> "cvc5"
     | `detect -> "detect"
-  let qe_solver_values = "Z3, CVC4"
+  let qe_solver_values = "Z3, cvc5"
   let qe_solver_default = `detect
   let qe_solver = ref qe_solver_default
   let _ = add_spec
@@ -311,27 +311,19 @@ module Smt = struct
   let set_z3_qe_light b = z3_qe_light := b
   let z3_qe_light () = !z3_qe_light
 
-  (* CVC4 binary. *)
-  let cvc4_bin_default = "cvc4"
-  let cvc4_bin = ref cvc4_bin_default
+  (* cvc5 binary. *)
+  let cvc5_bin_default = "cvc5"
+  let cvc5_bin = ref cvc5_bin_default
   let _ = add_spec
-    "--cvc4_bin"
-    (Arg.Set_string cvc4_bin)
+    "--cvc5_bin"
+    (Arg.Set_string cvc5_bin)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Executable of CVC4 solver@ Default: \"%s\"@]"
-        cvc4_bin_default
+        "@[<v>Executable of cvc5 solver@ Default: \"%s\"@]"
+        cvc5_bin_default
     )
-  let set_cvc4_bin str = cvc4_bin := str
-  let cvc4_bin () = !cvc4_bin
-
-  let cvc4_rewrite_divk = ref true
-  let set_cvc4_rewrite_divk b = cvc4_rewrite_divk := b
-  let cvc4_rewrite_divk () = !cvc4_rewrite_divk
-
-  let cvc4_bv_consts_in_binary = ref true
-  let set_cvc4_bv_consts_in_binary b = cvc4_bv_consts_in_binary := b
-  let cvc4_bv_consts_in_binary () = !cvc4_bv_consts_in_binary
+  let set_cvc5_bin str = cvc5_bin := str
+  let cvc5_bin () = !cvc5_bin
 
   (* Yices binary. *)
   let yices_bin_default = "yices"
@@ -409,9 +401,9 @@ module Smt = struct
     (* User chose Z3 *)
     | `Z3_SMTLIB ->
       find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
-    (* User chose CVC4 *)
-    | `CVC4_SMTLIB ->
-      find_solver ~fail:true "CVC4" (cvc4_bin ()) |> ignore
+    (* User chose cvc5 *)
+    | `cvc5_SMTLIB ->
+      find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
     (* User chose Yices *)
     | `Yices_native ->
       find_solver ~fail:true "Yices" (yices_bin ()) |> ignore
@@ -431,9 +423,9 @@ module Smt = struct
         set_yices2smt2_bin exec;
       with Not_found ->
       try
-        let exec = find_solver ~fail:false "CVC4" (cvc4_bin ()) in
-        set_solver `CVC4_SMTLIB;
-        set_cvc4_bin exec;
+        let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
+        set_solver `cvc5_SMTLIB;
+        set_cvc5_bin exec;
       with Not_found ->
       try
         let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
@@ -460,11 +452,11 @@ module Smt = struct
       | `Z3_SMTLIB -> ()
       | _ -> find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
     )
-    (* User chose CVC4 *)
-    | `CVC4_SMTLIB -> (
+    (* User chose cvc5 *)
+    | `cvc5_SMTLIB -> (
       match solver () with
-      | `CVC4_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "CVC4" (cvc4_bin ()) |> ignore
+      | `cvc5_SMTLIB -> ()
+      | _ -> find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
     )
     | `detect ->
       match solver () with
@@ -476,12 +468,12 @@ module Smt = struct
           set_z3_bin exec;
         with Not_found ->
         match solver () with
-        | `CVC4_SMTLIB -> set_qe_solver `CVC4_SMTLIB;
+        | `cvc5_SMTLIB -> set_qe_solver `cvc5_SMTLIB;
         | _ ->
           try
-            let exec = find_solver ~fail:false "CVC4" (cvc4_bin ()) in
-            set_qe_solver `CVC4_SMTLIB;
-            set_cvc4_bin exec;
+            let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
+            set_qe_solver `cvc5_SMTLIB;
+            set_cvc5_bin exec;
           with Not_found -> () (* Ẃe keep `detect to know no qe solver was found *)
 end
 
@@ -822,7 +814,7 @@ module QE = struct
       quantifier-free formula equivalent to `(exists (v_1, ..., v_n) f)`.@ \
       The QE method implemented in Kind 2 supports integer arithmetic,@ \
       but not real or machine integer arithmetic. If the solver used is@ \
-      Z3 or CVC4 then the solver's QE will be used instead of the internal@ \
+      Z3 or cvc5 then the solver's QE will be used instead of the internal@ \
       one for systems with real or machine integer variables.@ \
       IC3 (module \"ic3\") is the only Kind 2 technique that uses QE.\
     @]"
@@ -1960,11 +1952,11 @@ module Arrays = struct
   let recdef_action b =
     recdef := b;
     match Smt.solver () with
-    | `CVC4_SMTLIB -> ()
+    | `cvc5_SMTLIB -> ()
     | _ ->
       raise (Arg.Bad 
-               "Recursive encoding of arrays can only be used with CVC4. \
-                Use the flag --smtsolver CVC4")  
+               "Recursive encoding of arrays can only be used with cvc5. \
+                Use the flag --smtsolver cvc5")  
 
   let _ = add_spec
     "--arrays_rec"
@@ -1972,7 +1964,7 @@ module Arrays = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Define recurvsive functions for arrays (only if previously@ \
-         selected CVC4 as the SMT solver).@ Default: %a@]"
+         selected cvc5 as the SMT solver).@ Default: %a@]"
         fmt_bool recdef_default
     )
   let recdef () = !recdef
@@ -3571,21 +3563,12 @@ let solver_dependant_actions solver =
       )
     | None -> Log.log L_warn "Couldn't determine Yices 2 version"
   )
-  | `CVC4_SMTLIB -> (
-    let cmd = Format.asprintf "%s --version" (Smt.cvc4_bin ()) in
-    match get_version false cmd with
-    | Some (major_rev, minor_rev, _) ->
-      if major_rev < 1 || (major_rev = 1 && minor_rev < 7) then (
-        if Smt.check_sat_assume () then (
-          Log.log L_warn "Detected CVC4 1.6 or older: disabling check_sat_assume";
-          Smt.set_check_sat_assume false
-        )
-      )
-      else if (major_rev > 1 || minor_rev >= 8) then (
-        Smt.set_cvc4_rewrite_divk false;
-        Smt.set_cvc4_bv_consts_in_binary false
-      )
-    | None -> Log.log L_warn "Couldn't determine CVC4 version"
+  | `cvc5_SMTLIB -> (
+    let cmd = Format.asprintf "%s --version" (Smt.cvc5_bin ()) in
+    if get_version false cmd = None then (
+      Log.log L_warn "Couldn't determine cvc5 version";
+      raise Error
+    )
   )
   | `Yices_native -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
@@ -3758,9 +3741,9 @@ let parse_argv () =
 
   (match Smt.solver (), Smt.qe_solver () with
   | `Z3_SMTLIB, `Z3_SMTLIB -> ()
-  | `CVC4_SMTLIB, `CVC4_SMTLIB -> ()
+  | `cvc5_SMTLIB, `cvc5_SMTLIB -> ()
   | _, `Z3_SMTLIB -> solver_dependant_actions `Z3_SMTLIB
-  | _, `CVC4_SMTLIB -> solver_dependant_actions `CVC4_SMTLIB
+  | _, `cvc5_SMTLIB -> solver_dependant_actions `cvc5_SMTLIB
   | _, _ -> ()) ;
 
   if IVC.compute_ivc () && BmcKind.compress () then (

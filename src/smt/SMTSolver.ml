@@ -37,7 +37,7 @@ let gentag =
 (* Instantiate module for SMTLIB2 solvers with drivers *)
 module BoolectorSMTLIB : SolverSig.S = SMTLIBSolver.Make (BoolectorDriver)
 module Z3SMTLIB : SolverSig.S = SMTLIBSolver.Make (Z3Driver)
-module CVC4SMTLIB : SolverSig.S = SMTLIBSolver.Make (CVC4Driver)
+module CVC5SMTLIB : SolverSig.S = SMTLIBSolver.Make (CVC5Driver)
 module Yices2SMTLIB : SolverSig.S = SMTLIBSolver.Make (Yices2SMT2Driver)
 module MathSATSMTLIB : SolverSig.S = SMTLIBSolver.Make (MathSATDriver)
 
@@ -160,7 +160,7 @@ let [@ocaml.warning "-27"] create_instance
     | `Boolector_SMTLIB -> (module BoolectorSMTLIB.Create(Params) : SolverSig.Inst)
     | `MathSAT_SMTLIB -> (module MathSATSMTLIB.Create(Params) : SolverSig.Inst)
     | `Z3_SMTLIB -> (module Z3SMTLIB.Create(Params) : SolverSig.Inst)
-    | `CVC4_SMTLIB -> (module CVC4SMTLIB.Create(Params) : SolverSig.Inst)
+    | `cvc5_SMTLIB -> (module CVC5SMTLIB.Create(Params) : SolverSig.Inst)
     | `Yices_SMTLIB ->  (module Yices2SMTLIB.Create(Params) : SolverSig.Inst)
     | `Yices_native -> (module YicesNative.Create(Params) : SolverSig.Inst)
     | `detect -> assert false
@@ -767,7 +767,7 @@ let get_unsat_core_lits s =
    and NOT in AFTER the call to check_sat_assuming. *)
 let check_sat_assuming s if_sat if_unsat literals =
 
-  (* Calling check_sat_assuming with no litteral fails with CVC4,
+  (* Calling check_sat_assuming with no litteral fails with cvc5,
     so it is better to put this verification here *)
   assert (literals <> []) ;
 
@@ -875,7 +875,7 @@ let get_term_values s terms =
 
   | r -> smt_error s r
 
-(* In some cases, CVC4 returns syntactically different terms
+(* In some cases, cvc5 returns syntactically different terms
    to the ones sent in a get-value query. For instance:
    Query: ( get-value ((< x 10.0) (>= y 10.5)) )
    Reply: ( ((< x 10) true) ((>= y (/ 21 2)) false) )
@@ -1143,7 +1143,7 @@ let get_qe_z3 solver expr =
   res
 
 
-let get_qe_cvc4 solver expr =
+let get_qe_cvc5 solver expr =
   let module S = (val solver.solver_inst) in
 
   match execute_custom_command solver "get-qe" [SMTExpr.ArgExpr expr] 1 with
@@ -1158,7 +1158,7 @@ let get_qe_expr solver quantified_expr =
      Until then, we handle each particular case here... *)
   match solver.solver_kind with
   | `Z3_SMTLIB -> get_qe_z3 solver quantified_expr
-  | `CVC4_SMTLIB -> get_qe_cvc4 solver quantified_expr
+  | `cvc5_SMTLIB -> get_qe_cvc5 solver quantified_expr
   | _ -> failwith "Quantifier elimination is not supported by SMT solver or \
                    implementation is not available"
 
@@ -1186,7 +1186,7 @@ let simplify_z3 solver expr =
   res
 
 
-let simplify_cvc4 solver expr =
+let simplify_cvc5 solver expr =
   let module S = (val solver.solver_inst) in
 
   match execute_custom_command solver "simplify" [SMTExpr.ArgExpr expr] 1 with
@@ -1201,7 +1201,7 @@ let simplify_expr solver expr =
      Until then, we handle each particular case here... *)
   match solver.solver_kind with
   | `Z3_SMTLIB -> simplify_z3 solver expr
-  | `CVC4_SMTLIB -> simplify_cvc4 solver expr
+  | `cvc5_SMTLIB -> simplify_cvc5 solver expr
   | _ ->  (S.Conv.term_of_smtexpr expr)
 
 let simplify_term solver term =

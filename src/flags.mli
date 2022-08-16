@@ -245,7 +245,7 @@ module Smt : sig
     | `MathSAT_SMTLIB
     | `Boolector_SMTLIB
     | `Z3_SMTLIB
-    | `CVC4_SMTLIB
+    | `cvc5_SMTLIB
     | `Yices_SMTLIB
     | `Yices_native
     | `detect
@@ -259,7 +259,7 @@ module Smt : sig
 
   type qe_solver = [
     | `Z3_SMTLIB
-    | `CVC4_SMTLIB
+    | `cvc5_SMTLIB
     | `detect
   ]
 
@@ -295,18 +295,8 @@ module Smt : sig
   (** Specify if Z3 qe-light strategy should be used in addition to qe *)
   val set_z3_qe_light : bool -> unit
 
-  (** Executable of CVC4 solver *)
-  val cvc4_bin : unit -> string
-
-  (** CVC4 binary requires --rewrite-divk flag *)
-  val cvc4_rewrite_divk : unit -> bool
-
-  val set_cvc4_rewrite_divk : bool -> unit
-
-  (** CVC4 binary requires --bv-print-consts-in-binary flag *)
-  val cvc4_bv_consts_in_binary : unit -> bool
-
-  val set_cvc4_bv_consts_in_binary : bool -> unit
+  (** Executable of cvc5 solver *)
+  val cvc5_bin : unit -> string
 
   (** Executable of Yices solver *)
   val yices_bin : unit -> string

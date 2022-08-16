@@ -146,7 +146,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
        
        get_value_response_of_sexpr' accum tl
 
-    (* Hack for CVC4's (- 1).0 expressions *)
+    (* Hack for cvc5's (- 1).0 expressions *)
     | HStringSExpr.List [ e; v; HStringSExpr.Atom d ] :: tl 
       when d == HString.mk_hstring ".0" ->
 
