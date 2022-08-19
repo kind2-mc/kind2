@@ -60,6 +60,13 @@ let get_cvc5_version () =
 
 (* LFSC symbols *)
 
+let s_declare = H.mk_hstring "declare"
+let s_var = H.mk_hstring "var"
+
+let s_define = H.mk_hstring "define"
+
+let s_holds = H.mk_hstring "holds"
+
 let s_iff = H.mk_hstring "iff"
 let s_true = H.mk_hstring "true"
 
@@ -106,9 +113,7 @@ let abstr_ind_of_logic = let open TermLib in
 let abstr_index () =
   Flags.Certif.abstr () || abstr_ind_of_logic !global_logic
 
-let s_index () =
-  if abstr_index () then H.mk_hstring "index"
-  else H.mk_hstring "Int"
+let s_index () = H.mk_hstring "Int"
 
 let s_pindex = H.mk_hstring "%index%"
 let s_pk = H.mk_hstring "%%k"
@@ -309,6 +314,21 @@ let print_context fmt { lfsc_decls; lfsc_defs } =
   List.iter (fprintf fmt "%a\n@." print_def) lfsc_defs;
   fprintf fmt "@."
 
+(* Print declaration names from context *)
+let print_names fmt { lfsc_decls; lfsc_defs } =
+  let print_decl_name fmt { decl_symb; _ } =
+    fprintf fmt "%a\n"
+      H.pp_print_hstring decl_symb
+  in
+  let print_def_name fmt { def_symb; _ } =
+    fprintf fmt "%a\n"
+      H.pp_print_hstring def_symb
+  in
+  List.iter (fprintf fmt "%a@." print_decl_name) (List.rev lfsc_decls);
+  fprintf fmt "@.";
+  List.iter (fprintf fmt "%a\n@." print_def_name) lfsc_defs;
+  fprintf fmt "@."
+
 (* Print only definitions of a proof context *)
 let print_defs fmt { lfsc_defs } =
   List.iter (fprintf fmt "%a\n@." print_def) lfsc_defs;
@@ -322,12 +342,12 @@ let print_delta_context
     fmt
     { lfsc_decls; lfsc_defs } =
   List.iter (fun d ->
-      if not (List.exists (equal_decl d) old_decls) then
+      if not (List.exists (fun od -> H.equal od.decl_symb d.decl_symb) old_decls) then
         fprintf fmt "%a@." print_decl d
     ) (List.rev lfsc_decls);
   (* fprintf fmt "@."; *)
   List.iter (fun dl ->
-      if not (List.exists (equal_def dl) old_defs) then
+      if not (List.exists (fun odl -> H.equal odl.def_symb dl.def_symb) old_defs) then
         fprintf fmt "%a\n@." print_def dl
     ) lfsc_defs
   (* fprintf fmt "@." *)
@@ -337,15 +357,16 @@ let print_delta_context
 let rec print_hyps_type ty fmt = function
   | [] -> print_type fmt ty
   | { decl_symb; decl_type } :: rhyps ->
-    fprintf fmt "@[<hov 0>(! %a %a@ %a)@]"
+    fprintf fmt "@[<hov 0>(! %a (%a %a)@ %a)@]"
       H.pp_print_hstring decl_symb
+      H.pp_print_hstring s_holds
       print_type decl_type
       (print_hyps_type ty) rhyps
 
 (* Print a proof term as lambda abstraction over its hypostheses *)
 let rec print_proof_term term fmt = function
   | [] -> print_term fmt term
-  | { decl_symb } :: rhyps ->
+  | { decl_symb; decl_type } :: rhyps ->
     fprintf fmt "@[<hov 0>(\\ %a@ %a)@]"
       H.pp_print_hstring decl_symb
       (print_proof_term term) rhyps
@@ -701,6 +722,73 @@ let rec parse_proof acc = let open HS in function
     failwith (asprintf "parse_proof: Unexpected proof:\n%a@."
                 (HS.pp_print_sexpr_indent 0) s)
 
+let rec parse_proof' acc lets = let open HS in let ctx = acc.proof_context in function
+
+
+
+  | List [Atom dec; Atom s; t] :: r when dec == s_declare ->
+    let ctx = if List.exists (fun decl -> H.equal decl.decl_symb s) ctx.lfsc_decls then ctx
+        else { ctx with lfsc_decls = { decl_symb = s; decl_type = t} :: ctx.lfsc_decls } in
+    parse_proof' { acc with proof_context = ctx } lets r
+
+  | List [Atom def; Atom s; b] :: r when def == s_define ->
+    let ctx = if List.exists (fun def -> H.equal def.def_symb s) ctx.lfsc_defs then ctx
+        else { ctx with lfsc_defs = {
+      def_symb = s;
+      def_args = [];
+      def_ty = HS.Atom s_term (* for now assume type is always `term`*);
+      def_body = b;
+    } :: ctx.lfsc_defs } in
+    parse_proof' { acc with proof_context = ctx } lets r
+
+  | [List (Atom check :: r)] when check == s_check ->
+    parse_proof' { acc with proof_context = ctx } lets r
+
+  | [List [Atom at; s; b; r]] when at == s_at ->
+    let lets = (s, apply_subst lets b) :: lets in
+    parse_proof' acc lets [r]
+
+  | [List [Atom percent; Atom a; List [Atom h; List [Atom eq; Atom s; b]]; r]] when percent == s_LAMBDA && h == s_holds && eq == s_eq ->
+    (* TODO: redundant but keep for now *)
+    let b = apply_subst lets b in
+    let ctx = {ctx with lfsc_defs = {
+      def_symb = s;
+      def_args = [];
+      def_ty = HS.Atom s_term (* for now assume type is always `term`*);
+      def_body = b;
+    } :: List.filter (fun def -> def.def_symb != s) ctx.lfsc_defs} in
+    (* let r = apply_subst [(Atom a, List [Atom h; List [Atom eq; Atom s; b]])] r in
+    let rec print_lets = function
+      | (x, t) :: ts -> printf "(%a %a)\n" (HS.pp_print_sexpr_indent 0) x (HS.pp_print_sexpr_indent 0) t;
+      print_lets ts
+      | _ -> printf "" in
+    printf "lets:";
+    print_lets [(Atom a, List [Atom h; List [Atom eq; Atom s; b]])]; *)
+    parse_proof' { acc with proof_context = ctx } lets [r]
+
+  | [List [Atom percent; Atom a; List [Atom h; t]; r]] when percent == s_LAMBDA && h == s_holds ->
+    (* TODO: add hypothesis. ex: (% __a6 (holds (not (=> __t16 __t15))) *)
+    parse_proof' { acc with proof_hyps = { decl_symb = a; decl_type = apply_subst lets t} :: acc.proof_hyps } lets [r]
+
+  | [List [Atom ascr; ty; pterm]] when ascr = s_ascr ->
+    let ctx = {ctx with lfsc_defs = List.rev ctx.lfsc_defs} in
+    let pterm = apply_subst lets pterm in
+    (* let rec print_lets = function
+      | (x, t) :: ts -> printf "(%a %a)\n" (HS.pp_print_sexpr_indent 0) x (HS.pp_print_sexpr_indent 0) t;
+      print_lets ts
+      | _ -> printf "" in
+    printf "lets:";
+    print_lets lets;
+    printf "pterm:\n%a@." (print_proof_term pterm) []; *)
+
+    if Flags.Certif.log_trust () then register_trusts pterm;
+    (* printf "Parsed context:\n%a@." print_context ctx; *)
+    { acc with proof_type = ty; proof_term = pterm  }
+
+  | s ->
+    failwith (asprintf "parse_proof: Unexpected proof:\n%a@."
+                HS.pp_print_sexpr_list s)
+
 
 (* Parse a proof from cvc5 from one that start with [(check ...]. *)
 let parse_proof_check ctx = let open HS in function
@@ -709,6 +797,8 @@ let parse_proof_check ctx = let open HS in function
   | s ->
     failwith (asprintf "parse_proof_check: Unexpected proof:\n%a@."
                 (HS.pp_print_sexpr_indent 0) s)
+
+let parse_proof_check' ctx = parse_proof' (mk_empty_proof ctx)
 
 
 
@@ -732,14 +822,18 @@ let proof_from_chan ctx in_ch =
     | [Atom u; proof] when u == s_unsat ->
 
       parse_proof_check ctx proof
-      
+
+    | Atom u :: proof when u == s_unsat ->
+
+      parse_proof_check' ctx [] proof
+
     | _ ->
       failwith (asprintf "No proofs, instead got:\n%a@."
                   HS.pp_print_sexpr_list sexps)
 
 
 
-(* Call cvc5 in proof production mode on an SMT2 file an returns the proof *)
+(* Call cvc5 in proof production mode on an SMT2 file and return the proof *)
 let proof_from_file ctx f =
   let cmd = cvc5_proof_cmd () ^ " " ^ f in
   (* Format.eprintf "CMD: %s@." cmd ; *)
@@ -773,12 +867,56 @@ let rec parse_context ctx = let open HS in function
     in
     parse_context ctx r
 
-  | List [Atom ascr; _; _] when ascr = s_ascr -> ctx
+  | List [Atom ascr; _; _] when ascr = s_ascr ->
+    printf "Parsed context:\n%a@." print_context ctx;
+    ctx
 
   | s ->
     failwith (asprintf "parse_context: Unexpected proof:\n%a@."
                 (HS.pp_print_sexpr_indent 0) s)
 
+let rec parse_context' ctx lets = let open HS in function
+
+  | List [Atom dec; Atom s; t] :: r when dec == s_declare ->
+    let ctx = { ctx with lfsc_decls = { decl_symb = s; decl_type = t} :: ctx.lfsc_decls } in
+    parse_context' ctx lets r
+
+  | List [Atom def; Atom s; b] :: r when def == s_define ->
+    let ctx = { ctx with lfsc_defs = {
+      def_symb = s;
+      def_args = [];
+      def_ty = HS.Atom s_term (* for now assume type is always `term`*);
+      def_body = b;
+    } :: ctx.lfsc_defs } in
+    parse_context' ctx lets r
+
+  | [List (Atom check :: r)] when check == s_check ->
+    parse_context' ctx lets r
+
+  | [List [Atom at; s; b; r]] when at == s_at ->
+    let lets = (s, apply_subst lets b) :: lets in
+    parse_context' ctx lets [r]
+
+  | [List [Atom percent; _; List [Atom h; List [Atom eq; Atom s; b]]; r]] when percent == s_LAMBDA && h == s_holds && eq == s_eq ->
+    let ctx = {ctx with lfsc_defs = {
+      def_symb = s;
+      def_args = [];
+      def_ty = HS.Atom s_term (* for now assume type is always `term`*);
+      def_body = apply_subst lets b;
+    } :: List.filter (fun def -> def.def_symb != s) ctx.lfsc_defs} in
+    parse_context' ctx lets [r]
+
+  | [List [Atom percent; _; List [Atom h; _]; r]] when percent == s_LAMBDA && h == s_holds ->
+    parse_context' ctx lets [r]
+
+  | [List [Atom ascr; _; _]] when ascr = s_ascr ->
+    let ctx = {ctx with lfsc_defs = List.rev ctx.lfsc_defs} in
+    (* printf "Parsed context:\n%a@." print_context ctx; *)
+    ctx
+
+  | s ->
+    failwith (asprintf "parse_context: Unexpected proof:\n%a@."
+                HS.pp_print_sexpr_list s)
 
 (* Parse a context from a dummy proof check used only for tracing *)
 let parse_context_dummy = let open HS in function
@@ -788,6 +926,8 @@ let parse_context_dummy = let open HS in function
   | s ->
     failwith (asprintf "parse_context_dummy:Unexpected proof:\n%a@."
                 (HS.pp_print_sexpr_indent 0) s)
+
+let parse_context_dummy' = parse_context' (mk_empty_proof_context ())
 
 
 (* Parse a context from a channel. The goal is trivial because the file
@@ -811,7 +951,11 @@ let context_from_chan in_ch =
     | [Atom u; dummy_proof] when u == s_unsat ->
 
       parse_context_dummy dummy_proof
-      
+
+    | Atom u :: dummy_proof when u == s_unsat ->
+
+      parse_context_dummy' [] dummy_proof
+
     | _ ->
       failwith (asprintf "No proofs, instead got:\n%a@."
                   HS.pp_print_sexpr_list sexps)
@@ -837,7 +981,7 @@ let context_from_file f =
     raise e
 
 (* Merge two contexts *)
-let merge_contexts ctx1 ctx2 =
+(* let merge_contexts ctx1 ctx2 =
   {
     lfsc_decls = ctx2.lfsc_decls @ ctx1.lfsc_decls;
     lfsc_defs = ctx2.lfsc_defs @ ctx1.lfsc_defs;
@@ -846,8 +990,18 @@ let merge_contexts ctx1 ctx2 =
       HH.iter (HH.add h) ctx1.fun_defs_args;
       HH.iter (HH.add h) ctx2.fun_defs_args;
       h;
-  }
+  } *)
 
+let merge_contexts ctx1 ctx2 =
+  {
+    lfsc_decls = List.fold_left (fun acc decl -> if List.exists (fun decl' -> H.equal decl'.decl_symb decl.decl_symb) acc then acc else decl :: acc) ctx1.lfsc_decls ctx2.lfsc_decls;
+    lfsc_defs = List.fold_left (fun acc def -> if List.exists (fun def' -> H.equal def'.def_symb def.def_symb) acc then acc else def :: acc) ctx1.lfsc_defs ctx2.lfsc_defs;
+    fun_defs_args =
+      let h = HH.create 21 in
+      HH.iter (HH.add h) ctx1.fun_defs_args;
+      HH.iter (HH.add h) ctx2.fun_defs_args;
+      h;
+  }
 
 
 let context_from_file f =
@@ -890,11 +1044,11 @@ let write_inv_proof fmt ?(check=true)
   let open HS in
 
   (* LFSC atoms for formulas *)
-  let a_k = Atom (hstring_of_int c.k) in
-  let a_init = Atom (H.mk_hstring c.for_system.names.init) in
-  let a_trans = Atom (H.mk_hstring c.for_system.names.trans) in
-  let a_prop = Atom (H.mk_hstring c.for_system.names.prop) in
-  let a_phi = Atom (H.mk_hstring c.for_system.names.phi) in
+  let a_k = List [Atom (H.mk_hstring "int"); Atom (hstring_of_int c.k)] in
+  let a_init = Atom (H.mk_hstring ("cvc." ^ c.for_system.names.init)) in
+  let a_trans = Atom (H.mk_hstring ("cvc." ^ c.for_system.names.trans)) in
+  let a_prop = Atom (H.mk_hstring ("cvc." ^ c.for_system.names.prop)) in
+  let a_phi = Atom (H.mk_hstring ("cvc." ^ c.for_system.names.phi)) in
 
   (* LFSC commands to construct the proof *)
   let a_invariant = Atom s_invariant in
@@ -919,24 +1073,24 @@ let write_inv_proof fmt ?(check=true)
 
 (* Write a proof of weak observational equivalence using the proof ob
    invariance of the observer. *)
-let write_obs_eq_proof fmt ?(check=true) proof_obs_name name_proof c =
+let write_obs_eq_proof fmt ?(check=true) proof_obs_name name_proof i a b c d =
   
   let open HS in
 
   (* LFSC atoms for formulas *)
-  let a_init_1 = Atom (H.mk_hstring c.kind2_system.names.init) in
-  let a_trans_1 = Atom (H.mk_hstring c.kind2_system.names.trans) in
-  let a_prop_1 = Atom (H.mk_hstring c.kind2_system.names.prop) in
+  let a_init_1 = Atom (H.mk_hstring ("cvc." ^ i.kind2_system.names.init)) in
+  let a_trans_1 = Atom (H.mk_hstring ("cvc." ^ i.kind2_system.names.trans)) in
+  let a_prop_1 = Atom (H.mk_hstring ("cvc." ^ i.kind2_system.names.prop)) in
 
-  let a_init_2 = Atom (H.mk_hstring c.jkind_system.names.init) in
-  let a_trans_2 = Atom (H.mk_hstring c.jkind_system.names.trans) in
-  let a_prop_2 = Atom (H.mk_hstring c.jkind_system.names.prop) in
+  let a_init_2 = Atom (H.mk_hstring ("cvc." ^ i.jkind_system.names.init)) in
+  let a_trans_2 = Atom (H.mk_hstring ("cvc." ^ i.jkind_system.names.trans)) in
+  let a_prop_2 = Atom (H.mk_hstring ("cvc." ^ i.jkind_system.names.prop)) in
 
 
   (* LFSC commands to construct the proof *)
   let a_obs_eq = Atom s_obs_eq in
   let a_weak_obs_eq = Atom s_weak_obs_eq in
-  let a_same_inputs = Atom (H.mk_hstring "same_inputs") in
+  let a_same_inputs = Atom (H.mk_hstring "cvc.same_inputs") in
 
   (* named prood of obsercational equivalence *)
   let proof_obs = Atom proof_obs_name in
@@ -945,6 +1099,7 @@ let write_obs_eq_proof fmt ?(check=true) proof_obs_name name_proof c =
     List [a_obs_eq;
           a_init_1; a_trans_1; a_prop_1;
           a_init_2; a_trans_2; a_prop_2;
+          a; b; c; d;
           a_same_inputs; proof_obs]
   in
 
@@ -959,27 +1114,25 @@ let write_obs_eq_proof fmt ?(check=true) proof_obs_name name_proof c =
 
 (* Write a proof of safety using the proof of invariance and the proof of weak
    observational equivalence. *)
-let write_safe_proof fmt ?(check=true)
-    proof_inv proof_obs_eq name_proof kind2_s jkind_s =
+let write_safe_proof fmt ?(check=true) kind2_s jkind_s =
   let open HS in
 
   (* LFSC atoms for formulas *)
-  let a_init = Atom (H.mk_hstring kind2_s.names.init) in
-  let a_trans = Atom (H.mk_hstring kind2_s.names.trans) in
-  let a_prop = Atom (H.mk_hstring kind2_s.names.prop) in
+  let a_init = Atom (H.mk_hstring ("cvc." ^ kind2_s.names.init)) in
+  let a_trans = Atom (H.mk_hstring ("cvc." ^ kind2_s.names.trans)) in
+  let a_prop = Atom (H.mk_hstring ("cvc." ^ kind2_s.names.prop)) in
 
-  let a_init' = Atom (H.mk_hstring jkind_s.names.init) in
-  let a_trans' = Atom (H.mk_hstring jkind_s.names.trans) in
-  let a_prop' = Atom (H.mk_hstring jkind_s.names.prop) in
-
+  let a_init' = Atom (H.mk_hstring ("cvc." ^ jkind_s.names.init)) in
+  let a_trans' = Atom (H.mk_hstring ("cvc." ^ jkind_s.names.trans)) in
+  let a_prop' = Atom (H.mk_hstring ("cvc." ^ jkind_s.names.prop)) in
 
   (* LFSC commands to construct the proof *)
   let a_inv_obs = Atom s_inv_obs in
   let a_safe = Atom s_safe in
 
   (* Prior LFSC proofs *)
-  let proof_inv = Atom proof_inv in
-  let proof_obs_eq = Atom proof_obs_eq in
+  let proof_inv = Atom proof_inv_name in
+  let proof_obs_eq = Atom proof_obs_eq_name in
 
   let pterm =
     List [a_inv_obs;
@@ -989,7 +1142,7 @@ let write_safe_proof fmt ?(check=true)
   in
   let ptype = List [a_safe; a_init; a_trans; a_prop] in
   
-  write_proof_and_check fmt ~check name_proof ptype pterm  
+  write_proof_and_check fmt ~check proof_safe_name ptype pterm  
   
 
 (* Generate the LFSC proof of invariance for the original properties and write
@@ -1021,7 +1174,8 @@ let generate_inv_proof inv =
 
   let ctx_phi = context_from_file inv.phi_lfsc_trace_file in
   fprintf proof_fmt ";; k-Inductive invariant for Kind 2 system\n@.%a\n@."
-    print_defs ctx_phi;
+  (print_delta_context ctx_k2) ctx_phi;
+    (* print_defs ctx_phi; *)
 
   let ctx = ctx_phi
             |> merge_contexts ctx_k2
@@ -1058,8 +1212,36 @@ let generate_inv_proof inv =
   (* Show which file contains the proof *)
   Debug.certif "LFSC proof written in %s" proof_file;
 
-  log_trusted ~frontend:false inv.dirname
+  log_trusted ~frontend:false inv.dirname;
 
+  let decl_syms = List.map (fun decl -> decl.decl_symb) ctx.lfsc_decls in
+  let def_syms = List.map (fun def -> def.def_symb) ctx.lfsc_defs in
+  decl_syms @ def_syms
+
+exception ProofParseError of string
+
+let get_itp_indices ctx =
+  let is_sym sym lfsc_def = match lfsc_def.def_symb with
+  | sym' when H.equal sym' (H.mk_hstring sym) -> true
+  | _ -> false
+  in
+  let i = List.find (is_sym "cvc.IO") ctx.lfsc_defs in
+  let t = List.find (is_sym "cvc.TO") ctx.lfsc_defs in
+  let p = List.find (is_sym "cvc.PO") ctx.lfsc_defs in
+  let s_lambda = H.mk_hstring "lambda" in
+  let a = match i.def_body with
+    | List (List [Atom lam; a; _] :: _) when lam == s_lambda -> a
+    | _ -> raise (ProofParseError "Could not find cvc.IO in the proof generated by cvc5")
+  in
+  let (b, c) = match t.def_body with
+    | List (List [Atom lam1; b; _] :: List (List [Atom lam2; c; _] :: _) :: _) when lam1 == s_lambda && lam2 == s_lambda -> (b, c)
+    | _ -> raise (ProofParseError "Could not find cvc.TO in the proof generated by cvc5")
+  in
+  let d = match p.def_body with
+    | List (List [Atom lam; d; _] :: _) when lam == s_lambda -> d
+    | _ -> raise (ProofParseError "Could not find cvc.PO in the proof generated by cvc5")
+  in
+  (a, b, c, d)
 
 (* Generate the LFSC proof of safey by producing an intermediate proofs of
    observational equivalence for the frontend. The proof is written in the file
@@ -1068,6 +1250,9 @@ let generate_frontend_proof inv =
   let proof_file = Filename.concat inv.dirname frontend_proofname in
   let proof_chan = open_out proof_file in
   let proof_fmt = formatter_of_out_channel proof_chan in
+  let temp_file = Filename.concat inv.dirname "temp" in
+  let temp_channel = open_out temp_file in
+  let temp_fmt = formatter_of_out_channel temp_channel in
 
   set_margin proof_fmt;
 
@@ -1088,11 +1273,13 @@ let generate_frontend_proof inv =
 
   let ctx_obs = context_from_file inv.obs_system.smt2_lfsc_trace_file in
   fprintf proof_fmt ";; System generated for Observer\n@.%a\n@."
-    print_defs ctx_obs;
+  (print_delta_context ctx_jk) ctx_obs;
+    (* print_defs ctx_obs; *)
 
   let ctx_phi = context_from_file inv.phi_lfsc_trace_file in
   fprintf proof_fmt ";; k-Inductive invariant for observer system\n@.%a\n@."
-    print_defs ctx_phi;
+  (print_delta_context (merge_contexts ctx_jk ctx_obs)) ctx_phi;
+    (* print_defs ctx_phi; *)
 
   let ctx_k2 = context_from_file inv.kind2_system.smt2_lfsc_trace_file in
 
@@ -1131,14 +1318,17 @@ let generate_frontend_proof inv =
     (obs_implication, obs_base, obs_induction) proof_obs_name inv;
 
   fprintf proof_fmt ";; Proof of observational equivalence\n@.";
-  write_obs_eq_proof proof_fmt ~check:false
-    proof_obs_name proof_obs_eq_name inv;
+  let (a, b, c, d) = get_itp_indices ctx in
+  write_obs_eq_proof proof_fmt ~check:true
+    proof_obs_name proof_obs_eq_name inv a b c d;
 
-  fprintf proof_fmt ";; Final proof of safety\n@.";
-  write_safe_proof proof_fmt proof_inv_name proof_obs_eq_name
-    proof_safe_name inv.kind2_system inv.jkind_system;
-  
   close_out proof_chan;
+
+  fprintf temp_fmt "\n@.%a\n@."
+    print_names ctx_jk;
+
+  close_out proof_chan;
+
   (* Show which file contains the proof *)
   Debug.certif "LFSC proof written in %s" proof_file;
 

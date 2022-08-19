@@ -19,9 +19,6 @@
 (** Set the logic used by the proof generations mechanism *)
 val set_proof_logic : TermLib.logic -> unit
 
-(** Should we use abstract indexes for the proof generation *)
-val abstr_index : unit -> bool
-
 (** The file to store the LFSC proof of the properties. *)
 val proofname : string
 
@@ -33,9 +30,11 @@ val trustfname : string
 
 (** Generate the LFSC proof of invariance for the original properties and write
     it in the file [!proofname]. *)
-val generate_inv_proof : Certificate.invariant -> unit
+val generate_inv_proof : Certificate.invariant -> HString.t list
 
 (** Generate the LFSC proof of safey by producing an intermediate proofs of
     observational equivalence for the frontend. The proof is written in the file
     [!frontend_proofname]. *)
 val generate_frontend_proof : Certificate.invariant -> unit
+
+val write_safe_proof : Format.formatter -> ?check:bool -> Certificate.system -> Certificate.system -> unit
