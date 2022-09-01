@@ -5276,7 +5276,7 @@ Syntax Error!
 
 one_expr: WEAKLY WITH
 ##
-## Ends in an error in state: 948.
+## Ends in an error in state: 941.
 ##
 ## one_expr -> pexpr(nonquantified) . EOF [ # ]
 ## pexpr(nonquantified) -> pexpr(nonquantified) . CARET pexpr(nonquantified) [ XOR WHEN RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS EOF DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -5542,7 +5542,7 @@ Syntax Error!
 
 one_expr: XOR
 ##
-## Ends in an error in state: 947.
+## Ends in an error in state: 940.
 ##
 ## one_expr' -> . one_expr [ # ]
 ##
@@ -5554,7 +5554,7 @@ Syntax Error!
 
 main: CONST WEAKLY COLON ASSUME EQUALS WEAKLY WITH
 ##
-## Ends in an error in state: 809.
+## Ends in an error in state: 802.
 ##
 ## const_decl_body -> typed_ident EQUALS pexpr(nonquantified) . SEMICOLON [ WEAKLY VAR TYPE SYM REQUIRE NODE MODE LET GUARANTEE FUNCTION EOF ENSURE CONTRACT CONST ASSUME ]
 ## pexpr(nonquantified) -> pexpr(nonquantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -5600,7 +5600,7 @@ Syntax Error!
 
 main: CONST WEAKLY COLON ASSUME EQUALS XOR
 ##
-## Ends in an error in state: 808.
+## Ends in an error in state: 801.
 ##
 ## const_decl_body -> typed_ident EQUALS . pexpr(nonquantified) SEMICOLON [ WEAKLY VAR TYPE SYM REQUIRE NODE MODE LET GUARANTEE FUNCTION EOF ENSURE CONTRACT CONST ASSUME ]
 ##
@@ -5612,7 +5612,7 @@ Syntax Error!
 
 main: CONST WEAKLY COLON WEAKLY XOR
 ##
-## Ends in an error in state: 822.
+## Ends in an error in state: 815.
 ##
 ## array_type -> lustre_type . CARET pexpr(nonquantified) [ SEMICOLON EQUALS CARET ]
 ## const_decl_body -> ident COLON lustre_type . SEMICOLON [ WEAKLY VAR TYPE SYM REQUIRE NODE MODE LET GUARANTEE FUNCTION EOF ENSURE CONTRACT CONST ASSUME ]
@@ -5626,7 +5626,7 @@ Syntax Error!
 
 main: CONST WEAKLY COLON XOR
 ##
-## Ends in an error in state: 821.
+## Ends in an error in state: 814.
 ##
 ## const_decl_body -> ident COLON . lustre_type SEMICOLON [ WEAKLY VAR TYPE SYM REQUIRE NODE MODE LET GUARANTEE FUNCTION EOF ENSURE CONTRACT CONST ASSUME ]
 ## typed_ident -> ident COLON . lustre_type [ EQUALS ]
@@ -5639,7 +5639,7 @@ Syntax Error!
 
 main: CONST WEAKLY COMMA WEAKLY COLON WEAKLY XOR
 ##
-## Ends in an error in state: 819.
+## Ends in an error in state: 812.
 ##
 ## array_type -> lustre_type . CARET pexpr(nonquantified) [ SEMICOLON CARET ]
 ## const_decl_body -> ident COMMA ident_list COLON lustre_type . SEMICOLON [ WEAKLY VAR TYPE SYM REQUIRE NODE MODE LET GUARANTEE FUNCTION EOF ENSURE CONTRACT CONST ASSUME ]
@@ -5652,7 +5652,7 @@ Syntax Error!
 
 main: CONST WEAKLY COMMA WEAKLY COLON XOR
 ##
-## Ends in an error in state: 818.
+## Ends in an error in state: 811.
 ##
 ## const_decl_body -> ident COMMA ident_list COLON . lustre_type SEMICOLON [ WEAKLY VAR TYPE SYM REQUIRE NODE MODE LET GUARANTEE FUNCTION EOF ENSURE CONTRACT CONST ASSUME ]
 ##
@@ -5664,7 +5664,7 @@ Syntax Error!
 
 main: CONST WEAKLY COMMA WEAKLY SEMICOLON
 ##
-## Ends in an error in state: 817.
+## Ends in an error in state: 810.
 ##
 ## const_decl_body -> ident COMMA ident_list . COLON lustre_type SEMICOLON [ WEAKLY VAR TYPE SYM REQUIRE NODE MODE LET GUARANTEE FUNCTION EOF ENSURE CONTRACT CONST ASSUME ]
 ##
@@ -5683,7 +5683,7 @@ Syntax Error!
 
 main: CONST WEAKLY COMMA XOR
 ##
-## Ends in an error in state: 816.
+## Ends in an error in state: 809.
 ##
 ## const_decl_body -> ident COMMA . ident_list COLON lustre_type SEMICOLON [ WEAKLY VAR TYPE SYM REQUIRE NODE MODE LET GUARANTEE FUNCTION EOF ENSURE CONTRACT CONST ASSUME ]
 ##
@@ -5695,7 +5695,7 @@ Syntax Error!
 
 main: CONST WEAKLY EQUALS ASSUME SEMICOLON XOR
 ##
-## Ends in an error in state: 824.
+## Ends in an error in state: 817.
 ##
 ## nonempty_list(const_decl_body) -> const_decl_body . [ VAR TYPE NODE LET FUNCTION EOF CONTRACT CONST ]
 ## nonempty_list(const_decl_body) -> const_decl_body . nonempty_list(const_decl_body) [ VAR TYPE NODE LET FUNCTION EOF CONTRACT CONST ]
@@ -5708,7 +5708,7 @@ Syntax Error!
 
 main: CONST WEAKLY EQUALS WEAKLY WITH
 ##
-## Ends in an error in state: 814.
+## Ends in an error in state: 807.
 ##
 ## const_decl_body -> ident EQUALS pexpr(nonquantified) . SEMICOLON [ WEAKLY VAR TYPE SYM REQUIRE NODE MODE LET GUARANTEE FUNCTION EOF ENSURE CONTRACT CONST ASSUME ]
 ## pexpr(nonquantified) -> pexpr(nonquantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -5754,7 +5754,7 @@ Syntax Error!
 
 main: CONST WEAKLY EQUALS XOR
 ##
-## Ends in an error in state: 813.
+## Ends in an error in state: 806.
 ##
 ## const_decl_body -> ident EQUALS . pexpr(nonquantified) SEMICOLON [ WEAKLY VAR TYPE SYM REQUIRE NODE MODE LET GUARANTEE FUNCTION EOF ENSURE CONTRACT CONST ASSUME ]
 ##
@@ -5766,7 +5766,7 @@ Syntax Error!
 
 main: CONST WEAKLY XOR
 ##
-## Ends in an error in state: 812.
+## Ends in an error in state: 805.
 ##
 ## const_decl_body -> ident . COLON lustre_type SEMICOLON [ WEAKLY VAR TYPE SYM REQUIRE NODE MODE LET GUARANTEE FUNCTION EOF ENSURE CONTRACT CONST ASSUME ]
 ## const_decl_body -> ident . COMMA ident_list COLON lustre_type SEMICOLON [ WEAKLY VAR TYPE SYM REQUIRE NODE MODE LET GUARANTEE FUNCTION EOF ENSURE CONTRACT CONST ASSUME ]
@@ -5781,7 +5781,7 @@ Syntax Error!
 
 main: CONST XOR
 ##
-## Ends in an error in state: 806.
+## Ends in an error in state: 799.
 ##
 ## const_decl -> CONST . nonempty_list(const_decl_body) [ VAR TYPE NODE LET FUNCTION EOF CONTRACT CONST ]
 ##
@@ -5793,7 +5793,7 @@ Syntax Error! Incomplete constant declaration.
 
 main: CONTRACT WEAKLY LPARAMBRACKET RPARAMBRACKET XOR
 ##
-## Ends in an error in state: 929.
+## Ends in an error in state: 922.
 ##
 ## contract_decl -> CONTRACT ident loption(static_params) . tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) SEMICOLON LET contract_in_block TEL option(node_sep) [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -5805,7 +5805,7 @@ Syntax Error!
 
 main: CONTRACT WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON LET GUARANTEE WEAKLY SEMICOLON SSBLOCKEND
 ##
-## Ends in an error in state: 935.
+## Ends in an error in state: 928.
 ##
 ## contract_decl -> CONTRACT ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) SEMICOLON LET contract_in_block . TEL option(node_sep) [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -5816,15 +5816,15 @@ main: CONTRACT WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON LET GUARANTE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 783, spurious reduction of production nonempty_list(contract_item) -> contract_item 
-## In state 781, spurious reduction of production contract_in_block -> nonempty_list(contract_item) 
+## In state 777, spurious reduction of production nonempty_list(contract_item) -> contract_item 
+## In state 775, spurious reduction of production contract_in_block -> nonempty_list(contract_item) 
 ##
 
 Syntax Error!
 
 main: CONTRACT WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON LET GUARANTEE WEAKLY SEMICOLON TEL XOR
 ##
-## Ends in an error in state: 936.
+## Ends in an error in state: 929.
 ##
 ## contract_decl -> CONTRACT ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) SEMICOLON LET contract_in_block TEL . option(node_sep) [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -5836,7 +5836,7 @@ Syntax Error!
 
 main: CONTRACT WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON LET XOR
 ##
-## Ends in an error in state: 934.
+## Ends in an error in state: 927.
 ##
 ## contract_decl -> CONTRACT ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) SEMICOLON LET . contract_in_block TEL option(node_sep) [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -5848,7 +5848,7 @@ Syntax Error!
 
 main: CONTRACT WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON XOR
 ##
-## Ends in an error in state: 933.
+## Ends in an error in state: 926.
 ##
 ## contract_decl -> CONTRACT ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) SEMICOLON . LET contract_in_block TEL option(node_sep) [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -5860,7 +5860,7 @@ Syntax Error!
 
 main: CONTRACT WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN XOR
 ##
-## Ends in an error in state: 932.
+## Ends in an error in state: 925.
 ##
 ## contract_decl -> CONTRACT ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) . SEMICOLON LET contract_in_block TEL option(node_sep) [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -5872,7 +5872,7 @@ Syntax Error!
 
 main: CONTRACT WEAKLY LPAREN RPAREN RETURNS XOR
 ##
-## Ends in an error in state: 931.
+## Ends in an error in state: 924.
 ##
 ## contract_decl -> CONTRACT ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS . tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) SEMICOLON LET contract_in_block TEL option(node_sep) [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -5884,7 +5884,7 @@ Syntax Error! Perhaps a missing/unbalanced parenthesis in contract declaration.
 
 main: CONTRACT WEAKLY LPAREN RPAREN XOR
 ##
-## Ends in an error in state: 930.
+## Ends in an error in state: 923.
 ##
 ## contract_decl -> CONTRACT ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) . RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) SEMICOLON LET contract_in_block TEL option(node_sep) [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -5896,7 +5896,7 @@ Syntax Error!
 
 main: CONTRACT WEAKLY XOR
 ##
-## Ends in an error in state: 928.
+## Ends in an error in state: 921.
 ##
 ## contract_decl -> CONTRACT ident . loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) SEMICOLON LET contract_in_block TEL option(node_sep) [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -5908,7 +5908,7 @@ Syntax Error!
 
 main: CONTRACT XOR
 ##
-## Ends in an error in state: 927.
+## Ends in an error in state: 920.
 ##
 ## contract_decl -> CONTRACT . ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) SEMICOLON LET contract_in_block TEL option(node_sep) [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -5920,7 +5920,7 @@ Syntax Error!
 
 main: FUNCTION IMPORTED XOR
 ##
-## Ends in an error in state: 923.
+## Ends in an error in state: 916.
 ##
 ## decl -> FUNCTION IMPORTED . node_decl [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -5932,7 +5932,7 @@ Syntax Error!
 
 main: FUNCTION WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN TYPE
 ##
-## Ends in an error in state: 925.
+## Ends in an error in state: 918.
 ##
 ## decl -> FUNCTION node_decl . node_def [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -5945,7 +5945,7 @@ main: FUNCTION WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN TYPE
 ## may provide an INCOMPLETE view of the future (what was expected next).
 ## In state 455, spurious reduction of production option(SEMICOLON) -> 
 ## In state 457, spurious reduction of production option(contract_spec) -> 
-## In state 797, spurious reduction of production node_decl -> ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) option(SEMICOLON) option(contract_spec) 
+## In state 790, spurious reduction of production node_decl -> ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) option(SEMICOLON) option(contract_spec) 
 ##
 
 Syntax Error! Perhaps a missing function definition body.
@@ -5964,7 +5964,7 @@ Syntax Error!
 
 main: FUNCTION XOR
 ##
-## Ends in an error in state: 922.
+## Ends in an error in state: 915.
 ##
 ## decl -> FUNCTION . node_decl node_def [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ## decl -> FUNCTION . IMPORTED node_decl [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
@@ -5989,7 +5989,7 @@ Syntax Error!
 
 main: NODE WEAKLY EQUALS WEAKLY LPARAMBRACKET RPARAMBRACKET XOR
 ##
-## Ends in an error in state: 920.
+## Ends in an error in state: 913.
 ##
 ## node_param_inst -> NODE ident EQUALS ident tlist(LPARAMBRACKET,SEMICOLON,RPARAMBRACKET,node_call_static_param) . SEMICOLON [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -6001,7 +6001,7 @@ Syntax Error!
 
 main: NODE WEAKLY EQUALS WEAKLY XOR
 ##
-## Ends in an error in state: 919.
+## Ends in an error in state: 912.
 ##
 ## node_param_inst -> NODE ident EQUALS ident . tlist(LPARAMBRACKET,SEMICOLON,RPARAMBRACKET,node_call_static_param) SEMICOLON [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -6013,7 +6013,7 @@ Syntax Error!
 
 main: NODE WEAKLY EQUALS XOR
 ##
-## Ends in an error in state: 918.
+## Ends in an error in state: 911.
 ##
 ## node_param_inst -> NODE ident EQUALS . ident tlist(LPARAMBRACKET,SEMICOLON,RPARAMBRACKET,node_call_static_param) SEMICOLON [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -6318,7 +6318,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONST ASSUME EQUALS ASSUME SEMICOLON TYPE
 ##
-## Ends in an error in state: 827.
+## Ends in an error in state: 820.
 ##
 ## list(node_local_decl) -> node_local_decl . list(node_local_decl) [ LET ]
 ##
@@ -6329,16 +6329,16 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONST ASSUME EQUALS ASSUME
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 824, spurious reduction of production nonempty_list(const_decl_body) -> const_decl_body 
-## In state 811, spurious reduction of production const_decl -> CONST nonempty_list(const_decl_body) 
-## In state 829, spurious reduction of production node_local_decl -> const_decl 
+## In state 817, spurious reduction of production nonempty_list(const_decl_body) -> const_decl_body 
+## In state 804, spurious reduction of production const_decl -> CONST nonempty_list(const_decl_body) 
+## In state 822, spurious reduction of production node_local_decl -> const_decl 
 ##
 
 Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_PSATBLOCK GUARANTEE WEAKLY SEMICOLON TEL
 ##
-## Ends in an error in state: 795.
+## Ends in an error in state: 788.
 ##
 ## contract_spec -> CONTRACT_PSATBLOCK contract_in_block . PSBLOCKEND [ VAR TYPE NODE LET FUNCTION EOF CONTRACT CONST ]
 ##
@@ -6349,15 +6349,15 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_PSATBLOCK GUARANT
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 783, spurious reduction of production nonempty_list(contract_item) -> contract_item 
-## In state 781, spurious reduction of production contract_in_block -> nonempty_list(contract_item) 
+## In state 777, spurious reduction of production nonempty_list(contract_item) -> contract_item 
+## In state 775, spurious reduction of production contract_in_block -> nonempty_list(contract_item) 
 ##
 
 Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_PSATBLOCK XOR
 ##
-## Ends in an error in state: 794.
+## Ends in an error in state: 787.
 ##
 ## contract_spec -> CONTRACT_PSATBLOCK . contract_in_block PSBLOCKEND [ VAR TYPE NODE LET FUNCTION EOF CONTRACT CONST ]
 ##
@@ -6369,7 +6369,7 @@ Syntax Error! Perhaps a unknown keyword.
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK ASSUME STRING ASSERT
 ##
-## Ends in an error in state: 778.
+## Ends in an error in state: 772.
 ##
 ## contract_assume -> ASSUME option(STRING) . pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6381,7 +6381,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK ASSUME WEAKLY WITH
 ##
-## Ends in an error in state: 779.
+## Ends in an error in state: 773.
 ##
 ## contract_assume -> ASSUME option(STRING) pexpr(quantified) . SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -6427,7 +6427,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK ASSUME XOR
 ##
-## Ends in an error in state: 777.
+## Ends in an error in state: 771.
 ##
 ## contract_assume -> ASSUME . option(STRING) pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6439,7 +6439,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST WEAKLY COLON WEAKLY EQUALS WEAKLY WITH
 ##
-## Ends in an error in state: 772.
+## Ends in an error in state: 766.
 ##
 ## contract_ghost_const -> CONST ident COLON lustre_type EQUALS pexpr(quantified) . SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -6485,7 +6485,7 @@ Syntax Error! Perhaps a missing statement delimiter such as a semicolon at the e
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST WEAKLY COLON WEAKLY EQUALS XOR
 ##
-## Ends in an error in state: 771.
+## Ends in an error in state: 765.
 ##
 ## contract_ghost_const -> CONST ident COLON lustre_type EQUALS . pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6497,7 +6497,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST WEAKLY COLON WEAKLY XOR
 ##
-## Ends in an error in state: 770.
+## Ends in an error in state: 764.
 ##
 ## array_type -> lustre_type . CARET pexpr(nonquantified) [ EQUALS CARET ]
 ## contract_ghost_const -> CONST ident COLON lustre_type . EQUALS pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
@@ -6510,7 +6510,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST WEAKLY COLON XOR
 ##
-## Ends in an error in state: 769.
+## Ends in an error in state: 763.
 ##
 ## contract_ghost_const -> CONST ident COLON . lustre_type EQUALS pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6522,7 +6522,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST WEAKLY EQUALS WEAKLY WITH
 ##
-## Ends in an error in state: 767.
+## Ends in an error in state: 761.
 ##
 ## contract_ghost_const -> CONST ident EQUALS pexpr(quantified) . SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -6568,7 +6568,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST WEAKLY EQUALS XOR
 ##
-## Ends in an error in state: 766.
+## Ends in an error in state: 760.
 ##
 ## contract_ghost_const -> CONST ident EQUALS . pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6580,7 +6580,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST WEAKLY XOR
 ##
-## Ends in an error in state: 765.
+## Ends in an error in state: 759.
 ##
 ## contract_ghost_const -> CONST ident . COLON lustre_type EQUALS pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ## contract_ghost_const -> CONST ident . EQUALS pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
@@ -6593,7 +6593,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST XOR
 ##
-## Ends in an error in state: 764.
+## Ends in an error in state: 758.
 ##
 ## contract_ghost_const -> CONST . ident COLON lustre_type EQUALS pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ## contract_ghost_const -> CONST . ident EQUALS pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
@@ -6606,7 +6606,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE ASSUME SEMICOLON TEL
 ##
-## Ends in an error in state: 792.
+## Ends in an error in state: 785.
 ##
 ## contract_spec -> CONTRACT_SSATBLOCK contract_in_block . SSBLOCKEND [ VAR TYPE NODE LET FUNCTION EOF CONTRACT CONST ]
 ##
@@ -6617,15 +6617,15 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANT
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 783, spurious reduction of production nonempty_list(contract_item) -> contract_item 
-## In state 781, spurious reduction of production contract_in_block -> nonempty_list(contract_item) 
+## In state 777, spurious reduction of production nonempty_list(contract_item) -> contract_item 
+## In state 775, spurious reduction of production contract_in_block -> nonempty_list(contract_item) 
 ##
 
 Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE ASSUME SEMICOLON XOR
 ##
-## Ends in an error in state: 783.
+## Ends in an error in state: 777.
 ##
 ## nonempty_list(contract_item) -> contract_item . [ TEL SSBLOCKEND PSBLOCKEND ]
 ## nonempty_list(contract_item) -> contract_item . nonempty_list(contract_item) [ TEL SSBLOCKEND PSBLOCKEND ]
@@ -6638,7 +6638,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE STRING ASSERT
 ##
-## Ends in an error in state: 761.
+## Ends in an error in state: 755.
 ##
 ## contract_guarantee -> GUARANTEE option(STRING) . pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6650,7 +6650,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE WEAKLY WITH
 ##
-## Ends in an error in state: 762.
+## Ends in an error in state: 756.
 ##
 ## contract_guarantee -> GUARANTEE option(STRING) pexpr(quantified) . SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -6696,7 +6696,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANTEE XOR
 ##
-## Ends in an error in state: 760.
+## Ends in an error in state: 754.
 ##
 ## contract_guarantee -> GUARANTEE . option(STRING) pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6708,7 +6708,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN XOR
 ##
-## Ends in an error in state: 758.
+## Ends in an error in state: 752.
 ##
 ## contract_import -> IMPORTCONTRACT ident LPAREN loption(separated_nonempty_list(COMMA,qexpr)) RPAREN RETURNS LPAREN loption(separated_nonempty_list(COMMA,ident)) RPAREN . SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6720,7 +6720,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT WEAKLY LPAREN RPAREN RETURNS LPAREN WEAKLY RCURLYBRACKET
 ##
-## Ends in an error in state: 757.
+## Ends in an error in state: 751.
 ##
 ## contract_import -> IMPORTCONTRACT ident LPAREN loption(separated_nonempty_list(COMMA,qexpr)) RPAREN RETURNS LPAREN loption(separated_nonempty_list(COMMA,ident)) . RPAREN SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6732,14 +6732,14 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTC
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
 ## In state 369, spurious reduction of production separated_nonempty_list(COMMA,ident) -> ident 
-## In state 756, spurious reduction of production loption(separated_nonempty_list(COMMA,ident)) -> separated_nonempty_list(COMMA,ident) 
+## In state 750, spurious reduction of production loption(separated_nonempty_list(COMMA,ident)) -> separated_nonempty_list(COMMA,ident) 
 ##
 
 Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT WEAKLY LPAREN RPAREN RETURNS LPAREN XOR
 ##
-## Ends in an error in state: 755.
+## Ends in an error in state: 749.
 ##
 ## contract_import -> IMPORTCONTRACT ident LPAREN loption(separated_nonempty_list(COMMA,qexpr)) RPAREN RETURNS LPAREN . loption(separated_nonempty_list(COMMA,ident)) RPAREN SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6751,7 +6751,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT WEAKLY LPAREN RPAREN RETURNS XOR
 ##
-## Ends in an error in state: 754.
+## Ends in an error in state: 748.
 ##
 ## contract_import -> IMPORTCONTRACT ident LPAREN loption(separated_nonempty_list(COMMA,qexpr)) RPAREN RETURNS . LPAREN loption(separated_nonempty_list(COMMA,ident)) RPAREN SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6763,7 +6763,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT WEAKLY LPAREN RPAREN XOR
 ##
-## Ends in an error in state: 753.
+## Ends in an error in state: 747.
 ##
 ## contract_import -> IMPORTCONTRACT ident LPAREN loption(separated_nonempty_list(COMMA,qexpr)) RPAREN . RETURNS LPAREN loption(separated_nonempty_list(COMMA,ident)) RPAREN SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6775,7 +6775,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT WEAKLY LPAREN TRUE WEAKLY
 ##
-## Ends in an error in state: 749.
+## Ends in an error in state: 743.
 ##
 ## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN RSH RPAREN PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV COMMA CARET BVOR BVAND ARROW AND ]
 ## pexpr(quantified) -> pexpr(quantified) . DOTPERCENT NUMERAL [ XOR WHEN RSH RPAREN PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV COMMA CARET BVOR BVAND ARROW AND ]
@@ -6816,7 +6816,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT WEAKLY LPAREN WEAKLY COMMA XOR
 ##
-## Ends in an error in state: 750.
+## Ends in an error in state: 744.
 ##
 ## separated_nonempty_list(COMMA,qexpr) -> pexpr(quantified) COMMA . separated_nonempty_list(COMMA,qexpr) [ RPAREN ]
 ##
@@ -6828,7 +6828,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT WEAKLY LPAREN XOR
 ##
-## Ends in an error in state: 747.
+## Ends in an error in state: 741.
 ##
 ## contract_import -> IMPORTCONTRACT ident LPAREN . loption(separated_nonempty_list(COMMA,qexpr)) RPAREN RETURNS LPAREN loption(separated_nonempty_list(COMMA,ident)) RPAREN SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6840,7 +6840,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT WEAKLY XOR
 ##
-## Ends in an error in state: 746.
+## Ends in an error in state: 740.
 ##
 ## contract_import -> IMPORTCONTRACT ident . LPAREN loption(separated_nonempty_list(COMMA,qexpr)) RPAREN RETURNS LPAREN loption(separated_nonempty_list(COMMA,ident)) RPAREN SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6852,7 +6852,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTCONTRACT XOR
 ##
-## Ends in an error in state: 745.
+## Ends in an error in state: 739.
 ##
 ## contract_import -> IMPORTCONTRACT . ident LPAREN loption(separated_nonempty_list(COMMA,qexpr)) RPAREN RETURNS LPAREN loption(separated_nonempty_list(COMMA,ident)) RPAREN SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -6864,7 +6864,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE WEAKLY LPAREN ENSURE ASSUME SEMICOLON XOR
 ##
-## Ends in an error in state: 741.
+## Ends in an error in state: 735.
 ##
 ## list(contract_ensure) -> contract_ensure . list(contract_ensure) [ RPAREN ]
 ##
@@ -6876,7 +6876,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE WEAKLY LPAREN ENSURE STRING ASSERT
 ##
-## Ends in an error in state: 735.
+## Ends in an error in state: 729.
 ##
 ## contract_ensure -> ENSURE option(STRING) . pexpr(quantified) SEMICOLON [ RPAREN ENSURE ]
 ##
@@ -6888,7 +6888,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE WEAKLY LPAREN ENSURE WEAKLY WITH
 ##
-## Ends in an error in state: 736.
+## Ends in an error in state: 730.
 ##
 ## contract_ensure -> ENSURE option(STRING) pexpr(quantified) . SEMICOLON [ RPAREN ENSURE ]
 ## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -6934,7 +6934,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE WEAKLY LPAREN ENSURE XOR
 ##
-## Ends in an error in state: 734.
+## Ends in an error in state: 728.
 ##
 ## contract_ensure -> ENSURE . option(STRING) pexpr(quantified) SEMICOLON [ RPAREN ENSURE ]
 ##
@@ -6946,7 +6946,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE WEAKLY LPAREN REQUIRE ASSUME SEMICOLON XOR
 ##
-## Ends in an error in state: 743.
+## Ends in an error in state: 737.
 ##
 ## list(contract_require) -> contract_require . list(contract_require) [ RPAREN ENSURE ]
 ##
@@ -6958,7 +6958,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE WEAKLY LPAREN REQUIRE STRING ASSERT
 ##
-## Ends in an error in state: 730.
+## Ends in an error in state: 724.
 ##
 ## contract_require -> REQUIRE option(STRING) . pexpr(quantified) SEMICOLON [ RPAREN REQUIRE ENSURE ]
 ##
@@ -6970,7 +6970,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE WEAKLY LPAREN REQUIRE WEAKLY WITH
 ##
-## Ends in an error in state: 731.
+## Ends in an error in state: 725.
 ##
 ## contract_require -> REQUIRE option(STRING) pexpr(quantified) . SEMICOLON [ RPAREN REQUIRE ENSURE ]
 ## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -7016,7 +7016,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE WEAKLY LPAREN REQUIRE XOR
 ##
-## Ends in an error in state: 729.
+## Ends in an error in state: 723.
 ##
 ## contract_require -> REQUIRE . option(STRING) pexpr(quantified) SEMICOLON [ RPAREN REQUIRE ENSURE ]
 ##
@@ -7028,7 +7028,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE WEAKLY LPAREN RPAREN XOR
 ##
-## Ends in an error in state: 739.
+## Ends in an error in state: 733.
 ##
 ## mode_equation -> MODE ident LPAREN list(contract_require) list(contract_ensure) RPAREN . SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -7040,7 +7040,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE WEAKLY LPAREN XOR
 ##
-## Ends in an error in state: 728.
+## Ends in an error in state: 722.
 ##
 ## mode_equation -> MODE ident LPAREN . list(contract_require) list(contract_ensure) RPAREN SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -7052,7 +7052,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE WEAKLY XOR
 ##
-## Ends in an error in state: 727.
+## Ends in an error in state: 721.
 ##
 ## mode_equation -> MODE ident . LPAREN list(contract_require) list(contract_ensure) RPAREN SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -7064,7 +7064,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE XOR
 ##
-## Ends in an error in state: 726.
+## Ends in an error in state: 720.
 ##
 ## mode_equation -> MODE . ident LPAREN list(contract_require) list(contract_ensure) RPAREN SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -7076,98 +7076,95 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR WEAKLY COLON WEAKLY EQUALS WEAKLY WITH
 ##
-## Ends in an error in state: 720.
+## Ends in an error in state: 718.
 ##
-## contract_ghost_var -> VAR ident COLON lustre_type EQUALS pexpr(quantified) . SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
-## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . DOTPERCENT NUMERAL [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . LSQBRACKET array_slice RSQBRACKET [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . LSQBRACKET pexpr(nonquantified) RSQBRACKET [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . DOT ident [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . PIPE pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . MINUS pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . PLUS pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . MULT pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . DIV pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . INTDIV pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . MOD pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . AND pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . OR pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . XOR pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . IMPL pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . BVAND pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . BVOR pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . LSH pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . RSH pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . LT pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . GT pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . LTE pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . GTE pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . EQUALS pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . NEQ pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . WHEN clock_expr [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
-## pexpr(quantified) -> pexpr(quantified) . ARROW pexpr(quantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## contract_equation -> VAR contract_left_side EQUALS pexpr(nonquantified) . SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . DOTPERCENT NUMERAL [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . LSQBRACKET array_slice RSQBRACKET [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . LSQBRACKET pexpr(nonquantified) RSQBRACKET [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . DOT ident [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . PIPE pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . MINUS pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . PLUS pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . MULT pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . DIV pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . INTDIV pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . MOD pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . AND pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . OR pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . XOR pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . IMPL pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . BVAND pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . BVOR pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . LSH pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . RSH pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . LT pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . GT pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . LTE pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . GTE pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . EQUALS pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . NEQ pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . WHEN clock_expr [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
+## pexpr(nonquantified) -> pexpr(nonquantified) . ARROW pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
 ##
 ## The known suffix of the stack is as follows:
-## VAR ident COLON lustre_type EQUALS pexpr(quantified)
+## VAR contract_left_side EQUALS pexpr(nonquantified)
 ##
 ## WARNING: This example involves spurious reductions.
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
 ##
 
 Syntax Error! Perhaps a missing statement delimiter such as a semicolon at the end of the statement.
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR WEAKLY COLON WEAKLY EQUALS XOR
 ##
-## Ends in an error in state: 719.
+## Ends in an error in state: 717.
 ##
-## contract_ghost_var -> VAR ident COLON lustre_type EQUALS . pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
+## contract_equation -> VAR contract_left_side EQUALS . pexpr(nonquantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
 ## The known suffix of the stack is as follows:
-## VAR ident COLON lustre_type EQUALS
+## VAR contract_left_side EQUALS
 ##
 
 Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR WEAKLY COLON WEAKLY XOR
 ##
-## Ends in an error in state: 718.
+## Ends in an error in state: 714.
 ##
 ## array_type -> lustre_type . CARET pexpr(nonquantified) [ EQUALS COMMA CARET ]
-## contract_ghost_var -> VAR ident COLON lustre_type . EQUALS pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ## typed_ident -> ident COLON lustre_type . [ EQUALS COMMA ]
 ##
 ## The known suffix of the stack is as follows:
-## VAR ident COLON lustre_type
+## ident COLON lustre_type
 ##
 
 Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR WEAKLY COLON XOR
 ##
-## Ends in an error in state: 717.
+## Ends in an error in state: 713.
 ##
-## contract_ghost_var -> VAR ident COLON . lustre_type EQUALS pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ## typed_ident -> ident COLON . lustre_type [ EQUALS COMMA ]
 ##
 ## The known suffix of the stack is as follows:
-## VAR ident COLON
+## ident COLON
 ##
 
 Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR WEAKLY XOR
 ##
-## Ends in an error in state: 716.
+## Ends in an error in state: 712.
 ##
-## contract_ghost_var -> VAR ident . COLON lustre_type EQUALS pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ## typed_ident -> ident . COLON lustre_type [ EQUALS COMMA ]
 ##
 ## The known suffix of the stack is as follows:
-## VAR ident
+## ident
 ##
 
 Syntax Error! Perhaps a missing type annotation for contract variable.
@@ -7177,7 +7174,6 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR XOR
 ## Ends in an error in state: 708.
 ##
 ## contract_equation -> VAR . contract_left_side EQUALS pexpr(nonquantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
-## contract_ghost_var -> VAR . ident COLON lustre_type EQUALS pexpr(quantified) SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
 ## The known suffix of the stack is as follows:
 ## VAR
@@ -11706,7 +11702,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WEAKLY WITH
 ##
-## Ends in an error in state: 898.
+## Ends in an error in state: 891.
 ##
 ## node_equation -> ASSERT pexpr(quantified) . SEMICOLON [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -11972,7 +11968,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT XOR
 ##
-## Ends in an error in state: 897.
+## Ends in an error in state: 890.
 ##
 ## node_equation -> ASSERT . pexpr(quantified) SEMICOLON [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -11984,7 +11980,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET CHECK STRING ASSERT
 ##
-## Ends in an error in state: 894.
+## Ends in an error in state: 887.
 ##
 ## check -> CHECK option(STRING) . pexpr(quantified) SEMICOLON [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -11996,7 +11992,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET CHECK WEAKLY WITH
 ##
-## Ends in an error in state: 895.
+## Ends in an error in state: 888.
 ##
 ## check -> CHECK option(STRING) pexpr(quantified) . SEMICOLON [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -12042,7 +12038,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET CHECK XOR
 ##
-## Ends in an error in state: 893.
+## Ends in an error in state: 886.
 ##
 ## check -> CHECK . option(STRING) pexpr(quantified) SEMICOLON [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12054,7 +12050,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET LPAREN WEAKLY EQUALS
 ##
-## Ends in an error in state: 880.
+## Ends in an error in state: 873.
 ##
 ## left_side -> LPAREN struct_item_list . RPAREN [ EQUALS ]
 ##
@@ -12065,16 +12061,16 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET LPAREN WEAKLY EQUALS
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 885, spurious reduction of production struct_item -> ident 
-## In state 882, spurious reduction of production separated_nonempty_list(COMMA,struct_item) -> struct_item 
-## In state 892, spurious reduction of production struct_item_list -> separated_nonempty_list(COMMA,struct_item) 
+## In state 878, spurious reduction of production struct_item -> ident 
+## In state 875, spurious reduction of production separated_nonempty_list(COMMA,struct_item) -> struct_item 
+## In state 885, spurious reduction of production struct_item_list -> separated_nonempty_list(COMMA,struct_item) 
 ##
 
 Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET LPAREN XOR
 ##
-## Ends in an error in state: 878.
+## Ends in an error in state: 871.
 ##
 ## left_side -> LPAREN . struct_item_list RPAREN [ EQUALS ]
 ## left_side -> LPAREN . RPAREN [ EQUALS ]
@@ -12087,7 +12083,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_B_ANNOT COLON TRUE XOR
 ##
-## Ends in an error in state: 876.
+## Ends in an error in state: 869.
 ##
 ## main_annot -> MAIN_B_ANNOT COLON boolean . SEMICOLON [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12099,7 +12095,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_B_ANNOT COLON XOR
 ##
-## Ends in an error in state: 875.
+## Ends in an error in state: 868.
 ##
 ## main_annot -> MAIN_B_ANNOT COLON . boolean SEMICOLON [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12111,7 +12107,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_B_ANNOT XOR
 ##
-## Ends in an error in state: 874.
+## Ends in an error in state: 867.
 ##
 ## main_annot -> MAIN_B_ANNOT . COLON boolean SEMICOLON [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12123,7 +12119,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART COLON TRUE SEMICOLON PROPERTY_SSBLOCKSTART
 ##
-## Ends in an error in state: 870.
+## Ends in an error in state: 863.
 ##
 ## main_annot -> MAIN_PSBLOCKSTART COLON boolean option(SEMICOLON) . PSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12135,7 +12131,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART COLON TRUE XOR
 ##
-## Ends in an error in state: 869.
+## Ends in an error in state: 862.
 ##
 ## main_annot -> MAIN_PSBLOCKSTART COLON boolean . option(SEMICOLON) PSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12147,7 +12143,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART COLON XOR
 ##
-## Ends in an error in state: 868.
+## Ends in an error in state: 861.
 ##
 ## main_annot -> MAIN_PSBLOCKSTART COLON . boolean option(SEMICOLON) PSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12159,7 +12155,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART SEMICOLON PROPERTY_SSBLOCKSTART
 ##
-## Ends in an error in state: 872.
+## Ends in an error in state: 865.
 ##
 ## main_annot -> MAIN_PSBLOCKSTART option(SEMICOLON) . PSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12171,7 +12167,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_PSBLOCKSTART XOR
 ##
-## Ends in an error in state: 867.
+## Ends in an error in state: 860.
 ##
 ## main_annot -> MAIN_PSBLOCKSTART . option(SEMICOLON) PSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ## main_annot -> MAIN_PSBLOCKSTART . COLON boolean option(SEMICOLON) PSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
@@ -12184,7 +12180,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_P_ANNOT XOR
 ##
-## Ends in an error in state: 865.
+## Ends in an error in state: 858.
 ##
 ## main_annot -> MAIN_P_ANNOT . SEMICOLON [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12196,7 +12192,7 @@ Syntax Error! Perhaps a missing semicolon at the end of the statement.
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART COLON TRUE SEMICOLON XOR
 ##
-## Ends in an error in state: 861.
+## Ends in an error in state: 854.
 ##
 ## main_annot -> MAIN_SSBLOCKSTART COLON boolean option(SEMICOLON) . SSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12208,7 +12204,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART COLON TRUE XOR
 ##
-## Ends in an error in state: 860.
+## Ends in an error in state: 853.
 ##
 ## main_annot -> MAIN_SSBLOCKSTART COLON boolean . option(SEMICOLON) SSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12220,7 +12216,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART COLON XOR
 ##
-## Ends in an error in state: 857.
+## Ends in an error in state: 850.
 ##
 ## main_annot -> MAIN_SSBLOCKSTART COLON . boolean option(SEMICOLON) SSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12232,7 +12228,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART SEMICOLON XOR
 ##
-## Ends in an error in state: 863.
+## Ends in an error in state: 856.
 ##
 ## main_annot -> MAIN_SSBLOCKSTART option(SEMICOLON) . SSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12244,7 +12240,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART SSBLOCKEND XOR
 ##
-## Ends in an error in state: 902.
+## Ends in an error in state: 895.
 ##
 ## list(node_item) -> node_item . list(node_item) [ TEL ]
 ##
@@ -12256,7 +12252,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET MAIN_SSBLOCKSTART XOR
 ##
-## Ends in an error in state: 856.
+## Ends in an error in state: 849.
 ##
 ## main_annot -> MAIN_SSBLOCKSTART . option(SEMICOLON) SSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ## main_annot -> MAIN_SSBLOCKSTART . COLON boolean option(SEMICOLON) SSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
@@ -12269,7 +12265,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_ANNOT STRING ASSERT
 ##
-## Ends in an error in state: 853.
+## Ends in an error in state: 846.
 ##
 ## property -> PROPERTY_ANNOT option(STRING) . pexpr(quantified) SEMICOLON [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12281,7 +12277,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_ANNOT WEAKLY WITH
 ##
-## Ends in an error in state: 854.
+## Ends in an error in state: 847.
 ##
 ## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
 ## pexpr(quantified) -> pexpr(quantified) . DOTPERCENT NUMERAL [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -12327,7 +12323,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_ANNOT XOR
 ##
-## Ends in an error in state: 852.
+## Ends in an error in state: 845.
 ##
 ## property -> PROPERTY_ANNOT . option(STRING) pexpr(quantified) SEMICOLON [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12339,7 +12335,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART COLON WEAKLY SEMICOLON XOR
 ##
-## Ends in an error in state: 847.
+## Ends in an error in state: 840.
 ##
 ## property -> PROPERTY_PSBLOCKSTART option(STRING) COLON pexpr(quantified) SEMICOLON . PSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12351,7 +12347,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART COLON WEAKLY WITH
 ##
-## Ends in an error in state: 846.
+## Ends in an error in state: 839.
 ##
 ## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
 ## pexpr(quantified) -> pexpr(quantified) . DOTPERCENT NUMERAL [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -12397,7 +12393,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART COLON XOR
 ##
-## Ends in an error in state: 845.
+## Ends in an error in state: 838.
 ##
 ## property -> PROPERTY_PSBLOCKSTART option(STRING) COLON . pexpr(quantified) SEMICOLON PSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ## two_colons -> COLON . COLON [ WEAKLY SYM REQUIRE MODE GUARANTEE ENSURE ASSUME ]
@@ -12410,7 +12406,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART STRING ASSERT
 ##
-## Ends in an error in state: 844.
+## Ends in an error in state: 837.
 ##
 ## property -> PROPERTY_PSBLOCKSTART option(STRING) . pexpr(quantified) SEMICOLON PSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ## property -> PROPERTY_PSBLOCKSTART option(STRING) . COLON pexpr(quantified) SEMICOLON PSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
@@ -12423,7 +12419,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART WEAKLY SEMICOLON XOR
 ##
-## Ends in an error in state: 850.
+## Ends in an error in state: 843.
 ##
 ## property -> PROPERTY_PSBLOCKSTART option(STRING) pexpr(quantified) SEMICOLON . PSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12435,7 +12431,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART WEAKLY WITH
 ##
-## Ends in an error in state: 849.
+## Ends in an error in state: 842.
 ##
 ## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
 ## pexpr(quantified) -> pexpr(quantified) . DOTPERCENT NUMERAL [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -12481,7 +12477,7 @@ Syntax Error! Probably a missing delimiter such as a semicolon at the end of the
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART XOR
 ##
-## Ends in an error in state: 843.
+## Ends in an error in state: 836.
 ##
 ## property -> PROPERTY_PSBLOCKSTART . option(STRING) pexpr(quantified) SEMICOLON PSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ## property -> PROPERTY_PSBLOCKSTART . option(STRING) COLON pexpr(quantified) SEMICOLON PSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
@@ -12494,7 +12490,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART COLON COLON XOR
 ##
-## Ends in an error in state: 836.
+## Ends in an error in state: 829.
 ##
 ## two_colons -> COLON . COLON [ WEAKLY SYM REQUIRE MODE GUARANTEE ENSURE ASSUME ]
 ## two_colons -> COLON COLON . [ WEAKLY SYM REQUIRE MODE GUARANTEE ENSURE ASSUME ]
@@ -12507,7 +12503,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART COLON WEAKLY SEMICOLON XOR
 ##
-## Ends in an error in state: 838.
+## Ends in an error in state: 831.
 ##
 ## property -> PROPERTY_SSBLOCKSTART option(STRING) COLON pexpr(quantified) SEMICOLON . SSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12519,7 +12515,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART COLON WEAKLY WITH
 ##
-## Ends in an error in state: 837.
+## Ends in an error in state: 830.
 ##
 ## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
 ## pexpr(quantified) -> pexpr(quantified) . DOTPERCENT NUMERAL [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -12565,7 +12561,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART COLON XOR
 ##
-## Ends in an error in state: 835.
+## Ends in an error in state: 828.
 ##
 ## property -> PROPERTY_SSBLOCKSTART option(STRING) COLON . pexpr(quantified) SEMICOLON SSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ## two_colons -> COLON . COLON [ WEAKLY SYM REQUIRE MODE GUARANTEE ENSURE ASSUME ]
@@ -12578,7 +12574,7 @@ Syntax Error! Perhaps missing variable assignment for expression.
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART STRING ASSERT
 ##
-## Ends in an error in state: 834.
+## Ends in an error in state: 827.
 ##
 ## property -> PROPERTY_SSBLOCKSTART option(STRING) . pexpr(quantified) SEMICOLON SSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ## property -> PROPERTY_SSBLOCKSTART option(STRING) . COLON pexpr(quantified) SEMICOLON SSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
@@ -12591,7 +12587,7 @@ Syntax Error! Perhaps missing variable assignment for expression.
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART WEAKLY SEMICOLON XOR
 ##
-## Ends in an error in state: 841.
+## Ends in an error in state: 834.
 ##
 ## property -> PROPERTY_SSBLOCKSTART option(STRING) pexpr(quantified) SEMICOLON . SSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12603,7 +12599,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART WEAKLY WITH
 ##
-## Ends in an error in state: 840.
+## Ends in an error in state: 833.
 ##
 ## pexpr(quantified) -> pexpr(quantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
 ## pexpr(quantified) -> pexpr(quantified) . DOTPERCENT NUMERAL [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -12649,7 +12645,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART XOR
 ##
-## Ends in an error in state: 833.
+## Ends in an error in state: 826.
 ##
 ## property -> PROPERTY_SSBLOCKSTART . option(STRING) pexpr(quantified) SEMICOLON SSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ## property -> PROPERTY_SSBLOCKSTART . option(STRING) COLON pexpr(quantified) SEMICOLON SSBLOCKEND [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
@@ -12662,7 +12658,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET TEL XOR
 ##
-## Ends in an error in state: 912.
+## Ends in an error in state: 905.
 ##
 ## node_def -> list(node_local_decl) LET list(node_item) TEL . option(node_sep) [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -12674,7 +12670,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET WEAKLY COMMA XOR
 ##
-## Ends in an error in state: 883.
+## Ends in an error in state: 876.
 ##
 ## separated_nonempty_list(COMMA,struct_item) -> struct_item COMMA . separated_nonempty_list(COMMA,struct_item) [ RPAREN EQUALS ]
 ##
@@ -12686,7 +12682,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET WEAKLY EQUALS WEAKLY WITH
 ##
-## Ends in an error in state: 908.
+## Ends in an error in state: 901.
 ##
 ## node_equation -> left_side EQUALS pexpr(nonquantified) . SEMICOLON [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ## pexpr(nonquantified) -> pexpr(nonquantified) . CARET pexpr(nonquantified) [ XOR WHEN SEMICOLON RSH PLUS PIPE OR NEQ MULT MOD MINUS LTE LT LSQBRACKET LSH INTDIV IMPL GTE GT EQUALS DOTPERCENT DOT DIV CARET BVOR BVAND ARROW AND ]
@@ -12732,7 +12728,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET WEAKLY EQUALS XOR
 ##
-## Ends in an error in state: 907.
+## Ends in an error in state: 900.
 ##
 ## node_equation -> left_side EQUALS . pexpr(nonquantified) SEMICOLON [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12744,7 +12740,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET WEAKLY LSQBRACKET WEAKLY RSQBRACKET XOR
 ##
-## Ends in an error in state: 890.
+## Ends in an error in state: 883.
 ##
 ## nonempty_list(index_var) -> index_var . [ RPAREN EQUALS COMMA ]
 ## nonempty_list(index_var) -> index_var . nonempty_list(index_var) [ RPAREN EQUALS COMMA ]
@@ -12757,7 +12753,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET WEAKLY LSQBRACKET WEAKLY XOR
 ##
-## Ends in an error in state: 887.
+## Ends in an error in state: 880.
 ##
 ## index_var -> LSQBRACKET ident . RSQBRACKET [ RPAREN LSQBRACKET EQUALS COMMA ]
 ##
@@ -12769,7 +12765,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET WEAKLY LSQBRACKET XOR
 ##
-## Ends in an error in state: 886.
+## Ends in an error in state: 879.
 ##
 ## index_var -> LSQBRACKET . ident RSQBRACKET [ RPAREN LSQBRACKET EQUALS COMMA ]
 ##
@@ -12781,7 +12777,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET WEAKLY RPAREN
 ##
-## Ends in an error in state: 906.
+## Ends in an error in state: 899.
 ##
 ## node_equation -> left_side . EQUALS pexpr(nonquantified) SEMICOLON [ WEAKLY TEL SYM REQUIRE PROPERTY_SSBLOCKSTART PROPERTY_PSBLOCKSTART PROPERTY_ANNOT MODE MAIN_SSBLOCKSTART MAIN_P_ANNOT MAIN_PSBLOCKSTART MAIN_B_ANNOT LPAREN GUARANTEE ENSURE CHECK ASSUME ASSERT ]
 ##
@@ -12792,17 +12788,17 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET WEAKLY RPAREN
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 885, spurious reduction of production struct_item -> ident 
-## In state 882, spurious reduction of production separated_nonempty_list(COMMA,struct_item) -> struct_item 
-## In state 892, spurious reduction of production struct_item_list -> separated_nonempty_list(COMMA,struct_item) 
-## In state 900, spurious reduction of production left_side -> struct_item_list 
+## In state 878, spurious reduction of production struct_item -> ident 
+## In state 875, spurious reduction of production separated_nonempty_list(COMMA,struct_item) -> struct_item 
+## In state 885, spurious reduction of production struct_item_list -> separated_nonempty_list(COMMA,struct_item) 
+## In state 893, spurious reduction of production left_side -> struct_item_list 
 ##
 
 Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET WEAKLY XOR
 ##
-## Ends in an error in state: 885.
+## Ends in an error in state: 878.
 ##
 ## struct_item -> ident . [ RPAREN EQUALS COMMA ]
 ## struct_item -> ident . nonempty_list(index_var) [ RPAREN EQUALS COMMA ]
@@ -12816,7 +12812,7 @@ An identifier has been recognized. At this point, a definition is expected.
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET XOR
 ##
-## Ends in an error in state: 832.
+## Ends in an error in state: 825.
 ##
 ## node_def -> list(node_local_decl) LET . list(node_item) TEL option(node_sep) [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -12840,7 +12836,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN TYPE
 ##
-## Ends in an error in state: 799.
+## Ends in an error in state: 792.
 ##
 ## decl -> NODE node_decl . node_def [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
 ##
@@ -12853,14 +12849,14 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN TYPE
 ## may provide an INCOMPLETE view of the future (what was expected next).
 ## In state 455, spurious reduction of production option(SEMICOLON) -> 
 ## In state 457, spurious reduction of production option(contract_spec) -> 
-## In state 797, spurious reduction of production node_decl -> ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) option(SEMICOLON) option(contract_spec) 
+## In state 790, spurious reduction of production node_decl -> ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) option(SEMICOLON) option(contract_spec) 
 ##
 
 Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN VAR WEAKLY COLON ASSUME RPAREN
 ##
-## Ends in an error in state: 803.
+## Ends in an error in state: 796.
 ##
 ## var_decl -> clocked_typed_idents . SEMICOLON [ WEAKLY VAR SYM REQUIRE MODE LPAREN LET GUARANTEE ENSURE CONST ASSUME ]
 ##
@@ -12879,7 +12875,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN VAR WEAKLY COLON ASSUME SEMICOLON XOR
 ##
-## Ends in an error in state: 801.
+## Ends in an error in state: 794.
 ##
 ## nonempty_list(var_decl) -> var_decl . [ VAR LET CONST ]
 ## nonempty_list(var_decl) -> var_decl . nonempty_list(var_decl) [ VAR LET CONST ]
@@ -12892,7 +12888,7 @@ Syntax Error!
 
 main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN VAR XOR
 ##
-## Ends in an error in state: 800.
+## Ends in an error in state: 793.
 ##
 ## var_decls -> VAR . nonempty_list(var_decl) [ VAR LET CONST ]
 ##
@@ -13095,7 +13091,7 @@ Syntax Error!
 
 main: NODE WEAKLY XOR
 ##
-## Ends in an error in state: 917.
+## Ends in an error in state: 910.
 ##
 ## node_decl -> ident . loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) option(SEMICOLON) option(contract_spec) [ VAR LET CONST ]
 ## node_param_inst -> NODE ident . EQUALS ident tlist(LPARAMBRACKET,SEMICOLON,RPARAMBRACKET,node_call_static_param) SEMICOLON [ TYPE NODE FUNCTION EOF CONTRACT CONST ]
@@ -13295,7 +13291,7 @@ Syntax Error!
 
 main: TYPE WEAKLY SEMICOLON XOR
 ##
-## Ends in an error in state: 943.
+## Ends in an error in state: 936.
 ##
 ## list(decl) -> decl . list(decl) [ EOF ]
 ##
@@ -13377,7 +13373,7 @@ Syntax Error!
 
 main: FUNCTION ASSUME LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_PSATBLOCK ASSUMP_VARS XOR
 ##
-## Ends in an error in state: 774.
+## Ends in an error in state: 768.
 ##
 ## assumption_vars -> ASSUMP_VARS . ident_list_pos SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##
@@ -13389,7 +13385,7 @@ Syntax Error!
 
 main: FUNCTION ASSUME LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_PSATBLOCK ASSUMP_VARS ASSUME COLON
 ##
-## Ends in an error in state: 775.
+## Ends in an error in state: 769.
 ##
 ## assumption_vars -> ASSUMP_VARS ident_list_pos . SEMICOLON [ WEAKLY VAR TEL SSBLOCKEND PSBLOCKEND MODE IMPORTCONTRACT GUARANTEE CONST ASSUMP_VARS ASSUME ]
 ##

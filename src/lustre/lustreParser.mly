@@ -431,6 +431,7 @@ contract_left_side:
   (* List without parentheses *)
   | l = separated_nonempty_list(COMMA, typed_ident); { l }
 
+(*
 contract_ghost_var:
   | VAR ;
     i = ident ; COLON ; t = lustre_type; EQUALS ; e = qexpr ;
@@ -438,6 +439,7 @@ contract_ghost_var:
     { A.GhostVar (A.TypedConst (mk_pos $startpos, i, e, t)) }
 (*  | VAR ; i = ident ; EQUALS ; e = expr ; SEMICOLON 
     { A.GhostVar (A.UntypedConst (mk_pos $startpos, i, e)) } *)
+*)
 
 contract_ghost_const:
   | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = qexpr; SEMICOLON 
@@ -488,7 +490,7 @@ assumption_vars:
 
 contract_item:
   | e = contract_equation { e }
-  | v = contract_ghost_var { v } 
+  (* | v = contract_ghost_var { v } *)
   | c = contract_ghost_const { c }
   | a = contract_assume { a }
   | g = contract_guarantee { g }
