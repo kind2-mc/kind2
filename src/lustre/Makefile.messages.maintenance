@@ -24,6 +24,7 @@ strip:
 # (with dummy error messages) to this file, so that the completeness check
 # succeeds. It is then up to the programmer to study these sentences and
 # replace the dummy messages with suitable messages.
+# It requires menhir >= 20201201 (menhir --merge-errors)
 .PHONY: complete
 complete:
 	@ menhir lustreParser.mly \
