@@ -218,6 +218,10 @@ type struct_item =
 type eq_lhs =
   | StructDef of position * struct_item list
 
+(* The left-hand side of an equation in a contract *)
+type contract_eq_lhs =
+  | GhostVarDec of typed_ident list
+
 (* An equation or assertion in the node body *)
 type node_equation =
   | Assert of position * expr
@@ -234,6 +238,9 @@ type contract_ghost_const = const_decl
 
 (* A contract ghost variable. *)
 type contract_ghost_var = const_decl
+
+(* Multiple contract ghost variables declared simultaneously. *)
+type contract_ghost_vars = position * contract_eq_lhs * expr
 
 (* A contract assume. *)
 type contract_assume = position * HString.t option * bool (* soft *) * expr
@@ -261,6 +268,7 @@ type contract_assump_vars = position * (position * HString.t) list
 type contract_node_equation =
   | GhostConst of contract_ghost_const
   | GhostVar of contract_ghost_var
+  | GhostVars of contract_ghost_vars
   | Assume of contract_assume
   | Guarantee of contract_guarantee
   | Mode of contract_mode
@@ -1018,6 +1026,7 @@ let pp_print_contract_assump_vars fmt (_, vars) =
 let pp_print_contract_item fmt = function
   | GhostConst c -> pp_print_contract_ghost_const fmt c
   | GhostVar v -> pp_print_contract_ghost_var fmt v
+  | GhostVars _ -> failwith "Not yet implemented" 
   | Assume a -> pp_print_contract_assume fmt a
   | Guarantee g -> pp_print_contract_guarantee fmt g
   | Mode m -> pp_print_contract_mode fmt m

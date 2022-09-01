@@ -409,16 +409,28 @@ node_def:
   { (List.flatten l, e) }
 
 (* NEW STUFF
-  * expr vs qexpr?
   * In nodes, the type declaration is done before node definition,
     and then node equations are done with lhs with a list of
     variables to assign to. In contracts, we need to combine
     the type declaration with the lhs.
   * Two strategies: (1) Keep identifying ghost variables as constants
                     (2) Switch to representing variable assignment as equation,
-                        like in node equations.
-  * Do we need to worry about arrays?
+                        like in node equations. But, if I change the structure of
+                        the generated AST, there will have to be some corresponding
+                        update of how the AST is evaluated (not sure how to handle).
+  * Do we need to worry about arrays? Quantified expressions (qexpr vs expr)?
+  * typed_idents vs clocked_typed_idents?
+  * mk_pos and $startpos?
 *)
+
+contract_equation:
+  | VAR; l = contract_left_side; EQUALS; e = expr; SEMICOLON
+    { A.GhostVars (mk_pos $startpos, (GhostVarDec l), e) }
+
+contract_left_side:
+  (* List without parentheses *)
+  | l = separated_nonempty_list(COMMA, typed_ident); { l }
+
 contract_ghost_var:
   | VAR ;
     i = ident ; COLON ; t = lustre_type; EQUALS ; e = qexpr ;
@@ -426,37 +438,6 @@ contract_ghost_var:
     { A.GhostVar (A.TypedConst (mk_pos $startpos, i, e, t)) }
 (*  | VAR ; i = ident ; EQUALS ; e = expr ; SEMICOLON 
     { A.GhostVar (A.UntypedConst (mk_pos $startpos, i, e)) } *)
-
-(* We may return a list of ghost vars, so we flatten this list 
-   in contract_in_block*)
-  | l = contract_left_side; EQUALS; e = expr; SEMICOLON
-(*  { A.Equation (mk_pos $startpos, l, e) } *)
-    { list of GhostVars }
-
-contract_left_side:
-  (* List without parentheses *)
-  | l = VAR; struct_item_list { A.StructDef (mk_pos $startpos, l) }
-
-struct_item_list:
- | l = separated_nonempty_list(COMMA, struct_item) { l }
-
-(* Item in a structured equation *)
-struct_item:
-  (* Single identifier *)
-  | s = ident
-      { A.SingleIdent (mk_pos $startpos, s) }
-  (* Recursive array definition *)
-  | s = ident; l = nonempty_list(index_var)
-     { A.ArrayDef (mk_pos $startpos, s, l)}
-
-
-
-
-
-
-
-
-
 
 contract_ghost_const:
   | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = qexpr; SEMICOLON 
@@ -506,6 +487,7 @@ assumption_vars:
   }
 
 contract_item:
+  | e = contract_equation { e }
   | v = contract_ghost_var { v } 
   | c = contract_ghost_const { c }
   | a = contract_assume { a }
@@ -515,7 +497,7 @@ contract_item:
   | a = assumption_vars { a }
 
 contract_in_block:
-  | c = nonempty_list(contract_item) { List.flatten c }
+  | c = nonempty_list(contract_item) { c }
 
 
 (* A contract node declaration. *)
