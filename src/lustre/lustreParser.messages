@@ -116,9 +116,9 @@ one_expr: CONDACT LPAREN WEAKLY COMMA LPAREN RESTART WEAKLY EVERY WEAKLY RPAREN 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 212, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 212, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -162,9 +162,9 @@ one_expr: CONDACT LPAREN WEAKLY COMMA LPAREN RESTART WEAKLY EVERY WEAKLY RPAREN 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -237,7 +237,7 @@ one_expr: CONDACT LPAREN WEAKLY COMMA LPAREN RESTART WEAKLY EVERY WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -307,9 +307,9 @@ one_expr: CONDACT LPAREN WEAKLY COMMA WEAKLY LPAREN RPAREN COMMA WEAKLY RSQBRACK
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 212, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 212, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -353,9 +353,9 @@ one_expr: CONDACT LPAREN WEAKLY COMMA WEAKLY LPAREN WEAKLY RESTART
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -445,7 +445,7 @@ one_expr: CONDACT LPAREN WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -521,7 +521,7 @@ one_expr: CURRENT WEAKLY WHEN
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -643,7 +643,7 @@ one_expr: FBY LPAREN WEAKLY COMMA NUMERAL COMMA WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -725,7 +725,7 @@ one_expr: FBY LPAREN WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -839,7 +839,7 @@ one_expr: FORALL LPAREN WEAKLY COLON ASSUME WHEN
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type 
+## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type
 ##
 
 Syntax Error!
@@ -932,9 +932,9 @@ one_expr: HASH LPAREN WEAKLY RSQBRACKET
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 212, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 212, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -1056,7 +1056,7 @@ one_expr: IF WEAKLY THEN WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error! Perhaps a missing/unbalanced parenthesis.
@@ -1114,7 +1114,7 @@ one_expr: IF WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -1404,9 +1404,9 @@ one_expr: LCURLYBRACKET WEAKLY RSQBRACKET
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 212, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 212, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -1436,9 +1436,9 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART WEAKLY EVERY WEAKLY RPAREN EVERY WEAKLY
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -1480,9 +1480,9 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART WEAKLY EVERY WEAKLY RPAREN EVERY WEAKLY
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -1524,9 +1524,9 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART WEAKLY EVERY WEAKLY RPAREN EVERY WEAKLY
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -1597,7 +1597,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART WEAKLY EVERY WEAKLY RPAREN EVERY WEAKLY
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -1670,7 +1670,7 @@ one_expr: LPAREN ACTIVATE LPAREN RESTART WEAKLY EVERY WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -1740,9 +1740,9 @@ one_expr: LPAREN ACTIVATE WEAKLY EVERY WEAKLY INITIAL DEFAULT RESTART EVERY WEAK
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -1812,7 +1812,7 @@ one_expr: LPAREN ACTIVATE WEAKLY EVERY WEAKLY INITIAL DEFAULT RESTART EVERY WEAK
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -1854,9 +1854,9 @@ one_expr: LPAREN ACTIVATE WEAKLY EVERY WEAKLY INITIAL DEFAULT RPAREN LPAREN WEAK
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -1899,9 +1899,9 @@ one_expr: LPAREN ACTIVATE WEAKLY EVERY WEAKLY INITIAL DEFAULT WEAKLY RCURLYBRACK
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -1945,9 +1945,9 @@ one_expr: LPAREN ACTIVATE WEAKLY EVERY WEAKLY RESTART EVERY WEAKLY RPAREN LPAREN
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -2017,7 +2017,7 @@ one_expr: LPAREN ACTIVATE WEAKLY EVERY WEAKLY RESTART EVERY WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -2059,9 +2059,9 @@ one_expr: LPAREN ACTIVATE WEAKLY EVERY WEAKLY RPAREN LPAREN WEAKLY RESTART
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -2134,7 +2134,7 @@ one_expr: LPAREN ACTIVATE WEAKLY EVERY WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -2199,9 +2199,9 @@ one_expr: LPAREN RESTART WEAKLY EVERY WEAKLY RPAREN LPAREN WEAKLY RESTART
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 204, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(nonquantified))) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -2271,7 +2271,7 @@ one_expr: LPAREN RESTART WEAKLY EVERY WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -2325,9 +2325,9 @@ one_expr: LPAREN WEAKLY COMMA WEAKLY RSQBRACKET
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 212, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 212, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -2387,7 +2387,7 @@ one_expr: LPAREN WEAKLY THEN
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -2458,7 +2458,7 @@ one_expr: LPAREN WEAKLY WITH DOTPERCENT WEAKLY EQUALS WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -2516,7 +2516,7 @@ one_expr: LPAREN WEAKLY WITH DOTPERCENT WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -2574,7 +2574,7 @@ one_expr: LPAREN WEAKLY WITH LSQBRACKET WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -2649,9 +2649,9 @@ one_expr: LSQBRACKET WEAKLY RPAREN
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
-## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified) 
-## In state 212, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified)) 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
+## In state 205, spurious reduction of production separated_nonempty_list(COMMA,pexpr(nonquantified)) -> pexpr(nonquantified)
+## In state 212, spurious reduction of production pexpr_list(nonquantified) -> separated_nonempty_list(COMMA,pexpr(nonquantified))
 ##
 
 Syntax Error!
@@ -2698,7 +2698,7 @@ one_expr: LSQBRACKET WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -2756,7 +2756,7 @@ one_expr: MERGE LPAREN WEAKLY SEMICOLON WEAKLY SEMICOLON WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -2814,7 +2814,7 @@ one_expr: MERGE LPAREN WEAKLY SEMICOLON WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -2909,7 +2909,7 @@ one_expr: MERGE WEAKLY LPAREN WEAKLY ARROW WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -4041,7 +4041,7 @@ one_expr: WEAKLY LCURLYBRACKET WEAKLY EQUALS WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -4210,7 +4210,7 @@ one_expr: WEAKLY LPARAMBRACKET SUBRANGE LSQBRACKET WEAKLY COMMA WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -4268,7 +4268,7 @@ one_expr: WEAKLY LPARAMBRACKET SUBRANGE LSQBRACKET WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -4338,7 +4338,7 @@ one_expr: WEAKLY LPARAMBRACKET WEAKLY CARET WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error! Perhaps a missing identifier in type.
@@ -4504,7 +4504,7 @@ one_expr: WEAKLY LSH WEAKLY RSH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error! Perhaps a missing delimiter such as a semicolon at the end of the statement.
@@ -4562,7 +4562,7 @@ one_expr: WEAKLY LSQBRACKET WEAKLY DOTDOT WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -4621,7 +4621,7 @@ one_expr: WEAKLY LSQBRACKET WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -5154,7 +5154,7 @@ one_expr: WEAKLY RSH WEAKLY RSH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -5315,7 +5315,7 @@ one_expr: WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -5465,7 +5465,7 @@ one_expr: WITH WEAKLY THEN WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -5523,7 +5523,7 @@ one_expr: WITH WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -5593,7 +5593,7 @@ main: CONST WEAKLY COLON ASSUME EQUALS WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -5675,8 +5675,8 @@ main: CONST WEAKLY COMMA WEAKLY SEMICOLON
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 369, spurious reduction of production separated_nonempty_list(COMMA,ident) -> ident 
-## In state 9, spurious reduction of production ident_list -> separated_nonempty_list(COMMA,ident) 
+## In state 369, spurious reduction of production separated_nonempty_list(COMMA,ident) -> ident
+## In state 9, spurious reduction of production ident_list -> separated_nonempty_list(COMMA,ident)
 ##
 
 Syntax Error!
@@ -5747,7 +5747,7 @@ main: CONST WEAKLY EQUALS WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -5816,8 +5816,8 @@ main: CONTRACT WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN SEMICOLON LET GUARANTE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 777, spurious reduction of production nonempty_list(contract_item) -> contract_item 
-## In state 775, spurious reduction of production contract_in_block -> nonempty_list(contract_item) 
+## In state 777, spurious reduction of production nonempty_list(contract_item) -> contract_item
+## In state 775, spurious reduction of production contract_in_block -> nonempty_list(contract_item)
 ##
 
 Syntax Error!
@@ -5943,9 +5943,9 @@ main: FUNCTION WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN TYPE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 455, spurious reduction of production option(SEMICOLON) -> 
-## In state 457, spurious reduction of production option(contract_spec) -> 
-## In state 790, spurious reduction of production node_decl -> ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) option(SEMICOLON) option(contract_spec) 
+## In state 455, spurious reduction of production option(SEMICOLON) ->
+## In state 457, spurious reduction of production option(contract_spec) ->
+## In state 790, spurious reduction of production node_decl -> ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) option(SEMICOLON) option(contract_spec)
 ##
 
 Syntax Error! Perhaps a missing function definition body.
@@ -6173,8 +6173,8 @@ main: NODE WEAKLY LPAREN LPAREN WEAKLY COLON ASSUME SEMICOLON WEAKLY COLON ASSUM
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type 
-## In state 418, spurious reduction of production const_typed_idents -> boption(CONST) typed_idents 
+## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type
+## In state 418, spurious reduction of production const_typed_idents -> boption(CONST) typed_idents
 ##
 
 Syntax Error!
@@ -6205,8 +6205,8 @@ main: NODE WEAKLY LPAREN LPAREN WEAKLY COLON ASSUME WHEN
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type 
-## In state 418, spurious reduction of production const_typed_idents -> boption(CONST) typed_idents 
+## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type
+## In state 418, spurious reduction of production const_typed_idents -> boption(CONST) typed_idents
 ##
 
 Syntax Error!
@@ -6298,7 +6298,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN LPAREN WEAKLY COLON ASSUME WHEN
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type 
+## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type
 ##
 
 Syntax Error!
@@ -6329,9 +6329,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONST ASSUME EQUALS ASSUME
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 817, spurious reduction of production nonempty_list(const_decl_body) -> const_decl_body 
-## In state 804, spurious reduction of production const_decl -> CONST nonempty_list(const_decl_body) 
-## In state 822, spurious reduction of production node_local_decl -> const_decl 
+## In state 817, spurious reduction of production nonempty_list(const_decl_body) -> const_decl_body
+## In state 804, spurious reduction of production const_decl -> CONST nonempty_list(const_decl_body)
+## In state 822, spurious reduction of production node_local_decl -> const_decl
 ##
 
 Syntax Error!
@@ -6349,8 +6349,8 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_PSATBLOCK GUARANT
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 777, spurious reduction of production nonempty_list(contract_item) -> contract_item 
-## In state 775, spurious reduction of production contract_in_block -> nonempty_list(contract_item) 
+## In state 777, spurious reduction of production nonempty_list(contract_item) -> contract_item
+## In state 775, spurious reduction of production contract_in_block -> nonempty_list(contract_item)
 ##
 
 Syntax Error!
@@ -6420,7 +6420,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK ASSUME 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -6478,7 +6478,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST W
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error! Perhaps a missing statement delimiter such as a semicolon at the end of the statement.
@@ -6561,7 +6561,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK CONST W
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -6617,8 +6617,8 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANT
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 777, spurious reduction of production nonempty_list(contract_item) -> contract_item 
-## In state 775, spurious reduction of production contract_in_block -> nonempty_list(contract_item) 
+## In state 777, spurious reduction of production nonempty_list(contract_item) -> contract_item
+## In state 775, spurious reduction of production contract_in_block -> nonempty_list(contract_item)
 ##
 
 Syntax Error!
@@ -6689,7 +6689,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK GUARANT
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -6731,8 +6731,8 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK IMPORTC
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 369, spurious reduction of production separated_nonempty_list(COMMA,ident) -> ident 
-## In state 750, spurious reduction of production loption(separated_nonempty_list(COMMA,ident)) -> separated_nonempty_list(COMMA,ident) 
+## In state 369, spurious reduction of production separated_nonempty_list(COMMA,ident) -> ident
+## In state 750, spurious reduction of production loption(separated_nonempty_list(COMMA,ident)) -> separated_nonempty_list(COMMA,ident)
 ##
 
 Syntax Error!
@@ -6927,7 +6927,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE WE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -7009,7 +7009,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK MODE WE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -7115,7 +7115,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK VAR WEA
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error! Perhaps a missing statement delimiter such as a semicolon at the end of the statement.
@@ -7234,7 +7234,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK WEAKLY 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -7304,7 +7304,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_SSATBLOCK WEAKLY 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -7423,9 +7423,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 595, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 595, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -7469,9 +7469,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -7544,7 +7544,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -7614,9 +7614,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 595, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 595, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -7660,9 +7660,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -7752,7 +7752,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CONDACT LPAREN 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -7828,7 +7828,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT CURRENT WEAKLY 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -7950,7 +7950,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY LPAREN WEAK
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -8032,7 +8032,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT FBY LPAREN WEAK
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -8138,9 +8138,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT HASH LPAREN WEA
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 595, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 595, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -8262,7 +8262,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT IF WEAKLY THEN 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -8320,7 +8320,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT IF WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -8378,7 +8378,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT WEAKLY RPAR
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -8436,7 +8436,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT16 WEAKLY RP
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -8494,7 +8494,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT32 WEAKLY RP
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -8552,7 +8552,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT64 WEAKLY RP
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -8610,7 +8610,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT INT8 WEAKLY RPA
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -8640,9 +8640,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LCURLYBRACKET W
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 595, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 595, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -8672,9 +8672,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -8716,9 +8716,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -8760,9 +8760,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -8833,7 +8833,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -8906,7 +8906,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -8976,9 +8976,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -9048,7 +9048,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -9090,9 +9090,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -9135,9 +9135,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -9181,9 +9181,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -9253,7 +9253,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -9295,9 +9295,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -9370,7 +9370,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN ACTIVATE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -9435,9 +9435,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 587, spurious reduction of production loption(separated_nonempty_list(COMMA,pexpr(quantified))) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -9507,7 +9507,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN RESTART 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -9561,9 +9561,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN WEAKLY C
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 595, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 595, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -9623,7 +9623,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN WEAKLY T
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -9669,7 +9669,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LPAREN WEAKLY W
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -9744,9 +9744,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LSQBRACKET WEAK
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
-## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified) 
-## In state 595, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified)) 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
+## In state 588, spurious reduction of production separated_nonempty_list(COMMA,pexpr(quantified)) -> pexpr(quantified)
+## In state 595, spurious reduction of production pexpr_list(quantified) -> separated_nonempty_list(COMMA,pexpr(quantified))
 ##
 
 Syntax Error!
@@ -9793,7 +9793,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT LSQBRACKET WEAK
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -9851,7 +9851,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE LPAREN WE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -9909,7 +9909,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MERGE LPAREN WE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -10016,7 +10016,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT MINUS WEAKLY RP
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -10178,7 +10178,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT REAL WEAKLY RPA
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -10236,7 +10236,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT16 WEAKLY R
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -10294,7 +10294,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT32 WEAKLY R
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -10352,7 +10352,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT64 WEAKLY R
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -10410,7 +10410,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT UINT8 WEAKLY RP
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -10676,7 +10676,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WEAKLY CARET WE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -11070,7 +11070,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WEAKLY LSH WEAK
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -11129,7 +11129,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WEAKLY LSQBRACK
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -11656,7 +11656,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WEAKLY RSH WEAK
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error! Perhaps a missing semicolon, a delimiter is expected.
@@ -11741,7 +11741,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -11891,7 +11891,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WITH WEAKLY THE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -11949,7 +11949,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET ASSERT WITH WEAKLY WIT
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -12031,7 +12031,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET CHECK WEAKLY WITH
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -12061,9 +12061,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET LPAREN WEAKLY EQUALS
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 878, spurious reduction of production struct_item -> ident 
-## In state 875, spurious reduction of production separated_nonempty_list(COMMA,struct_item) -> struct_item 
-## In state 885, spurious reduction of production struct_item_list -> separated_nonempty_list(COMMA,struct_item) 
+## In state 878, spurious reduction of production struct_item -> ident
+## In state 875, spurious reduction of production separated_nonempty_list(COMMA,struct_item) -> struct_item
+## In state 885, spurious reduction of production struct_item_list -> separated_nonempty_list(COMMA,struct_item)
 ##
 
 Syntax Error!
@@ -12316,7 +12316,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_ANNOT WEAKLY 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -12386,7 +12386,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -12470,7 +12470,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_PSBLOCKSTART 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error! Probably a missing delimiter such as a semicolon at the end of the statement.
@@ -12554,7 +12554,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -12638,7 +12638,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET PROPERTY_SSBLOCKSTART 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 530, spurious reduction of production pexpr(quantified) -> ident 
+## In state 530, spurious reduction of production pexpr(quantified) -> ident
 ##
 
 Syntax Error!
@@ -12721,7 +12721,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET WEAKLY EQUALS WEAKLY W
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 105, spurious reduction of production pexpr(nonquantified) -> ident 
+## In state 105, spurious reduction of production pexpr(nonquantified) -> ident
 ##
 
 Syntax Error!
@@ -12788,10 +12788,10 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN LET WEAKLY RPAREN
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 878, spurious reduction of production struct_item -> ident 
-## In state 875, spurious reduction of production separated_nonempty_list(COMMA,struct_item) -> struct_item 
-## In state 885, spurious reduction of production struct_item_list -> separated_nonempty_list(COMMA,struct_item) 
-## In state 893, spurious reduction of production left_side -> struct_item_list 
+## In state 878, spurious reduction of production struct_item -> ident
+## In state 875, spurious reduction of production separated_nonempty_list(COMMA,struct_item) -> struct_item
+## In state 885, spurious reduction of production struct_item_list -> separated_nonempty_list(COMMA,struct_item)
+## In state 893, spurious reduction of production left_side -> struct_item_list
 ##
 
 Syntax Error!
@@ -12847,9 +12847,9 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN TYPE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 455, spurious reduction of production option(SEMICOLON) -> 
-## In state 457, spurious reduction of production option(contract_spec) -> 
-## In state 790, spurious reduction of production node_decl -> ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) option(SEMICOLON) option(contract_spec) 
+## In state 455, spurious reduction of production option(SEMICOLON) ->
+## In state 457, spurious reduction of production option(contract_spec) ->
+## In state 790, spurious reduction of production node_decl -> ident loption(static_params) tlist(LPAREN,SEMICOLON,RPAREN,const_clocked_typed_idents) RETURNS tlist(LPAREN,SEMICOLON,RPAREN,clocked_typed_idents) option(SEMICOLON) option(contract_spec)
 ##
 
 Syntax Error!
@@ -12867,8 +12867,8 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN RPAREN VAR WEAKLY COLON ASSUME RP
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type 
-## In state 446, spurious reduction of production clocked_typed_idents -> typed_idents 
+## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type
+## In state 446, spurious reduction of production clocked_typed_idents -> typed_idents
 ##
 
 Syntax Error!
@@ -12924,7 +12924,7 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN WEAKLY COLON ASSUME RCURLYBRACKET
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type 
+## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type
 ##
 
 Syntax Error!
@@ -12956,8 +12956,8 @@ main: NODE WEAKLY LPAREN RPAREN RETURNS LPAREN WEAKLY COLON ASSUME WHEN ASSUME X
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 116, spurious reduction of production clock_expr -> ident 
-## In state 448, spurious reduction of production clocked_typed_idents -> typed_idents WHEN clock_expr 
+## In state 116, spurious reduction of production clock_expr -> ident
+## In state 448, spurious reduction of production clocked_typed_idents -> typed_idents WHEN clock_expr
 ##
 
 Syntax Error!
@@ -13025,8 +13025,8 @@ main: NODE WEAKLY LPAREN WEAKLY COLON ASSUME RCURLYBRACKET
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type 
-## In state 418, spurious reduction of production const_typed_idents -> boption(CONST) typed_idents 
+## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type
+## In state 418, spurious reduction of production const_typed_idents -> boption(CONST) typed_idents
 ##
 
 Syntax Error!
@@ -13058,8 +13058,8 @@ main: NODE WEAKLY LPAREN WEAKLY COLON ASSUME WHEN ASSUME XOR
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 116, spurious reduction of production clock_expr -> ident 
-## In state 427, spurious reduction of production const_clocked_typed_idents -> const_typed_idents WHEN clock_expr 
+## In state 116, spurious reduction of production clock_expr -> ident
+## In state 427, spurious reduction of production const_clocked_typed_idents -> const_typed_idents WHEN clock_expr
 ##
 
 Syntax Error!
@@ -13153,8 +13153,8 @@ main: TYPE WEAKLY EQUALS ENUM LCURLYBRACKET WEAKLY SEMICOLON
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 369, spurious reduction of production separated_nonempty_list(COMMA,ident) -> ident 
-## In state 9, spurious reduction of production ident_list -> separated_nonempty_list(COMMA,ident) 
+## In state 369, spurious reduction of production separated_nonempty_list(COMMA,ident) -> ident
+## In state 9, spurious reduction of production ident_list -> separated_nonempty_list(COMMA,ident)
 ##
 
 Syntax Error!
@@ -13222,7 +13222,7 @@ main: TYPE WEAKLY EQUALS LCURLYBRACKET WEAKLY COLON ASSUME WHEN
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type 
+## In state 232, spurious reduction of production typed_idents -> ident_list_pos COLON lustre_type
 ##
 
 Syntax Error!
@@ -13283,8 +13283,8 @@ main: TYPE WEAKLY RPAREN
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 369, spurious reduction of production separated_nonempty_list(COMMA,ident) -> ident 
-## In state 9, spurious reduction of production ident_list -> separated_nonempty_list(COMMA,ident) 
+## In state 369, spurious reduction of production separated_nonempty_list(COMMA,ident) -> ident
+## In state 9, spurious reduction of production ident_list -> separated_nonempty_list(COMMA,ident)
 ##
 
 Syntax Error!
@@ -13354,7 +13354,7 @@ one_expr: EXISTS LPAREN ASSUME SEMICOLON
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 233, spurious reduction of production ident_list_pos -> ident 
+## In state 233, spurious reduction of production ident_list_pos -> ident
 ##
 
 Syntax Error!
@@ -13396,7 +13396,19 @@ main: FUNCTION ASSUME LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_PSATBLOCK ASS
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 233, spurious reduction of production ident_list_pos -> ident 
+## In state 233, spurious reduction of production ident_list_pos -> ident
 ##
 
 Syntax Error!
+
+main: FUNCTION ASSUME LPAREN RPAREN RETURNS LPAREN RPAREN CONTRACT_PSATBLOCK VAR ASSUME COLON ASSUME COMMA XOR
+##
+## Ends in an error in state: 710.
+##
+## separated_nonempty_list(COMMA,typed_ident) -> typed_ident COMMA . separated_nonempty_list(COMMA,typed_ident) [ EQUALS ]
+##
+## The known suffix of the stack is as follows:
+## typed_ident COMMA
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>

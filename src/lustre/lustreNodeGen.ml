@@ -1203,7 +1203,9 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   in let gconsts, gvars, modes, contract_calls =
     let over_items (consts, vars, modes, calls) = function
       | A.GhostConst c -> c :: consts, vars, modes, calls
-      | A.GhostVar v -> consts, v :: vars, modes, calls
+      | A.GhostVar v -> consts, v :: vars, modes, calls 
+  (*  | A.GhostVars v -> consts, v :: vars, modes, calls 
+      Getting lost in the shuffle here too... *)
       | A.Assume _ -> consts, vars, modes, calls
       | A.Guarantee _ -> consts, vars, modes, calls
       | A.Mode m -> consts, vars, m :: modes, calls
@@ -1329,6 +1331,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
     let over_items (assumes, guarantees, calls) = function
       | A.GhostConst _ -> assumes, guarantees, calls
       | A.GhostVar _ ->  assumes, guarantees, calls
+      | A.GhostVars _ -> assumes, guarantees, calls
       | A.Assume a -> a :: assumes, guarantees, calls
       | A.Guarantee g -> assumes, g :: guarantees, calls
       | A.Mode _ -> assumes, guarantees, calls

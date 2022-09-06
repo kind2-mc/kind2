@@ -1548,6 +1548,8 @@ and eval_node_contract_item
   | A.GhostVar v ->
     eval_ghost_var is_postponed inputs outputs locals ctx v, cpt_a, cpt_g
 
+  | A.GhostVars _ -> failwith "Not supported in old frontend"
+
   (* Evaluate assumption *)
   | A.Assume (pos, name, soft, expr) ->
     let ctx, assumes, cpt_a =

@@ -1030,6 +1030,8 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> (unit, [> error
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 
+(* Difference between tc_ctx_* and check_*? 
+   Not sure which functions to pull from to help, no clear analogy. *)
 and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> (tc_context, [> error]) result
   = fun ctx -> function
   | GhostConst c -> tc_ctx_const_decl ctx c

@@ -641,6 +641,7 @@ outputs. *)
 let contract_node_equation_has_pre_or_arrow = function
 | GhostConst decl
 | GhostVar decl -> const_decl_has_pre_or_arrow decl
+| GhostVars (_, _, e)
 | Assume (_, _, _, e)
 | Guarantee (_, _, _, e) -> has_pre_or_arrow e
 | Mode (_, _, reqs, enss) ->

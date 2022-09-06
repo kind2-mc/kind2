@@ -442,13 +442,17 @@ let mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysis
      let sub_graphs = (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) calls_ps) in
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data sub_graphs
   | LA.GhostConst c 
-    | LA.GhostVar c ->
+    | LA.GhostVar c -> (
      match c with
      | FreeConst _ -> empty_dependency_analysis_data
      | UntypedConst (_, _, e) ->
         List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
           (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
      | TypedConst (_, _, e, _) ->
+        List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
+          (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
+    )
+    | LA.GhostVars (_, _, e) ->
         List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
           (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
 (** This builds a graph with all the node call dependencies from the equations of the contract  *)
@@ -567,6 +571,8 @@ let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
       match e with
       | LA.GhostConst _
       | LA.GhostVar _
+      (* Double check this *)
+      | LA.GhostVars _
       | LA.ContractCall _
       | LA.Mode _ -> e::ps, qs
       | LA.Guarantee _
@@ -832,18 +838,18 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
     function using [LH.abstract_pre_subexpressions] *)
 
 
-let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_equation -> dependency_analysis_data
+let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_equation -> (dependency_analysis_data, [> error]) result
   = fun ad ->
   function
-  | LA.AssumptionVars _ -> ad
+  | LA.AssumptionVars _ -> R.ok ad
   | LA.ContractCall (pos, i, es, _) ->
-    connect_g_pos 
+    R.ok (connect_g_pos 
       (List.fold_left union_dependency_analysis_data ad
         (List.map (fun e -> mk_graph_expr (LH.abstract_pre_subexpressions e)) es))
-      (HString.concat2 contract_prefix i) pos
+      (HString.concat2 contract_prefix i) pos)
   | LA.Assume (_, _, _, e)
   | LA.Guarantee (_, _, _, e) ->
-    union_dependency_analysis_data ad (mk_graph_expr (LH.abstract_pre_subexpressions e))
+    R.ok (union_dependency_analysis_data ad (mk_graph_expr (LH.abstract_pre_subexpressions e)))
   | LA.Mode (pos, i, reqs, ensures) ->
     let mgs = List.fold_left
       union_dependency_analysis_data
@@ -853,11 +859,12 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
             ((LH.abstract_pre_subexpressions e)))
         (reqs @ ensures))
     in
-    connect_g_pos mgs (HString.concat2 mode_prefix i) pos
+    R.ok (connect_g_pos mgs (HString.concat2 mode_prefix i) pos)
   | LA.GhostConst c 
-  | LA.GhostVar c ->
+  | LA.GhostVar c -> 
+    (
     match c with
-    | FreeConst _ -> ad
+    | FreeConst _ -> R.ok ad
     | UntypedConst (pos, i, e)
     | TypedConst (pos, i, e, _) ->
       let union g v = union_dependency_analysis_data g
@@ -868,7 +875,24 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
       let vars2 = vars_with_flattened_nodes ad.nsummary2 0 (LH.abstract_pre_subexpressions e) in
       let effective_vars2 = LA.SI.elements vars2 in
       let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
-      connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos
+      R.ok (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
+    )
+  | LA.GhostVars (pos, (GhostVarDec (_, lhss)), e) ->
+    let handle_one_lhs: dependency_analysis_data
+                        -> LA.typed_ident
+                        -> dependency_analysis_data
+      = fun rhs_g ((pos, i, _)) -> connect_g_pos rhs_g i pos 
+      in  
+      (* Still not sure if we need nsummary2. *)
+      mk_graph_expr2 ad.nsummary (LH.abstract_pre_subexpressions e) >>= fun rhs_g -> 
+      (
+        if (List.length rhs_g = List.length lhss)
+        then R.ok (List.fold_left union_dependency_analysis_data
+                                  empty_dependency_analysis_data
+                                  (List.map2 handle_one_lhs rhs_g lhss))
+        else (graph_error pos EquationWidthsUnequal)
+      ) 
+      
 
 (*
 let mk_graph_const_decl2: node_summary -> LA.const_decl -> dependency_analysis_data graph_result
@@ -925,7 +949,7 @@ let expression_current_streams: dependency_analysis_data -> LA.expr -> (LA.ident
     (Lib.pp_print_list G.pp_print_vertex ", ") vs
     (Lib.pp_print_list G.pp_print_vertex ", ") rechable_vs 
   ; R.ok rechable_vs
-(** all the variables who's current value is used in the expression *)
+(** all the variables whose current value is used in the expression *)
 
 let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr -> (unit, [> error]) result
   = fun node_out_streams ad e -> 
@@ -943,9 +967,8 @@ let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr ->
    
 let mk_graph_contract_decl2 
   = fun ad (_ , _, _, _, c) ->
-  List.fold_left union_dependency_analysis_data
-    ad
-    (List.map (mk_graph_contract_node_eqn2 ad) c)
+    let* d = R.seq (List.map (mk_graph_contract_node_eqn2 ad) c) in
+    R.ok (List.fold_left union_dependency_analysis_data ad d)           
 
 let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contract_node_equation -> (unit, [> error]) result
   = fun ids ad ->
@@ -969,7 +992,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
   let ip_ids = List.map (fun ip -> LH.extract_ip_ty ip |> fst) ips in
   let op_ids = List.map (fun ip -> LH.extract_op_ty ip |> fst) ops in
   let ids_to_skip = SI.of_list (ip_ids @ op_ids) in 
-  let ad' = mk_graph_contract_decl2 ad decl in
+  let* ad' = mk_graph_contract_decl2 ad decl in
   let* sorted_ids = (try (R.ok (G.topological_sort ad'.graph_data)) with
     | G.CyclicGraphException ids ->
       match (find_id_pos ad'.id_pos_data (List.hd ids)) with
@@ -1122,6 +1145,8 @@ let mk_contract_summary: contract_summary -> LA.contract_node_decl -> contract_s
 let mk_graph_eqn: node_summary
                   -> LA.node_equation
                   -> (dependency_analysis_data, [> error]) result =
+  
+
   let handle_one_lhs: dependency_analysis_data
                       -> LA.struct_item
                       -> dependency_analysis_data
@@ -1144,6 +1169,8 @@ let mk_graph_eqn: node_summary
       | LA.ArraySliceStructItem (p, _, _)
       ->  Lib.todo ("Parsing not supported" ^ __LOC__
                     ^ " " ^ Lib.string_of_t Lib.pp_print_position p) in
+
+      
   fun m -> function
         | Equation (pos, (LA.StructDef (_, lhss)), e) ->
            (* We need to find the mapping of graphs from the 

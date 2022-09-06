@@ -65,6 +65,17 @@ let rec collect_contracts (locals, asserts, props) = function
         blah "Contract variable declaration" pos, info
       ) :: locals, asserts, props
 
+    (*
+    How to use a single identifier? Or split into multiple expressions?
+    | Ast.GhostVars (pos, lhs, expr) ->
+      let pos, info = match dec with
+        | Ast.TypedConst (pos,id,expr,typ) -> pos, (id, expr, typ)
+      in
+      (
+        blah "Contract variable declaration" pos, (id, expr, typ)
+      ) :: locals, asserts, props
+    *)
+
     | Ast.Assume (pos, name, _, expr) ->
       locals, (blah_opt "Assumption" name pos, Ast.Assert (dummy_pos, expr)
       ) :: asserts, props

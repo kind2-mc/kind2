@@ -425,7 +425,7 @@ node_def:
 
 contract_equation:
   | VAR; l = contract_left_side; EQUALS; e = expr; SEMICOLON
-    { A.GhostVars (mk_pos $startpos, (GhostVarDec l), e) }
+    { A.GhostVars (mk_pos $startpos, GhostVarDec (mk_pos $startpos, l), e) }
 
 contract_left_side:
   (* List without parentheses *)
