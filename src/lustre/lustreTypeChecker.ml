@@ -1036,6 +1036,7 @@ and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> (tc_context,
   = fun ctx -> function
   | GhostConst c -> tc_ctx_const_decl ctx c
   | GhostVar c -> tc_ctx_contract_var ctx c
+  | GhostVars vs -> tc_ctx_contract_vars ctx vs
   | Assume _ -> R.ok ctx
   | Guarantee _ -> R.ok ctx
   | AssumptionVars _ -> R.ok ctx
@@ -1097,6 +1098,7 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
     | GhostConst (TypedConst (_, _, _, exp_ty) as c) -> check_type_const_decl ctx c exp_ty
     | GhostVar (FreeConst (_, _, exp_ty) as c) -> check_type_const_decl ctx c exp_ty
     | GhostVar (TypedConst (_, _, _, exp_ty) as c) -> check_type_const_decl ctx c exp_ty
+    | GhostVars v -> let node_eqn = contract_eqn_to_node_eqn v in do_node_eqn ctx node_eqn
     | GhostConst (UntypedConst _)
     | GhostVar (UntypedConst _) -> R.ok () (* These is already checked while extracting ctx *)
     | Assume (pos, _, _, e) ->
@@ -1134,6 +1136,13 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
         | None -> type_error pos (Impossible ("Undefined or not in scope contract name "
           ^ (HString.string_of_hstring cname))))
       else type_error pos (NodeInputOutputShareIdentifier common_ids)
+
+and contract_eqn_to_node_eqn: LA.contract_ghost_vars -> LA.node_equation
+  = fun (pos1, GhostVarDec(pos2, tis), expr) ->
+    let lhs = LA.StructDef(pos2, 
+    List.map (fun (pos, i, _) -> LA.SingleIdent(pos, i)) tis
+    ) in
+    Equation(pos1, lhs, expr)
 
 and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> (tc_context, [> error]) result 
   = fun ?is_const:(is_const=true) ctx ->
@@ -1179,7 +1188,19 @@ and tc_ctx_contract_var: tc_context -> LA.const_decl -> (tc_context, [> error]) 
       then type_error pos (Redeclaration i)
       else R.ok (add_ty ctx i ty)
 (** Adds the type of a contract variable in the typing context  *)
-    
+  
+and tc_ctx_contract_vars: tc_context -> LA.contract_ghost_vars -> (tc_context, [> error]) result 
+      = function ctx ->
+      function
+      | (pos, GhostVarDec (pos1, (pos2, i, ty)::tis), e) ->     
+        check_type_well_formed ctx ty
+        >> if member_ty ctx i
+          then type_error pos (Redeclaration i)
+          (* Type-check the left-hand side variables one at a time *)
+          else tc_ctx_contract_vars (add_ty ctx i ty) (pos1, GhostVarDec (pos2, tis), e)
+      | _ -> (R.ok ctx)
+
+
      
 and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) result
   = fun ctx ->
