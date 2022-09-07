@@ -170,31 +170,23 @@ and interpret_contract_eqn node_id ctx ty_ctx = function
   | GhostVar decl -> interpret_ghost_var node_id ctx ty_ctx decl
   | Assume _ | Guarantee _ | Mode _
   | ContractCall _ | AssumptionVars _ -> empty_context
-  (* 
-  | GhostVars (pos, lhs, rhs) ->
-  let struct_items = match lhs with
-    | GhostVarDec (_, items) -> items
-  in
+  | GhostVars (_, (GhostVarDec (_, tis)), rhs) ->
   let rec separate_eqns rhs = match rhs with
     | LA.GroupExpr (_, ExprList, es) ->
       es |> List.map (separate_eqns) |> List.flatten
     | e -> List.init (arity_of_expr ty_ctx e) (fun p -> e, p)
   in
   let eqns = separate_eqns rhs in
-  List.fold_left2 (fun acc lhs (expr, p) -> match lhs with
-      | LA.SingleIdent (_, id) ->
-        (* Don't need to look up types *)
-        let ty1 = Ctx.lookup_ty ty_ctx id |> get in
-        let ty1 = Ctx.expand_nested_type_syn ty_ctx ty1 in
-        let restrict_ty = interpret_expr_by_type node_id ctx ty_ctx ty1 p expr in
-        let ty, is_restricted = restrict_type_by ty1 restrict_ty in
-        if is_restricted then
-          add_type acc node_id id ty
-        else acc)
+  List.fold_left2 (fun acc (_, i, ty) (expr, p) -> 
+      (* Don't look up types; directly use them. *)
+      let restrict_ty = interpret_expr_by_type node_id ctx ty_ctx ty p expr in
+      let ty1, is_restricted = restrict_type_by ty restrict_ty in
+      if is_restricted then
+        add_type acc node_id i ty1
+      else acc)
     ctx
-    struct_items
+    tis
     eqns
-    *)
 
 
 and interpret_ghost_var node_id ctx ty_ctx = function

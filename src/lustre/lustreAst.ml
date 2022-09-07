@@ -874,7 +874,15 @@ let pp_print_eq_lhs ppf = function
   | StructDef (_, l) ->
     Format.fprintf ppf "(%a)"
       (pp_print_list pp_print_struct_item ",") l
+
+let pp_print_contract_eq_lhs ppf = function
+  | GhostVarDec (_, [(_, l, _)]) ->
+    pp_print_ident ppf l
   
+  | GhostVarDec (_, l) ->
+    Format.fprintf ppf "(%a)"
+      (pp_print_list pp_print_ident ",") (List.map (fun (_, i, _) -> i) l)
+
 
 let rec pp_print_node_body ppf = function
 

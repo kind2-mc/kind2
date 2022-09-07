@@ -31,11 +31,11 @@ let blah_opt txt name pos =
     )
     pp_print_position pos
 
-let rec collect_contracts (locals, asserts, props) = function
+let rec collect_contracts (equations, locals, asserts, props) = function
 | head :: tail -> (
-  let triple = match head with
+  let quad = match head with
 
-    | Ast.AssumptionVars _ -> locals, asserts, props
+    | Ast.AssumptionVars _ -> equations, locals, asserts, props
 
     | Ast.GhostConst dec ->
       let pos, info = match dec with
@@ -47,9 +47,9 @@ let rec collect_contracts (locals, asserts, props) = function
           |> failwith
         | Ast.TypedConst (pos,id,expr,typ) -> pos, (id, expr, typ)
       in
-      (
-        blah "Contract constant declaration" pos, info
-      ) :: locals, asserts, props
+      equations, 
+      (blah "Contract constant declaration" pos, info) :: locals, 
+      asserts, props
 
     | Ast.GhostVar dec ->
       let pos, info = match dec with
@@ -61,27 +61,33 @@ let rec collect_contracts (locals, asserts, props) = function
           |> failwith
         | Ast.TypedConst (pos,id,expr,typ) -> pos, (id, expr, typ)
       in
-      (
-        blah "Contract variable declaration" pos, info
-      ) :: locals, asserts, props
+      equations,
+      (blah "Contract variable declaration" pos, info) :: locals, 
+      asserts, props
+    
+    (* How to use a single identifier? Or split into multiple expressions? *)
+    | Ast.GhostVars (pos, (GhostVarDec (_, tis) as lhs), expr) ->
+      let rec add_locals (locals, tis) =
+        (
+        match tis with
+          | (_, id, typ) :: tis -> (add_locals ((blah "Contract variable declaration" pos, (id, expr, typ)) :: locals, 
+                                            tis))
+          | [] -> locals
+        )
+        in
 
-    (*
-    How to use a single identifier? Or split into multiple expressions?
-    | Ast.GhostVars (pos, lhs, expr) ->
-      let pos, info = match dec with
-        | Ast.TypedConst (pos,id,expr,typ) -> pos, (id, expr, typ)
-      in
-      (
-        blah "Contract variable declaration" pos, (id, expr, typ)
-      ) :: locals, asserts, props
-    *)
+      (blah "Contract variable declaration" pos, (lhs, expr)) :: equations, 
+      add_locals(locals, tis), 
+      asserts, 
+      props
 
     | Ast.Assume (pos, name, _, expr) ->
-      locals, (blah_opt "Assumption" name pos, Ast.Assert (dummy_pos, expr)
-      ) :: asserts, props
+      equations, locals, 
+      (blah_opt "Assumption" name pos, Ast.Assert (dummy_pos, expr)) :: asserts, 
+      props
 
     | Ast.Guarantee (pos, name, _, expr) ->
-      locals, asserts, (blah_opt "Guarantee" name pos, [], expr) :: props
+      equations, locals, asserts, (blah_opt "Guarantee" name pos, [], expr) :: props
 
     | Ast.Mode (pos, name, reqs, enss) ->
       let reqs = List.map (fun (_, _, e) -> e) reqs in
@@ -100,7 +106,7 @@ let rec collect_contracts (locals, asserts, props) = function
             ) :: acc
         ) props
       in
-      locals, asserts, props
+      equations, locals, asserts, props
 
     | Ast.ContractCall (pos,_,_,_) ->
       Format.asprintf "\
@@ -109,15 +115,15 @@ let rec collect_contracts (locals, asserts, props) = function
       |> failwith
   in
 
-  collect_contracts triple tail
+  collect_contracts quad tail
 )
 
-| [] -> List.rev locals, List.rev asserts, List.rev props
+| [] -> List.rev equations, List.rev locals, List.rev asserts, List.rev props
 
 
 let fmt_node_decl fmt (
   ident, params, ins, outs, locals, items
-) (c_locals, c_asserts, c_properties) =
+) (c_equations, c_locals, c_asserts, c_properties) =
 
   (* Header. *)
   Format.fprintf fmt "\
@@ -142,6 +148,7 @@ let fmt_node_decl fmt (
         Format.fprintf fmt "  @[<v>%a@]@." Ast.pp_print_node_local_decl locals
     ) ;
 
+    (* TYPE *)
     if not c_locals_empty then
       c_locals |> List.iter (
         fun (blah, (id,_,typ)) ->
@@ -159,6 +166,8 @@ let fmt_node_decl fmt (
 
   if items <> [] then Format.fprintf fmt "@." ;
 
+  (* EQUATION *)
+  (*
   c_locals |> List.iter (
     fun (blah, (id,expr,_)) ->
       Format.fprintf fmt "  -- %s@.  %a = %a ;@."
@@ -167,6 +176,15 @@ let fmt_node_decl fmt (
         Ast.pp_print_expr expr
   ) ;
   if c_locals <> [] then Format.fprintf fmt "@." ;
+  *)
+  c_equations |> List.iter (
+    fun (blah, (lhs,expr)) ->
+      Format.fprintf fmt "  -- %s@.  %a = %a ;@."
+        blah
+        Ast.pp_print_contract_eq_lhs lhs
+        Ast.pp_print_expr expr
+  ) ;
+  if c_equations <> [] then Format.fprintf fmt "@." ;
   
   c_asserts |> List.iter (
     fun (blah, ass) ->
@@ -204,8 +222,8 @@ let rec fmt_declarations fmt = function
 
     | Ast.NodeDecl (_, (wan, _, two,tri,far,fiv,six,contract)) -> (
       let contract_info = match contract with
-        | None -> ([],[],[])
-        | Some c -> collect_contracts ([],[],[]) c
+        | None -> ([],[],[],[])
+        | Some c -> collect_contracts ([],[],[],[]) c
       in
       fmt_node_decl fmt (wan,two,tri,far,fiv,six) contract_info
     )
