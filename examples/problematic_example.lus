@@ -1,0 +1,34 @@
+node main() returns (P1: bool);
+let
+  P1 = 0 <= counter(0);
+  check P1;
+  --%MAIN;
+tel
+
+contract counter_spec (init: int) returns(out: int);
+let
+   var out1: int, out2: int = counter2(init);
+   guarantee out1 + out2 < out;
+tel
+
+node counter (init : int) returns (out : int);
+(*@ contract import
+  counter_spec(init)
+  returns (out) ;
+*)
+let
+    out = init -> pre out + 1;
+tel
+
+
+node counter2 (init : int) returns (out1, out2 : int);
+let
+    out1 = 0 -> pre out1 + 1;
+    out2 = init -> pre out2 + 1;
+tel
+(*
+node counter2 (init : int) returns (out : int);
+let
+    out = init -> pre out + 1;
+tel
+*)

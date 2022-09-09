@@ -571,7 +571,6 @@ let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
       match e with
       | LA.GhostConst _
       | LA.GhostVar _
-      (* Double check this *)
       | LA.GhostVars _
       | LA.ContractCall _
       | LA.Mode _ -> e::ps, qs
@@ -671,22 +670,50 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
 (** get all the variables and flatten node calls using 
     the node summary for an expression *)
              
-let rec mk_contract_eqn_map: LA.contract_node_equation IMap.t -> LA.contract -> ((LA.contract_node_equation IMap.t), [> error]) result
-  = fun m ->
+(* The first map is a map from identifiers to contract equations, while the
+   second map only keeps track of the identifiers. We need both because
+   we may have multiple identifiers associated with the same equation, but
+   we still need to check for redeclaration. *)
+let rec mk_contract_eqn_map: LA.contract_node_equation IMap.t -> unit IMap.t ->LA.contract -> ((LA.contract_node_equation IMap.t), [> error]) result
+  = fun m1 m2 ->
   function
-  | [] -> R.ok m
+  | [] -> R.ok m1
   | (LA.GhostConst (FreeConst (pos, i, _)) as gc) :: eqns
     | (LA.GhostConst (UntypedConst (pos, i, _)) as gc) :: eqns
     | (LA.GhostConst (TypedConst (pos, i, _, _)) as gc) :: eqns -> 
-     check_and_add m pos empty_hs i gc >>= fun m' -> mk_contract_eqn_map m' eqns  
+     let* m1' = check_and_add m1 pos empty_hs i gc in 
+     let* m2' = check_and_add m2 pos empty_hs i () in
+     mk_contract_eqn_map m1' m2' eqns  
   | (LA.GhostVar (FreeConst (pos, i, _)) as gc) :: eqns
     | (LA.GhostVar (UntypedConst (pos, i, _)) as gc) :: eqns
     | (LA.GhostVar (TypedConst (pos, i, _, _)) as gc) :: eqns -> 
-     check_and_add m pos empty_hs i gc >>= fun m' -> mk_contract_eqn_map m' eqns  
+    let* m1' = check_and_add m1 pos empty_hs i gc in 
+    let* m2' = check_and_add m2 pos empty_hs i () in
+    mk_contract_eqn_map m1' m2' eqns 
+  (* We add the first identifier to the contract_node_equation map, and
+     then we add all the identifiers to the unit map. *)
+  | (LA.GhostVars (pos, (GhostVarDec(_, (_, i, _)::_) as eqn), _) as gc) :: eqns -> 
+    let* m1' = check_and_add m1 pos empty_hs i gc in
+    let rec add_identifiers_to_map eqn m2 =
+      match eqn with
+        | LA.GhostVarDec(pos, (_, i, _)::tis) -> 
+          let* m2' = (check_and_add m2 pos empty_hs i ()) in
+          add_identifiers_to_map (LA.GhostVarDec(pos, tis)) m2'
+        | LA.GhostVarDec(_, []) -> R.ok m2
+    in 
+    let* m2' = add_identifiers_to_map eqn m2 in
+    mk_contract_eqn_map m1' m2' eqns
+  | (LA.GhostVars (_, (GhostVarDec(_, [])), _)) :: eqns -> 
+    mk_contract_eqn_map m1 m2 eqns
   | (LA.ContractCall (pos, i, _, _ ) as cc ) :: eqns -> 
-     check_and_add m pos contract_prefix i cc >>= fun m' -> mk_contract_eqn_map m' eqns  
+    let* m1' = check_and_add m1 pos contract_prefix i cc in
+    let* m2' = check_and_add m2 pos empty_hs i () in
+    mk_contract_eqn_map m1' m2' eqns  
   | (LA.Mode (pos, i, _, _) as mode) :: eqns ->
-     check_and_add m pos mode_prefix i mode >>= fun m' -> mk_contract_eqn_map m' eqns  
+    let* m1' = check_and_add m1 pos mode_prefix i mode in
+    let* m2' = check_and_add m2 pos empty_hs i () in
+    mk_contract_eqn_map m1' m2' eqns  
+
   | _ -> assert false
               
 
@@ -884,14 +911,66 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
       = fun rhs_g ((pos, i, _)) -> connect_g_pos rhs_g i pos 
       in  
       (* Still not sure if we need nsummary2. *)
-      mk_graph_expr2 ad.nsummary (LH.abstract_pre_subexpressions e) >>= fun rhs_g -> 
+      let* rhs_g = mk_graph_expr2 ad.nsummary (LH.abstract_pre_subexpressions e) in
+      (* Printf.printf "test \n"; *)
       (
         if (List.length rhs_g = List.length lhss)
         then R.ok (List.fold_left union_dependency_analysis_data
                                   empty_dependency_analysis_data
                                   (List.map2 handle_one_lhs rhs_g lhss))
         else (graph_error pos EquationWidthsUnequal)
+      )
+
+  (*
+      let handle_one_lhs: dependency_analysis_data
+                        -> LA.typed_ident
+                        -> dependency_analysis_data
+      = fun ad ((pos, i, _)) -> 
+      (
+        let union g v = union_dependency_analysis_data g
+          (singleton_dependency_analysis_data empty_hs v pos)
+        in
+        let vars = vars_with_flattened_nodes ad.nsummary 0 (LH.abstract_pre_subexpressions e) in
+        let effective_vars = LA.SI.elements vars in
+        let vars2 = vars_with_flattened_nodes ad.nsummary2 0 (LH.abstract_pre_subexpressions e) in
+        let effective_vars2 = LA.SI.elements vars2 in
+        let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
+        connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos
+      )
+      in  
+      (* Still not sure if we need nsummary2. *)
+      (
+        R.ok (List.fold_left union_dependency_analysis_data
+                             empty_dependency_analysis_data
+                             (List.map (handle_one_lhs ad) lhss))
       ) 
+  *)
+  (*
+      let handle_one_lhs: dependency_analysis_data
+                        -> LA.typed_ident
+                        -> dependency_analysis_data
+      = fun ad ((pos, i, _)) -> 
+      (
+        let union g v = union_dependency_analysis_data g
+          (singleton_dependency_analysis_data empty_hs v pos)
+        in
+        let vars = vars_with_flattened_nodes ad.nsummary 0 (LH.abstract_pre_subexpressions e) in
+        let effective_vars = LA.SI.elements vars in
+        let vars2 = vars_with_flattened_nodes ad.nsummary2 0 (LH.abstract_pre_subexpressions e) in
+        let effective_vars2 = LA.SI.elements vars2 in
+        let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
+        (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
+      )
+      in  
+      let* rhs_g = mk_graph_expr2 ad.nsummary (LH.abstract_pre_subexpressions e) in 
+      (
+        if (List.length rhs_g = List.length lhss)
+        then R.ok (List.fold_left union_dependency_analysis_data
+                                  empty_dependency_analysis_data
+                                  (List.map2 handle_one_lhs rhs_g lhss))
+        else (graph_error pos EquationWidthsUnequal)
+      )   
+  *)
       
 
 (*
@@ -1001,7 +1080,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
   in
   let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) sorted_ids in
   let (to_sort_eqns, rest) = split_contract_equations contract in
-  let* eqn_map = mk_contract_eqn_map IMap.empty to_sort_eqns in
+  let* eqn_map = mk_contract_eqn_map IMap.empty IMap.empty to_sort_eqns in
   let* contract' = extract_decls eqn_map equational_vars in
   Debug.parse "sorted contract equations for contract %a %a"
     LA.pp_print_ident i
@@ -1129,6 +1208,8 @@ let get_contract_exports: contract_summary -> LA.contract_node_equation -> LA.id
   | LA.GhostVar (LA.UntypedConst (_, i, _))
   | LA.GhostVar (LA.TypedConst (_, i, _, _))
   | LA.Mode (_, i, _, _) -> [i]
+  | LA.GhostVars (_, (GhostVarDec (_, tis)), _) -> 
+    List.map (fun (_, i, _) -> i) tis
   | LA.ContractCall (_, cc, _, _) ->
      (match (IMap.find_opt cc m) with
      | Some ids -> List.map (fun i -> HString.concat (HString.mk_hstring "::") [cc;i]) ids

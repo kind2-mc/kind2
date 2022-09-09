@@ -829,12 +829,13 @@ and rename_ghost_variables info node_id contract =
     let tail, info = rename_ghost_variables info node_id t in
     (StringMap.singleton id new_id) :: tail, info
   (* Recurse through each declaration one at a time *)
-  | GhostVars (pos1, A.GhostVarDec(pos2, (pos3, id, typ)::ids), e) :: t -> 
+  | GhostVars (pos1, A.GhostVarDec(pos2, (_, id, _)::tis), e) :: t -> 
     let ty = Ctx.lookup_ty info.context id |> get in
     let ty = Ctx.expand_nested_type_syn info.context ty in
     let new_id = HString.concat sep [info.contract_ref;id] in
+    print_endline (HString.string_of_hstring new_id);
     let info = { info with context = Ctx.add_ty info.context new_id ty } in
-    let tail, info = rename_ghost_variables info node_id (A.GhostVars (pos1, A.GhostVarDec(pos2, (pos3, id, typ)::ids), e) :: t) in
+    let tail, info = rename_ghost_variables info node_id (A.GhostVars (pos1, A.GhostVarDec(pos2, tis), e) :: t) in
     (StringMap.singleton id new_id) :: tail, info
   | _ :: t -> rename_ghost_variables info node_id t
 

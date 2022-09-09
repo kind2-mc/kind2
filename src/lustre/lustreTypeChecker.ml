@@ -1030,8 +1030,7 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> (unit, [> error
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 
-(* Difference between tc_ctx_* and check_*? 
-   Not sure which functions to pull from to help, no clear analogy. *)
+(* Difference between this and tc_ctx_contract_node_eqn? *)
 and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> (tc_context, [> error]) result
   = fun ctx -> function
   | GhostConst c -> tc_ctx_const_decl ctx c
@@ -1252,6 +1251,7 @@ and tc_ctx_contract_node_eqn ?(ignore_modes = false) ctx =
   function
   | LA.GhostConst c -> tc_ctx_const_decl ctx c
   | LA.GhostVar c -> tc_ctx_contract_var ctx c
+  | LA.GhostVars vs -> tc_ctx_contract_vars ctx vs
   | LA.Mode (pos, mname, _, _) ->
     if ignore_modes then R.ok ctx
     else if (member_ty ctx mname) then
@@ -1284,6 +1284,8 @@ and extract_exports: LA.ident -> tc_context -> LA.contract -> (tc_context, [> er
         infer_type_expr ctx e >>= fun ty -> R.ok [(i, ty)]
       | LA.GhostVar (TypedConst (_, i, _, ty)) ->
         R.ok [(i, ty)]
+      | LA.GhostVars (_, (GhostVarDec (_, tis)), _) ->
+        R.ok (List.map (fun (_, i, ty) -> (i, ty)) tis)
       | LA.Mode (pos, mname, _, _) ->
         if (member_ty ctx mname)
         then type_error pos (Redeclaration mname)

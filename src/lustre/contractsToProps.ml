@@ -65,7 +65,8 @@ let rec collect_contracts (equations, locals, asserts, props) = function
       (blah "Contract variable declaration" pos, info) :: locals, 
       asserts, props
     
-    (* How to use a single identifier? Or split into multiple expressions? *)
+    (* Add all identifers in typed ident list to "locals", but only add the full equation
+       to "equations" once *)
     | Ast.GhostVars (pos, (GhostVarDec (_, tis) as lhs), expr) ->
       let rec add_locals (locals, tis) =
         (

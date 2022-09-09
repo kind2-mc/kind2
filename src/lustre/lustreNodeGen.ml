@@ -1205,7 +1205,6 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
       | A.GhostConst c -> c :: consts, vars, modes, calls
       | A.GhostVar _ -> consts, vars, modes, calls 
       | A.GhostVars v -> consts, v :: vars, modes, calls 
-      (* Getting lost in the shuffle here too... *)
       | A.Assume _ -> consts, vars, modes, calls
       | A.Guarantee _ -> consts, vars, modes, calls
       | A.Mode m -> consts, vars, m :: modes, calls
@@ -1222,6 +1221,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   let ghost_locals, ghost_equations =
     let extract_namespace name =
       let name = HString.string_of_hstring name in
+      print_endline name;
       let parts = String.split_on_char '_' name in
       match parts with
       | ref :: prefix :: tail ->
@@ -1230,25 +1230,27 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
       | _ -> assert false
     in
     let over_vars (gvar_accum, eq_accum) = fun (pos, (A.GhostVarDec (_, tis)), expr) ->
-        let extract_local ((_, id, ty)) = 
-        (
+        let extract_local ((_, id, ty)) = (
           let expr_ident = mk_ident id in
           let (ident, contract_namespace) = extract_namespace id in
           let index_types = compile_ast_type cstate ctx map ty in
-          let over_indices = fun index index_type accum ->
-            let possible_state_var = mk_state_var
-              ~is_input:false
-              ~expr_ident:expr_ident
-              map
-              (node_scope @ contract_namespace @ I.user_scope)
-              ident
-              index
-              index_type
-              (Some N.Ghost)
+          let over_indices = fun index index_type accum -> (
+            let possible_state_var = (
+              mk_state_var
+                ~is_input:false
+                ~expr_ident:expr_ident
+                map
+                (node_scope @ contract_namespace @ I.user_scope)
+                ident
+                index
+                index_type
+                (Some N.Ghost)
+              )
             in
             match possible_state_var with
             | Some state_var -> X.add index state_var accum
             | None -> accum
+          )
           in X.fold over_indices index_types X.empty 
         ) in
         

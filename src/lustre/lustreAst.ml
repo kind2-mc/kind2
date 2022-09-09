@@ -965,6 +965,12 @@ let pp_print_contract_ghost_var ppf = function
       pp_print_lustre_type t
       pp_print_expr e
 
+let pp_print_contract_ghost_vars ppf = fun (_, lhs, e) ->
+  Format.fprintf ppf 
+  "@[<hv 3>%a =@ %a;@]" 
+  pp_print_contract_eq_lhs lhs
+  pp_print_expr e
+
     
 let pp_print_contract_assume ppf (_, n, s, e) =
   Format.fprintf
@@ -1035,7 +1041,7 @@ let pp_print_contract_assump_vars fmt (_, vars) =
 let pp_print_contract_item fmt = function
   | GhostConst c -> pp_print_contract_ghost_const fmt c
   | GhostVar v -> pp_print_contract_ghost_var fmt v
-  | GhostVars _ -> failwith "Not yet implemented" 
+  | GhostVars vs -> pp_print_contract_ghost_vars fmt vs
   | Assume a -> pp_print_contract_assume fmt a
   | Guarantee g -> pp_print_contract_guarantee fmt g
   | Mode m -> pp_print_contract_mode fmt m
