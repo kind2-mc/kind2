@@ -178,7 +178,6 @@ and interpret_contract_eqn node_id ctx ty_ctx = function
   in
   let eqns = separate_eqns rhs in
   List.fold_left2 (fun acc (_, i, ty) (expr, p) -> 
-      (* Don't look up types; directly use them. *)
       let restrict_ty = interpret_expr_by_type node_id ctx ty_ctx ty p expr in
       let ty1, is_restricted = restrict_type_by ty restrict_ty in
       if is_restricted then

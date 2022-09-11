@@ -237,10 +237,11 @@ let build_contract_ctx ctx (eqns:LustreAst.contract) =
       (
         match v with
           | (pos1, (LA.GhostVarDec (pos2, (_, i, ty)::tis)), e) -> 
+            print_endline (HString.string_of_hstring i);
             add_ghost_vars (pos1, (LA.GhostVarDec (pos2, tis)), e) (ctx_add_const ctx i (Some ty))
           | (_, (LA.GhostVarDec (_, [])), _) -> ctx
       ) in
-      add_ghost_vars v ctx
+      add_ghost_vars v acc
 
     | _ -> acc
   in

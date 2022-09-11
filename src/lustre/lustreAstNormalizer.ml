@@ -833,6 +833,7 @@ and rename_ghost_variables info node_id contract =
     let ty = Ctx.lookup_ty info.context id |> get in
     let ty = Ctx.expand_nested_type_syn info.context ty in
     let new_id = HString.concat sep [info.contract_ref;id] in
+    print_endline "new_id:";
     print_endline (HString.string_of_hstring new_id);
     let info = { info with context = Ctx.add_ty info.context new_id ty } in
     let tail, info = rename_ghost_variables info node_id (A.GhostVars (pos1, A.GhostVarDec(pos2, tis), e) :: t) in
@@ -920,29 +921,9 @@ and normalize_contract info map node_id items =
         let ndecl, gids2 = normalize_ghost_declaration info map decl in
         GhostVar ndecl, union gids1 gids2, StringMap.empty
 
-      (*****)
-      | GhostVars (pos, lhs, expr) ->
+      | GhostVars (pos, ((GhostVarDec (pos2, tis)) as lhs), expr) ->
         (* Need to track array indexes of the left hand side if there are any *)
-    (*  let items = match lhs with | A.StructDef (_, items) -> items in *)
         let items = match lhs with | A.GhostVarDec (_, items) -> items in
-    (*  let info = List.fold_left (fun info item -> match item with
-          | A.ArrayDef (pos, v, is) ->
-            let info = List.fold_left (fun info i -> { info with
-              context = Ctx.add_ty info.context i (A.Int pos); })
-              info
-              is
-            in
-            let ty = match Ctx.lookup_ty info.context v with 
-              | Some t -> t | None -> assert false
-            in
-            let ivars = List.fold_left (fun m i -> StringMap.add i ty m)
-              StringMap.empty
-              is
-            in { info with inductive_variables = ivars}
-          | _ -> info) (* At each step of folding, we would just keep getting info back. *)
-          info
-          items 
-        in *)
         let lhs_arity = List.length items in
         let rhs_arity = match expr with
           | A.GroupExpr(_, A.ExprList, expr_list) -> List.length expr_list
@@ -964,13 +945,20 @@ and normalize_contract info map node_id items =
               let exprs, gids = List.split (List.init lhs_arity
                 (fun i -> 
                   let info = { info with local_group_projection = i } in
-                  (* Is it ok to call 'normalize_expr' from a contract context?
-                     Should I put anything for '?guard'? *)
-                  normalize_expr info map expanded_expr)) 
+                  (*
+                  let new_id = StringMap.find i info.interpretation in
+                  if AH.type_contains_subrange ty then
+                    mk_fresh_subrange_constraint Ghost info pos new_id ty
+                  else empty ()
+                  *)
+                  normalize_expr info map expanded_expr
+                )
+              ) 
               in
               let gids = List.fold_left (fun acc g -> union g acc) (empty ()) gids in
             (A.GroupExpr (dpos, A.ExprList, exprs), gids), true
             | None -> normalize_expr info map expr, false)
+            
           else if has_inductive && lhs_arity = rhs_arity then
             let expanded_expr = List.fold_left
               (fun acc (v, ty) -> 
@@ -980,23 +968,23 @@ and normalize_contract info map node_id items =
               (StringMap.bindings info.inductive_variables)
             in
             normalize_expr info map expanded_expr, true
-          else normalize_expr info map expr, false)
+          else normalize_expr info map expr, false
+        )
+
         in
+    (*  let ndecl, gids2 = normalize_ghost_declaration info map decl in *)
         let gids2 = if expanded then
-      (*  let items = match lhs with | StructDef (_, items) -> items in *)
           let items = match lhs with | GhostVarDec (_, items) -> items in
-      (*  let ids = List.map (function
-            | A.SingleIdent (_, i) | ArrayDef (_, i, _) -> i
-            | _ -> assert false) 
-            items *)
           let ids = List.map (function (_, i, _) -> i) items
           in
           { (empty ()) with  expanded_variables = StringSet.of_list ids }
           else empty ()
         in
-    (*  Equation (pos, lhs, nexpr), union gids1 gids2 *)
-        GhostVars (pos, lhs, nexpr), union gids1 gids2, StringMap.empty
-      (*****)
+        (* Get new identifiers for LHS *)
+        let new_tis = List.map (fun (p, id, e) -> 
+          print_endline (HString.string_of_hstring (StringMap.find id info.interpretation));
+          (p, StringMap.find id info.interpretation, e)) tis in
+        GhostVars (pos, GhostVarDec(pos2, new_tis), nexpr), union gids1 gids2, StringMap.empty
       
       | AssumptionVars decl ->
         AssumptionVars decl, empty (), StringMap.empty

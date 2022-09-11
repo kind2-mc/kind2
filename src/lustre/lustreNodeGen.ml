@@ -1221,6 +1221,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   let ghost_locals, ghost_equations =
     let extract_namespace name =
       let name = HString.string_of_hstring name in
+      print_endline "name:";
       print_endline name;
       let parts = String.split_on_char '_' name in
       match parts with

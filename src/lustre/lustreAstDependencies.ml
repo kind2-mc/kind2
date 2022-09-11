@@ -904,7 +904,34 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
       let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
       R.ok (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
     )
-  | LA.GhostVars (pos, (GhostVarDec (_, lhss)), e) ->
+  | LA.GhostVars (pos, (GhostVarDec (_, tis)), e) ->
+      (* This models after the case for a single ghost var, and it passes all tests (and the
+         examples I give it). But, we are not calling mk_graph_expr2, rather, we call'
+         'union' on the result to 'vars_with_flattened nodes' to gather dependency analysis
+         data for the RHS. Is this ok? It also makes it more awkward to do the 'EquationWidthsUnequal'
+         test. *)
+      let union g v = 
+        union_dependency_analysis_data g (singleton_dependency_analysis_data empty_hs v pos)
+      in
+      let vars = vars_with_flattened_nodes ad.nsummary 0 (LH.abstract_pre_subexpressions e) in
+      let effective_vars = LA.SI.elements vars in
+      let vars2 = vars_with_flattened_nodes ad.nsummary2 0 (LH.abstract_pre_subexpressions e) in
+      let effective_vars2 = LA.SI.elements vars2 in
+      let handle_one_ident (_, i, _) = (
+        let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
+        (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
+      )
+      in 
+      let* rhs_g = (mk_graph_expr2 ad.nsummary (LH.abstract_pre_subexpressions e)) in
+      if List.length rhs_g = List.length tis
+      then R.ok (List.fold_left union_dependency_analysis_data
+                           empty_dependency_analysis_data
+                           (List.map handle_one_ident tis))
+      else graph_error pos EquationWidthsUnequal
+
+      
+
+    (*
     let handle_one_lhs: dependency_analysis_data
                         -> LA.typed_ident
                         -> dependency_analysis_data
@@ -912,7 +939,6 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
       in  
       (* Still not sure if we need nsummary2. *)
       let* rhs_g = mk_graph_expr2 ad.nsummary (LH.abstract_pre_subexpressions e) in
-      (* Printf.printf "test \n"; *)
       (
         if (List.length rhs_g = List.length lhss)
         then R.ok (List.fold_left union_dependency_analysis_data
@@ -920,31 +946,8 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
                                   (List.map2 handle_one_lhs rhs_g lhss))
         else (graph_error pos EquationWidthsUnequal)
       )
+    *)
 
-  (*
-      let handle_one_lhs: dependency_analysis_data
-                        -> LA.typed_ident
-                        -> dependency_analysis_data
-      = fun ad ((pos, i, _)) -> 
-      (
-        let union g v = union_dependency_analysis_data g
-          (singleton_dependency_analysis_data empty_hs v pos)
-        in
-        let vars = vars_with_flattened_nodes ad.nsummary 0 (LH.abstract_pre_subexpressions e) in
-        let effective_vars = LA.SI.elements vars in
-        let vars2 = vars_with_flattened_nodes ad.nsummary2 0 (LH.abstract_pre_subexpressions e) in
-        let effective_vars2 = LA.SI.elements vars2 in
-        let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
-        connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos
-      )
-      in  
-      (* Still not sure if we need nsummary2. *)
-      (
-        R.ok (List.fold_left union_dependency_analysis_data
-                             empty_dependency_analysis_data
-                             (List.map (handle_one_lhs ad) lhss))
-      ) 
-  *)
   (*
       let handle_one_lhs: dependency_analysis_data
                         -> LA.typed_ident
