@@ -134,7 +134,6 @@ let fmt_node_decl fmt (
         Format.fprintf fmt "  @[<v>%a@]@." Ast.pp_print_node_local_decl locals
     ) ;
 
-    (* TYPE *)
     if not c_locals_empty then
       c_locals |> List.iter (
         fun (blah, (id,_,typ)) ->
@@ -152,17 +151,6 @@ let fmt_node_decl fmt (
 
   if items <> [] then Format.fprintf fmt "@." ;
 
-  (* EQUATION *)
-  (*
-  c_locals |> List.iter (
-    fun (blah, (id,expr,_)) ->
-      Format.fprintf fmt "  -- %s@.  %a = %a ;@."
-        blah
-        Ast.pp_print_ident id
-        Ast.pp_print_expr expr
-  ) ;
-  if c_locals <> [] then Format.fprintf fmt "@." ;
-  *)
   c_equations |> List.iter (
     fun (blah, (lhs,expr)) ->
       Format.fprintf fmt "  -- %s@.  %a = %a ;@."

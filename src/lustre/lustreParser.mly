@@ -412,13 +412,6 @@ contract_equation:
   | VAR; l = typed_idents_list; EQUALS; e = expr; SEMICOLON
     { A.GhostVars (mk_pos $startpos, GhostVarDec (mk_pos $startpos, l), e) }
 
-
-(*
-contract_left_side:
-  (* List without parentheses *)
-  | l = separated_nonempty_list(COMMA, typed_ident); { l }
-*)
-
 contract_ghost_const:
   | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = qexpr; SEMICOLON 
     { A.GhostConst (A.TypedConst (mk_pos $startpos, i, e, t)) }
@@ -1142,7 +1135,7 @@ clocked_typed_idents_list:
     { List.flatten a }
 *)
 
-(* A list of comma-separated identfiers with a type and a clock that may be constant *)
+(* A list of comma-separated identifiers with a type and a clock that may be constant *)
 const_clocked_typed_idents: 
 
   (* Unclocked typed identifiers *)
