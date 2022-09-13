@@ -408,37 +408,15 @@ node_def:
 
   { (List.flatten l, e) }
 
-(* NEW STUFF
-  * In nodes, the type declaration is done before node definition,
-    and then node equations are done with lhs with a list of
-    variables to assign to. In contracts, we need to combine
-    the type declaration with the lhs.
-  * Two strategies: (1) Keep identifying ghost variables as constants
-                    (2) Switch to representing variable assignment as equation,
-                        like in node equations. But, if I change the structure of
-                        the generated AST, there will have to be some corresponding
-                        update of how the AST is evaluated (not sure how to handle).
-  * Do we need to worry about arrays? Quantified expressions (qexpr vs expr)?
-  * typed_idents vs clocked_typed_idents?
-  * mk_pos and $startpos?
-*)
-
 contract_equation:
-  | VAR; l = contract_left_side; EQUALS; e = expr; SEMICOLON
+  | VAR; l = typed_idents_list; EQUALS; e = expr; SEMICOLON
     { A.GhostVars (mk_pos $startpos, GhostVarDec (mk_pos $startpos, l), e) }
 
+
+(*
 contract_left_side:
   (* List without parentheses *)
   | l = separated_nonempty_list(COMMA, typed_ident); { l }
-
-(*
-contract_ghost_var:
-  | VAR ;
-    i = ident ; COLON ; t = lustre_type; EQUALS ; e = qexpr ;
-    SEMICOLON 
-    { A.GhostVar (A.TypedConst (mk_pos $startpos, i, e, t)) }
-(*  | VAR ; i = ident ; EQUALS ; e = expr ; SEMICOLON 
-    { A.GhostVar (A.UntypedConst (mk_pos $startpos, i, e)) } *)
 *)
 
 contract_ghost_const:
@@ -490,7 +468,6 @@ assumption_vars:
 
 contract_item:
   | e = contract_equation { e }
-  (* | v = contract_ghost_var { v } *)
   | c = contract_ghost_const { c }
   | a = contract_assume { a }
   | g = contract_guarantee { g }
@@ -1092,20 +1069,23 @@ ident_list_pos :
     { (mk_pos $startpos, i) :: l }
 
 
+
 (* A list of comma-separated identifiers with a type *)
 typed_idents: 
   | l = ident_list_pos; COLON; t = lustre_type 
     (* Pair each identifier with the type *)
     { List.map (function (pos, e) -> (pos, e, t)) l }
 
-(*
+
+
 (* A list of lists of typed identifiers *)
 typed_idents_list:
-  | a = separated_list(SEMICOLON, typed_idents) 
+  | a = separated_list(COMMA, typed_idents) 
 
     (* Return a flat list *)
     { List.flatten a }
-*)
+
+
 
 (* Typed identifiers that may be constant *)
 const_typed_idents: 
@@ -1162,7 +1142,7 @@ clocked_typed_idents_list:
     { List.flatten a }
 *)
 
-(* A list of comma-separated identifiers with a type and a clock that may be constant *)
+(* A list of comma-separated identfiers with a type and a clock that may be constant *)
 const_clocked_typed_idents: 
 
   (* Unclocked typed identifiers *)

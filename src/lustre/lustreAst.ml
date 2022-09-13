@@ -237,9 +237,6 @@ type node_item =
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
 
-(* A contract ghost variable. *)
-type contract_ghost_var = const_decl
-
 (* Multiple contract ghost variables declared simultaneously. *)
 type contract_ghost_vars = position * contract_eq_lhs * expr
 
@@ -268,7 +265,6 @@ type contract_assump_vars = position * (position * HString.t) list
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =
   | GhostConst of contract_ghost_const
-  | GhostVar of contract_ghost_var
   | GhostVars of contract_ghost_vars
   | Assume of contract_assume
   | Guarantee of contract_guarantee
@@ -940,30 +936,6 @@ let pp_print_contract_ghost_const ppf = function
       pp_print_lustre_type t
       pp_print_expr e
 
-    
-let pp_print_contract_ghost_var ppf = function 
-
-  | FreeConst (_, s, t) -> 
-
-    Format.fprintf ppf 
-      "@[<hv 3>var %a:@ %a;@]" 
-      pp_print_ident s 
-      pp_print_lustre_type t
-
-  | UntypedConst (_, s, e) -> 
-
-    Format.fprintf ppf 
-      "@[<hv 3>var %a =@ %a;@]" 
-      pp_print_ident s 
-      pp_print_expr e
-
-  | TypedConst (_, s, e, t) -> 
-
-    Format.fprintf ppf 
-      "@[<hv 3>var %a:@ %a =@ %a;@]" 
-      pp_print_ident s 
-      pp_print_lustre_type t
-      pp_print_expr e
 
 let pp_print_contract_ghost_vars ppf = fun (_, lhs, e) ->
   Format.fprintf ppf 
@@ -1040,7 +1012,6 @@ let pp_print_contract_assump_vars fmt (_, vars) =
 
 let pp_print_contract_item fmt = function
   | GhostConst c -> pp_print_contract_ghost_const fmt c
-  | GhostVar v -> pp_print_contract_ghost_var fmt v
   | GhostVars vs -> pp_print_contract_ghost_vars fmt vs
   | Assume a -> pp_print_contract_assume fmt a
   | Guarantee g -> pp_print_contract_guarantee fmt g

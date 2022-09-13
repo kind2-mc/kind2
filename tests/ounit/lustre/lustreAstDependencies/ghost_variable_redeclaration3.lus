@@ -7,12 +7,16 @@ tel
 
 contract counter_spec (init: int) returns(out: int);
 let
-   var out1: int, out2: int = counter2(init);
-   var out3: int, out4: int = counter2(init);
-   (* guarantee out1 <= out; *)
-   (* guarantee out2 = out; *)
+  (* Test different ways to assign ghost variables in parallel *)
+   var out1: int = counter_clone(init);
+   var out1, out2: int = counter2(init);
+   var out5: int, out6: int, out7: int = counter3(init);
+   var out8, out9: int, out10, out11: bool = (1, 2, false, true);
 
-   guarantee out3 + out2 >= out;
+   guarantee out2 + out2 >= out;
+   guarantee out1 - out2 = 0;
+   guarantee out8 + out9 = 3;
+   guarantee out11 and not out10;
    guarantee out >= 0;
 tel
 
@@ -22,23 +26,19 @@ node counter (init : int) returns (out : int);
   returns(out);
 *)
 let
-
     out = (if init > 0 then init else -1 * init) -> pre out + 1;
 tel
 
-
-node counter_clone (init : int) returns (out : int);
+node counter_clone (init : int) returns (out : int)
 let
     out = (if init > 0 then init else -1 * init) -> pre out + 1;
 tel
-
 
 node counter2 (init : int) returns (out1, out2 : int);
 let
     out1 = (if init > 0 then init else -1 * init) -> pre out1 + 1;
     out2 = (if init > 0 then init else -1 * init) -> pre out2 + 1;
 tel
-
 
 node counter3 (init : int) returns (out1, out2, out3 : int);
 let

@@ -167,7 +167,6 @@ and interpret_contract node_id ctx ty_ctx eqns =
 
 and interpret_contract_eqn node_id ctx ty_ctx = function
   | LA.GhostConst _ -> empty_context
-  | GhostVar decl -> interpret_ghost_var node_id ctx ty_ctx decl
   | Assume _ | Guarantee _ | Mode _
   | ContractCall _ | AssumptionVars _ -> empty_context
   | GhostVars (_, (GhostVarDec (_, tis)), rhs) ->
@@ -177,27 +176,17 @@ and interpret_contract_eqn node_id ctx ty_ctx = function
     | e -> List.init (arity_of_expr ty_ctx e) (fun p -> e, p)
   in
   let eqns = separate_eqns rhs in
-  List.fold_left2 (fun acc (_, i, ty) (expr, p) -> 
+  List.fold_left2 (
+    fun acc (_, i, ty) (expr, p) -> 
       let restrict_ty = interpret_expr_by_type node_id ctx ty_ctx ty p expr in
       let ty1, is_restricted = restrict_type_by ty restrict_ty in
       if is_restricted then
         add_type acc node_id i ty1
-      else acc)
+      else acc
+  )
     ctx
     tis
     eqns
-
-
-and interpret_ghost_var node_id ctx ty_ctx = function
-  | LA.FreeConst _ -> empty_context
-  | UntypedConst (_, id, expr) ->
-    let ty = TC.infer_type_expr ty_ctx expr |> unwrap
-    in
-    let ty = interpret_expr_by_type node_id ctx ty_ctx ty 0 expr in
-    add_type ctx node_id id ty
-  | TypedConst (_, id, expr, ty) ->
-    let ty = interpret_expr_by_type node_id ctx ty_ctx ty 0 expr in
-    add_type ctx node_id id ty
 
 and interpret_decl ty_ctx = function
   | LA.TypeDecl _

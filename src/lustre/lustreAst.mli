@@ -238,9 +238,6 @@ type node_item =
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
 
-(* A contract ghost variable. *)
-type contract_ghost_var = const_decl
-
 (* Multiple contract ghost variables declared simultaneously. *)
 type contract_ghost_vars = position * contract_eq_lhs * expr
 
@@ -269,7 +266,6 @@ type contract_assump_vars = position * (position * HString.t) list
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =
   | GhostConst of contract_ghost_const
-  | GhostVar of contract_ghost_var
   | GhostVars of contract_ghost_vars
   | Assume of contract_assume
   | Guarantee of contract_guarantee

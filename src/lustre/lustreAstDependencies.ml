@@ -441,8 +441,7 @@ let mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysis
      let calls_ps = List.flatten (List.map (fun (_,_, e) -> get_node_call_from_expr e) (reqs @ ensures)) in
      let sub_graphs = (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) calls_ps) in
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data sub_graphs
-  | LA.GhostConst c 
-    | LA.GhostVar c -> (
+  | LA.GhostConst c -> (
      match c with
      | FreeConst _ -> empty_dependency_analysis_data
      | UntypedConst (_, _, e) ->
@@ -570,7 +569,6 @@ let split_contract_equations: LA.contract -> (LA.contract * LA.contract)
       = fun (ps, qs) -> fun e ->
       match e with
       | LA.GhostConst _
-      | LA.GhostVar _
       | LA.GhostVars _
       | LA.ContractCall _
       | LA.Mode _ -> e::ps, qs
@@ -684,12 +682,6 @@ let rec mk_contract_eqn_map: LA.contract_node_equation IMap.t -> unit IMap.t ->L
      let* m1' = check_and_add m1 pos empty_hs i gc in 
      let* m2' = check_and_add m2 pos empty_hs i () in
      mk_contract_eqn_map m1' m2' eqns  
-  | (LA.GhostVar (FreeConst (pos, i, _)) as gc) :: eqns
-    | (LA.GhostVar (UntypedConst (pos, i, _)) as gc) :: eqns
-    | (LA.GhostVar (TypedConst (pos, i, _, _)) as gc) :: eqns -> 
-    let* m1' = check_and_add m1 pos empty_hs i gc in 
-    let* m2' = check_and_add m2 pos empty_hs i () in
-    mk_contract_eqn_map m1' m2' eqns 
   (* We add the first identifier to the contract_node_equation map, and
      then we add all the identifiers to the unit map. *)
   | (LA.GhostVars (pos, (GhostVarDec(_, (_, i, _)::_) as eqn), _) as gc) :: eqns -> 
@@ -887,8 +879,7 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
         (reqs @ ensures))
     in
     R.ok (connect_g_pos mgs (HString.concat2 mode_prefix i) pos)
-  | LA.GhostConst c 
-  | LA.GhostVar c -> 
+  | LA.GhostConst c ->
     (
     match c with
     | FreeConst _ -> R.ok ad
@@ -905,11 +896,6 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
       R.ok (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
     )
   | LA.GhostVars (pos, (GhostVarDec (_, tis)), e) ->
-      (* This models after the case for a single ghost var, and it passes all tests (and the
-         examples I give it). But, we are not calling mk_graph_expr2, rather, we call'
-         'union' on the result to 'vars_with_flattened nodes' to gather dependency analysis
-         data for the RHS. Is this ok? It also makes it more awkward to do the 'EquationWidthsUnequal'
-         test. *)
       let union g v = 
         union_dependency_analysis_data g (singleton_dependency_analysis_data empty_hs v pos)
       in
@@ -1002,7 +988,6 @@ let mk_graph_contract_eqns: node_summary -> LA.contract -> dependency_analysis_d
   let mk_graph: LA.contract_node_equation -> dependency_analysis_data graph_result
     = function
     | LA.GhostConst c -> mk_graph_const_decl2 m c
-    | LA.GhostVar c -> mk_graph_const_decl2 m c
     | LA.Mode (pos, i, reqs, ens) ->
        let es = List.map (fun (_, _,  e) -> e) (reqs @ ens) in
        R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs ->
@@ -1207,9 +1192,6 @@ let get_contract_exports: contract_summary -> LA.contract_node_equation -> LA.id
   | LA.GhostConst (LA.FreeConst (_, i, _))
   | LA.GhostConst (LA.UntypedConst (_, i, _))
   | LA.GhostConst (LA.TypedConst (_, i, _, _))
-  | LA.GhostVar (LA.FreeConst (_, i, _))
-  | LA.GhostVar (LA.UntypedConst (_, i, _))
-  | LA.GhostVar (LA.TypedConst (_, i, _, _))
   | LA.Mode (_, i, _, _) -> [i]
   | LA.GhostVars (_, (GhostVarDec (_, tis)), _) -> 
     List.map (fun (_, i, _) -> i) tis

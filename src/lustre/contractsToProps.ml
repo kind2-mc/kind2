@@ -50,31 +50,16 @@ let rec collect_contracts (equations, locals, asserts, props) = function
       equations, 
       (blah "Contract constant declaration" pos, info) :: locals, 
       asserts, props
-
-    | Ast.GhostVar dec ->
-      let pos, info = match dec with
-        | Ast.FreeConst (pos,_,_)
-        | Ast.UntypedConst (pos,_,_) ->
-          Format.asprintf "\
-            [contracts translator] %a: untyped ghost vars are unsupported\
-          " pp_print_position pos
-          |> failwith
-        | Ast.TypedConst (pos,id,expr,typ) -> pos, (id, expr, typ)
-      in
-      equations,
-      (blah "Contract variable declaration" pos, info) :: locals, 
-      asserts, props
     
     (* Add all identifers in typed ident list to "locals", but only add the full equation
        to "equations" once *)
     | Ast.GhostVars (pos, (GhostVarDec (_, tis) as lhs), expr) ->
-      let rec add_locals (locals, tis) =
-        (
+      let rec add_locals (locals, tis) = (
         match tis with
           | (_, id, typ) :: tis -> (add_locals ((blah "Contract variable declaration" pos, (id, expr, typ)) :: locals, 
-                                            tis))
+                                               tis))
           | [] -> locals
-        )
+      )
         in
 
       (blah "Contract variable declaration" pos, (lhs, expr)) :: equations, 

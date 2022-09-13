@@ -1203,7 +1203,6 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   in let gconsts, gvars, modes, contract_calls =
     let over_items (consts, vars, modes, calls) = function
       | A.GhostConst c -> c :: consts, vars, modes, calls
-      | A.GhostVar _ -> consts, vars, modes, calls 
       | A.GhostVars v -> consts, v :: vars, modes, calls 
       | A.Assume _ -> consts, vars, modes, calls
       | A.Guarantee _ -> consts, vars, modes, calls
@@ -1221,8 +1220,6 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   let ghost_locals, ghost_equations =
     let extract_namespace name =
       let name = HString.string_of_hstring name in
-      print_endline "name:";
-      print_endline name;
       let parts = String.split_on_char '_' name in
       match parts with
       | ref :: prefix :: tail ->
@@ -1315,7 +1312,6 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   in let assumes, guarantees, contract_calls =
     let over_items (assumes, guarantees, calls) = function
       | A.GhostConst _ -> assumes, guarantees, calls
-      | A.GhostVar _ ->  assumes, guarantees, calls
       | A.GhostVars _ -> assumes, guarantees, calls
       | A.Assume a -> a :: assumes, guarantees, calls
       | A.Guarantee g -> assumes, g :: guarantees, calls

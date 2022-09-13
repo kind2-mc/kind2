@@ -1034,7 +1034,6 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> (unit, [> error
 and tc_ctx_contract_eqn: tc_context -> LA.contract_node_equation -> (tc_context, [> error]) result
   = fun ctx -> function
   | GhostConst c -> tc_ctx_const_decl ctx c
-  | GhostVar c -> tc_ctx_contract_var ctx c
   | GhostVars vs -> tc_ctx_contract_vars ctx vs
   | Assume _ -> R.ok ctx
   | Guarantee _ -> R.ok ctx
@@ -1095,11 +1094,8 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> LA.contract_no
     )
     | GhostConst (FreeConst (_, _, exp_ty) as c) -> check_type_const_decl ctx c exp_ty
     | GhostConst (TypedConst (_, _, _, exp_ty) as c) -> check_type_const_decl ctx c exp_ty
-    | GhostVar (FreeConst (_, _, exp_ty) as c) -> check_type_const_decl ctx c exp_ty
-    | GhostVar (TypedConst (_, _, _, exp_ty) as c) -> check_type_const_decl ctx c exp_ty
+    | GhostConst (UntypedConst _) -> R.ok ()
     | GhostVars v -> let node_eqn = contract_eqn_to_node_eqn v in do_node_eqn ctx node_eqn
-    | GhostConst (UntypedConst _)
-    | GhostVar (UntypedConst _) -> R.ok () (* These is already checked while extracting ctx *)
     | Assume (pos, _, _, e) ->
       check_type_expr ctx e (Bool pos)
          
@@ -1171,22 +1167,6 @@ and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> (tc_con
               else type_error pos (ExpectedConstant e)
             else R.ok(add_ty ctx i exp_ty))
 (** Fail if a duplicate constant is detected  *)
-
-and tc_ctx_contract_var: tc_context -> LA.const_decl -> (tc_context, [> error]) result 
-  = fun ctx ->
-  function
-  | LA.FreeConst (pos, i, ty) ->
-    check_type_well_formed ctx ty
-    >> if member_ty ctx i
-      then type_error pos (Redeclaration i)
-      else R.ok (add_ty ctx i ty)
-  | LA.UntypedConst (pos, _, _) -> type_error pos (Impossible "Syntax prohibited by parser")
-  | LA.TypedConst (pos, i, _, ty) ->
-    check_type_well_formed ctx ty
-    >> if member_ty ctx i
-      then type_error pos (Redeclaration i)
-      else R.ok (add_ty ctx i ty)
-(** Adds the type of a contract variable in the typing context  *)
   
 and tc_ctx_contract_vars: tc_context -> LA.contract_ghost_vars -> (tc_context, [> error]) result 
       = function ctx ->
@@ -1198,6 +1178,7 @@ and tc_ctx_contract_vars: tc_context -> LA.contract_ghost_vars -> (tc_context, [
           (* Type-check the left-hand side variables one at a time *)
           else tc_ctx_contract_vars (add_ty ctx i ty) (pos1, GhostVarDec (pos2, tis), e)
       | _ -> (R.ok ctx)
+(** Adds the type of contract variables in the typing context  *)
 
 
      
@@ -1250,7 +1231,6 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_conte
 and tc_ctx_contract_node_eqn ?(ignore_modes = false) ctx =
   function
   | LA.GhostConst c -> tc_ctx_const_decl ctx c
-  | LA.GhostVar c -> tc_ctx_contract_var ctx c
   | LA.GhostVars vs -> tc_ctx_contract_vars ctx vs
   | LA.Mode (pos, mname, _, _) ->
     if ignore_modes then R.ok ctx
@@ -1278,11 +1258,6 @@ and extract_exports: LA.ident -> tc_context -> LA.contract -> (tc_context, [> er
         infer_type_expr ctx e >>= fun ty -> 
         R.ok [(i, ty)]
       | LA.GhostConst (TypedConst (_, i, _, ty)) ->
-        R.ok [(i, ty)]
-      | LA.GhostVar (FreeConst (_, i, ty)) -> R.ok [(i, ty)]
-      | LA.GhostVar (UntypedConst (_, i, e)) ->
-        infer_type_expr ctx e >>= fun ty -> R.ok [(i, ty)]
-      | LA.GhostVar (TypedConst (_, i, _, ty)) ->
         R.ok [(i, ty)]
       | LA.GhostVars (_, (GhostVarDec (_, tis)), _) ->
         R.ok (List.map (fun (_, i, ty) -> (i, ty)) tis)

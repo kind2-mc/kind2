@@ -391,7 +391,6 @@ let minimize_contract_node_eq ue lst cne =
   match cne with
   | A.ContractCall _ -> [cne]
   | A.GhostConst d -> [A.GhostConst (minimize_const_decl ue lst d)]
-  | A.GhostVar d -> [A.GhostVar (minimize_const_decl ue lst d)]
   | A.GhostVars (pos, (GhostVarDec(_, til) as lhs), expr) ->
     let typ = List.map (fun (_, _, t) -> t) til in
     let (_, expr) = minimize_expr (ue false) lst typ expr in
