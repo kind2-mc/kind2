@@ -598,11 +598,15 @@ check:
     { A.AnnotProperty (mk_pos $startpos, name, e) }
 
 node_item:
+  | i = node_if_block { i }
   | e = node_equation { A.Body e }
   | a = main_annot { a }
   | p = property { p }
   | p = check { p }
 
+
+node_if_block:
+  | IF e = expr THEN l1 = list(node_item) ELSE l2 = list(node_item) { A.IfBlock (mk_pos $startpos, e, l1, l2) }
 
 (* An equations of a node *)
 node_equation:

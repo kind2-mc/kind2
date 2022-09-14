@@ -1,0 +1,6 @@
+node abs(x: int) returns (y1, y2: int);
+let 
+  if (x > 0)
+  then y1 = 5; y2 = 5;
+  else y1 = -5; y2 = -5
+tel

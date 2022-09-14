@@ -238,15 +238,18 @@ and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
     ty_ctx
     locals
   in
-  let eqns = List.fold_left (fun acc -> function
+  let rec extract_equations ni = match ni with
     | LA.Body eqn -> (match eqn with
-      | LA.Assert _ -> acc
-      | Equation (_, lhs, rhs) -> (lhs, rhs) :: acc)
-    | AnnotMain _ -> acc
-    | AnnotProperty _ -> acc)
-    []
-    items
-  in
+      | LA.Assert _ -> []
+      | Equation (_, lhs, rhs) -> [(lhs, rhs)])
+    (* Extract equations from both branches of "if" block-- double check. *)
+    | LA.IfBlock (_, _, l1, l2) -> 
+      List.flatten (List.map extract_equations l1) @ 
+      List.flatten (List.map extract_equations l2)
+    | AnnotMain _ -> []
+    | AnnotProperty _ -> []
+    in
+  let eqns = List.flatten (List.map extract_equations items) in
   let eqn_ctx = List.fold_left (fun acc (lhs, rhs) ->
       let ctx = interpret_eqn id acc ty_ctx lhs rhs in
       union acc ctx)

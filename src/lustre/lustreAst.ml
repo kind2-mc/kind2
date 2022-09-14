@@ -226,6 +226,7 @@ type node_equation =
 (* An item in a node declaration *)
 type node_item =
   | Body of node_equation
+  | IfBlock of position * expr * node_item list * node_item list
   | AnnotMain of bool
   | AnnotProperty of position * HString.t option * expr
 
@@ -885,6 +886,14 @@ let rec pp_print_node_body ppf = function
 and pp_print_node_item ppf = function
   
   | Body b -> pp_print_node_body ppf b
+
+  (* Need to test/refine this *)
+  | IfBlock (_, e, l1, l2) -> 
+    
+    Format.fprintf ppf "IF %a THEN %a ELSE %a"  
+      pp_print_expr e 
+      (pp_print_list pp_print_node_item "; ") l1
+      (pp_print_list pp_print_node_item "; ") l2
 
   | AnnotMain true -> Format.fprintf ppf "--%%MAIN;"
 
