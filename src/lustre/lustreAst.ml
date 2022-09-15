@@ -221,7 +221,6 @@ type eq_lhs =
 (* The left-hand side of an equation in a contract *)
 type contract_eq_lhs =
   | GhostVarDec of position * typed_ident list
-  (* Allow untyped identifiers *)
 
 (* An equation or assertion in the node body *)
 type node_equation =
