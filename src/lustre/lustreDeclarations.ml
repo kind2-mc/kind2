@@ -1544,9 +1544,13 @@ and eval_node_contract_item
   (* Add constants to context *)
   | A.GhostConst c -> eval_const_decl ~ghost:true ctx c, cpt_a, cpt_g
 
-  (* Add ghost variables to context *)
-  | A.GhostVar v ->
+  (* Single ghost var assignment *)
+  | A.GhostVars (pos, (GhostVarDec (_, [_, i, ty])), expr) -> 
+    let v = A.TypedConst (pos, i, expr, ty) in 
     eval_ghost_var is_postponed inputs outputs locals ctx v, cpt_a, cpt_g
+
+  (* Multiple ghost var assignment *)
+  | A.GhostVars _ -> failwith "Not supported in old frontend"
 
   (* Evaluate assumption *)
   | A.Assume (pos, name, soft, expr) ->

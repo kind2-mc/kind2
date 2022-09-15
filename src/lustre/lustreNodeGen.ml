@@ -1203,7 +1203,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   in let gconsts, gvars, modes, contract_calls =
     let over_items (consts, vars, modes, calls) = function
       | A.GhostConst c -> c :: consts, vars, modes, calls
-      | A.GhostVar v -> consts, v :: vars, modes, calls
+      | A.GhostVars v -> consts, v :: vars, modes, calls 
       | A.Assume _ -> consts, vars, modes, calls
       | A.Guarantee _ -> consts, vars, modes, calls
       | A.Mode m -> consts, vars, m :: modes, calls
@@ -1227,52 +1227,36 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
         (id |> HString.mk_hstring |> mk_ident, [prefix; ref])
       | _ -> assert false
     in
-    let over_vars (gvar_accum, eq_accum) = function
-      | A.FreeConst (_, _, _) -> assert false
-      | A.UntypedConst (_, id, expr) ->
-        let expr_ident = mk_ident id in
-        let (ident, contract_namespace) = extract_namespace id in
-        let nexpr = compile_ast_expr cstate ctx [] map expr in
-        let index_types = X.map (fun { E.expr_type } -> expr_type) nexpr in
-        let over_indices = fun index index_type accum ->
-          let possible_state_var = mk_state_var
-            ~is_input:false
-            ~expr_ident:expr_ident
-            map
-            (node_scope @ contract_namespace @ I.user_scope)
-            ident
-            index
-            index_type
-            (Some N.Ghost)
-          in 
-          match possible_state_var with
-          | Some state_var -> X.add index state_var accum
-          | None -> accum
-        in let ghost_local = X.fold over_indices index_types X.empty in
-        H.replace !map.expr expr_ident nexpr;
-        ghost_local :: gvar_accum, eq_accum
-      | A.TypedConst (pos, id, expr, expr_type) ->
-        let expr_ident = mk_ident id in
-        let (ident, contract_namespace) = extract_namespace id in
-        let index_types = compile_ast_type cstate ctx map expr_type in
-        let over_indices = fun index index_type accum ->
-          let possible_state_var = mk_state_var
-            ~is_input:false
-            ~expr_ident:expr_ident
-            map
-            (node_scope @ contract_namespace @ I.user_scope)
-            ident
-            index
-            index_type
-            (Some N.Ghost)
-          in
-          match possible_state_var with
-          | Some state_var -> X.add index state_var accum
-          | None -> accum
-        in let ghost_local = X.fold over_indices index_types X.empty in
-        let eq_lhs = A.StructDef (pos, [A.SingleIdent (pos, id)]) in
+    let over_vars (gvar_accum, eq_accum) = fun (pos, (A.GhostVarDec (_, tis)), expr) ->
+        let extract_local ((_, id, ty)) = (
+          let expr_ident = mk_ident id in
+          let (ident, contract_namespace) = extract_namespace id in
+          let index_types = compile_ast_type cstate ctx map ty in
+          let over_indices = fun index index_type accum -> (
+            let possible_state_var = (
+              mk_state_var
+                ~is_input:false
+                ~expr_ident:expr_ident
+                map
+                (node_scope @ contract_namespace @ I.user_scope)
+                ident
+                index
+                index_type
+                (Some N.Ghost)
+              )
+            in
+            match possible_state_var with
+            | Some state_var -> X.add index state_var accum
+            | None -> accum
+          )
+          in X.fold over_indices index_types X.empty 
+        ) in
+        
+        (* Patch up eq_rhs and ghost_local *)
+        let struct_items = List.map (fun (pos, id, _) -> A.SingleIdent(pos, id)) tis in
+        let eq_lhs = A.StructDef (pos, struct_items) in
         let eq_rhs = expr in
-        ghost_local :: gvar_accum, (pos, eq_lhs, eq_rhs) :: eq_accum
+        (List.map extract_local tis) @ gvar_accum, (pos, eq_lhs, eq_rhs) :: eq_accum
     in List.fold_left over_vars ([], []) gvars
   (* ****************************************************************** *)
   (* Contract Modes                                                     *)
@@ -1328,7 +1312,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   in let assumes, guarantees, contract_calls =
     let over_items (assumes, guarantees, calls) = function
       | A.GhostConst _ -> assumes, guarantees, calls
-      | A.GhostVar _ ->  assumes, guarantees, calls
+      | A.GhostVars _ -> assumes, guarantees, calls
       | A.Assume a -> a :: assumes, guarantees, calls
       | A.Guarantee g -> assumes, g :: guarantees, calls
       | A.Mode _ -> assumes, guarantees, calls

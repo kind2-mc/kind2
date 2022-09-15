@@ -122,6 +122,15 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/function_no_stateful_contract.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);
+
+  mk_test "test unequal equation widths in parallel ghost variable assignment" (fun () ->
+    match load_file "./lustreSyntaxChecks/unequal_equation_widths_contract.lus" with
+    | Error (`LustreAstDependenciesError (_, EquationWidthsUnequal)) -> true
+    | _ -> false);
+  mk_test "test unequal equation widths in parallel ghost variable assignment" (fun () ->
+    match load_file "./lustreSyntaxChecks/unequal_equation_widths_contract2.lus" with
+    | Error (`LustreAstDependenciesError (_, EquationWidthsUnequal)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -284,6 +293,21 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     | _ -> false);
   mk_test "test local shadows output" (fun () ->
     match load_file "./lustreAstDependencies/local_shadows_output.lus" with
+    | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
+    | _ -> false);
+
+  mk_test "test variable ghost variable redeclaration" (fun () ->
+    match load_file "./lustreAstDependencies/ghost_variable_redeclaration.lus" with
+    | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
+    | _ -> false);
+  
+  mk_test "test variable ghost variable redeclaration" (fun () ->
+    match load_file "./lustreAstDependencies/ghost_variable_redeclaration2.lus" with
+    | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
+    | _ -> false);
+  
+  mk_test "test variable ghost variable redeclaration" (fun () ->
+    match load_file "./lustreAstDependencies/ghost_variable_redeclaration3.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
 ])

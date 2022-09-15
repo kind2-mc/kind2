@@ -228,9 +228,16 @@ let build_contract_ctx ctx (eqns:LustreAst.contract) =
     | LA.GhostConst (FreeConst (_, i, ty)) -> ctx_add_free_const acc i (Some ty)
     | LA.GhostConst (UntypedConst (_, i, _)) -> ctx_add_const acc i None
     | LA.GhostConst (TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
-    | LA.GhostVar (FreeConst (_, i, ty)) -> ctx_add_free_const acc i (Some ty)
-    | LA.GhostVar (UntypedConst (_, i, _)) -> ctx_add_const acc i None
-    | LA.GhostVar (TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
+    | GhostVars v -> 
+      (* Need to add multiple variables to context, not just one *)
+      let rec add_ghost_vars v ctx = (
+        match v with
+          | (pos1, (LA.GhostVarDec (pos2, (_, i, ty)::tis)), e) -> 
+            add_ghost_vars (pos1, (LA.GhostVarDec (pos2, tis)), e) (ctx_add_const ctx i (Some ty))
+          | (_, (LA.GhostVarDec (_, [])), _) -> ctx
+      ) in
+      add_ghost_vars v acc
+
     | _ -> acc
   in
   List.fold_left over_eqns ctx eqns
@@ -622,8 +629,7 @@ and check_contract is_contract_node ctx f contract =
       let rs = List.map (fun (_, _, e) -> e) rs in
       let gs = List.map (fun (_, _, e) -> e) gs in
       check_list rs >> check_list gs
-    | GhostVar (UntypedConst (_, _, e)) -> check_expr ctx f e
-    | GhostVar (TypedConst (_, _, e, _)) -> check_expr ctx f e
+    | GhostVars (_, _, e) -> check_expr ctx f e
     | AssumptionVars (pos, _) ->
       if not is_contract_node then Ok ()
       else syntax_error pos AssumptionVariablesInContractNode

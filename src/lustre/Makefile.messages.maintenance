@@ -15,7 +15,8 @@ update:
 # creates many such comments.
 .PHONY: strip
 strip:
-	@sed -i"" "/^##/d" lustreParser.messages
+	@sed "/^##/d" lustreParser.messages > lustreParser.messages.tmp
+	@mv lustreParser.messages.tmp lustreParser.messages
 	@echo "Stripped auto-generated comments"
 
 # [make complete] is used when the completeness check fails, that is, when
@@ -24,6 +25,7 @@ strip:
 # (with dummy error messages) to this file, so that the completeness check
 # succeeds. It is then up to the programmer to study these sentences and
 # replace the dummy messages with suitable messages.
+# It requires menhir >= 20201201 (menhir --merge-errors)
 .PHONY: complete
 complete:
 	@ menhir lustreParser.mly \
