@@ -803,6 +803,13 @@ and normalize_item info map = function
   | Body equation ->
     let nequation, gids = normalize_equation info map equation in
     Body nequation, gids
+  | IfBlock (pos, expr, l1, l2) ->
+    let nexpr, gids = abstract_expr false info map false expr in
+    let (nl1, gids2) = (List.split (List.map (normalize_item info map) l1)) in
+    let gids2 = List.fold_left union (empty ()) gids2 in
+    let (nl2, gids3) = (List.split (List.map (normalize_item info map) l2)) in
+    let gids3 = List.fold_left union (empty ()) gids3 in
+    IfBlock (pos, nexpr, nl1, nl2), union (union gids gids2) gids3
   | AnnotMain b -> AnnotMain b, empty ()
   | AnnotProperty (pos, name, expr) ->
     let nexpr, gids = abstract_expr false info map false expr in

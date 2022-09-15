@@ -345,14 +345,17 @@ let minimize_node_eq id_typ_map ue lst = function
     let lhs = if b then novarindex_lhs else lhs in
     Some (A.Equation (pos, lhs, expr))
 
-let minimize_item id_typ_map ue lst = function
+let rec minimize_item id_typ_map ue lst = function
   | A.AnnotMain b -> [A.AnnotMain b]
   | A.AnnotProperty (p,str,e) -> [A.AnnotProperty (p,str,e)]
-  | A.Body eq ->
-    begin match minimize_node_eq id_typ_map ue lst eq with
+  | A.Body eq -> (
+    match minimize_node_eq id_typ_map ue lst eq with
     | None -> []
     | Some eq -> [A.Body eq]
-    end
+  )
+  | A.IfBlock (pos, e, l1, l2) -> 
+    [A.IfBlock (pos, e, List.map (minimize_item id_typ_map ue lst) l1 |> List.flatten, 
+                        List.map (minimize_item id_typ_map ue lst) l2 |> List.flatten)]
 
 let minimize_const_decl _ue _lst = function
   | A.UntypedConst (p,id,e) -> A.UntypedConst (p,id,e)
