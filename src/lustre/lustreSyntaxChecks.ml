@@ -228,15 +228,8 @@ let build_contract_ctx ctx (eqns:LustreAst.contract) =
     | LA.GhostConst (FreeConst (_, i, ty)) -> ctx_add_free_const acc i (Some ty)
     | LA.GhostConst (UntypedConst (_, i, _)) -> ctx_add_const acc i None
     | LA.GhostConst (TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
-    | GhostVars v -> 
-      (* Need to add multiple variables to context, not just one *)
-      let rec add_ghost_vars v ctx = (
-        match v with
-          | (pos1, (LA.GhostVarDec (pos2, (_, i, ty)::tis)), e) -> 
-            add_ghost_vars (pos1, (LA.GhostVarDec (pos2, tis)), e) (ctx_add_const ctx i (Some ty))
-          | (_, (LA.GhostVarDec (_, [])), _) -> ctx
-      ) in
-      add_ghost_vars v acc
+    | GhostVars (_, LA.GhostVarDec (_, l), _) -> 
+      List.fold_left (fun acc (_, i, ty) -> ctx_add_const acc i (Some ty)) acc l
 
     | _ -> acc
   in

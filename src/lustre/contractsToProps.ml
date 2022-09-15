@@ -54,16 +54,18 @@ let rec collect_contracts (equations, locals, asserts, props) = function
     (* Add all identifers in typed ident list to "locals", but only add the full equation
        to "equations" once *)
     | Ast.GhostVars (pos, (GhostVarDec (_, tis) as lhs), expr) ->
+      (*
       let rec add_locals (locals, tis) = (
         match tis with
           | (_, id, typ) :: tis -> (add_locals ((blah "Contract variable declaration" pos, (id, expr, typ)) :: locals, 
                                                tis))
           | [] -> locals
       )
-        in
-
+      *)
       (blah "Contract variable declaration" pos, (lhs, expr)) :: equations, 
-      add_locals(locals, tis), 
+      List.fold_left (fun acc (_, id, typ) -> (blah "Contract variable declaration" pos, (id, expr, typ))::acc)
+                     locals
+                     tis,
       asserts, 
       props
 

@@ -904,13 +904,17 @@ and normalize_contract info map node_id items =
           | _ -> 1
         in
         let vars_of_calls = AH.vars_of_node_calls expr in
+
+        (* Currently, parallel ghost variable assignment is not supported with 
+           arrays (only simple typed identifiers). But, the following code with
+           "has_inductive" is included because we plan on offering this functionality
+           in the future.*)
         let has_inductive = vars_of_calls
           |> A.SI.to_seq
           |> Seq.fold_left
             (fun acc v -> acc || StringMap.mem v info.inductive_variables)
             false
         in
-
         let (nexpr, gids1), expanded = (
           if has_inductive && lhs_arity <> rhs_arity then
             (match StringMap.choose_opt info.inductive_variables with

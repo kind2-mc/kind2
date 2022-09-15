@@ -1169,15 +1169,16 @@ and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> (tc_con
 (** Fail if a duplicate constant is detected  *)
   
 and tc_ctx_contract_vars: tc_context -> LA.contract_ghost_vars -> (tc_context, [> error]) result 
-      = function ctx ->
-      function
-      | (pos, GhostVarDec (pos1, (pos2, i, ty)::tis), e) ->     
+  = fun ctx (_, GhostVarDec (_, tis), _) ->
+    R.seq_chain
+      (fun ctx (pos, i, ty) ->
         check_type_well_formed ctx ty
         >> if member_ty ctx i
           then type_error pos (Redeclaration i)
-          (* Type-check the left-hand side variables one at a time *)
-          else tc_ctx_contract_vars (add_ty ctx i ty) (pos1, GhostVarDec (pos2, tis), e)
-      | _ -> (R.ok ctx)
+          else R.ok (add_ty ctx i ty)
+      )
+      ctx
+      tis
 (** Adds the type of contract variables in the typing context  *)
 
 
