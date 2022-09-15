@@ -38,7 +38,7 @@ let rec collect_contracts (equations, locals, asserts, props) = function
     | Ast.AssumptionVars _ -> equations, locals, asserts, props
 
     | Ast.GhostConst dec ->
-      let pos, info = match dec with
+      let pos, (id, expr, typ) = match dec with
         | Ast.FreeConst (pos,_,_)
         | Ast.UntypedConst (pos,_,_) ->
           Format.asprintf "\
@@ -47,23 +47,15 @@ let rec collect_contracts (equations, locals, asserts, props) = function
           |> failwith
         | Ast.TypedConst (pos,id,expr,typ) -> pos, (id, expr, typ)
       in
-      equations, 
-      (blah "Contract constant declaration" pos, info) :: locals, 
+      (blah "Contract constant definition" pos, ((Ast.GhostVarDec (pos, [(pos, id, typ)])), expr)) :: equations, 
+      (blah "Contract constant declaration" pos, (id, expr, typ)) :: locals, 
       asserts, props
     
     (* Add all identifers in typed ident list to "locals", but only add the full equation
        to "equations" once *)
     | Ast.GhostVars (pos, (GhostVarDec (_, tis) as lhs), expr) ->
-      (*
-      let rec add_locals (locals, tis) = (
-        match tis with
-          | (_, id, typ) :: tis -> (add_locals ((blah "Contract variable declaration" pos, (id, expr, typ)) :: locals, 
-                                               tis))
-          | [] -> locals
-      )
-      *)
-      (blah "Contract variable declaration" pos, (lhs, expr)) :: equations, 
-      List.fold_left (fun acc (_, id, typ) -> (blah "Contract variable declaration" pos, (id, expr, typ))::acc)
+      (blah "Contract variable definition" pos, (lhs, expr)) :: equations, 
+      List.fold_left (fun acc (_, id, typ) -> (blah "Contract variable declaration" pos, (id, expr, typ)) :: acc)
                      locals
                      tis,
       asserts, 
