@@ -507,7 +507,7 @@ let check_and_add: 'a IMap.t -> Lib.position
   else R.ok (add_decl m (HString.concat2 prefix i) tyd)
 (** reject program if identifier is already declared  *)
   
-let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> ((LA.declaration IMap.t), [> error]) result =
+let rec  mk_decl_map: LA.declaration option IMap.t -> LA.t -> ((LA.declaration option IMap.t), [> error]) result =
   fun m ->
   function  
   | [] -> R.ok m 
@@ -515,25 +515,25 @@ let rec  mk_decl_map: LA.declaration IMap.t -> LA.t -> ((LA.declaration IMap.t),
   | (LA.TypeDecl (span, FreeType (_, i)) as tydecl) :: decls
   | (LA.TypeDecl (span, AliasType (_, i, _)) as tydecl) :: decls ->
     let {LA.start_pos = pos} = span in
-    check_and_add m pos ty_prefix i tydecl >>= fun m' ->
+    let* m' = check_and_add m pos ty_prefix i (Some tydecl) in
     mk_decl_map m' decls 
 
   | (LA.ConstDecl (span, FreeConst (_, i, _)) as cnstd) :: decls
   | (LA.ConstDecl (span, UntypedConst (_, i, _)) as cnstd) :: decls
   | (LA.ConstDecl (span, TypedConst (_, i, _, _)) as cnstd) :: decls -> 
     let {LA.start_pos = pos} = span in
-    check_and_add m pos const_prefix i cnstd  >>= fun m' ->
+    let* m' = check_and_add m pos const_prefix i (Some cnstd)  in
     mk_decl_map m' decls 
 
   | (LA.NodeDecl (span, (i, _, _, _, _, _, _, _)) as ndecl) :: decls
   | (LA.FuncDecl (span, (i, _, _, _, _, _, _, _)) as ndecl) :: decls ->
     let {LA.start_pos = pos} = span in
-    check_and_add m pos node_prefix i ndecl  >>= fun m' ->
+    let* m' = check_and_add m pos node_prefix i (Some ndecl) in
     mk_decl_map m' decls
 
   | LA.ContractNodeDecl (span, (i, _, _, _, _)) as cndecl :: decls ->
     let {LA.start_pos = pos} = span in
-    check_and_add m pos contract_prefix i cndecl >>= fun m' ->
+    let* m' = check_and_add m pos contract_prefix i (Some cndecl) in
     mk_decl_map m' decls
 
   | LA.NodeParamInst _ :: _-> Lib.todo __LOC__
@@ -554,11 +554,12 @@ let mk_graph_decls: LA.t -> dependency_analysis_data
    See Note {Types of dependency analysis} for more information about different kinds of
    dependency analysis  *)
 
-let extract_decls: 'a IMap.t -> LA.ident list -> (('a list), [> error]) result
+let extract_decls: 'a option IMap.t -> LA.ident list -> (('a list), [> error]) result
   = fun decl_map ids ->
   R.ok (List.concat (List.map (fun i -> match (IMap.find_opt i decl_map) with
                      | None -> []
-                     | Some i' -> [i']) ids)) 
+                     | Some (None) -> []
+                     | Some (Some i') -> [i']) ids)) 
 (** Given a list of ids, finds the associated payload from the playload map.
     It ignores ids that it cannot find as they may be globals. 
  *)
@@ -670,44 +671,41 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
 (** get all the variables and flatten node calls using 
     the node summary for an expression *)
              
-(* The first map is a map from identifiers to contract equations, while the
-   second map only keeps track of the identifiers. We need both because
-   we may have multiple identifiers associated with the same equation, but
-   we still need to check for redeclaration. *)
-let rec mk_contract_eqn_map: LA.contract_node_equation IMap.t -> unit IMap.t ->LA.contract -> ((LA.contract_node_equation IMap.t), [> error]) result
-  = fun m1 m2 ->
+(* We use a contract_node_equation option map. In this map, every identifier is associated
+   with its corresponding equation, except in the unique case of multiple ghost
+   variable assignment. Here, only one of the identifiers (the first) is associated
+   with the full equation, while the others are associated with no equation. This is
+   so we can check for identifier redeclaration while not having repeated equations. *)
+let rec mk_contract_eqn_map: LA.contract_node_equation option IMap.t -> LA.contract -> ((LA.contract_node_equation option IMap.t), [> error]) result
+  = fun m ->
   function
-  | [] -> R.ok m1
+  | [] -> R.ok m
   | (LA.GhostConst (FreeConst (pos, i, _)) as gc) :: eqns
     | (LA.GhostConst (UntypedConst (pos, i, _)) as gc) :: eqns
     | (LA.GhostConst (TypedConst (pos, i, _, _)) as gc) :: eqns -> 
-     let* m1' = check_and_add m1 pos empty_hs i gc in 
-     let* m2' = check_and_add m2 pos empty_hs i () in
-     mk_contract_eqn_map m1' m2' eqns  
-  (* We add the first identifier to the contract_node_equation map, and
-     then we add all the identifiers to the unit map. *)
-  | (LA.GhostVars (pos, (GhostVarDec(_, (_, i, _)::_) as eqn), _) as gc) :: eqns -> 
-    let* m1' = check_and_add m1 pos empty_hs i gc in
-    let rec add_identifiers_to_map eqn m2 =
+     let* m' = check_and_add m pos empty_hs i (Some gc) in 
+     mk_contract_eqn_map m' eqns  
+  (* We add the first identifier to the contract_node_equation map along with
+     the full equation, and then we add the rest of the identifiers with no equation. *)
+    | (LA.GhostVars (pos, (GhostVarDec(pos2, (_, i, _)::tail)), _) as gc) :: eqns ->
+    let* m' = check_and_add m pos empty_hs i (Some gc) in
+    let rec add_identifiers_to_map eqn m' =
       match eqn with
         | LA.GhostVarDec(pos, (_, i, _)::tis) -> 
-          let* m2' = (check_and_add m2 pos empty_hs i ()) in
-          add_identifiers_to_map (LA.GhostVarDec(pos, tis)) m2'
-        | LA.GhostVarDec(_, []) -> R.ok m2
+          let* m'' = (check_and_add m' pos empty_hs i None) in
+          add_identifiers_to_map (LA.GhostVarDec(pos, tis)) m''
+        | LA.GhostVarDec(_, []) -> R.ok m'
     in 
-    let* m2' = add_identifiers_to_map eqn m2 in
-    mk_contract_eqn_map m1' m2' eqns
+    let* m'' = add_identifiers_to_map (GhostVarDec(pos2, tail)) m' in
+    mk_contract_eqn_map m'' eqns
   | (LA.GhostVars (_, (GhostVarDec(_, [])), _)) :: eqns -> 
-    mk_contract_eqn_map m1 m2 eqns
+    mk_contract_eqn_map m eqns
   | (LA.ContractCall (pos, i, _, _ ) as cc ) :: eqns -> 
-    let* m1' = check_and_add m1 pos contract_prefix i cc in
-    let* m2' = check_and_add m2 pos empty_hs i () in
-    mk_contract_eqn_map m1' m2' eqns  
+    let* m' = check_and_add m pos contract_prefix i (Some cc) in
+    mk_contract_eqn_map m' eqns  
   | (LA.Mode (pos, i, _, _) as mode) :: eqns ->
-    let* m1' = check_and_add m1 pos mode_prefix i mode in
-    let* m2' = check_and_add m2 pos empty_hs i () in
-    mk_contract_eqn_map m1' m2' eqns  
-
+    let* m' = check_and_add m pos mode_prefix i (Some mode) in
+    mk_contract_eqn_map m' eqns  
   | _ -> assert false
               
 
@@ -1021,7 +1019,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
   in
   let equational_vars = List.filter (fun i -> not (SI.mem i ids_to_skip)) sorted_ids in
   let (to_sort_eqns, rest) = split_contract_equations contract in
-  let* eqn_map = mk_contract_eqn_map IMap.empty IMap.empty to_sort_eqns in
+  let* eqn_map = mk_contract_eqn_map IMap.empty to_sort_eqns in
   let* contract' = extract_decls eqn_map equational_vars in
   Debug.parse "sorted contract equations for contract %a %a"
     LA.pp_print_ident i
@@ -1039,7 +1037,7 @@ let sort_and_check_contract_eqns: dependency_analysis_data
 let sort_declarations: LA.t -> ((LA.t * LA.ident list), [> error]) result
   = fun decls ->
   (* 1. make an id :-> decl map  *)
-  mk_decl_map IMap.empty decls >>= fun decl_map ->
+  let* decl_map = mk_decl_map IMap.empty decls in
   (* 2. build a dependency graph *)
   let ad = mk_graph_decls decls in
   (* 3. try to sort it, raise an error if it is cyclic, or extract sorted decls from the decl_map *)

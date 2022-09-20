@@ -1550,7 +1550,7 @@ and eval_node_contract_item
     eval_ghost_var is_postponed inputs outputs locals ctx v, cpt_a, cpt_g
 
   (* Multiple ghost var assignment *)
-  | A.GhostVars (pos, _, _) -> fail_at_position pos "Not supported in old frontend"
+  | A.GhostVars (pos, _, _) -> fail_at_position pos "Multiple ghost variable declaration is not supported in old frontend"
 
   (* Evaluate assumption *)
   | A.Assume (pos, name, soft, expr) ->
