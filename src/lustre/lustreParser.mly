@@ -408,7 +408,7 @@ node_def:
 
   { (List.flatten l, e) }
 
-contract_equation:
+contract_ghost_vars:
   | VAR; l = typed_idents_list; EQUALS; e = expr; SEMICOLON
     { A.GhostVars (mk_pos $startpos, GhostVarDec (mk_pos $startpos, l), e) }
 
@@ -460,7 +460,7 @@ assumption_vars:
   }
 
 contract_item:
-  | e = contract_equation { e }
+  | e = contract_ghost_vars { e }
   | c = contract_ghost_const { c }
   | a = contract_assume { a }
   | g = contract_guarantee { g }

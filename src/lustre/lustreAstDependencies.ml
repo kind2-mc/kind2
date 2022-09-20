@@ -873,6 +873,45 @@ let expression_current_streams: dependency_analysis_data -> LA.expr -> (LA.ident
   ; R.ok rechable_vs
 (** all the variables whose current value is used in the expression *)
   
+(*
+let mk_graph_const_decl2: node_summary -> LA.const_decl -> dependency_analysis_data graph_result
+  = fun m ->
+  function
+  | LA.FreeConst (pos, i, ty) ->
+     R.ok (connect_g_pos (mk_graph_type ty) (const_prefix ^ i) pos)
+  | LA.UntypedConst (pos, i, e) ->
+     (mk_graph_expr2 m e) >>= fun g -> 
+     R.ok (connect_g_pos
+             (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data g)
+             (const_prefix ^ i) pos) 
+  | LA.TypedConst (pos, i, e, ty) ->
+     mk_graph_expr2 m e >>= fun g -> 
+     R.ok (connect_g_pos
+             (union_dependency_analysis_data
+                (List.fold_left
+                   union_dependency_analysis_data
+                   empty_dependency_analysis_data g)
+                (mk_graph_type ty)) (const_prefix ^ i) pos)
+let mk_graph_contract_eqns: node_summary -> LA.contract -> dependency_analysis_data graph_result
+  = fun  m ->
+  let mk_graph: LA.contract_node_equation -> dependency_analysis_data graph_result
+    = function
+    | LA.GhostConst c -> mk_graph_const_decl2 m c
+    | LA.GhostVar c -> mk_graph_const_decl2 m c
+    | LA.Mode (pos, i, reqs, ens) ->
+       let es = List.map (fun (_, _,  e) -> e) (reqs @ ens) in
+       R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs ->
+       let g = List.fold_left union_dependency_analysis_data
+                 empty_dependency_analysis_data (List.concat gs) in 
+       R.ok (connect_g_pos g (mode_prefix ^ i) pos) 
+    | LA.Assume _ 
+      | LA.Guarantee _ 
+      | LA.ContractCall _ -> R.ok empty_dependency_analysis_data 
+  in
+  fun eqns ->
+  R.seq (List.map mk_graph eqns) >>= fun gs -> 
+  R.ok (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data gs) 
+*)
 
 let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_equation -> (dependency_analysis_data, [> error]) result
   = fun ad ->
