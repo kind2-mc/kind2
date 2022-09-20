@@ -171,7 +171,7 @@ let error_message kind = match kind with
     ^ (match items with
       | Some items -> Lib.string_of_t (Lib.pp_print_list LA.pp_print_struct_item ", ") items
       | None -> "")
-    ^ " does noit match expected type " ^ string_of_tc_type ty ^ " on right hand side of the node equation"
+    ^ " does not match expected type " ^ string_of_tc_type ty ^ " on right hand side of the node equation"
   | DisallowedReassignment vars -> "Cannot reassign value to a constant or enum but found reassignment to identifier(s): "
     ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements vars)
   | DisallowedSubrangeInContractReturn (kind, id, ty) -> (match kind with | true -> "Argument '" | false -> "Return '")

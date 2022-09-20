@@ -228,7 +228,7 @@ let build_contract_ctx ctx (eqns:LustreAst.contract) =
     | LA.GhostConst (FreeConst (_, i, ty)) -> ctx_add_free_const acc i (Some ty)
     | LA.GhostConst (UntypedConst (_, i, _)) -> ctx_add_const acc i None
     | LA.GhostConst (TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
-    | GhostVars (_, LA.GhostVarDec (_, l), _) -> 
+    | LA.GhostVars (_, GhostVarDec (_, l), _) -> 
       List.fold_left (fun acc (_, i, ty) -> ctx_add_const acc i (Some ty)) acc l
 
     | _ -> acc

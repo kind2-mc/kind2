@@ -641,24 +641,26 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* Node calls *)
   | Call (_, i, es) ->
     (* Format.eprintf "call expr: %a @." (Lib.pp_print_list LA.pp_print_expr ";") es;
-    Format.eprintf "call: %a @." HString.pp_print_hstring i; *)
+    Format.eprintf "call: %a @." HString.pp_print_hstring i;  *)
     let arg_vars = List.map r es in
     (* guaranteed not to throw an exception by lustreSyntaxChecks *)
     let node_map = IMap.find i m in
     (match IntMap.find_opt proj node_map with
       | Some dep_args ->
-        (* Format.eprintf "dependent_args: %a @."
+      (*  Format.eprintf "dependent_args: %a @." 
           (Lib.pp_print_list Format.pp_print_int ",")
           dep_args; *)
+         
         let result = List.fold_left (fun acc idx ->
             match List.nth_opt arg_vars idx with
+            
             | Some v -> SI.union acc v
             (* If the provided file is not arity-correct then ignore those vars *)
             | None -> acc)
           SI.empty
           dep_args
         in
-        (* Format.eprintf "result: %a @."
+       (*  Format.eprintf "result: %a @." 
           (Lib.pp_print_list HString.pp_print_hstring ",")
           (SI.elements result); *)
         result
@@ -856,6 +858,21 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
     pre's are abstracted out first and then passed into this 
     function using [LH.abstract_pre_subexpressions] *)
 
+let expression_current_streams: dependency_analysis_data -> LA.expr -> (LA.ident list, [> error]) result
+  = fun ad e ->
+  let vars = vars_with_flattened_nodes ad.nsummary2 0 (LH.abstract_pre_subexpressions e) in
+  let vs = LA.SI.elements vars in
+  let memo = ref G.VMap.empty in
+  let rechable_vs = List.concat (List.map
+    (fun v -> G.to_vertex_list (G.memoized_reachable memo ad.graph_data2 v))
+    vs)
+  in
+  Debug.parse "Current Stream Usage for %a: %a"
+    (Lib.pp_print_list G.pp_print_vertex ", ") vs
+    (Lib.pp_print_list G.pp_print_vertex ", ") rechable_vs 
+  ; R.ok rechable_vs
+(** all the variables whose current value is used in the expression *)
+  
 
 let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_equation -> (dependency_analysis_data, [> error]) result
   = fun ad ->
@@ -896,42 +913,24 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
       R.ok (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
     )
   | LA.GhostVars (pos, (GhostVarDec (_, tis)), e) ->
-      let union g v = 
-        union_dependency_analysis_data g (singleton_dependency_analysis_data empty_hs v pos)
-      in
+    let union g v = 
+      union_dependency_analysis_data g (singleton_dependency_analysis_data empty_hs v pos)
+    in
+    let handle_one_lhs index (_, i, _) = (
+      let e = LH.abstract_pre_subexpressions e in
+      let vars = vars_with_flattened_nodes ad.nsummary index e in
+      let effective_vars = LA.SI.elements vars in
+      let vars2 = vars_with_flattened_nodes ad.nsummary2 index e in
+      let effective_vars2 = LA.SI.elements vars2 in
+      let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
+      (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
+    )
+    in 
+    R.ok (List.fold_left union_dependency_analysis_data
+                         empty_dependency_analysis_data
+                         (List.mapi handle_one_lhs tis))
 
-      let handle_one_lhs ((_, i, _), (ad1, ad2)) = (
-        let vars = vars_with_flattened_nodes ad1 0 ..e.. in
-        let effective_vars = LA.SI.elements vars in
-        let vars2 = vars_with_flattened_nodes ad2 0 ..e.. in
-        let effective_vars2 = LA.SI.elements vars2 in
-        let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
-        (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
-      )
-      in 
-      let* rhs_g = (mk_graph_expr2 ad.nsummary (LH.abstract_pre_subexpressions e)) in
-      let* rhs_g2 = (mk_graph_expr2 ad.nsummary2 (LH.abstract_pre_subexpressions e)) in
-      let rhs_merged = ...
-      if List.length rhs_g = List.length tis
-      then R.ok (List.fold_left union_dependency_analysis_data
-                           empty_dependency_analysis_data
-                           (List.map2 handle_one_lhs tis rhs_merged))
-      else graph_error pos EquationWidthsUnequal
 
-let expression_current_streams: dependency_analysis_data -> LA.expr -> (LA.ident list, [> error]) result
-  = fun ad e ->
-  let vars = vars_with_flattened_nodes ad.nsummary2 0 (LH.abstract_pre_subexpressions e) in
-  let vs = LA.SI.elements vars in
-  let memo = ref G.VMap.empty in
-  let rechable_vs = List.concat (List.map
-    (fun v -> G.to_vertex_list (G.memoized_reachable memo ad.graph_data2 v))
-    vs)
-  in
-  Debug.parse "Current Stream Usage for %a: %a"
-    (Lib.pp_print_list G.pp_print_vertex ", ") vs
-    (Lib.pp_print_list G.pp_print_vertex ", ") rechable_vs 
-  ; R.ok rechable_vs
-(** all the variables whose current value is used in the expression *)
 
 let check_eqn_no_current_vals: LA.SI.t -> dependency_analysis_data -> LA.expr -> (unit, [> error]) result
   = fun node_out_streams ad e -> 
