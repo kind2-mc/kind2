@@ -1723,7 +1723,7 @@ and eval_node_items inputs outputs locals ctx = function
     (* Continue with next node statements *)
     eval_node_items inputs outputs locals ctx tl
 
-  | A.IfBlock _ :: _ -> failwith "If blocks not supported in old front-end"
+  | A.IfBlock (pos, _, _, _) :: _ -> fail_at_position pos  "If blocks not supported in old front-end"
 
   (* Property annotation *)
   | A.AnnotProperty (pos, name_opt, ast_expr) :: tl -> 
