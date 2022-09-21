@@ -688,16 +688,16 @@ let rec mk_contract_eqn_map: LA.contract_node_equation option IMap.t -> LA.contr
   (* We add the first identifier to the contract_node_equation map along with
      the full equation, and then we add the rest of the identifiers with no equation. *)
     | (LA.GhostVars (pos, (GhostVarDec(pos2, (_, i, _)::tail)), _) as gc) :: eqns ->
-    let* m' = check_and_add m pos empty_hs i (Some gc) in
-    let rec add_identifiers_to_map eqn m' =
-      match eqn with
-        | LA.GhostVarDec(pos, (_, i, _)::tis) -> 
-          let* m'' = (check_and_add m' pos empty_hs i None) in
-          add_identifiers_to_map (LA.GhostVarDec(pos, tis)) m''
-        | LA.GhostVarDec(_, []) -> R.ok m'
-    in 
-    let* m'' = add_identifiers_to_map (GhostVarDec(pos2, tail)) m' in
-    mk_contract_eqn_map m'' eqns
+      let* m' = check_and_add m pos empty_hs i (Some gc) in
+      let rec add_identifiers_to_map eqn m' =
+        match eqn with
+          | LA.GhostVarDec(pos, (_, i, _)::tis) -> 
+            let* m'' = (check_and_add m' pos empty_hs i None) in
+            add_identifiers_to_map (LA.GhostVarDec(pos, tis)) m''
+          | LA.GhostVarDec(_, []) -> R.ok m'
+      in 
+      let* m'' = add_identifiers_to_map (GhostVarDec(pos2, tail)) m' in
+      mk_contract_eqn_map m'' eqns
   | (LA.GhostVars (_, (GhostVarDec(_, [])), _)) :: eqns -> 
     mk_contract_eqn_map m eqns
   | (LA.ContractCall (pos, i, _, _ ) as cc ) :: eqns -> 

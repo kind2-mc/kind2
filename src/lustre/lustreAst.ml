@@ -878,9 +878,6 @@ let pp_print_contract_eq_lhs ppf = function
       (pp_print_list pp_print_ident ", ") (List.map (fun (_, i, _) -> i) l)
 
 let pp_print_typed_contract_eq_lhs ppf = function
-  | GhostVarDec (_, [ti]) ->
-    pp_print_typed_ident ppf ti
-
   | GhostVarDec (_, l) ->
     Format.fprintf ppf "%a"
       (pp_print_list pp_print_typed_ident ", ") l
