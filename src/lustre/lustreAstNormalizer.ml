@@ -820,13 +820,13 @@ and rename_ghost_variables info node_id contract =
     let info = { info with context = Ctx.add_ty info.context new_id ty } in
     let tail, info = rename_ghost_variables info node_id t in
     (StringMap.singleton id new_id) :: tail, info
-  | (A.GhostVar (UntypedConst (_, id, _))
-  | GhostVar (TypedConst (_, id, _, _))) :: t ->
+  (* Recurse through each declaration one at a time *)
+  | GhostVars (pos1, A.GhostVarDec(pos2, (_, id, _)::tis), e) :: t -> 
     let ty = Ctx.lookup_ty info.context id |> get in
     let ty = Ctx.expand_nested_type_syn info.context ty in
     let new_id = HString.concat sep [info.contract_ref;id] in
     let info = { info with context = Ctx.add_ty info.context new_id ty } in
-    let tail, info = rename_ghost_variables info node_id t in
+    let tail, info = rename_ghost_variables info node_id (A.GhostVars (pos1, A.GhostVarDec(pos2, tis), e) :: t) in
     (StringMap.singleton id new_id) :: tail, info
   | _ :: t -> rename_ghost_variables info node_id t
 
@@ -896,20 +896,83 @@ and normalize_contract info map node_id items =
       | GhostConst decl ->
         let ndecl, gids= normalize_ghost_declaration info map decl in
         GhostConst ndecl, gids, StringMap.empty
-      | GhostVar decl ->
-        let gids1 = match decl with
-          | UntypedConst (pos, i, _)
-          | FreeConst (pos, i, _)
-          | TypedConst (pos, i, _, _) ->
-            let ty = get_type_of_id info node_id i in
-            let ty = AIC.inline_constants_of_lustre_type info.context ty in
-            let new_id = StringMap.find i info.interpretation in
-            if AH.type_contains_subrange ty then
-              mk_fresh_subrange_constraint Ghost info pos new_id ty
-            else empty ()
+      | GhostVars (pos, ((GhostVarDec (pos2, tis)) as lhs), expr) ->
+        let items = match lhs with | A.GhostVarDec (_, items) -> items in
+        let lhs_arity = List.length items in
+        let rhs_arity = match expr with
+          | A.GroupExpr(_, A.ExprList, expr_list) -> List.length expr_list
+          | _ -> 1
         in
-        let ndecl, gids2 = normalize_ghost_declaration info map decl in
-        GhostVar ndecl, union gids1 gids2, StringMap.empty
+        let vars_of_calls = AH.vars_of_node_calls expr in
+
+        (* Currently, parallel ghost variable assignment is not supported with 
+           arrays (only simple typed identifiers). But, the following code with
+           "has_inductive" is included because we plan on offering this functionality
+           in the future.*)
+        let has_inductive = vars_of_calls
+          |> A.SI.to_seq
+          |> Seq.fold_left
+            (fun acc v -> acc || StringMap.mem v info.inductive_variables)
+            false
+        in
+        let (nexpr, gids1), expanded = (
+          if has_inductive && lhs_arity <> rhs_arity then
+            (match StringMap.choose_opt info.inductive_variables with
+            | Some (ivar, ty) ->
+              let size = extract_array_size ty in
+              let expanded_expr = expand_node_calls_in_place info ivar size expr in
+              let exprs, gids = List.split (List.init lhs_arity
+                (
+                  fun i -> 
+                  let info = { info with local_group_projection = i } in
+                  normalize_expr ?guard:None info map expanded_expr
+                )
+              ) 
+              in
+              let gids = List.fold_left (fun acc g -> union g acc) (empty ()) gids in
+            (A.GroupExpr (dpos, A.ExprList, exprs), gids), true
+            | None -> normalize_expr ?guard:None info map expr, false)
+            
+          else if has_inductive && lhs_arity = rhs_arity then
+            let expanded_expr = List.fold_left
+              (fun acc (v, ty) -> 
+                let size = extract_array_size ty in
+                expand_node_calls_in_place info v size acc)
+              expr
+              (StringMap.bindings info.inductive_variables)
+            in
+            normalize_expr ?guard:None info map expanded_expr, true
+          else normalize_expr ?guard:None info map expr, false
+        )
+        in
+        let gids2 = (
+          if expanded then
+          let items = match lhs with | GhostVarDec (_, items) -> items in
+          let ids = List.map (function (_, i, _) -> i) items
+          in
+          { (empty ()) with  expanded_variables = StringSet.of_list ids }
+          else empty ()
+        )
+        in
+        let gids3 = (
+          let gids_list = (
+            List.map (
+              fun (_, i, ty) -> 
+              let new_id = StringMap.find i info.interpretation in
+              if AH.type_contains_subrange ty then
+                mk_fresh_subrange_constraint Ghost info pos new_id ty
+              else empty ()
+            )
+            tis
+          ) in
+          List.fold_left union (empty ()) gids_list
+        ) in
+
+        (* Get new identifiers for LHS *)
+        let new_tis = List.map (fun (p, id, e) -> 
+          (p, StringMap.find id info.interpretation, e)) tis in
+        GhostVars (pos, GhostVarDec(pos2, new_tis), nexpr), union (union gids1 gids2) gids3, StringMap.empty
+      
       | AssumptionVars decl ->
         AssumptionVars decl, empty (), StringMap.empty
     in

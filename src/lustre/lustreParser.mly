@@ -408,14 +408,9 @@ node_def:
 
   { (List.flatten l, e) }
 
-
-contract_ghost_var:
-  | VAR ;
-    i = ident ; COLON ; t = lustre_type; EQUALS ; e = qexpr ;
-    SEMICOLON 
-    { A.GhostVar (A.TypedConst (mk_pos $startpos, i, e, t)) }
-(*  | VAR ; i = ident ; EQUALS ; e = expr ; SEMICOLON 
-    { A.GhostVar (A.UntypedConst (mk_pos $startpos, i, e)) } *)
+contract_ghost_vars:
+  | VAR; l = typed_idents_list; EQUALS; e = expr; SEMICOLON
+    { A.GhostVars (mk_pos $startpos, GhostVarDec (mk_pos $startpos, l), e) }
 
 contract_ghost_const:
   | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = qexpr; SEMICOLON 
@@ -465,7 +460,7 @@ assumption_vars:
   }
 
 contract_item:
-  | v = contract_ghost_var { v } 
+  | e = contract_ghost_vars { e }
   | c = contract_ghost_const { c }
   | a = contract_assume { a }
   | g = contract_guarantee { g }
@@ -1067,20 +1062,23 @@ ident_list_pos :
     { (mk_pos $startpos, i) :: l }
 
 
+
 (* A list of comma-separated identifiers with a type *)
 typed_idents: 
   | l = ident_list_pos; COLON; t = lustre_type 
     (* Pair each identifier with the type *)
     { List.map (function (pos, e) -> (pos, e, t)) l }
 
-(*
+
+
 (* A list of lists of typed identifiers *)
 typed_idents_list:
-  | a = separated_list(SEMICOLON, typed_idents) 
+  | a = separated_list(COMMA, typed_idents) 
 
     (* Return a flat list *)
     { List.flatten a }
-*)
+
+
 
 (* Typed identifiers that may be constant *)
 const_typed_idents: 

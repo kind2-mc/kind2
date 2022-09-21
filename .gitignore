@@ -2,6 +2,9 @@
 *.log
 *.err
 
+# macOs generated files.
+.DS_Store
+
 # Generated opam switch.
 _opam
 
