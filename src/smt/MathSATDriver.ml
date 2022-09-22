@@ -23,7 +23,8 @@ let cmd_line
     logic timeout 
     _ (* produce_assignments *)
     _ (* produce_proofs *)
-    _ (* produce_cores *)
+    _ (* produce_unsat_cores *)
+    _ (* produce_unsat_assumptions *)
     _ (* minimize_cores *)
     _ (* produce_interpolants *) =
 

@@ -1062,7 +1062,7 @@ let get_logic ?(pathcomp=false) sys =
 let create_solver ?(pathcomp=false) ?(approximate=false) sys actlits bmin bmax =
   let solver =
     SMTSolver.create_instance ~timeout:(Flags.IVC.ivc_uc_timeout ())
-    ~produce_assignments:pathcomp ~produce_cores:true
+    ~produce_assignments:pathcomp ~produce_unsat_assumptions:true
     ~minimize_cores:(not approximate) (get_logic ~pathcomp sys) (Flags.Smt.solver ()) in
   List.iter (SMTSolver.declare_fun solver) actlits ;
   TS.declare_sorts_ufs_const sys (SMTSolver.declare_fun solver) (SMTSolver.declare_sort solver) ;

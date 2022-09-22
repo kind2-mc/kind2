@@ -25,11 +25,15 @@ module type Params = sig
 
   val produce_assignments : bool
 
-  val produce_cores : bool
+  val produce_unsat_cores : bool
+
+  val produce_unsat_assumptions : bool
 
   val minimize_cores : bool
 
   val produce_proofs : bool
+
+  val produce_interpolants : bool
 
   val logic : TermLib.logic
 
@@ -94,6 +98,9 @@ module type Inst = sig
   (** Get an unsatisfiable core of named expressions *)
   val get_unsat_core : unit -> get_unsat_core_response
 
+  (** Get an unsatisfiable subset of assumptions *)
+  val get_unsat_assumptions : unit -> get_unsat_core_response
+
   (** Execute a custom command and return its result 
 
       [execute_custom_command s c a r] sends a custom command [s] with
@@ -120,8 +127,9 @@ module type S = sig
       paramters passed as its arguments. The parameter argument [P] conataints
       a unique identifier [id], initialized to the logic [l] and produces
       assignments if the optional labelled argument [produce_assignments] is
-      [true], proofs if [produce_proofs] is true and unsatisfiable cores if
-      [produce_cores] is true. *)
+      [true], proofs if [produce_proofs] is true, unsatisfiable cores if
+      [produce_unsat_cores] is true, and unsatisfiable sets of assumptions if
+      [produce_unsat_assumptions] is true *)
   module Create : functor (P : Params) -> Inst
 
 end
