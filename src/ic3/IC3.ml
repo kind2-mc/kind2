@@ -3050,7 +3050,7 @@ let main_ic3 input_sys aparam trans_sys =
   let solver =
     SMTSolver.create_instance
       ~produce_assignments:true
-      ~produce_cores:true
+      ~produce_unsat_assumptions:true
       logic
       (Flags.Smt.solver ())
   in

@@ -25,7 +25,7 @@ exception UnsupportedZ3Symbol of string
 (* ********************************************************************** *)
 
 (* Command line options *)
-let cmd_line _ _ _ _ _ _ _ = [| |]
+let cmd_line _ _ _ _ _ _ _ _ = [| |]
 
 (* Dummy implementation *)
 let check_sat_limited_cmd _ = failwith "Not implemented"

@@ -1048,6 +1048,9 @@ let get_unsat_core solver =
   | _ -> failwith "Yices: No unsat core to return"
 
 
+let get_unsat_assumptions = get_unsat_core
+
+
 (* Execute a custom command and return the response *)
 let execute_custom_command solver cmd args num_res = 
 
@@ -1169,7 +1172,8 @@ let trace_coms solver_ppf com = match solver_ppf with
 let create_instance
     ?produce_assignments
     ?produce_proofs
-    ?produce_cores
+    ?produce_unsat_cores
+    ?produce_unsat_assumptions
     logic
     id =
 
@@ -1191,7 +1195,8 @@ let create_instance
       0
       produce_assignments
       produce_proofs
-      produce_cores
+      produce_unsat_cores
+      produce_unsat_assumptions
       false
       false
   in
@@ -1269,7 +1274,7 @@ let create_instance
      false per SMTLIB specification *)
   
   let evidence =
-    (match produce_cores with Some o -> o | None -> false) ||
+    (match produce_unsat_assumptions with Some o -> o | None -> false) ||
     (match produce_assignments with Some o -> o | None -> false)
   in
 
@@ -1377,7 +1382,8 @@ module Create (P : SolverSig.Params) : SolverSig.Inst = struct
 
   let solver = create_instance
       ~produce_assignments:P.produce_assignments
-      ~produce_cores:P.produce_cores
+      ~produce_unsat_cores:P.produce_unsat_cores
+      ~produce_unsat_assumptions:P.produce_unsat_assumptions
       ~produce_proofs:P.produce_proofs
       P.logic P.id
 
@@ -1399,6 +1405,7 @@ module Create (P : SolverSig.Params) : SolverSig.Inst = struct
   let get_value = get_value solver
   let get_model () = get_model solver
   let get_unsat_core () = get_unsat_core solver
+  let get_unsat_assumptions () = get_unsat_assumptions solver
 
 
   let execute_custom_command = execute_custom_command solver

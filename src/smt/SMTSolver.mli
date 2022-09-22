@@ -36,7 +36,8 @@ val create_instance :
   ?timeout: int ->
   ?produce_assignments:bool ->
   ?produce_proofs:bool ->
-  ?produce_cores:bool ->
+  ?produce_unsat_cores:bool ->
+  ?produce_unsat_assumptions:bool ->
   ?minimize_cores:bool ->
   ?produce_interpolants:bool ->
   TermLib.logic ->

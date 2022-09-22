@@ -92,7 +92,7 @@ let compute_and_print_core solver terms =
 let compute_unsat_core sys context requirements ex_var_lst =
   let solver =
     SMTSolver.create_instance
-      ~produce_cores:true
+      ~produce_unsat_assumptions:true
       ~produce_assignments:true
       ~minimize_cores:true
       (TSys.get_logic sys)
@@ -718,7 +718,7 @@ let compute_deadlocking_trace_and_conflict
 
   let solver =
     SMTSolver.create_instance
-      ~produce_cores:true
+      ~produce_unsat_assumptions:true
       ~produce_assignments:true
       ~minimize_cores:true
       (TSys.get_logic sys)
