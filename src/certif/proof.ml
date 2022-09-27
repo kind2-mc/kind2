@@ -25,8 +25,7 @@ module HS = HStringSExpr
 module H = HString
 
 (* Hard coded options *)
-  
-let mpz_proofs = true
+
 let debug = List.mem "certif" (Flags.debug ())
 let compact = not debug
 let set_margin fmt = pp_set_margin fmt (if compact then max_int else 80)
@@ -60,25 +59,20 @@ let s_define = H.mk_hstring "define"
 
 let s_holds = H.mk_hstring "holds"
 
-let s_iff = H.mk_hstring "iff"
-let s_true = H.mk_hstring "true"
+(* let s_iff = H.mk_hstring "iff" *)
+(* let s_true = H.mk_hstring "true" *)
 
-let s_formula = H.mk_hstring "formula"
-let s_th_holds = H.mk_hstring "th_holds"
-let s_truth = H.mk_hstring "truth"
 let s_trust = H.mk_hstring "trust"
-let s_trust_f = H.mk_hstring "trust_f"
 
-let s_term = H.mk_hstring "term"
+(* let s_term = H.mk_hstring "term" *)
 
-let s_eq = H.mk_hstring "="
+(* let s_eq = H.mk_hstring "=" *)
 
-let s_p_app = H.mk_hstring "p_app"
-let s_apply = H.mk_hstring "apply"
+(* let s_apply = H.mk_hstring "apply" *)
 
 let s_check = H.mk_hstring "check"
-let s_ascr = H.mk_hstring ":"
-let s_LAMBDA = H.mk_hstring "%"
+(* let s_ascr = H.mk_hstring ":" *)
+(* let s_lambda = H.mk_hstring "#" *)
 let s_at = H.mk_hstring "@"
 let s_hole = H.mk_hstring "_"
 
@@ -91,32 +85,6 @@ let s_unknown = H.mk_hstring "unknown"
 let global_logic = ref `None
 
 let set_proof_logic l = global_logic := l
-
-let abstr_ind_of_logic = let open TermLib in
-  function
-  | `Inferred fs ->
-    if FeatureSet.mem RA fs then
-      if FeatureSet.mem IA fs then
-        failwith "cvc5 cannot generate proofs for systems with both \
-                  integer and real variables"
-      else true
-    else false
-  | _ -> false
-
-let abstr_index () =
-  abstr_ind_of_logic !global_logic
-
-let s_index () =
-  if abstr_index () then H.mk_hstring "index"
-  else H.mk_hstring "Int"
-
-let s_pindex = H.mk_hstring "%index%"
-let s_pk = H.mk_hstring "%%k"
-
-(* let s_Int = H.mk_hstring "Int" *)
-let s_ind = H.mk_hstring "ind"
-let s_mpz = H.mk_hstring "mpz"
-
 let s_invariant = H.mk_hstring "invariant"
 let s_kinduction = H.mk_hstring "kinduction"
 let s_induction = H.mk_hstring "induction_proof_1"
@@ -152,38 +120,6 @@ type lfsc_type = HS.t
 (* LFSC terms (sexpressions) *)
 type lfsc_term = HS.t
 
-let ty_formula = HS.Atom s_formula
-let ty_term ty = HS.(List [Atom s_term; ty])
-
-
-(* LFSC [(term index)] *)
-let term_index () = HS.(List [Atom s_term; Atom (s_index ())])
-
-(* LFSC type for representing indexes *)
-let s_lfsc_index = if mpz_proofs then s_mpz else s_pindex
-
-(* substitution [(term index) -> %index%] *)
-let sigma_pindex () = [term_index (), HS.Atom s_pindex]
-
-(* substitution [(term index) -> mpz] *)
-let sigma_mpz () = [term_index (), HS.Atom s_mpz;]
-                 (* HS.Atom s_index, HS.Atom s_Int] *)
-
-(* substitution from [(term index)] to the selected representation *)
-let sigma_tindex () = if mpz_proofs then sigma_mpz () else sigma_pindex ()
-
-(*
-(* Returns [true] if the LFSC expression is the type for indexes [(term
-   index)] *)
-let is_term_index_type = function
-  | HS.List [HS.Atom t; HS.Atom i] -> t == s_term && i == s_index ()
-  | _ -> false
-*)
-
-(* Returns [true] if the argument is ["index"] *)
-let is_index_type i = i == (s_index ())
-
-
 
 (* Type of LFSC declarations *)
 type lfsc_decl = {
@@ -200,18 +136,18 @@ type lfsc_def = {
 }
 
 (* Comparison for equality of declarations *)
-let equal_decl d1 d2 =
+(* let equal_decl d1 d2 =
   H.equal d1.decl_symb d2.decl_symb &&
-  HS.equal d1.decl_type d2.decl_type
+  HS.equal d1.decl_type d2.decl_type *)
 
 (* Comparison for equality of definitions *)
-let equal_def d1 d2 =
+(* let equal_def d1 d2 =
   let def_ty_eq ot1 ot2 =
     match (ot1, ot2) with Some t1, Some t2 -> HS.equal t1 t2 | _, _ -> true
   in
   H.equal d1.def_symb d2.def_symb
   && def_ty_eq d1.def_ty d2.def_ty
-  && HS.equal d1.def_body d2.def_body
+  && HS.equal d1.def_body d2.def_body *)
 (* add args if needed *)
 
 (* Type of contexts for proofs *)
@@ -231,7 +167,6 @@ let mk_empty_proof_context () = {
 (* The type of a proof returned by cvc5 *)
 type cvc5_proof = {
   proof_context : cvc5_proof_context;
-  true_hyps : H.t list;
   proof_hyps : lfsc_decl list; 
   proof_type : lfsc_type option;
   proof_term : lfsc_type;
@@ -241,20 +176,9 @@ type cvc5_proof = {
 let mk_empty_proof ctx = {
   proof_context = ctx;
   proof_hyps = [];
-  true_hyps = [];
   proof_type = Some (HS.List []);
   proof_term = HS.List [];
 }
-
-
-(* Classifier for lambda abstractions in LFSC *)
-type lambda_kind =
-  | Lambda_decl of lfsc_decl (* symbol/variables declarations *)
-  | Lambda_hyp of lfsc_decl  (* Proof hypothesis % A0 ...*)
-  | Lambda_def of lfsc_def   (* definitions % f%def *)
-  | Lambda_ignore            (* ignore some extraneous symbols *)
-  | Lambda_true
-
 
 
 (**********************************)
@@ -386,106 +310,9 @@ let print_proof ?(context = false) name fmt
 (* Parsing LFSC proofs from cvc5 *)
 (*********************************)
 
-(*
-(* Lexicographic comparison of hashconsed strings (used for sorting dummy
-   arguments f%1, f%2, f%3, ...) *)
-let lex_comp h1 h2 =
-  String.compare (H.string_of_hstring h1) (H.string_of_hstring h2)
-*)
-
-(* Same on bindings *)
-let lex_comp_b (_, i1, _) (_, i2, _) = Int.compare i1 i2
-
-
-let is_fdummya b =
-  let s = H.string_of_hstring b in
-  try Scanf.sscanf s "%_s@%%%_d" true
-  with End_of_file | Scanf.Scan_failure _ -> false
-
-
-(* Return the symbol f in dummy symbol f%1 and register it as an argument of
-   function f *)
-let fun_symbol_of_dummy_arg ctx b ty =
-  let s = H.string_of_hstring b in
-  try
-    Scanf.sscanf s "%s@%%%d" (fun f i ->
-      let hf = H.mk_hstring f in
-      let args = try HH.find ctx.fun_defs_args hf with Not_found -> [] in
-      let nargs = (b, i, ty) :: args |> List.fast_sort lex_comp_b in
-      HH.replace ctx.fun_defs_args hf nargs
-      );
-    true
-  with End_of_file | Scanf.Scan_failure _ -> false
-
-
-(* Return the symbol f in dummy function symbol f%def *)
-let fun_symbol_of_def b =
-  let s = H.string_of_hstring b in
-  try
-    Scanf.sscanf s "%s@%%def" (fun f -> Some (H.mk_hstring f))
-  with End_of_file | Scanf.Scan_failure _ -> None
-
-
-let rec fun_symbol_args_of_def acc =
-  let open HS in
-  function
-  | Atom b ->
-    (match fun_symbol_of_def b with
-     | Some f -> Some (f, acc)
-     | None -> None
-    )
-  | List [Atom a; _; _; f; arg] when a == s_apply ->
-    fun_symbol_args_of_def (arg :: acc) f
-  | _ -> None
-
-(* Return the symbol f of a function definition dummy hypothesis appearing in
-   tracing LFSC proof. Example: [fun_symbol_args_of_def "(apply _ _ (apply _ _
-   f f%1) f%2)"] returns ["f"].
-*)
-let fun_symbol_args_of_def sexp = fun_symbol_args_of_def [] sexp
-
-
-(* Returns [true] if the bounded symbol is an index constant of the form
-   [%%k] or [%%1] *)
-let is_index_constant b =
-let s = H.string_of_hstring b in
-try Scanf.sscanf s "%%%%%_s" true
-with End_of_file | Scanf.Scan_failure _ -> false
-
-
-let concrete_to_mpz ty =
-  try List.find (fun (x,_) -> HS.equal ty x) (sigma_tindex ()) |> snd
-  with Not_found -> ty
-
-
-(* Returns [true] if the bounded symbol stands for an hypothesis *)
-let is_hyp b ty =
-  let s = H.string_of_hstring b in
-  try Scanf.sscanf s "A%_d" (true, ty) (* A0, A1, A2, etc. *)
-  with End_of_file | Scanf.Scan_failure _ ->
-    (* existentially quantified %%k in implication check stays in the
-       hypotheses, but replace its index type with mpz *)
-    if b == s_pk then (true, concrete_to_mpz ty)
-    else if is_index_constant b || is_fdummya b then (false, concrete_to_mpz ty)
-    else (false, ty)
-                        
-
-(* Returns the integer index of an index constant *)
-let mpz_of_index b =
-let s = H.string_of_hstring b in
-try Scanf.sscanf s "%%%%%d" (fun n -> Some n)
-with End_of_file | Scanf.Scan_failure _ -> None
-
-
-(* Identify useless hypothesis [(th_holds true)] (already in the rules of
-   smt.plf) *)
-let is_hyp_true = let open HS in function
-  | List [Atom th_holds; Atom tt]
-    when th_holds == s_th_holds && tt == s_true -> true
-  | _ -> false
 
 (* Apply a substitution top to bottom in an LFSC expression *)
-let rec apply_subst sigma sexp =
+(* let rec apply_subst sigma sexp =
   let open HS in
   try List.find (fun (s,_) -> HS.equal sexp s) sigma |> snd
   with Not_found ->
@@ -494,141 +321,7 @@ let rec apply_subst sigma sexp =
       let l' = List.rev_map (apply_subst sigma) l |> List.rev in
       if List.for_all2 (==) l l' then sexp
       else List l'
-    | Atom _ -> sexp
-
-(* Replace the type [(term index)] by the chosen representation *)
-(* let repalace_type_index = apply_subst (sigma_tindex ())*)
-
-(* Replacing a constant of type index by an embedding of their chosen
-   representation. For example, [%%1] becomes [f (ind 1)] (for mpz embedding)
-   and an index variable [i] becomes [(ind i)]. *)
-let embed_ind =
-  if mpz_proofs then
-    fun a -> match a with
-    | HS.Atom i ->
-      begin match mpz_of_index i with
-        | Some n ->
-          HS.(List [Atom s_ind; Atom (H.mk_hstring (string_of_int n))])
-        | None -> HS.(List [Atom s_ind; a])
-      end
-    | _ -> HS.(List [Atom s_ind; a])
-  else
-    fun a -> HS.(List [Atom s_ind; a])
-
-(* Embed indexes by replacing index constants and variables by the chosen
-   representation *)
-let rec embed_indexes targs sexp =
-  let open HS in
-  match sexp with
-  | Atom i when is_index_constant i -> embed_ind sexp
-  | Atom a ->
-    (match List.assq a targs with
-     | HS.Atom i when i == s_lfsc_index -> embed_ind sexp
-     (* | ty when is_term_index_type ty -> embed_ind sexp *)
-     | _ -> sexp
-     | exception Not_found -> sexp)
-  | List l ->
-    let l' = List.rev_map (embed_indexes targs) l |> List.rev in
-    if List.for_all2 (==) l l' then sexp
-    else List l'
-
-
-let rec definition_artifact_rec ctx = let open HS in function
-  | List [Atom at; b; t; s] when at == s_at ->
-    begin match definition_artifact_rec ctx s with
-      | None -> None
-      | Some def ->
-        (* FIXME some ugly allocations *)
-        Some { def with
-               def_body = List [Atom at; b; embed_indexes def.def_args t;
-                                def.def_body ]}
-    end
-
-  | List [Atom iff; List [Atom p_app; Atom fdef]; term]
-    when iff == s_iff && p_app == s_p_app -> 
-    begin match fun_symbol_of_def fdef with
-      | None -> None
-      | Some f ->
-        Some { def_symb = f;
-               def_args = [];
-               def_body = term;
-               def_ty = Some ty_formula } 
-    end
-    
-  | List [Atom eq; ty; Atom fdef; term] when eq == s_eq -> 
-    begin match fun_symbol_of_def fdef with
-      | None -> None
-      | Some f ->
-        Some { def_symb = f;
-               def_args = [];
-               def_body = term;
-               def_ty = Some (ty_term ty) } 
-    end
-    
-  | List [Atom iff; List [Atom p_app; fd]; term]
-    when iff == s_iff && p_app == s_p_app -> 
-    begin match fun_symbol_args_of_def fd with
-      | None -> None
-      | Some (f, _) ->
-        let targs = try HH.find ctx.fun_defs_args f with Not_found -> [] in
-        let targs =
-          List.map (fun (x, _, ty) -> x, (* repalace_type_index *) ty) targs in
-        Some { def_symb = f;
-               def_args = targs;
-               def_body = embed_indexes targs term;
-               def_ty = Some ty_formula } 
-    end
-    
-  | List [Atom eq; ty; fd; term] when eq == s_eq -> 
-    begin match fun_symbol_args_of_def fd with
-      | None -> None
-      | Some (f, _) ->
-        let targs = try HH.find ctx.fun_defs_args f with Not_found -> [] in
-        let targs =
-          List.map (fun (x, _, ty) -> x, (* repalace_type_index *) ty) targs in
-        Some { def_symb = f;
-               def_args = targs;
-               def_body = embed_indexes targs term;
-               def_ty = Some (ty_term ty) } 
-    end
-  | _ -> None
-
-(* Identifies definition artifacts introduces to trace inling of cvc5 terms at
-   the LFSC level. For example, [(th_holds (@ let38 P1%1(iff (p_app (apply _ _
-   P1%def P1%1)) (p_app (apply _ _ top.usr.OK P1%1)))))] is an articfact for
-   the definition of pymbol [P1]. *)
-let definition_artifact ctx = let open HS in function
-    | List [Atom th_holds; d] when th_holds == s_th_holds ->
-      definition_artifact_rec ctx d
-    | _ -> None
-
-(* Parse lambda binding in proof and classify them. *)
-let parse_Lambda_binding ctx b ty =
-  let ih, ty = is_hyp b ty in
-  if ih then
-    if is_hyp_true ty then
-      (* ignore useless (th_holds true) *)
-      Lambda_true
-    else match definition_artifact ctx ty with
-      | Some def ->
-        (* binding hypothesis for a definition artifact *)
-        Lambda_def def
-      | None ->
-        (* Otherwise its a real hypothesis *)
-        Lambda_hyp { decl_symb = b;
-                     decl_type = (* repalace_type_index  *)ty |> embed_indexes [] }
-  else if fun_symbol_of_dummy_arg ctx b ty || fun_symbol_of_def b <> None then
-    (* ignore introduced dummy symbols *)
-    Lambda_ignore
-  else if is_index_type b then
-    (* ignore declaration of abstract type index (already in LFSC rules) *)
-    Lambda_ignore
-  else if is_index_constant b then
-    (* Ignore declaration of index constants *)
-    Lambda_ignore
-  else
-    (* Keep declaration otheriwse *)
-    Lambda_decl { decl_symb = b; decl_type = ty }
+    | Atom _ -> sexp *)
 
 
 (* Returns list of admitted holes, i.e. formulas whose validity is trusted *)
