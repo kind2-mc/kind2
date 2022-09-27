@@ -47,6 +47,7 @@ module StringMap = struct
   end)
 end
 
+
 type compiler_state = {
   nodes : LustreNode.t list;
   type_alias : Type.t LustreIndex.t StringMap.t;
@@ -70,6 +71,11 @@ type identifier_maps = {
   assume_count : int;
   guarantee_count : int;
 }
+
+
+type cond_tree =
+	| Leaf of A.expr option
+	| Node of cond_tree * A.expr * cond_tree
 
 (*
 let pp_print_identifier_maps ppf maps =
@@ -271,6 +277,114 @@ let extract_normalized = function
   | A.Ident (_, ident) -> mk_ident ident
   | A.ArrayIndex (_, A.Ident (_, ident), _) -> mk_ident ident
   | _ -> assert false
+
+
+let rec add_eq_to_tree conds rhs node = 
+  (* let ppf = Format.std_formatter in *)
+  match conds with
+    | [] -> node
+    | [(b, cond)] -> (
+      match node with
+        | Leaf (Some _) -> 
+          failwith "error-- double assignment in if block 1" 
+        | Leaf None -> 
+          if b then Node (Leaf (Some rhs), cond, Leaf None)
+          else      Node (Leaf None, cond, Leaf (Some rhs))
+        | Node (l, c, r) -> 
+          if b then Node (Leaf (Some rhs), c, r)
+          else      Node (l, c, Leaf (Some rhs))
+    )
+    | (b, cond)::conds -> (
+      match node with
+        | Leaf (Some _) -> 
+          failwith "error-- double assignment in if block 2" 
+        | Leaf None -> 
+          if b then Node (add_eq_to_tree conds rhs (Leaf None), cond, Leaf None)
+          else      Node (Leaf None, cond, add_eq_to_tree conds rhs (Leaf None))
+        | Node (l, c, r) -> 
+          if b then Node (add_eq_to_tree conds rhs l, c, r)
+          else      Node (l, c, add_eq_to_tree conds rhs r)
+    )
+
+(* Refine? *)
+let lhss_eq lhs1 lhs2 = 
+  let (A.StructDef (_, ss1)) = lhs1 in
+  let (A.StructDef (_, ss2)) = lhs2 in
+  let vars1 = (List.map AH.vars_of_struct_item ss1) in
+  let vars2 = (List.map AH.vars_of_struct_item ss2) in 
+  vars1 = vars2
+
+(* List data structure doesn't quite work-- we want to update 
+   the pair if it already exists, not keep adding pairs. *)
+let replace l a b  = List.map (fun x -> if x = a then b else x) l
+
+let update l (k, v) = 
+  match List.find_opt (fun (a, _) -> lhss_eq k a) l with
+    | Some (a, b) -> replace l (a, b) (k, v)
+    | None -> (k, v) :: l
+
+
+let if_block_to_trees ib =
+  let rec helper ib trees conds =
+    match ib with 
+      | A.IfBlock (pos, cond, ni::nis, nis') -> (
+        match ni with
+          | A.Body (Equation (_, lhs, expr)) -> 
+            let tree = (
+              match (List.find_opt (fun (lhs', _) -> lhss_eq lhs' lhs) trees) with
+                | Some (_, tree) -> tree
+                | None -> Leaf None
+            ) in
+            let trees = (update trees (lhs, (add_eq_to_tree (conds @ [(true, cond)]) expr tree))) in
+            helper (A.IfBlock (pos, cond, nis, nis')) trees conds
+          | A.IfBlock _ -> 
+            helper (A.IfBlock (pos, cond, nis, nis'))
+                   (helper ni trees (conds @ [(true, cond)]))
+                   conds
+          | _ -> failwith "error"
+        )
+      | A.IfBlock (pos, cond, [], ni::nis) -> (
+        match ni with
+          | A.Body (Equation (_, lhs, expr)) -> 
+            let tree = (
+              match (List.find_opt (fun (lhs', _) -> lhss_eq lhs' lhs) trees) with
+                | Some (_, tree) ->  tree
+                | None -> Leaf None
+            ) in
+            let trees = (update trees (lhs, (add_eq_to_tree (conds @ [(false, cond)]) expr tree))) in
+            helper (A.IfBlock (pos, cond, [], nis)) trees conds
+          | A.IfBlock _ -> 
+            helper (A.IfBlock (pos, cond, [], nis))
+                   (helper ni trees (conds @ [(false, cond)]))
+                   conds
+          | _ -> failwith "error"
+        )
+      | A. IfBlock (_, _, [], []) -> trees
+      | _ -> failwith "error"
+    in
+  helper ib [] []
+  
+let rec tree_to_ite pos node =
+  match node with
+    | Leaf Some expr -> expr
+    | Leaf None -> A.Ident(pos, HString.mk_hstring "STUB")
+    | Node (left, cond, right) -> 
+      TernaryOp (pos, Ite, cond, tree_to_ite pos left, tree_to_ite pos right)
+
+
+let extract_equations_from_if ib =
+  let (lhss, trees) = List.split (if_block_to_trees ib) in
+  (* let trees = List.map simplify trees in *)
+  let poss = List.map (fun (A.StructDef (a, _)) -> a) lhss in
+  let ites = List.map2 tree_to_ite poss trees in
+  (* Combine poss, lhss, and ites into a list of triples *)
+  List.map2 (fun (a, b) c -> (a, b, c)) (List.combine poss lhss) ites
+
+
+
+
+
+
 
 let flatten_list_indexes (e:E.t X.t) =
   let over_indices k (indices, e) =
@@ -1765,6 +1879,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | A.Equation (p, l, e) -> (props, (p, l, e) :: eqs, asserts, is_main))
       | A.AnnotMain flag -> (props, eqs, asserts, flag || is_main)
       | A.AnnotProperty (p, n, e) -> ((p, n, e) :: props, eqs, asserts, is_main) 
+      | A.IfBlock _ as ib -> (props, (extract_equations_from_if ib) @ eqs, asserts, is_main)
     in List.fold_left over_items ([], [], [], false) items
   (* ****************************************************************** *)
   (* Properties and Assertions                                          *)

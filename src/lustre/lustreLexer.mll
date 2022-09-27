@@ -251,6 +251,7 @@ let keyword_table = mk_hashtbl [
   "var", VAR ;
   "let", LET ;
   "tel", TEL ;
+  "end", END ;
   
   (* Assertion *)
   "assert", ASSERT ;

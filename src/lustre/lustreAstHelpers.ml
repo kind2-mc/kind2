@@ -793,6 +793,7 @@ let rec vars_of_struct_item = function
   | ArraySliceStructItem (_, i, _)
   | ArrayDef (_, i, _) -> SI.singleton i
 
+
 let rec vars_lhs_of_eqn_with_pos = function
   | Body (Equation (_, StructDef (_, ss), _)) -> List.flatten (List.map vars_of_struct_item_with_pos ss)
   | IfBlock (_, _, l1, l2) -> 

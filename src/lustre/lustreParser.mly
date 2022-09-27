@@ -95,6 +95,7 @@ let mk_span start_pos end_pos =
 %token VAR
 %token LET
 %token TEL
+%token END
     
 (* Tokens for annotations *)
 
@@ -606,7 +607,11 @@ node_item:
 
 
 node_if_block:
-  | IF e = expr THEN l1 = list(node_item) ELSE l2 = list(node_item) { A.IfBlock (mk_pos $startpos, e, l1, l2) }
+  | IF e = expr THEN 
+    LCURLYBRACKET; l1 = list(node_item) RCURLYBRACKET;
+    ELSE 
+    LCURLYBRACKET l2 = list(node_item) RCURLYBRACKET;
+    { A.IfBlock (mk_pos $startpos, e, l1, l2) }
 
 (* An equations of a node *)
 node_equation:
