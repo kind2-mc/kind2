@@ -20,6 +20,9 @@ _build
 # Generated doc.
 ocamldoc
 
+# Generated LFSC stuff.
+lfsc
+
 # Generated server stuff.
 server/myocamlbuild.ml
 server/Makefile
