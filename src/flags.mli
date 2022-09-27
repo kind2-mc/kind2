@@ -485,8 +485,8 @@ module Certif : sig
   (** Proof production. *)
   val proof : unit -> bool
 
-  (** Use abstract type indexes in certificates/proofs. *)
-  val abstr : unit -> bool
+  (** Reduce the size of trusted holes. *)
+  val smaller_holes : unit -> bool
 
   (** Log trusted parts of proofs. *)
   val log_trust : unit -> bool

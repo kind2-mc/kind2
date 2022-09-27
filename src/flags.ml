@@ -1241,17 +1241,19 @@ module Certif = struct
   let certif () = !certif
   let proof () = !proof
 
-  let abstr_default = false
-  let abstr = ref abstr_default
+  let smaller_holes_default = false
+  let smaller_holes = ref smaller_holes_default
   let _ = add_spec
-    "--certif_abstr"
-    (bool_arg abstr)
+    "--smaller_holes"
+    (bool_arg smaller_holes)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Use abstract type indexes in certificates and proofs .@ Default: %a@]"
-        fmt_bool abstr_default
+        "@[<v>Generate proofs with smaller trust holes. Substantially \
+         increases the size of the proof.@ Default: %a@]"
+        fmt_bool smaller_holes_default
     )
-  let abstr () = !abstr
+
+  let smaller_holes () = !smaller_holes
 
   let log_trust_default = false
   let log_trust = ref log_trust_default
@@ -3565,10 +3567,19 @@ let solver_dependant_actions solver =
   )
   | `cvc5_SMTLIB -> (
     let cmd = Format.asprintf "%s --version" (Smt.cvc5_bin ()) in
-    if get_version false cmd = None then (
-      Log.log L_warn "Couldn't determine cvc5 version";
-      raise Error
-    )
+    match get_version true cmd with
+    | None ->
+        Log.log L_warn "Couldn't determine cvc5 version";
+        raise Error
+    | Some (major, minor, patch) ->
+        if
+          Certif.proof () && (major = 0 || (major = 1 && minor = 0 && patch < 3))
+        then (
+          Log.log L_error
+            "Kind 2's proof module requires cvc5 1.0.3 or later. Found \
+             version: %d.%d.%d"
+            major minor patch;
+          raise Error)
   )
   | `Yices_native -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
@@ -3745,6 +3756,8 @@ let parse_argv () =
   | _, `Z3_SMTLIB -> solver_dependant_actions `Z3_SMTLIB
   | _, `cvc5_SMTLIB -> solver_dependant_actions `cvc5_SMTLIB
   | _, _ -> ()) ;
+
+  if Certif.proof () then solver_dependant_actions `cvc5_SMTLIB;
 
   if IVC.compute_ivc () && BmcKind.compress () then (
     BmcKind.disable_compress () ;
