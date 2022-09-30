@@ -111,7 +111,7 @@ val pruning_sys : pruning -> TransSys.t
 val kill_pruning : pruning -> unit
 
 (** Creates a pruning checker for a system. *)
-val mk_pruning_checker : TransSys.t -> pruning
+val mk_pruning_checker : TransSys.t -> bool -> pruning
 
 (** Adds invariants to a pruning checker.
 Second argument is the one-state invariants, third is the two-state ones. *)
