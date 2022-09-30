@@ -41,7 +41,6 @@ let file_width = 120
 let quant_free = true
 let monolithic_base = true
 let simple_base = false
-let abstr_index () = Proof.abstr_index ()
 let clean_tmp = false
 let call_frontend = true
 
@@ -125,20 +124,11 @@ let s_or = Symbol.mk_symbol `OR
 let s_not = Symbol.mk_symbol `NOT*)
 
 
-let ty_index_name = "index"
-let ty_index () =
-  if abstr_index () then Type.mk_abstr ty_index_name else Type.t_int 
+let ty_index () = Type.t_int
 
-let index_sym_of_int i =
-  if abstr_index () then "%%" ^ string_of_int i
-  else string_of_int i
+let index_sym_of_int i = string_of_int i
     
-let index_of_int i =
-  if not (abstr_index ()) then Term.mk_num_of_int i
-  else
-    Term.mk_uf
-      (UfSymbol.mk_uf_symbol (index_sym_of_int i) [] (ty_index ()))
-      []
+let index_of_int i = Term.mk_num_of_int i
 
 let t0 = Term.mk_num_of_int 0 (* index_of_int 0 *)
 let t1 = Term.mk_num_of_int 1 (* index_of_int 1 *)
@@ -325,7 +315,7 @@ let define_fun ?(trace_lfsc_defs=false) fmt fun_symbol arg_vars res_sort defn =
 
   if trace_lfsc_defs then begin
 
-    fprintf fmt ";; Tracing artifact for cvc5 and LFSC proofs\n";
+    (* fprintf fmt ";; Tracing artifact for cvc5 and LFSC proofs\n";
     
     let fs = UfSymbol.string_of_uf_symbol fun_symbol in
     let fun_def_sy = fs ^ "%def" in
@@ -347,7 +337,7 @@ let define_fun ?(trace_lfsc_defs=false) fmt fun_symbol arg_vars res_sort defn =
 
     fprintf fmt "@[<hov 1>(assert@ @[<hov 1>(=@ @[<hv 1>(%s@ %a)@]@ @[<hv 1>(%s@ %a)@])@])@]\n@."
       fun_def_sy (pp_print_list pp_print_string "@ ") fun_def_args
-      fs (pp_print_list pp_print_string "@ ") fun_def_args
+      fs (pp_print_list pp_print_string "@ ") fun_def_args *)
     
   end
   
@@ -1281,7 +1271,7 @@ let add_logic fmt sys =
     | `Inferred l ->
       `Inferred (
         l |> FeatureSet.add UF
-        |> (if abstr_index () then Lib.identity else FeatureSet.add IA) 
+        |> FeatureSet.add IA
         |> (if quant_free then Lib.identity else FeatureSet.add Q)
       )
   in
@@ -1340,7 +1330,7 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
     | `Inferred l ->
       `Inferred (
         l |> FeatureSet.add UF
-        |> (if abstr_index () then Lib.identity else FeatureSet.add IA)
+        |> FeatureSet.add IA
         |> (if quant_free then Lib.identity else FeatureSet.add Q)
       )
   in
@@ -1459,22 +1449,6 @@ let export_system_defs
       define_fun ~trace_lfsc_defs fmt f a Type.t_bool d) defs
 
 
-
-(* Declarations for abstract index constants *)
-
-let add_decl_index fmt k =
-  if abstr_index () then begin
-    add_section fmt "Indexes for k-induction";
-    fprintf fmt "(declare-sort %s 0)\n@." ty_index_name;
-    for i = 0 to k do
-      fprintf fmt "(declare-fun %s () %s)@." (index_sym_of_int i) ty_index_name;
-    done
-  end
-  (* else  *)
-  (*   fprintf fmt "(define-sort %s () Int)\n@." ty_index_name *)
-
-
-
 (**********************************************)
 (* Creation of certificate and checker script *)
 (**********************************************)
@@ -1579,8 +1553,7 @@ let export_system ~trace_lfsc_defs
 
   if trace_lfsc_defs then begin
     add_logic fmt sys;
-    add_arrays fmt;
-    add_decl_index fmt (-1);
+    add_arrays fmt
   end;
   
   (* declare state variables, write I, T and P *)
@@ -1605,7 +1578,6 @@ let export_phi ~trace_lfsc_defs dirname file definitions_files names sys phi =
             if trace_lfsc_defs then begin
               add_logic fmt sys;
               add_arrays fmt;
-              add_decl_index fmt (-1)
             end else ())
         definitions_files filename |> Unix.out_channel_of_descr
     else open_out filename in
@@ -1668,8 +1640,7 @@ let mononames_base_check sys dirname file definitions_files k names =
   let od = files_cat_open
       ~add_prefix:(fun fmt ->
           add_logic fmt sys;
-          add_arrays fmt;
-          add_decl_index fmt k)
+          add_arrays fmt)
       definitions_files filename in
   let oc = Unix.out_channel_of_descr od in
   let fmt = formatter_of_out_channel oc in
@@ -1709,8 +1680,7 @@ let mononames_induction_check sys dirname file definitions_files k names =
   let od = files_cat_open
       ~add_prefix:(fun fmt ->
           add_logic fmt sys;
-          add_arrays fmt;
-          add_decl_index fmt k)
+          add_arrays fmt)
       definitions_files filename in
   let oc = Unix.out_channel_of_descr od in
   let fmt = formatter_of_out_channel oc in
@@ -1745,8 +1715,7 @@ let mononames_implication_check sys dirname file definitions_files names =
   let od = files_cat_open
       ~add_prefix:(fun fmt ->
           add_logic fmt sys;
-          add_arrays fmt;
-          add_decl_index fmt (-1))
+          add_arrays fmt)
       definitions_files filename in
   let oc = Unix.out_channel_of_descr od in
   let fmt = formatter_of_out_channel oc in
@@ -1756,9 +1725,7 @@ let mononames_implication_check sys dirname file definitions_files names =
   add_section fmt "Property implication";
     
 
-  let v = "%%k" in
-  let sindex_sort = ty_index () |> SMT.string_of_sort in
-  fprintf fmt "(declare-fun %s () %s)\n@." v sindex_sort;
+  let v = "0" in
   let f = smk "=>" [smk names.phi [v];
                     smk names.prop [v]] in
   
@@ -1916,8 +1883,6 @@ let generate_certificate sys dirname =
   (* add headers for info *)
   add_header fmt_header sys k
     names_bare.init names_bare.prop names_bare.trans names_bare.phi;
-
-  add_decl_index fmt k;
 
   if is_fec sys then begin
 
@@ -2571,8 +2536,7 @@ let export_obs_system ~trace_lfsc_defs
         ~add_prefix:(fun fmt ->
             if trace_lfsc_defs then begin
               add_logic fmt kind2_sys;
-              add_arrays fmt;
-              add_decl_index fmt (-1)
+              add_arrays fmt
             end else ())
         definitions_files filename |> Unix.out_channel_of_descr
     else open_out filename in
@@ -3010,15 +2974,15 @@ let generate_all_proofs uid input sys =
   create_dir dirname;
 
   if not (is_fec sys) then begin
-    
-    (try
-       let cert_inv = generate_split_certificates sys dirname in
-       Proof.generate_inv_proof cert_inv;
-     with e ->
-       (* Send statistics *)
-       KEvent.stat Stat.[certif_stats_title, certif_stats];
-       raise e);
-
+    let cert_inv, syms =
+      try
+        let cert_inv = generate_split_certificates sys dirname in
+        (cert_inv, Proof.generate_inv_proof cert_inv)
+      with e ->
+        (* Send statistics *)
+        KEvent.stat Stat.[ (certif_stats_title, certif_stats) ];
+        raise e
+    in
     let inv_lfsc = Filename.concat dirname Proof.proofname in
     let front_lfsc = Filename.concat dirname Proof.frontend_proofname in
     let trust_lfsc = Filename.concat dirname Proof.trustfname in
@@ -3075,7 +3039,34 @@ let generate_all_proofs uid input sys =
 
         begin match Sys.command cmd with
           | 0 | 20 ->
-            files_cat_open [inv_lfsc; front_lfsc] final_lfsc |> Unix.close;
+            let filter_and_copy_lines ic oc keep =
+              let rec read_line () =
+                try
+                  let line = input_line ic in
+                  if keep line then Printf.fprintf oc "%s\n" line ;
+                  read_line ()
+                with End_of_file -> ()
+              in
+              read_line ()
+            in
+            let sym_defs =
+              List.map
+                (fun sym -> "(define " ^ HString.string_of_hstring sym)
+                syms
+            in
+            let pred l =
+              List.exists (fun sym -> Lib.string_starts_with l sym) sym_defs
+              |> not
+            in
+            let oc =
+              open_out_gen [ Open_append; Open_creat ] 0o666 final_lfsc
+            in
+            filter_and_copy_lines (open_in front_lfsc) oc pred ;
+            fprintf (formatter_of_out_channel oc) ";; Final proof of safety\n@.";
+            Proof.write_safe_proof
+              (formatter_of_out_channel oc)
+              cert_inv.kind2_system cert_inv.jkind_system;
+            close_out oc;
             if Sys.file_exists trust_lfsc then file_copy trust_lfsc final_trust;
 
           | c ->
@@ -3114,4 +3105,3 @@ let generate_all_proofs uid input sys =
     KEvent.stat Stat.[certif_stats_title, certif_stats];
 
   end
-  

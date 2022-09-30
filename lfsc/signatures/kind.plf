@@ -6,19 +6,11 @@
 
 ;; Depends on sat.plf, smt.plf, and th_base.plf
 
+;; transition relation
+(define rel term)
 
-;; (declare index sort)
-;; (declare ind (! n mpz (term index)))
-
-;; in case we want integer indexes later, use this instead
-(define index Int)
-(define ind a_int)
-
-;; relations over indexes (used for transition relation)
-(define rel (! x mpz (! y mpz formula)))
-
-;; sets over indexes (used for initial formula and properties)
-(define set (! x mpz formula))
+;; initial term and properties
+(define set term)
 
 ;; derivability judgment for invariance proofs (P invariant in system (I, S))
 (declare invariant (! I set (! T rel (! P set type))))
@@ -38,21 +30,31 @@
 
 (declare obs_eq
   (! I1 set (! T1 rel (! P1 set
-  (! I2 set (! T2 rel (! P2 set 
+  (! I2 set (! T2 rel (! P2 set
 
-  ;; Given formula to fix inputs as being the same in the two systems
+  ;; indices of lambda abstractions for I, T, and P
+  (! a mpz (! b mpz (! c mpz (! d mpz
+
+  ;; Given term to fix inputs as being the same in the two systems
   (! same_inputs set                         
 
   ;; proof that P1 <=> P2 is invariant in the observer
   (! ue
      (invariant
-      (\ i (and (same_inputs i) (and (I1 i) (I2 i))))
-      (\ i (\ j (and (same_inputs j) (and (T1 i j) (T2 i j)))))
-      (\ k (iff (P1 k) (P2 k))))
+       ((lambda a Int) (
+         (let i (bvar a Int)
+         (and (apply same_inputs i) (and (and (apply I1 i) (and (apply I2 i) true)) true)))))
+       ((lambda b Int) ((lambda c Int) (
+         (let i (bvar b Int)
+         (let j (bvar c Int)
+         (and (apply same_inputs j) (and (and (apply (apply T1 i) j) (and (apply (apply T2 i) j) true)) true)))))))
+       ((lambda d Int) (
+         (let k (bvar d Int)
+         (= (apply P1 k) (apply P2 k))))))
   ;;------------------------------
   (weak_obs_eq I1 T1 P1 I2 T2 P2)
 
-)))))))))
+)))))))))))))
 
 
 ;; derivation judgment for safety (system (I,T) is safe wrt P)
@@ -89,46 +91,46 @@
 
 
 ;; Unrolling transition relation k times starting from the initial state
-(program unroll_from ((T rel) (I set) (k mpz)) formula
- (mp_ifneg k
-   (fail formula)
-   (mp_ifzero k
-     (I 0)
-     (let j (mp_add k (~ 1))
-       (and (unroll_from T I j) (T j k))))))
+(program unroll_from ((T rel) (I set) (k term)) term
+ (mp_ifneg (sc_arith_get_mpz k)
+   (fail term)
+   (mp_ifzero (sc_arith_get_mpz k)
+     (apply I (int 0))
+     (let j (int (mp_add (sc_arith_get_mpz k) (~ 1)))
+       (and (unroll_from T I j) (and (apply (apply T j) k) true))))))
 
 
 
 ;; base for k steps
-(program base_k ((I set) (T rel) (P set) (k mpz)) formula
- (mp_ifneg k
-   (fail formula)
-   (mp_ifzero k
-     (and (unroll_from T I 0) (not (P 0)))
-     (let j (mp_add k (~ 1))
-       (or (base_k I T P j) (and (unroll_from T I k) (not (P k))))))))
+(program base_k ((I set) (T rel) (P set) (k term)) term
+ (mp_ifneg (sc_arith_get_mpz k)
+   (fail term)
+   (mp_ifzero (sc_arith_get_mpz k)
+     (and (unroll_from T I (int 0)) (and (not (apply P (int 0))) true))
+     (let j (int (mp_add (sc_arith_get_mpz k) (~ 1)))
+       (or (base_k I T P j) (or (and (unroll_from T I k) (and (not (apply P k)) true)) false))))))
 
 
 ;; base for k-1 steps
-(program base ((I set) (T rel) (P set) (k mpz)) formula
- (base_k I T P (mp_add k (~ 1))))
+(program base ((I set) (T rel) (P set) (k term)) term
+ (base_k I T P (int (mp_add (sc_arith_get_mpz k) (~ 1)))))
 
 
 ;; unroll step case under assumption
-(program unroll_with ((T rel) (P set) (k mpz)) formula
- (mp_ifneg k
-   (fail formula)
-   (mp_ifzero k
-     (P 0)
-     (let j (mp_add k (~ 1))
-       (mp_ifzero j
-          (and (P 0) (T 0 1))
-          (and (unroll_with T P j) (and (P j) (T j k))))))))
+(program unroll_with ((T rel) (P set) (k term)) term
+ (mp_ifneg (sc_arith_get_mpz k)
+   (fail term)
+   (mp_ifzero (sc_arith_get_mpz k)
+     (apply P (int 0))
+     (let j (int (mp_add (sc_arith_get_mpz k) (~ 1)))
+       (mp_ifzero (sc_arith_get_mpz j)
+          (and (apply P (int 0)) (and (apply (apply T (int 0)) (int 1)) true))
+          (and (unroll_with T P j) (and (and (apply P j) (and (apply (apply T j) k) true)) true)))))))
 
 
-;; program to construct step formula
-(program step ((T rel) (P set) (k mpz)) formula
-  (and (unroll_with T P k) (not (P k))))
+;; program to construct step term
+(program step ((T rel) (P set) (k term)) term
+  (and (unroll_with T P k) (and (not (apply P k)) true)))
 
 
 ;; Rule for weakening of invariants
@@ -140,10 +142,10 @@
   (! P2 set
 
   (! u
-     (! k mpz      
-     (! v1 (th_holds (P1 k))
-     (! v2 (th_holds (not (P2 k)))
-        (holds cln))))
+     (! k term
+     (! v1 (holds (apply P1 k))
+     (! v2 (holds (not (apply P2 k)))
+        (holds false))))
 
   (! i1
      (invariant I T P1)
@@ -164,9 +166,8 @@
 
   ;; proof that P1 => P2
   (! u
-     (! k mpz      
-     (! v (th_holds (not (impl (P1 k) (P2 k))))
-        (holds cln)))
+     (! v (holds (not (=> (apply P1 (int 0)) (apply P2 (int 0)))))
+        (holds false))
 
   ;; proof that P1 is invariant
   (! i1
@@ -181,20 +182,20 @@
 ;; Rule for k-induction principle
 
 (declare kinduction
-  (! k mpz      ; bound k
+  (! k term     ; bound k
   (! I set      ; initial states
   (! T rel      ; transition relation
   (! P set      ; k-inductice invariant
 
-  (! B formula  ; formula for base case (see side-condition r1)
+  (! B term  ; term for base case (see side-condition r1)
   (! r1 (^ (base I T P k) B)
 
-  (! S formula  ; formula for step case (see side-condition r2)
+  (! S term  ; term for step case (see side-condition r2)
   (! r2 (^ (step T P k) S)
          
-  (! ub (! vb (th_holds B) (holds cln)) ; proof of base
+  (! ub (! vb (holds B) (holds false)) ; proof of base
 
-  (! us (! vs (th_holds S) (holds cln)) ; proof of step
+  (! us (! vs (holds S) (holds false)) ; proof of step
 
 
   ;------------------------------------
@@ -213,8 +214,8 @@
    (! T1 rel
    (! I2 set
    (! T2 rel
-   (! ui (! k mpz (th_holds (impl (I1 k) (I2 k))))
-   (! ui (! i mpz (! j mpz (th_holds (impl (T1 i j) (T2 i j)))))
+   (! ui (! k term (holds (=> (apply I1 k) (apply I2 k))))
+   (! ui (! i term (! j term (holds (=> (apply (apply T1 i) j) (apply (apply T2 i) j)))))
             (sys-approx I1 T1 I2 T2))))))))
 
 (declare sys-approx-inv
@@ -246,19 +247,28 @@
   (! I set
   (! T rel
   (! P set
+  ;; index of lambda abstraction
+  (! a mpz
   (! up (invariant I T P)
-    (respect_contract I T (contract_ag (\ _ true) P)))))))
+    (respect_contract I T (contract_ag ((lambda a Int) true) P))))))))
 
 (declare contract_to_prop
   (! I set
   (! T rel
   (! A set
   (! G set
-  (! up (invariant 
-         (\ i (and (I i) (A i)))
-         (\ i (\ j (and (T i j) (A j))))
+  ;; indices of lambda abstractions
+  (! a mpz (! b mpz (! c mpz
+  (! up (invariant
+         ((lambda a Int) (
+           (let i (bvar a Int)
+             (and (apply I i) (apply A i)))))
+         ((lambda b Int) ((lambda c Int) (
+           (let i (bvar b Int)
+           (let j (bvar c Int)
+             (and (apply (apply T i) j) (apply A j)))))))
          G)
-    (respect_contract I T (contract_ag A G))))))))
+    (respect_contract I T (contract_ag A G)))))))))))
 
 
 (declare abstract_respect_contract
@@ -266,8 +276,10 @@
   (! T rel
   (! A set
   (! G set
-  (! ui (invariant A (\ _ A) G)
-    (respect_contract I T (contract_ag A G))))))))
+  ;; index of lambda abstraction
+  (! a mpz
+  (! ui (invariant A ((lambda a Int) A) G)
+    (respect_contract I T (contract_ag A G)))))))))
 
 
 
@@ -330,4 +342,3 @@
 ;;    (\ ps (clausify_false (trust))) ;; hole for proof of step at 2
 
 ;;  ))))))))
-   
