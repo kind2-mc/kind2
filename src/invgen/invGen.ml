@@ -352,7 +352,7 @@ module Make (Graph : GraphSig) : Out = struct
     (* Format.printf "  pruning@.@." ; *)
     let (non_trivial, trivial) =
       if Flags.Invgen.prune_trivial () then
-        Lsd.query_pruning pruner invs
+        Lsd.query_pruning pruner two_state invs
       else (invs, [])
     in
 

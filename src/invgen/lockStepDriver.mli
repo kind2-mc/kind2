@@ -120,7 +120,7 @@ val pruning_add_invariants : pruning -> bool -> Term.t list -> unit
 (** Checks if some terms are trivially implied by the transition relation.
 
 Returns a pair of the trivial and the non-trivial invariants. *)
-val query_pruning : pruning -> Term.t list -> ( Term.t list * Term.t list )
+val query_pruning : pruning -> bool -> Term.t list -> ( Term.t list * Term.t list )
 
 (* 
    Local Variables:

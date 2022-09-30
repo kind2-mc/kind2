@@ -587,7 +587,7 @@ let pruning_add_invariants t ts invs =
 
 
 (** Separates the trivial invariants from a list of candidates. *)
-let query_pruning pruning_checker =
+let query_pruning pruning_checker two_state =
 
   let { solver } = pruning_checker in
   
@@ -608,7 +608,7 @@ let query_pruning pruning_checker =
       Actlit.term_of_actlit actlit
     in
 
-    let k = Num.one in
+    let k = if two_state then Num.one else Num.zero in
 
     (* Bumping everyone for query and get values. *)
     let cands = candidates |> List.map (Term.bump_state k) in
