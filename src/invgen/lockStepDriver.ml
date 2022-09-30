@@ -17,9 +17,6 @@
 *)
 
 
-open Lib
-
-
 (** Lock Step Driver for graph-based invariant generation.
 
 Provides structures to abstract SMT-solvers for the base / step case, as well
@@ -648,12 +645,15 @@ let query_pruning pruning_checker =
     | None ->
       Smt.trace_comment solver "|===| Done." ;
       (non_trivial, candidates)
-    | Some (non_triv :: non_trivs, rest) ->
+    | Some (non_triv, rest) ->
+      loop (List.rev_append non_triv non_trivial) rest
+    (*| Some (non_triv :: non_trivs, rest) ->
+      (* pruning_add_invariants pruning_checker two_state [non_triv]; *)
       loop (non_triv :: non_trivial) (List.rev_append non_trivs rest)
     | Some ([], _) ->
       KEvent.log L_fatal
         "[pruning] satisfiable instance but no falsifiable candidate" ;
-      exit 2
+      exit 2*)
   in
 
   loop []
