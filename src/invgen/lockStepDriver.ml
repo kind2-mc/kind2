@@ -17,9 +17,6 @@
 *)
 
 
-open Lib
-
-
 (** Lock Step Driver for graph-based invariant generation.
 
 Provides structures to abstract SMT-solvers for the base / step case, as well
@@ -523,7 +520,7 @@ let pruning_fresh_actlit pruning_checker =
 let kill_pruning { solver } = Smt.delete_instance solver
 
 (** Creates a new pruning solver. *)
-let mk_pruning_checker_solver sys =
+let mk_pruning_checker_solver sys two_state =
   let solver = (* Creating solver. *)
     Smt.create_instance ~produce_assignments:true
       (Sys.get_logic sys) (Flags.Smt.solver ())
@@ -541,39 +538,43 @@ let mk_pruning_checker_solver sys =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
-    Numeral.zero Numeral.one ;
-
+    Numeral.zero (if two_state then Numeral.one else Numeral.zero);
 
   Smt.trace_comment solver (* Logging stuff in smt trace. *)
-    "Asserting invariants at [0] and [1]." ;
+    "Asserting invariants at [0]." ;
 
   Sys.invars_of_bound
     ~one_state_only:true sys Numeral.zero (* Invariants at [0]. *)
   |> List.iter (Smt.assert_term solver) ;
 
-  Sys.invars_of_bound sys Numeral.one (* Invariants at [1]. *)
-  |> List.iter (Smt.assert_term solver) ;
+  if two_state then (
+    Smt.trace_comment solver (* Logging stuff in smt trace. *)
+      "Asserting invariants at [1]." ;
 
-  Format.asprintf
-    "Asserting transition relation."
-  |> Smt.trace_comment solver ;
-  Sys.trans_of_bound (Some (Smt.declare_fun solver)) sys Num.one
-  |> Smt.assert_term solver ;
+    Sys.invars_of_bound sys Numeral.one (* Invariants at [1]. *)
+    |> List.iter (Smt.assert_term solver) ;
+
+    Format.asprintf "Asserting transition relation."
+    |> Smt.trace_comment solver ;
+
+    Sys.trans_of_bound (Some (Smt.declare_fun solver)) sys Num.one
+    |> Smt.assert_term solver
+  ) ;
 
   solver
 
 (** Creates a new pruning checker. *)
-let mk_pruning_checker sys =
-  { solver = mk_pruning_checker_solver sys ; sys ; actlit_uid = 0 }
+let mk_pruning_checker sys two_state =
+  { solver = mk_pruning_checker_solver sys two_state; sys ; actlit_uid = 0 }
 
 
 (** Resets the solver in a pruning checker if needed. *)
-let conditional_pruning_solver_reset (
+let conditional_pruning_solver_reset two_state (
   { solver ; sys ; actlit_uid } as pruning_checker
 ) = if actlit_uid >= max_actlit_count_before_reset then (
   (* KEvent.log_uncond "[LSD] RESTARTING PRUNING" ; *)
   Smt.delete_instance solver ;
-  let solver = mk_pruning_checker_solver sys in
+  let solver = mk_pruning_checker_solver sys two_state in
   pruning_checker.solver <- solver ;
   pruning_checker.actlit_uid <- 0
 )
@@ -585,19 +586,19 @@ let pruning_add_invariants t ts invs =
   let eub = Num.(succ one) in (* Exclusive upper bound. *)
   invs |> (
     if ts then List.iter (Unroller.assert_1_to solver eub)
-    else List.iter (Unroller.assert_0_to solver eub)
+    else List.iter (Unroller.assert_0_to solver Num.one)
   )
 
 
 (** Separates the trivial invariants from a list of candidates. *)
-let query_pruning pruning_checker =
+let query_pruning pruning_checker two_state =
 
   let { solver } = pruning_checker in
   
   let rec loop non_trivial candidates =
 
     (* Restarting solver if necessary. *)
-    conditional_pruning_solver_reset pruning_checker ;
+    conditional_pruning_solver_reset two_state pruning_checker ;
     let actlit = Actlit.fresh_actlit () in
 
     Format.asprintf
@@ -611,7 +612,7 @@ let query_pruning pruning_checker =
       Actlit.term_of_actlit actlit
     in
 
-    let k = Num.one in
+    let k = if two_state then Num.one else Num.zero in
 
     (* Bumping everyone for query and get values. *)
     let cands = candidates |> List.map (Term.bump_state k) in
@@ -648,12 +649,15 @@ let query_pruning pruning_checker =
     | None ->
       Smt.trace_comment solver "|===| Done." ;
       (non_trivial, candidates)
-    | Some (non_triv :: non_trivs, rest) ->
+    | Some (non_triv, rest) ->
+      loop (List.rev_append non_triv non_trivial) rest
+    (*| Some (non_triv :: non_trivs, rest) ->
+      (* pruning_add_invariants pruning_checker two_state [non_triv]; *)
       loop (non_triv :: non_trivial) (List.rev_append non_trivs rest)
     | Some ([], _) ->
       KEvent.log L_fatal
         "[pruning] satisfiable instance but no falsifiable candidate" ;
-      exit 2
+      exit 2*)
   in
 
   loop []

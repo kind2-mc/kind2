@@ -111,7 +111,7 @@ val pruning_sys : pruning -> TransSys.t
 val kill_pruning : pruning -> unit
 
 (** Creates a pruning checker for a system. *)
-val mk_pruning_checker : TransSys.t -> pruning
+val mk_pruning_checker : TransSys.t -> bool -> pruning
 
 (** Adds invariants to a pruning checker.
 Second argument is the one-state invariants, third is the two-state ones. *)
@@ -120,7 +120,7 @@ val pruning_add_invariants : pruning -> bool -> Term.t list -> unit
 (** Checks if some terms are trivially implied by the transition relation.
 
 Returns a pair of the trivial and the non-trivial invariants. *)
-val query_pruning : pruning -> Term.t list -> ( Term.t list * Term.t list )
+val query_pruning : pruning -> bool -> Term.t list -> ( Term.t list * Term.t list )
 
 (* 
    Local Variables:
