@@ -2080,8 +2080,9 @@ module Invgen = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
-          Invariant generation will only communicate invariants not implied@ \
-          by the transition relation@ \
+          Invariant generation will only communicate one-state invariants not implied by@ \
+          previous one-state invariants, and two-state invariants not implied by@ \
+          previous two-state invariants or the transition relation@ \
           Default: %a\
         @]"
         fmt_bool prune_trivial_default
