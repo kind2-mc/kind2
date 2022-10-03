@@ -74,14 +74,18 @@ SIGS="\$SIG_DIR/core_defs.plf \\
     \$SIG_DIR/arith_rules.plf \\
     \$SIG_DIR/quantifiers_rules.plf \\
     \$SIG_DIR/kind.plf"
-$BASE_DIR/bin/lfscc \$SIGS \$@ >& lfsc.out
+### Release version
+$BASE_DIR/bin/lfscc \$SIGS \$@
 
-# recover macros for applications of arity 1,2,3, and simplify builtin syntax for constants
-#sed -i.orig 's/(f_ite [^ \)]*)/f_ite/g' lfsc.out
-sed -i.orig 's/(\\ [^ ]* (\\ [^ ]* (\\ [^ ]* (apply (apply (apply f_\([^ ]*\) [^ ]*) [^ ]*) [^ ]*))))/\1/g; s/(\\ [^ ]* (\\ [^ ]* (apply (apply f_\([^ ]*\) [^ ]*) [^ ]*)))/\1/g; s/(\\ [^ ]* (apply f_\([^ ]*\) [^ ]*))/\1/g; s/(var \([^ ]*\) [^ \)]*)/var_\1/g; s/(int \([^ \)]*\))/\1/g; s/emptystr/""/g; s/int\.//g' lfsc.out
+### Debugging version
+#$BASE_DIR/bin/lfscc \$SIGS \$@ >& lfsc.out
 
-cat lfsc.out
-rm lfsc.out
+## recover macros for applications of arity 1,2,3, and simplify builtin syntax for constants
+##sed -i.orig 's/(f_ite [^ \)]*)/f_ite/g' lfsc.out
+#sed -i.orig 's/(\\ [^ ]* (\\ [^ ]* (\\ [^ ]* (apply (apply (apply f_\([^ ]*\) [^ ]*) [^ ]*) [^ ]*))))/\1/g; s/(\\ [^ ]* (\\ [^ ]* (apply (apply f_\([^ ]*\) [^ ]*) [^ ]*)))/\1/g; s/(\\ [^ ]* (apply f_\([^ ]*\) [^ ]*))/\1/g; s/(var \([^ ]*\) [^ \)]*)/var_\1/g; s/(int \([^ \)]*\))/\1/g; s/emptystr/""/g; s/int\.//g' lfsc.out
+#
+#cat lfsc.out
+#rm lfsc.out
 EOF
 chmod +x $BASE_DIR/bin/lfsc-check.sh
 
