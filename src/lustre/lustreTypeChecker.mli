@@ -99,6 +99,8 @@ val type_check_infer_nodes_and_contracts: tc_context -> LA.t -> (tc_context, [> 
 (** Typechecks and infers type for the nodes and contracts. It returns
     a [Ok (tc_context)] if it succeeds or and [Error of String] if the typechecker fails *)
 
+val tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_context, [> error ]) result
+
 val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> LA.contract -> (tc_context, [> error]) result
 
 val local_var_binding: tc_context -> LA.node_local_decl -> (tc_context, [> error]) result

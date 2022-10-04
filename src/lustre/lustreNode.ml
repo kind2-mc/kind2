@@ -112,6 +112,10 @@ type node_call = {
   (* Variables providing non-deterministic inputs *)
   call_oracles : StateVar.t list;
 
+  (* Variables providing non-deterministic inputs for undefined equations
+     in if blocks. *)
+  call_ib_oracles : StateVar.t D.t;
+
   (* Variables capturing the outputs *)
   call_outputs : StateVar.t D.t;
 
@@ -159,6 +163,9 @@ type t = {
 
   (* Oracle inputs *)
   oracles : StateVar.t list;
+
+  (* Oracles in if blocks *)
+  ib_oracles : StateVar.t D.t;
 
   (* Output variables of node together with their index in the
      original model and a list of expressions for the upper bounds
@@ -218,6 +225,7 @@ let empty_node name is_extern = {
       Type.t_bool;
   inputs = D.empty;
   oracles = [];
+  ib_oracles = D.empty;
   outputs = D.empty;
   locals = [];
   equations = [];

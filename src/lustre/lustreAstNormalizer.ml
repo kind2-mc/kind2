@@ -217,6 +217,7 @@ type generated_identifiers = {
     StringMap.t;
   warnings : (Lib.position * LustreAst.expr) list;
   oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
+  ib_oracles : (HString.t * LustreAst.lustre_type) list;
   propagated_oracles : (HString.t * HString.t) list;
   calls : (Lib.position (* node call position *)
     * (HString.t list) (* oracle inputs *)
@@ -248,7 +249,7 @@ type info = {
   inductive_variables : LustreAst.lustre_type StringMap.t;
   quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) StringMap.t;
-  contract_calls : LustreAst.contract_node_decl StringMap.t;
+  contract_calls2 : LustreAst.contract_node_decl StringMap.t;
   contract_scope : (Lib.position * HString.t) list;
   contract_ref : HString.t;
   interpretation : HString.t StringMap.t;
@@ -367,6 +368,7 @@ let empty () = {
     array_constructors = StringMap.empty;
     node_args = [];
     oracles = [];
+    ib_oracles = [];
     propagated_oracles = [];
     calls = [];
     contract_calls = StringMap.empty;
@@ -374,6 +376,7 @@ let empty () = {
     expanded_variables = StringSet.empty;
     equations = [];
   }
+
 
 let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, None -> None
@@ -389,6 +392,7 @@ let union ids1 ids2 = {
     warnings = ids1.warnings @ ids2.warnings;
     node_args = ids1.node_args @ ids2.node_args;
     oracles = ids1.oracles @ ids2.oracles;
+    ib_oracles = ids1.ib_oracles @ ids2.ib_oracles;
     propagated_oracles = ids1.propagated_oracles @ ids2.propagated_oracles;
     calls = ids1.calls @ ids2.calls;
     contract_calls = StringMap.merge union_keys
@@ -397,6 +401,12 @@ let union ids1 ids2 = {
     expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
     equations = ids1.equations @ ids2.equations;
   }
+
+let union_keys2 key id1 id2 = match key, id1, id2 with
+  | _, None, None -> None
+  | _, (Some v), None -> Some v
+  | _, None, (Some v) -> Some v
+  | _, (Some a), (Some b) -> Some (union a b)
 
 let union_list ids =
   List.fold_left (fun x y -> union x y ) (empty ()) ids
@@ -559,7 +569,7 @@ let record_warning pos original =
   { (empty ()) with  warnings = [(pos, original)]; }
 
 let mk_fresh_call info id map pos cond restart args defaults =
-  let called_node = StringMap.find id map in
+  let called_node = StringMap.find id map in 
   let has_oracles = List.length called_node.oracles > 0 in
   let check_cache = CallCache.find_opt
     call_cache
@@ -579,6 +589,7 @@ let mk_fresh_call info id map pos cond restart args defaults =
   let nexpr = A.Ident (pos, HString.concat2 proj name) in
   let propagated_oracles = 
     let called_oracles = called_node.oracles |> List.map (fun (id, _, _) -> id) in
+    (* Add in ib_oracles? *)
     let called_poracles = called_node.propagated_oracles |> List.map fst in
     List.map (fun n ->
       (i := !i + 1;
@@ -616,27 +627,29 @@ let normalize_list f list =
   in let list, gids = List.fold_left over_list ([], empty ()) list in
   List.rev list, gids
 
-let rec normalize ctx ai_ctx (decls:LustreAst.t) =
+let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
   let info = { context = ctx;
     abstract_interp_context = ai_ctx;
     inductive_variables = StringMap.empty;
     quantified_variables = [];
     node_is_input_const = compute_node_input_constant_mask decls;
-    contract_calls = collect_contract_node_decls decls;
+    contract_calls2 = collect_contract_node_decls decls;
     contract_ref = HString.mk_hstring "";
     contract_scope = [];
     interpretation = StringMap.empty;
     local_group_projection = -1 }
-  in let over_declarations (nitems, accum) item =
+  in 
+  List.iter (A.pp_print_declaration Format.std_formatter) decls;
+  let over_declarations (nitems, accum) item =
     clear_cache ();
     let (normal_item, map) =
       normalize_declaration info accum item in
     (match normal_item with 
       | Some ni -> ni :: nitems
       | None -> nitems),
-    StringMap.merge union_keys map accum
+    StringMap.merge union_keys2 map accum
   in let ast, map = List.fold_left over_declarations
-    ([], StringMap.empty) decls
+    ([], gids) decls
   in let ast = List.rev ast in
   
   Debug.parse ("===============================================\n"
@@ -799,17 +812,40 @@ and normalize_node info map
   let map = StringMap.singleton node_id gids in
   (node_id, is_extern, params, inputs, outputs, locals, nitems, ncontracts), map
 
+(*
+and create_temp_vars_node_call_ib = function
+  | A.IfBlock (pos, expr, l1, l2) -> 
+    A.IfBlock(pos, expr,
+    List.map create_temp_vars_node_call_ib l1,
+    List.map create_temp_vars_node_call_ib l2)
+  | A.Body (Equation (pos, lhs, e)) -> failwith "stub"
+  (*
+    if lhs is more than single ident then
+    t1, t2, ..., tn = rhs
+    y1 = t1
+    y2 = t2 
+    ...
+    yn = tn 
+
+    Pull temp variable assignment out of if block
+  *)
+  | _ -> failwith "stub"
+*)
+
+
+
+(* Moving the de-sugaring into the normalization such that we can add in oracles. *)
 and normalize_item info map = function
-  | Body equation ->
+  | A.Body equation ->
     let nequation, gids = normalize_equation info map equation in
-    Body nequation, gids
+    A.Body nequation, gids
   | IfBlock (pos, expr, l1, l2) ->
     let nexpr, gids = abstract_expr false info map false expr in
     let (nl1, gids2) = (List.split (List.map (normalize_item info map) l1)) in
     let gids2 = List.fold_left union (empty ()) gids2 in
     let (nl2, gids3) = (List.split (List.map (normalize_item info map) l2)) in
     let gids3 = List.fold_left union (empty ()) gids3 in
-    IfBlock (pos, nexpr, nl1, nl2), union (union gids gids2) gids3
+    A.IfBlock (pos, nexpr, nl1, nl2), union (union gids gids2) gids3
   | AnnotMain b -> AnnotMain b, empty ()
   | AnnotProperty (pos, name, expr) ->
     let nexpr, gids = abstract_expr false info map false expr in
@@ -888,7 +924,7 @@ and normalize_contract info map node_id items =
             contract_ref = cref;
           }
         in
-        let called_node = StringMap.find name info.contract_calls in
+        let called_node = StringMap.find name info.contract_calls2 in
         let normalized_call, gids2, interp = 
           normalize_node_contract info map cref ninputs noutputs called_node
         in

@@ -1,0 +1,43 @@
+node test(x: int) returns (y1, y2, y3: int; p1, p2, p3: bool);
+let 
+  p1 = (y1 = 10);
+  p2 = (y2 = 24);
+  --p3 = (y3 = 10);
+  --%PROPERTY p1;
+  --%PROPERTY p2;
+  
+  -- t1, t2 = node2(4, 6)
+  if (true)
+  then {
+    (y1, y2) = node2(4, 6);
+    -- y1 = t1
+    -- y2 = t2
+  }
+  else {
+    y1 = 10;
+    y2 = 4;
+  }
+  (*
+  -->
+  t1, t2 = node2(4, 6);
+  if (true) then {
+    y1 = t1;
+    y2 = t2;
+  } else {
+    y1 = 10;
+    y2 = 4;
+  }
+  -->
+  t1, t2 = node2(4, 6);
+  y1 = if true then t1 else 10;
+  y2 = if true then t2 else 4;
+  *)
+
+tel
+
+node node2(a, b: int) returns (c, d: int);
+let
+   c = a + b;
+   d = a * b;
+tel
+

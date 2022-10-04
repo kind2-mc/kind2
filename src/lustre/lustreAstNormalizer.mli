@@ -102,6 +102,7 @@ type generated_identifiers = {
     StringMap.t;
   warnings : (Lib.position * LustreAst.expr) list;
   oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
+  ib_oracles : (HString.t * LustreAst.lustre_type) list;
   propagated_oracles : (HString.t * HString.t) list;
   calls : (Lib.position (* node call position *)
     * (HString.t list) (* oracle inputs *)
@@ -131,9 +132,35 @@ type error = [
   | `LustreAstNormalizerError
 ]
 
+val empty : unit -> generated_identifiers
+
+val union : generated_identifiers -> generated_identifiers -> generated_identifiers
+
+
+type info = {
+  context : TypeCheckerContext.tc_context;
+  abstract_interp_context : LustreAbstractInterpretation.context;
+  inductive_variables : LustreAst.lustre_type StringMap.t;
+  quantified_variables : LustreAst.typed_ident list;
+  node_is_input_const : (bool list) StringMap.t;
+  contract_calls2 : LustreAst.contract_node_decl StringMap.t;
+  contract_scope : (Lib.position * HString.t) list;
+  contract_ref : HString.t;
+  interpretation : HString.t StringMap.t;
+  local_group_projection : int
+}
+
+val mk_fresh_local : bool ->
+  info ->
+  Lib.position ->
+  bool ->
+  'a StringMap.t ->
+  LustreAst.lustre_type -> LustreAst.expr -> LustreAst.expr -> LustreAst.expr * generated_identifiers
+
 val normalize : TypeCheckerContext.tc_context
   -> LustreAbstractInterpretation.context
   -> LustreAst.t
+  -> generated_identifiers StringMap.t
   -> (LustreAst.t * generated_identifiers StringMap.t,
       [> error]) result
 

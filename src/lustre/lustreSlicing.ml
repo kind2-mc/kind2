@@ -666,6 +666,7 @@ let slice_all_of_node
       N.init_flag;
       N.inputs; 
       N.oracles; 
+      N.ib_oracles;
       N.outputs; 
       N.asserts;
       N.props; 
@@ -687,6 +688,7 @@ let slice_all_of_node
     N.init_flag;
     N.inputs;
     N.oracles; 
+    N.ib_oracles;
     N.outputs; 
     N.locals = [];
     N.equations = [];

@@ -143,6 +143,7 @@ Dependency graph of modules {%html: <img src="include/lustre-frontend.png"> %}
   LustreTransSys
   LustreInput
   LustrePath
+  LustreDesugarIfBlocks
 }
 
 {3:input_native Native}

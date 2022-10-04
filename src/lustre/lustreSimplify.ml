@@ -1706,6 +1706,7 @@ and eval_node_call
     ident
     { N.inputs = node_inputs; 
       N.oracles = node_oracles;
+      N.ib_oracles = node_ib_oracles;
       N.outputs = node_outputs } 
     cond
     restart
@@ -1943,6 +1944,27 @@ and eval_node_call
             (D.add i sv' accum, ctx)
         ) node_outputs (D.empty, ctx)
       in
+    (* Borrowing from directly above *)
+    let ib_oracle_state_vars, ctx = 
+      D.fold (
+        fun i sv (accum, ctx) -> 
+          let bounds =
+            try StateVar.StateVarHashtbl.find (C.get_state_var_bounds ctx) sv
+            with Not_found -> [] in
+          let sv', ctx = 
+            C.mk_fresh_local ~bounds ctx (StateVar.type_of_state_var sv)
+          in
+          N.set_state_var_instance sv' pos ident sv ;
+          N.add_state_var_def sv' (N.CallOutput (pos, i)) ;
+          let ctx =
+            C.current_node_map ctx (
+              fun node -> N.set_state_var_node_call node sv'
+            )
+          in
+          (D.add i sv' accum, ctx)
+      ) node_ib_oracles (D.empty, ctx)
+      in
+
       (* Return tuple of state variables capturing outputs *)
       let res = D.map E.mk_var output_state_vars in
       (* Create node call *)
@@ -1952,6 +1974,7 @@ and eval_node_call
           N.call_cond = cond_state_var;
           N.call_inputs = input_state_vars;
           N.call_oracles = oracle_state_vars;
+          N.call_ib_oracles = ib_oracle_state_vars;
           N.call_outputs = output_state_vars;
           N.call_defaults = defaults } 
       in

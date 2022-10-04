@@ -47,7 +47,6 @@ module StringMap = struct
   end)
 end
 
-
 type compiler_state = {
   nodes : LustreNode.t list;
   type_alias : Type.t LustreIndex.t StringMap.t;
@@ -72,10 +71,6 @@ type identifier_maps = {
   guarantee_count : int;
 }
 
-
-type cond_tree =
-	| Leaf of A.expr option
-	| Node of cond_tree * A.expr * cond_tree
 
 (*
 let pp_print_identifier_maps ppf maps =
@@ -277,113 +272,6 @@ let extract_normalized = function
   | A.Ident (_, ident) -> mk_ident ident
   | A.ArrayIndex (_, A.Ident (_, ident), _) -> mk_ident ident
   | _ -> assert false
-
-
-let rec add_eq_to_tree conds rhs node = 
-  (* let ppf = Format.std_formatter in *)
-  match conds with
-    | [] -> node
-    | [(b, cond)] -> (
-      match node with
-        | Leaf (Some _) -> 
-          failwith "error-- double assignment in if block 1" 
-        | Leaf None -> 
-          if b then Node (Leaf (Some rhs), cond, Leaf None)
-          else      Node (Leaf None, cond, Leaf (Some rhs))
-        | Node (l, c, r) -> 
-          if b then Node (Leaf (Some rhs), c, r)
-          else      Node (l, c, Leaf (Some rhs))
-    )
-    | (b, cond)::conds -> (
-      match node with
-        | Leaf (Some _) -> 
-          failwith "error-- double assignment in if block 2" 
-        | Leaf None -> 
-          if b then Node (add_eq_to_tree conds rhs (Leaf None), cond, Leaf None)
-          else      Node (Leaf None, cond, add_eq_to_tree conds rhs (Leaf None))
-        | Node (l, c, r) -> 
-          if b then Node (add_eq_to_tree conds rhs l, c, r)
-          else      Node (l, c, add_eq_to_tree conds rhs r)
-    )
-
-(* Refine? *)
-let lhss_eq lhs1 lhs2 = 
-  let (A.StructDef (_, ss1)) = lhs1 in
-  let (A.StructDef (_, ss2)) = lhs2 in
-  let vars1 = (List.map AH.vars_of_struct_item ss1) in
-  let vars2 = (List.map AH.vars_of_struct_item ss2) in 
-  vars1 = vars2
-
-(* List data structure doesn't quite work-- we want to update 
-   the pair if it already exists, not keep adding pairs. *)
-let replace l a b  = List.map (fun x -> if x = a then b else x) l
-
-let update l (k, v) = 
-  match List.find_opt (fun (a, _) -> lhss_eq k a) l with
-    | Some (a, b) -> replace l (a, b) (k, v)
-    | None -> (k, v) :: l
-
-
-let if_block_to_trees ib =
-  let rec helper ib trees conds =
-    match ib with 
-      | A.IfBlock (pos, cond, ni::nis, nis') -> (
-        match ni with
-          | A.Body (Equation (_, lhs, expr)) -> 
-            let tree = (
-              match (List.find_opt (fun (lhs', _) -> lhss_eq lhs' lhs) trees) with
-                | Some (_, tree) -> tree
-                | None -> Leaf None
-            ) in
-            let trees = (update trees (lhs, (add_eq_to_tree (conds @ [(true, cond)]) expr tree))) in
-            helper (A.IfBlock (pos, cond, nis, nis')) trees conds
-          | A.IfBlock _ -> 
-            helper (A.IfBlock (pos, cond, nis, nis'))
-                   (helper ni trees (conds @ [(true, cond)]))
-                   conds
-          | _ -> failwith "error"
-        )
-      | A.IfBlock (pos, cond, [], ni::nis) -> (
-        match ni with
-          | A.Body (Equation (_, lhs, expr)) -> 
-            let tree = (
-              match (List.find_opt (fun (lhs', _) -> lhss_eq lhs' lhs) trees) with
-                | Some (_, tree) ->  tree
-                | None -> Leaf None
-            ) in
-            let trees = (update trees (lhs, (add_eq_to_tree (conds @ [(false, cond)]) expr tree))) in
-            helper (A.IfBlock (pos, cond, [], nis)) trees conds
-          | A.IfBlock _ -> 
-            helper (A.IfBlock (pos, cond, [], nis))
-                   (helper ni trees (conds @ [(false, cond)]))
-                   conds
-          | _ -> failwith "error"
-        )
-      | A. IfBlock (_, _, [], []) -> trees
-      | _ -> failwith "error"
-    in
-  helper ib [] []
-  
-let rec tree_to_ite pos node =
-  match node with
-    | Leaf Some expr -> expr
-    | Leaf None -> A.Ident(pos, HString.mk_hstring "STUB")
-    | Node (left, cond, right) -> 
-      TernaryOp (pos, Ite, cond, tree_to_ite pos left, tree_to_ite pos right)
-
-
-let extract_equations_from_if ib =
-  let (lhss, trees) = List.split (if_block_to_trees ib) in
-  (* let trees = List.map simplify trees in *)
-  let poss = List.map (fun (A.StructDef (a, _)) -> a) lhss in
-  let ites = List.map2 tree_to_ite poss trees in
-  (* Combine poss, lhss, and ites into a list of triples *)
-  List.map2 (fun (a, b) c -> (a, b, c)) (List.combine poss lhss) ites
-
-
-
-
-
 
 
 let flatten_list_indexes (e:E.t X.t) =
@@ -622,7 +510,9 @@ let rec compile ctx gids decls =
   let output = List.fold_left over_decls (empty_compiler_state ()) decls in
   let free_constants = output.free_constants
     |> List.map (fun (_, id, v) -> mk_ident id, v)
-  in output.nodes,
+    
+  in 
+  output.nodes,
     { G.free_constants = free_constants;
       G.state_var_bounds = output.state_var_bounds}
 
@@ -1226,7 +1116,7 @@ and compile_ast_expr
   | A.TernaryOp _ -> assert false
   | A.CallParam _ -> assert false
 
-and compile_node pos ctx cstate map oracles outputs cond restart ident args defaults =
+and compile_node pos ctx cstate map oracles ib_oracles outputs cond restart ident args defaults =
   let called_node = N.node_of_name ident cstate.nodes in
   let oracles = oracles
     |> List.map (fun n -> H.find !map.state_var (mk_ident n))
@@ -1294,6 +1184,7 @@ and compile_node pos ctx cstate map oracles outputs cond restart ident args defa
     N.call_cond = cond_state_var;
     N.call_inputs = input_state_vars;
     N.call_oracles = oracles;
+    N.call_ib_oracles = ib_oracles;
     N.call_outputs = outputs;
     N.call_defaults = defaults
   }
@@ -1416,7 +1307,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   in let (ghost_locals2, ghost_equations2, modes2) =
     let over_calls (gls, ges, ms) (_, id, _, _) =
       let (_, contract_scope, contract_eqns) =
-        LAN.StringMap.find id gids.LAN.contract_calls
+        (LAN.StringMap.find id gids.LAN.contract_calls)
       in
       map := { !map with contract_scope };
       let (gl, ge, m) = compile_contract_variables cstate gids ctx map contract_scope node_scope contract_eqns
@@ -1749,6 +1640,9 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   in
   let (oracles, oracle_state_var_map) =
+    (* Take in oracle (as id, expr_type, expr tuple) and add to state var map and 
+      list of oracles. The state var map relates an oracle state variable to 
+      it's corresponding real state variable. *)
     let over_oracles (oracles, osvm) (id, expr_type, expr) =
       let oracle_ident = mk_ident id in
       let closed_sv = match expr with
@@ -1782,11 +1676,54 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       let result = X.fold over_indices index_types X.empty in
       (X.values result) @ oracles, osvm
     in
-    List.fold_left over_oracles ([], SVT.create 7) gids.LAN.oracles
+    List.fold_left over_oracles ([], SVT.create 7) gids.LAN.oracles in
+  let ib_oracles =
+    (* Borrowing from over_outputs, as outputs can be left undefined. *)
+    let over_ib_oracles is_single compiled_output (id, expr_type) = (
+      let n = X.top_max_index compiled_output |> succ in
+      let oracle_ident = mk_ident id in
+      let index_types = compile_ast_type cstate ctx map expr_type in
+      let over_indices = ( fun index index_type accum ->
+        let possible_state_var = mk_state_var
+      (*  ~is_const:true *)
+          ~is_const:false
+          map
+          (node_scope @ I.reserved_scope)
+          oracle_ident
+          index
+          index_type
+          (Some N.Oracle)
+        in
+        let index = filter_array_indices index in
+        
+        let index' = if is_single then index else X.ListIndex n :: index in 
+        match possible_state_var with
+          | Some state_var -> X.add index' state_var accum
+          | None -> accum
+      ) in 
+      X.fold over_indices index_types compiled_output
+    )
+    and is_single = List.length gids.LAN.ib_oracles = 1 in 
+    List.fold_left (over_ib_oracles is_single) X.empty gids.LAN.ib_oracles
+        (*
+        match possible_state_var with
+        | Some(state_var) ->
+          (match closed_sv with
+          | Some sv -> SVT.add osvm state_var sv
+          | None -> ());
+          X.add index state_var accum
+        | None -> accum
+      in
+      let result = X.fold over_indices index_types X.empty in
+      (X.values result) @ ib_oracles, osvm
+      
+    in
+    List.fold_left over_ib_oracles ([], SVT.create 7) gids.LAN.ib_oracles
+    *)
   (* ****************************************************************** *)
   (* Propagated Oracles                                                 *)
   (* ****************************************************************** *)
-  in
+  in 
   let oracles =
     let existing_oracles = cstate.nodes
       |> List.map (fun n -> n.N.oracles) 
@@ -1862,7 +1799,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         X.fold over_vars called_node.outputs X.empty
       in
       let node_call = compile_node
-        pos ctx cstate map oracles outputs cond restart node_id args defaults
+        pos ctx cstate map oracles ib_oracles outputs cond restart node_id args defaults
       in
       let glocals' = H.fold (fun _ v a -> (X.singleton X.empty_index v) :: a) local_map [] in 
       node_call :: calls, glocals' @ glocals
@@ -1879,12 +1816,17 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | A.Equation (p, l, e) -> (props, (p, l, e) :: eqs, asserts, is_main))
       | A.AnnotMain flag -> (props, eqs, asserts, flag || is_main)
       | A.AnnotProperty (p, n, e) -> ((p, n, e) :: props, eqs, asserts, is_main) 
-      | A.IfBlock _ as ib -> (props, (extract_equations_from_if ib) @ eqs, asserts, is_main)
+      | A.IfBlock _ -> 
+        (* IfBlock desugaring already occurred earlier in pipeline
+           (in lustreDesugarIfBlocks.ml), so there are no IfBlocks left.  *)
+        (props, eqs, asserts, is_main) 
     in List.fold_left over_items ([], [], [], false) items
   (* ****************************************************************** *)
   (* Properties and Assertions                                          *)
   (* ****************************************************************** *)
   in let props =
+    List.iter (A.pp_print_node_body Format.std_formatter) 
+      (List.map (fun (a, b, c) -> A.Equation(a, b, c)) node_eqs);
     let op (pos, name_opt, expr) =
       let name_opt = match name_opt with
         | Some name -> Some (HString.string_of_hstring name)
@@ -2033,7 +1975,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
           (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
         let equations = expand_tuple pos eq_lhs eq_rhs in
-        (* Format.eprintf "\nequations: %a\n"
+        (*
+         Format.eprintf "\nequations: %a\n"
           (pp_print_list
             (pp_print_pair
               (pp_print_pair
@@ -2045,6 +1988,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
               (E.pp_print_lustre_expr true)
               " : ")
             " ; ")
+          
           equations; *)
         H.clear !map.array_index;
         (* TODO: Old code tries to infer a more strict type here
@@ -2181,8 +2125,9 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     init_flag;
     inputs;
     oracles;
+    ib_oracles; (* get rid of this field, maybe *)
     outputs;
-    locals;
+    locals = ib_oracles::locals;
     equations;
     calls;
     asserts;

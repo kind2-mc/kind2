@@ -1,0 +1,12 @@
+node node2(x: int) returns (y: int);
+let
+   y = x + 3;
+tel
+
+node node1(x: int) returns (y: int; p1: bool);
+let
+   y = node2(4);
+   p1 = (y = 7);
+   --%PROPERTY p1;
+tel
+

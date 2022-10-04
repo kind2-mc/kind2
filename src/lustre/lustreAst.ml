@@ -890,7 +890,7 @@ and pp_print_node_item ppf = function
   (* Need to test/refine this *)
   | IfBlock (_, e, l1, l2) -> 
     
-    Format.fprintf ppf "IF %a THEN %a ELSE %a"  
+    Format.fprintf ppf "IF %a THEN { %a } ELSE { %a }"  
       pp_print_expr e 
       (pp_print_list pp_print_node_item "; ") l1
       (pp_print_list pp_print_node_item "; ") l2

@@ -95,7 +95,6 @@ let mk_span start_pos end_pos =
 %token VAR
 %token LET
 %token TEL
-%token END
     
 (* Tokens for annotations *)
 

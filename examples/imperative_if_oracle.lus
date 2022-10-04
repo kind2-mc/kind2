@@ -1,0 +1,25 @@
+node test(x: int) returns (y1, y2, y3: int; p1, p2, p3: bool);
+let 
+  (* Example where y2's value should not be constant *)
+  (* Examples with multiple oracles, arrays, tuples, records, variable guard *)
+  (* And fix curly bracket syntax *)
+
+  (* 
+    Try recursive definitions
+    A[i] = 1 -> A[i-1]*2; (incorrect syntax)
+  *)
+  p1 = (true -> (pre y2 = 5 => y2 = 10));
+  --p2 = (y2 = 3);
+  --p3 = (y3 = 10);
+  --%PROPERTY p1;
+  
+  if (false)
+  then {
+    y1 = 5;
+    y2 = 10;
+  }
+  else {
+    y1 = 6;
+  }
+  
+tel
