@@ -6,35 +6,30 @@ let
   --%PROPERTY p3;
   
   if (false)
-  then {
+  then 
     if (false)
-    then {
+    then 
       y3 = 7;
-    }
-    else {
+    else 
       if (false)
-      then {
+      then 
         y3 = 8;
-      }
-      else {
+      else 
         y3 = 9;
-      }
-    }
-  }
-  else {
+      fi
+    fi
+  else 
     if (false)
-    then {
+    then 
       y3 = 7;
-    }
-    else {
+    else 
       if (false)
-      then {
+      then 
         y3 = 8;
-      }
-      else {
+      else 
         y3 = 10;
-      }
-    }
-  }
+      fi
+    fi
+  fi
   
 tel

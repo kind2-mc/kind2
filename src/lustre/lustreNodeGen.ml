@@ -1825,8 +1825,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* Properties and Assertions                                          *)
   (* ****************************************************************** *)
   in let props =
-    List.iter (A.pp_print_node_body Format.std_formatter) 
-      (List.map (fun (a, b, c) -> A.Equation(a, b, c)) node_eqs);
     let op (pos, name_opt, expr) =
       let name_opt = match name_opt with
         | Some name -> Some (HString.string_of_hstring name)

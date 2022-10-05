@@ -639,7 +639,6 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
     interpretation = StringMap.empty;
     local_group_projection = -1 }
   in 
-  List.iter (A.pp_print_declaration Format.std_formatter) decls;
   let over_declarations (nitems, accum) item =
     clear_cache ();
     let (normal_item, map) =

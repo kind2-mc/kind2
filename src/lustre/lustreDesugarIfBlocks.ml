@@ -155,7 +155,6 @@ let rec tree_to_ite pos node =
 let rec get_tree_type ctx tree = match tree with
   | Leaf None -> R.ok None
   | Leaf (Some expr) -> 
-    A.pp_print_expr Format.std_formatter expr;
     let* ty = (Chk.infer_type_expr ctx expr) in
     R.ok (Some ty)
   | Node (l, _, r) -> (
@@ -189,6 +188,8 @@ let rec fill_ite_with_oracles ite ty =
     | _ -> failwith "error2"
 
 (* Removes redundancy from a binary tree. *)
+(* Currently, redundancy check doesn't quite work because
+   different positions mess with equality of leaves. *)
 let rec simplify_tree node = 
   match node with
     | Leaf _ -> node
@@ -230,11 +231,7 @@ let split_and_flatten4 ls =
 let create_temp_lhs ctx lhs = 
   let rec convert_struct_item = (function
     | A.SingleIdent (p, i) as si -> 
-      print_endline("creating temp variable");
       let temp = mk_fresh_temp_name i in
-      print_endline (HString.string_of_hstring temp);
-      print_endline (HString.string_of_hstring i);
-      Ctx.pp_print_tc_context Format.std_formatter ctx;
       
       (* print the context here-- either identifiers aren't equal, or it doesn't
          contain the correct information. *)
@@ -327,7 +324,6 @@ let rec remove_mult_assign_from_ib ctx ni =
 let extract_equations_from_if ctx ib =
   let* (nis, ibs, new_decls, ctx) = remove_mult_assign_from_ib ctx ib in 
   let ctx = List.fold_left Ctx.union Ctx.empty_tc_context ctx in
-  Ctx.pp_print_tc_context Format.std_formatter ctx;
   let ib = List.hd(ibs) in
   let (lhss, trees) = LhsMap.bindings (if_block_to_trees ib) |> List.split in
   let trees = List.map simplify_tree trees in 
@@ -341,6 +337,10 @@ let extract_equations_from_if ctx ib =
   let gids = List.fold_left LAN.union (LAN.empty ()) gids in
   (* Combine poss, lhss, and ites into a list of equations *)
   let eqs = (List.map2 (fun (a, b) c -> (A.Body (A.Equation (a, b, c)))) (List.combine poss lhss) ites) in
+
+  let eqs2 = (List.map2 (fun (a, b) c -> (A.Equation (a, b, c))) (List.combine poss lhss) ites) in
+  List.iter (A.pp_print_node_body Format.std_formatter) eqs2;
+
   R.ok (new_decls, nis @ eqs, [gids])
 
 let desugar_node_item ctx ni = match ni with
@@ -393,6 +393,9 @@ let desugar_if_blocks ctx normalized_nodes_and_contracts =
   R.ok (decls, gids)
 
 (*
-  Also need to update type context with new declaration stuff.  (?) 
-  What about contracts? Getting context for contracts?
+  Also need to update type context with new declaration stuff.  
+    (?) 
+  What about contracts? Getting context for contracts? 
+    Nope.
+  Propagated oracles?
 *)
