@@ -1406,7 +1406,7 @@ let best_int_range is_div op t t' =
 
 
 (* Type check for int -> int -> int, real -> real -> real *)
-let type_of_num_num_num ?(is_div = false) op t t' =
+(*let type_of_num_num_num ?(is_div = false) op t t' =
   try best_int_range is_div op t t' with
   | Invalid_argument _ -> (
     match t with
@@ -1424,7 +1424,7 @@ let type_of_num_num_num ?(is_div = false) op t t' =
       
     | _ -> raise Type_mismatch
   )
-
+*)
 
 (* Type check for int -> int -> int, real -> real -> real, 
 abv -> abv -> abv *)
@@ -2638,6 +2638,12 @@ let eval_div expr1 expr2 =
     if Type.is_real tt then (
       Term.mk_div [expr1; expr2]
     )
+    else if Type.is_ubitvector (Term.type_of_term expr1) then (
+      Term.mk_bvudiv [expr1; expr2]
+    )
+    else if Type.is_bitvector (Term.type_of_term expr1) then (
+      Term.mk_bvsdiv [expr1; expr2]
+    ) 
     else (
       Term.mk_intdiv [expr1; expr2]
     )
@@ -2647,8 +2653,12 @@ let eval_div expr1 expr2 =
 
 (* Type of real division
 
-   /: real -> real -> real *)
-let type_of_div = type_of_num_num_num ~is_div:true Numeral.div
+   /: real -> real -> real
+
+   When the operator is applied to integer and machine integer arguments,
+   its semantics is the same as integer division (div)
+*)
+let type_of_div = type_of_numOrBV_numOrBV_numOrBV ~is_div:true Numeral.div
 
 
 (* Real division *)

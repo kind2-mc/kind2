@@ -75,6 +75,7 @@ type error_kind = Unknown of string
   | MismatchedNodeType of HString.t * tc_type * tc_type
   | IlltypedBitNot of tc_type
   | IlltypedUnaryMinus of tc_type
+  | IlltypedMinusUnsigned
   | ExpectedIntegerTypes of tc_type * tc_type
   | ExpectedNumberTypes of tc_type * tc_type
   | ExpectedMachineIntegerTypes of tc_type * tc_type
@@ -152,6 +153,7 @@ let error_message kind = match kind with
   | IlltypedBitNot ty -> "Cannot apply the bit-value not operator to a non machine integer value of type "
     ^ string_of_tc_type ty
   | IlltypedUnaryMinus ty -> "Unary minus cannot be applied to non number expression of type " ^ string_of_tc_type ty
+  | IlltypedMinusUnsigned -> "Unary/binary minus cannot be applied to unsigned machine integers"
   | ExpectedIntegerTypes (ty1, ty2) -> "Expected both arguments of operator to be of same integer type but found "
     ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | ExpectedNumberTypes (ty1, ty2) -> "Expected both arguments of operator to be of same integer type (or type real) but found "
@@ -665,7 +667,11 @@ and infer_type_unary_op: tc_context -> Lib.position -> LA.expr -> LA.unary_opera
     else type_error pos (IlltypedBitNot ty)
   | LA.Uminus ->
     if (LH.is_type_num ty)
-    then R.ok ty
+    then (
+      if LH.is_type_unsigned_machine_int ty
+      then type_error pos IlltypedMinusUnsigned
+      else R.ok ty
+    )
     else type_error pos (IlltypedUnaryMinus ty)
 (** Infers type of unary operator application *)
 
@@ -710,12 +716,15 @@ and infer_type_binary_op: tc_context -> Lib.position
             (R.ok ty1)
             (type_error pos (UnificationFailed (ty1, ty2))))
     else (type_error pos (ExpectedIntegerTypes (ty1, ty2)))
-  | LA.Minus | LA.Plus | LA.Times -> 
+  | LA.Minus ->
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
-    if is_num
-    then R.ok ty2
+    if is_num then (
+      if LH.is_type_unsigned_machine_int ty1
+      then type_error pos IlltypedMinusUnsigned 
+      else R.ok ty2
+    ) 
     else type_error pos (ExpectedNumberTypes (ty1, ty2))
-  | LA.Div ->
+  | LA.Plus | LA.Times | LA.Div ->
     are_args_num ctx pos ty1 ty2 >>= fun is_num ->
     if is_num
     then R.ok ty2
