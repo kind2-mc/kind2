@@ -60,6 +60,7 @@ type error_kind = Unknown of string
   | MismatchedNodeType of HString.t * tc_type * tc_type
   | IlltypedBitNot of tc_type
   | IlltypedUnaryMinus of tc_type
+  | IlltypedMinusUnsigned
   | ExpectedIntegerTypes of tc_type * tc_type
   | ExpectedNumberTypes of tc_type * tc_type
   | ExpectedMachineIntegerTypes of tc_type * tc_type
