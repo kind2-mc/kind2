@@ -461,20 +461,18 @@ module Smt = struct
     | `detect ->
       match solver () with
       | `Z3_SMTLIB -> set_qe_solver `Z3_SMTLIB;
+      | `cvc5_SMTLIB -> set_qe_solver `cvc5_SMTLIB;
       | _ ->
         try
           let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
           set_qe_solver `Z3_SMTLIB;
           set_z3_bin exec;
         with Not_found ->
-        match solver () with
-        | `cvc5_SMTLIB -> set_qe_solver `cvc5_SMTLIB;
-        | _ ->
-          try
-            let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
-            set_qe_solver `cvc5_SMTLIB;
-            set_cvc5_bin exec;
-          with Not_found -> () (* Ẃe keep `detect to know no qe solver was found *)
+        try
+          let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
+          set_qe_solver `cvc5_SMTLIB;
+          set_cvc5_bin exec;
+        with Not_found -> () (* Ẃe keep `detect to know no qe solver was found *)
 end
 
 
@@ -3573,11 +3571,16 @@ let solver_dependant_actions solver =
         Log.log L_warn "Couldn't determine cvc5 version";
         raise Error
     | Some (major, minor, patch) ->
+        if (major < 1) then (
+          Log.log L_error "Kind 2 requires cvc5 1.0.0 or later. Found version: %d.%d.%d"
+            major minor patch ;
+          raise Error
+        ) ;
         if
           Certif.proof () && (major = 0 || (major = 1 && minor = 0 && patch < 3))
         then (
           Log.log L_error
-            "Kind 2's proof module requires cvc5 1.0.3 or later. Found \
+            "Proof certificate generation requires cvc5 1.0.3 or later. Found \
              version: %d.%d.%d"
             major minor patch;
           raise Error)
