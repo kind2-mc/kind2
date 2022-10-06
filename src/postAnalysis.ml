@@ -621,17 +621,19 @@ end
 module RunCertif: PostAnalysis = struct
   let name = "certification"
   let title = name
-  let is_active () = Flags.Certif.certif ()
+  let is_active () = Flags.Certif.certif () || Flags.Certif.proof ()
   let run in_sys param _ results =
     let top = (Analysis.info_of_param param).Analysis.top in
     last_result results top |> chain (
       fun result ->
         let sys = result.Analysis.sys in
         let uid = (Analysis.info_of_param param).Analysis.uid in
+        (
+          if Flags.Certif.certif () then
+            CertifChecker.generate_smt2_certificates in_sys sys
+        ) ;
         ( if Flags.Certif.proof () then
             CertifChecker.generate_all_proofs uid in_sys sys
-          else
-            CertifChecker.generate_smt2_certificates in_sys sys
         ) ;
         Ok ()
     )

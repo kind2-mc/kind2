@@ -1208,11 +1208,7 @@ module Certif = struct
   let certif = ref certif_default
   let _ = add_spec
     "--certif"
-    (Arg.Bool (fun b -> certif := b;
-                if b then begin
-                  Smt.set_short_names false;
-                  BmcKind.disable_compress ();
-                end))
+    (Arg.Bool (fun b -> certif := b))
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Produce SMT-LIB 2 certificates.@ Default: %a@]"
@@ -1223,13 +1219,7 @@ module Certif = struct
   let proof = ref proof_default
   let _ = add_spec
     "--proof"
-    (Arg.Bool (fun b -> proof := b;
-                if b then begin
-                  certif := true;
-                  Smt.set_short_names false;
-                  Smt.detect_logic_if_none ();
-                  BmcKind.disable_compress ();
-                end))
+    (Arg.Bool (fun b -> proof := b))
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Produce LFSC proofs.@ Default: %a@]"
@@ -3580,7 +3570,7 @@ let solver_dependant_actions solver =
           Certif.proof () && (major = 0 || (major = 1 && minor = 0 && patch < 3))
         then (
           Log.log L_error
-            "Proof certificate generation requires cvc5 1.0.3 or later. Found \
+            "LFSC proof production requires cvc5 1.0.3 or later. Found \
              version: %d.%d.%d"
             major minor patch;
           raise Error)
@@ -3752,6 +3742,13 @@ let parse_argv () =
   IVC.finalize_ivc_elements ();
   MCS.finalize_mcs_elements ();
   
+  if Certif.certif () || Certif.proof () then (
+    Smt.set_short_names false;
+    Smt.detect_logic_if_none () ;
+    BmcKind.disable_compress ();
+    Log.log L_warn "Certification post-analysis enabled: disabling ind_compress"
+  ) ;
+
   solver_dependant_actions (Smt.solver ());
 
   (match Smt.solver (), Smt.qe_solver () with
