@@ -2862,7 +2862,7 @@ let fecc_checker_script =
 (*****************************************)
 
 
-(* Generate all certificates in the directory given by {!Flags.certif_dir}. *)
+(* Generate all certificates in the directory given by {!Flags.output_dir}. *)
 let generate_smt2_certificates input sys =
 
   Proof.set_proof_logic (TS.get_logic sys);
@@ -2956,7 +2956,7 @@ let remove dirname =
   |> ignore*)
 
 
-(* Generate all certificates in the directory given by {!Flags.certif_dir}. *)
+(* Generate all certificates in the directory given by {!Flags.output_dir}. *)
 let generate_all_proofs uid input sys =
 
   Proof.set_proof_logic (TS.get_logic sys);
