@@ -145,7 +145,7 @@ let array_select_of_indexes_expr indexes e =
 (* Try to make the types of two expressions line up.
   * If one expression is an array but the other is not, then insert a 'select'
   * around the array expression so that the two expressions both have similar types.
-  * This is used by mk_arrow for array expressions. *)
+  * This is used by mk_arrow and mk_ite for array expressions. *)
 let coalesce_array2 e1 e2 =
   let t1 = E.type_of_lustre_expr e1
   and t2 = E.type_of_lustre_expr e2 in
@@ -743,7 +743,12 @@ and compile_ast_expr
     let expr1 = match X.bindings expr1 with
       | [_, expr] -> expr
       | _ -> assert false
-    in compile_binary bounds (E.mk_ite expr1) expr2 expr3
+    in
+    let mk e1 e2 =
+      let e1', e2' = coalesce_array2 e1 e2 in
+      E.mk_ite expr1 e1' e2'
+    in
+    compile_binary bounds mk expr2 expr3
 
   and compile_pre bounds expr =
     let cexpr = compile_ast_expr cstate ctx bounds map expr in
