@@ -1,0 +1,21 @@
+node count( const n : int ; B : bool^n ) returns ( C : int ) ;
+  var A : int^n ;
+let
+  A[i] = if i = 0 then if B[i] then 1 else 0
+         else A[i-1] + (if B[i] then 1 else 0);
+  C = A[n-1] ;
+tel
+
+node Buffer( const n : int; Init : int ; Request: bool^n; Turn : bool^n; Value : int^n )
+returns ( Accepted : bool^n ) ;
+(*@contract
+  assume n > 0 ;
+  assume n <= 4 ;
+  
+  guarantee "fair" true -> 
+   forall (i:int) 0 <= i and i < n =>
+    pre Request[i] and not pre Accepted[i] => Accepted[i] ;
+*)
+let
+  Accepted[i] = Request[i] and (Turn[i] or count(n, Request) = 1) ;
+tel

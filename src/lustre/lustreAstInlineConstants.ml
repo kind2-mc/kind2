@@ -308,9 +308,11 @@ and simplify_expr ?(is_guarded = false) ctx =
     | _ -> e')
   | LA.Pre (pos, e) ->
     let e' = simplify_expr ~is_guarded:false ctx e in
-    if Flags.lus_push_pre () then 
-      push_pre is_guarded pos e'
-    else Pre (pos, e')
+    if is_guarded && LH.expr_is_const e' then e'
+    else
+      if Flags.lus_push_pre ()
+      then push_pre is_guarded pos e'
+      else Pre (pos, e')
   | Arrow (pos, e1, e2) ->
     let e1' = simplify_expr ~is_guarded ctx e1 in
     let e2' = simplify_expr ~is_guarded:true ctx e2 in
