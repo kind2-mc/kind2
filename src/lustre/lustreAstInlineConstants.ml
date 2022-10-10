@@ -471,14 +471,8 @@ let rec inline_constants_of_contract: TC.tc_context -> LA.contract -> LA.contrac
   | (LA.GhostConst (TypedConst (pos', i, e, ty))) :: others ->
      (LA.GhostConst (TypedConst (pos', i, simplify_expr ctx e, ty)))
      :: inline_constants_of_contract ctx others 
-  | (LA.GhostVar (FreeConst (pos, i, ty))) :: others ->
-     (LA.GhostVar (FreeConst (pos, i, ty)))
-     :: inline_constants_of_contract ctx others 
-  | (LA.GhostVar (UntypedConst (pos, i, e))) :: others ->
-     (LA.GhostVar (UntypedConst (pos, i, simplify_expr ctx e)))
-     :: inline_constants_of_contract ctx others 
-  | (LA.GhostVar (TypedConst (pos', i, e, ty))) :: others ->
-     (LA.GhostVar (TypedConst (pos', i, simplify_expr ctx e, ty)))
+  | (LA.GhostVars (pos, lhs, e)) :: others ->
+    (LA.GhostVars (pos, lhs, simplify_expr ctx e))
      :: inline_constants_of_contract ctx others 
   | (LA.Assume (pos, n, b, e)) :: others ->
      (LA.Assume (pos, n, b, simplify_expr ctx e))

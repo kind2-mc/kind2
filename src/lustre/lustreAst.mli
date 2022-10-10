@@ -220,6 +220,10 @@ type struct_item =
 type eq_lhs = 
   | StructDef of position * struct_item list
 
+(* The left-hand side of an equation in a contract *)
+type contract_eq_lhs =
+| GhostVarDec of position * typed_ident list
+
 (** An equation or assertion in the node body *)
 type node_equation =
   | Assert of position * expr
@@ -236,8 +240,8 @@ type node_item =
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
 
-(* A contract ghost variable. *)
-type contract_ghost_var = const_decl
+(* Multiple contract ghost variables declared simultaneously. *)
+type contract_ghost_vars = position * contract_eq_lhs * expr
 
 (* A contract assume. *)
 type contract_assume = position * HString.t option * bool (* soft *) * expr
@@ -264,7 +268,7 @@ type contract_assump_vars = position * (position * HString.t) list
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =
   | GhostConst of contract_ghost_const
-  | GhostVar of contract_ghost_var
+  | GhostVars of contract_ghost_vars
   | Assume of contract_assume
   | Guarantee of contract_guarantee
   | Mode of contract_mode
@@ -363,6 +367,7 @@ val pp_print_node_local_decl :
   Format.formatter -> node_local_decl list -> unit
 val pp_print_struct_item : Format.formatter -> struct_item -> unit
 val pp_print_eq_lhs: Format.formatter -> eq_lhs -> unit
+val pp_print_contract_eq_lhs: Format.formatter -> contract_eq_lhs -> unit
 val pp_print_node_body: Format.formatter -> node_equation -> unit
 val pp_print_node_item : Format.formatter -> node_item -> unit
 val pp_print_declaration : Format.formatter -> declaration -> unit

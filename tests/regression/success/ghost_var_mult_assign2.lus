@@ -1,0 +1,23 @@
+node main() returns (P1: bool);
+let
+  P1 = 0 <= counter(0);
+  check P1;
+  --%MAIN;
+tel
+
+node counter (init : int) returns (out : int);
+(*@contract
+   var out1, out2: int = counter2(init);
+
+   guarantee out1 - out2 = 0;
+   guarantee out >= out1 - out2; 
+*)
+let
+    out = (if init > 0 then init else -1 * init) -> pre out + 1;
+tel
+
+node counter2 (init : int) returns (out1, out2 : int);
+let
+    out1 = (if init > 0 then init else -1 * init) -> pre out1 + 1;
+    out2 = (if init > 0 then init else -1 * init) -> pre out2 + 1;
+tel

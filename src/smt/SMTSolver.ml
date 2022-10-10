@@ -127,11 +127,12 @@ let bool_of_int_option = function
 
 (* Create a new instance of an SMT solver, declare all currently created
    uninterpreted function symbols *)
-let [@ocaml.warning "-27"] create_instance
+let create_instance
     ?timeout
     ?produce_assignments
     ?produce_proofs
-    ?produce_cores
+    ?produce_unsat_cores
+    ?produce_unsat_assumptions
     ?minimize_cores
     ?produce_interpolants
     l
@@ -146,9 +147,10 @@ let [@ocaml.warning "-27"] create_instance
     let timeout = bool_of_int_option timeout
     let produce_assignments = bool_of_bool_option produce_assignments
     let produce_proofs = bool_of_bool_option produce_proofs
-    let produce_cores = bool_of_bool_option produce_cores
+    let produce_unsat_cores = bool_of_bool_option produce_unsat_cores
+    let produce_unsat_assumptions = bool_of_bool_option produce_unsat_assumptions
     let minimize_cores = bool_of_bool_option minimize_cores
-    (*let produce_interpolants = bool_of_bool_option produce_interpolants*)
+    let produce_interpolants = bool_of_bool_option produce_interpolants
     let logic = l
     let id = id
   end
@@ -344,6 +346,13 @@ let prof_get_unsat_core s =
   let module S = (val s.solver_inst) in
   Stat.start_timer Stat.smt_get_unsat_core_time;
   let res = S.get_unsat_core () in
+  Stat.record_time Stat.smt_get_unsat_core_time;
+  res
+
+let prof_get_unsat_assumptions s =
+  let module S = (val s.solver_inst) in
+  Stat.start_timer Stat.smt_get_unsat_core_time;
+  let res = S.get_unsat_assumptions () in
   Stat.record_time Stat.smt_get_unsat_core_time;
   res
 
@@ -711,7 +720,7 @@ let get_unsat_core_of_names s =
 let get_unsat_core_lits s =
   let module S = (val s.solver_inst) in
   
-  match prof_get_unsat_core s with 
+  match prof_get_unsat_assumptions s with 
 
     | `Unsat_core c -> 
 

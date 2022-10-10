@@ -461,20 +461,18 @@ module Smt = struct
     | `detect ->
       match solver () with
       | `Z3_SMTLIB -> set_qe_solver `Z3_SMTLIB;
+      | `cvc5_SMTLIB -> set_qe_solver `cvc5_SMTLIB;
       | _ ->
         try
           let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
           set_qe_solver `Z3_SMTLIB;
           set_z3_bin exec;
         with Not_found ->
-        match solver () with
-        | `cvc5_SMTLIB -> set_qe_solver `cvc5_SMTLIB;
-        | _ ->
-          try
-            let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
-            set_qe_solver `cvc5_SMTLIB;
-            set_cvc5_bin exec;
-          with Not_found -> () (* Ẃe keep `detect to know no qe solver was found *)
+        try
+          let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
+          set_qe_solver `cvc5_SMTLIB;
+          set_cvc5_bin exec;
+        with Not_found -> () (* Ẃe keep `detect to know no qe solver was found *)
 end
 
 
@@ -1210,11 +1208,7 @@ module Certif = struct
   let certif = ref certif_default
   let _ = add_spec
     "--certif"
-    (Arg.Bool (fun b -> certif := b;
-                if b then begin
-                  Smt.set_short_names false;
-                  BmcKind.disable_compress ();
-                end))
+    (Arg.Bool (fun b -> certif := b))
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Produce SMT-LIB 2 certificates.@ Default: %a@]"
@@ -1225,13 +1219,7 @@ module Certif = struct
   let proof = ref proof_default
   let _ = add_spec
     "--proof"
-    (Arg.Bool (fun b -> proof := b;
-                if b then begin
-                  certif := true;
-                  Smt.set_short_names false;
-                  Smt.detect_logic_if_none ();
-                  BmcKind.disable_compress ();
-                end))
+    (Arg.Bool (fun b -> proof := b))
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Produce LFSC proofs.@ Default: %a@]"
@@ -1241,17 +1229,19 @@ module Certif = struct
   let certif () = !certif
   let proof () = !proof
 
-  let abstr_default = false
-  let abstr = ref abstr_default
+  let smaller_holes_default = false
+  let smaller_holes = ref smaller_holes_default
   let _ = add_spec
-    "--certif_abstr"
-    (bool_arg abstr)
+    "--smaller_holes"
+    (bool_arg smaller_holes)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Use abstract type indexes in certificates and proofs .@ Default: %a@]"
-        fmt_bool abstr_default
+        "@[<v>Generate proofs with smaller trust holes. Substantially \
+         increases the size of the proof.@ Default: %a@]"
+        fmt_bool smaller_holes_default
     )
-  let abstr () = !abstr
+
+  let smaller_holes () = !smaller_holes
 
   let log_trust_default = false
   let log_trust = ref log_trust_default
@@ -2078,8 +2068,9 @@ module Invgen = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
-          Invariant generation will only communicate invariants not implied@ \
-          by the transition relation@ \
+          Invariant generation will only communicate one-state invariants not implied by@ \
+          previous one-state invariants, and two-state invariants not implied by@ \
+          previous two-state invariants or the transition relation@ \
           Default: %a\
         @]"
         fmt_bool prune_trivial_default
@@ -3565,10 +3556,24 @@ let solver_dependant_actions solver =
   )
   | `cvc5_SMTLIB -> (
     let cmd = Format.asprintf "%s --version" (Smt.cvc5_bin ()) in
-    if get_version false cmd = None then (
-      Log.log L_warn "Couldn't determine cvc5 version";
-      raise Error
-    )
+    match get_version true cmd with
+    | None ->
+        Log.log L_warn "Couldn't determine cvc5 version";
+        raise Error
+    | Some (major, minor, patch) ->
+        if (major < 1) then (
+          Log.log L_error "Kind 2 requires cvc5 1.0.0 or later. Found version: %d.%d.%d"
+            major minor patch ;
+          raise Error
+        ) ;
+        if
+          Certif.proof () && (major = 0 || (major = 1 && minor = 0 && patch < 3))
+        then (
+          Log.log L_error
+            "LFSC proof production requires cvc5 1.0.3 or later. Found \
+             version: %d.%d.%d"
+            major minor patch;
+          raise Error)
   )
   | `Yices_native -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
@@ -3737,6 +3742,13 @@ let parse_argv () =
   IVC.finalize_ivc_elements ();
   MCS.finalize_mcs_elements ();
   
+  if Certif.certif () || Certif.proof () then (
+    Smt.set_short_names false;
+    Smt.detect_logic_if_none () ;
+    BmcKind.disable_compress ();
+    Log.log L_warn "Certification post-analysis enabled: disabling ind_compress"
+  ) ;
+
   solver_dependant_actions (Smt.solver ());
 
   (match Smt.solver (), Smt.qe_solver () with
@@ -3745,6 +3757,8 @@ let parse_argv () =
   | _, `Z3_SMTLIB -> solver_dependant_actions `Z3_SMTLIB
   | _, `cvc5_SMTLIB -> solver_dependant_actions `cvc5_SMTLIB
   | _, _ -> ()) ;
+
+  if Certif.proof () then solver_dependant_actions `cvc5_SMTLIB;
 
   if IVC.compute_ivc () && BmcKind.compress () then (
     BmcKind.disable_compress () ;

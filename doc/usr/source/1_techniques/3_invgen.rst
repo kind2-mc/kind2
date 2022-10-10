@@ -20,7 +20,8 @@ Options
 
 Invariant generation can be tweaked using the following options. Note that this will affect both the one state and two state process if both are running.
 
-``--invgen_prune_trivial <bool>`` (default ``true``\ ) -- when invariants are discovered, do not communicate the ones that are direct consequences of the transition relation.
+``--invgen_prune_trivial <bool>`` (default ``true``\ ) -- when invariants are discovered, do not communicate one-state invariants implied by previous one-state invariants,
+and two-state invariants implied by previous two-state invariants or the transition relation.
 
 ``--invgen_max_succ <int>`` (default ``1``\ ) -- the number of unrolling to perform on subsystems before moving on to the next one in the hierarchy.
 

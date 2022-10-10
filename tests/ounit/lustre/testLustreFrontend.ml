@@ -121,7 +121,7 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
   mk_test "test temporal operator in function contract" (fun () ->
     match load_file "./lustreSyntaxChecks/function_no_stateful_contract.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
-    | _ -> false);
+    | _ -> false);  
 ])
 
 (* *************************************************************************** *)
@@ -284,6 +284,21 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     | _ -> false);
   mk_test "test local shadows output" (fun () ->
     match load_file "./lustreAstDependencies/local_shadows_output.lus" with
+    | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
+    | _ -> false);
+
+  mk_test "test ghost variable redeclaration" (fun () ->
+    match load_file "./lustreAstDependencies/ghost_variable_redeclaration.lus" with
+    | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
+    | _ -> false);
+  
+  mk_test "test ghost variable redeclaration" (fun () ->
+    match load_file "./lustreAstDependencies/ghost_variable_redeclaration2.lus" with
+    | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
+    | _ -> false);
+  
+  mk_test "test ghost variable redeclaration" (fun () ->
+    match load_file "./lustreAstDependencies/ghost_variable_redeclaration3.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
 ])
@@ -466,6 +481,14 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test nominal record type equality" (fun () ->
     match load_file "./lustreTypeChecker/record_type_nominal_eq.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | _ -> false);
+  mk_test "test unequal equation widths in parallel ghost variable assignment" (fun () ->
+    match load_file "./lustreTypeChecker/unequal_equation_widths_contract.lus" with
+    | Error (`LustreTypeCheckerError (_, MismatchOfEquationType _)) -> true
+    | _ -> false);
+  mk_test "test unequal equation widths in parallel ghost variable assignment 2" (fun () ->
+    match load_file "./lustreTypeChecker/unequal_equation_widths_contract2.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
     | _ -> false);
 ])

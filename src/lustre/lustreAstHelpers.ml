@@ -656,8 +656,8 @@ node_item_list_has_pre_or_arrow = function
 Does not (cannot) check contract calls recursively, checks only inputs and
 outputs. *)
 let contract_node_equation_has_pre_or_arrow = function
-| GhostConst decl
-| GhostVar decl -> const_decl_has_pre_or_arrow decl
+| GhostConst decl -> const_decl_has_pre_or_arrow decl
+| GhostVars (_, _, e)
 | Assume (_, _, _, e)
 | Guarantee (_, _, _, e) -> has_pre_or_arrow e
 | Mode (_, _, reqs, enss) ->

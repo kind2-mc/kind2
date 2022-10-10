@@ -2,6 +2,9 @@
 *.log
 *.err
 
+# macOs generated files.
+.DS_Store
+
 # Generated opam switch.
 _opam
 
@@ -16,6 +19,9 @@ _build
 
 # Generated doc.
 ocamldoc
+
+# Generated LFSC stuff.
+lfsc
 
 # Generated server stuff.
 server/myocamlbuild.ml

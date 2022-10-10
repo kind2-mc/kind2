@@ -1406,7 +1406,7 @@ let best_int_range is_div op t t' =
 
 
 (* Type check for int -> int -> int, real -> real -> real *)
-let type_of_num_num_num ?(is_div = false) op t t' =
+(*let type_of_num_num_num ?(is_div = false) op t t' =
   try best_int_range is_div op t t' with
   | Invalid_argument _ -> (
     match t with
@@ -1424,7 +1424,7 @@ let type_of_num_num_num ?(is_div = false) op t t' =
       
     | _ -> raise Type_mismatch
   )
-
+*)
 
 (* Type check for int -> int -> int, real -> real -> real, 
 abv -> abv -> abv *)
@@ -1687,7 +1687,8 @@ let eval_uminus expr = match Term.destruct expr with
 
   | Term.T.App (s, [e]) when s == Symbol.s_minus -> e
 
-  | _ -> if (Type.is_bitvector (Term.type_of_term expr)) then
+  | _ -> if (Type.is_bitvector (Term.type_of_term expr) ||
+             Type.is_ubitvector (Term.type_of_term expr)) then
             Term.mk_bvneg expr
          else
             Term.mk_minus [expr]
@@ -1711,6 +1712,10 @@ let type_of_uminus = function
   | t when Type.is_int16 t -> Type.t_bv 16
   | t when Type.is_int32 t -> Type.t_bv 32
   | t when Type.is_int64 t -> Type.t_bv 64
+  | t when Type.is_uint8 t -> Type.t_ubv 8
+  | t when Type.is_uint16 t -> Type.t_ubv 16
+  | t when Type.is_uint32 t -> Type.t_ubv 32
+  | t when Type.is_uint64 t -> Type.t_ubv 64
   | _ -> raise Type_mismatch
 
 
@@ -2518,7 +2523,7 @@ let eval_minus expr1 expr2 =
                  Symbol.decimal_of_symbol c2) 
 
     | _ -> (if ((Type.is_bitvector (Term.type_of_term expr1)) 
-            && (Type.is_bitvector (Term.type_of_term expr1))) then
+            || (Type.is_ubitvector (Term.type_of_term expr1))) then
               Term.mk_bvsub [expr1; expr2]
             else 
               Term.mk_minus [expr1; expr2])
@@ -2543,7 +2548,7 @@ let type_of_minus = function
         let l2, u2 = Type.bounds_of_int_range s in
         Type.mk_int_range Numeral.(l1 - u2) Numeral.(u1 - l2)
       | s -> type_of_numOrSBV_numOrSBV_numOrSBV Numeral.sub t s)
-  | t -> type_of_numOrSBV_numOrSBV_numOrSBV Numeral.sub t
+  | t -> type_of_numOrBV_numOrBV_numOrBV Numeral.sub t
 
 
 (* Subtraction *)
@@ -2638,6 +2643,12 @@ let eval_div expr1 expr2 =
     if Type.is_real tt then (
       Term.mk_div [expr1; expr2]
     )
+    else if Type.is_ubitvector (Term.type_of_term expr1) then (
+      Term.mk_bvudiv [expr1; expr2]
+    )
+    else if Type.is_bitvector (Term.type_of_term expr1) then (
+      Term.mk_bvsdiv [expr1; expr2]
+    ) 
     else (
       Term.mk_intdiv [expr1; expr2]
     )
@@ -2647,8 +2658,12 @@ let eval_div expr1 expr2 =
 
 (* Type of real division
 
-   /: real -> real -> real *)
-let type_of_div = type_of_num_num_num ~is_div:true Numeral.div
+   /: real -> real -> real
+
+   When the operator is applied to integer and machine integer arguments,
+   its semantics is the same as integer division (div)
+*)
+let type_of_div = type_of_numOrBV_numOrBV_numOrBV ~is_div:true Numeral.div
 
 
 (* Real division *)

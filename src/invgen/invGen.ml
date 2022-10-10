@@ -306,9 +306,9 @@ module Make (Graph : GraphSig) : Out = struct
   pruning solver map [sys_map].
 
   Returns the new invariants for the system [sys]. *)
-  let recv_and_update input_sys aparam top_sys sys_map sys =
+  let recv_and_update two_state input_sys aparam top_sys sys_map sys =
 
-    let [@ocaml.warning "-27"] update_pruning_checkers sys_invs map =
+    let update_pruning_checkers map =
       Scope.Map.fold (
         fun scope (os, ts) acc ->
           let this_sys = Sys.find_subsystem_of_scope top_sys scope in
@@ -318,7 +318,8 @@ module Make (Graph : GraphSig) : Out = struct
             try (
               let pruning_checker = SysMap.find sys_map this_sys in
               Lsd.pruning_add_invariants pruning_checker false os ;
-              Lsd.pruning_add_invariants pruning_checker true ts
+              if two_state then
+                Lsd.pruning_add_invariants pruning_checker true ts
             ) with Not_found -> (
               (* System is abstract or was discarded, skipping it. *)
             )
@@ -333,7 +334,7 @@ module Make (Graph : GraphSig) : Out = struct
     |> KEvent.update_trans_sys_sub input_sys aparam top_sys
     |> fst
     (* Update everything. *)
-    |> update_pruning_checkers []
+    |> update_pruning_checkers
 
 
   (** Queries step to identify invariants, prunes trivial ones away,
@@ -352,7 +353,7 @@ module Make (Graph : GraphSig) : Out = struct
     (* Format.printf "  pruning@.@." ; *)
     let (non_trivial, trivial) =
       if Flags.Invgen.prune_trivial () then
-        Lsd.query_pruning pruner invs
+        Lsd.query_pruning pruner two_state invs
       else (invs, [])
     in
 
@@ -434,7 +435,7 @@ module Make (Graph : GraphSig) : Out = struct
 
     (* Receiving messages, don't care about new invariants for now as we
     haven't create the base/step checker yet. *)
-    let _ = recv_and_update input_sys param top_sys sys_map sys in
+    let _ = recv_and_update two_state input_sys param top_sys sys_map sys in
 
     (* Retrieving pruning checker for this system. *)
     let pruning_checker =
@@ -506,7 +507,7 @@ module Make (Graph : GraphSig) : Out = struct
 
     (* Receiving messages. *)
     let new_os, new_ts =
-      recv_and_update input_sys param top_sys sys_map sys
+      recv_and_update two_state input_sys param top_sys sys_map sys
     in
     Lsd.step_add_invariants lsd false new_os ;
     Lsd.step_add_invariants lsd true new_ts ;
@@ -711,7 +712,7 @@ module Make (Graph : GraphSig) : Out = struct
       invariants. *)
       Graph.mine top_only two_state aparam sys (
         fun sys ->
-          let pruning_checker = Lsd.mk_pruning_checker sys in
+          let pruning_checker = Lsd.mk_pruning_checker sys two_state in
           prune_ref := pruning_checker :: (! prune_ref) ;
           SysMap.replace sys_map sys pruning_checker
       )

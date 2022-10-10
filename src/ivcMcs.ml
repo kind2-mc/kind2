@@ -394,7 +394,10 @@ let minimize_contract_node_eq ue lst cne =
   match cne with
   | A.ContractCall _ -> [cne]
   | A.GhostConst d -> [A.GhostConst (minimize_const_decl ue lst d)]
-  | A.GhostVar d -> [A.GhostVar (minimize_const_decl ue lst d)]
+  | A.GhostVars (pos, (GhostVarDec(_, til) as lhs), expr) ->
+    let typ = List.map (fun (_, _, t) -> t) til in
+    let (_, expr) = minimize_expr (ue false) lst typ expr in
+    [A.GhostVars (pos, lhs, expr)]
   | A.Assume (pos,_,_,_)
   | A.Guarantee (pos,_,_,_) ->
     if List.exists (fun p -> Lib.equal_pos p pos) lst
@@ -1062,7 +1065,7 @@ let get_logic ?(pathcomp=false) sys =
 let create_solver ?(pathcomp=false) ?(approximate=false) sys actlits bmin bmax =
   let solver =
     SMTSolver.create_instance ~timeout:(Flags.IVC.ivc_uc_timeout ())
-    ~produce_assignments:pathcomp ~produce_cores:true
+    ~produce_assignments:pathcomp ~produce_unsat_assumptions:true
     ~minimize_cores:(not approximate) (get_logic ~pathcomp sys) (Flags.Smt.solver ()) in
   List.iter (SMTSolver.declare_fun solver) actlits ;
   TS.declare_sorts_ufs_const sys (SMTSolver.declare_fun solver) (SMTSolver.declare_sort solver) ;

@@ -228,9 +228,9 @@ let build_contract_ctx ctx (eqns:LustreAst.contract) =
     | LA.GhostConst (FreeConst (_, i, ty)) -> ctx_add_free_const acc i (Some ty)
     | LA.GhostConst (UntypedConst (_, i, _)) -> ctx_add_const acc i None
     | LA.GhostConst (TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
-    | LA.GhostVar (FreeConst (_, i, ty)) -> ctx_add_free_const acc i (Some ty)
-    | LA.GhostVar (UntypedConst (_, i, _)) -> ctx_add_const acc i None
-    | LA.GhostVar (TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
+    | LA.GhostVars (_, GhostVarDec (_, l), _) -> 
+      List.fold_left (fun acc (_, i, ty) -> ctx_add_const acc i (Some ty)) acc l
+
     | _ -> acc
   in
   List.fold_left over_eqns ctx eqns
@@ -634,8 +634,7 @@ and check_contract is_contract_node ctx f contract =
       let rs = List.map (fun (_, _, e) -> e) rs in
       let gs = List.map (fun (_, _, e) -> e) gs in
       check_list rs >> check_list gs
-    | GhostVar (UntypedConst (_, _, e)) -> check_expr ctx f e
-    | GhostVar (TypedConst (_, _, e, _)) -> check_expr ctx f e
+    | GhostVars (_, _, e) -> check_expr ctx f e
     | AssumptionVars (pos, _) ->
       if not is_contract_node then Ok ()
       else syntax_error pos AssumptionVariablesInContractNode
