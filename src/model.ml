@@ -224,7 +224,7 @@ let pp_print_value_term_xml as_type ppf t = match as_type with
         if Type.is_bitvector ty then Bitvector.bv_to_num bv
         else Bitvector.ubv_to_num bv
       with
-        Bitvector.NonStandardBVSize -> raise LustreExpr.Type_mismatch
+        Bitvector.NonStandardBVSize -> print_endline("m4"); raise LustreExpr.Type_mismatch
     in
     Numeral.pp_print_numeral ppf bv_num
   )
@@ -281,7 +281,7 @@ let pp_print_value_term_json as_type ppf t = match as_type with
         if Type.is_bitvector ty then Bitvector.bv_to_num bv
         else Bitvector.ubv_to_num bv
       with
-        Bitvector.NonStandardBVSize -> raise LustreExpr.Type_mismatch
+        Bitvector.NonStandardBVSize -> print_endline("m5"); raise LustreExpr.Type_mismatch
     in
     Numeral.pp_print_numeral ppf bv_num
   )

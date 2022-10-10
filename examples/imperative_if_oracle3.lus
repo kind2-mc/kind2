@@ -7,13 +7,18 @@ let
     A[i] = 1 -> A[i-1]*2; (incorrect syntax)
   *)
   --p1 = (true -> (pre y2 = 5 => y2 = 10));
-  p2 = (y2 = 10);
+  p1 = ((y1 = 5) -> (y1 = 6));
+  p2 = ((y2 = 10) -> true);
+  p3 = ((y3 = 15) -> true);
+  --%PROPERTY p1;
   --%PROPERTY p2;
+  --%PROPERTY p3;
   
-  if (true)
+  if (true -> false)
   then 
     y1 = 5;
     y2 = 10;
+    y3 = 15;
   else 
     y1 = 6;
   fi

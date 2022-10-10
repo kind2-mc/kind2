@@ -147,7 +147,7 @@ let if_block_to_trees ib =
 let rec tree_to_ite pos node =
   match node with
     | Leaf Some expr -> expr
-    | Leaf None -> A.Ident(pos, HString.mk_hstring "STUB")
+    | Leaf None -> A.Ident(pos, HString.mk_hstring "ib_oracle")
     | Node (left, cond, right) -> 
       TernaryOp (pos, Ite, cond, tree_to_ite pos left, tree_to_ite pos right)
 
@@ -160,7 +160,7 @@ let rec get_tree_type ctx tree = match tree with
   | Node (l, _, r) -> (
     match (get_tree_type ctx l) with
       | Ok (None) -> (get_tree_type ctx r)
-      | Ok (Some ty) -> R.ok (Some ty)
+      | Ok (Some ty) -> (* A.pp_print_lustre_type Format.std_formatter ty;*) R.ok (Some ty)
       | Error (_) -> failwith "error1"
   )
 
@@ -171,7 +171,7 @@ let rec fill_ite_with_oracles ite ty =
       let e1, gids1 = (
       match e1 with
         | TernaryOp _ as top -> fill_ite_with_oracles top ty
-        | Ident(_, s) when s = HString.mk_hstring "STUB" -> 
+        | Ident(_, s) when s = HString.mk_hstring "ib_oracle" -> 
           let (expr, gids) = (mk_fresh_ib_oracle ty) in
           expr, gids
         | _ -> e1, LAN.empty ()
@@ -179,7 +179,7 @@ let rec fill_ite_with_oracles ite ty =
       let e2, gids2 = (
       match e2 with
         | TernaryOp _ as top -> fill_ite_with_oracles top ty
-        | Ident(_, s) when s = HString.mk_hstring "STUB" -> 
+        | Ident(_, s) when s = HString.mk_hstring "ib_oracle" -> 
           let (expr, gids) = (mk_fresh_ib_oracle ty) in
           expr, gids
         | _ -> e2, LAN.empty ()
@@ -338,8 +338,8 @@ let extract_equations_from_if ctx ib =
   (* Combine poss, lhss, and ites into a list of equations *)
   let eqs = (List.map2 (fun (a, b) c -> (A.Body (A.Equation (a, b, c)))) (List.combine poss lhss) ites) in
 
-  let eqs2 = (List.map2 (fun (a, b) c -> (A.Equation (a, b, c))) (List.combine poss lhss) ites) in
-  List.iter (A.pp_print_node_body Format.std_formatter) eqs2;
+  (*let eqs2 = (List.map2 (fun (a, b) c -> (A.Equation (a, b, c))) (List.combine poss lhss) ites) in
+   List.iter (A.pp_print_node_body Format.std_formatter) eqs2; *)
 
   R.ok (new_decls, nis @ eqs, [gids])
 
@@ -398,4 +398,5 @@ let desugar_if_blocks ctx normalized_nodes_and_contracts =
   What about contracts? Getting context for contracts? 
     Nope.
   Propagated oracles?
+  Node call data structure? ("calls" field)
 *)

@@ -122,7 +122,6 @@ let select_from_arrayintindex pos bound_e index expr =
 
 *)
 let rec eval_ast_expr bounds ctx = 
-
   function
 
     (* ****************************************************************** *)
@@ -610,7 +609,7 @@ let rec eval_ast_expr bounds ctx =
             "Index mismatch for expressions in merge" 
 
         | E.Type_mismatch ->
-
+          
           fail_at_position
             pos
             "Type mismatch for expressions in merge" 
@@ -1706,7 +1705,6 @@ and eval_node_call
     ident
     { N.inputs = node_inputs; 
       N.oracles = node_oracles;
-      N.ib_oracles = node_ib_oracles;
       N.outputs = node_outputs } 
     cond
     restart
@@ -1741,7 +1739,7 @@ and eval_node_call
           (D.fold
              (function 
                | D.ListIndex 0 :: tl -> D.add tl
-               | _ -> raise E.Type_mismatch) 
+               | _ -> print_endline("m6"); raise E.Type_mismatch) 
              expr'
              D.empty,
            ctx)
@@ -1792,9 +1790,9 @@ and eval_node_call
             in
             (* Add expression as input *)
             (D.add i state_var' accum, ctx)
-          ) else
+          ) else 
             (* Type check failed, catch exception below *)
-            raise E.Type_mismatch)
+            (print_endline("m7"); raise E.Type_mismatch))
         node_inputs
         expr'
         (D.empty, ctx)
@@ -1945,6 +1943,7 @@ and eval_node_call
         ) node_outputs (D.empty, ctx)
       in
     (* Borrowing from directly above *)
+    (*
     let ib_oracle_state_vars, ctx = 
       D.fold (
         fun i sv (accum, ctx) -> 
@@ -1962,9 +1961,9 @@ and eval_node_call
             )
           in
           (D.add i sv' accum, ctx)
-      ) node_ib_oracles (D.empty, ctx)
-      in
-
+      ) node_ib_oracles ([], ctx) 
+      in 
+      *)
       (* Return tuple of state variables capturing outputs *)
       let res = D.map E.mk_var output_state_vars in
       (* Create node call *)
@@ -1974,7 +1973,7 @@ and eval_node_call
           N.call_cond = cond_state_var;
           N.call_inputs = input_state_vars;
           N.call_oracles = oracle_state_vars;
-          N.call_ib_oracles = ib_oracle_state_vars;
+        (*  N.call_ib_oracles = ib_oracle_state_vars; *)
           N.call_outputs = output_state_vars;
           N.call_defaults = defaults } 
       in

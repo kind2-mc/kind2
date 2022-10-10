@@ -3213,7 +3213,7 @@ let type_of_ite = function
     (function type2 -> function type3 ->
 
        (* If first type is subtype of second, choose second type *)
-       if Type.check_type type2 type3 then type3 else 
+       if Type.check_type type2 type3 then type3 else (
 
          (* If second type is subtype of first, choose first type *)
        if Type.check_type type3 type2 then type2 else 
@@ -3233,7 +3233,7 @@ let type_of_ite = function
              Type.mk_int_range Numeral.(min l1 l2) Numeral.(max u1 u2)
 
 
-           | _ -> raise Type_mismatch))
+           | _ -> (* Issue here *) print_endline("type_of_ite"); raise Type_mismatch)))
 
   | _ -> (function _ -> function _ -> raise Type_mismatch)
 

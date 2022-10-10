@@ -82,8 +82,8 @@ type node_call = {
       The length of the list is equal to the length of the list in
       the {!t.oracles} field of the called node. *)
       
-  call_ib_oracles : StateVar.t LustreIndex.t;
-  (** Variables providing non-deterministic inputs (non-constant, for use in 
+  (* call_ib_oracles : StateVar.t LustreIndex.t list; *)
+  (* Variables providing non-deterministic inputs (non-constant, for use in 
       if blocks)
 
       The length of the list is equal to the length of the list in
@@ -184,14 +184,6 @@ type t = {
       Input streams added to the node to obtain non-deterministic
       values for the initial values of unguarded pre operators. The
       state variables are constant. *)
-
-  ib_oracles : StateVar.t LustreIndex.t;
-  (** Oracle inputs added to the node inputs
-      
-      Input streams added to the node to obtain non-deterministic values
-      for when outputs are left undefined in some branches of an if block.
-      Not constant.
-  *)
 
   outputs : StateVar.t LustreIndex.t;
   (** Output streams defined in the node

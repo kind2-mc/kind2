@@ -278,7 +278,9 @@ let of_channel old_frontend only_parse in_ch =
         Ok (nodes, globals, main_nodes)
       else
         let* (ctx, gids, decls, toplevel_nodes) = type_check declarations in
+        print_endline("starting compile");
         let nodes, globals = LNG.compile ctx gids decls in
+        print_endline("ending compile");
         let main_nodes = match Flags.lus_main () with
           | Some s -> [LustreIdent.mk_string_ident s]
           | None -> (
