@@ -139,8 +139,8 @@ let mk_span start_pos end_pos =
 %token OR
 %token IF
 %token FI
-(* %token DEF
-%token FED *)
+%token DEF
+%token FED 
 %token WITH
 %token THEN
 %token ELSE
@@ -597,6 +597,7 @@ check:
 
 node_item:
   | i = node_if_block { i }
+  | f = node_frame_block { f }
   | e = node_equation { A.Body e }
   | a = main_annot { a }
   | p = property { p }
@@ -611,13 +612,13 @@ node_if_block:
     FI;
     { A.IfBlock (mk_pos $startpos, e, l1, l2) }
 
-(*
+
 node_frame_block:
   | DEF; LPAREN; l1 = list(node_equation); RPAREN;
     l2 = list(node_item);
     FED;
   { A.FrameBlock (mk_pos $startpos, l1, l2) }
-*)
+
 
 (* An equations of a node *)
 node_equation:

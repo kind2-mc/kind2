@@ -1729,6 +1729,8 @@ and eval_node_items inputs outputs locals ctx = function
 
   | A.IfBlock (pos, _, _, _) :: _ -> fail_at_position pos  "If blocks not supported in old front-end"
 
+  | A.FrameBlock (pos, _, _) :: _ -> fail_at_position pos "Frame blocks not supported in old front-end"
+
   (* Property annotation *)
   | A.AnnotProperty (pos, name_opt, ast_expr) :: tl -> 
     (* report unguarded pre *)

@@ -516,6 +516,7 @@ let rec compile ctx gids decls =
     |> List.map (fun (_, id, v) -> mk_ident id, v)
     
   in 
+  print_endline("finished compile");
   output.nodes,
     { G.free_constants = free_constants;
       G.state_var_bounds = output.state_var_bounds}
@@ -723,6 +724,8 @@ and compile_ast_expr
     X.map mk (compile_ast_expr cstate ctx bounds map expr)
 
   and compile_binary bounds mk expr1 expr2 =
+    A.pp_print_expr Format.std_formatter expr1;
+    A.pp_print_expr Format.std_formatter expr2;
     let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
     let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
     (* TODO: Old code does three error checks here doublecheck *)

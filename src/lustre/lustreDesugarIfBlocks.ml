@@ -151,6 +151,8 @@ let rec tree_to_ite pos node =
     | Node (left, cond, right) -> 
       TernaryOp (pos, Ite, cond, tree_to_ite pos left, tree_to_ite pos right)
 
+(*
+(* Maybe use equation LHS rather than RHS expression. *)
 (* Returns the type associated with a tree. *)
 let rec get_tree_type ctx tree = match tree with
   | Leaf None -> R.ok None
@@ -163,6 +165,21 @@ let rec get_tree_type ctx tree = match tree with
       | Ok (Some ty) -> (* A.pp_print_lustre_type Format.std_formatter ty;*) R.ok (Some ty)
       | Error (_) -> failwith "error1"
   )
+*)
+
+(* Returns the type associated with a tree. *)
+let get_tree_type ctx lhs = 
+  match lhs with
+    | A.StructDef(_, [SingleIdent(_, i)]) -> (Ctx.lookup_ty ctx i) 
+    | A.StructDef(_, [ArrayDef(_, i, _)]) -> (
+      match (Ctx.lookup_ty ctx i) with
+        (* Assignment in the form of A[i] = f(i), so the RHS type is no
+           longer an array *)
+        | Some (ArrayType (_, (ty, _))) -> Some ty
+        | _ -> None
+      )
+    (* Other cases not possible *)
+    | _ -> failwith "error5"
 
 (* Fills empty spots in an ITE with oracles. *)
 let rec fill_ite_with_oracles ite ty = 
@@ -331,7 +348,7 @@ let extract_equations_from_if ctx ib =
   let ites = List.map2 tree_to_ite poss trees in
 
   (* Convert holes in ITEs to oracles. *)
-  let* tys = R.seq (List.map (get_tree_type ctx) trees) in 
+  let tys = List.map (get_tree_type ctx) lhss in 
   let tys = List.map (fun x -> match x with | Some y -> y | None -> failwith "error3") tys in
   let ites, gids = List.map2 fill_ite_with_oracles ites tys |> List.split in
   let gids = List.fold_left LAN.union (LAN.empty ()) gids in

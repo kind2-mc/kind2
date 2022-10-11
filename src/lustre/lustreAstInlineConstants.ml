@@ -452,6 +452,10 @@ let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA
     (IfBlock (pos, e, inline_constants_of_node_items ctx l1, 
                       inline_constants_of_node_items ctx l2)) :: 
     inline_constants_of_node_items ctx items
+  | (FrameBlock (pos, nes, nis)) :: items ->
+    (FrameBlock (pos, List.map (inline_constants_of_node_equation ctx) nes, 
+                      inline_constants_of_node_items ctx nis)) :: 
+    inline_constants_of_node_items ctx items
   | (AnnotProperty (pos, n, e)) :: items ->
     (AnnotProperty (pos, n, simplify_expr ctx e))
     :: inline_constants_of_node_items ctx items

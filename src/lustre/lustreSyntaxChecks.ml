@@ -304,6 +304,11 @@ let locals_must_have_definitions locals items =
       (match x1, x2 with
         | Some _, Some _ -> true
         | _ -> false)
+    | LA.FrameBlock (_, nes, _) -> 
+      (* Check if local is defined in initialization of frame block *)
+      let nes = List.map (fun x -> LA.Body x) nes in
+      let x = List.find_opt (fun item -> find_local_def id item) nes in
+      (match x with | Some _ -> true | None -> false)
     | LA.AnnotMain _ -> false
     | LA.AnnotProperty _ -> false
   in
@@ -606,6 +611,9 @@ and check_items ctx f items =
         >> (expr_only_supported_in_merge false e)
     | LA.IfBlock (_, e, l1, l2) -> 
       check_expr ctx f e >> (check_items ctx f l1) >> (check_items ctx f l2)
+    | LA.FrameBlock (_, nes, nis) ->
+      let nes = List.map (fun x -> LA.Body x) nes in
+      check_items ctx f nes >> (check_items ctx f nis)
     | Body (Assert (_, e))
     | AnnotProperty (_, _, e) -> check_expr ctx f e
     | AnnotMain _ -> Ok ()

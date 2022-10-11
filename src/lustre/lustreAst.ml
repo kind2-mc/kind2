@@ -232,7 +232,7 @@ type node_item =
   | Body of node_equation
   | IfBlock of position * expr * node_item list * node_item list
   (* Maybe just use position * eq_lhs * expr rather than node_equation *)
-  (* | FrameBlock of position * node_equation list * node_item list *)
+  | FrameBlock of position * node_equation list * node_item list 
   | AnnotMain of bool
   | AnnotProperty of position * HString.t option * expr
 
@@ -907,11 +907,14 @@ and pp_print_node_item ppf = function
 
   (* Need to test/refine this *)
   | IfBlock (_, e, l1, l2) -> 
-    
-    Format.fprintf ppf "IF %a THEN { %a } ELSE { %a }"  
+    Format.fprintf ppf "if %a then %a else  %a fi"  
       pp_print_expr e 
       (pp_print_list pp_print_node_item "; ") l1
       (pp_print_list pp_print_node_item "; ") l2
+
+  | FrameBlock (_, nes, nis) -> Format.fprintf ppf "def (%a) %a fed"  
+    (pp_print_list pp_print_node_body "; ") nes
+    (pp_print_list pp_print_node_item "; ") nis
 
   | AnnotMain true -> Format.fprintf ppf "--%%MAIN;"
 

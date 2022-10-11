@@ -633,12 +633,17 @@ let rec node_item_has_pre_or_arrow = function
   eq_lhs_has_pre_or_arrow lhs
   |> unwrap_or (fun _ -> has_pre_or_arrow e)
 | IfBlock (_, e, l1, l2) -> (match has_pre_or_arrow e with
+  | Some pos -> Some pos
+  | None -> (match node_item_list_has_pre_or_arrow l1 with 
     | Some pos -> Some pos
-    | None -> (match node_item_list_has_pre_or_arrow l1 with 
-      | Some pos -> Some pos
-      | None -> node_item_list_has_pre_or_arrow l2
+    | None -> node_item_list_has_pre_or_arrow l2
     )
   )
+| FrameBlock (_, nes, nis) -> 
+  let nes = List.map (fun x -> Body x) nes in 
+  (match node_item_list_has_pre_or_arrow nes with
+    | Some pos -> Some pos
+    | None ->  node_item_list_has_pre_or_arrow nis)
 | AnnotMain _ -> None
 | AnnotProperty (_, _, e) -> has_pre_or_arrow e
 and
@@ -1108,6 +1113,9 @@ let extract_equation: node_item list -> node_equation list =
     | IfBlock (_, _, l1, l2) -> 
       List.flatten (List.map extract_equation_helper l1) @ 
       List.flatten (List.map extract_equation_helper l2)
+    (* Some equations generated later, not 100% sure what to do here. *)
+    | FrameBlock (_, nes, nis) -> 
+      nes @ List.flatten (List.map extract_equation_helper nis)
     | AnnotMain _ -> []
     | AnnotProperty _ -> [])
   in 

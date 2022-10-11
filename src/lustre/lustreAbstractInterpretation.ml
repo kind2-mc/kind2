@@ -250,8 +250,12 @@ and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
       | Equation (_, lhs, rhs) -> [(lhs, rhs)])
     (* Extract equations from both branches of "if" block-- double check. *)
     | LA.IfBlock (_, _, l1, l2) -> 
-      List.flatten (List.map extract_equations l1) @ 
-      List.flatten (List.map extract_equations l2)
+      (List.map extract_equations l1 |> List.flatten) @ 
+      (List.map extract_equations l2 |> List.flatten)
+    | LA.FrameBlock (_, nes, nis) ->
+      let nes = List.map (fun x -> LA.Body x) nes in
+      (List.map extract_equations nes |> List.flatten) @
+      (List.map extract_equations nis |> List.flatten)
     | AnnotMain _ -> []
     | AnnotProperty _ -> []
     in
