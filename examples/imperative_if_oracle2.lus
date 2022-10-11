@@ -1,7 +1,7 @@
 node test(x: int) returns (y1, y2, y3: int; p1, p2, p3: bool);
 let 
   p1 = (y1 = 5) or (y1 = 6);
-  p2 = (y2 = 10 or y2 <> 10);
+  p2 = (counter(0) < 5 => (y2 = 10));
   --%PROPERTY p1;
   --%PROPERTY p2;
   

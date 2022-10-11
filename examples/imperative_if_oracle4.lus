@@ -11,7 +11,11 @@ let
   p1 = (x > 0 => y1[0] = 0);
   p2 = (x > 0 => y2 = {44, false, true});
   p3 = (x > 0 => y3.v4.v2 = 45);
-  p4 = (x > 0 => y4[3] = 3);
+
+
+  p4 = (x > 0 => (y4[3] = 3));
+
+
   helper = [0, 0];
 
   --%PROPERTY p1;
@@ -26,7 +30,7 @@ let
     y1 = [0, 0];
     y2 = {44, false, true};
     y3 = r2 { v3 = 22; v4 = r1 { v1 = true; v2 = 45; v3 = true }};
-    y4[i] = i;
+    y4[i] = if i = 0 then 0 else (y4[i-1] + 1);
   else 
   fi
 tel

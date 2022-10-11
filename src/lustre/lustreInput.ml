@@ -164,6 +164,10 @@ let type_check declarations =
     (* Step 10. Infer tighter subrange constraints with abstract interpretation *)
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx const_inlined_nodes_and_contracts in
 
+    (* Desugaring before abstract interpretation (?) *)
+
+    (* Desugar frame blocks *)
+
     (* Step 11. Desugar imperative if block to ITEs *)
     let* (const_inlined_nodes_and_contracts, gids) = (LDI.desugar_if_blocks inlined_global_ctx const_inlined_nodes_and_contracts) in
 
