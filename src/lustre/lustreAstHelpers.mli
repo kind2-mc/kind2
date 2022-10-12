@@ -129,6 +129,9 @@ val is_type_signed_machine_int: lustre_type -> bool
 val is_type_machine_int: lustre_type -> bool
 (** returns [true] if the type is a signed or unsiged machine integer.  *)
 
+val is_type_array: lustre_type -> bool
+(** returns [true] if the type is an array type *)
+
 val is_machine_type_of_associated_width: (lustre_type * lustre_type) -> bool
 (** returns [true] if the first component of the type is of the same width 
     as the second component. eg. Int8 and UInt8 returns [true] but Int16 and UInt8 return [false] *)
