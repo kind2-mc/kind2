@@ -1,0 +1,7 @@
+node test(x: int) returns (y,z: int^2; P: bool);
+let
+  y = [0,0];
+  z = 0^2;
+  P = (y = z);
+  --%PROPERTY P;
+tel

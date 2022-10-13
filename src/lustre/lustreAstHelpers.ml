@@ -862,6 +862,11 @@ let is_type_signed_machine_int: lustre_type -> bool
 let is_type_machine_int: lustre_type -> bool = fun ty ->
   is_type_signed_machine_int ty || is_type_unsigned_machine_int ty 
 
+let is_type_array : lustre_type -> bool =
+  function
+  | ArrayType _ -> true
+  | _ -> false
+
 let is_machine_type_of_associated_width: (lustre_type * lustre_type) -> bool
   = function
   | Int8 _, UInt8 _       
@@ -873,7 +878,7 @@ let is_machine_type_of_associated_width: (lustre_type * lustre_type) -> bool
     | UInt32 _, UInt32 _   
     | UInt64 _, UInt64 _ -> true
   | _ -> false
-       
+
 let is_type_or_const_decl: declaration -> bool = 
   function
   | TypeDecl _
