@@ -40,6 +40,7 @@ module LAN = LustreAstNormalizer
 module LS = LustreSyntaxChecks
 module LIA = LustreAbstractInterpretation
 module LDI = LustreDesugarIfBlocks
+module LDF = LustreDesugarFrameBlocks
 (* module LAD = LustreArrayDependencies *)
 
 type error = [
@@ -166,15 +167,17 @@ let type_check declarations =
 
     (* Desugaring before abstract interpretation (?) *)
 
-    (* Desugar frame blocks *)
-
     (* Step 11. Desugar imperative if block to ITEs *)
     let* (const_inlined_nodes_and_contracts, gids) = (LDI.desugar_if_blocks inlined_global_ctx const_inlined_nodes_and_contracts) in
+
+    let const_inlined_nodes_and_contracts = LDF.desugar_frame_blocks const_inlined_nodes_and_contracts in 
 
     (* Step 12. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_nodes_and_contracts, gids) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
     in
+
+    List.iter (LA.pp_print_declaration Format.std_formatter) normalized_nodes_and_contracts;
 
     Res.ok (inlined_global_ctx,
       gids,

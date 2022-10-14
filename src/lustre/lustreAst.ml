@@ -909,12 +909,12 @@ and pp_print_node_item ppf = function
   | IfBlock (_, e, l1, l2) -> 
     Format.fprintf ppf "if %a then %a else  %a fi"  
       pp_print_expr e 
-      (pp_print_list pp_print_node_item "; ") l1
-      (pp_print_list pp_print_node_item "; ") l2
+      (pp_print_list pp_print_node_item " ") l1
+      (pp_print_list pp_print_node_item " ") l2
 
   | FrameBlock (_, nes, nis) -> Format.fprintf ppf "def (%a) %a fed"  
-    (pp_print_list pp_print_node_body "; ") nes
-    (pp_print_list pp_print_node_item "; ") nis
+    (pp_print_list pp_print_node_body " ") nes
+    (pp_print_list pp_print_node_item " ") nis
 
   | AnnotMain true -> Format.fprintf ppf "--%%MAIN;"
 

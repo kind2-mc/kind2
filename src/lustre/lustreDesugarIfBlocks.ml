@@ -360,8 +360,12 @@ let extract_equations_from_if ctx ib =
 
   R.ok (new_decls, nis @ eqs, [gids])
 
-let desugar_node_item ctx ni = match ni with
+let rec desugar_node_item ctx ni = match ni with
   | A.IfBlock _ as ib -> extract_equations_from_if ctx ib
+  | A.FrameBlock (pos, nes, nis) -> 
+    let* res = R.seq (List.map (desugar_node_item ctx) nis) in
+    let decls, nis, gids = split_and_flatten3 res in
+    R.ok (decls, [A.FrameBlock(pos, nes, nis)], gids)
   | _ -> R.ok ([], [ni], [LAN.empty ()])
 
 (* Ugly... *)
@@ -398,6 +402,7 @@ let desugar_node_decl ctx decl = match decl with
     let ctx = get_node_ctx ctx d in
     let* nis = R.seq (List.map (desugar_node_item ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
+    (* List.iter (A.pp_print_node_item Format.std_formatter) nis; *)
     let gids = List.fold_left LAN.union (LAN.empty ()) gids in
     R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), LAN.StringMap.singleton node_id gids) 
   | _ -> R.ok (decl, LAN.StringMap.empty)

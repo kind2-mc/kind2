@@ -471,9 +471,12 @@ let extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
           | LA.Equation (_, _, e) -> get_node_call_from_expr e)
       | AnnotProperty (_, _, e) -> get_node_call_from_expr e
       | IfBlock (_, e, l1, l2) -> 
-          (get_node_call_from_expr e) @ 
-          ((List.map (helper acc) l1) |> List.flatten) @
-          ((List.map (helper acc) l2) |> List.flatten)
+        (get_node_call_from_expr e) @ 
+        ((List.map (helper acc) l1) |> List.flatten) @
+        ((List.map (helper acc) l2) |> List.flatten)
+      | FrameBlock (_, nes, nis) ->
+        ((List.map (helper acc) (List.map (fun x -> LA.Body x) nes)) |> List.flatten) @
+        ((List.map (helper acc) nis) |> List.flatten)
       | _ -> []) @ acc) in
   List.fold_left helper [] 
 (** Extracts all the node calls from a node item *)

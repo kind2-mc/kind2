@@ -802,7 +802,7 @@ and compile_ast_expr
       | _ -> assert false
     in
     let over_other_cases = fun acc (cond, e) ->
-      X.map2 (fun _ -> print_endline("gen2"); E.mk_ite cond) e acc
+      X.map2 (fun _ -> E.mk_ite cond) e acc
     in
     List.fold_left over_other_cases default_case other_cases_r
 
@@ -901,9 +901,8 @@ and compile_ast_expr
         if Flags.Arrays.smt () then
           let v' = mk_store [] v cindex new_v in X.add [] v' a
         else
-          (print_endline("gen3");
           let v' = E.mk_ite (mk_cond_indexes ([], 0) i cindex) new_v old_v in
-          X.add [] v' a)
+          X.add [] v' a
         with Not_found -> X.add i v a
     in
     X.fold over_indices cexpr1 X.empty
@@ -1602,7 +1601,10 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   let () =
     let over_calls = fun () (_, _, var, _, _, ident, _, _) ->
       let node_id = mk_ident ident in
+      print_endline("got here!1");
+      print_endline (HString.string_of_hstring ident);
       let called_node = N.node_of_name node_id cstate.nodes in
+      print_endline("got here!2");
       let _outputs =
         let over_vars = fun index sv compiled_vars ->
           let var_id = mk_ident var in
@@ -1811,9 +1813,10 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | A.Equation (p, l, e) -> (props, (p, l, e) :: eqs, asserts, is_main))
       | A.AnnotMain flag -> (props, eqs, asserts, flag || is_main)
       | A.AnnotProperty (p, n, e) -> ((p, n, e) :: props, eqs, asserts, is_main) 
-      | A.IfBlock _ -> 
-        (* IfBlock desugaring already occurred earlier in pipeline
-           (in lustreDesugarIfBlocks.ml), so there are no IfBlocks left.  *)
+      | A.IfBlock _ -> (props, eqs, asserts, is_main) 
+      | A.FrameBlock _ -> print_endline("got here");
+        (* IfBlock and FrameBlock desugaring already occurred earlier in pipeline
+           (in lustreDesugarIfBlocks.ml), so there are no If/FrameBlocks left.  *)
         (props, eqs, asserts, is_main) 
     in List.fold_left over_items ([], [], [], false) items
   (* ****************************************************************** *)

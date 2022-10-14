@@ -804,6 +804,9 @@ let rec vars_lhs_of_eqn_with_pos = function
   | IfBlock (_, _, l1, l2) -> 
     List.flatten (List.map vars_lhs_of_eqn_with_pos l1) @
     List.flatten (List.map vars_lhs_of_eqn_with_pos l2)
+  | FrameBlock (_, nes, nis) ->
+    List.flatten (List.map vars_lhs_of_eqn_with_pos (List.map (fun x -> Body x) nes)) @
+    List.flatten (List.map vars_lhs_of_eqn_with_pos nis)
   | _ -> [] 
 
 

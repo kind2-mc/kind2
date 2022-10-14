@@ -4,10 +4,6 @@ let
   --p2 = (y2 = 3);
   p3 = (y3 = 10);
   --%PROPERTY p3;
-
-  -- Test with propagated oracles
-  -- Test with nesting and complex data structures
-  -- Send example with Type_mismatch
   
   if (false)
   then 
