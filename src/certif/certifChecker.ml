@@ -46,20 +46,23 @@ let call_frontend = true
 
 
 let names_bare = {
+  vars = [];
   init = "I";
   prop = "P";
   trans = "T";
   phi = "PHI"
 }
 
-let names_kind2 = {
+let names_kind2 vars = {
+  vars = vars;
   init = "I1";
   prop = "P1";
   trans = "T1";
   phi = "PHI1"
 }
 
-let names_jkind = {
+let names_jkind vars = {
+  vars = vars;
   init = "I2";
   prop = "P2";
   trans = "T2";
@@ -67,6 +70,7 @@ let names_jkind = {
 }
 
 let names_obs = {
+  vars = [];
   init = "IO";
   prop = "PO";
   trans = "TO";
@@ -95,14 +99,14 @@ let frontend_induction_f = "frontend_induction.smt2"
 let frontend_implication_f = "frontend_implication.smt2"
 
 
-let kind2_cert_sys dirname = {
-  names = names_kind2;
+let kind2_cert_sys vars dirname = {
+  names = names_kind2 vars;
   smt2_file = Filename.concat dirname kind2_defs_f;
   smt2_lfsc_trace_file = Filename.concat dirname kind2_defs_lfsc_f;
 }
 
-let jkind_cert_sys dirname = {
-  names = names_jkind;
+let jkind_cert_sys vars dirname = {
+  names = names_jkind vars;
   smt2_file = Filename.concat dirname jkind_defs_f;
   smt2_lfsc_trace_file = Filename.concat dirname jkind_defs_lfsc_f;
 }
@@ -1767,6 +1771,16 @@ let generate_split_certificates sys dirname =
   Stat.set k Stat.certif_k;
   Stat.set (Certificate.size (k, phi)) Stat.certif_size;
 
+  let svars =
+    List.filter_map
+      (fun v ->
+        if StateVar.is_const v then None
+        else Some (StateVar.uf_symbol_of_state_var v))
+      (TS.state_vars sys)
+  in
+
+  let names_kind2 = names_kind2 svars in
+
   (* Export system in SMT-LIB2 format *)
   export_system ~trace_lfsc_defs:false
     (* "System constructed by Kind 2" *)
@@ -1803,7 +1817,7 @@ let generate_split_certificates sys dirname =
     mononames_implication_check sys
       dirname implication_f smt2_definitions names_kind2 in
 
-  let kind2_sys = kind2_cert_sys dirname in
+  let kind2_sys = kind2_cert_sys svars dirname in
   
   let inv = {
     k;
@@ -1816,7 +1830,7 @@ let generate_split_certificates sys dirname =
     implication;
     for_system = kind2_sys;
     kind2_system = kind2_sys;
-    jkind_system = jkind_cert_sys dirname;
+    jkind_system = jkind_cert_sys [] dirname;
     obs_system = obs_cert_sys dirname;
   } in
 
@@ -2651,7 +2665,6 @@ let generate_frontend_obs node kind2_sys dirname =
   ) [] (TransSys.get_properties kind2_sys) in
 
   let jkind_sys = TS.add_properties jkind_sys jkind_props in
-  
 
   (* Create the observer system with the property of observational
      equivalence. *)
@@ -2661,6 +2674,9 @@ let generate_frontend_obs node kind2_sys dirname =
 
   (* Output certificate in native format *)
   NativeInput.dump_native_to obs_sys filename;
+
+  let names_kind2 = names_kind2 [] in
+  let names_jkind = names_jkind [] in
 
   (* Export JKind system in SMT-LIB2 format *)
   export_system ~trace_lfsc_defs:false
@@ -2782,6 +2798,17 @@ let generate_frontend_certificates sys dirname =
   (* Time statistics *)
   Stat.record_time Stat.certif_gen_time;
 
+  let pred v =
+    if StateVar.is_const v then None
+    else Some (StateVar.uf_symbol_of_state_var v)
+  in
+
+  let kind2_sys = List.nth (TS.get_subsystems sys) 1 in
+  let kind2_svars = List.filter_map pred (TS.state_vars kind2_sys) in
+
+  let jkind_sys = List.nth (TS.get_subsystems sys) 0 in
+  let jkind_svars = List.filter_map pred (TS.state_vars jkind_sys) in
+
   let obs_sys = obs_cert_sys dirname in
 
   let inv = {
@@ -2794,8 +2821,8 @@ let generate_frontend_certificates sys dirname =
     induction;
     implication;
     for_system = obs_sys;
-    kind2_system = kind2_cert_sys dirname;
-    jkind_system = jkind_cert_sys dirname;
+    kind2_system = kind2_cert_sys kind2_svars dirname;
+    jkind_system = jkind_cert_sys jkind_svars dirname;
     obs_system = obs_sys;
   } in
   
