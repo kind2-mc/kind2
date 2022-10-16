@@ -28,10 +28,11 @@
 type t = int * Term.t
 
 type symbols = {
-  phi : string;         (** Name of function symbol for k-inductive invariant *)
-  init : string;        (** Name of function symbol for init *)
-  prop : string;        (** Name of function symbol for property *)
-  trans : string;       (** Name of function symbol for transition relation *) 
+  vars : UfSymbol.t list;  (** Names of state variables for the system *)
+  phi : string;  (** Name of function symbol for k-inductive invariant *)
+  init : string;  (** Name of function symbol for init *)
+  prop : string;  (** Name of function symbol for property *)
+  trans : string;  (** Name of function symbol for transition relation *)
 }
 
 (** The type of certificates outputs, these are file names for the intermediate
