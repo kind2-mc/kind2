@@ -52,6 +52,8 @@ type error = [
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
   | `LustreParserError of Lib.position * string
+  | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
+  | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
 ]
 
 let (let*) = Res.(>>=)
@@ -170,14 +172,14 @@ let type_check declarations =
     (* Step 11. Desugar imperative if block to ITEs *)
     let* (const_inlined_nodes_and_contracts, gids) = (LDI.desugar_if_blocks inlined_global_ctx const_inlined_nodes_and_contracts) in
 
-    let const_inlined_nodes_and_contracts = LDF.desugar_frame_blocks const_inlined_nodes_and_contracts in 
+    let* const_inlined_nodes_and_contracts = LDF.desugar_frame_blocks const_inlined_nodes_and_contracts in 
 
     (* Step 12. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_nodes_and_contracts, gids) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
     in
 
-    List.iter (LA.pp_print_declaration Format.std_formatter) normalized_nodes_and_contracts;
+    (* List.iter (LA.pp_print_declaration Format.std_formatter) normalized_nodes_and_contracts; *)
 
     Res.ok (inlined_global_ctx,
       gids,

@@ -3,9 +3,14 @@ let
   p1 = (y1 >= 0);
   p2 = (y3 = 0);
   --%PROPERTY p1;
-  -- Deal with ArrayDef on LHS in FrameBlock nes and nis.
+  -- Deal with ArrayDef or other types on LHS in FrameBlock nes and nis.
+  -- Add tests to testing script.
   -- Move to before abstract interpretation and remove processing of IfBlocks
   -- and FrameBlocks where unnecessary.
+  -- Question-- using a FrameBlock rather than guarding pres? So should I find all
+  -- unguarded pres in the frame block?
+  -- Question-- assertions in FrameBlock guard? body?
+  -- Question-- FrameBlock inside IfBlock?
   -- Clean up/fix error handling.
   -- Add comments.
   

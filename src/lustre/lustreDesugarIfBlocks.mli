@@ -13,13 +13,27 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
    implied. See the License for the specific language governing
    permissions and limitations under the License. 
+ *)
 
-   @author Rob Lorch
+ (**
+  @author Rob Lorch    
  *)
 
 
-module A = LustreAst
-module LAN = LustreAstNormalizer
+
+type error_kind = Unknown of string
+  | MisplacedNodeItem of LustreAst.node_item
+  | StubError
+
+val error_message : error_kind -> string
+
+type error = [
+(*   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
+  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
+  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind *)
+  | `LustreDesugarIfBlocksError of Lib.position * error_kind 
+]
+
 
 
 module LhsMap :
@@ -70,7 +84,9 @@ module LhsMap :
   end
 
 
-val desugar_if_blocks : TypeCheckerContext.tc_context ->
-  A.declaration list ->
-  (A.declaration list * LAN.generated_identifiers LAN.StringMap.t, [> LustreTypeChecker.error ])
-  result
+val desugar_if_blocks : 
+  TypeCheckerContext.tc_context ->
+    LustreAst.declaration list ->
+    (LustreAst.declaration list * LustreAstNormalizer.generated_identifiers LustreAstNormalizer.StringMap.t,
+    [> error])
+    result

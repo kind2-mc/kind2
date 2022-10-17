@@ -28,13 +28,28 @@
    @author Rob Lorch
  *)
 
-
 module R = Res
 module A = LustreAst
 module AH = LustreAstHelpers
 module LAN = LustreAstNormalizer
 module Chk = LustreTypeChecker
 module Ctx = TypeCheckerContext
+
+
+type error_kind = Unknown of string
+  | MisplacedNodeItem of A.node_item
+  | StubError
+
+let error_message error = match error with
+  | Unknown s -> s
+  | MisplacedNodeItem ni -> "Node item " ^ Lib.string_of_t A.pp_print_node_item ni ^ " is misplaced"
+  | StubError -> "Stub error"
+
+type error = [
+  | `LustreDesugarIfBlocksError of Lib.position * error_kind
+]
+
+let mk_error pos kind = Error (`LustreDesugarIfBlocksError (pos, kind))
 
 module LhsMap = struct
   include Map.Make(struct
@@ -54,10 +69,12 @@ type cond_tree =
 
 let (let*) = R.(>>=)
 
-(* [i] is module state used to guarantee newly created identifiers are unique *)
+
+(** [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref (0)
 
-(* Create a new oracle for use with if blocks. *)
+
+(** Create a new oracle for use with if blocks. *)
 let mk_fresh_ib_oracle expr_type =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
@@ -67,12 +84,15 @@ let mk_fresh_ib_oracle expr_type =
     ib_oracles = [name, expr_type]; }
   in nexpr, gids
 
+
+(** Create a new fresh temporary variable name. *)
 let mk_fresh_temp_name _ =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   HString.concat2 prefix (HString.mk_hstring "_temp") 
 
-(* Updates a tree (modeling a conditional expression) with a new equation *)
+
+(** Updates a tree (modeling an ITE structure) with a new equation. *)
 let rec add_eq_to_tree conds rhs node = 
   (* let ppf = Format.std_formatter in *)
   match conds with
@@ -80,29 +100,32 @@ let rec add_eq_to_tree conds rhs node =
     | [(b, cond)] -> (
       match node with
         | Leaf (Some _) -> 
-          failwith "error-- double assignment in if block 1" 
+          (* shouldn't be possible *)
+          assert false 
         | Leaf None -> 
-          if b then Node (Leaf (Some rhs), cond, Leaf None)
-          else      Node (Leaf None, cond, Leaf (Some rhs))
+          if b then (Node (Leaf (Some rhs), cond, Leaf None))
+          else      (Node (Leaf None, cond, Leaf (Some rhs)))
         | Node (l, c, r) -> 
-          if b then Node (Leaf (Some rhs), c, r)
-          else      Node (l, c, Leaf (Some rhs))
+          if b then (Node (Leaf (Some rhs), c, r))
+          else      (Node (l, c, Leaf (Some rhs)))
     )
     | (b, cond)::conds -> (
       match node with
         | Leaf (Some _) -> 
-          failwith "error-- double assignment in if block 2" 
+          (* shouldn't be possible *)
+          assert false
         | Leaf None -> 
-          if b then Node (add_eq_to_tree conds rhs (Leaf None), cond, Leaf None)
-          else      Node (Leaf None, cond, add_eq_to_tree conds rhs (Leaf None))
+          if b then (Node (add_eq_to_tree conds rhs (Leaf None), cond, Leaf None))
+          else (Node (Leaf None, cond, add_eq_to_tree conds rhs (Leaf None)))
         | Node (l, c, r) -> 
-          if b then Node (add_eq_to_tree conds rhs l, c, r)
-          else      Node (l, c, add_eq_to_tree conds rhs r)
+          if b then (Node (l, c, r))
+          else (Node (l, c, add_eq_to_tree conds rhs r))
     )
 
-(* Converts an if block to a map of trees (create a tree for each equation LHS) *)
+
+(** Converts an if block to a map of trees (creates a tree for each equation LHS) *)
 let if_block_to_trees ib =
-  let rec helper ib trees conds =
+  let rec helper ib trees conds = (
     match ib with 
       | A.IfBlock (pos, cond, ni::nis, nis') -> (
         match ni with
@@ -111,15 +134,19 @@ let if_block_to_trees ib =
           let trees = LhsMap.update lhs 
             (fun tree -> match tree with
               | Some tree -> Some (add_eq_to_tree (conds @ [(true, cond)]) expr tree)
-              | None -> Some (add_eq_to_tree (conds @ [(true, cond)]) expr (Leaf None))) 
+              | None -> Some (add_eq_to_tree (conds @ [(true, cond)]) expr (Leaf None)))
             trees 
           in
-          helper (A.IfBlock (pos, cond, nis, nis')) trees conds
+          (helper (A.IfBlock (pos, cond, nis, nis')) trees conds)
+          (* Recurse, keeping track of our location within the if blocks using the 
+             'conds' list. *)
           | A.IfBlock _ -> 
-            helper (A.IfBlock (pos, cond, nis, nis'))
-                   (helper ni trees (conds @ [(true, cond)]))
-                   conds
-          | _ -> failwith "error4"
+            let* res = (helper ni trees (conds @ [(true, cond)])) in
+            (helper (A.IfBlock (pos, cond, nis, nis'))
+                   res
+                   conds)
+          (* Misplaced frame block, annot main, or annot property *)
+          | _ -> mk_error Lib.dummy_pos StubError
         )
       | A.IfBlock (pos, cond, [], ni::nis) -> (
         match ni with
@@ -131,19 +158,25 @@ let if_block_to_trees ib =
                 | None -> Some (add_eq_to_tree (conds @ [(false, cond)]) expr (Leaf None))) 
               trees 
             in
-            helper (A.IfBlock (pos, cond, [], nis)) trees conds
+            (helper (A.IfBlock (pos, cond, [], nis)) trees conds)
+          (* Recurse, keeping track of our location within the if blocks using the 
+             'conds' list. *)
           | A.IfBlock _ -> 
-            helper (A.IfBlock (pos, cond, [], nis))
-                   (helper ni trees (conds @ [(false, cond)]))
-                   conds
-          | _ -> failwith "error5"
+            let* res = (helper ni trees (conds @ [(false, cond)])) in
+            (helper (A.IfBlock (pos, cond, [], nis))
+                   res
+                   conds)
+          (* Misplaced frame block, annot main, or annot property *)
+          | _ -> mk_error Lib.dummy_pos StubError
         )
-      | A. IfBlock (_, _, [], []) -> trees
-      | _ -> failwith "error6"
-    in
-  helper ib LhsMap.empty []
+      (* We've processed everything in the if block. *)
+      | A. IfBlock (_, _, [], []) -> R.ok (trees)
+      (* shouldn't be possible *)
+      | _ -> assert false
+  ) in
+  (helper ib LhsMap.empty [])
   
-(* Converts a tree of conditions/expressions to an ITE expression. *)
+(** Converts a tree of conditions/expressions to an ITE expression. *)
 let rec tree_to_ite pos node =
   match node with
     | Leaf Some expr -> expr
@@ -151,27 +184,12 @@ let rec tree_to_ite pos node =
     | Node (left, cond, right) -> 
       TernaryOp (pos, Ite, cond, tree_to_ite pos left, tree_to_ite pos right)
 
-(*
-(* Maybe use equation LHS rather than RHS expression. *)
-(* Returns the type associated with a tree. *)
-let rec get_tree_type ctx tree = match tree with
-  | Leaf None -> R.ok None
-  | Leaf (Some expr) -> 
-    let* ty = (Chk.infer_type_expr ctx expr) in
-    R.ok (Some ty)
-  | Node (l, _, r) -> (
-    match (get_tree_type ctx l) with
-      | Ok (None) -> (get_tree_type ctx r)
-      | Ok (Some ty) -> (* A.pp_print_lustre_type Format.std_formatter ty;*) R.ok (Some ty)
-      | Error (_) -> failwith "error1"
-  )
-*)
 
-(* Returns the type associated with a tree. *)
+(** Returns the type associated with a tree. *)
 let get_tree_type ctx lhs = 
   match lhs with
-    | A.StructDef(_, [SingleIdent(_, i)]) -> (Ctx.lookup_ty ctx i) 
-    | A.StructDef(_, [ArrayDef(_, i, _)]) -> (
+    | A.StructDef(_, [SingleIdent(_, i)]) -> R.ok (Ctx.lookup_ty ctx i) 
+    | A.StructDef(_, [ArrayDef(_, i, _)]) -> R.ok (
       match (Ctx.lookup_ty ctx i) with
         (* Assignment in the form of A[i] = f(i), so the RHS type is no
            longer an array *)
@@ -179,9 +197,9 @@ let get_tree_type ctx lhs =
         | _ -> None
       )
     (* Other cases not possible *)
-    | _ -> failwith "error5"
+    | _ -> mk_error Lib.dummy_pos StubError
 
-(* Fills empty spots in an ITE with oracles. *)
+(** Fills empty spots in an ITE with oracles. *)
 let rec fill_ite_with_oracles ite ty = 
   match ite with
     | A.TernaryOp (pos, Ite, cond, e1, e2) -> 
@@ -202,10 +220,11 @@ let rec fill_ite_with_oracles ite ty =
         | _ -> e2, LAN.empty ()
       ) in
       A.TernaryOp (pos, Ite, cond, e1, e2), LAN.union gids1 gids2
-    | _ -> failwith "error2"
+    (* shouldn't be possible *)
+    | _ -> assert false
 
-(* Removes redundancy from a binary tree. *)
-(* Currently, redundancy check doesn't quite work because
+(** Removes redundancy from a binary tree. 
+   Currently, redundancy check doesn't quite work because
    different positions mess with equality of leaves. *)
 let rec simplify_tree node = 
   match node with
@@ -225,7 +244,7 @@ let rec simplify_tree node =
       if i = j then i else
       Node (i, str, j)
 
-  
+
 let split_and_flatten3 ls =
   let xs = (List.map (fun (x, _, _) -> x) ls) |> List.flatten in
   let ys = List.map (fun (_, y, _) -> y) ls |> List.flatten in
@@ -239,20 +258,21 @@ let split_and_flatten4 ls =
   let ws = List.map (fun (_, _, _, w) -> w) ls |> List.flatten in
   xs, ys, zs, ws
 
-(* Might need to refine ArrayDef *)
-(* Takes in an equation LHS and returns 
+
+(** Takes in an equation LHS and returns 
     * updated LHS with temp variables,
-    * equations setting original variable equal to temp variables, and
-    * new declarations
+    * equations setting original variable equal to temp variables, 
+    * new declarations, and
+    * updated context
    *)
 let create_temp_lhs ctx lhs = 
   let rec convert_struct_item = (function
     | A.SingleIdent (p, i) as si -> 
       let temp = mk_fresh_temp_name i in
-      
-      (* print the context here-- either identifiers aren't equal, or it doesn't
-         contain the correct information. *)
-      let ty = match Ctx.lookup_ty ctx i with | Some ty -> ty | None -> failwith "error_a" in
+      (* Type error, shouldn't be possible *)
+      let* ty = (match Ctx.lookup_ty ctx i with 
+        | Some ty -> R.ok ty 
+        | None -> mk_error Lib.dummy_pos StubError) in
       let ctx = Ctx.add_ty ctx temp ty in
       R.ok (
         [A.SingleIdent(p, temp)],
@@ -267,9 +287,12 @@ let create_temp_lhs ctx lhs =
     | TupleSelection (p, i, _)
     | FieldSelection (p, i, _)
     | ArraySliceStructItem (p, i, _)
-    | ArrayDef (p, i, _) as si-> 
+    | ArrayDef (p, i, _) as si -> 
       let temp = mk_fresh_temp_name i in
-      let ty = match Ctx.lookup_ty ctx i with | Some ty -> ty | None -> failwith "error_b" in
+      (* Type error, shouldn't be possible *)
+      let* ty = (match Ctx.lookup_ty ctx i with 
+        | Some ty -> R.ok ty 
+        | None -> mk_error Lib.dummy_pos StubError) in
       let ctx = Ctx.add_ty ctx temp ty in
       R.ok (
         [A.SingleIdent(p, temp)],
@@ -290,16 +313,16 @@ let create_temp_lhs ctx lhs =
       )
 
 
-
-(* Removes multiple assignment from an if block by pulling out equations
-   with multiple assignment and using temp variables. *)
-(* No gids. Example: 
+(** Removes multiple assignment from an if block by pulling out equations
+   with multiple assignment and using temp variables. 
+  Example: 
    if cond
    then 
       y1, y2 = node(expr1);
    else
       y1 = expr2;
       y2 = expr3;
+   fi
   -->
    t1, t2 = node(expr1);
    if cond
@@ -309,13 +332,18 @@ let create_temp_lhs ctx lhs =
    else
       y1 = expr2;
       y2 = expr3;
+   fi
 
-  For each temp variable, add a new declaration.
+  For each temp variable, we also generate a new declaration.
 *)
 let rec remove_mult_assign_from_ib ctx ni = 
   match ni with 
     | A.Body (Equation (pos, lhs, expr)) -> 
       let lhs_vars = AH.vars_lhs_of_eqn_with_pos ni in
+      (* If there is no multiple assignment, we don't alter the node item,
+         otherwise, we must remove the multiple assignment. The first node item
+         list in the return value represents node items we "pull out" of the if block
+         (ie, we define those before generating the ITEs). *)
       if (List.length lhs_vars = 1) 
       then R.ok([], [ni], [], [ctx])
       else (
@@ -325,41 +353,50 @@ let rec remove_mult_assign_from_ib ctx ni =
       )
     
     | IfBlock (pos, e, l1, l2) -> 
-      (* nis is a list of lists, where the first element in each list of lists 
-         is pulled out of the if block*)
       let* res1 = R.seq (List.map (remove_mult_assign_from_ib ctx) l1) in
       let nis1, nis2, decls1, ctx1 = split_and_flatten4 res1 in
       let* res2 = R.seq (List.map (remove_mult_assign_from_ib ctx) l2) in
       let nis3, nis4, decls2, ctx2 = split_and_flatten4 res2 in
 
-      (* nis that define the temp variables need to get pulled outside the if block *)
+      (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
       R.ok (nis1 @ nis3, [A.IfBlock (pos, e, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2)
-    | _ -> failwith "stub"
+    (* Misplaced frame block, annotmain, annotproperty in if block*)
+    | _ -> mk_error Lib.dummy_pos StubError
 
 
-
+(** Helper function for 'desugar_node_item' that converts IfBlocks to a list
+    of ITEs. There are a number of steps in this process.
+    1. Removing multiple assignment in if blocks
+    2. Converting the if block to a list of trees modeling the ITEs to generate
+    3. Doing any possible simplication on the above trees.
+    4. Converting the trees to ITE expressions.
+    5. Filling in the ITE expressions with oracles where variables are undefined.
+    6. Returning lists of new local declarations, generated equations, and gids
+    *)
 let extract_equations_from_if ctx ib =
   let* (nis, ibs, new_decls, ctx) = remove_mult_assign_from_ib ctx ib in 
   let ctx = List.fold_left Ctx.union Ctx.empty_tc_context ctx in
   let ib = List.hd(ibs) in
-  let (lhss, trees) = LhsMap.bindings (if_block_to_trees ib) |> List.split in
+  let* tree_map = if_block_to_trees ib in
+  let (lhss, trees) = LhsMap.bindings (tree_map) |> List.split in
   let trees = List.map simplify_tree trees in 
   let poss = List.map (fun (A.StructDef (a, _)) -> a) lhss in
   let ites = List.map2 tree_to_ite poss trees in
-
-  (* Convert holes in ITEs to oracles. *)
-  let tys = List.map (get_tree_type ctx) lhss in 
-  let tys = List.map (fun x -> match x with | Some y -> y | None -> failwith "error3") tys in
+  let* tys = R.seq (List.map (get_tree_type ctx) lhss) in 
+  (* Type error, shouldn't be possible *)
+  let* tys = R.seq (List.map (fun x -> match x with | Some y -> R.ok y | None -> mk_error Lib.dummy_pos StubError) 
+                    tys) in
   let ites, gids = List.map2 fill_ite_with_oracles ites tys |> List.split in
   let gids = List.fold_left LAN.union (LAN.empty ()) gids in
   (* Combine poss, lhss, and ites into a list of equations *)
   let eqs = (List.map2 (fun (a, b) c -> (A.Body (A.Equation (a, b, c)))) (List.combine poss lhss) ites) in
-
-  (*let eqs2 = (List.map2 (fun (a, b) c -> (A.Equation (a, b, c))) (List.combine poss lhss) ites) in
-   List.iter (A.pp_print_node_body Format.std_formatter) eqs2; *)
-
   R.ok (new_decls, nis @ eqs, [gids])
 
+
+(** Desugar an individual node item. Given a node item, it returns any generated
+    local declarations (if we introduce new local variables), the converted
+    node_item list in the form of ITEs, and any gids).
+*)
 let rec desugar_node_item ctx ni = match ni with
   | A.IfBlock _ as ib -> extract_equations_from_if ctx ib
   | A.FrameBlock (pos, nes, nis) -> 
@@ -368,7 +405,8 @@ let rec desugar_node_item ctx ni = match ni with
     R.ok (decls, [A.FrameBlock(pos, nes, nis)], gids)
   | _ -> R.ok ([], [ni], [LAN.empty ()])
 
-(* Ugly... *)
+  
+(** Helper function for get_node_ctx. *)
 let unwrap result = match result with
   | Ok r -> r
   | Error e ->
@@ -376,6 +414,7 @@ let unwrap result = match result with
     Log.log L_debug "(Lustre AST Normalizer Internal Error: %s)" msg;
     assert false
 
+(** Collects a node's context. *)
 let get_node_ctx ctx (_, _, _, inputs, outputs, locals, _, _) =
   let constants_ctx = inputs
     |> List.map Ctx.extract_consts
@@ -397,28 +436,22 @@ let get_node_ctx ctx (_, _, _, inputs, outputs, locals, _, _) =
     ctx
     locals
 
+
+(** Desugars an individual node declaration (removing IfBlocks). *)
 let desugar_node_decl ctx decl = match decl with
   | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) -> 
     let ctx = get_node_ctx ctx d in
     let* nis = R.seq (List.map (desugar_node_item ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
-    (* List.iter (A.pp_print_node_item Format.std_formatter) nis; *)
     let gids = List.fold_left LAN.union (LAN.empty ()) gids in
     R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), LAN.StringMap.singleton node_id gids) 
   | _ -> R.ok (decl, LAN.StringMap.empty)
 
-(* declaration_list -> gids -> (declaration_list * gids) *)
+
+(** Desugars a declaration list to remove IfBlocks. Converts IfBlocks to
+    declarative ITEs, filling in oracles if branches are undefined. *)
 let desugar_if_blocks ctx normalized_nodes_and_contracts = 
   let* res = R.seq (List.map (desugar_node_decl ctx) normalized_nodes_and_contracts) in
   let decls, gids = List.split res in
   let gids = List.fold_left (LAN.StringMap.union (fun _ b _ -> Some b)) (LAN.StringMap.empty) gids in
   R.ok (decls, gids)
-
-(*
-  Also need to update type context with new declaration stuff.  
-    (?) 
-  What about contracts? Getting context for contracts? 
-    Nope.
-  Propagated oracles?
-  Node call data structure? ("calls" field)
-*)

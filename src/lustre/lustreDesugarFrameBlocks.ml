@@ -20,7 +20,25 @@
  *)
 
 module A = LustreAst
+module R = Res
 
+let (let*) = R.(>>=)
+
+type error_kind = Unknown of string
+  | StubError
+
+let error_message error = match error with
+  | Unknown s -> s
+  | StubError -> "Stub error"
+
+type error = [
+  | `LustreDesugarFrameBlocksError of Lib.position * error_kind
+]
+
+let mk_error pos kind = Error (`LustreDesugarFrameBlocksError (pos, kind))
+
+(** Parses an expression and replaces any ITE oracles with the 'fill'
+    expression (which is stuttering, ie, 'init -> pre variable') *)
 let rec fill_ite_helper fill = function
   (* Base case-- replace all oracles with 'fill' *)
   | A.Ident (pos, i) -> 
@@ -83,21 +101,26 @@ let rec fill_ite_helper fill = function
              ) li, 
     fill_ite_helper fill e2)
 
+(** Helper function to generate node equations when a variable in the 
+    frame block guard is left undefined in the frame block body. *)
 let add_undefined_nes nis ne = match ne with
   | A.Equation (pos, (StructDef(_, [SingleIdent(_, id)]) as lhs), init) -> 
+    (* Find the corresponding node item in frame block body. *)
     let res = List.find_opt (fun ni -> match ni with
       | A.Body (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when id = i -> true
       | _ -> false
     ) nis in (
     match res with
       (* Already defined in frame block *)
-      | Some _ -> []
+      | Some _ -> R.ok []
       (* Fill in equation in frame block body *)
-      | None -> [A.Body(A.Equation(pos, lhs, Arrow(pos, init, Pre(pos, Ident (pos, id)))))]
+      | None -> R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos, init, Pre(pos, Ident (pos, id)))))]
     )
-  | _ -> failwith "error6"   
+  (* Assert in frame block guard *)
+  | _ -> mk_error Lib.dummy_pos StubError 
 
 (* What about ArrayDef? *)
+(** Helper function to fill in ITE oracles. *)
 let fill_ite_oracles nes ni = 
 match ni with
   | A.Body (Equation (pos, (StructDef(_, [SingleIdent(pos2, i)]) as lhs), e)) -> 
@@ -106,43 +129,48 @@ match ni with
       | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), _) when id = i  -> true
       | _ -> false
     ) nes in 
-    let init = match init with
+    let init = (match init with
       | Some (A.Equation (_, StructDef(_, [SingleIdent(_, _)]), expr)) -> expr
-      | _ -> failwith "error8" in
+      (* shouldn't be possible*)
+      | _ -> assert false) in
     (* Fill in oracles *)
     A.Body (Equation (pos, lhs, fill_ite_helper 
                      (A.Arrow (pos, init, (A.Pre (pos2, Ident(pos2, i)))))
                      e))
+  (* shouldn't be possible *)
+  | A.IfBlock _ -> assert false
+  (* other stuff in frame block body *)
   | A.Body (Assert (_, _)) -> failwith "stub"
-  | A.IfBlock _ -> failwith "found an if block"
   | _ -> failwith "stub/error9"
- 
-(*
-let add_undefined_vars nes nis = failwith "stub"
+
+
+(**
+  For each node item in frame block body:
+    Fill in ITE oracles and guard the generated pres.
+  For each definition in frame block guard:
+    Fill in an equation if one doesn't exist.
 *)
-
-let extract_equations_from_frame nes nis =
-  let nis = List.map (fill_ite_oracles nes) nis in
-  let nis2 = List.map (add_undefined_nes nis) nes |> List.flatten in 
-  nis @ nis2
-  (* 
-  For each node item:
-    Fill in ITE oracles AND GUARD WITH INIT ->
-  For each definition:
-    Fill in an equation if one doesn't exist
-  *)
-
 let desugar_node_item ni = match ni with
-  | A.FrameBlock (_, nes, nis) -> extract_equations_from_frame nes nis
-  | _ -> ([ni])
+  | A.FrameBlock (_, nes, nis) -> 
+    let nis = List.map (fill_ite_oracles nes) nis in
+    let* nis2 = R.seq (List.map (add_undefined_nes nis) nes) in
+    let nis2 = List.flatten nis2 in 
+    R.ok (nis @ nis2)
+  | _ -> R.ok [ni]
 
-let desugar_node_decl decl = match decl with
-  | A.NodeDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis, co)) -> 
-    let nis = (List.map desugar_node_item nis) |> List.flatten in
-    (* List.iter (A.pp_print_node_item Format.std_formatter) nis; *)
-    A.NodeDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis, co))
-  | _ -> decl
 
-(* declaration_list -> gids -> (declaration_list * gids) *)
+
+(** Desugars a declaration list to remove frame blocks. If a frame block has
+    if statements with undefined branches, it fills the branches in by setting
+    the variable equal to its previous value (and initialing the 'pre' with the
+    given init value). *)
 let desugar_frame_blocks normalized_nodes_and_contracts = 
-  (List.map desugar_node_decl normalized_nodes_and_contracts)
+  let desugar_node_decl decl = (match decl with
+    | A.NodeDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis, co)) -> 
+      let* nis = R.seq (List.map desugar_node_item nis) in
+      let nis = List.flatten nis in
+      (* List.iter (A.pp_print_node_item Format.std_formatter) nis; *)
+      R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis, co)))
+    | _ -> R.ok decl
+  ) in
+  R.seq (List.map desugar_node_decl normalized_nodes_and_contracts)
