@@ -85,9 +85,8 @@ type error = [
 let (>>=) = Res.(>>=)
 let unwrap result = match result with
   | Ok r -> r
-  | Error e ->
-    let msg = LustreErrors.error_message e in
-    Log.log L_debug "(Lustre AST Normalizer Internal Error: %s)" msg;
+  | Error _ ->
+    Log.log L_debug "(Lustre AST Normalizer Internal Error)";
     assert false
 
 module StringMap = struct

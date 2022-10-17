@@ -137,11 +137,12 @@ match ni with
     A.Body (Equation (pos, lhs, fill_ite_helper 
                      (A.Arrow (pos, init, (A.Pre (pos2, Ident(pos2, i)))))
                      e))
+  | A.FrameBlock _ -> failwith "stub"
   (* shouldn't be possible *)
   | A.IfBlock _ -> assert false
   (* other stuff in frame block body *)
-  | A.Body (Assert (_, _)) -> failwith "stub"
-  | _ -> failwith "stub/error9"
+  | _ -> failwith "stub" (* mk_error Lib.dummy_pos StubError *)
+  
 
 
 (**

@@ -409,9 +409,8 @@ let rec desugar_node_item ctx ni = match ni with
 (** Helper function for get_node_ctx. *)
 let unwrap result = match result with
   | Ok r -> r
-  | Error e ->
-    let msg = LustreErrors.error_message e in
-    Log.log L_debug "(Lustre AST Normalizer Internal Error: %s)" msg;
+  | Error _ ->
+    Log.log L_debug "(Lustre Desugar If Blocks Internal Error)";
     assert false
 
 (** Collects a node's context. *)

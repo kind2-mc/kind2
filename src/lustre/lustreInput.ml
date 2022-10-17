@@ -161,20 +161,21 @@ let type_check declarations =
       IC.inline_constants global_ctx sorted_node_contract_decls
     in
 
-    (* Step 9. Check that inductive array equations are well-founded *)
+    (* Step 9. Desugar imperative if block to ITEs *)
+    let* (const_inlined_nodes_and_contracts, gids) = (LDI.desugar_if_blocks inlined_global_ctx const_inlined_nodes_and_contracts) in
+
+    (* Step 10. Desugar frame blocks by adding node equations and guarding oracles. *)
+    let* const_inlined_nodes_and_contracts = LDF.desugar_frame_blocks const_inlined_nodes_and_contracts in 
+
+    (* Step 11. Check that inductive array equations are well-founded *)
     (* let* _ = LAD.check_inductive_array_dependencies inlined_global_ctx node_summary const_inlined_nodes_and_contracts in *)
 
-    (* Step 10. Infer tighter subrange constraints with abstract interpretation *)
+    (* Step 12. Infer tighter subrange constraints with abstract interpretation *)
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx const_inlined_nodes_and_contracts in
 
     (* Desugaring before abstract interpretation (?) *)
 
-    (* Step 11. Desugar imperative if block to ITEs *)
-    let* (const_inlined_nodes_and_contracts, gids) = (LDI.desugar_if_blocks inlined_global_ctx const_inlined_nodes_and_contracts) in
-
-    let* const_inlined_nodes_and_contracts = LDF.desugar_frame_blocks const_inlined_nodes_and_contracts in 
-
-    (* Step 12. Normalize AST: guard pres, abstract to locals where appropriate *)
+    (* Step 13. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_nodes_and_contracts, gids) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
     in
