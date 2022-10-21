@@ -491,4 +491,8 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/unequal_equation_widths_contract2.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
     | _ -> false);
+  mk_test "test extensional array equality" (fun () ->
+    match load_file "./lustreTypeChecker/extensional_array_equality.lus" with
+    | Error (`LustreTypeCheckerError (_, Unsupported _)) -> true
+    | _ -> false);
 ])

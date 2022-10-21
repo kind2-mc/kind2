@@ -21,6 +21,7 @@
 type t = int * Term.t
 
 type symbols = {
+  vars : UfSymbol.t list;
   phi : string;
   init : string;
   prop : string;

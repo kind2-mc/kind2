@@ -1250,9 +1250,9 @@ and normalize_expr ?guard info map =
     let nexpr2, gids2 = normalize_expr ?guard:(Some nexpr1) info map expr2 in
     let gids = union gids1 gids2 in
     Arrow (pos, nexpr1, nexpr2), gids
-  (* | Pre (pos1, ArrayIndex (pos2, expr1, expr2)) ->
+   | Pre (pos1, ArrayIndex (pos2, expr1, expr2)) ->
     let expr = A.ArrayIndex (pos2, Pre (pos1, expr1), expr2) in
-    normalize_expr ?guard info map expr *)
+    normalize_expr ?guard info map expr
   | Pre (pos, expr) as p ->
     let ivars = info.inductive_variables in
     let ty = if expr_has_inductive_var ivars expr |> is_some then

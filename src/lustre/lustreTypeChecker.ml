@@ -794,7 +794,11 @@ and infer_type_comp_op: tc_context -> Lib.position -> LA.expr -> LA.expr
   match op with
   | Neq  | Eq ->
     R.ifM (eq_lustre_type ctx ty1 ty2)
-      (R.ok (LA.Bool pos))
+      (if LH.is_type_array ty1 then
+         type_error pos (Unsupported "Extensional array equality is not supported")
+       else
+         R.ok (LA.Bool pos)
+      )
       (type_error pos (UnificationFailed (ty1, ty2)))
   | Lte  | Lt  | Gte | Gt ->
     are_args_num ctx pos ty1 ty2
