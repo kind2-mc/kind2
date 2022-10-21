@@ -1601,10 +1601,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   let () =
     let over_calls = fun () (_, _, var, _, _, ident, _, _) ->
       let node_id = mk_ident ident in
-      print_endline("got here!1");
-      print_endline (HString.string_of_hstring ident);
       let called_node = N.node_of_name node_id cstate.nodes in
-      print_endline("got here!2");
       let _outputs =
         let over_vars = fun index sv compiled_vars ->
           let var_id = mk_ident var in
@@ -1814,7 +1811,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       | A.AnnotMain flag -> (props, eqs, asserts, flag || is_main)
       | A.AnnotProperty (p, n, e) -> ((p, n, e) :: props, eqs, asserts, is_main) 
       | A.IfBlock _ -> (props, eqs, asserts, is_main) 
-      | A.FrameBlock _ -> print_endline("got here");
+      | A.FrameBlock _ -> 
         (* IfBlock and FrameBlock desugaring already occurred earlier in pipeline
            (in lustreDesugarIfBlocks.ml), so there are no If/FrameBlocks left.  *)
         (props, eqs, asserts, is_main) 

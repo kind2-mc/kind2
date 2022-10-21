@@ -21,7 +21,7 @@
 
 module A = LustreAst
 
-type error_kind = Unknown of string | StubError
+type error_kind = Unknown of string | MisplacedNodeItemError of A.node_item
 
 val error_message : error_kind -> string
 
@@ -31,9 +31,12 @@ type error = [
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
   | `LustreDesugarIfBlocksError of Lib.position * error_kind *)
   | `LustreDesugarFrameBlocksError of Lib.position * error_kind
+  | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
 ]
 
+
 val desugar_frame_blocks :
+  TypeCheckerContext.tc_context ->
   A.declaration list ->
     (A.declaration list,
     [> error])

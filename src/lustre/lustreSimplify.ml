@@ -1739,7 +1739,7 @@ and eval_node_call
           (D.fold
              (function 
                | D.ListIndex 0 :: tl -> D.add tl
-               | _ -> print_endline("m6"); raise E.Type_mismatch) 
+               | _ -> raise E.Type_mismatch) 
              expr'
              D.empty,
            ctx)
@@ -1792,7 +1792,7 @@ and eval_node_call
             (D.add i state_var' accum, ctx)
           ) else 
             (* Type check failed, catch exception below *)
-            (print_endline("m7"); raise E.Type_mismatch))
+            (raise E.Type_mismatch))
         node_inputs
         expr'
         (D.empty, ctx)

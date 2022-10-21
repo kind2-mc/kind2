@@ -245,7 +245,7 @@ let rec read_val scope name indexes arr_indexes json =
       | [], _ -> typ
       | i::arr_indexes, Array (elt, t) when is_in_range_i i t  ->
         extract_element_type arr_indexes elt
-      | _, _ -> print_endline("m1"); raise (Type_mismatch full_name)
+      | _, _ -> raise (Type_mismatch full_name)
     in
     let typ = extract_element_type arr_indexes typ in
 
@@ -267,9 +267,9 @@ let rec read_val scope name indexes arr_indexes json =
       | _, `Intlit str | _, `String str when is_in_range (Numeral.of_string str) typ ->
         [sv, Numeral.of_string str |> Term.mk_num]
 
-      | _ -> print_endline("m2"); raise (Type_mismatch full_name)
+      | _ -> raise (Type_mismatch full_name)
     )
-    with Invalid_argument _ -> print_endline("m3"); raise (Type_mismatch full_name)
+    with Invalid_argument _ -> raise (Type_mismatch full_name)
 
 (* Parse the assignments of a JSON object representing a step *)
 let read_vars scope json =

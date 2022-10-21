@@ -242,7 +242,7 @@ and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
   let ty_ctx = List.fold_left
     (fun ctx local -> TC.local_var_binding ctx local |> unwrap)
     ty_ctx
-    locals
+    locals 
   in
   let extract_equations ni = match ni with
     | LA.Body eqn -> (match eqn with

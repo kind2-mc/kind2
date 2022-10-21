@@ -3248,7 +3248,7 @@ let type_of_ite = function
              Type.mk_int_range Numeral.(min l1 l2) Numeral.(max u1 u2)
 
 
-           | _ -> (* Issue here *) print_endline("type_of_ite"); raise Type_mismatch)))
+           | _ -> raise Type_mismatch)))
 
   | _ -> (function _ -> function _ -> raise Type_mismatch)
 

@@ -1,14 +1,12 @@
 node test(x: int) returns (y1, y2, y3: int; p1, p2, p3: bool);
+var helper: int;
 let 
-  (* Example where y2's value should not be constant *)
-  (* Examples with multiple oracles, arrays, tuples, records, variable guard *)
-  (* 
-    Try recursive definitions
-    A[i] = 1 -> A[i-1]*2; (incorrect syntax)
-  *)
   --p1 = (true -> (pre y2 = 5 => y2 = 10));
   p2 = (y2 = 10);
   --%PROPERTY p2;
+
+  helper = x + 4;
+  y3 = helper;
   
   if (true)
   then 

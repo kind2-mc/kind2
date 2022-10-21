@@ -238,6 +238,60 @@ let rec has_unguarded_pre ung = function
     let u2 = has_unguarded_pre false e2 in
     u1 || u2
 
+  (*
+let rec fill_unguarded_pres init ung expr = match expr with
+  | Const _ | Ident _ | ModeRef _ -> expr
+
+  | Arrow (a, e1, e2) -> Arrow (a, (fill_unguarded_pres init ung) e1, (fill_unguarded_pres init false) e2)
+  | Pre (pos, e) -> 
+    if ung
+    then Pre (pos, Arrow(pos, init, (fill_unguarded_pres init true) e))
+    else Pre (pos, (fill_unguarded_pres init true) e)  
+    (* if not in nes, throw an error *)
+
+
+  | RecordProject (a, e, c) -> RecordProject (a, (fill_unguarded_pres init ung) e, c)
+  | ConvOp (a, b, e) -> ConvOp (a, b, (fill_unguarded_pres init ung) e)
+  | UnaryOp (a, b, e) -> UnaryOp (a, b, (fill_unguarded_pres init ung) e)
+  | Current (a, e) -> Current (a, (fill_unguarded_pres init ung) e)
+  | When (a, e, c) -> When (a, (fill_unguarded_pres init ung) e, c)
+  | TupleProject (a, e, c) -> TupleProject (a, (fill_unguarded_pres init ung) e, c)
+  | Quantifier (a, b, c, e) -> Quantifier (a, b, c, (fill_unguarded_pres init ung) e)
+  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, (fill_unguarded_pres init ung) e1, (fill_unguarded_pres init ung) e2)
+  | ArrayConstr (a, e1, e2) -> ArrayConstr (a, (fill_unguarded_pres init ung) e1, (fill_unguarded_pres init ung) e2)
+  | CompOp (a, b, e1, e2) -> CompOp (a, b, (fill_unguarded_pres init ung) e1, (fill_unguarded_pres init ung) e2)
+  | ArrayConcat (a, e1, e2) ->  ArrayConcat (a, (fill_unguarded_pres init ung) e1, (fill_unguarded_pres init ung) e2)
+  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, (fill_unguarded_pres init ung) e1, (fill_unguarded_pres init ung) e2, (fill_unguarded_pres init ung) e3)
+  | ArraySlice (a, e1, (e2, e3)) -> ArraySlice (a, (fill_unguarded_pres init ung) e1, ((fill_unguarded_pres init ung) e2, (fill_unguarded_pres init ung) e3))
+  | ArrayIndex (a, e1, e2) -> ArrayIndex (a, (fill_unguarded_pres init ung) e1, (fill_unguarded_pres init ung) e2)
+  | Fby (a, e1, b, e2) -> Fby (a, (fill_unguarded_pres init ung) e1, b, (fill_unguarded_pres init ung) e2)
+  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (fill_unguarded_pres init ung) l)
+  | NArityOp (a, b, l) -> NArityOp (a, b, List.map (fill_unguarded_pres init ung) l)
+  | Call (a, b, l) -> Call (a, b, List.map (fill_unguarded_pres init ung) l)
+  | CallParam (a, b, c, l) -> CallParam (a, b, c, List.map (fill_unguarded_pres init ung) l)
+  | RestartEvery (a, b, l, e) -> RestartEvery (a, b, List.map (fill_unguarded_pres init ung) l, (fill_unguarded_pres init ung) e)
+  | Activate (a, b, e, r, l)  -> Activate (a, b, (fill_unguarded_pres init ung) e, (fill_unguarded_pres init ung) r, List.map (fill_unguarded_pres init ung) l)
+  | Condact (a, e, r, b, l1, l2) -> Condact (a, (fill_unguarded_pres init ung) e, (fill_unguarded_pres init ung) r, b, List.map (fill_unguarded_pres init ung) l1, List.map (fill_unguarded_pres init ung) l2)
+
+  | Merge (a, b, l) -> Merge (a, b, 
+    List.combine
+    (List.map fst l)
+    (List.map (fill_unguarded_pres init ung) (List.map snd l))
+  )
+  | RecordExpr (a, b, l) -> RecordExpr (a, b, 
+    List.combine
+    (List.map fst l)
+    (List.map (fill_unguarded_pres init ung) (List.map snd l))
+  )
+  | StructUpdate (a, e1, li, e2) ->
+    let e1 = (fill_unguarded_pres init ung) e1 in
+    let li = List.map (function
+        | Label (a, b) -> Label (a, b)
+        | Index (a, e) -> Index (a, (fill_unguarded_pres init ung) e)
+      ) li in
+    let e2 = (fill_unguarded_pres init ung) e2 in
+    StructUpdate (a, e1, li, e2)
+*)
 let has_unguarded_pre e =
   let u = has_unguarded_pre true e in
   if u && Flags.lus_strict ()

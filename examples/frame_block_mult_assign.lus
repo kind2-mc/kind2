@@ -1,0 +1,80 @@
+node test(x: int) returns (y1, y2, y3, y4, y5, y6, y7, y8, y9: int; 
+                           p1, p2, p3, p4, p5, p6, p7, p8, p9: bool);
+let 
+
+  p1 = (y1 >= 0);
+  p2 = (y2 <= y1);
+  p3 = (y3 >= 0);
+  --%PROPERTY p1;
+  --%PROPERTY p2;
+  --%PROPERTY p3;
+
+
+-- TODO: In the DesugarIfBlocks step, you need to pull temp variables out of frame blocks.
+--       If you just pull them out of if blocks, then you have generated temp variables
+--       still sitting in the frame block that won't match with any of the nes.
+--       Maybe similar issue with unguarded pres. Remember that if blocks are processed first.
+
+  p4 = (y4 >= 0);
+  p5 = (y5 <= y4);
+  p6 = (y6 >= 0);
+  --%PROPERTY p4;
+  --%PROPERTY p5;
+  --%PROPERTY p6;
+
+  p7 = (y7 >= 0);
+  p8 = (y8 <= y7);
+  p9 = (y9 >= 0);
+  --%PROPERTY p7;
+  --%PROPERTY p8;
+  --%PROPERTY p9;
+
+
+
+  def ((y1, y2) = counter2(x); y3 = 0;)
+    if (oscillate(true))
+    then 
+      y1 = counter(0);
+      y2 = counter(0);
+    else 
+      y1 = counter(100);
+    fi
+  fed
+  
+
+  def (y4 = counter(0); y5 = counter(0); y6 = 0;)
+    if (oscillate(true))
+    then 
+      (y4, y5) = counter2(0);
+    else 
+      y4 = counter(100);
+    fi
+  fed
+
+  
+  def ((y7, y8) = counter2(x); y9 = 0;)
+    if (oscillate(true))
+    then 
+      (y7, y8) = counter2(0);
+    else 
+      y7 = counter(100);
+    fi
+  fed
+  
+tel;
+
+node counter2(x: int) returns (y: int; z: int);
+let
+   y = x -> pre y + 1;
+   z = x -> pre z + 1;
+tel;
+
+node counter(x: int) returns (y: int);
+let
+  y = x -> pre y + 1;
+tel;
+
+node oscillate(x: bool) returns (y: bool);
+let
+   y = x -> (not pre y);
+tel;

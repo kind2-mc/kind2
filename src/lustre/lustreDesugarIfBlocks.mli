@@ -22,8 +22,7 @@
 
 
 type error_kind = Unknown of string
-  | MisplacedNodeItem of LustreAst.node_item
-  | StubError
+  | MisplacedNodeItemError of LustreAst.node_item
 
 val error_message : error_kind -> string
 
@@ -83,10 +82,21 @@ module LhsMap :
     val of_seq : (key * 'a) Seq.t -> 'a t
   end
 
+val get_node_ctx : TypeCheckerContext.tc_context ->
+  'a * 'b * 'c * LustreAst.const_clocked_typed_decl list * LustreAst.clocked_typed_decl list *
+  LustreAst.node_local_decl list * 'd * 'e -> TypeCheckerContext.tc_context
+
+val remove_mult_assign_from_ni : 
+TypeCheckerContext.tc_context ->
+  LustreAst.node_item ->
+    (LustreAst.node_item list * LustreAst.node_item list * LustreAst.node_local_decl list *
+    TypeCheckerContext.tc_context list,
+    [> error ])
+    result
 
 val desugar_if_blocks : 
-  TypeCheckerContext.tc_context ->
-    LustreAst.declaration list ->
-    (LustreAst.declaration list * LustreAstNormalizer.generated_identifiers LustreAstNormalizer.StringMap.t,
-    [> error])
-    result
+TypeCheckerContext.tc_context ->
+  LustreAst.declaration list ->
+  (LustreAst.declaration list * LustreAstNormalizer.generated_identifiers LustreAstNormalizer.StringMap.t,
+   [> `LustreDesugarIfBlocksError of Lib.position * error_kind ])
+  result

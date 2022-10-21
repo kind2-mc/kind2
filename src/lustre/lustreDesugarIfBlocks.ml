@@ -37,13 +37,11 @@ module Ctx = TypeCheckerContext
 
 
 type error_kind = Unknown of string
-  | MisplacedNodeItem of A.node_item
-  | StubError
+  | MisplacedNodeItemError of A.node_item
 
 let error_message error = match error with
   | Unknown s -> s
-  | MisplacedNodeItem ni -> "Node item " ^ Lib.string_of_t A.pp_print_node_item ni ^ " is misplaced"
-  | StubError -> "Stub error"
+  | MisplacedNodeItemError ni -> "Node item " ^ Lib.string_of_t A.pp_print_node_item ni ^ " is not allowed in if block"
 
 type error = [
   | `LustreDesugarIfBlocksError of Lib.position * error_kind
@@ -52,7 +50,7 @@ type error = [
 let mk_error pos kind = Error (`LustreDesugarIfBlocksError (pos, kind))
 
 module LhsMap = struct
-  include Map.Make(struct
+  include Map.Make (struct
     type t = A.eq_lhs
     let compare lhs1 lhs2 = 
       let (A.StructDef (_, ss1)) = lhs1 in
@@ -146,7 +144,10 @@ let if_block_to_trees ib =
                    res
                    conds)
           (* Misplaced frame block, annot main, or annot property *)
-          | _ -> mk_error Lib.dummy_pos StubError
+          | A.Body (Assert (pos, _)) 
+          | A.AnnotProperty (pos, _, _) -> mk_error pos (MisplacedNodeItemError ni)
+          | A.AnnotMain _ -> mk_error Lib.dummy_pos (MisplacedNodeItemError ni)
+          | _ -> failwith "stub"
         )
       | A.IfBlock (pos, cond, [], ni::nis) -> (
         match ni with
@@ -167,7 +168,10 @@ let if_block_to_trees ib =
                    res
                    conds)
           (* Misplaced frame block, annot main, or annot property *)
-          | _ -> mk_error Lib.dummy_pos StubError
+          | A.Body (Assert (pos, _)) 
+          | A.AnnotProperty (pos, _, _) -> mk_error pos (MisplacedNodeItemError ni)
+          | A.AnnotMain _ -> mk_error Lib.dummy_pos (MisplacedNodeItemError ni)
+          | _ -> failwith "stub"
         )
       (* We've processed everything in the if block. *)
       | A. IfBlock (_, _, [], []) -> R.ok (trees)
@@ -188,8 +192,8 @@ let rec tree_to_ite pos node =
 (** Returns the type associated with a tree. *)
 let get_tree_type ctx lhs = 
   match lhs with
-    | A.StructDef(_, [SingleIdent(_, i)]) -> R.ok (Ctx.lookup_ty ctx i) 
-    | A.StructDef(_, [ArrayDef(_, i, _)]) -> R.ok (
+    | A.StructDef(_, [SingleIdent(_, i)]) -> (Ctx.lookup_ty ctx i) 
+    | A.StructDef(_, [ArrayDef(_, i, _)]) -> (
       match (Ctx.lookup_ty ctx i) with
         (* Assignment in the form of A[i] = f(i), so the RHS type is no
            longer an array *)
@@ -197,29 +201,34 @@ let get_tree_type ctx lhs =
         | _ -> None
       )
     (* Other cases not possible *)
-    | _ -> mk_error Lib.dummy_pos StubError
+    | _ -> assert false
 
 (** Fills empty spots in an ITE with oracles. *)
+(* add new decls *)
 let rec fill_ite_with_oracles ite ty = 
   match ite with
     | A.TernaryOp (pos, Ite, cond, e1, e2) -> 
-      let e1, gids1 = (
+      let e1, gids1, decls1 = (
       match e1 with
         | TernaryOp _ as top -> fill_ite_with_oracles top ty
-        | Ident(_, s) when s = HString.mk_hstring "ib_oracle" -> 
+        | Ident(p, s) when s = HString.mk_hstring "ib_oracle" -> 
           let (expr, gids) = (mk_fresh_ib_oracle ty) in
-          expr, gids
-        | _ -> e1, LAN.empty ()
+          (match expr with
+            | A.Ident (_, name) ->  expr, gids, [A.NodeVarDecl(p, (p, name, ty, ClockTrue))]
+            | _ -> assert false (* not possible*))
+        | _ -> e1, LAN.empty (), []
       ) in 
-      let e2, gids2 = (
+      let e2, gids2, decls2 = (
       match e2 with
         | TernaryOp _ as top -> fill_ite_with_oracles top ty
-        | Ident(_, s) when s = HString.mk_hstring "ib_oracle" -> 
+        | Ident(p, s) when s = HString.mk_hstring "ib_oracle" -> 
           let (expr, gids) = (mk_fresh_ib_oracle ty) in
-          expr, gids
-        | _ -> e2, LAN.empty ()
+          (match expr with
+            | A.Ident (_, name) ->  expr, gids, [A.NodeVarDecl(p, (p, name, ty, ClockTrue))]
+            | _ -> assert false (* not possible*))
+        | _ -> e2, LAN.empty (), []
       ) in
-      A.TernaryOp (pos, Ite, cond, e1, e2), LAN.union gids1 gids2
+      A.TernaryOp (pos, Ite, cond, e1, e2), LAN.union gids1 gids2, decls1 @ decls2
     (* shouldn't be possible *)
     | _ -> assert false
 
@@ -246,17 +255,91 @@ let rec simplify_tree node =
 
 
 let split_and_flatten3 ls =
-  let xs = (List.map (fun (x, _, _) -> x) ls) |> List.flatten in
+  let xs = List.map (fun (x, _, _) -> x) ls |> List.flatten in
   let ys = List.map (fun (_, y, _) -> y) ls |> List.flatten in
   let zs = List.map (fun (_, _, z) -> z) ls |> List.flatten in
   xs, ys, zs
 
 let split_and_flatten4 ls =
-  let xs = (List.map (fun (x, _, _, _) -> x) ls) |> List.flatten in
+  let xs = List.map (fun (x, _, _, _) -> x) ls |> List.flatten in
   let ys = List.map (fun (_, y, _, _) -> y) ls |> List.flatten in
   let zs = List.map (fun (_, _, z, _) -> z) ls |> List.flatten in
   let ws = List.map (fun (_, _, _, w) -> w) ls |> List.flatten in
   xs, ys, zs, ws
+
+
+(* When pulling out temp variables for recursive array definitions,
+   we also have to modify the RHS to match the temp variable.
+   For example, we want equations of the form
+   'temp[i] = if i = 0 then 0 else temp[i-1] + 1' rather than
+   'temp[i] = if i = 0 then 0 else y[i-1] + 1', where 'y' was
+   the original LHS variable name.
+*)
+let rec modify_arraydefs_in_expr arraydefs_original arraydefs_new = function
+    (* Replace all oracles with 'fill' *)
+    | A.Ident (pos, i1) -> 
+      let comb = List.combine arraydefs_original arraydefs_new in
+      let update = List.find_map (fun pair -> match pair with 
+        (* What if multiple js in ArrayDef? *)
+        | (A.ArrayDef(_, i2, _), A.ArrayDef (_, i3, _)) when i1 = i2 -> 
+          (* Some (A.ArrayIndex(pos, A.Ident (pos, i3), A.Ident(pos, j2))) *)
+          Some (A.Ident(pos, i3))
+        | _ -> None
+      ) comb in (match update with 
+        | Some value -> value 
+        | None -> A.Ident(pos, i1)
+      )
+    (* Everything else is just recursing to find Idents *)
+    | Pre (a, e) -> Pre (a, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e))  
+    | Arrow (a, e1, e2) -> Arrow (a, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e1), (modify_arraydefs_in_expr arraydefs_original arraydefs_new e2))
+    | Const _ as e -> e
+    | ModeRef _ as e -> e
+    | RecordProject (a, e, b) -> RecordProject (a, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e), b)
+    | ConvOp (a, b, e) -> ConvOp (a, b, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e))
+    | UnaryOp (a, b, e) -> UnaryOp (a, b, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e))
+    | Current (a, e) -> Current (a, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e))
+    | When (a, e, b) -> When (a, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e), b)
+    | TupleProject (a, e, b) -> TupleProject (a, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e), b)
+    | Quantifier (a, b, c, e) -> Quantifier (a, b, c, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e))
+    | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e1), (modify_arraydefs_in_expr arraydefs_original arraydefs_new e2))
+    | CompOp (a, b, e1, e2) -> CompOp (a, b, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e1), (modify_arraydefs_in_expr arraydefs_original arraydefs_new e2))
+    | ArrayConcat (a, e1, e2) -> ArrayConcat (a, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e1), (modify_arraydefs_in_expr arraydefs_original arraydefs_new e2))
+    | ArrayIndex (a, e1, e2) -> ArrayIndex (a, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e1), (modify_arraydefs_in_expr arraydefs_original arraydefs_new e2))
+    | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e1), (modify_arraydefs_in_expr arraydefs_original arraydefs_new e2))
+    | Fby (a, e1, b, e2) -> Fby (a, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e1), b, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e2))
+    | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e1), (modify_arraydefs_in_expr arraydefs_original arraydefs_new e2), (modify_arraydefs_in_expr arraydefs_original arraydefs_new e3))
+    | ArraySlice (a, e1, (e2, e3)) -> ArraySlice (a, (modify_arraydefs_in_expr arraydefs_original arraydefs_new e1), ((modify_arraydefs_in_expr arraydefs_original arraydefs_new e2), (modify_arraydefs_in_expr arraydefs_original arraydefs_new e3)))
+    
+    | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (modify_arraydefs_in_expr arraydefs_original arraydefs_new) l)
+    | NArityOp (a, b, l) -> NArityOp (a, b, List.map (modify_arraydefs_in_expr arraydefs_original arraydefs_new) l) 
+    | Call (a, b, l) -> Call (a, b, List.map (modify_arraydefs_in_expr arraydefs_original arraydefs_new) l)
+    | CallParam (a, b, c, l) -> CallParam (a, b, c, List.map (modify_arraydefs_in_expr arraydefs_original arraydefs_new) l)
+
+    | Merge (a, b, l) -> Merge (a, b, 
+      List.combine
+      (List.map fst l)
+      (List.map (modify_arraydefs_in_expr arraydefs_original arraydefs_new) (List.map snd l)))
+    
+    | RecordExpr (a, b, l) -> RecordExpr (a, b,     
+      List.combine
+      (List.map fst l)
+      (List.map (modify_arraydefs_in_expr arraydefs_original arraydefs_new) (List.map snd l)))
+    
+    | RestartEvery (a, b, l, e) -> 
+      RestartEvery (a, b, List.map (modify_arraydefs_in_expr arraydefs_original arraydefs_new) l, modify_arraydefs_in_expr arraydefs_original arraydefs_new e)
+    | Activate (a, b, e, r, l) ->
+      Activate (a, b, (modify_arraydefs_in_expr arraydefs_original arraydefs_new) e, (modify_arraydefs_in_expr arraydefs_original arraydefs_new) r, List.map (modify_arraydefs_in_expr arraydefs_original arraydefs_new) l)
+    | Condact (a, e, r, b, l1, l2) ->
+      Condact (a, (modify_arraydefs_in_expr arraydefs_original arraydefs_new) e, (modify_arraydefs_in_expr arraydefs_original arraydefs_new) r, b, 
+              List.map (modify_arraydefs_in_expr arraydefs_original arraydefs_new) l1, List.map (modify_arraydefs_in_expr arraydefs_original arraydefs_new) l2)
+
+    | StructUpdate (a, e1, li, e2) -> 
+      A.StructUpdate (a, modify_arraydefs_in_expr arraydefs_original arraydefs_new e1, 
+      List.map (function
+                | A.Label (a, b) -> A.Label (a, b)
+                | Index (a, e) -> Index (a, modify_arraydefs_in_expr arraydefs_original arraydefs_new e)
+              ) li, 
+      modify_arraydefs_in_expr arraydefs_original arraydefs_new e2) 
 
 
 (** Takes in an equation LHS and returns 
@@ -265,52 +348,68 @@ let split_and_flatten4 ls =
     * new declarations, and
     * updated context
    *)
-let create_temp_lhs ctx lhs = 
-  let rec convert_struct_item = (function
+let create_new_eqs ctx lhs expr = 
+  let convert_struct_item = (function
     | A.SingleIdent (p, i) as si -> 
       let temp = mk_fresh_temp_name i in
       (* Type error, shouldn't be possible *)
-      let* ty = (match Ctx.lookup_ty ctx i with 
-        | Some ty -> R.ok ty 
-        | None -> mk_error Lib.dummy_pos StubError) in
+      let ty = (match Ctx.lookup_ty ctx i with 
+        | Some ty -> ty 
+        | None -> assert false) in
       let ctx = Ctx.add_ty ctx temp ty in
-      R.ok (
+      (
         [A.SingleIdent(p, temp)],
         [A.Body (A.Equation(p, StructDef(p, [si]), Ident(p, temp)))],
         [A.NodeVarDecl(p, (p, temp, ty, ClockTrue))],
         [ctx]
       )
-    | TupleStructItem (_, ts) -> 
-      let* res = R.seq (List.map convert_struct_item ts) in
-      let sis, eqs, decls, ctx = split_and_flatten4 res in
-      R.ok (sis, eqs, decls, ctx) 
-    | TupleSelection (p, i, _)
-    | FieldSelection (p, i, _)
-    | ArraySliceStructItem (p, i, _)
-    | ArrayDef (p, i, _) as si -> 
+    (*
+    y, A[i] = (7, if i = 0 then 0 else A[i-1] + 1); 
+    -->
+    t1, t2[i] = (7, if i = 0 then 0 else A[i-1] + 1); 
+    y = t1;
+    A = t2;
+    *)
+
+    | ArrayDef (p, i, js) as si -> 
       let temp = mk_fresh_temp_name i in
+      let rec build_array_index js = (match js with
+        | [j] -> A.ArrayIndex(p, A.Ident(p, temp), A.Ident(p, j))
+        | j :: js -> ArrayIndex(p, build_array_index js, A.Ident(p, j))
+        | [] -> assert false
+      ) in
+      let array_index = build_array_index (List.rev js) in
       (* Type error, shouldn't be possible *)
-      let* ty = (match Ctx.lookup_ty ctx i with 
-        | Some ty -> R.ok ty 
-        | None -> mk_error Lib.dummy_pos StubError) in
+      let ty = (match Ctx.lookup_ty ctx i with 
+        | Some ty -> ty 
+        | None -> assert false) in
       let ctx = Ctx.add_ty ctx temp ty in
-      R.ok (
-        [A.SingleIdent(p, temp)],
-        [A.Body (A.Equation(p, StructDef(p, [si]), Ident(p, temp)))],
+      (
+        [A.ArrayDef(p, temp, js)],
+        [A.Body (A.Equation(p, StructDef(p, [si]), array_index))],
         [A.NodeVarDecl(p, (p, temp, ty, ClockTrue))],
         [ctx]
       )
+    | _ ->
+      (* Other types of LHS are not supported *)
+      assert false
   ) in
   match lhs with
     | A.StructDef (pos, ss) -> 
-      let* res = R.seq (List.map convert_struct_item ss) in
+      let res = (List.map convert_struct_item ss) in
       let sis, eqs, decls, ctx = split_and_flatten4 res in
-      R.ok (
-        A.StructDef(pos, sis),
+      let arraydefs_original = List.filter (fun x -> match x with | A.ArrayDef _ -> true | _ -> false) ss in
+      let arraydefs_new = List.filter (fun x -> match x with | A.ArrayDef _ -> true | _ -> false) sis in
+      let expr = modify_arraydefs_in_expr arraydefs_original arraydefs_new expr in
+      A.pp_print_node_item Format.std_formatter (A.Body (Equation (pos, A.StructDef(pos, sis), expr))); 
+      (
+        (* modify expr if we have an ArrayDef in temp_lhs *)
+        [A.Body (Equation (pos, A.StructDef(pos, sis), expr))],
         eqs,
         decls,
         ctx
       )
+      
 
 
 (** Removes multiple assignment from an if block by pulling out equations
@@ -336,9 +435,9 @@ let create_temp_lhs ctx lhs =
 
   For each temp variable, we also generate a new declaration.
 *)
-let rec remove_mult_assign_from_ib ctx ni = 
+let rec remove_mult_assign_from_ni ctx ni = 
   match ni with 
-    | A.Body (Equation (pos, lhs, expr)) -> 
+    | A.Body (Equation (_, lhs, expr)) -> 
       let lhs_vars = AH.vars_lhs_of_eqn_with_pos ni in
       (* If there is no multiple assignment, we don't alter the node item,
          otherwise, we must remove the multiple assignment. The first node item
@@ -347,21 +446,32 @@ let rec remove_mult_assign_from_ib ctx ni =
       if (List.length lhs_vars = 1) 
       then R.ok([], [ni], [], [ctx])
       else (
-        let* temp_lhs, split_eqs, new_decls, ctx = create_temp_lhs ctx lhs in
-        let ni = A.Body (Equation (pos, temp_lhs, expr)) in
-        R.ok ([ni], split_eqs, new_decls, ctx)
+        R.ok (create_new_eqs ctx lhs expr)
       )
     
     | IfBlock (pos, e, l1, l2) -> 
-      let* res1 = R.seq (List.map (remove_mult_assign_from_ib ctx) l1) in
+      let* res1 = R.seq (List.map (remove_mult_assign_from_ni ctx) l1) in
       let nis1, nis2, decls1, ctx1 = split_and_flatten4 res1 in
-      let* res2 = R.seq (List.map (remove_mult_assign_from_ib ctx) l2) in
+      let* res2 = R.seq (List.map (remove_mult_assign_from_ni ctx) l2) in
       let nis3, nis4, decls2, ctx2 = split_and_flatten4 res2 in
-
       (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
       R.ok (nis1 @ nis3, [A.IfBlock (pos, e, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2)
-    (* Misplaced frame block, annotmain, annotproperty in if block*)
-    | _ -> mk_error Lib.dummy_pos StubError
+
+    | FrameBlock (pos, nes, nis) -> 
+      let nes = List.map (fun x -> A.Body x) nes in 
+      let* res1 = R.seq (List.map (remove_mult_assign_from_ni ctx) nes) in
+      let nis1, nis2, decls1, ctx1 = split_and_flatten4 res1 in
+      let* res2 = R.seq (List.map (remove_mult_assign_from_ni ctx) nis) in
+      let nis3, nis4, decls2, ctx2 = split_and_flatten4 res2 in     
+      let nis2 = List.map 
+        (fun x -> match x with | A.Body (Equation _ as e) -> e | _ -> assert false) 
+        nis2 in
+      R.ok (nis1 @ nis3, [A.FrameBlock (pos, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2)
+      
+    (* Misplaced assert, annotmain, annotproperty in if block*)
+    | A.Body (Assert (pos, _)) 
+    | A.AnnotProperty (pos, _, _) -> mk_error pos (MisplacedNodeItemError ni)
+    | A.AnnotMain _ -> mk_error Lib.dummy_pos (MisplacedNodeItemError ni)
 
 
 (** Helper function for 'desugar_node_item' that converts IfBlocks to a list
@@ -374,7 +484,7 @@ let rec remove_mult_assign_from_ib ctx ni =
     6. Returning lists of new local declarations, generated equations, and gids
     *)
 let extract_equations_from_if ctx ib =
-  let* (nis, ibs, new_decls, ctx) = remove_mult_assign_from_ib ctx ib in 
+  let* (nis, ibs, new_decls, ctx) = remove_mult_assign_from_ni ctx ib in 
   let ctx = List.fold_left Ctx.union Ctx.empty_tc_context ctx in
   let ib = List.hd(ibs) in
   let* tree_map = if_block_to_trees ib in
@@ -382,15 +492,21 @@ let extract_equations_from_if ctx ib =
   let trees = List.map simplify_tree trees in 
   let poss = List.map (fun (A.StructDef (a, _)) -> a) lhss in
   let ites = List.map2 tree_to_ite poss trees in
-  let* tys = R.seq (List.map (get_tree_type ctx) lhss) in 
+  let tys = (List.map (get_tree_type ctx) lhss) in 
   (* Type error, shouldn't be possible *)
-  let* tys = R.seq (List.map (fun x -> match x with | Some y -> R.ok y | None -> mk_error Lib.dummy_pos StubError) 
-                    tys) in
-  let ites, gids = List.map2 fill_ite_with_oracles ites tys |> List.split in
+  let tys = (List.map (fun x -> match x with | Some y -> y | None -> assert false) 
+                       tys) in
+  let res = List.map2 fill_ite_with_oracles ites tys |>
+                               List.map (fun (a, b, c) -> a, b, c) in
+                               (*ites, gids, new_decls2*)
+  let ites = List.map (fun (x, _, _) -> x) res in
+  let gids = List.map (fun (_, y, _) -> y) res in
+  let new_decls2 = List.map (fun (_, _, z) -> z) res |> List.flatten in
+
   let gids = List.fold_left LAN.union (LAN.empty ()) gids in
   (* Combine poss, lhss, and ites into a list of equations *)
   let eqs = (List.map2 (fun (a, b) c -> (A.Body (A.Equation (a, b, c)))) (List.combine poss lhss) ites) in
-  R.ok (new_decls, nis @ eqs, [gids])
+  R.ok (new_decls @ new_decls2, nis @ eqs, [gids])
 
 
 (** Desugar an individual node item. Given a node item, it returns any generated
@@ -399,10 +515,15 @@ let extract_equations_from_if ctx ib =
 *)
 let rec desugar_node_item ctx ni = match ni with
   | A.IfBlock _ as ib -> extract_equations_from_if ctx ib
-  | A.FrameBlock (pos, nes, nis) -> 
+  | A.FrameBlock _ -> 
+    let* (nis2, fb, decls1, _) = remove_mult_assign_from_ni ctx ni in 
+      let (pos, nes, nis) = (match fb with 
+      | [A.FrameBlock (pos, nes, nis)] -> (pos, nes, nis)
+      | _ -> assert false
+    ) in
     let* res = R.seq (List.map (desugar_node_item ctx) nis) in
-    let decls, nis, gids = split_and_flatten3 res in
-    R.ok (decls, [A.FrameBlock(pos, nes, nis)], gids)
+    let decls2, nis, gids = split_and_flatten3 res in
+    R.ok (decls1 @ decls2, nis2 @ [A.FrameBlock(pos, nes, nis)], gids)
   | _ -> R.ok ([], [ni], [LAN.empty ()])
 
   
@@ -412,6 +533,7 @@ let unwrap result = match result with
   | Error _ ->
     Log.log L_debug "(Lustre Desugar If Blocks Internal Error)";
     assert false
+
 
 (** Collects a node's context. *)
 let get_node_ctx ctx (_, _, _, inputs, outputs, locals, _, _) =

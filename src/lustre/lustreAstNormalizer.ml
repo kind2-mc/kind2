@@ -837,20 +837,9 @@ and normalize_item info map = function
   | A.Body equation ->
     let nequation, gids = normalize_equation info map equation in
     A.Body nequation, gids
-  | IfBlock _ ->
-    (* let nexpr, gids = abstract_expr false info map false expr in
-    let (nl1, gids2) = (List.split (List.map (normalize_item info map) l1)) in
-    let gids2 = List.fold_left union (empty ()) gids2 in
-    let (nl2, gids3) = (List.split (List.map (normalize_item info map) l2)) in
-    let gids3 = List.fold_left union (empty ()) gids3 in 
-    A.IfBlock (pos, nexpr, nl1, nl2), union (union gids gids2) gids3 *)
-    assert false
+  (* shouldn't be possible *)
+  | IfBlock _ 
   | FrameBlock _ -> 
-    (* let (nnes, gids) = List.split (List.map (normalize_equation info map) nes) in
-    let gids = List.fold_left union (empty ()) gids in
-    let (nnis, gids2) = (List.split (List.map (normalize_item info map) nis)) in
-    let gids2 = List.fold_left union (empty ()) gids2 in
-    FrameBlock (pos, nnes, nnis), union gids gids2 *)
     assert false
   | AnnotMain b -> AnnotMain b, empty ()
   | AnnotProperty (pos, name, expr) ->

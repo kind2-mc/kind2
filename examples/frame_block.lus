@@ -1,26 +1,31 @@
 node test(x: int) returns (y1, y2, y3, y4: int; p1, p2, p3: bool);
 let 
   p1 = (y1 >= 0);
-  p2 = (y3 = 0);
+  p2 = (y2 >= 0);
   --%PROPERTY p1;
-  -- Deal with ArrayDef or other types on LHS in FrameBlock nes and nis.
-  -- Add tests to testing script.
-  -- Move to before abstract interpretation and remove processing of IfBlocks
-  -- and FrameBlocks where unnecessary.
-  -- Question-- using a FrameBlock rather than guarding pres? So should I find all
-  -- unguarded pres in the frame block?
-  -- Question-- assertions in FrameBlock guard? body?
-  -- Question-- FrameBlock inside IfBlock?
-  -- Clean up/fix error handling.
-  -- Add comments.
+  --%PROPERTY p2;
+  -- Test multiple assignment with ArrayDef A[i] = assignment:
+  --   We should have temp[i] = if i = 0 then 0 else temp[i-1] + 1 , NOT
+  --                  temp[i] = if i = 0 then 0 else y[i-1] + 1
+
+  -- Change syntax to allow no else block, disallow empty else block
+  -- Change syntax to not require last semicolon in frame block inits
+  -- Remove print statements
+  -- Write documentation
+
+  -- Can maybe use List.find_map instead of find_opt plus matching
+  -- Make sure no more 'failwith'
+  -- Add tests to testing script, including more testing for FrameBlock (complex data structures).
+
   
   def (y2 = 0; y1 = 0; y3 = 0;)
     if (oscillate(true))
     then 
       y1 = counter(0);
-      y2 = counter(0);
+      
     else 
       y1 = counter(100);
+      y2 = counter(0);
     fi
   fed
 tel
