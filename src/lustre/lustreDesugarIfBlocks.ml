@@ -145,9 +145,9 @@ let if_block_to_trees ib =
                    conds)
           (* Misplaced frame block, annot main, or annot property *)
           | A.Body (Assert (pos, _)) 
+          | A.FrameBlock (pos, _, _)
           | A.AnnotProperty (pos, _, _) -> mk_error pos (MisplacedNodeItemError ni)
           | A.AnnotMain _ -> mk_error Lib.dummy_pos (MisplacedNodeItemError ni)
-          | _ -> failwith "stub"
         )
       | A.IfBlock (pos, cond, [], ni::nis) -> (
         match ni with
@@ -168,10 +168,10 @@ let if_block_to_trees ib =
                    res
                    conds)
           (* Misplaced frame block, annot main, or annot property *)
+          | A.FrameBlock (pos, _, _)
           | A.Body (Assert (pos, _)) 
           | A.AnnotProperty (pos, _, _) -> mk_error pos (MisplacedNodeItemError ni)
           | A.AnnotMain _ -> mk_error Lib.dummy_pos (MisplacedNodeItemError ni)
-          | _ -> failwith "stub"
         )
       (* We've processed everything in the if block. *)
       | A. IfBlock (_, _, [], []) -> R.ok (trees)

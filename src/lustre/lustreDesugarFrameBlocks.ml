@@ -191,15 +191,15 @@ match ni with
                     (A.Arrow (pos, init, (A.Pre (pos2, build_array_index (List.rev i2)))))
                     true
                     e)))
-  | A.FrameBlock _ -> failwith "stub"
-  (* shouldn't be possible *)
-  | A.IfBlock _ -> assert false
-  (* Asserts, main annotations, and property annotations should not be in frame
-     blocks *)
-  | A.Body (Assert (pos, _)) -> mk_error pos (MisplacedNodeItemError ni)
-  | A.AnnotProperty (pos, _, _) -> mk_error pos (MisplacedNodeItemError ni)
-  | A.AnnotMain _ -> mk_error Lib.dummy_pos (MisplacedNodeItemError ni)
+
+  (* The following node items should not be in frame blocks. In particular,
+     if blocks should have been desugared earlier in the pipeline. *)
+  | A.IfBlock (pos, _, _, _) 
+  | A.FrameBlock (pos, _, _) 
+  | A.Body (Assert (pos, _)) 
+  | A.AnnotProperty (pos, _, _)
   | A.Body (Equation (pos, _, _)) -> mk_error pos (MisplacedNodeItemError ni)
+  | A.AnnotMain _ -> mk_error Lib.dummy_pos (MisplacedNodeItemError ni)
   
 
 

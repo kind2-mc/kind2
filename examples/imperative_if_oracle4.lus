@@ -32,6 +32,5 @@ let
     y2 = {44, false, true};
     y3 = r2 { v3 = 22; v4 = r1 { v1 = true; v2 = 45; v3 = true }};
     y4[i] = if i = 0 then 0 else (y4[i-1] + 1);
-  else 
   fi
 tel
