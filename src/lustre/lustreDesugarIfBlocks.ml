@@ -401,7 +401,6 @@ let create_new_eqs ctx lhs expr =
       let arraydefs_original = List.filter (fun x -> match x with | A.ArrayDef _ -> true | _ -> false) ss in
       let arraydefs_new = List.filter (fun x -> match x with | A.ArrayDef _ -> true | _ -> false) sis in
       let expr = modify_arraydefs_in_expr arraydefs_original arraydefs_new expr in
-      A.pp_print_node_item Format.std_formatter (A.Body (Equation (pos, A.StructDef(pos, sis), expr))); 
       (
         (* modify expr if we have an ArrayDef in temp_lhs *)
         [A.Body (Equation (pos, A.StructDef(pos, sis), expr))],

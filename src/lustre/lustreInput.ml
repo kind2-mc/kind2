@@ -177,10 +177,6 @@ let type_check declarations =
     let* (normalized_nodes_and_contracts, gids) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
     in
-
-    print_endline("before");
-    List.iter (LA.pp_print_declaration Format.std_formatter) normalized_nodes_and_contracts; 
-    print_endline("after");
     
     Res.ok (inlined_global_ctx,
       gids,

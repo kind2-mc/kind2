@@ -573,9 +573,7 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
       (check_type i1 i2) (* && (check_type t2 t1) *)
 
     (* No other subtype relationships *)
-    | _ -> pp_print_type_node Format.std_formatter t1; 
-           pp_print_type_node Format.std_formatter t2; 
-           false
+    | _ -> false
 
 
 let rec generalize t = match node_of_type t with

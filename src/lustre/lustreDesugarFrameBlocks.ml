@@ -140,9 +140,6 @@ let generate_undefined_nes nis ne = match ne with
       | [] -> assert false
     ) in
 
-    print_endline("PRINTING INDEX VARIABLES");
-    A.pp_print_expr Format.std_formatter (build_array_index (List.rev id2));
-
     (match res with
       (* Already defined in frame block *)
       | Some _ -> R.ok []
@@ -189,13 +186,6 @@ match ni with
   ) in
   
   (* Fill in oracles *)
-  print_endline("PRINTING GENERATED FILL ITE ORACLES EQUATIONS");
-  A.pp_print_node_item Format.std_formatter (A.Body (Equation (pos, lhs, fill_ite_helper 
-  init
-  (A.Arrow (pos, init, (A.Pre (pos2, build_array_index (List.rev i2)))))
-  true
-  e)));
-
   R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
                     init
                     (A.Arrow (pos, init, (A.Pre (pos2, build_array_index (List.rev i2)))))
