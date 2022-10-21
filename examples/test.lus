@@ -1,5 +1,16 @@
-node test() returns(y1: int^3^3; y2: int^3);
+node test() returns(y: int^3);
 let
-  y1[i][j] = (if (i = 0 or j = 0) then 0 else y1[i-1][j-1] + 1) -> (pre y1[i][j]);
-  y2[i] = (if (i = 0) then 0 else y2[i-1] + 1) -> (pre y2[i]);
+  check (y[2] = 2);
+
+y[i] = (if oscillate()
+       then
+          (if (i = 0) then 0 else (y[(i - 1)] + 1))
+       else
+          ((if (i = 0) then 0 else (y[(i - 1)] + 1)) -> (pre y[i]))
+      );
+tel;
+
+node oscillate() returns (Z: bool)
+let
+   Z = true -> not pre Z;
 tel;

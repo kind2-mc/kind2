@@ -269,7 +269,7 @@ let rec node_state_var_dependencies' init output_input_deps
            (E.pp_print_lustre_var false) state_var
            (I.pp_print_ident false) node.N.name
            (pp_print_list Format.pp_print_string " ->@ ") str_path)
-
+           
     | _ ->
 
       (* All state variables at the current instant in the equation

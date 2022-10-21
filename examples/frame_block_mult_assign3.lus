@@ -1,16 +1,26 @@
 node test (x: int) returns (y1: int; y2: int^3^3; y3: int; y4: int^3^3; y5: int; y6: int^3^3; y7: int; y8: int^3^3;
                            p1, p2, p3, p4, p5, p6, p7, p8: bool);
 let
-   --p1 = ((y1 = 7) -> (y1 = 8));
-   --p2 = ((y2[1][1] = 1) -> (y2[1][1] = 2));
-   --p3 = ((y3 = 7) -> (y3 = 8));
-   --p4 = ((y4[1][1] = 1) -> (y4[1][1] = 2));
-   --p5 = ((y5 = 7) -> (y5 = 8));
-   --p6 = ((y6[1][1] = 1) -> (y6[1][1] = 2));
-   --p7 = ((y7 = 7) -> (y7 = 8));
-   --p8 = ((y8[1][1] = 1) -> (y8[1][1] = 2));
+   p1 = ((y1 = 7) -> (y1 = 8));
+   p2 = ((y2[1][1] = 1) -> (y2[1][1] = 2));
+   p3 = ((y3 = 7) -> (y3 = 8));
+   p4 = ((y4[1][1] = 1) -> (y4[1][1] = 2));
+   p5 = ((y5 = 7) -> (y5 = 8));
+   p6 = ((y6[1][1] = 1) -> (y6[1][1] = 2));
+   p7 = ((y7 = 7) -> (y7 = 8));
+   p8 = ((y8[1][1] = 1) -> (y8[1][1] = 2));
 
-(*
+   check p1;
+   check p2;
+   check p3;
+   check p4;
+   check p5;
+   check p6;
+   check p7;
+   check p8;
+
+
+
    def (y1, y2[i][j] = (7, if i=0 or j=0 then 0 else y2[i-1][j-1] + 1);)
       if oscillate()
       then
@@ -19,8 +29,8 @@ let
          y2[i][j] = if i=0 or j=0 then 0 else y2[i-1][j-1] + 2;
       fi
    fed
-*)
-(*
+
+
    def (y3 = 7; y4[i][j] = if (i=0 or j=0) then 0 else y4[i-1][j-1] + 1;)
       if oscillate()
       then
@@ -28,8 +38,8 @@ let
          y3, y4[i][j] = (8, if (i=0 or j=0) then 0 else y4[i-1][j-1] + 2);
       fi
    fed
-   *)
-(*
+   
+
    def (y5, y6[i][j] = (7, if (i=0 or j=0) then 0 else y6[i-1][j-1] + 1);)
       if oscillate()
       then
@@ -37,8 +47,8 @@ let
          y5, y6[i][j] = (8, if (i=0 or j=0) then 0 else y6[i-1][j-1] + 2);
       fi
    fed   
-   *)   
-   (*
+      
+   
    def (y7 = 7; y8[i][j] = if i=0 or j=0 then 0 else y8[i-1][j-1] + 1;)
       if oscillate()
       then
@@ -47,7 +57,7 @@ let
          y8[i][j] = if i=0 or j=0 then 0 else y8[i-1][j-1] + 2;
       fi
    fed
-   *)
+   
    
 
 tel;
