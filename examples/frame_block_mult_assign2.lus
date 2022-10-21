@@ -16,26 +16,24 @@ let
   check p6;
 
   
-  def (y1 = 4; y2[i] = if i = 0 then 0 else y2[i-1] + 1;)
+  def ( y1 = 4; y2[i] = if i = 0 then 0 else y2[i-1] + 1; )
     if (oscillate())
     then
       y1 = 5;
       y2[i] = if i = 0 then 0 else y2[i-1] + 2;
-    else
     fi
   fed
   
-  def ((y3, y4[i]) = (4, if i = 0 then 0 else y4[i-1] + 1);)
+  def ( (y3, y4[i]) = (4, if i = 0 then 0 else y4[i-1] + 1); )
     y3 = 4;
     y4[i] = if i = 0 then 0 else y4[i-1] + 1;
   fed
 
-  def ((y5, y6[i]) = (4, if i = 0 then 0 else y6[i-1] + 1);)
+  def ( (y5, y6[i]) = (4, if i = 0 then 0 else y6[i-1] + 1); )
     if (oscillate())
     then
       y5 = 4;
       y6[i] = if i = 0 then 0 else y6[i-1] + 1;
-    else
     fi
   fed
 tel

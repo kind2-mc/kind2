@@ -5,17 +5,15 @@ let
   --%PROPERTY p1;
   --%PROPERTY p2;
 
-  -- Change syntax to allow no else block, disallow empty else block
-  -- Change syntax to not require last semicolon in frame block inits
   -- Remove print statements
-  -- Write documentation
-
   -- Can maybe use List.find_map instead of find_opt plus matching
   -- Make sure no more 'failwith', and double check asserts
   -- Add tests to testing script
+  -- Write user documentation
+
 
   
-  def (y2 = 0; y1 = 0; y3 = 0;)
+  def ( y2 = 0; y1 = 0; y3 = 0; )
     if (oscillate(true))
     then 
       y1 = counter(0);

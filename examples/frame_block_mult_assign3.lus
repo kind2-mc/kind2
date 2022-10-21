@@ -21,7 +21,7 @@ let
 
 
 
-   def (y1, y2[i][j] = (7, if i=0 or j=0 then 0 else y2[i-1][j-1] + 1);)
+   def ( y1, y2[i][j] = (7, if i=0 or j=0 then 0 else y2[i-1][j-1] + 1); )
       if oscillate()
       then
       else
@@ -31,7 +31,7 @@ let
    fed
 
 
-   def (y3 = 7; y4[i][j] = if (i=0 or j=0) then 0 else y4[i-1][j-1] + 1;)
+   def ( y3 = 7; y4[i][j] = if (i=0 or j=0) then 0 else y4[i-1][j-1] + 1; )
       if oscillate()
       then
       else
@@ -40,7 +40,7 @@ let
    fed
    
 
-   def (y5, y6[i][j] = (7, if (i=0 or j=0) then 0 else y6[i-1][j-1] + 1);)
+   def ( y5, y6[i][j] = (7, if (i=0 or j=0) then 0 else y6[i-1][j-1] + 1); )
       if oscillate()
       then
       else
@@ -49,7 +49,7 @@ let
    fed   
       
    
-   def (y7 = 7; y8[i][j] = if i=0 or j=0 then 0 else y8[i-1][j-1] + 1;)
+   def ( y7 = 7; y8[i][j] = if i=0 or j=0 then 0 else y8[i-1][j-1] + 1; )
       if oscillate()
       then
       else

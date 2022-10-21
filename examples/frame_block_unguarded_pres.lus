@@ -4,7 +4,7 @@ let
   p2 = (true);
   --%PROPERTY p1;
 
-  def (y1 = 5; y2 = false;)
+  def ( y1 = 5; y2 = false; )
     if oscillate(true)
     then
       y1 = pre counter(0);

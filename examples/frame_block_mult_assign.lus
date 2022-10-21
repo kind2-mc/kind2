@@ -31,7 +31,7 @@ let
 
 
 
-  def ((y1, y2) = counter2(x); y3 = 0;)
+  def ( (y1, y2) = counter2(x); y3 = 0; )
     if (oscillate(true))
     then 
       y1 = counter(0);
@@ -42,7 +42,7 @@ let
   fed
   
 
-  def (y4 = counter(0); y5 = counter(0); y6 = 0;)
+  def ( y4 = counter(0); y5 = counter(0); y6 = 0; )
     if (oscillate(true))
     then 
       (y4, y5) = counter2(0);
@@ -52,7 +52,7 @@ let
   fed
 
   
-  def ((y7, y8) = counter2(x); y9 = 0;)
+  def ( (y7, y8) = counter2(x); y9 = 0; )
     if (oscillate(true))
     then 
       (y7, y8) = counter2(0);

@@ -22,9 +22,9 @@ let
   --%PROPERTY p4;
   
 
-  def (y1 = [1, 0]; y2 = {45, true, true}; 
-       y3 = r2 { v3 = 25; v4 = r1 { v1 = false; v2 = 46; v3 = true }};
-       y4[i] = if i = 0 then 0 else (y4[i-1] + 2);)
+  def ( y1 = [1, 0]; y2 = {45, true, true}; 
+        y3 = r2 { v3 = 25; v4 = r1 { v1 = false; v2 = 46; v3 = true }};
+        y4[i] = if i = 0 then 0 else (y4[i-1] + 2); )
 
     if (x > 0)
     then 
@@ -32,8 +32,6 @@ let
       y2 = {44, false, true};
       y3 = r2 { v3 = 22; v4 = r1 { v1 = true; v2 = 45; v3 = true }};
       y4[i] = if i = 0 then 0 else (y4[i-1] + 1);
-    else 
     fi
-    
   fed
 tel
