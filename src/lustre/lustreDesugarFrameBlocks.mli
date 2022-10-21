@@ -21,7 +21,9 @@
 
 module A = LustreAst
 
-type error_kind = Unknown of string | MisplacedNodeItemError of A.node_item
+type error_kind = Unknown of string 
+  | MisplacedNodeItemError of A.node_item
+  | InitializationNotFoundError of A.node_item
 
 val error_message : error_kind -> string
 

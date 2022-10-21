@@ -376,13 +376,13 @@ let create_new_eqs ctx lhs expr =
       let rec build_array_index js = (match js with
         | [j] -> A.ArrayIndex(p, A.Ident(p, temp), A.Ident(p, j))
         | j :: js -> ArrayIndex(p, build_array_index js, A.Ident(p, j))
-        | [] -> assert false
+        | [] -> assert false (* Not possible *)
       ) in
       let array_index = build_array_index (List.rev js) in
       (* Type error, shouldn't be possible *)
       let ty = (match Ctx.lookup_ty ctx i with 
         | Some ty -> ty 
-        | None -> assert false) in
+        | None -> assert false (* Not possible *)) in
       let ctx = Ctx.add_ty ctx temp ty in
       (
         [A.ArrayDef(p, temp, js)],
@@ -492,8 +492,7 @@ let extract_equations_from_if ctx ib =
   let poss = List.map (fun (A.StructDef (a, _)) -> a) lhss in
   let ites = List.map2 tree_to_ite poss trees in
   let tys = (List.map (get_tree_type ctx) lhss) in 
-  (* Type error, shouldn't be possible *)
-  let tys = (List.map (fun x -> match x with | Some y -> y | None -> assert false) 
+  let tys = (List.map (fun x -> match x with | Some y -> y | None -> assert false (* not possible *)) 
                        tys) in
   let res = List.map2 fill_ite_with_oracles ites tys |>
                                List.map (fun (a, b, c) -> a, b, c) in
@@ -518,7 +517,7 @@ let rec desugar_node_item ctx ni = match ni with
     let* (nis2, fb, decls1, _) = remove_mult_assign_from_ni ctx ni in 
       let (pos, nes, nis) = (match fb with 
       | [A.FrameBlock (pos, nes, nis)] -> (pos, nes, nis)
-      | _ -> assert false
+      | _ -> assert false (* not possible *)
     ) in
     let* res = R.seq (List.map (desugar_node_item ctx) nis) in
     let decls2, nis, gids = split_and_flatten3 res in

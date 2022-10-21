@@ -27,11 +27,13 @@ let (let*) = R.(>>=)
 
 type error_kind = Unknown of string
   | MisplacedNodeItemError of A.node_item
+  | InitializationNotFoundError of A.node_item
   (* | IllegalEquationInFrameGuardError of A.node_equation *)
 
 let error_message error = match error with
   | Unknown s -> s
   | MisplacedNodeItemError ni -> "Node item " ^ Lib.string_of_t A.pp_print_node_item ni ^ " is not allowed in frame block."
+  | InitializationNotFoundError ni -> "Node item " ^ Lib.string_of_t A.pp_print_node_item ni ^ " does not have a corresponding initialization in the frame block."
   (* | IllegalEquationInFrameGuardError ne -> "Node equation " ^ Lib.string_of_t A.pp_print_node_item (A.Body ne) ^ " is not allowed in frame block guard." *)
 
 type error = [
@@ -137,7 +139,7 @@ let generate_undefined_nes nis ne = match ne with
     let rec build_array_index js = (match js with
       | [j] -> A.ArrayIndex(pos, A.Ident(pos, id1), A.Ident(pos, j))
       | j :: js -> ArrayIndex(pos, build_array_index js, A.Ident(pos, j))
-      | [] -> assert false
+      | [] -> assert false (* not possible *)
     ) in
 
     (match res with
@@ -160,38 +162,40 @@ match ni with
       | _ -> false
     ) nes in 
     let init = (match init with
-      | Some (A.Equation (_, StructDef(_, [SingleIdent(_, _)]), expr)) -> expr
-      (* NODE EQUATION NOT FOUND ERROR *)
-      | _ -> assert false) in
+      | Some (A.Equation (_, StructDef(_, [SingleIdent(_, _)]), expr)) -> Some expr
+      | _ -> None) in 
+    (match init with
+      | Some init ->     
+        R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
+                                init
+                                (A.Arrow (pos, init, (A.Pre (pos2, Ident(pos2, i)))))
+                                true
+                                e)))
+      | None -> mk_error pos (InitializationNotFoundError ni))
+    
     (* Fill in oracles *)
-    R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
-                     init
-                     (A.Arrow (pos, init, (A.Pre (pos2, Ident(pos2, i)))))
-                     true
-                     e)))
+
   | A.Body (Equation (pos, (StructDef(_, [ArrayDef(pos2, i1, i2)]) as lhs), e)) ->
   (* Find initialization value *)
+  let rec build_array_index js = (match js with
+    | [j] -> A.ArrayIndex(pos, A.Ident(pos, i1), A.Ident(pos, j))
+    | j :: js -> ArrayIndex(pos, build_array_index js, A.Ident(pos, j))
+    | [] -> assert false (* not possible *)
+  ) in
   let init = List.find_opt (fun ne -> match ne with 
     | A.Equation (_, StructDef(_, [ArrayDef(_, id, _)]), _) when id = i1  -> true
     | _ -> false
   ) nes in 
   let init = (match init with
-    | Some (A.Equation (_, StructDef(_, [ArrayDef(_, _, _)]), expr)) -> expr
-    (* NODE EQUATION NOT FOUND ERROR *)
-    | _ -> assert false) in
-  let rec build_array_index js = (match js with
-    | [j] -> A.ArrayIndex(pos, A.Ident(pos, i1), A.Ident(pos, j))
-    | j :: js -> ArrayIndex(pos, build_array_index js, A.Ident(pos, j))
-    | [] -> assert false
-  ) in
-  
-  (* Fill in oracles *)
-  R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
-                    init
-                    (A.Arrow (pos, init, (A.Pre (pos2, build_array_index (List.rev i2)))))
-                    true
-                    e)))
-
+    | Some (A.Equation (_, StructDef(_, [ArrayDef(_, _, _)]), expr)) -> Some expr
+    | _ -> None) in
+  (match init with
+    | Some init -> R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
+                         init
+                        (A.Arrow (pos, init, (A.Pre (pos2, build_array_index (List.rev i2)))))
+                         true
+                         e)))
+    | None -> mk_error pos (InitializationNotFoundError ni))
   (* The following node items should not be in frame blocks. In particular,
      if blocks should have been desugared earlier in the pipeline. *)
   | A.IfBlock (pos, _, _, _) 
@@ -210,18 +214,6 @@ match ni with
     Fill in an equation if one doesn't exist.
 *)
 let desugar_node_item _ ni = match ni with
-  (*
-  | A.FrameBlock _ -> 
-    let* (nis, fb, new_decls, _) = LDI.remove_mult_assign_from_ni ctx ni in 
-    let (nes2, nis2) = (match fb with 
-      | [A.FrameBlock (_, nes2, nis2)] -> (nes2, nis2)
-      | _ -> assert false
-    ) in
-    let* nis2 = R.seq (List.map (fill_ite_oracles nes2) nis2) in
-    let* nis3 = R.seq (List.map (generate_undefined_nes nis2) nes2) in
-    let nis3 = List.flatten nis3 in 
-    R.ok (new_decls, nis @ nis2 @ nis3)
-    *)
     (* All multiple assignment is removed in lustreDesugarIfBlocks.ml *)
   | A.FrameBlock (_, nes, nis) ->
     let* nis = R.seq (List.map (fill_ite_oracles nes) nis) in
