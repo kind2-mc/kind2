@@ -157,13 +157,10 @@ let fill_ite_oracles nes ni =
 match ni with
   | A.Body (Equation (pos, (StructDef(_, [SingleIdent(pos2, i)]) as lhs), e)) -> 
     (* Find initialization value *)
-    let init = List.find_opt (fun ne -> match ne with 
-      | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), _) when id = i  -> true
-      | _ -> false
-    ) nes in 
-    let init = (match init with
-      | Some (A.Equation (_, StructDef(_, [SingleIdent(_, _)]), expr)) -> Some expr
-      | _ -> None) in 
+    let init = List.find_map (fun ne -> match ne with 
+      | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), expr) when id = i  -> Some expr
+      | _ -> None
+    ) nes in
     (match init with
       | Some init ->     
         R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
@@ -172,27 +169,17 @@ match ni with
                                 true
                                 e)))
       | None -> mk_error pos (InitializationNotFoundError ni))
-    
-    (* Fill in oracles *)
-
   | A.Body (Equation (pos, (StructDef(_, [ArrayDef(pos2, i1, i2)]) as lhs), e)) ->
   (* Find initialization value *)
-  let rec build_array_index js = (match js with
-    | [j] -> A.ArrayIndex(pos, A.Ident(pos, i1), A.Ident(pos, j))
-    | j :: js -> ArrayIndex(pos, build_array_index js, A.Ident(pos, j))
-    | [] -> assert false (* not possible *)
-  ) in
-  let init = List.find_opt (fun ne -> match ne with 
-    | A.Equation (_, StructDef(_, [ArrayDef(_, id, _)]), _) when id = i1  -> true
-    | _ -> false
+  let array_index = List.fold_left (fun expr j -> A.ArrayIndex(pos, expr, A.Ident(pos, j))) (A.Ident(pos, i1)) i2 in
+  let init = List.find_map (fun ne -> match ne with 
+    | A.Equation (_, StructDef(_, [ArrayDef(_, id, _)]), expr) when id = i1  -> Some expr
+    | _ -> None
   ) nes in 
-  let init = (match init with
-    | Some (A.Equation (_, StructDef(_, [ArrayDef(_, _, _)]), expr)) -> Some expr
-    | _ -> None) in
   (match init with
     | Some init -> R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
                          init
-                        (A.Arrow (pos, init, (A.Pre (pos2, build_array_index (List.rev i2)))))
+                        (A.Arrow (pos, init, (A.Pre (pos2, array_index))))
                          true
                          e)))
     | None -> mk_error pos (InitializationNotFoundError ni))

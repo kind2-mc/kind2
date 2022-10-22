@@ -1,0 +1,22 @@
+node test(x: int) returns(y1, y2: int);
+let
+  check (y1 = 2 or y1 = 3);
+
+if oscillate()
+then
+   def ( y2 = 3; )
+      if x > 0
+      then
+         y2 = 4;
+      fi
+   fed
+   y1 = 2;
+else
+   y1 = 3;
+fi
+tel;
+
+node oscillate() returns (Z: bool)
+let
+   Z = true -> not pre Z;
+tel;

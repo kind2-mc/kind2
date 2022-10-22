@@ -116,7 +116,7 @@ let rec add_eq_to_tree conds rhs node =
           if b then (Node (add_eq_to_tree conds rhs (Leaf None), cond, Leaf None))
           else (Node (Leaf None, cond, add_eq_to_tree conds rhs (Leaf None)))
         | Node (l, c, r) -> 
-          if b then (Node (l, c, r))
+          if b then (Node (add_eq_to_tree conds rhs l, c, r))
           else (Node (l, c, add_eq_to_tree conds rhs r))
     )
 
@@ -188,7 +188,6 @@ let rec tree_to_ite pos node =
     | Node (left, cond, right) -> 
       TernaryOp (pos, Ite, cond, tree_to_ite pos left, tree_to_ite pos right)
 
-
 (** Returns the type associated with a tree. *)
 let get_tree_type ctx lhs = 
   match lhs with
@@ -204,7 +203,6 @@ let get_tree_type ctx lhs =
     | _ -> assert false
 
 (** Fills empty spots in an ITE with oracles. *)
-(* add new decls *)
 let rec fill_ite_with_oracles ite ty = 
   match ite with
     | A.TernaryOp (pos, Ite, cond, e1, e2) -> 
@@ -232,25 +230,38 @@ let rec fill_ite_with_oracles ite ty =
     (* shouldn't be possible *)
     | _ -> assert false
 
+
+(** Helper function to determine if two trees are equal *)
+let rec trees_eq node1 node2 = match node1, node2 with
+  | Leaf (Some i), Leaf (Some j) -> (match (AH.syn_expr_equal None i j) with
+    | Ok n -> n
+    | Error _ -> false
+  )
+  | Node (l1, _, r1), Node (l2, _, r2) -> 
+    trees_eq l1 l2 && trees_eq r1 r2
+  | _ -> false
+
+  
 (** Removes redundancy from a binary tree. 
    Currently, redundancy check doesn't quite work because
    different positions mess with equality of leaves. *)
 let rec simplify_tree node = 
   match node with
     | Leaf _ -> node
-    | Node (Leaf i, _, Leaf j) -> if i = j then Leaf i else node
+    | Node (Leaf i, _, Leaf j) -> 
+      if (trees_eq (Leaf i) (Leaf j)) then Leaf i else node
     | Node (((Node _) as i), str, Leaf j) -> 
       let i = simplify_tree i in
-      if i = (Leaf j) then i else
+      if trees_eq i (Leaf j) then i else
       Node (i, str, Leaf j)
     |	Node (Leaf i, str, ((Node _) as j)) ->  
       let j = simplify_tree j in
-      if (Leaf i) = j then j
+      if trees_eq (Leaf i) j then j
     else Node (Leaf i, str, j)
     | Node (((Node _) as i), str, ((Node _) as j)) -> 
       let i = simplify_tree i in
       let j = simplify_tree j in
-      if i = j then i else
+      if trees_eq i j then i else
       Node (i, str, j)
 
 
@@ -341,7 +352,6 @@ let rec modify_arraydefs_in_expr arraydefs_original arraydefs_new = function
               ) li, 
       modify_arraydefs_in_expr arraydefs_original arraydefs_new e2) 
 
-
 (** Takes in an equation LHS and returns 
     * updated LHS with temp variables,
     * equations setting original variable equal to temp variables, 
@@ -363,6 +373,7 @@ let create_new_eqs ctx lhs expr =
         [A.NodeVarDecl(p, (p, temp, ty, ClockTrue))],
         [ctx]
       )
+
     (*
     y, A[i] = (7, if i = 0 then 0 else A[i-1] + 1); 
     -->
@@ -370,15 +381,9 @@ let create_new_eqs ctx lhs expr =
     y = t1;
     A = t2;
     *)
-
     | ArrayDef (p, i, js) as si -> 
       let temp = mk_fresh_temp_name i in
-      let rec build_array_index js = (match js with
-        | [j] -> A.ArrayIndex(p, A.Ident(p, temp), A.Ident(p, j))
-        | j :: js -> ArrayIndex(p, build_array_index js, A.Ident(p, j))
-        | [] -> assert false (* Not possible *)
-      ) in
-      let array_index = build_array_index (List.rev js) in
+      let array_index = List.fold_left (fun expr j -> A.ArrayIndex(p, expr, A.Ident(p, j))) (A.Ident(p, temp)) js in
       (* Type error, shouldn't be possible *)
       let ty = (match Ctx.lookup_ty ctx i with 
         | Some ty -> ty 
@@ -488,7 +493,7 @@ let extract_equations_from_if ctx ib =
   let ib = List.hd(ibs) in
   let* tree_map = if_block_to_trees ib in
   let (lhss, trees) = LhsMap.bindings (tree_map) |> List.split in
-  let trees = List.map simplify_tree trees in 
+  let trees = List.map simplify_tree trees in  
   let poss = List.map (fun (A.StructDef (a, _)) -> a) lhss in
   let ites = List.map2 tree_to_ite poss trees in
   let tys = (List.map (get_tree_type ctx) lhss) in 

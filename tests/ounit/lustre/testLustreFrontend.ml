@@ -496,3 +496,21 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | Error (`LustreTypeCheckerError (_, Unsupported _)) -> true
     | _ -> false);
 ])
+
+(* *************************************************************************** *)
+(*                        Lustre If and Frame Block Checks                     *)
+(* *************************************************************************** *)
+let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIfBlocks error tests" >::: [
+  mk_test "Misplaced frame block inside if block" (fun () ->
+    match load_file "./lustreSyntaxChecks/misplaced_frame_block.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MisplacedNodeItemError _)) -> true
+    | _ -> false);  
+  mk_test "Misplaced node item inside frame block" (fun () ->
+    match load_file "./lustreSyntaxChecks/misplaced_node_item_frame.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MisplacedNodeItemError _)) -> true
+    | _ -> false); 
+  mk_test "Uninitialized node item inside frame block" (fun () ->
+    match load_file "./lustreSyntaxChecks/uninitialized_node_item_frame.lus" with
+    | Error (`LustreDesugarFrameBlocksError (_, InitializationNotFoundError _)) -> true
+    | _ -> false);  
+])

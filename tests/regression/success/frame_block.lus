@@ -5,13 +5,7 @@ let
   --%PROPERTY p1;
   --%PROPERTY p2;
 
-  -- Can maybe use List.find_map instead of find_opt plus matching
-  -- Double check asserts
-  -- Add tests to testing script
-  -- Write user documentation
 
-
-  
   def ( y2 = 0; y1 = 0; y3 = 0; )
     if (oscillate(true))
     then 

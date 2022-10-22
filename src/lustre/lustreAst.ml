@@ -905,7 +905,11 @@ and pp_print_node_item ppf = function
   
   | Body b -> pp_print_node_body ppf b
 
-  (* Need to test/refine this *)
+  | IfBlock (_, e, l1, []) -> 
+    Format.fprintf ppf "if %a then %a fi"  
+      pp_print_expr e 
+      (pp_print_list pp_print_node_item " ") l1
+
   | IfBlock (_, e, l1, l2) -> 
     Format.fprintf ppf "if %a then %a else  %a fi"  
       pp_print_expr e 
