@@ -111,10 +111,7 @@ type node_call = {
 
   (* Variables providing non-deterministic inputs *)
   call_oracles : StateVar.t list;
-
-  (* Variables providing non-deterministic inputs for undefined equations
-     in if blocks. *)
-  (* call_ib_oracles : StateVar.t D.t list; *)
+  
 
   (* Variables capturing the outputs *)
   call_outputs : StateVar.t D.t;

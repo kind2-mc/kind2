@@ -143,7 +143,7 @@ type info = {
   inductive_variables : LustreAst.lustre_type StringMap.t;
   quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) StringMap.t;
-  contract_calls2 : LustreAst.contract_node_decl StringMap.t;
+  contract_calls_info : LustreAst.contract_node_decl StringMap.t;
   contract_scope : (Lib.position * HString.t) list;
   contract_ref : HString.t;
   interpretation : HString.t StringMap.t;

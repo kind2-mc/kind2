@@ -82,12 +82,6 @@ type node_call = {
       The length of the list is equal to the length of the list in
       the {!t.oracles} field of the called node. *)
       
-  (* call_ib_oracles : StateVar.t LustreIndex.t list; *)
-  (* Variables providing non-deterministic inputs (non-constant, for use in 
-      if blocks)
-
-      The length of the list is equal to the length of the list in
-      the {!t.ib_oracles} field of the called node. *)
 
   call_outputs : StateVar.t LustreIndex.t;
   (** Variables capturing the outputs 

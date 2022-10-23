@@ -248,7 +248,7 @@ type info = {
   inductive_variables : LustreAst.lustre_type StringMap.t;
   quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) StringMap.t;
-  contract_calls2 : LustreAst.contract_node_decl StringMap.t;
+  contract_calls_info : LustreAst.contract_node_decl StringMap.t;
   contract_scope : (Lib.position * HString.t) list;
   contract_ref : HString.t;
   interpretation : HString.t StringMap.t;
@@ -588,7 +588,6 @@ let mk_fresh_call info id map pos cond restart args defaults =
   let nexpr = A.Ident (pos, HString.concat2 proj name) in
   let propagated_oracles = 
     let called_oracles = called_node.oracles |> List.map (fun (id, _, _) -> id) in
-    (* Add in ib_oracles? *)
     let called_poracles = called_node.propagated_oracles |> List.map fst in
     List.map (fun n ->
       (i := !i + 1;
@@ -632,7 +631,7 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
     inductive_variables = StringMap.empty;
     quantified_variables = [];
     node_is_input_const = compute_node_input_constant_mask decls;
-    contract_calls2 = collect_contract_node_decls decls;
+    contract_calls_info = collect_contract_node_decls decls;
     contract_ref = HString.mk_hstring "";
     contract_scope = [];
     interpretation = StringMap.empty;
@@ -810,27 +809,6 @@ and normalize_node info map
   let map = StringMap.singleton node_id gids in
   (node_id, is_extern, params, inputs, outputs, locals, nitems, ncontracts), map
 
-(*
-and create_temp_vars_node_call_ib = function
-  | A.IfBlock (pos, expr, l1, l2) -> 
-    A.IfBlock(pos, expr,
-    List.map create_temp_vars_node_call_ib l1,
-    List.map create_temp_vars_node_call_ib l2)
-  | A.Body (Equation (pos, lhs, e)) -> failwith "stub"
-  (*
-    if lhs is more than single ident then
-    t1, t2, ..., tn = rhs
-    y1 = t1
-    y2 = t2 
-    ...
-    yn = tn 
-
-    Pull temp variable assignment out of if block
-  *)
-  | _ -> failwith "stub"
-*)
-
-
 
 (* Moving the de-sugaring into the normalization such that we can add in oracles. *)
 and normalize_item info map = function
@@ -919,7 +897,7 @@ and normalize_contract info map node_id items =
             contract_ref = cref;
           }
         in
-        let called_node = StringMap.find name info.contract_calls2 in
+        let called_node = StringMap.find name info.contract_calls_info in
         let normalized_call, gids2, interp = 
           normalize_node_contract info map cref ninputs noutputs called_node
         in

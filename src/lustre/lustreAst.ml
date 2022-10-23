@@ -231,7 +231,6 @@ type node_equation =
 type node_item =
   | Body of node_equation
   | IfBlock of position * expr * node_item list * node_item list
-  (* Maybe just use position * eq_lhs * expr rather than node_equation *)
   | FrameBlock of position * node_equation list * node_item list 
   | AnnotMain of bool
   | AnnotProperty of position * HString.t option * expr

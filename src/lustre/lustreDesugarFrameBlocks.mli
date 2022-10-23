@@ -16,6 +16,13 @@
  *)
 
 (** 
+   This file desugars frame blocks into a list of node items
+   (equations), completing two major steps:
+   1. Fill in any oracles within the frame block (for unguarded pres or 
+      undefined variables in if blocks).
+   2. Generate node equations for variables left completely undefined in frame 
+      blocks.
+
    @author Rob Lorch
  *)
 

@@ -426,9 +426,8 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       expand_tuple' pos accum (E.Fixed n :: bounds)
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((rhs_index_tl, expr) :: rhs_tl)
-    else (
-      internal_error pos "Type mismatch in equation: indexes do not match";
-      assert false)
+    else (internal_error pos "Type mismatch in equation: indexes do not match";
+          assert false)
   (* Tuple index on left-hand and array index on right-hand side *)
   | ((X.TupleIndex i :: lhs_index_tl, state_var) :: lhs_tl,
     (X.ArrayIntIndex j :: _, expr) :: rhs_tl) ->
@@ -438,9 +437,8 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       expand_tuple' pos accum bounds
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((lhs_index_tl, expr) :: rhs_tl)
-    else (
-      internal_error pos "Type mismatch in equation: indexes do not match";
-      assert false)
+    else (internal_error pos "Type mismatch in equation: indexes do not match";
+          assert false)
   (* Record index on left-hand and right-hand side *)
   | (X.RecordIndex i :: lhs_index_tl, state_var) :: lhs_tl,
     (X.RecordIndex j :: rhs_index_tl, expr) :: rhs_tl
@@ -452,9 +450,8 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       expand_tuple' pos accum bounds
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((rhs_index_tl, expr) :: rhs_tl)
-    else (
-      internal_error pos "Type mismatch in equation: record indexes do not match";
-      assert false)
+    else (internal_error pos "Type mismatch in equation: record indexes do not match";
+          assert false)
   (* Mismatched indexes on left-hand and right-hand sides *)
   | (X.RecordIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.RecordIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
@@ -1125,7 +1122,7 @@ and compile_ast_expr
   | A.TernaryOp _ -> assert false
   | A.CallParam _ -> assert false
 
-and compile_node pos ctx cstate map oracles (*ib_oracles*) outputs cond restart ident args defaults =
+and compile_node pos ctx cstate map oracles outputs cond restart ident args defaults =
   let called_node = N.node_of_name ident cstate.nodes in
   let oracles = oracles
     |> List.map (fun n -> H.find !map.state_var (mk_ident n))
@@ -1193,7 +1190,6 @@ and compile_node pos ctx cstate map oracles (*ib_oracles*) outputs cond restart 
     N.call_cond = cond_state_var;
     N.call_inputs = input_state_vars;
     N.call_oracles = oracles;
-    (* N.call_ib_oracles = ib_oracles; *)
     N.call_outputs = outputs;
     N.call_defaults = defaults
   }
@@ -1633,9 +1629,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   in
   let (oracles, oracle_state_var_map) =
-    (* Take in oracle (as id, expr_type, expr tuple) and add to state var map and 
-      list of oracles. The state var map relates an oracle state variable to 
-      it's corresponding real state variable. *)
     let over_oracles (oracles, osvm) (id, expr_type, expr) =
       let oracle_ident = mk_ident id in
       let closed_sv = match expr with
@@ -1671,13 +1664,11 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     in
     List.fold_left over_oracles ([], SVT.create 7) gids.LAN.oracles in
   let ib_oracles =
-    (* Borrowing from over_outputs, as outputs can be left undefined. *)
     let over_ib_oracles  ib_oracles (id, expr_type) = (
       let oracle_ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map expr_type in
       let over_indices = ( fun index index_type accum ->
         let possible_state_var = mk_state_var
-      (*  ~is_const:true *)
           ~is_const:false
           map
           (node_scope @ I.reserved_scope)
@@ -1687,30 +1678,13 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           (Some N.Oracle)
         in
         let index = filter_array_indices index in
-     (*   let index' = if is_single then index else X.ListIndex n :: index in *)
         match possible_state_var with
           | Some state_var -> X.add index state_var accum
           | None -> accum
       ) in 
-    (*  (X.fold over_indices index_types compiled_output) *)
       (X.fold over_indices index_types X.empty) :: ib_oracles
     ) in
     List.fold_left over_ib_oracles [] gids.LAN.ib_oracles
-        (*
-        match possible_state_var with
-        | Some(state_var) ->
-          (match closed_sv with
-          | Some sv -> SVT.add osvm state_var sv
-          | None -> ());
-          X.add index state_var accum
-        | None -> accum
-      in
-      let result = X.fold over_indices index_types X.empty in
-      (X.values result) @ ib_oracles, osvm
-      
-    in
-    List.fold_left over_ib_oracles ([], SVT.create 7) gids.LAN.ib_oracles
-    *)
   (* ****************************************************************** *)
   (* Propagated Oracles                                                 *)
   (* ****************************************************************** *)
@@ -1790,7 +1764,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         X.fold over_vars called_node.outputs X.empty
       in
       let node_call = compile_node
-        pos ctx cstate map oracles (*ib_oracles*) outputs cond restart node_id args defaults
+        pos ctx cstate map oracles outputs cond restart node_id args defaults
       in
       let glocals' = H.fold (fun _ v a -> (X.singleton X.empty_index v) :: a) local_map [] in 
       node_call :: calls, glocals' @ glocals

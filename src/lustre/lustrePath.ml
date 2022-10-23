@@ -2130,7 +2130,6 @@ let rec get_instances acc hc parents sv =
 let get_lustre_streams hc sv = get_instances [] hc [] sv
   
 
-(* Confused-- ib oracles don't have a corresponding real state variable *)
 let inverse_oracle_map nodes =
   List.fold_left (fun acc node ->
       SVT.fold (fun oracle sv acc ->
