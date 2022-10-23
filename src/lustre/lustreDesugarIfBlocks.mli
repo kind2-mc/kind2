@@ -43,9 +43,7 @@ type error = [
 ]
 
 
-
-module LhsMap :
-  sig
+module LhsMap : sig
     type key
     type +!'a t
     val empty : 'a t
@@ -90,6 +88,7 @@ module LhsMap :
     val add_seq : (key * 'a) Seq.t -> 'a t -> 'a t
     val of_seq : (key * 'a) Seq.t -> 'a t
   end
+
 
 val get_node_ctx : TypeCheckerContext.tc_context ->
   'a * 'b * 'c * LustreAst.const_clocked_typed_decl list * LustreAst.clocked_typed_decl list *
