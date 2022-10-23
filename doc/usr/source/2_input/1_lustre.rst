@@ -854,7 +854,7 @@ to ``counter()``. Since ``y3`` is fully defined within the frame block, it is eq
       
    node counter() returns (y: int);
    let
-      y = 0 -> pre y + 1
+      y = 0 -> pre y + 1;
    tel
 
 
@@ -878,7 +878,7 @@ subsection, as variables can be left undefined in some branches of the ``if`` st
       
    node counter() returns (y: int);
    let
-      y = 0 -> pre y + 1
+      y = 0 -> pre y + 1;
    tel
 
 In the above example, ``y1`` is left undefined in the ``else`` branch of the ``if`` statement,

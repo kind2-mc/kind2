@@ -238,7 +238,7 @@ let rec has_unguarded_pre ung = function
     let u2 = has_unguarded_pre false e2 in
     u1 || u2
 
-    
+
 let has_unguarded_pre e =
   let u = has_unguarded_pre true e in
   if u && Flags.lus_strict ()
@@ -1122,7 +1122,6 @@ let extract_equation: node_item list -> node_equation list =
     | IfBlock (_, _, l1, l2) -> 
       List.flatten (List.map extract_equation_helper l1) @ 
       List.flatten (List.map extract_equation_helper l2)
-    (* Some equations generated later, not 100% sure what to do here. *)
     | FrameBlock (_, nes, nis) -> 
       nes @ List.flatten (List.map extract_equation_helper nis)
     | AnnotMain _ -> []
