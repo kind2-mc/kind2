@@ -258,7 +258,6 @@ let rec node_state_var_dependencies' init output_input_deps
     (* is there a strong dependency cycle with the state
        variable? *)
     match has_cycle state_var parents with
-    (*
     | Some path ->
       (* Output variables in circular dependency, drop variables
          that are not visible in the origial source *)
@@ -270,7 +269,7 @@ let rec node_state_var_dependencies' init output_input_deps
            (E.pp_print_lustre_var false) state_var
            (I.pp_print_ident false) node.N.name
            (pp_print_list Format.pp_print_string " ->@ ") str_path)
-           *)
+           
     | _ ->
 
       (* All state variables at the current instant in the equation
