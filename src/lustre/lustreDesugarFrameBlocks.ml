@@ -164,7 +164,7 @@ let fill_ite_oracles nes ni =
 match ni with
   | A.Body (Equation (pos, (StructDef(_, [SingleIdent(pos2, i)]) as lhs), e)) -> 
     (* Find initialization value *)
-    let init = List.find_map (fun ne -> match ne with 
+    let init = Lib.find_map (fun ne -> match ne with 
       | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), expr) when id = i  -> Some expr
       | _ -> None
     ) nes in
@@ -179,7 +179,7 @@ match ni with
   | A.Body (Equation (pos, (StructDef(_, [ArrayDef(pos2, i1, i2)]) as lhs), e)) ->
   (* Find initialization value *)
   let array_index = List.fold_left (fun expr j -> A.ArrayIndex(pos, expr, A.Ident(pos, j))) (A.Ident(pos, i1)) i2 in
-  let init = List.find_map (fun ne -> match ne with 
+  let init = Lib.find_map (fun ne -> match ne with 
     | A.Equation (_, StructDef(_, [ArrayDef(_, id, _)]), expr) when id = i1  -> Some expr
     | _ -> None
   ) nes in 

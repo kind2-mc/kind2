@@ -290,10 +290,8 @@ let rec modify_arraydefs_in_expr arraydefs_original arraydefs_new = function
     (* Replace all oracles with 'fill' *)
     | A.Ident (pos, i1) -> 
       let comb = List.combine arraydefs_original arraydefs_new in
-      let update = List.find_map (fun pair -> match pair with 
-        (* What if multiple js in ArrayDef? *)
+      let update = Lib.find_map (fun pair -> match pair with 
         | (A.ArrayDef(_, i2, _), A.ArrayDef (_, i3, _)) when i1 = i2 -> 
-          (* Some (A.ArrayIndex(pos, A.Ident (pos, i3), A.Ident(pos, j2))) *)
           Some (A.Ident(pos, i3))
         | _ -> None
       ) comb in (match update with 
