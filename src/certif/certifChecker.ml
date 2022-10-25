@@ -1772,11 +1772,8 @@ let generate_split_certificates sys dirname =
   Stat.set (Certificate.size (k, phi)) Stat.certif_size;
 
   let svars =
-    List.filter_map
-      (fun v ->
-        if StateVar.is_const v then None
-        else Some (StateVar.uf_symbol_of_state_var v))
-      (TS.state_vars sys)
+    StateVar.get_select_ufs ()
+    @ List.map StateVar.uf_symbol_of_state_var (TS.state_vars sys)
   in
 
   let names_kind2 = names_kind2 svars in
@@ -2798,16 +2795,17 @@ let generate_frontend_certificates sys dirname =
   (* Time statistics *)
   Stat.record_time Stat.certif_gen_time;
 
-  let pred v =
-    if StateVar.is_const v then None
-    else Some (StateVar.uf_symbol_of_state_var v)
+  (* We do not consider select functions here because the Syntax and semantics
+     of arrays in Kind 2 and Jkind are different *)
+  let kind2_sys = List.nth (TS.get_subsystems sys) 1 in
+  let kind2_svars =
+    List.map StateVar.uf_symbol_of_state_var (TS.state_vars kind2_sys)
   in
 
-  let kind2_sys = List.nth (TS.get_subsystems sys) 1 in
-  let kind2_svars = List.filter_map pred (TS.state_vars kind2_sys) in
-
   let jkind_sys = List.nth (TS.get_subsystems sys) 0 in
-  let jkind_svars = List.filter_map pred (TS.state_vars jkind_sys) in
+  let jkind_svars =
+    List.map StateVar.uf_symbol_of_state_var (TS.state_vars jkind_sys)
+  in
 
   let obs_sys = obs_cert_sys dirname in
 
