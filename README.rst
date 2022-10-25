@@ -351,9 +351,9 @@ For HTML documentation, you additionally need:
 
 For PDF documentation, you additionally need:
 
-* `latexmk <https://packages.ubuntu.com/xenial/latexmk>`_
-* `XeTeX <https://packages.debian.org/sid/texlive-xetex>`_
-* `lmodern <https://packages.debian.org/sid/lmodern>`_
+* `latexmk <https://personal.psu.edu/~jcc8/software/latexmk/>`_
+* `XeTeX <https://xetex.sourceforge.net>`_
+* `lmodern <https://www.gust.org.pl/projects/e-foundry/latin-modern>`_
 
 If you're on Debian/Ubuntu, assuming you have Python 3 installed,
 you can run the following:
