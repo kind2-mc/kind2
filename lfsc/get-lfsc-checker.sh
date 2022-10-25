@@ -22,7 +22,7 @@ BASE_DIR=`pwd`
 mkdir -p $BASE_DIR/tmp/
 
 # download and unpack LFSC
-version="5f44ffb1241ca81dbb3118807546ba14ab9ea7a5"
+version="679f4de66da319a7c36b572cb8b0bcc606b695f8"
 download "https://github.com/cvc5/LFSC/archive/$version.tar.gz" $BASE_DIR/tmp/lfsc.tgz
 tar --strip 1 -xzf $BASE_DIR/tmp/lfsc.tgz -C $BASE_DIR
 rm -r $BASE_DIR/tmp
@@ -35,7 +35,7 @@ make install
 ##### signatures
 
 # The LFSC signatures live in the main cvc5 repository
-version="673bdf617a72e75f474fa33b82301fa1d987a829"
+version="5b71570ad5222815ede7f5fa1297e27c5840a381"
 SIG_DIR_URL="https://raw.githubusercontent.com/cvc5/cvc5/$version/proofs/lfsc/signatures"
 
 # install signatures and scripts
@@ -61,7 +61,9 @@ cat \$@ | grep WARNING
 CHECK=\$(cat \$@ | grep check)
 [ -z "\$CHECK" ] && echo "; WARNING: Empty proof!!!"
 
-SIG_DIR=$BASE_DIR/signatures
+LFSC_DIR=$BASE_DIR
+
+SIG_DIR=\$LFSC_DIR/signatures
 SIGS="\$SIG_DIR/core_defs.plf \\
     \$SIG_DIR/util_defs.plf \\
     \$SIG_DIR/theory_def.plf \\
@@ -75,10 +77,10 @@ SIGS="\$SIG_DIR/core_defs.plf \\
     \$SIG_DIR/quantifiers_rules.plf \\
     \$SIG_DIR/kind.plf"
 ### Release version
-$BASE_DIR/bin/lfscc \$SIGS \$@
+\$LFSC_DIR/bin/lfscc \$SIGS \$@
 
 ### Debugging version
-#$BASE_DIR/bin/lfscc \$SIGS \$@ >& lfsc.out
+#\$LFSC_DIR/bin/lfscc \$SIGS \$@ >& lfsc.out
 
 ## recover macros for applications of arity 1,2,3, and simplify builtin syntax for constants
 ##sed -i.orig 's/(f_ite [^ \)]*)/f_ite/g' lfsc.out
