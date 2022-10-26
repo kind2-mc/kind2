@@ -35,9 +35,10 @@ let cmd_line
   let common_flags =
     [|
       "--incremental";
-      "--decision=internal";
       "--ext-rew-prep=agg";
-      "--dag-thresh=0";
+      "--mbqi";                (* Use model-based quantifier instantiation (best for sat) *)
+      "--full-saturate-quant"; (* Resort to full effort techniques instead of answering
+                                  unknown due to limited quantifier reasoning (best for unsat) *)
     |]
   in
 
