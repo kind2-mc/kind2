@@ -2334,7 +2334,9 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
             "PROPERTY_Observational_Equivalence_" ^(string_of_int !cpt);
           prop_source = Property.Generated (None, []);
           prop_term = eq;
-          prop_status = Property.PropUnknown; }
+          prop_status = Property.PropUnknown; 
+          (*!! double check this !!*)
+          prop_kind = Invariant; }
       ) props_eqs in
 
   let others_obs =
@@ -2344,7 +2346,9 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
             "OTHER_Observational_Equivalence_" ^(string_of_int !cpt);
           prop_source = Property.Candidate None ;
           prop_term = eq;
-          prop_status = Property.PropUnknown; }
+          prop_status = Property.PropUnknown; 
+          (*!! double check this !!*)
+          prop_kind = Invariant; }
         ) others_eqs in
 
   props_obs @ others_obs

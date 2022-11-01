@@ -216,7 +216,7 @@ let property_of_expr
   in
 
   (* Return property *)
-  { P.prop_name ; P.prop_source ; P.prop_term ; P.prop_status }
+  { P.prop_name ; P.prop_source ; P.prop_term ; P.prop_status ; (*!! double check this !!*) prop_kind = Invariant }
 
 (* Creates the conjunction of a list of contract svar. *)
 let conj_of l = List.map (fun { C.svar } -> E.mk_var svar) l |> E.mk_and_n
@@ -305,7 +305,9 @@ let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
       { P.prop_name ;
         P.prop_source ;
         P.prop_term ;
-        P.prop_status }
+        P.prop_status ;
+        (*!! double check this !!*)
+        prop_kind = Invariant ; }
   )
 
 (* Builds the abstraction of a node given its contract.
@@ -669,7 +671,9 @@ let call_terms_of_node_call mk_fresh_state_var globals
           { P.prop_name ;
             P.prop_source ;
             P.prop_term ;
-            P.prop_status } :: a
+            P.prop_status ;
+            (*!! double check this !!*)
+            prop_kind = Invariant ; } :: a
       ) node_props
     )
     else node_props
@@ -2124,7 +2128,7 @@ let rec trans_sys_of_node'
 
             (* Iterate over each property annotation *)
             List.map (
-              fun (state_var, prop_name, prop_source) -> 
+              fun (state_var, prop_name, prop_source, prop_kind) -> 
 
               (* Property is just the state variable *)
               let prop_term =
@@ -2136,7 +2140,8 @@ let rec trans_sys_of_node'
               { P.prop_name; 
                 P.prop_source; 
                 P.prop_term;
-                P.prop_status }
+                P.prop_status;
+                P.prop_kind; }
             ) props
               
             (* Add to existing properties *)

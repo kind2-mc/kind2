@@ -32,7 +32,9 @@ type prop_status =
   | PropFalse of (StateVar.t * Model.value list) list
   (** Property is false at some step *)
 
-
+type prop_kind =
+   | Invariant
+   | Reachable
 
 (** A property of a transition system *)
 type t = {
@@ -41,6 +43,9 @@ type t = {
 
   prop_source : prop_source ;
   (** Source of the property *)
+
+  prop_kind : prop_kind ;
+  (** Kind of property (do we wish to prove it invariant or reachable) *)
 
   prop_term : Term.t ;
   (** Term with variables at offsets [prop_base] and [prop_base - 1] *)

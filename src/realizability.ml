@@ -675,7 +675,9 @@ let compute_deadlocking_trace_and_conflict
           prop_name ;
           prop_source = Property.Generated (None, []) ;
           prop_term = vr_wo ;
-          prop_status = PropUnknown
+          prop_status = PropUnknown ;
+          (*!! double check this !!*)
+          prop_kind = Invariant ;
         }
       in
 

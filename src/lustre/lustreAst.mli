@@ -229,11 +229,14 @@ type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr 
 
+type prop_kind =
+  | Invariant
+  | Reachable
 (** An item in a node declaration *)
 type node_item =
   | Body of node_equation
   | AnnotMain of bool
-  | AnnotProperty of position * HString.t option * expr
+  | AnnotProperty of position * HString.t option * expr * prop_kind
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl

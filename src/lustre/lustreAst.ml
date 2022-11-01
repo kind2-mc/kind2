@@ -227,11 +227,15 @@ type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr
 
+type prop_kind =
+  | Invariant
+  | Reachable
+
 (* An item in a node declaration *)
 type node_item =
   | Body of node_equation
   | AnnotMain of bool
-  | AnnotProperty of position * HString.t option * expr
+  | AnnotProperty of position * HString.t option * expr * prop_kind
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
@@ -906,11 +910,19 @@ and pp_print_node_item ppf = function
 
   | AnnotMain false -> Format.fprintf ppf "--!MAIN : false;"
 
-  | AnnotProperty (_, None, e) ->
+  | AnnotProperty (_, None, e, Invariant) ->
     Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 
 
-  | AnnotProperty (_, Some name, e) ->
+  | AnnotProperty (_, None, e, Reachable) ->
+    Format.fprintf ppf "--%%PROPERTY REACHABLE %a;" pp_print_expr e 
+
+  | AnnotProperty (_, Some name, e, Invariant) ->
     Format.fprintf ppf "--%%PROPERTY \"%a\" %a;"
+      HString.pp_print_hstring name
+      pp_print_expr e 
+
+  | AnnotProperty (_, Some name, e, Reachable) ->
+    Format.fprintf ppf "--%%PROPERTY REACHABLE \"%a\" %a;"
       HString.pp_print_hstring name
       pp_print_expr e 
 

@@ -199,7 +199,7 @@ type t = {
   asserts : (position * StateVar.t) list;
   (** Assertions of node *)
 
-  props : (StateVar.t * string * Property.prop_source) list;
+  props : (StateVar.t * string * Property.prop_source * Property.prop_kind) list;
   (** Proof obligations for the node *)
 
   contract : contract option ;

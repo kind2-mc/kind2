@@ -450,8 +450,8 @@ let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA
   | (Body b) :: items ->
      (Body (inline_constants_of_node_equation ctx b))
      :: inline_constants_of_node_items ctx items
-  | (AnnotProperty (pos, n, e)) :: items ->
-     (AnnotProperty (pos, n, simplify_expr ctx e))
+  | (AnnotProperty (pos, n, e, k)) :: items ->
+     (AnnotProperty (pos, n, simplify_expr ctx e, k))
      :: inline_constants_of_node_items ctx items
   | (AnnotMain b) :: items
     -> (AnnotMain b) :: inline_constants_of_node_items ctx items

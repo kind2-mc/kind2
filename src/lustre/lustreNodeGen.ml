@@ -1753,13 +1753,13 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | A.Assert (p, e) -> (props, eqs, (p, e) :: asserts, is_main)
         | A.Equation (p, l, e) -> (props, (p, l, e) :: eqs, asserts, is_main))
       | A.AnnotMain flag -> (props, eqs, asserts, flag || is_main)
-      | A.AnnotProperty (p, n, e) -> ((p, n, e) :: props, eqs, asserts, is_main) 
+      | A.AnnotProperty (p, n, e, k) -> ((p, n, e, k) :: props, eqs, asserts, is_main) 
     in List.fold_left over_items ([], [], [], false) items
   (* ****************************************************************** *)
   (* Properties and Assertions                                          *)
   (* ****************************************************************** *)
   in let props =
-    let op (pos, name_opt, expr) =
+    let op (pos, name_opt, expr, kind) =
       let name_opt = match name_opt with
         | Some name -> Some (HString.string_of_hstring name)
         | None -> None
@@ -1775,7 +1775,11 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | None -> let abs = LAN.StringMap.find_opt id_str gids.LAN.locals in
           let name = match abs with | Some (_, _, _, e) -> e | None -> expr in
             Format.asprintf "@[<h>%a@]" A.pp_print_expr name
-      in sv, name, (Property.PropAnnot pos)
+      in 
+      let kind = match kind with
+        | A.Invariant -> Property.Invariant
+        | A.Reachable -> Property.Reachable
+      in sv, name, (Property.PropAnnot pos), kind
     in List.map op node_props
 
   in let asserts =
@@ -1984,13 +1988,13 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | None ->
           let name = create_constraint_name rexpr in
           let src = Property.Generated (Some pos, [sv]) in
-          a, ac, g, gc, (sv, name, src) :: p
+          a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
         | _ -> assert false
       else
         let name = create_constraint_name rexpr in
         let src = Property.Generated (Some pos, [sv]) in
         let src = Property.Candidate (Some src) in
-        a, ac, g, gc, (sv, name, src) :: p
+        a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
     in
     let (assumes, _, guarantees, _, props) = 
       List.fold_left over_subrange_constraints

@@ -470,7 +470,7 @@ let extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
               (match bneq with
               | LA.Assert (_, e) -> get_node_call_from_expr e
               | LA.Equation (_, _, e) -> get_node_call_from_expr e)
-          | AnnotProperty (_, _, e) -> get_node_call_from_expr e
+          | AnnotProperty (_, _, e, _) -> get_node_call_from_expr e
           | _ -> []) @ acc) [] 
 (** Extracts all the node calls from a node item *)
   

@@ -804,9 +804,9 @@ and normalize_item info map = function
     let nequation, gids = normalize_equation info map equation in
     Body nequation, gids
   | AnnotMain b -> AnnotMain b, empty ()
-  | AnnotProperty (pos, name, expr) ->
+  | AnnotProperty (pos, name, expr, k) ->
     let nexpr, gids = abstract_expr false info map false expr in
-    AnnotProperty (pos, name, nexpr), gids
+    AnnotProperty (pos, name, nexpr, k), gids
 
 and rename_ghost_variables info node_id contract =
   let sep = HString.mk_hstring "_contract_" in

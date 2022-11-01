@@ -632,7 +632,7 @@ let node_item_has_pre_or_arrow = function
   eq_lhs_has_pre_or_arrow lhs
   |> unwrap_or (fun _ -> has_pre_or_arrow e)
 | AnnotMain _ -> None
-| AnnotProperty (_, _, e) -> has_pre_or_arrow e
+| AnnotProperty (_, _, e, _) -> has_pre_or_arrow e
 
 (** Checks whether a contract node equation has a `pre` or a `->`.
 

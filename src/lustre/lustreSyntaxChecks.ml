@@ -595,7 +595,7 @@ and check_items ctx f items =
         >> check_expr ctx f e
         >> (expr_only_supported_in_merge false e)
     | Body (Assert (_, e))
-    | AnnotProperty (_, _, e) -> check_expr ctx f e
+    | AnnotProperty (_, _, e, _) -> check_expr ctx f e
     | AnnotMain _ -> Ok ()
   in
   Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)

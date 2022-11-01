@@ -1727,8 +1727,12 @@ and eval_node_items inputs outputs locals ctx = function
     (* Continue with next node statements *)
     eval_node_items inputs outputs locals ctx tl
 
+  (* Property annotation, reachability query *)
+  | A.AnnotProperty (pos, _, _, Reachable) :: _ ->
+    fail_at_position pos "Reachability queries are not supported in the old frontend."
+
   (* Property annotation *)
-  | A.AnnotProperty (pos, name_opt, ast_expr) :: tl -> 
+  | A.AnnotProperty (pos, name_opt, ast_expr, _) :: tl -> 
     (* report unguarded pre *)
     let ctx = C.set_guard_flag ctx (H.has_unguarded_pre ast_expr) in
 

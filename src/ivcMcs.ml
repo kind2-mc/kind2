@@ -347,7 +347,7 @@ let minimize_node_eq id_typ_map ue lst = function
 
 let minimize_item id_typ_map ue lst = function
   | A.AnnotMain b -> [A.AnnotMain b]
-  | A.AnnotProperty (p,str,e) -> [A.AnnotProperty (p,str,e)]
+  | A.AnnotProperty (p, str, e, k) -> [A.AnnotProperty (p, str, e, k)]
   | A.Body eq ->
     begin match minimize_node_eq id_typ_map ue lst eq with
     | None -> []
@@ -611,7 +611,8 @@ let add_as_candidate os_invs sys =
       prop_name = Format.sprintf "%%inv_%i" (cnt ()) ;
       prop_source = Property.Candidate None ;
       prop_term = t ;
-      prop_status = PropUnknown
+      prop_status = PropUnknown ;
+      prop_kind = Invariant ;
     }
   in
   let props = List.map create_candidate os_invs in

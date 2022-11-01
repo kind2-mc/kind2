@@ -257,6 +257,7 @@ let keyword_table = mk_hashtbl [
 
   (* Check *)
   "check", CHECK ;
+  "reachable", REACHABLE ;
 
   (* Contract related things. *)
   "contract", CONTRACT ;
