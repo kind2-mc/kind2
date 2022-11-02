@@ -1403,6 +1403,13 @@ let get_prop_status_all_nocands t =
     ) [] t.properties
   |> List.rev
 
+(* Return the kind of all properties *)
+let get_prop_kind_all_nocands t = 
+  List.fold_left (fun acc -> function
+      | { P.prop_source = P.Candidate _ } -> acc
+      | { P.prop_name; P.prop_kind } -> (prop_name, prop_kind) :: acc
+    ) [] t.properties
+  |> List.rev
 
 (* Return current status of all properties *)
 let get_prop_status_all_unknown t = 

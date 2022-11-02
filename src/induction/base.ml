@@ -252,6 +252,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
             aparam
             trans
             s
+            (TransSys.property_of_name trans s).prop_kind
         ) ;
 
         (* Broadcasting falsified properties. *)
@@ -263,7 +264,8 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
                 input_sys
                 aparam
                 trans
-                s )
+                s
+                (TransSys.property_of_name trans s).prop_kind )
             p
         ) ;
 
@@ -350,7 +352,7 @@ let main input_sys aparam trans =
         let cert = k, p.Property.prop_term in
         KEvent.prop_status
           (Property.PropInvariant cert)
-          input_sys aparam trans p.Property.prop_name
+          input_sys aparam trans p.Property.prop_name p.Property.prop_kind
       )
 
 

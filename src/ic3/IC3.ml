@@ -2675,7 +2675,8 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
                    input_sys
                    aparam
                    trans_sys
-                   p) 
+                   p
+                   (TransSys.property_of_name trans_sys p).prop_kind) 
               props;
 
             (* No more properties remaining *)
@@ -2730,7 +2731,8 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
                         input_sys
                         aparam 
                         trans_sys 
-                        p;
+                        p
+                        (TransSys.property_of_name trans_sys p).prop_kind;
 
                       KEvent.log
                         L_info 
@@ -2958,7 +2960,8 @@ let bmc_checks solver input_sys aparam trans_sys props bound =
                  input_sys
                  aparam 
                  trans_sys
-                 s)
+                 s
+                 (TransSys.property_of_name trans_sys s).prop_kind)
             falsifiable;
 
           SMTSolver.assert_term
@@ -2980,7 +2983,8 @@ let bmc_checks solver input_sys aparam trans_sys props bound =
                  input_sys
                  aparam 
                  trans_sys
-                 s)
+                 s
+                 (TransSys.property_of_name trans_sys s).prop_kind)
             props';
 
           (*

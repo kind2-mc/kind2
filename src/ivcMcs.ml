@@ -85,6 +85,7 @@ let mcs_to_print_data in_sys sys core_class time ((prop, cex), loc_core, info) =
 
 let pp_print_mcs_legacy in_sys param sys ((prop, cex), core, _) (_, core_compl, _) =
   let prop_name = prop.Property.prop_name in
+  let prop_kind = prop.Property.prop_kind in
   let sys = TS.copy sys in
   let wa_model =
     all_wa_names_of_loc_core core_compl
@@ -96,7 +97,7 @@ let pp_print_mcs_legacy in_sys param sys ((prop, cex), core, _) (_, core_compl, 
   in
   TS.set_prop_unknown sys prop_name ;
   let wa_model = wa_model@wa_model' in
-  KEvent.cex_wam cex wa_model in_sys param sys prop_name
+  KEvent.cex_wam cex wa_model in_sys param sys prop_name prop_kind
 
 let pp_print_no_mcs_legacy prop sys =
   let prop_name = prop.Property.prop_name in

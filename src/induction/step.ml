@@ -350,7 +350,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
                   let holds = Term.bump_state k term |> eval in
                   if (not holds) && print_cex then
                     (* Log cex. *)
-                    KEvent.step_cex input_sys analysis trans name cex ;
+                    KEvent.step_cex input_sys analysis trans name cex (TransSys.property_of_name trans name).prop_kind ;
                   holds
                 ) to_split
               in

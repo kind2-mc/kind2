@@ -386,13 +386,21 @@ let pp_print_counterexample_pt
   in
 
   let print_cex ppf =
-    (* Output counterexample *)
-    Format.fprintf ppf
-      "@{<red>%s@}:@,  @[<v>%a@]"
-      title
-      (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
-      (Model.path_of_list cex)
-  in
+    match prop_name with
+      | Some name when ((TransSys.property_of_name trans_sys name).prop_kind = Reachable) -> 
+          Format.fprintf ppf
+          "@{<green>%s@}:@,  @[<v>%a@]"
+          "Example trace"
+          (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
+          (Model.path_of_list cex)
+      | _ -> 
+        Format.fprintf ppf
+        "@{<red>%s@}:@,  @[<v>%a@]"
+        title
+        (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
+        (Model.path_of_list cex)
+ in
+
 
   if Flags.dump_cex () then (
     let dirname =
@@ -449,7 +457,7 @@ let execution_path_pt level input_sys trans_sys path =
 
 
 (* Output cex for a property as plain text *)
-let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disproved =
+let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disproved kind =
 
   (* Only ouptut if status was unknown *)
   if 
@@ -484,11 +492,13 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
       (ignore_or_fprintf level)
         !log_ppf 
       "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%t%a@]@."
-        (if disproved then failure_tag else warning_tag)
+        (if disproved then (if kind = Property.Invariant then failure_tag else success_tag) else warning_tag)
         prop
         (
-          if disproved then
+          if (disproved && kind = Property.Invariant) then
             Format.asprintf "is invalid by %a" pp_print_kind_module_pt mdl
+          else if (disproved && kind = Property.Reachable) then
+            Format.asprintf "is reachable by %a" pp_print_kind_module_pt mdl
           else
             "has a step k-induction counterexample"
         )
@@ -568,7 +578,7 @@ let progress_pt mdl level k =
  *)
 
 (* Pretty-print a list of properties and their status *)
-let prop_status_pt level prop_status =
+let prop_status_pt level prop_status prop_kind =
 
   (ignore_or_fprintf level)
     !log_ppf
@@ -576,32 +586,55 @@ let prop_status_pt level prop_status =
     Pretty.print_line ()
     Pretty.print_line ()
     (pp_print_list 
-       (fun ppf (p, s) -> 
+       (fun ppf ((p, s), (_, k)) -> 
           Format.fprintf 
             ppf
             "@[<h>@{<blue_b>%s@}: %a@]"
             p
-            (function ppf -> function 
-               | Property.PropUnknown -> 
-                 Format.fprintf ppf "@{<red>unknown@}"
+            (function ppf -> 
+              match k with
+                | Property.Invariant -> (function 
+                  | Property.PropUnknown -> 
+                    Format.fprintf ppf "@{<red>unknown@}"
 
-               | Property.PropKTrue k -> 
-                 Format.fprintf ppf "@{<yellow>true up to %d steps@}" k
+                  | Property.PropKTrue k -> 
+                    Format.fprintf ppf "@{<yellow>true up to %d steps@}" k
 
-               | Property.PropInvariant (k, _) -> 
-                 Format.fprintf ppf "@{<green_b>valid (at %d)@}" k
+                  | Property.PropInvariant (k, _) -> 
+                    Format.fprintf ppf "@{<green_b>valid (at %d)@}" k
 
-               | Property.PropFalse [] -> 
-                 Format.fprintf ppf "@{<red_b>invalid@}"
+                  | Property.PropFalse [] -> 
+                    Format.fprintf ppf "@{<red_b>invalid@}"
 
-               | Property.PropFalse cex -> 
-                 Format.fprintf 
-                   ppf
-                   "@{<red_b>invalid after %d steps@}"
-                   ((Property.length_of_cex cex) - 1))
+                  | Property.PropFalse cex -> 
+                    Format.fprintf 
+                      ppf
+                      "@{<red_b>invalid after %d steps@}"
+                      ((Property.length_of_cex cex) - 1)
+                )
+                | Property.Reachable -> (function 
+                  | Property.PropUnknown -> 
+                    Format.fprintf ppf "@{<red>unknown@}"
+
+                  | Property.PropKTrue k -> 
+                    Format.fprintf ppf "@{<yellow>unreachable up to %d steps@}" k
+
+                  | Property.PropInvariant (k, _) -> 
+                    Format.fprintf ppf "@{<red_b>unreachable (at %d)@}" k
+
+                  | Property.PropFalse [] -> 
+                    Format.fprintf ppf "@{<green_b>reachable@}"
+
+                  | Property.PropFalse cex -> 
+                    Format.fprintf 
+                      ppf
+                      "@{<green_b>reachable after %d steps@}"
+                      ((Property.length_of_cex cex) - 1)
+                )  
+              )
             s)
        "@,")
-    prop_status
+    (List.combine prop_status prop_kind)
     Pretty.print_double_line ()
           
 
@@ -1307,10 +1340,10 @@ let log_with_tag level tag str =
     | F_relay -> ()
 
 (* Log a message with source and log level *)
-let log_cex ?(wa_model=[]) disproved mdl level input_sys analysis trans_sys prop cex =
+let log_cex ?(wa_model=[]) disproved mdl level input_sys analysis trans_sys prop cex kind =
   match get_log_format () with 
   | F_pt ->
-    cex_pt ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
+    cex_pt ~wa_model mdl level input_sys analysis trans_sys prop cex disproved kind
   | F_xml ->
     cex_xml ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
   | F_json ->
@@ -1318,12 +1351,12 @@ let log_cex ?(wa_model=[]) disproved mdl level input_sys analysis trans_sys prop
   | F_relay -> ()
 
 (* Log a message with source and log level *)
-let log_disproved mdl level input_sys analysis trans_sys prop cex =
-  log_cex true mdl level input_sys analysis trans_sys prop cex
+let log_disproved mdl level input_sys analysis trans_sys prop cex kind =
+  log_cex true mdl level input_sys analysis trans_sys prop cex kind
 
 (* Log a step counterexample. *)
-let log_step_cex mdl level input_sys analysis trans_sys prop cex =
-  log_cex false mdl level input_sys analysis trans_sys prop cex
+let log_step_cex mdl level input_sys analysis trans_sys prop cex kind =
+  log_cex false mdl level input_sys analysis trans_sys prop cex kind
 
 
 (* Log an exection path *)
@@ -1337,9 +1370,9 @@ let log_execution_path level input_sys trans_sys path =
 
 
 (* Output summary of status of properties *)
-let log_prop_status level trans_sys prop_status =
+let log_prop_status level trans_sys prop_status prop_kind =
   match get_log_format () with 
-    | F_pt -> prop_status_pt level prop_status
+    | F_pt -> prop_status_pt level prop_status prop_kind
     | F_xml -> prop_status_xml level trans_sys prop_status
     | F_json -> prop_status_json level trans_sys prop_status
     | F_relay -> ()
@@ -1681,7 +1714,7 @@ let prop_invariant trans_sys prop_name cert =
 
 
 (* Broadcast a property status *)
-let prop_status status input_sys analysis trans_sys prop =
+let prop_status status input_sys analysis trans_sys prop kind =
   
   (* Update time in case we are not running in parallel mode *)
   Stat.update_time Stat.total_time ;
@@ -1692,7 +1725,7 @@ let prop_status status input_sys analysis trans_sys prop =
   (match status with
     | Property.PropInvariant _ -> log_proved mdl L_warn trans_sys None prop
     | Property.PropFalse cex -> 
-      log_cex true mdl L_warn input_sys analysis trans_sys prop cex
+      log_cex true mdl L_warn input_sys analysis trans_sys prop cex kind
 
     | _ -> ());
 
@@ -1708,7 +1741,7 @@ let prop_status status input_sys analysis trans_sys prop =
   with Messaging.NotInitialized -> ()
 
 
-let cex_wam cex wa_model input_sys analysis trans_sys prop =
+let cex_wam cex wa_model input_sys analysis trans_sys prop kind =
 
   (* Update time in case we are not running in parallel mode *)
   Stat.update_time Stat.total_time ;
@@ -1716,7 +1749,7 @@ let cex_wam cex wa_model input_sys analysis trans_sys prop =
 
   let mdl = get_module () in
 
-  log_cex ~wa_model true mdl L_warn input_sys analysis trans_sys prop cex;
+  log_cex ~wa_model true mdl L_warn input_sys analysis trans_sys prop cex kind;
 
   (* Update status of property in transition system *)
   TransSys.set_prop_status trans_sys prop (Property.PropFalse cex)
@@ -1745,13 +1778,13 @@ let unknown_wam trans_sys prop =
   log_unknown mdl L_warn trans_sys prop
 
 (* Broadcast a step cex *)
-let step_cex input_sys analysis trans_sys prop cex =
+let step_cex input_sys analysis trans_sys prop cex kind =
   
   (* Update time in case we are not running in parallel mode *)
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
 
-  log_cex true (get_module ()) L_warn input_sys analysis trans_sys prop cex ;
+  log_cex true (get_module ()) L_warn input_sys analysis trans_sys prop cex kind ;
 
   try
     
@@ -2045,7 +2078,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
     | (m, PropStatus (p, (Property.PropFalse cex as s))) :: tl -> 
 
       (* Output disproved property *)
-      log_cex true m L_warn input_sys analysis trans_sys p cex ;
+      log_cex true m L_warn input_sys analysis trans_sys p cex (TransSys.property_of_name trans_sys p).prop_kind  ;
 
       (* Change property status in transition system *)
       TransSys.set_prop_false trans_sys p cex;
@@ -2067,7 +2100,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
       in
 
       (* Output disproved property *)
-      log_cex false m L_warn input_sys analysis trans_sys p cex ;
+      log_cex false m L_warn input_sys analysis trans_sys p cex (TransSys.property_of_name trans_sys p).prop_kind ;
 
       (* Continue with unchanged accumulator *)
       update_trans_sys' 
@@ -2077,7 +2110,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
         tl
 
   in
-
+ (* trans_sys invars prop_status kind *)
   update_trans_sys' trans_sys SMap.empty [] events
 
 

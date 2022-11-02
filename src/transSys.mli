@@ -523,6 +523,12 @@ val is_disproved : t -> string -> bool
     system of each property along with the name of the property. *)
 val get_prop_status_all_nocands : t -> (string * Property.prop_status) list
 
+(** Return the kind of all properties excepted candidates
+
+    [get_prop_status t] returns the status saved in the transition
+    system of each property along with the name of the property. *)
+val get_prop_kind_all_nocands : t -> (string * Property.prop_kind) list
+
 (** Return current status of all unknown properties
 
     [get_prop_status_all_unknown t] returns the status saved in the

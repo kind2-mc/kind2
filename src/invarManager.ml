@@ -57,7 +57,7 @@ let print_stats trans_sys =
   | Some trans_sys ->
     KEvent.log_prop_status L_fatal trans_sys
       (TransSys.get_prop_status_all_nocands trans_sys)
-                        
+      (TransSys.get_prop_kind_all_nocands trans_sys)
 
 
 let on_exit trans_sys =

@@ -49,8 +49,8 @@ type t =
     (* Source of the property *)
     prop_source : prop_source;
 
+    (* Kind of property (do we wish to prove it invariant or reachable) *)
     prop_kind : prop_kind ;
-    (** Kind of property (do we wish to prove it invariant or reachable) *)
 
     (* Term with variables at offsets [prop_base] and [prop_base - 1] *)
     prop_term : Term.t;

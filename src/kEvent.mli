@@ -46,13 +46,13 @@ val set_relay_log : unit -> unit
 
     Should only be used by step for sending the cex, and invariant manager to
     actually print it. *)
-val log_step_cex : Lib.kind_module -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.value list) list -> unit
+val log_step_cex : Lib.kind_module -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.value list) list -> Property.prop_kind -> unit
 
 (** Log a disproved property
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_disproved : Lib.kind_module -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.value list) list -> unit 
+val log_disproved : Lib.kind_module -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.value list) list -> Property.prop_kind -> unit 
 
 (** Log a proved property
 
@@ -75,7 +75,7 @@ val log_counterexample : Lib.kind_module -> Lib.log_level -> string list -> Tran
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_prop_status : Lib.log_level -> TransSys.t -> (string * Property.prop_status) list -> unit
+val log_prop_status : Lib.log_level -> TransSys.t -> (string * Property.prop_status) list -> (string * Property.prop_kind) list -> unit
 
 (** Log statistics
 
@@ -163,10 +163,10 @@ val invariant : string list -> Term.t -> Certificate.t -> bool -> unit
 (** Broadcast a step cex *)
 val step_cex :
   'a InputSystem.t -> Analysis.param -> TransSys.t -> string ->
-  (StateVar.t * Model.value list) list -> unit
+  (StateVar.t * Model.value list) list -> Property.prop_kind -> unit
 
 (** Broadcast a property status *)
-val prop_status : Property.prop_status -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> unit
+val prop_status : Property.prop_status -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Property.prop_kind -> unit
 
 (** Broadcast a property is invariant, and return a set of
     logical consequences that are also invariant
@@ -174,7 +174,7 @@ val prop_status : Property.prop_status -> 'a InputSystem.t -> Analysis.param -> 
 val prop_invariant : TransSys.t -> string -> Certificate.t -> Term.TermSet.t
 
 (* Log a property disproved during the computation of a Minimal Cut Set *)
-val cex_wam : (StateVar.t * Model.value list) list -> (string * bool) list -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> unit
+val cex_wam : (StateVar.t * Model.value list) list -> (string * bool) list -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Property.prop_kind -> unit
 
 (* Log a proven property during the computation of a Minimal Cut Set *)
 val proved_wam : Certificate.t -> TransSys.t -> string -> unit
