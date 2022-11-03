@@ -138,6 +138,9 @@ let mk_span start_pos end_pos =
 %token XOR
 %token OR
 %token IF
+%token FI
+%token DEF
+%token FED 
 %token WITH
 %token THEN
 %token ELSE
@@ -593,10 +596,35 @@ check:
     { A.AnnotProperty (mk_pos $startpos, name, e) }
 
 node_item:
+  | i = node_if_block { i }
+  | f = node_frame_block { f }
   | e = node_equation { A.Body e }
   | a = main_annot { a }
   | p = property { p }
   | p = check { p }
+
+
+
+node_if_block:
+  | IF; e = expr; 
+    THEN; 
+      l1 = list(node_item);
+    ELSE; 
+      l2 = nonempty_list(node_item);
+    FI;
+    { A.IfBlock (mk_pos $startpos, e, l1, l2) }
+  | IF; e = expr; THEN; 
+      l1 = list(node_item);
+    FI;
+    { A.IfBlock (mk_pos $startpos, e, l1, []) }
+
+
+
+node_frame_block:
+  | DEF; LPAREN; l1 = list(node_equation); RPAREN;
+    l2 = list(node_item);
+    FED;
+  { A.FrameBlock (mk_pos $startpos, l1, l2) }
 
 
 (* An equations of a node *)

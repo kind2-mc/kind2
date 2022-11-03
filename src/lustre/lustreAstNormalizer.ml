@@ -85,9 +85,8 @@ type error = [
 let (>>=) = Res.(>>=)
 let unwrap result = match result with
   | Ok r -> r
-  | Error e ->
-    let msg = LustreErrors.error_message e in
-    Log.log L_debug "(Lustre AST Normalizer Internal Error: %s)" msg;
+  | Error _ ->
+    Log.log L_debug "(Lustre AST Normalizer Internal Error)";
     assert false
 
 module StringMap = struct
@@ -217,6 +216,7 @@ type generated_identifiers = {
     StringMap.t;
   warnings : (Lib.position * LustreAst.expr) list;
   oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
+  ib_oracles : (HString.t * LustreAst.lustre_type) list;
   propagated_oracles : (HString.t * HString.t) list;
   calls : (Lib.position (* node call position *)
     * (HString.t list) (* oracle inputs *)
@@ -248,7 +248,7 @@ type info = {
   inductive_variables : LustreAst.lustre_type StringMap.t;
   quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) StringMap.t;
-  contract_calls : LustreAst.contract_node_decl StringMap.t;
+  contract_calls_info : LustreAst.contract_node_decl StringMap.t;
   contract_scope : (Lib.position * HString.t) list;
   contract_ref : HString.t;
   interpretation : HString.t StringMap.t;
@@ -367,6 +367,7 @@ let empty () = {
     array_constructors = StringMap.empty;
     node_args = [];
     oracles = [];
+    ib_oracles = [];
     propagated_oracles = [];
     calls = [];
     contract_calls = StringMap.empty;
@@ -374,6 +375,7 @@ let empty () = {
     expanded_variables = StringSet.empty;
     equations = [];
   }
+
 
 let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, None -> None
@@ -389,6 +391,7 @@ let union ids1 ids2 = {
     warnings = ids1.warnings @ ids2.warnings;
     node_args = ids1.node_args @ ids2.node_args;
     oracles = ids1.oracles @ ids2.oracles;
+    ib_oracles = ids1.ib_oracles @ ids2.ib_oracles;
     propagated_oracles = ids1.propagated_oracles @ ids2.propagated_oracles;
     calls = ids1.calls @ ids2.calls;
     contract_calls = StringMap.merge union_keys
@@ -397,6 +400,12 @@ let union ids1 ids2 = {
     expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
     equations = ids1.equations @ ids2.equations;
   }
+
+let union_keys2 key id1 id2 = match key, id1, id2 with
+  | _, None, None -> None
+  | _, (Some v), None -> Some v
+  | _, None, (Some v) -> Some v
+  | _, (Some a), (Some b) -> Some (union a b)
 
 let union_list ids =
   List.fold_left (fun x y -> union x y ) (empty ()) ids
@@ -559,7 +568,7 @@ let record_warning pos original =
   { (empty ()) with  warnings = [(pos, original)]; }
 
 let mk_fresh_call info id map pos cond restart args defaults =
-  let called_node = StringMap.find id map in
+  let called_node = StringMap.find id map in 
   let has_oracles = List.length called_node.oracles > 0 in
   let check_cache = CallCache.find_opt
     call_cache
@@ -616,27 +625,28 @@ let normalize_list f list =
   in let list, gids = List.fold_left over_list ([], empty ()) list in
   List.rev list, gids
 
-let rec normalize ctx ai_ctx (decls:LustreAst.t) =
+let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
   let info = { context = ctx;
     abstract_interp_context = ai_ctx;
     inductive_variables = StringMap.empty;
     quantified_variables = [];
     node_is_input_const = compute_node_input_constant_mask decls;
-    contract_calls = collect_contract_node_decls decls;
+    contract_calls_info = collect_contract_node_decls decls;
     contract_ref = HString.mk_hstring "";
     contract_scope = [];
     interpretation = StringMap.empty;
     local_group_projection = -1 }
-  in let over_declarations (nitems, accum) item =
+  in 
+  let over_declarations (nitems, accum) item =
     clear_cache ();
     let (normal_item, map) =
       normalize_declaration info accum item in
     (match normal_item with 
       | Some ni -> ni :: nitems
       | None -> nitems),
-    StringMap.merge union_keys map accum
+    StringMap.merge union_keys2 map accum
   in let ast, map = List.fold_left over_declarations
-    ([], StringMap.empty) decls
+    ([], gids) decls
   in let ast = List.rev ast in
   
   Debug.parse ("===============================================\n"
@@ -799,10 +809,15 @@ and normalize_node info map
   let map = StringMap.singleton node_id gids in
   (node_id, is_extern, params, inputs, outputs, locals, nitems, ncontracts), map
 
+
 and normalize_item info map = function
-  | Body equation ->
+  | A.Body equation ->
     let nequation, gids = normalize_equation info map equation in
-    Body nequation, gids
+    A.Body nequation, gids
+  (* shouldn't be possible *)
+  | IfBlock _ 
+  | FrameBlock _ -> 
+    assert false
   | AnnotMain b -> AnnotMain b, empty ()
   | AnnotProperty (pos, name, expr) ->
     let nexpr, gids = abstract_expr false info map false expr in
@@ -881,7 +896,7 @@ and normalize_contract info map node_id items =
             contract_ref = cref;
           }
         in
-        let called_node = StringMap.find name info.contract_calls in
+        let called_node = StringMap.find name info.contract_calls_info in
         let normalized_call, gids2, interp = 
           normalize_node_contract info map cref ninputs noutputs called_node
         in

@@ -71,6 +71,7 @@ type identifier_maps = {
   guarantee_count : int;
 }
 
+
 (*
 let pp_print_identifier_maps ppf maps =
   let table_to_list h = H.fold (fun k v acc -> (k, v) :: acc) h []
@@ -272,6 +273,7 @@ let extract_normalized = function
   | A.ArrayIndex (_, A.Ident (_, ident), _) -> mk_ident ident
   | _ -> assert false
 
+
 let flatten_list_indexes (e:E.t X.t) =
   let over_indices k (indices, e) =
     let rec flatten = function
@@ -408,7 +410,8 @@ let rec expand_tuple' pos accum bounds lhs rhs =
       | _ -> expand_tuple' pos accum bounds
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((rhs_index_tl, expr) :: rhs_tl))
-    else (internal_error pos "Type mismatch in equation: indexes do not match";
+    else (
+      internal_error pos "Type mismatch in equation: indexes do not match";
       assert false)
   | ((X.ArrayIntIndex i :: lhs_index_tl, state_var) :: lhs_tl,
     (X.ArrayIntIndex j :: rhs_index_tl, expr) :: rhs_tl) ->
@@ -424,7 +427,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((rhs_index_tl, expr) :: rhs_tl)
     else (internal_error pos "Type mismatch in equation: indexes do not match";
-      assert false)
+          assert false)
   (* Tuple index on left-hand and array index on right-hand side *)
   | ((X.TupleIndex i :: lhs_index_tl, state_var) :: lhs_tl,
     (X.ArrayIntIndex j :: _, expr) :: rhs_tl) ->
@@ -435,7 +438,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((lhs_index_tl, expr) :: rhs_tl)
     else (internal_error pos "Type mismatch in equation: indexes do not match";
-      assert false)
+          assert false)
   (* Record index on left-hand and right-hand side *)
   | (X.RecordIndex i :: lhs_index_tl, state_var) :: lhs_tl,
     (X.RecordIndex j :: rhs_index_tl, expr) :: rhs_tl
@@ -448,7 +451,7 @@ let rec expand_tuple' pos accum bounds lhs rhs =
         ((lhs_index_tl, state_var) :: lhs_tl)
         ((rhs_index_tl, expr) :: rhs_tl)
     else (internal_error pos "Type mismatch in equation: record indexes do not match";
-      assert false)
+          assert false)
   (* Mismatched indexes on left-hand and right-hand sides *)
   | (X.RecordIndex _ :: _, _) :: _, (X.TupleIndex _ :: _, _) :: _
   | (X.RecordIndex _ :: _, _) :: _, (X.ListIndex _ :: _, _) :: _
@@ -508,7 +511,9 @@ let rec compile ctx gids decls =
   let output = List.fold_left over_decls (empty_compiler_state ()) decls in
   let free_constants = output.free_constants
     |> List.map (fun (_, id, v) -> mk_ident id, v)
-  in output.nodes,
+    
+  in 
+  output.nodes,
     { G.free_constants = free_constants;
       G.state_var_bounds = output.state_var_bounds}
 
@@ -1291,7 +1296,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   in let (ghost_locals2, ghost_equations2, modes2) =
     let over_calls (gls, ges, ms) (_, id, _, _) =
       let (_, contract_scope, contract_eqns) =
-        LAN.StringMap.find id gids.LAN.contract_calls
+        (LAN.StringMap.find id gids.LAN.contract_calls)
       in
       map := { !map with contract_scope };
       let (gl, ge, m) = compile_contract_variables cstate gids ctx map contract_scope node_scope contract_eqns
@@ -1657,11 +1662,33 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       let result = X.fold over_indices index_types X.empty in
       (X.values result) @ oracles, osvm
     in
-    List.fold_left over_oracles ([], SVT.create 7) gids.LAN.oracles
+    List.fold_left over_oracles ([], SVT.create 7) gids.LAN.oracles in
+  let ib_oracles =
+    let over_ib_oracles  ib_oracles (id, expr_type) = (
+      let oracle_ident = mk_ident id in
+      let index_types = compile_ast_type cstate ctx map expr_type in
+      let over_indices = ( fun index index_type accum ->
+        let possible_state_var = mk_state_var
+          ~is_const:false
+          map
+          (node_scope @ I.reserved_scope)
+          oracle_ident
+          index
+          index_type
+          (Some N.Oracle)
+        in
+        let index = filter_array_indices index in
+        match possible_state_var with
+          | Some state_var -> X.add index state_var accum
+          | None -> accum
+      ) in 
+      (X.fold over_indices index_types X.empty) :: ib_oracles
+    ) in
+    List.fold_left over_ib_oracles [] gids.LAN.ib_oracles
   (* ****************************************************************** *)
   (* Propagated Oracles                                                 *)
   (* ****************************************************************** *)
-  in
+  in 
   let oracles =
     let existing_oracles = cstate.nodes
       |> List.map (fun n -> n.N.oracles) 
@@ -1754,6 +1781,11 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | A.Equation (p, l, e) -> (props, (p, l, e) :: eqs, asserts, is_main))
       | A.AnnotMain flag -> (props, eqs, asserts, flag || is_main)
       | A.AnnotProperty (p, n, e) -> ((p, n, e) :: props, eqs, asserts, is_main) 
+      | A.IfBlock _ -> (props, eqs, asserts, is_main) 
+      | A.FrameBlock _ -> 
+        (* IfBlock and FrameBlock desugaring already occurred earlier in pipeline
+           (in lustreDesugarIfBlocks.ml), so there are no If/FrameBlocks left.  *)
+        (props, eqs, asserts, is_main) 
     in List.fold_left over_items ([], [], [], false) items
   (* ****************************************************************** *)
   (* Properties and Assertions                                          *)
@@ -1907,7 +1939,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
           (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
         let equations = expand_tuple pos eq_lhs eq_rhs in
-        (* Format.eprintf "\nequations: %a\n"
+        (*
+         Format.eprintf "\nequations: %a\n"
           (pp_print_list
             (pp_print_pair
               (pp_print_pair
@@ -1919,13 +1952,15 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
               (E.pp_print_lustre_expr true)
               " : ")
             " ; ")
+          
           equations; *)
         H.clear !map.array_index;
         (* TODO: Old code tries to infer a more strict type here
           lustreContext 2040+ *)
         equations @ eqns
       )
-    in List.fold_left over_equations [] (ghost_equations @ node_eqs)
+    in 
+    List.fold_left over_equations [] (ghost_equations @ node_eqs)
   (* ****************************************************************** *)
   (* Contract Assumptions and Guarantees                                *)
   (* ****************************************************************** *)
@@ -2056,7 +2091,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     inputs;
     oracles;
     outputs;
-    locals;
+    locals = ib_oracles @ locals;
     equations;
     calls;
     asserts;

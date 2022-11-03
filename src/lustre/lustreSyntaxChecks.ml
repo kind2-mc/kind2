@@ -288,12 +288,27 @@ let locals_must_have_definitions locals items =
       in
       test || test_items
   in
-  let find_local_def id = function
+
+  (* See if *)
+  let rec find_local_def id = function
     | LA.Body eqn -> (match eqn with
       | LA.Assert _ -> false
       | LA.Equation (_, lhs, _) -> (match lhs with
         | LA.StructDef (_, vars)
           -> List.fold_left (find_local_def_lhs id) false vars))
+    (* Local has to be defined in both branches of "if" block *)
+  (*| LA.IfBlock (_, l1, l2) -> find_local_def_list id l1 && find_local_def_list id l2 *)
+    | LA.IfBlock (_, _, l1, l2) ->
+      let x1 = List.find_opt (fun item -> find_local_def id item) l1 in
+      let x2 = List.find_opt (fun item -> find_local_def id item) l2 in
+      (match x1, x2 with
+        | Some _, Some _ -> true
+        | _ -> false)
+    | LA.FrameBlock (_, nes, _) -> 
+      (* Check if local is defined in initialization of frame block *)
+      let nes = List.map (fun x -> LA.Body x) nes in
+      let x = List.find_opt (fun item -> find_local_def id item) nes in
+      (match x with | Some _ -> true | None -> false)
     | LA.AnnotMain _ -> false
     | LA.AnnotProperty _ -> false
   in
@@ -594,6 +609,11 @@ and check_items ctx f items =
       check_struct_items ctx struct_items
         >> check_expr ctx f e
         >> (expr_only_supported_in_merge false e)
+    | LA.IfBlock (_, e, l1, l2) -> 
+      check_expr ctx f e >> (check_items ctx f l1) >> (check_items ctx f l2)
+    | LA.FrameBlock (_, nes, nis) ->
+      let nes = List.map (fun x -> LA.Body x) nes in
+      check_items ctx f nes >> (check_items ctx f nis)
     | Body (Assert (_, e))
     | AnnotProperty (_, _, e) -> check_expr ctx f e
     | AnnotMain _ -> Ok ()

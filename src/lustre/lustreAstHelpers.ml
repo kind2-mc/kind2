@@ -238,6 +238,7 @@ let rec has_unguarded_pre ung = function
     let u2 = has_unguarded_pre false e2 in
     u1 || u2
 
+
 let has_unguarded_pre e =
   let u = has_unguarded_pre true e in
   if u && Flags.lus_strict ()
@@ -625,14 +626,36 @@ let eq_lhs_has_pre_or_arrow = function
   List.map struct_item_has_pre_or_arrow l
   |> some_of_list
 
+
 (** Checks whether a node equation has a `pre` or a `->`. *)
-let node_item_has_pre_or_arrow = function
+let rec node_item_has_pre_or_arrow = function
 | Body (Assert (_, e)) -> has_pre_or_arrow e
 | Body (Equation (_, lhs, e)) ->
   eq_lhs_has_pre_or_arrow lhs
   |> unwrap_or (fun _ -> has_pre_or_arrow e)
+| IfBlock (_, e, l1, l2) -> (match has_pre_or_arrow e with
+  | Some pos -> Some pos
+  | None -> (match node_item_list_has_pre_or_arrow l1 with 
+    | Some pos -> Some pos
+    | None -> node_item_list_has_pre_or_arrow l2
+    )
+  )
+| FrameBlock (_, nes, nis) -> 
+  let nes = List.map (fun x -> Body x) nes in 
+  (match node_item_list_has_pre_or_arrow nes with
+    | Some pos -> Some pos
+    | None ->  node_item_list_has_pre_or_arrow nis)
 | AnnotMain _ -> None
 | AnnotProperty (_, _, e) -> has_pre_or_arrow e
+and
+
+node_item_list_has_pre_or_arrow = function 
+  | ni :: nis -> (match node_item_has_pre_or_arrow ni with 
+    | Some pos -> Some pos 
+    | None -> node_item_list_has_pre_or_arrow nis)
+  | [] -> None
+
+
 
 (** Checks whether a contract node equation has a `pre` or a `->`.
 
@@ -776,9 +799,16 @@ let rec vars_of_struct_item = function
   | ArraySliceStructItem (_, i, _)
   | ArrayDef (_, i, _) -> SI.singleton i
 
-let vars_lhs_of_eqn_with_pos = function
+
+let rec vars_lhs_of_eqn_with_pos = function
   | Body (Equation (_, StructDef (_, ss), _)) -> List.flatten (List.map vars_of_struct_item_with_pos ss)
-  | _ -> []
+  | IfBlock (_, _, l1, l2) -> 
+    List.flatten (List.map vars_lhs_of_eqn_with_pos l1) @
+    List.flatten (List.map vars_lhs_of_eqn_with_pos l2)
+  | FrameBlock (_, nes, nis) ->
+    List.flatten (List.map vars_lhs_of_eqn_with_pos (List.map (fun x -> Body x) nes)) @
+    List.flatten (List.map vars_lhs_of_eqn_with_pos nis)
+  | _ -> [] 
 
 
 let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
@@ -1086,15 +1116,18 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   | Call (p, i, es) -> Call (p, i, List.map abstract_pre_subexpressions es) 
   | CallParam (p, i, tys, es) -> CallParam (p, i, tys, List.map abstract_pre_subexpressions es) 
                                    
-
-
-let extract_equation: node_item list -> node_equation list
-  = let extract_equation_helper: node_item -> node_equation list
-      = function
-      | Body n -> [n]
-      | _ -> []
-    in fun items ->
-       List.concat (List.map extract_equation_helper items)
+let extract_equation: node_item list -> node_equation list =
+  let rec extract_equation_helper ni = (match ni with
+    | Body eqn -> [eqn]
+    | IfBlock (_, _, l1, l2) -> 
+      List.flatten (List.map extract_equation_helper l1) @ 
+      List.flatten (List.map extract_equation_helper l2)
+    | FrameBlock (_, nes, nis) -> 
+      nes @ List.flatten (List.map extract_equation_helper nis)
+    | AnnotMain _ -> []
+    | AnnotProperty _ -> [])
+  in 
+  fun items -> List.flatten (List.map extract_equation_helper items) 
                                
 let extract_node_equation: node_item -> (eq_lhs * expr) list =
   function

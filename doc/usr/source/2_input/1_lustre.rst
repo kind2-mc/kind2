@@ -793,3 +793,137 @@ a linear one.
 Using a function instead of a node simply results in a better abstraction. Kind
 2 will encode, at SMT-level, that the outputs of this component depend on the
 *current* version of its inputs only, not on its previous values.
+
+If statements and frame conditions
+----------------------------------
+Within node definitions, Kind 2 has support for two features that allow the programmer 
+to use a more imperative style-- (1) ``if`` statements and (2) frame conditions. 
+
+If statements
+^^^^^^^^^^^^^
+Kind 2 has always supported conditional expressions of the form ``x = if condition then expr1
+else expr2``, where the ``if/then/else`` expression either evaluates to ``expression1``
+or ``expression2``, depending on the value of ``condition``. However, in some circumstances,
+it may be more natural to use ``if`` statements that serve as control flow (rather than
+evaluate to a value). For example, Kind 2 now supports statements of the form:
+
+.. code-block:: none
+
+   if condition
+   then
+      y1 = expr1;
+      y2 = expr2;
+   else
+      y1 = expr3;
+      y2 = expr4;
+   fi
+   
+In the above block, if ``condition`` is true, then ``y1`` and ``y2`` will be set to ``expr1`` and ``expr2``, respectively. 
+Otherwise, ``y1`` and ``y2`` will be set to ``expr3`` and ``expr4``. The ``if`` statement is closed with
+the ``fi`` token. As with other mainstream programming languages, Kind 2 allows for arbitrary nesting of ``if`` statements,
+as well as writing ``if`` statements that do not have an ``else`` block. 
+
+Frame conditions
+^^^^^^^^^^^^^^^^
+Kind 2 also has support for code blocks with frame conditions. At the beginning of the block
+(denoted by the ``def`` keyword), initial values are specified for a list of variables. 
+Within the block, it is possible to leave
+variables (partially or fully) undefined. If a variable is undefined on the first timestep, it will
+be set to its initial value, defined at the top of the frame block. On other timesteps, each undefined variable
+stutters (it is set equal to its value on the previous timestep). The block is closed with the
+``fed`` keyword.
+
+The following example involves three variables ``y1``, ``y2``, and ``y3``. Since ``y1`` is left
+completely undefined within the frame block, it will always be equal to 0 (its initialization
+value). ``y2`` will have value ``100, 0, 1, 2, 3, ...`` because it is undefined on the first
+timestep and set equal to its initialization value (100), but on other timesteps it is equal
+to ``counter()``. Since ``y3`` is fully defined within the frame block, it is equal to
+``counter()`` and its initialization value is not used.
+
+.. code-block:: none
+
+   node example() returns (y1, y2, y3: int);
+   let
+      def ( y1 = 0; y2 = 100; y3 = 5; )
+         y2 = pre counter();
+         y3 = counter();
+      fed
+   tel
+   
+      
+   node counter() returns (y: int);
+   let
+      y = 0 -> pre y + 1;
+   tel
+
+
+Frame conditions are especially useful when combined with the ``if`` statements described in the previous
+subsection, as variables can be left undefined in some branches of the ``if`` statement.
+
+.. code-block:: none
+
+   node example() returns (y1, y2: int);
+   let
+      def ( y1 = 0; y2 = 100; )
+         if (counter() < 10)
+         then
+            y1 = counter();
+         else
+            y2 = counter() * 2;
+         fi
+      fed
+   tel
+   
+      
+   node counter() returns (y: int);
+   let
+      y = 0 -> pre y + 1;
+   tel
+
+In the above example, ``y1`` is left undefined in the ``else`` branch of the ``if`` statement,
+and ``y2`` is left undefined in the ``then`` branch. ``y1`` is set to be equal to ``counter()``
+on the first ten timesteps, and then stutters (staying at 9) for the remaining timesteps.
+On the other hand, ``y2`` starts at its initialization value (100) and stutters there for
+the first 10 timesteps, and then is set to ``counter() * 2`` for the remaining timesteps.
+
+Restrictions
+^^^^^^^^^^^^
+There are some restrictions on the use of ``if`` blocks and frame conditions. First,
+a frame block cannot be nested within an if statement or another frame block, as
+demonstrated in the following examples:
+
+.. code-block:: none
+
+   if condition
+   then
+      def ( y1 = init1; y2 = init2; )
+         y1 = 10;
+      fed
+   fi
+   
+.. code-block:: none
+
+   def ( y1 = init1; y2 = init2; )
+      y1 = expr1;
+      def ( y2 = init3; )
+         y2 = expr2;
+      fed
+   fed
+
+Assertions, ``MAIN`` annotations, and ``PROPERTY`` annotations also
+cannot be placed within if statements or frame blocks.
+
+Furthermore, every variable defined within a frame block must have a corresponding
+initialization at the top of the block. For example, the following is not supported
+because ``y2`` does not have an initialization:
+
+.. code-block:: none
+
+   def ( y1 = init1; )
+      y1 = expr1;
+      y2 = expr2;
+   fed
+
+Note, however, that it is still possible to assign to multiple variables at once
+(equations of the form ``y1, y2 = (expr1, expr2);``) in either the initializations or frame block body. 
+The restriction only prevents referring to uninitialized variables.

@@ -1,0 +1,35 @@
+node test(x: int) returns (y1, y2, y3: int; p1, p2, p3: bool);
+let 
+  --p1 = (y1 = 1);
+  --p2 = (y2 = 3);
+  p3 = (y3 = 6);
+  --%PROPERTY p3;
+  
+  if (true)
+  then 
+    if (true)
+    then 
+      y3 = 6;
+    else 
+      if (false)
+      then 
+        y3 = 8;
+      else 
+        y3 = 8;
+      fi
+    fi
+  else 
+    if (false)
+    then 
+      y3 = 7;
+    else 
+      if (false)
+      then 
+        y3 = 7;
+      else 
+        y3 = 7;
+      fi
+    fi
+  fi
+  
+tel
