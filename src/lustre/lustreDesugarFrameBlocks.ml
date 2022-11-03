@@ -35,13 +35,13 @@ let (let*) = R.(>>=)
 type error_kind = Unknown of string
   | MisplacedNodeItemError of A.node_item
   | InitializationNotFoundError of A.node_item
-  (* | IllegalEquationInFrameGuardError of A.node_equation *)
+  | MisplacedFrameBlockError of A.node_item
 
 let error_message error = match error with
   | Unknown s -> s
   | MisplacedNodeItemError ni -> "Node item " ^ Lib.string_of_t A.pp_print_node_item ni ^ " is not allowed in frame block."
+  | MisplacedFrameBlockError ni -> "FrameBlock " ^ Lib.string_of_t A.pp_print_node_item ni ^ " is not allowed in function."
   | InitializationNotFoundError ni -> "Node item " ^ Lib.string_of_t A.pp_print_node_item ni ^ " does not have a corresponding initialization in the frame block."
-  (* | IllegalEquationInFrameGuardError ne -> "Node equation " ^ Lib.string_of_t A.pp_print_node_item (A.Body ne) ^ " is not allowed in frame block guard." *)
 
 type error = [
   | `LustreDesugarFrameBlocksError of Lib.position * error_kind
@@ -231,6 +231,13 @@ let desugar_frame_blocks ctx normalized_nodes_and_contracts =
       R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, 
                        (List.flatten decls) @ nlds, List.flatten nis, co))) 
                       
+    (* Make sure there are no frame blocks in functions *)
+    | A.FuncDecl (_, ((_, _, _, _, _, _, nis, _))) -> (
+      let contains_frame_block = List.find_opt (fun ni -> match ni with | A.FrameBlock _ -> true | _ -> false) nis in
+      match contains_frame_block with
+        | Some (FrameBlock (pos, _, _) as fb) -> mk_error pos (MisplacedFrameBlockError fb)
+        | _ -> R.ok decl
+      )
     | _ -> R.ok decl
   ) in
   R.seq (List.map desugar_node_decl normalized_nodes_and_contracts)

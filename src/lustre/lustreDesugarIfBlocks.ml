@@ -437,43 +437,52 @@ let create_new_eqs ctx lhs expr =
 
   For each temp variable, we also generate a new declaration.
 *)
-let rec remove_mult_assign_from_ni ctx ni = 
-  match ni with 
-    | A.Body (Equation (_, lhs, expr)) -> 
-      let lhs_vars = AH.vars_lhs_of_eqn_with_pos ni in
-      (* If there is no multiple assignment, we don't alter the node item,
-         otherwise, we must remove the multiple assignment. The first node item
-         list in the return value represents node items we "pull out" of the if block
-         (ie, we define those before generating the ITEs). *)
-      if (List.length lhs_vars = 1) 
-      then R.ok([], [ni], [], [ctx])
-      else (
-        R.ok (create_new_eqs ctx lhs expr)
-      )
-    
-    | IfBlock (pos, e, l1, l2) -> 
-      let* res1 = R.seq (List.map (remove_mult_assign_from_ni ctx) l1) in
-      let nis1, nis2, decls1, ctx1 = split_and_flatten4 res1 in
-      let* res2 = R.seq (List.map (remove_mult_assign_from_ni ctx) l2) in
-      let nis3, nis4, decls2, ctx2 = split_and_flatten4 res2 in
-      (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
-      R.ok (nis1 @ nis3, [A.IfBlock (pos, e, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2)
+let remove_mult_assign_from_ni ctx ni = 
+  let rec helper ctx ni = (
+    match ni with 
+      | A.Body (Equation (_, lhs, expr)) -> 
+        let lhs_vars = AH.vars_lhs_of_eqn_with_pos ni in
+        (* If there is no multiple assignment, we don't alter the node item,
+          otherwise, we must remove the multiple assignment. The first node item
+          list in the return value represents node items we "pull out" of the if block
+          (ie, we define those before generating the ITEs). *)
+        if (List.length lhs_vars = 1) 
+        then R.ok([], [ni], [], [ctx])
+        else (
+          R.ok (create_new_eqs ctx lhs expr)
+        )
+      
+      | IfBlock (pos, e, l1, l2) -> 
+        let* res1 = R.seq (List.map (helper ctx) l1) in
+        let nis1, nis2, decls1, ctx1 = split_and_flatten4 res1 in
+        let* res2 = R.seq (List.map (helper ctx) l2) in
+        let nis3, nis4, decls2, ctx2 = split_and_flatten4 res2 in
+        (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
+        R.ok (nis1 @ nis3, [A.IfBlock (pos, e, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2)
 
-    | FrameBlock (pos, nes, nis) -> 
-      let nes = List.map (fun x -> A.Body x) nes in 
-      let* res1 = R.seq (List.map (remove_mult_assign_from_ni ctx) nes) in
-      let nis1, nis2, decls1, ctx1 = split_and_flatten4 res1 in
-      let* res2 = R.seq (List.map (remove_mult_assign_from_ni ctx) nis) in
-      let nis3, nis4, decls2, ctx2 = split_and_flatten4 res2 in     
-      let nis2 = List.map 
-        (fun x -> match x with | A.Body (Equation _ as e) -> e | _ -> assert false) 
-        nis2 in
-      R.ok (nis1 @ nis3, [A.FrameBlock (pos, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2)
+      | FrameBlock (pos, nes, nis) -> 
+        let nes = List.map (fun x -> A.Body x) nes in 
+        let* res1 = R.seq (List.map (helper ctx) nes) in
+        let nis1, nis2, decls1, ctx1 = split_and_flatten4 res1 in
+        let* res2 = R.seq (List.map (helper ctx) nis) in
+        let nis3, nis4, decls2, ctx2 = split_and_flatten4 res2 in     
+        let nis2 = List.map 
+          (fun x -> match x with | A.Body (Equation _ as e) -> e | _ -> assert false) 
+          nis2 in
+        (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
+        R.ok (nis1 @ nis3, [A.FrameBlock (pos, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2)
       
     (* Misplaced assert, annotmain, annotproperty in if block*)
     | A.Body (Assert (pos, _)) 
     | A.AnnotProperty (pos, _, _) -> mk_error pos (MisplacedNodeItemError ni)
     | A.AnnotMain _ -> mk_error Lib.dummy_pos (MisplacedNodeItemError ni)
+  ) in
+  let* (nis, nis2, new_decls, ctx) = helper ctx ni in
+  let ctx = List.fold_left Ctx.union Ctx.empty_tc_context ctx in
+  (* Calling 'remove_mult_assign_from_ib' on an if or frame block (which is always
+     the case) will mean that nis2 will always have length 1. *)
+  let ni = List.hd nis2 in
+  R.ok (nis, ni, new_decls, ctx)
 
 
 (** Helper function for 'desugar_node_item' that converts IfBlocks to a list
@@ -486,9 +495,7 @@ let rec remove_mult_assign_from_ni ctx ni =
     6. Returning lists of new local declarations, generated equations, and gids
     *)
 let extract_equations_from_if ctx ib =
-  let* (nis, ibs, new_decls, ctx) = remove_mult_assign_from_ni ctx ib in 
-  let ctx = List.fold_left Ctx.union Ctx.empty_tc_context ctx in
-  let ib = List.hd(ibs) in
+  let* (nis, ib, new_decls, ctx) = remove_mult_assign_from_ni ctx ib in 
   let* tree_map = if_block_to_trees ib in
   let (lhss, trees) = LhsMap.bindings (tree_map) |> List.split in
   let trees = List.map simplify_tree trees in  
@@ -519,7 +526,7 @@ let rec desugar_node_item ctx ni = match ni with
   | A.FrameBlock _ -> 
     let* (nis2, fb, decls1, _) = remove_mult_assign_from_ni ctx ni in 
       let (pos, nes, nis) = (match fb with 
-      | [A.FrameBlock (pos, nes, nis)] -> (pos, nes, nis)
+      | A.FrameBlock (pos, nes, nis) -> (pos, nes, nis)
       | _ -> assert false (* not possible *)
     ) in
     let* res = R.seq (List.map (desugar_node_item ctx) nis) in
@@ -561,6 +568,12 @@ let get_node_ctx ctx (_, _, _, inputs, outputs, locals, _, _) =
 
 (** Desugars an individual node declaration (removing IfBlocks). *)
 let desugar_node_decl ctx decl = match decl with
+  | A.FuncDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) ->
+    let ctx = get_node_ctx ctx d in
+    let* nis = R.seq (List.map (desugar_node_item ctx) nis) in
+    let new_decls, nis, gids = split_and_flatten3 nis in
+    let gids = List.fold_left LAN.union (LAN.empty ()) gids in
+    R.ok (A.FuncDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), LAN.StringMap.singleton node_id gids) 
   | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) -> 
     let ctx = get_node_ctx ctx d in
     let* nis = R.seq (List.map (desugar_node_item ctx) nis) in
