@@ -487,13 +487,12 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
           (* cex *)
     end
     else
-
       (* Output cex. *)
       (ignore_or_fprintf level)
         !log_ppf 
       "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%t%a@]@."
         (if disproved then (if kind = Property.Invariant then failure_tag else success_tag) else warning_tag)
-        prop
+        (if (kind = Property.Invariant) then prop else String.sub prop 5 ((String.length prop) - 6))
         (
           if (disproved && kind = Property.Invariant) then
             Format.asprintf "is invalid by %a" pp_print_kind_module_pt mdl
@@ -590,7 +589,7 @@ let prop_status_pt level prop_status prop_kind =
           Format.fprintf 
             ppf
             "@[<h>@{<blue_b>%s@}: %a@]"
-            p
+            (if k = Property.Invariant then p else String.sub p 5 ((String.length p) - 6))
             (function ppf -> 
               match k with
                 | Property.Invariant -> (function 
