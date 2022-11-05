@@ -39,7 +39,7 @@ module AD = LustreAstDependencies
 module LAN = LustreAstNormalizer
 module LS = LustreSyntaxChecks
 module LIA = LustreAbstractInterpretation
-(* module LAD = LustreArrayDependencies *)
+module LAD = LustreArrayDependencies
 
 type error = [
   | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
@@ -147,7 +147,7 @@ let type_check declarations =
     let* (inlined_ctx, const_inlined_type_and_consts) = IC.inline_constants ctx sorted_const_type_decls in
 
     (* Step 6. Dependency analysis on nodes and contracts *)
-    let* (sorted_node_contract_decls, toplevel_nodes, _node_summary) = AD.sort_and_check_nodes_contracts node_contract_src in
+    let* (sorted_node_contract_decls, toplevel_nodes, node_summary) = AD.sort_and_check_nodes_contracts node_contract_src in
 
     (* Step 7. type check nodes and contracts *)
     let* global_ctx = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
@@ -158,7 +158,7 @@ let type_check declarations =
     in
 
     (* Step 9. Check that inductive array equations are well-founded *)
-    (* let* _ = LAD.check_inductive_array_dependencies inlined_global_ctx node_summary const_inlined_nodes_and_contracts in *)
+    let* _ = LAD.check_inductive_array_dependencies inlined_global_ctx node_summary const_inlined_nodes_and_contracts in
 
     (* Step 10. Infer tighter subrange constraints with abstract interpretation *)
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx const_inlined_nodes_and_contracts in
