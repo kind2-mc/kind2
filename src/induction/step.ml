@@ -507,7 +507,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
       (fun acc (s, (_, _, cert)) ->
         (* KEvent.log L_warn
         "%s: @[<v>%d, %a@]" s (fst cert) Term.pp_print_term (snd cert) ; *)
-        KEvent.prop_invariant trans s cert |> Term.TermSet.union acc
+        KEvent.prop_invariant trans s cert (TransSys.property_of_name trans s).prop_kind |> Term.TermSet.union acc
       )
       (fst new_invs)
       confirmed_cert, (snd new_invs)

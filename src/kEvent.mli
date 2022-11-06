@@ -58,7 +58,7 @@ val log_disproved : Lib.kind_module -> Lib.log_level -> 'a InputSystem.t -> Anal
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_proved : Lib.kind_module -> Lib.log_level -> TransSys.t -> int option -> string -> unit
+val log_proved : Lib.kind_module -> Lib.log_level -> TransSys.t -> int option -> string -> Property.prop_kind -> unit
 
 (* Log a message with a tag, only in the plain text output *)
 val log_with_tag :  Lib.log_level -> (Format.formatter -> unit) -> string -> unit
@@ -122,17 +122,17 @@ val log_interruption : int -> unit
 
 val pp_print_counterexample_pt :
   ?title:string -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t
-  -> string option (* property *) -> bool (* disproved *) -> Format.formatter
+  -> string option (* property *) -> bool (* disproved *) -> Property.prop_kind -> Format.formatter
   -> (StateVar.t * Model.value list) list -> unit
 
 val pp_print_counterexample_xml :
   ?tag:string -> 'a InputSystem.t -> Analysis.param -> TransSys.t
-  -> string option (* property *) -> bool (* disproved *) -> Format.formatter
+  -> string option (* property *) -> bool (* disproved *) -> Property.prop_kind -> Format.formatter
   -> (StateVar.t * Model.value list) list -> unit
 
 val pp_print_counterexample_json :
   ?object_name:string -> 'a InputSystem.t -> Analysis.param -> TransSys.t
-  -> string option (* property *) -> bool (* disproved *) -> Format.formatter
+  -> string option (* property *) -> bool (* disproved *) -> Property.prop_kind -> Format.formatter
   -> (StateVar.t * Model.value list) list -> unit
 
 (** {1 Events} *)
@@ -171,13 +171,13 @@ val prop_status : Property.prop_status -> 'a InputSystem.t -> Analysis.param -> 
 (** Broadcast a property is invariant, and return a set of
     logical consequences that are also invariant
 *)
-val prop_invariant : TransSys.t -> string -> Certificate.t -> Term.TermSet.t
+val prop_invariant : TransSys.t -> string -> Certificate.t -> Property.prop_kind -> Term.TermSet.t
 
 (* Log a property disproved during the computation of a Minimal Cut Set *)
 val cex_wam : (StateVar.t * Model.value list) list -> (string * bool) list -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Property.prop_kind -> unit
 
 (* Log a proven property during the computation of a Minimal Cut Set *)
-val proved_wam : Certificate.t -> TransSys.t -> string -> unit
+val proved_wam : Certificate.t -> TransSys.t -> string -> Property.prop_kind -> unit
 
 (* Log an unknown property during the computation of a Minimal Cut Set *)
 val unknown_wam : TransSys.t -> string -> unit

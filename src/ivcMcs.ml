@@ -101,12 +101,13 @@ let pp_print_mcs_legacy in_sys param sys ((prop, cex), core, _) (_, core_compl, 
 
 let pp_print_no_mcs_legacy prop sys =
   let prop_name = prop.Property.prop_name in
+  let prop_kind = prop.Property.prop_kind in
   let sys = TS.copy sys in
 
   match prop.Property.prop_status with
   | PropInvariant cert ->
     TS.set_prop_unknown sys prop_name ;
-    KEvent.proved_wam cert sys prop_name
+    KEvent.proved_wam cert sys prop_name prop_kind
   | _ -> KEvent.unknown_wam sys prop_name
 
 
