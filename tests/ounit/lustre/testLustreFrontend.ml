@@ -301,6 +301,16 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/ghost_variable_redeclaration3.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
+
+  mk_test "test node input redeclaration" (fun () ->
+    match load_file "./lustreAstDependencies/node_input_redeclaration.lus" with
+    | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
+    | _ -> false);
+
+  mk_test "test contract output redeclaration" (fun () ->
+    match load_file "./lustreAstDependencies/contract_output_redeclaration.lus" with
+    | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
