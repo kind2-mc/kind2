@@ -68,95 +68,33 @@
 
      @author Andrew Marmaduke *)
 
-module StringMap : sig
-  include (Map.S with type key = HString.t)
-  val keys: 'a t -> key list
-end
 
-module StringSet : sig
-  include (Set.S with type elt = HString.t)
-end
-
-type source = Local | Input | Output | Ghost
-
-type generated_identifiers = {
-  node_args : (HString.t (* abstracted variable name *)
-    * bool (* whether the variable is constant *)
-    * LustreAst.lustre_type
-    * LustreAst.expr)
-    list;
-  array_constructors :
-    (LustreAst.lustre_type
-    * LustreAst.expr
-    * LustreAst.expr)
-    StringMap.t;
-  locals : (bool (* whether the variable is ghost *)
-    * LustreAst.lustre_type
-    * LustreAst.expr (* abstracted expression *)
-    * LustreAst.expr) (* original expression *)
-    StringMap.t;
-  contract_calls :
-    (Lib.position
-    * (Lib.position * HString.t) list (* contract scope *)
-    * LustreAst.contract_node_equation list)
-    StringMap.t;
-  warnings : (Lib.position * LustreAst.expr) list;
-  oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
-  ib_oracles : (HString.t * LustreAst.lustre_type) list;
-  propagated_oracles : (HString.t * HString.t) list;
-  calls : (Lib.position (* node call position *)
-    * (HString.t list) (* oracle inputs *)
-    * HString.t (* abstracted output *)
-    * LustreAst.expr (* condition expression *)
-    * LustreAst.expr (* restart expression *)
-    * HString.t (* node name *)
-    * (LustreAst.expr list) (* node arguments *)
-    * (LustreAst.expr list option)) (* node argument defaults *)
-    list;
-  subrange_constraints : (source
-    * bool (* true if the type used for the subrange is the original type *)
-    * Lib.position
-    * HString.t (* Generated name for Range Expression *)
-    * LustreAst.expr) (* Computed ranged expr *)
-    list;
-  expanded_variables : StringSet.t;
-  equations :
-    (LustreAst.typed_ident list (* quantified variables *)
-    * (Lib.position * HString.t) list (* contract scope  *)
-    * LustreAst.eq_lhs
-    * LustreAst.expr)
-    list;
-}
 
 type error = [
   | `LustreAstNormalizerError
 ]
 
-val empty : unit -> generated_identifiers
-
-val union : generated_identifiers -> generated_identifiers -> generated_identifiers
-
 
 type info = {
   context : TypeCheckerContext.tc_context;
   abstract_interp_context : LustreAbstractInterpretation.context;
-  inductive_variables : LustreAst.lustre_type StringMap.t;
+  inductive_variables : LustreAst.lustre_type GeneratedIdentifiers.StringMap.t;
   quantified_variables : LustreAst.typed_ident list;
-  node_is_input_const : (bool list) StringMap.t;
-  contract_calls_info : LustreAst.contract_node_decl StringMap.t;
+  node_is_input_const : (bool list) GeneratedIdentifiers.StringMap.t;
+  contract_calls_info : LustreAst.contract_node_decl GeneratedIdentifiers.StringMap.t;
   contract_scope : (Lib.position * HString.t) list;
   contract_ref : HString.t;
-  interpretation : HString.t StringMap.t;
+  interpretation : HString.t GeneratedIdentifiers.StringMap.t;
   local_group_projection : int
 }
 
 val normalize : TypeCheckerContext.tc_context
   -> LustreAbstractInterpretation.context
   -> LustreAst.t
-  -> generated_identifiers StringMap.t
-  -> (LustreAst.t * generated_identifiers StringMap.t,
+  -> GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t
+  -> (LustreAst.t * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t,
       [> error]) result
 
-val pp_print_generated_identifiers : Format.formatter -> generated_identifiers -> unit
+val pp_print_generated_identifiers : Format.formatter -> GeneratedIdentifiers.t -> unit
 
-val get_warnings : generated_identifiers StringMap.t -> (Lib.position * LustreAst.expr) list
+val get_warnings : GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t -> (Lib.position * LustreAst.expr) list

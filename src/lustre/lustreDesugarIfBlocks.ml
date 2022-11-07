@@ -31,7 +31,7 @@
 module R = Res
 module A = LustreAst
 module AH = LustreAstHelpers
-module LAN = LustreAstNormalizer
+module GI = GeneratedIdentifiers
 module Chk = LustreTypeChecker
 module Ctx = TypeCheckerContext
 
@@ -45,6 +45,9 @@ let error_message error = match error with
 
 type error = [
   | `LustreDesugarIfBlocksError of Lib.position * error_kind
+  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
+  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
+  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
 ]
 
 let mk_error pos kind = Error (`LustreDesugarIfBlocksError (pos, kind))
@@ -78,7 +81,7 @@ let mk_fresh_ib_oracle expr_type =
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring "_iboracle") in
   let nexpr = A.Ident (Lib.dummy_pos, name) in
-  let gids = { (LAN.empty ()) with
+  let gids = { (GI.empty ()) with
     ib_oracles = [name, expr_type]; }
   in nexpr, gids
 
@@ -214,7 +217,7 @@ let rec fill_ite_with_oracles ite ty =
           (match expr with
             | A.Ident (_, name) ->  expr, gids, [A.NodeVarDecl(p, (p, name, ty, ClockTrue))]
             | _ -> assert false (* not possible*))
-        | _ -> e1, LAN.empty (), []
+        | _ -> e1, GI.empty (), []
       ) in 
       let e2, gids2, decls2 = (
       match e2 with
@@ -224,9 +227,9 @@ let rec fill_ite_with_oracles ite ty =
           (match expr with
             | A.Ident (_, name) ->  expr, gids, [A.NodeVarDecl(p, (p, name, ty, ClockTrue))]
             | _ -> assert false (* not possible*))
-        | _ -> e2, LAN.empty (), []
+        | _ -> e2, GI.empty (), []
       ) in
-      A.TernaryOp (pos, Ite, cond, e1, e2), LAN.union gids1 gids2, decls1 @ decls2
+      A.TernaryOp (pos, Ite, cond, e1, e2), GI.union gids1 gids2, decls1 @ decls2
     (* shouldn't be possible *)
     | _ -> assert false
 
@@ -511,7 +514,7 @@ let extract_equations_from_if ctx ib =
   let gids = List.map (fun (_, y, _) -> y) res in
   let new_decls2 = List.map (fun (_, _, z) -> z) res |> List.flatten in
 
-  let gids = List.fold_left LAN.union (LAN.empty ()) gids in
+  let gids = List.fold_left GI.union (GI.empty ()) gids in
   (* Combine poss, lhss, and ites into a list of equations *)
   let eqs = (List.map2 (fun (a, b) c -> (A.Body (A.Equation (a, b, c)))) (List.combine poss lhss) ites) in
   R.ok (new_decls @ new_decls2, nis @ eqs, [gids])
@@ -532,15 +535,7 @@ let rec desugar_node_item ctx ni = match ni with
     let* res = R.seq (List.map (desugar_node_item ctx) nis) in
     let decls2, nis, gids = split_and_flatten3 res in
     R.ok (decls1 @ decls2, nis2 @ [A.FrameBlock(pos, nes, nis)], gids)
-  | _ -> R.ok ([], [ni], [LAN.empty ()])
-
-  
-(** Helper function for get_node_ctx. *)
-let unwrap result = match result with
-  | Ok r -> r
-  | Error _ ->
-    Log.log L_debug "(Lustre Desugar If Blocks Internal Error)";
-    assert false
+  | _ -> R.ok ([], [ni], [GI.empty ()])
 
 
 (** Collects a node's context. *)
@@ -560,27 +555,28 @@ let get_node_ctx ctx (_, _, _, inputs, outputs, locals, _, _) =
   let ctx = Ctx.union
     (Ctx.union constants_ctx ctx)
     (Ctx.union input_ctx output_ctx) in
-  List.fold_left
-    (fun ctx local -> Chk.local_var_binding ctx local |> unwrap)
-    ctx
-    locals
-
+  let rec helper ctx locals = match locals with
+    | local :: locals -> 
+      let* ctx = Chk.local_var_binding ctx local in 
+      helper ctx locals
+    | [] -> R.ok ctx in
+  helper ctx locals
 
 (** Desugars an individual node declaration (removing IfBlocks). *)
 let desugar_node_decl ctx decl = match decl with
   | A.FuncDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) ->
-    let ctx = get_node_ctx ctx d in
+    let* ctx = get_node_ctx ctx d in
     let* nis = R.seq (List.map (desugar_node_item ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
-    let gids = List.fold_left LAN.union (LAN.empty ()) gids in
-    R.ok (A.FuncDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), LAN.StringMap.singleton node_id gids) 
+    let gids = List.fold_left GI.union (GI.empty ()) gids in
+    R.ok (A.FuncDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), GI.StringMap.singleton node_id gids) 
   | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) -> 
-    let ctx = get_node_ctx ctx d in
+    let* ctx = get_node_ctx ctx d in
     let* nis = R.seq (List.map (desugar_node_item ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
-    let gids = List.fold_left LAN.union (LAN.empty ()) gids in
-    R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), LAN.StringMap.singleton node_id gids) 
-  | _ -> R.ok (decl, LAN.StringMap.empty)
+    let gids = List.fold_left GI.union (GI.empty ()) gids in
+    R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), GI.StringMap.singleton node_id gids) 
+  | _ -> R.ok (decl, GI.StringMap.empty)
 
 
 (** Desugars a declaration list to remove IfBlocks. Converts IfBlocks to
@@ -588,5 +584,5 @@ let desugar_node_decl ctx decl = match decl with
 let desugar_if_blocks ctx normalized_nodes_and_contracts = 
   let* res = R.seq (List.map (desugar_node_decl ctx) normalized_nodes_and_contracts) in
   let decls, gids = List.split res in
-  let gids = List.fold_left (LAN.StringMap.union (fun _ b _ -> Some b)) (LAN.StringMap.empty) gids in
+  let gids = List.fold_left (GI.StringMap.union (fun _ b _ -> Some b)) (GI.StringMap.empty) gids in
   R.ok (decls, gids)

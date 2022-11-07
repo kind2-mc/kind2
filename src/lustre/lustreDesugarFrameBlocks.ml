@@ -46,6 +46,9 @@ let error_message error = match error with
 type error = [
   | `LustreDesugarFrameBlocksError of Lib.position * error_kind
   | `LustreDesugarIfBlocksError of Lib.position * LDI.error_kind
+  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
+  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
+  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
 ]
 
 let mk_error pos kind = Error (`LustreDesugarFrameBlocksError (pos, kind))
@@ -225,7 +228,7 @@ let desugar_node_item _ ni = match ni with
 let desugar_frame_blocks ctx normalized_nodes_and_contracts = 
   let desugar_node_decl decl = (match decl with
     | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis2, co) as d)) -> 
-      let ctx = LDI.get_node_ctx ctx d in
+      let* ctx = LDI.get_node_ctx ctx d in
       let* res = R.seq (List.map (desugar_node_item ctx) nis2) in
       let decls, nis = List.split res in
       R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, 

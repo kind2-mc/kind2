@@ -70,6 +70,7 @@
      @author Andrew Marmaduke *)
 
 open Lib
+open GeneratedIdentifiers
 
 module A = LustreAst
 module AH = LustreAstHelpers
@@ -85,24 +86,11 @@ type error = [
 let (>>=) = Res.(>>=)
 let unwrap result = match result with
   | Ok r -> r
-  | Error _ ->
-    Log.log L_debug "(Lustre AST Normalizer Internal Error)";
+  | Error e ->
+    let msg = LustreErrors.error_message e in
+    Log.log L_debug "(Lustre AST Normalizer Internal Error: %s)" msg;
     assert false
 
-module StringMap = struct
-  include Map.Make(struct
-    type t = HString.t
-    let compare i1 i2 = HString.compare i1 i2
-  end)
-  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
-end
-
-module StringSet = struct
-  include Set.Make(struct
-    type t = HString.t
-    let compare i1 i2 = HString.compare i1 i2
-  end)
-end
 
 module AstCallHash = struct
   type t = A.ident (* node name *)
@@ -190,57 +178,6 @@ let clear_cache () =
   CallCache.clear call_cache;
   LocalCache.clear local_cache;
   NodeArgCache.clear node_arg_cache;
-
-type source = Local | Input | Output | Ghost
-
-type generated_identifiers = {
-  node_args : (HString.t (* abstracted variable name *)
-    * bool (* whether the variable is constant *)
-    * LustreAst.lustre_type
-    * LustreAst.expr)
-    list;
-  array_constructors :
-    (LustreAst.lustre_type
-    * LustreAst.expr
-    * LustreAst.expr)
-    StringMap.t;
-  locals : (bool (* whether the variable is ghost *)
-    * LustreAst.lustre_type
-    * LustreAst.expr (* abstracted expression *)
-    * LustreAst.expr) (* original expression *)
-    StringMap.t;
-  contract_calls :
-    (Lib.position
-    * (Lib.position * HString.t) list (* contract scope *)
-    * LustreAst.contract_node_equation list)
-    StringMap.t;
-  warnings : (Lib.position * LustreAst.expr) list;
-  oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
-  ib_oracles : (HString.t * LustreAst.lustre_type) list;
-  propagated_oracles : (HString.t * HString.t) list;
-  calls : (Lib.position (* node call position *)
-    * (HString.t list) (* oracle inputs *)
-    * HString.t (* abstracted output *)
-    * LustreAst.expr (* condition expression *)
-    * LustreAst.expr (* restart expression *)
-    * HString.t (* node name *)
-    * (LustreAst.expr list) (* node arguments *)
-    * (LustreAst.expr list option)) (* node argument defaults *)
-    list;
-  subrange_constraints : (source
-    * bool (* true if the type used for the subrange is the original type *)
-    * Lib.position
-    * HString.t (* Generated name for Range Expression *)
-    * LustreAst.expr) (* Computed ranged expr *)
-    list;
-  expanded_variables : StringSet.t;
-  equations :
-    (LustreAst.typed_ident list (* quantified variables *)
-    * (Lib.position * HString.t) list (* contract scope  *)
-    * LustreAst.eq_lhs
-    * LustreAst.expr)
-    list;
-}
 
 type info = {
   context : Ctx.tc_context;
@@ -360,46 +297,6 @@ let i = ref 0
 let contract_ref = ref 0
 
 let dpos = Lib.dummy_pos
-
-let empty () = {
-    locals = StringMap.empty;
-    warnings = [];
-    array_constructors = StringMap.empty;
-    node_args = [];
-    oracles = [];
-    ib_oracles = [];
-    propagated_oracles = [];
-    calls = [];
-    contract_calls = StringMap.empty;
-    subrange_constraints = [];
-    expanded_variables = StringSet.empty;
-    equations = [];
-  }
-
-
-let union_keys key id1 id2 = match key, id1, id2 with
-  | _, None, None -> None
-  | _, (Some v), None -> Some v
-  | _, None, (Some v) -> Some v
-  (* Identifiers are guaranteed to be unique making this branch impossible *)
-  | _, (Some _), (Some _) -> assert false
-
-let union ids1 ids2 = {
-    locals = StringMap.merge union_keys ids1.locals ids2.locals;
-    array_constructors = StringMap.merge union_keys
-      ids1.array_constructors ids2.array_constructors;
-    warnings = ids1.warnings @ ids2.warnings;
-    node_args = ids1.node_args @ ids2.node_args;
-    oracles = ids1.oracles @ ids2.oracles;
-    ib_oracles = ids1.ib_oracles @ ids2.ib_oracles;
-    propagated_oracles = ids1.propagated_oracles @ ids2.propagated_oracles;
-    calls = ids1.calls @ ids2.calls;
-    contract_calls = StringMap.merge union_keys
-      ids1.contract_calls ids2.contract_calls;
-    subrange_constraints = ids1.subrange_constraints @ ids2.subrange_constraints;
-    expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
-    equations = ids1.equations @ ids2.equations;
-  }
 
 let union_keys2 key id1 id2 = match key, id1, id2 with
   | _, None, None -> None

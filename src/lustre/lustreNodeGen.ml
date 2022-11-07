@@ -25,7 +25,7 @@ open LustreReporting
 
 module A = LustreAst
 module AH = LustreAstHelpers
-module LAN = LustreAstNormalizer
+module GI = GeneratedIdentifiers
 module G = LustreGlobals
 module N = LustreNode
 module C = LustreContract
@@ -1296,7 +1296,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   in let (ghost_locals2, ghost_equations2, modes2) =
     let over_calls (gls, ges, ms) (_, id, _, _) =
       let (_, contract_scope, contract_eqns) =
-        (LAN.StringMap.find id gids.LAN.contract_calls)
+        (GI.StringMap.find id gids.GI.contract_calls)
       in
       map := { !map with contract_scope };
       let (gl, ge, m) = compile_contract_variables cstate gids ctx map contract_scope node_scope contract_eqns
@@ -1335,7 +1335,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
   in let (assumes2, guarantees2) =
     let over_calls (ams, gs) (_, id, _, _) =
       let (_, scope, contract_eqns) =
-        LAN.StringMap.find id gids.LAN.contract_calls
+        GI.StringMap.find id gids.GI.contract_calls
       in
       let contract_scope = (List.hd scope) :: contract_scope in
       map := { !map with contract_scope };
@@ -1483,7 +1483,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* (State Variables for) Generated Locals                             *)
   (* ****************************************************************** *)
   in let glocals =
-    let locals_list = LAN.StringMap.bindings gids.LAN.locals in
+    let locals_list = GI.StringMap.bindings gids.GI.locals in
     let over_generated_locals glocals (id, (is_ghost, expr_type, _, _)) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map expr_type in
@@ -1526,7 +1526,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | None -> accum
       in let result = X.fold over_indices index_types X.empty in
       result :: glocals
-    in List.fold_left over_generated_locals glocals gids.LAN.subrange_constraints
+    in List.fold_left over_generated_locals glocals gids.GI.subrange_constraints
   (* ****************************************************************** *)
   (* (State Variables for) Generated Locals for Node Arguments          *)
   (* ****************************************************************** *)
@@ -1550,13 +1550,13 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | None -> accum
       in let result = X.fold over_indices index_types X.empty in
       result :: glocals
-    in List.fold_left over_generated_locals glocals gids.LAN.node_args
+    in List.fold_left over_generated_locals glocals gids.GI.node_args
   (* ****************************************************************** *)
   (* (State Variables for) Generated Locals for Array Constructors      *)
   (* ****************************************************************** *)
   in
   let glocals =
-    let array_ctor_list = LAN.StringMap.bindings gids.LAN.array_constructors in
+    let array_ctor_list = GI.StringMap.bindings gids.GI.array_constructors in
     let over_generated_locals glocals (id, (expr_type, expr, size_expr)) =
       let pos = AH.pos_of_expr expr in
       let ident = mk_ident id in
@@ -1662,7 +1662,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       let result = X.fold over_indices index_types X.empty in
       (X.values result) @ oracles, osvm
     in
-    List.fold_left over_oracles ([], SVT.create 7) gids.LAN.oracles in
+    List.fold_left over_oracles ([], SVT.create 7) gids.GI.oracles in
   let ib_oracles =
     let over_ib_oracles  ib_oracles (id, expr_type) = (
       let oracle_ident = mk_ident id in
@@ -1684,7 +1684,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       ) in 
       (X.fold over_indices index_types X.empty) :: ib_oracles
     ) in
-    List.fold_left over_ib_oracles [] gids.LAN.ib_oracles
+    List.fold_left over_ib_oracles [] gids.GI.ib_oracles
   (* ****************************************************************** *)
   (* Propagated Oracles                                                 *)
   (* ****************************************************************** *)
@@ -1716,7 +1716,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       match possible_state_var with
       | Some (state_var) -> state_var :: oracles
       | None -> oracles
-    in List.fold_left over_propagated_oracles oracles gids.LAN.propagated_oracles
+    in List.fold_left over_propagated_oracles oracles gids.GI.propagated_oracles
   (* ****************************************************************** *)
   (* Node Calls                                                         *)
   (* ****************************************************************** *)
@@ -1804,7 +1804,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       let sv = H.find !map.state_var id in
       let name = match name_opt with
         | Some n -> n
-        | None -> let abs = LAN.StringMap.find_opt id_str gids.LAN.locals in
+        | None -> let abs = GI.StringMap.find_opt id_str gids.GI.locals in
           let name = match abs with | Some (_, _, _, e) -> e | None -> expr in
             Format.asprintf "@[<h>%a@]" A.pp_print_expr name
       in sv, name, (Property.PropAnnot pos)
@@ -1907,7 +1907,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       (* TODO: Old code tries to infer a more strict type here
         lustreContext 2040+ *)
       equations @ eqns
-    in List.fold_left over_equations [] gids.LAN.equations
+    in List.fold_left over_equations [] gids.GI.equations
   (* ****************************************************************** *)
   (* Node Equations                                                     *)
   (* ****************************************************************** *)
@@ -1998,7 +1998,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       let sv = H.find !map.state_var (mk_ident id) in
       let effective_contract = guarantees != [] || modes != [] in
       let constraint_kind = match source with
-        | LAN.Input -> Some N.Assumption
+        | GI.Input -> Some N.Assumption
         | Local -> None
         | Output -> if not ext && not effective_contract then
             None else Some N.Guarantee
@@ -2030,7 +2030,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     let (assumes, _, guarantees, _, props) = 
       List.fold_left over_subrange_constraints
       (assumes, List.length assumes, guarantees, List.length guarantees, props)
-      gids.LAN.subrange_constraints
+      gids.GI.subrange_constraints
     in
     assumes, guarantees, props
   (* ****************************************************************** *)
@@ -2166,10 +2166,10 @@ and compile_declaration cstate gids ctx decl =
     let empty_map = ref (empty_identifier_maps None) in
     compile_const_decl cstate ctx empty_map [] const_decl
   | A.FuncDecl (_, (i, ext, [], inputs, outputs, locals, items, contract)) ->
-    let gids = LAN.StringMap.find i gids in
+    let gids = GI.StringMap.find i gids in
     compile_node_decl gids true cstate ctx i ext inputs outputs locals items contract
   | A.NodeDecl (_, (i, ext, [], inputs, outputs, locals, items, contract)) ->
-    let gids = LAN.StringMap.find i gids in
+    let gids = GI.StringMap.find i gids in
     compile_node_decl gids false cstate ctx i ext inputs outputs locals items contract
   (* All contract node declarations are recorded and normalized in gids,
     this is necessary because each unique call to a contract node must be 

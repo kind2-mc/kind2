@@ -37,16 +37,18 @@ val error_message : error_kind -> string
 
 type error = [
   | `LustreDesugarIfBlocksError of Lib.position * error_kind 
+  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
+  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
+  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
 ]
-
 
 val get_node_ctx : TypeCheckerContext.tc_context ->
   'a * 'b * 'c * LustreAst.const_clocked_typed_decl list * LustreAst.clocked_typed_decl list *
-  LustreAst.node_local_decl list * 'd * 'e -> TypeCheckerContext.tc_context
+  LustreAst.node_local_decl list * 'd * 'e -> (TypeCheckerContext.tc_context, [> LustreTypeChecker.error ]) result
 
 val desugar_if_blocks : 
 TypeCheckerContext.tc_context ->
   LustreAst.declaration list ->
-  (LustreAst.declaration list * LustreAstNormalizer.generated_identifiers LustreAstNormalizer.StringMap.t,
-   [> `LustreDesugarIfBlocksError of Lib.position * error_kind ])
+  (LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t,
+   [> error ])
   result
