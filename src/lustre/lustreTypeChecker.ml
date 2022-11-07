@@ -856,7 +856,6 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
   Debug.parse "TC declaration node: %a {" LA.pp_print_ident node_name;
   let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
   let ret_ids = LA.SI.of_list (List.map (fun a -> LH.extract_op_ty a |> fst) output_vars) in
-  let common_ids = LA.SI.inter arg_ids ret_ids in
 
   (* check if any of the arg ids or return ids already exist in the typing context.
       Fail if they do. 
@@ -871,8 +870,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
         else R.ok()))
     () (LA.SI.elements arg_ids @ LA.SI.elements ret_ids)
   
-  >> if (SI.is_empty common_ids)
-  then
+  >>
     (Debug.parse "Params: %a (skipping)" LA.pp_print_node_param_list params;
     (* store the input constants passed in the input *)
     let ip_constants_ctx = List.fold_left union ctx
@@ -919,7 +917,6 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
         Debug.parse "TC declaration node %a done }"
           LA.pp_print_ident node_name;
         check_items >> check_lhs_eqns >> R.ok ()))
-  else type_error pos (NodeInputOutputShareIdentifier common_ids)
 
 and do_node_eqn: tc_context -> LA.node_equation -> (unit, [> error]) result = fun ctx ->
   function

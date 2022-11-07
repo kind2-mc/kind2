@@ -1,0 +1,12 @@
+contract C(x:int) returns (y,y:int);
+let
+   guarantee y>=x;
+tel
+
+node N(x:int) returns (y,z: int);
+(*@contract
+  import C(x) returns (y,y);
+*)
+let
+  y = x + 1;
+tel
