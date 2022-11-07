@@ -2613,21 +2613,25 @@ module Global = struct
 
   (* Input format. *)
   type input_format = [
-    `Lustre | `Horn | `Native
+    `Lustre | `Horn | `Native | `VMT | `CMC
   ]
   let input_format_of_string = function
     | "extension" -> `Extension
     | "lustre" -> `Lustre
     | "horn" -> `Horn
     | "native" -> `Native
+    | "vmt" -> `VMT
+    | "cmc" -> `CMC
     | _ -> raise (Arg.Bad "Bad value for --input_format")
   let string_of_input_format = function
     | `Extension -> "extension"
     | `Lustre -> "lustre"
     | `Horn -> "horn"
     | `Native -> "native"
+    | `VMT -> "vmt"
+    | `CMC -> "cmc"
   let input_format_values = [
-    `Lustre ; `Native; `Extension
+    `Lustre ; `Native; `VMT; `CMC; `Extension
   ] |> List.map string_of_input_format |> String.concat ", "
   let input_format_default = `Extension
 
@@ -2650,12 +2654,16 @@ module Global = struct
     if !input_format = `Extension then
       if Filename.check_suffix s ".kind2" then
         input_format := `Native
+      else if Filename.check_suffix s ".vmt" then
+        input_format := `VMT
+      else if Filename.check_suffix s ".cmc" then
+        input_format := `CMC
       else input_format := `Lustre
 
   let input_format () =
     match !input_format with
     | `Extension -> `Lustre
-    | (`Lustre | `Native | `Horn) as f -> f
+    | (`Lustre | `Native | `VMT | `CMC | `Horn) as f -> f
 
 
   (* Output directory. *)

@@ -113,8 +113,17 @@ let setup : unit -> any_input = fun () ->
         )
       )
                    
-      | `Native -> KEvent.log L_debug "Native input detected";
-                   Input (InputSystem.read_input_native in_file)
+      | `Native ->
+        KEvent.log L_debug "Native input detected";
+        Input (InputSystem.read_input_native in_file)
+
+      | `VMT ->
+        KEvent.log L_debug "VMT input detected";
+        Input (InputSystem.read_input_vmt in_file)
+
+      | `CMC ->
+        KEvent.log L_debug "CMC input detected";
+        Input (InputSystem.read_input_cmc in_file)
                    
       | `Horn   -> KEvent.log L_fatal "Horn clauses are not supported." ;
                    KEvent.terminate_log () ;
