@@ -1779,7 +1779,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       | A.Body e -> (match e with
         | A.Assert (p, e) -> (props, eqs, (p, e) :: asserts, is_main)
         | A.Equation (p, l, e) -> (props, (p, l, e) :: eqs, asserts, is_main))
-      | A.AnnotMain flag -> (props, eqs, asserts, flag || is_main)
+      | A.AnnotMain (_, flag) -> (props, eqs, asserts, flag || is_main)
       | A.AnnotProperty (p, n, e) -> ((p, n, e) :: props, eqs, asserts, is_main) 
       | A.IfBlock _ -> (props, eqs, asserts, is_main) 
       | A.FrameBlock _ -> 

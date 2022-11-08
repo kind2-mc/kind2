@@ -346,7 +346,7 @@ let minimize_node_eq id_typ_map ue lst = function
     Some (A.Equation (pos, lhs, expr))
 
 let rec minimize_item id_typ_map ue lst = function
-  | A.AnnotMain b -> [A.AnnotMain b]
+  | A.AnnotMain (p, b) -> [A.AnnotMain (p, b)]
   | A.AnnotProperty (p,str,e) -> [A.AnnotProperty (p,str,e)]
   | A.Body eq -> (
     match minimize_node_eq id_typ_map ue lst eq with

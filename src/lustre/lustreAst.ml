@@ -232,7 +232,7 @@ type node_item =
   | Body of node_equation
   | IfBlock of position * expr * node_item list * node_item list
   | FrameBlock of position * node_equation list * node_item list 
-  | AnnotMain of bool
+  | AnnotMain of position * bool
   | AnnotProperty of position * HString.t option * expr
 
 (* A contract ghost constant. *)
@@ -919,9 +919,9 @@ and pp_print_node_item ppf = function
     (pp_print_list pp_print_node_body " ") nes
     (pp_print_list pp_print_node_item " ") nis
 
-  | AnnotMain true -> Format.fprintf ppf "--%%MAIN;"
+  | AnnotMain (_, true) -> Format.fprintf ppf "--%%MAIN;"
 
-  | AnnotMain false -> Format.fprintf ppf "--!MAIN : false;"
+  | AnnotMain (_, false) -> Format.fprintf ppf "--!MAIN : false;"
 
   | AnnotProperty (_, None, e) ->
     Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 

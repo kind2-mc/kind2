@@ -715,7 +715,7 @@ and normalize_item info map = function
   | IfBlock _ 
   | FrameBlock _ -> 
     assert false
-  | AnnotMain b -> AnnotMain b, empty ()
+  | AnnotMain (pos, b) -> AnnotMain (pos, b), empty ()
   | AnnotProperty (pos, name, expr) ->
     let nexpr, gids = abstract_expr false info map false expr in
     AnnotProperty (pos, name, nexpr), gids

@@ -564,15 +564,15 @@ boolean:
 
     
 main_annot:
-  | MAIN_P_ANNOT ; SEMICOLON { A.AnnotMain true }
-  | MAIN_PSBLOCKSTART ; option (SEMICOLON) ; PSBLOCKEND { A.AnnotMain true }
-  | MAIN_SSBLOCKSTART ; option (SEMICOLON) ; SSBLOCKEND { A.AnnotMain true }
-  | MAIN_B_ANNOT ; COLON ; b = boolean ; SEMICOLON { A.AnnotMain b }
+  | MAIN_P_ANNOT ; SEMICOLON { A.AnnotMain (mk_pos $startpos, true) }
+  | MAIN_PSBLOCKSTART ; option (SEMICOLON) ; PSBLOCKEND { A.AnnotMain (mk_pos $startpos, true) }
+  | MAIN_SSBLOCKSTART ; option (SEMICOLON) ; SSBLOCKEND { A.AnnotMain (mk_pos $startpos, true) }
+  | MAIN_B_ANNOT ; COLON ; b = boolean ; SEMICOLON { A.AnnotMain (mk_pos $startpos, b) }
   | MAIN_PSBLOCKSTART ; COLON ; b = boolean ; option (SEMICOLON) ; PSBLOCKEND {
-    A.AnnotMain b
+    A.AnnotMain (mk_pos $startpos, b)
   }
   | MAIN_SSBLOCKSTART ; COLON ; b = boolean ; option (SEMICOLON) ; SSBLOCKEND {
-    A.AnnotMain b
+    A.AnnotMain (mk_pos $startpos, b)
   }
 
 property:

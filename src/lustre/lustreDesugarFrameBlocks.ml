@@ -200,7 +200,7 @@ match ni with
   | A.Body (Assert (pos, _)) 
   | A.AnnotProperty (pos, _, _)
   | A.Body (Equation (pos, _, _)) -> mk_error pos (MisplacedNodeItemError ni)
-  | A.AnnotMain _ -> mk_error Lib.dummy_pos (MisplacedNodeItemError ni)
+  | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
   
 
 

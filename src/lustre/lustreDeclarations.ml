@@ -1761,14 +1761,14 @@ and eval_node_items inputs outputs locals ctx = function
     eval_node_items inputs outputs locals ctx tl
 
   (* Annotation for main node *)
-  | (A.AnnotMain true) :: tl -> 
+  | (A.AnnotMain (_, true)) :: tl -> 
 
     eval_node_items inputs outputs locals
       (C.set_node_main ctx)
       tl
 
   (* Annotation for main node *)
-  | (A.AnnotMain false) :: tl -> 
+  | (A.AnnotMain (_, false)) :: tl -> 
 
     eval_node_items inputs outputs locals ctx tl
 
