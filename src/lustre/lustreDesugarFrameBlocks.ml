@@ -29,6 +29,7 @@
 module A = LustreAst
 module R = Res
 module LDI = LustreDesugarIfBlocks
+module Chk = LustreTypeChecker
 
 let (let*) = R.(>>=)
 
@@ -225,10 +226,10 @@ let desugar_node_item _ ni = match ni with
     if statements with undefined branches, it fills the branches in by setting
     the variable equal to its previous value (and initialing the 'pre' with the
     given init value). *)
-let desugar_frame_blocks ctx normalized_nodes_and_contracts = 
+let desugar_frame_blocks ctx sorted_node_contract_decls = 
   let desugar_node_decl decl = (match decl with
     | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis2, co) as d)) -> 
-      let* ctx = LDI.get_node_ctx ctx d in
+      let* ctx = Chk.get_node_ctx ctx d in
       let* res = R.seq (List.map (desugar_node_item ctx) nis2) in
       let decls, nis = List.split res in
       R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, 
@@ -243,4 +244,4 @@ let desugar_frame_blocks ctx normalized_nodes_and_contracts =
       )
     | _ -> R.ok decl
   ) in
-  R.seq (List.map desugar_node_decl normalized_nodes_and_contracts)
+  R.seq (List.map desugar_node_decl sorted_node_contract_decls)

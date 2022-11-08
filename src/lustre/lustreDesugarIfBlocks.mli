@@ -42,10 +42,6 @@ type error = [
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
 ]
 
-val get_node_ctx : TypeCheckerContext.tc_context ->
-  'a * 'b * 'c * LustreAst.const_clocked_typed_decl list * LustreAst.clocked_typed_decl list *
-  LustreAst.node_local_decl list * 'd * 'e -> (TypeCheckerContext.tc_context, [> LustreTypeChecker.error ]) result
-
 val desugar_if_blocks : 
 TypeCheckerContext.tc_context ->
   LustreAst.declaration list ->
