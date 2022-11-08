@@ -4,10 +4,12 @@ let
 
    y1 = 2;
 
-   def ( y2 = 3; )
+   frame ( y2 )
+   y2 = 3;
+   let
       assert x > 0;
       y2 = pre x;
-   fed
+   tel
 tel;
 
 node oscillate() returns (Z: bool)

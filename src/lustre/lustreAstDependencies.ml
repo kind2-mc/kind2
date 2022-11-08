@@ -474,7 +474,7 @@ let extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
         (get_node_call_from_expr e) @ 
         ((List.map (helper acc) l1) |> List.flatten) @
         ((List.map (helper acc) l2) |> List.flatten)
-      | FrameBlock (_, nes, nis) ->
+      | FrameBlock (_, _, nes, nis) ->
         ((List.map (helper acc) (List.map (fun x -> LA.Body x) nes)) |> List.flatten) @
         ((List.map (helper acc) nis) |> List.flatten)
       | _ -> []) @ acc) in

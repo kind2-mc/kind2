@@ -139,8 +139,7 @@ let mk_span start_pos end_pos =
 %token OR
 %token IF
 %token FI
-%token DEF
-%token FED 
+%token FRAME
 %token WITH
 %token THEN
 %token ELSE
@@ -621,10 +620,12 @@ node_if_block:
 
 
 node_frame_block:
-  | DEF; LPAREN; l1 = list(node_equation); RPAREN;
-    l2 = list(node_item);
-    FED;
-  { A.FrameBlock (mk_pos $startpos, l1, l2) }
+  | FRAME; LPAREN; l1 = separated_list(COMMA, ident); RPAREN;
+    l2 = list(node_equation);
+    LET;
+    l3 = list(node_item);
+    TEL;
+  { A.FrameBlock (mk_pos $startpos, l1, l2, l3) }
 
 
 (* An equations of a node *)

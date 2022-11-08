@@ -4,7 +4,9 @@ let
   p2 = (true);
   --%PROPERTY p1;
 
-  def ( y1 = 5; y2 = false; )
+  frame ( y1, y2 )
+  y1 = 5; y2 = false;
+  let
     if oscillate(true)
     then
       y1 = pre counter(0);
@@ -13,7 +15,7 @@ let
     fi
 
     y2 = pre oscillate(true);
-  fed
+  tel
 
   
 tel;

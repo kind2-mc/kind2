@@ -640,7 +640,7 @@ let rec node_item_has_pre_or_arrow = function
     | None -> node_item_list_has_pre_or_arrow l2
     )
   )
-| FrameBlock (_, nes, nis) -> 
+| FrameBlock (_, _, nes, nis) -> 
   let nes = List.map (fun x -> Body x) nes in 
   (match node_item_list_has_pre_or_arrow nes with
     | Some pos -> Some pos
@@ -805,7 +805,7 @@ let rec vars_lhs_of_eqn_with_pos = function
   | IfBlock (_, _, l1, l2) -> 
     List.flatten (List.map vars_lhs_of_eqn_with_pos l1) @
     List.flatten (List.map vars_lhs_of_eqn_with_pos l2)
-  | FrameBlock (_, nes, nis) ->
+  | FrameBlock (_, _, nes, nis) ->
     List.flatten (List.map vars_lhs_of_eqn_with_pos (List.map (fun x -> Body x) nes)) @
     List.flatten (List.map vars_lhs_of_eqn_with_pos nis)
   | _ -> [] 
@@ -1122,7 +1122,7 @@ let extract_equation: node_item list -> node_equation list =
     | IfBlock (_, _, l1, l2) -> 
       List.flatten (List.map extract_equation_helper l1) @ 
       List.flatten (List.map extract_equation_helper l2)
-    | FrameBlock (_, nes, nis) -> 
+    | FrameBlock (_, _, nes, nis) -> 
       nes @ List.flatten (List.map extract_equation_helper nis)
     | AnnotMain _ -> []
     | AnnotProperty _ -> [])

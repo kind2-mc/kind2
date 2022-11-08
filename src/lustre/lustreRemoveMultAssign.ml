@@ -238,7 +238,7 @@ let remove_mult_assign_from_ni ctx ni =
         (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
         R.ok (nis1 @ nis3, [A.IfBlock (pos, e, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2)
 
-      | FrameBlock (pos, nes, nis) -> 
+      | FrameBlock (pos, vars, nes, nis) -> 
         let nes = List.map (fun x -> A.Body x) nes in 
         let* res1 = R.seq (List.map (helper ctx) nes) in
         let nis1, nis2, decls1, ctx1 = split_and_flatten4 res1 in
@@ -248,7 +248,7 @@ let remove_mult_assign_from_ni ctx ni =
           (fun x -> match x with | A.Body (Equation _ as e) -> e | _ -> assert false) 
           nis2 in
         (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
-        R.ok (nis1 @ nis3, [A.FrameBlock (pos, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2)
+        R.ok (nis1 @ nis3, [A.FrameBlock (pos, vars, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2)
       
       (* Misplaced assert, annotmain, annotproperty in if block*)
       | A.Body (Assert (pos, _)) 

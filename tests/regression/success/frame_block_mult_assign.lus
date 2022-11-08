@@ -25,7 +25,9 @@ let
 
 
 
-  def ( (y1, y2) = counter2(x); y3 = 0; )
+  frame ( y1, y2, y3 )
+  (y1, y2) = counter2(x); y3 = 0;
+  let
     if (oscillate(true))
     then 
       y1 = counter(0);
@@ -33,27 +35,31 @@ let
     else 
       y1 = counter(100);
     fi
-  fed
+  tel
   
 
-  def ( y4 = counter(0); y5 = counter(0); y6 = 0; )
+  frame ( y4, y5, y6 )
+  y4 = counter(0); y5 = counter(0); y6 = 0;
+  let
     if (oscillate(true))
     then 
       (y4, y5) = counter2(0);
     else 
       y4 = counter(100);
     fi
-  fed
+  tel
 
   
-  def ( (y7, y8) = counter2(x); y9 = 0; )
+  frame ( y7, y8, y9 )
+  (y7, y8) = counter2(x); y9 = 0;
+  let
     if (oscillate(true))
     then 
       (y7, y8) = counter2(0);
     else 
       y7 = counter(100);
     fi
-  fed
+  tel
   
 tel;
 

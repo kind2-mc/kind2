@@ -1,9 +1,7 @@
 node test(x: int) returns (y1: int; y2: int^3; y3: int; y4: int^3; y5: int; y6: int^3;
                           p1, p2, p3, p4, p5, p6: bool);
 let 
-(* Commented out until circular dependency issue is fixed *)
-  check true;
-(*
+
   p1 = (y1 = 5);
   p2 = (y2[2] = 4);
   p3 = (y3 = 4);
@@ -19,27 +17,33 @@ let
   check p6;
 
   
-  def ( y1 = 4; y2[i] = if i = 0 then 0 else y2[i-1] + 1; )
+  frame ( y1, y2 )
+  y1 = 4; y2[i] = if i = 0 then 0 else y2[i-1] + 1;
+  let
     if (oscillate())
     then
       y1 = 5;
       y2[i] = if i = 0 then 0 else y2[i-1] + 2;
     fi
-  fed
+  tel
   
-  def ( (y3, y4[i]) = (4, if i = 0 then 0 else y4[i-1] + 1); )
+  frame ( y3, y4 )
+  (y3, y4[i]) = (4, if i = 0 then 0 else y4[i-1] + 1);
+  let
     y3 = 4;
     y4[i] = if i = 0 then 0 else y4[i-1] + 1;
-  fed
+  tel
 
-  def ( (y5, y6[i]) = (4, if i = 0 then 0 else y6[i-1] + 1); )
+  frame ( y5, y6 )
+  (y5, y6[i]) = (4, if i = 0 then 0 else y6[i-1] + 1);
+  let
     if (oscillate())
     then
       y5 = 4;
       y6[i] = if i = 0 then 0 else y6[i-1] + 1;
     fi
-  fed
-  *)
+  tel
+  
 tel
 
 node oscillate() returns (y: bool);

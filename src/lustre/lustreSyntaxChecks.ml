@@ -54,6 +54,7 @@ type error_kind = Unknown of string
   | UnsupportedAssignment
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
+  | MisplacedVarInFrameBlock of LustreAst.ident
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -91,6 +92,7 @@ let error_message kind = match kind with
   | UnsupportedAssignment -> "Assignment not supported"
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
+  | MisplacedVarInFrameBlock id -> "Misplaced var '" ^ HString.string_of_hstring id ^ "' is not declared in the frame block header"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -304,11 +306,12 @@ let locals_must_have_definitions locals items =
       (match x1, x2 with
         | Some _, Some _ -> true
         | _ -> false)
-    | LA.FrameBlock (_, nes, _) -> 
+    | LA.FrameBlock (_, vars, _, _) -> (
       (* Check if local is defined in initialization of frame block *)
-      let nes = List.map (fun x -> LA.Body x) nes in
-      let x = List.find_opt (fun item -> find_local_def id item) nes in
-      (match x with | Some _ -> true | None -> false)
+      match List.find_opt (fun var -> var = id) vars with
+        | Some _ -> true
+        | None -> false
+      )
     | LA.AnnotMain _ -> false
     | LA.AnnotProperty _ -> false
   in
@@ -611,9 +614,11 @@ and check_items ctx f items =
         >> (expr_only_supported_in_merge false e)
     | LA.IfBlock (_, e, l1, l2) -> 
       check_expr ctx f e >> (check_items ctx f l1) >> (check_items ctx f l2)
-    | LA.FrameBlock (_, nes, nis) ->
+    | LA.FrameBlock (pos, vars, nes, nis) ->
       let nes = List.map (fun x -> LA.Body x) nes in
-      check_items ctx f nes >> (check_items ctx f nis)
+      check_items ctx f nes >> (check_items ctx f nis) >>
+      (*  Make sure 'nes' and 'nis' LHS vars are in 'vars' *)
+      (Res.seq_ (List.map (check_frame_vars pos vars) nis)) >> (Res.seq_ (List.map (check_frame_vars pos vars) nes))
     | Body (Assert (_, e))
     | AnnotProperty (_, _, e) -> check_expr ctx f e
     | AnnotMain _ -> Ok ()
@@ -631,6 +636,17 @@ and check_struct_items ctx items =
   | (FieldSelection (pos, _, _)) :: _
   | (ArraySliceStructItem (pos, _, _)) :: _
     -> syntax_error pos UnsupportedAssignment
+
+(* Make sure vars in the LHS of 'ni' appear somehwere in 'vars' *)
+and check_frame_vars pos vars ni = 
+  let vars_of_ni = List.map snd (LAH.vars_lhs_of_eqn_with_pos ni) in
+  (* 'find_vars' stores the original variables from 'vars_of_ni' and their corresponding
+     variables found in 'vars', if they exist *)
+  let find_vars = List.map (fun var1 -> (var1, (List.find_opt (fun var2 -> var2 = var1) vars))) vars_of_ni in
+  let no_match = List.filter (fun x -> match x with | (_, None) -> true | (_, Some _) -> false) find_vars in
+  match no_match with
+    | [] -> Res.ok ()
+    | (var, _) :: _ -> syntax_error pos (MisplacedVarInFrameBlock var)
 
 and check_contract is_contract_node ctx f contract =
   let ctx = build_contract_ctx ctx contract in

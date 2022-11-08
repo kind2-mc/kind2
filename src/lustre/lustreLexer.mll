@@ -273,8 +273,7 @@ let keyword_table = mk_hashtbl [
   "or", OR ;
   "if", IF ;
   "fi", FI ;
-  "def", DEF ;
-  "fed", FED ; 
+  "frame", FRAME ; 
   "then", THEN ;
   "else", ELSE ;
   "with", WITH ;

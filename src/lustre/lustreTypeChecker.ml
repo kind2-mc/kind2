@@ -953,7 +953,7 @@ and do_item: tc_context -> LA.node_item -> (unit, [> error]) result = fun ctx ->
       | Bool _ -> (R.seq_ ((List.map (do_item ctx) l1) @ (List.map (do_item ctx) l2)))
       | e_ty -> type_error pos  (ExpectedBooleanExpression e_ty)
     )
-  | LA.FrameBlock (_, nes, nis) -> 
+  | LA.FrameBlock (_, _, nes, nis) -> 
     R.seq_ ((List.map (do_node_eqn ctx) nes) @ (List.map (do_item ctx) nis))
   | LA.AnnotMain _ as ann ->
     Debug.parse "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann

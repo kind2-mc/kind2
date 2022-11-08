@@ -4,12 +4,14 @@ let
 
 if oscillate()
 then
-   def ( y2 = 3; )
+   frame ( y2 )
+   y2 = 3;
+   let
       if x > 0
       then
          y2 = 4;
       fi
-   fed
+   tel
    y1 = 2;
 else
    y1 = 3;

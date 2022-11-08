@@ -521,6 +521,6 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
     | _ -> false); 
   mk_test "Uninitialized node item inside frame block" (fun () ->
     match load_file "./lustreSyntaxChecks/uninitialized_node_item_frame.lus" with
-    | Error (`LustreDesugarFrameBlocksError (_, InitializationNotFoundError _)) -> true
+    | Error (`LustreSyntaxChecksError (_, MisplacedVarInFrameBlock _)) -> true
     | _ -> false);  
 ])

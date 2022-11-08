@@ -6,7 +6,9 @@ let
   --%PROPERTY p2;
 
 
-  def ( y2 = 0; y1 = 0; y3 = 0; )
+  frame ( y2, y1, y3 )
+  y2 = 0; y1 = 0; y3 = 0;
+  let
     if (oscillate(true))
     then 
       y1 = counter(0);
@@ -14,7 +16,7 @@ let
       y1 = counter(100);
       y2 = counter(0);
     fi
-  fed
+  tel
 tel
 
 node counter(x: int) returns (y: int);

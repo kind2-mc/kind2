@@ -141,7 +141,7 @@ let if_block_to_trees ib =
                    conds)
           (* Misplaced frame block, annot main, or annot property *)
           | A.Body (Assert (pos, _)) 
-          | A.FrameBlock (pos, _, _)
+          | A.FrameBlock (pos, _, _, _)
           | A.AnnotProperty (pos, _, _) 
           | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
         )
@@ -164,7 +164,7 @@ let if_block_to_trees ib =
                    res
                    conds)
           (* Misplaced frame block, annot main, or annot property *)
-          | A.FrameBlock (pos, _, _)
+          | A.FrameBlock (pos, _, _, _)
           | A.Body (Assert (pos, _)) 
           | A.AnnotProperty (pos, _, _)
           | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
@@ -304,10 +304,10 @@ let extract_equations_from_if ctx ib =
 *)
 let rec desugar_node_item ctx ni = match ni with
   | A.IfBlock _ as ib -> extract_equations_from_if ctx ib
-  | A.FrameBlock (pos, nes, nis) -> 
+  | A.FrameBlock (pos, vars, nes, nis) -> 
     let* res = R.seq (List.map (desugar_node_item ctx) nis) in
     let decls, nis, gids = split_and_flatten3 res in
-    R.ok (decls, [A.FrameBlock(pos, nes, nis)], gids)
+    R.ok (decls, [A.FrameBlock(pos, vars, nes, nis)], gids)
   | _ -> R.ok ([], [ni], [GI.empty ()])
 
 

@@ -197,10 +197,10 @@ match ni with
   (* The following node items should not be in frame blocks. In particular,
      if blocks should have been desugared earlier in the pipeline. *)
   | A.IfBlock (pos, _, _, _) 
-  | A.FrameBlock (pos, _, _) 
+  | A.FrameBlock (pos, _, _, _) 
   | A.Body (Assert (pos, _)) 
   | A.AnnotProperty (pos, _, _)
-  | A.Body (Equation (pos, _, _)) -> mk_error pos (MisplacedNodeItemError ni)
+  | A.Body (Equation (pos, _, _))
   | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
   
 
@@ -213,7 +213,7 @@ match ni with
 *)
 let desugar_node_item _ ni = match ni with
     (* All multiple assignment is removed in lustreDesugarIfBlocks.ml *)
-  | A.FrameBlock (_, nes, nis) ->
+  | A.FrameBlock (_, _, nes, nis) ->
     let* nis = R.seq (List.map (fill_ite_oracles nes) nis) in
     let* nis2 = R.seq (List.map (generate_undefined_nes nis) nes) in
     let nis2 = List.flatten nis2 in 
@@ -239,7 +239,7 @@ let desugar_frame_blocks ctx sorted_node_contract_decls =
     | A.FuncDecl (_, ((_, _, _, _, _, _, nis, _))) -> (
       let contains_frame_block = List.find_opt (fun ni -> match ni with | A.FrameBlock _ -> true | _ -> false) nis in
       match contains_frame_block with
-        | Some (FrameBlock (pos, _, _) as fb) -> mk_error pos (MisplacedFrameBlockError fb)
+        | Some (FrameBlock (pos, _, _, _) as fb) -> mk_error pos (MisplacedFrameBlockError fb)
         | _ -> R.ok decl
       )
     | _ -> R.ok decl
