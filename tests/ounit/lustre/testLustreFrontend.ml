@@ -127,7 +127,7 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
 (* *************************************************************************** *)
 (*                   Lustre Ast Array Dependencies Checks                      *)
 (* *************************************************************************** *)
-(*let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
+let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
   mk_test "test invalid inductive array def 1" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array1.lus" with
     | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
@@ -172,7 +172,7 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreArrayDependencies/inductive_array11.lus" with
     | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
     | _ -> false);
-])*)
+])
 
 (* *************************************************************************** *)
 (*                      Lustre Ast Dependencies Checks                         *)
@@ -299,6 +299,16 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
   
   mk_test "test ghost variable redeclaration" (fun () ->
     match load_file "./lustreAstDependencies/ghost_variable_redeclaration3.lus" with
+    | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
+    | _ -> false);
+
+  mk_test "test node input redeclaration" (fun () ->
+    match load_file "./lustreAstDependencies/node_input_redeclaration.lus" with
+    | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
+    | _ -> false);
+
+  mk_test "test contract output redeclaration" (fun () ->
+    match load_file "./lustreAstDependencies/contract_output_redeclaration.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
 ])

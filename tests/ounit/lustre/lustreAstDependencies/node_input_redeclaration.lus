@@ -1,0 +1,5 @@
+
+node N(x,x: int) returns (y:int);
+let
+   y = x + 1;
+tel

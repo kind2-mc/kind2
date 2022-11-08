@@ -1,0 +1,6 @@
+node test() returns(y: int^3);
+let
+  y[i] = 0 -> (if i=0 then pre y[i]+1 else y[(i - 1)]);
+
+  check y[1]=0 -> y[1]>0;
+tel;
