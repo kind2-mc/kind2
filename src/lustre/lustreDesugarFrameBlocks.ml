@@ -68,10 +68,15 @@ let rec fill_ite_helper init fill ung = function
     if (str = "iboracle") then fill else A.Ident(pos, i)
 
   (* Guard unguarded pres *)
-  | Pre (a, e) -> 
-    if ung
-    then Arrow(a, init, Pre (a, (fill_ite_helper init fill true) e))
-    else Pre (a, (fill_ite_helper init fill true) e)  
+  | Pre (a, e) -> (
+      match init with
+        | Some init -> (
+          if ung
+          then Arrow(a, init, Pre (a, (fill_ite_helper (Some init) fill true) e))
+          else Pre (a, (fill_ite_helper (Some init) fill true) e)
+        ) 
+        | None -> Pre (a, (fill_ite_helper init fill true) e)
+    )
   | Arrow (a, e1, e2) -> Arrow (a, fill_ite_helper init fill ung e1, fill_ite_helper init fill false e2)
 
 
@@ -127,7 +132,7 @@ let rec fill_ite_helper init fill ung = function
     fill_ite_helper init fill ung e2)
 
 (** Helper function to generate node equations when a variable in the 
-    frame block guard is left undefined in the frame block body. *)
+    frame block var list is left undefined in the frame block body. *)
 let generate_undefined_nes nis ne = match ne with
   | A.Equation (pos, (StructDef(_, [SingleIdent(_, id)]) as lhs), init) -> 
     (* Find the corresponding node item in frame block body. *)
@@ -163,6 +168,30 @@ let generate_undefined_nes nis ne = match ne with
   | A.Equation(pos, _, _) -> mk_error pos (MisplacedNodeItemError (A.Body ne))
   | A.Assert(pos, _) -> mk_error pos (MisplacedNodeItemError (A.Body ne))
 
+
+(** Helper function to generate node equations when a variable in the 
+    frame block var list is left undefined in the frame block body AND has 
+    no initialization. *)
+let generate_undefined_nes_no_init pos nes nis var = 
+    (* Find var's corresponding node item in frame block body. *)
+    let res = List.find_opt (fun ni -> match ni with
+      | A.Body (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when i = var -> true
+      | A.Body (A.Equation (_, StructDef(_, [ArrayDef(_, i, _)]), _)) when i = var -> true
+      (* Check to see if var has an initialization*)
+      | _ -> match (List.find_opt (fun ne -> match ne with
+        | (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when i = var -> true
+        | (A.Equation (_, StructDef(_, [ArrayDef(_, i, _)]), _)) when i = var -> true
+        | _ -> false
+      ) nes) with | Some _ -> true | None -> false
+    ) nis in (
+    match res with
+      (* Already defined in frame block body or initialization*)
+      | Some _ -> R.ok []
+      (* Fill in equation in frame block body *)
+      | None -> R.ok [A.Body(A.Equation(pos, StructDef(pos, [SingleIdent (pos, var)]), Pre(pos, Ident (pos, var))))]
+    )
+
+
 (** Helper function to fill in ITE oracles and guard unguarded pres. *)
 let fill_ite_oracles nes ni = 
 match ni with
@@ -175,11 +204,16 @@ match ni with
     (match init with
       | Some init ->     
         R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
-                                init
+                                (Some init)
                                 (A.Arrow (pos, init, (A.Pre (pos2, Ident(pos2, i)))))
                                 true
                                 e)))
-      | None -> mk_error pos (InitializationNotFoundError ni))
+      | None -> 
+        R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
+                                None
+                                (A.Pre (pos2, Ident(pos2, i)))
+                                true
+                                e))))
   | A.Body (Equation (pos, (StructDef(_, [ArrayDef(pos2, i1, i2)]) as lhs), e)) ->
   (* Find initialization value *)
   let array_index = List.fold_left (fun expr j -> A.ArrayIndex(pos, expr, A.Ident(pos, j))) (A.Ident(pos, i1)) i2 in
@@ -188,12 +222,18 @@ match ni with
     | _ -> None
   ) nes in 
   (match init with
-    | Some init -> R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
-                         init
-                        (A.Arrow (pos, init, (A.Pre (pos2, array_index))))
+    | Some init -> 
+      R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
+                         (Some init)
+                         (A.Arrow (pos, init, (A.Pre (pos2, array_index))))
                          true
                          e)))
-    | None -> mk_error pos (InitializationNotFoundError ni))
+    | None -> 
+      R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
+                         None
+                         (A.Pre (pos2, array_index))
+                         true
+                         e))))
   (* The following node items should not be in frame blocks. In particular,
      if blocks should have been desugared earlier in the pipeline. *)
   | A.IfBlock (pos, _, _, _) 
@@ -213,11 +253,13 @@ match ni with
 *)
 let desugar_node_item _ ni = match ni with
     (* All multiple assignment is removed in lustreDesugarIfBlocks.ml *)
-  | A.FrameBlock (_, _, nes, nis) ->
+  | A.FrameBlock (pos, vars, nes, nis) ->
     let* nis = R.seq (List.map (fill_ite_oracles nes) nis) in
     let* nis2 = R.seq (List.map (generate_undefined_nes nis) nes) in
     let nis2 = List.flatten nis2 in 
-    R.ok ([], nis @ nis2)
+    let* nis3 = R.seq (List.map (generate_undefined_nes_no_init pos nes nis) vars) in
+    let nis3 = List.flatten nis3 in
+    R.ok ([], nis @ nis2 @ nis3)
   | _ -> R.ok ([], [ni])
 
 
