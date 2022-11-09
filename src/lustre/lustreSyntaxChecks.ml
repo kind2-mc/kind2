@@ -37,6 +37,8 @@ module StringMap = Map.Make(
 
 type error_kind = Unknown of string
   | UndefinedLocal of HString.t
+  | DuplicateLocal of HString.t
+  | DuplicateOutput of HString.t
   | UndefinedNode of HString.t
   | DanglingIdentifier of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
@@ -64,6 +66,10 @@ let error_message kind = match kind with
   | Unknown s -> s
   | UndefinedLocal id -> "Local variable '"
     ^ HString.string_of_hstring id ^ "' has no definition"
+  | DuplicateLocal id -> "Local variable '"
+    ^ HString.string_of_hstring id ^ "' has more than one definition"
+  | DuplicateOutput id -> "Output variable '"
+    ^ HString.string_of_hstring id ^ "' has more than one definition"
   | UndefinedNode id -> "Node or function '"
     ^ HString.string_of_hstring id ^ "' is undefined"
   | DanglingIdentifier id -> "Unknown identifier '"
@@ -275,55 +281,69 @@ let build_equation_ctx ctx = function
       | _ -> ctx
     in
     List.fold_left over_items ctx items
+    
+let rec find_var_def_count_lhs id = function
+  | LA.SingleIdent (_, id')
+  | TupleSelection (_, id', _)
+  | FieldSelection (_, id', _)
+  | ArraySliceStructItem (_, id', _)
+  | ArrayDef (_, id', _)
+    -> if id = id' then 1 else 0
+  | TupleStructItem (_, items) ->
+    List.map (find_var_def_count_lhs id) items
+    |> List.fold_left (+) 0
 
-let locals_must_have_definitions locals items =
-  let rec find_local_def_lhs id test = function
-    | LA.SingleIdent (_, id')
-    | TupleSelection (_, id', _)
-    | FieldSelection (_, id', _)
-    | ArraySliceStructItem (_, id', _)
-    | ArrayDef (_, id', _)
-      -> test || id = id'
-    | TupleStructItem (_, items) ->
-      let test_items = items |> List.map (find_local_def_lhs id test)
-        |> List.fold_left (fun x y -> x || y) false
-      in
-      test || test_items
-  in
+let rec find_var_def_count id = function
+  | LA.Body eqn -> (match eqn with
+    | LA.Assert _ -> 0
+    | LA.Equation (_, lhs, _) -> (match lhs with
+      | LA.StructDef (_, vars)
+        -> List.map (find_var_def_count_lhs id) vars) |> List.fold_left (+) 0)
+  | LA.IfBlock (_, _, l1, l2) ->
+    let x1 = List.map (find_var_def_count id) l1 |> List.fold_left (+) 0 in
+    let x2 = List.map (find_var_def_count id) l2 |> List.fold_left (+) 0 in
+    (* Detect duplicate definitions in the same branch *)
+    if (x1 > 1 || x2 > 1) then 2
+    (* Local is defined in at least one branch *)
+    else if (x1 = 1 || x2 = 1) then 1
+    (* Local isn't defined in this if block *)
+    else 0
+  | LA.FrameBlock (_, vars, nes, nis) -> (
+    let nes = List.map (fun x -> (LA.Body x)) nes in
+    let x1 = List.filter (fun var -> var = id) vars |> List.length in
+    let x2 = List.map (find_var_def_count id) nis |> List.fold_left (+) 0 in
+    let x3 = List.map (find_var_def_count id) nes |> List.fold_left (+) 0 in
+    if (x1 + x2 + x3 = 0) 
+    then 0 
+    (* Detect duplicate definitions in any components of the frame block *)
+    else if (x1 > 1 || x2 > 1 || x3 > 1) then 2
+    else 1
+  )
+  | LA.AnnotMain _ -> 0
+  | LA.AnnotProperty _ -> 0
 
-  (* See if *)
-  let rec find_local_def id = function
-    | LA.Body eqn -> (match eqn with
-      | LA.Assert _ -> false
-      | LA.Equation (_, lhs, _) -> (match lhs with
-        | LA.StructDef (_, vars)
-          -> List.fold_left (find_local_def_lhs id) false vars))
-    (* Local has to be defined in both branches of "if" block *)
-  (*| LA.IfBlock (_, l1, l2) -> find_local_def_list id l1 && find_local_def_list id l2 *)
-    | LA.IfBlock (_, _, l1, l2) ->
-      let x1 = List.find_opt (fun item -> find_local_def id item) l1 in
-      let x2 = List.find_opt (fun item -> find_local_def id item) l2 in
-      (match x1, x2 with
-        | Some _, Some _ -> true
-        | _ -> false)
-    | LA.FrameBlock (_, vars, _, _) -> (
-      (* Check if local is defined in initialization of frame block *)
-      match List.find_opt (fun var -> var = id) vars with
-        | Some _ -> true
-        | None -> false
-      )
-    | LA.AnnotMain _ -> false
-    | LA.AnnotProperty _ -> false
-  in
+let locals_exactly_one_definition locals items =
   let over_locals = function
     | LA.NodeConstDecl _ -> Ok ()
     | LA.NodeVarDecl (_, (pos, id, _, _)) ->
-      let test = List.find_opt (fun item -> find_local_def id item) items in
-      match test with
-      | Some _ -> Ok ()
-      | None -> syntax_error pos (UndefinedLocal id)
+      let def_count = (List.map (find_var_def_count id) items) |> List.fold_left (+) 0 in
+      match def_count with
+      | 1 -> Ok ()
+      | 0 -> syntax_error pos (UndefinedLocal id)
+      | _ -> syntax_error pos (DuplicateLocal id)
   in
   Res.seq (List.map over_locals locals)
+
+let outputs_at_most_one_definition outputs items =
+  let over_outputs = function
+  | (pos, id, _, _) ->
+    let def_count = List.map (find_var_def_count id) items |> List.fold_left (+) 0 in
+    match def_count with
+      | 0 
+      | 1 -> Ok ()
+      | _ -> syntax_error pos (DuplicateOutput id)
+  in
+  Res.seq (List.map over_outputs outputs)
 
 let no_dangling_calls ctx = function
   | LA.Condact (pos, _, _, i, _, _)
@@ -562,7 +582,8 @@ and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
   (parametric_nodes_unsupported span.start_pos params)
-  >> (locals_must_have_definitions locals items)
+  >> (locals_exactly_one_definition locals items)
+    >> (outputs_at_most_one_definition outputs items)
     >> (check_items ctx common_node_equations_checks items)
     >> (match contract with 
     | Some c -> check_contract false ctx common_contract_checks c
@@ -637,7 +658,7 @@ and check_struct_items ctx items =
   | (ArraySliceStructItem (pos, _, _)) :: _
     -> syntax_error pos UnsupportedAssignment
 
-(* Make sure vars in the LHS of 'ni' appear somehwere in 'vars' *)
+(* Within a frame block, make sure vars in the LHS of 'ni' appear somehwere in 'vars'  *)
 and check_frame_vars pos vars ni = 
   let vars_of_ni = List.map snd (LAH.vars_lhs_of_eqn_with_pos ni) in
   (* 'find_vars' stores the original variables from 'vars_of_ni' and their corresponding
