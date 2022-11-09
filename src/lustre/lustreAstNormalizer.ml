@@ -805,8 +805,19 @@ and normalize_item info map = function
     Body nequation, gids
   | AnnotMain b -> AnnotMain b, empty ()
   | AnnotProperty (pos, name, expr) ->
+    let name' =
+      match name with
+      | None -> (
+        let hs_expr =
+          Format.asprintf "@[<h>%a@]" A.pp_print_expr expr
+          |> HString.mk_hstring
+        in
+        Some hs_expr
+      )
+      | Some _ as n -> n
+    in
     let nexpr, gids = abstract_expr false info map false expr in
-    AnnotProperty (pos, name, nexpr), gids
+    AnnotProperty (pos, name', nexpr), gids
 
 and rename_ghost_variables info node_id contract =
   let sep = HString.mk_hstring "_contract_" in
