@@ -224,9 +224,9 @@ let print_nodes_and_globals nodes globals =
       globals.LG.state_var_bounds
       [])
   (pp_print_list LustreNode.pp_print_node_debug ";@ ") nodes
-  (pp_print_list LustreNode.pp_print_state_var_instances_debug ";@") nodes
-  (pp_print_list LustreNode.pp_print_state_var_defs_debug ";@") nodes
-  (pp_print_list StateVar.pp_print_state_var_debug ";@")
+  (pp_print_list LustreNode.pp_print_state_var_instances_debug ";@ ") nodes
+  (pp_print_list LustreNode.pp_print_state_var_defs_debug ";@ ") nodes
+  (pp_print_list StateVar.pp_print_state_var_debug ";@ ")
     (nodes |> List.map (fun n -> LustreNode.get_all_state_vars n @ n.oracles)
       |> List.flatten)
 
