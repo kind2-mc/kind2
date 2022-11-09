@@ -74,7 +74,7 @@ type system_def = {
   inv:  HS.t option;
 
   (*          ( sys_name * ( local_name * inputs list) list ) list    *)
-  subsystems: (HString.t * (HString.t * HS.t list) list) list;
+  subsystems: (HString.t * (HString.t * HString.t list) list) list;
 }
 
 let empty_system_def = {
@@ -280,19 +280,26 @@ let rec process_define_system (sys_def: system_def) attrs =
     in
     (* Fail if local name is already defined for this sys *)
     validate_local_name ;
+
+    let inputs = subsys_inputs |> List.map (fun input -> match input with
+        | HS.Atom input_name -> input_name
+        | other -> failwith  (Format.asprintf "Parameters of a subsystem must be a variable name. %a of subsystem call %s is not " (HS.pp_print_sexpr) other (HString.string_of_hstring subsys_name))
+        ) in
+    
     match List.assoc_opt subsys_name sys_def.subsystems with
     (* subsys has one or more local defs*)
     | Some subsys -> (
       (* Prevent duplicates from being in list, important later when traversing list*)
       let others = List.remove_assoc subsys_name sys_def.subsystems in
+      
       process_define_system
-        { sys_def with subsystems = ((subsys_name, (local_synonym_name, subsys_inputs) :: subsys) :: others)}
+        { sys_def with subsystems = ((subsys_name, (local_synonym_name, inputs) :: subsys) :: others)}
         other
       )
     (* create first local def for given subsystem *)
     | None -> (
       process_define_system
-      { sys_def with subsystems = ((subsys_name, (local_synonym_name, subsys_inputs) :: []) :: sys_def.subsystems)}
+      { sys_def with subsystems = ((subsys_name, (local_synonym_name, inputs) :: []) :: sys_def.subsystems)}
       other
     )
   )
@@ -494,7 +501,7 @@ let mk_inst local_name sys_state_vars subsys_state_vars =
       guard_clock = (fun _ t -> t);
       assumes = None }
 
-let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys_name init_flag (subsystems: (HString.t * (HString.t * HS.t list) list) list) (symb_svars: (HString.t * StateVar.t) list) = 
+let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys_name init_flag (subsystems: (HString.t * (HString.t * HString.t list) list) list) (symb_svars: (HString.t * StateVar.t) list) = 
   subsystems |> List.map (fun (subsystem_name, local_defs) ->
     (* TODO if sys var names are not defined in parents it wont fail here, but it will fail much later on
       May want to add checking here so we can fail earlier. *)
@@ -506,17 +513,21 @@ let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys
     let subsys_output_svars = get_svars subsys_trans_def.symb_svars subsys_trans_def.cmc_sys_def.output in
     let subsys_local_svars = get_svars subsys_trans_def.symb_svars subsys_trans_def.cmc_sys_def.local in
     
-    let transys_input_svars = get_svars symb_svars subsys_trans_def.cmc_sys_def.input in
-    let transys_output_svars = get_svars symb_svars subsys_trans_def.cmc_sys_def.output in
+    (* These are the svars that are passed as positional parms to the subsystem call *)
 
-    let local_instances = local_defs |> List.map (fun (local_name, vars) -> 
+    let local_instances = local_defs |> List.map (fun (local_name, parameters) -> 
+      (* These are the svars that are passed as positional parms to the subsystem call *)
+      let transys_parameters = parameters |> List.map (fun parameter -> List.assoc parameter symb_svars)  in
+
+      (* These are the local vars that must be created then passed as positional parms to the subsystem call *)
       let init_local = mk_var sys_name false (HString.concat2 local_name (HString.mk_hstring "_init"), Type.t_bool) in
       let renamed_locals = (subsys_trans_def.cmc_sys_def.local) |> 
         (List.map (fun (name, var_type) -> ((HString.concat (HString.mk_hstring "_") ( local_name :: name :: []) ), var_type)) ) in
       let new_transys_locals = mk_vars sys_name false (renamed_locals) in
 
       let subsys_svars = (subsys_init_svar :: subsys_input_svars @ subsys_output_svars @ subsys_local_svars)  in 
-      let transys_svars = ((snd init_local) :: transys_input_svars @ transys_output_svars @ (List.map snd new_transys_locals)) in
+      
+      let transys_svars = ((snd init_local) :: transys_parameters @ (List.map snd new_transys_locals)) in
       
       let inst = mk_inst local_name subsys_svars transys_svars in
 
@@ -667,7 +678,7 @@ let check_trans_system system_name base_system (cmc_check_def: check_system)=
     invar_prop_svars |> List.map (fun (svar, (name, _)) ->
       let var = Var.mk_state_var_instance svar TransSys.prop_base in
       {
-        Property.prop_name = Format.sprintf "invar-property-%s" (HString.string_of_hstring name);
+        Property.prop_name = Format.sprintf "%s" (HString.string_of_hstring name); (*Used to prepend invar-property-*)
         prop_source = Property.PropAnnot Lib.dummy_pos;
         prop_term = Term.mk_var var;
         prop_status = Property.PropUnknown
@@ -888,7 +899,7 @@ let of_channel in_ch =
 
 
     (* NOTE: This was originaly commented out *)
-  (* Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys; *)
+  Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys;
 
   mk_subsys_structure top_sys
 
