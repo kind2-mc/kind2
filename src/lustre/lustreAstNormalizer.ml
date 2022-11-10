@@ -602,12 +602,8 @@ let get_type_of_id info node_id id =
   in
   Ctx.expand_nested_type_syn info.context ty
 
-(* If [expr] is already a stateful id then we don't create a fresh local *)
-let should_not_abstract info force = function
-  | A.Ident (_, id) ->
-    let is_const = Ctx.lookup_const info.context id |> is_some in
-    not is_const && not force
-  | _ -> false
+(* If [expr] is already an id then we don't create a fresh local *)
+let should_not_abstract force expr = not force && AH.expr_is_id expr
 
 let normalize_list f list =
   let over_list (nitems, gids) item =
@@ -1077,7 +1073,7 @@ and rename_id info = function
 
 and abstract_expr ?guard force info map is_ghost expr = 
   let nexpr, gids1 = normalize_expr ?guard info map expr in
-  if should_not_abstract info force nexpr then
+  if should_not_abstract force nexpr then
     nexpr, gids1
   else
     let ivars = info.inductive_variables in
@@ -1127,7 +1123,7 @@ and combine_args_with_const info args flags =
 and normalize_expr ?guard info map =
   let abstract_node_arg ?guard force is_const info map expr =
     let nexpr, gids1 = normalize_expr ?guard info map expr in
-    if should_not_abstract info force nexpr then
+    if should_not_abstract force nexpr then
       nexpr, gids1
     else
       let ivars = info.inductive_variables in
