@@ -197,7 +197,7 @@ let pp_print_state_var ppf { Hashcons.node = (n, s) } =
   pp_print_state_var_node ppf (n, s)
 
 let pp_print_state_var_debug ppf state_var =
-  Format.fprintf ppf "node %a;prop %a\n"
+  Format.fprintf ppf "node %a; prop %a"
     (pp_print_state_var_name) state_var.Hashcons.node
     (pp_print_state_var_prop) state_var.Hashcons.prop
 

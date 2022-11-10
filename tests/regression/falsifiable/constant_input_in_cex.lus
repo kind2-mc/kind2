@@ -1,0 +1,22 @@
+node imported G(N: int) returns (B: bool);
+
+contract C(const w: int) returns (r: int) ;
+let
+  assume "A2" not G(w) ;
+tel
+
+node imported TV(x: int; const w: int) returns (r: int) ;
+(*@contract import C(w) returns (r); *)
+
+node M(x1, x2: int; const w: int)  returns (P1: bool) ;
+(*@contract
+  assume "A1" not G(w) ;
+  guarantee "P1" P1;
+*)
+  var R1, R2 : int ;
+let
+  R1 = TV(x1, w) ;
+  R2 = TV(x2, w) ;
+  P1 = R1 = R2;
+tel
+
