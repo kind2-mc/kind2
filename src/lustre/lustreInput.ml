@@ -172,7 +172,7 @@ let type_check declarations =
       IC.inline_constants global_ctx sorted_node_contract_decls
     in
 
-    (* Step 9. Check that inductive array equations are well-founded *)
+    (* Step 12. Check that inductive array equations are well-founded *)
     let* _ = LAD.check_inductive_array_dependencies inlined_global_ctx node_summary const_inlined_nodes_and_contracts in
 
     (* Step 13. Infer tighter subrange constraints with abstract interpretation *)

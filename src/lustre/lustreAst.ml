@@ -916,7 +916,7 @@ and pp_print_node_item ppf = function
       (pp_print_list pp_print_node_item " ") l2
 
   | FrameBlock (_, vars, nes, nis) -> Format.fprintf ppf "frame (%a) %a let %a tel" 
-    (pp_print_list pp_print_ident " ") vars
+    (pp_print_list pp_print_ident ", ") vars
     (pp_print_list pp_print_node_body " ") nes
     (pp_print_list pp_print_node_item " ") nis
 
