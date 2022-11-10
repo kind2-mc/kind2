@@ -21,6 +21,7 @@
 
 module LA = LustreAst
 module LAH = LustreAstHelpers
+module H = HString
 
 module StringSet = Set.Make(
   struct
@@ -98,7 +99,7 @@ let error_message kind = match kind with
   | UnsupportedAssignment -> "Assignment not supported"
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
-  | MisplacedVarInFrameBlock id -> "Misplaced var '" ^ HString.string_of_hstring id ^ "' is not declared in the frame block header"
+  | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -661,13 +662,12 @@ and check_struct_items ctx items =
 (* Within a frame block, make sure vars in the LHS of 'ni' appear somehwere in 'vars'  *)
 and check_frame_vars pos vars ni = 
   let vars_of_ni = List.map snd (LAH.vars_lhs_of_eqn_with_pos ni) in
-  (* 'find_vars' stores the original variables from 'vars_of_ni' and their corresponding
-     variables found in 'vars', if they exist *)
-  let find_vars = List.map (fun var1 -> (var1, (List.find_opt (fun var2 -> var2 = var1) vars))) vars_of_ni in
-  let no_match = List.filter (fun x -> match x with | (_, None) -> true | (_, Some _) -> false) find_vars in
-  match no_match with
-    | [] -> Res.ok ()
-    | (var, _) :: _ -> syntax_error pos (MisplacedVarInFrameBlock var)
+  let unlisted = 
+    H.HStringSet.diff (H.HStringSet.of_list vars_of_ni) (H.HStringSet.of_list vars)
+  in
+  match H.HStringSet.choose_opt unlisted with
+  | None -> Res.ok ()
+  | Some var -> syntax_error pos (MisplacedVarInFrameBlock var)
 
 and check_contract is_contract_node ctx f contract =
   let ctx = build_contract_ctx ctx contract in

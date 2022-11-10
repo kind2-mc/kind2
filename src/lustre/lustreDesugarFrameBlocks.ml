@@ -35,14 +35,19 @@ let (let*) = R.(>>=)
 
 type error_kind = Unknown of string
   | MisplacedNodeItemError of A.node_item
-  | InitializationNotFoundError of A.node_item
   | MisplacedFrameBlockError of A.node_item
 
 let error_message error = match error with
   | Unknown s -> s
-  | MisplacedNodeItemError ni -> "Node item " ^ Lib.string_of_t A.pp_print_node_item ni ^ " is not allowed in frame block."
-  | MisplacedFrameBlockError ni -> "FrameBlock " ^ Lib.string_of_t A.pp_print_node_item ni ^ " is not allowed in function."
-  | InitializationNotFoundError ni -> "Node item " ^ Lib.string_of_t A.pp_print_node_item ni ^ " does not have a corresponding initialization in the frame block."
+  | MisplacedNodeItemError ni -> (match ni with
+    | Body (Assert _) -> "Asserts are not allowed inside frame blocks."
+    | FrameBlock _ -> "Frame blocks are not allowed inside other frame blocks."
+    | AnnotMain _ -> "Main annotations are not allowed inside frame blocks."
+    | AnnotProperty _ -> "Property annotations are not allowed inside frame blocks."
+    (* Other node items are allowed *)
+    | _ -> assert false
+    )
+  | MisplacedFrameBlockError _ -> "FrameBlocks are not allowed in functions."
 
 type error = [
   | `LustreDesugarFrameBlocksError of Lib.position * error_kind

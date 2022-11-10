@@ -607,13 +607,13 @@ node_item:
 node_if_block:
   | IF; e = expr; 
     THEN; 
-      l1 = list(node_item);
+      l1 = nonempty_list(node_item);
     ELSE; 
       l2 = nonempty_list(node_item);
     FI;
     { A.IfBlock (mk_pos $startpos, e, l1, l2) }
   | IF; e = expr; THEN; 
-      l1 = list(node_item);
+      l1 = nonempty_list(node_item);
     FI;
     { A.IfBlock (mk_pos $startpos, e, l1, []) }
 

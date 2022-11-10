@@ -1115,20 +1115,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   (* Node calls *)
   | Call (p, i, es) -> Call (p, i, List.map abstract_pre_subexpressions es) 
   | CallParam (p, i, tys, es) -> CallParam (p, i, tys, List.map abstract_pre_subexpressions es) 
-                                   
-let extract_equation: node_item list -> node_equation list =
-  let rec extract_equation_helper ni = (match ni with
-    | Body eqn -> [eqn]
-    | IfBlock (_, _, l1, l2) -> 
-      List.flatten (List.map extract_equation_helper l1) @ 
-      List.flatten (List.map extract_equation_helper l2)
-    | FrameBlock (_, _, nes, nis) -> 
-      nes @ List.flatten (List.map extract_equation_helper nis)
-    | AnnotMain _ -> []
-    | AnnotProperty _ -> [])
-  in 
-  fun items -> List.flatten (List.map extract_equation_helper items) 
-                               
+                                              
 let extract_node_equation: node_item -> (eq_lhs * expr) list =
   function
   | Body (Equation (_, lhs, expr)) -> [(lhs, expr)]
