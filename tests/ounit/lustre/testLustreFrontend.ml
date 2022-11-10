@@ -122,6 +122,18 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/function_no_stateful_contract.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);  
+  mk_test "test defining a variable more than once 1" (fun () ->
+    match load_file "./lustreSyntaxChecks/var_redefinition.lus" with
+    | Error (`LustreSyntaxChecksError (_, DuplicateOutput _)) -> true
+    | _ -> false);  
+  mk_test "test defining a variable more than once 1" (fun () ->
+    match load_file "./lustreSyntaxChecks/var_redefinition2.lus" with
+    | Error (`LustreSyntaxChecksError (_, DuplicateOutput _)) -> true
+    | _ -> false);  
+  mk_test "test defining a variable more than once 1" (fun () ->
+    match load_file "./lustreSyntaxChecks/var_redefinition3.lus" with
+    | Error (`LustreSyntaxChecksError (_, DuplicateLocal _)) -> true
+    | _ -> false);  
 ])
 
 (* *************************************************************************** *)
@@ -521,6 +533,10 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
     | _ -> false); 
   mk_test "Uninitialized node item inside frame block" (fun () ->
     match load_file "./lustreSyntaxChecks/uninitialized_node_item_frame.lus" with
+    | Error (`LustreSyntaxChecksError (_, MisplacedVarInFrameBlock _)) -> true
+    | _ -> false);  
+  mk_test "Uninitialized node item inside frame block 2" (fun () ->
+    match load_file "./lustreSyntaxChecks/uninitialized_node_item_frame2.lus" with
     | Error (`LustreSyntaxChecksError (_, MisplacedVarInFrameBlock _)) -> true
     | _ -> false);  
 ])
