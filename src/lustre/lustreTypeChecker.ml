@@ -911,7 +911,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
             if SI.mem v arg_ids then
               type_error pos (NodeArgumentOnLHS v)
             else R.ok ())
-          (List.flatten (List.map LH.vars_lhs_of_eqn_with_pos items))
+          (List.flatten (List.map LH.defined_vars_with_pos items))
           |> R.seq_
         in
         Debug.parse "TC declaration node %a done }"
@@ -953,8 +953,15 @@ and do_item: tc_context -> LA.node_item -> (unit, [> error]) result = fun ctx ->
       | Bool _ -> (R.seq_ ((List.map (do_item ctx) l1) @ (List.map (do_item ctx) l2)))
       | e_ty -> type_error pos  (ExpectedBooleanExpression e_ty)
     )
-  | LA.FrameBlock (_, _, nes, nis) -> 
-    R.seq_ ((List.map (do_node_eqn ctx) nes) @ (List.map (do_item ctx) nis))
+  | LA.FrameBlock (pos, vars, nes, nis) -> 
+    let reassigned_consts = (SI.filter (fun e -> (member_val ctx e)) (SI.of_list vars)) in
+    R.seq_ (
+      (
+        if ((SI.cardinal reassigned_consts) = 0) 
+        then R.ok ()
+        else type_error pos (DisallowedReassignment reassigned_consts)
+      ) :: (List.map (do_node_eqn ctx) nes) @ (List.map (do_item ctx) nis) 
+    )
   | LA.AnnotMain _ as ann ->
     Debug.parse "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann
     ; R.ok ()

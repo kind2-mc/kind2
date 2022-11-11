@@ -87,7 +87,7 @@ val vars_of_struct_item_with_pos: struct_item -> (Lib.position * index) list
 val vars_of_struct_item: struct_item -> SI.t
 (** returns all variables that appear in a [struct_item] *)
 
-val vars_lhs_of_eqn_with_pos: node_item -> (Lib.position * index) list
+val defined_vars_with_pos: node_item -> (Lib.position * index) list
 (** returns all the variables that appear in the lhs of the equation of the node body with associated positions *)
 
 val vars_of_ty_ids: typed_ident -> SI.t

@@ -219,7 +219,7 @@ let remove_mult_assign_from_ni ctx ni =
   let rec helper ctx ni = (
     match ni with 
       | A.Body (Equation (_, lhs, expr)) -> 
-        let lhs_vars = AH.vars_lhs_of_eqn_with_pos ni in
+        let lhs_vars = AH.defined_vars_with_pos ni in
         (* If there is no multiple assignment, we don't alter the node item,
           otherwise, we must remove the multiple assignment. The first node item
           list in the return value represents node items we "pull out" of the if block

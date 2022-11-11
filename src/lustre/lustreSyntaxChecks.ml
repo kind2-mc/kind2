@@ -661,7 +661,7 @@ and check_struct_items ctx items =
 
 (* Within a frame block, make sure vars in the LHS of 'ni' appear somehwere in 'vars'  *)
 and check_frame_vars pos vars ni = 
-  let vars_of_ni = List.map snd (LAH.vars_lhs_of_eqn_with_pos ni) in
+  let vars_of_ni = List.map snd (LAH.defined_vars_with_pos ni) in
   let unlisted = 
     H.HStringSet.diff (H.HStringSet.of_list vars_of_ni) (H.HStringSet.of_list vars)
   in
