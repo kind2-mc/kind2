@@ -7,10 +7,10 @@ node test(x: int) returns (y1: int^2;
                            y4: int^5;
                            p1, p2, p3, p4: bool);
 let 
-  p1 = (x > 0 => y1[0] = 0);
-  p2 = (x > 0 => y2 = {44, false, true});
-  p3 = (x > 0 => y3.v4.v2 = 45);
-  p4 = (x > 0 => (y4[3] = 3));
+  p1 = (x > 0 => (y1[0] = 1 -> y1[0] = 0));
+  p2 = (x > 0 => (y2 = {45, true, true} -> y2 = {44, false, true}));
+  p3 = (x > 0 => (y3.v4.v2 = 46 -> y3.v4.v2 = 45));
+  p4 = (x > 0 => ((y4[3] = 6) -> (y4[3] = 3)));
 
   --%PROPERTY p1;
   --%PROPERTY p2;

@@ -26,7 +26,7 @@ let
 
 
   frame ( y1, y2, y3 )
-  (y1, y2) = counter2(x); y3 = 0;
+  (y1, y2) = counter2(0); y3 = 0;
   let
     if (oscillate(true))
     then 
@@ -51,7 +51,7 @@ let
 
   
   frame ( y7, y8, y9 )
-  (y7, y8) = counter2(x); y9 = 0;
+  (y7, y8) = counter2(0); y9 = 0;
   let
     if (oscillate(true))
     then 

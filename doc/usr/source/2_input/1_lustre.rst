@@ -830,16 +830,16 @@ Kind 2 also has support for code blocks with frame conditions. At the beginning 
 define within the frame block. All variables defined within the frame block must be present in
 this list. Then, initial values are optionally specified for these variables. 
 Variables are defined within the frame block body (denoted by the ``let`` and ``tel`` kewords).
-It is possible to leave variables (partially or fully) undefined: If a variable is undefined on the first timestep, 
-it will be set to its defined initial value, if one exists. On other timesteps, each undefined variable stutters 
+It is possible to leave variables (partially or fully) undefined: On the first timestep, each variable
+is set equal to its initialization value, if one exists. On other timesteps, each undefined variable stutters 
 (it is set equal to its value on the previous timestep). 
 
 The following example involves three variables ``y1``, ``y2``, and ``y3``. Since ``y1`` is left
-completely undefined within the frame block, it will always be equal to 0 (its initialization
-value). ``y2`` will have value ``100, 0, 1, 2, 3, ...`` because it is undefined on the first
-timestep and set equal to its initialization value (100), but on other timesteps it is equal
-to ``counter()``. Since ``y3`` is fully defined within the frame block, it is equal to
-``counter()`` and its initialization value is not used.
+undefined within the frame block body, it will always be equal to 0 (its initialization
+value). ``y2`` will have value ``100, 0, 1, 2, 3, ...`` because it is set equal to its initialization value (100)
+on the first timestep, but on other timesteps it is set equal to ``counter()``. Even though ``y3`` is fully 
+defined within the frame block (with no unguarded ``pre``s), its initialization value is still used, so it is equal
+to ``5, 1, 2, 3, ...``.
 
 .. code-block:: none
 
@@ -893,10 +893,10 @@ subsection, as variables can be left undefined in some branches of the ``if`` st
    tel
 
 In the above example, ``y1`` is left undefined in the ``else`` branch of the ``if`` statement,
-and ``y2`` is left undefined in the ``then`` branch. ``y1`` is set to be equal to ``counter()``
-on the first ten timesteps, and then stutters (staying at 9) for the remaining timesteps.
-On the other hand, ``y2`` starts at its initialization value (100) and stutters there for
-the first 10 timesteps, and then is set to ``counter() * 2`` for the remaining timesteps.
+and ``y2`` is left undefined in the ``then`` branch. ``y1`` is initialized on the first timestep,
+set to be equal to ``counter()`` on the second through tenth timesteps, and then stutters (staying at 9) for the 
+remaining timesteps. On the other hand, ``y2`` starts at its initialization value (100) and 
+stutters there for the first 10 timesteps, and then is set to ``counter() * 2`` for the remaining timesteps.
 
 Note that variables do not have to have initializations. For example, the following 
 code is supported because even though ``y2`` does not have an initialization, it is
@@ -912,7 +912,7 @@ present in the list of variables ``frame ( y1, y2 )``.
    tel
 
 Also, it is still possible to assign to multiple variables at once
-(equations of the form ``y1, y2 = (expr1, expr2);``) in either the initializations or frame block body. 
+(equations of the form ``y1, y2 = (expr1, expr2);``) in either the initializations or the frame block body. 
 
 Restrictions
 ^^^^^^^^^^^^

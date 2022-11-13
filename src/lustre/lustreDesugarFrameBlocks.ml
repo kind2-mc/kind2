@@ -63,7 +63,7 @@ let mk_error pos kind = Error (`LustreDesugarFrameBlocksError (pos, kind))
     expression (which is stuttering, ie, 'init -> pre variable').
     Also guards unguarded pres with 'init'. 
 *)
-let rec fill_ite_helper init fill ung = function
+let rec fill_ite_helper fill = function
   (* Replace all oracles with 'fill' *)
   | A.Ident (pos, i) -> 
     (* See if 'i' is of the form "n_iboracle" *)
@@ -73,68 +73,60 @@ let rec fill_ite_helper init fill ung = function
     if (str = "iboracle") then fill else A.Ident(pos, i)
 
   (* Guard unguarded pres *)
-  | Pre (a, e) -> (
-      match init with
-        | Some init -> (
-          if ung
-          then Arrow(a, init, Pre (a, (fill_ite_helper (Some init) fill true) e))
-          else Pre (a, (fill_ite_helper (Some init) fill true) e)
-        ) 
-        | None -> Pre (a, (fill_ite_helper init fill true) e)
-    )
-  | Arrow (a, e1, e2) -> Arrow (a, fill_ite_helper init fill ung e1, fill_ite_helper init fill false e2)
+  | Pre (a, e) -> Pre (a, fill_ite_helper fill e)
+  | Arrow (a, e1, e2) -> Arrow (a, fill_ite_helper fill e1, fill_ite_helper fill e2)
 
 
   (* Everything else is just recursing to find Idents and unguarded pres *)
   | Const _ as e -> e
   | ModeRef _ as e -> e
     
-  | RecordProject (a, e, b) -> RecordProject (a, fill_ite_helper init fill ung e, b)
-  | ConvOp (a, b, e) -> ConvOp (a, b, fill_ite_helper init fill ung e)
-  | UnaryOp (a, b, e) -> UnaryOp (a, b, fill_ite_helper init fill ung e)
-  | Current (a, e) -> Current (a, fill_ite_helper init fill ung e)
-  | When (a, e, b) -> When (a, fill_ite_helper init fill ung e, b)
-  | TupleProject (a, e, b) -> TupleProject (a, fill_ite_helper init fill ung e, b)
-  | Quantifier (a, b, c, e) -> Quantifier (a, b, c, fill_ite_helper init fill ung e)
-  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, fill_ite_helper init fill ung e1, fill_ite_helper init fill ung e2)
-  | CompOp (a, b, e1, e2) -> CompOp (a, b, fill_ite_helper init fill ung e1, fill_ite_helper init fill ung e2)
-  | ArrayConcat (a, e1, e2) -> ArrayConcat (a, fill_ite_helper init fill ung e1, fill_ite_helper init fill ung e2)
-  | ArrayIndex (a, e1, e2) -> ArrayIndex (a, fill_ite_helper init fill ung e1, fill_ite_helper init fill ung e2)
-  | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, fill_ite_helper init fill ung e1, fill_ite_helper init fill ung e2)
-  | Fby (a, e1, b, e2) -> Fby (a, fill_ite_helper init fill ung e1, b, fill_ite_helper init fill ung e2)
-  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, fill_ite_helper init fill ung e1, fill_ite_helper init fill ung e2, fill_ite_helper init fill ung e3)
-  | ArraySlice (a, e1, (e2, e3)) -> ArraySlice (a, fill_ite_helper init fill ung e1, (fill_ite_helper init fill ung e2, fill_ite_helper init fill ung e3))
+  | RecordProject (a, e, b) -> RecordProject (a, fill_ite_helper fill e, b)
+  | ConvOp (a, b, e) -> ConvOp (a, b, fill_ite_helper fill e)
+  | UnaryOp (a, b, e) -> UnaryOp (a, b, fill_ite_helper fill e)
+  | Current (a, e) -> Current (a, fill_ite_helper fill e)
+  | When (a, e, b) -> When (a, fill_ite_helper fill e, b)
+  | TupleProject (a, e, b) -> TupleProject (a, fill_ite_helper fill e, b)
+  | Quantifier (a, b, c, e) -> Quantifier (a, b, c, fill_ite_helper fill e)
+  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, fill_ite_helper fill e1, fill_ite_helper fill e2)
+  | CompOp (a, b, e1, e2) -> CompOp (a, b, fill_ite_helper fill e1, fill_ite_helper fill e2)
+  | ArrayConcat (a, e1, e2) -> ArrayConcat (a, fill_ite_helper fill e1, fill_ite_helper fill e2)
+  | ArrayIndex (a, e1, e2) -> ArrayIndex (a, fill_ite_helper fill e1, fill_ite_helper fill e2)
+  | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, fill_ite_helper fill e1, fill_ite_helper fill e2)
+  | Fby (a, e1, b, e2) -> Fby (a, fill_ite_helper fill e1, b, fill_ite_helper fill e2)
+  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, fill_ite_helper fill e1, fill_ite_helper fill e2, fill_ite_helper fill e3)
+  | ArraySlice (a, e1, (e2, e3)) -> ArraySlice (a, fill_ite_helper fill e1, (fill_ite_helper fill e2, fill_ite_helper fill e3))
   
-  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (fill_ite_helper init fill ung) l)
-  | NArityOp (a, b, l) -> NArityOp (a, b, List.map (fill_ite_helper init fill ung) l) 
-  | Call (a, b, l) -> Call (a, b, List.map (fill_ite_helper init fill ung) l)
-  | CallParam (a, b, c, l) -> CallParam (a, b, c, List.map (fill_ite_helper init fill ung) l)
+  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (fill_ite_helper fill) l)
+  | NArityOp (a, b, l) -> NArityOp (a, b, List.map (fill_ite_helper fill) l) 
+  | Call (a, b, l) -> Call (a, b, List.map (fill_ite_helper fill) l)
+  | CallParam (a, b, c, l) -> CallParam (a, b, c, List.map (fill_ite_helper fill) l)
 
   | Merge (a, b, l) -> Merge (a, b, 
     List.combine
     (List.map fst l)
-    (List.map (fill_ite_helper init fill ung) (List.map snd l)))
+    (List.map (fill_ite_helper fill) (List.map snd l)))
   
   | RecordExpr (a, b, l) -> RecordExpr (a, b,     
     List.combine
     (List.map fst l)
-    (List.map (fill_ite_helper init fill ung) (List.map snd l)))
+    (List.map (fill_ite_helper fill) (List.map snd l)))
   
   | RestartEvery (a, b, l, e) -> 
-    RestartEvery (a, b, List.map (fill_ite_helper init fill ung) l, fill_ite_helper init fill ung e)
+    RestartEvery (a, b, List.map (fill_ite_helper fill) l, fill_ite_helper fill e)
   | Activate (a, b, e, r, l) ->
-    Activate (a, b, (fill_ite_helper init fill ung) e, (fill_ite_helper init fill ung) r, List.map (fill_ite_helper init fill ung) l)
+    Activate (a, b, (fill_ite_helper fill) e, (fill_ite_helper fill) r, List.map (fill_ite_helper fill) l)
   | Condact (a, e, r, b, l1, l2) ->
-    Condact (a, (fill_ite_helper init fill ung) e, (fill_ite_helper init fill ung) r, b, 
-             List.map (fill_ite_helper init fill ung) l1, List.map (fill_ite_helper init fill ung) l2)
+    Condact (a, (fill_ite_helper fill) e, (fill_ite_helper fill) r, b, 
+             List.map (fill_ite_helper fill) l1, List.map (fill_ite_helper fill) l2)
 
   | StructUpdate (a, e1, li, e2) -> 
-    A.StructUpdate (a, fill_ite_helper init fill ung e1, 
+    A.StructUpdate (a, fill_ite_helper fill e1, 
     List.map (function
               | A.Label (a, b) -> A.Label (a, b)
-              | Index (a, e) -> Index (a, fill_ite_helper init fill ung e)
+              | Index (a, e) -> Index (a, fill_ite_helper fill e)
              ) li, 
-    fill_ite_helper init fill ung e2)
+    fill_ite_helper fill e2)
 
 (** Helper function to generate node equations when a variable in the 
     frame block var list is left undefined in the frame block body. *)
@@ -208,16 +200,11 @@ match ni with
     ) nes in
     (match init with
       | Some init ->     
-        R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
-                                (Some init)
-                                (A.Arrow (pos, init, (A.Pre (pos2, Ident(pos2, i)))))
-                                true
-                                e)))
+        R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos, init, 
+                                                    fill_ite_helper (A.Pre (pos2, Ident(pos2, i))) e)))))
       | None -> 
         R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
-                                None
                                 (A.Pre (pos2, Ident(pos2, i)))
-                                true
                                 e))))
   | A.Body (Equation (pos, (StructDef(_, [ArrayDef(pos2, i1, i2)]) as lhs), e)) ->
   (* Find initialization value *)
@@ -228,16 +215,11 @@ match ni with
   ) nes in 
   (match init with
     | Some init -> 
-      R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
-                         (Some init)
-                         (A.Arrow (pos, init, (A.Pre (pos2, array_index))))
-                         true
-                         e)))
+      R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos, init, 
+                                                  fill_ite_helper (A.Pre (pos2, array_index)) e)))))
     | None -> 
       R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
-                         None
                          (A.Pre (pos2, array_index))
-                         true
                          e))))
   (* The following node items should not be in frame blocks. In particular,
      if blocks should have been desugared earlier in the pipeline. *)
