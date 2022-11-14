@@ -1,0 +1,9 @@
+
+type no_a_record = int;
+
+const C = no_a_record { f=true };
+
+node N() returns (o:bool);
+let
+   o = true;
+tel

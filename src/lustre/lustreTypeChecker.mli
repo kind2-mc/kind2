@@ -29,9 +29,10 @@ type error_kind = Unknown of string
   | MergeCaseNotUnique of HString.t
   | UnboundIdentifier of HString.t
   | UnboundModeReference of HString.t
-  | MissingRecordField of HString.t
+  | NotAFieldOfRecord of HString.t
+  | NoValueForRecordField of HString.t
   | IlltypedRecordProjection of tc_type
-  | MissingTupleField of int * tc_type
+  | TupleIndexOutOfBounds of int * tc_type
   | IlltypedTupleProjection of tc_type
   | UnequalIteBranchTypes of tc_type * tc_type
   | ExpectedBooleanExpression of tc_type
@@ -79,6 +80,7 @@ type error_kind = Unknown of string
   | UndeclaredType of HString.t
   | EmptySubrange of int * int
   | SubrangeArgumentMustBeConstantInteger of LA.expr
+  | ExpectedRecordType of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
