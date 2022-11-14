@@ -739,7 +739,7 @@ pexpr(Q):
     
   (* A record field projection (not quantified) *)
   | s = pexpr(Q); DOT; t = ident 
-    { A.RecordProject (mk_pos $startpos, s, t) }
+    { A.RecordProject (mk_pos $startpos($2), s, t) }
 
   (* A record (not quantified) *)
   | t = ident; 
