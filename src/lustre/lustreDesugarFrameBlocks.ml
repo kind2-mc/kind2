@@ -60,8 +60,7 @@ type error = [
 let mk_error pos kind = Error (`LustreDesugarFrameBlocksError (pos, kind))
 
 (** Parses an expression and replaces any ITE oracles with the 'fill'
-    expression (which is stuttering, ie, 'init -> pre variable').
-    Also guards unguarded pres with 'init'. 
+    expression (which is stuttering, ie, 'pre variable').
 *)
 let rec fill_ite_helper fill = function
   (* Replace all oracles with 'fill' *)
@@ -72,12 +71,9 @@ let rec fill_ite_helper fill = function
     in
     if (str = "iboracle") then fill else A.Ident(pos, i)
 
-  (* Guard unguarded pres *)
+  (* Everything else is just recursing to find Idents *)
   | Pre (a, e) -> Pre (a, fill_ite_helper fill e)
   | Arrow (a, e1, e2) -> Arrow (a, fill_ite_helper fill e1, fill_ite_helper fill e2)
-
-
-  (* Everything else is just recursing to find Idents and unguarded pres *)
   | Const _ as e -> e
   | ModeRef _ as e -> e
     
@@ -128,8 +124,8 @@ let rec fill_ite_helper fill = function
              ) li, 
     fill_ite_helper fill e2)
 
-(** Helper function to generate node equations when a variable in the 
-    frame block var list is left undefined in the frame block body. *)
+(** Helper function to generate node equations when an initialized variable in the 
+    frame block is left undefined in the frame block body. *)
 let generate_undefined_nes nis ne = match ne with
   | A.Equation (pos, (StructDef(_, [SingleIdent(_, id)]) as lhs), init) -> 
     (* Find the corresponding node item in frame block body. *)
@@ -189,7 +185,8 @@ let generate_undefined_nes_no_init pos nes nis var =
     )
 
 
-(** Helper function to fill in ITE oracles and guard unguarded pres. *)
+(** Helper function to fill in ITE oracles and guard equations with specified
+    initialization values (if present). *)
 let fill_ite_oracles nes ni = 
 match ni with
   | A.Body (Equation (pos, (StructDef(_, [SingleIdent(pos2, i)]) as lhs), e)) -> 
@@ -234,9 +231,12 @@ match ni with
 
 (**
   For each node item in frame block body:
-    Fill in ITE oracles and guard the generated pres.
-  For each definition in frame block guard:
+    Fill in ITE oracles and initialize equations (RHS) when an initialization
+    value is specified.
+  For each initialization:
     Fill in an equation if one doesn't exist.
+  For each variable that is neither initialized nor defined:
+    Fill in an equation of the form 'y = pre y' (initially undefined)
 *)
 let desugar_node_item _ ni = match ni with
     (* All multiple assignment is removed in lustreDesugarIfBlocks.ml *)
@@ -251,10 +251,10 @@ let desugar_node_item _ ni = match ni with
 
 
 
-(** Desugars a declaration list to remove frame blocks. If a frame block has
-    if statements with undefined branches, it fills the branches in by setting
-    the variable equal to its previous value (and initialing the 'pre' with the
-    given init value). *)
+(** Desugars a declaration list to remove frame blocks. Node equations
+    in the body are initialized with the provided initializations. If a frame block 
+    node equation has if statements with undefined branches, it fills the branches in by setting
+    the variable equal to its value in the previous timestep. *)
 let desugar_frame_blocks ctx sorted_node_contract_decls = 
   let desugar_node_decl decl = (match decl with
     | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis2, co) as d)) -> 
