@@ -511,7 +511,13 @@ let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys
     let subsys_init_svar = subsys_trans_def.init_flag in
     let subsys_input_svars = get_svars subsys_trans_def.symb_svars subsys_trans_def.cmc_sys_def.input in
     let subsys_output_svars = get_svars subsys_trans_def.symb_svars subsys_trans_def.cmc_sys_def.output in
-    let subsys_local_svars = get_svars subsys_trans_def.symb_svars subsys_trans_def.cmc_sys_def.local in
+
+    let subsys_local_assoc_list = subsys_trans_def.symb_svars |> List.filter_map (fun symb_svar -> 
+      match symb_svar with 
+      | _ when List.assoc_opt (fst symb_svar) ( subsys_trans_def.cmc_sys_def.input @  subsys_trans_def.cmc_sys_def.output) = None -> Some (fst symb_svar, StateVar.type_of_state_var (snd symb_svar))
+      | _ -> None
+
+      ) in
     
     (* These are the svars that are passed as positional parms to the subsystem call *)
 
@@ -521,11 +527,11 @@ let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys
 
       (* These are the local vars that must be created then passed as positional parms to the subsystem call *)
       let init_local = mk_var sys_name false (HString.concat2 local_name (HString.mk_hstring "_init"), Type.t_bool) in
-      let renamed_locals = (subsys_trans_def.cmc_sys_def.local) |> 
+      let renamed_local_svarss = (subsys_local_assoc_list) |> 
         (List.map (fun (name, var_type) -> ((HString.concat (HString.mk_hstring "_") ( local_name :: name :: []) ), var_type)) ) in
-      let new_transys_locals = mk_vars sys_name false (renamed_locals) in
+      let new_transys_locals = mk_vars sys_name false (renamed_local_svarss) in
 
-      let subsys_svars = (subsys_init_svar :: subsys_input_svars @ subsys_output_svars @ subsys_local_svars)  in 
+      let subsys_svars = (subsys_init_svar :: subsys_input_svars @ subsys_output_svars @ (get_svars subsys_trans_def.symb_svars subsys_local_assoc_list))  in 
       
       let transys_svars = ((snd init_local) :: transys_parameters @ (List.map snd new_transys_locals)) in
       
@@ -645,7 +651,7 @@ let mk_base_trans_system prev_trans_systems (cmc_sys_def: system_def) =
   in
   Format.printf "CMC_SYS: %s." (UfSymbol.name_of_uf_symbol trans_uf_symbol);
 
-
+  let symb_svars = symb_svars @ subsys_locals  in 
   {scope; cmc_sys_def; symb_svars; init_map; trans_map; init_flag; state_vars; init_uf_symbol; init_formals; init_term; trans_uf_symbol; trans_formals; trans_term; subsystems; props=[]}
 
 let rename_check_vars system_name {cmc_sys_def; trans_map} cmc_check_def = 
