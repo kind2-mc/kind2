@@ -1579,6 +1579,8 @@ type state_var_def =
   | CallOutput of position * LustreIndex.index
   | ProperEq of position * LustreIndex.index
   | GeneratedEq of position * LustreIndex.index
+  | FrameBlock of position
+  | IfBlock of position
   | ContractItem of position * LustreContract.svar * contract_item_type
   | Assertion of position
 
@@ -1598,6 +1600,8 @@ let state_var_defs_equal d1 d2 =
   | ProperEq (p1, i1), ProperEq (p2, i2)
   | GeneratedEq (p1, i1), GeneratedEq (p2, i2) ->
     (Lib.equal_pos p1 p2) && LustreIndex.equal_index i1 i2
+  | FrameBlock p1, FrameBlock p2 -> Lib.equal_pos p1 p2
+  | IfBlock p1, IfBlock p2 -> Lib.equal_pos p1 p2
   | ContractItem (p1, svar1, typ1), ContractItem (p2, svar2, typ2) ->
     (Lib.equal_pos p1 p2) && typ1 = typ2 && StateVar.equal_state_vars svar1.svar svar2.svar
   | Assertion p1, Assertion p2 -> (Lib.equal_pos p1 p2)
@@ -1618,11 +1622,12 @@ let add_state_var_def state_var def =
 
 let pos_of_state_var_def = function
   | CallOutput (p,_) | ProperEq (p,_) | GeneratedEq (p,_)
+  | FrameBlock p | IfBlock p
   | ContractItem (p, _, _) | Assertion p -> p
 
 let index_of_state_var_def = function
   | CallOutput (_,i) | ProperEq (_,i) | GeneratedEq (_,i) -> i
-  | ContractItem _ | Assertion _ -> []
+  | FrameBlock _ | IfBlock _ | ContractItem _ | Assertion _ -> []
 
 let pp_print_state_var_defs_debug fmt t =
   let print_sv state_var =
@@ -1638,6 +1643,10 @@ let pp_print_state_var_defs_debug fmt t =
       | GeneratedEq (p,i) ->
         Format.fprintf fmt "Generated Eq: %a (%a)\n"
         Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+      | FrameBlock p ->
+        Format.fprintf fmt "Frame Block: %a\n" Lib.pp_print_position p
+      | IfBlock p ->
+        Format.fprintf fmt "If Block: %a\n" Lib.pp_print_position p
       | ContractItem (p,_,_) ->
         Format.fprintf fmt "Contract Item: %a\n" Lib.pp_print_position p
       | Assertion p ->

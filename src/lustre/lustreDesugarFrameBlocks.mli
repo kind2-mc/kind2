@@ -42,9 +42,11 @@ type error = [
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
 ]
 
+module FrameHashtbl : Hashtbl.S with type key = HString.t
+
+val pos_list_map : (Lib.position * HString.t) list FrameHashtbl.t
 
 val desugar_frame_blocks :
-  TypeCheckerContext.tc_context ->
   A.declaration list ->
     (A.declaration list,
     [> error])

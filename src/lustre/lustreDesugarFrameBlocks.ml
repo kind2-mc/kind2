@@ -29,7 +29,6 @@
 module A = LustreAst
 module R = Res
 module LDI = LustreDesugarIfBlocks
-module Chk = LustreTypeChecker
 
 let (let*) = R.(>>=)
 
@@ -58,6 +57,18 @@ type error = [
 ]
 
 let mk_error pos kind = Error (`LustreDesugarFrameBlocksError (pos, kind))
+
+module T =
+struct
+    type t = HString.t
+    let equal l1 l2 = l1 = l2
+    let hash s = Hashtbl.hash s
+end
+
+module FrameHashtbl = Hashtbl.Make (T)
+
+let pos_list_map : (Lib.position * HString.t) list FrameHashtbl.t = 
+  FrameHashtbl.create 20
 
 (** Parses an expression and replaces any ITE oracles with the 'fill'
     expression (which is stuttering, ie, 'pre variable').
@@ -238,7 +249,7 @@ match ni with
   For each variable that is neither initialized nor defined:
     Fill in an equation of the form 'y = pre y' (initially undefined)
 *)
-let desugar_node_item _ ni = match ni with
+let desugar_node_item node_id ni = match ni with
     (* All multiple assignment is removed in lustreDesugarIfBlocks.ml *)
   | A.FrameBlock (pos, vars, nes, nis) ->
     let* nis = R.seq (List.map (fill_ite_oracles nes) nis) in
@@ -246,23 +257,24 @@ let desugar_node_item _ ni = match ni with
     let nis2 = List.flatten nis2 in 
     let* nis3 = R.seq (List.map (generate_undefined_nes_no_init pos nes nis) vars) in
     let nis3 = List.flatten nis3 in
+    let frame_info = List.map (fun var -> (pos, var)) vars in
+    FrameHashtbl.add pos_list_map node_id frame_info;
     R.ok ([], nis @ nis2 @ nis3)
   | _ -> R.ok ([], [ni])
-
 
 
 (** Desugars a declaration list to remove frame blocks. Node equations
     in the body are initialized with the provided initializations. If a frame block 
     node equation has if statements with undefined branches, it fills the branches in by setting
     the variable equal to its value in the previous timestep. *)
-let desugar_frame_blocks ctx sorted_node_contract_decls = 
+let desugar_frame_blocks sorted_node_contract_decls = 
+  (* Map from node name to lists of positions of frame blocks *)
   let desugar_node_decl decl = (match decl with
-    | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis2, co) as d)) -> 
-      let* ctx = Chk.get_node_ctx ctx d in
-      let* res = R.seq (List.map (desugar_node_item ctx) nis2) in
+    | A.NodeDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis2, co)) -> 
+      let* res = R.seq (List.map (desugar_node_item node_id) nis2) in
       let decls, nis = List.split res in
       R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, 
-                       (List.flatten decls) @ nlds, List.flatten nis, co))) 
+                       (List.flatten decls) @ nlds, List.flatten nis, co)))
                       
     (* Make sure there are no frame blocks in functions *)
     | A.FuncDecl (_, ((_, _, _, _, _, _, nis, _))) -> (
@@ -273,4 +285,4 @@ let desugar_frame_blocks ctx sorted_node_contract_decls =
       )
     | _ -> R.ok decl
   ) in
-  R.seq (List.map desugar_node_decl sorted_node_contract_decls)
+  (R.seq (List.map desugar_node_decl sorted_node_contract_decls))

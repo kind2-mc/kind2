@@ -33,6 +33,7 @@ module I = LustreIdent
 module X = LustreIndex
 module H = LustreIdent.Hashtbl
 module E = LustreExpr
+module LDF = LustreDesugarFrameBlocks
 
 module SVM = StateVar.StateVarMap
 module SVT = StateVar.StateVarHashtbl
@@ -508,7 +509,7 @@ let expand_tuple pos lhs rhs =
 
 let rec compile ctx gids decls =
   let over_decls cstate decl = compile_declaration cstate gids ctx decl in
-  let output = List.fold_left over_decls (empty_compiler_state ()) decls in
+  let output = List.fold_left over_decls (empty_compiler_state ()) decls in 
   let free_constants = output.free_constants
     |> List.map (fun (_, id, v) -> mk_ident id, v)
     
@@ -2068,7 +2069,21 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   (* Finalize and build intermediate LustreNode                         *)
   (* ****************************************************************** *)
-  in let locals = sofar_local @ ghost_locals @ glocals @ locals in
+  in 
+  (* Add state var definitions for frame blocks *)
+  (
+    match LDF.FrameHashtbl.find_opt LDF.pos_list_map i with
+      | Some frame_infos ->
+        let frame_infos = List.map (fun (pos, id) -> ((H.find_opt !map.state_var (mk_ident id)), pos)) frame_infos in
+        List.iter (fun (sv, pos) -> 
+          match sv with 
+          | Some sv -> N.add_state_var_def sv (N.FrameBlock pos)
+          | None -> ()
+        ) frame_infos;  
+      | None -> ()
+  );
+    
+  let locals = sofar_local @ ghost_locals @ glocals @ locals in
   let equations = sofar_equation @ equations @ gequations in
   let asserts = List.sort (fun (p1, _) (p2, _) -> compare_pos p1 p2) asserts in
   let state_var_source_map = SVT.fold
