@@ -42,6 +42,10 @@ type error = [
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
 ]
 
+module IfHashtbl : Hashtbl.S with type key = HString.t
+
+val pos_list_map : (Lib.position * HString.t) list IfHashtbl.t
+
 val desugar_if_blocks : 
 TypeCheckerContext.tc_context ->
   LustreAst.declaration list ->

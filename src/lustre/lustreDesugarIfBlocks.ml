@@ -65,8 +65,8 @@ module LhsMap = struct
     let compare lhs1 lhs2 = 
       let (A.StructDef (_, ss1)) = lhs1 in
       let (A.StructDef (_, ss2)) = lhs2 in
-      let vars1 = (List.map AH.vars_of_struct_item ss1) in
-      let vars2 = (List.map AH.vars_of_struct_item ss2) in 
+      let vars1 = A.SI.flatten (List.map AH.vars_of_struct_item ss1) in
+      let vars2 = A.SI.flatten (List.map AH.vars_of_struct_item ss2) in 
       compare vars1 vars2
   end)
 end
@@ -74,6 +74,18 @@ end
 type cond_tree =
 	| Leaf of A.expr option
 	| Node of cond_tree * A.expr * cond_tree
+
+module T =
+struct
+    type t = HString.t
+    let equal l1 l2 = l1 = l2
+    let hash s = Hashtbl.hash s
+end
+
+module IfHashtbl = Hashtbl.Make (T)
+
+let pos_list_map : (Lib.position * HString.t) list IfHashtbl.t = 
+  IfHashtbl.create 20
 
 let (let*) = R.(>>=)
 
@@ -92,6 +104,11 @@ let mk_fresh_ib_oracle expr_type =
     ib_oracles = [name, expr_type]; }
   in nexpr, gids
 
+let update_if_position_info node_id ni = match ni with
+  | A.IfBlock (pos, _, _, _) ->
+    let if_info = AH.defined_vars_with_pos ni |> List.map (fun (_, id) -> (pos, id)) in
+    IfHashtbl.add pos_list_map node_id if_info;
+  | _ -> assert false
 
 (** Updates a tree (modeling an ITE structure) with a new equation. *)
 let rec add_eq_to_tree conds rhs node = 
@@ -284,7 +301,10 @@ let split_and_flatten3 ls =
     5. Filling in the ITE expressions with oracles where variables are undefined.
     6. Returning lists of new local declarations, generated equations, and gids
     *)
-let extract_equations_from_if ctx ib =
+let extract_equations_from_if node_id ctx ib =
+  (* Keep track of where the if block variables are defined in so that it can
+     be displayed in post analysis, eg ivcMcs.ml *)
+  update_if_position_info node_id ib;
   let* tree_map = if_block_to_trees ib in
   let (lhss, trees) = LhsMap.bindings (tree_map) |> List.split in
   let trees = List.map simplify_tree trees in  
@@ -309,10 +329,10 @@ let extract_equations_from_if ctx ib =
     local declarations (if we introduce new local variables), the converted
     node_item list in the form of ITEs, and any gids).
 *)
-let rec desugar_node_item ctx ni = match ni with
-  | A.IfBlock _ as ib -> extract_equations_from_if ctx ib
+let rec desugar_node_item node_id ctx ni = match ni with
+  | A.IfBlock _ as ib -> extract_equations_from_if node_id ctx ib
   | A.FrameBlock (pos, vars, nes, nis) -> 
-    let* res = R.seq (List.map (desugar_node_item ctx) nis) in
+    let* res = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let decls, nis, gids = split_and_flatten3 res in
     R.ok (decls, [A.FrameBlock(pos, vars, nes, nis)], gids)
   | _ -> R.ok ([], [ni], [GI.empty ()])
@@ -322,13 +342,13 @@ let rec desugar_node_item ctx ni = match ni with
 let desugar_node_decl ctx decl = match decl with
   | A.FuncDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) ->
     let* ctx = Chk.get_node_ctx ctx d in
-    let* nis = R.seq (List.map (desugar_node_item ctx) nis) in
+    let* nis = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
     R.ok (A.FuncDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), GI.StringMap.singleton node_id gids) 
   | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) -> 
     let* ctx = Chk.get_node_ctx ctx d in
-    let* nis = R.seq (List.map (desugar_node_item ctx) nis) in
+    let* nis = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
     R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), GI.StringMap.singleton node_id gids) 

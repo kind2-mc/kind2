@@ -52,6 +52,8 @@ type term_cat =
 | ContractItem of StateVar.t * LustreContract.svar * LustreNode.contract_item_type
 | Equation of StateVar.t
 | Assertion of StateVar.t
+| FrameBlock of StateVar.t
+| IfBlock of StateVar.t
 | Unknown
 
 module Equation = struct
@@ -96,7 +98,7 @@ let lustre_name_of_sv var_map sv =
 type term_print_data = {
   name: string ;
   category: string ;
-  position: Lib.position ;
+  positions: Lib.position list;
 }
 
 type core_print_data = {
@@ -115,9 +117,8 @@ let pp_print_locs_short =
       Format.fprintf fmt "%a" Lib.pp_print_line_and_column pos
   ) ""
 
-(* The last position is the main one (the first one added) *)
-let last_position_of_locs locs =
-  (List.hd (List.rev locs)).pos
+let positions_of_locs locs =
+  List.map (fun loc -> loc.pos) locs
 
 let print_data_of_loc_equation var_map (_, locs, cat) =
   if locs = []
@@ -129,7 +130,7 @@ let print_data_of_loc_equation var_map (_, locs, cat) =
       Some {
         name = name ;
         category = "Node Call" ;
-        position = last_position_of_locs locs ;
+        positions = positions_of_locs locs ;
       }
     | Equation sv ->
       (
@@ -137,7 +138,7 @@ let print_data_of_loc_equation var_map (_, locs, cat) =
           Some {
             name = lustre_name_of_sv var_map sv ;
             category = "Equation" ;
-            position = last_position_of_locs locs ;
+            positions = positions_of_locs locs ;
           }
         with Not_found -> None
       )
@@ -145,7 +146,19 @@ let print_data_of_loc_equation var_map (_, locs, cat) =
       Some {
         name = Format.asprintf "assertion%a" pp_print_locs_short locs ;
         category = "Assertion" ;
-        position = last_position_of_locs locs ;
+        positions = positions_of_locs locs ;
+      }
+    | FrameBlock sv ->
+      Some {
+        name = lustre_name_of_sv var_map sv ;
+        category = "Frame Block" ;
+        positions = positions_of_locs locs ;
+      }
+    | IfBlock sv ->
+      Some {
+        name = lustre_name_of_sv var_map sv ;
+        category = "If Block" ;
+        positions = positions_of_locs locs ;
       }
     | ContractItem (_, svar, typ) ->
       let (kind, category) = 
@@ -160,7 +173,7 @@ let print_data_of_loc_equation var_map (_, locs, cat) =
       Some {
         name = LustreContract.prop_name_of_svar svar kind "" ;
         category ;
-        position = last_position_of_locs locs ;
+        positions = positions_of_locs locs ;
       }
 
 let printable_elements_of_core in_sys sys core =
@@ -224,8 +237,8 @@ let pp_print_core_data in_sys param sys fmt cpd =
   let print_elt elt =
     Format.fprintf fmt "%s @{<blue_b>%s@} at position %a@ "
       (format_name_for_pt elt.category) elt.name
-      Lib.pp_print_line_and_column elt.position
-  in
+      Lib.pp_print_lines_and_columns elt.positions
+  in 
   let print_node scope lst =
     Format.fprintf fmt "@{<b>Node@} @{<blue>%s@}@ " (Scope.to_string scope) ;
     Format.fprintf fmt "  @[<v>" ;
@@ -251,16 +264,23 @@ let pp_print_json fmt json =
   Yojson.Basic.pretty_to_string json
   |> Format.fprintf fmt "%s"
 
+let split3 ls =
+  let xs = List.map (fun (x, _, _) -> x) ls in
+  let ys = List.map (fun (_, y, _) -> y) ls in
+  let zs = List.map (fun (_, _, z) -> z) ls in
+  xs, ys, zs
+
+
 let pp_print_core_data_json in_sys param sys fmt cpd =
   let json_of_elt elt =
-    let (file, row, col) = Lib.file_row_col_of_pos elt.position in
+    let (files, rows, cols) = List.map Lib.file_row_col_of_pos elt.positions |> split3 in
     `Assoc ([
       ("category", `String (format_name_for_json elt.category)) ;
       ("name", `String elt.name) ;
-      ("line", `Int row) ;
-      ("column", `Int col) ;
+      ("rows", `List (List.map (fun row -> `Int row) rows)) ;
+      ("columns", `List (List.map (fun col -> `Int col) cols)) ;
     ] @
-    (if file = "" then [] else [("file", `String file)])
+    (if List.hd files = "" then [] else [("file", `String (List.hd files))])
     )
   in
   let assoc = [
@@ -318,9 +338,12 @@ let pp_print_core_data_xml ?(tag="ModelElementSet") in_sys param sys fmt cpd =
     let fst = ref true in
     let print_elt elt =
       if not !fst then Format.fprintf fmt "@ " else fst := false ;
-      let (file, row, col) = Lib.file_row_col_of_pos elt.position in
-      Format.fprintf fmt "<Element category=\"%s\" name=\"%s\" line=\"%i\" column=\"%i\"%s/>"
-        (format_name_for_xml elt.category) elt.name row col (if file = "" then "" else Format.asprintf " file=\"%s\"" file)
+      let (files, rows, cols) = List.map Lib.file_row_col_of_pos elt.positions |> split3 in
+      Format.fprintf fmt "<Element category=\"%s\" name=\"%s\" lines=\"%s\" columns=\"%s\"%s/>"
+        (format_name_for_xml elt.category) elt.name 
+        (String.concat ", " (List.map string_of_int rows)) 
+        (String.concat ", " (List.map string_of_int cols)) 
+        (if List.hd files = "" then "" else Format.asprintf " file=\"%s\"" (List.hd files))
     in
     Format.fprintf fmt "<Node name=\"%s\">@   @[<v>" (Scope.to_string scope) ;
     List.iter print_elt elts ;
@@ -617,24 +640,31 @@ let locs_of_eq_term in_sys t =
     let contract_items = ref None in
     let set_contract_item svar = contract_items := Some svar in
     let has_asserts = ref false in
+    let in_frame_block = ref false in
+    let in_if_block = ref false in
     let sv = sv_of_term t in
+
     InputSystem.lustre_definitions_of_state_var in_sys sv
     |> List.filter (function LustreNode.CallOutput _ -> false | _ -> true)
     |> List.map (fun def ->
       ( match def with
         | LustreNode.Assertion _ -> has_asserts := true
         | LustreNode.ContractItem (_, svar, typ) -> contract_typ := typ ; set_contract_item svar
+        | LustreNode.FrameBlock _ -> in_frame_block := true
+        | LustreNode.IfBlock _ -> in_if_block := true
         | _ -> ()
       );
       let p = LustreNode.pos_of_state_var_def def in
       let i = LustreNode.index_of_state_var_def def in
       { pos=p ; index=i }
     )
-    |> (fun locs ->
+    |> (fun locs -> 
       match !contract_items with
       | Some svar -> (ContractItem (sv, svar, !contract_typ), locs)
       | None ->
         if !has_asserts then (Assertion sv, locs)
+        else if !in_frame_block then (FrameBlock sv, locs)
+        else if !in_if_block then (IfBlock sv, locs)
         else (Equation sv, locs)
     )
   with _ -> assert false
@@ -729,6 +759,8 @@ let is_model_element_in_categories (_,_,cat) is_main_node cats =
   | ContractItem (_, _, LustreNode.Ensure) when not is_main_node
   -> [`CONTRACT_ITEM]
   | ContractItem (_, _, _) -> []
+  | FrameBlock _
+  | IfBlock _
   | Equation _ -> [`EQUATION]
   | Assertion _ -> [`ASSERTION]
   | Unknown -> [(*`UNKNOWN*)]

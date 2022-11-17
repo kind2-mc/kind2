@@ -1629,29 +1629,31 @@ let index_of_state_var_def = function
   | CallOutput (_,i) | ProperEq (_,i) | GeneratedEq (_,i) -> i
   | FrameBlock _ | IfBlock _ | ContractItem _ | Assertion _ -> []
 
+let pp_print_state_var_def fmt = (function
+  | CallOutput (p,i) ->
+    Format.fprintf fmt "Call Output: %a (%a)\n"
+    Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+  | ProperEq (p,i) ->
+    Format.fprintf fmt "Proper Eq: %a (%a)\n"
+    Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+  | GeneratedEq (p,i) ->
+    Format.fprintf fmt "Generated Eq: %a (%a)\n"
+    Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+  | FrameBlock p ->
+    Format.fprintf fmt "Frame Block: %a\n" Lib.pp_print_position p
+  | IfBlock p ->
+    Format.fprintf fmt "If Block: %a\n" Lib.pp_print_position p
+  | ContractItem (p,_,_) ->
+    Format.fprintf fmt "Contract Item: %a\n" Lib.pp_print_position p
+  | Assertion p ->
+    Format.fprintf fmt "Assertion: %a\n" Lib.pp_print_position p
+  )
+
 let pp_print_state_var_defs_debug fmt t =
   let print_sv state_var =
     Format.fprintf fmt "--- %a ---\n" StateVar.pp_print_state_var state_var ;
     get_state_var_defs state_var
-    |> List.iter (function
-      | CallOutput (p,i) ->
-        Format.fprintf fmt "Call Output: %a (%a)\n"
-        Lib.pp_print_position p (LustreIndex.pp_print_index true) i
-      | ProperEq (p,i) ->
-        Format.fprintf fmt "Proper Eq: %a (%a)\n"
-        Lib.pp_print_position p (LustreIndex.pp_print_index true) i
-      | GeneratedEq (p,i) ->
-        Format.fprintf fmt "Generated Eq: %a (%a)\n"
-        Lib.pp_print_position p (LustreIndex.pp_print_index true) i
-      | FrameBlock p ->
-        Format.fprintf fmt "Frame Block: %a\n" Lib.pp_print_position p
-      | IfBlock p ->
-        Format.fprintf fmt "If Block: %a\n" Lib.pp_print_position p
-      | ContractItem (p,_,_) ->
-        Format.fprintf fmt "Contract Item: %a\n" Lib.pp_print_position p
-      | Assertion p ->
-        Format.fprintf fmt "Assertion: %a\n" Lib.pp_print_position p
-      )
+    |> List.iter (pp_print_state_var_def fmt)
   in
   List.iter print_sv (get_all_state_vars t)
 

@@ -392,6 +392,9 @@ val fold_node_calls_with_trans_sys :
 (** Pretty-print a source of a state variable *)
 val pp_print_state_var_source : Format.formatter -> state_var_source -> unit 
 
+(** Pretty-print a definition of a state variable *)
+val pp_print_state_var_def : Format.formatter -> state_var_def -> unit
+
 (** Set source of state variable *)
 val set_state_var_source : t -> StateVar.t -> state_var_source -> t
 

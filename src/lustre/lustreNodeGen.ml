@@ -34,6 +34,7 @@ module X = LustreIndex
 module H = LustreIdent.Hashtbl
 module E = LustreExpr
 module LDF = LustreDesugarFrameBlocks
+module LDI = LustreDesugarIfBlocks
 
 module SVM = StateVar.StateVarMap
 module SVT = StateVar.StateVarHashtbl
@@ -2066,10 +2067,10 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       let contract = C.mk assumes sofar_assumption guarantees modes in
       Some (contract), [sofar_local], [equation]
     else None, [], []
+  in
   (* ****************************************************************** *)
-  (* Finalize and build intermediate LustreNode                         *)
+  (* Add state var definitions for frame and if blocks                  *)
   (* ****************************************************************** *)
-  in 
   (* Add state var definitions for frame blocks *)
   (
     match LDF.FrameHashtbl.find_opt LDF.pos_list_map i with
@@ -2082,7 +2083,22 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         ) frame_infos;  
       | None -> ()
   );
-    
+
+  (* Add state var definitions for if blocks *)
+  (
+    match LDI.IfHashtbl.find_opt LDI.pos_list_map i with
+      | Some if_infos ->
+        let if_infos = List.map (fun (pos, id) -> ((H.find_opt !map.state_var (mk_ident id)), pos)) if_infos in
+        List.iter (fun (sv, pos) -> 
+          match sv with 
+          | Some sv -> N.add_state_var_def sv (N.IfBlock pos)
+          | None -> ()
+        ) if_infos;  
+      | None -> ()
+  );
+  (* ****************************************************************** *)
+  (* Finalize and build intermediate LustreNode                         *)
+  (* ****************************************************************** *)    
   let locals = sofar_local @ ghost_locals @ glocals @ locals in
   let equations = sofar_equation @ equations @ gequations in
   let asserts = List.sort (fun (p1, _) (p2, _) -> compare_pos p1 p2) asserts in
