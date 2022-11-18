@@ -35,7 +35,7 @@ make install
 ##### signatures
 
 # The LFSC signatures live in the main cvc5 repository
-version="5b71570ad5222815ede7f5fa1297e27c5840a381"
+version="25e52a430a29c9471ecf772b0bd913417a3be2af"
 SIG_DIR_URL="https://raw.githubusercontent.com/cvc5/cvc5/$version/proofs/lfsc/signatures"
 
 # install signatures and scripts
