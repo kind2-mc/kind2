@@ -227,9 +227,15 @@ type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr
 
+type prop_bound =
+  | FROM
+  | WITHIN
+  | AT
+
 type prop_kind =
   | Invariant
-  | Reachable
+  (* The 'HString.t' refers to the timestep of the bound, eg "within 10 timesteps" *)
+  | Reachable of prop_bound * HString.t
 
 (* An item in a node declaration *)
 type node_item =
@@ -913,18 +919,43 @@ and pp_print_node_item ppf = function
   | AnnotProperty (_, None, e, Invariant) ->
     Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 
 
-  | AnnotProperty (_, None, e, Reachable) ->
-    Format.fprintf ppf "--%%PROPERTY REACHABLE %a;" pp_print_expr e 
+  | AnnotProperty (_, None, e, Reachable (FROM, b)) ->
+    Format.fprintf ppf "--%%PROPERTY REACHABLE %a FROM %s;" 
+    pp_print_expr e 
+    (HString.string_of_hstring b)
+
+  | AnnotProperty (_, None, e, Reachable (WITHIN, b)) ->
+    Format.fprintf ppf "--%%PROPERTY REACHABLE %a WITHIN %s;" 
+    pp_print_expr e 
+    (HString.string_of_hstring b)
+
+  | AnnotProperty (_, None, e, Reachable (AT, b)) ->
+    Format.fprintf ppf "--%%PROPERTY REACHABLE %a AT %s;" 
+    pp_print_expr e
+    (HString.string_of_hstring b)
 
   | AnnotProperty (_, Some name, e, Invariant) ->
     Format.fprintf ppf "--%%PROPERTY \"%a\" %a;"
       HString.pp_print_hstring name
       pp_print_expr e 
 
-  | AnnotProperty (_, Some name, e, Reachable) ->
-    Format.fprintf ppf "--%%PROPERTY REACHABLE \"%a\" %a;"
+  | AnnotProperty (_, Some name, e, Reachable (FROM, b)) ->
+    Format.fprintf ppf "--%%PROPERTY REACHABLE \"%a\" %a FROM %s;"
       HString.pp_print_hstring name
       pp_print_expr e 
+      (HString.string_of_hstring b)
+
+  | AnnotProperty (_, Some name, e, Reachable (WITHIN, b)) ->
+    Format.fprintf ppf "--%%PROPERTY REACHABLE \"%a\" %a WITHIN %s;"
+      HString.pp_print_hstring name
+      pp_print_expr e 
+      (HString.string_of_hstring b)
+
+  | AnnotProperty (_, Some name, e, Reachable (AT, b)) ->
+    Format.fprintf ppf "--%%PROPERTY REACHABLE \"%a\" %a AT %s;"
+      HString.pp_print_hstring name
+      pp_print_expr e 
+      (HString.string_of_hstring b)
 
 
 let pp_print_contract_ghost_const ppf = function 

@@ -1728,7 +1728,7 @@ and eval_node_items inputs outputs locals ctx = function
     eval_node_items inputs outputs locals ctx tl
 
   (* Property annotation, reachability query *)
-  | A.AnnotProperty (pos, _, _, Reachable) :: _ ->
+  | A.AnnotProperty (pos, _, _, Reachable _) :: _ ->
     fail_at_position pos "Reachability queries are not supported in the old frontend."
 
   (* Property annotation *)

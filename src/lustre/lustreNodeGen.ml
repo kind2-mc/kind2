@@ -1778,7 +1778,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       in 
       let kind = match kind with
         | A.Invariant -> Property.Invariant
-        | A.Reachable -> Property.Reachable
+        | A.Reachable _ -> Property.Reachable
       in sv, name, (Property.PropAnnot pos), kind
     in List.map op node_props
 

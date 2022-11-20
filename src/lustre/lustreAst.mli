@@ -229,9 +229,19 @@ type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr 
 
+(** For reachable properties, the user can optionally specify a bound to look
+    for an example trace from/within/at a certain timestep *)
+type prop_bound =
+  | FROM
+  | WITHIN
+  | AT
+
+(** Whether a property is reachable or invariant *)
 type prop_kind =
   | Invariant
-  | Reachable
+  (* The 'HString.t' refers to the timestep of the bound, eg "within 10 timesteps" *)
+  | Reachable of prop_bound * HString.t
+
 (** An item in a node declaration *)
 type node_item =
   | Body of node_equation

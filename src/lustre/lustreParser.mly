@@ -130,6 +130,9 @@ let mk_span start_pos end_pos =
 (* Tokens for check *)
 %token CHECK
 %token REACHABLE
+%token FROM
+%token AT
+%token WITHIN
 
 (* Tokens for Boolean operations *)
 %token TRUE
@@ -573,7 +576,19 @@ main_annot:
     A.AnnotMain b
   }
 
+
+property_timestep: 
+  | WITHIN ; timestep = NUMERAL
+    { A.Reachable(WITHIN, timestep) }
+  | AT ; timestep = NUMERAL
+    { A.Reachable(AT, timestep) }
+  | FROM ; timestep = NUMERAL
+    { A.Reachable(FROM, timestep) }
+  | {A.Reachable (FROM, HString.mk_hstring "0")} 
+
+
 property:
+  (* Invariant properties *)
   | PROPERTY_ANNOT ; name = option(STRING) ; e = qexpr ; SEMICOLON
     { A.AnnotProperty (mk_pos $startpos, name, e, Invariant) }
   | PROPERTY_PSBLOCKSTART ; name = option(STRING);
@@ -588,26 +603,28 @@ property:
   | PROPERTY_SSBLOCKSTART ; name = option(STRING);
     COLON; e = qexpr ; SEMICOLON; SSBLOCKEND
     { A.AnnotProperty (mk_pos $startpos, name, e, Invariant) }
-  | PROPERTY_ANNOT ; REACHABLE ; name = option(STRING) ; e = qexpr ; SEMICOLON
-    { A.AnnotProperty (mk_pos $startpos, name, e, Reachable) }
+
+  (* Reachability queries *)
+  | PROPERTY_ANNOT ; REACHABLE ; name = option(STRING) ; e = qexpr ; bound = property_timestep; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, e, bound) }
   | PROPERTY_PSBLOCKSTART ; REACHABLE ; name = option(STRING);
-    e = qexpr; SEMICOLON ; PSBLOCKEND
-    { A.AnnotProperty (mk_pos $startpos, name, e, Reachable) }
+    e = qexpr;  bound = property_timestep; SEMICOLON ; PSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e, bound) }
   | PROPERTY_PSBLOCKSTART ; REACHABLE ; name = option(STRING);
-    COLON; e = qexpr; SEMICOLON ; PSBLOCKEND
-    { A.AnnotProperty (mk_pos $startpos, name, e, Reachable) }
+    COLON; e = qexpr; bound = property_timestep; SEMICOLON ; PSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e, bound) }
   | PROPERTY_SSBLOCKSTART ; REACHABLE ; name = option(STRING);
-    e = qexpr ; SEMICOLON; SSBLOCKEND
-    { A.AnnotProperty (mk_pos $startpos, name, e, Reachable) }
+    e = qexpr ; bound = property_timestep; SEMICOLON; SSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e, bound) }
   | PROPERTY_SSBLOCKSTART ; REACHABLE ; name = option(STRING);
-    COLON; e = qexpr ; SEMICOLON; SSBLOCKEND
-    { A.AnnotProperty (mk_pos $startpos, name, e, Reachable) }
+    COLON; e = qexpr ;  bound = property_timestep; SEMICOLON; SSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e, bound) }
 
 check:
   | CHECK ; name = option(STRING) ; e = qexpr ; SEMICOLON
     { A.AnnotProperty (mk_pos $startpos, name, e, Invariant) }
-  | CHECK ; REACHABLE ; name = option(STRING) ; e = qexpr ; SEMICOLON
-    { A.AnnotProperty (mk_pos $startpos, name, A.UnaryOp (mk_pos $startpos, A.Not, e), Reachable) }
+  | CHECK ; REACHABLE ; name = option(STRING) ; e = qexpr ; bound = property_timestep; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, A.UnaryOp (mk_pos $startpos, A.Not, e), bound) }
 
 node_item:
   | e = node_equation { A.Body e }
