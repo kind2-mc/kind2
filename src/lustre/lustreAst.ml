@@ -228,14 +228,14 @@ type node_equation =
   | Equation of position * eq_lhs * expr
 
 type prop_bound =
-  | FROM
-  | WITHIN
-  | AT
+  | From
+  | Within
+  | At
 
 type prop_kind =
   | Invariant
   (* The 'HString.t' refers to the timestep of the bound, eg "within 10 timesteps" *)
-  | Reachable of prop_bound * HString.t
+  | Reachable of prop_bound * constant
 
 (* An item in a node declaration *)
 type node_item =
@@ -919,43 +919,49 @@ and pp_print_node_item ppf = function
   | AnnotProperty (_, None, e, Invariant) ->
     Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 
 
-  | AnnotProperty (_, None, e, Reachable (FROM, b)) ->
+  | AnnotProperty (_, None, e, Reachable (From, (Num b))) ->
     Format.fprintf ppf "--%%PROPERTY REACHABLE %a FROM %s;" 
     pp_print_expr e 
     (HString.string_of_hstring b)
 
-  | AnnotProperty (_, None, e, Reachable (WITHIN, b)) ->
+  | AnnotProperty (_, None, e, Reachable (Within, (Num b))) ->
     Format.fprintf ppf "--%%PROPERTY REACHABLE %a WITHIN %s;" 
     pp_print_expr e 
     (HString.string_of_hstring b)
 
-  | AnnotProperty (_, None, e, Reachable (AT, b)) ->
+  | AnnotProperty (_, None, e, Reachable (At, (Num b))) ->
     Format.fprintf ppf "--%%PROPERTY REACHABLE %a AT %s;" 
     pp_print_expr e
     (HString.string_of_hstring b)
+
+   (* Not possible *)
+  | AnnotProperty (_, None, _, Reachable _) -> assert false
 
   | AnnotProperty (_, Some name, e, Invariant) ->
     Format.fprintf ppf "--%%PROPERTY \"%a\" %a;"
       HString.pp_print_hstring name
       pp_print_expr e 
 
-  | AnnotProperty (_, Some name, e, Reachable (FROM, b)) ->
+  | AnnotProperty (_, Some name, e, Reachable (From, (Num b))) ->
     Format.fprintf ppf "--%%PROPERTY REACHABLE \"%a\" %a FROM %s;"
       HString.pp_print_hstring name
       pp_print_expr e 
       (HString.string_of_hstring b)
 
-  | AnnotProperty (_, Some name, e, Reachable (WITHIN, b)) ->
+  | AnnotProperty (_, Some name, e, Reachable (Within, (Num b))) ->
     Format.fprintf ppf "--%%PROPERTY REACHABLE \"%a\" %a WITHIN %s;"
       HString.pp_print_hstring name
       pp_print_expr e 
       (HString.string_of_hstring b)
 
-  | AnnotProperty (_, Some name, e, Reachable (AT, b)) ->
+  | AnnotProperty (_, Some name, e, Reachable (At, (Num b))) ->
     Format.fprintf ppf "--%%PROPERTY REACHABLE \"%a\" %a AT %s;"
       HString.pp_print_hstring name
       pp_print_expr e 
       (HString.string_of_hstring b)
+
+   (* Not possible *)
+  | AnnotProperty (_, Some _, _, Reachable _) -> assert false
 
 
 let pp_print_contract_ghost_const ppf = function 

@@ -627,6 +627,7 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) =
     contract_scope = [];
     interpretation = StringMap.empty;
     local_group_projection = -1 }
+
   in let over_declarations (nitems, accum) item =
     clear_cache ();
     let (normal_item, map) =
@@ -804,8 +805,25 @@ and normalize_item info map = function
     let nequation, gids = normalize_equation info map equation in
     Body nequation, gids
   | AnnotMain b -> AnnotMain b, empty ()
-  | AnnotProperty (pos, name, expr, k) ->
+  | AnnotProperty (pos, name, expr, k) -> 
+    
+    let expr = (match k with 
+      (* expr or counter < b *)
+      | Reachable (From, b) -> 
+        A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Lt, Ident(dpos, HString.mk_hstring "1_counter"), Const (dpos, b)))
+
+      (* expr or counter != b *)
+      | Reachable (At, b) -> 
+        A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Neq, Ident(dpos, HString.mk_hstring "1_counter"), Const (dpos, b)))
+
+      (* expr or counter > b *)
+      | Reachable (Within, b) -> 
+        A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Gt, Ident(dpos, HString.mk_hstring "1_counter"), Const (dpos, b)))
+      
+      | _ -> expr
+    ) in
     let nexpr, gids = abstract_expr false info map false expr in
+
     AnnotProperty (pos, name, nexpr, k), gids
 
 and rename_ghost_variables info node_id contract =

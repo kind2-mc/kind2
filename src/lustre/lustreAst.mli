@@ -232,15 +232,15 @@ type node_equation =
 (** For reachable properties, the user can optionally specify a bound to look
     for an example trace from/within/at a certain timestep *)
 type prop_bound =
-  | FROM
-  | WITHIN
-  | AT
+  | From
+  | Within
+  | At
 
 (** Whether a property is reachable or invariant *)
 type prop_kind =
   | Invariant
   (* The 'HString.t' refers to the timestep of the bound, eg "within 10 timesteps" *)
-  | Reachable of prop_bound * HString.t
+  | Reachable of prop_bound * constant
 
 (** An item in a node declaration *)
 type node_item =
