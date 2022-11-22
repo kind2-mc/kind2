@@ -186,6 +186,7 @@ let force_fresh = true
 let call_cache = CallCache.create 20
 let local_cache = LocalCache.create 20
 let node_arg_cache = NodeArgCache.create 20
+let ctr_id = HString.mk_hstring "1_counter"
 
 let clear_cache () =
   CallCache.clear call_cache;
@@ -595,6 +596,15 @@ let mk_fresh_call info id map pos cond restart args defaults =
   CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
   nexpr, gids
 
+let add_ctr_to_decl (node_id, b, nps, cctds, ctds, nlds, nis2, co) = 
+  let dpos = Lib.dummy_pos in
+  let counter_decl = A.NodeVarDecl (dpos, (dpos, ctr_id, Int dpos, ClockTrue)) in
+  let counter_eq = A.Body (Equation (dpos, StructDef(dpos, [SingleIdent (dpos, ctr_id)]), 
+                      A.Arrow (dpos, Const (dpos, Num (HString.mk_hstring "0")), BinaryOp (dpos, Plus, Pre (dpos, Ident (dpos, ctr_id)), Const (dpos, Num (HString.mk_hstring "1")))))) in
+  (node_id, b, nps, cctds, ctds, counter_decl :: nlds, counter_eq :: nis2, co)
+(** Add local 'counter' and an equation setting counter = 0 -> pre counter + 1
+    in node_dec *)
+
 let get_type_of_id info node_id id =
   let ty = (match AI.get_type info.abstract_interp_context node_id id with
   | Some ty -> ty
@@ -657,6 +667,8 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) =
 
 and normalize_declaration info map = function
   | NodeDecl (span, decl) ->
+    (* Add a counter variable to deal with reachability queries with timestep bounds *)
+    let decl = add_ctr_to_decl decl in
     let normal_decl, map = normalize_node info map decl in
     Some (A.NodeDecl(span, normal_decl)), map
   | FuncDecl (span, decl) ->
@@ -810,15 +822,15 @@ and normalize_item info map = function
     let expr = (match k with 
       (* expr or counter < b *)
       | Reachable (From, b) -> 
-        A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Lt, Ident(dpos, HString.mk_hstring "1_counter"), Const (dpos, b)))
+        A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Lt, Ident(dpos, ctr_id), Const (dpos, b)))
 
       (* expr or counter != b *)
       | Reachable (At, b) -> 
-        A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Neq, Ident(dpos, HString.mk_hstring "1_counter"), Const (dpos, b)))
+        A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Neq, Ident(dpos, ctr_id), Const (dpos, b)))
 
       (* expr or counter > b *)
       | Reachable (Within, b) -> 
-        A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Gt, Ident(dpos, HString.mk_hstring "1_counter"), Const (dpos, b)))
+        A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Gt, Ident(dpos, ctr_id), Const (dpos, b)))
       
       | _ -> expr
     ) in

@@ -371,19 +371,6 @@ and simplify_expr ?(is_guarded = false) ctx =
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)
 
-let add_ctr_to_node_decl node_decl = 
-  match node_decl with
-    | LA.NodeDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis2, co)) ->
-      let dpos = Lib.dummy_pos in
-      let c_name = HString.mk_hstring "1_counter" in
-      let counter_decl = LA.NodeVarDecl (dpos, (dpos, c_name, Int dpos, ClockTrue)) in
-      let counter_eq = LA.Body (Equation (dpos, StructDef(dpos, [SingleIdent (dpos, c_name)]), 
-                          LA.Arrow (dpos, Const (dpos, Num (HString.mk_hstring "0")), BinaryOp (dpos, Plus, Pre (dpos, Ident (dpos, c_name)), Const (dpos, Num (HString.mk_hstring "1")))))) in
-      LA.NodeDecl (s, (node_id, b, nps, cctds, ctds, counter_decl :: nlds, counter_eq :: nis2, co))
-    | _ -> node_decl
-(** Add local 'counter' and an equation setting counter = 0 -> pre counter + 1
-    in node_dec *)
-
 let rec inline_constants_of_lustre_type ctx = function
   | LA.IntRange (pos, lbound, ubound) ->
     let lbound' = simplify_expr ctx lbound in
@@ -552,6 +539,5 @@ let rec inline_constants: TC.tc_context -> LA.t -> ((TC.tc_context * LA.t), [> e
       | Out_of_bounds (pos, err) -> 
         inline_error pos (OutOfBounds err)) in
     let* (ctx'', decls) = inline_constants ctx' rest in
-    let c' = add_ctr_to_node_decl c' in
     R.ok (ctx'', c'::decls)
 (** Best effort at inlining constants *)

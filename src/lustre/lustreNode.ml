@@ -490,14 +490,41 @@ let pp_print_prop safe ppf (sv, n, _, k) =
         (fun ppf -> 
           if sv_string <> n then
             Format.fprintf ppf " -- was: %s" n)
-    | Property.Reachable -> 
+    | Property.Reachable (From, ts) -> 
       let sv_string = 
         Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
       in
 
       Format.fprintf ppf
-        "@[<hv 2>--%%PROPERTY REACHABLE %s;%t@]"
+        "@[<hv 2>--%%PROPERTY REACHABLE %s FROM %d;%t@]"
         sv_string
+        ts
+        (fun ppf -> 
+          if sv_string <> n then
+            Format.fprintf ppf " -- was: %s" n)
+
+    | Property.Reachable (Within, ts) -> 
+      let sv_string = 
+        Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
+      in
+
+      Format.fprintf ppf
+        "@[<hv 2>--%%PROPERTY REACHABLE %s WITHIN %d;%t@]"
+        sv_string
+        ts
+        (fun ppf -> 
+          if sv_string <> n then
+            Format.fprintf ppf " -- was: %s" n)
+
+    | Property.Reachable (At, ts) -> 
+      let sv_string = 
+        Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
+      in
+
+      Format.fprintf ppf
+        "@[<hv 2>--%%PROPERTY REACHABLE %s AT %d;%t@]"
+        sv_string
+        ts
         (fun ppf -> 
           if sv_string <> n then
             Format.fprintf ppf " -- was: %s" n)
@@ -700,12 +727,31 @@ let pp_print_node_debug ppf
         StateVar.pp_print_state_var state_var
         name
         Property.pp_print_prop_source source
-    | Property.Reachable ->
+    | Property.Reachable (From, ts) ->
       Format.fprintf
         ppf
-        "%a (REACHABLE %s, %a)"
+        "%a (REACHABLE %s FROM %d, %a)"
         StateVar.pp_print_state_var state_var
         name
+        ts
+        Property.pp_print_prop_source source
+
+    | Property.Reachable (Within, ts) ->
+      Format.fprintf
+        ppf
+        "%a (REACHABLE %s WITHIN %d, %a)"
+        StateVar.pp_print_state_var state_var
+        name
+        ts
+        Property.pp_print_prop_source source
+
+    | Property.Reachable (At, ts) ->
+      Format.fprintf
+        ppf
+        "%a (REACHABLE %s AT %d, %a)"
+        StateVar.pp_print_state_var state_var
+        name
+        ts
         Property.pp_print_prop_source source
   in
 

@@ -34,9 +34,14 @@ type prop_status =
   (* Property is false at some step *)
   | PropFalse of (StateVar.t * Model.value list) list
 
+type prop_bound =
+  | From
+  | Within
+  | At
+
 type prop_kind =
   | Invariant
-  | Reachable
+  | Reachable of prop_bound * int
 
 (* A property of a transition system *)
 type t = 

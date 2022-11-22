@@ -314,20 +314,64 @@ let proved_pt mdl level trans_sys k prop kind =
 
   then 
 
-    (ignore_or_fprintf level)
-      !log_ppf
-      (if kind = Property.Invariant 
-        then "@[<hov>%t %s @{<blue_b>%s@} is valid %tby %a after %.3fs.@.@."
-        else "@[<hov>%t %s @{<blue_b>%s@} is unreachable %tby %a after %.3fs.@.@.")
-      (if kind = Property.Invariant then success_tag else failure_tag)
-      (if TransSys.is_candidate trans_sys prop then
-         "Candidate" else "Property")
-         (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop)
-      (function ppf -> match k with
-         | None -> ()
-         | Some k -> Format.fprintf ppf "for k=%d " k)
-      pp_print_kind_module_pt mdl
-      (Stat.get_float Stat.analysis_time)
+
+      (match kind with
+        | Property.Invariant ->
+          (ignore_or_fprintf level)
+          !log_ppf
+          "@[<hov>%t %s @{<blue_b>%s@} is valid %tby %a after %.3fs.@.@."
+          (if kind = Property.Invariant then success_tag else failure_tag)
+          (if TransSys.is_candidate trans_sys prop then
+             "Candidate" else "Property")
+             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop)
+          (function ppf -> match k with
+             | None -> ()
+             | Some k -> Format.fprintf ppf "for k=%d " k)
+          pp_print_kind_module_pt mdl
+          (Stat.get_float Stat.analysis_time)
+        | Property.Reachable (From, ts) -> 
+          (ignore_or_fprintf level)
+          !log_ppf
+          ("@[<hov>%t %s @{<blue_b>%s@} is unreachable from %d timesteps %tby %a after %.3fs.@.@.")
+          (if kind = Property.Invariant then success_tag else failure_tag)
+          (if TransSys.is_candidate trans_sys prop then
+             "Candidate" else "Property")
+             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop)
+          ts
+          (function ppf -> match k with
+             | None -> ()
+             | Some k -> Format.fprintf ppf "for k=%d " k)
+          pp_print_kind_module_pt mdl
+          (Stat.get_float Stat.analysis_time)
+        | Property.Reachable (Within, ts) -> 
+          (ignore_or_fprintf level)
+          !log_ppf
+          "@[<hov>%t %s @{<blue_b>%s@} is unreachable within %d timesteps %tby %a after %.3fs.@.@."
+          (if kind = Property.Invariant then success_tag else failure_tag)
+          (if TransSys.is_candidate trans_sys prop then
+             "Candidate" else "Property")
+             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop)
+          ts
+          (function ppf -> match k with
+             | None -> ()
+             | Some k -> Format.fprintf ppf "for k=%d " k)
+          pp_print_kind_module_pt mdl
+          (Stat.get_float Stat.analysis_time)
+        | Property.Reachable (At, ts) -> 
+          (ignore_or_fprintf level)
+          !log_ppf
+          "@[<hov>%t %s @{<blue_b>%s@} is unreachable at %d timesteps %tby %a after %.3fs.@.@."
+          (if kind = Property.Invariant then success_tag else failure_tag)
+          (if TransSys.is_candidate trans_sys prop then
+             "Candidate" else "Property")
+             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop)
+          ts
+          (function ppf -> match k with
+             | None -> ()
+             | Some k -> Format.fprintf ppf "for k=%d " k)
+          pp_print_kind_module_pt mdl
+          (Stat.get_float Stat.analysis_time)
+          )
 
 let unknown_pt mdl level trans_sys prop = 
   (* Only ouptut if status was unknown *)
@@ -392,8 +436,8 @@ let pp_print_counterexample_pt
   in
 
   let print_cex ppf =
-    match prop_name with
-      | Some _ when prop_kind = Property.Reachable -> 
+    match prop_name, prop_kind with
+      | Some _, Property.Reachable _ -> 
           Format.fprintf ppf
           "@{<green>%s@}:@,  @[<v>%a@]"
           "Example trace"
@@ -500,12 +544,22 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
         (if disproved then (if kind = Property.Invariant then failure_tag else success_tag) else warning_tag)
         (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop)
         (
-          if (disproved && kind = Property.Invariant) then
-            Format.asprintf "is invalid by %a" pp_print_kind_module_pt mdl
-          else if (disproved && kind = Property.Reachable) then
-            Format.asprintf "is reachable by %a" pp_print_kind_module_pt mdl
-          else
-            "has a step k-induction counterexample"
+          match disproved, kind with
+            | true, Property.Invariant ->
+              Format.asprintf "is invalid by %a" pp_print_kind_module_pt mdl
+            | true, Property.Reachable (From, ts) ->
+              Format.asprintf "is reachable from %d timesteps by %a" 
+              ts 
+              pp_print_kind_module_pt mdl
+            | true, Property.Reachable (Within, ts) ->
+              Format.asprintf "is reachable within %d timesteps by %a" 
+              ts 
+              pp_print_kind_module_pt mdl
+            | true, Property.Reachable (At, ts) ->
+              Format.asprintf "is reachable at %d timesteps by %a" 
+              ts 
+              pp_print_kind_module_pt mdl
+            | _ -> "has a step k-induction counterexample"
         )
         (function ppf -> match cex with
            | [] -> ()
@@ -596,6 +650,8 @@ let prop_status_pt level prop_status prop_kind =
             ppf
             "@[<h>@{<blue_b>%s@}: %a@]"
             (if k = Property.Invariant then p else rm_neg_prop_str p)
+            (*!! UPDATE THIS FOR VARIOUS CASES OF Property.Reachable.
+                 ALSO UPDATE PRINTING FOR JSON AND XML !!*)
             (function ppf -> (function 
                   | Property.PropUnknown -> 
                     Format.fprintf ppf "@{<red>unknown@}"
