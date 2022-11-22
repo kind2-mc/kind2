@@ -44,9 +44,10 @@ type error_kind = Unknown of string
   | MergeCaseNotUnique of HString.t
   | UnboundIdentifier of HString.t
   | UnboundModeReference of HString.t
-  | MissingRecordField of HString.t
+  | NotAFieldOfRecord of HString.t
+  | NoValueForRecordField of HString.t
   | IlltypedRecordProjection of tc_type
-  | MissingTupleField of int * tc_type
+  | TupleIndexOutOfBounds of int * tc_type
   | IlltypedTupleProjection of tc_type
   | UnequalIteBranchTypes of tc_type * tc_type
   | ExpectedBooleanExpression of tc_type
@@ -94,6 +95,7 @@ type error_kind = Unknown of string
   | UndeclaredType of HString.t
   | EmptySubrange of int * int
   | SubrangeArgumentMustBeConstantInteger of LA.expr
+  | ExpectedRecordType of tc_type
 
 type error = [
   | `LustreTypeCheckerError of Lib.position * error_kind
@@ -109,9 +111,10 @@ let error_message kind = match kind with
   | MergeCaseNotUnique case -> "Merge case " ^ HString.string_of_hstring case ^ " must be unique"
   | UnboundIdentifier id -> "Unbound identifier: " ^ HString.string_of_hstring id
   | UnboundModeReference id -> "Unbound mode reference: " ^ HString.string_of_hstring id
-  | MissingRecordField id -> "No field name '" ^ HString.string_of_hstring id ^ "' in record type"
+  | NotAFieldOfRecord id -> "No field name '" ^ HString.string_of_hstring id ^ "' in record type"
+  | NoValueForRecordField id -> "No value given for field '" ^ HString.string_of_hstring id ^ "'"
   | IlltypedRecordProjection ty -> "Cannot project field out of non record expression type " ^ string_of_tc_type ty
-  | MissingTupleField (id, ty) -> "Field " ^ string_of_int id ^ " is out of bounds for tuple type " ^ string_of_tc_type ty
+  | TupleIndexOutOfBounds (id, ty) -> "Index " ^ string_of_int id ^ " is out of bounds for tuple type " ^ string_of_tc_type ty
   | IlltypedTupleProjection ty -> "Cannot project field out of non tuple type " ^ string_of_tc_type ty
   | UnequalIteBranchTypes (ty1, ty2) -> "Expected equal types of each if-then-else branch but found: "
     ^ string_of_tc_type ty1 ^ " on the then-branch and " ^ string_of_tc_type ty2 ^ " on the the else-branch"
@@ -183,11 +186,12 @@ let error_message kind = match kind with
   | Redeclaration id -> HString.string_of_hstring id ^ " is already declared"
   | ExpectedConstant e -> "Expression " ^ LA.string_of_expr e ^ " is not a constant expression"
   | ArrayBoundsInvalidExpression -> "Invalid expression in array bounds"
-  | UndeclaredType id -> HString.string_of_hstring id ^ " is undeclared"
+  | UndeclaredType id -> "Type '" ^ HString.string_of_hstring id ^ "' is undeclared"
   | EmptySubrange (v1, v2) -> "Range can not be empty, but found range: ["
     ^ string_of_int v1 ^ ", " ^ string_of_int v2 ^ "]"
   | SubrangeArgumentMustBeConstantInteger e -> "Range arguments should be of constant integers, but found: "
     ^ Lib.string_of_t LA.pp_print_expr e
+  | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
 
 let (>>=) = R.(>>=)
 let (let*) = R.(>>=)
@@ -270,8 +274,8 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
         let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
         (match (List.assoc_opt fld typed_fields) with
         | Some ty -> R.ok (expand_type_syn ctx ty)
-        | None -> type_error pos (MissingRecordField fld))
-    | _ -> type_error pos (IlltypedRecordProjection rec_ty))
+        | None -> type_error pos (NotAFieldOfRecord fld))
+    | _ -> type_error (LH.pos_of_expr e) (IlltypedRecordProjection rec_ty))
 
   | LA.TupleProject (pos, e1, i) ->
     let* tup_ty = infer_type_expr ctx e1 in
@@ -279,7 +283,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     (match tup_ty with
     | LA.TupleType (pos, tys) as ty ->
         if List.length tys <= i
-        then type_error pos (MissingTupleField (i, ty))
+        then type_error pos (TupleIndexOutOfBounds (i, ty))
         else R.ok (expand_type_syn ctx (List.nth tys i))
     | ty -> type_error pos (IlltypedTupleProjection ty))
 
@@ -311,13 +315,48 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
     infer_type_comp_op ctx pos e1 e2 cop
 
   (* Structured expressions *)
-  | LA.RecordExpr (pos, name, flds) ->
-    let infer_field ctx (i, e) =
-      let* ty = infer_type_expr ctx e in
-      R.ok (LH.pos_of_expr e, i, ty) 
-    in 
-    let* fld_tys = R.seq (List.map (infer_field ctx) flds) in
-    R.ok (LA.RecordType (pos, name, fld_tys))
+  | LA.RecordExpr (pos, name, flds) -> (
+    match lookup_ty_syn ctx name with
+    | None -> type_error pos (UndeclaredType name)
+    | Some ty ->
+      match ty with
+      | LA.RecordType (_, _, fld_tys) -> (
+        let* matches =
+          R.seq_chain
+            (fun acc (p, f, ty) ->
+              match List.assoc_opt f flds with
+               | None -> type_error pos (NoValueForRecordField f)
+               | Some e -> R.ok ( (p, f, e, ty) :: acc)
+             )
+             []
+             fld_tys
+        in
+        if List.length flds > List.length matches then (
+          let open HString in
+          let fnames1 =
+            HStringSet.of_list (List.map fst flds)
+          in
+          let fnames2 =
+            HStringSet.of_list (List.map (fun (_, n, _) -> n) fld_tys)
+          in
+          let diff = HStringSet.diff fnames1 fnames2 in
+          match HStringSet.choose_opt diff with
+          | None -> assert false
+          | Some name -> type_error pos (NotAFieldOfRecord name)
+        )
+        else (
+          let infer_field ctx (p, i, exp, ty) =
+            let* exp_ty = infer_type_expr ctx exp in
+            let* eq = eq_lustre_type ctx ty exp_ty in
+            if eq then R.ok (p, i, ty)
+            else type_error (LH.pos_of_expr exp) (ExpectedType (ty, exp_ty))
+          in
+          let* fld_tys = R.seq (List.map (infer_field ctx) matches) in
+          R.ok (LA.RecordType (pos, name, fld_tys))
+        )
+      )
+      | _ -> type_error pos (ExpectedRecordType ty)
+  )
   | LA.GroupExpr (pos, struct_type, exprs) ->
     (match struct_type with
     | LA.ExprList ->
@@ -360,7 +399,7 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                         R.ifM (eq_lustre_type ctx f_ty e_ty)
                           (R.ok r_ty)
                           (type_error pos (TypeMismatchOfRecordLabel (l, f_ty, e_ty))))
-                    | None -> type_error pos (MissingRecordField l)))
+                    | None -> type_error pos (NotAFieldOfRecord l)))
               | r_ty -> type_error pos (IlltypedRecordUpdate r_ty))
       | LA.Index (_, e) -> type_error pos (ExpectedLabel e))
   | LA.ArraySlice (pos, e1, (il, iu)) ->
@@ -568,7 +607,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
                 (let typed_fields = List.map (fun (_, i, ty) -> (i, ty)) flds in
                   (match (List.assoc_opt l typed_fields) with
                   | Some ty -> check_type_expr ctx e ty 
-                  | None -> type_error pos (MissingRecordField l)))
+                  | None -> type_error pos (NotAFieldOfRecord l)))
               | _ -> type_error pos (IlltypedRecordUpdate r_ty))
           | LA.Index (_, e) -> type_error pos (ExpectedLabel e))
 
@@ -814,12 +853,12 @@ and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index ->
   >>= function
   | RecordType (_, _, flds) ->
     (match (List.find_opt (fun (_, i, _) -> i = idx) flds) with 
-    | None -> type_error pos (MissingRecordField idx)
+    | None -> type_error pos (NotAFieldOfRecord idx)
     | Some f -> R.ok f)
     >>= fun (_, _, fty) ->
     R.guard_with (eq_lustre_type ctx fty exp_ty)
       (type_error pos (UnificationFailed (exp_ty, fty)))
-  | rec_ty -> type_error pos (IlltypedRecordProjection rec_ty)
+  | rec_ty -> type_error (LH.pos_of_expr expr) (IlltypedRecordProjection rec_ty)
 
 and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> (unit, [> error]) result =
   fun ctx const_decl exp_ty ->
@@ -856,7 +895,6 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
   Debug.parse "TC declaration node: %a {" LA.pp_print_ident node_name;
   let arg_ids = LA.SI.of_list (List.map (fun a -> LH.extract_ip_ty a |> fst) input_vars) in
   let ret_ids = LA.SI.of_list (List.map (fun a -> LH.extract_op_ty a |> fst) output_vars) in
-  let common_ids = LA.SI.inter arg_ids ret_ids in
 
   (* check if any of the arg ids or return ids already exist in the typing context.
       Fail if they do. 
@@ -871,8 +909,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
         else R.ok()))
     () (LA.SI.elements arg_ids @ LA.SI.elements ret_ids)
   
-  >> if (SI.is_empty common_ids)
-  then
+  >>
     (Debug.parse "Params: %a (skipping)" LA.pp_print_node_param_list params;
     (* store the input constants passed in the input *)
     let ip_constants_ctx = List.fold_left union ctx
@@ -919,7 +956,6 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
         Debug.parse "TC declaration node %a done }"
           LA.pp_print_ident node_name;
         check_items >> check_lhs_eqns >> R.ok ()))
-  else type_error pos (NodeInputOutputShareIdentifier common_ids)
 
 and do_node_eqn: tc_context -> LA.node_equation -> (unit, [> error]) result = fun ctx ->
   function

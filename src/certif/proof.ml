@@ -568,6 +568,7 @@ let rec pp_print_sort ppf t =
     else
       Format.fprintf ppf "(cvc.FArray %a %a)" pp_print_sort ti pp_print_sort te
   | Abstr s -> Format.pp_print_string ppf ("cvc." ^ s)
+  | UBV i | BV i -> Format.fprintf ppf "(BitVec %d)" i
   | _ -> Type.pp_print_type ppf t
 
 (* Return a string representation of a sort *)

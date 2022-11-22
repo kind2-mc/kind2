@@ -127,7 +127,7 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
 (* *************************************************************************** *)
 (*                   Lustre Ast Array Dependencies Checks                      *)
 (* *************************************************************************** *)
-(*let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
+let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
   mk_test "test invalid inductive array def 1" (fun () ->
     match load_file "./lustreArrayDependencies/inductive_array1.lus" with
     | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
@@ -172,7 +172,7 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreArrayDependencies/inductive_array11.lus" with
     | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
     | _ -> false);
-])*)
+])
 
 (* *************************************************************************** *)
 (*                      Lustre Ast Dependencies Checks                         *)
@@ -299,6 +299,16 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
   
   mk_test "test ghost variable redeclaration" (fun () ->
     match load_file "./lustreAstDependencies/ghost_variable_redeclaration3.lus" with
+    | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
+    | _ -> false);
+
+  mk_test "test node input redeclaration" (fun () ->
+    match load_file "./lustreAstDependencies/node_input_redeclaration.lus" with
+    | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
+    | _ -> false);
+
+  mk_test "test contract output redeclaration" (fun () ->
+    match load_file "./lustreAstDependencies/contract_output_redeclaration.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
 ])
@@ -439,9 +449,21 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/test_homeomorphic_exn.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedNumberTypes _)) -> true
     | _ -> false);
-  mk_test "test missing record field" (fun () ->
+  mk_test "test not a field of record 01" (fun () ->
     match load_file "./lustreTypeChecker/test_record_expr.lus" with
-    | Error (`LustreTypeCheckerError (_, MissingRecordField _)) -> true
+    | Error (`LustreTypeCheckerError (_, NotAFieldOfRecord _)) -> true
+    | _ -> false);
+  mk_test "test not a field of record 02" (fun () ->
+    match load_file "./lustreTypeChecker/not_a_field_of_record.lus" with
+    | Error (`LustreTypeCheckerError (_, NotAFieldOfRecord _)) -> true
+    | _ -> false);
+  mk_test "test no value for field 01" (fun () ->
+    match load_file "./lustreTypeChecker/no_value_for_field_01.lus" with
+    | Error (`LustreTypeCheckerError (_, NoValueForRecordField _)) -> true
+    | _ -> false);
+  mk_test "test no value for field 02" (fun () ->
+    match load_file "./lustreTypeChecker/no_value_for_field_02.lus" with
+    | Error (`LustreTypeCheckerError (_, NoValueForRecordField _)) -> true
     | _ -> false);
   mk_test "test unification failure 4" (fun () ->
     match load_file "./lustreTypeChecker/test-func-sliced.lus" with
@@ -455,20 +477,24 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/type-grammer.lus" with
     | Error (`LustreTypeCheckerError (_, ArrayBoundsInvalidExpression)) -> true
     | _ -> false);
-  mk_test "test undeclared" (fun () ->
-    match load_file "./lustreTypeChecker/undeclared_type_04.lus" with
+  mk_test "test undeclared 1" (fun () ->
+    match load_file "./lustreTypeChecker/undeclared_type_01.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
   mk_test "test undeclared 2" (fun () ->
-    match load_file "./lustreTypeChecker/undeclared_type_03.lus" with
-    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
-    | _ -> false);
-  mk_test "test undeclared 3" (fun () ->
     match load_file "./lustreTypeChecker/undeclared_type_02.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
+  mk_test "test undeclared 3" (fun () ->
+    match load_file "./lustreTypeChecker/undeclared_type_03.lus" with
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
   mk_test "test undeclared 4" (fun () ->
-    match load_file "./lustreTypeChecker/undeclared_type_01.lus" with
+    match load_file "./lustreTypeChecker/undeclared_type_04.lus" with
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
+  mk_test "test undeclared 5" (fun () ->
+    match load_file "./lustreTypeChecker/undeclared_type_05.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
   mk_test "test local shadowing global" (fun () ->
@@ -481,7 +507,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test nominal record type equality" (fun () ->
     match load_file "./lustreTypeChecker/record_type_nominal_eq.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | Error (`LustreTypeCheckerError (_, NoValueForRecordField _)) -> true
     | _ -> false);
   mk_test "test unequal equation widths in parallel ghost variable assignment" (fun () ->
     match load_file "./lustreTypeChecker/unequal_equation_widths_contract.lus" with
@@ -494,5 +520,9 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test extensional array equality" (fun () ->
     match load_file "./lustreTypeChecker/extensional_array_equality.lus" with
     | Error (`LustreTypeCheckerError (_, Unsupported _)) -> true
+    | _ -> false);
+  mk_test "test expected record type" (fun () ->
+    match load_file "./lustreTypeChecker/expected_record_type.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedRecordType _)) -> true
     | _ -> false);
 ])

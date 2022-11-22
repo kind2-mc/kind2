@@ -826,9 +826,9 @@ let pp_print_node_debug ppf
     is_function
     (pp_print_list pp_print_state_var_source ";@ ")
       (SVM.bindings state_var_source_map)
-    (pp_print_list pp_print_oracle_state_var_map ";@")
+    (pp_print_list pp_print_oracle_state_var_map ";@ ")
       (SVT.fold (fun k v acc -> (k, v) :: acc) oracle_state_var_map [])
-    (pp_print_list pp_print_state_var_expr_map ";@")
+    (pp_print_list pp_print_state_var_expr_map ";@ ")
       (SVT.fold (fun k v acc -> (k, v) :: acc) state_var_expr_map [])
 
 

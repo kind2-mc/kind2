@@ -612,12 +612,8 @@ let get_type_of_id info node_id id =
   in
   Ctx.expand_nested_type_syn info.context ty
 
-(* If [expr] is already a stateful id then we don't create a fresh local *)
-let should_not_abstract info force = function
-  | A.Ident (_, id) ->
-    let is_const = Ctx.lookup_const info.context id |> is_some in
-    not is_const && not force
-  | _ -> false
+(* If [expr] is already an id then we don't create a fresh local *)
+let should_not_abstract force expr = not force && AH.expr_is_id expr
 
 let normalize_list f list =
   let over_list (nitems, gids) item =
@@ -834,9 +830,21 @@ and normalize_item info map = function
       
       | _ -> expr
     ) in
+    let name' =
+      match name with
+      | None -> (
+        let hs_expr =
+          Format.asprintf "@[<h>%a@]" A.pp_print_expr expr
+          |> HString.mk_hstring
+        in
+        Some hs_expr
+      )
+      | Some _ as n -> n
+    in
     let nexpr, gids = abstract_expr false info map false expr in
+    AnnotProperty (pos, name', nexpr, k), gids
 
-    AnnotProperty (pos, name, nexpr, k), gids
+
 
 and rename_ghost_variables info node_id contract =
   let sep = HString.mk_hstring "_contract_" in
@@ -1095,16 +1103,16 @@ and rename_id info = function
   | _ -> assert false
 
 and abstract_expr ?guard force info map is_ghost expr = 
-  let ivars = info.inductive_variables in
-  let pos = AH.pos_of_expr expr in
-  let ty = if expr_has_inductive_var ivars expr |> is_some then
-    (StringMap.choose_opt info.inductive_variables) |> get |> snd
-  else Chk.infer_type_expr info.context expr |> unwrap
-  in
   let nexpr, gids1 = normalize_expr ?guard info map expr in
-  if should_not_abstract info force nexpr then
+  if should_not_abstract force nexpr then
     nexpr, gids1
   else
+    let ivars = info.inductive_variables in
+    let pos = AH.pos_of_expr expr in
+    let ty = if expr_has_inductive_var ivars expr |> is_some then
+      (StringMap.choose_opt info.inductive_variables) |> get |> snd
+    else Chk.infer_type_expr info.context expr |> unwrap
+    in
     let iexpr, gids2 = mk_fresh_local force info pos is_ghost ivars ty nexpr expr in
     iexpr, union gids1 gids2
 
@@ -1145,8 +1153,9 @@ and combine_args_with_const info args flags =
  
 and normalize_expr ?guard info map =
   let abstract_node_arg ?guard force is_const info map expr =
-    if should_not_abstract info force expr then
-      rename_id info expr, empty ()
+    let nexpr, gids1 = normalize_expr ?guard info map expr in
+    if should_not_abstract force nexpr then
+      nexpr, gids1
     else
       let ivars = info.inductive_variables in
       let pos = AH.pos_of_expr expr in
@@ -1154,7 +1163,6 @@ and normalize_expr ?guard info map =
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
       else Chk.infer_type_expr info.context expr |> unwrap
       in
-      let nexpr, gids1 = normalize_expr ?guard info map expr in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ivars ty nexpr in
       iexpr, union gids1 gids2
   in function

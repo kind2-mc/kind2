@@ -1,0 +1,7 @@
+
+const C = undeclared { f=true };
+
+node N() returns (o:bool);
+let
+  o = true;
+tel

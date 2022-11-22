@@ -26,7 +26,7 @@
     graph dependency analysis and sorting done here.
     1. Top level constants and type declarations and functions (starts at [mk_graph_decls]) 
     2. Nodes and contracts (starts at [mk_graph_decls])
-    3. Sorting equations of contracts and cirular analysis of node equations 
+    3. Sorting equations of contracts and circular analysis of node equations
 
    TODO: This should module should supercede LustreDependencies when it hardens.     
 
@@ -502,9 +502,10 @@ let add_decl: 'a IMap.t -> LA.ident -> 'a -> 'a IMap.t
 let check_and_add: 'a IMap.t -> Lib.position
                    -> HString.t -> LA.ident -> 'a -> (('a IMap.t), [> error]) result
   = fun m pos prefix i tyd ->
-  if IMap.mem (HString.concat2 prefix i) m 
+  let i' = HString.concat2 prefix i in
+  if IMap.mem i' m
   then graph_error pos (IdentifierRedeclared i)
-  else R.ok (add_decl m (HString.concat2 prefix i) tyd)
+  else R.ok (add_decl m i' tyd)
 (** reject program if identifier is already declared  *)
   
 let rec  mk_decl_map: LA.declaration option IMap.t -> LA.t -> ((LA.declaration option IMap.t), [> error]) result =
@@ -1002,10 +1003,18 @@ let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contra
 (** Check if any of the out stream vars of the node 
    is being used at its current value in assumption *)
 
+let check_no_input_output_duplicate ips ops =
+  let add m pos i = check_and_add m pos empty_hs i () in
+  let* map =
+    R.seq_chain (fun m (p, i, _, _, _) -> add m p i) IMap.empty ips
+  in
+  R.seq_chain (fun m (p, i, _, _) -> add m p i) map ops
+
 let sort_and_check_contract_eqns: dependency_analysis_data
                                   -> LA.contract_node_decl
                                   -> (LA.contract_node_decl, [> error]) result
   = fun ad ((i, params , ips, ops, contract) as decl) ->
+  let* _ = check_no_input_output_duplicate ips ops in
   Debug.parse "Sorting contract equations for %a" LA.pp_print_ident i;
   let ip_ids = List.map (fun ip -> LH.extract_ip_ty ip |> fst) ips in
   let op_ids = List.map (fun ip -> LH.extract_op_ty ip |> fst) ops in
@@ -1230,28 +1239,35 @@ let analyze_circ_node_equations: node_summary -> LA.node_item list -> (unit, [> 
         | Some p -> graph_error p (CyclicDependency ids))
   >> R.ok ()
 (** Check for node equations, we need to flatten the node calls using [node_summary] generated *)
-    
+
+let check_no_input_output_local_duplicate ips ops locals =
+  let add m pos i = check_and_add m pos empty_hs i () in
+  let* map =
+    R.seq_chain (fun m (p, i, _, _, _) -> add m p i) IMap.empty ips
+  in
+  let* map =
+    R.seq_chain (fun m (p, i, _, _) -> add m p i) map ops
+  in
+  R.seq_chain
+    (fun m local ->
+      match local with
+      | LA.NodeConstDecl (_, decl) -> (
+        match decl with
+        | FreeConst (p, i, _) -> add m p i
+        | UntypedConst (p, i, _) -> add m p i
+        | TypedConst (p, i, _, _) -> add m p i
+        )
+      | NodeVarDecl (_, (p, i, _, _)) -> add m p i)
+    map
+    locals
+
 let check_node_equations: dependency_analysis_data
                           -> LA.node_decl
                           -> (LA.node_decl, [> error]) result
   = fun ad ((i, imported, params, ips, ops, locals, items, contract_opt) as ndecl)->
   (if not imported then
-    let add m pos i = check_and_add m pos (HString.mk_hstring "") i () in
-    let eqn_map = IMap.empty in
-    let eqn_map = List.fold_left (fun acc (_, i, _, _, _) -> IMap.add i () acc) eqn_map ips in
-    let eqn_map = List.fold_left (fun acc (_, i, _, _) -> IMap.add i () acc) eqn_map ops in
-    let eqn_map = List.fold_left (fun acc local -> 
-      let* m = acc in
-      match local with
-      | LA.NodeConstDecl (_, decl) -> (match decl with
-        | FreeConst (p, i, _) -> add m p i
-        | UntypedConst (p, i, _) -> add m p i
-        | TypedConst (p, i, _, _) -> add m p i) 
-      | NodeVarDecl (_, (p, i, _, _)) -> add m p i)
-      (Ok eqn_map)
-      locals
-    in
-    eqn_map >> analyze_circ_node_equations ad.nsummary items
+    let* _ = check_no_input_output_local_duplicate ips ops locals in
+    analyze_circ_node_equations ad.nsummary items
    else R.ok())
   >> match contract_opt with
      | None -> R.ok ndecl

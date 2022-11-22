@@ -15,7 +15,7 @@ case "$LINKING_MODE" in
                 CCLIB="-static -lstdc++ -lsodium";;
             macosx)
                 FLAGS="-noautolink"
-                CCLIB="-lzmq_stubs -lstdint_stubs -lthreadsnat -lunix -lcamlstr -lnums -lpthread -lstdc++"
+                CCLIB="-lzmq_stubs -lthreadsnat -lunix -lcamlstr -lnums -lpthread -lstdc++"
                 LIBS="libzmq libsodium"
                 for lib in $LIBS; do
                     CCLIB="$CCLIB $(pkg-config $lib --variable libdir)/$lib.a"

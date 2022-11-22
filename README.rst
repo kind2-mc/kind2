@@ -102,7 +102,7 @@ To run Kind 2 the following software must be installed on your computer:
   * `cvc5 <https://cvc5.github.io/>`_\ ,
   * `MathSAT 5 <http://mathsat.fbk.eu/index.html>`_\ ,
   * `Yices 2 <http://yices.csl.sri.com/>`_\ ,
-  * `Yices 1 <http://yices.csl.sri.com/old/download-yices1-full.shtml>`_\ , or
+  * `Yices 1 <https://yices.csl.sri.com/old/download-yices1.html>`_\ , or
   * `Z3 <https://github.com/Z3Prover/z3>`_
 
 Z3 is the presently recommended SMT solver and the default option. For problems with
@@ -351,9 +351,9 @@ For HTML documentation, you additionally need:
 
 For PDF documentation, you additionally need:
 
-* `latexmk <https://packages.ubuntu.com/xenial/latexmk>`_
-* `XeTeX <https://packages.debian.org/sid/texlive-xetex>`_
-* `lmodern <https://packages.debian.org/sid/lmodern>`_
+* `latexmk <https://personal.psu.edu/~jcc8/software/latexmk/>`_
+* `XeTeX <https://xetex.sourceforge.net>`_
+* `lmodern <https://www.gust.org.pl/projects/e-foundry/latin-modern>`_
 
 If you're on Debian/Ubuntu, assuming you have Python 3 installed,
 you can run the following:

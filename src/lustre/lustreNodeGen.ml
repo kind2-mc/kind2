@@ -1760,21 +1760,16 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   in let props =
     let op (pos, name_opt, expr, kind) =
-      let name_opt = match name_opt with
-        | Some name -> Some (HString.string_of_hstring name)
-        | None -> None
-      in
       let id_str = match expr with
         | A.Ident (_, id_str) -> id_str
         | A.ArrayIndex (_, A.Ident (_, id_str), _) -> id_str
         | _ -> assert false (* must be abstracted *)
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in
-      let name = match name_opt with
-        | Some n -> n
-        | None -> let abs = LAN.StringMap.find_opt id_str gids.LAN.locals in
-          let name = match abs with | Some (_, _, _, e) -> e | None -> expr in
-            Format.asprintf "@[<h>%a@]" A.pp_print_expr name
+      let name =
+        match name_opt with
+        | Some n -> HString.string_of_hstring n
+        | None -> assert false (* Prop named in LustreAstNormalizer *)
       in 
       let kind = match kind with
         | A.Invariant -> Property.Invariant
@@ -2052,8 +2047,6 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* Finalize and build intermediate LustreNode                         *)
   (* ****************************************************************** *)
   in let locals = sofar_local @ ghost_locals @ glocals @ locals in
-  let calls = calls in
-  let props = props in
   let equations = sofar_equation @ equations @ gequations in
   let asserts = List.sort (fun (p1, _) (p2, _) -> compare_pos p1 p2) asserts in
   let state_var_source_map = SVT.fold

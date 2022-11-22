@@ -1,0 +1,7 @@
+
+type my_record = struct { f1: bool; f2: bool };
+
+node N() returns (r: my_record);
+let
+   r = my_record { f1=true; t=false };
+tel
