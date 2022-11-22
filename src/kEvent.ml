@@ -280,9 +280,31 @@ let all_stats () =
 (* ********************************************************************** *)
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
-let rm_neg_prop_str str =
+(** For reachability properties, we instrumented them with leading negations
+    (if the negation is falsifiable, the property is reachable). If the 
+    user included from/within/at keywords, we also instrumented the 
+    property with "or counter </>/<> ts". When printing, we want to 
+    remove these instrumentations. *)
+let rm_neg_prop_str str k =
+  (* Remove negation we added for reachability properties *)
   if (String.length str >= 4 && ((String.sub str 0 4) = "(not"))
   then (String.sub str 5 ((String.length str) - 6))
+  (* Remove both the negation we added and the counter we added for reachability
+     properties with from/within/at bounds *)
+  else if (String.length str >= 5 && ((String.sub str 0 5) = "((not"))
+  then 
+    match k with
+      (* Remove the trailing "or counter </>/<> ts" at the end. *)
+      | Property.Reachable (At, ts) -> 
+        let ts = string_of_int ts in
+        let amount_to_cut = 21 + (String.length ts) in
+        (String.sub str 6 ((String.length str) - (6 + amount_to_cut)))
+      (* Need a different case because "<>" has more characters than "<" or ">" *)
+      | Property.Reachable (_, ts) -> 
+        let ts = string_of_int ts in
+        let amount_to_cut = 20 + (String.length ts) in
+        (String.sub str 6 ((String.length str) - (6 + amount_to_cut))) 
+      | _ -> str
   else str
 
 (* Pretty-print kind module for plain text output *)
@@ -323,7 +345,7 @@ let proved_pt mdl level trans_sys k prop kind =
           (if kind = Property.Invariant then success_tag else failure_tag)
           (if TransSys.is_candidate trans_sys prop then
              "Candidate" else "Property")
-             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop)
+             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop kind)
           (function ppf -> match k with
              | None -> ()
              | Some k -> Format.fprintf ppf "for k=%d " k)
@@ -336,7 +358,7 @@ let proved_pt mdl level trans_sys k prop kind =
           (if kind = Property.Invariant then success_tag else failure_tag)
           (if TransSys.is_candidate trans_sys prop then
              "Candidate" else "Property")
-             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop)
+             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop kind)
           ts
           (function ppf -> match k with
              | None -> ()
@@ -350,7 +372,7 @@ let proved_pt mdl level trans_sys k prop kind =
           (if kind = Property.Invariant then success_tag else failure_tag)
           (if TransSys.is_candidate trans_sys prop then
              "Candidate" else "Property")
-             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop)
+             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop kind)
           ts
           (function ppf -> match k with
              | None -> ()
@@ -364,7 +386,7 @@ let proved_pt mdl level trans_sys k prop kind =
           (if kind = Property.Invariant then success_tag else failure_tag)
           (if TransSys.is_candidate trans_sys prop then
              "Candidate" else "Property")
-             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop)
+             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop kind)
           ts
           (function ppf -> match k with
              | None -> ()
@@ -542,7 +564,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
         !log_ppf 
       "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%t%a@]@."
         (if disproved then (if kind = Property.Invariant then failure_tag else success_tag) else warning_tag)
-        (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop)
+        (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop kind)
         (
           match disproved, kind with
             | true, Property.Invariant ->
@@ -649,45 +671,55 @@ let prop_status_pt level prop_status prop_kind =
           Format.fprintf 
             ppf
             "@[<h>@{<blue_b>%s@}: %a@]"
-            (if k = Property.Invariant then p else rm_neg_prop_str p)
-            (*!! UPDATE THIS FOR VARIOUS CASES OF Property.Reachable.
-                 ALSO UPDATE PRINTING FOR JSON AND XML !!*)
-            (function ppf -> (function 
-                  | Property.PropUnknown -> 
+            (if k = Property.Invariant then p else rm_neg_prop_str p k)
+            (function ppf -> (function
+                  | Property.PropUnknown, _ -> 
                     Format.fprintf ppf "@{<red>unknown@}"
 
-                  | Property.PropKTrue n when k = Property.Invariant -> 
+                  | Property.PropKTrue n, Property.Invariant -> 
                     Format.fprintf ppf "@{<yellow>true up to %d steps@}" n
 
-                  | Property.PropKTrue n -> 
+                  | Property.PropKTrue n, Property.Reachable _ -> 
                     Format.fprintf ppf "@{<yellow>unreachable up to %d steps@}" n
 
-                  | Property.PropInvariant (n, _) when k = Property.Invariant -> 
+                  | Property.PropInvariant (n, _), Property.Invariant -> 
                     Format.fprintf ppf "@{<green_b>valid (at %d)@}" n
 
-                  | Property.PropInvariant (n, _) -> 
-                    Format.fprintf ppf "@{<red_b>unreachable (at %d)@}" n
+                  | Property.PropInvariant (n, _), Property.Reachable (From, ts) -> 
+                    Format.fprintf ppf "@{<red_b>unreachable from %d timesteps (at %d)@}" ts n
 
-                  | Property.PropFalse [] when k = Property.Invariant -> 
+                  | Property.PropInvariant (n, _), Property.Reachable (Within, ts) -> 
+                    Format.fprintf ppf "@{<red_b>unreachable within %d timesteps (at %d)@}" ts n
+
+                  | Property.PropInvariant (n, _), Property.Reachable (At, ts) -> 
+                    Format.fprintf ppf "@{<red_b>unreachable at %d timesteps (at %d)@}" ts n
+
+                  | Property.PropFalse [], Property.Invariant -> 
                     Format.fprintf ppf "@{<red_b>invalid@}"
 
-                  | Property.PropFalse [] -> 
-                    Format.fprintf ppf "@{<green_b>reachable@}"
+                  | Property.PropFalse [], Property.Reachable (From, ts) -> 
+                    Format.fprintf ppf "@{<green_b>reachable from %d timesteps@}" ts
 
-                  | Property.PropFalse cex when k = Property.Invariant -> 
+                  | Property.PropFalse [], Property.Reachable (Within, ts) -> 
+                    Format.fprintf ppf "@{<green_b>reachable within %d timesteps@}" ts
+
+                  | Property.PropFalse [], Property.Reachable (At, ts) -> 
+                    Format.fprintf ppf "@{<green_b>reachable at %d timesteps@}" ts
+
+                  | Property.PropFalse cex, Property.Invariant -> 
                     Format.fprintf 
                       ppf
                       "@{<red_b>invalid after %d steps@}"
                       ((Property.length_of_cex cex) - 1)
 
-                  | Property.PropFalse cex -> 
+                  | Property.PropFalse cex, Property.Reachable _ -> 
                     Format.fprintf 
                       ppf
                       "@{<green_b>reachable after %d steps@}"
                       ((Property.length_of_cex cex) - 1)
                 )
               )
-            s)
+            (s, k))
        "@,")
     (List.combine prop_status prop_kind)
     Pretty.print_double_line ()
@@ -768,7 +800,7 @@ let proved_xml mdl level trans_sys k prop_name prop_kind =
         %t\
         <Answer source=\"%a\"%t>%s</Answer>@;<0 -2>\
         </Property>@]@.")
-      (Lib.escape_xml_string (if prop_kind = Property.Invariant then prop_name else rm_neg_prop_str prop_name)) 
+      (Lib.escape_xml_string (if prop_kind = Property.Invariant then prop_name else rm_neg_prop_str prop_name prop_kind)) 
       (prop_attributes_xml trans_sys prop_name)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match k with 
@@ -779,7 +811,13 @@ let proved_xml mdl level trans_sys k prop_name prop_kind =
          | None -> ()
          | Some msg -> Format.fprintf ppf " comment=\"%s\"" msg
       )
-      (if prop_kind = Property.Invariant then "valid" else "unreachable")
+      (match prop_kind with
+      | Property.Invariant -> "valid"
+      | Property.Reachable (From, ts) -> "unreachable from " ^ string_of_int ts ^ " timesteps"
+      | Property.Reachable (Within, ts) -> "unreachable within " ^ string_of_int ts ^ " timesteps"
+      | Property.Reachable (At, ts) -> "unreachable at " ^ string_of_int ts ^ " timesteps"
+    )
+
 
 let unknown_xml mdl level trans_sys prop_name =
 
@@ -875,7 +913,12 @@ let cex_xml
     let answer =
       match mdl with
       | `IND -> "unknown"
-      | _ -> if prop_kind = Property.Invariant then "falsifiable" else "reachable"
+      | _ ->       (match prop_kind with
+      | Property.Invariant -> "falsifiable"
+      | Property.Reachable (From, ts) -> "reachable from " ^ string_of_int ts ^ " timesteps"
+      | Property.Reachable (Within, ts) -> "reachable within " ^ string_of_int ts ^ " timesteps"
+      | Property.Reachable (At, ts) -> "reachable at " ^ string_of_int ts ^ " timesteps"
+    )
     in
 
     let comment =
@@ -898,7 +941,7 @@ let cex_xml
         %t\
         %a@;<0 -2>\
         </Property>@]@.") 
-      (Lib.escape_xml_string (if (prop_kind = Property.Invariant) then prop_name else rm_neg_prop_str prop_name)) 
+      (Lib.escape_xml_string (if (prop_kind = Property.Invariant) then prop_name else rm_neg_prop_str prop_name prop_kind)) 
       (prop_attributes_xml trans_sys prop_name)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match cex with 
@@ -977,7 +1020,7 @@ let prop_status_xml level trans_sys prop_status prop_kind =
                @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]@,\
                %a@,\
                @;<0 -2></Property>@]"
-              (Lib.escape_xml_string (if k = Property.Invariant then p else rm_neg_prop_str p)) 
+              (Lib.escape_xml_string (if k = Property.Invariant then p else rm_neg_prop_str p k)) 
               (prop_attributes_xml trans_sys p)
               (function ppf -> function 
                  | Property.PropUnknown
@@ -1098,14 +1141,20 @@ let proved_json mdl level trans_sys k prop kind =
         }\
         @]@.}@.\
       "
-      (Lib.escape_json_string (if kind = Property.Invariant then prop else rm_neg_prop_str prop))
+      (Lib.escape_json_string (if kind = Property.Invariant then prop else rm_neg_prop_str prop kind))
       (function ppf -> prop_attributes_json ppf trans_sys prop)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match k with
          | None -> ()
          | Some k -> Format.fprintf ppf "\"k\" : %d,@," k)
       (short_name_of_kind_module mdl)
-      (if kind = Property.Invariant then "valid" else "unreachable")
+      (match kind with
+        | Property.Invariant -> "valid"
+        | Property.Reachable (From, ts) -> "unreachable from " ^ string_of_int ts ^ " timesteps"
+        | Property.Reachable (Within, ts) -> "unreachable within " ^ string_of_int ts ^ " timesteps"
+        | Property.Reachable (At, ts) -> "unreachable at " ^ string_of_int ts ^ " timesteps"
+      )
+
 
 let unknown_json mdl level trans_sys prop =
 
@@ -1188,7 +1237,12 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
     let answer =
       match mdl with
       | `IND -> "unknown"
-      | _ -> if kind = Property.Invariant then "falsifiable" else "reachable"
+      | _ -> (match kind with
+        | Property.Invariant -> "falsifiable"
+        | Property.Reachable (From, ts) -> "reachable from " ^ string_of_int ts ^ " timesteps"
+        | Property.Reachable (Within, ts) -> "reachable within " ^ string_of_int ts ^ " timesteps"
+        | Property.Reachable (At, ts) -> "reachable at " ^ string_of_int ts ^ " timesteps"
+      )
     in
 
     (* Output cex. *)
@@ -1212,7 +1266,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
         %a\
         @]@.}@.\
       "
-      (Lib.escape_json_string (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop))
+      (Lib.escape_json_string (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop kind))
       (function ppf -> prop_attributes_json ppf trans_sys prop)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match cex with
@@ -1292,13 +1346,13 @@ let prop_status_json level trans_sys prop_status prop_kind =
                }\
                @]@.}\
              "
-             (Lib.escape_json_string (if k = Property.Invariant then p else rm_neg_prop_str p))
+             (Lib.escape_json_string (if k = Property.Invariant then p else rm_neg_prop_str p k))
              (function ppf -> prop_attributes_json ppf trans_sys p)
              (function ppf -> match s with
                 | Property.PropKTrue n when k = Property.Invariant ->
                   Format.fprintf ppf "\"trueFor\" : %d,@," n
                 | Property.PropKTrue n ->
-                  Format.fprintf ppf "\"ReachableFor\" : %d,@," n
+                  Format.fprintf ppf "\"unreachableFor\" : %d,@," n
                 | _ -> ()
              )
          )
