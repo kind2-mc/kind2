@@ -328,72 +328,60 @@ let tag_pt level tag str =
 
 (* Output proved property as plain text *)
 let proved_pt mdl level trans_sys k prop kind = 
-
-  (* Only ouptut if status was unknown *)
+  (* Only output if status was unknown *)
   if 
-
     not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
-
-  then 
-
-
-      (match kind with
-        | Property.Invariant ->
-          (ignore_or_fprintf level)
-          !log_ppf
-          "@[<hov>%t %s @{<blue_b>%s@} is valid %tby %a after %.3fs.@.@."
-          (if kind = Property.Invariant then success_tag else failure_tag)
-          (if TransSys.is_candidate trans_sys prop then
-             "Candidate" else "Property")
-             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop kind)
-          (function ppf -> match k with
-             | None -> ()
-             | Some k -> Format.fprintf ppf "for k=%d " k)
-          pp_print_kind_module_pt mdl
-          (Stat.get_float Stat.analysis_time)
-        | Property.Reachable (From, ts) -> 
-          (ignore_or_fprintf level)
-          !log_ppf
-          ("@[<hov>%t %s @{<blue_b>%s@} is unreachable from %d timesteps %tby %a after %.3fs.@.@.")
-          (if kind = Property.Invariant then success_tag else failure_tag)
-          (if TransSys.is_candidate trans_sys prop then
-             "Candidate" else "Property")
-             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop kind)
-          ts
-          (function ppf -> match k with
-             | None -> ()
-             | Some k -> Format.fprintf ppf "for k=%d " k)
-          pp_print_kind_module_pt mdl
-          (Stat.get_float Stat.analysis_time)
-        | Property.Reachable (Within, ts) -> 
-          (ignore_or_fprintf level)
-          !log_ppf
-          "@[<hov>%t %s @{<blue_b>%s@} is unreachable within %d timesteps %tby %a after %.3fs.@.@."
-          (if kind = Property.Invariant then success_tag else failure_tag)
-          (if TransSys.is_candidate trans_sys prop then
-             "Candidate" else "Property")
-             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop kind)
-          ts
-          (function ppf -> match k with
-             | None -> ()
-             | Some k -> Format.fprintf ppf "for k=%d " k)
-          pp_print_kind_module_pt mdl
-          (Stat.get_float Stat.analysis_time)
-        | Property.Reachable (At, ts) -> 
-          (ignore_or_fprintf level)
-          !log_ppf
-          "@[<hov>%t %s @{<blue_b>%s@} is unreachable at %d timesteps %tby %a after %.3fs.@.@."
-          (if kind = Property.Invariant then success_tag else failure_tag)
-          (if TransSys.is_candidate trans_sys prop then
-             "Candidate" else "Property")
-             (if (kind = Property.Invariant) then prop else rm_neg_prop_str prop kind)
-          ts
-          (function ppf -> match k with
-             | None -> ()
-             | Some k -> Format.fprintf ppf "for k=%d " k)
-          pp_print_kind_module_pt mdl
-          (Stat.get_float Stat.analysis_time)
-          )
+  then (
+    let cand_or_prop = (if TransSys.is_candidate trans_sys prop then  "Candidate" else "Property") in
+    let k_val = (function ppf -> match k with
+      | None -> ()
+      | Some k -> Format.fprintf ppf "for k=%d " k) in
+    (match kind with
+      | Property.Invariant ->
+        (ignore_or_fprintf level)
+        !log_ppf
+        "@[<hov>%t %s @{<blue_b>%s@} is valid %tby %a after %.3fs.@.@."
+        success_tag
+        cand_or_prop
+        prop
+        k_val
+        pp_print_kind_module_pt mdl
+        (Stat.get_float Stat.analysis_time)
+      | Property.Reachable (From, ts) -> 
+        (ignore_or_fprintf level)
+        !log_ppf
+        ("@[<hov>%t %s @{<blue_b>%s@} is unreachable from %d timesteps %tby %a after %.3fs.@.@.")
+        failure_tag
+        cand_or_prop
+        (rm_neg_prop_str prop kind)
+        ts
+        k_val
+        pp_print_kind_module_pt mdl
+        (Stat.get_float Stat.analysis_time)
+      | Property.Reachable (Within, ts) -> 
+        (ignore_or_fprintf level)
+        !log_ppf
+        "@[<hov>%t %s @{<blue_b>%s@} is unreachable within %d timesteps %tby %a after %.3fs.@.@."
+        failure_tag
+        cand_or_prop
+        (rm_neg_prop_str prop kind)
+        ts
+        k_val
+        pp_print_kind_module_pt mdl
+        (Stat.get_float Stat.analysis_time)
+      | Property.Reachable (At, ts) -> 
+        (ignore_or_fprintf level)
+        !log_ppf
+        "@[<hov>%t %s @{<blue_b>%s@} is unreachable at %d timesteps %tby %a after %.3fs.@.@."
+        failure_tag
+        cand_or_prop
+        (rm_neg_prop_str prop kind)
+        ts
+        k_val
+        pp_print_kind_module_pt mdl
+        (Stat.get_float Stat.analysis_time)
+    )
+  )
 
 let unknown_pt mdl level trans_sys prop = 
   (* Only ouptut if status was unknown *)
