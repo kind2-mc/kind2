@@ -644,9 +644,6 @@ let compare_loc {pos=pos;index=index} {pos=pos';index=index'} =
   | 0 -> LustreIndex.compare_indexes index index'
   | n -> n
 
-let normalize_loc lst =
-  List.sort_uniq compare_loc lst
-
 let add_loc in_sys eq =
   try
     let term = eq.trans_closed in
@@ -656,10 +653,10 @@ let add_loc in_sys eq =
       -> (* Case of a node call *)
       let (name, svs) = name_and_svs_of_node_call in_sys s ts in
       let loc = locs_of_node_call in_sys svs in
-      (eq, normalize_loc loc, NodeCall (name,svs))
+      (eq, loc, NodeCall (name,svs))
     | _ ->
       let (cat,loc) = locs_of_eq_term in_sys term in
-      (eq, normalize_loc loc, cat)
+      (eq, loc, cat)
     end
   with _ -> (* If the input is not a Lustre file, it may fail *)
     (eq, [], Unknown)
