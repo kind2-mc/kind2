@@ -644,8 +644,14 @@ let compare_loc {pos=pos;index=index} {pos=pos';index=index'} =
   | 0 -> LustreIndex.compare_indexes index index'
   | n -> n
 
-let normalize_loc lst =
-  List.sort_uniq compare_loc lst
+let normalize_loc l =
+  (* Remove duplicates from l while maintaining order from the right *)
+  let f loc acc =
+    match List.find_opt (fun loc' -> compare_loc loc loc' = 0) acc with
+    | None -> loc :: acc
+    | Some _ -> acc
+  in
+  List.fold_right f l []
 
 let add_loc in_sys eq =
   try
