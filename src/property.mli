@@ -39,7 +39,7 @@ type prop_bound =
 
 type prop_kind =
   | Invariant
-  | Reachable of prop_bound * int
+  | Reachable of (prop_bound * int) option
 
 (** A property of a transition system *)
 type t = {

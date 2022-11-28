@@ -1773,16 +1773,18 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       in 
       let kind = match kind with
         | A.Invariant -> Property.Invariant
-        | A.Reachable (bound, timestep) -> 
+        | A.Reachable Some (bound, timestep) -> 
           let timestep = (match timestep with 
             | Num timestep -> HString.string_of_hstring timestep |> int_of_string
             | _ -> assert false
-          ) in
+          ) in 
           (match bound with 
-            | From -> Property.Reachable (From, timestep)
-            | Within -> Property.Reachable (Within, timestep)
-            | At -> Property.Reachable (At, timestep)
+            | From -> Property.Reachable (Some (From, timestep))
+            | Within -> Property.Reachable (Some (Within, timestep))
+            | At -> Property.Reachable (Some (At, timestep))
           )
+        | A.Reachable None -> 
+          Property.Reachable None
       in sv, name, (Property.PropAnnot pos), kind
     in List.map op node_props
 

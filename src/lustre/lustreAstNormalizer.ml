@@ -817,15 +817,15 @@ and normalize_item info map = function
     
     let expr = (match k with 
       (* expr or counter < b *)
-      | Reachable (From, b) -> 
+      | Reachable Some (From, b) -> 
         A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Lt, Ident(dpos, ctr_id), Const (dpos, b)))
 
       (* expr or counter != b *)
-      | Reachable (At, b) -> 
+      | Reachable Some (At, b) -> 
         A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Neq, Ident(dpos, ctr_id), Const (dpos, b)))
 
       (* expr or counter > b *)
-      | Reachable (Within, b) -> 
+      | Reachable Some (Within, b) -> 
         A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Gt, Ident(dpos, ctr_id), Const (dpos, b)))
       
       | _ -> expr

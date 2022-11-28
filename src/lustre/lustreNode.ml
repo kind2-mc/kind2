@@ -490,7 +490,7 @@ let pp_print_prop safe ppf (sv, n, _, k) =
         (fun ppf -> 
           if sv_string <> n then
             Format.fprintf ppf " -- was: %s" n)
-    | Property.Reachable (From, ts) -> 
+    | Property.Reachable Some (From, ts) -> 
       let sv_string = 
         Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
       in
@@ -503,7 +503,7 @@ let pp_print_prop safe ppf (sv, n, _, k) =
           if sv_string <> n then
             Format.fprintf ppf " -- was: %s" n)
 
-    | Property.Reachable (Within, ts) -> 
+    | Property.Reachable Some (Within, ts) -> 
       let sv_string = 
         Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
       in
@@ -516,7 +516,7 @@ let pp_print_prop safe ppf (sv, n, _, k) =
           if sv_string <> n then
             Format.fprintf ppf " -- was: %s" n)
 
-    | Property.Reachable (At, ts) -> 
+    | Property.Reachable Some (At, ts) -> 
       let sv_string = 
         Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
       in
@@ -525,6 +525,18 @@ let pp_print_prop safe ppf (sv, n, _, k) =
         "@[<hv 2>--%%PROPERTY REACHABLE %s AT %d;%t@]"
         sv_string
         ts
+        (fun ppf -> 
+          if sv_string <> n then
+            Format.fprintf ppf " -- was: %s" n)
+
+    | Property.Reachable None -> 
+      let sv_string = 
+        Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
+      in
+
+      Format.fprintf ppf
+        "@[<hv 2>--%%PROPERTY REACHABLE %s;%t@]"
+        sv_string
         (fun ppf -> 
           if sv_string <> n then
             Format.fprintf ppf " -- was: %s" n)
@@ -727,7 +739,7 @@ let pp_print_node_debug ppf
         StateVar.pp_print_state_var state_var
         name
         Property.pp_print_prop_source source
-    | Property.Reachable (From, ts) ->
+    | Property.Reachable Some (From, ts) ->
       Format.fprintf
         ppf
         "%a (REACHABLE %s FROM %d, %a)"
@@ -736,7 +748,7 @@ let pp_print_node_debug ppf
         ts
         Property.pp_print_prop_source source
 
-    | Property.Reachable (Within, ts) ->
+    | Property.Reachable Some (Within, ts) ->
       Format.fprintf
         ppf
         "%a (REACHABLE %s WITHIN %d, %a)"
@@ -745,13 +757,21 @@ let pp_print_node_debug ppf
         ts
         Property.pp_print_prop_source source
 
-    | Property.Reachable (At, ts) ->
+    | Property.Reachable Some (At, ts) ->
       Format.fprintf
         ppf
         "%a (REACHABLE %s AT %d, %a)"
         StateVar.pp_print_state_var state_var
         name
         ts
+        Property.pp_print_prop_source source
+
+    | Property.Reachable None ->
+      Format.fprintf
+        ppf
+        "%a (REACHABLE %s, %a)"
+        StateVar.pp_print_state_var state_var
+        name
         Property.pp_print_prop_source source
   in
 
