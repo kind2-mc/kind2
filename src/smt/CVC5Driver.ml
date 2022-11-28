@@ -35,7 +35,7 @@ let cmd_line
   let common_flags =
     [|
       "--incremental";
-      "--ext-rew-prep=agg";
+      "--ext-rew-prep=use";    (* After cvc5 PR #9248 (247ecf1), 'use' is the best rewriting strategy for us *)
       "--mbqi";                (* Use model-based quantifier instantiation (best for sat) *)
       "--full-saturate-quant"; (* Resort to full effort techniques instead of answering
                                   unknown due to limited quantifier reasoning (best for unsat) *)

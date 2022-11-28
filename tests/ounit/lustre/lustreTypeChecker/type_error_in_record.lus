@@ -1,0 +1,9 @@
+
+type my_record = struct { f: bool };
+
+const C = my_record { f=0 };
+
+node N() returns (o: bool);
+let
+   o = true;
+tel
