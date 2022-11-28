@@ -527,6 +527,12 @@ and common_contract_checks ctx e =
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
     >> (no_calls_to_nodes_with_contracts_subject_to_refinement ctx e)
 
+(* Can't have from/within/at keywords in reachability queries in functions *)
+and no_reachability_modifiers item = match item with 
+  | LA.AnnotProperty (pos, _, _, Reachable (Some _)) -> 
+    syntax_error pos (IllegalTemporalOperator ("pre", "reachability query modifier")) 
+  | _ -> Ok ()
+
 and check_input_items (pos, _id, _ty, clock, _const) =
   no_clock_inputs_or_outputs pos clock
 
@@ -571,6 +577,7 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
         >> (check_contract false ctx (fun _ -> no_temporal_operator false) c)
         >> no_stateful_contract_imports ctx c
       | None -> Ok ())
+    >> (Res.seq_ (List.map no_reachability_modifiers items))
     >> (Res.seq_ (List.map check_input_items inputs))
     >> (Res.seq_ (List.map check_output_items outputs))
     >> (Res.seq_ (List.map check_local_items locals))

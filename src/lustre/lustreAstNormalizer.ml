@@ -596,12 +596,12 @@ let mk_fresh_call info id map pos cond restart args defaults =
   CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
   nexpr, gids
 
-let add_ctr_to_decl (node_id, b, nps, cctds, ctds, nlds, nis2, co) = 
+let add_ctr_to_decl (nlds, nis) = 
   let dpos = Lib.dummy_pos in
   let counter_decl = A.NodeVarDecl (dpos, (dpos, ctr_id, Int dpos, ClockTrue)) in
   let counter_eq = A.Body (Equation (dpos, StructDef(dpos, [SingleIdent (dpos, ctr_id)]), 
                       A.Arrow (dpos, Const (dpos, Num (HString.mk_hstring "0")), BinaryOp (dpos, Plus, Pre (dpos, Ident (dpos, ctr_id)), Const (dpos, Num (HString.mk_hstring "1")))))) in
-  (node_id, b, nps, cctds, ctds, counter_decl :: nlds, counter_eq :: nis2, co)
+  (counter_decl :: nlds, counter_eq :: nis)
 (** Add local 'counter' and an equation setting counter = 0 -> pre counter + 1
     in node_dec *)
 
@@ -663,8 +663,6 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) =
 
 and normalize_declaration info map = function
   | NodeDecl (span, decl) ->
-    (* Add a counter variable to deal with reachability queries with timestep bounds *)
-    let decl = add_ctr_to_decl decl in
     let normal_decl, map = normalize_node info map decl in
     Some (A.NodeDecl(span, normal_decl)), map
   | FuncDecl (span, decl) ->
@@ -728,6 +726,8 @@ and normalize_ghost_declaration info map = function
 
 and normalize_node info map
     (node_id, is_extern, params, inputs, outputs, locals, items, contracts) =
+  (* Add a counter variable to deal with reachability queries with timestep bounds *)
+  let (locals, items) = add_ctr_to_decl (locals, items) in
   (* Setup the typing context *)
   let constants_ctx = inputs
     |> List.map Ctx.extract_consts
