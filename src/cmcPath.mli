@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2022 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -16,18 +16,6 @@
 
 *)
 
-(** Parse a file in CMC format into a transition system 
+(** Output a counterexample as a Lustre execution in JSON format *)
+val pp_trail : _ InputSystem.t -> TransSys.t -> bool ->Format.formatter -> Model.path -> unit
 
-    @author Daniel Larraz
-*)
-
-type subsystem_instance_name_data = {
-  map: (Lib.position * HString.t) list;
-  counter: int;
-}
-
-(** Parse from the channel *)
-val of_channel : in_channel -> TransSys.t SubSystem.t * subsystem_instance_name_data * (string list * StateVar.t list) list
-
-(** Parse from the file *)
-val of_file : string -> TransSys.t SubSystem.t * subsystem_instance_name_data * (string list * StateVar.t list) list

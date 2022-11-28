@@ -177,7 +177,7 @@ val log_level : unit -> Lib.log_level
 (** Output in XML format *)
 val log_format_xml : unit -> bool
 
-(** Output in XML format *)
+(** Output in JSON format *)
 val log_format_json : unit -> bool
 
 (** Wallclock timeout. *)

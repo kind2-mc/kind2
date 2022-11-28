@@ -63,6 +63,16 @@ let s_query = HString.mk_hstring ":query"
 let s_only_change = HString.mk_hstring "OnlyChange"
 let s_equal = HString.mk_hstring "="
 
+type subsystem_instance_name_data = {
+  map: (Lib.position * HString.t) list;
+  counter: int;
+}
+
+let empty_subsystem_instance_name_data = {
+  map = [];
+  counter = 0;
+}
+
 
 type system_def = {
   name: HString.t;
@@ -386,9 +396,17 @@ let mk_init_map (symb_svars: (HString.t * StateVar.t) list) =
   ) 
 
 (* Create state variables for each invariant property *)
-let mk_invar_prop_svars sys_name { query } =
+(* Currently simplified in the following ways:
+    Assumes check systems only have one reachability statement in them
+    Creates one state var for that reachability statement and no others. *)
+  
+let mk_invar_prop_svars sys_name { query ; reachable } =
   query |> List.map (fun (name, body) ->
-    let full_name = Format.sprintf "invar_prop.%s" (HString.string_of_hstring name) in
+    assert (List.length reachable == 1) ;
+    let reachable_name = fst (List.hd reachable) in
+    let full_name = Format.sprintf "%s" (HString.string_of_hstring reachable_name) in
+    (* For now we make the simplifing assumption that there is only one reachable statement *)
+
     let scope = (sys_name :: I.reserved_scope) in
     StateVar.mk_state_var
       ~is_input:false ~is_const:false ~for_inv_gen:true
@@ -486,8 +504,7 @@ type base_trans_system = {
   subsystems: (HString.t * TransSys.instance list) list;
   props: Property.t list;
 }
-type position =
-  { pos_fname : string; pos_lnum: int; pos_cnum: int }
+
 let mk_inst local_name sys_state_vars subsys_state_vars =
   let map_down, map_up =
     List.fold_left2 (fun (map_down, map_up) sys_state_var subsys_state_var ->
@@ -495,7 +512,7 @@ let mk_inst local_name sys_state_vars subsys_state_vars =
         StateVar.StateVarMap.add sys_state_var subsys_state_var map_up
     ) StateVar.StateVarMap.(empty, empty) sys_state_vars subsys_state_vars
   in 
-  {   TransSys.pos =  Lib.dummy_pos;
+  {   TransSys.pos =  Lib.({ pos_fname = ""; Lib.pos_lnum = 0; Lib.pos_cnum = -1 });
       map_down;
       map_up;
       guard_clock = (fun _ t -> t);
@@ -535,7 +552,7 @@ let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys
       
       let transys_svars = ((snd init_local) :: transys_parameters @ (List.map snd new_transys_locals)) in
       
-      let inst = mk_inst local_name subsys_svars transys_svars in
+      let inst = (mk_inst local_name subsys_svars transys_svars, local_name) in
 
       ((transys_svars, init_local :: new_transys_locals), inst)
     ) in
@@ -559,7 +576,7 @@ let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys
     subsys_locals, subsystem_defs *)
 )
 
-let mk_base_trans_system prev_trans_systems (cmc_sys_def: system_def) = 
+let mk_base_trans_system instance_name_map prev_trans_systems (cmc_sys_def: system_def) = 
   let system_name = HString.string_of_hstring cmc_sys_def.name in
   let scope = [system_name] in
   let init_flag = StateVar.mk_init_flag scope in
@@ -567,7 +584,26 @@ let mk_base_trans_system prev_trans_systems (cmc_sys_def: system_def) =
   let symb_svars = mk_state_vars system_name cmc_sys_def.input cmc_sys_def.output cmc_sys_def.local in (*S*)
   
   let subsystem_defs = mk_subsystems prev_trans_systems system_name init_flag cmc_sys_def.subsystems symb_svars in
-  let subsystems = List.map fst subsystem_defs in 
+  let named_subsystems = List.map fst subsystem_defs in 
+  
+  let subsystems, name_map = List.fold_left (fun (subsystems_acc, name_map) (subsys_name, (instance_list: (TransSys.instance * HString.t) list)) -> 
+      
+      let instances, instance_name_map = List.fold_left (fun (instances_acc, name_map) (instance, instance_name) -> 
+        let pos = TransSys.({instance.pos with pos_lnum = name_map.counter}) in
+
+        let inst = {instance with TransSys.pos = pos} in
+
+        let name_map = {map = (pos, instance_name) :: name_map.map ; counter = name_map.counter + 1} in 
+
+      instances_acc @ [inst] , name_map
+      ) ([], name_map) instance_list in 
+
+      ( subsystems_acc @ [(subsys_name, instances)], instance_name_map )
+    ) ([], instance_name_map) named_subsystems  in
+(* 
+  let subsystems = named_subsystems in
+  let name_map = empty_subsystem_instance_name_data in *)
+
   let subsys_call_maps = List.map fst (List.map snd subsystem_defs) in
   let subsys_locals = List.flatten (List.map snd (List.map snd subsystem_defs)) in
 
@@ -652,7 +688,7 @@ let mk_base_trans_system prev_trans_systems (cmc_sys_def: system_def) =
   Format.printf "CMC_SYS: %s." (UfSymbol.name_of_uf_symbol trans_uf_symbol);
 
   let symb_svars = symb_svars @ subsys_locals  in 
-  {scope; cmc_sys_def; symb_svars; init_map; trans_map; init_flag; state_vars; init_uf_symbol; init_formals; init_term; trans_uf_symbol; trans_formals; trans_term; subsystems; props=[]}
+  {scope; cmc_sys_def; symb_svars; init_map; trans_map; init_flag; state_vars; init_uf_symbol; init_formals; init_term; trans_uf_symbol; trans_formals; trans_term; subsystems; props=[]}, name_map
 
 let rename_check_vars system_name {cmc_sys_def; trans_map} cmc_check_def = 
   assert (List.compare_lengths cmc_sys_def.input cmc_check_def.input == 0) ;
@@ -692,28 +728,25 @@ let check_trans_system system_name base_system (cmc_check_def: check_system)=
     )
   in
 
-  (* state vars remain the same *)
-
-  
   let state_vars =
     base_system.state_vars @ List.map fst prop_svars
    in
 
-  let init_formals =  (* BOTH NEEDS SEPERATED *)
+  let init_formals =
     List.map (fun sv ->
       Var.mk_state_var_instance sv TransSys.init_base
     )
     state_vars
   in
 
-  let init_uf_symbol = (* BOTH NEEDS SEPERATED *)
+  let init_uf_symbol =
     UfSymbol.mk_uf_symbol
       (Format.sprintf "%s_%s" Ids.init_uf_string "check_"^system_name)  (*TODO need to change name to support multiple checks*)
       (List.map Var.type_of_var init_formals)
       Type.t_bool
   in
 
-  let trans_formals = (* BOTH NEEDS SEPERATED *)
+  let trans_formals =
     List.map (fun sv ->
       Var.mk_state_var_instance sv TransSys.trans_base
     )
@@ -727,7 +760,7 @@ let check_trans_system system_name base_system (cmc_check_def: check_system)=
   in
 
 
-  let trans_uf_symbol =  (* BOTH NEEDS SEPERATED *)
+  let trans_uf_symbol =
     UfSymbol.mk_uf_symbol
       (Format.sprintf "%s_%s" Ids.trans_uf_string "check_"^system_name) (*TODO need to change name to support multiple checks*)
       (List.map Var.type_of_var trans_formals)
@@ -811,14 +844,14 @@ let of_channel in_ch =
       | Check def -> Some def)
   in
 
-  let base_trans_systems = sys_ordering |> List.fold_left ( fun prev_trans_systems sys_name -> 
+  let base_trans_systems, name_map = sys_ordering |> List.fold_left ( fun (prev_trans_systems, prev_instance_map) sys_name -> 
     let cmc_sys_def = List.assoc sys_name cmc_sys_defs in
     let cmc_check_def_opt = List.assoc_opt sys_name cmc_check_defs in 
-    let base_system = mk_base_trans_system prev_trans_systems cmc_sys_def in
+    let base_system, name_map = mk_base_trans_system prev_instance_map prev_trans_systems cmc_sys_def in
     match cmc_check_def_opt with 
-    | Some cmc_check_def -> prev_trans_systems @ (cmc_sys_def.name, check_trans_system (HString.string_of_hstring cmc_sys_def.name) base_system cmc_check_def) :: []
-    | None -> prev_trans_systems @ (cmc_sys_def.name, base_system) :: []
-  ) [] in
+    | Some cmc_check_def -> prev_trans_systems @ (cmc_sys_def.name, check_trans_system (HString.string_of_hstring cmc_sys_def.name) base_system cmc_check_def) :: [], name_map
+    | None -> prev_trans_systems @ (cmc_sys_def.name, base_system) :: [], name_map
+  ) ([], empty_subsystem_instance_name_data) in
 (* 
   let mk_inst init_flag sys formal_vars =
     let map_down, map_up =
@@ -857,6 +890,12 @@ let of_channel in_ch =
       )
     ) 
   [] in *)
+
+  let sys_var_mapping = List.fold_left (fun var_map (_, base_transys) -> (
+    let primary_vars = (base_transys.cmc_sys_def.input @ base_transys.cmc_sys_def.output @ base_transys.cmc_sys_def.local) |>
+          List.map (fun v -> List.assoc (fst v) base_transys.symb_svars) in
+    (base_transys.scope, primary_vars) :: var_map
+  )) [] base_trans_systems in
 
   let mk_trans_system other_trans_systems base_trans_system  =
     let (name: HString.t), base = base_trans_system in
@@ -907,7 +946,7 @@ let of_channel in_ch =
     (* NOTE: This was originaly commented out *)
   Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys;
 
-  mk_subsys_structure top_sys
+  mk_subsys_structure top_sys, name_map, sys_var_mapping
 
 
   (* Print Here ... Use Format.printf
@@ -923,3 +962,4 @@ let of_file filename =
   let in_ch = use_file in
 
   of_channel in_ch
+

@@ -33,7 +33,7 @@ type _ t =
 (* Lustre systems supports multiple entry points (main subsystems) *)
 | Native : TransSys.t S.t -> TransSys.t t
 | VMT : TransSys.t S.t -> TransSys.t t
-| CMC : TransSys.t S.t -> TransSys.t t
+| CMC : (TransSys.t S.t * CmcInput.subsystem_instance_name_data * (string list * StateVar.t list) list) -> TransSys.t t
 | Horn : unit S.t -> unit t
 
 let read_input_lustre only_parse input_file =
@@ -59,7 +59,7 @@ let ordered_scopes_of (type s) : s t -> Scope.t list = function
 
   | Native subsystem
   | VMT subsystem 
-  | CMC subsystem ->
+  | CMC (subsystem, _, _) ->
     S.all_subsystems subsystem
     |> List.map (fun { S.scope } -> scope)
 
@@ -93,7 +93,7 @@ let analyzable_subsystems (type s) : s t -> s SubSystem.t list = function
     |> List.filter (fun s ->
       Strategy.is_candidate_for_analysis (S.strategy_info_of s))
 
-  | CMC subsystem ->
+  | CMC (subsystem, _, _) ->
     let subsystems' =
       if Flags.modular () then S.all_subsystems subsystem
       else [subsystem]
@@ -210,7 +210,7 @@ let next_analysis_of_strategy (type s)
 
   | Native subsystem
   | VMT subsystem 
-  | CMC subsystem -> (
+  | CMC (subsystem, _, _) -> (
     fun results ->
       let scope_and_strategy =
         List.map (fun ({ S.scope } as sub) ->
@@ -276,7 +276,7 @@ let mcs_params (type s) (input_system : s t) =
     |> List.filter (fun { S.has_impl } -> has_impl)
     |> List.map param_for_subsystem
   | Native sub
-  | CMC sub
+  | CMC (sub, _, _)
   | VMT sub ->
     let subs =
       if Flags.modular ()
@@ -344,7 +344,7 @@ let interpreter_param (type s) (input_system : s t) =
         Scope.Map.empty (S.all_subsystems sub)
       )
     | Native ({S.scope} as sub)
-    | CMC ({S.scope} as sub)
+    | CMC ({S.scope} as sub, _, _)
     | VMT ({S.scope} as sub) -> (scope,
       List.fold_left (
         fun abs_map ({ S.scope; S.has_impl }) ->
@@ -470,7 +470,7 @@ let trans_sys_of_analysis (type s)
 
   | VMT sub -> (fun _ -> sub.SubSystem.source, VMT sub)
 
-  | CMC sub -> (fun _ -> sub.SubSystem.source, CMC sub)
+  | CMC (sub, name_map, var_map) -> (fun _ -> sub.SubSystem.source, CMC (sub, name_map, var_map))
     
   | Horn _ -> assert false
 
@@ -498,7 +498,7 @@ let pp_print_path_pt
     Format.eprintf "pp_print_path_pt not implemented for VMT input@.";
     ()
 
-  | CMC top ->
+  | CMC _ ->
     Format.eprintf "pp_print_path_pt not implemented for CMC input@.";
     ()
 
@@ -554,7 +554,7 @@ let pp_print_path_json
     Format.eprintf "pp_print_path_json not implemented for VMT input@.";
     assert false;
 
-  | CMC top ->
+  | CMC _ ->
     Format.eprintf "pp_print_path_json not implemented for CMC input@.";
     assert false;
 

@@ -456,7 +456,8 @@ val find_file : string -> string list -> string option
 (** {1 Positions in the input} *)
 
 (** A position in the input *)
-type position 
+type position =
+  { pos_fname : string; pos_lnum: int; pos_cnum: int }
 
 (** Dummy position different from any valid position *)
 val dummy_pos : position
