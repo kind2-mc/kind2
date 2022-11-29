@@ -1417,9 +1417,10 @@ let rec constraints_of_equations_wo_arrays node
         with Not_found -> SVS.empty
       in
       let dependencies = SVS.add state_var dependencies in
-      let defs = N.get_state_var_defs state_var in
+      let defs = N.get_state_var_defs state_var |> fun (x, y) -> x @ y in
       let add_defs_to_sv sv =
-        List.iter (fun def -> N.add_state_var_def sv def) defs
+        (* These state var defs are dependencies, so ?is_dep is 'true' here *)
+        List.iter (fun def -> N.add_state_var_def ~is_dep:true sv def) defs
       in
       let depends_on_this_sv expr =
         SVS.inter dependencies (svs_in_expr expr)

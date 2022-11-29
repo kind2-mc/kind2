@@ -94,7 +94,7 @@ val pp_print_state_var_instances_debug: Format.formatter -> 'a t -> unit
 
 val pp_print_state_var_defs_debug: Format.formatter -> 'a t -> unit
 
-val lustre_definitions_of_state_var : 'a t -> StateVar.t -> LustreNode.state_var_def list
+val lustre_definitions_of_state_var : 'a t -> StateVar.t -> LustreNode.state_var_def list * LustreNode.state_var_def list
 
 val lustre_source_ast : 'a t -> LustreAst.t
 

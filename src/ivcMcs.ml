@@ -501,7 +501,7 @@ let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,loc_core,_) ast =
             let old = try PosMap.find pos acc with Not_found -> SVSet.empty in
             PosMap.add pos (SVSet.add sv old) acc
           )
-          acc (LustreNode.get_state_var_defs sv)
+          acc ((LustreNode.get_state_var_defs sv) |> ((fun (x, y) -> x @ y)))
         )
         acc (LustreNode.get_all_state_vars node)
       ) PosMap.empty (InputSystem.retrieve_lustre_nodes in_sys) in

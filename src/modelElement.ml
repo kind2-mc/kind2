@@ -578,7 +578,7 @@ let locs_of_node_call in_sys output_svs =
   output_svs
   |> SVSet.elements
   |> List.map (fun sv ->
-      InputSystem.lustre_definitions_of_state_var in_sys sv
+      InputSystem.lustre_definitions_of_state_var in_sys sv |> fst
       |> List.filter (function LustreNode.CallOutput _ -> true | _ -> false)
       |> List.map
         (fun d -> { pos=LustreNode.pos_of_state_var_def d ;
@@ -644,7 +644,7 @@ let locs_of_eq_term in_sys t =
     let in_if_block = ref false in
     let sv = sv_of_term t in
 
-    InputSystem.lustre_definitions_of_state_var in_sys sv
+    InputSystem.lustre_definitions_of_state_var in_sys sv |> fst
     |> List.filter (function LustreNode.CallOutput _ -> false | _ -> true)
     |> List.map (fun def ->
       ( match def with

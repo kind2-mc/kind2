@@ -768,7 +768,7 @@ and compile_ast_expr
         | Some sv ->
           let source = SVT.find_opt !map.source sv in
           if not (StateVar.is_input sv) && source == None then
-            N.add_state_var_def sv (N.GeneratedEq (pos, index));
+            N.add_state_var_def ~is_dep:true sv (N.GeneratedEq (pos, index));
         | None -> ());
       X.add index expr' accum
     in X.fold over_indices cexpr X.empty
@@ -1149,7 +1149,7 @@ and compile_node pos ctx cstate map oracles outputs cond restart ident args defa
         | idx -> idx
       in 
       if not (StateVar.is_input sv) then
-        N.add_state_var_def sv (N.GeneratedEq (pos, i'));
+        N.add_state_var_def ~is_dep:true sv (N.GeneratedEq (pos, i'));
       X.add i sv accum
     in
     let result = X.fold2 over_indices inputs cexpr X.empty in
@@ -1755,7 +1755,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
               compiled_vars
             else (
               H.add local_map var_id state_var;
-              N.add_state_var_def state_var (N.CallOutput (pos, index));
+              N.add_state_var_def ~is_dep:true state_var (N.CallOutput (pos, index));
               N.set_state_var_instance state_var pos node_id sv;
               X.add index state_var compiled_vars)
             in
@@ -1811,7 +1811,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     let op (pos, expr) =
       let id = extract_normalized expr in
       let sv = H.find !map.state_var id in
-      N.add_state_var_def sv (N.Assertion pos);
+      N.add_state_var_def ~is_dep:true sv (N.Assertion pos);
       (pos, sv)
     in List.map op node_asserts
   (* ****************************************************************** *)

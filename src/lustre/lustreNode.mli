@@ -431,10 +431,10 @@ val get_state_var_instances : StateVar.t -> state_var_instance list
 val pp_print_state_var_instances_debug : Format.formatter -> t -> unit
 
 (** Get the definitions (with positions in the Lustre program) of a state variable *)
-val get_state_var_defs : StateVar.t -> state_var_def list
+val get_state_var_defs : StateVar.t -> state_var_def list * state_var_def list
 
 (** Add a definition (with positions in the Lustre program) for a state variable *)
-val add_state_var_def : StateVar.t -> state_var_def -> unit
+val add_state_var_def : ?is_dep:bool -> StateVar.t -> state_var_def -> unit
 
 val pos_of_state_var_def : state_var_def -> position
 

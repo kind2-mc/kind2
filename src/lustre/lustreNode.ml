@@ -1584,7 +1584,10 @@ type state_var_def =
   | ContractItem of position * LustreContract.svar * contract_item_type
   | Assertion of position
 
-let state_var_defs_map : state_var_def list StateVar.StateVarHashtbl.t = 
+(* The first list contains state var defs where the state variable is explicitly mentioned.
+   The second list contains state var defs that are dependencies (the node item does
+   not explicitly reference the state variable, but the state variable depends on it)*)
+let state_var_defs_map : (state_var_def list * state_var_def list) StateVar.StateVarHashtbl.t = 
   StateVar.StateVarHashtbl.create 20
 
 let get_state_var_defs state_var = 
@@ -1592,7 +1595,7 @@ let get_state_var_defs state_var =
     StateVar.StateVarHashtbl.find
       state_var_defs_map 
       state_var
-  with Not_found -> []
+  with Not_found -> ([], [])
 
 let state_var_defs_equal d1 d2 =
   match d1, d2 with
@@ -1607,18 +1610,22 @@ let state_var_defs_equal d1 d2 =
   | Assertion p1, Assertion p2 -> (Lib.equal_pos p1 p2)
   | _ -> false
 
-let add_state_var_def state_var def = 
-  let defs = get_state_var_defs state_var in
-  let defs =
-    if List.exists (fun d -> state_var_defs_equal d def) defs
-    then defs
-    else def::defs
-  in
-
+let add_state_var_def ?(is_dep = false) state_var def  = 
+  let (defs1, defs2) = get_state_var_defs state_var in
+  let (defs1, defs2) =
+  if not is_dep then
+      (if List.exists (fun d -> state_var_defs_equal d def) defs1
+      then defs1, defs2
+      else def::defs1, defs2)
+  else 
+    (if List.exists (fun d -> state_var_defs_equal d def) defs2
+      then defs1, defs2
+      else defs1, def::defs2)
+    in
   StateVar.StateVarHashtbl.replace
     state_var_defs_map 
     state_var
-    defs
+    (defs1, defs2)
 
 let pos_of_state_var_def = function
   | CallOutput (p,_) | ProperEq (p,_) | GeneratedEq (p,_)
@@ -1652,7 +1659,8 @@ let pp_print_state_var_def fmt = (function
 let pp_print_state_var_defs_debug fmt t =
   let print_sv state_var =
     Format.fprintf fmt "--- %a ---\n" StateVar.pp_print_state_var state_var ;
-    get_state_var_defs state_var
+    get_state_var_defs state_var 
+    |> (fun (x, y) -> x @ y)
     |> List.iter (pp_print_state_var_def fmt)
   in
   List.iter print_sv (get_all_state_vars t)
