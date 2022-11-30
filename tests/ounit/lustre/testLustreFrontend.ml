@@ -62,8 +62,8 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/undefined_local.lus" with
     | Error (`LustreSyntaxChecksError (_, UndefinedLocal _)) -> true
     | _ -> false);
-  mk_test "test unsupported expr outside merge" (fun () ->
-    match load_file "./lustreSyntaxChecks/clocks.lus" with
+  mk_test "test unsupported when expr" (fun () ->
+    match load_file "./lustreSyntaxChecks/unsupported_when.lus" with
     | Error (`LustreSyntaxChecksError (_, UnsupportedWhen _)) -> true
     | _ -> false);
   mk_test "test temporal op in const" (fun () ->
@@ -102,8 +102,8 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/no_node_subject_to_refinement_in_contract_2.lus" with
     | Error (`LustreSyntaxChecksError (_, NodeCallInRefinableContract _)) -> true
     | _ -> false);
-  mk_test "test unsupported expr" (fun () ->
-    match load_file "./lustreSyntaxChecks/test_condact.lus" with
+  mk_test "test unsupported current expr" (fun () ->
+    match load_file "./lustreSyntaxChecks/unsupported_current.lus" with
     | Error (`LustreSyntaxChecksError (_, UnsupportedExpression _)) -> true
     | _ -> false);
   mk_test "test dangling identifier 2" (fun () ->
@@ -121,6 +121,14 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
   mk_test "test temporal operator in function contract" (fun () ->
     match load_file "./lustreSyntaxChecks/function_no_stateful_contract.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
+    | _ -> false);  
+  mk_test "test defining a variable more than once 1" (fun () ->
+    match load_file "./lustreSyntaxChecks/var_redefinition.lus" with
+    | Error (`LustreSyntaxChecksError (_, DuplicateOutput _)) -> true
+    | _ -> false);  
+  mk_test "test defining a variable more than once 1" (fun () ->
+    match load_file "./lustreSyntaxChecks/var_redefinition2.lus" with
+    | Error (`LustreSyntaxChecksError (_, DuplicateOutput _)) -> true
     | _ -> false);  
 ])
 
