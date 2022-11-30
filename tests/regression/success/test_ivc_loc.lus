@@ -1,0 +1,8 @@
+
+node N(b: bool) returns (y:int);
+var x: int;
+let
+   y = 0 -> if x>=0 then pre y + 1 else -1;
+   x = if b then 0 else 1;
+   check y>=0;
+tel
