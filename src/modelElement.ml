@@ -120,8 +120,8 @@ let pp_print_locs_short =
 let positions_of_locs locs =
   List.map (fun loc -> loc.pos) locs
 
-let print_data_of_loc_equation var_map (_, locs, cat) =
-  if locs = []
+let print_data_of_loc_equation var_map (_, locs1, _, cat) =
+  if locs1 = []
   then None
   else
     match cat with
@@ -130,7 +130,7 @@ let print_data_of_loc_equation var_map (_, locs, cat) =
       Some {
         name = name ;
         category = "Node Call" ;
-        positions = positions_of_locs locs ;
+        positions = positions_of_locs locs1 ;
       }
     | Equation sv ->
       (
@@ -138,27 +138,27 @@ let print_data_of_loc_equation var_map (_, locs, cat) =
           Some {
             name = lustre_name_of_sv var_map sv ;
             category = "Equation" ;
-            positions = positions_of_locs locs ;
+            positions = positions_of_locs locs1 ;
           }
         with Not_found -> None
       )
     | Assertion _ ->
       Some {
-        name = Format.asprintf "assertion%a" pp_print_locs_short locs ;
+        name = Format.asprintf "assertion%a" pp_print_locs_short locs1 ;
         category = "Assertion" ;
-        positions = positions_of_locs locs ;
+        positions = positions_of_locs locs1 ;
       }
     | FrameBlock sv ->
       Some {
         name = lustre_name_of_sv var_map sv ;
         category = "Frame Block" ;
-        positions = positions_of_locs locs ;
+        positions = positions_of_locs locs1 ;
       }
     | IfBlock sv ->
       Some {
         name = lustre_name_of_sv var_map sv ;
         category = "If Block" ;
-        positions = positions_of_locs locs ;
+        positions = positions_of_locs locs1 ;
       }
     | ContractItem (_, svar, typ) ->
       let (kind, category) = 
@@ -173,7 +173,7 @@ let print_data_of_loc_equation var_map (_, locs, cat) =
       Some {
         name = LustreContract.prop_name_of_svar svar kind "" ;
         category ;
-        positions = positions_of_locs locs ;
+        positions = positions_of_locs locs1 ;
       }
 
 let printable_elements_of_core in_sys sys core =
@@ -400,7 +400,7 @@ let name_of_wa_cat = function
 let all_wa_names_of_loc_core core =
   ScMap.fold
   (fun _ lst acc ->
-    List.fold_left (fun acc (_,_,cat) ->
+    List.fold_left (fun acc (_,_,_,cat) ->
       match name_of_wa_cat cat with
       | None -> acc
       | Some str -> str::acc
@@ -552,12 +552,12 @@ let core_to_eqmap (scmap, mapping) =
    and the third item corresponds to the category of the model element
    (node call, lustre equation, assumption, guarantee, etc.).
 *)
-type model_element = ts_equation * (loc list) * term_cat
+type model_element = ts_equation * (loc list) * (loc list) * term_cat
 
 (* A [loc_core] is just a map from scopes to the corresponding list of model elements. *)
 type loc_core = model_element list ScMap.t
 
-let equal_model_elements (eq1, _, _) (eq2, _, _) =
+let equal_model_elements (eq1, _, _, _) (eq2, _, _, _) =
   Equation.equal eq1 eq2
 
 let get_model_elements_of_scope core scope =
@@ -571,20 +571,25 @@ let scopes_of_loc_core core =
 let normalize_positions lst =
   List.sort_uniq Lib.compare_pos lst
 
-let get_positions_of_model_element (_,locs,_) =
-  List.map (fun loc -> loc.pos) locs |> normalize_positions
+let get_positions_of_model_element (_,locs1,locs2,_) =
+  List.map (fun loc -> loc.pos) (locs1 @ locs2) |> normalize_positions
 
 let locs_of_node_call in_sys output_svs =
   output_svs
   |> SVSet.elements
   |> List.map (fun sv ->
-      InputSystem.lustre_definitions_of_state_var in_sys sv |> fst
-      |> List.filter (function LustreNode.CallOutput _ -> true | _ -> false)
-      |> List.map
-        (fun d -> { pos=LustreNode.pos_of_state_var_def d ;
-                    index=[](*LustreNode.index_of_state_var_def d*) })
-  )
-  |> List.flatten
+      let (defs1, defs2) = InputSystem.lustre_definitions_of_state_var in_sys sv in
+      let (defs1, defs2) = 
+        List.filter (function LustreNode.CallOutput _ -> true | _ -> false) defs1,
+        List.filter (function LustreNode.CallOutput _ -> true | _ -> false) defs2 in
+    List.map
+      (fun d -> { pos=LustreNode.pos_of_state_var_def d ;
+                  index=[](*LustreNode.index_of_state_var_def d*) }) defs1,
+    List.map
+      (fun d -> { pos=LustreNode.pos_of_state_var_def d ;
+                  index=[](*LustreNode.index_of_state_var_def d*) }) defs2) 
+  |> List.split
+  |> fun (x, y) -> List.flatten x, List.flatten y
 
 let rec sublist i count lst =
   match i, count, lst with
@@ -643,10 +648,24 @@ let locs_of_eq_term in_sys t =
     let in_frame_block = ref false in
     let in_if_block = ref false in
     let sv = sv_of_term t in
-
-    InputSystem.lustre_definitions_of_state_var in_sys sv |> fst
-    |> List.filter (function LustreNode.CallOutput _ -> false | _ -> true)
-    |> List.map (fun def ->
+    let (defs1, defs2) = InputSystem.lustre_definitions_of_state_var in_sys sv in
+    let (defs1, defs2) = 
+      List.filter (function LustreNode.CallOutput _ -> false | _ -> true) defs1,
+      List.filter (function LustreNode.CallOutput _ -> false | _ -> true) defs2 in
+    let (locs1, locs2) = 
+      List.map (fun def ->
+        ( match def with
+          | LustreNode.Assertion _ -> has_asserts := true
+          | LustreNode.ContractItem (_, svar, typ) -> contract_typ := typ ; set_contract_item svar
+          | LustreNode.FrameBlock _ -> in_frame_block := true
+          | LustreNode.IfBlock _ -> in_if_block := true
+          | _ -> ()
+        );
+      let p = LustreNode.pos_of_state_var_def def in
+      let i = LustreNode.index_of_state_var_def def in
+      { pos=p ; index=i }
+    ) defs1, 
+    List.map (fun def ->
       ( match def with
         | LustreNode.Assertion _ -> has_asserts := true
         | LustreNode.ContractItem (_, svar, typ) -> contract_typ := typ ; set_contract_item svar
@@ -654,19 +673,19 @@ let locs_of_eq_term in_sys t =
         | LustreNode.IfBlock _ -> in_if_block := true
         | _ -> ()
       );
-      let p = LustreNode.pos_of_state_var_def def in
-      let i = LustreNode.index_of_state_var_def def in
-      { pos=p ; index=i }
-    )
-    |> (fun locs -> 
+    let p = LustreNode.pos_of_state_var_def def in
+    let i = LustreNode.index_of_state_var_def def in
+    { pos=p ; index=i }
+  ) defs2 in
+    (fun locs1 -> 
       match !contract_items with
-      | Some svar -> (ContractItem (sv, svar, !contract_typ), locs)
+      | Some svar -> (ContractItem (sv, svar, !contract_typ), locs1, locs2)
       | None ->
-        if !has_asserts then (Assertion sv, locs)
-        else if !in_frame_block then (FrameBlock sv, locs)
-        else if !in_if_block then (IfBlock sv, locs)
-        else (Equation sv, locs)
-    )
+        if !has_asserts then (Assertion sv, locs1, locs2) 
+        else if !in_frame_block then (FrameBlock sv, locs1, locs2)
+        else if !in_if_block then (IfBlock sv, locs1, locs2)
+        else (Equation sv, locs1, locs2)
+    ) locs1 
   with _ -> assert false
 
 let compare_loc {pos=pos;index=index} {pos=pos';index=index'} =
@@ -691,14 +710,14 @@ let add_loc in_sys eq =
       (match (Symbol.node_of_symbol s) with `UF _ -> true | _ -> false)
       -> (* Case of a node call *)
       let (name, svs) = name_and_svs_of_node_call in_sys s ts in
-      let loc = locs_of_node_call in_sys svs in
-      (eq, normalize_loc loc, NodeCall (name,svs))
+      let locs1, locs2 = locs_of_node_call in_sys svs in
+      (eq, normalize_loc locs1, normalize_loc locs2, NodeCall (name,svs))
     | _ ->
-      let (cat,loc) = locs_of_eq_term in_sys term in
-      (eq, normalize_loc loc, cat)
+      let (cat,locs1,locs2) = locs_of_eq_term in_sys term in
+      (eq, normalize_loc locs1, normalize_loc locs2, cat)
     end
   with _ -> (* If the input is not a Lustre file, it may fail *)
-    (eq, [], Unknown)
+    (eq, [], [], Unknown)
 
 let ts_equation_to_model_element = add_loc
 
@@ -709,7 +728,7 @@ let core_to_loc_core in_sys core =
 let loc_core_to_new_core loc_core =
   let add_eqs_of_scope scope lst acc =
     List.fold_left
-      (fun acc (eq, _, _) -> add_new_ts_equation_to_core scope eq acc)
+      (fun acc (eq, _, _, _) -> add_new_ts_equation_to_core scope eq acc)
       acc lst
   in
   ScMap.fold add_eqs_of_scope loc_core empty_core
@@ -717,7 +736,7 @@ let loc_core_to_new_core loc_core =
 let loc_core_to_filtered_core loc_core ((scmap, mapping) as core) =
   let aux scope actlits =
     let eqs = get_model_elements_of_scope loc_core scope
-    |> List.map (fun (a,_,_) -> a)
+    |> List.map (fun (a,_,_,_) -> a)
     |> EqSet.of_list in
     List.filter
       (fun a -> EqSet.mem (get_ts_equation_of_actlit core a) eqs)
@@ -749,7 +768,7 @@ let loc_core_diff core1 core2 =
 
 type category = [ `NODE_CALL | `CONTRACT_ITEM | `EQUATION | `ASSERTION | `ANNOTATIONS ]
 
-let is_model_element_in_categories (_,_,cat) is_main_node cats =
+let is_model_element_in_categories (_,_,_,cat) is_main_node cats =
   let cat = match cat with
   | NodeCall _ -> [`NODE_CALL]
   | ContractItem (_, _, LustreNode.WeakAssumption) when is_main_node
@@ -900,7 +919,7 @@ let partition_loc_core_elts_by_guarantees_and_mode_elts loc_core =
   ScMap.fold
     (fun scope elts (lc_t, lc_f) ->
       let elts_t, elts_f =
-        elts |> List.partition (fun (_,_,cat) -> f cat)
+        elts |> List.partition (fun (_,_,_,cat) -> f cat)
       in
       ScMap.add scope elts_t lc_t, ScMap.add scope elts_f lc_f
     )

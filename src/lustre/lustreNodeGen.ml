@@ -1207,7 +1207,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
       | None -> None
     in
     let contract_sv = C.mk_svar pos count name state_var scope in
-    N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
+    N.add_state_var_def ~is_dep:true state_var (N.ContractItem (pos, contract_sv, kind));
     contract_sv
   (* ****************************************************************** *)
   (* Split contracts into relevant categories                           *)
@@ -1580,7 +1580,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           match possible_state_var with
           | Some(state_var) ->
             if not (StateVar.is_input state_var)
-              then N.add_state_var_def state_var (N.GeneratedEq (pos, index));
+              then N.add_state_var_def ~is_dep:true state_var (N.GeneratedEq (pos, index));
             SVT.add !map.bounds state_var [bound];
             X.add index state_var accum
           | None -> accum
@@ -1755,7 +1755,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
               compiled_vars
             else (
               H.add local_map var_id state_var;
-              N.add_state_var_def ~is_dep:true state_var (N.CallOutput (pos, index));
+              N.add_state_var_def state_var (N.CallOutput (pos, index));
               N.set_state_var_instance state_var pos node_id sv;
               X.add index state_var compiled_vars)
             in
@@ -1811,7 +1811,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     let op (pos, expr) =
       let id = extract_normalized expr in
       let sv = H.find !map.state_var id in
-      N.add_state_var_def ~is_dep:true sv (N.Assertion pos);
+      N.add_state_var_def sv (N.Assertion pos);
       (pos, sv)
     in List.map op node_asserts
   (* ****************************************************************** *)
