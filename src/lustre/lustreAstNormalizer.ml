@@ -34,8 +34,6 @@
   pre operators are explicitly guarded in the AST by an oracle variable
   if they were originally unguarded
     e.g. pre expr => oracle -> pre expr
-  Note that oracles are _propagated_ in node calls. If a node `n1` has an oracle
-  and is called by another node `n2`, then `n2` will inherit a propagated oracle
 
   The following parts of the AST are abstracted by locals:
 
@@ -231,16 +229,15 @@ let pp_print_generated_identifiers ppf gids =
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
   in
-  let pp_print_call = (fun ppf (pos, oracles, output, cond, restart, ident, args, defaults) ->
+  let pp_print_call = (fun ppf (pos, output, cond, restart, ident, args, defaults) ->
     Format.fprintf ppf 
-      "%a: %a = call(%a,(restart %a every %a)(%a;%a),%a)"
+      "%a: %a = call(%a,(restart %a every %a)(%a),%a)"
       pp_print_position pos
       HString.pp_print_hstring output
       A.pp_print_expr cond
       HString.pp_print_hstring ident
       A.pp_print_expr restart
       (pp_print_list A.pp_print_expr ",@ ") args
-      (pp_print_list HString.pp_print_hstring ",@ ") oracles
       (pp_print_option (pp_print_list A.pp_print_expr ",@")) defaults)
   in
   let pp_print_source ppf source = Format.fprintf ppf (match source with
@@ -477,21 +474,8 @@ let mk_fresh_call info id map pos cond restart args defaults =
       (HString.mk_hstring "proj_")
   in
   let nexpr = A.Ident (pos, HString.concat2 proj name) in
-  let propagated_oracles = 
-    let called_oracles = called_node.oracles |> List.map (fun (id, _, _) -> id) in
-    let called_poracles = called_node.propagated_oracles |> List.map fst in
-    List.map (fun n ->
-      (i := !i + 1;
-      let prefix = HString.mk_hstring (string_of_int !i) in
-      HString.concat2 prefix (HString.mk_hstring "_poracle"), n))
-      (called_oracles @ called_poracles)
-  in
-  let oracle_args = List.map (fun (p, _) -> p) propagated_oracles in
-  let call = (pos, oracle_args, name, cond, restart, id, args, defaults) in
-  let gids = { (empty ()) with
-    propagated_oracles = propagated_oracles;
-    calls = [call];}
-  in
+  let call = (pos, name, cond, restart, id, args, defaults) in
+  let gids = { (empty ()) with calls = [call] } in
   CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
   nexpr, gids
 

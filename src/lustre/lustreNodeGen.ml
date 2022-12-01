@@ -69,6 +69,7 @@ type identifier_maps = {
   node_name : HString.t option;
   assume_count : int;
   guarantee_count : int;
+  poracle_count : int
 }
 
 (*
@@ -117,6 +118,7 @@ let empty_identifier_maps node_name = {
   node_name = node_name;
   assume_count = 0;
   guarantee_count = 0;
+  poracle_count = 1
 }
 
 let empty_compiler_state () = { 
@@ -1117,14 +1119,30 @@ and compile_ast_expr
   | A.TernaryOp _ -> assert false
   | A.CallParam _ -> assert false
 
-and compile_node pos ctx cstate map oracles outputs cond restart ident args defaults =
+and compile_node node_scope pos ctx cstate map outputs cond restart ident args defaults =
   let called_node = N.node_of_name ident cstate.nodes in
-  let oracles = oracles
-    |> List.map (fun n -> H.find !map.state_var (mk_ident n))
-    |> List.combine called_node.oracles
-    |> List.map (fun (sv, sv') ->
-      N.set_state_var_instance sv' pos ident sv;
-      sv')
+  let po_ct = !map.poracle_count in
+  map := {!map with poracle_count = po_ct + (List.length called_node.oracles) };
+  let oracles =
+    called_node.oracles
+    |> List.mapi (fun i sv ->
+      let propagated_oracle =
+        let sv' = mk_state_var
+          ~is_const:true
+          map
+          (node_scope @ I.reserved_scope)
+          (I.mk_string_ident (Format.sprintf "poracle_%d" (po_ct+i) ))
+          X.empty_index
+          (StateVar.type_of_state_var sv)
+          (Some N.Oracle)
+        in
+        match sv' with
+        | Some sv' -> sv'
+        | None -> assert false
+      in
+      N.set_state_var_instance propagated_oracle pos ident sv;
+      propagated_oracle
+    )
   in
   let node_inputs_of_exprs inputs ast =
     let ast_group_expr = A.GroupExpr (dummy_pos, A.ExprList, ast) in
@@ -1587,7 +1605,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   in
   let () =
-    let over_calls = fun () (_, _, var, _, _, ident, _, _) ->
+    let over_calls = fun () (_, var, _, _, ident, _, _) ->
       let node_id = mk_ident ident in
       let called_node = N.node_of_name node_id cstate.nodes in
       let _outputs =
@@ -1659,44 +1677,12 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     in
     List.fold_left over_oracles ([], SVT.create 7) gids.GI.oracles
   (* ****************************************************************** *)
-  (* Propagated Oracles                                                 *)
-  (* ****************************************************************** *)
-  in
-  let oracles =
-    let existing_oracles = cstate.nodes
-      |> List.map (fun n -> n.N.oracles) 
-      |> List.flatten
-    in let over_propagated_oracles oracles (name, orc) =
-      let oracle_ident = mk_ident name in
-      let orc_state_var = List.find (fun o ->
-        let existing_oracle_name = StateVar.name_of_state_var o
-        and current_oracle_name = mk_state_var_name (mk_ident orc) X.empty_index
-        in existing_oracle_name = current_oracle_name)
-        existing_oracles
-      in
-      let state_var_type = StateVar.type_of_state_var orc_state_var in
-      let is_const = StateVar.is_const orc_state_var in
-      let possible_state_var = mk_state_var
-        ~is_input:true
-        ~is_const
-        map
-        (node_scope @ I.reserved_scope)
-        oracle_ident
-        X.empty_index
-        state_var_type
-        (Some N.Oracle)
-      in 
-      match possible_state_var with
-      | Some (state_var) -> state_var :: oracles
-      | None -> oracles
-    in List.fold_left over_propagated_oracles oracles gids.GI.propagated_oracles
-  (* ****************************************************************** *)
   (* Node Calls                                                         *)
   (* ****************************************************************** *)
   in
   let (calls, glocals) =
     let seen_calls = ref SVS.empty in
-    let over_calls = fun (calls, glocals) (pos, oracles, var, cond, restart, ident, args, defaults) ->
+    let over_calls = fun (calls, glocals) (pos, var, cond, restart, ident, args, defaults) ->
       let node_id = mk_ident ident in
       let called_node = N.node_of_name node_id cstate.nodes in
 (*       let output_ast_types = (match Ctx.lookup_node_ty ctx ident with
@@ -1737,12 +1723,20 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         X.fold over_vars called_node.outputs X.empty
       in
       let node_call = compile_node
-        pos ctx cstate map oracles outputs cond restart node_id args defaults
+        node_scope pos ctx cstate map outputs cond restart node_id args defaults
       in
       let glocals' = H.fold (fun _ v a -> (X.singleton X.empty_index v) :: a) local_map [] in 
       node_call :: calls, glocals' @ glocals
     in
     List.fold_left over_calls ([], glocals) gids.calls
+  (* ****************************************************************** *)
+  (* Add Propagated Oracles                                             *)
+  (* ****************************************************************** *)
+  in let oracles =
+    List.fold_left
+      (fun acc { N.call_oracles } -> call_oracles @ acc)
+      oracles
+      calls
   (* ****************************************************************** *)
   (* Split node items into relevant categories                          *)
   (* ****************************************************************** *)
