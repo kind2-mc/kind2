@@ -60,9 +60,7 @@ type t = {
   warnings : (Lib.position * LustreAst.expr) list;
   oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
   ib_oracles : (HString.t * LustreAst.lustre_type) list;
-  propagated_oracles : (HString.t * HString.t) list;
   calls : (Lib.position (* node call position *)
-    * (HString.t list) (* oracle inputs *)
     * HString.t (* abstracted output *)
     * LustreAst.expr (* condition expression *)
     * LustreAst.expr (* restart expression *)
@@ -100,7 +98,6 @@ let union ids1 ids2 = {
     node_args = ids1.node_args @ ids2.node_args;
     oracles = ids1.oracles @ ids2.oracles;
     ib_oracles = ids1.ib_oracles @ ids2.ib_oracles;
-    propagated_oracles = ids1.propagated_oracles @ ids2.propagated_oracles;
     calls = ids1.calls @ ids2.calls;
     contract_calls = StringMap.merge union_keys
       ids1.contract_calls ids2.contract_calls;
@@ -116,7 +113,6 @@ let union ids1 ids2 = {
     node_args = [];
     oracles = [];
     ib_oracles = [];
-    propagated_oracles = [];
     calls = [];
     contract_calls = StringMap.empty;
     subrange_constraints = [];

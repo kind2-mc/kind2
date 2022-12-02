@@ -55,9 +55,7 @@ type t = {
   warnings : (Lib.position * LustreAst.expr) list;
   oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
   ib_oracles : (HString.t * LustreAst.lustre_type) list;
-  propagated_oracles : (HString.t * HString.t) list;
   calls : (Lib.position (* node call position *)
-    * (HString.t list) (* oracle inputs *)
     * HString.t (* abstracted output *)
     * LustreAst.expr (* condition expression *)
     * LustreAst.expr (* restart expression *)
