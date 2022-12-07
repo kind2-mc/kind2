@@ -1166,6 +1166,9 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
 
   let ident_width, val_width, locals' = 
     locals |> streams_to_values model ident_width val_width []
+    (* Don't show generated counter variable (generated for reachability 
+       query backend optimization) *)
+    |> (fun (a, b, c) -> (a, b, List.filter (fun (s, _, _) -> s <> "*counter") c))
   in
 
   let globals = if is_top then get_constants const_map [] else [] in

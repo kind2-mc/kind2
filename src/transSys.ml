@@ -1491,6 +1491,30 @@ let named_terms_list_of_bound l i =
 let props_list_of_bound t i = 
   named_terms_list_of_bound t.properties i
 
+let props_list_of_bound_no_skip t i = 
+  let props = 
+    (List.filter (fun prop -> match prop.Property.prop_kind with 
+      | P.Invariant -> true 
+      | P.Reachable None -> true
+      | P.Reachable Some (Within, _) -> true
+      | P.Reachable Some (From, _) -> false
+      | P.Reachable Some (At, _) -> false) 
+    t.properties) 
+  in
+  named_terms_list_of_bound props i
+
+let props_list_of_bound_skip t i = 
+  let props = 
+    (List.filter (fun prop -> match prop.Property.prop_kind with 
+    | P.Invariant -> false 
+    | P.Reachable None -> false
+    | P.Reachable Some (Within, _) -> false
+    | P.Reachable Some (From, _) -> true
+    | P.Reachable Some (At, _) -> true) 
+    t.properties) 
+  in
+  named_terms_list_of_bound props i
+
 
 (* Add an invariant to the transition system. *)
 let add_scoped_invariant t scope invar cert two_state =

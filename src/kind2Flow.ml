@@ -65,7 +65,8 @@ let renice () =
 (** Main function of the process *)
 let main_of_process = function
   | `IC3 -> IC3.main
-  | `BMC -> BMC.main
+  | `BMC -> BMC.main true
+  | `BMCREACHABLE -> BMC.main false
   | `IND -> IND.main
   | `IND2 -> IND2.main
   | `INVGEN -> renice () ; InvGen.main_bool true
@@ -100,6 +101,7 @@ let main_of_process = function
 let on_exit_of_process mdl =
   ( match mdl with
     | `IC3 -> IC3.on_exit None
+    | `BMCREACHABLE
     | `BMC -> BMC.on_exit None
     | `IND -> IND.on_exit None
     | `IND2 -> IND2.on_exit None

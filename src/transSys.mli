@@ -543,6 +543,12 @@ val get_prop_status_all_unknown : t -> (string * Property.prop_status) list
 (** Instantiate all properties to the bound *)
 val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list 
 
+(** Instantiate all invariant properties to the bound *)
+val props_list_of_bound_no_skip : t -> Numeral.t -> (string * Term.t) list 
+
+(** Instantiate all reachable properties to the bound *)
+val props_list_of_bound_skip : t -> Numeral.t -> (string * Term.t) list 
+
 
 (** Update current status of the property
 

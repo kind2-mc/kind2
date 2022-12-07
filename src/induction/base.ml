@@ -133,6 +133,20 @@ let split_closure trans solver k to_split =
 
   loop [] to_split
 
+(*!! Problem: will always compute the same lowest lower bound, because the list
+   of properties is static (not changing like 'unknowns') *)
+let lowest_lower_bound trans =
+  TransSys.get_properties trans |> 
+  List.fold_left (fun num_skip prop -> match (prop.Property.prop_status, prop.Property.prop_kind) with
+    (* Ignore finished properties *)
+    | (Property.PropInvariant _, _)
+    | (Property.PropFalse _, _) -> num_skip
+    (* Update lowest lower bound *)
+    | (_, Property.Reachable (Some (From, b))) 
+    | (_, Property.Reachable (Some (At, b))) -> if b < num_skip then b else num_skip
+    (* Shouldn't be possible, but if there are other types of properties, we shouldn't skip steps *)
+    | _ -> 0) max_int 
+
 (* Performs the next check after updating its context with new
    invariants and falsified properties. Assumes the solver is
    in the following state:
@@ -148,8 +162,7 @@ let split_closure trans solver k to_split =
 
    Note that the transition relation for the current iteration is
    already asserted. *)
-let rec next (input_sys, aparam, trans, solver, k, unknowns) =
-
+let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
   (* Getting new invariants and updating transition system. *)
   let new_invs =
     (* Receiving messages. *)
@@ -204,7 +217,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
         | _ -> true
       )
     in
-
+    let step = ref k in
     let unfalsifiable =
       match unknowns_at_k with
       | [] ->
@@ -227,6 +240,48 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
           "%a unrolling satisfiability check."
           Numeral.pp_print_numeral k
         |> SMTSolver.trace_comment solver ;
+
+        
+        (*!! 
+            SKIPPING STEPS 
+              * We have to look up if there are reachability queries with lower bounds.
+                Do we do this here, or earlier? How do we ensure that the new BMC engine
+                is properly communicating with the inductive step engine?
+              * We have to declare and assert transition relation for those steps 
+
+              * Make sure we're not skipping steps in invariant case
+        !!*)
+        (* Find the minimum lower bound. If we are processing invariants, should be 0. *)
+        let llb = if invs then 0 else lowest_lower_bound trans in
+        let num_skip = llb - Numeral.to_int k in
+        Format.fprintf Format.std_formatter "NUM SKIP: %d\n" num_skip;
+        while (Numeral.to_int !step) < (Numeral.to_int k + num_skip) - 1 do
+          step := Numeral.succ !step;
+
+          (* Declaring unrolled vars at k+1. *)
+          TransSys.declare_vars_of_bounds
+          trans (SMTSolver.declare_fun solver) !step !step ;
+
+          (* Asserting transition relation for next iteration. *)
+          TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans !step
+          |> SMTSolver.assert_term solver ;
+
+          (* Assert all invariants, including new ones, at [k]. *)
+          let all_invs =
+            TransSys.invars_of_bound
+              ~one_state_only:Numeral.(equal !step zero) trans !step
+            |> Term.mk_and
+          in
+          if (all_invs != Term.t_true) then
+            SMTSolver.assert_term solver all_invs;
+
+          (* Asserting implications if k > 0. *)
+          if Numeral.(!step > zero) then
+            nu_unknowns
+            |> List.map (fun (_, term) -> Term.bump_state Numeral.(!step-one) term)
+            |> Term.mk_and |> SMTSolver.assert_term solver ;
+        done;
+        let k = !step in
 
         if Flags.BmcKind.check_unroll () then ( 
           if SMTSolver.check_sat solver |> not then (
@@ -271,14 +326,14 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
 
         k_true @ unfalsifiable
     in
-
+    let k = !step in
     (* K plus one. *)
     let k_p_1 = Numeral.succ k in
 
     (* Declaring unrolled vars at k+1. *)
     TransSys.declare_vars_of_bounds
      trans (SMTSolver.declare_fun solver) k_p_1 k_p_1 ;
-
+     
     (* Asserting transition relation for next iteration. *)
      TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans k_p_1
     |> SMTSolver.assert_term solver ;
@@ -297,17 +352,23 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
     else
      (* Looping. *)
      next
-      (input_sys, aparam, trans, solver, k_p_1, unfalsifiable)
+      (input_sys, aparam, trans, solver, k_p_1, unfalsifiable, invs)
 
 (* Initializes the solver for the first check. *)
-let init input_sys aparam trans =
+let init input_sys aparam trans invs =
   (* Starting the timer. *)
   Stat.start_timer Stat.bmc_total_time;
 
-  (* Getting properties. *)
+  (* Getting properties. 
+     Filter for invariants or reachability queries *)
   let unknowns =
-    (TransSys.props_list_of_bound trans Numeral.zero)
+    if invs then
+      (TransSys.props_list_of_bound_no_skip trans Numeral.zero)
+    else
+      (TransSys.props_list_of_bound_skip trans Numeral.zero)
   in
+
+  (*let unknowns = TransSys.props_list_of_bound trans Numeral.zero in*)
 
   (* Creating solver. *)
   let solver =
@@ -328,6 +389,28 @@ let init input_sys aparam trans =
     (Some (SMTSolver.declare_fun solver)) trans Numeral.zero
   |> SMTSolver.assert_term solver ;
 
+  (*!! 
+      SKIPPING STEPS 
+        * We have to look up if there are reachability queries with lower bounds.
+          Do we do this here, or earlier? How do we ensure that the new BMC engine
+          is properly communicating with the inductive step engine?
+        * We have to declare and assert transition relation for those steps 
+  !!*)
+  (* Find the minimum lower bound. If we are processing invariants, should be 0. *)
+  let num_skip = if invs then 0 else lowest_lower_bound trans in
+  let step = ref Numeral.one in
+  while Numeral.to_int !step <= num_skip do
+    (* Declaring unrolled vars at k+1. *)
+    TransSys.declare_vars_of_bounds
+    trans (SMTSolver.declare_fun solver) !step !step ;
+
+    (* Asserting transition relation for next iteration. *)
+    TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans !step
+    |> SMTSolver.assert_term solver ;
+
+    step := Numeral.succ !step;
+  done;
+
   SMTSolver.trace_comment solver "Initial state satisfiability check." ;
 
   if Flags.BmcKind.check_unroll () then (
@@ -340,12 +423,13 @@ let init input_sys aparam trans =
     )
   ) ;
 
-  (input_sys, aparam, trans, solver, Numeral.zero, unknowns)
+  (* Start "next" at a timestep after Numeral.zero *)
+  (input_sys, aparam, trans, solver, Numeral.of_int num_skip, unknowns, invs)
 
 (* Runs the base instance. *)
-let main input_sys aparam trans =
+let main invs input_sys aparam trans =
   try
-    init input_sys aparam trans |> next
+    init input_sys aparam trans invs |> next
   with UnsatUnrollingExc k ->
     let _, _, unknown = TransSys.get_split_properties trans in
     unknown |> List.iter (fun p ->
