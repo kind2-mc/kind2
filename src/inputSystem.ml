@@ -296,11 +296,10 @@ let interpreter_param (type s) (input_system : s t) =
       let {S.scope} as sub =
         match main_subs with
         | [sub] -> sub
-        | l ->
+        | _ ->
           let msg =
-            let n = List.length l in
             Format.asprintf
-              "interpreter only accepts one main subsystem, but found %d" n
+              "two or more top nodes detected, please select one with --lus_main or a single --%%MAIN annotation"
           in
           failwith msg
       in 
