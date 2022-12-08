@@ -292,12 +292,12 @@ let rm_neg_prop_str str k =
     (* Remove negation and the trailing "or counter </>/<> ts" at the end. *)
     | Property.Reachable Some (At, ts) -> 
       let ts = string_of_int ts in
-      let amount_to_cut = 21 + (String.length ts) in
+      let amount_to_cut = 20 + (String.length ts) in
       (String.sub str 6 ((String.length str) - (6 + amount_to_cut)))
     (* Need a different case because "<>" has more characters than "<" or ">" *)
     | Property.Reachable Some (_, ts) -> 
       let ts = string_of_int ts in
-      let amount_to_cut = 20 + (String.length ts) in
+      let amount_to_cut = 19 + (String.length ts) in
       (String.sub str 6 ((String.length str) - (6 + amount_to_cut))) 
     (* Invariant properties are unchanged *)
     | Property.Invariant -> str

@@ -216,7 +216,7 @@ let property_of_expr
   in
 
   (* Return property *)
-  { P.prop_name ; P.prop_source ; P.prop_term ; P.prop_status ; (*!! double check this !!*) prop_kind = Invariant }
+  { P.prop_name ; P.prop_source ; P.prop_term ; P.prop_status ; prop_kind = Invariant }
 
 (* Creates the conjunction of a list of contract svar. *)
 let conj_of l = List.map (fun { C.svar } -> E.mk_var svar) l |> E.mk_and_n
@@ -306,7 +306,6 @@ let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
         P.prop_source ;
         P.prop_term ;
         P.prop_status ;
-        (*!! double check this !!*)
         prop_kind = Invariant ; }
   )
 
@@ -672,7 +671,6 @@ let call_terms_of_node_call mk_fresh_state_var globals
             P.prop_source ;
             P.prop_term ;
             P.prop_status ;
-            (*!! double check this !!*)
             prop_kind = Invariant ; } :: a
       ) node_props
     )

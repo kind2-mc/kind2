@@ -2335,7 +2335,6 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
           prop_source = Property.Generated (None, []);
           prop_term = eq;
           prop_status = Property.PropUnknown; 
-          (*!! double check this !!*)
           prop_kind = Invariant; }
       ) props_eqs in
 
@@ -2347,7 +2346,6 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
           prop_source = Property.Candidate None ;
           prop_term = eq;
           prop_status = Property.PropUnknown; 
-          (*!! double check this !!*)
           prop_kind = Invariant; }
         ) others_eqs in
 
