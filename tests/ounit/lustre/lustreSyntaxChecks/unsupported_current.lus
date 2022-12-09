@@ -1,0 +1,9 @@
+node imported STABLE (set: bool; delay: int) returns (level: bool);
+
+node TIME_STABLE2 (set, second: bool; delay: int) returns (level: bool);
+var ck: bool;
+let
+  -- Current and when operator
+  level = current(STABLE(set, delay) when ck);
+  ck = true -> set or second;
+tel

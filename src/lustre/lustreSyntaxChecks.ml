@@ -37,6 +37,8 @@ module StringMap = Map.Make(
 
 type error_kind = Unknown of string
   | UndefinedLocal of HString.t
+  | DuplicateLocal of HString.t
+  | DuplicateOutput of HString.t
   | UndefinedNode of HString.t
   | DanglingIdentifier of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
@@ -63,6 +65,10 @@ let error_message kind = match kind with
   | Unknown s -> s
   | UndefinedLocal id -> "Local variable '"
     ^ HString.string_of_hstring id ^ "' has no definition"
+  | DuplicateLocal id -> "Local variable '"
+    ^ HString.string_of_hstring id ^ "' has more than one definition"
+  | DuplicateOutput id -> "Output variable '"
+    ^ HString.string_of_hstring id ^ "' has more than one definition"
   | UndefinedNode id -> "Node or function '"
     ^ HString.string_of_hstring id ^ "' is undefined"
   | DanglingIdentifier id -> "Unknown identifier '"
@@ -273,39 +279,49 @@ let build_equation_ctx ctx = function
       | _ -> ctx
     in
     List.fold_left over_items ctx items
+    
+let rec find_var_def_count_lhs id = function
+  | LA.SingleIdent (_, id')
+  | TupleSelection (_, id', _)
+  | FieldSelection (_, id', _)
+  | ArraySliceStructItem (_, id', _)
+  | ArrayDef (_, id', _)
+    -> if id = id' then 1 else 0
+  | TupleStructItem (_, items) ->
+    List.map (find_var_def_count_lhs id) items
+    |> List.fold_left (+) 0
 
-let locals_must_have_definitions locals items =
-  let rec find_local_def_lhs id test = function
-    | LA.SingleIdent (_, id')
-    | TupleSelection (_, id', _)
-    | FieldSelection (_, id', _)
-    | ArraySliceStructItem (_, id', _)
-    | ArrayDef (_, id', _)
-      -> test || id = id'
-    | TupleStructItem (_, items) ->
-      let test_items = items |> List.map (find_local_def_lhs id test)
-        |> List.fold_left (fun x y -> x || y) false
-      in
-      test || test_items
-  in
-  let find_local_def id = function
-    | LA.Body eqn -> (match eqn with
-      | LA.Assert _ -> false
-      | LA.Equation (_, lhs, _) -> (match lhs with
-        | LA.StructDef (_, vars)
-          -> List.fold_left (find_local_def_lhs id) false vars))
-    | LA.AnnotMain _ -> false
-    | LA.AnnotProperty _ -> false
-  in
+let find_var_def_count id = function
+  | LA.Body eqn -> (match eqn with
+    | LA.Assert _ -> 0
+    | LA.Equation (_, lhs, _) -> (match lhs with
+      | LA.StructDef (_, vars)
+        -> List.map (find_var_def_count_lhs id) vars) |> List.fold_left (+) 0)
+  | LA.AnnotMain _ -> 0
+  | LA.AnnotProperty _ -> 0
+
+let locals_exactly_one_definition locals items =
   let over_locals = function
     | LA.NodeConstDecl _ -> Ok ()
     | LA.NodeVarDecl (_, (pos, id, _, _)) ->
-      let test = List.find_opt (fun item -> find_local_def id item) items in
-      match test with
-      | Some _ -> Ok ()
-      | None -> syntax_error pos (UndefinedLocal id)
+      let def_count = (List.map (find_var_def_count id) items) |> List.fold_left (+) 0 in
+      match def_count with
+      | 1 -> Ok ()
+      | 0 -> syntax_error pos (UndefinedLocal id)
+      | _ -> syntax_error pos (DuplicateLocal id)
   in
   Res.seq (List.map over_locals locals)
+
+let outputs_at_most_one_definition outputs items =
+  let over_outputs = function
+  | (pos, id, _, _) ->
+    let def_count = List.map (find_var_def_count id) items |> List.fold_left (+) 0 in
+    match def_count with
+      | 0 
+      | 1 -> Ok ()
+      | _ -> syntax_error pos (DuplicateOutput id)
+  in
+  Res.seq (List.map over_outputs outputs)
 
 let no_dangling_calls ctx = function
   | LA.Condact (pos, _, _, i, _, _)
@@ -550,7 +566,8 @@ and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
   (parametric_nodes_unsupported span.start_pos params)
-  >> (locals_must_have_definitions locals items)
+  >> (locals_exactly_one_definition locals items)
+    >> (outputs_at_most_one_definition outputs items)
     >> (check_items ctx common_node_equations_checks items)
     >> (match contract with 
     | Some c -> check_contract false ctx common_contract_checks c

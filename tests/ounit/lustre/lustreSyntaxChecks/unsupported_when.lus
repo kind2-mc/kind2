@@ -1,0 +1,6 @@
+node imported X() returns (x: bool);
+
+node A (clk: bool) returns (clk2: bool);
+let
+  clk2 = X() when clk;
+tel

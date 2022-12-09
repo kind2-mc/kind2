@@ -1,0 +1,5 @@
+node main() returns (out: int);
+let
+  (out, out) = (5, 6);
+tel
+

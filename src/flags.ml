@@ -2602,10 +2602,10 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          where <string> is node identifier from the Lustre input file@ \
-          Specifies the top node in the Lustre input file@ \
-          Default: \"--%%MAIN\" annotation in source if any, last node@ \
-          otherwise\
+          where <string> is a node identifier from the Lustre input file@ \
+          Designate a node as the top node for the analysis or the interpretation@ \
+          Default: all nodes with \"--%%MAIN\" annotations in source if any, otherwise@ \
+          all nodes that are not depended on by another node\
         "
     )
   let lus_main () = !lus_main

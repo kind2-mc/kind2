@@ -1,0 +1,6 @@
+node main() returns (out: int);
+let
+  out = 5;
+  out = 6;
+tel
+
