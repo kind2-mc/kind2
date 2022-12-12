@@ -506,6 +506,12 @@ val get_prop_term : t -> string -> Term.t
     system of the first property of name [n]. *)
 val get_prop_status : t -> string -> Property.prop_status 
 
+(** Return current status of the property
+
+[get_prop_kind t n] returns the kind saved in the transition
+system of the first property of name [n]. *)
+val get_prop_kind : t -> string -> Property.prop_kind 
+
 
 (** Returns true if the input term is a known invariant of the system. *)
 val is_inv : t -> Term.t -> bool

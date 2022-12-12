@@ -145,18 +145,18 @@ let lowest_lower_bound trans =
     (* Shouldn't be possible, but if there are other types of properties, we shouldn't skip steps *)
     | _ -> 0) max_int 
 
-
+(*
 let re_init trans k =
   let llb = lowest_lower_bound trans in
   let num_skip = llb - Numeral.to_int k in
   num_skip > 0
+*)
 
 
 let skip_steps_next trans solver step k (* nu_unknowns *) = 
   let llb = lowest_lower_bound trans in
     let num_skip = llb - Numeral.to_int k in
-    Format.fprintf Format.std_formatter "NUM SKIP: %d\n" num_skip;
-    while (Numeral.to_int !step) < (Numeral.to_int k + num_skip) - 1 do
+    while (Numeral.to_int !step) < (Numeral.to_int k + num_skip) do
       step := Numeral.succ !step;
 
       (* Declaring unrolled vars at k+1. *)
@@ -257,14 +257,34 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
     (* Asserting implications if k > 0. *)
     if Numeral.(k > zero) then
       nu_unknowns
+      (* If we're skipping steps, we don't need to assert that the property
+         held in the previous step *)
+      |> List.filter (fun (name, _) -> match TransSys.get_prop_kind trans name with
+        | Reachable Some (From, b)
+        | Reachable Some (At, b) -> b < k_int
+        | _ -> true
+      ) 
       |> List.map (fun (_, term) -> Term.bump_state Numeral.(k-one) term)
       |> Term.mk_and |> SMTSolver.assert_term solver ;
+
+    (* (Temporarily) filter out properties with a lower bound smaller than
+       current k. *)
+    let out_of_bounds, nu_unknowns = nu_unknowns |> List.partition (
+      fun (name,_) -> match TransSys.get_prop_kind trans name with
+      | Reachable Some (From, b)
+      | Reachable Some (At, b) -> b > k_int
+      | _ -> false
+    ) in
 
     (* Filtering properties which are not known to be k-true at this step. *)
     let unknowns_at_k, k_true =
       nu_unknowns |> List.partition (
-        fun (name,_) -> match TransSys.get_prop_status trans name with
-        | Property.PropKTrue k -> k_int > k
+        fun (name,_) -> match (TransSys.get_prop_status trans name, TransSys.get_prop_kind trans name) with
+        | (Property.PropKTrue k, Invariant) 
+        | (Property.PropKTrue k, Reachable None) -> k_int > k
+        | (Property.PropKTrue k, Reachable Some (From, b)) -> k_int > k && b <= k_int
+        | (Property.PropKTrue k, Reachable Some (Within, b)) -> k_int > k && b >= k_int
+        | (Property.PropKTrue k, Reachable Some (At, b)) -> k_int > k && b = k_int
         | _ -> true
       )
     in
@@ -292,13 +312,13 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
           Numeral.pp_print_numeral k
         |> SMTSolver.trace_comment solver ;
 
-        if re_init trans k then init input_sys aparam trans invs |> next else
+        (*if re_init trans k then init input_sys aparam trans invs |> next else*)
 
         (* Function 'skip_steps_next' has the side effect of skipping steps
            for reachability queries if we know we have to unroll the transition
            relation many times before we can find an example trace. *)
-        (*if not invs then skip_steps_next trans solver step k nu_unknowns;
-        let k = !step in*)
+        if not invs then skip_steps_next trans solver step k;
+        let k = !step in
 
         if Flags.BmcKind.check_unroll () then ( 
           if SMTSolver.check_sat solver |> not then (
@@ -369,7 +389,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
     else
      (* Looping. *)
      next
-      (input_sys, aparam, trans, solver, k_p_1, unfalsifiable, invs)
+      (input_sys, aparam, trans, solver, k_p_1, out_of_bounds @ unfalsifiable, invs)
 
         
 

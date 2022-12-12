@@ -1328,6 +1328,10 @@ let get_prop_status trans_sys p =
 
   with Not_found -> P.PropUnknown
 
+(* Return current kind of property *)
+let get_prop_kind trans_sys p = 
+  (property_of_name trans_sys p).P.prop_kind
+
 (* Tests if a term is an invariant. *)
 let is_inv { invariants } = Invs.mem invariants
 
