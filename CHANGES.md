@@ -1,3 +1,24 @@
+# Unreleased
+
+New features:
+
+- Support for new SMT solver cvc5.
+ - Its predecessor, CVC4, is no longer supported.
+- A revamp of Kind 2's proof production facility:
+  - The new version replaces CVC4 with cvc5 as the main back-end proof-producing SMT solver.
+  - It produces more detailed proofs and covers a wider range of input models.
+  - The new proofs are still processable by the external proof checker LFSC.
+
+Improvements:
+
+- Support for unary negation and subtraction of unsigned machine integers.
+- Fix invariant pruner: some non-trivial one-state invariants were not included in certificates.
+- Fix problem with reported locations in IVC output.
+- Fix selection of logic in computation of MCS.
+- Fix version detection of SMT solvers.
+- Multiple fixes and improvements in the new Lustre front-end.
+
+
 # Kind 2 v1.6.0
 
 New features:
