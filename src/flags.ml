@@ -3567,15 +3567,15 @@ let solver_dependant_actions solver =
           Log.log L_error "Kind 2 requires cvc5 1.0.0 or later. Found version: %d.%d.%d"
             major minor patch ;
           raise Error
-        ) (*;
+        ) ;
         if
-          Certif.proof () && (major = 0 || (major = 1 && minor = 0 && patch < 3))
+          Certif.proof () && not (major=1 && minor=0 && patch=3)
         then (
           Log.log L_error
-            "LFSC proof production requires cvc5 1.0.3 or later. Found \
+            "LFSC proof production requires cvc5 1.0.3. Found \
              version: %d.%d.%d"
             major minor patch;
-          raise Error)*)
+          raise Error)
   )
   | `Yices_native -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
