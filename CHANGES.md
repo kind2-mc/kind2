@@ -3,7 +3,7 @@
 New features:
 
 - Support for new SMT solver cvc5.
- - Its predecessor, CVC4, is no longer supported.
+  - Its predecessor, CVC4, is no longer supported.
 - A revamp of Kind 2's proof production facility:
   - The new version replaces CVC4 with cvc5 as the main back-end proof-producing SMT solver.
   - It produces more detailed proofs and covers a wider range of input models.
