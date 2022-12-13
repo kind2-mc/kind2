@@ -290,15 +290,17 @@ let rm_neg_prop_str str k =
     (* Remove negation we added for reachability properties *)
     | Property.Reachable None -> (String.sub str 5 ((String.length str) - 6))
     (* Remove negation and the trailing "or counter </>/<> ts" at the end. *)
-    | Property.Reachable Some (At, ts) -> 
+    | Property.Reachable Some (At ts) -> 
       let ts = string_of_int ts in
       let amount_to_cut = 20 + (String.length ts) in
       (String.sub str 6 ((String.length str) - (6 + amount_to_cut)))
     (* Need a different case because "<>" has more characters than "<" or ">" *)
-    | Property.Reachable Some (_, ts) -> 
+    | Property.Reachable Some (From ts) 
+    | Property.Reachable Some (Within ts) -> 
       let ts = string_of_int ts in
       let amount_to_cut = 19 + (String.length ts) in
       (String.sub str 6 ((String.length str) - (6 + amount_to_cut))) 
+    | Property.Reachable Some (FromWithin _) -> failwith "stub"
     (* Invariant properties are unchanged *)
     | Property.Invariant -> str
 
@@ -342,7 +344,7 @@ let proved_pt mdl level trans_sys k prop kind =
         k_val
         pp_print_kind_module_pt mdl
         (Stat.get_float Stat.analysis_time)
-      | Property.Reachable Some (From, ts) -> 
+      | Property.Reachable Some (From ts) -> 
         (ignore_or_fprintf level)
         !log_ppf
         ("@[<hov>%t %s @{<blue_b>%s@} is unreachable from %d timesteps %tby %a after %.3fs.@.@.")
@@ -353,7 +355,7 @@ let proved_pt mdl level trans_sys k prop kind =
         k_val
         pp_print_kind_module_pt mdl
         (Stat.get_float Stat.analysis_time)
-      | Property.Reachable Some (Within, ts) -> 
+      | Property.Reachable Some (Within ts) -> 
         (ignore_or_fprintf level)
         !log_ppf
         "@[<hov>%t %s @{<blue_b>%s@} is unreachable within %d timesteps %tby %a after %.3fs.@.@."
@@ -364,7 +366,7 @@ let proved_pt mdl level trans_sys k prop kind =
         k_val
         pp_print_kind_module_pt mdl
         (Stat.get_float Stat.analysis_time)
-      | Property.Reachable Some (At, ts) -> 
+      | Property.Reachable Some (At ts) -> 
         (ignore_or_fprintf level)
         !log_ppf
         "@[<hov>%t %s @{<blue_b>%s@} is unreachable at %d timesteps %tby %a after %.3fs.@.@."
@@ -372,6 +374,18 @@ let proved_pt mdl level trans_sys k prop kind =
         cand_or_prop
         (rm_neg_prop_str prop kind)
         ts
+        k_val
+        pp_print_kind_module_pt mdl
+        (Stat.get_float Stat.analysis_time)
+      | Property.Reachable Some (FromWithin (ts1, ts2)) -> 
+        (ignore_or_fprintf level)
+        !log_ppf
+        "@[<hov>%t %s @{<blue_b>%s@} is unreachable from %d and within %d timesteps %tby %a after %.3fs.@.@."
+        failure_tag
+        cand_or_prop
+        (rm_neg_prop_str prop kind)
+        ts1
+        ts2
         k_val
         pp_print_kind_module_pt mdl
         (Stat.get_float Stat.analysis_time)
@@ -563,17 +577,22 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
             | true, Property.Invariant ->
               Format.asprintf "is invalid by %a" pp_print_kind_module_pt mdl
             | false, Property.Invariant -> "has a step k-induction counterexample"
-            | true, Property.Reachable Some (From, ts) ->
+            | true, Property.Reachable Some (From ts) ->
               Format.asprintf "is reachable from %d timesteps by %a" 
               ts 
               pp_print_kind_module_pt mdl
-            | true, Property.Reachable Some (Within, ts) ->
+            | true, Property.Reachable Some (Within ts) ->
               Format.asprintf "is reachable within %d timesteps by %a" 
               ts 
               pp_print_kind_module_pt mdl
-            | true, Property.Reachable Some (At, ts) ->
+            | true, Property.Reachable Some (At ts) ->
               Format.asprintf "is reachable at %d timesteps by %a" 
               ts 
+              pp_print_kind_module_pt mdl
+            | true, Property.Reachable Some (FromWithin (ts1, ts2)) ->
+              Format.asprintf "is reachable from %d and within %d timesteps by %a" 
+              ts1
+              ts2
               pp_print_kind_module_pt mdl
             | true, Property.Reachable None ->
               Format.asprintf "is reachable by %a" 
@@ -682,14 +701,17 @@ let prop_status_pt level prop_status prop_kind =
                   | Property.PropInvariant (n, _), Property.Invariant -> 
                     Format.fprintf ppf "@{<green_b>valid (at %d)@}" n
 
-                  | Property.PropInvariant (n, _), Property.Reachable Some (From, ts) -> 
+                  | Property.PropInvariant (n, _), Property.Reachable Some (From ts) -> 
                     Format.fprintf ppf "@{<red_b>unreachable from %d timesteps (at %d)@}" ts n
 
-                  | Property.PropInvariant (n, _), Property.Reachable Some (Within, ts) -> 
+                  | Property.PropInvariant (n, _), Property.Reachable Some (Within ts) -> 
                     Format.fprintf ppf "@{<red_b>unreachable within %d timesteps (at %d)@}" ts n
 
-                  | Property.PropInvariant (n, _), Property.Reachable Some (At, ts) -> 
+                  | Property.PropInvariant (n, _), Property.Reachable Some (At ts) -> 
                     Format.fprintf ppf "@{<red_b>unreachable at %d timesteps (at %d)@}" ts n
+
+                  | Property.PropInvariant (n, _), Property.Reachable Some (FromWithin (ts1, ts2)) -> 
+                    Format.fprintf ppf "@{<red_b>unreachable from %d and within %d timesteps (at %d)@}" ts1 ts2 n
 
                   | Property.PropInvariant (n, _), Property.Reachable None -> 
                     Format.fprintf ppf "@{<red_b>unreachable (at %d)@}" n 
@@ -697,14 +719,17 @@ let prop_status_pt level prop_status prop_kind =
                   | Property.PropFalse [], Property.Invariant -> 
                     Format.fprintf ppf "@{<red_b>invalid@}"
 
-                  | Property.PropFalse [], Property.Reachable Some (From, ts) -> 
+                  | Property.PropFalse [], Property.Reachable Some (From ts) -> 
                     Format.fprintf ppf "@{<green_b>reachable from %d timesteps@}" ts
 
-                  | Property.PropFalse [], Property.Reachable Some (Within, ts) -> 
+                  | Property.PropFalse [], Property.Reachable Some (Within ts) -> 
                     Format.fprintf ppf "@{<green_b>reachable within %d timesteps@}" ts
 
-                  | Property.PropFalse [], Property.Reachable Some (At, ts) -> 
+                  | Property.PropFalse [], Property.Reachable Some (At ts) -> 
                     Format.fprintf ppf "@{<green_b>reachable at %d timesteps@}" ts
+
+                  | Property.PropFalse [], Property.Reachable Some (FromWithin (ts1, ts2)) -> 
+                    Format.fprintf ppf "@{<green_b>reachable from %d and within %d timesteps@}" ts1 ts2
 
                   | Property.PropFalse cex, Property.Invariant -> 
                     Format.fprintf 
@@ -718,25 +743,33 @@ let prop_status_pt level prop_status prop_kind =
                       "@{<green_b>reachable after %d steps@}"
                       ((Property.length_of_cex cex) - 1)
                   
-                  | Property.PropFalse cex, Property.Reachable Some (From, ts) -> 
+                  | Property.PropFalse cex, Property.Reachable Some (From ts) -> 
                     Format.fprintf 
                       ppf
                       "@{<green_b>reachable from %d steps (after %d steps)@}"
                       ts
                       ((Property.length_of_cex cex) - 1)
 
-                  | Property.PropFalse cex, Property.Reachable Some (Within, ts) -> 
+                  | Property.PropFalse cex, Property.Reachable Some (Within ts) -> 
                     Format.fprintf 
                       ppf
                       "@{<green_b>reachable within %d steps (after %d steps)@}"
                       ts
                       ((Property.length_of_cex cex) - 1)
 
-                  | Property.PropFalse cex, Property.Reachable Some (At, ts) -> 
+                  | Property.PropFalse cex, Property.Reachable Some (At ts) -> 
                     Format.fprintf 
                       ppf
                       "@{<green_b>reachable at %d steps (after %d steps)@}"
                       ts
+                      ((Property.length_of_cex cex) - 1)
+
+                  | Property.PropFalse cex, Property.Reachable Some (FromWithin (ts1, ts2)) -> 
+                    Format.fprintf 
+                      ppf
+                      "@{<green_b>reachable from %d and within %d steps (after %d steps)@}"
+                      ts1
+                      ts2
                       ((Property.length_of_cex cex) - 1)
                 )
               )
@@ -834,9 +867,10 @@ let proved_xml mdl level trans_sys k prop_name prop_kind =
       )
       (match prop_kind with
       | Property.Invariant -> "valid"
-      | Property.Reachable Some (From, ts) -> "unreachable from " ^ string_of_int ts ^ " timesteps"
-      | Property.Reachable Some (Within, ts) -> "unreachable within " ^ string_of_int ts ^ " timesteps"
-      | Property.Reachable Some (At, ts) -> "unreachable at " ^ string_of_int ts ^ " timesteps"
+      | Property.Reachable Some (From ts) -> "unreachable from " ^ string_of_int ts ^ " timesteps"
+      | Property.Reachable Some (Within ts) -> "unreachable within " ^ string_of_int ts ^ " timesteps"
+      | Property.Reachable Some (At ts) -> "unreachable at " ^ string_of_int ts ^ " timesteps"
+      | Property.Reachable Some (FromWithin (ts1, ts2)) -> "unreachable from " ^ string_of_int ts1 ^ " and within " ^ string_of_int ts2 ^ " timesteps"
       | Property.Reachable None -> "unreachable"
     )
 
@@ -937,9 +971,10 @@ let cex_xml
       | `IND -> "unknown"
       | _ ->       (match prop_kind with
       | Property.Invariant -> "falsifiable"
-      | Property.Reachable Some (From, ts) -> "reachable from " ^ string_of_int ts ^ " timesteps"
-      | Property.Reachable Some (Within, ts) -> "reachable within " ^ string_of_int ts ^ " timesteps"
-      | Property.Reachable Some (At, ts) -> "reachable at " ^ string_of_int ts ^ " timesteps"
+      | Property.Reachable Some (From ts) -> "reachable from " ^ string_of_int ts ^ " timesteps"
+      | Property.Reachable Some (Within ts) -> "reachable within " ^ string_of_int ts ^ " timesteps"
+      | Property.Reachable Some (At ts) -> "reachable at " ^ string_of_int ts ^ " timesteps"
+      | Property.Reachable Some (FromWithin (ts1, ts2)) -> "reachable from " ^ string_of_int ts1 ^ " and within " ^ string_of_int ts2 ^ " timesteps"
       | Property.Reachable None -> "reachable"
     )
     in
@@ -1173,9 +1208,10 @@ let proved_json mdl level trans_sys k prop kind =
       (short_name_of_kind_module mdl)
       (match kind with
         | Property.Invariant -> "valid"
-        | Property.Reachable Some (From, ts) -> "unreachable from " ^ string_of_int ts ^ " timesteps"
-        | Property.Reachable Some (Within, ts) -> "unreachable within " ^ string_of_int ts ^ " timesteps"
-        | Property.Reachable Some (At, ts) -> "unreachable at " ^ string_of_int ts ^ " timesteps"
+        | Property.Reachable Some (From ts) -> "unreachable from " ^ string_of_int ts ^ " timesteps"
+        | Property.Reachable Some (Within ts) -> "unreachable within " ^ string_of_int ts ^ " timesteps"
+        | Property.Reachable Some (At ts) -> "unreachable at " ^ string_of_int ts ^ " timesteps"
+        | Property.Reachable Some (FromWithin (ts1, ts2)) -> "unreachable from " ^ string_of_int ts1 ^ " and within " ^ string_of_int ts2 ^ " timesteps"
         | Property.Reachable None -> "unreachable"
       )
 
@@ -1263,9 +1299,10 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
       | `IND -> "unknown"
       | _ -> (match kind with
         | Property.Invariant -> "falsifiable"
-        | Property.Reachable Some (From, ts) -> "reachable from " ^ string_of_int ts ^ " timesteps"
-        | Property.Reachable Some (Within, ts) -> "reachable within " ^ string_of_int ts ^ " timesteps"
-        | Property.Reachable Some (At, ts) -> "reachable at " ^ string_of_int ts ^ " timesteps"
+        | Property.Reachable Some (From ts) -> "reachable from " ^ string_of_int ts ^ " timesteps"
+        | Property.Reachable Some (Within ts) -> "reachable within " ^ string_of_int ts ^ " timesteps"
+        | Property.Reachable Some (At ts) -> "reachable at " ^ string_of_int ts ^ " timesteps"
+        | Property.Reachable Some (FromWithin (ts1, ts2)) -> "reachable from " ^ string_of_int ts1 ^ " and within " ^ string_of_int ts2 ^ " timesteps"
         | Property.Reachable None -> "unreachable"
       )
     in

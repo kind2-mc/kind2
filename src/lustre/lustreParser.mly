@@ -579,11 +579,15 @@ main_annot:
 
 property_timestep: 
   | WITHIN ; timestep = NUMERAL
-    { A.Reachable (Some (Within, Num timestep)) }
+    { A.Reachable (Some (Within (int_of_string (HString.string_of_hstring timestep)))) } 
   | AT ; timestep = NUMERAL
-    { A.Reachable (Some (At, Num timestep)) }
+    { A.Reachable (Some (At (int_of_string (HString.string_of_hstring timestep)))) }
   | FROM ; timestep = NUMERAL
-    { A.Reachable (Some (From, Num timestep)) }
+    { A.Reachable (Some (From (int_of_string (HString.string_of_hstring timestep)))) }
+  | FROM ; timestep = NUMERAL ; 
+    WITHIN ; timestep2 = NUMERAL 
+    { A.Reachable (Some (FromWithin (int_of_string (HString.string_of_hstring timestep), 
+                                     int_of_string (HString.string_of_hstring timestep2)))) }
   | {A.Reachable None} 
 
 

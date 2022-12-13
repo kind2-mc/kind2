@@ -35,13 +35,14 @@ type prop_status =
   | PropFalse of (StateVar.t * Model.value list) list
 
 type prop_bound =
-  | From
-  | Within
-  | At
+  | From of int
+  | Within of int
+  | At of int
+  | FromWithin of int * int
 
 type prop_kind =
   | Invariant
-  | Reachable of (prop_bound * int) option
+  | Reachable of prop_bound option
 
 (* A property of a transition system *)
 type t = 

@@ -1500,9 +1500,10 @@ let props_list_of_bound_no_skip t i =
     (List.filter (fun prop -> match prop.Property.prop_kind with 
       | P.Invariant -> true 
       | P.Reachable None -> true
-      | P.Reachable Some (Within, _) -> true
-      | P.Reachable Some (From, _) -> false
-      | P.Reachable Some (At, _) -> false) 
+      | P.Reachable Some (Within _) -> true
+      | P.Reachable Some (From _) -> false
+      | P.Reachable Some (At _) -> false
+      | P.Reachable Some (FromWithin _) -> false) 
     t.properties) 
   in
   named_terms_list_of_bound props i
@@ -1512,9 +1513,10 @@ let props_list_of_bound_skip t i =
     (List.filter (fun prop -> match prop.Property.prop_kind with 
     | P.Invariant -> false 
     | P.Reachable None -> false
-    | P.Reachable Some (Within, _) -> false
-    | P.Reachable Some (From, _) -> true
-    | P.Reachable Some (At, _) -> true) 
+    | P.Reachable Some (Within _) -> false
+    | P.Reachable Some (From _) -> true
+    | P.Reachable Some (At _) -> true
+    | P.Reachable Some (FromWithin _) -> true) 
     t.properties) 
   in
   named_terms_list_of_bound props i

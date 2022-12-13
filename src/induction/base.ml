@@ -133,6 +133,8 @@ let split_closure trans solver k to_split =
 
   loop [] to_split
 
+(* Find out which reachability query has the lowest lower bound (for the purpose
+   of skipping steps) *)
 let lowest_lower_bound trans =
   TransSys.get_properties trans |> 
   List.fold_left (fun num_skip prop -> match (prop.Property.prop_status, prop.Property.prop_kind) with
@@ -140,8 +142,9 @@ let lowest_lower_bound trans =
     | (Property.PropInvariant _, _)
     | (Property.PropFalse _, _) -> num_skip
     (* Update lowest lower bound *)
-    | (_, Property.Reachable (Some (From, b))) 
-    | (_, Property.Reachable (Some (At, b))) -> if b < num_skip then b else num_skip
+    | (_, Property.Reachable (Some (From b))) 
+    | (_, Property.Reachable (Some (At b))) 
+    | (_, Property.Reachable (Some (FromWithin (b, _)))) -> if b < num_skip then b else num_skip
     (* Shouldn't be possible, but if there are other types of properties, we shouldn't skip steps *)
     | _ -> 0) max_int 
 
@@ -260,8 +263,9 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
       (* If we're skipping steps, we don't need to assert that the property
          held in the previous step *)
       |> List.filter (fun (name, _) -> match TransSys.get_prop_kind trans name with
-        | Reachable Some (From, b)
-        | Reachable Some (At, b) -> b < k_int
+        | Reachable Some (From b)
+        | Reachable Some (At b) 
+        | Reachable Some (FromWithin (b, _))-> b < k_int
         | _ -> true
       ) 
       |> List.map (fun (_, term) -> Term.bump_state Numeral.(k-one) term)
@@ -271,8 +275,9 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
        current k. *)
     let out_of_bounds, nu_unknowns = nu_unknowns |> List.partition (
       fun (name,_) -> match TransSys.get_prop_kind trans name with
-      | Reachable Some (From, b)
-      | Reachable Some (At, b) -> b > k_int
+      | Reachable Some (From b)
+      | Reachable Some (At b) 
+      | Reachable Some (FromWithin (b, _))-> b > k_int
       | _ -> false
     ) in
 
@@ -282,9 +287,10 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
         fun (name,_) -> match (TransSys.get_prop_status trans name, TransSys.get_prop_kind trans name) with
         | (Property.PropKTrue k, Invariant) 
         | (Property.PropKTrue k, Reachable None) -> k_int > k
-        | (Property.PropKTrue k, Reachable Some (From, b)) -> k_int > k && b <= k_int
-        | (Property.PropKTrue k, Reachable Some (Within, b)) -> k_int > k && b >= k_int
-        | (Property.PropKTrue k, Reachable Some (At, b)) -> k_int > k && b = k_int
+        | (Property.PropKTrue k, Reachable Some (From b)) -> k_int > k && b <= k_int
+        | (Property.PropKTrue k, Reachable Some (Within b)) -> k_int > k && b >= k_int
+        | (Property.PropKTrue k, Reachable Some (At b)) -> k_int > k && b = k_int
+        | (Property.PropKTrue k, Reachable Some (FromWithin (b1, b2))) -> k_int > k && b1 <= k_int && b2 >= k_int
         | _ -> true
       )
     in
@@ -335,6 +341,9 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
         let unfalsifiable, falsifiable =
           split_closure trans solver k unknowns_at_k
         in
+
+        (* The out of bounds properties trivially hold *)
+        let unfalsifiable = out_of_bounds @ unfalsifiable in
 
         (* Broadcasting k-true properties. *)
         unfalsifiable |> List.iter ( fun (s, _) ->
@@ -389,7 +398,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
     else
      (* Looping. *)
      next
-      (input_sys, aparam, trans, solver, k_p_1, out_of_bounds @ unfalsifiable, invs)
+      (input_sys, aparam, trans, solver, k_p_1, unfalsifiable, invs)
 
         
 

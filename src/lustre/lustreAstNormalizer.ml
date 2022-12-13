@@ -701,17 +701,33 @@ and normalize_item info map = function
     
     let expr = (match k with 
       (* expr or counter < b *)
-      | Reachable Some (From, b) -> 
-        A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Lt, Ident(dpos, ctr_id), Const (dpos, b)))
+      | Reachable Some (From b) -> 
+        A.BinaryOp (pos, Or, expr, 
+        A.CompOp(pos, A.Lt, Ident(dpos, ctr_id), 
+                            Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
 
       (* expr or counter != b *)
-      | Reachable Some (At, b) -> 
-        A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Neq, Ident(dpos, ctr_id), Const (dpos, b)))
+      | Reachable Some (At b) -> 
+        A.BinaryOp (pos, Or, expr, 
+        A.CompOp(pos, A.Neq, Ident(dpos, ctr_id), 
+                             Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
 
       (* expr or counter > b *)
-      | Reachable Some (Within, b) -> 
-        A.BinaryOp (pos, Or, expr, A.CompOp(pos, A.Gt, Ident(dpos, ctr_id), Const (dpos, b)))
+      | Reachable Some (Within b) -> 
+        A.BinaryOp (pos, Or, expr, 
+        A.CompOp(pos, A.Gt, Ident(dpos, ctr_id), 
+                            Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
       
+      (* expr or counter < b1 or counter > b2 *)
+      | Reachable Some (FromWithin (b1, b2)) -> 
+        A.BinaryOp (pos, Or, expr, 
+        A.BinaryOp (pos, Or, 
+          A.CompOp(pos, A.Lt, Ident(dpos, ctr_id), 
+          Const (dpos, Num (HString.mk_hstring (string_of_int b1)))),
+          A.CompOp(pos, A.Gt, Ident(dpos, ctr_id), 
+                              Const (dpos, Num (HString.mk_hstring (string_of_int b2)))))
+        )
+
       | _ -> expr
     ) in
     let name' =
