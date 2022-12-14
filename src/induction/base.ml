@@ -143,7 +143,7 @@ let lowest_lower_bound trans =
     | (Property.PropFalse _, _) -> num_skip
     (* Update lowest lower bound *)
     | (_, Property.Reachable (Some (From b))) 
-    | (_, Property.Reachable (Some (At b))) 
+    | (_, Property.Reachable (Some (At b))) -> if b < num_skip then b else num_skip
     | (_, Property.Reachable (Some (FromWithin (b, _)))) -> if b < num_skip then b else num_skip
     (* Shouldn't be possible, but if there are other types of properties, we shouldn't skip steps *)
     | _ -> 0) max_int 
@@ -169,23 +169,6 @@ let skip_steps_next trans solver step k (* nu_unknowns *) =
       (* Asserting transition relation for next iteration. *)
       TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans !step
       |> SMTSolver.assert_term solver ;
-
-      
-      (* Assert all invariants, including new ones, at [k]. *)
-      (*let all_invs =
-        TransSys.invars_of_bound
-          ~one_state_only:Numeral.(equal !step zero) trans !step
-        |> Term.mk_and
-      in
-      if (all_invs != Term.t_true) then
-        SMTSolver.assert_term solver all_invs;
-
-      (* Asserting implications if k > 0. *)
-      if Numeral.(!step > zero) then
-        nu_unknowns
-        |> List.map (fun (_, term) -> Term.bump_state Numeral.(!step-one) term)
-        |> Term.mk_and |> SMTSolver.assert_term solver *)
-        
     done(*;
   let all_invs =
     TransSys.invars_of_bound
@@ -245,7 +228,6 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
 
   (* Cleaning unknowns by removing invariants and falsifieds. *)
   let nu_unknowns = unknowns |> List.filter (shall_keep trans) in
-
   match nu_unknowns with
   | [] -> ()
 
@@ -256,7 +238,6 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
     Stat.set k_int Stat.bmc_k ;
     KEvent.progress k_int ;
     Stat.update_time Stat.bmc_total_time ;
-
     (* Asserting implications if k > 0. *)
     if Numeral.(k > zero) then
       nu_unknowns
@@ -264,7 +245,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
          held in the previous step *)
       |> List.filter (fun (name, _) -> match TransSys.get_prop_kind trans name with
         | Reachable Some (From b)
-        | Reachable Some (At b) 
+        | Reachable Some (At b) -> b < k_int
         | Reachable Some (FromWithin (b, _))-> b < k_int
         | _ -> true
       ) 
@@ -276,11 +257,10 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
     let out_of_bounds, nu_unknowns = nu_unknowns |> List.partition (
       fun (name,_) -> match TransSys.get_prop_kind trans name with
       | Reachable Some (From b)
-      | Reachable Some (At b) 
+      | Reachable Some (At b) -> b > k_int
       | Reachable Some (FromWithin (b, _))-> b > k_int
       | _ -> false
     ) in
-
     (* Filtering properties which are not known to be k-true at this step. *)
     let unknowns_at_k, k_true =
       nu_unknowns |> List.partition (
@@ -398,7 +378,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
     else
      (* Looping. *)
      next
-      (input_sys, aparam, trans, solver, k_p_1, unfalsifiable, invs)
+      (input_sys, aparam, trans, solver, k_p_1, out_of_bounds @ unfalsifiable, invs)
 
         
 
