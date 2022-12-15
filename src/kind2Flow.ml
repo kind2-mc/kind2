@@ -153,9 +153,13 @@ let status_of_trans_sys sys =
       | (n, Property.PropKTrue _) ->
         Format.eprintf "%s KU@." n;
         u+1,f
-      | (n, Property.PropFalse _) ->
+      | (n, Property.PropFalse _) when TSys.get_prop_kind sys n = Invariant ->
         Format.eprintf "%s FALSE@." n;
         u,f+1
+      | (n, Property.PropInvariant _) -> 
+        if TSys.get_prop_kind sys n = Invariant
+        then u,f
+        else (Format.eprintf "%s UNREACHABLE@." n; u,f+1)   
       | _ -> u,f
     ) (0,0)
     |> fun (u,f) -> u > 0, f > 0

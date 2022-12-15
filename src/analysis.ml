@@ -199,7 +199,10 @@ let mk_result param sys time =
 let result_is_all_proved { sys } =
   TransSys.get_prop_status_all_nocands sys |>
   List.for_all (function
-    | _, Property.PropInvariant _ -> true
+    | n, Property.PropInvariant _ -> 
+      TransSys.get_prop_kind sys n = Invariant
+    | n, Property.PropFalse _ -> 
+      not (TransSys.get_prop_kind sys n = Invariant)
     | _ -> false
   )
 
@@ -208,7 +211,10 @@ let result_is_all_proved { sys } =
 let result_is_some_falsified { sys } =
   TransSys.get_prop_status_all_nocands sys |>
   List.exists (function
-      | _, Property.PropFalse _ -> true
+      | n, Property.PropFalse _ -> 
+        TransSys.get_prop_kind sys n = Invariant
+      | n, Property.PropInvariant _ -> 
+        not (TransSys.get_prop_kind sys n = Invariant)
       | _ -> false
     )
 
