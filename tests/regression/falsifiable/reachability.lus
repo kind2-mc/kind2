@@ -1,0 +1,18 @@
+node counter(test: int) returns (out: int);
+let 
+  out = 0 -> pre out + 1;
+ 
+ (*!! TODO: 
+    * Fix broadcasting k-true steps
+    * Make sure user-facing stuff works (flags) 
+    * monitor_modules, needed_by, and core_module in invarManager.ml
+    * Make sure we throw the right exit code
+  !!*)
+  check reachable out = 6 within 5;
+  check reachable out = 15 from 10 within 14;
+  check reachable out = 3 from 4;
+  check reachable out = 15 at 16;
+  --check reachable out = 1000 from 1000; (slow with Z3)
+  check reachable out = -6 from 5000;
+tel
+
