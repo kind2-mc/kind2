@@ -3579,7 +3579,7 @@ let solver_dependant_actions solver =
           raise Error
         ) (*;
         if
-          Certif.proof () && (major = 0 || (major = 1 && minor = 0 && patch < 2))
+          Certif.proof () && (major = 0 || (major = 1 && minor = 0 && patch < 3))
         then (
           Log.log L_error
             "LFSC proof production requires cvc5 1.0.3 or later. Found \

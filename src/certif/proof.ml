@@ -33,18 +33,21 @@ let set_margin fmt = pp_set_margin fmt (if compact then max_int else 80)
 
 (* disable the preprocessor and tell cvc5 to dump proofs *)
 let cvc5_proof_args () =
-  let args = ["--lang=smt2"; "--simplification=none"; "--dump-proofs"; "--proof-format=lfsc"] in
+  let args =
+    [
+      "--lang=smt2";
+      "--simplification=none";
+      "--dump-proofs";
+      "--proof-format=lfsc";
+    ]
+  in
   let args =
     if Flags.Certif.smaller_holes () then
       "--proof-granularity=theory-rewrite" :: "--lfsc-expand-trust" :: args
-    else
-      args
+    else args
   in
   let args =
-    if Flags.Certif.flatten_proof () then
-      "--lfsc-flatten" :: args
-    else
-      args
+    if Flags.Certif.flatten_proof () then "--lfsc-flatten" :: args else args
   in
   List.rev args
 
@@ -231,19 +234,12 @@ let print_def fmt { def_symb; def_body } =
     print_term def_body
 
 (* Print an LFSC lemma with type information *)
-(* let print_lem fmt { lem_symb; lem_body } =
-  fprintf fmt "@[<hov 1>(lemma@ %a@ @[<hov 1>%a@])@]" H.pp_print_hstring
-    lem_symb
-    print_term lem_body *)
-
 let print_lem fmt { lem_symb; lem_ty; lem_body } =
-  fprintf fmt "@[<hov 1>(check@ @[<hov 1>(: %a %a)@])@]"
-    print_type lem_ty
+  fprintf fmt "@[<hov 1>(check@ @[<hov 1>(: %a %a)@])@]" print_type lem_ty
     print_term lem_body;
   fprintf fmt "@.";
   fprintf fmt "@[<hov 1>(declare@ %a@ @[<hov 1>%a@])@]" H.pp_print_hstring
-    lem_symb
-    print_term lem_ty
+    lem_symb print_term lem_ty
 
 (* Print a proof context *)
 let print_context fmt { lfsc_decls; lfsc_defs } =
@@ -301,7 +297,14 @@ let rec print_proof_term term fmt = function
 
 (* Print an LFSC proof *)
 let print_proof ?(context = false) name fmt
-    { proof_context; proof_temps; proof_hyps; proof_lems; proof_type; proof_term } =
+    {
+      proof_context;
+      proof_temps;
+      proof_hyps;
+      proof_lems;
+      proof_type;
+      proof_term;
+    } =
   if context then print_context fmt proof_context;
   fprintf fmt "@.";
   List.iter (fprintf fmt "%a@." print_def) (List.rev proof_temps);
@@ -389,8 +392,10 @@ let log_trusted ~frontend dirname =
 exception ProofParseError of string
 
 let extract_proof_type = function
-  | HS.List [HS.Atom (ascr); ty; term] when ascr = s_ascr -> ty, term
-  | t -> raise (ProofParseError ("Could not extract type of " ^ HS.string_of_sexpr t))
+  | HS.List [ HS.Atom ascr; ty; term ] when ascr = s_ascr -> (ty, term)
+  | t ->
+      raise
+        (ProofParseError ("Could not extract type of " ^ HS.string_of_sexpr t))
 
 
 (***********************)
@@ -402,7 +407,9 @@ let rec parse_proof acc prefix =
   let open HS in
   let ctx = acc.proof_context in
   function
-  | List [ Atom dec; Atom s; t ] :: r when dec == s_declare && (Lib.string_starts_with (H.string_of_hstring s) "cvc.") ->
+  | List [ Atom dec; Atom s; t ] :: r
+    when dec == s_declare
+         && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
       let ctx =
         if List.exists (fun decl -> H.equal decl.decl_symb s) ctx.lfsc_decls
         then ctx
@@ -412,39 +419,48 @@ let rec parse_proof acc prefix =
       in
       parse_proof { acc with proof_context = ctx } prefix r
   | List [ Atom dec; Atom s; t ] :: r when dec == s_declare ->
-      let s' = (H.mk_hstring (prefix ^ "." ^ (H.string_of_hstring s))) in
-      let hyp =
-        { decl_symb = s'; decl_type = t }
-      in
-      parse_proof { acc with proof_hyps = hyp :: acc.proof_hyps; proof_context = ctx } prefix (apply_substs [(Atom s, Atom s')] r)
-  | List [ Atom def; Atom s; b ] :: r when def == s_define && (Lib.string_starts_with (H.string_of_hstring s) "cvc.") ->
+      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
+      let hyp = { decl_symb = s'; decl_type = t } in
+      parse_proof
+        { acc with proof_hyps = hyp :: acc.proof_hyps; proof_context = ctx }
+        prefix
+        (apply_substs [ (Atom s, Atom s') ] r)
+  | List [ Atom def; Atom s; b ] :: r
+    when def == s_define
+         && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
       let ctx =
         if List.exists (fun def -> H.equal def.def_symb s) ctx.lfsc_defs then
           ctx
         else
-          let def =
-            { def_symb = s; def_body = b }
-          in
+          let def = { def_symb = s; def_body = b } in
           { ctx with lfsc_defs = def :: ctx.lfsc_defs }
       in
       parse_proof { acc with proof_context = ctx } prefix r
   | List [ Atom def; Atom s; b ] :: r when def == s_define ->
-      let s' = (H.mk_hstring (prefix ^ "." ^ (H.string_of_hstring s))) in
-      let temp =
-        { def_symb = s'; def_body = b }
-      in
-      parse_proof { acc with proof_temps = temp :: acc.proof_temps; proof_context = ctx } prefix (apply_substs [(Atom s, Atom s')] r)
-  | List [ Atom check; p ] :: List [_; Atom s; _ ] :: r when check == s_check ->
-      let s' = (H.mk_hstring (prefix ^ "." ^ (H.string_of_hstring s))) in
+      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
+      let temp = { def_symb = s'; def_body = b } in
+      parse_proof
+        { acc with proof_temps = temp :: acc.proof_temps; proof_context = ctx }
+        prefix
+        (apply_substs [ (Atom s, Atom s') ] r)
+  | List [ Atom check; p ] :: List [ _; Atom s; _ ] :: r when check == s_check
+    ->
+      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
       let ty, p = extract_proof_type p in
-      let lem =
-        { lem_symb = s'; lem_ty = ty; lem_body = p }
-      in
-      parse_proof { acc with proof_lems = lem :: acc.proof_lems; proof_context = ctx } prefix (apply_substs [(Atom s, Atom s')] r)
+      let lem = { lem_symb = s'; lem_ty = ty; lem_body = p } in
+      parse_proof
+        { acc with proof_lems = lem :: acc.proof_lems; proof_context = ctx }
+        prefix
+        (apply_substs [ (Atom s, Atom s') ] r)
   | [ List (Atom check :: [ pterm ]) ] when check == s_check ->
       let ctx = { ctx with lfsc_defs = List.rev ctx.lfsc_defs } in
       if Flags.Certif.log_trust () then register_trusts pterm;
-      let ty, pterm = if Flags.Certif.flatten_proof () then let r = extract_proof_type pterm in Some (fst r), snd r else None, pterm in
+      let ty, pterm =
+        if Flags.Certif.flatten_proof () then
+          let r = extract_proof_type pterm in
+          (Some (fst r), snd r)
+        else (None, pterm)
+      in
       { acc with proof_context = ctx; proof_type = ty; proof_term = pterm }
   | s ->
       failwith
@@ -510,11 +526,10 @@ let rec parse_context ctx =
   let open HS in
   function
   | List [ Atom dec; Atom s; t ] :: r when dec == s_declare ->
-      if (Lib.string_starts_with (H.string_of_hstring s) "cvc.") then
+      if Lib.string_starts_with (H.string_of_hstring s) "cvc." then
         let decl = { decl_symb = s; decl_type = t } in
         parse_context { ctx with lfsc_decls = decl :: ctx.lfsc_decls } r
-      else
-        parse_context ctx r
+      else parse_context ctx r
   | List [ Atom def; Atom s; b ] :: r when def == s_define ->
       let def = { def_symb = s; def_body = b } in
       parse_context { ctx with lfsc_defs = def :: ctx.lfsc_defs } r
