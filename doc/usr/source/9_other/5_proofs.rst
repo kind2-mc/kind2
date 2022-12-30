@@ -278,7 +278,8 @@ increase when it is enabled.
 a sequence of lemmas. The proof for each lemma is verified by the LFSC checker
 and erased immediately. This option helps reduce the memory footprint of the
 LFSC checker and improve its performance. It is recommended to enable this
-option with ``--smaller_holes``.
+option with ``--smaller_holes``. Note: enabling this option will increase the
+number of ``success`` messages displayed by the LFSC checker.
 
 Contents of certificates
 ------------------------
