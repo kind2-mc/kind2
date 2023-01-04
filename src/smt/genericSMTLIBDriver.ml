@@ -18,8 +18,6 @@
 
 open Lib
 
-exception UnsupportedZ3Symbol of string
-
 (* ********************************************************************** *)
 (* Dummy and default values                                               *)
 (* ********************************************************************** *)
@@ -364,41 +362,35 @@ let gen_expr_of_string_sexpr'
         (* Symbol from string *)
         let s = 
 
-          if ((HString.string_of_hstring h = "bvudiv_i") || 
-              (HString.string_of_hstring h = "bvsdiv_i") ||
-              (HString.string_of_hstring h = "bvurem_i") || 
-              (HString.string_of_hstring h = "bvsrem_i")) then
-            (raise (UnsupportedZ3Symbol (HString.string_of_hstring h)))
-          else
-            try 
+          try
 
-              (* Map the string to an interpreted function symbol *)
-              symbol_of_atom h 
+            (* Map the string to an interpreted function symbol *)
+            symbol_of_atom h
 
-            with 
+          with
 
-              (* Function symbol is uninterpreted *)
-              | Not_found -> 
+            (* Function symbol is uninterpreted *)
+            | Not_found ->
 
-                (* Uninterpreted symbol from string *)
-                let u = 
+              (* Uninterpreted symbol from string *)
+              let u =
 
-                  try 
+                try
 
-                    UfSymbol.uf_symbol_of_string (HString.string_of_hstring h)
+                  UfSymbol.uf_symbol_of_string (HString.string_of_hstring h)
 
-                  with Not_found -> 
-  
-                    (* Cannot convert to an expression *)
-                    failwith 
-                      (Format.sprintf 
-                        "Undeclared uninterpreted function symbol %s in \
-                          S-expression"
-                        (HString.string_of_hstring h))
-                in
+                with Not_found ->
 
-                (* Get the uninterpreted symbol of the string *)
-                Symbol.mk_symbol (`UF u)
+                  (* Cannot convert to an expression *)
+                  failwith
+                    (Format.sprintf
+                      "Undeclared uninterpreted function symbol %s in \
+                        S-expression"
+                      (HString.string_of_hstring h))
+              in
+
+              (* Get the uninterpreted symbol of the string *)
+              Symbol.mk_symbol (`UF u)
 
 
           in
@@ -644,6 +636,10 @@ let smtlib_string_symbol_list =
    ("bvsdiv", Symbol.mk_symbol `BVSDIV);
    ("bvurem", Symbol.mk_symbol `BVUREM);
    ("bvsrem", Symbol.mk_symbol `BVSREM);
+   ("bvudiv_i", Symbol.mk_symbol `BVUDIV);
+   ("bvsdiv_i", Symbol.mk_symbol `BVSDIV);
+   ("bvurem_i", Symbol.mk_symbol `BVUREM);
+   ("bvsrem_i", Symbol.mk_symbol `BVSREM);
    ("bvshl", Symbol.mk_symbol `BVSHL);
    ("bvlshr", Symbol.mk_symbol `BVLSHR);
    ("bvashr", Symbol.mk_symbol `BVASHR);
