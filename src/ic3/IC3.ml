@@ -706,9 +706,6 @@ let extrapolate trans_sys state f g =
     | QE.QuantifiedTermFound _ ->
         let err = "Disabling IC3: Cannot generalize quantified terms." in
         raise (UnsupportedFeature err)
-    | GenericSMTLIBDriver.UnsupportedZ3Symbol s ->
-        let err = ("Disabling IC3: Special non-SMTLIB symbol " ^ s ^ " detected in QE.") in
-        raise (UnsupportedFeature err)
   in
 
   Stat.record_time Stat.ic3_generalize_time;
