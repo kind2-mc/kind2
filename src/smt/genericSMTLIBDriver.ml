@@ -335,6 +335,27 @@ let gen_expr_of_string_sexpr'
 
       expr_of_string_sexpr conv bound_vars e |> Term.bump_state Numeral.one
 
+    (* Bit-vector constant of the form (_ bvX n) where X and n are numerals, i.e. (_ bv13 32) *)
+    | HStringSExpr.List [HStringSExpr.Atom s1; HStringSExpr.Atom s2; HStringSExpr.Atom n]
+      when s1 == s_index && HString.sub s2 0 2 = "bv" -> (
+
+      let size =
+        try Numeral.of_string (HString.string_of_hstring n)
+        with _ -> failwith ("Invalid bit-vector constant (size)")
+      in
+
+      let num =
+        try
+          HString.sub s2 2 (HString.length s2 - 2)
+          |> Numeral.of_string
+        with _ -> failwith ("Invalid bit-vector constant (value)")
+      in
+
+      let bv = Bitvector.num_to_ubv size num in
+
+      Term.mk_bv bv
+
+    )
     (*  A list with more than one element *)
     | HStringSExpr.List ((HStringSExpr.Atom h) :: tl) -> 
 
