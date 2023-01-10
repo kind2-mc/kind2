@@ -15,19 +15,6 @@
    permissions and limitations under the License. 
  *)
 
- (** 
-   Code for desugaring imperative-style if blocks to functional ITEs.
-
-   The code has a few steps.
-    1. Remove multiple assignment from if blocks using temp variables.
-    2. Parse the if block and create a map of trees, one for each variable
-    3. Fill in oracles in the trees for missing equations.
-    4. Remove redundancy from the trees.
-    5. Convert the trees to ITE expressions. 
-
-   @author Rob Lorch
- *)
-
 module R = Res
 module A = LustreAst
 module AH = LustreAstHelpers

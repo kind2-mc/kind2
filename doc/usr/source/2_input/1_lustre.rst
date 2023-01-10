@@ -829,7 +829,7 @@ Kind 2 also has support for code blocks with frame conditions. At the beginning 
 (denoted by the ``frame`` keyword), the user specifies a list of variables that they wish to 
 define within the frame block. All variables defined within the frame block must be present in
 this list. Then, initial values are optionally specified for these variables. 
-Variables are defined within the frame block body (denoted by the ``let`` and ``tel`` kewords).
+Variables are defined within the frame block body (denoted by the ``let`` and ``tel`` keywords).
 It is possible to leave variables (partially or fully) undefined: On the first timestep, each variable
 is set equal to its initialization value, if one exists. On other timesteps, each undefined variable stutters 
 (it is set equal to its value on the previous timestep). 
@@ -898,17 +898,25 @@ set to be equal to ``counter()`` on the second through tenth timesteps, and then
 remaining timesteps. On the other hand, ``y2`` starts at its initialization value (100) and 
 stutters there for the first 10 timesteps, and then is set to ``counter() * 2`` for the remaining timesteps.
 
-Note that variables do not have to have initializations. For example, the following 
-code is supported because even though ``y2`` does not have an initialization, it is
-present in the list of variables ``frame ( y1, y2 )``.
+Note that variables do not have to have initializations. When no initialization is given, 
+a variable's initial value is equal to the initial value of the expression defined in the frame block body.
+If the corresponding expression is undefined in the first timestep, then the variable is also
+undefined in the first timestep. For example, the following code is supported because even though ``y1`` and ``y2`` 
+do not have an initializations, they are present in the list of variables ``frame ( y1, y2 )``.
+The initial value of ``y1`` is 0 (the initial value assigned by ``counter()``), and the initial value
+of ``y2`` is undefined (due to the unguarded ``pre``).
 
 .. code-block:: none
 
    frame ( y1, y2 )
-   y1 = init1;
    let
-      y1 = expr1;
-      y2 = expr2;
+      y1 = counter();
+      y2 = pre counter();
+   tel
+
+   node counter() returns (y: int);
+   let
+      y = 0 -> pre y + 1;
    tel
 
 Also, it is still possible to assign to multiple variables at once
