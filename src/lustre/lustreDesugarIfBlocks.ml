@@ -43,6 +43,8 @@ type error = [
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
 ]
 
+let ib_oracle_tree = HString.mk_hstring "ib_oracle" 
+
 let mk_error pos kind = Error (`LustreDesugarIfBlocksError (pos, kind))
 
 module LhsMap = struct
@@ -173,7 +175,7 @@ let if_block_to_trees ib =
 let rec tree_to_ite pos node =
   match node with
     | Leaf Some expr -> expr
-    | Leaf None -> A.Ident(pos, HString.mk_hstring "ib_oracle")
+    | Leaf None -> A.Ident(pos, ib_oracle_tree)
     | Node (left, cond, right) -> 
       TernaryOp (pos, Ite, cond, tree_to_ite pos left, tree_to_ite pos right)
 
@@ -192,33 +194,18 @@ let get_tree_type ctx lhs =
     | _ -> assert false
 
 (** Fills empty spots in an ITE with oracles. *)
-let rec fill_ite_with_oracles ite ty = 
-  match ite with
+let rec fill_ite_with_oracles expr ty =
+  match expr with
     | A.TernaryOp (pos, Ite, cond, e1, e2) -> 
-      let e1, gids1, decls1 = (
-      match e1 with
-        | TernaryOp _ as top -> fill_ite_with_oracles top ty
-        | Ident(p, s) when s = HString.mk_hstring "ib_oracle" -> 
-          let (expr, gids) = (mk_fresh_ib_oracle ty) in
-          (match expr with
-            | A.Ident (_, name) ->  expr, gids, [A.NodeVarDecl(p, (p, name, ty, ClockTrue))]
-            | _ -> assert false (* not possible*))
-        | _ -> e1, GI.empty (), []
-      ) in 
-      let e2, gids2, decls2 = (
-      match e2 with
-        | TernaryOp _ as top -> fill_ite_with_oracles top ty
-        | Ident(p, s) when s = HString.mk_hstring "ib_oracle" -> 
-          let (expr, gids) = (mk_fresh_ib_oracle ty) in
-          (match expr with
-            | A.Ident (_, name) ->  expr, gids, [A.NodeVarDecl(p, (p, name, ty, ClockTrue))]
-            | _ -> assert false (* not possible*))
-        | _ -> e2, GI.empty (), []
-      ) in
+      let e1, gids1, decls1 = fill_ite_with_oracles e1 ty in
+      let e2, gids2, decls2 = fill_ite_with_oracles e2 ty in
       A.TernaryOp (pos, Ite, cond, e1, e2), GI.union gids1 gids2, decls1 @ decls2
-    (* shouldn't be possible *)
-    | _ -> assert false
-
+    | Ident(p, s) when s = ib_oracle_tree -> 
+      let (expr, gids) = (mk_fresh_ib_oracle ty) in
+      (match expr with
+        | A.Ident (_, name) ->  expr, gids, [A.NodeVarDecl(p, (p, name, ty, ClockTrue))]
+        | _ -> assert false (* not possible *))
+    | _ -> expr, GI.empty (), []
 
 (** Helper function to determine if two trees are equal *)
 let rec trees_eq node1 node2 = match node1, node2 with
@@ -231,27 +218,15 @@ let rec trees_eq node1 node2 = match node1, node2 with
   | _ -> false
 
   
-(** Removes redundancy from a binary tree. 
-   Currently, redundancy check doesn't quite work because
-   different positions mess with equality of leaves. *)
-let rec simplify_tree node = 
-  match node with
-    | Leaf _ -> node
-    | Node (Leaf i, _, Leaf j) -> 
-      if (trees_eq (Leaf i) (Leaf j)) then Leaf i else node
-    | Node (((Node _) as i), str, Leaf j) -> 
-      let i = simplify_tree i in
-      if trees_eq i (Leaf j) then i else
-      Node (i, str, Leaf j)
-    |	Node (Leaf i, str, ((Node _) as j)) ->  
-      let j = simplify_tree j in
-      if trees_eq (Leaf i) j then j
-    else Node (Leaf i, str, j)
-    | Node (((Node _) as i), str, ((Node _) as j)) -> 
-      let i = simplify_tree i in
-      let j = simplify_tree j in
-      if trees_eq i j then i else
-      Node (i, str, j)
+(** Removes redundancy from a binary tree. *)
+   let rec simplify_tree node = 
+    match node with
+      | Leaf _ -> node
+      | Node (i, str, j) -> 
+        let i = simplify_tree i in
+        let j = simplify_tree j in
+        if trees_eq i j then i else
+        Node (i, str, j)
 
 
 let split_and_flatten3 ls =
@@ -279,8 +254,7 @@ let extract_equations_from_if ctx ib =
   let tys = (List.map (get_tree_type ctx) lhss) in 
   let tys = (List.map (fun x -> match x with | Some y -> y | None -> assert false (* not possible *)) 
                        tys) in
-  let res = List.map2 fill_ite_with_oracles ites tys |>
-                               List.map (fun (a, b, c) -> a, b, c) in
+  let res = List.map2 fill_ite_with_oracles ites tys in
   let ites = List.map (fun (x, _, _) -> x) res in
   let gids = List.map (fun (_, y, _) -> y) res in
   let new_decls = List.map (fun (_, _, z) -> z) res |> List.flatten in
