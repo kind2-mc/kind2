@@ -28,7 +28,7 @@
 
 module A = LustreAst
 
-type error_kind = Unknown of string 
+type error_kind = 
   | MisplacedNodeItemError of A.node_item
   | MisplacedFrameBlockError of A.node_item
 

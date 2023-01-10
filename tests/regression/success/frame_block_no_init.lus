@@ -16,6 +16,6 @@ let
     fi
   tel
 
-  check (true -> (x1 = 24 or x1 = 37 or x1 = 34));
+  check (x1 = 24 or x1 = 37 or x1 = 34);
   check (true -> (x2 = pre x2));
 tel

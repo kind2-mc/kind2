@@ -17,7 +17,7 @@
 
 (** @author Rob Lorch *)
 
-type error_kind = Unknown of string
+type error_kind = 
   | MisplacedNodeItemError of LustreAst.node_item
 
 val error_message : error_kind -> string

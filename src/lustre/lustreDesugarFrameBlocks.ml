@@ -33,12 +33,11 @@ module Chk = LustreTypeChecker
 
 let (let*) = R.(>>=)
 
-type error_kind = Unknown of string
+type error_kind = 
   | MisplacedNodeItemError of A.node_item
   | MisplacedFrameBlockError of A.node_item
 
 let error_message error = match error with
-  | Unknown s -> s
   | MisplacedNodeItemError ni -> (match ni with
     | Body (Assert _) -> "Asserts are not allowed inside frame blocks."
     | FrameBlock _ -> "Frame blocks are not allowed inside other frame blocks."
@@ -47,7 +46,7 @@ let error_message error = match error with
     (* Other node items are allowed *)
     | _ -> assert false
     )
-  | MisplacedFrameBlockError _ -> "FrameBlocks are not allowed in functions."
+  | MisplacedFrameBlockError _ -> "Frame blocks are not allowed in functions."
 
 type error = [
   | `LustreDesugarFrameBlocksError of Lib.position * error_kind
