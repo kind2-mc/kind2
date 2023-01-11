@@ -17,7 +17,6 @@
 
 module A = LustreAst
 module R = Res
-module Chk = LustreTypeChecker
 module GI = GeneratedIdentifiers
 
 let (let*) = R.(>>=)
@@ -224,7 +223,7 @@ match ni with
   For each variable that is neither initialized nor defined:
     Fill in an equation of the form 'y = pre y' (initially undefined)
 *)
-let desugar_node_item _ ni = match ni with
+let desugar_node_item ni = match ni with
     (* All multiple assignment is removed in lustreRemoveMultAssign.ml *)
   | A.FrameBlock (pos, vars, nes, nis) ->
     let* nis = R.seq (List.map (fill_ite_oracles nes) nis) in
@@ -241,11 +240,10 @@ let desugar_node_item _ ni = match ni with
     in the body are initialized with the provided initializations. If a frame block 
     node equation has if statements with undefined branches, it fills the branches in by setting
     the variable equal to its value in the previous timestep. *)
-let desugar_frame_blocks ctx sorted_node_contract_decls = 
+let desugar_frame_blocks sorted_node_contract_decls = 
   let desugar_node_decl decl = (match decl with
-    | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis2, co) as d)) -> 
-      let* ctx = Chk.get_node_ctx ctx d in
-      let* res = R.seq (List.map (desugar_node_item ctx) nis2) in
+    | A.NodeDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis2, co)) -> 
+      let* res = R.seq (List.map desugar_node_item nis2) in
       let decls, nis = List.split res in
       R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, 
                        (List.flatten decls) @ nlds, List.flatten nis, co))) 

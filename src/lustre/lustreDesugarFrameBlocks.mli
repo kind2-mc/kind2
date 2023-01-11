@@ -43,7 +43,6 @@ type error = [
 
 
 val desugar_frame_blocks :
-  TypeCheckerContext.tc_context ->
   A.declaration list ->
     (A.declaration list,
     [> error])

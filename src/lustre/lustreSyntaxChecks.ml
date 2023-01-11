@@ -443,8 +443,7 @@ let no_calls_to_nodes_with_contracts_subject_to_refinement ctx expr =
     | _ -> Ok ())
   | _ -> Ok ()
 
-let no_temporal_operator is_const expr =
-  let decl_ctx = if is_const then "constant" else "function or function contract" in
+let no_temporal_operator decl_ctx expr =
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
@@ -548,7 +547,7 @@ and check_declaration ctx = function
 
 and check_const_expr_decl ctx expr =
   let composed_checks ctx e =
-    (no_temporal_operator true e)
+    (no_temporal_operator "constant" e)
       >> (no_dangling_identifiers ctx e)
   in
   check_expr ctx composed_checks expr
@@ -602,13 +601,13 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   let composed_items_checks ctx e =
     (common_node_equations_checks ctx e)
       >> (no_calls_to_node ctx e)
-      >> (no_temporal_operator false e)
+      >> (no_temporal_operator "constant" e)
   in
   (parametric_nodes_unsupported span.start_pos params)
   >> (check_items ctx composed_items_checks items)
     >> (match contract with
       | Some c -> check_contract false ctx common_contract_checks c
-        >> (check_contract false ctx (fun _ -> no_temporal_operator false) c)
+        >> (check_contract false ctx (fun _ -> no_temporal_operator "function or function contract") c)
         >> no_stateful_contract_imports ctx c
       | None -> Ok ())
     >> (Res.seq_ (List.map check_input_items inputs))
@@ -638,6 +637,7 @@ and check_items ctx f items =
       check_expr ctx f e >> (check_items ctx f l1) >> (check_items ctx f l2)
     | LA.FrameBlock (pos, vars, nes, nis) ->
       let nes = List.map (fun x -> LA.Body x) nes in
+      check_items ctx (fun _ e -> no_temporal_operator "frame block initialization" e) nes >>
       check_items ctx f nes >> (check_items ctx f nis) >>
       (*  Make sure 'nes' and 'nis' LHS vars are in 'vars' *)
       (Res.seq_ (List.map (check_frame_vars pos vars) nis)) >> (Res.seq_ (List.map (check_frame_vars pos vars) nes))

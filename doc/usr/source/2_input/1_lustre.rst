@@ -953,3 +953,7 @@ demonstrated in the following examples:
 
 Assertions, ``MAIN`` annotations, and ``PROPERTY`` annotations also
 cannot be placed within if statements or frame blocks.
+
+Since an initialization only defines a variable at the first timestep, it need not be 
+stateful. Therefore, a frame block initialization cannot contain any ``pre`` or ``->`` 
+operators. This restriction also ensures that initializations are never undefined.
