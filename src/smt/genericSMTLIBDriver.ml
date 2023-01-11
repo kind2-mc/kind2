@@ -907,7 +907,7 @@ let const_of_smtlib_atom b t =
 
                     (* Cannot convert to an expression *)
                     (* raise Not_found *)
-                    failwith "Invalid constant symbol in S-expression"
+                    failwith (Format.sprintf "Invalid constant symbol %s in S-expression" (HString.string_of_hstring t))
   in
 
   Debug.smtexpr 

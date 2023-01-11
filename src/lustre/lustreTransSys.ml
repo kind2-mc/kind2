@@ -2317,6 +2317,7 @@ let rec trans_sys_of_node'
               globals.G.state_var_bounds
               global_consts
               ufs
+              [] (* defs *)
               init_uf_symbol
               init_formals
               (Term.mk_and init_terms)

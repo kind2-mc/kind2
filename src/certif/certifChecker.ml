@@ -2513,6 +2513,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       bounds
       []
       []
+      [] (* defs*)
       init_uf
       init_args
       init_term

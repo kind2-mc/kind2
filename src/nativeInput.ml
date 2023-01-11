@@ -482,6 +482,7 @@ let of_channel in_ch =
             (StateVar.StateVarHashtbl.create 7)
             []
             [] (* ufs *)
+            [] (* defs *)
             init_uf_symbol
             init_args
             init_term

@@ -33,7 +33,7 @@ type _ t =
 (* Lustre systems supports multiple entry points (main subsystems) *)
 | Native : TransSys.t S.t -> TransSys.t t
 | VMT : TransSys.t S.t -> TransSys.t t
-| CMC : (TransSys.t S.t * CmcInput.subsystem_instance_name_data * (string list * StateVar.t list) list) -> TransSys.t t
+| CMC : (TransSys.t S.t * CmcInput.subsystem_instance_name_data * (string list * StateVar.t list) list * CmcInput.enum list) -> TransSys.t t
 | Horn : unit S.t -> unit t
 
 let read_input_lustre only_parse input_file =
@@ -59,7 +59,7 @@ let ordered_scopes_of (type s) : s t -> Scope.t list = function
 
   | Native subsystem
   | VMT subsystem 
-  | CMC (subsystem, _, _) ->
+  | CMC (subsystem, _, _, _) ->
     S.all_subsystems subsystem
     |> List.map (fun { S.scope } -> scope)
 
@@ -93,7 +93,7 @@ let analyzable_subsystems (type s) : s t -> s SubSystem.t list = function
     |> List.filter (fun s ->
       Strategy.is_candidate_for_analysis (S.strategy_info_of s))
 
-  | CMC (subsystem, _, _) ->
+  | CMC (subsystem, _, _, _) ->
     let subsystems' =
       if Flags.modular () then S.all_subsystems subsystem
       else [subsystem]
@@ -210,7 +210,7 @@ let next_analysis_of_strategy (type s)
 
   | Native subsystem
   | VMT subsystem 
-  | CMC (subsystem, _, _) -> (
+  | CMC (subsystem, _, _, _) -> (
     fun results ->
       let scope_and_strategy =
         List.map (fun ({ S.scope } as sub) ->
@@ -276,7 +276,7 @@ let mcs_params (type s) (input_system : s t) =
     |> List.filter (fun { S.has_impl } -> has_impl)
     |> List.map param_for_subsystem
   | Native sub
-  | CMC (sub, _, _)
+  | CMC (sub, _, _, _)
   | VMT sub ->
     let subs =
       if Flags.modular ()
@@ -344,7 +344,7 @@ let interpreter_param (type s) (input_system : s t) =
         Scope.Map.empty (S.all_subsystems sub)
       )
     | Native ({S.scope} as sub)
-    | CMC ({S.scope} as sub, _, _)
+    | CMC ({S.scope} as sub, _, _, _)
     | VMT ({S.scope} as sub) -> (scope,
       List.fold_left (
         fun abs_map ({ S.scope; S.has_impl }) ->
@@ -470,7 +470,7 @@ let trans_sys_of_analysis (type s)
 
   | VMT sub -> (fun _ -> sub.SubSystem.source, VMT sub)
 
-  | CMC (sub, name_map, var_map) -> (fun _ -> sub.SubSystem.source, CMC (sub, name_map, var_map))
+  | CMC (sub, name_map, var_map, enums) -> (fun _ -> sub.SubSystem.source, CMC (sub, name_map, var_map, enums))
     
   | Horn _ -> assert false
 

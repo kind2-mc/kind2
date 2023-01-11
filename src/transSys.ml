@@ -60,6 +60,15 @@ type instance =
     assumes: (Term.t list * Term.t) option;
   }
 
+type d_fun = {
+  (** The UF function symbol *)
+  f_name: UfSymbol.t;
+  (** The function arguments *)
+  f_vars: Var.t list;
+  (** The function definition *)
+  f_definition: Term.t;
+}
+
 type t = 
 
   { 
@@ -113,6 +122,9 @@ type t =
 
     ufs : UfSymbol.t list;
     (** Other function declarations *)
+
+    defs : d_fun list;
+    (** Function definitions *)
     
     logic : TermLib.logic;
     (** Logic fragment needed to express the transition system 
@@ -149,6 +161,13 @@ type t =
 
     invariants : Invs.t ;
 
+  }
+
+let mk_d_fun uf_name fun_type args body = 
+  {
+    f_name = uf_name; 
+    f_vars = args;
+    f_definition = body; (* Assume no reference to other functions TODO: Support function references *)
   }
 
 (* ********************************************************************** *)
@@ -969,6 +988,9 @@ let declare_init_flag_of_bounds { init_flag_state_var } declare lbound ubound =
 let declare_ufs { ufs } declare =
   List.iter declare ufs
 
+let declare_ufs2 (ufs: UfSymbol.t list) declare =
+  List.iter declare ufs
+
 (* Declare other functions symbols *)
 let declare_selects declare sys =
   if TermLib.logic_allow_arrays (get_logic sys) then
@@ -981,6 +1003,13 @@ let define_init define { init_uf_symbol; init_formals; init } =
 (* Define transition relation predicate *)
 let define_trans define { trans_uf_symbol; trans_formals; trans } =
   define trans_uf_symbol trans_formals trans
+
+(* Define transition relation predicate *)
+let rec define_functions define defs =
+  match defs with 
+  | def :: [] -> define def.f_name def.f_vars def.f_definition
+  | def :: others -> define def.f_name def.f_vars def.f_definition ; define_functions define others
+  | _ -> ()
 
 (* Declare the sorts, uninterpreted functions and const variables
    of this system and its subsystems. *)
@@ -1045,6 +1074,8 @@ let define_and_declare_of_bounds
 
   (* Declare constant state variables of top system *)
   declare_const_vars trans_sys declare;
+
+  define_functions define trans_sys.defs;
 
   (* Iterate over all subsystems *)
   trans_sys |> iter_subsystems ~include_top:false (fun t ->
@@ -1615,6 +1646,7 @@ let mk_trans_sys
   state_var_bounds
   global_consts
   ufs
+  defs
   init_uf_symbol
   init_formals
   init
@@ -1778,6 +1810,7 @@ let mk_trans_sys
       subsystems;
       global_consts;
       ufs;
+      defs;
       init_uf_symbol;
       init_formals;
       init;

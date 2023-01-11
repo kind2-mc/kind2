@@ -80,7 +80,7 @@ let join_maps (top_to_sys: StateVar.t SVM.t) (sys_to_subsys: StateVar.t SVM.t) =
     | Some value ->  StateVar.StateVarMap.add subsys_val value map 
 ) StateVar.StateVarMap.(empty) (SVM.bindings sys_to_subsys)
 
-let get_state_var_vals_at_k trans_sys var_map model_assoc_list k ?(prefix = "") map = 
+let get_state_var_vals_at_k trans_sys var_map model_assoc_list k ?(prefix = "") map enums = 
   let sys_vars = List.assoc (TransSys.scope_of_trans_sys trans_sys) var_map in
   (TransSys.state_vars trans_sys) |> List.filter_map (fun state_var -> 
     let state_var_opt = List.find_opt (fun v -> v == state_var) sys_vars in
@@ -94,15 +94,28 @@ let get_state_var_vals_at_k trans_sys var_map model_assoc_list k ?(prefix = "") 
       (* Format.printf "SYSTEM: %a@." Scope.pp_print_scope  (TransSys.scope_of_trans_sys trans_sys); *)
       (* Format.printf "MAP: %a@." pp_map map ; *)
       let translated_svar = StateVar.StateVarMap.find sys_state_var map in
-      
+      let state_var_type = StateVar.type_of_state_var translated_svar in
+      let enum_opt = List.find_opt (fun CmcInput.({get_type}) -> Type.equal_types get_type state_var_type) enums in
       let svar_state_values = List.assoc translated_svar model_assoc_list in
-      let svar_kth_state_value =  List.nth svar_state_values (Numeral.to_int k) in 
-      Some (var_name, svar_kth_state_value)
+      let svar_kth_state_value = List.nth svar_state_values (Numeral.to_int k) in 
+      
+      match svar_kth_state_value with
+      | Model.Term value -> (
+        match enum_opt with
+        | Some enum -> ((
+          let pair = List.find (fun (numeral, str) -> Term.equal value (Term.mk_num numeral)) enum.to_str in
+          (* Format.printf "LENGTH %i" (List.length enum.to_str) ; *)
+          let str_rep = HString.string_of_hstring (snd pair) in
+          Some (var_name, str_rep)))
+        | _ -> Some (var_name, Term.string_of_term value)
+      )
+      | _ -> failwith (Format.asprintf "Recieved unexpected model value. Unable to construct counter example.")
+      
     )
   )
 
 
-let rec get_state_var_vals_at_k_all trans_sys name_map var_map (model_assoc_list: (StateVar.t * Model.value list) list) k prefix ?(map = None) = 
+let rec get_state_var_vals_at_k_all trans_sys name_map var_map (model_assoc_list: (StateVar.t * Model.value list) list) k prefix ?(map = None) enums = 
   
 
   let sys_map = match map with 
@@ -118,14 +131,14 @@ let rec get_state_var_vals_at_k_all trans_sys name_map var_map (model_assoc_list
       (* Format.printf "MAP: %a@." pp_map map_up ; *)
       let map = Some (join_maps sys_map map_up) in
       let name = Scope.to_string (TransSys.scope_of_trans_sys subsys_transys) in 
-      (get_state_var_vals_at_k_all subsys_transys name_map var_map model_assoc_list k (prefix ^ (HString.string_of_hstring (List.assoc pos name_map)) ^ "::") ~map)
+      (get_state_var_vals_at_k_all subsys_transys name_map var_map model_assoc_list k (prefix ^ (HString.string_of_hstring (List.assoc pos name_map)) ^ "::") ~map enums)
     ) subsystems in
 
   (* Note, the instances below no longer function as an assoc list*)
   let instances =  (TransSys.get_subsystem_instances trans_sys) |> List.map (fun (subsys, subsys_instances) -> (List.map (fun instance -> (subsys, instance)) subsys_instances)) in 
   let instances = List.flatten instances in
-  let (subsys_state_vars: (string * Model.value ) list list) =  (help k instances)  in
-  let a = (get_state_var_vals_at_k trans_sys var_map model_assoc_list k ~prefix sys_map) :: subsys_state_vars in 
+  let subsys_state_vars = (help k instances)  in
+  let a = (get_state_var_vals_at_k trans_sys var_map model_assoc_list k ~prefix sys_map enums) :: subsys_state_vars in 
   List.flatten a
 
 (* 
@@ -143,7 +156,7 @@ let pp_step_of_trace (trans_sys : TransSys.t) disproved ppf (model, k) =
   Format.fprintf ppf  "%a" (pp_print_list (pp_step_of_trace trans_sys disproved) "@,") a *)
 
 let pp_str_var_val ppf (state_var, value) =
-  Format.fprintf ppf "(%s %a)" (state_var) (Model.pp_print_value ?as_type: None) (value)   
+  Format.fprintf ppf "(%s %s)" (state_var) (value)   
 
 let pp_state_var_val ppf (state_var, value) =
   let name = StateVar.name_of_state_var state_var in 
@@ -157,7 +170,7 @@ let pp_reach_prop ppf (state_var, value) =
   | Model.Term t when t == Term.t_false -> Format.fprintf ppf "(%s %a)" (name) (Term.pp_print_term) (Term.t_true)   
   | _ -> ()
 
-let pp_step_of_trace (trans_sys : TransSys.t) disproved name_map var_map path ppf k = 
+let pp_step_of_trace (trans_sys : TransSys.t) disproved name_map var_map path enums ppf k = 
   let reachability_prop = TransSys.get_properties trans_sys in
   assert ((List.length reachability_prop) == 1) ; (* Assume only one reachability prop allowed for now *)
   let reachability_svars = StateVar.StateVarSet.elements (Term.state_vars_of_term (List.hd reachability_prop).prop_term) in
@@ -168,18 +181,22 @@ let pp_step_of_trace (trans_sys : TransSys.t) disproved name_map var_map path pp
   let reachability_value = (reachability_svar, List.nth (List.assoc reachability_svar model_list) (Numeral.to_int k)) in
 
   
-  Format.fprintf ppf "(%a %a)" (pp_print_list pp_str_var_val " " ) (get_state_var_vals_at_k_all trans_sys name_map var_map (model_list) k "" ?map: None) pp_reach_prop reachability_value
+  Format.fprintf ppf "(%a %a)" (pp_print_list pp_str_var_val " " ) (get_state_var_vals_at_k_all trans_sys name_map var_map (model_list) k "" ?map: None enums) pp_reach_prop reachability_value
   (* Model.pp_print_model ppf model *)
 
-let pp_states (trans_sys : TransSys.t) disproved name_map var_map ppf path = 
+let pp_states (trans_sys : TransSys.t) disproved name_map var_map enums ppf path = 
 
-  Format.fprintf ppf  "%a" (pp_print_list (pp_step_of_trace trans_sys disproved name_map var_map path) "@,") ( 0 -- ((Model.path_length path)-1))
+  Format.fprintf ppf  "%a" (pp_print_list (pp_step_of_trace trans_sys disproved name_map var_map path enums) "@,") ( 0 -- ((Model.path_length path)-1))
 
 (* Ouptut a hierarchical model as JSON *)
 let pp_trail
   (type s) (input_system : s InputSystem.t) (trans_sys : TransSys.t) disproved ppf path =
+  (* let a = TransSys.get_function_symbols trans_sys in *)
+  (*Model.pp_print_path ppf path ;  (* FOR DEBUGGING *)*)
+  (* Format.fprintf ppf  "%a" (pp_print_list StateVar.pp_print_state_var_debug " ") (TransSys.state_vars trans_sys) ; *)
+
   match input_system with
-  | CMC (_, CmcInput.({map}), var_map) -> Format.fprintf ppf "%a@," (pp_states trans_sys disproved map var_map) path
+  | CMC (_, CmcInput.({map}), var_map, enums) -> Format.fprintf ppf "%a@," (pp_states trans_sys disproved map var_map enums) path
   | _ -> ()
   (* Model.pp_print_path ppf path *)
 

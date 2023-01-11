@@ -26,8 +26,15 @@ type subsystem_instance_name_data = {
   counter: int;
 }
 
+type enum = {
+  name: HString.t;
+  get_type: Type.t;
+  to_int: (HString.t * Numeral.t) list;
+  to_str: (Numeral.t * HString.t) list;
+}
+
 (** Parse from the channel *)
-val of_channel : in_channel -> TransSys.t SubSystem.t * subsystem_instance_name_data * (string list * StateVar.t list) list
+val of_channel : in_channel -> TransSys.t SubSystem.t * subsystem_instance_name_data * (string list * StateVar.t list) list * enum list
 
 (** Parse from the file *)
-val of_file : string -> TransSys.t SubSystem.t * subsystem_instance_name_data * (string list * StateVar.t list) list
+val of_file : string -> TransSys.t SubSystem.t * subsystem_instance_name_data * (string list * StateVar.t list) list * enum list

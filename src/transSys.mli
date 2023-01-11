@@ -99,6 +99,9 @@ type instance =
         [s] is SoFar(conjunction of instantiated assume terms) *)
   }
 
+type d_fun
+val mk_d_fun : UfSymbol.t -> 'a -> Var.t list -> Term.t -> d_fun
+
 (** Return [true] if scopes of transition systems are equal *)
 val equal_scope : t -> t -> bool
 
@@ -248,6 +251,9 @@ val mk_trans_sys :
 
   (* Declarations of other function symbols *)
   UfSymbol.t list  -> 
+
+  (* Functions with definitions *)
+  d_fun list -> 
 
   (* Predicate symbol for initial state constraint *)
   UfSymbol.t -> 
