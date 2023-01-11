@@ -1,0 +1,35 @@
+(define-system Latch 
+    :input ((s Bool) (r Bool)) 
+    :output ((o Bool))
+    :local ((b Bool))
+    :trans (= o' (or (and s (or (not r) b))
+        (and (not s) (not r) o)))
+)
+
+(define-system OneBitCounter 
+    :input ((inc Bool) (start Bool))
+    :output ((out Bool) (carry Bool))
+    :local ((set Bool) (reset Bool))
+    :subsys (L (Latch set reset out))
+    :inv (and (= set (and inc (not reset)))
+        (= reset (or carry start))
+        (= carry (and inc out)))
+)
+
+(define-system ThreeBitCounter
+    :input ((inc Bool) (start Bool))
+    :output ((out0 Bool) (out1 Bool) (out2 Bool))
+    :local ((car0 Bool) (car1 Bool) (car2 Bool))
+    :subsys (C1 (OneBitCounter inc start out0 car0))
+    :subsys (C2 (OneBitCounter car0 start out1 car1))
+    :subsys (C3 (OneBitCounter car1 start out2 car2))
+)
+
+; check system not part of the slides example
+(check-system ThreeBitCounter
+    :input ((inc Bool) (start Bool))
+    :output ((out0 Bool) (out1 Bool) (out2 Bool))
+    :local ((car0 Bool) (car1 Bool) (car2 Bool))
+    :reachable (r (and (= out0 true) (= out1 false) (= out2 true)))
+    :query (query1 (r))
+)

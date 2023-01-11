@@ -1,0 +1,24 @@
+; The output of Delay is initially in [0,10] and
+; then is the previous input
+(define-system Delay
+  :input ((in Int))
+  :output ((out Int))
+  :init (<= 0 out 10) ; more than one possible initial output
+  :trans (= out' in) ; the new output is the old input
+)
+
+; A clocked lossless channel, stuttering when clock is false
+(define-system StutteringClockedCopy
+  :input ((clock Bool) (in Int))
+  :output ((out Int))
+  :init (=> clock (= out in)) ; out is arbitrary when clock is false
+  :trans (ite clock (= out' in') (= out' out))
+)
+
+; check system not part of the slides example
+(check-system StutteringClockedCopy
+  :input ((clock Bool) (in Int))
+  :output ((out Int))
+  :reachable (r (and (= clock false)))
+  :query (query1 (r))
+)

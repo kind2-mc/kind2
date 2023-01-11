@@ -1,0 +1,22 @@
+; ====NOT SUPPORTED========================
+; TODO: declare-datatype not yet supported!
+; ====NOT SUPPORTED========================
+
+(declare-datatype Event (par (X) (Absent) (Present (val X))))
+
+; An event-triggered channel that arbitrarily loses its input data
+(define-system LossyIntChannel
+    :input ((in (Event Int)))
+    :output ((out (Event Int)))
+    :inv (or (= out in) (= out Absent))
+)
+
+; Equivalent formulation using unconstrained local state
+(define-system LossyIntChannel
+    :input ((in (Event Int)))
+    :output ((out (Event Int)))
+    :local ((s Bool))
+    ; at all times, whether the input event is transmitted
+    ; or not depends on value of s
+    :inv (= out (ite s in Absent))
+)

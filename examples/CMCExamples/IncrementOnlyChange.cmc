@@ -1,0 +1,31 @@
+
+; increment ni iff n = i; ni is 0 initially if not incremented
+(define-system Increment 
+    :input ((i Int))
+    :output ((inc Bool) (n1 Int) (n2 Int) (n3 Int) (n4 Int) (n5 Int))
+    :inv (= inc (<= 1 i 5))
+    :init (and
+        (=> (= i 1) (and (= n1 1) (= n2 n3 n4 n5 0)))
+        (=> (= i 2) (and (= n2 1) (= n1 n3 n4 n5 0)))
+        (=> (= i 3) (and (= n3 1) (= n1 n2 n4 n5 0)))
+        (=> (= i 4) (and (= n4 1) (= n1 n2 n3 n5 0)))
+        (=> (= i 5) (and (= n5 1) (= n1 n2 n3 n4 0)))
+        (=> (not (<= 1 i 5)) (= n1 n2 n3 n4 n5 0))
+    )
+    :trans (and
+        (=> (= i' 1) (and (= n1' (+ n1 1)) (OnlyChange inc n1)))
+        (=> (= i' 2) (and (= n2' (+ n2 1)) (OnlyChange inc n2)))
+        (=> (= i' 3) (and (= n3' (+ n3 1)) (OnlyChange inc n3)))
+        (=> (= i' 4) (and (= n4' (+ n4 1)) (OnlyChange inc n4)))
+        (=> (= i' 5) (and (= n5' (+ n5 1)) (OnlyChange inc n5)))
+        (=> (not (<= 1 i' 5)) (OnlyChange inc))
+    )
+)
+
+; check system not part of the slides example
+(check-system Increment
+    :input ((i Int))
+    :output ((inc Bool) (n1 Int) (n2 Int) (n3 Int) (n4 Int) (n5 Int))
+    :reachable (r (and (= i 1) (= n1 6) (= n2 n3 n4 n5 0)))
+    :query (query1 (r))
+)

@@ -1,0 +1,21 @@
+; Guarded-transititrues-style definititrue
+(define-system TimedSwitch :input ((press Bool)) :output ((sig Bool))
+  :local ((s Bool) (n Int))
+  :inv (= sig (= s true))
+  :init (and
+    (= n 0)
+    (ite press (= s true) (= s false))
+    )
+
+  :trans (and
+    (=> (and (= s false) (not press'))
+      (and (= s' false) (= n' n)))
+    (=> (and (= s false) press')
+      (and (= s' true) (= n' n)))
+    (=> (and (= s true) (not press') (< 10 n))
+      (and (= s' true) (= n' (+ n 1))))
+    (=> (and (= s true) (or press' (>= n 10))
+      (and (= s' false) (= n' 0)))
+    )
+    )
+)

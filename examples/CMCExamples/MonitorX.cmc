@@ -1,0 +1,70 @@
+; ====NOT SUPPORTED========================
+; TODO: ASSUMPTIONS NOT YET SUPPORTED
+;       Correct temporary code change in check system
+; ====NOT SUPPORTED========================
+
+(define-system Historically 
+    :input ((b Bool)) 
+    :output ((hb Bool))
+    :init (= hb b) 
+    :trans (= hb' (and b' hb))
+)
+
+(define-system Before 
+    :input ((b Bool)) 
+    :output ((bb Bool))
+    :init (= bb false) ; Previous value was false * ; :init false
+    :trans (= bb' b)
+)
+
+(define-system Count 
+    :input ((b Bool)) 
+    :output ((c Int))
+    :init (= c (ite b 1 0)) 
+    :trans (= c' (+ c (ite b 0 1)))
+)
+
+(define-system NonDetArbiter
+ :input ( (r1 Bool) (r2 Bool) )
+ :output ( (g1 Bool) (g2 Bool) )
+ :local ( (s Bool) )
+ :init (and (not g1) (not g2) )  ; nothing is granted initially ;; EXAMPLE MISSING AND
+ :trans (and
+  (=> (and (not r1') (not r2'))
+      (and (not g1') (not g2')))
+  (=> (and r1' (not r2'))
+      (and g1' (not g2')))
+  (=> (and (not r1') r2')
+      (and (not g1') g2'))
+  (=> (and r1' r2')
+      ; the unconstrained value of `s` is used as non-deterministic choice
+      (ite s' (and g1' (not g2'))
+        (and (not g1') g2')))
+  )
+)
+
+(define-system Monitor 
+    :input  ((r1 Bool) (r2 Bool)) 
+    :output ((g1 Bool) (g2 Bool))
+    :local  ((a1 Bool) (a2 Bool) (b0 Bool) (b1 Bool) (b2 Bool)
+             (h1 Bool) (h2 Bool) (c Int) (bf Bool))
+    :subsys (A (NonDetArbiter r1 r2 g1 g2))
+    :subsys (H1 (Historically a1 h1))
+    :subsys (H2 (Historically a2 h2))
+    :subsys (C (Count g1 c))
+    :subsys (B (Before b0 bf))
+    
+    :inv (and 
+            (= a1 (and (not r1) (not r2))) (= a2 (and (not g1) (not g2))) (= b0 (= c 4))
+            (= b1 (=> h1 h2)) ; b1 = if there have been no requests, there have been no grants
+            (= b2 (=> bf (not g1)))); b2 = a request is granted at most 4 times
+) 
+
+(check-system Monitor 
+    :input ((r1 Bool) (r2 Bool))
+    :output ((g1 Bool) (g2 Bool))
+    :local (_ _ _ (b1 Bool) (b2 Bool) _ _ _ _)
+    ; :assumption (A (not (and r1 r2))) 
+    :reachable (P (not (and b1 b2)))
+    :query (Q (P)) ; :query (Q (A P))
+)

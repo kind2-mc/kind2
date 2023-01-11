@@ -1,0 +1,37 @@
+
+
+(define-system greycounter
+  :input ((reset Bool))
+  :local ((a Bool) (b Bool))
+  :output ((out Bool))
+  :init (and (= a false) (= b false))
+  :trans (and (= a (and (not reset') (not b))) (= b (and (not reset') (a))))
+)
+
+(define-system intcounter
+  :input ((reset Bool) (max Int))
+  :local ((t Int))
+  :output ((out Bool))
+  :init (= t 0)
+  :trans (and (= max' max) (= t' (ite (or reset (= t max)) (0) (+ t 1))) (= out' (= t 2)))
+)
+
+(define-system top
+  :input ((reset Bool))
+  :local ((b Bool) (d Bool) (three Int))
+  :init (= three 3)
+  :trans (= three' 3)
+  :subsys (gc (greycounter reset b))
+  :subsys (ic (intcounter reset three d))
+)
+
+(check-system top
+  :input ((reset Bool))
+  :local ((b Bool) (d Bool) (three Int))
+  
+  :reachable (OKr (= b d))
+  :query (OK (OKr)) 
+
+  :reachable (OK2r (not d))
+  :query (OK2 (OK2r))   
+)

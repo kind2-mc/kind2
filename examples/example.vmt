@@ -1,0 +1,18 @@
+; this is a comment
+
+(declare-const x Int)
+
+(declare-const x.next Int)
+
+(define-fun sv.x () Int (! x :next x.next))
+
+(declare-const b Bool)
+
+(define-fun init () Bool (! (= x 1) :init true))
+
+(define-fun trans () Bool
+
+   (! (= x.next (ite b (+ x 1) x)) :trans true))
+
+(define-fun p1 () Bool (! (> x 0) :invar-property 1))
+

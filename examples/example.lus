@@ -1,0 +1,14 @@
+node set (z: bool) returns (a: bool);
+let 
+  a = z;
+tel
+
+node tst (_: bool) returns (a: bool);
+  var z: bool; 
+let
+  z = false;
+  a = set(z);
+
+  check "at" a = true;
+  check "af" a = false;
+tel
