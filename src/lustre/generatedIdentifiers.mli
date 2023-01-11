@@ -78,6 +78,13 @@ type t = {
     list;
 }
 
+(* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml
+   that is used for if block oracle variable names. *)
+val iboracle : string
+
+(** Checks if a variable name corresponds to an iboracle *)
+val var_is_iboracle: HString.t -> bool
+
 val empty : unit -> t
 
 val union : t -> t -> t

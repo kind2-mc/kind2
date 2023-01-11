@@ -72,20 +72,6 @@ type error = [
   | `LustreAstNormalizerError
 ]
 
-
-type info = {
-  context : TypeCheckerContext.tc_context;
-  abstract_interp_context : LustreAbstractInterpretation.context;
-  inductive_variables : LustreAst.lustre_type GeneratedIdentifiers.StringMap.t;
-  quantified_variables : LustreAst.typed_ident list;
-  node_is_input_const : (bool list) GeneratedIdentifiers.StringMap.t;
-  contract_calls_info : LustreAst.contract_node_decl GeneratedIdentifiers.StringMap.t;
-  contract_scope : (Lib.position * HString.t) list;
-  contract_ref : HString.t;
-  interpretation : HString.t GeneratedIdentifiers.StringMap.t;
-  local_group_projection : int
-}
-
 val normalize : TypeCheckerContext.tc_context
   -> LustreAbstractInterpretation.context
   -> LustreAst.t

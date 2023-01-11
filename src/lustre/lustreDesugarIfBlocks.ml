@@ -74,7 +74,7 @@ let i = ref (0)
 let mk_fresh_ib_oracle expr_type =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
-  let name = HString.concat2 prefix (HString.mk_hstring "_iboracle") in
+  let name = HString.concat2 prefix (HString.mk_hstring ("_" ^ GI.iboracle)) in
   let nexpr = A.Ident (Lib.dummy_pos, name) in
   let gids = { (GI.empty ()) with
     ib_oracles = [name, expr_type]; }
@@ -238,12 +238,15 @@ let split_and_flatten3 ls =
 
 (** Helper function for 'desugar_node_item' that converts IfBlocks to a list
     of ITEs. There are a number of steps in this process.
-    1. Removing multiple assignment in if blocks
-    2. Converting the if block to a list of trees modeling the ITEs to generate
-    3. Doing any possible simplication on the above trees.
-    4. Converting the trees to ITE expressions.
-    5. Filling in the ITE expressions with oracles where variables are undefined.
-    6. Returning lists of new local declarations, generated equations, and gids
+
+    Precondition: Multiple assignment has been removed from if blocks.
+
+    Steps:
+    1. Converting the if block to a list of trees modeling the ITEs.
+    2. Doing any possible simplication on the above trees.
+    3. Converting the trees to ITE expressions.
+    4. Filling in the ITE expressions with oracles where variables are undefined.
+    5. Returning lists of new local declarations, generated equations, and gids
     *)
 let extract_equations_from_if ctx ib =
   let* tree_map = if_block_to_trees ib in

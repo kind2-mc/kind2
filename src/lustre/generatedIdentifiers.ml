@@ -83,6 +83,18 @@ type t = {
     list;
 }
 
+(* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml
+   that is used for if block oracle variable names. *)
+let iboracle =  "iboracle"
+
+(* Checks if a variable name corresponds to an iboracle *)
+let var_is_iboracle var = 
+  let 
+    var = String.split_on_char '_' (HString.string_of_hstring var) |>
+    List.rev |> List.hd
+  in
+  (var = iboracle)
+
 let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, None -> None
   | _, (Some v), None -> Some v

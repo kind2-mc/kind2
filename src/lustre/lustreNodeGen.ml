@@ -1775,10 +1775,11 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | A.Equation (p, l, e) -> (props, (p, l, e) :: eqs, asserts, is_main))
       | A.AnnotMain (_, flag) -> (props, eqs, asserts, flag || is_main)
       | A.AnnotProperty (p, n, e) -> ((p, n, e) :: props, eqs, asserts, is_main) 
-      | A.IfBlock _ -> (props, eqs, asserts, is_main) 
+      | A.IfBlock _ 
       | A.FrameBlock _ -> 
         (* IfBlock and FrameBlock desugaring already occurred earlier in pipeline
-           (in lustreDesugarIfBlocks.ml), so there are no If/FrameBlocks left.  *)
+           (in lustreRemoveMultAssign.ml, lustreDesugarIfBlocks.ml, and 
+           lustreDesugarFrameBlocks.ml), so there are no If/FrameBlocks left. *)
         (props, eqs, asserts, is_main) 
     in List.fold_left over_items ([], [], [], false) items
   (* ****************************************************************** *)

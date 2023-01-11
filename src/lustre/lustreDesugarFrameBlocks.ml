@@ -17,8 +17,8 @@
 
 module A = LustreAst
 module R = Res
-module LDI = LustreDesugarIfBlocks
 module Chk = LustreTypeChecker
+module GI = GeneratedIdentifiers
 
 let (let*) = R.(>>=)
 
@@ -39,7 +39,6 @@ let error_message error = match error with
 
 type error = [
   | `LustreDesugarFrameBlocksError of Lib.position * error_kind
-  | `LustreDesugarIfBlocksError of Lib.position * LDI.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
@@ -54,10 +53,7 @@ let rec fill_ite_helper fill = function
   (* Replace all oracles with 'fill' *)
   | A.Ident (pos, i) -> 
     (* See if 'i' is of the form "n_iboracle" *)
-    let str = String.split_on_char '_' (HString.string_of_hstring i) |>
-      List.rev |> List.hd
-    in
-    if (str = "iboracle") then fill else A.Ident(pos, i)
+    if GI.var_is_iboracle i then fill else A.Ident(pos, i)
 
   (* Everything else is just recursing to find Idents *)
   | Pre (a, e) -> Pre (a, fill_ite_helper fill e)
@@ -146,8 +142,10 @@ let generate_undefined_nes nis ne = match ne with
       | None -> R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos, init, Pre(pos, build_array_index (List.rev id2)))))]
     )
   (* Assert in frame block guard *)
-  | A.Equation(pos, _, _) -> mk_error pos (MisplacedNodeItemError (A.Body ne))
   | A.Assert(pos, _) -> mk_error pos (MisplacedNodeItemError (A.Body ne))
+  (* Equations with multiple assignments have already been desugared, so this
+     case is not possible *)
+  | A.Equation _ -> assert false
 
 
 (** Helper function to generate node equations when a variable in the 
@@ -227,7 +225,7 @@ match ni with
     Fill in an equation of the form 'y = pre y' (initially undefined)
 *)
 let desugar_node_item _ ni = match ni with
-    (* All multiple assignment is removed in lustreDesugarIfBlocks.ml *)
+    (* All multiple assignment is removed in lustreRemoveMultAssign.ml *)
   | A.FrameBlock (pos, vars, nes, nis) ->
     let* nis = R.seq (List.map (fill_ite_oracles nes) nis) in
     let* nis2 = R.seq (List.map (generate_undefined_nes nis) nes) in
