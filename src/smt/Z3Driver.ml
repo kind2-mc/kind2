@@ -62,7 +62,6 @@ let check_sat_limited_cmd ms =
 
 
 let headers minimize_cores =
-  ["(set-option :interactive-mode true)"] @
   (* Core minimization only supported by Z3 for now *)
   (if minimize_cores then ["(set-option :smt.core.minimize true)"] else [])
 
