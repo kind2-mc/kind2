@@ -1170,7 +1170,7 @@ let trace_coms solver_ppf com = match solver_ppf with
 
 (* Create an instance of the solver *)
 let create_instance
-    ?produce_assignments
+    ?produce_models
     ?produce_proofs
     ?produce_unsat_cores
     ?produce_unsat_assumptions
@@ -1193,7 +1193,7 @@ let create_instance
     YicesDriver.cmd_line
       logic
       0
-      produce_assignments
+      produce_models
       produce_proofs
       produce_unsat_cores
       produce_unsat_assumptions
@@ -1270,12 +1270,12 @@ let create_instance
     }
   in
 
-  (* Produce assignments to be queried with get-values, default is
+  (* Produce models to be queried with get-values, default is
      false per SMTLIB specification *)
   
   let evidence =
     (match produce_unsat_assumptions with Some o -> o | None -> false) ||
-    (match produce_assignments with Some o -> o | None -> false)
+    (match produce_models with Some o -> o | None -> false)
   in
 
   let header_logic solver =
@@ -1381,7 +1381,7 @@ module Create (P : SolverSig.Params) : SolverSig.Inst = struct
   module Conv = Conv
 
   let solver = create_instance
-      ~produce_assignments:P.produce_assignments
+      ~produce_models:P.produce_models
       ~produce_unsat_cores:P.produce_unsat_cores
       ~produce_unsat_assumptions:P.produce_unsat_assumptions
       ~produce_proofs:P.produce_proofs

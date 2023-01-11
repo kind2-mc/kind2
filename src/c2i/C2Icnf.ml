@@ -97,7 +97,7 @@ type contex = {
     1, and a transition between 0 and 1 is asserted. *)
 let mk_solver sys init =
   let solver = Solver.create_instance
-    ~produce_assignments:true
+    ~produce_models:true
     (Sys.get_logic sys)
     (Flags.Smt.solver ())
   in

@@ -662,7 +662,7 @@ let launch input_sys aparam trans =
 
   (* Creating solver. *)
   let solver =
-    SMTSolver.create_instance ~produce_assignments:true
+    SMTSolver.create_instance ~produce_models:true
       logic (Flags.Smt.solver ())
   in
 

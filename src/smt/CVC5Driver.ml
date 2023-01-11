@@ -22,7 +22,7 @@ include GenericSMTLIBDriver
 let cmd_line
     logic
     timeout
-    _ (* produce_assignments *) 
+    _ (* produce_models *) 
     _ (* produce_proofs *)
     _ (* produce_unsat_cores *)
     _ (* produce_unsat_assumptions *)
