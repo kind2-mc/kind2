@@ -160,11 +160,11 @@ let create_instance
   let fomodule =
     match kind with
     | `Boolector_SMTLIB -> (module BoolectorSMTLIB.Create(Params) : SolverSig.Inst)
-    | `MathSAT_SMTLIB -> (module MathSATSMTLIB.Create(Params) : SolverSig.Inst)
-    | `Z3_SMTLIB -> (module Z3SMTLIB.Create(Params) : SolverSig.Inst)
     | `cvc5_SMTLIB -> (module CVC5SMTLIB.Create(Params) : SolverSig.Inst)
-    | `Yices_SMTLIB ->  (module Yices2SMTLIB.Create(Params) : SolverSig.Inst)
+    | `MathSAT_SMTLIB -> (module MathSATSMTLIB.Create(Params) : SolverSig.Inst)
     | `Yices_native -> (module YicesNative.Create(Params) : SolverSig.Inst)
+    | `Yices2_SMTLIB ->  (module Yices2SMTLIB.Create(Params) : SolverSig.Inst)
+    | `Z3_SMTLIB -> (module Z3SMTLIB.Create(Params) : SolverSig.Inst)
     | `detect -> assert false
   in
 
@@ -1166,8 +1166,8 @@ let get_qe_expr solver quantified_expr =
   (* Quantifier elimination is not part of the SMTLIB standard.
      Until then, we handle each particular case here... *)
   match solver.solver_kind with
-  | `Z3_SMTLIB -> get_qe_z3 solver quantified_expr
   | `cvc5_SMTLIB -> get_qe_cvc5 solver quantified_expr
+  | `Z3_SMTLIB -> get_qe_z3 solver quantified_expr
   | _ -> failwith "Quantifier elimination is not supported by SMT solver or \
                    implementation is not available"
 
@@ -1209,8 +1209,8 @@ let simplify_expr solver expr =
   (* Simplify is not part of the SMTLIB standard.
      Until then, we handle each particular case here... *)
   match solver.solver_kind with
-  | `Z3_SMTLIB -> simplify_z3 solver expr
   | `cvc5_SMTLIB -> simplify_cvc5 solver expr
+  | `Z3_SMTLIB -> simplify_z3 solver expr
   | _ ->  (S.Conv.term_of_smtexpr expr)
 
 let simplify_term solver term =

@@ -3229,7 +3229,7 @@ let main_ic3 input_sys aparam trans_sys =
 let main input_sys aparam trans_sys =
 
   (match Flags.Smt.solver () with
-  | `Yices_SMTLIB -> (
+  | `Yices2_SMTLIB -> (
     (let open TermLib in
      let open TermLib.FeatureSet in
      match TransSys.get_logic trans_sys with

@@ -117,31 +117,33 @@ module Smt = struct
 
   (* Active SMT solver. *)
   type solver = [
-    | `MathSAT_SMTLIB
     | `Boolector_SMTLIB
-    | `Z3_SMTLIB
     | `cvc5_SMTLIB
-    | `Yices_SMTLIB
+    | `MathSAT_SMTLIB
+    | `Yices2_SMTLIB
     | `Yices_native
+    | `Z3_SMTLIB
     | `detect
   ]
   let solver_of_string = function
-    | "MathSAT" ->  `MathSAT_SMTLIB
     | "Boolector" -> `Boolector_SMTLIB
-    | "Z3" -> `Z3_SMTLIB
     | "cvc5" -> `cvc5_SMTLIB
-    | "Yices2" -> `Yices_SMTLIB
+    | "MathSAT" ->  `MathSAT_SMTLIB
+    | "Yices2" -> `Yices2_SMTLIB
     | "Yices" -> `Yices_native
+    | "Z3" -> `Z3_SMTLIB
     | _ -> Arg.Bad "Bad value for --smt_solver" |> raise
   let string_of_solver = function
-    | `MathSAT_SMTLIB -> "MathSAT"
     | `Boolector_SMTLIB -> "Boolector"
-    | `Z3_SMTLIB -> "Z3"
     | `cvc5_SMTLIB -> "cvc5"
-    | `Yices_SMTLIB -> "Yices2"
+    | `MathSAT_SMTLIB -> "MathSAT"
+    | `Yices2_SMTLIB -> "Yices2"
     | `Yices_native -> "Yices"
+    | `Z3_SMTLIB -> "Z3"
     | `detect -> "detect"
-  let solver_values = "Z3, cvc5, Yices, Yices2, Boolector, MathSAT"
+
+  (* Suggested order of use (more capabilities, more theories, better performance) *)
+  let solver_values = "Z3, cvc5, Yices2, MathSAT, Boolector, Yices"
   let solver_default = `detect
   let solver = ref solver_default
   let _ = add_spec
@@ -161,17 +163,17 @@ module Smt = struct
   let solver () = !solver
 
   type qe_solver = [
-    | `Z3_SMTLIB
     | `cvc5_SMTLIB
+    | `Z3_SMTLIB
     | `detect
   ]
   let qe_solver_of_string = function
-    | "Z3" -> `Z3_SMTLIB
     | "cvc5" -> `cvc5_SMTLIB
+    | "Z3" -> `Z3_SMTLIB
     | _ -> Arg.Bad "Bad value for --smt_qe_solver" |> raise
   let string_of_qe_solver = function
-    | `Z3_SMTLIB -> "Z3"
     | `cvc5_SMTLIB -> "cvc5"
+    | `Z3_SMTLIB -> "Z3"
     | `detect -> "detect"
   let qe_solver_values = "Z3, cvc5"
   let qe_solver_default = `detect
@@ -392,24 +394,24 @@ module Smt = struct
   
   (* Check which SMT solver is available *)
   let check_smtsolver () = match solver () with
-    (* User chose MathSAT *)
-    | `MathSAT_SMTLIB ->
-      find_solver ~fail:true "MathSAT" (mathsat_bin ()) |> ignore
     (* User chose Boolector *)
     | `Boolector_SMTLIB ->
       find_solver ~fail:true "Boolector" (boolector_bin ()) |> ignore
-    (* User chose Z3 *)
-    | `Z3_SMTLIB ->
-      find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
     (* User chose cvc5 *)
     | `cvc5_SMTLIB ->
       find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
+    (* User chose MathSAT *)
+    | `MathSAT_SMTLIB ->
+      find_solver ~fail:true "MathSAT" (mathsat_bin ()) |> ignore
+    (* User chose Yices2 *)
+    | `Yices2_SMTLIB ->
+      find_solver ~fail:true "Yices2 SMT2" (yices2smt2_bin ()) |> ignore
     (* User chose Yices *)
     | `Yices_native ->
       find_solver ~fail:true "Yices" (yices_bin ()) |> ignore
-    (* User chose Yices2 *)
-    | `Yices_SMTLIB ->
-      find_solver ~fail:true "Yices2 SMT2" (yices2smt2_bin ()) |> ignore
+    (* User chose Z3 *)
+    | `Z3_SMTLIB ->
+      find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
     (* User did not choose SMT solver *)
     | `detect ->
       try
@@ -418,19 +420,19 @@ module Smt = struct
         set_z3_bin exec;
       with Not_found ->
       try
-        let exec = find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ()) in
-        set_solver `Yices_SMTLIB;
-        set_yices2smt2_bin exec;
-      with Not_found ->
-      try
         let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
         set_solver `cvc5_SMTLIB;
         set_cvc5_bin exec;
       with Not_found ->
       try
-        let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
-        set_solver `Yices_native;
-        set_yices_bin exec;
+        let exec = find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ()) in
+        set_solver `Yices2_SMTLIB;
+        set_yices2smt2_bin exec;
+      with Not_found ->
+      try
+        let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
+        set_solver `MathSAT_SMTLIB;
+        set_mathsat_bin exec;
       with Not_found ->
       try
         let exec = find_solver ~fail:false "Boolector" (boolector_bin ()) in
@@ -438,30 +440,30 @@ module Smt = struct
         set_boolector_bin exec;
       with Not_found ->
       try
-        let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
-        set_solver `MathSAT_SMTLIB;
-        set_mathsat_bin exec;
+        let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
+        set_solver `Yices_native;
+        set_yices_bin exec;
       with Not_found ->
         Log.log L_fatal "No SMT Solver found.";
         raise Error
 
   let check_qe_solver () = match qe_solver () with
-    (* User chose Z3 *)
-    | `Z3_SMTLIB -> (
-      match solver () with
-      | `Z3_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
-    )
     (* User chose cvc5 *)
     | `cvc5_SMTLIB -> (
       match solver () with
       | `cvc5_SMTLIB -> ()
       | _ -> find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
     )
+    (* User chose Z3 *)
+    | `Z3_SMTLIB -> (
+      match solver () with
+      | `Z3_SMTLIB -> ()
+      | _ -> find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
+    )
     | `detect ->
       match solver () with
-      | `Z3_SMTLIB -> set_qe_solver `Z3_SMTLIB;
       | `cvc5_SMTLIB -> set_qe_solver `cvc5_SMTLIB;
+      | `Z3_SMTLIB -> set_qe_solver `Z3_SMTLIB;
       | _ ->
         try
           let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
@@ -3519,7 +3521,7 @@ let solver_dependant_actions solver =
       )
     | None -> Log.log L_warn "Couldn't determine Z3 version"
   )
-  | `Yices_SMTLIB -> (
+  | `Yices2_SMTLIB -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices2smt2_bin ()) in
     match get_version true cmd with
     | Some (major_rev, minor_rev, patch_rev) ->
@@ -3752,10 +3754,10 @@ let parse_argv () =
   solver_dependant_actions (Smt.solver ());
 
   (match Smt.solver (), Smt.qe_solver () with
-  | `Z3_SMTLIB, `Z3_SMTLIB -> ()
   | `cvc5_SMTLIB, `cvc5_SMTLIB -> ()
-  | _, `Z3_SMTLIB -> solver_dependant_actions `Z3_SMTLIB
+  | `Z3_SMTLIB, `Z3_SMTLIB -> ()
   | _, `cvc5_SMTLIB -> solver_dependant_actions `cvc5_SMTLIB
+  | _, `Z3_SMTLIB -> solver_dependant_actions `Z3_SMTLIB
   | _, _ -> ()) ;
 
   if Certif.proof () then solver_dependant_actions `cvc5_SMTLIB;
