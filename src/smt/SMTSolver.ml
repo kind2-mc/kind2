@@ -129,7 +129,7 @@ let bool_of_int_option = function
    uninterpreted function symbols *)
 let create_instance
     ?timeout
-    ?produce_assignments
+    ?produce_models
     ?produce_proofs
     ?produce_unsat_cores
     ?produce_unsat_assumptions
@@ -145,7 +145,7 @@ let create_instance
   let module Params = 
   struct
     let timeout = bool_of_int_option timeout
-    let produce_assignments = bool_of_bool_option produce_assignments
+    let produce_models = bool_of_bool_option produce_models
     let produce_proofs = bool_of_bool_option produce_proofs
     let produce_unsat_cores = bool_of_bool_option produce_unsat_cores
     let produce_unsat_assumptions = bool_of_bool_option produce_unsat_assumptions

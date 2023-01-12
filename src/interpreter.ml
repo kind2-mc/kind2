@@ -164,7 +164,7 @@ let main input_file input_sys _ trans_sys =
   (* Create solver instance *)
   let solver = 
     Flags.Smt.solver ()
-    |> SMTSolver.create_instance ~produce_assignments:true logic
+    |> SMTSolver.create_instance ~produce_models:true logic
   in
 
   (* Create a reference for the solver. Only used in on_exit. *)

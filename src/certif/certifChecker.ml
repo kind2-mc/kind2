@@ -476,7 +476,7 @@ let under_approx sys k invs prop =
   in
   
   let solver =
-    SMTSolver.create_instance ~produce_assignments:true
+    SMTSolver.create_instance ~produce_models:true
       logic (Flags.Smt.solver ())
   in
 
@@ -1154,7 +1154,7 @@ let minimize_invariants sys props invs_predicate =
 
     (* Creating solver that will be used to replay and minimize inductive step *)
     let solver =
-      SMTSolver.create_instance ~produce_unsat_assumptions:true ~produce_assignments:true
+      SMTSolver.create_instance ~produce_unsat_assumptions:true ~produce_models:true
         logic (Flags.Smt.solver ())
     in
     
