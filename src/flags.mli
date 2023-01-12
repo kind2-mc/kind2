@@ -242,7 +242,7 @@ module Smt : sig
 
   (** Legal SMT solvers. *)
   type solver = [
-    | `Boolector_SMTLIB
+    | `Bitwuzla_SMTLIB
     | `cvc5_SMTLIB
     | `MathSAT_SMTLIB
     | `Yices2_SMTLIB
@@ -280,8 +280,8 @@ module Smt : sig
   (** Change sending of short names to SMT solver *)
   val set_short_names : bool -> unit
 
-  (** Executable of Boolector solver *)
-  val boolector_bin : unit -> string
+  (** Executable of Bitwuzla solver *)
+  val bitwuzla_bin : unit -> string
 
   (** Executable of cvc5 solver *)
   val cvc5_bin : unit -> string

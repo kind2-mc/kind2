@@ -117,7 +117,7 @@ module Smt = struct
 
   (* Active SMT solver. *)
   type solver = [
-    | `Boolector_SMTLIB
+    | `Bitwuzla_SMTLIB
     | `cvc5_SMTLIB
     | `MathSAT_SMTLIB
     | `Yices2_SMTLIB
@@ -126,7 +126,7 @@ module Smt = struct
     | `detect
   ]
   let solver_of_string = function
-    | "Boolector" -> `Boolector_SMTLIB
+    | "Bitwuzla" -> `Bitwuzla_SMTLIB
     | "cvc5" -> `cvc5_SMTLIB
     | "MathSAT" ->  `MathSAT_SMTLIB
     | "Yices2" -> `Yices2_SMTLIB
@@ -134,7 +134,7 @@ module Smt = struct
     | "Z3" -> `Z3_SMTLIB
     | _ -> Arg.Bad "Bad value for --smt_solver" |> raise
   let string_of_solver = function
-    | `Boolector_SMTLIB -> "Boolector"
+    | `Bitwuzla_SMTLIB -> "Bitwuzla"
     | `cvc5_SMTLIB -> "cvc5"
     | `MathSAT_SMTLIB -> "MathSAT"
     | `Yices2_SMTLIB -> "Yices2"
@@ -143,7 +143,7 @@ module Smt = struct
     | `detect -> "detect"
 
   (* Suggested order of use (more capabilities, more theories, better performance) *)
-  let solver_values = "Z3, cvc5, Yices2, MathSAT, Boolector, Yices"
+  let solver_values = "Z3, cvc5, Yices2, MathSAT, Bitwuzla, Yices"
   let solver_default = `detect
   let solver = ref solver_default
   let _ = add_spec
@@ -281,19 +281,19 @@ module Smt = struct
   let set_mathsat_bin str = mathsat_bin := str
   let mathsat_bin () = !mathsat_bin
 
-  (* Boolector binary. *)
-  let boolector_bin_default = "boolector"
-  let boolector_bin = ref boolector_bin_default
+  (* Bitwuzla binary. *)
+  let bitwuzla_bin_default = "bitwuzla"
+  let bitwuzla_bin = ref bitwuzla_bin_default
   let _ = add_spec
-    "--boolector_bin"
-    (Arg.Set_string boolector_bin)
+    "--bitwuzla_bin"
+    (Arg.Set_string bitwuzla_bin)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Executable of Boolector solver@ Default: \"%s\"@]"
-        boolector_bin_default
+        "@[<v>Executable of Bitwuzla solver@ Default: \"%s\"@]"
+        bitwuzla_bin_default
     )
-  let set_boolector_bin str = boolector_bin := str
-  let boolector_bin () = !boolector_bin
+  let set_bitwuzla_bin str = bitwuzla_bin := str
+  let bitwuzla_bin () = !bitwuzla_bin
 
   (* Z3 binary. *)
   let z3_bin_default = "z3"
@@ -394,9 +394,9 @@ module Smt = struct
   
   (* Check which SMT solver is available *)
   let check_smtsolver () = match solver () with
-    (* User chose Boolector *)
-    | `Boolector_SMTLIB ->
-      find_solver ~fail:true "Boolector" (boolector_bin ()) |> ignore
+    (* User chose Bitwuzla *)
+    | `Bitwuzla_SMTLIB ->
+      find_solver ~fail:true "Bitwuzla" (bitwuzla_bin ()) |> ignore
     (* User chose cvc5 *)
     | `cvc5_SMTLIB ->
       find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
@@ -435,9 +435,9 @@ module Smt = struct
         set_mathsat_bin exec;
       with Not_found ->
       try
-        let exec = find_solver ~fail:false "Boolector" (boolector_bin ()) in
-        set_solver `Boolector_SMTLIB;
-        set_boolector_bin exec;
+        let exec = find_solver ~fail:false "Bitwuzla" (bitwuzla_bin ()) in
+        set_solver `Bitwuzla_SMTLIB;
+        set_bitwuzla_bin exec;
       with Not_found ->
       try
         let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
@@ -3483,17 +3483,6 @@ let solver_dependant_actions solver =
   in
 
   match solver with
-  | `Boolector_SMTLIB -> (
-    let cmd = Format.asprintf "%s --version" (Smt.boolector_bin ()) in
-    match get_version true cmd with
-    | Some (major_rev, minor_rev, patch_rev) ->
-      if major_rev < 3 || (major_rev = 3 && (minor_rev < 2 || (minor_rev = 2 && patch_rev < 2))) then (
-        Log.log L_error "Kind 2 requires Boolector 3.2.2 or later. Found version: %d.%d.%d"
-          major_rev minor_rev patch_rev ;
-        raise Error
-      )
-    | None -> Log.log L_warn "Couldn't determine Boolector version"
-  )
   | `MathSAT_SMTLIB -> (
     let cmd = Format.asprintf "%s -version" (Smt.mathsat_bin ()) in
     match get_version true cmd with

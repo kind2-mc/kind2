@@ -195,7 +195,7 @@ let only_bv trans_sys =
   | `None -> false
   | `Inferred l when TermLib.FeatureSet.(subset l (of_list [Q; UF; A])) -> (
     match Flags.Smt.solver () with
-    | `Boolector_SMTLIB -> true
+    | `Bitwuzla_SMTLIB -> true
     | _ -> false
   )
   | `Inferred l -> TermLib.FeatureSet.(mem BV l && not(mem IA l))
