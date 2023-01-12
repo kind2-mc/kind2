@@ -1,3 +1,10 @@
+# Unreleased
+
+New features:
+
+- Support for SMT solver Bitwuzla.
+  - Its predecessor, Boolector, is no longer supported.
+
 # Kind 2 v1.7.0
 
 New features:

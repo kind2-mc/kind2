@@ -35,7 +35,7 @@ let gentag =
 
 
 (* Instantiate module for SMTLIB2 solvers with drivers *)
-module BoolectorSMTLIB : SolverSig.S = SMTLIBSolver.Make (BoolectorDriver)
+module BitwuzlaSMTLIB : SolverSig.S = SMTLIBSolver.Make (BitwuzlaDriver)
 module Z3SMTLIB : SolverSig.S = SMTLIBSolver.Make (Z3Driver)
 module CVC5SMTLIB : SolverSig.S = SMTLIBSolver.Make (CVC5Driver)
 module Yices2SMTLIB : SolverSig.S = SMTLIBSolver.Make (Yices2SMT2Driver)
@@ -159,7 +159,7 @@ let create_instance
   (* Module for solver from options *)
   let fomodule =
     match kind with
-    | `Boolector_SMTLIB -> (module BoolectorSMTLIB.Create(Params) : SolverSig.Inst)
+    | `Bitwuzla_SMTLIB -> (module BitwuzlaSMTLIB.Create(Params) : SolverSig.Inst)
     | `cvc5_SMTLIB -> (module CVC5SMTLIB.Create(Params) : SolverSig.Inst)
     | `MathSAT_SMTLIB -> (module MathSATSMTLIB.Create(Params) : SolverSig.Inst)
     | `Yices_native -> (module YicesNative.Create(Params) : SolverSig.Inst)
