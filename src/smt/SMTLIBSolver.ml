@@ -1014,19 +1014,12 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       (if produce_unsat_assumptions && Flags.Smt.check_sat_assume ()
        then ["(set-option :produce-unsat-assumptions true)"]
        else []) @
+      (if produce_interpolants then
+        [Format.sprintf "(set-option :produce-interpolants %B)" produce_interpolants]
+       else []) @
       header_logic @
       header_farray @
       (if define_bv2int then header_bv2int else [])
-    in
-    
-    (* Add interpolation option only if true *)
-    let headers = 
-      if produce_interpolants then
-        headers @ 
-        [Format.sprintf "(set-option :produce-interpolants %B)" produce_interpolants]
-      else
-        
-        headers 
     in
     
     (* Print specific headers specifications *)
