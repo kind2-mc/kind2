@@ -814,7 +814,7 @@ module QE = struct
       but not real or machine integer arithmetic. If the solver used is@ \
       Z3 or cvc5 then the solver's QE will be used instead of the internal@ \
       one for systems with real or machine integer variables.@ \
-      IC3 (module \"ic3\") is the only Kind 2 technique that uses QE.\
+      IC3 and CONTRACTCK are the only Kind 2 technique that uses QE.\
     @]"
 
   type qe_method = [
