@@ -1116,7 +1116,69 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   (* Node calls *)
   | Call (p, i, es) -> Call (p, i, List.map abstract_pre_subexpressions es) 
   | CallParam (p, i, tys, es) -> CallParam (p, i, tys, List.map abstract_pre_subexpressions es) 
-                                              
+                 
+let rec replace_idents locals1 locals2 expr = 
+  match expr with
+  | Ident (pos, i) -> (
+    match List.assoc_opt i (List.combine locals1 locals2) with
+      | Some i2 -> Ident (pos, i2)
+      | None -> Ident (pos, i)
+  )
+  (* Everything else is just recursing to find Idents *)
+  | Pre (a, e) -> Pre (a, replace_idents locals1 locals2 e)
+  | Arrow (a, e1, e2) -> Arrow (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
+  | Const _ as e -> e
+  | ModeRef _ as e -> e
+    
+  | RecordProject (a, e, b) -> RecordProject (a, replace_idents locals1 locals2 e, b)
+  | ConvOp (a, b, e) -> ConvOp (a, b, replace_idents locals1 locals2 e)
+  | UnaryOp (a, b, e) -> UnaryOp (a, b, replace_idents locals1 locals2 e)
+  | Current (a, e) -> Current (a, replace_idents locals1 locals2 e)
+  | When (a, e, b) -> When (a, replace_idents locals1 locals2 e, b)
+  | TupleProject (a, e, b) -> TupleProject (a, replace_idents locals1 locals2 e, b)
+  | Quantifier (a, b, c, e) -> Quantifier (a, b, c, replace_idents locals1 locals2 e)
+  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
+  | CompOp (a, b, e1, e2) -> CompOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
+  | ArrayConcat (a, e1, e2) -> ArrayConcat (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
+  | ArrayIndex (a, e1, e2) -> ArrayIndex (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
+  | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
+  | Fby (a, e1, b, e2) -> Fby (a, replace_idents locals1 locals2 e1, b, replace_idents locals1 locals2 e2)
+  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2, replace_idents locals1 locals2 e3)
+  | ArraySlice (a, e1, (e2, e3)) -> ArraySlice (a, replace_idents locals1 locals2 e1, (replace_idents locals1 locals2 e2, replace_idents locals1 locals2 e3))
+  
+  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (replace_idents locals1 locals2) l)
+  | NArityOp (a, b, l) -> NArityOp (a, b, List.map (replace_idents locals1 locals2) l) 
+  | Call (a, b, l) -> Call (a, b, List.map (replace_idents locals1 locals2) l)
+  | CallParam (a, b, c, l) -> CallParam (a, b, c, List.map (replace_idents locals1 locals2) l)
+
+  | Merge (a, b, l) -> Merge (a, b, 
+    List.combine
+    (List.map fst l)
+    (List.map (replace_idents locals1 locals2) (List.map snd l)))
+  
+  | RecordExpr (a, b, l) -> RecordExpr (a, b,     
+    List.combine
+    (List.map fst l)
+    (List.map (replace_idents locals1 locals2) (List.map snd l)))
+  
+  | RestartEvery (a, b, l, e) -> 
+    RestartEvery (a, b, List.map (replace_idents locals1 locals2) l, replace_idents locals1 locals2 e)
+  | Activate (a, b, e, r, l) ->
+    Activate (a, b, (replace_idents locals1 locals2) e, (replace_idents locals1 locals2) r, List.map (replace_idents locals1 locals2) l)
+  | Condact (a, e, r, b, l1, l2) ->
+    Condact (a, (replace_idents locals1 locals2) e, (replace_idents locals1 locals2) r, b, 
+             List.map (replace_idents locals1 locals2) l1, List.map (replace_idents locals1 locals2) l2)
+
+  | StructUpdate (a, e1, li, e2) -> 
+    StructUpdate (a, replace_idents locals1 locals2 e1, 
+    List.map (function
+              | Label (a, b) -> Label (a, b)
+              | Index (a, e) -> Index (a, replace_idents locals1 locals2 e)
+             ) li, 
+    replace_idents locals1 locals2 e2)
+(** For every identifier, if that identifier is position n in locals1,
+   replace it with position n in locals2 *)
+
 let extract_node_equation: node_item -> (eq_lhs * expr) list =
   function
   | Body (Equation (_, lhs, expr)) -> [(lhs, expr)]

@@ -18,6 +18,7 @@
 module A = LustreAst
 module R = Res
 module GI = GeneratedIdentifiers
+module AH = LustreAstHelpers
 
 let (let*) = R.(>>=)
 
@@ -188,23 +189,23 @@ match ni with
         R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
                                 (A.Pre (pos2, Ident(pos2, i)))
                                 e))))
-  | A.Body (Equation (pos, (StructDef(_, [ArrayDef(pos2, i1, i2)]) as lhs), e)) ->
-  (* Find initialization value *)
-  let array_index = List.fold_left (fun expr j -> A.ArrayIndex(pos, expr, A.Ident(pos, j))) (A.Ident(pos, i1)) i2 in
-  let init = Lib.find_map (fun ne -> match ne with 
-    | A.Equation (_, StructDef(_, [ArrayDef(_, id, _)]), expr) when id = i1  -> Some expr
-    | _ -> None
-  ) nes in 
-  (match init with
-    | Some init -> 
-      R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos, init, 
-                                                  fill_ite_helper (A.Pre (pos2, array_index)) e)))))
-    | None -> 
-      R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
-                         (A.Pre (pos2, array_index))
-                         e))))
-  (* The following node items should not be in frame blocks. In particular,
-     if blocks should have been desugared earlier in the pipeline. *)
+  | A.Body (Equation (pos, (StructDef(_, [ArrayDef(pos2, i1, inds1)]) as lhs), e)) ->
+    (* Find initialization value *)
+    let array_index = List.fold_left (fun expr j -> A.ArrayIndex(pos, expr, A.Ident(pos, j))) (A.Ident(pos, i1)) inds1 in
+    let init = Lib.find_map (fun ne -> match ne with 
+      | A.Equation (_, StructDef(_, [ArrayDef(_, id, inds2)]), expr) when id = i1  -> Some (AH.replace_idents inds2 inds1 expr)
+      | _ -> None
+    ) nes in 
+    (match init with
+      | Some init -> 
+        R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos, init, 
+                                                    fill_ite_helper (A.Pre (pos2, array_index)) e)))))
+      | None -> 
+        R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
+                          (A.Pre (pos2, array_index))
+                          e))))
+    (* The following node items should not be in frame blocks. In particular,
+      if blocks should have been desugared earlier in the pipeline. *)
   | A.IfBlock (pos, _, _, _) 
   | A.FrameBlock (pos, _, _, _) 
   | A.Body (Assert (pos, _)) 

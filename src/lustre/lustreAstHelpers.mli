@@ -148,6 +148,10 @@ val split_program: declaration list -> (declaration list * declaration list)
 
 val abstract_pre_subexpressions: expr -> expr
 (** Abstracts out the pre expressions into a constant so that the built graph does not create a cycle.*)
+
+val replace_idents: index list -> index list -> expr -> expr
+(** For every identifier, if that identifier is position n in locals1,
+   replace it with position n in locals2 *)
   
 val extract_node_equation: node_item -> (eq_lhs * expr) list
 (** Extracts out all the node equations as an associated list of rhs and lhs of the equation *)
