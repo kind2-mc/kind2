@@ -93,8 +93,8 @@ jobs:
     steps:
     - name: Get the version
       id: get_version
-      run: echo ::set-output name=id::${GITHUB_REF/refs\/tags\//}
-      #run: echo ::set-output name=id::${GITHUB_REF/refs\/heads\//}
+      run: echo "id=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+      #run: echo "id=${GITHUB_REF/refs\/heads\//}" >> $GITHUB_OUTPUT
 
     - name: Create new release
       id: create_release
@@ -133,7 +133,7 @@ jobs:
         version=${{ needs.create-new-release.outputs.version }}
         tarball=kind2-$version-${{ matrix.version }}-x86_64.tar.gz
         tar -czf $tarball kind2
-        echo "::set-output name=filename::$tarball"
+        echo "filename=$tarball" >> $GITHUB_OUTPUT
     
     - name: Upload artifact
       uses: actions/upload-release-asset@v1

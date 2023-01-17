@@ -17,9 +17,8 @@ jobs:
       id: meta
       run: |
         image=kind2/kind2
-        echo "::set-output name=image::$image"
         tag=${{ github.ref == 'refs/heads/master' && 'latest' || 'dev' }}
-        echo "::set-output name=tag::$image:$tag"
+        echo "tag=$image:$tag" >> $GITHUB_OUTPUT
 
     - name: Log in to Docker Hub
       uses: docker/login-action@v2

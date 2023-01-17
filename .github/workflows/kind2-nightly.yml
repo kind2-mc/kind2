@@ -104,7 +104,7 @@ jobs:
       id: get_upload_url
       run: |
         url=$(echo "$response" | jq -r '.upload_url')
-        echo "::set-output name=url::$url"
+        echo "url=$url" >> $GITHUB_OUTPUT
       env:
         response: ${{ steps.get_nightly_prerelease.outputs.data }}
 
@@ -112,7 +112,7 @@ jobs:
       id: get_asset_ids
       run: |
         ids=$(echo "$response" | jq -c '.assets | map(.id)')
-        echo "::set-output name=ids::$ids"
+        echo "ids=$ids" >> $GITHUB_OUTPUT
       env:
         response: ${{ steps.get_nightly_prerelease.outputs.data }}
 
@@ -178,7 +178,7 @@ jobs:
         date=$(date "+%Y-%m-%d")
         tarball=kind2-$date-${{ matrix.version }}-x86_64.tar.gz
         tar -czf $tarball kind2
-        echo "::set-output name=filename::$tarball"
+        echo "filename=$tarball" >> $GITHUB_OUTPUT
     
     - name: Upload artifact
       uses: actions/upload-release-asset@v1
