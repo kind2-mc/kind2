@@ -18,15 +18,15 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v2
       with:
         driver-opts: network=host
 
     - name: Build and push to local registry
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v3
       with:
         file: docker/Dockerfile
         context: ./
@@ -36,13 +36,13 @@ jobs:
     
     - name: Extract kind 2 binary
       id: extract
-      uses: shrink/actions-docker-extract@v1
+      uses: shrink/actions-docker-extract@v2
       with:
         image: localhost:5000/name/kind2:latest
         path: /home/opam/kind2-build/bin/kind2
 
     - name: Upload kind2 binary
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         path: ${{ steps.extract.outputs.destination }}
         name: linux
@@ -60,7 +60,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set up OCaml ${{ matrix.ocaml-version }}+flambda
       uses: ocaml/setup-ocaml@v2
@@ -77,7 +77,7 @@ jobs:
       run: strip bin/kind2
 
     - name: Upload Kind 2 binary
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.os }}
         path: bin/kind2
@@ -122,7 +122,7 @@ jobs:
 
     steps:
     - name: Download binary
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.version }}
     
