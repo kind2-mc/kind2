@@ -94,11 +94,11 @@ jobs:
     - name: Get nightly pre-release
       uses: octokit/request-action@v2.x
       id: get_nightly_prerelease
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         route: GET /repos/:repository/releases/tags/nightly
-        repository: ${{ github.repository }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        INPUT_REPOSITORY: ${{ github.repository }}
 
     - name: Get pre-release upload_url
       id: get_upload_url
@@ -129,12 +129,12 @@ jobs:
     steps:
     - name: Remove asset
       uses: octokit/request-action@v2.x
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         route: DELETE /repos/:repository/releases/assets/:asset_id
-        repository: ${{ github.repository }}
-        asset_id: ${{ matrix.asset_id }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        INPUT_REPOSITORY: ${{ github.repository }}
+        INPUT_ASSET_ID: ${{ matrix.asset_id }}
 
 
   update-release-tag:
