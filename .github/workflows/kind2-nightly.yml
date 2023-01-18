@@ -191,7 +191,7 @@ jobs:
     - name: Upload artifact
       uses: octokit/request-action@v2.x
       with:
-        route: POST /repos/:repository/releases/:release_id/assets?name=:asset_name
+        route: POST /repos/:repository/releases/22160747/assets?name=:asset_name
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         INPUT_REPOSITORY: ${{ github.repository }}
