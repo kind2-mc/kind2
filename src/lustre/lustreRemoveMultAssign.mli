@@ -41,18 +41,6 @@
   @author Rob Lorch
 *)
 
-type error_kind = 
-  | MisplacedNodeItemError of LustreAst.node_item
-
-val error_message : error_kind -> string
-
-type error = [
-  | `LustreRemoveMultAssignError of Lib.position * error_kind
-  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
-  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
-]
-
-val remove_mult_assign : TypeCheckerContext.tc_context ->
-  LustreAst.declaration list ->
-  (LustreAst.declaration list, [> error ]) result
+(** Desugars a declaration list to remove multiple assignment from if blocks and frame
+    blocks. *)
+val remove_mult_assign : TypeCheckerContext.tc_context -> LustreAst.declaration list -> LustreAst.declaration list

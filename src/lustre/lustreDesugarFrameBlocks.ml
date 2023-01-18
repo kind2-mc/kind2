@@ -39,9 +39,6 @@ let error_message error = match error with
 
 type error = [
   | `LustreDesugarFrameBlocksError of Lib.position * error_kind
-  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
-  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
 ]
 
 let mk_error pos kind = Error (`LustreDesugarFrameBlocksError (pos, kind))

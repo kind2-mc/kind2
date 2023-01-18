@@ -118,7 +118,6 @@ type error = [
   | `LustreParserError of Lib.position * string
   | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
-  | `LustreRemoveMultAssignError of Lib.position * LustreRemoveMultAssign.error_kind
 ]
 
 (** [of_file only_parse f] parse Lustre model from file [f], and

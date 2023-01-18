@@ -55,7 +55,6 @@ type error = [
   | `LustreParserError of Lib.position * string
   | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
-  | `LustreRemoveMultAssignError of Lib.position * LustreRemoveMultAssign.error_kind
 ]
 
 let (let*) = Res.(>>=)
@@ -159,7 +158,7 @@ let type_check declarations =
     let* global_ctx = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
 
     (* Step 8. Remove multiple assignment from if blocks and frame blocks *)
-    let* sorted_node_contract_decls = RMA.remove_mult_assign global_ctx sorted_node_contract_decls in
+    let sorted_node_contract_decls = RMA.remove_mult_assign global_ctx sorted_node_contract_decls in
 
     (* Step 9. Desugar imperative if block to ITEs *)
     let* (sorted_node_contract_decls, gids) = (LDI.desugar_if_blocks global_ctx sorted_node_contract_decls) in

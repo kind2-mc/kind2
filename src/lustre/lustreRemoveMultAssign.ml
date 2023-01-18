@@ -15,38 +15,19 @@
    permissions and limitations under the License. 
 *)
 
-module R = Res
 module A = LustreAst
 module AH = LustreAstHelpers
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 
-let (let*) = R.(>>=)
-
-type error_kind =
-  | MisplacedNodeItemError of A.node_item
-
-let error_message error = match error with
-  | MisplacedNodeItemError ni -> (match ni with
-    | Body (Assert _) -> "Asserts are not allowed inside if blocks or frame blocks."
-    | FrameBlock _ -> "Frame blocks are not allowed inside if blocks or frame blocks."
-    | AnnotMain _ -> "Main annotations are not allowed inside if blocks or frame blocks."
-    | AnnotProperty _ -> "Property annotations are not allowed inside if blocks or frame blocks."
-    (* Other node items are allowed *)
-    | _ -> assert false
-  )
-
-type error = [
-  | `LustreRemoveMultAssignError of Lib.position * error_kind
-  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
-  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
-]
-
-let mk_error pos kind = Error (`LustreRemoveMultAssignError (pos, kind))
-
 (** [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref (0)
+
+(* This looks unsafe, but we only apply unwrap when we know from earlier stages
+   in the pipeline that an error is not possible. *)
+let unwrap result = match result with
+  | Ok r -> r
+  | Error _ -> assert false
 
 let split_and_flatten4 ls =
   let xs = List.map (fun (x, _, _, _) -> x) ls |> List.flatten in
@@ -209,69 +190,68 @@ let remove_mult_assign_from_ni ctx ni =
           list in the return value represents node items we "pull out" of the if block
           (ie, we define those before generating the ITEs). *)
         if (List.length lhs_vars = 1) 
-        then R.ok([], [ni], [], [ctx])
-        else (
-          R.ok (create_new_eqs ctx lhs expr)
-        )
+        then [], [ni], [], [ctx]
+        else create_new_eqs ctx lhs expr
       
       | IfBlock (pos, e, l1, l2) -> 
-        let* res1 = R.seq (List.map (helper ctx) l1) in
+        let res1 = List.map (helper ctx) l1 in
         let nis1, nis2, decls1, ctx1 = split_and_flatten4 res1 in
-        let* res2 = R.seq (List.map (helper ctx) l2) in
+        let res2 = List.map (helper ctx) l2 in
         let nis3, nis4, decls2, ctx2 = split_and_flatten4 res2 in
         (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
-        R.ok (nis1 @ nis3, [A.IfBlock (pos, e, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2)
+        nis1 @ nis3, [A.IfBlock (pos, e, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2
 
       | FrameBlock (pos, vars, nes, nis) -> 
         let nes = List.map (fun x -> A.Body x) nes in 
-        let* res1 = R.seq (List.map (helper ctx) nes) in
+        let res1 = List.map (helper ctx) nes in
         let nis1, nis2, decls1, ctx1 = split_and_flatten4 res1 in
-        let* res2 = R.seq (List.map (helper ctx) nis) in
+        let res2 = List.map (helper ctx) nis in
         let nis3, nis4, decls2, ctx2 = split_and_flatten4 res2 in     
         let nis2 = List.map 
           (fun x -> match x with | A.Body (Equation _ as e) -> e | _ -> assert false) 
           nis2 in
         (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
-        R.ok (nis1 @ nis3, [A.FrameBlock (pos, vars, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2)
+        nis1 @ nis3, [A.FrameBlock (pos, vars, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2
       
-      (* Misplaced assert, annotmain, annotproperty in if block*)
-      | A.Body (Assert (pos, _)) 
-      | A.AnnotProperty (pos, _, _)
-      | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
+      (* Don't need to alter these node items as they are not allowed in if
+         and frame blocks. If they are present anyway, it will be caught in
+         lustreDesugarIfBlocks.ml *)
+      | A.Body (Assert _) 
+      | A.AnnotProperty _
+      | A.AnnotMain _ -> [], [ni], [], [ctx]
   ) in
-  let* (nis, nis2, new_decls, ctx) = helper ctx ni in
+  let (nis, nis2, new_decls, ctx) = helper ctx ni in
   let ctx = List.fold_left Ctx.union Ctx.empty_tc_context ctx in
   (* Calling 'remove_mult_assign_from_ib' on an if or frame block (which is always
      the case) will mean that nis2 will always have length 1. *)
   let ni = List.hd nis2 in
-  R.ok (nis, ni, new_decls, ctx)
+  nis, ni, new_decls, ctx
 
 let desugar_node_item ctx ni = match ni with
   | A.IfBlock _ -> 
-    let* (nis, ib, decls1, _) = remove_mult_assign_from_ni ctx ni in 
-    R.ok (decls1, nis @ [ib])
+    let (nis, ib, decls1, _) = remove_mult_assign_from_ni ctx ni in 
+    decls1, nis @ [ib]
   | A.FrameBlock _ -> 
-    let* (nis2, fb, decls1, _) = remove_mult_assign_from_ni ctx ni in 
-    R.ok (decls1, nis2 @ [fb])
-  | _ -> R.ok ([], [ni])
+    let (nis2, fb, decls1, _) = remove_mult_assign_from_ni ctx ni in 
+    decls1, nis2 @ [fb]
+  | _ -> [], [ni]
 
 (** Remove multiple assignment from if and frame blocks in a single declaration. *)
 let desugar_node_decl ctx decl = match decl with
   | A.FuncDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) ->
-    let* ctx = Chk.get_node_ctx ctx d in
-    let* res = R.seq (List.map (desugar_node_item ctx) nis) in
+    let ctx = Chk.get_node_ctx ctx d |> unwrap in
+    let res = List.map (desugar_node_item ctx) nis in
     let (new_decls, nis) = List.split res in
-    R.ok (A.FuncDecl (s, (node_id, b, nps, cctds, ctds, (List.flatten new_decls) @ nlds, (List.flatten nis), co))) 
+    A.FuncDecl (s, (node_id, b, nps, cctds, ctds, (List.flatten new_decls) @ nlds, (List.flatten nis), co))
   | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) -> 
-    let* ctx = Chk.get_node_ctx ctx d in
-    let* res = R.seq (List.map (desugar_node_item ctx) nis) in
+    let ctx = Chk.get_node_ctx ctx d |> unwrap in
+    let res = List.map (desugar_node_item ctx) nis in
     let (new_decls, nis) = List.split res in
-    R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, (List.flatten new_decls) @ nlds, (List.flatten nis), co))) 
-  | _ -> R.ok (decl)
+    A.NodeDecl (s, (node_id, b, nps, cctds, ctds, (List.flatten new_decls) @ nlds, (List.flatten nis), co))
+  | _ -> decl
 
 
 (** Desugars a declaration list to remove multiple assignment from if blocks and frame
     blocks. *)
 let remove_mult_assign ctx sorted_node_contract_decls = 
-  let* decls = R.seq (List.map (desugar_node_decl ctx) sorted_node_contract_decls) in
-  R.ok decls
+  List.map (desugar_node_decl ctx) sorted_node_contract_decls

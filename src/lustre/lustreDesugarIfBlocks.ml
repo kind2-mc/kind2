@@ -38,14 +38,12 @@ let error_message error = match error with
 
 type error = [
   | `LustreDesugarIfBlocksError of Lib.position * error_kind
-  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
-  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
 ]
 
 let ib_oracle_tree = HString.mk_hstring "ib_oracle" 
 
-let mk_error pos kind = Error (`LustreDesugarIfBlocksError (pos, kind))
+(** [i] is module state used to guarantee newly created identifiers are unique *)
+let i = ref (0)
 
 module LhsMap = struct
   include Map.Make (struct
@@ -65,10 +63,13 @@ type cond_tree =
 
 let (let*) = R.(>>=)
 
+let mk_error pos kind = Error (`LustreDesugarIfBlocksError (pos, kind))
 
-(** [i] is module state used to guarantee newly created identifiers are unique *)
-let i = ref (0)
-
+(* This looks unsafe, but we only apply unwrap when we know from earlier stages
+   in the pipeline that an error is not possible. *)
+let unwrap result = match result with
+  | Ok r -> r
+  | Error _ -> assert false
 
 (** Create a new oracle for use with if blocks. *)
 let mk_fresh_ib_oracle expr_type =
@@ -315,13 +316,13 @@ let rec desugar_node_item ctx ni = match ni with
 (** Desugars an individual node declaration (removing IfBlocks). *)
 let desugar_node_decl ctx decl = match decl with
   | A.FuncDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) ->
-    let* ctx = Chk.get_node_ctx ctx d in
+    let ctx = Chk.get_node_ctx ctx d |> unwrap in
     let* nis = R.seq (List.map (desugar_node_item ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
     R.ok (A.FuncDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), GI.StringMap.singleton node_id gids) 
   | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) -> 
-    let* ctx = Chk.get_node_ctx ctx d in
+    let ctx = Chk.get_node_ctx ctx d |> unwrap in
     let* nis = R.seq (List.map (desugar_node_item ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in

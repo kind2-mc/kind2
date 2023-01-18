@@ -38,9 +38,6 @@ val error_message : error_kind -> string
 
 type error = [
   | `LustreDesugarIfBlocksError of Lib.position * error_kind 
-  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
-  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
 ]
 
 val desugar_if_blocks : 
