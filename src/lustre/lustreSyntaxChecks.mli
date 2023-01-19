@@ -24,6 +24,7 @@ type error_kind = Unknown of string
   | DuplicateLocal of HString.t
   | DuplicateOutput of HString.t
   | UndefinedNode of HString.t
+  | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t

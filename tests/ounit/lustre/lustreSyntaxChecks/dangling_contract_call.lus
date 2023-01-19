@@ -1,7 +1,7 @@
 
 node N(in:bool) returns (out:bool);
 (*@contract
-  var A : bool = Undefined(cancel);
+  import UndefinedSpec(in) returns (out);
 *)
 let
   out = in;
