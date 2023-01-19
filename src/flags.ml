@@ -2666,6 +2666,22 @@ module Global = struct
     | (`Lustre | `Native | `VMT | `CMC | `Horn) as f -> f
 
 
+  (* CMC Condensed Output Flag. *)
+  let condensed_cmc_output_default = false
+  let condensed_cmc_output = ref condensed_cmc_output_default
+  let _ = add_spec
+    "--condensed_cmc_output"
+    (bool_arg condensed_cmc_output)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Condense the cmc output. Only show changes in the trace. @ \
+          Default: %a\
+        "
+        fmt_bool condensed_cmc_output_default
+    )
+  let condensed_cmc_output () = !condensed_cmc_output
+
   (* Output directory. *)
   let output_dir_default = ""
   (* Do not change this ~~~^^
@@ -3289,6 +3305,7 @@ let log_level = Global.log_level
 let log_format_xml = Global.log_format_xml
 let log_format_json = Global.log_format_json
 let input_format = Global.input_format
+let condensed_cmc_output = Global.condensed_cmc_output
 let real_precision = Global.real_precision
 let timeout_wall = Global.timeout_wall
 let timeout_analysis = Global.timeout_analysis

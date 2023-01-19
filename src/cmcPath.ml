@@ -157,9 +157,12 @@ let pp_step_of_trace (trans_sys : TransSys.t) disproved ppf (model, k) =
 
 let pp_str_var_val ppf (state_var, value, changed) =
   if changed then 
-    Format.fprintf ppf "(%s %s)" (state_var) (value)    
+    Format.fprintf ppf "(%s %s) " (state_var) (value)    
   else 
-    Format.fprintf ppf "@{<black>(%s %s)@}" (state_var) (value)   
+    if Flags.condensed_cmc_output () then
+      ()
+    else
+      Format.fprintf ppf "@{<black>(%s %s)@} " (state_var) (value)   
 
 let pp_state_var_val ppf (state_var, value, changed) =
   let name = StateVar.name_of_state_var state_var in 
@@ -173,7 +176,10 @@ let pp_reach_prop ppf (state_var, value, changed) =
     if changed then 
       Format.fprintf ppf "(%s %a)" (name) (Term.pp_print_term) (Term.negate_simplify t)
     else 
-      Format.fprintf ppf "@{<black>(%s %a)@}" (name) (Term.pp_print_term) (Term.negate_simplify t)   
+      if Flags.condensed_cmc_output () then
+        ()
+      else
+        Format.fprintf ppf "@{<black>(%s %a)@}" (name) (Term.pp_print_term) (Term.negate_simplify t)   
   | _ -> ()
 
 let pp_step_of_trace (trans_sys : TransSys.t) disproved name_map var_map path enums ppf k = 
@@ -197,10 +203,12 @@ let pp_step_of_trace (trans_sys : TransSys.t) disproved name_map var_map path en
   || reachability_changed in
 
   if any_change then
-    Format.fprintf ppf "(%a %a %a)" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val " " ) formatted_svar_names pp_reach_prop reachability_value
+    Format.fprintf ppf "(%a %a%a)" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val "" ) formatted_svar_names pp_reach_prop reachability_value
   else
-    (* TODO ADD FLAG CHECK HERE TO IGNORE PRINT ENTIRELY IF NO CHANGE*)
-    Format.fprintf ppf "@{<black>(%a %a %a)@}" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val " " ) formatted_svar_names pp_reach_prop reachability_value
+    if Flags.condensed_cmc_output () then
+      ()
+    else
+      Format.fprintf ppf "@{<black>(%a %a %a)@}" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val " " ) formatted_svar_names pp_reach_prop reachability_value
     (* Model.pp_print_model ppf model *)
 
 let pp_states (trans_sys : TransSys.t) disproved name_map var_map enums ppf path = 
@@ -211,7 +219,7 @@ let pp_states (trans_sys : TransSys.t) disproved name_map var_map enums ppf path
 let pp_trail
   (type s) (input_system : s InputSystem.t) (trans_sys : TransSys.t) disproved ppf path =
   (* let a = TransSys.get_function_symbols trans_sys in *)
-  Model.pp_print_path ppf path ;  (* FOR DEBUGGING*)
+  (* Model.pp_print_path ppf path ;  (* FOR DEBUGGING*) *)
   (* Format.fprintf ppf  "%a" (pp_print_list StateVar.pp_print_state_var_debug " ") (TransSys.state_vars trans_sys) ; *)
 
   match input_system with
