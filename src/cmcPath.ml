@@ -98,16 +98,16 @@ let get_state_var_vals_at_k trans_sys var_map model_assoc_list k ?(prefix = "") 
       let enum_opt = List.find_opt (fun CmcInput.({get_type}) -> Type.equal_types get_type state_var_type) enums in
       let svar_state_values = List.assoc translated_svar model_assoc_list in
       let svar_kth_state_value = List.nth svar_state_values (Numeral.to_int k) in 
-      
+      let state_value_changed = (Numeral.to_int k) == 0 || not (Model.equal_value (List.nth svar_state_values ((Numeral.to_int k) - 1)) svar_kth_state_value) in
       match svar_kth_state_value with
       | Model.Term value -> (
         match enum_opt with
         | Some enum -> ((
           let pair = List.find (fun (numeral, str) -> Term.equal value (Term.mk_num numeral)) enum.to_str in
-          (* Format.printf "LENGTH %i" (List.length enum.to_str) ; *)
+          (* Format.printf "LENGTH %i" (List.length enum.to_str); *)
           let str_rep = HString.string_of_hstring (snd pair) in
-          Some (var_name, str_rep)))
-        | _ -> Some (var_name, Term.string_of_term value)
+          Some (var_name, str_rep, state_value_changed)))
+        | _ -> Some (var_name, Term.string_of_term value, state_value_changed)
       )
       | _ -> failwith (Format.asprintf "Recieved unexpected model value. Unable to construct counter example.")
       
@@ -133,7 +133,7 @@ let rec get_state_var_vals_at_k_all trans_sys name_map var_map (model_assoc_list
       let name = Scope.to_string (TransSys.scope_of_trans_sys subsys_transys) in 
       (get_state_var_vals_at_k_all subsys_transys name_map var_map model_assoc_list k (prefix ^ (HString.string_of_hstring (List.assoc pos name_map)) ^ "::") ~map enums)
     ) subsystems in
-
+  
   (* Note, the instances below no longer function as an assoc list*)
   let instances =  (TransSys.get_subsystem_instances trans_sys) |> List.map (fun (subsys, subsys_instances) -> (List.map (fun instance -> (subsys, instance)) subsys_instances)) in 
   let instances = List.flatten instances in
@@ -155,19 +155,25 @@ let pp_step_of_trace (trans_sys : TransSys.t) disproved ppf (model, k) =
 
   Format.fprintf ppf  "%a" (pp_print_list (pp_step_of_trace trans_sys disproved) "@,") a *)
 
-let pp_str_var_val ppf (state_var, value) =
-  Format.fprintf ppf "(%s %s)" (state_var) (value)   
+let pp_str_var_val ppf (state_var, value, changed) =
+  if changed then 
+    Format.fprintf ppf "(%s %s)" (state_var) (value)    
+  else 
+    Format.fprintf ppf "@{<black>(%s %s)@}" (state_var) (value)   
 
-let pp_state_var_val ppf (state_var, value) =
+let pp_state_var_val ppf (state_var, value, changed) =
   let name = StateVar.name_of_state_var state_var in 
-  pp_str_var_val ppf (name, value)
+  pp_str_var_val ppf (name, value, changed)
 
-let pp_reach_prop ppf (state_var, value) =
+let pp_reach_prop ppf (state_var, value, changed) =
   (* Reachability props must be printed as the opposite boolean state. *)
   let name = StateVar.name_of_state_var state_var in 
   match value with 
-  | Model.Term t when t == Term.t_true -> Format.fprintf ppf "(%s %a)" (name) (Term.pp_print_term) (Term.t_false)   
-  | Model.Term t when t == Term.t_false -> Format.fprintf ppf "(%s %a)" (name) (Term.pp_print_term) (Term.t_true)   
+  | Model.Term t ->   
+    if changed then 
+      Format.fprintf ppf "(%s %a)" (name) (Term.pp_print_term) (Term.negate_simplify t)
+    else 
+      Format.fprintf ppf "@{<black>(%s %a)@}" (name) (Term.pp_print_term) (Term.negate_simplify t)   
   | _ -> ()
 
 let pp_step_of_trace (trans_sys : TransSys.t) disproved name_map var_map path enums ppf k = 
@@ -178,11 +184,24 @@ let pp_step_of_trace (trans_sys : TransSys.t) disproved name_map var_map path en
   let reachability_svar = List.hd reachability_svars in
   
   let model_list = Model.path_to_list path in
-  let reachability_value = (reachability_svar, List.nth (List.assoc reachability_svar model_list) (Numeral.to_int k)) in
+  let value = List.nth (List.assoc reachability_svar model_list) (Numeral.to_int k) in
 
+  let reachability_changed = if (Numeral.to_int k) == 0 then true else 
+    not (Model.equal_value value (List.nth (List.assoc reachability_svar model_list) ((Numeral.to_int k)-1) )) in
+
+  let reachability_value = (reachability_svar, value, reachability_changed) in
   
-  Format.fprintf ppf "(%a %a)" (pp_print_list pp_str_var_val " " ) (get_state_var_vals_at_k_all trans_sys name_map var_map (model_list) k "" ?map: None enums) pp_reach_prop reachability_value
-  (* Model.pp_print_model ppf model *)
+  let formatted_svar_names = get_state_var_vals_at_k_all trans_sys name_map var_map (model_list) k "" ?map: None enums in
+
+  let any_change = (List.fold_left (fun change_detected (_, _, svar_changed) -> change_detected || svar_changed) false formatted_svar_names) 
+  || reachability_changed in
+
+  if any_change then
+    Format.fprintf ppf "(%a %a %a)" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val " " ) formatted_svar_names pp_reach_prop reachability_value
+  else
+    (* TODO ADD FLAG CHECK HERE TO IGNORE PRINT ENTIRELY IF NO CHANGE*)
+    Format.fprintf ppf "@{<black>(%a %a %a)@}" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val " " ) formatted_svar_names pp_reach_prop reachability_value
+    (* Model.pp_print_model ppf model *)
 
 let pp_states (trans_sys : TransSys.t) disproved name_map var_map enums ppf path = 
 
@@ -192,7 +211,7 @@ let pp_states (trans_sys : TransSys.t) disproved name_map var_map enums ppf path
 let pp_trail
   (type s) (input_system : s InputSystem.t) (trans_sys : TransSys.t) disproved ppf path =
   (* let a = TransSys.get_function_symbols trans_sys in *)
-  (*Model.pp_print_path ppf path ;  (* FOR DEBUGGING *)*)
+  Model.pp_print_path ppf path ;  (* FOR DEBUGGING*)
   (* Format.fprintf ppf  "%a" (pp_print_list StateVar.pp_print_state_var_debug " ") (TransSys.state_vars trans_sys) ; *)
 
   match input_system with
