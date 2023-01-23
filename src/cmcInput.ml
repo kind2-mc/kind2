@@ -52,7 +52,7 @@ let s_define_fun = HString.mk_hstring "define-fun"
 (** Additional CMC Keywords*)
 let s_define_system = HString.mk_hstring "define-system"
 let s_check_system = HString.mk_hstring "check-system"
-let s_enum_definition = HString.mk_hstring "define-enum-sort"
+let s_enum_definition = HString.mk_hstring "declare-enum-sort"
 let s_input = HString.mk_hstring ":input"
 let s_output = HString.mk_hstring ":output"
 let s_local = HString.mk_hstring ":local"
@@ -453,7 +453,7 @@ let process_command definitions = fun def -> match def with
   }
 )
 
-(* (define-enum-sort name states)*)
+(* (declare-enum-sort name states)*)
 | HS.List ( HS.Atom cmd :: HS.Atom name :: [ HS.List (attrs) ] ) when cmd == s_enum_definition -> (
   {definitions with enums = process_enum_definition name attrs :: definitions.enums}
 )

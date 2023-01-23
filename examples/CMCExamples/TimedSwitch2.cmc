@@ -1,4 +1,4 @@
-(define-enum-sort LightStatus (On Off))
+(declare-enum-sort LightStatus (On Off))
 
 ; Set-of-transitions-style definition
 (define-system TimedSwitch2 

@@ -1,4 +1,4 @@
-(define-enum-sort LightStatus (On Off))
+(declare-enum-sort LightStatus (On Off))
 
 ; Equational-style definition
 (define-system TimedSwitch3 :input ((press Bool)) :output ((sig Bool))

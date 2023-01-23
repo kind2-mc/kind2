@@ -1,5 +1,5 @@
 
-(define-enum-sort LightStatus (On Off))
+(declare-enum-sort LightStatus (On Off))
 
 ; Guarded-transitions-style definition
 (define-system TimedSwitch 
