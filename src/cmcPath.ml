@@ -228,6 +228,32 @@ let pp_trail
   (* Model.pp_print_path ppf path *)
 
 
+let pp_const_decl ppf const_decl_path =
+  let svar = fst const_decl_path in
+  let svar_type = StateVar.type_of_state_var svar in
+  let svar_value_path = snd const_decl_path in
+  (* These should be constant, assume that all values are the same *)
+  let const_value = List.hd svar_value_path in
+
+  match List.find_all (fun value -> not (Model.equal_value value const_value)) (List.tl svar_value_path) with
+  | [] -> Format.fprintf ppf "(define-fun %s () %a %a)" (StateVar.name_of_state_var svar) Type.pp_print_type svar_type (Model.pp_print_value ?as_type:(Some svar_type)) const_value
+  
+  | _ -> failwith (Format.asprintf "Recieved unexpected model value. Unable to construct counter example.\n
+                                    Variable %a should be constant but was assigned multiple values. %a"
+                                    StateVar.pp_print_state_var svar (pp_print_list Model.pp_print_value ", ") svar_value_path) 
+  
+let pp_const_decls trans_sys ppf svar_path = 
+  let const_svars = List.map (fun svar -> svar, List.assoc svar svar_path) (TransSys.global_const_state_vars trans_sys) in
+  Format.fprintf ppf "%a" (pp_print_list pp_const_decl "@,") const_svars
+
+type model_path_as_list = (StateVar.t * Model.value list) list
+
+(* Basic model dprinting implementation, may want to enhance in the future *)
+let pp_model trans_sys ppf path =
+  (* let svar_path = Model.path_to_list path in *)
+  Format.fprintf ppf "%a@," (pp_const_decls trans_sys) path  
+
+
 
     
 

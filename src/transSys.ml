@@ -880,6 +880,10 @@ module Hashtbl = Hashtbl.Make (T)
 (* Return state variables of the transition system *)
 let state_vars { state_vars } = state_vars
 
+(* Return the global constant state variables of the transition system *)
+let global_const_state_vars { global_consts } = 
+  List.map Var.state_var_of_state_var_instance global_consts
+
 (* Return unconstrained inputs variables of a transition system *)
 let unconstrained_inputs { unconstrained_inputs } = unconstrained_inputs
 
@@ -983,12 +987,8 @@ let declare_init_flag_of_bounds { init_flag_state_var } declare lbound ubound =
   (* Evaluate declaration function *)
   |> Var.declare_vars declare 
 
-
 (* Declare other functions symbols *)
 let declare_ufs { ufs } declare =
-  List.iter declare ufs
-
-let declare_ufs2 (ufs: UfSymbol.t list) declare =
   List.iter declare ufs
 
 (* Declare other functions symbols *)

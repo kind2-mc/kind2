@@ -649,12 +649,14 @@ let cex_cmc ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispr
     !log_ppf
     "@[<v 1>(response @,\
      @[<hv 2>:result@ (@[<v>%a@])@]@,\
-     @[<hv 2>:model@ (@[<v>...@])@]@,\
+     @[<hv 2>:model@ (@[<v>@,%a@]@])@,\
      %a\
      @[<hv 2>:trail@ (@[<v>...@])@]@,\
      @[<hv 2>:trace@ (%s :prefix %s@,) @]@,\
      )@.@."
     pp_prop_cmc (prop, true)
+    (CmcPath.pp_model trans_sys)
+    cex
     (pp_trail_cmc level input_sys analysis trans_sys prop disproved true) 
     cex
     prop

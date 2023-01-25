@@ -21,6 +21,9 @@
     @author Daniel Larraz
 *)
 
+type subsystem_scope = string list
+type sys_var_mapping = (subsystem_scope * StateVar.t list) list
+
 type subsystem_instance_name_data = {
   map: (Lib.position * HString.t) list;
   counter: int;
@@ -34,7 +37,7 @@ type enum = {
 }
 
 (** Parse from the channel *)
-val of_channel : in_channel -> TransSys.t SubSystem.t * subsystem_instance_name_data * (string list * StateVar.t list) list * enum list
+val of_channel : in_channel -> TransSys.t SubSystem.t * subsystem_instance_name_data * sys_var_mapping * enum list
 
 (** Parse from the file *)
-val of_file : string -> TransSys.t SubSystem.t * subsystem_instance_name_data * (string list * StateVar.t list) list * enum list
+val of_file : string -> TransSys.t SubSystem.t * subsystem_instance_name_data * sys_var_mapping * enum list

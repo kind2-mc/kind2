@@ -399,6 +399,9 @@ val map_cex_prop_to_subsystem : (Scope.t -> instance -> (StateVar.t * Model.valu
 (** Return the state variables of a transition system *)
 val state_vars : t -> StateVar.t list
 
+(* Return the global constant state variables of the transition system *)
+val global_const_state_vars : t -> StateVar.t list
+
 (** Return unconstrained inputs variables of a transition system *)
 val unconstrained_inputs : t -> StateVar.StateVarSet.t
 

@@ -18,8 +18,6 @@
 
 module Ids = Lib.ReservedIds
 
-module SM = HString.HStringMap
-module SS = HString.HStringSet
 
 module HS = HStringSExpr
 module D = GenericSMTLIBDriver
@@ -64,6 +62,9 @@ let s_reachable = HString.mk_hstring ":reachable"
 let s_query = HString.mk_hstring ":query"
 let s_only_change = HString.mk_hstring "OnlyChange"
 let s_equal = HString.mk_hstring "="
+
+type subsystem_scope = string list
+type sys_var_mapping = (subsystem_scope * StateVar.t list) list
 
 type subsystem_instance_name_data = {
   map: (Lib.position * HString.t) list;
@@ -138,6 +139,7 @@ type definitions = {
   enums: enum list;
   functions: TransSys.d_fun list;
   ufunctions: UfSymbol.t list;
+  const_decls: (HString.t * StateVar.t) list;
 }
 
 let empty_definitions = {
@@ -146,19 +148,23 @@ let empty_definitions = {
   enums = [];
   functions = [];
   ufunctions = [];
+  const_decls = [];
 }
 
-let mk_var sys_name is_input (var, var_type) = 
+let mk_var sys_name is_input is_const (var, var_type) = 
   let svar =
     let name = HString.string_of_hstring var in
     let scope = (sys_name :: "impl" :: I.user_scope) in
     StateVar.mk_state_var
-      ~is_input ~is_const:false ~for_inv_gen:true
+      ~is_input ~is_const ~for_inv_gen:true
       name scope var_type
     in
     (var, svar)
+
+let mk_const_var var var_type = 
+  mk_var "const-decl" false true (var, var_type)
   
-let mk_vars sys_name is_input = List.map (mk_var sys_name is_input)
+let mk_vars sys_name is_input = List.map (mk_var sys_name is_input false)
 
 let gen_enum_conversion_map enums =
   enums |> List.fold_left (fun to_int_maps {to_int} -> 
@@ -194,6 +200,13 @@ let get_type ty =
   (* Wrapper used here to encourage expansion later *)
   conv_type_of_sexpr ty
 
+let declare_const enums name fun_type =   
+  let const_type = if is_enum_type_str enums fun_type 
+  then 
+    enum_name_to_type enums fun_type 
+  else 
+    get_type (HS.Atom fun_type) in
+  mk_const_var name const_type 
 
 (** Parse a list of sexp representing variable declarations *)
 let parse_variable_declarations_opt enums = List.map (
@@ -205,7 +218,7 @@ let parse_variable_declarations_opt enums = List.map (
   | HS.Atom a when a == (HString.mk_hstring "_") -> None
   (* TODO: When custom types are implemented will need to allow lists for arg types *)
   (* For now lists and other imporperly formatted args will throw an error, may want to silently ignore in the future *)
-  | HS.List (HS.Atom var_name :: HS.List var_type :: []) ->  failwith (Format.asprintf "Custom variable type ( %a ) not yet supported. Please use Int, Bool, Real, or an enum sort." HS.pp_print_sexpr_list var_type)
+  | HS.List (HS.Atom _ :: HS.List var_type :: []) ->  failwith (Format.asprintf "Custom variable type ( %a ) not yet supported. Please use Int, Bool, Real, or an enum sort." HS.pp_print_sexpr_list var_type)
   | e -> failwith (Format.asprintf "Malformed state variable %a" HS.pp_print_sexpr e)
 )
 
@@ -264,7 +277,7 @@ let rec process_only_change_helper (sys_def: system_def) trans_sexp =
     | HS.Atom cmd :: args when cmd == s_only_change -> (only_change (sys_def.output @ sys_def.local) args)
     | _  -> Some (HS.List ( list |> List.filter_map (process_only_change_helper sys_def) ) )
     
-let rec process_only_change (sys_def: system_def) trans_sexp_opt = 
+let process_only_change (sys_def: system_def) trans_sexp_opt = 
   match trans_sexp_opt with
   | None -> None
   | Some trans_sexp ->
@@ -278,7 +291,7 @@ let process_enum_definition name attrs =
   
   let enum_type = Type.mk_type (Type.IntRange (count, (Numeral.of_int ((List.length attrs) - 1)), Type.Enum)) in
   
-  let enum, count = attrs |> List.fold_left ( fun (enums, count) enum_var -> match enum_var with
+  let enum, _ = attrs |> List.fold_left ( fun (enums, count) enum_var -> match enum_var with
     | HS.Atom enum -> 
       ({enums with to_int = (enum, count) :: enums.to_int ; to_str = (count, enum) :: enums.to_str}, Numeral.(count + Numeral.one))
     | _ -> failwith (Format.asprintf "Invalid s-expresion found in enum definition `%s`." (HString.string_of_hstring name))
@@ -430,7 +443,7 @@ let rec process_define_system definitions (sys_def: system_def) attrs =
   | HS.Atom invalid_arg :: arg_val :: other when HString.get invalid_arg 0 == ':' -> (
     match arg_val with (* Only remove two parameters when the second is not an arg *)
     | HS.Atom v when HString.get v 0 <> ':' -> process_define_system definitions sys_def other
-    | HS.List v -> process_define_system definitions sys_def other
+    | HS.List _ -> process_define_system definitions sys_def other
     | _ -> process_define_system definitions sys_def ( arg_val :: other )
   )
   | HS.Atom invalid_arg :: other when HString.get invalid_arg 0 == ':' -> process_define_system definitions sys_def other
@@ -460,8 +473,14 @@ let process_command definitions = fun def -> match def with
 
 (* (declare-fun name args type) *)
 | HS.List ( HS.Atom cmd :: HS.Atom name :: HS.List args :: HS.Atom fun_type :: []) when cmd == s_declare_fun -> (
-  let uf_name, _, _ = declare_fun definitions.enums name fun_type args in
-  {definitions with ufunctions = uf_name :: definitions.ufunctions}
+  match args with
+  | [] -> 
+    let const_decl_var = declare_const definitions.enums name fun_type in
+    {definitions with const_decls = const_decl_var :: definitions.const_decls}
+  | args ->   
+    let uf_name, _, _ = declare_fun definitions.enums name fun_type args in
+    {definitions with ufunctions = uf_name :: definitions.ufunctions}
+
 )
 
 (* (define-fun name args type term) *)
@@ -472,8 +491,9 @@ let process_command definitions = fun def -> match def with
 
 (* (declare-const name type) *)
 | HS.List ( HS.Atom cmd :: HS.Atom name :: HS.Atom fun_type :: []) when cmd == s_declare_const -> (
-  let uf_name, _, _ = declare_fun definitions.enums name fun_type [] in
-  {definitions with ufunctions = uf_name :: definitions.ufunctions}
+  (* let uf_name, _, _ = declare_fun definitions.enums name fun_type [] in *)
+  let const_decl_var = declare_const definitions.enums name fun_type in
+  {definitions with const_decls = const_decl_var :: definitions.const_decls}
 )
 
 (* (define-const name args type term) *)
@@ -482,7 +502,7 @@ let process_command definitions = fun def -> match def with
   {definitions with functions = definitions.functions @ d_fun :: []}
 )
 
-| HS.List ( HS.Atom cmd :: HS.Atom symb :: attrs ) when cmd == s_define_system -> failwith (Format.asprintf
+| HS.List ( HS.Atom cmd :: HS.Atom _ :: _ ) when cmd == s_define_system -> failwith (Format.asprintf
 "Invalid CMC-LIBs command: %a" HS.pp_print_sexpr (HS.Atom cmd))
 
 (* ... *)
@@ -592,8 +612,8 @@ let mk_trans_invar_prop_eqs prop_svars reachable inv_map =  (* WARNING MAY NEED 
   )
 
 (** Translate CMC init sexp into Kind2 Term. Ands init with the inv property *)
-let mk_init_term { init; inv} init_flag init_map inv_map =
-  (** Flag representing the init state*)
+let mk_init_term { init; inv} init_flag const_map init_map inv_map =
+  (* Flag representing the init state*)
   let init_flag_t =
       Var.mk_state_var_instance init_flag TransSys.init_base
       |> Term.mk_var
@@ -601,25 +621,25 @@ let mk_init_term { init; inv} init_flag init_map inv_map =
 
   match init, inv with
   | None, None -> init_flag_t                           (* The two inv maps are used to capture both a and a' *)
-  | None, Some inv -> Term.mk_and (init_flag_t :: conv_term_of_sexpr inv_map inv :: [])
-  | Some init, None -> Term.mk_and (init_flag_t :: conv_term_of_sexpr init_map init :: [])
+  | None, Some inv -> Term.mk_and (init_flag_t :: conv_term_of_sexpr (const_map @ inv_map) inv :: [])
+  | Some init, None -> Term.mk_and (init_flag_t :: conv_term_of_sexpr (const_map @ init_map) init :: [])
   | Some init, Some inv -> 
-    Term.mk_and (init_flag_t :: conv_term_of_sexpr  init_map init :: conv_term_of_sexpr inv_map inv :: [])
+    Term.mk_and (init_flag_t :: conv_term_of_sexpr (const_map @ init_map) init :: conv_term_of_sexpr (const_map @ inv_map) inv :: [])
 
   
 (** Translate CMC trans sexp into Kind2 Term. Ands init with the inv property *)
-let mk_trans_term sys_def init_flag inv_map trans_map =
-  (** Flag representing the init state*)
+let mk_trans_term sys_def init_flag const_map inv_map trans_map =
+  (* Flag representing the init state*)
   let init_flag_t =
     Var.mk_state_var_instance init_flag TransSys.trans_base
     |> Term.mk_var
   in
   match (process_only_change sys_def sys_def.trans), sys_def.inv with
   | None, None -> Term.mk_not init_flag_t                           (* The two inv maps are used to capture both a and a' *)
-  | None, Some inv -> Term.mk_and (Term.mk_not init_flag_t :: conv_term_of_sexpr inv_map inv :: [])
-  | Some trans, None -> Term.mk_and (Term.mk_not init_flag_t :: conv_term_of_sexpr trans_map trans :: [])
+  | None, Some inv -> Term.mk_and (Term.mk_not init_flag_t :: conv_term_of_sexpr (const_map @ inv_map) inv :: [])
+  | Some trans, None -> Term.mk_and (Term.mk_not init_flag_t :: conv_term_of_sexpr (const_map @ trans_map) trans :: [])
   | Some trans, Some inv -> 
-    Term.mk_and (Term.mk_not init_flag_t :: conv_term_of_sexpr trans_map trans :: conv_term_of_sexpr inv_map inv :: [])
+    Term.mk_and (Term.mk_not init_flag_t :: conv_term_of_sexpr (const_map @ trans_map) trans :: conv_term_of_sexpr (const_map @ inv_map) inv :: [])
 
 let rec mk_subsys_structure sys =
   { SubSystem.scope = TransSys.scope_of_trans_sys sys;
@@ -651,20 +671,20 @@ type base_trans_system = {
   props: Property.t list;
 }
 
-let mk_inst local_name sys_state_vars subsys_state_vars =
+let mk_inst sys_state_vars subsys_state_vars =
   let map_down, map_up =
     List.fold_left2 (fun (map_down, map_up) sys_state_var subsys_state_var ->
         StateVar.StateVarMap.add subsys_state_var sys_state_var map_down,
         StateVar.StateVarMap.add sys_state_var subsys_state_var map_up
     ) StateVar.StateVarMap.(empty, empty) sys_state_vars subsys_state_vars
   in 
-  {   TransSys.pos =  Lib.({ pos_fname = ""; Lib.pos_lnum = 0; Lib.pos_cnum = -1 });
+  {   TransSys.pos =  { pos_fname = ""; Lib.pos_lnum = 0; Lib.pos_cnum = -1 };
       map_down;
       map_up;
       guard_clock = (fun _ t -> t);
       assumes = None }
 
-let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys_name init_flag (subsystems: (HString.t * (HString.t * HString.t list) list) list) (symb_svars: (HString.t * StateVar.t) list) = 
+let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys_name (subsystems: (HString.t * (HString.t * HString.t list) list) list) (symb_svars: (HString.t * StateVar.t) list) = 
   subsystems |> List.map (fun (subsystem_name, local_defs) ->
     (* TODO if sys var names are not defined in parents it wont fail here, but it will fail much later on
       May want to add checking here so we can fail earlier. *)
@@ -689,7 +709,7 @@ let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys
       let transys_parameters = parameters |> List.map (fun parameter -> List.assoc parameter symb_svars)  in
 
       (* These are the local vars that must be created then passed as positional parms to the subsystem call *)
-      let init_local = mk_var sys_name false (HString.concat2 local_name (HString.mk_hstring "_init"), Type.t_bool) in
+      let init_local = mk_var sys_name false false (HString.concat2 local_name (HString.mk_hstring "_init"), Type.t_bool) in
       let renamed_local_svarss = (subsys_local_assoc_list) |> 
         (List.map (fun (name, var_type) -> ((HString.concat (HString.mk_hstring "_") ( local_name :: name :: []) ), var_type)) ) in
       let new_transys_locals = mk_vars sys_name false (renamed_local_svarss) in
@@ -698,7 +718,7 @@ let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys
       
       let transys_svars = ((snd init_local) :: transys_parameters @ (List.map snd new_transys_locals)) in
       
-      let inst = (mk_inst local_name subsys_svars transys_svars, local_name) in
+      let inst = (mk_inst subsys_svars transys_svars, local_name) in
 
       ((transys_svars, init_local :: new_transys_locals), inst)
     ) in
@@ -722,14 +742,14 @@ let mk_subsystems (prev_trans_systems: (HString.t * base_trans_system) list) sys
     subsys_locals, subsystem_defs *)
 )
 
-let mk_base_trans_system instance_name_map prev_trans_systems (cmc_sys_def: system_def) = 
+let mk_base_trans_system const_decls instance_name_map prev_trans_systems (cmc_sys_def: system_def) = 
   let system_name = HString.string_of_hstring cmc_sys_def.name in
   let scope = [system_name] in
   let init_flag = StateVar.mk_init_flag scope in
 
   let symb_svars = mk_state_vars system_name cmc_sys_def.input cmc_sys_def.output cmc_sys_def.local in (*S*)
   
-  let subsystem_defs = mk_subsystems prev_trans_systems system_name init_flag cmc_sys_def.subsystems symb_svars in
+  let subsystem_defs = mk_subsystems prev_trans_systems system_name cmc_sys_def.subsystems symb_svars in
   let named_subsystems = List.map fst subsystem_defs in 
   
   let subsystems, name_map = List.fold_left (fun (subsystems_acc, name_map) (subsys_name, (instance_list: (TransSys.instance * HString.t) list)) -> 
@@ -755,6 +775,7 @@ let mk_base_trans_system instance_name_map prev_trans_systems (cmc_sys_def: syst
 
   (* let symb_svars = symb_svars @ subsys_locals  in  *)
   
+  let const_map = mk_init_map const_decls in (* TODO: May want to rename mk_init_map  since it is used for consts *)
   let init_map = mk_init_map symb_svars in 
   let trans_map = mk_trans_map symb_svars in 
   
@@ -769,8 +790,8 @@ let mk_base_trans_system instance_name_map prev_trans_systems (cmc_sys_def: syst
   ) in *)
 
  
-  let subsys_terms =  subsys_call_maps |> (subsystems |> List.map2 (fun ((name: HString.t), instances) instance_call_maps -> 
-    let subsys_name = UfSymbol.name_of_uf_symbol (List.assoc name prev_trans_systems ).init_uf_symbol in
+  let subsys_terms =  subsys_call_maps |> (subsystems |> List.map2 (fun ((name: HString.t), _) instance_call_maps -> 
+    (* let subsys_name = UfSymbol.name_of_uf_symbol (List.assoc name prev_trans_systems ).init_uf_symbol in *)
     instance_call_maps |> List.map (fun call_map -> 
         let subsys_init_flag = (List.assoc name prev_trans_systems).init_flag in
         let init_flag_mapping = (HString.mk_hstring ( StateVar.name_of_state_var subsys_init_flag), subsys_init_flag) in
@@ -787,11 +808,11 @@ let mk_base_trans_system instance_name_map prev_trans_systems (cmc_sys_def: syst
   let subsys_trans = List.map snd subsys_terms in
 
   let init_term = 
-    Term.mk_and ((mk_init_term cmc_sys_def init_flag init_map inv_map_for_init) :: subsys_init )
+    Term.mk_and ((mk_init_term cmc_sys_def init_flag const_map init_map inv_map_for_init) :: subsys_init )
   in
 
   let trans_term = 
-    Term.mk_and ((mk_trans_term cmc_sys_def init_flag inv_map_for_trans trans_map) :: subsys_trans )
+    Term.mk_and ((mk_trans_term cmc_sys_def init_flag const_map inv_map_for_trans trans_map) :: subsys_trans )
   in
 
   let state_vars =
@@ -846,10 +867,10 @@ let rename_check_vars system_name {cmc_sys_def; trans_map} cmc_check_def =
   assert (List.compare_lengths cmc_sys_def.local chk_local == 0) ;
 
   let mk_vars sys_name is_input = List.map (fun e -> match e with 
-  | Some e ->Some (mk_var sys_name is_input e)
+  | Some e ->Some (mk_var sys_name is_input false e)
   | None -> None) in 
 
-  (** Translate cmc var representation into Kind2 *)
+  (* Translate cmc var representation into Kind2 *)
   let mk_state_vars sys_name input output local = (
     mk_vars sys_name true input @ 
     mk_vars sys_name false output @ 
@@ -867,7 +888,6 @@ let rename_check_vars system_name {cmc_sys_def; trans_map} cmc_check_def =
 
 
 let check_trans_system system_name base_system (cmc_check_def: check_system)= 
-  let sys_chk_name = HString.string_of_hstring cmc_check_def.name in 
   (* TODO Produce better error handling here*)
   let check_map = rename_check_vars system_name base_system cmc_check_def in
   
@@ -955,10 +975,8 @@ let of_channel in_ch =
 
   let enum_defs = cmc_defs.enums in
 
-  let enum_int_map = gen_enum_conversion_map enum_defs in
-
   (* TODO: Check for cycles in subsystems. See lustre/lustreArrayDependencies.ml and utils/graph.ml *)
-  let rec mk_subsys_dag (cmc_sys_defs: (HString.t * system_def) list) = 
+  let mk_subsys_dag (cmc_sys_defs: (HString.t * system_def) list) = 
     (* First add all verticies *)
     let graph = cmc_sys_defs |> List.fold_left ( fun graph (name, _)  ->
       G.add_vertex graph name
@@ -1008,7 +1026,7 @@ let of_channel in_ch =
     let top = index == length - 1 in
     let cmc_sys_def = List.assoc sys_name cmc_sys_defs in
     let cmc_check_def_opt = List.assoc_opt sys_name cmc_check_defs in 
-    let base_system, name_map = mk_base_trans_system prev_instance_map prev_trans_systems cmc_sys_def in
+    let base_system, name_map = mk_base_trans_system cmc_defs.const_decls prev_instance_map prev_trans_systems cmc_sys_def in
     match cmc_check_def_opt with 
     | Some cmc_check_def -> prev_trans_systems @ (cmc_sys_def.name, check_trans_system (HString.string_of_hstring cmc_sys_def.name) {base_system with top} cmc_check_def) :: [], (name_map, index + 1)
     | None -> prev_trans_systems @ (cmc_sys_def.name, {base_system with top}) :: [], (name_map, index + 1)
@@ -1051,18 +1069,19 @@ let of_channel in_ch =
       )
     ) 
   [] in *)
-
+  
   let sys_var_mapping = List.fold_left (fun var_map (_, base_transys) -> (
     let primary_vars = (base_transys.cmc_sys_def.input @ base_transys.cmc_sys_def.output @ base_transys.cmc_sys_def.local) |>
           List.map (fun v -> List.assoc (fst v) base_transys.symb_svars) in
     (base_transys.scope, primary_vars) :: var_map
   )) [] base_trans_systems in
 
-  let mk_trans_system other_trans_systems base_trans_system  =
+  let mk_trans_system global_const_svars other_trans_systems base_trans_system  =
     let (name: HString.t), base = base_trans_system in
     let subs = base.subsystems |> List.map (fun (name, local_instances) -> 
       (List.assoc name other_trans_systems, local_instances)) (* subsystems *)
     in
+    let global_const_vars = List.map Var.mk_const_state_var global_const_svars in
     let sys, _ = 
       TransSys.mk_trans_sys
         base.scope
@@ -1071,7 +1090,7 @@ let of_channel in_ch =
         base.state_vars
         StateVar.StateVarSet.empty (* underapproximation *)
         (StateVar.StateVarHashtbl.create 7) (* state_var_bounds *)
-        [] (* global_consts *)
+        global_const_vars (* global_consts *)
         (if base.top then cmc_defs.ufunctions else []) (* ufs *)
         (if base.top then cmc_defs.functions else []) (* defs *)
         base.init_uf_symbol
@@ -1089,12 +1108,9 @@ let of_channel in_ch =
     (name, sys) :: other_trans_systems
   in
 
-  let trans_systems = base_trans_systems |> List.fold_left mk_trans_system [] in
+  let const_global_vars = List.map snd cmc_defs.const_decls in
+  let trans_systems = base_trans_systems |> List.fold_left (mk_trans_system const_global_vars) [] in
   
-  (* TEMP *)
-  (* TODO *)
-  let head lst = match lst with h :: _ -> h in
-    
   (* let cmc_sys_def =  snd (head cmc_sys_defs) in (* temporary support for only one system def *)
   let cmc_check_def = List.assoc cmc_sys_def.name cmc_check_defs in *)
 
@@ -1102,7 +1118,9 @@ let of_channel in_ch =
   let chk_sys = check_trans_system (HString.string_of_hstring cmc_sys_def.name) base_system cmc_check_def in
    *)
 
-  let top_sys = snd (head trans_systems) in
+  (* TEMP *)
+  (* TODO: *)
+  let top_sys = snd (List.hd trans_systems) in
 
     (* NOTE: This was originaly commented out *)
   Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys;
