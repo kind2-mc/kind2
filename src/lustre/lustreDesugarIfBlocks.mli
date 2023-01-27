@@ -43,6 +43,7 @@ type error = [
 val desugar_if_blocks : 
 TypeCheckerContext.tc_context ->
   LustreAst.declaration list ->
+    GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t ->
   (LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t,
    [> error ])
   result

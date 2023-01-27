@@ -54,6 +54,9 @@ val substitute : HString.t -> expr -> expr -> expr
 val has_unguarded_pre : expr -> bool
 (** Returns true if the expression has unguareded pre's *)
 
+val has_unguarded_pre_no_warn : expr -> bool
+(** Returns true if the expression has unguareded pre's. Does not print warning. *)
+
 val has_pre_or_arrow : expr -> Lib.position option
 (** Returns true if the expression has a `pre` or a `->`. *)
 

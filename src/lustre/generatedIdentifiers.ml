@@ -52,12 +52,12 @@ type t = {
     * LustreAst.expr (* abstracted expression *)
     * LustreAst.expr) (* original expression *)
     StringMap.t;
+  generated_locals : LustreAst.expr StringMap.t; (* maps generated local to corresponding user-defined variable *)
   contract_calls :
     (Lib.position
     * (Lib.position * HString.t) list (* contract scope *)
     * LustreAst.contract_node_equation list)
     StringMap.t;
-  warnings : (Lib.position * LustreAst.expr) list;
   oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
   ib_oracles : (HString.t * LustreAst.lustre_type) list;
   calls : (Lib.position (* node call position *)
@@ -101,12 +101,11 @@ let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, (Some v) -> Some v
   (* Identifiers are guaranteed to be unique making this branch impossible *)
   | _, (Some _), (Some _) -> assert false
-
 let union ids1 ids2 = {
     locals = StringMap.merge union_keys ids1.locals ids2.locals;
+    generated_locals = StringMap.merge union_keys ids1.generated_locals ids2.generated_locals;
     array_constructors = StringMap.merge union_keys
       ids1.array_constructors ids2.array_constructors;
-    warnings = ids1.warnings @ ids2.warnings;
     node_args = ids1.node_args @ ids2.node_args;
     oracles = ids1.oracles @ ids2.oracles;
     ib_oracles = ids1.ib_oracles @ ids2.ib_oracles;
@@ -117,10 +116,17 @@ let union ids1 ids2 = {
     expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
     equations = ids1.equations @ ids2.equations;
   }
+
+(* Same as union_keys, but we don't assume that identifiers are unique *)
+let union_keys2 key id1 id2 = match key, id1, id2 with
+  | _, None, None -> None
+  | _, (Some v), None -> Some v
+  | _, None, (Some v) -> Some v
+  | _, (Some a), (Some b) -> Some (union a b)
   
   let empty () = {
     locals = StringMap.empty;
-    warnings = [];
+    generated_locals = StringMap.empty;
     array_constructors = StringMap.empty;
     node_args = [];
     oracles = [];

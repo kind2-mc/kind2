@@ -38,9 +38,18 @@ type error = [
   | `LustreDesugarFrameBlocksError of Lib.position * error_kind
 ]
 
+type warning_kind =
+  | UninitializedVariableWarning of LustreAst.expr
+
+type warning = [
+  | `LustreDesugarFrameBlocksWarning of Lib.position * warning_kind
+]
+
+val warning_message : warning_kind -> string
 
 val desugar_frame_blocks :
   A.declaration list ->
-    (A.declaration list,
-    [> error])
+    (A.declaration list *
+    [> `LustreDesugarFrameBlocksWarning of Lib.position * warning_kind ] list,
+    [> `LustreDesugarFrameBlocksError of Lib.position * error_kind ])
     result

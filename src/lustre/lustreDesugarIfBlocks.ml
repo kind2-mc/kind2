@@ -235,6 +235,7 @@ let rec fill_ite_with_oracles expr ty =
     | Ident(p, s) when s = ib_oracle_tree -> 
       let (expr, gids) = (mk_fresh_ib_oracle ty) in
       (match expr with
+        (* Clocks are unsupported, so the clock value is hardcoded to ClockTrue *)
         | A.Ident (_, name) ->  expr, gids, [A.NodeVarDecl(p, (p, name, ty, ClockTrue))]
         | _ -> assert false (* not possible *))
     | _ -> expr, GI.empty (), []
@@ -332,8 +333,9 @@ let desugar_node_decl ctx decl = match decl with
 
 (** Desugars a declaration list to remove IfBlocks. Converts IfBlocks to
     declarative ITEs, filling in oracles if branches are undefined. *)
-let desugar_if_blocks ctx sorted_node_contract_decls = 
+let desugar_if_blocks ctx sorted_node_contract_decls gids = 
   let* res = R.seq (List.map (desugar_node_decl ctx) sorted_node_contract_decls) in
-  let decls, gids = List.split res in
-  let gids = List.fold_left (GI.StringMap.union (fun _ b _ -> Some b)) (GI.StringMap.empty) gids in
+  let decls, gids2 = List.split res in
+  let gids2 = List.fold_left (GI.StringMap.merge GI.union_keys2) GI.StringMap.empty gids2 in
+  let gids = GI.StringMap.merge GI.union_keys2 gids gids2 in
   R.ok (decls, gids)

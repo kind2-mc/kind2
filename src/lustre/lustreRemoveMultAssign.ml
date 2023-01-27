@@ -19,6 +19,7 @@ module A = LustreAst
 module AH = LustreAstHelpers
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
+module GI = GeneratedIdentifiers
 
 (** [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref (0)
@@ -29,18 +30,22 @@ let unwrap result = match result with
   | Ok r -> r
   | Error _ -> assert false
 
-let split_and_flatten4 ls =
-  let xs = List.map (fun (x, _, _, _) -> x) ls |> List.flatten in
-  let ys = List.map (fun (_, y, _, _) -> y) ls |> List.flatten in
-  let zs = List.map (fun (_, _, z, _) -> z) ls |> List.flatten in
-  let ws = List.map (fun (_, _, _, w) -> w) ls |> List.flatten in
-  xs, ys, zs, ws
+let split_and_flatten5 xs =
+  let ls = List.map (fun (l, _, _, _, _) -> l) xs |> List.flatten in
+  let ms = List.map (fun (_, m, _, _, _) -> m) xs |> List.flatten in
+  let ns = List.map (fun (_, _, n, _, _) -> n) xs |> List.flatten in
+  let os = List.map (fun (_, _, _, o, _) -> o) xs |> List.flatten in
+  let ps = List.map (fun (_, _, _, _, p) -> p) xs |> List.flatten in
+  ls, ms, ns, os, ps
 
 (** Create a new fresh temporary variable name. *)
-let mk_fresh_temp_name _ =
+let mk_fresh_temp_name id =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
-  HString.concat2 prefix (HString.mk_hstring "_temp") 
+  let name = HString.concat2 prefix (HString.mk_hstring "temp")in
+  let gids = { (GI.empty ()) with generated_locals = GI.StringMap.singleton name (A.Ident(Lib.dummy_pos, id)); } in
+  name, gids
+  
 
 (** When pulling out temp variables for recursive array definitions,
    we also have to modify the RHS to match the temp variable.
@@ -119,7 +124,7 @@ let rec modify_arraydefs_in_expr array_assoc_list = function
 let create_new_eqs ctx lhs expr = 
   let convert_struct_item = (function
     | A.SingleIdent (p, i) as si -> 
-      let temp = mk_fresh_temp_name i in
+      let temp, gids = mk_fresh_temp_name i in
       (* Type error, shouldn't be possible *)
       let ty = (match Ctx.lookup_ty ctx i with 
         | Some ty -> ty 
@@ -128,8 +133,10 @@ let create_new_eqs ctx lhs expr =
       (
         [A.SingleIdent(p, temp)],
         [A.Body (A.Equation(p, StructDef(p, [si]), Ident(p, temp)))],
+        (* Clocks are unsupported, so the clock value is hardcoded to ClockTrue *)
         [A.NodeVarDecl(p, (p, temp, ty, ClockTrue))],
-        [ctx]
+        [ctx],
+        [gids]
       )
 
     (*
@@ -140,7 +147,7 @@ let create_new_eqs ctx lhs expr =
     A = t2;
     *)
     | ArrayDef (p, i, js) as si -> 
-      let temp = mk_fresh_temp_name i in
+      let temp, gids = mk_fresh_temp_name i in
       let array_index = List.fold_left (fun expr j -> A.ArrayIndex(p, expr, A.Ident(p, j))) (A.Ident(p, temp)) js in
       (* Type error, shouldn't be possible *)
       let ty = (match Ctx.lookup_ty ctx i with 
@@ -150,8 +157,10 @@ let create_new_eqs ctx lhs expr =
       (
         [A.ArrayDef(p, temp, js)],
         [A.Body (A.Equation(p, StructDef(p, [si]), array_index))],
+        (* Clocks are unsupported, so the clock value is hardcoded to ClockTrue *)
         [A.NodeVarDecl(p, (p, temp, ty, ClockTrue))],
-        [ctx]
+        [ctx],
+        [gids]
       )
     | _ ->
       (* Other types of LHS are not supported *)
@@ -160,7 +169,7 @@ let create_new_eqs ctx lhs expr =
   match lhs with
     | A.StructDef (pos, ss) -> 
       let res = (List.map convert_struct_item ss) in
-      let sis, eqs, decls, ctx = split_and_flatten4 res in
+      let sis, eqs, decls, ctx, gids = split_and_flatten5 res in
       let get_array_ids =
         List.filter_map (function
           | A.ArrayDef (_, id, _) -> Some id
@@ -177,7 +186,8 @@ let create_new_eqs ctx lhs expr =
           [A.Body (Equation (pos, A.StructDef(pos, sis), expr))],
           eqs,
           decls,
-          ctx
+          ctx,
+          gids
         )
 
 let remove_mult_assign_from_ni ctx ni = 
@@ -190,68 +200,79 @@ let remove_mult_assign_from_ni ctx ni =
           list in the return value represents node items we "pull out" of the if block
           (ie, we define those before generating the ITEs). *)
         if (List.length lhs_vars = 1) 
-        then [], [ni], [], [ctx]
+        then [], [ni], [], [ctx], []
         else create_new_eqs ctx lhs expr
       
       | IfBlock (pos, e, l1, l2) -> 
         let res1 = List.map (helper ctx) l1 in
-        let nis1, nis2, decls1, ctx1 = split_and_flatten4 res1 in
+        let nis1, nis2, decls1, ctx1, gids1 = split_and_flatten5 res1 in
         let res2 = List.map (helper ctx) l2 in
-        let nis3, nis4, decls2, ctx2 = split_and_flatten4 res2 in
+        let nis3, nis4, decls2, ctx2, gids2 = split_and_flatten5 res2 in
         (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
-        nis1 @ nis3, [A.IfBlock (pos, e, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2
+        nis1 @ nis3, [A.IfBlock (pos, e, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2, gids1 @ gids2
 
       | FrameBlock (pos, vars, nes, nis) -> 
         let nes = List.map (fun x -> A.Body x) nes in 
         let res1 = List.map (helper ctx) nes in
-        let nis1, nis2, decls1, ctx1 = split_and_flatten4 res1 in
+        let nis1, nis2, decls1, ctx1, gids1 = split_and_flatten5 res1 in
         let res2 = List.map (helper ctx) nis in
-        let nis3, nis4, decls2, ctx2 = split_and_flatten4 res2 in     
+        let nis3, nis4, decls2, ctx2, gids2 = split_and_flatten5 res2 in     
         let nis2 = List.map 
           (fun x -> match x with | A.Body (Equation _ as e) -> e | _ -> assert false) 
           nis2 in
         (* nis1 and nis3 are the temp variables need to get pulled outside the if block *)
-        nis1 @ nis3, [A.FrameBlock (pos, vars, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2
+        nis1 @ nis3, [A.FrameBlock (pos, vars, nis2, nis4)], decls1 @ decls2, ctx1 @ ctx2, gids1 @ gids2
       
       (* Don't need to alter these node items as they are not allowed in if
          and frame blocks. If they are present anyway, it will be caught in
          lustreDesugarIfBlocks.ml *)
       | A.Body (Assert _) 
       | A.AnnotProperty _
-      | A.AnnotMain _ -> [], [ni], [], [ctx]
+      | A.AnnotMain _ -> [], [ni], [], [ctx], []
   ) in
-  let (nis, nis2, new_decls, ctx) = helper ctx ni in
+  let (nis, nis2, new_decls, ctx, gids) = helper ctx ni in
   let ctx = List.fold_left Ctx.union Ctx.empty_tc_context ctx in
+  let gids = List.fold_left GI.union (GI.empty ()) gids in
   (* Calling 'remove_mult_assign_from_ib' on an if or frame block (which is always
      the case) will mean that nis2 will always have length 1. *)
   let ni = List.hd nis2 in
-  nis, ni, new_decls, ctx
+  nis, ni, new_decls, ctx, gids
 
 let desugar_node_item ctx ni = match ni with
   | A.IfBlock _ -> 
-    let (nis, ib, decls1, _) = remove_mult_assign_from_ni ctx ni in 
-    decls1, nis @ [ib]
+    let (nis, ib, decls1, _, gids) = remove_mult_assign_from_ni ctx ni in 
+    decls1, nis @ [ib], gids
   | A.FrameBlock _ -> 
-    let (nis2, fb, decls1, _) = remove_mult_assign_from_ni ctx ni in 
-    decls1, nis2 @ [fb]
-  | _ -> [], [ni]
+    let (nis2, fb, decls1, _, gids) = remove_mult_assign_from_ni ctx ni in 
+    decls1, nis2 @ [fb], gids
+  | _ -> [], [ni], GI.empty ()
+
+let split3 ls =
+  let xs = List.map (fun (x, _, _) -> x) ls in
+  let ys = List.map (fun (_, y, _) -> y) ls in
+  let zs = List.map (fun (_, _, z) -> z) ls in
+  xs, ys, zs
 
 (** Remove multiple assignment from if and frame blocks in a single declaration. *)
 let desugar_node_decl ctx decl = match decl with
   | A.FuncDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) ->
     let ctx = Chk.get_node_ctx ctx d |> unwrap in
     let res = List.map (desugar_node_item ctx) nis in
-    let (new_decls, nis) = List.split res in
-    A.FuncDecl (s, (node_id, b, nps, cctds, ctds, (List.flatten new_decls) @ nlds, (List.flatten nis), co))
+    let (new_decls, nis, gids) = split3 res in
+    let gids = List.fold_left GI.union (GI.empty ()) gids in
+    A.FuncDecl (s, (node_id, b, nps, cctds, ctds, (List.flatten new_decls) @ nlds, (List.flatten nis), co)), GI.StringMap.singleton node_id gids
   | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) -> 
     let ctx = Chk.get_node_ctx ctx d |> unwrap in
     let res = List.map (desugar_node_item ctx) nis in
-    let (new_decls, nis) = List.split res in
-    A.NodeDecl (s, (node_id, b, nps, cctds, ctds, (List.flatten new_decls) @ nlds, (List.flatten nis), co))
-  | _ -> decl
+    let (new_decls, nis, gids) = split3 res in
+    let gids = List.fold_left GI.union (GI.empty ()) gids in
+    A.NodeDecl (s, (node_id, b, nps, cctds, ctds, (List.flatten new_decls) @ nlds, (List.flatten nis), co)), GI.StringMap.singleton node_id gids
+  | _ -> decl, GI.StringMap.empty 
 
 
 (** Desugars a declaration list to remove multiple assignment from if blocks and frame
     blocks. *)
 let remove_mult_assign ctx sorted_node_contract_decls = 
-  List.map (desugar_node_decl ctx) sorted_node_contract_decls
+  let decls, gids = List.map (desugar_node_decl ctx) sorted_node_contract_decls |> List.split in
+  let gids = List.fold_left (GI.StringMap.merge GI.union_keys2) GI.StringMap.empty gids in
+  decls, gids

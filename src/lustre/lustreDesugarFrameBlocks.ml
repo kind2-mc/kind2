@@ -43,6 +43,31 @@ type error = [
 
 let mk_error pos kind = Error (`LustreDesugarFrameBlocksError (pos, kind))
 
+type warning_kind =
+  | UninitializedVariableWarning of A.expr
+
+let warning_message warning = match warning with
+  | UninitializedVariableWarning _ -> "Uninitialized frame block variable, potentially due to frame block stuttering"
+
+type warning = [
+  | `LustreDesugarFrameBlocksWarning of Lib.position * warning_kind
+]
+
+let mk_warning pos kind = `LustreDesugarFrameBlocksWarning (pos, kind)
+
+let warn_unguarded_pres nis = 
+  List.map (fun ni -> match ni with
+    | A.Body (Equation (pos, _, expr)) -> if AH.has_unguarded_pre_no_warn expr then [(mk_warning pos (UninitializedVariableWarning expr))] else []
+    | _ -> []
+  ) nis
+
+let split3 triples =
+  let xs = List.map (fun (x, _, _) -> x) triples in
+  let ys = List.map (fun (_, y, _) -> y) triples in
+  let zs = List.map (fun (_, _, z) -> z) triples in
+  xs, ys, zs
+
+
 (** Parses an expression and replaces any ITE oracles with the 'fill'
     expression (which is stuttering, ie, 'pre variable').
 *)
@@ -229,10 +254,9 @@ let desugar_node_item ni = match ni with
     let nis2 = List.flatten nis2 in 
     let* nis3 = R.seq (List.map (generate_undefined_nes_no_init pos nes nis) vars) in
     let nis3 = List.flatten nis3 in
-    R.ok ([], nis @ nis2 @ nis3)
-  | _ -> R.ok ([], [ni])
-
-
+    let warnings = warn_unguarded_pres nis |> List.flatten in
+    R.ok ([], nis @ nis2 @ nis3, warnings)
+  | _ -> R.ok ([], [ni], [])
 
 (** Desugars a declaration list to remove frame blocks. Node equations
     in the body are initialized with the provided initializations. If a frame block 
@@ -242,17 +266,21 @@ let desugar_frame_blocks sorted_node_contract_decls =
   let desugar_node_decl decl = (match decl with
     | A.NodeDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis2, co)) -> 
       let* res = R.seq (List.map desugar_node_item nis2) in
-      let decls, nis = List.split res in
+      let decls, nis, warnings = split3 res in
+      let warnings = List.flatten warnings in
       R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, 
-                       (List.flatten decls) @ nlds, List.flatten nis, co))) 
+                       (List.flatten decls) @ nlds, List.flatten nis, co)), warnings) 
                       
     (* Make sure there are no frame blocks in functions *)
     | A.FuncDecl (_, ((_, _, _, _, _, _, nis, _))) -> (
       let contains_frame_block = List.find_opt (fun ni -> match ni with | A.FrameBlock _ -> true | _ -> false) nis in
       match contains_frame_block with
         | Some (FrameBlock (pos, _, _, _) as fb) -> mk_error pos (MisplacedFrameBlockError fb)
-        | _ -> R.ok decl
+        | _ -> R.ok (decl, [])
       )
-    | _ -> R.ok decl
+    | _ -> R.ok (decl, [])
   ) in
-  R.seq (List.map desugar_node_decl sorted_node_contract_decls)
+  let* res = R.seq (List.map desugar_node_decl sorted_node_contract_decls) in
+  let decls, warnings = List.split res in
+  let warnings = List.flatten warnings in
+  R.ok (decls, warnings)

@@ -244,6 +244,80 @@ let has_unguarded_pre e =
   if u && Flags.lus_strict ()
   then raise Parser_error; u
 
+let rec has_unguarded_pre_no_warn ung = function
+  | Const _ | Ident _ | ModeRef _ -> false
+    
+  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
+  | TupleProject (_, e, _) | Quantifier (_, _, _, e) -> has_unguarded_pre_no_warn ung e
+  | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
+  | CompOp (_, _, e1, e2) | ArrayConcat (_, e1, e2) ->
+    let u1 = has_unguarded_pre_no_warn ung e1 in
+    let u2 = has_unguarded_pre_no_warn ung e2 in
+    u1 || u2
+
+  | TernaryOp (_, _, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3)) ->
+    let u1 = has_unguarded_pre_no_warn ung e1 in
+    let u2 = has_unguarded_pre_no_warn ung e2 in
+    let u3 = has_unguarded_pre_no_warn ung e3 in
+    u1 || u2 || u3
+
+  | ArrayIndex (_, e1, e2) ->
+    let u1 = has_unguarded_pre_no_warn ung e1 in
+    let u2 = has_unguarded_pre_no_warn ung e2 in
+    u1 || u2
+ 
+  | GroupExpr (_, _, l) | NArityOp (_, _, l)
+  | Call (_, _, l) | CallParam (_, _, _, l) ->
+    let us = List.map (has_unguarded_pre_no_warn ung) l in
+    List.exists Lib.identity us
+
+  | Merge (_, _, l) ->
+    let us = List.map (has_unguarded_pre_no_warn ung) (List.map snd l) in
+    List.exists Lib.identity us
+
+  | RestartEvery (_, _, l, e) ->
+    let us = List.map (has_unguarded_pre_no_warn ung) (e :: l) in
+    List.exists Lib.identity us
+
+  | Activate (_, _, e, r, l)  ->
+    let us = List.map (has_unguarded_pre_no_warn ung) (e :: r :: l) in
+    List.exists Lib.identity us
+
+  | Condact (_, e, r, _, l1, l2) ->
+    let us = List.map (has_unguarded_pre_no_warn ung) (e :: r :: l1 @ l2) in
+    List.exists Lib.identity us
+
+  | RecordExpr (_, _, ie) ->
+    let us = List.map (fun (_, e) -> has_unguarded_pre_no_warn ung e) ie in
+    List.exists Lib.identity us
+
+  | StructUpdate (_, e1, li, e2) ->
+    let u1 = has_unguarded_pre_no_warn ung e1 in
+    let us = List.map (function
+        | Label _ -> false
+        | Index (_, e) -> has_unguarded_pre_no_warn ung e
+      ) li in
+    let u2 = has_unguarded_pre_no_warn ung e2 in
+    u1 || u2 || List.exists Lib.identity us
+
+  | Fby (_, e1, _, e2) ->
+    let u1, u2 = has_unguarded_pre_no_warn ung e1, has_unguarded_pre_no_warn ung e2 in
+    u1 || u2
+
+  | Pre (_, e)->
+    let u = has_unguarded_pre_no_warn true e in
+    ung || u
+
+  | Arrow (_, e1, e2) ->
+    let u1 = has_unguarded_pre_no_warn ung e1 in
+    let u2 = has_unguarded_pre_no_warn false e2 in
+    u1 || u2
+
+let has_unguarded_pre_no_warn e =
+  has_unguarded_pre_no_warn true e 
+
 (** If second argument is `Some _`, returns that. Otherwise runs `f`. *)
 let unwrap_or f = function
 | None -> f ()
