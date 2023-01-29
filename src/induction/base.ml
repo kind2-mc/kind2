@@ -148,14 +148,6 @@ let lowest_lower_bound trans =
     (* Shouldn't be possible, but if there are other types of properties, we shouldn't skip steps *)
     | _ -> 0) max_int 
 
-(*
-let re_init trans k =
-  let llb = lowest_lower_bound trans in
-  let num_skip = llb - Numeral.to_int k in
-  num_skip > 0
-*)
-
-
 let skip_steps_next trans solver step k (* nu_unknowns *) = 
   let llb = lowest_lower_bound trans in
     let num_skip = llb - Numeral.to_int k in
@@ -169,20 +161,7 @@ let skip_steps_next trans solver step k (* nu_unknowns *) =
       (* Asserting transition relation for next iteration. *)
       TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans !step
       |> SMTSolver.assert_term solver ;
-    done(*;
-  let all_invs =
-    TransSys.invars_of_bound
-      ~one_state_only:Numeral.(equal !step zero) trans !step
-    |> Term.mk_and
-  in
-  if (all_invs != Term.t_true) then
-    SMTSolver.assert_term solver all_invs;
-
-  (* Asserting implications if k > 0. *)
-  if Numeral.(!step > zero) then
-    nu_unknowns
-    |> List.map (fun (_, term) -> Term.bump_state Numeral.(!step-one) term)
-    |> Term.mk_and |> SMTSolver.assert_term solver *)
+    done
 
 (* Performs the next check after updating its context with new
    invariants and falsified properties. Assumes the solver is
@@ -238,6 +217,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
     Stat.set k_int Stat.bmc_k ;
     KEvent.progress k_int ;
     Stat.update_time Stat.bmc_total_time ;
+
     (* Asserting implications if k > 0. *)
     if Numeral.(k > zero) then
       nu_unknowns
@@ -399,7 +379,7 @@ and skip_steps_init trans solver =
   num_skip
 
 (* Initializes the solver for the first check. *)
-and init input_sys aparam trans invs =
+let init input_sys aparam trans invs =
   (* Starting the timer. *)
   Stat.start_timer Stat.bmc_total_time;
 
@@ -411,8 +391,6 @@ and init input_sys aparam trans invs =
     else
       (TransSys.props_list_of_bound_skip trans Numeral.zero)
   in
-
-  (*let unknowns = TransSys.props_list_of_bound trans Numeral.zero in*)
 
   (* Creating solver. *)
   let solver =
@@ -450,7 +428,7 @@ and init input_sys aparam trans invs =
     )
   ) ;
 
-  (* Start "next" at a timestep after Numeral.zero *)
+  (* Start "next" at the correct timestep with regards to (potentially) skipping steps *)
   (input_sys, aparam, trans, solver, Numeral.of_int num_skip, unknowns, invs)
 
 (* Runs the base instance. *)

@@ -66,7 +66,7 @@
 
      @author Andrew Marmaduke *)
 
-
+val ctr_id : HString.t
 
 type error = [
   | `LustreAstNormalizerError

@@ -300,6 +300,7 @@ let rm_neg_prop_str str k =
       let ts = string_of_int ts in
       let amount_to_cut = 25 + (String.length ts) in
       (String.sub str 6 ((String.length str) - (amount_to_cut))) 
+    (* For FromWithin, we have two trailing counter expressions to remove *)
     | Property.Reachable Some (FromWithin (ts1, ts2)) -> 
     let ts1 = string_of_int ts1 in
     let ts2 = string_of_int ts2 in
