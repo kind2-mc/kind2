@@ -70,9 +70,33 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/const_not_const.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);
+  mk_test "test temporal op in ghost const" (fun () ->
+    match load_file "./lustreSyntaxChecks/ghost_const_not_const.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
+    | _ -> false);
   mk_test "test undefined node" (fun () ->
-    match load_file "./lustreSyntaxChecks/dangling_call_in_ghost_const.lus" with
+    match load_file "./lustreSyntaxChecks/dangling_call_in_ghost_var.lus" with
     | Error (`LustreSyntaxChecksError (_, UndefinedNode _)) -> true
+    | _ -> false);
+  mk_test "test undefined contract" (fun () ->
+    match load_file "./lustreSyntaxChecks/dangling_contract_call.lus" with
+    | Error (`LustreSyntaxChecksError (_, UndefinedContract _)) -> true
+    | _ -> false);
+  mk_test "test unknown contract call input" (fun () ->
+    match load_file "./lustreSyntaxChecks/unknown_contract_call_input.lus" with
+    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
+    | _ -> false);
+  mk_test "test unknown contract call output" (fun () ->
+    match load_file "./lustreSyntaxChecks/unknown_contract_call_output.lus" with
+    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
+    | _ -> false);
+  mk_test "test undeclared lhs" (fun () ->
+    match load_file "./lustreSyntaxChecks/undeclared_lhs.lus" with
+    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
+    | _ -> false);
+  mk_test "test inlined contract 2" (fun () ->
+    match load_file "./lustreTypeChecker/inlined_contract_02.lus" with
+    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
     | _ -> false);
   mk_test "test function with arrow in body" (fun () ->
     match load_file "./lustreSyntaxChecks/function_no_arrow_in_body.lus" with
@@ -380,10 +404,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test inlined contract 1" (fun () ->
     match load_file "./lustreTypeChecker/inlined_contract_01.lus" with
     | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
-    | _ -> false);
-  mk_test "test inlined contract 2" (fun () ->
-    match load_file "./lustreTypeChecker/inlined_contract_02.lus" with
-    | Error (`LustreTypeCheckerError (_, UnboundIdentifier _)) -> true
     | _ -> false);
   mk_test "test int div 1" (fun () ->
     match load_file "./lustreTypeChecker/intdiv_01.lus" with

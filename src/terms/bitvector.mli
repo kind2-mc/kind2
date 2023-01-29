@@ -52,6 +52,9 @@ val bvconcat : t -> t -> t
 (** {1 Numeral to Unsigned Bitvector}
 @author Arjun Viswanathan *)
 
+(** [num_to_ubv s n] returns size [s] unsigned bitvector converted from numeral [n] *)
+val num_to_ubv : Numeral.t -> Numeral.t -> t
+
 (** Return size 8 unsigned bitvector converted from a numeral *)
 val num_to_ubv8 : Numeral.t -> t
 

@@ -706,9 +706,6 @@ let extrapolate trans_sys state f g =
     | QE.QuantifiedTermFound _ ->
         let err = "Disabling IC3: Cannot generalize quantified terms." in
         raise (UnsupportedFeature err)
-    | GenericSMTLIBDriver.UnsupportedZ3Symbol s ->
-        let err = ("Disabling IC3: Special non-SMTLIB symbol " ^ s ^ " detected in QE.") in
-        raise (UnsupportedFeature err)
   in
 
   Stat.record_time Stat.ic3_generalize_time;
@@ -3053,7 +3050,7 @@ let main_ic3 input_sys aparam trans_sys =
   (* Create new solver instance *)
   let solver =
     SMTSolver.create_instance
-      ~produce_assignments:true
+      ~produce_models:true
       ~produce_unsat_assumptions:true
       logic
       (Flags.Smt.solver ())
@@ -3236,7 +3233,7 @@ let main_ic3 input_sys aparam trans_sys =
 let main input_sys aparam trans_sys =
 
   (match Flags.Smt.solver () with
-  | `Yices_SMTLIB -> (
+  | `Yices2_SMTLIB -> (
     (let open TermLib in
      let open TermLib.FeatureSet in
      match TransSys.get_logic trans_sys with

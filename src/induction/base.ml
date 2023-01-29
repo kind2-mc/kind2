@@ -416,7 +416,7 @@ and init input_sys aparam trans invs =
 
   (* Creating solver. *)
   let solver =
-    SMTSolver.create_instance ~produce_assignments:true
+    SMTSolver.create_instance ~produce_models:true
       (TransSys.get_logic trans) (Flags.Smt.solver ())
   in
 

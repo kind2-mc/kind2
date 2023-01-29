@@ -653,16 +653,16 @@ let launch input_sys aparam trans =
   let logic =
     match TransSys.get_logic trans with
     | `Inferred fs when Flags.BmcKind.compress () ->
-        let open TermLib.FeatureSet in
-        if subset fs (of_list [ Q; UF; A; BV ]) then
-          `Inferred (sup_logics [ fs; of_list [ BV; UF ] ])
-        else `Inferred (sup_logics [ fs; of_list [ IA; LA; UF ] ])
+      let open TermLib.FeatureSet in
+      if Compress.only_bv trans
+      then `Inferred (sup_logics [ fs; of_list [ BV; UF ] ])
+      else `Inferred (sup_logics [ fs; of_list [ IA; LA; UF ] ])
     | l -> l
   in
 
   (* Creating solver. *)
   let solver =
-    SMTSolver.create_instance ~produce_assignments:true
+    SMTSolver.create_instance ~produce_models:true
       logic (Flags.Smt.solver ())
   in
 

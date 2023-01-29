@@ -38,8 +38,8 @@ let set_ubound bound = ubound := bound
 
 let get_qe_solver () =
   match Flags.Smt.qe_solver () with
-  | `Z3_SMTLIB -> `Z3_SMTLIB
   | `cvc5_SMTLIB -> `cvc5_SMTLIB
+  | `Z3_SMTLIB -> `Z3_SMTLIB
   | _ -> failwith "No QE solver found"
 
 (* Get the current solver instance or create a new instance *)
@@ -53,7 +53,7 @@ let get_solver_instance trans_sys =
  
       (* Create solver instance *)
       let solver = SMTSolver.create_instance
-          ~produce_assignments:true
+          ~produce_models:true
           (TermLib.add_quantifiers (TransSys.get_logic trans_sys))
           (get_qe_solver ())
       in
@@ -119,7 +119,7 @@ let get_checking_solver_instance trans_sys =
       (* Create solver instance with support for quantifiers *)
       let solver =     
         SMTSolver.create_instance 
-          ~produce_assignments:true
+          ~produce_models:true
           (* add quantifiers to system logic *)
           (TermLib.add_quantifiers (TransSys.get_logic trans_sys))
           (Flags.Smt.solver ())
@@ -714,7 +714,7 @@ let ae_val_gen trans_sys premise elim conclusion =
   (* Create new solver instance *)
   let solver =
     SMTSolver.create_instance
-      ~produce_assignments:true
+      ~produce_models:true
       (TransSys.get_logic trans_sys)
       (Flags.Smt.solver ())
   in

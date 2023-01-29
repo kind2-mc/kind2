@@ -18,15 +18,15 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v2
       with:
         driver-opts: network=host
 
     - name: Build and push to local registry
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v3
       with:
         file: docker/Dockerfile
         context: ./
@@ -36,13 +36,13 @@ jobs:
     
     - name: Extract kind 2 binary
       id: extract
-      uses: shrink/actions-docker-extract@v1
+      uses: shrink/actions-docker-extract@v2
       with:
         image: localhost:5000/name/kind2:latest
         path: /home/opam/kind2-build/bin/kind2
 
     - name: Upload kind2 binary
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         path: ${{ steps.extract.outputs.destination }}
         name: linux
@@ -60,7 +60,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set up OCaml ${{ matrix.ocaml-version }}+flambda
       uses: ocaml/setup-ocaml@v2
@@ -77,7 +77,7 @@ jobs:
       run: strip bin/kind2
 
     - name: Upload Kind 2 binary
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.os }}
         path: bin/kind2
@@ -94,17 +94,17 @@ jobs:
     - name: Get nightly pre-release
       uses: octokit/request-action@v2.x
       id: get_nightly_prerelease
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         route: GET /repos/:repository/releases/tags/nightly
-        repository: ${{ github.repository }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        INPUT_REPOSITORY: ${{ github.repository }}
 
     - name: Get pre-release upload_url
       id: get_upload_url
       run: |
         url=$(echo "$response" | jq -r '.upload_url')
-        echo "::set-output name=url::$url"
+        echo "url=$url" >> $GITHUB_OUTPUT
       env:
         response: ${{ steps.get_nightly_prerelease.outputs.data }}
 
@@ -112,7 +112,7 @@ jobs:
       id: get_asset_ids
       run: |
         ids=$(echo "$response" | jq -c '.assets | map(.id)')
-        echo "::set-output name=ids::$ids"
+        echo "ids=$ids" >> $GITHUB_OUTPUT
       env:
         response: ${{ steps.get_nightly_prerelease.outputs.data }}
 
@@ -129,12 +129,12 @@ jobs:
     steps:
     - name: Remove asset
       uses: octokit/request-action@v2.x
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         route: DELETE /repos/:repository/releases/assets/:asset_id
-        repository: ${{ github.repository }}
-        asset_id: ${{ matrix.asset_id }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        INPUT_REPOSITORY: ${{ github.repository }}
+        INPUT_ASSET_ID: ${{ matrix.asset_id }}
 
 
   update-release-tag:
@@ -146,7 +146,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Update nightly tag
       run: |
@@ -167,7 +167,7 @@ jobs:
 
     steps:
     - name: Download binary
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.version }}
     
@@ -178,7 +178,7 @@ jobs:
         date=$(date "+%Y-%m-%d")
         tarball=kind2-$date-${{ matrix.version }}-x86_64.tar.gz
         tar -czf $tarball kind2
-        echo "::set-output name=filename::$tarball"
+        echo "filename=$tarball" >> $GITHUB_OUTPUT
     
     - name: Upload artifact
       uses: actions/upload-release-asset@v1

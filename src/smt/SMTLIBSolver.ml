@@ -900,7 +900,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
   (* Create an instance of the solver *)
   let create_instance
       ?(timeout=0)
-      ?(produce_assignments=false)
+      ?(produce_models=false)
       ?(produce_proofs=false)
       ?(produce_unsat_cores=false)
       ?(produce_unsat_assumptions=false)
@@ -914,7 +914,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       Driver.cmd_line
         logic
         timeout
-        produce_assignments
+        produce_models
         produce_proofs
         produce_unsat_cores
         produce_unsat_assumptions
@@ -1005,10 +1005,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     let headers =
       "(set-option :print-success true)" ::
       (headers minimize_cores) @
-      (if produce_assignments then
-        (*["(set-option :produce-assignments true)"] else []) @*)
-        (* The command get-model is used instead of get-assignment,
-          thus we should use the option produce-models instead of produce-assignments *)
+      (if produce_models then
         ["(set-option :produce-models true)"] else []) @
       (if produce_unsat_cores ||
           (produce_unsat_assumptions && not (Flags.Smt.check_sat_assume ()))
@@ -1017,19 +1014,12 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       (if produce_unsat_assumptions && Flags.Smt.check_sat_assume ()
        then ["(set-option :produce-unsat-assumptions true)"]
        else []) @
+      (if produce_interpolants then
+        [Format.sprintf "(set-option :produce-interpolants %B)" produce_interpolants]
+       else []) @
       header_logic @
       header_farray @
       (if define_bv2int then header_bv2int else [])
-    in
-    
-    (* Add interpolation option only if true *)
-    let headers = 
-      if produce_interpolants then
-        headers @ 
-        [Format.sprintf "(set-option :produce-interpolants %B)" produce_interpolants]
-      else
-        
-        headers 
     in
     
     (* Print specific headers specifications *)
@@ -1156,7 +1146,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     
     let solver = create_instance
         ~timeout:P.timeout
-        ~produce_assignments:P.produce_assignments
+        ~produce_models:P.produce_models
         ~produce_unsat_cores:P.produce_unsat_cores
         ~produce_unsat_assumptions:P.produce_unsat_assumptions
         ~minimize_cores:P.minimize_cores

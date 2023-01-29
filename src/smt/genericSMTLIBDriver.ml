@@ -18,8 +18,6 @@
 
 open Lib
 
-exception UnsupportedZ3Symbol of string
-
 (* ********************************************************************** *)
 (* Dummy and default values                                               *)
 (* ********************************************************************** *)
@@ -335,6 +333,27 @@ let gen_expr_of_string_sexpr'
 
       expr_of_string_sexpr conv bound_vars e |> Term.bump_state Numeral.one
 
+    (* Bit-vector constant of the form (_ bvX n) where X and n are numerals, i.e. (_ bv13 32) *)
+    | HStringSExpr.List [HStringSExpr.Atom s1; HStringSExpr.Atom s2; HStringSExpr.Atom n]
+      when s1 == s_index && HString.sub s2 0 2 = "bv" -> (
+
+      let size =
+        try Numeral.of_string (HString.string_of_hstring n)
+        with _ -> failwith ("Invalid bit-vector constant (size)")
+      in
+
+      let num =
+        try
+          HString.sub s2 2 (HString.length s2 - 2)
+          |> Numeral.of_string
+        with _ -> failwith ("Invalid bit-vector constant (value)")
+      in
+
+      let bv = Bitvector.num_to_ubv size num in
+
+      Term.mk_bv bv
+
+    )
     (*  A list with more than one element *)
     | HStringSExpr.List ((HStringSExpr.Atom h) :: tl) -> 
 
@@ -343,41 +362,35 @@ let gen_expr_of_string_sexpr'
         (* Symbol from string *)
         let s = 
 
-          if ((HString.string_of_hstring h = "bvudiv_i") || 
-              (HString.string_of_hstring h = "bvsdiv_i") ||
-              (HString.string_of_hstring h = "bvurem_i") || 
-              (HString.string_of_hstring h = "bvsrem_i")) then
-            (raise (UnsupportedZ3Symbol (HString.string_of_hstring h)))
-          else
-            try 
+          try
 
-              (* Map the string to an interpreted function symbol *)
-              symbol_of_atom h 
+            (* Map the string to an interpreted function symbol *)
+            symbol_of_atom h
 
-            with 
+          with
 
-              (* Function symbol is uninterpreted *)
-              | Not_found -> 
+            (* Function symbol is uninterpreted *)
+            | Not_found ->
 
-                (* Uninterpreted symbol from string *)
-                let u = 
+              (* Uninterpreted symbol from string *)
+              let u =
 
-                  try 
+                try
 
-                    UfSymbol.uf_symbol_of_string (HString.string_of_hstring h)
+                  UfSymbol.uf_symbol_of_string (HString.string_of_hstring h)
 
-                  with Not_found -> 
-  
-                    (* Cannot convert to an expression *)
-                    failwith 
-                      (Format.sprintf 
-                        "Undeclared uninterpreted function symbol %s in \
-                          S-expression"
-                        (HString.string_of_hstring h))
-                in
+                with Not_found ->
 
-                (* Get the uninterpreted symbol of the string *)
-                Symbol.mk_symbol (`UF u)
+                  (* Cannot convert to an expression *)
+                  failwith
+                    (Format.sprintf
+                      "Undeclared uninterpreted function symbol %s in \
+                        S-expression"
+                      (HString.string_of_hstring h))
+              in
+
+              (* Get the uninterpreted symbol of the string *)
+              Symbol.mk_symbol (`UF u)
 
 
           in
@@ -623,6 +636,10 @@ let smtlib_string_symbol_list =
    ("bvsdiv", Symbol.mk_symbol `BVSDIV);
    ("bvurem", Symbol.mk_symbol `BVUREM);
    ("bvsrem", Symbol.mk_symbol `BVSREM);
+   ("bvudiv_i", Symbol.mk_symbol `BVUDIV);
+   ("bvsdiv_i", Symbol.mk_symbol `BVSDIV);
+   ("bvurem_i", Symbol.mk_symbol `BVUREM);
+   ("bvsrem_i", Symbol.mk_symbol `BVSREM);
    ("bvshl", Symbol.mk_symbol `BVSHL);
    ("bvlshr", Symbol.mk_symbol `BVLSHR);
    ("bvashr", Symbol.mk_symbol `BVASHR);

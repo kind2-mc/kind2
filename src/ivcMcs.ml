@@ -1065,7 +1065,7 @@ let get_logic ?(pathcomp=false) sys =
 let create_solver ?(pathcomp=false) ?(approximate=false) sys actlits bmin bmax =
   let solver =
     SMTSolver.create_instance ~timeout:(Flags.IVC.ivc_uc_timeout ())
-    ~produce_assignments:pathcomp ~produce_unsat_assumptions:true
+    ~produce_models:pathcomp ~produce_unsat_assumptions:true
     ~minimize_cores:(not approximate) (get_logic ~pathcomp sys) (Flags.Smt.solver ()) in
   List.iter (SMTSolver.declare_fun solver) actlits ;
   TS.declare_sorts_ufs_const sys (SMTSolver.declare_fun solver) (SMTSolver.declare_sort solver) ;
@@ -1623,7 +1623,7 @@ let umivc_ ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
     let sys_cs = List.fold_left (fun acc sv -> TS.add_global_constant acc (Var.mk_const_state_var sv)) sys_cs actsvs in
 
     (* Initialize the seed map *)
-    let map = SMTSolver.create_instance ~produce_assignments:true
+    let map = SMTSolver.create_instance ~produce_models:true
       (`Inferred (TermLib.FeatureSet.of_list [IA; LA])) (Flags.Smt.solver ()) in
     actsvs
     |> List.map Var.mk_const_state_var
