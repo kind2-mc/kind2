@@ -360,8 +360,6 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
      next
       (input_sys, aparam, trans, solver, k_p_1, out_of_bounds @ unfalsifiable, invs)
 
-        
-
 and skip_steps_init trans solver =
   let num_skip = lowest_lower_bound trans in
   let step = ref Numeral.one in
