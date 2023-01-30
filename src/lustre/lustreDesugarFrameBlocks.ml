@@ -44,10 +44,10 @@ type error = [
 let mk_error pos kind = Error (`LustreDesugarFrameBlocksError (pos, kind))
 
 type warning_kind =
-  | UninitializedVariableWarning of A.expr
+  | UninitializedVariableWarning of HString.t
 
 let warning_message warning = match warning with
-  | UninitializedVariableWarning _ -> "Uninitialized frame block variable"
+  | UninitializedVariableWarning id -> "Uninitialized frame block variable " ^ HString.string_of_hstring id
 
 type warning = [
   | `LustreDesugarFrameBlocksWarning of Lib.position * warning_kind
@@ -57,7 +57,10 @@ let mk_warning pos kind = `LustreDesugarFrameBlocksWarning (pos, kind)
 
 let warn_unguarded_pres nis pos = 
   List.map (fun ni -> match ni with
-    | A.Body (Equation (_, _, expr)) -> if AH.has_unguarded_pre_no_warn expr then [(mk_warning pos (UninitializedVariableWarning expr))] else []
+    | A.Body (Equation (_, StructDef(_, [SingleIdent(_, id)]), expr)) -> 
+      if AH.has_unguarded_pre_no_warn expr then [(mk_warning pos (UninitializedVariableWarning id))] else []
+    | A.Body (Equation (_, StructDef(_, [ArrayDef(_, id, _)]), expr)) -> 
+      if AH.has_unguarded_pre_no_warn expr then [(mk_warning pos (UninitializedVariableWarning id))] else []
     | _ -> []
   ) nis
 

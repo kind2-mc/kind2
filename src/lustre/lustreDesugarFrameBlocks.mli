@@ -39,7 +39,7 @@ type error = [
 ]
 
 type warning_kind =
-  | UninitializedVariableWarning of LustreAst.expr
+  | UninitializedVariableWarning of HString.t
 
 type warning = [
   | `LustreDesugarFrameBlocksWarning of Lib.position * warning_kind
