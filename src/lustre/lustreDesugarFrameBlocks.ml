@@ -47,7 +47,7 @@ type warning_kind =
   | UninitializedVariableWarning of A.expr
 
 let warning_message warning = match warning with
-  | UninitializedVariableWarning _ -> "Uninitialized frame block variable, potentially due to frame block stuttering"
+  | UninitializedVariableWarning _ -> "Uninitialized frame block variable"
 
 type warning = [
   | `LustreDesugarFrameBlocksWarning of Lib.position * warning_kind
@@ -55,9 +55,9 @@ type warning = [
 
 let mk_warning pos kind = `LustreDesugarFrameBlocksWarning (pos, kind)
 
-let warn_unguarded_pres nis = 
+let warn_unguarded_pres nis pos = 
   List.map (fun ni -> match ni with
-    | A.Body (Equation (pos, _, expr)) -> if AH.has_unguarded_pre_no_warn expr then [(mk_warning pos (UninitializedVariableWarning expr))] else []
+    | A.Body (Equation (_, _, expr)) -> if AH.has_unguarded_pre_no_warn expr then [(mk_warning pos (UninitializedVariableWarning expr))] else []
     | _ -> []
   ) nis
 
@@ -254,7 +254,7 @@ let desugar_node_item ni = match ni with
     let nis2 = List.flatten nis2 in 
     let* nis3 = R.seq (List.map (generate_undefined_nes_no_init pos nes nis) vars) in
     let nis3 = List.flatten nis3 in
-    let warnings = warn_unguarded_pres nis |> List.flatten in
+    let warnings = warn_unguarded_pres (nis @ nis3) pos |> List.flatten in
     R.ok ([], nis @ nis2 @ nis3, warnings)
   | _ -> R.ok ([], [ni], [])
 

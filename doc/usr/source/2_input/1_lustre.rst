@@ -922,6 +922,31 @@ of ``y2`` is undefined (due to the unguarded ``pre``).
 Also, it is still possible to assign to multiple variables at once
 (equations of the form ``y1, y2 = (expr1, expr2);``) in either the initializations or the frame block body. 
 
+The frame block semantics may introduce unguarded ``pre``s. For example, the definition of ``y`` in the
+following code block is equivalent to ``y = pre(y)``. So, Kind 2 will produce two warning messages. The first
+will state that ``y`` is uninitialized in the frame block, and the second will state that there is
+an unguarded ``pre`` (due to this lack of initialization).
+
+.. code-block:: none
+
+   frame ( y )
+   let
+   tel
+
+Similarly, in the following code block, the definitions of ``y1`` and ``y2`` are equivalent to 
+``y1 = if cond then 0 else pre y1`` and ``y2 = if cond then pre y2 else 1``, respectively. This situation (and
+any other situation where the frame block semantics result in the generation of unguarded ``pre``s) 
+will also generate the two warnings as discussed in the previous paragraph.
+
+.. code-block:: none
+
+   frame (y1, y2)
+   if cond
+   then
+      y1 = 0;
+   else
+      y2 = 1;
+
 Restrictions
 ^^^^^^^^^^^^
 A frame block cannot be nested within an if statement or another frame block, as
