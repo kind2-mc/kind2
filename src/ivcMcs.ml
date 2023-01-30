@@ -347,7 +347,7 @@ let minimize_node_eq id_typ_map ue lst = function
     let lhs = if b then novarindex_lhs else lhs in
     Some (A.Equation (pos, lhs, expr))
 
-let minimize_item id_typ_map ue lst = function
+let rec minimize_item id_typ_map ue lst = function
   | A.AnnotMain (p, b) -> [A.AnnotMain (p, b)]
   | A.AnnotProperty (p, str, e, k) -> [A.AnnotProperty (p, str, e, k)]
   | A.Body eq -> (

@@ -234,7 +234,7 @@ match ni with
   | A.IfBlock (pos, _, _, _) 
   | A.FrameBlock (pos, _, _, _) 
   | A.Body (Assert (pos, _)) 
-  | A.AnnotProperty (pos, _, _)
+  | A.AnnotProperty (pos, _, _, _)
   | A.Body (Equation (pos, _, _))
   | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
   
