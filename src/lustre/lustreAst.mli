@@ -232,7 +232,9 @@ type node_equation =
 (** An item in a node declaration *)
 type node_item =
   | Body of node_equation
-  | AnnotMain of bool
+  | IfBlock of position * expr * node_item list * node_item list
+  | FrameBlock of position * ident list * node_equation list * node_item list 
+  | AnnotMain of position * bool
   | AnnotProperty of position * HString.t option * expr
 
 (* A contract ghost constant. *)

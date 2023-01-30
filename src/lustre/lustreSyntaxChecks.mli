@@ -41,6 +41,7 @@ type error_kind = Unknown of string
   | UnsupportedAssignment
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
+  | MisplacedVarInFrameBlock of LustreAst.ident
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind

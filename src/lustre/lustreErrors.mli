@@ -28,6 +28,8 @@ type error = [
   | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
   | `LustreParserError of Lib.position * string
+  | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
+  | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
 ]
 
 val error_position : [< error] -> Lib.position

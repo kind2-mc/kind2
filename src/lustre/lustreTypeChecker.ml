@@ -950,7 +950,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
             if SI.mem v arg_ids then
               type_error pos (NodeArgumentOnLHS v)
             else R.ok ())
-          (List.flatten (List.map LH.vars_lhs_of_eqn_with_pos items))
+          (List.flatten (List.map LH.defined_vars_with_pos items))
           |> R.seq_
         in
         Debug.parse "TC declaration node %a done }"
@@ -986,6 +986,21 @@ and do_node_eqn: tc_context -> LA.node_equation -> (unit, [> error]) result = fu
 and do_item: tc_context -> LA.node_item -> (unit, [> error]) result = fun ctx ->
   function
   | LA.Body eqn -> do_node_eqn ctx eqn
+  | LA.IfBlock (pos, e, l1, l2) ->
+    let* guard_type = infer_type_expr ctx e in
+    (match guard_type with
+      | Bool _ -> (R.seq_ ((List.map (do_item ctx) l1) @ (List.map (do_item ctx) l2)))
+      | e_ty -> type_error pos  (ExpectedBooleanExpression e_ty)
+    )
+  | LA.FrameBlock (pos, vars, nes, nis) -> 
+    let reassigned_consts = (SI.filter (fun e -> (member_val ctx e)) (SI.of_list vars)) in
+    R.seq_ (
+      (
+        if ((SI.cardinal reassigned_consts) = 0) 
+        then R.ok ()
+        else type_error pos (DisallowedReassignment reassigned_consts)
+      ) :: (List.map (do_node_eqn ctx) nes) @ (List.map (do_item ctx) nis) 
+    )
   | LA.AnnotMain _ as ann ->
     Debug.parse "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann
     ; R.ok ()
@@ -1551,7 +1566,32 @@ let rec type_check_group: tc_context -> LA.t ->  (unit, [> error]) result list
     type_check_group global_ctx rest
 (** By this point, all the circularity should be resolved,
  * the top most declaration should be able to access 
- * the types of all the forward referenced indentifiers from the context*)       
+ * the types of all the forward referenced indentifiers from the context*) 
+ 
+(** Collects a node's context. *)
+let get_node_ctx ctx (_, _, _, inputs, outputs, locals, _, _) =
+  let constants_ctx = inputs
+    |> List.map extract_consts
+    |> (List.fold_left union ctx)
+  in
+  let input_ctx = inputs
+    |> List.map extract_arg_ctx
+    |> (List.fold_left union ctx)
+  in
+  let output_ctx = outputs
+    |> List.map extract_ret_ctx
+    |> (List.fold_left union ctx)
+  in
+  let ctx = union
+    (union constants_ctx ctx)
+    (union input_ctx output_ctx) in
+  let rec helper ctx locals = match locals with
+    | local :: locals -> 
+      let* ctx = local_var_binding ctx local in 
+      helper ctx locals
+    | [] -> R.ok ctx in
+  helper ctx locals
+
 
 let type_check_decl_grps: tc_context -> LA.t list -> (unit, [> error]) result list
   = fun ctx decls ->

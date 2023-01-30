@@ -138,6 +138,8 @@ let mk_span start_pos end_pos =
 %token XOR
 %token OR
 %token IF
+%token FI
+%token FRAME
 %token WITH
 %token THEN
 %token ELSE
@@ -561,15 +563,15 @@ boolean:
 
     
 main_annot:
-  | MAIN_P_ANNOT ; SEMICOLON { A.AnnotMain true }
-  | MAIN_PSBLOCKSTART ; option (SEMICOLON) ; PSBLOCKEND { A.AnnotMain true }
-  | MAIN_SSBLOCKSTART ; option (SEMICOLON) ; SSBLOCKEND { A.AnnotMain true }
-  | MAIN_B_ANNOT ; COLON ; b = boolean ; SEMICOLON { A.AnnotMain b }
+  | MAIN_P_ANNOT ; SEMICOLON { A.AnnotMain (mk_pos $startpos, true) }
+  | MAIN_PSBLOCKSTART ; option (SEMICOLON) ; PSBLOCKEND { A.AnnotMain (mk_pos $startpos, true) }
+  | MAIN_SSBLOCKSTART ; option (SEMICOLON) ; SSBLOCKEND { A.AnnotMain (mk_pos $startpos, true) }
+  | MAIN_B_ANNOT ; COLON ; b = boolean ; SEMICOLON { A.AnnotMain (mk_pos $startpos, b) }
   | MAIN_PSBLOCKSTART ; COLON ; b = boolean ; option (SEMICOLON) ; PSBLOCKEND {
-    A.AnnotMain b
+    A.AnnotMain (mk_pos $startpos, b)
   }
   | MAIN_SSBLOCKSTART ; COLON ; b = boolean ; option (SEMICOLON) ; SSBLOCKEND {
-    A.AnnotMain b
+    A.AnnotMain (mk_pos $startpos, b)
   }
 
 property:
@@ -593,10 +595,37 @@ check:
     { A.AnnotProperty (mk_pos $startpos, name, e) }
 
 node_item:
+  | i = node_if_block { i }
+  | f = node_frame_block { f }
   | e = node_equation { A.Body e }
   | a = main_annot { a }
   | p = property { p }
   | p = check { p }
+
+
+
+node_if_block:
+  | IF; e = expr; 
+    THEN; 
+      l1 = nonempty_list(node_item);
+    ELSE; 
+      l2 = nonempty_list(node_item);
+    FI;
+    { A.IfBlock (mk_pos $startpos, e, l1, l2) }
+  | IF; e = expr; THEN; 
+      l1 = nonempty_list(node_item);
+    FI;
+    { A.IfBlock (mk_pos $startpos, e, l1, []) }
+
+
+
+node_frame_block:
+  | FRAME; LPAREN; l1 = separated_list(COMMA, ident); RPAREN;
+    l2 = list(node_equation);
+    LET;
+    l3 = list(node_item);
+    TEL;
+  { A.FrameBlock (mk_pos $startpos, l1, l2, l3) }
 
 
 (* An equations of a node *)

@@ -242,14 +242,17 @@ and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
   let ty_ctx = List.fold_left
     (fun ctx local -> TC.local_var_binding ctx local |> unwrap)
     ty_ctx
-    locals
+    locals 
   in
   let eqns = List.fold_left (fun acc -> function
     | LA.Body eqn -> (match eqn with
       | LA.Assert _ -> acc
       | Equation (_, lhs, rhs) -> (lhs, rhs) :: acc)
-    | AnnotMain _ -> acc
-    | AnnotProperty _ -> acc)
+    | AnnotMain _ 
+    | AnnotProperty _ -> acc
+    (* Shouldn't be possible *)
+    | LA.IfBlock _ 
+    | LA.FrameBlock _ -> assert false)
     []
     items
   in

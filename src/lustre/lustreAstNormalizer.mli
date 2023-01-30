@@ -65,19 +65,26 @@
   7. Restarts of node calls (if it is not a constant)
 
      @author Andrew Marmaduke *)
-
-
-
+     
 type error = [
   | `LustreAstNormalizerError
 ]
 
-val normalize : TypeCheckerContext.tc_context
-  -> LustreAbstractInterpretation.context
-  -> LustreAst.t
-  -> (LustreAst.t * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t,
-      [> error]) result
+type warning_kind =
+  | UnguardedPreWarning of LustreAst.expr
+
+type warning = [
+  | `LustreAstNormalizerWarning of Lib.position * warning_kind
+]
+
+val warning_message : warning_kind -> string
+
+val normalize : TypeCheckerContext.tc_context ->
+  LustreAbstractInterpretation.context ->
+  LustreAst.t ->
+    GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t ->
+  (LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t *
+   [> `LustreAstNormalizerWarning of Lib.position * warning_kind ] list, [> error])
+  result
 
 val pp_print_generated_identifiers : Format.formatter -> GeneratedIdentifiers.t -> unit
-
-val get_warnings : GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t -> (Lib.position * LustreAst.expr) list

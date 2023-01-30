@@ -1,0 +1,37 @@
+node test(x: int) returns (y1: int; y2: bool; p1, p2, p3: bool);
+let 
+  p1 = (y1 >= 0);
+  p2 = (y2 = not oscillate(true));
+  --%PROPERTY p1;
+
+  frame ( y1, y2 )
+  y1 = 5; y2 = false;
+  let
+    if oscillate(true)
+    then
+      y1 = pre counter(0);
+    else
+      y1 = pre counter(1);
+    fi
+
+    y2 = pre oscillate(true);
+  tel
+
+  
+tel;
+
+node counter2(x: int) returns (y: int; z: int);
+let
+   y = x -> pre y + 1;
+   z = x -> pre y + 2;
+tel;
+
+node counter(x: int) returns (y: int);
+let
+  y = x -> pre y + 1;
+tel;
+
+node oscillate(x: bool) returns (y: bool);
+let
+   y = x -> (not pre y);
+tel;

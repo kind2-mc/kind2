@@ -154,6 +154,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/var_redefinition2.lus" with
     | Error (`LustreSyntaxChecksError (_, DuplicateOutput _)) -> true
     | _ -> false);  
+  mk_test "test defining a variable more than once 1" (fun () ->
+    match load_file "./lustreSyntaxChecks/var_redefinition3.lus" with
+    | Error (`LustreSyntaxChecksError (_, DuplicateLocal _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -553,4 +557,26 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/expected_record_type.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedRecordType _)) -> true
     | _ -> false);
+])
+
+(* *************************************************************************** *)
+(*                        Lustre If and Frame Block Checks                     *)
+(* *************************************************************************** *)
+let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIfBlocks error tests" >::: [
+  mk_test "Misplaced frame block inside if block" (fun () ->
+    match load_file "./lustreSyntaxChecks/misplaced_frame_block.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MisplacedNodeItemError _)) -> true
+    | _ -> false);  
+  mk_test "Misplaced node item inside frame block" (fun () ->
+    match load_file "./lustreSyntaxChecks/misplaced_node_item_frame.lus" with
+    | Error (`LustreDesugarFrameBlocksError (_, MisplacedNodeItemError _)) -> true
+    | _ -> false); 
+  mk_test "Uninitialized node item inside frame block" (fun () ->
+    match load_file "./lustreSyntaxChecks/uninitialized_node_item_frame.lus" with
+    | Error (`LustreSyntaxChecksError (_, MisplacedVarInFrameBlock _)) -> true
+    | _ -> false);  
+  mk_test "Uninitialized node item inside frame block 2" (fun () ->
+    match load_file "./lustreSyntaxChecks/uninitialized_node_item_frame2.lus" with
+    | Error (`LustreSyntaxChecksError (_, MisplacedVarInFrameBlock _)) -> true
+    | _ -> false);  
 ])
