@@ -21,6 +21,7 @@
 
 module LA = LustreAst
 module LAH = LustreAstHelpers
+module H = HString
 
 module StringSet = Set.Make(
   struct
@@ -57,6 +58,7 @@ type error_kind = Unknown of string
   | UnsupportedAssignment
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
+  | MisplacedVarInFrameBlock of LustreAst.ident
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -100,6 +102,7 @@ let error_message kind = match kind with
   | UnsupportedAssignment -> "Assignment not supported"
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
+  | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -294,12 +297,32 @@ let rec find_var_def_count_lhs id = function
     List.map (find_var_def_count_lhs id) items
     |> List.fold_left (+) 0
 
-let find_var_def_count id = function
+let rec find_var_def_count id = function
   | LA.Body eqn -> (match eqn with
     | LA.Assert _ -> 0
     | LA.Equation (_, lhs, _) -> (match lhs with
       | LA.StructDef (_, vars)
         -> List.map (find_var_def_count_lhs id) vars) |> List.fold_left (+) 0)
+  | LA.IfBlock (_, _, l1, l2) ->
+    let x1 = List.map (find_var_def_count id) l1 |> List.fold_left (+) 0 in
+    let x2 = List.map (find_var_def_count id) l2 |> List.fold_left (+) 0 in
+    (* Detect duplicate definitions in the same branch *)
+    if (x1 > 1 || x2 > 1) then 2
+    (* Local is defined in at least one branch *)
+    else if (x1 = 1 || x2 = 1) then 1
+    (* Local isn't defined in this if block *)
+    else 0
+  | LA.FrameBlock (_, vars, nes, nis) -> (
+    let nes = List.map (fun x -> (LA.Body x)) nes in
+    let x1 = List.filter (fun var -> var = id) vars |> List.length in
+    let x2 = List.map (find_var_def_count id) nis |> List.fold_left (+) 0 in
+    let x3 = List.map (find_var_def_count id) nes |> List.fold_left (+) 0 in
+    if (x1 + x2 + x3 = 0) 
+    then 0 
+    (* Detect duplicate definitions in any components of the frame block *)
+    else if (x1 > 1 || x2 > 1 || x3 > 1) then 2
+    else 1
+  )
   | LA.AnnotMain _ -> 0
   | LA.AnnotProperty _ -> 0
 
@@ -426,8 +449,7 @@ let no_calls_to_nodes_with_contracts_subject_to_refinement ctx expr =
     | _ -> Ok ())
   | _ -> Ok ()
 
-let no_temporal_operator is_const expr =
-  let decl_ctx = if is_const then "constant" else "function or function contract" in
+let no_temporal_operator decl_ctx expr =
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
@@ -531,7 +553,7 @@ and check_declaration ctx = function
 
 and check_const_expr_decl ctx expr =
   let composed_checks ctx e =
-    (no_temporal_operator true e)
+    (no_temporal_operator "constant" e)
       >> (no_dangling_identifiers ctx e)
   in
   check_expr ctx composed_checks expr
@@ -601,12 +623,12 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
   let composed_items_checks ctx e =
     (common_node_equations_checks ctx e)
       >> (no_calls_to_node ctx e)
-      >> (no_temporal_operator false e)
+      >> (no_temporal_operator "constant" e)
   in
   (parametric_nodes_unsupported span.start_pos params)
   >> (match contract with
       | Some c -> check_contract false ctx common_contract_checks c
-        >> (check_contract false ctx (fun _ -> no_temporal_operator false) c)
+        >> (check_contract false ctx (fun _ -> no_temporal_operator "function or function contract") c)
         >> no_stateful_contract_imports ctx c
       | None -> Ok ())
   >> (check_items
@@ -638,6 +660,14 @@ and check_items ctx f items =
       check_struct_items ctx struct_items
         >> check_expr ctx' f e
         >> (expr_only_supported_in_merge false e)
+    | LA.IfBlock (_, e, l1, l2) -> 
+      check_expr ctx f e >> (check_items ctx f l1) >> (check_items ctx f l2)
+    | LA.FrameBlock (pos, vars, nes, nis) ->
+      let nes = List.map (fun x -> LA.Body x) nes in
+      check_items ctx (fun _ e -> no_temporal_operator "frame block initialization" e) nes >>
+      check_items ctx f nes >> (check_items ctx f nis) >>
+      (*  Make sure 'nes' and 'nis' LHS vars are in 'vars' *)
+      (Res.seq_ (List.map (check_frame_vars pos vars) nis)) >> (Res.seq_ (List.map (check_frame_vars pos vars) nes))
     | Body (Assert (_, e))
     | AnnotProperty (_, _, e, _) -> check_expr ctx f e
     | AnnotMain _ -> Ok ()
@@ -657,6 +687,16 @@ and check_struct_items ctx items =
   | (FieldSelection (pos, _, _)) :: _
   | (ArraySliceStructItem (pos, _, _)) :: _
     -> syntax_error pos UnsupportedAssignment
+
+(* Within a frame block, make sure vars in the LHS of 'ni' appear somehwere in 'vars'  *)
+and check_frame_vars pos vars ni = 
+  let vars_of_ni = List.map snd (LAH.defined_vars_with_pos ni) in
+  let unlisted = 
+    H.HStringSet.diff (H.HStringSet.of_list vars_of_ni) (H.HStringSet.of_list vars)
+  in
+  match H.HStringSet.choose_opt unlisted with
+  | None -> Res.ok ()
+  | Some var -> syntax_error pos (MisplacedVarInFrameBlock var)
 
 and check_contract is_contract_node ctx f contract =
   let ctx = build_contract_ctx ctx contract in

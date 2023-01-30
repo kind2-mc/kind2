@@ -47,13 +47,14 @@ type t = {
     * LustreAst.expr (* abstracted expression *)
     * LustreAst.expr) (* original expression *)
     StringMap.t;
+  generated_locals : LustreAst.expr StringMap.t; (* maps generated local to corresponding user-defined variable *)
   contract_calls :
     (Lib.position
     * (Lib.position * HString.t) list (* contract scope *)
     * LustreAst.contract_node_equation list)
     StringMap.t;
-  warnings : (Lib.position * LustreAst.expr) list;
   oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
+  ib_oracles : (HString.t * LustreAst.lustre_type) list;
   calls : (Lib.position (* node call position *)
     * HString.t (* abstracted output *)
     * LustreAst.expr (* condition expression *)
@@ -77,8 +78,17 @@ type t = {
     list;
 }
 
+(* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml
+   that is used for if block oracle variable names. *)
+val iboracle : string
+
+(** Checks if a variable name corresponds to an iboracle *)
+val var_is_iboracle: HString.t -> bool
+
 val empty : unit -> t
 
 val union : t -> t -> t
 
 val union_keys : 'a -> 'b option -> 'b option -> 'b option
+
+val union_keys2 : 'a -> t option -> t option -> t option

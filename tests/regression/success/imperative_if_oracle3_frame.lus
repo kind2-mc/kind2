@@ -1,0 +1,35 @@
+type r1 = { v1: bool; v2: int; v3: bool };
+type r2 = { v3: int; v4: r1 };
+
+node test(x: int) returns (y1: int^2; 
+                           y2: [int, bool, bool]; 
+                           y3: r2; 
+                           y4: int^5;
+                           p1, p2, p3, p4: bool);
+let 
+  p1 = (x > 0 => (y1[0] = 1 -> y1[0] = 0));
+  p2 = (x > 0 => (y2 = {45, true, true} -> y2 = {44, false, true}));
+  p3 = (x > 0 => (y3.v4.v2 = 46 -> y3.v4.v2 = 45));
+  p4 = (x > 0 => ((y4[3] = 6) -> (y4[3] = 3)));
+
+  --%PROPERTY p1;
+  --%PROPERTY p2;
+  --%PROPERTY p3;
+  --%PROPERTY p4;
+  
+
+  frame ( y1, y2, y3, y4 )
+  y1 = [1, 0]; y2 = {45, true, true}; 
+        y3 = r2 { v3 = 25; v4 = r1 { v1 = false; v2 = 46; v3 = true }};
+        y4[i] = if i = 0 then 0 else (y4[i-1] + 2);
+  let
+
+    if (x > 0)
+    then 
+      y1 = [0, 0];
+      y2 = {44, false, true};
+      y3 = r2 { v3 = 22; v4 = r1 { v1 = true; v2 = 45; v3 = true }};
+      y4[i] = if i = 0 then 0 else (y4[i-1] + 1);
+    fi
+  tel
+tel

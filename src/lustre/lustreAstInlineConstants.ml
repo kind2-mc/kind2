@@ -449,13 +449,17 @@ let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA
   -> function
   | [] -> []
   | (Body b) :: items ->
-     (Body (inline_constants_of_node_equation ctx b))
-     :: inline_constants_of_node_items ctx items
+    (Body (inline_constants_of_node_equation ctx b))
+    :: inline_constants_of_node_items ctx items
+  (* shouldn't be possible *)
+  | (IfBlock _) :: _ 
+  | (FrameBlock _) :: _ ->
+    assert false
   | (AnnotProperty (pos, n, e, k)) :: items ->
-     (AnnotProperty (pos, n, simplify_expr ctx e, k))
-     :: inline_constants_of_node_items ctx items
-  | (AnnotMain b) :: items
-    -> (AnnotMain b) :: inline_constants_of_node_items ctx items
+    (AnnotProperty (pos, n, simplify_expr ctx e, k))
+    :: inline_constants_of_node_items ctx items
+  | (AnnotMain (pos, b)) :: items
+    -> (AnnotMain (pos, b)) :: inline_constants_of_node_items ctx items
 
 let rec inline_constants_of_contract: TC.tc_context -> LA.contract -> LA.contract =
   fun ctx ->

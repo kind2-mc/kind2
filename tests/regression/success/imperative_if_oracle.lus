@@ -1,0 +1,19 @@
+node test(x: int) returns (y1, y2, y3: int; p1, p2, p3: bool);
+var helper: int;
+let 
+  --p1 = (true -> (pre y2 = 5 => y2 = 10));
+  p2 = (y2 = 10);
+  --%PROPERTY p2;
+
+  helper = x + 4;
+  y3 = helper;
+  
+  if (true)
+  then 
+    y1 = 5;
+    y2 = 10;
+  else 
+    y1 = 6;
+  fi
+  
+tel

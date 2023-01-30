@@ -105,6 +105,11 @@ val tc_ctx_of_contract: ?ignore_modes:bool -> tc_context -> LA.contract -> (tc_c
 
 val local_var_binding: tc_context -> LA.node_local_decl -> (tc_context, [> error]) result
 
+val get_node_ctx : tc_context ->
+  'a * 'b * 'c * LA.const_clocked_typed_decl list *
+  LA.clocked_typed_decl list * LA.node_local_decl list * 'd * 'e ->
+  (tc_context, [> error ]) result
+
 val infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 

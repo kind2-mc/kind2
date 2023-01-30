@@ -1727,6 +1727,10 @@ and eval_node_items inputs outputs locals ctx = function
     (* Continue with next node statements *)
     eval_node_items inputs outputs locals ctx tl
 
+  | A.IfBlock (pos, _, _, _) :: _ -> fail_at_position pos  "If blocks not supported in old front-end"
+
+  | A.FrameBlock (pos, _, _, _) :: _ -> fail_at_position pos "Frame blocks not supported in old front-end"
+
   (* Property annotation, reachability query *)
   | A.AnnotProperty (pos, _, _, Reachable _) :: _ ->
     fail_at_position pos "Reachability queries are not supported in the old frontend."
@@ -1761,14 +1765,14 @@ and eval_node_items inputs outputs locals ctx = function
     eval_node_items inputs outputs locals ctx tl
 
   (* Annotation for main node *)
-  | (A.AnnotMain true) :: tl -> 
+  | (A.AnnotMain (_, true)) :: tl -> 
 
     eval_node_items inputs outputs locals
       (C.set_node_main ctx)
       tl
 
   (* Annotation for main node *)
-  | (A.AnnotMain false) :: tl -> 
+  | (A.AnnotMain (_, false)) :: tl -> 
 
     eval_node_items inputs outputs locals ctx tl
 

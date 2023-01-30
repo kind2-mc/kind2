@@ -1,0 +1,18 @@
+node test(x: int) returns(y1, y2: int);
+let
+   check (y1 = 2 or y1 = 3);
+
+   y1 = 2;
+
+   frame ( y2 )
+   y2 = 3;
+   let
+      assert x > 0;
+      y2 = pre x;
+   tel
+tel;
+
+node oscillate() returns (Z: bool)
+let
+   Z = true -> not pre Z;
+tel;

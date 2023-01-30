@@ -1,0 +1,20 @@
+node main(c1, c2: bool) returns (out: int);
+var x1 : int;
+let
+  frame (x1)
+  let
+    x1 = x4 + x5;
+
+    if c1
+    then
+      x1 = 24;
+    else 
+      if c2
+      then
+        x1 = 37;
+      else
+        x1 = 34;
+      fi
+    fi
+  tel
+tel

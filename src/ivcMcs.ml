@@ -348,13 +348,22 @@ let minimize_node_eq id_typ_map ue lst = function
     Some (A.Equation (pos, lhs, expr))
 
 let minimize_item id_typ_map ue lst = function
-  | A.AnnotMain b -> [A.AnnotMain b]
+  | A.AnnotMain (p, b) -> [A.AnnotMain (p, b)]
   | A.AnnotProperty (p, str, e, k) -> [A.AnnotProperty (p, str, e, k)]
-  | A.Body eq ->
-    begin match minimize_node_eq id_typ_map ue lst eq with
-    | None -> []
-    | Some eq -> [A.Body eq]
-    end
+  | A.Body eq -> (
+    match minimize_node_eq id_typ_map ue lst eq with
+      | None -> []
+      | Some eq -> [A.Body eq]
+  )
+  | A.IfBlock (pos, e, l1, l2) -> 
+    [A.IfBlock (pos, e, List.map (minimize_item id_typ_map ue lst) l1 |> List.flatten, 
+                        List.map (minimize_item id_typ_map ue lst) l2 |> List.flatten)]
+  | A.FrameBlock (pos, vars, nes, nis) -> 
+    [A.FrameBlock(pos, vars, List.map (fun eq -> match (minimize_node_eq id_typ_map ue lst eq) 
+                                         with | None -> [] | Some eq -> [eq]) 
+                                      nes 
+                                      |> List.flatten, 
+                       List.map (minimize_item id_typ_map ue lst) nis |> List.flatten)]
 
 let minimize_const_decl _ue _lst = function
   | A.UntypedConst (p,id,e) -> A.UntypedConst (p,id,e)
