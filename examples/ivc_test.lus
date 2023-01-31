@@ -3,10 +3,10 @@ let
   frame (out)
   out = 5;
   let
-    --if c
-    --then
+    if c
+    then
       out = pre(out) + 1;
-    --fi
+    fi
   tel
 
   check out >= 5;

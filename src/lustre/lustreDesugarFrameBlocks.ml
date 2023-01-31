@@ -261,7 +261,7 @@ match ni with
     Fill in an equation of the form 'y = pre y' (initially undefined)
 *)
 let desugar_node_item node_id ni = match ni with
-    (* All multiple assignment is removed in lustreDesugarIfBlocks.ml *)
+    (* All multiple assignment is removed in lustreRemoveMultAssign.ml *)
   | A.FrameBlock (pos, vars, nes, nis) ->
     let* nis = R.seq (List.map (fill_ite_oracles nes) nis) in
     let* nis2 = R.seq (List.map (generate_undefined_nes nis) nes) in
@@ -273,8 +273,6 @@ let desugar_node_item node_id ni = match ni with
     FrameHashtbl.add pos_list_map node_id frame_info;
     R.ok ([], nis @ nis2 @ nis3, warnings)
   | _ -> R.ok ([], [ni], []) 
-
-
 
 (** Desugars a declaration list to remove frame blocks. Node equations
     in the body are initialized with the provided initializations. If a frame block 

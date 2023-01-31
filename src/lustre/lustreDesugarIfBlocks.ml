@@ -299,7 +299,7 @@ let split_and_flatten3 ls =
     5. Returning lists of new local declarations, generated equations, and gids
     *)
 let extract_equations_from_if node_id ctx ib =
-  (* Keep track of where the if block variables are defined in so that it can
+  (* Keep track of where the if block variables are defined so that the position can
      be displayed in post analysis, eg ivcMcs.ml *)
   update_if_position_info node_id ib;
   let* tree_map = if_block_to_trees ib in
