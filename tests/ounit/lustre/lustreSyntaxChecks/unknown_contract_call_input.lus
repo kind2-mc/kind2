@@ -1,0 +1,13 @@
+
+contract Spec(in:bool) returns (out:bool);
+let
+   guarantee in => out;
+tel
+
+node N(in:bool) returns (out:bool);
+(*@contract
+  import Spec(x) returns (out);
+*)
+let
+  out = in;
+tel

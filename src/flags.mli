@@ -242,12 +242,12 @@ module Smt : sig
 
   (** Legal SMT solvers. *)
   type solver = [
-    | `MathSAT_SMTLIB
-    | `Boolector_SMTLIB
-    | `Z3_SMTLIB
+    | `Bitwuzla_SMTLIB
     | `cvc5_SMTLIB
-    | `Yices_SMTLIB
+    | `MathSAT_SMTLIB
+    | `Yices2_SMTLIB
     | `Yices_native
+    | `Z3_SMTLIB
     | `detect
   ]
 
@@ -258,8 +258,8 @@ module Smt : sig
   val solver : unit -> solver
 
   type qe_solver = [
-    | `Z3_SMTLIB
     | `cvc5_SMTLIB
+    | `Z3_SMTLIB
     | `detect
   ]
 
@@ -280,11 +280,25 @@ module Smt : sig
   (** Change sending of short names to SMT solver *)
   val set_short_names : bool -> unit
 
+  (** Executable of Bitwuzla solver *)
+  val bitwuzla_bin : unit -> string
+
+  (** Executable of cvc5 solver *)
+  val cvc5_bin : unit -> string
+
   (** Executable of MathSAT solver *)
   val mathsat_bin : unit -> string
 
-  (** Executable of Boolector solver *)
-  val boolector_bin : unit -> string
+  (** Executable of Yices2 SMT2 solver *)
+  val yices2smt2_bin : unit -> string
+
+  (** Yices 2 binary supports models in SMT2 format **)
+  val yices2_smt2models : unit -> bool
+
+  val set_yices2_smt2models : bool -> unit
+
+  (** Executable of Yices solver *)
+  val yices_bin : unit -> string
 
   (** Executable of Z3 solver *)
   val z3_bin : unit -> string
@@ -294,20 +308,6 @@ module Smt : sig
 
   (** Specify if Z3 qe-light strategy should be used in addition to qe *)
   val set_z3_qe_light : bool -> unit
-
-  (** Executable of cvc5 solver *)
-  val cvc5_bin : unit -> string
-
-  (** Executable of Yices solver *)
-  val yices_bin : unit -> string
-
-  (** Executable of Yices2 SMT2 solver *)
-  val yices2smt2_bin : unit -> string
-
-  (** Yices 2 binary supports models in SMT2 format **)
-  val yices2_smt2models : unit -> bool
-
-  val set_yices2_smt2models : bool -> unit
 
   (** Forces SMT traces. *)
   val set_trace: bool -> unit

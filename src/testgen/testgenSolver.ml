@@ -60,7 +60,7 @@ let mk sys =
   (* Creating solver. *)
   let solver =
     S.create_instance
-      ~produce_assignments:true
+      ~produce_models:true
       (Sys.get_logic sys)
       (Flags.Smt.solver ())
   in

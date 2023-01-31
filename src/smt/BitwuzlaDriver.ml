@@ -18,18 +18,18 @@
 
 include GenericSMTLIBDriver
 
-(* Configuration for Boolector *)
+(* Configuration for Bitwuzla *)
 let cmd_line
     _ (* logic *)
     timeout
-    _ (* produce_assignments *) 
+    _ (* produce_models *) 
     _ (* produce_proofs *)
     _ (* produce_unsat_cores *)
     _ (* produce_unsat_assumptions *)
     _ (* minimize_cores *) 
     _ (* produce_interpolants *) =
-  (* Path and name of Boolector executable *)
-  let boolector_bin = Flags.Smt.boolector_bin () in
+  (* Path and name of Bitwuzla executable *)
+  let bitwuzla_bin = Flags.Smt.bitwuzla_bin () in
 
   (* Timeout based on Flags.timeout_wall has been disabled because
      it seems to cause performance regressions on some models... *)
@@ -44,17 +44,15 @@ let cmd_line
   in
   let timeout = Lib.min_option timeout_global timeout_local in
 
-  let base_cmd = [| boolector_bin; "--smt2"; "--incremental" |] in
+  let base_cmd = [| bitwuzla_bin; "--smt2"; "--incremental" |] in
   match timeout with
   | None -> base_cmd
   | Some timeout ->
       let timeout = Format.sprintf "--time=%.0f" (timeout |> ceil) in
       Array.append base_cmd [| timeout |]
 
-(* Command to limit check-sat in Z3 to run for the given numer of ms
-   at most *)
 let check_sat_limited_cmd _ =
-  failwith "check-sat with timeout not implemented for Boolector"
+  failwith "check-sat with timeout not implemented for Bitwuzla"
 
 let string_of_logic l =
   let open TermLib in
@@ -62,17 +60,13 @@ let string_of_logic l =
   match l with
   | `Inferred fs ->
       if mem IA fs || mem RA fs then
-        failwith "Boolector only supports BV logics"
+        failwith "Bitwuzla only supports BV logics"
       else
-        (* We add BV because Boolector does not support QF_UF logic *)
-        GenericSMTLIBDriver.string_of_logic (`Inferred (add BV fs))
+        GenericSMTLIBDriver.string_of_logic l
   | `None -> "ALL"
   | `SMTLogic s ->
       if String.contains s 'I' || String.contains s 'R' then
-        failwith "Boolector only supports BV logics"
-      else if not (String.contains s 'B') then
-        (* We add BV because Boolector does not support QF_UF logic *)
-        String.concat "" [ s; "BV" ]
+        failwith "Bitwuzla only supports BV logics"
       else s
 
 let pp_print_logic fmt l = Format.pp_print_string fmt (string_of_logic l)

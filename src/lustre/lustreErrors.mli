@@ -30,7 +30,6 @@ type error = [
   | `LustreParserError of Lib.position * string
   | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
-  | `LustreRemoveMultAssignError of Lib.position * LustreRemoveMultAssign.error_kind
 ]
 
 val error_position : [< error] -> Lib.position

@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2021 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2023 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -15,12 +15,16 @@
    permissions and limitations under the License. 
 
  *)
-(** Translation of type checked AST to intermediate node model
-  
-  @author Andrew Marmaduke *)
 
-val compile : TypeCheckerContext.tc_context
--> GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t
--> LustreAst.declaration list
--> LustreNode.t list * LustreGlobals.t
- 
+(**
+  @author Rob Lorch   
+ *)
+
+ type warning = [
+  | `LustreDesugarFrameBlocksWarning of Lib.position * LustreDesugarFrameBlocks.warning_kind
+  | `LustreAstNormalizerWarning of Lib.position * LustreAstNormalizer.warning_kind
+]
+
+val warning_position : [< warning] -> Lib.position
+    
+val warning_message : [< warning] -> string

@@ -173,7 +173,7 @@ Source files live in subdirectory [SMTSolver]
 {!modules:
   GenericSMTLIBDriver
   CVC5Driver
-  BoolectorDriver
+  BitwuzlaDriver
   MathSATDriver
   Yices2SMT2Driver
   Z3Driver

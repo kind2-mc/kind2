@@ -15,19 +15,6 @@
    permissions and limitations under the License. 
  *)
 
- (** 
-   Code for desugaring imperative-style if blocks to functional ITEs.
-
-   The code has a few steps.
-    1. Remove multiple assignment from if blocks using temp variables.
-    2. Parse the if block and create a map of trees, one for each variable
-    3. Fill in oracles in the trees for missing equations.
-    4. Remove redundancy from the trees.
-    5. Convert the trees to ITE expressions. 
-
-   @author Rob Lorch
- *)
-
 module R = Res
 module A = LustreAst
 module AH = LustreAstHelpers
@@ -36,28 +23,27 @@ module Chk = LustreTypeChecker
 module Ctx = TypeCheckerContext
 
 
-type error_kind = Unknown of string
+type error_kind = 
   | MisplacedNodeItemError of A.node_item
 
 let error_message error = match error with
-  | Unknown s -> s
   | MisplacedNodeItemError ni -> (match ni with
-    | Body (Assert _) -> "Asserts are not allowed inside frame blocks."
-    | FrameBlock _ -> "Frame blocks are not allowed inside other frame blocks."
-    | AnnotMain _ -> "Main annotations are not allowed inside frame blocks."
-    | AnnotProperty _ -> "Property annotations are not allowed inside frame blocks."
+    | Body (Assert _) -> "Asserts are not allowed inside if blocks."
+    | FrameBlock _ -> "Frame blocks are not allowed inside if blocks."
+    | AnnotMain _ -> "Main annotations are not allowed inside if blocks."
+    | AnnotProperty _ -> "Property annotations are not allowed inside if blocks."
     (* Other node items are allowed *)
     | _ -> assert false
   )
 
 type error = [
   | `LustreDesugarIfBlocksError of Lib.position * error_kind
-  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
-  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
 ]
 
-let mk_error pos kind = Error (`LustreDesugarIfBlocksError (pos, kind))
+let ib_oracle_tree = HString.mk_hstring "ib_oracle" 
+
+(** [i] is module state used to guarantee newly created identifiers are unique *)
+let i = ref (0)
 
 module LhsMap = struct
   include Map.Make (struct
@@ -89,16 +75,19 @@ let pos_list_map : (Lib.position * HString.t) list IfHashtbl.t =
 
 let (let*) = R.(>>=)
 
+let mk_error pos kind = Error (`LustreDesugarIfBlocksError (pos, kind))
 
-(** [i] is module state used to guarantee newly created identifiers are unique *)
-let i = ref (0)
-
+(* This looks unsafe, but we only apply unwrap when we know from earlier stages
+   in the pipeline that an error is not possible. *)
+let unwrap result = match result with
+  | Ok r -> r
+  | Error _ -> assert false
 
 (** Create a new oracle for use with if blocks. *)
 let mk_fresh_ib_oracle expr_type =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
-  let name = HString.concat2 prefix (HString.mk_hstring "_iboracle") in
+  let name = HString.concat2 prefix (HString.mk_hstring ("_" ^ GI.iboracle)) in
   let nexpr = A.Ident (Lib.dummy_pos, name) in
   let gids = { (GI.empty ()) with
     ib_oracles = [name, expr_type]; }
@@ -141,6 +130,35 @@ let rec add_eq_to_tree conds rhs node =
     )
 
 
+(* If there are multiple recursive array definitions for the same array that use
+   different locals, we need to translate to using only one set of locals for desugaring.
+   For example,
+   if c
+   then 
+     array[i] = expr1
+   else
+     array[j] = expr2
+  
+    desugars to array[i] = if c then expr1 else expr2. In this function, we update expr2
+    to use the local "i" rather than "j".   *)
+let update_recursive_array_locals map lhs expr = 
+  match lhs with
+    | A.StructDef (_, [ArrayDef (_, var1, inds1)]) -> (
+      let matching_lhs = LhsMap.bindings map |> List.map fst 
+      |> List.find_opt 
+        (fun x -> (match x with 
+          | A.StructDef (_, [ArrayDef (_, var2, _)]) when var1 = var2 -> true 
+          | _ -> false)
+        ) in 
+      match matching_lhs with
+        | Some (A.StructDef (_, [ArrayDef (_, _, inds2)]) as lhs2) -> 
+        (* Replace instances with "inds1" with "inds2" *)
+        lhs2, AH.replace_idents inds1 inds2 expr
+        | _ -> lhs, expr
+      ) 
+    | _ -> lhs, expr
+
+
 (** Converts an if block to a map of trees (creates a tree for each equation LHS) *)
 let if_block_to_trees ib =
   let rec helper ib trees conds = (
@@ -148,6 +166,7 @@ let if_block_to_trees ib =
       | A.IfBlock (pos, cond, ni::nis, nis') -> (
         match ni with
           | A.Body (Equation (_, lhs, expr)) -> 
+          let lhs, expr = update_recursive_array_locals trees lhs expr in
           (* Update corresponding tree (or add new tree if it doesn't exist) *)
           let trees = LhsMap.update lhs 
             (fun tree -> match tree with
@@ -172,6 +191,7 @@ let if_block_to_trees ib =
       | A.IfBlock (pos, cond, [], ni::nis) -> (
         match ni with
           | A.Body (Equation (_, lhs, expr)) -> 
+            let lhs, expr = update_recursive_array_locals trees lhs expr in
             (* Update corresponding tree (or add new tree if it doesn't exist) *)
             let trees = LhsMap.update lhs 
               (fun tree -> match tree with
@@ -204,7 +224,7 @@ let if_block_to_trees ib =
 let rec tree_to_ite pos node =
   match node with
     | Leaf Some expr -> expr
-    | Leaf None -> A.Ident(pos, HString.mk_hstring "ib_oracle")
+    | Leaf None -> A.Ident(pos, ib_oracle_tree)
     | Node (left, cond, right) -> 
       TernaryOp (pos, Ite, cond, tree_to_ite pos left, tree_to_ite pos right)
 
@@ -223,33 +243,19 @@ let get_tree_type ctx lhs =
     | _ -> assert false
 
 (** Fills empty spots in an ITE with oracles. *)
-let rec fill_ite_with_oracles ite ty = 
-  match ite with
+let rec fill_ite_with_oracles expr ty =
+  match expr with
     | A.TernaryOp (pos, Ite, cond, e1, e2) -> 
-      let e1, gids1, decls1 = (
-      match e1 with
-        | TernaryOp _ as top -> fill_ite_with_oracles top ty
-        | Ident(p, s) when s = HString.mk_hstring "ib_oracle" -> 
-          let (expr, gids) = (mk_fresh_ib_oracle ty) in
-          (match expr with
-            | A.Ident (_, name) ->  expr, gids, [A.NodeVarDecl(p, (p, name, ty, ClockTrue))]
-            | _ -> assert false (* not possible*))
-        | _ -> e1, GI.empty (), []
-      ) in 
-      let e2, gids2, decls2 = (
-      match e2 with
-        | TernaryOp _ as top -> fill_ite_with_oracles top ty
-        | Ident(p, s) when s = HString.mk_hstring "ib_oracle" -> 
-          let (expr, gids) = (mk_fresh_ib_oracle ty) in
-          (match expr with
-            | A.Ident (_, name) ->  expr, gids, [A.NodeVarDecl(p, (p, name, ty, ClockTrue))]
-            | _ -> assert false (* not possible*))
-        | _ -> e2, GI.empty (), []
-      ) in
+      let e1, gids1, decls1 = fill_ite_with_oracles e1 ty in
+      let e2, gids2, decls2 = fill_ite_with_oracles e2 ty in
       A.TernaryOp (pos, Ite, cond, e1, e2), GI.union gids1 gids2, decls1 @ decls2
-    (* shouldn't be possible *)
-    | _ -> assert false
-
+    | Ident(p, s) when s = ib_oracle_tree -> 
+      let (expr, gids) = (mk_fresh_ib_oracle ty) in
+      (match expr with
+        (* Clocks are unsupported, so the clock value is hardcoded to ClockTrue *)
+        | A.Ident (_, name) ->  expr, gids, [A.NodeVarDecl(p, (p, name, ty, ClockTrue))]
+        | _ -> assert false (* not possible *))
+    | _ -> expr, GI.empty (), []
 
 (** Helper function to determine if two trees are equal *)
 let rec trees_eq node1 node2 = match node1, node2 with
@@ -262,27 +268,15 @@ let rec trees_eq node1 node2 = match node1, node2 with
   | _ -> false
 
   
-(** Removes redundancy from a binary tree. 
-   Currently, redundancy check doesn't quite work because
-   different positions mess with equality of leaves. *)
-let rec simplify_tree node = 
-  match node with
-    | Leaf _ -> node
-    | Node (Leaf i, _, Leaf j) -> 
-      if (trees_eq (Leaf i) (Leaf j)) then Leaf i else node
-    | Node (((Node _) as i), str, Leaf j) -> 
-      let i = simplify_tree i in
-      if trees_eq i (Leaf j) then i else
-      Node (i, str, Leaf j)
-    |	Node (Leaf i, str, ((Node _) as j)) ->  
-      let j = simplify_tree j in
-      if trees_eq (Leaf i) j then j
-    else Node (Leaf i, str, j)
-    | Node (((Node _) as i), str, ((Node _) as j)) -> 
-      let i = simplify_tree i in
-      let j = simplify_tree j in
-      if trees_eq i j then i else
-      Node (i, str, j)
+(** Removes redundancy from a binary tree. *)
+   let rec simplify_tree node = 
+    match node with
+      | Leaf _ -> node
+      | Node (i, str, j) -> 
+        let i = simplify_tree i in
+        let j = simplify_tree j in
+        if trees_eq i j then i else
+        Node (i, str, j)
 
 
 let split_and_flatten3 ls =
@@ -294,12 +288,15 @@ let split_and_flatten3 ls =
 
 (** Helper function for 'desugar_node_item' that converts IfBlocks to a list
     of ITEs. There are a number of steps in this process.
-    1. Removing multiple assignment in if blocks
-    2. Converting the if block to a list of trees modeling the ITEs to generate
-    3. Doing any possible simplication on the above trees.
-    4. Converting the trees to ITE expressions.
-    5. Filling in the ITE expressions with oracles where variables are undefined.
-    6. Returning lists of new local declarations, generated equations, and gids
+
+    Precondition: Multiple assignment has been removed from if blocks.
+
+    Steps:
+    1. Converting the if block to a list of trees modeling the ITEs.
+    2. Doing any possible simplication on the above trees.
+    3. Converting the trees to ITE expressions.
+    4. Filling in the ITE expressions with oracles where variables are undefined.
+    5. Returning lists of new local declarations, generated equations, and gids
     *)
 let extract_equations_from_if node_id ctx ib =
   (* Keep track of where the if block variables are defined in so that it can
@@ -313,8 +310,7 @@ let extract_equations_from_if node_id ctx ib =
   let tys = (List.map (get_tree_type ctx) lhss) in 
   let tys = (List.map (fun x -> match x with | Some y -> y | None -> assert false (* not possible *)) 
                        tys) in
-  let res = List.map2 fill_ite_with_oracles ites tys |>
-                               List.map (fun (a, b, c) -> a, b, c) in
+  let res = List.map2 fill_ite_with_oracles ites tys in
   let ites = List.map (fun (x, _, _) -> x) res in
   let gids = List.map (fun (_, y, _) -> y) res in
   let new_decls = List.map (fun (_, _, z) -> z) res |> List.flatten in
@@ -341,13 +337,13 @@ let rec desugar_node_item node_id ctx ni = match ni with
 (** Desugars an individual node declaration (removing IfBlocks). *)
 let desugar_node_decl ctx decl = match decl with
   | A.FuncDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) ->
-    let* ctx = Chk.get_node_ctx ctx d in
+    let ctx = Chk.get_node_ctx ctx d |> unwrap in
     let* nis = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
     R.ok (A.FuncDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), GI.StringMap.singleton node_id gids) 
   | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) -> 
-    let* ctx = Chk.get_node_ctx ctx d in
+    let ctx = Chk.get_node_ctx ctx d |> unwrap in
     let* nis = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
@@ -357,8 +353,9 @@ let desugar_node_decl ctx decl = match decl with
 
 (** Desugars a declaration list to remove IfBlocks. Converts IfBlocks to
     declarative ITEs, filling in oracles if branches are undefined. *)
-let desugar_if_blocks ctx sorted_node_contract_decls = 
+let desugar_if_blocks ctx sorted_node_contract_decls gids = 
   let* res = R.seq (List.map (desugar_node_decl ctx) sorted_node_contract_decls) in
-  let decls, gids = List.split res in
-  let gids = List.fold_left (GI.StringMap.union (fun _ b _ -> Some b)) (GI.StringMap.empty) gids in
+  let decls, gids2 = List.split res in
+  let gids2 = List.fold_left (GI.StringMap.merge GI.union_keys2) GI.StringMap.empty gids2 in
+  let gids = GI.StringMap.merge GI.union_keys2 gids gids2 in
   R.ok (decls, gids)

@@ -18,28 +18,26 @@
  (** 
    Code for desugaring imperative-style if blocks to functional ITEs.
 
+   Precondition: Multiple assignment has been removed from if and frame blocks.
+
    The code has a few steps.
-    1. Remove multiple assignment from if blocks using temp variables.
-    2. Parse the if block and create a map of trees, one for each variable
-    3. Fill in oracles in the trees for missing values.
-    4. Remove redundancy from the trees.
-    5. Convert the trees to ITE expressions. 
+    1. Parse the if block and create a map of trees, one for each variable.
+    2. Fill in oracles in the trees for missing values.
+    3. Remove redundancy from the trees.
+    4. Convert the trees to ITE expressions. 
 
    @author Rob Lorch
  *)
 
 
 
-type error_kind = Unknown of string
+type error_kind = 
   | MisplacedNodeItemError of LustreAst.node_item
 
 val error_message : error_kind -> string
 
 type error = [
   | `LustreDesugarIfBlocksError of Lib.position * error_kind 
-  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
-  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
 ]
 
 module IfHashtbl : Hashtbl.S with type key = HString.t
@@ -49,6 +47,7 @@ val pos_list_map : (Lib.position * HString.t) list IfHashtbl.t
 val desugar_if_blocks : 
 TypeCheckerContext.tc_context ->
   LustreAst.declaration list ->
+    GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t ->
   (LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t,
    [> error ])
   result

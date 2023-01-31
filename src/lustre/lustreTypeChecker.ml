@@ -109,8 +109,8 @@ let error_message kind = match kind with
   | MergeCaseExtraneous (case, ty) -> "Merge case " ^ HString.string_of_hstring case ^ " does not exist in type " ^ string_of_tc_type ty
   | MergeCaseMissing case -> "Merge case " ^ HString.string_of_hstring case ^ " is missing from merge expression"
   | MergeCaseNotUnique case -> "Merge case " ^ HString.string_of_hstring case ^ " must be unique"
-  | UnboundIdentifier id -> "Unbound identifier: " ^ HString.string_of_hstring id
-  | UnboundModeReference id -> "Unbound mode reference: " ^ HString.string_of_hstring id
+  | UnboundIdentifier id -> "Unbound identifier '" ^ HString.string_of_hstring id ^ "'"
+  | UnboundModeReference id -> "Unbound mode reference '" ^ HString.string_of_hstring id ^ "'"
   | NotAFieldOfRecord id -> "No field name '" ^ HString.string_of_hstring id ^ "' in record type"
   | NoValueForRecordField id -> "No value given for field '" ^ HString.string_of_hstring id ^ "'"
   | IlltypedRecordProjection ty -> "Cannot project field out of non record expression type " ^ string_of_tc_type ty
@@ -1189,33 +1189,32 @@ and contract_eqn_to_node_eqn: LA.contract_ghost_vars -> LA.node_equation
     ) in
     Equation(pos1, lhs, expr)
 
-and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> (tc_context, [> error]) result 
-  = fun ?is_const:(is_const=true) ctx ->
+and tc_ctx_const_decl: tc_context -> LA.const_decl -> (tc_context, [> error]) result
+  = fun ctx ->
   function
   | LA.FreeConst (pos, i, ty) ->
     check_type_well_formed ctx ty
     >> if member_ty ctx i
-      then type_error pos (Redeclaration i)
-      else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty) i ty)
+       then type_error pos (Redeclaration i)
+       else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty) i ty)
   | LA.UntypedConst (pos, i, e) ->
-    if member_ty ctx i
-    then type_error pos (Redeclaration i)
-    else infer_type_expr ctx e >>= fun ty ->
-        (if is_const then
-            if (is_expr_of_consts ctx e) 
-            then R.ok (add_ty (add_const ctx i e ty) i ty)
-            else type_error pos (ExpectedConstant e)
-          else R.ok(add_ty ctx i ty))
+    if member_ty ctx i then
+      type_error pos (Redeclaration i)
+    else
+      let* ty = infer_type_expr ctx e in
+      if (is_expr_of_consts ctx e) then
+        R.ok (add_ty (add_const ctx i e ty) i ty)
+      else
+        type_error pos (ExpectedConstant e)
           
   | LA.TypedConst (pos, i, e, exp_ty) ->
-    if member_ty ctx i
-    then type_error pos (Redeclaration i)
-    else check_type_expr (add_ty ctx i exp_ty) e exp_ty
-        >> (if is_const then
-              if (is_expr_of_consts ctx e) 
-              then R.ok (add_ty (add_const ctx i e exp_ty) i exp_ty)
-              else type_error pos (ExpectedConstant e)
-            else R.ok(add_ty ctx i exp_ty))
+    if member_ty ctx i then
+      type_error pos (Redeclaration i)
+    else
+      check_type_expr (add_ty ctx i exp_ty) e exp_ty
+      >> if (is_expr_of_consts ctx e)
+         then R.ok (add_ty (add_const ctx i e exp_ty) i exp_ty)
+         else type_error pos (ExpectedConstant e)
 (** Fail if a duplicate constant is detected  *)
   
 and tc_ctx_contract_vars: tc_context -> LA.contract_ghost_vars -> (tc_context, [> error]) result 

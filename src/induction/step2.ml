@@ -97,7 +97,7 @@ type 'a ctx = {
 let mk_ctx in_sys param sys =
   let solver =
     Smt.create_instance
-      ~produce_assignments:true
+      ~produce_models:true
       (Sys.get_logic sys)
       (Flags.Smt.solver())
   in

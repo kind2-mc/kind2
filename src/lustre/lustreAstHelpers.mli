@@ -54,6 +54,9 @@ val substitute : HString.t -> expr -> expr -> expr
 val has_unguarded_pre : expr -> bool
 (** Returns true if the expression has unguareded pre's *)
 
+val has_unguarded_pre_no_warn : expr -> bool
+(** Returns true if the expression has unguareded pre's. Does not print warning. *)
+
 val has_pre_or_arrow : expr -> Lib.position option
 (** Returns true if the expression has a `pre` or a `->`. *)
 
@@ -148,6 +151,10 @@ val split_program: declaration list -> (declaration list * declaration list)
 
 val abstract_pre_subexpressions: expr -> expr
 (** Abstracts out the pre expressions into a constant so that the built graph does not create a cycle.*)
+
+val replace_idents: index list -> index list -> expr -> expr
+(** For every identifier, if that identifier is position n in locals1,
+   replace it with position n in locals2 *)
   
 val extract_node_equation: node_item -> (eq_lhs * expr) list
 (** Extracts out all the node equations as an associated list of rhs and lhs of the equation *)

@@ -1,7 +1,7 @@
 node test(x: int) returns (y1: int; y2: bool; p1, p2, p3: bool);
 let 
   p1 = (y1 >= 0);
-  p2 = (true);
+  p2 = (y2 = not oscillate(true));
   --%PROPERTY p1;
 
   frame ( y1, y2 )

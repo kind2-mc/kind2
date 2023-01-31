@@ -476,7 +476,7 @@ let under_approx sys k invs prop =
   in
   
   let solver =
-    SMTSolver.create_instance ~produce_assignments:true
+    SMTSolver.create_instance ~produce_models:true
       logic (Flags.Smt.solver ())
   in
 
@@ -1145,16 +1145,21 @@ let minimize_invariants sys props invs_predicate =
     Debug.certif "Trying to simplify up to k = %d\n" k_orig;
 
     let logic =
+      let open TermLib in
+      let open TermLib.FeatureSet in
       match TransSys.get_logic sys with
-      | `Inferred fs when Flags.BmcKind.compress () ->
-        `Inferred (TermLib.sup_logics [fs; TermLib.FeatureSet.of_list [IA; LA; UF]])
-      | `Inferred l -> `Inferred (TermLib.FeatureSet.add UF l)
+      | `Inferred fs when Flags.BmcKind.compress () -> (
+        if Compress.only_bv sys
+        then `Inferred (sup_logics [ fs; of_list [ BV; UF ] ])
+        else `Inferred (sup_logics [ fs; of_list [ IA; LA; UF ] ])
+      )
+      | `Inferred l -> `Inferred (add UF l)
       | l -> l
     in
 
     (* Creating solver that will be used to replay and minimize inductive step *)
     let solver =
-      SMTSolver.create_instance ~produce_unsat_assumptions:true ~produce_assignments:true
+      SMTSolver.create_instance ~produce_unsat_assumptions:true ~produce_models:true
         logic (Flags.Smt.solver ())
     in
     

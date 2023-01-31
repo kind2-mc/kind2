@@ -1,0 +1,13 @@
+
+type my_record = struct { f1:bool; f2:int };
+
+node F() returns (z:my_record);
+let
+  z = pre z;
+tel
+
+node N() returns (y:my_record);
+let
+  y = F();
+  check true -> y = pre y;
+tel

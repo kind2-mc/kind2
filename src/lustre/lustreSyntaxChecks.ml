@@ -41,6 +41,7 @@ type error_kind = Unknown of string
   | DuplicateLocal of HString.t
   | DuplicateOutput of HString.t
   | UndefinedNode of HString.t
+  | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
@@ -72,6 +73,8 @@ let error_message kind = match kind with
   | DuplicateOutput id -> "Output variable '"
     ^ HString.string_of_hstring id ^ "' has more than one definition"
   | UndefinedNode id -> "Node or function '"
+    ^ HString.string_of_hstring id ^ "' is undefined"
+  | UndefinedContract id -> "Contract '"
     ^ HString.string_of_hstring id ^ "' is undefined"
   | DanglingIdentifier id -> "Unknown identifier '"
     ^ HString.string_of_hstring id ^ "'"
@@ -358,19 +361,22 @@ let no_dangling_calls ctx = function
     | false, false -> syntax_error pos (UndefinedNode i))
   | _ -> Ok ()
 
+let no_a_dangling_identifier ctx pos i =
+  let check_ids = [
+    StringMap.mem i ctx.consts;
+    StringMap.mem i ctx.free_consts;
+    StringMap.mem i ctx.locals;
+    StringMap.mem i ctx.quant_vars;
+    StringMap.mem i ctx.array_indices;
+    StringMap.mem i ctx.symbolic_array_indices; ]
+  in
+  let check_ids = List.filter (fun x -> x) check_ids in
+  if List.length check_ids > 0 then Ok ()
+  else syntax_error pos (DanglingIdentifier i)
+
 let no_dangling_identifiers ctx = function
   | LA.Ident (pos, i) -> 
-    let check_ids = [
-      StringMap.mem i ctx.consts;
-      StringMap.mem i ctx.free_consts;
-      StringMap.mem i ctx.locals;
-      StringMap.mem i ctx.quant_vars;
-      StringMap.mem i ctx.array_indices;
-      StringMap.mem i ctx.symbolic_array_indices; ]
-    in
-    let check_ids = List.filter (fun x -> x) check_ids in
-    if List.length check_ids > 0 then Ok ()
-    else syntax_error pos (DanglingIdentifier i)
+    no_a_dangling_identifier ctx pos i
   | _ -> Ok ()
 
 let no_quant_var_or_symbolic_index_in_node_call ctx = function
@@ -443,8 +449,7 @@ let no_calls_to_nodes_with_contracts_subject_to_refinement ctx expr =
     | _ -> Ok ())
   | _ -> Ok ()
 
-let no_temporal_operator is_const expr =
-  let decl_ctx = if is_const then "constant" else "function or function contract" in
+let no_temporal_operator decl_ctx expr =
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
@@ -548,7 +553,7 @@ and check_declaration ctx = function
 
 and check_const_expr_decl ctx expr =
   let composed_checks ctx e =
-    (no_temporal_operator true e)
+    (no_temporal_operator "constant" e)
       >> (no_dangling_identifiers ctx e)
   in
   check_expr ctx composed_checks expr
@@ -578,43 +583,57 @@ and check_local_items local = match local with
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
 and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
-  let ctx = build_local_ctx ctx locals inputs outputs in
+  let ctx =
+    (* Locals are not visible in contracts *)
+    build_local_ctx ctx [] inputs outputs
+  in
   let decl = LA.NodeDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
   (parametric_nodes_unsupported span.start_pos params)
+  >> (match contract with
+     | Some c -> check_contract false ctx common_contract_checks c
+     | None -> Ok ())
   >> (locals_exactly_one_definition locals items)
-    >> (outputs_at_most_one_definition outputs items)
-    >> (check_items ctx common_node_equations_checks items)
-    >> (match contract with 
-    | Some c -> check_contract false ctx common_contract_checks c
-    | None -> Ok ())
-    >> (Res.seq_ (List.map check_input_items inputs))
-    >> (Res.seq_ (List.map check_output_items outputs))
-    >> (Res.seq_ (List.map check_local_items locals))
-    >> (Ok decl)
+  >> (outputs_at_most_one_definition outputs items)
+  >> (check_items
+       (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
+       common_node_equations_checks
+       items
+     )
+  >> (Res.seq_ (List.map check_input_items inputs))
+  >> (Res.seq_ (List.map check_output_items outputs))
+  >> (Res.seq_ (List.map check_local_items locals))
+  >> (Ok decl)
 
 and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
-  let ctx = build_local_ctx ctx locals inputs outputs in
+  let ctx =
+    (* Locals are not visible in contracts *)
+    build_local_ctx ctx [] inputs outputs
+  in
   let decl = LA.FuncDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
   let composed_items_checks ctx e =
     (common_node_equations_checks ctx e)
       >> (no_calls_to_node ctx e)
-      >> (no_temporal_operator false e)
+      >> (no_temporal_operator "constant" e)
   in
   (parametric_nodes_unsupported span.start_pos params)
-  >> (check_items ctx composed_items_checks items)
-    >> (match contract with
+  >> (match contract with
       | Some c -> check_contract false ctx common_contract_checks c
-        >> (check_contract false ctx (fun _ -> no_temporal_operator false) c)
+        >> (check_contract false ctx (fun _ -> no_temporal_operator "function or function contract") c)
         >> no_stateful_contract_imports ctx c
       | None -> Ok ())
-    >> (Res.seq_ (List.map check_input_items inputs))
-    >> (Res.seq_ (List.map check_output_items outputs))
-    >> (Res.seq_ (List.map check_local_items locals))
-    >> (Ok decl)
+  >> (check_items
+       (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
+       composed_items_checks
+       items
+     )
+  >> (Res.seq_ (List.map check_input_items inputs))
+  >> (Res.seq_ (List.map check_output_items outputs))
+  >> (Res.seq_ (List.map check_local_items locals))
+  >> (Ok decl)
 
 and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
   let ctx = build_local_ctx ctx [] inputs outputs in
@@ -629,15 +648,16 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
 and check_items ctx f items =
   let check_item ctx f = function
     | LA.Body (Equation (_, lhs, e)) ->
-      let ctx = build_equation_ctx ctx lhs in
+      let ctx' = build_equation_ctx ctx lhs in
       let StructDef (_, struct_items) = lhs in
       check_struct_items ctx struct_items
-        >> check_expr ctx f e
+        >> check_expr ctx' f e
         >> (expr_only_supported_in_merge false e)
     | LA.IfBlock (_, e, l1, l2) -> 
       check_expr ctx f e >> (check_items ctx f l1) >> (check_items ctx f l2)
     | LA.FrameBlock (pos, vars, nes, nis) ->
       let nes = List.map (fun x -> LA.Body x) nes in
+      check_items ctx (fun _ e -> no_temporal_operator "frame block initialization" e) nes >>
       check_items ctx f nes >> (check_items ctx f nis) >>
       (*  Make sure 'nes' and 'nis' LHS vars are in 'vars' *)
       (Res.seq_ (List.map (check_frame_vars pos vars) nis)) >> (Res.seq_ (List.map (check_frame_vars pos vars) nes))
@@ -651,8 +671,10 @@ and check_struct_items ctx items =
   let r items = check_struct_items ctx items in
   match items with
   | [] -> Ok ()
-  | (LA.SingleIdent _) :: tail -> r tail
-  | (ArrayDef _) :: tail -> r tail
+  | (LA.SingleIdent (pos, id)) :: tail ->
+    no_a_dangling_identifier ctx pos id >> r tail
+  | (ArrayDef (pos, id, _)) :: tail ->
+    no_a_dangling_identifier ctx pos id >> r tail
   | (TupleStructItem (pos, _)) :: _
   | (TupleSelection (pos, _, _)) :: _
   | (FieldSelection (pos, _, _)) :: _
@@ -683,12 +705,26 @@ and check_contract is_contract_node ctx f contract =
     | AssumptionVars (pos, _) ->
       if not is_contract_node then Ok ()
       else syntax_error pos AssumptionVariablesInContractNode
-    | _ -> Ok ()
+    | GhostConst decl -> (
+      let check = match decl with
+      | LA.FreeConst _ -> Ok ()
+      | UntypedConst (_, _, e)
+      | TypedConst (_, _, e, _) -> check_const_expr_decl ctx e
+      in
+      check >> Ok ()
+    )
+    | ContractCall (pos, i, args, outputs) -> (
+      if StringMap.mem i ctx.contracts then (
+        check_expr_list ctx f args
+        >> Res.seqM (fun x _ -> x) () (List.map
+           (no_a_dangling_identifier ctx pos) outputs)
+      )
+      else syntax_error pos (UndefinedContract i)
+    )
   in
   Res.seqM (fun x _ -> x) () (List.map (check_contract_item ctx f) contract)
 
 and check_expr ctx f (expr:LustreAst.expr) =
-  let check_list e = Res.seqM (fun x _ -> x) () (List.map (check_expr ctx f) e) in
   let expr' = f ctx expr in
   let r = match expr with
     | LA.RecordProject (_, e, _)
@@ -719,20 +755,22 @@ and check_expr ctx f (expr:LustreAst.expr) =
     | GroupExpr (_, _, e)
     | Call (_, _, e)
     | CallParam (_, _, _, e)
-      -> check_list e
+      -> check_expr_list ctx f e
     | RecordExpr (_, _, e)
     | Merge (_, _, e)
-      -> let e = List.map (fun (_, e) -> e) e in check_list e
+      -> let e = List.map (fun (_, e) -> e) e in check_expr_list ctx f e
     | Condact (_, e1, e2, _, e3, e4)
       -> (check_expr ctx f e1) >> (check_expr ctx f e2)
-        >> (check_list e3) >> (check_list e4)
-    | Activate (_, _, e1, e2, e3)
-      -> (check_expr ctx f e1) >> (check_expr ctx f e2) >> (check_list e3)
+        >> (check_expr_list ctx f e3) >> (check_expr_list ctx f e4)
+    | Activate (_, _, e1, e2, e3) ->
+      (check_expr ctx f e1) >> (check_expr ctx f e2) >> (check_expr_list ctx f e3)
     | RestartEvery (_, _, e1, e2)
-      -> (check_list e1) >> (check_expr ctx f e2)
+      -> (check_expr_list ctx f e1) >> (check_expr ctx f e2)
     | _ -> Ok ()
   in
   expr' >> r
+and check_expr_list ctx f e =
+  Res.seqM (fun x _ -> x) () (List.map (check_expr ctx f) e)
 
 let no_mismatched_clock is_bool e =
   let ctx = empty_ctx () in

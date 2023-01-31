@@ -21,18 +21,17 @@ RUN eval $(opam env) && \
 FROM alpine:latest
 
 # Retrieve Yices 2
-RUN wget -qq https://yices.csl.sri.com/releases/2.6.2/yices-2.6.2-x86_64-pc-linux-gnu-static-gmp.tar.gz \
- && tar xvf yices-2.6.2-x86_64-pc-linux-gnu-static-gmp.tar.gz \
- && cp ./yices-2.6.2/bin/yices-smt2 /bin/ \
+RUN wget -qq https://yices.csl.sri.com/releases/2.6.4/yices-2.6.4-x86_64-pc-linux-gnu.tar.gz \
+ && tar xvf yices-2.6.4-x86_64-pc-linux-gnu.tar.gz \
+ && cp ./yices-2.6.4/bin/yices-smt2 /bin/ \
  && rm -rf yices-* \
  && echo Success || true
 
 # Retrieve JKind and cvc5 (required for certification)
-RUN wget -qq https://github.com/loonwerks/jkind/releases/download/v4.4.2/jkind-4.4.2.zip && unzip jkind-4.4.2.zip \
+RUN wget -qq https://github.com/loonwerks/jkind/releases/download/v4.5.2/jkind-4.5.2.zip && unzip jkind-4.5.2.zip \
  && cp ./jkind/jkind ./jkind/*.jar /bin/ \
  && rm -rf jkind* \
- #&& wget -qq https://github.com/cvc5/cvc5/releases/latest/download/cvc5-Linux -O cvc5 \
- && wget -qq https://github.com/cvc5/cvc5/releases/download/latest/cvc5-Linux-2022-11-17-25e52a4 -O cvc5 \
+ && wget -qq https://github.com/cvc5/cvc5/releases/latest/download/cvc5-Linux -O cvc5 \
  && mv cvc5 /bin/ \
  && chmod a+x /bin/cvc5 \
  && echo Success || true

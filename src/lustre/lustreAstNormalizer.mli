@@ -33,8 +33,6 @@
   pre operators are explicitly guarded in the AST by an oracle variable
   if they were originally unguarded
     e.g. pre expr => oracle -> pre expr
-  Note that oracles are _propagated_ in node calls. If a node `n1` has an oracle
-  and is called by another node `n2`, then `n2` will inherit a propagated oracle
 
   The following parts of the AST are abstracted by locals:
 
@@ -67,34 +65,26 @@
   7. Restarts of node calls (if it is not a constant)
 
      @author Andrew Marmaduke *)
-
-
-
+     
 type error = [
   | `LustreAstNormalizerError
 ]
 
+type warning_kind =
+  | UnguardedPreWarning of LustreAst.expr
 
-type info = {
-  context : TypeCheckerContext.tc_context;
-  abstract_interp_context : LustreAbstractInterpretation.context;
-  inductive_variables : LustreAst.lustre_type GeneratedIdentifiers.StringMap.t;
-  quantified_variables : LustreAst.typed_ident list;
-  node_is_input_const : (bool list) GeneratedIdentifiers.StringMap.t;
-  contract_calls_info : LustreAst.contract_node_decl GeneratedIdentifiers.StringMap.t;
-  contract_scope : (Lib.position * HString.t) list;
-  contract_ref : HString.t;
-  interpretation : HString.t GeneratedIdentifiers.StringMap.t;
-  local_group_projection : int
-}
+type warning = [
+  | `LustreAstNormalizerWarning of Lib.position * warning_kind
+]
 
-val normalize : TypeCheckerContext.tc_context
-  -> LustreAbstractInterpretation.context
-  -> LustreAst.t
-  -> GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t
-  -> (LustreAst.t * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t,
-      [> error]) result
+val warning_message : warning_kind -> string
+
+val normalize : TypeCheckerContext.tc_context ->
+  LustreAbstractInterpretation.context ->
+  LustreAst.t ->
+    GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t ->
+  (LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t *
+   [> `LustreAstNormalizerWarning of Lib.position * warning_kind ] list, [> error])
+  result
 
 val pp_print_generated_identifiers : Format.formatter -> GeneratedIdentifiers.t -> unit
-
-val get_warnings : GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t -> (Lib.position * LustreAst.expr) list

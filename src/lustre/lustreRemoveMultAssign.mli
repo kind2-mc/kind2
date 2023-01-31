@@ -15,20 +15,32 @@
    permissions and limitations under the License. 
 *)
 
-(** @author Rob Lorch *)
+(** Removes multiple assignment from an if block by pulling out equations
+   with multiple assignment and using temp variables. 
+  Example: 
+   if cond
+   then 
+      y1, y2 = node(expr1);
+   else
+      y1 = expr2;
+      y2 = expr3;
+   fi
+  -->
+   t1, t2 = node(expr1);
+   if cond
+   then 
+      y1 = t1;
+      y2 = t2;
+   else
+      y1 = expr2;
+      y2 = expr3;
+   fi
 
-type error_kind = Unknown of string
-  | MisplacedNodeItemError of LustreAst.node_item
+  For each temp variable, we also generate a new declaration.
 
-val error_message : error_kind -> string
+  @author Rob Lorch
+*)
 
-type error = [
-  | `LustreRemoveMultAssignError of Lib.position * error_kind
-  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
-  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
-]
-
-val remove_mult_assign : TypeCheckerContext.tc_context ->
-  LustreAst.declaration list ->
-  (LustreAst.declaration list, [> error ]) result
+(** Desugars a declaration list to remove multiple assignment from if blocks and frame
+    blocks. *)
+val remove_mult_assign : TypeCheckerContext.tc_context -> LustreAst.declaration list -> LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t

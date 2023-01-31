@@ -23,7 +23,7 @@ module type Params = sig
 
   val timeout : int
 
-  val produce_assignments : bool
+  val produce_models : bool
 
   val produce_unsat_cores : bool
 
@@ -126,7 +126,7 @@ module type S = sig
   (** The functor [Create] creates a new instance of the SMT solver with
       paramters passed as its arguments. The parameter argument [P] conataints
       a unique identifier [id], initialized to the logic [l] and produces
-      assignments if the optional labelled argument [produce_assignments] is
+      models if the optional labelled argument [produce_models] is
       [true], proofs if [produce_proofs] is true, unsatisfiable cores if
       [produce_unsat_cores] is true, and unsatisfiable sets of assumptions if
       [produce_unsat_assumptions] is true *)

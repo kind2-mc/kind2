@@ -176,7 +176,7 @@ let run_strategy out_dir sys strategy =
   (* Creating a new solver for this run. *)
   let solver =
     S.create_instance
-      ~produce_assignments:true
+      ~produce_models:true
       (TransSys.get_scope sys)
       (TransSys.get_logic sys)
       (TransSys.get_abstraction sys)

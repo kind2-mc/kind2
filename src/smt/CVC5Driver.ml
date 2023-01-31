@@ -20,9 +20,9 @@ include GenericSMTLIBDriver
 
 (* Configuration for cvc5 *)
 let cmd_line
-    _ (* logic *)
+    logic
     timeout
-    _ (* produce_assignments *) 
+    _ (* produce_models *) 
     _ (* produce_proofs *)
     _ (* produce_unsat_cores *)
     _ (* produce_unsat_assumptions *)
@@ -64,6 +64,17 @@ let cmd_line
           Format.sprintf "--tlimit=%.0f" (1000.0 *. timeout |> ceil)
         in
         Array.append base_cmd [| timeout |]
+  in
+
+  (* Tune cvc5 for QF_BV problems (see cvc5 issue #9318) *)
+  let open TermLib.FeatureSet in
+  let cmd =
+    match logic with
+    | `SMTLogic "QF_BV" -> Array.append cmd [| "--bitblast=eager" |]
+    | `Inferred fs when (equal fs (of_list [ BV ])) -> (
+      Array.append cmd [| "--bitblast=eager" |]
+    )
+    | _ -> cmd
   in
 
   Array.concat [ cmd; common_flags ]

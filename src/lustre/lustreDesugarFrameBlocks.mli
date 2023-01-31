@@ -28,7 +28,7 @@
 
 module A = LustreAst
 
-type error_kind = Unknown of string 
+type error_kind = 
   | MisplacedNodeItemError of A.node_item
   | MisplacedFrameBlockError of A.node_item
 
@@ -36,11 +36,16 @@ val error_message : error_kind -> string
 
 type error = [
   | `LustreDesugarFrameBlocksError of Lib.position * error_kind
-  | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
-  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
-  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
 ]
+
+type warning_kind =
+  | UninitializedVariableWarning of HString.t
+
+type warning = [
+  | `LustreDesugarFrameBlocksWarning of Lib.position * warning_kind
+]
+
+val warning_message : warning_kind -> string
 
 module FrameHashtbl : Hashtbl.S with type key = HString.t
 
@@ -48,6 +53,7 @@ val pos_list_map : (Lib.position * HString.t) list FrameHashtbl.t
 
 val desugar_frame_blocks :
   A.declaration list ->
-    (A.declaration list,
-    [> error])
+    (A.declaration list *
+    [> `LustreDesugarFrameBlocksWarning of Lib.position * warning_kind ] list,
+    [> `LustreDesugarFrameBlocksError of Lib.position * error_kind ])
     result
