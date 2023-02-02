@@ -87,6 +87,11 @@ let mk_fresh_ib_oracle expr_type =
 let update_if_position_info node_id ni = match ni with
   | A.IfBlock (pos, _, _, _) ->
     let if_info = AH.defined_vars_with_pos ni |> List.map (fun (_, id) -> (pos, id)) in
+      (* If there is already a binding, we want to retain the old 'if_info' *)
+    let if_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with
+      | Some if_info2 -> if_info @ if_info2
+      | None -> if_info 
+    in
     HString.HStringHashtbl.add pos_list_map node_id if_info;
   | _ -> assert false
 

@@ -261,6 +261,11 @@ let desugar_node_item node_id ni = match ni with
     let nis3 = List.flatten nis3 in
     let warnings = warn_unguarded_pres (nis @ nis3) pos |> List.flatten in
     let frame_info = List.map (fun var -> (pos, var)) vars in
+    (* If there is already a binding, we want to retain the old 'frame_info' *)
+    let frame_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with
+      | Some frame_info2 -> frame_info @ frame_info2
+      | None -> frame_info 
+    in
     HString.HStringHashtbl.add pos_list_map node_id frame_info;
     R.ok ([], nis @ nis2 @ nis3, warnings)
   | _ -> R.ok ([], [ni], []) 
