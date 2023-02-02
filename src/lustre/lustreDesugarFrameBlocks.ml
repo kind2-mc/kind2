@@ -55,17 +55,8 @@ type warning = [
 
 let mk_warning pos kind = `LustreDesugarFrameBlocksWarning (pos, kind)
 
-module T =
-struct
-    type t = HString.t
-    let equal l1 l2 = l1 = l2
-    let hash s = Hashtbl.hash s
-end
-
-module FrameHashtbl = Hashtbl.Make (T)
-
-let pos_list_map : (Lib.position * HString.t) list FrameHashtbl.t = 
-  FrameHashtbl.create 20
+let pos_list_map : (Lib.position * HString.t) list HString.HStringHashtbl.t = 
+  HString.HStringHashtbl.create 20
 
 let warn_unguarded_pres nis pos = 
   List.map (fun ni -> match ni with
@@ -270,7 +261,7 @@ let desugar_node_item node_id ni = match ni with
     let nis3 = List.flatten nis3 in
     let warnings = warn_unguarded_pres (nis @ nis3) pos |> List.flatten in
     let frame_info = List.map (fun var -> (pos, var)) vars in
-    FrameHashtbl.add pos_list_map node_id frame_info;
+    HString.HStringHashtbl.add pos_list_map node_id frame_info;
     R.ok ([], nis @ nis2 @ nis3, warnings)
   | _ -> R.ok ([], [ni], []) 
 

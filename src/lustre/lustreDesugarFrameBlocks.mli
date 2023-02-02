@@ -47,9 +47,7 @@ type warning = [
 
 val warning_message : warning_kind -> string
 
-module FrameHashtbl : Hashtbl.S with type key = HString.t
-
-val pos_list_map : (Lib.position * HString.t) list FrameHashtbl.t
+val pos_list_map : (Lib.position * HString.t) list HString.HStringHashtbl.t
 
 val desugar_frame_blocks :
   A.declaration list ->

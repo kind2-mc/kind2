@@ -40,9 +40,7 @@ type error = [
   | `LustreDesugarIfBlocksError of Lib.position * error_kind 
 ]
 
-module IfHashtbl : Hashtbl.S with type key = HString.t
-
-val pos_list_map : (Lib.position * HString.t) list IfHashtbl.t
+val pos_list_map : (Lib.position * HString.t) list HString.HStringHashtbl.t
 
 val desugar_if_blocks : 
 TypeCheckerContext.tc_context ->

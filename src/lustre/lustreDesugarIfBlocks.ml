@@ -61,17 +61,8 @@ type cond_tree =
 	| Leaf of A.expr option
 	| Node of cond_tree * A.expr * cond_tree
 
-module T =
-struct
-    type t = HString.t
-    let equal l1 l2 = l1 = l2
-    let hash s = Hashtbl.hash s
-end
-
-module IfHashtbl = Hashtbl.Make (T)
-
-let pos_list_map : (Lib.position * HString.t) list IfHashtbl.t = 
-  IfHashtbl.create 20
+let pos_list_map : (Lib.position * HString.t) list HString.HStringHashtbl.t = 
+  HString.HStringHashtbl.create 20
 
 let (let*) = R.(>>=)
 
@@ -96,7 +87,7 @@ let mk_fresh_ib_oracle expr_type =
 let update_if_position_info node_id ni = match ni with
   | A.IfBlock (pos, _, _, _) ->
     let if_info = AH.defined_vars_with_pos ni |> List.map (fun (_, id) -> (pos, id)) in
-    IfHashtbl.add pos_list_map node_id if_info;
+    HString.HStringHashtbl.add pos_list_map node_id if_info;
   | _ -> assert false
 
 (** Updates a tree (modeling an ITE structure) with a new equation. *)

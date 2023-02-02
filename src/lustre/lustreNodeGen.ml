@@ -2068,7 +2068,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   (* Add state var definitions for frame blocks *)
   (
-    match LDF.FrameHashtbl.find_opt LDF.pos_list_map i with
+    match HString.HStringHashtbl.find_opt LDF.pos_list_map i with
       | Some frame_infos ->
         let frame_infos = List.map (fun (pos, id) -> ((H.find_opt !map.state_var (mk_ident id)), pos)) frame_infos in
         List.iter (fun (sv, pos) -> 
@@ -2081,7 +2081,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
 
   (* Add state var definitions for if blocks *)
   (
-    match LDI.IfHashtbl.find_opt LDI.pos_list_map i with
+    match HString.HStringHashtbl.find_opt LDI.pos_list_map i with
       | Some if_infos ->
         let if_infos = List.map (fun (pos, id) -> ((H.find_opt !map.state_var (mk_ident id)), pos)) if_infos in
         List.iter (fun (sv, pos) -> 
