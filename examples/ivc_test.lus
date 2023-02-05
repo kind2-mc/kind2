@@ -6,6 +6,8 @@ let
     if c
     then
       out = pre(out) + 1;
+    else
+      out = pre(out) + 2;
     fi
   tel
 

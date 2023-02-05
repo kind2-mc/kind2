@@ -2070,10 +2070,13 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (
     match HString.HStringHashtbl.find_opt LDF.pos_list_map i with
       | Some frame_infos ->
-        let frame_infos = List.map (fun (pos, id) -> ((H.find_opt !map.state_var (mk_ident id)), pos)) frame_infos in
-        List.iter (fun (sv, pos) -> 
+        let frame_infos = List.map (fun (pos, id, ty) -> ((H.find_opt !map.state_var (mk_ident id)), pos, ty)) frame_infos in
+        List.iter (fun (sv, pos, ty) -> 
           match sv with 
-          | Some sv -> N.add_state_var_def sv (N.FrameBlock pos)
+          | Some sv -> 
+            if (ty = LDF.FrameBlockHeader) 
+            then N.add_state_var_def sv (N.FrameBlock pos) 
+            else N.add_state_var_def sv (N.ProperEq (pos, []))
           | None -> ()
         ) frame_infos;  
       | None -> ()
@@ -2086,7 +2089,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         let if_infos = List.map (fun (pos, id) -> ((H.find_opt !map.state_var (mk_ident id)), pos)) if_infos in
         List.iter (fun (sv, pos) -> 
           match sv with 
-          | Some sv -> N.add_state_var_def sv (N.IfBlock pos)
+          | Some sv -> N.add_state_var_def sv (N.ProperEq (pos, []))
           | None -> ()
         ) if_infos;  
       | None -> ()

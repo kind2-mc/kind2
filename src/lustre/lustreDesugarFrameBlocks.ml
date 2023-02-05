@@ -55,7 +55,11 @@ type warning = [
 
 let mk_warning pos kind = `LustreDesugarFrameBlocksWarning (pos, kind)
 
-let pos_list_map : (Lib.position * HString.t) list HString.HStringHashtbl.t = 
+type frame_info =
+  | FrameBlockHeader
+  | InitEq
+
+let pos_list_map : (Lib.position * HString.t * frame_info) list HString.HStringHashtbl.t = 
   HString.HStringHashtbl.create 20
 
 let warn_unguarded_pres nis pos = 
@@ -242,6 +246,7 @@ match ni with
   
 
 
+
 (**
   For each node item in frame block body:
     Fill in ITE oracles and initialize equations (RHS) when an initialization
@@ -260,7 +265,13 @@ let desugar_node_item node_id ni = match ni with
     let* nis3 = R.seq (List.map (generate_undefined_nes_no_init pos nes nis) vars) in
     let nis3 = List.flatten nis3 in
     let warnings = warn_unguarded_pres (nis @ nis3) pos |> List.flatten in
-    let frame_info = List.map (fun var -> (pos, var)) vars in
+    (* Frame block header info *)
+    let frame_info = List.map (fun var -> (pos, var, FrameBlockHeader)) vars in
+    (* Frame block init equations info *)
+    let frame_info = frame_info @ (List.map (fun ne -> match ne with
+        | A.Equation (pos, StructDef(_, [SingleIdent(_, id)]), _) -> (pos, id, InitEq)
+        | A.Equation (pos, StructDef(_, [ArrayDef(_, id, _)]), _) -> (pos, id, InitEq)
+        | _ -> assert false) nes) in
     (* If there is already a binding, we want to retain the old 'frame_info' *)
     let frame_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with
       | Some frame_info2 -> frame_info @ frame_info2

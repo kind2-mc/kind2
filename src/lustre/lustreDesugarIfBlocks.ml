@@ -84,16 +84,19 @@ let mk_fresh_ib_oracle expr_type =
     ib_oracles = [name, expr_type]; }
   in nexpr, gids
 
-let update_if_position_info node_id ni = match ni with
-  | A.IfBlock (pos, _, _, _) ->
-    let if_info = AH.defined_vars_with_pos ni |> List.map (fun (_, id) -> (pos, id)) in
-      (* If there is already a binding, we want to retain the old 'if_info' *)
+let rec update_if_position_info node_id ni = match ni with
+  | A.IfBlock (_, _, nis1, nis2) ->
+    List.iter (update_if_position_info node_id) nis1;
+    List.iter (update_if_position_info node_id) nis2;
+  | Body (Equation (pos, StructDef(_, [SingleIdent(_, id)]), _))
+  | Body (Equation (pos, StructDef(_, [ArrayDef(_, id, _)]), _)) ->
+    (* If there is already a binding, we want to retain the old 'if_info' *)
     let if_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with
-      | Some if_info2 -> if_info @ if_info2
-      | None -> if_info 
+      | Some if_info2 -> (pos, id) :: if_info2
+      | None -> [(pos, id)] 
     in
     HString.HStringHashtbl.add pos_list_map node_id if_info;
-  | _ -> assert false
+  | _ -> ()
 
 (** Updates a tree (modeling an ITE structure) with a new equation. *)
 let rec add_eq_to_tree conds rhs node = 
