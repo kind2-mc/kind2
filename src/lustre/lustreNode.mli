@@ -430,10 +430,16 @@ val get_state_var_instances : StateVar.t -> state_var_instance list
 (** print state var instances for debug *)
 val pp_print_state_var_instances_debug : Format.formatter -> t -> unit
 
-(** Get the definitions (with positions in the Lustre program) of a state variable *)
+(** Get the definitions (with positions in the Lustre program) of a state variable. 
+    In the return type, the first list contains state var defs where the state variable 
+    is explicitly mentioned. The second list contains state var defs that are dependencies 
+    (the node item does not explicitly reference the state variable, but the state variable 
+    depends on it) *)
 val get_state_var_defs : StateVar.t -> state_var_def list * state_var_def list
 
-(** Add a definition (with positions in the Lustre program) for a state variable *)
+(** Add a definition (with positions in the Lustre program) for a state variable.
+    is_dep should be true iff the state_var_def is a dependency (where the state variable
+    is not explicitly referenced by the definition, but somehow depends on it) *)
 val add_state_var_def : ?is_dep:bool -> StateVar.t -> state_var_def -> unit
 
 val pos_of_state_var_def : state_var_def -> position

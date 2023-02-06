@@ -53,7 +53,6 @@ type term_cat =
 | Equation of StateVar.t
 | Assertion of StateVar.t
 | FrameBlock of StateVar.t
-| IfBlock of StateVar.t
 | Unknown
 
 module Equation = struct
@@ -143,12 +142,6 @@ let print_data_of_loc_equation var_map (_, locs_cats) =
       Some {
         name = lustre_name_of_sv var_map sv ;
         category = "Frame Block" ;
-        position = loc.pos ;
-      }
-    | IfBlock sv ->
-      Some {
-        name = lustre_name_of_sv var_map sv ;
-        category = "If Block" ;
         position = loc.pos ;
       }
     | ContractItem (_, svar, typ) ->
@@ -265,7 +258,7 @@ let pp_print_core_data_json in_sys param sys fmt cpd =
     `Assoc ([
       ("category", `String (format_name_for_json elt.category)) ;
       ("name", `String elt.name) ;
-      ("row", `Int row) ;
+      ("line", `Int row) ;
       ("column", `Int col) ;
     ] @
     (if file = "" then [] else [("file", `String file)])
@@ -637,7 +630,6 @@ let locs_of_eq_term in_sys t =
           | LustreNode.Assertion _ -> { pos=p ; index=i }, Assertion sv
           | LustreNode.ContractItem (_, svar, typ) ->  { pos=p ; index=i }, ContractItem (sv, svar, typ)
           | LustreNode.FrameBlock _ -> { pos=p ; index=i }, FrameBlock sv
-          | LustreNode.IfBlock _ -> { pos=p ; index=i }, IfBlock sv
           | _ -> { pos=p ; index=i }, Equation sv
         )
       ) 
@@ -752,7 +744,6 @@ let is_model_element_in_categories (_, locs_cats) is_main_node cats =
       -> [`CONTRACT_ITEM]
       | ContractItem (_, _, _) -> []
       | FrameBlock _
-      | IfBlock _
       | Equation _ -> [`EQUATION]
       | Assertion _ -> [`ASSERTION]
       | Unknown -> [(*`UNKNOWN*)]

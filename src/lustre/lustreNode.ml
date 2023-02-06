@@ -1586,7 +1586,7 @@ type state_var_def =
 
 (* The first list contains state var defs where the state variable is explicitly mentioned.
    The second list contains state var defs that are dependencies (the node item does
-   not explicitly reference the state variable, but the state variable depends on it)*)
+   not explicitly reference the state variable, but the state variable depends on it) *)
 let state_var_defs_map : (state_var_def list * state_var_def list) StateVar.StateVarHashtbl.t = 
   StateVar.StateVarHashtbl.create 20
 
