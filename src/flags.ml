@@ -2924,7 +2924,7 @@ module Global = struct
       ) ^ "]"
     | [] -> "[]"
   let enable_values = [
-    `IC3 ; `BMC ; `BMCREACHABLE ; `IND ; `IND2 ;
+    `IC3 ; `BMC ; `IND ; `IND2 ;
     `INVGEN ; `INVGENOS ;
     `INVGENINT ; `INVGENINTOS ;
     `INVGENMACH ; `INVGENMACHOS ;
@@ -2936,7 +2936,7 @@ module Global = struct
   let disable_default_init = []
 
   let enable_default_after = [
-    `BMC ; `BMCREACHABLE ; `IND ; `IND2 ; `IC3 ;
+    `BMC ; `IND ; `IND2 ; `IC3 ;
     `INVGEN ; `INVGENOS ;
     (* `INVGENINT ; *) `INVGENINTOS ; `INVGENMACHOS ;
     (* `INVGENREAL ; *) `INVGENREALOS ;
@@ -2976,8 +2976,12 @@ module Global = struct
         enable_values
         (string_of_enable enable_default_after)
     )
+    
   (* let enable mdl = enabled := mdl :: !enabled *)
-  let enabled () = !enabled
+  let enabled () = 
+      if List.mem `BMCREACHABLE !enabled |> not
+      then `BMCREACHABLE :: !enabled
+      else !enabled
 
   (* Returns the invariant generation techniques enabled. *)
   let invgen_enabled () = enabled () |> List.filter (
