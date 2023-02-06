@@ -612,7 +612,7 @@ property:
 
   (* Reachability queries *)
   | PROPERTY_ANNOT ; REACHABLE ; name = option(STRING) ; e = qexpr ; bound = property_timestep; SEMICOLON
-    { A.AnnotProperty (mk_pos $startpos, name, e, bound) }
+    { A.AnnotProperty (mk_pos $startpos, name, A.UnaryOp (mk_pos $startpos, A.Not, e), bound) }
   | PROPERTY_PSBLOCKSTART ; REACHABLE ; name = option(STRING);
     e = qexpr;  bound = property_timestep; SEMICOLON ; PSBLOCKEND
     { A.AnnotProperty (mk_pos $startpos, name, e, bound) }

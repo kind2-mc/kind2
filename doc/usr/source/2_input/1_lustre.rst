@@ -8,7 +8,7 @@ Lustre is a functional, synchronous dataflow language. Kind 2 supports most of t
 Properties and top-level node
 -----------------------------
 
-To specify a property to verify in a Lustre node, add the following annotation in the body (\ *i.e.* between keywords ``let`` and ``tel``\ ) of the node:
+To specify an invariant property to verify in a Lustre node, add the following annotation in the body (\ *i.e.* between keywords ``let`` and ``tel``\ ) of the node:
 
 .. code-block:: none
 
@@ -21,6 +21,22 @@ or, use a ``check`` statement:
    check ["<name>"] <bool_expr> ;
 
 where ``<name>`` is an identifier for the property and ``<bool_expr>`` is a Boolean Lustre expression.
+
+Additionally, Kind 2 supports reachability queries which check if the given expression is reachable (rather than invariant).
+Reachability queries use the following syntax:
+
+.. code-block:: none
+
+   --%PROPERTY reachable ["<name>"] <bool_expr> [<bound_type> <timestep>] [<bound_type> <timestep>];
+
+or, using a ``check`` statement:
+
+.. code-block:: none
+
+   check reachable ["<name>"] <bool_expr> [<bound_type> <timestep>] [<bound_type> <timestep>];
+
+Optionally, the user can specify timestep bounds for the reachability query. The ``bound_type`` options are 
+``from``, ``within``, and ``at``, and ``<timestep>`` is a constant integer. The timestep bounds are inclusive. 
 
 Without modular reasoning active, Kind 2 only analyzes the properties of what it calls the *top nodes*.
 By default, any node that is not depended on by another node (i.e. called by that node) is a top node.
@@ -99,6 +115,24 @@ Kind 2 produces the following on standard output when run with the default optio
 
 We can see here that the property ``OK`` has been proven valid for the system (by *k*\ -induction).
 
+The second example demonstrates reachability queries using a single ``counter`` node:
+
+.. code-block:: none
+
+   node counter () returns (out: int);
+   let
+      out = 0 -> pre out + 1;
+
+      check reachable out = 10;
+      check reachable out = 100 from 99;
+      check reachable out = 50 at 50;
+      check reachable out = 15 from 10 within 20;
+
+      check reachable out = 10 within 5;
+   tel
+
+Kind 2 produces output reporting that the first four expressions are reachable, while the last is not. For each reachable expression,
+Kind 2 gives an example trace.
 
 .. _2_input/1_lustre#contracts:
 
