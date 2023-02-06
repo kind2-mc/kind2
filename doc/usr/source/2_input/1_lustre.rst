@@ -838,7 +838,7 @@ The following example involves three variables ``y1``, ``y2``, and ``y3``. Since
 undefined within the frame block body, it will always be equal to 0 (its initialization
 value). ``y2`` will have value ``100, 0, 1, 2, 3, ...`` because it is set equal to its initialization value (100)
 on the first timestep, but on other timesteps it is set equal to ``counter()``. Even though ``y3`` is fully 
-defined within the frame block (with no unguarded ``pre``s), its initialization value is still used, so it is equal
+defined within the frame block (with no unguarded ``pre`` expressions), its initialization value is still used, so it is equal
 to ``5, 1, 2, 3, ...``.
 
 .. code-block:: none
@@ -922,8 +922,8 @@ of ``y2`` is undefined (due to the unguarded ``pre``).
 Also, it is still possible to assign to multiple variables at once
 (equations of the form ``y1, y2 = (expr1, expr2);``) in either the initializations or the frame block body. 
 
-The frame block semantics may introduce unguarded ``pre``s. For example, the definition of ``y`` in the
-following code block is equivalent to ``y = pre(y)``. So, Kind 2 will produce two warning messages. The first
+The frame block semantics may introduce unguarded ``pre`` expressions. For example, the definition of ``y`` in the
+following code block is equivalent to ``y = pre y``. So, Kind 2 will produce two warning messages. The first
 will state that ``y`` is uninitialized in the frame block, and the second will state that there is
 an unguarded ``pre`` (due to this lack of initialization).
 
@@ -935,7 +935,7 @@ an unguarded ``pre`` (due to this lack of initialization).
 
 Similarly, in the following code block, the definitions of ``y1`` and ``y2`` are equivalent to 
 ``y1 = if cond then 0 else pre y1`` and ``y2 = if cond then pre y2 else 1``, respectively. This situation (and
-any other situation where the frame block semantics result in the generation of unguarded ``pre``s) 
+any other situation where the frame block semantics result in the generation of an unguarded ``pre``) 
 will also generate the two warnings as discussed in the previous paragraph.
 
 .. code-block:: none
