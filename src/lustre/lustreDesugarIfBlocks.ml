@@ -88,12 +88,12 @@ let rec update_if_position_info node_id ni = match ni with
   | A.IfBlock (_, _, nis1, nis2) ->
     List.iter (update_if_position_info node_id) nis1;
     List.iter (update_if_position_info node_id) nis2;
-  | Body (Equation (pos, StructDef(_, [SingleIdent(_, id)]), _))
-  | Body (Equation (pos, StructDef(_, [ArrayDef(_, id, _)]), _)) ->
+  | Body (Equation (_, StructDef(_, [SingleIdent(_, id)]), expr))
+  | Body (Equation (_, StructDef(_, [ArrayDef(_, id, _)]), expr)) ->
     (* If there is already a binding, we want to retain the old 'if_info' *)
     let if_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with
-      | Some if_info2 -> (pos, id) :: if_info2
-      | None -> [(pos, id)] 
+      | Some if_info2 -> (AH.pos_of_expr expr, id) :: if_info2
+      | None -> [(AH.pos_of_expr expr, id)] 
     in
     HString.HStringHashtbl.add pos_list_map node_id if_info;
   | _ -> ()
@@ -220,12 +220,15 @@ let if_block_to_trees ib =
   (helper ib LhsMap.empty [])
   
 (** Converts a tree of conditions/expressions to an ITE expression. *)
-let rec tree_to_ite pos node =
+let rec tree_to_ite node =
   match node with
     | Leaf Some expr -> expr
-    | Leaf None -> A.Ident(pos, ib_oracle_tree)
+    | Leaf None -> A.Ident(Lib.dummy_pos, ib_oracle_tree)
     | Node (left, cond, right) -> 
-      TernaryOp (pos, Ite, cond, tree_to_ite pos left, tree_to_ite pos right)
+      let left = tree_to_ite left in
+      let right = tree_to_ite right in
+      let pos = AH.pos_of_expr left in
+      TernaryOp (pos, Ite, cond, left, right)
 
 (** Returns the type associated with a tree. *)
 let get_tree_type ctx lhs = 
@@ -304,8 +307,8 @@ let extract_equations_from_if node_id ctx ib =
   let* tree_map = if_block_to_trees ib in
   let (lhss, trees) = LhsMap.bindings (tree_map) |> List.split in
   let trees = List.map simplify_tree trees in  
-  let poss = List.map (fun (A.StructDef (a, _)) -> a) lhss in
-  let ites = List.map2 tree_to_ite poss trees in
+  let poss = List.map (fun (A.StructDef (pos, _)) -> pos) lhss in
+  let ites = List.map tree_to_ite trees in
   let tys = (List.map (get_tree_type ctx) lhss) in 
   let tys = (List.map (fun x -> match x with | Some y -> y | None -> assert false (* not possible *)) 
                        tys) in

@@ -147,12 +147,13 @@ let generate_undefined_nes nis ne = match ne with
     let res = List.find_opt (fun ni -> match ni with
       | A.Body (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when id = i -> true
       | _ -> false
-    ) nis in (
+    ) nis in 
+    let pos2 = AH.pos_of_expr init in (
     match res with
       (* Already defined in frame block *)
       | Some _ -> R.ok []
       (* Fill in equation in frame block body *)
-      | None -> R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos, init, Pre(pos, Ident (pos, id)))))]
+      | None -> R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos2, init, Pre(pos2, Ident (pos2, id)))))]
     )
   | A.Equation (pos, (StructDef(_, [ArrayDef(_, id1, id2)]) as lhs), init) -> 
     (* Find the corresponding node item in frame block body. *)
@@ -160,17 +161,17 @@ let generate_undefined_nes nis ne = match ne with
       | A.Body (A.Equation (_, StructDef(_, [ArrayDef(_, i, _)]), _)) when id1 = i -> true
       | _ -> false
     ) nis in 
+    let pos2 = AH.pos_of_expr init in 
     let rec build_array_index js = (match js with
-      | [j] -> A.ArrayIndex(pos, A.Ident(pos, id1), A.Ident(pos, j))
-      | j :: js -> ArrayIndex(pos, build_array_index js, A.Ident(pos, j))
+      | [j] -> A.ArrayIndex(pos2, A.Ident(pos2, id1), A.Ident(pos2, j))
+      | j :: js -> ArrayIndex(pos2, build_array_index js, A.Ident(pos2, j))
       | [] -> assert false (* not possible *)
     ) in
-
     (match res with
       (* Already defined in frame block *)
       | Some _ -> R.ok []
       (* Fill in equation in frame block body *)
-      | None -> R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos, init, Pre(pos, build_array_index (List.rev id2)))))]
+      | None -> R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos2, init, Pre(pos2, build_array_index (List.rev id2)))))]
     )
   (* Assert in frame block guard *)
   | A.Assert(pos, _) -> mk_error pos (MisplacedNodeItemError (A.Body ne))
@@ -206,30 +207,32 @@ let generate_undefined_nes_no_init pos nes nis var =
     initialization values (if present). *)
 let fill_ite_oracles nes ni = 
 match ni with
-  | A.Body (Equation (pos, (StructDef(_, [SingleIdent(pos2, i)]) as lhs), e)) -> 
+  | A.Body (Equation (pos, (StructDef(_, [SingleIdent(_, i)]) as lhs), e)) -> 
     (* Find initialization value *)
     let init = Lib.find_map (fun ne -> match ne with 
       | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), expr) when id = i  -> Some expr
       | _ -> None
     ) nes in
+    let pos2 = AH.pos_of_expr e in 
     (match init with
       | Some init ->     
-        R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos, init, 
+        R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos2, init, 
                                                     fill_ite_helper (A.Pre (pos2, Ident(pos2, i))) e)))))
       | None -> 
         R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
                                 (A.Pre (pos2, Ident(pos2, i)))
                                 e))))
-  | A.Body (Equation (pos, (StructDef(_, [ArrayDef(pos2, i1, inds1)]) as lhs), e)) ->
+  | A.Body (Equation (pos, (StructDef(_, [ArrayDef(_, i1, inds1)]) as lhs), e)) ->
+    let pos2 = AH.pos_of_expr e in 
     (* Find initialization value *)
-    let array_index = List.fold_left (fun expr j -> A.ArrayIndex(pos, expr, A.Ident(pos, j))) (A.Ident(pos, i1)) inds1 in
+    let array_index = List.fold_left (fun expr j -> A.ArrayIndex(pos2, expr, A.Ident(pos2, j))) (A.Ident(pos2, i1)) inds1 in
     let init = Lib.find_map (fun ne -> match ne with 
       | A.Equation (_, StructDef(_, [ArrayDef(_, id, inds2)]), expr) when id = i1  -> Some (AH.replace_idents inds2 inds1 expr)
       | _ -> None
     ) nes in 
     (match init with
       | Some init -> 
-        R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos, init, 
+        R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos2, init, 
                                                     fill_ite_helper (A.Pre (pos2, array_index)) e)))))
       | None -> 
         R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
