@@ -2979,7 +2979,7 @@ module Global = struct
     
   (* let enable mdl = enabled := mdl :: !enabled *)
   let enabled () = 
-      if List.mem `BMCREACHABLE !enabled |> not
+      if (List.mem `BMCREACHABLE !enabled |> not) && (List.mem `BMC !enabled)
       then `BMCREACHABLE :: !enabled
       else !enabled
 
