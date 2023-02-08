@@ -47,10 +47,11 @@ let i = ref (0)
 
 module LhsMap = struct
   include Map.Make (struct
-    type t = A.eq_lhs
+    (* LHS and its corresponding position on the RHS *)
+    type t = (A.eq_lhs * Lib.position)
     let compare lhs1 lhs2 = 
-      let (A.StructDef (_, ss1)) = lhs1 in
-      let (A.StructDef (_, ss2)) = lhs2 in
+      let (A.StructDef (_, ss1)), _ = lhs1 in
+      let (A.StructDef (_, ss2)), _ = lhs2 in
       let vars1 = A.SI.flatten (List.map AH.vars_of_struct_item ss1) in
       let vars2 = A.SI.flatten (List.map AH.vars_of_struct_item ss2) in 
       compare vars1 vars2
@@ -75,11 +76,11 @@ let unwrap result = match result with
   | Error _ -> assert false
 
 (** Create a new oracle for use with if blocks. *)
-let mk_fresh_ib_oracle expr_type =
+let mk_fresh_ib_oracle pos expr_type =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring ("_" ^ GI.iboracle)) in
-  let nexpr = A.Ident (Lib.dummy_pos, name) in
+  let nexpr = A.Ident (pos, name) in
   let gids = { (GI.empty ()) with
     ib_oracles = [name, expr_type]; }
   in nexpr, gids
@@ -142,7 +143,7 @@ let rec add_eq_to_tree conds rhs node =
 let update_recursive_array_locals map lhs expr = 
   match lhs with
     | A.StructDef (_, [ArrayDef (_, var1, inds1)]) -> (
-      let matching_lhs = LhsMap.bindings map |> List.map fst 
+      let matching_lhs = LhsMap.bindings map |> List.map fst |> List.map fst
       |> List.find_opt 
         (fun x -> (match x with 
           | A.StructDef (_, [ArrayDef (_, var2, _)]) when var1 = var2 -> true 
@@ -166,7 +167,7 @@ let if_block_to_trees ib =
           | A.Body (Equation (_, lhs, expr)) -> 
           let lhs, expr = update_recursive_array_locals trees lhs expr in
           (* Update corresponding tree (or add new tree if it doesn't exist) *)
-          let trees = LhsMap.update lhs 
+          let trees = LhsMap.update (lhs, AH.pos_of_expr expr) 
             (fun tree -> match tree with
               | Some tree -> Some (add_eq_to_tree (conds @ [(true, cond)]) expr tree)
               | None -> Some (add_eq_to_tree (conds @ [(true, cond)]) expr (Leaf None)))
@@ -191,7 +192,7 @@ let if_block_to_trees ib =
           | A.Body (Equation (_, lhs, expr)) -> 
             let lhs, expr = update_recursive_array_locals trees lhs expr in
             (* Update corresponding tree (or add new tree if it doesn't exist) *)
-            let trees = LhsMap.update lhs 
+            let trees = LhsMap.update (lhs, AH.pos_of_expr expr) 
               (fun tree -> match tree with
                 | Some tree -> Some (add_eq_to_tree (conds @ [(false, cond)]) expr tree)
                 | None -> Some (add_eq_to_tree (conds @ [(false, cond)]) expr (Leaf None))) 
@@ -219,13 +220,13 @@ let if_block_to_trees ib =
   (helper ib LhsMap.empty [])
   
 (** Converts a tree of conditions/expressions to an ITE expression. *)
-let rec tree_to_ite node =
+let rec tree_to_ite pos node =
   match node with
     | Leaf Some expr -> expr
-    | Leaf None -> A.Ident(Lib.dummy_pos, ib_oracle_tree)
+    | Leaf None -> A.Ident(pos, ib_oracle_tree)
     | Node (left, cond, right) -> 
-      let left = tree_to_ite left in
-      let right = tree_to_ite right in
+      let left = tree_to_ite pos left in
+      let right = tree_to_ite pos right in
       let pos = AH.pos_of_expr left in
       TernaryOp (pos, Ite, cond, left, right)
 
@@ -251,7 +252,7 @@ let rec fill_ite_with_oracles expr ty =
       let e2, gids2, decls2 = fill_ite_with_oracles e2 ty in
       A.TernaryOp (pos, Ite, cond, e1, e2), GI.union gids1 gids2, decls1 @ decls2
     | Ident(p, s) when s = ib_oracle_tree -> 
-      let (expr, gids) = (mk_fresh_ib_oracle ty) in
+      let (expr, gids) = (mk_fresh_ib_oracle p ty) in
       (match expr with
         (* Clocks are unsupported, so the clock value is hardcoded to ClockTrue *)
         | A.Ident (_, name) ->  expr, gids, [A.NodeVarDecl(p, (p, name, ty, ClockTrue))]
@@ -304,10 +305,12 @@ let extract_equations_from_if node_id ctx ib =
      be displayed in post analysis, eg ivcMcs.ml *)
   update_if_position_info node_id ib;
   let* tree_map = if_block_to_trees ib in
-  let (lhss, trees) = LhsMap.bindings (tree_map) |> List.split in
+  let (lhss_poss, trees) = LhsMap.bindings (tree_map) |> List.split in
   let trees = List.map simplify_tree trees in  
-  let poss = List.map (fun (A.StructDef (pos, _)) -> pos) lhss in
-  let ites = List.map tree_to_ite trees in
+  let lhs_poss = List.map (fun (A.StructDef (pos, _), _) -> pos) lhss_poss in
+  let rhs_poss = List.map snd lhss_poss in
+  let lhss = List.map fst lhss_poss in
+  let ites = List.map2 tree_to_ite rhs_poss trees in
   let tys = (List.map (get_tree_type ctx) lhss) in 
   let tys = (List.map (fun x -> match x with | Some y -> y | None -> assert false (* not possible *)) 
                        tys) in
@@ -318,7 +321,7 @@ let extract_equations_from_if node_id ctx ib =
 
   let gids = List.fold_left GI.union (GI.empty ()) gids in
   (* Combine poss, lhss, and ites into a list of equations *)
-  let eqs = (List.map2 (fun (a, b) c -> (A.Body (A.Equation (a, b, c)))) (List.combine poss lhss) ites) in
+  let eqs = (List.map2 (fun (a, b) c -> (A.Body (A.Equation (a, b, c)))) (List.combine lhs_poss lhss) ites) in
   R.ok (new_decls, eqs, [gids])
 
 
