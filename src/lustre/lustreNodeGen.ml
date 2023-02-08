@@ -2070,13 +2070,21 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (
     match HString.HStringHashtbl.find_opt LDF.pos_list_map i with
       | Some frame_infos ->
+        (* Get state variables for frame block variables *)
         let frame_infos = List.map (fun (pos, id, ty) -> ((H.find_opt !map.state_var (mk_ident id)), pos, ty)) frame_infos in
         List.iter (fun (sv, pos, ty) -> 
           match sv with 
           | Some sv -> 
-            if (ty = LDF.FrameBlockHeader) 
-            then N.add_state_var_def sv (N.FrameBlock pos) 
-            else N.add_state_var_def sv (N.ProperEq (pos, []))
+            (match ty with 
+              | LDF.FrameBlockHeader -> N.add_state_var_def sv (N.FrameBlock pos) 
+              | LDF.InitEq lhs ->
+                let lhs, _ = (match lhs with
+                  | A.StructDef (_, [e]) -> compile_struct_item e
+                  | _ -> assert false) 
+                in
+              (* Add state var defs for frame block variables *)
+              List.iter (fun (i, _) -> N.add_state_var_def sv (N.ProperEq (pos, rm_array_var_index i))) (X.bindings lhs);
+            )
           | None -> ()
         ) frame_infos;  
       | None -> ()
@@ -2086,10 +2094,23 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (
     match HString.HStringHashtbl.find_opt LDI.pos_list_map i with
       | Some if_infos ->
-        let if_infos = List.map (fun (pos, id) -> ((H.find_opt !map.state_var (mk_ident id)), pos)) if_infos in
-        List.iter (fun (sv, pos) -> 
+        (* Get state variables for if block equations *)
+        let if_infos = List.map (fun (pos, lhs) -> 
+          (match lhs with
+            | A.StructDef(_, [SingleIdent(_, id)]) -> ((H.find_opt !map.state_var (mk_ident id)), pos, lhs) 
+            | A.StructDef(_, [ArrayDef(_, id, _)]) -> ((H.find_opt !map.state_var (mk_ident id)), pos, lhs) 
+            | _ -> assert false)
+        ) if_infos
+        in
+        (* Add state var defs for if block equations *)
+        List.iter (fun (sv, pos, lhs) -> 
           match sv with 
-          | Some sv -> N.add_state_var_def sv (N.ProperEq (pos, []))
+          | Some sv ->
+            let lhs, _ = (match lhs with
+              | A.StructDef (_, [e]) -> compile_struct_item e
+              | _ -> assert false) 
+            in
+            List.iter (fun (i, _) -> N.add_state_var_def sv (N.ProperEq (pos, rm_array_var_index i))) (X.bindings lhs);
           | None -> ()
         ) if_infos;  
       | None -> ()

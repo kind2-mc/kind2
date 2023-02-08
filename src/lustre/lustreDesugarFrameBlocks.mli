@@ -49,7 +49,7 @@ val warning_message : warning_kind -> string
 
 type frame_info =
   | FrameBlockHeader
-  | InitEq
+  | InitEq of A.eq_lhs
 
 val pos_list_map : (Lib.position * HString.t * frame_info) list HString.HStringHashtbl.t
 

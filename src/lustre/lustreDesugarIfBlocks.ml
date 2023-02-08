@@ -61,7 +61,7 @@ type cond_tree =
 	| Leaf of A.expr option
 	| Node of cond_tree * A.expr * cond_tree
 
-let pos_list_map : (Lib.position * HString.t) list HString.HStringHashtbl.t = 
+let pos_list_map : (Lib.position * A.eq_lhs) list HString.HStringHashtbl.t = 
   HString.HStringHashtbl.create 20
 
 let (let*) = R.(>>=)
@@ -88,12 +88,11 @@ let rec update_if_position_info node_id ni = match ni with
   | A.IfBlock (_, _, nis1, nis2) ->
     List.iter (update_if_position_info node_id) nis1;
     List.iter (update_if_position_info node_id) nis2;
-  | Body (Equation (_, StructDef(_, [SingleIdent(_, id)]), expr))
-  | Body (Equation (_, StructDef(_, [ArrayDef(_, id, _)]), expr)) ->
+  | Body (Equation (_, lhs, expr)) ->
     (* If there is already a binding, we want to retain the old 'if_info' *)
     let if_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with
-      | Some if_info2 -> (AH.pos_of_expr expr, id) :: if_info2
-      | None -> [(AH.pos_of_expr expr, id)] 
+      | Some if_info2 -> (AH.pos_of_expr expr, lhs) :: if_info2
+      | None -> [(AH.pos_of_expr expr, lhs)] 
     in
     HString.HStringHashtbl.add pos_list_map node_id if_info;
   | _ -> ()
