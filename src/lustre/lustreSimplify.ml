@@ -436,7 +436,7 @@ let rec eval_ast_expr bounds ctx =
               with Invalid_argument _ -> true
             in*)
             if (*not (N.has_state_var_a_proper_def sv)*) (*is_a_def*) not (StateVar.is_input sv)
-            then N.add_state_var_def sv (N.GeneratedEq (pos, index)) ;
+            then N.add_state_var_def sv ~is_dep:true (N.GeneratedEq (pos, index)) ;
             res
            in
            let expr', ctx =
@@ -1136,7 +1136,7 @@ let rec eval_ast_expr bounds ctx =
                let (state_var, _) , ctx = 
                  C.mk_local_for_expr ~bounds:[bound] pos ctx e in
                if not (StateVar.is_input state_var)
-               then N.add_state_var_def state_var (N.GeneratedEq (H.pos_of_expr expr, j)) ;
+               then N.add_state_var_def ~is_dep:true state_var (N.GeneratedEq (H.pos_of_expr expr, j)) ;
                let e' = E.mk_var state_var in
                D.add (D.ArrayVarIndex array_size :: j) e' a, ctx)
         expr'
@@ -1782,7 +1782,7 @@ and eval_node_call
             in
             Format.printf "%a %a %b\n" StateVar.pp_print_state_var state_var' Lib.pp_print_pos pos' is_a_def ;*)
             if (*not (N.has_state_var_a_proper_def state_var')*) (*is_a_def*) not (StateVar.is_input state_var')
-            then N.add_state_var_def state_var' (N.GeneratedEq (pos',i')) ;
+            then N.add_state_var_def ~is_dep:true state_var' (N.GeneratedEq (pos',i')) ;
             let ctx =
               C.current_node_map ctx (
                 fun node ->
