@@ -141,7 +141,7 @@ let print_data_of_loc_equation var_map (_, locs_cats) =
     | FrameBlock sv ->
       Some {
         name = lustre_name_of_sv var_map sv ;
-        category = "Frame Block" ;
+        category = "Frame Condition" ;
         position = loc.pos ;
       }
     | ContractItem (_, svar, typ) ->
