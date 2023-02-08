@@ -175,7 +175,8 @@ let printable_elements_of_core in_sys sys core =
     (* Do not print display temp/generated variables (the variable name begins with a digit) *)
     |> List.filter (fun {name} -> not (String.contains "12345678" (String.get name 0))) 
     (* Filter out duplicate positions *)
-    |> List.fold_left (fun xs x -> if List.length xs > 0 && x.position = (List.hd xs).position then xs else xs@[x]) []
+    |> List.fold_left (fun xs x -> if List.length xs > 0 && x.position = (List.hd xs).position then xs else x::xs) []
+    |> List.rev
   in
   core
   |> ScMap.map aux (* Build map *)
