@@ -122,6 +122,7 @@ let rec modify_arraydefs_in_expr array_assoc_list = function
     * updated context
    *)
 let create_new_eqs ctx lhs expr = 
+  let rhs_pos = AH.pos_of_expr expr in
   let convert_struct_item = (function
     | A.SingleIdent (p, i) as si -> 
       let temp, gids = mk_fresh_temp_name i in
@@ -132,7 +133,7 @@ let create_new_eqs ctx lhs expr =
       let ctx = Ctx.add_ty ctx temp ty in
       (
         [A.SingleIdent(p, temp)],
-        [A.Body (A.Equation(p, StructDef(p, [si]), Ident(p, temp)))],
+        [A.Body (A.Equation(p, StructDef(p, [si]), Ident(rhs_pos, temp)))],
         (* Clocks are unsupported, so the clock value is hardcoded to ClockTrue *)
         [A.NodeVarDecl(p, (p, temp, ty, ClockTrue))],
         [ctx],
@@ -148,7 +149,7 @@ let create_new_eqs ctx lhs expr =
     *)
     | ArrayDef (p, i, js) as si -> 
       let temp, gids = mk_fresh_temp_name i in
-      let array_index = List.fold_left (fun expr j -> A.ArrayIndex(p, expr, A.Ident(p, j))) (A.Ident(p, temp)) js in
+      let array_index = List.fold_left (fun expr j -> A.ArrayIndex(rhs_pos, expr, A.Ident(rhs_pos, j))) (A.Ident(rhs_pos, temp)) js in
       (* Type error, shouldn't be possible *)
       let ty = (match Ctx.lookup_ty ctx i with 
         | Some ty -> ty 
