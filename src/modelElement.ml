@@ -168,9 +168,11 @@ let printable_elements_of_core in_sys sys core =
     |> List.map (print_data_of_loc_equation var_map)
     |> List.filter (function Some _ -> true | None -> false)
     |> List.map (function Some x -> x | None -> assert false)
+
     |> List.flatten
     |> List.filter (function Some _ -> true | None -> false)
     |> List.map (function Some x -> x | None -> assert false)
+    |> List.sort (fun {position = p1} {position = p2} -> Lib.compare_pos p1 p2) 
   in
   core
   |> ScMap.map aux (* Build map *)
