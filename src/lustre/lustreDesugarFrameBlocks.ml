@@ -184,23 +184,27 @@ let generate_undefined_nes nis ne = match ne with
     frame block var list is left undefined in the frame block body AND has 
     no initialization. *)
 let generate_undefined_nes_no_init pos nes nis var = 
-    (* Find var's corresponding node item in frame block body. *)
-    let res = List.find_opt (fun ni -> match ni with
+    (* Find var's corresponding node item in frame block body *)
+    match (List.find_opt (fun ni -> match ni with
       | A.Body (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when i = var -> true
       | A.Body (A.Equation (_, StructDef(_, [ArrayDef(_, i, _)]), _)) when i = var -> true
-      (* Check to see if var has an initialization*)
-      | _ -> match (List.find_opt (fun ne -> match ne with
+      | _ -> false) nis)
+    with
+      (* Already defined in frame block body *)
+      | Some _ -> R.ok []
+      | _ -> 
+    (* If not found, find var's corresponding initialization *)
+    match (List.find_opt (fun ne -> match ne with
         | (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when i = var -> true
         | (A.Equation (_, StructDef(_, [ArrayDef(_, i, _)]), _)) when i = var -> true
         | _ -> false
-      ) nes) with | Some _ -> true | None -> false
-    ) nis in (
-    match res with
-      (* Already defined in frame block body or initialization*)
+    ) nes)
+    with
+      (* Already defined in frame block initialization *)
       | Some _ -> R.ok []
-      (* Fill in equation in frame block body *)
       | None -> R.ok [A.Body(A.Equation(pos, StructDef(pos, [SingleIdent (pos, var)]), Pre(pos, Ident (pos, var))))]
-    )
+      
+    
 
 
 (** Helper function to fill in ITE oracles and guard equations with specified
