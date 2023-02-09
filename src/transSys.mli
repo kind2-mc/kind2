@@ -506,7 +506,7 @@ val get_prop_term : t -> string -> Term.t
     system of the first property of name [n]. *)
 val get_prop_status : t -> string -> Property.prop_status 
 
-(** Return current status of the property
+(** Return current kind of the property
 
 [get_prop_kind t n] returns the kind saved in the transition
 system of the first property of name [n]. *)
@@ -531,7 +531,7 @@ val get_prop_status_all_nocands : t -> (string * Property.prop_status) list
 
 (** Return the kind of all properties excepted candidates
 
-    [get_prop_status t] returns the status saved in the transition
+    [get_prop_kind t] returns the kind saved in the transition
     system of each property along with the name of the property. *)
 val get_prop_kind_all_nocands : t -> (string * Property.prop_kind) list
 
@@ -549,10 +549,14 @@ val get_prop_status_all_unknown : t -> (string * Property.prop_status) list
 (** Instantiate all properties to the bound *)
 val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list 
 
-(** Instantiate all invariant properties to the bound *)
+(** Instantiate all properties to the bound, but only properties where
+    the BMC engine CANNOT skip steps. This only includes invariant properties
+    and reachability queries without lower bounds. *)
 val props_list_of_bound_no_skip : t -> Numeral.t -> (string * Term.t) list 
 
-(** Instantiate all reachable properties to the bound *)
+(** Instantiate all properties to the bound, but only properties where
+    the BMC engine CAN skip steps. This only includes reachability queries
+    with lower bounds. *)
 val props_list_of_bound_skip : t -> Numeral.t -> (string * Term.t) list 
 
 

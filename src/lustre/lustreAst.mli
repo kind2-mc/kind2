@@ -240,7 +240,6 @@ type prop_bound =
 (** Whether a property is reachable or invariant *)
 type prop_kind =
   | Invariant
-  (* The 'HString.t' refers to the timestep of the bound, eg "within 10 timesteps" *)
   | Reachable of prop_bound option
 
 (** An item in a node declaration *)

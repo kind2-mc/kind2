@@ -141,9 +141,9 @@ let debug_ext_of_process = short_name_of_kind_module
 (* Decides what the exit status is by looking at a transition system.
 
 The exit status is
-* 0 if some properties are unknown or k-true (timeout),
-* 10 if some properties are falsifiable (unsafe),
-* 20 if all properties are invariants (safe). *)
+  * 0 if some properties are unknown or k-true (timeout),
+  * 10 if some invariant properties are falsifiable (unsafe) or some reachability properties are unreachable,
+  * 20 if all invariant properties are invariants (safe) and all reachability properties are reachable. *)
 let status_of_trans_sys sys =
   (* Checking if some properties are unknown of falsifiable. *)
   let unknown, falsifiable =
