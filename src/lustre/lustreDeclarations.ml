@@ -869,7 +869,7 @@ let rec eval_node_equation _inputs _outputs _locals ctx = function
     let lhs_bounds =
       List.fold_left (fun acc (i, sv) ->
           N.add_state_var_def sv
-            (N.ProperEq (H.pos_of_expr ast_expr, rm_array_var_index i)) ;
+            (N.ProperEq (pos, rm_array_var_index i)) ;
           List.fold_left (fun (acc, cpt) -> function
               | D.ArrayVarIndex b ->
                 if cpt < indexes then E.Bound b :: acc, succ cpt

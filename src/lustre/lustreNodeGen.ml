@@ -1845,7 +1845,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       | _ -> true
       ) lst
 
-  in let gen_lhs_bounds is_generated eq_lhs expr indexes =
+  in let gen_lhs_bounds is_generated eq_lhs pos indexes =
     List.fold_left (fun acc (i, sv) ->
       let result = List.fold_left (fun (acc, cpt) -> function
         | X.ArrayVarIndex b -> if cpt < indexes
@@ -1861,7 +1861,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       let is_dep = GI.StringMap.mem id (gids.generated_locals) in
       if not is_generated then
         N.add_state_var_def sv ~is_dep:is_dep
-          (N.ProperEq (AH.pos_of_expr expr, rm_array_var_index i));
+          (N.ProperEq (pos, rm_array_var_index i));
       result
     ) [] (X.bindings eq_lhs)
   (* ****************************************************************** *)
@@ -1870,19 +1870,19 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   in let gequations =
     let over_equations = fun eqns (qvars, contract_scope, lhs, ast_expr) ->
       map := { !map with contract_scope };
-      let eq_lhs, indexes = match lhs with
-        | A.StructDef (_, []) -> (X.empty, 0)
-        | A.StructDef (_, [e]) -> compile_struct_item e
-        | A.StructDef (_, l) ->
+      let pos, eq_lhs, indexes = match lhs with
+        | A.StructDef (pos, []) -> pos, X.empty, 0
+        | A.StructDef (pos, [e]) -> (compile_struct_item e) |> (fun (x, y) -> (pos, x, y))
+        | A.StructDef (pos, l) ->
           let construct_index i j e a = X.add (X.ListIndex i :: j) e a in
           let over_items = fun (i, accum) e -> 
             let t, _ = compile_struct_item e in
               i + 1, X.fold (construct_index i) t accum
           in
           let _, res = List.fold_left over_items (0, X.empty) l
-          in res, 0
+          in pos, res, 0
       in
-      let lhs_bounds = gen_lhs_bounds true eq_lhs ast_expr indexes in
+      let lhs_bounds = gen_lhs_bounds true eq_lhs pos indexes in
       let vars, quant_var_map = vars_of_quant cstate ctx map qvars in
       let bounds = lhs_bounds @
         List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
@@ -1926,7 +1926,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
             let _, res = List.fold_left over_items (0, X.empty) l
             in res, 0
         in
-        let lhs_bounds = gen_lhs_bounds false eq_lhs ast_expr indexes in
+        let lhs_bounds = gen_lhs_bounds false eq_lhs pos indexes in
         let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr in
         let eq_rhs = flatten_list_indexes eq_rhs in
         (* Format.eprintf "lhs: %a@.rhs: %a@.@."
@@ -2097,10 +2097,10 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     match HString.HStringHashtbl.find_opt LDI.pos_list_map i with
       | Some if_infos ->
         (* Get state variables for if block equations *)
-        let if_infos = List.map (fun (pos, lhs) -> 
+        let if_infos = List.map (fun lhs -> 
           (match lhs with
-            | A.StructDef(_, [SingleIdent(_, id)]) -> ((H.find_opt !map.state_var (mk_ident id)), pos, lhs) 
-            | A.StructDef(_, [ArrayDef(_, id, _)]) -> ((H.find_opt !map.state_var (mk_ident id)), pos, lhs) 
+            | A.StructDef(pos, [SingleIdent(_, id)]) -> ((H.find_opt !map.state_var (mk_ident id)), pos, lhs) 
+            | A.StructDef(pos, [ArrayDef(_, id, _)]) -> ((H.find_opt !map.state_var (mk_ident id)), pos, lhs) 
             | _ -> assert false)
         ) if_infos
         in
