@@ -75,7 +75,7 @@ val log_counterexample : Lib.kind_module -> Lib.log_level -> string list -> Tran
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_prop_status : Lib.log_level -> TransSys.t -> (string * Property.prop_status) list -> (string * Property.prop_kind) list -> unit
+val log_prop_status : Lib.log_level -> TransSys.t -> (string * Property.prop_status * Property.prop_kind) list -> unit
 
 (** Log statistics
 

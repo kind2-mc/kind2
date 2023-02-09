@@ -679,7 +679,7 @@ let progress_pt mdl level k =
  *)
 
 (* Pretty-print a list of properties and their status *)
-let prop_status_pt level prop_status prop_kind =
+let prop_status_pt level prop_status_kind =
 
   (ignore_or_fprintf level)
     !log_ppf
@@ -687,7 +687,7 @@ let prop_status_pt level prop_status prop_kind =
     Pretty.print_line ()
     Pretty.print_line ()
     (pp_print_list 
-       (fun ppf ((p, s), (_, k)) -> 
+       (fun ppf ((p, s, k)) -> 
           Format.fprintf 
             ppf
             "@[<h>@{<blue_b>%s@}: %a@]"
@@ -779,7 +779,7 @@ let prop_status_pt level prop_status prop_kind =
               )
             (s, k))
        "@,")
-    (List.combine prop_status prop_kind)
+    prop_status_kind
     Pretty.print_double_line ()
           
 
@@ -1065,16 +1065,16 @@ let progress_xml mdl level k =
     k
 
 (* Pretty-print a list of properties and their status *)
-let prop_status_xml level trans_sys prop_status prop_kind =
+let prop_status_xml level trans_sys prop_status_kind =
   (* Filter unknown properties. *)
-  (List.combine prop_status prop_kind)
-  |> List.filter (fun ((_, status), _) ->
+  prop_status_kind
+  |> List.filter (fun (_, status, _) ->
     not (Property.prop_status_known status)
   ) |> (ignore_or_fprintf level)
     !log_ppf
     "@[<v>%a@]@."
     (pp_print_list 
-       (fun ppf ((p, s), (_, k)) -> 
+       (fun ppf ((p, s, k)) -> 
 
             Format.fprintf 
               ppf
@@ -1385,11 +1385,11 @@ let execution_path_json level input_sys trans_sys path =
 
 
 (* Pretty-print a list of properties and their status *)
-let prop_status_json level trans_sys prop_status prop_kind =
+let prop_status_json level trans_sys prop_status_kind =
 
   (* Filter unknown properties. *)
-  let unknown_props = (List.combine prop_status prop_kind)
-    |> List.filter (fun ((_, status), _) ->
+  let unknown_props = prop_status_kind
+    |> List.filter (fun (_, status, _) ->
       not (Property.prop_status_known status)
     )
   in
@@ -1399,7 +1399,7 @@ let prop_status_json level trans_sys prop_status prop_kind =
       !log_ppf
       "@[<v>%a@]@."
       (pp_print_list
-         (fun ppf ((p, s), (_, k)) ->
+         (fun ppf ((p, s, k)) ->
            Format.fprintf
              ppf
              ",@.{@[<v 1>@,\
@@ -1565,11 +1565,11 @@ let log_execution_path level input_sys trans_sys path =
 
 
 (* Output summary of status of properties *)
-let log_prop_status level trans_sys prop_status prop_kind =
+let log_prop_status level trans_sys prop_status_kind =
   match get_log_format () with 
-    | F_pt -> prop_status_pt level prop_status prop_kind
-    | F_xml -> prop_status_xml level trans_sys prop_status prop_kind
-    | F_json -> prop_status_json level trans_sys prop_status prop_kind
+    | F_pt -> prop_status_pt level prop_status_kind
+    | F_xml -> prop_status_xml level trans_sys prop_status_kind
+    | F_json -> prop_status_json level trans_sys prop_status_kind
     | F_relay -> ()
 
 
