@@ -1857,8 +1857,13 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | _ -> acc, cpt)
         (acc, 0) i |> fst
       in
+      let id = HString.mk_hstring (StateVar.name_of_state_var sv) in
+      let is_dep = match GI.StringMap.find_opt id (gids.generated_locals) with
+        | Some _ -> true
+        | None -> false
+      in
       if not is_generated then
-        N.add_state_var_def sv
+        N.add_state_var_def sv ~is_dep:is_dep
           (N.ProperEq (AH.pos_of_expr expr, rm_array_var_index i));
       result
     ) [] (X.bindings eq_lhs)
