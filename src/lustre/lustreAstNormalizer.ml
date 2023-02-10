@@ -183,7 +183,6 @@ let force_fresh = true
 let call_cache = CallCache.create 20
 let local_cache = LocalCache.create 20
 let node_arg_cache = NodeArgCache.create 20
-let ctr_id = HString.mk_hstring "*counter"
 
 let clear_cache () =
   CallCache.clear call_cache;

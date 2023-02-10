@@ -1169,7 +1169,7 @@ let rec pp_print_lustre_path_pt' is_top const_map ppf = function
     (* Don't show generated counter variable (generated for reachability 
        query backend optimization) *)
     |> (fun (a, b, c) -> (a, b, List.filter (fun (s, _, _) -> 
-          s <> HString.string_of_hstring LustreAstNormalizer.ctr_id) c))
+          s <> HString.string_of_hstring GeneratedIdentifiers.ctr_id) c))
   in
 
   let globals = if is_top then get_constants const_map [] else [] in

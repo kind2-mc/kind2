@@ -82,6 +82,10 @@ type t = {
    that is used for if block oracle variable names. *)
 val iboracle : string
 
+(* String constant used for counter variables generated for instrumentation
+of reachability queries with timestep bounds. *)
+val ctr_id : HString.t
+
 (** Checks if a variable name corresponds to an iboracle *)
 val var_is_iboracle: HString.t -> bool
 
