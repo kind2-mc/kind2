@@ -89,11 +89,11 @@ let rec update_if_position_info node_id ni = match ni with
   | A.IfBlock (_, _, nis1, nis2) ->
     List.iter (update_if_position_info node_id) nis1;
     List.iter (update_if_position_info node_id) nis2;
-  | Body (Equation (pos, lhs, _)) ->
+  | Body (Equation (_, lhs, expr)) ->
     (* If there is already a binding, we want to retain the old 'if_info' *)
     let if_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with
-      | Some if_info2 -> (pos, lhs) :: if_info2
-      | None -> [(pos, lhs)] 
+      | Some if_info2 -> (AH.pos_of_expr expr, lhs) :: if_info2
+      | None -> [(AH.pos_of_expr expr, lhs)] 
     in
     HString.HStringHashtbl.add pos_list_map node_id if_info;
   | _ -> ()

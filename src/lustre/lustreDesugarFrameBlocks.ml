@@ -271,7 +271,7 @@ let desugar_node_item node_id ni = match ni with
     let warnings = warn_unguarded_pres (nis @ nis3) pos |> List.flatten in
     (* Frame block header info *)
     let frame_info = (List.map (fun ne -> match ne with
-        | A.Equation (pos2, lhs, _) -> (pos, lhs, pos2)
+        | A.Equation (_, lhs, expr) -> (pos, lhs, AH.pos_of_expr expr)
         | _ -> assert false) nes) in
     (* If there is already a binding, we want to retain the old 'frame_info' *)
     let frame_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with
