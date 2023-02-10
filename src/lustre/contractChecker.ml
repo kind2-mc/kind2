@@ -266,7 +266,7 @@ let pp_print_realizability_result_pt
         fmt
         "@[<v>%a@]@."
         (KEvent.pp_print_counterexample_pt
-          ~title:"Deadlocking trace" L_warn in_sys param sys None true Property.Invariant)
+          ~title:"Deadlocking trace" L_warn in_sys param sys None true)
         trace ;
 
       Format.fprintf
@@ -300,7 +300,7 @@ let pp_print_realizability_result_json
           ",@,%a,@,\
           \"conflictingSet\" : %a"
           (KEvent.pp_print_counterexample_json
-            ~object_name:"deadlockingTrace" in_sys param sys None true Property.Invariant)
+            ~object_name:"deadlockingTrace" in_sys param sys None true)
           trace
           (ME.pp_print_core_data_json in_sys param sys) cpd
         )
@@ -348,7 +348,7 @@ let pp_print_realizability_result_xml
           fmt
           "@,%a@,%a"
           (KEvent.pp_print_counterexample_xml
-            ~tag:"DeadlockingTrace" in_sys param sys None true Property.Invariant)
+            ~tag:"DeadlockingTrace" in_sys param sys None true)
           trace
           (ME.pp_print_core_data_xml ~tag:"ConflictingSet" in_sys param sys) cpd
         )

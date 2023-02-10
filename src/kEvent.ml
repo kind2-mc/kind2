@@ -328,7 +328,7 @@ let tag_pt level tag str =
     str
 
 (* Output proved property as plain text *)
-let proved_pt mdl level trans_sys k prop kind = 
+let proved_pt mdl level trans_sys k prop = 
   (* Only output if status was unknown *)
   if 
     not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
@@ -337,6 +337,7 @@ let proved_pt mdl level trans_sys k prop kind =
     let k_val = (function ppf -> match k with
       | None -> ()
       | Some k -> Format.fprintf ppf "for k=%d " k) in
+    let kind = TransSys.get_prop_kind trans_sys prop in
     (match kind with
       | Property.Invariant ->
         (ignore_or_fprintf level)
@@ -457,7 +458,7 @@ let slice_trans_sys_and_cex_to_property
 
 (* Pretty-print a counterexample *)
 let pp_print_counterexample_pt 
-  ?(title = "Counterexample") level input_sys analysis trans_sys prop_name disproved prop_kind ppf
+  ?(title = "Counterexample") level input_sys analysis trans_sys prop_name disproved ppf
 = function
 | [] -> ()
 | cex -> (
@@ -469,13 +470,21 @@ let pp_print_counterexample_pt
   in
 
   let print_cex ppf =
-    match prop_name, prop_kind with
-      | Some _, Property.Reachable _ -> 
-          Format.fprintf ppf
-          "@{<green>%s@}:@,  @[<v>%a@]"
-          "Example trace"
-          (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
-          (Model.path_of_list cex)
+    match prop_name with
+      | Some name -> 
+        (match (TransSys.property_of_name trans_sys name).prop_kind with
+          | Property.Reachable _ ->
+            Format.fprintf ppf
+            "@{<green>%s@}:@,  @[<v>%a@]"
+            "Example trace"
+            (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
+            (Model.path_of_list cex)
+          | _ -> 
+            Format.fprintf ppf
+            "@{<red>%s@}:@,  @[<v>%a@]"
+            title
+            (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
+            (Model.path_of_list cex))
       | _ -> 
         Format.fprintf ppf
         "@{<red>%s@}:@,  @[<v>%a@]"
@@ -540,7 +549,7 @@ let execution_path_pt level input_sys trans_sys path =
 
 
 (* Output cex for a property as plain text *)
-let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disproved kind =
+let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disproved =
 
   (* Only ouptut if status was unknown *)
   if 
@@ -570,6 +579,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
           (* cex *)
     end
     else
+      let kind = TransSys.get_prop_kind trans_sys prop in
       (* Output cex. *)
       (ignore_or_fprintf level)
         !log_ppf 
@@ -637,7 +647,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
            )
         )
         (pp_print_counterexample_pt
-           level input_sys analysis trans_sys (Some prop) disproved ((TransSys.property_of_name trans_sys prop).prop_kind))
+           level input_sys analysis trans_sys (Some prop) disproved)
         cex ;
 
     (* Output warning if division by zero happened in simplification. *)
@@ -834,7 +844,7 @@ let prop_attributes_xml trans_sys prop_name =
 
 
 (* Output proved property as XML *)
-let proved_xml mdl level trans_sys k prop_name prop_kind =
+let proved_xml mdl level trans_sys k prop_name =
 
   let prop = TransSys.property_of_name trans_sys prop_name in
   (* Only ouptut if status was unknown *)
@@ -858,7 +868,7 @@ let proved_xml mdl level trans_sys k prop_name prop_kind =
         %t\
         <Answer source=\"%a\"%t>%s</Answer>@;<0 -2>\
         </Property>@]@.")
-      (Lib.escape_xml_string (if prop_kind = Property.Invariant then prop_name else rm_neg_prop_str prop_name prop_kind)) 
+      (Lib.escape_xml_string (if prop.prop_kind = Property.Invariant then prop_name else rm_neg_prop_str prop_name prop.prop_kind)) 
       (prop_attributes_xml trans_sys prop_name)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match k with 
@@ -869,7 +879,7 @@ let proved_xml mdl level trans_sys k prop_name prop_kind =
          | None -> ()
          | Some msg -> Format.fprintf ppf " comment=\"%s\"" msg
       )
-      (match prop_kind with
+      (match prop.prop_kind with
       | Property.Invariant -> "valid"
       | Property.Reachable Some (From ts) -> "unreachable from " ^ string_of_int ts ^ " timesteps"
       | Property.Reachable Some (Within ts) -> "unreachable within " ^ string_of_int ts ^ " timesteps"
@@ -904,7 +914,6 @@ let pp_print_counterexample_xml
     trans_sys
     prop_name
     disproved
-    prop_kind
     ppf =
 
   function
@@ -912,6 +921,10 @@ let pp_print_counterexample_xml
     | [] -> ()
 
     | cex -> 
+      let prop_kind = match prop_name with
+        | Some name -> TransSys.get_prop_kind trans_sys name
+        | None -> Property.Invariant
+      in
       let tag = (if prop_kind = Property.Invariant then tag else "ExampleTrace") in
       (
         (* Slice counterexample and transitions system to property *)
@@ -958,7 +971,7 @@ let execution_path_xml level input_sys trans_sys path =
 let cex_xml
 ?(wa_model=[]) mdl level input_sys analysis trans_sys prop_name (
   cex : (StateVar.t * Model.value list) list
-) disproved prop_kind = 
+) disproved = 
 
   let prop = TransSys.property_of_name trans_sys prop_name in
   (* Only ouptut if status was unknown *)
@@ -970,10 +983,11 @@ let cex_xml
     (* Reset division by zero indicator. *)
     Simplify.has_division_by_zero_happened () |> ignore ;
 
+    let prop_kind = TransSys.get_prop_kind trans_sys prop_name in
     let answer =
       match mdl with
       | `IND -> "unknown"
-      | _ ->       (match prop_kind with
+      | _ -> (match prop_kind with
       | Property.Invariant -> "falsifiable"
       | Property.Reachable Some (From ts) -> "reachable from " ^ string_of_int ts ^ " timesteps"
       | Property.Reachable Some (Within ts) -> "reachable within " ^ string_of_int ts ^ " timesteps"
@@ -1026,7 +1040,7 @@ let cex_xml
              wa_model
          )
       )
-      (pp_print_counterexample_xml input_sys analysis trans_sys (Some prop_name) disproved prop_kind)
+      (pp_print_counterexample_xml input_sys analysis trans_sys (Some prop_name) disproved)
       cex ;
 
     (* Output warning if division by zero happened in simplification. *)
@@ -1176,7 +1190,7 @@ let prop_attributes_json ppf trans_sys prop_name =
 
 
 (* Output proved property as JSON *)
-let proved_json mdl level trans_sys k prop kind =
+let proved_json mdl level trans_sys k prop =
 
   (* Only ouptut if status was unknown *)
   if
@@ -1184,7 +1198,7 @@ let proved_json mdl level trans_sys k prop kind =
     not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
   then
-
+    let kind = TransSys.get_prop_kind trans_sys prop in
     (ignore_or_fprintf level)
       !log_ppf
       ",@.{@[<v 1>@,\
@@ -1256,7 +1270,6 @@ let pp_print_counterexample_json
     trans_sys
     prop_name
     disproved
-    prop_kind
     ppf =
 
   function
@@ -1264,7 +1277,10 @@ let pp_print_counterexample_json
     | [] -> ()
 
     | cex ->
-
+      let prop_kind = match prop_name with
+        | Some name -> TransSys.get_prop_kind trans_sys name
+        | None -> Property.Invariant
+      in
       (
         (* Slice counterexample and transitions system to property *)
         let trans_sys', _, cex', input_sys' =
@@ -1287,7 +1303,7 @@ let pp_print_counterexample_json
 
 
 (* Output disproved property as JSON *)
-let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disproved kind =
+let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disproved =
 
   (* Only output if status was unknown *)
   if
@@ -1297,7 +1313,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
   then (
     (* Reset division by zero indicator. *)
     Simplify.has_division_by_zero_happened () |> ignore ;
-
+    let kind = TransSys.get_prop_kind trans_sys prop in
     let answer =
       match mdl with
       | `IND -> "unknown"
@@ -1357,7 +1373,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
              wa_model
          )
       )
-      (pp_print_counterexample_json input_sys analysis trans_sys (Some prop) disproved (TransSys.property_of_name trans_sys prop).prop_kind)
+      (pp_print_counterexample_json input_sys analysis trans_sys (Some prop) disproved)
       cex
       ;
 
@@ -1512,11 +1528,11 @@ include ELog
 (* ********************************************************************** *)
 
 (* Log a message with source and log level *)
-let log_proved mdl level trans_sys k prop kind =
+let log_proved mdl level trans_sys k prop =
   match get_log_format () with 
-    | F_pt -> proved_pt mdl level trans_sys k prop kind
-    | F_xml -> proved_xml mdl level trans_sys k prop kind
-    | F_json -> proved_json mdl level trans_sys k prop kind
+    | F_pt -> proved_pt mdl level trans_sys k prop
+    | F_xml -> proved_xml mdl level trans_sys k prop
+    | F_json -> proved_json mdl level trans_sys k prop
     | F_relay -> ()
 
 let log_unknown mdl level trans_sys prop =
@@ -1535,23 +1551,23 @@ let log_with_tag level tag str =
     | F_relay -> ()
 
 (* Log a message with source and log level *)
-let log_cex ?(wa_model=[]) disproved mdl level input_sys analysis trans_sys prop cex kind =
+let log_cex ?(wa_model=[]) disproved mdl level input_sys analysis trans_sys prop cex =
   match get_log_format () with 
   | F_pt ->
-    cex_pt ~wa_model mdl level input_sys analysis trans_sys prop cex disproved kind
+    cex_pt ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
   | F_xml ->
-    cex_xml ~wa_model mdl level input_sys analysis trans_sys prop cex disproved kind
+    cex_xml ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
   | F_json ->
-    cex_json ~wa_model mdl level input_sys analysis trans_sys prop cex disproved kind
+    cex_json ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
   | F_relay -> ()
 
 (* Log a message with source and log level *)
-let log_disproved mdl level input_sys analysis trans_sys prop cex kind =
-  log_cex true mdl level input_sys analysis trans_sys prop cex kind
+let log_disproved mdl level input_sys analysis trans_sys prop cex =
+  log_cex true mdl level input_sys analysis trans_sys prop cex
 
 (* Log a step counterexample. *)
-let log_step_cex mdl level input_sys analysis trans_sys prop cex kind =
-  log_cex false mdl level input_sys analysis trans_sys prop cex kind
+let log_step_cex mdl level input_sys analysis trans_sys prop cex =
+  log_cex false mdl level input_sys analysis trans_sys prop cex
 
 
 (* Log an exection path *)
@@ -1863,7 +1879,7 @@ let check_sofar_invariance trans_sys pos =
 
 
 (* Broadcast a property is invariant, and infer new invariants *)
-let prop_invariant trans_sys prop_name cert prop_kind =
+let prop_invariant trans_sys prop_name cert =
 
   (* Update time in case we are not running in parallel mode *)
   Stat.update_time Stat.total_time ;
@@ -1871,14 +1887,14 @@ let prop_invariant trans_sys prop_name cert prop_kind =
 
   let mdl = get_module () in
 
-  log_proved mdl L_warn trans_sys None prop_name prop_kind ;
+  (* Get property by name *)
+  let prop = TransSys.property_of_name trans_sys prop_name in
+
+  log_proved mdl L_warn trans_sys None prop_name ;
 
   (* Update status of property (of all instances with name [prop_name]) *)
   let status = Property.PropInvariant cert in
   TransSys.set_prop_status trans_sys prop_name status;
-
-  (* Get property by name *)
-  let prop = TransSys.property_of_name trans_sys prop_name in
 
   (* Add property as invariant to transtion system *)
   TransSys.add_invariant trans_sys prop.prop_term cert false |> ignore ;
@@ -1909,7 +1925,7 @@ let prop_invariant trans_sys prop_name cert prop_kind =
 
 
 (* Broadcast a property status *)
-let prop_status status input_sys analysis trans_sys prop kind =
+let prop_status status input_sys analysis trans_sys prop =
   
   (* Update time in case we are not running in parallel mode *)
   Stat.update_time Stat.total_time ;
@@ -1918,9 +1934,9 @@ let prop_status status input_sys analysis trans_sys prop kind =
   let mdl = get_module () in
 
   (match status with
-    | Property.PropInvariant _ -> log_proved mdl L_warn trans_sys None prop kind
+    | Property.PropInvariant _ -> log_proved mdl L_warn trans_sys None prop
     | Property.PropFalse cex -> 
-      log_cex true mdl L_warn input_sys analysis trans_sys prop cex kind
+      log_cex true mdl L_warn input_sys analysis trans_sys prop cex
 
     | _ -> ());
 
@@ -1936,7 +1952,7 @@ let prop_status status input_sys analysis trans_sys prop kind =
   with Messaging.NotInitialized -> ()
 
 
-let cex_wam cex wa_model input_sys analysis trans_sys prop kind =
+let cex_wam cex wa_model input_sys analysis trans_sys prop =
 
   (* Update time in case we are not running in parallel mode *)
   Stat.update_time Stat.total_time ;
@@ -1944,12 +1960,12 @@ let cex_wam cex wa_model input_sys analysis trans_sys prop kind =
 
   let mdl = get_module () in
 
-  log_cex ~wa_model true mdl L_warn input_sys analysis trans_sys prop cex kind;
+  log_cex ~wa_model true mdl L_warn input_sys analysis trans_sys prop cex;
 
   (* Update status of property in transition system *)
   TransSys.set_prop_status trans_sys prop (Property.PropFalse cex)
 
-let proved_wam (k, t) trans_sys prop kind =
+let proved_wam (k, t) trans_sys prop =
 
   (* Update time in case we are not running in parallel mode *)
   Stat.update_time Stat.total_time ;
@@ -1957,7 +1973,7 @@ let proved_wam (k, t) trans_sys prop kind =
 
   let mdl = get_module () in
 
-  log_proved mdl L_warn trans_sys (Some k) prop kind ;
+  log_proved mdl L_warn trans_sys (Some k) prop ;
 
   (* Update status of property in transition system *)
   TransSys.set_prop_status trans_sys prop (Property.PropInvariant (k, t))
@@ -1973,13 +1989,13 @@ let unknown_wam trans_sys prop =
   log_unknown mdl L_warn trans_sys prop
 
 (* Broadcast a step cex *)
-let step_cex input_sys analysis trans_sys prop cex kind =
+let step_cex input_sys analysis trans_sys prop cex =
   
   (* Update time in case we are not running in parallel mode *)
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
 
-  log_cex true (get_module ()) L_warn input_sys analysis trans_sys prop cex kind ;
+  log_cex true (get_module ()) L_warn input_sys analysis trans_sys prop cex ;
 
   try
     
@@ -2225,7 +2241,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
     | (m, PropStatus (p, (Property.PropInvariant cert as s))) :: tl -> 
 
       (* Output proved property *)
-      log_proved m L_warn trans_sys None p (TransSys.property_of_name trans_sys p).prop_kind;
+      log_proved m L_warn trans_sys None p;
 
       (* Change property status (of all instances with name [p]) *)
       TransSys.set_prop_invariant trans_sys p cert;
@@ -2273,7 +2289,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
     | (m, PropStatus (p, (Property.PropFalse cex as s))) :: tl -> 
 
       (* Output disproved property *)
-      log_cex true m L_warn input_sys analysis trans_sys p cex (TransSys.property_of_name trans_sys p).prop_kind  ;
+      log_cex true m L_warn input_sys analysis trans_sys p cex ;
 
       (* Change property status in transition system *)
       TransSys.set_prop_false trans_sys p cex;
@@ -2295,7 +2311,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
       in
 
       (* Output disproved property *)
-      log_cex false m L_warn input_sys analysis trans_sys p cex (TransSys.property_of_name trans_sys p).prop_kind ;
+      log_cex false m L_warn input_sys analysis trans_sys p cex ;
 
       (* Continue with unchanged accumulator *)
       update_trans_sys' 

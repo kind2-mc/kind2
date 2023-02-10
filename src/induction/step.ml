@@ -350,7 +350,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
                   let holds = Term.bump_state k term |> eval in
                   if (not holds) && print_cex then
                     (* Log cex. *)
-                    KEvent.step_cex input_sys analysis trans name cex (TransSys.property_of_name trans name).prop_kind ;
+                    KEvent.step_cex input_sys analysis trans name cex ;
                   holds
                 ) to_split
               in
@@ -507,7 +507,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
       (fun acc (s, (_, _, cert)) ->
         (* KEvent.log L_warn
         "%s: @[<v>%d, %a@]" s (fst cert) Term.pp_print_term (snd cert) ; *)
-        KEvent.prop_invariant trans s cert (TransSys.property_of_name trans s).prop_kind |> Term.TermSet.union acc
+        KEvent.prop_invariant trans s cert |> Term.TermSet.union acc
       )
       (fst new_invs)
       confirmed_cert, (snd new_invs)

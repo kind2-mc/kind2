@@ -308,7 +308,7 @@ let broadcast_if_safe ctx unfalsifiable =
       let new_os_invs =
         confirmed |> List.fold_left (
           fun acc (prop, cert) ->
-            KEvent.prop_invariant sys prop cert (TransSys.property_of_name sys prop).prop_kind |> Term.TermSet.union acc
+            KEvent.prop_invariant sys prop cert |> Term.TermSet.union acc
         )
         Term.TermSet.empty
       in
