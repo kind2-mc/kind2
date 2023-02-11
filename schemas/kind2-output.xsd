@@ -90,6 +90,7 @@
       <xs:enumeration value="ensure"/>
       <xs:enumeration value="equation"/>
       <xs:enumeration value="assertion"/>
+      <xs:enumeration value="frame_block"/>
     </xs:restriction>
   </xs:simpleType>
 

@@ -47,12 +47,13 @@ let i = ref (0)
 
 module LhsMap = struct
   include Map.Make (struct
-    type t = A.eq_lhs
+    (* LHS and its corresponding position on the RHS *)
+    type t = (A.eq_lhs * Lib.position)
     let compare lhs1 lhs2 = 
-      let (A.StructDef (_, ss1)) = lhs1 in
-      let (A.StructDef (_, ss2)) = lhs2 in
-      let vars1 = (List.map AH.vars_of_struct_item ss1) in
-      let vars2 = (List.map AH.vars_of_struct_item ss2) in 
+      let (A.StructDef (_, ss1)), _ = lhs1 in
+      let (A.StructDef (_, ss2)), _ = lhs2 in
+      let vars1 = A.SI.flatten (List.map AH.vars_of_struct_item ss1) in
+      let vars2 = A.SI.flatten (List.map AH.vars_of_struct_item ss2) in 
       compare vars1 vars2
   end)
 end
@@ -60,6 +61,9 @@ end
 type cond_tree =
 	| Leaf of A.expr option
 	| Node of cond_tree * A.expr * cond_tree
+
+let pos_list_map : (Lib.position * A.eq_lhs) list HString.HStringHashtbl.t = 
+  HString.HStringHashtbl.create 20
 
 let (let*) = R.(>>=)
 
@@ -72,15 +76,27 @@ let unwrap result = match result with
   | Error _ -> assert false
 
 (** Create a new oracle for use with if blocks. *)
-let mk_fresh_ib_oracle expr_type =
+let mk_fresh_ib_oracle pos expr_type =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring ("_" ^ GI.iboracle)) in
-  let nexpr = A.Ident (Lib.dummy_pos, name) in
+  let nexpr = A.Ident (pos, name) in
   let gids = { (GI.empty ()) with
     ib_oracles = [name, expr_type]; }
   in nexpr, gids
 
+let rec update_if_position_info node_id ni = match ni with
+  | A.IfBlock (_, _, nis1, nis2) ->
+    List.iter (update_if_position_info node_id) nis1;
+    List.iter (update_if_position_info node_id) nis2;
+  | Body (Equation (_, lhs, expr)) ->
+    (* If there is already a binding, we want to retain the old 'if_info' *)
+    let if_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with
+      | Some if_info2 -> (AH.pos_of_expr expr, lhs) :: if_info2
+      | None -> [(AH.pos_of_expr expr, lhs)] 
+    in
+    HString.HStringHashtbl.add pos_list_map node_id if_info;
+  | _ -> ()
 
 (** Updates a tree (modeling an ITE structure) with a new equation. *)
 let rec add_eq_to_tree conds rhs node = 
@@ -127,7 +143,7 @@ let rec add_eq_to_tree conds rhs node =
 let update_recursive_array_locals map lhs expr = 
   match lhs with
     | A.StructDef (_, [ArrayDef (_, var1, inds1)]) -> (
-      let matching_lhs = LhsMap.bindings map |> List.map fst 
+      let matching_lhs = LhsMap.bindings map |> List.map fst |> List.map fst
       |> List.find_opt 
         (fun x -> (match x with 
           | A.StructDef (_, [ArrayDef (_, var2, _)]) when var1 = var2 -> true 
@@ -151,7 +167,7 @@ let if_block_to_trees ib =
           | A.Body (Equation (_, lhs, expr)) -> 
           let lhs, expr = update_recursive_array_locals trees lhs expr in
           (* Update corresponding tree (or add new tree if it doesn't exist) *)
-          let trees = LhsMap.update lhs 
+          let trees = LhsMap.update (lhs, AH.pos_of_expr expr) 
             (fun tree -> match tree with
               | Some tree -> Some (add_eq_to_tree (conds @ [(true, cond)]) expr tree)
               | None -> Some (add_eq_to_tree (conds @ [(true, cond)]) expr (Leaf None)))
@@ -176,7 +192,7 @@ let if_block_to_trees ib =
           | A.Body (Equation (_, lhs, expr)) -> 
             let lhs, expr = update_recursive_array_locals trees lhs expr in
             (* Update corresponding tree (or add new tree if it doesn't exist) *)
-            let trees = LhsMap.update lhs 
+            let trees = LhsMap.update (lhs, AH.pos_of_expr expr) 
               (fun tree -> match tree with
                 | Some tree -> Some (add_eq_to_tree (conds @ [(false, cond)]) expr tree)
                 | None -> Some (add_eq_to_tree (conds @ [(false, cond)]) expr (Leaf None))) 
@@ -209,7 +225,10 @@ let rec tree_to_ite pos node =
     | Leaf Some expr -> expr
     | Leaf None -> A.Ident(pos, ib_oracle_tree)
     | Node (left, cond, right) -> 
-      TernaryOp (pos, Ite, cond, tree_to_ite pos left, tree_to_ite pos right)
+      let left = tree_to_ite pos left in
+      let right = tree_to_ite pos right in
+      let pos = AH.pos_of_expr left in
+      TernaryOp (pos, Ite, cond, left, right)
 
 (** Returns the type associated with a tree. *)
 let get_tree_type ctx lhs = 
@@ -233,7 +252,7 @@ let rec fill_ite_with_oracles expr ty =
       let e2, gids2, decls2 = fill_ite_with_oracles e2 ty in
       A.TernaryOp (pos, Ite, cond, e1, e2), GI.union gids1 gids2, decls1 @ decls2
     | Ident(p, s) when s = ib_oracle_tree -> 
-      let (expr, gids) = (mk_fresh_ib_oracle ty) in
+      let (expr, gids) = (mk_fresh_ib_oracle p ty) in
       (match expr with
         (* Clocks are unsupported, so the clock value is hardcoded to ClockTrue *)
         | A.Ident (_, name) ->  expr, gids, [A.NodeVarDecl(p, (p, name, ty, ClockTrue))]
@@ -281,12 +300,17 @@ let split_and_flatten3 ls =
     4. Filling in the ITE expressions with oracles where variables are undefined.
     5. Returning lists of new local declarations, generated equations, and gids
     *)
-let extract_equations_from_if ctx ib =
+let extract_equations_from_if node_id ctx ib =
+  (* Keep track of where the if block variables are defined so that the position can
+     be displayed in post analysis, eg ivcMcs.ml *)
+  update_if_position_info node_id ib;
   let* tree_map = if_block_to_trees ib in
-  let (lhss, trees) = LhsMap.bindings (tree_map) |> List.split in
+  let (lhss_poss, trees) = LhsMap.bindings (tree_map) |> List.split in
   let trees = List.map simplify_tree trees in  
-  let poss = List.map (fun (A.StructDef (a, _)) -> a) lhss in
-  let ites = List.map2 tree_to_ite poss trees in
+  let lhs_poss = List.map (fun (A.StructDef (pos, _), _) -> pos) lhss_poss in
+  let rhs_poss = List.map snd lhss_poss in
+  let lhss = List.map fst lhss_poss in
+  let ites = List.map2 tree_to_ite rhs_poss trees in
   let tys = (List.map (get_tree_type ctx) lhss) in 
   let tys = (List.map (fun x -> match x with | Some y -> y | None -> assert false (* not possible *)) 
                        tys) in
@@ -297,7 +321,7 @@ let extract_equations_from_if ctx ib =
 
   let gids = List.fold_left GI.union (GI.empty ()) gids in
   (* Combine poss, lhss, and ites into a list of equations *)
-  let eqs = (List.map2 (fun (a, b) c -> (A.Body (A.Equation (a, b, c)))) (List.combine poss lhss) ites) in
+  let eqs = (List.map2 (fun (a, b) c -> (A.Body (A.Equation (a, b, c)))) (List.combine lhs_poss lhss) ites) in
   R.ok (new_decls, eqs, [gids])
 
 
@@ -305,10 +329,10 @@ let extract_equations_from_if ctx ib =
     local declarations (if we introduce new local variables), the converted
     node_item list in the form of ITEs, and any gids).
 *)
-let rec desugar_node_item ctx ni = match ni with
-  | A.IfBlock _ as ib -> extract_equations_from_if ctx ib
+let rec desugar_node_item node_id ctx ni = match ni with
+  | A.IfBlock _ as ib -> extract_equations_from_if node_id ctx ib
   | A.FrameBlock (pos, vars, nes, nis) -> 
-    let* res = R.seq (List.map (desugar_node_item ctx) nis) in
+    let* res = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let decls, nis, gids = split_and_flatten3 res in
     R.ok (decls, [A.FrameBlock(pos, vars, nes, nis)], gids)
   | _ -> R.ok ([], [ni], [GI.empty ()])
@@ -318,13 +342,13 @@ let rec desugar_node_item ctx ni = match ni with
 let desugar_node_decl ctx decl = match decl with
   | A.FuncDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) ->
     let ctx = Chk.get_node_ctx ctx d |> unwrap in
-    let* nis = R.seq (List.map (desugar_node_item ctx) nis) in
+    let* nis = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
     R.ok (A.FuncDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), GI.StringMap.singleton node_id gids) 
   | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis, co) as d)) -> 
     let ctx = Chk.get_node_ctx ctx d |> unwrap in
-    let* nis = R.seq (List.map (desugar_node_item ctx) nis) in
+    let* nis = R.seq (List.map (desugar_node_item node_id ctx) nis) in
     let new_decls, nis, gids = split_and_flatten3 nis in
     let gids = List.fold_left GI.union (GI.empty ()) gids in
     R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, new_decls @ nlds, nis, co)), GI.StringMap.singleton node_id gids) 
