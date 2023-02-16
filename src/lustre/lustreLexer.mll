@@ -259,6 +259,8 @@ let keyword_table = mk_hashtbl [
   "check", CHECK ;
   "reachable", REACHABLE ;
   "REACHABLE", REACHABLE ;
+  "invariant", INVARIANT ;
+  "INVARIANT", INVARIANT ;
   "from", FROM ;
   "at", AT ;
   "within", WITHIN ;
