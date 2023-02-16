@@ -441,12 +441,12 @@ let pp_print_counterexample_pt
       input_sys analysis trans_sys prop_name cex
   in
 
-  let print_trace_red =
+  let print_trace_red () = 
     Format.fprintf ppf
             "@{<red>%s@}:@,  @[<v>%a@]"
             title
             (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
-            (Model.path_of_list cex)
+            (Model.path_of_list cex);
   in
   
   let print_cex ppf =
@@ -459,8 +459,8 @@ let pp_print_counterexample_pt
             "Example trace"
             (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
             (Model.path_of_list cex)
-          | _ -> print_trace_red)
-      | _ -> print_trace_red
+          | _ -> print_trace_red ())
+      | _ -> print_trace_red ()
  in
 
 

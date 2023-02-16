@@ -148,20 +148,22 @@ let lowest_lower_bound trans =
     (* Shouldn't be possible, but if there are other types of properties, we shouldn't skip steps *)
     | _ -> 0) max_int 
 
-let skip_steps_next trans solver step k (* nu_unknowns *) = 
+let skip_steps_next trans solver k (* nu_unknowns *) = 
+  let step = ref k in
   let llb = lowest_lower_bound trans in
-    let num_skip = llb - Numeral.to_int k in
-    while (Numeral.to_int !step) < (Numeral.to_int k + num_skip) do
-      step := Numeral.succ !step;
+  let num_skip = llb - Numeral.to_int k in
+  while (Numeral.to_int !step) < (Numeral.to_int k + num_skip) do
+    step := Numeral.succ !step;
 
-      (* Declaring unrolled vars at k+1. *)
-      TransSys.declare_vars_of_bounds
-      trans (SMTSolver.declare_fun solver) !step !step ;
+    (* Declaring unrolled vars at k+1. *)
+    TransSys.declare_vars_of_bounds
+    trans (SMTSolver.declare_fun solver) !step !step ;
 
-      (* Asserting transition relation for next iteration. *)
-      TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans !step
-      |> SMTSolver.assert_term solver ;
-    done
+    (* Asserting transition relation for next iteration. *)
+    TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans !step
+    |> SMTSolver.assert_term solver ;
+    done ;
+  !step
 
 (* Performs the next check after updating its context with new
    invariants and falsified properties. Assumes the solver is
@@ -254,8 +256,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, no_skip) =
         | _ -> true
       )
     in
-    let step = ref k in
-    let unfalsifiable =
+    let unfalsifiable, k =
       match unknowns_at_k with
       | [] ->
         KEvent.log
@@ -263,7 +264,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, no_skip) =
           "BMC @[<v>at k = %i@,\
                     skipping@]"
           k_int ;
-        nu_unknowns
+        nu_unknowns, k
 
       | _ ->
         (* Output current progress. *)
@@ -283,8 +284,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, no_skip) =
         (* Function 'skip_steps_next' has the side effect of skipping steps
            for reachability queries if we know we have to unroll the transition
            relation many times before we can find an example trace. *)
-        if not no_skip then skip_steps_next trans solver step k;
-        let k = !step in
+        let k = if not no_skip then skip_steps_next trans solver k else k in
 
         if Flags.BmcKind.check_unroll () then ( 
           if SMTSolver.check_sat solver |> not then (
@@ -328,9 +328,8 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, no_skip) =
             p
         ) ;
 
-        k_true @ unfalsifiable
+        k_true @ unfalsifiable, k
     in
-    let k = !step in
     (* K plus one. *)
     let k_p_1 = Numeral.succ k in
 
