@@ -744,7 +744,17 @@ and normalize_item info map = function
     assert false
   | AnnotMain (pos, b) -> AnnotMain (pos, b), empty (), []
   | AnnotProperty (pos, name, expr, k) -> 
-    
+    let name' =
+      match name with
+      | None -> (
+        let hs_expr =
+          Format.asprintf "@[<h>%a@]" A.pp_print_expr expr
+          |> HString.mk_hstring
+        in
+        Some hs_expr
+      )
+      | Some _ as n -> n
+    in
     let expr = (match k with 
       (* expr or counter < b *)
       | Reachable Some (From b) -> 
@@ -777,17 +787,6 @@ and normalize_item info map = function
       | Reachable _ -> A.UnaryOp (pos, A.Not, expr)
       | _ -> expr
     ) in
-    let name' =
-      match name with
-      | None -> (
-        let hs_expr =
-          Format.asprintf "@[<h>%a@]" A.pp_print_expr expr
-          |> HString.mk_hstring
-        in
-        Some hs_expr
-      )
-      | Some _ as n -> n
-    in
     let nexpr, gids, warnings = abstract_expr false info map false expr in
     AnnotProperty (pos, name', nexpr, k), gids, warnings
 
