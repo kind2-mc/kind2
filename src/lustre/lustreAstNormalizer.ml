@@ -494,14 +494,22 @@ let mk_fresh_call info id map pos cond restart args defaults =
   CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
   nexpr, gids
 
-let add_ctr_to_decl (nlds, nis) = 
+let add_step_counter info =
   let dpos = Lib.dummy_pos in
-  let counter_decl = A.NodeVarDecl (dpos, (dpos, ctr_id, Int dpos, ClockTrue)) in
-  let counter_eq = A.Body (Equation (dpos, StructDef(dpos, [SingleIdent (dpos, ctr_id)]), 
-                      A.Arrow (dpos, Const (dpos, Num (HString.mk_hstring "0")), BinaryOp (dpos, Plus, Pre (dpos, Ident (dpos, ctr_id)), Const (dpos, Num (HString.mk_hstring "1")))))) in
-  (counter_decl :: nlds, counter_eq :: nis)
-(** Add local 'counter' and an equation setting counter = 0 -> pre counter + 1
-    in node_dec *)
+  let eq_lhs = A.StructDef (dpos, [SingleIdent (dpos, ctr_id)]) in
+  let expr =
+    A.Arrow (dpos,
+      Const (dpos, Num (HString.mk_hstring "0")),
+      BinaryOp (dpos, Plus,
+        Pre (dpos, Ident (dpos, ctr_id)),
+        Const (dpos, Num (HString.mk_hstring "1"))
+      )
+    )
+  in
+  { (empty ()) with
+    locals = StringMap.singleton ctr_id (false, A.Int dpos, expr, expr);
+    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
+(** Add local step 'counter' and an equation setting counter = 0 -> pre counter + 1 *)
 
 let get_type_of_id info node_id id =
   let ty = (match AI.get_type info.abstract_interp_context node_id id with
@@ -625,8 +633,6 @@ and normalize_ghost_declaration info map = function
 
 and normalize_node info map
     (node_id, is_extern, params, inputs, outputs, locals, items, contracts) =
-  (* Add a counter variable to deal with reachability queries with timestep bounds *)
-  let (locals, items) = add_ctr_to_decl (locals, items) in
   (* Setup the typing context *)
   let constants_ctx = inputs
     |> List.map Ctx.extract_consts
@@ -706,9 +712,24 @@ and normalize_node info map
       | _ -> assert false)
       (empty ())
   in
+  let exists_reachability_prop_with_bounds =
+    let reachability_prop_with_bounds = function
+    | A.AnnotProperty (_, _, _, Reachable (Some _)) -> true
+    | _ -> false
+    in
+    List.exists reachability_prop_with_bounds items
+  in
+  let info, gids6 =
+    if exists_reachability_prop_with_bounds then (
+      {info with context = Ctx.add_ty info.context ctr_id (A.Int dpos)},
+      add_step_counter info
+    )
+    else
+      info, empty ()
+  in
   (* Normalize equations and the contract *)
   let nitems, gids4, warnings2 = normalize_list (normalize_item info map) items in
-  let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
+  let gids = union_list [gids1; gids2; gids3; gids4; gids5; gids6] in
   let map = StringMap.singleton node_id gids in
   (node_id, is_extern, params, inputs, outputs, locals, nitems, ncontracts), map, warnings1 @ warnings2
 
