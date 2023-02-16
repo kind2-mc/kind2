@@ -853,11 +853,7 @@ let proved_xml mdl level trans_sys k prop_name =
       )
       (match prop.prop_kind with
       | Property.Invariant -> "valid"
-      | Property.Reachable Some (From ts) -> "unreachable from " ^ string_of_int ts ^ " timesteps"
-      | Property.Reachable Some (Within ts) -> "unreachable within " ^ string_of_int ts ^ " timesteps"
-      | Property.Reachable Some (At ts) -> "unreachable at " ^ string_of_int ts ^ " timesteps"
-      | Property.Reachable Some (FromWithin (ts1, ts2)) -> "unreachable from " ^ string_of_int ts1 ^ " and within " ^ string_of_int ts2 ^ " timesteps"
-      | Property.Reachable None -> "unreachable"
+      | Property.Reachable _ -> "unreachable"
     )
 
 
@@ -961,11 +957,7 @@ let cex_xml
       | `IND -> "unknown"
       | _ -> (match prop_kind with
       | Property.Invariant -> "falsifiable"
-      | Property.Reachable Some (From ts) -> "reachable from " ^ string_of_int ts ^ " timesteps"
-      | Property.Reachable Some (Within ts) -> "reachable within " ^ string_of_int ts ^ " timesteps"
-      | Property.Reachable Some (At ts) -> "reachable at " ^ string_of_int ts ^ " timesteps"
-      | Property.Reachable Some (FromWithin (ts1, ts2)) -> "reachable from " ^ string_of_int ts1 ^ " and within " ^ string_of_int ts2 ^ " timesteps"
-      | Property.Reachable None -> "reachable"
+      | Property.Reachable _ -> "reachable"
     )
     in
 
@@ -1198,11 +1190,7 @@ let proved_json mdl level trans_sys k prop =
       (short_name_of_kind_module mdl)
       (match kind with
         | Property.Invariant -> "valid"
-        | Property.Reachable Some (From ts) -> "unreachable from " ^ string_of_int ts ^ " timesteps"
-        | Property.Reachable Some (Within ts) -> "unreachable within " ^ string_of_int ts ^ " timesteps"
-        | Property.Reachable Some (At ts) -> "unreachable at " ^ string_of_int ts ^ " timesteps"
-        | Property.Reachable Some (FromWithin (ts1, ts2)) -> "unreachable from " ^ string_of_int ts1 ^ " and within " ^ string_of_int ts2 ^ " timesteps"
-        | Property.Reachable None -> "unreachable"
+        | Property.Reachable _ -> "unreachable"
       )
 
 
@@ -1291,11 +1279,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
       | `IND -> "unknown"
       | _ -> (match kind with
         | Property.Invariant -> "falsifiable"
-        | Property.Reachable Some (From ts) -> "reachable from " ^ string_of_int ts ^ " timesteps"
-        | Property.Reachable Some (Within ts) -> "reachable within " ^ string_of_int ts ^ " timesteps"
-        | Property.Reachable Some (At ts) -> "reachable at " ^ string_of_int ts ^ " timesteps"
-        | Property.Reachable Some (FromWithin (ts1, ts2)) -> "reachable from " ^ string_of_int ts1 ^ " and within " ^ string_of_int ts2 ^ " timesteps"
-        | Property.Reachable None -> "unreachable"
+        | Property.Reachable _ -> "reachable"
       )
     in
 

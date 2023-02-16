@@ -178,7 +178,7 @@ let skip_steps_next trans solver step k (* nu_unknowns *) =
 
    Note that the transition relation for the current iteration is
    already asserted. *)
-let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
+let rec next (input_sys, aparam, trans, solver, k, unknowns, no_skip) =
   (* Getting new invariants and updating transition system. *)
   let new_invs =
     (* Receiving messages. *)
@@ -278,12 +278,12 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
           Numeral.pp_print_numeral k
         |> SMTSolver.trace_comment solver ;
 
-        (*if re_init trans k then init input_sys aparam trans invs |> next else*)
+        (*if re_init trans k then init input_sys aparam trans no_skip |> next else*)
 
         (* Function 'skip_steps_next' has the side effect of skipping steps
            for reachability queries if we know we have to unroll the transition
            relation many times before we can find an example trace. *)
-        if not invs then skip_steps_next trans solver step k;
+        if not no_skip then skip_steps_next trans solver step k;
         let k = !step in
 
         if Flags.BmcKind.check_unroll () then ( 
@@ -356,9 +356,9 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, invs) =
     else
      (* Looping. *)
      next
-      (input_sys, aparam, trans, solver, k_p_1, out_of_bounds @ unfalsifiable, invs)
+      (input_sys, aparam, trans, solver, k_p_1, out_of_bounds @ unfalsifiable, no_skip)
 
-and skip_steps_init trans solver =
+let skip_steps_init trans solver =
   let num_skip = lowest_lower_bound trans in
   let step = ref Numeral.one in
   while Numeral.to_int !step <= num_skip do
@@ -375,14 +375,14 @@ and skip_steps_init trans solver =
   num_skip
 
 (* Initializes the solver for the first check. *)
-let init input_sys aparam trans invs =
+let init input_sys aparam trans no_skip =
   (* Starting the timer. *)
   Stat.start_timer Stat.bmc_total_time;
 
   (* Getting properties. 
      Filter for invariants or reachability queries *)
   let unknowns =
-    if invs then
+    if no_skip then
       (TransSys.props_list_of_bound_no_skip trans Numeral.zero)
     else
       (TransSys.props_list_of_bound_skip trans Numeral.zero)
@@ -410,7 +410,7 @@ let init input_sys aparam trans invs =
   (* Function 'skip_steps_init' has the side effect of skipping steps
       for reachability queries if we know we have to unroll the transition
       relation many times before we can find an example trace. *)
-  let num_skip = if invs then 0 else skip_steps_init trans solver in
+  let num_skip = if no_skip then 0 else skip_steps_init trans solver in
 
   SMTSolver.trace_comment solver "Initial state satisfiability check." ;
 
@@ -425,12 +425,12 @@ let init input_sys aparam trans invs =
   ) ;
 
   (* Start "next" at the correct timestep with regards to (potentially) skipping steps *)
-  (input_sys, aparam, trans, solver, Numeral.of_int num_skip, unknowns, invs)
+  (input_sys, aparam, trans, solver, Numeral.of_int num_skip, unknowns, no_skip)
 
 (* Runs the base instance. *)
-let main invs input_sys aparam trans =
+let main no_skip input_sys aparam trans =
   try
-    init input_sys aparam trans invs |> next
+    init input_sys aparam trans no_skip |> next
   with UnsatUnrollingExc k ->
     let _, _, unknown = TransSys.get_split_properties trans in
     unknown |> List.iter (fun p ->
