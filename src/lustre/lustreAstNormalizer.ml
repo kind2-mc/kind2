@@ -747,11 +747,12 @@ and normalize_item info map = function
     let name' =
       match name with
       | None -> (
-        let hs_expr =
-          Format.asprintf "@[<h>%a@]" A.pp_print_expr expr
-          |> HString.mk_hstring
+        let kind_str = match k with
+          | Invariant -> "Inv"
+          | Reachable _ -> "Reach"
         in
-        Some hs_expr
+        let loc_str = Format.asprintf "%a" Lib.pp_print_line_and_column pos in
+        Some (HString.mk_hstring (kind_str ^ "Prop" ^ loc_str))
       )
       | Some _ as n -> n
     in
