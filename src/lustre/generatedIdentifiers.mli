@@ -45,7 +45,8 @@ type t = {
   locals : (bool (* whether the variable is ghost *)
     * LustreAst.lustre_type
     * LustreAst.expr (* abstracted expression *)
-    * LustreAst.expr) (* original expression *)
+    * LustreAst.expr (* original expression *)
+    * int) (* index *)
     StringMap.t;
   generated_locals : LustreAst.expr StringMap.t; (* maps generated local to corresponding user-defined variable *)
   contract_calls :

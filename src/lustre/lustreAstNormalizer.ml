@@ -210,7 +210,7 @@ let split3 triples =
 
 let pp_print_generated_identifiers ppf gids =
   let locals_list = StringMap.bindings gids.locals 
-    |> List.map (fun (x, (y, z, w, _)) -> x, y, z, w)
+    |> List.map (fun (x, (y, z, w, _, v)) -> x, y, z, w, v)
   in
   let array_ctor_list = StringMap.bindings gids.array_constructors
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
@@ -218,11 +218,12 @@ let pp_print_generated_identifiers ppf gids =
   let contract_calls_list = StringMap.bindings gids.contract_calls
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
   in
-  let pp_print_local ppf (id, b, ty, e) = Format.fprintf ppf "(%a, %b, %a, %a)"
+  let pp_print_local ppf (id, b, ty, e, ind) = Format.fprintf ppf "(%a, %b, %a, %a, %d)"
     HString.pp_print_hstring id
     b
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
+    ind
   in
   let pp_print_array_ctor ppf (id, ty, e, s) = Format.fprintf ppf "(%a, %a, %a, %a)"
     HString.pp_print_hstring id
@@ -338,7 +339,7 @@ let generalize_to_array_expr name ind_vars expr nexpr =
       A.ArrayIndex (dpos, nexpr, A.Ident (dpos, List.hd ind_vars))
   in eq_lhs, nexpr
 
-let mk_fresh_local force info pos is_ghost ind_vars expr_type expr oexpr =
+let mk_fresh_local force info pos is_ghost ind_vars expr_type expr oexpr ind =
   match (LocalCache.find_opt local_cache expr, force) with
   | Some nexpr, false -> nexpr, empty ()
   | _ ->
@@ -348,7 +349,7 @@ let mk_fresh_local force info pos is_ghost ind_vars expr_type expr oexpr =
   let nexpr = A.Ident (pos, name) in
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
   let gids = { (empty ()) with
-    locals = StringMap.singleton name (is_ghost, expr_type, expr, oexpr);
+    locals = StringMap.singleton name (is_ghost, expr_type, expr, oexpr, ind);
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in
   LocalCache.add local_cache expr nexpr;
@@ -1003,7 +1004,7 @@ and abstract_expr ?guard force info map is_ghost expr =
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
     else Chk.infer_type_expr info.context expr |> unwrap
     in
-    let iexpr, gids2 = mk_fresh_local force info pos is_ghost ivars ty nexpr expr in
+    let iexpr, gids2 = mk_fresh_local force info pos is_ghost ivars ty nexpr expr 0 in
     iexpr, union gids1 gids2, warnings
 
 and expand_node_call info expr var count =

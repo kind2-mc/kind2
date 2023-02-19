@@ -42,7 +42,7 @@ let split_and_flatten5 xs =
 let mk_fresh_temp_name id =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
-  let name = HString.concat2 prefix (HString.mk_hstring "temp")in
+  let name = HString.concat2 prefix (HString.mk_hstring "temp") in
   let gids = { (GI.empty ()) with generated_locals = GI.StringMap.singleton name (A.Ident(Lib.dummy_pos, id)); } in
   name, gids
   

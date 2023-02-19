@@ -1504,7 +1504,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   in let glocals =
     let locals_list = GI.StringMap.bindings gids.GI.locals in
-    let over_generated_locals glocals (id, (is_ghost, expr_type, _, _)) =
+    let over_generated_locals glocals (id, (is_ghost, expr_type, _, _, _)) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map expr_type in
       let over_indices = fun index index_type accum ->
