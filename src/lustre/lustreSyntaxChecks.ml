@@ -109,9 +109,6 @@ let error_message kind = match kind with
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
-let prop_map : unit HString.HStringHashtbl.t = 
-  HString.HStringHashtbl.create 25
-
 let (let*) = Result.bind
 let (>>) = fun a b -> let* _ = a in b
 
@@ -133,6 +130,7 @@ type context = {
   free_consts : LustreAst.lustre_type option StringMap.t;
   consts : LustreAst.lustre_type option StringMap.t;
   locals : LustreAst.lustre_type option StringMap.t;
+  props : StringSet.t;
   quant_vars : LustreAst.lustre_type option StringMap.t;
   array_indices : LustreAst.lustre_type option StringMap.t;
   symbolic_array_indices : LustreAst.lustre_type option StringMap.t; }
@@ -144,6 +142,7 @@ let empty_ctx () = {
     free_consts = StringMap.empty;
     consts = StringMap.empty;
     locals = StringMap.empty;
+    props = StringSet.empty;
     quant_vars = StringMap.empty;
     array_indices = StringMap.empty;
     symbolic_array_indices = StringMap.empty;
@@ -172,6 +171,10 @@ let ctx_add_const ctx i ty = {
 let ctx_add_local ctx i ty = {
     ctx with locals = StringMap.add i ty ctx.locals
   }
+
+let ctx_add_prop ctx i = {
+    ctx with props = StringSet.add i ctx.props
+}
 
 let ctx_add_quant_var ctx i ty = {
     ctx with quant_vars = StringMap.add i ty ctx.quant_vars
@@ -658,17 +661,16 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
     >> (Res.seq_ (List.map check_output_items outputs))
     >> (Ok decl)
 
-and check_prop prop =
-  match prop with
-    | LA.AnnotProperty (pos, name, _, k) -> (
-      let name = LustreAstHelpers.name_of_prop pos name k in
-      if HString.HStringHashtbl.mem prop_map name 
-      then syntax_error pos (DuplicateProperty name) 
-      else (HString.HStringHashtbl.add prop_map name (); Ok())
-    )
-    | _ -> Ok ()
-
 and check_items ctx f items =
+  (* Record duplicate properties if we find them *)
+  let over_props (duplicate, ctx) = function
+    | LA.AnnotProperty (pos, name, _, kind) -> 
+      let name = LustreAstHelpers.name_of_prop pos name kind in
+      if StringSet.mem name ctx.props  
+      then (Some (pos, name), ctx)
+      else (duplicate, ctx_add_prop ctx name)
+    | _ -> duplicate, ctx
+  in
   let check_item ctx f = function
     | LA.Body (Equation (_, lhs, e)) ->
       let ctx' = build_equation_ctx ctx lhs in
@@ -684,11 +686,16 @@ and check_items ctx f items =
       check_items ctx f nes >> (check_items ctx f nis) >>
       (*  Make sure 'nes' and 'nis' LHS vars are in 'vars' *)
       (Res.seq_ (List.map (check_frame_vars pos vars) nis)) >> (Res.seq_ (List.map (check_frame_vars pos vars) nes))
-    | Body (Assert (_, e)) -> check_expr ctx f e
-    | AnnotProperty (_, _, e, _) as prop -> (check_prop prop) >> (check_expr ctx f e)
+    | Body (Assert (_, e)) 
+    | AnnotProperty (_, _, e, _) -> (check_expr ctx f e)
     | AnnotMain _ -> Ok ()
   in
-  Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)
+  (* Check for duplicate properties *)
+  let duplicate, _ = List.fold_left over_props (None, ctx) items in
+  match duplicate with
+    | Some (pos, name) -> syntax_error pos (DuplicateProperty name) 
+    (* Check other items *)
+    | _ -> Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)
 
 and check_struct_items ctx items =
   let r items = check_struct_items ctx items in
