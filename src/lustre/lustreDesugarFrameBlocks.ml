@@ -42,8 +42,8 @@ type error = [
 ]
 
 let mk_error pos kind = Error (`LustreDesugarFrameBlocksError (pos, kind))
-
-type warning_kind =
+ 
+type warning_kind = 
   | UninitializedVariableWarning of HString.t
 
 let warning_message warning = match warning with
@@ -54,6 +54,10 @@ type warning = [
 ]
 
 let mk_warning pos kind = `LustreDesugarFrameBlocksWarning (pos, kind)
+
+(* First position is frame block header, second position is of the specific equation *)
+let pos_list_map : (Lib.position * A.eq_lhs * Lib.position) list HString.HStringHashtbl.t = 
+  HString.HStringHashtbl.create 20
 
 let warn_unguarded_pres nis pos = 
   List.map (fun ni -> match ni with
@@ -69,7 +73,6 @@ let split3 triples =
   let ys = List.map (fun (_, y, _) -> y) triples in
   let zs = List.map (fun (_, _, z) -> z) triples in
   xs, ys, zs
-
 
 (** Parses an expression and replaces any ITE oracles with the 'fill'
     expression (which is stuttering, ie, 'pre variable').
@@ -141,12 +144,13 @@ let generate_undefined_nes nis ne = match ne with
     let res = List.find_opt (fun ni -> match ni with
       | A.Body (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when id = i -> true
       | _ -> false
-    ) nis in (
+    ) nis in 
+    let pos2 = AH.pos_of_expr init in (
     match res with
       (* Already defined in frame block *)
       | Some _ -> R.ok []
       (* Fill in equation in frame block body *)
-      | None -> R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos, init, Pre(pos, Ident (pos, id)))))]
+      | None -> R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos2, init, Pre(pos2, Ident (pos2, id)))))]
     )
   | A.Equation (pos, (StructDef(_, [ArrayDef(_, id1, id2)]) as lhs), init) -> 
     (* Find the corresponding node item in frame block body. *)
@@ -154,17 +158,17 @@ let generate_undefined_nes nis ne = match ne with
       | A.Body (A.Equation (_, StructDef(_, [ArrayDef(_, i, _)]), _)) when id1 = i -> true
       | _ -> false
     ) nis in 
+    let pos2 = AH.pos_of_expr init in 
     let rec build_array_index js = (match js with
-      | [j] -> A.ArrayIndex(pos, A.Ident(pos, id1), A.Ident(pos, j))
-      | j :: js -> ArrayIndex(pos, build_array_index js, A.Ident(pos, j))
+      | [j] -> A.ArrayIndex(pos2, A.Ident(pos2, id1), A.Ident(pos2, j))
+      | j :: js -> ArrayIndex(pos2, build_array_index js, A.Ident(pos2, j))
       | [] -> assert false (* not possible *)
     ) in
-
     (match res with
       (* Already defined in frame block *)
       | Some _ -> R.ok []
       (* Fill in equation in frame block body *)
-      | None -> R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos, init, Pre(pos, build_array_index (List.rev id2)))))]
+      | None -> R.ok [A.Body(A.Equation(pos, lhs, Arrow(pos2, init, Pre(pos2, build_array_index (List.rev id2)))))]
     )
   (* Assert in frame block guard *)
   | A.Assert(pos, _) -> mk_error pos (MisplacedNodeItemError (A.Body ne))
@@ -177,53 +181,59 @@ let generate_undefined_nes nis ne = match ne with
     frame block var list is left undefined in the frame block body AND has 
     no initialization. *)
 let generate_undefined_nes_no_init pos nes nis var = 
-    (* Find var's corresponding node item in frame block body. *)
-    let res = List.find_opt (fun ni -> match ni with
+    (* Find var's corresponding node item in frame block body *)
+    match (List.find_opt (fun ni -> match ni with
       | A.Body (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when i = var -> true
       | A.Body (A.Equation (_, StructDef(_, [ArrayDef(_, i, _)]), _)) when i = var -> true
-      (* Check to see if var has an initialization*)
-      | _ -> match (List.find_opt (fun ne -> match ne with
+      | _ -> false) nis)
+    with
+      (* Already defined in frame block body *)
+      | Some _ -> R.ok []
+      | _ -> 
+    (* If not found, find var's corresponding initialization *)
+    match (List.find_opt (fun ne -> match ne with
         | (A.Equation (_, StructDef(_, [SingleIdent(_, i)]), _)) when i = var -> true
         | (A.Equation (_, StructDef(_, [ArrayDef(_, i, _)]), _)) when i = var -> true
         | _ -> false
-      ) nes) with | Some _ -> true | None -> false
-    ) nis in (
-    match res with
-      (* Already defined in frame block body or initialization*)
+    ) nes)
+    with
+      (* Already defined in frame block initialization *)
       | Some _ -> R.ok []
-      (* Fill in equation in frame block body *)
       | None -> R.ok [A.Body(A.Equation(pos, StructDef(pos, [SingleIdent (pos, var)]), Pre(pos, Ident (pos, var))))]
-    )
+      
+    
 
 
 (** Helper function to fill in ITE oracles and guard equations with specified
     initialization values (if present). *)
 let fill_ite_oracles nes ni = 
 match ni with
-  | A.Body (Equation (pos, (StructDef(_, [SingleIdent(pos2, i)]) as lhs), e)) -> 
+  | A.Body (Equation (pos, (StructDef(_, [SingleIdent(_, i)]) as lhs), e)) -> 
     (* Find initialization value *)
     let init = Lib.find_map (fun ne -> match ne with 
       | A.Equation (_, StructDef(_, [SingleIdent(_, id)]), expr) when id = i  -> Some expr
       | _ -> None
     ) nes in
+    let pos2 = AH.pos_of_expr e in 
     (match init with
       | Some init ->     
-        R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos, init, 
+        R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos2, init, 
                                                     fill_ite_helper (A.Pre (pos2, Ident(pos2, i))) e)))))
       | None -> 
         R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
                                 (A.Pre (pos2, Ident(pos2, i)))
                                 e))))
-  | A.Body (Equation (pos, (StructDef(_, [ArrayDef(pos2, i1, inds1)]) as lhs), e)) ->
+  | A.Body (Equation (pos, (StructDef(_, [ArrayDef(_, i1, inds1)]) as lhs), e)) ->
+    let pos2 = AH.pos_of_expr e in 
     (* Find initialization value *)
-    let array_index = List.fold_left (fun expr j -> A.ArrayIndex(pos, expr, A.Ident(pos, j))) (A.Ident(pos, i1)) inds1 in
+    let array_index = List.fold_left (fun expr j -> A.ArrayIndex(pos2, expr, A.Ident(pos2, j))) (A.Ident(pos2, i1)) inds1 in
     let init = Lib.find_map (fun ne -> match ne with 
       | A.Equation (_, StructDef(_, [ArrayDef(_, id, inds2)]), expr) when id = i1  -> Some (AH.replace_idents inds2 inds1 expr)
       | _ -> None
     ) nes in 
     (match init with
       | Some init -> 
-        R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos, init, 
+        R.ok (A.Body (Equation (pos, lhs, (A.Arrow (pos2, init, 
                                                     fill_ite_helper (A.Pre (pos2, array_index)) e)))))
       | None -> 
         R.ok (A.Body (Equation (pos, lhs, fill_ite_helper 
@@ -240,6 +250,7 @@ match ni with
   
 
 
+
 (**
   For each node item in frame block body:
     Fill in ITE oracles and initialize equations (RHS) when an initialization
@@ -249,7 +260,7 @@ match ni with
   For each variable that is neither initialized nor defined:
     Fill in an equation of the form 'y = pre y' (initially undefined)
 *)
-let desugar_node_item ni = match ni with
+let desugar_node_item node_id ni = match ni with
     (* All multiple assignment is removed in lustreRemoveMultAssign.ml *)
   | A.FrameBlock (pos, vars, nes, nis) ->
     let* nis = R.seq (List.map (fill_ite_oracles nes) nis) in
@@ -258,8 +269,18 @@ let desugar_node_item ni = match ni with
     let* nis3 = R.seq (List.map (generate_undefined_nes_no_init pos nes nis) vars) in
     let nis3 = List.flatten nis3 in
     let warnings = warn_unguarded_pres (nis @ nis3) pos |> List.flatten in
+    (* Frame block header info *)
+    let frame_info = (List.map (fun ne -> match ne with
+        | A.Equation (_, lhs, expr) -> (pos, lhs, AH.pos_of_expr expr)
+        | _ -> assert false) nes) in
+    (* If there is already a binding, we want to retain the old 'frame_info' *)
+    let frame_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with
+      | Some frame_info2 -> frame_info @ frame_info2
+      | None -> frame_info 
+    in
+    HString.HStringHashtbl.add pos_list_map node_id frame_info;
     R.ok ([], nis @ nis2 @ nis3, warnings)
-  | _ -> R.ok ([], [ni], [])
+  | _ -> R.ok ([], [ni], []) 
 
 (** Desugars a declaration list to remove frame blocks. Node equations
     in the body are initialized with the provided initializations. If a frame block 
@@ -267,10 +288,10 @@ let desugar_node_item ni = match ni with
     the variable equal to its value in the previous timestep. *)
 let desugar_frame_blocks sorted_node_contract_decls = 
   let desugar_node_decl decl = (match decl with
-    | A.NodeDecl (s, (node_id, b, nps, cctds, ctds, nlds, nis2, co)) -> 
-      let* res = R.seq (List.map desugar_node_item nis2) in
+    | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis2, co))) -> 
+      let* res = R.seq (List.map (desugar_node_item node_id) nis2) in
       let decls, nis, warnings = split3 res in
-      let warnings = List.flatten warnings in
+      let warnings = List.flatten warnings in 
       R.ok (A.NodeDecl (s, (node_id, b, nps, cctds, ctds, 
                        (List.flatten decls) @ nlds, List.flatten nis, co)), warnings) 
                       

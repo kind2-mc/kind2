@@ -182,7 +182,7 @@ let type_check declarations =
     let* (normalized_nodes_and_contracts, gids, warnings2) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
     in
-    
+      
     Res.ok (inlined_global_ctx,
       gids,
       const_inlined_type_and_consts @ normalized_nodes_and_contracts,

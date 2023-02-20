@@ -126,7 +126,8 @@
                 "require",
                 "ensure",
                 "equation",
-                "assertion"
+                "assertion",
+                "frameBlock"
             ]
         },
         "modelElementCategories": {

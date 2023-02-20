@@ -47,6 +47,9 @@ type warning = [
 
 val warning_message : warning_kind -> string
 
+(* First position is frame block header, second position is of the specific equation *)
+val pos_list_map :(Lib.position * A.eq_lhs * Lib.position) list HString.HStringHashtbl.t
+
 val desugar_frame_blocks :
   A.declaration list ->
     (A.declaration list *

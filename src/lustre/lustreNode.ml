@@ -1690,10 +1690,15 @@ type state_var_def =
   | CallOutput of position * LustreIndex.index
   | ProperEq of position * LustreIndex.index
   | GeneratedEq of position * LustreIndex.index
+  | FrameBlock of position
+  | IfBlock of position
   | ContractItem of position * LustreContract.svar * contract_item_type
   | Assertion of position
 
-let state_var_defs_map : state_var_def list StateVar.StateVarHashtbl.t = 
+(* The first list contains state var defs where the state variable is explicitly mentioned.
+   The second list contains state var defs that are dependencies (the node item does
+   not explicitly reference the state variable, but the state variable depends on it) *)
+let state_var_defs_map : (state_var_def list * state_var_def list) StateVar.StateVarHashtbl.t = 
   StateVar.StateVarHashtbl.create 20
 
 let get_state_var_defs state_var = 
@@ -1701,7 +1706,7 @@ let get_state_var_defs state_var =
     StateVar.StateVarHashtbl.find
       state_var_defs_map 
       state_var
-  with Not_found -> []
+  with Not_found -> ([], [])
 
 let state_var_defs_equal d1 d2 =
   match d1, d2 with
@@ -1709,51 +1714,65 @@ let state_var_defs_equal d1 d2 =
   | ProperEq (p1, i1), ProperEq (p2, i2)
   | GeneratedEq (p1, i1), GeneratedEq (p2, i2) ->
     (Lib.equal_pos p1 p2) && LustreIndex.equal_index i1 i2
+  | FrameBlock p1, FrameBlock p2 -> Lib.equal_pos p1 p2
+  | IfBlock p1, IfBlock p2 -> Lib.equal_pos p1 p2
   | ContractItem (p1, svar1, typ1), ContractItem (p2, svar2, typ2) ->
     (Lib.equal_pos p1 p2) && typ1 = typ2 && StateVar.equal_state_vars svar1.svar svar2.svar
   | Assertion p1, Assertion p2 -> (Lib.equal_pos p1 p2)
   | _ -> false
 
-let add_state_var_def state_var def = 
-  let defs = get_state_var_defs state_var in
-  let defs =
-    if List.exists (fun d -> state_var_defs_equal d def) defs
-    then defs
-    else def::defs
-  in
-
+let add_state_var_def ?(is_dep = false) state_var def  = 
+  let (defs1, defs2) = get_state_var_defs state_var in
+  let (defs1, defs2) =
+  if not is_dep then
+      (if List.exists (fun d -> state_var_defs_equal d def) defs1
+      then defs1, defs2
+      else def::defs1, defs2)
+  else 
+    (if List.exists (fun d -> state_var_defs_equal d def) defs2
+      then defs1, defs2
+      else defs1, def::defs2)
+    in
   StateVar.StateVarHashtbl.replace
     state_var_defs_map 
     state_var
-    defs
+    (defs1, defs2)
 
 let pos_of_state_var_def = function
   | CallOutput (p,_) | ProperEq (p,_) | GeneratedEq (p,_)
+  | FrameBlock p | IfBlock p
   | ContractItem (p, _, _) | Assertion p -> p
 
 let index_of_state_var_def = function
   | CallOutput (_,i) | ProperEq (_,i) | GeneratedEq (_,i) -> i
-  | ContractItem _ | Assertion _ -> []
+  | FrameBlock _ | IfBlock _ | ContractItem _ | Assertion _ -> []
+
+let pp_print_state_var_def fmt = (function
+  | CallOutput (p,i) ->
+    Format.fprintf fmt "Call Output: %a (%a)\n"
+    Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+  | ProperEq (p,i) ->
+    Format.fprintf fmt "Proper Eq: %a (%a)\n"
+    Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+  | GeneratedEq (p,i) ->
+    Format.fprintf fmt "Generated Eq: %a (%a)\n"
+    Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+  | FrameBlock p ->
+    Format.fprintf fmt "Frame Block: %a\n" Lib.pp_print_position p
+  | IfBlock p ->
+    Format.fprintf fmt "If Block: %a\n" Lib.pp_print_position p
+  | ContractItem (p,_,_) ->
+    Format.fprintf fmt "Contract Item: %a\n" Lib.pp_print_position p
+  | Assertion p ->
+    Format.fprintf fmt "Assertion: %a\n" Lib.pp_print_position p
+  )
 
 let pp_print_state_var_defs_debug fmt t =
   let print_sv state_var =
     Format.fprintf fmt "--- %a ---\n" StateVar.pp_print_state_var state_var ;
-    get_state_var_defs state_var
-    |> List.iter (function
-      | CallOutput (p,i) ->
-        Format.fprintf fmt "Call Output: %a (%a)\n"
-        Lib.pp_print_position p (LustreIndex.pp_print_index true) i
-      | ProperEq (p,i) ->
-        Format.fprintf fmt "Proper Eq: %a (%a)\n"
-        Lib.pp_print_position p (LustreIndex.pp_print_index true) i
-      | GeneratedEq (p,i) ->
-        Format.fprintf fmt "Generated Eq: %a (%a)\n"
-        Lib.pp_print_position p (LustreIndex.pp_print_index true) i
-      | ContractItem (p,_,_) ->
-        Format.fprintf fmt "Contract Item: %a\n" Lib.pp_print_position p
-      | Assertion p ->
-        Format.fprintf fmt "Assertion: %a\n" Lib.pp_print_position p
-      )
+    get_state_var_defs state_var 
+    |> (fun (x, y) -> x @ y)
+    |> List.iter (pp_print_state_var_def fmt)
   in
   List.iter print_sv (get_all_state_vars t)
 

@@ -1247,6 +1247,9 @@ let pp_print_line_and_column ppf { pos_lnum; pos_cnum } =
 
     fprintf ppf "[unknown]"
 
+let pp_print_lines_and_columns ppf positions =
+  pp_print_list pp_print_line_and_column ", " ppf positions
+
 (* Convert a position from Lexing to a position *)
 let position_of_lexing 
     { Lexing.pos_fname;

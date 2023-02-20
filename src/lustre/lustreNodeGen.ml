@@ -33,6 +33,8 @@ module I = LustreIdent
 module X = LustreIndex
 module H = LustreIdent.Hashtbl
 module E = LustreExpr
+module LDF = LustreDesugarFrameBlocks
+module LDI = LustreDesugarIfBlocks
 
 module SVM = StateVar.StateVarMap
 module SVT = StateVar.StateVarHashtbl
@@ -510,7 +512,7 @@ let expand_tuple pos lhs rhs =
 
 let rec compile ctx gids decls =
   let over_decls cstate decl = compile_declaration cstate gids ctx decl in
-  let output = List.fold_left over_decls (empty_compiler_state ()) decls in
+  let output = List.fold_left over_decls (empty_compiler_state ()) decls in 
   let free_constants = output.free_constants
     |> List.map (fun (_, id, v) -> mk_ident id, v)
     
@@ -768,7 +770,7 @@ and compile_ast_expr
         | Some sv ->
           let source = SVT.find_opt !map.source sv in
           if not (StateVar.is_input sv) && source == None then
-            N.add_state_var_def sv (N.GeneratedEq (pos, index));
+            N.add_state_var_def ~is_dep:true sv (N.GeneratedEq (pos, index));
         | None -> ());
       X.add index expr' accum
     in X.fold over_indices cexpr X.empty
@@ -1165,7 +1167,7 @@ and compile_node node_scope pos ctx cstate map outputs cond restart ident args d
         | idx -> idx
       in 
       if not (StateVar.is_input sv) then
-        N.add_state_var_def sv (N.GeneratedEq (pos, i'));
+        N.add_state_var_def ~is_dep:true sv (N.GeneratedEq (pos, i'));
       X.add i sv accum
     in
     let result = X.fold2 over_indices inputs cexpr X.empty in
@@ -1223,7 +1225,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
       | None -> None
     in
     let contract_sv = C.mk_svar pos count name state_var scope in
-    N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
+    N.add_state_var_def ~is_dep:true state_var (N.ContractItem (pos, contract_sv, kind));
     contract_sv
   (* ****************************************************************** *)
   (* Split contracts into relevant categories                           *)
@@ -1596,7 +1598,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           match possible_state_var with
           | Some(state_var) ->
             if not (StateVar.is_input state_var)
-              then N.add_state_var_def state_var (N.GeneratedEq (pos, index));
+              then N.add_state_var_def ~is_dep:true state_var (N.GeneratedEq (pos, index));
             SVT.add !map.bounds state_var [bound];
             X.add index state_var accum
           | None -> accum
@@ -1863,8 +1865,10 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | _ -> acc, cpt)
         (acc, 0) i |> fst
       in
+      let id = HString.mk_hstring (StateVar.name_of_state_var sv) in
+      let is_dep = GI.StringMap.mem id (gids.generated_locals) in
       if not is_generated then
-        N.add_state_var_def sv
+        N.add_state_var_def sv ~is_dep:is_dep
           (N.ProperEq (AH.pos_of_expr expr, rm_array_var_index i));
       result
     ) [] (X.bindings eq_lhs)
@@ -1875,8 +1879,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     let over_equations = fun eqns (qvars, contract_scope, lhs, ast_expr) ->
       map := { !map with contract_scope };
       let eq_lhs, indexes = match lhs with
-        | A.StructDef (_, []) -> (X.empty, 0)
-        | A.StructDef (_, [e]) -> compile_struct_item e
+        | A.StructDef (_, []) -> X.empty, 0
+        | A.StructDef (_, [e]) -> (compile_struct_item e)
         | A.StructDef (_, l) ->
           let construct_index i j e a = X.add (X.ListIndex i :: j) e a in
           let over_items = fun (i, accum) e -> 
@@ -2068,10 +2072,44 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       let contract = C.mk assumes sofar_assumption guarantees modes in
       Some (contract), [sofar_local], [equation]
     else None, [], []
+  in
+  (* ****************************************************************** *)
+  (* Add state var definitions for frame and if blocks                  *)
+  (* ****************************************************************** *)
+  (* Add state var definitions for frame blocks *)
+  (
+    match HString.HStringHashtbl.find_opt LDF.pos_list_map i with
+      | Some frame_infos ->
+        (* Get state variables for frame block variables *)
+          List.iter (fun (pos, lhs, pos2) -> 
+            let lhs, _ = (match lhs with
+              | A.StructDef (_, [e]) -> compile_struct_item e
+              | _ -> assert false) 
+            in
+            List.iter (fun (_, sv) -> N.add_state_var_def sv (N.FrameBlock pos)) (X.bindings lhs);
+            List.iter (fun (i, sv) -> N.add_state_var_def sv (N.ProperEq (pos2, rm_array_var_index i))) (X.bindings lhs);
+        ) frame_infos;  
+      | None -> ()
+  );
+
+  (* Add state var definitions for if blocks *)
+  (
+    match HString.HStringHashtbl.find_opt LDI.pos_list_map i with
+      | Some if_infos ->
+        (* Add state var defs for if block equations *)
+        List.iter (fun (pos, lhs) -> 
+            let lhs, _ = (match lhs with
+              | A.StructDef (_, [e]) -> compile_struct_item e
+              | _ -> assert false) 
+            in
+            List.iter (fun (i, sv) -> N.add_state_var_def sv (N.ProperEq (pos, rm_array_var_index i))) (X.bindings lhs);
+        ) if_infos;  
+      | None -> ()
+  );
   (* ****************************************************************** *)
   (* Finalize and build intermediate LustreNode                         *)
-  (* ****************************************************************** *)
-  in let locals = sofar_local @ ghost_locals @ glocals @ locals in
+  (* ****************************************************************** *)    
+  let locals = sofar_local @ ghost_locals @ glocals @ locals in
   let equations = sofar_equation @ equations @ gequations in
   let asserts = List.sort (fun (p1, _) (p2, _) -> compare_pos p1 p2) asserts in
   let state_var_source_map = SVT.fold
