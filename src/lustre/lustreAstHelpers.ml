@@ -1711,3 +1711,14 @@ let rec rename_contract_vars = function
     Call (pos, id, List.map (fun e -> rename_contract_vars e) expr_list)
   | CallParam (pos, id, types, expr_list) ->
     CallParam (pos, id, types, List.map (fun e -> rename_contract_vars e) expr_list)
+
+let name_of_prop pos name k =
+  match name with 
+  | Some name -> name
+  | None -> 
+    let kind_str = match k with
+      | Invariant -> "Inv"
+      | Reachable _ -> "Reach"
+    in
+    let loc_str = Format.asprintf "%a" Lib.pp_print_line_and_column pos in
+    (HString.mk_hstring (kind_str ^ "Prop" ^ loc_str))

@@ -40,6 +40,7 @@ type error_kind = Unknown of string
   | UndefinedLocal of HString.t
   | DuplicateLocal of HString.t
   | DuplicateOutput of HString.t
+  | DuplicateProperty of HString.t
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
@@ -72,6 +73,8 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id ^ "' has more than one definition"
   | DuplicateOutput id -> "Output variable '"
     ^ HString.string_of_hstring id ^ "' has more than one definition"
+  | DuplicateProperty id -> "Property '"
+  ^ HString.string_of_hstring id ^ "' has more than one definition"
   | UndefinedNode id -> "Node or function '"
     ^ HString.string_of_hstring id ^ "' is undefined"
   | UndefinedContract id -> "Contract '"
@@ -105,6 +108,9 @@ let error_message kind = match kind with
   | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
+
+let prop_map : unit HString.HStringHashtbl.t = 
+  HString.HStringHashtbl.create 25
 
 let (let*) = Result.bind
 let (>>) = fun a b -> let* _ = a in b
@@ -652,6 +658,16 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
     >> (Res.seq_ (List.map check_output_items outputs))
     >> (Ok decl)
 
+and check_prop prop =
+  match prop with
+    | LA.AnnotProperty (pos, name, _, k) -> (
+      let name = LustreAstHelpers.name_of_prop pos name k in
+      if HString.HStringHashtbl.mem prop_map name 
+      then syntax_error pos (DuplicateProperty name) 
+      else (HString.HStringHashtbl.add prop_map name (); Ok())
+    )
+    | _ -> Ok ()
+
 and check_items ctx f items =
   let check_item ctx f = function
     | LA.Body (Equation (_, lhs, e)) ->
@@ -668,8 +684,8 @@ and check_items ctx f items =
       check_items ctx f nes >> (check_items ctx f nis) >>
       (*  Make sure 'nes' and 'nis' LHS vars are in 'vars' *)
       (Res.seq_ (List.map (check_frame_vars pos vars) nis)) >> (Res.seq_ (List.map (check_frame_vars pos vars) nes))
-    | Body (Assert (_, e))
-    | AnnotProperty (_, _, e, _) -> check_expr ctx f e
+    | Body (Assert (_, e)) -> check_expr ctx f e
+    | AnnotProperty (_, _, e, _) as prop -> (check_prop prop) >> (check_expr ctx f e)
     | AnnotMain _ -> Ok ()
   in
   Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)

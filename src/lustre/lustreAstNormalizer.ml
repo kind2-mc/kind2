@@ -744,18 +744,7 @@ and normalize_item info map = function
     assert false
   | AnnotMain (pos, b) -> AnnotMain (pos, b), empty (), []
   | AnnotProperty (pos, name, expr, k) -> 
-    let name' =
-      match name with
-      | None -> (
-        let kind_str = match k with
-          | Invariant -> "Inv"
-          | Reachable _ -> "Reach"
-        in
-        let loc_str = Format.asprintf "%a" Lib.pp_print_line_and_column pos in
-        Some (HString.mk_hstring (kind_str ^ "Prop" ^ loc_str))
-      )
-      | Some _ as n -> n
-    in
+    let name' = Some (AH.name_of_prop pos name k) in
     let expr = (match k with 
       (* expr or counter < b *)
       | Reachable Some (From b) -> 

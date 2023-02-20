@@ -189,3 +189,6 @@ val hash : int option -> expr -> int
 
 val rename_contract_vars : expr -> expr
 (** Rename contract variables from internal names (with format #_contract_var) to syntax names *)
+
+val name_of_prop : Lib.position -> HString.t option -> LustreAst.prop_kind -> HString.t
+(** Get the name associated with a property *)
