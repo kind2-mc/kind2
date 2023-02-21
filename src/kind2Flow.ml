@@ -521,6 +521,14 @@ let process_invgen_mach_modules sys (modules: Lib.kind_module list) : Lib.kind_m
     | _ -> other_modules
   )
 
+  (* Add BMCREACHABLE engine if BMC is enabled and there is at least one reachability
+     query with a lower bound *)
+  let reachability_query_modules sys (modules: Lib.kind_module list) : Lib.kind_module list =
+    let has_lb_queries = (TSys.props_list_of_bound_skip sys Numeral.zero <> []) in
+    if (List.mem `BMCREACHABLE modules |> not) && (List.mem `BMC modules) && has_lb_queries
+      then `BMCREACHABLE :: modules
+      else modules
+
 (** Performs an analysis. *)
 let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
@@ -545,6 +553,9 @@ let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys
       KEvent.purge_im msg_setup ;
 
       let modules = process_invgen_mach_modules sys modules in
+      (* Add BMCREACHABLE engine if BMC is enabled and there is at least one reachability
+        query with a lower bound *)
+      let modules = reachability_query_modules sys modules in
 
       (* Start all child processes. *)
       modules |> List.iter (

@@ -2978,10 +2978,7 @@ module Global = struct
     )
     
   (* let enable mdl = enabled := mdl :: !enabled *)
-  let enabled () = 
-      if (List.mem `BMCREACHABLE !enabled |> not) && (List.mem `BMC !enabled)
-      then `BMCREACHABLE :: !enabled
-      else !enabled
+  let enabled () = !enabled
 
   (* Returns the invariant generation techniques enabled. *)
   let invgen_enabled () = enabled () |> List.filter (

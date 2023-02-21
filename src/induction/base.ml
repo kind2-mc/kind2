@@ -213,6 +213,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, no_skip) =
   | [] -> ()
 
   | _ ->
+    let k = if not no_skip then skip_steps_next trans solver k else k in
     let k_int = Numeral.to_int k in
 
     (* Notifying framework of our progress. *)
@@ -242,7 +243,6 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, no_skip) =
         | _ -> true
       )
     in
-    let k = if not no_skip then skip_steps_next trans solver k else k in
     let unfalsifiable =
       match unknowns_at_k with
       | [] ->
@@ -347,22 +347,6 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, no_skip) =
      next
       (input_sys, aparam, trans, solver, k_p_1, unfalsifiable, no_skip)
 
-let skip_steps_init trans solver =
-  let num_skip = lowest_lower_bound trans in
-  let step = ref Numeral.one in
-  while Numeral.to_int !step <= num_skip do
-    (* Declaring unrolled vars at k+1. *)
-    TransSys.declare_vars_of_bounds
-    trans (SMTSolver.declare_fun solver) !step !step ;
-
-    (* Asserting transition relation for next iteration. *)
-    TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans !step
-    |> SMTSolver.assert_term solver ;
-
-    step := Numeral.succ !step;
-  done;
-  num_skip
-
 (* Initializes the solver for the first check. *)
 let init input_sys aparam trans no_skip =
   (* Starting the timer. *)
@@ -396,11 +380,6 @@ let init input_sys aparam trans no_skip =
     (Some (SMTSolver.declare_fun solver)) trans Numeral.zero
   |> SMTSolver.assert_term solver ;
 
-  (* Function 'skip_steps_init' has the side effect of skipping steps
-      for reachability queries if we know we have to unroll the transition
-      relation many times before we can find an example trace. *)
-  let num_skip = if no_skip then 0 else skip_steps_init trans solver in
-
   SMTSolver.trace_comment solver "Initial state satisfiability check." ;
 
   if Flags.BmcKind.check_unroll () then (
@@ -433,7 +412,7 @@ let init input_sys aparam trans no_skip =
   ) ;
 
   (* Start "next" at the correct timestep with regards to (potentially) skipping steps *)
-  (input_sys, aparam, trans, solver, Numeral.of_int num_skip, unknowns, no_skip)
+  (input_sys, aparam, trans, solver, Numeral.zero, unknowns, no_skip)
 
 (* Runs the base instance. *)
 let main no_skip input_sys aparam trans =
