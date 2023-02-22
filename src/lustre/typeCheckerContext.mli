@@ -191,3 +191,11 @@ val pp_print_enum_variants: Format.formatter -> enum_variants -> unit
 
 val pp_print_tc_context: Format.formatter -> tc_context -> unit
 (** Pretty print the complete type checker context*)
+
+(** {1 Helper functions that uses context }  *)
+
+val arity_of_expr: tc_context -> LA.expr -> int
+(** Return the arity of a Lustre expression given a context *)
+
+val traverse_group_expr_list: (int -> LA.expr -> 'a) -> tc_context -> int -> LA.expr list -> 'a
+(** Traverse a group expr list *)

@@ -155,10 +155,10 @@ and process_expr ind_vars ctx ns proj indices expr =
   (* Structured expressions *)
   | RecordExpr (_, _, es) ->
     es |> (List.map (fun (_, e) -> r e)) |> (List.fold_left union_ empty_)
-  | GroupExpr (_, A.ExprList, es) ->
-    (match List.nth_opt es proj with
-    | Some e -> r e
-    | None -> empty_)
+  | GroupExpr (_, A.ExprList, es) -> (
+    let g idx exp = process_expr ind_vars ctx ns idx indices exp in
+    Ctx.traverse_group_expr_list g ctx proj es
+  )
   | GroupExpr (_, _, es) ->
     es |> (List.map r) |> (List.fold_left union_ empty_)
   (* Update of structured expressions *)
