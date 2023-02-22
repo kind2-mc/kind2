@@ -65,8 +65,8 @@ let renice () =
 (** Main function of the process *)
 let main_of_process = function
   | `IC3 -> IC3.main
-  | `BMC -> BMC.main true
-  | `BMCREACHABLE -> BMC.main false
+  | `BMC -> BMC.main false
+  | `BMCREACHABLE -> BMC.main true
   | `IND -> IND.main
   | `IND2 -> IND2.main
   | `INVGEN -> renice () ; InvGen.main_bool true

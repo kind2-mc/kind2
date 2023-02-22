@@ -180,7 +180,7 @@ let skip_steps_next trans solver k unknowns =
 
    Note that the transition relation for the current iteration is
    already asserted. *)
-let rec next (input_sys, aparam, trans, solver, k, unknowns, no_skip) =
+let rec next (input_sys, aparam, trans, solver, k, unknowns, skip) =
   (* Getting new invariants and updating transition system. *)
   let new_invs =
     (* Receiving messages. *)
@@ -213,7 +213,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, no_skip) =
   | [] -> ()
 
   | _ ->
-    let k = if not no_skip then skip_steps_next trans solver k nu_unknowns else k in
+    let k = if skip then skip_steps_next trans solver k nu_unknowns else k in
     let k_int = Numeral.to_int k in
 
     (* Notifying framework of our progress. *)
@@ -345,20 +345,20 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, no_skip) =
     else
      (* Looping. *)
      next
-      (input_sys, aparam, trans, solver, k_p_1, unfalsifiable, no_skip)
+      (input_sys, aparam, trans, solver, k_p_1, unfalsifiable, skip)
 
 (* Initializes the solver for the first check. *)
-let init input_sys aparam trans no_skip =
+let init input_sys aparam trans skip =
   (* Starting the timer. *)
   Stat.start_timer Stat.bmc_total_time;
 
   (* Getting properties. 
      Filter for invariants or reachability queries *)
   let unknowns =
-    if no_skip then
-      (TransSys.props_list_of_bound_no_skip trans Numeral.zero)
-    else
+    if skip then
       (TransSys.props_list_of_bound_skip trans Numeral.zero)
+    else
+      (TransSys.props_list_of_bound_no_skip trans Numeral.zero)
   in
 
   (* Creating solver. *)
@@ -412,12 +412,12 @@ let init input_sys aparam trans no_skip =
   ) ;
 
   (* Start "next" at the correct timestep with regards to (potentially) skipping steps *)
-  (input_sys, aparam, trans, solver, Numeral.zero, unknowns, no_skip)
+  (input_sys, aparam, trans, solver, Numeral.zero, unknowns, skip)
 
 (* Runs the base instance. *)
-let main no_skip input_sys aparam trans =
+let main skip input_sys aparam trans =
   try
-    init input_sys aparam trans no_skip |> next
+    init input_sys aparam trans skip |> next
   with UnsatUnrollingExc k ->
     let _, _, unknown = TransSys.get_split_properties trans in
     unknown |> List.iter (fun p ->

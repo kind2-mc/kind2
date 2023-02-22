@@ -1720,5 +1720,5 @@ let name_of_prop pos name k =
       | Invariant -> "Inv"
       | Reachable _ -> "Reach"
     in
-    let loc_str = Format.asprintf "%a" Lib.pp_print_line_and_column pos in
-    (HString.mk_hstring (kind_str ^ "Prop" ^ loc_str))
+    Format.asprintf "%sProp%a" kind_str Lib.pp_print_line_and_column pos
+    |> HString.mk_hstring
