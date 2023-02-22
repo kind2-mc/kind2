@@ -135,24 +135,24 @@ let split_closure trans solver k to_split =
 
 (* Find out which reachability query has the lowest lower bound (for the purpose
    of skipping steps) *)
-let lowest_lower_bound trans =
-  TransSys.get_properties trans |> 
-  List.fold_left (fun num_skip prop -> match (prop.Property.prop_status, prop.Property.prop_kind) with
-    (* Ignore finished properties *)
-    | (Property.PropInvariant _, _)
-    | (Property.PropFalse _, _) -> num_skip
-    (* Update lowest lower bound *)
-    | (_, Property.Reachable (Some (From b))) 
-    | (_, Property.Reachable (Some (At b))) -> if b < num_skip then b else num_skip
-    | (_, Property.Reachable (Some (FromWithin (b, _)))) -> if b < num_skip then b else num_skip
-    (* Shouldn't be possible, but if there are other types of properties, we shouldn't skip steps *)
-    | _ -> 0) max_int 
+let lowest_lower_bound trans unknowns =
+  List.map
+    (fun (prop_name, _) ->
+      match TransSys.get_prop_kind trans prop_name with
+      | Reachable Some (From b)
+      | Reachable Some (At b)
+      | Reachable Some (FromWithin (b, _)) -> b
+      | _ -> assert false
+    )
+    unknowns
+  |> Lib.list_min
 
-let skip_steps_next trans solver k (* nu_unknowns *) = 
+let skip_steps_next trans solver k unknowns = 
   let step = ref k in
-  let llb = lowest_lower_bound trans in
-  let num_skip = llb - Numeral.to_int k in
-  while (Numeral.to_int !step) < (Numeral.to_int k + num_skip - 1) do
+  let llb =
+    Numeral.of_int (lowest_lower_bound trans unknowns)
+  in
+  while Numeral.(!step < llb) do
     step := Numeral.succ !step;
 
     (* Declaring unrolled vars at k+1. *)
@@ -213,7 +213,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, no_skip) =
   | [] -> ()
 
   | _ ->
-    let k = if not no_skip then skip_steps_next trans solver k else k in
+    let k = if not no_skip then skip_steps_next trans solver k nu_unknowns else k in
     let k_int = Numeral.to_int k in
 
     (* Notifying framework of our progress. *)

@@ -104,6 +104,9 @@ val list_init : (int -> 'a) -> int -> 'a list
 (** Returns the maximum element of a non-empty list *)
 val list_max : 'a list -> 'a
 
+(** Returns the minimum element of a non-empty list *)
+val list_min : 'a list -> 'a
+
 (** Return the index of the first element that satisfies the predicate
     [p], raise excpetion [Not_found] if no element satisfies the
     predicate. *)

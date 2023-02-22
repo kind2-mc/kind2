@@ -88,17 +88,15 @@ let list_init f n =
     init_aux 0
 
 (* Returns the maximum element of a non-empty list *)
-let list_max l =
-  assert (List.length l > 0);
-  let rec list_max_aux l acc =
-    match l with
-    | [] ->
-       acc
-    | hd :: tl ->
-       list_max_aux tl (max hd acc)
-  in
-  list_max_aux l (List.hd l)
-             
+let list_max = function
+  | [] -> assert false
+  | x :: xs -> List.fold_left max x xs
+
+(* Returns the minimum element of a non-empty list *)
+let list_min = function
+  | [] -> assert false
+  | x :: xs -> List.fold_left min x xs
+
 (* Return the index of the first element that satisfies the predicate [p] *)
 let list_index p = 
   let rec list_index p i = function
