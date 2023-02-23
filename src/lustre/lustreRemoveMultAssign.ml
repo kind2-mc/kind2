@@ -37,13 +37,12 @@ let split_and_flatten3 xs =
   ls, ms, ns
 
 (** Create a new fresh temporary variable name. *)
-let mk_fresh_temp_var pos id ty ind expr =
+let mk_fresh_temp_var ty =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring "temp") in
   let gids2 = { (GI.empty ()) with 
-    generated_locals = GI.StringMap.singleton name (A.Ident(pos, id)); 
-    locals = GI.StringMap.singleton name (false, ty, expr, expr, ind);
+    locals = GI.StringMap.singleton name (false, ty);
   } in
   name, gids2
   
@@ -123,13 +122,13 @@ let rec modify_arraydefs_in_expr array_assoc_list = function
    *)
 let create_new_eqs ctx lhs expr = 
   let rhs_pos = AH.pos_of_expr expr in
-  let convert_struct_item ind = (function
+  let convert_struct_item = (function
     | A.SingleIdent (p, i) as si -> 
       let ty = (match Ctx.lookup_ty ctx i with 
         | Some ty -> ty 
         (* Type error, shouldn't be possible *)
         | None -> assert false) in
-      let temp, gids = mk_fresh_temp_var p i ty ind expr in
+      let temp, gids = mk_fresh_temp_var ty in
       (
         [gids], 
         [A.SingleIdent(p, temp)],
@@ -149,7 +148,7 @@ let create_new_eqs ctx lhs expr =
         | Some ty -> ty 
         (* Type error, shouldn't be possible *)
         | None -> assert false) in
-      let temp, gids = mk_fresh_temp_var p i ty ind expr in
+      let temp, gids = mk_fresh_temp_var ty in
       let array_index = List.fold_left (fun expr j -> A.ArrayIndex(rhs_pos, expr, A.Ident(rhs_pos, j))) (A.Ident(rhs_pos, temp)) js in
       (
         [gids],
@@ -162,7 +161,7 @@ let create_new_eqs ctx lhs expr =
   ) in
   match lhs with
     | A.StructDef (pos, ss) -> 
-      let res = (List.mapi convert_struct_item ss) in
+      let res = (List.map convert_struct_item ss) in
       let gids, sis, eqs = split_and_flatten3 res in
       
       let get_array_ids =

@@ -48,12 +48,8 @@ type t = {
     * LustreAst.expr)
     StringMap.t;
   locals : (bool (* whether the variable is ghost *)
-    * LustreAst.lustre_type
-    * LustreAst.expr (* abstracted expression *)
-    * LustreAst.expr (* original expression *)
-    * int) (* index *)
+    * LustreAst.lustre_type)
     StringMap.t;
-  generated_locals : LustreAst.expr StringMap.t; (* maps generated local to corresponding user-defined variable *)
   contract_calls :
     (Lib.position
     * (Lib.position * HString.t) list (* contract scope *)
@@ -104,7 +100,6 @@ let union_keys key id1 id2 = match key, id1, id2 with
   | _, (Some _), (Some _) -> assert false
 let union ids1 ids2 = {
     locals = StringMap.merge union_keys ids1.locals ids2.locals;
-    generated_locals = StringMap.merge union_keys ids1.generated_locals ids2.generated_locals;
     array_constructors = StringMap.merge union_keys
       ids1.array_constructors ids2.array_constructors;
     node_args = ids1.node_args @ ids2.node_args;
@@ -127,7 +122,6 @@ let union_keys2 key id1 id2 = match key, id1, id2 with
   
   let empty () = {
     locals = StringMap.empty;
-    generated_locals = StringMap.empty;
     array_constructors = StringMap.empty;
     node_args = [];
     oracles = [];

@@ -210,7 +210,7 @@ let split3 triples =
 
 let pp_print_generated_identifiers ppf gids =
   let locals_list = StringMap.bindings gids.locals 
-    |> List.map (fun (x, (y, z, _, _, v)) -> x, y, z, v)
+    |> List.map (fun (x, (y, z)) -> x, y, z)
   in
   let array_ctor_list = StringMap.bindings gids.array_constructors
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
@@ -218,11 +218,10 @@ let pp_print_generated_identifiers ppf gids =
   let contract_calls_list = StringMap.bindings gids.contract_calls
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
   in
-  let pp_print_local ppf (id, b, ty, ind) = Format.fprintf ppf "(%a, %b, %a, %d)"
+  let pp_print_local ppf (id, b, ty) = Format.fprintf ppf "(%a, %b, %a)"
     HString.pp_print_hstring id
     b
     LustreAst.pp_print_lustre_type ty
-    ind
   in
   let pp_print_array_ctor ppf (id, ty, e, s) = Format.fprintf ppf "(%a, %a, %a, %a)"
     HString.pp_print_hstring id
@@ -343,7 +342,7 @@ let generalize_to_array_expr name ind_vars expr nexpr =
       A.ArrayIndex (dpos, nexpr, A.Ident (dpos, List.hd ind_vars))
   in eq_lhs, nexpr
 
-let mk_fresh_local force info pos is_ghost ind_vars expr_type expr oexpr ind =
+let mk_fresh_local force info pos is_ghost ind_vars expr_type expr =
   match (LocalCache.find_opt local_cache expr, force) with
   | Some nexpr, false -> nexpr, empty ()
   | _ ->
@@ -353,7 +352,7 @@ let mk_fresh_local force info pos is_ghost ind_vars expr_type expr oexpr ind =
   let nexpr = A.Ident (pos, name) in
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
   let gids = { (empty ()) with
-    locals = StringMap.singleton name (is_ghost, expr_type, expr, oexpr, ind);
+    locals = StringMap.singleton name (is_ghost, expr_type);
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in
   LocalCache.add local_cache expr nexpr;
@@ -441,12 +440,8 @@ let mk_range_expr ctx expr_type expr =
   in
   mk ctx 0 expr_type expr
 
-let mk_fresh_subrange_constraint source info pos constrained_name expr_type gids =
-  let expr = 
-    match StringMap.find_opt constrained_name gids.generated_locals with
-      | Some expr -> expr
-      | None -> A.Ident(pos, constrained_name)
-    in
+let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
+  let expr = A.Ident(pos, constrained_name) in
   let range_exprs = mk_range_expr info.context expr_type expr in
   let gids = List.map (fun (range_expr, is_original) ->
     i := !i + 1;
@@ -661,11 +656,6 @@ and normalize_node info map
     (Ctx.union input_ctx output_ctx)
   in
   let info = { info with context = ctx } in
-  let gids0 = 
-    match StringMap.find_opt node_id map with
-      | Some gids -> gids
-      | None -> empty ()
-  in
   (* Record subrange constraints on inputs, outputs *)
   let gids1 = inputs
     |> List.filter (fun (_, id, _, _, _) -> 
@@ -674,7 +664,7 @@ and normalize_node info map
     |> List.fold_left (fun acc (p, id, _, _, _) ->
       let ty = get_type_of_id info node_id id in
       let ty = AIC.inline_constants_of_lustre_type info.context ty in
-      union acc (mk_fresh_subrange_constraint Input info p id ty gids0))
+      union acc (mk_fresh_subrange_constraint Input info p id ty))
       (empty ())
   in
   let gids2 = outputs
@@ -684,7 +674,7 @@ and normalize_node info map
     |> List.fold_left (fun acc (p, id, _, _) ->
       let ty = get_type_of_id info node_id id in
       let ty = AIC.inline_constants_of_lustre_type info.context ty in
-      union acc (mk_fresh_subrange_constraint Output info p id ty gids0))
+      union acc (mk_fresh_subrange_constraint Output info p id ty))
       (empty ())
   in
   (* We have to handle contracts before locals
@@ -718,7 +708,7 @@ and normalize_node info map
       | A.NodeVarDecl (p, (_, id, _, _)) -> 
         let ty = get_type_of_id info node_id id in
         let ty = AIC.inline_constants_of_lustre_type info.context ty in
-        union acc (mk_fresh_subrange_constraint Local info p id ty gids0)
+        union acc (mk_fresh_subrange_constraint Local info p id ty)
       | _ -> assert false)
       (empty ())
   in
@@ -862,11 +852,6 @@ and normalize_contract info map node_id items =
             (fun acc v -> acc || StringMap.mem v info.inductive_variables)
             false
         in
-        let gids0 = 
-          match StringMap.find_opt node_id map with
-            | Some gids -> gids
-            | None -> empty ()
-        in
         let (nexpr, gids1, warnings), expanded = (
           if has_inductive && lhs_arity <> rhs_arity then
             (match StringMap.choose_opt info.inductive_variables with
@@ -913,7 +898,7 @@ and normalize_contract info map node_id items =
               fun (_, i, ty) -> 
               let new_id = StringMap.find i info.interpretation in
               if AH.type_contains_subrange ty then
-                mk_fresh_subrange_constraint Ghost info pos new_id ty gids0
+                mk_fresh_subrange_constraint Ghost info pos new_id ty
               else empty ()
             )
             tis
@@ -1030,7 +1015,7 @@ and abstract_expr ?guard force info map is_ghost expr =
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
     else Chk.infer_type_expr info.context expr |> unwrap
     in
-    let iexpr, gids2 = mk_fresh_local force info pos is_ghost ivars ty nexpr expr 0 in
+    let iexpr, gids2 = mk_fresh_local force info pos is_ghost ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
 and expand_node_call info expr var count =
