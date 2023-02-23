@@ -40,7 +40,7 @@ let split_and_flatten3 xs =
 let mk_fresh_temp_var ty =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
-  let name = HString.concat2 prefix (HString.mk_hstring "temp") in
+  let name = HString.concat2 prefix (HString.mk_hstring "_proj") in
   let gids2 = { (GI.empty ()) with 
     locals = GI.StringMap.singleton name (false, ty);
   } in
