@@ -17,7 +17,7 @@
  *)
 
 (**
-    @author Andrew Marmaduke *)
+@author Andrew Marmaduke *)
 
 open Lib
 module LA = LustreAst
@@ -153,9 +153,9 @@ let rec arity_of_expr ty_ctx = function
   | TupleProject (_, e, _) -> arity_of_expr ty_ctx e
   | _ -> 1
 
-let rec interpret_program ty_ctx = function
+let rec interpret_program ty_ctx gids = function
   | [] -> empty_context
-  | h :: t -> union (interpret_decl ty_ctx h) (interpret_program ty_ctx t)
+  | h :: t -> union (interpret_decl ty_ctx gids h) (interpret_program ty_ctx gids t)
 
 and interpret_contract node_id ctx ty_ctx eqns =
   let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx eqns |> unwrap
@@ -188,11 +188,11 @@ and interpret_contract_eqn node_id ctx ty_ctx = function
     tis
     eqns
 
-and interpret_decl ty_ctx = function
+and interpret_decl ty_ctx gids = function
   | LA.TypeDecl _
   | ConstDecl _ -> empty_context
   | NodeDecl (_, decl)
-  | FuncDecl (_, decl) -> interpret_node ty_ctx decl
+  | FuncDecl (_, decl) -> interpret_node ty_ctx gids decl
   | ContractNodeDecl (_, decl) -> interpret_contract_node ty_ctx decl
   | NodeParamInst _ -> empty_context
 
@@ -216,7 +216,7 @@ and interpret_contract_node ty_ctx (id, _, ins, outs, contract) =
   in
   interpret_contract id empty_context ty_ctx contract
 
-and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
+and interpret_node ty_ctx gids (id, _, _, ins, outs, locals, items, contract) =
   (* Setup the typing context *)
   let constants_ctx = ins
     |> List.map Ctx.extract_consts
@@ -243,6 +243,10 @@ and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
     (fun ctx local -> TC.local_var_binding ctx local |> unwrap)
     ty_ctx
     locals 
+  in
+  let gids_node = GeneratedIdentifiers.StringMap.find id gids in
+  let ty_ctx = GeneratedIdentifiers.StringMap.fold
+    (fun id (_, ty, _, _, _) ctx -> Ctx.add_ty ctx id ty) (gids_node.GeneratedIdentifiers.locals) ty_ctx
   in
   let eqns = List.fold_left (fun acc -> function
     | LA.Body eqn -> (match eqn with
@@ -310,7 +314,7 @@ and interpret_eqn node_id ctx ty_ctx lhs rhs =
 
 and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
   match ty with
-  | RecordType (_, name, ts) -> 
+  | LA.RecordType (_, name, ts) -> 
     let f = function
       | LA.RecordExpr (_, _, es) ->
         let emap = List.fold_left
