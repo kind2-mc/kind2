@@ -65,7 +65,7 @@
   6. Condition of node calls (if it is not equivalent to true)
   7. Restarts of node calls (if it is not a constant)
 
-     @author Andrew Marmaduke *)
+@author Andrew Marmaduke *)
 
 open Lib
 open GeneratedIdentifiers
@@ -175,9 +175,9 @@ let force_fresh = true
 
   Flags.IVC.compute_ivc () ||
   (match Flags.enabled () with
-   | modules when List.mem `MCS modules -> true
-   | modules when List.mem `CONTRACTCK modules -> true
-   | _ -> false
+  | modules when List.mem `MCS modules -> true
+  | modules when List.mem `CONTRACTCK modules -> true
+  | _ -> false
   )*)
 
 let call_cache = CallCache.create 20
@@ -210,7 +210,7 @@ let split3 triples =
 
 let pp_print_generated_identifiers ppf gids =
   let locals_list = StringMap.bindings gids.locals 
-    |> List.map (fun (x, (y, z, w, _)) -> x, y, z, w)
+    |> List.map (fun (x, (y, z)) -> x, y, z)
   in
   let array_ctor_list = StringMap.bindings gids.array_constructors
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
@@ -218,11 +218,10 @@ let pp_print_generated_identifiers ppf gids =
   let contract_calls_list = StringMap.bindings gids.contract_calls
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
   in
-  let pp_print_local ppf (id, b, ty, e) = Format.fprintf ppf "(%a, %b, %a, %a)"
+  let pp_print_local ppf (id, b, ty) = Format.fprintf ppf "(%a, %b, %a)"
     HString.pp_print_hstring id
     b
     LustreAst.pp_print_lustre_type ty
-    LustreAst.pp_print_expr e
   in
   let pp_print_array_ctor ppf (id, ty, e, s) = Format.fprintf ppf "(%a, %a, %a, %a)"
     HString.pp_print_hstring id
@@ -272,14 +271,19 @@ let pp_print_generated_identifiers ppf gids =
     (pp_print_list (pp_print_pair Lib.pp_print_position HString.pp_print_hstring ":") "::") scope
     (pp_print_list A.pp_print_contract_item ";") decl
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  let pp_print_equation ppf (_, _, lhs, expr) = Format.fprintf ppf "%a = %a"
+  A.pp_print_eq_lhs lhs
+  A.pp_print_expr expr
+  in
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_array_ctor "\n") array_ctor_list
-    (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_node_arg "\n") gids.node_args
+    (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_call "\n") gids.calls
     (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
+    (pp_print_list pp_print_equation "\n") gids.equations
 
 let compute_node_input_constant_mask decls =
   let over_decl map = function
@@ -338,7 +342,7 @@ let generalize_to_array_expr name ind_vars expr nexpr =
       A.ArrayIndex (dpos, nexpr, A.Ident (dpos, List.hd ind_vars))
   in eq_lhs, nexpr
 
-let mk_fresh_local force info pos is_ghost ind_vars expr_type expr oexpr =
+let mk_fresh_local force info pos is_ghost ind_vars expr_type expr =
   match (LocalCache.find_opt local_cache expr, force) with
   | Some nexpr, false -> nexpr, empty ()
   | _ ->
@@ -348,7 +352,7 @@ let mk_fresh_local force info pos is_ghost ind_vars expr_type expr oexpr =
   let nexpr = A.Ident (pos, name) in
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
   let gids = { (empty ()) with
-    locals = StringMap.singleton name (is_ghost, expr_type, expr, oexpr);
+    locals = StringMap.singleton name (is_ghost, expr_type);
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in
   LocalCache.add local_cache expr nexpr;
@@ -436,12 +440,8 @@ let mk_range_expr ctx expr_type expr =
   in
   mk ctx 0 expr_type expr
 
-let mk_fresh_subrange_constraint source info pos constrained_name expr_type gids =
-  let expr = 
-    match StringMap.find_opt constrained_name gids.generated_locals with
-      | Some expr -> expr
-      | None -> A.Ident(pos, constrained_name)
-    in
+let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
+  let expr = A.Ident(pos, constrained_name) in
   let range_exprs = mk_range_expr info.context expr_type expr in
   let gids = List.map (fun (range_expr, is_original) ->
     i := !i + 1;
@@ -523,6 +523,7 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
     interpretation = StringMap.empty;
     local_group_projection = -1 }
   in 
+  let gids, warnings = normalize_gids info gids in
   let over_declarations (nitems, accum, warnings_accum) item =
     clear_cache ();
     let (normal_item, map, warnings) =
@@ -533,7 +534,7 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
     StringMap.merge union_keys2 map accum,
     warnings @ warnings_accum
   in let ast, map, warnings_map = List.fold_left over_declarations
-    ([], gids, []) decls
+    ([], gids, warnings) decls
   in let ast = List.rev ast in
   
   Debug.parse ("===============================================\n"
@@ -560,6 +561,27 @@ and normalize_declaration info map = function
     Some (A.FuncDecl (span, normal_decl)), map, warnings
   | ContractNodeDecl (_, _) -> None, StringMap.empty, []
   | decl -> Some decl, StringMap.empty, []
+
+and normalize_gids info gids_map = 
+  (* Convert gids_map to a new gids_map with normalized equations *)
+  let gids_map, warnings = StringMap.fold (fun id gids (gids_map, warnings)  -> 
+    (* Normalize all equations in gids *)
+    let res = List.map (fun (_, _, lhs, expr) ->
+      let nexpr, gids, warnings = normalize_expr info gids_map expr in
+      gids, warnings, (info.quantified_variables, info.contract_scope, lhs, nexpr)
+    ) gids.equations in
+    let gids_list, warnings2, eqs = split3 res in
+    (* Take out old equations that were not normalized *)
+    let gids = { gids with equations = [] } in
+    let gids = List.fold_left (fun acc g -> union g acc) gids gids_list in
+    let warnings2 = List.flatten warnings2 in
+    (* Keep equations generated during normalization *)
+    let eqs2 = gids.equations in
+    let gids = { gids with equations = eqs @ eqs2; } in
+    let gids_map = StringMap.add id gids gids_map in
+    (gids_map, warnings @ warnings2)
+  ) gids_map (gids_map, []) in
+  gids_map, warnings
 
 and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, body) =
   let contract_ref = cref in
@@ -634,11 +656,6 @@ and normalize_node info map
     (Ctx.union input_ctx output_ctx)
   in
   let info = { info with context = ctx } in
-  let gids0 = 
-    match StringMap.find_opt node_id map with
-      | Some gids -> gids
-      | None -> empty ()
-  in
   (* Record subrange constraints on inputs, outputs *)
   let gids1 = inputs
     |> List.filter (fun (_, id, _, _, _) -> 
@@ -647,7 +664,7 @@ and normalize_node info map
     |> List.fold_left (fun acc (p, id, _, _, _) ->
       let ty = get_type_of_id info node_id id in
       let ty = AIC.inline_constants_of_lustre_type info.context ty in
-      union acc (mk_fresh_subrange_constraint Input info p id ty gids0))
+      union acc (mk_fresh_subrange_constraint Input info p id ty))
       (empty ())
   in
   let gids2 = outputs
@@ -657,7 +674,7 @@ and normalize_node info map
     |> List.fold_left (fun acc (p, id, _, _) ->
       let ty = get_type_of_id info node_id id in
       let ty = AIC.inline_constants_of_lustre_type info.context ty in
-      union acc (mk_fresh_subrange_constraint Output info p id ty gids0))
+      union acc (mk_fresh_subrange_constraint Output info p id ty))
       (empty ())
   in
   (* We have to handle contracts before locals
@@ -691,7 +708,7 @@ and normalize_node info map
       | A.NodeVarDecl (p, (_, id, _, _)) -> 
         let ty = get_type_of_id info node_id id in
         let ty = AIC.inline_constants_of_lustre_type info.context ty in
-        union acc (mk_fresh_subrange_constraint Local info p id ty gids0)
+        union acc (mk_fresh_subrange_constraint Local info p id ty)
       | _ -> assert false)
       (empty ())
   in
@@ -826,19 +843,14 @@ and normalize_contract info map node_id items =
         let vars_of_calls = AH.vars_of_node_calls expr in
 
         (* Currently, parallel ghost variable assignment is not supported with 
-           arrays (only simple typed identifiers). But, the following code with
-           "has_inductive" is included because we plan on offering this functionality
-           in the future.*)
+          arrays (only simple typed identifiers). But, the following code with
+          "has_inductive" is included because we plan on offering this functionality
+          in the future.*)
         let has_inductive = vars_of_calls
           |> A.SI.to_seq
           |> Seq.fold_left
             (fun acc v -> acc || StringMap.mem v info.inductive_variables)
             false
-        in
-        let gids0 = 
-          match StringMap.find_opt node_id map with
-            | Some gids -> gids
-            | None -> empty ()
         in
         let (nexpr, gids1, warnings), expanded = (
           if has_inductive && lhs_arity <> rhs_arity then
@@ -886,7 +898,7 @@ and normalize_contract info map node_id items =
               fun (_, i, ty) -> 
               let new_id = StringMap.find i info.interpretation in
               if AH.type_contains_subrange ty then
-                mk_fresh_subrange_constraint Ghost info pos new_id ty gids0
+                mk_fresh_subrange_constraint Ghost info pos new_id ty
               else empty ()
             )
             tis
@@ -1003,7 +1015,7 @@ and abstract_expr ?guard force info map is_ghost expr =
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
     else Chk.infer_type_expr info.context expr |> unwrap
     in
-    let iexpr, gids2 = mk_fresh_local force info pos is_ghost ivars ty nexpr expr in
+    let iexpr, gids2 = mk_fresh_local force info pos is_ghost ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
 and expand_node_call info expr var count =
@@ -1040,7 +1052,7 @@ and combine_args_with_const info args flags =
   in
   List.fold_left over_args_arity (0, []) (List.combine args output_arity)
   |> snd |> List.rev
- 
+
 and normalize_expr ?guard info map =
   let abstract_node_arg ?guard force is_const info map expr =
     let nexpr, gids1, warnings = normalize_expr ?guard info map expr in
@@ -1142,7 +1154,7 @@ and normalize_expr ?guard info map =
     let gids = union gids1 gids2 in
     let warnings = warnings1 @ warnings2 in
     Arrow (pos, nexpr1, nexpr2), gids, warnings
-   | Pre (pos1, ArrayIndex (pos2, expr1, expr2)) ->
+  | Pre (pos1, ArrayIndex (pos2, expr1, expr2)) ->
     let expr = A.ArrayIndex (pos2, Pre (pos1, expr1), expr2) in
     normalize_expr ?guard info map expr
   | Pre (pos, expr) ->
