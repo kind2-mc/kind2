@@ -1,0 +1,19 @@
+
+
+node M(c:bool) returns (z:int);
+let
+  z = if c then 7 else 8;
+tel
+
+node R(x:int) returns (z1,z2:int);
+let
+  z1 = x + 1;
+  z2 = x + 2;
+tel
+
+node N(c:bool) returns (x1,x2,y1,y2,y3,z1,z2:int);
+let
+  y1, y2, y3 = if c then (1,(2,3)) else (4,(5,6));
+  z1, z2 = (M(c), M(not c));
+  x1, x2 = R(M(c));
+tel

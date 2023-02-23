@@ -21,7 +21,6 @@
 
 open Lib
 module LA = LustreAst
-module LAH = LustreAstHelpers
 module Ctx = TypeCheckerContext
 module TC = LustreTypeChecker
 
@@ -137,22 +136,6 @@ let rec restrict_type_by ty restrict = match ty, restrict with
   | Int _, (IntRange _ as t) -> t, true
   | t, _ -> t, false
 
-let rec arity_of_expr ty_ctx = function
-  | LA.GroupExpr (_, ExprList, es) -> List.length es
-  | TernaryOp (_, Ite, _, e, _) -> arity_of_expr ty_ctx e
-  | Condact (_, _, _, id, _, _)
-  | Activate (_, id, _, _, _)
-  | RestartEvery (_, id, _, _)
-  | Call (_, id, _) ->
-    let node_ty = Ctx.lookup_node_ty ty_ctx id |> get in
-    let (_, o) = LAH.type_arity node_ty in
-    o
-  | Pre (_, e) -> arity_of_expr ty_ctx e
-  | Arrow (_, e, _) -> arity_of_expr ty_ctx e
-  | RecordProject (_, e, _) -> arity_of_expr ty_ctx e
-  | TupleProject (_, e, _) -> arity_of_expr ty_ctx e
-  | _ -> 1
-
 let rec interpret_program ty_ctx gids = function
   | [] -> empty_context
   | h :: t -> union (interpret_decl ty_ctx gids h) (interpret_program ty_ctx gids t)
@@ -170,12 +153,9 @@ and interpret_contract_eqn node_id ctx ty_ctx = function
   | Assume _ | Guarantee _ | Mode _
   | ContractCall _ | AssumptionVars _ -> empty_context
   | GhostVars (_, (GhostVarDec (_, tis)), rhs) ->
-  let rec separate_eqns rhs = match rhs with
-    | LA.GroupExpr (_, ExprList, es) ->
-      es |> List.map (separate_eqns) |> List.flatten
-    | e -> List.init (arity_of_expr ty_ctx e) (fun p -> e, p)
+  let eqns =
+    List.init (Ctx.arity_of_expr ty_ctx rhs) (fun p -> rhs, p)
   in
-  let eqns = separate_eqns rhs in
   List.fold_left2 (
     fun acc (_, i, ty) (expr, p) -> 
       let restrict_ty = interpret_expr_by_type node_id ctx ty_ctx ty p expr in
@@ -272,12 +252,9 @@ and interpret_eqn node_id ctx ty_ctx lhs rhs =
   let struct_items = match lhs with
     | StructDef (_, items) -> items
   in
-  let rec separate_eqns rhs = match rhs with
-    | LA.GroupExpr (_, ExprList, es) ->
-      es |> List.map (separate_eqns) |> List.flatten
-    | e -> List.init (arity_of_expr ty_ctx e) (fun p -> e, p)
+  let eqns =
+    List.init (Ctx.arity_of_expr ty_ctx rhs) (fun p -> rhs, p)
   in
-  let eqns = separate_eqns rhs in
   List.fold_left2 (fun acc lhs (expr, p) -> match lhs with
       | LA.SingleIdent (_, id) ->
         let ty1 = Ctx.lookup_ty ty_ctx id |> get in
@@ -418,6 +395,10 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
       (match parent_ty with
       | ArrayType (_, (ty, _)) -> ty
       | _ -> assert false)
+    | GroupExpr (_, ExprList, es) -> (
+      let g = interpret_structured_expr f node_id ctx ty_ctx ty in
+      Ctx.traverse_group_expr_list g ty_ctx proj es
+    )
     | _ -> assert false)
 
 and interpret_int_expr node_id ctx ty_ctx proj expr = 
@@ -467,9 +448,10 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | ConvOp (_, _, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | CompOp _-> assert false
   | RecordExpr _ -> assert false
-  | GroupExpr (_, ExprList, es) ->
-    let e = List.nth es proj in
-    interpret_int_expr node_id ctx ty_ctx 0 e
+  | GroupExpr (_, ExprList, es) -> (
+    let g = interpret_int_expr node_id ctx ty_ctx in
+    Ctx.traverse_group_expr_list g ty_ctx proj es
+  )
   | GroupExpr _ -> assert false
   | StructUpdate _ -> assert false
   | ArrayConstr _ -> assert false
