@@ -162,7 +162,13 @@ let skip_steps_next trans solver k unknowns =
     (* Asserting transition relation for next iteration. *)
     TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans !step
     |> SMTSolver.assert_term solver ;
-    done ;
+
+    (* If we have reachability queries, assert the value of the counter at each timestep *)
+    match TransSys.get_ctr trans with
+      | Some ctr ->
+        SMTSolver.assert_term solver (Term.mk_eq [Term.mk_var (Var.mk_state_var_instance ctr !step); Term.mk_num !step]);
+      | None -> ();
+    done;
   !step
 
 (* Performs the next check after updating its context with new
@@ -410,6 +416,13 @@ let init input_sys aparam trans skip =
         | Reachable Some (At lower_bound) -> broadcast_k_true lower_bound name
         | _ -> ()
   ) ;
+  
+  (* If we have reachability queries, assert the value of the counter at each timestep *)
+  let _ = match TransSys.get_ctr trans with
+    | Some ctr ->
+      SMTSolver.assert_term solver (Term.mk_eq [Term.mk_var (Var.mk_state_var_instance ctr Numeral.zero); Term.mk_num Numeral.zero]);
+    | None -> ();
+  in
 
   (* Start "next" at the correct timestep with regards to (potentially) skipping steps *)
   (input_sys, aparam, trans, solver, Numeral.zero, unknowns, skip)

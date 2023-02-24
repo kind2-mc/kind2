@@ -67,6 +67,11 @@ type t =
     scope: Scope.t;
     (** Scope of transition system *)
 
+    ctr_state_var : StateVar.t option;
+    (** State variable corresponding to the internal counter generated
+        for reachability queries. Should be 'None' if there are no reachability
+        queries. *)
+
     init_flag_state_var : StateVar.t;
     (** State variable that becomes true in the first instant and false
        again in the second and all following instants *)
@@ -1430,6 +1435,8 @@ let get_prop_status_all_unknown t =
     []
     t.properties
 
+let get_ctr t = t.ctr_state_var
+
 
 (** Returns true iff sys has at least one real (not candidate) property. *)
 let has_real_properties { properties } =
@@ -1792,6 +1799,10 @@ let mk_trans_sys
     instance_var_id_start + List.length instance_var_bindings
   in
 
+  let ctr_state_var = 
+    List.find_opt (fun sv -> StateVar.name_of_state_var sv = HString.string_of_hstring GeneratedIdentifiers.ctr_id) state_vars
+  in
+
   (* Make sure name scope is unique in transition system *)
   List.iter (
     fun (t, _) ->
@@ -1806,6 +1817,7 @@ let mk_trans_sys
   let trans_sys = 
     { scope;
       (* instance_state_var; *)
+      ctr_state_var;
       init_flag_state_var;
       instance_var_bindings;
       (* global_state_vars; *)
