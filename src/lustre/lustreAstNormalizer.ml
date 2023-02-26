@@ -507,7 +507,7 @@ let add_step_counter info =
     )
   in
   { (empty ()) with
-    locals = StringMap.singleton ctr_id (false, A.Int dpos, expr, expr);
+    locals = StringMap.singleton ctr_id (false, A.Int dpos);
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
 (** Add local step 'counter' and an equation setting counter = 0 -> pre counter + 1 *)
 
