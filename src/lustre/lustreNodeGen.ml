@@ -1504,7 +1504,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* ****************************************************************** *)
   in let glocals =
     let locals_list = GI.StringMap.bindings gids.GI.locals in
-    let over_generated_locals glocals (id, (is_ghost, expr_type, _, _)) =
+    let over_generated_locals glocals (id, (is_ghost, expr_type)) =
       let ident = mk_ident id in
       let index_types = compile_ast_type cstate ctx map expr_type in
       let over_indices = fun index index_type accum ->
@@ -1865,10 +1865,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | _ -> acc, cpt)
         (acc, 0) i |> fst
       in
-      let id = HString.mk_hstring (StateVar.name_of_state_var sv) in
-      let is_dep = GI.StringMap.mem id (gids.generated_locals) in
       if not is_generated then
-        N.add_state_var_def sv ~is_dep:is_dep
+        N.add_state_var_def sv ~is_dep:false
           (N.ProperEq (AH.pos_of_expr expr, rm_array_var_index i));
       result
     ) [] (X.bindings eq_lhs)

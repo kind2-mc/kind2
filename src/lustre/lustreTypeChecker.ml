@@ -525,7 +525,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
               | rest -> HString.concat (HString.mk_hstring "::") rest) in
     check_type_expr ctx (LA.Ident (pos, id)) exp_ty
   | RecordProject (pos, expr, fld) -> check_type_record_proj pos ctx expr fld exp_ty
-  | TupleProject _ -> Lib.todo __LOC__ 
+  | TupleProject (pos, expr, idx) -> check_type_tuple_proj pos ctx expr idx exp_ty
 
   (* Operators *)
   | UnaryOp (pos, op, e) ->
@@ -859,6 +859,19 @@ and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index ->
     R.guard_with (eq_lustre_type ctx fty exp_ty)
       (type_error pos (UnificationFailed (exp_ty, fty)))
   | rec_ty -> type_error (LH.pos_of_expr expr) (IlltypedRecordProjection rec_ty)
+
+and check_type_tuple_proj : Lib.position -> tc_context -> LA.expr -> int -> tc_type -> (unit, [> error]) result =
+  fun pos ctx expr idx exp_ty ->
+  infer_type_expr ctx expr
+  >>= function
+  | TupleType (_, tys) as ty ->
+    if List.length tys <= idx
+    then type_error pos (TupleIndexOutOfBounds (idx, ty))
+    else R.ok (List.nth tys idx)
+    >>= fun ity ->
+    R.guard_with (eq_lustre_type ctx ity exp_ty)
+      (type_error pos (UnificationFailed (exp_ty, ity)))
+  | ty -> type_error (LH.pos_of_expr expr) (IlltypedTupleProjection ty)
 
 and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> (unit, [> error]) result =
   fun ctx const_decl exp_ty ->

@@ -33,4 +33,4 @@ val get_type: context -> LustreAst.ident -> LustreAst.ident -> LustreAst.lustre_
 
 val union: context -> context -> context
 
-val interpret_program: TypeCheckerContext.tc_context -> LustreAst.t -> context
+val interpret_program: TypeCheckerContext.tc_context -> GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t -> LustreAst.t -> context
