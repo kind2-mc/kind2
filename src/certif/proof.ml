@@ -398,12 +398,42 @@ let extract_proof_type = function
         (ProofParseError ("Could not extract type of " ^ HS.string_of_sexpr t))
 
 
+(* Parse a proof from cvc5 and return a set of substitutions renaming temporary
+   variables. *)
+let rec pre_parse_proof prefix =
+  let open HS in
+  function
+  | List [ Atom dec; Atom s; _ ] :: r
+    when dec == s_declare
+         && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
+      pre_parse_proof prefix r
+  | List [ Atom dec; Atom s; _ ] :: r when dec == s_declare ->
+      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
+      (Atom s, Atom s') :: pre_parse_proof prefix r
+  | List [ Atom def; Atom s; _ ] :: r
+    when def == s_define
+         && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
+      pre_parse_proof prefix r
+  | List [ Atom def; Atom s; _ ] :: r when def == s_define ->
+      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
+      (Atom s, Atom s') :: pre_parse_proof prefix r
+  | List [ Atom check; _ ] :: List [ _; Atom s; _ ] :: r when check == s_check
+    ->
+      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
+      (Atom s, Atom s') :: pre_parse_proof prefix r
+  | [ List (Atom check :: _) ] when check == s_check -> []
+  | s ->
+      failwith
+        (asprintf "pre_parse_proof: Unexpected proof:\n%a@."
+           HS.pp_print_sexpr_list s)
+
+
 (***********************)
 (* Parsing proof terms *)
 (***********************)
 
 (* Parse a proof from cvc5, returns a [!cvc_proof] object *)
-let rec parse_proof acc prefix =
+let rec parse_proof acc =
   let open HS in
   let ctx = acc.proof_context in
   function
@@ -417,14 +447,12 @@ let rec parse_proof acc prefix =
           let decl = { decl_symb = s; decl_type = t } in
           { ctx with lfsc_decls = decl :: ctx.lfsc_decls }
       in
-      parse_proof { acc with proof_context = ctx } prefix r
+      parse_proof { acc with proof_context = ctx } r
   | List [ Atom dec; Atom s; t ] :: r when dec == s_declare ->
-      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
-      let hyp = { decl_symb = s'; decl_type = t } in
+      let hyp = { decl_symb = s; decl_type = t } in
       parse_proof
         { acc with proof_hyps = hyp :: acc.proof_hyps; proof_context = ctx }
-        prefix
-        (apply_substs [ (Atom s, Atom s') ] r)
+        r
   | List [ Atom def; Atom s; b ] :: r
     when def == s_define
          && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
@@ -435,23 +463,19 @@ let rec parse_proof acc prefix =
           let def = { def_symb = s; def_body = b } in
           { ctx with lfsc_defs = def :: ctx.lfsc_defs }
       in
-      parse_proof { acc with proof_context = ctx } prefix r
+      parse_proof { acc with proof_context = ctx } r
   | List [ Atom def; Atom s; b ] :: r when def == s_define ->
-      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
-      let temp = { def_symb = s'; def_body = b } in
+      let temp = { def_symb = s; def_body = b } in
       parse_proof
         { acc with proof_temps = temp :: acc.proof_temps; proof_context = ctx }
-        prefix
-        (apply_substs [ (Atom s, Atom s') ] r)
+        r
   | List [ Atom check; p ] :: List [ _; Atom s; _ ] :: r when check == s_check
     ->
-      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
       let ty, p = extract_proof_type p in
-      let lem = { lem_symb = s'; lem_ty = ty; lem_body = p } in
+      let lem = { lem_symb = s; lem_ty = ty; lem_body = p } in
       parse_proof
         { acc with proof_lems = lem :: acc.proof_lems; proof_context = ctx }
-        prefix
-        (apply_substs [ (Atom s, Atom s') ] r)
+        r
   | [ List (Atom check :: [ pterm ]) ] when check == s_check ->
       let ctx = { ctx with lfsc_defs = List.rev ctx.lfsc_defs } in
       if Flags.Certif.log_trust () then register_trusts pterm;
@@ -469,7 +493,7 @@ let rec parse_proof acc prefix =
 
 
 (* Parse a proof from cvc5 from one that start with [(check ...]. *)
-let parse_proof_check ctx prefix = parse_proof (mk_empty_proof ctx) prefix
+let parse_proof_check ctx = parse_proof (mk_empty_proof ctx)
 
 
 (* Parse a proof from cvc5 from a channel. cvc5 returns the proof after
@@ -491,7 +515,7 @@ let proof_from_chan ctx prefix in_ch =
 
     | Atom u :: proof when u == s_unsat ->
 
-      parse_proof_check ctx prefix proof
+      parse_proof_check ctx (apply_substs (pre_parse_proof prefix proof) proof)
 
     | _ ->
       failwith (asprintf "No proofs, instead got:\n%a@."
