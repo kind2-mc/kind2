@@ -20,7 +20,8 @@ open Lib
 open Format
 
 module HS = HStringSExpr
-module H = HString
+module H  = HString
+module HM = HString.HStringMap
 module SMT : SolverDriver.S = GenericSMTLIBDriver
 
 (* Hard coded options *)
@@ -315,7 +316,7 @@ let print_proof ?(context = false) name fmt
 
 
 (* Apply a substitution top to bottom in an LFSC expression *)
-let rec apply_subst sigma sexp =
+(* let rec apply_subst sigma sexp =
   let open HS in
   try List.find (fun (s,_) -> HS.equal sexp s) sigma |> snd
   with Not_found ->
@@ -324,11 +325,15 @@ let rec apply_subst sigma sexp =
       let l' = List.rev_map (apply_subst sigma) l |> List.rev in
       if List.for_all2 (==) l l' then sexp
       else List l'
-    | Atom _ -> sexp
+    | Atom _ -> sexp *)
 
-(* Apply to a list of LFSC expressions *)
-let apply_substs sigma = List.map (apply_subst sigma)
-
+let rec subst_atom sigma = function
+  | HS.Atom a -> (
+    match HM.find_opt a sigma with
+    | Some s -> HS.Atom s
+    | None -> HS.Atom a
+  )
+  | HS.List l -> HS.List (List.map (subst_atom sigma) l)
 
 (* Returns list of admitted holes, i.e. formulas whose validity is trusted *)
 let rec extract_trusts acc = let open HS in
@@ -388,28 +393,28 @@ let extract_proof_type = function
 
 (* Parse a proof from cvc5 and return a set of substitutions renaming temporary
    variables. *)
-let rec pre_parse_proof prefix =
+let rec create_substitution prefix =
   let open HS in
   function
   | List [ Atom dec; Atom s; _ ] :: r
     when dec == s_declare
          && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
-      pre_parse_proof prefix r
+      create_substitution prefix r
   | List [ Atom dec; Atom s; _ ] :: r when dec == s_declare ->
       let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
-      (Atom s, Atom s') :: pre_parse_proof prefix r
+      HM.add s s' (create_substitution prefix r)
   | List [ Atom def; Atom s; _ ] :: r
     when def == s_define
          && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
-      pre_parse_proof prefix r
+      create_substitution prefix r
   | List [ Atom def; Atom s; _ ] :: r when def == s_define ->
       let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
-      (Atom s, Atom s') :: pre_parse_proof prefix r
+      HM.add s s' (create_substitution prefix r)
   | List [ Atom check; _ ] :: List [ _; Atom s; _ ] :: r when check == s_check
     ->
       let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
-      (Atom s, Atom s') :: pre_parse_proof prefix r
-  | [ List (Atom check :: _) ] when check == s_check -> []
+      HM.add s s' (create_substitution prefix r)
+  | [ List (Atom check :: _) ] when check == s_check -> HM.empty
   | s ->
       failwith
         (asprintf "pre_parse_proof: Unexpected proof:\n%a@."
@@ -503,7 +508,8 @@ let proof_from_chan ctx prefix in_ch =
 
     | Atom u :: proof when u == s_unsat ->
 
-      parse_proof_check ctx (apply_substs (pre_parse_proof prefix proof) proof)
+      let sigma = create_substitution prefix proof in
+      parse_proof_check ctx (List.map (subst_atom sigma) proof)
 
     | _ ->
       failwith (asprintf "No proofs, instead got:\n%a@."
