@@ -19,8 +19,6 @@
 open Lib
 open Format
 
-
-module HH = HString.HStringHashtbl
 module HS = HStringSExpr
 module H = HString
 module SMT : SolverDriver.S = GenericSMTLIBDriver
@@ -66,13 +64,9 @@ let get_cvc5_version () =
 
 let s_declare = H.mk_hstring "declare"
 let s_define = H.mk_hstring "define"
-let s_lemma = H.mk_hstring "lemma"
-
-let s_holds = H.mk_hstring "holds"
 
 (* let s_iff = H.mk_hstring "iff" *)
 (* let s_true = H.mk_hstring "true" *)
-let s_false = H.mk_hstring "false"
 
 let s_trust = H.mk_hstring "trust"
 
@@ -221,12 +215,6 @@ let print_decl fmt { decl_symb; decl_type } =
     H.pp_print_hstring decl_symb print_type decl_type
 
 
-(* print the optional type of a symbol for its LFSC definition *)
-let print_option_def_type fmt = function
-  | None -> ()
-  | Some ty -> print_type fmt ty
-
-
 (* Print an LFSC definition with type information *)
 let print_def fmt { def_symb; def_body } =
   fprintf fmt "@[<hov 1>(define@ %a@ @[<hov 1>%a@])@]" H.pp_print_hstring
@@ -339,7 +327,7 @@ let rec apply_subst sigma sexp =
     | Atom _ -> sexp
 
 (* Apply to a list of LFSC expressions *)
-let rec apply_substs sigma = List.map (apply_subst sigma)
+let apply_substs sigma = List.map (apply_subst sigma)
 
 
 (* Returns list of admitted holes, i.e. formulas whose validity is trusted *)
