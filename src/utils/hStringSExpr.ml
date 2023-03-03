@@ -19,7 +19,7 @@
 (* Signature of an string atom as input for the functor {!SExprBase.Make} *)
 module HStringAtom = struct 
   type t = HString.t 
-  let pp_print_atom = HString.pp_print_hstring 
+  let pp_print_atom = HString.pp_print_hstring
 end
 
 

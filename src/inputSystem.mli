@@ -30,7 +30,6 @@
       | Lustre : (LustreNode.t S.t list * LustreGlobals.t * LustreAst.declaration list) -> LustreNode.t t
       (* Lustre systems supports multiple entry points (main subsystems) *)
       | Native : TransSys.t S.t -> TransSys.t t
-      | VMT : TransSys.t S.t -> TransSys.t t
       | CMC : (TransSys.t S.t * CmcInput.subsystem_instance_name_data * (string list * StateVar.t list) list * CmcInput.enum list) -> TransSys.t t
       | Horn : unit S.t -> unit t
 
@@ -49,9 +48,6 @@
     
     (** Read native input from file *)
     val read_input_native : string -> TransSys.t t
-    
-    (** Read VMT input from file *)
-    val read_input_vmt : string -> TransSys.t t
 
     (** Read CMC input from file *)
     val read_input_cmc : string -> TransSys.t t

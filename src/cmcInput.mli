@@ -37,7 +37,11 @@ type enum = {
 }
 
 (** Parse from the channel *)
-val of_channel : in_channel -> TransSys.t SubSystem.t * subsystem_instance_name_data * sys_var_mapping * enum list
+val of_channel : in_channel -> 
+  (* (TransSys.t SubSystem.t * subsystem_instance_name_data * sys_var_mapping * enum list, [> error]) result *)
+  TransSys.t SubSystem.t * subsystem_instance_name_data * sys_var_mapping * enum list
 
 (** Parse from the file *)
-val of_file : string -> TransSys.t SubSystem.t * subsystem_instance_name_data * sys_var_mapping * enum list
+val of_file : string -> 
+  (* (TransSys.t SubSystem.t * subsystem_instance_name_data * sys_var_mapping * enum list, [> error]) result *)
+  TransSys.t SubSystem.t * subsystem_instance_name_data * sys_var_mapping * enum list

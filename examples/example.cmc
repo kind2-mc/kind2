@@ -1,37 +1,62 @@
 ; A clocked lossless channel, stuttering when clock is false
-(define-enum-sort LightStatus (On Off))
+(declare-enum-sort LightStatus (On Off))
 
 (define-fun zero () Int 0)
-
+ 
 (define-fun f1 ((b Int) (c LightStatus)) Int (ite (= c On) b 0))
 (define-fun f2 () LightStatus Off)
 (define-const f3 Int 11)
 (define-const f4 Int f3)
 
-
 (declare-fun uf1 () Int )
-
+(declare-const ctst Int )
+(declare-const ctst2 Int )
+(declare-const ctst3 Int )
+(declare-const ctst4 Int )
 
 ; this is a comment
+(define-system gconsttst
+  :inv (and (= ctst 21))
+)
+
 (define-system const-one
   :input ((status LightStatus))
-  :output ((onec Int) )
-  :local ((test Int) (test2 Int) (test3 Int) (test4 LightStatus))
-  :inv (and (= onec 1) (= test2 uf1) (= test4 f2) (= status test4))
-  :init (= test3 0)
-  :trans (= test3' (+ test3 f4))
+  :output ((cvar Int))
+  :local ((test Int) (test2 Int) (test3 Int) (test4 Int))
+  :subsys (t gconsttst)
+
+  :inv (and (= cvar ctst) (= status Off))
+  :init (and (= test3 0) (= test4 0) (= test2 1) (= test test3))
+  :trans (and (= cvar 21) (= test' (ite (= test2 1) test3 test)) (= test2' (ite (= test2 1) 0 1)) (or (= test3' (+ test3 f4)) (= test3' test3)) (ite (= test3 99) (= test4' test3) (= test4' 0)))
 )
 
 (check-system const-one
   :input ((status LightStatus))
   :output ((w Int))
-  :local ( _  _ (test3 Int) _ )
+  :local ( _  _ (test3 Int) (test4 Int) )
   
-  :reachable (cthree_r (= test3 99))
+  :reachable (cthree_r (= test4 99))
 ;  :reachable (cfour_r (= co1 4))
 
   :query (cthree (cthree_r))  
 )
+
+
+; (declare-const decl_const Int)
+; (declare-fun decl_fun ((a Int)) Int)
+
+; (define-system const-one
+;   :output ((out Int) )
+;   :inv (= (+ out (decl_fun 7)) decl_const)
+; )
+; (check-system const-one
+;   :output ((out Int) )
+
+;   :reachable (cthree_r (= out 99))
+;   :query (cthree (cthree_r))  
+; )
+
+;;;;;;;;;;;;;;;;;
 
 ; A clocked lossless channel, stuttering when clock is false
 

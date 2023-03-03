@@ -145,7 +145,7 @@ val add_input_file : string -> bool
 val lus_main : unit -> string option
 
 (** Format of input file *)
-type input_format = [ `Lustre | `Horn | `Native | `VMT | `CMC]
+type input_format = [ `Lustre | `Horn | `Native | `CMC]
 val input_format : unit -> input_format
 
 (** Condenses CMC output. *)

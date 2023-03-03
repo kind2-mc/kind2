@@ -63,6 +63,10 @@ let s_query = HString.mk_hstring ":query"
 let s_only_change = HString.mk_hstring "OnlyChange"
 let s_equal = HString.mk_hstring "="
 
+(* type error = [
+  | `CmcTypeCheckerError of Lib.position * CmcTypeChecker.error_kind
+] *)
+
 type subsystem_scope = string list
 type sys_var_mapping = (subsystem_scope * StateVar.t list) list
 
@@ -1125,6 +1129,7 @@ let of_channel in_ch =
     (* NOTE: This was originaly commented out *)
   Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys;
 
+  (* Ok (mk_subsys_structure top_sys, name_map, sys_var_mapping, enum_defs) *)
   mk_subsys_structure top_sys, name_map, sys_var_mapping, enum_defs
 
 
