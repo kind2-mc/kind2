@@ -32,6 +32,7 @@ More advanced features include contract-based compositional verification, proof 
   yojson
   (zmq
    (>= 5.1.0))
+  dolmen
  )
 )
 

@@ -1,12 +1,6 @@
-; A clocked lossless channel, stuttering when clock is false
-(declare-enum-sort LightStatus (On Off))
-
 (define-fun zero () Int 0)
  
-(define-fun f1 ((b Int) (c LightStatus)) Int (ite (= c On) b 0))
-(define-fun f2 () LightStatus Off)
-(define-const f3 Int 11)
-(define-const f4 Int f3)
+(define-fun f1 ((b Int) (c Bool)) Int (ite (= c true) b 0))
 
 (declare-fun uf1 () Int )
 (declare-const ctst Int )
@@ -16,73 +10,26 @@
 
 ; this is a comment
 (define-system gconsttst
-  :inv (and (= ctst 21))
+  :inv (and (= ctst 21) true)
 )
 
 (define-system const-one
-  :input ((status LightStatus))
+  :input ((status Bool))
   :output ((cvar Int))
   :local ((test Int) (test2 Int) (test3 Int) (test4 Int))
   :subsys (t gconsttst)
 
-  :inv (and (= cvar ctst) (= status Off))
+  :inv (and (= cvar ctst) (= status false))
   :init (and (= test3 0) (= test4 0) (= test2 1) (= test test3))
-  :trans (and (= cvar 21) (= test' (ite (= test2 1) test3 test)) (= test2' (ite (= test2 1) 0 1)) (or (= test3' (+ test3 f4)) (= test3' test3)) (ite (= test3 99) (= test4' test3) (= test4' 0)))
+  :trans (and (= cvar 21) (= test' (ite (= test2 1) test3 test)) (= test2' (ite (= test2 1) 0 1)) (or (= test3' (+ test3 11)) (= test3' test3)) (ite (= test3 99) (= test4' test3) (= test4' 0)))
 )
 
 (check-system const-one
-  :input ((status LightStatus))
+  :input ((status Bool))
   :output ((w Int))
-  :local ( _  _ (test3 Int) (test4 Int) )
+  :local ( (test1 Int) (test2 Int) (test3 Int) (test4 Int) )
   
   :reachable (cthree_r (= test4 99))
-;  :reachable (cfour_r (= co1 4))
 
   :query (cthree (cthree_r))  
 )
-
-
-; (declare-const decl_const Int)
-; (declare-fun decl_fun ((a Int)) Int)
-
-; (define-system const-one
-;   :output ((out Int) )
-;   :inv (= (+ out (decl_fun 7)) decl_const)
-; )
-; (check-system const-one
-;   :output ((out Int) )
-
-;   :reachable (cthree_r (= out 99))
-;   :query (cthree (cthree_r))  
-; )
-
-;;;;;;;;;;;;;;;;;
-
-; A clocked lossless channel, stuttering when clock is false
-
-; this is a comment
-;
-;(define-system tst2
-;  :output ((x Int))
-;  :local ((b Bool))
-;  :init (= x 1)
-;  :trans (= x' (ite b (+ x 1) x))
-;)
-;
-;(define-system tst
-;  :output ((x Int))
-;  :local ((b Bool))
-;  :init (= x 1)
-;  :subsys (t (tst2 x))
-;  :trans (= x' (ite b (+ x 1) x))
-;)
-;
-;(check-system tst
-;  :output ((q Int))
-;  :local ((m Bool))
-;  :reachable (r1 (< q 0))
-;  :reachable (r2 (> q 0))
-;  :query (p1 (r1))  
-;  :query (p2 (r2))
-;)
-;

@@ -23,6 +23,11 @@ module HS = HStringSExpr
 module D = GenericSMTLIBDriver
 module I = LustreIdent
 
+open Dolmen
+
+(* Instantiate a module for parsing logic languages *)
+module M = Class.Logic.Make(Std.Loc)(Std.Id)(Std.Term)(Std.Statement)
+
 module G = Graph.Make(struct
   type t = HString.t
 
@@ -1143,6 +1148,11 @@ let of_file filename =
 
   (* Open the given file for reading *)
   let use_file = open_in filename in
+  let format, _, statements = M.parse_file filename in
+  Format.printf "DONE" ;
+  List.iter (Format.printf "%a" Std.Statement.print) statements ;
+
+
   let in_ch = use_file in
 
   of_channel in_ch
