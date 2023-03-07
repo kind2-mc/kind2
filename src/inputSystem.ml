@@ -46,10 +46,8 @@ let translate_contracts_lustre = ContractsToProps.translate_file
 let read_input_native input_file = Native (NativeInput.of_file input_file)
 
 let read_input_cmc input_file = match CmcInput.of_file input_file with
-  (* | Ok res -> CMC res
-  | Error e -> R.fail_at_position (CmcErrors.error_position e) (CmcErrors.error_message e) *)
-  | res -> CMC res
-
+  | Ok res -> CMC res
+  | Error e -> R.fail_at_position (CmcErrors.error_position e) (CmcErrors.error_message e)
 (*let read_input_horn input_file = assert false*)
 
 let ordered_scopes_of (type s) : s t -> Scope.t list = function

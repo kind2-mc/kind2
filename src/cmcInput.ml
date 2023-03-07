@@ -1134,8 +1134,8 @@ let of_channel in_ch =
     (* NOTE: This was originaly commented out *)
   Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys;
 
-  (* Ok (mk_subsys_structure top_sys, name_map, sys_var_mapping, enum_defs) *)
-  mk_subsys_structure top_sys, name_map, sys_var_mapping, enum_defs
+  Ok (mk_subsys_structure top_sys, name_map, sys_var_mapping, enum_defs)
+  (* mk_subsys_structure top_sys, name_map, sys_var_mapping, enum_defs *)
 
 
   (* Print Here ... Use Format.printf
