@@ -2878,7 +2878,7 @@ module Global = struct
   let kind_module_of_string = function
     | "IC3" -> `IC3
     | "BMC" -> `BMC
-    | "BMCREACHABLE" -> `BMCREACHABLE
+    | "BMCSKIP" -> `BMCSKIP
     | "IND" -> `IND
     | "IND2" -> `IND2
     | "INVGEN" -> `INVGEN
@@ -2900,7 +2900,7 @@ module Global = struct
   let string_of_kind_module = function
     | `IC3 -> "IC3"
     | `BMC -> "BMC"
-    | `BMCREACHABLE -> "BMCREACHABLE"
+    | `BMCSKIP -> "BMCSKIP"
     | `IND -> "IND"
     | `IND2 -> "IND2"
     | `INVGEN -> "INVGEN"

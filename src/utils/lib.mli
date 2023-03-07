@@ -378,7 +378,7 @@ val pp_print_version : Format.formatter -> unit
 type kind_module =
   [ `IC3
   | `BMC
-  | `BMCREACHABLE
+  | `BMCSKIP
   | `IND
   | `IND2
   | `INVGEN
