@@ -295,6 +295,9 @@
                 },
                 "counterExample": {
                     "$ref": "#/definitions/trace"
+                },
+                "exampleTrace": {
+                    "$ref": "#/definitions/trace"
                 }
             },
             "required": [
@@ -412,7 +415,7 @@
                     "type": "string"
                 },
                 "value": {
-                    "enum": ["valid", "falsifiable", "unknown"]
+                    "enum": ["valid", "reachable", "falsifiable", "unreachable", "unknown"]
                 }
             },
             "required": ["value"]
@@ -658,6 +661,9 @@
                     "$ref": "#/definitions/answer"
                 },
                 "counterExample": {
+                    "$ref": "#/definitions/trace"
+                },
+                "exampleTrace": {
                     "$ref": "#/definitions/trace"
                 }
             },

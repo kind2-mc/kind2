@@ -891,7 +891,7 @@ let pp_print_counterexample_xml
         | Some name -> TransSys.get_prop_kind trans_sys name
         | None -> Property.Invariant
       in
-      let tag = (if prop_kind = Property.Invariant then tag else "exampleTrace") in
+      let tag = (if prop_kind = Property.Invariant then tag else "ExampleTrace") in
       (
         (* Slice counterexample and transitions system to property *)
         let trans_sys', _, cex', input_sys' =
