@@ -55,12 +55,12 @@ type warning = [
 
 let mk_warning pos kind = `LustreDesugarFrameBlocksWarning (pos, kind)
 
-type lhs_or_var =
-  | Lhs of A.eq_lhs
-  | Var of A.ident * A.eq_lhs option
+type eq_or_framecond =
+  | Eq of A.eq_lhs
+  | FCond of A.eq_lhs
 
 (* First position is frame block header, second position is of the specific equation *)
-let pos_list_map : (Lib.position * lhs_or_var) list HString.HStringHashtbl.t = 
+let pos_list_map : (Lib.position * eq_or_framecond) list HString.HStringHashtbl.t = 
   HString.HStringHashtbl.create 20
 
 let warn_unguarded_pres nis pos = 
@@ -88,7 +88,7 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
     if GI.var_is_iboracle i 
     then (
       (* First, record that frame var "i" was actually used for stuttering *)
-      let frame_info = [(frame_pos, Var (id, Some lhs))] in
+      let frame_info = [(frame_pos, FCond lhs)] in
       (* If there is already a binding, we want to retain the old 'frame_info' *)
       let frame_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with
         | Some frame_info2 -> frame_info @ frame_info2
@@ -170,7 +170,7 @@ let generate_undefined_nes f_pos node_id nis ne = match ne with
       (* Fill in equation in frame block body *)
       | None -> 
         (* First, record that frame var "id" was actually used for stuttering *)
-        let frame_info = [(f_pos, Var (id, Some lhs))] in
+        let frame_info = [(f_pos, FCond lhs)] in
         (* If there is already a binding, we want to retain the old 'frame_info' *)
         let frame_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with
           | Some frame_info2 -> frame_info @ frame_info2
@@ -198,7 +198,7 @@ let generate_undefined_nes f_pos node_id nis ne = match ne with
       (* Fill in equation in frame block body *)
       | None -> 
         (* First, record that frame var "id1" was actually used for stuttering *)
-        let frame_info = [(f_pos, Var (id1, Some lhs))] in
+        let frame_info = [(f_pos, FCond lhs)] in
         (* If there is already a binding, we want to retain the old 'frame_info' *)
         let frame_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with
           | Some frame_info2 -> frame_info @ frame_info2
@@ -238,8 +238,9 @@ let generate_undefined_nes_no_init node_id pos nes nis var =
       (* Already defined in frame block initialization *)
       | Some _ -> R.ok []
       | None -> 
+        let lhs = A.StructDef(pos, [SingleIdent (pos, var)]) in
         (* First, record that frame var "var" was actually used for stuttering *)
-        let frame_info = [(pos, Var (var, None))] in
+        let frame_info = [(pos, FCond lhs)] in
         (* If there is already a binding, we want to retain the old 'frame_info' *)
         let frame_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with
           | Some frame_info2 -> frame_info @ frame_info2
@@ -247,7 +248,7 @@ let generate_undefined_nes_no_init node_id pos nes nis var =
         in
         HString.HStringHashtbl.add pos_list_map node_id frame_info;
 
-        R.ok [A.Body(A.Equation(pos, StructDef(pos, [SingleIdent (pos, var)]), Pre(pos, Ident (pos, var))))]
+        R.ok [A.Body(A.Equation(pos, lhs, Pre(pos, Ident (pos, var))))]
       
     
 
@@ -321,7 +322,7 @@ let desugar_node_item node_id ni = match ni with
     
     (* Frame block header info *)
     let frame_info = (List.map (fun ne -> match ne with
-        | A.Equation (_, lhs, expr) -> (AH.pos_of_expr expr, (Lhs lhs))
+        | A.Equation (_, lhs, expr) -> (AH.pos_of_expr expr, Eq lhs)
         | _ -> assert false) nes) in
     (* If there is already a binding, we want to retain the old 'frame_info' *)
     let frame_info = match HString.HStringHashtbl.find_opt pos_list_map node_id with

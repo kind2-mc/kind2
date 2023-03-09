@@ -2074,17 +2074,13 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
           List.iter (fun (pos, def) -> 
             (match def with
               (* Adding state vars for frame block equations *)
-              | LDF.Lhs A.StructDef (_, [e]) -> 
+              | LDF.Eq A.StructDef (_, [e]) -> 
                 let lhs, _ = compile_struct_item e in
                 List.iter (fun (i, sv) -> N.add_state_var_def sv (N.ProperEq (pos, rm_array_var_index i))) (X.bindings lhs);
               (* Adding state vars for frame block headers *)
-              | Var (_, Some A.StructDef (_, [e])) ->
+              | FCond A.StructDef (_, [e]) ->
                 let lhs, _ = compile_struct_item e in
                 List.iter (fun (_, sv) -> N.add_state_var_def sv (N.FrameBlock pos)) (X.bindings lhs);
-              (* Adding state vars for frame block headers *)
-              | Var (id, None) ->
-                let sv = H.find !map.state_var (mk_ident id)in
-                N.add_state_var_def sv (N.FrameBlock pos);
               | _ -> assert false) 
         ) frame_infos;  
       | None -> ()
