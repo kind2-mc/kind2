@@ -230,7 +230,9 @@ type node_equation =
 (* An item in a node declaration *)
 type node_item =
   | Body of node_equation
-  | AnnotMain of bool
+  | IfBlock of position * expr * node_item list * node_item list
+  | FrameBlock of position * ident list * node_equation list * node_item list 
+  | AnnotMain of position * bool
   | AnnotProperty of position * HString.t option * expr
 
 (* A contract ghost constant. *)
@@ -902,9 +904,25 @@ and pp_print_node_item ppf = function
   
   | Body b -> pp_print_node_body ppf b
 
-  | AnnotMain true -> Format.fprintf ppf "--%%MAIN;"
+  | IfBlock (_, e, l1, []) -> 
+    Format.fprintf ppf "if %a then %a fi"  
+      pp_print_expr e 
+      (pp_print_list pp_print_node_item " ") l1
 
-  | AnnotMain false -> Format.fprintf ppf "--!MAIN : false;"
+  | IfBlock (_, e, l1, l2) -> 
+    Format.fprintf ppf "if %a then %a else  %a fi"  
+      pp_print_expr e 
+      (pp_print_list pp_print_node_item " ") l1
+      (pp_print_list pp_print_node_item " ") l2
+
+  | FrameBlock (_, vars, nes, nis) -> Format.fprintf ppf "frame (%a) %a let %a tel" 
+    (pp_print_list pp_print_ident ", ") vars
+    (pp_print_list pp_print_node_body " ") nes
+    (pp_print_list pp_print_node_item " ") nis
+
+  | AnnotMain (_, true) -> Format.fprintf ppf "--%%MAIN;"
+
+  | AnnotMain (_, false) -> Format.fprintf ppf "--!MAIN : false;"
 
   | AnnotProperty (_, None, e) ->
     Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 

@@ -17,11 +17,10 @@
  *)
 
 (**
-    @author Andrew Marmaduke *)
+@author Andrew Marmaduke *)
 
 open Lib
 module LA = LustreAst
-module LAH = LustreAstHelpers
 module Ctx = TypeCheckerContext
 module TC = LustreTypeChecker
 
@@ -137,25 +136,9 @@ let rec restrict_type_by ty restrict = match ty, restrict with
   | Int _, (IntRange _ as t) -> t, true
   | t, _ -> t, false
 
-let rec arity_of_expr ty_ctx = function
-  | LA.GroupExpr (_, ExprList, es) -> List.length es
-  | TernaryOp (_, Ite, _, e, _) -> arity_of_expr ty_ctx e
-  | Condact (_, _, _, id, _, _)
-  | Activate (_, id, _, _, _)
-  | RestartEvery (_, id, _, _)
-  | Call (_, id, _) ->
-    let node_ty = Ctx.lookup_node_ty ty_ctx id |> get in
-    let (_, o) = LAH.type_arity node_ty in
-    o
-  | Pre (_, e) -> arity_of_expr ty_ctx e
-  | Arrow (_, e, _) -> arity_of_expr ty_ctx e
-  | RecordProject (_, e, _) -> arity_of_expr ty_ctx e
-  | TupleProject (_, e, _) -> arity_of_expr ty_ctx e
-  | _ -> 1
-
-let rec interpret_program ty_ctx = function
+let rec interpret_program ty_ctx gids = function
   | [] -> empty_context
-  | h :: t -> union (interpret_decl ty_ctx h) (interpret_program ty_ctx t)
+  | h :: t -> union (interpret_decl ty_ctx gids h) (interpret_program ty_ctx gids t)
 
 and interpret_contract node_id ctx ty_ctx eqns =
   let ty_ctx = TC.tc_ctx_of_contract ~ignore_modes:true ty_ctx eqns |> unwrap
@@ -170,12 +153,9 @@ and interpret_contract_eqn node_id ctx ty_ctx = function
   | Assume _ | Guarantee _ | Mode _
   | ContractCall _ | AssumptionVars _ -> empty_context
   | GhostVars (_, (GhostVarDec (_, tis)), rhs) ->
-  let rec separate_eqns rhs = match rhs with
-    | LA.GroupExpr (_, ExprList, es) ->
-      es |> List.map (separate_eqns) |> List.flatten
-    | e -> List.init (arity_of_expr ty_ctx e) (fun p -> e, p)
+  let eqns =
+    List.init (Ctx.arity_of_expr ty_ctx rhs) (fun p -> rhs, p)
   in
-  let eqns = separate_eqns rhs in
   List.fold_left2 (
     fun acc (_, i, ty) (expr, p) -> 
       let restrict_ty = interpret_expr_by_type node_id ctx ty_ctx ty p expr in
@@ -188,11 +168,11 @@ and interpret_contract_eqn node_id ctx ty_ctx = function
     tis
     eqns
 
-and interpret_decl ty_ctx = function
+and interpret_decl ty_ctx gids = function
   | LA.TypeDecl _
   | ConstDecl _ -> empty_context
   | NodeDecl (_, decl)
-  | FuncDecl (_, decl) -> interpret_node ty_ctx decl
+  | FuncDecl (_, decl) -> interpret_node ty_ctx gids decl
   | ContractNodeDecl (_, decl) -> interpret_contract_node ty_ctx decl
   | NodeParamInst _ -> empty_context
 
@@ -216,7 +196,7 @@ and interpret_contract_node ty_ctx (id, _, ins, outs, contract) =
   in
   interpret_contract id empty_context ty_ctx contract
 
-and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
+and interpret_node ty_ctx gids (id, _, _, ins, outs, locals, items, contract) =
   (* Setup the typing context *)
   let constants_ctx = ins
     |> List.map Ctx.extract_consts
@@ -242,14 +222,21 @@ and interpret_node ty_ctx (id, _, _, ins, outs, locals, items, contract) =
   let ty_ctx = List.fold_left
     (fun ctx local -> TC.local_var_binding ctx local |> unwrap)
     ty_ctx
-    locals
+    locals 
+  in
+  let gids_node = GeneratedIdentifiers.StringMap.find id gids in
+  let ty_ctx = GeneratedIdentifiers.StringMap.fold
+    (fun id (_, ty) ctx -> Ctx.add_ty ctx id ty) (gids_node.GeneratedIdentifiers.locals) ty_ctx
   in
   let eqns = List.fold_left (fun acc -> function
     | LA.Body eqn -> (match eqn with
       | LA.Assert _ -> acc
       | Equation (_, lhs, rhs) -> (lhs, rhs) :: acc)
-    | AnnotMain _ -> acc
-    | AnnotProperty _ -> acc)
+    | AnnotMain _ 
+    | AnnotProperty _ -> acc
+    (* Shouldn't be possible *)
+    | LA.IfBlock _ 
+    | LA.FrameBlock _ -> assert false)
     []
     items
   in
@@ -265,12 +252,9 @@ and interpret_eqn node_id ctx ty_ctx lhs rhs =
   let struct_items = match lhs with
     | StructDef (_, items) -> items
   in
-  let rec separate_eqns rhs = match rhs with
-    | LA.GroupExpr (_, ExprList, es) ->
-      es |> List.map (separate_eqns) |> List.flatten
-    | e -> List.init (arity_of_expr ty_ctx e) (fun p -> e, p)
+  let eqns =
+    List.init (Ctx.arity_of_expr ty_ctx rhs) (fun p -> rhs, p)
   in
-  let eqns = separate_eqns rhs in
   List.fold_left2 (fun acc lhs (expr, p) -> match lhs with
       | LA.SingleIdent (_, id) ->
         let ty1 = Ctx.lookup_ty ty_ctx id |> get in
@@ -307,7 +291,7 @@ and interpret_eqn node_id ctx ty_ctx lhs rhs =
 
 and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
   match ty with
-  | RecordType (_, name, ts) -> 
+  | LA.RecordType (_, name, ts) -> 
     let f = function
       | LA.RecordExpr (_, _, es) ->
         let emap = List.fold_left
@@ -411,6 +395,10 @@ and interpret_structured_expr f node_id ctx ty_ctx ty proj expr =
       (match parent_ty with
       | ArrayType (_, (ty, _)) -> ty
       | _ -> assert false)
+    | GroupExpr (_, ExprList, es) -> (
+      let g = interpret_structured_expr f node_id ctx ty_ctx ty in
+      Ctx.traverse_group_expr_list g ty_ctx proj es
+    )
     | _ -> assert false)
 
 and interpret_int_expr node_id ctx ty_ctx proj expr = 
@@ -460,9 +448,10 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | ConvOp (_, _, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | CompOp _-> assert false
   | RecordExpr _ -> assert false
-  | GroupExpr (_, ExprList, es) ->
-    let e = List.nth es proj in
-    interpret_int_expr node_id ctx ty_ctx 0 e
+  | GroupExpr (_, ExprList, es) -> (
+    let g = interpret_int_expr node_id ctx ty_ctx in
+    Ctx.traverse_group_expr_list g ty_ctx proj es
+  )
   | GroupExpr _ -> assert false
   | StructUpdate _ -> assert false
   | ArrayConstr _ -> assert false

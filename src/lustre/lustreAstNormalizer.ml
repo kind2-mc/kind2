@@ -34,8 +34,6 @@
   pre operators are explicitly guarded in the AST by an oracle variable
   if they were originally unguarded
     e.g. pre expr => oracle -> pre expr
-  Note that oracles are _propagated_ in node calls. If a node `n1` has an oracle
-  and is called by another node `n2`, then `n2` will inherit a propagated oracle
 
   The following parts of the AST are abstracted by locals:
 
@@ -67,9 +65,10 @@
   6. Condition of node calls (if it is not equivalent to true)
   7. Restarts of node calls (if it is not a constant)
 
-     @author Andrew Marmaduke *)
+@author Andrew Marmaduke *)
 
 open Lib
+open GeneratedIdentifiers
 
 module A = LustreAst
 module AH = LustreAstHelpers
@@ -82,6 +81,18 @@ type error = [
   | `LustreAstNormalizerError
 ]
 
+type warning_kind = 
+  | UnguardedPreWarning of A.expr
+
+let warning_message warning = match warning with
+  | UnguardedPreWarning expr -> "Unguarded pre in expression " ^ A.string_of_expr expr
+
+type warning = [
+  | `LustreAstNormalizerWarning of Lib.position * warning_kind
+]
+
+let mk_warning pos kind = `LustreAstNormalizerWarning (pos, kind)
+
 let (>>=) = Res.(>>=)
 let unwrap result = match result with
   | Ok r -> r
@@ -90,20 +101,6 @@ let unwrap result = match result with
     Log.log L_debug "(Lustre AST Normalizer Internal Error: %s)" msg;
     assert false
 
-module StringMap = struct
-  include Map.Make(struct
-    type t = HString.t
-    let compare i1 i2 = HString.compare i1 i2
-  end)
-  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
-end
-
-module StringSet = struct
-  include Set.Make(struct
-    type t = HString.t
-    let compare i1 i2 = HString.compare i1 i2
-  end)
-end
 
 module AstCallHash = struct
   type t = A.ident (* node name *)
@@ -178,9 +175,9 @@ let force_fresh = true
 
   Flags.IVC.compute_ivc () ||
   (match Flags.enabled () with
-   | modules when List.mem `MCS modules -> true
-   | modules when List.mem `CONTRACTCK modules -> true
-   | _ -> false
+  | modules when List.mem `MCS modules -> true
+  | modules when List.mem `CONTRACTCK modules -> true
+  | _ -> false
   )*)
 
 let call_cache = CallCache.create 20
@@ -192,78 +189,28 @@ let clear_cache () =
   LocalCache.clear local_cache;
   NodeArgCache.clear node_arg_cache;
 
-type source = Local | Input | Output | Ghost
-
-type generated_identifiers = {
-  node_args : (HString.t (* abstracted variable name *)
-    * bool (* whether the variable is constant *)
-    * LustreAst.lustre_type
-    * LustreAst.expr)
-    list;
-  array_constructors :
-    (LustreAst.lustre_type
-    * LustreAst.expr
-    * LustreAst.expr)
-    StringMap.t;
-  locals : (bool (* whether the variable is ghost *)
-    * LustreAst.lustre_type
-    * LustreAst.expr (* abstracted expression *)
-    * LustreAst.expr) (* original expression *)
-    StringMap.t;
-  contract_calls :
-    (Lib.position
-    * (Lib.position * HString.t) list (* contract scope *)
-    * LustreAst.contract_node_equation list)
-    StringMap.t;
-  warnings : (Lib.position * LustreAst.expr) list;
-  oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
-  propagated_oracles : (HString.t * HString.t) list;
-  calls : (Lib.position (* node call position *)
-    * (HString.t list) (* oracle inputs *)
-    * HString.t (* abstracted output *)
-    * LustreAst.expr (* condition expression *)
-    * LustreAst.expr (* restart expression *)
-    * HString.t (* node name *)
-    * (LustreAst.expr list) (* node arguments *)
-    * (LustreAst.expr list option)) (* node argument defaults *)
-    list;
-  subrange_constraints : (source
-    * bool (* true if the type used for the subrange is the original type *)
-    * Lib.position
-    * HString.t (* Generated name for Range Expression *)
-    * LustreAst.expr) (* Computed ranged expr *)
-    list;
-  expanded_variables : StringSet.t;
-  equations :
-    (LustreAst.typed_ident list (* quantified variables *)
-    * (Lib.position * HString.t) list (* contract scope  *)
-    * LustreAst.eq_lhs
-    * LustreAst.expr)
-    list;
-}
-
 type info = {
   context : Ctx.tc_context;
   abstract_interp_context : LustreAbstractInterpretation.context;
   inductive_variables : LustreAst.lustre_type StringMap.t;
   quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) StringMap.t;
-  contract_calls : LustreAst.contract_node_decl StringMap.t;
+  contract_calls_info : LustreAst.contract_node_decl StringMap.t;
   contract_scope : (Lib.position * HString.t) list;
   contract_ref : HString.t;
   interpretation : HString.t StringMap.t;
   local_group_projection : int
 }
 
-let get_warnings map = map
-  |> StringMap.bindings
-  |> List.map (fun (_, { warnings }) -> warnings)
-  |> List.flatten
-  |> List.sort (fun (p1, _) (p2, _) -> compare_pos p1 p2)
+let split3 triples =
+  let xs = List.map (fun (x, _, _) -> x) triples in
+  let ys = List.map (fun (_, y, _) -> y) triples in
+  let zs = List.map (fun (_, _, z) -> z) triples in
+  xs, ys, zs
 
 let pp_print_generated_identifiers ppf gids =
   let locals_list = StringMap.bindings gids.locals 
-    |> List.map (fun (x, (y, z, w, _)) -> x, y, z, w)
+    |> List.map (fun (x, (y, z)) -> x, y, z)
   in
   let array_ctor_list = StringMap.bindings gids.array_constructors
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
@@ -271,11 +218,10 @@ let pp_print_generated_identifiers ppf gids =
   let contract_calls_list = StringMap.bindings gids.contract_calls
     |> List.map (fun (x, (y, z, w)) -> x, y, z, w)
   in
-  let pp_print_local ppf (id, b, ty, e) = Format.fprintf ppf "(%a, %b, %a, %a)"
+  let pp_print_local ppf (id, b, ty) = Format.fprintf ppf "(%a, %b, %a)"
     HString.pp_print_hstring id
     b
     LustreAst.pp_print_lustre_type ty
-    LustreAst.pp_print_expr e
   in
   let pp_print_array_ctor ppf (id, ty, e, s) = Format.fprintf ppf "(%a, %a, %a, %a)"
     HString.pp_print_hstring id
@@ -294,16 +240,15 @@ let pp_print_generated_identifiers ppf gids =
     LustreAst.pp_print_lustre_type ty
     LustreAst.pp_print_expr e
   in
-  let pp_print_call = (fun ppf (pos, oracles, output, cond, restart, ident, args, defaults) ->
+  let pp_print_call = (fun ppf (pos, output, cond, restart, ident, args, defaults) ->
     Format.fprintf ppf 
-      "%a: %a = call(%a,(restart %a every %a)(%a;%a),%a)"
+      "%a: %a = call(%a,(restart %a every %a)(%a),%a)"
       pp_print_position pos
       HString.pp_print_hstring output
       A.pp_print_expr cond
       HString.pp_print_hstring ident
       A.pp_print_expr restart
       (pp_print_list A.pp_print_expr ",@ ") args
-      (pp_print_list HString.pp_print_hstring ",@ ") oracles
       (pp_print_option (pp_print_list A.pp_print_expr ",@")) defaults)
   in
   let pp_print_source ppf source = Format.fprintf ppf (match source with
@@ -326,14 +271,19 @@ let pp_print_generated_identifiers ppf gids =
     (pp_print_list (pp_print_pair Lib.pp_print_position HString.pp_print_hstring ":") "::") scope
     (pp_print_list A.pp_print_contract_item ";") decl
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  let pp_print_equation ppf (_, _, lhs, expr) = Format.fprintf ppf "%a = %a"
+  A.pp_print_eq_lhs lhs
+  A.pp_print_expr expr
+  in
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_array_ctor "\n") array_ctor_list
-    (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_node_arg "\n") gids.node_args
+    (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_call "\n") gids.calls
     (pp_print_list pp_print_subrange_constraint "\n") gids.subrange_constraints
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
+    (pp_print_list pp_print_equation "\n") gids.equations
 
 let compute_node_input_constant_mask decls =
   let over_decl map = function
@@ -360,43 +310,6 @@ let i = ref 0
 let contract_ref = ref 0
 
 let dpos = Lib.dummy_pos
-
-let empty () = {
-    locals = StringMap.empty;
-    warnings = [];
-    array_constructors = StringMap.empty;
-    node_args = [];
-    oracles = [];
-    propagated_oracles = [];
-    calls = [];
-    contract_calls = StringMap.empty;
-    subrange_constraints = [];
-    expanded_variables = StringSet.empty;
-    equations = [];
-  }
-
-let union_keys key id1 id2 = match key, id1, id2 with
-  | _, None, None -> None
-  | _, (Some v), None -> Some v
-  | _, None, (Some v) -> Some v
-  (* Identifiers are guaranteed to be unique making this branch impossible *)
-  | _, (Some _), (Some _) -> assert false
-
-let union ids1 ids2 = {
-    locals = StringMap.merge union_keys ids1.locals ids2.locals;
-    array_constructors = StringMap.merge union_keys
-      ids1.array_constructors ids2.array_constructors;
-    warnings = ids1.warnings @ ids2.warnings;
-    node_args = ids1.node_args @ ids2.node_args;
-    oracles = ids1.oracles @ ids2.oracles;
-    propagated_oracles = ids1.propagated_oracles @ ids2.propagated_oracles;
-    calls = ids1.calls @ ids2.calls;
-    contract_calls = StringMap.merge union_keys
-      ids1.contract_calls ids2.contract_calls;
-    subrange_constraints = ids1.subrange_constraints @ ids2.subrange_constraints;
-    expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
-    equations = ids1.equations @ ids2.equations;
-  }
 
 let union_list ids =
   List.fold_left (fun x y -> union x y ) (empty ()) ids
@@ -429,7 +342,7 @@ let generalize_to_array_expr name ind_vars expr nexpr =
       A.ArrayIndex (dpos, nexpr, A.Ident (dpos, List.hd ind_vars))
   in eq_lhs, nexpr
 
-let mk_fresh_local force info pos is_ghost ind_vars expr_type expr oexpr =
+let mk_fresh_local force info pos is_ghost ind_vars expr_type expr =
   match (LocalCache.find_opt local_cache expr, force) with
   | Some nexpr, false -> nexpr, empty ()
   | _ ->
@@ -439,7 +352,7 @@ let mk_fresh_local force info pos is_ghost ind_vars expr_type expr oexpr =
   let nexpr = A.Ident (pos, name) in
   let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
   let gids = { (empty ()) with
-    locals = StringMap.singleton name (is_ghost, expr_type, expr, oexpr);
+    locals = StringMap.singleton name (is_ghost, expr_type);
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
   in
   LocalCache.add local_cache expr nexpr;
@@ -528,7 +441,7 @@ let mk_range_expr ctx expr_type expr =
   mk ctx 0 expr_type expr
 
 let mk_fresh_subrange_constraint source info pos constrained_name expr_type =
-  let expr = A.Ident (pos, constrained_name) in
+  let expr = A.Ident(pos, constrained_name) in
   let range_exprs = mk_range_expr info.context expr_type expr in
   let gids = List.map (fun (range_expr, is_original) ->
     i := !i + 1;
@@ -555,11 +468,10 @@ let mk_fresh_oracle expr_type expr =
     oracles = [name, expr_type, expr]; }
   in nexpr, gids
 
-let record_warning pos original =
-  { (empty ()) with  warnings = [(pos, original)]; }
+
 
 let mk_fresh_call info id map pos cond restart args defaults =
-  let called_node = StringMap.find id map in
+  let called_node = StringMap.find id map in 
   let has_oracles = List.length called_node.oracles > 0 in
   let check_cache = CallCache.find_opt
     call_cache
@@ -577,21 +489,8 @@ let mk_fresh_call info id map pos cond restart args defaults =
       (HString.mk_hstring "proj_")
   in
   let nexpr = A.Ident (pos, HString.concat2 proj name) in
-  let propagated_oracles = 
-    let called_oracles = called_node.oracles |> List.map (fun (id, _, _) -> id) in
-    let called_poracles = called_node.propagated_oracles |> List.map fst in
-    List.map (fun n ->
-      (i := !i + 1;
-      let prefix = HString.mk_hstring (string_of_int !i) in
-      HString.concat2 prefix (HString.mk_hstring "_poracle"), n))
-      (called_oracles @ called_poracles)
-  in
-  let oracle_args = List.map (fun (p, _) -> p) propagated_oracles in
-  let call = (pos, oracle_args, name, cond, restart, id, args, defaults) in
-  let gids = { (empty ()) with
-    propagated_oracles = propagated_oracles;
-    calls = [call];}
-  in
+  let call = (pos, name, cond, restart, id, args, defaults) in
+  let gids = { (empty ()) with calls = [call] } in
   CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
   nexpr, gids
 
@@ -606,33 +505,36 @@ let get_type_of_id info node_id id =
 let should_not_abstract force expr = not force && AH.expr_is_id expr
 
 let normalize_list f list =
-  let over_list (nitems, gids) item =
-    let (normal_item, ids) = f item in
-    normal_item :: nitems, union ids gids
-  in let list, gids = List.fold_left over_list ([], empty ()) list in
-  List.rev list, gids
+  let over_list (nitems, gids, warnings1) item =
+    let (normal_item, ids, warnings2) = f item in
+    normal_item :: nitems, union ids gids, warnings1 @ warnings2
+  in let list, gids, warnings = List.fold_left over_list ([], empty (), []) list in
+  List.rev list, gids, warnings
 
-let rec normalize ctx ai_ctx (decls:LustreAst.t) =
+let rec normalize ctx ai_ctx (decls:LustreAst.t) gids =
   let info = { context = ctx;
     abstract_interp_context = ai_ctx;
     inductive_variables = StringMap.empty;
     quantified_variables = [];
     node_is_input_const = compute_node_input_constant_mask decls;
-    contract_calls = collect_contract_node_decls decls;
+    contract_calls_info = collect_contract_node_decls decls;
     contract_ref = HString.mk_hstring "";
     contract_scope = [];
     interpretation = StringMap.empty;
     local_group_projection = -1 }
-  in let over_declarations (nitems, accum) item =
+  in 
+  let gids, warnings = normalize_gids info gids in
+  let over_declarations (nitems, accum, warnings_accum) item =
     clear_cache ();
-    let (normal_item, map) =
+    let (normal_item, map, warnings) =
       normalize_declaration info accum item in
     (match normal_item with 
       | Some ni -> ni :: nitems
       | None -> nitems),
-    StringMap.merge union_keys map accum
-  in let ast, map = List.fold_left over_declarations
-    ([], StringMap.empty) decls
+    StringMap.merge union_keys2 map accum,
+    warnings @ warnings_accum
+  in let ast, map, warnings_map = List.fold_left over_declarations
+    ([], gids, warnings) decls
   in let ast = List.rev ast in
   
   Debug.parse ("===============================================\n"
@@ -648,17 +550,38 @@ let rec normalize ctx ai_ctx (decls:LustreAst.t) =
       (StringMap.bindings map)
     A.pp_print_program ast;
 
-  Res.ok (ast, map)
+  Res.ok (ast, map, warnings_map)
 
 and normalize_declaration info map = function
-  | NodeDecl (span, decl) ->
-    let normal_decl, map = normalize_node info map decl in
-    Some (A.NodeDecl(span, normal_decl)), map
+  | A.NodeDecl (span, decl) ->
+    let normal_decl, map, warnings = normalize_node info map decl in
+    Some (A.NodeDecl(span, normal_decl)), map, warnings
   | FuncDecl (span, decl) ->
-    let normal_decl, map = normalize_node info map decl in
-    Some (A.FuncDecl (span, normal_decl)), map
-  | ContractNodeDecl (_, _) -> None, StringMap.empty
-  | decl -> Some decl, StringMap.empty
+    let normal_decl, map, warnings = normalize_node info map decl in
+    Some (A.FuncDecl (span, normal_decl)), map, warnings
+  | ContractNodeDecl (_, _) -> None, StringMap.empty, []
+  | decl -> Some decl, StringMap.empty, []
+
+and normalize_gids info gids_map = 
+  (* Convert gids_map to a new gids_map with normalized equations *)
+  let gids_map, warnings = StringMap.fold (fun id gids (gids_map, warnings)  -> 
+    (* Normalize all equations in gids *)
+    let res = List.map (fun (_, _, lhs, expr) ->
+      let nexpr, gids, warnings = normalize_expr info gids_map expr in
+      gids, warnings, (info.quantified_variables, info.contract_scope, lhs, nexpr)
+    ) gids.equations in
+    let gids_list, warnings2, eqs = split3 res in
+    (* Take out old equations that were not normalized *)
+    let gids = { gids with equations = [] } in
+    let gids = List.fold_left (fun acc g -> union g acc) gids gids_list in
+    let warnings2 = List.flatten warnings2 in
+    (* Keep equations generated during normalization *)
+    let eqs2 = gids.equations in
+    let gids = { gids with equations = eqs @ eqs2; } in
+    let gids_map = StringMap.add id gids gids_map in
+    (gids_map, warnings @ warnings2)
+  ) gids_map (gids_map, []) in
+  gids_map, warnings
 
 and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, body) =
   let contract_ref = cref in
@@ -688,8 +611,8 @@ and normalize_node_contract info map cref inputs outputs (id, _, ivars, ovars, b
     interpretation = interp;
     contract_ref; }
   in
-  let nbody, gids = normalize_contract info map id body in
-  nbody, gids, StringMap.empty
+  let nbody, gids, warnings = normalize_contract info map id body in
+  nbody, gids, warnings, StringMap.empty
 
 (*
 and normalize_const_declaration info map = function
@@ -705,13 +628,13 @@ and normalize_const_declaration info map = function
 and normalize_ghost_declaration info map = function
   | A.UntypedConst (pos, id, expr) ->
     let new_id = StringMap.find id info.interpretation in
-    let nexpr, gids = normalize_expr ?guard:None info map expr in
-    A.UntypedConst (pos, new_id, nexpr), gids
+    let nexpr, gids, warnings = normalize_expr ?guard:None info map expr in
+    A.UntypedConst (pos, new_id, nexpr), gids, warnings
   | TypedConst (pos, id, expr, ty) ->
     let new_id = StringMap.find id info.interpretation in
-    let nexpr, gids = normalize_expr ?guard:None info map expr in
-    A.TypedConst (pos, new_id, nexpr, ty), gids
-  | e -> e, empty ()
+    let nexpr, gids, warnings = normalize_expr ?guard:None info map expr in
+    A.TypedConst (pos, new_id, nexpr, ty), gids, warnings
+  | e -> e, empty (), []
 
 and normalize_node info map
     (node_id, is_extern, params, inputs, outputs, locals, items, contracts) =
@@ -756,16 +679,16 @@ and normalize_node info map
   in
   (* We have to handle contracts before locals
     Otherwise the typing contexts collide *)
-  let ncontracts, gids5 = match contracts with
+  let ncontracts, gids5, warnings1 = match contracts with
     | Some contracts ->
       let ctx = Chk.tc_ctx_of_contract info.context contracts |> unwrap
       in
       let contract_ref = new_contract_reference () in
       let info = { info with context = ctx; contract_ref } in
-      let ncontracts, gids = normalize_contract info map node_id
+      let ncontracts, gids, warnings = normalize_contract info map node_id
         contracts in
-      (Some ncontracts), gids
-    | None -> None, empty ()
+      (Some ncontracts), gids, warnings
+    | None -> None, empty (), []
   in
   (* Record subrange constraints on locals
     and finish setting up the typing context for the node body *)
@@ -790,16 +713,21 @@ and normalize_node info map
       (empty ())
   in
   (* Normalize equations and the contract *)
-  let nitems, gids4 = normalize_list (normalize_item info map) items in
+  let nitems, gids4, warnings2 = normalize_list (normalize_item info map) items in
   let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
   let map = StringMap.singleton node_id gids in
-  (node_id, is_extern, params, inputs, outputs, locals, nitems, ncontracts), map
+  (node_id, is_extern, params, inputs, outputs, locals, nitems, ncontracts), map, warnings1 @ warnings2
+
 
 and normalize_item info map = function
-  | Body equation ->
-    let nequation, gids = normalize_equation info map equation in
-    Body nequation, gids
-  | AnnotMain b -> AnnotMain b, empty ()
+  | A.Body equation ->
+    let nequation, gids, warnings = normalize_equation info map equation in
+    A.Body nequation, gids, warnings
+  (* shouldn't be possible *)
+  | IfBlock _ 
+  | FrameBlock _ -> 
+    assert false
+  | AnnotMain (pos, b) -> AnnotMain (pos, b), empty (), []
   | AnnotProperty (pos, name, expr) ->
     let name' =
       match name with
@@ -812,8 +740,8 @@ and normalize_item info map = function
       )
       | Some _ as n -> n
     in
-    let nexpr, gids = abstract_expr false info map false expr in
-    AnnotProperty (pos, name', nexpr), gids
+    let nexpr, gids, warnings = abstract_expr false info map false expr in
+    AnnotProperty (pos, name', nexpr), gids, warnings
 
 and rename_ghost_variables info node_id contract =
   let sep = HString.mk_hstring "_contract_" in
@@ -839,6 +767,7 @@ and rename_ghost_variables info node_id contract =
 
 and normalize_contract info map node_id items =
   let gids = ref (empty ()) in
+  let warnings = ref [] in
   let result = ref [] in
   let ghost_interp, info = rename_ghost_variables info node_id items in
   let ghost_interp = List.fold_left (StringMap.merge union_keys)
@@ -850,26 +779,26 @@ and normalize_contract info map node_id items =
   for j = 0 to (List.length items) - 1 do
     let info = { info with interpretation = !interpretation } in
     let item = List.nth items j in
-    let nitem, gids', interpretation' = match item with
+    let nitem, gids', warnings', interpretation' = match item with
       | Assume (pos, name, soft, expr) ->
-        let nexpr, gids = abstract_expr force_fresh info map true expr in
-        A.Assume (pos, name, soft, nexpr), gids, StringMap.empty
+        let nexpr, gids, warnings = abstract_expr force_fresh info map true expr in
+        A.Assume (pos, name, soft, nexpr), gids, warnings, StringMap.empty
       | Guarantee (pos, name, soft, expr) -> 
-        let nexpr, gids = abstract_expr force_fresh info map true expr in
-        Guarantee (pos, name, soft, nexpr), gids, StringMap.empty
+        let nexpr, gids, warnings = abstract_expr force_fresh info map true expr in
+        Guarantee (pos, name, soft, nexpr), gids, warnings, StringMap.empty
       | Mode (pos, name, requires, ensures) ->
 (*         let new_name = info.contract_ref ^ "_contract_" ^ name in
         let interpretation = StringMap.singleton name new_name in
         let info = { info with interpretation } in *)
         let over_property info map (pos, name, expr) =
-          let nexpr, gids = abstract_expr true info map true expr in
-          (pos, name, nexpr), gids
+          let nexpr, gids, warnings = abstract_expr true info map true expr in
+          (pos, name, nexpr), gids, warnings
         in
-        let nrequires, gids1 = normalize_list (over_property info map) requires in
-        let nensures, gids2 = normalize_list (over_property info map) ensures in
-        Mode (pos, name, nrequires, nensures), union gids1 gids2, StringMap.empty
+        let nrequires, gids1, warnings1 = normalize_list (over_property info map) requires in
+        let nensures, gids2, warnings2 = normalize_list (over_property info map) ensures in
+        Mode (pos, name, nrequires, nensures), union gids1 gids2, warnings1 @ warnings2, StringMap.empty
       | ContractCall (pos, name, inputs, outputs) ->
-        let ninputs, gids1 = normalize_list (abstract_expr false info map false) inputs in
+        let ninputs, gids1, warnings1 = normalize_list (abstract_expr false info map false) inputs in
         let noutputs = List.map
           (fun id -> match StringMap.find_opt id info.interpretation with
             | Some new_id -> new_id
@@ -888,21 +817,22 @@ and normalize_contract info map node_id items =
             contract_ref = cref;
           }
         in
-        let called_node = StringMap.find name info.contract_calls in
-        let normalized_call, gids2, interp = 
+        let called_node = StringMap.find name info.contract_calls_info in
+        let normalized_call, gids2, warnings2, interp = 
           normalize_node_contract info map cref ninputs noutputs called_node
         in
         let gids = union gids1 gids2 in
+        let warnings = warnings1 @ warnings2 in
         let gids = { gids with
           contract_calls = StringMap.add info.contract_ref
             (pos, info.contract_scope, normalized_call)
             gids.contract_calls
           }
         in
-        ContractCall (pos, cref, inputs, outputs), gids, interp
+        ContractCall (pos, cref, inputs, outputs), gids, warnings, interp
       | GhostConst decl ->
-        let ndecl, gids= normalize_ghost_declaration info map decl in
-        GhostConst ndecl, gids, StringMap.empty
+        let ndecl, gids, warnings = normalize_ghost_declaration info map decl in
+        GhostConst ndecl, gids, warnings, StringMap.empty
       | GhostVars (pos, ((GhostVarDec (pos2, tis)) as lhs), expr) ->
         let items = match lhs with | A.GhostVarDec (_, items) -> items in
         let lhs_arity = List.length items in
@@ -913,22 +843,22 @@ and normalize_contract info map node_id items =
         let vars_of_calls = AH.vars_of_node_calls expr in
 
         (* Currently, parallel ghost variable assignment is not supported with 
-           arrays (only simple typed identifiers). But, the following code with
-           "has_inductive" is included because we plan on offering this functionality
-           in the future.*)
+          arrays (only simple typed identifiers). But, the following code with
+          "has_inductive" is included because we plan on offering this functionality
+          in the future.*)
         let has_inductive = vars_of_calls
           |> A.SI.to_seq
           |> Seq.fold_left
             (fun acc v -> acc || StringMap.mem v info.inductive_variables)
             false
         in
-        let (nexpr, gids1), expanded = (
+        let (nexpr, gids1, warnings), expanded = (
           if has_inductive && lhs_arity <> rhs_arity then
             (match StringMap.choose_opt info.inductive_variables with
             | Some (ivar, ty) ->
               let size = extract_array_size ty in
               let expanded_expr = expand_node_calls_in_place info ivar size expr in
-              let exprs, gids = List.split (List.init lhs_arity
+              let exprs, gids, warnings = split3 (List.init lhs_arity
                 (
                   fun i -> 
                   let info = { info with local_group_projection = i } in
@@ -937,7 +867,8 @@ and normalize_contract info map node_id items =
               ) 
               in
               let gids = List.fold_left (fun acc g -> union g acc) (empty ()) gids in
-            (A.GroupExpr (dpos, A.ExprList, exprs), gids), true
+              let warnings = List.flatten warnings in
+            (A.GroupExpr (dpos, A.ExprList, exprs), gids, warnings), true
             | None -> normalize_expr ?guard:None info map expr, false)
             
           else if has_inductive && lhs_arity = rhs_arity then
@@ -978,22 +909,23 @@ and normalize_contract info map node_id items =
         (* Get new identifiers for LHS *)
         let new_tis = List.map (fun (p, id, e) -> 
           (p, StringMap.find id info.interpretation, e)) tis in
-        GhostVars (pos, GhostVarDec(pos2, new_tis), nexpr), union (union gids1 gids2) gids3, StringMap.empty
+        GhostVars (pos, GhostVarDec(pos2, new_tis), nexpr), union (union gids1 gids2) gids3, warnings, StringMap.empty
       
       | AssumptionVars decl ->
-        AssumptionVars decl, empty (), StringMap.empty
+        AssumptionVars decl, empty (), [], StringMap.empty
     in
     interpretation := StringMap.merge union_keys !interpretation interpretation';
     result := nitem :: !result;
     gids := union !gids gids';
+    warnings := !warnings @ warnings';
   done;
-  !result, !gids
+  !result, !gids, !warnings
 
 
 and normalize_equation info map = function
   | Assert (pos, expr) ->
-    let nexpr, gids = abstract_expr true info map true expr in
-    Assert (pos, nexpr), gids
+    let nexpr, gids, warnings = abstract_expr true info map true expr in
+    A.Assert (pos, nexpr), gids, warnings
   | Equation (pos, lhs, expr) ->
     (* Need to track array indexes of the left hand side if there are any *)
     let items = match lhs with | A.StructDef (_, items) -> items in
@@ -1027,19 +959,20 @@ and normalize_equation info map = function
         (fun acc v -> acc || StringMap.mem v info.inductive_variables)
         false
     in
-    let (nexpr, gids1), expanded = (
+    let (nexpr, gids1, warnings), expanded = (
       if has_inductive && lhs_arity <> rhs_arity then
         (match StringMap.choose_opt info.inductive_variables with
         | Some (ivar, ty) ->
           let size = extract_array_size ty in
           let expanded_expr = expand_node_calls_in_place info ivar size expr in
-          let exprs, gids = List.split (List.init lhs_arity
+          let exprs, gids, warnings = split3 (List.init lhs_arity
             (fun i -> 
               let info = { info with local_group_projection = i } in
               normalize_expr info map expanded_expr))
           in
           let gids = List.fold_left (fun acc g -> union g acc) (empty ()) gids in
-        (A.GroupExpr (dpos, A.ExprList, exprs), gids), true
+          let warnings = List.flatten warnings in
+        (A.GroupExpr (dpos, A.ExprList, exprs), gids, warnings), true
         | None -> normalize_expr info map expr, false)
       else if has_inductive && lhs_arity = rhs_arity then
         let expanded_expr = List.fold_left
@@ -1062,7 +995,7 @@ and normalize_equation info map = function
       { (empty ()) with  expanded_variables = StringSet.of_list ids }
       else empty ()
     in
-    Equation (pos, lhs, nexpr), union gids1 gids2
+    Equation (pos, lhs, nexpr), union gids1 gids2, warnings
 
 and rename_id info = function
   | A.Ident (pos, id) ->
@@ -1072,9 +1005,9 @@ and rename_id info = function
   | _ -> assert false
 
 and abstract_expr ?guard force info map is_ghost expr = 
-  let nexpr, gids1 = normalize_expr ?guard info map expr in
+  let nexpr, gids1, warnings = normalize_expr ?guard info map expr in
   if should_not_abstract force nexpr then
-    nexpr, gids1
+    nexpr, gids1, warnings
   else
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
@@ -1082,8 +1015,8 @@ and abstract_expr ?guard force info map is_ghost expr =
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
     else Chk.infer_type_expr info.context expr |> unwrap
     in
-    let iexpr, gids2 = mk_fresh_local force info pos is_ghost ivars ty nexpr expr in
-    iexpr, union gids1 gids2
+    let iexpr, gids2 = mk_fresh_local force info pos is_ghost ivars ty nexpr in
+    iexpr, union gids1 gids2, warnings
 
 and expand_node_call info expr var count =
   let ty = Chk.infer_type_expr info.context expr |> unwrap in
@@ -1119,12 +1052,12 @@ and combine_args_with_const info args flags =
   in
   List.fold_left over_args_arity (0, []) (List.combine args output_arity)
   |> snd |> List.rev
- 
+
 and normalize_expr ?guard info map =
   let abstract_node_arg ?guard force is_const info map expr =
-    let nexpr, gids1 = normalize_expr ?guard info map expr in
+    let nexpr, gids1, warnings = normalize_expr ?guard info map expr in
     if should_not_abstract force nexpr then
-      nexpr, gids1
+      nexpr, gids1, warnings
     else
       let ivars = info.inductive_variables in
       let pos = AH.pos_of_expr expr in
@@ -1133,7 +1066,7 @@ and normalize_expr ?guard info map =
       else Chk.infer_type_expr info.context expr |> unwrap
       in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ivars ty nexpr in
-      iexpr, union gids1 gids2
+      iexpr, union gids1 gids2, warnings
   in function
   (* ************************************************************************ *)
   (* Node calls                                                               *)
@@ -1142,108 +1075,111 @@ and normalize_expr ?guard info map =
     let flags = StringMap.find id info.node_is_input_const in
     let cond = A.Const (Lib.dummy_pos, A.True) in
     let restart =  A.Const (Lib.dummy_pos, A.False) in
-    let nargs, gids1 = normalize_list
+    let nargs, gids1, warnings = normalize_list
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
     in
     let nexpr, gids2 = mk_fresh_call info id map pos cond restart nargs None in
-    nexpr, union gids1 gids2
+    nexpr, union gids1 gids2, warnings
   | Condact (pos, cond, restart, id, args, defaults) ->
     let flags = StringMap.find id info.node_is_input_const in
-    let ncond, gids1 = if AH.expr_is_true cond then cond, empty ()
+    let ncond, gids1, warnings1 = if AH.expr_is_true cond then cond, empty (), []
       else abstract_expr ?guard true info map false cond in
-    let nrestart, gids2 = if AH.expr_is_const restart then restart, empty ()
+    let nrestart, gids2, warnings2 = if AH.expr_is_const restart then restart, empty (), []
       else abstract_expr ?guard true info map false restart
-    in let nargs, gids3 = normalize_list
+    in let nargs, gids3, warnings3 = normalize_list
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
     in
-    let ndefaults, gids4 = normalize_list
-      (normalize_expr ?guard info map)
-      defaults in
+    let ndefaults, gids4, warnings4 = normalize_list (normalize_expr ?guard info map) defaults in
     let nexpr, gids5 = mk_fresh_call info id map pos ncond nrestart nargs (Some ndefaults) in
     let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
-    nexpr, gids
+    let warnings = warnings1 @ warnings2 @ warnings3 @ warnings4 in
+    nexpr, gids, warnings
   | RestartEvery (pos, id, args, restart) ->
     let flags = StringMap.find id info.node_is_input_const in
     let cond = A.Const (dummy_pos, A.True) in
-    let nrestart, gids1 = if AH.expr_is_const restart then restart, empty ()
+    let nrestart, gids1, warnings1 = if AH.expr_is_const restart then restart, empty (), []
       else abstract_expr ?guard true info map false restart
-    in let nargs, gids2 = normalize_list
+    in let nargs, gids2, warnings2 = normalize_list
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
     in
     let nexpr, gids3 = mk_fresh_call info id map pos cond nrestart nargs None in
     let gids = union_list [gids1; gids2; gids3] in
-    nexpr, gids
+    nexpr, gids, warnings1 @ warnings2
   | Merge (pos, clock_id, cases) ->
     let normalize' info map ?guard = function
       | clock_value, A.Activate (pos, id, cond, restart, args) ->
         let flags = StringMap.find id info.node_is_input_const in
-        let ncond, gids1 = if AH.expr_is_true cond then cond, empty ()
+        let ncond, gids1, warnings1 = if AH.expr_is_true cond then cond, empty (), []
           else abstract_expr ?guard false info map false cond in
-        let nrestart, gids2 = if AH.expr_is_const restart then restart, empty ()
+        let nrestart, gids2 , warnings2 = if AH.expr_is_const restart then restart, empty (), []
           else abstract_expr ?guard false info map false restart in
-        let nargs, gids3 = normalize_list
+        let nargs, gids3, warnings3 = normalize_list
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
         let nexpr, gids4 = mk_fresh_call info id map pos ncond nrestart nargs None in
         let gids = union_list [gids1; gids2; gids3; gids4] in
-        (clock_value, nexpr), gids
+        let warnings = warnings1 @ warnings2 @ warnings3 in
+        (clock_value, nexpr), gids, warnings
       | clock_value, A.Call (pos, id, args) ->
         let flags = StringMap.find id info.node_is_input_const in
         let cond_expr = match HString.string_of_hstring clock_value with
           | "true" -> A.Ident (pos, clock_id)
           | "false" -> A.UnaryOp (pos, A.Not, A.Ident (pos, clock_id))
           | _ -> A.CompOp (pos, A.Eq, A.Ident (pos, clock_id), A.Ident (pos, clock_value))
-        in let ncond, gids1 = abstract_expr ?guard false info map false cond_expr in
+        in let ncond, gids1, warnings1 = abstract_expr ?guard false info map false cond_expr in
         let restart =  A.Const (Lib.dummy_pos, A.False) in
-        let nargs, gids2 = normalize_list
+        let nargs, gids2, warnings2 = normalize_list
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
         let nexpr, gids3 = mk_fresh_call info id map pos ncond restart nargs None in
         let gids = union_list [gids1; gids2; gids3] in
-        (clock_value, nexpr), gids
+        let warnings = warnings1 @ warnings2 in
+        (clock_value, nexpr), gids, warnings
       | clock_value, expr ->
-        let nexpr, gids = normalize_expr ?guard info map expr in
-        (clock_value, nexpr), gids
-    in let ncases, gids = normalize_list (normalize' ?guard info map) cases in
-    Merge (pos, clock_id, ncases), gids
+        let nexpr, gids, warnings = normalize_expr ?guard info map expr in
+        (clock_value, nexpr), gids, warnings
+    in let ncases, gids, warnings = normalize_list (normalize' ?guard info map) cases in
+    Merge (pos, clock_id, ncases), gids, warnings
   (* ************************************************************************ *)
   (* Guarding and abstracting pres                                            *)
   (* ************************************************************************ *)
   | Arrow (pos, expr1, expr2) ->
-    let nexpr1, gids1 = normalize_expr ?guard info map expr1 in
-    let nexpr2, gids2 = normalize_expr ?guard:(Some nexpr1) info map expr2 in
+    let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard:(Some nexpr1) info map expr2 in
     let gids = union gids1 gids2 in
-    Arrow (pos, nexpr1, nexpr2), gids
-   | Pre (pos1, ArrayIndex (pos2, expr1, expr2)) ->
+    let warnings = warnings1 @ warnings2 in
+    Arrow (pos, nexpr1, nexpr2), gids, warnings
+  | Pre (pos1, ArrayIndex (pos2, expr1, expr2)) ->
     let expr = A.ArrayIndex (pos2, Pre (pos1, expr1), expr2) in
     normalize_expr ?guard info map expr
-  | Pre (pos, expr) as p ->
+  | Pre (pos, expr) ->
     let ivars = info.inductive_variables in
     let ty = if expr_has_inductive_var ivars expr |> is_some then
         (StringMap.choose_opt info.inductive_variables) |> get |> snd
       else Chk.infer_type_expr info.context expr |> unwrap
       in
-    let nexpr, gids1 = abstract_expr ?guard:None false info map false expr in
-    let guard, gids2, previously_guarded = match guard with
-      | Some guard -> guard, empty (), true
+    let nexpr, gids1, warnings1 = abstract_expr ?guard:None false info map false expr in
+    let guard, gids2, warnings2, previously_guarded = match guard with
+      | Some guard -> guard, empty (), [], true
       | None ->
-        let guard, gids1 = mk_fresh_oracle ty nexpr in
-        let gids2 = record_warning pos p in
-        guard, union gids1 gids2, false
+        let guard, gids = mk_fresh_oracle ty nexpr in
+        let warnings = [mk_warning pos (UnguardedPreWarning (Pre (pos, expr)))] in
+        guard, gids, warnings, false
     in
     let gids = union gids1 gids2 in
+    let warnings = warnings1 @ warnings2 in
     let nexpr' = match nexpr with
       | A.ArrayIndex (pos2, expr1, expr2) ->
         A.ArrayIndex (pos2, Pre (pos, expr1), expr2)
       | e -> Pre (pos, e)
     in
-    if previously_guarded then nexpr', gids
-    else Arrow (pos, guard, nexpr'), gids
+    if previously_guarded then nexpr', gids, warnings
+    else Arrow (pos, guard, nexpr'), gids, warnings
   (* ************************************************************************ *)
   (* Misc. abstractions                                                       *)
   (* ************************************************************************ *)
@@ -1253,82 +1189,84 @@ and normalize_expr ?guard info map =
       (StringMap.choose_opt info.inductive_variables) |> get |> snd
     else Chk.infer_type_expr info.context expr |> unwrap
     in
-    let nexpr, gids1 = normalize_expr ?guard info map expr in
+    let nexpr, gids1, warnings = normalize_expr ?guard info map expr in
     let ivars = info.inductive_variables in
-    let iexpr, gids2 = mk_fresh_array_ctor info pos ivars ty nexpr size_expr in
-    ArrayConstr (pos, iexpr, size_expr), union gids1 gids2
+    let iexpr, gids2= mk_fresh_array_ctor info pos ivars ty nexpr size_expr in
+    ArrayConstr (pos, iexpr, size_expr), union gids1 gids2, warnings
   (* ************************************************************************ *)
   (* Variable renaming to ease handling contract scopes                       *)
   (* ************************************************************************ *)
-  | Ident _ as e -> rename_id info e, empty ()
+  | Ident _ as e -> rename_id info e, empty (), []
   (* ************************************************************************ *)
   (* The remaining expr kinds are all just structurally recursive             *)
   (* ************************************************************************ *)
-  | ModeRef _ as expr -> expr, empty ()
+  | ModeRef _ as expr -> expr, empty (), []
   | RecordProject (pos, expr, i) ->
-    let nexpr, gids = normalize_expr ?guard info map expr in
-    RecordProject (pos, nexpr, i), gids
+    let nexpr, gids, warnings = normalize_expr ?guard info map expr in
+    RecordProject (pos, nexpr, i), gids, warnings
   | TupleProject (pos, expr, i) ->
-    let nexpr, gids = normalize_expr ?guard info map expr in
-    TupleProject (pos, nexpr, i), gids
-  | Const _ as expr -> expr, empty ()
+    let nexpr, gids, warnings = normalize_expr ?guard info map expr in
+    TupleProject (pos, nexpr, i), gids, warnings
+  | Const _ as expr -> expr, empty (), []
   | UnaryOp (pos, op, expr) ->
-    let nexpr, gids = normalize_expr ?guard info map expr in
-    UnaryOp (pos, op, nexpr), gids
+    let nexpr, gids, warnings = normalize_expr ?guard info map expr in
+    UnaryOp (pos, op, nexpr), gids, warnings
   | BinaryOp (pos, op, expr1, expr2) ->
-    let nexpr1, gids1 = normalize_expr ?guard info map expr1 in
-    let nexpr2, gids2 = normalize_expr ?guard info map expr2 in
-    BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2
+    let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
+    BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | TernaryOp (pos, op, expr1, expr2, expr3) ->
-    let nexpr1, gids1 = normalize_expr ?guard info map expr1 in
-    let nexpr2, gids2 = normalize_expr ?guard info map expr2 in
-    let nexpr3, gids3 = normalize_expr ?guard info map expr3 in
+    let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
+    let nexpr3, gids3, warnings3 = normalize_expr ?guard info map expr3 in
     let gids = union (union gids1 gids2) gids3 in
-    TernaryOp (pos, op, nexpr1, nexpr2, nexpr3), gids
+    let warnings = warnings1 @ warnings2 @ warnings3 in
+    TernaryOp (pos, op, nexpr1, nexpr2, nexpr3), gids, warnings
   | NArityOp (pos, op, expr_list) ->
-    let nexpr_list, gids = normalize_list
+    let nexpr_list, gids, warnings = normalize_list
       (normalize_expr ?guard info map)
       expr_list in
-    NArityOp (pos, op, nexpr_list), gids
+    NArityOp (pos, op, nexpr_list), gids, warnings
   | ConvOp (pos, op, expr) ->
-    let nexpr, gids = normalize_expr ?guard info map expr in
-    ConvOp (pos, op, nexpr), gids
+    let nexpr, gids, warnings = normalize_expr ?guard info map expr in
+    ConvOp (pos, op, nexpr), gids, warnings
   | CompOp (pos, op, expr1, expr2) ->
-    let nexpr1, gids1 = normalize_expr ?guard info map expr1 in
-    let nexpr2, gids2 = normalize_expr ?guard info map expr2 in
-    CompOp (pos, op, nexpr1, nexpr2), union gids1 gids2
+    let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
+    CompOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | RecordExpr (pos, id, id_expr_list) ->
     let normalize' info map ?guard (id, expr) =
-      let nexpr, gids = normalize_expr ?guard info map expr in
-      (id, nexpr), gids
+      let nexpr, gids, warnings = normalize_expr ?guard info map expr in
+      (id, nexpr), gids, warnings
     in 
-    let nid_expr_list, gids = normalize_list 
+    let nid_expr_list, gids, warnings = normalize_list 
       (normalize' ?guard info map)
       id_expr_list in
-    RecordExpr (pos, id, nid_expr_list), gids
+    RecordExpr (pos, id, nid_expr_list), gids, warnings
   | GroupExpr (pos, kind, expr_list) ->
-    let nexpr_list, gids = normalize_list
+    let nexpr_list, gids, warnings = normalize_list
       (normalize_expr ?guard info map)
       expr_list in
-    GroupExpr (pos, kind, nexpr_list), gids
+    GroupExpr (pos, kind, nexpr_list), gids, warnings
   | StructUpdate (pos, expr1, i, expr2) ->
-    let nexpr1, gids1 = normalize_expr ?guard info map expr1 in
-    let nexpr2, gids2 = normalize_expr ?guard info map expr2 in
-    StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2
+    let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
+    StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | ArraySlice (pos, expr1, (expr2, expr3)) ->
-    let nexpr1, gids1 = normalize_expr ?guard info map expr1 in
-    let nexpr2, gids2 = normalize_expr ?guard info map expr2 in
-    let nexpr3, gids3 = normalize_expr ?guard info map expr3 in
+    let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
+    let nexpr3, gids3, warnings3 = normalize_expr ?guard info map expr3 in
     let gids = union (union gids1 gids2) gids3 in
-    ArraySlice (pos, nexpr1, (nexpr2, nexpr3)), gids
+    let warnings = warnings1 @ warnings2 @ warnings3 in
+    ArraySlice (pos, nexpr1, (nexpr2, nexpr3)), gids, warnings
   | ArrayIndex (pos, expr1, expr2) ->
-    let nexpr1, gids1 = normalize_expr ?guard info map expr1 in
-    let nexpr2, gids2 = normalize_expr ?guard info map expr2 in
-    ArrayIndex (pos, nexpr1, nexpr2), union gids1 gids2
+    let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
+    ArrayIndex (pos, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | ArrayConcat (pos, expr1, expr2) ->
-    let nexpr1, gids1 = normalize_expr ?guard info map expr1 in
-    let nexpr2, gids2 = normalize_expr ?guard info map expr2 in
-    ArrayConcat (pos, nexpr1, nexpr2), union gids1 gids2
+    let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
+    ArrayConcat (pos, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | Quantifier (pos, kind, vars, expr) ->
     let ctx = List.fold_left Ctx.union info.context
       (List.map (fun (_, i, ty) -> Ctx.singleton_ty i ty) vars)
@@ -1337,31 +1275,32 @@ and normalize_expr ?guard info map =
       info with context = ctx;
         quantified_variables = info.quantified_variables @ vars }
     in
-    let nexpr, gids = normalize_expr ?guard info map expr in
-    Quantifier (pos, kind, vars, nexpr), gids
+    let nexpr, gids, warnings = normalize_expr ?guard info map expr in
+    Quantifier (pos, kind, vars, nexpr), gids, warnings
   | When (pos, expr, clock_expr) ->
-    let nexpr, gids = normalize_expr ?guard info map expr in
-    When (pos, nexpr, clock_expr), gids
+    let nexpr, gids, warnings = normalize_expr ?guard info map expr in
+    When (pos, nexpr, clock_expr), gids, warnings
   | Current (pos, expr) ->
-    let nexpr, gids = normalize_expr ?guard info map expr in
-    Current (pos, nexpr), gids
+    let nexpr, gids, warnings = normalize_expr ?guard info map expr in
+    Current (pos, nexpr), gids, warnings
   | Activate (pos, id, expr1, expr2, expr_list) ->
-    let nexpr1, gids1 = normalize_expr ?guard info map expr1 in
-    let nexpr2, gids2 = normalize_expr ?guard info map expr2 in
-    let nexpr_list, gids3 = normalize_list
+    let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
+    let nexpr_list, gids3, warnings3 = normalize_list
       (normalize_expr ?guard info map)
       expr_list in
     let gids = union (union gids1 gids2) gids3 in
-    Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids
+    let warnings = warnings1 @ warnings2 @ warnings3 in
+    Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids, warnings
   | Fby (pos, expr1, i, expr2) ->
-    let nexpr1, gids1 = normalize_expr ?guard info map expr1 in
-    let nexpr2, gids2 = normalize_expr ?guard info map expr2 in
-    Fby (pos, nexpr1, i, nexpr2), union gids1 gids2
+    let nexpr1, gids1, warnings1 = normalize_expr ?guard info map expr1 in
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard info map expr2 in
+    Fby (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | CallParam (pos, id, type_list, expr_list) ->
-    let nexpr_list, gids = normalize_list
+    let nexpr_list, gids, warnings = normalize_list
       (normalize_expr ?guard info map)
       expr_list in
-    CallParam (pos, id, type_list, nexpr_list), gids
+    CallParam (pos, id, type_list, nexpr_list), gids, warnings
 
 and expand_node_calls_in_place info var count expr =
   let r = expand_node_calls_in_place info var count in

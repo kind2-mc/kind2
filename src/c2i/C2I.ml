@@ -155,19 +155,19 @@ let mk_solvers sys =
   (* Destroy all existing solvers. *)
   let solver1 =
     SMTSolver.create_instance
-      ~produce_assignments:true
+      ~produce_models:true
       (TransSys.get_logic sys) (Flags.Smt.solver ())
   in
 
   let solver2 =
     SMTSolver.create_instance
-      ~produce_assignments:true
+      ~produce_models:true
       (TransSys.get_logic sys) (Flags.Smt.solver ())
   in
 
   let solver3 =
     SMTSolver.create_instance
-      ~produce_assignments:true
+      ~produce_models:true
       (TransSys.get_logic sys) (Flags.Smt.solver ())
   in
 

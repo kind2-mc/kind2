@@ -4,5 +4,5 @@ node N(in:bool) returns (out:bool);
   var A : bool = Undefined(cancel);
 *)
 let
-  in = out;
+  out = in;
 tel

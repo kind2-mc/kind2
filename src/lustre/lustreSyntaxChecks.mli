@@ -21,7 +21,10 @@
 
 type error_kind = Unknown of string
   | UndefinedLocal of HString.t
+  | DuplicateLocal of HString.t
+  | DuplicateOutput of HString.t
   | UndefinedNode of HString.t
+  | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
@@ -38,6 +41,7 @@ type error_kind = Unknown of string
   | UnsupportedAssignment
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
+  | MisplacedVarInFrameBlock of LustreAst.ident
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind

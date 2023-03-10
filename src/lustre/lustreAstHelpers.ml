@@ -238,10 +238,85 @@ let rec has_unguarded_pre ung = function
     let u2 = has_unguarded_pre false e2 in
     u1 || u2
 
+
 let has_unguarded_pre e =
   let u = has_unguarded_pre true e in
   if u && Flags.lus_strict ()
   then raise Parser_error; u
+
+let rec has_unguarded_pre_no_warn ung = function
+  | Const _ | Ident _ | ModeRef _ -> false
+    
+  | RecordProject (_, e, _) | ConvOp (_, _, e)
+  | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
+  | TupleProject (_, e, _) | Quantifier (_, _, _, e) -> has_unguarded_pre_no_warn ung e
+  | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
+  | CompOp (_, _, e1, e2) | ArrayConcat (_, e1, e2) ->
+    let u1 = has_unguarded_pre_no_warn ung e1 in
+    let u2 = has_unguarded_pre_no_warn ung e2 in
+    u1 || u2
+
+  | TernaryOp (_, _, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3)) ->
+    let u1 = has_unguarded_pre_no_warn ung e1 in
+    let u2 = has_unguarded_pre_no_warn ung e2 in
+    let u3 = has_unguarded_pre_no_warn ung e3 in
+    u1 || u2 || u3
+
+  | ArrayIndex (_, e1, e2) ->
+    let u1 = has_unguarded_pre_no_warn ung e1 in
+    let u2 = has_unguarded_pre_no_warn ung e2 in
+    u1 || u2
+ 
+  | GroupExpr (_, _, l) | NArityOp (_, _, l)
+  | Call (_, _, l) | CallParam (_, _, _, l) ->
+    let us = List.map (has_unguarded_pre_no_warn ung) l in
+    List.exists Lib.identity us
+
+  | Merge (_, _, l) ->
+    let us = List.map (has_unguarded_pre_no_warn ung) (List.map snd l) in
+    List.exists Lib.identity us
+
+  | RestartEvery (_, _, l, e) ->
+    let us = List.map (has_unguarded_pre_no_warn ung) (e :: l) in
+    List.exists Lib.identity us
+
+  | Activate (_, _, e, r, l)  ->
+    let us = List.map (has_unguarded_pre_no_warn ung) (e :: r :: l) in
+    List.exists Lib.identity us
+
+  | Condact (_, e, r, _, l1, l2) ->
+    let us = List.map (has_unguarded_pre_no_warn ung) (e :: r :: l1 @ l2) in
+    List.exists Lib.identity us
+
+  | RecordExpr (_, _, ie) ->
+    let us = List.map (fun (_, e) -> has_unguarded_pre_no_warn ung e) ie in
+    List.exists Lib.identity us
+
+  | StructUpdate (_, e1, li, e2) ->
+    let u1 = has_unguarded_pre_no_warn ung e1 in
+    let us = List.map (function
+        | Label _ -> false
+        | Index (_, e) -> has_unguarded_pre_no_warn ung e
+      ) li in
+    let u2 = has_unguarded_pre_no_warn ung e2 in
+    u1 || u2 || List.exists Lib.identity us
+
+  | Fby (_, e1, _, e2) ->
+    let u1, u2 = has_unguarded_pre_no_warn ung e1, has_unguarded_pre_no_warn ung e2 in
+    u1 || u2
+
+  | Pre (_, e)->
+    let u = has_unguarded_pre_no_warn true e in
+    ung || u
+
+  | Arrow (_, e1, e2) ->
+    let u1 = has_unguarded_pre_no_warn ung e1 in
+    let u2 = has_unguarded_pre_no_warn false e2 in
+    u1 || u2
+
+let has_unguarded_pre_no_warn e =
+  has_unguarded_pre_no_warn true e 
 
 (** If second argument is `Some _`, returns that. Otherwise runs `f`. *)
 let unwrap_or f = function
@@ -625,14 +700,36 @@ let eq_lhs_has_pre_or_arrow = function
   List.map struct_item_has_pre_or_arrow l
   |> some_of_list
 
+
 (** Checks whether a node equation has a `pre` or a `->`. *)
-let node_item_has_pre_or_arrow = function
+let rec node_item_has_pre_or_arrow = function
 | Body (Assert (_, e)) -> has_pre_or_arrow e
 | Body (Equation (_, lhs, e)) ->
   eq_lhs_has_pre_or_arrow lhs
   |> unwrap_or (fun _ -> has_pre_or_arrow e)
+| IfBlock (_, e, l1, l2) -> (match has_pre_or_arrow e with
+  | Some pos -> Some pos
+  | None -> (match node_item_list_has_pre_or_arrow l1 with 
+    | Some pos -> Some pos
+    | None -> node_item_list_has_pre_or_arrow l2
+    )
+  )
+| FrameBlock (_, _, nes, nis) -> 
+  let nes = List.map (fun x -> Body x) nes in 
+  (match node_item_list_has_pre_or_arrow nes with
+    | Some pos -> Some pos
+    | None ->  node_item_list_has_pre_or_arrow nis)
 | AnnotMain _ -> None
 | AnnotProperty (_, _, e) -> has_pre_or_arrow e
+and
+
+node_item_list_has_pre_or_arrow = function 
+  | ni :: nis -> (match node_item_has_pre_or_arrow ni with 
+    | Some pos -> Some pos 
+    | None -> node_item_list_has_pre_or_arrow nis)
+  | [] -> None
+
+
 
 (** Checks whether a contract node equation has a `pre` or a `->`.
 
@@ -776,9 +873,15 @@ let rec vars_of_struct_item = function
   | ArraySliceStructItem (_, i, _)
   | ArrayDef (_, i, _) -> SI.singleton i
 
-let vars_lhs_of_eqn_with_pos = function
+
+let rec defined_vars_with_pos = function
   | Body (Equation (_, StructDef (_, ss), _)) -> List.flatten (List.map vars_of_struct_item_with_pos ss)
-  | _ -> []
+  | IfBlock (_, _, l1, l2) -> 
+    List.flatten (List.map defined_vars_with_pos l1) @
+    List.flatten (List.map defined_vars_with_pos l2)
+  | FrameBlock (pos, vars, _, _) ->
+    List.map (fun var -> (pos, var)) vars
+  | _ -> [] 
 
 
 let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
@@ -1085,17 +1188,69 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   (* Node calls *)
   | Call (p, i, es) -> Call (p, i, List.map abstract_pre_subexpressions es) 
   | CallParam (p, i, tys, es) -> CallParam (p, i, tys, List.map abstract_pre_subexpressions es) 
-                                   
+                 
+let rec replace_idents locals1 locals2 expr = 
+  match expr with
+  | Ident (pos, i) -> (
+    match List.assoc_opt i (List.combine locals1 locals2) with
+      | Some i2 -> Ident (pos, i2)
+      | None -> Ident (pos, i)
+  )
+  (* Everything else is just recursing to find Idents *)
+  | Pre (a, e) -> Pre (a, replace_idents locals1 locals2 e)
+  | Arrow (a, e1, e2) -> Arrow (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
+  | Const _ as e -> e
+  | ModeRef _ as e -> e
+    
+  | RecordProject (a, e, b) -> RecordProject (a, replace_idents locals1 locals2 e, b)
+  | ConvOp (a, b, e) -> ConvOp (a, b, replace_idents locals1 locals2 e)
+  | UnaryOp (a, b, e) -> UnaryOp (a, b, replace_idents locals1 locals2 e)
+  | Current (a, e) -> Current (a, replace_idents locals1 locals2 e)
+  | When (a, e, b) -> When (a, replace_idents locals1 locals2 e, b)
+  | TupleProject (a, e, b) -> TupleProject (a, replace_idents locals1 locals2 e, b)
+  | Quantifier (a, b, c, e) -> Quantifier (a, b, c, replace_idents locals1 locals2 e)
+  | BinaryOp (a, b, e1, e2) -> BinaryOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
+  | CompOp (a, b, e1, e2) -> CompOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
+  | ArrayConcat (a, e1, e2) -> ArrayConcat (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
+  | ArrayIndex (a, e1, e2) -> ArrayIndex (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
+  | ArrayConstr (a, e1, e2)  -> ArrayConstr (a, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2)
+  | Fby (a, e1, b, e2) -> Fby (a, replace_idents locals1 locals2 e1, b, replace_idents locals1 locals2 e2)
+  | TernaryOp (a, b, e1, e2, e3) -> TernaryOp (a, b, replace_idents locals1 locals2 e1, replace_idents locals1 locals2 e2, replace_idents locals1 locals2 e3)
+  | ArraySlice (a, e1, (e2, e3)) -> ArraySlice (a, replace_idents locals1 locals2 e1, (replace_idents locals1 locals2 e2, replace_idents locals1 locals2 e3))
+  
+  | GroupExpr (a, b, l) -> GroupExpr (a, b, List.map (replace_idents locals1 locals2) l)
+  | NArityOp (a, b, l) -> NArityOp (a, b, List.map (replace_idents locals1 locals2) l) 
+  | Call (a, b, l) -> Call (a, b, List.map (replace_idents locals1 locals2) l)
+  | CallParam (a, b, c, l) -> CallParam (a, b, c, List.map (replace_idents locals1 locals2) l)
 
+  | Merge (a, b, l) -> Merge (a, b, 
+    List.combine
+    (List.map fst l)
+    (List.map (replace_idents locals1 locals2) (List.map snd l)))
+  
+  | RecordExpr (a, b, l) -> RecordExpr (a, b,     
+    List.combine
+    (List.map fst l)
+    (List.map (replace_idents locals1 locals2) (List.map snd l)))
+  
+  | RestartEvery (a, b, l, e) -> 
+    RestartEvery (a, b, List.map (replace_idents locals1 locals2) l, replace_idents locals1 locals2 e)
+  | Activate (a, b, e, r, l) ->
+    Activate (a, b, (replace_idents locals1 locals2) e, (replace_idents locals1 locals2) r, List.map (replace_idents locals1 locals2) l)
+  | Condact (a, e, r, b, l1, l2) ->
+    Condact (a, (replace_idents locals1 locals2) e, (replace_idents locals1 locals2) r, b, 
+             List.map (replace_idents locals1 locals2) l1, List.map (replace_idents locals1 locals2) l2)
 
-let extract_equation: node_item list -> node_equation list
-  = let extract_equation_helper: node_item -> node_equation list
-      = function
-      | Body n -> [n]
-      | _ -> []
-    in fun items ->
-       List.concat (List.map extract_equation_helper items)
-                               
+  | StructUpdate (a, e1, li, e2) -> 
+    StructUpdate (a, replace_idents locals1 locals2 e1, 
+    List.map (function
+              | Label (a, b) -> Label (a, b)
+              | Index (a, e) -> Index (a, replace_idents locals1 locals2 e)
+             ) li, 
+    replace_idents locals1 locals2 e2)
+(** For every identifier, if that identifier is position n in locals1,
+   replace it with position n in locals2 *)
+
 let extract_node_equation: node_item -> (eq_lhs * expr) list =
   function
   | Body (Equation (_, lhs, expr)) -> [(lhs, expr)]

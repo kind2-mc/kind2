@@ -21,6 +21,7 @@
 
 module LA = LustreAst
 module LAH = LustreAstHelpers
+module H = HString
 
 module StringSet = Set.Make(
   struct
@@ -37,7 +38,10 @@ module StringMap = Map.Make(
 
 type error_kind = Unknown of string
   | UndefinedLocal of HString.t
+  | DuplicateLocal of HString.t
+  | DuplicateOutput of HString.t
   | UndefinedNode of HString.t
+  | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
@@ -54,6 +58,7 @@ type error_kind = Unknown of string
   | UnsupportedAssignment
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
+  | MisplacedVarInFrameBlock of LustreAst.ident
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -63,7 +68,13 @@ let error_message kind = match kind with
   | Unknown s -> s
   | UndefinedLocal id -> "Local variable '"
     ^ HString.string_of_hstring id ^ "' has no definition"
+  | DuplicateLocal id -> "Local variable '"
+    ^ HString.string_of_hstring id ^ "' has more than one definition"
+  | DuplicateOutput id -> "Output variable '"
+    ^ HString.string_of_hstring id ^ "' has more than one definition"
   | UndefinedNode id -> "Node or function '"
+    ^ HString.string_of_hstring id ^ "' is undefined"
+  | UndefinedContract id -> "Contract '"
     ^ HString.string_of_hstring id ^ "' is undefined"
   | DanglingIdentifier id -> "Unknown identifier '"
     ^ HString.string_of_hstring id ^ "'"
@@ -91,6 +102,7 @@ let error_message kind = match kind with
   | UnsupportedAssignment -> "Assignment not supported"
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
+  | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -273,39 +285,69 @@ let build_equation_ctx ctx = function
       | _ -> ctx
     in
     List.fold_left over_items ctx items
+    
+let rec find_var_def_count_lhs id = function
+  | LA.SingleIdent (_, id')
+  | TupleSelection (_, id', _)
+  | FieldSelection (_, id', _)
+  | ArraySliceStructItem (_, id', _)
+  | ArrayDef (_, id', _)
+    -> if id = id' then 1 else 0
+  | TupleStructItem (_, items) ->
+    List.map (find_var_def_count_lhs id) items
+    |> List.fold_left (+) 0
 
-let locals_must_have_definitions locals items =
-  let rec find_local_def_lhs id test = function
-    | LA.SingleIdent (_, id')
-    | TupleSelection (_, id', _)
-    | FieldSelection (_, id', _)
-    | ArraySliceStructItem (_, id', _)
-    | ArrayDef (_, id', _)
-      -> test || id = id'
-    | TupleStructItem (_, items) ->
-      let test_items = items |> List.map (find_local_def_lhs id test)
-        |> List.fold_left (fun x y -> x || y) false
-      in
-      test || test_items
-  in
-  let find_local_def id = function
-    | LA.Body eqn -> (match eqn with
-      | LA.Assert _ -> false
-      | LA.Equation (_, lhs, _) -> (match lhs with
-        | LA.StructDef (_, vars)
-          -> List.fold_left (find_local_def_lhs id) false vars))
-    | LA.AnnotMain _ -> false
-    | LA.AnnotProperty _ -> false
-  in
+let rec find_var_def_count id = function
+  | LA.Body eqn -> (match eqn with
+    | LA.Assert _ -> 0
+    | LA.Equation (_, lhs, _) -> (match lhs with
+      | LA.StructDef (_, vars)
+        -> List.map (find_var_def_count_lhs id) vars) |> List.fold_left (+) 0)
+  | LA.IfBlock (_, _, l1, l2) ->
+    let x1 = List.map (find_var_def_count id) l1 |> List.fold_left (+) 0 in
+    let x2 = List.map (find_var_def_count id) l2 |> List.fold_left (+) 0 in
+    (* Detect duplicate definitions in the same branch *)
+    if (x1 > 1 || x2 > 1) then 2
+    (* Local is defined in at least one branch *)
+    else if (x1 = 1 || x2 = 1) then 1
+    (* Local isn't defined in this if block *)
+    else 0
+  | LA.FrameBlock (_, vars, nes, nis) -> (
+    let nes = List.map (fun x -> (LA.Body x)) nes in
+    let x1 = List.filter (fun var -> var = id) vars |> List.length in
+    let x2 = List.map (find_var_def_count id) nis |> List.fold_left (+) 0 in
+    let x3 = List.map (find_var_def_count id) nes |> List.fold_left (+) 0 in
+    if (x1 + x2 + x3 = 0) 
+    then 0 
+    (* Detect duplicate definitions in any components of the frame block *)
+    else if (x1 > 1 || x2 > 1 || x3 > 1) then 2
+    else 1
+  )
+  | LA.AnnotMain _ -> 0
+  | LA.AnnotProperty _ -> 0
+
+let locals_exactly_one_definition locals items =
   let over_locals = function
     | LA.NodeConstDecl _ -> Ok ()
     | LA.NodeVarDecl (_, (pos, id, _, _)) ->
-      let test = List.find_opt (fun item -> find_local_def id item) items in
-      match test with
-      | Some _ -> Ok ()
-      | None -> syntax_error pos (UndefinedLocal id)
+      let def_count = (List.map (find_var_def_count id) items) |> List.fold_left (+) 0 in
+      match def_count with
+      | 1 -> Ok ()
+      | 0 -> syntax_error pos (UndefinedLocal id)
+      | _ -> syntax_error pos (DuplicateLocal id)
   in
   Res.seq (List.map over_locals locals)
+
+let outputs_at_most_one_definition outputs items =
+  let over_outputs = function
+  | (pos, id, _, _) ->
+    let def_count = List.map (find_var_def_count id) items |> List.fold_left (+) 0 in
+    match def_count with
+      | 0 
+      | 1 -> Ok ()
+      | _ -> syntax_error pos (DuplicateOutput id)
+  in
+  Res.seq (List.map over_outputs outputs)
 
 let no_dangling_calls ctx = function
   | LA.Condact (pos, _, _, i, _, _)
@@ -319,19 +361,22 @@ let no_dangling_calls ctx = function
     | false, false -> syntax_error pos (UndefinedNode i))
   | _ -> Ok ()
 
+let no_a_dangling_identifier ctx pos i =
+  let check_ids = [
+    StringMap.mem i ctx.consts;
+    StringMap.mem i ctx.free_consts;
+    StringMap.mem i ctx.locals;
+    StringMap.mem i ctx.quant_vars;
+    StringMap.mem i ctx.array_indices;
+    StringMap.mem i ctx.symbolic_array_indices; ]
+  in
+  let check_ids = List.filter (fun x -> x) check_ids in
+  if List.length check_ids > 0 then Ok ()
+  else syntax_error pos (DanglingIdentifier i)
+
 let no_dangling_identifiers ctx = function
   | LA.Ident (pos, i) -> 
-    let check_ids = [
-      StringMap.mem i ctx.consts;
-      StringMap.mem i ctx.free_consts;
-      StringMap.mem i ctx.locals;
-      StringMap.mem i ctx.quant_vars;
-      StringMap.mem i ctx.array_indices;
-      StringMap.mem i ctx.symbolic_array_indices; ]
-    in
-    let check_ids = List.filter (fun x -> x) check_ids in
-    if List.length check_ids > 0 then Ok ()
-    else syntax_error pos (DanglingIdentifier i)
+    no_a_dangling_identifier ctx pos i
   | _ -> Ok ()
 
 let no_quant_var_or_symbolic_index_in_node_call ctx = function
@@ -404,8 +449,7 @@ let no_calls_to_nodes_with_contracts_subject_to_refinement ctx expr =
     | _ -> Ok ())
   | _ -> Ok ()
 
-let no_temporal_operator is_const expr =
-  let decl_ctx = if is_const then "constant" else "function or function contract" in
+let no_temporal_operator decl_ctx expr =
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
@@ -509,7 +553,7 @@ and check_declaration ctx = function
 
 and check_const_expr_decl ctx expr =
   let composed_checks ctx e =
-    (no_temporal_operator true e)
+    (no_temporal_operator "constant" e)
       >> (no_dangling_identifiers ctx e)
   in
   check_expr ctx composed_checks expr
@@ -539,42 +583,57 @@ and check_local_items local = match local with
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
 and check_node_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
-  let ctx = build_local_ctx ctx locals inputs outputs in
+  let ctx =
+    (* Locals are not visible in contracts *)
+    build_local_ctx ctx [] inputs outputs
+  in
   let decl = LA.NodeDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
   (parametric_nodes_unsupported span.start_pos params)
-  >> (locals_must_have_definitions locals items)
-    >> (check_items ctx common_node_equations_checks items)
-    >> (match contract with 
-    | Some c -> check_contract false ctx common_contract_checks c
-    | None -> Ok ())
-    >> (Res.seq_ (List.map check_input_items inputs))
-    >> (Res.seq_ (List.map check_output_items outputs))
-    >> (Res.seq_ (List.map check_local_items locals))
-    >> (Ok decl)
+  >> (match contract with
+     | Some c -> check_contract false ctx common_contract_checks c
+     | None -> Ok ())
+  >> (locals_exactly_one_definition locals items)
+  >> (outputs_at_most_one_definition outputs items)
+  >> (check_items
+       (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
+       common_node_equations_checks
+       items
+     )
+  >> (Res.seq_ (List.map check_input_items inputs))
+  >> (Res.seq_ (List.map check_output_items outputs))
+  >> (Res.seq_ (List.map check_local_items locals))
+  >> (Ok decl)
 
 and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, contract) =
-  let ctx = build_local_ctx ctx locals inputs outputs in
+  let ctx =
+    (* Locals are not visible in contracts *)
+    build_local_ctx ctx [] inputs outputs
+  in
   let decl = LA.FuncDecl
     (span, (id, ext, params, inputs, outputs, locals, items, contract))
   in
   let composed_items_checks ctx e =
     (common_node_equations_checks ctx e)
       >> (no_calls_to_node ctx e)
-      >> (no_temporal_operator false e)
+      >> (no_temporal_operator "constant" e)
   in
   (parametric_nodes_unsupported span.start_pos params)
-  >> (check_items ctx composed_items_checks items)
-    >> (match contract with
+  >> (match contract with
       | Some c -> check_contract false ctx common_contract_checks c
-        >> (check_contract false ctx (fun _ -> no_temporal_operator false) c)
+        >> (check_contract false ctx (fun _ -> no_temporal_operator "function or function contract") c)
         >> no_stateful_contract_imports ctx c
       | None -> Ok ())
-    >> (Res.seq_ (List.map check_input_items inputs))
-    >> (Res.seq_ (List.map check_output_items outputs))
-    >> (Res.seq_ (List.map check_local_items locals))
-    >> (Ok decl)
+  >> (check_items
+       (build_local_ctx ctx locals [] []) (* Add locals to ctx *)
+       composed_items_checks
+       items
+     )
+  >> (Res.seq_ (List.map check_input_items inputs))
+  >> (Res.seq_ (List.map check_output_items outputs))
+  >> (Res.seq_ (List.map check_local_items locals))
+  >> (Ok decl)
 
 and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
   let ctx = build_local_ctx ctx [] inputs outputs in
@@ -589,11 +648,19 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
 and check_items ctx f items =
   let check_item ctx f = function
     | LA.Body (Equation (_, lhs, e)) ->
-      let ctx = build_equation_ctx ctx lhs in
+      let ctx' = build_equation_ctx ctx lhs in
       let StructDef (_, struct_items) = lhs in
       check_struct_items ctx struct_items
-        >> check_expr ctx f e
+        >> check_expr ctx' f e
         >> (expr_only_supported_in_merge false e)
+    | LA.IfBlock (_, e, l1, l2) -> 
+      check_expr ctx f e >> (check_items ctx f l1) >> (check_items ctx f l2)
+    | LA.FrameBlock (pos, vars, nes, nis) ->
+      let nes = List.map (fun x -> LA.Body x) nes in
+      check_items ctx (fun _ e -> no_temporal_operator "frame block initialization" e) nes >>
+      check_items ctx f nes >> (check_items ctx f nis) >>
+      (*  Make sure 'nes' and 'nis' LHS vars are in 'vars' *)
+      (Res.seq_ (List.map (check_frame_vars pos vars) nis)) >> (Res.seq_ (List.map (check_frame_vars pos vars) nes))
     | Body (Assert (_, e))
     | AnnotProperty (_, _, e) -> check_expr ctx f e
     | AnnotMain _ -> Ok ()
@@ -604,13 +671,25 @@ and check_struct_items ctx items =
   let r items = check_struct_items ctx items in
   match items with
   | [] -> Ok ()
-  | (LA.SingleIdent _) :: tail -> r tail
-  | (ArrayDef _) :: tail -> r tail
+  | (LA.SingleIdent (pos, id)) :: tail ->
+    no_a_dangling_identifier ctx pos id >> r tail
+  | (ArrayDef (pos, id, _)) :: tail ->
+    no_a_dangling_identifier ctx pos id >> r tail
   | (TupleStructItem (pos, _)) :: _
   | (TupleSelection (pos, _, _)) :: _
   | (FieldSelection (pos, _, _)) :: _
   | (ArraySliceStructItem (pos, _, _)) :: _
     -> syntax_error pos UnsupportedAssignment
+
+(* Within a frame block, make sure vars in the LHS of 'ni' appear somehwere in 'vars'  *)
+and check_frame_vars pos vars ni = 
+  let vars_of_ni = List.map snd (LAH.defined_vars_with_pos ni) in
+  let unlisted = 
+    H.HStringSet.diff (H.HStringSet.of_list vars_of_ni) (H.HStringSet.of_list vars)
+  in
+  match H.HStringSet.choose_opt unlisted with
+  | None -> Res.ok ()
+  | Some var -> syntax_error pos (MisplacedVarInFrameBlock var)
 
 and check_contract is_contract_node ctx f contract =
   let ctx = build_contract_ctx ctx contract in
@@ -626,12 +705,26 @@ and check_contract is_contract_node ctx f contract =
     | AssumptionVars (pos, _) ->
       if not is_contract_node then Ok ()
       else syntax_error pos AssumptionVariablesInContractNode
-    | _ -> Ok ()
+    | GhostConst decl -> (
+      let check = match decl with
+      | LA.FreeConst _ -> Ok ()
+      | UntypedConst (_, _, e)
+      | TypedConst (_, _, e, _) -> check_const_expr_decl ctx e
+      in
+      check >> Ok ()
+    )
+    | ContractCall (pos, i, args, outputs) -> (
+      if StringMap.mem i ctx.contracts then (
+        check_expr_list ctx f args
+        >> Res.seqM (fun x _ -> x) () (List.map
+           (no_a_dangling_identifier ctx pos) outputs)
+      )
+      else syntax_error pos (UndefinedContract i)
+    )
   in
   Res.seqM (fun x _ -> x) () (List.map (check_contract_item ctx f) contract)
 
 and check_expr ctx f (expr:LustreAst.expr) =
-  let check_list e = Res.seqM (fun x _ -> x) () (List.map (check_expr ctx f) e) in
   let expr' = f ctx expr in
   let r = match expr with
     | LA.RecordProject (_, e, _)
@@ -662,20 +755,22 @@ and check_expr ctx f (expr:LustreAst.expr) =
     | GroupExpr (_, _, e)
     | Call (_, _, e)
     | CallParam (_, _, _, e)
-      -> check_list e
+      -> check_expr_list ctx f e
     | RecordExpr (_, _, e)
     | Merge (_, _, e)
-      -> let e = List.map (fun (_, e) -> e) e in check_list e
+      -> let e = List.map (fun (_, e) -> e) e in check_expr_list ctx f e
     | Condact (_, e1, e2, _, e3, e4)
       -> (check_expr ctx f e1) >> (check_expr ctx f e2)
-        >> (check_list e3) >> (check_list e4)
-    | Activate (_, _, e1, e2, e3)
-      -> (check_expr ctx f e1) >> (check_expr ctx f e2) >> (check_list e3)
+        >> (check_expr_list ctx f e3) >> (check_expr_list ctx f e4)
+    | Activate (_, _, e1, e2, e3) ->
+      (check_expr ctx f e1) >> (check_expr ctx f e2) >> (check_expr_list ctx f e3)
     | RestartEvery (_, _, e1, e2)
-      -> (check_list e1) >> (check_expr ctx f e2)
+      -> (check_expr_list ctx f e1) >> (check_expr ctx f e2)
     | _ -> Ok ()
   in
   expr' >> r
+and check_expr_list ctx f e =
+  Res.seqM (fun x _ -> x) () (List.map (check_expr ctx f) e)
 
 let no_mismatched_clock is_bool e =
   let ctx = empty_ctx () in

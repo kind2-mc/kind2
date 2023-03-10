@@ -143,6 +143,8 @@ Dependency graph of modules {%html: <img src="include/lustre-frontend.png"> %}
   LustreTransSys
   LustreInput
   LustrePath
+  LustreDesugarIfBlocks
+  LustreDesugarFrameBlocks
 }
 
 {3:input_native Native}
@@ -171,7 +173,7 @@ Source files live in subdirectory [SMTSolver]
 {!modules:
   GenericSMTLIBDriver
   CVC5Driver
-  BoolectorDriver
+  BitwuzlaDriver
   MathSATDriver
   Yices2SMT2Driver
   Z3Driver

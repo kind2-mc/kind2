@@ -23,7 +23,7 @@ open Lib
 let cmd_line
     _ (* logic *)
     timeout
-    _ (* produce_assignments *)
+    _ (* produce_models *)
     _ (* produce_proofs *)
     _ (* produce_unsat_cores *)
     _ (* produce_unsat_assumptions *)

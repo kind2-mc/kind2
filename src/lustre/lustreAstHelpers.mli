@@ -54,6 +54,9 @@ val substitute : HString.t -> expr -> expr -> expr
 val has_unguarded_pre : expr -> bool
 (** Returns true if the expression has unguareded pre's *)
 
+val has_unguarded_pre_no_warn : expr -> bool
+(** Returns true if the expression has unguareded pre's. Does not print warning. *)
+
 val has_pre_or_arrow : expr -> Lib.position option
 (** Returns true if the expression has a `pre` or a `->`. *)
 
@@ -87,7 +90,7 @@ val vars_of_struct_item_with_pos: struct_item -> (Lib.position * index) list
 val vars_of_struct_item: struct_item -> SI.t
 (** returns all variables that appear in a [struct_item] *)
 
-val vars_lhs_of_eqn_with_pos: node_item -> (Lib.position * index) list
+val defined_vars_with_pos: node_item -> (Lib.position * index) list
 (** returns all the variables that appear in the lhs of the equation of the node body with associated positions *)
 
 val vars_of_ty_ids: typed_ident -> SI.t
@@ -149,8 +152,9 @@ val split_program: declaration list -> (declaration list * declaration list)
 val abstract_pre_subexpressions: expr -> expr
 (** Abstracts out the pre expressions into a constant so that the built graph does not create a cycle.*)
 
-val extract_equation: node_item list -> node_equation list
-(** Extracts equation from the node item *)
+val replace_idents: index list -> index list -> expr -> expr
+(** For every identifier, if that identifier is position n in locals1,
+   replace it with position n in locals2 *)
   
 val extract_node_equation: node_item -> (eq_lhs * expr) list
 (** Extracts out all the node equations as an associated list of rhs and lhs of the equation *)

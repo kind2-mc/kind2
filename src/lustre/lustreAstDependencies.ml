@@ -462,17 +462,25 @@ let mk_graph_contract_decl: Lib.position -> LA.contract_node_decl -> dependency_
     (HString.concat2 contract_prefix i) pos
 (** This builds a graph with all the node call dependencies from the equations of the contract  *)
   
-let extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
-  = List.fold_left
-      (fun acc eqn ->
-        (match eqn with
-          | LA.Body bneq ->
-              (match bneq with
-              | LA.Assert (_, e) -> get_node_call_from_expr e
-              | LA.Equation (_, _, e) -> get_node_call_from_expr e)
-          | AnnotProperty (_, _, e) -> get_node_call_from_expr e
-          | _ -> []) @ acc) [] 
+let rec extract_node_calls_item: LA.node_item -> (LA.ident * Lib.position) list
+= function
+  | LA.Body bneq ->
+    (match bneq with
+     | LA.Assert (_, e) -> get_node_call_from_expr e
+     | LA.Equation (_, _, e) -> get_node_call_from_expr e)
+  | IfBlock (_, e, l1, l2) ->
+    get_node_call_from_expr e @
+    extract_node_calls l1 @
+    extract_node_calls l2
+  | FrameBlock (_, _, nes, nis) ->
+    extract_node_calls (List.map (fun x -> LA.Body x) nes) @
+    extract_node_calls nis
+  | AnnotProperty (_, _, e) -> get_node_call_from_expr e
+  | _ -> []
 (** Extracts all the node calls from a node item *)
+
+and extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
+= fun l -> List.fold_left (fun acc i -> extract_node_calls_item i @ acc) [] l
   
 let mk_graph_node_decl: Lib.position -> LA.node_decl -> dependency_analysis_data
   = fun pos (i, _, _, _, _, _, nitems, contract_opt) ->    

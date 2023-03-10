@@ -1,0 +1,15 @@
+node main(c: bool) returns (out: int);
+let
+  frame (out)
+  out = 5;
+  let
+    if c
+    then
+      out = pre(out) + 1;
+    else
+      out = pre(out) + 2;
+    fi
+  tel
+
+  check out >= 5;
+tel

@@ -1,0 +1,9 @@
+
+node n (x: int) returns (b: bool);
+(*@contract
+  const C: int = 0 -> 1;
+  guarantee b;
+*)
+let
+  b = true;
+tel

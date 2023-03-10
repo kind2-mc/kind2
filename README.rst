@@ -57,9 +57,9 @@ given enough time and resources).
 
 ``--timeout <int>`` (default ``0`` = none) -- Run for the given number of seconds of wall clock time
 
-``--smt_solver {Boolector|cvc5|MathSAT|Yices|Yices2|Z3}`` (default ``Z3``\ ) -- Select SMT solver
+``--smt_solver {Bitwuzla|cvc5|MathSAT|Yices|Yices2|Z3}`` (default ``Z3``\ ) -- Select SMT solver
 
-``--boolector_bin <file>`` -- Executable for Boolector
+``--bitwuzla_bin <file>`` -- Executable for Bitwuzla
 
 ``--cvc5_bin <file>`` -- Executable for cvc5
 
@@ -98,7 +98,7 @@ To run Kind 2 the following software must be installed on your computer:
 * Linux or macOS, and
 * a supported SMT solver
 
-  * `Boolector <https://boolector.github.io/>`_ (for inputs with only machine integers),
+  * `Bitwuzla <https://bitwuzla.github.io/>`_ (for inputs with only machine integers),
   * `cvc5 <https://cvc5.github.io/>`_\ ,
   * `MathSAT 5 <http://mathsat.fbk.eu/index.html>`_\ ,
   * `Yices 2 <http://yices.csl.sri.com/>`_\ ,
@@ -106,8 +106,8 @@ To run Kind 2 the following software must be installed on your computer:
   * `Z3 <https://github.com/Z3Prover/z3>`_
 
 Z3 is the presently recommended SMT solver and the default option. For problems with
-only machine integers we recommend to use Boolector in combination with Z3:
-select Boolector as the main solver (``--smt_solver Boolector``) but
+only machine integers we recommend to use Bitwuzla in combination with Z3:
+select Bitwuzla as the main solver (``--smt_solver Bitwuzla``) but
 make sure the Z3 binary is also accessible to Kind 2.
 
 

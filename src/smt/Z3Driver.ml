@@ -22,7 +22,7 @@ include GenericSMTLIBDriver
 let cmd_line
     _ (* logic *)
     timeout
-    _ (* produce_assignments *) 
+    _ (* produce_models *) 
     _ (* produce_proofs *)
     _ (* produce_unsat_cores *)
     _ (* produce_unsat_assumptions *)
@@ -62,7 +62,6 @@ let check_sat_limited_cmd ms =
 
 
 let headers minimize_cores =
-  ["(set-option :interactive-mode true)"] @
   (* Core minimization only supported by Z3 for now *)
   (if minimize_cores then ["(set-option :smt.core.minimize true)"] else [])
 

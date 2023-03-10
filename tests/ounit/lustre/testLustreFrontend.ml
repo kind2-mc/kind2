@@ -62,17 +62,41 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/undefined_local.lus" with
     | Error (`LustreSyntaxChecksError (_, UndefinedLocal _)) -> true
     | _ -> false);
-  mk_test "test unsupported expr outside merge" (fun () ->
-    match load_file "./lustreSyntaxChecks/clocks.lus" with
+  mk_test "test unsupported when expr" (fun () ->
+    match load_file "./lustreSyntaxChecks/unsupported_when.lus" with
     | Error (`LustreSyntaxChecksError (_, UnsupportedWhen _)) -> true
     | _ -> false);
   mk_test "test temporal op in const" (fun () ->
     match load_file "./lustreSyntaxChecks/const_not_const.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);
+  mk_test "test temporal op in ghost const" (fun () ->
+    match load_file "./lustreSyntaxChecks/ghost_const_not_const.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
+    | _ -> false);
   mk_test "test undefined node" (fun () ->
-    match load_file "./lustreSyntaxChecks/dangling_call_in_ghost_const.lus" with
+    match load_file "./lustreSyntaxChecks/dangling_call_in_ghost_var.lus" with
     | Error (`LustreSyntaxChecksError (_, UndefinedNode _)) -> true
+    | _ -> false);
+  mk_test "test undefined contract" (fun () ->
+    match load_file "./lustreSyntaxChecks/dangling_contract_call.lus" with
+    | Error (`LustreSyntaxChecksError (_, UndefinedContract _)) -> true
+    | _ -> false);
+  mk_test "test unknown contract call input" (fun () ->
+    match load_file "./lustreSyntaxChecks/unknown_contract_call_input.lus" with
+    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
+    | _ -> false);
+  mk_test "test unknown contract call output" (fun () ->
+    match load_file "./lustreSyntaxChecks/unknown_contract_call_output.lus" with
+    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
+    | _ -> false);
+  mk_test "test undeclared lhs" (fun () ->
+    match load_file "./lustreSyntaxChecks/undeclared_lhs.lus" with
+    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
+    | _ -> false);
+  mk_test "test inlined contract 2" (fun () ->
+    match load_file "./lustreTypeChecker/inlined_contract_02.lus" with
+    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
     | _ -> false);
   mk_test "test function with arrow in body" (fun () ->
     match load_file "./lustreSyntaxChecks/function_no_arrow_in_body.lus" with
@@ -102,8 +126,8 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/no_node_subject_to_refinement_in_contract_2.lus" with
     | Error (`LustreSyntaxChecksError (_, NodeCallInRefinableContract _)) -> true
     | _ -> false);
-  mk_test "test unsupported expr" (fun () ->
-    match load_file "./lustreSyntaxChecks/test_condact.lus" with
+  mk_test "test unsupported current expr" (fun () ->
+    match load_file "./lustreSyntaxChecks/unsupported_current.lus" with
     | Error (`LustreSyntaxChecksError (_, UnsupportedExpression _)) -> true
     | _ -> false);
   mk_test "test dangling identifier 2" (fun () ->
@@ -122,6 +146,18 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/function_no_stateful_contract.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);  
+  mk_test "test defining a variable more than once 1" (fun () ->
+    match load_file "./lustreSyntaxChecks/var_redefinition.lus" with
+    | Error (`LustreSyntaxChecksError (_, DuplicateOutput _)) -> true
+    | _ -> false);  
+  mk_test "test defining a variable more than once 1" (fun () ->
+    match load_file "./lustreSyntaxChecks/var_redefinition2.lus" with
+    | Error (`LustreSyntaxChecksError (_, DuplicateOutput _)) -> true
+    | _ -> false);  
+  mk_test "test defining a variable more than once 1" (fun () ->
+    match load_file "./lustreSyntaxChecks/var_redefinition3.lus" with
+    | Error (`LustreSyntaxChecksError (_, DuplicateLocal _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -373,10 +409,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/inlined_contract_01.lus" with
     | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
     | _ -> false);
-  mk_test "test inlined contract 2" (fun () ->
-    match load_file "./lustreTypeChecker/inlined_contract_02.lus" with
-    | Error (`LustreTypeCheckerError (_, UnboundIdentifier _)) -> true
-    | _ -> false);
   mk_test "test int div 1" (fun () ->
     match load_file "./lustreTypeChecker/intdiv_01.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypes _)) -> true
@@ -525,4 +557,26 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/expected_record_type.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedRecordType _)) -> true
     | _ -> false);
+])
+
+(* *************************************************************************** *)
+(*                        Lustre If and Frame Block Checks                     *)
+(* *************************************************************************** *)
+let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIfBlocks error tests" >::: [
+  mk_test "Misplaced frame block inside if block" (fun () ->
+    match load_file "./lustreSyntaxChecks/misplaced_frame_block.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MisplacedNodeItemError _)) -> true
+    | _ -> false);  
+  mk_test "Misplaced node item inside frame block" (fun () ->
+    match load_file "./lustreSyntaxChecks/misplaced_node_item_frame.lus" with
+    | Error (`LustreDesugarFrameBlocksError (_, MisplacedNodeItemError _)) -> true
+    | _ -> false); 
+  mk_test "Uninitialized node item inside frame block" (fun () ->
+    match load_file "./lustreSyntaxChecks/uninitialized_node_item_frame.lus" with
+    | Error (`LustreSyntaxChecksError (_, MisplacedVarInFrameBlock _)) -> true
+    | _ -> false);  
+  mk_test "Uninitialized node item inside frame block 2" (fun () ->
+    match load_file "./lustreSyntaxChecks/uninitialized_node_item_frame2.lus" with
+    | Error (`LustreSyntaxChecksError (_, MisplacedVarInFrameBlock _)) -> true
+    | _ -> false);  
 ])

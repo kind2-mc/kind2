@@ -109,8 +109,8 @@ let error_message kind = match kind with
   | MergeCaseExtraneous (case, ty) -> "Merge case " ^ HString.string_of_hstring case ^ " does not exist in type " ^ string_of_tc_type ty
   | MergeCaseMissing case -> "Merge case " ^ HString.string_of_hstring case ^ " is missing from merge expression"
   | MergeCaseNotUnique case -> "Merge case " ^ HString.string_of_hstring case ^ " must be unique"
-  | UnboundIdentifier id -> "Unbound identifier: " ^ HString.string_of_hstring id
-  | UnboundModeReference id -> "Unbound mode reference: " ^ HString.string_of_hstring id
+  | UnboundIdentifier id -> "Unbound identifier '" ^ HString.string_of_hstring id ^ "'"
+  | UnboundModeReference id -> "Unbound mode reference '" ^ HString.string_of_hstring id ^ "'"
   | NotAFieldOfRecord id -> "No field name '" ^ HString.string_of_hstring id ^ "' in record type"
   | NoValueForRecordField id -> "No value given for field '" ^ HString.string_of_hstring id ^ "'"
   | IlltypedRecordProjection ty -> "Cannot project field out of non record expression type " ^ string_of_tc_type ty
@@ -525,7 +525,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
               | rest -> HString.concat (HString.mk_hstring "::") rest) in
     check_type_expr ctx (LA.Ident (pos, id)) exp_ty
   | RecordProject (pos, expr, fld) -> check_type_record_proj pos ctx expr fld exp_ty
-  | TupleProject _ -> Lib.todo __LOC__ 
+  | TupleProject (pos, expr, idx) -> check_type_tuple_proj pos ctx expr idx exp_ty
 
   (* Operators *)
   | UnaryOp (pos, op, e) ->
@@ -860,6 +860,19 @@ and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index ->
       (type_error pos (UnificationFailed (exp_ty, fty)))
   | rec_ty -> type_error (LH.pos_of_expr expr) (IlltypedRecordProjection rec_ty)
 
+and check_type_tuple_proj : Lib.position -> tc_context -> LA.expr -> int -> tc_type -> (unit, [> error]) result =
+  fun pos ctx expr idx exp_ty ->
+  infer_type_expr ctx expr
+  >>= function
+  | TupleType (_, tys) as ty ->
+    if List.length tys <= idx
+    then type_error pos (TupleIndexOutOfBounds (idx, ty))
+    else R.ok (List.nth tys idx)
+    >>= fun ity ->
+    R.guard_with (eq_lustre_type ctx ity exp_ty)
+      (type_error pos (UnificationFailed (exp_ty, ity)))
+  | ty -> type_error (LH.pos_of_expr expr) (IlltypedTupleProjection ty)
+
 and check_type_const_decl: tc_context -> LA.const_decl -> tc_type -> (unit, [> error]) result =
   fun ctx const_decl exp_ty ->
   match const_decl with
@@ -950,7 +963,7 @@ and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [
             if SI.mem v arg_ids then
               type_error pos (NodeArgumentOnLHS v)
             else R.ok ())
-          (List.flatten (List.map LH.vars_lhs_of_eqn_with_pos items))
+          (List.flatten (List.map LH.defined_vars_with_pos items))
           |> R.seq_
         in
         Debug.parse "TC declaration node %a done }"
@@ -986,6 +999,21 @@ and do_node_eqn: tc_context -> LA.node_equation -> (unit, [> error]) result = fu
 and do_item: tc_context -> LA.node_item -> (unit, [> error]) result = fun ctx ->
   function
   | LA.Body eqn -> do_node_eqn ctx eqn
+  | LA.IfBlock (pos, e, l1, l2) ->
+    let* guard_type = infer_type_expr ctx e in
+    (match guard_type with
+      | Bool _ -> (R.seq_ ((List.map (do_item ctx) l1) @ (List.map (do_item ctx) l2)))
+      | e_ty -> type_error pos  (ExpectedBooleanExpression e_ty)
+    )
+  | LA.FrameBlock (pos, vars, nes, nis) -> 
+    let reassigned_consts = (SI.filter (fun e -> (member_val ctx e)) (SI.of_list vars)) in
+    R.seq_ (
+      (
+        if ((SI.cardinal reassigned_consts) = 0) 
+        then R.ok ()
+        else type_error pos (DisallowedReassignment reassigned_consts)
+      ) :: (List.map (do_node_eqn ctx) nes) @ (List.map (do_item ctx) nis) 
+    )
   | LA.AnnotMain _ as ann ->
     Debug.parse "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann
     ; R.ok ()
@@ -1174,33 +1202,32 @@ and contract_eqn_to_node_eqn: LA.contract_ghost_vars -> LA.node_equation
     ) in
     Equation(pos1, lhs, expr)
 
-and tc_ctx_const_decl: ?is_const: bool -> tc_context -> LA.const_decl -> (tc_context, [> error]) result 
-  = fun ?is_const:(is_const=true) ctx ->
+and tc_ctx_const_decl: tc_context -> LA.const_decl -> (tc_context, [> error]) result
+  = fun ctx ->
   function
   | LA.FreeConst (pos, i, ty) ->
     check_type_well_formed ctx ty
     >> if member_ty ctx i
-      then type_error pos (Redeclaration i)
-      else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty) i ty)
+       then type_error pos (Redeclaration i)
+       else R.ok (add_ty (add_const ctx i (LA.Ident (pos, i)) ty) i ty)
   | LA.UntypedConst (pos, i, e) ->
-    if member_ty ctx i
-    then type_error pos (Redeclaration i)
-    else infer_type_expr ctx e >>= fun ty ->
-        (if is_const then
-            if (is_expr_of_consts ctx e) 
-            then R.ok (add_ty (add_const ctx i e ty) i ty)
-            else type_error pos (ExpectedConstant e)
-          else R.ok(add_ty ctx i ty))
+    if member_ty ctx i then
+      type_error pos (Redeclaration i)
+    else
+      let* ty = infer_type_expr ctx e in
+      if (is_expr_of_consts ctx e) then
+        R.ok (add_ty (add_const ctx i e ty) i ty)
+      else
+        type_error pos (ExpectedConstant e)
           
   | LA.TypedConst (pos, i, e, exp_ty) ->
-    if member_ty ctx i
-    then type_error pos (Redeclaration i)
-    else check_type_expr (add_ty ctx i exp_ty) e exp_ty
-        >> (if is_const then
-              if (is_expr_of_consts ctx e) 
-              then R.ok (add_ty (add_const ctx i e exp_ty) i exp_ty)
-              else type_error pos (ExpectedConstant e)
-            else R.ok(add_ty ctx i exp_ty))
+    if member_ty ctx i then
+      type_error pos (Redeclaration i)
+    else
+      check_type_expr (add_ty ctx i exp_ty) e exp_ty
+      >> if (is_expr_of_consts ctx e)
+         then R.ok (add_ty (add_const ctx i e exp_ty) i exp_ty)
+         else type_error pos (ExpectedConstant e)
 (** Fail if a duplicate constant is detected  *)
   
 and tc_ctx_contract_vars: tc_context -> LA.contract_ghost_vars -> (tc_context, [> error]) result 
@@ -1552,7 +1579,32 @@ let rec type_check_group: tc_context -> LA.t ->  (unit, [> error]) result list
     type_check_group global_ctx rest
 (** By this point, all the circularity should be resolved,
  * the top most declaration should be able to access 
- * the types of all the forward referenced indentifiers from the context*)       
+ * the types of all the forward referenced indentifiers from the context*) 
+ 
+(** Collects a node's context. *)
+let get_node_ctx ctx (_, _, _, inputs, outputs, locals, _, _) =
+  let constants_ctx = inputs
+    |> List.map extract_consts
+    |> (List.fold_left union ctx)
+  in
+  let input_ctx = inputs
+    |> List.map extract_arg_ctx
+    |> (List.fold_left union ctx)
+  in
+  let output_ctx = outputs
+    |> List.map extract_ret_ctx
+    |> (List.fold_left union ctx)
+  in
+  let ctx = union
+    (union constants_ctx ctx)
+    (union input_ctx output_ctx) in
+  let rec helper ctx locals = match locals with
+    | local :: locals -> 
+      let* ctx = local_var_binding ctx local in 
+      helper ctx locals
+    | [] -> R.ok ctx in
+  helper ctx locals
+
 
 let type_check_decl_grps: tc_context -> LA.t list -> (unit, [> error]) result list
   = fun ctx decls ->

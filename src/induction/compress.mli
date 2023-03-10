@@ -37,6 +37,7 @@ val incr_k : unit -> unit
     some simulation relations. *)
 val check_and_block : (UfSymbol.t -> unit) -> TransSys.t -> Model.path -> Term.t list
 
+val only_bv : TransSys.t -> bool
 
 (* 
    Local Variables:

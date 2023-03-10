@@ -345,14 +345,23 @@ let minimize_node_eq id_typ_map ue lst = function
     let lhs = if b then novarindex_lhs else lhs in
     Some (A.Equation (pos, lhs, expr))
 
-let minimize_item id_typ_map ue lst = function
-  | A.AnnotMain b -> [A.AnnotMain b]
+let rec minimize_item id_typ_map ue lst = function
+  | A.AnnotMain (p, b) -> [A.AnnotMain (p, b)]
   | A.AnnotProperty (p,str,e) -> [A.AnnotProperty (p,str,e)]
-  | A.Body eq ->
-    begin match minimize_node_eq id_typ_map ue lst eq with
+  | A.Body eq -> (
+    match minimize_node_eq id_typ_map ue lst eq with
     | None -> []
     | Some eq -> [A.Body eq]
-    end
+  )
+  | A.IfBlock (pos, e, l1, l2) -> 
+    [A.IfBlock (pos, e, List.map (minimize_item id_typ_map ue lst) l1 |> List.flatten, 
+                        List.map (minimize_item id_typ_map ue lst) l2 |> List.flatten)]
+  | A.FrameBlock (pos, vars, nes, nis) -> 
+    [A.FrameBlock(pos, vars, List.map (fun eq -> match (minimize_node_eq id_typ_map ue lst eq) 
+                                         with | None -> [] | Some eq -> [eq]) 
+                                      nes 
+                                      |> List.flatten, 
+                       List.map (minimize_item id_typ_map ue lst) nis |> List.flatten)]
 
 let minimize_const_decl _ue _lst = function
   | A.UntypedConst (p,id,e) -> A.UntypedConst (p,id,e)
@@ -492,7 +501,7 @@ let minimize_lustre_ast ?(valid_lustre=false) in_sys (_,loc_core,_) ast =
             let old = try PosMap.find pos acc with Not_found -> SVSet.empty in
             PosMap.add pos (SVSet.add sv old) acc
           )
-          acc (LustreNode.get_state_var_defs sv)
+          acc ((LustreNode.get_state_var_defs sv) |> ((fun (x, y) -> x @ y)))
         )
         acc (LustreNode.get_all_state_vars node)
       ) PosMap.empty (InputSystem.retrieve_lustre_nodes in_sys) in
@@ -1062,7 +1071,7 @@ let get_logic ?(pathcomp=false) sys =
 let create_solver ?(pathcomp=false) ?(approximate=false) sys actlits bmin bmax =
   let solver =
     SMTSolver.create_instance ~timeout:(Flags.IVC.ivc_uc_timeout ())
-    ~produce_assignments:pathcomp ~produce_unsat_assumptions:true
+    ~produce_models:pathcomp ~produce_unsat_assumptions:true
     ~minimize_cores:(not approximate) (get_logic ~pathcomp sys) (Flags.Smt.solver ()) in
   List.iter (SMTSolver.declare_fun solver) actlits ;
   TS.declare_sorts_ufs_const sys (SMTSolver.declare_fun solver) (SMTSolver.declare_sort solver) ;
@@ -1620,7 +1629,7 @@ let umivc_ ?(os_invs=[]) make_ts_analyzer sys props k enter_nodes
     let sys_cs = List.fold_left (fun acc sv -> TS.add_global_constant acc (Var.mk_const_state_var sv)) sys_cs actsvs in
 
     (* Initialize the seed map *)
-    let map = SMTSolver.create_instance ~produce_assignments:true
+    let map = SMTSolver.create_instance ~produce_models:true
       (`Inferred (TermLib.FeatureSet.of_list [IA; LA])) (Flags.Smt.solver ()) in
     actsvs
     |> List.map Var.mk_const_state_var

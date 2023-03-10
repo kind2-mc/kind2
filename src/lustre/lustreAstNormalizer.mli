@@ -33,8 +33,6 @@
   pre operators are explicitly guarded in the AST by an oracle variable
   if they were originally unguarded
     e.g. pre expr => oracle -> pre expr
-  Note that oracles are _propagated_ in node calls. If a node `n1` has an oracle
-  and is called by another node `n2`, then `n2` will inherit a propagated oracle
 
   The following parts of the AST are abstracted by locals:
 
@@ -67,76 +65,26 @@
   7. Restarts of node calls (if it is not a constant)
 
      @author Andrew Marmaduke *)
-
-module StringMap : sig
-  include (Map.S with type key = HString.t)
-  val keys: 'a t -> key list
-end
-
-module StringSet : sig
-  include (Set.S with type elt = HString.t)
-end
-
-type source = Local | Input | Output | Ghost
-
-type generated_identifiers = {
-  node_args : (HString.t (* abstracted variable name *)
-    * bool (* whether the variable is constant *)
-    * LustreAst.lustre_type
-    * LustreAst.expr)
-    list;
-  array_constructors :
-    (LustreAst.lustre_type
-    * LustreAst.expr
-    * LustreAst.expr)
-    StringMap.t;
-  locals : (bool (* whether the variable is ghost *)
-    * LustreAst.lustre_type
-    * LustreAst.expr (* abstracted expression *)
-    * LustreAst.expr) (* original expression *)
-    StringMap.t;
-  contract_calls :
-    (Lib.position
-    * (Lib.position * HString.t) list (* contract scope *)
-    * LustreAst.contract_node_equation list)
-    StringMap.t;
-  warnings : (Lib.position * LustreAst.expr) list;
-  oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
-  propagated_oracles : (HString.t * HString.t) list;
-  calls : (Lib.position (* node call position *)
-    * (HString.t list) (* oracle inputs *)
-    * HString.t (* abstracted output *)
-    * LustreAst.expr (* condition expression *)
-    * LustreAst.expr (* restart expression *)
-    * HString.t (* node name *)
-    * (LustreAst.expr list) (* node arguments *)
-    * (LustreAst.expr list option)) (* node argument defaults *)
-    list;
-  subrange_constraints : (source
-    * bool (* true if the type used for the subrange is the original type *)
-    * Lib.position
-    * HString.t (* Generated name for Range Expression *)
-    * LustreAst.expr) (* Computed ranged expr *)
-    list;
-  expanded_variables : StringSet.t;
-  equations :
-    (LustreAst.typed_ident list (* quantified variables *)
-    * (Lib.position * HString.t) list (* contract scope  *)
-    * LustreAst.eq_lhs
-    * LustreAst.expr)
-    list;
-}
-
+     
 type error = [
   | `LustreAstNormalizerError
 ]
 
-val normalize : TypeCheckerContext.tc_context
-  -> LustreAbstractInterpretation.context
-  -> LustreAst.t
-  -> (LustreAst.t * generated_identifiers StringMap.t,
-      [> error]) result
+type warning_kind =
+  | UnguardedPreWarning of LustreAst.expr
 
-val pp_print_generated_identifiers : Format.formatter -> generated_identifiers -> unit
+type warning = [
+  | `LustreAstNormalizerWarning of Lib.position * warning_kind
+]
 
-val get_warnings : generated_identifiers StringMap.t -> (Lib.position * LustreAst.expr) list
+val warning_message : warning_kind -> string
+
+val normalize : TypeCheckerContext.tc_context ->
+  LustreAbstractInterpretation.context ->
+  LustreAst.t ->
+    GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t ->
+  (LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t *
+   [> `LustreAstNormalizerWarning of Lib.position * warning_kind ] list, [> error])
+  result
+
+val pp_print_generated_identifiers : Format.formatter -> GeneratedIdentifiers.t -> unit

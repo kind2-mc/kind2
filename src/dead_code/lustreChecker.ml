@@ -145,7 +145,7 @@ let main () =
     (* Create solver instance *)
     let solver = 
       SMTSolver.new_solver
-        ~produce_assignments:true 
+        ~produce_models:true 
         `QF_UFLIA
         (Flags.smtsolver ())
     in

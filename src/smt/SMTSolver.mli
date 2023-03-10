@@ -34,7 +34,7 @@ exception Timeout
     the given flags *)
 val create_instance :
   ?timeout: int ->
-  ?produce_assignments:bool ->
+  ?produce_models:bool ->
   ?produce_proofs:bool ->
   ?produce_unsat_cores:bool ->
   ?produce_unsat_assumptions:bool ->

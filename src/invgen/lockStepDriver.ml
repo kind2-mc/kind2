@@ -98,7 +98,7 @@ let kill_base { solver } = Smt.delete_instance solver
 (** Creates a solver for the base case. *)
 let mk_base_checker_solver sys k =
   let solver = (* Creating solver. *)
-    Smt.create_instance ~produce_assignments: true
+    Smt.create_instance ~produce_models: true
       (Sys.get_logic sys) (Flags.Smt.solver ())
   in
 
@@ -522,7 +522,7 @@ let kill_pruning { solver } = Smt.delete_instance solver
 (** Creates a new pruning solver. *)
 let mk_pruning_checker_solver sys two_state =
   let solver = (* Creating solver. *)
-    Smt.create_instance ~produce_assignments:true
+    Smt.create_instance ~produce_models:true
       (Sys.get_logic sys) (Flags.Smt.solver ())
   in
 

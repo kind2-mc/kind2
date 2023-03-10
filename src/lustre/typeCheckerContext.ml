@@ -347,4 +347,32 @@ let pp_print_tc_context: Format.formatter -> tc_context -> unit
       pp_print_contract_exports (ctx.contract_export_ctx)
       pp_print_enum_variants (ctx.enum_vars)
 (** Pretty print the complete type checker context*)
-                                    
+                         
+(** {1 Helper functions that uses context }  *)
+
+let rec arity_of_expr ty_ctx = function
+  | LA.GroupExpr (_, ExprList, es) ->
+    List.fold_left (+) 0 (List.map (arity_of_expr ty_ctx) es)
+  | TernaryOp (_, Ite, _, e, _) -> arity_of_expr ty_ctx e
+  | Condact (_, _, _, id, _, _)
+  | Activate (_, id, _, _, _)
+  | RestartEvery (_, id, _, _)
+  | Call (_, id, _) ->
+    let node_ty = lookup_node_ty ty_ctx id |> Lib.get in
+    let (_, o) = LH.type_arity node_ty in
+    o
+  | Pre (_, e) -> arity_of_expr ty_ctx e
+  | Arrow (_, e, _) -> arity_of_expr ty_ctx e
+  | RecordProject (_, e, _) -> arity_of_expr ty_ctx e
+  | TupleProject (_, e, _) -> arity_of_expr ty_ctx e
+  | _ -> 1
+
+let rec traverse_group_expr_list f ctx proj es =
+  match proj, es with
+  | 0, e :: _ -> f 0 e
+  | i, e :: es -> (
+    let a = arity_of_expr ctx e in
+    if a<=i then traverse_group_expr_list f ctx (i-a) es
+    else f proj e
+  )
+  | _ -> assert false
