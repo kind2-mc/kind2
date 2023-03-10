@@ -823,6 +823,14 @@ Otherwise, ``y1`` and ``y2`` will be set to ``expr3`` and ``expr4``. The ``if`` 
 the ``fi`` token. As with other mainstream programming languages, Kind 2 allows for arbitrary nesting of ``if`` statements,
 as well as writing ``if`` statements that do not have an ``else`` block. 
 
+**Note:** If statements are syntactic sugar for conditional expressions. The ``if`` statement above is equivalent to:
+
+.. code-block:: none
+
+   y1 = if condition then expr1 else expr3;
+   y2 = if condition then expr2 else expr4;
+
+
 Frame conditions
 ^^^^^^^^^^^^^^^^
 Kind 2 also has support for code blocks with frame conditions. At the beginning of the block
