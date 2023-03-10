@@ -1472,9 +1472,9 @@ let s_define_pred ?(trace_lfsc_defs=false) fmt fun_symbol args defn =
                %s)\n@."
     fun_symbol
     (pp_print_list (fun fmt f -> fprintf fmt "(%s %s)" f sindex_sort) " ") args
-    defn
+    defn;
 
-  (* if trace_lfsc_defs then begin
+  if trace_lfsc_defs then begin
 
     fprintf fmt ";; Tracing artifact for cvc5 and LFSC proofs\n";
     
@@ -1494,7 +1494,7 @@ let s_define_pred ?(trace_lfsc_defs=false) fmt fun_symbol args defn =
       "@[<hov 1>(assert@ @[<hov 1>(=@ @[<hv 1>(%s@ %a)@]@ @[<hv 1>(%s@ %a)@])@])@]\n@."
       fun_def_sy (pp_print_list pp_print_string "@ ") fun_def_args
       fun_symbol (pp_print_list pp_print_string "@ ") fun_def_args
-  end *)
+  end
   
 
 
