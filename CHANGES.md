@@ -1,9 +1,20 @@
-# Unreleased
+# Kind 2 v1.8.0
 
 New features:
 
-- Support for SMT solver Bitwuzla.
+- Add syntax for If-Then-Else constraints and Frame Condition constraints (see [documentation](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#if-statements-and-frame-conditions)).
+- Add support for SMT solver Bitwuzla.
   - Its predecessor, Boolector, is no longer supported.
+- Add option `--flatten_proof` to break down LFSC proofs into a sequence of lemmas.
+  - This option helps reduce the memory footprint of the LFSC checker and improve its performance as the proof for each lemma is verified by the LFSC checker independently.
+
+Improvements:
+
+- Fixes and improvements solving machine integer problems:
+  - Support for non-standard bit-vector constants and symbols returned by MathSAT and Z3
+  - Fix path compression bit-vector encoding in minimization of set of invariants.
+- Fixes and improvements in the new Lustre front-end.
+
 
 # Kind 2 v1.7.0
 

@@ -77,7 +77,16 @@ SIGS="\$SIG_DIR/core_defs.plf \\
     \$SIG_DIR/quantifiers_rules.plf \\
     \$SIG_DIR/kind.plf"
 ### Release version
-\$LFSC_DIR/bin/lfscc \$SIGS \$@
+tempfile=\$(mktemp)
+\$LFSC_DIR/bin/lfscc \$SIGS \$@ 2> \$tempfile > /dev/null
+status=\$?
+if [ \$status -ne 0 ]; then
+  cat \$tempfile 1>&2
+else
+  echo "Valid LFSC proof!"
+fi
+rm \$tempfile
+exit \$status
 
 ### Debugging version
 #\$LFSC_DIR/bin/lfscc \$SIGS \$@ >& lfsc.out
