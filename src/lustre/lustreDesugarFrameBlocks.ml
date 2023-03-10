@@ -95,7 +95,6 @@ let rec fill_ite_helper frame_pos node_id lhs id fill = function
         | None -> frame_info 
       in
       HString.HStringHashtbl.add pos_list_map node_id frame_info;
-      HString.HStringHashtbl.add pos_list_map node_id frame_info; 
       
       fill
     )
