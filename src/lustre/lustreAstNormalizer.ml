@@ -748,57 +748,86 @@ and normalize_node info map
   let nitems, gids4, warnings2 = normalize_list (normalize_item info map) items in
   let gids = union_list [gids1; gids2; gids3; gids4; gids5; gids6] in
   let map = StringMap.singleton node_id gids in
-  (node_id, is_extern, params, inputs, outputs, locals, nitems, ncontracts), map, warnings1 @ warnings2
+  (node_id, is_extern, params, inputs, outputs, locals, List.flatten nitems, ncontracts), map, warnings1 @ warnings2
 
 
 and normalize_item info map = function
   | A.Body equation ->
     let nequation, gids, warnings = normalize_equation info map equation in
-    A.Body nequation, gids, warnings
+    [A.Body nequation], gids, warnings
   (* shouldn't be possible *)
   | IfBlock _ 
   | FrameBlock _ -> 
     assert false
-  | AnnotMain (pos, b) -> AnnotMain (pos, b), empty (), []
+  | AnnotMain (pos, b) -> [AnnotMain (pos, b)], empty (), []
   | AnnotProperty (pos, name, expr, k) -> 
     let name' = Some (AH.name_of_prop pos name k) in
-    let expr = (match k with 
-      (* expr or counter < b *)
+    (match k with 
+      (* expr or counter < b *) 
       | Reachable Some (From b) -> 
-        A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
-        A.CompOp(pos, A.Lt, Ident(dpos, ctr_id), 
-                            Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
+        let expr =
+          A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
+          A.CompOp(pos, A.Lt, Ident(dpos, ctr_id), 
+                              Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
+        in
+        let nexpr, gids, warnings = abstract_expr false info map false expr in
+        [AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       (* expr or counter != b *)
       | Reachable Some (At b) -> 
-        A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
-        A.CompOp(pos, A.Neq, Ident(dpos, ctr_id), 
-                             Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
+        let expr = 
+          A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
+          A.CompOp(pos, A.Neq, Ident(dpos, ctr_id), 
+                              Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
+        in
+        let nexpr, gids, warnings = abstract_expr false info map false expr in
+        [AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       (* expr or counter > b *)
       | Reachable Some (Within b) -> 
-        A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
-        A.CompOp(pos, A.Gt, Ident(dpos, ctr_id), 
-                            Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
+        let expr = 
+          A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
+          A.CompOp(pos, A.Gt, Ident(dpos, ctr_id), 
+                              Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
+        in
+        let nexpr, gids, warnings = abstract_expr false info map false expr in
+        [AnnotProperty (pos, name', nexpr, k)], gids, warnings
       
       (* expr or counter < b1 or counter > b2 *)
       | Reachable Some (FromWithin (b1, b2)) -> 
-        A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
-        A.BinaryOp (pos, Or, 
-          A.CompOp(pos, A.Lt, Ident(dpos, ctr_id), 
-          Const (dpos, Num (HString.mk_hstring (string_of_int b1)))),
-          A.CompOp(pos, A.Gt, Ident(dpos, ctr_id), 
-                              Const (dpos, Num (HString.mk_hstring (string_of_int b2)))))
-        )
+        let expr = 
+          A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
+          A.BinaryOp (pos, Or, 
+            A.CompOp(pos, A.Lt, Ident(dpos, ctr_id), 
+            Const (dpos, Num (HString.mk_hstring (string_of_int b1)))),
+            A.CompOp(pos, A.Gt, Ident(dpos, ctr_id), 
+                                Const (dpos, Num (HString.mk_hstring (string_of_int b2)))))
+          )
+        in
+        let nexpr, gids, warnings = abstract_expr false info map false expr in
+        [AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
-      | Reachable _ -> A.UnaryOp (pos, A.Not, expr)
+      | Reachable _ -> 
+        let expr = A.UnaryOp (pos, A.Not, expr) in
+        let nexpr, gids, warnings = abstract_expr false info map false expr in
+        [AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
-      | Provided expr2 -> A.BinaryOp (pos, A.Impl, expr, expr2)
+      | Provided expr2 -> 
+        let expr1 = A.BinaryOp (pos, A.Impl, expr2, expr) in
+        let expr2 = A.UnaryOp (pos, A.Not, expr2) in
+        let nexpr1, gids1, warnings1 = abstract_expr false info map false expr1 in
+        let nexpr2, gids2, warnings2 = abstract_expr false info map false expr2 in
+        let name'' = match name' with
+          | Some name -> Some (HString.concat2 name (HString.mk_hstring "_reach"))
+          | None -> None 
+        in
+        [AnnotProperty (pos, name', nexpr1, Invariant); AnnotProperty (pos, name'', nexpr2, Reachable None)], 
+        union gids1 gids2, warnings1 @ warnings2
 
-      | _ -> expr
-    ) in
-    let nexpr, gids, warnings = abstract_expr false info map false expr in
-    AnnotProperty (pos, name', nexpr, k), gids, warnings
+      | _ -> 
+        let nexpr, gids, warnings = abstract_expr false info map false expr in
+        [AnnotProperty (pos, name', nexpr, k)], gids, warnings
+    ) 
 
 
 
