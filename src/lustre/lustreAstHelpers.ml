@@ -1719,6 +1719,7 @@ let name_of_prop pos name k =
     let kind_str = match k with
       | Invariant -> "Inv"
       | Reachable _ -> "Reach"
+      | Provided _ -> "Prov"
     in
     Format.asprintf "%sProp%a" kind_str Lib.pp_print_line_and_column pos
     |> HString.mk_hstring

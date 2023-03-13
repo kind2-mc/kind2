@@ -792,6 +792,9 @@ and normalize_item info map = function
         )
 
       | Reachable _ -> A.UnaryOp (pos, A.Not, expr)
+
+      | Provided expr2 -> A.BinaryOp (pos, A.Impl, expr, expr2)
+
       | _ -> expr
     ) in
     let nexpr, gids, warnings = abstract_expr false info map false expr in
