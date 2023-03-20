@@ -18,6 +18,7 @@
 type error_kind = 
   | Unknown of string
   | Impossible of string
+  | NotSuppoted of string
  (* Add more as needed*)
 
 type error = [

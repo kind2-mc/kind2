@@ -1,35 +1,7 @@
-(define-fun zero () Int 0)
- 
-(define-fun f1 ((b Int) (c Bool)) Int (ite (= c true) b 0))
+(set-logic QF_UFDTLIA)
 
-(declare-fun uf1 () Int )
-(declare-const ctst Int )
-(declare-const ctst2 Int )
-(declare-const ctst3 Int )
-(declare-const ctst4 Int )
-
-; this is a comment
 (define-system gconsttst
-  :inv (and (= ctst 21) true)
-)
-
-(define-system const-one
-  :input ((status Bool))
-  :output ((cvar Int))
-  :local ((test Int) (test2 Int) (test3 Int) (test4 Int))
-  :subsys (t gconsttst)
-
-  :inv (and (= cvar ctst) (= status false))
-  :init (and (= test3 0) (= test4 0) (= test2 1) (= test test3))
-  :trans (and (= cvar 21) (= test' (ite (= test2 1) test3 test)) (= test2' (ite (= test2 1) 0 1)) (or (= test3' (+ test3 11)) (= test3' test3)) (ite (= test3 99) (= test4' test3) (= test4' 0)))
-)
-
-(check-system const-one
-  :input ((status Bool))
-  :output ((w Int))
-  :local ( (test1 Int) (test2 Int) (test3 Int) (test4 Int) )
-  
-  :reachable (cthree_r (= test4 99))
-
-  :query (cthree (cthree_r))  
+  :input ((a Int))
+  :output ((b Bool))
+  :inv (forall ((q Int)) (= 1 2))
 )

@@ -36,12 +36,7 @@ type enum = {
   to_str: (Numeral.t * HString.t) list;
 }
 
-(** Parse from the channel *)
-val of_channel : in_channel -> 
-  (TransSys.t SubSystem.t * subsystem_instance_name_data * sys_var_mapping * enum list, [> CmcErrors.error]) result
-  (* TransSys.t SubSystem.t * subsystem_instance_name_data * sys_var_mapping * enum list *)
-
 (** Parse from the file *)
 val of_file : string -> 
   (TransSys.t SubSystem.t * subsystem_instance_name_data * sys_var_mapping * enum list, [> CmcErrors.error]) result
-  
+  (* (TransSys.t SubSystem.t, [> CmcErrors.error]) result TODO Temporary return type switch back when finished *)

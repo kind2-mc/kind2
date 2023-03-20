@@ -19,6 +19,7 @@
 type error_kind = 
   | Unknown of string
   | Impossible of string
+  | NotSuppoted of string
   (* Add more as needed*)
 
 type error = [
@@ -30,6 +31,7 @@ let soh = HString.string_of_hstring
 let interpreter_error_message kind = match kind with
   | Unknown s -> s
   | Impossible s -> "This should be impossible! " ^ s
+  | NotSuppoted s -> "Command " ^ s ^ " is not supported."
   (* | UnboundIdentifier id -> "Unbound identifier: " ^ soh id
   | UnknownFunction id -> "Unknown Function Call: " ^ soh id
   | UnknownAttribute (attr_id, fun_id) -> "Unknown attribute " ^ soh attr_id ^ "used in function call " ^ soh fun_id 
