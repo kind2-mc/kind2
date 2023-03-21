@@ -108,6 +108,7 @@ type expr =
   | NArityOp of position * n_arity_operator * expr list
   | ConvOp of position * conversion_operator * expr
   | CompOp of position * comparison_operator * expr * expr
+  | ChooseOp of position * ident * expr
   (* Structured expressions *)
   | RecordExpr of position * ident * (ident * expr) list
   | GroupExpr of position * group_expr * expr list
@@ -606,7 +607,14 @@ let rec pp_print_expr ppf =
         pp_print_ident id
         (pp_print_list pp_print_lustre_type "@ ") t
         (pp_print_list pp_print_expr ",@ ") l
-        
+    
+    | ChooseOp (p, id, e) ->
+
+      Format.fprintf ppf
+      "%achoose %a: %a"
+      ppos p
+      pp_print_ident id
+      pp_print_expr e
 
 (* Pretty-print an array slice *)
 and pp_print_array_slice ppf (l, u) =

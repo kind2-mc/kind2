@@ -147,6 +147,7 @@ let mk_span start_pos end_pos =
 %token HASH
 %token FORALL
 %token EXISTS
+%token CHOOSE
     
 (* Tokens for relations *)
 %token LTE
@@ -190,7 +191,7 @@ let mk_span start_pos end_pos =
 %token EOF
     
 (* Priorities and associativity of operators, lowest first *)
-%nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64
+%nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
 %nonassoc WHEN CURRENT 
 %left PIPE
 %nonassoc ELSE
@@ -842,6 +843,10 @@ pexpr(Q):
   (* An if operation *)
   | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
     { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
+
+  (* Choose operation *)
+  | CHOOSE; LCURLYBRACKET; id = ident; COLON; e = pexpr(Q); RCURLYBRACKET
+    { A.ChooseOp (mk_pos $startpos, id, e) }
 
   (* Recursive node call *)
   | WITH; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
