@@ -99,7 +99,8 @@ jobs:
           - Publish the release!"
         EOF
         gh release create $GITHUB_REF_NAME --verify-tag --draft \
-          --title "Kind 2 $GITHUB_REF_NAME" --notes-file Release_Notes.txt
+          --title "Kind 2 $GITHUB_REF_NAME" --notes-file Release_Notes.txt \
+          --repo $GITHUB_REPOSITORY
     
   upload-artifact:
     if: github.repository == 'kind2-mc/kind2'
@@ -127,4 +128,7 @@ jobs:
     - name: Upload release asset
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: gh release upload $GITHUB_REF_NAME ${{ steps.create_tarball.outputs.filename }}
+      run: |
+        gh release upload $GITHUB_REF_NAME \
+           ${{ steps.create_tarball.outputs.filename }} \
+           --repo $GITHUB_REPOSITORY
