@@ -88,7 +88,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kind2-linux-bin, kind2-macos-bin]
     outputs:
-      upload_url: ${{ steps.get_upload_url.outputs.url }}
       asset_ids: ${{ steps.get_asset_ids.outputs.ids }}
     steps:
     - name: Get nightly pre-release
@@ -99,14 +98,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         INPUT_REPOSITORY: ${{ github.repository }}
-
-    - name: Get pre-release upload_url
-      id: get_upload_url
-      run: |
-        url=$(echo "$response" | jq -r '.upload_url')
-        echo "url=$url" >> $GITHUB_OUTPUT
-      env:
-        response: ${{ steps.get_nightly_prerelease.outputs.data }}
 
     - name: Get pre-release asset ids
       id: get_asset_ids
@@ -180,12 +171,7 @@ jobs:
         tar -czf $tarball kind2
         echo "filename=$tarball" >> $GITHUB_OUTPUT
     
-    - name: Upload artifact
-      uses: actions/upload-release-asset@v1
+    - name: Upload release asset
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ needs.get-release-info.outputs.upload_url }}
-        asset_path: ${{ steps.create_tarball.outputs.filename }}
-        asset_name: ${{ steps.create_tarball.outputs.filename }}
-        asset_content_type: application/gzip
+      run: gh release upload nightly ${{ steps.create_tarball.outputs.filename }}

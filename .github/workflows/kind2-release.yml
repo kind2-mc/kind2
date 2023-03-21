@@ -86,31 +86,20 @@ jobs:
     if: github.repository == 'kind2-mc/kind2'
     runs-on: ubuntu-latest
     needs: [kind2-linux-bin, kind2-macos-bin]
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-      version: ${{ steps.get_version.outputs.id }}
 
     steps:
-    - name: Get the version
-      id: get_version
-      run: echo "id=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
-      #run: echo "id=${GITHUB_REF/refs\/heads\//}" >> $GITHUB_OUTPUT
-
     - name: Create new release
-      id: create_release
-      uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.get_version.outputs.id }}
-        release_name: Kind 2 ${{ steps.get_version.outputs.id }}
-        body: |
-          TODO:
+      run: |
+        cat > Release_Notes.txt << EOF
+        TODO:
           - Generate and upload user_documentation.pdf
           - Replace this text with the release notes
-          - Publish the release!
-        draft: true
-        prerelease: false
+          - Publish the release!"
+        EOF
+        gh release create $GITHUB_REF_NAME --verify-tag --draft \
+          --title "Kind 2 $GITHUB_REF_NAME" --notes-file Release_Notes.txt
     
   upload-artifact:
     if: github.repository == 'kind2-mc/kind2'
@@ -130,17 +119,12 @@ jobs:
       id: create_tarball
       run: |
         chmod u+x kind2
-        version=${{ needs.create-new-release.outputs.version }}
+        version=$GITHUB_REF_NAME
         tarball=kind2-$version-${{ matrix.version }}-x86_64.tar.gz
         tar -czf $tarball kind2
         echo "filename=$tarball" >> $GITHUB_OUTPUT
     
-    - name: Upload artifact
-      uses: actions/upload-release-asset@v1
+    - name: Upload release asset
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ needs.create-new-release.outputs.upload_url }}
-        asset_path: ${{ steps.create_tarball.outputs.filename }}
-        asset_name: ${{ steps.create_tarball.outputs.filename }}
-        asset_content_type: application/gzip
+      run: gh release upload $GITHUB_REF_NAME ${{ steps.create_tarball.outputs.filename }}
