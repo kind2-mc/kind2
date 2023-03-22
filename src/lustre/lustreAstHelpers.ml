@@ -797,7 +797,7 @@ let rec vars_of_node_calls_h obs =
   | NArityOp (_, _,es) -> SI.flatten (List.map (vars obs) es)
   | ConvOp  (_,_,e) -> vars obs e
   | CompOp (_,_,e1, e2) -> (vars obs e1) |> SI.union (vars obs e2)
-  | ChooseOp (_, i, e) -> SI.diff (vars obs e) (SI.singleton i)
+  | ChooseOp (_, (_, i, _), e) -> SI.diff (vars obs e) (SI.singleton i)
   (* Structured expressions *)
   | RecordExpr (_, _, flds) -> SI.flatten (List.map (vars obs) (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map (vars obs) es)
@@ -862,7 +862,7 @@ let rec vars: expr -> iset = function
   | Activate (_, _, e1, e2, es) -> SI.flatten (vars e1 :: vars e2 :: List.map vars es)
   | Merge (_, _, es) -> List.split es |> snd |> List.map vars |> SI.flatten
   | RestartEvery (_, i, es, e) -> SI.add i (SI.flatten (vars e :: List.map vars es)) 
-  | ChooseOp (_, i, e) -> SI.diff (vars e) (SI.singleton i)
+  | ChooseOp (_, (_, i, _), e) -> SI.diff (vars e) (SI.singleton i)
   (* Temporal operators *)
   | Pre (_, e) -> vars e
   | Fby (_, e1, _, e2) -> SI.union (vars e1) (vars e2)
@@ -1239,11 +1239,11 @@ let rec replace_idents locals1 locals2 expr =
   | Call (a, b, l) -> Call (a, b, List.map (replace_idents locals1 locals2) l)
   | CallParam (a, b, c, l) -> CallParam (a, b, c, List.map (replace_idents locals1 locals2) l)
 
-  | ChooseOp (a, i, e) -> 
+  | ChooseOp (a, (b, i, c), e) -> 
     (* Remove 'i' from locals because it's bound in 'e' *)
     let locals = List.combine locals1 locals2 in 
     let locals1, locals2 = List.remove_assoc i locals |> List.split in
-    ChooseOp (a, i, replace_idents locals1 locals2 e)
+    ChooseOp (a, (b, i, c), replace_idents locals1 locals2 e)
   | Quantifier (a, b, tis, e) -> 
     (* Remove 'tis' from locals because they're bound in 'e' *)
     let locals = List.combine locals1 locals2 in 
@@ -1670,7 +1670,7 @@ let hash depth_limit expr =
       | CallParam (_, i, _, el) ->
         let el_hash = List.map (r (depth + 1)) el in
         Hashtbl.hash (30, HString.hash i, el_hash)
-      | ChooseOp (_, i, e) ->
+      | ChooseOp (_, (_, i, _), e) ->
         let e_hash = r (depth + 1) e in
         Hashtbl.hash (31, HString.hash i, e_hash)
   in
