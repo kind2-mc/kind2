@@ -197,6 +197,10 @@ and process_expr ind_vars ctx ns proj indices expr =
       vars
     in
     R.ok graph
+  | ChooseOp (_, (_, i, _), e) -> 
+    let* graph = r e in
+    let graph = G.remove_vertex graph (i, [0])
+    in R.ok graph
   (* Clock operators *)
   | When (_, e, _) -> r e
   | Current (_, e) -> r e

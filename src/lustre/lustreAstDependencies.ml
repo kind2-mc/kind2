@@ -385,6 +385,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.NArityOp (_, _, es) -> List.flatten (List.map get_node_call_from_expr es)
   | LA.ConvOp (_, _, e) -> get_node_call_from_expr e
   | LA.CompOp (_, _, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  | LA.ChooseOp (_, _, e) -> get_node_call_from_expr e
   (* Structured expressions *)
   | LA.RecordExpr (_, _, id_exprs) -> List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
   | LA.GroupExpr (_, _, es) -> List.flatten (List.map get_node_call_from_expr es) 
@@ -625,6 +626,11 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) ->
     SI.diff (r e) (SI.flatten (List.map LH.vars_of_ty_ids qs))
+
+  (* Choose operator *)
+  | ChooseOp (_, (_, i, _), e) ->
+    SI.diff (r e) (SI.singleton i)
+
   (* Clock operators *)
   | When (_, e, _) -> r e
   | Current  (_, e) -> r e

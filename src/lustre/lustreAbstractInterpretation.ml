@@ -447,6 +447,10 @@ and interpret_int_expr node_id ctx ty_ctx proj expr =
   | NArityOp _ -> assert false
   | ConvOp (_, _, e) -> interpret_int_expr node_id ctx ty_ctx proj e
   | CompOp _-> assert false
+  | ChooseOp (_, (_, i, ty), e) ->
+    let ty_ctx = Ctx.union ty_ctx (Ctx.singleton_ty i ty) in
+    let ctx = add_type ctx node_id i ty in
+    interpret_int_expr node_id ctx ty_ctx proj e
   | RecordExpr _ -> assert false
   | GroupExpr (_, ExprList, es) -> (
     let g = interpret_int_expr node_id ctx ty_ctx in

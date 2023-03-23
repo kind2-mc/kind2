@@ -505,7 +505,8 @@ let rec expr_only_supported_in_merge observer expr =
   | ConvOp (_, _, e)
   | Pre (_, e)
   | Current (_, e)
-  | Quantifier (_, _, _, e) -> r observer e
+  | Quantifier (_, _, _, e) 
+  | ChooseOp (_, _, e) -> r observer e
   | BinaryOp (_, _, e1, e2) 
   | StructUpdate (_, e1, _, e2)
   | CompOp (_, _, e1, e2)

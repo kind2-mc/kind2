@@ -260,6 +260,7 @@ let rec minimize_node_call_args ue lst expr =
     | A.UnaryOp (p,op,e) -> A.UnaryOp (p,op,aux e)
     | A.BinaryOp (p,op,e1,e2) -> A.BinaryOp (p,op,aux e1,aux e2)
     | A.Quantifier (p,q,ids,e) -> A.Quantifier (p,q,ids,aux e)
+    | A.ChooseOp (p,ti,e) -> A.ChooseOp (p,ti,aux e)
     | A.NArityOp (p,op,es) -> A.NArityOp (p,op,List.map aux es)
     | A.TernaryOp (p,op,e1,e2,e3) -> A.TernaryOp (p,op,aux e1,aux e2,aux e3)
     | A.CompOp (p,op,e1,e2) -> A.CompOp (p,op,aux e1,aux e2)
@@ -288,7 +289,7 @@ and ast_contains p ast =
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.RecordProject (_,e,_)
       | A.TupleProject (_,e,_) | A.Quantifier (_,_,_,e)
-      | A.When (_,e,_) | A.Current (_,e) | A.Pre (_,e) ->
+      | A.When (_,e,_) | A.Current (_,e) | A.Pre (_,e) | A.ChooseOp (_,_,e) ->
       aux e
     | A.StructUpdate (_,e1,_,e2) | A.ArrayConstr (_,e1,e2)
       | A.ArrayConcat (_,e1,e2) | A.ArrayIndex (_,e1,e2) 
