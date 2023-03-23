@@ -457,7 +457,9 @@ padding:0;
   background: #212121;
 }
 
-
+span.pub {
+   font-style: italic;
+}
 
 /*******************************************************************************
 Small Device Styles
