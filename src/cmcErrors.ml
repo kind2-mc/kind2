@@ -20,6 +20,7 @@ type error_kind =
   | Unknown of string
   | Impossible of string
   | NotSuppoted of string
+  | SystemNotFound of Dolmen.Std.Id.t
   (* Add more as needed*)
 
 type error = [
@@ -32,6 +33,7 @@ let interpreter_error_message kind = match kind with
   | Unknown s -> s
   | Impossible s -> "This should be impossible! " ^ s
   | NotSuppoted s -> "Command " ^ s ^ " is not supported."
+  | SystemNotFound s -> Format.asprintf "System %a is not defined." Dolmen.Std.Id.print s
   (* | UnboundIdentifier id -> "Unbound identifier: " ^ soh id
   | UnknownFunction id -> "Unknown Function Call: " ^ soh id
   | UnknownAttribute (attr_id, fun_id) -> "Unknown attribute " ^ soh attr_id ^ "used in function call " ^ soh fun_id 

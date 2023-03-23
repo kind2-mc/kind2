@@ -81,6 +81,16 @@ let type_of_dolmen_term = function
    To allow reuse of some kind2 functions we convert between the two. *)
 let dolmen_bound_vars_to_kind bound_vars =
   List.map (fun (id, var) -> (dolmen_id_to_hstring id, var)) bound_vars
+
+(* Extracts an ID from a dolmen term. This assumes that the term is a Dolmen Symbol
+   and will error if not *)
+let dolmen_symbol_term_to_id (symbol_term: term) = match symbol_term with
+  | { term = Symbol name; _ } -> name
+  | _ -> raise
+    (Invalid_argument 
+      (Format.asprintf 
+          "Term %a is not a symbol" 
+          Term.print symbol_term))
         
 (* Given a dolmen term representing a CMC variable declaration 
    return a tuple of the variable's id and kind2 type *)

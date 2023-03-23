@@ -19,6 +19,7 @@ type error_kind =
   | Unknown of string
   | Impossible of string
   | NotSuppoted of string
+  | SystemNotFound of Dolmen.Std.Id.t
  (* Add more as needed*)
 
 type error = [
