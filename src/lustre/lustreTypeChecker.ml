@@ -441,9 +441,8 @@ let rec infer_type_expr: tc_context -> LA.expr -> (tc_type, [> error]) result
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     infer_type_expr extn_ctx e 
 
-  | ChooseOp (_, (_, i, ty), e) -> 
-    let extn_ctx = union ctx (singleton_ty i ty) in
-    infer_type_expr extn_ctx e
+  | ChooseOp (_, (_, _, ty), _) -> 
+    R.ok ty
   (* Clock operators *)
   | LA.When (_, e, _) -> infer_type_expr ctx e
   | LA.Current (_, e) -> infer_type_expr ctx e
@@ -642,9 +641,9 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
                     (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     check_type_expr extn_ctx e exp_ty
 
-  | ChooseOp (_, (_, i ,ty), e) ->
+  | ChooseOp (pos, (_, i ,ty), e) ->
     let extn_ctx = union ctx (singleton_ty i ty) in
-    check_type_expr extn_ctx e exp_ty
+    check_type_expr extn_ctx e (Bool pos)
   (* Clock operators *)
   | When (_, e, _) -> check_type_expr ctx e exp_ty
   | Current (_, e) -> check_type_expr ctx e exp_ty

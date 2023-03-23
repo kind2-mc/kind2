@@ -800,6 +800,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
              empty_dependency_analysis_data
              (List.concat gs)]
 
+  | LA.ChooseOp (_, _, e) -> mk_graph_expr2 m e 
   | LA.When (_, e, _) -> mk_graph_expr2 m e
   | LA.Current (_, e) -> mk_graph_expr2 m e
   | LA.Condact (pos, _, _, n, e1s, e2s) ->
