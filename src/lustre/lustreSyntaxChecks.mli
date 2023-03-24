@@ -21,8 +21,8 @@
 
 type error_kind = Unknown of string
   | UndefinedLocal of HString.t
-  | DuplicateLocal of HString.t
-  | DuplicateOutput of HString.t
+  | DuplicateLocal of HString.t * Lib.position list
+  | DuplicateOutput of HString.t * Lib.position list
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
