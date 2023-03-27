@@ -194,8 +194,38 @@ let mk_result param sys time =
 
   { param ; time ; sys ; contract_valid ; requirements_valid }
 
-(** Returns true if all properties in the system in a [result] have been
-    proved. *)
+(** Returns true if all invariant properties in the system
+    in a [result] have been proved. *)
+let result_is_all_inv_proved { sys } =
+  TransSys.get_prop_status_and_kind_all_nocands sys
+  |> List.filter_map (function (_, st, Property.Invariant) -> Some st | _ -> None)
+  |> List.for_all (function
+    | Property.PropInvariant _ -> true
+    | _ -> false
+  )
+
+(** Returns true if some invariant properties in the system
+    in a [result] have been falsified. *)
+let result_is_some_inv_falsified { sys } =
+  TransSys.get_prop_status_and_kind_all_nocands sys
+  |> List.filter_map (function (_, st, Property.Invariant) -> Some st | _ -> None)
+  |> List.exists (function
+    | Property.PropFalse _ -> true
+    | _ -> false
+  )
+
+(** Returns true if some reachability properties in the system
+    in a [result] have been proven reachable. *)
+let result_is_some_reach_proved { sys } =
+  TransSys.get_prop_status_and_kind_all_nocands sys
+  |> List.filter_map (function (_, st, Property.Reachable _) -> Some st | _ -> None)
+  |> List.exists (function
+    | Property.PropFalse _ -> true
+    | _ -> false
+  )
+
+(** Returns true if all properties in the system
+    in a [result] have been proved. *)
 let result_is_all_proved { sys } =
   TransSys.get_prop_status_all_nocands sys |>
   List.for_all (function
@@ -421,20 +451,55 @@ let pp_print_param_of_result fmt { param ; sys } =
       ) refined
 
 let pp_print_result_quiet fmt ({ time ; sys } as res) =
-  match split_properties_nocands sys with
+  let valid, invalid, unknown = split_properties_nocands sys in
+  let invariant, unreachable =
+    valid |> List.partition (function
+      | Property.{ prop_kind = Invariant} -> true
+      | _ -> false
+    )
+  in
+  let falsified, reachable =
+    invalid |> List.partition (function
+      | Property.{ prop_kind = Invariant} -> true
+      | _ -> false
+    )
+  in
+  let property_keyword = function
+    | [ _ ] -> "property"
+    | _ -> "properties"
+  in
+  let reachability_properties fmt =
+    match unreachable, reachable with
+    | [], [] -> ()
+    | _ -> (
+      Format.fprintf fmt "@ \
+        @{<red>unreachable@}: [ @[<hov>%a@] ]@ \
+        @{<green>reachable@}:   [ @[<hov>%a@] ]
+      "
+      (pp_print_list Property.pp_print_prop_quiet ",@ ") unreachable
+      (pp_print_list Property.pp_print_prop_quiet ",@ ") reachable
+    )
+  in
+  match invariant, falsified, unknown with
   | valid, [], [] ->
     Format.fprintf fmt "%a:@   @[<v>\
         @{<green>safe@} in %.3fs@ \
         %a@ \
-        %d propert%s\
+        %d invariant %s%t\
       @]"
       Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
       time
       pp_print_param_of_result res
       (List.length valid)
-      ( match valid with
-        | [ _ ] -> "y"
-        | _ -> "ies" )
+      (property_keyword valid)
+      (fun fmt -> match unreachable, reachable with
+        | [], [] -> ()
+        | [], _ ->
+          Format.fprintf fmt "@ %d reachable %s"
+            (List.length reachable)
+            (property_keyword reachable)
+        | _ -> reachability_properties fmt
+      )
   | valid, [], unknown ->
     Format.fprintf fmt "%a:@   @[<v>\
         @{<red>timeout@}@ \
@@ -450,16 +515,17 @@ let pp_print_result_quiet fmt ({ time ; sys } as res) =
     Format.fprintf fmt "%a:@   @[<v>\
         @{<red>unsafe@} in %.3fs@ \
         %a@ \
-        @{<red>invalid@}: [ @[<hov>%a@] ]@ \
         @{<yellow>unknown@}: [ @[<hov>%a@] ]@ \
-        @{<green>valid@}:   [ @[<hov>%a@] ]\
+        @{<red>invalid@}: [ @[<hov>%a@] ]@ \
+        @{<green>valid@}:   [ @[<hov>%a@] ]%t\
       @]"
       Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
       time
       pp_print_param_of_result res
-      (pp_print_list Property.pp_print_prop_quiet ",@ ") invalid
       (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
+      (pp_print_list Property.pp_print_prop_quiet ",@ ") invalid
       (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
+      reachability_properties
 
 let pp_print_result fmt {
   param ; sys ; contract_valid ; requirements_valid

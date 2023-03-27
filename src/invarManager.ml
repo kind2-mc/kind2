@@ -55,12 +55,8 @@ let print_stats trans_sys =
   match trans_sys with
   | None -> ()
   | Some trans_sys ->
-    let statuses = (TransSys.get_prop_status_all_nocands trans_sys) in
-    let kinds =  (TransSys.get_prop_kind_all_nocands trans_sys) in
-    let status_kinds = List.map2 (fun (p, s) (_, k) -> p, s, k) statuses kinds in
+    let status_kinds = TransSys.get_prop_status_and_kind_all_nocands trans_sys in
     KEvent.log_prop_status L_fatal trans_sys status_kinds
-
-      
 
 
 let on_exit trans_sys =
