@@ -3060,6 +3060,21 @@ module Global = struct
     )
   let slice_nodes () = !slice_nodes
 
+  let check_reach_default = true
+  let check_reach = ref check_reach_default
+  let _ = add_spec
+    "--check_reach"
+    (bool_arg check_reach)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Check reachability properties@ \
+          Default: %a\
+        "
+        fmt_bool check_reach_default
+    )
+  let set_check_reach b = check_reach := b
+  let check_reach () = !check_reach
 
   let check_subproperties_default = true
   let check_subproperties = ref check_subproperties_default
@@ -3290,6 +3305,7 @@ let lus_strict = Global.lus_strict
 let lus_push_pre = Global.lus_push_pre
 let modular = Global.modular
 let slice_nodes = Global.slice_nodes
+let check_reach = Global.check_reach
 let check_subproperties = Global.check_subproperties
 let lus_main = Global.lus_main
 let debug = Global.debug
@@ -3769,6 +3785,21 @@ let parse_argv () =
   if IVC.compute_ivc () && BmcKind.compress () then (
     BmcKind.disable_compress () ;
     Log.log L_warn "IVC post-analysis enabled: disabling ind_compress"
+  );
+
+  if Global.check_reach () then (
+    if IVC.compute_ivc () then (
+      Log.log L_warn "IVC post-analysis enabled: disabling reachability checks";
+      Global.set_check_reach false
+    ) ;
+    if Certif.certif () || Certif.proof () then (
+      Log.log L_warn "Certification post-analysis enabled: disabling reachability checks";
+      Global.set_check_reach false
+    );
+    if print_invs () then (
+      Log.log L_warn "Invariant printing enabled: disabling reachability checks";
+      Global.set_check_reach false
+    )
   )
 
 

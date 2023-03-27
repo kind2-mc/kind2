@@ -213,6 +213,9 @@ val modular : unit -> bool
 (** Node slicing *)
 val slice_nodes : unit -> bool
 
+(** Check reachability properties *)
+val check_reach : unit -> bool
+
 (** Check properties of subnodes *)
 val check_subproperties : unit -> bool
 

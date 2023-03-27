@@ -1149,7 +1149,7 @@ let minimize_invariants sys props invs_predicate =
   (* TODO: Fix the minimize_invariant function when Smt.check_sat_assume is false.
      The issue seems to come from the fact that nested calls to check_sat_assume
      and get_unsat_core_lits are done inside of the continuation given to check_sat_assume. *)
-  if Flags.Smt.check_sat_assume ()
+  if Flags.Smt.check_sat_assume () && invs <> []
   then
 
     (* For stats *)

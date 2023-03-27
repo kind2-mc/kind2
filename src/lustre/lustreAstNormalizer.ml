@@ -729,12 +729,22 @@ and normalize_node info map
       | _ -> assert false)
       (empty ())
   in
+  let items =
+    if Flags.check_reach () then
+      items
+    else (
+      items |> List.filter (function
+        | A.AnnotProperty (_, _, _, Reachable _) -> false
+        | _ -> true
+      )
+    )
+  in
   let exists_reachability_prop_with_bounds =
     let reachability_prop_with_bounds = function
     | A.AnnotProperty (_, _, _, Reachable (Some _)) -> true
     | _ -> false
     in
-    List.exists reachability_prop_with_bounds items
+    Flags.check_reach () && List.exists reachability_prop_with_bounds items
   in
   let info, gids6 =
     if exists_reachability_prop_with_bounds then (
