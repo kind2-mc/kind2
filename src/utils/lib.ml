@@ -816,7 +816,7 @@ let pp_print_version ppf = pp_print_banner ppf ()
 type kind_module = 
   [ `IC3 
   | `BMC
-  | `BMCREACHABLE
+  | `BMCSKIP
   | `IND
   | `IND2
   | `INVGEN
@@ -856,7 +856,7 @@ type kind_module =
 let pp_print_kind_module ppf = function
   | `IC3 -> fprintf ppf "property directed reachability"
   | `BMC -> fprintf ppf "bounded model checking"
-  | `BMCREACHABLE -> fprintf ppf "bounded model checking (reachability)"
+  | `BMCSKIP -> fprintf ppf "bounded model checking (reachability)"
   | `IND -> fprintf ppf "inductive step"
   | `IND2 -> fprintf ppf "2-induction"
   | `INVGEN -> fprintf ppf "two state invariant generator (bool)"
@@ -899,7 +899,7 @@ let string_of_kind_module = string_of_t pp_print_kind_module
 let short_name_of_kind_module = function
  | `IC3 -> "ic3"
  | `BMC -> "bmc"
- | `BMCREACHABLE -> "bmcreachable"
+ | `BMCSKIP -> "bmcskip"
  | `IND -> "ind"
  | `IND2 -> "ind2"
  | `INVGEN -> "invgents"
@@ -939,7 +939,7 @@ let short_name_of_kind_module = function
 let kind_module_of_string = function 
   | "IC3" -> `IC3
   | "BMC" -> `BMC
-  | "BMCREACHABLE" -> `BMCREACHABLE
+  | "BMCSKIP" -> `BMCSKIP
   | "IND" -> `IND
   | "IND2" -> `IND2
   | "INVGEN" -> `INVGEN
@@ -978,7 +978,7 @@ let int_of_kind_module = function
   | `Interpreter -> -2
   | `Supervisor -> -1
   | `BMC -> 1
-  | `BMCREACHABLE -> 30
+  | `BMCSKIP -> 30
   | `IND -> 2
   | `IND2 -> 3
   | `IC3 -> 4

@@ -19,10 +19,9 @@
 open Lib
 open Format
 
-
-module HH = HString.HStringHashtbl
 module HS = HStringSExpr
-module H = HString
+module H  = HString
+module HM = HString.HStringMap
 module SMT : SolverDriver.S = GenericSMTLIBDriver
 
 (* Hard coded options *)
@@ -33,12 +32,21 @@ let set_margin fmt = pp_set_margin fmt (if compact then max_int else 80)
 
 (* disable the preprocessor and tell cvc5 to dump proofs *)
 let cvc5_proof_args () =
-  let args = ["--lang=smt2"; "--simplification=none"; "--dump-proofs"; "--proof-format=lfsc"] in
+  let args =
+    [
+      "--lang=smt2";
+      "--simplification=none";
+      "--dump-proofs";
+      "--proof-format=lfsc";
+    ]
+  in
   let args =
     if Flags.Certif.smaller_holes () then
-      "--proof-granularity=theory-rewrite" :: args
-    else
-      args
+      "--proof-granularity=theory-rewrite" :: "--lfsc-expand-trust" :: args
+    else args
+  in
+  let args =
+    if Flags.Certif.flatten_proof () then "--lfsc-flatten" :: args else args
   in
   List.rev args
 
@@ -58,8 +66,6 @@ let get_cvc5_version () =
 let s_declare = H.mk_hstring "declare"
 let s_define = H.mk_hstring "define"
 
-let s_holds = H.mk_hstring "holds"
-
 (* let s_iff = H.mk_hstring "iff" *)
 (* let s_true = H.mk_hstring "true" *)
 
@@ -72,7 +78,7 @@ let s_trust = H.mk_hstring "trust"
 (* let s_apply = H.mk_hstring "apply" *)
 
 let s_check = H.mk_hstring "check"
-(* let s_ascr = H.mk_hstring ":" *)
+let s_ascr = H.mk_hstring ":"
 (* let s_lambda = H.mk_hstring "#" *)
 let s_at = H.mk_hstring "@"
 let s_hole = H.mk_hstring "_"
@@ -131,9 +137,14 @@ type lfsc_decl = {
 (* Type of LFSC definitions *)
 type lfsc_def = {
   def_symb : H.t;
-  def_args : (H.t * lfsc_type) list;
-  def_ty : lfsc_type option;
   def_body : lfsc_term;
+}
+
+(* Type of LFSC lemmas *)
+type lfsc_lem = {
+  lem_symb : H.t;
+  lem_ty: lfsc_type;
+  lem_body : lfsc_term;
 }
 
 (* Comparison for equality of declarations *)
@@ -155,29 +166,31 @@ type lfsc_def = {
 type cvc5_proof_context = {
   lfsc_decls : lfsc_decl list;
   lfsc_defs : lfsc_def list;
-  fun_defs_args : (H.t * int * lfsc_type) list HH.t;
 }
 
 (* Empty context *)
 let mk_empty_proof_context () = {
   lfsc_decls = [];
   lfsc_defs = [];
-  fun_defs_args = HH.create 17;
 }
 
 (* The type of a proof returned by cvc5 *)
 type cvc5_proof = {
   proof_context : cvc5_proof_context;
-  proof_hyps : lfsc_decl list; 
+  proof_temps : lfsc_def list;
+  proof_hyps : lfsc_decl list;
+  proof_lems : lfsc_lem list;
   proof_type : lfsc_type option;
-  proof_term : lfsc_type;
+  proof_term : lfsc_term;
 }
 
 (* Create an empty proof from a context *)
 let mk_empty_proof ctx = {
   proof_context = ctx;
+  proof_temps = [];
   proof_hyps = [];
-  proof_type = Some (HS.List []);
+  proof_lems = [];
+  proof_type = None;
   proof_term = HS.List [];
 }
 
@@ -203,41 +216,19 @@ let print_decl fmt { decl_symb; decl_type } =
     H.pp_print_hstring decl_symb print_type decl_type
 
 
-(* print the type of a symbol for its LFSC definition *)
-let rec print_def_type ty fmt args =
-  match args with
-  | [] -> print_type fmt ty
-  | (_, ty_a) :: rargs ->
-    fprintf fmt "@[<hov 0>(! _ %a@ %a)@]"
-      print_type ty_a
-      (print_def_type ty) rargs
-
-
-(* print the optional type of a symbol for its LFSC definition *)
-let print_option_def_type ty fmt args =
-  match ty with
-  | None -> ()
-  | Some ty -> fprintf fmt ": @[<hov 0>%a@]@ " (print_def_type ty) args
-
-
-(* print the LFSC definition as a lambda abstraction *)
-let rec print_def_lambdas term fmt args =
-  match args with
-  | [] -> print_term fmt term
-  | (a, _) :: rargs ->
-    fprintf fmt "@[<hov 0>(\\ %a@ %a)@]"
-      H.pp_print_hstring a (print_def_lambdas term) rargs
-
-
 (* Print an LFSC definition with type information *)
-let print_def fmt { def_symb; def_args; def_ty; def_body } =
-  fprintf fmt "@[<hov 1>(define@ %a@ @[<hov 1>(%a%a)@])@]" H.pp_print_hstring
+let print_def fmt { def_symb; def_body } =
+  fprintf fmt "@[<hov 1>(define@ %a@ @[<hov 1>%a@])@]" H.pp_print_hstring
     def_symb
-    (print_option_def_type def_ty)
-    def_args
-    (print_def_lambdas def_body)
-    def_args
+    print_term def_body
 
+(* Print an LFSC lemma with type information *)
+let print_lem fmt { lem_symb; lem_ty; lem_body } =
+  fprintf fmt "@[<hov 1>(check@ @[<hov 1>(: %a %a)@])@]" print_type lem_ty
+    print_term lem_body;
+  fprintf fmt "@.";
+  fprintf fmt "@[<hov 1>(declare@ %a@ @[<hov 1>%a@])@]" H.pp_print_hstring
+    lem_symb print_term lem_ty
 
 (* Print a proof context *)
 let print_context fmt { lfsc_decls; lfsc_defs } =
@@ -274,9 +265,8 @@ let print_delta_context { lfsc_decls = old_decls; lfsc_defs = old_defs } fmt
 let rec print_hyps_type ty fmt = function
   | [] -> print_type fmt ty
   | { decl_symb; decl_type } :: rhyps ->
-    fprintf fmt "@[<hov 0>(! %a (%a %a)@ %a)@]"
+    fprintf fmt "@[<hov 0>(! %a@ %a@ %a)@]"
       H.pp_print_hstring decl_symb
-      H.pp_print_hstring s_holds
       print_type decl_type
       (print_hyps_type ty) rhyps
 
@@ -296,15 +286,28 @@ let rec print_proof_term term fmt = function
 
 (* Print an LFSC proof *)
 let print_proof ?(context = false) name fmt
-    { proof_context; proof_hyps; proof_type; proof_term } =
+    {
+      proof_context;
+      proof_temps;
+      proof_hyps;
+      proof_lems;
+      proof_type;
+      proof_term;
+    } =
   if context then print_context fmt proof_context;
-  let hyps = List.rev proof_hyps in
+  fprintf fmt "@.";
+  List.iter (fprintf fmt "%a@." print_def) (List.rev proof_temps);
+  fprintf fmt "@.";
+  List.iter (fprintf fmt "%a@." print_decl) (List.rev proof_hyps);
+  fprintf fmt "@.";
+  List.iter (fprintf fmt "%a@." print_lem) (List.rev proof_lems);
+  fprintf fmt "@.";
   fprintf fmt "@[<hov 1>(define %s@ @[<hov 1>(%a%a)@])@]"
     (H.string_of_hstring name)
-    (print_proof_type hyps)
+    (print_proof_type proof_hyps)
     proof_type
     (print_proof_term proof_term)
-    hyps
+    proof_hyps
 
 
 (*********************************)
@@ -324,6 +327,13 @@ let print_proof ?(context = false) name fmt
       else List l'
     | Atom _ -> sexp *)
 
+let rec subst_atom sigma = function
+  | HS.Atom a -> (
+    match HM.find_opt a sigma with
+    | Some s -> HS.Atom s
+    | None -> HS.Atom a
+  )
+  | HS.List l -> HS.List (List.map (subst_atom sigma) l)
 
 (* Returns list of admitted holes, i.e. formulas whose validity is trusted *)
 let rec extract_trusts acc = let open HS in
@@ -372,6 +382,45 @@ let log_trusted ~frontend dirname =
   end
 
 
+exception ProofParseError of string
+
+let extract_proof_type = function
+  | HS.List [ HS.Atom ascr; ty; term ] when ascr = s_ascr -> (ty, term)
+  | t ->
+      raise
+        (ProofParseError ("Could not extract type of " ^ HS.string_of_sexpr t))
+
+
+(* Parse a proof from cvc5 and return a set of substitutions renaming temporary
+   variables. *)
+let rec create_substitution prefix =
+  let open HS in
+  function
+  | List [ Atom dec; Atom s; _ ] :: r
+    when dec == s_declare
+         && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
+      create_substitution prefix r
+  | List [ Atom dec; Atom s; _ ] :: r when dec == s_declare ->
+      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
+      HM.add s s' (create_substitution prefix r)
+  | List [ Atom def; Atom s; _ ] :: r
+    when def == s_define
+         && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
+      create_substitution prefix r
+  | List [ Atom def; Atom s; _ ] :: r when def == s_define ->
+      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
+      HM.add s s' (create_substitution prefix r)
+  | List [ Atom check; _ ] :: List [ _; Atom s; _ ] :: r when check == s_check
+    ->
+      let s' = H.mk_hstring (prefix ^ "." ^ H.string_of_hstring s) in
+      HM.add s s' (create_substitution prefix r)
+  | [ List (Atom check :: _) ] when check == s_check -> HM.empty
+  | s ->
+      failwith
+        (asprintf "pre_parse_proof: Unexpected proof:\n%a@."
+           HS.pp_print_sexpr_list s)
+
+
 (***********************)
 (* Parsing proof terms *)
 (***********************)
@@ -381,7 +430,9 @@ let rec parse_proof acc =
   let open HS in
   let ctx = acc.proof_context in
   function
-  | List [ Atom dec; Atom s; t ] :: r when dec == s_declare ->
+  | List [ Atom dec; Atom s; t ] :: r
+    when dec == s_declare
+         && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
       let ctx =
         if List.exists (fun decl -> H.equal decl.decl_symb s) ctx.lfsc_decls
         then ctx
@@ -390,21 +441,44 @@ let rec parse_proof acc =
           { ctx with lfsc_decls = decl :: ctx.lfsc_decls }
       in
       parse_proof { acc with proof_context = ctx } r
-  | List [ Atom def; Atom s; b ] :: r when def == s_define ->
+  | List [ Atom dec; Atom s; t ] :: r when dec == s_declare ->
+      let hyp = { decl_symb = s; decl_type = t } in
+      parse_proof
+        { acc with proof_hyps = hyp :: acc.proof_hyps; proof_context = ctx }
+        r
+  | List [ Atom def; Atom s; b ] :: r
+    when def == s_define
+         && Lib.string_starts_with (H.string_of_hstring s) "cvc." ->
       let ctx =
         if List.exists (fun def -> H.equal def.def_symb s) ctx.lfsc_defs then
           ctx
         else
-          let def =
-            { def_symb = s; def_args = []; def_ty = None; def_body = b }
-          in
+          let def = { def_symb = s; def_body = b } in
           { ctx with lfsc_defs = def :: ctx.lfsc_defs }
       in
       parse_proof { acc with proof_context = ctx } r
+  | List [ Atom def; Atom s; b ] :: r when def == s_define ->
+      let temp = { def_symb = s; def_body = b } in
+      parse_proof
+        { acc with proof_temps = temp :: acc.proof_temps; proof_context = ctx }
+        r
+  | List [ Atom check; p ] :: List [ _; Atom s; _ ] :: r when check == s_check
+    ->
+      let ty, p = extract_proof_type p in
+      let lem = { lem_symb = s; lem_ty = ty; lem_body = p } in
+      parse_proof
+        { acc with proof_lems = lem :: acc.proof_lems; proof_context = ctx }
+        r
   | [ List (Atom check :: [ pterm ]) ] when check == s_check ->
       let ctx = { ctx with lfsc_defs = List.rev ctx.lfsc_defs } in
       if Flags.Certif.log_trust () then register_trusts pterm;
-      { acc with proof_context = ctx; proof_type = None; proof_term = pterm }
+      let ty, pterm =
+        if Flags.Certif.flatten_proof () then
+          let r = extract_proof_type pterm in
+          (Some (fst r), snd r)
+        else (None, pterm)
+      in
+      { acc with proof_context = ctx; proof_type = ty; proof_term = pterm }
   | s ->
       failwith
         (asprintf "parse_proof: Unexpected proof:\n%a@." HS.pp_print_sexpr_list
@@ -417,7 +491,7 @@ let parse_proof_check ctx = parse_proof (mk_empty_proof ctx)
 
 (* Parse a proof from cvc5 from a channel. cvc5 returns the proof after
    displaying [unsat] on the channel. *)
-let proof_from_chan ctx in_ch =
+let proof_from_chan ctx prefix in_ch =
 
   let lexbuf = Lexing.from_channel in_ch in
   let sexps = SExprParser.sexps SExprLexer.main lexbuf in
@@ -434,7 +508,8 @@ let proof_from_chan ctx in_ch =
 
     | Atom u :: proof when u == s_unsat ->
 
-      parse_proof_check ctx proof
+      let sigma = create_substitution prefix proof in
+      parse_proof_check ctx (List.map (subst_atom sigma) proof)
 
     | _ ->
       failwith (asprintf "No proofs, instead got:\n%a@."
@@ -443,12 +518,12 @@ let proof_from_chan ctx in_ch =
 
 
 (* Call cvc5 in proof production mode on an SMT2 file and return the proof *)
-let proof_from_file ctx f =
+let proof_from_file ctx prefix f =
   let cmd = cvc5_proof_cmd () ^ " " ^ f in
   (* Format.eprintf "CMD: %s@." cmd ; *)
   let ic, oc, err = Unix.open_process_full cmd (Unix.environment ()) in
   try
-    let proof = proof_from_chan ctx ic in
+    let proof = proof_from_chan ctx prefix ic in
     ignore(Unix.close_process_full (ic, oc, err));
     proof
   with Failure _ as e ->
@@ -469,10 +544,12 @@ let rec parse_context ctx =
   let open HS in
   function
   | List [ Atom dec; Atom s; t ] :: r when dec == s_declare ->
-      let decl = { decl_symb = s; decl_type = t } in
-      parse_context { ctx with lfsc_decls = decl :: ctx.lfsc_decls } r
+      if Lib.string_starts_with (H.string_of_hstring s) "cvc." then
+        let decl = { decl_symb = s; decl_type = t } in
+        parse_context { ctx with lfsc_decls = decl :: ctx.lfsc_decls } r
+      else parse_context ctx r
   | List [ Atom def; Atom s; b ] :: r when def == s_define ->
-      let def = { def_symb = s; def_args = []; def_ty = None; def_body = b } in
+      let def = { def_symb = s; def_body = b } in
       parse_context { ctx with lfsc_defs = def :: ctx.lfsc_defs } r
   | [ List (Atom check :: _) ] when check == s_check ->
       { ctx with lfsc_defs = List.rev ctx.lfsc_defs }
@@ -532,7 +609,9 @@ let context_from_file f =
        KEvent.log L_fatal "cvc5 crashed with exit code %d." i);
     raise e
 
-(* Merge two contexts *)
+(* Merge two contexts. Note: this is a shallow operation that returns `ctx1`
+   with `ctx2` decls/defs whose symbol is not in `ctx1` ignoring types/
+   bodies. *)
 let merge_contexts ctx1 ctx2 =
   let decl_pred acc decl =
     if List.exists (fun decl' -> H.equal decl'.decl_symb decl.decl_symb) acc
@@ -550,11 +629,22 @@ let merge_contexts ctx1 ctx2 =
     lfsc_defs =
       List.rev
         (List.fold_left def_pred (List.rev ctx1.lfsc_defs) ctx2.lfsc_defs);
-    fun_defs_args =
-      (let h = HH.create 21 in
-       HH.iter (HH.add h) ctx1.fun_defs_args;
-       HH.iter (HH.add h) ctx2.fun_defs_args;
-       h);
+  }
+
+(* Intersect two contexts. Note: this is a shallow operation that removes decls/
+   defs in `ctx1` whose symbol appear in `ctx2` ignoring types/bodies. *)
+let intersect_contexts ctx1 ctx2 =
+  let decl_pred decl =
+    List.exists
+      (fun decl' -> H.equal decl'.decl_symb decl.decl_symb)
+      ctx2.lfsc_decls
+  in
+  let def_pred def =
+    List.exists (fun def' -> H.equal def'.def_symb def.def_symb) ctx2.lfsc_defs
+  in
+  {
+    lfsc_decls = List.filter decl_pred ctx1.lfsc_decls;
+    lfsc_defs = List.filter def_pred ctx1.lfsc_defs;
   }
 
 (* Pretty-print a sort *)
@@ -602,8 +692,6 @@ let context_from_vars vars =
     in
     {
       def_symb = H.mk_hstring ("cvc." ^ symb);
-      def_args = [];
-      def_ty = None;
       def_body = sort;
     }
   in
@@ -615,9 +703,9 @@ let context_from_file f =
   Stat.record_time Stat.certif_cvc5_time;
   c
   
-let proof_from_file f =
+let proof_from_file prefix f =
   Stat.start_timer Stat.certif_cvc5_time;
-  let p = proof_from_file f in
+  let p = proof_from_file prefix f in
   Stat.record_time Stat.certif_cvc5_time;
   p
   
@@ -790,7 +878,7 @@ let generate_inv_proof inv =
   in
   
   Debug.certif "Extracting LFSC proof of base case from cvc5";
-  let base_proof = proof_from_file ctx inv.base in
+  let base_proof = proof_from_file ctx "inv.base" inv.base in
   fprintf proof_fmt ";; Additional symbols@.%a@."
     (print_delta_context ctx) base_proof.proof_context;
   fprintf proof_fmt ";; Proof of base case\n@.%a\n@."
@@ -798,7 +886,7 @@ let generate_inv_proof inv =
 
   Debug.certif
     "Extracting LFSC proof of inductive case from cvc5";
-  let induction_proof = proof_from_file ctx inv.induction in
+  let induction_proof = proof_from_file ctx "inv.ind" inv.induction in
   fprintf proof_fmt ";; Additional symbols@.%a@."
     (print_delta_context ctx) induction_proof.proof_context;
   fprintf proof_fmt ";; Proof of inductive case\n@.%a\n@."
@@ -806,7 +894,7 @@ let generate_inv_proof inv =
 
   Debug.certif
     "Extracting LFSC proof of implication from cvc5";
-  let implication_proof = proof_from_file ctx inv.implication in
+  let implication_proof = proof_from_file ctx "inv.imp" inv.implication in
   fprintf proof_fmt ";; Additional symbols@.%a@."
     (print_delta_context ctx) implication_proof.proof_context;
   fprintf proof_fmt ";; Proof of implication\n@.%a\n@."
@@ -826,7 +914,6 @@ let generate_inv_proof inv =
   let def_syms = List.map (fun def -> def.def_symb) ctx.lfsc_defs in
   decl_syms @ def_syms
 
-exception ProofParseError of string
 
 let get_itp_binders ctx =
   let is_sym sym lfsc_def =
@@ -895,12 +982,13 @@ let generate_frontend_proof inv =
   in
 
   let ctx_jk = context_from_file inv.jkind_system.smt2_lfsc_trace_file in
-  fprintf proof_fmt ";; System generated by JKind\n@.%a\n@."
-  print_context (merge_contexts ctx_vars ctx_jk);
-
   let ctx_obs = context_from_file inv.obs_system.smt2_lfsc_trace_file in
+
+  fprintf proof_fmt ";; System generated by JKind\n@.%a\n@."
+  print_context (intersect_contexts (merge_contexts ctx_vars ctx_obs) ctx_jk);
+
   fprintf proof_fmt ";; System generated for Observer\n@.%a\n@."
-  (print_delta_context ctx_jk) ctx_obs;
+  (print_delta_context (merge_contexts ctx_vars ctx_jk)) ctx_obs;
 
   let ctx_phi = context_from_file inv.phi_lfsc_trace_file in
   fprintf proof_fmt ";; k-Inductive invariant for observer system\n@.%a\n@."
@@ -917,7 +1005,7 @@ let generate_frontend_proof inv =
   
   Debug.certif
     "Extracting LFSC frontend proof of base case from cvc5";
-  let base_proof = proof_from_file ctx inv.base in
+  let base_proof = proof_from_file ctx "front.base" inv.base in
   fprintf proof_fmt ";; Additional symbols@.%a@."
     (print_delta_context ctx) base_proof.proof_context;
   fprintf proof_fmt ";; Proof of base case\n@.%a\n@."
@@ -925,7 +1013,7 @@ let generate_frontend_proof inv =
 
   Debug.certif
     "Extracting LFSC frontend proof of inductive case from cvc5";
-  let induction_proof = proof_from_file ctx inv.induction in
+  let induction_proof = proof_from_file ctx "front.ind" inv.induction in
   fprintf proof_fmt ";; Additional symbols@.%a@."
     (print_delta_context ctx) induction_proof.proof_context;
   fprintf proof_fmt ";; Proof of inductive case\n@.%a\n@."
@@ -933,7 +1021,7 @@ let generate_frontend_proof inv =
 
   Debug.certif
     "Extracting LFSC frontend proof of implication from cvc5";
-  let implication_proof = proof_from_file ctx inv.implication in
+  let implication_proof = proof_from_file ctx "front.imp" inv.implication in
   fprintf proof_fmt ";; Additional symbols@.%a@."
     (print_delta_context ctx) implication_proof.proof_context;
   fprintf proof_fmt ";; Proof of implication\n@.%a\n@."

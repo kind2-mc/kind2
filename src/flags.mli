@@ -488,6 +488,9 @@ module Certif : sig
   (** Reduce the size of trusted holes. *)
   val smaller_holes : unit -> bool
 
+  (** Breakdown proof into smaller steps. *)
+  val flatten_proof : unit -> bool
+
   (** Log trusted parts of proofs. *)
   val log_trust : unit -> bool
 

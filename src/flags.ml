@@ -1242,8 +1242,20 @@ module Certif = struct
          increases the size of the proof.@ Default: %a@]"
         fmt_bool smaller_holes_default
     )
-
   let smaller_holes () = !smaller_holes
+
+  let flatten_proof_default = false
+  let flatten_proof = ref flatten_proof_default
+  let _ = add_spec
+    "--flatten_proof"
+    (bool_arg flatten_proof)
+    (fun fmt ->
+        Format.fprintf fmt
+          "@[<v>Breakdown proofs into smaller steps, where each step is checked \
+          independently. Substantially reduces LFSC memory footprint. @ \
+          Default:%a@]"
+          fmt_bool smaller_holes_default)
+  let flatten_proof () = !flatten_proof
 
   let log_trust_default = false
   let log_trust = ref log_trust_default
@@ -2878,7 +2890,7 @@ module Global = struct
   let kind_module_of_string = function
     | "IC3" -> `IC3
     | "BMC" -> `BMC
-    | "BMCREACHABLE" -> `BMCREACHABLE
+    | "BMCSKIP" -> `BMCSKIP
     | "IND" -> `IND
     | "IND2" -> `IND2
     | "INVGEN" -> `INVGEN
@@ -2900,7 +2912,7 @@ module Global = struct
   let string_of_kind_module = function
     | `IC3 -> "IC3"
     | `BMC -> "BMC"
-    | `BMCREACHABLE -> "BMCREACHABLE"
+    | `BMCSKIP -> "BMCSKIP"
     | `IND -> "IND"
     | `IND2 -> "IND2"
     | `INVGEN -> "INVGEN"

@@ -1918,9 +1918,19 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
       match lhs with
       | A.StructDef (_, []) -> eqns
       | _ -> (
-        let eq_lhs, indexes = match lhs with
+        let (eq_lhs, indexes), is_generated = match lhs with
           | A.StructDef (_, []) -> assert false (* (X.empty, 0) *)
-          | A.StructDef (_, [e]) -> compile_struct_item e
+          | A.StructDef (_, [e]) as lhs1 -> 
+            (* Detect if equation is result of desugaring a frame block *)
+            let is_generated = match HString.HStringHashtbl.find_opt LDF.pos_list_map i with
+              | None -> false
+              | Some frame_infos -> (
+                match List.find_opt (fun (_, lhs) -> match lhs with | LDF.FCond lhs2 -> lhs1 = lhs2 | _ -> false) 
+                                    frame_infos with
+                  | None -> false
+                  | Some _ -> true
+              ) in
+            compile_struct_item e, is_generated
           | A.StructDef (_, l) ->
             let construct_index =
               fun i j e a -> X.add (X.ListIndex i :: j) e a
@@ -1930,9 +1940,9 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
                 i + 1, X.fold (construct_index i) t accum
             in
             let _, res = List.fold_left over_items (0, X.empty) l
-            in res, 0
+            in (res, 0), false
         in
-        let lhs_bounds = gen_lhs_bounds false eq_lhs ast_expr indexes in
+        let lhs_bounds = gen_lhs_bounds is_generated eq_lhs ast_expr indexes in
         let eq_rhs = compile_ast_expr cstate ctx lhs_bounds map ast_expr in
         let eq_rhs = flatten_list_indexes eq_rhs in
         (* Format.eprintf "lhs: %a@.rhs: %a@.@."
@@ -2079,13 +2089,17 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
     match HString.HStringHashtbl.find_opt LDF.pos_list_map i with
       | Some frame_infos ->
         (* Get state variables for frame block variables *)
-          List.iter (fun (pos, lhs, pos2) -> 
-            let lhs, _ = (match lhs with
-              | A.StructDef (_, [e]) -> compile_struct_item e
+          List.iter (fun (pos, def) -> 
+            (match def with
+              (* Adding state vars for frame block equations *)
+              | LDF.Eq A.StructDef (_, [e]) -> 
+                let lhs, _ = compile_struct_item e in
+                List.iter (fun (i, sv) -> N.add_state_var_def sv (N.ProperEq (pos, rm_array_var_index i))) (X.bindings lhs);
+              (* Adding state vars for frame block headers *)
+              | FCond A.StructDef (_, [e]) ->
+                let lhs, _ = compile_struct_item e in
+                List.iter (fun (_, sv) -> N.add_state_var_def sv (N.FrameBlock pos)) (X.bindings lhs);
               | _ -> assert false) 
-            in
-            List.iter (fun (_, sv) -> N.add_state_var_def sv (N.FrameBlock pos)) (X.bindings lhs);
-            List.iter (fun (i, sv) -> N.add_state_var_def sv (N.ProperEq (pos2, rm_array_var_index i))) (X.bindings lhs);
         ) frame_infos;  
       | None -> ()
   );

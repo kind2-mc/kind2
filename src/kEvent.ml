@@ -1250,7 +1250,7 @@ let pp_print_counterexample_json
           (* Output counterexample *)
           Format.fprintf ppf
             "\"%s\" :%a"
-            (if prop_kind = Property.Invariant then object_name else "ExampleTrace")
+            (if prop_kind = Property.Invariant then object_name else "exampleTrace")
             (InputSystem.pp_print_path_json input_sys' trans_sys' disproved)
             (Model.path_of_list cex')
         with TimeoutWall -> (
