@@ -139,6 +139,10 @@ let shrink_param_to_sys param sys = match param with
 | First info -> First (shrink_info_to_sys info sys)
 | Refinement (info, res) -> Refinement ( (shrink_info_to_sys info sys), res )
 
+let rec get_first_analysis_info = function
+| Refinement (_, { param }) -> get_first_analysis_info param
+| param -> info_of_param param
+
 (* Retrieve the assumptions of a [scope] from a [param]. *)
 let param_assumptions_of_scope param scope =
   let { assumptions } = info_of_param param in
@@ -379,7 +383,7 @@ let pp_print_param_of_result fmt { param ; sys } =
         if count = 1 then "" else "s"
       )
   | Refinement ( { abstraction_map }, { param = pre_param } ) ->
-    let { abstraction_map = pre_abs_map } = info_of_param pre_param in
+    let { abstraction_map = pre_abs_map } = get_first_analysis_info pre_param in
     let count =
       Scope.Map.fold (
         fun _ is_abs acc ->
