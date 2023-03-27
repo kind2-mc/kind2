@@ -52,7 +52,7 @@ jobs:
     if: github.repository == 'kind2-mc/kind2'
     strategy:
       matrix: # Single configuration
-        ocaml-version: [ 4.14.0 ]
+        ocaml-version: [ 4.14.1 ]
         # Only matrix variables can be used at runs-on
         os: [ macos-11 ]
 
@@ -82,71 +82,24 @@ jobs:
         name: ${{ matrix.os }}
         path: bin/kind2
 
-
-  get-release-info:
-    if: github.repository == 'kind2-mc/kind2'
-    runs-on: ubuntu-latest
-    needs: [kind2-linux-bin, kind2-macos-bin]
-    outputs:
-      upload_url: ${{ steps.get_upload_url.outputs.url }}
-      asset_ids: ${{ steps.get_asset_ids.outputs.ids }}
-    steps:
-    - name: Get nightly pre-release
-      uses: octokit/request-action@v2.x
-      id: get_nightly_prerelease
-      with:
-        route: GET /repos/:repository/releases/tags/nightly
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        INPUT_REPOSITORY: ${{ github.repository }}
-
-    - name: Get pre-release upload_url
-      id: get_upload_url
-      run: |
-        url=$(echo "$response" | jq -r '.upload_url')
-        echo "url=$url" >> $GITHUB_OUTPUT
-      env:
-        response: ${{ steps.get_nightly_prerelease.outputs.data }}
-
-    - name: Get pre-release asset ids
-      id: get_asset_ids
-      run: |
-        ids=$(echo "$response" | jq -c '.assets | map(.id)')
-        echo "ids=$ids" >> $GITHUB_OUTPUT
-      env:
-        response: ${{ steps.get_nightly_prerelease.outputs.data }}
-
-
-  delete-old-asset:
-    if: github.repository == 'kind2-mc/kind2' &&
-        needs.get-release-info.outputs.asset_ids != '[]'
-    runs-on: ubuntu-latest
-    needs: get-release-info
-    strategy:
-      matrix:
-        # We use a matrix variable to get asset_id. Otherwise GitHub rejects it.
-        asset_id: ${{fromJson(needs.get-release-info.outputs.asset_ids)}}
-    steps:
-    - name: Remove asset
-      uses: octokit/request-action@v2.x
-      with:
-        route: DELETE /repos/:repository/releases/assets/:asset_id
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        INPUT_REPOSITORY: ${{ github.repository }}
-        INPUT_ASSET_ID: ${{ matrix.asset_id }}
-
-
-  update-release-tag:
+  get-ready-release:
     if: github.repository == 'kind2-mc/kind2' && !failure()
     runs-on: ubuntu-latest
-    # It doesn't need delete-old-asset, but we force the dependency
-    # for consistency (in case previous job fails)
-    needs: [get-release-info, delete-old-asset]
+    needs: [kind2-linux-bin, kind2-macos-bin]
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+
+    - name: Delete old assets
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        ids=$(gh release view nightly --json assets --jq '.assets | map(.name) | .[]')
+        for id in $ids;
+        do
+          gh release delete-asset nightly $id -y
+        done
 
     - name: Update nightly tag
       run: |
@@ -159,8 +112,7 @@ jobs:
   upload-artifact:
     if: github.repository == 'kind2-mc/kind2' && !failure()
     runs-on: ubuntu-latest
-    # Actual dependencies: [get-release-info, delete-old-asset]
-    needs: [get-release-info, update-release-tag]
+    needs: [get-ready-release]
     strategy:
       matrix:
         version: [linux, macos-11]
@@ -180,12 +132,10 @@ jobs:
         tar -czf $tarball kind2
         echo "filename=$tarball" >> $GITHUB_OUTPUT
     
-    - name: Upload artifact
-      uses: actions/upload-release-asset@v1
+    - name: Upload release asset
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ needs.get-release-info.outputs.upload_url }}
-        asset_path: ${{ steps.create_tarball.outputs.filename }}
-        asset_name: ${{ steps.create_tarball.outputs.filename }}
-        asset_content_type: application/gzip
+      run: |
+        gh release upload nightly \
+          ${{ steps.create_tarball.outputs.filename }} \
+          --repo $GITHUB_REPOSITORY
