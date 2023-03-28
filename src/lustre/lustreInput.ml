@@ -179,9 +179,13 @@ let type_check declarations =
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
     (* Step 14. Normalize AST: guard pres, abstract to locals where appropriate *)
-    let* (normalized_nodes_and_contracts, gids, warnings2) = 
+    let* (normalized_nodes_and_contracts, gids, warnings2, inlined_global_ctx) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
     in
+
+    List.iter (LA.pp_print_declaration Format.std_formatter) normalized_nodes_and_contracts;
+    TypeCheckerContext.pp_print_tc_context Format.std_formatter inlined_global_ctx;
+    GeneratedIdentifiers.StringMap.iter (fun _ -> (LAN.pp_print_generated_identifiers Format.std_formatter)) gids;
       
     Res.ok (inlined_global_ctx,
       gids,
