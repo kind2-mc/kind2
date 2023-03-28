@@ -428,45 +428,31 @@ let slice_trans_sys_and_cex_to_property
   )
 
 
-(* Pretty-print a counterexample *)
-let pp_print_counterexample_pt 
-  ?(title = "Counterexample") level input_sys analysis trans_sys prop_name disproved ppf
+(* Pretty-print a trace *)
+let pp_print_trace_pt ?(title="Counterexample") ?(color="red")
+  level input_sys analysis trans_sys prop_name disproved ppf
 = function
 | [] -> ()
-| cex -> (
+| trace -> (
 
-  (* Slice counterexample and transitions system to property *)
-  let trans_sys, _, cex, input_sys =
+  (* Slice trace and transitions system to property *)
+  let trans_sys, _, trace, input_sys =
     slice_trans_sys_and_cex_to_property
-      input_sys analysis trans_sys prop_name cex
+      input_sys analysis trans_sys prop_name trace
   in
 
-  let print_trace_red () = 
-    Format.fprintf ppf
-            "@{<red>%s@}:@,  @[<v>%a@]"
-            title
-            (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
-            (Model.path_of_list cex);
+  let print_trace fmt = 
+    Format.fprintf fmt
+      "@{<%s>%s@}:@,  @[<v>%a@]"
+      color
+      title
+      (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
+      (Model.path_of_list trace);
   in
-  
-  let print_cex ppf =
-    match prop_name with
-      | Some name -> 
-        (match (TransSys.property_of_name trans_sys name).prop_kind with
-          | Property.Reachable _ ->
-            Format.fprintf ppf
-            "@{<green>%s@}:@,  @[<v>%a@]"
-            "Example trace"
-            (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
-            (Model.path_of_list cex)
-          | _ -> print_trace_red ())
-      | _ -> print_trace_red ()
- in
-
 
   if Flags.dump_cex () then (
     let dirname =
-      Filename.concat (Flags.output_dir ()) "cex"
+      Filename.concat (Flags.output_dir ()) "trace"
     in
     (* Create directories if they don't exist. *)
     Flags.output_dir () |> mk_dir ; mk_dir dirname ;
@@ -476,14 +462,14 @@ let pp_print_counterexample_pt
     in
     let out_channel = open_out path in
     let fmt = Format.formatter_of_out_channel out_channel in
-    print_cex fmt ;
+    print_trace fmt ;
     Format.pp_print_flush fmt ();
     close_out out_channel ;
     match prop_name with
     | Some prop_name -> (
       (ignore_or_fprintf level)
         !log_ppf
-        ("@[<hov>%t %s to @{<blue_b>%s@} written to '%s'@.")
+        ("@[<hov>%t %s of @{<blue_b>%s@} written to '%s'@.")
         note_tag title prop_name path
     )
     | None ->
@@ -493,7 +479,7 @@ let pp_print_counterexample_pt
         note_tag title path
   )
   else (
-    print_cex ppf
+    print_trace ppf
   )
 )
 
@@ -550,6 +536,11 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
     end
     else
       let kind = TransSys.get_prop_kind trans_sys prop in
+      let title, color =
+        match kind with
+        | Property.Invariant -> "Counterexample", "red"
+        | Property.Reachable _ -> "Example trace", "green"
+      in
       (* Output cex. *)
       (ignore_or_fprintf level)
         !log_ppf 
@@ -616,8 +607,8 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
                pp_print_satisfied_wa pp_print_unsatisfied_wa
            )
         )
-        (pp_print_counterexample_pt
-           level input_sys analysis trans_sys (Some prop) disproved)
+        (pp_print_trace_pt
+           ~title ~color level input_sys analysis trans_sys (Some prop) disproved)
         cex ;
 
     (* Output warning if division by zero happened in simplification. *)
@@ -872,8 +863,8 @@ let unknown_xml mdl level trans_sys prop_name =
       (Stat.get_float Stat.analysis_time)
       pp_print_kind_module_xml_src mdl
 
-(* Pretty-print a counterexample *)
-let pp_print_counterexample_xml
+(* Pretty-print a trace *)
+let pp_print_trace_xml
     ?(tag = "CounterExample")
     input_sys
     analysis
@@ -886,25 +877,20 @@ let pp_print_counterexample_xml
 
     | [] -> ()
 
-    | cex -> 
-      let prop_kind = match prop_name with
-        | Some name -> TransSys.get_prop_kind trans_sys name
-        | None -> Property.Invariant
-      in
-      let tag = (if prop_kind = Property.Invariant then tag else "ExampleTrace") in
+    | trace ->
       (
-        (* Slice counterexample and transitions system to property *)
-        let trans_sys', _, cex', input_sys' =
+        (* Slice trace and transitions system to property *)
+        let trans_sys', _, trace', input_sys' =
           slice_trans_sys_and_cex_to_property
-            input_sys analysis trans_sys prop_name cex
+            input_sys analysis trans_sys prop_name trace
         in
         try
-          (* Output counterexample *)
+          (* Output trace *)
           Format.fprintf ppf
             "@[<hv 2>\ <%s>%a@]@,</%s>"
             tag
             (InputSystem.pp_print_path_xml input_sys' trans_sys' disproved)
-            (Model.path_of_list cex')
+            (Model.path_of_list trace')
             tag
         with TimeoutWall -> (
           Format.fprintf ppf "@]@,</%s>@;<0 -2></Property>@]@." tag
@@ -969,6 +955,12 @@ let cex_xml
       | _ -> None
     in
 
+    let tag =
+      match prop_kind with
+      | Property.Invariant -> "CounterExample"
+      | Property.Reachable _ -> "ExampleTrace"
+    in
+
     (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf 
@@ -1002,7 +994,8 @@ let cex_xml
              wa_model
          )
       )
-      (pp_print_counterexample_xml input_sys analysis trans_sys (Some prop_name) disproved)
+      (pp_print_trace_xml
+        ~tag input_sys analysis trans_sys (Some prop_name) disproved)
       cex ;
 
     (* Output warning if division by zero happened in simplification. *)
@@ -1221,7 +1214,7 @@ let unknown_json mdl level trans_sys prop =
       (short_name_of_kind_module mdl)
 
 (* Pretty-print a counterexample *)
-let pp_print_counterexample_json
+let pp_print_trace_json
     ?(object_name = "counterExample")
     input_sys
     analysis
@@ -1234,25 +1227,21 @@ let pp_print_counterexample_json
 
     | [] -> ()
 
-    | cex ->
-      let prop_kind = match prop_name with
-        | Some name -> TransSys.get_prop_kind trans_sys name
-        | None -> Property.Invariant
-      in
+    | trace ->
       (
-        (* Slice counterexample and transitions system to property *)
-        let trans_sys', _, cex', input_sys' =
+        (* Slice trace and transitions system to property *)
+        let trans_sys', _, trace', input_sys' =
           slice_trans_sys_and_cex_to_property
-            input_sys analysis trans_sys prop_name cex
+            input_sys analysis trans_sys prop_name trace
         in
 
         try
-          (* Output counterexample *)
+          (* Output trace *)
           Format.fprintf ppf
             "\"%s\" :%a"
-            (if prop_kind = Property.Invariant then object_name else "exampleTrace")
+            object_name
             (InputSystem.pp_print_path_json input_sys' trans_sys' disproved)
-            (Model.path_of_list cex')
+            (Model.path_of_list trace')
         with TimeoutWall -> (
           Format.fprintf ppf " []@.}@.";
           raise TimeoutWall
@@ -1279,6 +1268,12 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
         | Property.Invariant -> "falsifiable"
         | Property.Reachable _ -> "reachable"
       )
+    in
+
+    let object_name =
+      match kind with
+      | Property.Invariant -> "counterExample"
+      | Property.Reachable _ -> "exampleTrace"
     in
 
     (* Output cex. *)
@@ -1327,7 +1322,8 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
              wa_model
          )
       )
-      (pp_print_counterexample_json input_sys analysis trans_sys (Some prop) disproved)
+      (pp_print_trace_json
+        ~object_name input_sys analysis trans_sys (Some prop) disproved)
       cex
       ;
 

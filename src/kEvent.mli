@@ -120,17 +120,17 @@ val log_timeout : bool -> unit
 (** Logs an interruption for some signal. *)
 val log_interruption : int -> unit
 
-val pp_print_counterexample_pt :
-  ?title:string -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t
+val pp_print_trace_pt :
+  ?title:string -> ?color:string -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t
   -> string option (* property *) -> bool (* disproved *) -> Format.formatter
   -> (StateVar.t * Model.value list) list -> unit
 
-val pp_print_counterexample_xml :
+val pp_print_trace_xml :
   ?tag:string -> 'a InputSystem.t -> Analysis.param -> TransSys.t
   -> string option (* property *) -> bool (* disproved *) -> Format.formatter
   -> (StateVar.t * Model.value list) list -> unit
 
-val pp_print_counterexample_json :
+val pp_print_trace_json :
   ?object_name:string -> 'a InputSystem.t -> Analysis.param -> TransSys.t
   -> string option (* property *) -> bool (* disproved *) -> Format.formatter
   -> (StateVar.t * Model.value list) list -> unit
