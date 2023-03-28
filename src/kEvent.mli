@@ -121,7 +121,8 @@ val log_timeout : bool -> unit
 val log_interruption : int -> unit
 
 val pp_print_trace_pt :
-  ?title:string -> ?color:string -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t
+  ?title:string -> ?color:string -> bool (* dump *)
+  -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t
   -> string option (* property *) -> bool (* disproved *) -> Format.formatter
   -> (StateVar.t * Model.value list) list -> unit
 

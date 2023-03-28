@@ -266,7 +266,8 @@ let pp_print_realizability_result_pt
         fmt
         "@[<v>%a@]@."
         (KEvent.pp_print_trace_pt
-          ~title:"Deadlocking trace" ~color:"red" L_warn in_sys param sys None true)
+          ~title:"Deadlocking trace" ~color:"red" (Flags.dump_cex ())
+          L_warn in_sys param sys None true)
         trace ;
 
       Format.fprintf

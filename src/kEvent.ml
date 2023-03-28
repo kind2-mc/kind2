@@ -430,7 +430,7 @@ let slice_trans_sys_and_cex_to_property
 
 (* Pretty-print a trace *)
 let pp_print_trace_pt ?(title="Counterexample") ?(color="red")
-  level input_sys analysis trans_sys prop_name disproved ppf
+  dump level input_sys analysis trans_sys prop_name disproved ppf
 = function
 | [] -> ()
 | trace -> (
@@ -450,7 +450,7 @@ let pp_print_trace_pt ?(title="Counterexample") ?(color="red")
       (Model.path_of_list trace);
   in
 
-  if Flags.dump_cex () then (
+  if dump then (
     let dirname =
       Filename.concat (Flags.output_dir ()) "trace"
     in
@@ -536,10 +536,10 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
     end
     else
       let kind = TransSys.get_prop_kind trans_sys prop in
-      let title, color =
+      let title, color, dump =
         match kind with
-        | Property.Invariant -> "Counterexample", "red"
-        | Property.Reachable _ -> "Example trace", "green"
+        | Property.Invariant -> "Counterexample", "red", Flags.dump_cex ()
+        | Property.Reachable _ -> "Example trace", "green", Flags.dump_trace ()
       in
       (* Output cex. *)
       (ignore_or_fprintf level)
@@ -608,7 +608,8 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
            )
         )
         (pp_print_trace_pt
-           ~title ~color level input_sys analysis trans_sys (Some prop) disproved)
+           ~title ~color dump
+           level input_sys analysis trans_sys (Some prop) disproved)
         cex ;
 
     (* Output warning if division by zero happened in simplification. *)

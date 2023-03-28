@@ -2792,11 +2792,27 @@ module Global = struct
     (bool_arg dump_cex)
     (fun fmt ->
       Format.fprintf fmt
-        "Dump counterexample to a file. Only in plain text output.@ \
+        "Dump counterexample of invariant property / deadlocking trace to a file.@ \
+        Only in plain text output.@ \
         Default: %b"
         dump_cex_default
     )
   let dump_cex () = ! dump_cex
+
+  (* Dump trace to a file. *)
+  let dump_trace_default = true
+  let dump_trace = ref dump_trace_default
+  let _ = add_spec
+    "--dump_trace"
+    (bool_arg dump_trace)
+    (fun fmt ->
+      Format.fprintf fmt
+        "Dump example trace of reachability property to a file.@ \
+        Only in plain text output.@ \
+        Default: %b"
+        dump_trace_default
+    )
+  let dump_trace () = ! dump_trace
 
 
   (* Timeout. *)
@@ -3295,6 +3311,7 @@ let include_dirs = Global.include_dirs
 let log_invs = Global.log_invs
 let print_invs = Global.print_invs
 let dump_cex = Global.dump_cex
+let dump_trace = Global.dump_trace
 let only_parse = Global.only_parse
 let lsp = Global.lsp
 let old_frontend = Global.old_frontend
