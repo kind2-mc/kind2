@@ -203,13 +203,6 @@ type info = {
   local_group_projection : int
 }
 
-let split4 quads =
-  let xs = List.map (fun (x, _, _, _) -> x) quads in
-  let ys = List.map (fun (_, y, _, _) -> y) quads in
-  let zs = List.map (fun (_, _, z, _) -> z) quads in
-  let ns = List.map (fun (_, _, _, n) -> n) quads in
-  xs, ys, zs, ns
-
 let split3 triples =
   let xs = List.map (fun (x, _, _) -> x) triples in
   let ys = List.map (fun (_, y, _) -> y) triples in

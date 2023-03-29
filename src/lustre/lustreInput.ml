@@ -187,6 +187,7 @@ let type_check declarations =
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
     in
 
+    (*!! debug printing !!*)
     List.iter (LA.pp_print_declaration Format.std_formatter) normalized_nodes_and_contracts;
     TypeCheckerContext.pp_print_tc_context Format.std_formatter inlined_global_ctx;
     GeneratedIdentifiers.StringMap.iter (fun _ -> (LAN.pp_print_generated_identifiers Format.std_formatter)) gids;
