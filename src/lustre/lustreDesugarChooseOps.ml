@@ -1,0 +1,203 @@
+(* This file is part of the Kind 2 model checker.
+
+   Copyright (c) 2022 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+ *)
+
+module A = LustreAst
+module Ctx = TypeCheckerContext
+module Chk = LustreTypeChecker
+module AH = LustreAstHelpers
+
+(* [i] is module state used to guarantee newly created identifiers are unique *)
+let i = ref 0
+
+(* This looks unsafe, but we only apply unwrap when we know from earlier stages
+   in the pipeline that an error is not possible. *)
+   let unwrap result = match result with
+   | Ok r -> r
+   | Error _ -> assert false
+
+let mk_fresh_fn_name () =
+  i := !i + 1;
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 (HString.mk_hstring "@desugar") prefix  in
+  name
+
+let rec desugar_expr ctx = function
+  | A.ChooseOp (pos, (_, id, ty), expr) -> 
+    let span = { A.start_pos = Lib.dummy_pos; A.end_pos = Lib.dummy_pos } in
+    let contract = [A.Guarantee (Lib.dummy_pos, None, false, expr)] in
+    let inputs = Ctx.SI.elements (Ctx.SI.diff (AH.vars expr) (Ctx.SI.singleton id)) in
+    let inputs_call = List.map (fun str -> A.Ident (pos, str)) inputs in
+    let ctx = Ctx.add_ty ctx id ty in
+    let inputs = List.map (fun input -> (pos, input, Ctx.lookup_ty ctx input, A.ClockTrue)) inputs in
+    let inputs = List.map (fun (p, inp, opt, cl) -> match opt with 
+      | Some ty -> p, inp, ty, cl, false 
+      | None -> assert false
+    ) inputs in
+    let name = mk_fresh_fn_name () in
+    let generated_node = 
+      A.NodeDecl (span, 
+      (name, true, [], inputs, 
+      [Lib.dummy_pos, id, ty, A.ClockTrue], [], [], Some contract)) 
+    in
+    A.Call(pos, name, inputs_call), [generated_node]
+
+  | Ident _ as e -> e, []
+  | ModeRef (_, _) as e -> e, []
+  | Const (_, _) as e -> e, []
+  | RecordProject (pos, e, idx) -> 
+    let e, gen_nodes = desugar_expr ctx e in
+    RecordProject (pos, e, idx), gen_nodes
+  | TupleProject (pos, e, idx) -> 
+    let e, gen_nodes = desugar_expr ctx e in
+    TupleProject (pos, e, idx), gen_nodes
+  | UnaryOp (pos, op, e) -> 
+    let e, gen_nodes = desugar_expr ctx e in
+    UnaryOp (pos, op, e), gen_nodes
+  | BinaryOp (pos, op, e1, e2) ->
+    let e1, gen_nodes1 = desugar_expr ctx e1 in
+    let e2, gen_nodes2 = desugar_expr ctx e2 in
+    BinaryOp (pos, op, e1, e2), gen_nodes1 @ gen_nodes2
+  | TernaryOp (pos, op, e1, e2, e3) ->
+    let e1, gen_nodes1 = desugar_expr ctx e1 in
+    let e2, gen_nodes2 = desugar_expr ctx e2 in
+    let e3, gen_nodes3 = desugar_expr ctx e3 in
+    TernaryOp (pos, op, e1, e2, e3), gen_nodes1 @ gen_nodes2 @ gen_nodes3
+  | NArityOp (pos, op, expr_list) ->
+    let expr_list, gen_nodes = List.map (desugar_expr ctx) expr_list |> List.split in
+    NArityOp (pos, op, expr_list), List.flatten gen_nodes
+  | ConvOp (pos, op, e) -> 
+    let e, gen_nodes = desugar_expr ctx e in
+    ConvOp (pos, op, e), gen_nodes
+  | CompOp (pos, op, e1, e2) ->
+    let e1, gen_nodes1 = desugar_expr ctx e1 in
+    let e2, gen_nodes2 = desugar_expr ctx e2 in
+    CompOp (pos, op, e1, e2), gen_nodes1 @ gen_nodes2
+  | RecordExpr (pos, ident, expr_list) ->
+    let id_list, exprs_gen_nodes = 
+      List.map (fun (i, e) -> (i, (desugar_expr ctx) e)) expr_list |> List.split 
+    in
+    let expr_list, gen_nodes = List.split exprs_gen_nodes in
+    RecordExpr (pos, ident, List.combine id_list expr_list), List.flatten gen_nodes
+  | GroupExpr (pos, kind, expr_list) ->
+    let expr_list, gen_nodes = List.map (desugar_expr ctx) expr_list |> List.split in
+    GroupExpr (pos, kind, expr_list), List.flatten gen_nodes
+  | StructUpdate (pos, e1, idx, e2) ->
+    let e1, gen_nodes1 = desugar_expr ctx e1 in
+    let e2, gen_nodes2 = desugar_expr ctx e2 in
+    StructUpdate (pos, e1, idx, e2), gen_nodes1 @ gen_nodes2
+  | ArrayConstr (pos, e1, e2) ->
+    let e1, gen_nodes1 = desugar_expr ctx e1 in
+    let e2, gen_nodes2 = desugar_expr ctx e2 in
+    ArrayConstr (pos, e1, e2), gen_nodes1 @ gen_nodes2
+  | ArraySlice (pos, e1, (e2, e3)) ->
+    let e1, gen_nodes1 = desugar_expr ctx e1 in
+    let e2, gen_nodes2 = desugar_expr ctx e2 in
+    let e3, gen_nodes3 = desugar_expr ctx e3 in
+    ArraySlice (pos, e1, (e2, e3)), gen_nodes1 @ gen_nodes2 @ gen_nodes3
+  | ArrayIndex (pos, e1, e2) ->
+    let e1, gen_nodes1 = desugar_expr ctx e1 in
+    let e2, gen_nodes2 = desugar_expr ctx e2 in
+    ArrayIndex (pos, e1, e2), gen_nodes1 @ gen_nodes2
+  | ArrayConcat (pos, e1, e2) ->
+    let e1, gen_nodes1 = desugar_expr ctx e1 in
+    let e2, gen_nodes2 = desugar_expr ctx e2 in
+    ArrayConcat (pos, e1, e2), gen_nodes1 @ gen_nodes2
+  | Quantifier (pos, kind, idents, e) ->
+    let e, gen_nodes = desugar_expr ctx e in
+    Quantifier (pos, kind, idents, e), gen_nodes
+  | When (pos, e, clock) -> 
+    let e, gen_nodes = desugar_expr ctx e in
+    When (pos, e, clock), gen_nodes
+  | Current (pos, e) -> 
+    let e, gen_nodes = desugar_expr ctx e in
+    Current (pos, e), gen_nodes
+  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
+    let e1, gen_nodes1 = desugar_expr ctx e1 in
+    let e2, gen_nodes2 = desugar_expr ctx e2 in
+    let expr_list1, gen_nodes3 = List.map (desugar_expr ctx) expr_list1 |> List.split in
+    let expr_list2, gen_nodes4 = List.map (desugar_expr ctx) expr_list2 |> List.split in
+    Condact (pos, e1, e2, id, expr_list1, expr_list2), gen_nodes1 @ gen_nodes2 @ 
+                                                      List.flatten gen_nodes3 @ List.flatten gen_nodes4
+  | Activate (pos, ident, e1, e2, expr_list) ->
+    let e1, gen_nodes1 = desugar_expr ctx e1 in
+    let e2, gen_nodes2 = desugar_expr ctx e2 in
+    Activate (pos, ident, e1, e2, expr_list), gen_nodes1 @ gen_nodes2
+  | Merge (pos, ident, expr_list) ->
+    let id_list, exprs_gen_nodes = 
+      List.map (fun (i, e) -> (i, (desugar_expr ctx) e)) expr_list |> List.split 
+    in
+    let expr_list, gen_nodes = List.split exprs_gen_nodes in
+    Merge (pos, ident, List.combine id_list expr_list), List.flatten gen_nodes
+  | RestartEvery (pos, ident, expr_list, e) ->
+    let expr_list, gen_nodes1 = List.map (desugar_expr ctx) expr_list |> List.split in
+    let e, gen_nodes2 = desugar_expr ctx e in
+    RestartEvery (pos, ident, expr_list, e), List.flatten gen_nodes1 @ gen_nodes2
+  | Pre (pos, e) -> 
+    let e, gen_nodes = desugar_expr ctx e in
+    Pre (pos, e), gen_nodes
+  | Fby (pos, e1, i, e2) -> 
+    let e1, gen_nodes1 = desugar_expr ctx e1 in
+    let e2, gen_nodes2 = desugar_expr ctx e2 in
+    Fby (pos, e1, i, e2), gen_nodes1 @ gen_nodes2
+  | Arrow (pos, e1, e2) -> 
+    let e1, gen_nodes1 = desugar_expr ctx e1 in
+    let e2, gen_nodes2 = desugar_expr ctx e2 in
+    Arrow (pos, e1, e2), gen_nodes1 @ gen_nodes2
+  | Call (pos, id, expr_list) ->
+    let expr_list, gen_nodes = List.map (desugar_expr ctx) expr_list |> List.split in
+    Call (pos, id, expr_list), List.flatten gen_nodes
+  | CallParam (pos, id, types, expr_list) ->
+    let expr_list, gen_nodes = List.map (desugar_expr ctx) expr_list |> List.split in
+    CallParam (pos, id, types, expr_list), List.flatten gen_nodes
+
+let rec desugar_node_item ctx ni =
+  match ni with
+    | A.Body (Equation (pos, lhs, rhs)) -> 
+      let rhs, gen_nodes = desugar_expr ctx rhs in 
+      A.Body (Equation (pos, lhs, rhs)), gen_nodes
+    | IfBlock (pos, cond, nis1, nis2) -> 
+      let nis1, gen_nodes1 = List.map (desugar_node_item ctx) nis1 |> List.split in
+      let nis2, gen_nodes2 = List.map (desugar_node_item ctx) nis2 |> List.split in
+      A.IfBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2
+    | FrameBlock (pos, vars, nes, nis) -> 
+      let nes = List.map (fun x -> A.Body x) nes in
+      let nes, gen_nodes1 = List.map (desugar_node_item ctx) nes |> List.split in
+      let nes = List.map (fun ne -> match ne with
+        | A.Body (A.Equation _ as eq) -> eq
+        | _ -> assert false (*!! CHECK ON THIS !!*)
+      ) nes in
+      let nis, gen_nodes2 = List.map (desugar_node_item ctx) nis |> List.split in
+      FrameBlock(pos, vars, nes, nis), List.flatten gen_nodes1 @ List.flatten gen_nodes2
+    | AnnotMain _ 
+    | AnnotProperty _ 
+    | Body (Assert _) -> ni, []
+
+let desugar_choose_ops ctx decls = 
+  let decls =
+  List.map (fun decl ->
+    match decl with
+      | A.NodeDecl (span, ((id, ext, params, inputs, outputs, locals, items, contract) as d)) -> 
+        let ctx = Chk.get_node_ctx ctx d |> unwrap in
+        let items, gen_nodes = List.map (desugar_node_item ctx) items |> List.split in 
+        (List.flatten gen_nodes) @ [A.NodeDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))]
+      | A.FuncDecl (span, ((id, ext, params, inputs, outputs, locals, items, contract) as d)) -> 
+        let ctx = Chk.get_node_ctx ctx d |> unwrap in
+        let items, gen_nodes = List.map (desugar_node_item ctx) items |> List.split in 
+        (List.flatten gen_nodes) @ [A.FuncDecl (span, (id, ext, params, inputs, outputs, locals, items, contract))]
+      | _ -> [decl]
+  ) decls |> List.flatten in 
+  decls

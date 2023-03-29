@@ -44,6 +44,7 @@ module LDI = LustreDesugarIfBlocks
 module LDF = LustreDesugarFrameBlocks
 module RMA = LustreRemoveMultAssign
 module LAD = LustreArrayDependencies
+module LDN = LustreDesugarChooseOps
 
 type error = [
   | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
@@ -158,27 +159,30 @@ let type_check declarations =
     (* Step 7. type check nodes and contracts *)
     let* global_ctx = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
 
-    (* Step 8. Remove multiple assignment from if blocks and frame blocks *)
+    (* Step 8. Desugar nondeterministic choice operators *)
+    let sorted_node_contract_decls = LDN.desugar_choose_ops global_ctx sorted_node_contract_decls in
+
+    (* Step 9. Remove multiple assignment from if blocks and frame blocks *)
     let sorted_node_contract_decls, gids = RMA.remove_mult_assign global_ctx sorted_node_contract_decls in
 
-    (* Step 9. Desugar imperative if block to ITEs *)
+    (* Step 10. Desugar imperative if block to ITEs *)
     let* (sorted_node_contract_decls, gids) = (LDI.desugar_if_blocks global_ctx sorted_node_contract_decls gids) in
 
-    (* Step 10. Desugar frame blocks by adding node equations and guarding oracles. *)
+    (* Step 11. Desugar frame blocks by adding node equations and guarding oracles. *)
     let* (sorted_node_contract_decls, warnings) = LDF.desugar_frame_blocks sorted_node_contract_decls in 
 
-    (* Step 11. Inline constants in node equations *)
+    (* Step 12. Inline constants in node equations *)
     let* (inlined_global_ctx, const_inlined_nodes_and_contracts) =
       IC.inline_constants global_ctx sorted_node_contract_decls
     in
 
-    (* Step 12. Check that inductive array equations are well-founded *)
+    (* Step 13. Check that inductive array equations are well-founded *)
     let* _ = LAD.check_inductive_array_dependencies inlined_global_ctx node_summary const_inlined_nodes_and_contracts in
 
-    (* Step 13. Infer tighter subrange constraints with abstract interpretation *)
+    (* Step 14. Infer tighter subrange constraints with abstract interpretation *)
     let abstract_interp_ctx = LIA.interpret_program inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
-    (* Step 14. Normalize AST: guard pres, abstract to locals where appropriate *)
+    (* Step 15. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_nodes_and_contracts, gids, warnings2, inlined_global_ctx) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
     in
