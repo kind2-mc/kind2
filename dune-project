@@ -33,6 +33,8 @@ More advanced features include contract-based compositional verification, proof 
   (zmq
    (>= 5.1.0))
   dolmen
+  dolmen_type
+  dolmen_loop
  )
 )
 

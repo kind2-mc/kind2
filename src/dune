@@ -11,7 +11,7 @@
 
 (library
  (name kind2dev)
- (libraries dune-build-info num str threads yojson zmq menhirLib dolmen)
+ (libraries dune-build-info num str threads yojson zmq menhirLib dolmen dolmen_type dolmen_loop)
  (modules
   (:standard \ C2Icnf horn kind2 lustreChecker nusmv oldParser testgen testgenLib
     testgenStrategies threadtest polltest))

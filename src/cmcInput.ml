@@ -449,6 +449,14 @@ let check_trans_system base_system (system_check: Statement.sys_check) =
     state_vars; 
     init_formals; init_uf_symbol;
     trans_formals; trans_uf_symbol}
+
+let process_decl definitions (dec : Statement.decl) = 
+  Format.printf "TODO process decl: %a\n" Statement.print_decl dec ;
+  definitions
+
+let process_def definitions (def : Statement.def) = 
+  Format.printf "TODO process def: %a\n" Statement.print_def def ;
+  definitions
   
 let process_command definitions Statement.({id; descr; attrs; loc}) = 
   let* defs = definitions in
@@ -470,6 +478,15 @@ let process_command definitions Statement.({id; descr; attrs; loc}) =
 
     Ok (update_system defs checked_system)
 
+  
+  (* (declare-fun name args type) *)
+  | Statement.Decls fun_decls -> 
+    Ok (List.fold_left process_decl defs fun_decls.contents)
+
+  (* (define-fun name args type) *)
+  | Statement.Defs fun_defs -> 
+    Ok (List.fold_left process_def defs fun_defs.contents)
+
   | Statement.Set_logic l -> 
     (* TODO Actually do something here? *)
     Ok defs
@@ -480,6 +497,9 @@ let of_file filename =
 
   (* Parse and Typecheck file with Dolmen *)
   let format, _, statements = M.parse_file filename in
+  let t = DU.process [] filename None in
+  Format.printf "DONE" ;
+
   
   let* cmc_defs =
     List.fold_left process_command (Ok empty_definitions) statements

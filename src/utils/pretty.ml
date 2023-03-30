@@ -251,13 +251,13 @@ let add_colors formatter =
       mark_open_stag = start_tag;
       mark_close_stag = stop_tag }
 
-let _ =
+(* let _ =
   add_colors std_formatter;
   add_colors err_formatter;
   add_colors !Lib.log_ppf;
   pp_set_margin std_formatter vt_width;
-  pp_set_margin err_formatter vt_width
-
+  pp_set_margin err_formatter vt_width *)
+; Format.printf "TODO pretty printing colors not supported due to Dolmen conflit." ;
 
 
 (* ********************************************************************** *)

@@ -18,7 +18,7 @@
 
 (** Parse a file in CMC format into a transition system 
 
-    @author Daniel Larraz
+    @author Kian Weimer
 *)
 
 type subsystem_scope = string list

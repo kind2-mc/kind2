@@ -25,6 +25,8 @@ depends: [
   "yojson"
   "zmq" {>= "5.1.0"}
   "dolmen"
+  "dolmen_type"
+  "dolmen_loop"
 ]
 build: [
   ["dune" "subst"] {dev}
