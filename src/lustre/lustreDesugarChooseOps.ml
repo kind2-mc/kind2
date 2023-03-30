@@ -33,7 +33,7 @@
  let mk_fresh_fn_name () =
    i := !i + 1;
    let prefix = HString.mk_hstring (string_of_int !i) in
-   let name = HString.concat2 (HString.mk_hstring "@desugar") prefix  in
+   let name = HString.concat2 (HString.mk_hstring "@ChooseOp") prefix  in
    name
  
  let update_node_summary node_summary gen_nodes = 

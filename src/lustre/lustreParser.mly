@@ -36,6 +36,7 @@ let mk_span start_pos end_pos =
 %token EQUALS 
 %token COLON 
 %token COMMA 
+%token MID
 %token LSQBRACKET 
 %token RSQBRACKET 
 %token LPAREN 
@@ -845,7 +846,7 @@ pexpr(Q):
     { A.TernaryOp (mk_pos $startpos, A.Ite, e1, e2, e3) }
 
   (* Choose operation *)
-  | CHOOSE; LCURLYBRACKET; id = typed_ident; COMMA; e = pexpr(Q); RCURLYBRACKET
+  | CHOOSE; LCURLYBRACKET; id = typed_ident; MID; e = pexpr(Q); RCURLYBRACKET
     { A.ChooseOp (mk_pos $startpos, id, e) }
 
   (* Recursive node call *)

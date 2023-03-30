@@ -436,6 +436,7 @@ rule token = parse
   | '=' { EQUALS }
   | ':' { COLON }
   | ',' { COMMA }
+  | '|' { MID }
   | '[' { LSQBRACKET }
   | ']' { RSQBRACKET }
   | '(' { LPAREN }
