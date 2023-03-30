@@ -69,10 +69,10 @@ let error_message kind = match kind with
   | UndefinedLocal id -> "Local variable '"
     ^ HString.string_of_hstring id ^ "' has no definition"
   | DuplicateLocal (id, poss) -> "Local variable '"
-    ^ HString.string_of_hstring id ^ "' has multiple definitions at positions " ^ 
+    ^ HString.string_of_hstring id ^ "' has already been defined at position(s) " ^ 
      (Lib.string_of_t (Lib.pp_print_list Lib.pp_print_position ", ") poss) 
   | DuplicateOutput (id, poss) -> "Output variable '"
-    ^ HString.string_of_hstring id ^ "' has multiple definitions at positions " ^
+    ^ HString.string_of_hstring id ^ "' has already been defined at position(s) " ^
     (Lib.string_of_t (Lib.pp_print_list Lib.pp_print_position ", ") poss) 
   | UndefinedNode id -> "Node or function '"
     ^ HString.string_of_hstring id ^ "' is undefined"
@@ -350,18 +350,22 @@ let locals_exactly_one_definition locals items =
       match List.length poss with
       | 1 -> Ok ()
       | 0 -> syntax_error pos (UndefinedLocal id)
-      | _ -> syntax_error pos (DuplicateLocal (id, poss))
+      | _ -> 
+        let poss = List.sort Lib.compare_pos poss |> List.rev in
+        syntax_error (List.hd poss) (DuplicateLocal (id, List.tl poss))
   in
   Res.seq (List.map over_locals locals)
 
 let outputs_at_most_one_definition outputs items =
   let over_outputs = function
-  | (pos, id, _, _) ->
+  | (_, id, _, _) ->
     let poss = List.map (find_var_def_count id) items |> List.flatten in
     match List.length poss with
       | 0 
       | 1 -> Ok ()
-      | _ -> syntax_error pos (DuplicateOutput (id, poss))
+      | _ -> 
+        let poss = List.sort Lib.compare_pos poss |> List.rev in
+        syntax_error (List.hd poss) (DuplicateOutput (id, List.tl poss))
   in
   Res.seq (List.map over_outputs outputs)
 
