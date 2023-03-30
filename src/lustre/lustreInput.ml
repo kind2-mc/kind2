@@ -160,7 +160,7 @@ let type_check declarations =
     let* global_ctx = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
 
     (* Step 8. Desugar nondeterministic choice operators *)
-    let sorted_node_contract_decls = LDN.desugar_choose_ops global_ctx sorted_node_contract_decls in
+    let sorted_node_contract_decls, global_ctx, node_summary = LDN.desugar_choose_ops global_ctx node_summary sorted_node_contract_decls in
 
     (* Step 9. Remove multiple assignment from if blocks and frame blocks *)
     let sorted_node_contract_decls, gids = RMA.remove_mult_assign global_ctx sorted_node_contract_decls in
@@ -186,11 +186,6 @@ let type_check declarations =
     let* (normalized_nodes_and_contracts, gids, warnings2, inlined_global_ctx) = 
       LAN.normalize inlined_global_ctx abstract_interp_ctx const_inlined_nodes_and_contracts gids
     in
-
-    (*!! debug printing !!*)
-    List.iter (LA.pp_print_declaration Format.std_formatter) normalized_nodes_and_contracts;
-    TypeCheckerContext.pp_print_tc_context Format.std_formatter inlined_global_ctx;
-    GeneratedIdentifiers.StringMap.iter (fun _ -> (LAN.pp_print_generated_identifiers Format.std_formatter)) gids;
       
     Res.ok (inlined_global_ctx,
       gids,

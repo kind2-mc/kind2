@@ -64,6 +64,8 @@ val error_message: error_kind -> string
 
 type node_summary = ((int list) IntMap.t) IMap.t
 
+val pp_print_node_summary: Format.formatter -> int list IntMap.t IMap.t -> unit
+
 val sort_globals: LA.t -> (LA.t, [> error]) result
 (** Returns a topological order to resolve forward references of globals. 
     This step processes 1. type declarations, and 2. constant declarations *)  

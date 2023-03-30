@@ -17,4 +17,6 @@
 
  (** @author Rob Lorch *)
 
-val desugar_choose_ops : TypeCheckerContext.tc_context -> LustreAst.declaration list -> LustreAst.declaration list
+val desugar_choose_ops : TypeCheckerContext.tc_context -> LustreAstDependencies.node_summary -> 
+                         LustreAst.declaration list -> 
+                         LustreAst.declaration list * TypeCheckerContext.tc_context * LustreAstDependencies.node_summary
