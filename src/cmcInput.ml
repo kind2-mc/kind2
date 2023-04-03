@@ -133,6 +133,8 @@ type definitions = {
   enums: enum list; (* Not yet populated *)
   ufunctions: UfSymbol.t list; (* Not yet populated *)
   name_map: subsystem_instance_name_data; (* Not yet populated *)
+  (* decls, const map*)
+  const_decls: ((Id.t * StateVar.t) list * (Id.t * Var.t) list) ;
   (* TODO Others *)
 }
 
@@ -142,6 +144,7 @@ let empty_definitions = {
   enums = [];
   ufunctions = [];
   name_map = empty_subsystem_instance_name_data;
+  const_decls = [], [];
 }
 
 (* TODO Remove position from error if it is never used *)
@@ -169,12 +172,16 @@ let mk_var sys_name is_input is_const (init_map, trans_map, svars) (id, var_type
       ~is_input ~is_const ~for_inv_gen:true
       name scope var_type
     in
-    Format.printf "%a\n" StateVar.pp_print_state_var_debug svar;
     let prev_base = Numeral.pred TransSys.trans_base in (* Why is this the previous value? ?*)
-    let next_id = DU.prime id in
-    let prev_mapping = (id, Var.mk_state_var_instance svar prev_base) in
-    let next_mapping = (next_id, Var.mk_state_var_instance svar TransSys.trans_base) in
-    (prev_mapping :: init_map, prev_mapping :: next_mapping :: trans_map, (id, svar) :: svars)
+
+    if is_const then 
+      let prev_mapping = (id, Var.mk_const_state_var svar) in
+      (prev_mapping :: init_map, prev_mapping :: trans_map, (id, svar) :: svars)
+    else
+      let prev_mapping = (id, Var.mk_state_var_instance svar prev_base) in
+      let next_id = DU.prime id in
+      let next_mapping = (next_id, Var.mk_state_var_instance svar TransSys.trans_base) in
+      (prev_mapping :: init_map, prev_mapping :: next_mapping :: trans_map, (id, svar) :: svars)
 
 let mk_vars sys_name is_input mappings dolmen_terms = 
   let vars = List.map DU.dolmen_term_to_id_type (DU.opt_list_to_list dolmen_terms) in
@@ -228,13 +235,15 @@ let mk_base_trans_system env (sys_def: Statement.sys_def) =
   let init_map, trans_map, output_svars = mk_vars system_name true (init_map, trans_map, []) sys_def.output in
   let init_map, trans_map, local_svars = mk_vars system_name true (init_map, trans_map, []) sys_def.local in
 
+  let const_svars, const_map = env.const_decls in
+  (* Const svars are not added to symb_svars because 
+     they are added to the global constant attribute of the trans system *)
+
   (* TODO May need to make this an assoc list as in the sexp interpreter *)
   let symb_svars = input_svars @ output_svars @ local_svars in (*S*)
 
-  (* TODO Lots of subsystem stuff here *)
-  
-  (* let const_map = mk_init_map const_decls in *)
-  let const_map = [] in (* TODO *)
+    (* TODO Lots of subsystem stuff here *)
+
   
   let inv_map_for_init = init_map in (* For notational puposes only. Just need the inv map for the init formula. *)
   let inv_map_for_trans = mk_inv_map init_map trans_map in
@@ -450,13 +459,65 @@ let check_trans_system base_system (system_check: Statement.sys_check) =
     init_formals; init_uf_symbol;
     trans_formals; trans_uf_symbol}
 
-let process_decl definitions (dec : Statement.decl) = 
+
+let declare_const (const_decls, const_map) name return_type =   
+  (* TODO Add enum support *)
+  let const_map, _, const_decls = mk_var "const-decl" false true (const_map, [], const_decls) (name, return_type) in
+  (const_decls, const_map)
+  
+let declare_fun name args return_type = 
+  let mk_fresh_vars types =
+    let vars = List.map Var.mk_fresh_var types in
+    List.map (fun var -> (Var.hstring_of_free_var var, var)) vars in
+
+  (* TODO Add enum support *)
+  let s_name = DU.dolmen_id_to_string name in
+  let named_vars = mk_fresh_vars args in
+  let vars = List.map snd named_vars in
+  let uf_name = UfSymbol.mk_uf_symbol
+    s_name
+    (List.map Var.type_of_var vars)
+    return_type
+  in
+  uf_name
+
+let define_fun name args return_type body = 
+  let s_name = DU.dolmen_id_to_string name in
+  let named_vars, _, svars = mk_vars s_name true ([], [], []) (Some args) in  
+  let vars = List.map snd named_vars in
+  let uf_name = UfSymbol.mk_uf_symbol
+    s_name
+    (List.map Var.type_of_var vars)
+    return_type
+  in
+
+  (* TODO Handle enums *)
+  (* let body_with_translated_enums = translate_sexp_atoms (gen_enum_conversion_map definitions.enums) body in *)
+  let body_term = DU.dolmen_term_to_expr named_vars body in
+  TransSys.mk_d_fun uf_name return_type vars body_term 
+
+let process_decl (definitions : definitions) (dec : Statement.decl) = 
   Format.printf "TODO process decl: %a\n" Statement.print_decl dec ;
-  definitions
+  match dec with
+  | Abstract (dec : Statement.abstract) -> (
+    let param_types, return_type = DU.dolmen_binding_to_types dec.ty in
+    match param_types with 
+      | [] -> 
+        let const_decls = declare_const definitions.const_decls dec.id return_type  in
+        {definitions with const_decls}
+      | param_types -> 
+        let uf_name = declare_fun dec.id param_types return_type in
+        {definitions with ufunctions = uf_name :: definitions.ufunctions}
+  )
+  | Record r -> failwith "TODO: Record type function declarations are not yet supported"
+  | Inductive r -> failwith "TODO: Inductive type function declarations are not yet supported"
+
+  
 
 let process_def definitions (def : Statement.def) = 
   Format.printf "TODO process def: %a\n" Statement.print_def def ;
-  definitions
+  let d_fun = define_fun def.id def.params (DU.type_of_dolmen_term def.ret_ty) def.body in 
+  {definitions with functions = d_fun :: definitions.functions}
   
 let process_command definitions Statement.({id; descr; attrs; loc}) = 
   let* defs = definitions in
@@ -464,7 +525,7 @@ let process_command definitions Statement.({id; descr; attrs; loc}) =
     (* (define-system symbol attrs)*)
   | Statement.Def_sys s -> 
     (* TODO update name_map instead of replaceing it *)
-    let sys_def, name_map = mk_base_trans_system definitions s in
+    let sys_def, name_map = mk_base_trans_system defs s in
 
     Ok {defs with system_defs = sys_def :: defs.system_defs ; name_map;}
     
@@ -478,7 +539,6 @@ let process_command definitions Statement.({id; descr; attrs; loc}) =
 
     Ok (update_system defs checked_system)
 
-  
   (* (declare-fun name args type) *)
   | Statement.Decls fun_decls -> 
     Ok (List.fold_left process_decl defs fun_decls.contents)
@@ -505,7 +565,7 @@ let of_file filename =
     List.fold_left process_command (Ok empty_definitions) statements
   in
 
-  let cmc_sys_defs = cmc_defs.system_defs in
+  let cmc_sys_defs = {(List.hd cmc_defs.system_defs) with top=true} :: (List.tl cmc_defs.system_defs) in
   Format.printf "LEN: %d@." (List.length cmc_sys_defs);
 
   (* TODO *)
@@ -528,12 +588,11 @@ let of_file filename =
   (* TODO implement after subsystems are used for CEX printing *)
   let name_map = cmc_defs.name_map in
 
-  let mk_trans_system global_const_svars other_trans_systems (base : base_trans_system)  =
+  let mk_trans_system global_const_vars other_trans_systems (base : base_trans_system)  =
     let name = base.name in
     let subs = base.subsystems |> List.map (fun (name, local_instances) -> 
       (List.assoc name other_trans_systems, local_instances)) (* subsystems *)
     in
-    let global_const_vars = List.map Var.mk_const_state_var global_const_svars in
     let sys, _ = 
       TransSys.mk_trans_sys
         base.scope
@@ -561,7 +620,8 @@ let of_file filename =
   in
 
   (* TODO Add global vars to this list *)
-  let const_global_vars = [] in (* List.map snd cmc_defs.const_decls in *)
+  let const_global_vars = List.map snd (snd cmc_defs.const_decls) in 
+
   let trans_systems = cmc_sys_defs |> List.fold_left (mk_trans_system const_global_vars) [] in
   
   let top_sys = snd (List.hd trans_systems) in

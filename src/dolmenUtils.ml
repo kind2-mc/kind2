@@ -91,6 +91,25 @@ let dolmen_symbol_term_to_id (symbol_term: term) = match symbol_term with
       (Format.asprintf 
           "Term %a is not a symbol" 
           Term.print symbol_term))
+
+let dolmen_binding_to_types (var_def: term) = match var_def with
+| { term = Binder (binder, param_terms, return_term); _ } -> 
+  (match binder with 
+    | Arrow -> 
+      let param_types = List.map type_of_dolmen_term param_terms in
+      let return_type = type_of_dolmen_term return_term in
+      param_types, return_type
+    | _ -> raise
+      (Invalid_argument 
+        (Format.asprintf 
+            "Term %a is not bound with Arrow" 
+            Term.print var_def))
+  )
+| _ -> raise
+      (Invalid_argument 
+        (Format.asprintf 
+            "Term %a is not a list of types" 
+            Term.print var_def))
         
 (* Given a dolmen term representing a CMC variable declaration 
    return a tuple of the variable's id and kind2 type *)

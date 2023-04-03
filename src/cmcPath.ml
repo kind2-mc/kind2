@@ -39,7 +39,7 @@ type model_path_as_list = (StateVar.t * Model.value list) list
 
 (* (* TODO UNCOMMENT BLOCK AND FIX ERRORS *)
 
-(* Output sequences of values for each stream of the node and for all
+Output sequences of values for each stream of the node and for all
    its called nodes *)
 let pp_print_lustre_path_json ppf (path, const_map) =
 
@@ -248,13 +248,13 @@ let pp_const_decl ppf const_decl_path =
 let pp_const_decls trans_sys ppf svar_path = 
   let const_svars = List.map (fun svar -> svar, List.assoc svar svar_path) (TransSys.global_const_state_vars trans_sys) in
   Format.fprintf ppf "%a" (pp_print_list pp_const_decl "@,") const_svars
- *)
+
 
 (* Basic model dprinting implementation, may want to enhance in the future *)
 let pp_model trans_sys ppf path =
   (* let svar_path = Model.path_to_list path in *) (* KEEP COMMENTED *)
 
-  (* Format.fprintf ppf "%a@," (pp_const_decls trans_sys) path   *) (* TODO UNCOMMENT*)
+  (* Format.fprintf ppf "%a@," (pp_const_decls trans_sys) path   (* TODO UNCOMMENT*) *)
 
   Format.fprintf ppf "%a@," (Model.pp_print_path) (Model.path_of_list path)  
 

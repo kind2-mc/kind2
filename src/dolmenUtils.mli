@@ -19,6 +19,10 @@ val dolmen_id_to_string : id -> string
 
 val dolmen_opt_id_to_string : id option -> string
 
+val dolmen_binding_to_types : term -> Type.t list * Type.t
+
+val type_of_dolmen_term : term -> Type.t
+
 val dolmen_symbol_term_to_id : term -> id
 
 val type_of_dolmen_builtin : Term.builtin -> Type.t
