@@ -38,8 +38,8 @@ module StringMap = Map.Make(
 
 type error_kind = Unknown of string
   | UndefinedLocal of HString.t
-  | DuplicateLocal of HString.t * Lib.position list
-  | DuplicateOutput of HString.t * Lib.position list
+  | DuplicateLocal of HString.t * Lib.position
+  | DuplicateOutput of HString.t * Lib.position
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
@@ -68,12 +68,12 @@ let error_message kind = match kind with
   | Unknown s -> s
   | UndefinedLocal id -> "Local variable '"
     ^ HString.string_of_hstring id ^ "' has no definition"
-  | DuplicateLocal (id, poss) -> "Local variable '"
+  | DuplicateLocal (id, pos) -> "Local variable '"
     ^ HString.string_of_hstring id ^ "' has already been defined at position(s) " ^ 
-     (Lib.string_of_t (Lib.pp_print_list Lib.pp_print_position ", ") poss) 
-  | DuplicateOutput (id, poss) -> "Output variable '"
+     (Lib.string_of_t Lib.pp_print_position pos) 
+  | DuplicateOutput (id, pos) -> "Output variable '"
     ^ HString.string_of_hstring id ^ "' has already been defined at position(s) " ^
-    (Lib.string_of_t (Lib.pp_print_list Lib.pp_print_position ", ") poss) 
+    (Lib.string_of_t Lib.pp_print_position pos) 
   | UndefinedNode id -> "Node or function '"
     ^ HString.string_of_hstring id ^ "' is undefined"
   | UndefinedContract id -> "Contract '"
@@ -351,8 +351,8 @@ let locals_exactly_one_definition locals items =
       | 1 -> Ok ()
       | 0 -> syntax_error pos (UndefinedLocal id)
       | _ -> 
-        let poss = List.sort Lib.compare_pos poss |> List.rev in
-        syntax_error (List.hd poss) (DuplicateLocal (id, List.tl poss))
+        let poss = List.sort Lib.compare_pos poss in
+        syntax_error (List.hd (List.tl poss)) (DuplicateLocal (id, List.hd poss))
   in
   Res.seq (List.map over_locals locals)
 
@@ -364,8 +364,8 @@ let outputs_at_most_one_definition outputs items =
       | 0 
       | 1 -> Ok ()
       | _ -> 
-        let poss = List.sort Lib.compare_pos poss |> List.rev in
-        syntax_error (List.hd poss) (DuplicateOutput (id, List.tl poss))
+        let poss = List.sort Lib.compare_pos poss in
+        syntax_error (List.hd (List.tl poss)) (DuplicateOutput (id, List.hd poss))
   in
   Res.seq (List.map over_outputs outputs)
 
