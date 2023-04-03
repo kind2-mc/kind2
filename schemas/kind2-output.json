@@ -663,7 +663,7 @@
                 "counterExample": {
                     "$ref": "#/definitions/trace"
                 },
-                "exampleTrace": {
+                "witness": {
                     "$ref": "#/definitions/trace"
                 }
             },
