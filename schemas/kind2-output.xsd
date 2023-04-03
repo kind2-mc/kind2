@@ -334,8 +334,11 @@
       <xs:element name="Answer" type="AnswerType" minOccurs="1" maxOccurs="1"/>
       <xs:element name="CounterExample" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
       <xs:element name="Witness" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
-      <!-- TrueFor may be present when Answer is Unknown -->
+      <xs:element name="FalseAt" type="NonNegativeInteger" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ReachableAt" type="NonNegativeInteger" minOccurs="0" maxOccurs="1"/>
+      <!-- TrueFor/UnreachableFor may be present when Answer is Unknown -->
       <xs:element name="TrueFor" type="NonNegativeInteger" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="UnreachableFor" type="NonNegativeInteger" minOccurs="0" maxOccurs="1"/>
     </xs:sequence>
     <xs:attribute name="name" type="xs:string" use="required"/>
     <xs:attribute name="file" type="xs:string"/>

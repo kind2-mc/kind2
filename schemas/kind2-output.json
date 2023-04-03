@@ -657,6 +657,18 @@
                     "type": "integer",
                     "minimum": 0
                 },
+                "unreachableFor": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "falseAt": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "reachableAt": {
+                    "type": "integer",
+                    "minimum": 0
+                },
                 "answer": {
                     "$ref": "#/definitions/answer"
                 },

@@ -856,7 +856,7 @@ type kind_module =
 let pp_print_kind_module ppf = function
   | `IC3 -> fprintf ppf "property directed reachability"
   | `BMC -> fprintf ppf "bounded model checking"
-  | `BMCSKIP -> fprintf ppf "bounded model checking (reachability)"
+  | `BMCSKIP -> fprintf ppf "bounded model checking (skip)"
   | `IND -> fprintf ppf "inductive step"
   | `IND2 -> fprintf ppf "2-induction"
   | `INVGEN -> fprintf ppf "two state invariant generator (bool)"

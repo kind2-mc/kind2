@@ -1385,6 +1385,10 @@ let prop_status_json level trans_sys prop_status_kind =
                   Format.fprintf ppf "\"trueFor\" : %d,@," n
                 | Property.PropKTrue n ->
                   Format.fprintf ppf "\"unreachableFor\" : %d,@," n
+                | Property.PropFalse cex when k = Property.Invariant -> 
+                  Format.fprintf ppf "\"falseAt\" : %d,@," ((Property.length_of_cex cex) - 1)
+                | Property.PropFalse cex ->
+                  Format.fprintf ppf "\"reachableAt\" : %d,@," ((Property.length_of_cex cex) - 1)
                 | _ -> ()
              )
          )
