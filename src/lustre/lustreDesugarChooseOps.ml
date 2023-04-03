@@ -30,10 +30,12 @@
     | Ok r -> r
     | Error _ -> assert false
  
- let mk_fresh_fn_name () =
+ let mk_fresh_fn_name pos =
    i := !i + 1;
-   let prefix = HString.mk_hstring (string_of_int !i) in
-   let name = HString.concat2 (HString.mk_hstring "@ChooseOp") prefix  in
+   let pos = Lib.string_of_t Lib.pp_print_position2 pos in
+   let pos = HString.mk_hstring pos in
+   let name = HString.concat2 (HString.mk_hstring "choose") (HString.mk_hstring "@") in
+   let name = HString.concat2 name pos in
    name
  
  let update_node_summary node_summary gen_nodes = 
@@ -61,7 +63,7 @@
        | Some ty -> p, inp, ty, cl, false 
        | None -> assert false
      ) inputs in
-     let name = mk_fresh_fn_name () in
+     let name = mk_fresh_fn_name pos in
      let generated_node = 
        A.NodeDecl (span, 
        (name, true, [], inputs, 

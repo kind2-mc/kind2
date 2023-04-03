@@ -474,6 +474,9 @@ val is_dummy_pos : position -> bool
 (** Pretty-print a position *)
 val pp_print_position : Format.formatter -> position -> unit
 
+(** Pretty-print a position with alternate formatting *)
+val pp_print_position2 : Format.formatter -> position -> unit
+
 (** Pretty-print line and column *)
 val pp_print_line_and_column : Format.formatter -> position -> unit
 

@@ -1230,6 +1230,27 @@ let pp_print_position ppf (
 
     fprintf ppf "%s:%d:%d" fname pos_lnum pos_cnum
 
+(* Pretty-print a position with alternate formatting *)
+let pp_print_position2 ppf (
+  { pos_fname; pos_lnum; pos_cnum } as pos
+) =
+
+  if pos = dummy_pos then 
+
+    fprintf ppf "(unknown)"
+
+  else if pos_lnum = 0 && pos_cnum = -1 then
+
+    fprintf ppf "%s" pos_fname
+
+  else
+
+    let fname =
+      if pos_fname = "" then "(stdin)" else pos_fname
+    in
+
+    fprintf ppf "%s/l%d,c%d" fname pos_lnum pos_cnum
+
 
 (** Pretty-print line and column *)
 let pp_print_line_and_column ppf { pos_lnum; pos_cnum } =
