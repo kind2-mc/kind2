@@ -818,7 +818,7 @@ and normalize_item info map = function
         let nexpr1, gids1, warnings1 = abstract_expr false info map false expr1 in
         let nexpr2, gids2, warnings2 = abstract_expr false info map false expr2 in
         let name'' = match name' with
-          | Some name -> Some (HString.concat2 name (HString.mk_hstring "_reach"))
+          | Some name -> Some (HString.concat2 name (HString.mk_hstring " guard"))
           | None -> None 
         in
         [AnnotProperty (pos, name', nexpr1, Invariant); AnnotProperty (pos, name'', nexpr2, Reachable None)], 
