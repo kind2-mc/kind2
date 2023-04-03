@@ -720,7 +720,7 @@ let rec node_item_has_pre_or_arrow = function
     | Some pos -> Some pos
     | None ->  node_item_list_has_pre_or_arrow nis)
 | AnnotMain _ -> None
-| AnnotProperty (_, _, e) -> has_pre_or_arrow e
+| AnnotProperty (_, _, e, _) -> has_pre_or_arrow e
 and
 
 node_item_list_has_pre_or_arrow = function 
@@ -1711,3 +1711,14 @@ let rec rename_contract_vars = function
     Call (pos, id, List.map (fun e -> rename_contract_vars e) expr_list)
   | CallParam (pos, id, types, expr_list) ->
     CallParam (pos, id, types, List.map (fun e -> rename_contract_vars e) expr_list)
+
+let name_of_prop pos name k =
+  match name with 
+  | Some name -> name
+  | None -> 
+    let kind_str = match k with
+      | Invariant -> "Inv"
+      | Reachable _ -> "Reach"
+    in
+    Format.asprintf "%sProp%a" kind_str Lib.pp_print_line_and_column pos
+    |> HString.mk_hstring

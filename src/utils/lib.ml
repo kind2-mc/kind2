@@ -88,17 +88,15 @@ let list_init f n =
     init_aux 0
 
 (* Returns the maximum element of a non-empty list *)
-let list_max l =
-  assert (List.length l > 0);
-  let rec list_max_aux l acc =
-    match l with
-    | [] ->
-       acc
-    | hd :: tl ->
-       list_max_aux tl (max hd acc)
-  in
-  list_max_aux l (List.hd l)
-             
+let list_max = function
+  | [] -> assert false
+  | x :: xs -> List.fold_left max x xs
+
+(* Returns the minimum element of a non-empty list *)
+let list_min = function
+  | [] -> assert false
+  | x :: xs -> List.fold_left min x xs
+
 (* Return the index of the first element that satisfies the predicate [p] *)
 let list_index p = 
   let rec list_index p i = function
@@ -818,6 +816,7 @@ let pp_print_version ppf = pp_print_banner ppf ()
 type kind_module = 
   [ `IC3 
   | `BMC
+  | `BMCSKIP
   | `IND
   | `IND2
   | `INVGEN
@@ -857,6 +856,7 @@ type kind_module =
 let pp_print_kind_module ppf = function
   | `IC3 -> fprintf ppf "property directed reachability"
   | `BMC -> fprintf ppf "bounded model checking"
+  | `BMCSKIP -> fprintf ppf "bounded model checking (skip)"
   | `IND -> fprintf ppf "inductive step"
   | `IND2 -> fprintf ppf "2-induction"
   | `INVGEN -> fprintf ppf "two state invariant generator (bool)"
@@ -899,6 +899,7 @@ let string_of_kind_module = string_of_t pp_print_kind_module
 let short_name_of_kind_module = function
  | `IC3 -> "ic3"
  | `BMC -> "bmc"
+ | `BMCSKIP -> "bmcskip"
  | `IND -> "ind"
  | `IND2 -> "ind2"
  | `INVGEN -> "invgents"
@@ -938,6 +939,7 @@ let short_name_of_kind_module = function
 let kind_module_of_string = function 
   | "IC3" -> `IC3
   | "BMC" -> `BMC
+  | "BMCSKIP" -> `BMCSKIP
   | "IND" -> `IND
   | "IND2" -> `IND2
   | "INVGEN" -> `INVGEN
@@ -976,6 +978,7 @@ let int_of_kind_module = function
   | `Interpreter -> -2
   | `Supervisor -> -1
   | `BMC -> 1
+  | `BMCSKIP -> 30
   | `IND -> 2
   | `IND2 -> 3
   | `IC3 -> 4

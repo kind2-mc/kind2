@@ -84,6 +84,10 @@ type t = {
    that is used for if block oracle variable names. *)
 let iboracle =  "iboracle"
 
+(* String constant used for counter variables generated for instrumentation
+   of reachability queries with timestep bounds. *)
+let ctr_id = HString.mk_hstring "*counter"
+
 (* Checks if a variable name corresponds to an iboracle *)
 let var_is_iboracle var = 
   let 

@@ -272,7 +272,8 @@ let prop_source_of_sexpr prop_term = function
       Lib.extract_scope_name (HString.string_of_hstring scopedprop) in
     if c == s_inst then
       let rec prop = {Property.prop_name = p; prop_source = source;
-                  prop_term; prop_status = Property.PropUnknown }
+                      prop_term; prop_status = Property.PropUnknown;
+                      prop_kind = Invariant; }
       and source = Property.Instantiated (scope, prop) in
       source
     else assert false
@@ -302,7 +303,8 @@ let prop_of_sexpr = function
     { Property.prop_name = HString.string_of_hstring n;
       prop_source = prop_source_of_sexpr prop_term source;
       prop_term;
-      prop_status = Property.PropUnknown }
+      prop_status = Property.PropUnknown;
+      prop_kind = Invariant }
   | _ -> failwith "Invalid property"
 
 

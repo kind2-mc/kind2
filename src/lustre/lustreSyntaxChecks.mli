@@ -23,6 +23,7 @@ type error_kind = Unknown of string
   | UndefinedLocal of HString.t
   | DuplicateLocal of HString.t
   | DuplicateOutput of HString.t
+  | DuplicateProperty of HString.t
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t

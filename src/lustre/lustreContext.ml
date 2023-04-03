@@ -791,7 +791,7 @@ let prop_name_in_context ctx ident =
   match ctx with
   | { node = None } -> false
   | { node = Some ({ N.props }) } ->
-    List.exists (fun (_, name, _) -> name = ident) props
+    List.exists (fun (_, name, _, _) -> name = ident) props
 
 let original_int_type { original_int_type } svar =
   SVM.find_opt svar original_int_type
@@ -1781,7 +1781,7 @@ let add_node_property ctx source name expr =
 
               (* A property with the same state variables exists? *)
               List.exists 
-                (fun (sv, _, _) -> StateVar.equal_state_vars state_var sv)
+                (fun (sv, _, _, _) -> StateVar.equal_state_vars state_var sv)
                 props
                 
             then
@@ -1795,18 +1795,17 @@ let add_node_property ctx source name expr =
               ((state_var', []), E.mk_var state_var) :: equations, 
 
               (* Use alias as property *)
-              (state_var', name, source), 
+              (state_var', name, source, Property.Invariant), 
 
               (* Context with new declaration *)
               ctx
-
+              
             else
 
               (* Change nothing *)
-              equations, (state_var, name, source), ctx
+              equations, (state_var, name, source, Property.Invariant), ctx
 
           in
-          
           (* Return node with property and possibly alias equation
              added *)
           { ctx with 

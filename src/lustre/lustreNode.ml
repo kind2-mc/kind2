@@ -179,7 +179,7 @@ type t = {
   asserts : (position * StateVar.t) list;
 
   (* Proof obligations for node *)
-  props : (StateVar.t * string * Property.prop_source) list;
+  props : (StateVar.t * string * Property.prop_source * Property.prop_kind) list;
 
   (* Contract. *)
   contract : contract option ;
@@ -477,18 +477,83 @@ let pp_print_assert safe ppf (_,sv) =
 
 
 (* Pretty-print a property *)
-let pp_print_prop safe ppf (sv, n, _) = 
-  
-  let sv_string = 
-    Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
-  in
+let pp_print_prop safe ppf (sv, n, _, k) = 
+  match k with
+    | Property.Invariant -> 
+      let sv_string = 
+        Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
+      in
 
-  Format.fprintf ppf
-    "@[<hv 2>--%%PROPERTY %s;%t@]"
-    sv_string
-    (fun ppf -> 
-       if sv_string <> n then
-         Format.fprintf ppf " -- was: %s" n)
+      Format.fprintf ppf
+        "@[<hv 2>--%%PROPERTY %s;%t@]"
+        sv_string
+        (fun ppf -> 
+          if sv_string <> n then
+            Format.fprintf ppf " -- was: %s" n)
+    | Property.Reachable Some (From ts) -> 
+      let sv_string = 
+        Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
+      in
+
+      Format.fprintf ppf
+        "@[<hv 2>--%%PROPERTY reachable %s from %d;%t@]"
+        sv_string
+        ts
+        (fun ppf -> 
+          if sv_string <> n then
+            Format.fprintf ppf " -- was: %s" n)
+
+    | Property.Reachable Some (Within ts) -> 
+      let sv_string = 
+        Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
+      in
+
+      Format.fprintf ppf
+        "@[<hv 2>--%%PROPERTY reachable %s within %d;%t@]"
+        sv_string
+        ts
+        (fun ppf -> 
+          if sv_string <> n then
+            Format.fprintf ppf " -- was: %s" n)
+
+    | Property.Reachable Some (At ts) -> 
+      let sv_string = 
+        Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
+      in
+
+      Format.fprintf ppf
+        "@[<hv 2>--%%PROPERTY reachable %s at %d;%t@]"
+        sv_string
+        ts
+        (fun ppf -> 
+          if sv_string <> n then
+            Format.fprintf ppf " -- was: %s" n)
+
+    | Property.Reachable Some (FromWithin (ts1, ts2)) -> 
+      let sv_string = 
+        Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
+      in
+
+      Format.fprintf ppf
+        "@[<hv 2>--%%PROPERTY reachable %s from %d within %d;%t@]"
+        sv_string
+        ts1
+        ts2
+        (fun ppf -> 
+          if sv_string <> n then
+            Format.fprintf ppf " -- was: %s" n)       
+
+    | Property.Reachable None -> 
+      let sv_string = 
+        Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
+      in
+
+      Format.fprintf ppf
+        "@[<hv 2>--%%PROPERTY reachable %s;%t@]"
+        sv_string
+        (fun ppf -> 
+          if sv_string <> n then
+            Format.fprintf ppf " -- was: %s" n)
 
 
 let pp_print_node_signature fmt { inputs ; outputs } =
@@ -679,13 +744,59 @@ let pp_print_node_debug ppf
 
   let pp_print_equation = pp_print_node_equation false in
 
-  let pp_print_prop ppf (state_var, name, source) = 
-    Format.fprintf
-      ppf
-      "%a (%s, %a)"
-      StateVar.pp_print_state_var state_var
-      name
-      Property.pp_print_prop_source source
+  let pp_print_prop ppf (state_var, name, source, kind) = 
+    match kind with
+    | Property.Invariant ->
+      Format.fprintf
+        ppf
+        "%a (%s, %a)"
+        StateVar.pp_print_state_var state_var
+        name
+        Property.pp_print_prop_source source
+    | Property.Reachable Some (From ts) ->
+      Format.fprintf
+        ppf
+        "%a (reachable %s from %d, %a)"
+        StateVar.pp_print_state_var state_var
+        name
+        ts
+        Property.pp_print_prop_source source
+
+    | Property.Reachable Some (Within ts) ->
+      Format.fprintf
+        ppf
+        "%a (reachable %s within %d, %a)"
+        StateVar.pp_print_state_var state_var
+        name
+        ts
+        Property.pp_print_prop_source source
+
+    | Property.Reachable Some (At ts) ->
+      Format.fprintf
+        ppf
+        "%a (reachable %s at %d, %a)"
+        StateVar.pp_print_state_var state_var
+        name
+        ts
+        Property.pp_print_prop_source source
+
+    | Property.Reachable Some (FromWithin (ts1, ts2)) ->
+      Format.fprintf
+        ppf
+        "%a (reachable %s from %d within %d, %a)"
+        StateVar.pp_print_state_var state_var
+        name
+        ts1
+        ts2
+        Property.pp_print_prop_source source
+
+    | Property.Reachable None ->
+      Format.fprintf
+        ppf
+        "%a (reachable %s, %a)"
+        StateVar.pp_print_state_var state_var
+        name
+        Property.pp_print_prop_source source
   in
 
   let pp_print_state_var_source ppf = 
@@ -1216,7 +1327,7 @@ let stateful_vars_of_expr { E.expr_step } =
     (expr_step :> Term.t)
 
 
-let stateful_vars_of_prop (state_var, _, _) = SVS.singleton state_var
+let stateful_vars_of_prop (state_var, _, _, _) = SVS.singleton state_var
 
 (* Return all stateful variables from expressions in a node *)
 let stateful_vars_of_node
@@ -1294,7 +1405,7 @@ let stateful_vars_of_node
   let stateful_vars = 
     add_to_svs
       stateful_vars
-      (List.map (fun (sv, _, _) -> sv) props) 
+      (List.map (fun (sv, _, _, _) -> sv) props) 
   in
 
   (* Add stateful variables from assertions *)

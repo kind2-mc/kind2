@@ -211,11 +211,12 @@ let print_mcs_counterexample in_sys param sys typ fmt (prop, cex) =
     then
       match typ with
       | `PT ->
-        KEvent.pp_print_counterexample_pt L_warn in_sys param sys (Some prop) true fmt cex
+        let dump = Flags.dump_cex () in
+        KEvent.pp_print_trace_pt dump L_warn in_sys param sys (Some prop) true fmt cex
       | `XML ->
-        KEvent.pp_print_counterexample_xml in_sys param sys (Some prop) true fmt cex
+        KEvent.pp_print_trace_xml in_sys param sys (Some prop) true fmt cex
       | `JSON ->
-        KEvent.pp_print_counterexample_json in_sys param sys (Some prop) true fmt cex
+        KEvent.pp_print_trace_json in_sys param sys (Some prop) true fmt cex
   with _ -> ()
 
 let format_name_for_pt str =

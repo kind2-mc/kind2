@@ -28,6 +28,7 @@ module LH = LustreAstHelpers
 
 module R = Res
 let (>>=) = R.(>>=)
+let (let*) = Res.(>>=)
 
 type error_kind = Unknown of string
   | FreeIntIdentifier of HString.t
@@ -454,8 +455,8 @@ let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA
   | (IfBlock _) :: _ 
   | (FrameBlock _) :: _ ->
     assert false
-  | (AnnotProperty (pos, n, e)) :: items ->
-    (AnnotProperty (pos, n, simplify_expr ctx e))
+  | (AnnotProperty (pos, n, e, k)) :: items ->
+    (AnnotProperty (pos, n, simplify_expr ctx e, k))
     :: inline_constants_of_node_items ctx items
   | (AnnotMain (pos, b)) :: items
     -> (AnnotMain (pos, b)) :: inline_constants_of_node_items ctx items
@@ -534,13 +535,13 @@ let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declarati
   | e -> (ctx, e)
 (** propogate constants post type checking into the AST and constant store*)
 
-
-let rec inline_constants: TC.tc_context -> LA.t -> ((TC.tc_context * LA.t), [> error]) result = fun ctx ->
-  function
+let rec inline_constants: TC.tc_context -> LA.t -> ((TC.tc_context * LA.t), [> error]) result = fun ctx decl ->
+  match decl with
   | [] -> R.ok (ctx, [])
   | c :: rest ->
-     (try R.ok (substitute ctx c) with
-      | Out_of_bounds (pos, err) -> inline_error pos (OutOfBounds err)) >>= fun (ctx', c') ->
-     inline_constants ctx' rest >>= fun (ctx'', decls) -> 
-     R.ok (ctx'', c'::decls)
+    let* (ctx', c') = (try R.ok (substitute ctx c) with
+      | Out_of_bounds (pos, err) -> 
+        inline_error pos (OutOfBounds err)) in
+    let* (ctx'', decls) = inline_constants ctx' rest in
+    R.ok (ctx'', c'::decls)
 (** Best effort at inlining constants *)

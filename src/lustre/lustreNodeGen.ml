@@ -1776,7 +1776,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | A.Assert (p, e) -> (props, eqs, (p, e) :: asserts, is_main)
         | A.Equation (p, l, e) -> (props, (p, l, e) :: eqs, asserts, is_main))
       | A.AnnotMain (_, flag) -> (props, eqs, asserts, flag || is_main)
-      | A.AnnotProperty (p, n, e) -> ((p, n, e) :: props, eqs, asserts, is_main) 
+      | A.AnnotProperty (p, n, e, k) -> ((p, n, e, k) :: props, eqs, asserts, is_main) 
       | A.IfBlock _ 
       | A.FrameBlock _ -> 
         (* IfBlock and FrameBlock desugaring already occurred earlier in pipeline
@@ -1788,7 +1788,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
   (* Properties and Assertions                                          *)
   (* ****************************************************************** *)
   in let props =
-    let op (pos, name_opt, expr) =
+    let op (pos, name_opt, expr, kind) =
       let id_str = match expr with
         | A.Ident (_, id_str) -> id_str
         | A.ArrayIndex (_, A.Ident (_, id_str), _) -> id_str
@@ -1799,7 +1799,15 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         match name_opt with
         | Some n -> HString.string_of_hstring n
         | None -> assert false (* Prop named in LustreAstNormalizer *)
-      in sv, name, (Property.PropAnnot pos)
+      in 
+      let kind = match kind with
+        | A.Invariant -> Property.Invariant
+        | A.Reachable Some (FromWithin (ts1, ts2)) -> Property.Reachable (Some (FromWithin (ts1, ts2)))
+        | A.Reachable Some (At ts) -> Property.Reachable (Some (At ts))
+        | A.Reachable Some (From ts) -> Property.Reachable (Some (From ts))
+        | A.Reachable Some (Within ts) -> Property.Reachable (Some (Within ts))
+        | A.Reachable None -> Property.Reachable None
+      in sv, name, (Property.PropAnnot pos), kind
     in List.map op node_props
 
   in let asserts =
@@ -2021,13 +2029,13 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | None ->
           let name = create_constraint_name rexpr in
           let src = Property.Generated (Some pos, [sv]) in
-          a, ac, g, gc, (sv, name, src) :: p
+          a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
         | _ -> assert false
       else
         let name = create_constraint_name rexpr in
         let src = Property.Generated (Some pos, [sv]) in
         let src = Property.Candidate (Some src) in
-        a, ac, g, gc, (sv, name, src) :: p
+        a, ac, g, gc, (sv, name, src, Property.Invariant) :: p
     in
     let (assumes, _, guarantees, _, props) = 
       List.fold_left over_subrange_constraints
