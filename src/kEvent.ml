@@ -675,22 +675,22 @@ let prop_status_pt level prop_status_kind =
                     Format.fprintf ppf "@{<yellow>unreachable up to %d steps@}" n
 
                   | Property.PropInvariant (n, _), Property.Invariant -> 
-                    Format.fprintf ppf "@{<green_b>valid (at %d)@}" n
+                    Format.fprintf ppf "@{<green_b>valid (k=%d)@}" n
 
                   | Property.PropInvariant (n, _), Property.Reachable Some (From ts) -> 
-                    Format.fprintf ppf "@{<red_b>unreachable in %d steps or more (at %d)@}" ts n
+                    Format.fprintf ppf "@{<red_b>unreachable in %d steps or more (k=%d)@}" ts n
 
                   | Property.PropInvariant (n, _), Property.Reachable Some (Within ts) -> 
-                    Format.fprintf ppf "@{<red_b>unreachable in %d steps or less (at %d)@}" ts n
+                    Format.fprintf ppf "@{<red_b>unreachable in %d steps or less (k=%d)@}" ts n
 
                   | Property.PropInvariant (n, _), Property.Reachable Some (At _) -> 
                     Format.fprintf ppf "@{<red_b>unreachable at step %d@}" n
 
                   | Property.PropInvariant (n, _), Property.Reachable Some (FromWithin (ts1, ts2)) -> 
-                    Format.fprintf ppf "@{<red_b>unreachable between steps %d and %d (at %d)@}" ts1 ts2 n
+                    Format.fprintf ppf "@{<red_b>unreachable between steps %d and %d (k=%d)@}" ts1 ts2 n
 
                   | Property.PropInvariant (n, _), Property.Reachable None -> 
-                    Format.fprintf ppf "@{<red_b>unreachable (at %d)@}" n 
+                    Format.fprintf ppf "@{<red_b>unreachable (k=%d)@}" n 
           
                   | Property.PropFalse [], Property.Invariant -> 
                     Format.fprintf ppf "@{<red_b>invalid@}"

@@ -120,7 +120,7 @@ Kind 2 produces the following on standard output when run with the default optio
    --------------------------------------------------------------
    Summary of properties:
    --------------------------------------------------------------
-   OK: valid (at 5)
+   OK: valid (k=5)
    ==============================================================
 
 We can see here that the property ``OK`` has been proven valid for the system (by *k*\ -induction).
