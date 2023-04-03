@@ -81,7 +81,7 @@ let mk_span start_pos end_pos =
 (* %token ARRAY *)
 %token CARET
 %token DOTDOT
-%token PIPE
+%token CONCAT
 
 (* Token for constant declarations *)
 %token CONST
@@ -194,7 +194,7 @@ let mk_span start_pos end_pos =
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
 %nonassoc WHEN CURRENT 
-%left PIPE
+%left CONCAT
 %nonassoc ELSE
 %right ARROW
 %nonassoc prec_forall prec_exists
@@ -778,7 +778,7 @@ pexpr(Q):
     { A.RecordExpr (mk_pos $startpos, t, f) }
 
   (* An array concatenation *)
-  | e1 = pexpr(Q); PIPE; e2 = pexpr(Q) { A.ArrayConcat (mk_pos $startpos, e1, e2) } 
+  | e1 = pexpr(Q); CONCAT; e2 = pexpr(Q) { A.ArrayConcat (mk_pos $startpos, e1, e2) } 
 
   (* with operator for updating fields of a structure (not quantified) *)
   | LPAREN; 

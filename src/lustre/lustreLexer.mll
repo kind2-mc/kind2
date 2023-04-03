@@ -449,7 +449,6 @@ rule token = parse
   | '}' { RCURLYBRACKET }
   | '}' { RCURLYBRACKET }
   | ".%" { DOTPERCENT }
-  | '|' { PIPE }
   | "<<" { LPARAMBRACKET }
   | ">>" { RPARAMBRACKET }
   | "=>" { IMPL }
@@ -461,6 +460,7 @@ rule token = parse
   | "<>" { NEQ }
   | '-' { MINUS }
   | '+' { PLUS }
+  | "++" { CONCAT }
   | '/' { DIV }
   | '*' { MULT }
   | "->" { ARROW }
