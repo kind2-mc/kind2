@@ -7,9 +7,9 @@ One clear strength of model checkers, as opposed to proof assistants, say, is
 their ability to return precise *error traces* witnessing the violation of a
 given safety property. Such traces not only are invaluable for designers to
 correct bugs, they also constitute a checkable certificate. For instance Kind 2
-display a counter-example trace that shows the evolution of values of all
+display a counterexample trace that shows the evolution of values of all
 variables in the system up to a violation of the property. In most cases, it is
-possible to use a counter-example for a safety property to direct the execution
+possible to use a counterexample for a safety property to direct the execution
 of the system under analysis to a state that falsifies that property.  In
 contrast, most model checkers are currently unable to return any form of
 corroborating evidence when they declare a safety property to be satisfied by

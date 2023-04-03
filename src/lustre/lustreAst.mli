@@ -230,7 +230,7 @@ type node_equation =
   | Equation of position * eq_lhs * expr 
 
 (** For reachable properties, the user can optionally specify a bound to look
-    for an example trace from/within/at a certain timestep *)
+    for a witness from/within/at a certain timestep *)
 type prop_bound =
   | From of int
   | Within of int

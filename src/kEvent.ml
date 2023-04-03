@@ -539,7 +539,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
       let title, color, dump =
         match kind with
         | Property.Invariant -> "Counterexample", "red", Flags.dump_cex ()
-        | Property.Reachable _ -> "Example trace", "green", Flags.dump_trace ()
+        | Property.Reachable _ -> "Witness", "green", Flags.dump_witness ()
       in
       (* Output cex. *)
       (ignore_or_fprintf level)
@@ -572,7 +572,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
             | true, Property.Reachable None ->
               Format.asprintf "is reachable by %a" 
               pp_print_kind_module_pt mdl
-            | false, Property.Reachable _ -> "has a step k-induction example trace"
+            | false, Property.Reachable _ -> "has a step k-induction witness"
         )
         (function ppf -> match cex with
            | [] -> ()
@@ -958,7 +958,7 @@ let cex_xml
     let tag =
       match prop_kind with
       | Property.Invariant -> "CounterExample"
-      | Property.Reachable _ -> "ExampleTrace"
+      | Property.Reachable _ -> "Witness"
     in
 
     (* Output cex. *)
@@ -1273,7 +1273,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
     let object_name =
       match kind with
       | Property.Invariant -> "counterExample"
-      | Property.Reachable _ -> "exampleTrace"
+      | Property.Reachable _ -> "witness"
     in
 
     (* Output cex. *)

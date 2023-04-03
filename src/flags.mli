@@ -165,8 +165,8 @@ val print_invs : unit -> bool
 (** Dump counterexample / deadlocking trace to a file **)
 val dump_cex : unit -> bool
 
-(** Dump example trace to a file **)
-val dump_trace : unit -> bool
+(** Dump witness of reachability property to a file **)
+val dump_witness : unit -> bool
 
 (** Debug sections to enable *)
 val debug : unit -> string list
