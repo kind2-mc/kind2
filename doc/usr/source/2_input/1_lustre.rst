@@ -143,7 +143,7 @@ The second example demonstrates reachability properties using a single ``counter
 
 Kind 2 produces output reporting that the first four expressions are reachable, while the last is not.
 For each reachable expression, Kind 2 prints a witness into a file.
-To print the witness in the terminal instead, you can pass the command-line option ``--dump_witness false`` to Kind 2.
+To print the witness in the terminal instead, you can pass ``--dump_witness false`` to Kind 2.
 
 .. _2_input/1_lustre#contracts:
 
