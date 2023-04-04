@@ -134,6 +134,20 @@ The second example demonstrates reachability queries using a single ``counter`` 
 Kind 2 produces output reporting that the first four expressions are reachable, while the last is not. For each reachable expression,
 Kind 2 gives an example trace.
 
+Vacuity Checks
+^^^^^^^^^^^^^^
+
+Kind 2 allows the user to check if a property ``A`` is invariant provided that some other property ``B`` is reachable using the 
+following syntax:
+
+.. code-block:: none
+
+   --check A provided B;
+
+This is eqivalent to simultaneously checking if ``B => A`` is invariant and ``B`` is reachable. If ``B => A`` is in fact invariant,
+the reachability check lets the user know whether or not the implication is trivially true (which happens if ``B`` is unreachable).
+
+
 .. _2_input/1_lustre#contracts:
 
 Contracts
