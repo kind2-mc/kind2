@@ -1017,6 +1017,10 @@ and do_item: tc_context -> LA.node_item -> (unit, [> error]) result = fun ctx ->
   | LA.AnnotMain _ as ann ->
     Debug.parse "Node Item Skipped (Main Annotation): %a" LA.pp_print_node_item ann
     ; R.ok ()
+  | LA.AnnotProperty (_, _, e1, Provided e2) as ann ->
+    Debug.parse "Checking Node Item (Annotation Property): %a (%a)"
+      LA.pp_print_node_item ann LA.pp_print_expr e1
+    ; check_type_expr ctx e1 (Bool (LH.pos_of_expr e1)) >> check_type_expr ctx e2 (Bool (LH.pos_of_expr e2)) 
   | LA.AnnotProperty (_, _, e, _) as ann ->
     Debug.parse "Checking Node Item (Annotation Property): %a (%a)"
       LA.pp_print_node_item ann LA.pp_print_expr e

@@ -1,0 +1,6 @@
+
+node main(c: bool) returns (y: int);
+let
+  check y < 50 provided y < 25;
+tel
+
