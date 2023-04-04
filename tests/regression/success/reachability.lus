@@ -1,0 +1,11 @@
+node counter(test: int) returns (out: int);
+let 
+  out = 0 -> pre out + 1;
+ 
+  check reachable out = 6 within 7;
+  check reachable out = 15 from 10 within 20;
+  check reachable out = 3 from 3;
+  check reachable out = 15 at 15;
+  --check reachable out = 1000 from 1000; (slow with Z3)
+tel
+

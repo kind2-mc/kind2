@@ -55,9 +55,8 @@ let print_stats trans_sys =
   match trans_sys with
   | None -> ()
   | Some trans_sys ->
-    KEvent.log_prop_status L_fatal trans_sys
-      (TransSys.get_prop_status_all_nocands trans_sys)
-                        
+    let status_kinds = TransSys.get_prop_status_and_kind_all_nocands trans_sys in
+    KEvent.log_prop_status L_fatal trans_sys status_kinds
 
 
 let on_exit trans_sys =

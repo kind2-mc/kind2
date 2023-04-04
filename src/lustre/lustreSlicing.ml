@@ -754,7 +754,7 @@ let add_roots_of_equation roots ((_,bnds), expr) =
 
 
 (* Return state variables from properties *)
-let roots_of_props = List.map (fun (sv, _, _) -> sv)
+let roots_of_props = List.map (fun (sv, _, _, _) -> sv)
 
 
 (* Return state variables from contracts *)

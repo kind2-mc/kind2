@@ -323,17 +323,17 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
 
-  mk_test "test ghost variable redeclaration" (fun () ->
+  mk_test "test ghost variable redeclaration 1" (fun () ->
     match load_file "./lustreAstDependencies/ghost_variable_redeclaration.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
   
-  mk_test "test ghost variable redeclaration" (fun () ->
+  mk_test "test ghost variable redeclaration 2" (fun () ->
     match load_file "./lustreAstDependencies/ghost_variable_redeclaration2.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
   
-  mk_test "test ghost variable redeclaration" (fun () ->
+  mk_test "test ghost variable redeclaration 3" (fun () ->
     match load_file "./lustreAstDependencies/ghost_variable_redeclaration3.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);

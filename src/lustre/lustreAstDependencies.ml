@@ -475,7 +475,7 @@ let rec extract_node_calls_item: LA.node_item -> (LA.ident * Lib.position) list
   | FrameBlock (_, _, nes, nis) ->
     extract_node_calls (List.map (fun x -> LA.Body x) nes) @
     extract_node_calls nis
-  | AnnotProperty (_, _, e) -> get_node_call_from_expr e
+  | AnnotProperty (_, _, e, _) -> get_node_call_from_expr e
   | _ -> []
 (** Extracts all the node calls from a node item *)
 

@@ -162,8 +162,11 @@ val log_invs : unit -> bool
 (** Prints invariants **)
 val print_invs : unit -> bool
 
-(** Dump counterexample to a file **)
+(** Dump counterexample / deadlocking trace to a file **)
 val dump_cex : unit -> bool
+
+(** Dump witness of reachability property to a file **)
+val dump_witness : unit -> bool
 
 (** Debug sections to enable *)
 val debug : unit -> string list
@@ -212,6 +215,9 @@ val modular : unit -> bool
 
 (** Node slicing *)
 val slice_nodes : unit -> bool
+
+(** Check reachability properties *)
+val check_reach : unit -> bool
 
 (** Check properties of subnodes *)
 val check_subproperties : unit -> bool

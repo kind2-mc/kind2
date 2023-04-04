@@ -40,6 +40,7 @@ type error_kind = Unknown of string
   | UndefinedLocal of HString.t
   | DuplicateLocal of HString.t * Lib.position
   | DuplicateOutput of HString.t * Lib.position
+  | DuplicateProperty of HString.t
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
@@ -69,11 +70,13 @@ let error_message kind = match kind with
   | UndefinedLocal id -> "Local variable '"
     ^ HString.string_of_hstring id ^ "' has no definition"
   | DuplicateLocal (id, pos) -> "Local variable '"
-    ^ HString.string_of_hstring id ^ "' has already been defined at position(s) " ^ 
+    ^ HString.string_of_hstring id ^ "' has already been defined at position " ^ 
      (Lib.string_of_t Lib.pp_print_position pos) 
   | DuplicateOutput (id, pos) -> "Output variable '"
-    ^ HString.string_of_hstring id ^ "' has already been defined at position(s) " ^
+    ^ HString.string_of_hstring id ^ "' has already been defined at position " ^
     (Lib.string_of_t Lib.pp_print_position pos) 
+  | DuplicateProperty id -> "Property '"
+  ^ HString.string_of_hstring id ^ "' has more than one definition"
   | UndefinedNode id -> "Node or function '"
     ^ HString.string_of_hstring id ^ "' is undefined"
   | UndefinedContract id -> "Contract '"
@@ -591,6 +594,12 @@ and common_contract_checks ctx e =
     >> (no_quant_var_or_symbolic_index_in_node_call ctx e)
     >> (no_calls_to_nodes_with_contracts_subject_to_refinement ctx e)
 
+(* Can't have from/within/at keywords in reachability queries in functions *)
+and no_reachability_modifiers item = match item with 
+  | LA.AnnotProperty (pos, _, _, Reachable (Some _)) -> 
+    syntax_error pos (IllegalTemporalOperator ("pre", "reachability query modifier")) 
+  | _ -> Ok ()
+
 and check_input_items (pos, _id, _ty, clock, _const) =
   no_clock_inputs_or_outputs pos clock
 
@@ -650,6 +659,7 @@ and check_func_decl ctx span (id, ext, params, inputs, outputs, locals, items, c
        composed_items_checks
        items
      )
+  >> (Res.seq_ (List.map no_reachability_modifiers items))
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs))
   >> (Res.seq_ (List.map check_local_items locals))
@@ -666,6 +676,15 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
     >> (Ok decl)
 
 and check_items ctx f items =
+  (* Record duplicate properties if we find them *)
+  let over_props props = function
+    | LA.AnnotProperty (pos, name, _, kind) ->
+      let name = LustreAstHelpers.name_of_prop pos name kind in
+      if StringSet.mem name props
+      then syntax_error pos (DuplicateProperty name)
+      else Ok (StringSet.add name props)
+    | _ -> Ok props
+  in
   let check_item ctx f = function
     | LA.Body (Equation (_, lhs, e)) ->
       let ctx' = build_equation_ctx ctx lhs in
@@ -681,11 +700,13 @@ and check_items ctx f items =
       check_items ctx f nes >> (check_items ctx f nis) >>
       (*  Make sure 'nes' and 'nis' LHS vars are in 'vars' *)
       (Res.seq_ (List.map (check_frame_vars pos vars) nis)) >> (Res.seq_ (List.map (check_frame_vars pos vars) nes))
-    | Body (Assert (_, e))
-    | AnnotProperty (_, _, e) -> check_expr ctx f e
+    | Body (Assert (_, e)) 
+    | AnnotProperty (_, _, e, _) -> (check_expr ctx f e)
     | AnnotMain _ -> Ok ()
   in
-  Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)
+  (* Check for duplicate properties *)
+  Res.seq_chain (fun props -> over_props props) StringSet.empty items
+  >> Res.seqM (fun x _ -> x) () (List.map (check_item ctx f) items)
 
 and check_struct_items ctx items =
   let r items = check_struct_items ctx items in

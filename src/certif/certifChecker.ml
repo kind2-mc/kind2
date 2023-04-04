@@ -238,6 +238,13 @@ let create_dir dir =
   with Sys_error _ -> Unix.mkdir dir 0o755
 
 
+let valid_invariant_props sys =
+  TS.get_real_properties sys
+  |> List.filter (function
+    | Property.{ prop_status = PropInvariant _; prop_kind = Invariant } -> true
+    | _ -> false
+  )
+  
 (*************************************************************************)
 (* Printing functions for the certificate.                               *)
 (* We use the generic SMTLIB pretty printer for that because we want to  *)
@@ -369,7 +376,7 @@ let sexit fmt = fprintf fmt "(exit)@."
 let extract_props_terms sys =
   List.fold_left (fun p_acc -> function
       | { Property.prop_term = p } -> p :: p_acc
-    ) [] (TS.get_real_properties sys)
+    ) [] (valid_invariant_props sys)
   |> List.rev |> Term.mk_and
 
 
@@ -386,19 +393,25 @@ let extract_props_certs sys =
   ) ([], []) (TS.get_invariants sys |> Invs.flatten) in
 
   let certs, props = List.fold_left (fun ((c_acc, p_acc) as acc) -> function
-      | { Property.prop_source = Property.Candidate _ } -> acc
-      | { Property.prop_status = Property.PropInvariant c; prop_term = p } ->
+      | Property.{ prop_source = Candidate _ } -> acc
+      | Property.{ prop_status = PropInvariant c; prop_term = p; prop_kind = Invariant } ->
         (* let (k,p') = c in
         KEvent.log_uncond "[PROP] %a -----> %i:%a" Term.pp_print_term p k Term.pp_print_term p' ; *)
         (if List.exists (Term.equal p) invs then c_acc else c :: c_acc), p :: p_acc
+      | Property.{ prop_name; prop_kind = Reachable _ } ->
+        KEvent.log L_info "Skipping reachability property %s" prop_name;
+        acc
       | { Property.prop_name } ->
         KEvent.log L_info "Skipping unproved property %s" prop_name;
         acc
     ) (certs, []) (TS.get_real_properties sys) in
 
   let certs =  List.fold_left (fun certs -> function
-      | { Property.prop_status = Property.PropInvariant c;
-          prop_source = Property.Candidate _ } -> c :: certs
+      | Property.{ prop_status = PropInvariant c;
+          prop_source = Candidate _ ; prop_kind = Invariant } -> c :: certs
+      | Property.{ prop_name; prop_kind = Reachable _ } ->
+        KEvent.log L_info "Skipping reachability candidate %s" prop_name;
+        certs
       | { Property.prop_name } ->
         KEvent.log L_info "Skipping unproved candidate %s" prop_name;
         certs
@@ -1136,7 +1149,7 @@ let minimize_invariants sys props invs_predicate =
   (* TODO: Fix the minimize_invariant function when Smt.check_sat_assume is false.
      The issue seems to come from the fact that nested calls to check_sat_assume
      and get_unsat_core_lits are done inside of the continuation given to check_sat_assume. *)
-  if Flags.Smt.check_sat_assume ()
+  if Flags.Smt.check_sat_assume () && invs <> []
   then
 
     (* For stats *)
@@ -2312,11 +2325,11 @@ let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_var
 let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
  
   let orig_kind2_vars = TS.state_vars kind2_sys in
-  
+
   let prop_vs =
     List.fold_left (fun acc p ->
         Term.state_vars_of_term p.Property.prop_term |> SVS.union acc
-      ) SVS.empty (TS.get_real_properties kind2_sys)
+      ) SVS.empty (valid_invariant_props kind2_sys)
   in
   
   let other_vars =
@@ -2339,7 +2352,8 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
             "PROPERTY_Observational_Equivalence_" ^(string_of_int !cpt);
           prop_source = Property.Generated (None, []);
           prop_term = eq;
-          prop_status = Property.PropUnknown; }
+          prop_status = Property.PropUnknown; 
+          prop_kind = Invariant; }
       ) props_eqs in
 
   let others_obs =
@@ -2349,7 +2363,8 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
             "OTHER_Observational_Equivalence_" ^(string_of_int !cpt);
           prop_source = Property.Candidate None ;
           prop_term = eq;
-          prop_status = Property.PropUnknown; }
+          prop_status = Property.PropUnknown; 
+          prop_kind = Invariant; }
         ) others_eqs in
 
   props_obs @ others_obs

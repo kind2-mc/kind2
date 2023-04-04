@@ -494,6 +494,23 @@ let mk_fresh_call info id map pos cond restart args defaults =
   CallCache.add call_cache (id, cond, restart, args, defaults) nexpr;
   nexpr, gids
 
+let add_step_counter info =
+  let dpos = Lib.dummy_pos in
+  let eq_lhs = A.StructDef (dpos, [SingleIdent (dpos, ctr_id)]) in
+  let expr =
+    A.Arrow (dpos,
+      Const (dpos, Num (HString.mk_hstring "0")),
+      BinaryOp (dpos, Plus,
+        Pre (dpos, Ident (dpos, ctr_id)),
+        Const (dpos, Num (HString.mk_hstring "1"))
+      )
+    )
+  in
+  { (empty ()) with
+    locals = StringMap.singleton ctr_id (false, A.Int dpos);
+    equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr)]; }
+(** Add local step 'counter' and an equation setting counter = 0 -> pre counter + 1 *)
+
 let get_type_of_id info node_id id =
   let ty = (match AI.get_type info.abstract_interp_context node_id id with
   | Some ty -> ty
@@ -712,9 +729,34 @@ and normalize_node info map
       | _ -> assert false)
       (empty ())
   in
+  let items =
+    if Flags.check_reach () then
+      items
+    else (
+      items |> List.filter (function
+        | A.AnnotProperty (_, _, _, Reachable _) -> false
+        | _ -> true
+      )
+    )
+  in
+  let exists_reachability_prop_with_bounds =
+    let reachability_prop_with_bounds = function
+    | A.AnnotProperty (_, _, _, Reachable (Some _)) -> true
+    | _ -> false
+    in
+    Flags.check_reach () && List.exists reachability_prop_with_bounds items
+  in
+  let info, gids6 =
+    if exists_reachability_prop_with_bounds then (
+      {info with context = Ctx.add_ty info.context ctr_id (A.Int dpos)},
+      add_step_counter info
+    )
+    else
+      info, empty ()
+  in
   (* Normalize equations and the contract *)
   let nitems, gids4, warnings2 = normalize_list (normalize_item info map) items in
-  let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
+  let gids = union_list [gids1; gids2; gids3; gids4; gids5; gids6] in
   let map = StringMap.singleton node_id gids in
   (node_id, is_extern, params, inputs, outputs, locals, nitems, ncontracts), map, warnings1 @ warnings2
 
@@ -728,20 +770,44 @@ and normalize_item info map = function
   | FrameBlock _ -> 
     assert false
   | AnnotMain (pos, b) -> AnnotMain (pos, b), empty (), []
-  | AnnotProperty (pos, name, expr) ->
-    let name' =
-      match name with
-      | None -> (
-        let hs_expr =
-          Format.asprintf "@[<h>%a@]" A.pp_print_expr expr
-          |> HString.mk_hstring
-        in
-        Some hs_expr
-      )
-      | Some _ as n -> n
-    in
+  | AnnotProperty (pos, name, expr, k) -> 
+    let name' = Some (AH.name_of_prop pos name k) in
+    let expr = (match k with 
+      (* expr or counter < b *)
+      | Reachable Some (From b) -> 
+        A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
+        A.CompOp(pos, A.Lt, Ident(dpos, ctr_id), 
+                            Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
+
+      (* expr or counter != b *)
+      | Reachable Some (At b) -> 
+        A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
+        A.CompOp(pos, A.Neq, Ident(dpos, ctr_id), 
+                             Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
+
+      (* expr or counter > b *)
+      | Reachable Some (Within b) -> 
+        A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
+        A.CompOp(pos, A.Gt, Ident(dpos, ctr_id), 
+                            Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
+      
+      (* expr or counter < b1 or counter > b2 *)
+      | Reachable Some (FromWithin (b1, b2)) -> 
+        A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
+        A.BinaryOp (pos, Or, 
+          A.CompOp(pos, A.Lt, Ident(dpos, ctr_id), 
+          Const (dpos, Num (HString.mk_hstring (string_of_int b1)))),
+          A.CompOp(pos, A.Gt, Ident(dpos, ctr_id), 
+                              Const (dpos, Num (HString.mk_hstring (string_of_int b2)))))
+        )
+
+      | Reachable _ -> A.UnaryOp (pos, A.Not, expr)
+      | _ -> expr
+    ) in
     let nexpr, gids, warnings = abstract_expr false info map false expr in
-    AnnotProperty (pos, name', nexpr), gids, warnings
+    AnnotProperty (pos, name', nexpr, k), gids, warnings
+
+
 
 and rename_ghost_variables info node_id contract =
   let sep = HString.mk_hstring "_contract_" in

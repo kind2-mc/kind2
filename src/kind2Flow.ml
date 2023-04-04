@@ -65,7 +65,8 @@ let renice () =
 (** Main function of the process *)
 let main_of_process = function
   | `IC3 -> IC3.main
-  | `BMC -> BMC.main
+  | `BMC -> BMC.main false
+  | `BMCSKIP -> BMC.main true
   | `IND -> IND.main
   | `IND2 -> IND2.main
   | `INVGEN -> renice () ; InvGen.main_bool true
@@ -100,6 +101,7 @@ let main_of_process = function
 let on_exit_of_process mdl =
   ( match mdl with
     | `IC3 -> IC3.on_exit None
+    | `BMCSKIP
     | `BMC -> BMC.on_exit None
     | `IND -> IND.on_exit None
     | `IND2 -> IND2.on_exit None
@@ -139,9 +141,9 @@ let debug_ext_of_process = short_name_of_kind_module
 (* Decides what the exit status is by looking at a transition system.
 
 The exit status is
-* 0 if some properties are unknown or k-true (timeout),
-* 10 if some properties are falsifiable (unsafe),
-* 20 if all properties are invariants (safe). *)
+  * 0 if some properties are unknown or k-true (timeout),
+  * 10 if some invariant properties are falsifiable (unsafe) or some reachability properties are unreachable,
+  * 20 if all invariant properties are invariants (safe) and all reachability properties are reachable. *)
 let status_of_trans_sys sys =
   (* Checking if some properties are unknown of falsifiable. *)
   let unknown, falsifiable =
@@ -151,9 +153,13 @@ let status_of_trans_sys sys =
       | (n, Property.PropKTrue _) ->
         Format.eprintf "%s KU@." n;
         u+1,f
-      | (n, Property.PropFalse _) ->
+      | (n, Property.PropFalse _) when TSys.get_prop_kind sys n = Invariant ->
         Format.eprintf "%s FALSE@." n;
         u,f+1
+      | (n, Property.PropInvariant _) -> 
+        if TSys.get_prop_kind sys n = Invariant
+        then u,f
+        else (Format.eprintf "%s UNREACHABLE@." n; u,f+1)   
       | _ -> u,f
     ) (0,0)
     |> fun (u,f) -> u > 0, f > 0
@@ -515,6 +521,14 @@ let process_invgen_mach_modules sys (modules: Lib.kind_module list) : Lib.kind_m
     | _ -> other_modules
   )
 
+  (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
+     query with a lower bound *)
+  let reachability_query_modules sys (modules: Lib.kind_module list) : Lib.kind_module list =
+    let has_lb_queries = (TSys.props_list_of_bound_skip sys Numeral.zero <> []) in
+    if (List.mem `BMCSKIP modules |> not) && (List.mem `BMC modules) && has_lb_queries
+      then `BMCSKIP :: modules
+      else modules
+
 (** Performs an analysis. *)
 let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
@@ -539,6 +553,9 @@ let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys
       KEvent.purge_im msg_setup ;
 
       let modules = process_invgen_mach_modules sys modules in
+      (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
+        query with a lower bound *)
+      let modules = reachability_query_modules sys modules in
 
       (* Start all child processes. *)
       modules |> List.iter (

@@ -229,13 +229,26 @@ type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr 
 
+(** For reachable properties, the user can optionally specify a bound to look
+    for a witness from/within/at a certain timestep *)
+type prop_bound =
+  | From of int
+  | Within of int
+  | At of int
+  | FromWithin of int * int
+
+(** Whether a property is reachable or invariant *)
+type prop_kind =
+  | Invariant
+  | Reachable of prop_bound option
+
 (** An item in a node declaration *)
 type node_item =
   | Body of node_equation
   | IfBlock of position * expr * node_item list * node_item list
   | FrameBlock of position * ident list * node_equation list * node_item list 
   | AnnotMain of position * bool
-  | AnnotProperty of position * HString.t option * expr
+  | AnnotProperty of position * HString.t option * expr * prop_kind
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl

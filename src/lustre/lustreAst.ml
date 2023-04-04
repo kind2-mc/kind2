@@ -227,13 +227,23 @@ type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr
 
+type prop_bound =
+  | From of int
+  | Within of int
+  | At of int
+  | FromWithin of int * int
+
+type prop_kind =
+  | Invariant
+  | Reachable of prop_bound option
+
 (* An item in a node declaration *)
 type node_item =
   | Body of node_equation
   | IfBlock of position * expr * node_item list * node_item list
   | FrameBlock of position * ident list * node_equation list * node_item list 
   | AnnotMain of position * bool
-  | AnnotProperty of position * HString.t option * expr
+  | AnnotProperty of position * HString.t option * expr * prop_kind
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
@@ -924,11 +934,66 @@ and pp_print_node_item ppf = function
 
   | AnnotMain (_, false) -> Format.fprintf ppf "--!MAIN : false;"
 
-  | AnnotProperty (_, None, e) ->
+  | AnnotProperty (_, None, e, Invariant) ->
     Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 
 
-  | AnnotProperty (_, Some name, e) ->
+  | AnnotProperty (_, None, e, Reachable Some (From b)) ->
+    Format.fprintf ppf "--%%PROPERTY reachable %a from %d;" 
+    pp_print_expr e 
+    b
+
+  | AnnotProperty (_, None, e, Reachable Some (Within b)) ->
+    Format.fprintf ppf "--%%PROPERTY reachable %a within %d;" 
+    pp_print_expr e 
+    b
+
+  | AnnotProperty (_, None, e, Reachable Some (At b)) ->
+    Format.fprintf ppf "--%%PROPERTY reachable %a at %d;" 
+    pp_print_expr e
+    b
+
+  | AnnotProperty (_, None, e, Reachable Some (FromWithin (l, u))) ->
+    Format.fprintf ppf "--%%PROPERTY reachable %a from %d within %d;" 
+    pp_print_expr e
+    l
+    u
+
+  | AnnotProperty (_, None, e, Reachable None) ->
+    Format.fprintf ppf "--%%PROPERTY reachable %a;" 
+    pp_print_expr e
+
+  | AnnotProperty (_, Some name, e, Invariant) ->
     Format.fprintf ppf "--%%PROPERTY \"%a\" %a;"
+      HString.pp_print_hstring name
+      pp_print_expr e 
+
+  | AnnotProperty (_, Some name, e, Reachable Some (From b)) ->
+    Format.fprintf ppf "--%%PROPERTY reachable \"%a\" %a from %d;"
+      HString.pp_print_hstring name
+      pp_print_expr e 
+      b
+
+  | AnnotProperty (_, Some name, e, Reachable Some (Within b)) ->
+    Format.fprintf ppf "--%%PROPERTY reachable \"%a\" %a within %d;"
+      HString.pp_print_hstring name
+      pp_print_expr e 
+      b
+
+  | AnnotProperty (_, Some name, e, Reachable Some (At b)) ->
+    Format.fprintf ppf "--%%PROPERTY reachable \"%a\" %a at %d;"
+      HString.pp_print_hstring name
+      pp_print_expr e 
+      b
+
+  | AnnotProperty (_, Some name, e, Reachable Some (FromWithin (l, u))) ->
+    Format.fprintf ppf "--%%PROPERTY reachable \"%a\" %a from %d within %d;"
+      HString.pp_print_hstring name
+      pp_print_expr e 
+      l
+      u
+
+  | AnnotProperty (_, Some name, e, Reachable None ) ->
+    Format.fprintf ppf "--%%PROPERTY reachable \"%a\" %a;"
       HString.pp_print_hstring name
       pp_print_expr e 
 

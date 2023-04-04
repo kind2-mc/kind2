@@ -36,6 +36,37 @@ let merge_abstractions =
     | _ -> assert false
   )
 
+let get_reachability_abstraction all_nodes result =
+  if Flags.Contracts.refinement () && A.result_is_some_reach_proved result then (
+    
+    let exists_refineable_subsystem =
+      let last_abstraction =
+        let info = A.info_of_param result.A.param in
+        info.A.abstraction_map
+      in
+      all_nodes
+      |> List.exists (fun (sys, { can_refine }) ->
+        can_refine && Scope.Map.find sys last_abstraction
+      )
+    in
+
+    if exists_refineable_subsystem then
+      let abs =
+        List.fold_left
+          (fun abs (sys, { can_refine }) ->
+            let is_abstract = not can_refine in
+            Scope.Map.add sys is_abstract abs
+          )
+          Scope.Map.empty
+          all_nodes
+      in
+      Some abs
+    else
+      None
+  )
+  else
+    None
+
 (* Looks for the first refineable subsystem of the system [result] corresponds
    to. Traversal of the subsystems is breadth first. Returns an option of the
    scope of the system refined, the new abstraction, and the new assumptions.
@@ -70,7 +101,7 @@ let get_params results subs_of_scope result =
           try match A.results_find candidate results with
           | result :: _ ->
             (* It is if everything was proved in the last analysis. *)
-            if A.result_is_all_proved result then Some result
+            if A.result_is_all_inv_proved result then Some result
             (* Otherwise keep going. *)
             else tail :: lower |> loop
           | [] -> failwith "unreachable"
@@ -131,7 +162,7 @@ let first_param_of ass _results all_nodes scope =
         match A.results_find sys results with
         | [] -> assert false
         | result :: _ ->
-          if A.result_is_some_falsified result |> not then
+          if A.result_is_some_inv_falsified result |> not then
             (* System has not been proved unsafe. *)
             loop abstraction tail
           else None (* System is not correct, no need to keep going. *)
@@ -292,10 +323,24 @@ let next_modular_analysis results subs_of_scope = function
               (last_assumptions ()) sys info contract_valid
           | result :: _ ->
             last_trans_sys := Some result.A.sys ;
-            if A.result_is_all_proved result then (
-              (* Format.printf "|> all proved, going up@." ; *)
-              (* Going up. *)
-              go_up prefix
+            if A.result_is_all_inv_proved result then (
+              match get_reachability_abstraction all_syss result with
+              | None -> (
+                (* Format.printf "|> all proved, going up@." ; *)
+                (* Going up. *)
+                go_up prefix
+              )
+              | Some abs -> (
+                Some (
+                  A.Refinement (
+                    { A.top = sys ;
+                      A.uid = A.get_uid () ;
+                      A.abstraction_map = abs ;
+                      A.assumptions = last_assumptions () ; },
+                    result
+                  )
+                )
+              )
             ) else if Flags.Contracts.refinement () then (
               match get_params results subs_of_scope result with
               | None -> (* Cannot refine, going up. *)

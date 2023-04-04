@@ -586,7 +586,10 @@ module RunInvPrint: PostAnalysis = struct
         let k_min, invs_min =
           CertifChecker.minimize_invariants sys None None
         in
-        KEvent.log_uncond
+        match invs_min with
+        | [] -> Ok()
+        | _ -> (
+          KEvent.log_uncond
           "Minimization result: \
             @[<v>\
               all properties valid by %d-induction@ \
@@ -594,15 +597,16 @@ module RunInvPrint: PostAnalysis = struct
             @]\
           "
           k_min (List.length invs_min) ;
-        List.iter
-          (fun inv ->
-            let fmt_inv =
-              LustreExpr.pp_print_term_as_expr_mvar false var_map
-            in
-            KEvent.log_uncond "%a" fmt_inv inv
-          )
-        invs_min ;
-        Ok ()
+          List.iter
+            (fun inv ->
+              let fmt_inv =
+                LustreExpr.pp_print_term_as_expr_mvar false var_map
+              in
+              KEvent.log_uncond "%a" fmt_inv inv
+            )
+          invs_min ;
+          Ok ()
+        )
       ) with
       | CertifChecker.CouldNotProve err -> error(
         fun fmt ->
@@ -624,18 +628,45 @@ module RunCertif: PostAnalysis = struct
   let is_active () = Flags.Certif.certif () || Flags.Certif.proof ()
   let run in_sys param _ results =
     let top = (Analysis.info_of_param param).Analysis.top in
-    last_result results top |> chain (
-      fun result ->
-        let sys = result.Analysis.sys in
-        let uid = (Analysis.info_of_param param).Analysis.uid in
-        (
-          if Flags.Certif.certif () then
-            CertifChecker.generate_smt2_certificates in_sys sys
-        ) ;
-        ( if Flags.Certif.proof () then
-            CertifChecker.generate_all_proofs uid in_sys sys
-        ) ;
-        Ok ()
+    last_result results top
+    |> chain (fun { Analysis.sys } ->
+      let valid_props =
+        TSys.get_real_properties sys
+        |> List.filter (function
+          | Property.{ prop_status = PropInvariant _ } -> true
+          | _ -> false
+        )
+      in
+      let valid_invariant_props, other_valid_props =
+        valid_props
+        |> List.partition (function
+          | Property.{ prop_kind = Invariant } -> true
+          | _ -> false
+        )
+      in
+      match valid_invariant_props with
+      | [] -> error (
+        fun fmt ->
+          Format.fprintf fmt
+            "No valid invariant properties, certification disabled."
+      )
+      | _ -> (
+        if other_valid_props <> [] then
+          KEvent.log L_warn
+            "Disproven reachability properties are not included in certificate." ;
+        Ok sys
+      )
+    )
+    |> Res.chain (fun sys ->
+      let uid = (Analysis.info_of_param param).Analysis.uid in
+      (
+        if Flags.Certif.certif () then
+          CertifChecker.generate_smt2_certificates in_sys sys
+      ) ;
+      ( if Flags.Certif.proof () then
+          CertifChecker.generate_all_proofs uid in_sys sys
+      ) ;
+      Ok ()
     )
 end
 
