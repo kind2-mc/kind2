@@ -2792,11 +2792,27 @@ module Global = struct
     (bool_arg dump_cex)
     (fun fmt ->
       Format.fprintf fmt
-        "Dump counterexample to a file. Only in plain text output.@ \
+        "Dump counterexample of invariant property / deadlocking trace to a file.@ \
+        Only in plain text output.@ \
         Default: %b"
         dump_cex_default
     )
   let dump_cex () = ! dump_cex
+
+  (* Dump witness to a file. *)
+  let dump_witness_default = true
+  let dump_witness = ref dump_witness_default
+  let _ = add_spec
+    "--dump_witness"
+    (bool_arg dump_witness)
+    (fun fmt ->
+      Format.fprintf fmt
+        "Dump witness of reachability property to a file.@ \
+        Only in plain text output.@ \
+        Default: %b"
+        dump_witness_default
+    )
+  let dump_witness () = ! dump_witness
 
 
   (* Timeout. *)
@@ -3060,6 +3076,21 @@ module Global = struct
     )
   let slice_nodes () = !slice_nodes
 
+  let check_reach_default = true
+  let check_reach = ref check_reach_default
+  let _ = add_spec
+    "--check_reach"
+    (bool_arg check_reach)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Check reachability properties@ \
+          Default: %a\
+        "
+        fmt_bool check_reach_default
+    )
+  let set_check_reach b = check_reach := b
+  let check_reach () = !check_reach
 
   let check_subproperties_default = true
   let check_subproperties = ref check_subproperties_default
@@ -3280,6 +3311,7 @@ let include_dirs = Global.include_dirs
 let log_invs = Global.log_invs
 let print_invs = Global.print_invs
 let dump_cex = Global.dump_cex
+let dump_witness = Global.dump_witness
 let only_parse = Global.only_parse
 let lsp = Global.lsp
 let old_frontend = Global.old_frontend
@@ -3290,6 +3322,7 @@ let lus_strict = Global.lus_strict
 let lus_push_pre = Global.lus_push_pre
 let modular = Global.modular
 let slice_nodes = Global.slice_nodes
+let check_reach = Global.check_reach
 let check_subproperties = Global.check_subproperties
 let lus_main = Global.lus_main
 let debug = Global.debug
@@ -3769,6 +3802,21 @@ let parse_argv () =
   if IVC.compute_ivc () && BmcKind.compress () then (
     BmcKind.disable_compress () ;
     Log.log L_warn "IVC post-analysis enabled: disabling ind_compress"
+  );
+
+  if Global.check_reach () then (
+    if IVC.compute_ivc () then (
+      Log.log L_warn "IVC post-analysis enabled: disabling reachability checks";
+      Global.set_check_reach false
+    ) ;
+    if Certif.certif () || Certif.proof () then (
+      Log.log L_warn "Certification post-analysis enabled: disabling reachability checks";
+      Global.set_check_reach false
+    );
+    if print_invs () then (
+      Log.log L_warn "Invariant printing enabled: disabling reachability checks";
+      Global.set_check_reach false
+    )
   )
 
 

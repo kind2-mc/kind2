@@ -341,6 +341,7 @@ let desugar_node_item node_id ni = match ni with
     node equation has if statements with undefined branches, it fills the branches in by setting
     the variable equal to its value in the previous timestep. *)
 let desugar_frame_blocks sorted_node_contract_decls = 
+  HString.HStringHashtbl.clear pos_list_map ;
   let desugar_node_decl decl = (match decl with
     | A.NodeDecl (s, ((node_id, b, nps, cctds, ctds, nlds, nis2, co))) -> 
       let* res = R.seq (List.map (desugar_node_item node_id) nis2) in

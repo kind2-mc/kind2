@@ -358,6 +358,7 @@ let desugar_node_decl ctx decl = match decl with
 (** Desugars a declaration list to remove IfBlocks. Converts IfBlocks to
     declarative ITEs, filling in oracles if branches are undefined. *)
 let desugar_if_blocks ctx sorted_node_contract_decls gids = 
+  HString.HStringHashtbl.clear pos_list_map ;
   let* res = R.seq (List.map (desugar_node_decl ctx) sorted_node_contract_decls) in
   let decls, gids2 = List.split res in
   let gids2 = List.fold_left (GI.StringMap.merge GI.union_keys2) GI.StringMap.empty gids2 in

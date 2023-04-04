@@ -22,21 +22,31 @@ or, use a ``check`` statement:
 
 where ``<name>`` is an identifier for the property and ``<bool_expr>`` is a Boolean Lustre expression.
 
-Additionally, Kind 2 supports reachability queries which check if the given expression is reachable (rather than invariant).
-Reachability queries use the following syntax:
+In addition to invariant properties, Kind 2 also accepts dedicated syntax for
+checking the existence of a witness.
+You can specify reachability properties of the form:
 
 .. code-block:: none
 
-   --%PROPERTY reachable ["<name>"] <bool_expr> [<bound_type> <timestep>] [<bound_type> <timestep>];
+   --%PROPERTY reachable ["<name>"] <bool_expr> [from <int>] [within <int>];
 
 or, using a ``check`` statement:
 
 .. code-block:: none
 
-   check reachable ["<name>"] <bool_expr> [<bound_type> <timestep>] [<bound_type> <timestep>];
+   check reachable ["<name>"] <bool_expr> [from <int>] [within <int>];
 
-Optionally, the user can specify timestep bounds for the reachability query. The ``bound_type`` options are 
-``from``, ``within``, and ``at``, and ``<timestep>`` is a constant integer. The timestep bounds are inclusive. 
+where the clauses between square brackets are optional.
+The optional clauses allow you to specify, exclusively or at the same time,
+a lower and upper bound on the number of execution steps in the witness trace.
+Concretely, ``check reachable P from m`` asks whether a state satisfying ``P`` is reachable in ``m`` steps or more while
+``check reachable P within n`` asks whether a state satisfying ``P`` is reachable in ``n`` steps or less.
+Moreover, Kind 2 also supports the following syntax for the specification of properties where
+the lower and upper bounds are the same:
+
+.. code-block:: none
+
+   check reachable ["<name>"] <bool_expr> at <int>;
 
 Without modular reasoning active, Kind 2 only analyzes the properties of what it calls the *top nodes*.
 By default, any node that is not depended on by another node (i.e. called by that node) is a top node.
@@ -56,8 +66,8 @@ You can also specify the main node in the command line arguments, with
 
 Main nodes specified by the command line option override main nodes annotated in the source code. If any main nodes exist then only main nodes are analyzed (top nodes are not).
 
-Example
-^^^^^^^
+Examples
+^^^^^^^^
 
 The following example declares two nodes ``greycounter`` and ``intcounter``\ , as well as an *observer* node ``top`` that calls these nodes and verifies that their outputs are the same. The node ``top`` is annotated with ``--%MAIN ;`` which makes it a *main node*. The line ``--%PROPERTY OK;`` means we want to verify that the Boolean stream ``OK`` is always true.
 
@@ -110,12 +120,12 @@ Kind 2 produces the following on standard output when run with the default optio
    --------------------------------------------------------------
    Summary of properties:
    --------------------------------------------------------------
-   OK: valid (at 5)
+   OK: valid (k=5)
    ==============================================================
 
 We can see here that the property ``OK`` has been proven valid for the system (by *k*\ -induction).
 
-The second example demonstrates reachability queries using a single ``counter`` node:
+The second example demonstrates reachability properties using a single ``counter`` node:
 
 .. code-block:: none
 
@@ -131,8 +141,9 @@ The second example demonstrates reachability queries using a single ``counter`` 
       check reachable out = 10 within 5;
    tel
 
-Kind 2 produces output reporting that the first four expressions are reachable, while the last is not. For each reachable expression,
-Kind 2 gives an example trace.
+Kind 2 produces output reporting that the first four expressions are reachable, while the last is not.
+For each reachable expression, Kind 2 prints a witness into a file.
+To print the witness in the terminal instead, you can pass ``--dump_witness false`` to Kind 2.
 
 Vacuity Checks
 ^^^^^^^^^^^^^^

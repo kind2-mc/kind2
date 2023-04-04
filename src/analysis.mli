@@ -152,16 +152,25 @@ val param_assumptions_of_scope : param -> Scope.t -> Invs.t
 (** Returns a result from an analysis. *)
 val mk_result : param -> TransSys.t -> float -> result
 
-(** Returns true if all properties in the system in a [result] have been
-    proved. *)
+(** Returns true if all properties in the system
+    in a [result] have been proved. *)
 val result_is_all_proved : result -> bool
 
-(** Returns true if some properties in the system in a [result] have been
-    falsified. *)
+(** Returns true if all invariant properties in the system
+    in a [result] have been proved. *)
+val result_is_all_inv_proved : result -> bool
+
+(** Returns true if some properties in the system
+    in a [result] have been falsified. *)
 val result_is_some_falsified : result -> bool
 
+(** Returns true if some invariant properties in the system
+    in a [result] have been falsified. *)
+val result_is_some_inv_falsified : result -> bool
 
-
+(** Returns true if some reachability properties in the system
+    in a [result] have been proven reachable. *)
+val result_is_some_reach_proved : result -> bool
 
 (** Map from [Scope.t] to [result] storing the results found this far. *)
 type results

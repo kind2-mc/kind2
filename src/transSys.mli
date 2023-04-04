@@ -538,6 +538,12 @@ val get_prop_kind_all_nocands : t -> (string * Property.prop_kind) list
 (** Return the internally generated counter for reachability queries (if it exists) *)
 val get_ctr : t -> StateVar.t option
 
+(** Return current status and kind of all properties excepted candidates
+
+    [get_prop_status_and_kind_all_nocands t] returns the status saved in the transition
+    system of each property along with the name of the property. *)
+val get_prop_status_and_kind_all_nocands : t -> (string * Property.prop_status * Property.prop_kind) list
+
 (** Return current status of all unknown properties
 
     [get_prop_status_all_unknown t] returns the status saved in the

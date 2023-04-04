@@ -333,9 +333,12 @@
       <xs:element name="K" type="NonNegativeInteger" minOccurs="0" maxOccurs="1"/>
       <xs:element name="Answer" type="AnswerType" minOccurs="1" maxOccurs="1"/>
       <xs:element name="CounterExample" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
-      <xs:element name="ExampleTrace" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
-      <!-- TrueFor may be present when Answer is Unknown -->
+      <xs:element name="Witness" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FalseAt" type="NonNegativeInteger" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ReachableAt" type="NonNegativeInteger" minOccurs="0" maxOccurs="1"/>
+      <!-- TrueFor/UnreachableFor may be present when Answer is Unknown -->
       <xs:element name="TrueFor" type="NonNegativeInteger" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="UnreachableFor" type="NonNegativeInteger" minOccurs="0" maxOccurs="1"/>
     </xs:sequence>
     <xs:attribute name="name" type="xs:string" use="required"/>
     <xs:attribute name="file" type="xs:string"/>
@@ -369,7 +372,7 @@
       <xs:element name="Runtime" type="RuntimeType" minOccurs="0" maxOccurs="1"/>
       <xs:element name="Node" type="ModelElementNodeSetType" minOccurs="0" maxOccurs="unbounded"/>
       <xs:element name="CounterExample" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
-      <xs:element name="ExampleTrace" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Witness" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
     </xs:sequence>
     <xs:attribute name="class" type="CoreClass" use="required"/>
     <xs:attribute name="size" type="NonNegativeInteger" use="required"/>
