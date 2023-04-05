@@ -1004,7 +1004,7 @@ and pp_print_node_item ppf = function
       pp_print_expr e 
 
   | AnnotProperty (_, Some name, e1, Provided e2 ) ->
-    Format.fprintf ppf "--%%PROPERTY \"%a\" %a PROVIDED %a;"
+    Format.fprintf ppf "--%%PROPERTY \"%a\" %a provided %a;"
       HString.pp_print_hstring name
       pp_print_expr e1 
       pp_print_expr e2
