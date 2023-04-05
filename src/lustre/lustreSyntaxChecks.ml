@@ -325,9 +325,9 @@ let rec find_var_def_count id = function
     (* Local isn't defined in this if block *)
     else []
   | LA.FrameBlock (pos, vars, nes, nis) -> (
-    let poss, vars = List.split vars in
     let nes = List.map (fun x -> (LA.Body x)) nes in
-    let x1 = List.filter (fun var -> var = id) vars in
+    let x1 = List.filter (fun (_, var) -> var = id) vars in
+    let poss, _ = List.split x1 in
     let x2 = List.map (find_var_def_count id) nis |> 
              List.flatten in
     let x3 = List.map (find_var_def_count id) nes |> 
