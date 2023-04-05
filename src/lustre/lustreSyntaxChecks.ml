@@ -325,6 +325,7 @@ let rec find_var_def_count id = function
     (* Local isn't defined in this if block *)
     else []
   | LA.FrameBlock (pos, vars, nes, nis) -> (
+    let poss, vars = List.split vars in
     let nes = List.map (fun x -> (LA.Body x)) nes in
     let x1 = List.filter (fun var -> var = id) vars in
     let x2 = List.map (find_var_def_count id) nis |> 
@@ -337,7 +338,7 @@ let rec find_var_def_count id = function
     if (len1 + len2 + len3 = 0) 
     then []
     (* Detect duplicate definitions in any components of the frame block *)
-    else if (len1 > 1) then [pos]
+    else if (len1 > 1) then poss
     else if (len2 > 1) then x2
     else if (len3 > 1) then x3
     else [pos]
@@ -695,6 +696,7 @@ and check_items ctx f items =
     | LA.IfBlock (_, e, l1, l2) -> 
       check_expr ctx f e >> (check_items ctx f l1) >> (check_items ctx f l2)
     | LA.FrameBlock (pos, vars, nes, nis) ->
+      let vars = List.map snd vars in
       let nes = List.map (fun x -> LA.Body x) nes in
       check_items ctx (fun _ e -> no_temporal_operator "frame block initialization" e) nes >>
       check_items ctx f nes >> (check_items ctx f nis) >>

@@ -659,7 +659,7 @@ node_if_block:
 
 
 node_frame_block:
-  | FRAME; LPAREN; l1 = separated_list(COMMA, ident); RPAREN;
+  | FRAME; LPAREN; l1 = ident_list_pos; RPAREN;
     l2 = list(node_equation);
     LET;
     l3 = list(node_item);
