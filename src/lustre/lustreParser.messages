@@ -2615,11 +2615,12 @@ Syntax Error! Perhaps an illegal declaration for imported node or function.
 
 main: TYPE WEAKLY XOR
 
-Syntax Error! Perhaps an illegal expression in contract instantiation.
+Syntax Error!
 
 main: TYPE XOR
 
-Syntax Error! Incomplete type declaration.
+Ill-formed type declaration. At this point, a valid type name is expected.
+
 
 main: XOR
 
