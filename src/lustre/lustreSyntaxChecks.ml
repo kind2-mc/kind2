@@ -700,6 +700,7 @@ and check_items ctx f items =
       let nes = List.map (fun x -> LA.Body x) nes in
       check_items ctx (fun _ e -> no_temporal_operator "frame block initialization" e) nes >>
       check_items ctx f nes >> (check_items ctx f nis) >>
+      (Res.seq_ (List.map (no_a_dangling_identifier ctx pos) vars)) >>
       (*  Make sure 'nes' and 'nis' LHS vars are in 'vars' *)
       (Res.seq_ (List.map (check_frame_vars pos vars) nis)) >> (Res.seq_ (List.map (check_frame_vars pos vars) nes))
     | Body (Assert (_, e)) 
