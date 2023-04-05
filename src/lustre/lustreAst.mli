@@ -246,7 +246,7 @@ type prop_kind =
 type node_item =
   | Body of node_equation
   | IfBlock of position * expr * node_item list * node_item list
-  | FrameBlock of position * ident list * node_equation list * node_item list 
+  | FrameBlock of position * (position * ident) list * node_equation list * node_item list 
   | AnnotMain of position * bool
   | AnnotProperty of position * HString.t option * expr * prop_kind
 

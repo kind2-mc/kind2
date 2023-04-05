@@ -241,7 +241,7 @@ type prop_kind =
 type node_item =
   | Body of node_equation
   | IfBlock of position * expr * node_item list * node_item list
-  | FrameBlock of position * ident list * node_equation list * node_item list 
+  | FrameBlock of position * (position * ident) list * node_equation list * node_item list 
   | AnnotMain of position * bool
   | AnnotProperty of position * HString.t option * expr * prop_kind
 
@@ -926,7 +926,7 @@ and pp_print_node_item ppf = function
       (pp_print_list pp_print_node_item " ") l2
 
   | FrameBlock (_, vars, nes, nis) -> Format.fprintf ppf "frame (%a) %a let %a tel" 
-    (pp_print_list pp_print_ident ", ") vars
+    (pp_print_list pp_print_ident ", ") (List.map snd vars)
     (pp_print_list pp_print_node_body " ") nes
     (pp_print_list pp_print_node_item " ") nis
 
