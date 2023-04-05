@@ -657,14 +657,14 @@ elsif_list:
 node_if_block:
   | IF; e = expr; THEN; 
       l1 = nonempty_list(node_item);
+    FI;
+    { A.IfBlock (mk_pos $startpos, e, l1, []) }
+  | IF; e = expr; THEN; 
+      l1 = nonempty_list(node_item);
     ELSE; 
       l2 = nonempty_list(node_item);
     FI;
     { A.IfBlock (mk_pos $startpos, e, l1, l2) }
-  | IF; e = expr; THEN; 
-      l1 = nonempty_list(node_item);
-    FI;
-    { A.IfBlock (mk_pos $startpos, e, l1, []) }
   | IF; e = expr; THEN;
     l = nonempty_list(node_item);
     block = elsif_list
