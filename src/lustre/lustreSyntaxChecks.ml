@@ -696,12 +696,14 @@ and check_items ctx f items =
     | LA.IfBlock (_, e, l1, l2) -> 
       check_expr ctx f e >> (check_items ctx f l1) >> (check_items ctx f l2)
     | LA.FrameBlock (pos, vars, nes, nis) ->
-      let vars = List.map snd vars in
+      let var_ids = List.map snd vars in
       let nes = List.map (fun x -> LA.Body x) nes in
       check_items ctx (fun _ e -> no_temporal_operator "frame block initialization" e) nes >>
       check_items ctx f nes >> (check_items ctx f nis) >>
-      (*  Make sure 'nes' and 'nis' LHS vars are in 'vars' *)
-      (Res.seq_ (List.map (check_frame_vars pos vars) nis)) >> (Res.seq_ (List.map (check_frame_vars pos vars) nes))
+      (Res.seq_ (List.map (fun (p, v) -> no_a_dangling_identifier ctx p v) vars)) >>
+      (*  Make sure 'nes' and 'nis' LHS vars are in 'vars_ids' *)
+      (Res.seq_ (List.map (check_frame_vars pos var_ids) nis)) >>
+      (Res.seq_ (List.map (check_frame_vars pos var_ids) nes))
     | Body (Assert (_, e)) 
     | AnnotProperty (_, _, e, _) -> (check_expr ctx f e)
     | AnnotMain _ -> Ok ()
