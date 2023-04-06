@@ -104,7 +104,7 @@ let rec mk_subsys_structure sys = {
    Make sure that this is still the best method and implement if so
    Also define its purpose here*)
 type subsystem_instance_name_data = {
-  map: (Lib.position * HString.t) list;
+  map: (Lib.position * Id.t) list;
   counter: int;
 }
 
@@ -147,6 +147,9 @@ let empty_definitions = {
   const_decls = [], [];
 }
 
+let find_trans_system trans_systems search_name = 
+  List.find ( fun ({name; _ }: base_trans_system) -> Id.equal search_name name) trans_systems 
+
 (* TODO Remove position from error if it is never used *)
 let error ?(pos=Lib.dummy_pos) e = Error (`CmcInterpreterError (pos, e))
 
@@ -163,6 +166,17 @@ let update_system (definitions : definitions) (updated_system : base_trans_syste
   {definitions with 
   system_defs = List.mapi (fun i def -> if i = sys_index then updated_system else def) definitions.system_defs }
 
+let mk_single_state_var sys_name (id, var_type) = 
+  (* Simplified mk_var for non-input non-constant, single state vars *)
+  let svar =
+    let name = DU.dolmen_id_to_string id in
+    let scope = (sys_name :: "impl" :: I.user_scope) in
+    StateVar.mk_state_var
+      ~is_input:false ~is_const:false ~for_inv_gen:true
+      name scope var_type
+    in
+    (id, svar)
+
 let mk_var sys_name is_input is_const (init_map, trans_map, svars) (id, var_type) = 
   (* TODO Verify (or likely correct) that defined vars have valid names *)
   let svar =
@@ -172,16 +186,16 @@ let mk_var sys_name is_input is_const (init_map, trans_map, svars) (id, var_type
       ~is_input ~is_const ~for_inv_gen:true
       name scope var_type
     in
-    let prev_base = Numeral.pred TransSys.trans_base in (* Why is this the previous value? ?*)
+  let prev_base = Numeral.pred TransSys.trans_base in (* Why is this the previous value? ?*)
 
-    if is_const then 
-      let prev_mapping = (id, Var.mk_const_state_var svar) in
-      (prev_mapping :: init_map, prev_mapping :: trans_map, (id, svar) :: svars)
-    else
-      let prev_mapping = (id, Var.mk_state_var_instance svar prev_base) in
-      let next_id = DU.prime id in
-      let next_mapping = (next_id, Var.mk_state_var_instance svar TransSys.trans_base) in
-      (prev_mapping :: init_map, prev_mapping :: next_mapping :: trans_map, (id, svar) :: svars)
+  if is_const then 
+    let prev_mapping = (id, Var.mk_const_state_var svar) in
+    (prev_mapping :: init_map, prev_mapping :: trans_map, (id, svar) :: svars)
+  else
+    let prev_mapping = (id, Var.mk_state_var_instance svar prev_base) in
+    let next_id = DU.prime id in
+    let next_mapping = (next_id, Var.mk_state_var_instance svar TransSys.trans_base) in
+    (prev_mapping :: init_map, prev_mapping :: next_mapping :: trans_map, (id, svar) :: svars)
 
 let mk_vars sys_name is_input mappings dolmen_terms = 
   let vars = List.map DU.dolmen_term_to_id_type (DU.opt_list_to_list dolmen_terms) in
@@ -223,13 +237,78 @@ let mk_trans_term ({ trans; inv}: Statement.sys_def) init_flag const_map inv_map
 
   KindTerm.mk_and (KindTerm.mk_not init_flag_t :: DU.opt_dolmen_term_to_expr (const_map @ trans_map) trans :: DU.opt_dolmen_term_to_expr (const_map @ inv_map) inv :: [])
 
+  let mk_subsystems parent_sys_name parent_sys_svars parent_init_map parent_trans_map other_systems subsystem_names = 
+    let mk_inst sys_state_vars subsys_state_vars =
+      let map_down, map_up =
+        List.fold_left2 (fun (map_down, map_up) sys_state_var subsys_state_var ->
+            StateVar.StateVarMap.add subsys_state_var sys_state_var map_down,
+            StateVar.StateVarMap.add sys_state_var subsys_state_var map_up
+        ) StateVar.StateVarMap.(empty, empty) sys_state_vars subsys_state_vars
+      in 
+      {   TransSys.pos =  { pos_fname = ""; Lib.pos_lnum = 0; Lib.pos_cnum = -1 };
+          map_down;
+          map_up;
+          guard_clock = (fun _ t -> t);
+          assumes = None } in
 
+    let find_parent_svars parent_svars subsys_svars = List.map (fun param -> 
+      let prop_id = DU.dolmen_symbol_term_to_id param in
+      prop_id, List.assoc prop_id parent_svars) subsys_svars in
+
+    List.map (fun (local_subsystem_name, subsystem_name, params) -> 
+      let subsystem = find_trans_system other_systems subsystem_name in
+
+      let subsystem_input_svars = subsystem.input_svars in
+      let subsystem_output_svars = subsystem.output_svars in
+      let subsystem_local_svars = subsystem.local_svars in
+      let init_local = mk_single_state_var parent_sys_name (DU.append_to_id subsystem.name "_init", Type.t_bool) in
+      
+      (* TODO Possibly add proper error if vars don't match. May not need if ypechecker verifys this*)
+      (* This contains all of the non-locals of the subsystem*)
+      let parent_sys_svars = find_parent_svars parent_sys_svars params in
+      assert ((List.length parent_sys_svars) == (List.length (subsystem_input_svars @ subsystem_output_svars))) ;
+
+      (* These are the new statevars of the parent system that will be used as the local vars of the subsystem *)
+      let local_init_map, local_trans_map, renamed_local_svars = (List.fold_left 
+        (fun mapping (name, svar) -> 
+          mk_var parent_sys_name false false mapping 
+            (DU.join_ids local_subsystem_name name, StateVar.type_of_state_var svar)
+        ) 
+      ) ([], [], []) (init_local :: subsystem_local_svars) in
+      
+      (* These are the actual state vars of the  defined subsystem*)
+      let subsys_svars = (subsystem.state_vars)  in 
+
+      (* These are the statevars of the parent system that were passed to the subsystem call
+          including the local vars that we just created. *)
+      let named_parent_sys_svars = (parent_sys_svars @  renamed_local_svars) in
+      let parent_sys_svars = List.map snd named_parent_sys_svars in
+
+      let inst = local_subsystem_name, (mk_inst subsys_svars parent_sys_svars) in
+
+      (* Make init and trans terms for parentt transition system *)
+      let subsys_init_flag = subsystem.init_flag in
+      let init_flag_mapping = (Id.mk (Id.ns subsystem.name) ( StateVar.name_of_state_var subsys_init_flag), Var.mk_state_var_instance subsys_init_flag TransSys.init_base) in
+      let init_flag_prime_mapping = (DU.prime (fst init_local), Var.mk_state_var_instance (snd init_local) TransSys.init_base) in
+      let subsys_init_map = init_flag_mapping :: local_init_map @ parent_init_map in         
+      let subsys_trans_map = init_flag_mapping :: init_flag_prime_mapping :: local_trans_map @ parent_trans_map in         
+      let cur = List.map (fun (id, _) -> DU.dolmen_term_to_expr subsys_init_map (Term.const id)) named_parent_sys_svars in 
+      let next =List.map (fun (id, _) -> DU.dolmen_term_to_expr subsys_trans_map (Term.const (DU.prime id))) named_parent_sys_svars in 
+      let subsys_formulas = KindTerm.mk_uf subsystem.init_uf_symbol  cur,
+      KindTerm.mk_uf subsystem.trans_uf_symbol  (next@cur) in
+
+      (* ((subsystem name, (local name, local instance)), new locals), (init formula, trans formula)) *)
+      (((subsystem.name, inst), renamed_local_svars), subsys_formulas)
+    ) subsystem_names
+    
 
 (** Process the CMC [define-system] command. *)
-let mk_base_trans_system env (sys_def: Statement.sys_def) = 
+let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) = 
   let system_name = DU.dolmen_id_to_string sys_def.id in
   let scope = [system_name] in
   let init_flag = StateVar.mk_init_flag scope in
+
+  Format.printf "STARTED CMC_SYS: %s.\n" system_name ;
 
   let init_map, trans_map, input_svars = mk_vars system_name true ([], [], []) sys_def.input in
   let init_map, trans_map, output_svars = mk_vars system_name true (init_map, trans_map, []) sys_def.output in
@@ -242,29 +321,31 @@ let mk_base_trans_system env (sys_def: Statement.sys_def) =
   (* TODO May need to make this an assoc list as in the sexp interpreter *)
   let symb_svars = input_svars @ output_svars @ local_svars in (*S*)
 
-    (* TODO Lots of subsystem stuff here *)
+  (* Process subsystems *)
+  let subsystem_defs = mk_subsystems system_name symb_svars init_map trans_map env.system_defs sys_def.subs in
+  let named_subsystems = List.map fst (List.map fst subsystem_defs) in 
+  let subsys_locals = List.flatten (List.map snd (List.map fst subsystem_defs)) in 
+
+  let subsystems, name_map = List.fold_left (fun ((subsystems_acc : (Id.t * TransSys.instance list) list), name_map) (subsys_name, (instance_name, instance)) -> 
+    let pos = TransSys.({instance.pos with pos_lnum = name_map.counter}) in
+    let inst = {instance with TransSys.pos = pos} in
+    let name_map = {map = (pos, instance_name) :: name_map.map ; counter = name_map.counter + 1} in 
+
+    let subsys = match List.assoc_opt subsys_name subsystems_acc with
+    | Some other_instances -> (subsys_name, inst::other_instances) :: List.remove_assoc subsys_name subsystems_acc
+    | None -> (subsys_name, [inst]) :: subsystems_acc in
+
+    subsys, name_map
+  ) ([], env.name_map) named_subsystems  in
+
+  let subsys_formulas = List.map snd subsystem_defs in
+  let subsys_init = List.map fst subsys_formulas in
+  let subsys_trans = List.map snd subsys_formulas in
 
   
   let inv_map_for_init = init_map in (* For notational puposes only. Just need the inv map for the init formula. *)
   let inv_map_for_trans = mk_inv_map init_map trans_map in
   
-  (* TODO More subsystem stuff here. Refer to old sexp interpreter *)
-  
-  (* let subsystem_defs = mk_subsystems prev_trans_systems system_name cmc_sys_def.subsystems symb_svars in *)
-  (* let named_subsystems = List.map fst subsystem_defs in  *)
-  (* let subsystems, name_map = ... *) 
-  (* TODO namemap should take the previous name map and add info to it 
-    the previous namemap should be passed to this function (see sexp implementation) *)
-  let subsystems, name_map = [], empty_subsystem_instance_name_data in
-  (* let subsys_call_maps = List.map fst (List.map snd subsystem_defs) in *)
-  (* let subsys_locals = List.flatten (List.map snd (List.map snd subsystem_defs)) in *)
-  let subsys_locals = [] in
-  (* let subsys_terms = ... *)
-  (* let subsys_init = List.map fst subsys_terms in *)
-  let subsys_init = [] in
-  (* let subsys_trans = List.map snd subsys_terms in *)
-  let subsys_trans = [] in
-
   let init_term = 
     KindTerm.mk_and ((mk_init_term sys_def init_flag const_map init_map inv_map_for_init) :: subsys_init )
   in
@@ -311,7 +392,7 @@ let mk_base_trans_system env (sys_def: Statement.sys_def) =
       (List.map Var.type_of_var trans_formals)
       Type.t_bool
   in
-  Format.printf "CMC_SYS: %s." (UfSymbol.name_of_uf_symbol trans_uf_symbol) ;
+  Format.printf "FINISHED CMC_SYS: %s.\n" (UfSymbol.name_of_uf_symbol trans_uf_symbol) ;
 
   (* TODO Determine what this is for and fix it ( Started earlier and forgot purpose ) *)
   let symb_svars = symb_svars @ subsys_locals  in 
@@ -497,7 +578,6 @@ let define_fun name args return_type body =
   TransSys.mk_d_fun uf_name return_type vars body_term 
 
 let process_decl (definitions : definitions) (dec : Statement.decl) = 
-  Format.printf "TODO process decl: %a\n" Statement.print_decl dec ;
   match dec with
   | Abstract (dec : Statement.abstract) -> (
     let param_types, return_type = DU.dolmen_binding_to_types dec.ty in
@@ -509,13 +589,12 @@ let process_decl (definitions : definitions) (dec : Statement.decl) =
         let uf_name = declare_fun dec.id param_types return_type in
         {definitions with ufunctions = uf_name :: definitions.ufunctions}
   )
-  | Record r -> failwith "TODO: Record type function declarations are not yet supported"
-  | Inductive r -> failwith "TODO: Inductive type function declarations are not yet supported"
+  | Record r -> failwith "TODO: Record type function declarations are not yet supported. What are they?"
+  | Inductive r -> failwith "TODO: Inductive type function declarations are not yet supported. What are they?"
 
   
 
 let process_def definitions (def : Statement.def) = 
-  Format.printf "TODO process def: %a\n" Statement.print_def def ;
   let d_fun = define_fun def.id def.params (DU.type_of_dolmen_term def.ret_ty) def.body in 
   {definitions with functions = d_fun :: definitions.functions}
   
@@ -591,6 +670,7 @@ let of_file filename =
   let mk_trans_system global_const_vars other_trans_systems (base : base_trans_system)  =
     let name = base.name in
     let subs = base.subsystems |> List.map (fun (name, local_instances) -> 
+      Format.printf "%a" Id.print name ; 
       (List.assoc name other_trans_systems, local_instances)) (* subsystems *)
     in
     let sys, _ = 
@@ -622,7 +702,7 @@ let of_file filename =
   (* TODO Add global vars to this list *)
   let const_global_vars = List.map snd (snd cmc_defs.const_decls) in 
 
-  let trans_systems = cmc_sys_defs |> List.fold_left (mk_trans_system const_global_vars) [] in
+  let trans_systems = (List.rev cmc_sys_defs) |> List.fold_left (mk_trans_system const_global_vars) [] in
   
   let top_sys = snd (List.hd trans_systems) in
 

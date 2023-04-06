@@ -29,6 +29,12 @@ val type_of_dolmen_builtin : Term.builtin -> Type.t
 
 val dolmen_term_to_id_type : term -> id * Type.t
 
+val prepend_to_id : string -> id -> id
+
+val append_to_id : id -> string -> id
+
+val join_ids : id -> id -> id
+
 val prime : id -> id
 
 val dolmen_term_to_expr : (Id.t * Var.t) list -> term -> KindTerm.t

@@ -134,7 +134,7 @@ let rec get_state_var_vals_at_k_all trans_sys name_map var_map (model_assoc_list
       (* Format.printf "MAP: %a@." pp_map map_up ; *)
       let map = Some (join_maps sys_map map_up) in
       let name = Scope.to_string (TransSys.scope_of_trans_sys subsys_transys) in 
-      (get_state_var_vals_at_k_all subsys_transys name_map var_map model_assoc_list k (prefix ^ (HString.string_of_hstring (List.assoc pos name_map)) ^ "::") ~map enums)
+      (get_state_var_vals_at_k_all subsys_transys name_map var_map model_assoc_list k (prefix ^ (DolmenUtils.dolmen_id_to_string (List.assoc pos name_map)) ^ "::") ~map enums)
     ) subsystems in
   
   (* Note, the instances below no longer function as an assoc list*)

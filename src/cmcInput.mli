@@ -25,7 +25,7 @@ type subsystem_scope = string list
 type sys_var_mapping = (subsystem_scope * StateVar.t list) list
 
 type subsystem_instance_name_data = {
-  map: (Lib.position * HString.t) list;
+  map: (Lib.position * Dolmen.Std.Id.t) list;
   counter: int;
 }
 

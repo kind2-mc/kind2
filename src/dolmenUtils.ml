@@ -122,15 +122,41 @@ let dolmen_term_to_id_type (var_def: term) = match var_def with
             "Term %a is not a variable declaration" 
             Term.print var_def))
 
-(* Given a Dolmen ID, return the primed representation of it *)
-let prime id = match (Id.name id) with
+let mk_id ns name = Id.create ns (Dolmen_std.Name.simple (name) )
+
+(** make a new id with two other ids *)
+
+(** Return a new ID with the given string prepended to the name *)
+let prepend_to_id start id = match (Id.name id) with
+| Simple name ->
+  mk_id (Id.ns id) (start ^ name)
+| _ -> raise
+  (Invalid_argument 
+    (Format.asprintf 
+        "Dolmen id %a is not a simple id and cannot be prepended" 
+        Id.print id))
+
+(** Return a new ID with the given string appended to the name *)
+let append_to_id id ending = match (Id.name id) with
+| Simple name ->
+  mk_id (Id.ns id) (name ^ ending)
+| _ -> raise
+  (Invalid_argument 
+    (Format.asprintf 
+        "Dolmen id %a is not a simple id and cannot be appended" 
+        Id.print id))
+
+let join_ids first second = match (Id.name first) with
   | Simple name ->
-    Id.create (Id.ns id) (Dolmen_std.Name.simple (name ^ "'") )
+    prepend_to_id (name^"_") second
   | _ -> raise
     (Invalid_argument 
       (Format.asprintf 
-          "Dolmen id %a is not a simple id and cannot be primed" 
-          Id.print id))
+          "Dolmen id %a is not a simple id and cannot be joined" 
+          Id.print first))
+
+(* Given a Dolmen ID, return the primed representation of it *)
+let prime id = append_to_id id "'"
 
 let kind_symbol_from_dolmen s = 
   let smtlib_reserved_word_list = ["par"; "!"; "as" ] in

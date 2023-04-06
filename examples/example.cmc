@@ -1,21 +1,24 @@
 (set-logic QF_UFDTLIA)
 (declare-const q Int)
-(define-fun add_one ((a Int)) Int (+ a 1))
+; (declare-enum-sort LightStatus (On Off))
+
+(define-system plus_one
+  :input ((a Int))
+  :output ((b Int))
+  :local ((l Int))
+  :inv (= b (+ a 1))
+)
 
 (define-system gconsttst
   :input ((a Int))
   :output ((b Int))
-  ; :inv (forall ((q Int)) (= 1 2))
-  :init (and (= b 1) (= q 0))
-  :trans (ite (= a 1) (= b' (add_one b)) (= b' q) )
+  :subsys (sub (plus_one a b))
+  :init (= b 0)
 )
 
 (check-system gconsttst
   :input ((a Int))
   :output ((b Int))
   :reachable (rprop1 (= b 4))
-  :reachable (rprop2 (= a 1000))
   :query (q1 (rprop1)) 
-  :query (q2 (rprop2)) 
-  :query (q3 (rprop1 rprop2)) 
 )
