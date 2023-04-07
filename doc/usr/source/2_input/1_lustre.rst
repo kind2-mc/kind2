@@ -854,26 +854,29 @@ evaluate to a value). For example, Kind 2 now supports statements of the form:
 
 .. code-block:: none
 
-   if condition
-   then
+   if condition1 then
       y1 = expr1;
       y2 = expr2;
-   else
+   elsif condition2 then
       y1 = expr3;
       y2 = expr4;
+   else
+      y1 = expr5;
+      y2 = expr6;
    fi
    
-In the above block, if ``condition`` is true, then ``y1`` and ``y2`` will be set to ``expr1`` and ``expr2``, respectively. 
-Otherwise, ``y1`` and ``y2`` will be set to ``expr3`` and ``expr4``. The ``if`` statement is closed with
+In the above block, if ``condition1`` is true, then ``y1`` and ``y2`` will be set to ``expr1`` and ``expr2``, respectively. 
+Otherwise, ``y1`` and ``y2`` will be set to either ``expr3`` and ``expr4`` or ``expr5`` and ``expr6``, depending
+on the value of ``condition2``. The ``if`` statement is closed with
 the ``fi`` token. As with other mainstream programming languages, Kind 2 allows for arbitrary nesting of ``if`` statements,
-as well as writing ``if`` statements that do not have an ``else`` block. 
+as well as writing ``if`` statements that do not have any ``else`` or ``elsif`` blocks. 
 
 **Note:** If statements are syntactic sugar for conditional expressions. The ``if`` statement above is equivalent to:
 
 .. code-block:: none
 
-   y1 = if condition then expr1 else expr3;
-   y2 = if condition then expr2 else expr4;
+   y1 = if condition1 then expr1 else (if condition2 then expr3 else expr5);
+   y2 = if condition1 then expr2 else (if condition2 then expr4 else expr6);
 
 
 Frame conditions
