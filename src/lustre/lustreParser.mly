@@ -646,6 +646,9 @@ node_item:
 elsif_list:
   | ELSIF; e = expr; THEN ;
       l1 = nonempty_list(node_item);
+  { [A.IfBlock(mk_pos $startpos, e, l1, [])] }
+  | ELSIF; e = expr; THEN ;
+      l1 = nonempty_list(node_item);
     ELSE;
       l2 = nonempty_list(node_item);
   { [A.IfBlock(mk_pos $startpos, e, l1, l2)] }
