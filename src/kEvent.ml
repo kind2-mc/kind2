@@ -462,6 +462,7 @@ let pp_print_trace_pt ?(title="Counterexample") ?(color="red")
     in
     let out_channel = open_out path in
     let fmt = Format.formatter_of_out_channel out_channel in
+    Format.pp_set_margin fmt (Format.pp_get_margin ppf ());
     print_trace fmt ;
     Format.pp_print_flush fmt ();
     close_out out_channel ;

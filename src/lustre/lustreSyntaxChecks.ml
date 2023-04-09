@@ -38,8 +38,8 @@ module StringMap = Map.Make(
 
 type error_kind = Unknown of string
   | UndefinedLocal of HString.t
-  | DuplicateLocal of HString.t
-  | DuplicateOutput of HString.t
+  | DuplicateLocal of HString.t * Lib.position
+  | DuplicateOutput of HString.t * Lib.position
   | DuplicateProperty of HString.t
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
@@ -69,10 +69,12 @@ let error_message kind = match kind with
   | Unknown s -> s
   | UndefinedLocal id -> "Local variable '"
     ^ HString.string_of_hstring id ^ "' has no definition"
-  | DuplicateLocal id -> "Local variable '"
-    ^ HString.string_of_hstring id ^ "' has more than one definition"
-  | DuplicateOutput id -> "Output variable '"
-    ^ HString.string_of_hstring id ^ "' has more than one definition"
+  | DuplicateLocal (id, pos) -> "Local variable '"
+    ^ HString.string_of_hstring id ^ "' has already been defined at position " ^ 
+     (Lib.string_of_t Lib.pp_print_position pos) 
+  | DuplicateOutput (id, pos) -> "Output variable '"
+    ^ HString.string_of_hstring id ^ "' has already been defined at position " ^
+    (Lib.string_of_t Lib.pp_print_position pos) 
   | DuplicateProperty id -> "Property '"
   ^ HString.string_of_hstring id ^ "' has more than one definition"
   | UndefinedNode id -> "Node or function '"
@@ -290,65 +292,84 @@ let build_equation_ctx ctx = function
     List.fold_left over_items ctx items
     
 let rec find_var_def_count_lhs id = function
-  | LA.SingleIdent (_, id')
-  | TupleSelection (_, id', _)
-  | FieldSelection (_, id', _)
-  | ArraySliceStructItem (_, id', _)
-  | ArrayDef (_, id', _)
-    -> if id = id' then 1 else 0
+  | LA.SingleIdent (pos, id')
+  | TupleSelection (pos, id', _)
+  | FieldSelection (pos, id', _)
+  | ArraySliceStructItem (pos, id', _)
+  | ArrayDef (pos, id', _)
+    -> if id = id' then [pos] else []
   | TupleStructItem (_, items) ->
-    List.map (find_var_def_count_lhs id) items
-    |> List.fold_left (+) 0
-
+    List.map (find_var_def_count_lhs id) items |> List.flatten
+  
+  
 let rec find_var_def_count id = function
   | LA.Body eqn -> (match eqn with
-    | LA.Assert _ -> 0
+    | LA.Assert _ -> []
     | LA.Equation (_, lhs, _) -> (match lhs with
       | LA.StructDef (_, vars)
-        -> List.map (find_var_def_count_lhs id) vars) |> List.fold_left (+) 0)
+        -> List.map (find_var_def_count_lhs id) vars) |> 
+           List.flatten)
   | LA.IfBlock (_, _, l1, l2) ->
-    let x1 = List.map (find_var_def_count id) l1 |> List.fold_left (+) 0 in
-    let x2 = List.map (find_var_def_count id) l2 |> List.fold_left (+) 0 in
+    let x1 = List.map (find_var_def_count id) l1 |> 
+             List.flatten in
+    let x2 = List.map (find_var_def_count id) l2 |> 
+             List.flatten in
+    let len1 = List.length x1 in
+    let len2 = List.length x2 in 
     (* Detect duplicate definitions in the same branch *)
-    if (x1 > 1 || x2 > 1) then 2
+    if (len1 > 1) then x1
+    else if (len2 > 1) then x2
     (* Local is defined in at least one branch *)
-    else if (x1 = 1 || x2 = 1) then 1
+    else if (len1 = 1) then x1
+    else if (len2 = 1) then x2
     (* Local isn't defined in this if block *)
-    else 0
-  | LA.FrameBlock (_, vars, nes, nis) -> (
+    else []
+  | LA.FrameBlock (pos, vars, nes, nis) -> (
     let nes = List.map (fun x -> (LA.Body x)) nes in
-    let x1 = List.filter (fun var -> var = id) vars |> List.length in
-    let x2 = List.map (find_var_def_count id) nis |> List.fold_left (+) 0 in
-    let x3 = List.map (find_var_def_count id) nes |> List.fold_left (+) 0 in
-    if (x1 + x2 + x3 = 0) 
-    then 0 
+    let x1 = List.filter (fun (_, var) -> var = id) vars in
+    let poss, _ = List.split x1 in
+    let x2 = List.map (find_var_def_count id) nis |> 
+             List.flatten in
+    let x3 = List.map (find_var_def_count id) nes |> 
+             List.flatten in
+    let len1 = List.length x1 in
+    let len2 = List.length x2 in 
+    let len3 = List.length x3 in
+    if (len1 + len2 + len3 = 0) 
+    then []
     (* Detect duplicate definitions in any components of the frame block *)
-    else if (x1 > 1 || x2 > 1 || x3 > 1) then 2
-    else 1
+    else if (len1 > 1) then poss
+    else if (len2 > 1) then x2
+    else if (len3 > 1) then x3
+    else [pos]
   )
-  | LA.AnnotMain _ -> 0
-  | LA.AnnotProperty _ -> 0
+  | LA.AnnotMain _ -> []
+  | LA.AnnotProperty _ -> []
 
 let locals_exactly_one_definition locals items =
   let over_locals = function
     | LA.NodeConstDecl _ -> Ok ()
     | LA.NodeVarDecl (_, (pos, id, _, _)) ->
-      let def_count = (List.map (find_var_def_count id) items) |> List.fold_left (+) 0 in
-      match def_count with
+      let poss = (List.map (find_var_def_count id) items) |> List.flatten in
+      match List.length poss with
       | 1 -> Ok ()
       | 0 -> syntax_error pos (UndefinedLocal id)
-      | _ -> syntax_error pos (DuplicateLocal id)
+      | _ -> 
+        let poss = List.sort Lib.compare_pos poss in
+        syntax_error (List.hd (List.tl poss)) (DuplicateLocal (id, List.hd poss))
   in
   Res.seq (List.map over_locals locals)
 
 let outputs_at_most_one_definition outputs items =
   let over_outputs = function
-  | (pos, id, _, _) ->
-    let def_count = List.map (find_var_def_count id) items |> List.fold_left (+) 0 in
-    match def_count with
+  | (_, id, _, _) ->
+    let poss = List.map (find_var_def_count id) items |> List.flatten in
+    match List.length poss with
       | 0 
       | 1 -> Ok ()
-      | _ -> syntax_error pos (DuplicateOutput id)
+      | _ -> 
+        let poss = List.sort Lib.compare_pos poss in
+        syntax_error (List.hd (List.tl poss)) (DuplicateOutput (id, List.hd poss))
   in
   Res.seq (List.map over_outputs outputs)
 
@@ -675,11 +696,14 @@ and check_items ctx f items =
     | LA.IfBlock (_, e, l1, l2) -> 
       check_expr ctx f e >> (check_items ctx f l1) >> (check_items ctx f l2)
     | LA.FrameBlock (pos, vars, nes, nis) ->
+      let var_ids = List.map snd vars in
       let nes = List.map (fun x -> LA.Body x) nes in
       check_items ctx (fun _ e -> no_temporal_operator "frame block initialization" e) nes >>
       check_items ctx f nes >> (check_items ctx f nis) >>
-      (*  Make sure 'nes' and 'nis' LHS vars are in 'vars' *)
-      (Res.seq_ (List.map (check_frame_vars pos vars) nis)) >> (Res.seq_ (List.map (check_frame_vars pos vars) nes))
+      (Res.seq_ (List.map (fun (p, v) -> no_a_dangling_identifier ctx p v) vars)) >>
+      (*  Make sure 'nes' and 'nis' LHS vars are in 'vars_ids' *)
+      (Res.seq_ (List.map (check_frame_vars pos var_ids) nis)) >>
+      (Res.seq_ (List.map (check_frame_vars pos var_ids) nes))
     | Body (Assert (_, e)) 
     | AnnotProperty (_, _, e, _) -> (check_expr ctx f e)
     | AnnotMain _ -> Ok ()
