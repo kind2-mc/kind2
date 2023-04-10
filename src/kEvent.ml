@@ -118,9 +118,12 @@ struct
         Marshal.from_string cex_string 0
       in
       let cex' =
-        List.map
-          (fun (sv, t) -> (StateVar.import sv, List.map Model.import_value t))
+        (* We use rev_map instead of map to be able to handle long counterexamples *)
+        List.rev_map
+          (fun (sv, t) ->
+            (StateVar.import sv, List.rev_map Model.import_value t |> List.rev))
           cex
+        |> List.rev
       in
       PropStatus (p, Property.PropFalse cex')
   | "STEP_CEX" :: p :: cex_string :: _ ->
@@ -128,9 +131,12 @@ struct
         Marshal.from_string cex_string 0
       in
       let cex' =
-        List.map
-          (fun (sv, t) -> (StateVar.import sv, List.map Model.import_value t))
+        (* We use rev_map instead of map to be able to handle long counterexamples *)
+        List.rev_map
+          (fun (sv, t) ->
+            (StateVar.import sv, List.rev_map Model.import_value t |> List.rev))
           cex
+        |> List.rev
       in
       StepCex (p, cex')
   | ss ->
