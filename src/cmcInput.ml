@@ -261,7 +261,7 @@ let mk_trans_term ({ trans; inv}: Statement.sys_def) init_flag const_map inv_map
       let subsystem_input_svars = subsystem.input_svars in
       let subsystem_output_svars = subsystem.output_svars in
       let subsystem_local_svars = subsystem.local_svars in
-      let init_local = mk_single_state_var parent_sys_name (DU.append_to_id subsystem.name "_init", Type.t_bool) in
+      let init_local = mk_single_state_var parent_sys_name (DU.append_to_id local_subsystem_name "_init", Type.t_bool) in
       
       (* TODO Possibly add proper error if vars don't match. May not need if ypechecker verifys this*)
       (* This contains all of the non-locals of the subsystem*)
@@ -274,14 +274,18 @@ let mk_trans_term ({ trans; inv}: Statement.sys_def) init_flag const_map inv_map
           mk_var parent_sys_name false false mapping 
             (DU.join_ids local_subsystem_name name, StateVar.type_of_state_var svar)
         ) 
-      ) ([], [], []) (init_local :: subsystem_local_svars) in
+      ) ([], [], []) (subsystem_local_svars) in
+
+      let local_init_map, local_trans_map, _ = mk_var parent_sys_name false false (local_init_map, local_trans_map, []) (fst init_local, StateVar.type_of_state_var (snd init_local)) in
+
       
       (* These are the actual state vars of the  defined subsystem*)
       let subsys_svars = (subsystem.state_vars)  in 
 
       (* These are the statevars of the parent system that were passed to the subsystem call
           including the local vars that we just created. *)
-      let named_parent_sys_svars = (parent_sys_svars @  renamed_local_svars) in
+      let named_parent_sys_svars = (init_local :: parent_sys_svars @ renamed_local_svars) in
+      let renamed_local_svars = init_local :: renamed_local_svars in
       let parent_sys_svars = List.map snd named_parent_sys_svars in
 
       let inst = local_subsystem_name, (mk_inst subsys_svars parent_sys_svars) in
@@ -289,7 +293,7 @@ let mk_trans_term ({ trans; inv}: Statement.sys_def) init_flag const_map inv_map
       (* Make init and trans terms for parentt transition system *)
       let subsys_init_flag = subsystem.init_flag in
       let init_flag_mapping = (Id.mk (Id.ns subsystem.name) ( StateVar.name_of_state_var subsys_init_flag), Var.mk_state_var_instance subsys_init_flag TransSys.init_base) in
-      let init_flag_prime_mapping = (DU.prime (fst init_local), Var.mk_state_var_instance (snd init_local) TransSys.init_base) in
+      let init_flag_prime_mapping = (DU.prime (fst init_local), Var.mk_state_var_instance (snd init_local) TransSys.trans_base) in
       let subsys_init_map = init_flag_mapping :: local_init_map @ parent_init_map in         
       let subsys_trans_map = init_flag_mapping :: init_flag_prime_mapping :: local_trans_map @ parent_trans_map in         
       let cur = List.map (fun (id, _) -> DU.dolmen_term_to_expr subsys_init_map (Term.const id)) named_parent_sys_svars in 
