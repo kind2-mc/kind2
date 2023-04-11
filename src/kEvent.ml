@@ -651,7 +651,6 @@ let cex_cmc ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispr
      @[<hv 2>:result@ (@[<v>%a@])@]@,\
      @[<hv 2>:model@ (@[<v>@,%a@]@])@,\
      %a\
-     @[<hv 2>:trail@ (@[<v>...@])@]@,\
      @[<hv 2>:trace@ (%s :prefix %s@,) @]@,\
      )@.@."
     pp_prop_cmc (prop, true)

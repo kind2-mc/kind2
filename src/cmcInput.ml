@@ -312,8 +312,6 @@ let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) =
   let scope = [system_name] in
   let init_flag = StateVar.mk_init_flag scope in
 
-  Format.printf "STARTED CMC_SYS: %s.\n" system_name ;
-
   let init_map, trans_map, input_svars = mk_vars system_name true ([], [], []) sys_def.input in
   let init_map, trans_map, output_svars = mk_vars system_name true (init_map, trans_map, []) sys_def.output in
   let init_map, trans_map, local_svars = mk_vars system_name true (init_map, trans_map, []) sys_def.local in
@@ -396,7 +394,6 @@ let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) =
       (List.map Var.type_of_var trans_formals)
       Type.t_bool
   in
-  Format.printf "FINISHED CMC_SYS: %s.\n" (UfSymbol.name_of_uf_symbol trans_uf_symbol) ;
 
   (* TODO Determine what this is for and fix it ( Started earlier and forgot purpose ) *)
   let symb_svars = symb_svars @ subsys_locals  in 
@@ -641,15 +638,12 @@ let of_file filename =
   (* Parse and Typecheck file with Dolmen *)
   let format, _, statements = M.parse_file filename in
   let t = DU.process [] filename None in
-  Format.printf "DONE" ;
-
   
   let* cmc_defs =
     List.fold_left process_command (Ok empty_definitions) statements
   in
 
   let cmc_sys_defs = {(List.hd cmc_defs.system_defs) with top=true} :: (List.tl cmc_defs.system_defs) in
-  Format.printf "LEN: %d@." (List.length cmc_sys_defs);
 
   (* TODO *)
   (* let enum_defs = cmc_defs.enums in *)
@@ -666,7 +660,16 @@ let of_file filename =
   (* TODO create a mapping for systems to their vars like in the sexp interpreter. 
      This is required for counterexample printing. *)
   (* let sys_var_mapping = ...*)  
-  let sys_var_mapping = [] in
+  (* TODO This may no longer be nessisary with some code rework. Verify and remove if possible *)
+  let sys_var_mapping = List.map (fun base_transys -> 
+    (base_transys.scope, base_transys.state_vars)
+  ) cmc_sys_defs in
+
+  let sys_var_mapping = List.map (fun base_transys -> (
+    let primary_vars = (base_transys.input_svars @ base_transys.output_svars @ base_transys.local_svars) |>
+          List.map snd in
+    (base_transys.scope, primary_vars)
+  )) cmc_sys_defs in
 
   (* TODO implement after subsystems are used for CEX printing *)
   let name_map = cmc_defs.name_map in
@@ -674,7 +677,6 @@ let of_file filename =
   let mk_trans_system global_const_vars other_trans_systems (base : base_trans_system)  =
     let name = base.name in
     let subs = base.subsystems |> List.map (fun (name, local_instances) -> 
-      Format.printf "%a" Id.print name ; 
       (List.assoc name other_trans_systems, local_instances)) (* subsystems *)
     in
     let sys, _ = 
@@ -710,12 +712,7 @@ let of_file filename =
   
   let top_sys = snd (List.hd trans_systems) in
 
-    (* NOTE: This was originaly commented out *)
-  Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys;
+  (* Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys; *)
 
   (* TODO pass all extra params for cex printing *)
   Ok (mk_subsys_structure top_sys, name_map, sys_var_mapping, enum_defs)
-  (* Ok (mk_subsys_structure top_sys) *)
-
-  (* (error (E.Impossible "CMC Interpreter with Dolmen not finished!")) *)
-

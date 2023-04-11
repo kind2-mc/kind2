@@ -119,26 +119,24 @@ let get_state_var_vals_at_k trans_sys var_map model_assoc_list k ?(prefix = "") 
 
 
 let rec get_state_var_vals_at_k_all trans_sys name_map var_map (model_assoc_list: (StateVar.t * Model.value list) list) k prefix ?(map = None) enums = 
-  
-
   let sys_map = match map with 
-  | None -> (* Create the identity map for the top trans system*)
-    List.fold_left (fun map sys_state_var  ->
-        StateVar.StateVarMap.add sys_state_var sys_state_var map
-    ) StateVar.StateVarMap.(empty) (TransSys.state_vars trans_sys)
-  | Some map -> map
+    | None -> (* Create the identity map for the top trans system*)
+      List.fold_left (fun map sys_state_var  ->
+          StateVar.StateVarMap.add sys_state_var sys_state_var map
+      ) StateVar.StateVarMap.(empty) (TransSys.state_vars trans_sys)
+    | Some map -> 
+      map
   in 
   
   let help k subsystems =
     List.map (fun (subsys_transys, TransSys.({map_up; pos})) ->
-      (* Format.printf "MAP: %a@." pp_map map_up ; *)
       let map = Some (join_maps sys_map map_up) in
       let name = Scope.to_string (TransSys.scope_of_trans_sys subsys_transys) in 
       (get_state_var_vals_at_k_all subsys_transys name_map var_map model_assoc_list k (prefix ^ (DolmenUtils.dolmen_id_to_string (List.assoc pos name_map)) ^ "::") ~map enums)
     ) subsystems in
-  
+
   (* Note, the instances below no longer function as an assoc list*)
-  let instances =  (TransSys.get_subsystem_instances trans_sys) |> List.map (fun (subsys, subsys_instances) -> (List.map (fun instance -> (subsys, instance)) subsys_instances)) in 
+  let instances = (TransSys.get_subsystem_instances trans_sys) |> List.map (fun (subsys, subsys_instances) -> (List.map (fun instance -> (subsys, instance)) subsys_instances)) in 
   let instances = List.flatten instances in
   let subsys_state_vars = (help k instances)  in
   let a = (get_state_var_vals_at_k trans_sys var_map model_assoc_list k ~prefix sys_map enums) :: subsys_state_vars in 
@@ -254,10 +252,6 @@ let pp_const_decls trans_sys ppf svar_path =
 let pp_model trans_sys ppf path =
   (* let svar_path = Model.path_to_list path in *) (* KEEP COMMENTED *)
 
-  (* Format.fprintf ppf "%a@," (pp_const_decls trans_sys) path   (* TODO UNCOMMENT*) *)
+  Format.fprintf ppf "%a@," (pp_const_decls trans_sys) path   (* TODO UNCOMMENT *)
 
-  Format.fprintf ppf "%a@," (Model.pp_print_path) (Model.path_of_list path)  
-
-let pp_trail
-  (type s) (input_system : s InputSystem.t) (trans_sys : TransSys.t) disproved ppf path =    
-  Format.fprintf ppf "<TODO: pp_trail>"   
+  (* Format.fprintf ppf "%a@," (Model.pp_print_path) (Model.path_of_list path)   *)
