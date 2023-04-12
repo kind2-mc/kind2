@@ -365,6 +365,8 @@ let rec arity_of_expr ty_ctx = function
   | Arrow (_, e, _) -> arity_of_expr ty_ctx e
   | RecordProject (_, e, _) -> arity_of_expr ty_ctx e
   | TupleProject (_, e, _) -> arity_of_expr ty_ctx e
+  | When (_, e, _) -> arity_of_expr ty_ctx e
+  | Merge (_, _, cs) -> arity_of_expr ty_ctx (List.hd cs |> snd)
   | _ -> 1
 
 let rec traverse_group_expr_list f ctx proj es =

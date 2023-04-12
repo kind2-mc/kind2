@@ -298,6 +298,10 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/test_node_decls2.lus" with
     | Error (`LustreAstDependenciesError (_, EquationWidthsUnequal)) -> true
     | _ -> false);
+  mk_test "test width lenghts unequal" (fun () ->
+    match load_file "./lustreAstDependencies/test_merge_width_lengths_unequal.lus" with
+    | Error (`LustreAstDependenciesError (_,  WidthLengthsUnequal _)) -> true
+    | _ -> false);
   mk_test "test output in contract assume" (fun () ->
     match load_file "./lustreAstDependencies/test_out_param_in_contract_assume.lus" with
     | Error (`LustreAstDependenciesError (_, ContractDependencyOnCurrentOutput _)) -> true
@@ -347,6 +351,16 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/contract_output_redeclaration.lus" with
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
+
+  mk_test "test circular merge" (fun () ->
+    match load_file "./lustreAstDependencies/test_circular_merge.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+
+  mk_test "test activate" (fun () ->
+    match load_file "./lustreAstDependencies/test_activate.lus" with
+    | Error _ -> false
+    | _ -> true);
 ])
 
 (* *************************************************************************** *)
