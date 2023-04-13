@@ -43,6 +43,7 @@ type error_kind = Unknown of string
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
   | MisplacedVarInFrameBlock of LustreAst.ident
+  | IllegalClockExprInActivate of LustreAst.expr
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
