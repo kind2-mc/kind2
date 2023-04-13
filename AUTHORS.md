@@ -23,4 +23,4 @@ Alumni:
 - Jason Oxley
 - Ruoyu Zhang
 
-Other contributors to the Kind 2 codebase are listed in the THANKS file.
+Other contributors to the Kind 2 codebase are listed in the [THANKS](./THANKS.md) file.
