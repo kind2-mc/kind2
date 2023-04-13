@@ -651,8 +651,8 @@ let of_file filename =
   let cmc_sys_defs = {(List.hd cmc_defs.system_defs) with top=true} :: (List.tl cmc_defs.system_defs) in
 
   (* TODO *)
-  (* let enum_defs = cmc_defs.enums in *)
-  let enum_defs = [] in
+  let enum_defs = cmc_defs.enums in
+  (* let enum_defs = [] in *)
   (* We should no longer need to generate a sys ordering or
      determine cyclic system dependencies beacuse our typechecker verifys this.
      The typechecker requires that subsystems are defined before they are referenced.

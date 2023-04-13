@@ -52,3 +52,6 @@ val opt_dolmen_term_to_expr : enum list -> (Id.t * Var.t) list -> term option ->
 
 (* TODO Remove below here when a better solution is found. *)
 val process : statement list -> string -> string option -> (Dolmen_loop.State.t, string) result
+
+val print_enums : Format.formatter -> enum list -> unit
+
