@@ -118,6 +118,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/merge_enum2.lus" with
     | Error (`LustreSyntaxChecksError (_, ClockMismatchInMerge)) -> true
     | _ -> false);
+  mk_test "test activate clock mismatch" (fun () ->
+    match load_file "./lustreSyntaxChecks/test_activate_clock_mismatch.lus" with
+    | Error (`LustreSyntaxChecksError (_, ClockMismatchInMerge)) -> true
+    | _ -> false);
   mk_test "test call in cone of influence 1" (fun () ->
     match load_file "./lustreSyntaxChecks/no_node_subject_to_refinement_in_contract_1.lus" with
     | Error (`LustreSyntaxChecksError (_, NodeCallInRefinableContract _)) -> true

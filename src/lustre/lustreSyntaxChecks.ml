@@ -60,6 +60,7 @@ type error_kind = Unknown of string
   | AssumptionVariablesInContractNode
   | ClockMismatchInMerge
   | MisplacedVarInFrameBlock of LustreAst.ident
+  | IllegalClockExprInActivate of LustreAst.expr
 
 type error = [
   | `LustreSyntaxChecksError of Lib.position * error_kind
@@ -108,6 +109,7 @@ let error_message kind = match kind with
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
   | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
   | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
+  | IllegalClockExprInActivate e -> "Illegal clock expression '" ^ LA.string_of_expr e ^ "' in activate"
 
 let syntax_error pos kind = Error (`LustreSyntaxChecksError (pos, kind))
 
@@ -819,25 +821,38 @@ and check_expr_list ctx f e =
 
 let no_mismatched_clock is_bool e =
   let ctx = empty_ctx () in
-  let check_when clock = function
-    | LA.When (pos, _, c) ->
-      let clocks_match = (match c, clock with
-        | ClockTrue, LA.ClockTrue -> true
-        | ClockPos i, ClockPos j -> HString.equal i j
-        | ClockNeg i, ClockNeg j -> HString.equal i j
-        | ClockConstr (i1, i2), ClockConstr (j1, j2) ->
-          HString.equal i1 j1 && HString.equal i2 j2
-        | _ -> false)
+  let clocks_match c1 c2 =
+    match c1, c2 with
+    | LA.ClockTrue, LA.ClockTrue -> true
+    | ClockPos i, ClockPos j -> HString.equal i j
+    | ClockNeg i, ClockNeg j -> HString.equal i j
+    | ClockConstr (i1, i2), ClockConstr (j1, j2) ->
+      HString.equal i1 j1 && HString.equal i2 j2
+    | _ -> false
+  in
+  let clocks_match_result pos c1 c2 =
+    if clocks_match c1 c2 then Ok()
+    else syntax_error pos ClockMismatchInMerge
+  in
+  let check_clocks clock = function
+    | LA.When (pos, _, c) -> clocks_match_result pos c clock
+    | LA.Activate (pos, _, c, _, _) ->
+      let* clk_exp =
+        match c with
+        | LA.Ident (_, i) -> Ok (LA.ClockPos i)
+        | LA.UnaryOp (_, LA.Not, LA.Ident (_, i)) -> Ok (LA.ClockNeg i)
+        | LA.CompOp (_, LA.Eq, LA.Ident (_, c), LA.Ident (_, cv)) ->
+          Ok (LA.ClockConstr (cv, c))
+        | _ -> syntax_error pos (IllegalClockExprInActivate c)
       in
-      if not clocks_match then syntax_error pos ClockMismatchInMerge
-      else Ok ()
+      clocks_match_result pos clk_exp clock
     | _ -> Ok ()
   in
   let check_merge = function
     | LA.Merge (_, clock, exprs) ->
       if not is_bool then
         let case (i, e) = check_expr ctx
-          (fun _ -> check_when (ClockConstr (i, clock))) e
+          (fun _ -> check_clocks (ClockConstr (i, clock))) e
         in
         List.fold_left (>>) (Ok ()) (List.map case exprs)
       else
@@ -845,8 +860,8 @@ let no_mismatched_clock is_bool e =
         let false_variant = List.nth_opt exprs 1 in
         (match true_variant, false_variant with
         | Some (_, e1), Some (_, e2) ->
-          check_when (ClockPos clock) e1
-            >> check_when (ClockNeg clock) e2
+          check_clocks (ClockPos clock) e1
+            >> check_clocks (ClockNeg clock) e2
         | _ -> Ok ())
     | _ -> Ok ()
   in
