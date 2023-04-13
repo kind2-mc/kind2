@@ -1,0 +1,5 @@
+
+node M(c: bool) returns (y,z:int);
+let
+  y, z = merge (c; (0, 0) when c; 1 when not c);
+tel
