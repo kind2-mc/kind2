@@ -130,6 +130,7 @@ let mk_span start_pos end_pos =
 (* Tokens for check *)
 %token CHECK
 %token REACHABLE
+%token PROVIDED
 %token INVARIANT
 %token FROM
 %token AT
@@ -599,6 +600,8 @@ property:
   (* Invariant properties *)
   | PROPERTY_ANNOT ; option(INVARIANT) ; name = option(STRING) ; e = qexpr ; SEMICOLON
     { A.AnnotProperty (mk_pos $startpos, name, e, Invariant) }
+  | PROPERTY_ANNOT ; option(INVARIANT) ; name = option(STRING) ; e1 = qexpr ; PROVIDED ; e2 = qexpr ; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, e1, Provided e2) }
   | PROPERTY_PSBLOCKSTART ; option(INVARIANT) ; name = option(STRING);
     e = qexpr; SEMICOLON ; PSBLOCKEND
     { A.AnnotProperty (mk_pos $startpos, name, e, Invariant) }
@@ -631,6 +634,8 @@ property:
 check:
   | CHECK ; option(INVARIANT) ; name = option(STRING) ; e = qexpr ; SEMICOLON
     { A.AnnotProperty (mk_pos $startpos, name, e, Invariant) }
+  | CHECK ; option(INVARIANT) ; name = option(STRING) ; e1 = qexpr ; PROVIDED ; e2 = qexpr ; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, e1, Provided e2) }
   | CHECK ; REACHABLE ; name = option(STRING) ; e = qexpr ; bound = property_timestep; SEMICOLON
     { A.AnnotProperty (mk_pos $startpos, name, e, bound) }
 

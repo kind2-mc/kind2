@@ -241,6 +241,7 @@ type prop_bound =
 type prop_kind =
   | Invariant
   | Reachable of prop_bound option
+  | Provided of expr
 
 (** An item in a node declaration *)
 type node_item =

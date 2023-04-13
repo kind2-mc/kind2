@@ -1807,6 +1807,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | A.Reachable Some (From ts) -> Property.Reachable (Some (From ts))
         | A.Reachable Some (Within ts) -> Property.Reachable (Some (Within ts))
         | A.Reachable None -> Property.Reachable None
+        | A.Provided _ -> assert false (* Should be desugared into one invariant and one reachable property *)
       in sv, name, (Property.PropAnnot pos), kind
     in List.map op node_props
 

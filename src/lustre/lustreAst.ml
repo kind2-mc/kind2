@@ -236,6 +236,7 @@ type prop_bound =
 type prop_kind =
   | Invariant
   | Reachable of prop_bound option
+  | Provided of expr
 
 (* An item in a node declaration *)
 type node_item =
@@ -962,6 +963,11 @@ and pp_print_node_item ppf = function
     Format.fprintf ppf "--%%PROPERTY reachable %a;" 
     pp_print_expr e
 
+  | AnnotProperty (_, None, e1, Provided e2) ->
+    Format.fprintf ppf "--%%PROPERTY %a provided %a;" 
+    pp_print_expr e1
+    pp_print_expr e2
+
   | AnnotProperty (_, Some name, e, Invariant) ->
     Format.fprintf ppf "--%%PROPERTY \"%a\" %a;"
       HString.pp_print_hstring name
@@ -996,6 +1002,12 @@ and pp_print_node_item ppf = function
     Format.fprintf ppf "--%%PROPERTY reachable \"%a\" %a;"
       HString.pp_print_hstring name
       pp_print_expr e 
+
+  | AnnotProperty (_, Some name, e1, Provided e2 ) ->
+    Format.fprintf ppf "--%%PROPERTY \"%a\" %a provided %a;"
+      HString.pp_print_hstring name
+      pp_print_expr e1 
+      pp_print_expr e2
 
 
 let pp_print_contract_ghost_const ppf = function 

@@ -575,6 +575,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/expected_record_type.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedRecordType _)) -> true
     | _ -> false);
+  mk_test "test provided invalid type" (fun () ->
+    match load_file "./lustreTypeChecker/provided.lus" with
+    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
