@@ -98,7 +98,7 @@ let get_state_var_vals_at_k trans_sys var_map model_assoc_list k ?(prefix = "") 
       (* Format.printf "MAP: %a@." pp_map map ; *)
       let translated_svar = StateVar.StateVarMap.find sys_state_var map in
       let state_var_type = StateVar.type_of_state_var translated_svar in
-      let enum_opt = List.find_opt (fun CmcInput.({get_type}) -> Type.equal_types get_type state_var_type) enums in
+      let enum_opt = List.find_opt (fun DolmenUtils.({get_type}) -> Type.equal_types get_type state_var_type) enums in
       let svar_state_values = List.assoc translated_svar model_assoc_list in
       let svar_kth_state_value = List.nth svar_state_values (Numeral.to_int k) in 
       let state_value_changed = (Numeral.to_int k) == 0 || not (Model.equal_value (List.nth svar_state_values ((Numeral.to_int k) - 1)) svar_kth_state_value) in
@@ -108,7 +108,7 @@ let get_state_var_vals_at_k trans_sys var_map model_assoc_list k ?(prefix = "") 
         | Some enum -> ((
           let pair = List.find (fun (numeral, str) -> Term.equal value (Term.mk_num numeral)) enum.to_str in
           (* Format.printf "LENGTH %i" (List.length enum.to_str); *)
-          let str_rep = HString.string_of_hstring (snd pair) in
+          let str_rep = DolmenUtils.dolmen_id_to_string (snd pair) in
           Some (var_name, str_rep, state_value_changed)))
         | _ -> Some (var_name, Term.string_of_term value, state_value_changed)
       )
@@ -185,31 +185,35 @@ let pp_reach_prop ppf (state_var, value, changed) =
 
 let pp_step_of_trace (trans_sys : TransSys.t) disproved name_map var_map path enums ppf k = 
   let reachability_prop = TransSys.get_properties trans_sys in
-  assert ((List.length reachability_prop) == 1) ; (* Assume only one reachability prop allowed for now *)
-  let reachability_svars = StateVar.StateVarSet.elements (Term.state_vars_of_term (List.hd reachability_prop).prop_term) in
-  assert ((List.length reachability_svars) == 1) ; (* Assume only one reachability prop allowed for now *)
-  let reachability_svar = List.hd reachability_svars in
-  
+  let reachability_svars = List.map (fun Property.({prop_term}) -> StateVar.StateVarSet.elements (Term.state_vars_of_term prop_term)) reachability_prop |> List.flatten in
+
   let model_list = Model.path_to_list path in
-  let value = List.nth (List.assoc reachability_svar model_list) (Numeral.to_int k) in
+  let values = List.map (fun reachability_svar -> List.nth (List.assoc reachability_svar model_list) (Numeral.to_int k)) reachability_svars  in
 
-  let reachability_changed = if (Numeral.to_int k) == 0 then true else 
-    not (Model.equal_value value (List.nth (List.assoc reachability_svar model_list) ((Numeral.to_int k)-1) )) in
+  let reachability_values = List.map2 (fun value reachability_svar -> 
+    if (Numeral.to_int k) == 0 then 
+      (reachability_svar, value, true)
+    else 
+      (reachability_svar, value, 
+        not (Model.equal_value value (List.nth (List.assoc reachability_svar model_list) ((Numeral.to_int k)-1) ))
+      )
+    ) values reachability_svars
+   in
 
-  let reachability_value = (reachability_svar, value, reachability_changed) in
+  let reachability_change = List.fold_left (fun changed (_, _, change) -> changed || change) false reachability_values in
   
   let formatted_svar_names = get_state_var_vals_at_k_all trans_sys name_map var_map (model_list) k "" ?map: None enums in
 
   let any_change = (List.fold_left (fun change_detected (_, _, svar_changed) -> change_detected || svar_changed) false formatted_svar_names) 
-  || reachability_changed in
+  || reachability_change in
 
   if any_change then
-    Format.fprintf ppf "(%a %a%a)" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val "" ) formatted_svar_names pp_reach_prop reachability_value
+    Format.fprintf ppf "(%a %a%a)" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val "" ) formatted_svar_names (pp_print_list pp_reach_prop " ") reachability_values
   else
     if Flags.condensed_cmc_output () then
       ()
     else
-      Format.fprintf ppf "@{<black>(%a %a %a)@}" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val " " ) formatted_svar_names pp_reach_prop reachability_value
+      Format.fprintf ppf "@{<black>(%a %a %a)@}" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val " " ) formatted_svar_names (pp_print_list pp_reach_prop " ") reachability_values
     (* Model.pp_print_model ppf model *)
 
 let pp_states (trans_sys : TransSys.t) disproved name_map var_map enums ppf path = 

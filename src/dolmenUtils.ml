@@ -15,6 +15,45 @@ type statement = Statement.t
 
 exception UnsupportedZ3Symbol of string
 
+type enum = {
+  name: id;
+  get_type: Type.t;
+  to_int: (id * Numeral.t) list;
+  to_str: (Numeral.t * id) list;
+}
+
+let print_enum ppf enum = 
+  Format.fprintf ppf "(%a: %a)" Id.print enum.name (Lib.pp_print_list (Lib.pp_print_pair Id.print Numeral.pp_print_numeral ":") ", ") (enum.to_int)
+
+let print_enums ppf enums = 
+  Format.fprintf ppf "%a" ( Lib.pp_print_list print_enum "\n" ) enums
+  
+let empty_enum name enum_type = {
+  name = name;
+  get_type = enum_type;
+  to_int = [];
+  to_str = [];
+}
+
+let gen_enum_conversion_map enums =
+  enums |> List.fold_left (fun to_int_maps {to_int} -> 
+    (* Ensure each string is in only one enum *)
+    let checked_enum_values = List.map (fun (id, int_rep) -> 
+        if List.mem_assoc id to_int_maps then failwith (Format.asprintf "Enum value `%a` is defined twice." Id.print id)
+        else (id, (Numeral.string_of_numeral int_rep))
+      ) to_int in
+    checked_enum_values @ to_int_maps
+  ) []
+
+let enum_name_to_type enums enum_name =
+  let enum = List.find (fun (enum) -> Id.equal enum.name enum_name) enums in
+  enum.get_type
+
+let is_enum_type_str enums enum_name = 
+  let enum = List.find_opt (fun (enum) -> Id.equal enum.name enum_name) enums in
+  match enum with 
+  | Some _ -> true
+  | _ -> false
 
 (* Removes optional quantifier for lists. None is replaces with empty list *)
 let opt_list_to_list l =
@@ -53,23 +92,26 @@ let type_of_dolmen_builtin = function
             Term.print_builtin other))
 
 (* This only returns types of 'id's that are actually types *)
-let type_of_dolmen_id id = match dolmen_id_to_string id with
+let type_of_dolmen_id enums id = match dolmen_id_to_string id with
   | "Int" -> Type.t_int
   | "Real" -> Type.t_real
   | "Bool" -> Type.t_bool 
   (* TODO Add support for arrays*)
   | other -> 
-    raise
-      (Invalid_argument 
-          (Format.asprintf 
-            "Sort %s not supported" 
-             other))
+    if is_enum_type_str enums id then 
+      enum_name_to_type enums id 
+    else 
+      raise
+        (Invalid_argument 
+            (Format.asprintf 
+              "Sort %s not supported" 
+              other))
 
-let type_of_dolmen_term = function
+let type_of_dolmen_term enums = function
   | Term.{ term = Builtin b ; _ } -> 
     type_of_dolmen_builtin b
   | Term.{ term = Symbol i ; _ } -> 
-    type_of_dolmen_id i
+    type_of_dolmen_id enums i
   | other -> 
     raise
       (Invalid_argument 
@@ -92,12 +134,12 @@ let dolmen_symbol_term_to_id (symbol_term: term) = match symbol_term with
           "Term %a is not a symbol" 
           Term.print symbol_term))
 
-let dolmen_binding_to_types (var_def: term) = match var_def with
+let dolmen_binding_to_types enums (var_def: term) = match var_def with
 | { term = Binder (binder, param_terms, return_term); _ } -> 
   (match binder with 
     | Arrow -> 
-      let param_types = List.map type_of_dolmen_term param_terms in
-      let return_type = type_of_dolmen_term return_term in
+      let param_types = List.map (type_of_dolmen_term enums) param_terms in
+      let return_type = type_of_dolmen_term enums return_term in
       param_types, return_type
     | _ -> raise
       (Invalid_argument 
@@ -113,8 +155,8 @@ let dolmen_binding_to_types (var_def: term) = match var_def with
         
 (* Given a dolmen term representing a CMC variable declaration 
    return a tuple of the variable's id and kind2 type *)
-let dolmen_term_to_id_type (var_def: term) = match var_def with
-  | { term = Colon ({ term = Symbol name; _ }, ty); _ } -> (name, type_of_dolmen_term ty)
+let dolmen_term_to_id_type enums (var_def: term) = match var_def with
+  | { term = Colon ({ term = Symbol name; _ }, ty); _ } -> (name, type_of_dolmen_term enums ty)
 
   | _ -> raise
       (Invalid_argument 
@@ -179,7 +221,7 @@ let kind_symbol_from_dolmen s =
       raise Not_found 
 
 (* Convert a list of typed variables *)
-let rec gen_bound_vars_of_dolmen dtte bound_vars accum vars = 
+let rec gen_bound_vars_of_dolmen enums dtte bound_vars accum vars = 
   match (vars : term list) with 
 
     (* All bindings consumed: return accumulator in original order *)
@@ -191,13 +233,13 @@ let rec gen_bound_vars_of_dolmen dtte bound_vars accum vars =
     | { term = Colon ({ term = Symbol name; _ },  ty ); _ } :: other_bindings -> 
 
       (* Get the type of the expression *)
-      let var_type = type_of_dolmen_term ty in
+      let var_type = type_of_dolmen_term enums ty in
 
       (* Create a variable of the identifier and the type of the expression *)
       let tvar = Var.mk_free_var (dolmen_id_to_hstring name) var_type in
 
       (* Add bound expresssion to accumulator *)
-      gen_bound_vars_of_dolmen dtte bound_vars ((name, tvar) :: accum) other_bindings
+      gen_bound_vars_of_dolmen enums dtte bound_vars ((name, tvar) :: accum) other_bindings
 
     (* Expression must be a pair *)
     | e :: _ -> 
@@ -208,7 +250,7 @@ let rec gen_bound_vars_of_dolmen dtte bound_vars accum vars =
             Term.print e))
 
 (* Convert a list of bindings *)
-let rec gen_bindings_of_dolmen dtte bound_vars accum vars = 
+let rec gen_bindings_of_dolmen dtte enums bound_vars accum vars = 
   match (vars : term list) with 
 
     (* All bindings consumed: return accumulator in original order *)
@@ -219,7 +261,7 @@ let rec gen_bindings_of_dolmen dtte bound_vars accum vars =
     | { term = Colon ({ term = Symbol name; _ }, expr ); _ } as e:: other_bindings -> 
       
       (* Convert to an expression *)
-      let expr = dtte bound_vars expr in
+      let expr = dtte enums bound_vars expr in
 
       (* Get the type of the expression *)
       let expr_type = KindTerm.type_of_term expr in
@@ -229,8 +271,7 @@ let rec gen_bindings_of_dolmen dtte bound_vars accum vars =
       let tvar = Var.mk_free_var (dolmen_id_to_hstring name) expr_type in
 
       (* Add bound expresssion to accumulator *)
-      gen_bindings_of_dolmen dtte bound_vars ((name, (tvar, expr)) :: accum) other_bindings
-
+      gen_bindings_of_dolmen dtte enums bound_vars ((name, (tvar, expr)) :: accum) other_bindings
 
     (* Expression must be a pair *)
     | e :: _ -> 
@@ -242,11 +283,11 @@ let rec gen_bindings_of_dolmen dtte bound_vars accum vars =
 
 (* Convert a string S-expression to an expression 
    This function is generic, and also used from {!YicesDriver} *)
-let dolmen_term_to_expr' dtte bound_vars term = match (term : term) with 
+let dolmen_term_to_expr' dtte enums bound_vars term = match (term : term) with 
   (* A let binding *) 
   | { term = Binder (binder, vars, term); _ } when binder == Term.Let_par || binder == Term.Let_seq ->
     (* Convert bindings and obtain a list of bound variables *)
-    let named_bindings = gen_bindings_of_dolmen dtte bound_vars [] vars in
+    let named_bindings = gen_bindings_of_dolmen dtte enums bound_vars [] vars in
     let bindings = List.map snd named_bindings in
 
     (* Convert bindings to an association list from strings to
@@ -261,7 +302,7 @@ let dolmen_term_to_expr' dtte bound_vars term = match (term : term) with
       variables and return a let bound term *)
     KindTerm.mk_let 
       bindings
-      (dtte (bound_vars @ bound_vars') term)
+      (dtte enums (bound_vars @ bound_vars') term)
           
   (* A universal or existential quantifier *)
   | { term = Binder (binder, vars, term); _ } 
@@ -269,7 +310,7 @@ let dolmen_term_to_expr' dtte bound_vars term = match (term : term) with
 
     (* Association list from ids to kind variables *)
     let bound_vars' = 
-      gen_bound_vars_of_dolmen dtte bound_vars [] vars 
+      gen_bound_vars_of_dolmen enums dtte bound_vars [] vars 
     in
 
     (* Get list of variables bound by the quantifier *)
@@ -283,7 +324,7 @@ let dolmen_term_to_expr' dtte bound_vars term = match (term : term) with
     else if  binder == Term.Ex then KindTerm.mk_exists
     else assert false)
       quantified_vars
-      (dtte (bound_vars @ bound_vars') term)
+      (dtte enums (bound_vars @ bound_vars') term)
       
 
 (* 
@@ -339,7 +380,14 @@ let dolmen_term_to_expr' dtte bound_vars term = match (term : term) with
 
   (* Atom *)
   | { term = Symbol a ; _ } ->
-    let s = dolmen_id_to_hstring a in
+    (* TODO Move enum map generation higher up so we don't do it so often. *)
+    (* COULD cause a lot of delay here *)
+    let enum_map = gen_enum_conversion_map enums in
+    
+    let s = match List.assoc_opt a enum_map with
+    | Some enum -> HString.mk_hstring enum
+    | None ->  dolmen_id_to_hstring a in
+
     (* Leaf in the symbol tree *)
     (GenericSMTLIBDriver.const_of_smtlib_atom (dolmen_bound_vars_to_kind bound_vars) s)
 
@@ -402,7 +450,7 @@ let dolmen_term_to_expr' dtte bound_vars term = match (term : term) with
         in
 
         (* parse arguments *)
-        let args = List.map (dtte bound_vars) params in
+        let args = List.map (dtte enums bound_vars) params in
 
         (* Add correct type to select *)
         let s = match Symbol.node_of_symbol s, args with
@@ -459,13 +507,13 @@ let dolmen_term_to_expr' dtte bound_vars term = match (term : term) with
 
 
 (* Call function with an empty list of bound variables and no prime symbol *)
-let rec dolmen_term_to_expr bound_vars (term : term) =
-  dolmen_term_to_expr' dolmen_term_to_expr bound_vars term 
+let rec dolmen_term_to_expr enum_map bound_vars (term : term) =
+  dolmen_term_to_expr' dolmen_term_to_expr enum_map bound_vars term 
 
 (* Term must represent a predicate, as None term will be interpreted as True*)
-let rec opt_dolmen_term_to_expr bound_vars (term : term option) =
+let rec opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
   match term with
-    | Some term -> dolmen_term_to_expr' dolmen_term_to_expr bound_vars term 
+    | Some term -> dolmen_term_to_expr' dolmen_term_to_expr enum_map bound_vars term 
     | None -> KindTerm.mk_true ()
 
 (* TODO Find a better way to typecheck without re-paring the file *)

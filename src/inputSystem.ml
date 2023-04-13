@@ -32,7 +32,7 @@ type _ t =
 | Lustre : (LustreNode.t S.t list * LustreGlobals.t * LustreAst.declaration list) -> LustreNode.t t
 (* Lustre systems supports multiple entry points (main subsystems) *)
 | Native : TransSys.t S.t -> TransSys.t t
-| CMC : (TransSys.t S.t * CmcInput.subsystem_instance_name_data * (string list * StateVar.t list) list * CmcInput.enum list) -> TransSys.t t
+| CMC : (TransSys.t S.t * CmcInput.subsystem_instance_name_data * (string list * StateVar.t list) list * DolmenUtils.enum list) -> TransSys.t t
 | Horn : unit S.t -> unit t
 
 let read_input_lustre only_parse input_file =

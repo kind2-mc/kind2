@@ -1,0 +1,17 @@
+(set-logic QF_UFDTLIA)
+(declare-enum-sort LightStatus (On Off))
+
+(define-system TimedLight
+  :output ((l LightStatus))
+  :local ((t Int))
+  :init(and (= t 0) (= l Off))
+  :trans (and (ite (>= t 3) (= l' On) (= l' l)) 
+              (= t' (+ t 1)))
+)
+
+(check-system TimedLight
+  :output ((l LightStatus))
+  :local ((t Int))
+  :reachable (rprop1 (= l On))
+  :query (q1 (rprop1))
+)

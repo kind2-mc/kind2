@@ -29,14 +29,7 @@ type subsystem_instance_name_data = {
   counter: int;
 }
 
-type enum = {
-  name: HString.t;
-  get_type: Type.t;
-  to_int: (HString.t * Numeral.t) list;
-  to_str: (Numeral.t * HString.t) list;
-}
-
 (** Parse from the file *)
 val of_file : string -> 
-  (TransSys.t SubSystem.t * subsystem_instance_name_data * sys_var_mapping * enum list, [> CmcErrors.error]) result
+  (TransSys.t SubSystem.t * subsystem_instance_name_data * sys_var_mapping * DolmenUtils.enum list, [> CmcErrors.error]) result
   (* (TransSys.t SubSystem.t, [> CmcErrors.error]) result TODO Temporary return type switch back when finished *)

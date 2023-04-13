@@ -1,11 +1,11 @@
 (set-logic QF_UFDTLIA)
 (declare-const q Int)
-; (declare-enum-sort LightStatus (On Off))
+(declare-enum-sort LightStatus (On Off))
 
 (define-system plus_one
   :input ((a Int))
   :output ((b Int))
-  :local ((l Int))
+  :local ((l Int) (w LightStatus))
   :inv (= b (+ a 1))
 )
 
@@ -22,7 +22,7 @@
   :local ((a Int) (w Bool))
   :output ((b Int) (c Int))
   :reachable (rprop1 (= b 4))
-  :reachable (rprop2 (= b 16))
-  :query (q1 (rprop1))
+  :reachable (rprop2 (= b 4))
+  :query (q1 (rprop1 rprop2))
   :query (q2 (rprop1))  
 )

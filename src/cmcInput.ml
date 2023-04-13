@@ -113,24 +113,10 @@ let empty_subsystem_instance_name_data = {
   counter = 0;
 }
 
-type enum = {
-  name: HString.t;
-  get_type: Type.t;
-  to_int: (HString.t * Numeral.t) list;
-  to_str: (Numeral.t * HString.t) list;
-}
-
-let empty_enum name enum_type = {
-  name = name;
-  get_type = enum_type;
-  to_int = [];
-  to_str = [];
-}
-
 type definitions = {
   system_defs: base_trans_system list;
   functions: TransSys.d_fun list; (* Not yet populated *)
-  enums: enum list; (* Not yet populated *)
+  enums: DU.enum list; (* Not yet populated *)
   ufunctions: UfSymbol.t list; (* Not yet populated *)
   name_map: subsystem_instance_name_data; (* Not yet populated *)
   (* decls, const map*)
@@ -197,8 +183,8 @@ let mk_var sys_name is_input is_const (init_map, trans_map, svars) (id, var_type
     let next_mapping = (next_id, Var.mk_state_var_instance svar TransSys.trans_base) in
     (prev_mapping :: init_map, prev_mapping :: next_mapping :: trans_map, (id, svar) :: svars)
 
-let mk_vars sys_name is_input mappings dolmen_terms = 
-  let vars = List.map DU.dolmen_term_to_id_type (DU.opt_list_to_list dolmen_terms) in
+let mk_vars enums sys_name is_input mappings dolmen_terms = 
+  let vars = List.map (DU.dolmen_term_to_id_type enums) (DU.opt_list_to_list dolmen_terms) in
   List.fold_left (mk_var sys_name is_input false) mappings vars
 
 (** A mapping of unprimed vars to their primed state. 
@@ -210,7 +196,7 @@ let mk_inv_map init_map trans_map =
   ) 
 
 (** Translate CMC init sexp into Kind2 Term. Ands init with the inv property *)
-let mk_init_term ({ init; inv}: Statement.sys_def) init_flag const_map init_map inv_map =
+let mk_init_term enums ({ init; inv}: Statement.sys_def) init_flag const_map init_map inv_map =
   (* Flag representing the init state*)
   let init_flag_t =
       Var.mk_state_var_instance init_flag TransSys.init_base
@@ -218,12 +204,12 @@ let mk_init_term ({ init; inv}: Statement.sys_def) init_flag const_map init_map 
   in
 
   KindTerm.mk_and (init_flag_t :: 
-                   DU.opt_dolmen_term_to_expr (const_map @ init_map) init :: 
-                   DU.opt_dolmen_term_to_expr (const_map @ inv_map) inv :: 
+                   DU.opt_dolmen_term_to_expr enums (const_map @ init_map) init :: 
+                   DU.opt_dolmen_term_to_expr enums (const_map @ inv_map) inv :: 
                    []
                   )
 
-let mk_trans_term ({ trans; inv}: Statement.sys_def) init_flag const_map inv_map trans_map =
+let mk_trans_term enum_map ({ trans; inv}: Statement.sys_def) init_flag const_map inv_map trans_map =
   (* Flag representing the init state*)
   let init_flag_t =
     Var.mk_state_var_instance init_flag TransSys.trans_base
@@ -235,9 +221,9 @@ let mk_trans_term ({ trans; inv}: Statement.sys_def) init_flag const_map inv_map
      *)
   (* let trans = process_only_change sys_def trans in *)
 
-  KindTerm.mk_and (KindTerm.mk_not init_flag_t :: DU.opt_dolmen_term_to_expr (const_map @ trans_map) trans :: DU.opt_dolmen_term_to_expr (const_map @ inv_map) inv :: [])
+  KindTerm.mk_and (KindTerm.mk_not init_flag_t :: DU.opt_dolmen_term_to_expr enum_map (const_map @ trans_map) trans :: DU.opt_dolmen_term_to_expr enum_map (const_map @ inv_map) inv :: [])
 
-  let mk_subsystems parent_sys_name parent_sys_svars parent_init_map parent_trans_map other_systems subsystem_names = 
+  let mk_subsystems enums parent_sys_name parent_sys_svars parent_init_map parent_trans_map other_systems subsystem_names = 
     let mk_inst sys_state_vars subsys_state_vars =
       let map_down, map_up =
         List.fold_left2 (fun (map_down, map_up) sys_state_var subsys_state_var ->
@@ -296,8 +282,8 @@ let mk_trans_term ({ trans; inv}: Statement.sys_def) init_flag const_map inv_map
       let init_flag_prime_mapping = (DU.prime (fst init_local), Var.mk_state_var_instance (snd init_local) TransSys.trans_base) in
       let subsys_init_map = init_flag_mapping :: local_init_map @ parent_init_map in         
       let subsys_trans_map = init_flag_mapping :: init_flag_prime_mapping :: local_trans_map @ parent_trans_map in         
-      let cur = List.map (fun (id, _) -> DU.dolmen_term_to_expr subsys_init_map (Term.const id)) named_parent_sys_svars in 
-      let next =List.map (fun (id, _) -> DU.dolmen_term_to_expr subsys_trans_map (Term.const (DU.prime id))) named_parent_sys_svars in 
+      let cur = List.map (fun (id, _) -> DU.dolmen_term_to_expr enums subsys_init_map (Term.const id)) named_parent_sys_svars in 
+      let next =List.map (fun (id, _) -> DU.dolmen_term_to_expr enums subsys_trans_map (Term.const (DU.prime id))) named_parent_sys_svars in 
       let subsys_formulas = KindTerm.mk_uf subsystem.init_uf_symbol  cur,
       KindTerm.mk_uf subsystem.trans_uf_symbol  (next@cur) in
 
@@ -312,9 +298,9 @@ let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) =
   let scope = [system_name] in
   let init_flag = StateVar.mk_init_flag scope in
 
-  let init_map, trans_map, input_svars = mk_vars system_name true ([], [], []) sys_def.input in
-  let init_map, trans_map, output_svars = mk_vars system_name true (init_map, trans_map, []) sys_def.output in
-  let init_map, trans_map, local_svars = mk_vars system_name true (init_map, trans_map, []) sys_def.local in
+  let init_map, trans_map, input_svars = mk_vars env.enums system_name true ([], [], []) sys_def.input in
+  let init_map, trans_map, output_svars = mk_vars env.enums system_name true (init_map, trans_map, []) sys_def.output in
+  let init_map, trans_map, local_svars = mk_vars env.enums system_name true (init_map, trans_map, []) sys_def.local in
 
   let const_svars, const_map = env.const_decls in
   (* Const svars are not added to symb_svars because 
@@ -324,7 +310,7 @@ let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) =
   let symb_svars = input_svars @ output_svars @ local_svars in (*S*)
 
   (* Process subsystems *)
-  let subsystem_defs = mk_subsystems system_name symb_svars init_map trans_map env.system_defs sys_def.subs in
+  let subsystem_defs = mk_subsystems env.enums system_name symb_svars init_map trans_map env.system_defs sys_def.subs in
   let named_subsystems = List.map fst (List.map fst subsystem_defs) in 
   let subsys_locals = List.flatten (List.map snd (List.map fst subsystem_defs)) in 
 
@@ -349,11 +335,11 @@ let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) =
   let inv_map_for_trans = mk_inv_map init_map trans_map in
   
   let init_term = 
-    KindTerm.mk_and ((mk_init_term sys_def init_flag const_map init_map inv_map_for_init) :: subsys_init )
+    KindTerm.mk_and ((mk_init_term env.enums sys_def init_flag const_map init_map inv_map_for_init) :: subsys_init )
   in
  
   let trans_term = 
-    KindTerm.mk_and ((mk_trans_term sys_def init_flag const_map inv_map_for_trans trans_map) :: subsys_trans )
+    KindTerm.mk_and ((mk_trans_term env.enums sys_def init_flag const_map inv_map_for_trans trans_map) :: subsys_trans )
   in
 
   let state_vars =
@@ -399,24 +385,24 @@ let mk_base_trans_system (env: definitions) (sys_def: Statement.sys_def) =
   let symb_svars = symb_svars @ subsys_locals  in 
   {top=false; scope; name=sys_def.id;  input_svars; output_svars; local_svars; init_map; trans_map; init_flag; state_vars; init_uf_symbol; init_formals; init_term; trans_uf_symbol; trans_formals; trans_term; subsystems; props=[]}, name_map
 
-let rename_check_vars (sys_def : base_trans_system) (system_check : Statement.sys_check) = 
+let rename_check_vars enums (sys_def : base_trans_system) (system_check : Statement.sys_check) = 
   (* Requires that the sys_def and check_def match *)
   (* TODO Support underscores *)
   assert (Id.equal sys_def.name system_check.id) ;
   let system_name = DU.dolmen_id_to_string sys_def.name in
-  let init_map, trans_map, _ = mk_vars system_name true ([], [], []) system_check.input in
-  let init_map, trans_map, _ = mk_vars system_name true (init_map, trans_map, []) system_check.output in
-  let _, trans_map, _ = mk_vars system_name true (init_map, trans_map, []) system_check.local in
+  let init_map, trans_map, _ = mk_vars enums system_name true ([], [], []) system_check.input in
+  let init_map, trans_map, _ = mk_vars enums system_name true (init_map, trans_map, []) system_check.output in
+  let _, trans_map, _ = mk_vars enums system_name true (init_map, trans_map, []) system_check.local in
 
   List.map2 (fun map chk -> (fst chk,  snd map)) sys_def.trans_map trans_map  
 
 (** Reachibility queries in terms of invariance *)
 (* Simply states that the invariant variable must equal the formula. Makes no other claims *)
-let mk_trans_invar_prop_eqs one_query_prop_svars (system_check : Statement.sys_check) two_state_bound_var_map =  
+let mk_trans_invar_prop_eqs enums one_query_prop_svars (system_check : Statement.sys_check) two_state_bound_var_map =  
   one_query_prop_svars |> List.map (fun ((id: id), (svar: StateVar.t)) ->
     (* Typechecker should allow us to assume that the reachability prop is defined *)
     let prop = List.assoc id system_check.reachable in
-    let prop = KindTerm.mk_not (DU.dolmen_term_to_expr two_state_bound_var_map prop) in
+    let prop = KindTerm.mk_not (DU.dolmen_term_to_expr enums two_state_bound_var_map prop) in
     let var = Var.mk_state_var_instance svar Numeral.zero in
       (KindTerm.mk_eq
         [KindTerm.mk_var var; prop])
@@ -424,17 +410,17 @@ let mk_trans_invar_prop_eqs one_query_prop_svars (system_check : Statement.sys_c
   )
 
 (* TODO Determine if/why this init version is needed *)
-let mk_init_invar_prop_eqs one_query_prop_svars (system_check : Statement.sys_check) two_state_bound_var_map =  
+let mk_init_invar_prop_eqs enums one_query_prop_svars (system_check : Statement.sys_check) two_state_bound_var_map =  
   one_query_prop_svars |> List.map (fun ((id: id), (svar: StateVar.t)) ->
     (* Typechecker should allow us to assume that the reachability prop is defined *)
     let prop = List.assoc id system_check.reachable in
-    let prop = KindTerm.mk_not (DU.dolmen_term_to_expr two_state_bound_var_map prop) in
+    let prop = KindTerm.mk_not (DU.dolmen_term_to_expr enums two_state_bound_var_map prop) in
     let var = Var.mk_state_var_instance svar TransSys.init_base in
       (KindTerm.mk_eq
         [KindTerm.mk_var var; prop])
   )
 
-let mk_rprops (system_check : Statement.sys_check) two_state_bound_var_map = 
+let mk_rprops enums (system_check : Statement.sys_check) two_state_bound_var_map = 
   let reachability_svars = system_check.reachable |> List.map (fun (prop_id, prop) ->
     let system_name = DU.dolmen_id_to_string system_check.id in
     let scope = (system_name :: I.reserved_scope) in
@@ -447,8 +433,8 @@ let mk_rprops (system_check : Statement.sys_check) two_state_bound_var_map =
 
     (prop_id, svar)
   ) in
-  let init_invar_props = mk_init_invar_prop_eqs reachability_svars system_check two_state_bound_var_map in
-  let trans_invar_props = mk_trans_invar_prop_eqs reachability_svars system_check two_state_bound_var_map in
+  let init_invar_props = mk_init_invar_prop_eqs enums reachability_svars system_check two_state_bound_var_map in
+  let trans_invar_props = mk_trans_invar_prop_eqs enums reachability_svars system_check two_state_bound_var_map in
   (reachability_svars, init_invar_props, trans_invar_props)
 
 let mk_query (rprop_svars : (id * StateVar.t) list) query =
@@ -462,12 +448,12 @@ let mk_query (rprop_svars : (id * StateVar.t) list) query =
   let mk_var_kind_term svar = KindTerm.mk_var (Var.mk_state_var_instance svar TransSys.prop_base) in
   (query_id, KindTerm.mk_or (List.map mk_var_kind_term reachability_svars);)
 
-let check_trans_system base_system (system_check: Statement.sys_check) = 
+let check_trans_system enums base_system (system_check: Statement.sys_check) = 
   (* Map renamed check sys state vars (primed and unprimed) to actual system vars *)
-  let check_map = rename_check_vars base_system system_check in
+  let check_map = rename_check_vars enums base_system system_check in
 
   (* Make svars, init terms, and trans terms for each reachability prop *)
-  let reachability_svars, rprop_init_terms, rprop_trans_terms = mk_rprops system_check check_map in
+  let reachability_svars, rprop_init_terms, rprop_trans_terms = mk_rprops enums system_check check_map in
   
   (* Create a statevar for each reachability prop within a query *)
   (* Other reachability props are ignored *)
@@ -543,11 +529,10 @@ let check_trans_system base_system (system_check: Statement.sys_check) =
 
 
 let declare_const (const_decls, const_map) name return_type =   
-  (* TODO Add enum support *)
   let const_map, _, const_decls = mk_var "const-decl" false true (const_map, [], const_decls) (name, return_type) in
   (const_decls, const_map)
   
-let declare_fun name args return_type = 
+let declare_fun enums name args return_type = 
   let mk_fresh_vars types =
     let vars = List.map Var.mk_fresh_var types in
     List.map (fun var -> (Var.hstring_of_free_var var, var)) vars in
@@ -563,9 +548,9 @@ let declare_fun name args return_type =
   in
   uf_name
 
-let define_fun name args return_type body = 
+let define_fun enums name args return_type body = 
   let s_name = DU.dolmen_id_to_string name in
-  let named_vars, _, svars = mk_vars s_name true ([], [], []) (Some args) in  
+  let named_vars, _, svars = mk_vars enums s_name true ([], [], []) (Some args) in  
   let vars = List.map snd named_vars in
   let uf_name = UfSymbol.mk_uf_symbol
     s_name
@@ -575,28 +560,48 @@ let define_fun name args return_type body =
 
   (* TODO Handle enums *)
   (* let body_with_translated_enums = translate_sexp_atoms (gen_enum_conversion_map definitions.enums) body in *)
-  let body_term = DU.dolmen_term_to_expr named_vars body in
+  let body_term = DU.dolmen_term_to_expr enums named_vars body in
   TransSys.mk_d_fun uf_name return_type vars body_term 
+
+let process_enum_definition name attrs =
+  let count = Numeral.zero in
+  
+  let enum_type = Type.mk_type (Type.IntRange (count, (Numeral.of_int ((List.length attrs) - 1)), Type.Enum)) in
+  
+  let enum, _ = attrs |> List.fold_left ( fun (enums, count) enum_var -> 
+      (DU.{enums with to_int = (enum_var, count) :: enums.to_int ; to_str = (count, enum_var) :: enums.to_str}, Numeral.(count + Numeral.one))
+    ) ((DU.empty_enum name enum_type), count) 
+  in
+  enum
 
 let process_decl (definitions : definitions) (dec : Statement.decl) = 
   match dec with
   | Abstract (dec : Statement.abstract) -> (
-    let param_types, return_type = DU.dolmen_binding_to_types dec.ty in
+    let param_types, return_type = DU.dolmen_binding_to_types definitions.enums dec.ty in
     match param_types with 
       | [] -> 
         let const_decls = declare_const definitions.const_decls dec.id return_type  in
         {definitions with const_decls}
       | param_types -> 
-        let uf_name = declare_fun dec.id param_types return_type in
+        let uf_name = declare_fun definitions.enums dec.id param_types return_type in
         {definitions with ufunctions = uf_name :: definitions.ufunctions}
   )
   | Record r -> failwith "TODO: Record type function declarations are not yet supported. What are they?"
-  | Inductive r -> failwith "TODO: Inductive type function declarations are not yet supported. What are they?"
+  | Inductive (r: Statement.inductive) -> 
+    (* Delcare enum and Declare datatype *)
+    (* These inductive decls may be for more than just there. Currently we only support the format of delare enums *)
+    (* Assertions are present to try to prevent silent failures if a non-enum decl is passed. *)
+    assert (List.length r.vars == 0);
+    assert (List.length r.vars == 0);
+    List.iter (fun ts -> assert (List.length ts == 0)) (List.map snd r.cstrs);
 
-  
+    let enum_attrs = List.map fst r.cstrs in
+
+    {definitions with enums = (process_enum_definition r.id enum_attrs) :: definitions.enums}
+
 
 let process_def definitions (def : Statement.def) = 
-  let d_fun = define_fun def.id def.params (DU.type_of_dolmen_term def.ret_ty) def.body in 
+  let d_fun = define_fun definitions.enums def.id def.params (DU.type_of_dolmen_term definitions.enums def.ret_ty) def.body in 
   {definitions with functions = d_fun :: definitions.functions}
   
 let process_command definitions Statement.({id; descr; attrs; loc}) = 
@@ -614,7 +619,7 @@ let process_command definitions Statement.({id; descr; attrs; loc}) =
        Changes will be needed if we want to remove this assumption. *)
     let* checked_system = 
       match find_system defs c.id with
-       | Some system -> Ok (check_trans_system system c)
+       | Some system -> Ok (check_trans_system defs.enums system c)
        | None -> (error (E.SystemNotFound c.id)) in
 
     Ok (update_system defs checked_system)
