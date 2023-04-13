@@ -145,19 +145,34 @@ Kind 2 produces output reporting that the first four expressions are reachable, 
 For each reachable expression, Kind 2 prints a witness into a file.
 To print the witness in the terminal instead, you can pass ``--dump_witness false`` to Kind 2.
 
-Vacuity Checks
-^^^^^^^^^^^^^^
+Conditional Properties
+^^^^^^^^^^^^^^^^^^^^^^
 
-Kind 2 allows the user to check if a property ``A`` is invariant provided that some other property ``B`` is reachable using the 
-following syntax:
+Invariant properties of a node are often case-based, with each case describing what
+the component should do depending on a specific situation.
+These properties are usually encoded in conditional properties of the form 
+``situation => behavior``, and are often better represented in terms of the mode logic of
+a node (see subsection Modes in :ref:`9_other/2_contract_semantics`).
+However, these properties do not always imply modal behavior, or
+they are not defined in terms of the interface of a node.
+For those cases, Kind 2 allows the user to specify a conditional invariant property 
+of the form ``B => A`` as follows:
 
 .. code-block:: none
 
-   --check A provided B;
+   check A provided B;
 
-This is eqivalent to simultaneously checking if ``B => A`` is invariant and ``B`` is reachable. If ``B => A`` is in fact invariant,
-the reachability check lets the user know whether or not the implication is trivially true (which happens if ``B`` is unreachable).
+This dedicated syntax makes writing properties more straightforward and
+user-friendly, but also allows Kind 2 to trigger additional checks.
+A challenge for the user with these kinds of properties arises if the guard ``B``
+may always be false, for example due to a modeling error.
+The user may believe that the property is interesting and true,
+whereas the property is vacuously true.
 
+When the dedicated syntax above is used, Kind 2 simultaneously checks that
+``B => A`` is invariant and ``B`` is reachable. If ``B => A`` is in fact invariant,
+the reachability check lets the user know whether the implication is trivially true
+or not.
 
 .. _2_input/1_lustre#contracts:
 
