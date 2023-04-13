@@ -628,20 +628,23 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* Clock operators *)
   | When (_, e, _) -> r e
   | Current  (_, e) -> r e
-  | Condact (_, e1, e2, i, es1, es2) ->
-    let e1' = r e1 in
-    let e2' = r e2 in
-    let es1' = SI.flatten (List.map (r) es1) in
-    let es2' = SI.flatten (List.map (r) es2) in
-    let result = SI.union (SI.union e1' e2') (SI.union es1' es2') in
+  | Condact (pos, clk_exp, r_exp, node_id, es, ds) ->
+    let call_vars = r (Call (pos, node_id, es)) in
+    let default_vars =
+      match List.nth_opt ds proj with
+      | None -> SI.empty (* Ignore if arity is not correct *)
+      | Some e -> r e
+    in
+    SI.union default_vars (SI.union (SI.union (r clk_exp) (r r_exp)) call_vars)
+  | Activate (pos, node_id, clk_exp, r_exp, es) ->
+    let call_vars = r (Call (pos, node_id, es)) in
+    SI.union (SI.union (r clk_exp) (r r_exp)) call_vars
+  | Merge (_, i, es) ->
+    let result = es |> (List.map (fun (_, e) -> r e)) |> SI.flatten in
     SI.add i result
-  | Activate (_, _, e1, e2, es) ->
-    SI.union (SI.union (r e1) (r e2)) (SI.flatten (List.map r es))
-  | Merge (_, _, es) ->
-    es |> (List.map (fun (_, e) -> r e)) |> SI.flatten
-  | RestartEvery (_, i, es, e) ->
-    let result = SI.union (r e) (SI.flatten (List.map r es)) in
-    SI.add i result
+  | RestartEvery (pos, node_id, es, clk_exp) ->
+    let call_vars = r (Call (pos, node_id, es)) in
+    SI.union (r clk_exp) call_vars
 
   (* Temporal operators *)
   | Pre (_, _) -> SI.empty
@@ -807,13 +810,34 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
   | LA.Activate (pos, n, _, _, es) ->
      let node_call = LA.Call(pos, n, es) in
      mk_graph_expr2 m node_call
-  | LA.Merge (_, _, cs) ->
+  | LA.Merge (pos, clk_id, cs) -> (
      R.seq (List.map (fun (_, e) -> (mk_graph_expr2 m) e) cs) >>= fun gs ->
-     R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
-        (List.concat gs)] 
-  | LA.RestartEvery (p, n, es, _) ->
+     try
+      let gs' = 
+        List.tl gs |> List.fold_left (fun acc gs' ->
+          List.map2 union_dependency_analysis_data acc gs'
+        )
+        (List.hd gs)
+      in
+      let clk_g = singleton_dependency_analysis_data empty_hs clk_id pos in
+      R.ok (List.map (fun g -> union_dependency_analysis_data clk_g g) gs')
+     with Invalid_argument _ ->
+      let es = List.map snd cs in
+      let len = List.hd gs |> List.length in
+      let egs = List.combine (List.tl es) (List.tl gs) in
+      match List.find_opt (fun (_, l) -> List.length l <> len) egs with
+      | None -> assert false
+      | Some (e, _) -> (
+        let fst = List.hd es in
+        graph_error (LH.pos_of_expr fst) (WidthLengthsUnequal (fst, e))
+      )
+  )
+  | LA.RestartEvery (p, n, es, clk_exp) ->
      let node_call = LA.Call(p, n, es) in
-     mk_graph_expr2 m node_call
+     let* call_g = mk_graph_expr2 m node_call in
+     let* clk_g = mk_graph_expr2 m clk_exp in
+     let clk_g = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data clk_g in
+     R.ok (List.map (fun g -> union_dependency_analysis_data clk_g g) call_g)
   | LA.Pre (_, e) ->
      mk_graph_expr2 m e >>= fun g ->
        R.ok (List.map (map_g_pos (fun v -> HString.concat2 v (HString.mk_hstring "$p"))) g) 

@@ -149,6 +149,7 @@ let mk_span start_pos end_pos =
 %token WITH
 %token THEN
 %token ELSE
+%token ELSIF
 %token IMPL
 %token HASH
 %token FORALL
@@ -647,24 +648,43 @@ node_item:
   | p = check { p }
 
 
+elsif_list:
+  | ELSIF; e = expr; THEN ;
+      l1 = nonempty_list(node_item);
+  { [A.IfBlock(mk_pos $startpos, e, l1, [])] }
+  | ELSIF; e = expr; THEN ;
+      l1 = nonempty_list(node_item);
+    ELSE;
+      l2 = nonempty_list(node_item);
+  { [A.IfBlock(mk_pos $startpos, e, l1, l2)] }
+  | ELSIF; e = expr; THEN ;
+      l1 = nonempty_list(node_item); 
+    l2 = elsif_list;
+    { [A.IfBlock(mk_pos $startpos, e, l1, l2)] }
 
 node_if_block:
-  | IF; e = expr; 
-    THEN; 
+  | IF; e = expr; THEN; 
+      l1 = nonempty_list(node_item);
+    FI;
+    { A.IfBlock (mk_pos $startpos, e, l1, []) }
+  | IF; e = expr; THEN; 
       l1 = nonempty_list(node_item);
     ELSE; 
       l2 = nonempty_list(node_item);
     FI;
     { A.IfBlock (mk_pos $startpos, e, l1, l2) }
-  | IF; e = expr; THEN; 
-      l1 = nonempty_list(node_item);
+  | IF; e = expr; THEN;
+    l = nonempty_list(node_item);
+    block = elsif_list
     FI;
-    { A.IfBlock (mk_pos $startpos, e, l1, []) }
+    { A.IfBlock(mk_pos $startpos, e, l, block) }
+
+
 
 
 
 node_frame_block:
-  | FRAME; LPAREN; l1 = separated_list(COMMA, ident); RPAREN;
+  | FRAME; LPAREN; l1 = ident_list_pos; RPAREN;
     l2 = list(node_equation);
     LET;
     l3 = list(node_item);

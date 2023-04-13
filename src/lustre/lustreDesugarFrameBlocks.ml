@@ -311,6 +311,7 @@ match ni with
 let desugar_node_item node_id ni = match ni with
     (* All multiple assignment is removed in lustreRemoveMultAssign.ml *)
   | A.FrameBlock (pos, vars, nes, nis) ->
+    let vars = List.map snd vars in
     let* nis = R.seq (List.map (fill_ite_oracles pos node_id nes) nis) in
     let* nis2 = R.seq (List.map (generate_undefined_nes pos node_id nis) nes) in
     let nis2 = List.flatten nis2 in 

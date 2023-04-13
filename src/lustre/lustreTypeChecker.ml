@@ -1006,6 +1006,7 @@ and do_item: tc_context -> LA.node_item -> (unit, [> error]) result = fun ctx ->
       | e_ty -> type_error pos  (ExpectedBooleanExpression e_ty)
     )
   | LA.FrameBlock (pos, vars, nes, nis) -> 
+    let vars = List.map snd vars in
     let reassigned_consts = (SI.filter (fun e -> (member_val ctx e)) (SI.of_list vars)) in
     R.seq_ (
       (

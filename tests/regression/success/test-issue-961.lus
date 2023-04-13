@@ -1,0 +1,22 @@
+node  A(
+	__time_step : real; __nb_step : int;)
+returns(
+	Output_1 : bool; Output_2 : bool;);
+let
+	Output_1 = true;
+	Output_2 = false;
+tel
+
+node  B(
+	_isEnabled : bool; __time_step : real; __nb_step : int;)
+returns(
+	Output_1 : bool; Output_2 : bool;);
+var 
+	pre_Output_1 : bool; pre_Output_2 : bool;
+let
+	pre_Output_1 = false;
+	pre_Output_2 = false;
+	(Output_1, Output_2) = merge(_isEnabled;
+	(activate A every _isEnabled)(__time_step, __nb_step);
+	(pre_Output_1, pre_Output_2) when not(_isEnabled));	
+tel

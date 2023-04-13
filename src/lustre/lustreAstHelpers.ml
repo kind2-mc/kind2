@@ -879,8 +879,8 @@ let rec defined_vars_with_pos = function
   | IfBlock (_, _, l1, l2) -> 
     List.flatten (List.map defined_vars_with_pos l1) @
     List.flatten (List.map defined_vars_with_pos l2)
-  | FrameBlock (pos, vars, _, _) ->
-    List.map (fun var -> (pos, var)) vars
+  | FrameBlock (_, vars, _, _) ->
+    vars
   | _ -> [] 
 
 
