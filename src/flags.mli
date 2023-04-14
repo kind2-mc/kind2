@@ -162,10 +162,19 @@ val log_invs : unit -> bool
 (** Prints invariants **)
 val print_invs : unit -> bool
 
-(** Dump counterexample / deadlocking trace to a file **)
+(** Print counterexamples **)
+val print_cex : unit -> bool
+
+(** Print witnesses **)
+val print_witness : unit -> bool
+
+(** Dump counterexample to disproven invariant property to a file **)
 val dump_cex : unit -> bool
 
-(** Dump witness of reachability property to a file **)
+(** Set whether dumping counterexamples *)
+val set_dump_cex : bool -> unit
+
+(** Dump witness of proven reachability property to a file **)
 val dump_witness : unit -> bool
 
 (** Debug sections to enable *)
@@ -342,7 +351,7 @@ module BmcKind : sig
   val check_unroll : unit -> bool
 
   (** Print counterexamples to induction. *)
-  val print_cex : unit -> bool
+  val ind_print_cex : unit -> bool
 
   (** Compress inductive counterexample. *)
   val compress : unit -> bool
@@ -470,6 +479,9 @@ module Contracts : sig
 
   (** Print deadlocking trace and a conflict *)
   val print_deadlock : unit -> bool
+
+  (** Dump deadlocking trace to a file **)
+  val dump_deadlock : unit -> bool
 
   (** Check whether a unrealizable contract is satisfiable *)
   val check_contract_is_sat : unit -> bool
@@ -601,7 +613,7 @@ module MCS : sig
   val print_mcs_legacy : unit -> bool
 
   (** Print the counterexample found for each MCS *)
-  val print_mcs_counterexample : unit -> bool
+  val print_mcs_cex : unit -> bool
 
   (** If true, compute MCS over elements of the main node only *)
   val mcs_only_main_node : unit -> bool

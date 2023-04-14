@@ -266,7 +266,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
       if
         (Flags.BmcKind.compress ()) ||
         (Flags.BmcKind.lazy_invariants ()) ||
-        (Flags.BmcKind.print_cex ())
+        (Flags.BmcKind.ind_print_cex ())
       then 
 
         (* Get model for all variables *)
@@ -285,7 +285,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
 
   in
 
-  let print_cex = Flags.BmcKind.print_cex () in
+  let print_cex = Flags.BmcKind.ind_print_cex () in
 
   (* Function to run if unsat. *)
   let if_unsat _ = None in

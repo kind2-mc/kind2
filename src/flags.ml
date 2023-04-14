@@ -536,17 +536,17 @@ module BmcKind = struct
     )
   let check_unroll () = !check_unroll
 
-  let print_cex_default = false
-  let print_cex = ref print_cex_default
+  let ind_print_cex_default = false
+  let ind_print_cex = ref ind_print_cex_default
   let _ = add_spec
     "--ind_print_cex"
-    (bool_arg print_cex)
+    (bool_arg ind_print_cex)
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Print counterexamples to induction@ Default: %a@]"
-        fmt_bool print_cex_default
+        fmt_bool ind_print_cex_default
     )
-  let print_cex () = !print_cex
+  let ind_print_cex () = !ind_print_cex
 
   let compress_default = true
   let compress = ref compress_default
@@ -1156,13 +1156,25 @@ module Contracts = struct
       Format.fprintf fmt
       "@[<v>\
         Print a deadlocking trace and a conflict when@ \
-        a contract is proven unrealizable@ \
+        a contract is proven unrealizable.@ \
         Default: %a\
       @]"
       fmt_bool print_deadlock_default
     )
   let print_deadlock () = !print_deadlock
 
+  let dump_deadlock_default = false
+  let dump_deadlock = ref dump_deadlock_default
+  let _ = add_spec
+    "--dump_deadlock"
+    (bool_arg dump_deadlock)
+    (fun fmt ->
+      Format.fprintf fmt
+        "Dump deadlocking trace to a file. Only in plain text output.@ \
+        Default: %b"
+        dump_deadlock_default
+    )
+  let dump_deadlock () = ! dump_deadlock
 
   let check_contract_is_sat_default = true
   let check_contract_is_sat = ref check_contract_is_sat_default
@@ -1175,7 +1187,7 @@ let _ = add_spec
         Check whether a contract proven unrealizable is satisfiable@ \
         Default: %a\
       @]"
-      fmt_bool print_deadlock_default
+      fmt_bool check_contract_is_sat_default
     )
   let check_contract_is_sat () = !check_contract_is_sat
 
@@ -1662,8 +1674,8 @@ module IVC = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Disable the must-set optimisation.@ \
-          This setting is ignored if --ivc_must_set is true.@ \
+          Disable the must-set optimization.@ \
+          Ignored if --ivc_must_set is true.@ \
           Default: %a\
         "
         fmt_bool ivc_disable_must_opt_default
@@ -1866,21 +1878,21 @@ module MCS = struct
   let print_mcs_legacy () = !print_mcs_legacy
 
 
-  let print_mcs_counterexample_default = false
-  let print_mcs_counterexample = ref print_mcs_counterexample_default
+  let print_mcs_cex_default = false
+  let print_mcs_cex = ref print_mcs_cex_default
   let _ = add_spec
-    "--print_mcs_counterexample"
-    (bool_arg print_mcs_counterexample)
+    "--print_mcs_cex"
+    (bool_arg print_mcs_cex)
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Print a counterexample for each MCS found@ \
-          (ignored if --print_mcs_legacy is true)@ \
+          Print a counterexample for each MCS found.@ \
+          Ignored if --print_mcs_legacy is true@ \
           Default: %a\
         "
-        fmt_bool print_mcs_counterexample_default
+        fmt_bool print_mcs_cex_default
     )
-  let print_mcs_counterexample () = !print_mcs_counterexample
+  let print_mcs_cex () = !print_mcs_cex
 
 
   let mcs_per_property_default = true
@@ -2782,7 +2794,36 @@ module Global = struct
         print_invs_default
     )
   let print_invs () = ! print_invs
+  
+  let print_cex_default = true
+  let print_cex = ref print_cex_default
+  let _ = add_spec
+    "--print_cex"
+    (bool_arg print_cex)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Print counterexamples to (disproven) invariant properties.@ \
+        Only in plain text output. Default: %a\
+      @]"
+      fmt_bool print_cex_default
+    )
+  let print_cex () = !print_cex
 
+  let print_witness_default = false
+  let print_witness = ref print_witness_default
+  let _ = add_spec
+    "--print_witness"
+    (bool_arg print_witness)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Print witnesses of proven reachability properties.@ \
+        Only in plain text output. Default: %a\
+      @]"
+      fmt_bool print_witness_default
+    )
+  let print_witness () = !print_witness
 
   (* Dump counterexample to a file. *)
   let dump_cex_default = false
@@ -2792,23 +2833,24 @@ module Global = struct
     (bool_arg dump_cex)
     (fun fmt ->
       Format.fprintf fmt
-        "Dump counterexample of invariant property / deadlocking trace to a file.@ \
-        Only in plain text output.@ \
+        "Dump counterexamples to a file instead of printing them in stdout.@ \
+        Only in plain text output. Implies --print_cex true.@ \
         Default: %b"
         dump_cex_default
     )
+  let set_dump_cex b = dump_cex := b
   let dump_cex () = ! dump_cex
 
   (* Dump witness to a file. *)
-  let dump_witness_default = true
+  let dump_witness_default = false
   let dump_witness = ref dump_witness_default
   let _ = add_spec
     "--dump_witness"
     (bool_arg dump_witness)
     (fun fmt ->
       Format.fprintf fmt
-        "Dump witness of reachability property to a file.@ \
-        Only in plain text output.@ \
+        "Dump witnesses to a file instead of printing them in stdout.@ \
+        Only in plain text output. Implies --print_witness true.@ \
         Default: %b"
         dump_witness_default
     )
@@ -3310,7 +3352,10 @@ let output_dir = Global.output_dir
 let include_dirs = Global.include_dirs
 let log_invs = Global.log_invs
 let print_invs = Global.print_invs
+let print_cex = Global.print_cex
+let print_witness = Global.print_witness
 let dump_cex = Global.dump_cex
+let set_dump_cex = Global.set_dump_cex
 let dump_witness = Global.dump_witness
 let only_parse = Global.only_parse
 let lsp = Global.lsp

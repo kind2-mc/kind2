@@ -207,7 +207,7 @@ let attach_approx_to_print_data data approx =
 
 let print_mcs_counterexample in_sys param sys typ fmt (prop, cex) =
   try
-    if Flags.MCS.print_mcs_counterexample ()
+    if Flags.MCS.print_mcs_cex () || Flags.dump_cex ()
     then
       match typ with
       | `PT ->
