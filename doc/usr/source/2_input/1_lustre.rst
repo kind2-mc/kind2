@@ -142,8 +142,9 @@ The second example demonstrates reachability properties using a single ``counter
    tel
 
 Kind 2 produces output reporting that the first four expressions are reachable, while the last is not.
-For each reachable expression, Kind 2 prints a witness into a file.
-To print the witness in the terminal instead, you can pass ``--dump_witness false`` to Kind 2.
+If you want to print a witness in the standard output for each proven reachability property,
+pass ``--print_witness true`` to Kind 2. To dump the witness to a file instead,
+pass ``--dump_witness true`` to Kind 2.
 
 Conditional Properties
 ^^^^^^^^^^^^^^^^^^^^^^

@@ -253,7 +253,7 @@ let pp_print_realizability_result_pt
   | Unrealizable u_res ->
     print_not_unknown_result Pretty.failure_tag ;
 
-    if Flags.Contracts.print_deadlock () then (
+    if Flags.Contracts.print_deadlock () || Flags.Contracts.dump_deadlock () then (
       KEvent.log L_note "Computing deadlocking trace and conflict..." ;
       let trace, core =
         compute_unviable_trace_and_core
@@ -262,6 +262,10 @@ let pp_print_realizability_result_pt
       let cpd =
         ME.loc_core_to_print_data in_sys sys core_desc None core
       in
+      (* Store dump_cex value *)
+      let dump_cex = Flags.dump_cex () in 
+      (* dump_deadlock uses same infrastructure as dump_cex*)
+      Flags.set_dump_cex (Flags.Contracts.dump_deadlock ()) ; 
       Format.fprintf
         fmt
         "@[<v>%a@]@."
@@ -269,6 +273,8 @@ let pp_print_realizability_result_pt
           ~title:"Deadlocking trace" ~color:"red" (Flags.dump_cex ())
           L_warn in_sys param sys None true)
         trace ;
+      (* Restore dump_cex value *)
+      Flags.set_dump_cex dump_cex ;
 
       Format.fprintf
         fmt
