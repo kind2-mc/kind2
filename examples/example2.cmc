@@ -1,12 +1,22 @@
 (set-logic QF_UFDTLIA)
 (declare-enum-sort LightStatus (On Off))
+(declare-const one Int)
+(define-fun flip ((s LightStatus)) LightStatus (ite (= s Off) On Off))
+
+(define-system init
+  :output ((l LightStatus) (t Int))
+  :local ((w LightStatus))
+  :init (and (= t 0) (= l Off))
+)
 
 (define-system TimedLight
   :output ((l LightStatus))
   :local ((t Int))
-  :init(and (= t 0) (= l Off))
-  :trans (and (ite (>= t 3) (= l' On) (= l' l)) 
-              (= t' (+ t 1)))
+  ; :init (and (= t 0) (= l Off))
+  :subsys (intro (init l t))
+  :inv (= one 1)
+  :trans (and (ite (>= t 3) (= l' (flip l)) (= l' l)) 
+              (= t' (+ t one)))
 )
 
 (check-system TimedLight
