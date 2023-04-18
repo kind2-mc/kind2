@@ -641,8 +641,7 @@ let process_command definitions Statement.({id; descr; attrs; loc}) =
 let of_file filename = 
 
   (* Parse and Typecheck file with Dolmen *)
-  let format, _, statements = M.parse_file filename in
-  let t = DU.process [] filename None in
+  let statements = DU.process filename in
   
   let* cmc_defs =
     List.fold_left process_command (Ok empty_definitions) statements

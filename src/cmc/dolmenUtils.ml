@@ -1,5 +1,13 @@
 open Dolmen
 
+(* Instantiate a module for parsing logic languages *)
+module Logic = Class.Logic.Make(Std.Loc)(Std.Id)(Std.Term)(Std.Statement)
+
+(* instantiate the modules for typechecking *)
+module State = Dolmen_loop.State
+module Typer_aux = Dolmen_loop.Typer.Typer(State)
+module Typer = Dolmen_loop.Typer.Make(Std.Expr)(Std.Expr.Print)(State)(Typer_aux)
+
 module KindTerm = Term
 
 (* Instantiate a module for parsing logic languages *)
@@ -515,85 +523,75 @@ let rec opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
   match term with
     | Some term -> dolmen_term_to_expr' dolmen_term_to_expr enum_map bound_vars term 
     | None -> KindTerm.mk_true ()
-
-(* TODO Find a better way to typecheck without re-paring the file *)
-(* This code should be changed once we know how to properly use the Dolmen 
-   Typechecker interface *)
-module State = Dolmen_loop.State
-module Pipeline = Dolmen_loop.Pipeline.Make(State)
-
-module Parser = Dolmen_loop.Parser.Make(State)
-module Header = Dolmen_loop.Headers.Make(State)
-module Typer = Dolmen_loop.Typer.Typer(State)
-module Typer_Pipe = Dolmen_loop.Typer.Make(Dolmen.Std.Expr)(Dolmen.Std.Expr.Print)(State)(Typer)
-
-exception Finished of (State.t, string) result
   
-let handle_exn st = function
-  (* Internal exception used for jumping *)
-  | State.Error st -> Ok st
+  let process file =
 
-  (* Simple error cases *)
-  | Dolmen_loop.Pipeline.Sigint -> Error "user interrupt"
-  | Dolmen_loop.Alarm.Out_of_time -> Error "timeout"
-  | Dolmen_loop.Alarm.Out_of_space -> Error "memoryout"
-  (* Fallback *)
-  | exn ->
-    let bt = Printexc.get_raw_backtrace () in
-    Ok (State.error st
-          Dolmen_loop.Report.Error.uncaught_exn (exn, bt))
-
-let finally st e =
-  match e with
-  | None -> st
-  | Some (bt,exn) ->
-    (* Print the backtrace if requested *)
-    if Printexc.backtrace_status () then
-      Printexc.print_raw_backtrace stdout bt;
-    let res = handle_exn st exn in
-    raise (Finished res)
-let process prelude path opt_contents =
-  let dir = Filename.dirname path in
-  let file = Filename.basename path in
-  let l_file : _ State.file = {
-    lang = None; mode = None; dir;
-    loc = Dolmen.Std.Loc.mk_file "";
-    source =match opt_contents with
-      | None -> `File file
-      | Some contents -> `Raw (file, contents);
-  } in
-  let r_file : _ State.file = {
-    lang = None; mode = None; dir;
-    loc = Dolmen.Std.Loc.mk_file "";
-    source = `Raw ("", "");
-  } in
-  let reports = Dolmen_loop.Report.Conf.mk ~default:Enabled in
-  let st =
-    State.empty
-    |> State.init
-      ~debug:false ~report_style:Regular ~reports
-      ~max_warn:max_int ~time_limit:0. ~size_limit:max_float
-      ~logic_file:l_file ~response_file:r_file
-    |> Parser.init ~syntax_error_ref:false
-    |> Typer.init
-    |> Typer_Pipe.init ~type_check:true
-    |> Header.init
-      ~header_check:false
-      ~header_licenses:[]
-      ~header_lang_version:None
-  in
-  try
-    let st, g = Parser.parse_logic prelude st l_file in
-    let open Pipeline in
-    let st = run ~finally g st (
-        (fix (op ~name:"expand" Parser.expand) (
-            (op ~name:"headers" Header.inspect)
-            @>>> (op ~name:"typecheck" Typer_Pipe.typecheck)
-            @>|> (op (fun st _ -> st, ())) @>>> _end
-          )
-        )
-      ) in
-    Ok st
-  with
-  | Finished res -> res
-  | exn -> handle_exn st exn
+    (* *** Parsing ********************************************************** *)
+  
+  
+    (* Parse the file, and we get a tuple:
+      - format: the guessed format (according to the file extension)
+      - loc: some meta-data used for source file locations
+      - statements: the list of top-level directives found in the file *)
+    let apply_msg (fmt: Format.formatter) (msg : Format.formatter -> unit) = 
+      msg fmt in
+      
+    let format, loc, parsed_statements = try Logic.parse_file file with 
+      Dolmen.Std.Loc.Syntax_error (loc, e) -> match e with
+        (** [Syntax_error (loc, msg)] denotes a syntax error at the given location.
+        In the [`Advanced (error_ref, prod, parsed, expected)] case,
+        - error_ref is an identifier for the error state
+        - prod is a delayed message to print in order to identify which
+          production/syntax construction the parser was trying to reduce,
+        - parsed is a description of the token which raised the error,
+        - expected is a messages describing what would have been corect
+          tokens/inputs at that point. *)
+        | `Regular msg -> (Format.printf "Error: %a" apply_msg msg ) ; failwith "\tA Parser failure occured"
+        | `Advanced (error_ref, prod, parsed, expected) -> (Format.printf "Error %a\nParsed: %a\nExpected: %a" apply_msg prod apply_msg parsed apply_msg expected) ; failwith "A Parser failure occured"
+    in
+  
+    (* You can match on the detected format of the input *)
+    let () =
+      match format with
+      | Logic.Dimacs | Logic.ICNF -> ()
+      | Logic.Alt_ergo | Logic.Smtlib2 _ | Logic.Tptp _ | Logic.Zf | Logic.CMC _-> ()
+    in
+  
+    (* *** Typing *********************************************************** *)
+  
+    (* Typing errors have a retcode associated to them, so that any typing
+       error results in *)
+  
+    (* create the logic file corresponding to our input *)
+    let lang : Dolmen_loop.Logic.language = Smtlib2 `Latest in
+    let logic_file = State.mk_file ~lang ~loc "./" (`File file) in
+    let response_file = State.mk_file "" (`File "this is unused") in
+  
+    (* let's create the initial state *)
+    let state =
+      State.empty
+      |> State.init
+         ~debug:false ~report_style:Contextual ~max_warn:max_int
+         ~reports:(Dolmen_loop.Report.Conf.mk ~default:Enabled)
+         ~logic_file ~response_file
+         (* these limits are ignored in this example; to actually enforce
+            the limits, one has to use the `run` function from `Dolmen_loop.Pipeline` *)
+         ~time_limit:0. ~size_limit:0.
+      |> Typer_aux.init
+      |> Typer.init ~type_check:true
+    in
+  
+    (* We can loop over the parsed statements to generated the typed statements *)
+    let final_state, rev_typed_stmts =
+      List.fold_left (fun (state, acc) parsed_stmt ->
+        let state, typed_stmt = Typer.check state parsed_stmt in
+        (state, typed_stmt :: acc)
+      ) (state, []) parsed_statements
+    in
+    let typed_stmts = List.rev rev_typed_stmts in
+  
+    (* let's print the typed statements *)
+    List.iter (fun typed_stmt ->
+      Format.printf "%a@\n@." Typer.print typed_stmt
+    ) typed_stmts ;
+    parsed_statements
