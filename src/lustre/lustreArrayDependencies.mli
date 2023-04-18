@@ -28,7 +28,7 @@ val error_message: error_kind -> string
 (** Returns an message describing the error kind *)
 
 type error = [
-  | `LustreArrayDependencies of Lib.position * error_kind
+  | `LustreArrayDependencies of Position.position * error_kind
 ]
 
 val check_inductive_array_dependencies: TypeCheckerContext.tc_context

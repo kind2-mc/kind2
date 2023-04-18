@@ -1077,7 +1077,7 @@ and eval_contract_item check ~typ scope (ctx, accum, count) (pos, iname, expr) =
                 pp_print_list (
                   fun fmt (pos, name) ->
                     Format.fprintf fmt "%s%a"
-                      name pp_print_line_and_column pos
+                      name Position.pp_print_line_and_column pos
                 ) ", "
               )
         in
@@ -1403,7 +1403,7 @@ and eval_node_contract_call
                           fun fmt (pos, name) ->
                             Format.fprintf fmt "%a%a"
                               HString.pp_print_hstring name
-                              pp_print_line_and_column pos
+                              Position.pp_print_line_and_column pos
                         ) ", "
                       )
                   in
@@ -2108,7 +2108,7 @@ and declaration_to_context ctx = function
         functions cannot have any state@]"
         (I.pp_print_ident false) ident
         desc
-        pp_print_position illegal_pos
+        Position.pp_print_position illegal_pos
     )
     | None -> ()
   in

@@ -27,7 +27,7 @@ val main :
 val log_test_glue_file:
   string ->
   string ->
-  (string * (Lib.position * int) list * (string * Lib.position * int) list) ->
+  (string * (Position.position * int) list * (string * Position.position * int) list) ->
   string ->
   string list ->
   unit

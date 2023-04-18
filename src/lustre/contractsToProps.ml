@@ -17,6 +17,7 @@
 *)
 
 open Lib
+open Position
 
 module Ast = LustreAst
 module LE = LustreErrors

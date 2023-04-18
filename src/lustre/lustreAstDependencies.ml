@@ -58,7 +58,7 @@ let error_message error = match error with
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident " -> ") ids)
 
 type error = [
-  | `LustreAstDependenciesError of Lib.position * error_kind
+  | `LustreAstDependenciesError of Position.position * error_kind
 ]
 
 let graph_error pos kind = Error (`LustreAstDependenciesError (pos, kind))
@@ -89,7 +89,7 @@ module IntMap = struct
   (* let keys: 'a t -> key list = fun m -> List.map fst (bindings m) *)            
 end
 
-type id_pos_map = (Lib.position list) IMap.t
+type id_pos_map = (Position.position list) IMap.t
 (** stores all the positions of the occurance of an id *)
 
 type node_summary = ((int list) IntMap.t) IMap.t
@@ -166,7 +166,7 @@ let pp_print_id_pos ppf m =
   Lib.pp_print_list (fun ppf (i, b) ->
       Format.fprintf ppf "(%a :-> %a)"
         LA.pp_print_ident i
-        (Lib.pp_print_list Lib.pp_print_position ", ") b)  ", "
+        (Lib.pp_print_list Position.pp_print_position ", ") b)  ", "
     ppf (IMap.bindings m)
 *)
 
@@ -185,7 +185,7 @@ let empty_dependency_analysis_data =
   ; nsummary2 = empty_node_summary
   }
   
-let add_pos: id_pos_map -> LA.ident -> Lib.position -> id_pos_map = fun m i p ->
+let add_pos: id_pos_map -> LA.ident -> Position.position -> id_pos_map = fun m i p ->
   IMap.update i
     (function
      | None -> Some ([p])
@@ -195,16 +195,16 @@ let add_pos: id_pos_map -> LA.ident -> Lib.position -> id_pos_map = fun m i p ->
 let union_pos: id_pos_map -> id_pos_map -> id_pos_map = fun m1 m2 ->
   IMap.union (fun _ v1 v2 -> Some (v1@v2)) m1 m2
 
-let singleton_pos: LA.ident -> Lib.position -> id_pos_map = fun i p ->
+let singleton_pos: LA.ident -> Position.position -> id_pos_map = fun i p ->
   IMap.singleton i [p]
 
-let find_id_pos: id_pos_map -> LA.ident -> Lib.position option = fun m i ->
+let find_id_pos: id_pos_map -> LA.ident -> Position.position option = fun m i ->
   match (IMap.find_opt i m) with
   | None -> None
   | Some [] -> None
   | Some (p::_) -> Some p 
                   
-let singleton_dependency_analysis_data: HString.t -> LA.ident -> Lib.position -> dependency_analysis_data =
+let singleton_dependency_analysis_data: HString.t -> LA.ident -> Position.position -> dependency_analysis_data =
   fun prefix i p ->
     { graph_data = G.singleton (HString.concat2 prefix i)
     ; graph_data2 = G.singleton (HString.concat2 prefix i)
@@ -223,7 +223,7 @@ let union_dependency_analysis_data : dependency_analysis_data -> dependency_anal
     ; nsummary = IMap.union (fun _ _ v2 -> Some v2) ns1 ns2
     ; nsummary2 = IMap.union (fun _ _ v2 -> Some v2) n1 n2 }
 
-let connect_g_pos: dependency_analysis_data -> LA.ident -> Lib.position -> dependency_analysis_data =
+let connect_g_pos: dependency_analysis_data -> LA.ident -> Position.position -> dependency_analysis_data =
   fun ad i p ->
     { ad with graph_data = G.connect ad.graph_data i
     ; graph_data2 = G.connect ad.graph_data2 i
@@ -339,8 +339,8 @@ and mk_graph_expr ?(only_modes = false)
 (*   | e -> 
      Log.log L_trace "%a located at %a"
        LA.pp_print_expr e
-       Lib.pp_print_position (LH.pos_of_expr e) 
-     ; Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))   *)
+       Position.pp_print_position (LH.pos_of_expr e) 
+     ; Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Position.pp_print_position (LH.pos_of_expr e))   *)
 (** This graph is useful for analyzing top level constant and type declarations *)
        
 let mk_graph_const_decl: LA.const_decl -> dependency_analysis_data
@@ -365,7 +365,7 @@ let mk_graph_type_decl: LA.type_decl -> dependency_analysis_data
  * Type 2: Dependency Analysis Between nodes and contracts *
  ***********************************************************)
                             
-let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
+let rec get_node_call_from_expr: LA.expr -> (LA.ident * Position.position) list
   = function
   | Ident _ -> []
   | ModeRef (pos, ids) ->
@@ -419,7 +419,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Node calls *)
   | LA.Call (pos, i, es) -> (HString.concat2 node_prefix i, pos) :: List.flatten (List.map get_node_call_from_expr es)
-  | LA.CallParam _ as e-> Lib.todo (__LOC__ ^ (Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e)))
+  | LA.CallParam _ as e-> Lib.todo (__LOC__ ^ (Lib.string_of_t Position.pp_print_position (LH.pos_of_expr e)))
 (** Returns all the node calls from an expression *)
 
 let mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysis_data
@@ -456,13 +456,13 @@ let mk_graph_contract_node_eqn: LA.contract_node_equation -> dependency_analysis
           (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
 (** This builds a graph with all the node call dependencies from the equations of the contract  *)
        
-let mk_graph_contract_decl: Lib.position -> LA.contract_node_decl -> dependency_analysis_data
+let mk_graph_contract_decl: Position.position -> LA.contract_node_decl -> dependency_analysis_data
   = fun pos (i , _, _, _, c) ->
   connect_g_pos (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map mk_graph_contract_node_eqn c))
     (HString.concat2 contract_prefix i) pos
 (** This builds a graph with all the node call dependencies from the equations of the contract  *)
   
-let rec extract_node_calls_item: LA.node_item -> (LA.ident * Lib.position) list
+let rec extract_node_calls_item: LA.node_item -> (LA.ident * Position.position) list
 = function
   | LA.Body bneq ->
     (match bneq with
@@ -479,10 +479,10 @@ let rec extract_node_calls_item: LA.node_item -> (LA.ident * Lib.position) list
   | _ -> []
 (** Extracts all the node calls from a node item *)
 
-and extract_node_calls: LA.node_item list -> (LA.ident * Lib.position) list
+and extract_node_calls: LA.node_item list -> (LA.ident * Position.position) list
 = fun l -> List.fold_left (fun acc i -> extract_node_calls_item i @ acc) [] l
   
-let mk_graph_node_decl: Lib.position -> LA.node_decl -> dependency_analysis_data
+let mk_graph_node_decl: Position.position -> LA.node_decl -> dependency_analysis_data
   = fun pos (i, _, _, _, _, _, nitems, contract_opt) ->    
   let cg = connect_g_pos
              (match contract_opt with
@@ -507,7 +507,7 @@ let mk_graph_node_decl: Lib.position -> LA.node_decl -> dependency_analysis_data
 let add_decl: 'a IMap.t -> LA.ident -> 'a -> 'a IMap.t
   = fun m i dec -> IMap.add i dec m
                  
-let check_and_add: 'a IMap.t -> Lib.position
+let check_and_add: 'a IMap.t -> Position.position
                    -> HString.t -> LA.ident -> 'a -> (('a IMap.t), [> error]) result
   = fun m pos prefix i tyd ->
   let i' = HString.concat2 prefix i in
@@ -805,7 +805,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      R.seq (List.map (mk_graph_expr2 m) e2s) >>= fun d_gs -> 
      let default_gs = List.concat d_gs in
      if List.length gs != List.length default_gs
-     then graph_error pos (WidthLengthsUnequal (node_call, LA.GroupExpr (Lib.dummy_pos, LA.ExprList, e2s)))
+     then graph_error pos (WidthLengthsUnequal (node_call, LA.GroupExpr (Position.dummy_pos, LA.ExprList, e2s)))
      else R.ok (List.map2 union_dependency_analysis_data gs default_gs)
   | LA.Activate (pos, n, _, _, es) ->
      let node_call = LA.Call(pos, n, es) in
@@ -882,7 +882,7 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
                   | None -> empty_dependency_analysis_data)
                   b)
            ) sum_bds))
-  | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Lib.pp_print_position (LH.pos_of_expr e))
+  | e -> Lib.todo (__LOC__ ^ " " ^ Lib.string_of_t Position.pp_print_position (LH.pos_of_expr e))
 (** This graph is useful for analyzing equations assuming that the nodes/contract call
     recursive calling has been resolved already.
     The generated graph would be useful only if the 
@@ -1226,7 +1226,7 @@ let mk_graph_eqn: node_summary
       | LA.FieldSelection (p, _, _)
       | LA.ArraySliceStructItem (p, _, _)
       ->  Lib.todo ("Parsing not supported" ^ __LOC__
-                    ^ " " ^ Lib.string_of_t Lib.pp_print_position p) in
+                    ^ " " ^ Lib.string_of_t Position.pp_print_position p) in
 
       
   fun m -> function

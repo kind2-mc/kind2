@@ -40,7 +40,7 @@ type instance =
   {
 
     (* Position as a unique identifier of the instance *)
-    pos : position;
+    pos : Position.position;
 
     (* Map from state variables of the called system to the state variables of
        the this system *)
@@ -209,7 +209,7 @@ let pp_print_instance ppf { pos; map_down; map_up } =
     "@[<hv 1>(%a@ \
               @[<hv 1>(%a)@]@ \
               @[<hv 1>(%a)@])@]" 
-    pp_print_position pos
+    Position.pp_print_position pos
     (pp_print_list pp_print_state_var_pair "@ ") (SVM.bindings map_down) 
     (pp_print_list pp_print_state_var_pair "@ ") (SVM.bindings map_up) 
 
@@ -799,7 +799,7 @@ let get_sofar_term trans_sys pos =
         match acc' with
         | None -> (
           List.find_opt
-            (fun (_, {pos = p}) -> equal_pos pos p)
+            (fun (_, {pos = p}) -> Position.equal_pos pos p)
             instances
         )
         | _ -> acc'

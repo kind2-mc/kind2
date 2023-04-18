@@ -233,7 +233,7 @@ let subsystems_of_sexpr = function
     in
 
     let inst = {
-      TransSys.pos = Lib.dummy_pos;
+      TransSys.pos = Position.dummy_pos;
       map_down;
       map_up;
       guard_clock;
@@ -254,12 +254,12 @@ let file_row_col_of_string s =
   Scanf.sscanf s "%s@:%d-%d" (fun x1 x2 x3-> x1, x2, x3)
 
 let prop_source_of_sexpr prop_term = function
-  | [] -> Property.PropAnnot Lib.dummy_pos
+  | [] -> Property.PropAnnot Position.dummy_pos
 
   | [HS.Atom c; HS.Atom pos]
     when c == s_annot || c == s_contract ->
     let frc_pos = file_row_col_of_string (HString.string_of_hstring pos) in
-    let ppos = Lib.pos_of_file_row_col frc_pos in
+    let ppos = Position.pos_of_file_row_col frc_pos in
     if c == s_annot then Property.PropAnnot ppos
     else assert false
 
@@ -281,10 +281,10 @@ let prop_source_of_sexpr prop_term = function
   | [HS.Atom c; HS.Atom pos; HS.Atom scopedprop] ->
 
     let frc_pos = file_row_col_of_string (HString.string_of_hstring pos) in
-    let ppos = Lib.pos_of_file_row_col frc_pos in
+    let ppos = Position.pos_of_file_row_col frc_pos in
     let _, scope =
       Lib.extract_scope_name (HString.string_of_hstring scopedprop) in
-    if c == s_assumption then Property.Assumption (ppos, (scope, Lib.dummy_pos))
+    if c == s_assumption then Property.Assumption (ppos, (scope, Position.dummy_pos))
     else if c == s_guarantee then Property.Guarantee (ppos, scope)
     else if c = s_guaranteeonemodeactive then
       Property.GuaranteeOneModeActive (ppos, scope)
@@ -637,7 +637,7 @@ let pp_print_state_var sys ppf state_var =
        then Format.fprintf ppf "@ :init-flag")
 
 let pp_pos ppf pos =
-  let f,r,c = file_row_col_of_pos pos in
+  let f,r,c = Position.file_row_col_of_pos pos in
   Format.fprintf ppf "%s:%d-%d" f r c
   
 

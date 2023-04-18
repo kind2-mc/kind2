@@ -38,7 +38,7 @@ type error_kind = Unknown of string
   | OutOfBounds of string
 
 type error = [
-  | `LustreAstInlineConstantsError of Lib.position * error_kind
+  | `LustreAstInlineConstantsError of Position.position * error_kind
 ]
 
 val error_message: error_kind -> string

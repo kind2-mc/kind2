@@ -24,8 +24,8 @@ let pp_print_fname_json ppf fname =
 let lsp_type_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
   function
   | LustreAst.AliasType (_, id, _) | LustreAst.FreeType (_, id) ->
-      let file, slnum, scnum = Lib.file_row_col_of_pos spos in
-      let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
+      let file, slnum, scnum = Position.file_row_col_of_pos spos in
+      let _, elnum, ecnum = Position.file_row_col_of_pos epos in
       Format.fprintf ppf
         ",@.{@[<v 1>@,\
          \"objectType\" : \"lsp\",@,\
@@ -46,8 +46,8 @@ let lsp_const_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
   | LustreAst.FreeConst (_, id, _)
   | LustreAst.UntypedConst (_, id, _)
   | LustreAst.TypedConst (_, id, _, _) ->
-      let file, slnum, scnum = Lib.file_row_col_of_pos spos in
-      let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
+      let file, slnum, scnum = Position.file_row_col_of_pos spos in
+      let _, elnum, ecnum = Position.file_row_col_of_pos epos in
       Format.fprintf ppf
         ",@.{@[<v 1>@,\
          \"objectType\" : \"lsp\",@,\
@@ -65,8 +65,8 @@ let lsp_const_decl_json ppf { Ast.start_pos = spos; Ast.end_pos = epos } =
 
 let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
     (id, imported, _, _, _, _, _, _) =
-  let file, slnum, scnum = Lib.file_row_col_of_pos spos in
-  let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
+  let file, slnum, scnum = Position.file_row_col_of_pos spos in
+  let _, elnum, ecnum = Position.file_row_col_of_pos epos in
   Format.fprintf ppf
     ",@.{@[<v 1>@,\
      \"objectType\" : \"lsp\",@,\
@@ -84,8 +84,8 @@ let lsp_node_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
 
 let lsp_function_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
     (id, imported, _, _, _, _, _, _) =
-  let file, slnum, scnum = Lib.file_row_col_of_pos spos in
-  let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
+  let file, slnum, scnum = Position.file_row_col_of_pos spos in
+  let _, elnum, ecnum = Position.file_row_col_of_pos epos in
   Format.fprintf ppf
     ",@.{@[<v 1>@,\
      \"objectType\" : \"lsp\",@,\
@@ -103,8 +103,8 @@ let lsp_function_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
 
 let lsp_contract_json ppf { Ast.start_pos = spos; Ast.end_pos = epos }
     (id, _, _, _, _) =
-  let file, slnum, scnum = Lib.file_row_col_of_pos spos in
-  let _, elnum, ecnum = Lib.file_row_col_of_pos epos in
+  let file, slnum, scnum = Position.file_row_col_of_pos spos in
+  let _, elnum, ecnum = Position.file_row_col_of_pos epos in
   Format.fprintf ppf
     ",@.{@[<v 1>@,\
      \"objectType\" : \"lsp\",@,\

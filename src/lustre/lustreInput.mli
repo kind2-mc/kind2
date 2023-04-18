@@ -108,16 +108,16 @@
 exception NoMainNode of string
 
 type error = [
-  | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
-  | `LustreAstDependenciesError of Lib.position * LustreAstDependencies.error_kind
-  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
+  | `LustreArrayDependencies of Position.position * LustreArrayDependencies.error_kind
+  | `LustreAstDependenciesError of Position.position * LustreAstDependencies.error_kind
+  | `LustreAstInlineConstantsError of Position.position * LustreAstInlineConstants.error_kind
   | `LustreAstNormalizerError
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
-  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
-  | `LustreUnguardedPreError of Lib.position * LustreAst.expr
-  | `LustreParserError of Lib.position * string
-  | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
-  | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
+  | `LustreSyntaxChecksError of Position.position * LustreSyntaxChecks.error_kind
+  | `LustreTypeCheckerError of Position.position * LustreTypeChecker.error_kind
+  | `LustreUnguardedPreError of Position.position * LustreAst.expr
+  | `LustreParserError of Position.position * string
+  | `LustreDesugarIfBlocksError of Position.position * LustreDesugarIfBlocks.error_kind
+  | `LustreDesugarFrameBlocksError of Position.position * LustreDesugarFrameBlocks.error_kind
 ]
 
 (** [of_file only_parse f] parse Lustre model from file [f], and

@@ -356,7 +356,7 @@ module GhostInstance = struct
     let pp_print_cxt ppf = function
       | {call_inst = None} -> Format.fprintf ppf ""
       | {call_inst = Some ci} ->
-          let _, line, col = file_row_col_of_pos ci.Sys.pos in
+          let _, line, col = Position.file_row_col_of_pos ci.Sys.pos in
           Format.fprintf ppf "_%d_%d" line col
     in
     let pp_print_svar_lustre_name ppf (n, s, c) =

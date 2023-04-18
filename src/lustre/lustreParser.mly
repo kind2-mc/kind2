@@ -18,12 +18,11 @@
 
 
 %{
-open Lib
 open LustreReporting
    
 module A = LustreAst
           
-let mk_pos = position_of_lexing 
+let mk_pos = Position.position_of_lexing 
 
 let mk_span start_pos end_pos =
   { A.start_pos = mk_pos start_pos;

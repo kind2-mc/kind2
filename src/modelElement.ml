@@ -43,7 +43,7 @@ type ts_equation = {
 type core = (UfSymbol.t list) ScMap.t * (ts_equation * StateVar.t) SyMap.t
 
 type loc = {
-  pos: Lib.position ;
+  pos: Position.position ;
   index: LustreIndex.index ;
 }
 
@@ -97,7 +97,7 @@ let lustre_name_of_sv var_map sv =
 type term_print_data = {
   name: string ;
   category: string;
-  position: Lib.position;
+  position: Position.position;
 }
 
 type core_print_data = {
@@ -134,7 +134,7 @@ let print_data_of_loc_equation var_map (_, locs_cats) =
       )
     | Assertion _ ->
       Some {
-        name = Format.asprintf "assertion%a" Lib.pp_print_line_and_column loc.pos ;
+        name = Format.asprintf "assertion%a" Position.pp_print_line_and_column loc.pos ;
         category = "Assertion" ;
         position = loc.pos ;
       }
@@ -171,7 +171,7 @@ let printable_elements_of_core in_sys sys core =
     |> List.flatten
     |> List.filter (function Some _ -> true | None -> false)
     |> List.map (function Some x -> x | None -> assert false)
-    |> List.sort (fun {position = p1} {position = p2} -> Lib.compare_pos p1 p2)
+    |> List.sort (fun {position = p1} {position = p2} -> Position.compare_pos p1 p2)
     (* Filter out duplicate positions *)
     |> List.fold_left (fun xs x -> if List.length xs > 0 && 
                                       x.position = (List.hd xs).position &&
@@ -234,7 +234,7 @@ let pp_print_core_data in_sys param sys fmt cpd =
   let print_elt elt =
     Format.fprintf fmt "%s @{<blue_b>%s@} at position %a@ "
       (format_name_for_pt elt.category) elt.name
-      Lib.pp_print_line_and_column elt.position
+      Position.pp_print_line_and_column elt.position
   in 
   let print_node scope lst =
     Format.fprintf fmt "@{<b>Node@} @{<blue>%s@}@ " (Scope.to_string scope) ;
@@ -263,7 +263,7 @@ let pp_print_json fmt json =
 
 let pp_print_core_data_json in_sys param sys fmt cpd =
   let json_of_elt elt =
-    let (file, row, col) = Lib.file_row_col_of_pos elt.position in
+    let (file, row, col) = Position.file_row_col_of_pos elt.position in
     `Assoc ([
       ("category", `String (format_name_for_json elt.category)) ;
       ("name", `String elt.name) ;
@@ -328,7 +328,7 @@ let pp_print_core_data_xml ?(tag="ModelElementSet") in_sys param sys fmt cpd =
     let fst = ref true in
     let print_elt elt =
       if not !fst then Format.fprintf fmt "@ " else fst := false ;
-      let (file, row, col) = Lib.file_row_col_of_pos elt.position in
+      let (file, row, col) = Position.file_row_col_of_pos elt.position in
       Format.fprintf fmt "<Element category=\"%s\" name=\"%s\" line=\"%s\" column=\"%s\"%s/>"
         (format_name_for_xml elt.category) elt.name 
         (string_of_int row) 
@@ -561,7 +561,7 @@ let scopes_of_loc_core core =
   ScMap.bindings core |> List.map fst
 
 let normalize_positions lst =
-  List.sort_uniq Lib.compare_pos lst
+  List.sort_uniq Position.compare_pos lst
 
 let get_positions_of_model_element (_, locs_cats) =
   List.map (fun (loc, _) -> loc.pos) locs_cats |> normalize_positions
@@ -645,7 +645,7 @@ let locs_of_eq_term in_sys t =
   with _ -> assert false
 
 let compare_loc {pos=pos;index=index} {pos=pos';index=index'} =
-  match Lib.compare_pos pos pos' with
+  match Position.compare_pos pos pos' with
   | 0 -> LustreIndex.compare_indexes index index'
   | n -> n
 
@@ -682,7 +682,7 @@ let add_loc in_sys eq =
       (eq, normalize_locs_cats locs_cats)
     end
   with _ -> (* If the input is not a Lustre file, it may fail *)
-    (eq, [({ pos = Lib.dummy_pos; index = []} , Unknown)])
+    (eq, [({ pos = Position.dummy_pos; index = []} , Unknown)])
 
 let ts_equation_to_model_element = add_loc
 

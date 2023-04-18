@@ -74,7 +74,7 @@ type pred_def = UfSymbol.t * (Var.t list * Term.t)
 type instance = 
   {
 
-    pos : Lib.position;
+    pos : Position.position;
     (** Position as a unique identifier of the instance *)
 
     map_down : StateVar.t StateVar.StateVarMap.t;
@@ -357,7 +357,7 @@ val find_subsystem_of_scope : t -> Scope.t -> t
     instantiated assume terms), and [b] is true if the term has proven
     invariant.
 *)
-val get_sofar_term: t -> Lib.position -> (Term.t * bool) option
+val get_sofar_term: t -> Position.position -> (Term.t * bool) option
 
 val get_max_depth : t -> int
 

@@ -2885,6 +2885,22 @@ module Global = struct
 
   let lsp () = !lsp
 
+  (* Fake filename mode. *)
+  let fake_filename_default = "stdin"
+  let fake_filename = ref fake_filename_default
+  let _ = add_spec
+    "--fake_filename"
+    (Arg.String (fun str -> fake_filename := str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Fake filename for error messages@ \
+          Default: %s\
+        @]"
+        (fake_filename_default)
+    )
+  let fake_filename () = !fake_filename
+
   (* Use the old frontend *)
   let old_frontend_default = false
   let old_frontend = ref old_frontend_default
@@ -3314,6 +3330,7 @@ let dump_cex = Global.dump_cex
 let dump_witness = Global.dump_witness
 let only_parse = Global.only_parse
 let lsp = Global.lsp
+let fake_filename = Global.fake_filename
 let old_frontend = Global.old_frontend
 let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled

@@ -74,7 +74,7 @@ type warning_kind =
   | UnguardedPreWarning of LustreAst.expr
 
 type warning = [
-  | `LustreAstNormalizerWarning of Lib.position * warning_kind
+  | `LustreAstNormalizerWarning of Position.position * warning_kind
 ]
 
 val warning_message : warning_kind -> string
@@ -84,7 +84,7 @@ val normalize : TypeCheckerContext.tc_context ->
   LustreAst.t ->
     GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t ->
   (LustreAst.declaration list * GeneratedIdentifiers.t GeneratedIdentifiers.StringMap.t *
-   [> `LustreAstNormalizerWarning of Lib.position * warning_kind ] list, [> error])
+   [> `LustreAstNormalizerWarning of Position.position * warning_kind ] list, [> error])
   result
 
 val pp_print_generated_identifiers : Format.formatter -> GeneratedIdentifiers.t -> unit

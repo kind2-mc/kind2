@@ -317,7 +317,7 @@ let log_test_glue_file
     fmt_cargo_build oracle_path
     (pp_print_list
       (fun fmt (pos, cnt) ->
-        let (file, row, col) = file_row_col_of_pos pos in
+        let (file, row, col) = Position.file_row_col_of_pos pos in
         Format.fprintf fmt
           "<output \
             count=\"%d\" \
@@ -331,7 +331,7 @@ let log_test_glue_file
     ) guarantees
     (pp_print_list
       (fun fmt (mode, pos, cnt) ->
-        let (file, row, col) = file_row_col_of_pos pos in
+        let (file, row, col) = Position.file_row_col_of_pos pos in
         Format.fprintf fmt
           "<output \
             mode=\"%s\" \

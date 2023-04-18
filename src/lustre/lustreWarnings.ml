@@ -17,8 +17,8 @@
  *)
 
 type warning = [
-  | `LustreDesugarFrameBlocksWarning of Lib.position * LustreDesugarFrameBlocks.warning_kind
-  | `LustreAstNormalizerWarning of Lib.position * LustreAstNormalizer.warning_kind
+  | `LustreDesugarFrameBlocksWarning of Position.position * LustreDesugarFrameBlocks.warning_kind
+  | `LustreAstNormalizerWarning of Position.position * LustreAstNormalizer.warning_kind
 ]
 
 let warning_position warning = match warning with

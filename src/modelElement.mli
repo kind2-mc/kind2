@@ -86,7 +86,7 @@ type loc_core
 val equal_model_elements : model_element -> model_element -> bool
 val get_model_elements_of_scope : loc_core -> Scope.t -> model_element list
 val loc_core_size : loc_core -> int
-val get_positions_of_model_element : model_element -> Lib.position list
+val get_positions_of_model_element : model_element -> Position.position list
 val scopes_of_loc_core : loc_core -> Scope.t list
 
 val ts_equation_to_model_element : 'a InputSystem.t -> ts_equation -> model_element

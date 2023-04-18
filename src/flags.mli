@@ -198,6 +198,9 @@ val only_parse : unit -> bool
 (** Provide AST info for language-servers. *)
 val lsp : unit -> bool
 
+(** Provide fake filename for error messages. *)
+val fake_filename : unit -> string
+
 (** Use the old Lustre front-end. *)
 val old_frontend : unit -> bool
 

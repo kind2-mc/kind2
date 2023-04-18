@@ -27,7 +27,7 @@ type decl =
 | NodeOrFun | Type | Contract | Const
 
 (** Reference to an unknown declaration. *)
-exception Unknown_decl of decl * I.t * Lib.position
+exception Unknown_decl of decl * I.t * Position.position
 
 (** Integer representation of a declaration. *)
 let int_of_decl = function

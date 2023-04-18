@@ -21,10 +21,11 @@ open ModelElement
 module TS = TransSys
 module ScMap = Scope.Map
 module SVSet = StateVar.StateVarSet
+module Pos = Position
 
 module Position = struct
-  type t = Lib.position
-  let compare = Lib.compare_pos
+  type t = Position.position
+  let compare = Position.compare_pos
 end
 module PosMap = Map.Make(Position)
 module PosSet = Set.Make(Position)
@@ -124,7 +125,7 @@ let counter =
   let last = ref 0 in
   (fun () -> last := !last + 1 ; !last)
 
-let dpos = Lib.dummy_pos
+let dpos = Pos.dummy_pos
 let dspan = { A.start_pos = dpos; A.end_pos = dpos }
 let rand_fun_ident nb = "__rand"^(string_of_int nb)
 let new_rand_fun_ident () = rand_fun_ident (counter ())
@@ -336,7 +337,7 @@ let tyof_lhs id_typ_map lhs =
 
 let minimize_node_eq id_typ_map ue lst = function
   | A.Assert (pos, expr) when
-    List.exists (fun p -> Lib.equal_pos p pos) lst ->
+    List.exists (fun p -> Pos.equal_pos p pos) lst ->
     Some (A.Assert (pos, expr))
   | A.Assert _ -> None
   | A.Equation (pos, lhs, expr) ->
@@ -406,11 +407,11 @@ let minimize_contract_node_eq ue lst cne =
     [A.GhostVars (pos, lhs, expr)]
   | A.Assume (pos,_,_,_)
   | A.Guarantee (pos,_,_,_) ->
-    if List.exists (fun p -> Lib.equal_pos p pos) lst
+    if List.exists (fun p -> Pos.equal_pos p pos) lst
     then [cne] else []
   | A.Mode (pos,id,req,ens) ->
     let ens = ens |> List.filter
-      (fun (pos,_,_) -> List.exists (fun p -> Lib.equal_pos p pos) lst)
+      (fun (pos,_,_) -> List.exists (fun p -> Pos.equal_pos p pos) lst)
     in
     [A.Mode (pos,id,req,ens)]
   | A.AssumptionVars _ -> [cne]

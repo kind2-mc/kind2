@@ -46,16 +46,16 @@ module RMA = LustreRemoveMultAssign
 module LAD = LustreArrayDependencies
 
 type error = [
-  | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
-  | `LustreAstDependenciesError of Lib.position * LustreAstDependencies.error_kind
-  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
+  | `LustreArrayDependencies of Position.position * LustreArrayDependencies.error_kind
+  | `LustreAstDependenciesError of Position.position * LustreAstDependencies.error_kind
+  | `LustreAstInlineConstantsError of Position.position * LustreAstInlineConstants.error_kind
   | `LustreAstNormalizerError
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
-  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
-  | `LustreUnguardedPreError of Lib.position * LustreAst.expr
-  | `LustreParserError of Lib.position * string
-  | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
-  | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
+  | `LustreSyntaxChecksError of Position.position * LustreSyntaxChecks.error_kind
+  | `LustreTypeCheckerError of Position.position * LustreTypeChecker.error_kind
+  | `LustreUnguardedPreError of Position.position * LustreAst.expr
+  | `LustreParserError of Position.position * string
+  | `LustreDesugarIfBlocksError of Position.position * LustreDesugarIfBlocks.error_kind
+  | `LustreDesugarFrameBlocksError of Position.position * LustreDesugarFrameBlocks.error_kind
 ]
 
 let (let*) = Res.(>>=)
@@ -85,8 +85,8 @@ let build_parse_error_msg env =
 let fail env lexbuf =
   let pos, emsg = build_parse_error_msg env in
   let pos = match pos with
-    | Some p -> position_of_lexing p
-    | None -> position_of_lexing lexbuf.lex_curr_p
+    | Some p -> Position.position_of_lexing p
+    | None -> Position.position_of_lexing lexbuf.lex_curr_p
   in
   Error (`LustreParserError (pos, emsg))
 
@@ -107,7 +107,7 @@ let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
      fail env lexbuf
   | LPMI.Accepted v -> Ok (success v)
   | LPMI.Rejected ->
-    Error (`LustreParserError (Lib.dummy_pos, "Parser Error: Parser rejected the input."))
+    Error (`LustreParserError (Position.dummy_pos, "Parser Error: Parser rejected the input."))
   
 
 (* Parses input channel to generate an AST *)
@@ -132,7 +132,7 @@ let ast_of_channel(in_ch: in_channel) =
     (parse lexbuf (LPI.main lexbuf.lex_curr_p))
   with
   | LustreLexer.Lexer_error err ->
-    let pos = (Lib.position_of_lexing lexbuf.lex_curr_p) in
+    let pos = (Position.position_of_lexing lexbuf.lex_curr_p) in
     Error (`LustreParserError (pos, err))
 
 let type_check declarations =

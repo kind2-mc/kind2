@@ -20,7 +20,7 @@
   
     @author Apoorv Ingle *)
 
-exception Out_of_bounds of (Lib.position * string) 
+exception Out_of_bounds of (Position.position * string) 
 
 module TC = TypeCheckerContext
 module LA = LustreAst
@@ -45,7 +45,7 @@ type error_kind = Unknown of string
   | OutOfBounds of string
 
 type error = [
-  | `LustreAstInlineConstantsError of Lib.position * error_kind
+  | `LustreAstInlineConstantsError of Position.position * error_kind
 ]
 
 let error_message kind = match kind with
@@ -133,7 +133,7 @@ and eval_bool_unary_op ctx pos op e1 =
   | LA.Not -> R.ok (not v1)
   | _ -> inline_error pos (UnaryMustBeBool (LA.UnaryOp (pos, op, e1)))
 
-and eval_int_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
+and eval_int_binary_op: TC.tc_context -> Position.position -> LA.binary_operator
                         -> LA.expr -> LA.expr -> (int, [> error]) result =
   fun ctx pos bop e1 e2 ->
   eval_int_expr ctx e1 >>= fun v1 ->
@@ -167,7 +167,7 @@ and eval_bool_expr: TC.tc_context -> LA.expr -> (bool, [> error]) result = fun c
   | e -> inline_error (LH.pos_of_expr e) (UnableToEvaluate e)  
 (** try and evalutate expression to bool, return error otherwise *)
 
-and eval_bool_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
+and eval_bool_binary_op: TC.tc_context -> Position.position -> LA.binary_operator
                          -> LA.expr -> LA.expr -> (bool, [> error]) result = 
   fun ctx pos bop e1 e2 ->
   eval_bool_expr ctx e1 >>= fun v1 ->
@@ -180,7 +180,7 @@ and eval_bool_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
   | _ -> inline_error pos (BinaryMustBeBool (LA.BinaryOp (pos, bop, e1, e2)))
 (** try and evalutate binary op expression to bool, return error otherwise *)
   
-and eval_bool_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
+and eval_bool_ternary_op: TC.tc_context -> Position.position -> LA.ternary_operator
                      -> LA.expr -> LA.expr -> LA.expr -> (bool, [> error]) result
   = fun ctx pos top b1 e1 e2 ->
   eval_bool_expr ctx b1 >>= fun c ->
@@ -191,7 +191,7 @@ and eval_bool_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
   | LA.With -> inline_error pos WidthOperatorUnsupported
 (** try and evalutate ternary op expression to bool, return error otherwise *)
 
-and eval_int_ternary_op: TC.tc_context -> Lib.position -> LA.ternary_operator
+and eval_int_ternary_op: TC.tc_context -> Position.position -> LA.ternary_operator
                      -> LA.expr -> LA.expr -> LA.expr -> (int, [> error]) result
   = fun ctx pos top b1 e1 e2 ->
   match top with
@@ -218,7 +218,7 @@ and eval_comp_op: TC.tc_context -> LA.comparison_operator
   | Gt -> R.ok (v1 >= v2)
 (** try and evalutate comparison op expression to bool, return error otherwise *)
 
-and simplify_array_index: TC.tc_context -> Lib.position -> LA.expr -> LA.expr -> LA.expr
+and simplify_array_index: TC.tc_context -> Position.position -> LA.expr -> LA.expr -> LA.expr
   = fun ctx pos e1 idx -> 
   let e1' = simplify_expr ctx e1 in
   let idx' = simplify_expr ctx idx in
@@ -234,7 +234,7 @@ and simplify_array_index: TC.tc_context -> Lib.position -> LA.expr -> LA.expr ->
     ArrayIndex (pos, e1', idx')
 (** picks out the idx'th component of an array if it can *)
 
-and simplify_tuple_proj: TC.tc_context -> Lib.position -> LA.expr -> int -> LA.expr
+and simplify_tuple_proj: TC.tc_context -> Position.position -> LA.expr -> int -> LA.expr
   = fun ctx pos e1 idx ->
   match (simplify_expr ctx e1) with
   | LA.GroupExpr (_, _, es) ->

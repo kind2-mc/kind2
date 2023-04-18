@@ -41,8 +41,8 @@ module type Sig = sig
   val print_xml_trailer : unit -> unit
   val printf_xml : 'a m_log_printer
   val printf_json : 'a m_log_printer
-  val parse_log_xml : Lib.log_level -> Lib.position -> string -> unit
-  val parse_log_json : Lib.log_level -> Lib.position -> string -> unit
+  val pp_print_level_xml_cls: Format.formatter -> Lib.log_level -> unit
+  val first_log_flag: bool ref
 end
 
 
@@ -161,26 +161,6 @@ let printf_xml mdl level fmt =
     fmt
 
 
-let parse_log_xml level pos msg =
-  let pp_print_fname ppf fname =
-    if fname = "" then () else
-    Format.fprintf ppf " file=\"%s\"" fname
-  in
-  let pp_print_line_col ppf pos =
-    try
-      let lnum, cnum = row_col_of_pos pos in
-      Format.fprintf ppf " line=\"%d\" column=\"%d\"" lnum cnum
-    with Invalid_argument _ -> ()
-  in
-  let file = file_of_pos pos in
-  (ignore_or_fprintf level)
-    !log_ppf
-    "@[<hv 2><Log class=\"%a\" source=\"parse\"%a%a>\
-    @,@[<hov>%s@]@;<0 -2></Log>@]@."
-    pp_print_level_xml_cls level pp_print_line_col pos pp_print_fname file
-    (Lib.escape_xml_string msg)
-
-
 (* ********************************************************************** *)
 (* JSON output                                                            *)
 (* ********************************************************************** *)
@@ -216,41 +196,6 @@ let printf_json mdl level fmt =
 
     Format.str_formatter
     fmt
-
-let parse_log_json level pos msg =
-  let pp_print_fname ppf fname =
-    if fname = "" then () else
-    Format.fprintf ppf "\"file\" : \"%s\",@," fname
-  in
-  let pp_print_line_col ppf pos =
-    try
-      let lnum, cnum = row_col_of_pos pos in
-      Format.fprintf ppf
-        "\"line\" : %d,@,\"column\" : %d,@," lnum cnum
-    with Invalid_argument _ -> ()
-  in
-  let file = file_of_pos pos in
-  (ignore_or_fprintf level)
-    !log_ppf
-    ( (if !first_log_flag then
-         (first_log_flag := false; "")
-       else
-         ",@."
-      ) ^^
-      "{@[<v 1>@,\
-       \"objectType\" : \"log\",@,\
-       \"level\" : \"%s\",@,\
-       \"source\" : \"parse\",@,\
-       %a\
-       %a\
-       \"value\" : @[<h>\"%s\"@]\
-       @]@.}@.\
-      "
-    )
-    (string_of_log_level level)
-    pp_print_fname file
-    pp_print_line_col pos (Lib.escape_json_string msg)
-
 
 (*****************************************************************)
 (* Setup                                                         *)

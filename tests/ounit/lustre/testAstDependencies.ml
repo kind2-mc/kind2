@@ -25,7 +25,7 @@ open OUnit2
 
 module AD = LustreAstDependencies
 
-let dp = Lib.dummy_pos
+let dp = Position.dummy_pos
 let dspan = { LA.start_pos = dp; LA.end_pos = dp }
 let (>>=) = Res.(>>=)
           

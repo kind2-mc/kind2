@@ -68,6 +68,7 @@
 @author Andrew Marmaduke *)
 
 open Lib
+open Position
 open GeneratedIdentifiers
 
 module A = LustreAst
@@ -88,7 +89,7 @@ let warning_message warning = match warning with
   | UnguardedPreWarning expr -> "Unguarded pre in expression " ^ A.string_of_expr expr
 
 type warning = [
-  | `LustreAstNormalizerWarning of Lib.position * warning_kind
+  | `LustreAstNormalizerWarning of position * warning_kind
 ]
 
 let mk_warning pos kind = `LustreAstNormalizerWarning (pos, kind)
@@ -196,7 +197,7 @@ type info = {
   quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) StringMap.t;
   contract_calls_info : LustreAst.contract_node_decl StringMap.t;
-  contract_scope : (Lib.position * HString.t) list;
+  contract_scope : (position * HString.t) list;
   contract_ref : HString.t;
   interpretation : HString.t StringMap.t;
   local_group_projection : int
@@ -261,14 +262,14 @@ let pp_print_generated_identifiers ppf gids =
     Format.fprintf ppf "(%a, %b, %a, %a, %a)"
       pp_print_source source
       is_original
-      Lib.pp_print_position pos
+      pp_print_position pos
       HString.pp_print_hstring id
       A.pp_print_expr rexpr
   in
   let pp_print_contract_call ppf (ref, pos, scope, decl) = Format.fprintf ppf "%a := (%a, %a): %a"
     HString.pp_print_hstring ref
     pp_print_position pos
-    (pp_print_list (pp_print_pair Lib.pp_print_position HString.pp_print_hstring ":") "::") scope
+    (pp_print_list (pp_print_pair pp_print_position HString.pp_print_hstring ":") "::") scope
     (pp_print_list A.pp_print_contract_item ";") decl
   in
   let pp_print_equation ppf (_, _, lhs, expr) = Format.fprintf ppf "%a = %a"
@@ -309,7 +310,7 @@ let i = ref 0
 
 let contract_ref = ref 0
 
-let dpos = Lib.dummy_pos
+let dpos = dummy_pos
 
 let union_list ids =
   List.fold_left (fun x y -> union x y ) (empty ()) ids
@@ -463,7 +464,7 @@ let mk_fresh_oracle expr_type expr =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring "_oracle") in
-  let nexpr = A.Ident (Lib.dummy_pos, name) in
+  let nexpr = A.Ident (dummy_pos, name) in
   let gids = { (empty ()) with
     oracles = [name, expr_type, expr]; }
   in nexpr, gids
@@ -495,7 +496,7 @@ let mk_fresh_call info id map pos cond restart args defaults =
   nexpr, gids
 
 let add_step_counter info =
-  let dpos = Lib.dummy_pos in
+  let dpos = dummy_pos in
   let eq_lhs = A.StructDef (dpos, [SingleIdent (dpos, ctr_id)]) in
   let expr =
     A.Arrow (dpos,
@@ -1124,7 +1125,7 @@ and expand_node_call info expr var count =
   | A.ArrayType _ -> A.GroupExpr (dpos, ArrayExpr, expr_array)
   | _ -> List.fold_left
     (fun acc (i, e) ->
-      let pos = Lib.dummy_pos in
+      let pos = dummy_pos in
       let i = HString.mk_hstring (Int.to_string i) in
       let cond = A.CompOp (pos, A.Eq, A.Ident (pos, var), A.Const (pos, A.Num i)) in
       A.TernaryOp (pos, A.Ite, cond, e, acc))
@@ -1171,8 +1172,8 @@ and normalize_expr ?guard info map =
   (* ************************************************************************ *)
   | Call (pos, id, args) ->
     let flags = StringMap.find id info.node_is_input_const in
-    let cond = A.Const (Lib.dummy_pos, A.True) in
-    let restart =  A.Const (Lib.dummy_pos, A.False) in
+    let cond = A.Const (dummy_pos, A.True) in
+    let restart =  A.Const (dummy_pos, A.False) in
     let nargs, gids1, warnings = normalize_list
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
@@ -1229,7 +1230,7 @@ and normalize_expr ?guard info map =
           | "false" -> A.UnaryOp (pos, A.Not, A.Ident (pos, clock_id))
           | _ -> A.CompOp (pos, A.Eq, A.Ident (pos, clock_id), A.Ident (pos, clock_value))
         in let ncond, gids1, warnings1 = abstract_expr ?guard false info map false cond_expr in
-        let restart =  A.Const (Lib.dummy_pos, A.False) in
+        let restart =  A.Const (dummy_pos, A.False) in
         let nargs, gids2, warnings2 = normalize_list
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)

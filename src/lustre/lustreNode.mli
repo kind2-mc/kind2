@@ -45,7 +45,7 @@
     @author Christoph Sticksel
 *)
 
-open Lib
+open Position
 
 (** {1 Types} *)
 
@@ -58,7 +58,7 @@ type call_cond =
 
     Calls are uniquely identified by the position, no two calls may
     share the same position, therefore the [call_pos] must not be a
-    dummy position. *)
+    dummy  *)
 type node_call = {
 
   call_pos : position;
@@ -412,7 +412,7 @@ val set_state_var_node_call : t -> StateVar.t -> t
 
 (** State variable is identical to a state variable in a node instance *)
 val set_state_var_instance :
-  StateVar.t -> Lib.position -> LustreIdent.t -> StateVar.t -> unit
+  StateVar.t -> position -> LustreIdent.t -> StateVar.t -> unit
 
 val set_oracle_state_var : t -> StateVar.t -> StateVar.t -> unit
 

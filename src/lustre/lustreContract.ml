@@ -17,6 +17,7 @@
 *)
 
 open Lib
+open Position
 
 module I = LustreIdent
 module SVar = StateVar
@@ -24,11 +25,11 @@ module SVar = StateVar
 module SVarSet = SVar.StateVarSet
 
 type svar = {
-  pos: position ;
+  pos: Position.position ;
   num: int ;
   name: string option;
   svar: SVar.t ;
-  scope: (position * string) list ;
+  scope: (Position.position * string) list ;
 }
 
 let mk_svar pos num name svar scope = {
@@ -45,7 +46,7 @@ let prop_name_of_svar { pos ; name = s; scope } kind name =
       pp_print_list (
         fun fmt (pos, call) ->
           Format.fprintf fmt "%s%a."
-            call Lib.pp_print_line_and_column pos
+            call Position.pp_print_line_and_column pos
       ) ""
     ) scope n
     
@@ -54,14 +55,14 @@ let prop_name_of_svar { pos ; name = s; scope } kind name =
       pp_print_list (
         fun fmt (pos, call) ->
           Format.fprintf fmt "%s%a."
-            call Lib.pp_print_line_and_column pos
+            call Position.pp_print_line_and_column pos
       ) ""
-    ) scope kind name Lib.pp_print_line_and_column pos
+    ) scope kind name Position.pp_print_line_and_column pos
 
 
 type mode = {
   name: I.t ;
-  pos: position ;
+  pos: Position.position ;
   path: string list ;
   requires: svar list ;
   ensures: svar list ;

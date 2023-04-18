@@ -21,10 +21,10 @@
  *)
 
  type warning = [
-  | `LustreDesugarFrameBlocksWarning of Lib.position * LustreDesugarFrameBlocks.warning_kind
-  | `LustreAstNormalizerWarning of Lib.position * LustreAstNormalizer.warning_kind
+  | `LustreDesugarFrameBlocksWarning of Position.position * LustreDesugarFrameBlocks.warning_kind
+  | `LustreAstNormalizerWarning of Position.position * LustreAstNormalizer.warning_kind
 ]
 
-val warning_position : [< warning] -> Lib.position
+val warning_position : [< warning] -> Position.position
     
 val warning_message : [< warning] -> string

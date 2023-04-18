@@ -38,7 +38,7 @@ let error_message error = match error with
   | MisplacedFrameBlockError _ -> "Frame blocks are not allowed in functions."
 
 type error = [
-  | `LustreDesugarFrameBlocksError of Lib.position * error_kind
+  | `LustreDesugarFrameBlocksError of Position.position * error_kind
 ]
 
 let mk_error pos kind = Error (`LustreDesugarFrameBlocksError (pos, kind))
@@ -50,7 +50,7 @@ let warning_message warning = match warning with
   | UninitializedVariableWarning id -> "Uninitialized frame block variable " ^ HString.string_of_hstring id
 
 type warning = [
-  | `LustreDesugarFrameBlocksWarning of Lib.position * warning_kind
+  | `LustreDesugarFrameBlocksWarning of Position.position * warning_kind
 ]
 
 let mk_warning pos kind = `LustreDesugarFrameBlocksWarning (pos, kind)
@@ -60,7 +60,7 @@ type eq_or_framecond =
   | FCond of A.eq_lhs
 
 (* First position is frame block header, second position is of the specific equation *)
-let pos_list_map : (Lib.position * eq_or_framecond) list HString.HStringHashtbl.t = 
+let pos_list_map : (Position.position * eq_or_framecond) list HString.HStringHashtbl.t = 
   HString.HStringHashtbl.create 20
 
 let warn_unguarded_pres nis pos = 

@@ -64,10 +64,10 @@ type t = {
 (** Source of a property *)
 and prop_source =
 
-  | PropAnnot of Lib.position
+  | PropAnnot of Position.position
   (** Property is from an annotation *)
 
-  | Generated of Lib.position option * StateVar.t list
+  | Generated of Position.position option * StateVar.t list
   (** Property was generated, for example, from a subrange constraint *)
 
   | Instantiated of Scope.t * t
@@ -76,19 +76,19 @@ and prop_source =
      Reference the instantiated property by the [scope] of the subsystem and
      the name of the property *)
 
-  | Assumption of Lib.position * (Scope.t * Lib.position)
+  | Assumption of Position.position * (Scope.t * Position.position)
   (** Contract assumption that a caller has to prove.
 
      Reference the assumption by its position, the scope of the subsystem,
      and the position of the node call *)
 
-  | Guarantee of (Lib.position * Scope.t)
+  | Guarantee of (Position.position * Scope.t)
   (** Contract guarantees. *)
                  
-  | GuaranteeOneModeActive of (Lib.position * Scope.t)
+  | GuaranteeOneModeActive of (Position.position * Scope.t)
   (** Contract: at least one mode active. *)
 
-  | GuaranteeModeImplication of (Lib.position * Scope.t)
+  | GuaranteeModeImplication of (Position.position * Scope.t)
   (** Contract: mode implication. *)
 
   | Candidate of prop_source option

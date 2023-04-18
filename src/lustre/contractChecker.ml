@@ -91,7 +91,7 @@ let compute_assump_instance_vars in_sys sys assumption_vars =
     (fun acc_vars { TSys.pos; TSys.map_down } ->
       let r =
         List.find_opt
-          (fun { LN.call_pos } -> Lib.equal_pos pos call_pos)
+          (fun { LN.call_pos } -> Position.equal_pos pos call_pos)
           node_calls
       in
       match r with

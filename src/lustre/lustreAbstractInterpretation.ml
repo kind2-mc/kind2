@@ -41,7 +41,7 @@ end
   variable identifiers to their inferred subrange bounds *)
 type context = LA.lustre_type IMap.t IMap.t
 
-let dpos = Lib.dummy_pos
+let dpos = Position.dummy_pos
 
 let empty_context = IMap.empty
 

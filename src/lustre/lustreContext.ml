@@ -17,6 +17,7 @@
 *)
 
 open Lib
+open Position
 open LustreReporting
    
 module A = LustreAst
@@ -119,19 +120,19 @@ type t = {
 
   (* [None] if definitions are allowed, otherwise a pair of a
      message and a position to raise an error with. *)
-  definitions_allowed : (Lib.position * string) option;
+  definitions_allowed : (Position.position * string) option;
 
   (* saving inputs variables positions and their luster identifiers for error
      reporting and creation of subrange checking properties *)
-  inputs_info : (StateVar.t * I.t * Lib.position) list;
+  inputs_info : (StateVar.t * I.t * Position.position) list;
 
   (* saving local variables positions and their luster identifiers for error
      reporting and creation of subrange checking properties *)
-  locals_info : (StateVar.t * I.t * Lib.position) list;
+  locals_info : (StateVar.t * I.t * Position.position) list;
 
   (* saving output variables positions and their luster identifiers for error
      reporting and creation of subrange checking properties *)
-  outputs_info : (StateVar.t * I.t * Lib.position) list;
+  outputs_info : (StateVar.t * I.t * Position.position) list;
 
   (* Indicates there are unguarded pre's in the lustre code and we need to
   guard them. *)

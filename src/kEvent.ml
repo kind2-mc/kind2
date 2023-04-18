@@ -775,14 +775,14 @@ let prop_attributes_xml trans_sys prop_name =
 
   let rec get_attributes = function
     | Property.PropAnnot pos ->
-        let fname, lnum, cnum = file_row_col_of_pos pos in
+        let fname, lnum, cnum = Position.file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" source=\"PropAnnot\"%a"
         lnum cnum pp_print_fname fname
     | Property.Generated (pos, _) -> (
         match pos with
         | None -> " source=\"Generated\""
         | Some pos ->
-          let fname, lnum, cnum = file_row_col_of_pos pos in
+          let fname, lnum, cnum = Position.file_row_col_of_pos pos in
           Format.asprintf " line=\"%d\" column=\"%d\" source=\"Generated\"%a"
           lnum cnum pp_print_fname fname
     )
@@ -791,19 +791,19 @@ let prop_attributes_xml trans_sys prop_name =
     | Property.Instantiated (_, prop) ->
         get_attributes prop.Property.prop_source
     | Property.Assumption (pos, (scope, _)) ->
-        let fname, lnum, cnum = file_row_col_of_pos pos in
+        let fname, lnum, cnum = Position.file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Assumption\"%a"
           lnum cnum (String.concat "." scope) pp_print_fname fname
     | Property.Guarantee (pos, scope) ->
-        let fname, lnum, cnum = file_row_col_of_pos pos in
+        let fname, lnum, cnum = Position.file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Guarantee\"%a"
           lnum cnum (String.concat "." scope) pp_print_fname fname
     | Property.GuaranteeOneModeActive (pos, scope) ->
-        let fname, lnum, cnum = file_row_col_of_pos pos in
+        let fname, lnum, cnum = Position.file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"OneModeActive\"%a"
           lnum cnum (String.concat "." scope) pp_print_fname fname
     | Property.GuaranteeModeImplication (pos, scope) ->
-        let fname, lnum, cnum = file_row_col_of_pos pos in
+        let fname, lnum, cnum = Position.file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Ensure\"%a"
           lnum cnum (String.concat "." scope) pp_print_fname fname
   in
@@ -1117,7 +1117,7 @@ let prop_attributes_json ppf trans_sys prop_name =
   in
 
   let print_attributes pos scope source =
-    let fname, lnum, cnum = file_row_col_of_pos pos in
+    let fname, lnum, cnum = Position.file_row_col_of_pos pos in
     Format.fprintf ppf
       "\"scope\" : \"%s\",@,%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"%s\",@,"
       (String.concat "." scope) pp_print_fname fname lnum cnum source
@@ -1125,7 +1125,7 @@ let prop_attributes_json ppf trans_sys prop_name =
 
   let rec get_attributes = function
     | Property.PropAnnot pos ->
-        let fname, lnum, cnum = file_row_col_of_pos pos in
+        let fname, lnum, cnum = Position.file_row_col_of_pos pos in
         Format.fprintf ppf
           "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"PropAnnot\",@,"
           pp_print_fname fname lnum cnum
@@ -1139,7 +1139,7 @@ let prop_attributes_json ppf trans_sys prop_name =
         match pos with
         | None -> Format.fprintf ppf "\"source\" : \"Generated\",@,"
         | Some pos ->
-          let fname, lnum, cnum = file_row_col_of_pos pos in
+          let fname, lnum, cnum = Position.file_row_col_of_pos pos in
           Format.fprintf ppf
             "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Generated\",@,"
             pp_print_fname fname lnum cnum

@@ -1175,121 +1175,6 @@ let rec find_file filename = function
 (* Parser and lexer functions                                             *)
 (* ********************************************************************** *)
 
-
-(* A position in a file
-
-   The column is the actual colum number, not an offset from the
-   beginning of the file as in Lexing.position *)
-type position =
-  { pos_fname : string; pos_lnum: int; pos_cnum: int }
-
-
-let equal_pos
-  { pos_fname = p1; pos_lnum = l1; pos_cnum = c1 }
-  { pos_fname = p2; pos_lnum = l2; pos_cnum = c2 } =
-
-  l1=l2 && c1=c2 && String.equal p1 p2
-
-
-(* Comparision on positions *)
-let compare_pos 
-    { pos_fname = p1; pos_lnum = l1; pos_cnum = c1 }  
-    { pos_fname = p2; pos_lnum = l2; pos_cnum = c2 } =
-
-  compare_pairs 
-    String.compare
-    (compare_pairs Int.compare Int.compare)
-    (p1, (l1, c1)) 
-    (p2, (l2, c2)) 
-
-
-(* A dummy position, different from any valid position *)
-let dummy_pos = { pos_fname = ""; pos_lnum = 0; pos_cnum = -1 }
-
-(*
-(* A dummy position in the specified file *)
-let dummy_pos_in_file fname = 
-  { pos_fname = fname; pos_lnum = 0; pos_cnum = -1 }
-*)
-
-(* Pretty-print a position *)
-let pp_print_position ppf (
-  { pos_fname; pos_lnum; pos_cnum } as pos
-) =
-
-  if pos = dummy_pos then 
-
-    fprintf ppf "(unknown)"
-
-  else if pos_lnum = 0 && pos_cnum = -1 then
-
-    fprintf ppf "%s" pos_fname
-
-  else
-
-    let fname =
-      if pos_fname = "" then "(stdin)" else pos_fname
-    in
-
-    fprintf ppf "%s:%d:%d" fname pos_lnum pos_cnum
-
-
-(** Pretty-print line and column *)
-let pp_print_line_and_column ppf { pos_lnum; pos_cnum } =
-
-  if pos_lnum >= 0 && pos_cnum >= 0 then
-
-    fprintf ppf "[l%dc%d]" pos_lnum pos_cnum
-
-  else
-
-    fprintf ppf "[unknown]"
-
-let pp_print_lines_and_columns ppf positions =
-  pp_print_list pp_print_line_and_column ", " ppf positions
-
-(* Convert a position from Lexing to a position *)
-let position_of_lexing 
-    { Lexing.pos_fname;
-      Lexing.pos_lnum;
-      Lexing.pos_bol;
-      Lexing.pos_cnum } = 
-
-  (* Colum number is relative to the beginning of the file *)
-  { pos_fname = pos_fname; 
-    pos_lnum = pos_lnum; 
-    pos_cnum = pos_cnum - pos_bol + 1}
-
-
-(* Return true if position is a dummy position *)
-let is_dummy_pos = function 
-  | { pos_cnum = -1 } -> true 
-  | _ -> false
-
-
-(* Return the file, line and column of a position; fail if the
-   position is a dummy position *)
-let file_row_col_of_pos = function 
-
-  (* Fail if position is a dummy position *)
-  | p when is_dummy_pos p -> raise (Invalid_argument "file_row_col_of_pos")
-
-  (* Return tuple of filename, line and column *)
-  | { pos_fname; pos_lnum; pos_cnum } -> (pos_fname, pos_lnum, pos_cnum)
-
-(* Return the file of a position *)
-let file_of_pos { pos_fname } = pos_fname
-
-(* Return the line and column of a position; fail if the
-   position is a dummy position *)
-let row_col_of_pos = function
-
-  (* Fail if position is a dummy position *)
-  | p when is_dummy_pos p -> raise (Invalid_argument "row_col_of_pos")
-
-  (* Return tuple of line and column *)
-  | { pos_lnum; pos_cnum } -> (pos_lnum, pos_cnum)
-
 let print_backtrace fmt bt =
   match Printexc.backtrace_slots bt with
   | None -> ()
@@ -1302,10 +1187,6 @@ let print_backtrace fmt bt =
           pp_print_string fmt s;
           if i < n - 1 then pp_force_newline fmt ()
       ) slots
-
-
-let pos_of_file_row_col (pos_fname, pos_lnum, pos_cnum) =
-  { pos_fname; pos_lnum; pos_cnum }
 
 let set_lexer_filename lexbuf fname  =
   lexbuf.Lexing.lex_curr_p <- {lexbuf.Lexing.lex_curr_p with pos_fname = fname}

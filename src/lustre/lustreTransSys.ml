@@ -172,9 +172,9 @@ let lift_prop_name node_name pos prop_name =
   let pp_print_pos ppf pos = 
 
     (* Do not print anything for a dummy position *)
-    if is_dummy_pos pos then () else 
+    if Position.is_dummy_pos pos then () else 
 
-      Lib.pp_print_line_and_column ppf pos
+      Position.pp_print_line_and_column ppf pos
 
   in
 
@@ -291,13 +291,13 @@ let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
         | None -> (
           Format.asprintf "%a%a.assume%a"
             Scope.pp_print_scope scope
-            pp_print_line_and_column call_pos
-            pp_print_line_and_column pos
+            Position.pp_print_line_and_column call_pos
+            Position.pp_print_line_and_column pos
         )
         | Some n -> (
           Format.asprintf "%a%a.%s"
             Scope.pp_print_scope scope
-            pp_print_line_and_column call_pos n
+            Position.pp_print_line_and_column call_pos n
         )
       in
       let prop_status = P.PropUnknown in

@@ -21,8 +21,8 @@
 
 type error_kind = Unknown of string
   | UndefinedLocal of HString.t
-  | DuplicateLocal of HString.t * Lib.position
-  | DuplicateOutput of HString.t * Lib.position
+  | DuplicateLocal of HString.t * Position.position
+  | DuplicateOutput of HString.t * Position.position
   | DuplicateProperty of HString.t
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
@@ -46,7 +46,7 @@ type error_kind = Unknown of string
   | IllegalClockExprInActivate of LustreAst.expr
 
 type error = [
-  | `LustreSyntaxChecksError of Lib.position * error_kind
+  | `LustreSyntaxChecksError of Position.position * error_kind
 ]
 
 val error_message : error_kind -> string

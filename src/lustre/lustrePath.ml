@@ -17,6 +17,7 @@
 *)
 
 open Lib
+open Position
 
 (* Abbreviations *)
 module I = LustreIdent
@@ -843,7 +844,7 @@ let pp_print_pos_pt ppf pos =
   (* Do not print anything for a dummy position *)
   if is_dummy_pos pos then () else 
 
-    Lib.pp_print_line_and_column ppf pos
+    Position.pp_print_line_and_column ppf pos
 
 
 (* Output the name of the lustre variable *)
@@ -2007,7 +2008,7 @@ let same_args abstr_map (inputs, defs) (inputs', defs') =
 let rec add_to_callpos abstr_map acc pos cond args calls =
   match calls with
   | ((pos', nb', _, args') as x) :: r ->
-    let c_pos = Lib.compare_pos pos pos' in
+    let c_pos = Position.compare_pos pos pos' in
 
     if c_pos = 0 then raise Exit; (* already in there, abort *)
     
@@ -2069,7 +2070,7 @@ let pos_to_numbers abstr_map nodes =
              call_inputs = inputs; call_defaults = defs } as call) -> 
 
         (* Format.eprintf "register : %a at %a %s \n ARgs: (%a)@." *)
-        (*   (LustreIdent.pp_print_ident false) lid Lib.pp_print_position pos *)
+        (*   (LustreIdent.pp_print_ident false) lid Position.pp_print_position pos *)
         (*   (match clock with *)
         (*    | None -> "" *)
         (*    | Some c -> "ON "^ (StateVar.string_of_state_var c)) *)
@@ -2098,7 +2099,7 @@ let get_pos_number hc lid pos =
   let find_in_cat cat =
     Hashtbl.iter (fun _ l ->
         List.iter (fun (p, n, c, _) ->
-            if Lib.equal_pos p pos then raise (Found (n, c)))
+            if equal_pos p pos then raise (Found (n, c)))
           l
       ) cat;
     raise Not_found

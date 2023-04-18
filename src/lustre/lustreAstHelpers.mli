@@ -34,7 +34,7 @@ val expr_is_true : expr -> bool
 val expr_is_false : expr -> bool
 (** Returns whether or not the expression is a Bool Const variant with the False value *)
 
-val pos_of_expr : expr -> Lib.position
+val pos_of_expr : expr -> Position.position
 (** Returns the position of an expression *)
 
 val expr_contains_call : expr -> bool
@@ -57,18 +57,18 @@ val has_unguarded_pre : expr -> bool
 val has_unguarded_pre_no_warn : expr -> bool
 (** Returns true if the expression has unguareded pre's. Does not print warning. *)
 
-val has_pre_or_arrow : expr -> Lib.position option
+val has_pre_or_arrow : expr -> Position.position option
 (** Returns true if the expression has a `pre` or a `->`. *)
 
-val contract_has_pre_or_arrow : contract -> Lib.position option
+val contract_has_pre_or_arrow : contract -> Position.position option
 (** Returns true iff a contract mentions a `pre` or a `->`.
     Does not (cannot) check contract calls recursively, checks only inputs and
     outputs. *)
 
-val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
+val node_local_decl_has_pre_or_arrow : node_local_decl -> Position.position option
 (** Checks whether a node local declaration has a `pre` or a `->`. *)
 
-val node_item_has_pre_or_arrow : node_item -> Lib.position option
+val node_item_has_pre_or_arrow : node_item -> Position.position option
 (** Checks whether a node equation has a `pre` or a `->`. *)
 
 val replace_lasts : LustreAst.index list -> string -> SI.t -> expr -> expr * SI.t
@@ -84,22 +84,22 @@ val vars_of_node_calls: expr -> SI.t
 val vars: expr -> SI.t
 (** returns all the [ident] that appear in the expr ast*)
 
-val vars_of_struct_item_with_pos: struct_item -> (Lib.position * index) list
+val vars_of_struct_item_with_pos: struct_item -> (Position.position * index) list
 (** returns all variables that appear in a [struct_item] with associated positions *)
 
 val vars_of_struct_item: struct_item -> SI.t
 (** returns all variables that appear in a [struct_item] *)
 
-val defined_vars_with_pos: node_item -> (Lib.position * index) list
+val defined_vars_with_pos: node_item -> (Position.position * index) list
 (** returns all the variables that appear in the lhs of the equation of the node body with associated positions *)
 
 val vars_of_ty_ids: typed_ident -> SI.t
 (**  returns all the variables that occur in the expression of a typed identifier declaration *)
 
-val add_exp: Lib.position -> expr -> expr -> expr
+val add_exp: Position.position -> expr -> expr -> expr
 (** Return an AST that adds two expressions*)
 
-val abs_diff: Lib.position -> expr -> expr -> expr
+val abs_diff: Position.position -> expr -> expr -> expr
 (** returns an AST which is the absolute difference of two expr ast*)
 
 val extract_ip_ty: const_clocked_typed_decl -> ident * lustre_type                                                
@@ -190,5 +190,5 @@ val hash : int option -> expr -> int
 val rename_contract_vars : expr -> expr
 (** Rename contract variables from internal names (with format #_contract_var) to syntax names *)
 
-val name_of_prop : Lib.position -> HString.t option -> LustreAst.prop_kind -> HString.t
+val name_of_prop : Position.position -> HString.t option -> LustreAst.prop_kind -> HString.t
 (** Get the name associated with a property *)

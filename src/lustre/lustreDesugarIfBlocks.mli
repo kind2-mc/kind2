@@ -37,10 +37,10 @@ type error_kind =
 val error_message : error_kind -> string
 
 type error = [
-  | `LustreDesugarIfBlocksError of Lib.position * error_kind 
+  | `LustreDesugarIfBlocksError of Position.position * error_kind 
 ]
 
-val pos_list_map : (Lib.position * LustreAst.eq_lhs) list HString.HStringHashtbl.t
+val pos_list_map : (Position.position * LustreAst.eq_lhs) list HString.HStringHashtbl.t
 
 val desugar_if_blocks : 
 TypeCheckerContext.tc_context ->

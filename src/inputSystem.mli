@@ -134,8 +134,8 @@ val compile_to_rust : _ t -> Scope.t -> string -> unit
 a crate. *)
 val compile_oracle_to_rust : _ t -> Scope.t -> string -> (
   string *
-  (Lib.position * int) list *
-  (string * Lib.position * int) list
+  (Position.position * int) list *
+  (string * Position.position * int) list
 )
 
 (** Parameter for contract generation. *)

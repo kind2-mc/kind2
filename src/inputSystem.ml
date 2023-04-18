@@ -740,8 +740,8 @@ fun sys top_scope target ->
 
 let compile_oracle_to_rust (type s): s t -> Scope.t -> string -> (
   string *
-  (Lib.position * int) list *
-  (string * Lib.position * int) list
+  (Position.position * int) list *
+  (string * Position.position * int) list
 ) =
 fun sys top_scope target ->
   match sys with

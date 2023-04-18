@@ -35,14 +35,14 @@ type error_kind =
 val error_message : error_kind -> string
 
 type error = [
-  | `LustreDesugarFrameBlocksError of Lib.position * error_kind
+  | `LustreDesugarFrameBlocksError of Position.position * error_kind
 ]
 
 type warning_kind =
   | UninitializedVariableWarning of HString.t
 
 type warning = [
-  | `LustreDesugarFrameBlocksWarning of Lib.position * warning_kind
+  | `LustreDesugarFrameBlocksWarning of Position.position * warning_kind
 ]
 
 val warning_message : warning_kind -> string
@@ -52,11 +52,11 @@ type eq_or_framecond =
   | FCond of A.eq_lhs
 
 (* First position is frame block header, second position is of the specific equation *)
-val pos_list_map : (Lib.position * eq_or_framecond) list HString.HStringHashtbl.t
+val pos_list_map : (Position.position * eq_or_framecond) list HString.HStringHashtbl.t
 
 val desugar_frame_blocks :
   A.declaration list ->
     (A.declaration list *
-    [> `LustreDesugarFrameBlocksWarning of Lib.position * warning_kind ] list,
-    [> `LustreDesugarFrameBlocksError of Lib.position * error_kind ])
+    [> `LustreDesugarFrameBlocksWarning of Position.position * warning_kind ] list,
+    [> `LustreDesugarFrameBlocksError of Position.position * error_kind ])
     result

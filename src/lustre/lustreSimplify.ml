@@ -17,6 +17,7 @@
 *)
 
 open Lib
+open Position
 open LustreReporting
 
 (* The main function {!declarations_to_nodes} iterates over the list
@@ -396,7 +397,7 @@ let rec eval_ast_expr bounds ctx =
     eval_ast_expr
       bounds
       ctx
-      (A.UnaryOp (Lib.dummy_pos, A.Not, A.CompOp (pos, A.Eq, expr1, expr2)))
+      (A.UnaryOp (Position.dummy_pos, A.Not, A.CompOp (pos, A.Eq, expr1, expr2)))
 
   (* If-then-else [if expr1 then expr2 else expr3 ]*)
   | A.TernaryOp (pos, A.Ite, expr1, expr2, expr3) -> 

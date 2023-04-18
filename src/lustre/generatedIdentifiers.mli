@@ -46,13 +46,13 @@ type t = {
     * LustreAst.lustre_type)
     StringMap.t;
   contract_calls :
-    (Lib.position
-    * (Lib.position * HString.t) list (* contract scope *)
+    (Position.position
+    * (Position.position * HString.t) list (* contract scope *)
     * LustreAst.contract_node_equation list)
     StringMap.t;
   oracles : (HString.t * LustreAst.lustre_type * LustreAst.expr) list;
   ib_oracles : (HString.t * LustreAst.lustre_type) list;
-  calls : (Lib.position (* node call position *)
+  calls : (Position.position (* node call position *)
     * HString.t (* abstracted output *)
     * LustreAst.expr (* condition expression *)
     * LustreAst.expr (* restart expression *)
@@ -62,14 +62,14 @@ type t = {
     list;
   subrange_constraints : (source
     * bool (* true if the type used for the subrange is the original type *)
-    * Lib.position
+    * Position.position
     * HString.t (* Generated name for Range Expression *)
     * LustreAst.expr) (* Computed ranged expr *)
     list;
   expanded_variables : StringSet.t;
   equations :
     (LustreAst.typed_ident list (* quantified variables *)
-    * (Lib.position * HString.t) list (* contract scope  *)
+    * (Position.position * HString.t) list (* contract scope  *)
     * LustreAst.eq_lhs
     * LustreAst.expr)
     list;

@@ -16,7 +16,7 @@
 
 *)
 
-open Lib
+open Position
 
 
 (* Current status of a property *)

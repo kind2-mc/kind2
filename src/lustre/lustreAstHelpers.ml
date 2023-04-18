@@ -884,11 +884,11 @@ let rec defined_vars_with_pos = function
   | _ -> [] 
 
 
-let add_exp: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
+let add_exp: Position.position -> expr -> expr -> expr = fun pos e1 e2 ->
   BinaryOp (pos, Plus, e1, e2)
 (** Return an ast that adds two expressions*)
 
-let abs_diff: Lib.position -> expr -> expr -> expr = fun pos e1 e2 ->
+let abs_diff: Position.position -> expr -> expr -> expr = fun pos e1 e2 ->
   TernaryOp (pos, Ite,
              CompOp (pos, Gte, e1, e2)
              , BinaryOp (pos, Minus, e1, e2)
@@ -1721,5 +1721,5 @@ let name_of_prop pos name k =
       | Reachable _ -> "Reach"
       | Provided _ -> "Prov"
     in
-    Format.asprintf "%sProp%a" kind_str Lib.pp_print_line_and_column pos
+    Format.asprintf "%sProp%a" kind_str Position.pp_print_line_and_column pos
     |> HString.mk_hstring

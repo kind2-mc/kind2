@@ -71,7 +71,7 @@ let error_message = function
     ^ (HString.string_of_hstring i) ^ "'"
 
 type error = [
-  | `LustreArrayDependencies of Lib.position * error_kind
+  | `LustreArrayDependencies of Position.position * error_kind
 ]
 
 let mk_error pos kind = Error (`LustreArrayDependencies (pos, kind))
@@ -85,7 +85,7 @@ let union_ a b =
   R.ok (union a b)
 let empty_ = R.ok G.empty
 
-let zero = A.Const (Lib.dummy_pos, A.Num (HString.mk_hstring "0"))
+let zero = A.Const (Position.dummy_pos, A.Num (HString.mk_hstring "0"))
 
 let unwrap result = match result with
   | Ok r -> r

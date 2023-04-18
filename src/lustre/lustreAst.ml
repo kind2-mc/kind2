@@ -17,6 +17,7 @@
 *)
 
 open Lib
+open Position
 
 exception Parser_error
 
@@ -316,8 +317,8 @@ type contract_node_decl =
 type node_param_inst = ident * ident * lustre_type list
 
 type span = {
-  start_pos : position;
-  end_pos : position;
+  start_pos : Position.position;
+  end_pos : Position.position;
 }
 
 (* A declaration as parsed *)

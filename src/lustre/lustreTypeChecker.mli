@@ -83,14 +83,14 @@ type error_kind = Unknown of string
   | ExpectedRecordType of tc_type
 
 type error = [
-  | `LustreTypeCheckerError of Lib.position * error_kind
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
-  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
+  | `LustreTypeCheckerError of Position.position * error_kind
+  | `LustreSyntaxChecksError of Position.position * LustreSyntaxChecks.error_kind
+  | `LustreAstInlineConstantsError of Position.position * LustreAstInlineConstants.error_kind
 ]
 
 val error_message: error_kind -> string
 
-val type_error: Lib.position -> error_kind -> ('a, [> error]) result 
+val type_error: Position.position -> error_kind -> ('a, [> error]) result 
 (** [type_error] returns an [Error] of [tc_result] *)
      
 val type_check_infer_globals: tc_context -> LA.t -> (tc_context, [> error]) result  

@@ -56,7 +56,7 @@ type error_kind = Unknown of string
   | CyclicDependency of HString.t list
 
 type error = [
-  | `LustreAstDependenciesError of Lib.position * error_kind
+  | `LustreAstDependenciesError of Position.position * error_kind
 ]
 
 val error_message: error_kind -> string

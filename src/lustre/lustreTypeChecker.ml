@@ -98,9 +98,9 @@ type error_kind = Unknown of string
   | ExpectedRecordType of tc_type
 
 type error = [
-  | `LustreTypeCheckerError of Lib.position * error_kind
-  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
-  | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
+  | `LustreTypeCheckerError of Position.position * error_kind
+  | `LustreSyntaxChecksError of Position.position * LustreSyntaxChecks.error_kind
+  | `LustreAstInlineConstantsError of Position.position * LustreAstInlineConstants.error_kind
 ]
 
 let error_message kind = match kind with
@@ -203,7 +203,7 @@ let type_error pos kind = Error (`LustreTypeCheckerError (pos, kind))
 (**********************************************
  * Type inferring and type checking functions *
  **********************************************)
- let infer_type_const: Lib.position -> LA.constant -> tc_type
+ let infer_type_const: Position.position -> LA.constant -> tc_type
   = fun pos -> function
   | Num _ -> Int pos
   | Dec _ -> Real pos
@@ -216,7 +216,7 @@ let check_merge_clock: LA.expr -> LA.lustre_type -> (unit, [> error]) result = f
   | Bool _ -> LSC.no_mismatched_clock true e
   | _ -> Ok ()
 
-let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HString.t list -> (unit, [> error]) result
+let check_merge_exhaustive: tc_context -> Position.position -> LA.lustre_type -> HString.t list -> (unit, [> error]) result
   = fun ctx pos ty cases ->
     match ty with
     | AbstractType (_, enum_id) -> (match lookup_variants ctx enum_id with
@@ -690,7 +690,7 @@ and check_type_expr: tc_context -> LA.expr -> tc_type -> (unit, [> error]) resul
  * if the expected type is the given type [tc_type]  
  * returns an [Error of string] otherwise *)
 
-and infer_type_unary_op: tc_context -> Lib.position -> LA.expr -> LA.unary_operator -> (tc_type, [> error]) result
+and infer_type_unary_op: tc_context -> Position.position -> LA.expr -> LA.unary_operator -> (tc_type, [> error]) result
   = fun ctx pos e op ->
   infer_type_expr ctx e >>= fun ty -> 
   match op with
@@ -708,7 +708,7 @@ and infer_type_unary_op: tc_context -> Lib.position -> LA.expr -> LA.unary_opera
     else type_error pos (IlltypedUnaryMinus ty)
 (** Infers type of unary operator application *)
 
-and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> (bool, [> error]) result
+and are_args_num: tc_context -> Position.position -> tc_type -> tc_type -> (bool, [> error]) result
   = fun ctx pos ty1 ty2 ->
   let num1 = HString.mk_hstring "1" in
   let num_tys = [
@@ -730,7 +730,7 @@ and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> (bool, [> 
   R.seqM (||) false (List.map (are_equal_types ctx ty1 ty2) num_tys) 
 (** This is an ugly fix till we have polymorphic unification, may be qualified types? *)
   
-and infer_type_binary_op: tc_context -> Lib.position
+and infer_type_binary_op: tc_context -> Position.position
                           -> LA.binary_operator -> LA.expr -> LA.expr
                           -> (tc_type, [> error]) result
   = fun ctx pos op e1 e2 ->
@@ -777,7 +777,7 @@ and infer_type_binary_op: tc_context -> Lib.position
     else type_error pos (ExpectedBitShiftMachineIntegerType ty1)
 (** infers the type of binary operators  *)
 
-and infer_type_conv_op: tc_context -> Lib.position
+and infer_type_conv_op: tc_context -> Position.position
                         ->  LA.expr -> LA.conversion_operator
                         -> (tc_type, [> error]) result
   = fun ctx pos e op ->
@@ -825,7 +825,7 @@ and infer_type_conv_op: tc_context -> Lib.position
     else type_error pos (InvalidConversion (ty, (UInt64 pos)))
 (** Converts from given type to the intended type aka casting *)
     
-and infer_type_comp_op: tc_context -> Lib.position -> LA.expr -> LA.expr
+and infer_type_comp_op: tc_context -> Position.position -> LA.expr -> LA.expr
                         -> LA.comparison_operator -> (tc_type, [> error]) result
   = fun ctx pos e1 e2 op ->
   infer_type_expr ctx e1 >>= fun ty1 ->
@@ -847,7 +847,7 @@ and infer_type_comp_op: tc_context -> Lib.position -> LA.expr -> LA.expr
     else type_error pos (ExpectedIntegerTypes (ty1, ty2))
 (** infer the type of comparison operator application *)
                   
-and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index -> tc_type -> (unit, [> error]) result =
+and check_type_record_proj: Position.position -> tc_context -> LA.expr -> LA.index -> tc_type -> (unit, [> error]) result =
   fun pos ctx expr idx exp_ty -> 
   infer_type_expr ctx expr
   >>= function
@@ -860,7 +860,7 @@ and check_type_record_proj: Lib.position -> tc_context -> LA.expr -> LA.index ->
       (type_error pos (UnificationFailed (exp_ty, fty)))
   | rec_ty -> type_error (LH.pos_of_expr expr) (IlltypedRecordProjection rec_ty)
 
-and check_type_tuple_proj : Lib.position -> tc_context -> LA.expr -> int -> tc_type -> (unit, [> error]) result =
+and check_type_tuple_proj : Position.position -> tc_context -> LA.expr -> int -> tc_type -> (unit, [> error]) result =
   fun pos ctx expr idx exp_ty ->
   infer_type_expr ctx expr
   >>= function
@@ -901,7 +901,7 @@ and local_var_binding: tc_context -> LA.node_local_decl -> (tc_context, [> error
       else check_type_well_formed ctx ty
           >> R.ok (add_ty ctx v ty)
                      
-and check_type_node_decl: Lib.position -> tc_context -> LA.node_decl -> (unit, [> error]) result
+and check_type_node_decl: Position.position -> tc_context -> LA.node_decl -> (unit, [> error]) result
   = fun pos ctx
         (node_name, is_extern, params, input_vars, output_vars, ldecls, items, contract)
         ->
@@ -1285,7 +1285,7 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (tc_context, [> error]) res
     let ctx' = add_ty_syn ctx i (LA.AbstractType (pos, i)) in
     R.ok (add_ty_decl ctx' i)
 
-and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> (tc_context, [> error]) result
+and tc_ctx_of_node_decl: Position.position -> tc_context -> LA.node_decl -> (tc_context, [> error]) result
   = fun pos ctx (nname, _, _ , ip, op, _ ,_ ,_)->
   Debug.parse
     "Extracting type of node declaration: %a"
@@ -1350,7 +1350,7 @@ and extract_exports: LA.ident -> tc_context -> LA.contract -> (tc_context, [> er
       (IMap.empty, ctx) contract) >>=
     fun (exports, _) -> R.ok (add_contract_exports ctx cname exports)  
                  
-and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
+and tc_ctx_of_contract_node_decl: Position.position -> tc_context
                                   -> LA.contract_node_decl
                                   -> (tc_context, [> error]) result
   = fun pos ctx (cname, _, inputs, outputs, contract) ->
@@ -1429,7 +1429,7 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)
        
-and build_node_fun_ty: Lib.position -> tc_context
+and build_node_fun_ty: Position.position -> tc_context
                        -> LA.const_clocked_typed_decl list
                        -> LA.clocked_typed_decl list -> (tc_type, [> error]) result
   = fun pos ctx args rets ->

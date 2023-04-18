@@ -37,7 +37,7 @@ let error_message error = match error with
   )
 
 type error = [
-  | `LustreDesugarIfBlocksError of Lib.position * error_kind
+  | `LustreDesugarIfBlocksError of Position.position * error_kind
 ]
 
 let ib_oracle_tree = HString.mk_hstring "ib_oracle" 
@@ -48,7 +48,7 @@ let i = ref (0)
 module LhsMap = struct
   include Map.Make (struct
     (* LHS and its corresponding position on the RHS *)
-    type t = (A.eq_lhs * Lib.position)
+    type t = (A.eq_lhs * Position.position)
     let compare lhs1 lhs2 = 
       let (A.StructDef (_, ss1)), _ = lhs1 in
       let (A.StructDef (_, ss2)), _ = lhs2 in
@@ -62,7 +62,7 @@ type cond_tree =
 	| Leaf of A.expr option
 	| Node of cond_tree * A.expr * cond_tree
 
-let pos_list_map : (Lib.position * A.eq_lhs) list HString.HStringHashtbl.t = 
+let pos_list_map : (Position.position * A.eq_lhs) list HString.HStringHashtbl.t = 
   HString.HStringHashtbl.create 20
 
 let (let*) = R.(>>=)

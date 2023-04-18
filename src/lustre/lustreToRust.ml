@@ -45,7 +45,7 @@ let file_name_of_path file_path =
 
 (* Formats a position as a link to the rust doc of the lustre file. *)
 let fmt_pos_as_link fmt pos =
-  let name, line, _ = file_row_col_of_pos pos in
+  let name, line, _ = Position.file_row_col_of_pos pos in
   let name =
     match name with
     | "" -> Flags.input_file ()

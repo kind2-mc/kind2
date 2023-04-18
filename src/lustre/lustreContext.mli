@@ -21,18 +21,16 @@
 
     @author Christoph Sticksel *)
 
-open Lib
-
 (** Context *)
 type t
 
 
 (** Node or function not found, possible forward reference *)
-exception Node_not_found of LustreIdent.t * position
+exception Node_not_found of LustreIdent.t * Position.position
 
-exception Type_not_found of LustreIdent.t * position
+exception Type_not_found of LustreIdent.t * Position.position
 
-exception Contract_not_found of LustreIdent.t * position
+exception Contract_not_found of LustreIdent.t * Position.position
 
 (** {1 Scopes and Nodes} *)
 
@@ -101,7 +99,7 @@ val add_node_to_context : t -> t -> t
 
 (** Resolve a forward reference, fails if a circular dependency is detected. *)
 val solve_fref : t -> LustreAst.declaration -> (
-  LustreDependencies.decl * LustreIdent.t * Lib.position
+  LustreDependencies.decl * LustreIdent.t * Position.position
 ) -> LustreAst.declaration list -> LustreAst.declaration list
 
 (** Register a free constant, shadows previous declarations *)
@@ -164,11 +162,11 @@ val trace_svars_of : t -> LustreExpr.t -> StateVar.StateVarSet.t option
 
 (** Add a contract node to the context for inlining later *)
 val add_contract_node_decl_to_context :
-  t -> Lib.position * LustreAst.contract_node_decl -> t
+  t -> Position.position * LustreAst.contract_node_decl -> t
 
 (** Return a contract node by its identifier *)
 val contract_node_decl_of_ident :
-  t -> HString.t -> Lib.position * LustreAst.contract_node_decl
+  t -> HString.t -> Position.position * LustreAst.contract_node_decl
 
 (** Return a context that raises an error when defining an
     expression.
@@ -176,7 +174,7 @@ val contract_node_decl_of_ident :
     [fail_on_new_definition ctx pos msg] will evaluate
     {!fail_at_position} with the location [pos] and the message [msg]
     as arguments *)
-val fail_on_new_definition : t -> Lib.position -> string -> t
+val fail_on_new_definition : t -> Position.position -> string -> t
 
 (** Raise exception if no new definitions allowed 
 
@@ -242,7 +240,7 @@ val mk_local_for_expr :
   ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
   ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
   ?reuse:bool -> ?is_ghost:bool -> ?original:LustreAst.expr ->
-  Lib.position -> t -> LustreExpr.t -> LustreNode.equation_lhs * t
+  Position.position -> t -> LustreExpr.t -> LustreNode.equation_lhs * t
 
 (** Create a fresh oracle state variable in the context. *)
 val mk_fresh_oracle : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
@@ -275,12 +273,12 @@ val call_outputs_of_node_call :
 
 (** Add node input to context *)
 val add_node_input :
-  ?is_const:bool -> t -> LustreIdent.t -> Lib.position ->
+  ?is_const:bool -> t -> LustreIdent.t -> Position.position ->
   Type.t LustreIndex.t -> t
 
 (** Add node output to context *)
 val add_node_output :
-  ?is_single:bool -> t -> LustreIdent.t -> Lib.position ->
+  ?is_single:bool -> t -> LustreIdent.t -> Position.position ->
   Type.t LustreIndex.t -> t
 
 (** The output state variables of the current node. *)
@@ -288,7 +286,7 @@ val outputs_of_current_node : t -> StateVar.t LustreIndex.t
 
 (** Add node local to context *)
 val add_node_local :
-  ?ghost:bool -> t -> LustreIdent.t -> Lib.position -> Type.t LustreIndex.t -> t
+  ?ghost:bool -> t -> LustreIdent.t -> Position.position -> Type.t LustreIndex.t -> t
 
 (** Adds assumptions to a node. *)
 val add_node_ass : t -> LustreContract.svar list -> t
@@ -300,7 +298,7 @@ val add_node_gua : t -> (LustreContract.svar * bool) list -> t
 val add_node_mode : t -> LustreContract.mode -> t
 
 (** Add assertion to context *)
-val add_node_assert : t -> Lib.position -> StateVar.t -> t
+val add_node_assert : t -> Position.position -> StateVar.t -> t
 
 (* Add sofar(assumptions) to context *)
 val add_node_sofar_assumption : t -> t
@@ -310,13 +308,13 @@ val add_node_property : t -> Property.prop_source -> string -> LustreExpr.t -> t
 
 (** Add equation to context *)
 val add_node_equation :
-  t -> Lib.position -> StateVar.t ->
+  t -> Position.position -> StateVar.t ->
   LustreExpr.expr LustreExpr.bound_or_fixed list -> int -> LustreExpr.t -> t
 
 (** Add node call to context *)
-val add_node_call : t -> Lib.position -> LustreNode.node_call -> t
+val add_node_call : t -> Position.position -> LustreNode.node_call -> t
 
-val add_assumption_variable: t -> (Lib.position * LustreIdent.t) -> t
+val add_assumption_variable: t -> (Position.position * LustreIdent.t) -> t
 
 (** Mark node as main *)
 val set_node_main : t -> t
@@ -338,7 +336,7 @@ val get_node_function_flag : t -> bool
     {!LustreSimplify.eval_ast_expr} directly. *)
 val close_expr :
   ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
-  ?original:LustreAst.expr -> Lib.position ->
+  ?original:LustreAst.expr -> Position.position ->
   (LustreExpr.t * t) -> (LustreExpr.t * t)
 
 (** Check that the node being defined has no undefined local or output
@@ -352,7 +350,7 @@ val check_vars_defined : t -> unit
 val are_definitions_allowed : t -> bool
 
 (** Returns position associated with state variable *)
-val position_of_state_variable : t -> StateVar.t -> position option
+val position_of_state_variable : t -> StateVar.t -> Position.position option
 
 (* 
    Local Variables:

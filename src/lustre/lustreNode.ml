@@ -43,6 +43,7 @@
    have that annotation. *)
 
 open Lib
+open Position
 
 (* Module abbreviations *)
 module I = LustreIdent 
@@ -98,7 +99,7 @@ type call_cond =
 type node_call = {
 
   (* Position of node call in input file *)
-  call_pos : position;
+  call_pos : Position.position;
 
   (* Name of called node *)
   call_node_name : I.t;
@@ -1234,7 +1235,7 @@ let rec fold_node_calls_with_trans_sys'
              (* Find instance of this node call by position *)
              let instance = 
                List.find 
-                 (fun { TransSys.pos } -> Lib.equal_pos pos call_pos)
+                 (fun { TransSys.pos } -> equal_pos pos call_pos)
                  instances'
              in
 
@@ -1647,7 +1648,7 @@ let pp_print_state_var_instances_debug fmt t =
       Format.fprintf fmt "%a: %a %a\n"
       (LustreIdent.pp_print_ident true) id
       StateVar.pp_print_state_var sv
-      Lib.pp_print_position pos
+      Position.pp_print_position pos
     )
   in
   List.iter print_sv (get_all_state_vars t)
@@ -1663,7 +1664,7 @@ let set_state_var_instance state_var pos node state_var' =
 
     (* Check if instance already known *)
     if List.exists (fun (p, n, sv) ->
-        Lib.equal_pos p pos
+        equal_pos p pos
         && I.equal n node
         && StateVar.equal_state_vars sv state_var'
       ) instances then 
@@ -1713,12 +1714,12 @@ let state_var_defs_equal d1 d2 =
   | CallOutput (p1, i1), CallOutput (p2, i2)
   | ProperEq (p1, i1), ProperEq (p2, i2)
   | GeneratedEq (p1, i1), GeneratedEq (p2, i2) ->
-    (Lib.equal_pos p1 p2) && LustreIndex.equal_index i1 i2
-  | FrameBlock p1, FrameBlock p2 -> Lib.equal_pos p1 p2
-  | IfBlock p1, IfBlock p2 -> Lib.equal_pos p1 p2
+    (equal_pos p1 p2) && LustreIndex.equal_index i1 i2
+  | FrameBlock p1, FrameBlock p2 -> equal_pos p1 p2
+  | IfBlock p1, IfBlock p2 -> equal_pos p1 p2
   | ContractItem (p1, svar1, typ1), ContractItem (p2, svar2, typ2) ->
-    (Lib.equal_pos p1 p2) && typ1 = typ2 && StateVar.equal_state_vars svar1.svar svar2.svar
-  | Assertion p1, Assertion p2 -> (Lib.equal_pos p1 p2)
+    (equal_pos p1 p2) && typ1 = typ2 && StateVar.equal_state_vars svar1.svar svar2.svar
+  | Assertion p1, Assertion p2 -> (equal_pos p1 p2)
   | _ -> false
 
 let add_state_var_def ?(is_dep = false) state_var def  = 
@@ -1750,21 +1751,21 @@ let index_of_state_var_def = function
 let pp_print_state_var_def fmt = (function
   | CallOutput (p,i) ->
     Format.fprintf fmt "Call Output: %a (%a)\n"
-    Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+    Position.pp_print_position p (LustreIndex.pp_print_index true) i
   | ProperEq (p,i) ->
     Format.fprintf fmt "Proper Eq: %a (%a)\n"
-    Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+    Position.pp_print_position p (LustreIndex.pp_print_index true) i
   | GeneratedEq (p,i) ->
     Format.fprintf fmt "Generated Eq: %a (%a)\n"
-    Lib.pp_print_position p (LustreIndex.pp_print_index true) i
+    Position.pp_print_position p (LustreIndex.pp_print_index true) i
   | FrameBlock p ->
-    Format.fprintf fmt "Frame Block: %a\n" Lib.pp_print_position p
+    Format.fprintf fmt "Frame Block: %a\n" Position.pp_print_position p
   | IfBlock p ->
-    Format.fprintf fmt "If Block: %a\n" Lib.pp_print_position p
+    Format.fprintf fmt "If Block: %a\n" Position.pp_print_position p
   | ContractItem (p,_,_) ->
-    Format.fprintf fmt "Contract Item: %a\n" Lib.pp_print_position p
+    Format.fprintf fmt "Contract Item: %a\n" Position.pp_print_position p
   | Assertion p ->
-    Format.fprintf fmt "Assertion: %a\n" Lib.pp_print_position p
+    Format.fprintf fmt "Assertion: %a\n" Position.pp_print_position p
   )
 
 let pp_print_state_var_defs_debug fmt t =

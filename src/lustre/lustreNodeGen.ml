@@ -21,6 +21,7 @@
   @author Andrew Marmaduke *)
 
 open Lib
+open Position
 open LustreReporting
 
 module A = LustreAst
@@ -67,7 +68,7 @@ type identifier_maps = {
   array_index : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
   quant_vars : LustreExpr.t LustreIndex.t LustreIdent.Hashtbl.t;
   modes : LustreContract.mode list;
-  contract_scope : (Lib.position * HString.t) list;
+  contract_scope : (Position.position * HString.t) list;
   node_name : HString.t option;
   assume_count : int;
   guarantee_count : int;
@@ -1901,7 +1902,7 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         (X.pp_print_index_trie true StateVar.pp_print_state_var) eq_lhs
         (X.pp_print_index_trie true (E.pp_print_lustre_expr true)) eq_rhs; *)
       
-      let equations = expand_tuple Lib.dummy_pos eq_lhs eq_rhs in 
+      let equations = expand_tuple Position.dummy_pos eq_lhs eq_rhs in 
       List.iter (fun ((sv, _), e) -> SVT.add state_var_expr_map sv e) equations;
       H.clear !map.array_index;
       H.clear !map.quant_vars;

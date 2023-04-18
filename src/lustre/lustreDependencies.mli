@@ -27,7 +27,7 @@ type decl =
 | NodeOrFun | Type | Contract | Const
 
 (** Reference to an unknown declaration. *)
-exception Unknown_decl of decl * I.t * Lib.position
+exception Unknown_decl of decl * I.t * Position.position
 
 (** Pretty printer for declarations. *)
 val pp_print_decl : Format.formatter -> decl -> unit
@@ -56,7 +56,7 @@ val mem : t -> (
 
 (** Identifier corresponding to a declaration. *)
 val info_of_decl : LustreAst.declaration -> (
-  Lib.position * LustreIdent.t * decl
+  Position.position * LustreIdent.t * decl
 )
 
 (** Inserts a declaration in a list of declarations, after the one with name

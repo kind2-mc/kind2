@@ -19,7 +19,7 @@
 
 (** Wraps a state variable for use in a contract. *)
 type svar = {
-  pos: Lib.position ;
+  pos: Position.position ;
   (** Position of the original expression. *)
 
   num: int ;
@@ -37,17 +37,17 @@ type svar = {
   svar: StateVar.t ;
   (** Actual state variable. *)
 
-  scope: (Lib.position * string) list ;
+  scope: (Position.position * string) list ;
   (** Succession of imports leading to this precise state variable. *)
 }
 
 (** Creates a [svar]. *)
 val mk_svar :
-  Lib.position -> int -> string option ->
-  StateVar.t -> (Lib.position * string) list -> svar
+  Position.position -> int -> string option ->
+  StateVar.t -> (Position.position * string) list -> svar
 
 (** Returns the position of the svar *)
-val pos_of_svar : svar -> Lib.position
+val pos_of_svar : svar -> Position.position
 
 (** Generates a property name.
 
@@ -60,7 +60,7 @@ val prop_name_of_svar : svar -> string -> string -> string
 type mode = {  
   name: LustreIdent.t ; (** Name of the mode. *)
 
-  pos: Lib.position ;   (** Position of the mode. *)
+  pos: Position.position ;   (** Position of the mode. *)
   
   path: string list ;   (** Path of contract imports to this node. *)
   
@@ -73,7 +73,7 @@ type mode = {
 
 (** Creates a [mode]. *)
 val mk_mode:
-  LustreIdent.t -> Lib.position -> string list ->
+  LustreIdent.t -> Position.position -> string list ->
   svar list -> svar list -> bool -> mode
 
 (** Type of contracts. *)
