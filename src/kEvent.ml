@@ -543,15 +543,19 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
     end
     else
       let kind = TransSys.get_prop_kind trans_sys prop in
-      let title, color, dump =
+      let title, color, print, dump =
         match kind with
-        | Property.Invariant -> "Counterexample", "red", Flags.dump_cex ()
-        | Property.Reachable _ -> "Witness", "green", Flags.dump_witness ()
+        | Property.Invariant ->
+          "Counterexample", "red",
+          Flags.print_cex () || Flags.dump_cex (), Flags.dump_cex ()
+        | Property.Reachable _ ->
+          "Witness", "green",
+          Flags.print_witness () || Flags.dump_witness (), Flags.dump_witness ()
       in
       (* Output cex. *)
       (ignore_or_fprintf level)
         !log_ppf 
-      "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%t%a@]@."
+      "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%t%t@]"
         (if disproved then (if kind = Property.Invariant then failure_tag else success_tag) else warning_tag)
         prop
         (
@@ -614,10 +618,14 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
                pp_print_satisfied_wa pp_print_unsatisfied_wa
            )
         )
-        (pp_print_trace_pt
-           ~title ~color dump
-           level input_sys analysis trans_sys (Some prop) disproved)
-        cex ;
+        (function ppf ->
+          if print then
+            Format.fprintf ppf "%a@."
+              (pp_print_trace_pt
+                ~title ~color dump
+                level input_sys analysis trans_sys (Some prop) disproved)
+              cex
+        ) ;
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
