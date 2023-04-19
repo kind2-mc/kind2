@@ -2377,8 +2377,50 @@ module Interpreter = struct
 end
 
 
+module Lsp = struct
+
+  include Make_Spec (struct end)
+  
+  (* Identifier of the module. *)
+  let id = "lsp"
+  (* Short description of the module. *)
+  let desc = "Language Server Protocol (LSP) flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Flags in this module allow LSP servers to request information,@ \
+      and control the internal behaviour of the tool.\
+    @]"
+
+  (* LSP mode. *)
+  let lsp_default = false
+
+  let lsp = ref lsp_default
+
+  let _ =
+    add_spec "--lsp" (bool_arg lsp) (fun fmt ->
+        Format.fprintf fmt
+          "Provide AST info for language-servers. Only in JSON output.@ Default: %a"
+          fmt_bool lsp_default)
+
+  let lsp () = !lsp
 
 
+  (* Fake filename mode. *)
+  let fake_filename_default = ""
+  let fake_filename = ref fake_filename_default
+  let _ = add_spec
+    "--fake_filename"
+    (Arg.String (fun str -> fake_filename := str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Fake filename for error messages.
+        @]"
+    )
+  let fake_filename () = !fake_filename
+
+end
 
 (* ********************************************************************** *)
 (* Maps identifiers to modules flag specifications and description        *)
@@ -2429,6 +2471,9 @@ let module_map = [
   ) ;
   (Certif.id,
     (module Certif: FlagModule)
+  ) ;
+  (Lsp.id,
+    (module Lsp: FlagModule)
   ) ;
 ]
 
@@ -2914,19 +2959,6 @@ module Global = struct
     )
   let only_parse () = !only_parse
 
-  (* LSP mode. *)
-  let lsp_default = false
-
-  let lsp = ref lsp_default
-
-  let _ =
-    add_spec "--lsp" (bool_arg lsp) (fun fmt ->
-        Format.fprintf fmt
-          "Provide AST info for language-servers. Only in JSON output.@ Default: %a"
-          fmt_bool lsp_default)
-
-  let lsp () = !lsp
-
   (* Use the old frontend *)
   let old_frontend_default = false
   let old_frontend = ref old_frontend_default
@@ -3358,7 +3390,6 @@ let dump_cex = Global.dump_cex
 let set_dump_cex = Global.set_dump_cex
 let dump_witness = Global.dump_witness
 let only_parse = Global.only_parse
-let lsp = Global.lsp
 let old_frontend = Global.old_frontend
 let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled
@@ -3781,6 +3812,9 @@ let print_json_options () =
     )
 
 let post_argv_parse_actions () =
+
+  if Lsp.fake_filename () <> "" then
+    set_stdin_id (Lsp.fake_filename ()) ;
 
   if Global.log_format_xml () then print_xml_options ();
   if Global.log_format_json () then Format.fprintf !log_ppf "[@.";

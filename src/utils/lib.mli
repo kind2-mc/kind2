@@ -475,6 +475,10 @@ val compare_pos : position -> position -> int
     input *)
 val is_dummy_pos : position -> bool
 
+(** [set_stdin_id name] sets [name] as the filename used in positions printed
+    with [pp_print_position] when reading from standard input *)
+val set_stdin_id : string -> unit
+
 (** Pretty-print a position *)
 val pp_print_position : Format.formatter -> position -> unit
 

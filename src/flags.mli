@@ -204,9 +204,6 @@ type enable = Lib.kind_module list
 (** Only parse the Lustre program. No analysis is performed. *)
 val only_parse : unit -> bool
 
-(** Provide AST info for language-servers. *)
-val lsp : unit -> bool
-
 (** Use the old Lustre front-end. *)
 val old_frontend : unit -> bool
 
@@ -725,6 +722,17 @@ module Interpreter : sig
   (** Run number of steps, override the number of steps given in the input
     file. *)
   val steps : unit -> int
+end
+
+(** {2 LSP flags} *)
+module Lsp : sig
+
+  (** Provide AST info for language-servers. *)
+  val lsp : unit -> bool
+
+  (** Provide fake filename for error messages. *)
+  val fake_filename : unit -> string
+
 end
 
 
