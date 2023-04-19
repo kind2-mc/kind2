@@ -2406,19 +2406,19 @@ module Lsp = struct
   let lsp () = !lsp
 
 
-  (* Fake filename mode. *)
-  let fake_filename_default = ""
-  let fake_filename = ref fake_filename_default
+  (* Fake filepath. *)
+  let fake_filepath_default = ""
+  let fake_filepath = ref fake_filepath_default
   let _ = add_spec
-    "--fake_filename"
-    (Arg.String (fun str -> fake_filename := str))
+    "--fake_filepath"
+    (Arg.String (fun str -> fake_filepath := str))
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
-          Fake filename for error messages.
+          Fake filepath for error messages.
         @]"
     )
-  let fake_filename () = !fake_filename
+  let fake_filepath () = !fake_filepath
 
 end
 
@@ -3813,8 +3813,8 @@ let print_json_options () =
 
 let post_argv_parse_actions () =
 
-  if Lsp.fake_filename () <> "" then
-    set_stdin_id (Lsp.fake_filename ()) ;
+  if Lsp.fake_filepath () <> "" then
+    set_stdin_id (Lsp.fake_filepath ()) ;
 
   if Global.log_format_xml () then print_xml_options ();
   if Global.log_format_json () then Format.fprintf !log_ppf "[@.";

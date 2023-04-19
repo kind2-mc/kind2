@@ -730,8 +730,8 @@ module Lsp : sig
   (** Provide AST info for language-servers. *)
   val lsp : unit -> bool
 
-  (** Provide fake filename for error messages. *)
-  val fake_filename : unit -> string
+  (** Provide fake filepath for error messages. *)
+  val fake_filepath : unit -> string
 
 end
 
