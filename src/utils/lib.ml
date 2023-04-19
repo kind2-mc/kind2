@@ -1212,6 +1212,10 @@ let dummy_pos_in_file fname =
   { pos_fname = fname; pos_lnum = 0; pos_cnum = -1 }
 *)
 
+let stdin_id = ref "(stdin)"
+
+let set_stdin_id id = stdin_id := id
+
 (* Pretty-print a position *)
 let pp_print_position ppf (
   { pos_fname; pos_lnum; pos_cnum } as pos
@@ -1228,7 +1232,7 @@ let pp_print_position ppf (
   else
 
     let fname =
-      if pos_fname = "" then "(stdin)" else pos_fname
+      if pos_fname = "" then !stdin_id else pos_fname
     in
 
     fprintf ppf "%s:%d:%d" fname pos_lnum pos_cnum

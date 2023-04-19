@@ -249,7 +249,7 @@ let of_channel old_frontend only_parse in_ch =
   let* declarations = ast_of_channel in_ch in
 
   (* Provide lsp info if option is enabled *)
-  if Flags.log_format_json () && Flags.lsp () then
+  if Flags.log_format_json () && Flags.Lsp.lsp () then
     LspInfo.print_ast_info declarations;
 
   if old_frontend then
