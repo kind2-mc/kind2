@@ -533,9 +533,6 @@ let rec opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
       - format: the guessed format (according to the file extension)
       - loc: some meta-data used for source file locations
       - statements: the list of top-level directives found in the file *)
-    let apply_msg (fmt: Format.formatter) (msg : Format.formatter -> unit) = 
-      msg fmt in
-      
     let format, loc, parsed_statements = try Logic.parse_file file with 
       Dolmen.Std.Loc.Syntax_error (loc, e) -> match e with
         (** [Syntax_error (loc, msg)] denotes a syntax error at the given location.
@@ -546,8 +543,8 @@ let rec opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
         - parsed is a description of the token which raised the error,
         - expected is a messages describing what would have been corect
           tokens/inputs at that point. *)
-        | `Regular msg -> (Format.printf "Error: %a" apply_msg msg ) ; failwith "\tA Parser failure occured"
-        | `Advanced (error_ref, prod, parsed, expected) -> (Format.printf "Error %a\nParsed: %a\nExpected: %a" apply_msg prod apply_msg parsed apply_msg expected) ; failwith "A Parser failure occured"
+        | `Regular msg -> (Format.printf "Error: %t"  msg ) ; failwith "\tA Parser failure occured"
+        | `Advanced (error_ref, prod, parsed, expected) -> (Format.printf "Error %t\nParsed: %t\nExpected: %t" prod parsed expected) ; failwith "A Parser failure occured"
     in
   
     (* You can match on the detected format of the input *)

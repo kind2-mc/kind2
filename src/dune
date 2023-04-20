@@ -1,7 +1,18 @@
 (executable
+ (package kind2)
  (public_name kind2)
  (libraries kind2dev)
  (modules kind2)
+ (flags (:standard (:include linking-flags.sexp)))
+)
+
+(executable
+ (package cmc)
+ (public_name cmc)
+ (libraries kind2dev dolmen dolmen_type dolmen_loop)
+  ;  TODO ADD cmcInput and DolmenUtils to executable
+ ; (modules cmc cmcFlow cmcInput cmcInputSexp cmcPath cmcErrors dolmenUtils)
+ (modules cmc)
  (flags (:standard (:include linking-flags.sexp)))
 )
 
@@ -11,9 +22,11 @@
 
 (library
  (name kind2dev)
+ ; TODO remove dolman libraries from Kind2
  (libraries dune-build-info num str threads yojson zmq menhirLib dolmen dolmen_type dolmen_loop)
  (modules
-  (:standard \ C2Icnf horn kind2 lustreChecker nusmv oldParser testgen testgenLib
+  ;  TODO REMOVE cmc modules from kind2
+  (:standard \ C2Icnf horn kind2 cmc lustreChecker nusmv oldParser testgen testgenLib
     testgenStrategies threadtest polltest))
  (modules_without_implementation solverSig)
  (wrapped false))

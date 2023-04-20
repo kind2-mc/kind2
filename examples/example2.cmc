@@ -4,7 +4,7 @@
 (define-fun flip ((s LightStatus)) LightStatus (ite (= s Off) On Off))
 
 (define-system init
-  :output ((l LightStatus) (t Int)))
+  :output ((l LightStatus) (t Bool))
   :local ((w LightStatus))
   :init (and (= t 0) (= l Off))
 )

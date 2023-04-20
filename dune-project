@@ -2,6 +2,11 @@
 
 (name kind2)
 
+(license Apache-2.0)
+(authors "The Kind 2 development team")
+(maintainers "Daniel Larraz <daniel-larraz@uiowa.edu>")
+(source (github kind2-mc/kind2))
+
 (package
  (name kind2)
  (synopsis
@@ -11,11 +16,31 @@ or infinite-state synchronous reactive systems expressed as in an extension of t
 In its basic configuration it takes as input a Lustre file annotated with properties to be proven invariant,
 and outputs for each property either a confirmation or a counterexample, i.e., a sequence inputs that falsifies the property.
 More advanced features include contract-based compositional verification, proof generation for proven properties, and contract-based test generation.")
- (license Apache-2.0)
- (authors "The Kind 2 development team")
- (maintainers "Daniel Larraz <daniel-larraz@uiowa.edu>")
- (source
-  (github kind2-mc/kind2))
+ (homepage "https://kind2-mc.github.io/kind2")
+ (documentation "https://kind.cs.uiowa.edu/kind2_user_doc")
+ (depends
+  (ocaml
+   (>= 4.09))
+  dune
+  dune-build-info
+  (menhir
+   (>= 20180523)) ; Required by dune when the infer option is used
+                  ; See issue: https://github.com/ocaml/dune/issues/1392
+  num
+  (odoc :with-doc)
+  (ounit2 :with-test)
+  yojson
+  (zmq
+   (>= 5.1.0))
+ )
+)
+
+(package
+ (name cmc)
+ (synopsis
+   "Community Model Checker based on Kind 2")
+ (description "CMC reads system models written in the Model Checking intermeddiate Language 
+  and uses Kind 2 back-end technology for model checking")
  (homepage "https://kind2-mc.github.io/kind2")
  (documentation "https://kind.cs.uiowa.edu/kind2_user_doc")
  (depends
