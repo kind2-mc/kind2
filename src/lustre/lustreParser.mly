@@ -339,9 +339,9 @@ lustre_type:
   | INT64 { A.Int64 (mk_pos $startpos)}
   | SUBRANGE;
     LSQBRACKET;
-    l = expr; 
+    l = option(expr); 
     COMMA; 
-    u = expr; 
+    u = option(expr); 
     RSQBRACKET 
     OF
     INT 

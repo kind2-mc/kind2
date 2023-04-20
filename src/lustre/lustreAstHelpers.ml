@@ -1469,8 +1469,16 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
     | Real _, Real _ ->
       Ok (true)
     | IntRange (_, xe1, xe2), IntRange (_, ye1, ye2) ->
-      syn_expr_equal depth_limit xe1 ye1 >>= fun e1 ->
-      syn_expr_equal depth_limit xe2 ye2 >>= fun e2 ->
+      let* e1 = match xe1, ye1 with
+        | None, None -> Ok true
+        | Some xe1, Some ye1 -> syn_expr_equal depth_limit xe1 ye1
+        | _ -> Ok false
+      in
+      let* e2 =  match xe2, ye2 with
+        | None, None -> Ok true
+        | Some xe2, Some ye2 -> syn_expr_equal depth_limit xe2 ye2
+        | _ -> Ok false
+      in
       Ok (e1 && e2)
     | UserType (_, x), UserType (_, y)
     | AbstractType (_, x), AbstractType (_, y) ->

@@ -1381,14 +1381,19 @@ let pp_print_stream_xml node model clock ppf (index, state_var) =
       | _ -> raise 
       (Invalid_argument "pp_print_type: BV size not allowed")
       end
-    | Type.IntRange (i, j, Type.Range) ->
+    | Type.IntRange (i, j) ->
+      let pp_print_num_opt ppf x = match x with 
+        | None -> Format.fprintf ppf "*"
+        | Some x -> Numeral.pp_print_numeral ppf x 
+      in
       Format.fprintf ppf "type=\"subrange\" min=\"%a\" max=\"%a\""
-      Numeral.pp_print_numeral i Numeral.pp_print_numeral j
+      pp_print_num_opt i 
+      pp_print_num_opt j
     | Type.Real ->
       Format.pp_print_string ppf "type=\"real\""
     | Type.Abstr s ->
       Format.pp_print_string ppf s
-    | Type.IntRange (_, _, Type.Enum) ->
+    | Type.Enum _ ->
       let pp_print_enum_name ppf =
           Format.fprintf ppf "enumName=\"%s\" " (Type.name_of_enum stream_type)
       in
@@ -1677,7 +1682,11 @@ let rec pp_print_type_json field ppf stream_type =
         "
         field field s
   )
-  | Type.IntRange (i, j, Type.Range) -> (
+  | Type.IntRange (i, j) -> (
+    let pp_print_num_opt ppf x = match x with 
+      | None -> Format.fprintf ppf "*"
+      | Some x -> Numeral.pp_print_numeral ppf x 
+    in
     Format.fprintf ppf
         "\"%s\" : \"subrange\",@,\
          \"%sInfo\" :@,{@[<v 1>@,\
@@ -1686,9 +1695,10 @@ let rec pp_print_type_json field ppf stream_type =
          @]@,},@,\
         "
         field field
-        Numeral.pp_print_numeral i Numeral.pp_print_numeral j
+        pp_print_num_opt i 
+        pp_print_num_opt j
   )
-  | Type.IntRange (_, _, Type.Enum) -> (
+  | Type.Enum (_, _) -> (
     let pp_print_qstring ppf s =
       Format.fprintf ppf "\"%s\"" s
     in
@@ -1713,7 +1723,7 @@ let rec pp_print_type_json field ppf stream_type =
       Type.all_index_types_of_array stream_type |>
       List.map Type.node_of_type |>
       List.map (function
-        | Type.IntRange (_, j, Type.Range) ->
+        | Type.IntRange (_, Some j) ->
           Numeral.string_of_numeral j
         | _ -> "null"
       )

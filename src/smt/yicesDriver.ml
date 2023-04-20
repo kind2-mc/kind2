@@ -119,7 +119,16 @@ and pp_print_type_node ppf = function
       (Invalid_argument "pp_print_type_node: BV size not allowed")
       end
 
-    | Type.IntRange (i, j, _) ->
+    | Type.IntRange (i, j) ->
+      let pp_print_num_opt ppf x = match x with 
+        | None -> Format.fprintf ppf "*"
+        | Some x -> Numeral.pp_print_numeral ppf x 
+      in
+      Format.fprintf ppf "(subrange %a %a)"
+        pp_print_num_opt i 
+        pp_print_num_opt j
+
+    | Type.Enum (i, j) ->
       Format.fprintf ppf "(subrange %a %a)"
         Numeral.pp_print_numeral i Numeral.pp_print_numeral j
 
@@ -141,6 +150,7 @@ let pp_print_logic _ _ =  failwith "no logic selection in yices"
 
 let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ (* -> Type.mk_int () *)
+  | Type.Enum _
   | Type.Bool | Type.Int | Type.UBV 8 | Type.UBV 16 
   | Type.UBV 32 | Type.UBV 64 | Type.BV 8 | Type.BV 16 
   | Type.BV 32 | Type.BV 64 | Type.Real | Type.Abstr _  -> t
@@ -182,8 +192,8 @@ let type_of_string_sexpr = function
   | HStringSExpr.List [HStringSExpr.Atom s;
                        HStringSExpr.Atom i; HStringSExpr.Atom j]
     when s == s_subrange ->
-    Type.mk_int_range (Numeral.of_string (HString.string_of_hstring i))
-      (Numeral.of_string (HString.string_of_hstring j))
+    Type.mk_int_range (Some (Numeral.of_string (HString.string_of_hstring i)))
+      (Some (Numeral.of_string (HString.string_of_hstring j)))
                                                 
   | HStringSExpr.Atom _
   | HStringSExpr.List _ as s ->

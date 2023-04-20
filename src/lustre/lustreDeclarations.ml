@@ -1923,17 +1923,20 @@ and eval_node_decl
           array_var
           indices
       in
-      let lbound, ubound = Type.bounds_of_int_range base_type in
-      let ct =
-        (E.mk_and
-          (E.mk_lte (E.mk_int lbound) select_term)
-          (E.mk_lte select_term (E.mk_int ubound)))
+      let ct = match Type.bounds_of_int_range base_type with
+        | Some lbound, Some ubound ->
+          (E.mk_and
+            (E.mk_lte (E.mk_int lbound) select_term)
+            (E.mk_lte select_term (E.mk_int ubound)))
+        | Some lbound, None -> (E.mk_lte (E.mk_int lbound) select_term)
+        | None, Some ubound -> (E.mk_lte select_term (E.mk_int ubound))
+        | None, None -> assert false
       in
       let qct =
         List.fold_left
           (fun acc (ty, iv) ->
              match Type.node_of_type ty with
-             | Type.IntRange (i, j, Type.Range) -> (
+             | Type.IntRange (Some i, Some j) -> (
                let bounds =
                  E.mk_and
                    (E.mk_lte (E.mk_int i) (E.mk_free_var iv))
@@ -1941,6 +1944,13 @@ and eval_node_decl
                in
                E.mk_forall [iv] (E.mk_impl bounds acc)
              )
+             | Type.IntRange (Some i, None) -> (
+              E.mk_forall [iv] (E.mk_impl (E.mk_lte (E.mk_int i) (E.mk_free_var iv)) acc)
+             )
+             | Type.IntRange (None, Some j) -> (
+              E.mk_forall [iv] (E.mk_impl (E.mk_lt (E.mk_free_var iv) (E.mk_int j)) acc)
+             )
+             | Type.IntRange (None, None) -> assert false
              | _ ->
                E.mk_forall [iv] acc)
           ct
@@ -1953,9 +1963,14 @@ and eval_node_decl
       let lus_var = E.mk_var svar in
       (* Value of state variable is in range of declared type:
         lbound <= svar and svar <= ubound *)
-      (E.mk_and
-        (E.mk_lte (E.mk_int lbound) lus_var)
-        (E.mk_lte lus_var (E.mk_int ubound)))
+      match lbound, ubound with 
+        | Some lbound, Some ubound -> 
+          (E.mk_and
+            (E.mk_lte (E.mk_int lbound) lus_var)
+            (E.mk_lte lus_var (E.mk_int ubound)))
+        | Some lbound, None -> (E.mk_lte (E.mk_int lbound) lus_var)
+        | None, Some ubound -> (E.mk_lte lus_var (E.mk_int ubound))
+        | None, None -> assert false
     )
   in
 

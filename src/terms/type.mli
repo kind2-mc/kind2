@@ -24,14 +24,12 @@
 
 (** {1 Types and hash-consing} *)
 
-(** Tells if the range actually encodes an enumerated datatype *)
-type rangekind = Range | Enum
-
 (** Type of an expression *)
 type kindtype = 
   | Bool
   | Int
-  | IntRange of Numeral.t * Numeral.t * rangekind
+  | IntRange of Numeral.t option * Numeral.t option
+  | Enum of Numeral.t * Numeral.t
   | Real
   | UBV of int
   | BV of int 
@@ -77,7 +75,7 @@ val mk_bool : unit -> t
 val mk_int : unit -> t 
 
 (** Return the integer range type *)
-val mk_int_range : Numeral.t -> Numeral.t -> t
+val mk_int_range : Numeral.t option -> Numeral.t option -> t
 
 (** Return the real decimal type *)
 val mk_real : unit -> t
@@ -185,7 +183,7 @@ val is_abstr : t -> bool
 (** Return bounds of an integer range type, fail with
     [Invalid_argument "bounds_of_int_range"] if the type is not an
     integer range type. *)
-val bounds_of_int_range : t -> (Numeral.t * Numeral.t)
+val bounds_of_int_range : t -> (Numeral.t option * Numeral.t option)
 
 
 (** Generalize a type (remove actual intranges) *)

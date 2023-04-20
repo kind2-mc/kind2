@@ -240,19 +240,22 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
   | Type.Int -> Format.pp_print_string ppf "int"
 
-  | Type.IntRange (i, j, Type.Range) -> 
-
-     Format.fprintf
-       ppf 
-       "subrange [%a, %a] of int" 
-       Numeral.pp_print_numeral i 
-       Numeral.pp_print_numeral j
+  | Type.IntRange (i, j) -> 
+    let pp_print_num_opt ppf x = match x with 
+      | None -> Format.fprintf ppf "*"
+      | Some x -> Numeral.pp_print_numeral ppf x 
+    in
+    Format.fprintf
+      ppf 
+      "subrange [%a, %a] of int" 
+      pp_print_num_opt i 
+      pp_print_num_opt j
 
   | Type.Real -> Format.pp_print_string ppf "real"
 
   | Type.Abstr s -> Format.pp_print_string ppf s
 
-  | Type.IntRange (_, _, Type.Enum) -> 
+  | Type.Enum (_, _) -> 
      let cs = Type.constructors_of_enum t in
      Format.fprintf ppf "enum {%a}"
        (pp_print_list Format.pp_print_string ", ") cs
@@ -1194,7 +1197,7 @@ let mk_int d =
 
   { expr_init = expr; 
     expr_step = expr; 
-    expr_type = Type.mk_int_range d d } 
+    expr_type = Type.mk_int_range (Some d) (Some d) } 
 
 (* Unsigned integer8 constant *)
 let mk_uint8 d =
@@ -2462,7 +2465,7 @@ let type_of_mod = function
       | t when Type.is_int t -> Type.t_int 
       | t when Type.is_int_range t -> 
         let l, u = Type.bounds_of_int_range t in 
-        Type.mk_int_range Numeral.zero Numeral.(pred (max (abs l) (abs u)))
+        Type.mk_int_range (Some Numeral.zero) (Some Numeral.(pred (max (abs l) (abs u))))
       | _ -> raise Type_mismatch)
   | t1 when Type.is_ubitvector t1 -> 
     (function 

@@ -95,6 +95,7 @@ type error_kind = Unknown of string
   | UndeclaredType of HString.t
   | EmptySubrange of int * int
   | SubrangeArgumentMustBeConstantInteger of LA.expr
+  | SubrangeMustHaveBound
   | ExpectedRecordType of tc_type
 
 type error = [
@@ -191,6 +192,7 @@ let error_message kind = match kind with
     ^ string_of_int v1 ^ ", " ^ string_of_int v2 ^ "]"
   | SubrangeArgumentMustBeConstantInteger e -> "Range arguments should be of constant integers, but found: "
     ^ Lib.string_of_t LA.pp_print_expr e
+  | SubrangeMustHaveBound -> "Range should have at least one lower or upper bound"
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
 
 let (>>=) = R.(>>=)
@@ -721,7 +723,7 @@ and are_args_num: tc_context -> Lib.position -> tc_type -> tc_type -> (bool, [> 
     ; LA.Int16 pos
     ; LA.Int32 pos
     ; LA.Int64 pos
-    ; LA.IntRange (pos, Const (pos, Num num1), Const (pos, Num num1)) 
+    ; LA.IntRange (pos, Some (Const (pos, Num num1)), Some (Const (pos, Num num1))) 
     ; LA.Real pos] in
   let are_equal_types: tc_context -> tc_type -> tc_type -> tc_type -> (bool, [> error]) result
     = fun ctx ty1 ty2 ty ->
@@ -1414,7 +1416,9 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
   | LA.UserType (pos, i) ->
     if (member_ty_syn ctx i || member_u_types ctx i)
     then R.ok () else type_error pos (UndeclaredType i)
-  | LA.IntRange (pos, e1, e2) ->
+  | LA.IntRange (pos, e1, e2) -> (
+    match e1, e2 with
+    | Some e1, Some e2 ->
     if is_expr_int_type ctx e1 && is_expr_of_consts ctx e1 then
       if is_expr_int_type ctx e2 && is_expr_of_consts ctx e2 then
           let v1 = IC.eval_int_expr ctx e1 in
@@ -1425,6 +1429,10 @@ and check_type_well_formed: tc_context -> tc_type -> (unit, [> error]) result
             else Ok ()
       else type_error pos (SubrangeArgumentMustBeConstantInteger e2)
     else type_error pos (SubrangeArgumentMustBeConstantInteger e1)
+    | Some e1, None -> if is_expr_int_type ctx e1 then Ok () else type_error pos (SubrangeArgumentMustBeConstantInteger e1)
+    | None, Some e2 -> if is_expr_int_type ctx e2 then Ok () else type_error pos (SubrangeArgumentMustBeConstantInteger e2)
+    | None, None -> type_error pos SubrangeMustHaveBound
+    )
   | _ -> R.ok ()
 (** Does it make sense to have this type i.e. is it inhabited? 
  * We do not want types such as int^true to creep in the typing context *)

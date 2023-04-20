@@ -393,18 +393,35 @@ let add_constraints_of_type init terms state_var =
 
     let l, u = Type.bounds_of_int_range base_type in
 
-    let ct =
-      Term.mk_leq [ Term.mk_num l; select_term; Term.mk_num u]
+    let ct = match l, u with 
+      | Some l, Some u -> Term.mk_leq [ Term.mk_num l; select_term; Term.mk_num u]
+      | None, Some u -> Term.mk_leq [ select_term; Term.mk_num u]
+      | Some l, None -> Term.mk_leq [ Term.mk_num l; select_term]
+      | None, None -> assert false
     in
 
     let qct =
       List.fold_left
         (fun acc (ty, iv) ->
            match Type.node_of_type ty with
-           | Type.IntRange (i, j, Type.Range) -> (
+           | Type.IntRange (Some i, Some j) -> (
              let bounds =
                Term.mk_leq
                  [ Term.mk_num i; Term.mk_var iv; Term.mk_num Numeral.(j - one)]
+             in
+             Term.mk_forall [iv] (Term.mk_implies [bounds; acc])
+           )
+           | Type.IntRange (None, Some j) -> (
+             let bounds =
+               Term.mk_leq
+                 [ Term.mk_var iv; Term.mk_num Numeral.(j - one)]
+             in
+             Term.mk_forall [iv] (Term.mk_implies [bounds; acc])
+           )
+           | Type.IntRange (Some i, None) -> (
+             let bounds =
+               Term.mk_leq
+                 [ Term.mk_num i; Term.mk_var iv; ]
              in
              Term.mk_forall [iv] (Term.mk_implies [bounds; acc])
            )
@@ -423,22 +440,29 @@ let add_constraints_of_type init terms state_var =
 
     (* Get bounds of integer range *)
     let l, u = Type.bounds_of_int_range state_var_type in
+    let 
+    var = Var.mk_state_var_instance state_var 
+                    (if init then TransSys.init_base else TransSys.trans_base) |> Term.mk_var
+    in
 
     (* Constrain values of variable between bounds *)
-    Term.mk_leq
-      [ Term.mk_num l; 
-        Var.mk_state_var_instance
-          state_var
-          (if init then 
-             TransSys.init_base 
-           else 
-             TransSys.trans_base)
-        |> Term.mk_var;
-        Term.mk_num u]
-
-    (* Add to terms *)
-    :: terms 
-
+    match l, u with 
+      | Some l, Some u ->
+        Term.mk_leq
+          [ Term.mk_num l; var; Term.mk_num u ]
+        (* Add to terms *)
+        :: terms 
+      | Some l, None ->
+        Term.mk_leq
+          [ Term.mk_num l; var; ]
+      (* Add to terms *)
+      :: terms 
+    | None, Some u -> 
+      Term.mk_leq
+        [ var; Term.mk_num u ]
+      (* Add to terms *)
+      :: terms 
+    | None, None -> assert false
   )
                   
 

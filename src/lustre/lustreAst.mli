@@ -114,7 +114,7 @@ type lustre_type =
   | Int16 of position
   | Int32 of position
   | Int64 of position
-  | IntRange of position * expr * expr
+  | IntRange of position * expr option * expr option
   | Real of position
   | UserType of position * ident
   | AbstractType of position * ident

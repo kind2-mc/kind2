@@ -393,8 +393,18 @@ module BoolRules = struct
   [svar = n], for [n] in [[lo, hi]].
 
   NB: original version added [lo <= svar] and [svar <= hi] too. *)
-  let range_rule lo hi svar = enum_rule lo hi svar
-  
+  let range_rule lo hi svar = 
+    let var = var_of svar in
+    match lo, hi with 
+      | Some lo, Some hi -> 
+        let rec loop lo set =
+          if Num.(lo > hi) then set else loop (Num.succ lo) (
+            Set.add (Term.mk_eq [var ; Term.mk_num lo]) set
+          )
+        in
+        loop lo
+      | _ -> identity (*!! Double check !!*)
+      
   (* Adds [svar >= 0] and [svar == 0] for an int [svar] to the input set. *)
   let int_rule svar set =
     let var = var_of svar in
@@ -472,8 +482,8 @@ module BoolRules = struct
         if SVar.for_inv_gen svar |> not then set else (
           match type_of_svar svar with
           | Type.Bool -> bool_rule svar set
-          | Type.IntRange (lo, hi, Type.Range) -> range_rule lo hi svar set
-          | Type.IntRange (lo, hi, Type.Enum) -> enum_rule lo hi svar set
+          | Type.IntRange (lo, hi) -> range_rule lo hi svar set
+          | Type.Enum (lo, hi) -> enum_rule lo hi svar set
           | Type.Int -> int_rule svar set
           | Type.Real -> real_rule svar set
           | _ -> set
@@ -602,9 +612,14 @@ module IntRules = struct
           if SVar.for_inv_gen svar then
             (var_of svar) :: svars, set
           else svars, set
-        | Type.IntRange (lo, hi, Type.Range) ->
-          svars,
-          Set.add (Term.mk_num lo) set |> Set.add (Term.mk_num hi)
+        | Type.IntRange (lo, hi) ->
+          let set = match lo with 
+            | None -> set
+            | Some lo -> Set.add (Term.mk_num lo) set in 
+          let set = match hi with 
+            | None -> set
+            | Some hi -> Set.add (Term.mk_num hi) set in 
+          svars, set
         | _ -> svars, set
       ) ([], set)
     in

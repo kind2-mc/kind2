@@ -94,7 +94,7 @@ let type_of_sexpr = function
     in
     
     (* Create integer range type *)
-    Type.mk_int_range nl nu
+    Type.mk_int_range (Some nl) (Some nu)
 
   | s ->
     (* Otherwise get SMTLIB type *)

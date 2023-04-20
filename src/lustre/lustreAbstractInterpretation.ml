@@ -63,10 +63,16 @@ let add_type ctx node_name id ty =
 
 let extract_bounds_from_type ty =
   (match ty with
-  | LA.IntRange (_, Const (_, Num l), Const (_, Num r)) ->
+  | LA.IntRange (_, Some Const (_, Num l), Some Const (_, Num r)) ->
     let l = Numeral.of_string (HString.string_of_hstring l) in
     let r = Numeral.of_string (HString.string_of_hstring r) in
     Some l, Some r
+  | LA.IntRange (_, None, Some Const (_, Num r)) ->
+    let r = Numeral.of_string (HString.string_of_hstring r) in
+    None, Some r
+  | LA.IntRange (_, Some Const (_, Num l), None) ->
+    let l = Numeral.of_string (HString.string_of_hstring l) in
+    None, Some l
   (* If the int range is not constant, we treat it as an int for now *)
   | IntRange _ -> None, None
   | _ -> None, None)
@@ -74,7 +80,7 @@ let extract_bounds_from_type ty =
 let subrange_from_bounds l r =
   let l = HString.mk_hstring (Numeral.string_of_numeral l) in
   let r = HString.mk_hstring (Numeral.string_of_numeral r) in
-  LA.IntRange (dpos, Const (dpos, Num l), Const (dpos, Num r))
+  LA.IntRange (dpos, Some (Const (dpos, Num l)), Some (Const (dpos, Num r)))
 
 let rec merge_types a b = match a, b with
   | LA.ArrayType (_, (t1, e)), LA.ArrayType (_, (t2, _)) ->

@@ -2168,7 +2168,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
      TODO: should allow constant node arguments as bounds, but then
      we'd have to check if in each node call the lower bound is less
      than or equal to the upper bound. *)
-  | A.IntRange (pos, lbound, ubound) as t -> 
+  | A.IntRange (pos, Some lbound, Some ubound) as t -> 
 
     (* Evaluate expressions for bounds to constants *)
     let const_lbound, const_ubound = 
@@ -2181,8 +2181,17 @@ and eval_ast_type_flatten flatten_arrays ctx = function
         (Format.asprintf "Invalid range %a" A.pp_print_lustre_type t);
     
     (* Add to empty trie with empty index *)
-    D.singleton D.empty_index (Type.mk_int_range const_lbound const_ubound)
+    D.singleton D.empty_index (Type.mk_int_range (Some const_lbound) (Some const_ubound))
 
+  | A.IntRange (pos, Some lbound, None) ->
+    let const_lbound = const_int_of_ast_expr ctx pos lbound in 
+    D.singleton D.empty_index (Type.mk_int_range (Some const_lbound) None)
+
+  | A.IntRange (pos, None, Some ubound) ->
+    let const_ubound = const_int_of_ast_expr ctx pos ubound in 
+    D.singleton D.empty_index (Type.mk_int_range None (Some const_ubound))
+
+  | A.IntRange (_, None, None) -> D.singleton D.empty_index (Type.mk_int_range None None)
 
   (* Enum type needs to be constructed *)
   | A.EnumType (_, enum_name, enum_elements) -> 
@@ -2306,7 +2315,7 @@ and eval_ast_type_flatten flatten_arrays ctx = function
            D.add (j @ [D.ArrayVarIndex array_size])
              (Type.mk_array t
                 (if E.is_numeral array_size then
-                   Type.mk_int_range Numeral.zero (E.numeral_of_expr array_size)
+                   Type.mk_int_range (Some Numeral.zero) (Some (E.numeral_of_expr array_size))
                  else Type.t_int))
              a)
         element_type

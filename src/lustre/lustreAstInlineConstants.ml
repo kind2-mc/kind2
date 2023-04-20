@@ -373,8 +373,12 @@ and simplify_expr ?(is_guarded = false) ctx =
 
 let rec inline_constants_of_lustre_type ctx = function
   | LA.IntRange (pos, lbound, ubound) ->
-    let lbound' = simplify_expr ctx lbound in
-    let ubound' = simplify_expr ctx ubound in
+    let lbound' = match lbound with 
+      | None -> None
+      | Some lbound -> Some (simplify_expr ctx lbound) in
+    let ubound' = match ubound with
+      | None -> None
+      | Some ubound -> Some (simplify_expr ctx ubound) in
     LA.IntRange (pos, lbound', ubound')
   | LA.TupleType (pos, types) ->
     let types' = List.map (fun t -> inline_constants_of_lustre_type ctx t) types in
