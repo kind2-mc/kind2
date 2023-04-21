@@ -1225,7 +1225,7 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
       | None -> None
     in
     let contract_sv = C.mk_svar pos count name state_var scope in
-    N.add_state_var_def ~is_dep:true state_var (N.ContractItem (pos, contract_sv, kind));
+    N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
     contract_sv
   (* ****************************************************************** *)
   (* Split contracts into relevant categories                           *)
