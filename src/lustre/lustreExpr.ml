@@ -1397,7 +1397,9 @@ let best_int_range is_div op t t' =
   )-> Type.t_int
 
   | Some lo', Some hi' ->
-    let lo, hi = match Type.bounds_of_int_range t with | Some lo, Some hi -> lo, hi | _ -> failwith "stub" in
+    let lo, hi = match Type.bounds_of_int_range t with 
+      | Some lo, Some hi -> lo, hi 
+      | _ -> failwith "stub" in
     let b_0 = op lo lo' in
     let bounds =
       [ op hi lo' ;
@@ -1407,7 +1409,6 @@ let best_int_range is_div op t t' =
     Type.mk_int_range
       (Some (List.fold_left Numeral.min b_0 bounds))
       (Some (List.fold_left Numeral.max b_0 bounds))
-  
   | _ -> failwith "stub"
 
 
@@ -1716,7 +1717,7 @@ let type_of_uminus = function
       | Some lbound, Some ubound -> Type.mk_int_range (Some Numeral.(- ubound)) (Some Numeral.(- lbound))
       | Some lbound, None -> Type.mk_int_range None (Some Numeral.(- lbound))
       | None, Some ubound -> Type.mk_int_range (Some Numeral.(- ubound)) None
-      | None, None -> assert false
+      | None, None -> Type.mk_int_range None None
     )
   | t when Type.is_int8 t -> Type.t_bv 8
   | t when Type.is_int16 t -> Type.t_bv 16

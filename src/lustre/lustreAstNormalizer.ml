@@ -405,6 +405,7 @@ let mk_range_expr ctx expr_type expr =
             | Some (Ok l), Some (Ok u), Some (Ok l'), Some (Ok u') -> l = l' && u = u'
             | Some (Ok l), None, Some (Ok l'), None -> l = l'
             | None, Some (Ok u), None, Some (Ok u') -> u = u'
+            | None, None, None, None -> true
             | _ -> false)
           in
           let user_prop = if is_original then []
@@ -416,7 +417,7 @@ let mk_range_expr ctx expr_type expr =
                   [A.BinaryOp (dpos, A.And, l', u'), true]
                 | Some l', None -> [A.CompOp (dpos, A.Lte, l', expr), true]
                 | None, Some u' -> [A.CompOp (dpos, A.Lte, expr, u'), true]
-                | None, None -> assert false
+                | None, None -> [(A.Const (dpos, A.True)), true]
           in
           user_prop, is_original
         | A.Int _ -> [], false
@@ -430,7 +431,7 @@ let mk_range_expr ctx expr_type expr =
           [A.CompOp (dpos, A.Lte, l, expr), is_original] @ user_prop
         | None, Some u -> 
           [A.CompOp (dpos, A.Lte, expr, u), is_original] @ user_prop
-        | None, None -> assert false
+        | None, None -> [(A.Const (dpos, A.True)), is_original] @ user_prop
       )
     | A.ArrayType (_, (ty, upper_bound)) ->
       let id_str = HString.concat2 (HString.mk_hstring "x") (HString.mk_hstring (string_of_int n)) in

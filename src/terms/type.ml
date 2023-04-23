@@ -320,7 +320,6 @@ let mk_int () = Hkindtype.hashcons ht Int ()
 
 let mk_int_range l u =
   match l, u with 
-  | None, None -> assert false;
   | Some l', Some u' -> assert (Numeral.(l' <= u')); Hkindtype.hashcons ht (IntRange (l, u)) ()
   | _ -> Hkindtype.hashcons ht (IntRange (l, u)) ()
   
@@ -513,9 +512,6 @@ let is_array { Hashcons.node = t } = match t with
 (*   | Array (_, t) -> is_scalar t *)
 (*   | _ -> false *)
 
-
-
-(*!! Double check !!*)
 (* Return bounds of an integer range type *)
 let bounds_of_int_range = function
   | { Hashcons.node = IntRange (l, u) } -> (l, u)

@@ -1930,7 +1930,7 @@ and eval_node_decl
             (E.mk_lte select_term (E.mk_int ubound)))
         | Some lbound, None -> (E.mk_lte (E.mk_int lbound) select_term)
         | None, Some ubound -> (E.mk_lte select_term (E.mk_int ubound))
-        | None, None -> assert false
+        | None, None -> E.t_true
       in
       let qct =
         List.fold_left
@@ -1950,7 +1950,7 @@ and eval_node_decl
              | Type.IntRange (None, Some j) -> (
               E.mk_forall [iv] (E.mk_impl (E.mk_lt (E.mk_free_var iv) (E.mk_int j)) acc)
              )
-             | Type.IntRange (None, None) -> assert false
+             | Type.IntRange (None, None) -> E.t_true
              | _ ->
                E.mk_forall [iv] acc)
           ct
@@ -1970,7 +1970,7 @@ and eval_node_decl
             (E.mk_lte lus_var (E.mk_int ubound)))
         | Some lbound, None -> (E.mk_lte (E.mk_int lbound) lus_var)
         | None, Some ubound -> (E.mk_lte lus_var (E.mk_int ubound))
-        | None, None -> assert false
+        | None, None -> E.t_true
     )
   in
 

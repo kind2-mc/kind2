@@ -57,7 +57,7 @@ let value_of_str ty s =
       if (Numeral.leq n u) then Term.mk_num n
       else raise (Type_error (ty, s))
     )
-    | Type.IntRange _ -> assert false
+    | Type.IntRange (None, None) -> raise (Type_error (ty, s))
     | Type.Enum (_, _) ->
       if Type.enum_of_constr s == ty then Term.mk_constr s
       else raise (Type_error (ty, s))

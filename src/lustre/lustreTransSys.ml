@@ -397,7 +397,7 @@ let add_constraints_of_type init terms state_var =
       | Some l, Some u -> Term.mk_leq [ Term.mk_num l; select_term; Term.mk_num u]
       | None, Some u -> Term.mk_leq [ select_term; Term.mk_num u]
       | Some l, None -> Term.mk_leq [ Term.mk_num l; select_term]
-      | None, None -> assert false
+      | None, None -> Term.mk_bool true
     in
 
     let qct =
@@ -466,7 +466,7 @@ let add_constraints_of_type init terms state_var =
         [ var; Term.mk_num u ]
       (* Add to terms *)
       :: terms 
-    | None, None -> assert false
+    | None, None -> Term.mk_bool true :: terms
   )
                   
 
