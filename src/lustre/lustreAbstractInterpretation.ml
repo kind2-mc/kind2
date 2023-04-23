@@ -82,6 +82,14 @@ let subrange_from_bounds l r =
   let r = HString.mk_hstring (Numeral.string_of_numeral r) in
   LA.IntRange (dpos, Some (Const (dpos, Num l)), Some (Const (dpos, Num r)))
 
+let subrange_from_lower l = 
+  let l = HString.mk_hstring (Numeral.string_of_numeral l) in
+  LA.IntRange (dpos, Some (Const (dpos, Num l)), None)
+
+let subrange_from_upper r = 
+  let r = HString.mk_hstring (Numeral.string_of_numeral r) in
+  LA.IntRange (dpos, None, Some (Const (dpos, Num r)))
+
 let rec merge_types a b = match a, b with
   | LA.ArrayType (_, (t1, e)), LA.ArrayType (_, (t2, _)) ->
     let t = merge_types t1 t2 in
@@ -95,15 +103,25 @@ let rec merge_types a b = match a, b with
   | TupleType (_, t1s), TupleType (_, t2s) ->
     let ts = List.map2 (fun t1 t2 -> merge_types t1 t2) t1s t2s in
     LA.TupleType (dpos, ts)
-  | IntRange (_, Const (_, Num l1), Const (_, Num r1)),
-    IntRange (_, Const (_, Num l2), Const (_, Num r2)) ->
-    let l1 = Numeral.of_string (HString.string_of_hstring l1) in
-    let l2 = Numeral.of_string (HString.string_of_hstring l2) in
-    let r1 = Numeral.of_string (HString.string_of_hstring r1) in
-    let r2 = Numeral.of_string (HString.string_of_hstring r2) in
-    let l = HString.mk_hstring (Numeral.string_of_numeral (Numeral.min l1 l2)) in
-    let r = HString.mk_hstring (Numeral.string_of_numeral (Numeral.max r1 r2)) in
-    IntRange (dpos, Const (dpos, Num l), Const (dpos, Num r))
+  | IntRange (_, l1, u1),
+    IntRange (_, l2, u2) ->
+    let lower = match l1, l2 with 
+      | (Some Const (_, Num l1)), (Some Const (_, Num l2)) -> 
+        let l1 = Numeral.of_string (HString.string_of_hstring l1) in
+        let l2 = Numeral.of_string (HString.string_of_hstring l2) in
+        let l = HString.mk_hstring (Numeral.string_of_numeral (Numeral.min l1 l2)) in
+        Some (LA.Const (dpos, Num l))
+      | _ -> None 
+    in
+    let upper = match u1, u2 with 
+      | (Some Const (_, Num u1)), (Some Const (_, Num u2)) ->
+        let u1 = Numeral.of_string (HString.string_of_hstring u1) in
+        let u2 = Numeral.of_string (HString.string_of_hstring u2) in
+        let u = HString.mk_hstring (Numeral.string_of_numeral (Numeral.max u1 u2)) in
+        Some (LA.Const (dpos, Num u))
+      | _ -> None
+    in
+    IntRange (dpos, lower, upper)
   | IntRange _, (Int _ as t) -> t
   | Int _ as t, IntRange _ -> t
   | t, _ -> t
@@ -127,17 +145,32 @@ let rec restrict_type_by ty restrict = match ty, restrict with
     let ts, is_restricted_list = List.split ts in
     let is_restricted = List.fold_left (||) false is_restricted_list in
     LA.TupleType (dpos, ts), is_restricted
-  | IntRange (_, Const (_, Num l1), Const (_, Num r1)),
-    IntRange (_, Const (_, Num l2), Const (_, Num r2)) ->
-    let l1 = Numeral.of_string (HString.string_of_hstring l1) in
-    let l2 = Numeral.of_string (HString.string_of_hstring l2) in
-    let r1 = Numeral.of_string (HString.string_of_hstring r1) in
-    let r2 = Numeral.of_string (HString.string_of_hstring r2) in
-    let lnum, rnum = Numeral.max l1 l2, Numeral.min r1 r2 in
-    let l = HString.mk_hstring (Numeral.string_of_numeral lnum) in
-    let r = HString.mk_hstring (Numeral.string_of_numeral rnum) in
-    let is_restricted = not (Numeral.equal l1 lnum) || not (Numeral.equal r1 rnum) in
-    IntRange (dpos, Const (dpos, Num l), Const (dpos, Num r)), is_restricted
+  | IntRange (_, l1, u1),
+    IntRange (_, l2, u2) ->
+    let lower, is_restricted1 = match l1, l2 with 
+      | (Some Const (_, Num l1)), (Some Const (_, Num l2)) -> 
+        let l1 = Numeral.of_string (HString.string_of_hstring l1) in
+        let l2 = Numeral.of_string (HString.string_of_hstring l2) in
+        let lnum = Numeral.min l1 l2 in
+        let l = HString.mk_hstring (Numeral.string_of_numeral lnum) in
+        Some (LA.Const (dpos, Num l)), not (Numeral.equal l1 lnum)
+      | Some _, None -> None, true
+      | _ -> None, false 
+      
+    in
+    let upper, is_restricted2 = match u1, u2 with 
+      | (Some Const (_, Num u1)), (Some Const (_, Num u2)) ->
+        let u1 = Numeral.of_string (HString.string_of_hstring u1) in
+        let u2 = Numeral.of_string (HString.string_of_hstring u2) in
+        let unum = Numeral.max u1 u2 in
+        let u = HString.mk_hstring (Numeral.string_of_numeral unum) in
+        Some (LA.Const (dpos, Num u)), not (Numeral.equal u1 unum)
+      | Some _, None -> None, true
+      | _ -> None, false 
+    in
+    (*IntRange (dpos, lower, upper)*)
+    let is_restricted = is_restricted1 || is_restricted2 in
+    IntRange (dpos, lower, upper), is_restricted
   | IntRange _ as t, Int _ -> t, false
   | Int _, (IntRange _ as t) -> t, true
   | t, _ -> t, false
@@ -340,7 +373,8 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
       | _ -> None
     in
     interpret_structured_expr f node_id ctx ty_ctx ty proj expr
-  | IntRange (_, Const (_, Num l1), Const (_, Num r1)) as t ->
+    (*!! Can maybe combine these cases !!*)
+  | IntRange (_, (Some Const (_, Num l1)), (Some Const (_, Num r1))) as t ->
     let l1 = Numeral.of_string (HString.string_of_hstring l1) in
     let r1 = Numeral.of_string (HString.string_of_hstring r1) in
     let l2, r2 = interpret_int_expr node_id ctx ty_ctx proj expr in
@@ -349,6 +383,23 @@ and interpret_expr_by_type node_id ctx ty_ctx ty proj expr : LA.lustre_type =
       let l, r = Numeral.max l1 l2, Numeral.min r1 r2 in
       subrange_from_bounds l r
     | _ -> t)
+  | IntRange (_, (Some Const (_, Num l1)), None) as t ->
+    let l1 = Numeral.of_string (HString.string_of_hstring l1) in
+    let l2, _ = interpret_int_expr node_id ctx ty_ctx proj expr in
+    (match l2  with
+    | Some l2 ->
+      let l  = Numeral.max l1 l2  in
+      subrange_from_lower l 
+    | _ -> t)
+  | IntRange (_, None, (Some Const (_, Num r1))) as t ->
+    let r1 = Numeral.of_string (HString.string_of_hstring r1) in
+    let _, r2 = interpret_int_expr node_id ctx ty_ctx proj expr in
+    (match r2 with
+    | Some r2 ->
+      let r = Numeral.min r1 r2 in
+      subrange_from_upper r
+    | _ -> t)
+  | IntRange (_, None, None) as t -> t
   | Int _ | IntRange _ ->
     let l, r = interpret_int_expr node_id ctx ty_ctx proj expr in
     (match l, r with

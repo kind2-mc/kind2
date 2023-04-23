@@ -1379,24 +1379,25 @@ let type_of_real_real_real = function
 *)
 
 (* Best int subrange for some operator. *)
+(*!! Come back to this !!*)
 let best_int_range is_div op t t' =
   match Type.bounds_of_int_range t' with
   
-  | lo', hi' when (
+  | Some lo', Some hi' when (
     is_div &&
     Numeral.(equal lo' zero) &&
     Numeral.(equal hi' zero)
   ) -> raise Division_by_zero
   
-  | lo', _ when (
+  | Some lo', _ when (
     is_div && Numeral.(equal lo' zero)
   ) -> Type.t_int
-  | _, hi' when (
+  | _, Some hi' when (
     is_div && Numeral.(equal hi' zero)
   )-> Type.t_int
 
-  | lo', hi' ->
-    let lo, hi = Type.bounds_of_int_range t in
+  | Some lo', Some hi' ->
+    let lo, hi = match Type.bounds_of_int_range t with | Some lo, Some hi -> lo, hi | _ -> failwith "stub" in
     let b_0 = op lo lo' in
     let bounds =
       [ op hi lo' ;
@@ -1404,8 +1405,10 @@ let best_int_range is_div op t t' =
         op hi hi' ]
     in
     Type.mk_int_range
-      (List.fold_left Numeral.min b_0 bounds)
-      (List.fold_left Numeral.max b_0 bounds)
+      (Some (List.fold_left Numeral.min b_0 bounds))
+      (Some (List.fold_left Numeral.max b_0 bounds))
+  
+  | _ -> failwith "stub"
 
 
 (* Type check for int -> int -> int, real -> real -> real *)
@@ -1708,9 +1711,13 @@ let eval_uminus expr = match Term.destruct expr with
 let type_of_uminus = function
   | t when Type.is_int t -> Type.t_int
   | t when Type.is_real t -> Type.t_real
-  | t when Type.is_int_range t -> 
-    let (lbound, ubound) = Type.bounds_of_int_range t in
-    Type.mk_int_range Numeral.(- ubound) Numeral.(- lbound)
+  | t when Type.is_int_range t -> (
+    match Type.bounds_of_int_range t with
+      | Some lbound, Some ubound -> Type.mk_int_range (Some Numeral.(- ubound)) (Some Numeral.(- lbound))
+      | Some lbound, None -> Type.mk_int_range None (Some Numeral.(- lbound))
+      | None, Some ubound -> Type.mk_int_range (Some Numeral.(- ubound)) None
+      | None, None -> assert false
+    )
   | t when Type.is_int8 t -> Type.t_bv 8
   | t when Type.is_int16 t -> Type.t_bv 16
   | t when Type.is_int32 t -> Type.t_bv 32
@@ -2463,9 +2470,11 @@ let type_of_mod = function
   | t when Type.is_int t || Type.is_int_range t -> 
     (function 
       | t when Type.is_int t -> Type.t_int 
-      | t when Type.is_int_range t -> 
-        let l, u = Type.bounds_of_int_range t in 
-        Type.mk_int_range (Some Numeral.zero) (Some Numeral.(pred (max (abs l) (abs u))))
+      | t when Type.is_int_range t -> (
+        match Type.bounds_of_int_range t with 
+          | Some l, Some u -> Type.mk_int_range (Some Numeral.zero) (Some Numeral.(pred (max (abs l) (abs u))))
+          | _ -> Type.mk_int_range (Some Numeral.zero) None
+        )
       | _ -> raise Type_mismatch)
   | t1 when Type.is_ubitvector t1 -> 
     (function 
@@ -2549,7 +2558,17 @@ let type_of_minus = function
       | s when Type.is_int_range s -> 
         let l1, u1 = Type.bounds_of_int_range t in
         let l2, u2 = Type.bounds_of_int_range s in
-        Type.mk_int_range Numeral.(l1 - u2) Numeral.(u1 - l2)
+        let lower = (
+        match l1, u2 with 
+          | Some l1, Some u2 -> (Some Numeral.(l1 - u2))
+          | _ -> None (*!! Double check !!*)
+        ) in 
+        let upper = (
+        match l2, u1 with 
+          | Some l2, Some u1 -> (Some Numeral.(u1 - l2))
+          | _ -> None
+        ) in 
+        Type.mk_int_range lower upper 
       | s -> type_of_numOrSBV_numOrSBV_numOrSBV Numeral.sub t s)
   | t -> type_of_numOrBV_numOrBV_numOrBV Numeral.sub t
 
@@ -2605,7 +2624,14 @@ let type_of_plus = function
       | s when Type.is_int_range s -> 
         let l1, u1 = Type.bounds_of_int_range t in
         let l2, u2 = Type.bounds_of_int_range s in
-        Type.mk_int_range Numeral.(l1 + l2) Numeral.(u1 + u2)
+        let lower = match l1, l2 with 
+          | Some l1, Some l2 -> Some Numeral.(l1 + l2)
+          | _ -> None
+        in let upper = match u1, u2 with 
+          | Some u1, Some u2 -> Some Numeral.(u1 + u2)
+          | _ -> None
+        in
+        Type.mk_int_range lower upper
       | s -> type_of_numOrBV_numOrBV_numOrBV Numeral.add t s)
   | t -> type_of_numOrBV_numOrBV_numOrBV Numeral.add t
 
@@ -3238,20 +3264,24 @@ let type_of_ite = function
 
          (* Extend integer ranges if one is not a subtype of the other *)
          (match type2, type3 with 
-           | s, t 
-             when (Type.is_int_range s && Type.is_int t) ||
+            | s, t when (Type.is_int_range s && Type.is_int t) ||
                   (Type.is_int s && Type.is_int_range t) -> Type.t_int
 
-           | s, t 
-             when (Type.is_int_range s && Type.is_int_range t) -> 
-
-             let l1, u1 = Type.bounds_of_int_range s in
-             let l2, u2 = Type.bounds_of_int_range t in
+            | s, t when (Type.is_int_range s && Type.is_int_range t) -> 
+              let l1, u1 = Type.bounds_of_int_range s in
+              let l2, u2 = Type.bounds_of_int_range t in
+              let lower = match l1, l2 with 
+                | Some l1, Some l2 -> Some Numeral.(min l1 l2) 
+                | _ -> None 
+              in
+              let upper = match u1, u2 with 
+                | Some u1, Some u2 -> Some Numeral.(max u1 u2)
+                | _ -> None
+              in
              
-             Type.mk_int_range Numeral.(min l1 l2) Numeral.(max u1 u2)
+             Type.mk_int_range lower upper 
 
-
-           | _ -> raise Type_mismatch))
+            | _ -> raise Type_mismatch))
 
   | _ -> (function _ -> function _ -> raise Type_mismatch)
 
@@ -3279,8 +3309,16 @@ let type_of_arrow type1 type2 =
       
       let l1, u1 = Type.bounds_of_int_range s in
       let l2, u2 = Type.bounds_of_int_range t in
+      let lower = match l1, l2 with 
+        | Some l1, Some l2 -> Some Numeral.(min l1 l2) 
+        | _ -> None 
+      in
+      let upper = match u1, u2 with 
+        | Some u1, Some u2 -> Some Numeral.(max u1 u2)
+        | _ -> None
+      in
       
-      Type.mk_int_range Numeral.(min l1 l2) Numeral.(max u1 u2)
+      Type.mk_int_range lower upper 
 
     | _ -> type_of_a_a_a type1 type2)
 

@@ -521,6 +521,11 @@ let bounds_of_int_range = function
   | { Hashcons.node = IntRange (l, u) } -> (l, u)
   | _ -> raise (Invalid_argument "bounds_of_int_range")
 
+(* Return bounds of an enum type *)
+let bounds_of_enum = function
+  | { Hashcons.node = Enum (l, u) } -> (l, u)
+  | _ -> raise (Invalid_argument "bounds_of_int_range")
+
 (* Return type of array index *)
 let index_type_of_array = function 
   | { Hashcons.node = Array (_, i) } -> i

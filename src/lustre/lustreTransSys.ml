@@ -439,7 +439,11 @@ let add_constraints_of_type init terms state_var =
   else (
 
     (* Get bounds of integer range *)
-    let l, u = Type.bounds_of_int_range state_var_type in
+    let l, u = 
+      (if Type.is_array state_var_type 
+      then Type.bounds_of_int_range state_var_type
+      else Type.bounds_of_enum state_var_type |> (fun (a, b) -> Some a, Some b))
+    in
     let 
     var = Var.mk_state_var_instance state_var 
                     (if init then TransSys.init_base else TransSys.trans_base) |> Term.mk_var
