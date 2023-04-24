@@ -172,8 +172,12 @@ whereas the property is vacuously true.
 
 When the dedicated syntax above is used, Kind 2 simultaneously checks that
 ``B => A`` is invariant and ``B`` is reachable. If ``B => A`` is in fact invariant,
-the reachability check lets the user know whether the implication is trivially true
-or not.
+the reachability check lets you know whether the implication is trivially true
+or not. Notice that when running Kind 2 in modular mode, the reachability check is
+performed locally to a node without taking call contexts into account;
+only the specified assumptions are considered.
+You can disable this check by passing ``--check_nonvacuity false`` to Kind 2,
+or by suppressing all reachability checks (``--check_reach false``).
 
 .. _2_input/1_lustre#contracts:
 
