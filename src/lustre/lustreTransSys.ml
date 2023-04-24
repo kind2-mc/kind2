@@ -668,7 +668,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
   let node_props =
     if Flags.check_subproperties () && not (Flags.modular ()) then (
       properties |> List.fold_left (
-        fun a ({ P.prop_name = n; P.prop_term = t } as p) ->
+        fun a ({ P.prop_name = n; P.prop_term = t; P.prop_kind } as p) ->
 
           (* Lift name of property *)
           let prop_name =
@@ -696,7 +696,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
             P.prop_source ;
             P.prop_term ;
             P.prop_status ;
-            prop_kind = Invariant ; } :: a
+            P.prop_kind ; } :: a
       ) node_props
     )
     else node_props
