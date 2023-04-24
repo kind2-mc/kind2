@@ -20,14 +20,8 @@
   @author Andrew Marmaduke 
   *)   
 
-module StringMap : sig
-  include (Map.S with type key = HString.t)
-  val keys: 'a t -> key list
-end
-
-module StringSet : sig
-  include (Set.S with type elt = HString.t)
-end
+module StringMap = HString.HStringMap
+module StringSet = HString.HStringSet
 
 type source = Local | Input | Output | Ghost
 
@@ -73,6 +67,7 @@ type t = {
     * LustreAst.eq_lhs
     * LustreAst.expr)
     list;
+  nonvacuity_props: StringSet.t;
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml

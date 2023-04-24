@@ -814,6 +814,10 @@ let prop_attributes_xml trans_sys prop_name =
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Ensure\"%a"
           lnum cnum (String.concat "." scope) pp_print_fname fname
+    | Property.NonVacuityCheck (pos, scope) ->
+        let fname, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"NonVacuityCheck\"%a"
+          lnum cnum (String.concat "." scope) pp_print_fname fname
   in
 
   get_attributes prop.Property.prop_source
@@ -1143,6 +1147,7 @@ let prop_attributes_json ppf trans_sys prop_name =
     | Property.Guarantee (pos, scope) -> print_attributes pos scope "Guarantee"
     | Property.GuaranteeOneModeActive (pos, scope) -> print_attributes pos scope "OneModeActive"
     | Property.GuaranteeModeImplication (pos, scope) -> print_attributes pos scope "Ensure"
+    | Property.NonVacuityCheck (pos, scope) -> print_attributes pos scope "NonVacuityCheck"
     | Property.Generated (pos, _) -> (
         match pos with
         | None -> Format.fprintf ppf "\"source\" : \"Generated\",@,"

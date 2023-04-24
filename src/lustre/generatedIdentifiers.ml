@@ -19,20 +19,9 @@
   @author Andrew Marmaduke 
   *)    
 
-module StringMap = struct
-  include Map.Make(struct
-    type t = HString.t
-    let compare i1 i2 = HString.compare i1 i2
-  end)
-  let keys: 'a t -> key list = fun m -> List.map fst (bindings m)
-end
+module StringMap = HString.HStringMap
 
-module StringSet = struct
-  include Set.Make(struct
-    type t = HString.t
-    let compare i1 i2 = HString.compare i1 i2
-  end)
-end
+module StringSet = HString.HStringSet
 
 type source = Local | Input | Output | Ghost
 
@@ -78,6 +67,7 @@ type t = {
     * LustreAst.eq_lhs
     * LustreAst.expr)
     list;
+  nonvacuity_props: StringSet.t;
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml
@@ -115,6 +105,7 @@ let union ids1 ids2 = {
     subrange_constraints = ids1.subrange_constraints @ ids2.subrange_constraints;
     expanded_variables = StringSet.union ids1.expanded_variables ids2.expanded_variables;
     equations = ids1.equations @ ids2.equations;
+    nonvacuity_props = StringSet.union ids1.nonvacuity_props ids2.nonvacuity_props;
   }
 
 (* Same as union_keys, but we don't assume that identifiers are unique *)
@@ -135,4 +126,5 @@ let union_keys2 key id1 id2 = match key, id1, id2 with
     subrange_constraints = [];
     expanded_variables = StringSet.empty;
     equations = [];
+    nonvacuity_props = StringSet.empty;
   }
