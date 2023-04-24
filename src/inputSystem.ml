@@ -32,7 +32,7 @@ type _ t =
 | Lustre : (LustreNode.t S.t list * LustreGlobals.t * LustreAst.declaration list) -> LustreNode.t t
 (* Lustre systems supports multiple entry points (main subsystems) *)
 | Native : TransSys.t S.t -> TransSys.t t
-| CMC : (TransSys.t S.t * CmcInput.subsystem_instance_name_data * (string list * StateVar.t list) list * DolmenUtils.enum list) -> TransSys.t t
+| CMC : TransSys.t S.t -> TransSys.t t
 | Horn : unit S.t -> unit t
 
 let read_input_lustre only_parse input_file =
@@ -45,18 +45,13 @@ let translate_contracts_lustre = ContractsToProps.translate_file
 
 let read_input_native input_file = Native (NativeInput.of_file input_file)
 
-let read_input_cmc input_file = match CmcInput.of_file input_file with
-  | Ok res -> CMC res
-  | Error e -> R.fail_at_position (CmcErrors.error_position e) (CmcErrors.error_message e)
-(*let read_input_horn input_file = assert false*)
-
 let ordered_scopes_of (type s) : s t -> Scope.t list = function
   | Lustre (main_subs, _, _) ->
     S.all_subsystems_of_list main_subs
     |> List.map (fun { S.scope } -> scope)
 
   | Native subsystem
-  | CMC (subsystem, _, _, _) ->
+  | CMC subsystem ->
     S.all_subsystems subsystem
     |> List.map (fun { S.scope } -> scope)
 
@@ -81,7 +76,7 @@ let analyzable_subsystems (type s) : s t -> s SubSystem.t list = function
     |> List.filter (fun s ->
       Strategy.is_candidate_for_analysis (S.strategy_info_of s))
 
-  | CMC (subsystem, _, _, _) ->
+  | CMC subsystem ->
     let subsystems' =
       if Flags.modular () then S.all_subsystems subsystem
       else [subsystem]
@@ -196,7 +191,7 @@ let next_analysis_of_strategy (type s)
   )
 
   | Native subsystem
-  | CMC (subsystem, _, _, _) -> (
+  | CMC subsystem -> (
     fun results ->
       let scope_and_strategy =
         List.map (fun ({ S.scope } as sub) ->
@@ -262,7 +257,7 @@ let mcs_params (type s) (input_system : s t) =
     |> List.filter (fun { S.has_impl } -> has_impl)
     |> List.map param_for_subsystem
   | Native sub
-  | CMC (sub, _, _, _) ->
+  | CMC sub ->
     let subs =
       if Flags.modular ()
       then
@@ -329,7 +324,7 @@ let interpreter_param (type s) (input_system : s t) =
         Scope.Map.empty (S.all_subsystems sub)
       )
     | Native ({S.scope} as sub)
-    | CMC ({S.scope} as sub, _, _, _) -> (scope,
+    | CMC ({S.scope} as sub) -> (scope,
       List.fold_left (
         fun abs_map ({ S.scope; S.has_impl }) ->
           Scope.Map.add scope (not has_impl) abs_map
@@ -447,7 +442,7 @@ let trans_sys_of_analysis (type s)
 
   | Native sub -> (fun _ -> sub.SubSystem.source, Native sub)
 
-  | CMC (sub, name_map, var_map, enums) -> (fun _ -> sub.SubSystem.source, CMC (sub, name_map, var_map, enums))
+  | CMC sub -> (fun _ -> sub.SubSystem.source, CMC sub)
     
   | Horn _ -> assert false
 

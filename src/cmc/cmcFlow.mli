@@ -17,7 +17,7 @@
 *)
 
 (** Runs the analyses produced by the strategy module. *)
-val run : 'a InputSystem.t -> unit
+val run : 'a InputSystem.t -> CmcInput.metadata -> unit
 
 (* 
    Local Variables:

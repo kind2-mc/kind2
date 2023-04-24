@@ -44,7 +44,7 @@ let classify_input_stream: string -> string = fun in_file ->
    - starting global timer,
    - parsing input file,
    - building input system. *)
-let setup : unit -> any_input = fun () ->
+let setup : unit -> (TransSys.t SubSystem.t * CmcInput.metadata) = fun () ->
 
   (* Parse command-line flags. *)
   (try
@@ -100,25 +100,16 @@ let setup : unit -> any_input = fun () ->
   KEvent.log L_info "Creating Input system from  %s." (classify_input_stream in_file);
 
   try
-    let input_system = 
-      match Flags.input_format () with         
-      | `CMC ->
-        KEvent.log L_debug "CMC input detected";
-        Input (InputSystem.read_input_cmc in_file)
-      | _ -> 
-        KEvent.log L_fatal "Invalid input format. Only the CMC language (*.cmc) is supported.";
-        KEvent.terminate_log () ; exit ExitCodes.error
+    let input_system, metadata = 
+      match CmcInput.of_file in_file with
+        | Ok res -> res
+        (* TODO remove lustre reporting...*)
+        | Error e -> LustreReporting.fail_at_position (CmcErrors.error_position e) (CmcErrors.error_message e)
     in
     KEvent.log L_debug "Input System built";
-    input_system
+    input_system, metadata
   with
   (* Could not create input system. *)
-  | LustreAst.Parser_error  ->
-     (* We should have printed the appropriate message so just 'gracefully' exit *)
-     KEvent.terminate_log () ; exit ExitCodes.error
-  | LustreInput.NoMainNode msg ->
-     KEvent.log L_fatal "Error reading input file '%s': %s" in_file msg ;
-     KEvent.terminate_log () ; exit ExitCodes.error
   | Sys_error msg ->
      KEvent.log L_fatal "Error opening input file '%s': %s" in_file msg ;
      KEvent.terminate_log () ; exit ExitCodes.error
@@ -137,30 +128,15 @@ let setup : unit -> any_input = fun () ->
 let main () =
 
   (* Set everything up and produce input system. *)
-  let Input input_sys = setup () in
+  let input_sys, metadata = setup () in
 
-  (* Not launching if we're just translating contracts. *)
-  match Flags.Contracts.translate_contracts () with
-  | Some target -> (
-    let src = Flags.input_file () in
-    KEvent.log_uncond "Translating contracts to file '%s'" target ;
-    try (
-      InputSystem.translate_contracts_lustre src target ;
-      KEvent.log_uncond "Success"
-    ) with e ->
-      KEvent.log L_error
-        "Could not translate contracts from file '%s':@ %s"
-        src (Printexc.to_string e)
-  )
-  | None ->
-    try
-      CmcFlow.run input_sys
-    with e -> (
-      KEvent.log L_fatal "Caught unexpected exception: %s" (Printexc.to_string e) ;
-      KEvent.terminate_log () ;
-      exit ExitCodes.error
-    )
-;;
+  try
+    CmcFlow.run (CMC input_sys) metadata
+  with e -> (
+    KEvent.log L_fatal "Caught unexpected exception: %s" (Printexc.to_string e) ;
+    KEvent.terminate_log () ;
+    exit ExitCodes.error
+  ) ;;
 
 main ()
 

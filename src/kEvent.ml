@@ -323,28 +323,6 @@ let proved_pt mdl level trans_sys k prop =
       pp_print_kind_module_pt mdl
       (Stat.get_float Stat.analysis_time)
 
-let pp_prop_cmc ppf (prop_name, result) = 
-  Format.fprintf ppf
-    "@[<hv 1>(%s@ %s)@]" 
-    prop_name
-    (if result then "sat" else "unsat")
-
-(** Output proved property in CMC standard format 
-   In this case proving a cmc property means that we proved the test to be unreachable
-   Thus proving that the property is unsat. *)
-let proved_cmc mdl level trans_sys k prop = 
-
-  (* Only ouptut if status was unknown *)
-  if 
-    not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
-  then 
-    (ignore_or_fprintf level)
-      !log_ppf
-      "@[<v 1>(response @,\
-       @[<hv 2>:result@ (@[<v>%a@])@]@,\
-       @[<hv 2>:model@ (@[<v>...@])@]@.\
-      )@.@."
-      pp_prop_cmc (prop, false)
 
 let unknown_pt mdl level trans_sys prop = 
   (* Only ouptut if status was unknown *)
@@ -626,15 +604,6 @@ let prop_status_pt level prop_status =
        "@,")
     prop_status
     Pretty.print_double_line ()
-  
-    
-let pp_trail_cmc level input_sys analysis trans_sys prop_name disproved prefix ppf cex = 
-  Format.fprintf ppf
-    "@[<hv 2>:trail@ (%s%s (@[<v>@,%a@])@,) @]@,"
-    prop_name
-    (if prefix then "_prefix" else "_lasso")
-    (CmcPath.pp_trail input_sys trans_sys disproved )
-      (Model.path_of_list cex)
 
 (* Output cex for a property in cmc format *)
 let cex_cmc ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disproved =
@@ -647,20 +616,7 @@ let cex_cmc ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispr
   then (
     (ignore_or_fprintf level)
     !log_ppf
-    "@[<v 1>(response @,\
-     @[<hv 2>:result@ (@[<v>%a@])@]@,\
-     @[<hv 2>:model@ (@[<v>@,%a@]@])@,\
-     %a\
-     @[<hv 2>:trace@ (%s :prefix %s@,) @]@,\
-     )@.@."
-    pp_prop_cmc (prop, true)
-    (CmcPath.pp_model trans_sys)
-    cex
-    (pp_trail_cmc level input_sys analysis trans_sys prop disproved true) 
-    cex
-    prop
-    (prop ^ "_prefix")
-    
+    "CMC responce printing no longer availiable in Kind2. Use seperate CMC executable"
   ) else
     Debug.event "Status of property %s already known" prop
 
@@ -1346,10 +1302,7 @@ include ELog
 (* Log a message with source and log level *)
 let log_proved mdl level trans_sys k prop =
   match get_log_format () with 
-    | F_pt -> (match Flags.input_format () with
-      | `CMC -> proved_cmc mdl level trans_sys k prop
-      | _ -> proved_pt mdl level trans_sys k prop
-    )
+    | F_pt -> proved_pt mdl level trans_sys k prop
     | F_xml -> proved_xml mdl level trans_sys k prop
     | F_json -> proved_json mdl level trans_sys k prop
     | F_relay -> ()

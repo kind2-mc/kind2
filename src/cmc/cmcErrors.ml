@@ -21,6 +21,8 @@ type error_kind =
   | Impossible of string
   | NotSuppoted of string
   | SystemNotFound of Dolmen.Std.Id.t
+  | ParserError of string
+  | TypeCheckerError of string
   (* Add more as needed*)
 
 type error = [
@@ -34,6 +36,8 @@ let interpreter_error_message kind = match kind with
   | Impossible s -> "This should be impossible! " ^ s
   | NotSuppoted s -> "Command " ^ s ^ " is not supported."
   | SystemNotFound s -> Format.asprintf "System %a is not defined." Dolmen.Std.Id.print s
+  | ParserError s -> Format.asprintf "Input file failed to parse: %s" s
+  | TypeCheckerError s -> Format.asprintf "Input file failed to typecheck: %s" s
   (* | UnboundIdentifier id -> "Unbound identifier: " ^ soh id
   | UnknownFunction id -> "Unknown Function Call: " ^ soh id
   | UnknownAttribute (attr_id, fun_id) -> "Unknown attribute " ^ soh attr_id ^ "used in function call " ^ soh fun_id 

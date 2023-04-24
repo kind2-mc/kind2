@@ -133,6 +133,14 @@ let empty_definitions = {
   const_decls = [], [];
 }
 
+(* Additional data needed for counter example printing *)
+(* May want to reduce this information in the future. *)
+type metadata = {
+  name_map: subsystem_instance_name_data;
+  sys_var_mapping: (string list * StateVar.t list) list;
+  enum_defs: DU.enum list;
+}
+
 let find_trans_system trans_systems search_name = 
   List.find ( fun ({name; _ }: base_trans_system) -> Id.equal search_name name) trans_systems 
 
@@ -719,4 +727,5 @@ let of_file filename =
   (* Format.printf "CMC_SYS: %a@." (TransSys.pp_print_subsystems true) top_sys; *)
 
   (* TODO pass all extra params for cex printing *)
-  Ok (mk_subsys_structure top_sys, name_map, sys_var_mapping, enum_defs)
+  (* Startoff by7 keeping CMC just remove extra params *)
+  Ok (mk_subsys_structure top_sys, {name_map; sys_var_mapping; enum_defs})

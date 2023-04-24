@@ -118,8 +118,9 @@ let setup : unit -> any_input = fun () ->
         Input (InputSystem.read_input_native in_file)
 
       | `CMC ->
-        KEvent.log L_debug "CMC input detected";
-        Input (InputSystem.read_input_cmc in_file)
+        KEvent.log L_fatal "CMC input not supported. Use the seperate CMC executable." ;
+        KEvent.terminate_log () ;
+        exit ExitCodes.error
                    
       | `Horn   -> KEvent.log L_fatal "Horn clauses are not supported." ;
                    KEvent.terminate_log () ;

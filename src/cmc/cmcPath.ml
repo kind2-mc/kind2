@@ -31,6 +31,10 @@ module SVT = StateVar.StateVarHashtbl
 module SVM = StateVar.StateVarMap
 module SVS = StateVar.StateVarSet
 
+let sat = "sat" 
+let unsat = "unsat"
+let unknown = "unknown"
+
 type result = {
   name: HString.t;
 }
@@ -183,7 +187,7 @@ let pp_reach_prop ppf (state_var, value, changed) =
         Format.fprintf ppf "@{<black>(%s %a)@}" (name) (Term.pp_print_term) (Term.negate_simplify t)   
   | _ -> ()
 
-let pp_step_of_trace (trans_sys : TransSys.t) disproved name_map var_map path enums ppf k = 
+let pp_step_of_trace (trans_sys : TransSys.t) name_map var_map path enums ppf k = 
   let reachability_prop = TransSys.get_properties trans_sys in
   let reachability_svars = List.map (fun Property.({prop_term}) -> StateVar.StateVarSet.elements (Term.state_vars_of_term prop_term)) reachability_prop |> List.flatten in
 
@@ -216,21 +220,8 @@ let pp_step_of_trace (trans_sys : TransSys.t) disproved name_map var_map path en
       Format.fprintf ppf "@{<black>(%a %a %a)@}" Numeral.pp_print_numeral k (pp_print_list pp_str_var_val " " ) formatted_svar_names (pp_print_list pp_reach_prop " ") reachability_values
     (* Model.pp_print_model ppf model *)
 
-let pp_states (trans_sys : TransSys.t) disproved name_map var_map enums ppf path = 
-
-  Format.fprintf ppf  "%a" (pp_print_list (pp_step_of_trace trans_sys disproved name_map var_map path enums) "@,") ( 0 -- ((Model.path_length path)-1))
-
-(* Ouptut a hierarchical model as JSON *)
-let pp_trail
-  (type s) (input_system : s InputSystem.t) (trans_sys : TransSys.t) disproved ppf path =
-  (* let a = TransSys.get_function_symbols trans_sys in *)
-  (* Model.pp_print_path ppf path ;  (* FOR DEBUGGING*) *)
-  (* Format.fprintf ppf  "%a" (pp_print_list StateVar.pp_print_state_var_debug " ") (TransSys.state_vars trans_sys) ; *)
-
-  match input_system with
-  | CMC (_, CmcInput.({map}), var_map, enums) -> Format.fprintf ppf "%a@," (pp_states trans_sys disproved map var_map enums) path
-  | _ -> ()
-  (* Model.pp_print_path ppf path *)
+let pp_states (trans_sys : TransSys.t) name_map var_map enums ppf path = 
+  Format.fprintf ppf  "%a" (pp_print_list (pp_step_of_trace trans_sys name_map var_map path enums) "@,") ( 0 -- ((Model.path_length path)-1))
 
 
 let pp_const_decl ppf const_decl_path =
@@ -247,15 +238,156 @@ let pp_const_decl ppf const_decl_path =
                                     Variable %a should be constant but was assigned multiple values. %a"
                                     StateVar.pp_print_state_var svar (pp_print_list Model.pp_print_value ", ") svar_value_path) 
   
+
 let pp_const_decls trans_sys ppf svar_path = 
   let const_svars = List.map (fun svar -> svar, List.assoc svar svar_path) (TransSys.global_const_state_vars trans_sys) in
   Format.fprintf ppf "%a" (pp_print_list pp_const_decl "@,") const_svars
 
 
+let pp_trail
+(CmcInput.({name_map; sys_var_mapping; enum_defs}) : CmcInput.metadata) (trans_sys : TransSys.t) ppf path =
+  (* let a = TransSys.get_function_symbols trans_sys in *)
+  (* Model.pp_print_path ppf path ;  (* FOR DEBUGGING*) *)
+  (* Format.fprintf ppf  "%a" (pp_print_list StateVar.pp_print_state_var_debug " ") (TransSys.state_vars trans_sys) ; *)
+
+  Format.fprintf ppf "%a@," (pp_states trans_sys name_map.map sys_var_mapping enum_defs) path
+  (* Model.pp_print_path ppf path *)
+
+
 (* Basic model dprinting implementation, may want to enhance in the future *)
-let pp_model trans_sys ppf path =
+let pp_model trans_sys prop_name ppf path =
   (* let svar_path = Model.path_to_list path in *) (* KEEP COMMENTED *)
 
-  Format.fprintf ppf "%a@," (pp_const_decls trans_sys) path   (* TODO UNCOMMENT *)
+  Format.fprintf ppf "%s@,%a@," (prop_name^"_model") (pp_const_decls trans_sys) path   (* TODO UNCOMMENT *)
 
   (* Format.fprintf ppf "%a@," (Model.pp_print_path) (Model.path_of_list path)   *)
+
+
+let pp_trail_cmc metadata trans_sys prop_name prefix ppf cex = 
+  Format.fprintf ppf
+    "@[<hv 2>:trail@ (%s%s (@[<v>@,%a@])@,) @]@,"
+    prop_name
+    (if prefix then "_prefix" else "_lasso")
+    (pp_trail metadata trans_sys)
+      (Model.path_of_list cex)
+
+
+let pp_prop_cmc ppf (prop_name, result) = 
+  Format.fprintf ppf
+    "@[<hv 1>(%s@ %s)@]" 
+    prop_name
+    result
+
+let cex_cmc metadata trans_sys prop ppf cex =
+  Format.fprintf ppf
+  "@[<v 1>(response @,\
+    @[<hv 2>:result@ (@[<v>%a@])@]@,\
+    @[<hv 2>:model@ (@[<v>@,%a@]@])@,\
+    %a\
+    @[<hv 2>:trace@ (%s :prefix %s@,) @]@,\
+    )@.@."
+  pp_prop_cmc (prop, "sat")
+  (pp_model trans_sys prop)
+  cex
+  (pp_trail_cmc metadata trans_sys prop true) 
+  cex
+  prop
+  (prop ^ "_prefix")
+
+let pp_prop_result_info prop ppf status =
+  if status == sat then
+    Format.fprintf ppf ":model %s_model :trace %s_trace" prop prop
+  else if status == unsat then 
+    Format.fprintf ppf ":certificate %s_cert" prop
+else ()
+
+let pp_prop_result prop ppf status=
+  Format.fprintf ppf
+  "@[<hv 2>:query@ (@[<v>@[<hv 1>(%s@ %s %a)@]@])@]@,"
+  prop status 
+  (pp_prop_result_info prop) status
+
+(** Output proved or unknown property in CMC standard format 
+    In this case proving a cmc property means that we proved the test to be unreachable
+    Thus proving that the property is unsat. *)
+let unsat_unknown_cmc ppf prop status = 
+  Format.fprintf ppf
+    "@[<v 1>(check-system-response @,\
+      @[<hv 2>:result@ (@[<v>%a@])@]@,\
+      @[<hv 2>:model@ (@[<v>...@])@]@.\
+    )@.@."
+    pp_prop_cmc (prop, status)
+
+let print_prop_result ppf prop =
+  let prop_name = prop.Property.prop_name in
+  match Property.get_prop_status prop with
+        | PropFalse _ -> (pp_prop_result prop_name ppf sat);
+        | PropInvariant _
+        | PropKTrue _ -> (pp_prop_result prop_name ppf unsat) ;
+        | PropUnknown -> (pp_prop_result prop_name ppf unknown) ;
+;;
+let print_prop_trace ppf prop =
+  let prop_name = prop.Property.prop_name in
+  match Property.get_prop_status prop with
+        | PropFalse _ -> Format.fprintf ppf 
+                          "@[<hv 2>:trace@ (@[<v>%s :prefix %s@])@]@,"
+                          (prop_name ^ "_trace")
+                          (prop_name ^ "_prefix")
+        | PropInvariant _
+        | PropKTrue _ 
+        | PropUnknown -> () ;
+;;
+
+let print_prop_model trans_sys ppf prop =
+  let prop_name = prop.Property.prop_name in
+  match Property.get_prop_status prop with
+        | PropFalse cex -> Format.fprintf ppf 
+                          "@[<hv 2>:model@ (@[<v>%a@]@])@,"
+                          (pp_model trans_sys prop_name)
+                          cex
+        | PropInvariant _
+        | PropKTrue _ 
+        | PropUnknown -> () ;
+;;
+
+let print_prop_trail trans_sys metadata ppf prop =
+  let prop_name = prop.Property.prop_name in
+  match Property.get_prop_status prop with
+        | PropFalse cex -> (pp_trail_cmc metadata trans_sys prop_name true ppf cex) 
+        | PropInvariant _
+        | PropKTrue _ 
+        | PropUnknown -> () ;
+;;
+
+let print_prop_cert ppf prop =
+  let prop_name = prop.Property.prop_name in
+  match Property.get_prop_status prop with
+        | PropFalse cex -> () 
+        | PropInvariant (k, _)
+        | PropKTrue k -> Format.fprintf ppf 
+                          "@[<hv 2>:certificate@ (@[<v>%s :inv TODO :k %i@])@]@,"
+                          (prop_name ^ "_cert")
+                          k
+        | PropUnknown -> () ;
+;;
+
+let print_cmc_props metadata trans_sys props =
+  Format.printf
+  "@[<v 1>(check-system-response @,\
+   @[<hv 2>:verbosity@ %s@]@,\
+    %a\
+    %a\
+    %a\
+    %a\
+    %a\
+    )@]@.@."
+  (if Flags.condensed_cmc_output () then "condensed" else "full")
+  (Lib.pp_print_list print_prop_result "") props
+  (Lib.pp_print_list print_prop_trace "") (props)
+  (Lib.pp_print_list (print_prop_model trans_sys) "") (props)
+  (Lib.pp_print_list (print_prop_trail trans_sys metadata) "") (props)
+  (Lib.pp_print_list print_prop_cert  "") (props)
+
+
+  (* Format.printf "%a" (Lib.pp_print_list (print_cmc_prop metadata trans_sys) "\n") (props); *)
+;;

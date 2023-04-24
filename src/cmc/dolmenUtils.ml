@@ -579,16 +579,24 @@ let rec opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
     in
   
     (* We can loop over the parsed statements to generated the typed statements *)
-    let final_state, rev_typed_stmts =
-      List.fold_left (fun (state, acc) parsed_stmt ->
-        let state, typed_stmt = Typer.check state parsed_stmt in
-        (state, typed_stmt :: acc)
-      ) (state, []) parsed_statements
-    in
-    let typed_stmts = List.rev rev_typed_stmts in
-  
-    (* let's print the typed statements *)
-    List.iter (fun typed_stmt ->
-      Format.printf "%a@\n@." Typer.print typed_stmt
-    ) typed_stmts ;
-    parsed_statements
+    try
+      let final_state, rev_typed_stmts =
+        List.fold_left (fun (state, acc) parsed_stmt ->          
+          let state, typed_stmt = Typer.check state parsed_stmt in
+          (* let a = State.get State. state in *)
+          (* let b =  a.warnings in *)
+          (* Format.printf "%a@\n@." Typer.print typed_stmt ; *)
+          (state, typed_stmt :: acc)
+        ) (state, []) parsed_statements
+      in
+      let typed_stmts = List.rev rev_typed_stmts in
+      
+    
+      (* let's print the typed statements *)
+      (* List.iter (fun typed_stmt ->
+        Format.printf "%a@\n@." Typer.print typed_stmt
+      ) typed_stmts ; *)
+      
+      parsed_statements
+
+    with Failure f -> failwith (Format.sprintf "\tA Typechecker failure occured: %s" f)

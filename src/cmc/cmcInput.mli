@@ -29,7 +29,15 @@ type subsystem_instance_name_data = {
   counter: int;
 }
 
+(* Additional data needed for counter example printing *)
+(* May want to reduce this information in the future. *)
+type metadata = {
+  name_map: subsystem_instance_name_data;
+  sys_var_mapping: (string list * StateVar.t list) list;
+  enum_defs: DolmenUtils.enum list;
+}
+
 (** Parse from the file *)
 val of_file : string -> 
-  (TransSys.t SubSystem.t * subsystem_instance_name_data * sys_var_mapping * DolmenUtils.enum list, [> CmcErrors.error]) result
+  (TransSys.t SubSystem.t * metadata, [> CmcErrors.error]) result
   (* (TransSys.t SubSystem.t, [> CmcErrors.error]) result TODO Temporary return type switch back when finished *)

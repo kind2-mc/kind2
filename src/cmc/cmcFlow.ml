@@ -174,9 +174,9 @@ let status_of_sys () = match ! latest_trans_sys with
   | Some sys -> status_of_trans_sys sys
 
 (** Exit status from an optional [results]. *)
-let status_of_results in_sys =
+let status_of_results cmc_sys =
   let res =
-    let l1 = List.length (ISys.analyzable_subsystems in_sys) in
+    let l1 = List.length (ISys.analyzable_subsystems cmc_sys) in
     let l2 = Anal.results_size !all_results in
     if l1 = l2 then Anal.results_is_safe !all_results
     else None
@@ -267,8 +267,8 @@ let status_of_exn_sys process =
   status_of_sys () |> status_of_exn process
 
 (** Status corresponding to an exception based on some results. *)
-let status_of_exn_results in_sys process =
-  status_of_results in_sys |> status_of_exn process
+let status_of_exn_results cmc_sys process =
+  status_of_results cmc_sys |> status_of_exn process
 
 (** Kill all kids violently. *)
 let slaughter_kids process sys =
@@ -334,9 +334,9 @@ let slaughter_kids process sys =
   Signals.set_sigalrm_timeout_from_flag ()
 
 (** Called after everything has been cleaned up. All kids dead etc. *)
-let post_clean_exit_with_results in_sys process exn =
+let post_clean_exit_with_results cmc_sys process exn =
   (* Exit status of process depends on exception. *)
-  let status = status_of_exn_results in_sys process exn in
+  let status = status_of_exn_results cmc_sys process exn in
   (* Close tags in XML output. *)
   KEvent.terminate_log () ;
   (* Kill all live solvers. *)
@@ -356,11 +356,11 @@ let post_clean_exit process exn =
   exit status
 
 (** Clean up before exit. *)
-let on_exit_with_results in_sys sys process exn =
+let on_exit_with_results cmc_sys sys process exn =
   try
     slaughter_kids process sys;
-    post_clean_exit_with_results in_sys process exn
-  with TimeoutWall -> post_clean_exit_with_results in_sys process TimeoutWall
+    post_clean_exit_with_results cmc_sys process exn
+  with TimeoutWall -> post_clean_exit_with_results cmc_sys process TimeoutWall
 
 (** Clean up before exit, for a MCS analysis. *)
 let on_exit sys process exn =
@@ -392,7 +392,7 @@ let on_exit_child ?(_alone=false) messaging_thread process exn =
 
 
 (** Forks and runs a child process. *)
-let run_process in_sys param sys messaging_setup process =
+let run_process cmc_sys param sys messaging_setup process =
   (* Fork a new process. *)
   let pid = Unix.fork () in
   match pid with
@@ -453,9 +453,9 @@ let run_process in_sys param sys messaging_setup process =
 
       ) ;
       (* Retrieve input system. *)
-      (* let in_sys = in_sys in *)
+      (* let cmc_sys = cmc_sys in *)
       (* Run main function of process *)
-      main_of_process process in_sys param sys ;
+      main_of_process process cmc_sys param sys ;
       (* Cleanup and exit *)
       on_exit_child (Some messaging_thread) process Exit
 
@@ -516,7 +516,7 @@ let process_invgen_mach_modules sys (modules: Lib.kind_module list) : Lib.kind_m
   )
 
 (** Performs an analysis. *)
-let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys param sys =
+let analyze msg_setup save_results ignore_props stop_if_falsified modules cmc_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
   ( if TSys.has_real_properties sys |> not && not ignore_props then
@@ -542,14 +542,14 @@ let analyze msg_setup save_results ignore_props stop_if_falsified modules in_sys
 
       (* Start all child processes. *)
       modules |> List.iter (
-        fun p -> run_process in_sys param sys msg_setup p
+        fun p -> run_process cmc_sys param sys msg_setup p
       ) ;
 
       (* Update background thread with new kids. *)
       KEvent.update_child_processes_list !child_pids ;
 
       (* Running supervisor. *)
-      InvarManager.main ignore_props stop_if_falsified child_pids in_sys param sys ;
+      InvarManager.main ignore_props stop_if_falsified child_pids cmc_sys param sys ;
 
       (* Killing kids when supervisor's done. *)
       Some sys |> slaughter_kids `Supervisor
@@ -582,7 +582,7 @@ let handle_exception process e =
       print_backtrace backtrace
 
 (** Runs the analyses produced by the strategy module. *)
-let run in_sys =
+let run cmc_sys metadata = (* meta_data =*)
 
   (* Who's active? *)
   match Flags.enabled () with
@@ -592,201 +592,8 @@ let run in_sys =
     KEvent.log L_fatal "Need at least one Kind 2 module active." ;
     KEvent.terminate_log () ;
     exit ExitCodes.error
-
-  (* Only the interpreter is active. *)
-  | [m] when m = `Interpreter -> (
-    (* Set module currently running. *)
-    KEvent.set_module m ;
-    try (
-      let param = ISys.interpreter_param in_sys in
-      (* Build trans sys and slicing info. *)
-      let sys, _ =
-        ISys.trans_sys_of_analysis
-          ~preserve_sig:true ~slice_nodes:false in_sys param
-      in
-      (* Run interpreter. *)
-      Interpreter.main (
-        Flags.Interpreter.input_file ()
-      ) in_sys param sys ;
-      (* Ignore SIGALRM from now on *)
-      Signals.ignore_sigalrm () ;
-      (* Cleanup before exiting process *)
-      on_exit_child None m Exit
-    )
-    with e -> on_exit_child None m e
-  )
-
-  (* Some modules, including the interpreter. *)
-  | modules when List.mem `Interpreter modules ->
-    KEvent.log L_fatal "Cannot run the interpreter with other processes." ;
-    KEvent.terminate_log () ;
-    exit ExitCodes.error
-
-  (* Only the contract checker is active.*)
-  | [m] when m = `CONTRACTCK -> (
-
-    let check_solver_is_supported () =
-      match Flags.Smt.solver () with
-      | `Z3_SMTLIB | `cvc5_SMTLIB -> ()
-      | _ -> (
-        KEvent.log L_fatal "Contract checking requires Z3 or cvc5." ;
-        KEvent.terminate_log () ;
-        exit ExitCodes.error
-      )
-    in
-
-    check_solver_is_supported () ;
-
-    let satisfy_input_requirements in_sys param =
-      (* Required for correct computation of assumption variables and term partition.
-         It also avoids classifying a contract realizable or satisfiable when
-         existence of a value for a (underspecified) output of a called node depends on
-         values beyond the node's interface.
-      *)
-      let top = (Analysis.info_of_param param).top in
-      let model_contains_assert =
-        ISys.retrieve_lustre_nodes_of_scope in_sys top
-        |> List.exists
-          (fun { LustreNode.asserts } -> asserts <> [])
-      in
-      if model_contains_assert then (
-        KEvent.log L_warn "Calls to nodes with asserts are not supported." ;
-        false
-      )
-      else if ISys.contain_partially_defined_system in_sys top then (
-        KEvent.log L_warn
-          "Calls to nodes with partially defined outputs are not supported." ;
-        false
-      )
-      else if Analysis.no_system_is_abstract ~include_top:false param then (
-        true
-      )
-      else (
-        KEvent.log L_warn "Calls to imported nodes are not supported." ;
-        false
-      )
-    in
-
-    (* If Z3 is used for contract checking, use qe-light strategy *)
-    Flags.Smt.set_z3_qe_light true ;
-
-    try (
-      let msg_setup = KEvent.setup () in
-      KEvent.set_module `CONTRACTCK ;
-      KEvent.run_im msg_setup [] (on_exit None `CONTRACTCK) |> ignore ;
-      KEvent.log L_debug "Messaging initialized in Contract Check." ;
-
-      match ISys.contract_check_params in_sys with
-      | [] -> KEvent.log L_note "No imported nodes found, skipping contract checking."
-      | params -> (
-        Flags.Arrays.set_smt true ; (* Uninterpreted functions are not supported *)
-        params |> List.iter (fun (param, has_contract) ->
-          let scope = (Analysis.info_of_param param).top in
-          (* Build trans sys and slicing info. *)
-          let sys, _ =
-            ISys.trans_sys_of_analysis
-              ~add_functional_constraints:false in_sys param
-          in
-          (*Format.printf "TS:@.%a@." (TSys.pp_print_subsystems true) sys;*)
-          KEvent.log_contractck_analysis_start scope ;
-          Stat.start_timer Stat.analysis_time ;
-          let result =
-            if not has_contract then
-              Realizability.Realizable Term.t_true
-            else
-              if satisfy_input_requirements in_sys param then
-                ContractChecker.check_contract_realizability in_sys sys
-              else
-                Realizability.Unknown
-          in
-          (
-            try
-              Log.log_result
-                (ContractChecker.pp_print_realizability_result_pt
-                  (analyze msg_setup false false false) in_sys param sys)
-                (ContractChecker.pp_print_realizability_result_xml
-                  (analyze msg_setup false false false) in_sys param sys)
-                (ContractChecker.pp_print_realizability_result_json
-                  (analyze msg_setup false false false) in_sys param sys)
-                result
-            with Realizability.Trace_or_conflict_computation_failed msg ->
-              KEvent.log L_warn "%s" msg
-          ) ;
-          
-          Stat.start_timer Stat.analysis_time ;
-          match result with
-          | Unrealizable _ -> (
-            if Flags.Contracts.check_contract_is_sat () then (
-              KEvent.log L_note "Checking satisfiability of contract..." ;
-              let result =
-                ContractChecker.check_contract_satisfiability sys
-              in
-              Log.log_result
-                (ContractChecker.pp_print_satisfiability_result_pt param)
-                ContractChecker.pp_print_satisfiability_result_xml
-                ContractChecker.pp_print_satisfiability_result_json
-                result ;
-            )
-          )
-          | _ -> () ;
-
-          KEvent.log_analysis_end ()
-        )
-      ) ;
-
-      post_clean_exit `CONTRACTCK Exit
-    ) with
-    | TimeoutWall -> on_exit None `CONTRACTCK TimeoutWall
-    | e -> (
-      handle_exception `CONTRACTCK e;
-      on_exit None `CONTRACTCK e
-    )
-  )
-
-  (* Some modules, including the contract checker. *)
-  | modules when List.mem `CONTRACTCK modules ->
-    KEvent.log L_fatal "Cannot run the contract checker with other processes." ;
-    KEvent.terminate_log () ;
-    exit ExitCodes.error
-
-  (* MCS is active. *)
-  | modules when List.mem `MCS modules -> (
-
-    try (
-      let msg_setup = KEvent.setup () in
-      KEvent.set_module `Supervisor ;
-      KEvent.run_im msg_setup [] (on_exit None `Supervisor) |> ignore ;
-      KEvent.log L_debug "Messaging initialized in supervisor." ;
-
-      KEvent.set_module `MCS ;
-      let params = ISys.mcs_params in_sys in
-      let run_mcs param =
-        (* Build trans sys and slicing info. *)
-        let sys, _ =
-          ISys.trans_sys_of_analysis
-            (*~preserve_sig:true ~slice_nodes:false*) in_sys param
-        in
-        KEvent.log_analysis_start sys param ;
-        Stat.start_timer Stat.analysis_time ;
-        
-        PostAnalysis.run_mcs_post_analysis in_sys param
-          (analyze msg_setup false) sys |> ignore ;
-
-        KEvent.log_analysis_end ()
-      in
-      (match params with
-       | [] -> (KEvent.log L_note "No analyzable nodes found, skipping MCS analysis.")
-       | _ -> List.iter run_mcs params
-      ) ;
-      post_clean_exit `Supervisor Exit
-    ) with
-    | TimeoutWall -> on_exit None `Supervisor TimeoutWall
-    | e -> (
-      handle_exception `Supervisor e ;
-      on_exit None `Supervisor e
-    )
-  ) 
-
+  (* REMOVE contract check MCS interpreter *)
+  (* KEEP kinduction invargen ic3 etc...*)
   (* Some analysis modules. *)
   (* Some modules, not including the interpreter. *)
   | modules ->
@@ -797,16 +604,17 @@ let run in_sys =
       modules ;
     (* Setup messaging. *)
     let msg_setup = KEvent.setup () in
+    let old_log_level = Lib.get_log_level () in
 
     (* Runs the next analysis, if any. *)
     let rec loop ac () =
-      match ISys.next_analysis_of_strategy in_sys !all_results with
+      match ISys.next_analysis_of_strategy cmc_sys !all_results with
       
       | Some param ->
         (* Format.printf "param: %a@.@." (Analysis.pp_print_param true) param ; *)
         (* Build trans sys and slicing info. *)
-        let sys, _ (* in_sys_sliced *) =
-          ISys.trans_sys_of_analysis in_sys param
+        let sys, _ (* cmc_sys_sliced *) =
+          ISys.trans_sys_of_analysis cmc_sys param
         in
 
         (* Format.printf "%a" (TSys.pp_print_subsystems true) sys; *)
@@ -814,7 +622,7 @@ let run in_sys =
         (* Should we run post analysis treatment? *)
         ( match !latest_trans_sys with
           | Some old when TSys.equal_scope old sys |> not ->
-            PostAnalysis.run in_sys (TSys.scope_of_trans_sys old) (
+            PostAnalysis.run cmc_sys (TSys.scope_of_trans_sys old) (
               analyze msg_setup false
             ) !all_results
           | _ -> ()
@@ -836,13 +644,22 @@ let run in_sys =
 
         latest_trans_sys := Some sys ;
         (* Analyze... *)
-        analyze msg_setup true false false modules in_sys param sys ;
+        Lib.set_log_level L_off ;
+        analyze msg_setup true false false modules cmc_sys param sys ;
+        Lib.set_log_level old_log_level;
+
+        let valid_props, invalid_props, unknown_props = TSys.get_split_properties sys in
+        (* Reverse lists to get them in defined order *)
+        let valid_props, invalid_props, unknown_props = (List.rev valid_props), (List.rev invalid_props), (List.rev unknown_props) in
+        CmcPath.print_cmc_props metadata sys (invalid_props @ valid_props @ unknown_props) ;      
+
+
         (* ...and loop. *)
         loop ac ()
 
       | None -> (
         ( match !latest_trans_sys with
-          | Some sys -> PostAnalysis.run in_sys (TSys.scope_of_trans_sys sys) (
+          | Some sys -> PostAnalysis.run cmc_sys (TSys.scope_of_trans_sys sys) (
             analyze msg_setup false
           ) !all_results
           | _ -> ()
@@ -856,7 +673,7 @@ let run in_sys =
     (* Initialize messaging for invariant manager, obtain a background thread.
     No kids yet. *)
     KEvent.run_im msg_setup []
-      (on_exit_with_results in_sys None `Supervisor) |> ignore ;
+      (on_exit_with_results cmc_sys None `Supervisor) |> ignore ;
     KEvent.log L_debug "Messaging initialized in supervisor." ;
 
     try (
@@ -867,7 +684,7 @@ let run in_sys =
       Flags.Smt.set_trace_subdir "";
 
       if Analysis.results_is_empty (!all_results) &&
-         InputSystem.analyzable_subsystems in_sys = []
+         InputSystem.analyzable_subsystems cmc_sys = []
       then
         KEvent.log L_note "No analyzable nodes found, skipping analysis." ;
 
@@ -877,7 +694,7 @@ let run in_sys =
 
       (* Producing a list of the last results for each system, in topological
       order. *)
-      in_sys |> ISys.ordered_scopes_of
+      cmc_sys |> ISys.ordered_scopes_of
       |> List.fold_left (fun l sys ->
         try (
           match Analysis.results_find sys results with
@@ -898,13 +715,13 @@ let run in_sys =
       (* Logging the end of the run. *)
       |> KEvent.log_run_end ;
 
-      post_clean_exit_with_results in_sys `Supervisor Exit
+      post_clean_exit_with_results cmc_sys `Supervisor Exit
 
     ) with
-    | TimeoutWall -> on_exit_with_results in_sys None `Supervisor TimeoutWall
+    | TimeoutWall -> on_exit_with_results cmc_sys None `Supervisor TimeoutWall
     | e -> (
       handle_exception `Supervisor e;
-      on_exit_with_results in_sys None `Supervisor e
+      on_exit_with_results cmc_sys None `Supervisor e
     )
 
 (* 

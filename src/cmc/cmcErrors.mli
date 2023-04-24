@@ -20,6 +20,8 @@ type error_kind =
   | Impossible of string
   | NotSuppoted of string
   | SystemNotFound of Dolmen.Std.Id.t
+  | ParserError of string
+  | TypeCheckerError of string
  (* Add more as needed*)
 
 type error = [
