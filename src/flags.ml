@@ -3158,13 +3158,30 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Check reachability properties@ \
+          Check reachability properties (including non-vacuity checks).@ \
           Default: %a\
         "
         fmt_bool check_reach_default
     )
   let set_check_reach b = check_reach := b
   let check_reach () = !check_reach
+
+let check_nonvacuity_default = true
+  let check_nonvacuity = ref check_nonvacuity_default
+  let _ = add_spec
+    "--check_nonvacuity"
+    (bool_arg check_nonvacuity)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Check non-vacuity of contract modes and conditional properties.@ \
+          Ignored if --check_reach is false.@ \
+          Default: %a\
+        "
+        fmt_bool check_nonvacuity_default
+    )
+  let set_check_nonvacuity b = check_nonvacuity := b
+  let check_nonvacuity () = !check_nonvacuity
 
   let check_subproperties_default = true
   let check_subproperties = ref check_subproperties_default
@@ -3399,6 +3416,7 @@ let lus_push_pre = Global.lus_push_pre
 let modular = Global.modular
 let slice_nodes = Global.slice_nodes
 let check_reach = Global.check_reach
+let check_nonvacuity = Global.check_nonvacuity
 let check_subproperties = Global.check_subproperties
 let lus_main = Global.lus_main
 let debug = Global.debug
@@ -3896,6 +3914,10 @@ let parse_argv () =
       Log.log L_warn "Invariant printing enabled: disabling reachability checks";
       Global.set_check_reach false
     )
+  );
+
+  if (not (Global.check_reach ())) then (
+    Global.set_check_nonvacuity false
   )
 
 

@@ -277,7 +277,7 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
         in
         (* Generating one non-vacuity check per require *)
         match requires with
-        | { scope = s } :: _ ->
+        | { scope = s } :: _ when Flags.check_nonvacuity () ->
           let name =
             Format.asprintf "%a%s%a" (
               pp_print_list (
@@ -295,7 +295,7 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
             (P.NonVacuityCheck (pos, scope))
             (E.mk_not guard)
           :: ensure_props
-        | [] ->
+        | _ ->
           ensure_props
     ) acc
   in

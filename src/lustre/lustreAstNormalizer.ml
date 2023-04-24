@@ -822,23 +822,28 @@ and normalize_item info map = function
         let nexpr, gids, warnings = abstract_expr false info map false expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
-      | Provided expr2 -> 
-        let pos' =  AH.pos_of_expr expr2 in
+      | Provided expr2 ->
         let expr1 = A.BinaryOp (pos, A.Impl, expr2, expr) in
-        let expr2 = A.UnaryOp (pos', A.Not, expr2) in
         let nexpr1, gids1, warnings1 = abstract_expr false info map false expr1 in
-        let nexpr2, gids2, warnings2 = abstract_expr false info map false expr2 in
-        let name'', gids2 = match name' with
-          | Some name ->
-            let name'' = HString.concat2 (HString.mk_hstring "Guard of ") name in
-            Some name'', { gids2 with
-              nonvacuity_props = StringSet.add name'' gids2.nonvacuity_props
-            }
-          | None -> None, gids2
-        in
-        [AnnotProperty (pos, name', nexpr1, Invariant);
-         AnnotProperty (pos', name'', nexpr2, Reachable None)],
-        union gids1 gids2, warnings1 @ warnings2
+        let inv_prop = A.AnnotProperty (pos, name', nexpr1, Invariant) in
+        if Flags.check_nonvacuity () then (
+          let pos' =  AH.pos_of_expr expr2 in
+          let expr2 = A.UnaryOp (pos', A.Not, expr2) in
+          let nexpr2, gids2, warnings2 = abstract_expr false info map false expr2 in
+          let name'', gids2 = match name' with
+            | Some name ->
+              let name'' = HString.concat2 (HString.mk_hstring "Guard of ") name in
+              Some name'', { gids2 with
+                nonvacuity_props = StringSet.add name'' gids2.nonvacuity_props
+              }
+            | None -> None, gids2
+          in
+          [inv_prop; AnnotProperty (pos', name'', nexpr2, Reachable None)],
+          union gids1 gids2, warnings1 @ warnings2
+        )
+        else (
+          [inv_prop], gids1, warnings1
+        )
 
       | _ -> 
         let nexpr, gids, warnings = abstract_expr false info map false expr in
