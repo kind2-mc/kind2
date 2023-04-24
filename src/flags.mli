@@ -225,6 +225,9 @@ val slice_nodes : unit -> bool
 (** Check reachability properties *)
 val check_reach : unit -> bool
 
+(** Check non-vacuity of contract modes and conditional properties *)
+val check_nonvacuity : unit -> bool
+
 (** Check properties of subnodes *)
 val check_subproperties : unit -> bool
 

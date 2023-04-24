@@ -91,6 +91,9 @@ and prop_source =
   | GuaranteeModeImplication of (Lib.position * Scope.t)
   (** Contract: mode implication. *)
 
+  | NonVacuityCheck of (Lib.position * Scope.t)
+  (** Non-vacuity check *)
+
   | Candidate of prop_source option
   (** User supplied candidate invariant *)
 

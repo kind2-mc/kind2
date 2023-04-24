@@ -641,6 +641,7 @@
                         "Assumption",
                         "Guarantee",
                         "Generated",
+                        "NonVacuityCheck",
                         "OneModeActive",
                         "Ensure",
                         "PropAnnot"

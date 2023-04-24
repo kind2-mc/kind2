@@ -1786,11 +1786,16 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | _ -> assert false (* must be abstracted *)
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in
-      let name =
+      let name, src =
         match name_opt with
-        | Some n -> HString.string_of_hstring n
         | None -> assert false (* Prop named in LustreAstNormalizer *)
-      in 
+        | Some n ->
+          HString.string_of_hstring n,
+          if GI.StringSet.mem n gids.GI.nonvacuity_props then
+            Property.NonVacuityCheck (pos, node_scope)
+          else
+            Property.PropAnnot pos
+      in
       let kind = match kind with
         | A.Invariant -> Property.Invariant
         | A.Reachable Some (FromWithin (ts1, ts2)) -> Property.Reachable (Some (FromWithin (ts1, ts2)))
@@ -1799,7 +1804,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | A.Reachable Some (Within ts) -> Property.Reachable (Some (Within ts))
         | A.Reachable None -> Property.Reachable None
         | A.Provided _ -> assert false (* Should be desugared into one invariant and one reachable property *)
-      in sv, name, (Property.PropAnnot pos), kind
+      in
+      sv, name, src, kind
     in List.map op node_props
 
   in let asserts =
