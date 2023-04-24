@@ -17,16 +17,7 @@
 *)
 open Lib
 
-module LP = LustrePath
-(* Abbreviations *)
-module I = LustreIdent
-module D = LustreIndex
-module E = LustreExpr
-module N = LustreNode
-module S = SubSystem
 module T = TransSys
-module C = LustreContract
-
 module SVT = StateVar.StateVarHashtbl
 module SVM = StateVar.StateVarMap
 module SVS = StateVar.StateVarSet
@@ -190,6 +181,9 @@ let pp_reach_prop ppf (state_var, value, changed) =
 let pp_step_of_trace (trans_sys : TransSys.t) name_map var_map path enums ppf k = 
   let reachability_prop = TransSys.get_properties trans_sys in
   let reachability_svars = List.map (fun Property.({prop_term}) -> StateVar.StateVarSet.elements (Term.state_vars_of_term prop_term)) reachability_prop |> List.flatten in
+  
+  (* Reachable svars may have duplicates if referenced in multiple queries. Filter them out.  *)
+  let reachability_svars = List.fold_left (fun rvars rvar -> if (List.exists (StateVar.equal_state_vars rvar) rvars) then rvars else rvar :: rvars) [] reachability_svars |> List.rev in
 
   let model_list = Model.path_to_list path in
   let values = List.map (fun reachability_svar -> List.nth (List.assoc reachability_svar model_list) (Numeral.to_int k)) reachability_svars  in

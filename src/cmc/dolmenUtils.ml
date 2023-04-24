@@ -543,7 +543,12 @@ let rec opt_dolmen_term_to_expr enum_map bound_vars (term : term option) =
         - parsed is a description of the token which raised the error,
         - expected is a messages describing what would have been corect
           tokens/inputs at that point. *)
-        | `Regular msg -> (Format.printf "Error: %t"  msg ) ; failwith "\tA Parser failure occured"
+          
+        | `Regular msg -> 
+          (* Not sure why it always prints line 1... *)
+          let locfile = Loc.mk_file file in
+          (* let locfile = Loc.mk_file file in *)
+          (Format.printf "Error %a: %t" Loc.fmt (Loc.loc locfile loc) msg ) ; failwith "\tA Parser failure occured"
         | `Advanced (error_ref, prod, parsed, expected) -> (Format.printf "Error %t\nParsed: %t\nExpected: %t" prod parsed expected) ; failwith "A Parser failure occured"
     in
   
