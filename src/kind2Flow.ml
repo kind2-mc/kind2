@@ -138,47 +138,6 @@ let on_exit_of_process mdl =
 (** Short name for a kind module. *)
 let debug_ext_of_process = short_name_of_kind_module
 
-(* Decides what the exit status is by looking at a transition system.
-
-The exit status is
-  * 0 if some properties are unknown or k-true (timeout),
-  * 10 if some invariant properties are falsifiable (unsafe) or some reachability properties are unreachable,
-  * 20 if all invariant properties are invariants (safe) and all reachability properties are reachable. *)
-let status_of_trans_sys sys =
-  (* Checking if some properties are unknown of falsifiable. *)
-  let unknown, falsifiable =
-    TSys.get_prop_status_all_nocands sys
-    |> List.fold_left (fun (u,f) -> function
-      | (n, Property.PropUnknown)
-      | (n, Property.PropKTrue _) ->
-        Format.eprintf "%s KU@." n;
-        u+1,f
-      | (n, Property.PropFalse _) when TSys.get_prop_kind sys n = Invariant ->
-        Format.eprintf "%s FALSE@." n;
-        u,f+1
-      | (n, Property.PropInvariant _) -> 
-        if TSys.get_prop_kind sys n = Invariant
-        then u,f
-        else (Format.eprintf "%s UNREACHABLE@." n; u,f+1)   
-      | _ -> u,f
-    ) (0,0)
-    |> fun (u,f) -> u > 0, f > 0
-  in
-  (* Getting relevant exit code. *)
-  let exit_status =
-    if unknown then ExitCodes.unknown else (
-      if falsifiable then ExitCodes.unsafe
-      else ExitCodes.safe
-    )
-  in
-  (* Exit status. *)
-  exit_status
-
-(** Exit status from an optional [results]. *)
-let status_of_sys () = match ! latest_trans_sys with
-  | None -> ExitCodes.unknown
-  | Some sys -> status_of_trans_sys sys
-
 (** Exit status from an optional [results]. *)
 let status_of_results in_sys =
   let res =
@@ -268,10 +227,6 @@ let status_of_exn process status = function
     ExitCodes.error
   )
 
-(** Status corresponding to an exception based on an optional system. *)
-let status_of_exn_sys process =
-  status_of_sys () |> status_of_exn process
-
 (** Status corresponding to an exception based on some results. *)
 let status_of_exn_results in_sys process =
   status_of_results in_sys |> status_of_exn process
@@ -318,15 +273,17 @@ let slaughter_kids process sys =
         if !timeout then raise TimeoutWall
       (* Unix.wait was interrupted. *)
       | Unix.Unix_error (Unix.EINTR, _, _) ->
+        let dummy_status = ExitCodes.error in
         (* Ignoring exit code, whatever happened does not change the
         outcome of the analysis. *)
-        Signal 0 |> status_of_exn_sys process |> ignore
+        Signal 0 |> status_of_exn process dummy_status |> ignore 
 
       (* Exception in Unix.wait loop. *)
       | e ->
+        let dummy_status = ExitCodes.error in
         (* Ignoring exit code, whatever happened does not change the outcome
         of the analysis. *)
-        status_of_exn_sys process e |> ignore ;
+        status_of_exn process dummy_status e |> ignore ;
     ) ;
 
     if ! child_pids <> [] then
