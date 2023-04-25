@@ -66,7 +66,7 @@ let default_of_type t =
     (* Integer range values are their lower bound by default *)
     | Type.IntRange (Some l, _) -> Term.mk_num l
     | Type.IntRange (_, Some r) -> Term.mk_num r
-    | Type.IntRange _ -> assert false (*!! Double check !!*)
+    | Type.IntRange _ -> Term.mk_num Numeral.zero
 
     | Type.Enum (l, _) -> Term.mk_num l
 

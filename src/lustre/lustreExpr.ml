@@ -60,6 +60,11 @@ type 'a bound_or_fixed =
   | Fixed of 'a  (* Fixed value for index variable *)
   | Unbound of 'a  (* unbounded index variable *)
 
+type num = 
+  | Number of Numeral.t 
+  | Inf
+  | NegInf
+  | Nothing
 
 let compare_expr = Term.compare
 
@@ -1378,6 +1383,99 @@ let type_of_real_real_real = function
   | _ -> raise Type_mismatch
 *)
 
+let sub_opt x y = match x, y with 
+  | Number x, Number y -> Number (Numeral.sub x y) 
+  | Number _, Inf -> NegInf
+  | Inf, Number _ -> Inf
+  | Inf, Inf -> Inf
+  | Number _, NegInf -> Inf
+  | NegInf, Number _ -> NegInf 
+  | NegInf, NegInf -> NegInf
+  | Inf, NegInf -> Inf 
+  | NegInf, Inf -> NegInf
+  | Nothing, _ -> assert false 
+  | _, Nothing -> assert false
+
+let add_opt x y = match x, y with 
+  | Number x, Number y -> Number (Numeral.add x y) 
+  | Number _, Inf -> Inf
+  | Inf, Number _ -> Inf
+  | Inf, Inf -> Inf
+  | Number _, NegInf -> NegInf
+  | NegInf, Number _ -> NegInf 
+  | NegInf, NegInf -> NegInf
+  | Inf, NegInf -> Nothing 
+  | NegInf, Inf -> Nothing
+  | Nothing, _ -> assert false 
+  | _, Nothing -> assert false
+
+let mult_opt x y = match x, y with 
+  | Number x, Number y -> Number (Numeral.mult x y) 
+  | Number x, _ when x = Numeral.zero -> Number Numeral.zero
+  | _, Number y  when y = Numeral.zero -> Number Numeral.zero
+  | Number x, Inf when Numeral.gt x Numeral.zero -> Inf
+  | Number x, Inf when Numeral.lt x Numeral.zero -> NegInf
+  | Inf, Number y when Numeral.gt y Numeral.zero -> Inf
+  | Inf, Number y when Numeral.lt y Numeral.zero -> NegInf
+  | Number x, NegInf when Numeral.gt x Numeral.zero -> NegInf
+  | Number x, NegInf when Numeral.lt x Numeral.zero -> Inf
+  | NegInf, Number y when  Numeral.gt y Numeral.zero -> NegInf 
+  | NegInf, Number y when  Numeral.lt y Numeral.zero -> Inf 
+  | Inf, Inf -> Inf
+  | NegInf, NegInf -> Inf
+  | Inf, NegInf -> NegInf 
+  | NegInf, Inf -> NegInf
+  | Nothing, _ -> assert false 
+  | _, Nothing -> assert false
+  | _ -> assert false
+  
+(*!! Q: Come back to this !!*)
+let div_opt x y = match x, y with 
+  | Number x, Number y -> Number (Numeral.div x y) 
+  | Number _, Inf -> Nothing
+  | Inf, Number y when Numeral.gt y Numeral.zero -> Inf
+  | Inf, Number y when Numeral.lt y Numeral.zero -> NegInf
+  | Inf, Inf -> Nothing
+  | Number _, NegInf -> Nothing
+  | NegInf, Number y when Numeral.gt y Numeral.zero -> NegInf 
+  | NegInf, Number y when Numeral.lt y Numeral.zero -> Inf 
+  | NegInf, NegInf -> Nothing
+  | Inf, NegInf -> Nothing 
+  | NegInf, Inf -> Nothing
+  | Nothing, _ -> assert false 
+  | _, Nothing -> assert false
+  | _ -> assert false
+
+let min_opt = List.fold_left (fun num1 num2 -> match num1, num2 with 
+    | Number x, Number y -> Number (Numeral.min x y)
+    | NegInf, _ -> NegInf 
+    | _, NegInf -> NegInf
+    | Inf, num -> num 
+    | num, Inf -> num
+    | Nothing, num -> num
+    | num, Nothing -> num
+  ) Nothing
+
+let max_opt = List.fold_left (fun num1 num2 -> match num1, num2 with 
+    | Number x, Number y -> Number (Numeral.max x y)
+    | NegInf, num -> num 
+    | num, NegInf -> num
+    | Inf, _ -> Inf 
+    | _, Inf -> Inf
+    | Nothing, num -> num
+    | num, Nothing -> num
+  ) Nothing
+
+let num_to_numeral_opt = function 
+  | Number n -> Some n 
+  | _ -> None
+
+let numeral_opts_to_nums lo hi = match lo, hi with 
+  | Some lo, Some hi -> Number lo, Number hi 
+  | Some lo, None -> Number lo, Inf 
+  | None, Some hi -> NegInf, Number hi 
+  | None, None -> NegInf, Inf
+
 (* Best int subrange for some operator. *)
 (*!! Come back to this !!*)
 let best_int_range is_div op t t' =
@@ -1396,20 +1494,24 @@ let best_int_range is_div op t t' =
     is_div && Numeral.(equal hi' zero)
   )-> Type.t_int
 
-  | Some lo', Some hi' ->
-    let lo, hi = match Type.bounds_of_int_range t with 
-      | Some lo, Some hi -> lo, hi 
-      | _ -> failwith "stub" in
-    let b_0 = op lo lo' in
+  | lo', hi' ->
+    let lo, hi = Type.bounds_of_int_range t in
+    let 
+      (lo', hi'), (lo, hi) = numeral_opts_to_nums lo' hi', numeral_opts_to_nums lo hi
+    in
     let bounds =
-      [ op hi lo' ;
+      [ op lo lo' ;
+        op hi lo' ;
         op lo hi' ;
         op hi hi' ]
     in
-    Type.mk_int_range
-      (Some (List.fold_left Numeral.min b_0 bounds))
-      (Some (List.fold_left Numeral.max b_0 bounds))
-  | _ -> failwith "stub"
+    let lower = min_opt bounds in 
+    let upper = max_opt bounds in 
+    match lower, upper with 
+      | Nothing, _ | _, Nothing -> Type.t_int 
+      | _ -> Type.mk_int_range
+              (num_to_numeral_opt lower)
+              (num_to_numeral_opt upper)
 
 
 (* Type check for int -> int -> int, real -> real -> real *)
@@ -2542,7 +2644,6 @@ let eval_minus expr1 expr2 =
               Term.mk_minus [expr1; expr2])
         
     | exception Invalid_argument _ -> Term.mk_minus [expr1; expr2]
-             
 
 (* Type of subtraction 
 
@@ -2570,8 +2671,8 @@ let type_of_minus = function
           | _ -> None
         ) in 
         Type.mk_int_range lower upper 
-      | s -> type_of_numOrSBV_numOrSBV_numOrSBV Numeral.sub t s)
-  | t -> type_of_numOrBV_numOrBV_numOrBV Numeral.sub t
+      | s -> type_of_numOrSBV_numOrSBV_numOrSBV sub_opt t s)
+  | t -> type_of_numOrBV_numOrBV_numOrBV sub_opt t
 
 
 (* Subtraction *)
@@ -2633,8 +2734,8 @@ let type_of_plus = function
           | _ -> None
         in
         Type.mk_int_range lower upper
-      | s -> type_of_numOrBV_numOrBV_numOrBV Numeral.add t s)
-  | t -> type_of_numOrBV_numOrBV_numOrBV Numeral.add t
+      | s -> type_of_numOrBV_numOrBV_numOrBV add_opt t s)
+  | t -> type_of_numOrBV_numOrBV_numOrBV add_opt t
 
 
 (* Addition *)
@@ -2693,7 +2794,7 @@ let eval_div expr1 expr2 =
    When the operator is applied to integer and machine integer arguments,
    its semantics is the same as integer division (div)
 *)
-let type_of_div = type_of_numOrBV_numOrBV_numOrBV ~is_div:true Numeral.div
+let type_of_div = type_of_numOrBV_numOrBV_numOrBV ~is_div:true div_opt
 
 
 (* Real division *)
@@ -2735,7 +2836,7 @@ let eval_times expr1 expr2 =
 
    *: int -> int -> int
       real -> real -> real *)
-let type_of_times = type_of_numOrBV_numOrBV_numOrBV Numeral.mult
+let type_of_times = type_of_numOrBV_numOrBV_numOrBV mult_opt
 
 
 (* Multiplication *)
@@ -2771,7 +2872,7 @@ let eval_intdiv expr1 expr2 =
 
    div: int -> int -> int *)
 let type_of_intdiv t t' =
-  try best_int_range true Numeral.div t t' with
+  try best_int_range true div_opt t t' with
   | Invalid_argument _ -> (
     match t with
     | t when Type.is_int t || Type.is_int_range t -> (
@@ -3638,4 +3739,3 @@ let unsafe_expr_of_term t = t
    indent-tabs-mode: nil
    End: 
 *)
-  

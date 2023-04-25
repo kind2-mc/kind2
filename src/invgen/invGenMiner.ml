@@ -403,7 +403,7 @@ module BoolRules = struct
           )
         in
         loop lo
-      | _ -> identity (*!! Double check !!*)
+      | _ -> identity (*!! Q: What to put here? !!*)
       
   (* Adds [svar >= 0] and [svar == 0] for an int [svar] to the input set. *)
   let int_rule svar set =
