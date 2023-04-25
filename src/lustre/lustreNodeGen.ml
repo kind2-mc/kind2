@@ -513,6 +513,18 @@ let expand_tuple pos lhs rhs =
     (List.map (fun (i, e) -> (i, e)) (X.bindings lhs))
     (List.map (fun (i, e) -> (i, e)) (X.bindings rhs))
 
+let compile_contract_item map count scope kind pos name expr =
+    let scope = List.map (fun (i, s) -> i, HString.string_of_hstring s) scope in
+    let ident = extract_normalized expr in
+    let state_var = H.find !map.state_var ident in
+    let name = match name with
+      | Some name -> Some (HString.string_of_hstring name)
+      | None -> None
+    in
+    let contract_sv = C.mk_svar pos count name state_var scope in
+    N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
+    contract_sv
+
 let rec compile ctx gids decls =
   let over_decls cstate decl = compile_declaration cstate gids ctx decl in
   let output = List.fold_left over_decls (empty_compiler_state ()) decls in 
@@ -1223,20 +1235,10 @@ and compile_node node_scope pos ctx cstate map outputs cond restart ident args d
 
 and compile_contract_variables cstate gids ctx map contract_scope node_scope contract =
   (* let contract_scope = List.map HString.string_of_hstring contract_scope in *)
-  let compile_contract_item count scope kind pos name expr =
-    let ident = extract_normalized expr in
-    let state_var = H.find !map.state_var ident in
-    let name = match name with
-      | Some name -> Some (HString.string_of_hstring name)
-      | None -> None
-    in
-    let contract_sv = C.mk_svar pos count name state_var scope in
-    N.add_state_var_def ~is_dep:true state_var (N.ContractItem (pos, contract_sv, kind));
-    contract_sv
   (* ****************************************************************** *)
   (* Split contracts into relevant categories                           *)
   (* ****************************************************************** *)
-  in let gconsts, gvars, modes, contract_calls =
+  let gconsts, gvars, modes, contract_calls =
     let over_items (consts, vars, modes, calls) = function
       | A.GhostConst c -> c :: consts, vars, modes, calls
       | A.GhostVars v -> consts, v :: vars, modes, calls 
@@ -1300,17 +1302,17 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   in let modes =
     let over_modes (pos, id, reqs, enss) =
       let id' = HString.string_of_hstring id in
-      let contract_scope = List.map
-        (fun (p, s) -> (p, HString.string_of_hstring s))
-        contract_scope
-      in
       let reqs = List.mapi
-        (fun i (p, n, e) -> compile_contract_item (i + 1) contract_scope N.Require p n e)
+        (fun i (p, n, e) -> 
+          compile_contract_item map (i + 1) contract_scope N.Require p n e)
         reqs in
       let enss = List.mapi
-        (fun i (p, n, e) -> compile_contract_item (i + 1) contract_scope N.Ensure p n e)
+        (fun i (p, n, e) -> 
+          compile_contract_item map (i + 1) contract_scope N.Ensure p n e)
         enss in
-      let contract_scope = List.map (fun (_, i) -> i) contract_scope in
+      let contract_scope =
+        List.map (fun (_, i) -> HString.string_of_hstring i) contract_scope
+      in
       let path = contract_scope @ [id'] in
       let mode = C.mk_mode (mk_ident id) pos path reqs enss false in
       map := { !map with modes = mode :: !map.modes };
@@ -1331,21 +1333,10 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
   in ghost_locals @ ghost_locals2, ghost_equations @ ghost_equations2, modes @ modes2
 
 and compile_contract cstate gids ctx map contract_scope node_scope contract =
-  let compile_contract_item count scope kind pos name expr =
-    let scope = List.map (fun (i, s) -> i, HString.string_of_hstring s) scope in
-    let ident = extract_normalized expr in
-    let state_var = H.find !map.state_var ident in
-    let name = match name with
-      | Some name -> Some (HString.string_of_hstring name)
-      | None -> None
-    in
-    let contract_sv = C.mk_svar pos count name state_var scope in
-    N.add_state_var_def state_var (N.ContractItem (pos, contract_sv, kind));
-    contract_sv
   (* ****************************************************************** *)
   (* Split contracts into relevant categories                           *)
   (* ****************************************************************** *)
-  in let assumes, guarantees, contract_calls =
+  let assumes, guarantees, contract_calls =
     let over_items (assumes, guarantees, calls) = function
       | A.GhostConst _ -> assumes, guarantees, calls
       | A.GhostVars _ -> assumes, guarantees, calls
@@ -1377,7 +1368,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
       let i = !map.assume_count in
       map := {!map with assume_count = i + 1 };
       let kind = if soft then N.WeakAssumption else N.Assumption in
-      compile_contract_item (i + 1) contract_scope kind pos name expr
+      compile_contract_item map (i + 1) contract_scope kind pos name expr
     in List.map over_assumes assumes
   in
   let guarantees = 
@@ -1385,7 +1376,7 @@ and compile_contract cstate gids ctx map contract_scope node_scope contract =
       let i = !map.guarantee_count in
       map := {!map with guarantee_count = i + 1 };
       let kind = if soft then N.WeakGuarantee else N.Guarantee in
-      compile_contract_item (i + 1) contract_scope kind pos name expr
+      compile_contract_item map (i + 1) contract_scope kind pos name expr
     in List.map over_guarantees guarantees
       |> List.map (fun g -> g, false)
   in assumes @ assumes2,
@@ -1801,11 +1792,16 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | _ -> assert false (* must be abstracted *)
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in
-      let name =
+      let name, src =
         match name_opt with
-        | Some n -> HString.string_of_hstring n
         | None -> assert false (* Prop named in LustreAstNormalizer *)
-      in 
+        | Some n ->
+          HString.string_of_hstring n,
+          if GI.StringSet.mem n gids.GI.nonvacuity_props then
+            Property.NonVacuityCheck (pos, node_scope)
+          else
+            Property.PropAnnot pos
+      in
       let kind = match kind with
         | A.Invariant -> Property.Invariant
         | A.Reachable Some (FromWithin (ts1, ts2)) -> Property.Reachable (Some (FromWithin (ts1, ts2)))
@@ -1814,7 +1810,8 @@ and compile_node_decl gids is_function cstate ctx i ext inputs outputs locals it
         | A.Reachable Some (Within ts) -> Property.Reachable (Some (Within ts))
         | A.Reachable None -> Property.Reachable None
         | A.Provided _ -> assert false (* Should be desugared into one invariant and one reachable property *)
-      in sv, name, (Property.PropAnnot pos), kind
+      in
+      sv, name, src, kind
     in List.map op node_props
 
   in let asserts =

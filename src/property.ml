@@ -93,6 +93,8 @@ and prop_source =
   | GuaranteeOneModeActive of (position * Scope.t)
   (* Contract: mode implication. *)
   | GuaranteeModeImplication of (position * Scope.t)
+  (* Non-vacuity check *)
+  | NonVacuityCheck of (position * Scope.t)
 
   (* Property is only a candidate invariant here to help prove other
      properties *)
@@ -145,6 +147,8 @@ let pp_print_prop_source ppf = function
     Format.fprintf ppf "one mode active (%a)" Scope.pp_print_scope scope
   | GuaranteeModeImplication (_, scope) ->
     Format.fprintf ppf "mode implication %a" Scope.pp_print_scope scope
+  | NonVacuityCheck (_, scope) ->
+    Format.fprintf ppf "non-vacuity check (%a)" Scope.pp_print_scope scope
 
 let pp_print_prop_quiet ppf { prop_name ; prop_source } =
   Format.fprintf ppf
@@ -161,6 +165,7 @@ let pp_print_prop_source ppf = function
   | Guarantee _ -> Format.fprintf ppf ":guarantee"
   | GuaranteeOneModeActive _ -> Format.fprintf ppf ":one_mode_active"
   | GuaranteeModeImplication _ -> Format.fprintf ppf ":mode_implication"
+  | NonVacuityCheck _ -> Format.fprintf ppf ":non_vacuity_check"
 
 let pp_print_property ppf { prop_name; prop_source; prop_term; prop_status } = 
 

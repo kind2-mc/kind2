@@ -197,6 +197,7 @@ let lift_prop_name node_name pos prop_name =
 
 (* Create a property from Lustre expression *)
 let property_of_expr
+  ?(prop_kind=P.Invariant)
   candidate
   prop_name
   prop_status
@@ -216,7 +217,7 @@ let property_of_expr
   in
 
   (* Return property *)
-  { P.prop_name ; P.prop_source ; P.prop_term ; P.prop_status ; prop_kind = Invariant }
+  { P.prop_name ; P.prop_source ; P.prop_term ; P.prop_status ; prop_kind }
 
 (* Creates the conjunction of a list of contract svar. *)
 let conj_of l = List.map (fun { C.svar } -> E.mk_var svar) l |> E.mk_and_n
@@ -257,21 +258,45 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
   (* Creates properties for mode implications of a mode. *)
   let implications_of_modes modes acc =
     modes |> List.fold_left (
-      fun acc { C.name ; C.requires ; C.ensures ; C.candidate } ->
+      fun acc { C.name ; C.pos; C.requires ; C.ensures ; C.candidate } ->
         let name = Format.asprintf "%a" (I.pp_print_ident true) name in
         (* LHS of the implication. *)
         let guard = conj_of requires in
         (* Generating one property per ensure. *)
-        ensures |> List.fold_left (
-          fun acc ({ C.pos ; C.svar } as sv) -> (
-            E.mk_var svar |> E.mk_impl guard
-            |> property_of_expr
-              candidate
-              (C.prop_name_of_svar sv name ".ensure")
-              prop_status
-              (P.GuaranteeModeImplication (pos, scope))
-          ) :: acc
-        ) acc
+        let ensure_props =
+          ensures |> List.fold_left (
+            fun acc ({ C.pos ; C.svar } as sv) -> (
+              E.mk_var svar |> E.mk_impl guard
+              |> property_of_expr
+                candidate
+                (C.prop_name_of_svar sv name ".ensure")
+                prop_status
+                (P.GuaranteeModeImplication (pos, scope))
+            ) :: acc
+          ) acc
+        in
+        (* Generating one non-vacuity check per require *)
+        match requires with
+        | { scope = s } :: _ when Flags.check_nonvacuity () ->
+          let name =
+            Format.asprintf "%a%s%a" (
+              pp_print_list (
+                fun fmt (pos, call) ->
+                  Format.fprintf fmt "%s%a."
+                    call Lib.pp_print_line_and_column pos
+              ) ""
+            ) s name Lib.pp_print_line_and_column pos 
+          in
+          property_of_expr
+            ~prop_kind:(P.Reachable None) 
+            false
+            name
+            prop_status
+            (P.NonVacuityCheck (pos, scope))
+            (E.mk_not guard)
+          :: ensure_props
+        | _ ->
+          ensure_props
     ) acc
   in
 
@@ -671,7 +696,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
   let node_props =
     if Flags.check_subproperties () && not (Flags.modular ()) then (
       properties |> List.fold_left (
-        fun a ({ P.prop_name = n; P.prop_term = t } as p) ->
+        fun a ({ P.prop_name = n; P.prop_term = t; P.prop_kind } as p) ->
 
           (* Lift name of property *)
           let prop_name =
@@ -699,7 +724,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
             P.prop_source ;
             P.prop_term ;
             P.prop_status ;
-            prop_kind = Invariant ; } :: a
+            P.prop_kind ; } :: a
       ) node_props
     )
     else node_props
