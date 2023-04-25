@@ -119,6 +119,9 @@ You can now add modules following the instructions in the previous section.
 
 exception Error
 
+exception SolverNotFound
+exception UnsupportedSolver
+
 (** {1 Accessors for flags} *)
 
 

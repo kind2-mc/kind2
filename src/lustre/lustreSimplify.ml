@@ -2375,7 +2375,7 @@ let main () =
           pos_fname
           (Lexing.lexeme lexbuf);
 
-        exit 1
+        exit ExitCodes.parse_error
 
   in
 

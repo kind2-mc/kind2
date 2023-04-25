@@ -1489,10 +1489,14 @@ end
 
 (** Exit codes. *)
 module ExitCodes = struct
-  let unknown = 0
-  let unsafe = 10
-  let safe = 20
-  let error = 2
+  let success = 0
+  let error = 1
+  let usage_error = 2
+  let parse_error = 3
+  let not_found_error = 4
+  let unsupported_solver = 5
+  let incomplete_analysis = 30
+  let unsafe_result = 31
   let kid_status = 128
 end
 

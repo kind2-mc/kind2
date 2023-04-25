@@ -149,9 +149,9 @@ let status_of_results in_sys =
   match res with
   | None ->
     KEvent.log L_note "Incomplete analysis result: Not all properties could be proven invariant" ;
-    ExitCodes.unknown
-  | Some true -> ExitCodes.safe
-  | Some false -> ExitCodes.unsafe
+    ExitCodes.incomplete_analysis
+  | Some true -> ExitCodes.success
+  | Some false -> ExitCodes.unsafe_result
 
 (* Return the status code from an exception *)
 let status_of_exn process status = function
@@ -159,7 +159,7 @@ let status_of_exn process status = function
   | Exit -> status
   (* Parser error *)
   | LustreAst.Parser_error | Parsing.Parse_error ->
-    ExitCodes.error
+    ExitCodes.parse_error
   (* Got unknown, issue error but normal termination. *)
   | SMTSolver.Unknown ->
     KEvent.log L_warn "In %a: a check-sat resulted in `unknown`. \
@@ -310,7 +310,7 @@ let post_clean_exit_with_results in_sys process exn =
 (** Called after everything has been cleaned up *)
 let post_clean_exit process exn =
   (* Exit status of process depends on exception. *)
-  let status = status_of_exn process ExitCodes.unknown exn in
+  let status = status_of_exn process ExitCodes.success exn in
   (* Close tags in XML output. *)
   KEvent.terminate_log () ;
   (* Kill all live solvers. *)
@@ -336,7 +336,7 @@ let on_exit sys process exn =
 Give the exception [exn] that was raised or [Exit] on normal termination. *)
 let on_exit_child ?(_alone=false) messaging_thread process exn =
   (* Exit status of process depends on exception *)
-  let status = status_of_exn process 0 exn in
+  let status = status_of_exn process ExitCodes.success exn in
   (* Call cleanup of process *)
   on_exit_of_process process ;
   Unix.getpid () |> KEvent.log L_debug "Process %d terminating" ;
@@ -605,7 +605,7 @@ let run in_sys =
       | _ -> (
         KEvent.log L_fatal "Contract checking requires Z3 or cvc5." ;
         KEvent.terminate_log () ;
-        exit ExitCodes.error
+        exit ExitCodes.unsupported_solver
       )
     in
 
