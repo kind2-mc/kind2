@@ -1452,6 +1452,10 @@ let min_opt = List.fold_left (fun num1 num2 -> match num1, num2 with
     | _, NegInf -> NegInf
     | Inf, num -> num 
     | num, Inf -> num
+    (*!! Currently, we throw out the Nothing elements if possible. But, this
+         might be dangerous; maybe we should return Nothing if at least
+         one Nothing exists. This would trigger conservatively returning
+         the int type in "best_int_range" !!*)
     | Nothing, num -> num
     | num, Nothing -> num
   ) Nothing
@@ -1462,6 +1466,10 @@ let max_opt = List.fold_left (fun num1 num2 -> match num1, num2 with
     | num, NegInf -> num
     | Inf, _ -> Inf 
     | _, Inf -> Inf
+  (*!! Currently, we throw out the Nothing elements if possible. But, this
+    might be dangerous; maybe we should return Nothing if at least
+    one Nothing exists. This would trigger conservatively returning
+    the int type in "best_int_range" !!*)
     | Nothing, num -> num
     | num, Nothing -> num
   ) Nothing
