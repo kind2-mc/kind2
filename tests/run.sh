@@ -13,7 +13,7 @@ Tests Kind 2 on the lustre files in a directory. The directory should be
 structured as follows. Directory
   * "success"     contains the files with only valid properties
   * "falsifiable" contains the files with at least one falsifiable property
-  * "error"       contains the files on which Kind 2 fails with error code 2.
+  * "error"       contains the files on which Kind 2 fails with error code 3.
 EOF
 }
 
@@ -40,10 +40,10 @@ k2_args="$@"
 basic_k2_cmd="$k2_args --color false --check_subproperties true --check_sat_assume false --enforce_func_congruence true"
 contract_k2_cmd="$basic_k2_cmd --modular true --compositional true"
 
-success_code="20"
-falsifiable_code="10"
-timeout_code="0"
-error_code="2"
+success_code="0"
+falsifiable_code="40"
+timeout_code="30"
+error_code="3"
 
 success_dir="success"
 falsifiable_dir="falsifiable"

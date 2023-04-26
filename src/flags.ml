@@ -23,6 +23,9 @@ open Lib
 
 exception Error
 
+exception SolverNotFound
+exception UnsupportedSolver
+
 (* Raised on unknown flag. Stores the unknown flag. *)
 exception UnknownFlag of string
 (* Raised on bad argument for existing flag. Stores an explanation, the flag
@@ -389,7 +392,7 @@ module Smt = struct
     try find_on_path bin with
     | Not_found when fail ->
       Log.log L_fatal "@[<v>%s executable %s not found.@]" name bin;
-      raise Error
+      raise SolverNotFound
 
   
   (* Check which SMT solver is available *)
@@ -445,7 +448,7 @@ module Smt = struct
         set_yices_bin exec;
       with Not_found ->
         Log.log L_fatal "No SMT Solver found.";
-        raise Error
+        raise SolverNotFound
 
   let check_qe_solver () = match qe_solver () with
     (* User chose cvc5 *)
@@ -2537,7 +2540,7 @@ let print_module_info = function
       )
     )
   ) ;
-  exit 0
+  exit ExitCodes.success
 )
 
 
@@ -2604,14 +2607,14 @@ module Global = struct
     (
       "-h",
       (Arg.Unit
-        (fun () -> print_help () ; exit 0)
+        (fun () -> print_help () ; exit ExitCodes.success)
       ),
       (fun fmt -> Format.fprintf fmt "Prints this message")
     ) ;
     (
       "--help",
       (Arg.Unit
-        (fun () -> print_help () ; exit 0)
+        (fun () -> print_help () ; exit ExitCodes.success)
       ),
       (fun fmt -> Format.fprintf fmt "Prints this message too")
     ) ;
@@ -3369,7 +3372,7 @@ let check_nonvacuity_default = true
     (Arg.Unit
       (fun () -> 
         Format.printf "%t@." pp_print_version ;
-        exit 0
+        exit ExitCodes.success
       )
     )
     (fun fmt -> Format.fprintf fmt "Print version information and exit")
@@ -3565,7 +3568,7 @@ let parse_clas specs anon_action =
             Log.log L_error "Unknown flag '%s'" flag
           )
         );
-        exit ExitCodes.error
+        exit ExitCodes.usage_error
       )
       | BadArg (error, spec) ->
         check_format_flags args;
@@ -3581,7 +3584,7 @@ let parse_clas specs anon_action =
             Log.log L_error "Error on flag '%s': %s" flag error
           )
         );
-        exit ExitCodes.error
+        exit ExitCodes.usage_error
       | Arg.Bad expl ->
         check_format_flags args;
         (
@@ -3597,7 +3600,7 @@ let parse_clas specs anon_action =
             Log.log L_error "Bad argument: %s" expl
           )
         );
-        exit ExitCodes.error
+        exit ExitCodes.usage_error
     )
 
   | [] ->
@@ -3692,12 +3695,12 @@ let solver_dependant_actions solver =
     match get_version true cmd with
     | None ->
         Log.log L_warn "Couldn't determine cvc5 version";
-        raise Error
+        raise UnsupportedSolver
     | Some (major, minor, patch) ->
         if (major < 1) then (
           Log.log L_error "Kind 2 requires cvc5 1.0.0 or later. Found version: %d.%d.%d"
             major minor patch ;
-          raise Error
+          raise UnsupportedSolver
         ) ;
         if
           Certif.proof () && not (major=1 && minor=0 && patch=3)
@@ -3706,7 +3709,7 @@ let solver_dependant_actions solver =
             "LFSC proof production requires cvc5 1.0.3. Found \
              version: %d.%d.%d"
             major minor patch;
-          raise Error)
+          raise UnsupportedSolver)
   )
   | `Yices_native -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
@@ -3714,7 +3717,7 @@ let solver_dependant_actions solver =
     | Some (major_rev, _, _) ->
       if major_rev > 1 then (
         Log.log L_error "Selected Yices 1 (native format), but found Yices 2 or later";
-        raise Error
+        raise UnsupportedSolver
       )
     | None -> Log.log L_warn "Couldn't determine Yices version"
   )

@@ -611,21 +611,34 @@ end
 
 (** Exit codes. *)
 module ExitCodes: sig
-  (** Exit code for an unknown result. *)
-  val unknown: int
 
-  (** Exit code for an unsafe result. *)
-  val unsafe: int
+  val success : int
+  (** Exit code for a complete and successful analysis *)
 
-  (** Exit code for a safe result. *)
-  val safe: int
-
-  (** Exit code for an error. *)
   val error: int
+  (** Exit code for a general error *)
 
-  (** Exit status if kid caught a signal, the signal number is added to
-  the value *)
+  val usage_error: int
+  (** Exit code for a command line usage error *)
+
+  val parse_error: int
+  (** Exit code for a parse error *)
+
+  val not_found_error: int
+  (** Exit code for a solver not found error *)
+
+  val unsupported_solver: int
+  (** Exit code for an unknown or unsupported version of a solver *)
+
+  val incomplete_analysis: int
+  (** Exit code for an incomplete analysis (unknown result, timeout) *)
+
+  val unsafe_result: int
+  (** Exit code for a complete analysis with an unsafe result *)
+
   val kid_status: int
+  (** Exit status if kid caught a signal, the signal number is added to
+      the value *)
 end
 
 (** File names. *)

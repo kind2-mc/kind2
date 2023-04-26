@@ -49,8 +49,10 @@ let child_pids = ref []
 (** Latest transition system for clean exit in case of error. *)
 let latest_trans_sys = ref None
 
-(** All the results this far. *)
+(** All the safety results this far. *)
 let all_results = ref ( Anal.mk_results () )
+
+let realizability_results = ref []
 
 (** Renices the current process. Used for invariant generation. *)
 let renice () =
@@ -138,61 +140,58 @@ let on_exit_of_process mdl =
 (** Short name for a kind module. *)
 let debug_ext_of_process = short_name_of_kind_module
 
-(* Decides what the exit status is by looking at a transition system.
-
-The exit status is
-  * 0 if some properties are unknown or k-true (timeout),
-  * 10 if some invariant properties are falsifiable (unsafe) or some reachability properties are unreachable,
-  * 20 if all invariant properties are invariants (safe) and all reachability properties are reachable. *)
-let status_of_trans_sys sys =
-  (* Checking if some properties are unknown of falsifiable. *)
-  let unknown, falsifiable =
-    TSys.get_prop_status_all_nocands sys
-    |> List.fold_left (fun (u,f) -> function
-      | (n, Property.PropUnknown)
-      | (n, Property.PropKTrue _) ->
-        Format.eprintf "%s KU@." n;
-        u+1,f
-      | (n, Property.PropFalse _) when TSys.get_prop_kind sys n = Invariant ->
-        Format.eprintf "%s FALSE@." n;
-        u,f+1
-      | (n, Property.PropInvariant _) -> 
-        if TSys.get_prop_kind sys n = Invariant
-        then u,f
-        else (Format.eprintf "%s UNREACHABLE@." n; u,f+1)   
-      | _ -> u,f
-    ) (0,0)
-    |> fun (u,f) -> u > 0, f > 0
+(** Exit status based on some results. *)
+let status_of_safety_results in_sys =
+  let report_incomplete_analysis () =
+    KEvent.log L_note
+      "Incomplete analysis result: Not all properties could be proven invariant" ;
+    ExitCodes.incomplete_analysis
   in
-  (* Getting relevant exit code. *)
-  let exit_status =
-    if unknown then ExitCodes.unknown else (
-      if falsifiable then ExitCodes.unsafe
-      else ExitCodes.safe
-    )
-  in
-  (* Exit status. *)
-  exit_status
-
-(** Exit status from an optional [results]. *)
-let status_of_sys () = match ! latest_trans_sys with
-  | None -> ExitCodes.unknown
-  | Some sys -> status_of_trans_sys sys
-
-(** Exit status from an optional [results]. *)
-let status_of_results in_sys =
-  let res =
+  match Anal.results_is_safe !all_results with
+  | None -> report_incomplete_analysis ()
+  | Some false -> ExitCodes.unsafe_result
+  | Some true -> (
     let l1 = List.length (ISys.analyzable_subsystems in_sys) in
     let l2 = Anal.results_size !all_results in
-    if l1 = l2 then Anal.results_is_safe !all_results
-    else None
+    if l1 = l2 then
+      ExitCodes.success
+    else
+      report_incomplete_analysis ()
+  )
+
+let status_of_realiz_results in_sys =
+  let analyze_results results =
+    let open Realizability in
+    let rec loop opt = function
+    | res :: results -> (
+      match res with
+      (* If unrealizable, then return false result *)
+      | Unrealizable _ -> Some false
+      (* If realizable, propagate previous result *)
+      | Realizable _ -> loop opt results
+      (* In case of an unknown result, change result to None *)
+      | Unknown -> loop None results
+    )
+    | [] -> opt
+    in
+    loop (Some true) results
   in
-  match res with
-  | None ->
-    KEvent.log L_note "Incomplete analysis result: Not all properties could be proven invariant" ;
-    ExitCodes.unknown
-  | Some true -> ExitCodes.safe
-  | Some false -> ExitCodes.unsafe
+  let report_incomplete_analysis () =
+    KEvent.log L_note
+      "Incomplete analysis result: Not all imported nodes could be proven realizable" ;
+    ExitCodes.incomplete_analysis
+  in
+  match analyze_results !realizability_results with
+  | None -> report_incomplete_analysis ()
+  | Some false -> ExitCodes.unsafe_result
+  | Some true -> (
+    let l1 = List.length (ISys.contract_check_params in_sys) in
+    let l2 = List.length !realizability_results in
+    if l1 = l2 then
+      ExitCodes.success
+    else
+      report_incomplete_analysis ()
+  )
 
 (* Return the status code from an exception *)
 let status_of_exn process status = function
@@ -200,7 +199,7 @@ let status_of_exn process status = function
   | Exit -> status
   (* Parser error *)
   | LustreAst.Parser_error | Parsing.Parse_error ->
-    ExitCodes.error
+    ExitCodes.parse_error
   (* Got unknown, issue error but normal termination. *)
   | SMTSolver.Unknown ->
     KEvent.log L_warn "In %a: a check-sat resulted in `unknown`. \
@@ -268,14 +267,6 @@ let status_of_exn process status = function
     ExitCodes.error
   )
 
-(** Status corresponding to an exception based on an optional system. *)
-let status_of_exn_sys process =
-  status_of_sys () |> status_of_exn process
-
-(** Status corresponding to an exception based on some results. *)
-let status_of_exn_results in_sys process =
-  status_of_results in_sys |> status_of_exn process
-
 (** Kill all kids violently. *)
 let slaughter_kids process sys =
   Signals.ignoring_sigalrm ( fun _ ->
@@ -318,15 +309,17 @@ let slaughter_kids process sys =
         if !timeout then raise TimeoutWall
       (* Unix.wait was interrupted. *)
       | Unix.Unix_error (Unix.EINTR, _, _) ->
+        let dummy_status = ExitCodes.error in
         (* Ignoring exit code, whatever happened does not change the
         outcome of the analysis. *)
-        Signal 0 |> status_of_exn_sys process |> ignore
+        Signal 0 |> status_of_exn process dummy_status |> ignore 
 
       (* Exception in Unix.wait loop. *)
       | e ->
+        let dummy_status = ExitCodes.error in
         (* Ignoring exit code, whatever happened does not change the outcome
         of the analysis. *)
-        status_of_exn_sys process e |> ignore ;
+        status_of_exn process dummy_status e |> ignore ;
     ) ;
 
     if ! child_pids <> [] then
@@ -339,47 +332,53 @@ let slaughter_kids process sys =
 
   Signals.set_sigalrm_timeout_from_flag ()
 
-(** Called after everything has been cleaned up. All kids dead etc. *)
-let post_clean_exit_with_results in_sys process exn =
+
+(** Called after everything has been cleaned up. *)
+let post_clean_exit process base_status exn =
   (* Exit status of process depends on exception. *)
-  let status = status_of_exn_results in_sys process exn in
-  (* Close tags in XML output. *)
+  let status = status_of_exn process base_status exn in
+  (* Close tags in JSON/XML output. *)
   KEvent.terminate_log () ;
   (* Kill all live solvers. *)
   SMTSolver.destroy_all () ;
   (* Exit with status. *)
   exit status
 
-(** Called after everything has been cleaned up *)
-let post_clean_exit process exn =
-  (* Exit status of process depends on exception. *)
-  let status = status_of_exn process ExitCodes.unknown exn in
-  (* Close tags in XML output. *)
-  KEvent.terminate_log () ;
-  (* Kill all live solvers. *)
-  SMTSolver.destroy_all () ;
-  (* Exit with status. *)
-  exit status
+(** Clean up before exit *)
+let on_exit sys process status exn =
+  try
+    slaughter_kids process sys;
+    post_clean_exit process status exn
+  with TimeoutWall -> post_clean_exit process status TimeoutWall
+
+let post_clean_exit_success process exn =
+  post_clean_exit process ExitCodes.success exn
+
+let post_clean_exit_safety_results in_sys process exn =
+  let base_status = status_of_safety_results in_sys in
+  post_clean_exit process base_status exn
+
+let post_clean_exit_realiz_results in_sys process exn =
+  let base_status = status_of_realiz_results in_sys in
+  post_clean_exit process base_status exn
+
+let on_exit_success process exn =
+  on_exit None process ExitCodes.success exn
 
 (** Clean up before exit. *)
-let on_exit_with_results in_sys sys process exn =
-  try
-    slaughter_kids process sys;
-    post_clean_exit_with_results in_sys process exn
-  with TimeoutWall -> post_clean_exit_with_results in_sys process TimeoutWall
+let on_exit_safety_results in_sys process exn =
+  let base_status = status_of_safety_results in_sys in
+  on_exit None process base_status exn
 
-(** Clean up before exit, for a MCS analysis. *)
-let on_exit sys process exn =
-  try
-    slaughter_kids process sys;
-    post_clean_exit process exn
-  with TimeoutWall -> post_clean_exit process TimeoutWall
+let on_exit_realiz_results in_sys process exn =
+  let base_status = status_of_realiz_results in_sys in
+  on_exit None process base_status exn
 
 (** Call cleanup function of process and exit.
 Give the exception [exn] that was raised or [Exit] on normal termination. *)
 let on_exit_child ?(_alone=false) messaging_thread process exn =
   (* Exit status of process depends on exception *)
-  let status = status_of_exn process 0 exn in
+  let status = status_of_exn process ExitCodes.success exn in
   (* Call cleanup of process *)
   on_exit_of_process process ;
   Unix.getpid () |> KEvent.log L_debug "Process %d terminating" ;
@@ -648,7 +647,7 @@ let run in_sys =
       | _ -> (
         KEvent.log L_fatal "Contract checking requires Z3 or cvc5." ;
         KEvent.terminate_log () ;
-        exit ExitCodes.error
+        exit ExitCodes.unsupported_solver
       )
     in
 
@@ -690,7 +689,7 @@ let run in_sys =
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `CONTRACTCK ;
-      KEvent.run_im msg_setup [] (on_exit None `CONTRACTCK) |> ignore ;
+      KEvent.run_im msg_setup [] (on_exit_realiz_results in_sys `CONTRACTCK) |> ignore ;
       KEvent.log L_debug "Messaging initialized in Contract Check." ;
 
       match ISys.contract_check_params in_sys with
@@ -716,6 +715,9 @@ let run in_sys =
               else
                 Realizability.Unknown
           in
+
+          realizability_results := result :: !realizability_results ;
+
           (
             try
               Log.log_result
@@ -751,12 +753,12 @@ let run in_sys =
         )
       ) ;
 
-      post_clean_exit `CONTRACTCK Exit
+      post_clean_exit_realiz_results in_sys `CONTRACTCK Exit
     ) with
-    | TimeoutWall -> on_exit None `CONTRACTCK TimeoutWall
+    | TimeoutWall -> on_exit_realiz_results in_sys `CONTRACTCK TimeoutWall
     | e -> (
       handle_exception `CONTRACTCK e;
-      on_exit None `CONTRACTCK e
+      on_exit_realiz_results in_sys `CONTRACTCK e
     )
   )
 
@@ -772,7 +774,7 @@ let run in_sys =
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `Supervisor ;
-      KEvent.run_im msg_setup [] (on_exit None `Supervisor) |> ignore ;
+      KEvent.run_im msg_setup [] (on_exit_success `Supervisor) |> ignore ;
       KEvent.log L_debug "Messaging initialized in supervisor." ;
 
       KEvent.set_module `MCS ;
@@ -795,12 +797,12 @@ let run in_sys =
        | [] -> (KEvent.log L_note "No analyzable nodes found, skipping MCS analysis.")
        | _ -> List.iter run_mcs params
       ) ;
-      post_clean_exit `Supervisor Exit
+      post_clean_exit_success `Supervisor Exit
     ) with
-    | TimeoutWall -> on_exit None `Supervisor TimeoutWall
+    | TimeoutWall -> on_exit_success `Supervisor TimeoutWall
     | e -> (
       handle_exception `Supervisor e ;
-      on_exit None `Supervisor e
+      on_exit_success `Supervisor e
     )
   ) 
 
@@ -873,7 +875,7 @@ let run in_sys =
     (* Initialize messaging for invariant manager, obtain a background thread.
     No kids yet. *)
     KEvent.run_im msg_setup []
-      (on_exit_with_results in_sys None `Supervisor) |> ignore ;
+      (on_exit_safety_results in_sys `Supervisor) |> ignore ;
     KEvent.log L_debug "Messaging initialized in supervisor." ;
 
     try (
@@ -915,13 +917,13 @@ let run in_sys =
       (* Logging the end of the run. *)
       |> KEvent.log_run_end ;
 
-      post_clean_exit_with_results in_sys `Supervisor Exit
+      post_clean_exit_safety_results in_sys `Supervisor Exit
 
     ) with
-    | TimeoutWall -> on_exit_with_results in_sys None `Supervisor TimeoutWall
+    | TimeoutWall -> on_exit_safety_results in_sys `Supervisor TimeoutWall
     | e -> (
       handle_exception `Supervisor e;
-      on_exit_with_results in_sys None `Supervisor e
+      on_exit_safety_results in_sys `Supervisor e
     )
 
 (* 

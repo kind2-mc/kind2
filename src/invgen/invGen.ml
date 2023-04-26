@@ -169,7 +169,7 @@ module Make (Graph : GraphSig) : Out = struct
   (* Clean exit. *)
   let exit _ =
     no_more_lsd () ;
-    exit 0
+    exit ExitCodes.success
 
   (** Prefix used for logging two state invariants. *)
   let pref_s two_state =
@@ -839,7 +839,7 @@ let run_main eq_cond eq_main main two_state in_sys param sys =
       Flags.modular () |> not
     ) two_state in_sys param sys
     |> ignore ;
-    exit 0
+    exit ExitCodes.success
 
 let main_bool two_state in_sys param sys =
   run_main Flags.Invgen.bool_eq_only EqOnly.BoolInvGen.main BoolInvGen.main
