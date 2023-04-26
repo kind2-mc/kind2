@@ -1496,7 +1496,7 @@ module ExitCodes = struct
   let not_found_error = 4
   let unsupported_solver = 5
   let incomplete_analysis = 30
-  let unsafe_result = 31
+  let unsafe_result = 40
   let kid_status = 128
 end
 
